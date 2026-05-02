@@ -7,754 +7,52 @@
   <meta name="theme-color" content="#07111f" />
   <meta name="color-scheme" content="dark" />
 
-  <link rel="stylesheet" href="./vocab/vocab.css?v=20260501" />
-
-  <style>
-    /*
-      Critical CSS เผื่อ vocab.css ยังโหลดไม่ทัน
-      ใช้เฉพาะ layout หลัก เพื่อไม่ให้หน้าโล่ง/จอน้ำเงิน
-    */
-    :root{
-      --bg1:#06111f;
-      --bg2:#10284a;
-      --card:rgba(9,18,36,.86);
-      --card2:rgba(255,255,255,.08);
-      --line:rgba(255,255,255,.16);
-      --text:#eef7ff;
-      --muted:#a8bdd6;
-      --blue:#59d0ff;
-      --purple:#8b5cf6;
-      --green:#44df93;
-      --yellow:#ffd166;
-      --red:#ff6e87;
-      --shadow:0 22px 70px rgba(0,0,0,.38);
-    }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      background:#06111f;
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-    }
-
-    button,input,select{ font:inherit; }
-    button{ cursor:pointer; }
-    [hidden]{ display:none !important; }
-
-    .v6-app{
-      min-height:100dvh;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 12% 8%, rgba(89,208,255,.22), transparent 28%),
-        radial-gradient(circle at 88% 12%, rgba(139,92,246,.24), transparent 28%),
-        radial-gradient(circle at 50% 100%, rgba(255,209,102,.14), transparent 34%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
-      padding:clamp(12px,3vw,28px);
-      overflow-x:hidden;
-    }
-
-    .v6-screen{
-      width:min(1180px,100%);
-      margin:0 auto;
-    }
-
-    .v6-hero-card{
-      display:flex;
-      gap:18px;
-      align-items:center;
-      padding:22px;
-      border:1px solid var(--line);
-      border-radius:32px;
-      background:
-        linear-gradient(135deg,rgba(255,255,255,.13),rgba(255,255,255,.05)),
-        rgba(8,17,34,.72);
-      box-shadow:var(--shadow);
-    }
-
-    .v6-logo{
-      width:86px;
-      height:86px;
-      display:grid;
-      place-items:center;
-      border-radius:28px;
-      font-size:44px;
-      background:
-        radial-gradient(circle at 35% 30%,rgba(255,255,255,.32),transparent 34%),
-        linear-gradient(135deg,var(--blue),var(--purple));
-      box-shadow:0 18px 42px rgba(89,208,255,.22);
-      flex:0 0 auto;
-    }
-
-    .v6-kicker{
-      margin:0 0 6px;
-      color:var(--yellow);
-      font-weight:900;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-      font-size:13px;
-    }
-
-    .v6-hero-card h1{
-      margin:0;
-      font-size:clamp(30px,6vw,60px);
-      line-height:1;
-      letter-spacing:-.05em;
-    }
-
-    .v6-subtitle{
-      margin:12px 0 0;
-      color:var(--muted);
-      font-size:clamp(15px,2.4vw,19px);
-      line-height:1.55;
-      max-width:850px;
-    }
-
-    .v6-menu-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-      margin-top:16px;
-    }
-
-    .v6-card{
-      border:1px solid var(--line);
-      border-radius:28px;
-      padding:18px;
-      background:var(--card);
-      box-shadow:0 14px 44px rgba(0,0,0,.24);
-    }
-
-    .v6-card h2{
-      margin:0 0 14px;
-      font-size:20px;
-    }
-
-    .v6-wide{ grid-column:1 / -1; }
-
-    .v6-bank-grid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:12px;
-    }
-
-    .v6-level-grid{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:12px;
-    }
-
-    .v66-mode-grid{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:12px;
-    }
-
-    .v6-select-card,
-    .v6-pill,
-    .v66-mode-card,
-    .v6-start-btn,
-    .v6-main-btn,
-    .v6-power-btn{
-      appearance:none;
-      border:0;
-      color:var(--text);
-      font:inherit;
-    }
-
-    .v6-select-card,
-    .v66-mode-card{
-      text-align:left;
-      min-height:122px;
-      border-radius:22px;
-      padding:15px;
-      background:rgba(255,255,255,.08);
-      border:1px solid var(--line);
-      transition:transform .14s ease, border-color .14s ease, background .14s ease;
-    }
-
-    .v66-mode-card{ min-height:142px; }
-
-    .v6-select-card b,
-    .v66-mode-card b{
-      display:block;
-      font-size:20px;
-      margin-bottom:6px;
-    }
-
-    .v6-select-card span,
-    .v66-mode-card span{
-      display:block;
-      font-weight:900;
-      line-height:1.35;
-    }
-
-    .v6-select-card small,
-    .v66-mode-card small{
-      display:block;
-      color:var(--muted);
-      margin-top:8px;
-      line-height:1.4;
-    }
-
-    .v6-select-card:hover,
-    .v6-select-card.active{
-      transform:translateY(-2px);
-      border-color:rgba(89,208,255,.78);
-      background:rgba(89,208,255,.16);
-    }
-
-    .v66-mode-card:hover,
-    .v66-mode-card.active{
-      transform:translateY(-2px);
-      border-color:rgba(255,209,102,.78);
-      background:rgba(255,209,102,.15);
-    }
-
-    .v6-pill{
-      min-height:54px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid var(--line);
-      font-weight:1000;
-      transition:transform .14s ease, background .14s ease, border-color .14s ease;
-    }
-
-    .v6-pill:hover,
-    .v6-pill.active{
-      transform:translateY(-2px);
-      background:rgba(68,223,147,.18);
-      border-color:rgba(68,223,147,.72);
-    }
-
-    .v6-pill.danger.active{
-      background:rgba(255,110,135,.2);
-      border-color:rgba(255,110,135,.78);
-    }
-
-    .v6-diff-preview{
-      margin-top:14px;
-      padding:14px;
-      border-radius:20px;
-      background:rgba(255,255,255,.07);
-      border:1px solid var(--line);
-      color:var(--muted);
-      font-weight:800;
-      line-height:1.45;
-    }
-
-    .v63-student-grid{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:12px;
-    }
-
-    .v63-student-grid label{
-      display:grid;
-      gap:6px;
-      color:var(--muted);
-      font-weight:900;
-      font-size:13px;
-    }
-
-    .v63-input{
-      width:100%;
-      min-height:46px;
-      border-radius:16px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      padding:10px 12px;
-      font:inherit;
-      font-weight:800;
-      outline:none;
-    }
-
-    .v63-input:focus{
-      border-color:rgba(89,208,255,.72);
-      box-shadow:0 0 0 3px rgba(89,208,255,.14);
-    }
-
-    .v63-input::placeholder{
-      color:rgba(238,247,255,.45);
-    }
-
-    .v63-note{
-      margin:10px 0 0;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:800;
-      line-height:1.45;
-    }
-
-    .v6-start-btn{
-      width:100%;
-      margin-top:16px;
-      min-height:70px;
-      border-radius:24px;
-      font-size:clamp(20px,4vw,30px);
-      font-weight:1000;
-      background:
-        radial-gradient(circle at 30% 20%,rgba(255,255,255,.32),transparent 30%),
-        linear-gradient(135deg,var(--blue),var(--purple));
-      box-shadow:0 18px 44px rgba(89,208,255,.25);
-    }
-
-    .v6-start-btn:active{ transform:scale(.99); }
-
-    .v68-lb-tabs{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
-      margin-bottom:12px;
-    }
-
-    .v68-lb-tab{
-      min-height:46px;
-      border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      font-weight:1000;
-    }
-
-    .v68-lb-tab:hover,
-    .v68-lb-tab.active{
-      background:rgba(255,209,102,.16);
-      border-color:rgba(255,209,102,.72);
-    }
-
-    .v68-lb-box{
-      border-radius:22px;
-      border:1px solid var(--line);
-      background:rgba(255,255,255,.07);
-      overflow:hidden;
-    }
-
-    .v68-lb-empty{
-      padding:16px;
-      color:var(--muted);
-      font-weight:900;
-      text-align:center;
-    }
-
-    .v6-battle-panel{
-      border:1px solid var(--line);
-      background:
-        radial-gradient(circle at top left, rgba(89,208,255,.22), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(255,207,90,.18), transparent 34%),
-        rgba(8,16,32,.78);
-      box-shadow:var(--shadow);
-      border-radius:32px;
-      padding:16px;
-    }
-
-    .v6-top-hud{
-      position:sticky;
-      top:10px;
-      z-index:20;
-      display:grid;
-      grid-template-columns:repeat(6,1fr);
-      gap:10px;
-      margin-bottom:12px;
-      pointer-events:none;
-    }
-
-    .v6-hud-box{
-      border:1px solid var(--line);
-      border-radius:20px;
-      padding:10px 12px;
-      background:rgba(4,10,20,.78);
-      backdrop-filter:blur(14px);
-      box-shadow:0 12px 30px rgba(0,0,0,.22);
-      text-align:center;
-    }
-
-    .v6-hud-box small{
-      display:block;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-    }
-
-    .v6-hud-box b{
-      display:block;
-      margin-top:4px;
-      font-size:clamp(15px,2.4vw,22px);
-      line-height:1.1;
-    }
-
-    .v6-power-hud{
-      display:grid;
-      grid-template-columns:repeat(5,1fr);
-      gap:10px;
-      margin:0 0 14px;
-    }
-
-    .v6-power-chip,
-    .v6-power-btn{
-      min-height:42px;
-      border-radius:999px;
-      padding:9px 12px;
-      border:1px solid rgba(255,255,255,.16);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      font-weight:1000;
-      text-align:center;
-      font-size:14px;
-    }
-
-    .v6-stage-line{
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      gap:8px;
-      justify-content:center;
-      margin:8px 0 16px;
-    }
-
-    .v6-stage-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(255,255,255,.10);
-      border:1px solid var(--line);
-      font-weight:1000;
-      color:var(--text);
-    }
-
-    .v6-stage-goal{
-      color:var(--muted);
-      font-weight:900;
-      font-size:14px;
-      text-align:center;
-    }
-
-    .v6-battle-layout{
-      display:grid;
-      grid-template-columns:320px 1fr;
-      gap:16px;
-      align-items:stretch;
-    }
-
-    .v6-enemy-card{
-      position:relative;
-      overflow:hidden;
-      border-radius:28px;
-      padding:18px;
-      background:
-        linear-gradient(135deg, rgba(255,255,255,.12), rgba(255,255,255,.04)),
-        rgba(5,10,20,.86);
-      border:1px solid var(--line);
-      min-height:420px;
-    }
-
-    .v6-enemy-avatar{
-      position:relative;
-      width:112px;
-      height:112px;
-      border-radius:32px;
-      display:grid;
-      place-items:center;
-      font-size:58px;
-      margin:8px auto 16px;
-      background:rgba(255,255,255,.12);
-      box-shadow:
-        inset 0 0 24px rgba(255,255,255,.08),
-        0 20px 46px rgba(0,0,0,.34);
-    }
-
-    .v6-enemy-card h2{
-      position:relative;
-      margin:0;
-      text-align:center;
-      font-size:22px;
-      line-height:1.2;
-    }
-
-    .v6-enemy-card p{
-      position:relative;
-      margin:10px 0 18px;
-      text-align:center;
-      color:var(--muted);
-      line-height:1.45;
-    }
-
-    .v6-hp-label{
-      position:relative;
-      display:flex;
-      justify-content:space-between;
-      color:var(--muted);
-      font-size:13px;
-      font-weight:900;
-      margin-bottom:8px;
-    }
-
-    .v6-hp-bar{
-      position:relative;
-      width:100%;
-      height:16px;
-      border-radius:999px;
-      background:rgba(255,255,255,.12);
-      overflow:hidden;
-      border:1px solid var(--line);
-    }
-
-    .v6-hp-fill{
-      height:100%;
-      width:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg, var(--green), var(--yellow), var(--red));
-      transition:width .28s ease;
-    }
-
-    .v6-boss-note{
-      position:relative;
-      margin-top:18px;
-      padding:14px;
-      border-radius:18px;
-      background:rgba(255,255,255,.07);
-      border:1px solid var(--line);
-      color:var(--muted);
-      font-weight:800;
-      line-height:1.45;
-    }
-
-    .v6-question-card{
-      border-radius:28px;
-      padding:20px;
-      background:rgba(255,255,255,.08);
-      border:1px solid var(--line);
-      min-height:420px;
-      display:flex;
-      flex-direction:column;
-    }
-
-    .v6-question-meta{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .v6-question-text{
-      margin:28px 0;
-      font-size:clamp(24px,4.5vw,44px);
-      font-weight:1000;
-      line-height:1.2;
-      letter-spacing:-.03em;
-    }
-
-    .v6-question-main{ display:block; }
-
-    .v6-question-hint{
-      display:inline-flex;
-      margin-top:12px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
-      color:var(--muted);
-      font-size:clamp(13px,2.4vw,16px);
-      font-weight:900;
-      letter-spacing:0;
-    }
-
-    .v6-choices{
-      display:grid;
-      gap:12px;
-      margin-top:auto;
-    }
-
-    .v6-choice{
-      width:100%;
-      border:1px solid rgba(255,255,255,.14);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      border-radius:22px;
-      padding:16px 18px;
-      font-weight:1000;
-      font-size:clamp(17px,2.8vw,24px);
-      text-align:left;
-      cursor:pointer;
-      transition:transform .12s ease, background .12s ease, border-color .12s ease, opacity .12s ease;
-    }
-
-    .v6-choice:hover,
-    .v6-choice:focus{
-      transform:translateY(-2px);
-      background:rgba(89,208,255,.16);
-      border-color:rgba(89,208,255,.55);
-    }
-
-    .v6-choice.correct{
-      background:rgba(68,223,147,.24);
-      border-color:rgba(68,223,147,.82);
-    }
-
-    .v6-choice.wrong{
-      background:rgba(255,110,135,.24);
-      border-color:rgba(255,110,135,.82);
-    }
-
-    .v6-choice:disabled{ cursor:not-allowed; }
-
-    .v6-explain-box{
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.16);
-      color:var(--text);
-      font-weight:850;
-      line-height:1.45;
-    }
-
-    .v6-reward-screen{
-      min-height:auto;
-      display:block;
-    }
-
-    .v6-fatal{
-      max-width:760px;
-      margin:24px auto;
-      padding:18px;
-      border-radius:22px;
-      background:#fff4f4;
-      color:#7f1d1d;
-      border:1px solid #fecaca;
-      line-height:1.55;
-    }
-
-    .v6-fatal pre{
-      white-space:pre-wrap;
-      background:#fff;
-      padding:12px;
-      border-radius:14px;
-      overflow:auto;
-    }
-
-    @media (max-width:900px){
-      .v6-menu-grid{ grid-template-columns:1fr; }
-      .v6-bank-grid{ grid-template-columns:1fr; }
-      .v66-mode-grid{ grid-template-columns:1fr 1fr; }
-      .v63-student-grid{ grid-template-columns:1fr 1fr; }
-      .v6-battle-layout{ grid-template-columns:1fr; }
-
-      .v6-enemy-card{
-        min-height:auto;
-        display:grid;
-        grid-template-columns:72px 1fr;
-        gap:12px;
-        align-items:center;
-        border-radius:22px;
-        padding:12px;
-      }
-
-      .v6-enemy-avatar{
-        width:64px;
-        height:64px;
-        font-size:36px;
-        border-radius:20px;
-        margin:0;
-        grid-row:1 / span 4;
-      }
-
-      .v6-enemy-card h2,
-      .v6-enemy-card p{
-        text-align:left;
-      }
-
-      .v6-enemy-card h2{ font-size:17px; }
-      .v6-enemy-card p{ margin:4px 0; font-size:13px; }
-
-      .v6-boss-note{
-        grid-column:1 / -1;
-        margin-top:4px;
-        font-size:13px;
-        padding:10px;
-      }
-
-      .v6-question-card{ min-height:auto; }
-    }
-
-    @media (max-width:720px){
-      .v6-app{ padding:10px; }
-
-      .v6-hero-card{
-        align-items:flex-start;
-        border-radius:24px;
-        padding:16px;
-      }
-
-      .v6-logo{
-        width:62px;
-        height:62px;
-        border-radius:20px;
-        font-size:32px;
-      }
-
-      .v6-level-grid{ grid-template-columns:repeat(2,1fr); }
-      .v6-top-hud{ grid-template-columns:repeat(3,1fr); }
-      .v6-power-hud{ grid-template-columns:repeat(2,1fr); }
-      .v68-lb-tabs{ grid-template-columns:1fr 1fr; }
-    }
-
-    @media (max-width:520px){
-      .v66-mode-grid{ grid-template-columns:1fr; }
-      .v68-lb-tabs{ grid-template-columns:1fr; }
-    }
-
-    @media (max-width:460px){
-      .v63-student-grid{ grid-template-columns:1fr; }
-      .v6-top-hud{ grid-template-columns:repeat(2,1fr); }
-    }
-  </style>
+  <!-- Main UI -->
+  <link rel="stylesheet" href="./vocab/vocab.css?v=20260502c" />
+
+  <!-- Reward UI -->
+  <link rel="stylesheet" href="./vocab/vocab.reward.css?v=20260502c" />
 </head>
 
 <body>
-  <main id="vocabV6App" class="v6-app">
+  <main id="vocabApp" class="vocab-app">
 
-    <!-- =========================
+    <!-- =====================================================
          MENU SCREEN
-    ========================== -->
-    <section id="v6MenuPanel" class="v6-screen v6-menu-screen">
-      <div class="v6-hero-card">
-        <div class="v6-logo">⚔️</div>
+    ====================================================== -->
+    <section id="vocabMenuPanel" class="vocab-screen vocab-menu-screen">
+
+      <div class="vocab-hero-card">
+        <div class="vocab-logo">⚔️</div>
         <div>
-          <p class="v6-kicker">English Vocabulary Arcade</p>
+          <p class="vocab-kicker">English Vocabulary Arcade</p>
           <h1>TechPath Vocab Arena</h1>
-          <p class="v6-subtitle">
+          <p class="vocab-subtitle">
             ฝึกศัพท์สาย CS/AI สำหรับนักศึกษาปี 2 ผ่านโหมดท้าทายและระบบ AI Learning
           </p>
         </div>
       </div>
 
-      <div class="v6-menu-grid">
+      <div class="vocab-menu-grid">
 
         <!-- Word Bank -->
-        <section class="v6-card">
+        <section class="vocab-card">
           <h2>1) เลือก Word Bank</h2>
 
-          <div class="v6-bank-grid">
-            <button class="v6-select-card active" data-v6-bank="A" type="button">
+          <div class="vocab-bank-grid">
+            <button class="vocab-select-card active" data-vocab-bank="A" type="button">
               <b>Bank A</b>
               <span>Basic CS Words</span>
               <small>คำพื้นฐานสาย Coding / Software</small>
             </button>
 
-            <button class="v6-select-card" data-v6-bank="B" type="button">
+            <button class="vocab-select-card" data-vocab-bank="B" type="button">
               <b>Bank B</b>
               <span>AI / Data Words</span>
               <small>คำศัพท์ AI, Data, Dashboard</small>
             </button>
 
-            <button class="v6-select-card" data-v6-bank="C" type="button">
+            <button class="vocab-select-card" data-vocab-bank="C" type="button">
               <b>Bank C</b>
               <span>Workplace / Project</span>
               <small>คำใช้จริงในงาน ทีม ลูกค้า และโปรเจกต์</small>
@@ -763,254 +61,238 @@
         </section>
 
         <!-- Difficulty -->
-        <section class="v6-card">
+        <section class="vocab-card">
           <h2>2) เลือกระดับ</h2>
 
-          <div class="v6-level-grid">
-            <button class="v6-pill active" data-v6-diff="easy" type="button">Easy</button>
-            <button class="v6-pill" data-v6-diff="normal" type="button">Normal</button>
-            <button class="v6-pill" data-v6-diff="hard" type="button">Hard</button>
-            <button class="v6-pill danger" data-v6-diff="challenge" type="button">Challenge</button>
+          <div class="vocab-level-grid">
+            <button class="vocab-pill active" data-vocab-diff="easy" type="button">Easy</button>
+            <button class="vocab-pill" data-vocab-diff="normal" type="button">Normal</button>
+            <button class="vocab-pill" data-vocab-diff="hard" type="button">Hard</button>
+            <button class="vocab-pill danger" data-vocab-diff="challenge" type="button">Challenge</button>
           </div>
 
-          <div class="v6-diff-preview" id="v6DiffPreview">
-            ✨ Easy: 8 ข้อ เวลาเยอะ HP มาก เหมาะกับการทบทวน
+          <div id="vocabDiffPreview" class="vocab-preview">
+            ✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย
           </div>
         </section>
 
         <!-- Mode -->
-        <section class="v6-card v6-wide">
+        <section class="vocab-card vocab-wide">
           <h2>3) เลือกโหมดการเล่น</h2>
 
-          <div class="v66-mode-grid">
-            <button class="v66-mode-card active" data-v6-mode="learn" type="button">
+          <div class="vocab-mode-grid">
+            <button class="vocab-mode-card active" data-vocab-mode="learn" type="button">
               <b>🤖 AI Training</b>
               <span>เรียนรู้ + มีคำอธิบาย</span>
               <small>เหมาะสำหรับเริ่มฝึกคำศัพท์ มี Hint และ Shield มากกว่าโหมดอื่น</small>
             </button>
 
-            <button class="v66-mode-card" data-v6-mode="speed" type="button">
+            <button class="vocab-mode-card" data-vocab-mode="speed" type="button">
               <b>⚡ Speed Run</b>
               <span>ตอบไว + ทำ Combo</span>
               <small>เหมาะสำหรับแข่งความเร็ว เข้า Fever ได้เร็วขึ้น</small>
             </button>
 
-            <button class="v66-mode-card" data-v6-mode="mission" type="button">
+            <button class="vocab-mode-card" data-vocab-mode="mission" type="button">
               <b>🎯 Debug Mission</b>
               <span>โจทย์สถานการณ์จริง</span>
               <small>เหมาะสำหรับฝึกคำศัพท์ CS/AI ในบริบทการทำงาน</small>
             </button>
 
-            <button class="v66-mode-card" data-v6-mode="battle" type="button">
+            <button class="vocab-mode-card" data-vocab-mode="battle" type="button">
               <b>👾 Boss Battle</b>
               <span>ต่อสู้เต็มระบบ</span>
               <small>เหมาะสำหรับ Challenge, Leaderboard และการเล่นแบบเร้าใจ</small>
             </button>
           </div>
 
-          <div id="v66ModePreview" class="v6-diff-preview">
-            🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint เยอะ Shield มาก และคำอธิบายชัด
+          <div id="vocabModePreview" class="vocab-preview">
+            🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด
           </div>
         </section>
 
         <!-- Student Info -->
-        <section class="v6-card v6-wide">
+        <section class="vocab-card vocab-wide">
           <h2>ข้อมูลผู้เรียน</h2>
 
-          <div class="v63-student-grid">
+          <div class="vocab-student-grid">
             <label>
               <span>ชื่อเล่น / Display name</span>
-              <input id="v63DisplayName" class="v63-input" placeholder="เช่น Mint, Boss, Aom" autocomplete="name" />
+              <input id="vocabDisplayName" class="vocab-input" placeholder="เช่น Mint, Boss, Aom" autocomplete="name" />
             </label>
 
             <label>
               <span>รหัสนักศึกษา</span>
-              <input id="v63StudentId" class="v63-input" placeholder="Student ID" autocomplete="off" />
+              <input id="vocabStudentId" class="vocab-input" placeholder="Student ID" autocomplete="off" />
             </label>
 
             <label>
               <span>Section</span>
-              <input id="v63Section" class="v63-input" placeholder="เช่น CS-AI-2" autocomplete="off" />
+              <input id="vocabSection" class="vocab-input" placeholder="เช่น CS-AI-2" autocomplete="off" />
             </label>
 
             <label>
               <span>Session Code</span>
-              <input id="v63SessionCode" class="v63-input" placeholder="เช่น VOCAB-WEEK1" autocomplete="off" />
+              <input id="vocabSessionCode" class="vocab-input" placeholder="เช่น VOCAB-WEEK1" autocomplete="off" />
             </label>
           </div>
 
-          <p class="v63-note">
+          <p class="vocab-note">
             ระบบจะใช้ข้อมูลนี้บันทึกผลการเล่น คำที่พลาด Stage ที่พลาด Mode ที่เล่น และคำแนะนำจาก AI Coach
           </p>
         </section>
 
         <!-- Start -->
-        <section class="v6-card v6-wide">
+        <section class="vocab-card vocab-wide">
           <h2>เริ่มเล่น</h2>
 
-          <p class="v63-note">
+          <p class="vocab-note">
             เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม
           </p>
 
-          <button id="v6StartBtn" class="v6-start-btn" type="button">
+          <button id="vocabStartBtn" class="vocab-start-btn" type="button">
             🚀 Start Vocab Battle
           </button>
         </section>
 
         <!-- Leaderboard -->
-        <section class="v6-card v6-wide">
+        <section class="vocab-card vocab-wide">
           <h2>🏆 Leaderboard แยกโหมด</h2>
 
-          <div class="v68-lb-tabs">
-            <button class="v68-lb-tab active" data-lb-mode="learn" type="button">🤖 AI Training</button>
-            <button class="v68-lb-tab" data-lb-mode="speed" type="button">⚡ Speed Run</button>
-            <button class="v68-lb-tab" data-lb-mode="mission" type="button">🎯 Debug Mission</button>
-            <button class="v68-lb-tab" data-lb-mode="battle" type="button">👾 Boss Battle</button>
+          <div class="vocab-lb-tabs">
+            <button class="vocab-lb-tab active" data-lb-mode="learn" type="button">🤖 AI Training</button>
+            <button class="vocab-lb-tab" data-lb-mode="speed" type="button">⚡ Speed Run</button>
+            <button class="vocab-lb-tab" data-lb-mode="mission" type="button">🎯 Debug Mission</button>
+            <button class="vocab-lb-tab" data-lb-mode="battle" type="button">👾 Boss Battle</button>
           </div>
 
-          <div id="v68LeaderboardBox" class="v68-lb-box">
-            <div class="v68-lb-empty">ยังไม่มีคะแนนในโหมดนี้</div>
+          <div id="vocabLeaderboardBox" class="vocab-lb-box">
+            <div class="vocab-lb-empty">ยังไม่มีคะแนนในโหมดนี้</div>
           </div>
         </section>
 
       </div>
     </section>
 
-    <!-- =========================
+    <!-- =====================================================
          BATTLE SCREEN
-    ========================== -->
-    <section id="v6BattlePanel" class="v6-screen v6-battle-panel" hidden>
+    ====================================================== -->
+    <section id="vocabBattlePanel" class="vocab-screen vocab-battle-panel" hidden>
 
-      <header class="v6-top-hud">
-        <div class="v6-hud-box">
+      <header class="vocab-top-hud">
+        <div class="vocab-hud-box">
           <small>Score</small>
-          <b id="v6Score">0</b>
+          <b id="vocabScore">0</b>
         </div>
 
-        <div class="v6-hud-box">
+        <div class="vocab-hud-box">
           <small>Combo</small>
-          <b id="v6Combo">x0</b>
+          <b id="vocabCombo">x0</b>
         </div>
 
-        <div class="v6-hud-box">
+        <div class="vocab-hud-box">
           <small>HP</small>
-          <b id="v6Hp">❤️❤️❤️❤️❤️</b>
+          <b id="vocabHp">❤️❤️❤️❤️❤️</b>
         </div>
 
-        <div class="v6-hud-box">
+        <div class="vocab-hud-box">
           <small>Time</small>
-          <b id="v6Timer">0s</b>
+          <b id="vocabTimer">0s</b>
         </div>
 
-        <div class="v6-hud-box">
+        <div class="vocab-hud-box">
           <small>Question</small>
-          <b id="v6QuestionNo">0/0</b>
+          <b id="vocabQuestionNo">0/0</b>
         </div>
 
-        <div class="v6-hud-box">
+        <div class="vocab-hud-box">
           <small>Mode</small>
-          <b id="v66ModeHud">🤖 AI</b>
+          <b id="vocabModeHud">🤖 AI</b>
         </div>
       </header>
 
-      <div id="v6PowerHud" class="v6-power-hud">
-        <div class="v6-power-chip" id="v6FeverChip">🔥 Fever: OFF</div>
-        <button class="v6-power-btn" id="v6HintBtn" type="button">💡 Hint x1</button>
-        <button class="v6-power-btn" id="v67AiHelpBtn" type="button">🤖 AI Help x0</button>
-        <div class="v6-power-chip" id="v6ShieldChip">🛡️ Shield x1</div>
-        <div class="v6-power-chip" id="v6LaserChip">🔴 Laser: Not ready</div>
+      <div id="vocabPowerHud" class="vocab-power-hud">
+        <div class="vocab-power-chip" id="vocabFeverChip">🔥 Fever: OFF</div>
+        <button class="vocab-power-btn" id="vocabHintBtn" type="button">💡 Hint x1</button>
+        <button class="vocab-power-btn vocab-ai-help-btn" id="vocabAiHelpBtn" type="button">🤖 AI Help x0</button>
+        <div class="vocab-power-chip" id="vocabShieldChip">🛡️ Shield x1</div>
+        <div class="vocab-power-chip" id="vocabLaserChip">🔴 Laser: Not ready</div>
       </div>
 
-      <div class="v6-stage-line">
-        <span class="v6-stage-chip" id="v6StageChip">✨ Warm-up Round</span>
-        <div id="v6StageGoal" class="v6-stage-goal">Goal: เก็บความมั่นใจ ตอบให้ถูก</div>
+      <div class="vocab-stage-line">
+        <span class="vocab-stage-chip" id="vocabStageChip">✨ Warm-up Round</span>
+        <div id="vocabStageGoal" class="vocab-stage-goal">
+          Goal: เก็บความมั่นใจ ตอบให้ถูก
+        </div>
       </div>
 
-      <section class="v6-battle-layout">
+      <section class="vocab-battle-layout">
 
-        <aside class="v6-enemy-card">
-          <div class="v6-enemy-avatar" id="v6EnemyAvatar">👾</div>
+        <aside class="vocab-enemy-card">
+          <div class="vocab-enemy-glow"></div>
 
-          <h2 id="v6EnemyName">Bug Slime</h2>
-          <p id="v6EnemySkill">Enemy skill</p>
+          <div class="vocab-enemy-avatar" id="vocabEnemyAvatar">👾</div>
 
-          <div class="v6-hp-label">
+          <h2 id="vocabEnemyName">Bug Slime</h2>
+          <p id="vocabEnemySkill">Enemy skill</p>
+
+          <div class="vocab-hp-label">
             <span>Enemy HP</span>
-            <span id="v6EnemyHpText">100%</span>
+            <span id="vocabEnemyHpText">100%</span>
           </div>
 
-          <div class="v6-hp-bar">
-            <div id="v6EnemyHpFill" class="v6-hp-fill"></div>
+          <div class="vocab-hp-bar">
+            <div id="vocabEnemyHpFill" class="vocab-hp-fill"></div>
           </div>
 
-          <div class="v6-boss-note">
+          <div class="vocab-boss-note">
             ตอบถูก = โจมตีบอส · ตอบผิด = เสีย HP · Combo สูง = Fever / Laser
           </div>
         </aside>
 
-        <section class="v6-question-card">
-          <div class="v6-question-meta">
+        <section class="vocab-question-card">
+          <div class="vocab-question-meta">
             <span>🧠 Choose the best answer</span>
-            <span id="v6BankLabel">Bank A • 🤖 AI Training</span>
+            <span id="vocabBankLabel">Bank A • 🤖 AI Training</span>
           </div>
 
-          <p id="v6QuestionText" class="v6-question-text">
+          <p id="vocabQuestionText" class="vocab-question-text">
             Question text
           </p>
 
-          <div id="v6Choices" class="v6-choices"></div>
-          <div id="v6ExplainBox" class="v6-explain-box" hidden></div>
+          <div id="vocabAiHelpBox" class="vocab-ai-help-box" hidden></div>
+          <div id="vocabChoices" class="vocab-choices"></div>
+          <div id="vocabExplainBox" class="vocab-explain-box" hidden></div>
         </section>
 
       </section>
     </section>
 
-    <!-- =========================
+    <!-- =====================================================
          REWARD SCREEN
-    ========================== -->
-    <section id="v6RewardPanel" class="v6-screen v6-reward-screen" hidden></section>
+    ====================================================== -->
+    <section id="vocabRewardPanel" class="vocab-screen vocab-reward-screen" hidden></section>
 
   </main>
 
-  <!-- =========================
-       JS FILES — โหลดตามลำดับนี้
-       สำคัญ: config ต้องมาก่อนทุกไฟล์
-  ========================== -->
+  <!-- =====================================================
+       MODULES: โหลดเฉพาะไฟล์ที่มีจริงใน /vocab/
+       สำคัญ: ห้ามเรียก vocab.banks.js / vocab.stages.js / vocab.questions.js
+       เพราะ repo ตอนนี้ไม่มีไฟล์พวกนั้น
+  ====================================================== -->
 
-  <script src="./vocab/vocab.config.js?v=20260501"></script>
-
-  <!-- Utilities / Storage / Logger -->
-  <script src="./vocab/vocab.storage.js?v=20260501"></script>
-  <script src="./vocab/vocab.utils.js?v=20260501"></script>
-  <script src="./vocab/vocab.logger.js?v=20260501"></script>
-
-  <!-- Data -->
-  <script src="./vocab/vocab.banks.js?v=20260501"></script>
-  <script src="./vocab/vocab.stages.js?v=20260501"></script>
-
-  <!-- Core Game -->
-  <script src="./vocab/vocab.state.js?v=20260501"></script>
-  <script src="./vocab/vocab.questions.js?v=20260501"></script>
-  <script src="./vocab/vocab.powerups.js?v=20260501"></script>
-  <script src="./vocab/vocab.ui.js?v=20260501"></script>
-  <script src="./vocab/vocab.game.js?v=20260501"></script>
-
-  <!-- Results / Leaderboard / AI Coach -->
-  <script src="./vocab/vocab.leaderboard.js?v=20260501"></script>
-  <script src="./vocab/vocab.reward.js?v=20260501"></script>
-  <script src="./vocab/vocab.ai-learning.js?v=20260501"></script>
-
-  <!-- Production Guard / Endpoint Test -->
-  <script src="./vocab/vocab.source-guard.js?v=20260501"></script>
-  <script src="./vocab/vocab.endpoint-test.js?v=20260501"></script>
-
-  <!-- Boot -->
-  <script src="./vocab/vocab.boot.js?v=20260501"></script>
-
-  <noscript>
-    <div style="max-width:760px;margin:24px auto;padding:18px;border-radius:22px;background:#fff4f4;color:#7f1d1d;border:1px solid #fecaca;line-height:1.55">
-      เกมนี้ต้องเปิด JavaScript ก่อนใช้งาน
-    </div>
-  </noscript>
+  <script src="./vocab/vocab.config.js?v=20260502c"></script>
+  <script src="./vocab/vocab.storage.js?v=20260502c"></script>
+  <script src="./vocab/vocab.utils.js?v=20260502c"></script>
+  <script src="./vocab/vocab.logger.js?v=20260502c"></script>
+  <script src="./vocab/vocab.data.js?v=20260502c"></script>
+  <script src="./vocab/vocab.state.js?v=20260502c"></script>
+  <script src="./vocab/vocab.ui.js?v=20260502c"></script>
+  <script src="./vocab/vocab.question.js?v=20260502c"></script>
+  <script src="./vocab/vocab.game.js?v=20260502c"></script>
+  <script src="./vocab/vocab.reward.js?v=20260502c"></script>
+  <script src="./vocab/vocab.guard.js?v=20260502c"></script>
+  <script src="./vocab/vocab.endpoint-test.js?v=20260502c"></script>
+  <script src="./vocab/vocab.boot.js?v=20260502c"></script>
 </body>
 </html>
