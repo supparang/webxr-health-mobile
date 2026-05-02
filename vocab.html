@@ -8912,5 +8912,133 @@
   }
 })();
 </script>
+/* =========================================================
+   CLEAN STUDENT UI PATCH
+   Remove internal version/patch labels from all visible game UI
+   ========================================================= */
+
+const VOCAB_PUBLIC_TITLE = "TechPath Vocab Arena";
+const VOCAB_PUBLIC_SUBTITLE = "CS/AI Vocabulary Challenge";
+
+function cleanStudentVisibleTextV80(text){
+  return String(text ?? "")
+    // v7.3 / v7.4 / v7.5 / v7.6 / v7.7 / v7.8 / v7.9
+    .replace(/\bv\d+\.\d+(\.\d+)?\b/gi, "")
+    // v73 / v74 / v75 / v76 / v77 / v78 / v79
+    .replace(/\bv\d{2}\b/gi, "")
+    // long internal version/release tokens
+    .replace(/\bv20\d{6,}[-_a-z0-9]*\b/gi, "")
+    .replace(/\bpatch[_ -]?version\b/gi, "")
+    .replace(/\bvocab[_ -]?version\b/gi, "")
+    .replace(/\brelease[_ -]?pack\b/gi, "")
+    .replace(/\bsource[_ -]?guard\b/gi, "")
+    .replace(/\bdebug[_ -]?build\b/gi, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function cleanStudentVisibleHtmlV80(html){
+  let s = String(html ?? "");
+
+  s = s
+    .replace(/\bv\d+\.\d+(\.\d+)?\b/gi, "")
+    .replace(/\bv\d{2}\b/gi, "")
+    .replace(/\bv20\d{6,}[-_a-z0-9]*\b/gi, "")
+    .replace(/\bpatch[_ -]?version\b/gi, "")
+    .replace(/\bvocab[_ -]?version\b/gi, "")
+    .replace(/\brelease[_ -]?pack\b/gi, "")
+    .replace(/\bsource[_ -]?guard\b/gi, "")
+    .replace(/\bdebug[_ -]?build\b/gi, "")
+    .replace(/\s{2,}/g, " ");
+
+  return s;
+}
+
+function cleanVisibleNodeTextV80(root){
+  if(!root) return;
+
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node){
+        const t = node.nodeValue || "";
+        return /v\d+\.\d+|v\d{2}|patch[_ -]?version|vocab[_ -]?version|release[_ -]?pack|source[_ -]?guard|debug[_ -]?build/i.test(t)
+          ? NodeFilter.FILTER_ACCEPT
+          : NodeFilter.FILTER_REJECT;
+      }
+    }
+  );
+
+  const nodes = [];
+  while(walker.nextNode()){
+    nodes.push(walker.currentNode);
+  }
+
+  nodes.forEach(node => {
+    node.nodeValue = cleanStudentVisibleTextV80(node.nodeValue);
+  });
+}
+
+function cleanRewardPanelV80(){
+  const reward = byId("v6RewardPanel");
+  if(!reward) return;
+
+  reward.innerHTML = cleanStudentVisibleHtmlV80(reward.innerHTML);
+  cleanVisibleNodeTextV80(reward);
+}
+
+function cleanWholeGameUiV80(){
+  document.title = VOCAB_PUBLIC_TITLE;
+
+  const h1 = document.querySelector(".v6-hero-card h1");
+  if(h1) h1.textContent = VOCAB_PUBLIC_TITLE;
+
+  const kicker = document.querySelector(".v6-kicker");
+  if(kicker) kicker.textContent = "English Vocabulary Arcade";
+
+  const subtitle = document.querySelector(".v6-subtitle");
+  if(subtitle){
+    subtitle.textContent = "ฝึกศัพท์สาย CS/AI สำหรับนักศึกษาปี 2 ผ่านโหมดท้าทายและระบบ AI Learning";
+  }
+
+  cleanVisibleNodeTextV80(document.body);
+}
+
+/* Wrap reward screen renderer so summary is cleaned every time */
+(function installCleanRewardWrapperV80(){
+  if(window.__VOCAB_CLEAN_UI_V80_INSTALLED__) return;
+  window.__VOCAB_CLEAN_UI_V80_INSTALLED__ = true;
+
+  const originalRenderRewardScreen =
+    typeof renderRewardScreenV6 === "function"
+      ? renderRewardScreenV6
+      : null;
+
+  if(originalRenderRewardScreen){
+    window.renderRewardScreenV6 = function(){
+      const result = originalRenderRewardScreen.apply(this, arguments);
+      cleanRewardPanelV80();
+      return result;
+    };
+  }
+
+  const originalEndVocabBattle =
+    typeof endVocabBattleV6 === "function"
+      ? endVocabBattleV6
+      : null;
+
+  if(originalEndVocabBattle){
+    window.endVocabBattleV6 = function(){
+      const result = originalEndVocabBattle.apply(this, arguments);
+      setTimeout(cleanRewardPanelV80, 0);
+      setTimeout(cleanRewardPanelV80, 50);
+      return result;
+    };
+  }
+
+  document.addEventListener("DOMContentLoaded", cleanWholeGameUiV80);
+  setTimeout(cleanWholeGameUiV80, 0);
+})();
 </body>
 </html>
