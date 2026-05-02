@@ -1,5 +1,5 @@
 // === /herohealth/vr-goodjunk/goodjunk-mode-lobby.js ===
-// FULL PATCH v20260501-GJ-MODE-LOBBY-ROUNDID-COUNTDOWN-SERVER-TIME
+// FULL PATCH v20260502-GJ-MODE-LOBBY-BATTLE-PID-FIX
 // ✅ Quick Kids Lobby
 // ✅ Hide technical fields for kids
 // ✅ Battle 1v1 room create/join support
@@ -9,6 +9,7 @@
 // ✅ Auto-start Battle when current round has 2 players
 // ✅ Firebase shared adapter via goodjunk-battle-room-bootstrap.js
 // ✅ Stable anon pid per device/scope
+// ✅ Battle PID fix: ห้ามใช้ anon / กัน pid ซ้ำ / แยก host-guest ต่อ room
 // ✅ Invite link no longer leaks host pid/name
 // ✅ Copy room + copy invite link
 // ✅ Still passthrough important query params
@@ -16,10 +17,10 @@
 import {
   makeRoomAdapter as makeBattleRoomAdapter,
   getBattleServerNowMs
-} from './goodjunk-battle-room.js?v=20260501-GJ-BATTLE-ROUNDID-COUNTDOWN-SERVER-TIME';
+} from './goodjunk-battle-room.js?v=20260502-GJ-BATTLE-PID-FIX';
 
 const PASS_KEYS = [
-  'pid','name','nick','diff','time','view','hub',
+  'pid','name','nick','diff','time','view','hub','api',
   'sbUrl','sbAnon','studyId','conditionGroup',
   'phase','log','ai','pro','research','seed','run',
   'planSeq','planDay','planSlot','planMode','planSlots','planIndex',
@@ -91,6 +92,47 @@ function normalizePid(v) {
   if (!pid || pid === 'anon') return getStableAnonPid('player');
   return pid;
 }
+
+/* =====================================================
+ * Battle PID helpers
+ * ===================================================== */
+
+function makeRandomPid(prefix = 'gjp') {
+  const r = Math.random().toString(36).slice(2, 8).toUpperCase();
+  const t = String(Date.now()).slice(-5);
+  return `${prefix}-${r}-${t}`;
+}
+
+function getBattleDevicePid(roomId = '', role = 'player') {
+  const room = clean(roomId, 'no-room');
+  const r = clean(role, 'player');
+  const key = `GJ_BATTLE_DEVICE_PID:${room}:${r}`;
+
+  let pid = storageGet(key, '');
+  if (pid && pid !== 'anon' && pid !== 'undefined' && pid !== 'null') {
+    return pid;
+  }
+
+  pid = makeRandomPid(r === 'join' ? 'gj-guest' : r === 'host' ? 'gj-host' : 'gj-player');
+  storageSet(key, pid);
+  return pid;
+}
+
+function normalizeBattlePid(rawPid, roomId, role) {
+  const p = clean(rawPid, '');
+
+  // สำคัญ: ห้ามใช้ anon ใน Battle เพราะถ้าสองเครื่องใช้ anon เหมือนกัน
+  // Firebase room จะ merge เป็น player คนเดียว แล้ว summary จะเพี้ยน
+  if (!p || p === 'anon' || p === 'undefined' || p === 'null') {
+    return getBattleDevicePid(roomId, role);
+  }
+
+  return p;
+}
+
+/* =====================================================
+ * Room helpers
+ * ===================================================== */
 
 function normalizeRoomCode(v, prefix = 'GJ-BT') {
   let s = String(v ?? '').trim().toUpperCase();
@@ -177,7 +219,9 @@ function launcherUrl(baseParams, launcherPath) {
     game: baseParams.game,
     gameId: baseParams.gameId,
     theme: baseParams.theme,
-    recommendedMode: baseParams.recommendedMode || baseParams.mode || ''
+    recommendedMode: baseParams.recommendedMode || baseParams.mode || '',
+    api: baseParams.api || '',
+    log: baseParams.log || ''
   });
 }
 
@@ -196,16 +240,14 @@ function readBaseParams(config = {}) {
 
   const roomScope = clean(qs('room', qs('roomId', '')), 'battle-guest');
 
-  out.pid = isInviteGuest
-    ? getStableAnonPid(`guest:${roomScope}`)
-    : normalizePid(out.pid);
-
   out.name = clean(out.name || out.nick, isInviteGuest ? 'Player 2' : 'Hero');
   out.nick = clean(out.nick || out.name, out.name);
   out.diff = clean(out.diff, 'normal');
   out.time = clean(out.time, '150');
   out.view = clean(out.view, 'mobile');
   out.hub = clean(out.hub, '../hub-v2.html');
+  out.api = clean(out.api, '');
+  out.log = clean(out.log, '');
   out.run = clean(out.run, 'play');
   out.seed = clean(out.seed, String(Date.now()));
   out.zone = clean(out.zone, 'nutrition');
@@ -223,13 +265,33 @@ function readBaseParams(config = {}) {
     out.roomId = out.room;
   }
 
+  const modeForPid = clean(config.mode || out.mode, 'battle');
+  const roleForPid = isInviteGuest ? 'join' : clean(qs('role', 'host'), 'host');
+
+  if (modeForPid === 'battle') {
+    // ถ้าเป็น invite guest ให้ generate pid guest เองเสมอ
+    // กันกรณี copy URL ที่มี pid ของ host ติดมา
+    out.pid = isInviteGuest
+      ? getBattleDevicePid(roomScope, 'join')
+      : normalizeBattlePid(out.pid, roomScope, roleForPid);
+  } else {
+    out.pid = isInviteGuest
+      ? getStableAnonPid(`guest:${roomScope}`)
+      : normalizePid(out.pid);
+  }
+
   out.roundId = clean(out.roundId || out.currentRoundId, '');
   out.currentRoundId = clean(out.currentRoundId || out.roundId, '');
   out.roundSeq = clean(out.roundSeq, '');
 
   if (config.mode) out.mode = config.mode;
+
   return out;
 }
+
+/* =====================================================
+ * UI style
+ * ===================================================== */
 
 function ensureStyle() {
   if (document.getElementById('gjModeLobbyStyle')) return;
@@ -594,6 +656,10 @@ function ensureStyle() {
   document.head.appendChild(style);
 }
 
+/* =====================================================
+ * Clipboard / toast
+ * ===================================================== */
+
 function copyText(text) {
   if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     return navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
@@ -648,6 +714,10 @@ function setSelectValue(el, value, fallback) {
   const has = Array.from(el.options || []).some(o => o.value === v);
   el.value = has ? v : fallback;
 }
+
+/* =====================================================
+ * Battle room prepare
+ * ===================================================== */
 
 function makeFreshBattlePlayer(params, prev = {}, role = 'player', roundId = '') {
   const diff = params.diff || prev.diff || 'normal';
@@ -729,9 +799,6 @@ async function prepareBattleRoom(params, role, config = {}) {
   let nextRoundSeq = prevRoundSeq;
   let currentRoundId = clean(room?.currentRoundId, '');
 
-  // ✅ จุดสำคัญ:
-  // ใช้ Room Code เดิมได้ แต่ต้องแยก “รอบ” ด้วย currentRoundId
-  // เพื่อไม่ให้นับผู้เล่นเก่าที่ค้างจากรอบก่อนเป็นคนที่ 3
   if (!room) {
     nextRoundSeq = 1;
     currentRoundId = makeRoundId(roomId, nextRoundSeq);
@@ -794,16 +861,11 @@ async function prepareBattleRoom(params, role, config = {}) {
     createdAt: Number(room?.createdAt || 0) || now,
     updatedAt: now,
     startedAt: shouldStart ? now : 0,
-
-    // ✅ ใช้เวลา server เป็นฐาน ไม่ใช่เวลาของเครื่องใดเครื่องหนึ่ง
     battleStartAt: shouldStart ? now + 3500 : 0,
-
     endedAt: 0,
 
     players,
 
-    // ✅ ล้างเฉพาะข้อมูล gameplay ของรอบใหม่
-    // players เก่าจากรอบก่อนยังค้างได้ แต่ไม่ถูกนับ เพราะ roundId ไม่ตรง
     attacks: [],
     effects: [],
     lastAttackAt: 0,
@@ -820,6 +882,10 @@ async function prepareBattleRoom(params, role, config = {}) {
     return false;
   }
 }
+
+/* =====================================================
+ * Main mount
+ * ===================================================== */
 
 export function mountGoodJunkModeLobby(config = {}) {
   ensureStyle();
@@ -972,7 +1038,7 @@ export function mountGoodJunkModeLobby(config = {}) {
   const roomTextEl = document.getElementById('gjlRoomText');
 
   nameEl.value = clean(base.name, 'Hero');
-  if (pidEl) pidEl.value = clean(base.pid, getStableAnonPid());
+  if (pidEl) pidEl.value = clean(base.pid, getBattleDevicePid(defaultRoom, 'host'));
   roomEl.value = normalizeRoomCode(defaultRoom, roomPrefix);
 
   if (diffEl) setSelectValue(diffEl, base.diff, 'normal');
@@ -984,14 +1050,11 @@ export function mountGoodJunkModeLobby(config = {}) {
     roomTextEl.textContent = clean(roomEl.value, '—');
   }
 
-  function currentParams() {
+  function currentParams(roleOverride = '') {
     const p = { ...base };
 
     p.name = clean(nameEl?.value, 'Hero');
     p.nick = p.name;
-
-    const rawPid = pidEl ? pidEl.value : p.pid;
-    p.pid = normalizePid(rawPid);
 
     p.room = normalizeRoomCode(roomEl?.value, roomPrefix) || generateRoomCode(roomPrefix);
     p.roomId = p.room;
@@ -1004,6 +1067,13 @@ export function mountGoodJunkModeLobby(config = {}) {
     p.recommendedMode = mode;
     p.multiplayer = mode === 'solo' ? '' : '1';
 
+    const roleForPid = clean(roleOverride || p.role || qs('role', 'host'), 'host');
+    const rawPid = pidEl ? pidEl.value : p.pid;
+
+    p.pid = mode === 'battle'
+      ? normalizeBattlePid(rawPid, p.room, roleForPid)
+      : normalizePid(rawPid);
+
     p.roundId = clean(base.roundId || base.currentRoundId, '');
     p.currentRoundId = clean(base.currentRoundId || base.roundId, '');
     p.roundSeq = clean(base.roundSeq, '');
@@ -1012,7 +1082,7 @@ export function mountGoodJunkModeLobby(config = {}) {
   }
 
   function playHref(role) {
-    const p = currentParams();
+    const p = currentParams(role);
 
     const href = buildUrl(playPath, {
       ...p,
@@ -1029,7 +1099,7 @@ export function mountGoodJunkModeLobby(config = {}) {
   }
 
   function inviteHref() {
-    const p = currentParams();
+    const p = currentParams('join');
 
     return buildUrl(location.pathname, {
       mode: p.mode,
@@ -1044,6 +1114,8 @@ export function mountGoodJunkModeLobby(config = {}) {
       time: p.time,
       view: p.view,
       hub: p.hub,
+      api: p.api || '',
+      log: p.log || '',
       run: p.run,
       seed: p.seed,
       zone: p.zone,
@@ -1060,8 +1132,14 @@ export function mountGoodJunkModeLobby(config = {}) {
   }
 
   async function goPlay(role) {
-    const p = currentParams();
+    const p = currentParams(role);
     p.role = clean(role, 'host');
+
+    // ถ้ากด join บนเครื่องเดียวกันหรือ invite guest ให้ใช้ pid ตาม role ชัด ๆ
+    if (mode === 'battle') {
+      const rawPid = pidEl ? pidEl.value : p.pid;
+      p.pid = normalizeBattlePid(rawPid, p.room, p.role);
+    }
 
     saveRecentRoom(mode, p.room);
 
@@ -1074,6 +1152,11 @@ export function mountGoodJunkModeLobby(config = {}) {
   document.getElementById('gjlGenRoom').addEventListener('click', () => {
     roomEl.value = generateRoomCode(roomPrefix);
     syncStatus();
+
+    if (pidEl && mode === 'battle') {
+      pidEl.value = getBattleDevicePid(roomEl.value, 'host');
+    }
+
     showToast('สร้าง Room ใหม่แล้ว');
   });
 
