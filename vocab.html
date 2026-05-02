@@ -7,48 +7,52 @@
   <meta name="theme-color" content="#07111f" />
   <meta name="color-scheme" content="dark" />
 
+  <!-- Core CSS -->
   <link rel="stylesheet" href="./vocab/vocab.css?v=20260502a" />
-  <link rel="stylesheet" href="./vocab/vocab.reward.css?v=20260502a" />
+
+  <!-- Optional: ถ้าอยากแยก responsive/animation ภายหลังค่อยเพิ่มได้ -->
+  <!-- <link rel="stylesheet" href="./vocab/vocab.fx.css?v=20260502a" /> -->
 </head>
 
 <body>
-  <main id="vocabApp" class="vocab-app">
+  <main id="vocabV6App" class="v6-app">
 
-    <!-- =========================
+    <!-- =====================================================
          MENU SCREEN
-    ========================== -->
-    <section id="menuScreen" class="screen menu-screen">
-      <div class="hero-card">
-        <div class="hero-logo">⚔️</div>
+    ====================================================== -->
+    <section id="v6MenuPanel" class="v6-screen v6-menu-screen">
+      <div class="v6-hero-card">
+        <div class="v6-logo">⚔️</div>
+
         <div>
-          <p class="hero-kicker">English Vocabulary Arcade</p>
+          <p class="v6-kicker">English Vocabulary Arcade</p>
           <h1>TechPath Vocab Arena</h1>
-          <p class="hero-subtitle">
-            ฝึกศัพท์สาย CS/AI สำหรับนักศึกษาปี 2 ผ่านโหมดท้าทาย ระบบ AI Coach และเส้นทางฝึกเฉพาะตัว
+          <p class="v6-subtitle">
+            ฝึกศัพท์สาย CS/AI สำหรับนักศึกษาปี 2 ผ่านโหมดท้าทายและระบบ AI Learning
           </p>
         </div>
       </div>
 
-      <div class="menu-grid">
+      <div class="v6-menu-grid">
 
         <!-- Word Bank -->
-        <section class="card">
+        <section class="v6-card">
           <h2>1) เลือก Word Bank</h2>
 
-          <div class="bank-grid">
-            <button class="select-card active" data-bank="A" type="button">
+          <div class="v6-bank-grid">
+            <button class="v6-select-card active" data-v6-bank="A" type="button">
               <b>Bank A</b>
               <span>Basic CS Words</span>
               <small>คำพื้นฐานสาย Coding / Software</small>
             </button>
 
-            <button class="select-card" data-bank="B" type="button">
+            <button class="v6-select-card" data-v6-bank="B" type="button">
               <b>Bank B</b>
               <span>AI / Data Words</span>
               <small>คำศัพท์ AI, Data, Dashboard</small>
             </button>
 
-            <button class="select-card" data-bank="C" type="button">
+            <button class="v6-select-card" data-v6-bank="C" type="button">
               <b>Bank C</b>
               <span>Workplace / Project</span>
               <small>คำใช้จริงในงาน ทีม ลูกค้า และโปรเจกต์</small>
@@ -57,287 +61,243 @@
         </section>
 
         <!-- Difficulty -->
-        <section class="card">
+        <section class="v6-card">
           <h2>2) เลือกระดับ</h2>
 
-          <div class="level-grid">
-            <button class="pill active" data-difficulty="easy" type="button">Easy</button>
-            <button class="pill" data-difficulty="normal" type="button">Normal</button>
-            <button class="pill" data-difficulty="hard" type="button">Hard</button>
-            <button class="pill danger" data-difficulty="challenge" type="button">Challenge</button>
+          <div class="v6-level-grid">
+            <button class="v6-pill active" data-v6-diff="easy" type="button">Easy</button>
+            <button class="v6-pill" data-v6-diff="normal" type="button">Normal</button>
+            <button class="v6-pill" data-v6-diff="hard" type="button">Hard</button>
+            <button class="v6-pill danger" data-v6-diff="challenge" type="button">Challenge</button>
           </div>
 
-          <div class="preview-box" id="difficultyPreview">
-            ✨ Easy: คำถามตรง เวลาเยอะ เหมาะกับการเริ่มทบทวน
+          <div class="v6-diff-preview" id="v6DiffPreview">
+            ✨ Easy: คำถามตรง เวลาเยอะ เหมาะกับเริ่มจำความหมาย
           </div>
         </section>
 
         <!-- Mode -->
-        <section class="card wide">
+        <section class="v6-card v6-wide">
           <h2>3) เลือกโหมดการเล่น</h2>
 
-          <div class="mode-grid">
-            <button class="mode-card active" data-mode="learn" type="button">
+          <div class="v66-mode-grid">
+            <button class="v66-mode-card active" data-v6-mode="learn" type="button">
               <b>🤖 AI Training</b>
               <span>เรียนรู้ + มีคำอธิบาย</span>
               <small>เหมาะสำหรับเริ่มฝึกคำศัพท์ มี Hint และ Shield มากกว่าโหมดอื่น</small>
             </button>
 
-            <button class="mode-card" data-mode="speed" type="button">
+            <button class="v66-mode-card" data-v6-mode="speed" type="button">
               <b>⚡ Speed Run</b>
               <span>ตอบไว + ทำ Combo</span>
               <small>เหมาะสำหรับแข่งความเร็ว เข้า Fever ได้เร็วขึ้น</small>
             </button>
 
-            <button class="mode-card" data-mode="mission" type="button">
+            <button class="v66-mode-card" data-v6-mode="mission" type="button">
               <b>🎯 Debug Mission</b>
               <span>โจทย์สถานการณ์จริง</span>
               <small>เหมาะสำหรับฝึกคำศัพท์ CS/AI ในบริบทการทำงาน</small>
             </button>
 
-            <button class="mode-card" data-mode="battle" type="button">
+            <button class="v66-mode-card" data-v6-mode="battle" type="button">
               <b>👾 Boss Battle</b>
               <span>ต่อสู้เต็มระบบ</span>
               <small>เหมาะสำหรับ Challenge, Leaderboard และการเล่นแบบเร้าใจ</small>
             </button>
           </div>
 
-          <div id="modePreview" class="preview-box">
+          <div id="v66ModePreview" class="v6-diff-preview">
             🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint เยอะ Shield มาก และคำอธิบายชัด
           </div>
         </section>
 
         <!-- Student Info -->
-        <section class="card wide">
+        <section class="v6-card v6-wide">
           <h2>ข้อมูลผู้เรียน</h2>
 
-          <div class="student-grid">
+          <div class="v63-student-grid">
             <label>
               <span>ชื่อเล่น / Display name</span>
-              <input id="displayName" class="input" placeholder="เช่น Mint, Boss, Aom" autocomplete="name" />
+              <input id="v63DisplayName" class="v63-input" placeholder="เช่น Mint, Boss, Aom" autocomplete="name" />
             </label>
 
             <label>
               <span>รหัสนักศึกษา</span>
-              <input id="studentId" class="input" placeholder="Student ID" autocomplete="off" />
+              <input id="v63StudentId" class="v63-input" placeholder="Student ID" autocomplete="off" />
             </label>
 
             <label>
               <span>Section</span>
-              <input id="section" class="input" placeholder="เช่น CS-AI-2" autocomplete="off" />
+              <input id="v63Section" class="v63-input" placeholder="เช่น CS-AI-2" autocomplete="off" />
             </label>
 
             <label>
               <span>Session Code</span>
-              <input id="sessionCode" class="input" placeholder="เช่น VOCAB-WEEK1" autocomplete="off" />
+              <input id="v63SessionCode" class="v63-input" placeholder="เช่น VOCAB-WEEK1" autocomplete="off" />
             </label>
           </div>
 
-          <p class="note">
-            ระบบจะใช้ข้อมูลนี้บันทึกผลการเล่น คำที่พลาด Stage ที่พลาด Mode ที่เล่น และคำแนะนำจาก AI Coach
+          <p class="v63-note">
+            ระบบจะใช้ข้อมูลนี้บันทึกผลการเล่น คำที่พลาด โหมดที่เล่น และคำแนะนำจาก AI Coach
           </p>
-        </section>
-
-        <!-- AI Learning Path -->
-        <section class="card wide" id="learningPathCard">
-          <h2>🧠 AI Learning Path</h2>
-
-          <p class="note">
-            ระบบจะวิเคราะห์คำที่พลาด คำที่ยังไม่แม่น และคำที่ควรทบทวน เพื่อแนะนำเส้นทางฝึกครั้งต่อไป
-          </p>
-
-          <div class="learning-grid">
-            <div class="mini-card">
-              <b id="masteredCount">0</b>
-              <span>Mastered</span>
-            </div>
-
-            <div class="mini-card">
-              <b id="learningCount">0</b>
-              <span>Learning</span>
-            </div>
-
-            <div class="mini-card">
-              <b id="weakCount">0</b>
-              <span>Weak Words</span>
-            </div>
-
-            <div class="mini-card">
-              <b id="recommendedPathIcon">🌱</b>
-              <span id="recommendedPathTitle">Foundation</span>
-            </div>
-          </div>
-
-          <div id="recommendedPathBox" class="preview-box">
-            🌱 Recommended: เริ่มฝึกคำพื้นฐานก่อน
-          </div>
-
-          <div id="weakTermList" class="weak-term-list">
-            <span class="weak-term">
-              <b>ยังไม่มีข้อมูล</b>
-              <small>เริ่มเล่นเพื่อสร้าง AI Learning Path</small>
-            </span>
-          </div>
-
-          <div class="action-row">
-            <button id="startAiPathBtn" class="small-btn primary" type="button">🚀 Start AI Path</button>
-            <button id="startWeakRescueBtn" class="small-btn" type="button">🧩 Weak Rescue</button>
-            <button id="startReviewBtn" class="small-btn" type="button">⏱️ Spaced Review</button>
-          </div>
         </section>
 
         <!-- Start -->
-        <section class="card wide">
+        <section class="v6-card v6-wide">
           <h2>เริ่มเล่น</h2>
 
-          <p class="note">
+          <p class="v63-note">
             เลือก Word Bank, ระดับ, โหมดการเล่น และกรอกข้อมูลผู้เรียนให้ครบ จากนั้นกด Start เพื่อเริ่มเกม
           </p>
 
-          <button id="startBtn" class="start-btn" type="button">
+          <button id="v6StartBtn" class="v6-start-btn" type="button">
             🚀 Start Vocab Battle
           </button>
         </section>
 
         <!-- Leaderboard -->
-        <section class="card wide">
+        <section class="v6-card v6-wide">
           <h2>🏆 Leaderboard แยกโหมด</h2>
 
-          <div class="leaderboard-tabs">
-            <button class="leaderboard-tab active" data-leaderboard-mode="learn" type="button">🤖 AI Training</button>
-            <button class="leaderboard-tab" data-leaderboard-mode="speed" type="button">⚡ Speed Run</button>
-            <button class="leaderboard-tab" data-leaderboard-mode="mission" type="button">🎯 Debug Mission</button>
-            <button class="leaderboard-tab" data-leaderboard-mode="battle" type="button">👾 Boss Battle</button>
+          <div class="v68-lb-tabs">
+            <button class="v68-lb-tab active" data-lb-mode="learn" type="button">🤖 AI Training</button>
+            <button class="v68-lb-tab" data-lb-mode="speed" type="button">⚡ Speed Run</button>
+            <button class="v68-lb-tab" data-lb-mode="mission" type="button">🎯 Debug Mission</button>
+            <button class="v68-lb-tab" data-lb-mode="battle" type="button">👾 Boss Battle</button>
           </div>
 
-          <div id="leaderboardBox" class="leaderboard-box">
-            <div class="leaderboard-empty">ยังไม่มีคะแนนในโหมดนี้</div>
+          <div id="v68LeaderboardBox" class="v68-lb-box">
+            <div class="v68-lb-empty">ยังไม่มีคะแนนในโหมดนี้</div>
           </div>
         </section>
 
       </div>
     </section>
 
-    <!-- =========================
+
+    <!-- =====================================================
          BATTLE SCREEN
-    ========================== -->
-    <section id="battleScreen" class="screen battle-panel" hidden>
+    ====================================================== -->
+    <section id="v6BattlePanel" class="v6-screen v6-battle-panel" hidden>
 
-      <header class="top-hud">
-        <div class="hud-box">
+      <!-- HUD -->
+      <header class="v6-top-hud">
+        <div class="v6-hud-box">
           <small>Score</small>
-          <b id="scoreHud">0</b>
+          <b id="v6Score">0</b>
         </div>
 
-        <div class="hud-box">
+        <div class="v6-hud-box">
           <small>Combo</small>
-          <b id="comboHud">x0</b>
+          <b id="v6Combo">x0</b>
         </div>
 
-        <div class="hud-box">
+        <div class="v6-hud-box">
           <small>HP</small>
-          <b id="hpHud">❤️❤️❤️❤️❤️</b>
+          <b id="v6Hp">❤️❤️❤️❤️❤️</b>
         </div>
 
-        <div class="hud-box">
+        <div class="v6-hud-box">
           <small>Time</small>
-          <b id="timerHud">0s</b>
+          <b id="v6Timer">0s</b>
         </div>
 
-        <div class="hud-box">
+        <div class="v6-hud-box">
           <small>Question</small>
-          <b id="questionNoHud">0/0</b>
+          <b id="v6QuestionNo">0/0</b>
         </div>
 
-        <div class="hud-box">
+        <div class="v6-hud-box">
           <small>Mode</small>
-          <b id="modeHud">🤖 AI</b>
+          <b id="v66ModeHud">🤖 AI</b>
         </div>
       </header>
 
-      <div id="powerHud" class="power-hud">
-        <div class="power-chip" id="feverChip">🔥 Fever: OFF</div>
-        <button class="power-btn" id="hintBtn" type="button">💡 Hint x1</button>
-        <button class="power-btn ai-help-btn" id="aiHelpBtn" type="button">🤖 AI Help x0</button>
-        <div class="power-chip" id="shieldChip">🛡️ Shield x1</div>
-        <div class="power-chip" id="laserChip">🔴 Laser: Not ready</div>
+      <!-- Power HUD -->
+      <div id="v6PowerHud" class="v6-power-hud v67-power-hud">
+        <div class="v6-power-chip" id="v6FeverChip">🔥 Fever: OFF</div>
+        <button class="v6-power-btn" id="v6HintBtn" type="button">💡 Hint x1</button>
+        <button class="v6-power-btn v67-ai-help-btn" id="v67AiHelpBtn" type="button">🤖 AI Help x0</button>
+        <div class="v6-power-chip" id="v6ShieldChip">🛡️ Shield x1</div>
+        <div class="v6-power-chip" id="v6LaserChip">🔴 Laser: Not ready</div>
       </div>
 
-      <div class="stage-line">
-        <span class="stage-chip" id="stageChip">✨ Warm-up Round</span>
-        <div id="stageGoal" class="stage-goal">Goal: เก็บความมั่นใจ ตอบให้ถูก</div>
+      <!-- Stage -->
+      <div class="v6-stage-line">
+        <span class="v6-stage-chip" id="v6StageChip">✨ Warm-up Round</span>
+        <div id="v6StageGoal" class="v6-stage-goal">
+          Goal: เก็บความมั่นใจ ตอบให้ถูก
+        </div>
       </div>
 
-      <section class="battle-layout">
+      <!-- Battle Layout -->
+      <section class="v6-battle-layout">
 
-        <aside class="enemy-card" id="enemyCard">
-          <div class="enemy-glow"></div>
+        <!-- Enemy -->
+        <aside class="v6-enemy-card">
+          <div class="v6-enemy-glow"></div>
 
-          <div class="enemy-avatar" id="enemyAvatar">👾</div>
+          <div class="v6-enemy-avatar" id="v6EnemyAvatar">👾</div>
 
-          <h2 id="enemyName">Bug Slime</h2>
-          <p id="enemySkill">Enemy skill</p>
+          <h2 id="v6EnemyName">Bug Slime</h2>
+          <p id="v6EnemySkill">Enemy skill</p>
 
-          <div class="hp-label">
+          <div class="v6-hp-label">
             <span>Enemy HP</span>
-            <span id="enemyHpText">100%</span>
+            <span id="v6EnemyHpText">100%</span>
           </div>
 
-          <div class="hp-bar">
-            <div id="enemyHpFill" class="hp-fill"></div>
+          <div class="v6-hp-bar">
+            <div id="v6EnemyHpFill" class="v6-hp-fill"></div>
           </div>
 
-          <div class="boss-note">
+          <div class="v6-boss-note">
             ตอบถูก = โจมตีบอส · ตอบผิด = เสีย HP · Combo สูง = Fever / Laser
           </div>
         </aside>
 
-        <section class="question-card" id="questionCard">
-          <div class="question-meta">
+        <!-- Question -->
+        <section class="v6-question-card">
+          <div class="v6-question-meta">
             <span>🧠 Choose the best answer</span>
-            <span id="bankLabel">Bank A • 🤖 AI Training</span>
+            <span id="v6BankLabel">Bank A • 🤖 AI Training</span>
           </div>
 
-          <p id="questionText" class="question-text">
+          <p id="v6QuestionText" class="v6-question-text">
             Question text
           </p>
 
-          <div id="aiHelpBox" class="ai-help-box" hidden></div>
-
-          <div id="choicesBox" class="choices"></div>
-
-          <div id="explainBox" class="explain-box" hidden></div>
+          <div id="v6Choices" class="v6-choices"></div>
+          <div id="v6ExplainBox" class="v6-explain-box" hidden></div>
         </section>
 
       </section>
     </section>
 
-    <!-- =========================
+
+    <!-- =====================================================
          REWARD SCREEN
-    ========================== -->
-    <section id="rewardScreen" class="screen reward-screen" hidden></section>
+    ====================================================== -->
+    <section id="v6RewardPanel" class="v6-screen v6-reward-screen" hidden></section>
 
   </main>
 
-  <!-- =========================
+
+  <!-- =====================================================
        MODULE SCRIPTS
-  ========================== -->
+       สำคัญ: เรียงตามลำดับนี้
+  ====================================================== -->
+
   <script src="./vocab/vocab.config.js?v=20260502a"></script>
-  <script src="./vocab/vocab.data.js?v=20260502a"></script>
   <script src="./vocab/vocab.utils.js?v=20260502a"></script>
   <script src="./vocab/vocab.state.js?v=20260502a"></script>
-
-  <script src="./vocab/vocab.logger.js?v=20260502a"></script>
-  <script src="./vocab/vocab.leaderboard.js?v=20260502a"></script>
-  <script src="./vocab/vocab.learning-path.js?v=20260502a"></script>
-
-  <script src="./vocab/vocab.ui.js?v=20260502a"></script>
+  <script src="./vocab/vocab.data.js?v=20260502a"></script>
   <script src="./vocab/vocab.question.js?v=20260502a"></script>
-  <script src="./vocab/vocab.powerups.js?v=20260502a"></script>
-  <script src="./vocab/vocab.reward.js?v=20260502a"></script>
+  <script src="./vocab/vocab.ui.js?v=20260502a"></script>
+  <script src="./vocab/vocab.storage.js?v=20260502a"></script>
   <script src="./vocab/vocab.game.js?v=20260502a"></script>
-
   <script src="./vocab/vocab.guard.js?v=20260502a"></script>
-  <script src="./vocab/vocab.main.js?v=20260502a"></script>
+  <script src="./vocab/vocab.boot.js?v=20260502a"></script>
+
 </body>
 </html>
