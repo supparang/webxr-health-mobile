@@ -1,11 +1,9 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
 // GoodJunk Solo Phase Boss
-// FULL MERGED PATCH v20260503-bossv6-arena-skill-book
+// FULL MERGED PATCH v20260503-bossv7-balance-mobile-polish
 // ✅ Solo Phase Boss
-// ✅ Phase background / boss form / rage mode
 // ✅ Boss HP / shield / attack patterns
 // ✅ HERO HIT / power-ups / mission
-// ✅ Mobile summary scroll reset
 // ✅ Boss speech / warning flash / danger meter / hero cut-in
 // ✅ Final Rush
 // ✅ Boss Weakness Mission
@@ -22,6 +20,7 @@
 // ✅ HERO HIT ready pulse
 // ✅ Boss Book / Learning tip
 // ✅ Star goal intro
+// ✅ v7 mobile-safe spawn / anti-overlap / pause-safe skills / fair difficulty
 // ✅ No Apps Script logging in this version
 
 (() => {
@@ -34,38 +33,10 @@
   const params = new URLSearchParams(WIN.location.search);
 
   const DIFF = {
-    easy: {
-      duration: 150,
-      lives: 5,
-      spawnEvery: 1.02,
-      speed: 0.88,
-      junkRate: 0.30,
-      attackEvery: 8.8
-    },
-    normal: {
-      duration: 150,
-      lives: 4,
-      spawnEvery: 0.88,
-      speed: 1,
-      junkRate: 0.38,
-      attackEvery: 7.4
-    },
-    hard: {
-      duration: 140,
-      lives: 3,
-      spawnEvery: 0.74,
-      speed: 1.15,
-      junkRate: 0.46,
-      attackEvery: 6.2
-    },
-    challenge: {
-      duration: 130,
-      lives: 3,
-      spawnEvery: 0.62,
-      speed: 1.28,
-      junkRate: 0.52,
-      attackEvery: 5.2
-    }
+    easy: { duration: 150, lives: 5, spawnEvery: 1.02, speed: 0.88, junkRate: 0.30, attackEvery: 8.8 },
+    normal: { duration: 150, lives: 4, spawnEvery: 0.88, speed: 1, junkRate: 0.38, attackEvery: 7.4 },
+    hard: { duration: 140, lives: 3, spawnEvery: 0.74, speed: 1.15, junkRate: 0.46, attackEvery: 6.2 },
+    challenge: { duration: 130, lives: 3, spawnEvery: 0.62, speed: 1.28, junkRate: 0.52, attackEvery: 5.2 }
   };
 
   const diff = (params.get('diff') || 'normal').toLowerCase();
@@ -90,19 +61,15 @@
     { emoji: '🐟', group: 'protein', name: 'ปลา' },
     { emoji: '🍗', group: 'protein', name: 'ไก่' },
     { emoji: '🫘', group: 'protein', name: 'ถั่ว' },
-
     { emoji: '🍚', group: 'carb', name: 'ข้าว' },
     { emoji: '🍞', group: 'carb', name: 'ขนมปัง' },
     { emoji: '🥔', group: 'carb', name: 'มัน' },
-
     { emoji: '🥦', group: 'veg', name: 'ผัก' },
     { emoji: '🥬', group: 'veg', name: 'ผักใบเขียว' },
     { emoji: '🥕', group: 'veg', name: 'แครอท' },
-
     { emoji: '🍎', group: 'fruit', name: 'ผลไม้' },
     { emoji: '🍌', group: 'fruit', name: 'กล้วย' },
     { emoji: '🍊', group: 'fruit', name: 'ส้ม' },
-
     { emoji: '🥑', group: 'fat', name: 'ไขมันดี' },
     { emoji: '🥜', group: 'fat', name: 'ถั่วเปลือกแข็ง' }
   ];
@@ -182,34 +149,10 @@
   };
 
   const DAILY_CHALLENGES = [
-    {
-      id: 'low_miss',
-      icon: '🛡️',
-      title: 'Junk Dodger',
-      text: 'พลาดไม่เกิน 6 ครั้ง',
-      check: (summary) => summary.miss <= 6
-    },
-    {
-      id: 'hero_hit',
-      icon: '⚡',
-      title: 'Hero Striker',
-      text: 'ใช้ HERO HIT อย่างน้อย 2 ครั้ง',
-      check: (summary) => summary.heroHitsUsed >= 2
-    },
-    {
-      id: 'good_collector',
-      icon: '🥗',
-      title: 'Good Collector',
-      text: 'เก็บอาหารดี 30 ชิ้น',
-      check: (summary) => summary.goodHits >= 30
-    },
-    {
-      id: 'combo_master',
-      icon: '🔥',
-      title: 'Combo Master',
-      text: 'ทำ Combo อย่างน้อย x12',
-      check: (summary) => summary.maxCombo >= 12
-    }
+    { id: 'low_miss', icon: '🛡️', title: 'Junk Dodger', text: 'พลาดไม่เกิน 6 ครั้ง', check: (s) => s.miss <= 6 },
+    { id: 'hero_hit', icon: '⚡', title: 'Hero Striker', text: 'ใช้ HERO HIT อย่างน้อย 2 ครั้ง', check: (s) => s.heroHitsUsed >= 2 },
+    { id: 'good_collector', icon: '🥗', title: 'Good Collector', text: 'เก็บอาหารดี 30 ชิ้น', check: (s) => s.goodHits >= 30 },
+    { id: 'combo_master', icon: '🔥', title: 'Combo Master', text: 'ทำ Combo อย่างน้อย x12', check: (s) => s.maxCombo >= 12 }
   ];
 
   const el = {
@@ -259,15 +202,12 @@
     dangerFill: null,
     warningFlash: null,
     heroCutin: null,
-
     finalRushBadge: null,
     weaknessCard: null,
     comboBurst: null,
-
     telegraphLayer: null,
     finishMove: null,
     dailyChallengeCard: null,
-
     hazardLayer: null,
     bossSkillLabel: null
   };
@@ -275,12 +215,10 @@
   function hashSeed(str){
     let h = 2166136261;
     str = String(str || 'goodjunk');
-
     for(let i = 0; i < str.length; i++){
       h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
-
     return h >>> 0;
   }
 
@@ -295,17 +233,11 @@
 
   const rand = mulberry32(hashSeed(`${CFG.seed}:${CFG.pid}:${CFG.diff}`));
 
-  function random(min, max){
-    return min + (max - min) * rand();
-  }
-
-  function chance(p){
-    return rand() < p;
-  }
-
-  function pick(arr){
-    return arr[Math.floor(rand() * arr.length) % arr.length];
-  }
+  function random(min, max){ return min + (max - min) * rand(); }
+  function chance(p){ return rand() < p; }
+  function pick(arr){ return arr[Math.floor(rand() * arr.length) % arr.length]; }
+  function now(){ return performance.now(); }
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
 
   const state = {
     running: false,
@@ -340,6 +272,12 @@
 
     activeHazard: null,
     skillActiveUntil: 0,
+
+    assistModeUntil: 0,
+    lastHeroReadyAnnounce: false,
+    pausedAt: 0,
+    delayedTokens: new Set(),
+    skillTokenSeq: 1,
 
     heroCharge: 0,
     shieldUses: 0,
@@ -516,7 +454,6 @@
 
   function bossSay(text, ms = 1450){
     if(!el.bossSpeech) return;
-
     el.bossSpeech.textContent = text;
     el.bossSpeech.classList.remove('show');
     void el.bossSpeech.offsetWidth;
@@ -581,11 +518,9 @@
 
   function bossDamageRing(){
     if(!el.fxLayer) return;
-
     const ring = DOC.createElement('div');
     ring.className = 'boss-damage-ring';
     el.fxLayer.appendChild(ring);
-
     setTimeout(() => ring.remove(), 620);
   }
 
@@ -687,6 +622,7 @@
     }
 
     node.className = `hazard-zone ${kind}`;
+
     const w = opt.w ?? Math.min(230, rect.width * 0.44);
     const h = opt.h ?? Math.min(150, rect.height * 0.30);
     const x = opt.x ?? random(35, Math.max(40, rect.width - w - 35));
@@ -725,6 +661,201 @@
     }
 
     return item.x >= hz.x && item.x <= hz.x + hz.w && item.y >= hz.y && item.y <= hz.y + hz.h;
+  }
+
+  function isMobileView(){
+    return CFG.view === 'mobile' || CFG.view === 'cvr' || CFG.view === 'cardboard' || WIN.innerWidth <= 760;
+  }
+
+  function safeSpawnBounds(){
+    const rect = getAreaRect();
+    const mobile = isMobileView();
+    const padX = mobile ? 64 : 50;
+    const topSafe = mobile ? 105 : 88;
+    const bottomSafe = mobile ? 88 : 74;
+
+    return {
+      rect,
+      padX,
+      topSafe,
+      bottomSafe,
+      minX: padX,
+      maxX: Math.max(padX + 1, rect.width - padX),
+      minY: topSafe,
+      maxY: Math.max(topSafe + 1, rect.height - bottomSafe)
+    };
+  }
+
+  function safeRandomX(){
+    const b = safeSpawnBounds();
+    return random(b.minX, b.maxX);
+  }
+
+  function safeTelegraphY(ratio = 0.34){
+    const b = safeSpawnBounds();
+    return random(b.topSafe, Math.max(b.topSafe + 1, b.rect.height * ratio));
+  }
+
+  function markUiDanger(ms = 1200){
+    el.app.classList.add('ui-danger');
+
+    clearTimeout(markUiDanger.t);
+    markUiDanger.t = setTimeout(() => {
+      el.app.classList.remove('ui-danger');
+    }, ms);
+  }
+
+  function delayedSkill(fn, delay = 680){
+    const token = state.skillTokenSeq++;
+    state.delayedTokens.add(token);
+
+    setTimeout(() => {
+      if(!state.delayedTokens.has(token)) return;
+      state.delayedTokens.delete(token);
+      if(!state.running || state.paused || state.ended) return;
+      fn();
+    }, delay);
+
+    return token;
+  }
+
+  function cancelDelayedSkills(){
+    state.delayedTokens.clear();
+  }
+
+  function updateFairDifficulty(){
+    if(state.miss >= 6 && state.lives <= 2){
+      state.assistModeUntil = Math.max(state.assistModeUntil, now() + 6000);
+    }
+
+    if(state.timeLeft <= 18 && state.bossHp <= 26 && state.heroCharge < 70){
+      state.heroCharge = clamp(state.heroCharge + 0.04, 0, 100);
+    }
+  }
+
+  function inAssistMode(){
+    return now() < state.assistModeUntil;
+  }
+
+  function maybeSpawnMercyPower(){
+    if(!inAssistMode()) return;
+    if(state.items.some(it => it.kind === 'power')) return;
+    if(!chance(0.018)) return;
+
+    const p = state.lives <= 1
+      ? { id:'heart', emoji:'💖', label:'Heart' }
+      : { id:'shield', emoji:'🛡️', label:'Shield' };
+
+    spawnItem('power', {
+      power: p,
+      x: safeRandomX(),
+      speed: random(55, 76) * itemSpeed(),
+      lifeMs: 10000,
+      mercyPower: true
+    });
+  }
+
+  function updateCompactSummaryMode(){
+    const compact = WIN.innerHeight <= 700 || WIN.innerWidth <= 380;
+    el.app.classList.toggle('compact-summary', compact);
+  }
+
+  function announceHeroReadyOnce(){
+    const ready = state.heroCharge >= 100 && state.running && !state.paused && !state.ended;
+
+    if(ready && !state.lastHeroReadyAnnounce){
+      state.lastHeroReadyAnnounce = true;
+      showToast('⚡ HERO HIT พร้อมแล้ว!');
+      playTone('power');
+    }
+
+    if(!ready){
+      state.lastHeroReadyAnnounce = false;
+    }
+  }
+
+  function playTone(type){
+    if(state.muted) return;
+
+    try{
+      if(!state.audioCtx){
+        const AC = WIN.AudioContext || WIN.webkitAudioContext;
+        if(!AC) return;
+        state.audioCtx = new AC();
+      }
+
+      const ctx = state.audioCtx;
+      if(ctx.state === 'suspended') ctx.resume();
+
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+
+      o.connect(g);
+      g.connect(ctx.destination);
+
+      const t = ctx.currentTime;
+
+      let f1 = 520;
+      let f2 = 760;
+      let dur = 0.12;
+
+      if(type === 'bad'){
+        f1 = 170;
+        f2 = 90;
+        dur = 0.18;
+      }else if(type === 'boss'){
+        f1 = 120;
+        f2 = 360;
+        dur = 0.28;
+      }else if(type === 'power'){
+        f1 = 760;
+        f2 = 980;
+        dur = 0.22;
+      }else if(type === 'win'){
+        f1 = 650;
+        f2 = 1040;
+        dur = 0.45;
+      }
+
+      o.frequency.setValueAtTime(f1, t);
+      o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
+
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    }catch(err){
+      // Browser may block audio before user interaction.
+    }
+  }
+
+  function showToast(msg, ms = 950){
+    el.toast.textContent = msg;
+    el.toast.classList.remove('hidden');
+
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(() => {
+      el.toast.classList.add('hidden');
+    }, ms);
+  }
+
+  function popText(x, y, text, cls = 'good'){
+    const n = DOC.createElement('div');
+    n.className = `score-pop ${cls}`;
+    n.textContent = text;
+    n.style.left = `${x}px`;
+    n.style.top = `${y}px`;
+
+    el.fxLayer.appendChild(n);
+    setTimeout(() => n.remove(), 720);
+  }
+
+  function shake(){
+    el.gameArea.classList.remove('shake');
+    void el.gameArea.offsetWidth;
+    el.gameArea.classList.add('shake');
   }
 
   function showFinalRush(){
@@ -770,7 +901,6 @@
 
   function isWeaknessFood(item){
     const p = PHASES[state.phase] || PHASES[1];
-
     if(!item || item.kind !== 'good') return false;
 
     if(p.weakGroup === 'all'){
@@ -865,12 +995,11 @@
 
     spawnItem('power', {
       power: p,
+      x: safeRandomX(),
       speed: random(58, 78) * itemSpeed(),
-      lifeMs: 9500
+      lifeMs: 9500,
+      mercyPower: true
     });
-
-    const last = state.items[state.items.length - 1];
-    if(last && last.node) last.node.classList.add('comeback');
   }
 
   function checkFinalRush(){
@@ -886,18 +1015,18 @@
     bossSay('เบอร์เกอร์เด้งมาแล้ว!');
     showWarning('Burger Bounce! ระวังของเด้ง');
     playTone('bad');
+    markUiDanger(1400);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       const rect = getAreaRect();
       const count = 5;
+      const bounds = safeSpawnBounds();
 
       const points = [];
       for(let i = 0; i < count; i++){
         points.push({
-          x: ((i + 1) / (count + 1)) * rect.width,
-          y: random(86, Math.max(96, rect.height * 0.34))
+          x: clamp(((i + 1) / (count + 1)) * rect.width, bounds.minX, bounds.maxX),
+          y: safeTelegraphY(0.34)
         });
       }
 
@@ -927,17 +1056,15 @@
     bossSay('ของหวานหลอกตา มาแล้ว!');
     showWarning('Sweet Trap! ดูให้ดีก่อนเก็บ');
     playTone('bad');
+    markUiDanger(1450);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
-      const rect = getAreaRect();
+    delayedSkill(() => {
       const points = [];
 
       for(let i = 0; i < 6; i++){
         points.push({
-          x: random(55, rect.width - 55),
-          y: random(80, Math.max(95, rect.height * 0.38))
+          x: safeRandomX(),
+          y: safeTelegraphY(0.38)
         });
       }
 
@@ -968,10 +1095,9 @@
     bossSay('คราบน้ำมันมาแล้ว ระวังลื่น!');
     showWarning('Oil Splash! อย่ากดมั่วในพื้นที่น้ำมัน');
     playTone('bad');
+    markUiDanger(1450);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       addHazard('oil', { ms: 5200 });
 
       for(let i = 0; i < 5; i++){
@@ -980,6 +1106,7 @@
 
           spawnItem(i < 3 ? 'junk' : 'good', {
             danger: i < 3,
+            x: safeRandomX(),
             speed: random(96, 150) * itemSpeed()
           });
         }, i * 180);
@@ -992,12 +1119,13 @@
     bossSay('ลำแสงน้ำตาลของข้า!');
     showWarning('Sugar Beam! หลบแนวกลางจอ');
     playTone('boss');
+    markUiDanger(1500);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       const rect = getAreaRect();
-      const y = Math.min(rect.height - 100, Math.max(135, rect.height * 0.45));
+      const bounds = safeSpawnBounds();
+      const y = Math.min(bounds.maxY, Math.max(bounds.topSafe + 35, rect.height * 0.45));
+
       addHazard('lane', { y, ms: 3800 });
       showTelegraphMarks([{ y }], 'line');
 
@@ -1007,7 +1135,7 @@
 
           spawnItem('junk', {
             danger: true,
-            x: ((i + 1) / 8) * rect.width,
+            x: clamp(((i + 1) / 8) * rect.width, bounds.minX, bounds.maxX),
             y: -60,
             vx: random(-10, 10),
             speed: random(128, 180) * itemSpeed()
@@ -1021,18 +1149,9 @@
   }
 
   function getBossPattern(){
-    if(state.phase === 1){
-      return ['burger', 'rain', 'burger'];
-    }
-
-    if(state.phase === 2){
-      return ['sweet', 'fake', 'rain', 'sweet'];
-    }
-
-    if(state.phase === 3){
-      return ['oil', 'shield', 'wave', 'oil'];
-    }
-
+    if(state.phase === 1) return ['burger', 'rain', 'burger'];
+    if(state.phase === 2) return ['sweet', 'fake', 'rain', 'sweet'];
+    if(state.phase === 3) return ['oil', 'shield', 'wave', 'oil'];
     return ['beam', 'wave', 'rain', 'shield', 'sweet'];
   }
 
@@ -1100,10 +1219,7 @@
     if(summary.fiveGroupRounds >= 1) badges.push({ icon: '🌈', text: 'Five Groups' });
 
     if(state.dailyChallenge && state.dailyChallenge.check(summary)){
-      badges.push({
-        icon: state.dailyChallenge.icon,
-        text: state.dailyChallenge.title
-      });
+      badges.push({ icon: state.dailyChallenge.icon, text: state.dailyChallenge.title });
     }
 
     return badges;
@@ -1147,98 +1263,6 @@
     }else{
       intro.appendChild(wrap);
     }
-  }
-
-  function now(){
-    return performance.now();
-  }
-
-  function clamp(v, min, max){
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function playTone(type){
-    if(state.muted) return;
-
-    try{
-      if(!state.audioCtx){
-        const AC = WIN.AudioContext || WIN.webkitAudioContext;
-        if(!AC) return;
-        state.audioCtx = new AC();
-      }
-
-      const ctx = state.audioCtx;
-      if(ctx.state === 'suspended') ctx.resume();
-
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-
-      o.connect(g);
-      g.connect(ctx.destination);
-
-      const t = ctx.currentTime;
-
-      let f1 = 520;
-      let f2 = 760;
-      let dur = 0.12;
-
-      if(type === 'bad'){
-        f1 = 170;
-        f2 = 90;
-        dur = 0.18;
-      }else if(type === 'boss'){
-        f1 = 120;
-        f2 = 360;
-        dur = 0.28;
-      }else if(type === 'power'){
-        f1 = 760;
-        f2 = 980;
-        dur = 0.22;
-      }else if(type === 'win'){
-        f1 = 650;
-        f2 = 1040;
-        dur = 0.45;
-      }
-
-      o.frequency.setValueAtTime(f1, t);
-      o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
-
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-
-      o.start(t);
-      o.stop(t + dur + 0.02);
-    }catch(err){
-      // Browser may block audio before user interaction.
-    }
-  }
-
-  function showToast(msg, ms = 950){
-    el.toast.textContent = msg;
-    el.toast.classList.remove('hidden');
-
-    clearTimeout(showToast.t);
-    showToast.t = setTimeout(() => {
-      el.toast.classList.add('hidden');
-    }, ms);
-  }
-
-  function popText(x, y, text, cls = 'good'){
-    const n = DOC.createElement('div');
-    n.className = `score-pop ${cls}`;
-    n.textContent = text;
-    n.style.left = `${x}px`;
-    n.style.top = `${y}px`;
-
-    el.fxLayer.appendChild(n);
-    setTimeout(() => n.remove(), 720);
-  }
-
-  function shake(){
-    el.gameArea.classList.remove('shake');
-    void el.gameArea.offsetWidth;
-    el.gameArea.classList.add('shake');
   }
 
   function setPhase(nextPhase, announce = true){
@@ -1333,6 +1357,7 @@
 
     const hpPct = clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100);
     el.bossHp.style.width = `${hpPct}%`;
+    el.bossHp.classList.toggle('low', hpPct <= 18 && state.running && !state.ended);
 
     el.heroChargeText.textContent = `${Math.floor(state.heroCharge)}%`;
     el.heroHitBtn.disabled = state.heroCharge < 100 || !state.running || state.paused;
@@ -1341,6 +1366,8 @@
       'ready',
       state.heroCharge >= 100 && state.running && !state.paused && !state.ended
     );
+
+    announceHeroReadyOnce();
 
     el.comboText.textContent = `Combo x${state.combo}`;
     el.powerText.textContent = `Power: ${state.powerLabel}`;
@@ -1364,6 +1391,7 @@
     if(state.phase === 4) sp *= 1.38;
     if(state.finalRush) sp *= 1.08;
     if(now() < state.slowUntil) sp *= 0.55;
+    if(inAssistMode()) sp *= 0.88;
 
     return sp;
   }
@@ -1391,8 +1419,10 @@
     if(state.finalRush) rate += 0.08;
 
     if(state.lives <= 1) rate -= 0.10;
+    if(inAssistMode()) rate -= 0.14;
+    if(state.combo >= 12 && state.lives >= 3) rate += 0.04;
 
-    return clamp(rate, 0.22, 0.72);
+    return clamp(rate, 0.18, 0.72);
   }
 
   function getAreaRect(){
@@ -1430,11 +1460,10 @@
   function spawnItem(kind, opt = {}){
     if(!state.running || state.paused || state.ended) return;
 
-    const rect = getAreaRect();
-    const pad = 46;
+    const b = safeSpawnBounds();
 
-    const x = opt.x ?? random(pad, Math.max(pad + 1, rect.width - pad));
-    const y = opt.y ?? random(-70, -35);
+    const x = opt.x ?? random(b.minX, b.maxX);
+    const y = opt.y ?? random(-78, -38);
 
     let data;
     let fake = false;
@@ -1469,6 +1498,7 @@
       danger: !!opt.danger,
       bonusGood: !!opt.bonusGood,
       weakHit: !!opt.weakHit,
+      mercyPower: !!opt.mercyPower,
       x,
       y,
       vx: opt.vx ?? random(-10, 10),
@@ -1483,6 +1513,9 @@
     if(item.danger) item.node.classList.add('danger');
     if(item.bonusGood) item.node.classList.add('bonus-good');
     if(item.weakHit) item.node.classList.add('weak-hit');
+    if(isMobileView()) item.node.classList.add('mobile-touch');
+    if(item.kind === 'good' && inAssistMode()) item.node.classList.add('assist-good');
+    if(item.mercyPower) item.node.classList.add('mercy-power');
 
     state.items.push(item);
     el.targetLayer.appendChild(item.node);
@@ -1631,10 +1664,6 @@
 
     applyComboSkill();
 
-    if(state.heroCharge >= 100){
-      showToast('⚡ HERO HIT พร้อมใช้แล้ว!');
-    }
-
     popText(item.x, item.y, `+${Math.round(add)}`, 'good');
     playTone('good');
 
@@ -1700,6 +1729,10 @@
     state.combo = 0;
     resetComboAwards();
     state.streakMiss++;
+
+    if(state.streakMiss >= 2 || state.lives <= 2){
+      state.assistModeUntil = Math.max(state.assistModeUntil, now() + 5200);
+    }
 
     state.lives--;
     state.heroCharge = Math.max(0, state.heroCharge - 7);
@@ -1825,6 +1858,11 @@
           state.combo = 0;
           resetComboAwards();
           state.streakMiss++;
+
+          if(state.streakMiss >= 2 || state.lives <= 2){
+            state.assistModeUntil = Math.max(state.assistModeUntil, now() + 5200);
+          }
+
           popText(clamp(item.x, 30, rect.width - 30), rect.height - 50, 'MISS', 'bad');
           comebackAssist();
         }
@@ -1838,20 +1876,18 @@
     showWarning('Junk Rain! หลบอาหารขยะ');
     bossSay('ฝนอาหารขยะมาแล้ว!');
     playTone('bad');
+    markUiDanger(1450);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       showToast('🌧️ Junk Rain! หลบอาหารขยะ');
 
-      const rect = getAreaRect();
       const count = state.phase >= 4 ? 8 : state.phase >= 3 ? 6 : 5;
-
       const points = [];
+
       for(let i = 0; i < count; i++){
         points.push({
-          x: random(50, rect.width - 50),
-          y: random(76, Math.max(90, rect.height * 0.34))
+          x: safeRandomX(),
+          y: safeTelegraphY(0.34)
         });
       }
 
@@ -1863,7 +1899,7 @@
 
           spawnItem('junk', {
             danger: true,
-            x: points[i] ? points[i].x : random(50, rect.width - 50),
+            x: points[i] ? points[i].x : safeRandomX(),
             y: random(-110, -40),
             speed: random(120, 185) * itemSpeed()
           });
@@ -1876,19 +1912,16 @@
     showWarning('Fake Healthy! ดูให้ดีก่อนเก็บ');
     bossSay('แยกออกไหมว่าอันไหนของหลอก?');
     playTone('bad');
+    markUiDanger(1450);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       showToast('🎭 ระวัง! อาหารขยะปลอมตัว');
-
-      const rect = getAreaRect();
 
       const points = [];
       for(let i = 0; i < 4; i++){
         points.push({
-          x: random(55, rect.width - 55),
-          y: random(80, Math.max(92, rect.height * 0.36))
+          x: safeRandomX(),
+          y: safeTelegraphY(0.36)
         });
       }
 
@@ -1901,7 +1934,7 @@
           spawnItem('junk', {
             fake: true,
             danger: true,
-            x: points[i] ? points[i].x : random(55, rect.width - 55),
+            x: points[i] ? points[i].x : safeRandomX(),
             y: random(-90, -38),
             speed: random(85, 130) * itemSpeed()
           });
@@ -1914,22 +1947,22 @@
     showWarning('Sugar Wave! คลื่นน้ำตาลมาแล้ว');
     bossSay('คลื่นน้ำตาลจะพาเจ้าแพ้!');
     playTone('bad');
+    markUiDanger(1450);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       showToast('🥤 Sugar Wave! คลื่นน้ำตาลมาแล้ว');
 
       const rect = getAreaRect();
       const n = state.phase >= 4 ? 7 : 5;
+      const b = safeSpawnBounds();
+      const lineY = Math.min(b.maxY, Math.max(b.topSafe + 35, rect.height * 0.36));
 
-      const lineY = Math.min(rect.height - 110, Math.max(130, rect.height * 0.36));
       showTelegraphMarks([{ y: lineY }], 'line');
 
       for(let i = 0; i < n; i++){
         spawnItem('junk', {
           danger: true,
-          x: ((i + 1) / (n + 1)) * rect.width,
+          x: clamp(((i + 1) / (n + 1)) * rect.width, b.minX, b.maxX),
           y: -55 - Math.abs(Math.floor(n / 2) - i) * 18,
           vx: random(-6, 6),
           speed: random(112, 155) * itemSpeed()
@@ -1942,10 +1975,9 @@
     if(state.phase < 2 || state.shieldGate > 0) return;
 
     showWarning('Boss Shield! เก็บอาหารดีเพื่อทำลายโล่');
+    markUiDanger(1250);
 
-    setTimeout(() => {
-      if(!state.running || state.paused || state.ended) return;
-
+    delayedSkill(() => {
       state.shieldGate = state.phase >= 4 ? 3 : 2;
       showToast(`🛡️ บอสเปิดโล่! เก็บอาหารดี ${state.shieldGate} ครั้ง`);
       bossSay('โล่บอสเปิดแล้ว เจ้าตีข้าไม่ได้หรอก!');
@@ -2062,6 +2094,8 @@
         state.powerLabel = '-';
       }
 
+      updateFairDifficulty();
+      maybeSpawnMercyPower();
       checkFinalRush();
       updateDangerMeter();
       updateHud();
@@ -2107,6 +2141,11 @@
     state.activeHazard = null;
     state.skillActiveUntil = 0;
 
+    state.assistModeUntil = 0;
+    state.lastHeroReadyAnnounce = false;
+    state.pausedAt = 0;
+    cancelDelayedSkills();
+
     state.heroCharge = 0;
     state.shieldUses = 0;
     state.slowUntil = 0;
@@ -2130,7 +2169,7 @@
     state.items = [];
     el.fxLayer.innerHTML = '';
 
-    el.app.classList.remove('final-rush');
+    el.app.classList.remove('final-rush', 'ui-danger', 'compact-summary');
 
     if(el.dangerFill) el.dangerFill.style.width = '0%';
     if(el.dangerMeter) el.dangerMeter.classList.remove('danger-hot');
@@ -2193,6 +2232,7 @@
 
     clearTelegraphs();
     clearHazards();
+    cancelDelayedSkills();
 
     state.items.forEach(item => {
       if(item.node) item.node.remove();
@@ -2321,6 +2361,7 @@
       kidList.insertAdjacentElement('afterend', book);
     }
 
+    updateCompactSummaryMode();
     el.summaryLayer.classList.add('show');
 
     requestAnimationFrame(() => {
@@ -2346,6 +2387,13 @@
     if(!state.running || state.ended) return;
 
     state.paused = !state.paused;
+
+    if(state.paused){
+      state.pausedAt = now();
+      cancelDelayedSkills();
+      clearTelegraphs();
+    }
+
     el.pauseBtn.textContent = state.paused ? '▶️ เล่นต่อ' : '⏸ พัก';
     showToast(state.paused ? 'พักเกม' : 'เล่นต่อ!');
     state.lastTs = 0;
@@ -2378,6 +2426,9 @@
     WIN.addEventListener('blur', () => {
       if(state.running && !state.ended){
         state.paused = true;
+        state.pausedAt = now();
+        cancelDelayedSkills();
+        clearTelegraphs();
         el.pauseBtn.textContent = '▶️ เล่นต่อ';
         updateHud();
       }
@@ -2386,9 +2437,16 @@
     DOC.addEventListener('visibilitychange', () => {
       if(DOC.hidden && state.running && !state.ended){
         state.paused = true;
+        state.pausedAt = now();
+        cancelDelayedSkills();
+        clearTelegraphs();
         el.pauseBtn.textContent = '▶️ เล่นต่อ';
         updateHud();
       }
+    });
+
+    WIN.addEventListener('resize', () => {
+      updateCompactSummaryMode();
     });
   }
 
