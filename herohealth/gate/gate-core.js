@@ -1,9 +1,14 @@
 // === /herohealth/gate/gate-core.js ===
-// FULL PATCH v20260415d-GATE-CORE-ZONE-AWARE-JUMPDuck-FINAL
+// FULL PATCH v20260503-GATE-CORE-GOODJUNK-SOLO-BOSS-COOLDOWN-HUB-FIX
+// ✅ launcher → warmup gate → next เกมจริง
+// ✅ gate-core เติม hub ของเกมจริงให้เป็น cooldown gate
+// ✅ หลังจบเกม goodjunk-solo-boss.js ใช้ CFG.hub → เข้า cooldown gate
+// ✅ cooldown gate → กลับ nutrition-zone.html
+// ✅ ปิด special finish-hook override สำหรับ GoodJunk solo-boss เพื่อไม่ให้ flow เพี้ยน
 
-import * as GateGames from './gate-games.js?v=20260415c-GATE-GAMES-JUMPDuck-CANONICAL-FINAL';
+import * as GateGames from './gate-games.js?v=20260503-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL';
 
-const PATCH = 'v20260415d-GATE-CORE-ZONE-AWARE-JUMPDuck-FINAL';
+const PATCH = 'v20260503-GATE-CORE-GOODJUNK-SOLO-BOSS-COOLDOWN-HUB-FIX';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
 const LAST_SUMMARY_KEY = 'HHA_LAST_SUMMARY';
 const SUMMARY_HISTORY_KEY = 'HHA_SUMMARY_HISTORY';
@@ -256,7 +261,11 @@ function readCtx() {
     autostart: params.get('autostart') || '',
     next: params.get('next') || '',
     nextKey: params.get('nextKey') || '',
-    cdnext: params.get('cdnext') || ''
+    cdnext: params.get('cdnext') || '',
+    entry: params.get('entry') || '',
+    mode: params.get('mode') || '',
+    phaseBoss: params.get('phaseBoss') || '',
+    multiplayer: params.get('multiplayer') || ''
   };
 }
 
@@ -652,6 +661,10 @@ function buildRunParams(ctx) {
   if (ctx.roomId) p.set('roomId', ctx.roomId);
   if (ctx.studyId) p.set('studyId', ctx.studyId);
   if (ctx.name) p.set('name', ctx.name);
+  if (ctx.mode) p.set('mode', ctx.mode);
+  if (ctx.entry) p.set('entry', ctx.entry);
+  if (ctx.phaseBoss) p.set('phaseBoss', ctx.phaseBoss);
+  if (ctx.multiplayer) p.set('multiplayer', ctx.multiplayer);
 
   p.set('wgskip', '1');
   return p;
@@ -693,86 +706,6 @@ function looksLikeZonePage(href = '') {
     s.includes('/herohealth/nutrition-zone.html') ||
     s.includes('/herohealth/hygiene-zone.html')
   );
-}
-
-function resolveLauncherHref(ctx) {
-  const rawLauncher = String(ctx?.launcher || '').trim();
-  if (rawLauncher) {
-    const abs = resolveAbsoluteUrl(rawLauncher);
-    if (abs) return abs;
-  }
-
-  const rawCdNext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').trim();
-  if (rawCdNext) {
-    const abs = resolveAbsoluteUrl(rawCdNext);
-    if (abs && !looksLikeHeroHealthHub(abs)) return abs;
-  }
-
-  const metaSummary =
-    String(ctx?.meta?.summaryPath || ctx?.meta?.defaults?.summaryPath || '').trim();
-
-  if (metaSummary) {
-    try {
-      const url = new URL(metaSummary, location.href);
-
-      if (ctx?.pid) url.searchParams.set('pid', ctx.pid);
-      if (ctx?.name) url.searchParams.set('name', ctx.name);
-      if (ctx?.diff) url.searchParams.set('diff', ctx.diff);
-      if (ctx?.time) url.searchParams.set('time', ctx.time);
-      if (ctx?.view) url.searchParams.set('view', ctx.view);
-
-      const hubRoot = resolveHubHref(ctx);
-      if (hubRoot) url.searchParams.set('hub', hubRoot);
-
-      return url.href;
-    } catch {}
-  }
-
-  return '';
-}
-
-async function resolveRunHref(ctx) {
-  if (ctx.next) {
-    const nextHref = resolveAbsoluteUrl(ctx.next);
-    if (nextHref) {
-      console.log('[GATE] resolveRunHref via next', nextHref);
-      return nextHref;
-    }
-  }
-
-  if (ctx.nextKey) {
-    try {
-      const stored = sessionStorage.getItem(ctx.nextKey);
-      const storedHref = resolveAbsoluteUrl(stored);
-      if (storedHref) {
-        console.log('[GATE] resolveRunHref via nextKey', ctx.nextKey, storedHref);
-        return storedHref;
-      }
-    } catch {}
-  }
-
-  const candidates = getRunCandidatesSafe(ctx.game);
-  if (!candidates.length) return '';
-
-  const params = buildRunParams(ctx);
-
-  for (const rel of candidates) {
-    try {
-      const url = new URL(rel, location.href);
-      url.search = params.toString();
-
-      const ok = await quickExists(url.href);
-      if (ok) {
-        console.log('[GATE] resolveRunHref via fallback', url.href);
-        return url.href;
-      }
-    } catch {}
-  }
-
-  const fallback = new URL(candidates[0], location.href);
-  fallback.search = params.toString();
-  console.log('[GATE] resolveRunHref final fallback', fallback.href);
-  return fallback.href;
 }
 
 function resolveHubHref(ctx) {
@@ -817,11 +750,153 @@ function resolveHubHref(ctx) {
   }
 }
 
+function buildCooldownGateHref(ctx) {
+  const url = new URL('../warmup-gate.html', import.meta.url);
+  const p = new URLSearchParams(ctx.params);
+
+  p.set('phase', 'cooldown');
+  p.set('gatePhase', 'cooldown');
+
+  p.set('game', ctx.game);
+  p.set('gameId', ctx.game);
+
+  if (ctx.cat) p.set('cat', ctx.cat);
+  if (ctx.zone) p.set('zone', ctx.zone);
+
+  p.set('pid', ctx.pid || 'anon');
+  p.set('name', ctx.name || '');
+  p.set('run', ctx.run || 'play');
+  p.set('diff', ctx.diff || 'normal');
+  p.set('time', ctx.time || '120');
+  p.set('seed', ctx.seed || String(Date.now()));
+  p.set('view', ctx.view || 'mobile');
+
+  if (ctx.mode) p.set('mode', ctx.mode);
+  if (ctx.entry) p.set('entry', ctx.entry);
+  if (ctx.phaseBoss) p.set('phaseBoss', ctx.phaseBoss);
+  if (ctx.multiplayer) p.set('multiplayer', ctx.multiplayer);
+
+  const hubHref = resolveHubHref(ctx);
+
+  p.set('hub', hubHref);
+  p.set('hubRoot', hubHref);
+  p.set('cdnext', hubHref);
+
+  p.delete('next');
+  p.delete('nextKey');
+  p.delete('forcegate');
+  p.delete('resetGate');
+  p.delete('wgskip');
+
+  url.search = p.toString();
+  return url.href;
+}
+
+function decorateRunHrefWithCooldownHub(ctx, href) {
+  const url = new URL(href, location.href);
+  const p = buildRunParams(ctx);
+
+  p.forEach((v, k) => {
+    if (v !== undefined && v !== null && String(v) !== '') {
+      url.searchParams.set(k, String(v));
+    }
+  });
+
+  url.searchParams.set('hub', buildCooldownGateHref(ctx));
+  url.searchParams.set('hubRoot', resolveHubHref(ctx));
+
+  return url.href;
+}
+
+function resolveLauncherHref(ctx) {
+  const rawLauncher = String(ctx?.launcher || '').trim();
+  if (rawLauncher) {
+    const abs = resolveAbsoluteUrl(rawLauncher);
+    if (abs) return abs;
+  }
+
+  const rawCdNext = String(ctx?.cdnext || ctx?.params?.get?.('cdnext') || '').trim();
+  if (rawCdNext) {
+    const abs = resolveAbsoluteUrl(rawCdNext);
+    if (abs && !looksLikeHeroHealthHub(abs)) return abs;
+  }
+
+  const metaSummary =
+    String(ctx?.meta?.summaryPath || ctx?.meta?.defaults?.summaryPath || '').trim();
+
+  if (metaSummary) {
+    try {
+      const url = new URL(metaSummary, location.href);
+
+      if (ctx?.pid) url.searchParams.set('pid', ctx.pid);
+      if (ctx?.name) url.searchParams.set('name', ctx.name);
+      if (ctx?.diff) url.searchParams.set('diff', ctx.diff);
+      if (ctx?.time) url.searchParams.set('time', ctx.time);
+      if (ctx?.view) url.searchParams.set('view', ctx.view);
+
+      const hubRoot = resolveHubHref(ctx);
+      if (hubRoot) url.searchParams.set('hub', hubRoot);
+
+      return url.href;
+    } catch {}
+  }
+
+  return '';
+}
+
+async function resolveRunHref(ctx) {
+  if (ctx.next) {
+    const nextHref = resolveAbsoluteUrl(ctx.next);
+    if (nextHref) {
+      const decorated = decorateRunHrefWithCooldownHub(ctx, nextHref);
+      console.log('[GATE] resolveRunHref via next + cooldown hub', decorated);
+      return decorated;
+    }
+  }
+
+  if (ctx.nextKey) {
+    try {
+      const stored = sessionStorage.getItem(ctx.nextKey);
+      const storedHref = resolveAbsoluteUrl(stored);
+      if (storedHref) {
+        const decorated = decorateRunHrefWithCooldownHub(ctx, storedHref);
+        console.log('[GATE] resolveRunHref via nextKey + cooldown hub', ctx.nextKey, decorated);
+        return decorated;
+      }
+    } catch {}
+  }
+
+  const candidates = getRunCandidatesSafe(ctx.game);
+  if (!candidates.length) return '';
+
+  const params = buildRunParams(ctx);
+  params.set('hub', buildCooldownGateHref(ctx));
+  params.set('hubRoot', resolveHubHref(ctx));
+
+  for (const rel of candidates) {
+    try {
+      const url = new URL(rel, location.href);
+      url.search = params.toString();
+
+      const ok = await quickExists(url.href);
+      if (ok) {
+        console.log('[GATE] resolveRunHref via fallback + cooldown hub', url.href);
+        return url.href;
+      }
+    } catch {}
+  }
+
+  const fallback = new URL(candidates[0], location.href);
+  fallback.search = params.toString();
+  console.log('[GATE] resolveRunHref final fallback + cooldown hub', fallback.href);
+  return fallback.href;
+}
+
 function classifyCompletionHref(href = '') {
   const s = String(href || '').toLowerCase();
 
   if (!href) return { kind: '', label: '' };
-  if (looksLikeZonePage(s)) return { kind: 'zone', label: 'กลับ Fitness Zone' };
+  if (looksLikeZonePage(s)) return { kind: 'zone', label: 'กลับ Zone' };
   if (looksLikeHeroHealthHub(s)) return { kind: 'hub', label: 'กลับหน้าหลัก' };
   if (s.includes('launcher')) return { kind: 'launcher', label: 'กลับหน้าเลือกเกม' };
   if (s.includes('summary')) return { kind: 'summary', label: 'ไปหน้าสรุป' };
@@ -831,7 +906,6 @@ function classifyCompletionHref(href = '') {
 function resolveCompletionTarget(ctx, payload = {}) {
   const fromPayload = resolveAbsoluteUrl(String(payload?.summaryHref || '').trim());
   if (fromPayload) {
-    console.log('[GATE] resolveCompletionTarget via payload', fromPayload);
     return {
       href: fromPayload,
       ...classifyCompletionHref(fromPayload)
@@ -842,7 +916,6 @@ function resolveCompletionTarget(ctx, payload = {}) {
   if (rawCdNext) {
     const href = resolveAbsoluteUrl(rawCdNext);
     if (href) {
-      console.log('[GATE] resolveCompletionTarget via cdnext', href);
       return {
         href,
         ...classifyCompletionHref(href)
@@ -863,7 +936,6 @@ function resolveCompletionTarget(ctx, payload = {}) {
     const hubHref = resolveHubHref(ctx);
     if (hubHref) url.searchParams.set('hub', hubHref);
 
-    console.log('[GATE] resolveCompletionTarget via meta summary', url.href);
     return {
       href: url.href,
       ...classifyCompletionHref(url.href)
@@ -872,10 +944,17 @@ function resolveCompletionTarget(ctx, payload = {}) {
 
   const fromLauncher = resolveLauncherHref(ctx);
   if (fromLauncher) {
-    console.log('[GATE] resolveCompletionTarget via launcher', fromLauncher);
     return {
       href: fromLauncher,
       ...classifyCompletionHref(fromLauncher)
+    };
+  }
+
+  const hubHref = resolveHubHref(ctx);
+  if (hubHref) {
+    return {
+      href: hubHref,
+      ...classifyCompletionHref(hubHref)
     };
   }
 
@@ -896,6 +975,7 @@ async function goRun(ctx) {
     toast('ไม่พบ run page ของเกมนี้');
     return;
   }
+
   location.href = href;
 }
 
@@ -935,6 +1015,17 @@ function isGoodJunkGate(ctx) {
 }
 
 function trySpecialGateRedirect(ctx, phaseOverride = '', warmupResult = null) {
+  if (
+    isGoodJunkGate(ctx) &&
+    (
+      String(ctx?.mode || '').toLowerCase() === 'solo-boss' ||
+      String(ctx?.entry || '').toLowerCase() === 'solo-boss' ||
+      String(ctx?.phaseBoss || '') === '1'
+    )
+  ) {
+    return false;
+  }
+
   if (!isGoodJunkGate(ctx)) return false;
 
   try {
@@ -942,12 +1033,6 @@ function trySpecialGateRedirect(ctx, phaseOverride = '', warmupResult = null) {
     if (!api || typeof api.redirectGoodJunkGateFinish !== 'function') return false;
 
     const phase = String(phaseOverride || ctx?.phase || '').trim().toLowerCase() || 'warmup';
-
-    console.log('[GATE] trySpecialGateRedirect', {
-      game: ctx?.game,
-      phase,
-      hasHook: true
-    });
 
     return !!api.redirectGoodJunkGateFinish({
       phase,
@@ -1162,32 +1247,6 @@ function showAlreadyDone(stage, footer, ctx) {
     return;
   }
 
-  if (isGoodJunkGate(ctx)) {
-    renderInfo(
-      stage,
-      'ทำ warmup วันนี้แล้ว',
-      'ระบบจะพาเข้าเกมหลักต่อทันที เพราะ warmup กำหนดให้ทำวันละครั้งต่อคนต่อเกม'
-    );
-
-    setActions(footer, [
-      {
-        label: 'เข้าเกมหลัก',
-        primary: true,
-        onClick: () => {
-          if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
-          goRun(ctx);
-        }
-      },
-      { label: 'กลับ HUB', onClick: () => goHub(ctx) }
-    ]);
-
-    setTimeout(() => {
-      if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
-      goRun(ctx);
-    }, 350);
-    return;
-  }
-
   renderInfo(
     stage,
     'ทำ warmup วันนี้แล้ว',
@@ -1195,11 +1254,19 @@ function showAlreadyDone(stage, footer, ctx) {
   );
 
   setActions(footer, [
-    { label: 'เข้าเกมหลัก', primary: true, onClick: () => goRun(ctx) },
+    {
+      label: 'เข้าเกมหลัก',
+      primary: true,
+      onClick: () => {
+        if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
+        goRun(ctx);
+      }
+    },
     { label: 'กลับ HUB', onClick: () => goHub(ctx) }
   ]);
 
   setTimeout(() => {
+    if (trySpecialGateRedirect(ctx, 'warmup', { source: 'already-done' })) return;
     goRun(ctx);
   }, 350);
 }
