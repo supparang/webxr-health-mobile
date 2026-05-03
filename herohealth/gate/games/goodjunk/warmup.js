@@ -2,7 +2,10 @@
    HeroHealth Gate Mini-game
    GAME: goodjunk
    MODE: warmup
-   FULL PATCH v20260313d-GATE-GOODJUNK-WARMUP-CHILD-FUN-AI-SUMMARY
+   FULL PATCH v20260503-GATE-GOODJUNK-WARMUP-SOLO-BOSS-FLOW-SAFE
+   ✅ ใช้ร่วมกับ /herohealth/warmup-gate.html
+   ✅ gate-core.js เป็นคนพาเข้าเกมผ่าน next=goodjunk-solo-boss.html
+   ✅ ไฟล์นี้ไม่ redirect เอง
 */
 
 let __styleLoaded = false;
@@ -65,6 +68,7 @@ function buildBuffs({ score, accuracy, speed, junkSafe }){
   const calm = clamp(Math.round(accuracy * 0.55 + junkSafe * 0.45), 0, 100);
   const focus = clamp(Math.round(accuracy * 0.70 + speed * 0.30), 0, 100);
   const rank = calcRank(accuracy);
+
   return {
     wType: 'goodjunk',
     score,
@@ -213,6 +217,7 @@ export async function mount(root, ctx, api){
     btn.style.cursor = 'pointer';
     btn.style.boxShadow = '0 14px 30px rgba(0,0,0,.24)';
   });
+
   btnGood.style.background = 'linear-gradient(180deg,#86efac,#22c55e)';
   btnGood.style.color = '#052e16';
   btnJunk.style.background = 'linear-gradient(180deg,#fdba74,#f97316)';
@@ -280,8 +285,10 @@ export async function mount(root, ctx, api){
   const accEl = root.querySelector('#gjg-acc');
 
   api.logger?.push?.('mini_start', {
+    source: 'gate-goodjunk-warmup',
     game: 'goodjunk',
-    mode: 'warmup',
+    phase: 'warmup',
+    mode: ctx.mode || 'solo-boss',
     seed: ctx.seed
   });
 
@@ -294,6 +301,7 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const acc = idx > 0 ? Math.round((correct / idx) * 100) : 0;
+
     if(scoreEl) scoreEl.textContent = String(score);
     if(correctEl) correctEl.textContent = String(correct);
     if(wrongEl) wrongEl.textContent = String(wrong);
@@ -320,7 +328,9 @@ export async function mount(root, ctx, api){
 
   function renderRound(){
     if(ended) return;
+
     const item = currentRound();
+
     if(!item){
       finishNow();
       return;
@@ -339,6 +349,7 @@ export async function mount(root, ctx, api){
 
   function answer(choice){
     if(ended) return;
+
     const item = currentRound();
     if(!item) return;
 
@@ -353,6 +364,7 @@ export async function mount(root, ctx, api){
     if(isCorrect){
       correct++;
       score += 10;
+
       if(item.type === 'good') hitsGood++;
       else hitsJunk++;
 
@@ -362,6 +374,7 @@ export async function mount(root, ctx, api){
     }else{
       wrong++;
       score = Math.max(0, score - 4);
+
       if(item.type === 'good') wrongGood++;
       else wrongJunk++;
 
@@ -371,8 +384,10 @@ export async function mount(root, ctx, api){
     }
 
     api.logger?.push?.('mini_answer', {
+      source: 'gate-goodjunk-warmup',
       game: 'goodjunk',
-      mode: 'warmup',
+      phase: 'warmup',
+      mode: ctx.mode || 'solo-boss',
       round: idx,
       emoji: item.emoji,
       label: item.label,
@@ -398,6 +413,7 @@ export async function mount(root, ctx, api){
 
   function finishNow(){
     if(ended) return;
+
     ended = true;
     clearInterval(timer);
     lockButtons(true);
@@ -463,6 +479,10 @@ export async function mount(root, ctx, api){
     root.querySelector('#gjg-finish')?.addEventListener('click', ()=>{
       api.finish({
         ok: true,
+        source: 'gate-goodjunk-warmup',
+        game: 'goodjunk',
+        phase: 'warmup',
+        mode: ctx.mode || 'solo-boss',
         title: 'พร้อมลุย GoodJunk!',
         subtitle: resultLine(accuracy, wrong),
         lines: [
@@ -475,11 +495,16 @@ export async function mount(root, ctx, api){
           total: ROUNDS.length,
           correct,
           wrong,
+          hitsGood,
+          hitsJunk,
+          wrongGood,
+          wrongJunk,
           avgReactionMs: avgRt,
           score,
           accuracy,
           speed,
           calm: buffs.calm,
+          focus: buffs.focus,
           junkSafe,
           rank,
           foodJudgementPct: buffs.foodJudgementPct
@@ -492,8 +517,11 @@ export async function mount(root, ctx, api){
 
   const timer = setInterval(()=>{
     if(ended) return;
+
     timeLeft--;
+
     if(timeLeft < 0) timeLeft = 0;
+
     updateHud();
 
     if(timeLeft <= 0){
