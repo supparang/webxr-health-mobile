@@ -836,3 +836,188 @@ body.view-cvr .crosshair{
     grid-template-columns:1fr;
   }
 }
+/* =========================================================
+   PATCH v20260503-summary-mobile-fit
+   Fix: mobile summary too tall / trophy clipped / HUB button hidden
+   ========================================================= */
+
+.summary-card{
+  padding-top:18px;
+}
+
+.summary-emoji{
+  line-height:1;
+  margin:0 auto 4px;
+  font-size:58px;
+  max-height:70px;
+  overflow:visible;
+}
+
+.summary-card h2{
+  margin:4px 0 6px;
+}
+
+.summary-card #summaryMessage{
+  font-size:16px;
+  line-height:1.35;
+  font-weight:800;
+  color:var(--muted);
+}
+
+.summary-grid{
+  margin:12px 0;
+}
+
+.summary-grid div{
+  min-height:auto;
+  padding:10px 8px;
+}
+
+.summary-grid span{
+  font-size:13px;
+}
+
+.summary-grid strong{
+  font-size:24px;
+  line-height:1.05;
+}
+
+.summary-tip{
+  margin-top:8px;
+  padding:12px 14px;
+  font-size:15px;
+  line-height:1.35;
+}
+
+.summary-actions{
+  margin-top:10px;
+}
+
+.summary-actions .primary-btn,
+.summary-actions .ghost-btn{
+  margin-top:0;
+  min-height:54px;
+}
+
+/* Mobile: make summary fit without hiding bottom buttons */
+@media (max-width:760px){
+  .overlay{
+    padding:10px;
+    align-items:center;
+  }
+
+  .overlay-card{
+    width:min(94vw,520px);
+    max-height:calc(100dvh - 24px);
+    padding:16px;
+    border-radius:30px;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+  }
+
+  .summary-card{
+    padding-top:14px;
+  }
+
+  .summary-emoji{
+    font-size:50px;
+    max-height:58px;
+    margin-bottom:2px;
+  }
+
+  .overlay-card h2{
+    font-size:30px;
+    margin:3px 0 5px;
+  }
+
+  .summary-card #summaryMessage{
+    font-size:15px;
+  }
+
+  .summary-grid{
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin:10px 0;
+  }
+
+  .summary-grid div{
+    padding:9px 6px;
+    border-radius:18px;
+  }
+
+  .summary-grid span{
+    font-size:12px;
+    margin-top:0;
+  }
+
+  .summary-grid strong{
+    font-size:24px;
+  }
+
+  .summary-tip{
+    padding:11px 12px;
+    font-size:14px;
+    border-radius:18px;
+  }
+
+  .summary-actions{
+    grid-template-columns:1fr;
+    gap:8px;
+    margin-top:10px;
+  }
+
+  .summary-actions .primary-btn,
+  .summary-actions .ghost-btn{
+    width:100%;
+    min-height:50px;
+    padding:12px 14px;
+    border-radius:20px;
+    font-size:18px;
+  }
+}
+
+/* Very small screens */
+@media (max-height:740px){
+  .overlay{
+    align-items:start;
+    padding-top:8px;
+    padding-bottom:8px;
+  }
+
+  .summary-emoji{
+    font-size:44px;
+    max-height:50px;
+  }
+
+  .overlay-card h2{
+    font-size:27px;
+  }
+
+  .summary-card #summaryMessage{
+    font-size:14px;
+  }
+
+  .summary-grid{
+    gap:7px;
+    margin:8px 0;
+  }
+
+  .summary-grid div{
+    padding:8px 5px;
+  }
+
+  .summary-grid strong{
+    font-size:22px;
+  }
+
+  .summary-tip{
+    font-size:13.5px;
+    padding:10px;
+  }
+
+  .summary-actions .primary-btn,
+  .summary-actions .ghost-btn{
+    min-height:48px;
+    font-size:17px;
+  }
+}
