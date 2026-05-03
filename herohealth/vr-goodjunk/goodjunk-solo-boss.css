@@ -1339,3 +1339,226 @@ body.view-cvr .crosshair{
     font-size:15px;
   }
 }
+/* =========================================================
+   PATCH v20260503-bossv4-finalrush-weakness-combo
+   Final Rush / Boss Weakness / Combo Skill / Kid Summary
+   ========================================================= */
+
+.final-rush-badge{
+  position:absolute;
+  z-index:26;
+  left:50%;
+  top:14px;
+  transform:translateX(-50%);
+  padding:10px 16px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#ffed5c,#ff7c35,#ff3f68);
+  color:#fff;
+  font-weight:1000;
+  font-size:14px;
+  letter-spacing:.04em;
+  text-shadow:0 2px 6px rgba(0,0,0,.25);
+  box-shadow:0 16px 44px rgba(255,78,58,.38);
+  border:2px solid rgba(255,255,255,.85);
+  opacity:0;
+  pointer-events:none;
+}
+
+.final-rush-badge.show{
+  animation:finalRushBadge 1.1s ease both;
+}
+
+.app.final-rush{
+  animation:finalRushScreen .58s ease-in-out infinite;
+}
+
+.app.final-rush .game-area{
+  box-shadow:
+    inset 0 0 0 2px rgba(255,255,255,.30),
+    0 0 0 5px rgba(255,74,74,.18),
+    0 28px 90px rgba(255,60,60,.28);
+}
+
+.weakness-card{
+  position:absolute;
+  z-index:25;
+  top:66px;
+  left:14px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  max-width:min(360px, calc(100% - 28px));
+  padding:9px 12px;
+  border-radius:20px;
+  background:rgba(255,255,255,.82);
+  border:1px solid rgba(255,255,255,.68);
+  box-shadow:0 16px 34px rgba(20,30,55,.14);
+  backdrop-filter:blur(12px);
+}
+
+.weakness-card .weak-icon{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:#fff2b8;
+  font-size:22px;
+}
+
+.weakness-card strong{
+  display:block;
+  font-size:13px;
+  color:#ff6d2b;
+  font-weight:1000;
+}
+
+.weakness-card span{
+  display:block;
+  margin-top:1px;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:900;
+}
+
+.phase-4 .weakness-card{
+  background:rgba(255,255,255,.16);
+  color:#fff;
+  border-color:rgba(255,255,255,.24);
+}
+
+.phase-4 .weakness-card span{
+  color:rgba(255,255,255,.82);
+}
+
+.combo-burst{
+  position:absolute;
+  z-index:55;
+  left:50%;
+  top:34%;
+  transform:translate(-50%,-50%);
+  min-width:min(430px,86vw);
+  padding:16px 18px;
+  border-radius:28px;
+  background:linear-gradient(135deg,#dcff72,#5cf2a0,#4db6ff);
+  color:#073c2b;
+  text-align:center;
+  box-shadow:0 24px 70px rgba(40,200,130,.35);
+  border:3px solid rgba(255,255,255,.92);
+  opacity:0;
+  pointer-events:none;
+}
+
+.combo-burst.show{
+  animation:comboBurst .9s ease both;
+}
+
+.combo-burst strong{
+  display:block;
+  font-size:clamp(28px,7vw,54px);
+  line-height:1;
+  font-weight:1000;
+}
+
+.combo-burst span{
+  display:block;
+  margin-top:6px;
+  font-size:15px;
+  font-weight:1000;
+}
+
+.target.weak-hit{
+  outline:4px solid rgba(255,94,44,.82);
+  box-shadow:0 0 0 8px rgba(255,94,44,.22), 0 18px 38px rgba(38,54,74,.24);
+  animation:weakFoodPulse .5s ease-in-out infinite;
+}
+
+.target.comeback{
+  outline:4px solid rgba(80,180,255,.82);
+  box-shadow:0 0 0 8px rgba(80,180,255,.20), 0 18px 38px rgba(38,54,74,.24);
+}
+
+.kid-summary-list{
+  margin:12px 0 0;
+  display:grid;
+  gap:8px;
+  text-align:left;
+}
+
+.kid-summary-line{
+  display:flex;
+  gap:8px;
+  align-items:flex-start;
+  padding:10px 12px;
+  border-radius:18px;
+  background:#f6fbff;
+  border:1px solid #e1eef7;
+  font-weight:900;
+  color:#41566f;
+  line-height:1.3;
+}
+
+.kid-summary-line b{
+  color:#25364a;
+}
+
+@keyframes finalRushBadge{
+  0%{ opacity:0; transform:translateX(-50%) translateY(-12px) scale(.8); }
+  18%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1.08); }
+  78%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+  100%{ opacity:0; transform:translateX(-50%) translateY(-8px) scale(.95); }
+}
+
+@keyframes finalRushScreen{
+  0%,100%{ filter:saturate(1.08) contrast(1); }
+  50%{ filter:saturate(1.28) contrast(1.08); }
+}
+
+@keyframes comboBurst{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.72) rotate(-3deg); }
+  18%{ opacity:1; transform:translate(-50%,-50%) scale(1.07) rotate(2deg); }
+  72%{ opacity:1; transform:translate(-50%,-50%) scale(1) rotate(0deg); }
+  100%{ opacity:0; transform:translate(-50%,-62%) scale(.9) rotate(2deg); }
+}
+
+@keyframes weakFoodPulse{
+  0%,100%{ transform:translate(-50%,-50%) scale(1); }
+  50%{ transform:translate(-50%,-50%) scale(1.08); }
+}
+
+@media (max-width:760px){
+  .final-rush-badge{
+    top:10px;
+    font-size:12px;
+    padding:8px 12px;
+  }
+
+  .weakness-card{
+    top:58px;
+    left:10px;
+    right:10px;
+    max-width:none;
+    padding:8px 10px;
+  }
+
+  .weakness-card .weak-icon{
+    width:32px;
+    height:32px;
+    font-size:20px;
+  }
+
+  .combo-burst{
+    top:38%;
+    padding:14px 15px;
+    border-radius:24px;
+  }
+
+  .combo-burst span{
+    font-size:13px;
+  }
+
+  .kid-summary-line{
+    font-size:14px;
+    padding:9px 10px;
+  }
+}
