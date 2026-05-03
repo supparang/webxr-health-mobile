@@ -1,906 +1,541 @@
 /* =========================================================
    /vocab/vocab.question.js
-   TechPath Vocab Arena — Question Builder
-   Version: 20260503a
-   Depends on:
-   - vocab.config.js
-   - vocab.utils.js
-   - vocab.data.js
-   - vocab.state.js
+   TechPath Vocab Arena — Question Engine
+   FULL CLEAN PATCH: v20260503o
+
+   Fix:
+   - export window.VocabQuestion
+   - read real banks from vocab.data.js in many possible shapes
+   - convert bank entries into playable MCQ questions
+   - prevent fallback Question text / Option A-D
+   - support A/B/C banks
+   - support difficulty/mode
+   - deterministic shuffle by seed
 ========================================================= */
+
 (function(){
   "use strict";
 
   const WIN = window;
+  const VERSION = "vocab-question-v20260503o";
 
-  const APP =
-    WIN.VocabConfig ||
-    WIN.VOCAB_APP ||
-    WIN.VOCAB_CONFIG ||
-    {};
+  const BANK_LABELS = {
+    A: "Basic CS Words",
+    B: "AI / Data Words",
+    C: "Workplace / Project"
+  };
 
-  const U =
-    WIN.VocabUtils ||
-    WIN.VOCAB_UTILS ||
-    {};
-
-  const Data =
-    WIN.VocabData ||
-    WIN.VOCAB_DATA ||
-    {};
-
-  const State =
-    WIN.VocabState ||
-    WIN.VOCAB_STATE ||
-    {};
-
-  function rand(){
-    if(U.rand) return U.rand();
-    return Math.random();
+  function log(){
+    try{
+      console.log.apply(console, ["[VOCAB QUESTION]"].concat(Array.from(arguments)));
+    }catch(e){}
   }
 
-  function shuffle(arr){
-    if(U.shuffle) return U.shuffle(arr);
+  function warn(){
+    try{
+      console.warn.apply(console, ["[VOCAB QUESTION]"].concat(Array.from(arguments)));
+    }catch(e){}
+  }
 
-    const a = Array.isArray(arr) ? arr.slice() : [];
+  function pick(){
+    for(let i = 0; i < arguments.length; i++){
+      const v = arguments[i];
+      if(v !== undefined && v !== null && v !== ""){
+        return v;
+      }
+    }
+    return "";
+  }
 
-    for(let i = a.length - 1; i > 0; i--){
-      const j = Math.floor(rand() * (i + 1));
-      const t = a[i];
-      a[i] = a[j];
-      a[j] = t;
+  function clean(s){
+    return String(s ?? "").trim();
+  }
+
+  function toArray(v){
+    return Array.isArray(v) ? v : [];
+  }
+
+  function hashSeed(s){
+    s = String(s ?? "vocab");
+    let h = 2166136261;
+
+    for(let i = 0; i < s.length; i++){
+      h ^= s.charCodeAt(i);
+      h += (h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24);
     }
 
-    return a;
+    return h >>> 0;
   }
 
-  function normalizeTerm(t){
-    if(Data.normalizeTerm) return Data.normalizeTerm(t);
+  function seededRandom(seed){
+    let t = hashSeed(seed);
 
-    return {
-      term: String(t && (t.term || t.word) || "").trim(),
-      meaning: String(t && (t.meaning || t.definition || t.th || t.translation) || "").trim(),
-      category: String(t && (t.category || t.group || t.type) || "").trim(),
-      example: String(t && (t.example || t.sentence) || "").trim(),
-      bank: String(t && t.bank || "").trim(),
-      level: String(t && t.level || "").trim()
+    return function(){
+      t += 0x6D2B79F5;
+      let r = Math.imul(t ^ (t >>> 15), 1 | t);
+      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
     };
   }
 
-  function getBanks(){
-    if(Data.BANKS) return Data.BANKS;
-    if(Data.VOCAB_BANKS) return Data.VOCAB_BANKS;
-    if(WIN.VOCAB_BANKS) return WIN.VOCAB_BANKS;
-    return {};
+  function shuffle(arr, seed){
+    arr = arr.slice();
+    const rnd = seededRandom(seed || Date.now());
+
+    for(let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(rnd() * (i + 1));
+      const tmp = arr[i];
+      arr[i] = arr[j];
+      arr[j] = tmp;
+    }
+
+    return arr;
   }
 
-  function getBankTerms(bank){
-    if(Data.getBankTerms) return Data.getBankTerms(bank);
-    if(Data.getTermsForBank) return Data.getTermsForBank(bank);
-
-    const banks = getBanks();
-    return banks[bank] || banks.A || [];
-  }
-
-  function getAllTerms(){
-    if(Data.getAllTerms) return Data.getAllTerms();
-
-    const banks = getBanks();
+  function uniqueBy(arr, fn){
+    const seen = new Set();
     const out = [];
 
-    Object.keys(banks || {}).forEach(bank => {
-      (banks[bank] || []).forEach(t => {
-        out.push(Object.assign({}, normalizeTerm(t), { bank }));
-      });
+    arr.forEach(function(item){
+      const key = clean(fn(item)).toLowerCase();
+      if(!key || seen.has(key)) return;
+
+      seen.add(key);
+      out.push(item);
     });
 
     return out;
   }
 
-  function safeLower(s){
-    return String(s || "").toLowerCase();
+  /* =========================================================
+     DATA DISCOVERY
+  ========================================================= */
+
+  function possibleSources(){
+    return [
+      WIN.VocabData,
+      WIN.VocabBankData,
+      WIN.VocabBanks,
+      WIN.VOCAB_DATA,
+      WIN.VOCAB_BANKS,
+      WIN.VOCAB_WORD_BANKS,
+      WIN.WORD_BANKS,
+      WIN.BANKS,
+      WIN.VocabConfig && WIN.VocabConfig.data,
+      WIN.VOCAB_APP && WIN.VOCAB_APP.data
+    ].filter(Boolean);
   }
 
-  function termKey(t){
-    return safeLower(t && (t.term || t.word) || t || "").trim();
+  function unwrapBankSource(src){
+    if(!src) return null;
+
+    if(src.banks) return src.banks;
+    if(src.wordBanks) return src.wordBanks;
+    if(src.word_banks) return src.word_banks;
+    if(src.data) return src.data;
+    if(src.vocab) return src.vocab;
+    if(src.items) return src.items;
+
+    return src;
   }
 
-  function tokenizeMeaning(s){
-    const stop = new Set([
-      "the","and","for","with","that","this","from","into","your","you","are","can","will",
-      "which","word","fits","best","choose","meaning","what","does","mean",
-      "a","an","to","of","or","in","on","as","by","is","be","using","used","system",
-      "คือ","การ","ของ","และ","ใน","ที่","เป็น","ใช้","หรือ","ให้","ได้","คำ","ระบบ"
-    ]);
+  function readBankRaw(bank){
+    bank = clean(bank || "A").toUpperCase();
 
-    return String(s || "")
-      .toLowerCase()
-      .replace(/[^\w\sก-๙]/g, " ")
-      .split(/\s+/)
-      .map(x => x.trim())
-      .filter(x => x.length > 2 && !stop.has(x));
-  }
+    const sources = possibleSources();
 
-  function sharedKeywordCount(a, b){
-    const aw = tokenizeMeaning(a);
-    const bw = new Set(tokenizeMeaning(b));
+    for(const src of sources){
+      try{
+        if(typeof src.getBank === "function"){
+          const got = src.getBank(bank);
+          if(Array.isArray(got) && got.length) return got;
+        }
 
-    let count = 0;
+        if(typeof src.getWords === "function"){
+          const got = src.getWords(bank);
+          if(Array.isArray(got) && got.length) return got;
+        }
 
-    aw.forEach(x => {
-      if(bw.has(x)) count += 1;
-    });
+        if(typeof src.getEntries === "function"){
+          const got = src.getEntries(bank);
+          if(Array.isArray(got) && got.length) return got;
+        }
 
-    return count;
-  }
+        const root = unwrapBankSource(src);
 
-  const QUESTION_QUALITY = {
-    recentTerms: [],
-    recentPrompts: [],
-    maxRecentTerms: 10,
-    maxRecentPrompts: 8
-  };
+        if(!root) continue;
 
-  const DIFFICULTY_FEEL = {
-    easy: {
-      label: "Easy",
-      choiceCount: 4,
-      crossBankCount: 0,
-      trapWeight: 1,
-      preview: "✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย"
-    },
-    normal: {
-      label: "Normal",
-      choiceCount: 4,
-      crossBankCount: 0,
-      trapWeight: 2,
-      preview: "⚔️ Normal: สลับนิยาม/สถานการณ์ มีตัวเลือกหลอกมากขึ้น"
-    },
-    hard: {
-      label: "Hard",
-      choiceCount: 5,
-      crossBankCount: 10,
-      trapWeight: 3,
-      preview: "🔥 Hard: 5 ตัวเลือก มีคำข้าม Bank และโจทย์บริบทมากขึ้น"
-    },
-    challenge: {
-      label: "Challenge",
-      choiceCount: 5,
-      crossBankCount: 20,
-      trapWeight: 4,
-      preview: "💀 Challenge: 5 ตัวเลือก ผสมหลาย Bank เวลาเร็ว และตัวหลอกหนัก"
-    }
-  };
+        if(Array.isArray(root)){
+          const filtered = root.filter(function(x){
+            const b = clean(pick(x.bank, x.bank_id, x.bankId, x.group, ""));
+            return !b || b.toUpperCase() === bank;
+          });
 
-  const DEFAULT_STAGES = [
-    {
-      id: "warmup",
-      name: "Warm-up Round",
-      icon: "✨",
-      goal: "เก็บความมั่นใจ ตอบให้ถูก"
-    },
-    {
-      id: "speed",
-      name: "Speed Round",
-      icon: "⚡",
-      goal: "ตอบไวเพื่อเพิ่ม Combo"
-    },
-    {
-      id: "trap",
-      name: "Trap Round",
-      icon: "🧠",
-      goal: "ระวังคำที่ความหมายใกล้กัน"
-    },
-    {
-      id: "mission",
-      name: "Mini Mission",
-      icon: "🎯",
-      goal: "ใช้คำศัพท์กับสถานการณ์จริง"
-    },
-    {
-      id: "boss",
-      name: "Boss Battle",
-      icon: "👾",
-      goal: "โจมตีบอสให้ HP หมด"
-    }
-  ];
+          if(filtered.length) return filtered;
+        }
 
-  function getDifficultyFeel(difficulty){
-    return DIFFICULTY_FEEL[difficulty || "easy"] || DIFFICULTY_FEEL.easy;
-  }
+        if(root[bank] && Array.isArray(root[bank])) return root[bank];
 
-  function sampleTerms(list, count){
-    return shuffle((list || []).map(normalizeTerm).filter(t => t.term && t.meaning))
-      .slice(0, Math.max(0, Number(count || 0)));
-  }
+        const lower = bank.toLowerCase();
+        if(root[lower] && Array.isArray(root[lower])) return root[lower];
 
-  function buildTermDeck(bank, difficulty){
-    const feel = getDifficultyFeel(difficulty);
-    const main = getBankTerms(bank).map(normalizeTerm).filter(t => t.term && t.meaning);
+        const bankKey = "bank" + bank;
+        if(root[bankKey] && Array.isArray(root[bankKey])) return root[bankKey];
 
-    let deck = main.slice();
+        const bankKey2 = "Bank" + bank;
+        if(root[bankKey2] && Array.isArray(root[bankKey2])) return root[bankKey2];
 
-    if((feel.crossBankCount || 0) > 0){
-      const others = getAllTerms()
-        .map(normalizeTerm)
-        .filter(t => t.term && t.meaning && String(t.bank || "") !== String(bank || ""));
-
-      deck = deck.concat(sampleTerms(others, feel.crossBankCount));
+        if(root.banks && root.banks[bank] && Array.isArray(root.banks[bank])){
+          return root.banks[bank];
+        }
+      }catch(e){}
     }
 
-    const seen = new Set();
-
-    return shuffle(deck.filter(t => {
-      const k = termKey(t);
-      if(!k || seen.has(k)) return false;
-      seen.add(k);
-      return true;
-    }));
+    return [];
   }
 
-  function buildStagePlan(totalQuestions, stageOrder){
-    const stagesBase =
-      (Data.STAGES && Array.isArray(Data.STAGES) && Data.STAGES.length)
-        ? Data.STAGES
-        : DEFAULT_STAGES;
-
-    const order =
-      Array.isArray(stageOrder) && stageOrder.length
-        ? stageOrder
-        : stagesBase.map(s => s.id);
-
-    const stages = order
-      .map(id => stagesBase.find(s => s.id === id))
-      .filter(Boolean);
-
-    const total = Math.max(1, Number(totalQuestions || 8));
-    const each = Math.floor(total / stages.length);
-
-    let remaining = total;
-
-    return stages.map((stage, index) => {
-      let count = each;
-
-      if(index < total % stages.length){
-        count += 1;
-      }
-
-      if(index === stages.length - 1){
-        count = remaining;
-      }
-
-      remaining -= count;
-
-      return Object.assign({}, stage, { count });
-    }).filter(stage => stage.count > 0);
-  }
-
-  function readTermUseHistory(){
-    try{
-      const g = State.game || WIN.vocabGame || {};
-      const key = [
-        "VOCAB_TERM_HISTORY",
-        g.bank || APP.selectedBank || "A",
-        g.difficulty || APP.selectedDifficulty || "easy",
-        g.mode || APP.selectedMode || "learn"
-      ].join("_");
-
-      return JSON.parse(localStorage.getItem(key) || "{}") || {};
-    }catch(e){
-      return {};
-    }
-  }
-
-  function saveTermUseHistory(history){
-    try{
-      const g = State.game || WIN.vocabGame || {};
-      const key = [
-        "VOCAB_TERM_HISTORY",
-        g.bank || APP.selectedBank || "A",
-        g.difficulty || APP.selectedDifficulty || "easy",
-        g.mode || APP.selectedMode || "learn"
-      ].join("_");
-
-      localStorage.setItem(key, JSON.stringify(history || {}));
-    }catch(e){}
-  }
-
-  function pickNextTerm(terms){
-    const clean = (terms || []).map(normalizeTerm).filter(t => t.term && t.meaning);
-
-    if(!clean.length){
+  function normalizeEntry(item, bank, index){
+    if(typeof item === "string"){
       return {
-        term: "debug",
-        meaning: "to find and fix errors in code",
-        category: "coding",
-        bank: "A"
+        id: bank + "-" + index,
+        bank: bank,
+        term: item,
+        meaning: item,
+        thai: "",
+        category: "",
+        cefr: "",
+        example: "",
+        hint: ""
       };
     }
 
-    if(clean.length <= 1) return clean[0];
+    item = item || {};
 
-    const g = State.game || WIN.vocabGame || {};
-    if(!g.sessionTermUse) g.sessionTermUse = {};
+    const term = clean(
+      pick(
+        item.term,
+        item.word,
+        item.vocab,
+        item.keyword,
+        item.text,
+        item.name,
+        item.en,
+        item.english,
+        item.title
+      )
+    );
 
-    const history = readTermUseHistory();
-    const recent = new Set(QUESTION_QUALITY.recentTerms.map(x => safeLower(x)));
+    const meaning = clean(
+      pick(
+        item.meaning,
+        item.definition,
+        item.def,
+        item.answer,
+        item.correct,
+        item.correct_answer,
+        item.correctAnswer,
+        item.thai,
+        item.th,
+        item.translation,
+        item.description,
+        item.desc
+      )
+    );
 
-    const ranked = clean.map(t => {
-      const k = termKey(t);
-
-      const score =
-        (Number(g.sessionTermUse[k] || 0) * 1000) +
-        (Number(history[k] || 0) * 6) +
-        (recent.has(k) ? 50 : 0) +
-        rand();
-
-      return { term: t, score };
-    }).sort((a,b) => a.score - b.score);
-
-    return ranked[0].term;
-  }
-
-  function rememberQuestion(term, prompt){
-    const g = State.game || WIN.vocabGame || {};
-    if(!g.sessionTermUse) g.sessionTermUse = {};
-
-    const k = termKey(term);
-
-    if(k){
-      g.sessionTermUse[k] = Number(g.sessionTermUse[k] || 0) + 1;
-
-      QUESTION_QUALITY.recentTerms.push(k);
-      while(QUESTION_QUALITY.recentTerms.length > QUESTION_QUALITY.maxRecentTerms){
-        QUESTION_QUALITY.recentTerms.shift();
-      }
-
-      const history = readTermUseHistory();
-      history[k] = Number(history[k] || 0) + 1;
-      saveTermUseHistory(history);
-    }
-
-    if(prompt){
-      QUESTION_QUALITY.recentPrompts.push(String(prompt).slice(0, 140));
-      while(QUESTION_QUALITY.recentPrompts.length > QUESTION_QUALITY.maxRecentPrompts){
-        QUESTION_QUALITY.recentPrompts.shift();
-      }
-    }
-  }
-
-  function pickTemplate(list){
-    return list[Math.floor(rand() * list.length)];
-  }
-
-  function buildSituationPrompt(term){
-    const word = safeLower(term.term);
-    const meaning = safeLower(term.meaning);
-
-    const cases = [
-      {
-        keys:["debug","bug","error","fix"],
-        text:"Your app has an error before release. You need to find and fix the problem. Which word fits best?"
-      },
-      {
-        keys:["deploy","release","publish","online","rollout"],
-        text:"Your team finished the website and wants users to access it online. Which word fits best?"
-      },
-      {
-        keys:["dataset","data","examples"],
-        text:"An AI model learns from many examples stored together. Which word fits best?"
-      },
-      {
-        keys:["algorithm","step"],
-        text:"A program follows step-by-step instructions to solve a problem. Which word fits best?"
-      },
-      {
-        keys:["database","store","records"],
-        text:"A system needs to store accounts, scores, and user records. Which word fits best?"
-      },
-      {
-        keys:["interface","ui","screen","buttons"],
-        text:"Users click buttons, menus, and screens to use an app. Which word fits best?"
-      },
-      {
-        keys:["variable"],
-        text:"In code, you need a named value that can change. Which word fits best?"
-      },
-      {
-        keys:["function"],
-        text:"You want to reuse a block of code that performs a task. Which word fits best?"
-      },
-      {
-        keys:["loop","repeat"],
-        text:"The program must repeat the same action many times. Which word fits best?"
-      },
-      {
-        keys:["model","prediction"],
-        text:"An AI system is trained to make decisions or predictions. Which word fits best?"
-      },
-      {
-        keys:["training"],
-        text:"The AI learns from data before it can answer well. Which word fits best?"
-      },
-      {
-        keys:["accuracy"],
-        text:"You want to measure how often the answers are correct. Which word fits best?"
-      },
-      {
-        keys:["classification"],
-        text:"The AI puts images or messages into different categories. Which word fits best?"
-      },
-      {
-        keys:["prompt"],
-        text:"You type an instruction to an AI system. Which word fits best?"
-      },
-      {
-        keys:["automation"],
-        text:"A task is done by technology without a person doing every step. Which word fits best?"
-      },
-      {
-        keys:["dashboard"],
-        text:"A screen shows scores, progress, and important information. Which word fits best?"
-      },
-      {
-        keys:["requirement"],
-        text:"A client tells the team what the system must do. Which word fits best?"
-      },
-      {
-        keys:["deadline"],
-        text:"The project must be finished by Friday. Which word fits best?"
-      },
-      {
-        keys:["feedback"],
-        text:"Your teacher gives comments to help improve your project. Which word fits best?"
-      },
-      {
-        keys:["prototype"],
-        text:"Your team builds an early version to test the idea. Which word fits best?"
-      },
-      {
-        keys:["client"],
-        text:"A company pays your team to build a system. Which word fits best?"
-      },
-      {
-        keys:["feature"],
-        text:"Login, leaderboard, and search are parts of an app. Which word fits best?"
-      },
-      {
-        keys:["bug report"],
-        text:"A tester writes a document explaining a software problem. Which word fits best?"
-      },
-      {
-        keys:["update"],
-        text:"The app gets a newer version with improvements. Which word fits best?"
-      },
-      {
-        keys:["syntax"],
-        text:"Your code has the wrong writing rules and cannot run. Which word fits best?"
-      },
-      {
-        keys:["compile"],
-        text:"The code is converted into a form the computer can run. Which word fits best?"
-      },
-      {
-        keys:["schedule","timeline"],
-        text:"The team plans when each task will happen. Which word fits best?"
-      },
-      {
-        keys:["progress"],
-        text:"You report how much work is already finished. Which word fits best?"
-      },
-      {
-        keys:["solution"],
-        text:"You find a way to solve the client's problem. Which word fits best?"
-      },
-      {
-        keys:["authentication","permission"],
-        text:"The system checks who the user is and what they are allowed to access. Which word fits best?"
-      },
-      {
-        keys:["privacy"],
-        text:"The team protects personal or sensitive information from misuse. Which word fits best?"
-      },
-      {
-        keys:["overfitting"],
-        text:"A model performs well on training data but poorly on new data. Which word fits best?"
-      },
-      {
-        keys:["precision","recall","metric"],
-        text:"A data analyst measures how well the model finds correct results. Which word fits best?"
-      }
-    ];
-
-    const found = cases.find(c => c.keys.some(k => word.includes(k) || meaning.includes(k)));
-
-    if(found) return found.text;
-
-    if(term.example){
-      return `Read this situation: "${term.example}" Which word fits best?`;
-    }
-
-    return `Which word best matches this meaning: "${term.meaning}"?`;
-  }
-
-  function buildChallengeCase(term){
-    const word = safeLower(term.term);
-    const meaning = safeLower(term.meaning);
-
-    const cases = [
-      {
-        keys:["api","endpoint","request","response"],
-        text:"Your team connects a mobile app to a server. The app sends data to a specific URL and receives data back. Which term best fits?"
-      },
-      {
-        keys:["authentication","permission","privacy"],
-        text:"A user cannot open private data until the system checks who they are and what they are allowed to access. Which term best fits?"
-      },
-      {
-        keys:["overfitting","underfitting","validation","testing set"],
-        text:"A model looks excellent during practice but performs badly with new unseen data. Which term best explains the problem?"
-      },
-      {
-        keys:["precision","recall","confusion matrix","metric"],
-        text:"A data analyst must explain how well the model finds correct results and where it makes mistakes. Which term best fits?"
-      },
-      {
-        keys:["stakeholder","scope","milestone","deliverable"],
-        text:"During a project meeting, the team clarifies what must be included, who is affected, and what must be delivered. Which term best fits?"
-      },
-      {
-        keys:["debug","exception","bug report","test case"],
-        text:"Before release, a tester writes steps to reproduce an error so the developer can find and fix it. Which term best fits?"
-      },
-      {
-        keys:["deploy","rollout","release","build"],
-        text:"The system is ready and the team prepares it so real users can access it. Which term best fits?"
-      },
-      {
-        keys:["dataset","label","annotation","data cleaning"],
-        text:"Before training AI, the team prepares examples, fixes messy records, and adds categories to data. Which term best fits?"
-      }
-    ];
-
-    const found = cases.find(c => c.keys.some(k => word.includes(k) || meaning.includes(k)));
-
-    if(found) return found.text;
-
-    return `A project team needs the concept described as: "${term.meaning}". Which technical word is the most accurate?`;
-  }
-
-  function buildBlueprint(term, stage, difficulty){
-    const d = difficulty || "easy";
-    const stageId = stage && stage.id ? stage.id : "warmup";
-    const roll = rand();
-
-    if(d === "easy"){
-      if(stageId === "mission" || roll > 0.68){
-        return {
-          mode: "easy_reverse",
-          answerMode: "term",
-          prompt: `Which word means: "${term.meaning}"?`,
-          explain: `The word is "${term.term}".`
-        };
-      }
-
-      return {
-        mode: "meaning",
-        answerMode: "meaning",
-        prompt: pickTemplate([
-          `What does "${term.term}" mean?`,
-          `Choose the best meaning of "${term.term}".`,
-          `"${term.term}" is closest to which meaning?`
-        ]),
-        explain: `"${term.term}" means "${term.meaning}".`
-      };
-    }
-
-    if(d === "normal"){
-      if(stageId === "mission" || stageId === "boss" || roll > 0.45){
-        return {
-          mode: "normal_context",
-          answerMode: "term",
-          prompt: buildSituationPrompt(term),
-          explain: `In this context, the best word is "${term.term}".`
-        };
-      }
-
-      return {
-        mode: "normal_meaning",
-        answerMode: "meaning",
-        prompt: `Choose the best meaning of "${term.term}".`,
-        explain: `"${term.term}" means "${term.meaning}".`
-      };
-    }
-
-    if(d === "hard"){
-      if(stageId === "trap" || stageId === "mission" || stageId === "boss" || roll > 0.35){
-        return {
-          mode: "hard_precision_context",
-          answerMode: "term",
-          prompt: `${buildSituationPrompt(term)} Choose the most precise technical term, not just a similar idea.`,
-          explain: `The precise term is "${term.term}".`
-        };
-      }
-
-      return {
-        mode: "hard_reverse_definition",
-        answerMode: "term",
-        prompt: `Pick the most accurate technical word for this definition: "${term.meaning}"`,
-        explain: `The accurate word is "${term.term}".`
-      };
-    }
-
-    if(stageId === "boss" || stageId === "trap" || stageId === "mission" || roll > 0.25){
-      return {
-        mode: "challenge_workplace_case",
-        answerMode: "term",
-        prompt: buildChallengeCase(term),
-        explain: `The best answer is "${term.term}" because it matches: ${term.meaning}`
-      };
-    }
+    const thai = clean(
+      pick(
+        item.thai,
+        item.th,
+        item.translation,
+        item.meaning_th,
+        item.meaningTh,
+        ""
+      )
+    );
 
     return {
-      mode: "challenge_precision_meaning",
-      answerMode: "meaning",
-      prompt: `Precision check: which definition best matches "${term.term}" in a CS/AI project?`,
-      explain: `"${term.term}" = ${term.meaning}`
+      id: clean(pick(item.id, item.qid, item.key, bank + "-" + index)),
+      bank: clean(pick(item.bank, item.bankId, item.bank_id, bank)),
+      term: term,
+      meaning: meaning || thai || term,
+      thai: thai,
+      category: clean(pick(item.category, item.cat, item.topic, "")),
+      cefr: clean(pick(item.cefr, item.level, "")),
+      example: clean(pick(item.example, item.sentence, item.context, "")),
+      hint: clean(pick(item.hint, item.tip, "")),
+      raw: item
     };
   }
 
-  function scoreDistractor(correct, candidate, stageId, difficulty, bank){
-    const d = difficulty || "normal";
-    const feel = getDifficultyFeel(d);
+  function getEntries(bank){
+    bank = clean(bank || "A").toUpperCase();
 
-    let score = 0;
+    const raw = readBankRaw(bank);
+    const normalized = raw
+      .map(function(item, index){
+        return normalizeEntry(item, bank, index);
+      })
+      .filter(function(x){
+        return x.term && x.meaning;
+      });
 
-    const cw = safeLower(correct.term);
-    const cm = safeLower(correct.meaning);
-    const cc = safeLower(correct.category);
-
-    const tw = safeLower(candidate.term);
-    const tm = safeLower(candidate.meaning);
-    const tc = safeLower(candidate.category);
-
-    if(cc && tc && cc === tc) score += d === "easy" ? 2 : 8;
-    if(cw && tw && cw[0] === tw[0]) score += d === "easy" ? 1 : 3;
-    if(Math.abs(cw.length - tw.length) <= 3) score += 2;
-
-    const shared = sharedKeywordCount(cm, tm);
-    score += shared * (feel.trapWeight || 2);
-
-    if(stageId === "trap") score += 5;
-    if(stageId === "boss") score += 3;
-    if(d === "hard") score += 2;
-    if(d === "challenge") score += 4;
-    if(bank === "B" && cc === tc) score += 2;
-
-    return score + rand();
+    return uniqueBy(normalized, function(x){
+      return x.term + "::" + x.meaning;
+    });
   }
 
-  function mixDistractors(sortedPool){
-    const top = sortedPool.slice(0, 8);
-    const rest = sortedPool.slice(8);
-    const mixed = [];
-
-    if(top.length) mixed.push(top[0]);
-    if(rest.length) mixed.push(rest[Math.floor(rand() * rest.length)]);
-    if(top.length > 1) mixed.push(top[1]);
-    if(top.length > 2) mixed.push(top[2]);
-    if(top.length > 3) mixed.push(top[3]);
-
-    return mixed.filter(Boolean);
+  function allEntries(){
+    return ["A", "B", "C"].flatMap(function(bank){
+      return getEntries(bank);
+    });
   }
 
-  function buildChoices(options){
+  /* =========================================================
+     QUESTION BUILDING
+  ========================================================= */
+
+  function difficultyCount(diff){
+    const map = {
+      easy: 8,
+      normal: 10,
+      hard: 12,
+      challenge: 15
+    };
+
+    return map[clean(diff).toLowerCase()] || 8;
+  }
+
+  function difficultyLabel(diff){
+    const map = {
+      easy: "Easy",
+      normal: "Normal",
+      hard: "Hard",
+      challenge: "Challenge"
+    };
+
+    return map[clean(diff).toLowerCase()] || "Easy";
+  }
+
+  function modeLabel(mode){
+    const map = {
+      learn: "AI Training",
+      speed: "Speed Run",
+      mission: "Debug Mission",
+      battle: "Boss Battle"
+    };
+
+    return map[clean(mode).toLowerCase()] || "AI Training";
+  }
+
+  function questionPrompt(entry, mode){
+    mode = clean(mode || "learn").toLowerCase();
+
+    if(mode === "mission"){
+      return 'In a CS/AI work situation, what does "' + entry.term + '" mean?';
+    }
+
+    if(mode === "speed"){
+      return 'Quick! What does "' + entry.term + '" mean?';
+    }
+
+    if(mode === "battle"){
+      return 'Boss asks: What does "' + entry.term + '" mean?';
+    }
+
+    return 'What does "' + entry.term + '" mean?';
+  }
+
+  function makeDistractors(entry, bankEntries, all, seed){
+    const sameBank = bankEntries
+      .filter(function(x){
+        return clean(x.meaning).toLowerCase() !== clean(entry.meaning).toLowerCase();
+      });
+
+    const global = all
+      .filter(function(x){
+        return clean(x.meaning).toLowerCase() !== clean(entry.meaning).toLowerCase();
+      });
+
+    const pool = uniqueBy(sameBank.concat(global), function(x){
+      return x.meaning;
+    });
+
+    return shuffle(pool, seed)
+      .slice(0, 3)
+      .map(function(x){
+        return x.meaning;
+      });
+  }
+
+  function buildQuestion(entry, bankEntries, globalEntries, options, index){
     options = options || {};
 
-    const correct = normalizeTerm(options.correctTerm);
-    const allTerms = (options.allTerms || []).map(normalizeTerm).filter(t => t.term && t.meaning);
-    const answerMode = options.answerMode || "meaning";
-    const stageId = options.stageId || "warmup";
-    const difficulty = options.difficulty || "easy";
-    const bank = options.bank || "A";
+    const bank = clean(options.bank || entry.bank || "A").toUpperCase();
+    const difficulty = clean(options.difficulty || options.diff || "easy").toLowerCase();
+    const mode = clean(options.mode || "learn").toLowerCase();
+    const seed = pick(options.seed, Date.now()) + "::" + bank + "::" + difficulty + "::" + mode + "::" + index + "::" + entry.term;
 
-    const feel = getDifficultyFeel(difficulty);
-    const choiceCount = Math.max(4, Number(feel.choiceCount || 4));
-    const distractorCount = Math.max(3, choiceCount - 1);
+    const correct = entry.meaning;
+    const distractors = makeDistractors(entry, bankEntries, globalEntries, seed);
 
-    let pool = allTerms.filter(t => termKey(t) !== termKey(correct));
-
-    if(pool.length < distractorCount){
-      pool = pool.concat(
-        getAllTerms()
-          .map(normalizeTerm)
-          .filter(t => t.term && t.meaning && termKey(t) !== termKey(correct))
+    while(distractors.length < 3){
+      distractors.push(
+        [
+          "a tool for writing or running code",
+          "a problem that needs to be fixed",
+          "a plan for building software",
+          "a system for storing and managing data",
+          "text data in a program",
+          "a rule that decides what code should run",
+          "a whole number without decimals"
+        ][distractors.length]
       );
     }
 
-    const seenPool = new Set();
+    const choices = shuffle([correct].concat(distractors.slice(0, 3)), seed + "::choices")
+      .map(function(text){
+        return {
+          text: text,
+          value: text,
+          correct: text === correct
+        };
+      });
 
-    pool = pool.filter(t => {
-      const k = termKey(t);
-      if(!k || seenPool.has(k)) return false;
-      seenPool.add(k);
-      return true;
-    });
+    const explainParts = [];
 
-    pool = pool
-      .map(t => Object.assign({}, t, {
-        _trapScore: scoreDistractor(correct, t, stageId, difficulty, bank)
-      }))
-      .sort((a,b) => b._trapScore - a._trapScore);
+    explainParts.push('"' + entry.term + '" means "' + correct + '".');
 
-    let distractors;
-
-    if(difficulty === "easy"){
-      distractors = shuffle(pool).slice(0, distractorCount);
-    }else if(stageId === "speed"){
-      distractors = mixDistractors(pool).slice(0, distractorCount);
-    }else{
-      distractors = pool.slice(0, distractorCount);
+    if(entry.example){
+      explainParts.push("Example: " + entry.example);
     }
 
-    while(distractors.length < distractorCount && pool.length){
-      const extra = pool[Math.floor(rand() * pool.length)];
-      if(!distractors.some(x => termKey(x) === termKey(extra))){
-        distractors.push(extra);
-      }else{
-        break;
-      }
+    if(entry.thai && entry.thai !== correct){
+      explainParts.push("TH: " + entry.thai);
     }
-
-    const choices = [];
-
-    if(answerMode === "meaning"){
-      choices.push({
-        text: correct.meaning,
-        correct: true,
-        term: correct.term,
-        meaning: correct.meaning
-      });
-
-      distractors.forEach(t => {
-        choices.push({
-          text: t.meaning,
-          correct: false,
-          term: t.term,
-          meaning: t.meaning
-        });
-      });
-    }else{
-      choices.push({
-        text: correct.term,
-        correct: true,
-        term: correct.term,
-        meaning: correct.meaning
-      });
-
-      distractors.forEach(t => {
-        choices.push({
-          text: t.term,
-          correct: false,
-          term: t.term,
-          meaning: t.meaning
-        });
-      });
-    }
-
-    return shuffle(choices.slice(0, choiceCount));
-  }
-
-  function buildQuestion(stage){
-    const g = State.game || WIN.vocabGame || {};
-
-    const terms =
-      Array.isArray(g.terms) && g.terms.length
-        ? g.terms
-        : buildTermDeck(g.bank || APP.selectedBank || "A", g.difficulty || APP.selectedDifficulty || "easy");
-
-    const bank = g.bank || APP.selectedBank || "A";
-    const difficulty = g.difficulty || APP.selectedDifficulty || "easy";
-    const stageObj = stage || g.currentStage || DEFAULT_STAGES[0];
-
-    const correctTerm = pickNextTerm(terms);
-    const blueprint = buildBlueprint(correctTerm, stageObj, difficulty);
-
-    rememberQuestion(correctTerm, blueprint.prompt);
-
-    const choices = buildChoices({
-      correctTerm,
-      allTerms: terms,
-      answerMode: blueprint.answerMode,
-      stageId: stageObj.id,
-      difficulty,
-      bank
-    });
 
     return {
-      id: `q_${Date.now()}_${Math.random().toString(16).slice(2)}`,
-      stageId: stageObj.id,
-      mode: blueprint.mode,
-      answerMode: blueprint.answerMode,
-      prompt: blueprint.prompt,
-      correctTerm,
-      choices,
-      explain: blueprint.explain || "",
-      difficultyNote: blueprint.difficultyNote || ""
+      id: bank + "-" + difficulty + "-" + mode + "-" + index + "-" + hashSeed(entry.term),
+      bank: bank,
+      difficulty: difficulty,
+      diff: difficulty,
+      difficultyLabel: difficultyLabel(difficulty),
+      mode: mode,
+      modeLabel: modeLabel(mode),
+
+      stage_id: "stage-" + (index + 1),
+      stageId: "stage-" + (index + 1),
+      stage_name: "Question " + (index + 1),
+      stageName: "Question " + (index + 1),
+
+      term: entry.term,
+      word: entry.term,
+      prompt: questionPrompt(entry, mode),
+      question: questionPrompt(entry, mode),
+      question_text: questionPrompt(entry, mode),
+      questionText: questionPrompt(entry, mode),
+
+      choices: choices,
+      options: choices,
+      correct: correct,
+      correct_answer: correct,
+      correctAnswer: correct,
+      answer: correct,
+
+      hint:
+        entry.hint ||
+        "Think about where this word is used in coding, software, AI, or project work.",
+
+      explain: explainParts.join(" "),
+      explanation: explainParts.join(" "),
+
+      cefr: entry.cefr,
+      category: entry.category,
+      source: "vocab.question.js",
+      raw: entry.raw || entry
     };
   }
 
-  function getCorrectChoiceText(question){
-    if(!question) return "";
+  function getQuestions(opts){
+    opts = opts || {};
 
-    const term = question.correctTerm || {};
+    const bank = clean(opts.bank || opts.selectedBank || "A").toUpperCase();
+    const difficulty = clean(opts.difficulty || opts.diff || opts.selectedDifficulty || "easy").toLowerCase();
+    const mode = clean(opts.mode || opts.selectedMode || "learn").toLowerCase();
+    const count = Number(opts.count || opts.limit || difficultyCount(difficulty));
 
-    if(question.answerMode === "meaning"){
-      return term.meaning || term.definition || "";
+    const bankEntries = getEntries(bank);
+    const globalEntries = allEntries();
+
+    if(!bankEntries.length){
+      warn("No entries found for bank", bank, "sources:", possibleSources());
+      return [];
     }
 
-    return term.term || term.word || "";
+    const selected = shuffle(bankEntries, pick(opts.seed, Date.now()) + "::" + bank + "::" + difficulty + "::" + mode)
+      .slice(0, count);
+
+    return selected.map(function(entry, index){
+      return buildQuestion(entry, bankEntries, globalEntries, {
+        bank: bank,
+        difficulty: difficulty,
+        diff: difficulty,
+        mode: mode,
+        seed: pick(opts.seed, Date.now())
+      }, index);
+    });
   }
 
-  function isCorrectChoice(question, choiceText){
-    const correct = getCorrectChoiceText(question);
-    return String(choiceText || "").includes(correct);
+  function buildQuestions(bank, difficulty, mode, count){
+    return getQuestions({
+      bank: bank,
+      difficulty: difficulty,
+      mode: mode,
+      count: count || difficultyCount(difficulty)
+    });
   }
 
-  function resetQuestionMemory(){
-    QUESTION_QUALITY.recentTerms = [];
-    QUESTION_QUALITY.recentPrompts = [];
-
-    try{
-      Object.keys(localStorage).forEach(k => {
-        if(String(k).startsWith("VOCAB_TERM_HISTORY_")){
-          localStorage.removeItem(k);
-        }
-      });
-    }catch(e){}
+  function pickQuestions(bank, difficulty, mode, count){
+    return buildQuestions(bank, difficulty, mode, count);
   }
 
-  const Question = {
-    version: "vocab-question-20260503a",
+  function getDebugSummary(){
+    return {
+      version: VERSION,
+      banks: {
+        A: getEntries("A").length,
+        B: getEntries("B").length,
+        C: getEntries("C").length
+      },
+      sourcesFound: possibleSources().length
+    };
+  }
 
-    DEFAULT_STAGES,
-    DIFFICULTY_FEEL,
+  const api = {
+    version: VERSION,
 
-    getDifficultyFeel,
-    buildTermDeck,
-    buildStagePlan,
+    getEntries,
+    getBankEntries: getEntries,
+    allEntries,
+
+    getQuestions,
+    buildQuestions,
+    pickQuestions,
+
+    normalizeEntry,
     buildQuestion,
-    buildChoices,
-    buildBlueprint,
-    buildSituationPrompt,
-    buildChallengeCase,
-    pickNextTerm,
-    rememberQuestion,
-    getCorrectChoiceText,
-    isCorrectChoice,
-    normalizeTerm,
-    resetQuestionMemory
+
+    getDebugSummary
   };
 
-  /*
-    Export หลัก — boot ต้องเจอชื่อนี้
-  */
-  WIN.VocabQuestion = Question;
+  WIN.VocabQuestion = api;
+  WIN.VocabQuestions = api;
+  WIN.VocabQuestionEngine = api;
 
-  /*
-    Alias รองรับ boot/patch หลายชื่อ
-  */
-  WIN.VOCAB_QUESTION = Question;
-  WIN.VocabQuestions = Question;
-  WIN.VOCAB_QUESTIONS = Question;
+  WIN.VocabModules = WIN.VocabModules || {};
+  WIN.VocabModules.question = true;
 
-  /*
-    Alias สำหรับโค้ดเก่าที่เคยเรียกชื่อ global โดยตรง
-  */
-  WIN.buildTermDeckV71 = buildTermDeck;
-  WIN.buildStagePlanV66 = buildStagePlan;
-  WIN.buildStagePlanV6 = buildStagePlan;
-  WIN.buildQuestionV6 = buildQuestion;
-  WIN.buildChoicesV61 = buildChoices;
-  WIN.getCorrectChoiceTextV62 = getCorrectChoiceText;
-  WIN.resetVocabMemoryV71 = resetQuestionMemory;
+  WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+  WIN.__VOCAB_MODULES__.question = true;
 
-  console.log("[VOCAB QUESTION] loaded", Question.version);
+  log("loaded", VERSION, getDebugSummary());
 })();
