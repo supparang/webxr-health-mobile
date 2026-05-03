@@ -1,32 +1,88 @@
 /* =========================================================
    /vocab/vocab.boot.js
-   TechPath Vocab Arena — Boot Module
-   Version: 20260503a
-   Purpose:
-   - Boot split vocab modules safely
-   - Support new module names and legacy aliases
-   - Prevent silent blank screen
-   - Show clear missing-module diagnostics
+   TechPath Vocab Arena — Boot Controller
+   PATCH: v20260503g
+   Fix:
+   - Detect modules from real window exports, not flags only
+   - Do not double-bind Start button when VocabUI exists
+   - Auto hydrate student profile
+   - Auto bind menu selectors
+   - Auto render leaderboard on first page
+   - Add CSS class compatibility for vocab-* / v6-* split versions
+   - Tolerate missing reward by installing fallback reward module
 ========================================================= */
+
 (function(){
   "use strict";
 
-  const BOOT_VERSION = "vocab-boot-20260503a";
+  const WIN = window;
+  const DOC = document;
 
-  const W = window;
-  const D = document;
+  const VERSION = "vocab-boot-v20260503g";
 
-  let booted = false;
+  const REQUIRED_MODULES = [
+    "config",
+    "utils",
+    "data",
+    "state",
+    "storage",
+    "question",
+    "ui",
+    "game"
+  ];
+
+  const SOFT_MODULES = [
+    "logger",
+    "reward",
+    "leaderboard",
+    "guard"
+  ];
+
+  let BOOTED = false;
+  let BOOT_TIMER = null;
+  let LAST_START_AT = 0;
 
   /* =========================================================
      BASIC HELPERS
   ========================================================= */
 
-  function byId(id){
-    return D.getElementById(id);
+  function $(id){
+    return DOC.getElementById(id);
+  }
+
+  function qs(sel, root){
+    return (root || DOC).querySelector(sel);
+  }
+
+  function qsa(sel, root){
+    return Array.from((root || DOC).querySelectorAll(sel));
+  }
+
+  function nowIso(){
+    try{
+      return new Date().toISOString();
+    }catch(e){
+      return "";
+    }
+  }
+
+  function log(){
+    try{
+      console.log.apply(console, ["[VOCAB BOOT]"].concat(Array.from(arguments)));
+    }catch(e){}
+  }
+
+  function warn(){
+    try{
+      console.warn.apply(console, ["[VOCAB BOOT]"].concat(Array.from(arguments)));
+    }catch(e){}
   }
 
   function esc(s){
+    if(WIN.VocabUtils && typeof WIN.VocabUtils.escapeHtml === "function"){
+      return WIN.VocabUtils.escapeHtml(s);
+    }
+
     return String(s ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
@@ -35,851 +91,1327 @@
       .replaceAll("'", "&#39;");
   }
 
-  function log(){
+  function readJson(key, fallback){
     try{
-      console.log.apply(console, arguments);
-    }catch(e){}
-  }
-
-  function warn(){
-    try{
-      console.warn.apply(console, arguments);
-    }catch(e){}
-  }
-
-  function error(){
-    try{
-      console.error.apply(console, arguments);
-    }catch(e){}
-  }
-
-  function onReady(fn){
-    if(D.readyState === "loading"){
-      D.addEventListener("DOMContentLoaded", fn, { once:true });
-    }else{
-      fn();
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }catch(e){
+      return fallback;
     }
   }
 
-  function safeCall(label, fn){
+  function writeJson(key, value){
     try{
-      if(typeof fn === "function"){
-        return fn();
-      }
-    }catch(err){
-      error(`[VOCAB BOOT] ${label} failed`, err);
-      showBootError(`Boot step failed: ${label}`, err);
-      return null;
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    }catch(e){
+      return false;
     }
-    return null;
+  }
+
+  function getParam(name, fallback){
+    try{
+      const p = new URLSearchParams(location.search);
+      return p.get(name) || fallback || "";
+    }catch(e){
+      return fallback || "";
+    }
+  }
+
+  function readInput(id){
+    const el = $(id);
+    return el ? String(el.value || "").trim() : "";
+  }
+
+  function setHidden(el, hidden){
+    if(!el) return;
+    el.hidden = !!hidden;
+  }
+
+  function addClass(el, cls){
+    if(el && cls) el.classList.add(cls);
   }
 
   /* =========================================================
-     MODULE RESOLUTION
-     รองรับหลายชื่อ เพราะตอน split ไฟล์อาจ export ไม่ตรงกัน
+     CONFIG / APP GLOBAL
   ========================================================= */
 
-  function resolveModules(){
+  function ensureAppGlobal(){
     const config =
-      W.VocabConfig ||
-      W.VOCAB_CONFIG ||
-      W.VOCAB_APP ||
-      null;
+      WIN.VocabConfig ||
+      WIN.VOCAB_CONFIG ||
+      {};
 
-    const utils =
-      W.VocabUtils ||
-      W.VOCAB_UTILS ||
+    const app =
+      WIN.VOCAB_APP ||
+      {};
+
+    WIN.VOCAB_APP = Object.assign({}, config, app);
+
+    if(!WIN.VOCAB_APP.version){
+      WIN.VOCAB_APP.version = "vocab-split-v1";
+    }
+
+    if(!WIN.VOCAB_APP.schema){
+      WIN.VOCAB_APP.schema = "vocab-split-v1";
+    }
+
+    if(!WIN.VOCAB_APP.source){
+      WIN.VOCAB_APP.source = "vocab.html";
+    }
+
+    if(!WIN.VOCAB_APP.selectedBank){
+      WIN.VOCAB_APP.selectedBank = getParam("bank", "A") || "A";
+    }
+
+    if(!WIN.VOCAB_APP.selectedDifficulty){
+      WIN.VOCAB_APP.selectedDifficulty =
+        getParam("diff", getParam("difficulty", "easy")) ||
+        "easy";
+    }
+
+    if(!WIN.VOCAB_APP.selectedMode){
+      WIN.VOCAB_APP.selectedMode =
+        getParam("mode", "learn") ||
+        "learn";
+    }
+
+    if(!WIN.VOCAB_APP.bootVersion){
+      WIN.VOCAB_APP.bootVersion = VERSION;
+    }
+
+    return WIN.VOCAB_APP;
+  }
+
+  /* =========================================================
+     MODULE DETECTION
+  ========================================================= */
+
+  function hasFunction(obj, names){
+    if(!obj) return false;
+
+    for(const name of names){
+      if(typeof obj[name] === "function"){
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function getModules(){
+    const config =
+      WIN.VocabConfig ||
+      WIN.VOCAB_CONFIG ||
+      WIN.VOCAB_APP ||
       null;
 
     const data =
-      W.VocabData ||
-      W.VOCAB_DATA ||
-      null;
-
-    const state =
-      W.VocabState ||
-      W.VOCAB_STATE ||
-      W.vocabState ||
-      null;
-
-    const storage =
-      W.VocabStorage ||
-      W.VOCAB_STORAGE ||
-      null;
-
-    const logger =
-      W.VocabLogger ||
-      W.VOCAB_LOGGER ||
+      WIN.VocabData ||
+      WIN.VocabBankData ||
+      WIN.VOCAB_DATA ||
+      WIN.VOCAB_BANKS ||
       null;
 
     const question =
-      W.VocabQuestion ||
-      W.VocabQuestions ||
-      W.VOCAB_QUESTION ||
-      W.VOCAB_QUESTIONS ||
+      WIN.VocabQuestion ||
+      WIN.VocabQuestions ||
+      WIN.VocabQuestionBank ||
+      WIN.VocabQuestionEngine ||
       null;
 
     const ui =
-      W.VocabUI ||
-      W.VOCAB_UI ||
+      WIN.VocabUI ||
+      WIN.VocabUi ||
       null;
 
     const game =
-      W.VocabGame ||
-      W.VOCAB_GAME ||
+      WIN.VocabGame ||
+      WIN.vocabGame ||
+      WIN.VOCAB_GAME ||
       null;
 
     const reward =
-      W.VocabReward ||
-      W.VOCAB_REWARD ||
+      WIN.VocabReward ||
+      WIN.vocabReward ||
+      WIN.VOCAB_REWARD ||
+      null;
+
+    const logger =
+      WIN.VocabLogger ||
+      WIN.vocabLogger ||
+      (typeof WIN.logVocabEventV6 === "function" ? { log: WIN.logVocabEventV6 } : null);
+
+    const leaderboard =
+      WIN.VocabLeaderboard ||
       null;
 
     const guard =
-      W.VocabGuard ||
-      W.VOCAB_GUARD ||
-      null;
-
-    const endpointTest =
-      W.VocabEndpointTest ||
-      W.VOCAB_ENDPOINT_TEST ||
+      WIN.VocabGuard ||
       null;
 
     return {
       config,
-      utils,
+      utils: WIN.VocabUtils || null,
       data,
-      state,
-      storage,
+      state: WIN.VocabState || null,
+      storage: WIN.VocabStorage || null,
       logger,
       question,
       ui,
       game,
       reward,
-      guard,
-      endpointTest
+      leaderboard,
+      guard
     };
   }
 
-  function moduleStatus(mods){
+  function getModuleStatus(){
+    const m = getModules();
+
     return {
-      config: !!mods.config,
-      utils: !!mods.utils,
-      data: !!mods.data,
-      state: !!mods.state,
-      storage: !!mods.storage,
-      logger: !!mods.logger,
-      question: !!mods.question,
-      ui: !!mods.ui,
-      game: !!mods.game,
-      reward: !!mods.reward
+      config: !!m.config,
+      utils: !!m.utils,
+      data: !!m.data,
+      state: !!m.state,
+      storage: !!m.storage,
+      logger: !!m.logger,
+      question: !!m.question,
+      ui: !!m.ui,
+      game: !!m.game,
+      reward: !!m.reward,
+      leaderboard: !!m.leaderboard,
+      guard: !!m.guard
     };
   }
 
-  function getMissingRequired(mods){
-    const required = [
-      "config",
-      "utils",
-      "data",
-      "state",
-      "storage",
-      "logger",
-      "question",
-      "ui",
-      "game",
-      "reward"
+  function getMissingRequired(status){
+    return REQUIRED_MODULES.filter(function(name){
+      return !status[name];
+    });
+  }
+
+  function markModuleFlags(status){
+    WIN.VocabModules = WIN.VocabModules || {};
+    WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+
+    Object.keys(status).forEach(function(key){
+      if(status[key]){
+        WIN.VocabModules[key] = true;
+        WIN.__VOCAB_MODULES__[key] = true;
+      }
+    });
+
+    WIN.VocabModules.boot = true;
+    WIN.__VOCAB_MODULES__.boot = true;
+  }
+
+  /* =========================================================
+     CSS COMPATIBILITY
+     รองรับกรณี HTML ใช้ vocab-* แต่ CSS ยังเป็น v6/v63/v66/v68
+  ========================================================= */
+
+  function applyClassAliases(){
+    const map = [
+      ["vocab-app", "v6-app"],
+
+      ["vocab-screen", "v6-screen"],
+      ["vocab-menu-screen", "v6-menu-screen"],
+      ["vocab-battle-panel", "v6-battle-panel"],
+
+      ["vocab-hero-card", "v6-hero-card"],
+      ["vocab-logo", "v6-logo"],
+      ["vocab-kicker", "v6-kicker"],
+      ["vocab-subtitle", "v6-subtitle"],
+
+      ["vocab-menu-grid", "v6-menu-grid"],
+      ["vocab-card", "v6-card"],
+      ["vocab-wide", "v6-wide"],
+
+      ["vocab-bank-grid", "v6-bank-grid"],
+      ["vocab-select-card", "v6-select-card"],
+
+      ["vocab-level-grid", "v6-level-grid"],
+      ["vocab-pill", "v6-pill"],
+      ["vocab-preview", "v6-diff-preview"],
+
+      ["vocab-mode-grid", "v66-mode-grid"],
+      ["vocab-mode-card", "v66-mode-card"],
+
+      ["vocab-student-grid", "v63-student-grid"],
+      ["vocab-input", "v63-input"],
+      ["vocab-note", "v63-note"],
+
+      ["vocab-start-btn", "v6-start-btn"],
+
+      ["vocab-lb-tabs", "v68-lb-tabs"],
+      ["vocab-lb-tab", "v68-lb-tab"],
+      ["vocab-lb-box", "v68-lb-box"],
+      ["vocab-lb-empty", "v68-lb-empty"],
+      ["vocab-lb-row", "v68-lb-row"],
+      ["vocab-rank", "v68-rank"],
+      ["vocab-lb-name", "v68-lb-name"],
+      ["vocab-lb-score", "v68-lb-score"],
+      ["vocab-lb-chip", "v68-lb-chip"],
+      ["vocab-personal-best", "v68-personal-best"],
+
+      ["vocab-top-hud", "v6-top-hud"],
+      ["vocab-hud-box", "v6-hud-box"],
+
+      ["vocab-power-hud", "v6-power-hud"],
+      ["vocab-power-chip", "v6-power-chip"],
+      ["vocab-power-btn", "v6-power-btn"],
+      ["vocab-ai-help-btn", "v67-ai-help-btn"],
+
+      ["vocab-stage-line", "v6-stage-line"],
+      ["vocab-stage-chip", "v6-stage-chip"],
+      ["vocab-stage-goal", "v6-stage-goal"],
+
+      ["vocab-battle-layout", "v6-battle-layout"],
+      ["vocab-enemy-card", "v6-enemy-card"],
+      ["vocab-enemy-glow", "v6-enemy-glow"],
+      ["vocab-enemy-avatar", "v6-enemy-avatar"],
+
+      ["vocab-hp-label", "v6-hp-label"],
+      ["vocab-hp-bar", "v6-hp-bar"],
+      ["vocab-hp-fill", "v6-hp-fill"],
+      ["vocab-boss-note", "v6-boss-note"],
+
+      ["vocab-question-card", "v6-question-card"],
+      ["vocab-question-meta", "v6-question-meta"],
+      ["vocab-question-text", "v6-question-text"],
+      ["vocab-choices", "v6-choices"],
+      ["vocab-choice", "v6-choice"],
+      ["vocab-explain-box", "v6-explain-box"],
+      ["vocab-ai-help-box", "v67-ai-help-box"]
     ];
 
-    return required.filter(name => !mods[name]);
+    map.forEach(function(pair){
+      const from = pair[0];
+      const to = pair[1];
+
+      qsa("." + from).forEach(function(el){
+        el.classList.add(to);
+      });
+    });
   }
 
-  function installLegacyAliases(mods){
-    /*
-      ทำ alias กลางให้ทุกไฟล์เรียกชื่อเดียวกันได้
-    */
-    if(mods.config){
-      W.VocabConfig = mods.config;
-      W.VOCAB_APP = W.VOCAB_APP || mods.config;
-      W.VOCAB_CONFIG = W.VOCAB_CONFIG || mods.config;
-    }
+  function installCriticalCss(){
+    if($("vocabBootCriticalCss")) return;
 
-    if(mods.utils){
-      W.VocabUtils = mods.utils;
-      W.VOCAB_UTILS = W.VOCAB_UTILS || mods.utils;
-    }
+    const style = DOC.createElement("style");
+    style.id = "vocabBootCriticalCss";
+    style.textContent = `
+      .vocab-boot-error{
+        margin:0;
+        min-height:100dvh;
+        padding:32px;
+        background:#fff4f4;
+        color:#7f1d1d;
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      }
 
-    if(mods.data){
-      W.VocabData = mods.data;
-      W.VOCAB_DATA = W.VOCAB_DATA || mods.data;
-    }
+      .vocab-boot-error h1{
+        margin:0 0 18px;
+        font-size:clamp(30px,5vw,48px);
+      }
 
-    if(mods.state){
-      W.VocabState = mods.state;
-      W.VOCAB_STATE = W.VOCAB_STATE || mods.state;
-      W.vocabState = W.vocabState || mods.state;
-    }
+      .vocab-boot-error p{
+        font-size:clamp(18px,3vw,28px);
+        line-height:1.55;
+      }
 
-    if(mods.storage){
-      W.VocabStorage = mods.storage;
-      W.VOCAB_STORAGE = W.VOCAB_STORAGE || mods.storage;
-    }
+      .vocab-boot-error pre{
+        white-space:pre-wrap;
+        overflow:auto;
+        background:#fff;
+        border-radius:22px;
+        padding:22px;
+        font-size:16px;
+        line-height:1.55;
+      }
 
-    if(mods.logger){
-      W.VocabLogger = mods.logger;
-      W.VOCAB_LOGGER = W.VOCAB_LOGGER || mods.logger;
-    }
+      .vocab-boot-badge{
+        position:fixed;
+        right:14px;
+        top:14px;
+        z-index:99999;
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:9px 13px;
+        border-radius:999px;
+        background:rgba(7,17,31,.72);
+        border:1px solid rgba(255,255,255,.16);
+        color:#eef7ff;
+        font-weight:900;
+        font-size:12px;
+        backdrop-filter:blur(12px);
+      }
+    `;
 
-    if(mods.question){
-      W.VocabQuestion = mods.question;
-      W.VocabQuestions = W.VocabQuestions || mods.question;
-      W.VOCAB_QUESTION = W.VOCAB_QUESTION || mods.question;
-    }
+    DOC.head.appendChild(style);
+  }
 
-    if(mods.ui){
-      W.VocabUI = mods.ui;
-      W.VOCAB_UI = W.VOCAB_UI || mods.ui;
-    }
+  function installBootBadge(){
+    if($("vocabBootBadge")) return;
 
-    if(mods.game){
-      W.VocabGame = mods.game;
-      W.VOCAB_GAME = W.VOCAB_GAME || mods.game;
-    }
+    const badge = DOC.createElement("div");
+    badge.id = "vocabBootBadge";
+    badge.className = "vocab-boot-badge";
+    badge.textContent = "PROTECTED CLASSROOM";
 
-    if(mods.reward){
-      W.VocabReward = mods.reward;
-      W.VOCAB_REWARD = W.VOCAB_REWARD || mods.reward;
-    }
+    DOC.body.appendChild(badge);
+  }
 
-    if(mods.guard){
-      W.VocabGuard = mods.guard;
-      W.VOCAB_GUARD = W.VOCAB_GUARD || mods.guard;
-    }
+  /* =========================================================
+     ERROR SCREEN
+  ========================================================= */
 
-    if(mods.endpointTest){
-      W.VocabEndpointTest = mods.endpointTest;
-      W.VOCAB_ENDPOINT_TEST = W.VOCAB_ENDPOINT_TEST || mods.endpointTest;
+  function showBootError(missing, status){
+    installCriticalCss();
+
+    const app = $("vocabApp") || DOC.body;
+
+    const html = `
+      <section class="vocab-boot-error">
+        <h1>⚠️ Vocab boot error</h1>
+        <p>
+          โหลดไฟล์แล้ว แต่ยังไม่พบ module ที่ boot ต้องใช้
+        </p>
+        <p>
+          Missing: <b>${esc(missing.join(", "))}</b>
+        </p>
+        <pre>${esc(JSON.stringify(status, null, 2))}</pre>
+        <p>
+          ให้ตรวจว่าไฟล์ export เป็นชื่อ window.VocabUtils, window.VocabState,
+          window.VocabQuestion, window.VocabUI, window.VocabGame
+          และเรียง script ตามลำดับถูกต้อง
+        </p>
+      </section>
+    `;
+
+    if(app && app !== DOC.body){
+      app.innerHTML = html;
+      app.hidden = false;
+    }else{
+      DOC.body.innerHTML = html;
     }
   }
 
   /* =========================================================
-     BOOT ERROR UI
+     STATE HELPERS
   ========================================================= */
 
-  function showBootError(title, err, extra){
-    const root =
-      byId("vocabApp") ||
-      byId("vocabV6App") ||
-      D.body;
+  function getState(){
+    const app = ensureAppGlobal();
+    const stateMod = WIN.VocabState;
 
-    if(!root) return;
+    try{
+      if(stateMod && typeof stateMod.get === "function"){
+        const s = stateMod.get();
+        if(s && typeof s === "object") return s;
+      }
+    }catch(e){}
 
-    const old = byId("vocabBootError");
-    if(old) old.remove();
+    if(stateMod && stateMod.state && typeof stateMod.state === "object"){
+      return stateMod.state;
+    }
 
-    const pre = err && err.stack
-      ? err.stack
-      : typeof err === "string"
-        ? err
-        : JSON.stringify(err || {}, null, 2);
-
-    const extraHtml = extra
-      ? `<pre style="white-space:pre-wrap;background:#fff;border-radius:14px;padding:14px;overflow:auto">${esc(JSON.stringify(extra, null, 2))}</pre>`
-      : "";
-
-    const box = D.createElement("div");
-    box.id = "vocabBootError";
-    box.style.cssText = [
-      "max-width:1100px",
-      "margin:18px auto",
-      "padding:22px",
-      "border-radius:24px",
-      "border:1px solid #fecaca",
-      "background:#fff1f2",
-      "color:#7f1d1d",
-      "font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-      "line-height:1.55",
-      "box-shadow:0 14px 44px rgba(0,0,0,.14)"
-    ].join(";");
-
-    box.innerHTML = `
-      <h1 style="margin:0 0 12px;font-size:34px;letter-spacing:-.03em">
-        ⚠️ ${esc(title || "Vocab boot error")}
-      </h1>
-      <p style="margin:0 0 14px;font-size:20px">
-        โหลดไฟล์แล้ว แต่ระบบเริ่มเกมไม่ได้ เพราะ module บางตัวไม่พร้อม
-      </p>
-      ${pre ? `<pre style="white-space:pre-wrap;background:#fff;border-radius:14px;padding:14px;overflow:auto">${esc(pre)}</pre>` : ""}
-      ${extraHtml}
-      <p style="margin:14px 0 0;font-size:18px">
-        ให้ตรวจว่าแต่ละไฟล์ export เป็นชื่อบน <code>window</code> เช่น
-        <code>window.VocabState</code>, <code>window.VocabQuestion</code>,
-        <code>window.VocabUI</code>, <code>window.VocabGame</code>,
-        <code>window.VocabReward</code>
-      </p>
-    `;
-
-    root.prepend(box);
+    return app;
   }
 
-  function showMissingModules(mods, missing){
-    showBootError(
-      "Vocab boot error",
-      `Missing: ${missing.join(", ")}`,
-      moduleStatus(mods)
+  function patchState(update){
+    update = update || {};
+
+    const app = ensureAppGlobal();
+    Object.assign(app, update);
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.set === "function"){
+        WIN.VocabState.set(update);
+      }else if(WIN.VocabState && WIN.VocabState.state){
+        Object.assign(WIN.VocabState.state, update);
+      }
+    }catch(e){}
+  }
+
+  function getSelectedBank(){
+    const state = getState();
+    const active = qs("[data-vocab-bank].active");
+
+    return (
+      active?.dataset?.vocabBank ||
+      state.selectedBank ||
+      state.bank ||
+      WIN.VOCAB_APP?.selectedBank ||
+      "A"
     );
   }
 
+  function getSelectedDifficulty(){
+    const state = getState();
+    const active = qs("[data-vocab-diff].active");
+
+    return (
+      active?.dataset?.vocabDiff ||
+      active?.dataset?.difficulty ||
+      state.selectedDifficulty ||
+      state.difficulty ||
+      WIN.VOCAB_APP?.selectedDifficulty ||
+      "easy"
+    );
+  }
+
+  function getSelectedMode(){
+    const state = getState();
+    const active = qs("[data-vocab-mode].active");
+
+    return (
+      active?.dataset?.vocabMode ||
+      state.selectedMode ||
+      state.mode ||
+      WIN.VOCAB_APP?.selectedMode ||
+      "learn"
+    );
+  }
+
+  function syncActiveFromState(){
+    const bank = getSelectedBank();
+    const diff = getSelectedDifficulty();
+    const mode = getSelectedMode();
+
+    qsa("[data-vocab-bank]").forEach(function(btn){
+      btn.classList.toggle("active", btn.dataset.vocabBank === bank);
+    });
+
+    qsa("[data-vocab-diff]").forEach(function(btn){
+      btn.classList.toggle("active", btn.dataset.vocabDiff === diff);
+    });
+
+    qsa("[data-vocab-mode]").forEach(function(btn){
+      btn.classList.toggle("active", btn.dataset.vocabMode === mode);
+    });
+
+    patchState({
+      selectedBank: bank,
+      selectedDifficulty: diff,
+      selectedMode: mode,
+      bank: bank,
+      difficulty: diff,
+      mode: mode
+    });
+  }
+
   /* =========================================================
-     UI COMPATIBILITY
-     รองรับ id/class ใหม่ vocab-* และ legacy v6-*
+     MENU PREVIEWS
   ========================================================= */
 
-  function installDomAliases(){
-    /*
-      ถ้า JS เก่าบางไฟล์ยังหา id แบบ v6 อยู่ ให้ alias DOM id แบบไม่เปลี่ยน HTML
-      ทำโดยสร้าง getter helper บน window ไม่ไป duplicate id จริง
-    */
-    W.VocabDom = W.VocabDom || {
-      ids: {
-        app: ["vocabApp", "vocabV6App"],
-        menu: ["vocabMenuPanel", "v6MenuPanel"],
-        battle: ["vocabBattlePanel", "v6BattlePanel"],
-        reward: ["vocabRewardPanel", "v6RewardPanel"],
+  function diffPreviewText(diff){
+    const map = {
+      easy: "✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย",
+      normal: "🚀 Normal: สมดุลระหว่างเวลาและความท้าทาย",
+      hard: "🔥 Hard: เวลาน้อยขึ้น โจทย์ไวขึ้น เหมาะกับฝึกจริงจัง",
+      challenge: "⚡ Challenge: โหมดท้าทายสูงสุด คะแนนดีมีโอกาสติดอันดับ"
+    };
 
-        startBtn: ["vocabStartBtn", "v6StartBtn"],
+    return map[diff] || map.easy;
+  }
 
-        score: ["vocabScore", "v6Score"],
-        combo: ["vocabCombo", "v6Combo"],
-        hp: ["vocabHp", "v6Hp"],
-        timer: ["vocabTimer", "v6Timer"],
-        questionNo: ["vocabQuestionNo", "v6QuestionNo"],
-        modeHud: ["vocabModeHud", "v66ModeHud"],
+  function modePreviewText(mode){
+    const map = {
+      learn: "🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด",
+      speed: "⚡ Speed Run: ตอบให้ไว ทำ Combo เข้า Fever ได้เร็วขึ้น",
+      mission: "🎯 Debug Mission: ฝึกคำศัพท์ในสถานการณ์จริงของงาน CS/AI",
+      battle: "👾 Boss Battle: ต่อสู้กับบอส ใช้ Combo, Shield, Fever และ Laser ให้คุ้ม"
+    };
 
-        powerHud: ["vocabPowerHud", "v6PowerHud"],
-        feverChip: ["vocabFeverChip", "v6FeverChip"],
-        hintBtn: ["vocabHintBtn", "v6HintBtn"],
-        aiHelpBtn: ["vocabAiHelpBtn", "v67AiHelpBtn"],
-        shieldChip: ["vocabShieldChip", "v6ShieldChip"],
-        laserChip: ["vocabLaserChip", "v6LaserChip"],
+    return map[mode] || map.learn;
+  }
 
-        stageChip: ["vocabStageChip", "v6StageChip"],
-        stageGoal: ["vocabStageGoal", "v6StageGoal"],
+  function updatePreviews(){
+    const diff = getSelectedDifficulty();
+    const mode = getSelectedMode();
 
-        enemyAvatar: ["vocabEnemyAvatar", "v6EnemyAvatar"],
-        enemyName: ["vocabEnemyName", "v6EnemyName"],
-        enemySkill: ["vocabEnemySkill", "v6EnemySkill"],
-        enemyHpText: ["vocabEnemyHpText", "v6EnemyHpText"],
-        enemyHpFill: ["vocabEnemyHpFill", "v6EnemyHpFill"],
+    const diffBox = $("vocabDiffPreview") || $("v6DiffPreview");
+    if(diffBox){
+      diffBox.textContent = diffPreviewText(diff);
+    }
 
-        bankLabel: ["vocabBankLabel", "v6BankLabel"],
-        questionText: ["vocabQuestionText", "v6QuestionText"],
-        choices: ["vocabChoices", "v6Choices"],
-        explainBox: ["vocabExplainBox", "v6ExplainBox"],
-        aiHelpBox: ["vocabAiHelpBox", "v67AiHelpBox"],
+    const modeBox = $("vocabModePreview") || $("v6ModePreview");
+    if(modeBox){
+      modeBox.textContent = modePreviewText(mode);
+    }
+  }
 
-        diffPreview: ["vocabDiffPreview", "v6DiffPreview"],
-        modePreview: ["vocabModePreview", "v66ModePreview"],
+  function bindMenuSelectors(){
+    qsa("[data-vocab-bank]").forEach(function(btn){
+      if(btn.__vocabBootBankBound) return;
+      btn.__vocabBootBankBound = true;
 
-        displayName: ["vocabDisplayName", "v63DisplayName"],
-        studentId: ["vocabStudentId", "v63StudentId"],
-        section: ["vocabSection", "v63Section"],
-        sessionCode: ["vocabSessionCode", "v63SessionCode"],
+      btn.addEventListener("click", function(){
+        const value = btn.dataset.vocabBank || "A";
 
-        leaderboardBox: ["vocabLeaderboardBox", "v68LeaderboardBox"]
-      },
+        qsa("[data-vocab-bank]").forEach(function(b){
+          b.classList.toggle("active", b === btn);
+        });
 
-      get(key){
-        const list = this.ids[key] || [key];
-        for(const id of list){
-          const el = byId(id);
-          if(el) return el;
+        patchState({
+          selectedBank: value,
+          bank: value
+        });
+      });
+    });
+
+    qsa("[data-vocab-diff]").forEach(function(btn){
+      if(btn.__vocabBootDiffBound) return;
+      btn.__vocabBootDiffBound = true;
+
+      btn.addEventListener("click", function(){
+        const value = btn.dataset.vocabDiff || "easy";
+
+        qsa("[data-vocab-diff]").forEach(function(b){
+          b.classList.toggle("active", b === btn);
+        });
+
+        patchState({
+          selectedDifficulty: value,
+          difficulty: value
+        });
+
+        updatePreviews();
+      });
+    });
+
+    qsa("[data-vocab-mode]").forEach(function(btn){
+      if(btn.__vocabBootModeBound) return;
+      btn.__vocabBootModeBound = true;
+
+      btn.addEventListener("click", function(){
+        const value = btn.dataset.vocabMode || "learn";
+
+        qsa("[data-vocab-mode]").forEach(function(b){
+          b.classList.toggle("active", b === btn);
+        });
+
+        patchState({
+          selectedMode: value,
+          mode: value
+        });
+
+        updatePreviews();
+
+        if(WIN.VocabLeaderboard && typeof WIN.VocabLeaderboard.render === "function"){
+          WIN.VocabLeaderboard.render(value);
+        }else if(typeof WIN.renderLeaderboardV68 === "function"){
+          WIN.renderLeaderboardV68(value);
+        }else{
+          renderLeaderboardFallback(value);
         }
-        return null;
-      },
-
-      getByIds(ids){
-        for(const id of ids || []){
-          const el = byId(id);
-          if(el) return el;
-        }
-        return null;
-      }
-    };
-
-    W.vocabById = W.vocabById || function(key){
-      return W.VocabDom.get(key) || byId(key);
-    };
-  }
-
-  function installLegacyGlobalFunctions(mods){
-    /*
-      ให้ inline onclick / patch เก่าเรียกได้
-    */
-    W.startVocabBattleV6 = W.startVocabBattleV6 || function(options){
-      if(mods.game && typeof mods.game.start === "function"){
-        return mods.game.start(options || {});
-      }
-      if(mods.game && typeof mods.game.startGame === "function"){
-        return mods.game.startGame(options || {});
-      }
-      warn("[VOCAB BOOT] startVocabBattleV6 called but VocabGame.start is missing");
-      return null;
-    };
-
-    W.backToVocabMenuV6 = W.backToVocabMenuV6 || function(){
-      if(mods.ui && typeof mods.ui.showMenu === "function"){
-        return mods.ui.showMenu();
-      }
-
-      const menu = W.VocabDom.get("menu");
-      const battle = W.VocabDom.get("battle");
-      const reward = W.VocabDom.get("reward");
-
-      if(menu) menu.hidden = false;
-      if(battle) battle.hidden = true;
-      if(reward) reward.hidden = true;
-
-      try{ W.scrollTo({ top:0, behavior:"auto" }); }catch(e){}
-      return null;
-    };
-
-    W.renderLeaderboardV68 = W.renderLeaderboardV68 || function(mode){
-      if(mods.ui && typeof mods.ui.renderLeaderboard === "function"){
-        return mods.ui.renderLeaderboard(mode || "learn");
-      }
-      if(mods.storage && typeof mods.storage.renderLeaderboard === "function"){
-        return mods.storage.renderLeaderboard(mode || "learn");
-      }
-      return null;
-    };
-
-    W.clearTimerV6 = W.clearTimerV6 || function(){
-      if(mods.game && typeof mods.game.clearTimer === "function"){
-        return mods.game.clearTimer();
-      }
-      return null;
-    };
-
-    W.stopFeverV62 = W.stopFeverV62 || function(){
-      if(mods.game && typeof mods.game.stopFever === "function"){
-        return mods.game.stopFever();
-      }
-      return null;
-    };
+      });
+    });
   }
 
   /* =========================================================
-     MODULE INIT ORDER
+     STUDENT PROFILE
   ========================================================= */
 
-  function callFirst(mod, names, args){
-    if(!mod) return null;
-
-    for(const name of names){
-      if(typeof mod[name] === "function"){
-        return mod[name].apply(mod, args || []);
-      }
+  function loadStudentProfile(){
+    if(WIN.VocabStorage && typeof WIN.VocabStorage.loadStudentProfile === "function"){
+      try{
+        return WIN.VocabStorage.loadStudentProfile();
+      }catch(e){}
     }
 
-    return null;
-  }
-
-  function initConfig(mods){
-    /*
-      config ส่วนใหญ่ไม่ต้อง init แต่เผื่อมี
-    */
-    callFirst(mods.config, ["init", "boot", "setup"], [mods]);
-  }
-
-  function initStorage(mods){
-    callFirst(mods.storage, ["init", "boot", "hydrate"], [mods]);
-  }
-
-  function initLogger(mods){
-    callFirst(mods.logger, ["init", "boot", "setup"], [mods]);
-  }
-
-  function initState(mods){
-    callFirst(mods.state, ["init", "boot", "reset"], [mods]);
-  }
-
-  function initData(mods){
-    callFirst(mods.data, ["init", "boot", "applyExpansion"], [mods]);
-  }
-
-  function initQuestion(mods){
-    callFirst(mods.question, ["init", "boot"], [mods]);
-  }
-
-  function initReward(mods){
-    callFirst(mods.reward, ["init", "boot", "install"], [mods]);
-  }
-
-  function initUI(mods){
-    callFirst(mods.ui, ["init", "boot", "bind"], [mods]);
-  }
-
-  function initGame(mods){
-    callFirst(mods.game, ["init", "boot"], [mods]);
-  }
-
-  function initGuard(mods){
-    if(mods.guard){
-      callFirst(mods.guard, ["init", "boot", "install"], [mods]);
-    }
-  }
-
-  function initEndpointTest(mods){
-    if(mods.endpointTest){
-      callFirst(mods.endpointTest, ["init", "boot"], [mods]);
-    }
-  }
-
-  /* =========================================================
-     FALLBACK UI BINDINGS
-     ถ้า vocab.ui.js ยัง bind ไม่ครบ boot จะช่วย bind ปุ่มหลักให้
-  ========================================================= */
-
-  function getSelectedFromDom(){
-    const bankBtn = D.querySelector("[data-vocab-bank].active, [data-v6-bank].active");
-    const diffBtn = D.querySelector("[data-vocab-diff].active, [data-v6-diff].active");
-    const modeBtn = D.querySelector("[data-vocab-mode].active, [data-v6-mode].active");
+    const saved =
+      readJson("VOCAB_SPLIT_STUDENT_PROFILE", {}) ||
+      readJson("VOCAB_V71_STUDENT_PROFILE", {}) ||
+      {};
 
     return {
-      bank:
-        bankBtn?.dataset?.vocabBank ||
-        bankBtn?.dataset?.v6Bank ||
-        "A",
+      display_name:
+        getParam("name") ||
+        getParam("nick") ||
+        readInput("vocabDisplayName") ||
+        saved.display_name ||
+        saved.displayName ||
+        "Hero",
 
-      difficulty:
-        diffBtn?.dataset?.vocabDiff ||
-        diffBtn?.dataset?.v6Diff ||
-        "easy",
+      student_id:
+        getParam("student_id") ||
+        getParam("sid") ||
+        getParam("pid") ||
+        readInput("vocabStudentId") ||
+        saved.student_id ||
+        saved.studentId ||
+        "anon",
 
-      mode:
-        modeBtn?.dataset?.vocabMode ||
-        modeBtn?.dataset?.v6Mode ||
-        "learn"
+      section:
+        getParam("section") ||
+        readInput("vocabSection") ||
+        saved.section ||
+        "",
+
+      session_code:
+        getParam("session_code") ||
+        getParam("studyId") ||
+        readInput("vocabSessionCode") ||
+        saved.session_code ||
+        saved.sessionCode ||
+        ""
     };
   }
 
-  function setActiveButton(selector, btn){
-    D.querySelectorAll(selector).forEach(x => {
-      x.classList.toggle("active", x === btn);
-    });
+  function saveStudentProfile(){
+    const profile = {
+      display_name:
+        readInput("vocabDisplayName") ||
+        readInput("v63DisplayName") ||
+        getParam("name") ||
+        getParam("nick") ||
+        "Hero",
+
+      student_id:
+        readInput("vocabStudentId") ||
+        readInput("v63StudentId") ||
+        getParam("student_id") ||
+        getParam("sid") ||
+        getParam("pid") ||
+        "anon",
+
+      section:
+        readInput("vocabSection") ||
+        readInput("v63Section") ||
+        getParam("section") ||
+        "",
+
+      session_code:
+        readInput("vocabSessionCode") ||
+        readInput("v63SessionCode") ||
+        getParam("session_code") ||
+        getParam("studyId") ||
+        "",
+
+      updated_at: nowIso()
+    };
+
+    if(WIN.VocabStorage && typeof WIN.VocabStorage.saveStudentProfile === "function"){
+      try{
+        return WIN.VocabStorage.saveStudentProfile(profile);
+      }catch(e){}
+    }
+
+    writeJson("VOCAB_SPLIT_STUDENT_PROFILE", profile);
+    writeJson("VOCAB_V71_STUDENT_PROFILE", profile);
+
+    return profile;
   }
 
-  function installFallbackBindings(mods){
-    /*
-      Bank
-    */
-    D.querySelectorAll("[data-vocab-bank], [data-v6-bank]").forEach(btn => {
-      if(btn.__vocabBootBound) return;
-      btn.__vocabBootBound = true;
+  function hydrateStudentForm(){
+    if(WIN.VocabStorage && typeof WIN.VocabStorage.hydrateStudentForm === "function"){
+      try{
+        WIN.VocabStorage.hydrateStudentForm();
+      }catch(e){
+        warn("hydrateStudentForm failed", e);
+      }
+    }
 
-      btn.addEventListener("click", () => {
-        setActiveButton("[data-vocab-bank], [data-v6-bank]", btn);
+    if(WIN.VocabStorage && typeof WIN.VocabStorage.bindStudentAutoSave === "function"){
+      try{
+        WIN.VocabStorage.bindStudentAutoSave();
+      }catch(e){
+        warn("bindStudentAutoSave failed", e);
+      }
+    }
 
-        const bank =
-          btn.dataset.vocabBank ||
-          btn.dataset.v6Bank ||
-          "A";
+    const profile = loadStudentProfile();
 
-        if(mods.config){
-          mods.config.selectedBank = bank;
-        }
+    const fields = {
+      vocabDisplayName: profile.display_name === "Hero" ? "" : profile.display_name,
+      vocabStudentId: profile.student_id === "anon" ? "" : profile.student_id,
+      vocabSection: profile.section || "",
+      vocabSessionCode: profile.session_code || "",
 
-        if(W.VOCAB_APP){
-          W.VOCAB_APP.selectedBank = bank;
-        }
+      v63DisplayName: profile.display_name === "Hero" ? "" : profile.display_name,
+      v63StudentId: profile.student_id === "anon" ? "" : profile.student_id,
+      v63Section: profile.section || "",
+      v63SessionCode: profile.session_code || ""
+    };
 
-        callFirst(mods.ui, ["updateBankLabel", "refreshMenu", "renderMenu"], [bank]);
-      });
+    Object.keys(fields).forEach(function(id){
+      const el = $(id);
+      if(el && !String(el.value || "").trim()){
+        el.value = fields[id];
+      }
     });
 
-    /*
-      Difficulty
-    */
-    D.querySelectorAll("[data-vocab-diff], [data-v6-diff]").forEach(btn => {
-      if(btn.__vocabBootBound) return;
-      btn.__vocabBootBound = true;
+    [
+      "vocabDisplayName",
+      "vocabStudentId",
+      "vocabSection",
+      "vocabSessionCode",
+      "v63DisplayName",
+      "v63StudentId",
+      "v63Section",
+      "v63SessionCode"
+    ].forEach(function(id){
+      const el = $(id);
+      if(!el || el.__vocabBootAutoSaveBound) return;
 
-      btn.addEventListener("click", () => {
-        setActiveButton("[data-vocab-diff], [data-v6-diff]", btn);
-
-        const diff =
-          btn.dataset.vocabDiff ||
-          btn.dataset.v6Diff ||
-          "easy";
-
-        if(mods.config){
-          mods.config.selectedDifficulty = diff;
-        }
-
-        if(W.VOCAB_APP){
-          W.VOCAB_APP.selectedDifficulty = diff;
-        }
-
-        callFirst(mods.ui, ["updateDiffPreview", "refreshMenu", "renderMenu"], [diff]);
+      el.__vocabBootAutoSaveBound = true;
+      el.addEventListener("input", function(){
+        saveStudentProfile();
       });
     });
-
-    /*
-      Mode
-    */
-    D.querySelectorAll("[data-vocab-mode], [data-v6-mode]").forEach(btn => {
-      if(btn.__vocabBootBound) return;
-      btn.__vocabBootBound = true;
-
-      btn.addEventListener("click", () => {
-        setActiveButton("[data-vocab-mode], [data-v6-mode]", btn);
-
-        const mode =
-          btn.dataset.vocabMode ||
-          btn.dataset.v6Mode ||
-          "learn";
-
-        if(mods.config){
-          mods.config.selectedMode = mode;
-        }
-
-        if(W.VOCAB_APP){
-          W.VOCAB_APP.selectedMode = mode;
-        }
-
-        callFirst(mods.ui, ["updateModePreview", "updateBankLabel", "refreshMenu", "renderMenu"], [mode]);
-      });
-    });
-
-    /*
-      Start
-    */
-    const startBtn =
-      W.VocabDom.get("startBtn") ||
-      byId("vocabStartBtn") ||
-      byId("v6StartBtn");
-
-    if(startBtn && !startBtn.__vocabBootBound){
-      startBtn.__vocabBootBound = true;
-
-      startBtn.addEventListener("click", () => {
-        const options = getSelectedFromDom();
-
-        if(mods.config){
-          mods.config.selectedBank = options.bank;
-          mods.config.selectedDifficulty = options.difficulty;
-          mods.config.selectedMode = options.mode;
-        }
-
-        if(W.VOCAB_APP){
-          W.VOCAB_APP.selectedBank = options.bank;
-          W.VOCAB_APP.selectedDifficulty = options.difficulty;
-          W.VOCAB_APP.selectedMode = options.mode;
-        }
-
-        if(mods.game && typeof mods.game.start === "function"){
-          mods.game.start(options);
-          return;
-        }
-
-        if(mods.game && typeof mods.game.startGame === "function"){
-          mods.game.startGame(options);
-          return;
-        }
-
-        if(typeof W.startVocabBattleV6 === "function"){
-          W.startVocabBattleV6(options);
-          return;
-        }
-
-        showBootError("Start failed", "VocabGame.start / startGame not found");
-      });
-    }
-
-    /*
-      Hint / AI Help
-    */
-    const hintBtn = W.VocabDom.get("hintBtn");
-    if(hintBtn && !hintBtn.__vocabBootBound){
-      hintBtn.__vocabBootBound = true;
-      hintBtn.addEventListener("click", () => {
-        callFirst(mods.game, ["useHint", "hint", "useHintV62"], []);
-      });
-    }
-
-    const aiHelpBtn = W.VocabDom.get("aiHelpBtn");
-    if(aiHelpBtn && !aiHelpBtn.__vocabBootBound){
-      aiHelpBtn.__vocabBootBound = true;
-      aiHelpBtn.addEventListener("click", () => {
-        callFirst(mods.game, ["useAiHelp", "aiHelp", "useAiHelpV67"], []);
-      });
-    }
-
-    /*
-      Leaderboard tabs
-    */
-    D.querySelectorAll("[data-lb-mode]").forEach(btn => {
-      if(btn.__vocabBootBound) return;
-      btn.__vocabBootBound = true;
-
-      btn.addEventListener("click", () => {
-        setActiveButton("[data-lb-mode]", btn);
-        const mode = btn.dataset.lbMode || "learn";
-
-        if(mods.ui && typeof mods.ui.renderLeaderboard === "function"){
-          mods.ui.renderLeaderboard(mode);
-          return;
-        }
-
-        if(mods.storage && typeof mods.storage.renderLeaderboard === "function"){
-          mods.storage.renderLeaderboard(mode);
-        }
-      });
-    });
-  }
-
-  function initialRender(mods){
-    /*
-      ซ่อน/โชว์หน้าตามค่าเริ่มต้น
-    */
-    callFirst(mods.ui, ["showMenu", "showMenuScreen", "renderMenu"], []);
-
-    callFirst(mods.ui, ["updateDiffPreview"], []);
-    callFirst(mods.ui, ["updateModePreview"], []);
-    callFirst(mods.ui, ["updateBankLabel"], []);
-    callFirst(mods.ui, ["updateModeHud"], []);
-
-    if(mods.ui && typeof mods.ui.renderLeaderboard === "function"){
-      mods.ui.renderLeaderboard("learn");
-    }else if(mods.storage && typeof mods.storage.renderLeaderboard === "function"){
-      mods.storage.renderLeaderboard("learn");
-    }
-
-    /*
-      fallback ถ้า ui ไม่มี showMenu
-    */
-    const menu = W.VocabDom.get("menu");
-    const battle = W.VocabDom.get("battle");
-    const reward = W.VocabDom.get("reward");
-
-    if(menu && battle && reward){
-      menu.hidden = false;
-      battle.hidden = true;
-      reward.hidden = true;
-    }
   }
 
   /* =========================================================
-     PUBLIC DIAGNOSTICS
+     LEADERBOARD FALLBACK
   ========================================================= */
 
-  function installDiagnostics(){
-    W.vocabBootStatus = function(){
-      const mods = resolveModules();
-      return {
-        version: BOOT_VERSION,
-        booted,
-        modules: moduleStatus(mods),
-        missing: getMissingRequired(mods),
-        config: W.VocabConfig || W.VOCAB_APP || null,
-        currentUrl: location.href
-      };
+  function normalizeBoard(board){
+    const fallback = {
+      learn: [],
+      speed: [],
+      mission: [],
+      battle: [],
+      bossrush: []
     };
 
-    W.vocabReboot = function(){
-      booted = false;
-      return bootVocabApp();
+    if(!board || typeof board !== "object"){
+      return fallback;
+    }
+
+    Object.keys(fallback).forEach(function(mode){
+      if(!Array.isArray(board[mode])){
+        board[mode] = [];
+      }
+    });
+
+    return board;
+  }
+
+  function readLeaderboardFallback(){
+    if(WIN.VocabStorage && typeof WIN.VocabStorage.readLeaderboard === "function"){
+      try{
+        return normalizeBoard(WIN.VocabStorage.readLeaderboard());
+      }catch(e){}
+    }
+
+    return normalizeBoard(
+      readJson("VOCAB_SPLIT_LEADERBOARD", null) ||
+      readJson("VOCAB_V71_LEADERBOARD", null) ||
+      readJson("VOCAB_LEADERBOARD", null)
+    );
+  }
+
+  function leaderboardBox(){
+    return $("vocabLeaderboardBox") || $("v68LeaderboardBox");
+  }
+
+  function leaderboardModeInfo(mode){
+    const map = {
+      learn: ["🤖", "AI Training"],
+      speed: ["⚡", "Speed Run"],
+      mission: ["🎯", "Debug Mission"],
+      battle: ["👾", "Boss Battle"],
+      bossrush: ["💀", "Boss Rush"]
     };
+
+    return map[mode] || map.learn;
+  }
+
+  function leaderboardRowHtml(row, index){
+    const rank =
+      index === 0 ? "🥇" :
+      index === 1 ? "🥈" :
+      index === 2 ? "🥉" :
+      "#" + (index + 1);
+
+    const score = Number(row.fair_score || row.score || 0);
+    const acc = Number(row.accuracy || 0);
+    const name = row.display_name || row.displayName || "Hero";
+    const bank = row.bank || "-";
+    const diff = row.difficulty || row.diff || "-";
+    const assisted = Number(row.ai_assisted || row.ai_help_used || row.aiHelpUsed || 0) > 0;
+
+    return `
+      <div class="vocab-lb-row v68-lb-row">
+        <div class="vocab-rank v68-rank">${rank}</div>
+        <div class="vocab-lb-name v68-lb-name">
+          <b>${esc(name)}</b>
+          <small>Bank ${esc(bank)} • ${esc(diff)}</small>
+        </div>
+        <div class="vocab-lb-score v68-lb-score">${score}</div>
+        <div class="v68-hide-mobile">
+          <span class="vocab-lb-chip v68-lb-chip">${acc}%</span>
+        </div>
+        <div class="v68-hide-mobile">
+          ${
+            assisted
+              ? `<span class="vocab-lb-chip v68-lb-chip assisted">🤖 Assisted</span>`
+              : `<span class="vocab-lb-chip v68-lb-chip">🏅 No Help</span>`
+          }
+        </div>
+      </div>
+    `;
+  }
+
+  function renderLeaderboardFallback(mode){
+    mode = mode || getSelectedMode();
+
+    const box = leaderboardBox();
+    if(!box) return;
+
+    const board = readLeaderboardFallback();
+    const rows = Array.isArray(board[mode]) ? board[mode] : [];
+    const info = leaderboardModeInfo(mode);
+
+    qsa("[data-lb-mode]").forEach(function(tab){
+      tab.classList.toggle("active", tab.dataset.lbMode === mode);
+    });
+
+    if(!rows.length){
+      box.innerHTML = `
+        <div class="vocab-lb-empty v68-lb-empty">
+          ${info[0]} ${esc(info[1])}: ยังไม่มีคะแนนในโหมดนี้
+        </div>
+      `;
+      return;
+    }
+
+    const sorted = rows.slice().sort(function(a, b){
+      const s =
+        Number(b.fair_score || b.score || 0) -
+        Number(a.fair_score || a.score || 0);
+
+      if(s !== 0) return s;
+
+      return Number(b.accuracy || 0) - Number(a.accuracy || 0);
+    });
+
+    box.innerHTML = sorted.slice(0, 5).map(leaderboardRowHtml).join("");
+  }
+
+  function installLeaderboardFallback(){
+    if(WIN.VocabLeaderboard && typeof WIN.VocabLeaderboard.render === "function"){
+      return;
+    }
+
+    WIN.VocabLeaderboard = {
+      version: "leaderboard-fallback-from-" + VERSION,
+      render: renderLeaderboardFallback,
+      readBoard: readLeaderboardFallback
+    };
+
+    WIN.renderLeaderboardV68 = renderLeaderboardFallback;
+  }
+
+  function bindLeaderboardTabs(){
+    qsa("[data-lb-mode]").forEach(function(tab){
+      if(tab.__vocabBootLbBound) return;
+
+      tab.__vocabBootLbBound = true;
+      tab.addEventListener("click", function(){
+        const mode = tab.dataset.lbMode || "learn";
+
+        patchState({
+          selectedMode: mode,
+          mode: mode
+        });
+
+        if(WIN.VocabLeaderboard && typeof WIN.VocabLeaderboard.render === "function"){
+          WIN.VocabLeaderboard.render(mode);
+        }else{
+          renderLeaderboardFallback(mode);
+        }
+      });
+    });
+  }
+
+  function renderLeaderboardSoon(){
+    const mode = getSelectedMode();
+
+    function run(){
+      try{
+        if(WIN.VocabLeaderboard && typeof WIN.VocabLeaderboard.render === "function"){
+          WIN.VocabLeaderboard.render(mode);
+        }else{
+          renderLeaderboardFallback(mode);
+        }
+      }catch(e){
+        warn("leaderboard render failed", e);
+      }
+    }
+
+    run();
+    setTimeout(run, 250);
+    setTimeout(run, 900);
+  }
+
+  /* =========================================================
+     REWARD FALLBACK
+  ========================================================= */
+
+  function installRewardFallback(){
+    if(WIN.VocabReward && typeof WIN.VocabReward.show === "function"){
+      return;
+    }
+
+    WIN.VocabReward = {
+      version: "reward-fallback-from-" + VERSION,
+
+      show: function(summary){
+        summary = summary || {};
+
+        const panel = $("vocabRewardPanel");
+        const menu = $("vocabMenuPanel");
+        const battle = $("vocabBattlePanel");
+
+        if(!panel){
+          alert(
+            "Score: " + Number(summary.score || 0) +
+            "\nAccuracy: " + Number(summary.accuracy || 0) + "%"
+          );
+          return;
+        }
+
+        setHidden(menu, true);
+        setHidden(battle, true);
+        setHidden(panel, false);
+
+        panel.innerHTML = `
+          <div class="vocab-card v6-card vocab-wide v6-wide" style="max-width:880px;margin:20px auto;">
+            <h1>🏆 Vocab Result</h1>
+            <p class="vocab-note v63-note">สรุปผลการเล่นรอบนี้</p>
+
+            <div class="vocab-menu-grid v6-menu-grid" style="grid-template-columns:repeat(2,1fr);">
+              <div class="vocab-card v6-card">
+                <h2>Score</h2>
+                <p style="font-size:42px;font-weight:1000;margin:0;">${Number(summary.score || 0)}</p>
+              </div>
+              <div class="vocab-card v6-card">
+                <h2>Accuracy</h2>
+                <p style="font-size:42px;font-weight:1000;margin:0;">${Number(summary.accuracy || 0)}%</p>
+              </div>
+            </div>
+
+            <button id="vocabRewardBackBtn" class="vocab-start-btn v6-start-btn" type="button">
+              กลับหน้าแรก
+            </button>
+          </div>
+        `;
+
+        const back = $("vocabRewardBackBtn");
+        if(back){
+          back.addEventListener("click", function(){
+            setHidden(panel, true);
+            setHidden(battle, true);
+            setHidden(menu, false);
+            renderLeaderboardSoon();
+          });
+        }
+      }
+    };
+
+    WIN.VocabModules = WIN.VocabModules || {};
+    WIN.VocabModules.reward = true;
+
+    WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+    WIN.__VOCAB_MODULES__.reward = true;
+  }
+
+  /* =========================================================
+     START FALLBACK
+     ไม่ผูกซ้ำถ้า VocabUI มี init/bind แล้ว
+  ========================================================= */
+
+  function collectStartOptions(){
+    const profile = saveStudentProfile();
+
+    const bank = getSelectedBank();
+    const difficulty = getSelectedDifficulty();
+    const mode = getSelectedMode();
+
+    patchState({
+      selectedBank: bank,
+      selectedDifficulty: difficulty,
+      selectedMode: mode,
+      bank: bank,
+      difficulty: difficulty,
+      mode: mode
+    });
+
+    return {
+      bank: bank,
+      difficulty: difficulty,
+      diff: difficulty,
+      mode: mode,
+
+      display_name: profile.display_name,
+      displayName: profile.display_name,
+
+      student_id: profile.student_id,
+      studentId: profile.student_id,
+
+      section: profile.section,
+      session_code: profile.session_code,
+      sessionCode: profile.session_code,
+
+      seed: Number(getParam("seed", Date.now())) || Date.now(),
+      run: getParam("run", "play") || "play",
+      source: "vocab.html",
+      schema: WIN.VOCAB_APP?.schema || "vocab-split-v1",
+      version: WIN.VOCAB_APP?.version || "vocab-split-v1"
+    };
+  }
+
+  function callGameStart(options){
+    const game =
+      WIN.VocabGame ||
+      WIN.vocabGame ||
+      WIN.VOCAB_GAME;
+
+    if(!game){
+      showBootError(["game"], getModuleStatus());
+      return;
+    }
+
+    if(typeof game.start === "function"){
+      game.start(options);
+      return;
+    }
+
+    if(typeof game.startGame === "function"){
+      game.startGame(options);
+      return;
+    }
+
+    if(typeof game.boot === "function"){
+      game.boot(options);
+      return;
+    }
+
+    throw new Error("VocabGame exists but has no start/startGame/boot function");
+  }
+
+  function bindStartFallback(){
+    const btn =
+      $("vocabStartBtn") ||
+      $("v6StartBtn") ||
+      qs("[data-vocab-start]");
+
+    if(!btn) return;
+
+    /*
+      ถ้า VocabUI มี init/bindEvents ให้ UI เป็นคนผูกปุ่มหลัก
+      boot จะไม่ผูกซ้ำ เพื่อกัน start 2 รอบ
+    */
+    const ui = WIN.VocabUI || WIN.VocabUi;
+    const uiCanBind =
+      ui &&
+      (
+        typeof ui.init === "function" ||
+        typeof ui.bind === "function" ||
+        typeof ui.bindEvents === "function" ||
+        typeof ui.boot === "function"
+      );
+
+    if(uiCanBind){
+      return;
+    }
+
+    if(btn.__vocabBootStartBound) return;
+
+    btn.__vocabBootStartBound = true;
+
+    btn.addEventListener("click", function(ev){
+      ev.preventDefault();
+
+      const now = Date.now();
+      if(now - LAST_START_AT < 650) return;
+      LAST_START_AT = now;
+
+      try{
+        const options = collectStartOptions();
+        callGameStart(options);
+      }catch(err){
+        console.error("[VOCAB BOOT] start failed", err);
+        alert("เริ่มเกมไม่ได้: " + (err && err.message ? err.message : err));
+      }
+    });
+  }
+
+  /* =========================================================
+     INIT MODULES
+  ========================================================= */
+
+  function callOptionalInit(){
+    const state = WIN.VocabState;
+    const ui = WIN.VocabUI || WIN.VocabUi;
+    const game = WIN.VocabGame || WIN.vocabGame || WIN.VOCAB_GAME;
+    const guard = WIN.VocabGuard;
+
+    try{
+      if(state && typeof state.init === "function" && !state.__vocabBootInitDone){
+        state.__vocabBootInitDone = true;
+        state.init({
+          bank: getSelectedBank(),
+          difficulty: getSelectedDifficulty(),
+          mode: getSelectedMode()
+        });
+      }
+    }catch(e){
+      warn("VocabState.init failed", e);
+    }
+
+    /*
+      UI init เป็นตัวสำคัญ เพราะมัก bind Start, choices, leaderboard
+    */
+    try{
+      if(ui && typeof ui.init === "function" && !ui.__vocabBootInitDone){
+        ui.__vocabBootInitDone = true;
+        ui.init();
+      }else if(ui && typeof ui.boot === "function" && !ui.__vocabBootInitDone){
+        ui.__vocabBootInitDone = true;
+        ui.boot();
+      }else if(ui && typeof ui.bindEvents === "function" && !ui.__vocabBootInitDone){
+        ui.__vocabBootInitDone = true;
+        ui.bindEvents();
+      }else if(ui && typeof ui.bind === "function" && !ui.__vocabBootInitDone){
+        ui.__vocabBootInitDone = true;
+        ui.bind();
+      }
+    }catch(e){
+      warn("VocabUI init failed", e);
+    }
+
+    /*
+      Game init ต้องระวังไม่ให้เริ่มเกมเอง
+    */
+    try{
+      if(game && typeof game.init === "function" && !game.__vocabBootInitDone){
+        game.__vocabBootInitDone = true;
+        game.init({
+          silent: true,
+          bootedBy: VERSION
+        });
+      }
+    }catch(e){
+      warn("VocabGame.init failed", e);
+    }
+
+    try{
+      if(guard && typeof guard.init === "function" && !guard.__vocabBootInitDone){
+        guard.__vocabBootInitDone = true;
+        guard.init();
+      }
+    }catch(e){
+      warn("VocabGuard.init failed", e);
+    }
   }
 
   /* =========================================================
      MAIN BOOT
   ========================================================= */
 
-  function bootVocabApp(){
-    if(booted){
-      log("[VOCAB BOOT] already booted", BOOT_VERSION);
-      return true;
-    }
+  function boot(){
+    if(BOOTED) return;
 
-    installDomAliases();
+    ensureAppGlobal();
+    installCriticalCss();
+    applyClassAliases();
 
-    const mods = resolveModules();
-    installLegacyAliases(mods);
+    const status = getModuleStatus();
+    markModuleFlags(status);
 
-    const refreshedMods = resolveModules();
-    installLegacyAliases(refreshedMods);
-
-    const missing = getMissingRequired(refreshedMods);
+    const missing = getMissingRequired(status);
 
     if(missing.length){
-      error("[VOCAB BOOT] missing modules", missing, moduleStatus(refreshedMods));
-      showMissingModules(refreshedMods, missing);
-      installDiagnostics();
-      return false;
+      warn("missing modules", missing, status);
+      showBootError(missing, status);
+      return;
     }
 
-    try{
-      safeCall("initConfig", () => initConfig(refreshedMods));
-      safeCall("initUtils", () => callFirst(refreshedMods.utils, ["init", "boot"], [refreshedMods]));
-      safeCall("initData", () => initData(refreshedMods));
-      safeCall("initState", () => initState(refreshedMods));
-      safeCall("initStorage", () => initStorage(refreshedMods));
-      safeCall("initLogger", () => initLogger(refreshedMods));
-      safeCall("initQuestion", () => initQuestion(refreshedMods));
-      safeCall("initReward", () => initReward(refreshedMods));
-      safeCall("initUI", () => initUI(refreshedMods));
-      safeCall("initGame", () => initGame(refreshedMods));
-      safeCall("initGuard", () => initGuard(refreshedMods));
-      safeCall("initEndpointTest", () => initEndpointTest(refreshedMods));
+    BOOTED = true;
 
-      installLegacyGlobalFunctions(refreshedMods);
-      installFallbackBindings(refreshedMods);
-      initialRender(refreshedMods);
-      installDiagnostics();
+    installBootBadge();
+    installRewardFallback();
+    installLeaderboardFallback();
 
-      const oldError = byId("vocabBootError");
-      if(oldError) oldError.remove();
+    syncActiveFromState();
+    hydrateStudentForm();
+    bindMenuSelectors();
+    updatePreviews();
 
-      booted = true;
+    bindLeaderboardTabs();
+    callOptionalInit();
+    bindStartFallback();
 
-      log("[VOCAB BOOT] complete", BOOT_VERSION, moduleStatus(refreshedMods));
+    renderLeaderboardSoon();
 
-      try{
-        if(refreshedMods.logger && typeof refreshedMods.logger.log === "function"){
-          refreshedMods.logger.log("boot_complete", {
-            boot_version: BOOT_VERSION,
-            modules: moduleStatus(refreshedMods)
-          });
-        }
-      }catch(e){}
+    WIN.VocabBoot = {
+      version: VERSION,
+      booted: true,
+      booted_at: nowIso(),
+      getStatus: getModuleStatus,
+      getModules: getModules,
+      renderLeaderboard: renderLeaderboardSoon,
+      startOptions: collectStartOptions
+    };
 
-      return true;
-    }catch(err){
-      error("[VOCAB BOOT] failed", err);
-      showBootError("Vocab boot failed", err, moduleStatus(refreshedMods));
-      installDiagnostics();
-      return false;
+    WIN.VocabModules = WIN.VocabModules || {};
+    WIN.VocabModules.boot = true;
+
+    WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+    WIN.__VOCAB_MODULES__.boot = true;
+
+    log("ready", VERSION, getModuleStatus());
+  }
+
+  function bootWhenReady(){
+    let tries = 0;
+    const maxTries = 50;
+
+    function tick(){
+      tries += 1;
+
+      ensureAppGlobal();
+      applyClassAliases();
+
+      const status = getModuleStatus();
+      markModuleFlags(status);
+
+      const missing = getMissingRequired(status);
+
+      if(!missing.length){
+        clearInterval(BOOT_TIMER);
+        BOOT_TIMER = null;
+        boot();
+        return;
+      }
+
+      if(tries >= maxTries){
+        clearInterval(BOOT_TIMER);
+        BOOT_TIMER = null;
+
+        warn("boot timeout missing modules", missing, status);
+        showBootError(missing, status);
+      }
+    }
+
+    tick();
+
+    if(!BOOTED && !BOOT_TIMER){
+      BOOT_TIMER = setInterval(tick, 100);
     }
   }
 
-  /* =========================================================
-     EXPORT
-  ========================================================= */
+  if(DOC.readyState === "loading"){
+    DOC.addEventListener("DOMContentLoaded", bootWhenReady, { once:true });
+  }else{
+    bootWhenReady();
+  }
 
-  W.VocabBoot = {
-    version: BOOT_VERSION,
-    boot: bootVocabApp,
-    resolveModules,
-    moduleStatus,
-    getMissingRequired,
-    installDomAliases,
-    installLegacyAliases
-  };
-
-  W.bootVocabApp = bootVocabApp;
-
-  onReady(function(){
-    bootVocabApp();
-  });
-
+  log("loaded", VERSION);
 })();
