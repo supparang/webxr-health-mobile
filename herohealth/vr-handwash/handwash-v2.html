@@ -620,8 +620,8 @@
 
     .waterStream{
       position:absolute;
-      left:126px;
-      top:72px;
+      left:calc(50% + 38px);
+      top:86px;
       width:18px;
       height:190px;
       border-radius:999px;
@@ -651,6 +651,9 @@
       z-index:5;
       display:grid;
       place-items:end center;
+      background:transparent;
+      border:0;
+      padding:0;
     }
 
     .soapHead{
@@ -722,6 +725,7 @@
       height:100%;
       overflow:visible;
       filter:drop-shadow(0 16px 16px rgba(23,56,79,.10));
+      pointer-events:none;
     }
 
     .handSkin{
@@ -743,14 +747,24 @@
       border-radius:999px;
       background:rgba(255,217,93,.0);
       border:3px solid transparent;
-      z-index:9;
+      z-index:20;
       touch-action:none;
+      cursor:pointer;
+      pointer-events:auto;
+    }
+
+    .handZone::after{
+      content:"";
+      position:absolute;
+      inset:-26px;
+      border-radius:999px;
+      pointer-events:auto;
     }
 
     .handZone.target{
-      background:rgba(255,217,93,.32);
+      background:rgba(255,217,93,.38);
       border-color:#ffd84d;
-      box-shadow:0 0 0 8px rgba(255,216,77,.18);
+      box-shadow:0 0 0 10px rgba(255,216,77,.20);
       animation:targetPulse 1s ease-in-out infinite;
     }
 
@@ -761,7 +775,7 @@
 
     @keyframes targetPulse{
       0%,100%{ transform:scale(1); }
-      50%{ transform:scale(1.025); }
+      50%{ transform:scale(1.035); }
     }
 
     .zone-palm{ left:41%; top:47%; width:18%; height:18%; }
@@ -779,7 +793,7 @@
       position:absolute;
       inset:0;
       pointer-events:none;
-      z-index:12;
+      z-index:30;
     }
 
     .foam{
@@ -842,7 +856,8 @@
       font-size:15px;
       font-weight:1000;
       line-height:1.35;
-      z-index:20;
+      z-index:40;
+      pointer-events:none;
     }
 
     .orderList{
@@ -1460,6 +1475,17 @@
         els.statTime.textContent = String(state.timeLeft);
       }
 
+      function render(){
+        updateHeader();
+        updateStats();
+
+        if(state.stage === 'howto') renderHowto();
+        else if(state.stage === 'practice') renderPractice();
+        else if(state.stage === 'main') renderMain();
+        else if(state.stage === 'order') renderOrder();
+        else if(state.stage === 'summary') renderSummary();
+      }
+
       function updateHeader(){
         const map = {
           howto: {
@@ -1573,7 +1599,7 @@
               target: target.id,
               mode: 'practice',
               progress: pct,
-              hint: 'แตะบริเวณที่สว่างบนมือ'
+              hint: 'แตะบริเวณสีเหลืองบนมือ'
             })}
           </div>
 
@@ -1884,63 +1910,6 @@
         `;
       }
 
-      function render(){
-        updateHeader();
-        updateStats();
-
-        if(state.stage === 'howto') renderHowto();
-        else if(state.stage === 'practice') renderPractice();
-        else if(state.stage === 'main') renderMain();
-        else if(state.stage === 'order') renderOrder();
-        else if(state.stage === 'summary') renderSummary();
-      }
-
-      function updateHeader(){
-        const map = {
-          howto: {
-            badge:'🫧 วิธีเล่น',
-            title:'มาดูวิธีล้างมือกัน!',
-            lead:'ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง',
-            mascot:'🧼'
-          },
-          practice: {
-            badge:'🤲 ฝึกก่อน',
-            title:'ฝึกแตะส่วนของมือ',
-            lead:'ลองแตะจุดที่สว่างก่อนเข้า simulation จริง',
-            mascot:'🤲'
-          },
-          main: {
-            badge:'🚿 ล้างมือจริง',
-            title:'ล้างมือตามขั้นตอน WHO',
-            lead:'เปิดน้ำ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง',
-            mascot:'🚿'
-          },
-          order: {
-            badge:'🧠 ทบทวนลำดับ',
-            title:'เรียงขั้นตอนล้างมือ',
-            lead:'กดขั้นตอนตามลำดับที่ถูกต้อง เพื่อจำวิธีล้างมือให้แม่น',
-            mascot:'🧠'
-          },
-          summary: {
-            badge:'⭐ สรุปผล',
-            title:'เก่งมาก ฮีโร่สุขอนามัย!',
-            lead:'ดูคะแนน ดาว และคำแนะนำสั้น ๆ แล้วกลับไปเลือกเกมต่อได้',
-            mascot:'🏆'
-          }
-        };
-
-        const h = map[state.stage] || map.howto;
-        els.stageBadge.textContent = h.badge;
-        els.stageTitle.textContent = h.title;
-        els.stageLead.textContent = h.lead;
-        els.stageMascot.textContent = h.mascot;
-        els.topSub.textContent = h.title;
-
-        document.querySelectorAll('[data-flow-step]').forEach(el => {
-          el.classList.toggle('active', el.dataset.flowStep === state.stage);
-        });
-      }
-
       function handlePracticeScrub(zoneId){
         const targets = ['palm','between','thumb','fingertips'];
         const target = targets[state.practiceIndex] || 'palm';
@@ -2094,9 +2063,57 @@
       }
 
       function zoneFromPoint(clientX, clientY){
-        const el = document.elementFromPoint(clientX, clientY);
-        const zoneEl = el && el.closest ? el.closest('.handZone') : null;
-        return zoneEl ? zoneEl.dataset.zone : '';
+        const stack = document.elementsFromPoint(clientX, clientY);
+
+        for(const el of stack){
+          const zoneEl = el && el.closest ? el.closest('.handZone') : null;
+          if(zoneEl && zoneEl.dataset.zone){
+            return zoneEl.dataset.zone;
+          }
+        }
+
+        const zones = Array.from(document.querySelectorAll('.handZone'));
+        const step = state.stage === 'main' ? currentStep() : null;
+
+        let targetId = '';
+        if(state.stage === 'main' && step) targetId = step.target || '';
+        if(state.stage === 'practice'){
+          const targets = ['palm','between','thumb','fingertips'];
+          targetId = targets[state.practiceIndex] || 'palm';
+        }
+
+        let best = null;
+        let bestDist = Infinity;
+
+        zones.forEach(zone => {
+          const r = zone.getBoundingClientRect();
+          const pad = 38;
+
+          const inside =
+            clientX >= r.left - pad &&
+            clientX <= r.right + pad &&
+            clientY >= r.top - pad &&
+            clientY <= r.bottom + pad;
+
+          if(!inside) return;
+
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const dist = Math.hypot(clientX - cx, clientY - cy);
+
+          if(zone.dataset.zone === targetId){
+            best = zone;
+            bestDist = -1;
+            return;
+          }
+
+          if(dist < bestDist){
+            best = zone;
+            bestDist = dist;
+          }
+        });
+
+        return best ? best.dataset.zone : '';
       }
 
       function localPointInHands(clientX, clientY){
@@ -2131,6 +2148,7 @@
       function addFoamBurst(x, y, count){
         const layer = document.getElementById('foamLayer');
         if(!layer) return;
+
         for(let i = 0; i < count; i++){
           const size = 14 + Math.floor(Math.random() * 16);
           const foam = document.createElement('div');
@@ -2147,6 +2165,7 @@
       function addDropAt(clientX, clientY){
         const layer = document.getElementById('dropLayer');
         if(!layer) return;
+
         const p = localPointInHands(clientX, clientY);
         const drop = document.createElement('div');
         drop.className = 'drop';
@@ -2159,6 +2178,7 @@
       function addSparkAt(clientX, clientY){
         const layer = document.getElementById('sparkLayer');
         if(!layer) return;
+
         const p = localPointInHands(clientX, clientY);
         const spark = document.createElement('div');
         spark.className = 'spark';
@@ -2171,11 +2191,23 @@
       function addSparkAtZone(zoneId){
         const zone = document.querySelector(`.handZone[data-zone="${zoneId}"]`);
         if(!zone) return;
+
         const r = zone.getBoundingClientRect();
         addSparkAt(r.left + r.width/2, r.top + r.height/2);
       }
 
       document.addEventListener('click', (e) => {
+        const scene = e.target.closest('.handScene');
+
+        if(scene && state.stage === 'practice'){
+          const zoneId = zoneFromPoint(e.clientX, e.clientY);
+          if(zoneId){
+            e.preventDefault();
+            handlePracticeScrub(zoneId);
+            return;
+          }
+        }
+
         const el = e.target.closest('[data-action]');
         if(!el) return;
 
@@ -2192,27 +2224,32 @@
         else if(action === 'use-soap') useSoap();
         else if(action === 'use-towel') useTowel();
         else if(action === 'order-step') handleOrderStep(el.dataset.step);
-      });
+      }, true);
 
       document.addEventListener('pointerdown', (e) => {
-        const zone = e.target.closest('.handZone');
-        if(!zone) return;
+        const scene = e.target.closest('.handScene');
+        if(!scene) return;
+
+        const zoneId = zoneFromPoint(e.clientX, e.clientY);
+        if(!zoneId) return;
 
         state.pointerDown = true;
 
         if(state.stage === 'practice'){
-          handlePracticeScrub(zone.dataset.zone);
+          e.preventDefault();
+          handlePracticeScrub(zoneId);
           return;
         }
 
         if(state.stage === 'main'){
           e.preventDefault();
-          handleScrub(zone.dataset.zone, e.clientX, e.clientY);
+          handleScrub(zoneId, e.clientX, e.clientY);
         }
       }, { passive:false });
 
       document.addEventListener('pointermove', (e) => {
         if(!state.pointerDown || state.stage !== 'main') return;
+
         e.preventDefault();
 
         const zoneId = zoneFromPoint(e.clientX, e.clientY);
