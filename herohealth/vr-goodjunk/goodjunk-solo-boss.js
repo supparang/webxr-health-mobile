@@ -2376,9 +2376,9 @@
   }
 
   function goHub(){
-    try{
-      WIN.location.href = CFG.hub || '../nutrition-zone.html';
-    }catch(err){
+      try{
+        WIN.location.href = CFG.hub || '../nutrition-zone.html';
+      }catch(err){
       WIN.location.href = '../nutrition-zone.html';
     }
   }
