@@ -15,7 +15,6 @@
       --ink:#17384f;
       --muted:#5f7f92;
       --line:#cdeffc;
-      --sky:#8be8ff;
       --green:#80df96;
       --yellow:#ffd95d;
       --pink:#ffc8de;
@@ -53,6 +52,7 @@
       cursor:pointer;
       -webkit-user-select:none;
       user-select:none;
+      touch-action:manipulation;
     }
 
     .page{
@@ -203,8 +203,8 @@
     }
 
     .mascot{
-      width:140px;
-      height:140px;
+      width:132px;
+      height:132px;
       border-radius:32px;
       border:2px dashed rgba(23,56,79,.14);
       background:
@@ -212,7 +212,7 @@
         linear-gradient(180deg,#dffaff,#bdf4ff);
       display:grid;
       place-items:center;
-      font-size:70px;
+      font-size:64px;
       box-shadow:inset 0 0 0 8px rgba(255,255,255,.42);
     }
 
@@ -541,7 +541,7 @@
       border:2px solid #d7f0fb;
       box-shadow:var(--shadow-soft);
       overflow:hidden;
-      touch-action:none;
+      touch-action:manipulation;
       user-select:none;
     }
 
@@ -743,7 +743,7 @@
       place-items:center;
       text-align:center;
       padding:4px;
-      touch-action:none;
+      touch-action:manipulation;
       box-shadow:none;
       min-height:44px;
       min-width:44px;
@@ -957,32 +957,15 @@
     }
 
     @media (max-width:980px){
-      .simLayout{
-        grid-template-columns:1fr;
-      }
+      .simLayout{ grid-template-columns:1fr; }
     }
 
     @media (max-width:900px){
-      .stageHead{
-        grid-template-columns:1fr;
-      }
-
-      .mascot{
-        display:none;
-      }
-
-      .grid,
-      .summaryBox{
-        grid-template-columns:1fr;
-      }
-
-      .orderList{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .toolRow{
-        grid-template-columns:1fr;
-      }
+      .stageHead{ grid-template-columns:1fr; }
+      .mascot{ display:none; }
+      .grid,.summaryBox{ grid-template-columns:1fr; }
+      .orderList{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .toolRow{ grid-template-columns:1fr; }
     }
 
     @media (max-width:640px){
@@ -994,40 +977,20 @@
           calc(8px + var(--sal));
       }
 
-      .heroCard,
-      .panel{
+      .heroCard,.panel{
         border-radius:24px;
         padding:14px;
       }
 
-      .flowLine,
-      .stats,
-      .orderList,
-      .actions{
+      .flowLine,.stats,.orderList,.actions{
         grid-template-columns:1fr;
       }
 
-      h1{
-        font-size:36px;
-      }
-
-      .lead{
-        font-size:15px;
-      }
-
-      .handScene{
-        min-height:500px;
-      }
-
-      .hands{
-        top:150px;
-        height:330px;
-      }
-
-      .sink{
-        top:230px;
-        height:230px;
-      }
+      h1{ font-size:36px; }
+      .lead{ font-size:15px; }
+      .handScene{ min-height:500px; }
+      .hands{ top:150px; height:330px; }
+      .sink{ top:230px; height:230px; }
 
       .soapPump{
         right:12px;
@@ -1301,8 +1264,8 @@
             <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>ฝ่ามือ หลังมือ ซอกนิ้ว หลังนิ้ว นิ้วโป้ง ปลายนิ้ว ข้อมือ ล้างน้ำ และเช็ดมือ</p></article>
           </div>
           <div class="actions">
-            <button class="primaryBtn" type="button" data-action="go-practice">▶ เริ่มฝึกก่อน</button>
-            <button class="secondaryBtn" type="button" data-action="go-main">ไปล้างมือจริง</button>
+            <button class="primaryBtn" type="button" onclick="HW.do('goPractice')">▶ เริ่มฝึกก่อน</button>
+            <button class="secondaryBtn" type="button" onclick="HW.do('goMain')">ไปล้างมือจริง</button>
           </div>
         `;
       }
@@ -1329,15 +1292,15 @@
               <span class="stepChip">Practice</span>
               <h2 class="stepTitle">รู้จักส่วนของมือ</h2>
               <p class="stepText">กดปุ่มใหญ่ด้านล่าง หรือกดปุ่มสีเหลืองบนมือก็ได้</p>
-              <button class="targetBtn" type="button" data-action="practice-target">
+              <button class="targetBtn" type="button" onclick="HW.do('practiceTarget')">
                 ${target.emoji} แตะ ${target.label}
               </button>
             </div>
             ${handSceneHtml({ target:target.id, hint:'กดปุ่มสีเหลืองบนมือ หรือกดปุ่มใหญ่ด้านซ้าย' })}
           </div>
           <div class="actions">
-            <button class="secondaryBtn" type="button" data-action="go-howto">กลับวิธีเล่น</button>
-            <button class="primaryBtn" type="button" data-action="go-main">ไปล้างมือจริง</button>
+            <button class="secondaryBtn" type="button" onclick="HW.do('goHowto')">กลับวิธีเล่น</button>
+            <button class="primaryBtn" type="button" onclick="HW.do('goMain')">ไปล้างมือจริง</button>
           </div>
         `;
       }
@@ -1357,7 +1320,7 @@
 
               <div class="progressWrap"><div class="progressBar" id="simProgressBar" style="width:${Math.round(progress)}%"></div></div>
 
-              <button class="targetBtn" type="button" data-action="main-target">
+              <button class="targetBtn" type="button" onclick="HW.do('mainTarget')">
                 ${step.emoji} ทำขั้นนี้
               </button>
 
@@ -1369,9 +1332,9 @@
               </div>
 
               <div class="toolRow">
-                <button class="toolBtn ${state.waterOn ? 'active' : ''}" type="button" data-action="toggle-water"><span class="emoji">🚿</span><span>${state.waterOn ? 'ปิดน้ำ' : 'เปิดน้ำ'}</span></button>
-                <button class="toolBtn ${state.hasSoap ? 'done' : ''}" type="button" data-action="use-soap"><span class="emoji">🫧</span><span>กดสบู่</span></button>
-                <button class="toolBtn ${state.usingTowel ? 'active' : ''}" type="button" data-action="use-towel"><span class="emoji">🧻</span><span>ใช้ผ้า</span></button>
+                <button class="toolBtn ${state.waterOn ? 'active' : ''}" type="button" onclick="HW.do('water')"><span class="emoji">🚿</span><span>${state.waterOn ? 'ปิดน้ำ' : 'เปิดน้ำ'}</span></button>
+                <button class="toolBtn ${state.hasSoap ? 'done' : ''}" type="button" onclick="HW.do('soap')"><span class="emoji">🫧</span><span>กดสบู่</span></button>
+                <button class="toolBtn ${state.usingTowel ? 'active' : ''}" type="button" onclick="HW.do('towel')"><span class="emoji">🧻</span><span>ใช้ผ้า</span></button>
               </div>
 
               <div class="feedback ${feedbackClass(step)}"><span>${feedbackEmoji(step)}</span><span>${feedbackText(step)}</span></div>
@@ -1380,8 +1343,8 @@
           </div>
 
           <div class="actions">
-            <button class="secondaryBtn" type="button" data-action="go-practice">กลับไปฝึก</button>
-            <button class="primaryBtn" type="button" data-action="skip-step">ผ่านขั้นนี้</button>
+            <button class="secondaryBtn" type="button" onclick="HW.do('goPractice')">กลับไปฝึก</button>
+            <button class="primaryBtn" type="button" onclick="HW.do('skip')">ผ่านขั้นนี้</button>
           </div>
         `;
       }
@@ -1402,12 +1365,12 @@
 
             <div class="waterStream ${state.waterOn ? 'on' : ''}"></div>
 
-            <button class="soapPump" type="button" data-action="use-soap" aria-label="กดสบู่">
+            <button class="soapPump" type="button" onclick="HW.do('soap')" aria-label="กดสบู่">
               <div class="soapHead"></div>
               <div class="soapBody">🫧</div>
             </button>
 
-            <button class="towel" type="button" data-action="use-towel" aria-label="ใช้ผ้าเช็ดมือ">🧻</button>
+            <button class="towel" type="button" onclick="HW.do('towel')" aria-label="ใช้ผ้าเช็ดมือ">🧻</button>
             <div class="sink" aria-hidden="true"></div>
 
             <div class="hands" id="hands">
@@ -1429,8 +1392,7 @@
                 <button
                   class="zoneBtn zone-${z} ${z === target ? 'target' : ''}"
                   type="button"
-                  data-action="zone-hit"
-                  data-zone="${z}"
+                  onclick="HW.zone('${z}')"
                   aria-label="แตะ ${z}"
                 >
                   <span>แตะ<br>ตรงนี้</span>
@@ -1562,7 +1524,6 @@
 
         state.score += step.type === 'scrub' ? 2 : 1;
         addProgress(amount);
-
         addFeedbackFx(zoneId, step.type);
       }
 
@@ -1679,8 +1640,7 @@
               <button
                 class="orderBtn ${state.orderDone.has(step.id) ? 'done' : ''}"
                 type="button"
-                data-action="order-step"
-                data-step="${step.id}"
+                onclick="HW.order('${step.id}')"
                 ${state.orderDone.has(step.id) ? 'disabled' : ''}
               >
                 <span>${step.emoji}</span>
@@ -1690,8 +1650,8 @@
           </div>
 
           <div class="actions">
-            <button class="secondaryBtn" type="button" data-action="go-main">กลับล้างมือจริง</button>
-            <button class="primaryBtn" type="button" data-action="go-summary">ดูสรุปผล</button>
+            <button class="secondaryBtn" type="button" onclick="HW.do('goMain')">กลับล้างมือจริง</button>
+            <button class="primaryBtn" type="button" onclick="HW.do('goSummary')">ดูสรุปผล</button>
           </div>
         `;
       }
@@ -1743,7 +1703,7 @@
         const summary = {
           game:'handwash',
           zone:'hygiene',
-          flow:'who-direct-click-simulation',
+          flow:'who-inline-button-simulation',
           score:state.score,
           stars,
           correct:state.correct,
@@ -1799,14 +1759,14 @@
           </div>
 
           <div class="actions">
-            <button class="primaryBtn" type="button" data-action="restart">เล่นอีกครั้ง</button>
-            <button class="secondaryBtn" type="button" data-action="back-zone">กลับ Hygiene Zone</button>
+            <button class="primaryBtn" type="button" onclick="HW.do('restart')">เล่นอีกครั้ง</button>
+            <button class="secondaryBtn" type="button" onclick="HW.do('back')">กลับ Hygiene Zone</button>
           </div>
         `;
       }
 
       function addFeedbackFx(zoneId, type){
-        const zone = document.querySelector(`[data-zone="${zoneId}"]`) || document.querySelector('.zoneBtn.target');
+        const zone = document.querySelector(`.zone-${zoneId}`) || document.querySelector('.zoneBtn.target');
         if(!zone) return;
 
         const r = zone.getBoundingClientRect();
@@ -1884,37 +1844,52 @@
       }
 
       function addSparkAtZone(zoneId){
-        const zone = document.querySelector(`[data-zone="${zoneId}"]`);
+        const zone = document.querySelector(`.zone-${zoneId}`);
         if(!zone) return;
         const r = zone.getBoundingClientRect();
         addSparkAt(r.left + r.width/2, r.top + r.height/2);
       }
 
-      root.addEventListener('click', (e) => {
-        const actionEl = e.target.closest('[data-action]');
-        if(!actionEl) return;
-
-        const action = actionEl.dataset.action;
-
-        if(action === 'go-howto') setStage('howto');
-        else if(action === 'go-practice') setStage('practice');
-        else if(action === 'go-main') setStage('main');
-        else if(action === 'skip-step') skipStep();
-        else if(action === 'go-summary') setStage('summary');
-        else if(action === 'restart') restart();
-        else if(action === 'back-zone') goBack();
-        else if(action === 'toggle-water') toggleWater();
-        else if(action === 'use-soap') useSoap();
-        else if(action === 'use-towel') useTowel();
-        else if(action === 'practice-target') practiceTarget();
-        else if(action === 'main-target') mainTarget();
-        else if(action === 'zone-hit'){
-          const zoneId = actionEl.dataset.zone || '';
+      window.HW = {
+        do(action){
+          if(action === 'goHowto') setStage('howto');
+          else if(action === 'goPractice') setStage('practice');
+          else if(action === 'goMain') setStage('main');
+          else if(action === 'goSummary') setStage('summary');
+          else if(action === 'restart') restart();
+          else if(action === 'back') goBack();
+          else if(action === 'water') toggleWater();
+          else if(action === 'soap') useSoap();
+          else if(action === 'towel') useTowel();
+          else if(action === 'skip') skipStep();
+          else if(action === 'practiceTarget') practiceTarget();
+          else if(action === 'mainTarget') mainTarget();
+        },
+        zone(zoneId){
           if(state.stage === 'practice') handlePracticeZone(zoneId);
           else if(state.stage === 'main') handleMainZone(zoneId);
+        },
+        order(stepId){
+          handleOrderStep(stepId);
+        },
+        debug(){
+          return JSON.parse(JSON.stringify({
+            stage: state.stage,
+            score: state.score,
+            correct: state.correct,
+            mistake: state.mistake,
+            practiceIndex: state.practiceIndex,
+            simIndex: state.simIndex,
+            progress: currentProgress(),
+            waterOn: state.waterOn,
+            handsWet: state.handsWet,
+            hasSoap: state.hasSoap,
+            foamLevel: state.foamLevel,
+            dryLevel: state.dryLevel,
+            usingTowel: state.usingTowel
+          }));
         }
-        else if(action === 'order-step') handleOrderStep(actionEl.dataset.step);
-      });
+      };
 
       document.getElementById('btnBack')?.addEventListener('click', goBack);
       document.getElementById('btnRestart')?.addEventListener('click', restart);
