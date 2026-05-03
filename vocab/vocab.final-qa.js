@@ -1,17 +1,17 @@
 /* =========================================================
    /vocab/vocab.final-qa.js
    TechPath Vocab Arena — Final QA / Production Hardening
-   FULL FINAL PATCH: v20260503r
+   FULL FINAL PATCH: v20260503r2
 
-   Purpose:
-   - Add non-destructive final smoke test for all banks/modes/difficulties
-   - Harden reward summary with AI next-step recommendation
-   - Persist final summary for teacher/debug use
-   - Compact leaderboard on boot to keep 1 best row per learner/mode
-   - Add page-exit beacon + queued log flush helper
-   - Expose window.VocabFinalQA for manual testing in console
-
-   Load this AFTER vocab.boot.js.
+   r2 changes:
+   - Silent QA only: never show QA panel automatically
+   - Do not auto-flush old local queue on startup / online
+   - Add archiveAndClearQueue(reason)
+   - Keep manual tools:
+       VocabFinalQA.getLastReport()
+       VocabFinalQA.showQaPanel()
+       VocabFinalQA.flushQueue(25)
+       VocabFinalQA.archiveAndClearQueue("reason")
 ========================================================= */
 
 (function(){
@@ -19,7 +19,7 @@
 
   var WIN = window;
   var DOC = document;
-  var VERSION = "vocab-final-qa-v20260503r";
+  var VERSION = "vocab-final-qa-v20260503r2";
 
   var MODES = ["learn", "speed", "mission", "battle"];
   var DIFFICULTIES = ["easy", "normal", "hard", "challenge"];
@@ -34,10 +34,6 @@
 
   function qs(sel, root){
     return (root || DOC).querySelector(sel);
-  }
-
-  function qsa(sel, root){
-    return Array.prototype.slice.call((root || DOC).querySelectorAll(sel));
   }
 
   function log(){
@@ -192,7 +188,10 @@
       }catch(e){}
     }
 
-    var saved = readJson("VOCAB_SPLIT_STUDENT_PROFILE", {}) || readJson("VOCAB_V71_STUDENT_PROFILE", {}) || {};
+    var saved =
+      readJson("VOCAB_SPLIT_STUDENT_PROFILE", {}) ||
+      readJson("VOCAB_V71_STUDENT_PROFILE", {}) ||
+      {};
 
     return {
       display_name: pick(saved.display_name, saved.displayName, getParam("name"), getParam("nick"), "Hero"),
@@ -226,12 +225,12 @@
     var g = getGame();
     var s = getState();
     var app = WIN.VOCAB_APP || {};
-
     return Object.assign({}, app, s, g || {});
   }
 
   function getStudentKey(row){
     row = row || {};
+
     var sid = clean(pick(row.student_id, row.studentId, row.sid, ""));
     var name = lower(pick(row.display_name, row.displayName, row.name, "Hero"));
     var section = lower(pick(row.section, row.class_section, row.classSection, ""));
@@ -251,18 +250,30 @@
       var current = map[key];
 
       var newScore = num(pick(row.fair_score, row.fairScore, row.score, 0), 0);
-      var oldScore = current ? num(pick(current.fair_score, current.fairScore, current.score, 0), 0) : -Infinity;
+      var oldScore = current
+        ? num(pick(current.fair_score, current.fairScore, current.score, 0), 0)
+        : -Infinity;
+
       var newAcc = num(row.accuracy, 0);
       var oldAcc = current ? num(current.accuracy, 0) : -Infinity;
+
       var newCombo = num(pick(row.combo_max, row.comboMax, row.max_combo, 0), 0);
       var oldCombo = current ? num(pick(current.combo_max, current.comboMax, current.max_combo, 0), 0) : -Infinity;
 
       var better = false;
+
       if(!current) better = true;
       else if(newScore > oldScore) better = true;
       else if(newScore === oldScore && newAcc > oldAcc) better = true;
       else if(newScore === oldScore && newAcc === oldAcc && newCombo > oldCombo) better = true;
-      else if(newScore === oldScore && newAcc === oldAcc && newCombo === oldCombo && String(row.timestamp || "") >= String(current.timestamp || "")) better = true;
+      else if(
+        newScore === oldScore &&
+        newAcc === oldAcc &&
+        newCombo === oldCombo &&
+        String(row.timestamp || "") >= String(current.timestamp || "")
+      ){
+        better = true;
+      }
 
       if(better){
         row.attempts = current ? int(current.attempts, 1) + 1 : int(row.attempts, 1);
@@ -274,8 +285,13 @@
       }
     });
 
-    return Object.keys(map).map(function(k){ return map[k]; }).sort(function(a, b){
-      var s = num(pick(b.fair_score, b.fairScore, b.score, 0), 0) - num(pick(a.fair_score, a.fairScore, a.score, 0), 0);
+    return Object.keys(map).map(function(k){
+      return map[k];
+    }).sort(function(a, b){
+      var s =
+        num(pick(b.fair_score, b.fairScore, b.score, 0), 0) -
+        num(pick(a.fair_score, a.fairScore, a.score, 0), 0);
+
       if(s !== 0) return s;
 
       var acc = num(b.accuracy, 0) - num(a.accuracy, 0);
@@ -314,8 +330,13 @@
     if(Array.isArray(result.weakestTerms) && result.weakestTerms.length){
       return result.weakestTerms.map(function(x){
         if(typeof x === "string") return { term: x, count: 1 };
-        return { term: clean(pick(x.term, x.word, x.name, "")), count: int(pick(x.count, x.mistakes, x.wrong, 1), 1) };
-      }).filter(function(x){ return !!x.term; });
+        return {
+          term: clean(pick(x.term, x.word, x.name, "")),
+          count: int(pick(x.count, x.mistakes, x.wrong, 1), 1)
+        };
+      }).filter(function(x){
+        return !!x.term;
+      });
     }
 
     var map = Object.create(null);
@@ -329,46 +350,86 @@
 
     return Object.keys(map).map(function(term){
       return { term: term, count: map[term] };
-    }).sort(function(a, b){ return b.count - a.count; });
+    }).sort(function(a, b){
+      return b.count - a.count;
+    });
   }
 
   function normalizeResult(result){
     result = Object.assign({}, result || {});
+
     var g = getGameData();
     var profile = getProfile();
 
     result.bank = clean(pick(result.bank, g.bank, g.selectedBank, "A")).toUpperCase();
     result.mode = normalizeMode(pick(result.mode, g.mode, g.selectedMode, "learn"));
     result.modeLabel = pick(result.modeLabel, displayMode(result.mode));
-    result.difficulty = normalizeDifficulty(pick(result.difficulty, result.diff, g.difficulty, g.diff, g.selectedDifficulty, "normal"));
+    result.difficulty = normalizeDifficulty(
+      pick(result.difficulty, result.diff, g.difficulty, g.diff, g.selectedDifficulty, "normal")
+    );
     result.diff = result.difficulty;
 
     result.display_name = clean(pick(result.display_name, result.displayName, profile.display_name, "Hero"));
     result.displayName = result.display_name;
+
     result.student_id = clean(pick(result.student_id, result.studentId, profile.student_id, "anon"));
     result.studentId = result.student_id;
+
     result.section = clean(pick(result.section, profile.section, ""));
     result.session_code = clean(pick(result.session_code, result.sessionCode, profile.session_code, ""));
 
     result.score = num(pick(result.score, g.score, 0), 0);
     result.raw_score = num(pick(result.raw_score, result.rawScore, result.score), result.score);
-    result.aiHelpUsed = int(pick(result.aiHelpUsed, result.ai_help_used, g.aiHelpUsed, g.powerStats && g.powerStats.aiHelpUsed, 0), 0);
+
+    result.aiHelpUsed = int(
+      pick(result.aiHelpUsed, result.ai_help_used, g.aiHelpUsed, g.powerStats && g.powerStats.aiHelpUsed, 0),
+      0
+    );
     result.ai_help_used = result.aiHelpUsed;
-    result.ai_assisted = result.aiHelpUsed > 0 ? 1 : int(pick(result.ai_assisted, result.aiAssisted, 0), 0);
+
+    result.ai_assisted = result.aiHelpUsed > 0
+      ? 1
+      : int(pick(result.ai_assisted, result.aiAssisted, 0), 0);
+
     result.aiAssisted = result.ai_assisted;
 
-    result.fair_score = num(pick(result.fair_score, result.fairScore, result.aiHelpUsed > 0 ? Math.round(result.score * 0.95) : result.score), result.score);
+    result.fair_score = num(
+      pick(
+        result.fair_score,
+        result.fairScore,
+        result.aiHelpUsed > 0 ? Math.round(result.score * 0.95) : result.score
+      ),
+      result.score
+    );
     result.fairScore = result.fair_score;
 
     result.correctCount = int(pick(result.correctCount, result.correct_count, g.correct, g.correctCount, 0), 0);
     result.wrongCount = int(pick(result.wrongCount, result.wrong_count, g.wrong, g.wrongCount, 0), 0);
+
     result.correct_count = result.correctCount;
     result.wrong_count = result.wrongCount;
 
-    result.mistakes = Array.isArray(result.mistakes) ? result.mistakes : (Array.isArray(g.mistakes) ? g.mistakes : []);
-    result.mistakes_count = int(pick(result.mistakes_count, result.mistakesCount, result.wrongCount, result.mistakes.length, 0), 0);
+    result.mistakes = Array.isArray(result.mistakes)
+      ? result.mistakes
+      : (Array.isArray(g.mistakes) ? g.mistakes : []);
 
-    var total = int(pick(result.questionCount, result.question_count, result.totalQuestions, g.globalQuestionIndex, result.correctCount + result.wrongCount, 0), 0);
+    result.mistakes_count = int(
+      pick(result.mistakes_count, result.mistakesCount, result.wrongCount, result.mistakes.length, 0),
+      0
+    );
+
+    var total = int(
+      pick(
+        result.questionCount,
+        result.question_count,
+        result.totalQuestions,
+        g.globalQuestionIndex,
+        result.correctCount + result.wrongCount,
+        0
+      ),
+      0
+    );
+
     result.questionCount = total;
     result.question_count = total;
 
@@ -383,7 +444,10 @@
     result.combo_max = result.comboMax;
 
     result.weakestTerms = getWeakTerms(result).slice(0, 8);
-    result.weakest_term = result.weakestTerms.length ? result.weakestTerms[0].term : clean(pick(result.weakest_term, result.weakestTerm, ""));
+    result.weakest_term = result.weakestTerms.length
+      ? result.weakestTerms[0].term
+      : clean(pick(result.weakest_term, result.weakestTerm, ""));
+
     result.weakestTerm = result.weakest_term;
 
     result.timestamp = clean(pick(result.timestamp, result.ended_at, result.endedAt, bangkokIsoNow()));
@@ -410,9 +474,11 @@
 
     if(acc >= 92 && mistakes <= 1 && aiHelp === 0){
       nextMode = mode === "battle" ? "battle" : (mode === "mission" ? "battle" : "mission");
+
       if(diff === "easy") nextDifficulty = "normal";
       else if(diff === "normal") nextDifficulty = "hard";
       else nextDifficulty = "challenge";
+
       headline = "ยอดเยี่ยมมาก! พร้อมขยับไปภารกิจที่ยากขึ้นแล้ว";
       reason = "high_accuracy_no_help";
     }else if(acc >= 80){
@@ -432,7 +498,9 @@
       reason = "needs_foundation_review";
     }
 
-    var review = (result.weakestTerms || []).slice(0, 4).map(function(x){ return x.term; }).filter(Boolean);
+    var review = (result.weakestTerms || []).slice(0, 4).map(function(x){
+      return x.term;
+    }).filter(Boolean);
 
     return {
       nextMode: nextMode,
@@ -523,7 +591,10 @@
       ai_recommended_mode: rec.nextMode,
       ai_recommended_difficulty: rec.nextDifficulty,
       ai_reason: rec.reason,
-      extra_json: JSON.stringify({ version: VERSION, recommendation: rec })
+      extra_json: JSON.stringify({
+        version: VERSION,
+        recommendation: rec
+      })
     });
   }
 
@@ -601,6 +672,7 @@
         return WIN.VocabStorage.readLocalQueue() || [];
       }catch(e){}
     }
+
     return readJson("VOCAB_SPLIT_LOG_QUEUE", []) || [];
   }
 
@@ -617,6 +689,34 @@
     return writeJson("VOCAB_SPLIT_LOG_QUEUE", queue);
   }
 
+  function archiveAndClearQueue(reason){
+    var queue = readQueue();
+
+    var payload = {
+      archived_at: bangkokIsoNow(),
+      reason: reason || "manual_archive",
+      count: Array.isArray(queue) ? queue.length : 0,
+      queue: Array.isArray(queue) ? queue : []
+    };
+
+    try{
+      localStorage.setItem(
+        "VOCAB_ARCHIVED_LOG_QUEUE_" + Date.now(),
+        JSON.stringify(payload)
+      );
+    }catch(e){
+      warn("archive queue failed", e);
+    }
+
+    saveQueue([]);
+
+    return {
+      ok: true,
+      archived: payload.count,
+      reason: payload.reason
+    };
+  }
+
   function normalizeQueuedPayload(item){
     if(!item) return null;
     if(item.payload && typeof item.payload === "object") return item.payload;
@@ -626,11 +726,17 @@
 
   async function flushQueue(limit){
     limit = Math.max(1, int(limit, 25));
+
     var endpoint = getEndpoint();
     var queue = readQueue();
 
     if(!endpoint || !queue.length){
-      return { ok: true, sent: 0, remaining: queue.length, reason: !endpoint ? "missing_endpoint" : "empty" };
+      return {
+        ok: true,
+        sent: 0,
+        remaining: queue.length,
+        reason: !endpoint ? "missing_endpoint" : "empty"
+      };
     }
 
     var sent = 0;
@@ -640,9 +746,7 @@
       var item = queue[i];
       var payload = normalizeQueuedPayload(item);
 
-      if(!payload){
-        continue;
-      }
+      if(!payload) continue;
 
       if(sent >= limit){
         remaining.push(item);
@@ -654,7 +758,9 @@
           method: "POST",
           mode: "cors",
           cache: "no-store",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
           body: JSON.stringify(payload)
         });
 
@@ -670,7 +776,11 @@
 
     saveQueue(remaining);
 
-    return { ok: remaining.length === 0, sent: sent, remaining: remaining.length };
+    return {
+      ok: remaining.length === 0,
+      sent: sent,
+      remaining: remaining.length
+    };
   }
 
   function buildExitPayload(){
@@ -686,20 +796,30 @@
       event_type: "page_exit",
       eventType: "page_exit",
       client_ts: bangkokIsoNow(),
+
       display_name: pick(p.display_name, p.displayName, "Hero"),
       displayName: pick(p.display_name, p.displayName, "Hero"),
+
       student_id: pick(p.student_id, p.studentId, "anon"),
       studentId: pick(p.student_id, p.studentId, "anon"),
+
       section: pick(p.section, ""),
       session_code: pick(p.session_code, p.sessionCode, ""),
+
       bank: pick(g.bank, g.selectedBank, "A"),
       mode: normalizeMode(pick(g.mode, g.selectedMode, "learn")),
       difficulty: normalizeDifficulty(pick(g.difficulty, g.diff, g.selectedDifficulty, "normal")),
+
       score: num(pick(g.score, 0), 0),
       accuracy: num(pick(g.accuracy, 0), 0),
+
       page_url: location.href,
       user_agent: navigator.userAgent || "",
-      extra_json: JSON.stringify({ version: VERSION, queueSize: readQueue().length })
+
+      extra_json: JSON.stringify({
+        version: VERSION,
+        queueSize: readQueue().length
+      })
     };
   }
 
@@ -711,7 +831,10 @@
     if(!endpoint || !navigator.sendBeacon) return false;
 
     try{
-      var blob = new Blob([JSON.stringify(buildExitPayload())], { type: "text/plain;charset=utf-8" });
+      var blob = new Blob([JSON.stringify(buildExitPayload())], {
+        type: "text/plain;charset=utf-8"
+      });
+
       return navigator.sendBeacon(endpoint, blob);
     }catch(e){
       return false;
@@ -730,13 +853,12 @@
       }
     }, { capture: true });
 
-    WIN.addEventListener("online", function(){
-      flushQueue(50).then(function(report){
-        log("queue flush on online", report);
-      }).catch(function(e){
-        warn("queue flush failed", e);
-      });
-    });
+    /*
+      r2: Do not auto-flush old queue.
+      Reason: old local queue may already have been sent to Sheet.
+      Manual flush only:
+        VocabFinalQA.flushQueue(50)
+    */
   }
 
   function moduleStatus(){
@@ -748,6 +870,7 @@
       storage: !!WIN.VocabStorage,
       logger: !!(WIN.VocabLogger || WIN.vocabLogger || WIN.logVocabEventV6),
       question: !!(WIN.VocabQuestion || WIN.VocabQuestions),
+      modePools: !!WIN.VocabModePools,
       ui: !!WIN.VocabUI,
       game: !!(WIN.VocabGame || WIN.vocabGame || WIN.VOCAB_GAME),
       reward: !!(WIN.VocabReward || WIN.VOCAB_REWARD),
@@ -757,9 +880,18 @@
 
   function validateQuestion(q){
     if(!q) return false;
-    var choices = Array.isArray(q.choices) ? q.choices : (Array.isArray(q.options) ? q.options : []);
-    var correctCount = choices.filter(function(c){ return !!(c && c.correct); }).length;
-    return !!(q.prompt || q.question || q.question_text || q.questionText) && choices.length >= 4 && correctCount === 1;
+
+    var choices = Array.isArray(q.choices)
+      ? q.choices
+      : (Array.isArray(q.options) ? q.options : []);
+
+    var correctCount = choices.filter(function(c){
+      return !!(c && c.correct);
+    }).length;
+
+    return !!(q.prompt || q.question || q.question_text || q.questionText) &&
+      choices.length >= 4 &&
+      correctCount === 1;
   }
 
   function getQuestionsForQA(bank, diff, mode){
@@ -768,11 +900,20 @@
 
     try{
       if(typeof Q.getQuestions === "function"){
-        return Q.getQuestions({ bank: bank, difficulty: diff, diff: diff, mode: mode, count: 4, seed: "final-qa" });
+        return Q.getQuestions({
+          bank: bank,
+          difficulty: diff,
+          diff: diff,
+          mode: mode,
+          count: 4,
+          seed: "final-qa"
+        });
       }
+
       if(typeof Q.buildQuestions === "function"){
         return Q.buildQuestions(bank, diff, mode, 4);
       }
+
       if(typeof Q.pickQuestions === "function"){
         return Q.pickQuestions(bank, diff, mode, 4);
       }
@@ -783,13 +924,22 @@
     return [];
   }
 
-  function getEntriesForQA(bank){
+  function getEntriesForQA(bank, mode, diff){
+    var MP = WIN.VocabModePools || null;
     var Q = WIN.VocabQuestion || WIN.VocabQuestions || null;
-    if(!Q) return [];
 
     try{
-      if(typeof Q.getEntries === "function") return Q.getEntries(bank) || [];
-      if(typeof Q.getBankEntries === "function") return Q.getBankEntries(bank) || [];
+      if(MP && typeof MP.getPool === "function"){
+        return MP.getPool(mode || "learn", diff || "easy") || [];
+      }
+
+      if(Q && typeof Q.getEntries === "function"){
+        return Q.getEntries(mode || bank || "A", diff || "easy") || [];
+      }
+
+      if(Q && typeof Q.getBankEntries === "function"){
+        return Q.getBankEntries(bank || "A") || [];
+      }
     }catch(e){}
 
     return [];
@@ -799,35 +949,51 @@
     var rows = [];
     var failed = [];
 
-    BANKS.forEach(function(bank){
-      var entries = getEntriesForQA(bank);
-
-      if(entries.length < 4){
-        failed.push("Bank " + bank + " has fewer than 4 entries (" + entries.length + ")");
-      }
-
+    MODES.forEach(function(mode){
       DIFFICULTIES.forEach(function(diff){
-        MODES.forEach(function(mode){
-          var questions = getQuestionsForQA(bank, diff, mode);
-          var valid = questions.filter(validateQuestion).length;
+        var entries = getEntriesForQA("MODE", mode, diff);
+        var questions = getQuestionsForQA("MODE", diff, mode);
+        var valid = questions.filter(validateQuestion).length;
 
-          rows.push({
-            bank: bank,
-            difficulty: diff,
-            mode: mode,
-            entries: entries.length,
-            questions: questions.length,
-            valid: valid
-          });
-
-          if(questions.length < Math.min(4, entries.length) || valid !== questions.length){
-            failed.push("Question build issue: Bank " + bank + " / " + diff + " / " + mode + " = " + valid + "/" + questions.length + " valid");
-          }
+        rows.push({
+          mode: mode,
+          difficulty: diff,
+          entries: entries.length,
+          questions: questions.length,
+          valid: valid
         });
+
+        if(WIN.VocabModePools){
+          if(entries.length !== 20){
+            failed.push("Mode pool count issue: " + mode + " / " + diff + " = " + entries.length + "/20 terms");
+          }
+        }else{
+          if(entries.length < 4){
+            failed.push("Question bank has fewer than 4 entries: " + mode + " / " + diff);
+          }
+        }
+
+        if(questions.length < Math.min(4, Math.max(1, entries.length)) || valid !== questions.length){
+          failed.push("Question build issue: " + mode + " / " + diff + " = " + valid + "/" + questions.length + " valid");
+        }
       });
     });
 
-    return { rows: rows, failed: failed };
+    if(WIN.VocabModePools && typeof WIN.VocabModePools.audit === "function"){
+      try{
+        var auditReport = WIN.VocabModePools.audit();
+        if(!auditReport.ok){
+          failed = failed.concat(auditReport.errors || []);
+        }
+      }catch(e){
+        failed.push("VocabModePools.audit failed");
+      }
+    }
+
+    return {
+      rows: rows,
+      failed: failed
+    };
   }
 
   function qaLeaderboard(){
@@ -850,7 +1016,11 @@
 
       rows.forEach(function(row){
         var key = getStudentKey(row);
-        if(seen[key]) duplicateCount += 1;
+
+        if(seen[key]){
+          duplicateCount += 1;
+        }
+
         seen[key] = true;
       });
     });
@@ -859,7 +1029,10 @@
       failed.push("Leaderboard still has duplicate learner rows: " + duplicateCount);
     }
 
-    return { duplicateCount: duplicateCount, failed: failed };
+    return {
+      duplicateCount: duplicateCount,
+      failed: failed
+    };
   }
 
   function qaDom(){
@@ -876,15 +1049,28 @@
       "vocabAiHelpBtn"
     ];
 
-    var missing = required.filter(function(id){ return !$(id); });
+    var missing = required.filter(function(id){
+      return !$(id);
+    });
 
-    return { required: required, missing: missing, failed: missing.map(function(id){ return "Missing DOM id: " + id; }) };
+    return {
+      required: required,
+      missing: missing,
+      failed: missing.map(function(id){
+        return "Missing DOM id: " + id;
+      })
+    };
   }
 
   function qaEndpoint(){
     var endpoint = getEndpoint();
     var ok = /^https:\/\/script\.google\.com\/macros\/s\//.test(endpoint);
-    return { endpoint: endpoint, ok: ok, failed: ok ? [] : ["Vocab endpoint missing or not Apps Script /exec"] };
+
+    return {
+      endpoint: endpoint,
+      ok: ok,
+      failed: ok ? [] : ["Vocab endpoint missing or not Apps Script /exec"]
+    };
   }
 
   function runSmokeTest(options){
@@ -893,8 +1079,23 @@
     compactLeaderboardNow();
 
     var status = moduleStatus();
-    var requiredModules = ["config", "utils", "data", "state", "storage", "logger", "question", "ui", "game", "reward"];
-    var missingModules = requiredModules.filter(function(k){ return !status[k]; });
+
+    var requiredModules = [
+      "config",
+      "utils",
+      "data",
+      "state",
+      "storage",
+      "logger",
+      "question",
+      "ui",
+      "game",
+      "reward"
+    ];
+
+    var missingModules = requiredModules.filter(function(k){
+      return !status[k];
+    });
 
     var q = qaQuestionCoverage();
     var lb = qaLeaderboard();
@@ -902,7 +1103,9 @@
     var endpoint = qaEndpoint();
 
     var failed = []
-      .concat(missingModules.map(function(k){ return "Missing module: " + k; }))
+      .concat(missingModules.map(function(k){
+        return "Missing module: " + k;
+      }))
       .concat(q.failed)
       .concat(lb.failed)
       .concat(dom.failed)
@@ -914,7 +1117,9 @@
       checked_at: bangkokIsoNow(),
       moduleStatus: status,
       questionCoverage: q.rows,
-      leaderboard: { duplicateCount: lb.duplicateCount },
+      leaderboard: {
+        duplicateCount: lb.duplicateCount
+      },
       dom: dom,
       endpoint: endpoint,
       queueSize: readQueue().length,
@@ -924,7 +1129,13 @@
     LAST_REPORT = report;
     writeJson("VOCAB_FINAL_QA_REPORT", report);
 
-    if(options.show || getParam("qa") === "1" || location.hash.indexOf("qa") >= 0){
+    /*
+      r2 Silent QA:
+      Do not show panel automatically on game screen.
+      Manual only:
+        VocabFinalQA.showQaPanel()
+    */
+    if(options.forceShow === true){
       showQaPanel(report);
     }
 
@@ -952,6 +1163,7 @@
       .vocab-final-qa-panel pre{white-space:pre-wrap;font-size:12px;line-height:1.45;}\
       .vocab-final-qa-close{float:right;border:0;border-radius:999px;padding:8px 12px;font-weight:900;cursor:pointer;}\
     ";
+
     DOC.head.appendChild(style);
   }
 
@@ -961,30 +1173,54 @@
     var old = $("vocabFinalQaPanel");
     if(old) old.remove();
 
+    report = report || LAST_REPORT || runSmokeTest();
+
     var panel = DOC.createElement("section");
     panel.id = "vocabFinalQaPanel";
     panel.className = "vocab-final-qa-panel";
+
     panel.innerHTML = [
       '<button class="vocab-final-qa-close" type="button">ปิด</button>',
       '<h3>' + (report.ok ? '✅ Vocab Final QA: PASS' : '⚠️ Vocab Final QA: CHECK') + '</h3>',
       '<pre>' + esc(JSON.stringify(report, null, 2)) + '</pre>'
     ].join("");
 
-    panel.querySelector("button").addEventListener("click", function(){ panel.remove(); });
+    panel.querySelector("button").addEventListener("click", function(){
+      panel.remove();
+    });
+
     DOC.body.appendChild(panel);
   }
 
   function installApi(){
     WIN.VocabFinalQA = {
       version: VERSION,
+
       runSmokeTest: runSmokeTest,
-      showQaPanel: function(){ return showQaPanel(LAST_REPORT || runSmokeTest()); },
+
+      showQaPanel: function(){
+        return showQaPanel(LAST_REPORT || runSmokeTest());
+      },
+
       compactLeaderboardNow: compactLeaderboardNow,
+
       flushQueue: flushQueue,
+      archiveAndClearQueue: archiveAndClearQueue,
+
       recommendNext: recommendNext,
       normalizeResult: normalizeResult,
+
       sendExitBeacon: sendExitBeacon,
-      getLastReport: function(){ return LAST_REPORT || readJson("VOCAB_FINAL_QA_REPORT", null); }
+
+      getQueueSize: function(){
+        return readQueue().length;
+      },
+
+      readQueue: readQueue,
+
+      getLastReport: function(){
+        return LAST_REPORT || readJson("VOCAB_FINAL_QA_REPORT", null);
+      }
     };
 
     WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
@@ -1003,16 +1239,17 @@
 
     setTimeout(function(){
       patchReward();
-      runSmokeTest({ show: getParam("qa") === "1" || location.hash.indexOf("qa") >= 0 });
+      runSmokeTest({
+        show: false
+      });
     }, 800);
 
-    setTimeout(function(){
-      flushQueue(25).then(function(report){
-        if(report.sent) log("startup queue flush", report);
-      }).catch(function(e){
-        warn("startup queue flush failed", e);
-      });
-    }, 1600);
+    /*
+      r2 Silent production mode:
+      Do not auto-flush local queue on startup.
+      Manual only:
+        VocabFinalQA.flushQueue(25)
+    */
 
     log("loaded", VERSION);
   }
