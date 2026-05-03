@@ -430,6 +430,7 @@
       const URLS = {
         nutrition: ROOT + 'nutrition-zone.html',
         warmupGate: ROOT + 'warmup-gate.html',
+        soloBoss: ROOT + 'vr-goodjunk/goodjunk-solo-boss.html',
         duetLobby: ROOT + 'vr-goodjunk/goodjunk-duet-lobby.html',
         raceLobby: ROOT + 'vr-goodjunk/goodjunk-race-lobby.html',
         battleLobby: ROOT + 'vr-goodjunk/goodjunk-battle-lobby.html',
@@ -595,19 +596,6 @@
         return u;
       }
 
-      /*
-        Solo Boss flow:
-        launcher
-        → /herohealth/warmup-gate.html?phase=warmup&gameId=goodjunk&mode=solo-boss
-        → gate เลือกเกมจาก gameId/mode เอง
-        → game
-        → cooldown
-        → nutrition
-
-        สำคัญ:
-        launcher ไม่ส่ง next เข้าเกมแล้ว
-        เพราะเกมอยู่ที่ config/route ใน gate
-      */
       function buildSoloBossWarmupHref(){
         const p = baseContextParams();
 
@@ -622,25 +610,20 @@
         p.set('zone', 'nutrition');
 
         /*
-          hub = ปลายทางสุดท้ายหลัง cooldown
-          ไม่ใช่ next เข้าเกม
+          next = เกมจริงหลังทำ warmup
+          gate จะใช้ gameId=goodjunk เพื่อโหลด /gate/games/goodjunk/warmup.js
+          แล้วหลังจบ warmup จึงไป URL นี้
         */
-        p.set('hub', URLS.nutrition);
+        p.set('next', URLS.soloBoss);
 
         /*
-          ไม่ส่ง next จาก launcher
-          ให้ warmup-gate.html เลือก game URL เองจาก gameId/mode
+          hub = ปลายทางสุดท้ายหลัง cooldown
         */
-        p.delete('next');
+        p.set('hub', URLS.nutrition);
 
         return URLS.warmupGate + '?' + p.toString();
       }
 
-      /*
-        Multiplayer modes:
-        ไม่ใช้ Solo Phase Boss
-        ไม่ผ่าน warmup gate ตอนนี้
-      */
       function buildMultiplayerHref(mode){
         const p = baseContextParams();
 
