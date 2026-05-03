@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>HeroHealth • GoodJunk Solo Phase Boss</title>
+  <meta name="theme-color" content="#ffcf5a" />
+  <meta name="color-scheme" content="light" />
+  <link rel="stylesheet" href="./goodjunk-solo-boss.css?v=20260503-bossv2" />
+</head>
+
+<body>
+  <main id="app" class="app phase-1">
+    <div class="scene-bg" aria-hidden="true">
+      <div class="cloud cloud-a">☁️</div>
+      <div class="cloud cloud-b">☁️</div>
+      <div class="cloud cloud-c">☁️</div>
+      <div class="arena-orbit orbit-1"></div>
+      <div class="arena-orbit orbit-2"></div>
+      <div class="arena-orbit orbit-3"></div>
+      <div class="spark s1">✨</div>
+      <div class="spark s2">⭐</div>
+      <div class="spark s3">💫</div>
+    </div>
+
+    <header class="hud">
+      <section class="hud-card hud-main">
+        <div>
+          <div class="eyebrow">GoodJunk Solo</div>
+          <h1>สู้บอสอาหารขยะ</h1>
+        </div>
+        <div class="mode-pill" id="modePill">PHASE 1</div>
+      </section>
+
+      <section class="hud-card stat-card">
+        <span>คะแนน</span>
+        <strong id="scoreText">0</strong>
+      </section>
+
+      <section class="hud-card stat-card">
+        <span>เวลา</span>
+        <strong id="timeText">150</strong>
+      </section>
+
+      <section class="hud-card stat-card">
+        <span>หัวใจ</span>
+        <strong id="lifeText">❤️❤️❤️</strong>
+      </section>
+    </header>
+
+    <section class="boss-panel" aria-label="Boss status">
+      <div class="boss-face" id="bossFace">🍔</div>
+      <div class="boss-info">
+        <div class="boss-row">
+          <strong id="bossName">King Burger</strong>
+          <span id="bossState">เตรียมสู้!</span>
+        </div>
+        <div class="boss-hp-wrap">
+          <div class="boss-hp" id="bossHp"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gameArea" class="game-area" aria-label="GoodJunk boss arena">
+      <div id="phaseBanner" class="phase-banner hidden">
+        <strong id="phaseTitle">PHASE 1</strong>
+        <span id="phaseDesc">เก็บอาหารดี หลบอาหารขยะ</span>
+      </div>
+
+      <article class="mission-card" id="missionCard">
+        <div class="mission-icon">🎯</div>
+        <div>
+          <strong id="missionTitle">ภารกิจ</strong>
+          <p id="missionText">เก็บอาหารดีเพื่อโจมตีบอส</p>
+        </div>
+      </article>
+
+      <div id="targetLayer" class="target-layer"></div>
+      <div id="fxLayer" class="fx-layer"></div>
+
+      <div id="crosshair" class="crosshair" aria-hidden="true">
+        <span></span>
+      </div>
+
+      <div id="toast" class="toast hidden">เริ่ม!</div>
+    </section>
+
+    <section class="power-bar">
+      <button id="heroHitBtn" class="hero-hit" type="button" disabled>
+        ⚡ HERO HIT <span id="heroChargeText">0%</span>
+      </button>
+
+      <div class="power-status">
+        <span id="comboText">Combo x0</span>
+        <span id="powerText">Power: -</span>
+      </div>
+    </section>
+
+    <nav class="bottom-actions">
+      <button id="pauseBtn" type="button">⏸ พัก</button>
+      <button id="soundBtn" type="button">🔊 เสียง</button>
+      <button id="backBtn" type="button">🏠 กลับ HUB</button>
+    </nav>
+
+    <section id="introLayer" class="overlay show">
+      <div class="overlay-card intro-card">
+        <div class="big-boss">🍔</div>
+        <p class="eyebrow">GoodJunk Solo Phase Boss v2</p>
+        <h2>ปราบ King Burger!</h2>
+        <p class="intro-text">
+          เก็บอาหารดี 🍎🥦🥚 หลบอาหารขยะ 🍟🍩🥤
+          ชาร์จพลัง HERO HIT แล้วโจมตีบอสให้ชนะ
+        </p>
+
+        <div class="rule-grid">
+          <div><strong>Phase 1</strong><span>เก็บอาหารดี</span></div>
+          <div><strong>Phase 2</strong><span>เจอของหลอก</span></div>
+          <div><strong>Phase 3</strong><span>ทำลายโล่บอส</span></div>
+          <div><strong>Final</strong><span>Rage Mode!</span></div>
+        </div>
+
+        <button id="startBtn" class="primary-btn" type="button">เริ่มสู้บอส 🚀</button>
+        <button id="introBackBtn" class="ghost-btn" type="button">กลับ HUB</button>
+      </div>
+    </section>
+
+    <section id="summaryLayer" class="overlay">
+      <div class="overlay-card summary-card">
+        <div id="summaryEmoji" class="summary-emoji">🏆</div>
+        <p class="eyebrow">สรุปผล</p>
+        <h2 id="summaryTitle">ชนะบอส!</h2>
+        <p id="summaryMessage">เยี่ยมมาก</p>
+
+        <div class="summary-grid">
+          <div><span>คะแนน</span><strong id="sumScore">0</strong></div>
+          <div><span>อาหารดี</span><strong id="sumGood">0</strong></div>
+          <div><span>พลาด</span><strong id="sumMiss">0</strong></div>
+          <div><span>ดาว</span><strong id="sumStars">⭐⭐⭐</strong></div>
+        </div>
+
+        <div class="summary-tip" id="summaryTip">
+          จำไว้: เลือกอาหารดีให้ครบ 5 หมู่ และกินอาหารขยะให้น้อยลง
+        </div>
+
+        <div class="summary-actions">
+          <button id="replayBtn" class="primary-btn" type="button">เล่นอีกครั้ง 🔁</button>
+          <button id="summaryBackBtn" class="ghost-btn" type="button">กลับ HUB 🏠</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="./goodjunk-solo-boss.js?v=20260503-bossv2"></script>
+</body>
+</html>
