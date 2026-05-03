@@ -642,3 +642,4 @@
 
   console.log("[VOCAB UI EMERGENCY] loaded vocab-ui-emergency-v20260503k");
 })();
+handwash-launcher.html
