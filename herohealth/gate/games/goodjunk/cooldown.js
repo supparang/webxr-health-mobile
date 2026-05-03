@@ -2,7 +2,10 @@
 // HeroHealth Gate Mini-game
 // GAME: goodjunk
 // MODE: cooldown
-// FULL PATCH v20260315-GJ-GATE-COOLDOWN-STUB-WORKING
+// FULL PATCH v20260503-GJ-GATE-COOLDOWN-NUTRITION-ZONE-FLOW-SAFE
+// ✅ ใช้ร่วมกับ /herohealth/warmup-gate.html หรือ gate-core.js
+// ✅ ไฟล์นี้ไม่ redirect เอง
+// ✅ เมื่อ finish แล้ว gate-core เป็นคนพากลับ nutrition-zone ผ่าน cdnext/hub
 
 let __styleLoaded = false;
 
@@ -200,7 +203,7 @@ export async function mount(root, ctx, api){
       <div class="gjcd-top">
         <div>
           <h3 class="gjcd-title">GoodJunk Calm Review</h3>
-          <div class="gjcd-sub">เก็บฟองดี 🫧 ปล่อยของไม่ดีผ่านไป เพื่อผ่อนจังหวะก่อนกลับ HUB</div>
+          <div class="gjcd-sub">เก็บฟองดี 🫧 ปล่อยของไม่ดีผ่านไป เพื่อผ่อนจังหวะก่อนกลับ Nutrition Zone</div>
         </div>
 
         <div class="gjcd-chips">
@@ -224,7 +227,7 @@ export async function mount(root, ctx, api){
       </div>
 
       <div class="gjcd-help">
-        เป้าหมาย: ทำ progress ให้ถึง 100% หรือเล่นจนครบเวลา แล้วไปต่อกลับ HUB
+        เป้าหมาย: ทำ progress ให้ถึง 100% หรือเล่นจนครบเวลา แล้วระบบจะพากลับ Nutrition Zone
       </div>
     </div>
   `;
@@ -246,6 +249,7 @@ export async function mount(root, ctx, api){
   const targetScore =
     diff === 'hard' ? 70 :
     diff === 'normal' ? 56 :
+    diff === 'challenge' ? 80 :
     42;
 
   let running = false;
@@ -273,10 +277,11 @@ export async function mount(root, ctx, api){
 
   function updateHud(){
     const accText = `${Math.round(progress)}%`;
-    elTime.textContent = String(Math.max(0, Math.ceil(timeLeft)));
-    elScore.textContent = String(score);
-    elMiss.textContent = String(miss);
-    elProgress.textContent = accText;
+
+    if(elTime) elTime.textContent = String(Math.max(0, Math.ceil(timeLeft)));
+    if(elScore) elScore.textContent = String(score);
+    if(elMiss) elMiss.textContent = String(miss);
+    if(elProgress) elProgress.textContent = accText;
 
     api?.setStats?.({
       time: Math.max(0, Math.ceil(timeLeft)),
@@ -294,6 +299,7 @@ export async function mount(root, ctx, api){
     const r = stageRect();
     const padX = 26;
     const padY = 26;
+
     return {
       x: padX + Math.random() * Math.max(40, r.width - padX * 2),
       y: padY + Math.random() * Math.max(40, r.height - padY * 2)
@@ -319,6 +325,7 @@ export async function mount(root, ctx, api){
 
   function finishGame(){
     if(ended) return;
+
     ended = true;
     running = false;
     cancelAnimationFrame(rafId);
@@ -326,22 +333,36 @@ export async function mount(root, ctx, api){
     for(const [id] of nodes) removeNode(id);
 
     const passed = progress >= 100 || score >= targetScore || timeLeft <= 0;
+    const progressRounded = Math.round(progress);
+
     const lines = [
       `คะแนนคูลดาวน์ ${score}`,
       `พลาด ${miss}`,
-      `ความคืบหน้า ${Math.round(progress)}%`
+      `ความคืบหน้า ${progressRounded}%`
     ];
 
     api?.finish?.({
       ok: passed,
+      source: 'gate-goodjunk-cooldown',
+      game: 'goodjunk',
+      phase: 'cooldown',
+      mode: ctx?.mode || 'solo-boss',
       title: 'คูลดาวน์เสร็จแล้ว 🌙',
-      subtitle: 'พร้อมกลับหน้าหลัก',
+      subtitle: 'พร้อมกลับ Nutrition Zone',
       lines,
       score,
       miss,
-      progress: Math.round(progress),
-      acc: `${Math.round(progress)}%`,
+      progress: progressRounded,
+      acc: `${progressRounded}%`,
       passed,
+      metrics: {
+        score,
+        miss,
+        progress: progressRounded,
+        targetScore,
+        plannedSec,
+        diff
+      },
       markDailyDone: true
     });
   }
@@ -377,52 +398,52 @@ export async function mount(root, ctx, api){
 
     const p = spawnPoint();
     const id = `gjcd_${Date.now()}_${++seq}`;
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = `gjcd-bubble ${kind}`;
-    el.style.left = `${p.x}px`;
-    el.style.top = `${p.y}px`;
+    const bubble = document.createElement('button');
+
+    bubble.type = 'button';
+    bubble.className = `gjcd-bubble ${kind}`;
+    bubble.style.left = `${p.x}px`;
+    bubble.style.top = `${p.y}px`;
 
     const size =
       kind === 'good'
         ? 54 + Math.floor(Math.random() * 16)
         : 50 + Math.floor(Math.random() * 14);
 
-    el.style.width = `${size}px`;
-    el.style.height = `${size}px`;
-    el.style.fontSize = `${Math.max(24, Math.round(size * 0.42))}px`;
-    el.textContent =
+    bubble.style.width = `${size}px`;
+    bubble.style.height = `${size}px`;
+    bubble.style.fontSize = `${Math.max(24, Math.round(size * 0.42))}px`;
+
+    bubble.textContent =
       kind === 'good'
         ? GOOD_POOL[Math.floor(Math.random() * GOOD_POOL.length)]
         : BAD_POOL[Math.floor(Math.random() * BAD_POOL.length)];
 
     const ttl =
       kind === 'good'
-        ? (diff === 'hard' ? 1900 : diff === 'normal' ? 2200 : 2500)
-        : (diff === 'hard' ? 2200 : diff === 'normal' ? 2500 : 2800);
+        ? (diff === 'hard' || diff === 'challenge' ? 1900 : diff === 'normal' ? 2200 : 2500)
+        : (diff === 'hard' || diff === 'challenge' ? 2200 : diff === 'normal' ? 2500 : 2800);
 
     const value = kind === 'good' ? 7 : 5;
 
-    el.addEventListener('pointerdown', (ev)=>{
+    bubble.addEventListener('pointerdown', (ev)=>{
       ev.preventDefault();
       ev.stopPropagation();
       hitBubble(id);
     }, { passive:false });
 
-    stage.appendChild(el);
+    stage.appendChild(bubble);
 
-    const item = {
+    nodes.set(id, {
       id,
-      el,
+      el: bubble,
       kind,
       x: p.x,
       y: p.y,
       born: performance.now(),
       ttl,
       value
-    };
-
-    nodes.set(id, item);
+    });
   }
 
   function expireOld(now){
@@ -434,6 +455,7 @@ export async function mount(root, ctx, api){
           fxAt(o.x, o.y, 'ช้า!', 'bad');
           updateHud();
         }
+
         removeNode(id);
       }
     }
@@ -441,7 +463,9 @@ export async function mount(root, ctx, api){
 
   function tick(ts){
     if(ended) return;
+
     if(!lastTs) lastTs = ts;
+
     const dt = Math.min(0.05, (ts - lastTs) / 1000);
     lastTs = ts;
 
@@ -453,6 +477,7 @@ export async function mount(root, ctx, api){
     timeLeft = Math.max(0, timeLeft - dt);
 
     const spawnRate =
+      diff === 'challenge' ? 1.62 :
       diff === 'hard' ? 1.45 :
       diff === 'normal' ? 1.20 :
       1.00;
@@ -463,12 +488,14 @@ export async function mount(root, ctx, api){
       spawnAcc -= 1;
 
       const activeMax =
+        diff === 'challenge' ? 7 :
         diff === 'hard' ? 6 :
         diff === 'normal' ? 5 :
         4;
 
       if(nodes.size < activeMax){
         const badChance =
+          diff === 'challenge' ? 0.38 :
           diff === 'hard' ? 0.34 :
           diff === 'normal' ? 0.28 :
           0.22;
@@ -490,15 +517,28 @@ export async function mount(root, ctx, api){
 
   function start(){
     if(running || ended) return;
+
     running = true;
-    center.style.display = 'none';
-    api?.setSub?.('เก็บฟองดี แล้วผ่อนจังหวะก่อนกลับ HUB');
+
+    if(center) center.style.display = 'none';
+
+    api?.setSub?.('เก็บฟองดี แล้วผ่อนจังหวะก่อนกลับ Nutrition Zone');
     updateHud();
   }
 
   stage.addEventListener('pointerdown', ()=>{
     start();
   }, { passive:true });
+
+  api?.logger?.push?.('mini_start', {
+    source: 'gate-goodjunk-cooldown',
+    game: 'goodjunk',
+    phase: 'cooldown',
+    mode: ctx?.mode || 'solo-boss',
+    diff,
+    targetScore,
+    plannedSec
+  });
 
   api?.setSub?.('แตะพื้นที่เล่นเพื่อเริ่ม cooldown');
   updateHud();
