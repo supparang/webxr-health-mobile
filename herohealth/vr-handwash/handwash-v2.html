@@ -600,12 +600,8 @@
     }
 
     @keyframes faucetPulse{
-      0%,100%{
-        filter:drop-shadow(0 0 0 rgba(34,211,238,0));
-      }
-      50%{
-        filter:drop-shadow(0 0 18px rgba(34,211,238,.75));
-      }
+      0%,100%{ filter:drop-shadow(0 0 0 rgba(34,211,238,0)); }
+      50%{ filter:drop-shadow(0 0 18px rgba(34,211,238,.75)); }
     }
 
     .faucetPipe{
@@ -775,8 +771,8 @@
       place-items:center;
       text-align:center;
       font-weight:1000;
-      font-size:20px;
-      line-height:1.2;
+      font-size:19px;
+      line-height:1.16;
       padding:8px;
       box-shadow:
         0 0 0 10px rgba(255,216,77,.20),
@@ -789,14 +785,25 @@
       50%{ transform:scale(1.035); }
     }
 
-    .hotspot.palm{ left:37%; top:47%; width:26%; height:20%; }
-    .hotspot.back{ left:18%; top:40%; width:28%; height:20%; }
-    .hotspot.between{ left:38%; top:24%; width:24%; height:16%; }
-    .hotspot.backs{ left:30%; top:31%; width:40%; height:14%; }
-    .hotspot.thumb{ left:60%; top:43%; width:18%; height:18%; }
-    .hotspot.fingertips{ left:37%; top:10%; width:26%; height:14%; }
-    .hotspot.wrist{ left:37%; top:68%; width:26%; height:12%; }
     .hotspot.all{ left:24%; top:16%; width:52%; height:58%; }
+    .hotspot.palm{ left:37%; top:47%; width:26%; height:20%; }
+
+    .hotspot.back-left{ left:24%; top:42%; width:22%; height:20%; }
+    .hotspot.back-right{ left:54%; top:42%; width:22%; height:20%; }
+
+    .hotspot.between-left{ left:31%; top:23%; width:18%; height:18%; }
+    .hotspot.between-right{ left:51%; top:23%; width:18%; height:18%; }
+
+    .hotspot.backs{ left:30%; top:31%; width:40%; height:14%; }
+
+    .hotspot.thumb-left{ left:24%; top:43%; width:19%; height:19%; }
+    .hotspot.thumb-right{ left:57%; top:43%; width:19%; height:19%; }
+
+    .hotspot.fingertips-left{ left:30%; top:10%; width:20%; height:15%; }
+    .hotspot.fingertips-right{ left:50%; top:10%; width:20%; height:15%; }
+
+    .hotspot.wrist-left{ left:28%; top:68%; width:19%; height:12%; }
+    .hotspot.wrist-right{ left:53%; top:68%; width:19%; height:12%; }
 
     .foamLayer,
     .dropLayer,
@@ -857,7 +864,7 @@
       left:50%;
       bottom:18px;
       transform:translateX(-50%);
-      width:min(520px,88%);
+      width:min(560px,90%);
       border-radius:22px;
       padding:12px 14px;
       background:rgba(255,255,255,.90);
@@ -873,7 +880,7 @@
 
     .orderList{
       display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(4,minmax(0,1fr));
       gap:10px;
     }
 
@@ -992,7 +999,7 @@
         padding:14px;
       }
 
-      .flowLine,.stats,.orderList,.actions{
+      .flowLine,.stats,.actions{
         grid-template-columns:1fr;
       }
 
@@ -1018,7 +1025,8 @@
       }
 
       .hotspot{
-        font-size:17px;
+        font-size:15px;
+        padding:6px;
       }
 
       .soapPump{
@@ -1037,6 +1045,10 @@
 
       .targetBtn{
         min-height:76px;
+      }
+
+      .orderList{
+        grid-template-columns:1fr;
       }
     }
   </style>
@@ -1092,8 +1104,8 @@
         <div class="grid">
           <article class="card"><div class="cardIcon">🚿</div><h2>แตะก๊อกน้ำได้</h2><p>ในเกมกดรูปก๊อกน้ำด้านบนได้จริง หรือกดปุ่มเปิดน้ำด้านซ้ายก็ได้</p></article>
           <article class="card"><div class="cardIcon">🫧</div><h2>กดสบู่</h2><p>กดขวดสบู่ก่อนฟอกมือ ถ้ายังไม่มีสบู่ เกมจะเตือน</p></article>
-          <article class="card"><div class="cardIcon">👆</div><h2>ดูชื่อจุดบนมือ</h2><p>วงสีเหลืองจะบอกชัดเจนว่าให้แตะ ฝ่ามือ ซอกนิ้ว ปลายนิ้ว หรือข้อมือ</p></article>
-          <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>ฝ่ามือ หลังมือ ซอกนิ้ว หลังนิ้ว นิ้วโป้ง ปลายนิ้ว ข้อมือ ล้างน้ำ และเช็ดมือ</p></article>
+          <article class="card"><div class="cardIcon">👈👉</div><h2>ทำทีละข้าง</h2><p>บางขั้นจะแยกซ้าย/ขวา เช่น หลังมือซ้าย หลังมือขวา นิ้วโป้งซ้าย นิ้วโป้งขวา</p></article>
+          <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>เปียกมือ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง</p></article>
         </div>
 
         <div class="actions">
@@ -1156,7 +1168,7 @@
       <section id="screen-main" class="screen">
         <div class="simLayout">
           <div class="stepPanel">
-            <span class="stepChip" id="mainStepChip">ขั้นที่ 1/11</span>
+            <span class="stepChip" id="mainStepChip">ขั้นที่ 1/16</span>
             <h2 class="stepTitle" id="mainStepTitle">💧 เปิดก๊อกน้ำให้มือเปียก</h2>
             <p class="stepText" id="mainStepText">แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง</p>
 
@@ -1233,12 +1245,17 @@
           <button class="orderBtn" type="button" data-click="order" data-value="wet">💧<strong>เปียกมือ</strong></button>
           <button class="orderBtn" type="button" data-click="order" data-value="soap">🫧<strong>ใส่สบู่</strong></button>
           <button class="orderBtn" type="button" data-click="order" data-value="palm">🤲<strong>ถูฝ่ามือ</strong></button>
-          <button class="orderBtn" type="button" data-click="order" data-value="back">✋<strong>ถูหลังมือ</strong></button>
-          <button class="orderBtn" type="button" data-click="order" data-value="between">🖐️<strong>ถูซอกนิ้ว</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="backL">👈<strong>หลังมือซ้าย</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="backR">👉<strong>หลังมือขวา</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="betweenL">👈<strong>ซอกนิ้วซ้าย</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="betweenR">👉<strong>ซอกนิ้วขวา</strong></button>
           <button class="orderBtn" type="button" data-click="order" data-value="backs">✊<strong>ถูหลังนิ้ว</strong></button>
-          <button class="orderBtn" type="button" data-click="order" data-value="thumb">👍<strong>ถูนิ้วโป้ง</strong></button>
-          <button class="orderBtn" type="button" data-click="order" data-value="fingertips">☝️<strong>ถูปลายนิ้ว/เล็บ</strong></button>
-          <button class="orderBtn" type="button" data-click="order" data-value="wrist">💪<strong>ถูข้อมือ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="thumbL">👈<strong>นิ้วโป้งซ้าย</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="thumbR">👉<strong>นิ้วโป้งขวา</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="fingertipsL">👈<strong>ปลายนิ้วซ้าย</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="fingertipsR">👉<strong>ปลายนิ้วขวา</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="wristL">👈<strong>ข้อมือซ้าย</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="wristR">👉<strong>ข้อมือขวา</strong></button>
           <button class="orderBtn" type="button" data-click="order" data-value="rinse">🚿<strong>ล้างน้ำ</strong></button>
           <button class="orderBtn" type="button" data-click="order" data-value="dry">🧻<strong>เช็ดมือ</strong></button>
         </div>
@@ -1262,8 +1279,8 @@
           <div class="tips">
             <h2>สรุปสั้น ๆ</h2>
             <p id="summaryText">ทำได้ดีมาก</p>
-            <p id="summarySteps">ขั้นตอน WHO ที่ทำครบ: 0/11</p>
-            <p id="summaryOrder">จำลำดับได้: 0/11</p>
+            <p id="summarySteps">ขั้นตอน WHO ที่ทำครบ: 0/16</p>
+            <p id="summaryOrder">จำลำดับได้: 0/16</p>
           </div>
         </div>
 
@@ -1287,24 +1304,37 @@
         { id:'wet', type:'water', title:'เปิดก๊อกน้ำให้มือเปียก', short:'เปียกมือ', label:'เปียกมือ', big:'ทำให้มือเปียก', emoji:'💧', target:'all', needWater:true, needSoap:false, goal:100, text:'แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง' },
         { id:'soap', type:'soap', title:'ใส่สบู่', short:'ใส่สบู่', label:'ใส่สบู่', big:'กดสบู่', emoji:'🫧', target:'all', needWater:false, needSoap:false, goal:1, text:'กดขวดสบู่ หรือปุ่มกดสบู่ เพื่อใส่สบู่บนมือ' },
         { id:'palm', type:'scrub', title:'ถูฝ่ามือ', short:'ฝ่ามือ', label:'ฝ่ามือ', big:'แตะฝ่ามือ', emoji:'🤲', target:'palm', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูฝ่ามือที่วงสีเหลือง ให้ฟองขึ้นจนเต็ม' },
-        { id:'back', type:'scrub', title:'ถูหลังมือ', short:'หลังมือ', label:'หลังมือ', big:'แตะหลังมือ', emoji:'✋', target:'back', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังมือที่วงสีเหลืองให้สะอาด' },
-        { id:'between', type:'scrub', title:'ถูซอกนิ้ว', short:'ซอกนิ้ว', label:'ซอกนิ้ว', big:'แตะซอกนิ้ว', emoji:'🖐️', target:'between', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูซอกนิ้วที่วงสีเหลืองให้ทั่ว' },
+
+        { id:'backL', type:'scrub', title:'ถูหลังมือซ้าย', short:'หลังมือซ้าย', label:'หลังมือซ้าย', big:'แตะหลังมือซ้าย', emoji:'👈', target:'back-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังมือซ้ายที่วงสีเหลืองให้สะอาด' },
+        { id:'backR', type:'scrub', title:'ถูหลังมือขวา', short:'หลังมือขวา', label:'หลังมือขวา', big:'แตะหลังมือขวา', emoji:'👉', target:'back-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังมือขวาที่วงสีเหลืองให้สะอาด' },
+
+        { id:'betweenL', type:'scrub', title:'ถูซอกนิ้วซ้าย', short:'ซอกนิ้วซ้าย', label:'ซอกนิ้วซ้าย', big:'แตะซอกนิ้วซ้าย', emoji:'👈', target:'between-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูซอกนิ้วซ้ายที่วงสีเหลืองให้ทั่ว' },
+        { id:'betweenR', type:'scrub', title:'ถูซอกนิ้วขวา', short:'ซอกนิ้วขวา', label:'ซอกนิ้วขวา', big:'แตะซอกนิ้วขวา', emoji:'👉', target:'between-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูซอกนิ้วขวาที่วงสีเหลืองให้ทั่ว' },
+
         { id:'backs', type:'scrub', title:'ถูหลังนิ้ว', short:'หลังนิ้ว', label:'หลังนิ้ว', big:'แตะหลังนิ้ว', emoji:'✊', target:'backs', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังนิ้วที่วงสีเหลือง' },
-        { id:'thumb', type:'scrub', title:'ถูนิ้วโป้ง', short:'นิ้วโป้ง', label:'นิ้วโป้ง', big:'แตะนิ้วโป้ง', emoji:'👍', target:'thumb', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูรอบนิ้วโป้งที่วงสีเหลือง' },
-        { id:'fingertips', type:'scrub', title:'ถูปลายนิ้วและเล็บ', short:'ปลายนิ้ว', label:'ปลายนิ้ว', big:'แตะปลายนิ้ว', emoji:'☝️', target:'fingertips', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูปลายนิ้วและเล็บที่วงสีเหลือง' },
-        { id:'wrist', type:'scrub', title:'ถูข้อมือ', short:'ข้อมือ', label:'ข้อมือ', big:'แตะข้อมือ', emoji:'💪', target:'wrist', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูข้อมือที่วงสีเหลือง' },
+
+        { id:'thumbL', type:'scrub', title:'ถูนิ้วโป้งซ้าย', short:'นิ้วโป้งซ้าย', label:'นิ้วโป้งซ้าย', big:'แตะนิ้วโป้งซ้าย', emoji:'👈', target:'thumb-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูรอบนิ้วโป้งซ้ายที่วงสีเหลือง' },
+        { id:'thumbR', type:'scrub', title:'ถูนิ้วโป้งขวา', short:'นิ้วโป้งขวา', label:'นิ้วโป้งขวา', big:'แตะนิ้วโป้งขวา', emoji:'👉', target:'thumb-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูรอบนิ้วโป้งขวาที่วงสีเหลือง' },
+
+        { id:'fingertipsL', type:'scrub', title:'ถูปลายนิ้วและเล็บซ้าย', short:'ปลายนิ้วซ้าย', label:'ปลายนิ้วซ้าย', big:'แตะปลายนิ้วซ้าย', emoji:'👈', target:'fingertips-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูปลายนิ้วและเล็บซ้ายที่วงสีเหลือง' },
+        { id:'fingertipsR', type:'scrub', title:'ถูปลายนิ้วและเล็บขวา', short:'ปลายนิ้วขวา', label:'ปลายนิ้วขวา', big:'แตะปลายนิ้วขวา', emoji:'👉', target:'fingertips-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูปลายนิ้วและเล็บขวาที่วงสีเหลือง' },
+
+        { id:'wristL', type:'scrub', title:'ถูข้อมือซ้าย', short:'ข้อมือซ้าย', label:'ข้อมือซ้าย', big:'แตะข้อมือซ้าย', emoji:'👈', target:'wrist-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูข้อมือซ้ายที่วงสีเหลือง' },
+        { id:'wristR', type:'scrub', title:'ถูข้อมือขวา', short:'ข้อมือขวา', label:'ข้อมือขวา', big:'แตะข้อมือขวา', emoji:'👉', target:'wrist-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูข้อมือขวาที่วงสีเหลือง' },
+
         { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างฟอง', label:'ล้างฟอง', big:'ล้างฟองออก', emoji:'🚿', target:'all', needWater:true, needSoap:false, goal:100, text:'แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะล้างฟองที่วงสีเหลือง' },
         { id:'dry', type:'dry', title:'เช็ดมือให้แห้ง', short:'เช็ดมือ', label:'เช็ดมือ', big:'เช็ดมือให้แห้ง', emoji:'🧻', target:'all', needWater:false, needSoap:false, goal:100, text:'กดใช้ผ้า แล้วแตะเช็ดมือที่วงสีเหลือง' }
       ];
 
       const PRACTICE = [
         { id:'palm', emoji:'🤲', label:'ฝ่ามือ' },
-        { id:'between', emoji:'🖐️', label:'ซอกนิ้ว' },
-        { id:'thumb', emoji:'👍', label:'นิ้วโป้ง' },
-        { id:'fingertips', emoji:'☝️', label:'ปลายนิ้ว' }
+        { id:'back-left', emoji:'👈', label:'หลังมือซ้าย' },
+        { id:'back-right', emoji:'👉', label:'หลังมือขวา' },
+        { id:'fingertips-left', emoji:'👈', label:'ปลายนิ้วซ้าย' },
+        { id:'fingertips-right', emoji:'👉', label:'ปลายนิ้วขวา' }
       ];
 
-      const ORDER = ['wet','soap','palm','back','between','backs','thumb','fingertips','wrist','rinse','dry'];
+      const ORDER = WHO.map(step => step.id);
 
       const state = {
         stage: cleanStage(qs.get('stage') || 'howto'),
@@ -1477,7 +1507,7 @@
         const map = {
           howto:['🫧 วิธีเล่น','มาดูวิธีล้างมือกัน!','ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง','🧼'],
           practice:['🤲 ฝึกก่อน','ฝึกแตะส่วนของมือ','ดูชื่อในวงสีเหลือง แล้วแตะส่วนนั้นของมือ','🤲'],
-          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','แตะก๊อกน้ำ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
+          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','แตะก๊อกน้ำ ใส่สบู่ ถูมือซ้าย/ขวา ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
           order:['🧠 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','กดขั้นตอนตามลำดับที่ถูกต้อง','🧠'],
           summary:['⭐ สรุปผล','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และคำแนะนำสั้น ๆ','🏆']
         };
@@ -1641,7 +1671,7 @@
         }
 
         let amount = 25;
-        if(step.type === 'scrub') amount = 22;
+        if(step.type === 'scrub') amount = 24;
         if(step.type === 'dry') amount = 25;
 
         state.score += step.type === 'scrub' ? 2 : 1;
@@ -1657,7 +1687,7 @@
         setProgress(currentProgress() + amount);
 
         if(step.type === 'water' && currentProgress() >= 100) state.handsWet = true;
-        if(step.type === 'scrub') state.foam = clamp(state.foam + amount * .45, 0, 100);
+        if(step.type === 'scrub') state.foam = clamp(state.foam + amount * .42, 0, 100);
         if(step.type === 'rinse') state.foam = clamp(state.foam - amount * 1.2, 0, 100);
         if(step.type === 'dry') state.dry = clamp(state.dry + amount, 0, 100);
 
@@ -1738,7 +1768,10 @@
       }
 
       function renderOrder(){
-        el.orderPrompt.innerHTML = `ขั้นตอนต่อไปคืออะไร? <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`;
+        const nextStep = WHO[state.orderIndex];
+        el.orderPrompt.innerHTML = nextStep
+          ? `ขั้นตอนต่อไปคืออะไร? <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`
+          : 'เรียงลำดับครบแล้ว!';
         el.orderBar.style.width = Math.round((state.orderIndex / ORDER.length) * 100) + '%';
 
         document.querySelectorAll('#screen-order .orderBtn').forEach(btn => {
@@ -1779,12 +1812,14 @@
         const acc = total ? Math.round((state.correct / total) * 100) : 0;
 
         let stars = 1;
-        if(completed >= 8 && acc >= 70) stars = 2;
+        if(completed >= 12 && acc >= 70) stars = 2;
         if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80) stars = 3;
 
         el.summaryScore.textContent = String(state.score);
         el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
-        el.summaryText.textContent = stars >= 3 ? 'เยี่ยมมาก! ล้างมือครบตามลำดับ' : 'ทำได้ดีมาก ฝึกต่ออีกนิดจะคล่องขึ้น';
+        el.summaryText.textContent = stars >= 3
+          ? 'เยี่ยมมาก! ล้างมือครบทั้งสองข้างตามลำดับ'
+          : 'ทำได้ดีมาก ฝึกต่ออีกนิดจะคล่องขึ้น';
         el.summarySteps.textContent = `ขั้นตอน WHO ที่ทำครบ: ${completed}/${WHO.length}`;
         el.summaryOrder.textContent = `จำลำดับได้: ${state.orderIndex}/${ORDER.length}`;
 
@@ -1792,7 +1827,7 @@
           const summary = {
             game:'handwash',
             zone:'hygiene',
-            flow:'static-safe-big-hand-label-faucet-click',
+            flow:'static-safe-big-hand-label-faucet-click-two-hands',
             score:state.score,
             stars,
             completedSteps:completed,
@@ -1848,7 +1883,7 @@
         stopTimer();
         const u = new URL(location.href);
         u.searchParams.set('stage','howto');
-        u.searchParams.set('v','20260503j-faucet-click');
+        u.searchParams.set('v','20260503k-two-hands');
         location.href = u.toString();
       }
 
