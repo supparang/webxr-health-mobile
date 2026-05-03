@@ -439,3 +439,206 @@
 
   console.log("[VOCAB CHOICE BRIDGE] loaded", VERSION);
 })();
+/* =========================================================
+   /vocab/vocab.ui.js — Emergency UI Export
+   PATCH: v20260503k
+   ใช้แก้ Missing: ui ทันที
+========================================================= */
+(function(){
+  "use strict";
+
+  if(window.VocabUI){
+    window.VocabModules = window.VocabModules || {};
+    window.VocabModules.ui = true;
+
+    window.__VOCAB_MODULES__ = window.__VOCAB_MODULES__ || {};
+    window.__VOCAB_MODULES__.ui = true;
+
+    console.log("[VOCAB UI EMERGENCY] VocabUI already exists");
+    return;
+  }
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function show(id){
+    const el = $(id);
+    if(el) el.hidden = false;
+  }
+
+  function hide(id){
+    const el = $(id);
+    if(el) el.hidden = true;
+  }
+
+  function getGame(){
+    return window.VocabGame || window.vocabGame || window.VOCAB_GAME;
+  }
+
+  function startGame(){
+    const game = getGame();
+
+    hide("vocabMenuPanel");
+    show("vocabBattlePanel");
+    hide("vocabRewardPanel");
+
+    const opts = {
+      bank: document.querySelector("[data-vocab-bank].active")?.dataset.vocabBank || "A",
+      difficulty: document.querySelector("[data-vocab-diff].active")?.dataset.vocabDiff || "easy",
+      diff: document.querySelector("[data-vocab-diff].active")?.dataset.vocabDiff || "easy",
+      mode: document.querySelector("[data-vocab-mode].active")?.dataset.vocabMode || "learn",
+      display_name: $("vocabDisplayName")?.value || "Hero",
+      student_id: $("vocabStudentId")?.value || "anon",
+      section: $("vocabSection")?.value || "",
+      session_code: $("vocabSessionCode")?.value || ""
+    };
+
+    if(game && typeof game.start === "function"){
+      game.start(opts);
+    }else if(game && typeof game.startGame === "function"){
+      game.startGame(opts);
+    }else{
+      console.warn("[VOCAB UI EMERGENCY] VocabGame start not found");
+    }
+  }
+
+  function renderLeaderboard(mode){
+    mode = mode || "learn";
+
+    const box = $("vocabLeaderboardBox");
+    if(!box) return;
+
+    let board = null;
+
+    try{
+      if(window.VocabStorage && typeof VocabStorage.readLeaderboard === "function"){
+        board = VocabStorage.readLeaderboard();
+      }else{
+        board = JSON.parse(localStorage.getItem("VOCAB_SPLIT_LEADERBOARD") || "{}");
+      }
+    }catch(e){
+      board = {};
+    }
+
+    const rows = Array.isArray(board[mode]) ? board[mode] : [];
+
+    if(!rows.length){
+      box.innerHTML = `<div class="vocab-lb-empty v68-lb-empty">ยังไม่มีคะแนนในโหมดนี้</div>`;
+      return;
+    }
+
+    box.innerHTML = rows.slice(0, 5).map(function(r, i){
+      return `
+        <div class="vocab-lb-row v68-lb-row">
+          <div class="vocab-rank v68-rank">#${i + 1}</div>
+          <div class="vocab-lb-name v68-lb-name">
+            <b>${r.display_name || r.displayName || "Hero"}</b>
+            <small>Bank ${r.bank || "-"} • ${r.difficulty || r.diff || "-"}</small>
+          </div>
+          <div class="vocab-lb-score v68-lb-score">${r.fair_score || r.score || 0}</div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function renderQuestion(q){
+    q = q || {};
+
+    const text = $("vocabQuestionText");
+    const choices = $("vocabChoices");
+
+    if(text){
+      text.textContent = q.prompt || q.question || q.question_text || q.text || "Question text";
+    }
+
+    const opts = q.choices || q.options || [];
+
+    if(choices){
+      choices.innerHTML = opts.map(function(c){
+        const value = typeof c === "object" ? (c.value || c.text || c.label || "") : c;
+        const label = typeof c === "object" ? (c.text || c.label || c.value || "") : c;
+
+        return `
+          <button class="vocab-choice v6-choice" type="button" data-vocab-choice="${String(value).replaceAll('"', '&quot;')}">
+            ${label}
+          </button>
+        `;
+      }).join("");
+    }
+  }
+
+  function updateHud(state){
+    state = state || {};
+
+    if($("vocabScore")) $("vocabScore").textContent = state.score || 0;
+    if($("vocabCombo")) $("vocabCombo").textContent = "x" + (state.combo || 0);
+    if($("vocabTimer")) $("vocabTimer").textContent = (state.timeLeft || state.timer || 0) + "s";
+    if($("vocabQuestionNo")) $("vocabQuestionNo").textContent = (state.questionNo || 0) + "/" + (state.questionCount || 0);
+  }
+
+  function init(){
+    const start = $("vocabStartBtn");
+    if(start && !start.__vocabEmergencyStart){
+      start.__vocabEmergencyStart = true;
+      start.addEventListener("click", function(e){
+        e.preventDefault();
+        startGame();
+      });
+    }
+
+    document.querySelectorAll("[data-lb-mode]").forEach(function(btn){
+      if(btn.__vocabEmergencyLb) return;
+      btn.__vocabEmergencyLb = true;
+
+      btn.addEventListener("click", function(){
+        renderLeaderboard(btn.dataset.lbMode || "learn");
+      });
+    });
+
+    renderLeaderboard("learn");
+  }
+
+  window.VocabUI = {
+    version: "vocab-ui-emergency-v20260503k",
+    init: init,
+    boot: init,
+    bind: init,
+    bindEvents: init,
+    showMenu: function(){
+      show("vocabMenuPanel");
+      hide("vocabBattlePanel");
+      hide("vocabRewardPanel");
+    },
+    showBattle: function(){
+      hide("vocabMenuPanel");
+      show("vocabBattlePanel");
+      hide("vocabRewardPanel");
+    },
+    showReward: function(){
+      hide("vocabMenuPanel");
+      hide("vocabBattlePanel");
+      show("vocabRewardPanel");
+    },
+    renderQuestion: renderQuestion,
+    updateHud: updateHud,
+    renderLeaderboard: renderLeaderboard,
+    startGame: startGame
+  };
+
+  window.VocabUi = window.VocabUI;
+
+  window.VocabModules = window.VocabModules || {};
+  window.VocabModules.ui = true;
+
+  window.__VOCAB_MODULES__ = window.__VOCAB_MODULES__ || {};
+  window.__VOCAB_MODULES__.ui = true;
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", init, { once:true });
+  }else{
+    init();
+  }
+
+  console.log("[VOCAB UI EMERGENCY] loaded vocab-ui-emergency-v20260503k");
+})();
