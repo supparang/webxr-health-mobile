@@ -1109,7 +1109,7 @@
           <article class="card"><div class="cardIcon">🚿</div><h2>แตะก๊อกน้ำได้</h2><p>ในเกมกดรูปก๊อกน้ำด้านบนได้จริง หรือกดปุ่มเปิดน้ำด้านซ้ายก็ได้</p></article>
           <article class="card"><div class="cardIcon">🫧</div><h2>กดสบู่</h2><p>กดขวดสบู่ก่อนฟอกมือ ถ้ายังไม่มีสบู่ เกมจะเตือน</p></article>
           <article class="card"><div class="cardIcon">👈👉</div><h2>ทำทีละข้าง</h2><p>บางขั้นจะแยกซ้าย/ขวา เช่น หลังมือซ้าย หลังมือขวา นิ้วโป้งซ้าย นิ้วโป้งขวา</p></article>
-          <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>เปียกมือ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง</p></article>
+          <article class="card"><div class="cardIcon">🔀</div><h2>เรียงลำดับแบบสุ่ม</h2><p>ตอนทบทวน ปุ่มจะสลับตำแหน่งทุกครั้ง ต้องอ่านแล้วเลือกขั้นตอนถัดไปให้ถูก</p></article>
         </div>
 
         <div class="actions">
@@ -1239,8 +1239,8 @@
 
       <section id="screen-order" class="screen">
         <div class="feedback good">
-          <span>🧠</span>
-          <span id="orderPrompt">ขั้นตอนต่อไปคืออะไร?</span>
+          <span>🔀</span>
+          <span id="orderPrompt">เลือกขั้นตอนที่ถูกต้องลำดับต่อไป</span>
         </div>
 
         <div class="progressWrap"><div class="progressBar" id="orderBar"></div></div>
@@ -1362,6 +1362,7 @@
 
         orderIndex:0,
         orderDone:{},
+        orderShuffled:false,
         startedAt:Date.now()
       };
 
@@ -1464,7 +1465,13 @@
       }
 
       function setStage(stage){
-        state.stage = cleanStage(stage);
+        const nextStage = cleanStage(stage);
+
+        if(nextStage === 'order' && state.stage !== 'order'){
+          state.orderShuffled = false;
+        }
+
+        state.stage = nextStage;
 
         if(state.stage !== 'main') stopTimer();
         if(state.stage === 'main') startTimer();
@@ -1514,7 +1521,7 @@
           howto:['🫧 วิธีเล่น','มาดูวิธีล้างมือกัน!','ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง','🧼'],
           practice:['🤲 ฝึกก่อน','ฝึกแตะส่วนของมือ','ดูชื่อในวงสีเหลือง แล้วแตะส่วนนั้นของมือ','🤲'],
           main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','แตะก๊อกน้ำ ใส่สบู่ ถูมือซ้าย/ขวา ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
-          order:['🧠 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','กดขั้นตอนตามลำดับที่ถูกต้อง','🧠'],
+          order:['🔀 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','ปุ่มจะสลับตำแหน่ง ต้องเลือกขั้นตอนถัดไปให้ถูก','🧠'],
           summary:['🏆 ผลการเล่น','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และสิ่งที่ทำได้ดี','🏆']
         };
 
@@ -1773,11 +1780,46 @@
         completeStep();
       }
 
+      function shuffleOrderButtons(){
+        const list = document.querySelector('#screen-order .orderList');
+        if(!list || state.orderShuffled) return;
+
+        const buttons = Array.from(list.querySelectorAll('.orderBtn'));
+
+        for(let i = buttons.length - 1; i > 0; i--){
+          const j = Math.floor(Math.random() * (i + 1));
+          const tmp = buttons[i];
+          buttons[i] = buttons[j];
+          buttons[j] = tmp;
+        }
+
+        const correctOrder = ORDER.join('|');
+        const currentOrder = buttons.map(btn => btn.dataset.value).join('|');
+
+        if(currentOrder === correctOrder && buttons.length > 2){
+          const moved = buttons.shift();
+          buttons.splice(3, 0, moved);
+        }
+
+        if(buttons[0] && buttons[0].dataset.value === ORDER[0] && buttons.length > 3){
+          const tmp = buttons[0];
+          buttons[0] = buttons[3];
+          buttons[3] = tmp;
+        }
+
+        buttons.forEach(btn => list.appendChild(btn));
+        state.orderShuffled = true;
+      }
+
       function renderOrder(){
+        shuffleOrderButtons();
+
         const nextStep = WHO[state.orderIndex];
+
         el.orderPrompt.innerHTML = nextStep
-          ? `ขั้นตอนต่อไปคืออะไร? <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`
+          ? `เลือกขั้นตอนที่ถูกต้องลำดับต่อไป <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`
           : 'เรียงลำดับครบแล้ว!';
+
         el.orderBar.style.width = Math.round((state.orderIndex / ORDER.length) * 100) + '%';
 
         document.querySelectorAll('#screen-order .orderBtn').forEach(btn => {
@@ -1805,7 +1847,7 @@
         }else{
           state.mistake += 1;
           state.score = Math.max(0, state.score - 2);
-          showToast('ลำดับยังไม่ถูก');
+          showToast('ยังไม่ใช่ขั้นตอนถัดไป ลองดูใหม่');
           updateStats();
         }
       }
@@ -1833,7 +1875,7 @@
           const summary = {
             game:'handwash',
             zone:'hygiene',
-            flow:'static-safe-big-hand-label-faucet-click-two-hands-summary-polish',
+            flow:'static-safe-big-hand-label-faucet-click-two-hands-summary-polish-order-shuffle',
             score:state.score,
             stars,
             completedSteps:completed,
@@ -1889,7 +1931,7 @@
         stopTimer();
         const u = new URL(location.href);
         u.searchParams.set('stage','howto');
-        u.searchParams.set('v','20260503l-summary-polish');
+        u.searchParams.set('v','20260503m-order-shuffle');
         location.href = u.toString();
       }
 
