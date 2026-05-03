@@ -1021,3 +1021,321 @@ body.view-cvr .crosshair{
     font-size:17px;
   }
 }
+/* =========================================================
+   PATCH v20260503-bossv3-cinematic
+   More exciting boss battle: warning, boss speech, hero cut-in
+   ========================================================= */
+
+.boss-speech{
+  position:absolute;
+  z-index:24;
+  right:14px;
+  top:86px;
+  max-width:min(360px, calc(100% - 28px));
+  padding:12px 15px;
+  border-radius:22px 22px 6px 22px;
+  background:rgba(38,54,74,.92);
+  color:#fff;
+  font-weight:1000;
+  font-size:15px;
+  line-height:1.25;
+  box-shadow:0 18px 42px rgba(0,0,0,.24);
+  opacity:0;
+  transform:translateY(-8px) scale(.96);
+  pointer-events:none;
+}
+
+.boss-speech.show{
+  animation:bossSpeechIn 1.45s ease both;
+}
+
+.boss-speech::after{
+  content:"";
+  position:absolute;
+  right:18px;
+  bottom:-10px;
+  width:18px;
+  height:18px;
+  background:rgba(38,54,74,.92);
+  transform:rotate(45deg);
+  border-radius:3px;
+}
+
+.danger-meter{
+  position:absolute;
+  z-index:23;
+  left:14px;
+  right:14px;
+  bottom:14px;
+  display:flex;
+  align-items:center;
+  gap:9px;
+  padding:9px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,255,255,.68);
+  box-shadow:0 16px 34px rgba(20,30,55,.16);
+  backdrop-filter:blur(12px);
+}
+
+.danger-meter strong{
+  flex:0 0 auto;
+  font-size:12px;
+  color:#ff5d2e;
+  font-weight:1000;
+  letter-spacing:.03em;
+}
+
+.danger-track{
+  position:relative;
+  flex:1;
+  height:12px;
+  border-radius:999px;
+  overflow:hidden;
+  background:rgba(38,54,74,.12);
+  box-shadow:inset 0 2px 7px rgba(0,0,0,.12);
+}
+
+.danger-fill{
+  width:0%;
+  height:100%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#3ee58a,#ffd13d,#ff3d3d);
+  transition:width .12s linear;
+}
+
+.danger-meter.danger-hot{
+  animation:dangerHot .45s ease-in-out infinite;
+}
+
+.warning-flash{
+  position:absolute;
+  z-index:45;
+  inset:0;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  opacity:0;
+}
+
+.warning-flash.show{
+  animation:warningFlash 1.05s ease both;
+}
+
+.warning-flash > div{
+  min-width:min(440px,86vw);
+  padding:18px 20px;
+  border-radius:28px;
+  background:rgba(255,76,76,.92);
+  color:#fff;
+  text-align:center;
+  box-shadow:0 24px 70px rgba(255,40,40,.38);
+  border:3px solid rgba(255,255,255,.9);
+}
+
+.warning-flash strong{
+  display:block;
+  font-size:clamp(30px,8vw,56px);
+  line-height:1;
+  letter-spacing:.04em;
+  text-shadow:0 5px 12px rgba(0,0,0,.22);
+}
+
+.warning-flash span{
+  display:block;
+  margin-top:7px;
+  font-size:16px;
+  font-weight:1000;
+}
+
+.hero-cutin{
+  position:absolute;
+  z-index:60;
+  inset:0;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  opacity:0;
+}
+
+.hero-cutin.show{
+  animation:heroCutin 1.08s ease both;
+}
+
+.hero-cutin-card{
+  width:min(560px,88vw);
+  padding:22px 20px;
+  border-radius:34px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,.95), transparent 30%),
+    linear-gradient(135deg,#fff36e,#ff942f 48%,#ff4d70);
+  color:#572b00;
+  text-align:center;
+  box-shadow:0 28px 90px rgba(255,90,50,.42);
+  transform:rotate(-2deg);
+  border:4px solid rgba(255,255,255,.9);
+}
+
+.hero-cutin-card .hero-icon{
+  font-size:64px;
+  line-height:1;
+  filter:drop-shadow(0 10px 14px rgba(120,55,0,.22));
+}
+
+.hero-cutin-card strong{
+  display:block;
+  margin-top:4px;
+  font-size:clamp(36px,9vw,70px);
+  line-height:.95;
+  font-weight:1000;
+  letter-spacing:.02em;
+  text-shadow:0 4px 0 rgba(255,255,255,.35);
+}
+
+.hero-cutin-card span{
+  display:block;
+  margin-top:8px;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.boss-damage-ring{
+  position:absolute;
+  z-index:14;
+  left:50%;
+  top:50%;
+  width:120px;
+  height:120px;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  border:8px solid rgba(255,211,49,.92);
+  box-shadow:0 0 0 14px rgba(255,105,34,.16), 0 0 60px rgba(255,135,30,.55);
+  pointer-events:none;
+  animation:damageRing .55s ease-out forwards;
+}
+
+.phase-4 .scene-bg::before{
+  content:"";
+  position:absolute;
+  inset:-10%;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,214,78,.20), transparent 22%),
+    radial-gradient(circle at 22% 24%, rgba(255,72,72,.18), transparent 24%),
+    radial-gradient(circle at 82% 18%, rgba(168,82,255,.16), transparent 24%);
+  animation:rageFog 2.2s ease-in-out infinite;
+}
+
+.phase-4 .scene-bg::after{
+  content:"⚡ ⚡ ⚡";
+  position:absolute;
+  left:0;
+  right:0;
+  top:20%;
+  text-align:center;
+  font-size:clamp(40px,12vw,110px);
+  letter-spacing:.35em;
+  opacity:.18;
+  animation:lightningDrift 1.4s ease-in-out infinite;
+}
+
+.target.danger{
+  animation:dangerTarget .42s ease-in-out infinite;
+}
+
+.target.bonus-good{
+  outline:4px solid rgba(255,201,61,.72);
+  box-shadow:0 0 0 8px rgba(255,201,61,.20), 0 18px 36px rgba(38,54,74,.22);
+}
+
+@keyframes bossSpeechIn{
+  0%{ opacity:0; transform:translateY(-8px) scale(.96); }
+  12%{ opacity:1; transform:translateY(0) scale(1.04); }
+  78%{ opacity:1; transform:translateY(0) scale(1); }
+  100%{ opacity:0; transform:translateY(-5px) scale(.98); }
+}
+
+@keyframes dangerHot{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.012); }
+}
+
+@keyframes warningFlash{
+  0%{ opacity:0; transform:scale(.92); }
+  12%{ opacity:1; transform:scale(1.03); }
+  28%{ opacity:.7; transform:scale(.99); }
+  45%{ opacity:1; transform:scale(1.02); }
+  80%{ opacity:1; transform:scale(1); }
+  100%{ opacity:0; transform:scale(1.08); }
+}
+
+@keyframes heroCutin{
+  0%{ opacity:0; transform:translateX(-60px) scale(.92); }
+  12%{ opacity:1; transform:translateX(0) scale(1.03); }
+  72%{ opacity:1; transform:translateX(0) scale(1); }
+  100%{ opacity:0; transform:translateX(70px) scale(.96); }
+}
+
+@keyframes damageRing{
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(.35); }
+  18%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(2.4); }
+}
+
+@keyframes rageFog{
+  0%,100%{ transform:scale(1) rotate(0deg); opacity:.75; }
+  50%{ transform:scale(1.08) rotate(2deg); opacity:1; }
+}
+
+@keyframes lightningDrift{
+  0%,100%{ transform:translateY(0); opacity:.10; }
+  50%{ transform:translateY(14px); opacity:.25; }
+}
+
+@keyframes dangerTarget{
+  0%,100%{ filter:saturate(1); }
+  50%{ filter:saturate(1.6) brightness(1.08); }
+}
+
+@media (max-width:760px){
+  .boss-speech{
+    top:72px;
+    right:10px;
+    left:10px;
+    max-width:none;
+    font-size:14px;
+    border-radius:20px;
+  }
+
+  .danger-meter{
+    left:10px;
+    right:10px;
+    bottom:10px;
+    padding:8px 10px;
+  }
+
+  .danger-meter strong{
+    font-size:11px;
+  }
+
+  .warning-flash > div{
+    padding:15px 16px;
+    border-radius:24px;
+  }
+
+  .warning-flash span{
+    font-size:14px;
+  }
+
+  .hero-cutin-card{
+    padding:18px 16px;
+    border-radius:28px;
+  }
+
+  .hero-cutin-card .hero-icon{
+    font-size:50px;
+  }
+
+  .hero-cutin-card span{
+    font-size:15px;
+  }
+}
