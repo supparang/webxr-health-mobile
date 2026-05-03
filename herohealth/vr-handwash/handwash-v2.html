@@ -214,6 +214,10 @@
       color:#166534;
     }
 
+    body[data-stage="summary"] .ready{
+      display:none;
+    }
+
     .mascot{
       width:120px;
       height:120px;
@@ -1277,10 +1281,10 @@
           </div>
 
           <div class="tips">
-            <h2>สรุปสั้น ๆ</h2>
+            <h2>ผลการล้างมือของฉัน</h2>
             <p id="summaryText">ทำได้ดีมาก</p>
-            <p id="summarySteps">ขั้นตอน WHO ที่ทำครบ: 0/16</p>
-            <p id="summaryOrder">จำลำดับได้: 0/16</p>
+            <p id="summarySteps">ล้างมือครบ: 0/16 ขั้นตอน</p>
+            <p id="summaryOrder">เรียงลำดับถูก: 0/16 ขั้นตอน</p>
           </div>
         </div>
 
@@ -1504,12 +1508,14 @@
       }
 
       function updateHeader(){
+        document.body.dataset.stage = state.stage;
+
         const map = {
           howto:['🫧 วิธีเล่น','มาดูวิธีล้างมือกัน!','ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง','🧼'],
           practice:['🤲 ฝึกก่อน','ฝึกแตะส่วนของมือ','ดูชื่อในวงสีเหลือง แล้วแตะส่วนนั้นของมือ','🤲'],
           main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','แตะก๊อกน้ำ ใส่สบู่ ถูมือซ้าย/ขวา ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
           order:['🧠 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','กดขั้นตอนตามลำดับที่ถูกต้อง','🧠'],
-          summary:['⭐ สรุปผล','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และคำแนะนำสั้น ๆ','🏆']
+          summary:['🏆 ผลการเล่น','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และสิ่งที่ทำได้ดี','🏆']
         };
 
         const h = map[state.stage] || map.howto;
@@ -1818,16 +1824,16 @@
         el.summaryScore.textContent = String(state.score);
         el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
         el.summaryText.textContent = stars >= 3
-          ? 'เยี่ยมมาก! ล้างมือครบทั้งสองข้างตามลำดับ'
-          : 'ทำได้ดีมาก ฝึกต่ออีกนิดจะคล่องขึ้น';
-        el.summarySteps.textContent = `ขั้นตอน WHO ที่ทำครบ: ${completed}/${WHO.length}`;
-        el.summaryOrder.textContent = `จำลำดับได้: ${state.orderIndex}/${ORDER.length}`;
+          ? 'สุดยอด! ล้างมือครบทั้งสองข้างและเรียงลำดับถูกต้อง'
+          : 'ทำได้ดีมาก ลองเล่นอีกครั้งให้ครบทุกขั้นตอนนะ';
+        el.summarySteps.textContent = `ล้างมือครบ: ${completed}/${WHO.length} ขั้นตอน`;
+        el.summaryOrder.textContent = `เรียงลำดับถูก: ${state.orderIndex}/${ORDER.length} ขั้นตอน`;
 
         try{
           const summary = {
             game:'handwash',
             zone:'hygiene',
-            flow:'static-safe-big-hand-label-faucet-click-two-hands',
+            flow:'static-safe-big-hand-label-faucet-click-two-hands-summary-polish',
             score:state.score,
             stars,
             completedSteps:completed,
@@ -1883,7 +1889,7 @@
         stopTimer();
         const u = new URL(location.href);
         u.searchParams.set('stage','howto');
-        u.searchParams.set('v','20260503k-two-hands');
+        u.searchParams.set('v','20260503l-summary-polish');
         location.href = u.toString();
       }
 
