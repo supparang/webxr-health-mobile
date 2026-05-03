@@ -6,7 +6,8 @@
   <title>HeroHealth • Handwash Launcher</title>
   <meta name="color-scheme" content="dark light" />
   <meta name="theme-color" content="#0ea5e9" />
-  <link rel="icon" href="./favicon.ico" />
+  <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
       --bg1:#03111d;
@@ -31,16 +32,17 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
-      font-family: ui-rounded, "Noto Sans Thai", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
       color:var(--text);
       background:
         radial-gradient(1100px 620px at 12% -10%, rgba(34,211,238,.18), transparent 58%),
         radial-gradient(1000px 620px at 100% 0%, rgba(96,165,250,.18), transparent 56%),
         linear-gradient(180deg, var(--bg3), var(--bg1) 42%, #020b13 100%);
-      -webkit-tap-highlight-color: transparent;
+      -webkit-tap-highlight-color:transparent;
     }
 
     button{
@@ -77,20 +79,26 @@
     }
 
     .blob.b1{
-      width:360px;height:360px;
-      left:-80px;top:-40px;
+      width:360px;
+      height:360px;
+      left:-80px;
+      top:-40px;
       background:rgba(34,211,238,.22);
     }
 
     .blob.b2{
-      width:300px;height:300px;
-      right:-60px;top:60px;
+      width:300px;
+      height:300px;
+      right:-60px;
+      top:60px;
       background:rgba(59,130,246,.20);
     }
 
     .blob.b3{
-      width:260px;height:260px;
-      left:18%;bottom:-80px;
+      width:260px;
+      height:260px;
+      left:18%;
+      bottom:-80px;
       background:rgba(168,85,247,.14);
     }
 
@@ -338,16 +346,17 @@
       white-space:nowrap;
     }
 
-    @media (max-width: 900px){
+    @media (max-width:900px){
       .cards{
         grid-template-columns:1fr;
       }
+
       .quick{
         grid-template-columns:1fr;
       }
     }
 
-    @media (max-width: 640px){
+    @media (max-width:640px){
       .page{
         padding:
           max(10px, var(--sat))
@@ -383,6 +392,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="page">
     <div class="bg" aria-hidden="true">
@@ -411,7 +421,7 @@
           </div>
           <div class="quick-item">
             <div class="k">Cardboard VR</div>
-            <div class="v">ควรใช้เวอร์ชัน VR แยก ที่ควบคุมด้วยการจ้องและแตะ</div>
+            <div class="v">ใช้เวอร์ชัน VR แยก ควบคุมด้วยการจ้องและแตะ</div>
           </div>
         </div>
       </section>
@@ -429,7 +439,7 @@
             <div class="pill"><span class="dot"></span><span>เหมาะกับครูและผู้ทดสอบ</span></div>
             <div class="pill"><span class="dot"></span><span>ใช้หน้า 2D เดิมได้ทันที</span></div>
           </div>
-          <button class="cta pc" id="btnPc">เข้าเล่นบน PC</button>
+          <button class="cta pc" id="btnPc" type="button">เข้าเล่นบน PC</button>
         </article>
 
         <article class="card">
@@ -444,7 +454,7 @@
             <div class="pill"><span class="dot"></span><span>hitbox ใหญ่ เล่นลื่นกว่า</span></div>
             <div class="pill"><span class="dot"></span><span>เหมาะกับการทดสอบผู้เรียนจริง</span></div>
           </div>
-          <button class="cta mobile" id="btnMobile">เข้าเล่นบน Mobile</button>
+          <button class="cta mobile" id="btnMobile" type="button">เข้าเล่นบน Mobile</button>
         </article>
 
         <article class="card">
@@ -459,7 +469,7 @@
             <div class="pill"><span class="dot"></span><span>เหมาะกับ gaze / crosshair</span></div>
             <div class="pill"><span class="dot"></span><span>เตรียมไว้สำหรับ Cardboard/cVR</span></div>
           </div>
-          <button class="cta vr" id="btnVr">เข้าเล่นแบบ Cardboard VR</button>
+          <button class="cta vr" id="btnVr" type="button">เข้าเล่นแบบ Cardboard VR</button>
         </article>
       </section>
 
@@ -471,71 +481,174 @@
             ส่วน Cardboard VR ควรใช้ไฟล์ VR แยกเพื่อให้คุมง่ายและไม่งง
           </div>
         </div>
-        <button class="ghost" id="btnBackHub">กลับ HUB</button>
+        <button class="ghost" id="btnBackHub" type="button">กลับ Hygiene Zone</button>
       </section>
     </main>
   </div>
 
   <script>
-    const qs = new URLSearchParams(location.search);
+    (function(){
+      'use strict';
 
-    const sharedKeys = [
-      'pid','studyId','run','mode','diff','hub','seed','view',
-      'conditionGroup','sessionOrder','blockLabel','siteCode','schoolYear','semester',
-      'studentKey','schoolCode','schoolName','classRoom','studentNo','nickName',
-      'gender','age','gradeLevel'
-    ];
+      const qs = new URLSearchParams(location.search);
 
-    function buildSharedParams() {
-      const params = new URLSearchParams();
-      sharedKeys.forEach((key) => {
-        const value = qs.get(key);
-        if (value !== null && value !== '') params.set(key, value);
-      });
-      return params;
-    }
+      const TARGETS = {
+        pc: './handwash-v2.html',
+        mobile: './handwash-v2.html',
+        vr: './handwash-vr.html'
+      };
 
-    function goTo(base, extra = {}) {
-      const url = new URL(base, location.href);
-      const params = buildSharedParams();
+      const PLAY_KEYS = [
+        'pid',
+        'name',
+        'diff',
+        'time',
+        'miniTime',
+        'view',
+        'run',
+        'hub'
+      ];
 
-      params.forEach((value, key) => url.searchParams.set(key, value));
-      Object.entries(extra).forEach(([key, value]) => {
-        if (value !== undefined && value !== null && String(value) !== '') {
-          url.searchParams.set(key, String(value));
+      const RESEARCH_KEYS = [
+        'studyId',
+        'conditionGroup',
+        'sessionOrder',
+        'blockLabel',
+        'siteCode',
+        'schoolYear',
+        'semester',
+        'studentKey',
+        'schoolCode',
+        'schoolName',
+        'classRoom',
+        'studentNo',
+        'nickName',
+        'gender',
+        'age',
+        'gradeLevel',
+        'api',
+        'log'
+      ];
+
+      function first(){
+        for(let i = 0; i < arguments.length; i++){
+          const v = arguments[i];
+          if(String(v || '').trim()) return String(v).trim();
         }
+        return '';
+      }
+
+      function isResearchRun(){
+        return (
+          qs.get('run') === 'research' ||
+          qs.get('log') === '1' ||
+          !!first(qs.get('studyId'))
+        );
+      }
+
+      function cleanReturnUrl(raw){
+        const fallback = new URL('../hygiene-zone.html', location.href).toString();
+
+        try{
+          if(!String(raw || '').trim()) return fallback;
+
+          const u = new URL(String(raw), location.href);
+
+          if(u.pathname.includes('/hygiene-zone.html')){
+            return new URL('../hygiene-zone.html', location.href).toString();
+          }
+
+          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
+            return fallback;
+          }
+
+          return u.toString();
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function buildSharedParams(){
+        const params = new URLSearchParams();
+
+        PLAY_KEYS.forEach((key) => {
+          const value = qs.get(key);
+          if(value !== null && value !== '') params.set(key, value);
+        });
+
+        if(!params.get('pid')) params.set('pid', 'anon');
+        if(!params.get('name')) params.set('name', first(qs.get('nick'), qs.get('nickName'), 'Hero'));
+        if(!params.get('diff')) params.set('diff', 'normal');
+        if(!params.get('time')) params.set('time', '90');
+        if(!params.get('miniTime')) params.set('miniTime', '60');
+        if(!params.get('view')) params.set('view', 'mobile');
+        if(!params.get('run')) params.set('run', 'play');
+
+        params.set('hub', cleanReturnUrl(params.get('hub')));
+
+        if(isResearchRun()){
+          RESEARCH_KEYS.forEach((key) => {
+            const value = qs.get(key);
+            if(value !== null && value !== '') params.set(key, value);
+          });
+        }
+
+        return params;
+      }
+
+      function goTo(base, extra = {}){
+        const url = new URL(base, location.href);
+        const params = buildSharedParams();
+
+        params.forEach((value, key) => {
+          url.searchParams.set(key, value);
+        });
+
+        url.searchParams.set('zone', 'hygiene');
+        url.searchParams.set('game', 'handwash');
+        url.searchParams.set('mode', 'solo');
+
+        Object.entries(extra).forEach(([key, value]) => {
+          if(value !== undefined && value !== null && String(value) !== ''){
+            url.searchParams.set(key, String(value));
+          }
+        });
+
+        location.href = url.toString();
+      }
+
+      document.getElementById('btnPc')?.addEventListener('click', () => {
+        goTo(TARGETS.pc, {
+          view: 'pc',
+          strictGesture: 0
+        });
       });
 
-      location.href = url.toString();
-    }
-
-    document.getElementById('btnPc')?.addEventListener('click', () => {
-      goTo('./handwash-v2.html', {
-        view: 'pc',
-        strictGesture: 0
+      document.getElementById('btnMobile')?.addEventListener('click', () => {
+        goTo(TARGETS.mobile, {
+          view: 'mobile',
+          strictGesture: 0,
+          mobileFreeScrub: 1
+        });
       });
-    });
 
-    document.getElementById('btnMobile')?.addEventListener('click', () => {
-      goTo('./handwash-v2.html', {
-        view: 'mobile',
-        strictGesture: 0,
-        mobileFreeScrub: 1
+      document.getElementById('btnVr')?.addEventListener('click', () => {
+        goTo(TARGETS.vr, {
+          view: 'cvr'
+        });
       });
-    });
 
-    document.getElementById('btnVr')?.addEventListener('click', () => {
-      goTo('./vr-handwash/handwash-vr.html', {
-        view: 'cvr'
+      document.getElementById('btnBackHub')?.addEventListener('click', () => {
+        location.href = cleanReturnUrl(qs.get('hub'));
       });
-    });
 
-    document.getElementById('btnBackHub')?.addEventListener('click', () => {
-      const hub = qs.get('hub') || './hub.html';
-      goTo(hub, {
-        fromGame: 'handwash-launcher'
-      });
-    });
+      window.__handwashLauncher = {
+        goPc: () => goTo(TARGETS.pc, { view:'pc', strictGesture:0 }),
+        goMobile: () => goTo(TARGETS.mobile, { view:'mobile', strictGesture:0, mobileFreeScrub:1 }),
+        goVr: () => goTo(TARGETS.vr, { view:'cvr' }),
+        back: () => { location.href = cleanReturnUrl(qs.get('hub')); }
+      };
+    })();
   </script>
 </body>
 </html>
