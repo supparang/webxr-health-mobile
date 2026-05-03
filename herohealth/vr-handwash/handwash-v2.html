@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Handwash Simulation</title>
+  <title>HeroHealth • Handwash Static Safe</title>
   <meta name="theme-color" content="#8be8ff" />
   <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
@@ -57,7 +57,7 @@
 
     .page{
       min-height:100dvh;
-      width:min(1180px,100%);
+      width:min(1120px,100%);
       margin:0 auto;
       padding:
         calc(10px + var(--sat))
@@ -71,7 +71,7 @@
     .topbar{
       position:sticky;
       top:0;
-      z-index:40;
+      z-index:50;
       display:flex;
       justify-content:space-between;
       align-items:center;
@@ -89,7 +89,7 @@
       padding:9px 12px;
       border-radius:999px;
       border:2px solid var(--line);
-      background:rgba(255,255,255,.9);
+      background:rgba(255,255,255,.92);
       box-shadow:var(--shadow-soft);
     }
 
@@ -101,7 +101,6 @@
       place-items:center;
       background:linear-gradient(180deg,#8be8ff,#22d3ee);
       font-size:24px;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.42);
       flex:0 0 auto;
     }
 
@@ -118,9 +117,6 @@
       color:var(--muted);
       font-size:12px;
       font-weight:850;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
 
     .topActions{
@@ -130,8 +126,8 @@
     }
 
     .iconBtn{
-      min-width:44px;
-      min-height:44px;
+      min-width:46px;
+      min-height:46px;
       border:0;
       border-radius:16px;
       background:#fff;
@@ -178,9 +174,6 @@
       color:#0f766e;
       font-size:13px;
       font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
       margin-bottom:8px;
     }
 
@@ -202,18 +195,34 @@
       max-width:780px;
     }
 
+    .ready{
+      margin-top:8px;
+      width:max-content;
+      max-width:100%;
+      padding:8px 12px;
+      border-radius:999px;
+      border:2px solid #ffcaca;
+      background:#fff3f3;
+      color:#8a1f1f;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    body.js-ready .ready{
+      border-color:#b8eec6;
+      background:#effcf3;
+      color:#166534;
+    }
+
     .mascot{
-      width:132px;
-      height:132px;
-      border-radius:32px;
+      width:120px;
+      height:120px;
+      border-radius:30px;
       border:2px dashed rgba(23,56,79,.14);
-      background:
-        radial-gradient(circle at 50% 20%, rgba(255,255,255,.95), transparent 24%),
-        linear-gradient(180deg,#dffaff,#bdf4ff);
+      background:linear-gradient(180deg,#dffaff,#bdf4ff);
       display:grid;
       place-items:center;
-      font-size:64px;
-      box-shadow:inset 0 0 0 8px rgba(255,255,255,.42);
+      font-size:60px;
     }
 
     .flowLine{
@@ -239,7 +248,7 @@
       font-size:12px;
       font-weight:1000;
       line-height:1.25;
-      opacity:.72;
+      opacity:.68;
     }
 
     .flowStep.active{
@@ -283,6 +292,15 @@
       padding:16px;
     }
 
+    .screen{
+      display:none;
+      gap:12px;
+    }
+
+    .screen.active{
+      display:grid;
+    }
+
     .grid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -307,7 +325,6 @@
       place-items:center;
       font-size:30px;
       background:linear-gradient(180deg,#dffaff,#bdf4ff);
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.5);
     }
 
     .card h2{
@@ -326,7 +343,7 @@
     }
 
     .feedback{
-      min-height:52px;
+      min-height:54px;
       border-radius:20px;
       border:2px solid #d7f0fb;
       background:#fff;
@@ -351,14 +368,8 @@
       color:#7c5800;
     }
 
-    .feedback.bad{
-      background:#fff3f3;
-      border-color:#ffc8c8;
-      color:#8a1f1f;
-    }
-
     .progressWrap{
-      height:18px;
+      height:20px;
       border-radius:999px;
       background:#e9f7fd;
       border:2px solid #d7f0fb;
@@ -377,7 +388,7 @@
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
-      margin-top:12px;
+      margin-top:4px;
     }
 
     .primaryBtn,
@@ -385,13 +396,12 @@
     .toolBtn,
     .orderBtn,
     .targetBtn{
-      min-height:54px;
+      min-height:56px;
       border:0;
       border-radius:18px;
       padding:12px 14px;
       font-weight:1000;
       box-shadow:var(--shadow-soft);
-      transition:transform .12s ease;
       outline:3px solid transparent;
     }
 
@@ -416,49 +426,16 @@
     }
 
     .targetBtn{
-      min-height:76px;
+      min-height:84px;
       background:linear-gradient(180deg,#fff2a8,#ffd84d);
       color:#503c00;
-      font-size:20px;
+      font-size:22px;
       box-shadow:0 14px 24px rgba(255,216,77,.28);
-    }
-
-    .toolRow{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-      margin:12px 0;
-    }
-
-    .toolBtn{
-      background:#fff;
-      border:2px solid #d7f0fb;
-      color:#17384f;
-      display:grid;
-      place-items:center;
-      text-align:center;
-      gap:4px;
-      min-height:76px;
-    }
-
-    .toolBtn .emoji{
-      font-size:30px;
-      line-height:1;
-    }
-
-    .toolBtn.active{
-      outline-color:#22d3ee;
-      background:linear-gradient(180deg,#ecfeff,#ffffff);
-    }
-
-    .toolBtn.done{
-      background:linear-gradient(180deg,#dcfff2,#baf4cf);
-      border-color:#98e3aa;
     }
 
     .simLayout{
       display:grid;
-      grid-template-columns:300px minmax(0,1fr);
+      grid-template-columns:310px minmax(0,1fr);
       gap:14px;
       align-items:start;
     }
@@ -503,6 +480,39 @@
       line-height:1.55;
       font-size:14px;
       font-weight:760;
+    }
+
+    .toolRow{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin:4px 0;
+    }
+
+    .toolBtn{
+      background:#fff;
+      border:2px solid #d7f0fb;
+      color:#17384f;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      gap:4px;
+      min-height:76px;
+    }
+
+    .toolBtn .emoji{
+      font-size:30px;
+      line-height:1;
+    }
+
+    .toolBtn.active{
+      outline-color:#22d3ee;
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+    }
+
+    .toolBtn.done{
+      background:linear-gradient(180deg,#dcfff2,#baf4cf);
+      border-color:#98e3aa;
     }
 
     .statusList{
@@ -601,7 +611,6 @@
       display:grid;
       place-items:center;
       font-size:18px;
-      box-shadow:var(--shadow-soft);
     }
 
     .waterStream{
@@ -613,20 +622,19 @@
       border-radius:999px;
       background:linear-gradient(180deg,rgba(69,201,245,.85),rgba(139,232,255,.18));
       opacity:0;
-      transform-origin:top center;
-      animation:waterFlow .55s linear infinite;
       z-index:2;
       pointer-events:none;
     }
 
     .waterStream.on{
       opacity:1;
+      animation:waterFlow .55s linear infinite;
     }
 
     @keyframes waterFlow{
-      0%{ filter:brightness(1); transform:scaleY(.96); }
-      50%{ filter:brightness(1.12); transform:scaleY(1.03); }
-      100%{ filter:brightness(1); transform:scaleY(.96); }
+      0%{ transform:scaleY(.96); }
+      50%{ transform:scaleY(1.03); }
+      100%{ transform:scaleY(.96); }
     }
 
     .soapPump{
@@ -662,7 +670,6 @@
       display:grid;
       place-items:center;
       font-size:28px;
-      box-shadow:var(--shadow-soft);
     }
 
     .towel{
@@ -674,7 +681,6 @@
       border-radius:22px;
       background:linear-gradient(180deg,#ffe3ef,#ffc9de);
       border:3px solid rgba(91,38,59,.14);
-      box-shadow:var(--shadow-soft);
       display:grid;
       place-items:center;
       font-size:34px;
@@ -691,9 +697,6 @@
       border-radius:46% 46% 34px 34px;
       background:linear-gradient(180deg,#ffffff,#dff8ff);
       border:4px solid #cdeffc;
-      box-shadow:
-        inset 0 -20px 40px rgba(69,201,245,.10),
-        0 18px 36px rgba(23,56,79,.10);
       z-index:1;
       pointer-events:none;
     }
@@ -708,68 +711,32 @@
       z-index:4;
     }
 
-    .handSvg{
-      width:100%;
-      height:100%;
-      overflow:visible;
-      filter:drop-shadow(0 16px 16px rgba(23,56,79,.10));
+    .handBig{
+      position:absolute;
+      inset:20px 0 0;
+      display:grid;
+      place-items:center;
+      font-size:170px;
+      opacity:.92;
+      filter:drop-shadow(0 14px 18px rgba(23,56,79,.13));
       pointer-events:none;
     }
 
-    .handSkin{
-      fill:#ffd9b3;
-      stroke:#d69f78;
-      stroke-width:4;
-    }
-
-    .handLine{
-      stroke:#c98663;
-      stroke-width:3;
-      stroke-linecap:round;
-      opacity:.62;
-      fill:none;
-    }
-
-    .zoneBtn{
+    .hotspot{
       position:absolute;
+      z-index:55;
       border-radius:999px;
-      z-index:50;
-      border:3px solid transparent;
-      background:rgba(255,217,93,.06);
+      border:4px solid #ffd84d;
+      background:rgba(255,217,93,.48);
       color:#503c00;
-      font-size:12px;
-      font-weight:1000;
       display:grid;
       place-items:center;
       text-align:center;
-      padding:4px;
-      touch-action:manipulation;
-      box-shadow:none;
-      min-height:44px;
-      min-width:44px;
-    }
-
-    .zoneBtn.target{
-      background:rgba(255,217,93,.48);
-      border-color:#ffd84d;
+      font-weight:1000;
       box-shadow:
         0 0 0 10px rgba(255,216,77,.20),
         0 10px 24px rgba(80,60,0,.12);
       animation:targetPulse 1s ease-in-out infinite;
-    }
-
-    .zoneBtn.done{
-      background:rgba(128,223,150,.28);
-      border-color:#80df96;
-    }
-
-    .zoneBtn span{
-      display:none;
-      pointer-events:none;
-    }
-
-    .zoneBtn.target span{
-      display:block;
     }
 
     @keyframes targetPulse{
@@ -777,14 +744,14 @@
       50%{ transform:scale(1.035); }
     }
 
-    .zone-palm{ left:39%; top:45%; width:22%; height:22%; }
-    .zone-back{ left:17%; top:41%; width:26%; height:24%; }
-    .zone-between{ left:38%; top:22%; width:26%; height:22%; }
-    .zone-backs{ left:29%; top:30%; width:42%; height:16%; }
-    .zone-thumb{ left:59%; top:43%; width:20%; height:22%; }
-    .zone-fingertips{ left:37%; top:6%; width:26%; height:18%; }
-    .zone-wrist{ left:38%; top:66%; width:28%; height:16%; }
-    .zone-all{ left:23%; top:13%; width:54%; height:66%; }
+    .hotspot.palm{ left:38%; top:44%; width:24%; height:24%; }
+    .hotspot.back{ left:18%; top:40%; width:27%; height:26%; }
+    .hotspot.between{ left:37%; top:22%; width:27%; height:22%; }
+    .hotspot.backs{ left:28%; top:30%; width:44%; height:17%; }
+    .hotspot.thumb{ left:58%; top:42%; width:22%; height:24%; }
+    .hotspot.fingertips{ left:36%; top:6%; width:28%; height:18%; }
+    .hotspot.wrist{ left:36%; top:66%; width:30%; height:16%; }
+    .hotspot.all{ left:24%; top:16%; width:52%; height:60%; }
 
     .foamLayer,
     .dropLayer,
@@ -792,13 +759,13 @@
       position:absolute;
       inset:0;
       pointer-events:none;
-      z-index:60;
+      z-index:65;
     }
 
     .foam{
       position:absolute;
-      width:22px;
-      height:22px;
+      width:24px;
+      height:24px;
       border-radius:50%;
       background:rgba(255,255,255,.92);
       border:2px solid rgba(139,232,255,.48);
@@ -848,7 +815,7 @@
       width:min(520px,88%);
       border-radius:22px;
       padding:12px 14px;
-      background:rgba(255,255,255,.88);
+      background:rgba(255,255,255,.90);
       border:2px solid rgba(255,255,255,.9);
       color:#37566e;
       text-align:center;
@@ -894,7 +861,6 @@
       display:grid;
       place-items:center;
       text-align:center;
-      box-shadow:var(--shadow-soft);
     }
 
     .bigScore .score{
@@ -916,7 +882,6 @@
       padding:18px;
       display:grid;
       gap:10px;
-      box-shadow:var(--shadow-soft);
     }
 
     .tips h2{
@@ -937,7 +902,7 @@
       left:50%;
       bottom:18px;
       transform:translateX(-50%) translateY(20px);
-      z-index:90;
+      z-index:100;
       width:min(420px,90vw);
       padding:12px 16px;
       border-radius:999px;
@@ -986,24 +951,30 @@
         grid-template-columns:1fr;
       }
 
-      h1{ font-size:36px; }
+      h1{ font-size:34px; }
       .lead{ font-size:15px; }
       .handScene{ min-height:500px; }
       .hands{ top:150px; height:330px; }
       .sink{ top:230px; height:230px; }
 
+      .handBig{ font-size:138px; }
+
       .soapPump{
-        right:12px;
-        top:34px;
-        transform:scale(.86);
+        right:10px;
+        top:32px;
+        transform:scale(.84);
         transform-origin:top right;
       }
 
       .towel{
-        right:14px;
+        right:12px;
         bottom:18px;
-        transform:scale(.86);
+        transform:scale(.84);
         transform-origin:bottom right;
+      }
+
+      .targetBtn{
+        min-height:76px;
       }
     }
   </style>
@@ -1021,8 +992,8 @@
       </div>
 
       <div class="topActions">
-        <button class="iconBtn" id="btnRestart" type="button" aria-label="เริ่มใหม่">↻</button>
-        <button class="iconBtn" id="btnBack" type="button" aria-label="กลับโซน">🏠</button>
+        <button class="iconBtn" id="btnRestart" type="button">↻</button>
+        <button class="iconBtn" id="btnBack" type="button">🏠</button>
       </div>
     </header>
 
@@ -1032,17 +1003,18 @@
           <div class="badge" id="stageBadge">🫧 Handwash</div>
           <h1 id="stageTitle">ล้างมือให้สะอาด!</h1>
           <p class="lead" id="stageLead">เริ่มจากวิธีเล่นสั้น ๆ แล้วค่อยฝึกจริง</p>
+          <div class="ready" id="readyText">กำลังโหลดระบบปุ่ม...</div>
         </div>
 
         <div class="mascot" aria-hidden="true" id="stageMascot">🧼</div>
       </div>
 
       <div class="flowLine" aria-label="ลำดับการเล่น">
-        <div class="flowStep" data-flow-step="howto">1<br>วิธีเล่น</div>
-        <div class="flowStep" data-flow-step="practice">2<br>ฝึกก่อน</div>
-        <div class="flowStep" data-flow-step="main">3<br>ล้างมือจริง</div>
-        <div class="flowStep" data-flow-step="order">4<br>เรียงลำดับ</div>
-        <div class="flowStep" data-flow-step="summary">5<br>สรุปผล</div>
+        <div class="flowStep" data-flow="howto">1<br>วิธีเล่น</div>
+        <div class="flowStep" data-flow="practice">2<br>ฝึกก่อน</div>
+        <div class="flowStep" data-flow="main">3<br>ล้างมือจริง</div>
+        <div class="flowStep" data-flow="order">4<br>เรียงลำดับ</div>
+        <div class="flowStep" data-flow="summary">5<br>สรุปผล</div>
       </div>
 
       <div class="stats">
@@ -1053,7 +1025,192 @@
       </div>
     </section>
 
-    <section class="panel" id="gameRoot"></section>
+    <section class="panel">
+      <section id="screen-howto" class="screen active">
+        <div class="grid">
+          <article class="card"><div class="cardIcon">🚿</div><h2>เปิดน้ำจริง</h2><p>กดปุ่มเปิดน้ำให้มือเปียก และล้างฟองออกตอนท้าย</p></article>
+          <article class="card"><div class="cardIcon">🫧</div><h2>กดสบู่</h2><p>กดขวดสบู่ก่อนฟอกมือ ถ้ายังไม่มีสบู่ เกมจะเตือน</p></article>
+          <article class="card"><div class="cardIcon">👆</div><h2>ใช้ปุ่มจริง</h2><p>เวอร์ชันนี้ใช้ปุ่ม HTML จริงทุกปุ่ม เพื่อให้กดได้แน่นอน</p></article>
+          <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>ฝ่ามือ หลังมือ ซอกนิ้ว หลังนิ้ว นิ้วโป้ง ปลายนิ้ว ข้อมือ ล้างน้ำ และเช็ดมือ</p></article>
+        </div>
+
+        <div class="actions">
+          <button class="primaryBtn" type="button" data-click="goPractice">▶ เริ่มฝึกก่อน</button>
+          <button class="secondaryBtn" type="button" data-click="goMain">ไปล้างมือจริง</button>
+        </div>
+      </section>
+
+      <section id="screen-practice" class="screen">
+        <div class="feedback good">
+          <span>🎯</span>
+          <span id="practicePrompt">กดปุ่มสีเหลือง: ฝ่ามือ</span>
+        </div>
+
+        <div class="progressWrap"><div class="progressBar" id="practiceBar"></div></div>
+
+        <div class="simLayout">
+          <div class="stepPanel">
+            <span class="stepChip">Practice</span>
+            <h2 class="stepTitle">รู้จักส่วนของมือ</h2>
+            <p class="stepText">กดปุ่มใหญ่ด้านล่าง หรือกดปุ่มสีเหลืองบนมือก็ได้</p>
+
+            <button class="targetBtn" id="practiceBigBtn" type="button" data-click="practiceTarget">
+              🤲 แตะฝ่ามือ
+            </button>
+          </div>
+
+          <div class="handScene">
+            <div class="faucet" aria-hidden="true">
+              <div class="tapKnob">💧</div>
+              <div class="faucetBase"></div>
+              <div class="faucetPipe"></div>
+              <div class="faucetNeck"></div>
+            </div>
+
+            <button class="soapPump" type="button" data-click="noop">
+              <div class="soapHead"></div>
+              <div class="soapBody">🫧</div>
+            </button>
+
+            <button class="towel" type="button" data-click="noop">🧻</button>
+            <div class="sink" aria-hidden="true"></div>
+
+            <div class="hands" id="practiceHands">
+              <div class="handBig">🤲</div>
+              <button class="hotspot palm" id="practiceHotspot" type="button" data-click="practiceTarget">แตะ<br>ตรงนี้</button>
+              <div class="sparkLayer" id="practiceSpark"></div>
+            </div>
+
+            <div class="scrubHint">กดปุ่มสีเหลืองบนมือ หรือกดปุ่มใหญ่ด้านซ้าย</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="secondaryBtn" type="button" data-click="goHowto">กลับวิธีเล่น</button>
+          <button class="primaryBtn" type="button" data-click="goMain">ไปล้างมือจริง</button>
+        </div>
+      </section>
+
+      <section id="screen-main" class="screen">
+        <div class="simLayout">
+          <div class="stepPanel">
+            <span class="stepChip" id="mainStepChip">ขั้นที่ 1/11</span>
+            <h2 class="stepTitle" id="mainStepTitle">💧 เปิดน้ำให้มือเปียก</h2>
+            <p class="stepText" id="mainStepText">กดเปิดน้ำ แล้วกดปุ่มสีเหลืองให้มือเปียก</p>
+
+            <div class="progressWrap"><div class="progressBar" id="mainBar"></div></div>
+
+            <button class="targetBtn" id="mainBigBtn" type="button" data-click="mainTarget">
+              💧 ทำขั้นนี้
+            </button>
+
+            <div class="statusList">
+              <div class="statusPill" id="pillWater"><span>น้ำ</span><strong id="txtWater">ปิดอยู่</strong></div>
+              <div class="statusPill" id="pillWet"><span>มือเปียก</span><strong id="txtWet">ยัง</strong></div>
+              <div class="statusPill" id="pillSoap"><span>สบู่</span><strong id="txtSoap">ยังไม่มี</strong></div>
+              <div class="statusPill"><span>ฟอง</span><strong id="txtFoam">0%</strong></div>
+            </div>
+
+            <div class="toolRow">
+              <button class="toolBtn" id="btnWater" type="button" data-click="water"><span class="emoji">🚿</span><span id="txtWaterBtn">เปิดน้ำ</span></button>
+              <button class="toolBtn" id="btnSoap" type="button" data-click="soap"><span class="emoji">🫧</span><span>กดสบู่</span></button>
+              <button class="toolBtn" id="btnTowel" type="button" data-click="towel"><span class="emoji">🧻</span><span>ใช้ผ้า</span></button>
+            </div>
+
+            <div class="feedback warn" id="mainFeedback">
+              <span id="mainFeedbackIcon">🚿</span>
+              <span id="mainFeedbackText">กดเปิดน้ำก่อนนะ</span>
+            </div>
+          </div>
+
+          <div class="handScene">
+            <div class="faucet" aria-hidden="true">
+              <div class="tapKnob">💧</div>
+              <div class="faucetBase"></div>
+              <div class="faucetPipe"></div>
+              <div class="faucetNeck"></div>
+            </div>
+
+            <div class="waterStream" id="waterStream"></div>
+
+            <button class="soapPump" type="button" data-click="soap">
+              <div class="soapHead"></div>
+              <div class="soapBody">🫧</div>
+            </button>
+
+            <button class="towel" type="button" data-click="towel">🧻</button>
+            <div class="sink" aria-hidden="true"></div>
+
+            <div class="hands" id="mainHands">
+              <div class="handBig">🤲</div>
+              <button class="hotspot all" id="mainHotspot" type="button" data-click="mainTarget">แตะ<br>ตรงนี้</button>
+              <div class="foamLayer" id="foamLayer"></div>
+              <div class="dropLayer" id="dropLayer"></div>
+              <div class="sparkLayer" id="sparkLayer"></div>
+            </div>
+
+            <div class="scrubHint" id="mainHint">กดเปิดน้ำก่อน</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="secondaryBtn" type="button" data-click="goPractice">กลับไปฝึก</button>
+          <button class="primaryBtn" type="button" data-click="skip">ผ่านขั้นนี้</button>
+        </div>
+      </section>
+
+      <section id="screen-order" class="screen">
+        <div class="feedback good">
+          <span>🧠</span>
+          <span id="orderPrompt">ขั้นตอนต่อไปคืออะไร?</span>
+        </div>
+
+        <div class="progressWrap"><div class="progressBar" id="orderBar"></div></div>
+
+        <div class="orderList">
+          <button class="orderBtn" type="button" data-click="order" data-value="wet">💧<strong>เปียกมือ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="soap">🫧<strong>ใส่สบู่</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="palm">🤲<strong>ถูฝ่ามือ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="back">✋<strong>ถูหลังมือ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="between">🖐️<strong>ถูซอกนิ้ว</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="backs">✊<strong>ถูหลังนิ้ว</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="thumb">👍<strong>ถูนิ้วโป้ง</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="fingertips">☝️<strong>ถูปลายนิ้ว/เล็บ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="wrist">💪<strong>ถูข้อมือ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="rinse">🚿<strong>ล้างน้ำ</strong></button>
+          <button class="orderBtn" type="button" data-click="order" data-value="dry">🧻<strong>เช็ดมือ</strong></button>
+        </div>
+
+        <div class="actions">
+          <button class="secondaryBtn" type="button" data-click="goMain">กลับล้างมือจริง</button>
+          <button class="primaryBtn" type="button" data-click="goSummary">ดูสรุปผล</button>
+        </div>
+      </section>
+
+      <section id="screen-summary" class="screen">
+        <div class="summaryBox">
+          <div class="bigScore">
+            <div>
+              <div class="score" id="summaryScore">0</div>
+              <div class="stars" id="summaryStars">⭐☆☆</div>
+              <div style="margin-top:8px;font-weight:1000;color:#8d6118;">คะแนนของฉัน</div>
+            </div>
+          </div>
+
+          <div class="tips">
+            <h2>สรุปสั้น ๆ</h2>
+            <p id="summaryText">ทำได้ดีมาก</p>
+            <p id="summarySteps">ขั้นตอน WHO ที่ทำครบ: 0/11</p>
+            <p id="summaryOrder">จำลำดับได้: 0/11</p>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="primaryBtn" type="button" data-click="restart">เล่นอีกครั้ง</button>
+          <button class="secondaryBtn" type="button" data-click="back">กลับ Hygiene Zone</button>
+        </div>
+      </section>
+    </section>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -1063,431 +1220,300 @@
       'use strict';
 
       const qs = new URLSearchParams(location.search);
-      const root = document.getElementById('gameRoot');
-      const toastEl = document.getElementById('toast');
 
-      const STAGES = ['howto', 'practice', 'main', 'order', 'summary'];
-
-      const WHO_STEPS = [
-        { id:'wet', type:'water', title:'เปิดน้ำให้มือเปียก', short:'เปิดน้ำ', emoji:'💧', instruction:'กดปุ่มเปิดน้ำ แล้วกดปุ่มสีเหลืองให้มือเปียกทั่วถึง', target:'all', needWater:true, needSoap:false, goal:100 },
-        { id:'soap', type:'soap', title:'ใส่สบู่', short:'ใส่สบู่', emoji:'🫧', instruction:'กดขวดสบู่ให้มีสบู่บนมือ ก่อนเริ่มฟอก', target:'all', needWater:false, needSoap:false, goal:1 },
-        { id:'palm', type:'scrub', title:'ถูฝ่ามือ', short:'ฝ่ามือ', emoji:'🤲', instruction:'กดหรือถูบริเวณฝ่ามือที่สว่าง ให้ฟองขึ้นจนเต็ม', target:'palm', needWater:false, needSoap:true, goal:100 },
-        { id:'back', type:'scrub', title:'ถูหลังมือ', short:'หลังมือ', emoji:'✋', instruction:'กดหรือถูบริเวณหลังมือที่สว่าง ให้ครบทั้งสองข้าง', target:'back', needWater:false, needSoap:true, goal:100 },
-        { id:'between', type:'scrub', title:'ถูซอกนิ้ว', short:'ซอกนิ้ว', emoji:'🖐️', instruction:'กดหรือถูซอกนิ้วไปมา ให้ฟองเข้าไปถึงร่องนิ้ว', target:'between', needWater:false, needSoap:true, goal:100 },
-        { id:'backs', type:'scrub', title:'ถูหลังนิ้ว', short:'หลังนิ้ว', emoji:'✊', instruction:'กดหรือถูหลังนิ้วกับฝ่ามือ', target:'backs', needWater:false, needSoap:true, goal:100 },
-        { id:'thumb', type:'scrub', title:'ถูนิ้วโป้ง', short:'นิ้วโป้ง', emoji:'👍', instruction:'กดหรือถูรอบนิ้วโป้งให้สะอาด', target:'thumb', needWater:false, needSoap:true, goal:100 },
-        { id:'fingertips', type:'scrub', title:'ถูปลายนิ้วและเล็บ', short:'ปลายนิ้ว', emoji:'☝️', instruction:'กดหรือถูปลายนิ้วบนฝ่ามือ เพื่อทำความสะอาดเล็บ', target:'fingertips', needWater:false, needSoap:true, goal:100 },
-        { id:'wrist', type:'scrub', title:'ถูข้อมือ', short:'ข้อมือ', emoji:'💪', instruction:'กดหรือถูรอบข้อมือทั้งสองข้าง', target:'wrist', needWater:false, needSoap:true, goal:100 },
-        { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างน้ำ', emoji:'🚿', instruction:'เปิดน้ำ แล้วกดปุ่มสีเหลืองจนฟองหาย', target:'all', needWater:true, needSoap:false, goal:100 },
-        { id:'dry', type:'dry', title:'เช็ดมือให้แห้ง', short:'เช็ดมือ', emoji:'🧻', instruction:'กดผ้าเช็ดมือ แล้วกดปุ่มสีเหลืองจนมือแห้ง', target:'all', needWater:false, needSoap:false, goal:100 }
+      const WHO = [
+        { id:'wet', type:'water', title:'เปิดน้ำให้มือเปียก', short:'เปิดน้ำ', emoji:'💧', target:'all', needWater:true, needSoap:false, goal:100, text:'กดเปิดน้ำ แล้วกดปุ่มสีเหลืองให้มือเปียกทั่วถึง' },
+        { id:'soap', type:'soap', title:'ใส่สบู่', short:'ใส่สบู่', emoji:'🫧', target:'all', needWater:false, needSoap:false, goal:1, text:'กดขวดสบู่ หรือปุ่มกดสบู่ เพื่อใส่สบู่บนมือ' },
+        { id:'palm', type:'scrub', title:'ถูฝ่ามือ', short:'ฝ่ามือ', emoji:'🤲', target:'palm', needWater:false, needSoap:true, goal:100, text:'กดหรือถูบริเวณฝ่ามือที่สว่าง ให้ฟองขึ้นจนเต็ม' },
+        { id:'back', type:'scrub', title:'ถูหลังมือ', short:'หลังมือ', emoji:'✋', target:'back', needWater:false, needSoap:true, goal:100, text:'กดหรือถูหลังมือให้สะอาด' },
+        { id:'between', type:'scrub', title:'ถูซอกนิ้ว', short:'ซอกนิ้ว', emoji:'🖐️', target:'between', needWater:false, needSoap:true, goal:100, text:'กดหรือถูซอกนิ้วให้ทั่ว' },
+        { id:'backs', type:'scrub', title:'ถูหลังนิ้ว', short:'หลังนิ้ว', emoji:'✊', target:'backs', needWater:false, needSoap:true, goal:100, text:'กดหรือถูหลังนิ้วกับฝ่ามือ' },
+        { id:'thumb', type:'scrub', title:'ถูนิ้วโป้ง', short:'นิ้วโป้ง', emoji:'👍', target:'thumb', needWater:false, needSoap:true, goal:100, text:'กดหรือถูรอบนิ้วโป้ง' },
+        { id:'fingertips', type:'scrub', title:'ถูปลายนิ้วและเล็บ', short:'ปลายนิ้ว', emoji:'☝️', target:'fingertips', needWater:false, needSoap:true, goal:100, text:'กดหรือถูปลายนิ้วและเล็บ' },
+        { id:'wrist', type:'scrub', title:'ถูข้อมือ', short:'ข้อมือ', emoji:'💪', target:'wrist', needWater:false, needSoap:true, goal:100, text:'กดหรือถูรอบข้อมือ' },
+        { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างน้ำ', emoji:'🚿', target:'all', needWater:true, needSoap:false, goal:100, text:'เปิดน้ำ แล้วกดปุ่มสีเหลืองเพื่อล้างฟองออก' },
+        { id:'dry', type:'dry', title:'เช็ดมือให้แห้ง', short:'เช็ดมือ', emoji:'🧻', target:'all', needWater:false, needSoap:false, goal:100, text:'กดใช้ผ้า แล้วกดปุ่มสีเหลืองเพื่อเช็ดมือให้แห้ง' }
       ];
 
-      const ORDER_STEPS = [
-        { id:'wet', emoji:'💧', label:'เปียกมือ' },
-        { id:'soap', emoji:'🫧', label:'ใส่สบู่' },
-        { id:'palm', emoji:'🤲', label:'ถูฝ่ามือ' },
-        { id:'back', emoji:'✋', label:'ถูหลังมือ' },
-        { id:'between', emoji:'🖐️', label:'ถูซอกนิ้ว' },
-        { id:'backs', emoji:'✊', label:'ถูหลังนิ้ว' },
-        { id:'thumb', emoji:'👍', label:'ถูนิ้วโป้ง' },
-        { id:'fingertips', emoji:'☝️', label:'ถูปลายนิ้ว/เล็บ' },
-        { id:'wrist', emoji:'💪', label:'ถูข้อมือ' },
-        { id:'rinse', emoji:'🚿', label:'ล้างน้ำ' },
-        { id:'dry', emoji:'🧻', label:'เช็ดมือ' }
+      const PRACTICE = [
+        { id:'palm', emoji:'🤲', label:'ฝ่ามือ' },
+        { id:'between', emoji:'🖐️', label:'ซอกนิ้ว' },
+        { id:'thumb', emoji:'👍', label:'นิ้วโป้ง' },
+        { id:'fingertips', emoji:'☝️', label:'ปลายนิ้ว' }
       ];
 
-      const els = {
-        topSub: document.getElementById('topSub'),
-        stageBadge: document.getElementById('stageBadge'),
-        stageTitle: document.getElementById('stageTitle'),
-        stageLead: document.getElementById('stageLead'),
-        stageMascot: document.getElementById('stageMascot'),
-        statScore: document.getElementById('statScore'),
-        statCorrect: document.getElementById('statCorrect'),
-        statMistake: document.getElementById('statMistake'),
-        statTime: document.getElementById('statTime')
-      };
+      const ORDER = ['wet','soap','palm','back','between','backs','thumb','fingertips','wrist','rinse','dry'];
 
       const state = {
-        stage: normalizeStage(qs.get('stage') || 'howto'),
-        score: 0,
-        correct: 0,
-        mistake: 0,
-        practiced: new Set(),
-        practiceIndex: 0,
-        simIndex: 0,
-        stepProgress: {},
-        waterOn: false,
-        handsWet: false,
-        hasSoap: false,
-        foamLevel: 0,
-        dryLevel: 0,
-        usingTowel: false,
-        timeLeft: Number(qs.get('time') || 90) || 90,
-        orderIndex: 0,
-        orderDone: new Set(),
-        timer: null,
-        startedAt: Date.now()
+        stage: cleanStage(qs.get('stage') || 'howto'),
+        score:0,
+        correct:0,
+        mistake:0,
+        timeLeft:Number(qs.get('time') || 90) || 90,
+        timer:null,
+
+        practiceIndex:0,
+        practiced:{},
+
+        stepIndex:0,
+        stepProgress:{},
+        waterOn:false,
+        handsWet:false,
+        hasSoap:false,
+        foam:0,
+        usingTowel:false,
+        dry:0,
+
+        orderIndex:0,
+        orderDone:{},
+        startedAt:Date.now()
       };
 
-      function normalizeStage(stage){
-        stage = String(stage || '').toLowerCase();
-        if(stage === 'maingame') return 'main';
-        if(stage === 'miniorder' || stage === 'mini-order') return 'order';
-        if(STAGES.includes(stage)) return stage;
-        return 'howto';
+      const $ = id => document.getElementById(id);
+
+      const el = {
+        readyText:$('readyText'),
+        topSub:$('topSub'),
+        stageBadge:$('stageBadge'),
+        stageTitle:$('stageTitle'),
+        stageLead:$('stageLead'),
+        stageMascot:$('stageMascot'),
+        statScore:$('statScore'),
+        statCorrect:$('statCorrect'),
+        statMistake:$('statMistake'),
+        statTime:$('statTime'),
+
+        practicePrompt:$('practicePrompt'),
+        practiceBar:$('practiceBar'),
+        practiceBigBtn:$('practiceBigBtn'),
+        practiceHotspot:$('practiceHotspot'),
+
+        mainStepChip:$('mainStepChip'),
+        mainStepTitle:$('mainStepTitle'),
+        mainStepText:$('mainStepText'),
+        mainBar:$('mainBar'),
+        mainBigBtn:$('mainBigBtn'),
+        mainHotspot:$('mainHotspot'),
+        mainHint:$('mainHint'),
+        mainFeedback:$('mainFeedback'),
+        mainFeedbackIcon:$('mainFeedbackIcon'),
+        mainFeedbackText:$('mainFeedbackText'),
+
+        waterStream:$('waterStream'),
+        btnWater:$('btnWater'),
+        btnSoap:$('btnSoap'),
+        btnTowel:$('btnTowel'),
+        txtWaterBtn:$('txtWaterBtn'),
+        pillWater:$('pillWater'),
+        pillWet:$('pillWet'),
+        pillSoap:$('pillSoap'),
+        txtWater:$('txtWater'),
+        txtWet:$('txtWet'),
+        txtSoap:$('txtSoap'),
+        txtFoam:$('txtFoam'),
+
+        orderPrompt:$('orderPrompt'),
+        orderBar:$('orderBar'),
+
+        summaryScore:$('summaryScore'),
+        summaryStars:$('summaryStars'),
+        summaryText:$('summaryText'),
+        summarySteps:$('summarySteps'),
+        summaryOrder:$('summaryOrder'),
+
+        foamLayer:$('foamLayer'),
+        dropLayer:$('dropLayer'),
+        sparkLayer:$('sparkLayer'),
+        practiceSpark:$('practiceSpark'),
+        toast:$('toast')
+      };
+
+      function cleanStage(s){
+        s = String(s || '').toLowerCase();
+        if(s === 'maingame') return 'main';
+        if(s === 'miniorder' || s === 'mini-order') return 'order';
+        return ['howto','practice','main','order','summary'].includes(s) ? s : 'howto';
       }
 
-      function clamp(n, min, max){
+      function showToast(text){
+        el.toast.textContent = text;
+        el.toast.classList.add('show');
+        clearTimeout(el.toast.__t);
+        el.toast.__t = setTimeout(() => el.toast.classList.remove('show'), 1400);
+      }
+
+      function clamp(n,min,max){
         return Math.max(min, Math.min(max, n));
       }
 
       function currentStep(){
-        return WHO_STEPS[state.simIndex] || WHO_STEPS[0];
+        return WHO[state.stepIndex] || WHO[0];
       }
 
       function currentProgress(){
-        const step = currentStep();
-        return Number(state.stepProgress[step.id] || 0);
+        return Number(state.stepProgress[currentStep().id] || 0);
       }
 
       function setProgress(v){
-        const step = currentStep();
-        state.stepProgress[step.id] = clamp(v, 0, step.goal || 100);
+        state.stepProgress[currentStep().id] = clamp(v, 0, currentStep().goal || 100);
       }
 
-      function showToast(text){
-        toastEl.textContent = text;
-        toastEl.classList.add('show');
-        clearTimeout(toastEl.__t);
-        toastEl.__t = setTimeout(() => toastEl.classList.remove('show'), 1400);
+      function updateStats(){
+        el.statScore.textContent = String(state.score);
+        el.statCorrect.textContent = String(state.correct);
+        el.statMistake.textContent = String(state.mistake);
+        el.statTime.textContent = String(state.timeLeft);
       }
 
-      function cleanReturnUrl(raw){
-        const fallback = new URL('../hygiene-zone.html', location.href).toString();
-        try{
-          if(!String(raw || '').trim()) return fallback;
-          const u = new URL(String(raw), location.href);
-          if(u.pathname.includes('/hygiene-zone.html')) return new URL('../hygiene-zone.html', location.href).toString();
-          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')) return fallback;
-          return u.toString();
-        }catch(_){
-          return fallback;
-        }
+      function setStage(stage){
+        state.stage = cleanStage(stage);
+
+        if(state.stage !== 'main') stopTimer();
+        if(state.stage === 'main') startTimer();
+
+        render();
       }
 
-      function goBack(){
-        location.href = cleanReturnUrl(qs.get('hub'));
+      function startTimer(){
+        if(state.timer) return;
+        state.timer = setInterval(() => {
+          state.timeLeft -= 1;
+          if(state.timeLeft < 0) state.timeLeft = 0;
+          updateStats();
+
+          if(state.timeLeft <= 0){
+            stopTimer();
+            showToast('หมดเวลา ไปเรียงลำดับต่อ');
+            setStage('order');
+          }
+        }, 1000);
       }
 
-      function restart(){
-        clearTimer();
-        const url = new URL(location.href);
-        url.searchParams.set('flow', 'full');
-        url.searchParams.set('stage', 'howto');
-        location.href = url.toString();
-      }
-
-      function clearTimer(){
+      function stopTimer(){
         if(state.timer){
           clearInterval(state.timer);
           state.timer = null;
         }
       }
 
-      function ensureTimer(){
-        if(state.timer) return;
-        state.timer = setInterval(() => {
-          state.timeLeft -= 1;
-          if(state.timeLeft < 0) state.timeLeft = 0;
-          updateStats();
-          if(state.timeLeft <= 0){
-            clearTimer();
-            showToast('หมดเวลา ไปทบทวนลำดับกันต่อ!');
-            setStage('order');
-          }
-        }, 1000);
-      }
-
-      function updateStats(){
-        els.statScore.textContent = String(state.score);
-        els.statCorrect.textContent = String(state.correct);
-        els.statMistake.textContent = String(state.mistake);
-        els.statTime.textContent = String(state.timeLeft);
-      }
-
-      function setStage(stage){
-        state.stage = normalizeStage(stage);
-        if(state.stage !== 'main') clearTimer();
-        if(state.stage === 'main') ensureTimer();
-        render();
-      }
-
-      function updateHeader(){
-        const map = {
-          howto: { badge:'🫧 วิธีเล่น', title:'มาดูวิธีล้างมือกัน!', lead:'ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง', mascot:'🧼' },
-          practice: { badge:'🤲 ฝึกก่อน', title:'ฝึกแตะส่วนของมือ', lead:'ลองกดปุ่มสีเหลืองบนมือก่อนเข้า simulation จริง', mascot:'🤲' },
-          main: { badge:'🚿 ล้างมือจริง', title:'ล้างมือตามขั้นตอน WHO', lead:'เปิดน้ำ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง', mascot:'🚿' },
-          order: { badge:'🧠 ทบทวนลำดับ', title:'เรียงขั้นตอนล้างมือ', lead:'กดขั้นตอนตามลำดับที่ถูกต้อง เพื่อจำวิธีล้างมือให้แม่น', mascot:'🧠' },
-          summary: { badge:'⭐ สรุปผล', title:'เก่งมาก ฮีโร่สุขอนามัย!', lead:'ดูคะแนน ดาว และคำแนะนำสั้น ๆ แล้วกลับไปเลือกเกมต่อได้', mascot:'🏆' }
-        };
-
-        const h = map[state.stage] || map.howto;
-        els.stageBadge.textContent = h.badge;
-        els.stageTitle.textContent = h.title;
-        els.stageLead.textContent = h.lead;
-        els.stageMascot.textContent = h.mascot;
-        els.topSub.textContent = h.title;
-
-        document.querySelectorAll('[data-flow-step]').forEach(el => {
-          el.classList.toggle('active', el.dataset.flowStep === state.stage);
-        });
-      }
-
       function render(){
         updateHeader();
         updateStats();
 
-        if(state.stage === 'howto') renderHowto();
-        else if(state.stage === 'practice') renderPractice();
-        else if(state.stage === 'main') renderMain();
-        else if(state.stage === 'order') renderOrder();
-        else if(state.stage === 'summary') renderSummary();
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        $('screen-' + state.stage).classList.add('active');
+
+        if(state.stage === 'practice') renderPractice();
+        if(state.stage === 'main') renderMain();
+        if(state.stage === 'order') renderOrder();
+        if(state.stage === 'summary') renderSummary();
       }
 
-      function renderHowto(){
-        root.innerHTML = `
-          <div class="grid">
-            <article class="card"><div class="cardIcon">🚿</div><h2>เปิดน้ำจริง</h2><p>กดปุ่มเปิดน้ำให้มือเปียก และล้างฟองออกตอนท้าย</p></article>
-            <article class="card"><div class="cardIcon">🫧</div><h2>กดสบู่</h2><p>กดขวดสบู่ก่อนฟอกมือ ถ้ายังไม่มีสบู่ เกมจะเตือนอย่างนุ่มนวล</p></article>
-            <article class="card"><div class="cardIcon">👆</div><h2>กดปุ่มสีเหลือง</h2><p>เกมนี้ใช้ปุ่มสีเหลืองบนมือเป็นจุดเล่นหลัก กดแล้วคะแนนและ progress ต้องขึ้นทันที</p></article>
-            <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>ฝ่ามือ หลังมือ ซอกนิ้ว หลังนิ้ว นิ้วโป้ง ปลายนิ้ว ข้อมือ ล้างน้ำ และเช็ดมือ</p></article>
-          </div>
-          <div class="actions">
-            <button class="primaryBtn" type="button" onclick="HW.do('goPractice')">▶ เริ่มฝึกก่อน</button>
-            <button class="secondaryBtn" type="button" onclick="HW.do('goMain')">ไปล้างมือจริง</button>
-          </div>
-        `;
+      function updateHeader(){
+        const map = {
+          howto:['🫧 วิธีเล่น','มาดูวิธีล้างมือกัน!','ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง','🧼'],
+          practice:['🤲 ฝึกก่อน','ฝึกแตะส่วนของมือ','กดปุ่มสีเหลืองหรือปุ่มใหญ่ด้านซ้าย ต้องเปลี่ยนขั้นทันที','🤲'],
+          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','เปิดน้ำ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
+          order:['🧠 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','กดขั้นตอนตามลำดับที่ถูกต้อง','🧠'],
+          summary:['⭐ สรุปผล','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และคำแนะนำสั้น ๆ','🏆']
+        };
+
+        const h = map[state.stage] || map.howto;
+        el.stageBadge.textContent = h[0];
+        el.stageTitle.textContent = h[1];
+        el.stageLead.textContent = h[2];
+        el.stageMascot.textContent = h[3];
+        el.topSub.textContent = h[1];
+
+        document.querySelectorAll('[data-flow]').forEach(node => {
+          node.classList.toggle('active', node.dataset.flow === state.stage);
+        });
       }
 
       function renderPractice(){
-        const targets = [
-          { id:'palm', emoji:'🤲', label:'ฝ่ามือ' },
-          { id:'between', emoji:'🖐️', label:'ซอกนิ้ว' },
-          { id:'thumb', emoji:'👍', label:'นิ้วโป้ง' },
-          { id:'fingertips', emoji:'☝️', label:'ปลายนิ้ว' }
-        ];
+        const target = PRACTICE[state.practiceIndex] || PRACTICE[0];
+        const pct = Math.round((Object.keys(state.practiced).length / PRACTICE.length) * 100);
 
-        const target = targets[state.practiceIndex] || targets[0];
-        const pct = Math.round((state.practiced.size / targets.length) * 100);
+        el.practicePrompt.innerHTML = `กดปุ่มสีเหลือง: <strong>${target.emoji} ${target.label}</strong>`;
+        el.practiceBar.style.width = pct + '%';
+        el.practiceBigBtn.textContent = `${target.emoji} แตะ ${target.label}`;
+        el.practiceHotspot.className = `hotspot ${target.id}`;
+      }
 
-        root.innerHTML = `
-          <div class="feedback good">
-            <span>🎯</span>
-            <span>กดปุ่มสีเหลือง: <strong>${target.emoji} ${target.label}</strong></span>
-          </div>
-          <div class="progressWrap"><div class="progressBar" style="width:${pct}%"></div></div>
-          <div class="simLayout">
-            <div class="stepPanel">
-              <span class="stepChip">Practice</span>
-              <h2 class="stepTitle">รู้จักส่วนของมือ</h2>
-              <p class="stepText">กดปุ่มใหญ่ด้านล่าง หรือกดปุ่มสีเหลืองบนมือก็ได้</p>
-              <button class="targetBtn" type="button" onclick="HW.do('practiceTarget')">
-                ${target.emoji} แตะ ${target.label}
-              </button>
-            </div>
-            ${handSceneHtml({ target:target.id, hint:'กดปุ่มสีเหลืองบนมือ หรือกดปุ่มใหญ่ด้านซ้าย' })}
-          </div>
-          <div class="actions">
-            <button class="secondaryBtn" type="button" onclick="HW.do('goHowto')">กลับวิธีเล่น</button>
-            <button class="primaryBtn" type="button" onclick="HW.do('goMain')">ไปล้างมือจริง</button>
-          </div>
-        `;
+      function doPracticeTarget(){
+        const target = PRACTICE[state.practiceIndex] || PRACTICE[0];
+
+        state.practiced[target.id] = true;
+        state.score += 5;
+        state.correct += 1;
+        spark(el.practiceSpark, 180, 120);
+        showToast('ถูกต้อง!');
+
+        if(state.practiceIndex < PRACTICE.length - 1){
+          state.practiceIndex += 1;
+          render();
+        }else{
+          showToast('ฝึกครบแล้ว ไปเล่นจริง');
+          setTimeout(() => setStage('main'), 500);
+        }
       }
 
       function renderMain(){
-        ensureTimer();
-
         const step = currentStep();
         const progress = currentProgress();
 
-        root.innerHTML = `
-          <div class="simLayout">
-            <div class="stepPanel">
-              <span class="stepChip">ขั้นที่ ${state.simIndex + 1}/${WHO_STEPS.length}</span>
-              <h2 class="stepTitle">${step.emoji} ${step.title}</h2>
-              <p class="stepText">${step.instruction}</p>
+        el.mainStepChip.textContent = `ขั้นที่ ${state.stepIndex + 1}/${WHO.length}`;
+        el.mainStepTitle.textContent = `${step.emoji} ${step.title}`;
+        el.mainStepText.textContent = step.text;
+        el.mainBar.style.width = Math.round(progress) + '%';
+        el.mainBigBtn.textContent = `${step.emoji} ทำขั้นนี้`;
+        el.mainHotspot.className = `hotspot ${step.target}`;
+        el.mainHint.textContent = hint(step);
 
-              <div class="progressWrap"><div class="progressBar" id="simProgressBar" style="width:${Math.round(progress)}%"></div></div>
+        el.waterStream.classList.toggle('on', state.waterOn);
+        el.btnWater.classList.toggle('active', state.waterOn);
+        el.btnSoap.classList.toggle('done', state.hasSoap);
+        el.btnTowel.classList.toggle('active', state.usingTowel);
 
-              <button class="targetBtn" type="button" onclick="HW.do('mainTarget')">
-                ${step.emoji} ทำขั้นนี้
-              </button>
+        el.txtWaterBtn.textContent = state.waterOn ? 'ปิดน้ำ' : 'เปิดน้ำ';
 
-              <div class="statusList">
-                <div class="statusPill ${state.waterOn ? 'ok' : ''}"><span>น้ำ</span><strong>${state.waterOn ? 'เปิดอยู่' : 'ปิดอยู่'}</strong></div>
-                <div class="statusPill ${state.handsWet ? 'ok' : ''}"><span>มือเปียก</span><strong>${state.handsWet ? 'แล้ว' : 'ยัง'}</strong></div>
-                <div class="statusPill ${state.hasSoap ? 'ok' : ''}"><span>สบู่</span><strong>${state.hasSoap ? 'มีแล้ว' : 'ยังไม่มี'}</strong></div>
-                <div class="statusPill"><span>ฟอง</span><strong id="foamTxt">${Math.round(state.foamLevel)}%</strong></div>
-              </div>
+        el.pillWater.classList.toggle('ok', state.waterOn);
+        el.pillWet.classList.toggle('ok', state.handsWet);
+        el.pillSoap.classList.toggle('ok', state.hasSoap);
 
-              <div class="toolRow">
-                <button class="toolBtn ${state.waterOn ? 'active' : ''}" type="button" onclick="HW.do('water')"><span class="emoji">🚿</span><span>${state.waterOn ? 'ปิดน้ำ' : 'เปิดน้ำ'}</span></button>
-                <button class="toolBtn ${state.hasSoap ? 'done' : ''}" type="button" onclick="HW.do('soap')"><span class="emoji">🫧</span><span>กดสบู่</span></button>
-                <button class="toolBtn ${state.usingTowel ? 'active' : ''}" type="button" onclick="HW.do('towel')"><span class="emoji">🧻</span><span>ใช้ผ้า</span></button>
-              </div>
+        el.txtWater.textContent = state.waterOn ? 'เปิดอยู่' : 'ปิดอยู่';
+        el.txtWet.textContent = state.handsWet ? 'แล้ว' : 'ยัง';
+        el.txtSoap.textContent = state.hasSoap ? 'มีแล้ว' : 'ยังไม่มี';
+        el.txtFoam.textContent = Math.round(state.foam) + '%';
 
-              <div class="feedback ${feedbackClass(step)}"><span>${feedbackEmoji(step)}</span><span>${feedbackText(step)}</span></div>
-            </div>
-            ${handSceneHtml({ target:step.target, hint:sceneHint(step) })}
-          </div>
-
-          <div class="actions">
-            <button class="secondaryBtn" type="button" onclick="HW.do('goPractice')">กลับไปฝึก</button>
-            <button class="primaryBtn" type="button" onclick="HW.do('skip')">ผ่านขั้นนี้</button>
-          </div>
-        `;
+        const fb = feedback(step);
+        el.mainFeedback.className = 'feedback ' + fb.cls;
+        el.mainFeedbackIcon.textContent = fb.icon;
+        el.mainFeedbackText.textContent = fb.text;
       }
 
-      function handSceneHtml(opts){
-        const target = opts.target || 'all';
-        const hint = opts.hint || 'กดปุ่มสีเหลือง';
-        const zones = ['palm','back','between','backs','thumb','fingertips','wrist','all'];
-
-        return `
-          <div class="handScene" id="handScene">
-            <div class="faucet" aria-hidden="true">
-              <div class="tapKnob">💧</div>
-              <div class="faucetBase"></div>
-              <div class="faucetPipe"></div>
-              <div class="faucetNeck"></div>
-            </div>
-
-            <div class="waterStream ${state.waterOn ? 'on' : ''}"></div>
-
-            <button class="soapPump" type="button" onclick="HW.do('soap')" aria-label="กดสบู่">
-              <div class="soapHead"></div>
-              <div class="soapBody">🫧</div>
-            </button>
-
-            <button class="towel" type="button" onclick="HW.do('towel')" aria-label="ใช้ผ้าเช็ดมือ">🧻</button>
-            <div class="sink" aria-hidden="true"></div>
-
-            <div class="hands" id="hands">
-              <svg class="handSvg" viewBox="0 0 700 390" aria-hidden="true">
-                <path class="handSkin" d="M226 318 C204 282 190 246 190 196 C190 166 200 144 218 130 C221 104 230 80 244 67 C259 52 279 62 277 86 L275 130 C282 102 293 66 314 60 C334 54 346 70 340 92 L328 142 C343 101 360 68 382 70 C403 72 412 92 399 114 L373 161 C398 125 421 104 439 116 C458 129 450 152 432 170 L388 216 C379 230 384 246 404 245 L454 243 C480 242 492 262 477 281 C464 297 428 306 390 315 C344 326 280 337 226 318 Z"/>
-                <path class="handSkin" d="M474 318 C496 282 510 246 510 196 C510 166 500 144 482 130 C479 104 470 80 456 67 C441 52 421 62 423 86 L425 130 C418 102 407 66 386 60 C366 54 354 70 360 92 L372 142 C357 101 340 68 318 70 C297 72 288 92 301 114 L327 161 C302 125 279 104 261 116 C242 129 250 152 268 170 L312 216 C321 230 316 246 296 245 L246 243 C220 242 208 262 223 281 C236 297 272 306 310 315 C356 326 420 337 474 318 Z" opacity=".62"/>
-                <path class="handLine" d="M244 82 C246 134 243 167 236 204"/>
-                <path class="handLine" d="M314 72 C307 126 301 171 296 212"/>
-                <path class="handLine" d="M382 82 C365 132 350 176 338 220"/>
-                <path class="handLine" d="M435 128 C400 166 375 196 356 229"/>
-                <path class="handLine" d="M256 270 C306 286 365 285 432 264"/>
-                <path class="handLine" d="M456 82 C454 134 457 167 464 204"/>
-                <path class="handLine" d="M386 72 C393 126 399 171 404 212"/>
-                <path class="handLine" d="M318 82 C335 132 350 176 362 220"/>
-                <path class="handLine" d="M265 128 C300 166 325 196 344 229"/>
-              </svg>
-
-              ${zones.map(z => `
-                <button
-                  class="zoneBtn zone-${z} ${z === target ? 'target' : ''}"
-                  type="button"
-                  onclick="HW.zone('${z}')"
-                  aria-label="แตะ ${z}"
-                >
-                  <span>แตะ<br>ตรงนี้</span>
-                </button>
-              `).join('')}
-
-              <div class="foamLayer" id="foamLayer">${persistentFoamHtml()}</div>
-              <div class="dropLayer" id="dropLayer"></div>
-              <div class="sparkLayer" id="sparkLayer"></div>
-            </div>
-
-            <div class="scrubHint">${hint}</div>
-          </div>
-        `;
-      }
-
-      function persistentFoamHtml(){
-        const amount = Math.round(state.foamLevel / 10);
-        const bubbles = [];
-        for(let i = 0; i < amount; i++){
-          const x = 270 + ((i * 37) % 170);
-          const y = 95 + ((i * 29) % 190);
-          const size = 14 + ((i * 7) % 18);
-          bubbles.push(`<div class="foam" style="left:${x}px;top:${y}px;width:${size}px;height:${size}px;"></div>`);
-        }
-        return bubbles.join('');
-      }
-
-      function sceneHint(step){
-        if(!step) return 'กดปุ่มสีเหลือง';
+      function hint(step){
         if(step.type === 'water') return state.waterOn ? 'กดปุ่มสีเหลืองให้มือเปียก' : 'กดเปิดน้ำก่อน';
-        if(step.type === 'soap') return 'กดขวดสบู่ด้านขวา หรือปุ่มกดสบู่ด้านซ้าย';
+        if(step.type === 'soap') return 'กดขวดสบู่ หรือปุ่มกดสบู่';
         if(step.type === 'rinse') return state.waterOn ? 'กดปุ่มสีเหลืองเพื่อล้างฟอง' : 'เปิดน้ำก่อนล้างฟอง';
         if(step.type === 'dry') return state.usingTowel ? 'กดปุ่มสีเหลืองเพื่อเช็ดมือ' : 'กดใช้ผ้าเช็ดมือก่อน';
-        return 'กดหรือถูปุ่มสีเหลืองให้ progress เต็ม';
+        return 'กดปุ่มสีเหลืองให้ progress เต็ม';
       }
 
-      function feedbackClass(step){
-        if(step.needWater && !state.waterOn) return 'warn';
-        if(step.needSoap && !state.hasSoap) return 'warn';
-        if(step.type === 'dry' && !state.usingTowel) return 'warn';
-        return 'good';
+      function feedback(step){
+        if(step.needWater && !state.waterOn) return { cls:'warn', icon:'🚿', text:'กดเปิดน้ำก่อนนะ' };
+        if(step.needSoap && !state.hasSoap) return { cls:'warn', icon:'🫧', text:'กดสบู่ก่อนฟอกมือ' };
+        if(step.type === 'dry' && !state.usingTowel) return { cls:'warn', icon:'🧻', text:'กดผ้าเช็ดมือก่อนนะ' };
+        return { cls:'good', icon:'✅', text:'พร้อมแล้ว กดปุ่มสีเหลืองได้เลย' };
       }
 
-      function feedbackEmoji(step){
-        if(step.needWater && !state.waterOn) return '🚿';
-        if(step.needSoap && !state.hasSoap) return '🫧';
-        if(step.type === 'dry' && !state.usingTowel) return '🧻';
-        return '✅';
-      }
-
-      function feedbackText(step){
-        if(step.needWater && !state.waterOn) return 'กดเปิดน้ำก่อนนะ';
-        if(step.needSoap && !state.hasSoap) return 'กดสบู่ก่อนเริ่มฟอกมือ';
-        if(step.type === 'dry' && !state.usingTowel) return 'กดผ้าเช็ดมือก่อนนะ';
-        return 'พร้อมแล้ว กดปุ่มสีเหลืองได้เลย';
-      }
-
-      function practiceTarget(){
-        const targets = ['palm','between','thumb','fingertips'];
-        handlePracticeZone(targets[state.practiceIndex] || 'palm');
-      }
-
-      function mainTarget(){
+      function doMainTarget(){
         const step = currentStep();
-        handleMainZone(step.target || 'all');
-      }
 
-      function handlePracticeZone(zoneId){
-        const targets = ['palm','between','thumb','fingertips'];
-        const target = targets[state.practiceIndex] || 'palm';
-
-        if(zoneId === target){
-          state.practiced.add(zoneId);
-          state.score += 5;
-          state.correct += 1;
-          addSparkAtZone(zoneId);
-          showToast('ถูกต้อง!');
-
-          if(state.practiceIndex < targets.length - 1){
-            state.practiceIndex += 1;
-            render();
-          }else{
-            showToast('ฝึกครบแล้ว ไปล้างมือจริงกัน!');
-            setTimeout(() => setStage('main'), 550);
-          }
-        }else{
-          state.mistake += 1;
-          showToast('กดปุ่มสีเหลืองนะ');
-          updateStats();
+        if(step.type === 'soap'){
+          useSoap();
+          return;
         }
-      }
-
-      function handleMainZone(zoneId){
-        const step = currentStep();
 
         if(step.needWater && !state.waterOn){
           state.mistake += 1;
@@ -1510,21 +1536,16 @@
           return;
         }
 
-        if(step.target !== 'all' && zoneId !== step.target){
-          state.mistake += 1;
-          showToast('กดปุ่มสีเหลืองนะ');
-          updateStats();
-          return;
-        }
-
-        let amount = 20;
-        if(step.type === 'scrub') amount = 18;
-        if(step.type === 'rinse') amount = 20;
-        if(step.type === 'dry') amount = 22;
+        let amount = 25;
+        if(step.type === 'scrub') amount = 22;
+        if(step.type === 'dry') amount = 25;
 
         state.score += step.type === 'scrub' ? 2 : 1;
         addProgress(amount);
-        addFeedbackFx(zoneId, step.type);
+
+        if(step.type === 'scrub') foam();
+        else if(step.type === 'water' || step.type === 'rinse') drop();
+        else spark(el.sparkLayer, 180, 140);
       }
 
       function addProgress(amount){
@@ -1532,50 +1553,41 @@
         setProgress(currentProgress() + amount);
 
         if(step.type === 'water' && currentProgress() >= 100) state.handsWet = true;
-        if(step.type === 'scrub') state.foamLevel = clamp(state.foamLevel + amount * .38, 0, 100);
-        if(step.type === 'rinse') state.foamLevel = clamp(state.foamLevel - amount * .95, 0, 100);
-        if(step.type === 'dry') state.dryLevel = clamp(state.dryLevel + amount, 0, 100);
+        if(step.type === 'scrub') state.foam = clamp(state.foam + amount * .45, 0, 100);
+        if(step.type === 'rinse') state.foam = clamp(state.foam - amount * 1.2, 0, 100);
+        if(step.type === 'dry') state.dry = clamp(state.dry + amount, 0, 100);
 
-        updateLiveProgress();
+        updateStats();
+        renderMain();
 
         if(currentProgress() >= (step.goal || 100)){
-          completeCurrentStep();
+          completeStep();
         }
       }
 
-      function updateLiveProgress(){
-        updateStats();
-
-        const bar = document.getElementById('simProgressBar');
-        if(bar) bar.style.width = `${Math.round(currentProgress())}%`;
-
-        const foamTxt = document.getElementById('foamTxt');
-        if(foamTxt) foamTxt.textContent = `${Math.round(state.foamLevel)}%`;
-      }
-
-      function completeCurrentStep(){
+      function completeStep(){
         const step = currentStep();
 
         if(step.id === 'soap'){
           state.hasSoap = true;
-          state.foamLevel = Math.max(state.foamLevel, 20);
+          state.foam = Math.max(state.foam, 20);
         }
 
-        if(step.id === 'rinse') state.foamLevel = 0;
-        if(step.id === 'dry') state.dryLevel = 100;
+        if(step.id === 'rinse') state.foam = 0;
+        if(step.id === 'dry') state.dry = 100;
 
         state.score += 12;
         state.correct += 1;
 
-        showToast(`ผ่านแล้ว: ${step.short}`);
+        showToast('ผ่านแล้ว: ' + step.short);
 
-        if(state.simIndex < WHO_STEPS.length - 1){
-          state.simIndex += 1;
-          setTimeout(() => render(), 360);
+        if(state.stepIndex < WHO.length - 1){
+          state.stepIndex += 1;
+          setTimeout(renderMain, 280);
         }else{
-          clearTimer();
-          showToast('ล้างมือครบแล้ว ไปทบทวนลำดับกัน!');
-          setTimeout(() => setStage('order'), 650);
+          stopTimer();
+          showToast('ล้างมือครบแล้ว ไปเรียงลำดับ');
+          setTimeout(() => setStage('order'), 600);
         }
 
         updateStats();
@@ -1584,7 +1596,7 @@
       function toggleWater(){
         state.waterOn = !state.waterOn;
         showToast(state.waterOn ? 'เปิดน้ำแล้ว' : 'ปิดน้ำแล้ว');
-        render();
+        renderMain();
       }
 
       function useSoap(){
@@ -1598,305 +1610,202 @@
         }
 
         state.hasSoap = true;
-        state.foamLevel = Math.max(state.foamLevel, 20);
-        addFoamBurst(350, 190, 12);
+        state.foam = Math.max(state.foam, 20);
+        foam();
         showToast('ใส่สบู่แล้ว');
 
         if(step.type === 'soap'){
           setProgress(1);
-          completeCurrentStep();
+          completeStep();
         }else{
-          render();
+          renderMain();
         }
       }
 
       function useTowel(){
         state.usingTowel = true;
         showToast('ใช้ผ้าเช็ดมือแล้ว');
-        render();
+        renderMain();
       }
 
       function skipStep(){
-        const step = currentStep();
-        setProgress(step.goal || 100);
-        completeCurrentStep();
+        setProgress(currentStep().goal || 100);
+        completeStep();
       }
 
       function renderOrder(){
-        const next = ORDER_STEPS[state.orderIndex];
+        el.orderPrompt.innerHTML = `ขั้นตอนต่อไปคืออะไร? <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`;
+        el.orderBar.style.width = Math.round((state.orderIndex / ORDER.length) * 100) + '%';
 
-        root.innerHTML = `
-          <div class="feedback good">
-            <span>🧠</span>
-            <span>${next ? `ขั้นตอนต่อไปคืออะไร? <strong>${state.orderIndex + 1}/${ORDER_STEPS.length}</strong>` : 'เรียงครบแล้ว ไปดูสรุปได้เลย!'}</span>
-          </div>
-
-          <div class="progressWrap">
-            <div class="progressBar" style="width:${Math.round((state.orderIndex / ORDER_STEPS.length) * 100)}%"></div>
-          </div>
-
-          <div class="orderList">
-            ${ORDER_STEPS.map(step => `
-              <button
-                class="orderBtn ${state.orderDone.has(step.id) ? 'done' : ''}"
-                type="button"
-                onclick="HW.order('${step.id}')"
-                ${state.orderDone.has(step.id) ? 'disabled' : ''}
-              >
-                <span>${step.emoji}</span>
-                <strong>${step.label}</strong>
-              </button>
-            `).join('')}
-          </div>
-
-          <div class="actions">
-            <button class="secondaryBtn" type="button" onclick="HW.do('goMain')">กลับล้างมือจริง</button>
-            <button class="primaryBtn" type="button" onclick="HW.do('goSummary')">ดูสรุปผล</button>
-          </div>
-        `;
+        document.querySelectorAll('#screen-order .orderBtn').forEach(btn => {
+          const done = !!state.orderDone[btn.dataset.value];
+          btn.classList.toggle('done', done);
+          btn.disabled = done;
+        });
       }
 
-      function handleOrderStep(stepId){
-        const target = ORDER_STEPS[state.orderIndex];
+      function doOrder(value){
+        const target = ORDER[state.orderIndex];
 
-        if(!target){
-          setStage('summary');
-          return;
-        }
-
-        if(stepId === target.id){
-          state.orderDone.add(stepId);
+        if(value === target){
+          state.orderDone[value] = true;
           state.orderIndex += 1;
           state.score += 6;
           state.correct += 1;
           showToast('ลำดับถูกต้อง!');
 
-          if(state.orderIndex >= ORDER_STEPS.length){
-            showToast('เรียงครบแล้ว!');
-            setTimeout(() => setStage('summary'), 500);
+          if(state.orderIndex >= ORDER.length){
+            setTimeout(() => setStage('summary'), 450);
           }else{
-            render();
+            renderOrder();
           }
         }else{
-          state.score = Math.max(0, state.score - 2);
           state.mistake += 1;
-          showToast('ลำดับยังไม่ถูก ลองคิดอีกที');
+          state.score = Math.max(0, state.score - 2);
+          showToast('ลำดับยังไม่ถูก');
           updateStats();
         }
       }
 
-      function calcStars(){
+      function renderSummary(){
+        stopTimer();
+
+        const completed = WHO.filter(s => Number(state.stepProgress[s.id] || 0) >= (s.goal || 100)).length;
         const total = state.correct + state.mistake;
-        const accuracy = total ? Math.round((state.correct / total) * 100) : 0;
+        const acc = total ? Math.round((state.correct / total) * 100) : 0;
 
         let stars = 1;
-        if(state.score >= 120 && accuracy >= 70 && state.orderIndex >= 7) stars = 2;
-        if(state.score >= 180 && accuracy >= 82 && state.orderIndex >= ORDER_STEPS.length) stars = 3;
-        return stars;
-      }
+        if(completed >= 8 && acc >= 70) stars = 2;
+        if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80) stars = 3;
 
-      function saveSummary(stars){
-        const total = state.correct + state.mistake;
-        const accuracy = total ? Math.round((state.correct / total) * 100) : 0;
-        const completedSteps = WHO_STEPS.filter(s => Number(state.stepProgress[s.id] || 0) >= (s.goal || 100)).length;
-
-        const summary = {
-          game:'handwash',
-          zone:'hygiene',
-          flow:'who-inline-button-simulation',
-          score:state.score,
-          stars,
-          correct:state.correct,
-          mistakes:state.mistake,
-          accuracy,
-          completedSteps,
-          totalSteps:WHO_STEPS.length,
-          orderSteps:state.orderIndex,
-          orderTotal:ORDER_STEPS.length,
-          durationSec:Math.max(1, Math.round((Date.now() - state.startedAt) / 1000)),
-          finishedAt:new Date().toISOString()
-        };
+        el.summaryScore.textContent = String(state.score);
+        el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+        el.summaryText.textContent = stars >= 3 ? 'เยี่ยมมาก! ล้างมือครบตามลำดับ' : 'ทำได้ดีมาก ฝึกต่ออีกนิดจะคล่องขึ้น';
+        el.summarySteps.textContent = `ขั้นตอน WHO ที่ทำครบ: ${completed}/${WHO.length}`;
+        el.summaryOrder.textContent = `จำลำดับได้: ${state.orderIndex}/${ORDER.length}`;
 
         try{
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY_HANDWASH', JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY_GLOBAL', JSON.stringify(summary));
-        }catch(_){}
-
-        return summary;
-      }
-
-      function renderSummary(){
-        clearTimer();
-
-        const stars = calcStars();
-        const summary = saveSummary(stars);
-        const starText = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
-
-        let tip = 'ฝึกต่ออีกนิด จะจำขั้นตอนได้แม่นขึ้น!';
-        if(stars >= 3) tip = 'เยี่ยมมาก! ล้างมือตามขั้นตอน WHO ได้ครบและจำลำดับได้ดี';
-        else if(summary.completedSteps >= 9) tip = 'ทำได้ดีมาก เหลือฝึกเรียงลำดับให้คล่องขึ้น';
-
-        root.innerHTML = `
-          <div class="summaryBox">
-            <div class="bigScore">
-              <div>
-                <div class="score">${summary.score}</div>
-                <div class="stars">${starText}</div>
-                <div style="margin-top:8px;font-weight:1000;color:#8d6118;">คะแนนของฉัน</div>
-              </div>
-            </div>
-
-            <div class="tips">
-              <h2>สรุปสั้น ๆ</h2>
-              <p>ขั้นตอน WHO ที่ทำครบ: <strong>${summary.completedSteps}/${summary.totalSteps}</strong></p>
-              <p>ตอบถูก: <strong>${summary.correct}</strong> ครั้ง</p>
-              <p>พลาด: <strong>${summary.mistakes}</strong> ครั้ง</p>
-              <p>ความแม่นยำ: <strong>${summary.accuracy}%</strong></p>
-              <p>จำลำดับได้: <strong>${summary.orderSteps}/${summary.orderTotal}</strong></p>
-              <p>${tip}</p>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="primaryBtn" type="button" onclick="HW.do('restart')">เล่นอีกครั้ง</button>
-            <button class="secondaryBtn" type="button" onclick="HW.do('back')">กลับ Hygiene Zone</button>
-          </div>
-        `;
-      }
-
-      function addFeedbackFx(zoneId, type){
-        const zone = document.querySelector(`.zone-${zoneId}`) || document.querySelector('.zoneBtn.target');
-        if(!zone) return;
-
-        const r = zone.getBoundingClientRect();
-        const x = r.left + r.width / 2;
-        const y = r.top + r.height / 2;
-
-        if(type === 'scrub') addFoamAt(x, y);
-        else if(type === 'water' || type === 'rinse') addDropAt(x, y);
-        else addSparkAt(x, y);
-      }
-
-      function localPointInHands(clientX, clientY){
-        const hands = document.getElementById('hands');
-        if(!hands) return { x: 350, y: 200 };
-        const r = hands.getBoundingClientRect();
-        return {
-          x: clamp(clientX - r.left, 0, r.width),
-          y: clamp(clientY - r.top, 0, r.height)
-        };
-      }
-
-      function addFoamAt(clientX, clientY){
-        const layer = document.getElementById('foamLayer');
-        if(!layer) return;
-        const p = localPointInHands(clientX, clientY);
-        const size = 14 + Math.floor(Math.random() * 16);
-        const foam = document.createElement('div');
-        foam.className = 'foam';
-        foam.style.left = `${p.x - size/2}px`;
-        foam.style.top = `${p.y - size/2}px`;
-        foam.style.width = `${size}px`;
-        foam.style.height = `${size}px`;
-        layer.appendChild(foam);
-        setTimeout(() => foam.remove(), 3000);
-      }
-
-      function addFoamBurst(x, y, count){
-        const layer = document.getElementById('foamLayer');
-        if(!layer) return;
-        for(let i = 0; i < count; i++){
-          const size = 14 + Math.floor(Math.random() * 16);
-          const foam = document.createElement('div');
-          foam.className = 'foam';
-          foam.style.left = `${x + (Math.random() * 160 - 80)}px`;
-          foam.style.top = `${y + (Math.random() * 120 - 60)}px`;
-          foam.style.width = `${size}px`;
-          foam.style.height = `${size}px`;
-          layer.appendChild(foam);
-          setTimeout(() => foam.remove(), 3000);
-        }
-      }
-
-      function addDropAt(clientX, clientY){
-        const layer = document.getElementById('dropLayer');
-        if(!layer) return;
-        const p = localPointInHands(clientX, clientY);
-        const drop = document.createElement('div');
-        drop.className = 'drop';
-        drop.style.left = `${p.x}px`;
-        drop.style.top = `${p.y}px`;
-        layer.appendChild(drop);
-        setTimeout(() => drop.remove(), 1200);
-      }
-
-      function addSparkAt(clientX, clientY){
-        const layer = document.getElementById('sparkLayer');
-        if(!layer) return;
-        const p = localPointInHands(clientX, clientY);
-        const spark = document.createElement('div');
-        spark.className = 'spark';
-        spark.style.left = `${p.x}px`;
-        spark.style.top = `${p.y}px`;
-        layer.appendChild(spark);
-        setTimeout(() => spark.remove(), 900);
-      }
-
-      function addSparkAtZone(zoneId){
-        const zone = document.querySelector(`.zone-${zoneId}`);
-        if(!zone) return;
-        const r = zone.getBoundingClientRect();
-        addSparkAt(r.left + r.width/2, r.top + r.height/2);
-      }
-
-      window.HW = {
-        do(action){
-          if(action === 'goHowto') setStage('howto');
-          else if(action === 'goPractice') setStage('practice');
-          else if(action === 'goMain') setStage('main');
-          else if(action === 'goSummary') setStage('summary');
-          else if(action === 'restart') restart();
-          else if(action === 'back') goBack();
-          else if(action === 'water') toggleWater();
-          else if(action === 'soap') useSoap();
-          else if(action === 'towel') useTowel();
-          else if(action === 'skip') skipStep();
-          else if(action === 'practiceTarget') practiceTarget();
-          else if(action === 'mainTarget') mainTarget();
-        },
-        zone(zoneId){
-          if(state.stage === 'practice') handlePracticeZone(zoneId);
-          else if(state.stage === 'main') handleMainZone(zoneId);
-        },
-        order(stepId){
-          handleOrderStep(stepId);
-        },
-        debug(){
-          return JSON.parse(JSON.stringify({
-            stage: state.stage,
-            score: state.score,
-            correct: state.correct,
-            mistake: state.mistake,
-            practiceIndex: state.practiceIndex,
-            simIndex: state.simIndex,
-            progress: currentProgress(),
-            waterOn: state.waterOn,
-            handsWet: state.handsWet,
-            hasSoap: state.hasSoap,
-            foamLevel: state.foamLevel,
-            dryLevel: state.dryLevel,
-            usingTowel: state.usingTowel
+          localStorage.setItem('HHA_LAST_SUMMARY_HANDWASH', JSON.stringify({
+            game:'handwash',
+            zone:'hygiene',
+            flow:'static-safe-buttons',
+            score:state.score,
+            stars,
+            completedSteps:completed,
+            totalSteps:WHO.length,
+            orderSteps:state.orderIndex,
+            orderTotal:ORDER.length,
+            accuracy:acc,
+            finishedAt:new Date().toISOString()
           }));
+        }catch(_){}
+      }
+
+      function foam(){
+        for(let i=0;i<7;i++){
+          const b = document.createElement('div');
+          b.className = 'foam';
+          b.style.left = (260 + Math.random()*160) + 'px';
+          b.style.top = (110 + Math.random()*170) + 'px';
+          el.foamLayer.appendChild(b);
+          setTimeout(() => b.remove(), 2200);
         }
-      };
+      }
 
-      document.getElementById('btnBack')?.addEventListener('click', goBack);
-      document.getElementById('btnRestart')?.addEventListener('click', restart);
+      function drop(){
+        for(let i=0;i<6;i++){
+          const d = document.createElement('div');
+          d.className = 'drop';
+          d.style.left = (280 + Math.random()*150) + 'px';
+          d.style.top = (120 + Math.random()*150) + 'px';
+          el.dropLayer.appendChild(d);
+          setTimeout(() => d.remove(), 1200);
+        }
+      }
 
-      window.addEventListener('beforeunload', () => clearTimer());
+      function spark(layer, x, y){
+        if(!layer) return;
+        const s = document.createElement('div');
+        s.className = 'spark';
+        s.style.left = (x || 180) + 'px';
+        s.style.top = (y || 120) + 'px';
+        layer.appendChild(s);
+        setTimeout(() => s.remove(), 900);
+      }
 
+      function goBack(){
+        location.href = cleanReturnUrl(qs.get('hub'));
+      }
+
+      function restart(){
+        stopTimer();
+        const u = new URL(location.href);
+        u.searchParams.set('stage','howto');
+        u.searchParams.set('v','20260503h-static-safe');
+        location.href = u.toString();
+      }
+
+      function cleanReturnUrl(raw){
+        const fallback = new URL('../hygiene-zone.html', location.href).toString();
+        try{
+          if(!String(raw || '').trim()) return fallback;
+          const u = new URL(String(raw), location.href);
+          if(u.pathname.includes('/hygiene-zone.html')) return new URL('../hygiene-zone.html', location.href).toString();
+          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')) return fallback;
+          return u.toString();
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function run(action, value){
+        if(action === 'noop') return;
+        if(action === 'goHowto') setStage('howto');
+        else if(action === 'goPractice') setStage('practice');
+        else if(action === 'goMain') setStage('main');
+        else if(action === 'goSummary') setStage('summary');
+        else if(action === 'practiceTarget') doPracticeTarget();
+        else if(action === 'mainTarget') doMainTarget();
+        else if(action === 'water') toggleWater();
+        else if(action === 'soap') useSoap();
+        else if(action === 'towel') useTowel();
+        else if(action === 'skip') skipStep();
+        else if(action === 'order') doOrder(value);
+        else if(action === 'restart') restart();
+        else if(action === 'back') goBack();
+      }
+
+      function bindButtons(){
+        document.addEventListener('click', function(e){
+          const btn = e.target.closest('[data-click]');
+          if(!btn) return;
+          e.preventDefault();
+          run(btn.dataset.click, btn.dataset.value || '');
+        }, true);
+
+        document.addEventListener('touchend', function(e){
+          const btn = e.target.closest('[data-click]');
+          if(!btn) return;
+
+          const now = Date.now();
+          const last = Number(btn.dataset.lastTouch || 0);
+          if(now - last < 450) return;
+          btn.dataset.lastTouch = String(now);
+
+          e.preventDefault();
+          run(btn.dataset.click, btn.dataset.value || '');
+        }, { capture:true, passive:false });
+
+        $('btnBack').addEventListener('click', goBack);
+        $('btnRestart').addEventListener('click', restart);
+      }
+
+      document.body.classList.add('js-ready');
+      el.readyText.textContent = 'ระบบพร้อม: กดปุ่มได้แล้ว';
+      bindButtons();
       render();
+
+      window.addEventListener('beforeunload', stopTimer);
     })();
   </script>
 </body>
