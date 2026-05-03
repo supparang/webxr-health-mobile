@@ -1,12 +1,17 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
 // GoodJunk Solo Phase Boss
-// FULL MERGED PATCH v20260503-bossv3-cinematic
+// FULL MERGED PATCH v20260503-bossv4-finalrush-weakness-combo
 // ✅ Solo Phase Boss
 // ✅ Phase background / boss form / rage mode
 // ✅ Boss HP / shield / attack patterns
 // ✅ HERO HIT / power-ups / mission
 // ✅ Mobile summary scroll reset
 // ✅ Boss speech / warning flash / danger meter / hero cut-in
+// ✅ Final Rush
+// ✅ Boss Weakness Mission
+// ✅ Combo Skill x5 / x10 / x15
+// ✅ Comeback assist
+// ✅ Kid-friendly summary
 // ✅ No Apps Script logging in this version
 
 (() => {
@@ -120,7 +125,10 @@
       face: '🍔',
       state: 'ยังไม่โกรธ',
       mission: 'เก็บอาหารดี 6 ชิ้น เพื่อชาร์จพลัง',
-      threshold: 75
+      threshold: 75,
+      weakGroup: 'veg',
+      weakLabel: 'ผัก',
+      weakEmoji: '🥦'
     },
     2: {
       pill: 'PHASE 2',
@@ -130,7 +138,10 @@
       face: '🍭',
       state: 'ใช้ของหลอก',
       mission: 'ระวังอาหารขยะปลอมตัว และเก็บของดีต่อเนื่อง',
-      threshold: 45
+      threshold: 45,
+      weakGroup: 'fruit',
+      weakLabel: 'ผลไม้',
+      weakEmoji: '🍎'
     },
     3: {
       pill: 'PHASE 3',
@@ -140,7 +151,10 @@
       face: '🍟',
       state: 'มีโล่ป้องกัน',
       mission: 'เก็บอาหารดีให้ครบ 5 หมู่ เพื่อเปิดทางโจมตี',
-      threshold: 20
+      threshold: 20,
+      weakGroup: 'protein',
+      weakLabel: 'โปรตีน',
+      weakEmoji: '🥚'
     },
     4: {
       pill: 'FINAL',
@@ -150,7 +164,10 @@
       face: '🐲',
       state: 'RAGE MODE',
       mission: 'เก็บอาหารดี ชาร์จ HERO HIT แล้วปิดฉากบอส',
-      threshold: 0
+      threshold: 0,
+      weakGroup: 'all',
+      weakLabel: 'อาหารครบ 5 หมู่',
+      weakEmoji: '🌈'
     }
   };
 
@@ -200,16 +217,22 @@
     dangerMeter: null,
     dangerFill: null,
     warningFlash: null,
-    heroCutin: null
+    heroCutin: null,
+
+    finalRushBadge: null,
+    weaknessCard: null,
+    comboBurst: null
   };
 
   function hashSeed(str){
     let h = 2166136261;
     str = String(str || 'goodjunk');
+
     for(let i = 0; i < str.length; i++){
       h ^= str.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
+
     return h >>> 0;
   }
 
@@ -254,6 +277,14 @@
     miss: 0,
     combo: 0,
     maxCombo: 0,
+
+    streakMiss: 0,
+    comboAward5: false,
+    comboAward10: false,
+    comboAward15: false,
+    finalRush: false,
+    heroHitsUsed: 0,
+    fiveGroupRounds: 0,
 
     heroCharge: 0,
     shieldUses: 0,
@@ -328,6 +359,43 @@
     }
   }
 
+  function mountBossV4UI(){
+    if(!el.gameArea) return;
+
+    if(!el.finalRushBadge){
+      const badge = DOC.createElement('div');
+      badge.id = 'finalRushBadge';
+      badge.className = 'final-rush-badge';
+      badge.textContent = '🔥 FINAL RUSH!';
+      el.gameArea.appendChild(badge);
+      el.finalRushBadge = badge;
+    }
+
+    if(!el.weaknessCard){
+      const card = DOC.createElement('div');
+      card.id = 'weaknessCard';
+      card.className = 'weakness-card';
+      card.innerHTML = `
+        <div class="weak-icon">🥦</div>
+        <div>
+          <strong>Boss Weakness</strong>
+          <span>บอสแพ้: ผัก</span>
+        </div>
+      `;
+      el.gameArea.appendChild(card);
+      el.weaknessCard = card;
+    }
+
+    if(!el.comboBurst){
+      const burst = DOC.createElement('div');
+      burst.id = 'comboBurst';
+      burst.className = 'combo-burst';
+      burst.innerHTML = `<strong>COMBO!</strong><span>เก็บอาหารดีต่อเนื่อง</span>`;
+      el.gameArea.appendChild(burst);
+      el.comboBurst = burst;
+    }
+  }
+
   function bossSay(text, ms = 1450){
     if(!el.bossSpeech) return;
 
@@ -380,6 +448,7 @@
     const ring = DOC.createElement('div');
     ring.className = 'boss-damage-ring';
     el.fxLayer.appendChild(ring);
+
     setTimeout(() => ring.remove(), 620);
   }
 
@@ -391,6 +460,171 @@
 
     el.dangerFill.style.width = `${pct}%`;
     el.dangerMeter.classList.toggle('danger-hot', pct >= 78);
+  }
+
+  function updateWeaknessCard(){
+    if(!el.weaknessCard) return;
+
+    const p = PHASES[state.phase] || PHASES[1];
+    const icon = el.weaknessCard.querySelector('.weak-icon');
+    const text = el.weaknessCard.querySelector('span');
+
+    if(icon) icon.textContent = p.weakEmoji || '🥦';
+    if(text) text.textContent = `บอสแพ้: ${p.weakLabel || 'ผัก'}`;
+  }
+
+  function showFinalRush(){
+    if(state.finalRush) return;
+
+    state.finalRush = true;
+    el.app.classList.add('final-rush');
+
+    if(el.finalRushBadge){
+      el.finalRushBadge.classList.remove('show');
+      void el.finalRushBadge.offsetWidth;
+      el.finalRushBadge.classList.add('show');
+    }
+
+    showWarning('FINAL RUSH! เร่งปิดฉากบอส');
+    bossSay('ไม่ยอมแพ้! ข้าจะโจมตีสุดแรง!');
+    playTone('boss');
+    shake();
+
+    setTimeout(() => {
+      if(el.finalRushBadge) el.finalRushBadge.classList.remove('show');
+    }, 1200);
+  }
+
+  function showComboBurst(title, msg){
+    if(!el.comboBurst) return;
+
+    const strong = el.comboBurst.querySelector('strong');
+    const span = el.comboBurst.querySelector('span');
+
+    if(strong) strong.textContent = title;
+    if(span) span.textContent = msg;
+
+    el.comboBurst.classList.remove('show');
+    void el.comboBurst.offsetWidth;
+    el.comboBurst.classList.add('show');
+
+    clearTimeout(showComboBurst.t);
+    showComboBurst.t = setTimeout(() => {
+      if(el.comboBurst) el.comboBurst.classList.remove('show');
+    }, 950);
+  }
+
+  function isWeaknessFood(item){
+    const p = PHASES[state.phase] || PHASES[1];
+
+    if(!item || item.kind !== 'good') return false;
+
+    if(p.weakGroup === 'all'){
+      return state.phaseGroups.size >= 4 || item.bonusGood;
+    }
+
+    return item.group === p.weakGroup;
+  }
+
+  function applyComboSkill(){
+    if(state.combo >= 5 && !state.comboAward5){
+      state.comboAward5 = true;
+      state.heroCharge = clamp(state.heroCharge + 18, 0, 100);
+      showComboBurst('COMBO x5!', '+ Hero Charge');
+      showToast('🔥 Combo x5 ชาร์จพลังเพิ่ม!');
+      playTone('power');
+    }
+
+    if(state.combo >= 10 && !state.comboAward10){
+      state.comboAward10 = true;
+
+      let cleared = 0;
+      const rect = getAreaRect();
+      const cx = rect.width * 0.5;
+      const cy = rect.height * 0.55;
+
+      state.items.slice().forEach(it => {
+        if(it.kind === 'junk'){
+          const dx = it.x - cx;
+          const dy = it.y - cy;
+          const d = Math.sqrt(dx * dx + dy * dy);
+
+          if(d < 210){
+            cleared++;
+            popText(it.x, it.y, 'SPARK', 'gold');
+            removeItem(it);
+          }
+        }
+      });
+
+      state.score += cleared * 10;
+      damageBoss(6 + cleared, 'COMBO SPARK');
+      showComboBurst('COMBO x10!', 'Clean Spark ลบอาหารขยะใกล้ ๆ');
+      playTone('power');
+    }
+
+    if(state.combo >= 15 && !state.comboAward15){
+      state.comboAward15 = true;
+      showComboBurst('COMBO x15!', 'Mega Good Rain!');
+      showToast('🌈 Mega Good Rain มาแล้ว!');
+      playTone('win');
+
+      const rect = getAreaRect();
+      const groups = ['protein', 'carb', 'veg', 'fruit', 'fat'];
+
+      for(let i = 0; i < 8; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          const group = pick(groups);
+          const good = pick(FOOD_GOOD.filter(f => f.group === group));
+
+          spawnItem('good', {
+            good,
+            bonusGood: true,
+            x: random(50, rect.width - 50),
+            y: random(-120, -45),
+            speed: random(84, 122) * itemSpeed()
+          });
+        }, i * 120);
+      }
+    }
+  }
+
+  function resetComboAwards(){
+    state.comboAward5 = false;
+    state.comboAward10 = false;
+    state.comboAward15 = false;
+  }
+
+  function comebackAssist(){
+    if(state.streakMiss < 3) return;
+
+    state.streakMiss = 0;
+
+    const p = state.lives <= 1
+      ? { id: 'heart', emoji: '💖', label: 'Heart' }
+      : { id: 'shield', emoji: '🛡️', label: 'Shield' };
+
+    showToast('💡 ตัวช่วยมาแล้ว! เก็บเพื่อกลับมาเล่นต่อ');
+    bossSay('ฮึ่ม... ยังมีตัวช่วยอีกเหรอ!');
+
+    spawnItem('power', {
+      power: p,
+      speed: random(58, 78) * itemSpeed(),
+      lifeMs: 9500
+    });
+
+    const last = state.items[state.items.length - 1];
+    if(last && last.node) last.node.classList.add('comeback');
+  }
+
+  function checkFinalRush(){
+    if(state.finalRush) return;
+
+    if(state.timeLeft <= 20 || state.bossHp <= 15){
+      showFinalRush();
+    }
   }
 
   function now(){
@@ -511,6 +745,8 @@
     el.bossState.textContent = p.state;
     el.missionText.textContent = p.mission;
 
+    updateWeaknessCard();
+
     if(nextPhase === 4){
       el.app.classList.add('rage');
     }
@@ -555,6 +791,7 @@
       text = `ระวังของหลอก! เก็บอาหารดีต่อเนื่อง ${state.phaseGood}/8`;
     }else if(state.phase === 3){
       const groups = state.phaseGroups.size;
+
       if(state.shieldGate > 0){
         text = `โล่บอสยังอยู่! เก็บให้ครบ 5 หมู่: ${groups}/5`;
       }else{
@@ -598,6 +835,7 @@
     if(state.phase === 2) sp *= 1.08;
     if(state.phase === 3) sp *= 1.2;
     if(state.phase === 4) sp *= 1.38;
+    if(state.finalRush) sp *= 1.08;
     if(now() < state.slowUntil) sp *= 0.55;
 
     return sp;
@@ -612,6 +850,7 @@
 
     if(state.combo >= 8) every *= 0.92;
     if(now() < state.slowUntil) every *= 1.14;
+    if(state.finalRush) every *= 0.72;
 
     return every;
   }
@@ -622,10 +861,11 @@
     if(state.phase === 2) rate += 0.08;
     if(state.phase === 3) rate += 0.12;
     if(state.phase === 4) rate += 0.18;
+    if(state.finalRush) rate += 0.08;
 
     if(state.lives <= 1) rate -= 0.10;
 
-    return clamp(rate, 0.22, 0.68);
+    return clamp(rate, 0.22, 0.72);
   }
 
   function getAreaRect(){
@@ -694,6 +934,7 @@
       fake,
       danger: !!opt.danger,
       bonusGood: !!opt.bonusGood,
+      weakHit: !!opt.weakHit,
       x,
       y,
       vx: opt.vx ?? random(-10, 10),
@@ -707,6 +948,7 @@
 
     if(item.danger) item.node.classList.add('danger');
     if(item.bonusGood) item.node.classList.add('bonus-good');
+    if(item.weakHit) item.node.classList.add('weak-hit');
 
     state.items.push(item);
     el.targetLayer.appendChild(item.node);
@@ -715,6 +957,10 @@
   function spawnNormalWave(){
     const r = currentJunkRate();
     let kind = chance(r) ? 'junk' : 'good';
+
+    if(state.finalRush && chance(0.18)){
+      kind = 'good';
+    }
 
     if(state.phase === 2 && kind === 'junk' && chance(0.28)){
       spawnItem('junk', { fake: true });
@@ -726,20 +972,36 @@
       const group = needed.length ? pick(needed) : pick(['protein', 'carb', 'veg', 'fruit', 'fat']);
       const good = pick(FOOD_GOOD.filter(f => f.group === group));
 
-      spawnItem('good', { good, bonusGood: true });
-      return;
-    }
-
-    if(state.phase === 4 && kind === 'good' && chance(0.22)){
       spawnItem('good', {
+        good,
         bonusGood: true,
-        speed: random(92, 135) * itemSpeed()
+        weakHit: good.group === (PHASES[state.phase] || PHASES[1]).weakGroup
       });
       return;
     }
 
-    spawnItem(kind, {
-      danger: kind === 'junk' && state.phase >= 4 && chance(0.36)
+    if(kind === 'good'){
+      const phaseInfo = PHASES[state.phase] || PHASES[1];
+      let good;
+
+      if(phaseInfo.weakGroup !== 'all' && chance(state.finalRush ? 0.46 : 0.28)){
+        good = pick(FOOD_GOOD.filter(f => f.group === phaseInfo.weakGroup));
+      }else{
+        good = pick(FOOD_GOOD);
+      }
+
+      spawnItem('good', {
+        good,
+        bonusGood: state.phase === 4 && chance(0.28),
+        weakHit: phaseInfo.weakGroup !== 'all' && good.group === phaseInfo.weakGroup,
+        speed: state.finalRush ? random(92, 140) * itemSpeed() : undefined
+      });
+      return;
+    }
+
+    spawnItem('junk', {
+      danger: (state.phase >= 4 || state.finalRush) && chance(0.46),
+      speed: state.finalRush ? random(118, 172) * itemSpeed() : undefined
     });
   }
 
@@ -810,17 +1072,30 @@
 
     if(item.group) state.phaseGroups.add(item.group);
 
+    state.streakMiss = 0;
+
     const comboBonus = Math.min(18, state.combo * 1.5);
     const add = 10 + comboBonus + (state.phase * 2);
 
     state.score += add;
     state.heroCharge = clamp(state.heroCharge + 8 + state.combo * 0.8, 0, 100);
 
+    const weak = isWeaknessFood(item);
+
     if(item.bonusGood){
       state.heroCharge = clamp(state.heroCharge + 8, 0, 100);
       state.score += 10;
       popText(item.x, item.y - 20, 'BONUS!', 'gold');
     }
+
+    if(weak){
+      state.score += 14;
+      state.heroCharge = clamp(state.heroCharge + 7, 0, 100);
+      popText(item.x, item.y - 36, 'WEAK HIT!', 'gold');
+      bossSay(`โอ๊ย! ข้าแพ้${PHASES[state.phase].weakLabel}!`);
+    }
+
+    applyComboSkill();
 
     if(state.heroCharge >= 100){
       showToast('⚡ HERO HIT พร้อมใช้แล้ว!');
@@ -831,10 +1106,10 @@
 
     if(state.phase === 1){
       if(state.phaseGood >= 6){
-        damageBoss(7, 'GOOD POWER');
+        damageBoss(weak ? 10 : 7, weak ? 'WEAK POWER' : 'GOOD POWER');
         state.phaseGood = 0;
       }else{
-        damageBoss(3.2, 'GOOD');
+        damageBoss(weak ? 5.2 : 3.2, weak ? 'WEAK GOOD' : 'GOOD');
       }
     }else if(state.phase === 2){
       if(item.fake){
@@ -842,10 +1117,10 @@
       }
 
       if(state.phaseGood >= 8){
-        damageBoss(9, 'COMBO STRIKE');
+        damageBoss(weak ? 12 : 9, weak ? 'WEAK STRIKE' : 'COMBO STRIKE');
         state.phaseGood = 0;
       }else{
-        damageBoss(3.5, 'GOOD');
+        damageBoss(weak ? 5.8 : 3.5, weak ? 'WEAK GOOD' : 'GOOD');
       }
     }else if(state.phase === 3){
       if(state.shieldGate > 0){
@@ -857,15 +1132,16 @@
         }
 
         if(state.shieldGate <= 0){
+          state.fiveGroupRounds++;
           showToast('🛡️ โล่บอสแตกแล้ว! โจมตีได้!');
           playTone('power');
-          damageBoss(10, 'SHIELD BREAK');
+          damageBoss(weak ? 13 : 10, weak ? 'WEAK BREAK' : 'SHIELD BREAK');
         }
       }else{
-        damageBoss(4.5, 'GOOD HIT');
+        damageBoss(weak ? 7.2 : 4.5, weak ? 'WEAK HIT' : 'GOOD HIT');
       }
     }else{
-      damageBoss(5.2, 'FINAL HIT');
+      damageBoss(weak ? 8.5 : 5.2, weak ? 'FINAL WEAK' : 'FINAL HIT');
     }
   }
 
@@ -888,6 +1164,9 @@
     state.junkHits++;
     state.miss++;
     state.combo = 0;
+    resetComboAwards();
+    state.streakMiss++;
+
     state.lives--;
     state.heroCharge = Math.max(0, state.heroCharge - 7);
     state.bossHp = Math.min(state.bossMaxHp, state.bossHp + 1.4);
@@ -896,6 +1175,8 @@
     showToast(`โดนอาหารขยะ! ${item.name}`);
     playTone('bad');
     shake();
+
+    comebackAssist();
 
     if(state.lives <= 0){
       endGame(false);
@@ -997,7 +1278,10 @@
         if(item.kind === 'good'){
           state.miss++;
           state.combo = 0;
+          resetComboAwards();
+          state.streakMiss++;
           popText(clamp(item.x, 30, rect.width - 30), rect.height - 50, 'MISS', 'bad');
+          comebackAssist();
         }
 
         removeItem(item);
@@ -1146,6 +1430,7 @@
     if(state.heroCharge < 100 || state.paused || state.ended) return;
 
     state.heroCharge = 0;
+    state.heroHitsUsed++;
 
     showHeroCutin(state.phase >= 4 ? 'FINAL HERO HIT!' : 'พลังอาหารดีโจมตีบอส');
     shake();
@@ -1153,6 +1438,7 @@
     let amount = 18;
     if(state.phase === 3) amount = 22;
     if(state.phase === 4) amount = 26;
+    if(state.finalRush) amount += 4;
 
     if(state.shieldGate > 0){
       state.shieldGate = Math.max(0, state.shieldGate - 2);
@@ -1188,7 +1474,7 @@
         state.spawnAcc = 0;
         spawnNormalWave();
 
-        if(state.phase >= 4 && chance(0.22)){
+        if(state.phase >= 4 && chance(state.finalRush ? 0.32 : 0.22)){
           setTimeout(() => {
             if(state.running && !state.paused && !state.ended) spawnNormalWave();
           }, 160);
@@ -1217,6 +1503,7 @@
         state.powerLabel = '-';
       }
 
+      checkFinalRush();
       updateDangerMeter();
       updateHud();
 
@@ -1247,6 +1534,14 @@
     state.combo = 0;
     state.maxCombo = 0;
 
+    state.streakMiss = 0;
+    state.comboAward5 = false;
+    state.comboAward10 = false;
+    state.comboAward15 = false;
+    state.finalRush = false;
+    state.heroHitsUsed = 0;
+    state.fiveGroupRounds = 0;
+
     state.heroCharge = 0;
     state.shieldUses = 0;
     state.slowUntil = 0;
@@ -1270,11 +1565,15 @@
     state.items = [];
     el.fxLayer.innerHTML = '';
 
+    el.app.classList.remove('final-rush');
+
     if(el.dangerFill) el.dangerFill.style.width = '0%';
     if(el.dangerMeter) el.dangerMeter.classList.remove('danger-hot');
     if(el.bossSpeech) el.bossSpeech.classList.remove('show');
     if(el.warningFlash) el.warningFlash.classList.remove('show');
     if(el.heroCutin) el.heroCutin.classList.remove('show');
+    if(el.finalRushBadge) el.finalRushBadge.classList.remove('show');
+    if(el.comboBurst) el.comboBurst.classList.remove('show');
 
     setPhase(1, false);
     updateHud();
@@ -1340,6 +1639,8 @@
       miss: state.miss,
       maxCombo: state.maxCombo,
       bossHpLeft: Math.round(state.bossHp),
+      heroHitsUsed: state.heroHitsUsed,
+      fiveGroupRounds: state.fiveGroupRounds,
       completed: !!win,
       stars,
       ts: new Date().toISOString()
@@ -1370,6 +1671,37 @@
     }else{
       el.summaryTip.textContent = 'ดีมาก! รอบหน้าใช้ HERO HIT ตอนบอสเข้า Rage Mode จะชนะง่ายขึ้น';
     }
+
+    const oldKid = el.summaryLayer.querySelector('.kid-summary-list');
+    if(oldKid) oldKid.remove();
+
+    const kidList = DOC.createElement('div');
+    kidList.className = 'kid-summary-list';
+
+    const goodLine = summary.goodHits >= 25
+      ? `✅ เก่งมาก เก็บอาหารดีได้ <b>${summary.goodHits}</b> ชิ้น`
+      : `✅ เก็บอาหารดีได้ <b>${summary.goodHits}</b> ชิ้น รอบหน้าลองเก็บให้มากขึ้น`;
+
+    const heroLine = state.heroHitsUsed >= 2
+      ? `⚡ ใช้ HERO HIT ได้ดีมาก`
+      : `⚡ รอบหน้าเก็บอาหารดีเพื่อชาร์จ HERO HIT ให้ไวขึ้น`;
+
+    const missLine = summary.miss <= 6
+      ? `🛡️ หลบอาหารขยะได้ดี พลาดไม่เยอะ`
+      : `⚠️ ฝึกเพิ่ม: เห็น 🍟🍩🥤 ให้หลบก่อน`;
+
+    const groupLine = state.fiveGroupRounds >= 1
+      ? `🌈 ทำอาหารครบ 5 หมู่ได้แล้ว`
+      : `🌈 เป้าหมายต่อไป: เก็บอาหารให้ครบ 5 หมู่`;
+
+    kidList.innerHTML = `
+      <div class="kid-summary-line">${goodLine}</div>
+      <div class="kid-summary-line">${heroLine}</div>
+      <div class="kid-summary-line">${missLine}</div>
+      <div class="kid-summary-line">${groupLine}</div>
+    `;
+
+    el.summaryTip.insertAdjacentElement('afterend', kidList);
 
     el.summaryLayer.classList.add('show');
 
@@ -1445,6 +1777,7 @@
 
   function boot(){
     mountCinematicUI();
+    mountBossV4UI();
     bindEvents();
     resetGame();
 
