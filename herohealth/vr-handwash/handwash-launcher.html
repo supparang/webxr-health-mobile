@@ -445,7 +445,7 @@
 
         <p class="lead">
           กดเริ่มเล่น แล้วเข้าเกมล้างมือแบบปุ่มจริง กดได้ง่ายขึ้น
-          ฝึกตามขั้นตอน WHO ตั้งแต่เปิดน้ำ ใส่สบู่ ถูมือ ล้างน้ำ และเช็ดมือ
+          ฝึกตามขั้นตอน WHO ตั้งแต่เปิดก๊อกน้ำ ใส่สบู่ ถูมือ ล้างน้ำ และเช็ดมือ
         </p>
 
         <div class="flowLine" aria-label="ลำดับการเล่น">
@@ -501,8 +501,8 @@
         <div class="bubble b2"></div>
         <div class="bubble b3"></div>
         <div class="bubble b4"></div>
-        <div class="handIcon">🧼</div>
-        <div class="miniTip" id="modeTip">แนะนำให้เริ่มด้วย Mobile</div>
+        <div class="handIcon">🚿</div>
+        <div class="miniTip" id="modeTip">กดรูปก๊อกน้ำในเกมได้จริง</div>
       </div>
     </section>
 
@@ -519,8 +519,8 @@
       </div>
 
       <div class="hint">
-        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503h-static-safe</strong>
-        ซึ่งใช้ปุ่ม HTML จริง ไม่พึ่ง hitbox ลอย เพื่อแก้ปัญหากดแล้วไม่ตอบสนอง
+        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503j-faucet-click</strong>
+        ซึ่งใช้ปุ่ม HTML จริง และกดรูปก๊อกน้ำในภาพได้
       </div>
     </details>
   </main>
@@ -534,15 +534,10 @@
       const STORAGE_KEY = 'HH_HANDWASH_LAUNCHER_PREFS';
       const VIEW_KEY = 'HH_HANDWASH_VIEW';
 
-      /*
-       * ใช้ handwash-v2.html สำหรับทุกอุปกรณ์ก่อน
-       * เพื่อให้ "เล่นได้จริง" ด้วย static-safe buttons
-       * ถ้าจะกลับไปใช้ handwash-vr.html ภายหลัง ค่อย patch ไฟล์ VR แยกอีกครั้ง
-       */
       const TARGETS = {
-        pc: './handwash-v2.html?v=20260503h-static-safe',
-        mobile: './handwash-v2.html?v=20260503h-static-safe',
-        cvr: './handwash-v2.html?v=20260503h-static-safe'
+        pc: './handwash-v2.html?v=20260503j-faucet-click',
+        mobile: './handwash-v2.html?v=20260503j-faucet-click',
+        cvr: './handwash-v2.html?v=20260503j-faucet-click'
       };
 
       const fieldName = document.getElementById('fieldName');
@@ -690,13 +685,13 @@
 
         if(selectedView === 'pc'){
           btnStart.textContent = '▶ เริ่มเล่นบน PC';
-          modeTip.textContent = 'โหมด PC ใช้เมาส์กดปุ่มใหญ่หรือปุ่มสีเหลือง';
+          modeTip.textContent = 'โหมด PC ใช้เมาส์กดปุ่มหรือกดรูปก๊อกน้ำได้';
         }else if(selectedView === 'cvr'){
           btnStart.textContent = '▶ เริ่มเล่นแบบ Cardboard';
-          modeTip.textContent = 'ตอนนี้ Cardboard ใช้หน้า static-safe ก่อน เพื่อให้กดได้แน่นอน';
+          modeTip.textContent = 'Cardboard ใช้หน้า static-safe ก่อน เพื่อให้กดได้แน่นอน';
         }else{
           btnStart.textContent = '▶ เริ่มเล่นบน Mobile';
-          modeTip.textContent = 'แนะนำสำหรับเด็ก ใช้นิ้วแตะปุ่มใหญ่ได้เลย';
+          modeTip.textContent = 'แนะนำสำหรับเด็ก ใช้นิ้วแตะก๊อกน้ำและปุ่มใหญ่ได้เลย';
         }
 
         savePrefs();
@@ -738,10 +733,6 @@
 
         url.searchParams.set('hub', getHubHref());
 
-        /*
-         * ส่งเฉพาะข้อมูลจำเป็น
-         * ข้อมูล research/log จะส่งต่อเฉพาะเมื่อมีอยู่ใน URL เดิมจริง
-         */
         [
           'studyId',
           'conditionGroup',
