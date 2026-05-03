@@ -337,6 +337,7 @@
               <option value="easy">easy</option>
               <option value="normal">normal</option>
               <option value="hard">hard</option>
+              <option value="challenge">challenge</option>
             </select>
           </label>
         </div>
@@ -425,6 +426,18 @@
       const q = new URLSearchParams(location.search);
       const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PREFS';
 
+      const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+      const URLS = {
+        nutrition: ROOT + 'nutrition-zone.html',
+        warmupGate: ROOT + 'warmup-gate.html',
+        soloBoss: ROOT + 'vr-goodjunk/goodjunk-solo-boss.html',
+        duetLobby: ROOT + 'vr-goodjunk/goodjunk-duet-lobby.html',
+        raceLobby: ROOT + 'vr-goodjunk/goodjunk-race-lobby.html',
+        battleLobby: ROOT + 'vr-goodjunk/goodjunk-battle-lobby.html',
+        coopLobby: ROOT + 'vr-goodjunk/goodjunk-coop-lobby.html',
+        fallbackGame: ROOT + 'goodjunk-vr.html'
+      };
+
       const fieldName = document.getElementById('fieldName');
       const fieldDiff = document.getElementById('fieldDiff');
       const fieldTime = document.getElementById('fieldTime');
@@ -436,9 +449,9 @@
       const modeCards = Array.from(document.querySelectorAll('.gj-mode-card'));
 
       function first(){
-        for (let i = 0; i < arguments.length; i++) {
+        for(let i = 0; i < arguments.length; i++){
           const v = arguments[i];
-          if (String(v || '').trim()) return String(v).trim();
+          if(String(v || '').trim()) return String(v).trim();
         }
         return '';
       }
@@ -448,24 +461,34 @@
       }
 
       function safeJsonParse(text, fallback){
-        try { return JSON.parse(text); } catch (_) { return fallback; }
+        try{
+          return JSON.parse(text);
+        }catch(_){
+          return fallback;
+        }
       }
 
       function storageGet(key, fallback){
-        try {
+        try{
           const raw = localStorage.getItem(key);
           return raw == null ? fallback : raw;
-        } catch (_) {
+        }catch(_){
           return fallback;
         }
       }
 
       function storageSet(key, value){
-        try { localStorage.setItem(key, value); } catch (_) {}
+        try{
+          localStorage.setItem(key, value);
+        }catch(_){}
       }
 
       function cleanReturnUrl(raw){
-        const fallback = new URL('./nutrition-zone.html', location.href).toString();
+        /*
+          GoodJunk launcher กลับ Nutrition Zone เป็นหลัก
+          ถ้า hub ที่ส่งมาเป็น Nutrition Zone ให้ใช้ ROOT/nutrition-zone.html แบบสะอาด
+        */
+        const fallback = URLS.nutrition;
 
         try{
           if(!String(raw || '').trim()) return fallback;
@@ -473,7 +496,7 @@
           const u = new URL(String(raw), location.href);
 
           if(u.pathname.includes('/nutrition-zone.html')){
-            return new URL('./nutrition-zone.html', location.href).toString();
+            return URLS.nutrition;
           }
 
           if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
@@ -501,6 +524,8 @@
       }
 
       function setSelectValue(select, value, fallback){
+        if(!select) return;
+
         const wanted = first(value, fallback);
         const ok = Array.from(select.options).some(opt => opt.value === wanted);
         select.value = ok ? wanted : fallback;
@@ -508,50 +533,133 @@
 
       function savePrefs(){
         storageSet(STORAGE_KEY, JSON.stringify({
-          name: fieldName.value.trim() || 'Hero',
-          diff: fieldDiff.value || 'normal',
-          time: fieldTime.value || '150',
-          view: fieldView.value || 'mobile'
+          name: fieldName ? fieldName.value.trim() || 'Hero' : 'Hero',
+          diff: fieldDiff ? fieldDiff.value || 'normal' : 'normal',
+          time: fieldTime ? fieldTime.value || '150' : '150',
+          view: fieldView ? fieldView.value || 'mobile' : 'mobile'
         }));
       }
 
       function loadPrefs(){
         const saved = getSavedPrefs();
 
-        fieldName.value = first(q.get('name'), saved.name, 'Hero');
+        if(fieldName){
+          fieldName.value = first(q.get('name'), saved.name, 'Hero');
+        }
+
         setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
         setSelectValue(fieldTime, first(q.get('time'), saved.time), '150');
         setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
       }
 
-      function buildBaseUrl(){
-        const url = new URL('./goodjunk-vr.html', location.href);
+      function baseContextParams(){
+        const p = new URLSearchParams();
+        const name = fieldName ? fieldName.value.trim() || 'Hero' : 'Hero';
 
-        url.searchParams.set('pid', getPid());
-        url.searchParams.set('name', fieldName.value.trim() || 'Hero');
-        url.searchParams.set('diff', fieldDiff.value || 'normal');
-        url.searchParams.set('time', fieldTime.value || '150');
-        url.searchParams.set('view', fieldView.value || 'mobile');
-        url.searchParams.set('run', first(q.get('run'), 'play'));
-        url.searchParams.set('zone', 'nutrition');
-        url.searchParams.set('game', 'goodjunk');
-        url.searchParams.set('hub', getHubHref());
+        p.set('pid', first(q.get('pid'), getPid(), 'anon'));
+        p.set('name', name);
+        p.set('nick', name);
+        p.set('diff', fieldDiff ? fieldDiff.value || 'normal' : 'normal');
+        p.set('time', fieldTime ? fieldTime.value || '150' : '150');
+        p.set('view', fieldView ? fieldView.value || 'mobile' : 'mobile');
+        p.set('run', first(q.get('run'), 'play'));
 
-        return url;
+        p.set('zone', 'nutrition');
+        p.set('cat', 'nutrition');
+        p.set('game', 'goodjunk');
+        p.set('gameId', 'goodjunk');
+
+        /*
+          เก็บ seed เดิมถ้ามี เพื่อ deterministic testing
+          ถ้าไม่มี ใช้ timestamp ใหม่
+        */
+        p.set('seed', first(q.get('seed'), String(Date.now())));
+
+        const studyId = first(q.get('studyId'), '');
+        const section = first(q.get('section'), '');
+        const sessionCode = first(q.get('session_code'), '');
+        const conditionGroup = first(q.get('conditionGroup'), '');
+        const api = first(q.get('api'), '');
+        const log = first(q.get('log'), '');
+
+        if(studyId) p.set('studyId', studyId);
+        if(section) p.set('section', section);
+        if(sessionCode) p.set('session_code', sessionCode);
+        if(conditionGroup) p.set('conditionGroup', conditionGroup);
+        if(api) p.set('api', api);
+        if(log) p.set('log', log);
+
+        return p;
+      }
+
+      function urlWithParams(baseUrl, params){
+        const u = new URL(baseUrl);
+
+        params.forEach((v, k) => {
+          if(v !== undefined && v !== null && String(v) !== ''){
+            u.searchParams.set(k, String(v));
+          }
+        });
+
+        return u;
+      }
+
+      /*
+        FIXED SOLO BOSS FLOW
+
+        ใช้ gate ตัวจริงเท่านั้น:
+        https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html
+
+        ไม่ใช้:
+        /herohealth/gate/warmup-gate.html
+      */
+      function buildSoloBossWarmupHref(){
+        const p = baseContextParams();
+
+        p.set('phase', 'warmup');
+        p.set('mode', 'solo-boss');
+        p.set('entry', 'solo-boss');
+        p.set('phaseBoss', '1');
+        p.set('multiplayer', '0');
+
+        p.set('next', URLS.soloBoss);
+        p.set('hub', URLS.nutrition);
+
+        return URLS.warmupGate + '?' + p.toString();
+      }
+
+      /*
+        Multiplayer modes:
+        ไม่ใช้ Solo Phase Boss
+        ไม่ผ่าน warmup gate ตอนนี้
+      */
+      function buildMultiplayerHref(mode){
+        const p = baseContextParams();
+
+        p.set('mode', mode);
+        p.set('entry', mode);
+        p.set('multiplayer', '1');
+        p.set('hub', getHubHref());
+
+        const lobbyMap = {
+          duet: URLS.duetLobby,
+          race: URLS.raceLobby,
+          battle: URLS.battleLobby,
+          coop: URLS.coopLobby
+        };
+
+        const path = lobbyMap[mode] || URLS.fallbackGame;
+        return urlWithParams(path, p).toString();
       }
 
       function buildModeHref(mode){
-        const url = buildBaseUrl();
+        mode = lower(mode);
 
-        if(mode === 'solo-boss'){
-          url.searchParams.set('mode', 'solo');
-          url.searchParams.set('entry', 'solo-boss');
-          url.searchParams.set('phaseBoss', '1');
-          return url.toString();
+        if(mode === 'solo-boss' || mode === 'solo'){
+          return buildSoloBossWarmupHref();
         }
 
-        url.searchParams.set('mode', mode);
-        return url.toString();
+        return buildMultiplayerHref(mode);
       }
 
       function goMode(mode){
@@ -559,264 +667,44 @@
         location.href = buildModeHref(mode);
       }
 
-      loadPrefs();
-      btnBackHub.href = getHubHref();
+      function bind(){
+        if(btnBackHub){
+          btnBackHub.href = getHubHref();
+        }
 
-      [fieldName, fieldDiff, fieldTime, fieldView].forEach((el) => {
-        el.addEventListener('input', savePrefs);
-        el.addEventListener('change', savePrefs);
-      });
-
-      modeCards.forEach((card) => {
-        card.addEventListener('click', function(){
-          const mode = lower(card.dataset.mode);
-          goMode(mode);
+        [fieldName, fieldDiff, fieldTime, fieldView].forEach((el) => {
+          if(!el) return;
+          el.addEventListener('input', savePrefs);
+          el.addEventListener('change', savePrefs);
         });
-      });
 
-      btnSoloQuick.addEventListener('click', function(){
-        goMode('solo-boss');
-      });
+        modeCards.forEach((card) => {
+          card.addEventListener('click', function(){
+            const mode = lower(card.dataset.mode);
+            goMode(mode);
+          });
+        });
 
-      btnReload.addEventListener('click', function(){
-        location.reload();
-      });
+        if(btnSoloQuick){
+          btnSoloQuick.addEventListener('click', function(){
+            goMode('solo-boss');
+          });
+        }
+
+        if(btnReload){
+          btnReload.addEventListener('click', function(){
+            location.reload();
+          });
+        }
+      }
+
+      function boot(){
+        loadPrefs();
+        bind();
+      }
+
+      boot();
     })();
   </script>
-  <script>
-  (function(){
-    'use strict';
-
-    const q = new URLSearchParams(location.search);
-    const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PREFS';
-
-    const fieldName = document.getElementById('fieldName');
-    const fieldDiff = document.getElementById('fieldDiff');
-    const fieldTime = document.getElementById('fieldTime');
-    const fieldView = document.getElementById('fieldView');
-
-    const btnBackHub = document.getElementById('btnBackHub');
-    const btnSoloQuick = document.getElementById('btnSoloQuick');
-    const btnReload = document.getElementById('btnReload');
-    const modeCards = Array.from(document.querySelectorAll('.gj-mode-card'));
-
-    function first(){
-      for(let i = 0; i < arguments.length; i++){
-        const v = arguments[i];
-        if(String(v || '').trim()) return String(v).trim();
-      }
-      return '';
-    }
-
-    function lower(v){
-      return String(v || '').trim().toLowerCase();
-    }
-
-    function safeJsonParse(text, fallback){
-      try{ return JSON.parse(text); }catch(_){ return fallback; }
-    }
-
-    function storageGet(key, fallback){
-      try{
-        const raw = localStorage.getItem(key);
-        return raw == null ? fallback : raw;
-      }catch(_){
-        return fallback;
-      }
-    }
-
-    function storageSet(key, value){
-      try{ localStorage.setItem(key, value); }catch(_){}
-    }
-
-    function cleanReturnUrl(raw){
-      const fallback = new URL('./nutrition-zone.html', location.href).toString();
-
-      try{
-        if(!String(raw || '').trim()) return fallback;
-
-        const u = new URL(String(raw), location.href);
-
-        if(u.pathname.includes('/nutrition-zone.html')){
-          return new URL('./nutrition-zone.html', location.href).toString();
-        }
-
-        if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
-          return fallback;
-        }
-
-        return u.toString();
-      }catch(_){
-        return fallback;
-      }
-    }
-
-    function getHubHref(){
-      return cleanReturnUrl(q.get('hub'));
-    }
-
-    function getPid(){
-      return first(q.get('pid'), 'anon');
-    }
-
-    function getSavedPrefs(){
-      const raw = storageGet(STORAGE_KEY, '');
-      const data = safeJsonParse(raw, null);
-      return data && typeof data === 'object' ? data : {};
-    }
-
-    function setSelectValue(select, value, fallback){
-      const wanted = first(value, fallback);
-      const ok = Array.from(select.options).some(opt => opt.value === wanted);
-      select.value = ok ? wanted : fallback;
-    }
-
-    function savePrefs(){
-      storageSet(STORAGE_KEY, JSON.stringify({
-        name: fieldName.value.trim() || 'Hero',
-        diff: fieldDiff.value || 'normal',
-        time: fieldTime.value || '150',
-        view: fieldView.value || 'mobile'
-      }));
-    }
-
-    function loadPrefs(){
-      const saved = getSavedPrefs();
-
-      fieldName.value = first(q.get('name'), saved.name, 'Hero');
-      setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
-      setSelectValue(fieldTime, first(q.get('time'), saved.time), '150');
-      setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
-    }
-
-    function baseContextParams(){
-      const p = new URLSearchParams();
-
-      p.set('pid', getPid());
-      p.set('name', fieldName.value.trim() || 'Hero');
-      p.set('nick', fieldName.value.trim() || 'Hero');
-      p.set('diff', fieldDiff.value || 'normal');
-      p.set('time', fieldTime.value || '150');
-      p.set('view', fieldView.value || 'mobile');
-      p.set('run', first(q.get('run'), 'play'));
-
-      p.set('zone', 'nutrition');
-      p.set('cat', 'nutrition');
-      p.set('game', 'goodjunk');
-      p.set('gameId', 'goodjunk');
-
-      p.set('pid', first(q.get('pid'), getPid(), 'anon'));
-
-      const seed = first(q.get('seed'), String(Date.now()));
-      p.set('seed', seed);
-
-      const studyId = first(q.get('studyId'), '');
-      const conditionGroup = first(q.get('conditionGroup'), '');
-      const api = first(q.get('api'), '');
-      const log = first(q.get('log'), '');
-
-      if(studyId) p.set('studyId', studyId);
-      if(conditionGroup) p.set('conditionGroup', conditionGroup);
-      if(api) p.set('api', api);
-      if(log) p.set('log', log);
-
-      return p;
-    }
-
-    function urlWithParams(path, params){
-      const u = new URL(path, location.href);
-
-      params.forEach((v, k) => {
-        if(v !== undefined && v !== null && String(v) !== ''){
-          u.searchParams.set(k, String(v));
-        }
-      });
-
-      return u;
-    }
-
-    /*
-      สำคัญ:
-      Solo Boss ต้องเข้า warmup-gate.html ก่อน
-      gate จะตรวจว่า warmup วันนี้ทำแล้วหรือยัง
-      ถ้าทำแล้วจะ skip ไปเกมทันที
-    */
-    function buildSoloBossWarmupHref(){
-      const p = baseContextParams();
-
-      p.set('phase', 'warmup');
-      p.set('mode', 'solo-boss');
-      p.set('entry', 'solo-boss');
-      p.set('phaseBoss', '1');
-
-      p.set('next', new URL('./vr-goodjunk/goodjunk-solo-boss.html', location.href).toString());
-      p.set('hub', getHubHref());
-
-      return urlWithParams('./gate/warmup-gate.html', p).toString();
-    }
-
-    /*
-      โหมดหลายคนยังไม่ใช้ phase boss
-      ถ้าตอนนี้ไฟล์ lobby ของ duet/race/battle/coop มีอยู่แล้ว ให้ส่งไป lobby
-      ถ้ายังไม่มี ไว้แก้ path ภายหลังได้
-    */
-    function buildMultiplayerHref(mode){
-      const p = baseContextParams();
-
-      p.set('mode', mode);
-      p.set('entry', mode);
-      p.set('multiplayer', '1');
-      p.set('hub', getHubHref());
-
-      const lobbyMap = {
-        duet: './vr-goodjunk/goodjunk-duet-lobby.html',
-        race: './vr-goodjunk/goodjunk-race-lobby.html',
-        battle: './vr-goodjunk/goodjunk-battle-lobby.html',
-        coop: './vr-goodjunk/goodjunk-coop-lobby.html'
-      };
-
-      const path = lobbyMap[mode] || './goodjunk-vr.html';
-      return urlWithParams(path, p).toString();
-    }
-
-    function buildModeHref(mode){
-      mode = lower(mode);
-
-      if(mode === 'solo-boss' || mode === 'solo'){
-        return buildSoloBossWarmupHref();
-      }
-
-      return buildMultiplayerHref(mode);
-    }
-
-    function goMode(mode){
-      savePrefs();
-      location.href = buildModeHref(mode);
-    }
-
-    loadPrefs();
-    btnBackHub.href = getHubHref();
-
-    [fieldName, fieldDiff, fieldTime, fieldView].forEach((el) => {
-      el.addEventListener('input', savePrefs);
-      el.addEventListener('change', savePrefs);
-    });
-
-    modeCards.forEach((card) => {
-      card.addEventListener('click', function(){
-        const mode = lower(card.dataset.mode);
-        goMode(mode);
-      });
-    });
-
-    btnSoloQuick.addEventListener('click', function(){
-      goMode('solo-boss');
-    });
-
-    btnReload.addEventListener('click', function(){
-      location.reload();
-    });
-  })();
-</script>
 </body>
 </html>
