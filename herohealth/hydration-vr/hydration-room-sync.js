@@ -1,35 +1,33 @@
 // === /herohealth/hydration-vr/hydration-room-sync.js ===
-// PATCH v20260503-HYDRATION-ROOM-SYNC-V4-CREATE-JOIN-ROOM-CODE
+// PATCH v20260503-HYDRATION-DUET-V5-STRICT-START
 //
-// ✅ Duet/Battle require 2 active players
-// ✅ Race supports 2–10 active players
-// ✅ Coop supports 2–10 active players
-// ✅ Room Code UI: HYD-7P3A style
-// ✅ Waiting overlay shows room code + players
-// ✅ Live scoreboard during game
-// ✅ Summary scoreboard for all players
-// ✅ Uses Firebase Realtime Database compat with path: rooms/hydration/{mode}/{roomId}
-// ✅ Safe fallback when Firebase is unavailable
+// ✅ Duet strict gate: ต้องครบ 2/2 ก่อนกดเริ่มเกมจริง
+// ✅ Intercept ปุ่ม btnHelpStart ก่อน hydration-vr.js เริ่มเกม
+// ✅ ครบ 2 คนแล้ว countdown 3-2-1 แล้วค่อยปล่อยเกมเริ่ม
+// ✅ Player slot 1 = Collector, slot 2 = Guardian
+// ✅ Live scoreboard + duet overlay + summary ทั้งคู่
+// ✅ Uses Firebase RTDB path: rooms/hydration/{mode}/{roomId}
+// ✅ Compatible with existing rules using auth.uid as player key
 
 'use strict';
 
 (function HydrationRoomSync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SYNC-V4-CREATE-JOIN-ROOM-CODE';
+  const VERSION = '20260503-HYDRATION-DUET-V5-STRICT-START';
 
   const MULTI_MODES = new Set(['duet','race','battle','coop']);
 
   const MODE_REQUIRE = {
-    duet:2,
-    race:2,
-    battle:2,
-    coop:2
+    duet: 2,
+    race: 2,
+    battle: 2,
+    coop: 2
   };
 
   const MODE_MAX = {
-    duet:2,
-    race:10,
-    battle:2,
-    coop:10
+    duet: 2,
+    race: 10,
+    battle: 2,
+    coop: 10
   };
 
   const $ = (s, r = document) => r.querySelector(s);
@@ -74,13 +72,11 @@
 
   function normalizeMode(raw){
     raw = String(raw || 'solo').toLowerCase();
-    if(['duet','race','battle','coop'].includes(raw)) return raw;
-    return 'solo';
+    return ['duet','race','battle','coop'].includes(raw) ? raw : 'solo';
   }
 
   function normalizeRoomCode(v){
     v = String(v || '').trim().toUpperCase();
-
     if(!v) return '';
 
     v = v.replace(/^HYDR-/, 'HYD-');
@@ -104,15 +100,15 @@
     return normalizeRoomCode(raw) || `HYD-${raw}`;
   }
 
-  function makeId(){
+  function makeLocalId(){
     return 'p_' + Math.random().toString(36).slice(2, 9) + '_' + Date.now().toString(36);
   }
 
   function getSessionPlayerId(){
-    const key = 'HHA_HYDRATION_PLAYER_ID_V4';
+    const key = 'HHA_HYDRATION_PLAYER_ID_DUET_V5';
     let id = sessionStorage.getItem(key);
     if(!id){
-      id = makeId();
+      id = makeLocalId();
       sessionStorage.setItem(key, id);
     }
     return id;
@@ -123,39 +119,49 @@
     const st = modeState.stats || {};
 
     return {
-      score:Number(st.score ?? numText('uiScore', 0)),
-      water:Number(st.water ?? numText('uiWater', 0)),
-      miss:Number(st.miss ?? numText('uiMiss', 0)),
-      expire:Number(st.expire ?? numText('uiExpire', 0)),
-      block:Number(st.block ?? numText('uiBlock', 0)),
-      combo:Number(st.combo ?? numText('uiCombo', 0)),
-      shield:Number(st.shield ?? numText('uiShield', 0)),
-      grade:String(st.grade ?? text('uiGrade', 'D')),
-      timeText:text('uiTime', '00:00')
+      score: Number(st.score ?? numText('uiScore', 0)),
+      water: Number(st.water ?? numText('uiWater', 0)),
+      miss: Number(st.miss ?? numText('uiMiss', 0)),
+      expire: Number(st.expire ?? numText('uiExpire', 0)),
+      block: Number(st.block ?? numText('uiBlock', 0)),
+      combo: Number(st.combo ?? numText('uiCombo', 0)),
+      shield: Number(st.shield ?? numText('uiShield', 0)),
+      grade: String(st.grade ?? text('uiGrade', 'D')),
+      timeText: text('uiTime', '00:00')
     };
   }
 
   const state = {
-    version:VERSION,
-    mode:normalizeMode(qs('mode', qs('entry', 'solo'))),
-    roomId:normalizeRoomCode(qs('roomCode', '') || qs('room', qs('roomId', ''))) || makeFallbackRoomCode(),
-    roomAction:(qs('roomAction', '') === 'join' || qs('join', '') === '1') ? 'join' : 'create',
-    playerId:qs('playerId', '') || getSessionPlayerId(),
-    playerName:qs('name', qs('nick', 'Hero')) || 'Hero',
-    pid:qs('pid', 'anon'),
-    role:'',
-    slot:0,
-    required:1,
-    maxPlayers:1,
-    dbReady:false,
-    roomReady:false,
-    startedAt:Date.now(),
-    lastPlayers:[],
-    ref:null,
-    myRef:null,
-    progressRef:null,
-    resultPublished:false,
-    unsubscribed:false
+    version: VERSION,
+    mode: normalizeMode(qs('mode', qs('entry', 'solo'))),
+    roomId: normalizeRoomCode(qs('roomCode', '') || qs('room', qs('roomId', ''))) || makeFallbackRoomCode(),
+    roomAction: (qs('roomAction', '') === 'join' || qs('join', '') === '1') ? 'join' : 'create',
+    playerId: qs('playerId', '') || getSessionPlayerId(),
+    playerName: qs('name', qs('nick', 'Hero')) || 'Hero',
+    pid: qs('pid', 'anon'),
+
+    uid: '',
+    role: '',
+    slot: 0,
+
+    required: 1,
+    maxPlayers: 1,
+
+    dbReady: false,
+    roomReady: false,
+    gameStartReleased: false,
+    countdownRunning: false,
+    pendingStartButton: null,
+
+    startedAt: Date.now(),
+    lastPlayers: [],
+
+    ref: null,
+    metaRef: null,
+    myRef: null,
+    progressRef: null,
+
+    resultPublished: false
   };
 
   state.required = MODE_REQUIRE[state.mode] || 1;
@@ -163,6 +169,10 @@
 
   function isMultiplayer(){
     return MULTI_MODES.has(state.mode);
+  }
+
+  function isDuet(){
+    return state.mode === 'duet';
   }
 
   function displayRoomCode(){
@@ -227,12 +237,6 @@
   }
 
   function inferRole(){
-    const modeState = window.HHA_HYDRATION_MODE_STATE || {};
-    if(modeState.role) return modeState.role;
-
-    const roleFromUrl = qs('role', '');
-    if(roleFromUrl) return roleFromUrl;
-
     const idx = Number(qs('playerIndex', qs('slot', 0))) || 0;
     return roleForSlot(state.mode, idx);
   }
@@ -244,6 +248,12 @@
     const roleChip = document.getElementById('hydrRoleChip');
     if(roleChip){
       roleChip.textContent = roleLabel(state.role, state.slot);
+    }
+
+    const playerName = document.getElementById('hhPlayerName');
+    if(playerName){
+      const baseName = state.playerName || 'Player';
+      playerName.textContent = `${baseName} • ${roleLabel(state.role, state.slot)}`;
     }
 
     try{
@@ -260,11 +270,11 @@
 
     window.dispatchEvent(new CustomEvent('hha:hydration:role-updated', {
       detail:{
-        mode:state.mode,
-        roomId:state.roomId,
-        roomCode:displayRoomCode(),
-        role:state.role,
-        slot:state.slot
+        mode: state.mode,
+        roomId: state.roomId,
+        roomCode: displayRoomCode(),
+        role: state.role,
+        slot: state.slot
       }
     }));
   }
@@ -494,6 +504,22 @@
         border:1px solid rgba(255,255,255,.12);
       }
 
+      .hydr-duet-start-chip{
+        position:fixed;
+        left:50%;
+        top:18px;
+        transform:translateX(-50%);
+        z-index:2100;
+        padding:12px 16px;
+        border-radius:999px;
+        background:rgba(7,18,38,.92);
+        border:1px solid rgba(103,232,249,.28);
+        color:#eff7ff;
+        font-weight:1100;
+        box-shadow:0 16px 34px rgba(0,0,0,.28);
+        pointer-events:none;
+      }
+
       .hydr-room-summary{
         display:grid;
         gap:10px;
@@ -549,6 +575,42 @@
       }
     `;
     document.head.appendChild(style);
+  }
+
+  function toast(msg, ms = 1600){
+    const old = document.getElementById('hydrDuetStartChip');
+    if(old) old.remove();
+
+    const el = document.createElement('div');
+    el.id = 'hydrDuetStartChip';
+    el.className = 'hydr-duet-start-chip';
+    el.textContent = msg;
+    document.body.appendChild(el);
+
+    setTimeout(() => el.remove(), ms);
+  }
+
+  function setOverlayVisible(id, visible){
+    const el = document.getElementById(id);
+    if(el) el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
+  function updateDuetGateText(players, ready){
+    if(!isDuet()) return;
+
+    const me = players.find(p => p.id === state.playerId || p.uid === state.uid);
+    const peer = players.find(p => p.id !== state.playerId && p.uid !== state.uid);
+
+    setText('duetGateTitle', ready ? 'พร้อมแล้ว!' : 'กำลังรอเพื่อน');
+    setText('duetGateSub', ready ? 'ครบ 2 คนแล้ว ระบบจะเริ่มพร้อมกัน' : 'ส่ง Room Code ให้เพื่อน แล้วรอให้ครบ 2 คน');
+
+    setText('duetGateMeName', me?.name || me?.displayName || state.playerName);
+    setText('duetGateMeState', me ? `Slot ${Number(me.slot || 0) + 1} • ${roleLabel(me.role, me.slot)} • พร้อม` : 'กำลังเข้าเกม');
+
+    setText('duetGatePeerName', peer?.name || peer?.displayName || 'กำลังรอเพื่อน');
+    setText('duetGatePeerState', peer ? `Slot ${Number(peer.slot || 0) + 1} • ${roleLabel(peer.role, peer.slot)} • พร้อม` : 'ยังไม่เข้าเกม');
+
+    setText('duetGateCountdown', ready ? 'พร้อมเริ่ม!' : `รอเพื่อน ${players.length}/${state.required}`);
   }
 
   function createBoard(){
@@ -664,26 +726,155 @@
 
     $('#hydrRoomStartPractice')?.addEventListener('click', () => {
       state.roomReady = true;
+      state.gameStartReleased = true;
       hideWaitOverlay();
+      setOverlayVisible('duetOverlay', false);
 
       window.dispatchEvent(new CustomEvent('hha:hydration:room-practice', {
         detail:{
-          mode:state.mode,
-          roomId:state.roomId,
-          roomCode:displayRoomCode()
+          mode: state.mode,
+          roomId: state.roomId,
+          roomCode: displayRoomCode()
         }
       }));
+
+      if(state.pendingStartButton){
+        releaseStartButton(state.pendingStartButton);
+      }
     });
   }
 
   function showWaitOverlay(){
     const el = document.getElementById('hydrRoomWait');
     if(el) el.hidden = false;
+    if(isDuet()) setOverlayVisible('duetOverlay', true);
   }
 
   function hideWaitOverlay(){
     const el = document.getElementById('hydrRoomWait');
     if(el) el.hidden = true;
+  }
+
+  async function updateMetaState(nextState){
+    if(!state.metaRef || !state.uid) return;
+
+    try{
+      const snap = await state.metaRef.once('value');
+      const meta = snap.val() || {};
+      if(meta.hostUid && meta.hostUid !== state.uid) return;
+
+      await state.metaRef.update({
+        state: nextState,
+        updatedAt: Date.now()
+      });
+    }catch(e){}
+  }
+
+  function startDuetCountdown(){
+    if(!isDuet()) return;
+    if(state.countdownRunning) return;
+    if(state.gameStartReleased) return;
+    if(!state.roomReady) return;
+
+    state.countdownRunning = true;
+    hideWaitOverlay();
+    setOverlayVisible('duetOverlay', true);
+
+    let n = 3;
+    setText('duetGateTitle', 'พร้อมเริ่ม!');
+    setText('duetGateSub', 'ครบ 2 คนแล้ว เริ่มพร้อมกัน');
+    setText('duetGateCountdown', String(n));
+
+    updateMetaState('countdown');
+
+    const timer = setInterval(() => {
+      n -= 1;
+
+      if(n > 0){
+        setText('duetGateCountdown', String(n));
+        return;
+      }
+
+      clearInterval(timer);
+      setText('duetGateCountdown', 'เริ่ม!');
+      toast('🤝 Duet เริ่มแล้ว!', 1200);
+
+      setTimeout(() => {
+        state.gameStartReleased = true;
+        state.countdownRunning = false;
+
+        setOverlayVisible('duetOverlay', false);
+        updateMetaState('running');
+
+        window.dispatchEvent(new CustomEvent('hha:hydration:duet-start', {
+          detail:{
+            mode: state.mode,
+            roomId: state.roomId,
+            roomCode: displayRoomCode(),
+            players: state.lastPlayers
+          }
+        }));
+
+        if(state.pendingStartButton){
+          releaseStartButton(state.pendingStartButton);
+        }
+      }, 500);
+    }, 1000);
+  }
+
+  function releaseStartButton(btn){
+    if(!btn) return;
+
+    const oldPending = state.pendingStartButton;
+    state.pendingStartButton = null;
+
+    setTimeout(() => {
+      try{
+        btn.click();
+      }catch(e){
+        if(oldPending) oldPending.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
+      }
+    }, 50);
+  }
+
+  function shouldGateStart(){
+    if(!isMultiplayer()) return false;
+    if(state.gameStartReleased) return false;
+    return true;
+  }
+
+  function interceptStartClick(ev){
+    const btn = ev.target && ev.target.closest ? ev.target.closest('#btnHelpStart') : null;
+    if(!btn) return;
+
+    if(!shouldGateStart()) return;
+
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.stopImmediatePropagation();
+
+    state.pendingStartButton = btn;
+
+    if(state.roomReady){
+      if(isDuet()){
+        startDuetCountdown();
+      }else{
+        state.gameStartReleased = true;
+        releaseStartButton(btn);
+      }
+      return;
+    }
+
+    showWaitOverlay();
+    toast('รอผู้เล่นให้ครบก่อนเริ่มเกม', 1400);
+  }
+
+  function bindStrictStartGate(){
+    if(!isMultiplayer()) return;
+    if(window.__HHA_HYDRATION_STRICT_GATE_BOUND__) return;
+    window.__HHA_HYDRATION_STRICT_GATE_BOUND__ = true;
+
+    document.addEventListener('click', interceptStartClick, true);
   }
 
   function renderPlayers(players){
@@ -707,9 +898,9 @@
 
     const overflow = cleanAll.slice(state.maxPlayers).map((p, index) => ({
       ...p,
-      slot:state.maxPlayers + index,
-      role:'spectator',
-      active:false
+      slot: state.maxPlayers + index,
+      role: 'spectator',
+      active: false
     }));
 
     const clean = active;
@@ -725,22 +916,22 @@
         syncAssignedRole(me.role, me.slot);
 
         state.myRef.update({
-          role:me.role,
-          slot:me.slot,
-          active:true,
-          lastPingAt:Date.now(),
-          lastSeen:Date.now()
+          role: me.role,
+          slot: me.slot,
+          active: true,
+          lastPingAt: Date.now(),
+          lastSeen: Date.now()
         }).catch(() => {});
       }
     }
 
     if(state.myRef && !meActive && meExists){
       state.myRef.update({
-        active:false,
-        role:'spectator',
-        slot:state.maxPlayers,
-        lastPingAt:Date.now(),
-        lastSeen:Date.now()
+        active: false,
+        role: 'spectator',
+        slot: state.maxPlayers,
+        lastPingAt: Date.now(),
+        lastSeen: Date.now()
       }).catch(() => {});
     }
 
@@ -793,24 +984,29 @@
 
     const ready = clean.length >= state.required && meActive;
 
+    updateDuetGateText(clean, ready);
+
     if(ready && !state.roomReady){
       state.roomReady = true;
-      hideWaitOverlay();
 
       window.dispatchEvent(new CustomEvent('hha:hydration:room-ready', {
         detail:{
-          mode:state.mode,
-          roomId:state.roomId,
-          roomCode:displayRoomCode(),
-          players:clean,
-          maxPlayers:state.maxPlayers
+          mode: state.mode,
+          roomId: state.roomId,
+          roomCode: displayRoomCode(),
+          players: clean,
+          maxPlayers: state.maxPlayers
         }
       }));
+
+      if(isDuet() && state.pendingStartButton && !state.gameStartReleased){
+        startDuetCountdown();
+      }
     }
 
     if(!ready && isMultiplayer()){
       state.roomReady = false;
-      showWaitOverlay();
+      if(!state.gameStartReleased) showWaitOverlay();
     }
 
     const status = state.dbReady
@@ -830,22 +1026,9 @@
       }
     }
 
-    updateExistingDuetOverlay(clean, ready);
-  }
-
-  function updateExistingDuetOverlay(players, ready){
-    if(state.mode !== 'duet') return;
-
-    const me = players.find(p => p.id === state.playerId || p.uid === state.uid);
-    const peer = players.find(p => p.id !== state.playerId && p.uid !== state.uid);
-
-    setText('duetGateMeName', me?.name || me?.displayName || state.playerName);
-    setText('duetGateMeState', me ? `${roleLabel(me.role, me.slot)} • พร้อม` : 'กำลังเข้าเกม');
-
-    setText('duetGatePeerName', peer?.name || peer?.displayName || 'กำลังรอเพื่อน');
-    setText('duetGatePeerState', peer ? `${roleLabel(peer.role, peer.slot)} • พร้อม` : 'ยังไม่เข้าเกม');
-
-    setText('duetGateCountdown', ready ? 'พร้อมแล้ว เริ่มภารกิจคู่หู!' : `รอเพื่อน ${players.length}/${state.required}`);
+    if(ready && !state.pendingStartButton && !isDuet()){
+      hideWaitOverlay();
+    }
   }
 
   function renderSummary(){
@@ -859,31 +1042,16 @@
 
     const players = state.lastPlayers.length ? state.lastPlayers : [
       {
-        id:state.playerId,
-        uid:state.uid,
-        name:state.playerName,
-        role:state.role,
-        slot:state.slot || 0,
+        id: state.playerId,
+        uid: state.uid,
+        name: state.playerName,
+        role: state.role,
+        slot: state.slot || 0,
         ...getStats()
       }
     ];
 
-    const sorted = [...players].sort((a,b) => {
-      if(state.mode === 'race'){
-        const bw = Number(b.water || 0);
-        const aw = Number(a.water || 0);
-        if(bw !== aw) return bw - aw;
-
-        const bs = Number(b.score || 0);
-        const as = Number(a.score || 0);
-        if(bs !== as) return bs - as;
-
-        return Number(a.miss || 0) - Number(b.miss || 0);
-      }
-
-      return Number(b.score || 0) - Number(a.score || 0);
-    });
-
+    const sorted = [...players].sort((a,b) => Number(b.score || 0) - Number(a.score || 0));
     const winner = sorted[0];
 
     const teamScore = players.reduce((sum,p) => sum + Number(p.score || 0), 0);
@@ -898,9 +1066,9 @@
           <div>
             <div class="hydr-room-title">👥 คะแนนผู้เล่นในห้อง</div>
             <div class="hydr-room-sub">
+              ${state.mode === 'duet' ? 'Duet • Collector + Guardian • คะแนนทั้งคู่' : ''}
               ${state.mode === 'race' ? 'Race รองรับ 2–10 คน • จัดอันดับจาก Water, Score, Miss' : ''}
               ${state.mode === 'coop' ? 'Coop รองรับ 2–10 คน • ดูคะแนนทีมและ contribution' : ''}
-              ${state.mode === 'duet' ? 'Duet ต้องดูคะแนนทั้งคู่ + Team Sync' : ''}
               ${state.mode === 'battle' ? 'Battle ดูคะแนน + การป้องกัน + พายุ' : ''}
             </div>
           </div>
@@ -930,7 +1098,7 @@
         <div class="hydr-room-sub">
           ${state.mode === 'coop'
             ? `🤝 Team Result • ผู้เล่น ${players.length} คน • คะแนนรวม ${teamScore} • Water เฉลี่ย ${teamWaterAvg}% • Miss รวม ${teamMiss}`
-            : `🏆 อันดับ 1: ${esc(winner?.name || winner?.displayName || 'Player')} • ${esc(winner?.score ?? 0)} คะแนน`
+            : `🏆 คะแนนนำ: ${esc(winner?.name || winner?.displayName || 'Player')} • ${esc(winner?.score ?? 0)} คะแนน`
           }
         </div>
       </section>
@@ -1007,34 +1175,33 @@
   async function ensureMeta(){
     if(!state.ref || !state.uid) return;
 
-    const metaRef = state.ref.child('meta');
-    const snap = await metaRef.once('value');
+    state.metaRef = state.ref.child('meta');
+    const snap = await state.metaRef.once('value');
 
     if(!snap.exists()){
-      await metaRef.set({
-        roomId:state.roomId,
-        game:'hydration',
-        zone:'nutrition',
-        mode:state.mode,
-        hostUid:state.uid,
-        state:'lobby',
-        diff:qs('diff', 'normal'),
-        timeSec:Number(qs('time', 80)) || 80,
-        seed:String(qs('seed', Date.now())),
-        capacity:state.maxPlayers,
-        teamMode:state.mode === 'coop',
-        createdAt:Date.now(),
-        updatedAt:Date.now()
+      await state.metaRef.set({
+        roomId: state.roomId,
+        game: 'hydration',
+        zone: 'nutrition',
+        mode: state.mode,
+        hostUid: state.uid,
+        state: 'lobby',
+        diff: qs('diff', 'normal'),
+        timeSec: Number(qs('time', 80)) || 80,
+        seed: String(qs('seed', Date.now())),
+        capacity: state.maxPlayers,
+        teamMode: state.mode === 'coop',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
       });
       return;
     }
 
     const meta = snap.val() || {};
-
     if(meta.hostUid === state.uid){
-      await metaRef.update({
-        updatedAt:Date.now(),
-        capacity:state.maxPlayers
+      await state.metaRef.update({
+        updatedAt: Date.now(),
+        capacity: state.maxPlayers
       });
     }
   }
@@ -1045,6 +1212,7 @@
     injectStyle();
     createBoard();
     createWaitOverlay();
+    bindStrictStartGate();
     showWaitOverlay();
 
     const user = await tryAnonAuth();
@@ -1055,24 +1223,23 @@
     }
 
     const db = getFirebaseDb();
-
     state.role = inferRole();
 
     if(!db || !state.uid){
       state.dbReady = false;
 
       renderPlayers([{
-        id:state.playerId,
-        uid:state.uid || state.playerId,
-        name:state.playerName,
-        role:state.role,
-        slot:0,
-        joinedAt:Date.now(),
-        lastSeen:Date.now(),
-        lastPingAt:Date.now(),
-        score:0,
-        water:40,
-        miss:0,
+        id: state.playerId,
+        uid: state.uid || state.playerId,
+        name: state.playerName,
+        role: state.role,
+        slot: 0,
+        joinedAt: Date.now(),
+        lastSeen: Date.now(),
+        lastPingAt: Date.now(),
+        score: 0,
+        water: 40,
+        miss: 0,
         ...getStats()
       }]);
 
@@ -1080,27 +1247,27 @@
     }
 
     state.dbReady = true;
-
     state.ref = db.ref(roomPath());
+    state.metaRef = state.ref.child('meta');
     state.myRef = state.ref.child(`players/${state.uid}`);
     state.progressRef = state.ref.child(`progress/${state.uid}`);
 
     const firstPayload = {
-      uid:state.uid,
-      id:state.uid,
-      pid:state.pid,
-      name:state.playerName,
-      role:state.role,
-      mode:state.mode,
-      ready:true,
-      active:true,
-      joinedAt:Date.now(),
-      lastPingAt:Date.now(),
-      lastSeen:Date.now(),
-      slot:0,
-      score:0,
-      water:40,
-      miss:0
+      uid: state.uid,
+      id: state.uid,
+      pid: state.pid,
+      name: state.playerName,
+      role: state.role,
+      mode: state.mode,
+      ready: true,
+      active: true,
+      joinedAt: Date.now(),
+      lastPingAt: Date.now(),
+      lastSeen: Date.now(),
+      slot: 0,
+      score: 0,
+      water: 40,
+      miss: 0
     };
 
     try{
@@ -1110,17 +1277,17 @@
       state.myRef.onDisconnect().remove();
 
       await state.progressRef.set({
-        updatedAt:Date.now(),
-        score:0,
-        water:40,
-        miss:0,
-        block:0,
-        combo:0,
-        shield:0,
-        grade:'D',
-        role:state.role,
-        slot:0,
-        active:true
+        updatedAt: Date.now(),
+        score: 0,
+        water: 40,
+        miss: 0,
+        block: 0,
+        combo: 0,
+        shield: 0,
+        grade: 'D',
+        role: state.role,
+        slot: 0,
+        active: true
       });
       state.progressRef.onDisconnect().remove();
     }catch(err){
@@ -1167,36 +1334,36 @@
     const stats = getStats();
 
     const playerPayload = {
-      uid:state.uid || state.playerId,
-      id:state.uid || state.playerId,
-      pid:state.pid,
-      name:state.playerName,
-      role:state.role || inferRole(),
-      slot:state.slot || 0,
-      mode:state.mode,
-      ready:true,
-      active:true,
-      joinedAt:state.startedAt,
-      lastSeen:Date.now(),
-      lastPingAt:Date.now(),
-      score:stats.score,
-      water:stats.water,
-      miss:stats.miss
+      uid: state.uid || state.playerId,
+      id: state.uid || state.playerId,
+      pid: state.pid,
+      name: state.playerName,
+      role: state.role || inferRole(),
+      slot: state.slot || 0,
+      mode: state.mode,
+      ready: true,
+      active: true,
+      joinedAt: state.startedAt,
+      lastSeen: Date.now(),
+      lastPingAt: Date.now(),
+      score: stats.score,
+      water: stats.water,
+      miss: stats.miss
     };
 
     const progressPayload = {
-      updatedAt:Date.now(),
-      score:stats.score,
-      water:stats.water,
-      miss:stats.miss,
-      expire:stats.expire,
-      block:stats.block,
-      combo:stats.combo,
-      shield:stats.shield,
-      grade:stats.grade,
-      role:state.role || inferRole(),
-      slot:state.slot || 0,
-      active:true
+      updatedAt: Date.now(),
+      score: stats.score,
+      water: stats.water,
+      miss: stats.miss,
+      expire: stats.expire,
+      block: stats.block,
+      combo: stats.combo,
+      shield: stats.shield,
+      grade: stats.grade,
+      role: state.role || inferRole(),
+      slot: state.slot || 0,
+      active: true
     };
 
     if(!state.dbReady || !state.myRef || !state.progressRef){
@@ -1224,21 +1391,32 @@
 
     try{
       await state.ref.child(`results/${state.uid}`).set({
-        uid:state.uid,
-        pid:state.pid,
-        score:stats.score,
-        miss:stats.miss,
-        bestStreak:stats.combo,
-        finished:true,
-        updatedAt:Date.now(),
-        water:stats.water,
-        block:stats.block,
-        combo:stats.combo,
-        shield:stats.shield,
-        grade:stats.grade,
-        role:state.role,
-        slot:state.slot || 0
+        uid: state.uid,
+        pid: state.pid,
+        score: stats.score,
+        miss: stats.miss,
+        bestStreak: stats.combo,
+        finished: true,
+        updatedAt: Date.now(),
+        water: stats.water,
+        block: stats.block,
+        combo: stats.combo,
+        shield: stats.shield,
+        grade: stats.grade,
+        role: state.role,
+        slot: state.slot || 0
       });
+
+      if(state.metaRef){
+        const snap = await state.metaRef.once('value');
+        const meta = snap.val() || {};
+        if(meta.hostUid === state.uid){
+          await state.metaRef.update({
+            state: 'ended',
+            updatedAt: Date.now()
+          });
+        }
+      }
     }catch(err){
       console.warn('[hydration-room-sync] publish result failed:', err);
     }
@@ -1252,7 +1430,7 @@
 
   function expose(){
     window.HHAHydrationRoomSync = {
-      version:VERSION,
+      version: VERSION,
       state,
       getStats,
       renderPlayers,
@@ -1262,7 +1440,9 @@
       getLiveRank,
       displayRoomCode,
       normalizeRoomCode,
-      isRoomReady:() => state.roomReady
+      isRoomReady: () => state.roomReady,
+      isGameStartReleased: () => state.gameStartReleased,
+      startDuetCountdown
     };
   }
 
@@ -1277,7 +1457,7 @@
     injectStyle();
     createBoard();
     createWaitOverlay();
-
+    bindStrictStartGate();
     connectRoom();
     expose();
 
@@ -1291,14 +1471,14 @@
     });
 
     console.info('[hydration-room-sync] ready', {
-      version:VERSION,
-      mode:state.mode,
-      roomId:state.roomId,
-      roomCode:displayRoomCode(),
-      roomAction:state.roomAction,
-      playerId:state.playerId,
-      required:state.required,
-      maxPlayers:state.maxPlayers
+      version: VERSION,
+      mode: state.mode,
+      roomId: state.roomId,
+      roomCode: displayRoomCode(),
+      roomAction: state.roomAction,
+      playerId: state.playerId,
+      required: state.required,
+      maxPlayers: state.maxPlayers
     });
   }
 
