@@ -141,43 +141,29 @@
       max-width:620px;
     }
 
-    .bigAction{
+    .flowLine{
       display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      align-items:center;
-      margin-top:4px;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+      padding:12px;
+      border-radius:24px;
+      background:#f7fdff;
+      border:2px solid #d7f0fb;
     }
 
-    .startBtn{
-      min-height:64px;
-      border:0;
-      border-radius:22px;
-      padding:14px 20px;
-      background:linear-gradient(180deg,#fff2a8,#ffd84d);
-      color:#503c00;
-      box-shadow:0 16px 26px rgba(255,216,77,.24);
-      font-size:20px;
+    .flowStep{
+      min-height:52px;
+      border-radius:16px;
+      background:#fff;
+      border:1px solid #d7f0fb;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:8px 6px;
+      color:#37566e;
+      font-size:12px;
       font-weight:1000;
-      cursor:pointer;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-    }
-
-    .backBtn{
-      min-height:64px;
-      border:0;
-      border-radius:22px;
-      padding:14px 18px;
-      background:linear-gradient(180deg,#dcfff2,#baf4cf);
-      color:#143a22;
-      box-shadow:var(--shadow-soft);
-      font-size:18px;
-      font-weight:1000;
-      cursor:pointer;
-      white-space:nowrap;
+      line-height:1.25;
     }
 
     .modeBox{
@@ -221,6 +207,45 @@
     .modeBtn.mobile{ background:linear-gradient(180deg,#dcfff2,#baf4cf); }
     .modeBtn.pc{ background:linear-gradient(180deg,#dff8ff,#aeeeff); }
     .modeBtn.cvr{ background:linear-gradient(180deg,#ffe3ef,#ffc9de); }
+
+    .bigAction{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+      margin-top:4px;
+    }
+
+    .startBtn{
+      min-height:64px;
+      border:0;
+      border-radius:22px;
+      padding:14px 20px;
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      color:#503c00;
+      box-shadow:0 16px 26px rgba(255,216,77,.24);
+      font-size:20px;
+      font-weight:1000;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+    }
+
+    .backBtn{
+      min-height:64px;
+      border:0;
+      border-radius:22px;
+      padding:14px 18px;
+      background:linear-gradient(180deg,#dcfff2,#baf4cf);
+      color:#143a22;
+      box-shadow:var(--shadow-soft);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+      white-space:nowrap;
+    }
 
     .art{
       position:relative;
@@ -332,26 +357,11 @@
     }
 
     @media (max-width:820px){
-      .page{
-        align-content:start;
-      }
-
-      .hero{
-        grid-template-columns:1fr;
-        min-height:auto;
-      }
-
-      .art{
-        min-height:220px;
-      }
-
-      .bigAction{
-        grid-template-columns:1fr;
-      }
-
-      .backBtn{
-        width:100%;
-      }
+      .page{ align-content:start; }
+      .hero{ grid-template-columns:1fr; min-height:auto; }
+      .art{ min-height:220px; }
+      .bigAction{ grid-template-columns:1fr; }
+      .backBtn{ width:100%; }
     }
 
     @media (max-width:560px){
@@ -363,26 +373,17 @@
           calc(8px + var(--sal));
       }
 
-      .card{
-        border-radius:24px;
-      }
+      .card{ border-radius:24px; }
+      .hero{ padding:16px; }
 
-      .hero{
-        padding:16px;
-      }
-
+      .flowLine,
       .modeRow,
       .teacherGrid{
         grid-template-columns:1fr;
       }
 
-      h1{
-        font-size:38px;
-      }
-
-      .lead{
-        font-size:15px;
-      }
+      h1{ font-size:38px; }
+      .lead{ font-size:15px; }
 
       .startBtn,
       .backBtn{
@@ -390,9 +391,7 @@
         font-size:18px;
       }
 
-      .handIcon{
-        font-size:78px;
-      }
+      .handIcon{ font-size:78px; }
     }
   </style>
 </head>
@@ -406,8 +405,16 @@
         <h1>ล้างมือให้สะอาด!</h1>
 
         <p class="lead">
-          ฝึกล้างมือให้ถูกขั้นตอน เล่นง่าย เห็นเป้าหมายชัด และกลับหน้าโซนได้เมื่อเล่นจบ
+          เริ่มจากวิธีเล่นสั้น ๆ แล้วฝึกถูมือ เล่นเกมจริง ทบทวนลำดับ และดูสรุปผล
         </p>
+
+        <div class="flowLine" aria-label="ลำดับการเล่น">
+          <div class="flowStep">1<br>วิธีเล่น</div>
+          <div class="flowStep">2<br>ฝึกก่อน</div>
+          <div class="flowStep">3<br>เล่นจริง</div>
+          <div class="flowStep">4<br>เรียงลำดับ</div>
+          <div class="flowStep">5<br>สรุปผล</div>
+        </div>
 
         <div class="modeBox" aria-label="เลือกโหมดการเล่น">
           <div class="modeTitle">เลือกโหมดเครื่อง</div>
@@ -459,9 +466,9 @@
       const qs = new URLSearchParams(location.search);
 
       const TARGETS = {
-        pc: './handwash-v2.html',
-        mobile: './handwash-v2.html',
-        cvr: './handwash-vr.html'
+        pc: './handwash-v2.html?v=20260503c-hitbox',
+        mobile: './handwash-v2.html?v=20260503c-hitbox',
+        cvr: './handwash-vr.html?v=20260503c-hitbox'
       };
 
       const PLAY_KEYS = [
@@ -571,13 +578,13 @@
 
         if(selectedView === 'pc'){
           btnStart.textContent = '▶ เริ่มเล่นบน PC';
-          modeTip.textContent = 'ใช้เมาส์หรือทัชแพดเล่นได้';
+          modeTip.textContent = 'เริ่มจากวิธีเล่นก่อน แล้วค่อยฝึกจริง';
         }else if(selectedView === 'cvr'){
           btnStart.textContent = '▶ เริ่มเล่นแบบ VR';
-          modeTip.textContent = 'ใช้ Cardboard / VR mode';
+          modeTip.textContent = 'เริ่มจากวิธีเล่นแบบ VR';
         }else{
           btnStart.textContent = '▶ เริ่มเล่นบน Mobile';
-          modeTip.textContent = 'แนะนำสำหรับเด็กเล่นจริง';
+          modeTip.textContent = 'แนะนำสำหรับเด็ก เริ่มจากวิธีเล่นก่อน';
         }
       }
 
@@ -609,6 +616,24 @@
         return params;
       }
 
+      function addFullFlowParams(url){
+        url.searchParams.set('zone', 'hygiene');
+        url.searchParams.set('game', 'handwash');
+        url.searchParams.set('mode', 'solo');
+
+        url.searchParams.set('flow', 'full');
+        url.searchParams.set('stage', 'howto');
+
+        url.searchParams.set('howto', '1');
+        url.searchParams.set('practice', '1');
+        url.searchParams.set('mainGame', '1');
+        url.searchParams.set('miniOrder', '1');
+        url.searchParams.set('summary', '1');
+
+        url.searchParams.set('nextStage', 'practice');
+        url.searchParams.set('returnStage', 'summary');
+      }
+
       function goTo(view, extra = {}){
         view = normalizeView(view);
 
@@ -622,9 +647,7 @@
           url.searchParams.set(key, value);
         });
 
-        url.searchParams.set('zone', 'hygiene');
-        url.searchParams.set('game', 'handwash');
-        url.searchParams.set('mode', 'solo');
+        addFullFlowParams(url);
 
         Object.entries(extra).forEach(([key, value]) => {
           if(value !== undefined && value !== null && String(value) !== ''){
@@ -637,14 +660,12 @@
 
       function goSelected(){
         if(selectedView === 'pc'){
-          goTo('pc', {
-            strictGesture: 0
-          });
+          goTo('pc', { strictGesture: 0 });
           return;
         }
 
         if(selectedView === 'cvr'){
-          goTo('cvr');
+          goTo('cvr', { flow:'full', stage:'howto' });
           return;
         }
 
@@ -679,7 +700,7 @@
 
       document.getElementById('btnVr')?.addEventListener('click', () => {
         setSelectedView('cvr');
-        goTo('cvr');
+        goTo('cvr', { flow:'full', stage:'howto' });
       });
 
       setSelectedView(selectedView);
@@ -688,7 +709,7 @@
         start: goSelected,
         goPc: () => goTo('pc', { strictGesture: 0 }),
         goMobile: () => goTo('mobile', { strictGesture: 0, mobileFreeScrub: 1 }),
-        goVr: () => goTo('cvr'),
+        goVr: () => goTo('cvr', { flow:'full', stage:'howto' }),
         back: goBack
       };
     })();
