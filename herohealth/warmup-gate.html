@@ -689,5 +689,477 @@
     render();
   })();
   </script>
+  <script>
+(function(){
+  'use strict';
+
+  const q = new URLSearchParams(location.search);
+
+  function qs(name, fallback=''){
+    return q.get(name) ?? fallback;
+  }
+
+  function clean(v, d=''){
+    v = String(v ?? '').trim();
+    return v || d;
+  }
+
+  function isAbsUrl(s){
+    return /^https?:\/\//i.test(String(s || ''));
+  }
+
+  function safeDecodeUrlMaybe(s){
+    s = String(s || '');
+    if(!s) return '';
+    try{
+      return decodeURIComponent(s);
+    }catch(_){
+      return s;
+    }
+  }
+
+  function bangkokYmd(){
+    try{
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone:'Asia/Bangkok',
+        year:'numeric',
+        month:'2-digit',
+        day:'2-digit'
+      }).formatToParts(new Date());
+
+      const m = {};
+      parts.forEach(p => {
+        if(p.type !== 'literal') m[p.type] = p.value;
+      });
+
+      return `${m.year}-${m.month}-${m.day}`;
+    }catch(_){
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+  }
+
+  function cleanPhase(v){
+    v = String(v || 'warmup').toLowerCase();
+    return v === 'cooldown' ? 'cooldown' : 'warmup';
+  }
+
+  const ctx = {
+    pid: clean(qs('pid'), 'anon'),
+    name: clean(qs('name'), clean(qs('nick'), 'Hero')),
+    nick: clean(qs('nick'), clean(qs('name'), 'Hero')),
+    studyId: clean(qs('studyId'), ''),
+    section: clean(qs('section'), ''),
+    session_code: clean(qs('session_code'), ''),
+    diff: clean(qs('diff'), 'normal'),
+    time: clean(qs('time'), '150'),
+    seed: clean(qs('seed'), String(Date.now())),
+    hub: safeDecodeUrlMaybe(clean(qs('hub'), '/webxr-health-mobile/herohealth/nutrition-zone.html')),
+    view: clean(qs('view'), 'mobile'),
+    run: clean(qs('run'), 'play'),
+    zone: clean(qs('zone'), 'nutrition'),
+    cat: clean(qs('cat'), 'nutrition'),
+    gameId: clean(qs('gameId'), clean(qs('game'), '')),
+    game: clean(qs('game'), clean(qs('gameId'), '')),
+    mode: clean(qs('mode'), 'solo'),
+    phase: cleanPhase(qs('phase')),
+    entry: clean(qs('entry'), ''),
+    fromLauncher: clean(qs('fromLauncher'), ''),
+    log: clean(qs('log'), ''),
+    api: clean(qs('api'), ''),
+    next: safeDecodeUrlMaybe(clean(qs('next'), ''))
+  };
+
+  function inferGame(){
+    const s = `${ctx.gameId} ${ctx.game} ${ctx.next} ${location.href}`.toLowerCase();
+
+    if(s.includes('goodjunk') || s.includes('good-junk')){
+      return 'goodjunk';
+    }
+
+    if(s.includes('plate')){
+      return 'plate';
+    }
+
+    return ctx.gameId || ctx.game || 'game';
+  }
+
+  const GAME_ID = inferGame();
+  ctx.gameId = ctx.gameId || GAME_ID;
+  ctx.game = ctx.game || GAME_ID;
+
+  const isCooldown = ctx.phase === 'cooldown';
+  const isPlate = GAME_ID === 'plate';
+  const isGoodJunk = GAME_ID === 'goodjunk';
+
+  const COPY = {
+    goodjunk: {
+      warmup:{
+        badge:'🥦',
+        title:'เตรียมสู้บอสอาหารขยะ',
+        subtitle:'ก่อนเข้า GoodJunk Solo Phase Boss มาจำเป้าหมายสั้น ๆ ก่อนเล่น',
+        missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
+        steps:[
+          ['🥗','เก็บอาหารดี','แตะอาหารดี เช่น ผัก ผลไม้ โปรตีน และอาหารครบ 5 หมู่'],
+          ['🚫','หลบอาหารขยะ','หลบ 🍟 🍩 🥤 และของหวาน/ของทอดที่บอสส่งมา'],
+          ['⚡','ชาร์จ HERO HIT','เก็บอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตีบอส']
+        ],
+        tipTitle:'เคล็ดลับ',
+        tipText:'ดู Boss Weakness และแถบ HERO HIT ถ้าพลังเต็มให้กดใช้ตอนบอสเลือดน้อยหรือ Final Rush',
+        primary:'เริ่ม Solo Boss',
+        secondary:'กลับ Nutrition Zone',
+        titleTag:'HeroHealth • เตรียม GoodJunk Boss',
+        footer:'Warmup นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม GoodJunk'
+      },
+
+      cooldown:{
+        badge:'🌈',
+        title:'ผ่อนคลายหลังสู้บอส',
+        subtitle:'เล่นจบแล้ว มาทบทวนสิ่งที่เรียนรู้ก่อนกลับ Nutrition Zone',
+        missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
+        steps:[
+          ['✅','อาหารดีช่วยเพิ่มพลัง','การเลือกอาหารดีช่วยให้ร่างกายแข็งแรงและมีพลัง'],
+          ['⚠️','อาหารขยะควรกินให้น้อย','น้ำอัดลม โดนัท ของทอด และขนมหวานควรกินแต่น้อย'],
+          ['🌈','อาหารครบ 5 หมู่สำคัญ','โปรตีน ข้าว/แป้ง ผัก ผลไม้ และไขมันดีช่วยให้ร่างกายเติบโต']
+        ],
+        tipTitle:'สิ่งที่ทำได้ดี',
+        tipText:'วันนี้ได้ฝึกแยกอาหารดี อาหารขยะ และการตัดสินใจเร็วขึ้นแล้ว',
+        primary:'กลับ Nutrition Zone',
+        secondary:'เล่น Solo Boss อีกครั้ง',
+        titleTag:'HeroHealth • Cooldown GoodJunk',
+        footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม GoodJunk'
+      }
+    },
+
+    plate: {
+      warmup:{
+        badge:'🍽️',
+        title:'เตรียมจัดจานสุขภาพ',
+        subtitle:'อีกนิดเดียวจะเข้า Plate Solo แล้ว รอบนี้ goal จะติดอยู่บนจอตลอด ไม่ต้องเลื่อนหาเป้าหมาย',
+        missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
+        steps:[
+          ['🎯','ดูเป้าหมายรอบนี้','เกมจะบอกว่าต้องเก็บอาหารหมู่ไหน เช่น โปรตีน ผัก ผลไม้ หรือไขมันดี'],
+          ['👆','แตะเฉพาะของที่ตรงกับ goal','ถ้า goal ล็อกไว้ที่ “โปรตีน” ให้แตะเฉพาะอาหารโปรตีนเท่านั้น'],
+          ['🚫','หลบตัวหลอก','ของหวาน น้ำอัดลม หรืออาหารคนละหมู่จะเป็นตัวหลอก ถ้าแตะจะเสียคะแนน']
+        ],
+        tipTitle:'เคล็ดลับ',
+        tipText:'ระหว่างเล่นให้มอง goal bar ด้านบนไว้เสมอ เห็นจำนวนที่เก็บได้และจำนวนที่ต้องเก็บครบตลอดเวลา',
+        primary:'เริ่ม Plate Solo',
+        secondary:'กลับ Nutrition Zone',
+        titleTag:'HeroHealth • เตรียม Plate Solo',
+        footer:'Warmup นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม Plate'
+      },
+
+      cooldown:{
+        badge:'🌟',
+        title:'สรุปการจัดจานสุขภาพ',
+        subtitle:'เล่นจบแล้ว มาทบทวนสั้น ๆ ก่อนกลับ HUB',
+        missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
+        steps:[
+          ['✅','อาหารแต่ละหมู่อยู่คนละบทบาท','โปรตีนช่วยซ่อมแซมร่างกาย ข้าว/แป้งให้พลังงาน ผักและผลไม้ช่วยเรื่องวิตามินและใยอาหาร'],
+          ['🍽️','จานที่ดีควรสมดุล','ไม่ใช่มีแต่อาหารที่ชอบ แต่ควรมีหลายหมู่รวมกันให้เหมาะสม'],
+          ['💡','ครั้งหน้าให้ดู goal ก่อนแตะ','ถ้ารู้ว่ารอบนี้ล็อกหมู่ไหน จะลดการแตะผิดและทำคะแนนได้ดีขึ้น']
+        ],
+        tipTitle:'สิ่งที่ทำได้ดี',
+        tipText:'คุณฝึกแยกหมู่อาหารและตัดสินใจเร็วขึ้นแล้ว ต่อไปลองทำให้แม่นขึ้นและพลาดให้น้อยลง',
+        primary:'กลับ HUB',
+        secondary:'เล่น Plate Solo อีกครั้ง',
+        titleTag:'HeroHealth • สรุป Plate Solo',
+        footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม Plate'
+      }
+    },
+
+    generic: {
+      warmup:{
+        badge:'✨',
+        title:'เตรียมพร้อมก่อนเล่น',
+        subtitle:'อ่านเป้าหมายสั้น ๆ ก่อนเริ่มเกม',
+        missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
+        steps:[
+          ['🎯','ดูเป้าหมาย','สังเกตว่าเกมต้องการให้ทำอะไร'],
+          ['👆','เล่นอย่างตั้งใจ','แตะหรือเลือกสิ่งที่ตรงกับคำสั่ง'],
+          ['🌟','เรียนรู้จากผลลัพธ์','ถ้าพลาดไม่เป็นไร ลองใหม่ให้แม่นขึ้น']
+        ],
+        tipTitle:'เคล็ดลับ',
+        tipText:'ค่อย ๆ ดูคำสั่งก่อนเริ่ม จะช่วยให้เล่นได้ดีขึ้น',
+        primary:'เริ่มเกม',
+        secondary:'กลับ HUB',
+        titleTag:'HeroHealth • Warmup',
+        footer:'Warmup นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกมนี้'
+      },
+
+      cooldown:{
+        badge:'🌟',
+        title:'สรุปหลังเล่น',
+        subtitle:'เล่นจบแล้ว มาทบทวนสั้น ๆ ก่อนกลับ HUB',
+        missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
+        steps:[
+          ['✅','ดูสิ่งที่ทำได้ดี','จำจุดที่ทำได้ดีไว้'],
+          ['💡','ดูจุดที่ควรปรับ','ถ้าพลาดให้ลองคิดว่าพลาดเพราะอะไร'],
+          ['🌈','พร้อมเล่นครั้งต่อไป','ครั้งหน้าจะทำได้แม่นขึ้น']
+        ],
+        tipTitle:'สิ่งที่ทำได้ดี',
+        tipText:'คุณได้ฝึกคิด ตัดสินใจ และตอบสนองระหว่างเล่นแล้ว',
+        primary:'กลับ HUB',
+        secondary:'เล่นอีกครั้ง',
+        titleTag:'HeroHealth • Cooldown',
+        footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกมนี้'
+      }
+    }
+  };
+
+  const copyGroup = isGoodJunk ? COPY.goodjunk : isPlate ? COPY.plate : COPY.generic;
+  const copy = isCooldown ? copyGroup.cooldown : copyGroup.warmup;
+
+  const $ = id => document.getElementById(id);
+
+  function setText(id, text){
+    const el = $(id);
+    if(el) el.textContent = text;
+  }
+
+  function toUrl(url){
+    url = String(url || '');
+    if(!url) return '';
+
+    try{
+      if(isAbsUrl(url)){
+        return new URL(url).toString();
+      }
+
+      return new URL(url, location.origin).toString();
+    }catch(_){
+      return url;
+    }
+  }
+
+  function preserveParams(url, extra = {}){
+    const base = toUrl(url);
+    const u = new URL(base, location.href);
+
+    const keys = [
+      'pid','name','nick','studyId','section','session_code','diff','time','seed',
+      'view','run','zone','cat','game','gameId','mode','entry','fromLauncher','log','api'
+    ];
+
+    keys.forEach(k => {
+      const v = ctx[k];
+      if(v !== '' && v != null){
+        u.searchParams.set(k, String(v));
+      }
+    });
+
+    Object.entries(extra).forEach(([k,v]) => {
+      if(v !== '' && v != null){
+        u.searchParams.set(k, String(v));
+      }
+    });
+
+    return u.toString();
+  }
+
+  function gateKey(phase){
+    const pid = ctx.pid || 'anon';
+    const gameId = ctx.gameId || ctx.game || GAME_ID || 'game';
+    return `HHA_GATE_DONE::${bangkokYmd()}::${pid}::${gameId}::${phase}`;
+  }
+
+  function isGateDone(phase){
+    try{
+      return localStorage.getItem(gateKey(phase)) === '1';
+    }catch(_){
+      return false;
+    }
+  }
+
+  function markGateDone(phase){
+    try{
+      localStorage.setItem(gateKey(phase), '1');
+      localStorage.setItem(`${gateKey(phase)}::ts`, new Date().toISOString());
+    }catch(_){}
+  }
+
+  function defaultGameRunUrl(){
+    if(isGoodJunk){
+      return '/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss.html';
+    }
+
+    if(isPlate){
+      return '/webxr-health-mobile/herohealth/plate/plate-vr.html';
+    }
+
+    return '/webxr-health-mobile/herohealth/hub-v2.html';
+  }
+
+  function nutritionZoneUrl(extra = {}){
+    return preserveParams('/webxr-health-mobile/herohealth/nutrition-zone.html', {
+      focus: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
+      featured: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
+      zone:'nutrition',
+      ...extra
+    });
+  }
+
+  function hubUrl(){
+    return ctx.hub || '/webxr-health-mobile/herohealth/hub-v2.html';
+  }
+
+  function gateBaseUrl(){
+    return '/webxr-health-mobile/herohealth/gate/warmup-gate.html';
+  }
+
+  function buildCooldownGateUrl(){
+    return preserveParams(gateBaseUrl(), {
+      phase:'cooldown',
+      gameId:ctx.gameId || GAME_ID,
+      game:ctx.game || GAME_ID,
+      mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
+      zone:ctx.zone || 'nutrition',
+      cat:ctx.cat || 'nutrition',
+      hub:hubUrl(),
+      next:hubUrl()
+    });
+  }
+
+  function buildWarmupReplayUrl(){
+    return preserveParams(gateBaseUrl(), {
+      phase:'warmup',
+      gameId:ctx.gameId || GAME_ID,
+      game:ctx.game || GAME_ID,
+      mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
+      zone:ctx.zone || 'nutrition',
+      cat:ctx.cat || 'nutrition',
+      seed:String(Date.now()),
+      hub:hubUrl(),
+      next:ctx.next || defaultGameRunUrl()
+    });
+  }
+
+  function primaryUrl(){
+    if(isCooldown){
+      return ctx.next || hubUrl();
+    }
+
+    const gameRun = ctx.next || defaultGameRunUrl();
+
+    return preserveParams(gameRun, {
+      gameId:ctx.gameId || GAME_ID,
+      game:ctx.game || GAME_ID,
+      mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
+      zone:ctx.zone || 'nutrition',
+      cat:ctx.cat || 'nutrition',
+      hub:buildCooldownGateUrl()
+    });
+  }
+
+  function secondaryUrl(){
+    if(isCooldown){
+      if(isGoodJunk || isPlate){
+        return buildWarmupReplayUrl();
+      }
+
+      return hubUrl();
+    }
+
+    if(isGoodJunk || isPlate){
+      return nutritionZoneUrl();
+    }
+
+    return hubUrl();
+  }
+
+  function render(){
+    document.title = copy.titleTag;
+
+    setText('gateBadge', copy.badge);
+    setText('gateTitle', copy.title);
+    setText('gateSubtitle', copy.subtitle);
+    setText('gateMissionTitle', copy.missionTitle);
+    setText('gateTipTitle', copy.tipTitle);
+    setText('gateTipText', copy.tipText);
+    setText('gatePrimaryBtn', copy.primary);
+    setText('gateSecondaryBtn', copy.secondary);
+    setText('gateFooter', copy.footer);
+
+    const gameLabel = isGoodJunk ? 'GoodJunk Boss' : isPlate ? 'Plate Solo' : (ctx.game || 'HeroHealth');
+
+    setText('gateGameChip', gameLabel);
+    setText('gatePhaseChip', isCooldown ? 'Cooldown' : 'Warmup');
+    setText('gateDiffChip', ctx.diff || 'normal');
+
+    const stepsWrap = $('gateSteps');
+    if(stepsWrap){
+      stepsWrap.innerHTML = copy.steps.map((step, i) => `
+        <div class="gateStep">
+          <div class="gateStepIcon" id="gateStep${i+1}Icon">${step[0]}</div>
+          <div>
+            <div class="gateStepTitle" id="gateStep${i+1}Title">${step[1]}</div>
+            <div class="gateStepText" id="gateStep${i+1}Text">${step[2]}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    const fill = $('gateProgressFill');
+    if(fill){
+      requestAnimationFrame(() => {
+        fill.style.width = isCooldown ? '100%' : '72%';
+      });
+    }
+  }
+
+  function autoSkipIfDone(){
+    if(!isGateDone(ctx.phase)) return false;
+
+    const dest = primaryUrl();
+
+    setText(
+      'gateSubtitle',
+      isCooldown
+        ? 'วันนี้ทำ Cooldown แล้ว กำลังกลับ HUB...'
+        : 'วันนี้ทำ Warmup แล้ว กำลังเข้าเกม...'
+    );
+
+    const fill = $('gateProgressFill');
+    if(fill) fill.style.width = '100%';
+
+    setTimeout(() => {
+      location.replace(dest);
+    }, 420);
+
+    return true;
+  }
+
+  function handlePrimary(){
+    markGateDone(ctx.phase);
+    location.href = primaryUrl();
+  }
+
+  function handleSecondary(){
+    if(isCooldown){
+      markGateDone(ctx.phase);
+    }
+
+    location.href = secondaryUrl();
+  }
+
+  function bind(){
+    $('gatePrimaryBtn')?.addEventListener('click', handlePrimary);
+    $('gateSecondaryBtn')?.addEventListener('click', handleSecondary);
+  }
+
+  function boot(){
+    render();
+
+    if(autoSkipIfDone()){
+      return;
+    }
+
+    bind();
+  }
+
+  boot();
+})();
+</script>
 </body>
 </html>
