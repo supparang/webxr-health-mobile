@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
 // GoodJunk Solo Phase Boss
-// FULL MERGED PATCH v20260503-bossv5-pattern-telegraph-finish-badge
+// FULL MERGED PATCH v20260503-bossv6-arena-skill-book
 // ✅ Solo Phase Boss
 // ✅ Phase background / boss form / rage mode
 // ✅ Boss HP / shield / attack patterns
@@ -17,6 +17,11 @@
 // ✅ Finish Move before Summary
 // ✅ Daily Challenge
 // ✅ Result Badges
+// ✅ Boss identity skills
+// ✅ Arena hazards / Danger lane
+// ✅ HERO HIT ready pulse
+// ✅ Boss Book / Learning tip
+// ✅ Star goal intro
 // ✅ No Apps Script logging in this version
 
 (() => {
@@ -261,7 +266,10 @@
 
     telegraphLayer: null,
     finishMove: null,
-    dailyChallengeCard: null
+    dailyChallengeCard: null,
+
+    hazardLayer: null,
+    bossSkillLabel: null
   };
 
   function hashSeed(str){
@@ -329,6 +337,9 @@
     patternIndex: 0,
     dailyChallenge: null,
     finishMovePlaying: false,
+
+    activeHazard: null,
+    skillActiveUntil: 0,
 
     heroCharge: 0,
     shieldUses: 0,
@@ -482,6 +493,27 @@
     }
   }
 
+  function mountBossV6UI(){
+    if(!el.gameArea) return;
+
+    if(!el.hazardLayer){
+      const layer = DOC.createElement('div');
+      layer.id = 'hazardLayer';
+      layer.className = 'hazard-layer';
+      el.gameArea.appendChild(layer);
+      el.hazardLayer = layer;
+    }
+
+    if(!el.bossSkillLabel){
+      const label = DOC.createElement('div');
+      label.id = 'bossSkillLabel';
+      label.className = 'boss-skill-label';
+      label.innerHTML = `<strong>Boss Skill!</strong><span>ระวังให้ดี</span>`;
+      el.gameArea.appendChild(label);
+      el.bossSkillLabel = label;
+    }
+  }
+
   function bossSay(text, ms = 1450){
     if(!el.bossSpeech) return;
 
@@ -526,6 +558,25 @@
     showHeroCutin.t = setTimeout(() => {
       if(el.heroCutin) el.heroCutin.classList.remove('show');
     }, 1100);
+  }
+
+  function showBossSkillLabel(title, msg){
+    if(!el.bossSkillLabel) return;
+
+    const strong = el.bossSkillLabel.querySelector('strong');
+    const span = el.bossSkillLabel.querySelector('span');
+
+    if(strong) strong.textContent = title;
+    if(span) span.textContent = msg;
+
+    el.bossSkillLabel.classList.remove('show');
+    void el.bossSkillLabel.offsetWidth;
+    el.bossSkillLabel.classList.add('show');
+
+    clearTimeout(showBossSkillLabel.t);
+    showBossSkillLabel.t = setTimeout(() => {
+      if(el.bossSkillLabel) el.bossSkillLabel.classList.remove('show');
+    }, 980);
   }
 
   function bossDamageRing(){
@@ -602,6 +653,78 @@
     });
 
     setTimeout(clearTelegraphs, 760);
+  }
+
+  function clearHazards(){
+    state.activeHazard = null;
+    if(el.hazardLayer) el.hazardLayer.innerHTML = '';
+  }
+
+  function addHazard(kind, opt = {}){
+    if(!el.hazardLayer) return null;
+
+    const rect = getAreaRect();
+    const node = DOC.createElement('div');
+
+    if(kind === 'lane'){
+      node.className = 'danger-lane';
+      node.style.top = `${opt.y ?? rect.height * 0.45}px`;
+      el.hazardLayer.appendChild(node);
+
+      state.activeHazard = {
+        kind,
+        y: opt.y ?? rect.height * 0.45,
+        h: 74,
+        until: now() + (opt.ms || 3600)
+      };
+
+      setTimeout(() => {
+        if(node.parentNode) node.remove();
+        if(state.activeHazard && state.activeHazard.kind === 'lane') state.activeHazard = null;
+      }, opt.ms || 3600);
+
+      return node;
+    }
+
+    node.className = `hazard-zone ${kind}`;
+    const w = opt.w ?? Math.min(230, rect.width * 0.44);
+    const h = opt.h ?? Math.min(150, rect.height * 0.30);
+    const x = opt.x ?? random(35, Math.max(40, rect.width - w - 35));
+    const y = opt.y ?? random(rect.height * 0.38, Math.max(rect.height * 0.40, rect.height - h - 30));
+
+    node.style.left = `${x}px`;
+    node.style.top = `${y}px`;
+    node.style.width = `${w}px`;
+    node.style.height = `${h}px`;
+
+    el.hazardLayer.appendChild(node);
+
+    state.activeHazard = {
+      kind,
+      x,
+      y,
+      w,
+      h,
+      until: now() + (opt.ms || 4500)
+    };
+
+    setTimeout(() => {
+      if(node.parentNode) node.remove();
+      if(state.activeHazard && state.activeHazard.kind === kind) state.activeHazard = null;
+    }, opt.ms || 4500);
+
+    return node;
+  }
+
+  function itemInsideHazard(item){
+    const hz = state.activeHazard;
+    if(!hz || now() > hz.until || !item) return false;
+
+    if(hz.kind === 'lane'){
+      return Math.abs(item.y - hz.y) <= hz.h * 0.5;
+    }
+
+    return item.x >= hz.x && item.x <= hz.x + hz.w && item.y >= hz.y && item.y <= hz.y + hz.h;
   }
 
   function showFinalRush(){
@@ -758,20 +881,159 @@
     }
   }
 
+  function skillBurgerBounce(){
+    showBossSkillLabel('Burger Bounce!', 'อาหารขยะเด้งซ้ายขวา');
+    bossSay('เบอร์เกอร์เด้งมาแล้ว!');
+    showWarning('Burger Bounce! ระวังของเด้ง');
+    playTone('bad');
+
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
+
+      const rect = getAreaRect();
+      const count = 5;
+
+      const points = [];
+      for(let i = 0; i < count; i++){
+        points.push({
+          x: ((i + 1) / (count + 1)) * rect.width,
+          y: random(86, Math.max(96, rect.height * 0.34))
+        });
+      }
+
+      showTelegraphMarks(points, 'mark');
+
+      for(let i = 0; i < count; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          spawnItem('junk', {
+            danger: true,
+            x: points[i].x,
+            y: -60,
+            vx: i % 2 === 0 ? 65 : -65,
+            speed: random(96, 130) * itemSpeed()
+          });
+
+          const last = state.items[state.items.length - 1];
+          if(last && last.node) last.node.classList.add('bouncy');
+        }, i * 130);
+      }
+    }, 680);
+  }
+
+  function skillSweetTrap(){
+    showBossSkillLabel('Sweet Trap!', 'ของหลอกจะเยอะขึ้น');
+    bossSay('ของหวานหลอกตา มาแล้ว!');
+    showWarning('Sweet Trap! ดูให้ดีก่อนเก็บ');
+    playTone('bad');
+
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
+
+      const rect = getAreaRect();
+      const points = [];
+
+      for(let i = 0; i < 6; i++){
+        points.push({
+          x: random(55, rect.width - 55),
+          y: random(80, Math.max(95, rect.height * 0.38))
+        });
+      }
+
+      showTelegraphMarks(points, 'mark');
+
+      for(let i = 0; i < 6; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          spawnItem(i < 4 ? 'junk' : 'good', {
+            fake: i < 4,
+            danger: i < 4,
+            bonusGood: i >= 4,
+            x: points[i].x,
+            y: random(-98, -42),
+            speed: random(88, 138) * itemSpeed()
+          });
+
+          const last = state.items[state.items.length - 1];
+          if(last && last.node) last.node.classList.add('sweet-trap');
+        }, i * 125);
+      }
+    }, 700);
+  }
+
+  function skillOilSplash(){
+    showBossSkillLabel('Oil Splash!', 'พื้นที่น้ำมันทำให้พลาดง่าย');
+    bossSay('คราบน้ำมันมาแล้ว ระวังลื่น!');
+    showWarning('Oil Splash! อย่ากดมั่วในพื้นที่น้ำมัน');
+    playTone('bad');
+
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
+
+      addHazard('oil', { ms: 5200 });
+
+      for(let i = 0; i < 5; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          spawnItem(i < 3 ? 'junk' : 'good', {
+            danger: i < 3,
+            speed: random(96, 150) * itemSpeed()
+          });
+        }, i * 180);
+      }
+    }, 680);
+  }
+
+  function skillSugarBeam(){
+    showBossSkillLabel('Sugar Beam!', 'ลำแสงน้ำตาลกำลังกวาดกลางจอ');
+    bossSay('ลำแสงน้ำตาลของข้า!');
+    showWarning('Sugar Beam! หลบแนวกลางจอ');
+    playTone('boss');
+
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
+
+      const rect = getAreaRect();
+      const y = Math.min(rect.height - 100, Math.max(135, rect.height * 0.45));
+      addHazard('lane', { y, ms: 3800 });
+      showTelegraphMarks([{ y }], 'line');
+
+      for(let i = 0; i < 7; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          spawnItem('junk', {
+            danger: true,
+            x: ((i + 1) / 8) * rect.width,
+            y: -60,
+            vx: random(-10, 10),
+            speed: random(128, 180) * itemSpeed()
+          });
+
+          const last = state.items[state.items.length - 1];
+          if(last && last.node) last.node.classList.add('beam-danger');
+        }, i * 110);
+      }
+    }, 680);
+  }
+
   function getBossPattern(){
     if(state.phase === 1){
-      return ['rain', 'rain', 'rain'];
+      return ['burger', 'rain', 'burger'];
     }
 
     if(state.phase === 2){
-      return ['fake', 'rain', 'fake', 'shield'];
+      return ['sweet', 'fake', 'rain', 'sweet'];
     }
 
     if(state.phase === 3){
-      return ['shield', 'wave', 'rain', 'fake'];
+      return ['oil', 'shield', 'wave', 'oil'];
     }
 
-    return ['wave', 'rain', 'shield', 'fake', 'wave'];
+    return ['beam', 'wave', 'rain', 'shield', 'sweet'];
   }
 
   function bossAttackPatterned(){
@@ -781,7 +1043,15 @@
     const skill = pattern[state.patternIndex % pattern.length];
     state.patternIndex++;
 
-    if(skill === 'rain'){
+    if(skill === 'burger'){
+      skillBurgerBounce();
+    }else if(skill === 'sweet'){
+      skillSweetTrap();
+    }else if(skill === 'oil'){
+      skillOilSplash();
+    }else if(skill === 'beam'){
+      skillSugarBeam();
+    }else if(skill === 'rain'){
       attackJunkRain();
     }else if(skill === 'fake'){
       attackFakeHealthy();
@@ -804,6 +1074,7 @@
     state.finishMovePlaying = true;
 
     clearTelegraphs();
+    clearHazards();
 
     el.finishMove.classList.remove('show');
     void el.finishMove.offsetWidth;
@@ -836,6 +1107,46 @@
     }
 
     return badges;
+  }
+
+  function getBossBookText(summary){
+    if(summary.completed){
+      if(state.phase === 4 || summary.fiveGroupRounds >= 1){
+        return '🌈 อาหารครบ 5 หมู่ช่วยให้ร่างกายเติบโต แข็งแรง และมีพลังในการเรียนกับเล่นกีฬา';
+      }
+
+      if(summary.goodHits >= 30){
+        return '🥗 การเลือกอาหารดีบ่อย ๆ ช่วยให้ร่างกายได้รับสารอาหารที่หลากหลาย';
+      }
+
+      return '✅ วันนี้เรียนรู้ว่าอาหารดีช่วยเพิ่มพลัง ส่วนอาหารขยะควรกินให้น้อยลง';
+    }
+
+    if(summary.junkHits > summary.goodHits * 0.35){
+      return '⚠️ อาหารขยะ เช่น น้ำอัดลม โดนัท และของทอด ควรกินให้น้อย และเลือกอาหารดีให้มากขึ้น';
+    }
+
+    return '💪 รอบหน้าเก็บอาหารดีให้ครบหลายหมู่ แล้วใช้ HERO HIT เพื่อชนะบอส';
+  }
+
+  function ensureStarGoalIntro(){
+    const intro = DOC.querySelector('.intro-card');
+    if(!intro || intro.querySelector('.star-goal-card')) return;
+
+    const wrap = DOC.createElement('div');
+    wrap.className = 'star-goal-card';
+    wrap.innerHTML = `
+      <div class="star-goal-line">⭐ ชนะบอสให้ได้</div>
+      <div class="star-goal-line">⭐⭐ พลาดไม่เกิน 9 ครั้ง</div>
+      <div class="star-goal-line">⭐⭐⭐ พลาดไม่เกิน 4 ครั้ง และคะแนน 650+</div>
+    `;
+
+    const ruleGrid = intro.querySelector('.rule-grid');
+    if(ruleGrid){
+      ruleGrid.insertAdjacentElement('afterend', wrap);
+    }else{
+      intro.appendChild(wrap);
+    }
   }
 
   function now(){
@@ -1026,6 +1337,11 @@
     el.heroChargeText.textContent = `${Math.floor(state.heroCharge)}%`;
     el.heroHitBtn.disabled = state.heroCharge < 100 || !state.running || state.paused;
 
+    el.heroHitBtn.classList.toggle(
+      'ready',
+      state.heroCharge >= 100 && state.running && !state.paused && !state.ended
+    );
+
     el.comboText.textContent = `Combo x${state.combo}`;
     el.powerText.textContent = `Power: ${state.powerLabel}`;
 
@@ -1098,6 +1414,13 @@
     node.addEventListener('pointerdown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
+
+      if(itemInsideHazard(item) && item.kind === 'good'){
+        state.score = Math.max(0, state.score - 6);
+        popText(item.x, item.y - 34, 'ลื่น!', 'bad');
+        showToast('ระวังพื้นที่อันตราย!');
+      }
+
       hitItem(item.id);
     }, { passive: false });
 
@@ -1464,6 +1787,17 @@
       item.y += item.vy * dt * slow;
       item.x += item.vx * dt * slow;
 
+      if(itemInsideHazard(item)){
+        if(state.activeHazard.kind === 'oil'){
+          item.x += Math.sin((t + item.id * 77) / 130) * 22 * dt;
+          item.y += item.kind === 'junk' ? 28 * dt : 8 * dt;
+        }else if(state.activeHazard.kind === 'sugar'){
+          item.y -= item.kind === 'good' ? 12 * dt : 0;
+        }else if(state.activeHazard.kind === 'lane' && item.kind === 'junk'){
+          item.x += Math.sin((t + item.id * 91) / 90) * 34 * dt;
+        }
+      }
+
       if(t < state.magnetUntil && item.kind === 'good'){
         const cx = rect.width * 0.5;
         const cy = rect.height * 0.58;
@@ -1770,6 +2104,9 @@
     state.patternIndex = 0;
     state.finishMovePlaying = false;
 
+    state.activeHazard = null;
+    state.skillActiveUntil = 0;
+
     state.heroCharge = 0;
     state.shieldUses = 0;
     state.slowUntil = 0;
@@ -1803,8 +2140,10 @@
     if(el.finalRushBadge) el.finalRushBadge.classList.remove('show');
     if(el.comboBurst) el.comboBurst.classList.remove('show');
     if(el.finishMove) el.finishMove.classList.remove('show');
+    if(el.bossSkillLabel) el.bossSkillLabel.classList.remove('show');
 
     clearTelegraphs();
+    clearHazards();
     chooseDailyChallenge();
 
     setPhase(1, false);
@@ -1853,6 +2192,7 @@
     state.running = false;
 
     clearTelegraphs();
+    clearHazards();
 
     state.items.forEach(item => {
       if(item.node) item.node.remove();
@@ -1926,6 +2266,9 @@
     const oldBadges = el.summaryLayer.querySelector('.badge-row');
     if(oldBadges) oldBadges.remove();
 
+    const oldBook = el.summaryLayer.querySelector('.boss-book');
+    if(oldBook) oldBook.remove();
+
     const kidList = DOC.createElement('div');
     kidList.className = 'kid-summary-list';
 
@@ -1964,9 +2307,22 @@
       kidList.insertAdjacentElement('afterend', row);
     }
 
+    const book = DOC.createElement('div');
+    book.className = 'boss-book';
+    book.innerHTML = `
+      <strong>📘 วันนี้ได้เรียนรู้</strong>
+      <p>${getBossBookText(summary)}</p>
+    `;
+
+    const badgeRow = el.summaryLayer.querySelector('.badge-row');
+    if(badgeRow){
+      badgeRow.insertAdjacentElement('afterend', book);
+    }else{
+      kidList.insertAdjacentElement('afterend', book);
+    }
+
     el.summaryLayer.classList.add('show');
 
-    // PATCH: reset summary scroll so trophy/title never get clipped on mobile.
     requestAnimationFrame(() => {
       try{
         el.summaryLayer.scrollTop = 0;
@@ -2040,6 +2396,8 @@
     mountCinematicUI();
     mountBossV4UI();
     mountBossV5UI();
+    mountBossV6UI();
+    ensureStarGoalIntro();
     bindEvents();
     resetGame();
 
