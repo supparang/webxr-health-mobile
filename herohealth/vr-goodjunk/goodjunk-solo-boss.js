@@ -1091,7 +1091,16 @@
 
     el.summaryLayer.classList.add('show');
 
-    playTone(win ? 'win' : 'bad');
+  /* PATCH: reset summary scroll so trophy and top title never get clipped */
+  requestAnimationFrame(() => {
+  try{
+    el.summaryLayer.scrollTop = 0;
+    const card = el.summaryLayer.querySelector('.overlay-card');
+    if(card) card.scrollTop = 0;
+  }catch(err){}
+});
+
+playTone(win ? 'win' : 'bad');
   }
 
   function goHub(){
