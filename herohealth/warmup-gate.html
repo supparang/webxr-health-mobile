@@ -533,7 +533,6 @@
           footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม GoodJunk'
         }
       },
-
       plate: {
         warmup:{
           badge:'🍽️',
@@ -570,7 +569,6 @@
           footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม Plate'
         }
       },
-
       generic: {
         warmup:{
           badge:'✨',
@@ -619,6 +617,12 @@
       if(el) el.textContent = text;
     }
 
+    function gateKey(phase){
+      const pid = ctx.pid || 'anon';
+      const gameId = ctx.gameId || ctx.game || GAME_ID || 'game';
+      return `HHA_GATE_DONE::${bangkokYmd()}::${pid}::${gameId}::${phase}`;
+    }
+
     function isGateDone(phase){
       try{
         return localStorage.getItem(gateKey(phase)) === '1';
@@ -632,12 +636,6 @@
         localStorage.setItem(gateKey(phase), '1');
         localStorage.setItem(`${gateKey(phase)}::ts`, new Date().toISOString());
       }catch(_){}
-    }
-
-    function gateKey(phase){
-      const pid = ctx.pid || 'anon';
-      const gameId = ctx.gameId || ctx.game || GAME_ID || 'game';
-      return `HHA_GATE_DONE::${bangkokYmd()}::${pid}::${gameId}::${phase}`;
     }
 
     function toUrl(url){
@@ -682,14 +680,8 @@
     }
 
     function defaultGameRunUrl(){
-      if(isGoodJunk){
-        return URLS.goodjunkBoss;
-      }
-
-      if(isPlate){
-        return URLS.plateRun;
-      }
-
+      if(isGoodJunk) return URLS.goodjunkBoss;
+      if(isPlate) return URLS.plateRun;
       return URLS.hub;
     }
 
@@ -751,16 +743,11 @@
 
     function secondaryUrl(){
       if(isCooldown){
-        if(isGoodJunk || isPlate){
-          return warmupReplayUrl();
-        }
-
+        if(isGoodJunk || isPlate) return warmupReplayUrl();
         return hubUrl();
       }
 
-      if(isGoodJunk || isPlate){
-        return nutritionZoneUrl();
-      }
+      if(isGoodJunk || isPlate) return nutritionZoneUrl();
 
       return hubUrl();
     }
@@ -847,6 +834,7 @@
       if(!GAME_ID || GAME_ID === 'game') return;
 
       const base = `${ROOT}gate/games/${encodeURIComponent(GAME_ID)}/`;
+
       await loadCss(base + 'style.css?v=20260503');
       await loadScript(base + `${ctx.phase}.js?v=20260503`);
 
@@ -890,10 +878,6 @@
         }catch(_){}
       }
 
-      /*
-        รองรับกรณีไฟล์ warmup.js/cooldown.js ตั้งค่า global แบบง่าย:
-        window.HHA_GATE_COPY = {...}
-      */
       if(WIN.HHA_GATE_COPY){
         renderCopy(WIN.HHA_GATE_COPY);
         render();
