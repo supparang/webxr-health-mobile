@@ -1,1064 +1,1224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Handwash Hero • Main Game</title>
+  <title>HeroHealth • Handwash Full Flow</title>
+  <meta name="theme-color" content="#8be8ff" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="../favicon.ico" />
 
   <style>
     :root{
       --bg1:#e9fbff;
-      --bg2:#dff4ff;
-      --ink:#163046;
-      --muted:#5d778c;
-      --card:#ffffffee;
-      --line:#d7ecf8;
-      --blue:#22d3ee;
-      --pink:#f472b6;
-      --yellow:#fde047;
-      --green:#86efac;
-      --good:#22c55e;
-      --bad:#fb7185;
-      --shadow:0 18px 48px rgba(15,50,70,.14);
-      --r-xl:28px;
-      --maxw:920px;
+      --bg2:#f8feff;
+      --ink:#17384f;
+      --muted:#5f7f92;
+      --line:#cdeffc;
+      --card:#ffffff;
+      --sky:#8be8ff;
+      --blue:#45c9f5;
+      --green:#80df96;
+      --green2:#48c96a;
+      --yellow:#ffd95d;
+      --orange:#ffb45f;
+      --pink:#ffc8de;
+      --red:#ff8f8f;
+      --shadow:0 16px 36px rgba(23,56,79,.12);
+      --shadow-soft:0 8px 20px rgba(23,56,79,.08);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
-      width:100%;
       min-height:100%;
-      font-family:"Segoe UI",system-ui,sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top right, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 28%, transparent 52%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+      overflow-x:hidden;
+      -webkit-text-size-adjust:100%;
+      -webkit-tap-highlight-color:transparent;
     }
 
     body{
-      min-height:100dvh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:14px;
-      overflow:hidden;
+      color:var(--ink);
+      font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+      background:
+        radial-gradient(circle at 15% 8%, rgba(255,255,255,.92), transparent 22%),
+        radial-gradient(circle at 86% 10%, rgba(139,232,255,.34), transparent 24%),
+        linear-gradient(180deg,var(--bg2),var(--bg1));
     }
 
-    .app{
-      width:min(100%,var(--maxw));
-      height:calc(100dvh - 28px);
+    button,a{
+      font:inherit;
+      color:inherit;
+    }
+
+    .page{
+      min-height:100dvh;
+      width:min(1120px,100%);
+      margin:0 auto;
+      padding:
+        calc(12px + var(--sat))
+        calc(10px + var(--sar))
+        calc(18px + var(--sab))
+        calc(10px + var(--sal));
       display:grid;
-      grid-template-rows:auto 1fr auto;
       gap:12px;
     }
 
-    .top{
-      background:rgba(7,18,34,.92);
-      color:#eefcff;
-      border:2px solid rgba(99,230,255,.28);
-      border-radius:24px;
-      padding:12px 14px;
-      box-shadow:0 14px 36px rgba(7,18,34,.18);
-    }
-
-    .top-row{
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:20;
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
+      align-items:center;
       gap:10px;
-      flex-wrap:wrap;
+      padding:4px 0 8px;
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
     }
 
-    .kicker{
-      font-size:.94rem;
-      color:#80e8ff;
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+      padding:9px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.88);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .brandIcon{
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#8be8ff,#22d3ee);
+      font-size:24px;
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.42);
+      flex:0 0 auto;
+    }
+
+    .brand strong{
+      display:block;
+      font-size:17px;
       font-weight:1000;
+      line-height:1.05;
     }
 
-    .title{
-      margin-top:4px;
-      font-size:1.25rem;
-      line-height:1.15;
-      font-weight:1000;
-      color:#fff;
+    .brand small{
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    .chips{
+    .topActions{
       display:flex;
       gap:8px;
-      flex-wrap:wrap;
+      align-items:center;
     }
 
-    .chip{
-      padding:8px 11px;
-      border-radius:999px;
-      background:rgba(103,232,249,.14);
-      border:1px solid rgba(103,232,249,.18);
-      color:#e6fbff;
-      font-weight:900;
-      font-size:.88rem;
-      white-space:nowrap;
+    .iconBtn{
+      min-width:44px;
+      min-height:44px;
+      border:0;
+      border-radius:16px;
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      cursor:pointer;
+      font-weight:1000;
+      display:grid;
+      place-items:center;
     }
 
-    .progress-wrap{
-      margin-top:10px;
-    }
-
-    .progress-meta{
-      display:flex;
-      justify-content:space-between;
-      font-size:.86rem;
-      color:#dff8ff;
-      font-weight:900;
-      margin-bottom:5px;
-    }
-
-    .progress{
-      height:14px;
-      background:#08131f;
-      border-radius:999px;
-      border:2px solid #63e6ff;
-      overflow:hidden;
-    }
-
-    .fill{
-      width:0%;
-      height:100%;
-      background:linear-gradient(90deg,#60ff9d 0%,#00e5ff 100%);
-      transition:width .18s ease;
-    }
-
+    .heroCard,
     .panel{
-      overflow:auto;
-      background:var(--card);
-      border:1px solid var(--line);
-      border-radius:var(--r-xl);
+      border-radius:30px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.92);
       box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .heroCard{
       padding:18px;
-      min-height:0;
+      display:grid;
+      gap:14px;
+      background:
+        radial-gradient(circle at 90% 8%, rgba(255,217,93,.28), transparent 24%),
+        linear-gradient(180deg,#ffffff,#f5fdff);
+    }
+
+    .stageHead{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:14px;
+      align-items:center;
     }
 
     .badge{
+      width:max-content;
+      max-width:100%;
+      min-height:34px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#ecfeff;
+      border:2px solid #bdf4ff;
+      color:#0f766e;
+      font-size:13px;
+      font-weight:1000;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#dcfff2;
-      color:#047857;
-      font-weight:1000;
-      margin-bottom:12px;
+      margin-bottom:8px;
     }
 
-    .panel h1{
+    h1{
       margin:0;
-      font-size:1.65rem;
-      line-height:1.12;
-      color:#0f172a;
+      font-size:clamp(30px,5vw,48px);
+      line-height:1.02;
+      letter-spacing:-.035em;
       font-weight:1000;
+      color:#12324b;
     }
 
-    .desc{
-      margin:10px 0 0;
-      color:#475569;
-      font-weight:800;
-      line-height:1.5;
-      font-size:1rem;
+    .lead{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.6;
+      font-weight:850;
+      max-width:760px;
     }
 
-    .task-card{
-      margin-top:16px;
-      background:#f8fcff;
-      border:1px solid #d9ecf8;
+    .mascot{
+      width:148px;
+      height:148px;
+      border-radius:32px;
+      border:2px dashed rgba(23,56,79,.14);
+      background:
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,.95), transparent 24%),
+        linear-gradient(180deg,#dffaff,#bdf4ff);
+      display:grid;
+      place-items:center;
+      font-size:74px;
+      box-shadow:inset 0 0 0 8px rgba(255,255,255,.42);
+    }
+
+    .flowLine{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+      padding:10px;
       border-radius:24px;
-      padding:14px;
+      background:#f7fdff;
+      border:2px solid #d7f0fb;
     }
 
-    .big-action{
-      appearance:none;
-      width:100%;
-      border:none;
-      margin-top:12px;
-      border-radius:26px;
-      min-height:168px;
-      padding:18px;
-      background:linear-gradient(180deg,#ffffff,#f2fbff);
-      border:3px solid #8defff;
-      box-shadow:0 12px 28px rgba(34,211,238,.16);
-      color:#0f172a;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:10px;
-      cursor:pointer;
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .big-action:active{
-      transform:translateY(1px) scale(.995);
-    }
-
-    .big-icon{
-      width:90px;
-      height:90px;
-      border-radius:30px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:3rem;
-      background:#e9fbff;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.5);
-    }
-
-    .big-action strong{
-      display:block;
-      font-size:1.35rem;
-      font-weight:1000;
-    }
-
-    .big-action span{
-      display:block;
-      color:#5b7083;
-      font-size:.98rem;
-      font-weight:900;
-      line-height:1.4;
-      text-align:center;
-    }
-
-    .hold-area{
-      margin-top:12px;
-      border-radius:26px;
-      background:linear-gradient(180deg,#e0fbff,#bdf5ff);
-      border:3px solid #8defff;
-      min-height:180px;
-      display:flex;
-      flex-direction:column;
-      justify-content:center;
-      align-items:center;
-      gap:12px;
-      padding:18px;
-      user-select:none;
-      touch-action:none;
-      -webkit-tap-highlight-color:transparent;
-      box-shadow:inset 0 0 0 4px rgba(255,255,255,.35);
-    }
-
-    .hold-icon{
-      width:90px;
-      height:90px;
-      border-radius:30px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:3rem;
-      background:#ffffffaa;
-      box-shadow:0 10px 24px rgba(0,0,0,.08);
-    }
-
-    .hold-text{
-      font-size:1.2rem;
-      font-weight:1000;
-      color:#0f4c5c;
-      text-align:center;
-    }
-
-    .hold-progress{
-      width:100%;
-      height:20px;
-      background:#e0f2fe;
-      border-radius:999px;
-      overflow:hidden;
-      border:2px solid #67e8f9;
-    }
-
-    .hold-fill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg,#60ff9d,#00e5ff);
-      transition:width .06s linear;
-    }
-
-    .hint{
-      margin-top:12px;
-      padding:10px 12px;
-      border-radius:18px;
-      background:#fff8d7;
-      color:#713f12;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .hint.success{
-      background:#dcfff2;
-      color:#047857;
-    }
-
-    .coach{
-      margin-top:12px;
-      display:grid;
-      grid-template-columns:54px 1fr;
-      gap:10px;
-      align-items:center;
-    }
-
-    .coach-face{
-      width:54px;
-      height:54px;
-      border-radius:18px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:1.45rem;
-      background:linear-gradient(180deg,#8be8ff 0%, #22d3ee 100%);
-      box-shadow:0 8px 18px rgba(0,0,0,.10), inset 0 0 0 4px rgba(255,255,255,.30);
-    }
-
-    .coach-text{
-      background:#fff;
-      border:1px solid #d9ecf8;
+    .flowStep{
+      min-height:52px;
       border-radius:16px;
-      padding:10px 12px;
-      color:#0f172a;
-      font-weight:900;
-      line-height:1.4;
-      box-shadow:0 8px 18px rgba(0,0,0,.06);
+      background:#fff;
+      border:1px solid #d7f0fb;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:8px 6px;
+      color:#37566e;
+      font-size:12px;
+      font-weight:1000;
+      line-height:1.25;
+      opacity:.72;
     }
 
-    .flow-list{
-      margin-top:14px;
+    .flowStep.active{
+      opacity:1;
+      outline:3px solid #22d3ee;
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+      transform:translateY(-1px);
+    }
+
+    .stats{
       display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .stat{
+      border-radius:20px;
+      padding:12px;
+      background:#fff;
+      border:2px solid #d7f0fb;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .stat .k{
+      display:block;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .stat .v{
+      display:block;
+      margin-top:4px;
+      color:#12324b;
+      font-size:22px;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .panel{
+      padding:16px;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .card{
+      border-radius:24px;
+      border:2px solid var(--line);
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      padding:14px;
+      display:grid;
       gap:8px;
     }
 
-    .flow-step{
-      padding:9px 10px;
-      border-radius:16px;
-      background:#f5fbff;
-      border:1px solid #d9ecf8;
-      color:#5b7083;
-      font-weight:900;
-      font-size:.86rem;
+    .cardIcon{
+      width:58px;
+      height:58px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(180deg,#dffaff,#bdf4ff);
+      box-shadow:inset 0 0 0 4px rgba(255,255,255,.5);
+    }
+
+    .card h2,
+    .card h3{
+      margin:0;
+      font-size:20px;
+      line-height:1.15;
+      font-weight:1000;
+    }
+
+    .card p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:14px;
+      font-weight:760;
+    }
+
+    .zoneGrid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .zoneBtn,
+    .stepBtn,
+    .mainBtn,
+    .orderBtn,
+    .primaryBtn,
+    .secondaryBtn,
+    .dangerBtn{
+      min-height:54px;
+      border:0;
+      border-radius:18px;
+      padding:12px 14px;
+      cursor:pointer;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+      transition:transform .12s ease, filter .12s ease, outline-color .12s ease;
+      outline:3px solid transparent;
+    }
+
+    .zoneBtn:active,
+    .stepBtn:active,
+    .mainBtn:active,
+    .orderBtn:active,
+    .primaryBtn:active,
+    .secondaryBtn:active,
+    .dangerBtn:active{
+      transform:scale(.985);
+    }
+
+    .zoneBtn{
+      background:linear-gradient(180deg,#ffffff,#eefaff);
+      border:2px solid #d7f0fb;
+      color:#17384f;
+      display:grid;
+      gap:4px;
+      place-items:center;
+      text-align:center;
+    }
+
+    .zoneBtn .emoji{
+      font-size:28px;
+      line-height:1;
+    }
+
+    .zoneBtn .label{
+      font-size:14px;
+      line-height:1.25;
+    }
+
+    .zoneBtn.done{
+      background:linear-gradient(180deg,#dcfff2,#baf4cf);
+      border-color:#98e3aa;
+    }
+
+    .zoneBtn.target{
+      outline-color:#22d3ee;
+      background:linear-gradient(180deg,#fff8dc,#fff0b8);
+      border-color:#ffd95d;
+    }
+
+    .feedback{
+      min-height:52px;
+      border-radius:20px;
+      border:2px solid #d7f0fb;
+      background:#fff;
+      padding:12px 14px;
+      color:#37566e;
+      font-weight:1000;
+      line-height:1.35;
       display:flex;
       align-items:center;
-      gap:6px;
-    }
-
-    .flow-step.done{
-      background:#dcfff2;
-      color:#047857;
-      border-color:#86efac;
-    }
-
-    .flow-step.active{
-      background:#ecfeff;
-      color:#0f4c5c;
-      border-color:#22d3ee;
-      box-shadow:0 8px 18px rgba(34,211,238,.14);
-    }
-
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
       gap:10px;
-      margin-top:16px;
     }
 
-    .summary-box{
-      background:#f8fcff;
-      border:1px solid #d9ecf8;
-      border-radius:20px;
-      padding:14px;
-      font-weight:1000;
-      color:#0f172a;
+    .feedback.good{
+      background:#effcf3;
+      border-color:#b8eec6;
+      color:#166534;
     }
 
-    .summary-box small{
-      display:block;
-      color:#64748b;
-      font-weight:900;
-      margin-bottom:5px;
+    .feedback.bad{
+      background:#fff3f3;
+      border-color:#ffc8c8;
+      color:#8a1f1f;
     }
 
-    .footer{
-      display:flex;
-      justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      padding-bottom:2px;
-    }
-
-    .btn{
-      appearance:none;
-      border:none;
+    .progressWrap{
+      height:18px;
       border-radius:999px;
-      padding:12px 18px;
-      min-width:132px;
+      background:#e9f7fd;
+      border:2px solid #d7f0fb;
+      overflow:hidden;
+    }
+
+    .progressBar{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#22c55e,#8be8ff);
+      transition:width .2s ease;
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .primaryBtn{
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      color:#503c00;
+      font-size:18px;
+    }
+
+    .secondaryBtn{
+      background:linear-gradient(180deg,#dcfff2,#baf4cf);
+      color:#143a22;
+      font-size:18px;
+    }
+
+    .dangerBtn{
+      background:linear-gradient(180deg,#ffe3ef,#ffc9de);
+      color:#5b263b;
+      font-size:18px;
+    }
+
+    .orderList{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .orderBtn{
+      background:#fff;
+      border:2px solid #d7f0fb;
+      color:#17384f;
+      display:grid;
+      gap:4px;
+      text-align:center;
+    }
+
+    .orderBtn.done{
+      background:#effcf3;
+      border-color:#b8eec6;
+      color:#166534;
+    }
+
+    .summaryBox{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .bigScore{
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff8dc,#fff0b8);
+      border:2px solid #ffd95d;
+      padding:18px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      box-shadow:var(--shadow-soft);
+    }
+
+    .bigScore .score{
+      font-size:54px;
+      line-height:1;
       font-weight:1000;
-      font-size:1rem;
-      cursor:pointer;
-      color:#0f172a;
-      border:2px solid rgba(255,255,255,.95);
-      box-shadow:0 10px 24px rgba(0,0,0,.12);
-      touch-action:manipulation;
-      -webkit-tap-highlight-color:transparent;
+      color:#503c00;
     }
 
-    .btn.primary{ background:linear-gradient(180deg,#fff2a8 0%,#ffd84d 100%); }
-    .btn.green{ background:linear-gradient(180deg,#dcfff2 0%,#86efac 100%); }
-    .btn.pink{ background:linear-gradient(180deg,#ffe0ef 0%,#ffc2dd 100%); }
-    .btn.blue{ background:linear-gradient(180deg,#dcf8ff 0%,#b7efff 100%); }
-
-    .btn:active{
-      transform:translateY(1px);
+    .bigScore .stars{
+      margin-top:8px;
+      font-size:32px;
     }
 
-    .btn[disabled]{
-      opacity:.5;
-      cursor:not-allowed;
+    .tips{
+      border-radius:28px;
+      background:#fff;
+      border:2px solid #d7f0fb;
+      padding:18px;
+      display:grid;
+      gap:10px;
+      box-shadow:var(--shadow-soft);
     }
 
-    .hidden{
-      display:none !important;
+    .tips h2{
+      margin:0;
+      font-size:22px;
+      font-weight:1000;
     }
 
-    @media (max-width:680px){
-      body{
-        align-items:stretch;
-        padding:10px;
+    .tips p{
+      margin:0;
+      color:var(--muted);
+      font-weight:800;
+      line-height:1.55;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:18px;
+      transform:translateX(-50%) translateY(20px);
+      z-index:40;
+      width:min(420px,90vw);
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(23,56,79,.92);
+      color:#fff;
+      text-align:center;
+      font-weight:1000;
+      box-shadow:0 18px 32px rgba(0,0,0,.20);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width:900px){
+      .stageHead{
+        grid-template-columns:1fr;
       }
 
-      .app{
-        height:calc(100dvh - 20px);
-        gap:10px;
+      .mascot{
+        display:none;
       }
 
-      .top{
-        border-radius:20px;
-        padding:10px 12px;
+      .grid,
+      .summaryBox{
+        grid-template-columns:1fr;
       }
 
-      .title{
-        font-size:1.05rem;
+      .zoneGrid,
+      .orderList{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media (max-width:640px){
+      .page{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(14px + var(--sab))
+          calc(8px + var(--sal));
       }
 
-      .chip{
-        font-size:.82rem;
-        padding:7px 10px;
-      }
-
+      .heroCard,
       .panel{
+        border-radius:24px;
         padding:14px;
-        border-radius:24px;
       }
 
-      .panel h1{
-        font-size:1.28rem;
+      .flowLine,
+      .stats,
+      .zoneGrid,
+      .orderList,
+      .actions{
+        grid-template-columns:1fr;
       }
 
-      .desc{
-        font-size:.92rem;
+      h1{
+        font-size:36px;
       }
 
-      .big-action{
-        min-height:144px;
-        border-radius:24px;
-      }
-
-      .big-icon{
-        width:76px;
-        height:76px;
-        border-radius:24px;
-        font-size:2.45rem;
-      }
-
-      .big-action strong{
-        font-size:1.15rem;
-      }
-
-      .big-action span{
-        font-size:.9rem;
-      }
-
-      .hold-area{
-        min-height:150px;
-      }
-
-      .hold-icon{
-        width:76px;
-        height:76px;
-        border-radius:24px;
-        font-size:2.4rem;
-      }
-
-      .coach{
-        grid-template-columns:48px 1fr;
-      }
-
-      .coach-face{
-        width:48px;
-        height:48px;
-        border-radius:16px;
-        font-size:1.3rem;
-      }
-
-      .coach-text{
-        font-size:.86rem;
-      }
-
-      .footer{
-        gap:8px;
-      }
-
-      .btn{
-        min-width:118px;
-        padding:11px 14px;
-        font-size:.9rem;
+      .lead{
+        font-size:15px;
       }
     }
   </style>
 </head>
 
 <body>
-  <main class="app">
-    <header class="top">
-      <div class="top-row">
+  <main class="page">
+    <header class="topbar">
+      <div class="brand" aria-label="HeroHealth Handwash">
+        <div class="brandIcon" aria-hidden="true">🧼</div>
         <div>
-          <div class="kicker" id="stepLabel">Handwash Main Game • 1/12</div>
-          <div class="title" id="stepTitle">เปิดน้ำ</div>
-        </div>
-
-        <div class="chips">
-          <div class="chip" id="phaseChip">Phase 1</div>
-          <div class="chip" id="whoChip">WHO 0/7</div>
-          <div class="chip" id="comboChip">Combo 0</div>
-          <div class="chip" id="scoreChip">Score 0</div>
+          <strong>Handwash Trainer</strong>
+          <small id="topSub">Full Flow</small>
         </div>
       </div>
 
-      <div class="progress-wrap">
-        <div class="progress-meta">
-          <span>ความคืบหน้า</span>
-          <span id="pctText">0%</span>
-        </div>
-        <div class="progress">
-          <div class="fill" id="fill"></div>
-        </div>
+      <div class="topActions">
+        <button class="iconBtn" id="btnRestart" type="button" aria-label="เริ่มใหม่">↻</button>
+        <button class="iconBtn" id="btnBack" type="button" aria-label="กลับโซน">🏠</button>
       </div>
     </header>
 
-    <section class="panel" id="panel"></section>
+    <section class="heroCard">
+      <div class="stageHead">
+        <div>
+          <div class="badge" id="stageBadge">🫧 Handwash</div>
+          <h1 id="stageTitle">ล้างมือให้สะอาด!</h1>
+          <p class="lead" id="stageLead">เริ่มจากวิธีเล่นสั้น ๆ แล้วค่อยฝึกจริง</p>
+        </div>
 
-    <footer>
-      <div class="footer">
-        <button class="btn pink" id="launcherBtn" type="button">กลับ Launcher</button>
-        <button class="btn blue" id="zoneBtn" type="button">กลับ Zone</button>
-        <button class="btn primary hidden" id="nextBtn" type="button">ไป Mini Game</button>
+        <div class="mascot" aria-hidden="true" id="stageMascot">🧼</div>
       </div>
-    </footer>
+
+      <div class="flowLine" aria-label="ลำดับการเล่น">
+        <div class="flowStep" data-flow-step="howto">1<br>วิธีเล่น</div>
+        <div class="flowStep" data-flow-step="practice">2<br>ฝึกก่อน</div>
+        <div class="flowStep" data-flow-step="main">3<br>เล่นจริง</div>
+        <div class="flowStep" data-flow-step="order">4<br>เรียงลำดับ</div>
+        <div class="flowStep" data-flow-step="summary">5<br>สรุปผล</div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="k">Score</span><span class="v" id="statScore">0</span></div>
+        <div class="stat"><span class="k">ถูก</span><span class="v" id="statCorrect">0</span></div>
+        <div class="stat"><span class="k">พลาด</span><span class="v" id="statMistake">0</span></div>
+        <div class="stat"><span class="k">เวลา</span><span class="v" id="statTime">90</span></div>
+      </div>
+    </section>
+
+    <section class="panel" id="gameRoot"></section>
   </main>
 
-  <script src="./vr-handwash/handwash-shared.js"></script>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
   <script>
-    function getParam(key, fallback = ''){
-      try{
-        return new URL(location.href).searchParams.get(key) || fallback;
-      }catch(e){
-        return fallback;
-      }
-    }
+    (function(){
+      'use strict';
 
-    function withCarryParams(url, overrides = {}){
-      const keep = ['pid','name','diff','view','run','zone','cat','game','gameId','theme','hub','hubRoot','zoneReturn'];
-      const out = new URL(url, location.href);
-      const now = new URLSearchParams(location.search);
+      const qs = new URLSearchParams(location.search);
 
-      keep.forEach(k => {
-        const v = now.get(k);
-        if (v && !out.searchParams.has(k)) out.searchParams.set(k, v);
-      });
+      const STAGES = ['howto', 'practice', 'main', 'order', 'summary'];
 
-      Object.entries(overrides).forEach(([k,v]) => {
-        if (v !== undefined && v !== null && String(v).trim() !== ''){
-          out.searchParams.set(k, String(v));
+      const ZONES = [
+        { id:'palm',    emoji:'🤲', label:'ฝ่ามือ' },
+        { id:'back',    emoji:'✋', label:'หลังมือ' },
+        { id:'fingers', emoji:'🖐️', label:'ซอกนิ้ว' },
+        { id:'thumb',   emoji:'👍', label:'นิ้วโป้ง' },
+        { id:'tips',    emoji:'☝️', label:'ปลายนิ้ว' },
+        { id:'wrist',   emoji:'💪', label:'ข้อมือ' }
+      ];
+
+      const ORDER_STEPS = [
+        { id:'wet',     emoji:'💧', label:'เปียกมือ' },
+        { id:'soap',    emoji:'🫧', label:'ใส่สบู่' },
+        { id:'palm',    emoji:'🤲', label:'ถูฝ่ามือ' },
+        { id:'back',    emoji:'✋', label:'ถูหลังมือ' },
+        { id:'fingers', emoji:'🖐️', label:'ถูซอกนิ้ว' },
+        { id:'thumb',   emoji:'👍', label:'ถูนิ้วโป้ง' },
+        { id:'tips',    emoji:'☝️', label:'ถูปลายนิ้ว' },
+        { id:'rinse',   emoji:'🚿', label:'ล้างน้ำ' },
+        { id:'dry',     emoji:'🧻', label:'เช็ดมือ' }
+      ];
+
+      const root = document.getElementById('gameRoot');
+      const toastEl = document.getElementById('toast');
+
+      const els = {
+        topSub: document.getElementById('topSub'),
+        stageBadge: document.getElementById('stageBadge'),
+        stageTitle: document.getElementById('stageTitle'),
+        stageLead: document.getElementById('stageLead'),
+        stageMascot: document.getElementById('stageMascot'),
+        statScore: document.getElementById('statScore'),
+        statCorrect: document.getElementById('statCorrect'),
+        statMistake: document.getElementById('statMistake'),
+        statTime: document.getElementById('statTime')
+      };
+
+      const state = {
+        stage: normalizeStage(qs.get('stage') || 'howto'),
+        score: 0,
+        correct: 0,
+        mistake: 0,
+        practiced: new Set(),
+        practiceIndex: 0,
+        mainIndex: 0,
+        mainTarget: null,
+        mainTotal: getMainTotal(),
+        timeLeft: Number(qs.get('time') || 90) || 90,
+        orderIndex: 0,
+        orderDone: new Set(),
+        timer: null,
+        startedAt: Date.now(),
+        endedAt: null
+      };
+
+      function first(){
+        for(let i = 0; i < arguments.length; i++){
+          const v = arguments[i];
+          if(String(v || '').trim()) return String(v).trim();
         }
-      });
+        return '';
+      }
 
-      return out.toString();
-    }
+      function normalizeStage(stage){
+        stage = String(stage || '').toLowerCase();
+        if(stage === 'mainGame'.toLowerCase()) return 'main';
+        if(stage === 'miniorder') return 'order';
+        if(stage === 'mini-order') return 'order';
+        if(STAGES.includes(stage)) return stage;
+        return 'howto';
+      }
 
-    function fallbackMiniUrl(){
-      const inVrFolder = location.pathname.includes('/vr-handwash/');
-      const base = inVrFolder ? './handwash-mini-order.html' : './vr-handwash/handwash-mini-order.html';
-      const hub = getParam('hub', '');
-      return withCarryParams(base, {
-        time: getParam('miniTime', '60'),
-        next: hub || fallbackHubUrl()
-      });
-    }
+      function getMainTotal(){
+        const diff = String(qs.get('diff') || 'normal').toLowerCase();
+        if(diff === 'easy') return 8;
+        if(diff === 'hard') return 16;
+        return 12;
+      }
 
-    function fallbackHubUrl(){
-      const inVrFolder = location.pathname.includes('/vr-handwash/');
-      return new URL(inVrFolder ? '../hygiene-zone.html' : './hygiene-zone.html', location.href).toString();
-    }
-
-    function fallbackLauncherUrl(){
-      const inVrFolder = location.pathname.includes('/vr-handwash/');
-      return new URL(inVrFolder ? './handwash-launcher.html' : './vr-handwash/handwash-launcher.html', location.href).toString();
-    }
-
-    const NEXT_URL = getParam('next', '') || fallbackMiniUrl();
-    const HUB_URL = getParam('hub', '') || fallbackHubUrl();
-    const LAUNCHER_URL = getParam('launcher', '') || fallbackLauncherUrl();
-
-    const STEPS = [
-      { type:'tap', phase:'Phase 1', title:'เปิดน้ำ', icon:'🚰', action:'แตะก๊อกน้ำ', desc:'เห็นก๊อกน้ำ ให้แตะก๊อกน้ำ', points:20, who:false },
-      { type:'hold', phase:'Phase 1', title:'เปียกมือ', icon:'💧', action:'กดค้างที่โซนน้ำ', desc:'ค้างไว้จนมือเปียก', need:900, points:24, who:false },
-      { type:'tap', phase:'Phase 1', title:'ปิดน้ำ', icon:'🚰', action:'แตะก๊อกน้ำ', desc:'แตะก๊อกน้ำอีกครั้งเพื่อปิดน้ำ', points:20, who:false },
-      { type:'tap', phase:'Phase 1', title:'กดสบู่', icon:'🧼', action:'แตะสบู่', desc:'แตะสบู่ให้พร้อมล้างมือ', points:22, who:false },
-
-      { type:'tap', phase:'Phase 2', title:'ถูฝ่ามือ', icon:'👐', action:'แตะฝ่ามือ', desc:'ถูฝ่ามือให้ทั่ว', points:26, who:true },
-      { type:'tap', phase:'Phase 2', title:'ถูหลังมือ', icon:'✋', action:'แตะหลังมือ', desc:'ถูหลังมือทั้งสองข้าง', points:26, who:true },
-      { type:'tap', phase:'Phase 2', title:'ถูซอกนิ้ว', icon:'🤝', action:'แตะซอกนิ้ว', desc:'ถูซอกนิ้วให้สะอาด', points:26, who:true },
-      { type:'tap', phase:'Phase 2', title:'ถูหัวแม่มือ', icon:'👍', action:'แตะหัวแม่มือ', desc:'ถูหัวแม่มือทั้งสองข้าง', points:26, who:true },
-      { type:'tap', phase:'Phase 2', title:'ถูปลายนิ้ว', icon:'🖐️', action:'แตะปลายนิ้ว', desc:'ถูปลายนิ้วกับฝ่ามือ', points:26, who:true },
-
-      { type:'tap', phase:'Phase 3', title:'เปิดน้ำ', icon:'🚰', action:'แตะก๊อกน้ำ', desc:'เปิดน้ำเพื่อล้างฟอง', points:20, who:true },
-      { type:'hold', phase:'Phase 3', title:'ล้างฟอง', icon:'💧', action:'กดค้างที่โซนน้ำ', desc:'ค้างไว้จนฟองหมด', need:1100, points:30, who:true },
-      { type:'tap', phase:'Phase 3', title:'เช็ดมือ', icon:'🟨', action:'แตะผ้าเช็ดมือ', desc:'เช็ดมือให้แห้ง', points:22, who:false }
-    ];
-
-    const els = {
-      panel: document.getElementById('panel'),
-      stepLabel: document.getElementById('stepLabel'),
-      stepTitle: document.getElementById('stepTitle'),
-      phaseChip: document.getElementById('phaseChip'),
-      whoChip: document.getElementById('whoChip'),
-      comboChip: document.getElementById('comboChip'),
-      scoreChip: document.getElementById('scoreChip'),
-      pctText: document.getElementById('pctText'),
-      fill: document.getElementById('fill'),
-      nextBtn: document.getElementById('nextBtn'),
-      launcherBtn: document.getElementById('launcherBtn'),
-      zoneBtn: document.getElementById('zoneBtn')
-    };
-
-    const state = {
-      index:0,
-      score:0,
-      combo:0,
-      bestCombo:0,
-      miss:0,
-      whoDone:0,
-      holdValue:0,
-      holding:false,
-      holdDone:false,
-      lastTs:0,
-      ended:false
-    };
-
-    let raf = 0;
-    let autoTimer = null;
-
-    function bindPress(el, fn){
-      if (!el) return;
-      let locked = false;
-
-      function run(e){
-        if (locked) return;
-        locked = true;
+      function cleanReturnUrl(raw){
+        const fallback = new URL('../hygiene-zone.html', location.href).toString();
 
         try{
-          e.preventDefault();
-          e.stopPropagation();
-        }catch(err){}
+          if(!String(raw || '').trim()) return fallback;
 
-        fn(e);
+          const u = new URL(String(raw), location.href);
 
-        setTimeout(() => {
-          locked = false;
-        }, 180);
+          if(u.pathname.includes('/hygiene-zone.html')){
+            return new URL('../hygiene-zone.html', location.href).toString();
+          }
+
+          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
+            return fallback;
+          }
+
+          return u.toString();
+        }catch(_){
+          return fallback;
+        }
       }
 
-      el.addEventListener('pointerup', run, { passive:false });
-      el.addEventListener('touchend', run, { passive:false });
-      el.addEventListener('click', run, { passive:false });
-    }
-
-    function clearAuto(){
-      if (autoTimer){
-        clearTimeout(autoTimer);
-        autoTimer = null;
-      }
-    }
-
-    function step(){
-      return STEPS[state.index];
-    }
-
-    function pct(){
-      if (state.ended) return 100;
-      return Math.round((state.index / STEPS.length) * 100);
-    }
-
-    function updateTop(){
-      const s = step();
-
-      els.stepLabel.textContent = state.ended
-        ? 'Handwash Main Game • Summary'
-        : `Handwash Main Game • ${state.index + 1}/${STEPS.length}`;
-
-      els.stepTitle.textContent = state.ended ? 'ทำครบแล้ว' : s.title;
-      els.phaseChip.textContent = state.ended ? 'Done' : s.phase;
-      els.whoChip.textContent = `WHO ${state.whoDone}/7`;
-      els.comboChip.textContent = `Combo ${state.combo}`;
-      els.scoreChip.textContent = `Score ${state.score}`;
-
-      const p = pct();
-      els.pctText.textContent = `${p}%`;
-      els.fill.style.width = `${p}%`;
-    }
-
-    function coach(text, mood='normal'){
-      const face = mood === 'good' ? '😄' : mood === 'warn' ? '😮' : '🙂';
-      return `
-        <div class="coach">
-          <div class="coach-face">${face}</div>
-          <div class="coach-text">${text}</div>
-        </div>
-      `;
-    }
-
-    function renderFlowList(){
-      return `
-        <div class="flow-list">
-          ${STEPS.map((s,i) => `
-            <div class="flow-step ${i < state.index ? 'done' : i === state.index ? 'active' : ''}">
-              <span>${i < state.index ? '✅' : s.icon}</span>
-              <span>${i + 1}. ${s.title}</span>
-            </div>
-          `).join('')}
-        </div>
-      `;
-    }
-
-    function reward(points){
-      state.score += points;
-      state.combo += 1;
-      state.bestCombo = Math.max(state.bestCombo, state.combo);
-    }
-
-    function goNextStep(){
-      const s = step();
-
-      if (s && s.who) state.whoDone = Math.min(7, state.whoDone + 1);
-
-      state.index += 1;
-      state.holdValue = 0;
-      state.holding = false;
-      state.holdDone = false;
-      state.lastTs = 0;
-
-      if (state.index >= STEPS.length){
-        finishGame();
-        return;
+      function goBack(){
+        location.href = cleanReturnUrl(qs.get('hub'));
       }
 
-      render();
-    }
+      function restart(){
+        clearTimer();
+        const url = new URL(location.href);
+        url.searchParams.set('flow', 'full');
+        url.searchParams.set('stage', 'howto');
+        location.href = url.toString();
+      }
 
-    function renderTap(){
-      const s = step();
+      function showToast(text){
+        toastEl.textContent = text;
+        toastEl.classList.add('show');
+        clearTimeout(toastEl.__t);
+        toastEl.__t = setTimeout(() => toastEl.classList.remove('show'), 1400);
+      }
 
-      els.panel.innerHTML = `
-        <div class="badge">${s.icon} ขั้นที่ ${state.index + 1} • ${s.title}</div>
-        <h1>${s.action}</h1>
-        <p class="desc">${s.desc}</p>
+      function setStage(stage){
+        state.stage = normalizeStage(stage);
 
-        <div class="task-card">
-          <button class="big-action" id="actionBtn" type="button">
-            <div class="big-icon">${s.icon}</div>
-            <strong>${s.action}</strong>
-            <span>${s.desc}</span>
+        if(state.stage !== 'main'){
+          clearTimer();
+        }
+
+        if(state.stage === 'main' && !state.mainTarget){
+          state.mainTarget = ZONES[0].id;
+          ensureTimer();
+        }
+
+        render();
+      }
+
+      function clearTimer(){
+        if(state.timer){
+          clearInterval(state.timer);
+          state.timer = null;
+        }
+      }
+
+      function ensureTimer(){
+        if(state.timer) return;
+
+        state.timer = setInterval(() => {
+          state.timeLeft -= 1;
+          if(state.timeLeft < 0) state.timeLeft = 0;
+          updateStats();
+
+          if(state.timeLeft <= 0){
+            clearTimer();
+            showToast('หมดเวลา ไปทบทวนลำดับกันต่อ!');
+            setStage('order');
+          }
+        }, 1000);
+      }
+
+      function updateStats(){
+        els.statScore.textContent = String(state.score);
+        els.statCorrect.textContent = String(state.correct);
+        els.statMistake.textContent = String(state.mistake);
+        els.statTime.textContent = String(state.timeLeft);
+      }
+
+      function updateHeader(){
+        const map = {
+          howto: {
+            badge:'🫧 วิธีเล่น',
+            title:'มาดูวิธีล้างมือกัน!',
+            lead:'ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกถูมือ',
+            mascot:'🧼'
+          },
+          practice: {
+            badge:'🤲 ฝึกก่อน',
+            title:'ฝึกถูให้ครบจุด',
+            lead:'กดจุดที่ตรงกับเป้าหมาย ฝึกครบทุกจุดก่อนเล่นจริง',
+            mascot:'🤲'
+          },
+          main: {
+            badge:'🎮 เล่นจริง',
+            title:'ถูให้ถูกจุด!',
+            lead:'ดูเป้าหมาย แล้วกดจุดถูมือให้ถูกต้องก่อนหมดเวลา',
+            mascot:'⏱️'
+          },
+          order: {
+            badge:'🧠 ทบทวนลำดับ',
+            title:'เรียงขั้นตอนล้างมือ',
+            lead:'กดขั้นตอนตามลำดับที่ถูกต้อง เพื่อจำวิธีล้างมือให้แม่น',
+            mascot:'🧠'
+          },
+          summary: {
+            badge:'⭐ สรุปผล',
+            title:'เก่งมาก ฮีโร่สุขอนามัย!',
+            lead:'ดูคะแนน ดาว และคำแนะนำสั้น ๆ แล้วกลับไปเลือกเกมต่อได้',
+            mascot:'🏆'
+          }
+        };
+
+        const h = map[state.stage] || map.howto;
+        els.stageBadge.textContent = h.badge;
+        els.stageTitle.textContent = h.title;
+        els.stageLead.textContent = h.lead;
+        els.stageMascot.textContent = h.mascot;
+        els.topSub.textContent = h.title;
+
+        document.querySelectorAll('[data-flow-step]').forEach(el => {
+          el.classList.toggle('active', el.dataset.flowStep === state.stage);
+        });
+      }
+
+      function zoneButtons(targetId, doneSetName){
+        const done = doneSetName ? state[doneSetName] : new Set();
+
+        return ZONES.map(z => `
+          <button
+            class="zoneBtn ${z.id === targetId ? 'target' : ''} ${done.has(z.id) ? 'done' : ''}"
+            type="button"
+            data-action="zone"
+            data-zone="${z.id}"
+          >
+            <span class="emoji">${z.emoji}</span>
+            <span class="label">${z.label}</span>
           </button>
+        `).join('');
+      }
 
-          <div class="hint" id="hint">
-            แตะปุ่มใหญ่ตรงนี้เพื่อผ่านขั้นนี้
-          </div>
-        </div>
+      function renderHowto(){
+        root.innerHTML = `
+          <div class="grid">
+            <article class="card">
+              <div class="cardIcon">👀</div>
+              <h2>ดูเป้าหมาย</h2>
+              <p>เกมจะบอกว่าต้องถูส่วนไหนของมือ เช่น ฝ่ามือ หลังมือ หรือซอกนิ้ว</p>
+            </article>
 
-        ${coach('ทำตามปุ่มใหญ่ได้เลย ไม่ต้องเล็ง ไม่ต้องเดา')}
-        ${renderFlowList()}
-      `;
+            <article class="card">
+              <div class="cardIcon">👆</div>
+              <h2>กดให้ถูกจุด</h2>
+              <p>กดปุ่มจุดที่ถูกต้อง ถ้าตอบถูกจะได้คะแนนและเสียงตอบรับ</p>
+            </article>
 
-      const actionBtn = document.getElementById('actionBtn');
+            <article class="card">
+              <div class="cardIcon">🧠</div>
+              <h2>จำลำดับ</h2>
+              <p>หลังเล่นจริง จะมีมินิเกมเรียงขั้นตอนล้างมือเพื่อทบทวนความจำ</p>
+            </article>
 
-      bindPress(actionBtn, () => {
-        reward(s.points || 20);
-
-        const hint = document.getElementById('hint');
-        if (hint){
-          hint.textContent = 'ดีมาก ผ่านแล้ว!';
-          hint.classList.add('success');
-        }
-
-        try{
-          if (navigator.vibrate) navigator.vibrate(25);
-        }catch(e){}
-
-        updateTop();
-
-        clearAuto();
-        autoTimer = setTimeout(goNextStep, 450);
-      });
-    }
-
-    function renderHold(){
-      const s = step();
-
-      state.holdValue = 0;
-      state.holding = false;
-      state.holdDone = false;
-      state.lastTs = 0;
-
-      els.panel.innerHTML = `
-        <div class="badge">${s.icon} ขั้นที่ ${state.index + 1} • ${s.title}</div>
-        <h1>${s.action}</h1>
-        <p class="desc">${s.desc}</p>
-
-        <div class="task-card">
-          <div class="hold-area" id="holdArea">
-            <div class="hold-icon">💧</div>
-            <div class="hold-text" id="holdText">กดค้างตรงนี้</div>
-            <div class="hold-progress">
-              <div class="hold-fill" id="holdFill"></div>
-            </div>
+            <article class="card">
+              <div class="cardIcon">⭐</div>
+              <h2>ดูสรุปผล</h2>
+              <p>ตอนจบจะมีคะแนน ดาว และคำแนะนำสั้น ๆ ให้ฝึกต่อ</p>
+            </article>
           </div>
 
-          <div class="hint" id="hint">
-            กดค้างจนแถบเต็ม 100%
+          <div class="actions">
+            <button class="primaryBtn" type="button" data-action="go-practice">▶ เริ่มฝึกก่อน</button>
+            <button class="secondaryBtn" type="button" data-action="go-main">ข้ามไปเล่นจริง</button>
           </div>
-        </div>
-
-        ${coach('ค้างไว้จนเต็ม พอเต็มแล้วเกมจะไปต่อเอง')}
-        ${renderFlowList()}
-      `;
-
-      const holdArea = document.getElementById('holdArea');
-
-      function startHold(e){
-        e.preventDefault();
-        if (state.holdDone) return;
-        state.holding = true;
+        `;
       }
 
-      function endHold(e){
-        if (e) e.preventDefault();
-        if (state.holdDone) return;
-        state.holding = false;
+      function renderPractice(){
+        const target = ZONES[state.practiceIndex] || ZONES[0];
+        const pct = Math.round((state.practiced.size / ZONES.length) * 100);
+
+        root.innerHTML = `
+          <div class="feedback good">
+            <span>🎯</span>
+            <span>เป้าหมายตอนนี้: <strong>${target.emoji} ${target.label}</strong></span>
+          </div>
+
+          <div class="progressWrap" aria-label="ความคืบหน้าการฝึก">
+            <div class="progressBar" style="width:${pct}%"></div>
+          </div>
+
+          <div class="zoneGrid">
+            ${zoneButtons(target.id, 'practiced')}
+          </div>
+
+          <div class="actions">
+            <button class="secondaryBtn" type="button" data-action="go-howto">กลับวิธีเล่น</button>
+            <button class="primaryBtn" type="button" data-action="go-main">ไปเล่นจริง</button>
+          </div>
+        `;
       }
 
-      holdArea.addEventListener('pointerdown', startHold, { passive:false });
-      holdArea.addEventListener('pointerup', endHold, { passive:false });
-      holdArea.addEventListener('pointercancel', endHold, { passive:false });
-      holdArea.addEventListener('pointerleave', endHold, { passive:false });
+      function renderMain(){
+        ensureTimer();
 
-      holdArea.addEventListener('touchstart', startHold, { passive:false });
-      holdArea.addEventListener('touchend', endHold, { passive:false });
-      holdArea.addEventListener('touchcancel', endHold, { passive:false });
+        const target = ZONES.find(z => z.id === state.mainTarget) || ZONES[0];
+        const pct = Math.round((state.mainIndex / state.mainTotal) * 100);
 
-      window.addEventListener('pointerup', endHold, { passive:false });
-      window.addEventListener('pointercancel', endHold, { passive:false });
-      window.addEventListener('touchend', endHold, { passive:false });
-      window.addEventListener('touchcancel', endHold, { passive:false });
-    }
+        root.innerHTML = `
+          <div class="feedback good">
+            <span>🎮</span>
+            <span>กดให้ถูก: <strong>${target.emoji} ${target.label}</strong></span>
+          </div>
 
-    function render(){
-      cancelAnimationFrame(raf);
-      clearAuto();
+          <div class="progressWrap" aria-label="ความคืบหน้าเกมหลัก">
+            <div class="progressBar" style="width:${pct}%"></div>
+          </div>
 
-      if (state.ended){
-        renderSummary();
-        updateTop();
-        return;
+          <div class="zoneGrid">
+            ${ZONES.map(z => `
+              <button
+                class="zoneBtn ${z.id === target.id ? 'target' : ''}"
+                type="button"
+                data-action="main-zone"
+                data-zone="${z.id}"
+              >
+                <span class="emoji">${z.emoji}</span>
+                <span class="label">${z.label}</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <div class="actions">
+            <button class="secondaryBtn" type="button" data-action="go-practice">กลับไปฝึก</button>
+            <button class="primaryBtn" type="button" data-action="finish-main">ไปทบทวนลำดับ</button>
+          </div>
+        `;
       }
 
-      updateTop();
+      function renderOrder(){
+        const next = ORDER_STEPS[state.orderIndex];
 
-      const s = step();
-      if (s.type === 'tap') renderTap();
-      if (s.type === 'hold') renderHold();
+        root.innerHTML = `
+          <div class="feedback ${next ? 'good' : 'good'}">
+            <span>🧠</span>
+            <span>${next ? `ขั้นตอนต่อไปคืออะไร? <strong>${state.orderIndex + 1}/${ORDER_STEPS.length}</strong>` : 'เรียงครบแล้ว ไปดูสรุปได้เลย!'}</span>
+          </div>
 
-      raf = requestAnimationFrame(loop);
-    }
+          <div class="progressWrap" aria-label="ความคืบหน้าการเรียงลำดับ">
+            <div class="progressBar" style="width:${Math.round((state.orderIndex / ORDER_STEPS.length) * 100)}%"></div>
+          </div>
 
-    function loop(ts){
-      raf = requestAnimationFrame(loop);
+          <div class="orderList">
+            ${ORDER_STEPS.map(step => `
+              <button
+                class="orderBtn ${state.orderDone.has(step.id) ? 'done' : ''}"
+                type="button"
+                data-action="order-step"
+                data-step="${step.id}"
+                ${state.orderDone.has(step.id) ? 'disabled' : ''}
+              >
+                <span>${step.emoji}</span>
+                <strong>${step.label}</strong>
+              </button>
+            `).join('')}
+          </div>
 
-      if (state.ended) return;
-
-      const s = step();
-      if (!s || s.type !== 'hold') return;
-
-      if (!state.lastTs) state.lastTs = ts;
-      const dt = Math.min(50, ts - state.lastTs);
-      state.lastTs = ts;
-
-      const need = s.need || 1000;
-
-      const fill = document.getElementById('holdFill');
-      const text = document.getElementById('holdText');
-      const hint = document.getElementById('hint');
-
-      if (state.holdDone){
-        state.holdValue = need;
-        state.holding = false;
-
-        if (fill) fill.style.width = '100%';
-        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
-        if (hint){
-          hint.textContent = 'ดีมาก กำลังไปขั้นถัดไป';
-          hint.classList.add('success');
-        }
-
-        return;
+          <div class="actions">
+            <button class="secondaryBtn" type="button" data-action="go-main">กลับเล่นจริง</button>
+            <button class="primaryBtn" type="button" data-action="go-summary">ดูสรุปผล</button>
+          </div>
+        `;
       }
 
-      if (state.holding){
-        state.holdValue = Math.min(need, state.holdValue + dt);
-      } else {
-        state.holdValue = Math.max(0, state.holdValue - dt * 0.16);
+      function calcStars(){
+        const accBase = state.correct + state.mistake;
+        const accuracy = accBase ? Math.round((state.correct / accBase) * 100) : 0;
+
+        let stars = 1;
+        if(state.score >= 80 && accuracy >= 75 && state.orderIndex >= 6) stars = 2;
+        if(state.score >= 120 && accuracy >= 85 && state.orderIndex >= ORDER_STEPS.length) stars = 3;
+        return stars;
       }
 
-      const hp = Math.round((state.holdValue / need) * 100);
-
-      if (fill) fill.style.width = hp + '%';
-
-      if (hp >= 100){
-        state.holdDone = true;
-        state.holding = false;
-        state.holdValue = need;
-
-        reward(s.points || 24);
-
-        if (fill) fill.style.width = '100%';
-        if (text) text.textContent = 'เต็มแล้ว ผ่าน!';
-        if (hint){
-          hint.textContent = 'ดีมาก เต็มแล้ว!';
-          hint.classList.add('success');
-        }
-
-        updateTop();
-
-        clearAuto();
-        autoTimer = setTimeout(goNextStep, 600);
-        return;
-      }
-
-      if (text){
-        text.textContent = state.holding
-          ? `กดค้างต่อ • ${hp}%`
-          : `กดค้างตรงนี้ • ${hp}%`;
-      }
-
-      if (hint){
-        hint.textContent = 'กดค้างให้ครบ 100% ก่อน';
-        hint.classList.remove('success');
-      }
-    }
-
-    function calcStars(){
-      if (state.bestCombo >= 10 && state.whoDone >= 7) return 3;
-      if (state.bestCombo >= 7) return 2;
-      return 1;
-    }
-
-    function saveSummary(stars){
-      try{
-        if (!window.HandwashShared || typeof HandwashShared.saveSummary !== 'function') return;
-
-        HandwashShared.saveSummary({
-          stage:'main',
-          success:true,
+      function saveSummary(stars){
+        const accBase = state.correct + state.mistake;
+        const accuracy = accBase ? Math.round((state.correct / accBase) * 100) : 0;
+        const summary = {
+          game:'handwash',
+          zone:'hygiene',
           score:state.score,
           stars,
-          miss:state.miss,
-          timeLeft:0,
-          accuracy:100,
-          progress:100,
-          bestStreak:state.bestCombo,
-          whoDone:state.whoDone,
-          badges:stars >= 3 ? ['WHO 7 Ready', 'Clean Hands Hero'] : ['Clean Hands Ready'],
-          rank:stars >= 3 ? 'Handwash Hero' : 'Handwash Clear',
-          notes:'2D-first Handwash Main completed'
-        });
-      }catch(e){
-        console.warn(e);
+          correct:state.correct,
+          mistakes:state.mistake,
+          accuracy,
+          orderSteps:state.orderIndex,
+          orderTotal:ORDER_STEPS.length,
+          durationSec:Math.max(1, Math.round((Date.now() - state.startedAt) / 1000)),
+          finishedAt:new Date().toISOString()
+        };
+
+        try{
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+          localStorage.setItem('HHA_LAST_SUMMARY_HANDWASH', JSON.stringify(summary));
+          localStorage.setItem('HHA_LAST_SUMMARY_GLOBAL', JSON.stringify(summary));
+        }catch(_){}
+
+        return summary;
       }
-    }
 
-    function finishGame(){
-      state.ended = true;
-      state.combo = 0;
+      function renderSummary(){
+        clearTimer();
 
-      const stars = calcStars();
-      saveSummary(stars);
+        if(!state.endedAt) state.endedAt = Date.now();
 
-      renderSummary(stars);
-      updateTop();
-    }
+        const stars = calcStars();
+        const summary = saveSummary(stars);
+        const starText = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
 
-    function renderSummary(stars = calcStars()){
-      els.nextBtn.classList.remove('hidden');
+        let tip = 'ฝึกต่ออีกนิด จะจำขั้นตอนได้แม่นขึ้น!';
+        if(stars >= 3) tip = 'เยี่ยมมาก! ล้างมือได้ครบและจำลำดับได้ดี';
+        else if(state.mistake <= 2) tip = 'ทำได้ดีมาก เหลือฝึกเรียงลำดับให้คล่องขึ้น';
 
-      els.panel.innerHTML = `
-        <div class="badge">✨ Main Game ผ่านแล้ว</div>
-        <h1>ล้างมือครบ 12 ขั้นแล้ว</h1>
-        <p class="desc">
-          เยี่ยมมาก ต่อไปไป Mini Game เพื่อทบทวนลำดับ WHO 7 ขั้น
-        </p>
+        root.innerHTML = `
+          <div class="summaryBox">
+            <div class="bigScore">
+              <div>
+                <div class="score">${summary.score}</div>
+                <div class="stars">${starText}</div>
+                <div style="margin-top:8px;font-weight:1000;color:#8d6118;">คะแนนของฉัน</div>
+              </div>
+            </div>
 
-        <div class="summary-grid">
-          <div class="summary-box">
-            <small>คะแนน</small>
-            <span>${state.score}</span>
+            <div class="tips">
+              <h2>สรุปสั้น ๆ</h2>
+              <p>ตอบถูก: <strong>${summary.correct}</strong> ครั้ง</p>
+              <p>พลาด: <strong>${summary.mistakes}</strong> ครั้ง</p>
+              <p>ความแม่นยำ: <strong>${summary.accuracy}%</strong></p>
+              <p>จำลำดับได้: <strong>${summary.orderSteps}/${summary.orderTotal}</strong></p>
+              <p>${tip}</p>
+            </div>
           </div>
-          <div class="summary-box">
-            <small>WHO Steps</small>
-            <span>${state.whoDone}/7</span>
+
+          <div class="actions">
+            <button class="primaryBtn" type="button" data-action="restart">เล่นอีกครั้ง</button>
+            <button class="secondaryBtn" type="button" data-action="back-zone">กลับ Hygiene Zone</button>
           </div>
-          <div class="summary-box">
-            <small>Best Combo</small>
-            <span>${state.bestCombo}</span>
-          </div>
-          <div class="summary-box">
-            <small>ดาว</small>
-            <span>${'⭐'.repeat(stars)}</span>
-          </div>
-        </div>
+        `;
+      }
 
-        ${coach('เก่งมาก ไปทบทวนลำดับขั้นต่อได้เลย', 'good')}
-        ${renderFlowList()}
-      `;
-    }
+      function render(){
+        updateHeader();
+        updateStats();
 
-    bindPress(els.nextBtn, () => {
-      location.href = NEXT_URL;
-    });
+        if(state.stage === 'howto') renderHowto();
+        else if(state.stage === 'practice') renderPractice();
+        else if(state.stage === 'main') renderMain();
+        else if(state.stage === 'order') renderOrder();
+        else if(state.stage === 'summary') renderSummary();
+      }
 
-    bindPress(els.launcherBtn, () => {
-      location.href = LAUNCHER_URL;
-    });
+      function handlePracticeZone(zoneId){
+        const target = ZONES[state.practiceIndex] || ZONES[0];
 
-    bindPress(els.zoneBtn, () => {
-      location.href = HUB_URL;
-    });
+        if(zoneId === target.id){
+          state.practiced.add(zoneId);
+          state.score += 5;
+          state.correct += 1;
+          showToast('ถูกต้อง! เก่งมาก');
 
-    render();
+          if(state.practiceIndex < ZONES.length - 1){
+            state.practiceIndex += 1;
+            render();
+          }else{
+            showToast('ฝึกครบแล้ว ไปเล่นจริงกัน!');
+            setTimeout(() => setStage('main'), 550);
+          }
+        }else{
+          state.mistake += 1;
+          showToast('ลองดูเป้าหมายอีกครั้งนะ');
+          updateStats();
+        }
+      }
+
+      function nextMainTarget(){
+        state.mainIndex += 1;
+
+        if(state.mainIndex >= state.mainTotal){
+          clearTimer();
+          showToast('จบเกมหลักแล้ว ไปเรียงลำดับกัน!');
+          setTimeout(() => setStage('order'), 500);
+          return;
+        }
+
+        const idx = state.mainIndex % ZONES.length;
+        state.mainTarget = ZONES[idx].id;
+        render();
+      }
+
+      function handleMainZone(zoneId){
+        if(zoneId === state.mainTarget){
+          state.score += 10;
+          state.correct += 1;
+          showToast('ถูกต้อง +10');
+          nextMainTarget();
+        }else{
+          state.score = Math.max(0, state.score - 2);
+          state.mistake += 1;
+          showToast('ยังไม่ใช่จุดนี้ ลองใหม่');
+          updateStats();
+        }
+      }
+
+      function handleOrderStep(stepId){
+        const target = ORDER_STEPS[state.orderIndex];
+
+        if(!target) {
+          setStage('summary');
+          return;
+        }
+
+        if(stepId === target.id){
+          state.orderDone.add(stepId);
+          state.orderIndex += 1;
+          state.score += 6;
+          state.correct += 1;
+          showToast('ลำดับถูกต้อง!');
+
+          if(state.orderIndex >= ORDER_STEPS.length){
+            showToast('เรียงครบแล้ว!');
+            setTimeout(() => setStage('summary'), 500);
+          }else{
+            render();
+          }
+        }else{
+          state.score = Math.max(0, state.score - 2);
+          state.mistake += 1;
+          showToast('ลำดับยังไม่ถูก ลองคิดอีกที');
+          updateStats();
+        }
+      }
+
+      document.addEventListener('click', (e) => {
+        const el = e.target.closest('[data-action]');
+        if(!el) return;
+
+        const action = el.dataset.action;
+
+        if(action === 'go-howto') setStage('howto');
+        else if(action === 'go-practice') setStage('practice');
+        else if(action === 'go-main') setStage('main');
+        else if(action === 'finish-main') setStage('order');
+        else if(action === 'go-summary') setStage('summary');
+        else if(action === 'restart') restart();
+        else if(action === 'back-zone') goBack();
+        else if(action === 'zone') handlePracticeZone(el.dataset.zone);
+        else if(action === 'main-zone') handleMainZone(el.dataset.zone);
+        else if(action === 'order-step') handleOrderStep(el.dataset.step);
+      });
+
+      document.getElementById('btnBack')?.addEventListener('click', goBack);
+      document.getElementById('btnRestart')?.addEventListener('click', restart);
+
+      window.addEventListener('beforeunload', () => clearTimer());
+
+      render();
+    })();
   </script>
 </body>
 </html>
