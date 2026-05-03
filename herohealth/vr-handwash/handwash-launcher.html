@@ -15,11 +15,11 @@
       --ink:#17384f;
       --muted:#5f7f92;
       --line:#cdeffc;
-      --card:#ffffff;
       --sky:#8be8ff;
-      --blue:#45c9f5;
       --green:#80df96;
+      --green2:#48c96a;
       --yellow:#ffd95d;
+      --yellow2:#fff2a8;
       --pink:#ffc8de;
       --shadow:0 16px 36px rgba(23,56,79,.12);
       --shadow-soft:0 8px 20px rgba(23,56,79,.08);
@@ -48,14 +48,21 @@
         linear-gradient(180deg,var(--bg2),var(--bg1));
     }
 
-    button,a{
+    button,a,input,select{
       font:inherit;
       color:inherit;
     }
 
+    button{
+      cursor:pointer;
+      -webkit-user-select:none;
+      user-select:none;
+      touch-action:manipulation;
+    }
+
     .page{
       min-height:100dvh;
-      width:min(960px,100%);
+      width:min(980px,100%);
       margin:0 auto;
       padding:
         calc(14px + var(--sat))
@@ -70,16 +77,16 @@
     .card{
       border-radius:32px;
       border:2px solid var(--line);
-      background:rgba(255,255,255,.92);
+      background:rgba(255,255,255,.94);
       box-shadow:var(--shadow);
       overflow:hidden;
       position:relative;
     }
 
     .hero{
-      min-height:420px;
+      min-height:430px;
       display:grid;
-      grid-template-columns:minmax(0,1fr) 280px;
+      grid-template-columns:minmax(0,1fr) 290px;
       gap:18px;
       align-items:center;
       padding:24px;
@@ -188,11 +195,10 @@
     }
 
     .modeBtn{
-      min-height:48px;
+      min-height:52px;
       border:0;
       border-radius:16px;
       padding:10px 12px;
-      cursor:pointer;
       font-weight:1000;
       color:#17384f;
       outline:3px solid transparent;
@@ -217,16 +223,15 @@
     }
 
     .startBtn{
-      min-height:64px;
+      min-height:66px;
       border:0;
       border-radius:22px;
       padding:14px 20px;
-      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      background:linear-gradient(180deg,var(--yellow2),var(--yellow));
       color:#503c00;
       box-shadow:0 16px 26px rgba(255,216,77,.24);
       font-size:20px;
       font-weight:1000;
-      cursor:pointer;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -234,7 +239,7 @@
     }
 
     .backBtn{
-      min-height:64px;
+      min-height:66px;
       border:0;
       border-radius:22px;
       padding:14px 18px;
@@ -243,14 +248,13 @@
       box-shadow:var(--shadow-soft);
       font-size:18px;
       font-weight:1000;
-      cursor:pointer;
       white-space:nowrap;
     }
 
     .art{
       position:relative;
       z-index:1;
-      min-height:300px;
+      min-height:310px;
       border-radius:30px;
       border:2px dashed rgba(23,56,79,.14);
       background:
@@ -298,7 +302,7 @@
       bottom:18px;
       border-radius:20px;
       padding:12px 14px;
-      background:rgba(255,255,255,.88);
+      background:rgba(255,255,255,.90);
       border:2px solid rgba(255,255,255,.9);
       color:#37566e;
       text-align:center;
@@ -307,10 +311,45 @@
       line-height:1.35;
     }
 
+    .simpleConfig{
+      display:grid;
+      grid-template-columns:1fr 150px 150px;
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .field span{
+      font-size:13px;
+      color:#5f7f92;
+      font-weight:1000;
+    }
+
+    .field input,
+    .field select{
+      min-height:48px;
+      width:100%;
+      border-radius:16px;
+      border:2px solid #d7f0fb;
+      background:#fff;
+      padding:10px 12px;
+      font-weight:1000;
+      outline:none;
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:#22d3ee;
+      box-shadow:0 0 0 4px rgba(34,211,238,.16);
+    }
+
     details.teacher{
       border-radius:24px;
       border:2px solid var(--line);
-      background:rgba(255,255,255,.86);
+      background:rgba(255,255,255,.88);
       box-shadow:var(--shadow-soft);
       padding:14px;
     }
@@ -338,10 +377,9 @@
     }
 
     .teacherBtn{
-      min-height:48px;
+      min-height:50px;
       border:0;
       border-radius:16px;
-      cursor:pointer;
       font-weight:1000;
       background:#fff;
       border:2px solid var(--line);
@@ -362,6 +400,7 @@
       .art{ min-height:220px; }
       .bigAction{ grid-template-columns:1fr; }
       .backBtn{ width:100%; }
+      .simpleConfig{ grid-template-columns:1fr; }
     }
 
     @media (max-width:560px){
@@ -405,23 +444,49 @@
         <h1>ล้างมือให้สะอาด!</h1>
 
         <p class="lead">
-          เริ่มจากวิธีเล่นสั้น ๆ แล้วฝึกถูมือ เล่นเกมจริง ทบทวนลำดับ และดูสรุปผล
+          กดเริ่มเล่น แล้วเข้าเกมล้างมือแบบปุ่มจริง กดได้ง่ายขึ้น
+          ฝึกตามขั้นตอน WHO ตั้งแต่เปิดน้ำ ใส่สบู่ ถูมือ ล้างน้ำ และเช็ดมือ
         </p>
 
         <div class="flowLine" aria-label="ลำดับการเล่น">
           <div class="flowStep">1<br>วิธีเล่น</div>
           <div class="flowStep">2<br>ฝึกก่อน</div>
-          <div class="flowStep">3<br>เล่นจริง</div>
+          <div class="flowStep">3<br>ล้างมือจริง</div>
           <div class="flowStep">4<br>เรียงลำดับ</div>
           <div class="flowStep">5<br>สรุปผล</div>
         </div>
 
+        <div class="simpleConfig">
+          <label class="field">
+            <span>ชื่อผู้เล่น</span>
+            <input id="fieldName" type="text" maxlength="40" placeholder="Hero" />
+          </label>
+
+          <label class="field">
+            <span>ระดับ</span>
+            <select id="fieldDiff">
+              <option value="easy">easy</option>
+              <option value="normal">normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>เวลา</span>
+            <select id="fieldTime">
+              <option value="60">60 วินาที</option>
+              <option value="90">90 วินาที</option>
+              <option value="120">120 วินาที</option>
+            </select>
+          </label>
+        </div>
+
         <div class="modeBox" aria-label="เลือกโหมดการเล่น">
-          <div class="modeTitle">เลือกโหมดเครื่อง</div>
+          <div class="modeTitle">เลือกอุปกรณ์</div>
           <div class="modeRow">
             <button class="modeBtn mobile" id="modeMobile" type="button" data-view="mobile">📱 Mobile</button>
             <button class="modeBtn pc" id="modePc" type="button" data-view="pc">🖥️ PC</button>
-            <button class="modeBtn cvr" id="modeVr" type="button" data-view="cvr">🥽 VR</button>
+            <button class="modeBtn cvr" id="modeVr" type="button" data-view="cvr">🥽 Cardboard</button>
           </div>
         </div>
 
@@ -450,11 +515,12 @@
       <div class="teacherGrid">
         <button class="teacherBtn" id="btnPc" type="button">เข้า PC</button>
         <button class="teacherBtn" id="btnMobile" type="button">เข้า Mobile</button>
-        <button class="teacherBtn" id="btnVr" type="button">เข้า Cardboard VR</button>
+        <button class="teacherBtn" id="btnVr" type="button">เข้า Cardboard</button>
       </div>
 
       <div class="hint">
-        ส่วนนี้ซ่อนไว้สำหรับครูหรือผู้ทดสอบ เด็กทั่วไปใช้ปุ่ม “เริ่มเล่น” ปุ่มเดียวก็พอ
+        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503h-static-safe</strong>
+        ซึ่งใช้ปุ่ม HTML จริง ไม่พึ่ง hitbox ลอย เพื่อแก้ปัญหากดแล้วไม่ตอบสนอง
       </div>
     </details>
   </main>
@@ -465,55 +531,34 @@
 
       const qs = new URLSearchParams(location.search);
 
+      const STORAGE_KEY = 'HH_HANDWASH_LAUNCHER_PREFS';
+      const VIEW_KEY = 'HH_HANDWASH_VIEW';
+
+      /*
+       * ใช้ handwash-v2.html สำหรับทุกอุปกรณ์ก่อน
+       * เพื่อให้ "เล่นได้จริง" ด้วย static-safe buttons
+       * ถ้าจะกลับไปใช้ handwash-vr.html ภายหลัง ค่อย patch ไฟล์ VR แยกอีกครั้ง
+       */
       const TARGETS = {
-        pc: './handwash-v2.html?v=20260503c-hitbox',
-        mobile: './handwash-v2.html?v=20260503c-hitbox',
-        cvr: './handwash-vr.html?v=20260503c-hitbox'
+        pc: './handwash-v2.html?v=20260503h-static-safe',
+        mobile: './handwash-v2.html?v=20260503h-static-safe',
+        cvr: './handwash-v2.html?v=20260503h-static-safe'
       };
 
-      const PLAY_KEYS = [
-        'pid',
-        'name',
-        'diff',
-        'time',
-        'miniTime',
-        'view',
-        'run',
-        'hub'
-      ];
-
-      const RESEARCH_KEYS = [
-        'studyId',
-        'conditionGroup',
-        'sessionOrder',
-        'blockLabel',
-        'siteCode',
-        'schoolYear',
-        'semester',
-        'studentKey',
-        'schoolCode',
-        'schoolName',
-        'classRoom',
-        'studentNo',
-        'nickName',
-        'gender',
-        'age',
-        'gradeLevel',
-        'api',
-        'log'
-      ];
+      const fieldName = document.getElementById('fieldName');
+      const fieldDiff = document.getElementById('fieldDiff');
+      const fieldTime = document.getElementById('fieldTime');
 
       const modeButtons = Array.from(document.querySelectorAll('[data-view]'));
       const btnStart = document.getElementById('btnStart');
       const btnBackHub = document.getElementById('btnBackHub');
       const modeTip = document.getElementById('modeTip');
 
-      let selectedView = first(
+      let selectedView = normalizeView(first(
         qs.get('view'),
-        localStorage.getItem('HH_HANDWASH_VIEW'),
-        localStorage.getItem('HH_LAST_VIEW'),
+        storageGet(VIEW_KEY, ''),
         'mobile'
-      );
+      ));
 
       function first(){
         for(let i = 0; i < arguments.length; i++){
@@ -523,12 +568,64 @@
         return '';
       }
 
-      function isResearchRun(){
-        return (
-          qs.get('run') === 'research' ||
-          qs.get('log') === '1' ||
-          !!first(qs.get('studyId'))
-        );
+      function storageGet(key, fallback){
+        try{
+          const v = localStorage.getItem(key);
+          return v == null ? fallback : v;
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function storageSet(key, value){
+        try{
+          localStorage.setItem(key, value);
+        }catch(_){}
+      }
+
+      function safeJsonParse(raw, fallback){
+        try{
+          return JSON.parse(raw);
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function getPrefs(){
+        const raw = storageGet(STORAGE_KEY, '');
+        const data = safeJsonParse(raw, null);
+        return data && typeof data === 'object' ? data : {};
+      }
+
+      function savePrefs(){
+        storageSet(STORAGE_KEY, JSON.stringify({
+          name: fieldName.value.trim() || 'Hero',
+          diff: fieldDiff.value || 'normal',
+          time: fieldTime.value || '90',
+          view: selectedView
+        }));
+      }
+
+      function normalizeView(view){
+        view = String(view || '').trim().toLowerCase();
+        if(view === 'vr') return 'cvr';
+        if(view === 'cardboard') return 'cvr';
+        if(view === 'pc') return 'pc';
+        if(view === 'cvr') return 'cvr';
+        return 'mobile';
+      }
+
+      function normalizeDiff(diff){
+        diff = String(diff || '').trim().toLowerCase();
+        if(diff === 'easy') return 'easy';
+        if(diff === 'hard') return 'hard';
+        return 'normal';
+      }
+
+      function normalizeTime(time){
+        time = String(time || '').trim();
+        if(time === '60' || time === '90' || time === '120') return time;
+        return '90';
       }
 
       function cleanReturnUrl(raw){
@@ -553,22 +650,37 @@
         }
       }
 
-      function normalizeView(view){
-        view = String(view || '').toLowerCase();
-        if(view === 'vr') return 'cvr';
-        if(view === 'cardboard') return 'cvr';
-        if(view === 'pc') return 'pc';
-        if(view === 'cvr') return 'cvr';
-        return 'mobile';
+      function getHubHref(){
+        return cleanReturnUrl(first(qs.get('hub'), qs.get('zoneReturn'), '../hygiene-zone.html'));
+      }
+
+      function loadInitialValues(){
+        const saved = getPrefs();
+
+        fieldName.value = first(
+          qs.get('name'),
+          qs.get('nick'),
+          qs.get('nickName'),
+          saved.name,
+          'Hero'
+        );
+
+        fieldDiff.value = normalizeDiff(first(
+          qs.get('diff'),
+          saved.diff,
+          'normal'
+        ));
+
+        fieldTime.value = normalizeTime(first(
+          qs.get('time'),
+          saved.time,
+          '90'
+        ));
       }
 
       function setSelectedView(view){
         selectedView = normalizeView(view);
-
-        try{
-          localStorage.setItem('HH_HANDWASH_VIEW', selectedView);
-          localStorage.setItem('HH_LAST_VIEW', selectedView);
-        }catch(_){}
+        storageSet(VIEW_KEY, selectedView);
 
         modeButtons.forEach(btn => {
           const active = normalizeView(btn.dataset.view) === selectedView;
@@ -578,76 +690,74 @@
 
         if(selectedView === 'pc'){
           btnStart.textContent = '▶ เริ่มเล่นบน PC';
-          modeTip.textContent = 'เริ่มจากวิธีเล่นก่อน แล้วค่อยฝึกจริง';
+          modeTip.textContent = 'โหมด PC ใช้เมาส์กดปุ่มใหญ่หรือปุ่มสีเหลือง';
         }else if(selectedView === 'cvr'){
-          btnStart.textContent = '▶ เริ่มเล่นแบบ VR';
-          modeTip.textContent = 'เริ่มจากวิธีเล่นแบบ VR';
+          btnStart.textContent = '▶ เริ่มเล่นแบบ Cardboard';
+          modeTip.textContent = 'ตอนนี้ Cardboard ใช้หน้า static-safe ก่อน เพื่อให้กดได้แน่นอน';
         }else{
           btnStart.textContent = '▶ เริ่มเล่นบน Mobile';
-          modeTip.textContent = 'แนะนำสำหรับเด็ก เริ่มจากวิธีเล่นก่อน';
-        }
-      }
-
-      function buildSharedParams(){
-        const params = new URLSearchParams();
-
-        PLAY_KEYS.forEach((key) => {
-          const value = qs.get(key);
-          if(value !== null && value !== '') params.set(key, value);
-        });
-
-        if(!params.get('pid')) params.set('pid', 'anon');
-        if(!params.get('name')) params.set('name', first(qs.get('nick'), qs.get('nickName'), 'Hero'));
-        if(!params.get('diff')) params.set('diff', 'normal');
-        if(!params.get('time')) params.set('time', '90');
-        if(!params.get('miniTime')) params.set('miniTime', '60');
-        if(!params.get('run')) params.set('run', 'play');
-
-        params.set('view', selectedView);
-        params.set('hub', cleanReturnUrl(params.get('hub')));
-
-        if(isResearchRun()){
-          RESEARCH_KEYS.forEach((key) => {
-            const value = qs.get(key);
-            if(value !== null && value !== '') params.set(key, value);
-          });
+          modeTip.textContent = 'แนะนำสำหรับเด็ก ใช้นิ้วแตะปุ่มใหญ่ได้เลย';
         }
 
-        return params;
+        savePrefs();
       }
 
-      function addFullFlowParams(url){
+      function buildGameUrl(view, extra = {}){
+        view = normalizeView(view);
+
+        const target = TARGETS[view] || TARGETS.mobile;
+        const url = new URL(target, location.href);
+
+        const name = fieldName.value.trim() || 'Hero';
+        const diff = normalizeDiff(fieldDiff.value);
+        const time = normalizeTime(fieldTime.value);
+
+        url.searchParams.set('pid', first(qs.get('pid'), 'anon'));
+        url.searchParams.set('name', name);
+        url.searchParams.set('nick', name);
+        url.searchParams.set('diff', diff);
+        url.searchParams.set('time', time);
+        url.searchParams.set('miniTime', first(qs.get('miniTime'), '60'));
+        url.searchParams.set('view', view);
+        url.searchParams.set('run', first(qs.get('run'), 'play'));
+
         url.searchParams.set('zone', 'hygiene');
+        url.searchParams.set('cat', 'hygiene');
         url.searchParams.set('game', 'handwash');
+        url.searchParams.set('gameId', 'handwash');
+        url.searchParams.set('theme', 'handwash');
         url.searchParams.set('mode', 'solo');
 
         url.searchParams.set('flow', 'full');
         url.searchParams.set('stage', 'howto');
-
         url.searchParams.set('howto', '1');
         url.searchParams.set('practice', '1');
         url.searchParams.set('mainGame', '1');
         url.searchParams.set('miniOrder', '1');
         url.searchParams.set('summary', '1');
 
-        url.searchParams.set('nextStage', 'practice');
-        url.searchParams.set('returnStage', 'summary');
-      }
+        url.searchParams.set('hub', getHubHref());
 
-      function goTo(view, extra = {}){
-        view = normalizeView(view);
-
-        const base = TARGETS[view] || TARGETS.mobile;
-        const url = new URL(base, location.href);
-        const params = buildSharedParams();
-
-        params.set('view', view);
-
-        params.forEach((value, key) => {
-          url.searchParams.set(key, value);
+        /*
+         * ส่งเฉพาะข้อมูลจำเป็น
+         * ข้อมูล research/log จะส่งต่อเฉพาะเมื่อมีอยู่ใน URL เดิมจริง
+         */
+        [
+          'studyId',
+          'conditionGroup',
+          'studentKey',
+          'schoolCode',
+          'classRoom',
+          'studentNo',
+          'section',
+          'api',
+          'log'
+        ].forEach(key => {
+          const value = qs.get(key);
+          if(value !== null && value !== ''){
+            url.searchParams.set(key, value);
+          }
         });
-
-        addFullFlowParams(url);
 
         Object.entries(extra).forEach(([key, value]) => {
           if(value !== undefined && value !== null && String(value) !== ''){
@@ -655,28 +765,17 @@
           }
         });
 
-        location.href = url.toString();
+        return url.toString();
       }
 
-      function goSelected(){
-        if(selectedView === 'pc'){
-          goTo('pc', { strictGesture: 0 });
-          return;
-        }
-
-        if(selectedView === 'cvr'){
-          goTo('cvr', { flow:'full', stage:'howto' });
-          return;
-        }
-
-        goTo('mobile', {
-          strictGesture: 0,
-          mobileFreeScrub: 1
-        });
+      function start(view){
+        setSelectedView(view || selectedView);
+        savePrefs();
+        location.href = buildGameUrl(selectedView);
       }
 
       function goBack(){
-        location.href = cleanReturnUrl(qs.get('hub'));
+        location.href = getHubHref();
       }
 
       modeButtons.forEach(btn => {
@@ -685,32 +784,26 @@
         });
       });
 
-      btnStart.addEventListener('click', goSelected);
+      [fieldName, fieldDiff, fieldTime].forEach(node => {
+        node.addEventListener('input', savePrefs);
+        node.addEventListener('change', savePrefs);
+      });
+
+      btnStart.addEventListener('click', () => start(selectedView));
       btnBackHub.addEventListener('click', goBack);
 
-      document.getElementById('btnPc')?.addEventListener('click', () => {
-        setSelectedView('pc');
-        goTo('pc', { strictGesture: 0 });
-      });
+      document.getElementById('btnPc')?.addEventListener('click', () => start('pc'));
+      document.getElementById('btnMobile')?.addEventListener('click', () => start('mobile'));
+      document.getElementById('btnVr')?.addEventListener('click', () => start('cvr'));
 
-      document.getElementById('btnMobile')?.addEventListener('click', () => {
-        setSelectedView('mobile');
-        goTo('mobile', { strictGesture: 0, mobileFreeScrub: 1 });
-      });
-
-      document.getElementById('btnVr')?.addEventListener('click', () => {
-        setSelectedView('cvr');
-        goTo('cvr', { flow:'full', stage:'howto' });
-      });
-
+      loadInitialValues();
       setSelectedView(selectedView);
 
       window.__handwashLauncher = {
-        start: goSelected,
-        goPc: () => goTo('pc', { strictGesture: 0 }),
-        goMobile: () => goTo('mobile', { strictGesture: 0, mobileFreeScrub: 1 }),
-        goVr: () => goTo('cvr', { flow:'full', stage:'howto' }),
-        back: goBack
+        start,
+        back: goBack,
+        buildGameUrl,
+        setSelectedView
       };
     })();
   </script>
