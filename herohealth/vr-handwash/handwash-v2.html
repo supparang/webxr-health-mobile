@@ -562,8 +562,50 @@
       transform:translateX(-50%);
       width:170px;
       height:110px;
-      z-index:6;
-      pointer-events:none;
+      z-index:35;
+      pointer-events:auto;
+      cursor:pointer;
+      border-radius:28px;
+      touch-action:manipulation;
+    }
+
+    .faucet::after{
+      content:"แตะก๊อกน้ำ";
+      position:absolute;
+      left:50%;
+      top:92px;
+      transform:translateX(-50%);
+      min-width:112px;
+      min-height:30px;
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      border:2px solid #bdf4ff;
+      color:#37566e;
+      font-size:12px;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 8px 18px rgba(23,56,79,.10);
+    }
+
+    .faucet.is-on::after{
+      content:"น้ำเปิดอยู่";
+      background:#effcf3;
+      border-color:#b8eec6;
+      color:#166534;
+    }
+
+    .faucet.need-tap{
+      animation:faucetPulse 1s ease-in-out infinite;
+    }
+
+    @keyframes faucetPulse{
+      0%,100%{
+        filter:drop-shadow(0 0 0 rgba(34,211,238,0));
+      }
+      50%{
+        filter:drop-shadow(0 0 18px rgba(34,211,238,.75));
+      }
     }
 
     .faucetPipe{
@@ -1048,7 +1090,7 @@
     <section class="panel">
       <section id="screen-howto" class="screen active">
         <div class="grid">
-          <article class="card"><div class="cardIcon">🚿</div><h2>เปิดน้ำจริง</h2><p>กดปุ่มเปิดน้ำให้มือเปียก และล้างฟองออกตอนท้าย</p></article>
+          <article class="card"><div class="cardIcon">🚿</div><h2>แตะก๊อกน้ำได้</h2><p>ในเกมกดรูปก๊อกน้ำด้านบนได้จริง หรือกดปุ่มเปิดน้ำด้านซ้ายก็ได้</p></article>
           <article class="card"><div class="cardIcon">🫧</div><h2>กดสบู่</h2><p>กดขวดสบู่ก่อนฟอกมือ ถ้ายังไม่มีสบู่ เกมจะเตือน</p></article>
           <article class="card"><div class="cardIcon">👆</div><h2>ดูชื่อจุดบนมือ</h2><p>วงสีเหลืองจะบอกชัดเจนว่าให้แตะ ฝ่ามือ ซอกนิ้ว ปลายนิ้ว หรือข้อมือ</p></article>
           <article class="card"><div class="cardIcon">🧠</div><h2>ตามขั้นตอน WHO</h2><p>ฝ่ามือ หลังมือ ซอกนิ้ว หลังนิ้ว นิ้วโป้ง ปลายนิ้ว ข้อมือ ล้างน้ำ และเช็ดมือ</p></article>
@@ -1080,7 +1122,7 @@
           </div>
 
           <div class="handScene">
-            <div class="faucet" aria-hidden="true">
+            <div class="faucet" aria-hidden="true" style="pointer-events:none;">
               <div class="tapKnob">💧</div>
               <div class="faucetBase"></div>
               <div class="faucetPipe"></div>
@@ -1115,8 +1157,8 @@
         <div class="simLayout">
           <div class="stepPanel">
             <span class="stepChip" id="mainStepChip">ขั้นที่ 1/11</span>
-            <h2 class="stepTitle" id="mainStepTitle">💧 เปิดน้ำให้มือเปียก</h2>
-            <p class="stepText" id="mainStepText">กดเปิดน้ำ แล้วกดปุ่มสีเหลืองให้มือเปียก</p>
+            <h2 class="stepTitle" id="mainStepTitle">💧 เปิดก๊อกน้ำให้มือเปียก</h2>
+            <p class="stepText" id="mainStepText">แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง</p>
 
             <div class="progressWrap"><div class="progressBar" id="mainBar"></div></div>
 
@@ -1139,12 +1181,12 @@
 
             <div class="feedback warn" id="mainFeedback">
               <span id="mainFeedbackIcon">🚿</span>
-              <span id="mainFeedbackText">กดเปิดน้ำก่อนนะ</span>
+              <span id="mainFeedbackText">แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำก่อนนะ</span>
             </div>
           </div>
 
           <div class="handScene">
-            <div class="faucet" aria-hidden="true">
+            <div class="faucet need-tap" id="mainFaucet" data-click="water" role="button" tabindex="0" aria-label="เปิดหรือปิดน้ำ">
               <div class="tapKnob">💧</div>
               <div class="faucetBase"></div>
               <div class="faucetPipe"></div>
@@ -1169,7 +1211,7 @@
               <div class="sparkLayer" id="sparkLayer"></div>
             </div>
 
-            <div class="scrubHint" id="mainHint">กดเปิดน้ำก่อน</div>
+            <div class="scrubHint" id="mainHint">แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ</div>
           </div>
         </div>
 
@@ -1242,7 +1284,7 @@
       const qs = new URLSearchParams(location.search);
 
       const WHO = [
-        { id:'wet', type:'water', title:'เปิดน้ำให้มือเปียก', short:'เปียกมือ', label:'เปียกมือ', big:'ทำให้มือเปียก', emoji:'💧', target:'all', needWater:true, needSoap:false, goal:100, text:'กดเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง' },
+        { id:'wet', type:'water', title:'เปิดก๊อกน้ำให้มือเปียก', short:'เปียกมือ', label:'เปียกมือ', big:'ทำให้มือเปียก', emoji:'💧', target:'all', needWater:true, needSoap:false, goal:100, text:'แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง' },
         { id:'soap', type:'soap', title:'ใส่สบู่', short:'ใส่สบู่', label:'ใส่สบู่', big:'กดสบู่', emoji:'🫧', target:'all', needWater:false, needSoap:false, goal:1, text:'กดขวดสบู่ หรือปุ่มกดสบู่ เพื่อใส่สบู่บนมือ' },
         { id:'palm', type:'scrub', title:'ถูฝ่ามือ', short:'ฝ่ามือ', label:'ฝ่ามือ', big:'แตะฝ่ามือ', emoji:'🤲', target:'palm', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูฝ่ามือที่วงสีเหลือง ให้ฟองขึ้นจนเต็ม' },
         { id:'back', type:'scrub', title:'ถูหลังมือ', short:'หลังมือ', label:'หลังมือ', big:'แตะหลังมือ', emoji:'✋', target:'back', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังมือที่วงสีเหลืองให้สะอาด' },
@@ -1251,7 +1293,7 @@
         { id:'thumb', type:'scrub', title:'ถูนิ้วโป้ง', short:'นิ้วโป้ง', label:'นิ้วโป้ง', big:'แตะนิ้วโป้ง', emoji:'👍', target:'thumb', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูรอบนิ้วโป้งที่วงสีเหลือง' },
         { id:'fingertips', type:'scrub', title:'ถูปลายนิ้วและเล็บ', short:'ปลายนิ้ว', label:'ปลายนิ้ว', big:'แตะปลายนิ้ว', emoji:'☝️', target:'fingertips', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูปลายนิ้วและเล็บที่วงสีเหลือง' },
         { id:'wrist', type:'scrub', title:'ถูข้อมือ', short:'ข้อมือ', label:'ข้อมือ', big:'แตะข้อมือ', emoji:'💪', target:'wrist', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูข้อมือที่วงสีเหลือง' },
-        { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างฟอง', label:'ล้างฟอง', big:'ล้างฟองออก', emoji:'🚿', target:'all', needWater:true, needSoap:false, goal:100, text:'เปิดน้ำ แล้วแตะล้างฟองที่วงสีเหลือง' },
+        { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างฟอง', label:'ล้างฟอง', big:'ล้างฟองออก', emoji:'🚿', target:'all', needWater:true, needSoap:false, goal:100, text:'แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะล้างฟองที่วงสีเหลือง' },
         { id:'dry', type:'dry', title:'เช็ดมือให้แห้ง', short:'เช็ดมือ', label:'เช็ดมือ', big:'เช็ดมือให้แห้ง', emoji:'🧻', target:'all', needWater:false, needSoap:false, goal:100, text:'กดใช้ผ้า แล้วแตะเช็ดมือที่วงสีเหลือง' }
       ];
 
@@ -1321,6 +1363,7 @@
         mainFeedbackText:$('mainFeedbackText'),
 
         waterStream:$('waterStream'),
+        mainFaucet:$('mainFaucet'),
         btnWater:$('btnWater'),
         btnSoap:$('btnSoap'),
         btnTowel:$('btnTowel'),
@@ -1434,7 +1477,7 @@
         const map = {
           howto:['🫧 วิธีเล่น','มาดูวิธีล้างมือกัน!','ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง','🧼'],
           practice:['🤲 ฝึกก่อน','ฝึกแตะส่วนของมือ','ดูชื่อในวงสีเหลือง แล้วแตะส่วนนั้นของมือ','🤲'],
-          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','เปิดน้ำ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
+          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','แตะก๊อกน้ำ ใส่สบู่ ถูแต่ละส่วน ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
           order:['🧠 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','กดขั้นตอนตามลำดับที่ถูกต้อง','🧠'],
           summary:['⭐ สรุปผล','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และคำแนะนำสั้น ๆ','🏆']
         };
@@ -1495,6 +1538,12 @@
         el.mainHint.textContent = hint(step);
 
         el.waterStream.classList.toggle('on', state.waterOn);
+
+        if(el.mainFaucet){
+          el.mainFaucet.classList.toggle('is-on', state.waterOn);
+          el.mainFaucet.classList.toggle('need-tap', !state.waterOn && (step.type === 'water' || step.type === 'rinse'));
+        }
+
         el.btnWater.classList.toggle('active', state.waterOn);
         el.btnSoap.classList.toggle('done', state.hasSoap);
         el.btnTowel.classList.toggle('active', state.usingTowel);
@@ -1517,17 +1566,48 @@
       }
 
       function hint(step){
-        if(step.type === 'water') return state.waterOn ? 'แตะเปียกมือที่วงสีเหลือง' : 'กดเปิดน้ำก่อน';
-        if(step.type === 'soap') return 'กดขวดสบู่ หรือปุ่มกดสบู่';
-        if(step.type === 'rinse') return state.waterOn ? 'แตะล้างฟองที่วงสีเหลือง' : 'เปิดน้ำก่อนล้างฟอง';
-        if(step.type === 'dry') return state.usingTowel ? 'แตะเช็ดมือที่วงสีเหลือง' : 'กดใช้ผ้าเช็ดมือก่อน';
+        if(step.type === 'water'){
+          return state.waterOn
+            ? 'แตะเปียกมือที่วงสีเหลือง'
+            : 'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ';
+        }
+
+        if(step.type === 'soap'){
+          return 'กดขวดสบู่ หรือปุ่มกดสบู่';
+        }
+
+        if(step.type === 'rinse'){
+          return state.waterOn
+            ? 'แตะล้างฟองที่วงสีเหลือง'
+            : 'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำก่อนล้างฟอง';
+        }
+
+        if(step.type === 'dry'){
+          return state.usingTowel
+            ? 'แตะเช็ดมือที่วงสีเหลือง'
+            : 'กดใช้ผ้าเช็ดมือก่อน';
+        }
+
         return `แตะ${step.label}ที่วงสีเหลือง`;
       }
 
       function feedback(step){
-        if(step.needWater && !state.waterOn) return { cls:'warn', icon:'🚿', text:'กดเปิดน้ำก่อนนะ' };
-        if(step.needSoap && !state.hasSoap) return { cls:'warn', icon:'🫧', text:'กดสบู่ก่อนฟอกมือ' };
-        if(step.type === 'dry' && !state.usingTowel) return { cls:'warn', icon:'🧻', text:'กดผ้าเช็ดมือก่อนนะ' };
+        if(step.needWater && !state.waterOn){
+          return {
+            cls:'warn',
+            icon:'🚿',
+            text:'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำก่อนนะ'
+          };
+        }
+
+        if(step.needSoap && !state.hasSoap){
+          return { cls:'warn', icon:'🫧', text:'กดสบู่ก่อนฟอกมือ' };
+        }
+
+        if(step.type === 'dry' && !state.usingTowel){
+          return { cls:'warn', icon:'🧻', text:'กดผ้าเช็ดมือก่อนนะ' };
+        }
+
         return { cls:'good', icon:'✅', text:`พร้อมแล้ว แตะ${step.label}ได้เลย` };
       }
 
@@ -1541,7 +1621,7 @@
 
         if(step.needWater && !state.waterOn){
           state.mistake += 1;
-          showToast('เปิดน้ำก่อนนะ');
+          showToast('แตะก๊อกน้ำก่อนนะ');
           updateStats();
           return;
         }
@@ -1712,7 +1792,7 @@
           const summary = {
             game:'handwash',
             zone:'hygiene',
-            flow:'static-safe-big-hand-label',
+            flow:'static-safe-big-hand-label-faucet-click',
             score:state.score,
             stars,
             completedSteps:completed,
@@ -1768,7 +1848,7 @@
         stopTimer();
         const u = new URL(location.href);
         u.searchParams.set('stage','howto');
-        u.searchParams.set('v','20260503i-big-hand-label');
+        u.searchParams.set('v','20260503j-faucet-click');
         location.href = u.toString();
       }
 
@@ -1829,6 +1909,15 @@
             return;
           }
 
+          e.preventDefault();
+          run(btn.dataset.click, btn.dataset.value || '');
+        }, true);
+
+        document.addEventListener('keydown', function(e){
+          const btn = e.target.closest('[data-click]');
+          if(!btn || btn.disabled) return;
+
+          if(e.key !== 'Enter' && e.key !== ' ') return;
           e.preventDefault();
           run(btn.dataset.click, btn.dataset.value || '');
         }, true);
