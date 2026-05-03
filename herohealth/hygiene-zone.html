@@ -302,6 +302,7 @@
     .btn.primary{ background:linear-gradient(180deg,#fff2a8,#ffd84d); }
     .btn.secondary{ background:linear-gradient(180deg,#dcf8ff,#b7efff); }
     .btn.green{ background:linear-gradient(180deg,#dcfff2,#baf4cf); }
+    .btn.pink{ background:linear-gradient(180deg,#ffe3ef,#ffc9de); }
     .btn.ghost{ background:#fff; border:1px solid var(--line); box-shadow:none; }
 
     .tiny{
@@ -949,6 +950,43 @@
         return new URL('./hygiene-zone.html', current.href).toString();
       }
 
+      function buildLauncherParams(extra = {}){
+        const params = new URLSearchParams();
+        const cleanZoneReturn = getCleanZoneReturnUrl();
+
+        function setIfValue(key, value){
+          if(value !== undefined && value !== null && String(value).trim() !== ''){
+            params.set(key, String(value));
+          }
+        }
+
+        params.set('pid', safeGet('pid', DEFAULTS.pid));
+        params.set('name', firstNonEmpty(safeGet('name', ''), DEFAULTS.name));
+        params.set('diff', safeGet('diff', DEFAULTS.diff));
+        params.set('time', String(extra.time || safeGet('time', DEFAULTS.time)));
+        params.set('view', selectedView);
+        params.set('run', safeGet('run', DEFAULTS.run));
+        setIfValue('miniTime', extra.miniTime || safeGet('miniTime', ''));
+        params.set('hub', cleanZoneReturn);
+
+        return params;
+      }
+
+      function buildLauncherUrl(path, extra = {}){
+        const url = new URL(path, current.href);
+        const params = buildLauncherParams(extra);
+
+        params.forEach((value, key) => {
+          url.searchParams.set(key, value);
+        });
+
+        return url.toString();
+      }
+
+      function openLauncher(path, extra = {}){
+        location.assign(buildLauncherUrl(path, extra));
+      }
+
       function buildCommonParams(gameId, extra = {}){
         const params = new URLSearchParams();
         const cleanZoneReturn = getCleanZoneReturnUrl();
@@ -1008,10 +1046,9 @@
       }
 
       function openHandwash(){
-        openGame(PATHS.handwash, 'handwash', {
+        openLauncher(PATHS.handwash, {
           time: safeGet('time', DEFAULTS.time),
-          miniTime: safeGet('miniTime', DEFAULTS.miniTime),
-          mode: 'solo'
+          miniTime: safeGet('miniTime', DEFAULTS.miniTime)
         });
       }
 
