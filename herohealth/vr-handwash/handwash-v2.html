@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Handwash Static Safe</title>
+  <title>HeroHealth • WHO Clean Rush</title>
   <meta name="theme-color" content="#8be8ff" />
   <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
@@ -264,7 +264,7 @@
 
     .stats{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
+      grid-template-columns:repeat(7,minmax(0,1fr));
       gap:10px;
     }
 
@@ -291,6 +291,10 @@
       line-height:1;
       font-weight:1000;
     }
+
+    .stat.cleanStat .v{ color:#15803d; }
+    .stat.germStat .v{ color:#b91c1c; }
+    .stat.comboStat .v{ color:#c2410c; }
 
     .panel{
       padding:16px;
@@ -433,7 +437,7 @@
       min-height:84px;
       background:linear-gradient(180deg,#fff2a8,#ffd84d);
       color:#503c00;
-      font-size:22px;
+      font-size:18px;
       box-shadow:0 14px 24px rgba(255,216,77,.28);
     }
 
@@ -543,6 +547,45 @@
       background:#effcf3;
       border-color:#b8eec6;
       color:#166534;
+    }
+
+    .gestureGuide{
+      margin-top:8px;
+      border-radius:18px;
+      padding:10px 12px;
+      border:2px solid #d7f0fb;
+      background:linear-gradient(180deg,#f7fdff,#ffffff);
+      color:#37566e;
+      font-size:13px;
+      font-weight:1000;
+      line-height:1.45;
+    }
+
+    .stepClock{
+      min-height:36px;
+      border-radius:999px;
+      padding:8px 12px;
+      border:2px solid #ffe58d;
+      background:#fff8dc;
+      color:#7c5800;
+      font-size:13px;
+      font-weight:1000;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
+
+    .stepClock.danger{
+      border-color:#fecaca;
+      background:#fff3f3;
+      color:#991b1b;
+      animation:clockPulse .7s ease-in-out infinite;
+    }
+
+    @keyframes clockPulse{
+      0%,100%{ transform:scale(1); }
+      50%{ transform:scale(1.015); }
     }
 
     .handScene{
@@ -782,6 +825,19 @@
         0 0 0 10px rgba(255,216,77,.20),
         0 10px 24px rgba(80,60,0,.12);
       animation:targetPulse 1s ease-in-out infinite;
+      touch-action:none;
+    }
+
+    .hotspot.scrub-ready{
+      background:rgba(255,217,93,.44);
+    }
+
+    .hotspot.scrub-good{
+      border-color:#22c55e;
+      background:rgba(187,247,208,.60);
+      box-shadow:
+        0 0 0 10px rgba(34,197,94,.18),
+        0 12px 26px rgba(22,101,52,.14);
     }
 
     @keyframes targetPulse{
@@ -811,11 +867,60 @@
 
     .foamLayer,
     .dropLayer,
-    .sparkLayer{
+    .sparkLayer,
+    .germLayer,
+    .traceLayer{
       position:absolute;
       inset:0;
       pointer-events:none;
       z-index:65;
+    }
+
+    .germLayer,
+    .traceLayer{
+      z-index:68;
+    }
+
+    .germ{
+      position:absolute;
+      width:34px;
+      height:34px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      font-size:26px;
+      filter:drop-shadow(0 8px 10px rgba(23,56,79,.18));
+      animation:germWiggle .85s ease-in-out infinite;
+    }
+
+    .germ.red{
+      font-size:28px;
+      animation:germWiggle .55s ease-in-out infinite;
+    }
+
+    .germ.fading{
+      opacity:.36;
+      transform:scale(.72);
+    }
+
+    @keyframes germWiggle{
+      0%,100%{ transform:rotate(-4deg) scale(1); }
+      50%{ transform:rotate(5deg) scale(1.08); }
+    }
+
+    .traceDot{
+      position:absolute;
+      width:16px;
+      height:16px;
+      border-radius:999px;
+      background:rgba(255,255,255,.95);
+      border:2px solid rgba(34,211,238,.55);
+      box-shadow:0 0 14px rgba(34,211,238,.35);
+      animation:traceFade .55s ease-out forwards;
+    }
+
+    @keyframes traceFade{
+      to{ transform:scale(1.8); opacity:0; }
     }
 
     .foam{
@@ -882,6 +987,17 @@
       pointer-events:none;
     }
 
+    body.fever-on .handScene{
+      box-shadow:
+        var(--shadow-soft),
+        0 0 0 5px rgba(255,216,77,.26),
+        0 0 34px rgba(255,216,77,.42);
+    }
+
+    body.fever-on .hotspot{
+      animation:targetPulse .55s ease-in-out infinite;
+    }
+
     .orderList{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -901,6 +1017,283 @@
       background:#effcf3;
       border-color:#b8eec6;
       color:#166534;
+    }
+
+    .orderBoss{
+      border-radius:26px;
+      border:2px solid #d7f0fb;
+      background:
+        radial-gradient(circle at 88% 15%, rgba(255,217,93,.24), transparent 24%),
+        linear-gradient(180deg,#ffffff,#f7fdff);
+      box-shadow:var(--shadow-soft);
+      padding:14px;
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr);
+      gap:12px;
+      align-items:center;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .orderBoss.defeated{
+      border-color:#b8eec6;
+      background:linear-gradient(180deg,#effcf3,#ffffff);
+    }
+
+    .orderBoss.danger{
+      border-color:#fecaca;
+      background:linear-gradient(180deg,#fff3f3,#ffffff);
+    }
+
+    .bossAvatar{
+      width:78px;
+      height:78px;
+      border-radius:26px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      border:3px solid rgba(80,60,0,.14);
+      filter:drop-shadow(0 10px 14px rgba(23,56,79,.12));
+      animation:bossFloat 1.2s ease-in-out infinite;
+    }
+
+    .orderBoss.hit .bossAvatar{
+      animation:bossHit .35s ease-in-out;
+    }
+
+    @keyframes bossFloat{
+      0%,100%{ transform:translateY(0) rotate(-2deg); }
+      50%{ transform:translateY(-4px) rotate(2deg); }
+    }
+
+    @keyframes bossHit{
+      0%{ transform:translateX(0) scale(1); }
+      30%{ transform:translateX(-8px) scale(1.08); }
+      60%{ transform:translateX(8px) scale(.96); }
+      100%{ transform:translateX(0) scale(1); }
+    }
+
+    .bossInfo{
+      display:grid;
+      gap:8px;
+      min-width:0;
+    }
+
+    .bossTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-weight:1000;
+      color:#12324b;
+      font-size:18px;
+    }
+
+    .bossTitle small{
+      color:#5f7f92;
+      font-size:12px;
+      white-space:nowrap;
+    }
+
+    .bossHpWrap{
+      height:22px;
+      border-radius:999px;
+      border:2px solid #fecaca;
+      background:#fff3f3;
+      overflow:hidden;
+    }
+
+    .bossHpBar{
+      height:100%;
+      width:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ef4444,#fb923c,#ffd84d);
+      transition:width .25s ease;
+    }
+
+    .bossLog{
+      min-height:38px;
+      border-radius:16px;
+      padding:8px 10px;
+      background:#fff;
+      border:1px solid #d7f0fb;
+      color:#37566e;
+      font-size:13px;
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .foamBlast{
+      position:absolute;
+      left:70px;
+      top:34px;
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      background:rgba(255,255,255,.96);
+      border:2px solid rgba(34,211,238,.55);
+      box-shadow:0 0 18px rgba(34,211,238,.55);
+      z-index:8;
+      pointer-events:none;
+      animation:foamBlastMove .65s ease-out forwards;
+    }
+
+    @keyframes foamBlastMove{
+      0%{
+        opacity:0;
+        transform:translateX(360px) scale(.4);
+      }
+      20%{
+        opacity:1;
+      }
+      100%{
+        opacity:0;
+        transform:translateX(0) scale(1.9);
+      }
+    }
+
+    .rushHud{
+      border-radius:24px;
+      border:2px solid #d7f0fb;
+      background:
+        radial-gradient(circle at 92% 14%, rgba(255,216,77,.22), transparent 24%),
+        linear-gradient(180deg,#ffffff,#f7fdff);
+      box-shadow:var(--shadow-soft);
+      padding:12px;
+      display:grid;
+      gap:10px;
+    }
+
+    .rushHudTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .rushTitle{
+      font-size:16px;
+      font-weight:1000;
+      color:#12324b;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .rushPill{
+      min-height:32px;
+      border-radius:999px;
+      padding:7px 10px;
+      background:#fff8dc;
+      border:2px solid #ffe58d;
+      color:#7c5800;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .rushGrid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .rushCell{
+      min-height:54px;
+      border-radius:18px;
+      background:#fff;
+      border:2px solid #d7f0fb;
+      padding:9px 10px;
+      display:grid;
+      gap:2px;
+    }
+
+    .rushCell span{
+      font-size:11px;
+      color:#5f7f92;
+      font-weight:1000;
+    }
+
+    .rushCell strong{
+      font-size:18px;
+      line-height:1;
+      color:#17384f;
+      font-weight:1000;
+    }
+
+    .rushMission{
+      border-radius:18px;
+      background:#ecfeff;
+      border:2px solid #bdf4ff;
+      padding:10px 12px;
+      color:#0f766e;
+      font-size:13px;
+      font-weight:1000;
+      line-height:1.45;
+    }
+
+    .rushTimer{
+      height:18px;
+      border-radius:999px;
+      border:2px solid #fecaca;
+      background:#fff3f3;
+      overflow:hidden;
+      display:none;
+    }
+
+    body[data-stage="order"] .rushTimer{
+      display:block;
+    }
+
+    .rushTimerBar{
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#22c55e,#ffd84d,#ef4444);
+      border-radius:999px;
+      transition:width .18s linear;
+    }
+
+    .rushPop{
+      position:fixed;
+      left:50%;
+      top:22%;
+      z-index:130;
+      transform:translateX(-50%) scale(.8);
+      min-width:220px;
+      max-width:90vw;
+      border-radius:999px;
+      padding:12px 18px;
+      background:rgba(23,56,79,.94);
+      color:#fff;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 18px 34px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+    }
+
+    .rushPop.show{
+      animation:rushPop .85s ease-out forwards;
+    }
+
+    @keyframes rushPop{
+      0%{ opacity:0; transform:translateX(-50%) translateY(16px) scale(.8); }
+      18%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1.06); }
+      72%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+      100%{ opacity:0; transform:translateX(-50%) translateY(-16px) scale(.96); }
+    }
+
+    body.rush-hit .heroCard,
+    body.rush-hit .panel{
+      animation:rushHit .25s ease-out;
+    }
+
+    @keyframes rushHit{
+      0%{ transform:translateX(0); }
+      30%{ transform:translateX(-4px); }
+      60%{ transform:translateX(4px); }
+      100%{ transform:translateX(0); }
     }
 
     .summaryBox{
@@ -953,6 +1346,52 @@
       line-height:1.55;
     }
 
+    .cleanResult,
+    .bossResult,
+    .missionResult{
+      border-radius:22px;
+      padding:12px 14px;
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+      border:2px solid #bdf4ff;
+      display:grid;
+      gap:6px;
+      color:#17384f;
+      font-weight:1000;
+    }
+
+    .cleanResult .badgeLine,
+    .bossResult .bossBadge{
+      font-size:20px;
+      line-height:1.2;
+      color:#0f766e;
+    }
+
+    .bossResult.win,
+    .missionResult.win{
+      background:linear-gradient(180deg,#effcf3,#ffffff);
+      border-color:#b8eec6;
+      color:#166534;
+    }
+
+    .bossResult.retry,
+    .missionResult.retry{
+      background:linear-gradient(180deg,#fff8dc,#ffffff);
+      border-color:#ffd95d;
+      color:#7c5800;
+    }
+
+    .missionLine{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:7px 9px;
+      border-radius:14px;
+      background:#fff;
+      border:1px solid rgba(23,56,79,.10);
+      font-size:13px;
+    }
+
     .toast{
       position:fixed;
       left:50%;
@@ -987,6 +1426,8 @@
       .grid,.summaryBox{ grid-template-columns:1fr; }
       .orderList{ grid-template-columns:repeat(2,minmax(0,1fr)); }
       .toolRow{ grid-template-columns:1fr; }
+      .stats{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .rushGrid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
 
     @media (max-width:640px){
@@ -1003,7 +1444,7 @@
         padding:14px;
       }
 
-      .flowLine,.stats,.actions{
+      .flowLine,.stats,.actions,.rushGrid{
         grid-template-columns:1fr;
       }
 
@@ -1054,6 +1495,26 @@
       .orderList{
         grid-template-columns:1fr;
       }
+
+      .orderBoss{
+        grid-template-columns:1fr;
+        text-align:center;
+      }
+
+      .bossAvatar{
+        margin:0 auto;
+      }
+
+      .bossTitle{
+        display:grid;
+        justify-content:center;
+      }
+
+      .germ{
+        width:30px;
+        height:30px;
+        font-size:23px;
+      }
     }
   </style>
 </head>
@@ -1064,8 +1525,8 @@
       <div class="brand" aria-label="HeroHealth Handwash">
         <div class="brandIcon" aria-hidden="true">🧼</div>
         <div>
-          <strong>Handwash Trainer</strong>
-          <small id="topSub">Simulation Flow</small>
+          <strong>WHO Clean Rush</strong>
+          <small id="topSub">Handwash Game</small>
         </div>
       </div>
 
@@ -1079,8 +1540,8 @@
       <div class="stageHead">
         <div>
           <div class="badge" id="stageBadge">🫧 Handwash</div>
-          <h1 id="stageTitle">ล้างมือให้สะอาด!</h1>
-          <p class="lead" id="stageLead">เริ่มจากวิธีเล่นสั้น ๆ แล้วค่อยฝึกจริง</p>
+          <h1 id="stageTitle">ล้างมือปราบเชื้อ!</h1>
+          <p class="lead" id="stageLead">ล้างมือตามขั้นตอน WHO ด้วยการลาก/ถู/วน/ปัด</p>
           <div class="ready" id="readyText">กำลังโหลดระบบปุ่ม...</div>
         </div>
 
@@ -1091,7 +1552,7 @@
         <div class="flowStep" data-flow="howto">1<br>วิธีเล่น</div>
         <div class="flowStep" data-flow="practice">2<br>ฝึกก่อน</div>
         <div class="flowStep" data-flow="main">3<br>ล้างมือจริง</div>
-        <div class="flowStep" data-flow="order">4<br>เรียงลำดับ</div>
+        <div class="flowStep" data-flow="order">4<br>Boss WHO</div>
         <div class="flowStep" data-flow="summary">5<br>สรุปผล</div>
       </div>
 
@@ -1100,16 +1561,60 @@
         <div class="stat"><span class="k">ถูก</span><span class="v" id="statCorrect">0</span></div>
         <div class="stat"><span class="k">พลาด</span><span class="v" id="statMistake">0</span></div>
         <div class="stat"><span class="k">เวลา</span><span class="v" id="statTime">90</span></div>
+        <div class="stat cleanStat"><span class="k">Clean</span><span class="v" id="statClean">0%</span></div>
+        <div class="stat germStat"><span class="k">Germ</span><span class="v" id="statGerm">100%</span></div>
+        <div class="stat comboStat"><span class="k">Combo</span><span class="v" id="statCombo">0</span></div>
+      </div>
+
+      <div class="rushHud" id="rushHud">
+        <div class="rushHudTop">
+          <div class="rushTitle">🎮 WHO Clean Rush</div>
+          <div class="rushPill" id="rushMode">ระดับ: normal</div>
+        </div>
+
+        <div class="rushMission" id="rushMission">
+          ภารกิจรอบนี้กำลังโหลด...
+        </div>
+
+        <div class="rushTimer">
+          <div class="rushTimerBar" id="rushTimerBar"></div>
+        </div>
+
+        <div class="rushGrid">
+          <div class="rushCell"><span>Clean</span><strong id="rushClean">0%</strong></div>
+          <div class="rushCell"><span>Germ</span><strong id="rushGerm">100%</strong></div>
+          <div class="rushCell"><span>Max Combo</span><strong id="rushCombo">0</strong></div>
+          <div class="rushCell"><span>Boss</span><strong id="rushBoss">รอท้ายด่าน</strong></div>
+        </div>
       </div>
     </section>
 
     <section class="panel">
       <section id="screen-howto" class="screen active">
         <div class="grid">
-          <article class="card"><div class="cardIcon">🚿</div><h2>แตะก๊อกน้ำได้</h2><p>ในเกมกดรูปก๊อกน้ำด้านบนได้จริง หรือกดปุ่มเปิดน้ำด้านซ้ายก็ได้</p></article>
-          <article class="card"><div class="cardIcon">🫧</div><h2>กดสบู่</h2><p>กดขวดสบู่ก่อนฟอกมือ ถ้ายังไม่มีสบู่ เกมจะเตือน</p></article>
-          <article class="card"><div class="cardIcon">👈👉</div><h2>ทำทีละข้าง</h2><p>บางขั้นจะแยกซ้าย/ขวา เช่น หลังมือซ้าย หลังมือขวา นิ้วโป้งซ้าย นิ้วโป้งขวา</p></article>
-          <article class="card"><div class="cardIcon">🔀</div><h2>เรียงลำดับแบบสุ่ม</h2><p>ตอนทบทวน ปุ่มจะสลับตำแหน่งทุกครั้ง ต้องอ่านแล้วเลือกขั้นตอนถัดไปให้ถูก</p></article>
+          <article class="card">
+            <div class="cardIcon">🚿</div>
+            <h2>เปิดน้ำ + ใส่สบู่</h2>
+            <p>เริ่มจากเปิดก๊อกน้ำ ทำให้มือเปียก แล้วกดสบู่ก่อนถูมือ</p>
+          </article>
+
+          <article class="card">
+            <div class="cardIcon">👆</div>
+            <h2>ลาก/ถูบนมือ</h2>
+            <p>ไม่ใช่แค่กดแล้วผ่าน ต้องลาก ถู วน หรือปัด ตามท่าที่กำหนด</p>
+          </article>
+
+          <article class="card">
+            <div class="cardIcon">🦠</div>
+            <h2>เชื้อขึ้นตามจุด WHO</h2>
+            <p>เชื้อจะขึ้นเฉพาะจุดของขั้นตอนปัจจุบัน เช่น ปลายนิ้ว ซอกนิ้ว นิ้วโป้ง</p>
+          </article>
+
+          <article class="card">
+            <div class="cardIcon">👑</div>
+            <h2>Boss ใช้ลำดับ WHO</h2>
+            <p>ตอนท้ายต้องเลือกขั้นตอน WHO ถัดไปให้ถูก เพื่อยิงฟองใส่ Germ King</p>
+          </article>
         </div>
 
         <div class="actions">
@@ -1174,12 +1679,21 @@
           <div class="stepPanel">
             <span class="stepChip" id="mainStepChip">ขั้นที่ 1/16</span>
             <h2 class="stepTitle" id="mainStepTitle">💧 เปิดก๊อกน้ำให้มือเปียก</h2>
-            <p class="stepText" id="mainStepText">แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง</p>
+            <p class="stepText" id="mainStepText">แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วลากผ่านน้ำ</p>
 
             <div class="progressWrap"><div class="progressBar" id="mainBar"></div></div>
 
-            <button class="targetBtn" id="mainBigBtn" type="button" data-click="mainTarget">
-              💧 ทำให้มือเปียก
+            <div class="stepClock" id="stepClock">
+              <span>⏱ เวลาในขั้นนี้</span>
+              <strong id="stepClockText">--</strong>
+            </div>
+
+            <div class="gestureGuide" id="gestureGuide">
+              ลาก/ถูบนวงสีเหลืองตามท่าที่กำหนด
+            </div>
+
+            <button class="targetBtn" id="mainBigBtn" type="button" data-click="noop">
+              🎮 ใช้นิ้วลาก/ถูบนวงสีเหลือง
             </button>
 
             <div class="statusList">
@@ -1221,10 +1735,12 @@
 
             <div class="hands" id="mainHands">
               <div class="handBig">🤲</div>
-              <button class="hotspot all" id="mainHotspot" type="button" data-click="mainTarget">เปียกมือ</button>
+              <button class="hotspot all scrub-ready" id="mainHotspot" type="button" data-click="noop">เปียกมือ</button>
               <div class="foamLayer" id="foamLayer"></div>
               <div class="dropLayer" id="dropLayer"></div>
               <div class="sparkLayer" id="sparkLayer"></div>
+              <div class="germLayer" id="germLayer"></div>
+              <div class="traceLayer" id="traceLayer"></div>
             </div>
 
             <div class="scrubHint" id="mainHint">แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ</div>
@@ -1244,6 +1760,22 @@
         </div>
 
         <div class="progressWrap"><div class="progressBar" id="orderBar"></div></div>
+
+        <div class="orderBoss" id="whoBoss">
+          <div class="bossAvatar" id="bossAvatar">👑🦠</div>
+          <div class="bossInfo">
+            <div class="bossTitle">
+              <span>Germ King Challenge</span>
+              <small id="bossHpText">HP 320/320</small>
+            </div>
+            <div class="bossHpWrap">
+              <div class="bossHpBar" id="bossHpBar"></div>
+            </div>
+            <div class="bossLog" id="bossLog">
+              เลือกขั้นตอน WHO ถัดไปให้ถูก เพื่อยิงฟองใส่บอส
+            </div>
+          </div>
+        </div>
 
         <div class="orderList">
           <button class="orderBtn" type="button" data-click="order" data-value="wet">💧<strong>เปียกมือ</strong></button>
@@ -1285,6 +1817,24 @@
             <p id="summaryText">ทำได้ดีมาก</p>
             <p id="summarySteps">ล้างมือครบ: 0/16 ขั้นตอน</p>
             <p id="summaryOrder">เรียงลำดับถูก: 0/16 ขั้นตอน</p>
+
+            <div class="cleanResult" id="cleanResultBox">
+              <div class="badgeLine">🧼 Clean Result</div>
+              <div>🧼 ความสะอาด: 0%</div>
+              <div>🦠 เชื้อคงเหลือ: 100%</div>
+              <div>🔥 Max Combo: 0</div>
+              <div>🫧 Fever: 0 ครั้ง</div>
+            </div>
+
+            <div class="bossResult" id="bossResultBox">
+              <div class="bossBadge">👑 Boss Result</div>
+              <div>ผลบอสจะแสดงหลังจบเกม</div>
+            </div>
+
+            <div class="missionResult" id="missionResultBox">
+              <div class="bossBadge">🎯 Mission Result</div>
+              <div>ผลภารกิจจะแสดงหลังจบเกม</div>
+            </div>
           </div>
         </div>
 
@@ -1297,37 +1847,39 @@
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="rushPop" class="rushPop"></div>
 
   <script>
     (function(){
       'use strict';
 
+      const VERSION = '20260503p-rush-reward-loop';
       const qs = new URLSearchParams(location.search);
 
       const WHO = [
-        { id:'wet', type:'water', title:'เปิดก๊อกน้ำให้มือเปียก', short:'เปียกมือ', label:'เปียกมือ', big:'ทำให้มือเปียก', emoji:'💧', target:'all', needWater:true, needSoap:false, goal:100, text:'แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะเปียกมือที่วงสีเหลือง' },
-        { id:'soap', type:'soap', title:'ใส่สบู่', short:'ใส่สบู่', label:'ใส่สบู่', big:'กดสบู่', emoji:'🫧', target:'all', needWater:false, needSoap:false, goal:1, text:'กดขวดสบู่ หรือปุ่มกดสบู่ เพื่อใส่สบู่บนมือ' },
-        { id:'palm', type:'scrub', title:'ถูฝ่ามือ', short:'ฝ่ามือ', label:'ฝ่ามือ', big:'แตะฝ่ามือ', emoji:'🤲', target:'palm', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูฝ่ามือที่วงสีเหลือง ให้ฟองขึ้นจนเต็ม' },
+        { id:'wet', type:'water', title:'เปิดก๊อกน้ำให้มือเปียก', short:'เปียกมือ', label:'เปียกมือ', big:'ลากมือผ่านน้ำ', emoji:'💧', target:'all', gesture:'water', needWater:true, needSoap:false, goal:100, limit:8, text:'แตะก๊อกน้ำ หรือกดปุ่มเปิดน้ำ แล้วลากผ่านน้ำบนวงสีเหลือง' },
+        { id:'soap', type:'soap', title:'ใส่สบู่', short:'ใส่สบู่', label:'ใส่สบู่', big:'กดสบู่', emoji:'🫧', target:'all', gesture:'tap', needWater:false, needSoap:false, goal:1, limit:8, text:'กดขวดสบู่ หรือปุ่มกดสบู่ เพื่อใส่สบู่บนมือ' },
+        { id:'palm', type:'scrub', title:'ถูฝ่ามือ', short:'ฝ่ามือ', label:'ฝ่ามือ', big:'ถูซ้าย-ขวา', emoji:'🤲', target:'palm', gesture:'horizontal', needWater:false, needSoap:true, goal:100, limit:7, text:'ถูไปมา ซ้าย-ขวา บนฝ่ามือ' },
 
-        { id:'backL', type:'scrub', title:'ถูหลังมือซ้าย', short:'หลังมือซ้าย', label:'หลังมือซ้าย', big:'แตะหลังมือซ้าย', emoji:'👈', target:'back-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังมือซ้ายที่วงสีเหลืองให้สะอาด' },
-        { id:'backR', type:'scrub', title:'ถูหลังมือขวา', short:'หลังมือขวา', label:'หลังมือขวา', big:'แตะหลังมือขวา', emoji:'👉', target:'back-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังมือขวาที่วงสีเหลืองให้สะอาด' },
+        { id:'backL', type:'scrub', title:'ถูหลังมือซ้าย', short:'หลังมือซ้าย', label:'หลังมือซ้าย', big:'ถูขึ้น-ลง', emoji:'👈', target:'back-left', gesture:'vertical', needWater:false, needSoap:true, goal:100, limit:7, text:'ถูขึ้น-ลงบนหลังมือซ้าย' },
+        { id:'backR', type:'scrub', title:'ถูหลังมือขวา', short:'หลังมือขวา', label:'หลังมือขวา', big:'ถูขึ้น-ลง', emoji:'👉', target:'back-right', gesture:'vertical', needWater:false, needSoap:true, goal:100, limit:7, text:'ถูขึ้น-ลงบนหลังมือขวา' },
 
-        { id:'betweenL', type:'scrub', title:'ถูซอกนิ้วซ้าย', short:'ซอกนิ้วซ้าย', label:'ซอกนิ้วซ้าย', big:'แตะซอกนิ้วซ้าย', emoji:'👈', target:'between-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูซอกนิ้วซ้ายที่วงสีเหลืองให้ทั่ว' },
-        { id:'betweenR', type:'scrub', title:'ถูซอกนิ้วขวา', short:'ซอกนิ้วขวา', label:'ซอกนิ้วขวา', big:'แตะซอกนิ้วขวา', emoji:'👉', target:'between-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูซอกนิ้วขวาที่วงสีเหลืองให้ทั่ว' },
+        { id:'betweenL', type:'scrub', title:'ถูซอกนิ้วซ้าย', short:'ซอกนิ้วซ้าย', label:'ซอกนิ้วซ้าย', big:'ถูซิกแซก', emoji:'👈', target:'between-left', gesture:'zigzag', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูซิกแซกตามซอกนิ้วซ้าย' },
+        { id:'betweenR', type:'scrub', title:'ถูซอกนิ้วขวา', short:'ซอกนิ้วขวา', label:'ซอกนิ้วขวา', big:'ถูซิกแซก', emoji:'👉', target:'between-right', gesture:'zigzag', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูซิกแซกตามซอกนิ้วขวา' },
 
-        { id:'backs', type:'scrub', title:'ถูหลังนิ้ว', short:'หลังนิ้ว', label:'หลังนิ้ว', big:'แตะหลังนิ้ว', emoji:'✊', target:'backs', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูหลังนิ้วที่วงสีเหลือง' },
+        { id:'backs', type:'scrub', title:'ถูหลังนิ้ว', short:'หลังนิ้ว', label:'หลังนิ้ว', big:'ถูซ้าย-ขวา', emoji:'✊', target:'backs', gesture:'horizontal', needWater:false, needSoap:true, goal:100, limit:7, text:'ถูหลังนิ้วไปมาให้สะอาด' },
 
-        { id:'thumbL', type:'scrub', title:'ถูนิ้วโป้งซ้าย', short:'นิ้วโป้งซ้าย', label:'นิ้วโป้งซ้าย', big:'แตะนิ้วโป้งซ้าย', emoji:'👈', target:'thumb-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูรอบนิ้วโป้งซ้ายที่วงสีเหลือง' },
-        { id:'thumbR', type:'scrub', title:'ถูนิ้วโป้งขวา', short:'นิ้วโป้งขวา', label:'นิ้วโป้งขวา', big:'แตะนิ้วโป้งขวา', emoji:'👉', target:'thumb-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูรอบนิ้วโป้งขวาที่วงสีเหลือง' },
+        { id:'thumbL', type:'scrub', title:'ถูนิ้วโป้งซ้าย', short:'นิ้วโป้งซ้าย', label:'นิ้วโป้งซ้าย', big:'ถูวน', emoji:'👈', target:'thumb-left', gesture:'circle', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูวนรอบนิ้วโป้งซ้าย' },
+        { id:'thumbR', type:'scrub', title:'ถูนิ้วโป้งขวา', short:'นิ้วโป้งขวา', label:'นิ้วโป้งขวา', big:'ถูวน', emoji:'👉', target:'thumb-right', gesture:'circle', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูวนรอบนิ้วโป้งขวา' },
 
-        { id:'fingertipsL', type:'scrub', title:'ถูปลายนิ้วและเล็บซ้าย', short:'ปลายนิ้วซ้าย', label:'ปลายนิ้วซ้าย', big:'แตะปลายนิ้วซ้าย', emoji:'👈', target:'fingertips-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูปลายนิ้วและเล็บซ้ายที่วงสีเหลือง' },
-        { id:'fingertipsR', type:'scrub', title:'ถูปลายนิ้วและเล็บขวา', short:'ปลายนิ้วขวา', label:'ปลายนิ้วขวา', big:'แตะปลายนิ้วขวา', emoji:'👉', target:'fingertips-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูปลายนิ้วและเล็บขวาที่วงสีเหลือง' },
+        { id:'fingertipsL', type:'scrub', title:'ถูปลายนิ้วและเล็บซ้าย', short:'ปลายนิ้วซ้าย', label:'ปลายนิ้วซ้าย', big:'ถูวนเล็ก ๆ', emoji:'👈', target:'fingertips-left', gesture:'circle-small', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูวนเล็ก ๆ ที่ปลายนิ้วและเล็บซ้าย' },
+        { id:'fingertipsR', type:'scrub', title:'ถูปลายนิ้วและเล็บขวา', short:'ปลายนิ้วขวา', label:'ปลายนิ้วขวา', big:'ถูวนเล็ก ๆ', emoji:'👉', target:'fingertips-right', gesture:'circle-small', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูวนเล็ก ๆ ที่ปลายนิ้วและเล็บขวา' },
 
-        { id:'wristL', type:'scrub', title:'ถูข้อมือซ้าย', short:'ข้อมือซ้าย', label:'ข้อมือซ้าย', big:'แตะข้อมือซ้าย', emoji:'👈', target:'wrist-left', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูข้อมือซ้ายที่วงสีเหลือง' },
-        { id:'wristR', type:'scrub', title:'ถูข้อมือขวา', short:'ข้อมือขวา', label:'ข้อมือขวา', big:'แตะข้อมือขวา', emoji:'👉', target:'wrist-right', needWater:false, needSoap:true, goal:100, text:'แตะหรือถูข้อมือขวาที่วงสีเหลือง' },
+        { id:'wristL', type:'scrub', title:'ถูข้อมือซ้าย', short:'ข้อมือซ้าย', label:'ข้อมือซ้าย', big:'ถูวน', emoji:'👈', target:'wrist-left', gesture:'circle', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูวนรอบข้อมือซ้าย' },
+        { id:'wristR', type:'scrub', title:'ถูข้อมือขวา', short:'ข้อมือขวา', label:'ข้อมือขวา', big:'ถูวน', emoji:'👉', target:'wrist-right', gesture:'circle', needWater:false, needSoap:true, goal:100, limit:8, text:'ถูวนรอบข้อมือขวา' },
 
-        { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างฟอง', label:'ล้างฟอง', big:'ล้างฟองออก', emoji:'🚿', target:'all', needWater:true, needSoap:false, goal:100, text:'แตะรูปก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ แล้วแตะล้างฟองที่วงสีเหลือง' },
-        { id:'dry', type:'dry', title:'เช็ดมือให้แห้ง', short:'เช็ดมือ', label:'เช็ดมือ', big:'เช็ดมือให้แห้ง', emoji:'🧻', target:'all', needWater:false, needSoap:false, goal:100, text:'กดใช้ผ้า แล้วแตะเช็ดมือที่วงสีเหลือง' }
+        { id:'rinse', type:'rinse', title:'ล้างฟองออก', short:'ล้างฟอง', label:'ล้างฟอง', big:'ลากผ่านน้ำ', emoji:'🚿', target:'all', gesture:'water', needWater:true, needSoap:false, goal:100, limit:8, text:'เปิดน้ำ แล้วลากผ่านน้ำเพื่อล้างฟองออก' },
+        { id:'dry', type:'dry', title:'เช็ดมือให้แห้ง', short:'เช็ดมือ', label:'เช็ดมือ', big:'ปัดผ้าไปมา', emoji:'🧻', target:'all', gesture:'wipe', needWater:false, needSoap:false, goal:100, limit:8, text:'กดใช้ผ้า แล้วปัดไปมาเพื่อเช็ดมือให้แห้ง' }
       ];
 
       const PRACTICE = [
@@ -1339,6 +1891,22 @@
       ];
 
       const ORDER = WHO.map(step => step.id);
+
+      const BOX = {
+        all:{ l:24, t:16, w:52, h:58 },
+        palm:{ l:37, t:47, w:26, h:20 },
+        'back-left':{ l:24, t:42, w:22, h:20 },
+        'back-right':{ l:54, t:42, w:22, h:20 },
+        'between-left':{ l:31, t:23, w:18, h:18 },
+        'between-right':{ l:51, t:23, w:18, h:18 },
+        backs:{ l:30, t:31, w:40, h:14 },
+        'thumb-left':{ l:24, t:43, w:19, h:19 },
+        'thumb-right':{ l:57, t:43, w:19, h:19 },
+        'fingertips-left':{ l:30, t:10, w:20, h:15 },
+        'fingertips-right':{ l:50, t:10, w:20, h:15 },
+        'wrist-left':{ l:28, t:68, w:19, h:12 },
+        'wrist-right':{ l:53, t:68, w:19, h:12 }
+      };
 
       const state = {
         stage: cleanStage(qs.get('stage') || 'howto'),
@@ -1363,8 +1931,67 @@
         orderIndex:0,
         orderDone:{},
         orderShuffled:false,
+
         startedAt:Date.now()
       };
+
+      const scrub = {
+        active:false,
+        pointerId:null,
+        lastX:0,
+        lastY:0,
+        startX:0,
+        startY:0,
+        lastAngle:null,
+        angleTravel:0,
+        zigzagLast:0,
+        zigzagTurns:0,
+        stepIndex:-1,
+        stepStartedAt:Date.now(),
+        lastPressureAt:0,
+        germPenalty:0,
+        combo:0,
+        maxCombo:0,
+        feverUntil:0,
+        feverCount:0,
+        cleanPct:0,
+        germPct:100
+      };
+
+      const boss = {
+        maxHp:320,
+        hp:320,
+        lastOrderIndex:0,
+        lastMistake:0,
+        damagePerCorrect:22,
+        healPerWrong:10,
+        bossDefeated:false,
+        enteredOrder:false
+      };
+
+      const rush = {
+        audio:null,
+        audioReady:false,
+        diff:normalizeDiff(qs.get('diff') || 'normal'),
+        config:null,
+        lastStage:'',
+        lastOrderIndex:0,
+        lastMistake:0,
+        lastCombo:0,
+        lastFever:0,
+        lastBossHp:null,
+        orderDeadline:0,
+        orderLastIndex:0,
+        missionSeed:getSeed(),
+        missions:[],
+        started:false
+      };
+
+      rush.config = ({
+        easy:{ orderSec:11, comboGoal:6, cleanGoal:78, mistakeLimit:8 },
+        normal:{ orderSec:8, comboGoal:8, cleanGoal:85, mistakeLimit:6 },
+        hard:{ orderSec:6, comboGoal:10, cleanGoal:90, mistakeLimit:4 }
+      })[rush.diff] || { orderSec:8, comboGoal:8, cleanGoal:85, mistakeLimit:6 };
 
       const $ = id => document.getElementById(id);
 
@@ -1379,6 +2006,9 @@
         statCorrect:$('statCorrect'),
         statMistake:$('statMistake'),
         statTime:$('statTime'),
+        statClean:$('statClean'),
+        statGerm:$('statGerm'),
+        statCombo:$('statCombo'),
 
         practicePrompt:$('practicePrompt'),
         practiceBar:$('practiceBar'),
@@ -1411,20 +2041,44 @@
         txtSoap:$('txtSoap'),
         txtFoam:$('txtFoam'),
 
+        stepClock:$('stepClock'),
+        stepClockText:$('stepClockText'),
+        gestureGuide:$('gestureGuide'),
+
         orderPrompt:$('orderPrompt'),
         orderBar:$('orderBar'),
+
+        bossBox:$('whoBoss'),
+        bossAvatar:$('bossAvatar'),
+        bossHpText:$('bossHpText'),
+        bossHpBar:$('bossHpBar'),
+        bossLog:$('bossLog'),
+
+        rushMode:$('rushMode'),
+        rushMission:$('rushMission'),
+        rushTimerBar:$('rushTimerBar'),
+        rushClean:$('rushClean'),
+        rushGerm:$('rushGerm'),
+        rushCombo:$('rushCombo'),
+        rushBoss:$('rushBoss'),
 
         summaryScore:$('summaryScore'),
         summaryStars:$('summaryStars'),
         summaryText:$('summaryText'),
         summarySteps:$('summarySteps'),
         summaryOrder:$('summaryOrder'),
+        cleanResultBox:$('cleanResultBox'),
+        bossResultBox:$('bossResultBox'),
+        missionResultBox:$('missionResultBox'),
 
         foamLayer:$('foamLayer'),
         dropLayer:$('dropLayer'),
         sparkLayer:$('sparkLayer'),
+        germLayer:$('germLayer'),
+        traceLayer:$('traceLayer'),
         practiceSpark:$('practiceSpark'),
-        toast:$('toast')
+        toast:$('toast'),
+        rushPop:$('rushPop')
       };
 
       function cleanStage(s){
@@ -1434,6 +2088,32 @@
         return ['howto','practice','main','order','summary'].includes(s) ? s : 'howto';
       }
 
+      function normalizeDiff(v){
+        v = String(v || '').toLowerCase();
+        if(v === 'easy' || v === 'hard') return v;
+        return 'normal';
+      }
+
+      function getSeed(){
+        const raw = String(qs.get('seed') || Date.now());
+        let n = 0;
+        for(let i=0;i<raw.length;i++) n = (n * 31 + raw.charCodeAt(i)) >>> 0;
+        return n || Date.now();
+      }
+
+      function rand(seed){
+        const x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+      }
+
+      function clamp(n,min,max){
+        return Math.max(min, Math.min(max, Number(n) || 0));
+      }
+
+      function pct(n){
+        return Math.round(clamp(n,0,100));
+      }
+
       function showToast(text){
         el.toast.textContent = text;
         el.toast.classList.add('show');
@@ -1441,8 +2121,92 @@
         el.toast.__t = setTimeout(() => el.toast.classList.remove('show'), 1400);
       }
 
-      function clamp(n,min,max){
-        return Math.max(min, Math.min(max, n));
+      function pop(text){
+        el.rushPop.textContent = text;
+        el.rushPop.classList.remove('show');
+        void el.rushPop.offsetWidth;
+        el.rushPop.classList.add('show');
+      }
+
+      function haptic(ms){
+        try{
+          if(navigator.vibrate) navigator.vibrate(ms || 20);
+        }catch(_){}
+      }
+
+      function unlockAudio(){
+        if(rush.audioReady) return;
+
+        try{
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if(!AC) return;
+          rush.audio = rush.audio || new AC();
+          if(rush.audio.state === 'suspended') rush.audio.resume();
+          rush.audioReady = true;
+        }catch(_){}
+      }
+
+      function tone(freq, dur, type, gain){
+        unlockAudio();
+        const ac = rush.audio;
+        if(!ac || !rush.audioReady) return;
+
+        try{
+          const o = ac.createOscillator();
+          const g = ac.createGain();
+          o.type = type || 'sine';
+          o.frequency.value = freq || 440;
+          g.gain.value = 0.0001;
+
+          o.connect(g);
+          g.connect(ac.destination);
+
+          const now = ac.currentTime;
+          g.gain.exponentialRampToValueAtTime(gain || 0.045, now + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + (dur || 0.12));
+
+          o.start(now);
+          o.stop(now + (dur || 0.12) + 0.03);
+        }catch(_){}
+      }
+
+      function hitShake(){
+        document.body.classList.add('rush-hit');
+        clearTimeout(document.body.__rushHit);
+        document.body.__rushHit = setTimeout(() => document.body.classList.remove('rush-hit'), 280);
+      }
+
+      function sfx(name){
+        if(name === 'ok'){
+          tone(740,.08,'triangle',.038);
+          setTimeout(() => tone(980,.08,'triangle',.032),70);
+          haptic(18);
+        }else if(name === 'bad'){
+          tone(180,.13,'sawtooth',.04);
+          haptic([50,30,50]);
+          hitShake();
+        }else if(name === 'combo'){
+          tone(880,.08,'square',.026);
+          setTimeout(() => tone(1180,.08,'triangle',.03),60);
+          haptic(24);
+        }else if(name === 'fever'){
+          tone(660,.08,'triangle',.035);
+          setTimeout(() => tone(880,.08,'triangle',.035),70);
+          setTimeout(() => tone(1320,.12,'triangle',.04),140);
+          haptic([30,20,30,20,50]);
+        }else if(name === 'boss'){
+          tone(520,.08,'triangle',.04);
+          setTimeout(() => tone(760,.10,'triangle',.04),80);
+          haptic(35);
+        }else if(name === 'stage'){
+          tone(520,.08,'sine',.025);
+          setTimeout(() => tone(700,.08,'sine',.025),70);
+        }else if(name === 'win'){
+          tone(660,.10,'triangle',.04);
+          setTimeout(() => tone(880,.10,'triangle',.04),90);
+          setTimeout(() => tone(1170,.18,'triangle',.045),190);
+          haptic([40,30,80]);
+        }
       }
 
       function currentStep(){
@@ -1450,11 +2214,13 @@
       }
 
       function currentProgress(){
-        return Number(state.stepProgress[currentStep().id] || 0);
+        const step = currentStep();
+        return Number(state.stepProgress[step.id] || 0);
       }
 
       function setProgress(v){
-        state.stepProgress[currentStep().id] = clamp(v, 0, currentStep().goal || 100);
+        const step = currentStep();
+        state.stepProgress[step.id] = clamp(v, 0, step.goal || 100);
       }
 
       function updateStats(){
@@ -1462,6 +2228,30 @@
         el.statCorrect.textContent = String(state.correct);
         el.statMistake.textContent = String(state.mistake);
         el.statTime.textContent = String(state.timeLeft);
+
+        updateCleanMeters();
+
+        el.statClean.textContent = pct(scrub.cleanPct) + '%';
+        el.statGerm.textContent = pct(scrub.germPct) + '%';
+        el.statCombo.textContent = String(scrub.combo || 0);
+      }
+
+      function updateCleanMeters(){
+        let sum = 0;
+
+        WHO.forEach(step => {
+          const v = Number(state.stepProgress[step.id] || 0);
+          sum += clamp(v,0,100);
+        });
+
+        const avg = sum / WHO.length;
+        const mistakePenalty = Math.min(24, Number(state.mistake || 0) * 1.2);
+        const spreadPenalty = Math.min(28, scrub.germPenalty);
+
+        scrub.cleanPct = clamp(avg - (mistakePenalty * .35) - (spreadPenalty * .55), 0, 100);
+        scrub.germPct = clamp(100 - scrub.cleanPct, 0, 100);
+
+        document.body.classList.toggle('fever-on', Date.now() < scrub.feverUntil);
       }
 
       function setStage(stage){
@@ -1469,6 +2259,8 @@
 
         if(nextStage === 'order' && state.stage !== 'order'){
           state.orderShuffled = false;
+          boss.enteredOrder = false;
+          rush.orderDeadline = 0;
         }
 
         state.stage = nextStage;
@@ -1488,7 +2280,7 @@
 
           if(state.timeLeft <= 0){
             stopTimer();
-            showToast('หมดเวลา ไปเรียงลำดับต่อ');
+            showToast('หมดเวลา ไปเจอบอสลำดับ WHO');
             setStage('order');
           }
         }, 1000);
@@ -1512,17 +2304,19 @@
         if(state.stage === 'main') renderMain();
         if(state.stage === 'order') renderOrder();
         if(state.stage === 'summary') renderSummary();
+
+        updateRushHud();
       }
 
       function updateHeader(){
         document.body.dataset.stage = state.stage;
 
         const map = {
-          howto:['🫧 วิธีเล่น','มาดูวิธีล้างมือกัน!','ดูขั้นตอนสั้น ๆ ก่อน แล้วค่อยไปฝึกล้างมือแบบจำลอง','🧼'],
+          howto:['🫧 วิธีเล่น','WHO Clean Rush','ล้างมือตามขั้นตอน WHO ด้วยการลาก/ถู/วน/ปัด และปราบ Germ King','🧼'],
           practice:['🤲 ฝึกก่อน','ฝึกแตะส่วนของมือ','ดูชื่อในวงสีเหลือง แล้วแตะส่วนนั้นของมือ','🤲'],
-          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','แตะก๊อกน้ำ ใส่สบู่ ถูมือซ้าย/ขวา ล้างน้ำ และเช็ดมือให้แห้ง','🚿'],
-          order:['🔀 ทบทวนลำดับ','เรียงขั้นตอนล้างมือ','ปุ่มจะสลับตำแหน่ง ต้องเลือกขั้นตอนถัดไปให้ถูก','🧠'],
-          summary:['🏆 ผลการเล่น','เก่งมาก ฮีโร่สุขอนามัย!','ดูคะแนน ดาว และสิ่งที่ทำได้ดี','🏆']
+          main:['🚿 ล้างมือจริง','ล้างมือตามขั้นตอน WHO','เชื้อขึ้นบนมือ ถูให้ถูกท่าเพื่อเพิ่ม Clean % และ Combo','🦠'],
+          order:['👑 Boss WHO','ปราบ Germ King ด้วยลำดับ WHO','ปุ่มจะสลับตำแหน่ง ต้องเลือกขั้นตอนถัดไปให้ถูก','👑'],
+          summary:['🏆 ผลการเล่น','ผลการล้างมือของฉัน','ดู Clean %, Germ %, Combo, Mission และ Boss Result','🏆']
         };
 
         const h = map[state.stage] || map.howto;
@@ -1539,10 +2333,10 @@
 
       function renderPractice(){
         const target = PRACTICE[state.practiceIndex] || PRACTICE[0];
-        const pct = Math.round((Object.keys(state.practiced).length / PRACTICE.length) * 100);
+        const pctDone = Math.round((Object.keys(state.practiced).length / PRACTICE.length) * 100);
 
         el.practicePrompt.innerHTML = `ฝึกแตะ: <strong>${target.emoji} ${target.label}</strong>`;
-        el.practiceBar.style.width = pct + '%';
+        el.practiceBar.style.width = pctDone + '%';
         el.practiceBigBtn.textContent = `${target.emoji} แตะ${target.label}`;
         el.practiceHotspot.className = `hotspot ${target.id}`;
         el.practiceHotspot.textContent = target.label;
@@ -1557,6 +2351,7 @@
         state.correct += 1;
         spark(el.practiceSpark, 180, 120);
         showToast('ถูกต้อง!');
+        sfx('ok');
 
         if(state.practiceIndex < PRACTICE.length - 1){
           state.practiceIndex += 1;
@@ -1567,18 +2362,39 @@
         }
       }
 
+      function gestureText(g){
+        const map = {
+          water:'ลากมือผ่านน้ำขึ้น-ลง',
+          tap:'กดขวดสบู่',
+          horizontal:'ถูไปมา ซ้าย-ขวา ↔',
+          vertical:'ถูขึ้น-ลง ↕',
+          zigzag:'ถูซิกแซกตามซอกนิ้ว 〰',
+          circle:'ถูวนเป็นวงกลม ⟳',
+          'circle-small':'ถูวนเล็ก ๆ ที่ปลายนิ้ว ⟳',
+          wipe:'ปัดผ้าไปมาเพื่อเช็ดมือ ↔'
+        };
+        return map[g] || 'ลาก/ถูบนวงสีเหลือง';
+      }
+
       function renderMain(){
         const step = currentStep();
         const progress = currentProgress();
+
+        if(scrub.stepIndex !== state.stepIndex){
+          scrub.stepIndex = state.stepIndex;
+          scrub.stepStartedAt = Date.now();
+          scrub.lastPressureAt = 0;
+        }
 
         el.mainStepChip.textContent = `ขั้นที่ ${state.stepIndex + 1}/${WHO.length}`;
         el.mainStepTitle.textContent = `${step.emoji} ${step.title}`;
         el.mainStepText.textContent = step.text;
         el.mainBar.style.width = Math.round(progress) + '%';
-        el.mainBigBtn.textContent = `${step.emoji} ${step.big}`;
-        el.mainHotspot.className = `hotspot ${step.target}`;
+        el.mainBigBtn.textContent = `🎮 ${gestureText(step.gesture)}`;
+        el.mainHotspot.className = `hotspot scrub-ready ${step.target}`;
         el.mainHotspot.textContent = step.label;
         el.mainHint.textContent = hint(step);
+        el.gestureGuide.textContent = `🎮 ขั้นนี้: ${gestureText(step.gesture)} ที่ "${step.label}"`;
 
         el.waterStream.classList.toggle('on', state.waterOn);
 
@@ -1606,12 +2422,15 @@
         el.mainFeedback.className = 'feedback ' + fb.cls;
         el.mainFeedbackIcon.textContent = fb.icon;
         el.mainFeedbackText.textContent = fb.text;
+
+        updateStepClock();
+        renderGerms();
       }
 
       function hint(step){
         if(step.type === 'water'){
           return state.waterOn
-            ? 'แตะเปียกมือที่วงสีเหลือง'
+            ? 'ลากผ่านน้ำบนวงสีเหลือง'
             : 'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำ';
         }
 
@@ -1621,26 +2440,22 @@
 
         if(step.type === 'rinse'){
           return state.waterOn
-            ? 'แตะล้างฟองที่วงสีเหลือง'
+            ? 'ลากผ่านน้ำเพื่อล้างฟองออก'
             : 'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำก่อนล้างฟอง';
         }
 
         if(step.type === 'dry'){
           return state.usingTowel
-            ? 'แตะเช็ดมือที่วงสีเหลือง'
+            ? 'ปัดผ้าไปมาบนวงสีเหลือง'
             : 'กดใช้ผ้าเช็ดมือก่อน';
         }
 
-        return `แตะ${step.label}ที่วงสีเหลือง`;
+        return `${gestureText(step.gesture)} บนวงสีเหลือง`;
       }
 
       function feedback(step){
         if(step.needWater && !state.waterOn){
-          return {
-            cls:'warn',
-            icon:'🚿',
-            text:'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำก่อนนะ'
-          };
+          return { cls:'warn', icon:'🚿', text:'แตะก๊อกน้ำด้านบน หรือกดปุ่มเปิดน้ำก่อนนะ' };
         }
 
         if(step.needSoap && !state.hasSoap){
@@ -1651,65 +2466,292 @@
           return { cls:'warn', icon:'🧻', text:'กดผ้าเช็ดมือก่อนนะ' };
         }
 
-        return { cls:'good', icon:'✅', text:`พร้อมแล้ว แตะ${step.label}ได้เลย` };
+        return { cls:'good', icon:'✅', text:`พร้อมแล้ว ${gestureText(step.gesture)}` };
       }
 
-      function doMainTarget(){
-        const step = currentStep();
-
-        if(step.type === 'soap'){
-          useSoap();
-          return;
-        }
-
-        if(step.needWater && !state.waterOn){
-          state.mistake += 1;
-          showToast('แตะก๊อกน้ำก่อนนะ');
-          updateStats();
-          return;
-        }
-
-        if(step.needSoap && !state.hasSoap){
-          state.mistake += 1;
-          showToast('กดสบู่ก่อนฟอกมือ');
-          updateStats();
-          return;
-        }
-
-        if(step.type === 'dry' && !state.usingTowel){
-          state.mistake += 1;
-          showToast('กดผ้าเช็ดมือก่อนนะ');
-          updateStats();
-          return;
-        }
-
-        let amount = 25;
-        if(step.type === 'scrub') amount = 24;
-        if(step.type === 'dry') amount = 25;
-
-        state.score += step.type === 'scrub' ? 2 : 1;
-        addProgress(amount);
-
-        if(step.type === 'scrub') foam();
-        else if(step.type === 'water' || step.type === 'rinse') drop();
-        else spark(el.sparkLayer, 180, 140);
+      function requirementOk(step){
+        if(!step) return false;
+        if(step.id === 'soap') return true;
+        if((step.id === 'wet' || step.id === 'rinse') && !state.waterOn) return false;
+        if(step.id !== 'wet' && step.id !== 'soap' && step.id !== 'rinse' && step.id !== 'dry' && !state.hasSoap) return false;
+        if(step.id === 'dry' && !state.usingTowel) return false;
+        return true;
       }
 
-      function addProgress(amount){
-        const step = currentStep();
-        setProgress(currentProgress() + amount);
+      function requirementMessage(step){
+        if((step.id === 'wet' || step.id === 'rinse') && !state.waterOn) return 'แตะก๊อกน้ำก่อน แล้วค่อยลากผ่านน้ำ';
+        if(step.id !== 'wet' && step.id !== 'soap' && step.id !== 'rinse' && step.id !== 'dry' && !state.hasSoap) return 'กดสบู่ก่อน แล้วค่อยถู';
+        if(step.id === 'dry' && !state.usingTowel) return 'กดใช้ผ้าก่อน แล้วค่อยปัดเช็ดมือ';
+        return '';
+      }
 
-        if(step.type === 'water' && currentProgress() >= 100) state.handsWet = true;
+      function updateStepClock(){
+        const step = currentStep();
+        if(state.stage !== 'main' || !step) return;
+
+        const elapsed = (Date.now() - scrub.stepStartedAt) / 1000;
+        const left = Math.max(0, step.limit - elapsed);
+        el.stepClockText.textContent = left.toFixed(1) + 's';
+        el.stepClock.classList.toggle('danger', left <= 2.5);
+
+        if(left <= 0 && Date.now() - scrub.lastPressureAt > 1800){
+          scrub.lastPressureAt = Date.now();
+          scrub.stepStartedAt = Date.now() - Math.max(0, (step.limit - 2.5) * 1000);
+          scrub.germPenalty += 4;
+          scrub.combo = 0;
+          state.mistake += 1;
+          showToast('เชื้อกำลังลาม! รีบถูให้ถูกจุด');
+          sfx('bad');
+          render();
+        }
+      }
+
+      function seededRand(seed){
+        let x = Math.sin(seed) * 10000;
+        return x - Math.floor(x);
+      }
+
+      function renderGerms(){
+        const step = currentStep();
+
+        if(state.stage !== 'main'){
+          el.germLayer.innerHTML = '';
+          return;
+        }
+
+        const b = BOX[step.target] || BOX.all;
+        const progress = currentProgress();
+        const base = step.id === 'soap' ? 0 : 5;
+        const spread = Math.min(5, Math.floor(scrub.germPenalty / 4));
+        const alive = Math.max(0, Math.ceil((base + spread) * (1 - progress / 100)));
+
+        let html = '';
+        for(let i=0; i<base + spread; i++){
+          const rx = seededRand((state.stepIndex + 1) * 53 + i * 17);
+          const ry = seededRand((state.stepIndex + 1) * 79 + i * 29);
+          const left = b.l + 4 + rx * Math.max(4, b.w - 8);
+          const top = b.t + 4 + ry * Math.max(4, b.h - 8);
+          const faded = i >= alive ? ' fading' : '';
+          const red = i % 4 === 0 && i < alive ? ' red' : '';
+          const face = red ? '😈' : '🦠';
+          html += `<div class="germ${red}${faded}" style="left:${left}%;top:${top}%">${face}</div>`;
+        }
+
+        el.germLayer.innerHTML = html;
+      }
+
+      function scoreMove(step, dx, dy, dist, x, y){
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+
+        if(dist < 3) return 0;
+
+        if(step.gesture === 'water'){
+          return ay > ax * .75 ? 1 : .35;
+        }
+
+        if(step.gesture === 'horizontal' || step.gesture === 'wipe'){
+          return ax > ay * .75 ? 1 : .35;
+        }
+
+        if(step.gesture === 'vertical'){
+          return ay > ax * .75 ? 1 : .35;
+        }
+
+        if(step.gesture === 'zigzag'){
+          const sign = dx >= 0 ? 1 : -1;
+          if(scrub.zigzagLast && sign !== scrub.zigzagLast){
+            scrub.zigzagTurns += 1;
+          }
+          scrub.zigzagLast = sign;
+          return scrub.zigzagTurns >= 2 ? 1.15 : .55;
+        }
+
+        if(step.gesture === 'circle' || step.gesture === 'circle-small'){
+          const rect = el.mainHotspot.getBoundingClientRect();
+          const cx = rect.left + rect.width / 2;
+          const cy = rect.top + rect.height / 2;
+          const a = Math.atan2(y - cy, x - cx);
+
+          if(scrub.lastAngle !== null){
+            let da = Math.abs(a - scrub.lastAngle);
+            if(da > Math.PI) da = (Math.PI * 2) - da;
+            scrub.angleTravel += da;
+          }
+          scrub.lastAngle = a;
+
+          return scrub.angleTravel > 1.4 ? 1.15 : .55;
+        }
+
+        return .55;
+      }
+
+      function addTrace(x,y){
+        const r = $('mainHands').getBoundingClientRect();
+        const dot = document.createElement('div');
+        dot.className = 'traceDot';
+        dot.style.left = (x - r.left - 8) + 'px';
+        dot.style.top = (y - r.top - 8) + 'px';
+        el.traceLayer.appendChild(dot);
+        setTimeout(() => dot.remove(), 650);
+      }
+
+      function addScrubProgress(rawAmount){
+        const step = currentStep();
+        const old = currentProgress();
+        const fever = Date.now() < scrub.feverUntil;
+        const boost = fever ? 1.65 : 1;
+        const amount = rawAmount * boost;
+        const next = clamp(old + amount, 0, 100);
+
+        state.stepProgress[step.id] = next;
+
+        const oldBucket = Math.floor(old / 25);
+        const newBucket = Math.floor(next / 25);
+
+        if(newBucket > oldBucket){
+          scrub.combo += newBucket - oldBucket;
+          scrub.maxCombo = Math.max(scrub.maxCombo, scrub.combo);
+          state.score += (fever ? 4 : 2) * (newBucket - oldBucket);
+
+          if(scrub.combo > 0 && scrub.combo % 10 === 0){
+            scrub.feverUntil = Date.now() + 8000;
+            scrub.feverCount += 1;
+            pop('🫧 Bubble Fever!');
+            sfx('fever');
+          }else if(scrub.combo > 0 && scrub.combo % 3 === 0){
+            pop('🔥 Clean Combo x' + scrub.combo);
+            sfx('combo');
+          }else{
+            sfx('ok');
+          }
+        }
+
+        if(next > old){
+          el.mainHotspot.classList.add('scrub-good');
+          clearTimeout(el.mainHotspot.__goodT);
+          el.mainHotspot.__goodT = setTimeout(() => el.mainHotspot.classList.remove('scrub-good'), 180);
+        }
+
+        updateCleanMeters();
+        renderGerms();
+        updateStats();
+        el.mainBar.style.width = Math.round(next) + '%';
+
+        if(step.type === 'water' && next >= 100) state.handsWet = true;
         if(step.type === 'scrub') state.foam = clamp(state.foam + amount * .42, 0, 100);
         if(step.type === 'rinse') state.foam = clamp(state.foam - amount * 1.2, 0, 100);
         if(step.type === 'dry') state.dry = clamp(state.dry + amount, 0, 100);
 
-        updateStats();
-        renderMain();
-
-        if(currentProgress() >= (step.goal || 100)){
-          completeStep();
+        if(next >= 100){
+          scrub.stepStartedAt = Date.now();
+          setTimeout(() => {
+            if(state.stage === 'main' && WHO[state.stepIndex] && WHO[state.stepIndex].id === step.id){
+              completeStep();
+            }
+          }, 80);
         }
+      }
+
+      function onPointerDown(e){
+        if(state.stage !== 'main') return;
+
+        const step = currentStep();
+        if(!step || step.gesture === 'tap') return;
+
+        if(!requirementOk(step)){
+          showToast(requirementMessage(step));
+          return;
+        }
+
+        scrub.active = true;
+        scrub.pointerId = e.pointerId;
+        scrub.lastX = scrub.startX = e.clientX;
+        scrub.lastY = scrub.startY = e.clientY;
+        scrub.lastAngle = null;
+        scrub.angleTravel = 0;
+        scrub.zigzagLast = 0;
+        scrub.zigzagTurns = 0;
+
+        try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+        e.preventDefault();
+      }
+
+      function onPointerMove(e){
+        if(!scrub.active || e.pointerId !== scrub.pointerId) return;
+
+        const step = currentStep();
+        if(state.stage !== 'main' || !step) return;
+
+        const dx = e.clientX - scrub.lastX;
+        const dy = e.clientY - scrub.lastY;
+        const dist = Math.hypot(dx,dy);
+
+        scrub.lastX = e.clientX;
+        scrub.lastY = e.clientY;
+
+        const q = scoreMove(step, dx, dy, dist, e.clientX, e.clientY);
+        if(q > 0){
+          addTrace(e.clientX, e.clientY);
+          addScrubProgress(Math.min(5.5, dist * .22 * q));
+        }
+
+        e.preventDefault();
+      }
+
+      function onPointerUp(e){
+        if(e.pointerId !== scrub.pointerId) return;
+        scrub.active = false;
+        scrub.pointerId = null;
+      }
+
+      function bindScrubGesture(){
+        if(el.mainHotspot.__scrubBound) return;
+
+        el.mainHotspot.__scrubBound = true;
+        el.mainHotspot.addEventListener('pointerdown', onPointerDown, { passive:false });
+        el.mainHotspot.addEventListener('pointermove', onPointerMove, { passive:false });
+        el.mainHotspot.addEventListener('pointerup', onPointerUp, { passive:true });
+        el.mainHotspot.addEventListener('pointercancel', onPointerUp, { passive:true });
+      }
+
+      function useSoap(){
+        const step = currentStep();
+
+        if(step.type !== 'soap' && !state.handsWet){
+          state.mistake += 1;
+          showToast('ควรทำให้มือเปียกก่อนนะ');
+          sfx('bad');
+          updateStats();
+          return;
+        }
+
+        state.hasSoap = true;
+        state.foam = Math.max(state.foam, 20);
+        foam();
+        showToast('ใส่สบู่แล้ว');
+        sfx('ok');
+
+        if(step.type === 'soap'){
+          setProgress(1);
+          completeStep();
+        }else{
+          renderMain();
+        }
+      }
+
+      function toggleWater(){
+        state.waterOn = !state.waterOn;
+        showToast(state.waterOn ? 'เปิดน้ำแล้ว' : 'ปิดน้ำแล้ว');
+        sfx('ok');
+        renderMain();
+      }
+
+      function useTowel(){
+        state.usingTowel = true;
+        showToast('ใช้ผ้าเช็ดมือแล้ว');
+        sfx('ok');
+        renderMain();
       }
 
       function completeStep(){
@@ -1727,52 +2769,19 @@
         state.correct += 1;
 
         showToast('ผ่านแล้ว: ' + step.short);
+        sfx('stage');
 
         if(state.stepIndex < WHO.length - 1){
           state.stepIndex += 1;
+          scrub.stepStartedAt = Date.now();
           setTimeout(renderMain, 280);
         }else{
           stopTimer();
-          showToast('ล้างมือครบแล้ว ไปเรียงลำดับ');
+          showToast('ล้างมือครบแล้ว ไปปราบบอส WHO');
           setTimeout(() => setStage('order'), 600);
         }
 
         updateStats();
-      }
-
-      function toggleWater(){
-        state.waterOn = !state.waterOn;
-        showToast(state.waterOn ? 'เปิดน้ำแล้ว' : 'ปิดน้ำแล้ว');
-        renderMain();
-      }
-
-      function useSoap(){
-        const step = currentStep();
-
-        if(step.type !== 'soap' && !state.handsWet){
-          state.mistake += 1;
-          showToast('ควรทำให้มือเปียกก่อนนะ');
-          updateStats();
-          return;
-        }
-
-        state.hasSoap = true;
-        state.foam = Math.max(state.foam, 20);
-        foam();
-        showToast('ใส่สบู่แล้ว');
-
-        if(step.type === 'soap'){
-          setProgress(1);
-          completeStep();
-        }else{
-          renderMain();
-        }
-      }
-
-      function useTowel(){
-        state.usingTowel = true;
-        showToast('ใช้ผ้าเช็ดมือแล้ว');
-        renderMain();
       }
 
       function skipStep(){
@@ -1811,13 +2820,92 @@
         state.orderShuffled = true;
       }
 
+      function initBossIfNeeded(){
+        if(state.stage !== 'order') return;
+
+        if(!boss.enteredOrder){
+          boss.maxHp = ORDER.length * 20;
+          boss.hp = boss.maxHp;
+          boss.lastOrderIndex = Number(state.orderIndex || 0);
+          boss.lastMistake = Number(state.mistake || 0);
+          boss.bossDefeated = false;
+          boss.enteredOrder = true;
+        }
+      }
+
+      function bossFx(){
+        el.bossBox.classList.add('hit');
+
+        const blast = document.createElement('div');
+        blast.className = 'foamBlast';
+        el.bossBox.appendChild(blast);
+
+        setTimeout(() => el.bossBox.classList.remove('hit'), 420);
+        setTimeout(() => blast.remove(), 760);
+      }
+
+      function updateBossUI(){
+        const hpPct = boss.maxHp ? clamp((boss.hp / boss.maxHp) * 100, 0, 100) : 0;
+
+        el.bossHpBar.style.width = hpPct + '%';
+        el.bossHpText.textContent = `HP ${Math.max(0, Math.round(boss.hp))}/${boss.maxHp}`;
+
+        el.bossBox.classList.toggle('defeated', boss.hp <= 0);
+        el.bossBox.classList.toggle('danger', boss.hp > boss.maxHp * .72);
+
+        el.bossAvatar.textContent = boss.hp <= 0 ? '🫧🏆' : '👑🦠';
+      }
+
+      function resetOrderDeadline(){
+        rush.orderDeadline = Date.now() + rush.config.orderSec * 1000;
+        rush.orderLastIndex = Number(state.orderIndex || 0);
+      }
+
+      function updateOrderPressure(){
+        if(state.stage !== 'order'){
+          el.rushTimerBar.style.width = '100%';
+          return;
+        }
+
+        const idx = Number(state.orderIndex || 0);
+
+        if(rush.orderDeadline <= 0 || idx !== rush.orderLastIndex){
+          resetOrderDeadline();
+        }
+
+        if(idx >= ORDER.length){
+          el.rushTimerBar.style.width = '0%';
+          return;
+        }
+
+        const left = Math.max(0, rush.orderDeadline - Date.now());
+        const p = Math.max(0, Math.min(100, (left / (rush.config.orderSec * 1000)) * 100));
+
+        el.rushTimerBar.style.width = p + '%';
+
+        if(left <= 0){
+          state.mistake += 1;
+          boss.hp = Math.min(boss.maxHp, boss.hp + 12);
+          scrub.germPenalty += 4;
+          scrub.combo = 0;
+
+          pop('⏱ ช้าไป! บอสฟื้นพลัง');
+          showToast('ช้าไป! บอสฟื้นพลัง');
+          sfx('bad');
+
+          resetOrderDeadline();
+          render();
+        }
+      }
+
       function renderOrder(){
         shuffleOrderButtons();
+        initBossIfNeeded();
 
         const nextStep = WHO[state.orderIndex];
 
         el.orderPrompt.innerHTML = nextStep
-          ? `เลือกขั้นตอนที่ถูกต้องลำดับต่อไป <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`
+          ? `เลือกขั้นตอน WHO ถัดไปให้ถูก <strong>${state.orderIndex + 1}/${ORDER.length}</strong>`
           : 'เรียงลำดับครบแล้ว!';
 
         el.orderBar.style.width = Math.round((state.orderIndex / ORDER.length) * 100) + '%';
@@ -1827,6 +2915,9 @@
           btn.classList.toggle('done', done);
           btn.disabled = done;
         });
+
+        updateBossUI();
+        updateOrderPressure();
       }
 
       function doOrder(value){
@@ -1837,9 +2928,24 @@
           state.orderIndex += 1;
           state.score += 6;
           state.correct += 1;
-          showToast('ลำดับถูกต้อง!');
+
+          boss.hp = Math.max(0, boss.hp - boss.damagePerCorrect);
+          bossFx();
+          sfx('boss');
+          pop('🫧 ฟองโจมตีบอส!');
+          showToast('ลำดับถูกต้อง! ฟองโจมตีบอส');
+
+          if(boss.hp <= 0){
+            boss.bossDefeated = true;
+            el.bossLog.textContent = 'สุดยอด! ฟองสะอาดทำให้ Germ King หมดพลังแล้ว';
+          }else{
+            el.bossLog.textContent = 'ถูกต้อง! ฟองสะอาดโจมตีบอส';
+          }
+
+          resetOrderDeadline();
 
           if(state.orderIndex >= ORDER.length){
+            if(boss.hp <= 0) boss.bossDefeated = true;
             setTimeout(() => setStage('summary'), 450);
           }else{
             renderOrder();
@@ -1847,8 +2953,18 @@
         }else{
           state.mistake += 1;
           state.score = Math.max(0, state.score - 2);
+          boss.hp = Math.min(boss.maxHp, boss.hp + boss.healPerWrong);
+          scrub.germPenalty += 3;
+          scrub.combo = 0;
+
+          el.bossLog.textContent = 'โอ๊ะ! ยังไม่ใช่ขั้นตอนถัดไป บอสฟื้นพลังและเชื้อเพิ่ม';
           showToast('ยังไม่ใช่ขั้นตอนถัดไป ลองดูใหม่');
+          pop('🦠 บอสฟื้นพลัง!');
+          sfx('bad');
+
           updateStats();
+          updateBossUI();
+          updateOrderPressure();
         }
       }
 
@@ -1859,34 +2975,156 @@
         const total = state.correct + state.mistake;
         const acc = total ? Math.round((state.correct / total) * 100) : 0;
 
+        updateCleanMeters();
+
         let stars = 1;
-        if(completed >= 12 && acc >= 70) stars = 2;
-        if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80) stars = 3;
+        if(completed >= 12 && acc >= 70 && scrub.cleanPct >= 70) stars = 2;
+        if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80 && scrub.cleanPct >= 85) stars = 3;
 
         el.summaryScore.textContent = String(state.score);
         el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
         el.summaryText.textContent = stars >= 3
-          ? 'สุดยอด! ล้างมือครบทั้งสองข้างและเรียงลำดับถูกต้อง'
-          : 'ทำได้ดีมาก ลองเล่นอีกครั้งให้ครบทุกขั้นตอนนะ';
+          ? 'สุดยอด! ล้างมือครบทั้งสองข้างและปราบ Germ King ได้'
+          : 'ทำได้ดีมาก ลองเล่นอีกครั้งให้ Clean สูงขึ้นนะ';
         el.summarySteps.textContent = `ล้างมือครบ: ${completed}/${WHO.length} ขั้นตอน`;
         el.summaryOrder.textContent = `เรียงลำดับถูก: ${state.orderIndex}/${ORDER.length} ขั้นตอน`;
 
+        renderCleanResult();
+        renderBossResult();
+        renderMissionResult();
+
+        sfx(boss.bossDefeated ? 'win' : 'stage');
+
+        saveSummary(stars, completed, acc);
+      }
+
+      function renderCleanResult(){
+        const clean = pct(scrub.cleanPct);
+        const germ = pct(scrub.germPct);
+
+        let badge = '🦠 Germ Alert';
+        if(clean >= 95) badge = '✨ Perfect Clean';
+        else if(clean >= 85) badge = '🧼 Super Clean';
+        else if(clean >= 70) badge = '👍 Good Clean';
+
+        el.cleanResultBox.innerHTML = `
+          <div class="badgeLine">${badge}</div>
+          <div>🧼 ความสะอาด: ${clean}%</div>
+          <div>🦠 เชื้อคงเหลือ: ${germ}%</div>
+          <div>🔥 Max Combo: ${scrub.maxCombo}</div>
+          <div>🫧 Fever: ${scrub.feverCount} ครั้ง</div>
+        `;
+      }
+
+      function renderBossResult(){
+        const win = !!boss.bossDefeated || boss.hp <= 0;
+        el.bossResultBox.classList.toggle('win', win);
+        el.bossResultBox.classList.toggle('retry', !win);
+
+        el.bossResultBox.innerHTML = win
+          ? `
+            <div class="bossBadge">🏆 Boss Defeated!</div>
+            <div>จำลำดับ WHO ได้ดีมาก ฟองสะอาดชนะ Germ King</div>
+          `
+          : `
+            <div class="bossBadge">🦠 Boss Escaped</div>
+            <div>ล้างมือครบแล้ว แต่ยังพลาดหลายครั้ง ลองเล่นใหม่เพื่อปราบบอสให้ได้</div>
+            <div>Boss HP เหลือ: ${Math.max(0, Math.round(boss.hp))}</div>
+          `;
+      }
+
+      function renderMissionResult(){
+        const passed = rush.missions.map(ms => ({
+          title:ms.title,
+          text:ms.text,
+          ok:!!ms.pass(getMetric(), state)
+        }));
+
+        const allOk = passed.every(x => x.ok);
+
+        el.missionResultBox.classList.toggle('win', allOk);
+        el.missionResultBox.classList.toggle('retry', !allOk);
+
+        const lines = passed.map(x => `
+          <div class="missionLine">
+            <span>${x.ok ? '✅' : '⬜'} ${x.title}</span>
+            <strong>${x.ok ? 'ผ่าน' : 'ลองใหม่'}</strong>
+          </div>
+        `).join('');
+
+        const clean = Math.round(scrub.cleanPct || 0);
+        let replay = 'รอบหน้า ลองทำ Clean ให้สูงขึ้นและพลาดให้น้อยลง';
+        if(allOk) replay = 'สุดยอด! รอบหน้าเพิ่มระดับ hard เพื่อท้าทายขึ้น';
+        else if(!boss.bossDefeated) replay = 'รอบหน้า พยายามตอบลำดับ WHO ให้เร็วขึ้นเพื่อปราบบอส';
+
+        el.missionResultBox.innerHTML = `
+          <div class="bossBadge">${allOk ? '🏆 Mission Complete!' : '🎯 Replay Challenge'}</div>
+          ${lines}
+          <div class="missionLine">
+            <span>🧼 Clean Final</span>
+            <strong>${clean}%</strong>
+          </div>
+          <div style="line-height:1.45">${replay}</div>
+        `;
+      }
+
+      function getMetric(){
+        return {
+          clean:scrub.cleanPct,
+          germ:scrub.germPct,
+          combo:scrub.combo,
+          maxCombo:scrub.maxCombo,
+          feverCount:scrub.feverCount,
+          bossHp:boss.hp,
+          bossMaxHp:boss.maxHp,
+          bossDefeated:boss.bossDefeated || boss.hp <= 0
+        };
+      }
+
+      function saveSummary(stars, completed, acc){
+        const clean = pct(scrub.cleanPct);
+        const germ = pct(scrub.germPct);
+
+        let cleanBadge = '🦠 Germ Alert';
+        if(clean >= 95) cleanBadge = '✨ Perfect Clean';
+        else if(clean >= 85) cleanBadge = '🧼 Super Clean';
+        else if(clean >= 70) cleanBadge = '👍 Good Clean';
+
+        const passed = rush.missions.map(ms => ({
+          title:ms.title,
+          text:ms.text,
+          ok:!!ms.pass(getMetric(), state)
+        }));
+
+        const summary = {
+          version:VERSION,
+          game:'handwash',
+          zone:'hygiene',
+          flow:'who-clean-rush-emoji-scrub-germ-combo-fever-boss-mission',
+          score:state.score,
+          stars,
+          completedSteps:completed,
+          totalSteps:WHO.length,
+          orderSteps:state.orderIndex,
+          orderTotal:ORDER.length,
+          accuracy:acc,
+          cleanPct:clean,
+          germPct:germ,
+          maxCombo:scrub.maxCombo,
+          feverCount:scrub.feverCount,
+          cleanBadge,
+          bossDefeated:boss.bossDefeated || boss.hp <= 0,
+          bossHpLeft:Math.max(0, Math.round(boss.hp)),
+          bossMaxHp:boss.maxHp,
+          rushMissions:passed,
+          rushMissionAllClear:passed.every(x => x.ok),
+          rushDifficulty:rush.diff,
+          finishedAt:new Date().toISOString()
+        };
+
         try{
-          const summary = {
-            game:'handwash',
-            zone:'hygiene',
-            flow:'static-safe-big-hand-label-faucet-click-two-hands-summary-polish-order-shuffle',
-            score:state.score,
-            stars,
-            completedSteps:completed,
-            totalSteps:WHO.length,
-            orderSteps:state.orderIndex,
-            orderTotal:ORDER.length,
-            accuracy:acc,
-            finishedAt:new Date().toISOString()
-          };
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
           localStorage.setItem('HHA_LAST_SUMMARY_HANDWASH', JSON.stringify(summary));
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
           localStorage.setItem('HHA_LAST_SUMMARY_GLOBAL', JSON.stringify(summary));
         }catch(_){}
       }
@@ -1923,6 +3161,99 @@
         setTimeout(() => s.remove(), 900);
       }
 
+      function pickMissions(){
+        const pool = [
+          {
+            id:'clean',
+            title:'Clean Master',
+            text:`ทำความสะอาดให้ได้อย่างน้อย ${rush.config.cleanGoal}%`,
+            pass:m => m.clean >= rush.config.cleanGoal
+          },
+          {
+            id:'combo',
+            title:'Combo Hero',
+            text:`ทำ Max Combo ให้ได้ ${rush.config.comboGoal}+`,
+            pass:m => m.maxCombo >= rush.config.comboGoal
+          },
+          {
+            id:'boss',
+            title:'Beat Germ King',
+            text:'ปราบ Germ King ให้ได้',
+            pass:m => m.bossDefeated
+          },
+          {
+            id:'safe',
+            title:'Careful Hero',
+            text:`พลาดไม่เกิน ${rush.config.mistakeLimit} ครั้ง`,
+            pass:(m,s) => Number(s && s.mistake || 0) <= rush.config.mistakeLimit
+          },
+          {
+            id:'fever',
+            title:'Bubble Fever',
+            text:'เข้า Fever อย่างน้อย 1 ครั้ง',
+            pass:m => m.feverCount >= 1
+          }
+        ];
+
+        const a = Math.floor(rand(rush.missionSeed + 11) * pool.length);
+        let b = Math.floor(rand(rush.missionSeed + 29) * pool.length);
+        if(b === a) b = (b + 2) % pool.length;
+
+        rush.missions = [pool[a], pool[b]];
+      }
+
+      function updateRushHud(){
+        const m = getMetric();
+
+        el.rushMode.textContent = `ระดับ: ${rush.diff}`;
+        el.rushClean.textContent = Math.round(m.clean) + '%';
+        el.rushGerm.textContent = Math.round(m.germ) + '%';
+        el.rushCombo.textContent = String(Math.round(m.maxCombo || 0));
+
+        if(state.stage === 'order' || state.stage === 'summary'){
+          el.rushBoss.textContent = m.bossDefeated ? 'ชนะแล้ว' : `HP ${Math.max(0, Math.round(m.bossHp))}`;
+        }else{
+          el.rushBoss.textContent = 'รอท้ายด่าน';
+        }
+
+        el.rushMission.innerHTML = rush.missions.map(ms => `⭐ <strong>${ms.title}</strong>: ${ms.text}`).join('<br>');
+      }
+
+      function monitorRushEvents(){
+        const m = getMetric();
+
+        if(state.stage !== rush.lastStage){
+          rush.lastStage = state.stage;
+          sfx('stage');
+
+          if(state.stage === 'main'){
+            pop('🧼 ถูให้ถูกท่า กำจัดเชื้อให้ไว!');
+          }else if(state.stage === 'order'){
+            resetOrderDeadline();
+            pop('👑 Boss Challenge เริ่มแล้ว!');
+          }
+        }
+
+        if(scrub.maxCombo > rush.lastCombo){
+          if(scrub.maxCombo >= rush.config.comboGoal && rush.lastCombo < rush.config.comboGoal){
+            pop('🔥 Mission Combo สำเร็จ!');
+            sfx('combo');
+          }
+          rush.lastCombo = scrub.maxCombo;
+        }
+
+        if(scrub.feverCount > rush.lastFever){
+          rush.lastFever = scrub.feverCount;
+          pop('🫧 Bubble Fever!');
+          sfx('fever');
+        }
+
+        if(rush.lastBossHp !== null && m.bossHp < rush.lastBossHp){
+          sfx('boss');
+        }
+        rush.lastBossHp = m.bossHp;
+      }
+
       function goBack(){
         location.href = cleanReturnUrl(qs.get('hub'));
       }
@@ -1931,7 +3262,8 @@
         stopTimer();
         const u = new URL(location.href);
         u.searchParams.set('stage','howto');
-        u.searchParams.set('v','20260503m-order-shuffle');
+        u.searchParams.set('v', VERSION);
+        u.searchParams.set('seed', String(Date.now()));
         location.href = u.toString();
       }
 
@@ -1949,13 +3281,19 @@
       }
 
       function run(action, value){
-        if(action === 'noop') return;
+        unlockAudio();
+
+        if(action === 'noop'){
+          showToast('ใช้วิธีลาก/ถูบนวงสีเหลืองแทนการกด');
+          return;
+        }
+
         if(action === 'goHowto') setStage('howto');
         else if(action === 'goPractice') setStage('practice');
         else if(action === 'goMain') setStage('main');
         else if(action === 'goSummary') setStage('summary');
         else if(action === 'practiceTarget') doPracticeTarget();
-        else if(action === 'mainTarget') doMainTarget();
+        else if(action === 'mainTarget') showToast('ใช้วิธีลาก/ถูบนวงสีเหลืองแทนการกด');
         else if(action === 'water') toggleWater();
         else if(action === 'soap') useSoap();
         else if(action === 'towel') useTowel();
@@ -1967,6 +3305,10 @@
 
       function bindButtons(){
         let suppressClickUntil = 0;
+
+        document.addEventListener('pointerdown', unlockAudio, { passive:true });
+        document.addEventListener('click', unlockAudio, { passive:true });
+        document.addEventListener('touchstart', unlockAudio, { passive:true });
 
         document.addEventListener('touchend', function(e){
           const btn = e.target.closest('[data-click]');
@@ -2007,20 +3349,73 @@
 
         $('btnBack').addEventListener('click', goBack);
         $('btnRestart').addEventListener('click', restart);
+
+        bindScrubGesture();
+      }
+
+      function tick(){
+        if(state.stage === 'main'){
+          updateStepClock();
+          renderGerms();
+        }
+
+        if(state.stage === 'order'){
+          updateOrderPressure();
+          updateBossUI();
+        }
+
+        updateCleanMeters();
+        updateStats();
+        updateRushHud();
+        monitorRushEvents();
       }
 
       document.body.classList.add('js-ready');
-      el.readyText.textContent = 'ระบบพร้อม: กดปุ่มได้แล้ว';
+      el.readyText.textContent = 'ระบบพร้อม: ลาก/ถูบนมือได้แล้ว';
+
+      pickMissions();
       bindButtons();
       render();
 
+      showToast('โหมดใหม่: ลาก/ถูบนมือเพื่อกำจัดเชื้อ');
+      pop('🎮 WHO Clean Rush พร้อมแล้ว!');
+
+      setInterval(tick, 350);
       window.addEventListener('beforeunload', stopTimer);
 
       window.HHA_HANDWASH_DEBUG = {
+        version:VERSION,
         state,
+        scrub,
+        boss,
+        rush,
         setStage,
         render,
         run
+      };
+
+      window.HHA_HANDWASH_SCRUB_CORE = {
+        version:VERSION,
+        scrub,
+        getClean:() => ({
+          clean:scrub.cleanPct,
+          germ:scrub.germPct,
+          combo:scrub.combo,
+          maxCombo:scrub.maxCombo,
+          feverCount:scrub.feverCount
+        })
+      };
+
+      window.HHA_HANDWASH_WHO_BOSS = {
+        version:VERSION,
+        boss
+      };
+
+      window.HHA_HANDWASH_RUSH_REWARD = {
+        version:VERSION,
+        rush,
+        config:rush.config,
+        metric:getMetric
       };
     })();
   </script>
