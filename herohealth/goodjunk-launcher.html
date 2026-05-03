@@ -430,7 +430,6 @@
       const URLS = {
         nutrition: ROOT + 'nutrition-zone.html',
         warmupGate: ROOT + 'warmup-gate.html',
-        soloBoss: ROOT + 'vr-goodjunk/goodjunk-solo-boss.html',
         duetLobby: ROOT + 'vr-goodjunk/goodjunk-duet-lobby.html',
         raceLobby: ROOT + 'vr-goodjunk/goodjunk-race-lobby.html',
         battleLobby: ROOT + 'vr-goodjunk/goodjunk-battle-lobby.html',
@@ -484,10 +483,6 @@
       }
 
       function cleanReturnUrl(raw){
-        /*
-          GoodJunk launcher กลับ Nutrition Zone เป็นหลัก
-          ถ้า hub ที่ส่งมาเป็น Nutrition Zone ให้ใช้ ROOT/nutrition-zone.html แบบสะอาด
-        */
         const fallback = URLS.nutrition;
 
         try{
@@ -569,10 +564,6 @@
         p.set('game', 'goodjunk');
         p.set('gameId', 'goodjunk');
 
-        /*
-          เก็บ seed เดิมถ้ามี เพื่อ deterministic testing
-          ถ้าไม่มี ใช้ timestamp ใหม่
-        */
         p.set('seed', first(q.get('seed'), String(Date.now())));
 
         const studyId = first(q.get('studyId'), '');
@@ -605,25 +596,42 @@
       }
 
       /*
-        FIXED SOLO BOSS FLOW
+        Solo Boss flow:
+        launcher
+        → /herohealth/warmup-gate.html?phase=warmup&gameId=goodjunk&mode=solo-boss
+        → gate เลือกเกมจาก gameId/mode เอง
+        → game
+        → cooldown
+        → nutrition
 
-        ใช้ gate ตัวจริงเท่านั้น:
-        https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html
-
-        ไม่ใช้:
-        /herohealth/gate/warmup-gate.html
+        สำคัญ:
+        launcher ไม่ส่ง next เข้าเกมแล้ว
+        เพราะเกมอยู่ที่ config/route ใน gate
       */
       function buildSoloBossWarmupHref(){
         const p = baseContextParams();
 
         p.set('phase', 'warmup');
+        p.set('gameId', 'goodjunk');
+        p.set('game', 'goodjunk');
         p.set('mode', 'solo-boss');
         p.set('entry', 'solo-boss');
         p.set('phaseBoss', '1');
         p.set('multiplayer', '0');
+        p.set('cat', 'nutrition');
+        p.set('zone', 'nutrition');
 
-        p.set('next', URLS.soloBoss);
+        /*
+          hub = ปลายทางสุดท้ายหลัง cooldown
+          ไม่ใช่ next เข้าเกม
+        */
         p.set('hub', URLS.nutrition);
+
+        /*
+          ไม่ส่ง next จาก launcher
+          ให้ warmup-gate.html เลือก game URL เองจาก gameId/mode
+        */
+        p.delete('next');
 
         return URLS.warmupGate + '?' + p.toString();
       }
