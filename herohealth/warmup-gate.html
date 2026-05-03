@@ -260,6 +260,14 @@
       transition:width .28s ease;
     }
 
+    .gateCustomRoot{
+      margin-top:14px;
+    }
+
+    .gateCustomRoot:empty{
+      display:none;
+    }
+
     @media (max-width:640px){
       body{
         padding:
@@ -320,7 +328,7 @@
         </div>
       </div>
 
-      <div class="gateMission">
+      <div class="gateMission" id="gateMission">
         <div class="gateMissionTitle" id="gateMissionTitle">ก่อนเริ่ม จำ 3 อย่างนี้</div>
 
         <div class="gateSteps" id="gateSteps">
@@ -352,9 +360,11 @@
         <div class="gateProgress">
           <div class="gateProgressFill" id="gateProgressFill"></div>
         </div>
+
+        <div class="gateCustomRoot" id="gateCustomRoot"></div>
       </div>
 
-      <div class="gateTip">
+      <div class="gateTip" id="gateTip">
         <div class="gateTipTitle" id="gateTipTitle">เคล็ดลับ</div>
         <div class="gateTipText" id="gateTipText">อ่านเป้าหมายให้เข้าใจก่อนเริ่มเล่น</div>
       </div>
@@ -374,6 +384,8 @@
   (function(){
     'use strict';
 
+    const WIN = window;
+    const DOC = document;
     const q = new URLSearchParams(location.search);
 
     const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
@@ -454,6 +466,8 @@
       mode: clean(qs('mode'), 'solo'),
       phase: cleanPhase(qs('phase')),
       entry: clean(qs('entry'), ''),
+      phaseBoss: clean(qs('phaseBoss'), ''),
+      multiplayer: clean(qs('multiplayer'), ''),
       fromLauncher: clean(qs('fromLauncher'), ''),
       log: clean(qs('log'), ''),
       api: clean(qs('api'), ''),
@@ -596,13 +610,34 @@
     };
 
     const copyGroup = isGoodJunk ? COPY.goodjunk : isPlate ? COPY.plate : COPY.generic;
-    const copy = isCooldown ? copyGroup.cooldown : copyGroup.warmup;
+    let copy = isCooldown ? copyGroup.cooldown : copyGroup.warmup;
 
     const $ = id => document.getElementById(id);
 
     function setText(id, text){
       const el = $(id);
       if(el) el.textContent = text;
+    }
+
+    function isGateDone(phase){
+      try{
+        return localStorage.getItem(gateKey(phase)) === '1';
+      }catch(_){
+        return false;
+      }
+    }
+
+    function markGateDone(phase){
+      try{
+        localStorage.setItem(gateKey(phase), '1');
+        localStorage.setItem(`${gateKey(phase)}::ts`, new Date().toISOString());
+      }catch(_){}
+    }
+
+    function gateKey(phase){
+      const pid = ctx.pid || 'anon';
+      const gameId = ctx.gameId || ctx.game || GAME_ID || 'game';
+      return `HHA_GATE_DONE::${bangkokYmd()}::${pid}::${gameId}::${phase}`;
     }
 
     function toUrl(url){
@@ -626,7 +661,8 @@
 
       const keys = [
         'pid','name','nick','studyId','section','session_code','diff','time','seed',
-        'view','run','zone','cat','game','gameId','mode','entry','fromLauncher','log','api'
+        'view','run','zone','cat','game','gameId','mode','entry','phaseBoss','multiplayer',
+        'fromLauncher','log','api'
       ];
 
       keys.forEach(k => {
@@ -645,27 +681,6 @@
       return u.toString();
     }
 
-    function gateKey(phase){
-      const pid = ctx.pid || 'anon';
-      const gameId = ctx.gameId || ctx.game || GAME_ID || 'game';
-      return `HHA_GATE_DONE::${bangkokYmd()}::${pid}::${gameId}::${phase}`;
-    }
-
-    function isGateDone(phase){
-      try{
-        return localStorage.getItem(gateKey(phase)) === '1';
-      }catch(_){
-        return false;
-      }
-    }
-
-    function markGateDone(phase){
-      try{
-        localStorage.setItem(gateKey(phase), '1');
-        localStorage.setItem(`${gateKey(phase)}::ts`, new Date().toISOString());
-      }catch(_){}
-    }
-
     function defaultGameRunUrl(){
       if(isGoodJunk){
         return URLS.goodjunkBoss;
@@ -678,25 +693,12 @@
       return URLS.hub;
     }
 
-    function nutritionZoneUrl(extra = {}){
-      return preserveParams(URLS.nutrition, {
-        focus: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
-        featured: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
-        zone:'nutrition',
-        ...extra
-      });
-    }
-
     function hubUrl(){
       return ctx.hub || URLS.nutrition;
     }
 
-    function gateBaseUrl(){
-      return URLS.gate;
-    }
-
     function buildCooldownGateUrl(){
-      return preserveParams(gateBaseUrl(), {
+      return preserveParams(URLS.gate, {
         phase:'cooldown',
         gameId:ctx.gameId || GAME_ID,
         game:ctx.game || GAME_ID,
@@ -705,20 +707,6 @@
         cat:ctx.cat || 'nutrition',
         hub:hubUrl(),
         next:hubUrl()
-      });
-    }
-
-    function buildWarmupReplayUrl(){
-      return preserveParams(gateBaseUrl(), {
-        phase:'warmup',
-        gameId:ctx.gameId || GAME_ID,
-        game:ctx.game || GAME_ID,
-        mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
-        zone:ctx.zone || 'nutrition',
-        cat:ctx.cat || 'nutrition',
-        seed:String(Date.now()),
-        hub:hubUrl(),
-        next:ctx.next || defaultGameRunUrl()
       });
     }
 
@@ -739,10 +727,32 @@
       });
     }
 
+    function nutritionZoneUrl(){
+      return preserveParams(URLS.nutrition, {
+        focus: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
+        featured: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
+        zone:'nutrition'
+      });
+    }
+
+    function warmupReplayUrl(){
+      return preserveParams(URLS.gate, {
+        phase:'warmup',
+        gameId:ctx.gameId || GAME_ID,
+        game:ctx.game || GAME_ID,
+        mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
+        zone:ctx.zone || 'nutrition',
+        cat:ctx.cat || 'nutrition',
+        seed:String(Date.now()),
+        hub:hubUrl(),
+        next:ctx.next || defaultGameRunUrl()
+      });
+    }
+
     function secondaryUrl(){
       if(isCooldown){
         if(isGoodJunk || isPlate){
-          return buildWarmupReplayUrl();
+          return warmupReplayUrl();
         }
 
         return hubUrl();
@@ -753,6 +763,22 @@
       }
 
       return hubUrl();
+    }
+
+    function renderCopy(data){
+      if(!data) return;
+
+      if(data.badge) copy.badge = data.badge;
+      if(data.title) copy.title = data.title;
+      if(data.subtitle) copy.subtitle = data.subtitle;
+      if(data.missionTitle) copy.missionTitle = data.missionTitle;
+      if(Array.isArray(data.steps)) copy.steps = data.steps;
+      if(data.tipTitle) copy.tipTitle = data.tipTitle;
+      if(data.tipText) copy.tipText = data.tipText;
+      if(data.primary) copy.primary = data.primary;
+      if(data.secondary) copy.secondary = data.secondary;
+      if(data.titleTag) copy.titleTag = data.titleTag;
+      if(data.footer) copy.footer = data.footer;
     }
 
     function render(){
@@ -792,6 +818,85 @@
         requestAnimationFrame(() => {
           fill.style.width = isCooldown ? '100%' : '72%';
         });
+      }
+    }
+
+    function loadCss(href){
+      return new Promise(resolve => {
+        const link = DOC.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.onload = () => resolve(true);
+        link.onerror = () => resolve(false);
+        DOC.head.appendChild(link);
+      });
+    }
+
+    function loadScript(src){
+      return new Promise(resolve => {
+        const s = DOC.createElement('script');
+        s.src = src;
+        s.async = false;
+        s.onload = () => resolve(true);
+        s.onerror = () => resolve(false);
+        DOC.body.appendChild(s);
+      });
+    }
+
+    async function loadGameSpecificGate(){
+      if(!GAME_ID || GAME_ID === 'game') return;
+
+      const base = `${ROOT}gate/games/${encodeURIComponent(GAME_ID)}/`;
+      await loadCss(base + 'style.css?v=20260503');
+      await loadScript(base + `${ctx.phase}.js?v=20260503`);
+
+      const api =
+        WIN.HHA_GATE_GAME ||
+        WIN.HHA_GATE_MODULE ||
+        WIN.HHA_GOODJUNK_GATE ||
+        WIN.HHA_PLATE_GATE ||
+        null;
+
+      const customRoot = $('gateCustomRoot');
+
+      if(api && typeof api.getCopy === 'function'){
+        try{
+          const data = api.getCopy({
+            phase: ctx.phase,
+            gameId: GAME_ID,
+            mode: ctx.mode,
+            ctx
+          });
+
+          renderCopy(data);
+          render();
+        }catch(_){}
+      }
+
+      if(api && typeof api.mount === 'function'){
+        try{
+          api.mount({
+            root: customRoot,
+            ctx,
+            phase: ctx.phase,
+            gameId: GAME_ID,
+            mode: ctx.mode,
+            primaryUrl,
+            secondaryUrl,
+            markDone: () => markGateDone(ctx.phase),
+            goPrimary: handlePrimary,
+            goSecondary: handleSecondary
+          });
+        }catch(_){}
+      }
+
+      /*
+        รองรับกรณีไฟล์ warmup.js/cooldown.js ตั้งค่า global แบบง่าย:
+        window.HHA_GATE_COPY = {...}
+      */
+      if(WIN.HHA_GATE_COPY){
+        renderCopy(WIN.HHA_GATE_COPY);
+        render();
       }
     }
 
@@ -835,13 +940,14 @@
       $('gateSecondaryBtn')?.addEventListener('click', handleSecondary);
     }
 
-    function boot(){
+    async function boot(){
       render();
 
       if(autoSkipIfDone()){
         return;
       }
 
+      await loadGameSpecificGate();
       bind();
     }
 
