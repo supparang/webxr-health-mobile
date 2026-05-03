@@ -2004,3 +2004,164 @@ body.view-cvr .crosshair{
     font-size:13.5px;
   }
 }
+/* =========================================================
+   PATCH v20260503-bossv7-balance-mobile-polish
+   Balance / mobile touch feel / anti-overlap / compact summary
+   ========================================================= */
+
+.app.ui-danger .weakness-card,
+.app.ui-danger .daily-challenge-card{
+  opacity:.18;
+  transform:translateY(-4px) scale(.98);
+  transition:opacity .18s ease, transform .18s ease;
+}
+
+.app.final-rush .daily-challenge-card{
+  display:none;
+}
+
+.app.final-rush .weakness-card{
+  opacity:.72;
+}
+
+.app.compact-summary .summary-emoji{
+  font-size:42px;
+  max-height:48px;
+}
+
+.app.compact-summary .summary-card h2{
+  font-size:25px;
+  margin:2px 0 4px;
+}
+
+.app.compact-summary .summary-grid{
+  gap:6px;
+  margin:7px 0;
+}
+
+.app.compact-summary .summary-grid div{
+  padding:7px 5px;
+}
+
+.app.compact-summary .summary-grid strong{
+  font-size:20px;
+}
+
+.app.compact-summary .summary-tip,
+.app.compact-summary .kid-summary-line,
+.app.compact-summary .boss-book{
+  font-size:12.5px;
+  padding:8px 9px;
+  border-radius:15px;
+}
+
+.app.compact-summary .badge-row{
+  gap:5px;
+  margin-top:8px;
+}
+
+.app.compact-summary .result-badge{
+  font-size:11px;
+  padding:6px 8px;
+}
+
+.target.mobile-touch{
+  width:76px;
+  height:76px;
+  font-size:42px;
+  border-radius:25px;
+}
+
+.target.assist-good{
+  box-shadow:
+    0 0 0 8px rgba(126,217,87,.16),
+    0 16px 34px rgba(38,54,74,.22);
+}
+
+.target.mercy-power{
+  outline:4px solid rgba(80,180,255,.92);
+  box-shadow:
+    0 0 0 9px rgba(80,180,255,.18),
+    0 18px 40px rgba(38,54,74,.24);
+  animation:mercyPulse .72s ease-in-out infinite;
+}
+
+.boss-hp.low{
+  animation:bossHpLow .48s ease-in-out infinite;
+}
+
+.hud-card.soft-hide{
+  opacity:.34;
+  transform:scale(.985);
+  transition:opacity .16s ease, transform .16s ease;
+}
+
+@keyframes mercyPulse{
+  0%,100%{ transform:translate(-50%,-50%) scale(1); }
+  50%{ transform:translate(-50%,-50%) scale(1.1); }
+}
+
+@keyframes bossHpLow{
+  0%,100%{ filter:saturate(1); }
+  50%{ filter:saturate(1.8) brightness(1.08); }
+}
+
+@media (max-width:760px){
+  .target{
+    width:70px;
+    height:70px;
+    font-size:39px;
+    border-radius:24px;
+  }
+
+  .target.mobile-touch{
+    width:78px;
+    height:78px;
+    font-size:43px;
+  }
+
+  .boss-speech.show ~ .danger-meter{
+    opacity:.55;
+  }
+
+  .mission-card{
+    max-width:calc(100% - 20px);
+  }
+
+  .app.ui-danger .mission-card{
+    opacity:.72;
+  }
+
+  .app.final-rush .mission-card{
+    opacity:.88;
+  }
+}
+
+@media (max-height:700px){
+  .app{
+    --summary-scale:.92;
+  }
+
+  .overlay-card.summary-card{
+    padding:12px;
+    border-radius:26px;
+  }
+
+  .summary-emoji{
+    font-size:40px;
+    max-height:45px;
+  }
+
+  .summary-card #summaryMessage{
+    font-size:13px;
+  }
+
+  .kid-summary-list{
+    gap:6px;
+    margin-top:8px;
+  }
+
+  .boss-book{
+    margin-top:8px;
+  }
+}
