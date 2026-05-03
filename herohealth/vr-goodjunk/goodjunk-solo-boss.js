@@ -1,3 +1,14 @@
+// === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
+// GoodJunk Solo Phase Boss
+// FULL MERGED PATCH v20260503-bossv3-cinematic
+// ✅ Solo Phase Boss
+// ✅ Phase background / boss form / rage mode
+// ✅ Boss HP / shield / attack patterns
+// ✅ HERO HIT / power-ups / mission
+// ✅ Mobile summary scroll reset
+// ✅ Boss speech / warning flash / danger meter / hero cut-in
+// ✅ No Apps Script logging in this version
+
 (() => {
   'use strict';
 
@@ -183,7 +194,13 @@
     sumStars: $('#sumStars'),
     summaryTip: $('#summaryTip'),
     replayBtn: $('#replayBtn'),
-    summaryBackBtn: $('#summaryBackBtn')
+    summaryBackBtn: $('#summaryBackBtn'),
+
+    bossSpeech: null,
+    dangerMeter: null,
+    dangerFill: null,
+    warningFlash: null,
+    heroCutin: null
   };
 
   function hashSeed(str){
@@ -261,6 +278,121 @@
     audioCtx: null
   };
 
+  function mountCinematicUI(){
+    if(!el.gameArea) return;
+
+    if(!el.bossSpeech){
+      const speech = DOC.createElement('div');
+      speech.id = 'bossSpeech';
+      speech.className = 'boss-speech';
+      speech.textContent = 'เจ้าจะผ่านด่านอาหารขยะไม่ได้หรอก!';
+      el.gameArea.appendChild(speech);
+      el.bossSpeech = speech;
+    }
+
+    if(!el.dangerMeter){
+      const meter = DOC.createElement('div');
+      meter.id = 'dangerMeter';
+      meter.className = 'danger-meter';
+      meter.innerHTML = `
+        <strong>BOSS SKILL</strong>
+        <div class="danger-track"><div class="danger-fill" id="dangerFill"></div></div>
+      `;
+      el.gameArea.appendChild(meter);
+      el.dangerMeter = meter;
+      el.dangerFill = meter.querySelector('#dangerFill');
+    }
+
+    if(!el.warningFlash){
+      const warn = DOC.createElement('div');
+      warn.id = 'warningFlash';
+      warn.className = 'warning-flash';
+      warn.innerHTML = `<div><strong>WARNING!</strong><span>บอสกำลังโจมตี</span></div>`;
+      el.gameArea.appendChild(warn);
+      el.warningFlash = warn;
+    }
+
+    if(!el.heroCutin){
+      const cut = DOC.createElement('div');
+      cut.id = 'heroCutin';
+      cut.className = 'hero-cutin';
+      cut.innerHTML = `
+        <div class="hero-cutin-card">
+          <div class="hero-icon">⚡</div>
+          <strong>HERO HIT!</strong>
+          <span>พลังอาหารดีโจมตีบอส</span>
+        </div>
+      `;
+      el.gameArea.appendChild(cut);
+      el.heroCutin = cut;
+    }
+  }
+
+  function bossSay(text, ms = 1450){
+    if(!el.bossSpeech) return;
+
+    el.bossSpeech.textContent = text;
+    el.bossSpeech.classList.remove('show');
+    void el.bossSpeech.offsetWidth;
+    el.bossSpeech.classList.add('show');
+
+    clearTimeout(bossSay.t);
+    bossSay.t = setTimeout(() => {
+      if(el.bossSpeech) el.bossSpeech.classList.remove('show');
+    }, ms);
+  }
+
+  function showWarning(text = 'บอสกำลังโจมตี'){
+    if(!el.warningFlash) return;
+
+    const label = el.warningFlash.querySelector('span');
+    if(label) label.textContent = text;
+
+    el.warningFlash.classList.remove('show');
+    void el.warningFlash.offsetWidth;
+    el.warningFlash.classList.add('show');
+
+    clearTimeout(showWarning.t);
+    showWarning.t = setTimeout(() => {
+      if(el.warningFlash) el.warningFlash.classList.remove('show');
+    }, 1100);
+  }
+
+  function showHeroCutin(text = 'พลังอาหารดีโจมตีบอส'){
+    if(!el.heroCutin) return;
+
+    const label = el.heroCutin.querySelector('span');
+    if(label) label.textContent = text;
+
+    el.heroCutin.classList.remove('show');
+    void el.heroCutin.offsetWidth;
+    el.heroCutin.classList.add('show');
+
+    clearTimeout(showHeroCutin.t);
+    showHeroCutin.t = setTimeout(() => {
+      if(el.heroCutin) el.heroCutin.classList.remove('show');
+    }, 1100);
+  }
+
+  function bossDamageRing(){
+    if(!el.fxLayer) return;
+
+    const ring = DOC.createElement('div');
+    ring.className = 'boss-damage-ring';
+    el.fxLayer.appendChild(ring);
+    setTimeout(() => ring.remove(), 620);
+  }
+
+  function updateDangerMeter(){
+    if(!el.dangerFill || !el.dangerMeter) return;
+
+    const attackEvery = Math.max(3.8, base.attackEvery - (state.phase - 1) * 0.75);
+    const pct = clamp((state.attackAcc / attackEvery) * 100, 0, 100);
+
+    el.dangerFill.style.width = `${pct}%`;
+    el.dangerMeter.classList.toggle('danger-hot', pct >= 78);
+  }
+
   function now(){
     return performance.now();
   }
@@ -284,26 +416,37 @@
 
       const o = ctx.createOscillator();
       const g = ctx.createGain();
+
       o.connect(g);
       g.connect(ctx.destination);
 
       const t = ctx.currentTime;
+
       let f1 = 520;
       let f2 = 760;
       let dur = 0.12;
 
       if(type === 'bad'){
-        f1 = 170; f2 = 90; dur = 0.18;
+        f1 = 170;
+        f2 = 90;
+        dur = 0.18;
       }else if(type === 'boss'){
-        f1 = 120; f2 = 360; dur = 0.28;
+        f1 = 120;
+        f2 = 360;
+        dur = 0.28;
       }else if(type === 'power'){
-        f1 = 760; f2 = 980; dur = 0.22;
+        f1 = 760;
+        f2 = 980;
+        dur = 0.22;
       }else if(type === 'win'){
-        f1 = 650; f2 = 1040; dur = 0.45;
+        f1 = 650;
+        f2 = 1040;
+        dur = 0.45;
       }
 
       o.frequency.setValueAtTime(f1, t);
       o.frequency.exponentialRampToValueAtTime(Math.max(1, f2), t + dur);
+
       g.gain.setValueAtTime(0.0001, t);
       g.gain.exponentialRampToValueAtTime(0.16, t + 0.02);
       g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
@@ -311,13 +454,14 @@
       o.start(t);
       o.stop(t + dur + 0.02);
     }catch(err){
-      // keep silent if browser blocks audio
+      // Browser may block audio before user interaction.
     }
   }
 
   function showToast(msg, ms = 950){
     el.toast.textContent = msg;
     el.toast.classList.remove('hidden');
+
     clearTimeout(showToast.t);
     showToast.t = setTimeout(() => {
       el.toast.classList.add('hidden');
@@ -330,6 +474,7 @@
     n.textContent = text;
     n.style.left = `${x}px`;
     n.style.top = `${y}px`;
+
     el.fxLayer.appendChild(n);
     setTimeout(() => n.remove(), 720);
   }
@@ -342,6 +487,7 @@
 
   function setPhase(nextPhase, announce = true){
     nextPhase = clamp(nextPhase, 1, 4);
+
     if(state.phase === nextPhase && announce) return;
 
     state.phase = nextPhase;
@@ -356,7 +502,7 @@
 
     const p = PHASES[nextPhase];
 
-    el.app.classList.remove('phase-1','phase-2','phase-3','phase-4','rage');
+    el.app.classList.remove('phase-1', 'phase-2', 'phase-3', 'phase-4', 'rage');
     el.app.classList.add(`phase-${nextPhase}`);
 
     el.modePill.textContent = p.pill;
@@ -373,8 +519,20 @@
       el.phaseTitle.textContent = p.title;
       el.phaseDesc.textContent = p.desc;
       el.phaseBanner.classList.remove('hidden');
+
       playTone(nextPhase === 4 ? 'boss' : 'power');
-      setTimeout(() => el.phaseBanner.classList.add('hidden'), 980);
+
+      setTimeout(() => {
+        el.phaseBanner.classList.add('hidden');
+      }, 980);
+
+      if(nextPhase === 2){
+        bossSay('ฮ่า ๆ ข้าจะใช้ของหลอกแล้ว!');
+      }else if(nextPhase === 3){
+        bossSay('เปิดโล่บอส! เก็บให้ครบ 5 หมู่ก่อนสิ!');
+      }else if(nextPhase === 4){
+        bossSay('RAGE MODE! ข้าจะโจมตีเต็มพลัง!');
+      }
     }
   }
 
@@ -478,7 +636,9 @@
     const node = DOC.createElement('button');
     node.type = 'button';
     node.className = `target ${item.kind}`;
+
     if(item.fake) node.classList.add('fake');
+
     node.textContent = item.emoji;
     node.setAttribute('aria-label', item.label || item.name || item.kind);
     node.style.left = `${item.x}px`;
@@ -498,6 +658,7 @@
 
     const rect = getAreaRect();
     const pad = 46;
+
     const x = opt.x ?? random(pad, Math.max(pad + 1, rect.width - pad));
     const y = opt.y ?? random(-70, -35);
 
@@ -508,6 +669,7 @@
       data = opt.power || pick(POWERUPS);
     }else if(kind === 'junk'){
       data = pick(FOOD_JUNK);
+
       if(opt.fake){
         const fakeGood = pick(FOOD_GOOD);
         data = {
@@ -530,6 +692,8 @@
       label: data.label || data.name || kind,
       group: data.group || '',
       fake,
+      danger: !!opt.danger,
+      bonusGood: !!opt.bonusGood,
       x,
       y,
       vx: opt.vx ?? random(-10, 10),
@@ -540,6 +704,10 @@
     };
 
     item.node = createTargetNode(item);
+
+    if(item.danger) item.node.classList.add('danger');
+    if(item.bonusGood) item.node.classList.add('bonus-good');
+
     state.items.push(item);
     el.targetLayer.appendChild(item.node);
   }
@@ -554,18 +722,30 @@
     }
 
     if(state.phase === 3 && state.shieldGate > 0 && chance(0.62)){
-      const needed = ['protein','carb','veg','fruit','fat'].filter(g => !state.phaseGroups.has(g));
-      const group = needed.length ? pick(needed) : pick(['protein','carb','veg','fruit','fat']);
+      const needed = ['protein', 'carb', 'veg', 'fruit', 'fat'].filter(g => !state.phaseGroups.has(g));
+      const group = needed.length ? pick(needed) : pick(['protein', 'carb', 'veg', 'fruit', 'fat']);
       const good = pick(FOOD_GOOD.filter(f => f.group === group));
-      spawnItem('good', { good });
+
+      spawnItem('good', { good, bonusGood: true });
       return;
     }
 
-    spawnItem(kind);
+    if(state.phase === 4 && kind === 'good' && chance(0.22)){
+      spawnItem('good', {
+        bonusGood: true,
+        speed: random(92, 135) * itemSpeed()
+      });
+      return;
+    }
+
+    spawnItem(kind, {
+      danger: kind === 'junk' && state.phase >= 4 && chance(0.36)
+    });
   }
 
   function spawnPower(){
     const p = pick(POWERUPS);
+
     spawnItem('power', {
       power: p,
       speed: random(60, 92) * itemSpeed(),
@@ -579,7 +759,9 @@
 
     if(item.node){
       item.node.classList.add('hit');
-      setTimeout(() => item.node && item.node.remove(), 120);
+      setTimeout(() => {
+        if(item.node) item.node.remove();
+      }, 120);
     }
   }
 
@@ -592,14 +774,27 @@
     }
 
     state.bossHp = clamp(state.bossHp - amount, 0, state.bossMaxHp);
+
+    bossDamageRing();
+
+    if(amount >= 15){
+      bossSay('โอ๊ย! พลังอาหารดีแรงมาก!');
+    }else if(chance(0.28)){
+      bossSay('ยังไม่ยอมแพ้หรอก!');
+    }
+
     el.bossFace.animate([
       { transform: 'scale(1) rotate(0deg)' },
       { transform: 'scale(1.18) rotate(-8deg)' },
       { transform: 'scale(1) rotate(0deg)' }
-    ], { duration: 240, easing: 'ease-out' });
+    ], {
+      duration: 240,
+      easing: 'ease-out'
+    });
 
     showToast(`⚡ ${label} บอส -${Math.round(amount)}`);
     playTone('boss');
+
     updatePhaseFromHp();
 
     if(state.bossHp <= 0){
@@ -617,8 +812,19 @@
 
     const comboBonus = Math.min(18, state.combo * 1.5);
     const add = 10 + comboBonus + (state.phase * 2);
+
     state.score += add;
     state.heroCharge = clamp(state.heroCharge + 8 + state.combo * 0.8, 0, 100);
+
+    if(item.bonusGood){
+      state.heroCharge = clamp(state.heroCharge + 8, 0, 100);
+      state.score += 10;
+      popText(item.x, item.y - 20, 'BONUS!', 'gold');
+    }
+
+    if(state.heroCharge >= 100){
+      showToast('⚡ HERO HIT พร้อมใช้แล้ว!');
+    }
 
     popText(item.x, item.y, `+${Math.round(add)}`, 'good');
     playTone('good');
@@ -634,6 +840,7 @@
       if(item.fake){
         return;
       }
+
       if(state.phaseGood >= 8){
         damageBoss(9, 'COMBO STRIKE');
         state.phaseGood = 0;
@@ -646,7 +853,7 @@
         state.shieldGate = Math.max(0, 5 - state.phaseGroups.size);
 
         if(before !== state.shieldGate){
-          popText(item.x, item.y, `โล่ -1`, 'gold');
+          popText(item.x, item.y, 'โล่ -1', 'gold');
         }
 
         if(state.shieldGate <= 0){
@@ -666,12 +873,15 @@
     if(state.shieldUses > 0){
       state.shieldUses--;
       state.score += 4;
+
       popText(item.x, item.y, 'BLOCK!', 'gold');
       showToast('🛡️ Shield กันอาหารขยะแล้ว');
       playTone('power');
+
       if(state.shieldUses <= 0){
         state.powerLabel = '-';
       }
+
       return;
     }
 
@@ -693,7 +903,6 @@
   }
 
   function activatePower(item){
-    const id = item.name || item.label;
     const raw = POWERUPS.find(p => p.emoji === item.emoji) || pick(POWERUPS);
     const powerId = raw.id;
 
@@ -709,6 +918,7 @@
       showToast('🧲 ดูดอาหารดี 6 วินาที');
     }else if(powerId === 'blast'){
       let cleared = 0;
+
       state.items.slice().forEach(it => {
         if(it.kind === 'junk'){
           cleared++;
@@ -716,6 +926,7 @@
           removeItem(it);
         }
       });
+
       state.score += cleared * 8;
       damageBoss(8 + cleared * 0.7, 'CLEAN BLAST');
       state.powerLabel = 'Blast!';
@@ -764,6 +975,7 @@
       if(t < state.magnetUntil && item.kind === 'good'){
         const cx = rect.width * 0.5;
         const cy = rect.height * 0.58;
+
         item.x += (cx - item.x) * dt * 1.35;
         item.y += (cy - item.y) * dt * 0.9;
       }
@@ -787,76 +999,112 @@
           state.combo = 0;
           popText(clamp(item.x, 30, rect.width - 30), rect.height - 50, 'MISS', 'bad');
         }
+
         removeItem(item);
       }
     });
   }
 
   function attackJunkRain(){
-    showToast('🌧️ Junk Rain! หลบอาหารขยะ');
+    showWarning('Junk Rain! หลบอาหารขยะ');
+    bossSay('ฝนอาหารขยะมาแล้ว!');
     playTone('bad');
 
-    const rect = getAreaRect();
-    const count = state.phase >= 4 ? 8 : state.phase >= 3 ? 6 : 5;
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
 
-    for(let i = 0; i < count; i++){
-      setTimeout(() => {
-        spawnItem('junk', {
-          x: random(50, rect.width - 50),
-          y: random(-110, -40),
-          speed: random(120, 185) * itemSpeed()
-        });
-      }, i * 120);
-    }
+      showToast('🌧️ Junk Rain! หลบอาหารขยะ');
+
+      const rect = getAreaRect();
+      const count = state.phase >= 4 ? 8 : state.phase >= 3 ? 6 : 5;
+
+      for(let i = 0; i < count; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          spawnItem('junk', {
+            danger: true,
+            x: random(50, rect.width - 50),
+            y: random(-110, -40),
+            speed: random(120, 185) * itemSpeed()
+          });
+        }, i * 120);
+      }
+    }, 720);
   }
 
   function attackFakeHealthy(){
-    showToast('🎭 ระวัง! อาหารขยะปลอมตัว');
+    showWarning('Fake Healthy! ดูให้ดีก่อนเก็บ');
+    bossSay('แยกออกไหมว่าอันไหนของหลอก?');
     playTone('bad');
 
-    const rect = getAreaRect();
-    for(let i = 0; i < 4; i++){
-      setTimeout(() => {
-        spawnItem('junk', {
-          fake: true,
-          x: random(55, rect.width - 55),
-          y: random(-90, -38),
-          speed: random(85, 130) * itemSpeed()
-        });
-      }, i * 180);
-    }
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
+
+      showToast('🎭 ระวัง! อาหารขยะปลอมตัว');
+
+      const rect = getAreaRect();
+
+      for(let i = 0; i < 4; i++){
+        setTimeout(() => {
+          if(!state.running || state.paused || state.ended) return;
+
+          spawnItem('junk', {
+            fake: true,
+            danger: true,
+            x: random(55, rect.width - 55),
+            y: random(-90, -38),
+            speed: random(85, 130) * itemSpeed()
+          });
+        }, i * 180);
+      }
+    }, 720);
   }
 
   function attackSugarWave(){
-    showToast('🥤 Sugar Wave! คลื่นน้ำตาลมาแล้ว');
+    showWarning('Sugar Wave! คลื่นน้ำตาลมาแล้ว');
+    bossSay('คลื่นน้ำตาลจะพาเจ้าแพ้!');
     playTone('bad');
 
-    const rect = getAreaRect();
-    const n = state.phase >= 4 ? 7 : 5;
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
 
-    for(let i = 0; i < n; i++){
-      spawnItem('junk', {
-        x: ((i + 1) / (n + 1)) * rect.width,
-        y: -55 - Math.abs(Math.floor(n / 2) - i) * 18,
-        vx: random(-6, 6),
-        speed: random(112, 155) * itemSpeed()
-      });
-    }
+      showToast('🥤 Sugar Wave! คลื่นน้ำตาลมาแล้ว');
+
+      const rect = getAreaRect();
+      const n = state.phase >= 4 ? 7 : 5;
+
+      for(let i = 0; i < n; i++){
+        spawnItem('junk', {
+          danger: true,
+          x: ((i + 1) / (n + 1)) * rect.width,
+          y: -55 - Math.abs(Math.floor(n / 2) - i) * 18,
+          vx: random(-6, 6),
+          speed: random(112, 155) * itemSpeed()
+        });
+      }
+    }, 720);
   }
 
   function attackShield(){
     if(state.phase < 2 || state.shieldGate > 0) return;
 
-    state.shieldGate = state.phase >= 4 ? 3 : 2;
-    showToast(`🛡️ บอสเปิดโล่! เก็บอาหารดี ${state.shieldGate} ครั้ง`);
-    playTone('boss');
+    showWarning('Boss Shield! เก็บอาหารดีเพื่อทำลายโล่');
+
+    setTimeout(() => {
+      if(!state.running || state.paused || state.ended) return;
+
+      state.shieldGate = state.phase >= 4 ? 3 : 2;
+      showToast(`🛡️ บอสเปิดโล่! เก็บอาหารดี ${state.shieldGate} ครั้ง`);
+      bossSay('โล่บอสเปิดแล้ว เจ้าตีข้าไม่ได้หรอก!');
+      playTone('boss');
+    }, 620);
   }
 
   function bossAttack(){
     if(!state.running || state.paused || state.ended) return;
 
     const pool = [];
-
     pool.push(attackJunkRain);
 
     if(state.phase >= 2) pool.push(attackFakeHealthy);
@@ -872,6 +1120,7 @@
     const rect = getAreaRect();
     const cx = rect.width * 0.5;
     const cy = rect.height * 0.5;
+
     let best = null;
     let bestD = Infinity;
 
@@ -879,6 +1128,7 @@
       const dx = item.x - cx;
       const dy = item.y - cy;
       const d = Math.sqrt(dx * dx + dy * dy);
+
       if(d < bestD){
         bestD = d;
         best = item;
@@ -896,6 +1146,9 @@
     if(state.heroCharge < 100 || state.paused || state.ended) return;
 
     state.heroCharge = 0;
+
+    showHeroCutin(state.phase >= 4 ? 'FINAL HERO HIT!' : 'พลังอาหารดีโจมตีบอส');
+    shake();
 
     let amount = 18;
     if(state.phase === 3) amount = 22;
@@ -920,6 +1173,7 @@
     if(!state.running || state.ended) return;
 
     if(!state.lastTs) state.lastTs = ts;
+
     const rawDt = Math.min(0.05, (ts - state.lastTs) / 1000);
     state.lastTs = ts;
 
@@ -935,7 +1189,9 @@
         spawnNormalWave();
 
         if(state.phase >= 4 && chance(0.22)){
-          setTimeout(spawnNormalWave, 160);
+          setTimeout(() => {
+            if(state.running && !state.paused && !state.ended) spawnNormalWave();
+          }, 160);
         }
       }
 
@@ -961,6 +1217,7 @@
         state.powerLabel = '-';
       }
 
+      updateDangerMeter();
       updateHud();
 
       if(state.timeLeft <= 0){
@@ -976,33 +1233,48 @@
     state.running = false;
     state.paused = false;
     state.ended = false;
+
     state.timeLeft = CFG.duration;
     state.score = 0;
     state.lives = base.lives;
+
     state.bossHp = 100;
     state.phase = 1;
+
     state.goodHits = 0;
     state.junkHits = 0;
     state.miss = 0;
     state.combo = 0;
     state.maxCombo = 0;
+
     state.heroCharge = 0;
     state.shieldUses = 0;
     state.slowUntil = 0;
     state.magnetUntil = 0;
     state.powerLabel = '-';
+
     state.phaseGood = 0;
     state.phaseGroups = new Set();
     state.shieldGate = 0;
+
     state.itemId = 1;
     state.lastTs = 0;
     state.spawnAcc = 0;
     state.attackAcc = 0;
     state.powerAcc = 0;
 
-    state.items.forEach(item => item.node && item.node.remove());
+    state.items.forEach(item => {
+      if(item.node) item.node.remove();
+    });
+
     state.items = [];
     el.fxLayer.innerHTML = '';
+
+    if(el.dangerFill) el.dangerFill.style.width = '0%';
+    if(el.dangerMeter) el.dangerMeter.classList.remove('danger-hot');
+    if(el.bossSpeech) el.bossSpeech.classList.remove('show');
+    if(el.warningFlash) el.warningFlash.classList.remove('show');
+    if(el.heroCutin) el.heroCutin.classList.remove('show');
 
     setPhase(1, false);
     updateHud();
@@ -1020,10 +1292,16 @@
 
     playTone('power');
     showToast(`เริ่มเลย ${CFG.name}!`);
+    bossSay('เข้ามาเลย Hero! ข้าคือราชาอาหารขยะ!');
+
     setPhase(1, true);
 
     for(let i = 0; i < 5; i++){
-      setTimeout(() => spawnItem(i < 3 ? 'good' : 'junk'), i * 260);
+      setTimeout(() => {
+        if(state.running && !state.paused && !state.ended){
+          spawnItem(i < 3 ? 'good' : 'junk');
+        }
+      }, i * 260);
     }
 
     requestAnimationFrame(tick);
@@ -1031,6 +1309,7 @@
 
   function starsFor(win){
     if(!win) return state.score >= 250 ? 2 : 1;
+
     if(state.miss <= 4 && state.score >= 650) return 3;
     if(state.miss <= 9 && state.score >= 420) return 2;
     return 1;
@@ -1042,10 +1321,13 @@
     state.ended = true;
     state.running = false;
 
-    state.items.forEach(item => item.node && item.node.remove());
+    state.items.forEach(item => {
+      if(item.node) item.node.remove();
+    });
     state.items = [];
 
     const stars = starsFor(win);
+
     const summary = {
       gameId: 'goodjunk',
       mode: 'solo-phase-boss',
@@ -1067,7 +1349,7 @@
       localStorage.setItem('GJ_SOLO_BOSS_LAST', JSON.stringify(summary));
       localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
     }catch(err){
-      // ignore private mode
+      // ignore private mode / storage blocked
     }
 
     el.summaryEmoji.textContent = win ? '🏆' : '💪';
@@ -1091,16 +1373,16 @@
 
     el.summaryLayer.classList.add('show');
 
-  /* PATCH: reset summary scroll so trophy and top title never get clipped */
-  requestAnimationFrame(() => {
-  try{
-    el.summaryLayer.scrollTop = 0;
-    const card = el.summaryLayer.querySelector('.overlay-card');
-    if(card) card.scrollTop = 0;
-  }catch(err){}
-});
+    // PATCH: reset summary scroll so trophy/title never get clipped on mobile.
+    requestAnimationFrame(() => {
+      try{
+        el.summaryLayer.scrollTop = 0;
+        const card = el.summaryLayer.querySelector('.overlay-card');
+        if(card) card.scrollTop = 0;
+      }catch(err){}
+    });
 
-playTone(win ? 'win' : 'bad');
+    playTone(win ? 'win' : 'bad');
   }
 
   function goHub(){
@@ -1118,6 +1400,7 @@ playTone(win ? 'win' : 'bad');
     el.pauseBtn.textContent = state.paused ? '▶️ เล่นต่อ' : '⏸ พัก';
     showToast(state.paused ? 'พักเกม' : 'เล่นต่อ!');
     state.lastTs = 0;
+    updateHud();
   }
 
   function bindEvents(){
@@ -1161,6 +1444,7 @@ playTone(win ? 'win' : 'bad');
   }
 
   function boot(){
+    mountCinematicUI();
     bindEvents();
     resetGame();
 
