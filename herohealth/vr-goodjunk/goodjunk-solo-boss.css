@@ -1562,3 +1562,224 @@ body.view-cvr .crosshair{
     padding:9px 10px;
   }
 }
+/* =========================================================
+   PATCH v20260503-bossv5-pattern-telegraph-finish-badge
+   Boss pattern script / telegraph / finish move / challenge badge
+   ========================================================= */
+
+.telegraph-layer{
+  position:absolute;
+  inset:0;
+  z-index:21;
+  pointer-events:none;
+}
+
+.telegraph-mark{
+  position:absolute;
+  width:74px;
+  height:74px;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  border:4px dashed rgba(255,60,60,.88);
+  background:rgba(255,60,60,.15);
+  box-shadow:0 0 0 8px rgba(255,60,60,.12), 0 0 32px rgba(255,60,60,.35);
+  animation:telegraphPulse .72s ease-in-out infinite;
+}
+
+.telegraph-line{
+  position:absolute;
+  left:8%;
+  right:8%;
+  height:64px;
+  transform:translateY(-50%);
+  border-radius:999px;
+  border:4px dashed rgba(255,190,45,.95);
+  background:rgba(255,190,45,.18);
+  box-shadow:0 0 0 8px rgba(255,190,45,.12), 0 0 34px rgba(255,190,45,.32);
+  animation:telegraphPulse .72s ease-in-out infinite;
+}
+
+.daily-challenge-card{
+  position:absolute;
+  z-index:27;
+  right:14px;
+  top:66px;
+  max-width:min(330px, calc(100% - 28px));
+  padding:9px 12px;
+  border-radius:20px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(255,255,255,.68);
+  box-shadow:0 16px 34px rgba(20,30,55,.14);
+  backdrop-filter:blur(12px);
+}
+
+.daily-challenge-card .challenge-icon{
+  width:36px;
+  height:36px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:#eaffc8;
+  font-size:22px;
+}
+
+.daily-challenge-card strong{
+  display:block;
+  font-size:13px;
+  color:#24a85b;
+  font-weight:1000;
+}
+
+.daily-challenge-card span{
+  display:block;
+  margin-top:1px;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:900;
+}
+
+.phase-4 .daily-challenge-card{
+  background:rgba(255,255,255,.16);
+  color:#fff;
+  border-color:rgba(255,255,255,.24);
+}
+
+.phase-4 .daily-challenge-card span{
+  color:rgba(255,255,255,.84);
+}
+
+.finish-move{
+  position:absolute;
+  z-index:100;
+  inset:0;
+  display:none;
+  place-items:center;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(255,255,255,.82), transparent 22%),
+    radial-gradient(circle at 20% 25%, rgba(110,255,140,.38), transparent 24%),
+    radial-gradient(circle at 80% 30%, rgba(90,190,255,.35), transparent 24%),
+    radial-gradient(circle at 50% 78%, rgba(255,218,60,.32), transparent 28%);
+  backdrop-filter:blur(2px);
+}
+
+.finish-move.show{
+  display:grid;
+  animation:finishBg 1.65s ease both;
+}
+
+.finish-card{
+  width:min(610px,90vw);
+  padding:24px 20px;
+  border-radius:36px;
+  text-align:center;
+  color:#123c2a;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.95), transparent 28%),
+    linear-gradient(135deg,#ecff6e,#6dffa2 38%,#5ecbff 70%,#b38cff);
+  border:5px solid rgba(255,255,255,.92);
+  box-shadow:0 30px 100px rgba(60,210,150,.45);
+  transform:rotate(-2deg);
+}
+
+.finish-card .finish-icon{
+  font-size:74px;
+  line-height:1;
+  filter:drop-shadow(0 12px 16px rgba(0,80,40,.24));
+}
+
+.finish-card strong{
+  display:block;
+  margin-top:6px;
+  font-size:clamp(34px,8vw,72px);
+  line-height:.95;
+  font-weight:1000;
+  text-shadow:0 4px 0 rgba(255,255,255,.38);
+}
+
+.finish-card span{
+  display:block;
+  margin-top:10px;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.badge-row{
+  margin:12px 0 0;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:8px;
+}
+
+.result-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 11px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#fff5b7,#ffd45b);
+  color:#654300;
+  font-weight:1000;
+  font-size:13px;
+  border:1px solid rgba(255,255,255,.75);
+  box-shadow:0 10px 22px rgba(255,190,40,.20);
+}
+
+@keyframes telegraphPulse{
+  0%,100%{ transform:translate(-50%,-50%) scale(.92); opacity:.55; }
+  50%{ transform:translate(-50%,-50%) scale(1.08); opacity:1; }
+}
+
+@keyframes finishBg{
+  0%{ opacity:0; transform:scale(.96); }
+  14%{ opacity:1; transform:scale(1.02); }
+  76%{ opacity:1; transform:scale(1); }
+  100%{ opacity:0; transform:scale(1.05); }
+}
+
+@media (max-width:760px){
+  .telegraph-mark{
+    width:64px;
+    height:64px;
+  }
+
+  .daily-challenge-card{
+    top:112px;
+    left:10px;
+    right:10px;
+    max-width:none;
+    padding:8px 10px;
+  }
+
+  .daily-challenge-card .challenge-icon{
+    width:32px;
+    height:32px;
+    font-size:20px;
+  }
+
+  .finish-card{
+    padding:20px 16px;
+    border-radius:30px;
+  }
+
+  .finish-card .finish-icon{
+    font-size:58px;
+  }
+
+  .finish-card span{
+    font-size:15px;
+  }
+
+  .badge-row{
+    gap:6px;
+  }
+
+  .result-badge{
+    font-size:12px;
+    padding:7px 9px;
+  }
+}
