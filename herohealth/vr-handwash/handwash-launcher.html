@@ -439,20 +439,20 @@
   <main class="page">
     <section class="card hero">
       <div class="copy">
-        <div class="badge">🫧 Handwash WHO Clean Rush</div>
+        <div class="badge">🫧 WHO Clean Rush • Emoji Style</div>
 
-        <h1>ล้างมือครบสองข้าง!</h1>
+        <h1>ล้างมือปราบเชื้อ!</h1>
 
         <p class="lead">
-          เกมล้างมือตามขั้นตอน WHO แบบเร้าใจ: ถูให้ถูกท่า กำจัดเชื้อบนมือ
-          เก็บ Combo เข้า Bubble Fever แล้วปราบ Germ King ด้วยลำดับ WHO
+          เกมล้างมือตามขั้นตอน WHO แบบสนุกขึ้น ใช้การลาก/ถู/วน/ปัดบนมือ
+          สะสม Clean %, ทำ Combo, เข้า Fever และปราบ Germ King ด้วยลำดับ WHO
         </p>
 
         <div class="flowLine" aria-label="ลำดับการเล่น">
           <div class="flowStep">1<br>วิธีเล่น</div>
           <div class="flowStep">2<br>ฝึกก่อน</div>
           <div class="flowStep">3<br>ล้างมือจริง</div>
-          <div class="flowStep">4<br>Boss ลำดับ</div>
+          <div class="flowStep">4<br>Boss WHO</div>
           <div class="flowStep">5<br>สรุปผล</div>
         </div>
 
@@ -502,7 +502,7 @@
         <div class="bubble b3"></div>
         <div class="bubble b4"></div>
         <div class="handIcon">🤲</div>
-        <div class="miniTip" id="modeTip">ใช้ emoji style ต่อ: ถูมือ 🦠 Combo 🫧 Boss 👑</div>
+        <div class="miniTip" id="modeTip">ลาก/ถูบนมือ ไม่ใช่แค่กด ๆ แล้ว</div>
       </div>
     </section>
 
@@ -520,7 +520,7 @@
 
       <div class="hint">
         เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503p-rush-reward-loop</strong>
-        รวม Clean %, Germ %, Gesture Scrub, Combo/Fever, WHO Boss และ Mission Replay แล้ว
+        รวม Scrub Gesture Core + Clean/Germ % + Combo/Fever + WHO Boss + Mission Rush แล้ว
       </div>
     </details>
   </main>
@@ -685,13 +685,13 @@
 
         if(selectedView === 'pc'){
           btnStart.textContent = '▶ เริ่มเล่นบน PC';
-          modeTip.textContent = 'PC ใช้เมาส์ลาก/ถูบนวงสีเหลืองได้';
+          modeTip.textContent = 'PC ใช้เมาส์ลาก/ถู/วนบนมือได้';
         }else if(selectedView === 'cvr'){
           btnStart.textContent = '▶ เริ่มเล่นแบบ Cardboard';
           modeTip.textContent = 'Cardboard ใช้หน้า static-safe ก่อน เพื่อให้เล่นได้แน่นอน';
         }else{
           btnStart.textContent = '▶ เริ่มเล่นบน Mobile';
-          modeTip.textContent = 'Mobile ใช้นิ้วลาก/ถูบนมือได้เลย';
+          modeTip.textContent = 'Mobile ใช้นิ้วลาก/ถู/วนบนมือได้เลย';
         }
 
         savePrefs();
