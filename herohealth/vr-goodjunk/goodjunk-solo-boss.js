@@ -1,6 +1,6 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
 // GoodJunk Solo Phase Boss
-// FULL MERGED PATCH v20260503-bossv4-finalrush-weakness-combo
+// FULL MERGED PATCH v20260503-bossv5-pattern-telegraph-finish-badge
 // ✅ Solo Phase Boss
 // ✅ Phase background / boss form / rage mode
 // ✅ Boss HP / shield / attack patterns
@@ -12,6 +12,11 @@
 // ✅ Combo Skill x5 / x10 / x15
 // ✅ Comeback assist
 // ✅ Kid-friendly summary
+// ✅ Boss Pattern Script
+// ✅ Telegraph Warning
+// ✅ Finish Move before Summary
+// ✅ Daily Challenge
+// ✅ Result Badges
 // ✅ No Apps Script logging in this version
 
 (() => {
@@ -171,6 +176,37 @@
     }
   };
 
+  const DAILY_CHALLENGES = [
+    {
+      id: 'low_miss',
+      icon: '🛡️',
+      title: 'Junk Dodger',
+      text: 'พลาดไม่เกิน 6 ครั้ง',
+      check: (summary) => summary.miss <= 6
+    },
+    {
+      id: 'hero_hit',
+      icon: '⚡',
+      title: 'Hero Striker',
+      text: 'ใช้ HERO HIT อย่างน้อย 2 ครั้ง',
+      check: (summary) => summary.heroHitsUsed >= 2
+    },
+    {
+      id: 'good_collector',
+      icon: '🥗',
+      title: 'Good Collector',
+      text: 'เก็บอาหารดี 30 ชิ้น',
+      check: (summary) => summary.goodHits >= 30
+    },
+    {
+      id: 'combo_master',
+      icon: '🔥',
+      title: 'Combo Master',
+      text: 'ทำ Combo อย่างน้อย x12',
+      check: (summary) => summary.maxCombo >= 12
+    }
+  ];
+
   const el = {
     app: $('#app'),
     scoreText: $('#scoreText'),
@@ -221,7 +257,11 @@
 
     finalRushBadge: null,
     weaknessCard: null,
-    comboBurst: null
+    comboBurst: null,
+
+    telegraphLayer: null,
+    finishMove: null,
+    dailyChallengeCard: null
   };
 
   function hashSeed(str){
@@ -285,6 +325,10 @@
     finalRush: false,
     heroHitsUsed: 0,
     fiveGroupRounds: 0,
+
+    patternIndex: 0,
+    dailyChallenge: null,
+    finishMovePlaying: false,
 
     heroCharge: 0,
     shieldUses: 0,
@@ -396,6 +440,48 @@
     }
   }
 
+  function mountBossV5UI(){
+    if(!el.gameArea) return;
+
+    if(!el.telegraphLayer){
+      const layer = DOC.createElement('div');
+      layer.id = 'telegraphLayer';
+      layer.className = 'telegraph-layer';
+      el.gameArea.appendChild(layer);
+      el.telegraphLayer = layer;
+    }
+
+    if(!el.dailyChallengeCard){
+      const card = DOC.createElement('div');
+      card.id = 'dailyChallengeCard';
+      card.className = 'daily-challenge-card';
+      card.innerHTML = `
+        <div class="challenge-icon">🎯</div>
+        <div>
+          <strong>Daily Challenge</strong>
+          <span>ทำภารกิจพิเศษ</span>
+        </div>
+      `;
+      el.gameArea.appendChild(card);
+      el.dailyChallengeCard = card;
+    }
+
+    if(!el.finishMove){
+      const finish = DOC.createElement('div');
+      finish.id = 'finishMove';
+      finish.className = 'finish-move';
+      finish.innerHTML = `
+        <div class="finish-card">
+          <div class="finish-icon">🌈</div>
+          <strong>HEALTHY BLAST!</strong>
+          <span>พลังอาหารดีปราบบอสสำเร็จ</span>
+        </div>
+      `;
+      el.gameArea.appendChild(finish);
+      el.finishMove = finish;
+    }
+  }
+
   function bossSay(text, ms = 1450){
     if(!el.bossSpeech) return;
 
@@ -471,6 +557,51 @@
 
     if(icon) icon.textContent = p.weakEmoji || '🥦';
     if(text) text.textContent = `บอสแพ้: ${p.weakLabel || 'ผัก'}`;
+  }
+
+  function chooseDailyChallenge(){
+    const dayKey = new Date().toISOString().slice(0, 10);
+    const idx = hashSeed(`${dayKey}:${CFG.pid}:${CFG.seed}`) % DAILY_CHALLENGES.length;
+    state.dailyChallenge = DAILY_CHALLENGES[idx];
+    updateDailyChallengeCard();
+  }
+
+  function updateDailyChallengeCard(){
+    if(!el.dailyChallengeCard || !state.dailyChallenge) return;
+
+    const icon = el.dailyChallengeCard.querySelector('.challenge-icon');
+    const text = el.dailyChallengeCard.querySelector('span');
+    const title = el.dailyChallengeCard.querySelector('strong');
+
+    if(icon) icon.textContent = state.dailyChallenge.icon;
+    if(title) title.textContent = state.dailyChallenge.title;
+    if(text) text.textContent = state.dailyChallenge.text;
+  }
+
+  function clearTelegraphs(){
+    if(el.telegraphLayer) el.telegraphLayer.innerHTML = '';
+  }
+
+  function showTelegraphMarks(points, type = 'mark'){
+    if(!el.telegraphLayer) return;
+
+    clearTelegraphs();
+
+    points.forEach(p => {
+      const n = DOC.createElement('div');
+      n.className = type === 'line' ? 'telegraph-line' : 'telegraph-mark';
+
+      if(type === 'line'){
+        n.style.top = `${p.y}px`;
+      }else{
+        n.style.left = `${p.x}px`;
+        n.style.top = `${p.y}px`;
+      }
+
+      el.telegraphLayer.appendChild(n);
+    });
+
+    setTimeout(clearTelegraphs, 760);
   }
 
   function showFinalRush(){
@@ -625,6 +756,86 @@
     if(state.timeLeft <= 20 || state.bossHp <= 15){
       showFinalRush();
     }
+  }
+
+  function getBossPattern(){
+    if(state.phase === 1){
+      return ['rain', 'rain', 'rain'];
+    }
+
+    if(state.phase === 2){
+      return ['fake', 'rain', 'fake', 'shield'];
+    }
+
+    if(state.phase === 3){
+      return ['shield', 'wave', 'rain', 'fake'];
+    }
+
+    return ['wave', 'rain', 'shield', 'fake', 'wave'];
+  }
+
+  function bossAttackPatterned(){
+    if(!state.running || state.paused || state.ended) return;
+
+    const pattern = getBossPattern();
+    const skill = pattern[state.patternIndex % pattern.length];
+    state.patternIndex++;
+
+    if(skill === 'rain'){
+      attackJunkRain();
+    }else if(skill === 'fake'){
+      attackFakeHealthy();
+    }else if(skill === 'wave'){
+      attackSugarWave();
+    }else if(skill === 'shield'){
+      attackShield();
+    }else{
+      attackJunkRain();
+    }
+  }
+
+  function playFinishMoveThenSummary(win){
+    if(!win || !el.finishMove){
+      showSummaryNow(win);
+      return;
+    }
+
+    if(state.finishMovePlaying) return;
+    state.finishMovePlaying = true;
+
+    clearTelegraphs();
+
+    el.finishMove.classList.remove('show');
+    void el.finishMove.offsetWidth;
+    el.finishMove.classList.add('show');
+
+    showHeroCutin('HEALTHY RAINBOW BLAST!');
+    playTone('win');
+    shake();
+
+    setTimeout(() => {
+      if(el.finishMove) el.finishMove.classList.remove('show');
+      showSummaryNow(win);
+    }, 1500);
+  }
+
+  function buildBadges(summary){
+    const badges = [];
+
+    if(summary.completed) badges.push({ icon: '🏆', text: 'Boss Winner' });
+    if(summary.maxCombo >= 10) badges.push({ icon: '🔥', text: 'Combo Master' });
+    if(summary.miss <= 6) badges.push({ icon: '🛡️', text: 'Junk Dodger' });
+    if(summary.heroHitsUsed >= 2) badges.push({ icon: '⚡', text: 'Hero Striker' });
+    if(summary.fiveGroupRounds >= 1) badges.push({ icon: '🌈', text: 'Five Groups' });
+
+    if(state.dailyChallenge && state.dailyChallenge.check(summary)){
+      badges.push({
+        icon: state.dailyChallenge.icon,
+        text: state.dailyChallenge.title
+      });
+    }
+
+    return badges;
   }
 
   function now(){
@@ -1302,13 +1513,23 @@
       const rect = getAreaRect();
       const count = state.phase >= 4 ? 8 : state.phase >= 3 ? 6 : 5;
 
+      const points = [];
+      for(let i = 0; i < count; i++){
+        points.push({
+          x: random(50, rect.width - 50),
+          y: random(76, Math.max(90, rect.height * 0.34))
+        });
+      }
+
+      showTelegraphMarks(points, 'mark');
+
       for(let i = 0; i < count; i++){
         setTimeout(() => {
           if(!state.running || state.paused || state.ended) return;
 
           spawnItem('junk', {
             danger: true,
-            x: random(50, rect.width - 50),
+            x: points[i] ? points[i].x : random(50, rect.width - 50),
             y: random(-110, -40),
             speed: random(120, 185) * itemSpeed()
           });
@@ -1329,6 +1550,16 @@
 
       const rect = getAreaRect();
 
+      const points = [];
+      for(let i = 0; i < 4; i++){
+        points.push({
+          x: random(55, rect.width - 55),
+          y: random(80, Math.max(92, rect.height * 0.36))
+        });
+      }
+
+      showTelegraphMarks(points, 'mark');
+
       for(let i = 0; i < 4; i++){
         setTimeout(() => {
           if(!state.running || state.paused || state.ended) return;
@@ -1336,7 +1567,7 @@
           spawnItem('junk', {
             fake: true,
             danger: true,
-            x: random(55, rect.width - 55),
+            x: points[i] ? points[i].x : random(55, rect.width - 55),
             y: random(-90, -38),
             speed: random(85, 130) * itemSpeed()
           });
@@ -1357,6 +1588,9 @@
 
       const rect = getAreaRect();
       const n = state.phase >= 4 ? 7 : 5;
+
+      const lineY = Math.min(rect.height - 110, Math.max(130, rect.height * 0.36));
+      showTelegraphMarks([{ y: lineY }], 'line');
 
       for(let i = 0; i < n; i++){
         spawnItem('junk', {
@@ -1386,16 +1620,7 @@
   }
 
   function bossAttack(){
-    if(!state.running || state.paused || state.ended) return;
-
-    const pool = [];
-    pool.push(attackJunkRain);
-
-    if(state.phase >= 2) pool.push(attackFakeHealthy);
-    if(state.phase >= 3) pool.push(attackSugarWave);
-    if(state.phase >= 2) pool.push(attackShield);
-
-    pick(pool)();
+    bossAttackPatterned();
   }
 
   function cvrHitNearest(){
@@ -1542,6 +1767,9 @@
     state.heroHitsUsed = 0;
     state.fiveGroupRounds = 0;
 
+    state.patternIndex = 0;
+    state.finishMovePlaying = false;
+
     state.heroCharge = 0;
     state.shieldUses = 0;
     state.slowUntil = 0;
@@ -1574,6 +1802,10 @@
     if(el.heroCutin) el.heroCutin.classList.remove('show');
     if(el.finalRushBadge) el.finalRushBadge.classList.remove('show');
     if(el.comboBurst) el.comboBurst.classList.remove('show');
+    if(el.finishMove) el.finishMove.classList.remove('show');
+
+    clearTelegraphs();
+    chooseDailyChallenge();
 
     setPhase(1, false);
     updateHud();
@@ -1620,12 +1852,26 @@
     state.ended = true;
     state.running = false;
 
+    clearTelegraphs();
+
     state.items.forEach(item => {
       if(item.node) item.node.remove();
     });
+
     state.items = [];
 
+    playFinishMoveThenSummary(win);
+  }
+
+  function showSummaryNow(win){
     const stars = starsFor(win);
+
+    const dailyChallengeDone = state.dailyChallenge ? !!state.dailyChallenge.check({
+      miss: state.miss,
+      heroHitsUsed: state.heroHitsUsed,
+      goodHits: state.goodHits,
+      maxCombo: state.maxCombo
+    }) : false;
 
     const summary = {
       gameId: 'goodjunk',
@@ -1641,6 +1887,8 @@
       bossHpLeft: Math.round(state.bossHp),
       heroHitsUsed: state.heroHitsUsed,
       fiveGroupRounds: state.fiveGroupRounds,
+      dailyChallengeId: state.dailyChallenge ? state.dailyChallenge.id : '',
+      dailyChallengeDone,
       completed: !!win,
       stars,
       ts: new Date().toISOString()
@@ -1675,6 +1923,9 @@
     const oldKid = el.summaryLayer.querySelector('.kid-summary-list');
     if(oldKid) oldKid.remove();
 
+    const oldBadges = el.summaryLayer.querySelector('.badge-row');
+    if(oldBadges) oldBadges.remove();
+
     const kidList = DOC.createElement('div');
     kidList.className = 'kid-summary-list';
 
@@ -1702,6 +1953,16 @@
     `;
 
     el.summaryTip.insertAdjacentElement('afterend', kidList);
+
+    const badges = buildBadges(summary);
+    if(badges.length){
+      const row = DOC.createElement('div');
+      row.className = 'badge-row';
+      row.innerHTML = badges.map(b => (
+        `<span class="result-badge">${b.icon} ${b.text}</span>`
+      )).join('');
+      kidList.insertAdjacentElement('afterend', row);
+    }
 
     el.summaryLayer.classList.add('show');
 
@@ -1778,6 +2039,7 @@
   function boot(){
     mountCinematicUI();
     mountBossV4UI();
+    mountBossV5UI();
     bindEvents();
     resetGame();
 
