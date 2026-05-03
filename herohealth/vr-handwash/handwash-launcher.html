@@ -439,20 +439,20 @@
   <main class="page">
     <section class="card hero">
       <div class="copy">
-        <div class="badge">🫧 Handwash Trainer • Two Hands</div>
+        <div class="badge">🫧 Handwash WHO Clean Rush</div>
 
         <h1>ล้างมือครบสองข้าง!</h1>
 
         <p class="lead">
-          เกมล้างมือแบบจำลองตามขั้นตอน WHO กดก๊อกน้ำได้จริง ใส่สบู่ได้จริง
-          และฝึกถูมือทีละข้าง เช่น หลังมือซ้าย หลังมือขวา นิ้วโป้งซ้าย นิ้วโป้งขวา
+          เกมล้างมือตามขั้นตอน WHO แบบเร้าใจ: ถูให้ถูกท่า กำจัดเชื้อบนมือ
+          เก็บ Combo เข้า Bubble Fever แล้วปราบ Germ King ด้วยลำดับ WHO
         </p>
 
         <div class="flowLine" aria-label="ลำดับการเล่น">
           <div class="flowStep">1<br>วิธีเล่น</div>
           <div class="flowStep">2<br>ฝึกก่อน</div>
           <div class="flowStep">3<br>ล้างมือจริง</div>
-          <div class="flowStep">4<br>เรียงลำดับ</div>
+          <div class="flowStep">4<br>Boss ลำดับ</div>
           <div class="flowStep">5<br>สรุปผล</div>
         </div>
 
@@ -502,7 +502,7 @@
         <div class="bubble b3"></div>
         <div class="bubble b4"></div>
         <div class="handIcon">🤲</div>
-        <div class="miniTip" id="modeTip">เวอร์ชันใหม่: ฝึกครบซ้าย/ขวา</div>
+        <div class="miniTip" id="modeTip">ใช้ emoji style ต่อ: ถูมือ 🦠 Combo 🫧 Boss 👑</div>
       </div>
     </section>
 
@@ -519,8 +519,8 @@
       </div>
 
       <div class="hint">
-        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503l-summary-polish</strong>
-        ซึ่งเป็นตัวล่าสุด: กดก๊อกน้ำได้ มือใหญ่ วงบอกชื่อจุด แยกซ้าย/ขวา และหน้าสรุปสะอาดขึ้น
+        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503p-rush-reward-loop</strong>
+        รวม Clean %, Germ %, Gesture Scrub, Combo/Fever, WHO Boss และ Mission Replay แล้ว
       </div>
     </details>
   </main>
@@ -535,9 +535,9 @@
       const VIEW_KEY = 'HH_HANDWASH_VIEW';
 
       const TARGETS = {
-        pc: './handwash-v2.html?v=20260503l-summary-polish',
-        mobile: './handwash-v2.html?v=20260503l-summary-polish',
-        cvr: './handwash-v2.html?v=20260503l-summary-polish'
+        pc: './handwash-v2.html?v=20260503p-rush-reward-loop',
+        mobile: './handwash-v2.html?v=20260503p-rush-reward-loop',
+        cvr: './handwash-v2.html?v=20260503p-rush-reward-loop'
       };
 
       const fieldName = document.getElementById('fieldName');
@@ -685,13 +685,13 @@
 
         if(selectedView === 'pc'){
           btnStart.textContent = '▶ เริ่มเล่นบน PC';
-          modeTip.textContent = 'PC ใช้เมาส์กดก๊อกน้ำ ปุ่มสบู่ และวงสีเหลืองได้';
+          modeTip.textContent = 'PC ใช้เมาส์ลาก/ถูบนวงสีเหลืองได้';
         }else if(selectedView === 'cvr'){
           btnStart.textContent = '▶ เริ่มเล่นแบบ Cardboard';
-          modeTip.textContent = 'Cardboard ใช้หน้า static-safe ก่อน เพื่อให้กดได้แน่นอน';
+          modeTip.textContent = 'Cardboard ใช้หน้า static-safe ก่อน เพื่อให้เล่นได้แน่นอน';
         }else{
           btnStart.textContent = '▶ เริ่มเล่นบน Mobile';
-          modeTip.textContent = 'Mobile ใช้นิ้วแตะก๊อกน้ำและวงสีเหลืองได้เลย';
+          modeTip.textContent = 'Mobile ใช้นิ้วลาก/ถูบนมือได้เลย';
         }
 
         savePrefs();
@@ -715,6 +715,7 @@
         url.searchParams.set('miniTime', first(qs.get('miniTime'), '60'));
         url.searchParams.set('view', view);
         url.searchParams.set('run', first(qs.get('run'), 'play'));
+        url.searchParams.set('seed', first(qs.get('seed'), String(Date.now())));
 
         url.searchParams.set('zone', 'hygiene');
         url.searchParams.set('cat', 'hygiene');
