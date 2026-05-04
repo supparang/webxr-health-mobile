@@ -1,7 +1,8 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
-// FULL MERGED PATCH
-// v20260504n-GOODJUNK-SOLO-BOSS-V8-29-MERGE-STABILIZER
+// FULL MERGED PATCH v8.40
+// v20260504y-GOODJUNK-SOLO-BOSS-V8-40-FINAL-POLISH-CHILD-SUMMARY
 //
+// GoodJunk Solo Phase Boss
 // ✅ Solo Phase Boss
 // ✅ Boss HP / shield / attack patterns
 // ✅ HERO HIT / power-ups / mission
@@ -22,6 +23,15 @@
 // ✅ Boss Book / Learning tip
 // ✅ Star goal intro
 // ✅ Mobile-safe spawn / anti-overlap / pause-safe skills / fair difficulty
+// ✅ Replay Variety / Boss Drama
+// ✅ Reward Loop / Boss Book
+// ✅ Sound / Haptic / Juice
+// ✅ Micro Tutorial
+// ✅ Difficulty Personality
+// ✅ Final Balance / Anti-Frustration
+// ✅ Runtime Guard / QA Hardening
+// ✅ Balance Tuning
+// ✅ Child-friendly final summary
 // ✅ No Apps Script logging in this version
 
 (function(){
@@ -30,12 +40,15 @@
   const WIN = window;
   const DOC = document;
 
-  const PATCH = 'v20260504n-GOODJUNK-SOLO-BOSS-V8-29-MERGE-STABILIZER';
+  const PATCH = 'v20260504y-GOODJUNK-SOLO-BOSS-V8-40-FINAL-POLISH-CHILD-SUMMARY';
 
   const qs = new URLSearchParams(location.search);
 
   const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-  const DEFAULT_ZONE = ROOT + 'nutrition-zone.html?pid=anon&diff=normal&time=120&view=mobile&hub=' + encodeURIComponent(ROOT + 'hub.html');
+  const DEFAULT_ZONE =
+    ROOT +
+    'nutrition-zone.html?pid=anon&diff=normal&time=120&view=mobile&hub=' +
+    encodeURIComponent(ROOT + 'hub.html');
 
   function first(){
     for(let i = 0; i < arguments.length; i++){
@@ -96,15 +109,18 @@
   function hashSeed(s){
     s = String(s || 'goodjunk');
     let h = 2166136261 >>> 0;
+
     for(let i = 0; i < s.length; i++){
       h ^= s.charCodeAt(i);
       h = Math.imul(h, 16777619);
     }
+
     return h >>> 0;
   }
 
   function mulberry32(seed){
     let t = (seed >>> 0) || 1;
+
     return function(){
       t += 0x6D2B79F5;
       let r = Math.imul(t ^ (t >>> 15), 1 | t);
@@ -115,17 +131,14 @@
 
   function clamp(v, a, b){
     v = Number(v);
+
     if(!Number.isFinite(v)) v = a;
+
     return Math.max(a, Math.min(b, v));
   }
 
   function now(){
     return performance.now();
-  }
-
-  function pick(arr){
-    if(!Array.isArray(arr) || !arr.length) return null;
-    return arr[Math.floor(state.rng() * arr.length)];
   }
 
   function safeCall(fn, fallback = null){
@@ -134,6 +147,7 @@
     }catch(err){
       console.warn('[GoodJunk safeCall]', err);
     }
+
     return fallback;
   }
 
@@ -143,7 +157,74 @@
     }catch(err){
       console.warn('[GoodJunk callMaybe]', err);
     }
+
     return undefined;
+  }
+
+  function safeOnce(obj, key, fn){
+    try{
+      if(!obj || obj[key]) return false;
+      obj[key] = true;
+
+      if(typeof fn === 'function') fn();
+
+      return true;
+    }catch(err){
+      console.warn('[GoodJunk safeOnce]', key, err);
+      return false;
+    }
+  }
+
+  function safeNumber(v, fallback = 0){
+    v = Number(v);
+    return Number.isFinite(v) ? v : fallback;
+  }
+
+  function safeArray(v){
+    return Array.isArray(v) ? v : [];
+  }
+
+  function safeObject(v){
+    return v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  }
+
+  function safeSetText(id, text){
+    const n = $(id);
+    if(n) n.textContent = String(text ?? '');
+  }
+
+  function safeClass(node, method, ...classes){
+    try{
+      if(node && node.classList && typeof node.classList[method] === 'function'){
+        node.classList[method](...classes.filter(Boolean));
+      }
+    }catch(_){}
+  }
+
+  function safeRemoveNode(node){
+    try{
+      if(node && node.parentNode) node.remove();
+    }catch(_){}
+  }
+
+  function safeTimeout(fn, ms = 0){
+    return setTimeout(() => {
+      try{
+        if(typeof fn === 'function') fn();
+      }catch(err){
+        console.warn('[GoodJunk timeout]', err);
+      }
+    }, ms);
+  }
+
+  function pick(arr){
+    if(!Array.isArray(arr) || !arr.length) return null;
+
+    const r = typeof state?.rng === 'function'
+      ? state.rng()
+      : Math.random();
+
+    return arr[Math.floor(r * arr.length)] || arr[0];
   }
 
   const TUNING = {
@@ -239,34 +320,168 @@
   const tune = TUNING[DIFF] || TUNING.normal;
 
   const GOOD = [
-    { emoji:'🥦', label:'บรอกโคลี', group:'green', dmg:13, charge:9, tip:'ผักสีเขียวช่วยให้ร่างกายแข็งแรง', lesson:'ผักดี' },
-    { emoji:'🥬', label:'ผักใบเขียว', group:'green', dmg:13, charge:9, tip:'ผักมีวิตามินและใยอาหาร', lesson:'ผักดี' },
-    { emoji:'🥕', label:'แครอท', group:'green', dmg:11, charge:8, tip:'ผักหลากสีช่วยให้ได้สารอาหารหลากหลาย', lesson:'ผักหลากสี' },
-    { emoji:'🍎', label:'แอปเปิล', group:'fruit', dmg:12, charge:10, tip:'ผลไม้สดดีกว่าขนมหวาน', lesson:'ผลไม้สด' },
-    { emoji:'🍉', label:'แตงโม', group:'fruit', dmg:11, charge:9, tip:'ผลไม้สดช่วยเติมน้ำและวิตามิน', lesson:'ผลไม้สด' },
-    { emoji:'🍌', label:'กล้วย', group:'fruit', dmg:11, charge:9, tip:'กล้วยให้พลังงานและโพแทสเซียม', lesson:'ผลไม้ให้พลังงาน' },
-    { emoji:'🐟', label:'ปลา', group:'protein', dmg:13, charge:9, tip:'ปลาเป็นโปรตีนดี', lesson:'โปรตีนดี' },
-    { emoji:'🥚', label:'ไข่ต้ม', group:'protein', dmg:12, charge:9, tip:'ไข่ต้มเป็นโปรตีนดีและไม่ใช้น้ำมันมาก', lesson:'วิธีปรุงสำคัญ' },
-    { emoji:'🫘', label:'ถั่ว', group:'protein', dmg:12, charge:8, tip:'ถั่วเป็นโปรตีนจากพืช', lesson:'โปรตีนพืช' },
-    { emoji:'🍚', label:'ข้าว', group:'carb', dmg:10, charge:7, tip:'ข้าวให้พลังงาน แต่ควรกินพอดี', lesson:'คาร์บพอดี' }
+    {
+      emoji:'🥦',
+      label:'บรอกโคลี',
+      group:'green',
+      dmg:13,
+      charge:9,
+      tip:'ผักสีเขียวช่วยให้ร่างกายแข็งแรง',
+      lesson:'ผักดี'
+    },
+    {
+      emoji:'🥬',
+      label:'ผักใบเขียว',
+      group:'green',
+      dmg:13,
+      charge:9,
+      tip:'ผักมีวิตามินและใยอาหาร',
+      lesson:'ผักดี'
+    },
+    {
+      emoji:'🥕',
+      label:'แครอท',
+      group:'green',
+      dmg:11,
+      charge:8,
+      tip:'ผักหลากสีช่วยให้ได้สารอาหารหลากหลาย',
+      lesson:'ผักหลากสี'
+    },
+    {
+      emoji:'🍎',
+      label:'แอปเปิล',
+      group:'fruit',
+      dmg:12,
+      charge:10,
+      tip:'ผลไม้สดดีกว่าขนมหวาน',
+      lesson:'ผลไม้สด'
+    },
+    {
+      emoji:'🍉',
+      label:'แตงโม',
+      group:'fruit',
+      dmg:11,
+      charge:9,
+      tip:'ผลไม้สดช่วยเติมน้ำและวิตามิน',
+      lesson:'ผลไม้สด'
+    },
+    {
+      emoji:'🍌',
+      label:'กล้วย',
+      group:'fruit',
+      dmg:11,
+      charge:9,
+      tip:'กล้วยให้พลังงานและโพแทสเซียม',
+      lesson:'ผลไม้ให้พลังงาน'
+    },
+    {
+      emoji:'🐟',
+      label:'ปลา',
+      group:'protein',
+      dmg:13,
+      charge:9,
+      tip:'ปลาเป็นโปรตีนดี',
+      lesson:'โปรตีนดี'
+    },
+    {
+      emoji:'🥚',
+      label:'ไข่ต้ม',
+      group:'protein',
+      dmg:12,
+      charge:9,
+      tip:'ไข่ต้มเป็นโปรตีนดีและไม่ใช้น้ำมันมาก',
+      lesson:'วิธีปรุงสำคัญ'
+    },
+    {
+      emoji:'🫘',
+      label:'ถั่ว',
+      group:'protein',
+      dmg:12,
+      charge:8,
+      tip:'ถั่วเป็นโปรตีนจากพืช',
+      lesson:'โปรตีนพืช'
+    },
+    {
+      emoji:'🍚',
+      label:'ข้าว',
+      group:'carb',
+      dmg:10,
+      charge:7,
+      tip:'ข้าวให้พลังงาน แต่ควรกินพอดี',
+      lesson:'คาร์บพอดี'
+    }
   ];
 
   const JUNK = [
-    { emoji:'🍟', label:'เฟรนช์ฟรายส์', group:'fried', penalty:1, tip:'ของทอดมีน้ำมันมาก กินบ่อยไม่ดี', lesson:'ของทอด' },
-    { emoji:'🍭', label:'ลูกอม', group:'sweet', penalty:1, tip:'ลูกอมมีน้ำตาลสูง', lesson:'น้ำตาลสูง' },
-    { emoji:'🥤', label:'น้ำอัดลม', group:'soda', penalty:1, tip:'น้ำอัดลมมีน้ำตาลสูง', lesson:'เครื่องดื่มหวาน' },
-    { emoji:'🍩', label:'โดนัท', group:'sweet', penalty:1, tip:'โดนัทหวานและมัน', lesson:'หวานและมัน' },
-    { emoji:'🍔', label:'เบอร์เกอร์มัน', group:'fatty', penalty:1, tip:'อาหารมันและเค็มมากไม่ควรกินบ่อย', lesson:'มันและเค็ม' },
-    { emoji:'🍫', label:'ช็อกโกแลตหวาน', group:'sweet', penalty:1, tip:'ขนมหวานควรกินนาน ๆ ครั้ง', lesson:'ขนมหวาน' }
+    {
+      emoji:'🍟',
+      label:'เฟรนช์ฟรายส์',
+      group:'fried',
+      penalty:1,
+      tip:'ของทอดมีน้ำมันมาก กินบ่อยไม่ดี',
+      lesson:'ของทอด'
+    },
+    {
+      emoji:'🍭',
+      label:'ลูกอม',
+      group:'sweet',
+      penalty:1,
+      tip:'ลูกอมมีน้ำตาลสูง',
+      lesson:'น้ำตาลสูง'
+    },
+    {
+      emoji:'🥤',
+      label:'น้ำอัดลม',
+      group:'soda',
+      penalty:1,
+      tip:'น้ำอัดลมมีน้ำตาลสูง',
+      lesson:'เครื่องดื่มหวาน'
+    },
+    {
+      emoji:'🍩',
+      label:'โดนัท',
+      group:'sweet',
+      penalty:1,
+      tip:'โดนัทหวานและมัน',
+      lesson:'หวานและมัน'
+    },
+    {
+      emoji:'🍔',
+      label:'เบอร์เกอร์มัน',
+      group:'fatty',
+      penalty:1,
+      tip:'อาหารมันและเค็มมากไม่ควรกินบ่อย',
+      lesson:'มันและเค็ม'
+    },
+    {
+      emoji:'🍫',
+      label:'ช็อกโกแลตหวาน',
+      group:'sweet',
+      penalty:1,
+      tip:'ขนมหวานควรกินนาน ๆ ครั้ง',
+      lesson:'ขนมหวาน'
+    }
   ];
 
   const BOSS = {
     name: 'Junk King',
     emoji: '👑🍔',
     weakness: {
-      phase1: { label:'ผักสีเขียว', icons:['🥦','🥬','🥕'], group:'green' },
-      phase2: { label:'โปรตีนดี', icons:['🐟','🥚','🫘'], group:'protein' },
-      phase3: { label:'ผลไม้สด', icons:['🍎','🍉','🍌'], group:'fruit' }
+      phase1: {
+        label:'ผักสีเขียว',
+        icons:['🥦','🥬','🥕'],
+        group:'green'
+      },
+      phase2: {
+        label:'โปรตีนดี',
+        icons:['🐟','🥚','🫘'],
+        group:'protein'
+      },
+      phase3: {
+        label:'ผลไม้สด',
+        icons:['🍎','🍉','🍌'],
+        group:'fruit'
+      }
     },
     skills: [
       {
@@ -324,17 +539,68 @@
   };
 
   const MINI_MISSIONS = [
-    { id:'green-3', icon:'🥦', title:'เก็บผัก 3 ชิ้น', type:'collect_group', group:'green', target:3, reward:'shield' },
-    { id:'protein-3', icon:'🐟', title:'เก็บโปรตีน 3 ชิ้น', type:'collect_group', group:'protein', target:3, reward:'hero' },
-    { id:'fruit-3', icon:'🍎', title:'เก็บผลไม้ 3 ชิ้น', type:'collect_group', group:'fruit', target:3, reward:'slow' },
-    { id:'combo-8', icon:'⚡', title:'ทำ Combo x8', type:'combo', target:8, reward:'hero' }
+    {
+      id:'green-3',
+      icon:'🥦',
+      title:'เก็บผัก 3 ชิ้น',
+      type:'collect_group',
+      group:'green',
+      target:3,
+      reward:'shield'
+    },
+    {
+      id:'protein-3',
+      icon:'🐟',
+      title:'เก็บโปรตีน 3 ชิ้น',
+      type:'collect_group',
+      group:'protein',
+      target:3,
+      reward:'hero'
+    },
+    {
+      id:'fruit-3',
+      icon:'🍎',
+      title:'เก็บผลไม้ 3 ชิ้น',
+      type:'collect_group',
+      group:'fruit',
+      target:3,
+      reward:'slow'
+    },
+    {
+      id:'combo-8',
+      icon:'⚡',
+      title:'ทำ Combo x8',
+      type:'combo',
+      target:8,
+      reward:'hero'
+    }
   ];
 
   const DAILY_CHALLENGES = [
-    { id:'daily-green', title:'เก็บผัก 6 ชิ้น', group:'green', target:6 },
-    { id:'daily-fruit', title:'เก็บผลไม้ 6 ชิ้น', group:'fruit', target:6 },
-    { id:'daily-protein', title:'เก็บโปรตีน 5 ชิ้น', group:'protein', target:5 },
-    { id:'daily-clean', title:'พลาดไม่เกิน 3 ครั้ง', type:'max_miss', target:3 }
+    {
+      id:'daily-green',
+      title:'เก็บผัก 6 ชิ้น',
+      group:'green',
+      target:6
+    },
+    {
+      id:'daily-fruit',
+      title:'เก็บผลไม้ 6 ชิ้น',
+      group:'fruit',
+      target:6
+    },
+    {
+      id:'daily-protein',
+      title:'เก็บโปรตีน 5 ชิ้น',
+      group:'protein',
+      target:5
+    },
+    {
+      id:'daily-clean',
+      title:'พลาดไม่เกิน 3 ครั้ง',
+      type:'max_miss',
+      target:3
+    }
   ];
     const BOSS_PATTERN_SCRIPT = {
     phase1: [
@@ -498,9 +764,27 @@
 
   const ARENA_HAZARDS = {
     lanes: [
-      { id:'top', label:'เลนบน', icon:'⬆️', zone:'top', warning:'เลนบนมีขยะพุ่งมา!' },
-      { id:'middle', label:'เลนกลาง', icon:'↔️', zone:'middle', warning:'เลนกลางอันตราย!' },
-      { id:'bottom', label:'เลนล่าง', icon:'⬇️', zone:'bottom', warning:'เลนล่างมีอาหารขยะ!' }
+      {
+        id:'top',
+        label:'เลนบน',
+        icon:'⬆️',
+        zone:'top',
+        warning:'เลนบนมีขยะพุ่งมา!'
+      },
+      {
+        id:'middle',
+        label:'เลนกลาง',
+        icon:'↔️',
+        zone:'middle',
+        warning:'เลนกลางอันตราย!'
+      },
+      {
+        id:'bottom',
+        label:'เลนล่าง',
+        icon:'⬇️',
+        zone:'bottom',
+        warning:'เลนล่างมีอาหารขยะ!'
+      }
     ],
 
     schedule: {
@@ -708,40 +992,115 @@
     forcedWeaknessCount: 2,
 
     rewards: {
-      shield: { icon:'🛡️', label:'Rescue Shield', text:'ช่วยกันพลาด 1 ครั้ง' },
-      focus: { icon:'🎯', label:'Focus Food', text:'อาหารดีจะออกมากขึ้น' },
-      slow: { icon:'⏳', label:'Calm Time', text:'เวลาเป้าช้าลงชั่วคราว' },
-      hero: { icon:'🦸', label:'Hero Boost', text:'HERO HIT เพิ่มเล็กน้อย' }
+      shield: {
+        icon:'🛡️',
+        label:'Rescue Shield',
+        text:'ช่วยกันพลาด 1 ครั้ง'
+      },
+      focus: {
+        icon:'🎯',
+        label:'Focus Food',
+        text:'อาหารดีจะออกมากขึ้น'
+      },
+      slow: {
+        icon:'⏳',
+        label:'Calm Time',
+        text:'เวลาเป้าช้าลงชั่วคราว'
+      },
+      hero: {
+        icon:'🦸',
+        label:'Hero Boost',
+        text:'HERO HIT เพิ่มเล็กน้อย'
+      }
     }
   };
 
   const STAR_GOALS = {
     easy: {
-      one: { score:120, acc:50, bossHpPct:65, text:'ชนะใจตัวเอง: เก็บอาหารดีให้ได้หลายชิ้น' },
-      two: { score:180, acc:65, bossHpPct:35, text:'ฮีโร่พร้อมสู้: ลด HP บอสให้ต่ำกว่า 35%' },
-      three: { score:230, acc:80, maxMiss:4, text:'สุดยอดฮีโร่: แม่นยำ 80% และพลาดไม่เกิน 4' }
+      one: {
+        score:120,
+        acc:50,
+        bossHpPct:65,
+        text:'ชนะใจตัวเอง: เก็บอาหารดีให้ได้หลายชิ้น'
+      },
+      two: {
+        score:180,
+        acc:65,
+        bossHpPct:35,
+        text:'ฮีโร่พร้อมสู้: ลด HP บอสให้ต่ำกว่า 35%'
+      },
+      three: {
+        score:230,
+        acc:80,
+        maxMiss:4,
+        text:'สุดยอดฮีโร่: แม่นยำ 80% และพลาดไม่เกิน 4'
+      }
     },
 
     normal: {
-      one: { score:150, acc:55, bossHpPct:70, text:'เริ่มปราบบอส: เก็บอาหารดีและทำคะแนนให้ถึง 150' },
-      two: { score:240, acc:70, bossHpPct:40, text:'ปราบบอสได้ดี: ลด HP บอสให้ต่ำกว่า 40%' },
-      three: { score:320, acc:85, maxMiss:3, text:'ฮีโร่ 3 ดาว: แม่นยำ 85% และพลาดไม่เกิน 3' }
+      one: {
+        score:150,
+        acc:55,
+        bossHpPct:70,
+        text:'เริ่มปราบบอส: เก็บอาหารดีและทำคะแนนให้ถึง 150'
+      },
+      two: {
+        score:240,
+        acc:70,
+        bossHpPct:40,
+        text:'ปราบบอสได้ดี: ลด HP บอสให้ต่ำกว่า 40%'
+      },
+      three: {
+        score:320,
+        acc:85,
+        maxMiss:3,
+        text:'ฮีโร่ 3 ดาว: แม่นยำ 85% และพลาดไม่เกิน 3'
+      }
     },
 
     hard: {
-      one: { score:180, acc:60, bossHpPct:75, text:'ผ่านด่านยาก: ทำคะแนนให้ถึง 180' },
-      two: { score:300, acc:74, bossHpPct:42, text:'สวนกลับเก่ง: ลด HP บอสให้ต่ำกว่า 42%' },
-      three: { score:400, acc:88, maxMiss:3, text:'เทพอาหารดี: แม่นยำ 88% และพลาดไม่เกิน 3' }
+      one: {
+        score:180,
+        acc:60,
+        bossHpPct:75,
+        text:'ผ่านด่านยาก: ทำคะแนนให้ถึง 180'
+      },
+      two: {
+        score:300,
+        acc:74,
+        bossHpPct:42,
+        text:'สวนกลับเก่ง: ลด HP บอสให้ต่ำกว่า 42%'
+      },
+      three: {
+        score:400,
+        acc:88,
+        maxMiss:3,
+        text:'เทพอาหารดี: แม่นยำ 88% และพลาดไม่เกิน 3'
+      }
     },
 
     challenge: {
-      one: { score:220, acc:62, bossHpPct:78, text:'ท้าทายเริ่มต้น: ทำคะแนนให้ถึง 220' },
-      two: { score:360, acc:76, bossHpPct:45, text:'ผู้ท้าชิงบอส: ลด HP บอสให้ต่ำกว่า 45%' },
-      three: { score:480, acc:90, maxMiss:2, text:'ตำนาน HeroHealth: แม่นยำ 90% และพลาดไม่เกิน 2' }
+      one: {
+        score:220,
+        acc:62,
+        bossHpPct:78,
+        text:'ท้าทายเริ่มต้น: ทำคะแนนให้ถึง 220'
+      },
+      two: {
+        score:360,
+        acc:76,
+        bossHpPct:45,
+        text:'ผู้ท้าชิงบอส: ลด HP บอสให้ต่ำกว่า 45%'
+      },
+      three: {
+        score:480,
+        acc:90,
+        maxMiss:2,
+        text:'ตำนาน HeroHealth: แม่นยำ 90% และพลาดไม่เกิน 2'
+      }
     }
   };
-
-  const TOUCH_SAFETY = {
+    const TOUCH_SAFETY = {
     mobileMinTargetSize: 54,
     mobilePreferredTargetSize: 60,
     desktopMinTargetSize: 48,
@@ -779,6 +1138,7 @@
       'bossHpFill',
       'heroHitBtn',
       'summaryBackBtn',
+
       'gjBossSpeech',
       'gjWarningFlash',
       'gjMiniMission',
@@ -789,7 +1149,15 @@
       'gjComebackBanner',
       'gjBossIntro',
       'gjStarGoalHud',
-      'gjTouchDebug'
+      'gjTouchDebug',
+
+      'gjArenaThemeHud',
+      'gjBonusRoundBanner',
+      'gjSoundBtn',
+      'gjComboJuiceBanner',
+      'gjMicroTutorial',
+      'gjTutorialSkipHint',
+      'gjDifficultyBadge'
     ],
 
     minSafeArenaHeight: 120,
@@ -801,18 +1169,670 @@
     requireBossSystems: true
   };
 
+  const REPLAY_VARIETY = {
+    enabled: true,
+
+    arenaThemes: [
+      {
+        id: 'market',
+        name: 'ตลาดอาหาร',
+        emoji: '🛒',
+        intro: 'วันนี้ Junk King ซ่อนตัวในตลาดอาหาร!',
+        goodBias: ['green', 'fruit'],
+        junkBias: ['sweet', 'fried'],
+        hazardBias: 'middle'
+      },
+      {
+        id: 'school',
+        name: 'โรงอาหารโรงเรียน',
+        emoji: '🏫',
+        intro: 'ศึกนี้เกิดในโรงอาหารโรงเรียน!',
+        goodBias: ['protein', 'carb'],
+        junkBias: ['soda', 'sweet'],
+        hazardBias: 'bottom'
+      },
+      {
+        id: 'festival',
+        name: 'งานเทศกาลขนม',
+        emoji: '🎪',
+        intro: 'งานเทศกาลเต็มไปด้วยอาหารหลอก!',
+        goodBias: ['fruit'],
+        junkBias: ['sweet', 'fried', 'fatty'],
+        hazardBias: 'top'
+      },
+      {
+        id: 'space',
+        name: 'ครัวอวกาศ',
+        emoji: '🚀',
+        intro: 'Junk King หนีไปครัวอวกาศแล้ว!',
+        goodBias: ['protein', 'green'],
+        junkBias: ['soda', 'fatty'],
+        hazardBias: 'middle'
+      }
+    ],
+
+    trickSets: [
+      {
+        id: 'sugar-watch',
+        name: 'Sugar Watch',
+        focus: 'ดูน้ำตาลซ่อนอยู่',
+        groups: ['sweetDrink', 'sweet', 'soda']
+      },
+      {
+        id: 'fried-watch',
+        name: 'Fried Watch',
+        focus: 'ระวังของทอด',
+        groups: ['fried', 'fatty']
+      },
+      {
+        id: 'smart-choice',
+        name: 'Smart Choice',
+        focus: 'อาหารดีขึ้นกับวิธีปรุง',
+        groups: ['green', 'protein', 'carb']
+      }
+    ],
+
+    bonusRoundEvery: 42,
+    bonusRoundDurationMs: 8500
+  };
+
+  const BOSS_DRAMA = {
+    enabled: true,
+
+    comboReact: [
+      { at: 5, text: 'หืม... Combo เริ่มมาแล้วเหรอ!' },
+      { at: 10, text: 'หยุดนะ! เจ้าเก็บอาหารดีเร็วเกินไปแล้ว!' },
+      { at: 15, text: 'เป็นไปไม่ได้! Combo สูงขนาดนี้!' }
+    ],
+
+    heroReady: [
+      'ไม่นะ... HERO HIT พร้อมแล้ว!',
+      'อย่าใช้พลังอาหารดีนะ!',
+      'ข้าต้องรีบเรียกขยะมาขวาง!'
+    ],
+
+    lowHp: [
+      { pct: 55, text: 'โล่ของข้าเริ่มสั่นแล้ว!' },
+      { pct: 35, text: 'ข้ายังไม่แพ้หรอก!' },
+      { pct: 18, text: 'หยุดนะ! ข้าใกล้หมดพลังแล้ว!' }
+    ],
+
+    mistakeTaunt: [
+      'ฮ่า ๆ แตะผิดแล้ว!',
+      'อาหารขยะหลอกเจ้าได้!',
+      'ดูให้ดีสิ Hero!'
+    ],
+
+    comebackRespect: [
+      'อะไรกัน! กลับมาได้อีกเหรอ!',
+      'Hero ยังไม่ยอมแพ้จริง ๆ!',
+      'ข้าประมาทเจ้าไม่ได้แล้ว!'
+    ],
+
+    finalFear: [
+      'ไม่นะ... Final Rush แล้ว!',
+      'ข้าจะใช้พลังสุดท้าย!',
+      'ถ้า HERO HIT โดน ข้าแพ้แน่!'
+    ]
+  };
+
+  const REWARD_LOOP = {
+    enabled: true,
+
+    storageKeys: {
+      profile: 'GJ_SOLO_BOSS_PROFILE',
+      bossBook: 'GJ_SOLO_BOSS_BOSS_BOOK',
+      badgeBook: 'GJ_SOLO_BOSS_BADGE_BOOK',
+      lastChallenge: 'GJ_SOLO_BOSS_NEXT_CHALLENGE'
+    },
+
+    ranks: [
+      { id:'rookie', label:'Rookie Hero', emoji:'🌱', minScore:0 },
+      { id:'clean', label:'Clean Hero', emoji:'🧼', minScore:160 },
+      { id:'smart', label:'Smart Picker', emoji:'🎯', minScore:260 },
+      { id:'boss', label:'Boss Breaker', emoji:'👑', minScore:360 },
+      { id:'legend', label:'Nutrition Legend', emoji:'🏆', minScore:480 }
+    ],
+
+    badges: [
+      {
+        id:'first_win',
+        emoji:'👑',
+        title:'First Boss Breaker',
+        desc:'ชนะ Junk King ครั้งแรก',
+        test:s => !!s.win
+      },
+      {
+        id:'three_star',
+        emoji:'⭐⭐⭐',
+        title:'Three Star Hero',
+        desc:'ได้ 3 ดาว',
+        test:s => Number(s.starGoal?.starsEarned || 0) >= 3
+      },
+      {
+        id:'combo_15',
+        emoji:'⚡',
+        title:'Combo Master',
+        desc:'ทำ Combo สูงสุด 15+',
+        test:s => Number(s.bestCombo || 0) >= 15
+      },
+      {
+        id:'clean_player',
+        emoji:'🌟',
+        title:'Clean Player',
+        desc:'พลาดไม่เกิน 2 ครั้ง',
+        test:s => Number(s.miss || 0) <= 2
+      },
+      {
+        id:'green_hero',
+        emoji:'🥦',
+        title:'Green Hero',
+        desc:'เก็บผักได้เยอะ',
+        test:s => Number(s.greenHits || 0) >= 8
+      },
+      {
+        id:'protein_power',
+        emoji:'🐟',
+        title:'Protein Power',
+        desc:'เก็บโปรตีนดีได้เยอะ',
+        test:s => Number(s.proteinHits || 0) >= 6
+      },
+      {
+        id:'fruit_fighter',
+        emoji:'🍎',
+        title:'Fruit Fighter',
+        desc:'เก็บผลไม้ได้เยอะ',
+        test:s => Number(s.fruitHits || 0) >= 5
+      },
+      {
+        id:'comeback_hero',
+        emoji:'💚',
+        title:'Comeback Hero',
+        desc:'กลับมาได้หลังพลาด',
+        test:s => Number(s.comeback?.used || 0) > 0
+      },
+      {
+        id:'hazard_safe',
+        emoji:'🚧',
+        title:'Safe Lane Hero',
+        desc:'เก็บอาหารดีในเลนปลอดภัยได้หลายครั้ง',
+        test:s => Number(s.arenaHazard?.safeHits || 0) >= 5
+      },
+      {
+        id:'mission_chain',
+        emoji:'🎯',
+        title:'Mission Chainer',
+        desc:'ทำ Boss Mission Chain สำเร็จหลายขั้น',
+        test:s => Number(s.missionChain?.completedIds?.length || 0) >= 3
+      }
+    ],
+
+    nextChallenges: [
+      {
+        id:'next-clean',
+        emoji:'🌟',
+        title:'รอบหน้า: พลาดไม่เกิน 3',
+        desc:'เล่นรอบหน้าโดยพยายามแตะอาหารขยะให้น้อยลง',
+        goal:'miss_lte_3'
+      },
+      {
+        id:'next-combo',
+        emoji:'⚡',
+        title:'รอบหน้า: Combo x10',
+        desc:'แตะอาหารดีต่อเนื่องให้ได้ Combo สูง',
+        goal:'combo_10'
+      },
+      {
+        id:'next-fruit',
+        emoji:'🍎',
+        title:'รอบหน้า: เก็บผลไม้ 6 ชิ้น',
+        desc:'ฝึกเลือกผลไม้สดแทนขนมหวาน',
+        goal:'fruit_6'
+      },
+      {
+        id:'next-green',
+        emoji:'🥦',
+        title:'รอบหน้า: เก็บผัก 8 ชิ้น',
+        desc:'ช่วยทำลายโล่บอสให้เร็วขึ้น',
+        goal:'green_8'
+      },
+      {
+        id:'next-hero',
+        emoji:'🦸',
+        title:'รอบหน้า: ใช้ HERO HIT ให้ทัน',
+        desc:'ชาร์จพลังอาหารดีแล้วใช้ปิดฉาก',
+        goal:'hero_hit'
+      }
+    ]
+  };
+
+  const POLISH_JUICE = {
+    enabled: true,
+
+    sound: {
+      enabled: true,
+      mutedByDefault: false,
+      volume: 0.18,
+      cooldownMs: 45
+    },
+
+    haptic: {
+      enabled: true,
+      cooldownMs: 70,
+      patterns: {
+        good: [18],
+        bad: [35],
+        hero: [28, 30, 42],
+        win: [35, 35, 55],
+        shield: [18, 20, 18],
+        bonus: [22, 24, 22]
+      }
+    },
+
+    screen: {
+      shakeEnabled: true,
+      maxShakeMs: 360
+    },
+
+    comboJuice: {
+      pulseAt: [5, 10, 15, 20],
+      bannerMs: 820
+    }
+  };
+
+  const MICRO_TUTORIAL = {
+    enabled: true,
+    storageKey: 'GJ_SOLO_BOSS_TUTORIAL_DONE',
+    firstRunOnly: false,
+    minGapMs: 5200,
+    maxTipsPerRun: 9,
+
+    tips: {
+      firstGood: {
+        id: 'firstGood',
+        icon: '✅',
+        title: 'แตะอาหารดี',
+        text: 'แตะผัก ผลไม้ โปรตีนดี เพื่อโจมตีบอส'
+      },
+      firstJunk: {
+        id: 'firstJunk',
+        icon: '⚠️',
+        title: 'อย่าแตะอาหารขยะ',
+        text: 'น้ำอัดลม ขนมหวาน ของทอด ทำให้เสียหัวใจ'
+      },
+      heroReady: {
+        id: 'heroReady',
+        icon: '🦸',
+        title: 'HERO HIT พร้อมแล้ว',
+        text: 'กดปุ่มเหลืองเพื่อโจมตีบอสแรง ๆ'
+      },
+      shield: {
+        id: 'shield',
+        icon: '🛡️',
+        title: 'โล่ช่วยกันพลาด',
+        text: 'ถ้ามี Shield แตะพลาดครั้งหนึ่งจะไม่เสียหัวใจ'
+      },
+      mission: {
+        id: 'mission',
+        icon: '🎯',
+        title: 'ทำภารกิจบอส',
+        text: 'ดูแถบภารกิจด้านบน แล้วเก็บอาหารตามที่กำหนด'
+      },
+      dangerLane: {
+        id: 'dangerLane',
+        icon: '🚧',
+        title: 'ระวังเลนอันตราย',
+        text: 'ถ้าเลนสีแดงขึ้น ให้เลือกเป้านอกเลนก่อน'
+      },
+      finalRush: {
+        id: 'finalRush',
+        icon: '🔥',
+        title: 'FINAL RUSH',
+        text: 'เก็บจุดอ่อนให้ไว แล้วใช้ HERO HIT ปิดฉาก'
+      },
+      combo: {
+        id: 'combo',
+        icon: '⚡',
+        title: 'Combo ช่วยชาร์จพลัง',
+        text: 'แตะอาหารดีต่อเนื่อง HERO HIT จะพร้อมเร็วขึ้น'
+      },
+      trick: {
+        id: 'trick',
+        icon: '💡',
+        title: 'อาหารหลอก',
+        text: 'อาหารบางอย่างดูดี แต่ต้องดูน้ำตาล น้ำมัน และวิธีปรุง'
+      }
+    }
+  };
+
+  const DIFFICULTY_PERSONALITY = {
+    easy: {
+      id: 'easy',
+      label: 'Easy Coach',
+      emoji: '🌱',
+      intro: 'โหมดสอนเล่น: อาหารดีจะออกชัดขึ้น และบอสใจดีขึ้น',
+      coachStyle: 'สอนเยอะขึ้น',
+      goodBias: 0.16,
+      junkBias: -0.08,
+      trickyBias: -0.08,
+      weaknessBias: 0.14,
+      hazardBias: -0.06,
+      bossPatternSpeed: 1.18,
+      bossDramaTone: 'coach',
+      comebackBoost: 1.18,
+      tutorialBoost: true,
+      bonusChanceBoost: 0.006
+    },
+
+    normal: {
+      id: 'normal',
+      label: 'Normal Adventure',
+      emoji: '🎮',
+      intro: 'โหมดผจญภัย: สมดุลระหว่างสนุก ท้าทาย และเรียนรู้',
+      coachStyle: 'สมดุล',
+      goodBias: 0.04,
+      junkBias: 0,
+      trickyBias: 0,
+      weaknessBias: 0.04,
+      hazardBias: 0,
+      bossPatternSpeed: 1,
+      bossDramaTone: 'normal',
+      comebackBoost: 1,
+      tutorialBoost: false,
+      bonusChanceBoost: 0
+    },
+
+    hard: {
+      id: 'hard',
+      label: 'Hard Storm',
+      emoji: '🌪️',
+      intro: 'โหมดพายุขยะ: บอสจะใช้เลนอันตรายและอาหารหลอกมากขึ้น',
+      coachStyle: 'เตือนสั้น',
+      goodBias: -0.02,
+      junkBias: 0.06,
+      trickyBias: 0.08,
+      weaknessBias: 0.02,
+      hazardBias: 0.08,
+      bossPatternSpeed: 0.88,
+      bossDramaTone: 'taunt',
+      comebackBoost: 0.88,
+      tutorialBoost: false,
+      bonusChanceBoost: -0.002
+    },
+
+    challenge: {
+      id: 'challenge',
+      label: 'Challenge Chaos',
+      emoji: '🔥',
+      intro: 'โหมดท้าทาย: บอสเร็วขึ้น หลอกมากขึ้น และ Final Rush ดุขึ้น',
+      coachStyle: 'น้อยแต่คม',
+      goodBias: -0.04,
+      junkBias: 0.10,
+      trickyBias: 0.14,
+      weaknessBias: 0,
+      hazardBias: 0.12,
+      bossPatternSpeed: 0.78,
+      bossDramaTone: 'bossy',
+      comebackBoost: 0.72,
+      tutorialBoost: false,
+      bonusChanceBoost: -0.004
+    }
+  };
+
+  const FINAL_BALANCE = {
+    enabled: true,
+
+    maxJunkStreak: {
+      easy: 1,
+      normal: 2,
+      hard: 3,
+      challenge: 3
+    },
+
+    missGraceMs: {
+      easy: 1400,
+      normal: 1050,
+      hard: 780,
+      challenge: 620
+    },
+
+    openingGraceSec: {
+      easy: 16,
+      normal: 12,
+      hard: 8,
+      challenge: 6
+    },
+
+    dangerReliefAt: {
+      easy: 56,
+      normal: 68,
+      hard: 78,
+      challenge: 86
+    },
+
+    bossProgressHelpEverySec: {
+      easy: 18,
+      normal: 24,
+      hard: 32,
+      challenge: 42
+    },
+
+    lateGameRushSecLeft: {
+      easy: 36,
+      normal: 32,
+      hard: 28,
+      challenge: 24
+    },
+
+    maxLifeLossPerWindow: 2,
+    lifeLossWindowMs: 3800,
+    overlayQuietMsAfterHit: 900
+  };
+
+  const BALANCE_TUNING = {
+    enabled: true,
+
+    fightPacing: {
+      easy: {
+        minPlaySecBeforeWin: 62,
+        idealWinSec: 88,
+        finalRushMinSec: 18,
+        maxBossDamagePerHit: 26,
+        maxHeroHitDamage: 70,
+        bossHpFloorBeforeFinal: 42
+      },
+      normal: {
+        minPlaySecBeforeWin: 78,
+        idealWinSec: 110,
+        finalRushMinSec: 22,
+        maxBossDamagePerHit: 30,
+        maxHeroHitDamage: 82,
+        bossHpFloorBeforeFinal: 48
+      },
+      hard: {
+        minPlaySecBeforeWin: 92,
+        idealWinSec: 128,
+        finalRushMinSec: 26,
+        maxBossDamagePerHit: 34,
+        maxHeroHitDamage: 96,
+        bossHpFloorBeforeFinal: 56
+      },
+      challenge: {
+        minPlaySecBeforeWin: 105,
+        idealWinSec: 142,
+        finalRushMinSec: 30,
+        maxBossDamagePerHit: 38,
+        maxHeroHitDamage: 110,
+        bossHpFloorBeforeFinal: 64
+      }
+    },
+
+    spawnPacing: {
+      easy: {
+        minSpawnMs: 760,
+        maxTargets: 5,
+        powerChance: 0.070,
+        weaknessChanceBoost: 0.08
+      },
+      normal: {
+        minSpawnMs: 660,
+        maxTargets: 6,
+        powerChance: 0.060,
+        weaknessChanceBoost: 0.04
+      },
+      hard: {
+        minSpawnMs: 580,
+        maxTargets: 7,
+        powerChance: 0.052,
+        weaknessChanceBoost: 0.02
+      },
+      challenge: {
+        minSpawnMs: 520,
+        maxTargets: 8,
+        powerChance: 0.046,
+        weaknessChanceBoost: 0
+      }
+    },
+
+    scorePacing: {
+      goodBase: {
+        easy: 9,
+        normal: 10,
+        hard: 11,
+        challenge: 12
+      },
+      junkPenaltyScore: {
+        easy: 4,
+        normal: 6,
+        hard: 7,
+        challenge: 8
+      },
+      missedGoodPenaltyScore: {
+        easy: 2,
+        normal: 4,
+        hard: 5,
+        challenge: 6
+      },
+      comboBonusCap: {
+        easy: 7,
+        normal: 9,
+        hard: 11,
+        challenge: 13
+      }
+    },
+
+    finalRush: {
+      forceWeaknessOnEnter: {
+        easy: 4,
+        normal: 3,
+        hard: 3,
+        challenge: 2
+      },
+      spawnBoost: {
+        easy: 0.84,
+        normal: 0.78,
+        hard: 0.74,
+        challenge: 0.70
+      },
+      junkChanceAdd: {
+        easy: 0.02,
+        normal: 0.04,
+        hard: 0.06,
+        challenge: 0.08
+      }
+    }
+  };
+
+  const CHILD_POLISH = {
+    enabled: true,
+
+    summary: {
+      maxBadgesShown: 5,
+      maxRewardBadgesShown: 4,
+      maxTextLineLength: 58,
+      preferSimpleWords: true
+    },
+
+    coach: {
+      maxLength: 58,
+      rotateMinMs: 2800,
+      simpleMode: true
+    },
+
+    endMessages: {
+      win: [
+        'เก่งมาก! ชนะบอสอาหารขยะแล้ว',
+        'สุดยอด Hero! เลือกอาหารดีได้เยี่ยม',
+        'วันนี้ปราบ Junk King สำเร็จแล้ว'
+      ],
+      lose: [
+        'ไม่เป็นไร รอบหน้าทำได้ดีขึ้นแน่',
+        'ฝึกอีกนิด Hero จะเก่งขึ้นมาก',
+        'วันนี้ได้เรียนรู้แล้ว รอบหน้าลุยใหม่'
+      ]
+    },
+
+    summaryTips: {
+      good: [
+        'เลือกอาหารดีต่อเนื่อง ช่วยให้ชนะบอสเร็วขึ้น',
+        'ผัก ผลไม้ และโปรตีนดี ช่วยชาร์จพลัง Hero',
+        'ดูจุดอ่อนบอส แล้วเก็บอาหารให้ตรงเป้าหมาย'
+      ],
+      caution: [
+        'น้ำอัดลม ขนมหวาน และของทอด ทำให้เสียหัวใจ',
+        'อาหารบางอย่างดูดี แต่ต้องดูน้ำตาลและน้ำมันด้วย',
+        'ถ้าเลนแดงขึ้น ให้เลือกเป้านอกเลนก่อน'
+      ],
+      next: [
+        'รอบหน้าลองพลาดให้น้อยลง',
+        'รอบหน้าลองทำ Combo ให้สูงขึ้น',
+        'รอบหน้าลองใช้ HERO HIT ตอน Final Rush'
+      ]
+    },
+
+    shortLabels: {
+      score: 'คะแนน',
+      good: 'อาหารดี',
+      miss: 'พลาด',
+      accuracy: 'แม่นยำ',
+      combo: 'Combo',
+      best: 'สถิติดีสุด',
+      next: 'รอบหน้า'
+    }
+  };
+
   const POWER_UPS = [
-    { id:'shield', emoji:'🛡️', label:'Shield', type:'shield' },
-    { id:'slow', emoji:'⏳', label:'Slow Time', type:'slow' },
-    { id:'cleanBlast', emoji:'✨', label:'Clean Blast', type:'cleanBlast' },
-    { id:'heart', emoji:'💚', label:'Heart', type:'heart' }
+    {
+      id:'shield',
+      emoji:'🛡️',
+      label:'Shield',
+      type:'shield'
+    },
+    {
+      id:'slow',
+      emoji:'⏳',
+      label:'Slow Time',
+      type:'slow'
+    },
+    {
+      id:'cleanBlast',
+      emoji:'✨',
+      label:'Clean Blast',
+      type:'cleanBlast'
+    },
+    {
+      id:'heart',
+      emoji:'💚',
+      label:'Heart',
+      type:'heart'
+    }
   ];
 
   const STORAGE_LAST_SUMMARY = 'HHA_LAST_SUMMARY:goodjunk';
   const STORAGE_LAST_GENERIC = 'HHA_LAST_SUMMARY';
+    const state = {
+    rng: null,
 
-  const state = {
-    rng: mulberry32(hashSeed(`${CFG.seed}:${CFG.pid}:${DIFF}:goodjunk-solo-boss`)),
     bootStarted: false,
     booted: false,
     startLocked: false,
@@ -1115,12 +2135,196 @@
       lastCheckAt: 0,
       warnings: [],
       errors: []
+    },
+
+    replayVariety: {
+      enabled: true,
+      runIndex: 0,
+      arenaTheme: null,
+      trickSet: null,
+      bonusRoundActive: false,
+      bonusRoundStartedAt: 0,
+      bonusRoundEndsAt: 0,
+      bonusRoundCount: 0,
+      lastBonusAtSec: 0,
+      themeAnnounced: false,
+      trickAnnounced: false
+    },
+
+    bossDrama: {
+      enabled: true,
+      comboReacted: {},
+      lowHpReacted: {},
+      heroReadyReacted: false,
+      lastTauntAt: 0,
+      lastDramaAt: 0,
+      finalFearShown: false,
+      comebackReacted: false
+    },
+
+    rewardLoop: {
+      enabled: true,
+      profile: null,
+      bossBook: null,
+      badgeBook: null,
+      earnedBadgesThisRun: [],
+      rankBefore: null,
+      rankAfter: null,
+      personalBestBefore: 0,
+      personalBestAfter: 0,
+      isNewBest: false,
+      nextChallenge: null,
+      rewardSaved: false
+    },
+
+    polishJuice: {
+      enabled: true,
+      soundEnabled: true,
+      muted: false,
+      audioCtx: null,
+      lastSoundAt: 0,
+      lastHapticAt: 0,
+      comboJuiceShown: {},
+      lastShakeAt: 0,
+      soundUnlocked: false
+    },
+
+    microTutorial: {
+      enabled: true,
+      doneBefore: false,
+      shown: {},
+      shownCount: 0,
+      lastShownAt: 0,
+      suppressedUntil: 0,
+      firstGoodSeen: false,
+      firstJunkSeen: false,
+      heroReadyTipShown: false,
+      dangerTipShown: false,
+      finalTipShown: false,
+      missionTipShown: false,
+      trickTipShown: false
+    },
+
+    difficultyPersonality: {
+      enabled: true,
+      profile: null,
+      introShown: false,
+      adjustedGoodBias: 0,
+      adjustedJunkBias: 0,
+      adjustedTrickyBias: 0,
+      adjustedWeaknessBias: 0,
+      adjustedHazardBias: 0,
+      bossPatternSpeed: 1,
+      comebackBoost: 1
+    },
+
+    finalBalance: {
+      enabled: true,
+      junkStreak: 0,
+      goodStreak: 0,
+      lastGoodMissPenaltyAt: 0,
+      lastLifeLossAt: 0,
+      lifeLossInWindow: 0,
+      lifeLossWindowStartedAt: 0,
+      lastReliefAt: 0,
+      lastBossProgressHelpAt: 0,
+      lastOverlayQuietAt: 0,
+      forcedReliefCount: 0,
+      preventedLifeLoss: 0,
+      preventedMissPenalty: 0,
+      lateRushTriggered: false,
+      openingGraceUsed: false
+    },
+
+    balanceTuning: {
+      enabled: true,
+      finalRushStartedAtSec: 0,
+      finalRushMinMet: false,
+      damageCappedCount: 0,
+      heroDamageCappedCount: 0,
+      winHeldCount: 0,
+      lastBalanceNoteAt: 0,
+      lastTuningSnapshot: null
+    },
+
+    childPolish: {
+      enabled: true,
+      lastCoachText: '',
+      lastCoachAt: 0,
+      simplifiedSummary: true,
+      endMessage: '',
+      summaryLevel: ''
+    },
+
+    runtimeGuard: {
+      enabled: true,
+      errors: [],
+      warnings: [],
+      lastErrorAt: 0,
+      errorCount: 0,
+      recoveredCount: 0,
+      lastRecovery: ''
     }
   };
 
+  state.rng = mulberry32(hashSeed(`${CFG.seed}:${CFG.pid}:${DIFF}:goodjunk-solo-boss`));
+
   const el = {};
-    function $(id){
+
+  function $(id){
     return DOC.getElementById(id);
+  }
+
+  function recordRuntimeError(label, err){
+    if(!state.runtimeGuard?.enabled) return;
+
+    const item = {
+      label: String(label || 'runtime'),
+      message: String(err && (err.message || err) || ''),
+      stack: String(err && err.stack || '').slice(0, 1200),
+      ts: Date.now()
+    };
+
+    state.runtimeGuard.errors.push(item);
+
+    if(state.runtimeGuard.errors.length > 20){
+      state.runtimeGuard.errors.shift();
+    }
+
+    state.runtimeGuard.errorCount++;
+    state.runtimeGuard.lastErrorAt = Date.now();
+
+    console.warn('[GoodJunk Runtime]', label, err);
+  }
+
+  function recordRuntimeWarning(label, msg){
+    if(!state.runtimeGuard?.enabled) return;
+
+    const item = {
+      label: String(label || 'warning'),
+      message: String(msg || ''),
+      ts: Date.now()
+    };
+
+    state.runtimeGuard.warnings.push(item);
+
+    if(state.runtimeGuard.warnings.length > 20){
+      state.runtimeGuard.warnings.shift();
+    }
+  }
+
+  function recoverRuntime(reason = 'unknown'){
+    state.runtimeGuard.recoveredCount++;
+    state.runtimeGuard.lastRecovery = reason;
+
+    try{
+      cacheElements();
+      ensureAllOverlayDom();
+      refreshUiState();
+      updateHud();
+    }catch(err){
+      recordRuntimeError('recoverRuntime', err);
+    }
   }
 
   function ensureFxStyle(){
@@ -1146,9 +2350,12 @@
         --sal:env(safe-area-inset-left,0px);
       }
 
-      *{ box-sizing:border-box; }
+      *{
+        box-sizing:border-box;
+      }
 
-      html,body{
+      html,
+      body{
         margin:0;
         width:100%;
         min-height:100%;
@@ -1164,7 +2371,13 @@
         overscroll-behavior:none;
       }
 
-      body{ min-height:100dvh; }
+      body{
+        min-height:100dvh;
+      }
+
+      button{
+        font:inherit;
+      }
 
       #gjSoloBossApp{
         width:100vw;
@@ -1404,8 +2617,13 @@
         pointer-events:none;
       }
 
-      #powerLayer{ z-index:88; }
-      #fxLayer{ z-index:120; }
+      #powerLayer{
+        z-index:88;
+      }
+
+      #fxLayer{
+        z-index:120;
+      }
 
       .gjTarget{
         position:absolute;
@@ -1496,8 +2714,7 @@
         pointer-events:none;
         white-space:nowrap;
       }
-
-      #bottomControls{
+            #bottomControls{
         position:absolute;
         left:0;
         right:0;
@@ -1688,110 +2905,6 @@
         font-size:clamp(28px,8vw,44px);
         letter-spacing:.05em;
         text-shadow:0 12px 30px rgba(250,204,21,.22);
-      }
-
-      .gjKidsScoreRow{
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:9px;
-        margin-top:14px;
-      }
-
-      .gjKidsScoreCard{
-        border-radius:20px;
-        padding:12px 10px;
-        background:rgba(15,23,42,.70);
-        border:1px solid rgba(148,163,184,.18);
-        box-shadow:0 14px 34px rgba(0,0,0,.22);
-      }
-
-      .gjKidsScoreCard span{
-        display:block;
-        color:#cbd5e1;
-        font-size:11px;
-        font-weight:1000;
-        letter-spacing:.04em;
-      }
-
-      .gjKidsScoreCard b{
-        display:block;
-        margin-top:5px;
-        color:#f8fafc;
-        font-size:clamp(20px,6vw,30px);
-        line-height:1;
-        font-weight:1000;
-      }
-
-      .gjKidsCards{
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:10px;
-        margin-top:14px;
-      }
-
-      .gjKidsCard{
-        border-radius:22px;
-        padding:13px 12px;
-        text-align:left;
-        border:1px solid rgba(148,163,184,.18);
-        background:rgba(15,23,42,.68);
-        box-shadow:0 12px 34px rgba(0,0,0,.20);
-      }
-
-      .gjKidsCardIcon{
-        font-size:28px;
-        line-height:1;
-      }
-
-      .gjKidsCardTitle{
-        margin-top:8px;
-        font-size:14px;
-        font-weight:1000;
-        color:#fde68a;
-      }
-
-      .gjKidsCardText{
-        margin-top:5px;
-        font-size:12px;
-        line-height:1.45;
-        color:#dbeafe;
-        font-weight:850;
-      }
-
-      .gjKidsBadgeShelf{
-        margin-top:14px;
-        padding:12px;
-        border-radius:22px;
-        background:rgba(2,6,23,.42);
-        border:1px dashed rgba(250,204,21,.28);
-      }
-
-      .gjKidsBadgeTitle{
-        font-size:13px;
-        color:#fde68a;
-        font-weight:1000;
-      }
-
-      .gjKidsBadges{
-        margin-top:8px;
-        display:flex;
-        flex-wrap:wrap;
-        gap:7px;
-        justify-content:center;
-      }
-
-      .gjKidsBadge{
-        min-height:34px;
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        padding:7px 10px;
-        border-radius:999px;
-        background:rgba(250,204,21,.12);
-        border:1px solid rgba(250,204,21,.24);
-        color:#fff7ed;
-        font-size:12px;
-        font-weight:1000;
       }
 
       .gjKidsActions{
@@ -2667,6 +3780,501 @@
         }
       }
 
+      #gjArenaThemeHud{
+        position:absolute;
+        right:14px;
+        bottom:124px;
+        z-index:72;
+        min-height:34px;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        border-radius:999px;
+        background:rgba(15,23,42,.84);
+        border:1px solid rgba(56,189,248,.28);
+        color:#dbeafe;
+        font-size:11px;
+        font-weight:1000;
+        box-shadow:0 14px 34px rgba(0,0,0,.28);
+        pointer-events:none;
+      }
+
+      #gjArenaThemeHud.show{
+        display:inline-flex;
+      }
+
+      #gjBonusRoundBanner{
+        position:absolute;
+        left:50%;
+        top:50%;
+        z-index:134;
+        transform:translate(-50%,-50%);
+        width:min(88vw,540px);
+        display:none;
+        padding:16px 18px;
+        border-radius:28px;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(250,204,21,.26), transparent 44%),
+          linear-gradient(135deg, rgba(15,23,42,.96), rgba(2,6,23,.90));
+        border:2px solid rgba(250,204,21,.55);
+        box-shadow:0 28px 84px rgba(0,0,0,.48);
+        color:#f8fafc;
+        text-align:center;
+        pointer-events:none;
+      }
+
+      #gjBonusRoundBanner.show{
+        display:block;
+        animation:gjBonusRoundPop .95s ease-out forwards;
+      }
+
+      @keyframes gjBonusRoundPop{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.82); }
+        18%{ opacity:1; transform:translate(-50%,-50%) scale(1.05); }
+        72%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.06); }
+      }
+
+      .gjBonusRoundBig{
+        font-size:clamp(28px,8vw,52px);
+        line-height:1.05;
+        font-weight:1000;
+        color:#fde68a;
+      }
+
+      .gjBonusRoundSmall{
+        margin-top:8px;
+        color:#dbeafe;
+        font-size:14px;
+        line-height:1.45;
+        font-weight:900;
+      }
+
+      .gjThemeMarket{
+        background:
+          radial-gradient(circle at 15% 88%, rgba(34,197,94,.13), transparent 32%),
+          radial-gradient(circle at 88% 18%, rgba(250,204,21,.12), transparent 34%),
+          linear-gradient(180deg,#052e16 0%,#0f172a 58%,#111827 100%) !important;
+      }
+
+      .gjThemeSchool{
+        background:
+          radial-gradient(circle at 20% 14%, rgba(56,189,248,.12), transparent 32%),
+          radial-gradient(circle at 80% 88%, rgba(250,204,21,.10), transparent 34%),
+          linear-gradient(180deg,#082f49 0%,#0f172a 58%,#111827 100%) !important;
+      }
+
+      .gjThemeFestival{
+        background:
+          radial-gradient(circle at 15% 14%, rgba(251,113,133,.14), transparent 34%),
+          radial-gradient(circle at 85% 20%, rgba(250,204,21,.16), transparent 34%),
+          linear-gradient(180deg,#3b0764 0%,#0f172a 58%,#111827 100%) !important;
+      }
+
+      .gjThemeSpace{
+        background:
+          radial-gradient(circle at 20% 20%, rgba(96,165,250,.12), transparent 30%),
+          radial-gradient(circle at 88% 14%, rgba(167,139,250,.14), transparent 34%),
+          linear-gradient(180deg,#020617 0%,#111827 58%,#1e1b4b 100%) !important;
+      }
+
+      .gjBonusRoundActive #targetLayer .gjTarget.good{
+        box-shadow:
+          0 0 0 4px rgba(250,204,21,.18),
+          0 0 36px rgba(250,204,21,.34),
+          0 18px 36px rgba(0,0,0,.28) !important;
+      }
+
+      .gjScreenShake{
+        animation:gjScreenShake .22s ease-in-out;
+      }
+
+      @keyframes gjScreenShake{
+        0%,100%{ transform:translate3d(0,0,0); }
+        20%{ transform:translate3d(-4px,2px,0); }
+        40%{ transform:translate3d(4px,-2px,0); }
+        60%{ transform:translate3d(-3px,-1px,0); }
+        80%{ transform:translate3d(3px,1px,0); }
+      }
+
+      #gjComboJuiceBanner{
+        position:absolute;
+        left:50%;
+        top:42%;
+        z-index:133;
+        transform:translate(-50%,-50%);
+        display:none;
+        min-width:min(82vw,380px);
+        padding:14px 18px;
+        border-radius:26px;
+        background:
+          radial-gradient(circle at 50% 0%, rgba(250,204,21,.32), transparent 48%),
+          linear-gradient(135deg, rgba(15,23,42,.96), rgba(2,6,23,.90));
+        border:2px solid rgba(250,204,21,.55);
+        color:#fde68a;
+        text-align:center;
+        box-shadow:0 26px 80px rgba(0,0,0,.46);
+        pointer-events:none;
+      }
+
+      #gjComboJuiceBanner.show{
+        display:block;
+        animation:gjComboJuicePop .78s ease-out forwards;
+      }
+
+      @keyframes gjComboJuicePop{
+        0%{ opacity:0; transform:translate(-50%,-50%) scale(.78) rotate(-2deg); }
+        22%{ opacity:1; transform:translate(-50%,-50%) scale(1.08) rotate(1deg); }
+        70%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
+        100%{ opacity:0; transform:translate(-50%,-50%) scale(1.06); }
+      }
+
+      .gjComboJuiceBig{
+        font-size:clamp(30px,9vw,58px);
+        line-height:1;
+        font-weight:1000;
+      }
+
+      .gjComboJuiceSmall{
+        margin-top:7px;
+        font-size:clamp(12px,3.6vw,17px);
+        color:#dbeafe;
+        font-weight:900;
+      }
+
+      #gjSoundBtn{
+        position:absolute;
+        right:14px;
+        top:calc(10px + env(safe-area-inset-top,0px));
+        z-index:96;
+        min-width:42px;
+        min-height:34px;
+        border-radius:999px;
+        border:1px solid rgba(148,163,184,.22);
+        background:rgba(15,23,42,.82);
+        color:#f8fafc;
+        font:inherit;
+        font-size:14px;
+        font-weight:1000;
+        cursor:pointer;
+        box-shadow:0 12px 28px rgba(0,0,0,.24);
+        touch-action:manipulation;
+      }
+
+      .gjHitPulse{
+        animation:gjHitPulse .20s ease-out;
+      }
+
+      @keyframes gjHitPulse{
+        0%{ transform:translate(-50%,-50%) scale(1); }
+        60%{ transform:translate(-50%,-50%) scale(1.16); }
+        100%{ transform:translate(-50%,-50%) scale(1); }
+      }
+
+      .gjHeroButtonBlast{
+        animation:gjHeroButtonBlast .42s ease-out;
+      }
+
+      @keyframes gjHeroButtonBlast{
+        0%{ transform:scale(1); filter:brightness(1); }
+        45%{ transform:scale(1.12); filter:brightness(1.35); }
+        100%{ transform:scale(1); filter:brightness(1); }
+      }
+
+      #gjMicroTutorial{
+        position:absolute;
+        left:50%;
+        top:62%;
+        z-index:136;
+        transform:translate(-50%,-50%);
+        width:min(88vw,460px);
+        display:none;
+        padding:14px 16px;
+        border-radius:24px;
+        background:
+          radial-gradient(circle at 12% 12%, rgba(56,189,248,.22), transparent 40%),
+          linear-gradient(135deg, rgba(15,23,42,.96), rgba(2,6,23,.92));
+        border:2px solid rgba(56,189,248,.42);
+        box-shadow:0 26px 80px rgba(0,0,0,.46);
+        color:#f8fafc;
+        pointer-events:none;
+      }
+
+      #gjMicroTutorial.show{
+        display:flex;
+        align-items:center;
+        gap:12px;
+        animation:gjMicroTutorialIn .35s ease-out;
+      }
+
+      @keyframes gjMicroTutorialIn{
+        from{
+          opacity:0;
+          transform:translate(-50%,-50%) translateY(10px) scale(.94);
+        }
+        to{
+          opacity:1;
+          transform:translate(-50%,-50%) translateY(0) scale(1);
+        }
+      }
+
+      .gjMicroTutorialIcon{
+        flex:0 0 auto;
+        width:48px;
+        height:48px;
+        border-radius:18px;
+        display:grid;
+        place-items:center;
+        background:rgba(56,189,248,.16);
+        border:1px solid rgba(125,211,252,.30);
+        font-size:28px;
+      }
+
+      .gjMicroTutorialBody{
+        min-width:0;
+        text-align:left;
+      }
+
+      .gjMicroTutorialTitle{
+        color:#bae6fd;
+        font-size:14px;
+        font-weight:1000;
+        line-height:1.2;
+      }
+
+      .gjMicroTutorialText{
+        margin-top:4px;
+        color:#dbeafe;
+        font-size:12px;
+        line-height:1.42;
+        font-weight:850;
+      }
+
+      #gjTutorialSkipHint{
+        position:absolute;
+        left:50%;
+        bottom:18px;
+        z-index:137;
+        transform:translateX(-50%);
+        display:none;
+        padding:6px 9px;
+        border-radius:999px;
+        background:rgba(15,23,42,.78);
+        border:1px solid rgba(148,163,184,.18);
+        color:#cbd5e1;
+        font-size:10px;
+        font-weight:900;
+        pointer-events:none;
+      }
+
+      #gjTutorialSkipHint.show{
+        display:block;
+      }
+
+      #gjDifficultyBadge{
+        position:absolute;
+        left:14px;
+        bottom:124px;
+        z-index:72;
+        min-height:34px;
+        display:none;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        padding:7px 10px;
+        border-radius:999px;
+        background:rgba(15,23,42,.84);
+        border:1px solid rgba(134,239,172,.28);
+        color:#dcfce7;
+        font-size:11px;
+        font-weight:1000;
+        box-shadow:0 14px 34px rgba(0,0,0,.28);
+        pointer-events:none;
+      }
+
+      #gjDifficultyBadge.show{
+        display:inline-flex;
+      }
+
+      .gjDiffEasy{
+        filter:saturate(1.08) brightness(1.04);
+      }
+
+      .gjDiffNormal{
+        filter:none;
+      }
+
+      .gjDiffHard{
+        filter:saturate(1.12) contrast(1.04);
+      }
+
+      .gjDiffChallenge{
+        filter:saturate(1.18) contrast(1.08);
+      }
+
+      .gjRewardShelf{
+        margin-top:14px;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        gap:10px;
+      }
+
+      .gjRewardPanel{
+        border-radius:22px;
+        padding:13px 12px;
+        background:rgba(15,23,42,.68);
+        border:1px solid rgba(148,163,184,.18);
+        box-shadow:0 12px 34px rgba(0,0,0,.20);
+        text-align:left;
+      }
+
+      .gjRewardPanelTitle{
+        display:flex;
+        align-items:center;
+        gap:7px;
+        color:#fde68a;
+        font-size:13px;
+        font-weight:1000;
+      }
+
+      .gjRewardPanelText{
+        margin-top:6px;
+        color:#dbeafe;
+        font-size:12px;
+        line-height:1.45;
+        font-weight:850;
+      }
+
+      .gjNewBestRibbon{
+        margin-top:12px;
+        padding:10px 12px;
+        border-radius:18px;
+        background:linear-gradient(135deg,rgba(250,204,21,.22),rgba(34,197,94,.16));
+        border:1px solid rgba(250,204,21,.36);
+        color:#fef3c7;
+        font-size:13px;
+        font-weight:1000;
+        text-align:center;
+        box-shadow:0 14px 36px rgba(0,0,0,.24);
+      }
+
+      .gjKidsSummary.v840{
+        text-align:center;
+      }
+
+      .gjKidsQuickResult{
+        margin-top:12px;
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .gjKidsQuickItem{
+        border-radius:18px;
+        padding:10px 8px;
+        background:rgba(15,23,42,.66);
+        border:1px solid rgba(148,163,184,.16);
+      }
+
+      .gjKidsQuickIcon{
+        font-size:24px;
+        line-height:1;
+      }
+
+      .gjKidsQuickLabel{
+        margin-top:5px;
+        color:#cbd5e1;
+        font-size:10px;
+        font-weight:1000;
+      }
+
+      .gjKidsQuickValue{
+        margin-top:3px;
+        color:#f8fafc;
+        font-size:20px;
+        line-height:1;
+        font-weight:1000;
+      }
+
+      .gjKidsMiniTipBox{
+        margin-top:13px;
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:9px;
+      }
+
+      .gjKidsMiniTip{
+        border-radius:20px;
+        padding:12px 10px;
+        background:rgba(2,6,23,.38);
+        border:1px solid rgba(148,163,184,.16);
+        text-align:left;
+      }
+
+      .gjKidsMiniTipIcon{
+        font-size:25px;
+        line-height:1;
+      }
+
+      .gjKidsMiniTipTitle{
+        margin-top:7px;
+        font-size:12px;
+        font-weight:1000;
+        color:#fde68a;
+      }
+
+      .gjKidsMiniTipText{
+        margin-top:5px;
+        font-size:11px;
+        line-height:1.42;
+        color:#dbeafe;
+        font-weight:850;
+      }
+
+      .gjKidsSmallNote{
+        margin-top:10px;
+        color:#cbd5e1;
+        font-size:11px;
+        line-height:1.45;
+        font-weight:850;
+      }
+
+      .gjKidsCompactBadges{
+        margin-top:12px;
+        display:flex;
+        justify-content:center;
+        flex-wrap:wrap;
+        gap:6px;
+      }
+
+      .gjKidsCompactBadge{
+        min-height:30px;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        padding:6px 9px;
+        border-radius:999px;
+        background:rgba(250,204,21,.11);
+        border:1px solid rgba(250,204,21,.22);
+        color:#fff7ed;
+        font-size:11px;
+        font-weight:1000;
+      }
+
+      .gjKidsCompactBadge.new{
+        background:rgba(34,197,94,.13);
+        border-color:rgba(134,239,172,.32);
+        color:#dcfce7;
+      }
+
+      .gjSummarySoftDivider{
+        height:1px;
+        margin:14px 0 10px;
+        background:linear-gradient(90deg,transparent,rgba(148,163,184,.24),transparent);
+      }
+
       @media (max-width:720px){
         #bossWrap{
           top:118px;
@@ -2849,16 +4457,9 @@
           max-height:94dvh;
         }
 
-        .gjKidsScoreRow{
-          grid-template-columns:repeat(3,minmax(0,1fr));
-          gap:7px;
-        }
-
-        .gjKidsCards{
-          grid-template-columns:1fr;
-        }
-
-        .gjKidsActions{
+        .gjKidsActions,
+        .gjIntroActions,
+        .gjBossIntroActions{
           grid-template-columns:1fr;
         }
 
@@ -2868,11 +4469,128 @@
           width:100%;
         }
 
-        .gjIntroActions{
+        #gjArenaThemeHud{
+          right:10px;
+          bottom:118px;
+          font-size:9.5px;
+          min-height:30px;
+          padding:6px 8px;
+        }
+
+        #gjBonusRoundBanner{
+          width:min(92vw,390px);
+          padding:14px;
+          border-radius:22px;
+        }
+
+        .gjBonusRoundSmall{
+          font-size:12px;
+        }
+
+        #gjSoundBtn{
+          right:10px;
+          top:calc(8px + env(safe-area-inset-top,0px));
+          min-height:30px;
+          min-width:38px;
+          font-size:12px;
+        }
+
+        #gjComboJuiceBanner{
+          min-width:min(88vw,340px);
+          padding:12px 14px;
+          border-radius:22px;
+        }
+
+        #gjMicroTutorial{
+          top:60%;
+          width:min(92vw,360px);
+          padding:12px 13px;
+          border-radius:20px;
+          gap:10px;
+        }
+
+        .gjMicroTutorialIcon{
+          width:42px;
+          height:42px;
+          border-radius:15px;
+          font-size:24px;
+        }
+
+        .gjMicroTutorialTitle{
+          font-size:12.5px;
+        }
+
+        .gjMicroTutorialText{
+          font-size:10.8px;
+        }
+
+        #gjTutorialSkipHint{
+          bottom:12px;
+          font-size:9px;
+        }
+
+        #gjDifficultyBadge{
+          left:10px;
+          bottom:118px;
+          font-size:9.5px;
+          min-height:30px;
+          padding:6px 8px;
+        }
+
+        .gjRewardShelf{
           grid-template-columns:1fr;
+        }
+
+        .gjRewardPanelTitle{
+          font-size:12px;
+        }
+
+        .gjRewardPanelText{
+          font-size:11px;
+        }
+
+        .gjKidsQuickResult{
+          gap:6px;
+        }
+
+        .gjKidsQuickItem{
+          padding:8px 6px;
+          border-radius:15px;
+        }
+
+        .gjKidsQuickIcon{
+          font-size:21px;
+        }
+
+        .gjKidsQuickLabel{
+          font-size:9px;
+        }
+
+        .gjKidsQuickValue{
+          font-size:18px;
+        }
+
+        .gjKidsMiniTipBox{
+          grid-template-columns:1fr;
+        }
+
+        .gjKidsMiniTip{
+          padding:10px;
+          border-radius:17px;
+        }
+
+        .gjKidsMiniTipText{
+          font-size:10.5px;
+        }
+
+        .gjKidsCompactBadge{
+          font-size:10px;
+          min-height:28px;
+          padding:5px 8px;
         }
       }
     `;
+
     DOC.head.appendChild(style);
   }
 
@@ -3193,6 +4911,103 @@
     }
   }
 
+  function ensureReplayVarietyDom(){
+    const app = el.app || DOC.body;
+
+    if(!$('gjArenaThemeHud')){
+      const n = DOC.createElement('div');
+      n.id = 'gjArenaThemeHud';
+      n.innerHTML = `<span id="gjArenaThemeIcon">🛒</span><span id="gjArenaThemeText">Arena</span>`;
+      app.appendChild(n);
+    }
+
+    if(!$('gjBonusRoundBanner')){
+      const n = DOC.createElement('div');
+      n.id = 'gjBonusRoundBanner';
+      n.innerHTML = `
+        <div class="gjBonusRoundBig">⭐ Bonus Round!</div>
+        <div class="gjBonusRoundSmall">เก็บอาหารดีให้ไว ขยะจะน้อยลงชั่วคราว</div>
+      `;
+      app.appendChild(n);
+    }
+  }
+
+  function ensurePolishJuiceDom(){
+    const app = el.app || DOC.body;
+
+    if(!$('gjComboJuiceBanner')){
+      const n = DOC.createElement('div');
+      n.id = 'gjComboJuiceBanner';
+      n.innerHTML = `
+        <div class="gjComboJuiceBig">COMBO!</div>
+        <div class="gjComboJuiceSmall">แตะอาหารดีต่อเนื่อง</div>
+      `;
+      app.appendChild(n);
+    }
+
+    if(!$('gjSoundBtn')){
+      const b = DOC.createElement('button');
+      b.id = 'gjSoundBtn';
+      b.type = 'button';
+      b.textContent = '🔊';
+      b.title = 'เปิด/ปิดเสียง';
+      app.appendChild(b);
+    }
+
+    const btn = $('gjSoundBtn');
+    if(btn){
+      safeOnce(btn, '__gjSoundBound', () => {
+        btn.addEventListener('click', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          toggleSound();
+        });
+      });
+    }
+  }
+
+  function ensureMicroTutorialDom(){
+    const app = el.app || DOC.body;
+
+    if(!$('gjMicroTutorial')){
+      const n = DOC.createElement('div');
+      n.id = 'gjMicroTutorial';
+      n.innerHTML = `
+        <div class="gjMicroTutorialIcon" id="gjMicroTutorialIcon">💡</div>
+        <div class="gjMicroTutorialBody">
+          <div class="gjMicroTutorialTitle" id="gjMicroTutorialTitle">คำแนะนำ</div>
+          <div class="gjMicroTutorialText" id="gjMicroTutorialText">แตะอาหารดีเพื่อเริ่มเล่น</div>
+        </div>
+      `;
+      app.appendChild(n);
+    }
+
+    if(!$('gjTutorialSkipHint')){
+      const h = DOC.createElement('div');
+      h.id = 'gjTutorialSkipHint';
+      h.textContent = 'คำแนะนำจะหายเอง ไม่ต้องกดปิด';
+      app.appendChild(h);
+    }
+  }
+
+  function ensureDifficultyPersonalityDom(){
+    const app = el.app || DOC.body;
+
+    if(!$('gjDifficultyBadge')){
+      const n = DOC.createElement('div');
+      n.id = 'gjDifficultyBadge';
+      n.innerHTML = `<span id="gjDifficultyIcon">🎮</span><span id="gjDifficultyText">Normal Adventure</span>`;
+      app.appendChild(n);
+    }
+  }
+
+  function ensureAdvancedDom(){
+    callMaybe(ensureReplayVarietyDom);
+    callMaybe(ensurePolishJuiceDom);
+    callMaybe(ensureMicroTutorialDom);
+    callMaybe(ensureDifficultyPersonalityDom);
+  }
+
   function ensureAllOverlayDom(){
     callMaybe(ensureBossExperienceDom);
     callMaybe(ensureVisualFxDom);
@@ -3204,6 +5019,7 @@
     callMaybe(ensureIntroGoalDom);
     callMaybe(ensureTouchDebugDom);
     callMaybe(ensureQaLockDom);
+    ensureAdvancedDom();
   }
     function showScreen(name){
     cacheElements();
@@ -3382,6 +5198,7 @@
       id === 'summaryReplayBtn' ||
       id === 'gjIntroReadyBtn' ||
       id === 'gjIntroSkipBtn' ||
+      id === 'gjSoundBtn' ||
       cls.includes('gjKidsBtn') ||
       cls.includes('gjBossIntroBtn')
     );
@@ -3405,6 +5222,8 @@
       id === 'gjMissionChain' ||
       id === 'gjComebackPill' ||
       id === 'gjStarGoalHud' ||
+      id === 'gjArenaThemeHud' ||
+      id === 'gjDifficultyBadge' ||
       id === 'bossHpText' ||
       cls.includes('gjCompatCoach') ||
       cls.includes('gjMobilePill') ||
@@ -3549,19 +5368,12 @@
     layer.appendChild(n);
 
     setTimeout(() => {
-      try{ n.remove(); }catch(_){}
+      safeRemoveNode(n);
     }, 700);
   }
 
   function toast(msg, ms = 1200){
     bossSpeak(msg, ms);
-  }
-
-  function feedback(type){
-    if(type === 'good') impactFlash();
-    if(type === 'bad') warningFlash(420);
-    if(type === 'hero') showHeroCutIn('🦸 HERO HIT!', 'พลังอาหารดีโจมตีบอส');
-    if(type === 'win') impactFlash();
   }
 
   function impactFlash(){
@@ -3641,7 +5453,7 @@
     parent.appendChild(w);
 
     setTimeout(() => {
-      try{ w.remove(); }catch(_){}
+      safeRemoveNode(w);
     }, 780);
   }
 
@@ -3717,6 +5529,898 @@
     if(theme === 'final'){
       n.classList.add('gjFinalRushGlow');
     }
+  }
+
+  function unlockAudio(){
+    if(!POLISH_JUICE.sound.enabled) return null;
+
+    try{
+      const Ctx = WIN.AudioContext || WIN.webkitAudioContext;
+      if(!Ctx) return null;
+
+      if(!state.polishJuice.audioCtx){
+        state.polishJuice.audioCtx = new Ctx();
+      }
+
+      if(state.polishJuice.audioCtx.state === 'suspended'){
+        state.polishJuice.audioCtx.resume?.();
+      }
+
+      state.polishJuice.soundUnlocked = true;
+      return state.polishJuice.audioCtx;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function playTone(freq = 440, duration = 0.06, type = 'sine', gain = 0.18){
+    if(!state.polishJuice.enabled || !POLISH_JUICE.sound.enabled) return;
+    if(state.polishJuice.muted || !state.polishJuice.soundEnabled) return;
+
+    const t = Date.now();
+    if(t - state.polishJuice.lastSoundAt < POLISH_JUICE.sound.cooldownMs) return;
+
+    state.polishJuice.lastSoundAt = t;
+
+    const ctx = unlockAudio();
+    if(!ctx) return;
+
+    try{
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+
+      osc.type = type;
+      osc.frequency.value = freq;
+
+      const vol = POLISH_JUICE.sound.volume * gain;
+
+      g.gain.setValueAtTime(0.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, vol), ctx.currentTime + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+      osc.connect(g);
+      g.connect(ctx.destination);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + duration + 0.02);
+    }catch(_){}
+  }
+
+  function playSound(kind){
+    if(kind === 'good'){
+      playTone(660, 0.055, 'sine', 0.80);
+      return;
+    }
+
+    if(kind === 'bad'){
+      playTone(190, 0.08, 'sawtooth', 0.62);
+      return;
+    }
+
+    if(kind === 'hero'){
+      playTone(520, 0.07, 'triangle', 0.82);
+      setTimeout(() => playTone(780, 0.09, 'triangle', 0.70), 80);
+      return;
+    }
+
+    if(kind === 'win'){
+      playTone(523, 0.07, 'sine', 0.78);
+      setTimeout(() => playTone(659, 0.07, 'sine', 0.78), 75);
+      setTimeout(() => playTone(784, 0.10, 'sine', 0.78), 150);
+      return;
+    }
+
+    if(kind === 'shield'){
+      playTone(420, 0.055, 'triangle', 0.55);
+      setTimeout(() => playTone(360, 0.055, 'triangle', 0.45), 60);
+      return;
+    }
+
+    if(kind === 'bonus'){
+      playTone(740, 0.06, 'sine', 0.72);
+      setTimeout(() => playTone(980, 0.08, 'sine', 0.70), 90);
+    }
+  }
+
+  function haptic(kind){
+    if(!state.polishJuice.enabled || !POLISH_JUICE.haptic.enabled) return;
+    if(!navigator.vibrate) return;
+
+    const t = Date.now();
+    if(t - state.polishJuice.lastHapticAt < POLISH_JUICE.haptic.cooldownMs) return;
+
+    state.polishJuice.lastHapticAt = t;
+
+    const pattern = POLISH_JUICE.haptic.patterns[kind] || [15];
+
+    try{
+      navigator.vibrate(pattern);
+    }catch(_){}
+  }
+
+  function screenShake(kind = 'small'){
+    if(!state.polishJuice.enabled || !POLISH_JUICE.screen.shakeEnabled) return;
+
+    const t = Date.now();
+    if(t - state.polishJuice.lastShakeAt < 120) return;
+
+    state.polishJuice.lastShakeAt = t;
+
+    const world = el.gameWorld || $('gameWorld');
+    if(!world) return;
+
+    world.classList.remove('gjScreenShake');
+    void world.offsetWidth;
+    world.classList.add('gjScreenShake');
+
+    clearTimeout(screenShake._t);
+    screenShake._t = setTimeout(() => {
+      world.classList.remove('gjScreenShake');
+    }, POLISH_JUICE.screen.maxShakeMs);
+  }
+
+  function pulseTargetNode(node){
+    if(!node) return;
+
+    node.classList.remove('gjHitPulse');
+    void node.offsetWidth;
+    node.classList.add('gjHitPulse');
+  }
+
+  function pulseHeroButton(){
+    const btn = el.heroHitBtn || $('heroHitBtn');
+    if(!btn) return;
+
+    btn.classList.remove('gjHeroButtonBlast');
+    void btn.offsetWidth;
+    btn.classList.add('gjHeroButtonBlast');
+  }
+
+  function showComboJuice(combo){
+    ensurePolishJuiceDom();
+
+    const box = $('gjComboJuiceBanner');
+    if(!box) return;
+
+    box.innerHTML = `
+      <div class="gjComboJuiceBig">x${combo} COMBO!</div>
+      <div class="gjComboJuiceSmall">อาหารดีต่อเนื่อง ชาร์จพลัง Hero!</div>
+    `;
+
+    box.classList.remove('show');
+    void box.offsetWidth;
+    box.classList.add('show');
+
+    clearTimeout(showComboJuice._t);
+    showComboJuice._t = setTimeout(() => {
+      box.classList.remove('show');
+    }, POLISH_JUICE.comboJuice.bannerMs);
+  }
+
+  function checkComboJuice(){
+    const combo = state.combo;
+
+    if(!POLISH_JUICE.comboJuice.pulseAt.includes(combo)) return;
+    if(state.polishJuice.comboJuiceShown[combo]) return;
+
+    state.polishJuice.comboJuiceShown[combo] = true;
+
+    showComboJuice(combo);
+    playSound('bonus');
+    haptic('bonus');
+  }
+
+  function feedback(type){
+    if(type === 'good'){
+      impactFlash();
+      playSound('good');
+      haptic('good');
+      return;
+    }
+
+    if(type === 'bad'){
+      warningFlash(420);
+      playSound('bad');
+      haptic('bad');
+      screenShake('small');
+      return;
+    }
+
+    if(type === 'hero'){
+      showHeroCutIn('🦸 HERO HIT!', 'พลังอาหารดีโจมตีบอส');
+      playSound('hero');
+      haptic('hero');
+      screenShake('hero');
+      pulseHeroButton();
+      return;
+    }
+
+    if(type === 'win'){
+      impactFlash();
+      playSound('win');
+      haptic('win');
+      return;
+    }
+
+    if(type === 'shield'){
+      playSound('shield');
+      haptic('shield');
+    }
+  }
+
+  function tutorialStorageKey(){
+    return `${MICRO_TUTORIAL.storageKey}:${CFG.pid || 'anon'}`;
+  }
+
+  function loadMicroTutorialState(){
+    try{
+      state.microTutorial.doneBefore = localStorage.getItem(tutorialStorageKey()) === '1';
+    }catch(_){
+      state.microTutorial.doneBefore = false;
+    }
+  }
+
+  function markMicroTutorialDone(){
+    try{
+      localStorage.setItem(tutorialStorageKey(), '1');
+    }catch(_){}
+  }
+
+  function canShowMicroTutorial(id){
+    if(!state.microTutorial.enabled || !MICRO_TUTORIAL.enabled) return false;
+    if(state.ended || state.paused || !state.started) return false;
+
+    if(MICRO_TUTORIAL.firstRunOnly && state.microTutorial.doneBefore){
+      return false;
+    }
+
+    if(DIFF === 'easy' && currentDifficultyPersonality().tutorialBoost){
+      // easy อนุญาตให้แสดง tip ได้มากขึ้นเล็กน้อย
+    }else if(state.microTutorial.doneBefore && state.microTutorial.shownCount >= 3){
+      return false;
+    }
+
+    if(state.microTutorial.shown[id]) return false;
+    if(state.microTutorial.shownCount >= MICRO_TUTORIAL.maxTipsPerRun) return false;
+
+    const t = Date.now();
+
+    if(t < state.microTutorial.suppressedUntil) return false;
+    if(t - state.microTutorial.lastShownAt < MICRO_TUTORIAL.minGapMs) return false;
+
+    return true;
+  }
+
+  function showMicroTutorial(id, ms = 3200){
+    const tip = MICRO_TUTORIAL.tips[id];
+
+    if(!tip || !canShowMicroTutorial(id)) return false;
+    if(overlayQuietActive()) return false;
+
+    ensureMicroTutorialDom();
+
+    const box = $('gjMicroTutorial');
+    const icon = $('gjMicroTutorialIcon');
+    const title = $('gjMicroTutorialTitle');
+    const text = $('gjMicroTutorialText');
+    const hint = $('gjTutorialSkipHint');
+
+    if(icon) icon.textContent = tip.icon || '💡';
+    if(title) title.textContent = tip.title || 'คำแนะนำ';
+    if(text) text.textContent = tip.text || '';
+
+    if(box){
+      box.classList.add('show');
+    }
+
+    if(hint){
+      hint.classList.add('show');
+    }
+
+    state.microTutorial.shown[id] = true;
+    state.microTutorial.shownCount++;
+    state.microTutorial.lastShownAt = Date.now();
+    state.microTutorial.suppressedUntil = Date.now() + ms + 900;
+
+    playSound?.('bonus');
+    haptic?.('bonus');
+
+    clearTimeout(showMicroTutorial._t);
+    showMicroTutorial._t = setTimeout(() => {
+      box?.classList.remove('show');
+      hint?.classList.remove('show');
+
+      if(state.microTutorial.shownCount >= 4){
+        markMicroTutorialDone();
+      }
+    }, ms);
+
+    return true;
+  }
+
+  function hideMicroTutorial(){
+    $('gjMicroTutorial')?.classList.remove('show');
+    $('gjTutorialSkipHint')?.classList.remove('show');
+  }
+
+  function resetMicroTutorialRun(){
+    state.microTutorial.shown = {};
+    state.microTutorial.shownCount = 0;
+    state.microTutorial.lastShownAt = 0;
+    state.microTutorial.suppressedUntil = 0;
+    state.microTutorial.firstGoodSeen = false;
+    state.microTutorial.firstJunkSeen = false;
+    state.microTutorial.heroReadyTipShown = false;
+    state.microTutorial.dangerTipShown = false;
+    state.microTutorial.finalTipShown = false;
+    state.microTutorial.missionTipShown = false;
+    state.microTutorial.trickTipShown = false;
+  }
+
+  function getRunIndex(){
+    try{
+      const key = `GJ_SOLO_BOSS_RUN_INDEX:${CFG.pid || 'anon'}`;
+      const n = Number(localStorage.getItem(key) || '0') || 0;
+      localStorage.setItem(key, String(n + 1));
+      return n + 1;
+    }catch(_){
+      return Math.floor(state.rng() * 9999);
+    }
+  }
+
+  function setupReplayVariety(){
+    if(!state.replayVariety.enabled) return;
+
+    state.replayVariety.runIndex = getRunIndex();
+
+    const themes = REPLAY_VARIETY.arenaThemes || [];
+    const tricks = REPLAY_VARIETY.trickSets || [];
+
+    const themeIndex = Math.abs(hashSeed(`${CFG.seed}:${CFG.pid}:theme:${state.replayVariety.runIndex}`)) % Math.max(1, themes.length);
+    const trickIndex = Math.abs(hashSeed(`${CFG.seed}:${CFG.pid}:trick:${state.replayVariety.runIndex}`)) % Math.max(1, tricks.length);
+
+    state.replayVariety.arenaTheme = themes[themeIndex] || themes[0] || null;
+    state.replayVariety.trickSet = tricks[trickIndex] || tricks[0] || null;
+
+    state.replayVariety.themeAnnounced = false;
+    state.replayVariety.trickAnnounced = false;
+
+    applyReplayArenaTheme();
+    updateArenaThemeHud();
+  }
+
+  function applyReplayArenaTheme(){
+    const world = el.gameWorld || $('gameWorld');
+    if(!world) return;
+
+    world.classList.remove(
+      'gjThemeMarket',
+      'gjThemeSchool',
+      'gjThemeFestival',
+      'gjThemeSpace'
+    );
+
+    const theme = state.replayVariety.arenaTheme;
+    if(!theme) return;
+
+    const cls =
+      theme.id === 'market' ? 'gjThemeMarket' :
+      theme.id === 'school' ? 'gjThemeSchool' :
+      theme.id === 'festival' ? 'gjThemeFestival' :
+      theme.id === 'space' ? 'gjThemeSpace' :
+      '';
+
+    if(cls) world.classList.add(cls);
+  }
+
+  function updateArenaThemeHud(){
+    ensureReplayVarietyDom();
+
+    const hud = $('gjArenaThemeHud');
+    const icon = $('gjArenaThemeIcon');
+    const text = $('gjArenaThemeText');
+
+    const theme = state.replayVariety.arenaTheme;
+    const trick = state.replayVariety.trickSet;
+
+    if(!hud || !theme) return;
+
+    hud.classList.add('show');
+
+    if(icon) icon.textContent = theme.emoji || '🎮';
+    if(text) text.textContent = `${theme.name}${trick ? ' • ' + trick.name : ''}`;
+  }
+
+  function currentDifficultyPersonality(){
+    return DIFFICULTY_PERSONALITY[DIFF] || DIFFICULTY_PERSONALITY.normal;
+  }
+
+  function setupDifficultyPersonality(){
+    if(!state.difficultyPersonality.enabled) return;
+
+    const p = currentDifficultyPersonality();
+
+    state.difficultyPersonality.profile = p;
+    state.difficultyPersonality.adjustedGoodBias = Number(p.goodBias || 0);
+    state.difficultyPersonality.adjustedJunkBias = Number(p.junkBias || 0);
+    state.difficultyPersonality.adjustedTrickyBias = Number(p.trickyBias || 0);
+    state.difficultyPersonality.adjustedWeaknessBias = Number(p.weaknessBias || 0);
+    state.difficultyPersonality.adjustedHazardBias = Number(p.hazardBias || 0);
+    state.difficultyPersonality.bossPatternSpeed = Number(p.bossPatternSpeed || 1);
+    state.difficultyPersonality.comebackBoost = Number(p.comebackBoost || 1);
+
+    updateDifficultyBadge();
+    applyDifficultyWorldClass();
+  }
+
+  function applyDifficultyWorldClass(){
+    const world = el.gameWorld || $('gameWorld');
+    if(!world) return;
+
+    world.classList.remove('gjDiffEasy', 'gjDiffNormal', 'gjDiffHard', 'gjDiffChallenge');
+
+    const cls =
+      DIFF === 'easy' ? 'gjDiffEasy' :
+      DIFF === 'hard' ? 'gjDiffHard' :
+      DIFF === 'challenge' ? 'gjDiffChallenge' :
+      'gjDiffNormal';
+
+    world.classList.add(cls);
+  }
+
+  function updateDifficultyBadge(){
+    ensureDifficultyPersonalityDom();
+
+    const badge = $('gjDifficultyBadge');
+    const icon = $('gjDifficultyIcon');
+    const text = $('gjDifficultyText');
+    const p = currentDifficultyPersonality();
+
+    if(!badge || !p) return;
+
+    badge.classList.add('show');
+
+    if(icon) icon.textContent = p.emoji || '🎮';
+    if(text) text.textContent = p.label || DIFF;
+  }
+
+  function announceDifficultyPersonality(){
+    const p = currentDifficultyPersonality();
+
+    if(!p || state.difficultyPersonality.introShown) return;
+
+    state.difficultyPersonality.introShown = true;
+
+    bossSpeak(`${p.emoji} ${p.intro}`, 1800);
+
+    if(DIFF === 'easy'){
+      setTimeout(() => showMicroTutorial('firstGood', 3200), 1200);
+    }
+
+    if(DIFF === 'challenge'){
+      setTimeout(() => {
+        showLearningTip('ระดับ Challenge จะมีอาหารหลอกและเลนอันตรายมากขึ้น', 'ระวัง', 2200);
+      }, 1200);
+    }
+  }
+
+  function difficultyAdjustedChance(base, bias){
+    return clamp(Number(base || 0) + Number(bias || 0), 0, 1);
+  }
+
+  function difficultyPatternDelay(delay){
+    const speed = Number(state.difficultyPersonality.bossPatternSpeed || 1);
+    return Math.max(70, Math.round(Number(delay || 140) * speed));
+  }
+
+  function setupAdvancedDefaults(){
+    state.replayVariety = state.replayVariety || {};
+    state.bossDrama = state.bossDrama || {};
+    state.rewardLoop = state.rewardLoop || {};
+    state.polishJuice = state.polishJuice || {};
+    state.microTutorial = state.microTutorial || {};
+    state.difficultyPersonality = state.difficultyPersonality || {};
+    state.finalBalance = state.finalBalance || {};
+    state.balanceTuning = state.balanceTuning || {};
+    state.childPolish = state.childPolish || {};
+
+    state.replayVariety.enabled = state.replayVariety.enabled !== false;
+    state.bossDrama.enabled = state.bossDrama.enabled !== false;
+    state.rewardLoop.enabled = state.rewardLoop.enabled !== false;
+    state.polishJuice.enabled = state.polishJuice.enabled !== false;
+    state.microTutorial.enabled = state.microTutorial.enabled !== false;
+    state.difficultyPersonality.enabled = state.difficultyPersonality.enabled !== false;
+    state.finalBalance.enabled = state.finalBalance.enabled !== false;
+    state.balanceTuning.enabled = state.balanceTuning.enabled !== false;
+    state.childPolish.enabled = state.childPolish.enabled !== false;
+  }
+
+  function updateSoundButton(){
+    const btn = $('gjSoundBtn');
+    if(!btn) return;
+
+    const on = state.polishJuice.soundEnabled && !state.polishJuice.muted;
+    btn.textContent = on ? '🔊' : '🔇';
+    btn.title = on ? 'ปิดเสียง' : 'เปิดเสียง';
+  }
+
+  function toggleSound(){
+    state.polishJuice.muted = !state.polishJuice.muted;
+    state.polishJuice.soundEnabled = !state.polishJuice.muted;
+
+    if(!state.polishJuice.muted){
+      unlockAudio();
+      playSound('good');
+    }
+
+    updateSoundButton();
+
+    try{
+      localStorage.setItem(
+        `GJ_SOLO_BOSS_SOUND_MUTED:${CFG.pid || 'anon'}`,
+        state.polishJuice.muted ? '1' : '0'
+      );
+    }catch(_){}
+
+    return {
+      muted: state.polishJuice.muted,
+      soundEnabled: state.polishJuice.soundEnabled
+    };
+  }
+
+  function loadSoundPreference(){
+    try{
+      const raw = localStorage.getItem(`GJ_SOLO_BOSS_SOUND_MUTED:${CFG.pid || 'anon'}`);
+
+      if(raw === '1'){
+        state.polishJuice.muted = true;
+        state.polishJuice.soundEnabled = false;
+      }else if(raw === '0'){
+        state.polishJuice.muted = false;
+        state.polishJuice.soundEnabled = true;
+      }else{
+        state.polishJuice.muted = !!POLISH_JUICE.sound.mutedByDefault;
+        state.polishJuice.soundEnabled = !state.polishJuice.muted;
+      }
+    }catch(_){
+      state.polishJuice.muted = !!POLISH_JUICE.sound.mutedByDefault;
+      state.polishJuice.soundEnabled = !state.polishJuice.muted;
+    }
+
+    updateSoundButton();
+  }
+
+  function setupRunMetaSystems(){
+    setupAdvancedDefaults();
+    ensureAdvancedDom();
+
+    setupReplayVariety();
+    setupDifficultyPersonality();
+    loadRewardLoop();
+    loadMicroTutorialState();
+    loadSoundPreference();
+
+    applyReplayArenaTheme();
+    applyDifficultyWorldClass();
+
+    updateArenaThemeHud();
+    updateDifficultyBadge();
+    updateSoundButton();
+  }
+
+  function announceRunMetaSystems(){
+    const theme = state.replayVariety.arenaTheme;
+    const trick = state.replayVariety.trickSet;
+
+    announceDifficultyPersonality();
+
+    if(theme && !state.replayVariety.themeAnnounced){
+      state.replayVariety.themeAnnounced = true;
+      setTimeout(() => {
+        bossSpeak(`${theme.emoji} ${theme.intro}`, 1700);
+      }, 650);
+    }
+
+    if(trick && !state.replayVariety.trickAnnounced){
+      state.replayVariety.trickAnnounced = true;
+      setTimeout(() => {
+        showLearningTip(trick.focus, trick.name, 1800);
+      }, 1450);
+    }
+
+    setTimeout(() => {
+      showMicroTutorial('firstGood', 3300);
+    }, 2200);
+
+    setTimeout(() => {
+      showMicroTutorial('mission', 3300);
+    }, 7200);
+  }
+    function rewardKey(name){
+    return `${REWARD_LOOP.storageKeys[name] || name}:${CFG.pid || 'anon'}`;
+  }
+
+  function readJsonStorage(key, fallback){
+    try{
+      const raw = localStorage.getItem(key);
+      if(!raw) return fallback;
+      return JSON.parse(raw);
+    }catch(_){
+      return fallback;
+    }
+  }
+
+  function writeJsonStorage(key, value){
+    try{
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  function emptyRewardProfile(){
+    return {
+      pid: CFG.pid,
+      name: CFG.name,
+      nick: CFG.nick,
+      runs: 0,
+      wins: 0,
+      bestScore: 0,
+      bestStars: 0,
+      bestCombo: 0,
+      totalGood: 0,
+      totalMiss: 0,
+      lastPlayedAt: 0,
+      rankId: 'rookie'
+    };
+  }
+
+  function emptyBossBook(){
+    return {
+      bosses: {
+        shield: { seen: 0, defeated: 0 },
+        storm: { seen: 0, defeated: 0 },
+        rage: { seen: 0, defeated: 0 },
+        final: { seen: 0, defeated: 0 }
+      },
+      themes: {},
+      trickSets: {}
+    };
+  }
+
+  function emptyBadgeBook(){
+    return {
+      earned: {},
+      earnedOrder: []
+    };
+  }
+
+  function loadRewardLoop(){
+    if(!state.rewardLoop.enabled) return;
+
+    state.rewardLoop.profile = readJsonStorage(
+      rewardKey('profile'),
+      emptyRewardProfile()
+    );
+
+    state.rewardLoop.bossBook = readJsonStorage(
+      rewardKey('bossBook'),
+      emptyBossBook()
+    );
+
+    state.rewardLoop.badgeBook = readJsonStorage(
+      rewardKey('badgeBook'),
+      emptyBadgeBook()
+    );
+
+    state.rewardLoop.personalBestBefore = Number(state.rewardLoop.profile.bestScore || 0);
+    state.rewardLoop.rankBefore = getRankByScore(state.rewardLoop.personalBestBefore);
+  }
+
+  function getRankByScore(score){
+    const s = Number(score || 0);
+    let rank = REWARD_LOOP.ranks[0];
+
+    for(const r of REWARD_LOOP.ranks){
+      if(s >= r.minScore) rank = r;
+    }
+
+    return rank;
+  }
+
+  function evaluateRewardBadges(summary){
+    const earned = [];
+
+    for(const b of REWARD_LOOP.badges){
+      let ok = false;
+
+      try{
+        ok = !!b.test(summary);
+      }catch(_){
+        ok = false;
+      }
+
+      if(ok){
+        earned.push({
+          id: b.id,
+          emoji: b.emoji,
+          title: b.title,
+          desc: b.desc
+        });
+      }
+    }
+
+    return earned;
+  }
+
+  function chooseNextChallenge(summary){
+    const list = REWARD_LOOP.nextChallenges || [];
+
+    if(!list.length) return null;
+
+    if(Number(summary.miss || 0) >= 5){
+      return list.find(x => x.goal === 'miss_lte_3') || pick(list);
+    }
+
+    if(Number(summary.bestCombo || 0) < 10){
+      return list.find(x => x.goal === 'combo_10') || pick(list);
+    }
+
+    if(Number(summary.fruitHits || 0) < 5){
+      return list.find(x => x.goal === 'fruit_6') || pick(list);
+    }
+
+    if(Number(summary.greenHits || 0) < 8){
+      return list.find(x => x.goal === 'green_8') || pick(list);
+    }
+
+    return pick(list);
+  }
+
+  function updateBossBook(summary){
+    const book = state.rewardLoop.bossBook || emptyBossBook();
+
+    const seenKeys = ['shield'];
+
+    if(state.bossIdentity.introShown?.storm) seenKeys.push('storm');
+    if(state.bossIdentity.introShown?.rage) seenKeys.push('rage');
+    if(state.bossIdentity.introShown?.final || state.finalRush) seenKeys.push('final');
+
+    seenKeys.forEach(k => {
+      book.bosses[k] = book.bosses[k] || { seen:0, defeated:0 };
+      book.bosses[k].seen++;
+      if(summary.win) book.bosses[k].defeated++;
+    });
+
+    const theme = state.replayVariety.arenaTheme;
+
+    if(theme?.id){
+      book.themes[theme.id] = book.themes[theme.id] || {
+        name: theme.name,
+        emoji: theme.emoji,
+        runs: 0,
+        wins: 0
+      };
+      book.themes[theme.id].runs++;
+      if(summary.win) book.themes[theme.id].wins++;
+    }
+
+    const trick = state.replayVariety.trickSet;
+
+    if(trick?.id){
+      book.trickSets[trick.id] = book.trickSets[trick.id] || {
+        name: trick.name,
+        focus: trick.focus,
+        runs: 0,
+        wins: 0
+      };
+      book.trickSets[trick.id].runs++;
+      if(summary.win) book.trickSets[trick.id].wins++;
+    }
+
+    state.rewardLoop.bossBook = book;
+    return book;
+  }
+
+  function updateBadgeBook(newBadges){
+    const book = state.rewardLoop.badgeBook || emptyBadgeBook();
+    const earnedThisRun = [];
+
+    newBadges.forEach(b => {
+      if(!book.earned[b.id]){
+        book.earned[b.id] = {
+          ...b,
+          firstEarnedAt: Date.now(),
+          count: 1
+        };
+
+        book.earnedOrder.push(b.id);
+        earnedThisRun.push({ ...b, isNew:true });
+      }else{
+        book.earned[b.id].count = Number(book.earned[b.id].count || 0) + 1;
+        earnedThisRun.push({ ...b, isNew:false });
+      }
+    });
+
+    state.rewardLoop.badgeBook = book;
+    state.rewardLoop.earnedBadgesThisRun = earnedThisRun;
+
+    return book;
+  }
+
+  function updateRewardProfile(summary){
+    const p = state.rewardLoop.profile || emptyRewardProfile();
+
+    p.pid = CFG.pid;
+    p.name = CFG.name;
+    p.nick = CFG.nick;
+    p.runs = Number(p.runs || 0) + 1;
+    p.wins = Number(p.wins || 0) + (summary.win ? 1 : 0);
+    p.totalGood = Number(p.totalGood || 0) + Number(summary.good || 0);
+    p.totalMiss = Number(p.totalMiss || 0) + Number(summary.miss || 0);
+    p.bestCombo = Math.max(Number(p.bestCombo || 0), Number(summary.bestCombo || 0));
+    p.bestStars = Math.max(Number(p.bestStars || 0), Number(summary.starGoal?.starsEarned || 0));
+    p.bestScore = Math.max(Number(p.bestScore || 0), Number(summary.score || 0));
+    p.lastPlayedAt = Date.now();
+
+    const rank = getRankByScore(p.bestScore);
+    p.rankId = rank.id;
+
+    state.rewardLoop.profile = p;
+    state.rewardLoop.personalBestAfter = p.bestScore;
+    state.rewardLoop.isNewBest = Number(summary.score || 0) > state.rewardLoop.personalBestBefore;
+    state.rewardLoop.rankAfter = rank;
+
+    return p;
+  }
+
+  function updateRewardLoop(summary){
+    if(!state.rewardLoop.enabled) return null;
+
+    if(!state.rewardLoop.profile || !state.rewardLoop.bossBook || !state.rewardLoop.badgeBook){
+      loadRewardLoop();
+    }
+
+    const profile = updateRewardProfile(summary);
+    const bossBook = updateBossBook(summary);
+
+    const badges = evaluateRewardBadges({
+      ...summary,
+      arenaHazard: {
+        hazardCount: state.arenaHazard.hazardCount,
+        hitPenalty: state.arenaHazard.hitPenalty,
+        safeHits: state.arenaHazard.safeHits
+      },
+      missionChain: {
+        completedIds: [...state.missionChain.completedIds],
+        failedIds: [...state.missionChain.failedIds]
+      }
+    });
+
+    const badgeBook = updateBadgeBook(badges);
+    const nextChallenge = chooseNextChallenge(summary);
+
+    state.rewardLoop.nextChallenge = nextChallenge;
+    state.rewardLoop.rewardSaved = true;
+
+    writeJsonStorage(rewardKey('profile'), profile);
+    writeJsonStorage(rewardKey('bossBook'), bossBook);
+    writeJsonStorage(rewardKey('badgeBook'), badgeBook);
+    writeJsonStorage(rewardKey('lastChallenge'), nextChallenge);
+
+    return {
+      profile,
+      bossBook,
+      badgeBook,
+      earnedBadgesThisRun: state.rewardLoop.earnedBadgesThisRun,
+      rankBefore: state.rewardLoop.rankBefore,
+      rankAfter: state.rewardLoop.rankAfter,
+      personalBestBefore: state.rewardLoop.personalBestBefore,
+      personalBestAfter: state.rewardLoop.personalBestAfter,
+      isNewBest: state.rewardLoop.isNewBest,
+      nextChallenge
+    };
   }
 
   function currentBossIdentityKey(){
@@ -3822,418 +6526,9 @@
     return pick(BOSS.skills);
   }
 
-  function pickGoodByWeakness(){
-    if(state?.learningTip && state.rng && state.rng() < .32){
-      const v = normalizeVariantAsGameData(pickWeaknessVariant());
-      if(v) return v;
-    }
-
-    const w = currentWeakness();
-    const list = GOOD.filter(g => w.icons.includes(g.emoji));
-
-    return list.length ? pick(list) : pick(GOOD);
-  }
-
-  function pickJunkByGroup(group){
-    const list = JUNK.filter(j => {
-      if(group === 'burger') return j.emoji === '🍔' || j.group === 'fatty';
-      return j.group === group;
-    });
-
-    return list.length ? pick(list) : pick(JUNK);
-  }
-
-  function pickTrickyTarget(){
-    const list = TARGET_VARIANTS.tricky || [];
-    return list.length ? pick(list) : null;
-  }
-
-  function pickWeaknessVariant(){
-    const key = currentBossIdentityKey?.() || '';
-
-    let wanted = 'green';
-
-    if(key === 'storm') wanted = 'protein';
-    if(key === 'rage' || key === 'final') wanted = 'fruit';
-
-    const list = (TARGET_VARIANTS.bossWeakness || []).filter(x => x.group === wanted);
-
-    return list.length ? pick(list) : pickGoodByWeakness();
-  }
-
-  function normalizeVariantAsGameData(v){
-    if(!v) return null;
-
-    const kind = v.kind === 'junk' ? 'junk' : 'good';
-
-    if(kind === 'good'){
-      return {
-        emoji: v.emoji,
-        label: v.label,
-        group: v.group || 'good',
-        dmg: Number(v.dmg || 10),
-        charge: Number(v.charge || 7),
-        tip: v.tip || '',
-        lesson: v.lesson || '',
-        variant: true,
-        tricky: !!v.tricky
-      };
-    }
-
-    return {
-      emoji: v.emoji,
-      label: v.label,
-      group: v.group || 'junk',
-      penalty: Number(v.penalty || 1),
-      tip: v.tip || '',
-      lesson: v.lesson || '',
-      variant: true,
-      tricky: true
-    };
-  }
-
-  function balancePushKind(kind){
-    state.balance.history.push(kind);
-    if(state.balance.history.length > 12) state.balance.history.shift();
-  }
-
-  function forcedKindFromBalance(){
-    if(state.balance.forcedWeaknessNext > 0){
-      state.balance.forcedWeaknessNext--;
-      return 'weakness';
-    }
-
-    if(state.balance.forcedGoodNext > 0){
-      state.balance.forcedGoodNext--;
-      return 'good';
-    }
-
-    return '';
-  }
-
-  function spawnTarget(forceKind = ''){
-    if(state.ended || state.paused || !state.started) return;
-
-    const forced = forceKind || forcedKindFromBalance();
-
-    if(forced === 'weakness'){
-      const data = pickGoodByWeakness();
-      balancePushKind('good');
-      return spawnTargetWithData('good', data, {
-        variantClass: 'weakness',
-        showMiniLabel: true
-      });
-    }
-
-    if(forced === 'good'){
-      const data = pick(GOOD);
-      balancePushKind('good');
-      return spawnTargetWithData('good', data);
-    }
-
-    if(forced === 'junk'){
-      const data = pick(JUNK);
-      balancePushKind('junk');
-      return spawnTargetWithData('junk', data);
-    }
-
-    if(['soda','sweet','fried','burger'].includes(forced)){
-      const data = pickJunkByGroup(forced);
-      balancePushKind('junk');
-      return spawnTargetWithData('junk', data);
-    }
-
-    if(state.phase >= 2 && state.rng() < .16){
-      const tricky = normalizeVariantAsGameData(pickTrickyTarget());
-
-      if(tricky){
-        state.learningTip.trickySeen++;
-        balancePushKind(tricky.penalty ? 'junk' : 'good');
-        return spawnTargetWithData(tricky.penalty ? 'junk' : 'good', tricky, {
-          variantClass: 'tricky',
-          showMiniLabel: true
-        });
-      }
-    }
-
-    if(state.rng() < (state.finalRush ? .22 : .12)){
-      const weak = normalizeVariantAsGameData(pickWeaknessVariant());
-
-      if(weak){
-        state.learningTip.weaknessSeen++;
-        balancePushKind('good');
-        return spawnTargetWithData('good', weak, {
-          variantClass: 'weakness',
-          showMiniLabel: true
-        });
-      }
-    }
-
-    const calm = Date.now() < state.balance.calmUntil;
-    let junkChance = tune.junkChance;
-
-    if(calm) junkChance *= .62;
-    if(state.finalRush) junkChance += .06;
-
-    const kind = state.rng() < junkChance ? 'junk' : 'good';
-
-    if(kind === 'good'){
-      const data = state.rng() < .30 ? pickGoodByWeakness() : pick(GOOD);
-      balancePushKind('good');
-      return spawnTargetWithData('good', data);
-    }
-
-    const data = pick(JUNK);
-    balancePushKind('junk');
-    return spawnTargetWithData('junk', data);
-  }
-
-  function spawnSpecific(token){
-    if(state.ended || state.paused || !state.started) return;
-
-    if(token === 'good') return spawnTarget('good');
-    if(token === 'junk') return spawnTarget('junk');
-    if(token === 'weakness') return spawnTarget('weakness');
-
-    if(['soda','sweet','fried','burger'].includes(token)){
-      return spawnTarget(token);
-    }
-
-    return spawnTarget();
-  }
-
-  function spawnTargetWithData(kind = 'good', data = null, opts = {}){
-    if(!data) data = kind === 'junk' ? pick(JUNK) : pick(GOOD);
-
-    const id = `target_${++state.targetSeq}_${Date.now()}`;
-
-    let size = kind === 'good'
-      ? 52 + Math.floor(state.rng() * 15)
-      : 50 + Math.floor(state.rng() * 14);
-
-    if(state.finalRush) size += 3;
-
-    const minSize = minTargetSize();
-
-    if(size < minSize){
-      size = minSize;
-      state.touchSafety.enlargedCount++;
-    }
-
-    if(isMobileView() && data?.variant){
-      size = Math.max(size, TOUCH_SAFETY.mobilePreferredTargetSize);
-    }
-
-    const p = pickSafeSpawn(size);
-
-    const node = DOC.createElement('button');
-    node.type = 'button';
-    node.className = `gjTarget ${kind}`;
-    node.dataset.id = id;
-    node.dataset.kind = kind;
-
-    if(opts.variantClass){
-      node.classList.add(opts.variantClass);
-    }
-
-    if(data?.variant && !opts.variantClass){
-      node.classList.add(data.penalty ? 'tricky' : 'weakness');
-    }
-
-    if(isMobileView()){
-      node.classList.add('gjTouchLarge');
-    }
-
-    node.style.width = `${size}px`;
-    node.style.height = `${size}px`;
-    node.style.left = `${p.x}px`;
-    node.style.top = `${p.y}px`;
-    node.style.fontSize = `${Math.round(size * .50)}px`;
-    node.textContent = data.emoji;
-
-    if(opts.showMiniLabel || data?.variant){
-      const label = DOC.createElement('span');
-      label.className = 'gjMiniLabel';
-      label.textContent = data.label || '';
-      node.appendChild(label);
-    }
-
-    node.addEventListener('pointerdown', ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      hitTarget(id);
-    }, { passive:false });
-
-    const item = {
-      id,
-      node,
-      kind,
-      data,
-      x: p.x,
-      y: p.y,
-      size,
-      born: now(),
-      ttl: calcTargetTtl(kind),
-      vx: (state.rng() - .5) * 18,
-      vy: (state.rng() - .5) * 12
-    };
-
-    state.targets.set(id, item);
-    el.targetLayer.appendChild(node);
-    raiseTargetNode(node);
-
-    setTimeout(() => {
-      raiseTargetNode(node);
-      nudgeTargetOutOfBlockedZone(item);
-      auditOneTarget(item);
-    }, 40);
-
-    return item;
-  }
-
-  function calcTargetTtl(kind){
-    let base = kind === 'good' ? 2800 : 2500;
-
-    if(DIFF === 'easy') base += 600;
-    if(DIFF === 'hard') base -= 250;
-    if(DIFF === 'challenge') base -= 420;
-    if(state.finalRush) base -= 260;
-    if(Date.now() < state.activePower.slowUntil) base += 900;
-    if(Date.now() < state.balance.calmUntil) base += 600;
-
-    return Math.max(1250, base);
-  }
-
-  function spawnPowerUp(type = ''){
-    if(state.ended || state.paused || !state.started) return;
-
-    const p = type
-      ? POWER_UPS.find(x => x.id === type) || pick(POWER_UPS)
-      : pick(POWER_UPS);
-
-    if(!p) return;
-
-    const id = `power_${++state.powerSeq}_${Date.now()}`;
-    const size = isMobileView() ? 58 : 54;
-    const point = pickSafeSpawn(size);
-
-    const node = DOC.createElement('button');
-    node.type = 'button';
-    node.className = 'gjTarget power';
-    node.dataset.id = id;
-    node.dataset.kind = 'power';
-    node.style.width = `${size}px`;
-    node.style.height = `${size}px`;
-    node.style.left = `${point.x}px`;
-    node.style.top = `${point.y}px`;
-    node.style.fontSize = `${Math.round(size * .50)}px`;
-    node.textContent = p.emoji;
-
-    if(isMobileView()){
-      node.classList.add('gjTouchLarge');
-    }
-
-    node.addEventListener('pointerdown', ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      collectPowerUp(id);
-    }, { passive:false });
-
-    const item = {
-      id,
-      node,
-      kind: 'power',
-      data: p,
-      x: point.x,
-      y: point.y,
-      size,
-      born: now(),
-      ttl: 4800,
-      vx: 0,
-      vy: 0
-    };
-
-    state.powerUps.set(id, item);
-    el.powerLayer.appendChild(node);
-    raiseTargetNode(node);
-
-    setTimeout(() => {
-      raiseTargetNode(node);
-      nudgeTargetOutOfBlockedZone(item);
-      auditOneTarget(item);
-    }, 40);
-
-    return item;
-  }
-
-  function removeTarget(id){
-    const item = state.targets.get(id);
-    if(!item) return;
-
-    state.targets.delete(id);
-    try{ item.node.remove(); }catch(_){}
-  }
-
-  function removePowerUp(id){
-    const item = state.powerUps.get(id);
-    if(!item) return;
-
-    state.powerUps.delete(id);
-    try{ item.node.remove(); }catch(_){}
-  }
-
-  function clearTargets(){
-    for(const id of Array.from(state.targets.keys())) removeTarget(id);
-    for(const id of Array.from(state.powerUps.keys())) removePowerUp(id);
-  }
-
-  function clearJunkTargets(){
-    for(const [id, item] of Array.from(state.targets.entries())){
-      if(item.kind === 'junk'){
-        fx(item.x, item.y, 'ล้าง!', 'good');
-        removeTarget(id);
-      }
-    }
-  }
-
-  function collectPowerUp(id){
-    const item = state.powerUps.get(id);
-    if(!item || state.ended) return;
-
-    const p = item.data;
-    removePowerUp(id);
-
-    state.powerUpsCollected[p.id] = (state.powerUpsCollected[p.id] || 0) + 1;
-
-    if(p.id === 'shield'){
-      state.activePower.shield++;
-      toast('🛡️ Shield พร้อมกันพลาด');
-    }
-
-    if(p.id === 'slow'){
-      state.activePower.slowUntil = Date.now() + 6200;
-      toast('⏳ Slow Time!');
-    }
-
-    if(p.id === 'cleanBlast'){
-      cleanBlastWave();
-      clearJunkTargets();
-      state.score += 25;
-      state.dangerMeter = Math.max(0, state.dangerMeter - 24);
-      toast('✨ Clean Blast! ล้างอาหารขยะทั้งจอ');
-      impactFlash();
-    }
-
-    if(p.id === 'heart'){
-      state.lives = Math.min(tune.lives, state.lives + 1);
-      toast('💚 ได้หัวใจคืน');
-    }
-
-    fx(item.x, item.y, p.label, 'hero');
-    updateHud();
-  }
-    function showLearningTip(text, lesson = '', ms = 1600){
+  function showLearningTip(text, lesson = '', ms = 1600){
     if(!state.learningTip?.enabled) return;
+    if(overlayQuietActive()) return;
 
     ensureLearningTipDom();
 
@@ -4274,6 +6569,229 @@
     }
   }
 
+  function simpleText(text, maxLen = CHILD_POLISH.summary.maxTextLineLength){
+    let s = String(text || '').trim();
+
+    s = s
+      .replace(/Junk King/g, 'บอสอาหารขยะ')
+      .replace(/Final Rush/g, 'ช่วงสุดท้าย')
+      .replace(/HERO HIT/g, 'พลัง Hero')
+      .replace(/Challenge/g, 'โหมดท้าทาย');
+
+    if(s.length > maxLen){
+      s = s.slice(0, maxLen - 1).trim() + '…';
+    }
+
+    return s;
+  }
+
+  function pickChildTip(type, fallback = ''){
+    const list = CHILD_POLISH.summaryTips[type] || [];
+    return pick(list) || fallback;
+  }
+
+  function childSummaryLevel(s){
+    if(s.win && Number(s.starGoal?.starsEarned || 0) >= 3) return 'great';
+    if(s.win) return 'win';
+    if(Number(s.score || 0) >= 180 || Number(s.good || 0) >= 12) return 'almost';
+    return 'try';
+  }
+
+  function childEndMessage(s){
+    const level = childSummaryLevel(s);
+    state.childPolish.summaryLevel = level;
+
+    if(s.win){
+      return pick(CHILD_POLISH.endMessages.win) || 'เก่งมาก! ชนะบอสแล้ว';
+    }
+
+    return pick(CHILD_POLISH.endMessages.lose) || 'ไม่เป็นไร รอบหน้าลุยใหม่';
+  }
+
+  function shortBadgeText(b){
+    return String(b || '')
+      .replace('Boss Breaker', 'ชนะบอส')
+      .replace('Combo Master', 'Combo สูง')
+      .replace('Combo Starter', 'เริ่ม Combo')
+      .replace('Clean Player', 'พลาดน้อย')
+      .replace('Green Hero', 'สายผัก')
+      .replace('Protein Power', 'โปรตีนดี')
+      .replace('Fruit Fighter', 'ผลไม้ดี')
+      .replace('Shield User', 'ใช้ Shield')
+      .replace('Comeback Hero', 'กลับมาได้')
+      .replace('Last Heart Save', 'รอดหัวใจสุดท้าย')
+      .replace('Keep Trying Hero', 'พยายามดีมาก');
+  }
+
+  function kidsBadges(s){
+    const list = [];
+
+    if(s.win){
+      list.push('👑 Boss Breaker');
+    }
+
+    if(s.bestCombo >= 15){
+      list.push('⚡ Combo Master');
+    }else if(s.bestCombo >= 8){
+      list.push('✨ Combo Starter');
+    }
+
+    if(s.miss <= 2){
+      list.push('🌟 Clean Player');
+    }
+
+    if(s.greenHits >= 8){
+      list.push('🥦 Green Hero');
+    }
+
+    if(s.proteinHits >= 6){
+      list.push('🐟 Protein Power');
+    }
+
+    if(s.fruitHits >= 5){
+      list.push('🍎 Fruit Fighter');
+    }
+
+    if((s.powerUpsCollected?.shield || 0) > 0){
+      list.push('🛡️ Shield User');
+    }
+
+    if((s.comeback?.used || 0) > 0){
+      list.push('💚 Comeback Hero');
+    }
+
+    if((s.comeback?.rescueGiven || false)){
+      list.push('🛡️ Last Heart Save');
+    }
+
+    return list.length ? list : ['💪 Keep Trying Hero'];
+  }
+
+  function kidsWinTitle(s){
+    if(s.win && s.stars === '⭐⭐⭐') return 'สุดยอดฮีโร่อาหารดี!';
+    if(s.win) return 'ชนะ Junk King แล้ว!';
+    if(s.score >= 180) return 'เกือบชนะแล้ว!';
+    return 'ฝึกได้ดีมาก!';
+  }
+
+  function kidsMainTip(s){
+    if(s.win && s.miss <= 2){
+      return 'แยกอาหารดีได้แม่น และพลาดน้อยมาก';
+    }
+
+    if(s.win){
+      return 'ชนะบอสได้ เพราะเก็บอาหารดีและทำภารกิจสำเร็จ';
+    }
+
+    if(Number(s.good || 0) >= 12){
+      return 'เก็บอาหารดีได้เยอะแล้ว รอบหน้าลองพลาดให้น้อยลง';
+    }
+
+    return pickChildTip('good', 'เก็บอาหารดีเพื่อชาร์จพลัง Hero');
+  }
+
+  function kidsWatchTip(s){
+    if(s.junkHit > s.missedGood){
+      return 'ระวังน้ำอัดลม ขนมหวาน และของทอด';
+    }
+
+    if(s.missedGood >= 5){
+      return 'อย่าปล่อยอาหารดีหลุด เพราะช่วยโจมตีบอส';
+    }
+
+    if(s.bestCombo < 8){
+      return 'ลองแตะอาหารดีต่อเนื่องเพื่อเพิ่ม Combo';
+    }
+
+    return pickChildTip('caution', 'ดูให้ชัดก่อนแตะอาหาร');
+  }
+
+  function kidsNextTip(s){
+    if(!s.win){
+      return 'ดูจุดอ่อนบอส แล้วเก็บอาหารให้ตรงเป้าหมาย';
+    }
+
+    if(Number(s.starGoal?.starsEarned || 0) < 3){
+      return 'ลองเอา 3 ดาว โดยพลาดให้น้อยลง';
+    }
+
+    return pickChildTip('next', 'ลองระดับที่ท้าทายขึ้นได้เลย');
+  }
+
+  function summaryText(s){
+    const badges = kidsBadges(s)
+      .slice(0, CHILD_POLISH.summary.maxBadgesShown)
+      .map(shortBadgeText);
+
+    return `${childEndMessage(s)}
+
+✅ ทำดี:
+${simpleText(kidsMainTip(s), 70)}
+
+⚠️ ระวัง:
+${simpleText(kidsWatchTip(s), 70)}
+
+➡️ รอบหน้า:
+${simpleText(kidsNextTip(s), 70)}
+
+🏅 รางวัล:
+${badges.join(' • ')}`;
+  }
+
+  function fullCoachText(){
+    let text = '';
+
+    const w = currentWeakness();
+
+    if(state.finalRush){
+      const chain = currentMissionChain?.();
+
+      if(chain?.coach){
+        text = `${chain.icon} ${chain.coach}`;
+      }else{
+        text = `🔥 ช่วงสุดท้าย: เก็บ ${w.label} แล้วใช้พลัง Hero`;
+      }
+    }else{
+      const chain = currentMissionChain?.();
+
+      if(chain?.coach){
+        text = `${chain.icon} ${chain.coach}`;
+      }else if(state.patternScript?.activePatternName){
+        text = `🎬 ดูจังหวะบอส แล้วเก็บอาหารดี`;
+      }else{
+        const identity = currentBossIdentity();
+
+        if(identity?.tip){
+          text = `${identity.emoji} ${identity.tip}`;
+        }else{
+          text = bossBookTip();
+        }
+      }
+    }
+
+    text = simpleText(text, CHILD_POLISH.coach.maxLength);
+
+    const t = Date.now();
+
+    if(
+      state.childPolish.lastCoachText &&
+      text !== state.childPolish.lastCoachText &&
+      t - state.childPolish.lastCoachAt < CHILD_POLISH.coach.rotateMinMs
+    ){
+      return state.childPolish.lastCoachText;
+    }
+
+    state.childPolish.lastCoachText = text;
+    state.childPolish.lastCoachAt = t;
+
+    return text;
+  }
+
+  function bossBookTip(){
+    const w = currentWeakness();
+    return `จุดอ่อนตอนนี้: ${w.label}`;
+  }
+
   function updateDailyGood(data){
     const d = state.daily.challenge;
     if(!d || state.daily.done) return;
@@ -4309,7 +6827,10 @@
   }
 
   function setupDailyChallenge(){
-    const idx = Math.abs(hashSeed(`${CFG.pid}:${new Date().toDateString()}:goodjunk`)) % DAILY_CHALLENGES.length;
+    const idx = Math.abs(
+      hashSeed(`${CFG.pid}:${new Date().toDateString()}:goodjunk:${state.replayVariety.runIndex || 0}`)
+    ) % DAILY_CHALLENGES.length;
+
     state.daily.challenge = DAILY_CHALLENGES[idx] || DAILY_CHALLENGES[0];
     state.daily.progress = 0;
     state.daily.done = false;
@@ -4401,7 +6922,9 @@
     state.comeback.used++;
     state.comeback.lastTriggeredAt = Date.now();
     state.comeback.lastReason = reason;
-    state.comeback.activeUntil = Date.now() + COMEBACK_RULES.calmWindowMs;
+    state.comeback.activeUntil = Date.now() + Math.round(
+      COMEBACK_RULES.calmWindowMs * state.difficultyPersonality.comebackBoost
+    );
     state.comeback.streakMistakeAtTrigger = state.balance.streakMiss || 0;
 
     state.balance.calmUntil = Math.max(
@@ -4409,18 +6932,22 @@
       state.comeback.activeUntil
     );
 
+    const comebackBoost = Number(state.difficultyPersonality.comebackBoost || 1);
+    const forcedGood = Math.max(1, Math.round(COMEBACK_RULES.forcedGoodCount * comebackBoost));
+    const forcedWeakness = Math.max(1, Math.round(COMEBACK_RULES.forcedWeaknessCount * comebackBoost));
+
     state.balance.forcedGoodNext = Math.max(
       state.balance.forcedGoodNext || 0,
-      COMEBACK_RULES.forcedGoodCount
+      forcedGood
     );
 
     state.balance.forcedWeaknessNext = Math.max(
       state.balance.forcedWeaknessNext || 0,
-      COMEBACK_RULES.forcedWeaknessCount
+      forcedWeakness
     );
 
-    state.comeback.totalForcedGood += COMEBACK_RULES.forcedGoodCount;
-    state.comeback.totalForcedWeakness += COMEBACK_RULES.forcedWeaknessCount;
+    state.comeback.totalForcedGood += forcedGood;
+    state.comeback.totalForcedWeakness += forcedWeakness;
 
     let rewardType = 'focus';
 
@@ -4446,6 +6973,7 @@
     showComebackBanner(rewardType, 'พลาดได้ แต่กลับมาได้! มองหาอาหารดี');
 
     bossSpeak('Hero ยังมีโอกาสกลับมา!', 1400);
+    checkBossDramaComeback();
     feedback('win');
     updateHud();
 
@@ -4512,95 +7040,6 @@
       }
 
       toast('💚 เกมให้จังหวะสวนกลับแล้ว!');
-    }
-  }
-
-  function pickMiniMission(){
-    const list = MINI_MISSIONS.slice();
-    return list[Math.floor(state.rng() * list.length)] || MINI_MISSIONS[0];
-  }
-
-  function startMiniMission(force = false){
-    if(!force && Date.now() - state.bossExperience.lastMissionAt < 18000) return;
-
-    const m = pickMiniMission();
-
-    state.bossExperience.currentMission = m;
-    state.bossExperience.missionProgress = 0;
-    state.bossExperience.missionTarget = m.target || 1;
-    state.bossExperience.missionRewardReady = false;
-    state.bossExperience.lastMissionAt = Date.now();
-
-    updateMiniMissionHud();
-  }
-
-  function updateMiniMissionHud(){
-    ensureBossExperienceDom();
-
-    const m = state.bossExperience.currentMission;
-    const text = $('gjMiniMissionText');
-    const count = $('gjMiniMissionCount');
-    const fill = $('gjMiniMissionFill');
-
-    if(!m){
-      if(text) text.textContent = '🎯 ภารกิจ: พร้อมเริ่ม';
-      if(count) count.textContent = '0/0';
-      if(fill) fill.style.width = '0%';
-      return;
-    }
-
-    const p = clamp(state.bossExperience.missionProgress, 0, state.bossExperience.missionTarget);
-    const t = Math.max(1, state.bossExperience.missionTarget);
-
-    if(text) text.textContent = `${m.icon} ภารกิจ: ${m.title}`;
-    if(count) count.textContent = `${p}/${t}`;
-    if(fill) fill.style.width = `${clamp((p / t) * 100, 0, 100)}%`;
-  }
-
-  function rewardMiniMission(){
-    const m = state.bossExperience.currentMission;
-    if(!m || state.bossExperience.missionRewardReady) return;
-
-    state.bossExperience.missionRewardReady = true;
-
-    if(m.reward === 'shield'){
-      state.activePower.shield++;
-      toast('🏅 ภารกิจสำเร็จ: ได้ Shield!');
-    }else if(m.reward === 'hero'){
-      state.heroHit = clamp(state.heroHit + 28, 0, 100);
-      toast('🏅 ภารกิจสำเร็จ: HERO HIT +28%!');
-    }else if(m.reward === 'slow'){
-      state.activePower.slowUntil = Date.now() + 5500;
-      toast('🏅 ภารกิจสำเร็จ: Slow Time!');
-    }else{
-      state.score += 25;
-      toast('🏅 ภารกิจสำเร็จ: +25 คะแนน!');
-    }
-
-    feedback('win');
-    updateHud();
-
-    setTimeout(() => {
-      startMiniMission(true);
-    }, 1400);
-  }
-
-  function progressMiniMissionByGood(data){
-    const m = state.bossExperience.currentMission;
-    if(!m) return;
-
-    if(m.type === 'collect_group' && data.group === m.group){
-      state.bossExperience.missionProgress++;
-    }
-
-    if(m.type === 'combo' && state.combo >= m.target){
-      state.bossExperience.missionProgress = m.target;
-    }
-
-    updateMiniMissionHud();
-
-    if(state.bossExperience.missionProgress >= state.bossExperience.missionTarget){
-      rewardMiniMission();
     }
   }
 
@@ -4748,6 +7187,8 @@
     }
 
     feedback('win');
+    playSound('bonus');
+    haptic('bonus');
     updateHud();
   }
 
@@ -4816,19 +7257,22 @@
   function hazardEveryMs(){
     if(!state.arenaHazard.enabled) return Infinity;
 
+    let base;
+
     if(state.finalRush){
-      return ARENA_HAZARDS.schedule.finalEvery;
+      base = ARENA_HAZARDS.schedule.finalEvery;
+    }else if(state.phase >= 3){
+      base = ARENA_HAZARDS.schedule.phase3Every;
+    }else if(state.phase >= 2){
+      base = ARENA_HAZARDS.schedule.phase2Every;
+    }else{
+      base = ARENA_HAZARDS.schedule.phase1Every;
     }
 
-    if(state.phase >= 3){
-      return ARENA_HAZARDS.schedule.phase3Every;
-    }
+    const bias = Number(state.difficultyPersonality.adjustedHazardBias || 0);
+    const factor = clamp(1 - bias, .72, 1.18);
 
-    if(state.phase >= 2){
-      return ARENA_HAZARDS.schedule.phase2Every;
-    }
-
-    return ARENA_HAZARDS.schedule.phase1Every;
+    return Math.round(base * factor);
   }
 
   function hazardDurationMs(){
@@ -4837,7 +7281,9 @@
 
   function pickHazardLane(){
     const lanes = ARENA_HAZARDS.lanes || [];
-    return pick(lanes.length ? lanes : [{ id:'middle', label:'เลนกลาง', icon:'↔️', zone:'middle', warning:'เลนกลางอันตราย!' }]);
+    return pick(lanes.length ? lanes : [
+      { id:'middle', label:'เลนกลาง', icon:'↔️', zone:'middle', warning:'เลนกลางอันตราย!' }
+    ]);
   }
 
   function showHazardBanner(text, icon = '⚠️', ms = 1400){
@@ -4888,6 +7334,12 @@
     }
 
     showHazardBanner(lane.warning || 'เลนอันตราย!', lane.icon || '⚠️', 1600);
+
+    if(!state.microTutorial.dangerTipShown){
+      state.microTutorial.dangerTipShown = true;
+      showMicroTutorial('dangerLane', 3300);
+    }
+
     bossSpeak(`${lane.icon} ${lane.warning}`, 1400);
 
     state.dangerMeter = clamp(state.dangerMeter + 10, 0, 100);
@@ -4979,16 +7431,747 @@
     }
   }
 
+  function fbCfg(key){
+    const v = FINAL_BALANCE[key];
+
+    if(v && typeof v === 'object' && !Array.isArray(v)){
+      return v[DIFF] ?? v.normal;
+    }
+
+    return v;
+  }
+
+  function openingGraceActive(){
+    return state.elapsedSec <= Number(fbCfg('openingGraceSec') || 0);
+  }
+
+  function canLoseLifeNow(){
+    const t = Date.now();
+    const win = Number(FINAL_BALANCE.lifeLossWindowMs || 3800);
+
+    if(t - state.finalBalance.lifeLossWindowStartedAt > win){
+      state.finalBalance.lifeLossWindowStartedAt = t;
+      state.finalBalance.lifeLossInWindow = 0;
+    }
+
+    if(state.finalBalance.lifeLossInWindow >= Number(FINAL_BALANCE.maxLifeLossPerWindow || 2)){
+      state.finalBalance.preventedLifeLoss++;
+      return false;
+    }
+
+    state.finalBalance.lifeLossInWindow++;
+    state.finalBalance.lastLifeLossAt = t;
+    return true;
+  }
+
+  function canApplyGoodMissPenalty(){
+    const t = Date.now();
+    const grace = Number(fbCfg('missGraceMs') || 1000);
+
+    if(t - state.finalBalance.lastGoodMissPenaltyAt < grace){
+      state.finalBalance.preventedMissPenalty++;
+      return false;
+    }
+
+    state.finalBalance.lastGoodMissPenaltyAt = t;
+    return true;
+  }
+
+  function markOverlayQuiet(){
+    state.finalBalance.lastOverlayQuietAt = Date.now();
+  }
+
+  function overlayQuietActive(){
+    return Date.now() - state.finalBalance.lastOverlayQuietAt < Number(FINAL_BALANCE.overlayQuietMsAfterHit || 900);
+  }
+
+  function shouldForceReliefTarget(){
+    if(!state.finalBalance.enabled) return '';
+
+    const t = Date.now();
+
+    if(t - state.finalBalance.lastReliefAt < 3200) return '';
+
+    const dangerLimit = Number(fbCfg('dangerReliefAt') || 70);
+
+    if(state.dangerMeter >= dangerLimit){
+      state.finalBalance.lastReliefAt = t;
+      state.finalBalance.forcedReliefCount++;
+      return state.rng() < .62 ? 'weakness' : 'good';
+    }
+
+    if(state.lives <= 1 && state.balance.streakMiss >= 1){
+      state.finalBalance.lastReliefAt = t;
+      state.finalBalance.forcedReliefCount++;
+      return 'weakness';
+    }
+
+    const maxJunk = Number(fbCfg('maxJunkStreak') || 2);
+
+    if(state.finalBalance.junkStreak >= maxJunk){
+      state.finalBalance.lastReliefAt = t;
+      state.finalBalance.forcedReliefCount++;
+      return 'good';
+    }
+
+    return '';
+  }
+
+  function maybeBossProgressHelp(){
+    if(!state.finalBalance.enabled || state.ended || state.paused || !state.started) return;
+
+    const every = Number(fbCfg('bossProgressHelpEverySec') || 24);
+
+    if(state.elapsedSec - state.finalBalance.lastBossProgressHelpAt < every) return;
+
+    state.finalBalance.lastBossProgressHelpAt = state.elapsedSec;
+
+    const expectedProgress = clamp(state.elapsedSec / Math.max(40, Number(CFG.time || tune.time)), 0, 1);
+    const hpPct = state.bossHp / state.bossMaxHp;
+    const shouldHaveHpBelow = 1 - expectedProgress * .52;
+
+    if(hpPct > shouldHaveHpBelow && !state.finalRush){
+      state.balance.forcedWeaknessNext = Math.max(state.balance.forcedWeaknessNext || 0, 2);
+      state.balance.forcedGoodNext = Math.max(state.balance.forcedGoodNext || 0, 1);
+      state.finalBalance.forcedReliefCount++;
+      pacingToast('จุดอ่อนบอสกำลังออกมาแล้ว เก็บให้ทัน! 🎯', 1300);
+    }
+  }
+
+  function maybeLateGameRush(){
+    if(!state.finalBalance.enabled) return;
+    if(state.finalRush || state.finalBalance.lateRushTriggered) return;
+
+    const left = Number(fbCfg('lateGameRushSecLeft') || 28);
+
+    if(state.timeLeft <= left){
+      state.finalBalance.lateRushTriggered = true;
+      state.finalRush = true;
+      markFinalRushStart();
+      state.phase = 3;
+      markPhaseChange('final');
+      updateBossIdentity(true);
+      startMissionChain(true);
+      checkBossDramaFinal();
+
+      state.balance.forcedWeaknessNext = Math.max(state.balance.forcedWeaknessNext || 0, 3);
+      setArenaTheme('final');
+      toast('🔥 เข้าสู่ Final Rush แล้ว!');
+    }
+  }
+
+  function applyOpeningGrace(){
+    if(!openingGraceActive()) return;
+
+    if(!state.finalBalance.openingGraceUsed){
+      state.finalBalance.openingGraceUsed = true;
+      state.balance.forcedGoodNext = Math.max(state.balance.forcedGoodNext || 0, 2);
+
+      if(DIFF === 'easy'){
+        state.balance.forcedWeaknessNext = Math.max(state.balance.forcedWeaknessNext || 0, 1);
+      }
+    }
+  }
+
+  function btCfg(section){
+    const s = BALANCE_TUNING[section] || {};
+    return s[DIFF] || s.normal || {};
+  }
+
+  function btScore(key){
+    const s = BALANCE_TUNING.scorePacing || {};
+    const v = s[key];
+
+    if(v && typeof v === 'object'){
+      return v[DIFF] ?? v.normal ?? 0;
+    }
+
+    return Number(v || 0);
+  }
+
+  function btFinal(key){
+    const s = BALANCE_TUNING.finalRush || {};
+    const v = s[key];
+
+    if(v && typeof v === 'object'){
+      return v[DIFF] ?? v.normal ?? 0;
+    }
+
+    return Number(v || 0);
+  }
+
+  function finalRushElapsedSec(){
+    if(!state.balanceTuning.finalRushStartedAtSec) return 0;
+    return Math.max(0, state.elapsedSec - state.balanceTuning.finalRushStartedAtSec);
+  }
+
+  function markFinalRushStart(){
+    if(state.balanceTuning.finalRushStartedAtSec > 0) return;
+
+    state.balanceTuning.finalRushStartedAtSec = state.elapsedSec;
+    state.balanceTuning.finalRushMinMet = false;
+
+    const forced = Number(btFinal('forceWeaknessOnEnter') || 3);
+    state.balance.forcedWeaknessNext = Math.max(state.balance.forcedWeaknessNext || 0, forced);
+
+    state.balanceTuning.lastTuningSnapshot = {
+      at: Date.now(),
+      diff: DIFF,
+      finalRushStartedAtSec: state.balanceTuning.finalRushStartedAtSec,
+      forcedWeakness: forced
+    };
+  }
+
+  function finalRushMinimumMet(){
+    const cfg = btCfg('fightPacing');
+    const min = Number(cfg.finalRushMinSec || 20);
+
+    if(finalRushElapsedSec() >= min){
+      state.balanceTuning.finalRushMinMet = true;
+    }
+
+    return !!state.balanceTuning.finalRushMinMet;
+  }
+
+  function capBossDamage(dmg){
+    const cfg = btCfg('fightPacing');
+    const cap = Number(cfg.maxBossDamagePerHit || dmg);
+
+    if(dmg > cap){
+      state.balanceTuning.damageCappedCount++;
+      return cap;
+    }
+
+    return dmg;
+  }
+
+  function capHeroDamage(dmg){
+    const cfg = btCfg('fightPacing');
+    const cap = Number(cfg.maxHeroHitDamage || dmg);
+
+    if(dmg > cap){
+      state.balanceTuning.heroDamageCappedCount++;
+      return cap;
+    }
+
+    return dmg;
+  }
+
+  function bossHpFloorBeforeFinal(){
+    const cfg = btCfg('fightPacing');
+    return Number(cfg.bossHpFloorBeforeFinal || 1);
+  }
+
+  function minPlaySecBeforeWin(){
+    const cfg = btCfg('fightPacing');
+    return Number(cfg.minPlaySecBeforeWin || tune.minBossFightSec || 70);
+  }
+
+  function canWinByBalance(){
+    if(state.timeLeft <= 0) return true;
+
+    if(state.elapsedSec < minPlaySecBeforeWin()){
+      return false;
+    }
+
+    if(state.finalRush && !finalRushMinimumMet()){
+      return false;
+    }
+
+    return true;
+  }
+
+  function holdWinForBalance(reason = 'balance-hold'){
+    const floor = bossHpFloorBeforeFinal();
+
+    state.bossHp = Math.max(1, floor);
+    state.balanceTuning.winHeldCount++;
+
+    if(!state.finalRush){
+      state.finalRush = true;
+      markFinalRushStart();
+      state.phase = 3;
+      markPhaseChange('final');
+      updateBossIdentity(true);
+      startMissionChain(true);
+      setArenaTheme('final');
+      checkBossDramaFinal();
+    }
+
+    const t = Date.now();
+
+    if(t - state.balanceTuning.lastBalanceNoteAt > 2800){
+      state.balanceTuning.lastBalanceNoteAt = t;
+      pacingToast('🔥 บอสเข้าสู่ Final Rush แล้ว เก็บจุดอ่อนให้ไว!', 1500);
+    }
+
+    updateHud();
+    return true;
+  }
+    function normalizeVariantAsGameData(v){
+    if(!v) return null;
+
+    if(v.kind === 'junk'){
+      return {
+        emoji: v.emoji,
+        label: v.label,
+        group: v.group,
+        penalty: Number(v.penalty || 1),
+        tip: v.tip,
+        lesson: v.lesson,
+        variant: true,
+        tricky: true
+      };
+    }
+
+    return {
+      emoji: v.emoji,
+      label: v.label,
+      group: v.group,
+      dmg: Number(v.dmg || 10),
+      charge: Number(v.charge || 8),
+      tip: v.tip,
+      lesson: v.lesson,
+      variant: true,
+      tricky: !!v.tricky
+    };
+  }
+
+  function pickTrickyTarget(){
+    const list = TARGET_VARIANTS.tricky || [];
+    const trick = state.replayVariety.trickSet;
+
+    if(trick?.groups?.length){
+      const focused = list.filter(x => trick.groups.includes(x.group));
+      if(focused.length && state.rng() < .72) return pick(focused);
+    }
+
+    return list.length ? pick(list) : null;
+  }
+
+  function pickWeaknessVariant(){
+    const w = currentWeakness();
+    const list = TARGET_VARIANTS.bossWeakness || [];
+    const filtered = list.filter(x => x.group === w.group);
+
+    return filtered.length ? pick(filtered) : pick(list);
+  }
+
+  function balancePushKind(kind){
+    state.balance.history.push(kind);
+
+    if(state.balance.history.length > 8){
+      state.balance.history.shift();
+    }
+  }
+
+  function spawnTargetWithData(kind, data, options = {}){
+    if(state.ended || state.paused || !state.started) return null;
+
+    const id = `t${++state.targetSeq}`;
+    const size = Math.max(
+      minTargetSize(),
+      Number(options.size || (isMobileView() ? TOUCH_SAFETY.mobilePreferredTargetSize : 58))
+    );
+
+    const p = pickSafeSpawn(size);
+    const speed = tune.speedMin + state.rng() * (tune.speedMax - tune.speedMin);
+    const angle = state.rng() * Math.PI * 2;
+
+    const node = DOC.createElement('button');
+    node.type = 'button';
+    node.className = `gjTarget ${kind}`;
+    node.id = id;
+    node.style.width = `${size}px`;
+    node.style.height = `${size}px`;
+    node.style.left = `${p.x}px`;
+    node.style.top = `${p.y}px`;
+    node.textContent = data.emoji || (kind === 'good' ? '🥦' : '🍟');
+    node.setAttribute('aria-label', data.label || kind);
+
+    if(options.variantClass){
+      node.classList.add(options.variantClass);
+    }
+
+    if(options.showMiniLabel){
+      const lab = DOC.createElement('span');
+      lab.className = 'gjMiniLabel';
+      lab.textContent = data.label || '';
+      node.appendChild(lab);
+    }
+
+    if(isMobileView()){
+      node.classList.add('gjTouchLarge');
+    }
+
+    const item = {
+      id,
+      kind,
+      data,
+      node,
+      x: p.x,
+      y: p.y,
+      vx: Math.cos(angle) * speed * 18,
+      vy: Math.sin(angle) * speed * 18,
+      size,
+      born: now(),
+      ttl: Number(options.ttl || (kind === 'good' ? 5600 : 5200))
+    };
+
+    node.addEventListener('pointerdown', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      hitTarget(id);
+    }, { passive:false });
+
+    raiseTargetNode(node);
+
+    const layer = el.targetLayer || $('targetLayer') || DOC.body;
+    layer.appendChild(node);
+
+    state.targets.set(id, item);
+
+    setTimeout(() => auditOneTarget(item), 80);
+
+    if(data.variant || data.tricky){
+      state.learningTip.trickySeen++;
+    }
+
+    if(options.variantClass === 'weakness'){
+      state.learningTip.weaknessSeen++;
+    }
+
+    return item;
+  }
+
+  function spawnSpecific(token){
+    if(!token) return null;
+
+    if(token === 'good'){
+      const data = pick(GOOD);
+      balancePushKind('good');
+      state.finalBalance.goodStreak++;
+      state.finalBalance.junkStreak = 0;
+      return spawnTargetWithData('good', data, { showMiniLabel: state.rng() < .28 });
+    }
+
+    if(token === 'weakness'){
+      const v = normalizeVariantAsGameData(pickWeaknessVariant());
+      if(v){
+        balancePushKind('good');
+        state.finalBalance.goodStreak++;
+        state.finalBalance.junkStreak = 0;
+        return spawnTargetWithData('good', v, {
+          variantClass: 'weakness',
+          showMiniLabel: true,
+          ttl: 6500
+        });
+      }
+    }
+
+    if(['junk','soda','sweet','fried','burger'].includes(token)){
+      let list = JUNK;
+
+      if(token === 'soda') list = JUNK.filter(x => x.group === 'soda');
+      if(token === 'sweet') list = JUNK.filter(x => x.group === 'sweet');
+      if(token === 'fried') list = JUNK.filter(x => x.group === 'fried');
+      if(token === 'burger') list = JUNK.filter(x => x.group === 'fatty');
+
+      const data = pick(list.length ? list : JUNK);
+      balancePushKind('junk');
+      state.finalBalance.junkStreak++;
+      state.finalBalance.goodStreak = 0;
+
+      return spawnTargetWithData('junk', data, {
+        showMiniLabel: state.rng() < .34
+      });
+    }
+
+    return spawnTarget();
+  }
+
+  function spawnTarget(forceKind = ''){
+    if(state.ended || state.paused || !state.started) return null;
+
+    applyOpeningGrace();
+
+    const reliefKind = shouldForceReliefTarget();
+    if(!forceKind && reliefKind){
+      return spawnTarget(reliefKind);
+    }
+
+    if(forceKind === 'good'){
+      const data = pick(GOOD);
+      balancePushKind('good');
+      state.finalBalance.goodStreak++;
+      state.finalBalance.junkStreak = 0;
+      return spawnTargetWithData('good', data, { showMiniLabel: state.rng() < .25 });
+    }
+
+    if(forceKind === 'weakness'){
+      const v = normalizeVariantAsGameData(pickWeaknessVariant());
+      if(v){
+        balancePushKind('good');
+        state.finalBalance.goodStreak++;
+        state.finalBalance.junkStreak = 0;
+        return spawnTargetWithData('good', v, {
+          variantClass: 'weakness',
+          showMiniLabel: true,
+          ttl: 6500
+        });
+      }
+    }
+
+    if(forceKind === 'junk'){
+      const data = pick(JUNK);
+      balancePushKind('junk');
+      state.finalBalance.junkStreak++;
+      state.finalBalance.goodStreak = 0;
+      return spawnTargetWithData('junk', data, { showMiniLabel: state.rng() < .30 });
+    }
+
+    if(state.balance.forcedWeaknessNext > 0){
+      state.balance.forcedWeaknessNext--;
+      return spawnTarget('weakness');
+    }
+
+    if(state.balance.forcedGoodNext > 0){
+      state.balance.forcedGoodNext--;
+      return spawnTarget('good');
+    }
+
+    if(state.phase >= 2 && state.rng() < difficultyAdjustedChance(.16, state.difficultyPersonality.adjustedTrickyBias)){
+      const tv = pickTrickyTarget();
+      const data = normalizeVariantAsGameData(tv);
+
+      if(data){
+        const kind = tv.kind === 'junk' ? 'junk' : 'good';
+        balancePushKind(kind);
+
+        if(kind === 'good'){
+          state.finalBalance.goodStreak++;
+          state.finalBalance.junkStreak = 0;
+        }else{
+          state.finalBalance.junkStreak++;
+          state.finalBalance.goodStreak = 0;
+        }
+
+        return spawnTargetWithData(kind, data, {
+          variantClass: 'tricky',
+          showMiniLabel: true
+        });
+      }
+    }
+
+    const spawnCfg = btCfg('spawnPacing');
+    const weaknessBase = state.finalRush ? .22 : .12;
+    const weaknessChance = difficultyAdjustedChance(
+      weaknessBase + Number(spawnCfg.weaknessChanceBoost || 0),
+      state.difficultyPersonality.adjustedWeaknessBias
+    );
+
+    if(state.rng() < weaknessChance){
+      return spawnTarget('weakness');
+    }
+
+    const theme = state.replayVariety.arenaTheme;
+
+    if(theme && state.rng() < .18){
+      const useGoodBias = state.rng() < .55;
+      const groups = useGoodBias ? theme.goodBias : theme.junkBias;
+
+      if(groups?.length){
+        const g = pick(groups);
+
+        if(useGoodBias){
+          const found = GOOD.filter(x => x.group === g);
+
+          if(found.length){
+            balancePushKind('good');
+            state.finalBalance.goodStreak++;
+            state.finalBalance.junkStreak = 0;
+            return spawnTargetWithData('good', pick(found), {
+              showMiniLabel: state.rng() < .35
+            });
+          }
+        }else{
+          const found = JUNK.filter(x => x.group === g);
+
+          if(found.length){
+            balancePushKind('junk');
+            state.finalBalance.junkStreak++;
+            state.finalBalance.goodStreak = 0;
+            return spawnTargetWithData('junk', pick(found), {
+              showMiniLabel: state.rng() < .35
+            });
+          }
+        }
+      }
+    }
+
+    const calm = Date.now() < state.balance.calmUntil;
+    let junkChance = difficultyAdjustedChance(tune.junkChance, state.difficultyPersonality.adjustedJunkBias);
+
+    if(state.finalRush) junkChance += Number(btFinal('junkChanceAdd') || .06);
+    if(calm) junkChance -= .10;
+
+    if(state.difficultyPersonality.adjustedGoodBias > 0){
+      junkChance = clamp(junkChance - state.difficultyPersonality.adjustedGoodBias, 0, 1);
+    }
+
+    junkChance = clamp(junkChance, .12, .68);
+
+    const kind = state.rng() < junkChance ? 'junk' : 'good';
+
+    if(kind === 'good'){
+      const data = pick(GOOD);
+      balancePushKind('good');
+      state.finalBalance.goodStreak++;
+      state.finalBalance.junkStreak = 0;
+      return spawnTargetWithData('good', data, { showMiniLabel: state.rng() < .22 });
+    }
+
+    const data = pick(JUNK);
+    balancePushKind('junk');
+    state.finalBalance.junkStreak++;
+    state.finalBalance.goodStreak = 0;
+    return spawnTargetWithData('junk', data, { showMiniLabel: state.rng() < .28 });
+  }
+
+  function spawnPowerUp(forceType = ''){
+    if(state.ended || state.paused || !state.started) return null;
+
+    const p = pickSafeSpawn(54);
+    const data = forceType
+      ? POWER_UPS.find(x => x.id === forceType || x.type === forceType) || pick(POWER_UPS)
+      : pick(POWER_UPS);
+
+    if(!data) return null;
+
+    const id = `p${++state.powerSeq}`;
+
+    const node = DOC.createElement('button');
+    node.type = 'button';
+    node.className = 'gjTarget power';
+    node.id = id;
+    node.style.width = '54px';
+    node.style.height = '54px';
+    node.style.left = `${p.x}px`;
+    node.style.top = `${p.y}px`;
+    node.textContent = data.emoji;
+    node.setAttribute('aria-label', data.label);
+
+    const item = {
+      id,
+      kind: 'power',
+      data,
+      node,
+      x: p.x,
+      y: p.y,
+      size: 54,
+      born: now(),
+      ttl: 7400
+    };
+
+    node.addEventListener('pointerdown', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      collectPowerUp(id);
+    }, { passive:false });
+
+    const layer = el.powerLayer || $('powerLayer') || DOC.body;
+    layer.appendChild(node);
+
+    state.powerUps.set(id, item);
+
+    return item;
+  }
+
+  function removeTarget(id){
+    const item = state.targets.get(id);
+    if(!item) return;
+
+    safeRemoveNode(item.node);
+    state.targets.delete(id);
+  }
+
+  function removePowerUp(id){
+    const item = state.powerUps.get(id);
+    if(!item) return;
+
+    safeRemoveNode(item.node);
+    state.powerUps.delete(id);
+  }
+
+  function clearTargets(){
+    for(const id of Array.from(state.targets.keys())){
+      removeTarget(id);
+    }
+
+    for(const id of Array.from(state.powerUps.keys())){
+      removePowerUp(id);
+    }
+  }
+
+  function collectPowerUp(id){
+    const p = state.powerUps.get(id);
+    if(!p) return;
+
+    const type = p.data.type || p.data.id;
+
+    if(type === 'shield'){
+      state.activePower.shield++;
+      state.powerUpsCollected.shield++;
+      fx(p.x, p.y, 'Shield!', 'hero');
+      toast('🛡️ Shield พร้อมแล้ว');
+      showMicroTutorial('shield', 2800);
+    }else if(type === 'slow'){
+      state.activePower.slowUntil = Date.now() + 6000;
+      state.powerUpsCollected.slow++;
+      fx(p.x, p.y, 'Slow!', 'hero');
+      toast('⏳ Slow Time!');
+    }else if(type === 'cleanBlast'){
+      state.powerUpsCollected.cleanBlast++;
+      fx(p.x, p.y, 'Clean Blast!', 'hero');
+      toast('✨ Clean Blast ล้างขยะ!');
+      cleanBlastWave();
+
+      for(const item of Array.from(state.targets.values())){
+        if(item.kind === 'junk'){
+          removeTarget(item.id);
+          state.score += 3;
+        }
+      }
+    }else if(type === 'heart'){
+      state.lives = Math.min(tune.lives + 1, state.lives + 1);
+      state.powerUpsCollected.heart++;
+      fx(p.x, p.y, '+Heart', 'hero');
+      toast('💚 ได้หัวใจเพิ่ม!');
+    }
+
+    playSound('bonus');
+    haptic('bonus');
+
+    removePowerUp(id);
+    updateHud();
+  }
+
   function hitTarget(id){
     const item = state.targets.get(id);
     if(!item || state.ended || state.paused) return;
 
     const hazardTouched = applyHazardOnHit(item);
+    markOverlayQuiet();
 
     if(item.kind === 'good'){
       state.good++;
       state.combo++;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
+
+      if(!state.microTutorial.firstGoodSeen){
+        state.microTutorial.firstGoodSeen = true;
+        showMicroTutorial('combo', 2800);
+      }
 
       if(item.data.group === 'green') state.greenHits++;
       if(item.data.group === 'protein') state.proteinHits++;
@@ -5008,6 +8191,8 @@
         damage = Math.max(2, Math.round(damage * .35));
       }
 
+      damage = capBossDamage(damage);
+
       state.bossHp = clamp(state.bossHp - damage, 0, state.bossMaxHp);
 
       gainHeroHit(item.data.charge + Math.min(7, Math.floor(state.combo / 3)));
@@ -5018,14 +8203,25 @@
         state.combo >= 5 ? 3 :
         0;
 
-      state.score += 10 + comboBonus + (state.finalRush ? 3 : 0);
+      const baseScore = Number(btScore('goodBase') || 10);
+      const maxComboBonus = Number(btScore('comboBonusCap') || 9);
+      const tunedComboBonus = Math.min(comboBonus, maxComboBonus);
+      const finalBonus = state.finalRush ? 3 : 0;
+      const gainedScore = baseScore + tunedComboBonus + finalBonus;
 
-      fx(item.x, item.y, `+${10 + comboBonus}`, 'good');
+      state.score += gainedScore;
+
+      fx(item.x, item.y, `+${gainedScore}`, 'good');
       feedback('good');
       impactFlash();
       bossShake(state.bossShield ? 'shield' : 'hit');
 
       maybeShowLearningTip(item.data, true);
+
+      if((item.data?.variant || item.data?.tricky) && !state.microTutorial.trickTipShown){
+        state.microTutorial.trickTipShown = true;
+        showMicroTutorial('trick', 3300);
+      }
 
       if(item.data?.variant || item.data?.tricky){
         state.learningTip.correctTricky++;
@@ -5037,6 +8233,9 @@
       rewardSafeLaneHit(item);
 
       directorAfterGood();
+      checkBossDramaAfterGood();
+      pulseTargetNode(item.node);
+      checkComboJuice();
 
       if(state.patternScript?.activePatternId){
         state.patternScript.activePatternSuccess++;
@@ -5058,7 +8257,17 @@
       state.miss++;
       state.combo = 0;
 
+      if(!state.microTutorial.firstJunkSeen){
+        state.microTutorial.firstJunkSeen = true;
+        showMicroTutorial('firstJunk', 3200);
+      }
+
       maybeShowLearningTip(item.data, false);
+
+      if((item.data?.variant || item.data?.tricky) && !state.microTutorial.trickTipShown){
+        state.microTutorial.trickTipShown = true;
+        showMicroTutorial('trick', 3300);
+      }
 
       if(item.data?.variant || item.data?.tricky){
         state.learningTip.missedTricky++;
@@ -5078,15 +8287,26 @@
         state.activePower.shield--;
         fx(item.x, item.y, 'Shield!', 'hero');
         toast('🛡️ Shield กันพลาดแล้ว');
+        feedback('shield');
       }else{
-        state.lives = Math.max(0, state.lives - penalty);
-        state.score = Math.max(0, state.score - 6);
+        const lifeLossAllowed = canLoseLifeNow();
+
+        if(lifeLossAllowed){
+          state.lives = Math.max(0, state.lives - penalty);
+        }else{
+          state.score = Math.max(0, state.score - 3);
+          fx(item.x, item.y, 'ระวัง!', 'bad');
+          toast('เกมให้โอกาสตั้งหลักอีกครั้ง');
+        }
+
+        state.score = Math.max(0, state.score - Number(btScore('junkPenaltyScore') || 6));
         state.dangerMeter = clamp(state.dangerMeter + 18 + extraDanger * 8, 0, 100);
-        fx(item.x, item.y, 'พลาด!', 'bad');
+        fx(item.x, item.y, lifeLossAllowed ? 'พลาด!' : 'กันหัวร้อน!', 'bad');
         feedback('bad');
       }
 
       directorAfterMistake();
+      checkBossDramaAfterMistake();
 
       if(state.patternScript?.activePatternId){
         state.patternScript.activePatternMistake++;
@@ -5116,8 +8336,12 @@
     state.miss++;
     state.combo = 0;
 
-    state.score = Math.max(0, state.score - 4);
-    state.dangerMeter = clamp(state.dangerMeter + 8, 0, 100);
+    if(canApplyGoodMissPenalty()){
+      state.score = Math.max(0, state.score - Number(btScore('missedGoodPenaltyScore') || 4));
+      state.dangerMeter = clamp(state.dangerMeter + 8, 0, 100);
+    }else{
+      state.score = Math.max(0, state.score - 1);
+    }
 
     maybeShowLearningTip(item.data, false);
 
@@ -5125,6 +8349,7 @@
     feedback('bad');
 
     directorAfterMistake();
+    checkBossDramaAfterMistake();
 
     if(state.patternScript?.activePatternId){
       state.patternScript.activePatternMistake++;
@@ -5142,7 +8367,99 @@
       }
     }
   }
-    function currentPatternPhaseKey(){
+
+  function pickMiniMission(){
+    const list = MINI_MISSIONS.slice();
+    return list[Math.floor(state.rng() * list.length)] || MINI_MISSIONS[0];
+  }
+
+  function startMiniMission(force = false){
+    if(!force && Date.now() - state.bossExperience.lastMissionAt < 18000) return;
+
+    const m = pickMiniMission();
+
+    state.bossExperience.currentMission = m;
+    state.bossExperience.missionProgress = 0;
+    state.bossExperience.missionTarget = m.target || 1;
+    state.bossExperience.missionRewardReady = false;
+    state.bossExperience.lastMissionAt = Date.now();
+
+    updateMiniMissionHud();
+  }
+
+  function updateMiniMissionHud(){
+    ensureBossExperienceDom();
+
+    const m = state.bossExperience.currentMission;
+    const text = $('gjMiniMissionText');
+    const count = $('gjMiniMissionCount');
+    const fill = $('gjMiniMissionFill');
+
+    if(!m){
+      if(text) text.textContent = '🎯 ภารกิจ: พร้อมเริ่ม';
+      if(count) count.textContent = '0/0';
+      if(fill) fill.style.width = '0%';
+      return;
+    }
+
+    const p = clamp(state.bossExperience.missionProgress, 0, state.bossExperience.missionTarget);
+    const t = Math.max(1, state.bossExperience.missionTarget);
+
+    if(text) text.textContent = `${m.icon} ภารกิจ: ${m.title}`;
+    if(count) count.textContent = `${p}/${t}`;
+    if(fill) fill.style.width = `${clamp((p / t) * 100, 0, 100)}%`;
+  }
+
+  function rewardMiniMission(){
+    const m = state.bossExperience.currentMission;
+    if(!m || state.bossExperience.missionRewardReady) return;
+
+    state.bossExperience.missionRewardReady = true;
+
+    if(m.reward === 'shield'){
+      state.activePower.shield++;
+      toast('🏅 ภารกิจสำเร็จ: ได้ Shield!');
+    }else if(m.reward === 'hero'){
+      state.heroHit = clamp(state.heroHit + 28, 0, 100);
+      toast('🏅 ภารกิจสำเร็จ: HERO HIT +28%!');
+    }else if(m.reward === 'slow'){
+      state.activePower.slowUntil = Date.now() + 5500;
+      toast('🏅 ภารกิจสำเร็จ: Slow Time!');
+    }else{
+      state.score += 25;
+      toast('🏅 ภารกิจสำเร็จ: +25 คะแนน!');
+    }
+
+    feedback('win');
+    playSound('bonus');
+    haptic('bonus');
+    updateHud();
+
+    setTimeout(() => {
+      startMiniMission(true);
+    }, 1400);
+  }
+
+  function progressMiniMissionByGood(data){
+    const m = state.bossExperience.currentMission;
+    if(!m) return;
+
+    if(m.type === 'collect_group' && data.group === m.group){
+      state.bossExperience.missionProgress++;
+    }
+
+    if(m.type === 'combo' && state.combo >= m.target){
+      state.bossExperience.missionProgress = m.target;
+    }
+
+    updateMiniMissionHud();
+
+    if(state.bossExperience.missionProgress >= state.bossExperience.missionTarget){
+      rewardMiniMission();
+    }
+  }
+
+  function currentPatternPhaseKey(){
     if(state.finalRush) return 'final';
     if(state.phase >= 3) return 'phase3';
     if(state.phase >= 2) return 'phase2';
@@ -5222,7 +8539,7 @@
     }
 
     const tokens = Array.isArray(pattern.tokens) ? pattern.tokens : [];
-    const delay = Number(pattern.delay || 140);
+    const delay = difficultyPatternDelay(pattern.delay || 140);
 
     tokens.forEach((token, i) => {
       setTimeout(() => {
@@ -5315,6 +8632,83 @@
     updateHud();
   }
 
+  function dramaSpeak(text, ms = 1300, minGap = 1800){
+    if(!state.bossDrama.enabled) return false;
+
+    const t = Date.now();
+
+    if(t - state.bossDrama.lastDramaAt < minGap) return false;
+
+    state.bossDrama.lastDramaAt = t;
+    bossSpeak(text, ms);
+    return true;
+  }
+
+  function checkBossDramaAfterGood(){
+    if(!state.bossDrama.enabled) return;
+
+    for(const r of BOSS_DRAMA.comboReact){
+      if(state.combo >= r.at && !state.bossDrama.comboReacted[r.at]){
+        state.bossDrama.comboReacted[r.at] = true;
+        dramaSpeak(r.text, 1300);
+        break;
+      }
+    }
+
+    if(state.heroHit >= 100 && !state.bossDrama.heroReadyReacted){
+      state.bossDrama.heroReadyReacted = true;
+      dramaSpeak(pick(BOSS_DRAMA.heroReady), 1500);
+    }
+
+    const hpPct = bossHpPct();
+
+    for(const r of BOSS_DRAMA.lowHp){
+      if(hpPct <= r.pct && !state.bossDrama.lowHpReacted[r.pct]){
+        state.bossDrama.lowHpReacted[r.pct] = true;
+        dramaSpeak(r.text, 1400);
+        break;
+      }
+    }
+  }
+
+  function checkBossDramaAfterMistake(){
+    if(!state.bossDrama.enabled) return;
+
+    const t = Date.now();
+
+    if(t - state.bossDrama.lastTauntAt < 3600) return;
+
+    state.bossDrama.lastTauntAt = t;
+
+    const tone = currentDifficultyPersonality().bossDramaTone;
+
+    let line = pick(BOSS_DRAMA.mistakeTaunt);
+
+    if(tone === 'coach'){
+      line = 'ไม่เป็นไร ลองดูให้ชัดก่อนแตะนะ!';
+    }else if(tone === 'bossy'){
+      line = 'Challenge นี้ข้าไม่ยอมให้ผ่านง่าย ๆ หรอก!';
+    }
+
+    dramaSpeak(line, 1100);
+  }
+
+  function checkBossDramaFinal(){
+    if(!state.bossDrama.enabled) return;
+    if(!state.finalRush || state.bossDrama.finalFearShown) return;
+
+    state.bossDrama.finalFearShown = true;
+    dramaSpeak(pick(BOSS_DRAMA.finalFear), 1600, 0);
+  }
+
+  function checkBossDramaComeback(){
+    if(!state.bossDrama.enabled) return;
+    if(state.bossDrama.comebackReacted) return;
+
+    state.bossDrama.comebackReacted = true;
+    dramaSpeak(pick(BOSS_DRAMA.comebackRespect), 1500, 0);
+  }
+
   function canChangePhase(minWait = 0){
     return state.elapsedSec - state.pacing.lastPhaseChangeSec >= minWait;
   }
@@ -5390,6 +8784,7 @@
       pacingToast('บอสยังไม่ยอมแพ้! ต้องผ่าน Final Rush ก่อน 🔥', 1600);
 
       state.finalRush = true;
+      markFinalRushStart();
       state.phase = 3;
 
       setArenaTheme('final');
@@ -5409,7 +8804,7 @@
 
   function canActuallyWin(){
     if(state.timeLeft <= 0) return true;
-    if(!minimumFightReached()) return false;
+    if(!canWinByBalance()) return false;
     if(!state.finalRush) return false;
     return true;
   }
@@ -5417,6 +8812,11 @@
   function tryWinOrForceRush(){
     if(applySoftWinHold()){
       updateHud();
+      return;
+    }
+
+    if(!canWinByBalance()){
+      holdWinForBalance('tryWinOrForceRush');
       return;
     }
 
@@ -5430,6 +8830,7 @@
     );
 
     state.finalRush = true;
+    markFinalRushStart();
     state.phase = 3;
 
     setArenaTheme('final');
@@ -5472,10 +8873,12 @@
 
     if(!state.finalRush && hp <= tune.finalRushAt && canChangePhase(tune.phaseHoldSec || 18)){
       state.finalRush = true;
+      markFinalRushStart();
       state.phase = 3;
       markPhaseChange('final');
       updateBossIdentity(true);
       startMissionChain(true);
+      checkBossDramaFinal();
 
       if(!state.phaseAnnounced.finalRush){
         state.phaseAnnounced.finalRush = true;
@@ -5490,6 +8893,13 @@
         }
 
         bossAttack();
+      }
+
+      checkBossDramaFinal();
+
+      if(state.finalRush && !state.microTutorial.finalTipShown){
+        state.microTutorial.finalTipShown = true;
+        showMicroTutorial('finalRush', 3400);
       }
 
       return;
@@ -5527,6 +8937,7 @@
 
     if(state.timeLeft <= 28 && !state.finalRush){
       state.finalRush = true;
+      markFinalRushStart();
       state.phase = 3;
       markPhaseChange('final');
       updateBossIdentity(true);
@@ -5535,6 +8946,13 @@
       toast('🔥 FINAL RUSH!');
       setArenaTheme('final');
       bossAttack();
+    }
+
+    checkBossDramaFinal();
+
+    if(state.finalRush && !state.microTutorial.finalTipShown){
+      state.microTutorial.finalTipShown = true;
+      showMicroTutorial('finalRush', 3400);
     }
   }
 
@@ -5551,6 +8969,8 @@
 
     if(state.finalRush) dmg = Math.round(dmg * 1.25);
     if(state.missionChain.finishBoostReady) dmg = Math.round(dmg * 1.18);
+
+    dmg = capHeroDamage(dmg);
 
     state.heroHit = 0;
     state.score += 35;
@@ -5587,6 +9007,9 @@
 
     feedback('hero');
     toast('HEALTHY FINISH!');
+    playSound('win');
+    haptic('win');
+    screenShake('win');
     showHeroCutIn('🌟 HEALTHY FINISH!', 'Junk King ถูกพลังอาหารดีปราบแล้ว');
     impactFlash();
     bossDefeatFx();
@@ -5594,38 +9017,6 @@
     setTimeout(() => {
       endGame(true);
     }, 1050);
-  }
-
-  function fullCoachText(){
-    const w = currentWeakness();
-
-    if(state.finalRush){
-      const chain = currentMissionChain?.();
-      if(chain?.coach) return `${chain.icon} ${chain.coach}`;
-      return `🔥 FINAL • เก็บ ${w.label} • ใช้ HERO HIT`;
-    }
-
-    const chain = currentMissionChain?.();
-    if(chain?.coach){
-      return `${chain.icon} ${chain.coach}`;
-    }
-
-    if(state.patternScript?.activePatternName){
-      return `🎬 Pattern: ${state.patternScript.activePatternName} • ${bossBookTip()}`;
-    }
-
-    const identity = currentBossIdentity();
-
-    if(identity?.tip){
-      return `${identity.emoji} ${identity.tip}`;
-    }
-
-    return bossBookTip();
-  }
-
-  function bossBookTip(){
-    const w = currentWeakness();
-    return `จุดอ่อนตอนนี้: ${w.label}`;
   }
 
   function calcAccuracy(){
@@ -5707,41 +9098,53 @@
   }
 
   function updateHud(){
-    cacheElements();
+    try{
+      cacheElements();
 
-    setText(el.timeText, Math.max(0, Math.ceil(state.timeLeft)));
-    setText(el.scoreText, state.score);
-    setText(el.livesText, state.lives);
-    setText(el.comboText, state.combo);
-    setText(el.heroHitPct, `${Math.round(state.heroHit)}%`);
+      setText(el.timeText, Math.max(0, Math.ceil(state.timeLeft)));
+      setText(el.scoreText, state.score);
+      setText(el.livesText, state.lives);
+      setText(el.comboText, state.combo);
+      setText(el.heroHitPct, `${Math.round(state.heroHit)}%`);
 
-    if(el.heroHitBtn){
-      el.heroHitBtn.classList.toggle('ready', state.heroHit >= 100);
-      el.heroHitBtn.disabled = state.heroHit < 100 || state.paused || state.ended;
+      if(el.heroHitBtn){
+        el.heroHitBtn.classList.toggle('ready', state.heroHit >= 100);
+        el.heroHitBtn.disabled = state.heroHit < 100 || state.paused || state.ended;
+
+        if(state.heroHit >= 100 && !state.microTutorial.heroReadyTipShown){
+          state.microTutorial.heroReadyTipShown = true;
+          showMicroTutorial('heroReady', 3300);
+        }
+      }
+
+      if(el.bossHpFill){
+        const pct = clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100);
+        el.bossHpFill.style.width = `${pct}%`;
+      }
+
+      if(el.bossHpText){
+        const shield = state.bossShield ? '🛡️ ' : '';
+        el.bossHpText.textContent = `${shield}${currentBossIdentity().name} HP ${Math.max(0, Math.round(state.bossHp))}/${state.bossMaxHp}`;
+      }
+
+      if(el.dangerMeterFill){
+        el.dangerMeterFill.style.height = `${clamp(state.dangerMeter, 0, 100)}%`;
+      }
+
+      if(el.coachText){
+        el.coachText.textContent = fullCoachText();
+      }
+
+      callMaybe(updateMiniMissionHud);
+      callMaybe(updateMissionChainHud);
+      callMaybe(updateStarGoalHud);
+      callMaybe(updateComebackPill);
+      callMaybe(updateArenaThemeHud);
+      callMaybe(updateDifficultyBadge);
+      callMaybe(updateSoundButton);
+    }catch(err){
+      recordRuntimeError('updateHud', err);
     }
-
-    if(el.bossHpFill){
-      const pct = clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100);
-      el.bossHpFill.style.width = `${pct}%`;
-    }
-
-    if(el.bossHpText){
-      const shield = state.bossShield ? '🛡️ ' : '';
-      el.bossHpText.textContent = `${shield}${currentBossIdentity().name} HP ${Math.max(0, Math.round(state.bossHp))}/${state.bossMaxHp}`;
-    }
-
-    if(el.dangerMeterFill){
-      el.dangerMeterFill.style.height = `${clamp(state.dangerMeter, 0, 100)}%`;
-    }
-
-    if(el.coachText){
-      el.coachText.textContent = fullCoachText();
-    }
-
-    updateMiniMissionHud();
-    updateMissionChainHud();
-    updateStarGoalHud();
-    updateComebackPill();
   }
 
   function updateTargets(dt){
@@ -5786,71 +9189,154 @@
   }
 
   function maybeSpawn(dt){
-    if(state.targets.size >= tune.maxTargets) return;
+    const spawnCfg = btCfg('spawnPacing');
+    const maxTargets = Number(spawnCfg.maxTargets || tune.maxTargets);
+
+    if(state.targets.size >= maxTargets) return;
 
     const nowMs = now();
     let every = tune.spawnEvery;
 
-    if(state.finalRush) every *= .74;
+    if(state.finalRush) every *= Number(btFinal('spawnBoost') || .74);
     if(Date.now() < state.activePower.slowUntil) every *= 1.18;
     if(Date.now() < state.balance.calmUntil) every *= 1.24;
+
+    const minSpawnMs = Number(spawnCfg.minSpawnMs || 520);
+    every = Math.max(minSpawnMs, every);
 
     if(nowMs - state.lastSpawn >= every){
       state.lastSpawn = nowMs;
       spawnTarget();
 
-      if(state.rng() < .055){
+      const powerChance = Number(spawnCfg.powerChance || .055);
+
+      if(state.rng() < powerChance){
         spawnPowerUp();
       }
+    }
+  }
+
+  function showBonusRoundBanner(){
+    ensureReplayVarietyDom();
+
+    const box = $('gjBonusRoundBanner');
+    if(!box) return;
+
+    box.classList.remove('show');
+    void box.offsetWidth;
+    box.classList.add('show');
+
+    clearTimeout(showBonusRoundBanner._t);
+    showBonusRoundBanner._t = setTimeout(() => {
+      box.classList.remove('show');
+    }, 980);
+  }
+
+  function startBonusRound(){
+    if(!state.replayVariety.enabled) return;
+    if(state.replayVariety.bonusRoundActive) return;
+    if(state.ended || state.paused || !state.started) return;
+
+    state.replayVariety.bonusRoundActive = true;
+    state.replayVariety.bonusRoundStartedAt = Date.now();
+    state.replayVariety.bonusRoundEndsAt = Date.now() + REPLAY_VARIETY.bonusRoundDurationMs;
+    state.replayVariety.bonusRoundCount++;
+    state.replayVariety.lastBonusAtSec = state.elapsedSec;
+
+    const world = el.gameWorld || $('gameWorld');
+    world?.classList.add('gjBonusRoundActive');
+
+    showBonusRoundBanner();
+    playSound('bonus');
+    haptic('bonus');
+    bossSpeak('อะไรนะ! อาหารดีออกมาเยอะเกินไปแล้ว!', 1500);
+
+    state.balance.forcedGoodNext = Math.max(state.balance.forcedGoodNext, 5);
+    state.balance.forcedWeaknessNext = Math.max(state.balance.forcedWeaknessNext, 2);
+  }
+
+  function updateBonusRound(){
+    if(!state.replayVariety.enabled) return;
+
+    if(
+      !state.replayVariety.bonusRoundActive &&
+      state.elapsedSec >= 20 &&
+      state.elapsedSec - state.replayVariety.lastBonusAtSec >= REPLAY_VARIETY.bonusRoundEvery &&
+      state.rng() < (.018 + Number(currentDifficultyPersonality().bonusChanceBoost || 0))
+    ){
+      startBonusRound();
+    }
+
+    if(state.replayVariety.bonusRoundActive && Date.now() >= state.replayVariety.bonusRoundEndsAt){
+      state.replayVariety.bonusRoundActive = false;
+      const world = el.gameWorld || $('gameWorld');
+      world?.classList.remove('gjBonusRoundActive');
+      toast('Bonus Round จบแล้ว!');
     }
   }
 
   function gameLoop(ts){
     if(state.ended) return;
 
-    if(!state.lastFrame) state.lastFrame = ts;
-    const dt = Math.min(.05, (ts - state.lastFrame) / 1000);
-    state.lastFrame = ts;
+    try{
+      if(!state.lastFrame) state.lastFrame = ts;
+      const dt = Math.min(.05, (ts - state.lastFrame) / 1000);
+      state.lastFrame = ts;
 
-    if(!state.paused && state.started){
-      state.elapsedSec = (performance.now() - state.startTs) / 1000;
-      state.timeLeft = Math.max(0, (Number(CFG.time) || tune.time) - state.elapsedSec);
+      if(!state.paused && state.started){
+        state.elapsedSec = (performance.now() - state.startTs) / 1000;
+        state.timeLeft = Math.max(0, (Number(CFG.time) || tune.time) - state.elapsedSec);
 
-      applyDangerDecay(dt);
-      updateArenaHazard();
-      tickMissionChain();
-      checkComebackRecovery();
-      updateComebackPill();
+        applyDangerDecay(dt);
+        updateArenaHazard();
+        tickMissionChain();
+        updateBonusRound();
+        maybeBossProgressHelp();
+        maybeLateGameRush();
+        finalRushMinimumMet();
+        checkComebackRecovery();
+        updateComebackPill();
 
-      updateTargets(dt);
+        updateTargets(dt);
 
-      if(state.rng() < .08){
-        auditTargets();
+        if(state.rng() < .08){
+          auditTargets();
+        }
+
+        maybeSpawn(dt);
+
+        if(now() - state.lastBossAttack > tune.bossAttackEvery){
+          state.lastBossAttack = now();
+          bossAttack();
+        }
+
+        checkPhase();
+        checkBossDramaFinal();
+
+        if(state.finalRush && !state.microTutorial.finalTipShown){
+          state.microTutorial.finalTipShown = true;
+          showMicroTutorial('finalRush', 3400);
+        }
+
+        updateHud();
+        updateTouchDebug();
+
+        if(state.rng() < .012){
+          runQaLock({ show:false });
+        }
+
+        if(state.timeLeft <= 0){
+          const scoreNeed = Number(tune.scoreWinNeed || Math.round(state.bossMaxHp * .45));
+          const winByScore = state.score >= scoreNeed && state.bossHp <= Math.round(state.bossMaxHp * .28);
+          const winByBoss = state.bossHp <= 0;
+
+          endGame(winByBoss || winByScore);
+          return;
+        }
       }
-
-      maybeSpawn(dt);
-
-      if(now() - state.lastBossAttack > tune.bossAttackEvery){
-        state.lastBossAttack = now();
-        bossAttack();
-      }
-
-      checkPhase();
-      updateHud();
-      updateTouchDebug();
-
-      if(state.rng() < .012){
-        runQaLock({ show:false });
-      }
-
-      if(state.timeLeft <= 0){
-        const scoreNeed = Number(tune.scoreWinNeed || Math.round(state.bossMaxHp * .45));
-        const winByScore = state.score >= scoreNeed && state.bossHp <= Math.round(state.bossMaxHp * .28);
-        const winByBoss = state.bossHp <= 0;
-
-        endGame(winByBoss || winByScore);
-        return;
-      }
+    }catch(err){
+      recordRuntimeError('gameLoop', err);
+      recoverRuntime('gameLoop-error');
     }
 
     requestAnimationFrame(gameLoop);
@@ -5982,12 +9468,14 @@
       function onReady(ev){
         ev.preventDefault();
         ev.stopPropagation();
+        unlockAudio();
         startCountdown();
       }
 
       function onSkip(ev){
         ev.preventDefault();
         ev.stopPropagation();
+        unlockAudio();
         finish(true);
       }
 
@@ -5996,117 +9484,170 @@
     });
   }
 
-  function kidsBadges(s){
-    const list = [];
+  function renderRewardLoopCompact(s){
+    const r = s.rewardLoop;
+    if(!r || r.enabled === false) return '';
 
-    if(s.win){
-      list.push('👑 Boss Breaker');
-    }
+    const rank = r.rankAfter || getRankByScore(s.score || 0);
+    const before = Number(r.personalBestBefore || 0);
+    const after = Number(r.personalBestAfter || s.score || 0);
+    const isNewBest = !!r.isNewBest;
 
-    if(s.bestCombo >= 15){
-      list.push('⚡ Combo Master');
-    }else if(s.bestCombo >= 8){
-      list.push('✨ Combo Starter');
-    }
+    const earned = Array.isArray(r.earnedBadgesThisRun)
+      ? r.earnedBadgesThisRun.slice(0, CHILD_POLISH.summary.maxRewardBadgesShown)
+      : [];
 
-    if(s.miss <= 2){
-      list.push('🌟 Clean Player');
-    }
+    const next = r.nextChallenge;
 
-    if(s.greenHits >= 8){
-      list.push('🥦 Green Hero');
-    }
+    return `
+      ${isNewBest ? `<div class="gjNewBestRibbon">🏆 สถิติใหม่! ${before} → ${after} คะแนน</div>` : ''}
 
-    if(s.proteinHits >= 6){
-      list.push('🐟 Protein Power');
-    }
+      <div class="gjSummarySoftDivider"></div>
 
-    if(s.fruitHits >= 5){
-      list.push('🍎 Fruit Fighter');
-    }
+      <div class="gjRewardShelf">
+        <div class="gjRewardPanel">
+          <div class="gjRewardPanelTitle">
+            <span>${rank.emoji || '🏅'}</span>
+            <span>${rank.label || 'Hero'}</span>
+          </div>
+          <div class="gjRewardPanelText">
+            สถิติดีสุด ${after} คะแนน • ชนะ ${r.profile?.wins || 0}/${r.profile?.runs || 0} รอบ
+          </div>
+        </div>
 
-    if((s.powerUpsCollected?.shield || 0) > 0){
-      list.push('🛡️ Shield User');
-    }
+        <div class="gjRewardPanel">
+          <div class="gjRewardPanelTitle">
+            <span>${next?.emoji || '🎯'}</span>
+            <span>รอบหน้า</span>
+          </div>
+          <div class="gjRewardPanelText">
+            ${simpleText(next?.title || 'ลองเล่นอีกครั้ง', 46)}<br>
+            ${simpleText(next?.desc || '', 56)}
+          </div>
+        </div>
+      </div>
 
-    if((s.comeback?.used || 0) > 0){
-      list.push('💚 Comeback Hero');
-    }
-
-    if((s.comeback?.rescueGiven || false)){
-      list.push('🛡️ Last Heart Save');
-    }
-
-    return list.length ? list : ['💪 Keep Trying Hero'];
+      <div class="gjKidsCompactBadges">
+        ${
+          earned.length
+            ? earned.map(b => `
+              <span class="gjKidsCompactBadge ${b.isNew ? 'new' : ''}">
+                ${b.emoji} ${simpleText(b.title, 22)}${b.isNew ? ' ใหม่!' : ''}
+              </span>
+            `).join('')
+            : `<span class="gjKidsCompactBadge">💪 รอบหน้าลุ้น Badge ใหม่</span>`
+        }
+      </div>
+    `;
   }
 
-  function kidsWinTitle(s){
-    if(s.win && s.stars === '⭐⭐⭐') return 'สุดยอดฮีโร่อาหารดี!';
-    if(s.win) return 'ชนะ Junk King แล้ว!';
-    if(s.score >= 180) return 'เกือบชนะแล้ว!';
-    return 'ฝึกได้ดีมาก!';
-  }
+  function renderKidsSummary(s){
+    const badges = kidsBadges(s)
+      .slice(0, CHILD_POLISH.summary.maxBadgesShown)
+      .map(shortBadgeText);
 
-  function kidsMainTip(s){
-    if(s.win && s.miss <= 2){
-      return 'วันนี้แยกอาหารดีได้แม่นมาก และพลาดน้อยมาก';
+    const endMsg = childEndMessage(s);
+    state.childPolish.endMessage = endMsg;
+
+    const icon =
+      s.win && Number(s.starGoal?.starsEarned || 0) >= 3 ? '🏆' :
+      s.win ? '🎉' :
+      '💪';
+
+    const sub = s.win
+      ? 'วันนี้เลือกอาหารดีได้เยี่ยมมาก'
+      : 'ยังไม่เป็นไร รอบหน้าลองใหม่ได้';
+
+    const goodTip = simpleText(kidsMainTip(s) || pickChildTip('good'), 72);
+    const cautionTip = simpleText(kidsWatchTip(s) || pickChildTip('caution'), 72);
+    const nextTip = simpleText(kidsNextTip(s) || pickChildTip('next'), 72);
+
+    if(!el.summaryScreen) return;
+
+    el.summaryScreen.innerHTML = `
+      <div class="gjKidsSummary v840">
+        <div class="gjKidsSummaryIcon">${icon}</div>
+        <h1 class="gjKidsSummaryTitle">${simpleText(endMsg, 42)}</h1>
+        <div class="gjKidsSummarySub">${sub}</div>
+
+        <div class="gjKidsStars">${s.stars || '☆'}</div>
+
+        <div class="gjKidsQuickResult">
+          <div class="gjKidsQuickItem">
+            <div class="gjKidsQuickIcon">⭐</div>
+            <div class="gjKidsQuickLabel">${CHILD_POLISH.shortLabels.score}</div>
+            <div class="gjKidsQuickValue">${s.score}</div>
+          </div>
+
+          <div class="gjKidsQuickItem">
+            <div class="gjKidsQuickIcon">✅</div>
+            <div class="gjKidsQuickLabel">${CHILD_POLISH.shortLabels.good}</div>
+            <div class="gjKidsQuickValue">${s.good}</div>
+          </div>
+
+          <div class="gjKidsQuickItem">
+            <div class="gjKidsQuickIcon">⚡</div>
+            <div class="gjKidsQuickLabel">${CHILD_POLISH.shortLabels.combo}</div>
+            <div class="gjKidsQuickValue">${s.bestCombo}</div>
+          </div>
+        </div>
+
+        <div class="gjKidsSmallNote">
+          🎯 แม่นยำ ${s.accPct || calcAccuracy()}% • พลาด ${s.miss || 0} ครั้ง
+        </div>
+
+        <div class="gjKidsMiniTipBox">
+          <div class="gjKidsMiniTip">
+            <div class="gjKidsMiniTipIcon">✅</div>
+            <div class="gjKidsMiniTipTitle">ทำดี</div>
+            <div class="gjKidsMiniTipText">${goodTip}</div>
+          </div>
+
+          <div class="gjKidsMiniTip">
+            <div class="gjKidsMiniTipIcon">⚠️</div>
+            <div class="gjKidsMiniTipTitle">ระวัง</div>
+            <div class="gjKidsMiniTipText">${cautionTip}</div>
+          </div>
+
+          <div class="gjKidsMiniTip">
+            <div class="gjKidsMiniTipIcon">➡️</div>
+            <div class="gjKidsMiniTipTitle">รอบหน้า</div>
+            <div class="gjKidsMiniTipText">${nextTip}</div>
+          </div>
+        </div>
+
+        <div class="gjKidsCompactBadges">
+          ${
+            badges.length
+              ? badges.map(b => `<span class="gjKidsCompactBadge">${b}</span>`).join('')
+              : `<span class="gjKidsCompactBadge">💪 พยายามดีมาก</span>`
+          }
+        </div>
+
+        ${renderRewardLoopCompact(s)}
+
+        <div class="gjKidsActions">
+          <button id="summaryBackBtn" class="gjKidsBtn primary" type="button">
+            🌙 ไป Cooldown
+          </button>
+          <button id="summaryReplayBtn" class="gjKidsBtn secondary" type="button">
+            🔁 เล่นอีกครั้ง
+          </button>
+        </div>
+      </div>
+    `;
+
+    cacheElements();
+
+    if(el.summaryBackBtn){
+      el.summaryBackBtn.addEventListener('click', goCooldownOrExit);
     }
 
-    if(s.win){
-      return 'วันนี้ชนะบอสได้ เพราะเก็บอาหารดีและใช้จังหวะได้ดี';
+    if(el.summaryReplayBtn){
+      el.summaryReplayBtn.addEventListener('click', replayGame);
     }
 
-    if(s.junkHit > s.missedGood){
-      return 'ครั้งหน้าให้ระวังอาหารขยะ เช่น น้ำอัดลม ของทอด และของหวาน';
-    }
-
-    return 'ครั้งหน้าอย่าปล่อยอาหารดีหลุด เพราะอาหารดีช่วยชาร์จ HERO HIT';
-  }
-
-  function kidsWatchTip(s){
-    if(s.junkHit >= 5){
-      return 'เห็นน้ำอัดลม ขนมหวาน หรือของทอด ให้คิดก่อนแตะ';
-    }
-
-    if(s.missedGood >= 5){
-      return 'อาหารดีที่หลุดไปทำให้ HERO HIT ช้าลง';
-    }
-
-    if(s.bestCombo < 8){
-      return 'ลองแตะอาหารดีต่อเนื่อง เพื่อทำ Combo ให้สูงขึ้น';
-    }
-
-    return 'รักษาจังหวะดี ๆ แบบนี้ แล้วลองเพิ่ม Combo รอบหน้า';
-  }
-
-  function kidsNextTip(s){
-    if(!s.win){
-      return 'รอบหน้าดูจุดอ่อนบอสด้านล่าง แล้วเก็บอาหารตามจุดอ่อน';
-    }
-
-    if(s.stars !== '⭐⭐⭐'){
-      return 'รอบหน้าลองเอา 3 ดาว โดยพลาดให้น้อยลง';
-    }
-
-    return 'รอบหน้าลองระดับ hard หรือ challenge ได้เลย';
-  }
-
-  function summaryText(s){
-    const badges = kidsBadges(s);
-
-    return `${kidsWinTitle(s)}
-
-✅ ทำดี:
-${kidsMainTip(s)}
-
-⚠️ ระวัง:
-${kidsWatchTip(s)}
-
-➡️ รอบหน้า:
-${kidsNextTip(s)}
-
-🏅 Badge:
-${badges.join(' • ')}`;
+    updateExitButtonLabels();
   }
 
   function buildSummary(win){
@@ -6166,108 +9707,14 @@ ${badges.join(' • ')}`;
     };
   }
 
-  function renderKidsSummary(s){
-    const badges = kidsBadges(s);
-    const title = kidsWinTitle(s);
-    const mainTip = kidsMainTip(s);
-    const watchTip = kidsWatchTip(s);
-    const nextTip = kidsNextTip(s);
-
-    const icon = s.win ? '🏆' : '💪';
-    const sub = s.win
-      ? 'เก่งมาก! วันนี้ Hero ชนะบอสอาหารขยะได้แล้ว'
-      : 'ยังไม่เป็นไร รอบหน้า Hero จะเก่งขึ้นอีก';
-
-    if(!el.summaryScreen) return;
-
-    el.summaryScreen.innerHTML = `
-      <div class="gjKidsSummary">
-        <div class="gjKidsSummaryIcon">${icon}</div>
-        <h1 class="gjKidsSummaryTitle">${title}</h1>
-        <div class="gjKidsSummarySub">${sub}</div>
-
-        <div class="gjKidsStars">${s.stars || '☆'}</div>
-
-        <div class="gjKidsBadgeShelf">
-          <div class="gjKidsBadgeTitle">เป้าหมายดาวรอบนี้</div>
-          <div class="gjKidsBadges">
-            <span class="gjKidsBadge">⭐ ได้ ${s.starGoal?.starsText || s.stars || '☆'}</span>
-            <span class="gjKidsBadge">🎯 แม่นยำ ${s.accPct || calcAccuracy()}%</span>
-            <span class="gjKidsBadge">⚡ Combo สูงสุด ${s.bestCombo || 0}</span>
-          </div>
-        </div>
-
-        <div class="gjKidsScoreRow">
-          <div class="gjKidsScoreCard">
-            <span>คะแนน</span>
-            <b>${s.score}</b>
-          </div>
-          <div class="gjKidsScoreCard">
-            <span>อาหารดี</span>
-            <b>${s.good}</b>
-          </div>
-          <div class="gjKidsScoreCard">
-            <span>พลาด</span>
-            <b>${s.miss}</b>
-          </div>
-        </div>
-
-        <div class="gjKidsCards">
-          <div class="gjKidsCard">
-            <div class="gjKidsCardIcon">✅</div>
-            <div class="gjKidsCardTitle">ทำดี</div>
-            <div class="gjKidsCardText">${mainTip}</div>
-          </div>
-
-          <div class="gjKidsCard">
-            <div class="gjKidsCardIcon">⚠️</div>
-            <div class="gjKidsCardTitle">ระวัง</div>
-            <div class="gjKidsCardText">${watchTip}</div>
-          </div>
-
-          <div class="gjKidsCard">
-            <div class="gjKidsCardIcon">➡️</div>
-            <div class="gjKidsCardTitle">รอบหน้า</div>
-            <div class="gjKidsCardText">${nextTip}</div>
-          </div>
-        </div>
-
-        <div class="gjKidsBadgeShelf">
-          <div class="gjKidsBadgeTitle">รางวัลที่ได้</div>
-          <div class="gjKidsBadges">
-            ${badges.map(b => `<span class="gjKidsBadge">${b}</span>`).join('')}
-          </div>
-        </div>
-
-        <div class="gjKidsActions">
-          <button id="summaryBackBtn" class="gjKidsBtn primary" type="button">
-            🌙 ไป Cooldown
-          </button>
-          <button id="summaryReplayBtn" class="gjKidsBtn secondary" type="button">
-            🔁 เล่นอีกครั้ง
-          </button>
-        </div>
-      </div>
-    `;
-
-    cacheElements();
-
-    if(el.summaryBackBtn){
-      el.summaryBackBtn.addEventListener('click', goCooldownOrExit);
-    }
-
-    if(el.summaryReplayBtn){
-      el.summaryReplayBtn.addEventListener('click', replayGame);
-    }
-
-    updateExitButtonLabels();
-  }
-
   function saveSummary(win){
     const s = buildSummary(win);
+    const reward = updateRewardLoop(s);
 
     const payload = {
       ...s,
+
+      rewardLoop: reward || { enabled:false },
 
       miniMission: {
         id: state.bossExperience.currentMission?.id || '',
@@ -6359,6 +9806,90 @@ ${badges.join(' • ')}`;
         errors: [...state.qaLock.errors],
         warnings: [...state.qaLock.warnings],
         lastRunAt: state.qaLock.lastRunAt
+      },
+
+      replayVariety: {
+        enabled: !!state.replayVariety.enabled,
+        runIndex: state.replayVariety.runIndex,
+        arenaTheme: state.replayVariety.arenaTheme,
+        trickSet: state.replayVariety.trickSet,
+        bonusRoundCount: state.replayVariety.bonusRoundCount
+      },
+
+      bossDrama: {
+        enabled: !!state.bossDrama.enabled,
+        comboReacted: { ...state.bossDrama.comboReacted },
+        lowHpReacted: { ...state.bossDrama.lowHpReacted },
+        heroReadyReacted: !!state.bossDrama.heroReadyReacted,
+        finalFearShown: !!state.bossDrama.finalFearShown,
+        comebackReacted: !!state.bossDrama.comebackReacted
+      },
+
+      polishJuice: {
+        enabled: !!state.polishJuice.enabled,
+        soundEnabled: !!state.polishJuice.soundEnabled,
+        muted: !!state.polishJuice.muted,
+        soundUnlocked: !!state.polishJuice.soundUnlocked,
+        comboJuiceShown: { ...state.polishJuice.comboJuiceShown }
+      },
+
+      microTutorial: {
+        enabled: !!state.microTutorial.enabled,
+        doneBefore: !!state.microTutorial.doneBefore,
+        shown: { ...state.microTutorial.shown },
+        shownCount: state.microTutorial.shownCount,
+        firstGoodSeen: !!state.microTutorial.firstGoodSeen,
+        firstJunkSeen: !!state.microTutorial.firstJunkSeen,
+        heroReadyTipShown: !!state.microTutorial.heroReadyTipShown,
+        dangerTipShown: !!state.microTutorial.dangerTipShown,
+        finalTipShown: !!state.microTutorial.finalTipShown,
+        trickTipShown: !!state.microTutorial.trickTipShown
+      },
+
+      difficultyPersonality: {
+        enabled: !!state.difficultyPersonality.enabled,
+        diff: DIFF,
+        profile: state.difficultyPersonality.profile,
+        introShown: !!state.difficultyPersonality.introShown,
+        adjustedGoodBias: state.difficultyPersonality.adjustedGoodBias,
+        adjustedJunkBias: state.difficultyPersonality.adjustedJunkBias,
+        adjustedTrickyBias: state.difficultyPersonality.adjustedTrickyBias,
+        adjustedWeaknessBias: state.difficultyPersonality.adjustedWeaknessBias,
+        adjustedHazardBias: state.difficultyPersonality.adjustedHazardBias,
+        bossPatternSpeed: state.difficultyPersonality.bossPatternSpeed,
+        comebackBoost: state.difficultyPersonality.comebackBoost
+      },
+
+      finalBalance: {
+        enabled: !!state.finalBalance.enabled,
+        junkStreak: state.finalBalance.junkStreak,
+        goodStreak: state.finalBalance.goodStreak,
+        forcedReliefCount: state.finalBalance.forcedReliefCount,
+        preventedLifeLoss: state.finalBalance.preventedLifeLoss,
+        preventedMissPenalty: state.finalBalance.preventedMissPenalty,
+        lateRushTriggered: !!state.finalBalance.lateRushTriggered,
+        openingGraceUsed: !!state.finalBalance.openingGraceUsed
+      },
+
+      balanceTuning: {
+        enabled: !!state.balanceTuning.enabled,
+        finalRushStartedAtSec: state.balanceTuning.finalRushStartedAtSec,
+        finalRushElapsedSec: finalRushElapsedSec(),
+        finalRushMinMet: !!state.balanceTuning.finalRushMinMet,
+        damageCappedCount: state.balanceTuning.damageCappedCount,
+        heroDamageCappedCount: state.balanceTuning.heroDamageCappedCount,
+        winHeldCount: state.balanceTuning.winHeldCount,
+        minPlaySecBeforeWin: minPlaySecBeforeWin(),
+        canWinByBalance: canWinByBalance(),
+        lastTuningSnapshot: state.balanceTuning.lastTuningSnapshot
+      },
+
+      childPolish: {
+        enabled: !!state.childPolish.enabled,
+        simplifiedSummary: !!state.childPolish.simplifiedSummary,
+        endMessage: state.childPolish.endMessage,
+        summaryLevel: state.childPolish.summaryLevel,
+        lastCoachText: state.childPolish.lastCoachText
       }
     };
 
@@ -6381,25 +9912,54 @@ ${badges.join(' • ')}`;
   function endGame(win){
     if(state.ended) return;
 
-    state.ended = true;
-    state.paused = false;
+    try{
+      state.ended = true;
+      state.paused = false;
 
-    clearTargets();
-    endArenaHazard();
+      hideMicroTutorial();
+      clearTargets();
+      endArenaHazard();
 
-    const payload = saveSummary(win);
+      const payload = saveSummary(win);
 
-    showScreen('summary');
-    el.summaryScreen.classList.add('show');
+      showScreen('summary');
+      el.summaryScreen.classList.add('show');
 
-    renderKidsSummary(payload);
+      renderKidsSummary(payload);
 
-    updateHud();
-    feedback(win ? 'win' : 'bad');
-    toast(win ? 'Victory! 🎉' : 'ลองใหม่อีกครั้งนะ 💪');
+      updateHud();
+      feedback(win ? 'win' : 'bad');
+      toast(win ? 'Victory! 🎉' : 'ลองใหม่อีกครั้งนะ 💪');
 
-    runFinalLockCheck('endGame');
-    runQaLock({ show:true });
+      runFinalLockCheck('endGame');
+      runQaLock({ show:true });
+    }catch(err){
+      recordRuntimeError('endGame', err);
+
+      try{
+        showScreen('summary');
+
+        if(el.summaryScreen){
+          el.summaryScreen.innerHTML = `
+            <div class="gjKidsSummary">
+              <div class="gjKidsSummaryIcon">💪</div>
+              <h1 class="gjKidsSummaryTitle">จบรอบแล้ว</h1>
+              <div class="gjKidsSummarySub">ระบบสรุปมีปัญหาเล็กน้อย แต่ผลการเล่นจบแล้ว</div>
+              <div class="gjKidsActions">
+                <button id="summaryBackBtn" class="gjKidsBtn primary" type="button">🌙 ไป Cooldown</button>
+                <button id="summaryReplayBtn" class="gjKidsBtn secondary" type="button">🔁 เล่นอีกครั้ง</button>
+              </div>
+            </div>
+          `;
+
+          cacheElements();
+          el.summaryBackBtn?.addEventListener('click', goCooldownOrExit);
+          el.summaryReplayBtn?.addEventListener('click', replayGame);
+        }
+      }catch(e2){
+        recordRuntimeError('endGame-fallback', e2);
+      }
+    }
   }
 
   function resolveExitHref(){
@@ -6502,8 +10062,85 @@ ${badges.join(' • ')}`;
     });
   }
 
+  function resetAdvancedRunSystems(){
+    state.replayVariety.bonusRoundActive = false;
+    state.replayVariety.bonusRoundStartedAt = 0;
+    state.replayVariety.bonusRoundEndsAt = 0;
+    state.replayVariety.lastBonusAtSec = 0;
+    state.replayVariety.themeAnnounced = false;
+    state.replayVariety.trickAnnounced = false;
+
+    state.bossDrama.comboReacted = {};
+    state.bossDrama.lowHpReacted = {};
+    state.bossDrama.heroReadyReacted = false;
+    state.bossDrama.lastTauntAt = 0;
+    state.bossDrama.lastDramaAt = 0;
+    state.bossDrama.finalFearShown = false;
+    state.bossDrama.comebackReacted = false;
+
+    state.rewardLoop.earnedBadgesThisRun = [];
+    state.rewardLoop.rankBefore = null;
+    state.rewardLoop.rankAfter = null;
+    state.rewardLoop.personalBestBefore = 0;
+    state.rewardLoop.personalBestAfter = 0;
+    state.rewardLoop.isNewBest = false;
+    state.rewardLoop.nextChallenge = null;
+    state.rewardLoop.rewardSaved = false;
+
+    state.polishJuice.comboJuiceShown = {};
+    state.polishJuice.lastShakeAt = 0;
+
+    resetMicroTutorialRun();
+
+    state.difficultyPersonality.introShown = false;
+    state.difficultyPersonality.profile = null;
+
+    state.finalBalance.junkStreak = 0;
+    state.finalBalance.goodStreak = 0;
+    state.finalBalance.lastGoodMissPenaltyAt = 0;
+    state.finalBalance.lastLifeLossAt = 0;
+    state.finalBalance.lifeLossInWindow = 0;
+    state.finalBalance.lifeLossWindowStartedAt = 0;
+    state.finalBalance.lastReliefAt = 0;
+    state.finalBalance.lastBossProgressHelpAt = 0;
+    state.finalBalance.lastOverlayQuietAt = 0;
+    state.finalBalance.forcedReliefCount = 0;
+    state.finalBalance.preventedLifeLoss = 0;
+    state.finalBalance.preventedMissPenalty = 0;
+    state.finalBalance.lateRushTriggered = false;
+    state.finalBalance.openingGraceUsed = false;
+
+    state.balanceTuning.finalRushStartedAtSec = 0;
+    state.balanceTuning.finalRushMinMet = false;
+    state.balanceTuning.damageCappedCount = 0;
+    state.balanceTuning.heroDamageCappedCount = 0;
+    state.balanceTuning.winHeldCount = 0;
+    state.balanceTuning.lastBalanceNoteAt = 0;
+    state.balanceTuning.lastTuningSnapshot = null;
+
+    const world = el.gameWorld || $('gameWorld');
+
+    if(world){
+      world.classList.remove(
+        'gjThemeMarket',
+        'gjThemeSchool',
+        'gjThemeFestival',
+        'gjThemeSpace',
+        'gjBonusRoundActive',
+        'gjDiffEasy',
+        'gjDiffNormal',
+        'gjDiffHard',
+        'gjDiffChallenge',
+        'gjScreenShake'
+      );
+    }
+
+    hideMicroTutorial();
+  }
+
   function replayGame(){
     resetRunSystems();
+    resetAdvancedRunSystems();
 
     state.rng = mulberry32(hashSeed(`${CFG.seed}:${CFG.pid}:${DIFF}:goodjunk-replay:${Date.now()}`));
 
@@ -6583,285 +10220,7 @@ ${badges.join(' • ')}`;
     updateHud();
   }
 
-  function qaMissingDom(){
-    return QA_LOCK.requiredDom.filter(id => !$(id));
-  }
-
-  function qaBlockedTargets(){
-    const arr = [];
-
-    for(const item of state.targets.values()){
-      if(isTargetVisiblyBlocked(item)){
-        arr.push({
-          id: item.id,
-          kind: item.kind,
-          label: item.data?.label || '',
-          x: Math.round(item.x),
-          y: Math.round(item.y),
-          size: item.size,
-          blockedBy: state.touchSafety.blockedBy || ''
-        });
-      }
-    }
-
-    return arr;
-  }
-
-  function qaSafeArena(){
-    const safe = getSafeArenaRect(60);
-    const height = Math.round((safe.bottom || 0) - (safe.top || 0));
-
-    return {
-      ...safe,
-      height,
-      ok: height >= QA_LOCK.minSafeArenaHeight
-    };
-  }
-
-  function qaExitHref(){
-    let href = '';
-
-    try{
-      href = resolveExitHref();
-    }catch(_){
-      href = '';
-    }
-
-    return {
-      href,
-      ok: !QA_LOCK.requireExitHref || !!href
-    };
-  }
-
-  function qaBossSystems(){
-    return {
-      bossExperience: !!state.bossExperience,
-      patternScript: !!state.patternScript,
-      bossIdentity: !!state.bossIdentity,
-      arenaHazard: !!state.arenaHazard,
-      learningTip: !!state.learningTip,
-      missionChain: !!state.missionChain,
-      comeback: !!state.comeback,
-      introGoal: !!state.introGoal,
-      touchSafety: !!state.touchSafety,
-      ok:
-        !!state.bossExperience &&
-        !!state.patternScript &&
-        !!state.bossIdentity &&
-        !!state.arenaHazard &&
-        !!state.learningTip &&
-        !!state.missionChain &&
-        !!state.comeback &&
-        !!state.introGoal &&
-        !!state.touchSafety
-    };
-  }
-
-  function qaTouchReady(){
-    const tl = $('targetLayer');
-    const safe = qaSafeArena();
-
-    return {
-      targetLayerExists: !!tl,
-      targetLayerPointerEvents: tl ? getComputedStyle(tl).pointerEvents : '',
-      hitSlop: touchHitSlop(),
-      minTargetSize: minTargetSize(),
-      safeArenaHeight: safe.height,
-      ok:
-        !!tl &&
-        safe.ok &&
-        touchHitSlop() > 0 &&
-        minTargetSize() >= 48
-    };
-  }
-
-  function qaFlowReady(){
-    const exit = qaExitHref();
-
-    return {
-      exitHref: exit.href,
-      isCooldownGate:
-        String(exit.href || '').includes('warmup-gate.html') &&
-        String(exit.href || '').includes('phase=cooldown'),
-      isNutritionZone:
-        String(exit.href || '').includes('nutrition-zone.html'),
-      ok: !!exit.href
-    };
-  }
-
-  function runQaLock(options = {}){
-    const show = options.show !== false;
-
-    ensureQaLockDom();
-
-    const errors = [];
-    const warnings = [];
-
-    const missingDom = qaMissingDom();
-    const blockedTargets = qaBlockedTargets();
-    const safeArena = qaSafeArena();
-    const exit = qaExitHref();
-    const bossSystems = qaBossSystems();
-    const touchReady = qaTouchReady();
-    const flowReady = qaFlowReady();
-
-    if(missingDom.length > QA_LOCK.maxMissingDom){
-      errors.push(`Missing DOM: ${missingDom.join(', ')}`);
-    }
-
-    if(blockedTargets.length > QA_LOCK.maxBlockedTargets){
-      errors.push(`Blocked targets: ${blockedTargets.length}`);
-    }
-
-    if(!safeArena.ok){
-      errors.push(`Safe arena too small: ${safeArena.height}px`);
-    }
-
-    if(QA_LOCK.requireExitHref && !exit.ok){
-      errors.push('Exit href missing');
-    }
-
-    if(QA_LOCK.requireBossSystems && !bossSystems.ok){
-      errors.push('Boss systems not ready');
-    }
-
-    if(QA_LOCK.requireTouchReady && !touchReady.ok){
-      errors.push('Touch system not ready');
-    }
-
-    if(QA_LOCK.requireFlowReady && !flowReady.ok){
-      errors.push('Flow not ready');
-    }
-
-    if(state.targets.size === 0 && state.started && !state.ended && !state.paused){
-      warnings.push('No active targets right now');
-    }
-
-    if(state.touchSafety.relocatedCount > 0){
-      warnings.push(`Targets relocated: ${state.touchSafety.relocatedCount}`);
-    }
-
-    if(state.touchSafety.tapRescueCount > 0){
-      warnings.push(`Tap rescue used: ${state.touchSafety.tapRescueCount}`);
-    }
-
-    if(state.comeback.used > 0){
-      warnings.push(`Comeback used: ${state.comeback.used}`);
-    }
-
-    const checks = {
-      missingDom,
-      blockedTargets,
-      safeArena,
-      exit,
-      bossSystems,
-      touchReady,
-      flowReady,
-      state: {
-        started: state.started,
-        paused: state.paused,
-        ended: state.ended,
-        targets: state.targets.size,
-        bossHp: state.bossHp,
-        bossMaxHp: state.bossMaxHp,
-        timeLeft: state.timeLeft,
-        phase: state.phase,
-        finalRush: state.finalRush
-      }
-    };
-
-    const ready = errors.length === 0;
-    const status = ready
-      ? (warnings.length ? 'warn' : 'pass')
-      : 'fail';
-
-    const score = Math.max(
-      0,
-      100 - errors.length * 18 - warnings.length * 4
-    );
-
-    const result = {
-      patch: PATCH,
-      ready,
-      status,
-      score,
-      errors,
-      warnings,
-      checks,
-      timestamp: new Date().toISOString()
-    };
-
-    state.qaLock.lastRunAt = Date.now();
-    state.qaLock.ready = ready;
-    state.qaLock.status = status;
-    state.qaLock.score = score;
-    state.qaLock.errors = errors;
-    state.qaLock.warnings = warnings;
-    state.qaLock.checks = checks;
-    state.qaLock.snapshot = result;
-
-    if(show){
-      showQaBadge(result);
-    }
-
-    return result;
-  }
-
-  function showQaBadge(result){
-    ensureQaLockDom();
-
-    const box = $('gjQaBadge');
-    if(!box) return;
-
-    box.classList.remove('pass', 'warn', 'fail');
-
-    const cls = result.status === 'pass'
-      ? 'pass'
-      : result.status === 'warn'
-        ? 'warn'
-        : 'fail';
-
-    box.classList.add('show', cls);
-
-    const icon = result.status === 'pass'
-      ? '✅'
-      : result.status === 'warn'
-        ? '⚠️'
-        : '❌';
-
-    box.textContent = [
-      `${icon} QA ${result.status.toUpperCase()} • ${result.score}/100`,
-      `errors: ${result.errors.length}`,
-      `warnings: ${result.warnings.length}`,
-      result.errors[0] ? `first: ${result.errors[0]}` : '',
-      result.warnings[0] ? `warn: ${result.warnings[0]}` : ''
-    ].filter(Boolean).join('\n');
-
-    clearTimeout(showQaBadge._t);
-    showQaBadge._t = setTimeout(() => {
-      if(!state.calibration.debugOverlay){
-        box.classList.remove('show');
-      }
-    }, 2600);
-  }
-
-  function updateTouchDebug(){
-    const box = $('gjTouchDebug');
-    if(!box || !state.calibration.debugOverlay) return;
-
-    box.classList.add('show');
-    box.textContent = [
-      `PATCH: ${PATCH}`,
-      `targets: ${state.targets.size}`,
-      `relocated: ${state.touchSafety.relocatedCount}`,
-      `enlarged: ${state.touchSafety.enlargedCount}`,
-      `tapRescue: ${state.touchSafety.tapRescueCount}`,
-      `blockedBy: ${state.touchSafety.blockedBy || '-'}`,
-      `lastPoint: ${Math.round(state.touchSafety.lastPointerX)},${Math.round(state.touchSafety.lastPointerY)}`,
-      `atPoint: ${state.touchSafety.lastElementAtPoint || '-'}`
-    ].join('\n');
-  }
-    function distanceToItem(x, y, item){
+  function distanceToItem(x, y, item){
     const dx = x - item.x;
     const dy = y - item.y;
     return Math.sqrt(dx * dx + dy * dy);
@@ -6900,7 +10259,7 @@ ${badges.join(' • ')}`;
     layer.appendChild(n);
 
     setTimeout(() => {
-      try{ n.remove(); }catch(_){}
+      safeRemoveNode(n);
     }, 560);
   }
 
@@ -7010,61 +10369,378 @@ ${badges.join(' • ')}`;
     };
   }
 
-  async function startGame(){
-    if(state.startLocked || state.started) return;
-
-    state.startLocked = true;
-
-    cacheElements();
-    ensureAllOverlayDom();
-
-    showScreen('game');
-
-    state.started = true;
-    state.paused = false;
-    state.ended = false;
-    state.summaryRendered = false;
-
-    state.startTs = performance.now();
-    state.lastFrame = 0;
-    state.elapsedSec = 0;
-    state.timeLeft = Number(CFG.time) || tune.time;
-
-    setupDailyChallenge();
-
-    setArenaTheme('shield');
-    updateBossIdentity(true);
-
-    await showBossIntro();
-
-    refreshUiState();
-    updateHud();
-    runFinalLockCheck('startGame');
-    runQaLock({ show:true });
-
-    toast('Phase 1: ทำลายโล่ Junk King! 🛡️👑', 1600);
-
-    ensureBossExperienceDom();
-    bossSpeak('ข้าคือ Junk King! ลองจับอาหารดีให้ได้สิ!', 1600);
-    startMiniMission(true);
-    startMissionChain(true);
-
-    state.lastSpawn = now() - tune.spawnEvery;
-    state.lastBossAttack = now();
-
-    state.startLocked = false;
-
-    requestAnimationFrame(gameLoop);
+  function qaMissingDom(){
+    return QA_LOCK.requiredDom.filter(id => !$(id));
   }
 
-  function refreshUiState(){
+  function qaBlockedTargets(){
+    const arr = [];
+
+    for(const item of state.targets.values()){
+      if(isTargetVisiblyBlocked(item)){
+        arr.push({
+          id: item.id,
+          kind: item.kind,
+          label: item.data?.label || '',
+          x: Math.round(item.x),
+          y: Math.round(item.y),
+          size: item.size,
+          blockedBy: state.touchSafety.blockedBy || ''
+        });
+      }
+    }
+
+    return arr;
+  }
+
+  function qaSafeArena(){
+    const safe = getSafeArenaRect(60);
+    const height = Math.round((safe.bottom || 0) - (safe.top || 0));
+
+    return {
+      ...safe,
+      height,
+      ok: height >= QA_LOCK.minSafeArenaHeight
+    };
+  }
+
+  function qaExitHref(){
+    let href = '';
+
+    try{
+      href = resolveExitHref();
+    }catch(_){
+      href = '';
+    }
+
+    return {
+      href,
+      ok: !QA_LOCK.requireExitHref || !!href
+    };
+  }
+
+  function qaBossSystems(){
+    return {
+      bossExperience: !!state.bossExperience,
+      patternScript: !!state.patternScript,
+      bossIdentity: !!state.bossIdentity,
+      arenaHazard: !!state.arenaHazard,
+      learningTip: !!state.learningTip,
+      missionChain: !!state.missionChain,
+      comeback: !!state.comeback,
+      introGoal: !!state.introGoal,
+      touchSafety: !!state.touchSafety,
+      ok:
+        !!state.bossExperience &&
+        !!state.patternScript &&
+        !!state.bossIdentity &&
+        !!state.arenaHazard &&
+        !!state.learningTip &&
+        !!state.missionChain &&
+        !!state.comeback &&
+        !!state.introGoal &&
+        !!state.touchSafety
+    };
+  }
+
+  function qaTouchReady(){
+    const tl = $('targetLayer');
+    const safe = qaSafeArena();
+
+    return {
+      targetLayerExists: !!tl,
+      targetLayerPointerEvents: tl ? getComputedStyle(tl).pointerEvents : '',
+      hitSlop: touchHitSlop(),
+      minTargetSize: minTargetSize(),
+      safeArenaHeight: safe.height,
+      ok:
+        !!tl &&
+        safe.ok &&
+        touchHitSlop() > 0 &&
+        minTargetSize() >= 48
+    };
+  }
+
+  function qaFlowReady(){
+    const exit = qaExitHref();
+
+    return {
+      exitHref: exit.href,
+      isCooldownGate:
+        String(exit.href || '').includes('warmup-gate.html') &&
+        String(exit.href || '').includes('phase=cooldown'),
+      isNutritionZone:
+        String(exit.href || '').includes('nutrition-zone.html'),
+      ok: !!exit.href
+    };
+  }
+
+  function qaAdvancedSystems(){
+    return {
+      replayVariety: !!state.replayVariety,
+      bossDrama: !!state.bossDrama,
+      rewardLoop: !!state.rewardLoop,
+      polishJuice: !!state.polishJuice,
+      microTutorial: !!state.microTutorial,
+      difficultyPersonality: !!state.difficultyPersonality,
+      finalBalance: !!state.finalBalance,
+      balanceTuning: !!state.balanceTuning,
+      childPolish: !!state.childPolish,
+
+      dom: {
+        arenaThemeHud: !!$('gjArenaThemeHud'),
+        bonusRoundBanner: !!$('gjBonusRoundBanner'),
+        soundBtn: !!$('gjSoundBtn'),
+        comboJuiceBanner: !!$('gjComboJuiceBanner'),
+        microTutorial: !!$('gjMicroTutorial'),
+        difficultyBadge: !!$('gjDifficultyBadge')
+      },
+
+      ok:
+        !!state.replayVariety &&
+        !!state.bossDrama &&
+        !!state.rewardLoop &&
+        !!state.polishJuice &&
+        !!state.microTutorial &&
+        !!state.difficultyPersonality &&
+        !!state.finalBalance &&
+        !!state.balanceTuning &&
+        !!state.childPolish &&
+        !!$('gjSoundBtn') &&
+        !!$('gjDifficultyBadge')
+    };
+  }
+
+  function qaRequiredFunctions(){
+    const checks = {
+      setupRunMetaSystems,
+      announceRunMetaSystems,
+      resetAdvancedRunSystems,
+      setupReplayVariety,
+      setupDifficultyPersonality,
+      loadRewardLoop,
+      loadSoundPreference,
+      loadMicroTutorialState,
+      updateBonusRound,
+      maybeBossProgressHelp,
+      maybeLateGameRush
+    };
+
+    const missing = Object.keys(checks).filter(k => typeof checks[k] !== 'function');
+
+    return {
+      missing,
+      ok: missing.length === 0
+    };
+  }
+
+  function runQaLock(options = {}){
+    const show = options.show !== false;
+
+    ensureQaLockDom();
+
+    const errors = [];
+    const warnings = [];
+
+    const missingDom = qaMissingDom();
+    const blockedTargets = qaBlockedTargets();
+    const safeArena = qaSafeArena();
+    const exit = qaExitHref();
+    const bossSystems = qaBossSystems();
+    const touchReady = qaTouchReady();
+    const flowReady = qaFlowReady();
+    const advancedSystems = qaAdvancedSystems();
+    const requiredFunctions = qaRequiredFunctions();
+
+    if(missingDom.length > QA_LOCK.maxMissingDom){
+      errors.push(`Missing DOM: ${missingDom.join(', ')}`);
+    }
+
+    if(blockedTargets.length > QA_LOCK.maxBlockedTargets){
+      errors.push(`Blocked targets: ${blockedTargets.length}`);
+    }
+
+    if(!safeArena.ok){
+      errors.push(`Safe arena too small: ${safeArena.height}px`);
+    }
+
+    if(QA_LOCK.requireExitHref && !exit.ok){
+      errors.push('Exit href missing');
+    }
+
+    if(QA_LOCK.requireBossSystems && !bossSystems.ok){
+      errors.push('Boss systems not ready');
+    }
+
+    if(QA_LOCK.requireTouchReady && !touchReady.ok){
+      errors.push('Touch system not ready');
+    }
+
+    if(QA_LOCK.requireFlowReady && !flowReady.ok){
+      errors.push('Flow not ready');
+    }
+
+    if(!advancedSystems.ok){
+      warnings.push('Advanced systems incomplete');
+    }
+
+    if(!requiredFunctions.ok){
+      warnings.push(`Missing functions: ${requiredFunctions.missing.join(', ')}`);
+    }
+
+    if(state.runtimeGuard.errorCount > 0){
+      warnings.push(`Runtime errors: ${state.runtimeGuard.errorCount}`);
+    }
+
+    if(state.targets.size === 0 && state.started && !state.ended && !state.paused){
+      warnings.push('No active targets right now');
+    }
+
+    if(state.touchSafety.relocatedCount > 0){
+      warnings.push(`Targets relocated: ${state.touchSafety.relocatedCount}`);
+    }
+
+    if(state.touchSafety.tapRescueCount > 0){
+      warnings.push(`Tap rescue used: ${state.touchSafety.tapRescueCount}`);
+    }
+
+    if(state.comeback.used > 0){
+      warnings.push(`Comeback used: ${state.comeback.used}`);
+    }
+
+    const checks = {
+      missingDom,
+      blockedTargets,
+      safeArena,
+      exit,
+      bossSystems,
+      touchReady,
+      flowReady,
+      advancedSystems,
+      requiredFunctions,
+      runtimeGuard: {
+        errorCount: state.runtimeGuard.errorCount,
+        recoveredCount: state.runtimeGuard.recoveredCount,
+        lastRecovery: state.runtimeGuard.lastRecovery,
+        recentErrors: state.runtimeGuard.errors.slice(-3)
+      },
+      state: {
+        started: state.started,
+        paused: state.paused,
+        ended: state.ended,
+        targets: state.targets.size,
+        bossHp: state.bossHp,
+        bossMaxHp: state.bossMaxHp,
+        timeLeft: state.timeLeft,
+        phase: state.phase,
+        finalRush: state.finalRush
+      }
+    };
+
+    const ready = errors.length === 0;
+    const status = ready
+      ? (warnings.length ? 'warn' : 'pass')
+      : 'fail';
+
+    const score = Math.max(
+      0,
+      100 - errors.length * 18 - warnings.length * 4
+    );
+
+    const result = {
+      patch: PATCH,
+      ready,
+      status,
+      score,
+      errors,
+      warnings,
+      checks,
+      timestamp: new Date().toISOString()
+    };
+
+    state.qaLock.lastRunAt = Date.now();
+    state.qaLock.ready = ready;
+    state.qaLock.status = status;
+    state.qaLock.score = score;
+    state.qaLock.errors = errors;
+    state.qaLock.warnings = warnings;
+    state.qaLock.checks = checks;
+    state.qaLock.snapshot = result;
+
+    if(show){
+      showQaBadge(result);
+    }
+
+    return result;
+  }
+
+  function showQaBadge(result){
+    ensureQaLockDom();
+
+    const box = $('gjQaBadge');
+    if(!box) return;
+
+    box.classList.remove('pass', 'warn', 'fail');
+
+    const cls = result.status === 'pass'
+      ? 'pass'
+      : result.status === 'warn'
+        ? 'warn'
+        : 'fail';
+
+    box.classList.add('show', cls);
+
+    const icon = result.status === 'pass'
+      ? '✅'
+      : result.status === 'warn'
+        ? '⚠️'
+        : '❌';
+
+    box.textContent = [
+      `${icon} QA ${result.status.toUpperCase()} • ${result.score}/100`,
+      `errors: ${result.errors.length}`,
+      `warnings: ${result.warnings.length}`,
+      result.errors[0] ? `first: ${result.errors[0]}` : '',
+      result.warnings[0] ? `warn: ${result.warnings[0]}` : ''
+    ].filter(Boolean).join('\n');
+
+    clearTimeout(showQaBadge._t);
+    showQaBadge._t = setTimeout(() => {
+      if(!state.calibration.debugOverlay){
+        box.classList.remove('show');
+      }
+    }, 2600);
+  }
+
+  function updateTouchDebug(){
+    const box = $('gjTouchDebug');
+    if(!box || !state.calibration.debugOverlay) return;
+
+    box.classList.add('show');
+
+    box.textContent = [
+      `PATCH: ${PATCH}`,
+      `targets: ${state.targets.size}`,
+      `relocated: ${state.touchSafety.relocatedCount}`,
+      `enlarged: ${state.touchSafety.enlargedCount}`,
+      `tapRescue: ${state.touchSafety.tapRescueCount}`,
+      `blockedBy: ${state.touchSafety.blockedBy || '-'}`,
+      `lastPoint: ${Math.round(state.touchSafety.lastPointerX)},${Math.round(state.touchSafety.lastPointerY)}`,
+      `atPoint: ${state.touchSafety.lastElementAtPoint || '-'}`
+    ].join('\n');
+  }
+    function refreshUiState(){
+    cacheElements();
+
     if(el.pauseBtn){
       el.pauseBtn.textContent = state.paused ? '▶️' : '⏸️';
     }
 
     if(el.backBtn){
-      el.backBtn.title = 'ไป Cooldown';
+      el.backBtn.title = 'กลับ Nutrition Zone';
     }
+
+    updateExitButtonLabels();
   }
 
   function togglePause(){
@@ -7073,81 +10749,154 @@ ${badges.join(' • ')}`;
     state.paused = !state.paused;
 
     if(state.paused){
-      toast('หยุดพัก');
-    }else{
-      state.lastFrame = 0;
-      toast('เล่นต่อ!');
+      hideMicroTutorial();
     }
 
     refreshUiState();
     updateHud();
+    toast(state.paused ? 'หยุดชั่วคราว' : 'เล่นต่อ');
+  }
+
+  async function startGame(){
+    if(state.startLocked || state.started) return;
+
+    state.startLocked = true;
+
+    try{
+      unlockAudio();
+
+      cacheElements();
+      setupAdvancedDefaults();
+      ensureAllOverlayDom();
+
+      showScreen('game');
+
+      state.started = true;
+      state.paused = false;
+      state.ended = false;
+      state.summaryRendered = false;
+
+      state.startTs = performance.now();
+      state.lastFrame = 0;
+      state.elapsedSec = 0;
+      state.timeLeft = Number(CFG.time) || tune.time;
+
+      setupDailyChallenge();
+      setupRunMetaSystems();
+
+      setArenaTheme('shield');
+      updateBossIdentity(true);
+
+      await showBossIntro();
+
+      announceRunMetaSystems();
+
+      refreshUiState();
+      updateHud();
+      runFinalLockCheck('startGame');
+      runQaLock({ show:true });
+
+      toast('Phase 1: ทำลายโล่ Junk King! 🛡️👑', 1600);
+
+      ensureBossExperienceDom();
+      bossSpeak('ข้าคือ Junk King! ลองจับอาหารดีให้ได้สิ!', 1600);
+      startMiniMission(true);
+      startMissionChain(true);
+
+      state.lastSpawn = now() - tune.spawnEvery;
+      state.lastBossAttack = now();
+
+      requestAnimationFrame(gameLoop);
+    }catch(err){
+      recordRuntimeError('startGame', err);
+      recoverRuntime('startGame-error');
+
+      state.started = false;
+      showScreen('intro');
+      toast('โหลดเกมไม่สำเร็จ ลองเริ่มใหม่อีกครั้ง');
+    }finally{
+      state.startLocked = false;
+    }
   }
 
   function bindEvents(){
     cacheElements();
 
-    if(el.startBtn && !el.startBtn.__gjBound){
-      el.startBtn.__gjBound = true;
-      el.startBtn.addEventListener('click', ev => {
-        ev.preventDefault();
-        startGame();
+    if(el.startBtn){
+      safeOnce(el.startBtn, '__gjStartBound', () => {
+        el.startBtn.addEventListener('click', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          startGame();
+        });
       });
     }
 
-    if(el.backBtnIntro && !el.backBtnIntro.__gjBound){
-      el.backBtnIntro.__gjBound = true;
-      el.backBtnIntro.addEventListener('click', ev => {
-        ev.preventDefault();
-        goHub();
+    if(el.backBtnIntro){
+      safeOnce(el.backBtnIntro, '__gjBackIntroBound', () => {
+        el.backBtnIntro.addEventListener('click', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          goHub();
+        });
       });
     }
 
-    if(el.pauseBtn && !el.pauseBtn.__gjBound){
-      el.pauseBtn.__gjBound = true;
-      el.pauseBtn.addEventListener('click', ev => {
-        ev.preventDefault();
-        togglePause();
+    if(el.pauseBtn){
+      safeOnce(el.pauseBtn, '__gjPauseBound', () => {
+        el.pauseBtn.addEventListener('click', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          togglePause();
+        });
       });
     }
 
-    if(el.backBtn && !el.backBtn.__gjBound){
-      el.backBtn.__gjBound = true;
-      el.backBtn.addEventListener('click', ev => {
-        ev.preventDefault();
+    if(el.backBtn){
+      safeOnce(el.backBtn, '__gjBackBound', () => {
+        el.backBtn.addEventListener('click', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
 
-        if(state.ended){
-          goCooldownOrExit();
-          return;
-        }
+          if(state.started && !state.ended){
+            const ok = confirm('ออกจากเกมและไป Nutrition Zone ใช่ไหม?');
+            if(!ok) return;
+          }
 
-        const ok = confirm('ออกจากเกมแล้วไป Cooldown เลยไหม?');
-        if(ok) goCooldownOrExit();
+          goHub();
+        });
       });
     }
 
-    if(el.heroHitBtn && !el.heroHitBtn.__gjBound){
-      el.heroHitBtn.__gjBound = true;
-      el.heroHitBtn.addEventListener('click', ev => {
-        ev.preventDefault();
-        useHeroHit();
+    if(el.heroHitBtn){
+      safeOnce(el.heroHitBtn, '__gjHeroBound', () => {
+        el.heroHitBtn.addEventListener('click', ev => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          unlockAudio();
+          useHeroHit();
+        });
       });
     }
+
+    DOC.addEventListener('visibilitychange', () => {
+      if(DOC.hidden && state.started && !state.ended){
+        state.paused = true;
+        refreshUiState();
+      }
+    });
 
     WIN.addEventListener('resize', () => {
-      runFinalLockCheck('resize');
-      runQaLock({ show:false });
-    }, { passive:true });
-
-    WIN.addEventListener('orientationchange', () => {
+      state.touchSafety.safeRectVersion++;
       setTimeout(() => {
-        runFinalLockCheck('orientationchange');
-        runQaLock({ show:false });
-      }, 220);
-    }, { passive:true });
+        auditTargets();
+        updateHud();
+      }, 180);
+    });
   }
 
   function boot(root, cfg = {}){
-    if(state.booted) return;
+    if(state.booted) return publicApi;
 
     state.bootStarted = true;
 
@@ -7159,19 +10908,26 @@ ${badges.join(' • ')}`;
 
     ensureRequiredDom();
     cacheElements();
+    setupAdvancedDefaults();
+    ensureAllOverlayDom();
+
     bindEvents();
     bindWorldTapDebug();
 
     resolveExitHref();
+    loadSoundPreference();
+    loadMicroTutorialState();
+
     showScreen('intro');
     updateHud();
     refreshUiState();
+    updateSoundButton();
+
     runFinalLockCheck('boot');
     runQaLock({ show:false });
 
     state.booted = true;
 
-    // ถ้า URL ส่ง run=auto หรือ autostart=1 ให้เริ่มเอง
     const auto =
       String(qs.get('autostart') || '').trim() === '1' ||
       String(qs.get('auto') || '').trim() === '1';
@@ -7183,377 +10939,614 @@ ${badges.join(' • ')}`;
     return publicApi;
   }
 
-  function debugTouch(){
-    const targets = Array.from(state.targets.values()).map(item => {
-      const r = item.node?.getBoundingClientRect?.();
+  function getState(){
+    return {
+      patch: PATCH,
+      cfg: { ...CFG, diff: DIFF },
+      started: state.started,
+      paused: state.paused,
+      ended: state.ended,
+      timeLeft: state.timeLeft,
+      elapsedSec: state.elapsedSec,
+      score: state.score,
+      good: state.good,
+      miss: state.miss,
+      lives: state.lives,
+      combo: state.combo,
+      bestCombo: state.bestCombo,
+      bossHp: state.bossHp,
+      bossMaxHp: state.bossMaxHp,
+      bossHpPct: bossHpPct(),
+      bossShield: state.bossShield,
+      phase: state.phase,
+      finalRush: state.finalRush,
+      heroHit: state.heroHit,
+      targets: state.targets.size,
+      powerUps: state.powerUps.size,
+      exitHref: state.flow.exitHref
+    };
+  }
 
-      return {
-        id: item.id,
-        kind: item.kind,
-        label: item.data?.label || '',
-        x: Math.round(item.x),
-        y: Math.round(item.y),
-        size: item.size,
-        blocked: isTargetVisiblyBlocked(item),
-        rect: r ? {
-          left: Math.round(r.left),
-          top: Math.round(r.top),
-          width: Math.round(r.width),
-          height: Math.round(r.height)
-        } : null
-      };
-    });
+  function debugFlow(){
+    return {
+      patch: PATCH,
+      flow: { ...state.flow },
+      exitHref: resolveExitHref(),
+      hub: CFG.hub,
+      defaultZone: DEFAULT_ZONE
+    };
+  }
+
+  function debugFinal(){
+    return {
+      patch: PATCH,
+      finalLock: { ...state.finalLock },
+      safeArena: qaSafeArena(),
+      qa: state.qaLock.snapshot || runQaLock({ show:false })
+    };
+  }
+
+  function debugTouch(){
+    return {
+      patch: PATCH,
+      touchSafety: { ...state.touchSafety },
+      calibration: { ...state.calibration },
+      tapSafety: { ...state.tapSafety },
+      safeArena: qaSafeArena(),
+      blockedTargets: qaBlockedTargets()
+    };
+  }
+
+  function debugPacing(){
+    return {
+      patch: PATCH,
+      pacing: { ...state.pacing },
+      minFightReached: minimumFightReached(),
+      minPlaySecBeforeWin: minPlaySecBeforeWin(),
+      canWinByBalance: canWinByBalance(),
+      timeLeft: state.timeLeft,
+      elapsedSec: state.elapsedSec
+    };
+  }
+
+  function debugPattern(){
+    return {
+      patch: PATCH,
+      patternScript: { ...state.patternScript },
+      currentPhaseKey: currentPatternPhaseKey(),
+      nextPatternPreview: getNextBossPattern()
+    };
+  }
+
+  function debugBossIdentity(){
+    return {
+      patch: PATCH,
+      bossIdentity: { ...state.bossIdentity },
+      currentKey: currentBossIdentityKey(),
+      current: currentBossIdentity(),
+      weakness: currentWeakness()
+    };
+  }
+
+  function debugHazard(){
+    return {
+      patch: PATCH,
+      arenaHazard: { ...state.arenaHazard },
+      everyMs: hazardEveryMs(),
+      durationMs: hazardDurationMs(),
+      active: state.arenaHazard.active,
+      activeLane: state.arenaHazard.activeLane
+    };
+  }
+
+  function debugLearning(){
+    return {
+      patch: PATCH,
+      learningTip: { ...state.learningTip },
+      trickSet: state.replayVariety.trickSet
+    };
+  }
+
+  function debugMissionChain(){
+    return {
+      patch: PATCH,
+      missionChain: {
+        ...state.missionChain,
+        active: state.missionChain.active
+      },
+      current: currentMissionChain()
+    };
+  }
+
+  function debugComeback(){
+    return {
+      patch: PATCH,
+      comeback: { ...state.comeback },
+      active: Date.now() < state.comeback.activeUntil,
+      leftMs: Math.max(0, state.comeback.activeUntil - Date.now())
+    };
+  }
+
+  function debugIntroGoal(){
+    return {
+      patch: PATCH,
+      introGoal: { ...state.introGoal },
+      starGoals: currentStarGoals(),
+      starsNow: evaluateStarGoals()
+    };
+  }
+
+  function debugVisualFx(){
+    return {
+      patch: PATCH,
+      hasImpactFlash: !!$('gjImpactFlash'),
+      hasHeroCutIn: !!$('gjHeroCutIn'),
+      hasShieldCrack: !!DOC.querySelector('.gjShieldCrack'),
+      hasBossSpeech: !!$('gjBossSpeech')
+    };
+  }
+
+  function debugReplayVariety(){
+    return {
+      patch: PATCH,
+      enabled: !!state.replayVariety.enabled,
+      runIndex: state.replayVariety.runIndex,
+      arenaTheme: state.replayVariety.arenaTheme,
+      trickSet: state.replayVariety.trickSet,
+      bonusRoundActive: state.replayVariety.bonusRoundActive,
+      bonusRoundCount: state.replayVariety.bonusRoundCount,
+      bonusEndsInMs: state.replayVariety.bonusRoundEndsAt
+        ? Math.max(0, state.replayVariety.bonusRoundEndsAt - Date.now())
+        : 0,
+      hasThemeHud: !!$('gjArenaThemeHud'),
+      hasBonusBanner: !!$('gjBonusRoundBanner')
+    };
+  }
+
+  function debugBossDrama(){
+    return {
+      patch: PATCH,
+      enabled: !!state.bossDrama.enabled,
+      comboReacted: { ...state.bossDrama.comboReacted },
+      lowHpReacted: { ...state.bossDrama.lowHpReacted },
+      heroReadyReacted: state.bossDrama.heroReadyReacted,
+      finalFearShown: state.bossDrama.finalFearShown,
+      comebackReacted: state.bossDrama.comebackReacted,
+      lastTauntAt: state.bossDrama.lastTauntAt,
+      lastDramaAt: state.bossDrama.lastDramaAt
+    };
+  }
+
+  function debugRewardLoop(){
+    return {
+      patch: PATCH,
+      enabled: !!state.rewardLoop.enabled,
+      profile: state.rewardLoop.profile || readJsonStorage(rewardKey('profile'), emptyRewardProfile()),
+      bossBook: state.rewardLoop.bossBook || readJsonStorage(rewardKey('bossBook'), emptyBossBook()),
+      badgeBook: state.rewardLoop.badgeBook || readJsonStorage(rewardKey('badgeBook'), emptyBadgeBook()),
+      earnedBadgesThisRun: state.rewardLoop.earnedBadgesThisRun,
+      rankBefore: state.rewardLoop.rankBefore,
+      rankAfter: state.rewardLoop.rankAfter,
+      personalBestBefore: state.rewardLoop.personalBestBefore,
+      personalBestAfter: state.rewardLoop.personalBestAfter,
+      isNewBest: state.rewardLoop.isNewBest,
+      nextChallenge: state.rewardLoop.nextChallenge,
+      rewardSaved: state.rewardLoop.rewardSaved
+    };
+  }
+
+  function clearRewardLoop(){
+    try{
+      localStorage.removeItem(rewardKey('profile'));
+      localStorage.removeItem(rewardKey('bossBook'));
+      localStorage.removeItem(rewardKey('badgeBook'));
+      localStorage.removeItem(rewardKey('lastChallenge'));
+    }catch(_){}
+
+    state.rewardLoop.profile = null;
+    state.rewardLoop.bossBook = null;
+    state.rewardLoop.badgeBook = null;
+    state.rewardLoop.earnedBadgesThisRun = [];
+    state.rewardLoop.rewardSaved = false;
+
+    return debugRewardLoop();
+  }
+
+  function debugPolishJuice(){
+    return {
+      patch: PATCH,
+      enabled: !!state.polishJuice.enabled,
+      soundEnabled: !!state.polishJuice.soundEnabled,
+      muted: !!state.polishJuice.muted,
+      soundUnlocked: !!state.polishJuice.soundUnlocked,
+      hasAudioCtx: !!state.polishJuice.audioCtx,
+      audioState: state.polishJuice.audioCtx?.state || '',
+      comboJuiceShown: { ...state.polishJuice.comboJuiceShown },
+      hasSoundBtn: !!$('gjSoundBtn'),
+      hasComboBanner: !!$('gjComboJuiceBanner')
+    };
+  }
+
+  function debugMicroTutorial(){
+    return {
+      patch: PATCH,
+      enabled: !!state.microTutorial.enabled,
+      doneBefore: !!state.microTutorial.doneBefore,
+      shown: { ...state.microTutorial.shown },
+      shownCount: state.microTutorial.shownCount,
+      lastShownAt: state.microTutorial.lastShownAt,
+      suppressedUntil: state.microTutorial.suppressedUntil,
+      firstGoodSeen: state.microTutorial.firstGoodSeen,
+      firstJunkSeen: state.microTutorial.firstJunkSeen,
+      heroReadyTipShown: state.microTutorial.heroReadyTipShown,
+      dangerTipShown: state.microTutorial.dangerTipShown,
+      finalTipShown: state.microTutorial.finalTipShown,
+      trickTipShown: state.microTutorial.trickTipShown,
+      hasDom: !!$('gjMicroTutorial'),
+      hasHint: !!$('gjTutorialSkipHint')
+    };
+  }
+
+  function debugDifficultyPersonality(){
+    return {
+      patch: PATCH,
+      enabled: !!state.difficultyPersonality.enabled,
+      diff: DIFF,
+      profile: state.difficultyPersonality.profile || currentDifficultyPersonality(),
+      introShown: state.difficultyPersonality.introShown,
+      adjustedGoodBias: state.difficultyPersonality.adjustedGoodBias,
+      adjustedJunkBias: state.difficultyPersonality.adjustedJunkBias,
+      adjustedTrickyBias: state.difficultyPersonality.adjustedTrickyBias,
+      adjustedWeaknessBias: state.difficultyPersonality.adjustedWeaknessBias,
+      adjustedHazardBias: state.difficultyPersonality.adjustedHazardBias,
+      bossPatternSpeed: state.difficultyPersonality.bossPatternSpeed,
+      comebackBoost: state.difficultyPersonality.comebackBoost,
+      hasBadge: !!$('gjDifficultyBadge')
+    };
+  }
+
+  function debugFinalBalance(){
+    return {
+      patch: PATCH,
+      enabled: !!state.finalBalance.enabled,
+      diff: DIFF,
+      cfg: {
+        maxJunkStreak: fbCfg('maxJunkStreak'),
+        missGraceMs: fbCfg('missGraceMs'),
+        openingGraceSec: fbCfg('openingGraceSec'),
+        dangerReliefAt: fbCfg('dangerReliefAt'),
+        bossProgressHelpEverySec: fbCfg('bossProgressHelpEverySec'),
+        lateGameRushSecLeft: fbCfg('lateGameRushSecLeft')
+      },
+      state: {
+        junkStreak: state.finalBalance.junkStreak,
+        goodStreak: state.finalBalance.goodStreak,
+        lifeLossInWindow: state.finalBalance.lifeLossInWindow,
+        forcedReliefCount: state.finalBalance.forcedReliefCount,
+        preventedLifeLoss: state.finalBalance.preventedLifeLoss,
+        preventedMissPenalty: state.finalBalance.preventedMissPenalty,
+        lateRushTriggered: state.finalBalance.lateRushTriggered,
+        openingGraceUsed: state.finalBalance.openingGraceUsed
+      },
+      live: {
+        openingGraceActive: openingGraceActive(),
+        overlayQuietActive: overlayQuietActive(),
+        dangerMeter: state.dangerMeter,
+        lives: state.lives,
+        timeLeft: state.timeLeft,
+        bossHpPct: bossHpPct()
+      }
+    };
+  }
+
+  function debugBalanceTuning(){
+    return {
+      patch: PATCH,
+      enabled: !!state.balanceTuning.enabled,
+      diff: DIFF,
+      fightPacing: btCfg('fightPacing'),
+      spawnPacing: btCfg('spawnPacing'),
+      scorePacing: {
+        goodBase: btScore('goodBase'),
+        junkPenaltyScore: btScore('junkPenaltyScore'),
+        missedGoodPenaltyScore: btScore('missedGoodPenaltyScore'),
+        comboBonusCap: btScore('comboBonusCap')
+      },
+      finalRush: {
+        forceWeaknessOnEnter: btFinal('forceWeaknessOnEnter'),
+        spawnBoost: btFinal('spawnBoost'),
+        junkChanceAdd: btFinal('junkChanceAdd')
+      },
+      state: {
+        finalRushStartedAtSec: state.balanceTuning.finalRushStartedAtSec,
+        finalRushElapsedSec: finalRushElapsedSec(),
+        finalRushMinMet: state.balanceTuning.finalRushMinMet,
+        damageCappedCount: state.balanceTuning.damageCappedCount,
+        heroDamageCappedCount: state.balanceTuning.heroDamageCappedCount,
+        winHeldCount: state.balanceTuning.winHeldCount,
+        minPlaySecBeforeWin: minPlaySecBeforeWin(),
+        canWinByBalance: canWinByBalance(),
+        bossHp: state.bossHp,
+        bossHpPct: bossHpPct(),
+        timeLeft: state.timeLeft
+      }
+    };
+  }
+
+  function debugChildPolish(){
+    return {
+      patch: PATCH,
+      enabled: !!state.childPolish.enabled,
+      simplifiedSummary: !!state.childPolish.simplifiedSummary,
+      endMessage: state.childPolish.endMessage,
+      summaryLevel: state.childPolish.summaryLevel,
+      lastCoachText: state.childPolish.lastCoachText,
+      lastCoachAt: state.childPolish.lastCoachAt,
+      cfg: CHILD_POLISH
+    };
+  }
+
+  function debugRuntimeGuard(){
+    return {
+      patch: PATCH,
+      enabled: !!state.runtimeGuard.enabled,
+      errorCount: state.runtimeGuard.errorCount,
+      recoveredCount: state.runtimeGuard.recoveredCount,
+      lastRecovery: state.runtimeGuard.lastRecovery,
+      errors: [...state.runtimeGuard.errors],
+      warnings: [...state.runtimeGuard.warnings]
+    };
+  }
+
+  function debugAdvancedStatus(){
+    return {
+      patch: PATCH,
+      dom: {
+        replayVariety: !!$('gjArenaThemeHud') && !!$('gjBonusRoundBanner'),
+        polishJuice: !!$('gjSoundBtn') && !!$('gjComboJuiceBanner'),
+        microTutorial: !!$('gjMicroTutorial') && !!$('gjTutorialSkipHint'),
+        difficultyPersonality: !!$('gjDifficultyBadge')
+      },
+      state: {
+        replayVariety: !!state.replayVariety,
+        bossDrama: !!state.bossDrama,
+        rewardLoop: !!state.rewardLoop,
+        polishJuice: !!state.polishJuice,
+        microTutorial: !!state.microTutorial,
+        difficultyPersonality: !!state.difficultyPersonality,
+        finalBalance: !!state.finalBalance,
+        balanceTuning: !!state.balanceTuning,
+        childPolish: !!state.childPolish
+      },
+      setup: {
+        runIndex: state.replayVariety?.runIndex || 0,
+        theme: state.replayVariety?.arenaTheme || null,
+        trickSet: state.replayVariety?.trickSet || null,
+        difficulty: state.difficultyPersonality?.profile || null,
+        muted: !!state.polishJuice?.muted,
+        tutorialDoneBefore: !!state.microTutorial?.doneBefore
+      }
+    };
+  }
+
+  function debugAll(){
+    const qa = callMaybe(runQaLock, { show:true }) || null;
 
     return {
       patch: PATCH,
-      enabled: !!state.touchSafety.enabled,
-      mobile: isMobileView(),
-      hitSlop: touchHitSlop(),
-      minTargetSize: minTargetSize(),
-      minTargetGap: minTargetGap(),
-      safeArena: getSafeArenaRect(60),
-      relocatedCount: state.touchSafety.relocatedCount,
-      enlargedCount: state.touchSafety.enlargedCount,
-      tapRescueCount: state.touchSafety.tapRescueCount,
-      targetAuditCount: state.touchSafety.targetAuditCount,
-      blockedBy: state.touchSafety.blockedBy,
-      lastElementAtPoint: state.touchSafety.lastElementAtPoint,
-      targets
+      qa,
+      state: callMaybe(getState),
+      flow: callMaybe(debugFlow),
+      final: callMaybe(debugFinal),
+      touch: callMaybe(debugTouch),
+      pacing: callMaybe(debugPacing),
+      pattern: callMaybe(debugPattern),
+      bossIdentity: callMaybe(debugBossIdentity),
+      hazard: callMaybe(debugHazard),
+      learning: callMaybe(debugLearning),
+      missionChain: callMaybe(debugMissionChain),
+      comeback: callMaybe(debugComeback),
+      introGoal: callMaybe(debugIntroGoal),
+      visualFx: callMaybe(debugVisualFx),
+
+      replayVariety: callMaybe(debugReplayVariety),
+      bossDrama: callMaybe(debugBossDrama),
+      rewardLoop: callMaybe(debugRewardLoop),
+      polishJuice: callMaybe(debugPolishJuice),
+      microTutorial: callMaybe(debugMicroTutorial),
+      difficultyPersonality: callMaybe(debugDifficultyPersonality),
+      finalBalance: callMaybe(debugFinalBalance),
+      balanceTuning: callMaybe(debugBalanceTuning),
+      childPolish: callMaybe(debugChildPolish),
+      runtimeGuard: callMaybe(debugRuntimeGuard)
     };
   }
 
   const publicApi = {
-    PATCH,
-    CFG,
-
+    patch: PATCH,
     boot,
     startGame,
     replayGame,
-    goCooldownOrExit,
+    togglePause,
+    useHeroHit,
     goHub,
+    goCooldownOrExit,
+    updateHud,
+    runQaLock,
+    getState,
 
-    getState(){
-      return {
-        patch: PATCH,
-        started: state.started,
-        paused: state.paused,
-        ended: state.ended,
-        score: state.score,
-        lives: state.lives,
-        combo: state.combo,
-        bossHp: state.bossHp,
-        bossMaxHp: state.bossMaxHp,
-        heroHit: state.heroHit,
-        phase: state.phase,
-        finalRush: state.finalRush,
-        targets: state.targets.size,
-        powerUps: state.powerUps.size
-      };
-    },
-
-    debugFlow(){
-      return {
-        patch: PATCH,
-        exitHref: resolveExitHref(),
-        flow: { ...state.flow },
-        hub: CFG.hub,
-        defaultZone: DEFAULT_ZONE
-      };
-    },
-
-    debugFinal(){
-      return {
-        patch: PATCH,
-        finalLock: { ...state.finalLock },
-        summarySaved: (() => {
-          try{ return JSON.parse(localStorage.getItem(STORAGE_LAST_SUMMARY) || 'null'); }
-          catch(_){ return null; }
-        })()
-      };
-    },
-
-    debugVisualFx(){
-      return {
-        patch: PATCH,
-        hasImpactFlash: !!$('gjImpactFlash'),
-        hasHeroCutIn: !!$('gjHeroCutIn'),
-        hasShieldCrack: !!DOC.querySelector('.gjShieldCrack'),
-        bossWrap: !!(el.bossWrap || $('bossWrap') || $('bossAvatar')),
-        finalRushGlow: !!(el.gameWorld || DOC.body).classList.contains('gjFinalRushGlow')
-      };
-    },
-
-    debugPacing(){
-      return {
-        patch: PATCH,
-        diff: DIFF,
-        elapsedSec: state.elapsedSec,
-        minBossFightSec: tune.minBossFightSec,
-        minimumFightReached: state.pacing.minimumFightReached,
-        bossHp: state.bossHp,
-        bossMaxHp: state.bossMaxHp,
-        bossHpPct: Math.round((state.bossHp / state.bossMaxHp) * 100),
-        phase: state.phase,
-        finalRush: state.finalRush,
-        softWinLocked: state.pacing.softWinLocked,
-        phaseGate: { ...state.pacing.phaseGate },
-        heroHit: state.heroHit,
-        heroHitGainedThisSec: state.pacing.heroHitGainedThisSec,
-        dangerMeter: state.dangerMeter,
-        scoreWinNeed: tune.scoreWinNeed
-      };
-    },
-
-    debugPattern(){
-      return {
-        patch: PATCH,
-        enabled: !!state.patternScript.enabled,
-        currentPhaseKey: state.patternScript.currentPhaseKey,
-        activePatternId: state.patternScript.activePatternId,
-        activePatternName: state.patternScript.activePatternName,
-        activePatternSuccess: state.patternScript.activePatternSuccess,
-        activePatternMistake: state.patternScript.activePatternMistake,
-        index: { ...state.patternScript.index },
-        lastPatternAt: state.patternScript.lastPatternAt,
-        cooldownMs: state.patternScript.patternCooldownMs,
-        patternRewardGiven: state.patternScript.patternRewardGiven
-      };
-    },
-
-    debugBossIdentity(){
-      return {
-        patch: PATCH,
-        enabled: !!state.bossIdentity.enabled,
-        currentKey: state.bossIdentity.currentKey,
-        identity: currentBossIdentity(),
-        weakness: currentWeakness(),
-        introShown: { ...state.bossIdentity.introShown },
-        speechCount: { ...state.bossIdentity.speechCount },
-        bossAvatar: el.bossAvatar?.textContent || '',
-        hasNamePlate: !!$('gjBossNamePlate')
-      };
-    },
-
-    debugHazard(){
-      return {
-        patch: PATCH,
-        enabled: !!state.arenaHazard.enabled,
-        active: state.arenaHazard.active,
-        activeLane: state.arenaHazard.activeLane,
-        activeZone: state.arenaHazard.activeZone,
-        activeLabel: state.arenaHazard.activeLabel,
-        endsInMs: state.arenaHazard.endsAt ? Math.max(0, state.arenaHazard.endsAt - Date.now()) : 0,
-        hazardEveryMs: hazardEveryMs(),
-        hazardDurationMs: hazardDurationMs(),
-        hazardCount: state.arenaHazard.hazardCount,
-        hitPenalty: state.arenaHazard.hitPenalty,
-        safeHits: state.arenaHazard.safeHits,
-        hasLaneDom: !!$('gjDangerLane'),
-        hasBannerDom: !!$('gjHazardBanner')
-      };
-    },
-
-    debugLearning(){
-      return {
-        patch: PATCH,
-        enabled: !!state.learningTip.enabled,
-        lastTip: state.learningTip.lastTip,
-        lastLesson: state.learningTip.lastLesson,
-        shownCount: state.learningTip.shownCount,
-        correctTricky: state.learningTip.correctTricky,
-        missedTricky: state.learningTip.missedTricky,
-        trickySeen: state.learningTip.trickySeen,
-        weaknessSeen: state.learningTip.weaknessSeen,
-        hasTipDom: !!$('gjLearningTip')
-      };
-    },
-
-    debugMissionChain(){
-      return {
-        patch: PATCH,
-        enabled: !!state.missionChain.enabled,
-        active: state.missionChain.active,
-        progress: state.missionChain.progress,
-        target: state.missionChain.target,
-        completedIds: [...state.missionChain.completedIds],
-        failedIds: [...state.missionChain.failedIds],
-        rewardGiven: state.missionChain.rewardGiven,
-        avoidStartedAt: state.missionChain.avoidStartedAt,
-        avoidBroken: state.missionChain.avoidBroken,
-        finishBoostReady: state.missionChain.finishBoostReady,
-        chainComplete: state.missionChain.chainComplete,
-        hasDom: !!$('gjMissionChain')
-      };
-    },
-
-    debugComeback(){
-      return {
-        patch: PATCH,
-        enabled: !!state.comeback.enabled,
-        used: state.comeback.used,
-        max: COMEBACK_RULES.maxComebackPerRun,
-        active: Date.now() < state.comeback.activeUntil,
-        activeLeftMs: state.comeback.activeUntil ? Math.max(0, state.comeback.activeUntil - Date.now()) : 0,
-        lastReason: state.comeback.lastReason,
-        rescueGiven: state.comeback.rescueGiven,
-        calmGiven: state.comeback.calmGiven,
-        focusGiven: state.comeback.focusGiven,
-        heroGiven: state.comeback.heroGiven,
-        totalShieldGiven: state.comeback.totalShieldGiven,
-        totalForcedGood: state.comeback.totalForcedGood,
-        totalForcedWeakness: state.comeback.totalForcedWeakness,
-        totalHeroBoost: state.comeback.totalHeroBoost,
-        recoverySuccess: state.comeback.recoverySuccess,
-        recoveryFailed: state.comeback.recoveryFailed,
-        balance: {
-          streakGood: state.balance.streakGood,
-          streakMiss: state.balance.streakMiss,
-          forcedGoodNext: state.balance.forcedGoodNext,
-          forcedWeaknessNext: state.balance.forcedWeaknessNext,
-          calmUntil: state.balance.calmUntil
-        },
-        hasBanner: !!$('gjComebackBanner'),
-        hasPill: !!$('gjComebackPill')
-      };
-    },
-
-    debugIntroGoal(){
-      return {
-        patch: PATCH,
-        enabled: !!state.introGoal.enabled,
-        showing: !!state.introGoal.showing,
-        skipped: !!state.introGoal.skipped,
-        goalRead: !!state.introGoal.goalRead,
-        starGoalShown: !!state.introGoal.starGoalShown,
-        countdown: state.introGoal.countdown,
-        starsNow: evaluateStarGoals(),
-        starsText: calcStars(),
-        goals: currentStarGoals(),
-        hasIntroDom: !!$('gjBossIntro'),
-        hasStarGoalHud: !!$('gjStarGoalHud')
-      };
-    },
-
+    debugFlow,
+    debugFinal,
     debugTouch,
+    debugPacing,
+    debugPattern,
+    debugBossIdentity,
+    debugHazard,
+    debugLearning,
+    debugMissionChain,
+    debugComeback,
+    debugIntroGoal,
+    debugVisualFx,
 
-    debugQA(show = true){
-      return runQaLock({ show });
-    },
+    debugReplayVariety,
+    debugBossDrama,
+    debugRewardLoop,
+    clearRewardLoop,
+    debugPolishJuice,
+    debugMicroTutorial,
+    debugDifficultyPersonality,
+    debugFinalBalance,
+    debugBalanceTuning,
+    debugChildPolish,
+    debugRuntimeGuard,
+    debugAdvancedStatus,
 
-    debugAll(){
-      const qa = callMaybe(runQaLock, { show:true }) || null;
-
+    debugMergeLock(){
       return {
         patch: PATCH,
-        qa,
-        state: callMaybe(this.getState?.bind(this)),
-        flow: callMaybe(this.debugFlow?.bind(this)),
-        final: callMaybe(this.debugFinal?.bind(this)),
-        touch: callMaybe(this.debugTouch?.bind(this)),
-        pacing: callMaybe(this.debugPacing?.bind(this)),
-        pattern: callMaybe(this.debugPattern?.bind(this)),
-        bossIdentity: callMaybe(this.debugBossIdentity?.bind(this)),
-        hazard: callMaybe(this.debugHazard?.bind(this)),
-        learning: callMaybe(this.debugLearning?.bind(this)),
-        missionChain: callMaybe(this.debugMissionChain?.bind(this)),
-        comeback: callMaybe(this.debugComeback?.bind(this)),
-        introGoal: callMaybe(this.debugIntroGoal?.bind(this)),
-        visualFx: callMaybe(this.debugVisualFx?.bind(this))
+        advanced: debugAdvancedStatus(),
+        requiredFunctions: qaRequiredFunctions(),
+        qa: runQaLock({ show:false })
       };
     },
 
-    testHazard(lane = ''){
-      startArenaHazard(lane);
-      return this.debugHazard();
+    debugAll,
+
+    forceSpawn(kind = ''){
+      return spawnTarget(kind);
     },
 
-    testTricky(){
-      const t = normalizeVariantAsGameData(pickTrickyTarget());
-      if(t){
-        spawnTargetWithData(t.penalty ? 'junk' : 'good', t, {
-          variantClass: 'tricky',
-          showMiniLabel: true
-        });
-      }
-      return this.debugLearning();
+    forcePower(type = ''){
+      return spawnPowerUp(type);
     },
 
-    testWeakness(){
-      const w = normalizeVariantAsGameData(pickWeaknessVariant());
-      if(w){
-        spawnTargetWithData('good', w, {
-          variantClass: 'weakness',
-          showMiniLabel: true
-        });
-      }
-      return this.debugLearning();
+    forceBossAttack(){
+      return bossAttack();
     },
 
-    nextMissionChain(){
-      startMissionChain(true);
-      return this.debugMissionChain();
-    },
-
-    testComeback(reason = 'manual'){
-      triggerComeback(reason);
-      return this.debugComeback();
-    },
-
-    testIntro(){
-      showBossIntro();
-      return this.debugIntroGoal();
-    },
-
-    toggleTouchDebug(on){
-      state.calibration.debugOverlay = typeof on === 'boolean'
-        ? on
-        : !state.calibration.debugOverlay;
-
-      ensureSafeAreaOverlay();
-      updateTouchDebug();
-
-      return this.debugTouch();
+    forceHazard(lane = ''){
+      return startArenaHazard(lane);
     },
 
     forceEnd(win = true){
       endGame(!!win);
-      return this.debugFinal();
+      return getState();
     },
 
-    forceHero(){
-      state.heroHit = 100;
-      updateHud();
-      return this.getState();
-    },
-
-    forceFinal(){
+    forceFinalRush(){
       state.finalRush = true;
+      markFinalRushStart();
       state.phase = 3;
+      markPhaseChange('final');
       setArenaTheme('final');
       updateBossIdentity(true);
       startMissionChain(true);
       updateHud();
-      return this.getState();
+      return getState();
+    },
+
+    testBonusRound(){
+      startBonusRound();
+      return debugReplayVariety();
+    },
+
+    testDrama(){
+      dramaSpeak('ข้าคือ Junk King! รอบนี้ไม่เหมือนเดิมแน่!', 1600, 0);
+      return debugBossDrama();
+    },
+
+    testSound(){
+      unlockAudio();
+      playSound('good');
+      setTimeout(() => playSound('hero'), 150);
+      setTimeout(() => playSound('win'), 380);
+      haptic('bonus');
+      return debugPolishJuice();
+    },
+
+    testComboJuice(combo = 10){
+      showComboJuice(combo);
+      playSound('bonus');
+      haptic('bonus');
+      return debugPolishJuice();
+    },
+
+    toggleSound,
+
+    testTutorial(id = 'firstGood'){
+      showMicroTutorial(id, 3400);
+      return debugMicroTutorial();
+    },
+
+    clearTutorialDone(){
+      try{
+        localStorage.removeItem(tutorialStorageKey());
+      }catch(_){}
+
+      state.microTutorial.doneBefore = false;
+      resetMicroTutorialRun();
+      return debugMicroTutorial();
+    },
+
+    testDifficultyPersonality(){
+      setupDifficultyPersonality();
+      announceDifficultyPersonality();
+      return debugDifficultyPersonality();
+    },
+
+    testFinalBalance(){
+      state.dangerMeter = 90;
+      const relief = shouldForceReliefTarget();
+      return {
+        relief,
+        debug: debugFinalBalance()
+      };
+    },
+
+    testBalanceHold(){
+      state.bossHp = 0;
+      tryWinOrForceRush();
+      return debugBalanceTuning();
+    },
+
+    testChildSummary(win = true){
+      const s = buildSummary(!!win);
+      s.rewardLoop = updateRewardLoop(s) || { enabled:false };
+      renderKidsSummary(s);
+      showScreen('summary');
+      return debugChildPolish();
+    },
+
+    clearRuntimeErrors(){
+      state.runtimeGuard.errors = [];
+      state.runtimeGuard.warnings = [];
+      state.runtimeGuard.errorCount = 0;
+      state.runtimeGuard.recoveredCount = 0;
+      state.runtimeGuard.lastRecovery = '';
+      return debugRuntimeGuard();
     }
   };
 
   WIN.GoodJunkSoloBoss = publicApi;
-  WIN.bootGoodJunkSoloBoss = boot;
 
-  WIN.addEventListener('hha:goodjunk:solo:start', () => {
-    startGame();
+  DOC.addEventListener('DOMContentLoaded', () => {
+    const root =
+      $('gjSoloBossApp') ||
+      $('app') ||
+      DOC.body;
+
+    boot(root);
   });
 
-  DOC.addEventListener('hha:goodjunk:solo:start', () => {
-    startGame();
-  });
+  if(DOC.readyState !== 'loading'){
+    setTimeout(() => {
+      const root =
+        $('gjSoloBossApp') ||
+        $('app') ||
+        DOC.body;
 
-  if(DOC.readyState === 'loading'){
-    DOC.addEventListener('DOMContentLoaded', () => {
-      boot($('gjSoloBossApp') || $('app') || DOC.body);
-    }, { once:true });
-  }else{
-    boot($('gjSoloBossApp') || $('app') || DOC.body);
+      boot(root);
+    }, 0);
   }
 
 })();
