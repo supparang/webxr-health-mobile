@@ -1,7 +1,6 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss.html === -->
-<!-- FULL PATCH v20260503b-GOODJUNK-SOLO-BOSS-RUN-ENTRY-COMPAT-DOM -->
-<!-- หน้านี้คือ “หน้าเล่นเกมจริง” เข้าแล้วต้องเล่น Solo Boss เลย ไม่ใช่ Launcher -->
-<!-- เพิ่ม Compatibility DOM เพื่อให้ goodjunk-solo-boss.js เดิม bindEvents() ไม่เจอ null -->
+<!-- FULL PATCH v20260503u-GOODJUNK-SOLO-BOSS-HTML-RUN-ENTRY-V8-15 -->
+<!-- หน้านี้คือหน้า RUN GAME จริง: เข้าแล้วเริ่ม GoodJunk Solo Boss เลย -->
 
 <!doctype html>
 <html lang="th">
@@ -13,37 +12,33 @@
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="../favicon.ico" />
 
-  <link rel="stylesheet" href="../goodjunk-page-base.css" />
-  <link rel="stylesheet" href="./goodjunk-solo-boss.css?v=20260503b-run-entry-compat" />
-
   <style>
     :root{
       --bg:#020617;
       --panel:#0f172a;
-      --panel2:#111827;
       --line:rgba(148,163,184,.18);
       --text:#f8fafc;
       --muted:#cbd5e1;
       --good:#22c55e;
-      --good2:#86efac;
-      --bad:#ef4444;
-      --bad2:#fca5a5;
       --gold:#facc15;
       --blue:#38bdf8;
-      --cyan:#22d3ee;
       --shadow:0 22px 70px rgba(0,0,0,.38);
+
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{
+      box-sizing:border-box;
+    }
 
-    html,body{
+    html,
+    body{
       margin:0;
       width:100%;
-      min-height:100%;
+      height:100%;
       overflow:hidden;
       background:
         radial-gradient(circle at 15% 0%, rgba(34,197,94,.16), transparent 28%),
@@ -53,32 +48,23 @@
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       -webkit-tap-highlight-color:transparent;
       touch-action:none;
+      overscroll-behavior:none;
     }
 
     body{
       min-height:100dvh;
     }
 
-    button{
-      font:inherit;
-      -webkit-tap-highlight-color:transparent;
-      touch-action:manipulation;
-    }
-
-    #gjSoloBossApp,
-    #app,
-    .gj-solo-boss-app{
+    #gjSoloBossApp{
       width:100vw;
       height:100dvh;
       min-height:100dvh;
       overflow:hidden;
       position:relative;
+      isolation:isolate;
     }
 
     .gjBoot{
-      position:absolute;
-      inset:0;
-      z-index:5000;
       width:100vw;
       height:100dvh;
       display:grid;
@@ -89,14 +75,6 @@
         calc(18px + var(--sab))
         calc(18px + var(--sal));
       text-align:center;
-      background:
-        radial-gradient(circle at 15% 0%, rgba(34,197,94,.16), transparent 28%),
-        radial-gradient(circle at 85% 0%, rgba(56,189,248,.14), transparent 30%),
-        linear-gradient(180deg,#020617 0%,#0f172a 55%,#111827 100%);
-    }
-
-    .gjBoot.is-hidden{
-      display:none !important;
     }
 
     .gjBootCard{
@@ -143,6 +121,7 @@
       margin-top:16px;
       display:inline-flex;
       align-items:center;
+      justify-content:center;
       gap:10px;
       min-height:42px;
       padding:9px 14px;
@@ -164,7 +143,9 @@
     }
 
     @keyframes gjSpin{
-      to{ transform:rotate(360deg); }
+      to{
+        transform:rotate(360deg);
+      }
     }
 
     .gjBootActions{
@@ -175,8 +156,7 @@
       flex-wrap:wrap;
     }
 
-    .gjBootBtn,
-    .gjCompatBtn{
+    .gjBootBtn{
       min-height:46px;
       padding:0 16px;
       border-radius:16px;
@@ -186,10 +166,10 @@
       font:inherit;
       font-weight:1000;
       cursor:pointer;
+      touch-action:manipulation;
     }
 
-    .gjBootBtn.primary,
-    .gjCompatBtn.primary{
+    .gjBootBtn.primary{
       border:none;
       background:linear-gradient(180deg,#86efac,#22c55e);
       color:#052e16;
@@ -211,525 +191,61 @@
       word-break:break-word;
     }
 
-    .screen{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      overflow:hidden;
-    }
-
-    .screen[hidden]{
-      display:none !important;
-    }
-
-    .gjCompatGameScreen{
-      background:
-        radial-gradient(circle at 50% 0%, rgba(34,197,94,.10), transparent 32%),
-        linear-gradient(180deg,#020617,#0f172a 58%,#111827);
-    }
-
-    .gjCompatIntro{
-      display:grid;
-      place-items:center;
-      padding:
-        calc(18px + var(--sat))
-        calc(18px + var(--sar))
-        calc(18px + var(--sab))
-        calc(18px + var(--sal));
-      background:
-        radial-gradient(circle at 20% 0%, rgba(34,197,94,.16), transparent 28%),
-        radial-gradient(circle at 80% 0%, rgba(56,189,248,.14), transparent 30%),
-        linear-gradient(180deg,#020617,#0f172a 58%,#111827);
-      text-align:center;
-    }
-
-    .gjCompatIntroCard{
-      width:min(92vw,760px);
-      border:1px solid var(--line);
-      border-radius:30px;
-      background:
-        radial-gradient(circle at 50% -20%, rgba(250,204,21,.12), transparent 42%),
-        linear-gradient(180deg,rgba(15,23,42,.92),rgba(2,6,23,.88));
-      box-shadow:var(--shadow);
-      padding:24px;
-    }
-
-    .gjCompatIntroIcon{
-      font-size:74px;
-      line-height:1;
-      filter:drop-shadow(0 18px 34px rgba(0,0,0,.34));
-    }
-
-    .gjCompatIntroTitle{
-      margin:12px 0 0;
-      font-size:clamp(28px,6vw,54px);
-      line-height:1.02;
-      font-weight:1000;
-      letter-spacing:-.04em;
-    }
-
-    .gjCompatIntroSub{
-      margin:12px auto 0;
-      max-width:560px;
-      color:#cbd5e1;
-      font-weight:800;
-      line-height:1.65;
-    }
-
-    .gjCompatActions{
-      margin-top:18px;
+    .gjBootMeta{
+      margin-top:12px;
       display:flex;
+      gap:8px;
+      flex-wrap:wrap;
       justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
     }
 
-    .gjHud{
-      position:absolute;
-      left:calc(12px + var(--sal));
-      right:calc(12px + var(--sar));
-      top:calc(10px + var(--sat));
-      z-index:20;
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-      pointer-events:none;
-    }
-
-    .gjHudBox{
-      min-height:52px;
-      border:1px solid var(--line);
-      border-radius:16px;
-      background:rgba(15,23,42,.76);
-      box-shadow:0 12px 28px rgba(0,0,0,.24);
-      padding:8px 10px;
-      backdrop-filter:blur(8px);
-    }
-
-    .gjHudLabel{
-      color:#94a3b8;
-      font-size:11px;
-      font-weight:1000;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-    }
-
-    .gjHudValue{
-      margin-top:3px;
-      color:#f8fafc;
-      font-size:18px;
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .gjTopButtons{
-      position:absolute;
-      right:calc(12px + var(--sar));
-      top:calc(74px + var(--sat));
-      z-index:30;
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .gjSmallBtn{
-      min-height:38px;
-      padding:0 12px;
+    .gjBootChip{
+      min-height:32px;
+      padding:7px 10px;
       border-radius:999px;
-      border:1px solid var(--line);
-      background:rgba(15,23,42,.78);
-      color:#f8fafc;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:0 12px 24px rgba(0,0,0,.22);
-    }
-
-    .gjWorld{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 50% 20%, rgba(250,204,21,.08), transparent 28%),
-        radial-gradient(circle at 50% 115%, rgba(34,197,94,.12), transparent 42%),
-        linear-gradient(180deg,#020617,#0f172a 55%,#111827);
-    }
-
-    .gjBossArena{
-      position:absolute;
-      left:50%;
-      top:42%;
-      transform:translate(-50%,-50%);
-      width:min(76vw,520px);
-      height:min(76vw,520px);
-      max-height:54vh;
-      border-radius:999px;
-      border:1px solid rgba(250,204,21,.12);
-      background:
-        radial-gradient(circle at 50% 45%, rgba(239,68,68,.16), transparent 34%),
-        radial-gradient(circle at 50% 50%, rgba(250,204,21,.10), transparent 54%);
-      pointer-events:none;
-      filter:drop-shadow(0 28px 80px rgba(0,0,0,.38));
-    }
-
-    .gjBossAvatar{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      font-size:clamp(80px,20vw,150px);
-      line-height:1;
-      animation:gjBossBob 1.15s ease-in-out infinite alternate;
-    }
-
-    @keyframes gjBossBob{
-      from{ transform:translate(-50%,-50%) translateY(0) scale(1); }
-      to{ transform:translate(-50%,-50%) translateY(-10px) scale(1.035); }
-    }
-
-    #targetLayer,
-    #fxLayer,
-    .targetLayer,
-    .fxLayer{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      pointer-events:none;
-    }
-
-    #targetLayer{
-      pointer-events:auto;
-    }
-
-    .gjTarget,
-    .foodTarget,
-    .target,
-    .gj-food{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      display:grid;
-      place-items:center;
-      width:64px;
-      height:64px;
-      border-radius:22px;
-      border:1px solid rgba(255,255,255,.16);
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
       background:rgba(15,23,42,.72);
-      box-shadow:0 18px 36px rgba(0,0,0,.28);
-      font-size:36px;
-      cursor:pointer;
-      user-select:none;
-      touch-action:manipulation;
-      pointer-events:auto;
-    }
-
-    .gjBottomHint{
-      position:absolute;
-      left:calc(12px + var(--sal));
-      right:calc(12px + var(--sar));
-      bottom:calc(12px + var(--sab));
-      z-index:25;
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:rgba(15,23,42,.76);
-      color:#cbd5e1;
-      box-shadow:0 16px 38px rgba(0,0,0,.28);
-      padding:10px 12px;
-      font-weight:900;
-      line-height:1.45;
-      text-align:center;
-      backdrop-filter:blur(8px);
-    }
-
-    .gjOverlay{
-      position:absolute;
-      inset:0;
-      z-index:80;
-      display:none;
-      place-items:center;
-      padding:18px;
-      background:rgba(2,6,23,.64);
-      backdrop-filter:blur(8px);
-    }
-
-    .gjOverlay.show{
-      display:grid;
-    }
-
-    .gjPauseCard,
-    .gjSummaryCard{
-      width:min(92vw,680px);
-      max-height:min(86dvh,760px);
-      overflow:auto;
-      border:1px solid var(--line);
-      border-radius:28px;
-      background:
-        radial-gradient(circle at 50% -20%, rgba(56,189,248,.12), transparent 42%),
-        linear-gradient(180deg,rgba(15,23,42,.96),rgba(2,6,23,.92));
-      box-shadow:var(--shadow);
-      padding:22px;
-      text-align:center;
-    }
-
-    .gjSummaryTitle{
-      margin:0;
-      font-size:clamp(26px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-    }
-
-    .gjSummaryGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:16px;
-    }
-
-    .gjSummaryBox{
-      border:1px solid var(--line);
-      border-radius:18px;
-      background:rgba(15,23,42,.66);
-      padding:14px;
-    }
-
-    .gjSummaryBoxLabel{
-      color:#94a3b8;
-      font-weight:1000;
+      border:1px solid rgba(148,163,184,.18);
+      color:#e5e7eb;
       font-size:12px;
-    }
-
-    .gjSummaryBoxValue{
-      margin-top:6px;
-      font-size:26px;
-      font-weight:1000;
-    }
-
-    .gjHiddenCompat{
-      display:none !important;
-    }
-
-    @media (max-width:720px){
-      .gjHud{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .gjHudBox{
-        min-height:46px;
-        padding:7px 8px;
-      }
-
-      .gjHudValue{
-        font-size:16px;
-      }
-
-      .gjTopButtons{
-        top:calc(126px + var(--sat));
-      }
-
-      .gjTarget,
-      .foodTarget,
-      .target,
-      .gj-food{
-        width:58px;
-        height:58px;
-        border-radius:20px;
-        font-size:32px;
-      }
-
-      .gjSummaryGrid{
-        grid-template-columns:1fr;
-      }
+      font-weight:900;
     }
   </style>
 </head>
 
 <body>
   <main id="gjSoloBossApp" class="gj-solo-boss-app" data-game="goodjunk" data-mode="solo-boss">
-
-    <!-- Boot overlay: ซ่อนเมื่อเริ่มเกม -->
     <section class="gjBoot" id="gjBoot">
       <div class="gjBootCard">
         <div class="gjBootIcon">👑</div>
+
         <h1 class="gjBootTitle">GoodJunk Solo Boss</h1>
+
         <p class="gjBootSub">
           กำลังโหลดหน้าเล่นเกมจริง ไม่ใช่หน้าเลือกโหมด
         </p>
 
+        <div class="gjBootMeta">
+          <span class="gjBootChip" id="gjBootMode">solo-boss</span>
+          <span class="gjBootChip" id="gjBootDiff">normal</span>
+          <span class="gjBootChip" id="gjBootView">mobile</span>
+        </div>
+
         <div class="gjBootStatus">
           <span class="gjSpin" aria-hidden="true"></span>
-          <span id="gjBootStatusText">Loading game engine...</span>
+          <span id="gjBootStatusText">Loading GoodJunk engine...</span>
         </div>
 
         <div class="gjBootActions">
           <button class="gjBootBtn primary" id="gjBootStartBtn" type="button">เริ่มเกม</button>
-          <button class="gjBootBtn" id="gjBootBackBtn" type="button">กลับ Nutrition</button>
+          <button class="gjBootBtn" id="gjBootBackBtn" type="button">ไป Cooldown / กลับ Nutrition</button>
         </div>
 
         <div class="gjBootError" id="gjBootError"></div>
       </div>
     </section>
-
-    <!-- Intro screen: JS เดิมมัก bind ปุ่ม start/back ตรงนี้ -->
-    <section id="introScreen" class="screen introScreen gjCompatIntro">
-      <div class="gjCompatIntroCard">
-        <div class="gjCompatIntroIcon">👑</div>
-        <h1 class="gjCompatIntroTitle" id="introTitle">GoodJunk Solo Boss</h1>
-        <p class="gjCompatIntroSub" id="introSub">
-          เก็บอาหารดี หลบอาหารขยะ ชาร์จ HERO HIT แล้วสู้กับ Junk King!
-        </p>
-
-        <div class="gjCompatActions">
-          <button id="introStartBtn" class="gjCompatBtn primary" type="button">เริ่ม Solo Boss</button>
-          <button id="introBackBtn" class="gjCompatBtn" type="button">กลับ Nutrition</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Game screen -->
-    <section id="gameScreen" class="screen gameScreen gjCompatGameScreen" hidden>
-      <div class="gjHud" id="hud">
-        <div class="gjHudBox">
-          <div class="gjHudLabel">Score</div>
-          <div class="gjHudValue" id="scoreText">0</div>
-        </div>
-        <div class="gjHudBox">
-          <div class="gjHudLabel">Time</div>
-          <div class="gjHudValue" id="timerText">0</div>
-        </div>
-        <div class="gjHudBox">
-          <div class="gjHudLabel">Life</div>
-          <div class="gjHudValue" id="lifeText">0</div>
-        </div>
-        <div class="gjHudBox">
-          <div class="gjHudLabel">Phase</div>
-          <div class="gjHudValue" id="phaseText">1</div>
-        </div>
-        <div class="gjHudBox">
-          <div class="gjHudLabel">Hero Hit</div>
-          <div class="gjHudValue" id="heroHitText">0%</div>
-        </div>
-      </div>
-
-      <div class="gjTopButtons">
-        <button id="backBtn" class="gjSmallBtn" type="button">กลับ</button>
-        <button id="pauseBtn" class="gjSmallBtn" type="button">พัก</button>
-        <button id="resumeBtn" class="gjSmallBtn" type="button">เล่นต่อ</button>
-      </div>
-
-      <div id="gameWorld" class="gjWorld">
-        <div id="bossArena" class="gjBossArena">
-          <div id="bossAvatar" class="gjBossAvatar">👑🍔</div>
-        </div>
-
-        <div id="targetLayer" class="targetLayer"></div>
-        <div id="fxLayer" class="fxLayer"></div>
-      </div>
-
-      <div class="gjBottomHint" id="goalText">
-        แตะอาหารดี 🥦🍎 เพื่อชาร์จพลัง HERO HIT และหลบอาหารขยะ 🍩🥤
-      </div>
-
-      <!-- Extra common IDs for older JS -->
-      <div id="bossHpText" class="gjHiddenCompat">100%</div>
-      <div id="bossHpFill" class="gjHiddenCompat"></div>
-      <div id="comboText" class="gjHiddenCompat">0</div>
-      <div id="goodText" class="gjHiddenCompat">0</div>
-      <div id="missText" class="gjHiddenCompat">0</div>
-      <div id="rageText" class="gjHiddenCompat">0</div>
-      <div id="heroHitFill" class="gjHiddenCompat"></div>
-      <button id="heroHitBtn" class="gjHiddenCompat" type="button">HERO HIT</button>
-    </section>
-
-    <!-- Pause overlay -->
-    <section id="pauseOverlay" class="gjOverlay">
-      <div class="gjPauseCard">
-        <h2>พักเกม</h2>
-        <p style="color:#cbd5e1;font-weight:800;line-height:1.6">พร้อมแล้วกดเล่นต่อได้เลย</p>
-        <div class="gjCompatActions">
-          <button id="pauseResumeBtn" class="gjCompatBtn primary" type="button">เล่นต่อ</button>
-          <button id="pauseBackBtn" class="gjCompatBtn" type="button">กลับ Nutrition</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Summary screen -->
-    <section id="summaryScreen" class="screen summaryScreen" hidden>
-      <div class="gjOverlay show">
-        <div class="gjSummaryCard">
-          <h1 class="gjSummaryTitle" id="summaryTitle">สรุปผล</h1>
-          <p id="summaryTip" style="color:#cbd5e1;font-weight:800;line-height:1.6">
-            เยี่ยมมาก! ฝึกเลือกอาหารดีและหลบอาหารขยะแล้ว
-          </p>
-
-          <div class="gjSummaryGrid">
-            <div class="gjSummaryBox">
-              <div class="gjSummaryBoxLabel">คะแนน</div>
-              <div class="gjSummaryBoxValue" id="summaryScore">0</div>
-            </div>
-            <div class="gjSummaryBox">
-              <div class="gjSummaryBoxLabel">อาหารดี</div>
-              <div class="gjSummaryBoxValue" id="summaryGood">0</div>
-            </div>
-            <div class="gjSummaryBox">
-              <div class="gjSummaryBoxLabel">พลาด</div>
-              <div class="gjSummaryBoxValue" id="summaryMiss">0</div>
-            </div>
-            <div class="gjSummaryBox">
-              <div class="gjSummaryBoxLabel">ดาว</div>
-              <div class="gjSummaryBoxValue" id="summaryStars">⭐</div>
-            </div>
-          </div>
-
-          <div class="gjCompatActions">
-            <button id="summaryReplayBtn" class="gjCompatBtn primary" type="button">เล่นอีกครั้ง</button>
-            <button id="summaryBackBtn" class="gjCompatBtn" type="button">กลับ HUB</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- More compatibility IDs: ซ่อนไว้เพื่อกัน JS เดิมหาไม่เจอ -->
-    <div class="gjHiddenCompat">
-      <button id="startBtn" type="button">start</button>
-      <button id="replayBtn" type="button">replay</button>
-      <button id="restartBtn" type="button">restart</button>
-      <button id="homeBtn" type="button">home</button>
-      <button id="hubBtn" type="button">hub</button>
-      <button id="backHubBtn" type="button">hub</button>
-      <button id="closeBtn" type="button">close</button>
-
-      <div id="phaseLabel"></div>
-      <div id="levelText"></div>
-      <div id="bossNameText"></div>
-      <div id="bossWeaknessText"></div>
-      <div id="missionText"></div>
-      <div id="coachText"></div>
-      <div id="toast"></div>
-      <div id="toastText"></div>
-      <div id="announcer"></div>
-      <div id="countdownText"></div>
-      <div id="finalRushText"></div>
-
-      <div id="hpText"></div>
-      <div id="hpFill"></div>
-      <div id="lifeFill"></div>
-      <div id="timerFill"></div>
-      <div id="powerFill"></div>
-      <div id="progressFill"></div>
-
-      <div id="foodLayer"></div>
-      <div id="junkLayer"></div>
-      <div id="enemyLayer"></div>
-      <div id="bossLayer"></div>
-      <div id="particleLayer"></div>
-      <div id="overlayLayer"></div>
-
-      <audio id="sfxGood"></audio>
-      <audio id="sfxBad"></audio>
-      <audio id="sfxBoss"></audio>
-      <audio id="sfxWin"></audio>
-      <audio id="sfxLose"></audio>
-    </div>
   </main>
 
   <script>
@@ -741,6 +257,11 @@
       const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
       const DEFAULT_HUB = ROOT + 'nutrition-zone.html';
 
+      function clean(v, fallback){
+        v = String(v ?? '').trim();
+        return v || fallback;
+      }
+
       function safeUrl(raw, fallback){
         try{
           if(!String(raw || '').trim()) return fallback;
@@ -750,20 +271,17 @@
         }
       }
 
-      function clean(v, fallback){
-        v = String(v ?? '').trim();
-        return v || fallback;
-      }
-
       const CFG = {
         pid: clean(q.get('pid'), 'anon'),
         name: clean(q.get('name') || q.get('nick'), 'Hero'),
         nick: clean(q.get('nick') || q.get('name'), 'Hero'),
+
         diff: clean(q.get('diff'), 'normal'),
         time: clean(q.get('time'), '150'),
         seed: clean(q.get('seed'), String(Date.now())),
         view: clean(q.get('view'), 'mobile'),
         run: clean(q.get('run'), 'play'),
+
         zone: clean(q.get('zone'), 'nutrition'),
         cat: clean(q.get('cat'), 'nutrition'),
         game: 'goodjunk',
@@ -771,8 +289,11 @@
         mode: clean(q.get('mode'), 'solo-boss'),
         entry: clean(q.get('entry'), 'solo-boss'),
         phaseBoss: clean(q.get('phaseBoss'), '1'),
+        multiplayer: clean(q.get('multiplayer'), '0'),
+
         hub: safeUrl(q.get('hub'), DEFAULT_HUB),
         hubRoot: safeUrl(q.get('hubRoot'), DEFAULT_HUB),
+
         api: clean(q.get('api'), ''),
         log: clean(q.get('log'), ''),
         studyId: clean(q.get('studyId'), ''),
@@ -782,7 +303,15 @@
 
       window.HHA_GOODJUNK_SOLO_BOSS_CONFIG = CFG;
       window.GJ_SOLO_BOSS_CONFIG = CFG;
-      window.HHA_GAME_CONTEXT = CFG;
+
+      function setText(id, text){
+        const el = document.getElementById(id);
+        if(el) el.textContent = String(text);
+      }
+
+      setText('gjBootMode', CFG.mode);
+      setText('gjBootDiff', CFG.diff);
+      setText('gjBootView', CFG.view);
 
       function goHub(){
         location.href = CFG.hub || DEFAULT_HUB;
@@ -792,7 +321,9 @@
         const box = document.getElementById('gjBootError');
         const status = document.getElementById('gjBootStatusText');
 
-        if(status) status.textContent = 'โหลดเกมไม่สำเร็จ';
+        if(status){
+          status.textContent = 'โหลดเกมไม่สำเร็จ';
+        }
 
         if(box){
           box.style.display = 'block';
@@ -800,55 +331,20 @@
         }
       }
 
-      function hideBoot(){
-        const boot = document.getElementById('gjBoot');
-        if(boot){
-          boot.classList.add('is-hidden');
-          boot.style.display = 'none';
-        }
-      }
-
-      function showBoot(){
-        const boot = document.getElementById('gjBoot');
-        if(boot){
-          boot.classList.remove('is-hidden');
-          boot.style.display = 'grid';
-        }
-      }
-
-      window.GJ_SOLO_HIDE_BOOT = hideBoot;
-      window.GJ_SOLO_SHOW_BOOT = showBoot;
-
       document.getElementById('gjBootBackBtn')?.addEventListener('click', goHub);
-      document.getElementById('introBackBtn')?.addEventListener('click', goHub);
-      document.getElementById('backBtn')?.addEventListener('click', goHub);
-      document.getElementById('pauseBackBtn')?.addEventListener('click', goHub);
-      document.getElementById('summaryBackBtn')?.addEventListener('click', goHub);
-
-      document.getElementById('pauseBtn')?.addEventListener('click', function(){
-        const overlay = document.getElementById('pauseOverlay');
-        if(overlay) overlay.classList.add('show');
-      });
-
-      document.getElementById('resumeBtn')?.addEventListener('click', function(){
-        const overlay = document.getElementById('pauseOverlay');
-        if(overlay) overlay.classList.remove('show');
-      });
-
-      document.getElementById('pauseResumeBtn')?.addEventListener('click', function(){
-        const overlay = document.getElementById('pauseOverlay');
-        if(overlay) overlay.classList.remove('show');
-      });
 
       document.getElementById('gjBootStartBtn')?.addEventListener('click', function(){
         try{
-          hideBoot();
+          if(typeof window.startGoodJunkSoloBoss === 'function'){
+            window.startGoodJunkSoloBoss(
+              document.getElementById('gjSoloBossApp'),
+              window.HHA_GOODJUNK_SOLO_BOSS_CONFIG
+            );
+            return;
+          }
 
           window.dispatchEvent(new CustomEvent('hha:goodjunk:solo:start', { detail: CFG }));
           document.dispatchEvent(new CustomEvent('hha:goodjunk:solo:start', { detail: CFG }));
-
-          const introStart = document.getElementById('introStartBtn');
-          if(introStart) introStart.click();
         }catch(err){
           showError(err);
         }
@@ -861,82 +357,60 @@
       window.addEventListener('unhandledrejection', function(ev){
         showError(ev.reason || 'Unhandled promise rejection');
       });
+
+      window.GoodJunkSoloBossPage = {
+        patch: 'v20260503u-GOODJUNK-SOLO-BOSS-HTML-RUN-ENTRY-V8-15',
+        cfg: CFG,
+        goHub,
+        debug(){
+          return {
+            cfg: CFG,
+            href: location.href,
+            hub: CFG.hub,
+            mode: CFG.mode,
+            entry: CFG.entry
+          };
+        }
+      };
     })();
   </script>
 
-  <script src="./goodjunk-solo-boss.js?v=20260503b-run-entry-compat" defer></script>
+  <!-- Game engine: ต้องเป็นไฟล์เกมจริง ไม่ใช่ launcher -->
+  <script src="./goodjunk-solo-boss.js?v=20260503t-v8-15-final-full-merge-lock" defer></script>
 
   <script>
     window.addEventListener('load', function(){
       const status = document.getElementById('gjBootStatusText');
-      if(status) status.textContent = 'Game engine loaded';
 
-      function showError(err){
-        const box = document.getElementById('gjBootError');
-        const status = document.getElementById('gjBootStatusText');
-
-        if(status) status.textContent = 'โหลดเกมไม่สำเร็จ';
-
-        if(box){
-          box.style.display = 'block';
-          box.textContent = String(err && (err.stack || err.message) || err || 'Unknown error');
-        }
+      if(status){
+        status.textContent = 'Game engine loaded';
       }
 
-      function hideBoot(){
-        const boot = document.getElementById('gjBoot');
-        if(boot){
-          boot.classList.add('is-hidden');
-          boot.style.display = 'none';
-        }
-      }
-
-      function startGame(){
+      setTimeout(function(){
         try{
           const root = document.getElementById('gjSoloBossApp');
           const cfg = window.HHA_GOODJUNK_SOLO_BOSS_CONFIG || {};
 
           if(typeof window.bootGoodJunkSoloBoss === 'function'){
-            hideBoot();
             window.bootGoodJunkSoloBoss(root, cfg);
-            return true;
-          }
-
-          if(typeof window.startGoodJunkSoloBoss === 'function'){
-            hideBoot();
-            window.startGoodJunkSoloBoss(root, cfg);
-            return true;
-          }
-
-          if(window.GoodJunkSoloBoss && typeof window.GoodJunkSoloBoss.boot === 'function'){
-            hideBoot();
+          }else if(window.GoodJunkSoloBoss && typeof window.GoodJunkSoloBoss.boot === 'function'){
             window.GoodJunkSoloBoss.boot(root, cfg);
-            return true;
+          }else{
+            window.dispatchEvent(new CustomEvent('hha:goodjunk:solo:start', { detail: cfg }));
+            document.dispatchEvent(new CustomEvent('hha:goodjunk:solo:start', { detail: cfg }));
           }
 
-          if(window.GoodJunkSoloBoss && typeof window.GoodJunkSoloBoss.start === 'function'){
-            hideBoot();
-            window.GoodJunkSoloBoss.start(root, cfg);
-            return true;
+          if(status){
+            status.textContent = 'Ready';
           }
-
-          window.dispatchEvent(new CustomEvent('hha:goodjunk:solo:start', { detail: cfg }));
-          document.dispatchEvent(new CustomEvent('hha:goodjunk:solo:start', { detail: cfg }));
-
-          const introStartBtn = document.getElementById('introStartBtn');
-          if(introStartBtn){
-            hideBoot();
-            introStartBtn.click();
-          }
-
-          return true;
         }catch(err){
-          showError(err);
-          return false;
+          const box = document.getElementById('gjBootError');
+          if(box){
+            box.style.display = 'block';
+            box.textContent = String(err && (err.stack || err.message) || err);
+          }
         }
-      }
-
-      setTimeout(startGame, 220);
+      }, 100);
     });
   </script>
 </body>
