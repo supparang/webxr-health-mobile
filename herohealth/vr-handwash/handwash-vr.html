@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504d-HANDWASH-VR-RETURN-ZONE-FIX -->
+<!-- FULL PATCH v20260504e-HANDWASH-SUMMARY-METRICS-FIX -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2896,7 +2896,71 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
       function researchStepTimeout(step){ if(!step) return; const m=ensureStepMetric(step); m.timeoutCount+=1; logResearchEvent('step_timeout',{stepId:step.id,progress:Math.round(state.stepProgress[step.id]||0),diff:rush.diff}); }
       function researchBossAnswer(value,ok){ research.boss.answerTotal+=1; if(ok) research.boss.answerCorrect+=1; else research.boss.answerWrong+=1; research.boss.bestStreak=Math.max(research.boss.bestStreak,Number(boss.bestStreak||0)); logResearchEvent('boss_answer',{value,ok,expected:ORDER[state.orderIndex],orderIndex:state.orderIndex,bossHp:Math.round(boss.hp),bossPhase:boss.phase,streak:boss.streak}); }
       function researchBossTimeout(){ research.boss.timeout+=1; logResearchEvent('boss_timeout',{orderIndex:state.orderIndex,expected:ORDER[state.orderIndex],bossHp:Math.round(boss.hp),bossPhase:boss.phase}); }
-      function getResearchMetrics(){ const steps=Object.values(research.stepMetrics); const finished=steps.filter(s=>s.endedAt||s.durationMs>0); const avg=finished.length?finished.reduce((a,b)=>a+Number(b.durationMs||0),0)/finished.length:0; const gestureAcc=research.gesture.totalMove?Math.round((research.gesture.goodMove/research.gesture.totalMove)*100):0; const weakZones=typeof getZoneResults==='function'?getZoneResults():[]; const weakest=weakZones[0]||null; const stepAccuracy=steps.map(s=>({id:s.id,label:s.label,target:s.target,gesture:s.gesture,progress:Math.round(s.progress||state.stepProgress[s.id]||0),durationSec:Math.round((s.durationMs||0)/100)/10,moveCount:s.moveCount,goodMove:s.goodMove,wrongMove:s.wrongMove,requirementBlocked:s.requirementBlocked,timeoutCount:s.timeoutCount,completed:!!s.completed,skipped:!!s.skipped})); return {sessionId:research.sessionId,startedAt:new Date(research.startedAt).toISOString(),endedAt:research.endedAt?new Date(research.endedAt).toISOString():null,durationSec:Math.round(((research.endedAt||Date.now())-research.startedAt)/1000),pid:qs.get('pid')||'anon',name:qs.get('name')||qs.get('nick')||'Hero',diff:rush.diff,view:qs.get('view')||'mobile',score:state.score,correct:state.correct,mistake:state.mistake,cleanPct:Math.round(scrub.cleanPct||0),germPct:Math.round(scrub.germPct||0),maxCombo:scrub.maxCombo,feverCount:scrub.feverCount,gestureAccuracy:gestureAcc,gestureGoodMove:research.gesture.goodMove,gestureWrongMove:research.gesture.wrongMove,gestureTotalMove:research.gesture.totalMove,gestureDistance:Math.round(research.gesture.totalDistance),avgStepSec:Math.round(avg/100)/10,weakestZone:weakest?{id:weakest.id,label:weakest.label,pct:weakest.pct}:null,tools:{...research.tools},boss:{answerTotal:research.boss.answerTotal,answerCorrect:research.boss.answerCorrect,answerWrong:research.boss.answerWrong,timeout:research.boss.timeout,bestStreak:Math.max(research.boss.bestStreak,Number(boss.bestStreak||0)),defeated:!!(boss.bossDefeated||boss.hp<=0),hpLeft:Math.max(0,Math.round(boss.hp)),phase:boss.phase||1},steps:stepAccuracy,eventsCount:research.events.length}; }
+      function getResearchMetrics(){
+        sanitizeProgressBeforeSummary();
+        updateCleanMeters();
+
+        const steps = Object.values(research.stepMetrics);
+        const finished = steps.filter(s => s.endedAt || s.durationMs > 0);
+        const avg = finished.length ? finished.reduce((a,b) => a + Number(b.durationMs || 0), 0) / finished.length : 0;
+        const gestureAcc = research.gesture.totalMove ? Math.round((research.gesture.goodMove / research.gesture.totalMove) * 100) : 0;
+        const weakZones = typeof getZoneResults === 'function' ? getZoneResults() : [];
+        const weakest = weakZones[0] || null;
+
+        const stepAccuracy = steps.map(s => ({
+          id:s.id,
+          label:s.label,
+          target:s.target,
+          gesture:s.gesture,
+          progress:Math.round(stepProgressPercent(s.id)),
+          durationSec:Math.round((s.durationMs || 0) / 100) / 10,
+          moveCount:s.moveCount,
+          goodMove:s.goodMove,
+          wrongMove:s.wrongMove,
+          requirementBlocked:s.requirementBlocked,
+          timeoutCount:s.timeoutCount,
+          completed:!!s.completed || stepProgressPercent(s.id) >= 100,
+          skipped:!!s.skipped
+        }));
+
+        return {
+          sessionId:research.sessionId,
+          startedAt:new Date(research.startedAt).toISOString(),
+          endedAt:research.endedAt ? new Date(research.endedAt).toISOString() : null,
+          durationSec:Math.round(((research.endedAt || Date.now()) - research.startedAt) / 1000),
+          pid:qs.get('pid') || 'anon',
+          name:qs.get('name') || qs.get('nick') || 'Hero',
+          diff:rush.diff,
+          view:qs.get('view') || 'mobile',
+          score:state.score,
+          correct:state.correct,
+          mistake:state.mistake,
+          cleanPct:pct(scrub.cleanPct),
+          germPct:pct(scrub.germPct),
+          maxCombo:readableCombo(),
+          feverCount:scrub.feverCount,
+          gestureAccuracy:gestureAcc,
+          gestureGoodMove:research.gesture.goodMove,
+          gestureWrongMove:research.gesture.wrongMove,
+          gestureTotalMove:research.gesture.totalMove,
+          gestureDistance:Math.round(research.gesture.totalDistance),
+          avgStepSec:Math.round(avg / 100) / 10,
+          weakestZone:weakest ? { id:weakest.id, label:weakest.label, pct:weakest.pct } : null,
+          tools:{...research.tools},
+          boss:{
+            answerTotal:research.boss.answerTotal,
+            answerCorrect:research.boss.answerCorrect,
+            answerWrong:research.boss.answerWrong,
+            timeout:research.boss.timeout,
+            bestStreak:Math.max(research.boss.bestStreak, Number(boss.bestStreak || 0)),
+            defeated:!!(boss.bossDefeated || boss.hp <= 0),
+            hpLeft:Math.max(0, Math.round(boss.hp)),
+            phase:boss.phase || 1
+          },
+          steps:stepAccuracy,
+          eventsCount:research.events.length
+        };
+      }
       function saveResearchSummary(){ research.endedAt=Date.now(); const metrics=getResearchMetrics(); research.summary=metrics; try{ localStorage.setItem('HHA_HANDWASH_RESEARCH_LAST',JSON.stringify(metrics)); localStorage.setItem('HHA_HANDWASH_RESEARCH_EVENTS_LAST',JSON.stringify(research.events)); const key='HHA_HANDWASH_RESEARCH_SESSIONS'; const old=JSON.parse(localStorage.getItem(key)||'[]'); old.unshift(metrics); localStorage.setItem(key,JSON.stringify(old.slice(0,20))); }catch(_){} return metrics; }
       function renderResearchPanel(){ const metrics=research.summary||getResearchMetrics(); if(el.metricGestureAcc) el.metricGestureAcc.textContent=`${metrics.gestureAccuracy||0}%`; if(el.metricAvgStepTime) el.metricAvgStepTime.textContent=`${metrics.avgStepSec||0}s`; if(el.metricWeakZone) el.metricWeakZone.textContent=metrics.weakestZone?`${metrics.weakestZone.label} ${metrics.weakestZone.pct}%`:'-'; if(el.metricBossMistakes){ const b=metrics.boss||{}; el.metricBossMistakes.textContent=String((b.answerWrong||0)+(b.timeout||0)); } if(el.researchText) el.researchText.value=JSON.stringify({summary:metrics,events:research.events},null,2); }
       function toggleResearchText(){ if(!el.researchText) return; renderResearchPanel(); el.researchText.classList.toggle('show'); }
@@ -2934,6 +2998,58 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
       function pct(n){
         return Math.round(clamp(n,0,100));
       }
+
+      /* === PATCH v20260504e-HANDWASH-SUMMARY-METRICS-TRUTH-FIX === */
+      function comboCap(){
+        const d = String((typeof rush !== 'undefined' && rush.diff) || qs.get('diff') || 'normal');
+        if(d === 'easy') return 30;
+        if(d === 'hard') return 40;
+        if(d === 'challenge') return 45;
+        return 35;
+      }
+
+      function readableCombo(){
+        return Math.min(comboCap(), Math.max(0, Math.round(Number(scrub.maxCombo || 0))));
+      }
+
+      function calcGermFromClean(clean, penalty){
+        clean = clamp(clean, 0, 100);
+        penalty = Math.max(0, Number(penalty || 0));
+
+        /*
+          Truth rule:
+          Germ should stay conceptually tied to Clean.
+          If Clean = 85%, germ should be close to 15-25%, not 50%.
+        */
+        const residual = 100 - clean;
+        const penaltyLeak = Math.min(12, Math.round(penalty * .18));
+        return clamp(residual + penaltyLeak, 0, 100);
+      }
+
+      function stepProgressPercent(id){
+        id = String(id || '');
+        const raw = Number(state.stepProgress[id] || 0);
+
+        if(id === 'soap' && state.hasSoap) return 100;
+        if(id === 'wet' && state.handsWet) return Math.max(100, raw);
+        if(id === 'dry' && state.dry >= 100) return 100;
+
+        return clamp(raw, 0, 100);
+      }
+
+      function sanitizeProgressBeforeSummary(){
+        if(state.hasSoap) state.stepProgress.soap = 100;
+        if(state.handsWet) state.stepProgress.wet = Math.max(100, Number(state.stepProgress.wet || 0));
+        if(state.dry >= 100) state.stepProgress.dry = 100;
+
+        WHO.forEach(s => {
+          if(Number(state.stepProgress[s.id] || 0) >= Number(s.goal || 100)){
+            state.stepProgress[s.id] = 100;
+          }
+        });
+      }
+
+
 
       function showToast(text){
         el.toast.textContent = text;
@@ -3074,7 +3190,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
 
       function setProgress(v){
         const step = currentStep();
-        state.stepProgress[step.id] = clamp(v, 0, step.goal || 100);
+        state.stepProgress[step.id] = clamp(v, 0, 100);
       }
 function updateStats(){
         el.statScore.textContent = String(state.score);
@@ -3084,16 +3200,20 @@ function updateStats(){
         updateCleanMeters();
         el.statClean.textContent = pct(scrub.cleanPct) + '%';
         el.statGerm.textContent = pct(scrub.germPct) + '%';
-        el.statCombo.textContent = String(scrub.combo || 0);
+        el.statCombo.textContent = String(Math.min(comboCap(), Math.max(0, Math.round(scrub.combo || 0))));
         document.body.classList.toggle('fever-on', Date.now() < scrub.feverUntil);
       }
 function updateCleanMeters(){
-        const sum = WHO.reduce((acc, s) => acc + clamp(state.stepProgress[s.id] || 0, 0, 100), 0);
+        sanitizeProgressBeforeSummary();
+
+        const sum = WHO.reduce((acc, s) => acc + stepProgressPercent(s.id), 0);
         const clean = sum / WHO.length;
+
         const rawPenalty = scrub.germPenalty * 1.6 + state.mistake * 1.4;
         const penalty = Math.min(36, rawPenalty * penaltyMul());
-        scrub.cleanPct = clamp(clean - penalty * .25, 0, 100);
-        scrub.germPct = clamp(100 - scrub.cleanPct + penalty, 0, 100);
+
+        scrub.cleanPct = clamp(clean - penalty * .18, 0, 100);
+        scrub.germPct = calcGermFromClean(scrub.cleanPct, penalty);
       }
 function setStage(stage){
         const oldStage = state.stage;
@@ -3862,13 +3982,14 @@ function skipStep(){
       }
 function renderSummary(){
         stopTimer();
-        const completed = WHO.filter(s => Number(state.stepProgress[s.id] || 0) >= (s.goal || 100)).length;
+        sanitizeProgressBeforeSummary();
+        const completed = WHO.filter(s => stepProgressPercent(s.id) >= Math.min(100, Number(s.goal || 100))).length;
         const total = state.correct + state.mistake;
         const acc = total ? Math.round((state.correct / total) * 100) : 0;
         updateCleanMeters();
         let stars = 1;
-        if(completed >= 12 && acc >= 70 && scrub.cleanPct >= 70) stars = 2;
-        if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80 && scrub.cleanPct >= 85) stars = 3;
+        if(completed >= 12 && acc >= 70 && pct(scrub.cleanPct) >= 70) stars = 2;
+        if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80 && pct(scrub.cleanPct) >= 85) stars = 3;
         el.summaryScore.textContent = String(state.score);
         el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
         const clean = pct(scrub.cleanPct);
@@ -3913,7 +4034,7 @@ function renderSummary(){
           <div class="badgeLine">${badge}</div>
           <div>🧼 ความสะอาด: <strong>${clean}%</strong></div>
           <div>🦠 เชื้อคงเหลือ: <strong>${germ}%</strong></div>
-          <div>🔥 Max Combo: <strong>${scrub.maxCombo}</strong></div>
+          <div>🔥 Max Combo: <strong>${readableCombo()}</strong></div>
           <div>🫧 Fever: <strong>${scrub.feverCount}</strong> ครั้ง</div>
           <div style="line-height:1.45;margin-top:4px;">${explain}</div>
         `;
@@ -3929,10 +4050,11 @@ function renderBossResult(){
 
 
       function renderMissionResult(){
+        const metric = getMetric();
         const passed = rush.missions.map(ms => ({
           title:ms.title,
           text:ms.text,
-          ok:!!ms.pass(getMetric(), state)
+          ok:!!ms.pass(metric, state)
         }));
 
         const allOk = passed.every(x => x.ok);
@@ -3947,7 +4069,7 @@ function renderBossResult(){
           </div>
         `).join('');
 
-        const clean = Math.round(scrub.cleanPct || 0);
+        const clean = metric.clean;
         let replay = 'รอบหน้า ลองทำ Clean ให้สูงขึ้นและพลาดให้น้อยลง';
         if(allOk) replay = 'สุดยอด! รอบหน้าเพิ่มระดับ hard เพื่อท้าทายขึ้น';
         else if(!boss.bossDefeated) replay = 'รอบหน้า พยายามตอบลำดับ WHO ให้เร็วขึ้นเพื่อปราบบอส';
@@ -3964,11 +4086,13 @@ function renderBossResult(){
       }
 
       function getMetric(){
+        updateCleanMeters();
+
         return {
-          clean:scrub.cleanPct,
-          germ:scrub.germPct,
-          combo:scrub.combo,
-          maxCombo:scrub.maxCombo,
+          clean:pct(scrub.cleanPct),
+          germ:pct(scrub.germPct),
+          combo:Math.max(0, Math.round(Number(scrub.combo || 0))),
+          maxCombo:readableCombo(),
           feverCount:scrub.feverCount,
           bossHp:boss.hp,
           bossMaxHp:boss.maxHp,
@@ -3999,7 +4123,7 @@ function renderBossResult(){
       ];
 
       function avgStepProgress(ids){
-        const list = (ids || []).map(id => Number(state.stepProgress[id] || 0));
+        const list = (ids || []).map(id => stepProgressPercent(id));
         if(!list.length) return 0;
         return Math.round(list.reduce((a,b) => a + b, 0) / list.length);
       }
@@ -4300,7 +4424,7 @@ function getHygieneZoneHref(){
           accuracy:acc,
           cleanPct:clean,
           germPct:germ,
-          maxCombo:scrub.maxCombo,
+          maxCombo:readableCombo(),
           feverCount:scrub.feverCount,
           cleanBadge,
           bossDefeated:boss.bossDefeated || boss.hp <= 0,
@@ -4454,7 +4578,7 @@ function updateRushHud(){
         el.rushMode.textContent = `ระดับ: ${diffLabel()} • Clean goal ${rush.config.cleanGoal}%`;
         el.rushClean.textContent = Math.round(m.clean) + '%';
         el.rushGerm.textContent = Math.round(m.germ) + '%';
-        el.rushCombo.textContent = String(Math.round(m.maxCombo || 0));
+        el.rushCombo.textContent = String(m.maxCombo || 0);
         if(state.stage === 'order' || state.stage === 'summary'){
           const phase = currentBossPhase();
           el.rushBoss.textContent = m.bossDefeated ? 'ชนะแล้ว' : `${phase.icon} P${phase.id} HP ${Math.max(0, Math.round(m.bossHp))}`;
@@ -4482,12 +4606,12 @@ function updateRushHud(){
           }
         }
 
-        if(scrub.maxCombo > rush.lastCombo){
-          if(scrub.maxCombo >= rush.config.comboGoal && rush.lastCombo < rush.config.comboGoal){
+        if(readableCombo() > rush.lastCombo){
+          if(readableCombo() >= rush.config.comboGoal && rush.lastCombo < rush.config.comboGoal){
             pop('🔥 Mission Combo สำเร็จ!');
             sfx('combo');
           }
-          rush.lastCombo = scrub.maxCombo;
+          rush.lastCombo = readableCombo();
         }
 
         if(scrub.feverCount > rush.lastFever){
@@ -4667,7 +4791,7 @@ function updateRushHud(){
           clean:scrub.cleanPct,
           germ:scrub.germPct,
           combo:scrub.combo,
-          maxCombo:scrub.maxCombo,
+          maxCombo:readableCombo(),
           feverCount:scrub.feverCount
         })
       };
