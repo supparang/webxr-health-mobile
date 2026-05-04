@@ -1,27 +1,36 @@
+<!-- === /herohealth/warmup-gate.html === -->
+<!-- FULL PATCH v20260503n-HHA-WARMUP-GATE-SHELL-CORE-ONLY -->
+<!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
+<!-- หน้าที่ของไฟล์นี้: โหลด /herohealth/gate/gate-core.js เพื่อให้ไปเปิด mini-game ของแต่ละเกมจริง ๆ -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>HeroHealth • Gate</title>
-  <meta name="theme-color" content="#9fe3ff" />
-  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./favicon.ico" />
 
   <style>
     :root{
-      --bg:#f7fcff;
-      --card:#ffffff;
-      --line:#dbeaf4;
-      --text:#334155;
-      --muted:#6d7d8b;
-      --sky:#7fcfff;
-      --gold:#ffd45f;
-      --gold-soft:#fff8ea;
-      --ok:#6fd18b;
-      --ok-soft:#f1fff4;
-      --bad:#ffb3b3;
-      --shadow:0 16px 34px rgba(0,0,0,.08);
-      --shadow-lg:0 24px 60px rgba(0,0,0,.15);
+      --bg:#020617;
+      --panel:#0f172a;
+      --panel2:#111827;
+      --line:rgba(148,163,184,.18);
+      --text:#f8fafc;
+      --muted:#cbd5e1;
+      --blue:#38bdf8;
+      --green:#22c55e;
+      --gold:#facc15;
+      --bad:#ef4444;
+      --shadow:0 24px 80px rgba(0,0,0,.38);
+
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
 
     *{ box-sizing:border-box; }
@@ -30,281 +39,194 @@
       margin:0;
       width:100%;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-      color:var(--text);
       background:
-        radial-gradient(circle at 10% 10%, rgba(255,233,168,.35), transparent 22%),
-        radial-gradient(circle at 90% 10%, rgba(127,207,255,.24), transparent 20%),
-        linear-gradient(180deg,#f7fcff,#fffef9);
+        radial-gradient(circle at 12% 0%, rgba(56,189,248,.18), transparent 30%),
+        radial-gradient(circle at 88% 0%, rgba(34,197,94,.14), transparent 28%),
+        linear-gradient(180deg,#020617 0%,#0f172a 56%,#111827 100%);
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       -webkit-tap-highlight-color:transparent;
+      overscroll-behavior:none;
     }
 
     body{
       min-height:100dvh;
-      display:grid;
-      place-items:center;
-      padding:
-        max(14px, env(safe-area-inset-top))
-        14px
-        max(14px, env(safe-area-inset-bottom));
-    }
-
-    .gate{
-      width:min(94vw,780px);
-    }
-
-    .gateCard{
-      background:linear-gradient(180deg,#fffef9,#f9fcff);
-      border:1px solid var(--line);
-      border-radius:30px;
-      padding:20px;
-      box-shadow:var(--shadow-lg);
-    }
-
-    .gateHead{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-      margin-bottom:16px;
-    }
-
-    .gateBadge{
-      width:72px;
-      height:72px;
-      border-radius:24px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe8a2,#ffd561);
-      font-size:38px;
-      flex:0 0 auto;
-      box-shadow:0 12px 24px rgba(255,208,94,.22);
-    }
-
-    .gateTitle{
-      margin:0 0 6px;
-      font-size:30px;
-      line-height:1.14;
-      font-weight:1000;
-      color:#284255;
-    }
-
-    .gateSubtitle{
-      margin:0;
-      color:var(--muted);
-      line-height:1.5;
-      font-size:15px;
-      font-weight:700;
-    }
-
-    .gateMeta{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .gateChip{
-      min-height:34px;
-      padding:0 12px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      background:#fff;
-      border:1px solid #e7dcc0;
-      color:#7b6121;
-      font-size:13px;
-      font-weight:900;
-    }
-
-    .gateMission{
-      margin:14px 0;
-      padding:14px;
-      border-radius:24px;
-      border:1px solid #f0ddb0;
-      background:
-        radial-gradient(circle at 92% 18%, rgba(255,215,106,.16), transparent 18%),
-        linear-gradient(180deg,#fffdf6,#fff9ef);
-    }
-
-    .gateMissionTitle{
-      font-size:13px;
-      font-weight:1000;
-      color:#8a6120;
-      margin-bottom:10px;
-    }
-
-    .gateSteps{
-      display:grid;
-      gap:10px;
-    }
-
-    .gateStep{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:12px;
-      border-radius:18px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 6px 14px rgba(0,0,0,.035);
-    }
-
-    .gateStepIcon{
-      width:44px;
-      height:44px;
-      border-radius:15px;
-      background:#eef8ff;
-      display:grid;
-      place-items:center;
-      font-size:22px;
-      flex:0 0 auto;
-    }
-
-    .gateStepTitle{
-      font-weight:1000;
-      color:#2d4859;
-      margin-bottom:4px;
-      line-height:1.22;
-    }
-
-    .gateStepText{
-      font-size:13px;
-      line-height:1.45;
-      color:var(--muted);
-      font-weight:700;
-    }
-
-    .gateTip{
-      margin-top:14px;
-      padding:14px;
-      border-radius:20px;
-      background:#f4fbff;
-      border:1px solid #d5ebf9;
-    }
-
-    .gateTipTitle{
-      font-size:13px;
-      font-weight:1000;
-      color:#37647e;
-      margin-bottom:5px;
-    }
-
-    .gateTipText{
-      color:#557284;
-      line-height:1.5;
-      font-size:14px;
-      font-weight:800;
-    }
-
-    .gateActions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .gateBtn{
-      min-height:52px;
-      padding:0 18px;
-      border:none;
-      border-radius:18px;
-      font-size:16px;
-      font-weight:1000;
-      cursor:pointer;
-      touch-action:manipulation;
-      transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
-    }
-
-    .gateBtn:active{
-      transform:scale(.985);
-    }
-
-    .gatePrimary{
-      background:var(--sky);
-      color:#17384f;
-      box-shadow:0 10px 18px rgba(127,207,255,.24);
-    }
-
-    .gateSecondary{
-      background:#fff;
-      color:#2f4f63;
-      border:1px solid var(--line);
-    }
-
-    .gateFooter{
-      margin-top:14px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(255,255,255,.76);
-      border:1px solid var(--line);
-      color:#60727f;
-      font-size:13px;
-      line-height:1.5;
-      font-weight:800;
-    }
-
-    .gateProgress{
-      margin-top:12px;
-      height:10px;
-      border-radius:999px;
-      background:#f2e8cf;
       overflow:hidden;
     }
 
-    .gateProgressFill{
-      height:100%;
-      width:0%;
+    #gate-app{
+      width:100vw;
+      height:100dvh;
+      min-height:100dvh;
+      overflow:auto;
+      position:relative;
+    }
+
+    .gateBoot{
+      min-height:100dvh;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(18px + var(--sat))
+        calc(18px + var(--sar))
+        calc(18px + var(--sab))
+        calc(18px + var(--sal));
+    }
+
+    .gateBootCard{
+      width:min(92vw,680px);
+      border-radius:30px;
+      border:1px solid var(--line);
+      background:
+        radial-gradient(circle at 50% -10%, rgba(56,189,248,.14), transparent 42%),
+        linear-gradient(180deg,rgba(15,23,42,.94),rgba(2,6,23,.90));
+      box-shadow:var(--shadow);
+      padding:24px;
+      text-align:center;
+    }
+
+    .gateBootIcon{
+      width:88px;
+      height:88px;
+      border-radius:28px;
+      margin:0 auto 14px;
+      display:grid;
+      place-items:center;
+      font-size:48px;
+      background:linear-gradient(180deg,#dbeafe,#93c5fd);
+      box-shadow:0 20px 42px rgba(56,189,248,.22);
+    }
+
+    .gateBootTitle{
+      margin:0;
+      font-size:clamp(28px,6vw,46px);
+      line-height:1.05;
+      font-weight:1000;
+      letter-spacing:-.04em;
+    }
+
+    .gateBootSub{
+      margin:10px auto 0;
+      max-width:560px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:850;
+    }
+
+    .gateBootStatus{
+      margin-top:16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      min-height:42px;
+      padding:9px 14px;
       border-radius:999px;
-      background:linear-gradient(90deg,#ffd76a,#ffb347);
-      transition:width .28s ease;
+      background:rgba(15,23,42,.76);
+      border:1px solid var(--line);
+      color:#dbeafe;
+      font-size:13px;
+      font-weight:1000;
     }
 
-    .gateCustomRoot{
+    .gateSpin{
+      width:18px;
+      height:18px;
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.24);
+      border-top-color:#38bdf8;
+      animation:gateSpin .82s linear infinite;
+    }
+
+    @keyframes gateSpin{
+      to{ transform:rotate(360deg); }
+    }
+
+    .gateBootError{
       margin-top:14px;
+      display:none;
+      text-align:left;
+      white-space:pre-wrap;
+      word-break:break-word;
+      padding:12px;
+      border-radius:16px;
+      border:1px solid rgba(239,68,68,.30);
+      background:rgba(127,29,29,.22);
+      color:#fecaca;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:800;
     }
 
-    .gateCustomRoot:empty{
-      display:none;
+    .gateBootActions{
+      margin-top:16px;
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .gateBootBtn{
+      min-height:48px;
+      padding:0 16px;
+      border:none;
+      border-radius:16px;
+      font:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      color:#052e16;
+      background:linear-gradient(180deg,#86efac,#22c55e);
+      box-shadow:0 14px 30px rgba(34,197,94,.18);
+    }
+
+    .gateBootBtn.secondary{
+      color:var(--text);
+      background:rgba(15,23,42,.78);
+      border:1px solid var(--line);
+      box-shadow:none;
+    }
+
+    .gateBootMeta{
+      margin-top:12px;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:center;
+    }
+
+    .gateBootChip{
+      min-height:32px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:7px 11px;
+      border-radius:999px;
+      background:rgba(15,23,42,.62);
+      border:1px solid rgba(148,163,184,.15);
+      color:#e5e7eb;
+      font-size:12px;
+      font-weight:1000;
     }
 
     @media (max-width:640px){
-      body{
-        padding:
-          max(10px, env(safe-area-inset-top))
-          10px
-          max(10px, env(safe-area-inset-bottom));
-      }
-
-      .gateCard{
+      .gateBootCard{
         border-radius:24px;
-        padding:16px;
+        padding:18px;
       }
 
-      .gateHead{
-        gap:12px;
+      .gateBootIcon{
+        width:76px;
+        height:76px;
+        border-radius:24px;
+        font-size:42px;
       }
 
-      .gateBadge{
-        width:62px;
-        height:62px;
-        border-radius:20px;
-        font-size:32px;
-      }
-
-      .gateTitle{
-        font-size:24px;
-      }
-
-      .gateSubtitle{
-        font-size:14px;
-      }
-
-      .gateActions{
+      .gateBootActions{
         flex-direction:column;
       }
 
-      .gateBtn{
+      .gateBootBtn{
         width:100%;
       }
     }
@@ -312,631 +234,197 @@
 </head>
 
 <body>
-  <main class="gate">
-    <section class="gateCard" role="main" aria-labelledby="gateTitle">
-      <div class="gateHead">
-        <div class="gateBadge" id="gateBadge">🍽️</div>
-        <div>
-          <h1 class="gateTitle" id="gateTitle">เตรียมพร้อมก่อนเล่น</h1>
-          <p class="gateSubtitle" id="gateSubtitle">อีกนิดเดียวจะเข้าเกมแล้ว</p>
+  <main id="gate-app">
+    <section class="gateBoot" id="gateBoot">
+      <div class="gateBootCard">
+        <div class="gateBootIcon" id="gateBootIcon">🎮</div>
+        <h1 class="gateBootTitle" id="gateBootTitle">กำลังโหลด Gate</h1>
+        <p class="gateBootSub" id="gateBootSub">
+          ระบบกำลังโหลด mini-game สำหรับ warmup/cooldown ของเกมนี้
+        </p>
 
-          <div class="gateMeta">
-            <div class="gateChip" id="gateGameChip">HeroHealth</div>
-            <div class="gateChip" id="gatePhaseChip">Warmup</div>
-            <div class="gateChip" id="gateDiffChip">normal</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="gateMission" id="gateMission">
-        <div class="gateMissionTitle" id="gateMissionTitle">ก่อนเริ่ม จำ 3 อย่างนี้</div>
-
-        <div class="gateSteps" id="gateSteps">
-          <div class="gateStep">
-            <div class="gateStepIcon" id="gateStep1Icon">🎯</div>
-            <div>
-              <div class="gateStepTitle" id="gateStep1Title">ดูเป้าหมายรอบนี้</div>
-              <div class="gateStepText" id="gateStep1Text">เกมจะบอกว่าต้องทำอะไร</div>
-            </div>
-          </div>
-
-          <div class="gateStep">
-            <div class="gateStepIcon" id="gateStep2Icon">👆</div>
-            <div>
-              <div class="gateStepTitle" id="gateStep2Title">แตะให้ถูก</div>
-              <div class="gateStepText" id="gateStep2Text">เลือกสิ่งที่ตรงกับเป้าหมาย</div>
-            </div>
-          </div>
-
-          <div class="gateStep">
-            <div class="gateStepIcon" id="gateStep3Icon">🌟</div>
-            <div>
-              <div class="gateStepTitle" id="gateStep3Title">พยายามให้ดีที่สุด</div>
-              <div class="gateStepText" id="gateStep3Text">เล่นให้สนุกและเรียนรู้ไปพร้อมกัน</div>
-            </div>
-          </div>
+        <div class="gateBootMeta">
+          <span class="gateBootChip" id="gateBootGame">game</span>
+          <span class="gateBootChip" id="gateBootPhase">phase</span>
+          <span class="gateBootChip" id="gateBootDiff">normal</span>
         </div>
 
-        <div class="gateProgress">
-          <div class="gateProgressFill" id="gateProgressFill"></div>
+        <div class="gateBootStatus">
+          <span class="gateSpin" aria-hidden="true"></span>
+          <span id="gateBootStatusText">Loading gate-core...</span>
         </div>
 
-        <div class="gateCustomRoot" id="gateCustomRoot"></div>
-      </div>
+        <div class="gateBootActions" id="gateBootActions" style="display:none;">
+          <button class="gateBootBtn" id="gateRetryBtn" type="button">โหลดใหม่</button>
+          <button class="gateBootBtn secondary" id="gateContinueBtn" type="button">ไปต่อ</button>
+          <button class="gateBootBtn secondary" id="gateBackBtn" type="button">กลับ</button>
+        </div>
 
-      <div class="gateTip" id="gateTip">
-        <div class="gateTipTitle" id="gateTipTitle">เคล็ดลับ</div>
-        <div class="gateTipText" id="gateTipText">อ่านเป้าหมายให้เข้าใจก่อนเริ่มเล่น</div>
-      </div>
-
-      <div class="gateActions">
-        <button class="gateBtn gatePrimary" id="gatePrimaryBtn" type="button">เริ่มเกม</button>
-        <button class="gateBtn gateSecondary" id="gateSecondaryBtn" type="button">กลับ</button>
-      </div>
-
-      <div class="gateFooter" id="gateFooter">
-        ระบบจะส่งข้อมูล player, difficulty, view, seed, hub และ log ต่อไปยังหน้าถัดไปอัตโนมัติ
+        <div class="gateBootError" id="gateBootError"></div>
       </div>
     </section>
   </main>
 
   <script>
-  (function(){
-    'use strict';
+    (function(){
+      'use strict';
 
-    const WIN = window;
-    const DOC = document;
-    const q = new URLSearchParams(location.search);
+      const q = new URLSearchParams(location.search);
 
-    const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-    const URLS = {
-      gate: ROOT + 'warmup-gate.html',
-      nutrition: ROOT + 'nutrition-zone.html',
-      hub: ROOT + 'hub-v2.html',
-      goodjunkBoss: ROOT + 'vr-goodjunk/goodjunk-solo-boss.html',
-      plateRun: ROOT + 'plate/plate-vr.html'
-    };
-
-    function qs(name, fallback=''){
-      return q.get(name) ?? fallback;
-    }
-
-    function clean(v, d=''){
-      v = String(v ?? '').trim();
-      return v || d;
-    }
-
-    function isAbsUrl(s){
-      return /^https?:\/\//i.test(String(s || ''));
-    }
-
-    function safeDecodeUrlMaybe(s){
-      s = String(s || '');
-      if(!s) return '';
-      try{
-        return decodeURIComponent(s);
-      }catch(_){
-        return s;
-      }
-    }
-
-    function bangkokYmd(){
-      try{
-        const parts = new Intl.DateTimeFormat('en-CA', {
-          timeZone:'Asia/Bangkok',
-          year:'numeric',
-          month:'2-digit',
-          day:'2-digit'
-        }).formatToParts(new Date());
-
-        const m = {};
-        parts.forEach(p => {
-          if(p.type !== 'literal') m[p.type] = p.value;
-        });
-
-        return `${m.year}-${m.month}-${m.day}`;
-      }catch(_){
-        const d = new Date();
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
-    }
-
-    function cleanPhase(v){
-      v = String(v || 'warmup').toLowerCase();
-      return v === 'cooldown' ? 'cooldown' : 'warmup';
-    }
-
-    const ctx = {
-      pid: clean(qs('pid'), 'anon'),
-      name: clean(qs('name'), clean(qs('nick'), 'Hero')),
-      nick: clean(qs('nick'), clean(qs('name'), 'Hero')),
-      studyId: clean(qs('studyId'), ''),
-      section: clean(qs('section'), ''),
-      session_code: clean(qs('session_code'), ''),
-      diff: clean(qs('diff'), 'normal'),
-      time: clean(qs('time'), '150'),
-      seed: clean(qs('seed'), String(Date.now())),
-      hub: safeDecodeUrlMaybe(clean(qs('hub'), URLS.nutrition)),
-      view: clean(qs('view'), 'mobile'),
-      run: clean(qs('run'), 'play'),
-      zone: clean(qs('zone'), 'nutrition'),
-      cat: clean(qs('cat'), 'nutrition'),
-      gameId: clean(qs('gameId'), clean(qs('game'), '')),
-      game: clean(qs('game'), clean(qs('gameId'), '')),
-      mode: clean(qs('mode'), 'solo'),
-      phase: cleanPhase(qs('phase')),
-      entry: clean(qs('entry'), ''),
-      phaseBoss: clean(qs('phaseBoss'), ''),
-      multiplayer: clean(qs('multiplayer'), ''),
-      fromLauncher: clean(qs('fromLauncher'), ''),
-      log: clean(qs('log'), ''),
-      api: clean(qs('api'), ''),
-      next: safeDecodeUrlMaybe(clean(qs('next'), ''))
-    };
-
-    function inferGame(){
-      const s = `${ctx.gameId} ${ctx.game} ${ctx.next} ${location.href}`.toLowerCase();
-
-      if(s.includes('goodjunk') || s.includes('good-junk')){
-        return 'goodjunk';
+      function clean(v, d=''){
+        v = String(v ?? '').trim();
+        return v || d;
       }
 
-      if(s.includes('plate')){
-        return 'plate';
+      function safeDecode(v){
+        v = String(v || '');
+        if(!v) return '';
+        try{ return decodeURIComponent(v); }
+        catch(_){ return v; }
       }
 
-      return ctx.gameId || ctx.game || 'game';
-    }
-
-    const GAME_ID = inferGame();
-    ctx.gameId = ctx.gameId || GAME_ID;
-    ctx.game = ctx.game || GAME_ID;
-
-    const isCooldown = ctx.phase === 'cooldown';
-    const isPlate = GAME_ID === 'plate';
-    const isGoodJunk = GAME_ID === 'goodjunk';
-
-    const COPY = {
-      goodjunk: {
-        warmup:{
-          badge:'🥦',
-          title:'เตรียมสู้บอสอาหารขยะ',
-          subtitle:'ก่อนเข้า GoodJunk Solo Phase Boss มาจำเป้าหมายสั้น ๆ ก่อนเล่น',
-          missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
-          steps:[
-            ['🥗','เก็บอาหารดี','แตะอาหารดี เช่น ผัก ผลไม้ โปรตีน และอาหารครบ 5 หมู่'],
-            ['🚫','หลบอาหารขยะ','หลบ 🍟 🍩 🥤 และของหวาน/ของทอดที่บอสส่งมา'],
-            ['⚡','ชาร์จ HERO HIT','เก็บอาหารดีต่อเนื่องเพื่อชาร์จพลังโจมตีบอส']
-          ],
-          tipTitle:'เคล็ดลับ',
-          tipText:'ดู Boss Weakness และแถบ HERO HIT ถ้าพลังเต็มให้กดใช้ตอนบอสเลือดน้อยหรือ Final Rush',
-          primary:'เริ่ม Solo Boss',
-          secondary:'กลับ Nutrition Zone',
-          titleTag:'HeroHealth • เตรียม GoodJunk Boss',
-          footer:'Warmup นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม GoodJunk'
-        },
-        cooldown:{
-          badge:'🌈',
-          title:'ผ่อนคลายหลังสู้บอส',
-          subtitle:'เล่นจบแล้ว มาทบทวนสิ่งที่เรียนรู้ก่อนกลับ Nutrition Zone',
-          missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
-          steps:[
-            ['✅','อาหารดีช่วยเพิ่มพลัง','การเลือกอาหารดีช่วยให้ร่างกายแข็งแรงและมีพลัง'],
-            ['⚠️','อาหารขยะควรกินให้น้อย','น้ำอัดลม โดนัท ของทอด และขนมหวานควรกินแต่น้อย'],
-            ['🌈','อาหารครบ 5 หมู่สำคัญ','โปรตีน ข้าว/แป้ง ผัก ผลไม้ และไขมันดีช่วยให้ร่างกายเติบโต']
-          ],
-          tipTitle:'สิ่งที่ทำได้ดี',
-          tipText:'วันนี้ได้ฝึกแยกอาหารดี อาหารขยะ และการตัดสินใจเร็วขึ้นแล้ว',
-          primary:'กลับ Nutrition Zone',
-          secondary:'เล่น Solo Boss อีกครั้ง',
-          titleTag:'HeroHealth • Cooldown GoodJunk',
-          footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม GoodJunk'
-        }
-      },
-      plate: {
-        warmup:{
-          badge:'🍽️',
-          title:'เตรียมจัดจานสุขภาพ',
-          subtitle:'อีกนิดเดียวจะเข้า Plate Solo แล้ว รอบนี้ goal จะติดอยู่บนจอตลอด ไม่ต้องเลื่อนหาเป้าหมาย',
-          missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
-          steps:[
-            ['🎯','ดูเป้าหมายรอบนี้','เกมจะบอกว่าต้องเก็บอาหารหมู่ไหน เช่น โปรตีน ผัก ผลไม้ หรือไขมันดี'],
-            ['👆','แตะเฉพาะของที่ตรงกับ goal','ถ้า goal ล็อกไว้ที่ “โปรตีน” ให้แตะเฉพาะอาหารโปรตีนเท่านั้น'],
-            ['🚫','หลบตัวหลอก','ของหวาน น้ำอัดลม หรืออาหารคนละหมู่จะเป็นตัวหลอก ถ้าแตะจะเสียคะแนน']
-          ],
-          tipTitle:'เคล็ดลับ',
-          tipText:'ระหว่างเล่นให้มอง goal bar ด้านบนไว้เสมอ เห็นจำนวนที่เก็บได้และจำนวนที่ต้องเก็บครบตลอดเวลา',
-          primary:'เริ่ม Plate Solo',
-          secondary:'กลับ Nutrition Zone',
-          titleTag:'HeroHealth • เตรียม Plate Solo',
-          footer:'Warmup นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม Plate'
-        },
-        cooldown:{
-          badge:'🌟',
-          title:'สรุปการจัดจานสุขภาพ',
-          subtitle:'เล่นจบแล้ว มาทบทวนสั้น ๆ ก่อนกลับ HUB',
-          missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
-          steps:[
-            ['✅','อาหารแต่ละหมู่อยู่คนละบทบาท','โปรตีนช่วยซ่อมแซมร่างกาย ข้าว/แป้งให้พลังงาน ผักและผลไม้ช่วยเรื่องวิตามินและใยอาหาร'],
-            ['🍽️','จานที่ดีควรสมดุล','ไม่ใช่มีแต่อาหารที่ชอบ แต่ควรมีหลายหมู่รวมกันให้เหมาะสม'],
-            ['💡','ครั้งหน้าให้ดู goal ก่อนแตะ','ถ้ารู้ว่ารอบนี้ล็อกหมู่ไหน จะลดการแตะผิดและทำคะแนนได้ดีขึ้น']
-          ],
-          tipTitle:'สิ่งที่ทำได้ดี',
-          tipText:'คุณฝึกแยกหมู่อาหารและตัดสินใจเร็วขึ้นแล้ว ต่อไปลองทำให้แม่นขึ้นและพลาดให้น้อยลง',
-          primary:'กลับ HUB',
-          secondary:'เล่น Plate Solo อีกครั้ง',
-          titleTag:'HeroHealth • สรุป Plate Solo',
-          footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกม Plate'
-        }
-      },
-      generic: {
-        warmup:{
-          badge:'✨',
-          title:'เตรียมพร้อมก่อนเล่น',
-          subtitle:'อ่านเป้าหมายสั้น ๆ ก่อนเริ่มเกม',
-          missionTitle:'ก่อนเริ่ม จำ 3 อย่างนี้',
-          steps:[
-            ['🎯','ดูเป้าหมาย','สังเกตว่าเกมต้องการให้ทำอะไร'],
-            ['👆','เล่นอย่างตั้งใจ','แตะหรือเลือกสิ่งที่ตรงกับคำสั่ง'],
-            ['🌟','เรียนรู้จากผลลัพธ์','ถ้าพลาดไม่เป็นไร ลองใหม่ให้แม่นขึ้น']
-          ],
-          tipTitle:'เคล็ดลับ',
-          tipText:'ค่อย ๆ ดูคำสั่งก่อนเริ่ม จะช่วยให้เล่นได้ดีขึ้น',
-          primary:'เริ่มเกม',
-          secondary:'กลับ HUB',
-          titleTag:'HeroHealth • Warmup',
-          footer:'Warmup นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกมนี้'
-        },
-        cooldown:{
-          badge:'🌟',
-          title:'สรุปหลังเล่น',
-          subtitle:'เล่นจบแล้ว มาทบทวนสั้น ๆ ก่อนกลับ HUB',
-          missionTitle:'หลังเล่น ลองจำ 3 อย่างนี้',
-          steps:[
-            ['✅','ดูสิ่งที่ทำได้ดี','จำจุดที่ทำได้ดีไว้'],
-            ['💡','ดูจุดที่ควรปรับ','ถ้าพลาดให้ลองคิดว่าพลาดเพราะอะไร'],
-            ['🌈','พร้อมเล่นครั้งต่อไป','ครั้งหน้าจะทำได้แม่นขึ้น']
-          ],
-          tipTitle:'สิ่งที่ทำได้ดี',
-          tipText:'คุณได้ฝึกคิด ตัดสินใจ และตอบสนองระหว่างเล่นแล้ว',
-          primary:'กลับ HUB',
-          secondary:'เล่นอีกครั้ง',
-          titleTag:'HeroHealth • Cooldown',
-          footer:'Cooldown นี้ทำเพียงวันละครั้งต่อผู้เล่นและเกมนี้'
-        }
-      }
-    };
-
-    const copyGroup = isGoodJunk ? COPY.goodjunk : isPlate ? COPY.plate : COPY.generic;
-    let copy = isCooldown ? copyGroup.cooldown : copyGroup.warmup;
-
-    const $ = id => document.getElementById(id);
-
-    function setText(id, text){
-      const el = $(id);
-      if(el) el.textContent = text;
-    }
-
-    function gateKey(phase){
-      const pid = ctx.pid || 'anon';
-      const gameId = ctx.gameId || ctx.game || GAME_ID || 'game';
-      return `HHA_GATE_DONE::${bangkokYmd()}::${pid}::${gameId}::${phase}`;
-    }
-
-    function isGateDone(phase){
-      try{
-        return localStorage.getItem(gateKey(phase)) === '1';
-      }catch(_){
-        return false;
-      }
-    }
-
-    function markGateDone(phase){
-      try{
-        localStorage.setItem(gateKey(phase), '1');
-        localStorage.setItem(`${gateKey(phase)}::ts`, new Date().toISOString());
-      }catch(_){}
-    }
-
-    function toUrl(url){
-      url = String(url || '');
-      if(!url) return '';
-
-      try{
-        if(isAbsUrl(url)){
-          return new URL(url).toString();
-        }
-
-        return new URL(url, location.origin).toString();
-      }catch(_){
-        return url;
-      }
-    }
-
-    function preserveParams(url, extra = {}){
-      const base = toUrl(url);
-      const u = new URL(base, location.href);
-
-      const keys = [
-        'pid','name','nick','studyId','section','session_code','diff','time','seed',
-        'view','run','zone','cat','game','gameId','mode','entry','phaseBoss','multiplayer',
-        'fromLauncher','log','api'
-      ];
-
-      keys.forEach(k => {
-        const v = ctx[k];
-        if(v !== '' && v != null){
-          u.searchParams.set(k, String(v));
-        }
-      });
-
-      Object.entries(extra).forEach(([k,v]) => {
-        if(v !== '' && v != null){
-          u.searchParams.set(k, String(v));
-        }
-      });
-
-      return u.toString();
-    }
-
-    function defaultGameRunUrl(){
-      if(isGoodJunk) return URLS.goodjunkBoss;
-      if(isPlate) return URLS.plateRun;
-      return URLS.hub;
-    }
-
-    function hubUrl(){
-      return ctx.hub || URLS.nutrition;
-    }
-
-    function buildCooldownGateUrl(){
-      return preserveParams(URLS.gate, {
-        phase:'cooldown',
-        gameId:ctx.gameId || GAME_ID,
-        game:ctx.game || GAME_ID,
-        mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
-        zone:ctx.zone || 'nutrition',
-        cat:ctx.cat || 'nutrition',
-        hub:hubUrl(),
-        next:hubUrl()
-      });
-    }
-
-    function primaryUrl(){
-      if(isCooldown){
-        return ctx.next || hubUrl();
-      }
-
-      const gameRun = ctx.next || defaultGameRunUrl();
-
-      return preserveParams(gameRun, {
-        gameId:ctx.gameId || GAME_ID,
-        game:ctx.game || GAME_ID,
-        mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
-        zone:ctx.zone || 'nutrition',
-        cat:ctx.cat || 'nutrition',
-        hub:buildCooldownGateUrl()
-      });
-    }
-
-    function nutritionZoneUrl(){
-      return preserveParams(URLS.nutrition, {
-        focus: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
-        featured: isGoodJunk ? 'goodjunk' : isPlate ? 'plate' : '',
-        zone:'nutrition'
-      });
-    }
-
-    function warmupReplayUrl(){
-      return preserveParams(URLS.gate, {
-        phase:'warmup',
-        gameId:ctx.gameId || GAME_ID,
-        game:ctx.game || GAME_ID,
-        mode:ctx.mode || (isGoodJunk ? 'solo-boss' : 'solo'),
-        zone:ctx.zone || 'nutrition',
-        cat:ctx.cat || 'nutrition',
-        seed:String(Date.now()),
-        hub:hubUrl(),
-        next:ctx.next || defaultGameRunUrl()
-      });
-    }
-
-    function secondaryUrl(){
-      if(isCooldown){
-        if(isGoodJunk || isPlate) return warmupReplayUrl();
-        return hubUrl();
-      }
-
-      if(isGoodJunk || isPlate) return nutritionZoneUrl();
-
-      return hubUrl();
-    }
-
-    function renderCopy(data){
-      if(!data) return;
-
-      if(data.badge) copy.badge = data.badge;
-      if(data.title) copy.title = data.title;
-      if(data.subtitle) copy.subtitle = data.subtitle;
-      if(data.missionTitle) copy.missionTitle = data.missionTitle;
-      if(Array.isArray(data.steps)) copy.steps = data.steps;
-      if(data.tipTitle) copy.tipTitle = data.tipTitle;
-      if(data.tipText) copy.tipText = data.tipText;
-      if(data.primary) copy.primary = data.primary;
-      if(data.secondary) copy.secondary = data.secondary;
-      if(data.titleTag) copy.titleTag = data.titleTag;
-      if(data.footer) copy.footer = data.footer;
-    }
-
-    function render(){
-      document.title = copy.titleTag;
-
-      setText('gateBadge', copy.badge);
-      setText('gateTitle', copy.title);
-      setText('gateSubtitle', copy.subtitle);
-      setText('gateMissionTitle', copy.missionTitle);
-      setText('gateTipTitle', copy.tipTitle);
-      setText('gateTipText', copy.tipText);
-      setText('gatePrimaryBtn', copy.primary);
-      setText('gateSecondaryBtn', copy.secondary);
-      setText('gateFooter', copy.footer);
-
-      const gameLabel = isGoodJunk ? 'GoodJunk Boss' : isPlate ? 'Plate Solo' : (ctx.game || 'HeroHealth');
-
-      setText('gateGameChip', gameLabel);
-      setText('gatePhaseChip', isCooldown ? 'Cooldown' : 'Warmup');
-      setText('gateDiffChip', ctx.diff || 'normal');
-
-      const stepsWrap = $('gateSteps');
-      if(stepsWrap){
-        stepsWrap.innerHTML = copy.steps.map((step, i) => `
-          <div class="gateStep">
-            <div class="gateStepIcon" id="gateStep${i+1}Icon">${step[0]}</div>
-            <div>
-              <div class="gateStepTitle" id="gateStep${i+1}Title">${step[1]}</div>
-              <div class="gateStepText" id="gateStep${i+1}Text">${step[2]}</div>
-            </div>
-          </div>
-        `).join('');
-      }
-
-      const fill = $('gateProgressFill');
-      if(fill){
-        requestAnimationFrame(() => {
-          fill.style.width = isCooldown ? '100%' : '72%';
-        });
-      }
-    }
-
-    function loadCss(href){
-      return new Promise(resolve => {
-        const link = DOC.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = href;
-        link.onload = () => resolve(true);
-        link.onerror = () => resolve(false);
-        DOC.head.appendChild(link);
-      });
-    }
-
-    function loadScript(src){
-      return new Promise(resolve => {
-        const s = DOC.createElement('script');
-        s.src = src;
-        s.async = false;
-        s.onload = () => resolve(true);
-        s.onerror = () => resolve(false);
-        DOC.body.appendChild(s);
-      });
-    }
-
-    async function loadGameSpecificGate(){
-      if(!GAME_ID || GAME_ID === 'game') return;
-
-      const base = `${ROOT}gate/games/${encodeURIComponent(GAME_ID)}/`;
-
-      await loadCss(base + 'style.css?v=20260503');
-      await loadScript(base + `${ctx.phase}.js?v=20260503`);
-
-      const api =
-        WIN.HHA_GATE_GAME ||
-        WIN.HHA_GATE_MODULE ||
-        WIN.HHA_GOODJUNK_GATE ||
-        WIN.HHA_PLATE_GATE ||
-        null;
-
-      const customRoot = $('gateCustomRoot');
-
-      if(api && typeof api.getCopy === 'function'){
+      function safeUrl(raw, fallback){
         try{
-          const data = api.getCopy({
-            phase: ctx.phase,
-            gameId: GAME_ID,
-            mode: ctx.mode,
-            ctx
-          });
-
-          renderCopy(data);
-          render();
-        }catch(_){}
+          if(!String(raw || '').trim()) return fallback;
+          return new URL(String(raw), location.href).toString();
+        }catch(_){
+          return fallback;
+        }
       }
 
-      if(api && typeof api.mount === 'function'){
-        try{
-          api.mount({
-            root: customRoot,
-            ctx,
-            phase: ctx.phase,
-            gameId: GAME_ID,
-            mode: ctx.mode,
-            primaryUrl,
-            secondaryUrl,
-            markDone: () => markGateDone(ctx.phase),
-            goPrimary: handlePrimary,
-            goSecondary: handleSecondary
-          });
-        }catch(_){}
+      function phase(){
+        const p = clean(q.get('phase') || q.get('gatePhase'), 'warmup').toLowerCase();
+        return p === 'cooldown' ? 'cooldown' : 'warmup';
       }
 
-      if(WIN.HHA_GATE_COPY){
-        renderCopy(WIN.HHA_GATE_COPY);
-        render();
-      }
-    }
-
-    function autoSkipIfDone(){
-      if(!isGateDone(ctx.phase)) return false;
-
-      const dest = primaryUrl();
-
-      setText(
-        'gateSubtitle',
-        isCooldown
-          ? 'วันนี้ทำ Cooldown แล้ว กำลังกลับ HUB...'
-          : 'วันนี้ทำ Warmup แล้ว กำลังเข้าเกม...'
-      );
-
-      const fill = $('gateProgressFill');
-      if(fill) fill.style.width = '100%';
-
-      setTimeout(() => {
-        location.replace(dest);
-      }, 420);
-
-      return true;
-    }
-
-    function handlePrimary(){
-      markGateDone(ctx.phase);
-      location.href = primaryUrl();
-    }
-
-    function handleSecondary(){
-      if(isCooldown){
-        markGateDone(ctx.phase);
+      function game(){
+        return clean(q.get('game') || q.get('gameId') || q.get('theme'), 'game').toLowerCase();
       }
 
-      location.href = secondaryUrl();
-    }
-
-    function bind(){
-      $('gatePrimaryBtn')?.addEventListener('click', handlePrimary);
-      $('gateSecondaryBtn')?.addEventListener('click', handleSecondary);
-    }
-
-    async function boot(){
-      render();
-
-      if(autoSkipIfDone()){
-        return;
+      function defaultZone(){
+        const z = clean(q.get('zone') || q.get('cat'), '');
+        if(z === 'fitness') return './fitness-zone.html';
+        if(z === 'hygiene') return './hygiene-zone.html';
+        return './nutrition-zone.html';
       }
 
-      await loadGameSpecificGate();
-      bind();
-    }
+      function nextHref(){
+        const n = safeDecode(q.get('next') || '');
+        if(n) return safeUrl(n, defaultZone());
 
-    boot();
-  })();
+        if(phase() === 'cooldown'){
+          return safeUrl(q.get('hub'), defaultZone());
+        }
+
+        return defaultZone();
+      }
+
+      function backHref(){
+        return safeUrl(q.get('hub'), defaultZone());
+      }
+
+      window.HHA_GATE_BOOT = {
+        patch: 'v20260503n-HHA-WARMUP-GATE-SHELL-CORE-ONLY',
+        phase: phase(),
+        game: game(),
+        nextHref: nextHref(),
+        backHref: backHref(),
+        params: Object.fromEntries(q.entries())
+      };
+
+      const icon = document.getElementById('gateBootIcon');
+      const title = document.getElementById('gateBootTitle');
+      const sub = document.getElementById('gateBootSub');
+      const gameChip = document.getElementById('gateBootGame');
+      const phaseChip = document.getElementById('gateBootPhase');
+      const diffChip = document.getElementById('gateBootDiff');
+      const status = document.getElementById('gateBootStatusText');
+      const errorBox = document.getElementById('gateBootError');
+      const actions = document.getElementById('gateBootActions');
+      const retryBtn = document.getElementById('gateRetryBtn');
+      const continueBtn = document.getElementById('gateContinueBtn');
+      const backBtn = document.getElementById('gateBackBtn');
+
+      const g = game();
+      const p = phase();
+
+      if(icon){
+        icon.textContent =
+          g === 'goodjunk' ? '🍎' :
+          g === 'plate' ? '🍽️' :
+          g === 'hydration' ? '💧' :
+          g === 'groups' ? '🥦' :
+          g === 'jump-duck' || g === 'jumpduck' ? '🐶' :
+          '🎮';
+      }
+
+      if(title){
+        title.textContent = p === 'cooldown'
+          ? 'กำลังโหลด Cooldown'
+          : 'กำลังโหลด Warmup';
+      }
+
+      if(sub){
+        sub.textContent = p === 'cooldown'
+          ? 'ระบบจะเปิด mini-game ทบทวนหลังเล่น ก่อนกลับโซน'
+          : 'ระบบจะเปิด mini-game เตรียมตัวก่อนเข้าเกมหลัก';
+      }
+
+      if(gameChip) gameChip.textContent = g;
+      if(phaseChip) phaseChip.textContent = p;
+      if(diffChip) diffChip.textContent = clean(q.get('diff'), 'normal');
+
+      retryBtn?.addEventListener('click', function(){
+        location.reload();
+      });
+
+      continueBtn?.addEventListener('click', function(){
+        location.href = nextHref();
+      });
+
+      backBtn?.addEventListener('click', function(){
+        location.href = backHref();
+      });
+
+      window.HHA_GATE_SHOW_ERROR = function(err){
+        if(status) status.textContent = 'โหลด Gate ไม่สำเร็จ';
+        if(errorBox){
+          errorBox.style.display = 'block';
+          errorBox.textContent = String(err && (err.stack || err.message) || err || 'Unknown error');
+        }
+        if(actions){
+          actions.style.display = 'flex';
+        }
+      };
+
+      window.HHA_GATE_HIDE_BOOT = function(){
+        const boot = document.getElementById('gateBoot');
+        if(boot) boot.remove();
+      };
+    })();
+  </script>
+
+  <script type="module">
+    import bootGate from './gate/gate-core.js?v=20260503n-gate-core-goodjunk-flow';
+
+    const root = document.getElementById('gate-app');
+    const status = document.getElementById('gateBootStatusText');
+
+    try{
+      if(status) status.textContent = 'Starting gate-core...';
+
+      await bootGate(root);
+
+      if(window.HHA_GATE_HIDE_BOOT){
+        window.HHA_GATE_HIDE_BOOT();
+      }
+    }catch(err){
+      console.error('[warmup-gate] boot failed', err);
+
+      if(window.HHA_GATE_SHOW_ERROR){
+        window.HHA_GATE_SHOW_ERROR(err);
+      }
+    }
   </script>
 </body>
 </html>
