@@ -173,7 +173,8 @@
       line-height:1.25;
     }
 
-    .modeBox{
+    .modeBox,
+    .modePlayBox{
       display:grid;
       gap:10px;
       padding:14px;
@@ -182,7 +183,8 @@
       border:2px solid #d7f0fb;
     }
 
-    .modeTitle{
+    .modeTitle,
+    .modePlayTitle{
       font-size:15px;
       font-weight:1000;
       color:#37566e;
@@ -213,6 +215,49 @@
     .modeBtn.mobile{ background:linear-gradient(180deg,#dcfff2,#baf4cf); }
     .modeBtn.pc{ background:linear-gradient(180deg,#dff8ff,#aeeeff); }
     .modeBtn.cvr{ background:linear-gradient(180deg,#ffe3ef,#ffc9de); }
+
+    .modePlayRow{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .playModeBtn{
+      min-height:72px;
+      border:0;
+      border-radius:18px;
+      padding:10px 12px;
+      background:#fff;
+      border:2px solid #d7f0fb;
+      box-shadow:var(--shadow-soft);
+      text-align:left;
+      font-weight:1000;
+      color:#17384f;
+      display:grid;
+      gap:4px;
+      outline:3px solid transparent;
+    }
+
+    .playModeBtn strong{
+      font-size:16px;
+      line-height:1.1;
+    }
+
+    .playModeBtn span{
+      font-size:12px;
+      line-height:1.35;
+      color:#5f7f92;
+      font-weight:900;
+    }
+
+    .playModeBtn.active{
+      outline-color:#22d3ee;
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+    }
+
+    .playModeBtn.learn{ border-color:#bdf4ff; }
+    .playModeBtn.rush{ border-color:#ffe58d; }
+    .playModeBtn.boss{ border-color:#fecaca; }
 
     .bigAction{
       display:grid;
@@ -417,6 +462,7 @@
 
       .flowLine,
       .modeRow,
+      .modePlayRow,
       .teacherGrid{
         grid-template-columns:1fr;
       }
@@ -481,12 +527,30 @@
           </label>
         </div>
 
-        <div class="modeBox" aria-label="เลือกโหมดการเล่น">
+        <div class="modeBox" aria-label="เลือกอุปกรณ์">
           <div class="modeTitle">เลือกอุปกรณ์</div>
           <div class="modeRow">
             <button class="modeBtn mobile" id="modeMobile" type="button" data-view="mobile">📱 Mobile</button>
             <button class="modeBtn pc" id="modePc" type="button" data-view="pc">🖥️ PC</button>
             <button class="modeBtn cvr" id="modeVr" type="button" data-view="cvr">🥽 Cardboard</button>
+          </div>
+        </div>
+
+        <div class="modePlayBox" aria-label="เลือกโหมดการเล่น">
+          <div class="modePlayTitle">เลือกโหมดการเล่น</div>
+          <div class="modePlayRow">
+            <button class="playModeBtn learn" type="button" data-play-mode="learn">
+              <strong>🧼 Learn</strong>
+              <span>สอนช้า เล่นง่าย เหมาะกับครั้งแรก</span>
+            </button>
+            <button class="playModeBtn rush" type="button" data-play-mode="rush">
+              <strong>⚡ Rush</strong>
+              <span>เชื้อขึ้นไว Combo/Fever เร้าใจ</span>
+            </button>
+            <button class="playModeBtn boss" type="button" data-play-mode="boss">
+              <strong>👑 Boss</strong>
+              <span>ท้าทายลำดับ WHO ปราบ Germ King</span>
+            </button>
           </div>
         </div>
 
@@ -519,8 +583,8 @@
       </div>
 
       <div class="hint">
-        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503p-rush-reward-loop</strong>
-        รวม Scrub Gesture Core + Clean/Germ % + Combo/Fever + WHO Boss + Mission Rush แล้ว
+        เวอร์ชันนี้ส่งเข้า <strong>handwash-v2.html?v=20260503u-focus-play-ui</strong>
+        รวม Focus Play UI + Gesture Cue + Kid Sensitivity + Boss + Mission แล้ว
       </div>
     </details>
   </main>
@@ -533,11 +597,13 @@
 
       const STORAGE_KEY = 'HH_HANDWASH_LAUNCHER_PREFS';
       const VIEW_KEY = 'HH_HANDWASH_VIEW';
+      const MODE_KEY = 'HH_HANDWASH_PLAY_MODE';
+      const VERSION = '20260503u-focus-play-ui';
 
       const TARGETS = {
-        pc: './handwash-v2.html?v=20260503p-rush-reward-loop',
-        mobile: './handwash-v2.html?v=20260503p-rush-reward-loop',
-        cvr: './handwash-v2.html?v=20260503p-rush-reward-loop'
+        pc: './handwash-v2.html?v=20260503u-focus-play-ui',
+        mobile: './handwash-v2.html?v=20260503u-focus-play-ui',
+        cvr: './handwash-v2.html?v=20260503u-focus-play-ui'
       };
 
       const fieldName = document.getElementById('fieldName');
@@ -545,6 +611,7 @@
       const fieldTime = document.getElementById('fieldTime');
 
       const modeButtons = Array.from(document.querySelectorAll('[data-view]'));
+      const playModeButtons = Array.from(document.querySelectorAll('[data-play-mode]'));
       const btnStart = document.getElementById('btnStart');
       const btnBackHub = document.getElementById('btnBackHub');
       const modeTip = document.getElementById('modeTip');
@@ -553,6 +620,12 @@
         qs.get('view'),
         storageGet(VIEW_KEY, ''),
         'mobile'
+      ));
+
+      let selectedPlayMode = cleanPlayMode(first(
+        qs.get('playMode'),
+        storageGet(MODE_KEY, ''),
+        'rush'
       ));
 
       function first(){
@@ -597,8 +670,10 @@
           name: fieldName.value.trim() || 'Hero',
           diff: fieldDiff.value || 'normal',
           time: fieldTime.value || '90',
-          view: selectedView
+          view: selectedView,
+          playMode: selectedPlayMode
         }));
+        storageSet(MODE_KEY, selectedPlayMode);
       }
 
       function normalizeView(view){
@@ -608,6 +683,12 @@
         if(view === 'pc') return 'pc';
         if(view === 'cvr') return 'cvr';
         return 'mobile';
+      }
+
+      function cleanPlayMode(mode){
+        mode = String(mode || '').trim().toLowerCase();
+        if(mode === 'learn' || mode === 'boss') return mode;
+        return 'rush';
       }
 
       function normalizeDiff(diff){
@@ -671,6 +752,13 @@
           saved.time,
           '90'
         ));
+
+        selectedPlayMode = cleanPlayMode(first(
+          qs.get('playMode'),
+          saved.playMode,
+          storageGet(MODE_KEY, ''),
+          'rush'
+        ));
       }
 
       function setSelectedView(view){
@@ -683,18 +771,38 @@
           btn.setAttribute('aria-pressed', active ? 'true' : 'false');
         });
 
-        if(selectedView === 'pc'){
-          btnStart.textContent = '▶ เริ่มเล่นบน PC';
-          modeTip.textContent = 'PC ใช้เมาส์ลาก/ถู/วนบนมือได้';
-        }else if(selectedView === 'cvr'){
-          btnStart.textContent = '▶ เริ่มเล่นแบบ Cardboard';
-          modeTip.textContent = 'Cardboard ใช้หน้า static-safe ก่อน เพื่อให้เล่นได้แน่นอน';
-        }else{
-          btnStart.textContent = '▶ เริ่มเล่นบน Mobile';
-          modeTip.textContent = 'Mobile ใช้นิ้วลาก/ถู/วนบนมือได้เลย';
-        }
-
+        updateTip();
         savePrefs();
+      }
+
+      function setPlayMode(mode){
+        selectedPlayMode = cleanPlayMode(mode);
+        storageSet(MODE_KEY, selectedPlayMode);
+
+        playModeButtons.forEach(btn => {
+          const active = cleanPlayMode(btn.dataset.playMode) === selectedPlayMode;
+          btn.classList.toggle('active', active);
+          btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+
+        updateTip();
+        savePrefs();
+      }
+
+      function updateTip(){
+        if(!modeTip) return;
+
+        if(selectedPlayMode === 'learn'){
+          modeTip.textContent = 'Learn: เล่นง่าย เน้นจำขั้นตอน WHO';
+        }else if(selectedPlayMode === 'boss'){
+          modeTip.textContent = 'Boss: ท้าทายลำดับ WHO และปราบ Germ King';
+        }else if(selectedView === 'pc'){
+          modeTip.textContent = 'Rush PC: ใช้เมาส์ลาก/ถู/วนบนมือได้';
+        }else if(selectedView === 'cvr'){
+          modeTip.textContent = 'Rush Cardboard: ใช้หน้า static-safe ให้เล่นได้แน่นอน';
+        }else{
+          modeTip.textContent = 'Rush Mobile: ใช้นิ้วลาก/ถู/วนบนมือได้เลย';
+        }
       }
 
       function buildGameUrl(view, extra = {}){
@@ -716,6 +824,8 @@
         url.searchParams.set('view', view);
         url.searchParams.set('run', first(qs.get('run'), 'play'));
         url.searchParams.set('seed', first(qs.get('seed'), String(Date.now())));
+        url.searchParams.set('v', VERSION);
+        url.searchParams.set('playMode', selectedPlayMode);
 
         url.searchParams.set('zone', 'hygiene');
         url.searchParams.set('cat', 'hygiene');
@@ -725,12 +835,18 @@
         url.searchParams.set('mode', 'solo');
 
         url.searchParams.set('flow', 'full');
-        url.searchParams.set('stage', 'howto');
+        url.searchParams.set('stage', selectedPlayMode === 'boss' ? 'order' : 'howto');
         url.searchParams.set('howto', '1');
         url.searchParams.set('practice', '1');
         url.searchParams.set('mainGame', '1');
         url.searchParams.set('miniOrder', '1');
         url.searchParams.set('summary', '1');
+
+        if(selectedPlayMode === 'boss'){
+          url.searchParams.set('bossOnly', '1');
+        }else{
+          url.searchParams.delete('bossOnly');
+        }
 
         url.searchParams.set('hub', getHubHref());
 
@@ -776,6 +892,12 @@
         });
       });
 
+      playModeButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          setPlayMode(btn.dataset.playMode || 'rush');
+        });
+      });
+
       [fieldName, fieldDiff, fieldTime].forEach(node => {
         node.addEventListener('input', savePrefs);
         node.addEventListener('change', savePrefs);
@@ -790,12 +912,14 @@
 
       loadInitialValues();
       setSelectedView(selectedView);
+      setPlayMode(selectedPlayMode);
 
       window.__handwashLauncher = {
         start,
         back: goBack,
         buildGameUrl,
-        setSelectedView
+        setSelectedView,
+        setPlayMode
       };
     })();
   </script>
