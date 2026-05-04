@@ -1,0 +1,1357 @@
+<!-- === /herohealth/handwash-teacher.html === -->
+<!-- PATCH v20260504-HANDWASH-TEACHER-LOCAL-REVIEW-PATCH9 -->
+<!-- Local teacher dashboard for Handwash WHO Clean Rush
+     Reads:
+     - HHA_HANDWASH_RESEARCH_LAST
+     - HHA_HANDWASH_RESEARCH_EVENTS_LAST
+     - HHA_HANDWASH_RESEARCH_SESSIONS
+     - HHA_LAST_SUMMARY_HANDWASH
+-->
+
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Handwash Teacher Review</title>
+  <meta name="theme-color" content="#8be8ff" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <style>
+    :root{
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+
+      --bg1:#f7feff;
+      --bg2:#e8fbff;
+      --card:#ffffff;
+      --line:#cdeffc;
+      --ink:#17384f;
+      --muted:#5f7f92;
+
+      --cyan:#22d3ee;
+      --sky:#8be8ff;
+      --green:#80df96;
+      --yellow:#ffd95d;
+      --red:#fb7185;
+      --violet:#bca7ff;
+
+      --shadow:0 18px 42px rgba(23,56,79,.12);
+      --shadow-soft:0 10px 24px rgba(23,56,79,.08);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      -webkit-text-size-adjust:100%;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    body{
+      min-height:100dvh;
+      color:var(--ink);
+      font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+      background:
+        radial-gradient(circle at 12% 4%, rgba(255,255,255,.95), transparent 24%),
+        radial-gradient(circle at 88% 8%, rgba(255,217,93,.22), transparent 25%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    button,
+    input,
+    select,
+    textarea{
+      font:inherit;
+    }
+
+    button,
+    a{
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
+    }
+
+    .page{
+      width:min(1180px,100%);
+      min-height:100dvh;
+      margin:0 auto;
+      padding:
+        calc(12px + var(--sat))
+        calc(12px + var(--sar))
+        calc(18px + var(--sab))
+        calc(12px + var(--sal));
+      display:grid;
+      gap:12px;
+    }
+
+    .topbar{
+      position:sticky;
+      top:0;
+      z-index:50;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:4px 0 8px;
+      backdrop-filter:blur(12px);
+      -webkit-backdrop-filter:blur(12px);
+    }
+
+    .brand{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:9px 12px;
+      border-radius:999px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.92);
+      box-shadow:var(--shadow-soft);
+    }
+
+    .brandIcon{
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#8be8ff,#22d3ee);
+      font-size:24px;
+      flex:0 0 auto;
+    }
+
+    .brand strong{
+      display:block;
+      font-size:17px;
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .brand small{
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+    }
+
+    .topActions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:44px;
+      border:0;
+      border-radius:16px;
+      padding:9px 12px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      text-decoration:none;
+      cursor:pointer;
+      color:#17384f;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:var(--shadow-soft);
+      white-space:nowrap;
+    }
+
+    .btnPrimary{
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      color:#503c00;
+    }
+
+    .btnGreen{
+      background:linear-gradient(180deg,#dcfff2,#baf4cf);
+      color:#143a22;
+    }
+
+    .btnSoft{
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+      color:#0f766e;
+      border:2px solid #bdf4ff;
+    }
+
+    .btnDanger{
+      background:linear-gradient(180deg,#fff3f3,#ffdada);
+      color:#991b1b;
+      border:2px solid #fecaca;
+    }
+
+    .hero{
+      border-radius:30px;
+      border:3px solid var(--line);
+      background:
+        radial-gradient(circle at 90% 12%, rgba(255,217,93,.26), transparent 24%),
+        linear-gradient(180deg,#ffffff,#f4fdff);
+      box-shadow:var(--shadow);
+      padding:16px;
+      display:grid;
+      gap:10px;
+    }
+
+    .badgeRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+
+    .badge{
+      min-height:32px;
+      width:max-content;
+      max-width:100%;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:2px solid #bdf4ff;
+      background:#ecfeff;
+      color:#0f766e;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(28px,4.8vw,46px);
+      line-height:1.04;
+      letter-spacing:-.035em;
+      color:#12324b;
+      font-weight:1000;
+    }
+
+    .lead{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.6;
+      font-weight:850;
+      max-width:880px;
+    }
+
+    .filters{
+      border-radius:24px;
+      border:3px solid var(--line);
+      background:rgba(255,255,255,.95);
+      box-shadow:var(--shadow-soft);
+      padding:12px;
+      display:grid;
+      grid-template-columns:1.4fr repeat(3,minmax(0,1fr));
+      gap:10px;
+      align-items:end;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+    }
+
+    .label{
+      color:#37566e;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .input,
+    .select{
+      width:100%;
+      min-height:44px;
+      border-radius:16px;
+      border:2px solid #d7f0fb;
+      background:#fff;
+      color:#17384f;
+      padding:9px 11px;
+      outline:none;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .input:focus,
+    .select:focus{
+      border-color:#8be8ff;
+      box-shadow:0 0 0 4px rgba(139,232,255,.20);
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .metricCard{
+      border-radius:24px;
+      border:2px solid #d7f0fb;
+      background:#fff;
+      box-shadow:var(--shadow-soft);
+      padding:13px;
+      display:grid;
+      gap:5px;
+      min-height:94px;
+    }
+
+    .metricCard .k{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .metricCard .v{
+      color:#12324b;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+    }
+
+    .metricCard.good .v{ color:#15803d; }
+    .metricCard.warn .v{ color:#b45309; }
+    .metricCard.bad .v{ color:#b91c1c; }
+
+    .grid2{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:12px;
+      align-items:start;
+    }
+
+    .panel{
+      border-radius:28px;
+      border:3px solid var(--line);
+      background:rgba(255,255,255,.95);
+      box-shadow:var(--shadow);
+      padding:14px;
+      display:grid;
+      gap:10px;
+      min-width:0;
+    }
+
+    .panelHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .panel h2{
+      margin:0;
+      color:#12324b;
+      font-size:22px;
+      line-height:1.12;
+      font-weight:1000;
+    }
+
+    .panel p{
+      margin:0;
+      color:var(--muted);
+      line-height:1.55;
+      font-size:13px;
+      font-weight:800;
+    }
+
+    .tableWrap{
+      overflow:auto;
+      border-radius:20px;
+      border:2px solid #d7f0fb;
+      background:#fff;
+      max-height:440px;
+      -webkit-overflow-scrolling:touch;
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:820px;
+      font-size:12px;
+    }
+
+    th,
+    td{
+      padding:9px 10px;
+      border-bottom:1px solid #e4f3fa;
+      text-align:left;
+      vertical-align:top;
+      color:#17384f;
+      font-weight:850;
+    }
+
+    th{
+      position:sticky;
+      top:0;
+      z-index:3;
+      background:#ecfeff;
+      color:#0f766e;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    tr:hover td{
+      background:#f7fdff;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:26px;
+      padding:5px 8px;
+      border-radius:999px;
+      border:1px solid #d7f0fb;
+      background:#fff;
+      color:#37566e;
+      font-size:11px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .pill.good{
+      background:#effcf3;
+      border-color:#b8eec6;
+      color:#166534;
+    }
+
+    .pill.warn{
+      background:#fff8dc;
+      border-color:#ffe58d;
+      color:#7c5800;
+    }
+
+    .pill.bad{
+      background:#fff3f3;
+      border-color:#fecaca;
+      color:#991b1b;
+    }
+
+    .zoneList,
+    .stepList{
+      display:grid;
+      gap:8px;
+    }
+
+    .zoneItem,
+    .stepItem{
+      border-radius:18px;
+      border:1px solid #d7f0fb;
+      background:#fff;
+      padding:10px;
+      display:grid;
+      gap:7px;
+    }
+
+    .zoneTop,
+    .stepTop{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      font-weight:1000;
+      color:#17384f;
+    }
+
+    .bar{
+      height:16px;
+      border-radius:999px;
+      background:#e9f7fd;
+      border:1px solid #d7f0fb;
+      overflow:hidden;
+    }
+
+    .barFill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#22c55e,#8be8ff);
+    }
+
+    .barFill.warn{
+      background:linear-gradient(90deg,#f59e0b,#ffd95d);
+    }
+
+    .barFill.bad{
+      background:linear-gradient(90deg,#ef4444,#fb7185);
+    }
+
+    .note{
+      border-radius:20px;
+      border:2px solid #ffe58d;
+      background:#fff8dc;
+      color:#7c5800;
+      padding:11px 12px;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:1000;
+    }
+
+    .jsonBox{
+      width:100%;
+      min-height:260px;
+      border-radius:20px;
+      border:2px solid #d7f0fb;
+      background:#fff;
+      color:#17384f;
+      padding:12px;
+      font:800 11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      resize:vertical;
+      display:none;
+    }
+
+    .jsonBox.show{
+      display:block;
+    }
+
+    .empty{
+      border-radius:24px;
+      border:2px dashed #d7f0fb;
+      background:#fff;
+      padding:18px;
+      text-align:center;
+      color:#5f7f92;
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(16px + var(--sab));
+      transform:translateX(-50%) translateY(20px);
+      z-index:100;
+      width:min(430px,90vw);
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(23,56,79,.92);
+      color:#fff;
+      text-align:center;
+      font-weight:1000;
+      box-shadow:0 18px 32px rgba(0,0,0,.20);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media (max-width:980px){
+      .filters{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .cards{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .grid2{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:640px){
+      .page{
+        padding:
+          calc(9px + var(--sat))
+          calc(9px + var(--sar))
+          calc(14px + var(--sab))
+          calc(9px + var(--sal));
+      }
+
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .topActions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .hero,
+      .panel{
+        border-radius:22px;
+        padding:12px;
+      }
+
+      .filters,
+      .cards{
+        grid-template-columns:1fr;
+      }
+
+      h1{
+        font-size:30px;
+      }
+
+      .metricCard .v{
+        font-size:24px;
+      }
+
+      .btn{
+        width:100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandIcon">📊</div>
+        <div>
+          <strong>Handwash Teacher Review</strong>
+          <small>Local dashboard</small>
+        </div>
+      </div>
+
+      <div class="topActions">
+        <a id="btnBackZone" class="btn btnGreen" href="./hygiene-zone.html">🏠 Hygiene Zone</a>
+        <a id="btnGame" class="btn btnPrimary" href="./handwash-launcher.html">▶ เล่น Handwash</a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="badgeRow">
+        <div class="badge">🧼 WHO Clean Rush</div>
+        <div class="badge">Local Review</div>
+        <div class="badge" id="dataCountBadge">0 sessions</div>
+      </div>
+
+      <h1>สรุปผลการล้างมือสำหรับครู</h1>
+
+      <p class="lead">
+        หน้านี้อ่านข้อมูลจากเครื่องนี้เท่านั้น ใช้ตรวจสอบเบื้องต้นก่อนเชื่อม Google Sheet:
+        ความสะอาด, gesture accuracy, weak zones, boss mistakes และรายละเอียดรายขั้นตอน
+      </p>
+    </section>
+
+    <section class="filters">
+      <label class="field">
+        <span class="label">ค้นหาชื่อ / session</span>
+        <input id="fieldSearch" class="input" type="search" placeholder="พิมพ์ชื่อผู้เล่น หรือ session id" />
+      </label>
+
+      <label class="field">
+        <span class="label">ระดับ</span>
+        <select id="fieldDiff" class="select">
+          <option value="">ทุกระดับ</option>
+          <option value="easy">easy</option>
+          <option value="normal">normal</option>
+          <option value="hard">hard</option>
+          <option value="challenge">challenge</option>
+        </select>
+      </label>
+
+      <label class="field">
+        <span class="label">เรียงตาม</span>
+        <select id="fieldSort" class="select">
+          <option value="latest">ล่าสุด</option>
+          <option value="cleanDesc">Clean สูงสุด</option>
+          <option value="cleanAsc">Clean ต่ำสุด</option>
+          <option value="gestureAsc">Gesture ต่ำสุด</option>
+          <option value="bossMistakeDesc">Boss mistake สูงสุด</option>
+        </select>
+      </label>
+
+      <div class="field">
+        <span class="label">จัดการข้อมูล</span>
+        <button id="btnRefresh" class="btn btnSoft" type="button">↻ Refresh</button>
+      </div>
+    </section>
+
+    <section class="cards">
+      <div class="metricCard good">
+        <span class="k">Sessions</span>
+        <span class="v" id="cardSessions">0</span>
+      </div>
+
+      <div class="metricCard good">
+        <span class="k">Avg Clean</span>
+        <span class="v" id="cardAvgClean">0%</span>
+      </div>
+
+      <div class="metricCard warn">
+        <span class="k">Avg Gesture</span>
+        <span class="v" id="cardAvgGesture">0%</span>
+      </div>
+
+      <div class="metricCard bad">
+        <span class="k">Most Weak Zone</span>
+        <span class="v" id="cardWeakZone">-</span>
+      </div>
+    </section>
+
+    <section class="grid2">
+      <section class="panel">
+        <div class="panelHead">
+          <div>
+            <h2>📋 Sessions ล่าสุด</h2>
+            <p>เลือกแถวเพื่อดูรายละเอียดรายขั้นตอนและข้อมูล JSON</p>
+          </div>
+
+          <div class="badge" id="selectedBadge">ยังไม่ได้เลือก</div>
+        </div>
+
+        <div id="emptySessions" class="empty" style="display:none;">
+          ยังไม่มีข้อมูล Handwash ในเครื่องนี้<br>
+          ให้เล่นเกมจนจบก่อน แล้วกลับมาหน้านี้อีกครั้ง
+        </div>
+
+        <div class="tableWrap" id="sessionTableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>เวลา</th>
+                <th>ชื่อ</th>
+                <th>ระดับ</th>
+                <th>Clean</th>
+                <th>Gesture</th>
+                <th>Weak Zone</th>
+                <th>Boss</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody id="sessionRows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panelHead">
+          <div>
+            <h2>🔎 Weak Zones</h2>
+            <p>จุดที่ควรล้างให้ดีขึ้น จาก session ที่เลือก</p>
+          </div>
+        </div>
+
+        <div class="zoneList" id="weakZoneList"></div>
+
+        <div class="note" id="teacherNote">
+          เลือก session เพื่อดูคำแนะนำรายบุคคล
+        </div>
+      </aside>
+    </section>
+
+    <section class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🧩 รายละเอียดรายขั้นตอน WHO</h2>
+          <p>ดูเวลา, progress, จำนวน gesture ที่ถูก/ผิด และการถูก block เช่น ยังไม่เปิดน้ำ/ยังไม่กดสบู่</p>
+        </div>
+      </div>
+
+      <div id="emptySteps" class="empty" style="display:none;">
+        session นี้ยังไม่มีรายละเอียดรายขั้นตอน
+      </div>
+
+      <div class="tableWrap" id="stepTableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Step</th>
+              <th>Zone</th>
+              <th>Gesture</th>
+              <th>Progress</th>
+              <th>Time</th>
+              <th>Move</th>
+              <th>Wrong</th>
+              <th>Blocked</th>
+              <th>Timeout</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="stepRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panelHead">
+        <div>
+          <h2>🧾 Export / JSON</h2>
+          <p>ใช้ copy ไปวิเคราะห์ต่อ หรือเก็บไว้ก่อนเชื่อม Google Sheet</p>
+        </div>
+
+        <div class="topActions">
+          <button id="btnCopySelected" class="btn btnSoft" type="button">📋 Copy Selected</button>
+          <button id="btnCopyAll" class="btn btnSoft" type="button">📦 Copy All</button>
+          <button id="btnToggleJson" class="btn btnSoft" type="button">🔎 Show JSON</button>
+          <button id="btnClear" class="btn btnDanger" type="button">🗑 Clear Local</button>
+        </div>
+      </div>
+
+      <textarea id="jsonBox" class="jsonBox" readonly></textarea>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const VERSION = '20260504-HANDWASH-TEACHER-LOCAL-PATCH9';
+
+      const LS = {
+        sessions:'HHA_HANDWASH_RESEARCH_SESSIONS',
+        lastResearch:'HHA_HANDWASH_RESEARCH_LAST',
+        lastEvents:'HHA_HANDWASH_RESEARCH_EVENTS_LAST',
+        lastSummary:'HHA_LAST_SUMMARY_HANDWASH'
+      };
+
+      const q = new URLSearchParams(location.search);
+
+      const el = {
+        dataCountBadge:document.getElementById('dataCountBadge'),
+        selectedBadge:document.getElementById('selectedBadge'),
+
+        fieldSearch:document.getElementById('fieldSearch'),
+        fieldDiff:document.getElementById('fieldDiff'),
+        fieldSort:document.getElementById('fieldSort'),
+
+        cardSessions:document.getElementById('cardSessions'),
+        cardAvgClean:document.getElementById('cardAvgClean'),
+        cardAvgGesture:document.getElementById('cardAvgGesture'),
+        cardWeakZone:document.getElementById('cardWeakZone'),
+
+        emptySessions:document.getElementById('emptySessions'),
+        sessionTableWrap:document.getElementById('sessionTableWrap'),
+        sessionRows:document.getElementById('sessionRows'),
+
+        weakZoneList:document.getElementById('weakZoneList'),
+        teacherNote:document.getElementById('teacherNote'),
+
+        emptySteps:document.getElementById('emptySteps'),
+        stepTableWrap:document.getElementById('stepTableWrap'),
+        stepRows:document.getElementById('stepRows'),
+
+        jsonBox:document.getElementById('jsonBox'),
+        toast:document.getElementById('toast'),
+
+        btnBackZone:document.getElementById('btnBackZone'),
+        btnGame:document.getElementById('btnGame'),
+        btnRefresh:document.getElementById('btnRefresh'),
+        btnCopySelected:document.getElementById('btnCopySelected'),
+        btnCopyAll:document.getElementById('btnCopyAll'),
+        btnToggleJson:document.getElementById('btnToggleJson'),
+        btnClear:document.getElementById('btnClear')
+      };
+
+      let allSessions = [];
+      let filteredSessions = [];
+      let selected = null;
+
+      function showToast(text){
+        el.toast.textContent = text;
+        el.toast.classList.add('show');
+        clearTimeout(el.toast.__t);
+        el.toast.__t = setTimeout(() => el.toast.classList.remove('show'), 1500);
+      }
+
+      function safeJson(raw, fallback){
+        try{
+          if(!raw) return fallback;
+          return JSON.parse(raw);
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function readLS(key, fallback){
+        try{
+          return safeJson(localStorage.getItem(key), fallback);
+        }catch(_){
+          return fallback;
+        }
+      }
+
+      function writeClipboard(text, okMsg){
+        try{
+          navigator.clipboard.writeText(text).then(() => {
+            showToast(okMsg || 'คัดลอกแล้ว');
+          }).catch(() => {
+            el.jsonBox.value = text;
+            el.jsonBox.classList.add('show');
+            showToast('คัดลอกไม่ได้ เปิด JSON ให้ copy เอง');
+          });
+        }catch(_){
+          el.jsonBox.value = text;
+          el.jsonBox.classList.add('show');
+          showToast('คัดลอกไม่ได้ เปิด JSON ให้ copy เอง');
+        }
+      }
+
+      function fmtDate(iso){
+        try{
+          const d = new Date(iso || Date.now());
+          return d.toLocaleString('th-TH', {
+            year:'2-digit',
+            month:'short',
+            day:'2-digit',
+            hour:'2-digit',
+            minute:'2-digit'
+          });
+        }catch(_){
+          return '-';
+        }
+      }
+
+      function pct(v){
+        v = Number(v || 0);
+        return Math.round(Math.max(0, Math.min(100, v)));
+      }
+
+      function num(v){
+        v = Number(v || 0);
+        return Number.isFinite(v) ? v : 0;
+      }
+
+      function scoreClass(v){
+        v = num(v);
+        if(v >= 85) return 'good';
+        if(v >= 70) return 'warn';
+        return 'bad';
+      }
+
+      function bossMistakes(s){
+        const b = s && s.boss || {};
+        return num(b.answerWrong) + num(b.timeout);
+      }
+
+      function normalizeSession(s, idx){
+        s = s && typeof s === 'object' ? s : {};
+
+        const weak = s.weakestZone || (Array.isArray(s.weakZones) ? s.weakZones[0] : null);
+
+        return {
+          ...s,
+          _idx:idx,
+          sessionId:s.sessionId || ('session_' + idx),
+          name:s.name || s.displayName || 'Hero',
+          diff:s.diff || 'normal',
+          startedAt:s.startedAt || s.finishedAt || s.endedAt || '',
+          endedAt:s.endedAt || s.finishedAt || '',
+          cleanPct:pct(s.cleanPct),
+          germPct:pct(s.germPct),
+          gestureAccuracy:pct(s.gestureAccuracy),
+          score:num(s.score),
+          weakestZone:weak || null,
+          steps:Array.isArray(s.steps) ? s.steps : [],
+          boss:s.boss || {}
+        };
+      }
+
+      function readAllSessions(){
+        const list = readLS(LS.sessions, []);
+        const last = readLS(LS.lastResearch, null);
+        const lastSummary = readLS(LS.lastSummary, null);
+
+        let sessions = Array.isArray(list) ? list.slice() : [];
+
+        if(last && last.sessionId && !sessions.some(s => s && s.sessionId === last.sessionId)){
+          sessions.unshift(last);
+        }
+
+        if(lastSummary && lastSummary.researchMetrics && lastSummary.researchMetrics.sessionId){
+          const m = lastSummary.researchMetrics;
+          if(!sessions.some(s => s && s.sessionId === m.sessionId)){
+            sessions.unshift(m);
+          }
+        }
+
+        const seen = {};
+        sessions = sessions
+          .map(normalizeSession)
+          .filter(s => {
+            if(seen[s.sessionId]) return false;
+            seen[s.sessionId] = true;
+            return true;
+          });
+
+        return sessions;
+      }
+
+      function applyFilters(){
+        const search = String(el.fieldSearch.value || '').trim().toLowerCase();
+        const diff = String(el.fieldDiff.value || '').trim();
+        const sort = String(el.fieldSort.value || 'latest');
+
+        filteredSessions = allSessions.filter(s => {
+          if(diff && s.diff !== diff) return false;
+
+          if(search){
+            const hay = [
+              s.sessionId,
+              s.name,
+              s.diff,
+              s.startedAt,
+              s.weakestZone && s.weakestZone.label
+            ].join(' ').toLowerCase();
+
+            if(!hay.includes(search)) return false;
+          }
+
+          return true;
+        });
+
+        filteredSessions.sort((a,b) => {
+          if(sort === 'cleanDesc') return num(b.cleanPct) - num(a.cleanPct);
+          if(sort === 'cleanAsc') return num(a.cleanPct) - num(b.cleanPct);
+          if(sort === 'gestureAsc') return num(a.gestureAccuracy) - num(b.gestureAccuracy);
+          if(sort === 'bossMistakeDesc') return bossMistakes(b) - bossMistakes(a);
+          return new Date(b.endedAt || b.startedAt || 0) - new Date(a.endedAt || a.startedAt || 0);
+        });
+      }
+
+      function aggregate(){
+        const n = allSessions.length;
+
+        if(!n){
+          return {
+            sessions:0,
+            avgClean:0,
+            avgGesture:0,
+            weakZone:'-'
+          };
+        }
+
+        const avgClean = Math.round(allSessions.reduce((a,b) => a + num(b.cleanPct), 0) / n);
+        const avgGesture = Math.round(allSessions.reduce((a,b) => a + num(b.gestureAccuracy), 0) / n);
+
+        const weakCount = {};
+        allSessions.forEach(s => {
+          const label = s.weakestZone && s.weakestZone.label || '';
+          if(label) weakCount[label] = (weakCount[label] || 0) + 1;
+        });
+
+        const weakZone = Object.entries(weakCount).sort((a,b) => b[1] - a[1])[0];
+
+        return {
+          sessions:n,
+          avgClean,
+          avgGesture,
+          weakZone:weakZone ? weakZone[0] : '-'
+        };
+      }
+
+      function renderCards(){
+        const a = aggregate();
+
+        el.cardSessions.textContent = String(a.sessions);
+        el.cardAvgClean.textContent = a.avgClean + '%';
+        el.cardAvgGesture.textContent = a.avgGesture + '%';
+        el.cardWeakZone.textContent = a.weakZone;
+
+        el.dataCountBadge.textContent = `${a.sessions} sessions`;
+      }
+
+      function renderSessionRows(){
+        el.emptySessions.style.display = filteredSessions.length ? 'none' : 'block';
+        el.sessionTableWrap.style.display = filteredSessions.length ? 'block' : 'none';
+
+        el.sessionRows.innerHTML = filteredSessions.map((s, i) => {
+          const b = s.boss || {};
+          const weak = s.weakestZone;
+          const bossTxt = b.defeated ? 'ชนะ' : 'ยังไม่ชนะ';
+          const bossCls = b.defeated ? 'good' : 'warn';
+
+          return `
+            <tr data-session="${escapeHtml(s.sessionId)}">
+              <td>${escapeHtml(fmtDate(s.endedAt || s.startedAt))}</td>
+              <td>
+                <strong>${escapeHtml(s.name)}</strong><br>
+                <small>${escapeHtml(shortId(s.sessionId))}</small>
+              </td>
+              <td><span class="pill">${escapeHtml(s.diff)}</span></td>
+              <td><span class="pill ${scoreClass(s.cleanPct)}">${s.cleanPct}%</span></td>
+              <td><span class="pill ${scoreClass(s.gestureAccuracy)}">${s.gestureAccuracy}%</span></td>
+              <td>${weak ? escapeHtml(weak.label + ' ' + weak.pct + '%') : '-'}</td>
+              <td>
+                <span class="pill ${bossCls}">${bossTxt}</span><br>
+                <small>ผิด ${bossMistakes(s)}</small>
+              </td>
+              <td><strong>${Math.round(s.score)}</strong></td>
+            </tr>
+          `;
+        }).join('');
+
+        Array.from(el.sessionRows.querySelectorAll('tr')).forEach(row => {
+          row.addEventListener('click', () => {
+            const id = row.getAttribute('data-session');
+            const s = filteredSessions.find(x => x.sessionId === id);
+            if(s) selectSession(s);
+          });
+        });
+      }
+
+      function selectSession(s){
+        selected = s;
+
+        el.selectedBadge.textContent = `${s.name} • ${s.cleanPct}% Clean`;
+        renderWeakZones(s);
+        renderStepRows(s);
+        renderTeacherNote(s);
+        updateJsonBox();
+
+        showToast('เลือก session แล้ว');
+      }
+
+      function renderWeakZones(s){
+        const zones = Array.isArray(s.zoneProgress)
+          ? s.zoneProgress.slice(0, 10)
+          : Array.isArray(s.weakZones)
+            ? s.weakZones.slice(0, 10)
+            : s.weakestZone
+              ? [s.weakestZone]
+              : [];
+
+        if(!zones.length){
+          el.weakZoneList.innerHTML = '<div class="empty">ไม่มีข้อมูล weak zone</div>';
+          return;
+        }
+
+        const sorted = zones.slice().sort((a,b) => num(a.pct) - num(b.pct));
+
+        el.weakZoneList.innerHTML = sorted.map(z => {
+          const p = pct(z.pct);
+          const cls = scoreClass(p);
+
+          return `
+            <div class="zoneItem">
+              <div class="zoneTop">
+                <span>${escapeHtml(z.label || z.id || '-')}</span>
+                <span class="pill ${cls}">${p}%</span>
+              </div>
+              <div class="bar">
+                <div class="barFill ${cls}" style="width:${p}%"></div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderStepRows(s){
+        const steps = Array.isArray(s.steps) ? s.steps : [];
+
+        el.emptySteps.style.display = steps.length ? 'none' : 'block';
+        el.stepTableWrap.style.display = steps.length ? 'block' : 'none';
+
+        el.stepRows.innerHTML = steps.map(st => {
+          const p = pct(st.progress);
+          const cls = scoreClass(p);
+          const status = st.completed ? 'ผ่าน' : st.skipped ? 'ข้าม' : p >= 70 ? 'เกือบผ่าน' : 'ต้องฝึก';
+          const statusCls = st.completed ? 'good' : st.skipped ? 'warn' : cls;
+
+          return `
+            <tr>
+              <td>
+                <strong>${escapeHtml(st.label || st.id)}</strong><br>
+                <small>${escapeHtml(st.id || '')}</small>
+              </td>
+              <td>${escapeHtml(st.target || '-')}</td>
+              <td><span class="pill">${escapeHtml(st.gesture || '-')}</span></td>
+              <td><span class="pill ${cls}">${p}%</span></td>
+              <td>${num(st.durationSec).toFixed(1)}s</td>
+              <td>${num(st.moveCount)}</td>
+              <td>${num(st.wrongMove)}</td>
+              <td>${num(st.requirementBlocked)}</td>
+              <td>${num(st.timeoutCount)}</td>
+              <td><span class="pill ${statusCls}">${status}</span></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      function renderTeacherNote(s){
+        const weak = s.weakestZone;
+        const b = s.boss || {};
+        const clean = num(s.cleanPct);
+        const gesture = num(s.gestureAccuracy);
+        const bossWrong = bossMistakes(s);
+
+        let note = 'ภาพรวมดี ให้ผู้เรียนฝึกซ้ำเพื่อเพิ่มความคล่อง';
+
+        if(clean < 70){
+          note = 'ควรให้ผู้เรียนฝึกช้า ๆ ทีละขั้น เพราะ Clean ต่ำกว่า 70% และยังมีเชื้อเหลือหลายจุด';
+        }else if(gesture < 65){
+          note = 'ควรเน้นการลาก/ถูตามทิศทาง เพราะ Gesture Accuracy ยังต่ำ';
+        }else if(weak && num(weak.pct) < 70){
+          note = `จุดที่ควรฝึกเพิ่มคือ “${weak.label}” เพราะได้เพียง ${weak.pct}%`;
+        }else if(bossWrong >= 3){
+          note = 'ควรทบทวนลำดับ WHO ก่อนเล่น Boss เพราะมีการตอบผิด/หมดเวลาหลายครั้ง';
+        }else if(clean >= 90 && gesture >= 80 && b.defeated){
+          note = 'ผู้เรียนทำได้ดีมาก สามารถเพิ่มระดับ hard/challenge หรือให้เป็นผู้นำสาธิตได้';
+        }
+
+        el.teacherNote.textContent = 'คำแนะนำครู: ' + note;
+      }
+
+      function updateJsonBox(){
+        const payload = {
+          version:VERSION,
+          selected,
+          sessions:allSessions
+        };
+
+        el.jsonBox.value = JSON.stringify(payload, null, 2);
+      }
+
+      function render(){
+        allSessions = readAllSessions();
+        applyFilters();
+        renderCards();
+        renderSessionRows();
+
+        if(!selected && filteredSessions.length){
+          selectSession(filteredSessions[0]);
+        }else if(selected){
+          const fresh = allSessions.find(s => s.sessionId === selected.sessionId);
+          if(fresh) selectSession(fresh);
+          else {
+            selected = null;
+            el.selectedBadge.textContent = 'ยังไม่ได้เลือก';
+            el.weakZoneList.innerHTML = '<div class="empty">เลือก session เพื่อดู weak zones</div>';
+            el.stepRows.innerHTML = '';
+            el.emptySteps.style.display = 'block';
+            el.stepTableWrap.style.display = 'none';
+            updateJsonBox();
+          }
+        }else{
+          el.selectedBadge.textContent = 'ยังไม่ได้เลือก';
+          el.weakZoneList.innerHTML = '<div class="empty">ยังไม่มีข้อมูล</div>';
+          el.emptySteps.style.display = 'block';
+          el.stepTableWrap.style.display = 'none';
+          updateJsonBox();
+        }
+      }
+
+      function copySelected(){
+        if(!selected){
+          showToast('ยังไม่ได้เลือก session');
+          return;
+        }
+
+        writeClipboard(JSON.stringify(selected, null, 2), 'คัดลอก session ที่เลือกแล้ว');
+      }
+
+      function copyAll(){
+        const payload = {
+          version:VERSION,
+          exportedAt:new Date().toISOString(),
+          sessions:allSessions
+        };
+
+        writeClipboard(JSON.stringify(payload, null, 2), 'คัดลอกข้อมูลทั้งหมดแล้ว');
+      }
+
+      function toggleJson(){
+        updateJsonBox();
+        el.jsonBox.classList.toggle('show');
+      }
+
+      function clearLocal(){
+        const ok = confirm('ลบข้อมูล Handwash local ในเครื่องนี้หรือไม่?');
+        if(!ok) return;
+
+        try{
+          localStorage.removeItem(LS.sessions);
+          localStorage.removeItem(LS.lastResearch);
+          localStorage.removeItem(LS.lastEvents);
+          localStorage.removeItem(LS.lastSummary);
+          localStorage.removeItem('HHA_HANDWASH_EVENTS_LAST');
+          localStorage.removeItem('HHA_HANDWASH_RESEARCH_EVENTS_LAST');
+        }catch(_){}
+
+        selected = null;
+        render();
+        showToast('ลบข้อมูล local แล้ว');
+      }
+
+      function shortId(id){
+        id = String(id || '');
+        if(id.length <= 18) return id;
+        return id.slice(0, 12) + '…' + id.slice(-5);
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#39;");
+      }
+
+      function setupLinks(){
+        const p = new URLSearchParams(location.search);
+
+        const zone = new URL('./hygiene-zone.html', location.href);
+        ['pid','name','nick','diff','time','view'].forEach(k => {
+          if(p.get(k)) zone.searchParams.set(k, p.get(k));
+        });
+        zone.searchParams.set('zone','hygiene');
+        zone.searchParams.set('cat','hygiene');
+
+        const game = new URL('./handwash-launcher.html', location.href);
+        ['pid','name','nick','diff','time','view'].forEach(k => {
+          if(p.get(k)) game.searchParams.set(k, p.get(k));
+        });
+        game.searchParams.set('zone','hygiene');
+        game.searchParams.set('cat','hygiene');
+        game.searchParams.set('game','handwash');
+        game.searchParams.set('gameId','handwash');
+        game.searchParams.set('hub', zone.toString());
+
+        el.btnBackZone.href = zone.toString();
+        el.btnGame.href = game.toString();
+      }
+
+      function bind(){
+        el.fieldSearch.addEventListener('input', () => {
+          selected = null;
+          render();
+        });
+
+        el.fieldDiff.addEventListener('change', () => {
+          selected = null;
+          render();
+        });
+
+        el.fieldSort.addEventListener('change', () => {
+          selected = null;
+          render();
+        });
+
+        el.btnRefresh.addEventListener('click', () => {
+          selected = null;
+          render();
+          showToast('Refresh แล้ว');
+        });
+
+        el.btnCopySelected.addEventListener('click', copySelected);
+        el.btnCopyAll.addEventListener('click', copyAll);
+        el.btnToggleJson.addEventListener('click', toggleJson);
+        el.btnClear.addEventListener('click', clearLocal);
+      }
+
+      setupLinks();
+      bind();
+      render();
+    })();
+  </script>
+</body>
+</html>
