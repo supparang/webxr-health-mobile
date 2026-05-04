@@ -1,16 +1,16 @@
-
 <!-- === /herohealth/handwash-launcher.html === -->
-<!-- FULL PATCH v20260504-HANDWASH-LAUNCHER-PATCH9-TEACHER-LINK-MERGED -->
-<!-- Flow:
-     Hygiene Zone
-     -> handwash-launcher.html
-     -> warmup-gate.html?phase=warmup
-     -> /vr-handwash/handwash-vr.html
-     -> summary
-     -> warmup-gate.html?phase=cooldown
-     -> hygiene-zone.html
-     Optional:
-     -> handwash-teacher.html for local teacher review
+<!-- FULL PATCH v20260504b-HANDWASH-LAUNCHER-PATH-FIX -->
+<!-- Fix:
+     - Prevent duplicated path: /herohealth/vr-handwash/vr-handwash/handwash-vr.html
+     - Always build URLs from /herohealth/ base.
+     Flow:
+       Hygiene Zone
+       -> handwash-launcher.html
+       -> warmup-gate.html?phase=warmup
+       -> /vr-handwash/handwash-vr.html
+       -> summary
+       -> warmup-gate.html?phase=cooldown
+       -> hygiene-zone.html
 -->
 
 <!doctype html>
@@ -66,12 +66,9 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    button,
-    input,
-    select{ font:inherit; }
+    button,input,select{ font:inherit; }
 
-    button,
-    a{
+    button,a{
       -webkit-tap-highlight-color:transparent;
       touch-action:manipulation;
     }
@@ -221,8 +218,7 @@
       font-weight:1000;
     }
 
-    .input,
-    .select{
+    .input,.select{
       width:100%;
       min-height:48px;
       border-radius:18px;
@@ -235,8 +231,7 @@
       font-weight:1000;
     }
 
-    .input:focus,
-    .select:focus{
+    .input:focus,.select:focus{
       border-color:#8be8ff;
       box-shadow:0 0 0 4px rgba(139,232,255,.24);
     }
@@ -255,7 +250,10 @@
       align-items:center;
     }
 
-    .playText{ display:grid; gap:7px; }
+    .playText{
+      display:grid;
+      gap:7px;
+    }
 
     .playText h2{
       margin:0;
@@ -308,9 +306,21 @@
       box-shadow:var(--shadow-soft);
     }
 
-    .btnPrimary{ background:linear-gradient(180deg,#fff2a8,#ffd84d); color:#503c00; }
-    .btnSecondary{ background:linear-gradient(180deg,#dcfff2,#baf4cf); color:#143a22; }
-    .btnSoft{ background:linear-gradient(180deg,#ecfeff,#ffffff); color:#0f766e; border:2px solid #bdf4ff; }
+    .btnPrimary{
+      background:linear-gradient(180deg,#fff2a8,#ffd84d);
+      color:#503c00;
+    }
+
+    .btnSecondary{
+      background:linear-gradient(180deg,#dcfff2,#baf4cf);
+      color:#143a22;
+    }
+
+    .btnSoft{
+      background:linear-gradient(180deg,#ecfeff,#ffffff);
+      color:#0f766e;
+      border:2px solid #bdf4ff;
+    }
 
     .debug{
       display:none;
@@ -326,13 +336,22 @@
       word-break:break-word;
     }
 
-    .debug.show{ display:block; }
+    .debug.show{
+      display:block;
+    }
 
     @media (max-width:900px){
-      .config{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .playPanel{ grid-template-columns:1fr; }
-      .mascot{ display:none; }
-      .actions{ grid-template-columns:1fr; }
+      .config{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .playPanel{
+        grid-template-columns:1fr;
+      }
+
+      .mascot{
+        display:none;
+      }
     }
 
     @media (max-width:640px){
@@ -345,12 +364,22 @@
           calc(10px + var(--sal));
       }
 
-      .hero,
-      .playPanel{ border-radius:24px; padding:14px; }
-      .flow,
-      .config{ grid-template-columns:1fr; }
-      .flowStep{ min-height:48px; }
-      h1{ font-size:34px; }
+      .hero,.playPanel{
+        border-radius:24px;
+        padding:14px;
+      }
+
+      .flow,.config,.actions{
+        grid-template-columns:1fr;
+      }
+
+      .flowStep{
+        min-height:48px;
+      }
+
+      h1{
+        font-size:34px;
+      }
     }
   </style>
 </head>
@@ -362,6 +391,7 @@
         <div class="topRow">
           <div class="badge">🧼 HYGIENE ZONE</div>
           <div class="badge">WHO Clean Rush</div>
+          <div class="badge">Path Fix</div>
         </div>
 
         <h1>เตรียมล้างมือปราบเชื้อ!</h1>
@@ -430,12 +460,23 @@
     </section>
 
     <section class="actions">
-      <button id="btnStart" class="btn btnPrimary" type="button">▶ เริ่ม Handwash Flow</button>
-      <a id="btnBack" class="btn btnSecondary" href="./hygiene-zone.html">🏠 กลับ Hygiene Zone</a>
-      <a id="btnTeacher" class="btn btnSoft" href="./handwash-teacher.html">📊 Teacher Review</a>
+      <button id="btnStart" class="btn btnPrimary" type="button">
+        ▶ เริ่ม Handwash Flow
+      </button>
+
+      <a id="btnBack" class="btn btnSecondary" href="./hygiene-zone.html">
+        🏠 กลับ Hygiene Zone
+      </a>
+
+      <a id="btnTeacher" class="btn btnSoft" href="./handwash-teacher.html">
+        📊 Teacher Review
+      </a>
     </section>
 
-    <button id="btnDebug" class="btn btnSoft" type="button">🔎 ดูลิงก์ Flow</button>
+    <button id="btnDebug" class="btn btnSoft" type="button">
+      🔎 ดูลิงก์ Flow
+    </button>
+
     <pre id="debugBox" class="debug"></pre>
   </main>
 
@@ -443,9 +484,11 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260504-HANDWASH-LAUNCHER-PATCH9';
+      const VERSION = '20260504d-HANDWASH-LAUNCHER-RETURN-ZONE-FIX';
       const q = new URLSearchParams(location.search);
       const STORAGE_KEY = 'HHA_HANDWASH_LAUNCHER_PREFS';
+      const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
+      const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
       const fieldName = document.getElementById('fieldName');
       const fieldDiff = document.getElementById('fieldDiff');
@@ -466,24 +509,32 @@
       }
 
       function safeParse(text, fallback){
-        try{ return JSON.parse(text); }
-        catch(_){ return fallback; }
+        try{
+          return JSON.parse(text);
+        }catch(_){
+          return fallback;
+        }
       }
 
       function getSaved(){
-        try{ return safeParse(localStorage.getItem(STORAGE_KEY), {}) || {}; }
-        catch(_){ return {}; }
+        try{
+          return safeParse(localStorage.getItem(STORAGE_KEY), {}) || {};
+        }catch(_){
+          return {};
+        }
       }
 
       function savePrefs(){
         const data = {
           name:fieldName.value.trim() || 'Hero',
           diff:fieldDiff.value || 'normal',
-          time:fieldTime.value || '120',
+          time:fieldTime.value || '90',
           view:fieldView.value || 'mobile'
         };
-        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-        catch(_){}
+
+        try{
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        }catch(_){}
       }
 
       function setSelect(select, value, fallback){
@@ -494,17 +545,76 @@
 
       function normalizeView(v){
         v = String(v || '').toLowerCase();
-        if(v === 'cardboard' || v === 'vr') return 'cvr';
+        if(v === 'cardboard') return 'cvr';
+        if(v === 'vr') return 'cvr';
         if(v === 'desktop') return 'pc';
         if(v === 'pc' || v === 'mobile' || v === 'cvr') return v;
         return 'mobile';
       }
 
+      function herohealthBaseUrl(){
+        /*
+          IMPORTANT:
+          Always resolve from /herohealth/ root.
+          This prevents:
+            /herohealth/vr-handwash/vr-handwash/handwash-vr.html
+        */
+        try{
+          const path = location.pathname;
+          const marker = '/herohealth/';
+          const idx = path.indexOf(marker);
+
+          if(idx >= 0){
+            return location.origin + path.slice(0, idx + marker.length);
+          }
+
+          return new URL('./', location.href).toString();
+        }catch(_){
+          return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+        }
+      }
+
+      function heroUrl(relativePath){
+        const clean = String(relativePath || '').replace(/^\/+/, '');
+        return new URL(clean, herohealthBaseUrl());
+      }
+
+      function normalizeReturnUrl(raw){
+        raw = String(raw || '').trim();
+
+        if(!raw) return '';
+
+        try{
+          let decoded = raw;
+
+          for(let i = 0; i < 2; i++){
+            try{
+              const next = decodeURIComponent(decoded);
+              if(next === decoded) break;
+              decoded = next;
+            }catch(_){
+              break;
+            }
+          }
+
+          const u = new URL(decoded, herohealthBaseUrl());
+
+          if(/hygiene-zone\.html/i.test(u.pathname)){
+            return u.toString();
+          }
+
+          return '';
+        }catch(_){
+          return '';
+        }
+      }
+
       function loadPrefs(){
         const saved = getSaved();
+
         fieldName.value = first(q.get('name'), q.get('nick'), saved.name, 'Hero');
         setSelect(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
-        setSelect(fieldTime, first(q.get('time'), saved.time), '120');
+        setSelect(fieldTime, first(q.get('time'), saved.time), '90');
         setSelect(fieldView, normalizeView(first(q.get('view'), saved.view)), 'mobile');
       }
 
@@ -514,7 +624,7 @@
           name:fieldName.value.trim() || 'Hero',
           nick:first(q.get('nick'), fieldName.value.trim(), 'Hero'),
           diff:fieldDiff.value || 'normal',
-          time:fieldTime.value || '120',
+          time:fieldTime.value || '90',
           view:fieldView.value || 'mobile',
           run:first(q.get('run'), 'play'),
           zone:'hygiene',
@@ -530,67 +640,104 @@
       }
 
       function currentHygieneZoneUrl(){
-        const explicit = first(q.get('hub'), q.get('return'), q.get('back'), q.get('nextZone'));
-        if(explicit && /hygiene-zone\.html/i.test(explicit)) return explicit;
+        const explicit = normalizeReturnUrl(first(q.get('back'), q.get('return'), q.get('nextZone'), q.get('hub')));
 
-        const url = new URL('./hygiene-zone.html', location.href);
+        if(explicit){
+          return explicit;
+        }
+
+        /*
+          Canonical Handwash return zone requested by user:
+          Hygiene Zone with pid/name/diff/time/view and hub root.
+        */
+        const url = new URL(DEFAULT_HYGIENE_RETURN_URL);
+
         const p = playerParams();
-        ['pid','name','nick','diff','time','view','zone','cat'].forEach(k => url.searchParams.set(k, p[k]));
-        url.searchParams.set('hub', first(q.get('rootHub'), 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'));
+        ['pid','name','diff','time','view'].forEach(k => {
+          url.searchParams.set(k, p[k]);
+        });
+
+        url.searchParams.set('hub', DEFAULT_HUB_ROOT);
+
         return url.toString();
       }
 
       function gameUrl(){
-        const url = new URL('./vr-handwash/handwash-vr.html', location.href);
+        /*
+          Fixed target:
+          https://supparang.github.io/webxr-health-mobile/herohealth/vr-handwash/handwash-vr.html
+        */
+        const url = heroUrl('vr-handwash/handwash-vr.html');
         const p = playerParams();
         const hygiene = currentHygieneZoneUrl();
-        Object.entries(p).forEach(([k,v]) => url.searchParams.set(k, v));
+
+        Object.entries(p).forEach(([k,v]) => {
+          url.searchParams.set(k, v);
+        });
+
         url.searchParams.set('stage', 'howto');
         url.searchParams.set('cooldown', '1');
         url.searchParams.set('hub', hygiene);
         url.searchParams.set('back', hygiene);
         url.searchParams.set('return', hygiene);
         url.searchParams.set('seed', first(q.get('seed'), String(Date.now())));
+
         return url.toString();
       }
 
       function warmupUrl(){
-        const url = new URL('./warmup-gate.html', location.href);
+        const url = heroUrl('warmup-gate.html');
         const p = playerParams();
         const game = gameUrl();
         const hygiene = currentHygieneZoneUrl();
-        Object.entries(p).forEach(([k,v]) => url.searchParams.set(k, v));
+
+        Object.entries(p).forEach(([k,v]) => {
+          url.searchParams.set(k, v);
+        });
+
         url.searchParams.set('phase', 'warmup');
         url.searchParams.set('next', game);
         url.searchParams.set('hub', hygiene);
         url.searchParams.set('return', hygiene);
         url.searchParams.set('seed', first(q.get('seed'), String(Date.now())));
+
         return url.toString();
       }
 
       function teacherUrl(){
-        const url = new URL('./handwash-teacher.html', location.href);
+        const url = heroUrl('handwash-teacher.html');
         const p = playerParams();
-        ['pid','name','nick','diff','time','view','zone','cat'].forEach(k => url.searchParams.set(k, p[k]));
+
+        ['pid','name','nick','diff','time','view','zone','cat'].forEach(k => {
+          url.searchParams.set(k, p[k]);
+        });
+
         return url.toString();
       }
 
       function updateLinks(){
         savePrefs();
+
         btnBack.href = currentHygieneZoneUrl();
         btnTeacher.href = teacherUrl();
 
-        debugBox.textContent = [
-          'PATCH 9 HANDWASH FLOW',
+        const info = [
+          'PATCH 4b HANDWASH FLOW PATH FIX',
           '',
-          'Hygiene Zone:', currentHygieneZoneUrl(),
+          'HeroHealth base:',
+          herohealthBaseUrl(),
           '',
-          'Warmup URL:', warmupUrl(),
+          'Hygiene Zone:',
+          currentHygieneZoneUrl(),
           '',
-          'Game URL:', gameUrl(),
+          'Warmup URL:',
+          warmupUrl(),
           '',
-          'Teacher URL:', teacherUrl()
+          'Game URL:',
+          gameUrl()
         ].join('\n');
+
+        debugBox.textContent = info;
       }
 
       function startFlow(){
@@ -603,7 +750,9 @@
           input.addEventListener('input', updateLinks);
           input.addEventListener('change', updateLinks);
         });
+
         btnStart.addEventListener('click', startFlow);
+
         btnDebug.addEventListener('click', function(){
           updateLinks();
           debugBox.classList.toggle('show');
