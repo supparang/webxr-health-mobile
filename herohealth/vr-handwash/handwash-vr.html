@@ -1,4 +1,5 @@
-
+<!-- === /herohealth/vr-handwash/handwash-vr.html === -->
+<!-- FULL PATCH v20260504c-HANDWASH-VR-RETURN-SANITIZER-FINAL -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -4106,7 +4107,107 @@ function renderBossResult(){
         };
       }
 
-      function getHygieneZoneHref(){
+      
+function herohealthBaseUrl(){
+  try{
+    const path = location.pathname;
+    const marker = '/herohealth/';
+    const idx = path.indexOf(marker);
+
+    if(idx >= 0){
+      return location.origin + path.slice(0, idx + marker.length);
+    }
+
+    return new URL('../', location.href).toString();
+  }catch(_){
+    return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+  }
+}
+
+function heroUrl(relativePath){
+  const clean = String(relativePath || '').replace(/^\/+/, '');
+  return new URL(clean, herohealthBaseUrl());
+}
+
+function decodeMaybeTwice(raw){
+  let value = String(raw || '').trim();
+
+  for(let i = 0; i < 2; i++){
+    try{
+      const next = decodeURIComponent(value);
+      if(next === value) break;
+      value = next;
+    }catch(_){
+      break;
+    }
+  }
+
+  return value;
+}
+
+function normalizeHeroReturnUrl(raw){
+  raw = String(raw || '').trim();
+  if(!raw) return '';
+
+  try{
+    const decoded = decodeMaybeTwice(raw);
+    const u = new URL(decoded, herohealthBaseUrl());
+
+    /*
+      Important:
+      - Accept hygiene-zone.html only.
+      - Reject warmup-gate.html / cooldown-gate / hub.html as the game return URL.
+      - This prevents looping back to warmup/cooldown gate through a polluted hub param.
+    */
+    if(/hygiene-zone\.html$/i.test(u.pathname)){
+      return u.toString();
+    }
+
+    return '';
+  }catch(_){
+    return '';
+  }
+}
+
+function getCleanHygieneReturnUrl(){
+  const candidates = [
+    qs.get('back'),
+    qs.get('return'),
+    qs.get('nextZone'),
+    qs.get('hub')
+  ];
+
+  for(const raw of candidates){
+    const ok = normalizeHeroReturnUrl(raw);
+    if(ok) return ok;
+  }
+
+  const fallback = heroUrl('hygiene-zone.html');
+
+  const keep = {
+    pid:qs.get('pid') || 'anon',
+    name:qs.get('name') || qs.get('nick') || 'Hero',
+    nick:qs.get('nick') || qs.get('name') || 'Hero',
+    diff:qs.get('diff') || (typeof rush !== 'undefined' && rush.diff) || 'normal',
+    time:qs.get('time') || String((typeof state !== 'undefined' && state.timeLeft) || 90),
+    view:qs.get('view') || 'mobile',
+    zone:'hygiene',
+    cat:'hygiene'
+  };
+
+  Object.entries(keep).forEach(([k,v]) => {
+    if(v !== '' && v != null) fallback.searchParams.set(k, String(v));
+  });
+
+  fallback.searchParams.set(
+    'hub',
+    qs.get('rootHub') || qs.get('hubRoot') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
+  );
+
+  return fallback.toString();
+}
+
+function getHygieneZoneHref(){
         const fallback = new URL('../hygiene-zone.html', location.href);
         const fromHub = qs.get('hub') || '';
         if(fromHub && /hygiene-zone\.html/i.test(fromHub)){
