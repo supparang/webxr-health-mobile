@@ -1,3 +1,7 @@
+<!-- === /herohealth/goodjunk-launcher.html === -->
+<!-- FULL PATCH v20260503u-GOODJUNK-LAUNCHER-SOLO-BOSS-WARMUP-COOLDOWN-FLOW -->
+<!-- จุดสำคัญ: Solo Boss ต้องเข้า warmup-gate ก่อน และเกมจริงต้องได้ hub เป็น cooldown-gate -->
+
 <!doctype html>
 <html lang="th">
 <head>
@@ -9,6 +13,46 @@
   <link rel="stylesheet" href="./goodjunk-page-base.css" />
 
   <style>
+    :root{
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+
+      --bg:#f7fcff;
+      --card:#ffffff;
+      --line:#dbeaf4;
+      --text:#334155;
+      --muted:#6d7d8b;
+
+      --sky:#7fcfff;
+      --green:#7ed957;
+      --gold:#ffd45f;
+      --pink:#ff9fd0;
+      --violet:#bca7ff;
+
+      --shadow:0 18px 42px rgba(0,0,0,.09);
+      --shadow-soft:0 10px 24px rgba(0,0,0,.06);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(127,207,255,.24), transparent 24%),
+        radial-gradient(circle at 90% 4%, rgba(255,212,92,.22), transparent 24%),
+        linear-gradient(180deg,#f7fcff,#fffef8);
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    body{
+      min-height:100dvh;
+    }
+
     .gj-launcher-wrap{
       min-height:100dvh;
       padding:
@@ -102,6 +146,20 @@
       font-weight:900;
     }
 
+    .gj-flow-note{
+      position:relative;
+      z-index:1;
+      margin-top:12px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:#f0fff4;
+      border:2px solid #d8f5df;
+      color:#467d48;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
     .gj-config{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
@@ -163,6 +221,8 @@
       box-shadow:var(--shadow-soft);
       padding:16px 14px;
       transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
+      color:inherit;
+      font:inherit;
     }
 
     .gj-mode-card:hover{
@@ -173,6 +233,11 @@
 
     .gj-mode-card:active{
       transform:translateY(0);
+    }
+
+    .gj-mode-card.is-primary{
+      border-color:#ffe08a;
+      background:linear-gradient(180deg,#fff9df,#ffffff);
     }
 
     .gj-mode-icon{
@@ -273,6 +338,56 @@
       gap:10px;
     }
 
+    .gj-btn{
+      min-height:52px;
+      border:none;
+      border-radius:18px;
+      padding:0 16px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      text-decoration:none;
+      color:#17384f;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:var(--shadow-soft);
+      touch-action:manipulation;
+    }
+
+    .gj-btn-primary{
+      background:linear-gradient(180deg,#ffe486,#ffc93c);
+      color:#4a3200;
+    }
+
+    .gj-btn-success{
+      background:linear-gradient(180deg,#9ff2b0,#68d878);
+      color:#173d1d;
+    }
+
+    .gj-btn-warn{
+      background:linear-gradient(180deg,#eaf8ff,#cfeeff);
+      color:#24556f;
+    }
+
+    .gj-debug{
+      display:none;
+      border-radius:18px;
+      border:2px dashed #d8e8f3;
+      background:#fbfdff;
+      padding:12px;
+      color:#627486;
+      font-size:12px;
+      line-height:1.45;
+      font-weight:800;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+
+    .gj-debug.show{
+      display:block;
+    }
+
     @media (max-width:980px){
       .gj-config{
         grid-template-columns:repeat(2,minmax(0,1fr));
@@ -316,10 +431,15 @@
           <div class="gj-kicker">🍎 GOODJUNK</div>
           <h1 class="gj-hero-title">เลือกโหมดที่อยากเล่น</h1>
         </div>
+
         <p class="gj-hero-sub">
           เลือกชื่อ ระดับ เวลา และมุมมอง แล้วกดโหมดที่ต้องการเล่น
           โหมดหลายคนจะเน้นเก็บ <b>good / junk</b> ส่วน <b>phase boss</b> ใช้เฉพาะ Solo Boss
         </p>
+
+        <div class="gj-flow-note">
+          👑 Solo Boss จะเข้า Warmup ก่อน 1 ครั้งต่อวัน → เข้าเกมบอสจริง → จบแล้วไป Cooldown → กลับ Nutrition Zone
+        </div>
       </section>
 
       <section class="gj-config" aria-label="ตั้งค่าการเล่น">
@@ -350,6 +470,7 @@
               <option value="90">90 วินาที</option>
               <option value="120">120 วินาที</option>
               <option value="150">150 วินาที</option>
+              <option value="180">180 วินาที</option>
             </select>
           </label>
         </div>
@@ -373,11 +494,13 @@
         </p>
 
         <div class="gj-mode-grid" style="margin-top:12px;">
-          <button class="gj-mode-card solo" type="button" data-mode="solo-boss">
+          <button class="gj-mode-card solo is-primary" type="button" data-mode="solo-boss">
             <div class="gj-mode-icon">👑</div>
             <div class="gj-mode-title">Solo Boss</div>
-            <div class="gj-mode-desc">เล่นเดี่ยว ผ่าน phase แล้วสู้ Junk King</div>
-            <div class="gj-mode-tag">boss mode</div>
+            <div class="gj-mode-desc">
+              เล่นเดี่ยว ผ่าน Warmup แล้วสู้ Junk King แบบ Phase Boss
+            </div>
+            <div class="gj-mode-tag">warmup → boss → cooldown</div>
           </button>
 
           <button class="gj-mode-card duet" type="button" data-mode="duet">
@@ -413,8 +536,10 @@
       <section class="gj-launcher-actions">
         <a id="btnBackHub" class="gj-btn gj-btn-success" href="./nutrition-zone.html">🥗 กลับ Nutrition</a>
         <button id="btnSoloQuick" class="gj-btn gj-btn-primary" type="button">👑 เข้า Solo Boss</button>
-        <button id="btnReload" class="gj-btn gj-btn-warn" type="button">🔄 โหลดค่าใหม่</button>
+        <button id="btnDebug" class="gj-btn gj-btn-warn" type="button">🔎 ดูลิงก์ Flow</button>
       </section>
+
+      <pre id="debugBox" class="gj-debug"></pre>
 
     </div>
   </div>
@@ -426,18 +551,6 @@
       const q = new URLSearchParams(location.search);
       const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PREFS';
 
-      const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-      const URLS = {
-        nutrition: ROOT + 'nutrition-zone.html',
-        warmupGate: ROOT + 'warmup-gate.html',
-        soloBoss: ROOT + 'vr-goodjunk/goodjunk-solo-boss.html',
-        duetLobby: ROOT + 'vr-goodjunk/goodjunk-duet-lobby.html',
-        raceLobby: ROOT + 'vr-goodjunk/goodjunk-race-lobby.html',
-        battleLobby: ROOT + 'vr-goodjunk/goodjunk-battle-lobby.html',
-        coopLobby: ROOT + 'vr-goodjunk/goodjunk-coop-lobby.html',
-        fallbackGame: ROOT + 'goodjunk-vr.html'
-      };
-
       const fieldName = document.getElementById('fieldName');
       const fieldDiff = document.getElementById('fieldDiff');
       const fieldTime = document.getElementById('fieldTime');
@@ -445,7 +558,8 @@
 
       const btnBackHub = document.getElementById('btnBackHub');
       const btnSoloQuick = document.getElementById('btnSoloQuick');
-      const btnReload = document.getElementById('btnReload');
+      const btnDebug = document.getElementById('btnDebug');
+      const debugBox = document.getElementById('debugBox');
       const modeCards = Array.from(document.querySelectorAll('.gj-mode-card'));
 
       function first(){
@@ -461,11 +575,8 @@
       }
 
       function safeJsonParse(text, fallback){
-        try{
-          return JSON.parse(text);
-        }catch(_){
-          return fallback;
-        }
+        try{ return JSON.parse(text); }
+        catch(_){ return fallback; }
       }
 
       function storageGet(key, fallback){
@@ -478,13 +589,16 @@
       }
 
       function storageSet(key, value){
-        try{
-          localStorage.setItem(key, value);
-        }catch(_){}
+        try{ localStorage.setItem(key, value); }
+        catch(_){}
+      }
+
+      function abs(path){
+        return new URL(path, location.href).toString();
       }
 
       function cleanReturnUrl(raw){
-        const fallback = URLS.nutrition;
+        const fallback = abs('./nutrition-zone.html');
 
         try{
           if(!String(raw || '').trim()) return fallback;
@@ -492,7 +606,7 @@
           const u = new URL(String(raw), location.href);
 
           if(u.pathname.includes('/nutrition-zone.html')){
-            return URLS.nutrition;
+            return abs('./nutrition-zone.html');
           }
 
           if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
@@ -520,8 +634,6 @@
       }
 
       function setSelectValue(select, value, fallback){
-        if(!select) return;
-
         const wanted = first(value, fallback);
         const ok = Array.from(select.options).some(opt => opt.value === wanted);
         select.value = ok ? wanted : fallback;
@@ -529,126 +641,142 @@
 
       function savePrefs(){
         storageSet(STORAGE_KEY, JSON.stringify({
-          name: fieldName ? fieldName.value.trim() || 'Hero' : 'Hero',
-          diff: fieldDiff ? fieldDiff.value || 'normal' : 'normal',
-          time: fieldTime ? fieldTime.value || '150' : '150',
-          view: fieldView ? fieldView.value || 'mobile' : 'mobile'
+          name: fieldName.value.trim() || 'Hero',
+          diff: fieldDiff.value || 'normal',
+          time: fieldTime.value || '150',
+          view: fieldView.value || 'mobile'
         }));
       }
 
       function loadPrefs(){
         const saved = getSavedPrefs();
 
-        if(fieldName){
-          fieldName.value = first(q.get('name'), saved.name, 'Hero');
-        }
-
+        fieldName.value = first(q.get('name'), saved.name, 'Hero');
         setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
         setSelectValue(fieldTime, first(q.get('time'), saved.time), '150');
         setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
       }
 
-      function baseContextParams(){
-        const p = new URLSearchParams();
-        const name = fieldName ? fieldName.value.trim() || 'Hero' : 'Hero';
-
-        p.set('pid', first(q.get('pid'), getPid(), 'anon'));
-        p.set('name', name);
-        p.set('nick', name);
-        p.set('diff', fieldDiff ? fieldDiff.value || 'normal' : 'normal');
-        p.set('time', fieldTime ? fieldTime.value || '150' : '150');
-        p.set('view', fieldView ? fieldView.value || 'mobile' : 'mobile');
-        p.set('run', first(q.get('run'), 'play'));
-
-        p.set('zone', 'nutrition');
-        p.set('cat', 'nutrition');
-        p.set('game', 'goodjunk');
-        p.set('gameId', 'goodjunk');
-
-        p.set('seed', first(q.get('seed'), String(Date.now())));
-
-        const studyId = first(q.get('studyId'), '');
-        const section = first(q.get('section'), '');
-        const sessionCode = first(q.get('session_code'), '');
-        const conditionGroup = first(q.get('conditionGroup'), '');
-        const api = first(q.get('api'), '');
-        const log = first(q.get('log'), '');
-
-        if(studyId) p.set('studyId', studyId);
-        if(section) p.set('section', section);
-        if(sessionCode) p.set('session_code', sessionCode);
-        if(conditionGroup) p.set('conditionGroup', conditionGroup);
-        if(api) p.set('api', api);
-        if(log) p.set('log', log);
-
-        return p;
+      function commonParams(){
+        return {
+          pid: getPid(),
+          name: fieldName.value.trim() || 'Hero',
+          nick: fieldName.value.trim() || 'Hero',
+          diff: fieldDiff.value || 'normal',
+          time: fieldTime.value || '150',
+          view: fieldView.value || 'mobile',
+          run: first(q.get('run'), 'play'),
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'goodjunk',
+          gameId: 'goodjunk',
+          seed: first(q.get('seed'), String(Date.now())),
+          studyId: first(q.get('studyId'), ''),
+          section: first(q.get('section'), ''),
+          session_code: first(q.get('session_code'), ''),
+          api: first(q.get('api'), ''),
+          log: first(q.get('log'), '')
+        };
       }
 
-      function urlWithParams(baseUrl, params){
-        const u = new URL(baseUrl);
-
-        params.forEach((v, k) => {
-          if(v !== undefined && v !== null && String(v) !== ''){
-            u.searchParams.set(k, String(v));
+      function applyParams(url, params){
+        Object.entries(params).forEach(([k,v]) => {
+          if(v !== '' && v != null){
+            url.searchParams.set(k, String(v));
           }
         });
-
-        return u;
+        return url;
       }
 
-      function buildSoloBossWarmupHref(){
-        const p = baseContextParams();
+      function buildCooldownGateUrl(){
+        const p = commonParams();
 
-        p.set('phase', 'warmup');
-        p.set('gameId', 'goodjunk');
-        p.set('game', 'goodjunk');
-        p.set('mode', 'solo-boss');
-        p.set('entry', 'solo-boss');
-        p.set('phaseBoss', '1');
-        p.set('multiplayer', '0');
-        p.set('cat', 'nutrition');
-        p.set('zone', 'nutrition');
+        const nutrition = getHubHref();
+        const u = new URL('./warmup-gate.html', location.href);
 
-        /*
-          next = เกมจริงหลังทำ warmup
-          gate ใช้ gameId=goodjunk เพื่อโหลด:
-          /herohealth/gate/games/goodjunk/warmup.js
-          แล้วกดเริ่มเกมจึงไป URL นี้
-        */
-        p.set('next', URLS.soloBoss);
+        applyParams(u, {
+          ...p,
+          phase: 'cooldown',
+          mode: 'solo-boss',
+          entry: 'solo-boss',
+          phaseBoss: '1',
+          multiplayer: '0',
+          next: nutrition,
+          hub: nutrition
+        });
 
-        /*
-          hub = ปลายทางสุดท้ายหลัง cooldown
-        */
-        p.set('hub', URLS.nutrition);
+        return u.toString();
+      }
 
-        return URLS.warmupGate + '?' + p.toString();
+      function buildSoloBossRunUrl(){
+        const p = commonParams();
+
+        const u = new URL('./vr-goodjunk/goodjunk-solo-boss.html', location.href);
+
+        applyParams(u, {
+          ...p,
+          mode: 'solo-boss',
+          entry: 'solo-boss',
+          phaseBoss: '1',
+          multiplayer: '0',
+          hub: buildCooldownGateUrl()
+        });
+
+        return u.toString();
+      }
+
+      function buildWarmupGateUrl(){
+        const p = commonParams();
+
+        const nutrition = getHubHref();
+        const u = new URL('./warmup-gate.html', location.href);
+
+        applyParams(u, {
+          ...p,
+          phase: 'warmup',
+          mode: 'solo-boss',
+          entry: 'solo-boss',
+          phaseBoss: '1',
+          multiplayer: '0',
+          next: buildSoloBossRunUrl(),
+          hub: nutrition
+        });
+
+        return u.toString();
       }
 
       function buildMultiplayerHref(mode){
-        const p = baseContextParams();
+        const p = commonParams();
 
-        p.set('mode', mode);
-        p.set('entry', mode);
-        p.set('multiplayer', '1');
-        p.set('hub', getHubHref());
-
-        const lobbyMap = {
-          duet: URLS.duetLobby,
-          race: URLS.raceLobby,
-          battle: URLS.battleLobby,
-          coop: URLS.coopLobby
+        const map = {
+          duet: './vr-goodjunk/goodjunk-duet-lobby.html',
+          race: './vr-goodjunk/goodjunk-race-lobby.html',
+          battle: './vr-goodjunk/goodjunk-battle-lobby.html',
+          coop: './vr-goodjunk/goodjunk-coop-lobby.html'
         };
 
-        const path = lobbyMap[mode] || URLS.fallbackGame;
-        return urlWithParams(path, p).toString();
+        const href = map[mode] || './goodjunk-vr.html';
+        const u = new URL(href, location.href);
+
+        applyParams(u, {
+          ...p,
+          mode,
+          entry: mode,
+          recommendedMode: mode,
+          theme: 'goodjunk',
+          multiplayer: '1',
+          nick: p.nick,
+          hub: getHubHref()
+        });
+
+        return u.toString();
       }
 
       function buildModeHref(mode){
         mode = lower(mode);
 
-        if(mode === 'solo-boss' || mode === 'solo'){
-          return buildSoloBossWarmupHref();
+        if(mode === 'solo-boss'){
+          return buildWarmupGateUrl();
         }
 
         return buildMultiplayerHref(mode);
@@ -659,43 +787,54 @@
         location.href = buildModeHref(mode);
       }
 
-      function bind(){
-        if(btnBackHub){
-          btnBackHub.href = getHubHref();
-        }
+      function showDebug(){
+        const data = {
+          patch: 'v20260503u-GOODJUNK-LAUNCHER-SOLO-BOSS-WARMUP-COOLDOWN-FLOW',
+          warmupGate: buildWarmupGateUrl(),
+          gameRun: buildSoloBossRunUrl(),
+          cooldownGate: buildCooldownGateUrl(),
+          nutrition: getHubHref()
+        };
 
-        [fieldName, fieldDiff, fieldTime, fieldView].forEach((el) => {
-          if(!el) return;
-          el.addEventListener('input', savePrefs);
-          el.addEventListener('change', savePrefs);
-        });
-
-        modeCards.forEach((card) => {
-          card.addEventListener('click', function(){
-            const mode = lower(card.dataset.mode);
-            goMode(mode);
-          });
-        });
-
-        if(btnSoloQuick){
-          btnSoloQuick.addEventListener('click', function(){
-            goMode('solo-boss');
-          });
-        }
-
-        if(btnReload){
-          btnReload.addEventListener('click', function(){
-            location.reload();
-          });
-        }
+        debugBox.classList.toggle('show');
+        debugBox.textContent = JSON.stringify(data, null, 2);
       }
 
-      function boot(){
-        loadPrefs();
-        bind();
-      }
+      loadPrefs();
+      btnBackHub.href = getHubHref();
 
-      boot();
+      [fieldName, fieldDiff, fieldTime, fieldView].forEach(el => {
+        el.addEventListener('input', savePrefs);
+        el.addEventListener('change', savePrefs);
+      });
+
+      modeCards.forEach(card => {
+        card.addEventListener('click', function(){
+          const mode = lower(card.dataset.mode);
+          goMode(mode);
+        });
+      });
+
+      btnSoloQuick.addEventListener('click', function(){
+        goMode('solo-boss');
+      });
+
+      btnDebug.addEventListener('click', showDebug);
+
+      window.GoodJunkLauncher = {
+        buildWarmupGateUrl,
+        buildSoloBossRunUrl,
+        buildCooldownGateUrl,
+        buildModeHref,
+        debug(){
+          return {
+            warmupGate: buildWarmupGateUrl(),
+            gameRun: buildSoloBossRunUrl(),
+            cooldownGate: buildCooldownGateUrl(),
+            nutrition: getHubHref()
+          };
+        }
+      };
     })();
   </script>
 </body>
