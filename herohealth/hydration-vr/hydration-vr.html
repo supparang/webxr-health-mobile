@@ -3,18 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Hydration VR</title>
+  <title>HeroHealth • Hydration Hero Launcher</title>
   <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#12345f" />
   <link rel="icon" href="./favicon.ico" />
 
   <style>
     :root{
       --bg1:#071226;
-      --bg2:#12284a;
-      --bg3:#1f4d88;
-      --card:rgba(7,18,38,.76);
-      --card-2:rgba(12,24,52,.82);
-      --line:rgba(255,255,255,.12);
+      --bg2:#12345f;
+      --bg3:#1d66a5;
+      --card:rgba(7,18,38,.78);
+      --card2:rgba(12,24,52,.86);
+      --line:rgba(255,255,255,.14);
       --text:#eff7ff;
       --muted:#bfdbfe;
       --cyan:#67e8f9;
@@ -22,118 +23,151 @@
       --good:#34d399;
       --warn:#fbbf24;
       --danger:#fb7185;
-      --shadow:0 22px 54px rgba(0,0,0,.28);
-      --radius:24px;
+      --violet:#c084fc;
+      --shadow:0 24px 64px rgba(0,0,0,.30);
+      --radius:26px;
     }
 
     *{ box-sizing:border-box; }
-    html,body{ margin:0; min-height:100%; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+    }
+
     body{
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans Thai", sans-serif;
+      font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at top, rgba(103,232,249,.16), transparent 22%),
-        linear-gradient(180deg,var(--bg3),var(--bg2) 35%,var(--bg1));
+        radial-gradient(circle at 20% 0%, rgba(103,232,249,.20), transparent 28%),
+        radial-gradient(circle at 80% 20%, rgba(96,165,250,.18), transparent 24%),
+        radial-gradient(circle at 50% 100%, rgba(52,211,153,.12), transparent 30%),
+        linear-gradient(180deg,var(--bg3),var(--bg2) 38%,var(--bg1));
       overflow-x:hidden;
     }
 
-    button{
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 10% 25%, rgba(255,255,255,.10), transparent 12%),
+        radial-gradient(circle at 88% 48%, rgba(255,255,255,.07), transparent 14%),
+        linear-gradient(180deg,rgba(255,255,255,.04),transparent 46%);
+      z-index:0;
+    }
+
+    button,a{
       font:inherit;
-      border:0;
+    }
+
+    button{
       cursor:pointer;
+      border:0;
     }
 
-    .hydr-page{
-      max-width:1200px;
+    a{
+      color:inherit;
+      text-decoration:none;
+    }
+
+    .page{
+      position:relative;
+      z-index:1;
+      width:min(1180px,100%);
       margin:0 auto;
-      padding:14px;
+      padding:16px;
       display:grid;
-      gap:12px;
-      grid-template-columns:minmax(0,1fr);
+      gap:14px;
     }
 
-    .hero-strip{
-      display:flex;
+    .hero{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:14px;
       align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px 14px;
-      border-radius:22px;
-      background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.12);
+      padding:16px;
+      border-radius:28px;
+      background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.05));
+      border:1px solid var(--line);
       box-shadow:var(--shadow);
-      backdrop-filter:blur(12px);
+      backdrop-filter:blur(14px);
     }
 
     .hero-left{
       display:flex;
+      gap:14px;
       align-items:center;
-      gap:12px;
       min-width:0;
     }
 
-    .hero-badge{
-      width:52px;
-      height:52px;
-      border-radius:18px;
+    .logo{
+      width:64px;
+      height:64px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg,#38bdf8,#2563eb);
-      box-shadow:0 12px 26px rgba(37,99,235,.34);
-      font-size:28px;
+      font-size:34px;
+      background:linear-gradient(180deg,#22d3ee,#2563eb);
+      box-shadow:0 16px 34px rgba(37,99,235,.34);
       flex:0 0 auto;
     }
 
-    .hero-title{
+    .title-wrap{
       min-width:0;
     }
 
-    .hero-title .k{
+    .eyebrow{
       font-size:12px;
-      color:var(--muted);
-      font-weight:800;
-      letter-spacing:.04em;
-    }
-
-    .hero-title .v{
-      font-size:20px;
       font-weight:1000;
-      line-height:1.1;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      letter-spacing:.05em;
+      color:var(--muted);
+      text-transform:uppercase;
     }
 
-    .hero-right{
+    h1{
+      margin:4px 0 0 0;
+      font-size:clamp(24px,4vw,42px);
+      line-height:1.02;
+      font-weight:1100;
+      letter-spacing:-.03em;
+    }
+
+    .hero-sub{
+      margin-top:8px;
+      max-width:760px;
+      color:rgba(239,247,255,.84);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .hero-actions{
       display:flex;
-      gap:8px;
+      gap:10px;
       flex-wrap:wrap;
       justify-content:flex-end;
     }
 
     .chip{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
       padding:8px 10px;
       border-radius:999px;
       background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.13);
       color:#fff;
       font-size:12px;
-      font-weight:900;
+      font-weight:1000;
       white-space:nowrap;
     }
 
-    .grid-main{
+    .grid{
       display:grid;
-      grid-template-columns:minmax(0,1fr) 320px;
-      gap:12px;
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
       align-items:start;
-    }
-
-    .main-col,
-    .side-col{
-      display:grid;
-      gap:12px;
-      min-width:0;
     }
 
     .panel{
@@ -141,1266 +175,707 @@
       border:1px solid var(--line);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
-      backdrop-filter:blur(12px);
+      backdrop-filter:blur(14px);
+      padding:14px;
     }
 
-    .panel.pad{ padding:12px; }
-
-    #hhTopStatsWrap,
-    #hhMissionWrap,
-    #hhCoachTopWrap,
-    #hhCoachBottomWrap,
-    #hhMetaWrap{
-      min-width:0;
-    }
-
-    .stats-grid-kid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+    .panel-title{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
       gap:10px;
+      margin-bottom:12px;
     }
 
-    .stat-card{
-      min-height:86px;
-      padding:10px 12px;
-      border-radius:18px;
-      background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.10);
-      display:grid;
-      gap:4px;
+    .panel-title h2{
+      margin:0;
+      font-size:18px;
+      line-height:1.15;
+      font-weight:1100;
     }
 
-    .stat-card .label{
-      font-size:12px;
-      font-weight:900;
+    .panel-title p{
+      margin:5px 0 0 0;
       color:var(--muted);
-      letter-spacing:.04em;
+      font-size:12px;
+      line-height:1.35;
     }
 
-    .stat-card .value{
-      font-size:22px;
-      font-weight:1000;
-      line-height:1;
-    }
-
-    .stat-card.critical{
-      outline:2px solid rgba(251,113,133,.38);
-    }
-
-    .stat-card.focus{
-      outline:2px solid rgba(103,232,249,.34);
-    }
-
-    .mission-card{
-      padding:12px;
-      border-radius:20px;
-      background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.10);
-    }
-
-    .mission-title{
-      font-size:14px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .mission-grid{
-      display:grid;
-      gap:8px;
-    }
-
-    .mission-row{
-      display:grid;
-      grid-template-columns:1fr auto auto;
-      gap:10px;
-      align-items:center;
-      padding:8px 10px;
-      border-radius:16px;
-      background:rgba(255,255,255,.05);
-    }
-
-    .mission-chip{
+    .tag{
       padding:6px 10px;
       border-radius:999px;
       font-size:11px;
       font-weight:1000;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
+      background:rgba(251,191,36,.15);
+      border:1px solid rgba(251,191,36,.34);
+      color:#fef3c7;
+      white-space:nowrap;
     }
 
-    .mission-chip.done{
-      background:rgba(52,211,153,.18);
-      border-color:rgba(52,211,153,.44);
-    }
-
-    .mission-chip.hot{
-      background:rgba(251,191,36,.16);
-      border-color:rgba(251,191,36,.38);
-    }
-
-    .coach-card{
-      padding:12px;
-      border-radius:20px;
-      background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.10);
-      display:grid;
-      gap:10px;
-    }
-
-    .coach-top{
-      display:flex;
-      gap:10px;
-      align-items:center;
-    }
-
-    .coach-face{
-      width:52px;
-      height:52px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#22d3ee,#2563eb);
-      font-size:28px;
-      flex:0 0 auto;
-    }
-
-    .coach-copy{
-      min-width:0;
-    }
-
-    .coach-copy .name{
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    .coach-copy .mood{
-      font-size:12px;
-      color:var(--muted);
-      margin-top:2px;
-    }
-
-    .risk-wrap{
-      display:grid;
-      gap:6px;
-    }
-
-    .risk-bar{
-      width:100%;
-      height:10px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,.08);
-    }
-
-    .risk-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#22d3ee,#60a5fa,#fbbf24,#fb7185);
-      transition:width .18s ease;
-    }
-
-    .coach-mini-row{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .mini-note{
-      padding:8px 10px;
-      border-radius:14px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.08);
-      font-size:12px;
-      line-height:1.25;
-    }
-
-    .meta-card{
-      padding:10px 12px;
-      border-radius:18px;
-      background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,.04));
-      border:1px solid rgba(255,255,255,.10);
-      display:grid;
-      gap:6px;
-    }
-
-    .meta-grid{
+    .choice-grid{
       display:grid;
       grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .meta-item{
-      padding:8px 10px;
-      border-radius:14px;
-      background:rgba(255,255,255,.05);
-      border:1px solid rgba(255,255,255,.08);
-      font-size:12px;
-      line-height:1.2;
-    }
-
-    #stage{
-      position:relative;
-      min-height:640px;
-      height:min(76svh,860px);
-      border-radius:28px;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 20% 18%, rgba(255,255,255,.20), transparent 20%),
-        radial-gradient(circle at 78% 20%, rgba(255,255,255,.12), transparent 20%),
-        linear-gradient(180deg,#7dd3fc 0%, #38bdf8 22%, #2563eb 68%, #1e3a8a 100%);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 28px 70px rgba(0,0,0,.28);
-      isolation:isolate;
-    }
-
-    #stage::before{
-      content:"";
-      position:absolute;
-      inset:auto -10% -18% -10%;
-      height:42%;
-      background:
-        radial-gradient(circle at 20% 40%, rgba(255,255,255,.12), transparent 28%),
-        radial-gradient(circle at 72% 30%, rgba(255,255,255,.10), transparent 26%),
-        linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));
-      border-radius:50%;
-      pointer-events:none;
-      z-index:0;
-    }
-
-    #stage.is-storm{ filter:saturate(1.02) brightness(.98); }
-    #stage.is-boss{ filter:saturate(1.05); }
-    #stage.is-final{
-      box-shadow:0 28px 76px rgba(0,0,0,.30), 0 0 0 1px rgba(255,255,255,.08) inset;
-    }
-    #stage.final-rush{
-      box-shadow:
-        0 28px 76px rgba(0,0,0,.30),
-        0 0 44px rgba(251,191,36,.18),
-        0 0 0 1px rgba(255,255,255,.08) inset;
-    }
-    #stage.compact-danger{ outline:2px solid rgba(251,113,133,.20); }
-    #stage.compact-threat-live{ outline:2px solid rgba(251,191,36,.18); }
-    #stage.compact-final-rush{ outline:2px solid rgba(250,204,21,.20); }
-
-    #layer{
-      position:absolute;
-      inset:0;
-      z-index:5;
-      overflow:hidden;
-    }
-
-    .zone-sign{
-      position:absolute;
-      top:12px;
-      left:12px;
-      right:70px;
-      z-index:12;
-      min-height:40px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(7,18,38,.45);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
-      font-size:13px;
-      font-weight:1000;
-      letter-spacing:.01em;
-      backdrop-filter:blur(10px);
-    }
-
-    .boss-face{
-      position:absolute;
-      top:12px;
-      right:12px;
-      z-index:12;
-      width:48px;
-      height:48px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      background:rgba(7,18,38,.54);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 10px 24px rgba(0,0,0,.18);
-      backdrop-filter:blur(10px);
-      opacity:0;
-      transform:scale(.9);
-      transition:opacity .18s ease, transform .18s ease;
-    }
-
-    .boss-face.show{
-      opacity:1;
-      transform:scale(1);
-    }
-
-    .boss-face.b1{ box-shadow:0 10px 24px rgba(34,211,238,.20); }
-    .boss-face.b2{ box-shadow:0 10px 24px rgba(251,191,36,.24); }
-    .boss-face.b3{ box-shadow:0 10px 24px rgba(251,113,133,.26); }
-    .boss-face.final{ box-shadow:0 10px 24px rgba(250,204,21,.28); }
-
-    .bubble{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      width:90px;
-      height:90px;
-      min-width:90px;
-      min-height:90px;
-      border-radius:999px;
-      display:grid;
-      place-items:center;
-      font-size:32px;
-      border:1px solid rgba(255,255,255,.18);
-      box-shadow:0 14px 30px rgba(0,0,0,.18);
-      background:radial-gradient(circle at 30% 25%, rgba(255,255,255,.30), rgba(255,255,255,.12) 35%, rgba(255,255,255,.06) 60%);
-      color:#fff;
-      z-index:8;
-      user-select:none;
-      -webkit-tap-highlight-color:transparent;
-      touch-action:manipulation;
-      transition:transform .12s ease, box-shadow .12s ease;
-    }
-
-    .bubble::after{
-      content:attr(data-badge);
-      position:absolute;
-      top:-6px;
-      right:-2px;
-      font-size:10px;
-      font-weight:1000;
-      padding:4px 6px;
-      border-radius:999px;
-      background:rgba(7,18,38,.80);
-      border:1px solid rgba(255,255,255,.14);
-      color:#fff;
-      letter-spacing:.04em;
-    }
-
-    .bubble:active{ transform:translate(-50%,-50%) scale(.96); }
-
-    .bubble-good{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.42), rgba(103,232,249,.32) 34%, rgba(56,189,248,.18) 60%),
-        linear-gradient(180deg,rgba(34,211,238,.32),rgba(37,99,235,.26));
-    }
-
-    .bubble-bad{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.34), rgba(251,191,36,.28) 34%, rgba(251,113,133,.16) 60%),
-        linear-gradient(180deg,rgba(251,191,36,.26),rgba(251,113,133,.20));
-    }
-
-    .bubble-shield{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.40), rgba(147,197,253,.30) 34%, rgba(59,130,246,.18) 60%),
-        linear-gradient(180deg,rgba(96,165,250,.28),rgba(37,99,235,.22));
-    }
-
-    .bubble-bonus{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.44), rgba(250,204,21,.34) 34%, rgba(249,115,22,.16) 60%),
-        linear-gradient(180deg,rgba(250,204,21,.28),rgba(249,115,22,.18));
-    }
-
-    .bubble-threat{
-      background:
-        radial-gradient(circle at 30% 25%, rgba(255,255,255,.34), rgba(251,191,36,.26) 34%, rgba(251,113,133,.18) 60%),
-        linear-gradient(180deg,rgba(251,191,36,.24),rgba(251,113,133,.20));
-      box-shadow:0 14px 34px rgba(251,113,133,.24);
-    }
-
-    .bubble-focus{
-      outline:3px solid rgba(255,255,255,.24);
-      box-shadow:0 0 0 4px rgba(34,211,238,.24), 0 14px 30px rgba(0,0,0,.18);
-    }
-
-    .bubble-priority{
-      box-shadow:0 0 0 3px rgba(250,204,21,.18), 0 14px 30px rgba(0,0,0,.20);
-    }
-
-    .float-a{ animation:floatA 2.1s ease-in-out infinite alternate; }
-    .float-b{ animation:floatB 2.4s ease-in-out infinite alternate; }
-    .float-c{ animation:floatC 2.2s ease-in-out infinite alternate; }
-
-    @keyframes floatA{
-      from{ transform:translate(-50%,-50%) translateY(0); }
-      to{ transform:translate(-50%,-50%) translateY(-7px); }
-    }
-    @keyframes floatB{
-      from{ transform:translate(-50%,-50%) translateY(-2px); }
-      to{ transform:translate(-50%,-50%) translateY(6px); }
-    }
-    @keyframes floatC{
-      from{ transform:translate(-50%,-50%) translateY(1px); }
-      to{ transform:translate(-50%,-50%) translateY(-6px); }
-    }
-
-    @keyframes threat-pulse{
-      from{ transform:translate(-50%,-50%) scale(1); }
-      to{ transform:translate(-50%,-50%) scale(1.08); }
-    }
-
-    .fx-ring,.fx-score,.sticker,.callout,.storm-flash,.bolt,.phase-cheer-layer,.phase-milestone-chip,.threat-lane-guide,.screen-edge-hint{
-      pointer-events:none;
-    }
-
-    .fx-ring{
-      position:absolute;
-      width:18px;
-      height:18px;
-      margin-left:-9px;
-      margin-top:-9px;
-      border-radius:999px;
-      border:2px solid rgba(255,255,255,.78);
-      z-index:15;
-      animation:ringExpand .45s ease-out forwards;
-    }
-
-    @keyframes ringExpand{
-      from{ opacity:1; transform:scale(.6); }
-      to{ opacity:0; transform:scale(3.2); }
-    }
-
-    .fx-score{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      z-index:16;
-      font-size:18px;
-      font-weight:1100;
-      color:#fff;
-      text-shadow:0 4px 12px rgba(0,0,0,.24);
-      animation:scoreRise .95s ease-out forwards;
-    }
-
-    @keyframes scoreRise{
-      0%{ opacity:0; transform:translate(-50%,-30%) scale(.8); }
-      16%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      100%{ opacity:0; transform:translate(-50%,-165%) scale(.92); }
-    }
-
-    #calloutLayer,
-    #stickerBurst{
-      position:absolute;
-      inset:0;
-      z-index:17;
-      pointer-events:none;
-    }
-
-    .callout{
-      position:absolute;
-      left:50%;
-      bottom:16%;
-      transform:translateX(-50%);
-      max-width:min(86vw,420px);
-      padding:10px 14px;
-      border-radius:999px;
-      font-size:13px;
-      font-weight:1000;
-      background:rgba(7,18,38,.82);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 12px 28px rgba(0,0,0,.22);
-      animation:calloutPop 1.35s ease forwards;
-      text-align:center;
-    }
-
-    .callout.good{ color:#dcfce7; }
-    .callout.warn{ color:#fef3c7; }
-    .callout.boss{ color:#e9d5ff; }
-
-    @keyframes calloutPop{
-      0%{ opacity:0; transform:translateX(-50%) translateY(10px) scale(.94); }
-      12%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
-      100%{ opacity:0; transform:translateX(-50%) translateY(-18px) scale(.98); }
-    }
-
-    .sticker{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      font-size:20px;
-      z-index:18;
-      animation:stickerBurst .95s ease forwards;
-      text-shadow:0 8px 16px rgba(0,0,0,.16);
-    }
-
-    @keyframes stickerBurst{
-      0%{ opacity:0; transform:translate(-50%,-50%) scale(.65); }
-      20%{ opacity:1; transform:translate(-50%,-50%) scale(1.08); }
-      100%{ opacity:0; transform:translate(-50%,-150%) scale(.94); }
-    }
-
-    .storm-flash{
-      position:absolute;
-      inset:0;
-      z-index:14;
-      background:rgba(255,255,255,.24);
-      animation:flashOut .26s ease forwards;
-    }
-
-    @keyframes flashOut{
-      from{ opacity:.9; }
-      to{ opacity:0; }
-    }
-
-    .bolt{
-      position:absolute;
-      top:0;
-      width:4px;
-      height:42%;
-      z-index:14;
-      background:linear-gradient(180deg,rgba(255,255,255,.96),rgba(250,204,21,.80),transparent);
-      box-shadow:0 0 18px rgba(255,255,255,.60), 0 0 24px rgba(250,204,21,.48);
-      animation:boltOut .35s ease forwards;
-    }
-
-    @keyframes boltOut{
-      from{ opacity:1; transform:translateX(-50%) scaleY(.7); }
-      to{ opacity:0; transform:translateX(-50%) scaleY(1.1); }
-    }
-
-    .fx-shake{
-      animation:hhShake .22s ease;
-    }
-
-    @keyframes hhShake{
-      0%,100%{ transform:translateX(0); }
-      20%{ transform:translateX(-3px); }
-      40%{ transform:translateX(3px); }
-      60%{ transform:translateX(-2px); }
-      80%{ transform:translateX(2px); }
-    }
-
-    .phase-cheer-layer{
-      position:absolute;
-      inset:0;
-      z-index:19;
-    }
-
-    .phase-ribbon{
-      position:absolute;
-      left:50%;
-      top:26%;
-      transform:translate(-50%,-50%);
-      padding:12px 16px;
-      border-radius:22px;
-      text-align:center;
-      background:rgba(7,18,38,.82);
-      border:1px solid rgba(255,255,255,.16);
-      box-shadow:0 18px 40px rgba(0,0,0,.24);
-      animation:phaseRibbon .9s ease forwards;
-      min-width:min(84vw,360px);
-    }
-
-    .phase-ribbon-main{
-      display:block;
-      font-size:20px;
-      font-weight:1100;
-    }
-
-    .phase-ribbon-sub{
-      display:block;
-      margin-top:2px;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .phase-ribbon.storm{ box-shadow:0 18px 40px rgba(34,211,238,.12); }
-    .phase-ribbon.boss{ box-shadow:0 18px 40px rgba(251,191,36,.14); }
-    .phase-ribbon.rage{ box-shadow:0 18px 40px rgba(251,113,133,.16); }
-    .phase-ribbon.final{ box-shadow:0 18px 40px rgba(250,204,21,.16); }
-    .phase-ribbon.rush{ box-shadow:0 18px 40px rgba(250,204,21,.20); }
-
-    @keyframes phaseRibbon{
-      0%{ opacity:0; transform:translate(-50%,-40%) scale(.88); }
-      18%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      100%{ opacity:0; transform:translate(-50%,-64%) scale(.98); }
-    }
-
-    .phase-burst-icon{
-      position:absolute;
-      left:50%;
-      top:38%;
-      transform:translate(-50%,-50%);
-      font-size:52px;
-      animation:phaseIcon .9s ease forwards;
-    }
-
-    @keyframes phaseIcon{
-      0%{ opacity:0; transform:translate(-50%,-40%) scale(.6); }
-      22%{ opacity:1; transform:translate(-50%,-50%) scale(1.05); }
-      100%{ opacity:0; transform:translate(-50%,-88%) scale(.92); }
-    }
-
-    .phase-stars-spray{
-      position:absolute;
-      inset:0;
-    }
-
-    .phase-spark{
-      position:absolute;
-      font-size:22px;
-      animation:phaseSpark .95s ease forwards;
-    }
-
-    @keyframes phaseSpark{
-      0%{ opacity:0; transform:translate(-50%,-50%) scale(.6); }
-      15%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      100%{ opacity:0; transform:translate(calc(-50% + var(--tx,0px)), calc(-50% + var(--ty,0px))) scale(.9); }
-    }
-
-    .phase-milestone-chip{
-      position:absolute;
-      left:50%;
-      bottom:14%;
-      transform:translateX(-50%);
-      padding:9px 14px;
-      border-radius:999px;
-      background:rgba(7,18,38,.82);
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 12px 28px rgba(0,0,0,.20);
-      font-size:12px;
-      font-weight:1000;
-      animation:milestoneChip 1.7s ease forwards;
-    }
-
-    .phase-milestone-chip.storm{ color:#cffafe; }
-    .phase-milestone-chip.boss{ color:#fde68a; }
-    .phase-milestone-chip.rage{ color:#fecdd3; }
-    .phase-milestone-chip.final,
-    .phase-milestone-chip.rush{ color:#fef3c7; }
-
-    @keyframes milestoneChip{
-      0%{ opacity:0; transform:translateX(-50%) translateY(12px); }
-      16%{ opacity:1; transform:translateX(-50%) translateY(0); }
-      100%{ opacity:0; transform:translateX(-50%) translateY(-16px); }
-    }
-
-    .threat-lane-guide{
-      position:absolute;
-      top:0;
-      bottom:0;
-      width:3px;
-      transform:translateX(-50%);
-      background:linear-gradient(180deg,rgba(250,204,21,.48),rgba(250,204,21,0));
-      z-index:11;
-    }
-
-    .screen-edge-hint{
-      position:absolute;
-      inset:0;
-      z-index:10;
-    }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index:1500;
-      display:grid;
-      place-items:center;
-      padding:18px;
-      background:rgba(2,6,23,.60);
-      backdrop-filter:blur(10px);
-      transition:opacity .16s ease, visibility .16s ease;
-    }
-
-    .overlay[aria-hidden="true"]{
-      opacity:0;
-      visibility:hidden;
-      pointer-events:none;
-    }
-
-    .overlay-card{
-      width:min(92vw,720px);
-      max-height:88svh;
-      overflow:auto;
-      padding:18px;
-      border-radius:28px;
-      background:linear-gradient(180deg,rgba(13,24,47,.94),rgba(9,17,36,.96));
-      border:1px solid rgba(255,255,255,.14);
-      box-shadow:0 24px 64px rgba(0,0,0,.30);
-    }
-
-    .overlay-title{
-      font-size:24px;
-      font-weight:1100;
-      line-height:1.1;
-    }
-
-    .overlay-sub{
-      margin-top:6px;
-      font-size:13px;
-      color:var(--muted);
-      line-height:1.4;
-    }
-
-    .overlay-grid{
-      display:grid;
-      gap:12px;
-      margin-top:14px;
-    }
-
-    .overlay-actions{
-      display:flex;
       gap:10px;
-      flex-wrap:wrap;
-      margin-top:16px;
     }
 
-    .btn{
-      min-height:46px;
-      padding:11px 16px;
-      border-radius:16px;
-      font-weight:1000;
+    .choice-card{
+      min-height:136px;
+      text-align:left;
+      padding:13px;
+      border-radius:22px;
       color:#fff;
-      background:rgba(255,255,255,.10);
-      border:1px solid rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      box-shadow:0 14px 30px rgba(0,0,0,.16);
+      transition:transform .12s ease,border-color .12s ease,background .12s ease,outline-color .12s ease;
+      cursor:pointer;
+    }
+
+    .choice-card:active{
+      transform:scale(.985);
+    }
+
+    .choice-card:hover{
+      border-color:rgba(103,232,249,.45);
+      background:rgba(255,255,255,.11);
+    }
+
+    .choice-card.is-selected{
+      outline:3px solid rgba(103,232,249,.25);
+      border-color:rgba(103,232,249,.56);
+      background:rgba(34,211,238,.14);
+    }
+
+    .choice-card .emoji{
+      font-size:30px;
+    }
+
+    .choice-card .name{
+      margin-top:7px;
+      font-size:15px;
+      font-weight:1100;
+    }
+
+    .choice-card .desc{
+      margin-top:5px;
+      color:#bfdbfe;
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    .choice-card.normal{ border-color:rgba(52,211,153,.28); }
+    .choice-card.challenge{ border-color:rgba(251,191,36,.34); }
+    .choice-card.hero{
+      border-color:rgba(251,113,133,.40);
+      background:linear-gradient(180deg,rgba(251,113,133,.17),rgba(255,255,255,.07));
+    }
+
+    .choice-card.mobile{ border-color:rgba(34,211,238,.28); }
+    .choice-card.pc{ border-color:rgba(96,165,250,.28); }
+    .choice-card.cardboard{ border-color:rgba(192,132,252,.34); }
+
+    .time-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .time-btn{
+      min-height:58px;
+      padding:10px;
+      border-radius:18px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.12);
+      color:#fff;
+      font-weight:1100;
       box-shadow:0 12px 24px rgba(0,0,0,.14);
     }
 
-    .btn.primary{
-      background:linear-gradient(180deg,#22d3ee,#2563eb);
-      border:0;
+    .time-btn.is-selected{
+      background:rgba(34,211,238,.15);
+      border-color:rgba(103,232,249,.52);
+      outline:2px solid rgba(103,232,249,.20);
     }
 
-    .btn.good{
-      background:linear-gradient(180deg,#34d399,#059669);
-      border:0;
-    }
-
-    .btn.warn{
-      background:linear-gradient(180deg,#fbbf24,#f59e0b);
-      border:0;
-      color:#1f2937;
-    }
-
-    .btn.ghost{ background:rgba(255,255,255,.06); }
-
-    .btn.small{
-      min-height:38px;
-      padding:8px 12px;
-      border-radius:12px;
-      font-size:12px;
-    }
-
-    .btn.is-hidden,.hidden{ display:none !important; }
-
-    .duet-grid{
-      margin-top:16px;
+    .start-card{
       display:grid;
-      gap:10px;
-      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:12px;
+      background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.05));
     }
 
-    .duet-player{
+    .summary-box{
+      display:grid;
+      gap:9px;
       padding:12px;
       border-radius:20px;
       background:rgba(255,255,255,.06);
       border:1px solid rgba(255,255,255,.10);
-      display:grid;
-      gap:6px;
-      text-align:center;
     }
 
-    .duet-player .name{
-      font-weight:1000;
-      font-size:16px;
-    }
-
-    .duet-player .state{
-      font-size:12px;
-      color:var(--muted);
-    }
-
-    .duet-countdown{
-      margin-top:14px;
-      text-align:center;
-      font-size:28px;
-      font-weight:1100;
-    }
-
-    .end-card{ display:grid; gap:14px; }
-
-    .end-hero{
-      display:grid;
-      gap:8px;
-      text-align:center;
-    }
-
-    .end-grade{
-      font-size:44px;
-      font-weight:1100;
-      line-height:1;
-    }
-
-    .end-stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .end-stat{
-      padding:10px 12px;
-      border-radius:18px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      text-align:center;
-    }
-
-    .end-stat .k{
-      font-size:11px;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .end-stat .v{
-      margin-top:4px;
-      font-size:22px;
-      font-weight:1100;
-    }
-
-    .end-stars{
-      display:flex;
-      justify-content:center;
-      gap:8px;
-      font-size:24px;
-    }
-
-    .end-star.off{
-      opacity:.28;
-      filter:grayscale(1);
-    }
-
-    .end-copy{
-      padding:12px;
-      border-radius:18px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      display:grid;
-      gap:6px;
-      text-align:center;
-    }
-
-    .sticker-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:center;
-    }
-
-    .stickerChip{
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(255,255,255,.10);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .detail-wrap{
-      display:grid;
-      gap:10px;
-    }
-
-    .detail-wrap.is-collapsed{
-      display:none;
-    }
-
-    .tool-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .duet-end-board{ display:grid; gap:10px; }
-
-    .duet-end-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .duet-end-player{
-      padding:12px;
-      border-radius:18px;
-      background:rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.10);
-      text-align:center;
-    }
-
-    .duet-end-player .name{
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    .duet-end-player .score{
-      font-size:28px;
-      font-weight:1100;
-      margin-top:4px;
-    }
-
-    .duet-end-player .meta{
-      margin-top:4px;
-      font-size:12px;
-      color:var(--muted);
-    }
-
-    .debug-mini{
-      position:fixed;
-      right:10px;
-      bottom:10px;
-      z-index:1490;
-      min-width:150px;
-      display:grid;
-      gap:6px;
-      padding:10px 12px;
-      border-radius:18px;
-      background:rgba(7,18,38,.84);
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 12px 28px rgba(0,0,0,.22);
-      font-size:11px;
-      color:#dbeafe;
-    }
-
-    .debug-row{
+    .summary-row{
       display:flex;
       justify-content:space-between;
       gap:10px;
+      font-size:13px;
+      color:var(--muted);
     }
 
-    .debug-mini.is-hidden{
-      display:none !important;
+    .summary-row strong{
+      color:#fff;
+      font-weight:1100;
+      text-align:right;
     }
 
-    @media (max-width: 980px){
-      .grid-main{
-        grid-template-columns:minmax(0,1fr);
-      }
-      .side-col{ order:2; }
+    .primary-btn{
+      min-height:58px;
+      border-radius:20px;
+      color:#fff;
+      font-size:16px;
+      font-weight:1100;
+      background:linear-gradient(180deg,#22d3ee,#2563eb);
+      box-shadow:0 18px 36px rgba(37,99,235,.30);
+      border:0;
+      width:100%;
     }
 
-    @media (max-width: 640px){
-      .hero-strip{
-        align-items:flex-start;
-        flex-direction:column;
-      }
+    .secondary-row{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
 
-      .hero-right{
-        width:100%;
-        justify-content:flex-start;
-      }
+    .secondary-btn{
+      min-height:48px;
+      border-radius:16px;
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.13);
+    }
 
-      .stats-grid-kid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+    .secondary-btn.warn{
+      color:#1f2937;
+      background:linear-gradient(180deg,#fbbf24,#f59e0b);
+      border:0;
+    }
 
-      .meta-grid,
-      .end-stats,
-      .duet-grid,
-      .duet-end-grid,
-      .tool-grid{
+    .note{
+      color:rgba(239,247,255,.80);
+      font-size:12px;
+      line-height:1.45;
+      padding:10px 12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.05);
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .flow{
+      display:grid;
+      gap:8px;
+    }
+
+    .flow-step{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:10px;
+      padding:10px;
+      border-radius:18px;
+      background:rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.09);
+      align-items:start;
+    }
+
+    .flow-no{
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:rgba(103,232,249,.18);
+      border:1px solid rgba(103,232,249,.30);
+      font-size:12px;
+      font-weight:1100;
+    }
+
+    .flow-title{
+      font-size:13px;
+      font-weight:1100;
+      color:#fff;
+    }
+
+    .flow-desc{
+      margin-top:3px;
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .footer{
+      text-align:center;
+      color:rgba(191,219,254,.82);
+      font-size:12px;
+      padding:8px 0 14px;
+    }
+
+    .tiny{
+      font-size:11px;
+      color:rgba(191,219,254,.78);
+      line-height:1.35;
+    }
+
+    @media (max-width:900px){
+      .hero{
         grid-template-columns:1fr;
       }
 
-      #stage{
-        min-height:620px;
-        height:76svh;
+      .hero-actions{
+        justify-content:flex-start;
       }
 
-      .overlay-card{
-        padding:16px;
-        border-radius:24px;
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-width:680px){
+      .page{
+        padding:12px;
+      }
+
+      .hero-left{
+        align-items:flex-start;
+      }
+
+      .logo{
+        width:56px;
+        height:56px;
+        font-size:30px;
+      }
+
+      .choice-grid,
+      .time-grid,
+      .secondary-row{
+        grid-template-columns:1fr;
+      }
+
+      .choice-card{
+        min-height:110px;
       }
     }
   </style>
-
-  <script defer src="https://www.gstatic.com/firebasejs/12.11.0/firebase-app-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/12.11.0/firebase-auth-compat.js"></script>
-  <script defer src="https://www.gstatic.com/firebasejs/12.11.0/firebase-database-compat.js"></script>
-  <script defer src="./firebase-config.js"></script>
-
-  <script>
-    window.HHA_bootstrapFirebaseCompat = function () {
-      try {
-        if (!window.firebase) return false;
-
-        const cfg =
-          window.HHA_FIREBASE_CONFIG ||
-          window.__HHA_FIREBASE_CONFIG__ ||
-          window.HEROHEALTH_FIREBASE_CONFIG ||
-          window.FIREBASE_CONFIG ||
-          null;
-
-        if (!cfg || !cfg.apiKey || !cfg.projectId) return false;
-
-        if (!window.firebase.apps || !window.firebase.apps.length) {
-          window.firebase.initializeApp(cfg);
-        }
-        return true;
-      } catch (err) {
-        console.error('[hydration-vr] bootstrap firebase compat failed:', err);
-        return false;
-      }
-    };
-  </script>
 </head>
+
 <body>
-  <div class="hydr-page">
-    <header class="hero-strip">
+  <main class="page">
+    <header class="hero">
       <div class="hero-left">
-        <div class="hero-badge">💧</div>
-        <div class="hero-title">
-          <div class="k" id="hhPlayerHint">Hydration Hero</div>
-          <div class="v" id="hhPlayerName">Player</div>
+        <div class="logo">💧</div>
+        <div class="title-wrap">
+          <div class="eyebrow">HeroHealth • Hydration</div>
+          <h1>Hydration Hero Launcher</h1>
+          <div class="hero-sub">
+            เลือกอุปกรณ์ ระยะเวลา และระดับความท้าทายก่อนเข้าเกมหลัก
+            โหมด Challenge/Hero จะเปิด Challenge Pack เพื่อเพิ่ม Combo Gate, Storm Chain, Shield Scarcity และ Final Rush
+          </div>
         </div>
       </div>
 
-      <div class="hero-right" id="hhMetaWrap">
-        <div class="chip">โหมด <span id="hhViewText">Mobile</span></div>
-        <div class="chip">ระดับ <span id="hhDiffText">Normal</span></div>
-        <div class="chip">เวลา <span id="hhTimeText">80 วินาที</span></div>
+      <div class="hero-actions">
+        <div class="chip">ผู้เล่น <span id="playerChip">Hero</span></div>
+        <div class="chip">View <span id="viewChip">mobile</span></div>
+        <div class="chip">Diff <span id="diffChip">normal</span></div>
       </div>
     </header>
 
-    <div class="grid-main">
-      <div class="main-col">
-        <section id="hhTopStatsWrap" class="panel pad">
-          <div class="stats-grid-kid">
-            <div class="stat-card"><div class="label">SCORE</div><div class="value" id="uiScore">0</div></div>
-            <div class="stat-card"><div class="label">TIME</div><div class="value" id="uiTime">00:00</div></div>
-            <div class="stat-card"><div class="label">MISS</div><div class="value" id="uiMiss">0</div></div>
-            <div class="stat-card"><div class="label">EXPIRE</div><div class="value" id="uiExpire">0</div></div>
-            <div class="stat-card"><div class="label">BLOCK</div><div class="value" id="uiBlock">0</div></div>
-            <div class="stat-card"><div class="label">GRADE</div><div class="value" id="uiGrade">D</div></div>
-            <div class="stat-card"><div class="label">WATER</div><div class="value" id="uiWater">40%</div></div>
-            <div class="stat-card"><div class="label">COMBO</div><div class="value" id="uiCombo">0</div></div>
-            <div class="stat-card"><div class="label">SHIELD</div><div class="value" id="uiShield">0</div></div>
+    <section class="panel">
+      <div class="panel-title">
+        <div>
+          <h2>🔥 เลือกระดับความท้าทาย</h2>
+          <p>Normal สำหรับฝึกพื้นฐาน • Challenge เพิ่มความกดดัน • Hero สำหรับคนที่เล่นคล่องแล้ว</p>
+        </div>
+        <div class="tag" id="currentDiffTag">NORMAL</div>
+      </div>
+
+      <div class="choice-grid">
+        <button class="choice-card normal" type="button" data-diff="normal">
+          <div class="emoji">💧</div>
+          <div class="name">Normal</div>
+          <div class="desc">เหมาะกับเริ่มเล่น ฝึกเก็บน้ำดี เก็บ Shield และหลบสิ่งไม่ดี</div>
+        </button>
+
+        <button class="choice-card challenge" type="button" data-diff="challenge">
+          <div class="emoji">🌩️</div>
+          <div class="name">Challenge</div>
+          <div class="desc">เพิ่ม Combo Gate, Storm Chain, เป้าเร็วขึ้น และ Shield หายากขึ้น</div>
+        </button>
+
+        <button class="choice-card hero" type="button" data-diff="hero">
+          <div class="emoji">⚡</div>
+          <div class="name">Hero</div>
+          <div class="desc">เร้าใจที่สุด Final Rush หนักขึ้น Threat เด่นขึ้น เหมาะกับผู้เล่นที่เก่งแล้ว</div>
+        </button>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div class="left-col" style="display:grid;gap:14px;">
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>📱 เลือกอุปกรณ์</h2>
+              <p>เลือกให้ตรงกับอุปกรณ์ที่ใช้เล่น</p>
+            </div>
+          </div>
+
+          <div class="choice-grid">
+            <button class="choice-card mobile" type="button" data-view="mobile">
+              <div class="emoji">📱</div>
+              <div class="name">Mobile</div>
+              <div class="desc">แตะหน้าจอ เหมาะกับมือถือและแท็บเล็ต</div>
+            </button>
+
+            <button class="choice-card pc" type="button" data-view="pc">
+              <div class="emoji">🖥️</div>
+              <div class="name">PC</div>
+              <div class="desc">คลิกด้วยเมาส์ เหมาะกับคอมพิวเตอร์</div>
+            </button>
+
+            <button class="choice-card cardboard" type="button" data-view="cardboard">
+              <div class="emoji">🥽</div>
+              <div class="name">Cardboard</div>
+              <div class="desc">สำหรับโหมด VR/Cardboard หรือจอมือถือแนวนอน</div>
+            </button>
           </div>
         </section>
 
         <section class="panel">
-          <div id="stage" data-hh-stage="focus">
-            <div id="zoneSign" class="zone-sign"></div>
-            <div id="bossFace" class="boss-face">⚡</div>
+          <div class="panel-title">
+            <div>
+              <h2>⏱️ เลือกเวลาเล่น</h2>
+              <p>Challenge/Hero แนะนำ 120–150 วินาที เพื่อให้ Storm และ Final Rush ทำงานเต็ม</p>
+            </div>
+          </div>
 
-            <div id="layer"></div>
-            <div id="calloutLayer"></div>
-            <div id="stickerBurst"></div>
+          <div class="time-grid">
+            <button class="time-btn" type="button" data-time="90">90 วินาที</button>
+            <button class="time-btn" type="button" data-time="120">120 วินาที</button>
+            <button class="time-btn" type="button" data-time="150">150 วินาที</button>
           </div>
         </section>
 
-        <section id="hhMissionWrap" class="panel pad">
-          <div class="mission-card">
-            <div class="mission-title">ภารกิจวันนี้</div>
-            <div class="mission-grid">
-              <div class="mission-row">
-                <div>เก็บน้ำดี</div>
-                <div><span id="missionHitNow">0</span> / <span id="missionHitGoal">0</span></div>
-                <div class="mission-chip" id="missionChipHit">MISSION</div>
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>🧭 Canonical Flow</h2>
+              <p>หน้า Launcher นี้ส่งเข้า Main game โดยตรง และ Main game จะต่อด้วย Post-game Evaluate/Create/Analyze</p>
+            </div>
+          </div>
+
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-no">1</div>
+              <div>
+                <div class="flow-title">Launcher</div>
+                <div class="flow-desc">เลือก view, เวลา, difficulty และ challenge level</div>
               </div>
-              <div class="mission-row">
-                <div>บล็อกสายฟ้า</div>
-                <div><span id="missionBlockNow">0</span> / <span id="missionBlockGoal">0</span></div>
-                <div class="mission-chip" id="missionChipBlock">MISSION</div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-no">2</div>
+              <div>
+                <div class="flow-title">Main Game</div>
+                <div class="flow-desc">เข้า /herohealth/hydration-vr/hydration-vr.html พร้อม query ที่เลือกไว้</div>
               </div>
-              <div class="mission-row">
-                <div>คอมโบ</div>
-                <div><span id="missionComboNow">0</span> / <span id="missionComboGoal">0</span></div>
-                <div class="mission-chip" id="missionChipCombo">MISSION</div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-no">3</div>
+              <div>
+                <div class="flow-title">Post-game Bloom</div>
+                <div class="flow-desc">หลัง Summary จะต่อ Evaluate → Create → Analyze โดย hydration-postgame.js</div>
               </div>
             </div>
           </div>
         </section>
       </div>
 
-      <aside class="side-col">
-        <section id="hhCoachTopWrap" class="panel pad">
-          <div class="coach-card">
-            <div class="coach-top">
-              <div class="coach-face" id="stageMascotFace">💧</div>
-              <div class="coach-copy">
-                <div class="name">Hydration Coach</div>
-                <div class="mood" id="stageMascotMood">พร้อมเริ่มแล้ว</div>
+      <aside class="right-col" style="display:grid;gap:14px;">
+        <section class="panel start-card">
+          <div class="panel-title" style="margin-bottom:0;">
+            <div>
+              <h2>🚀 พร้อมเล่น</h2>
+              <p>ตรวจค่าอีกครั้งก่อนเข้าเกมหลัก</p>
+            </div>
+          </div>
+
+          <div class="summary-box">
+            <div class="summary-row"><span>Player</span><strong id="sumPlayer">Hero</strong></div>
+            <div class="summary-row"><span>Difficulty</span><strong id="sumDiff">normal</strong></div>
+            <div class="summary-row"><span>Challenge</span><strong id="sumChallenge">off</strong></div>
+            <div class="summary-row"><span>View</span><strong id="sumView">mobile</strong></div>
+            <div class="summary-row"><span>Time</span><strong id="sumTime">150 วินาที</strong></div>
+            <div class="summary-row"><span>Seed</span><strong id="sumSeed">auto</strong></div>
+          </div>
+
+          <button class="primary-btn" type="button" id="btnStart">
+            เริ่มเกม Hydration
+          </button>
+
+          <div class="secondary-row">
+            <button class="secondary-btn" type="button" id="btnDirectNormal">Normal</button>
+            <button class="secondary-btn warn" type="button" id="btnDirectHero">Hero Fast</button>
+          </div>
+
+          <button class="secondary-btn" type="button" id="btnBackHub">
+            🏠 กลับ HUB
+          </button>
+
+          <div class="note">
+            ถ้าจะทดสอบความยากใหม่ ให้เลือก <strong>Challenge</strong> หรือ <strong>Hero</strong>
+            แล้วดูว่ามีกล่อง <strong>🔥 Challenge Pack</strong> ในเกมหลักหรือไม่
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>🧪 Test Checklist</h2>
+              <p>หลังเข้าเกมหลัก ให้ทดสอบตามนี้</p>
+            </div>
+          </div>
+
+          <div class="flow">
+            <div class="flow-step">
+              <div class="flow-no">✓</div>
+              <div>
+                <div class="flow-title">Bubble โผล่และแตะได้</div>
+                <div class="flow-desc">Score / Water / Combo ต้องขยับ</div>
               </div>
             </div>
 
-            <div class="risk-wrap">
-              <div class="mini-note">Phase: <strong id="uiPhase">💧 ช่วงเก็บน้ำ</strong></div>
-              <div class="risk-bar"><div class="risk-fill" id="riskFill"></div></div>
-              <div class="coach-mini-row">
-                <div class="mini-note">Risk <strong id="aiRisk">0.00</strong></div>
-                <div class="mini-note">Risk Mini <strong id="aiRiskMini">0.00</strong></div>
+            <div class="flow-step">
+              <div class="flow-no">✓</div>
+              <div>
+                <div class="flow-title">Challenge Pack ทำงาน</div>
+                <div class="flow-desc">ถ้า diff=challenge/hero ต้องเห็นกล่อง Challenge Pack</div>
+              </div>
+            </div>
+
+            <div class="flow-step">
+              <div class="flow-no">✓</div>
+              <div>
+                <div class="flow-title">หลังจบเกม</div>
+                <div class="flow-desc">Summary → Evaluate → Create → Analyze ต้องต่อเนื่อง</div>
               </div>
             </div>
           </div>
         </section>
 
-        <section id="hhCoachBottomWrap" class="panel pad">
-          <div class="coach-card">
-            <div class="mini-note" id="coachExplain">แตะน้ำดี และอย่าโดนของไม่ดี 😊</div>
-            <div class="mini-note" id="aiHint">แตะน้ำดี และอย่าโดนของไม่ดี 😊</div>
-            <div class="mini-note" id="aiHintMini">แตะน้ำดี และอย่าโดนของไม่ดี 😊</div>
+        <section class="panel">
+          <div class="panel-title">
+            <div>
+              <h2>🔗 Path ที่ใช้</h2>
+              <p>Launcher กับ Main game คนละไฟล์</p>
+            </div>
           </div>
-        </section>
 
-        <section class="panel pad">
-          <div class="meta-card">
-            <div class="mission-title" style="margin:0;">สถานะระบบ</div>
-            <div class="meta-grid">
-              <div class="meta-item">Warmup<br><strong id="uiWarmDone">พร้อม ✨</strong></div>
-              <div class="meta-item">Cooldown<br><strong id="uiCoolDone">รอหลังเกม ✨</strong></div>
-              <div class="meta-item">เสียง<br><button class="btn small ghost" id="btnSfx" type="button">🔊 เสียง</button></div>
-            </div>
-            <div class="overlay-actions" style="margin-top:6px;">
-              <button class="btn small ghost" id="btnHelp" type="button">วิธีเล่น</button>
-              <button class="btn small ghost" id="btnPause" type="button">พักเกม</button>
-            </div>
+          <div class="note">
+            Launcher:<br>
+            <span class="tiny">/herohealth/hydration-vr.html</span>
+            <br><br>
+            Main game:<br>
+            <span class="tiny">/herohealth/hydration-vr/hydration-vr.html</span>
           </div>
         </section>
       </aside>
     </div>
-  </div>
 
-  <div id="hydrationSoloMiniHud" class="hydr-solo-mini-hud" hidden>
-    <div class="hydr-solo-mini-chip" data-k="time"><div class="k">TIME</div><div class="v">00:00</div></div>
-    <div class="hydr-solo-mini-chip" data-k="water"><div class="k">WATER</div><div class="v">0%</div></div>
-    <div class="hydr-solo-mini-chip" data-k="shield"><div class="k">SHIELD</div><div class="v">0</div></div>
-    <div class="hydr-solo-mini-pulse" data-k="pulse"></div>
-  </div>
+    <footer class="footer">
+      HeroHealth • Hydration Hero Launcher • Challenge-ready
+    </footer>
+  </main>
 
-  <div id="helpOverlay" class="overlay" aria-hidden="true">
-    <div class="overlay-card">
-      <div class="overlay-title">วิธีเล่น Hydration Hero</div>
-      <div class="overlay-sub">แตะน้ำดี เก็บโล่ บล็อกสายฟ้า และพยายามรักษาระดับน้ำให้สูงจนจบรอบ</div>
-      <div class="overlay-grid">
-        <div class="mini-note">💧 แตะน้ำดีเพื่อเพิ่มน้ำและคะแนน</div>
-        <div class="mini-note">🛡️ เก็บโล่ไว้บล็อกสายฟ้า</div>
-        <div class="mini-note">⚡ สายฟ้าจะมาแรงขึ้นช่วงพายุ/บอส/ด่านสุดท้าย</div>
-        <div class="mini-note">🌟 โบนัสช่วยเพิ่มน้ำ คะแนน และโล่</div>
-      </div>
-      <div class="overlay-actions">
-        <button id="btnHelpStart" class="btn primary" type="button">เริ่มเล่น</button>
-      </div>
-    </div>
-  </div>
+  <script>
+  (function(){
+    'use strict';
 
-  <div id="pauseOverlay" class="overlay" aria-hidden="true">
-    <div class="overlay-card">
-      <div class="overlay-title">พักเกมชั่วคราว</div>
-      <div class="overlay-sub">พร้อมแล้วค่อยกลับไปเล่นต่อ</div>
-      <div class="overlay-actions">
-        <button id="btnResume" class="btn primary" type="button">เล่นต่อ</button>
-      </div>
-    </div>
-  </div>
+    const params = new URL(location.href).searchParams;
 
-  <div id="duetOverlay" class="overlay" aria-hidden="true">
-    <div class="overlay-card">
-      <div class="overlay-title" id="duetGateTitle">กำลังรอเพื่อน</div>
-      <div class="overlay-sub" id="duetGateSub">เมื่อครบ 2 คน ระบบจะเริ่มนับถอยหลัง</div>
+    const state = {
+      pid: params.get('pid') || 'anon',
+      name: params.get('name') || 'Hero',
+      studyId: params.get('studyId') || '',
+      diff: normalizeDiff(params.get('diff') || 'normal'),
+      view: normalizeView(params.get('view') || 'mobile'),
+      time: normalizeTime(params.get('time') || ''),
+      seed: params.get('seed') || String(Date.now()),
+      hub: params.get('hub') || './hub.html',
+      run: params.get('run') || 'play'
+    };
 
-      <div class="duet-grid">
-        <div class="duet-player">
-          <div class="name" id="duetGateMeName">ฉัน</div>
-          <div class="state" id="duetGateMeState">กำลังเข้าเกม...</div>
-        </div>
-        <div class="duet-player">
-          <div class="name" id="duetGatePeerName">กำลังรอเพื่อน</div>
-          <div class="state" id="duetGatePeerState">กำลังรอ...</div>
-        </div>
-      </div>
+    function normalizeDiff(v){
+      v = String(v || 'normal').toLowerCase();
+      if (['challenge','hard'].includes(v)) return 'challenge';
+      if (['hero','expert','insane'].includes(v)) return 'hero';
+      return 'normal';
+    }
 
-      <div class="duet-countdown" id="duetGateCountdown">รอเพื่อนเข้าเกม...</div>
-    </div>
-  </div>
+    function normalizeView(v){
+      v = String(v || 'mobile').toLowerCase();
+      if (['pc','desktop'].includes(v)) return 'pc';
+      if (['cardboard','vr','cvr'].includes(v)) return 'cardboard';
+      return 'mobile';
+    }
 
-  <div id="end" class="overlay" aria-hidden="true">
-    <div class="overlay-card end-card">
-      <div class="end-hero">
-        <div class="overlay-title" id="endTitle">จบรอบแล้ว</div>
-        <div class="overlay-sub" id="endSub">มุมมอง Mobile • ระดับ Normal</div>
-        <div class="end-grade" id="endGrade">A</div>
-        <div class="end-stars" id="endStars"></div>
-      </div>
+    function normalizeTime(v){
+      const n = Number(v);
+      if ([90,120,150].includes(n)) return n;
+      if (state && state.diff === 'hero') return 150;
+      if (state && state.diff === 'challenge') return 120;
+      return 150;
+    }
 
-      <div class="end-stats">
-        <div class="end-stat"><div class="k">SCORE</div><div class="v" id="endScore">0</div></div>
-        <div class="end-stat"><div class="k">MISS</div><div class="v" id="endMiss">0</div></div>
-        <div class="end-stat"><div class="k">WATER</div><div class="v" id="endWater">0%</div></div>
-      </div>
+    function challengeValue(diff){
+      if (diff === 'hero') return 'hero';
+      if (diff === 'challenge') return '1';
+      return '0';
+    }
 
-      <div class="end-copy">
-        <div><strong id="endPhaseMini">ปกติ</strong></div>
-        <div id="endCoach">เล่นได้ดีแล้ว 😊</div>
-        <div id="endPhaseSummary">เล่นได้จนจบรอบปกติ</div>
-        <div id="endReward">💧 เล่นจบแล้ว</div>
-        <div id="endBadge">🌈 ลองอีกครั้ง</div>
-        <div id="endCollection">สถิติล่าสุด • คะแนน 0 • เกรด D</div>
-        <div id="endRewardCard">Hydration Hero</div>
-        <div id="endRewardMini">รอบนี้เก็บน้ำได้ดีขึ้นอีกนิด</div>
-      </div>
+    function escapeText(s){
+      return String(s ?? '');
+    }
 
-      <div id="duetEndBoard" class="duet-end-board hidden">
-        <div class="duet-end-grid">
-          <div class="duet-end-player">
-            <div class="name" id="duetEndMeName">ฉัน</div>
-            <div class="score" id="duetEndMeScore">0</div>
-            <div class="meta" id="duetEndMeMeta">น้ำ 0% • เกรด -</div>
-          </div>
-          <div class="duet-end-player">
-            <div class="name" id="duetEndPeerName">เพื่อน</div>
-            <div class="score" id="duetEndPeerScore">0</div>
-            <div class="meta" id="duetEndPeerMeta">น้ำ 0% • เกรด -</div>
-          </div>
-        </div>
-        <div class="end-copy">
-          <div id="duetEndWinner">🤝 เสมอกันสุดมันส์</div>
-        </div>
-      </div>
+    function setText(id, text){
+      const el = document.getElementById(id);
+      if (el) el.textContent = escapeText(text);
+    }
 
-      <div class="sticker-row" id="endStickerRow"></div>
+    function syncUI(){
+      document.querySelectorAll('[data-diff]').forEach(btn=>{
+        btn.classList.toggle('is-selected', btn.dataset.diff === state.diff);
+      });
 
-      <div class="overlay-actions">
-        <button class="btn good" id="btnReplay" type="button">เล่นอีกครั้ง</button>
-        <button class="btn warn is-hidden" id="btnNextCooldown" type="button">ไป Cooldown</button>
-        <button class="btn ghost" id="btnBackHub" type="button">กลับ HUB</button>
-        <button class="btn ghost" id="btnEndToggleDetail" type="button">ดูรายละเอียดเพิ่ม</button>
-      </div>
+      document.querySelectorAll('[data-view]').forEach(btn=>{
+        btn.classList.toggle('is-selected', btn.dataset.view === state.view);
+      });
 
-      <div id="endDetailWrap" class="detail-wrap is-collapsed">
-        <div class="tool-grid">
-          <button class="btn small ghost" id="btnCopy" type="button">Copy Summary</button>
-          <button class="btn small ghost" id="btnCopyEvents" type="button">Copy Events</button>
-          <button class="btn small ghost" id="btnCopyTimeline" type="button">Copy Timeline</button>
-          <button class="btn small ghost" id="btnCopyFeatures" type="button">Copy Features</button>
-          <button class="btn small ghost" id="btnCopyLabels" type="button">Copy Labels</button>
-          <button class="btn small ghost" id="btnCopyFeaturesCsv" type="button">Copy Features CSV</button>
-          <button class="btn small ghost" id="btnCopyLabelsCsv" type="button">Copy Labels CSV</button>
-          <button class="btn small ghost" id="btnSendCloud" type="button">Send Cloud</button>
-        </div>
-      </div>
-    </div>
-  </div>
+      document.querySelectorAll('[data-time]').forEach(btn=>{
+        btn.classList.toggle('is-selected', Number(btn.dataset.time) === Number(state.time));
+      });
 
-  <div id="debugMini" class="debug-mini is-hidden">
-    <div class="debug-row"><span>phase</span><strong id="dbgPhase">-</strong></div>
-    <div class="debug-row"><span>combo</span><strong id="dbgCombo">0</strong></div>
-    <div class="debug-row"><span>water</span><strong id="dbgWater">0</strong></div>
-    <div class="debug-row"><span>shield</span><strong id="dbgShield">0</strong></div>
-    <div class="debug-row"><span>bubbles</span><strong id="dbgBubbles">0</strong></div>
-    <div class="debug-row"><span>fps</span><strong id="dbgFps">—</strong></div>
-  </div>
+      setText('playerChip', state.name || 'Hero');
+      setText('viewChip', state.view);
+      setText('diffChip', state.diff);
+      setText('currentDiffTag', state.diff.toUpperCase());
 
-  <!-- Hydration Arena Modes Layer -->
-  <script type="module" src="./hydration-modes.js?v=20260502-hydration-arena-v1"></script>
+      setText('sumPlayer', state.name || 'Hero');
+      setText('sumDiff', state.diff);
+      setText('sumChallenge', challengeValue(state.diff));
+      setText('sumView', state.view);
+      setText('sumTime', state.time + ' วินาที');
+      setText('sumSeed', state.seed || 'auto');
+    }
 
-<!-- Existing main game -->
-  <script type="module" src="./hydration-modes.js?v=20260502-hydration-arena-v2"></script>
-  <script type="module" src="./hydration-room-sync.js?v=20260503-room-code-v4"></script>
-  <script type="module" src="./hydration-vr.js"></script>
-  <script type="module" src="./hydration-evaluate-variety.js?v=20260502-eval-variety-v2"></script>
+    function buildGameUrl(customDiff){
+      const diff = normalizeDiff(customDiff || state.diff);
+
+      const u = new URL('./hydration-vr/hydration-vr.html', location.href);
+
+      const passKeys = [
+        'pid',
+        'name',
+        'studyId',
+        'hub',
+        'log',
+        'logger',
+        'api',
+        'zone',
+        'game',
+        'gameId',
+        'cat',
+        'mode',
+        'section',
+        'classSection'
+      ];
+
+      passKeys.forEach(k=>{
+        const v = params.get(k);
+        if (v != null && v !== '') u.searchParams.set(k, v);
+      });
+
+      u.searchParams.set('pid', state.pid || 'anon');
+      u.searchParams.set('name', state.name || 'Hero');
+      u.searchParams.set('studyId', state.studyId || '');
+      u.searchParams.set('diff', diff);
+      u.searchParams.set('time', String(state.time || 150));
+      u.searchParams.set('seed', state.seed || String(Date.now()));
+      u.searchParams.set('view', state.view || 'mobile');
+      u.searchParams.set('run', state.run || 'play');
+
+      u.searchParams.set('game', params.get('game') || 'hydration');
+      u.searchParams.set('gameId', params.get('gameId') || 'hydration');
+      u.searchParams.set('zone', params.get('zone') || 'nutrition');
+      u.searchParams.set('cat', params.get('cat') || 'hydration');
+
+      u.searchParams.set('challenge', challengeValue(diff));
+      u.searchParams.set('ts', String(Date.now()));
+
+      if (!u.searchParams.get('hub')) {
+        u.searchParams.set('hub', state.hub || './hub.html');
+      }
+
+      return u.toString();
+    }
+
+    function start(diff){
+      location.href = buildGameUrl(diff || state.diff);
+    }
+
+    document.querySelectorAll('[data-diff]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.diff = normalizeDiff(btn.dataset.diff);
+        if (state.diff === 'hero') state.time = Math.max(Number(state.time || 0), 150);
+        if (state.diff === 'challenge') state.time = Math.max(Number(state.time || 0), 120);
+        syncUI();
+      });
+    });
+
+    document.querySelectorAll('[data-view]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.view = normalizeView(btn.dataset.view);
+        syncUI();
+      });
+    });
+
+    document.querySelectorAll('[data-time]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        state.time = Number(btn.dataset.time) || 150;
+        syncUI();
+      });
+    });
+
+    document.getElementById('btnStart')?.addEventListener('click', ()=>start());
+
+    document.getElementById('btnDirectNormal')?.addEventListener('click', ()=>{
+      state.diff = 'normal';
+      syncUI();
+      start('normal');
+    });
+
+    document.getElementById('btnDirectHero')?.addEventListener('click', ()=>{
+      state.diff = 'hero';
+      state.time = Math.max(Number(state.time || 0), 150);
+      syncUI();
+      start('hero');
+    });
+
+    document.getElementById('btnBackHub')?.addEventListener('click', ()=>{
+      location.href = state.hub || './hub.html';
+    });
+
+    syncUI();
+  })();
+  </script>
 </body>
 </html>
