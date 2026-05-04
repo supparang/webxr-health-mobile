@@ -1,18 +1,19 @@
 // === /herohealth/hydration-vr/hydration-vr.js ===
 // Loader for HydrationVR
-// PATCH v20260424-HYDRATION-LOADER-POSTGAME-SAFE
+// PATCH v20260427-HYDRATION-LOADER-POSTGAME-CHALLENGE
 //
 // หน้าที่:
 // ✅ bootstrap Firebase compat ถ้ามี
 // ✅ import hydration.safe.js
 // ✅ call boot()
 // ✅ install Post-game Evaluate/Create/Analyze ผ่าน hydration-postgame.js
+// ✅ install Challenge Pack ผ่าน hydration-challenge.js
 // ✅ ไม่แตะ core engine ใน hydration.safe.js
 // ✅ แสดง error ชัดเจนถ้า boot ไม่สำเร็จ
 
 'use strict';
 
-const HYDRATION_VR_LOADER_PATCH = 'v20260424-HYDRATION-LOADER-POSTGAME-SAFE';
+const HYDRATION_VR_LOADER_PATCH = 'v20260427-HYDRATION-LOADER-POSTGAME-CHALLENGE';
 
 async function bootHydrationVR(){
   try{
@@ -36,7 +37,6 @@ async function bootHydrationVR(){
     await mod.boot();
 
     // 4) โหลด post-game module แบบ safe
-    // ถ้าไฟล์ postgame พัง เกมหลักยังไม่ควรพัง
     try{
       const post = await import('./hydration-postgame.js');
 
@@ -49,6 +49,23 @@ async function bootHydrationVR(){
       console.warn('[hydration-vr.js] postgame module failed:', postErr);
       showHydrationToast(
         'โหลด Post-game module ไม่สำเร็จ: ' + (postErr?.message || postErr),
+        'warn'
+      );
+    }
+
+    // 5) โหลด Challenge Pack แบบ safe
+    try{
+      const ch = await import('./hydration-challenge.js');
+
+      if (ch && typeof ch.installHydrationChallenge === 'function') {
+        ch.installHydrationChallenge();
+      } else {
+        console.warn('[hydration-vr.js] hydration-challenge.js loaded but installHydrationChallenge() not found');
+      }
+    }catch(chErr){
+      console.warn('[hydration-vr.js] challenge module failed:', chErr);
+      showHydrationToast(
+        'โหลด Challenge Pack ไม่สำเร็จ: ' + (chErr?.message || chErr),
         'warn'
       );
     }
