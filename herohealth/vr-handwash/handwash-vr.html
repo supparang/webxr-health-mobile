@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504c-HANDWASH-VR-RETURN-SANITIZER-FINAL -->
+<!-- FULL PATCH v20260504d-HANDWASH-VR-RETURN-ZONE-FIX -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2402,6 +2402,8 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
 
       const VERSION = '20260504-HANDWASH-PATCH9-LOCAL-TEACHER-MERGED';
       const qs = new URLSearchParams(location.search);
+      const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
+      const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
       const WHO = [
         { id:'wet', type:'water', title:'เปิดก๊อกน้ำให้มือเปียก', short:'เปียกมือ', label:'เปียกมือ', big:'ลากมือผ่านน้ำ', emoji:'💧', target:'all', gesture:'water', needWater:true, needSoap:false, goal:100, limit:8, text:'แตะก๊อกน้ำ หรือกดปุ่มเปิดน้ำ แล้วลากผ่านน้ำบนวงสีเหลือง' },
@@ -4170,6 +4172,15 @@ function normalizeHeroReturnUrl(raw){
 }
 
 function getCleanHygieneReturnUrl(){
+  /*
+    Canonical return priority:
+    1) back if it is hygiene-zone.html
+    2) return if it is hygiene-zone.html
+    3) nextZone if it is hygiene-zone.html
+    4) hub only if it is hygiene-zone.html
+    5) exact requested Hygiene Zone fallback
+    Warmup/cooldown gate URLs are intentionally rejected.
+  */
   const candidates = [
     qs.get('back'),
     qs.get('return'),
@@ -4182,27 +4193,14 @@ function getCleanHygieneReturnUrl(){
     if(ok) return ok;
   }
 
-  const fallback = heroUrl('hygiene-zone.html');
+  const fallback = new URL(DEFAULT_HYGIENE_RETURN_URL);
 
-  const keep = {
-    pid:qs.get('pid') || 'anon',
-    name:qs.get('name') || qs.get('nick') || 'Hero',
-    nick:qs.get('nick') || qs.get('name') || 'Hero',
-    diff:qs.get('diff') || (typeof rush !== 'undefined' && rush.diff) || 'normal',
-    time:qs.get('time') || String((typeof state !== 'undefined' && state.timeLeft) || 90),
-    view:qs.get('view') || 'mobile',
-    zone:'hygiene',
-    cat:'hygiene'
-  };
-
-  Object.entries(keep).forEach(([k,v]) => {
-    if(v !== '' && v != null) fallback.searchParams.set(k, String(v));
-  });
-
-  fallback.searchParams.set(
-    'hub',
-    qs.get('rootHub') || qs.get('hubRoot') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
-  );
+  fallback.searchParams.set('pid', qs.get('pid') || 'anon');
+  fallback.searchParams.set('name', qs.get('name') || qs.get('nick') || 'Hero');
+  fallback.searchParams.set('diff', qs.get('diff') || (typeof rush !== 'undefined' && rush.diff) || 'normal');
+  fallback.searchParams.set('time', qs.get('time') || String((typeof state !== 'undefined' && state.timeLeft) || 90));
+  fallback.searchParams.set('view', qs.get('view') || 'mobile');
+  fallback.searchParams.set('hub', qs.get('hubRoot') || qs.get('rootHub') || DEFAULT_HUB_ROOT);
 
   return fallback.toString();
 }
