@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504f-HANDWASH-VR-COOLDOWN-ZONE-FINAL -->
+<!-- FULL PATCH v20260504g-HANDWASH-VR-FINAL-SUMMARY-POLISH -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2043,6 +2043,107 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
 .researchBox{border-radius:24px;border:2px solid #d7f0fb;background:linear-gradient(180deg,#f7fdff,#ffffff);padding:14px;display:grid;gap:10px;color:#17384f;font-weight:900}.researchBox h3{margin:0;font-size:20px;font-weight:1000;color:#12324b}.researchGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.researchMetric{min-height:48px;border-radius:16px;border:1px solid #d7f0fb;background:#fff;padding:9px 10px;display:grid;gap:2px}.researchMetric span{color:#5f7f92;font-size:11px;font-weight:1000}.researchMetric strong{color:#17384f;font-size:18px;line-height:1.05;font-weight:1000}.researchActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.researchBtn{min-height:46px;border:0;border-radius:16px;padding:9px 12px;background:linear-gradient(180deg,#ecfeff,#ffffff);border:2px solid #bdf4ff;color:#0f766e;font-size:13px;font-weight:1000;cursor:pointer}.researchText{width:100%;min-height:110px;border-radius:18px;border:2px solid #d7f0fb;background:#fff;color:#17384f;padding:10px;font:800 11px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;resize:vertical;display:none}.researchText.show{display:block}
 @media (max-width:640px){body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{padding:10px;border-radius:20px}body[data-stage="main"] h1,body[data-stage="order"] h1{font-size:24px;letter-spacing:-.02em}body[data-stage="main"] .lead,body[data-stage="order"] .lead{display:none}body[data-stage="main"] .stats,body[data-stage="order"] .stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}body[data-stage="main"] .stat,body[data-stage="order"] .stat{padding:7px;border-radius:14px}body[data-stage="main"] .stat .k,body[data-stage="order"] .stat .k{font-size:10px}body[data-stage="main"] .stat .v,body[data-stage="order"] .stat .v{font-size:16px}body[data-stage="main"] .rushGrid,body[data-stage="order"] .rushGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}body[data-stage="main"] .handScene{min-height:620px;border-radius:22px}body[data-stage="main"] .hotspot{min-width:86px;min-height:60px;font-size:13px;border-width:3px}.researchGrid,.researchActions{grid-template-columns:1fr}.coachBubble{top:calc(58px + var(--sat));min-height:48px;padding:9px 11px;border-radius:18px}.coachIcon{width:34px;height:34px;border-radius:13px;font-size:20px}.coachText{font-size:12px}.stageCelebrateCard{border-radius:26px;padding:15px}.stageCelebrateIcon{font-size:46px}.stageCelebrateTitle{font-size:23px}.kidMicroTip{top:78px;font-size:11px;border-radius:18px}}
 
+  
+/* === PATCH v20260504g-HANDWASH-FINAL-SUMMARY-DISPLAY-POLISH === */
+.summaryScoreBadges{
+  margin-top:14px;
+  width:min(430px,100%);
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+
+.summaryScoreBadge{
+  min-height:42px;
+  border-radius:16px;
+  padding:8px 10px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  gap:7px;
+  align-items:center;
+  background:rgba(255,255,255,.70);
+  border:1px solid rgba(255,217,93,.82);
+  color:#503c00;
+  font-size:12px;
+  line-height:1.25;
+  font-weight:1000;
+  text-align:left;
+}
+
+.summaryScoreBadge.good{
+  background:#effcf3;
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.summaryScoreBadge.warn{
+  background:#fff8dc;
+  border-color:#ffe58d;
+  color:#7c5800;
+}
+
+.summaryScoreBadge.bad{
+  background:#fff3f3;
+  border-color:#fecaca;
+  color:#991b1b;
+}
+
+.summaryScoreBadgeIcon{
+  width:28px;
+  height:28px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  background:#fff;
+  box-shadow:0 6px 12px rgba(80,60,0,.10);
+  font-size:17px;
+}
+
+.summaryMiniStats{
+  margin-top:10px;
+  width:min(430px,100%);
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+
+.summaryMiniStat{
+  min-height:48px;
+  border-radius:16px;
+  padding:8px 10px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(255,217,93,.82);
+  display:grid;
+  gap:2px;
+  text-align:left;
+}
+
+.summaryMiniStat span{
+  color:#8d6118;
+  font-size:11px;
+  line-height:1.1;
+  font-weight:1000;
+}
+
+.summaryMiniStat strong{
+  color:#503c00;
+  font-size:18px;
+  line-height:1.05;
+  font-weight:1000;
+}
+
+@media (max-width:640px){
+  .summaryScoreBadges,
+  .summaryMiniStats{
+    grid-template-columns:1fr;
+  }
+
+  .summaryScoreBadge{
+    min-height:40px;
+    font-size:12px;
+  }
+}
+
   </style>
 </head>
 
@@ -2337,6 +2438,8 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
               <div class="score" id="summaryScore">0</div>
               <div class="stars" id="summaryStars">⭐☆☆</div>
               <div style="margin-top:8px;font-weight:1000;color:#8d6118;">คะแนนของฉัน</div>
+              <div class="summaryScoreBadges" id="summaryScoreBadges"></div>
+              <div class="summaryMiniStats" id="summaryMiniStats"></div>
             </div>
           </div>
 
@@ -2400,7 +2503,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
     (function(){
       'use strict';
 
-      const VERSION = '20260504f-HANDWASH-VR-COOLDOWN-ZONE-FINAL';
+      const VERSION = '20260504g-HANDWASH-VR-FINAL-SUMMARY-POLISH';
       const qs = new URLSearchParams(location.search);
       const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
       const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
@@ -2850,6 +2953,8 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
 
         summaryScore:$('summaryScore'),
         summaryStars:$('summaryStars'),
+        summaryScoreBadges:$('summaryScoreBadges'),
+        summaryMiniStats:$('summaryMiniStats'),
         summaryText:$('summaryText'),
         summarySteps:$('summarySteps'),
         summaryOrder:$('summaryOrder'),
@@ -2905,7 +3010,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
         const avg = finished.length ? finished.reduce((a,b) => a + Number(b.durationMs || 0), 0) / finished.length : 0;
         const gestureAcc = research.gesture.totalMove ? Math.round((research.gesture.goodMove / research.gesture.totalMove) * 100) : 0;
         const weakZones = typeof getZoneResults === 'function' ? getZoneResults() : [];
-        const weakest = weakZones[0] || null;
+        const weakest = cleanWeakestZone(weakZones);
 
         const stepAccuracy = steps.map(s => ({
           id:s.id,
@@ -2962,7 +3067,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
         };
       }
       function saveResearchSummary(){ research.endedAt=Date.now(); const metrics=getResearchMetrics(); research.summary=metrics; try{ localStorage.setItem('HHA_HANDWASH_RESEARCH_LAST',JSON.stringify(metrics)); localStorage.setItem('HHA_HANDWASH_RESEARCH_EVENTS_LAST',JSON.stringify(research.events)); const key='HHA_HANDWASH_RESEARCH_SESSIONS'; const old=JSON.parse(localStorage.getItem(key)||'[]'); old.unshift(metrics); localStorage.setItem(key,JSON.stringify(old.slice(0,20))); }catch(_){} return metrics; }
-      function renderResearchPanel(){ const metrics=research.summary||getResearchMetrics(); if(el.metricGestureAcc) el.metricGestureAcc.textContent=`${metrics.gestureAccuracy||0}%`; if(el.metricAvgStepTime) el.metricAvgStepTime.textContent=`${metrics.avgStepSec||0}s`; if(el.metricWeakZone) el.metricWeakZone.textContent=metrics.weakestZone?`${metrics.weakestZone.label} ${metrics.weakestZone.pct}%`:'-'; if(el.metricBossMistakes){ const b=metrics.boss||{}; el.metricBossMistakes.textContent=String((b.answerWrong||0)+(b.timeout||0)); } if(el.researchText) el.researchText.value=JSON.stringify({summary:metrics,events:research.events},null,2); }
+      function renderResearchPanel(){ const metrics=research.summary||getResearchMetrics(); if(el.metricGestureAcc) el.metricGestureAcc.textContent=`${metrics.gestureAccuracy||0}%`; if(el.metricAvgStepTime) el.metricAvgStepTime.textContent=`${metrics.avgStepSec||0}s`; if(el.metricWeakZone) el.metricWeakZone.textContent=weakestZoneDisplay(metrics.weakestZone); if(el.metricBossMistakes){ const b=metrics.boss||{}; el.metricBossMistakes.textContent=String((b.answerWrong||0)+(b.timeout||0)); } if(el.researchText) el.researchText.value=JSON.stringify({summary:metrics,events:research.events},null,2); }
       function toggleResearchText(){ if(!el.researchText) return; renderResearchPanel(); el.researchText.classList.toggle('show'); }
       function copyResearchJson(){ const metrics=research.summary||getResearchMetrics(); const text=JSON.stringify({summary:metrics,events:research.events},null,2); if(el.researchText) el.researchText.value=text; try{ navigator.clipboard.writeText(text).then(()=>showToast('คัดลอก Research JSON แล้ว')).catch(()=>{showToast('คัดลอกไม่ได้ ให้เปิด Show JSON แล้ว copy เอง'); if(el.researchText) el.researchText.classList.add('show');}); }catch(_){ showToast('คัดลอกไม่ได้ ให้เปิด Show JSON แล้ว copy เอง'); if(el.researchText) el.researchText.classList.add('show'); } }
 
@@ -3992,6 +4097,7 @@ function renderSummary(){
         if(completed >= WHO.length && state.orderIndex >= ORDER.length && acc >= 80 && pct(scrub.cleanPct) >= 85) stars = 3;
         el.summaryScore.textContent = String(state.score);
         el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+        renderSummaryScoreBadges(stars, completed);
         const clean = pct(scrub.cleanPct);
         const bossWon = !!(boss.bossDefeated || boss.hp <= 0);
         if(stars >= 3) el.summaryText.textContent = 'เยี่ยมมาก! ล้างมือครบและปราบ Germ King ได้';
@@ -4135,6 +4241,85 @@ function renderBossResult(){
         })).sort((a,b) => a.pct - b.pct);
       }
 
+
+      function cleanWeakestZone(zones){
+        if(!Array.isArray(zones) || !zones.length) return null;
+
+        const sorted = zones
+          .map(z => ({ ...z, pct:Math.round(Number(z && z.pct || 0)) }))
+          .sort((a,b) => a.pct - b.pct);
+
+        const weak = sorted.find(z => z.pct < 90);
+        return weak || null;
+      }
+
+      function weakestZoneDisplay(z){
+        if(!z) return 'ไม่มีจุดอ่อน';
+        const p = Math.round(Number(z.pct || 0));
+        if(p >= 100) return 'ครบทุกจุด';
+        if(p >= 90) return 'ไม่มีจุดอ่อน';
+        return `${z.label} ${p}%`;
+      }
+
+      function weakestZoneSummaryText(zones){
+        const weak = cleanWeakestZone(zones);
+        if(!weak) return 'ล้างได้ดีครบทุกจุดแล้ว';
+        return `จุดที่ควรฝึกเพิ่ม: ${weak.label} ${Math.round(weak.pct)}%`;
+      }
+
+      function renderSummaryScoreBadges(stars, completed){
+        if(!el.summaryScoreBadges && !el.summaryMiniStats) return;
+
+        const clean = pct(scrub.cleanPct);
+        const germ = pct(scrub.germPct);
+        const bossWon = !!(boss.bossDefeated || boss.hp <= 0);
+        const combo = readableCombo();
+        const zones = typeof getZoneResults === 'function' ? getZoneResults() : [];
+        const weak = cleanWeakestZone(zones);
+
+        const badges = [
+          {
+            icon:'🧼',
+            text: completed >= WHO.length ? 'ล้างครบ 16/16' : `ล้างครบ ${completed}/16`,
+            cls: completed >= WHO.length ? 'good' : 'warn'
+          },
+          {
+            icon:'👑',
+            text: bossWon ? 'ชนะ Germ King' : 'Boss ยังไม่ชนะ',
+            cls: bossWon ? 'good' : 'warn'
+          },
+          {
+            icon:'✨',
+            text: clean >= 90 ? 'Clean Hero' : clean >= 80 ? 'ใกล้เป็น Clean Hero' : 'ต้องฝึก Clean เพิ่ม',
+            cls: clean >= 90 ? 'good' : clean >= 80 ? 'warn' : 'bad'
+          },
+          {
+            icon:'🔎',
+            text: weak ? `ฝึก ${weak.label}` : 'ไม่มีจุดอ่อน',
+            cls: weak ? (weak.pct < 70 ? 'bad' : 'warn') : 'good'
+          }
+        ];
+
+        if(el.summaryScoreBadges){
+          el.summaryScoreBadges.innerHTML = badges.map(b => `
+            <div class="summaryScoreBadge ${b.cls}">
+              <span class="summaryScoreBadgeIcon">${b.icon}</span>
+              <span>${b.text}</span>
+            </div>
+          `).join('');
+        }
+
+        if(el.summaryMiniStats){
+          el.summaryMiniStats.innerHTML = `
+            <div class="summaryMiniStat"><span>Clean</span><strong>${clean}%</strong></div>
+            <div class="summaryMiniStat"><span>Germ</span><strong>${germ}%</strong></div>
+            <div class="summaryMiniStat"><span>Combo</span><strong>${combo}</strong></div>
+            <div class="summaryMiniStat"><span>Weak</span><strong>${weak ? Math.round(weak.pct) + '%' : 'ไม่มี'}</strong></div>
+          `;
+        }
+      }
+
+
       function zoneClass(p){
         p = Number(p || 0);
         if(p >= 90) return 'good';
@@ -4156,7 +4341,7 @@ function renderBossResult(){
       }
 
       function buildKidTip(zones, clean, bossWon){
-        const weakest = zones[0];
+        const weakest = cleanWeakestZone(zones);
         if(!bossWon){
           return 'ตอน Boss ให้ดู “ขั้นตอน WHO ถัดไป” แล้วตอบให้ไวขึ้น จะช่วยปราบ Germ King ได้';
         }
@@ -4212,21 +4397,32 @@ function renderBossResult(){
         }
 
         if(list){
-          const show = zones.slice(0, 5);
-          list.innerHTML = show.map(z => `
-            <div class="weakZoneItem ${zoneClass(z.pct)}">
-              <span>${z.icon}</span>
-              <span class="weakZoneName">${z.label}</span>
-              <span class="weakZonePct">${z.pct}%</span>
-            </div>
-          `).join('');
+          const weakOnly = zones.filter(z => Number(z.pct || 0) < 90).slice(0, 5);
+
+          if(!weakOnly.length){
+            list.innerHTML = `
+              <div class="weakZoneItem good">
+                <span>✅</span>
+                <span class="weakZoneName">ไม่มีจุดอ่อน</span>
+                <span class="weakZonePct">ครบดีแล้ว</span>
+              </div>
+            `;
+          }else{
+            list.innerHTML = weakOnly.map(z => `
+              <div class="weakZoneItem ${zoneClass(z.pct)}">
+                <span>${z.icon}</span>
+                <span class="weakZoneName">${z.label}</span>
+                <span class="weakZonePct">${z.pct}%</span>
+              </div>
+            `).join('');
+          }
         }
 
         const kidTip = buildKidTip(zones, clean, bossWon);
         if(tip) tip.textContent = kidTip;
 
         return {
-          weakestZones:zones.slice(0, 5).map(z => ({ id:z.id, label:z.label, pct:z.pct })),
+          weakestZones:(zones.filter(z => Number(z.pct || 0) < 90).slice(0, 5)).map(z => ({ id:z.id, label:z.label, pct:z.pct })),
           kidTitle:level.title,
           kidText:level.text,
           kidTip
@@ -4428,6 +4624,8 @@ function goHygieneAfterHandwash(){
           researchMetrics:researchMetrics || null,
           researchSessionId:research.sessionId,
           researchEventsCount:research.events.length,
+          summaryBadgesRendered:true,
+          weakestZoneDisplay:weakestZoneDisplay(researchMetrics && researchMetrics.weakestZone),
           returnUrl:getHygieneZoneHref(),
           cooldownUrl:buildHandwashCooldownHref(),
           finishedAt:new Date().toISOString()
