@@ -517,26 +517,83 @@
 
       const QS = new URLSearchParams(location.search || '');
 
+      const CANONICAL = {
+        nutritionZone: 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
+        hub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
+        cooldown: 'https://supparang.github.io/webxr-health-mobile/herohealth/gate/cooldown.html'
+      };
+
+      function q(name, fallback){
+        const v = QS.get(name);
+        return v === null || v === '' ? fallback : v;
+      }
+
+      function playerName(){
+        return q('name', q('nick', 'Hero'));
+      }
+
+      function buildNutritionZoneUrl(){
+        const keep = new URLSearchParams();
+
+        keep.set('pid', q('pid', 'anon'));
+        keep.set('name', playerName());
+        keep.set('diff', q('diff', 'normal'));
+        keep.set('time', q('time', '120'));
+        keep.set('view', q('view', 'mobile'));
+
+        // ให้ Nutrition Zone มีทางกลับ Hub หลักเสมอ
+        keep.set('hub', CANONICAL.hub);
+
+        return CANONICAL.nutritionZone + '?' + keep.toString();
+      }
+
+      function buildCooldownUrl(extra){
+        extra = extra || {};
+
+        const nutritionUrl = buildNutritionZoneUrl();
+        const keep = new URLSearchParams();
+
+        keep.set('zone', 'nutrition');
+        keep.set('cat', 'nutrition');
+        keep.set('gameId', 'goodjunk');
+        keep.set('game', 'goodjunk');
+        keep.set('mode', 'solo_boss');
+        keep.set('phase', 'cooldown');
+
+        keep.set('pid', q('pid', 'anon'));
+        keep.set('name', playerName());
+        keep.set('diff', q('diff', 'normal'));
+        keep.set('time', q('time', '120'));
+        keep.set('view', q('view', 'mobile'));
+
+        // สำคัญ: หลัง cooldown ต้องกลับ Nutrition Zone
+        keep.set('hub', nutritionUrl);
+        keep.set('next', nutritionUrl);
+        keep.set('back', nutritionUrl);
+
+        if(extra.reason) keep.set('reason', String(extra.reason));
+        if(extra.score !== undefined) keep.set('score', String(extra.score));
+        if(extra.stars !== undefined) keep.set('stars', String(extra.stars));
+        if(extra.rank !== undefined) keep.set('rank', String(extra.rank));
+
+        return CANONICAL.cooldown + '?' + keep.toString();
+      }
+
       function safeBackUrl(){
-        const hub = QS.get('hub') || '';
+        return buildNutritionZoneUrl();
+      }
 
-        if(hub){
-          try{
-            const decoded = decodeURIComponent(hub);
-            const url = new URL(decoded, location.href);
+      function goNutritionZone(){
+        location.href = buildNutritionZoneUrl();
+      }
 
-            if(url.origin === location.origin || url.hostname === 'supparang.github.io'){
-              return url.href;
-            }
-          }catch(e){}
-        }
-
-        return '../nutrition-zone.html';
+      function goCooldown(extra){
+        location.href = buildCooldownUrl(extra || {});
       }
 
       function applyInitialTimeAndLives(){
-        const t = Math.max(45, Number(QS.get('time')) || 120);
-        const diff = String(QS.get('diff') || 'normal').toLowerCase();
+        const t = Math.max(45, Number(q('time', '120')) || 120);
+        const diff = String(q('diff', 'normal')).toLowerCase();
 
         const livesMap = {
           easy:5,
@@ -556,9 +613,57 @@
         const btn = document.getElementById('shellBackBtn');
         if(!btn) return;
 
+        // ปุ่มลอยซ้ายล่าง = กลับ Zone ตรง ๆ
         btn.addEventListener('click', function(){
-          location.href = safeBackUrl();
+          goNutritionZone();
         });
+      }
+
+      function patchRewardZoneButtonToCooldown(){
+        // ปุ่มใน Reward Summary เดิมชื่อ "กลับ Nutrition Zone"
+        // ปรับให้ไป Cooldown ก่อน แล้ว Cooldown ค่อยกลับ Nutrition Zone
+        window.addEventListener('gj:reward-summary-shown', function(ev){
+          const summary = ev && ev.detail ? ev.detail : {};
+
+          setTimeout(function(){
+            const btn = document.getElementById('gjrZoneBtn');
+            if(!btn) return;
+
+            btn.innerHTML = '🧘 Cooldown แล้วกลับ Zone';
+            btn.setAttribute('aria-label', 'ไปหน้า Cooldown แล้วกลับ Nutrition Zone');
+            btn.dataset.goCooldown = '1';
+
+            try{
+              localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
+                patch:'v8.41.8-COOLDOWN-BACK-NUTRITION-ZONE',
+                cooldownUrl:buildCooldownUrl({
+                  reason:'reward-summary',
+                  score:summary.score,
+                  stars:summary.stars,
+                  rank:summary.rank
+                }),
+                nutritionZoneUrl:buildNutritionZoneUrl(),
+                savedAt:new Date().toISOString()
+              }));
+            }catch(e){}
+          }, 30);
+        });
+
+        document.addEventListener('click', function(ev){
+          const target = ev.target && ev.target.closest
+            ? ev.target.closest('#gjrZoneBtn,[data-go-cooldown="1"]')
+            : null;
+
+          if(!target) return;
+
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+          goCooldown({
+            reason:'reward-zone-button'
+          });
+        }, true);
       }
 
       function removeLoadingSoon(){
@@ -576,12 +681,18 @@
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.7-FINAL-HTML-SHELL-UPDATE',
-        safeBackUrl:safeBackUrl
+        version:'v8.41.8-FINAL-HTML-SHELL-COOLDOWN-BACK-NUTRITION-ZONE',
+        canonical:CANONICAL,
+        safeBackUrl:safeBackUrl,
+        buildNutritionZoneUrl:buildNutritionZoneUrl,
+        buildCooldownUrl:buildCooldownUrl,
+        goNutritionZone:goNutritionZone,
+        goCooldown:goCooldown
       };
 
       applyInitialTimeAndLives();
       bindBack();
+      patchRewardZoneButtonToCooldown();
       removeLoadingSoon();
     })();
   </script>
