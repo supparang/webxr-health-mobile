@@ -73,7 +73,7 @@
     .shell-loading{
       position:fixed;
       inset:0;
-      z-index:5;
+      z-index:100000;
       display:grid;
       place-items:center;
       pointer-events:none;
@@ -143,7 +143,6 @@
         radial-gradient(circle at 20% 18%,rgba(134,239,172,.35),transparent 30%),
         radial-gradient(circle at 82% 18%,rgba(251,191,36,.34),transparent 32%),
         linear-gradient(180deg,#dcfce7 0%,#eff6ff 48%,#fef3c7 100%);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:#172033;
       touch-action:manipulation;
     }
@@ -279,6 +278,8 @@
 
     .gjm-start-card{
       width:min(520px, calc(100vw - 28px));
+      max-height:calc(100dvh - 26px);
+      overflow:auto;
       border-radius:32px;
       background:rgba(255,255,255,.96);
       border:3px solid rgba(255,255,255,.95);
@@ -533,10 +534,22 @@
         return '../nutrition-zone.html';
       }
 
-      function applyInitialTime(){
+      function applyInitialTimeAndLives(){
         const t = Math.max(45, Number(QS.get('time')) || 120);
+        const diff = String(QS.get('diff') || 'normal').toLowerCase();
+
+        const livesMap = {
+          easy:5,
+          normal:4,
+          hard:3,
+          challenge:3
+        };
+
         const timeEl = document.getElementById('gjmTime');
+        const livesEl = document.getElementById('gjmLives');
+
         if(timeEl) timeEl.textContent = String(t);
+        if(livesEl) livesEl.textContent = '💚'.repeat(livesMap[diff] || 4);
       }
 
       function bindBack(){
@@ -559,40 +572,46 @@
               loading.remove();
             }, 320);
           }
-        }, 650);
+        }, 720);
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.1-FULL-HTML-SHELL',
+        version:'v8.41.7-FINAL-HTML-SHELL-UPDATE',
         safeBackUrl:safeBackUrl
       };
 
-      applyInitialTime();
+      applyInitialTimeAndLives();
       bindBack();
       removeLoadingSoon();
     })();
   </script>
 
-    <!-- GoodJunk Solo Boss Ultimate Pack v8.40.x -->
+  <!-- GoodJunk Solo Boss Ultimate Pack -->
   <script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
   <script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
   <script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
+
+  <!-- Reward + Reward Polish -->
   <script src="./goodjunk-solo-boss-reward.js?v=20260504-v8404"></script>
   <script src="./goodjunk-solo-boss-reward-polish.js?v=20260504-v8415"></script>
 
+  <!-- Director + Core Bridges -->
   <script src="./goodjunk-solo-boss-director.js?v=20260504-v8405"></script>
   <script src="./goodjunk-solo-boss-shim.js?v=20260504-v8406"></script>
   <script src="./goodjunk-solo-boss-merge.js?v=20260504-v8407"></script>
 
+  <!-- Challenge + Visual Variety -->
   <script src="./goodjunk-solo-boss-foodbank.js?v=20260504-v8413"></script>
   <script src="./goodjunk-solo-boss-visual-variety.js?v=20260504-v8414"></script>
 
+  <!-- Main Playable Integration + Mobile Polish -->
   <script src="./goodjunk-solo-boss-main.js?v=20260504-v8410"></script>
   <script src="./goodjunk-solo-boss-mobile-polish.js?v=20260504-v8412"></script>
 
+  <!-- Guard -->
   <script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
 
-  <!-- Final QA / Version Health ต้องอยู่ท้ายสุด -->
+  <!-- Final QA / Version Health: ต้องอยู่ท้ายสุด -->
   <script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
 </body>
 </html>
