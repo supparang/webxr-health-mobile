@@ -1,13 +1,11 @@
 // === /herohealth/gate/gate-games.js ===
-// FULL PATCH v20260503-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL
-// ✅ GoodJunk Solo Boss canonical run path:
-//    /herohealth/vr-goodjunk/goodjunk-solo-boss.html
-// ✅ Gate phase files:
-//    /herohealth/gate/games/goodjunk/warmup.js
-//    /herohealth/gate/games/goodjunk/cooldown.js
-// ✅ Summary / fallback path for GoodJunk returns to Nutrition Zone
+// FULL PATCH v20260503v-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL-FLOW
+// ✅ GoodJunk runFile/runCandidates ชี้ไป /herohealth/vr-goodjunk/goodjunk-solo-boss.html
+// ✅ warmup/cooldown ใช้ /herohealth/gate/games/goodjunk/*.js
+// ✅ summaryPath ของ GoodJunk กลับ launcher ได้ แต่ cooldown จบควรใช้ cdnext/next จาก URL ก่อน
+// ✅ รองรับ nutrition / fitness / hygiene registry เดิม
 
-const PATCH = 'v20260503-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL';
+const PATCH = 'v20260503v-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL-FLOW';
 
 const DEFAULTS = {
   title: '',
@@ -24,41 +22,41 @@ const DEFAULTS = {
   summaryPath: ''
 };
 
-function prettyTitle(id = '') {
+function prettyTitle(id = ''){
   const raw = String(id || '')
     .trim()
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ');
 
-  if (!raw) return 'Game';
+  if(!raw) return 'Game';
 
-  return raw.replace(/\b\w/g, (m) => m.toUpperCase());
+  return raw.replace(/\b\w/g, m => m.toUpperCase());
 }
 
-function inferZoneFromId(id = '') {
+function inferZoneFromId(id = ''){
   const k = String(id || '').toLowerCase();
 
-  if (
+  if(
     k.includes('hydration') ||
     k.includes('plate') ||
     k.includes('group') ||
     k.includes('goodjunk') ||
     k.includes('nutrition')
-  ) {
+  ){
     return 'nutrition';
   }
 
-  if (
+  if(
     k.includes('shadow') ||
     k.includes('jump') ||
     k.includes('balance') ||
     k.includes('rhythm') ||
     k.includes('fitness')
-  ) {
+  ){
     return 'fitness';
   }
 
-  if (
+  if(
     k.includes('brush') ||
     k.includes('germ') ||
     k.includes('bath') ||
@@ -66,14 +64,14 @@ function inferZoneFromId(id = '') {
     k.includes('handwash') ||
     k.includes('mask') ||
     k.includes('cough')
-  ) {
+  ){
     return 'hygiene';
   }
 
   return '';
 }
 
-function compactId(id = '') {
+function compactId(id = ''){
   return String(id || '')
     .trim()
     .toLowerCase()
@@ -83,26 +81,24 @@ function compactId(id = '') {
     .replace(/^-+|-+$/g, '');
 }
 
-function defaultPhaseFile(gameId = '', phase = 'warmup') {
+function defaultPhaseFile(gameId = '', phase = 'warmup'){
   const key = compactId(gameId);
   const p = String(phase || 'warmup').trim().toLowerCase() === 'cooldown'
     ? 'cooldown'
     : 'warmup';
 
-  if (!key) return '';
+  if(!key) return '';
 
   return `./games/${key}/${p}.js`;
 }
 
-function defaultStyleFile(gameId = '') {
+function defaultStyleFile(gameId = ''){
   const key = compactId(gameId);
-
-  if (!key) return '';
-
+  if(!key) return '';
   return `./games/${key}/style.css`;
 }
 
-function makeMeta(id, cfg = {}) {
+function makeMeta(id, cfg = {}){
   const base = { ...DEFAULTS, ...cfg };
   const key = compactId(id);
 
@@ -110,7 +106,7 @@ function makeMeta(id, cfg = {}) {
     ? base.runCandidates.filter(Boolean)
     : [];
 
-  if (!runCandidates.length && base.runFile) {
+  if(!runCandidates.length && base.runFile){
     runCandidates.push(base.runFile);
   }
 
@@ -124,20 +120,25 @@ function makeMeta(id, cfg = {}) {
     zone: base.zone || inferZoneFromId(key),
     cat: base.cat || inferZoneFromId(key),
     theme: base.theme || key,
+
     runFile: base.runFile || runCandidates[0] || '',
     runCandidates,
+
     warmupFile: base.warmupFile || '',
     cooldownFile: base.cooldownFile || '',
     styleFile: base.styleFile || '',
+
     summaryPath,
-    defaults: { summaryPath }
+    defaults: { summaryPath },
+
+    warmupTitle: base.warmupTitle || '',
+    cooldownTitle: base.cooldownTitle || ''
   };
 }
 
-function inferLooseMeta(id = '') {
+function inferLooseMeta(id = ''){
   const key = compactId(id);
-
-  if (!key) return null;
+  if(!key) return null;
 
   const zone = inferZoneFromId(key);
 
@@ -186,29 +187,22 @@ export const GAME_REGISTRY = {
     cat: 'nutrition',
     theme: 'goodjunk',
 
-    /*
-      สำคัญ:
-      เกมจริงของ Solo Boss อยู่ตรงนี้เท่านั้น
-      /herohealth/vr-goodjunk/goodjunk-solo-boss.html
-    */
+    // สำคัญ: หน้านี้คือหน้าเล่นเกมจริงของ Solo Boss
     runFile: '../vr-goodjunk/goodjunk-solo-boss.html',
     runCandidates: [
-      '../vr-goodjunk/goodjunk-solo-boss.html',
-      '../goodjunk-vr.html',
-      '../goodjunk-launcher.html'
+      '../vr-goodjunk/goodjunk-solo-boss.html'
     ],
 
-    /*
-      Gate เฉพาะเกมอยู่ใน /herohealth/gate/games/goodjunk/
-    */
+    // Gate mini-games
     warmupFile: './games/goodjunk/warmup.js',
     cooldownFile: './games/goodjunk/cooldown.js',
     styleFile: './games/goodjunk/style.css',
 
-    /*
-      หลัง cooldown / fallback ให้กลับ Nutrition Zone
-    */
-    summaryPath: '../nutrition-zone.html'
+    warmupTitle: 'GoodJunk Warmup',
+    cooldownTitle: 'GoodJunk Cooldown',
+
+    // fallback เท่านั้น ปกติ cooldown จบควรใช้ next/cdnext/hub จาก URL
+    summaryPath: '../goodjunk-launcher.html'
   }),
 
   plate: makeMeta('plate', {
@@ -253,7 +247,8 @@ export const GAME_REGISTRY = {
     runFile: '../brush-vr.html',
     runCandidates: [
       '../brush-vr.html',
-      '../brush-vr-kids.html'
+      '../brush-vr-kids.html',
+      '../vr-brush-kids/brush.html'
     ],
     summaryPath: '../hygiene-zone.html'
   }),
@@ -265,10 +260,10 @@ export const GAME_REGISTRY = {
     zone: 'hygiene',
     cat: 'hygiene',
     theme: 'handwash',
-    runFile: '../handwash-vr.html',
+    runFile: '../vr-handwash/handwash-vr.html',
     runCandidates: [
-      '../handwash-vr.html',
-      '../vr-handwash/handwash-vr.html'
+      '../vr-handwash/handwash-vr.html',
+      '../handwash-vr.html'
     ],
     summaryPath: '../hygiene-zone.html'
   }),
@@ -409,13 +404,13 @@ const GAME_ALIAS = {
   'goodjunk-vr': 'goodjunk',
   goodjunkvr: 'goodjunk',
   goodjunkv1: 'goodjunk',
-  goodjunkboss: 'goodjunk',
-  'goodjunk-boss': 'goodjunk',
   'goodjunk-solo-boss': 'goodjunk',
-  goodjunksoloboss: 'goodjunk',
+  'goodjunk-solo': 'goodjunk',
+  goodjunkboss: 'goodjunk',
   phaseboss: 'goodjunk',
   'phase-boss': 'goodjunk',
   'solo-boss': 'goodjunk',
+  soloboss: 'goodjunk',
 
   plate: 'plate',
   platev1: 'plate',
@@ -467,81 +462,78 @@ const GAME_ALIAS = {
   fitnessplanner: 'fitness-planner'
 };
 
-export function normalizeGameId(id = '') {
+export function normalizeGameId(id = ''){
   const raw = String(id || '').trim().toLowerCase();
-
-  if (!raw) return '';
+  if(!raw) return '';
 
   const compact = compactId(raw);
 
   return GAME_ALIAS[raw] || GAME_ALIAS[compact] || compact;
 }
 
-export function getGameMeta(id = '') {
+export function getGameMeta(id = ''){
   const key = normalizeGameId(id);
 
-  if (!key) return null;
+  if(!key) return null;
 
   return GAME_REGISTRY[key] || inferLooseMeta(key);
 }
 
-export function hasGameMeta(id = '') {
+export function hasGameMeta(id = ''){
   return !!getGameMeta(id);
 }
 
-export function getPhaseFile(id = '', gatePhase = 'warmup') {
+export function getPhaseFile(id = '', gatePhase = 'warmup'){
   const meta = getGameMeta(id);
 
-  if (!meta) return '';
+  if(!meta) return '';
 
   const phase = String(gatePhase || 'warmup').trim().toLowerCase() === 'cooldown'
     ? 'cooldown'
     : 'warmup';
 
-  if (phase === 'warmup') {
+  if(phase === 'warmup'){
     return meta.warmupFile || defaultPhaseFile(meta.id, 'warmup');
   }
 
-  if (phase === 'cooldown') {
+  if(phase === 'cooldown'){
     return meta.cooldownFile || defaultPhaseFile(meta.id, 'cooldown');
   }
 
   return '';
 }
 
-export function getGameStyleFile(id = '') {
+export function getGameStyleFile(id = ''){
   const meta = getGameMeta(id);
 
-  if (!meta) return '';
+  if(!meta) return '';
 
   return meta.styleFile || defaultStyleFile(meta.id);
 }
 
-export function getRunFile(id = '') {
+export function getRunFile(id = ''){
   const meta = getGameMeta(id);
-
   return meta?.runFile || '';
 }
 
-export function getRunCandidates(id = '') {
+export function getRunCandidates(id = ''){
   const meta = getGameMeta(id);
 
-  if (!meta) return [];
+  if(!meta) return [];
 
-  if (Array.isArray(meta.runCandidates) && meta.runCandidates.length) {
+  if(Array.isArray(meta.runCandidates) && meta.runCandidates.length){
     return meta.runCandidates.filter(Boolean);
   }
 
   return meta.runFile ? [meta.runFile] : [];
 }
 
-export function getSummaryPath(id = '') {
+export function getSummaryPath(id = ''){
   const meta = getGameMeta(id);
-
   return meta?.summaryPath || meta?.defaults?.summaryPath || '';
 }
 
-export function listGameIds() {
+export function listGameIds(){
   return Object.keys(GAME_REGISTRY);
 }
 
