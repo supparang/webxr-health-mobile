@@ -1,6 +1,11 @@
 <!-- === /herohealth/goodjunk-launcher.html === -->
-<!-- FULL PATCH v20260503u-GOODJUNK-LAUNCHER-SOLO-BOSS-WARMUP-COOLDOWN-FLOW -->
-<!-- จุดสำคัญ: Solo Boss ต้องเข้า warmup-gate ก่อน และเกมจริงต้องได้ hub เป็น cooldown-gate -->
+<!-- FULL PATCH v20260503v-GOODJUNK-LAUNCHER-RETURN-NUTRITION-ZONE-LOCKED -->
+<!-- จุดสำคัญ:
+     1) Solo Boss ต้องเข้า warmup-gate.html?phase=warmup ก่อน
+     2) warmup จบแล้วเข้า /vr-goodjunk/goodjunk-solo-boss.html
+     3) เกมจบแล้ว hub ต้องพาไป warmup-gate.html?phase=cooldown
+     4) cooldown จบแล้วกลับ nutrition-zone URL ตัวเต็มที่กำหนด
+-->
 
 <!doctype html>
 <html lang="th">
@@ -35,9 +40,12 @@
       --shadow-soft:0 10px 24px rgba(0,0,0,.06);
     }
 
-    *{ box-sizing:border-box; }
+    *{
+      box-sizing:border-box;
+    }
 
-    html,body{
+    html,
+    body{
       margin:0;
       min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -490,7 +498,7 @@
       <section class="gj-panel">
         <h2 class="gj-panel-title">โหมดการเล่น</h2>
         <p class="gj-panel-sub">
-          กดการ์ดเพื่อเริ่มเล่น ระบบจะส่งเฉพาะข้อมูลที่จำเป็นไปหน้าเกม
+          กดการ์ดเพื่อเริ่มเล่น ระบบจะส่งข้อมูล player, difficulty, time, view, seed และ flow ต่อไปอัตโนมัติ
         </p>
 
         <div class="gj-mode-grid" style="margin-top:12px;">
@@ -551,6 +559,8 @@
       const q = new URLSearchParams(location.search);
       const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PREFS';
 
+      const CANONICAL_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+
       const fieldName = document.getElementById('fieldName');
       const fieldDiff = document.getElementById('fieldDiff');
       const fieldTime = document.getElementById('fieldTime');
@@ -575,8 +585,11 @@
       }
 
       function safeJsonParse(text, fallback){
-        try{ return JSON.parse(text); }
-        catch(_){ return fallback; }
+        try{
+          return JSON.parse(text);
+        }catch(_){
+          return fallback;
+        }
       }
 
       function storageGet(key, fallback){
@@ -589,38 +602,9 @@
       }
 
       function storageSet(key, value){
-        try{ localStorage.setItem(key, value); }
-        catch(_){}
-      }
-
-      function abs(path){
-        return new URL(path, location.href).toString();
-      }
-
-      function cleanReturnUrl(raw){
-        const fallback = abs('./nutrition-zone.html');
-
         try{
-          if(!String(raw || '').trim()) return fallback;
-
-          const u = new URL(String(raw), location.href);
-
-          if(u.pathname.includes('/nutrition-zone.html')){
-            return abs('./nutrition-zone.html');
-          }
-
-          if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
-            return fallback;
-          }
-
-          return u.toString();
-        }catch(_){
-          return fallback;
-        }
-      }
-
-      function getHubHref(){
-        return cleanReturnUrl(q.get('hub'));
+          localStorage.setItem(key, value);
+        }catch(_){}
       }
 
       function getPid(){
@@ -643,7 +627,7 @@
         storageSet(STORAGE_KEY, JSON.stringify({
           name: fieldName.value.trim() || 'Hero',
           diff: fieldDiff.value || 'normal',
-          time: fieldTime.value || '150',
+          time: fieldTime.value || '120',
           view: fieldView.value || 'mobile'
         }));
       }
@@ -653,8 +637,25 @@
 
         fieldName.value = first(q.get('name'), saved.name, 'Hero');
         setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
-        setSelectValue(fieldTime, first(q.get('time'), saved.time), '150');
+        setSelectValue(fieldTime, first(q.get('time'), saved.time), '120');
         setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
+      }
+
+      function getNutritionZoneHref(){
+        const u = new URL('./nutrition-zone.html', location.href);
+
+        const pid = first(q.get('pid'), getPid(), 'anon');
+        const diff = fieldDiff.value || first(q.get('diff'), 'normal');
+        const time = fieldTime.value || first(q.get('time'), '120');
+        const view = fieldView.value || first(q.get('view'), 'mobile');
+
+        u.searchParams.set('pid', pid);
+        u.searchParams.set('diff', diff);
+        u.searchParams.set('time', time);
+        u.searchParams.set('view', view);
+        u.searchParams.set('hub', CANONICAL_HUB);
+
+        return u.toString();
       }
 
       function commonParams(){
@@ -663,7 +664,7 @@
           name: fieldName.value.trim() || 'Hero',
           nick: fieldName.value.trim() || 'Hero',
           diff: fieldDiff.value || 'normal',
-          time: fieldTime.value || '150',
+          time: fieldTime.value || '120',
           view: fieldView.value || 'mobile',
           run: first(q.get('run'), 'play'),
           zone: 'nutrition',
@@ -680,18 +681,18 @@
       }
 
       function applyParams(url, params){
-        Object.entries(params).forEach(([k,v]) => {
+        Object.entries(params).forEach(([k, v]) => {
           if(v !== '' && v != null){
             url.searchParams.set(k, String(v));
           }
         });
+
         return url;
       }
 
       function buildCooldownGateUrl(){
         const p = commonParams();
-
-        const nutrition = getHubHref();
+        const nutrition = getNutritionZoneHref();
         const u = new URL('./warmup-gate.html', location.href);
 
         applyParams(u, {
@@ -701,6 +702,8 @@
           entry: 'solo-boss',
           phaseBoss: '1',
           multiplayer: '0',
+
+          // cooldown จบแล้วกลับ nutrition-zone URL ตัวเต็ม
           next: nutrition,
           hub: nutrition
         });
@@ -710,7 +713,6 @@
 
       function buildSoloBossRunUrl(){
         const p = commonParams();
-
         const u = new URL('./vr-goodjunk/goodjunk-solo-boss.html', location.href);
 
         applyParams(u, {
@@ -719,6 +721,8 @@
           entry: 'solo-boss',
           phaseBoss: '1',
           multiplayer: '0',
+
+          // เกมจบแล้วไป cooldown gate
           hub: buildCooldownGateUrl()
         });
 
@@ -727,8 +731,7 @@
 
       function buildWarmupGateUrl(){
         const p = commonParams();
-
-        const nutrition = getHubHref();
+        const nutrition = getNutritionZoneHref();
         const u = new URL('./warmup-gate.html', location.href);
 
         applyParams(u, {
@@ -738,7 +741,11 @@
           entry: 'solo-boss',
           phaseBoss: '1',
           multiplayer: '0',
+
+          // warmup จบแล้วเข้าเกมจริง
           next: buildSoloBossRunUrl(),
+
+          // ปุ่มกลับใน warmup กลับ nutrition-zone URL ตัวเต็ม
           hub: nutrition
         });
 
@@ -766,7 +773,9 @@
           theme: 'goodjunk',
           multiplayer: '1',
           nick: p.nick,
-          hub: getHubHref()
+
+          // โหมดหลายคนกลับ nutrition-zone URL ตัวเต็ม
+          hub: getNutritionZoneHref()
         });
 
         return u.toString();
@@ -789,11 +798,11 @@
 
       function showDebug(){
         const data = {
-          patch: 'v20260503u-GOODJUNK-LAUNCHER-SOLO-BOSS-WARMUP-COOLDOWN-FLOW',
+          patch: 'v20260503v-GOODJUNK-LAUNCHER-RETURN-NUTRITION-ZONE-LOCKED',
+          nutritionZone: getNutritionZoneHref(),
           warmupGate: buildWarmupGateUrl(),
           gameRun: buildSoloBossRunUrl(),
-          cooldownGate: buildCooldownGateUrl(),
-          nutrition: getHubHref()
+          cooldownGate: buildCooldownGateUrl()
         };
 
         debugBox.classList.toggle('show');
@@ -801,11 +810,19 @@
       }
 
       loadPrefs();
-      btnBackHub.href = getHubHref();
+
+      btnBackHub.href = getNutritionZoneHref();
 
       [fieldName, fieldDiff, fieldTime, fieldView].forEach(el => {
-        el.addEventListener('input', savePrefs);
-        el.addEventListener('change', savePrefs);
+        el.addEventListener('input', () => {
+          savePrefs();
+          btnBackHub.href = getNutritionZoneHref();
+        });
+
+        el.addEventListener('change', () => {
+          savePrefs();
+          btnBackHub.href = getNutritionZoneHref();
+        });
       });
 
       modeCards.forEach(card => {
@@ -826,12 +843,14 @@
         buildSoloBossRunUrl,
         buildCooldownGateUrl,
         buildModeHref,
+        getNutritionZoneHref,
+
         debug(){
           return {
+            nutritionZone: getNutritionZoneHref(),
             warmupGate: buildWarmupGateUrl(),
             gameRun: buildSoloBossRunUrl(),
-            cooldownGate: buildCooldownGateUrl(),
-            nutrition: getHubHref()
+            cooldownGate: buildCooldownGateUrl()
           };
         }
       };
