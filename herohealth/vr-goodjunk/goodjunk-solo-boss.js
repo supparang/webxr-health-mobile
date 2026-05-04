@@ -1,22 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss.js ===
-// FULL PATCH v20260503j-GOODJUNK-SOLO-BOSS-V8-5-FINAL-POLISH
-// ✅ หน้า /herohealth/vr-goodjunk/goodjunk-solo-boss.html คือหน้าเล่นเกมจริง
-// ✅ ไม่ใช่ launcher
-// ✅ bindEvents null-safe ไม่พัง addEventListener of null
-// ✅ เล่นได้เลย: Intro → Game → Summary
-// ✅ ใช้ CFG.hub เท่านั้นเมื่อกลับ เพื่อให้ gate ส่งเข้า cooldown ได้ถูก
-// ✅ รองรับ warmup gate → game → cooldown gate
-// ✅ Solo Phase Boss v8.5:
-//    - Boss HP / Shield / Phase / Final Rush
-//    - Boss Skill Identity: Junk Storm / Soda Splash / Fried Wall / Sugar Trap / Burger Shield Regen
-//    - Telegraph Warning / Warning Flash / Danger Lane / Danger Meter
-//    - HERO HIT / Big HERO HIT Button / Ready Pulse / Hero Cut-in / Finish Move
-//    - Power-ups: Shield / Slow Time / Magnet / Clean Blast
-//    - Boss Weakness Mission / Combo Skill x5 x10 x15
-//    - Daily Challenge / Result Badges / Boss Book / Learning Micro-tip
-//    - Kid-friendly Summary
-//    - Mobile-safe spawn / Anti-overlap / Pause-safe / Fair difficulty
-//    - WebAudio SFX + mobile vibration + toggle controls
+// FULL PATCH v20260503t-GOODJUNK-SOLO-BOSS-V8-15-FINAL-FULL-MERGE-LOCK
+// GoodJunk Solo Boss — หน้าเล่นเกมจริง ไม่ใช่ launcher
+// ✅ Mobile-safe HUD / compact single-hand mode
+// ✅ Tap priority: targets clickable
+// ✅ Safe spawn / calibration / debugFinal()
+// ✅ Boss phases / skills / HERO HIT / power-ups / summary
+// ✅ Uses CFG.hub as exit target, so launcher can send it to cooldown gate
 // ✅ No Apps Script logging in this version
 
 (function(){
@@ -25,15 +14,33 @@
   const WIN = window;
   const DOC = document;
 
-  const PATCH = 'v20260503j-GOODJUNK-SOLO-BOSS-V8-5-FINAL-POLISH';
+  const PATCH = 'v20260503t-GOODJUNK-SOLO-BOSS-V8-15-FINAL-FULL-MERGE-LOCK';
   const ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
   const DEFAULT_HUB = ROOT + 'nutrition-zone.html';
-
   const qs = new URLSearchParams(location.search);
 
-  function clean(v, fallback = ''){
+  function $(id){
+    return DOC.getElementById(id);
+  }
+
+  function clean(v, d = ''){
     v = String(v ?? '').trim();
-    return v || fallback;
+    return v || d;
+  }
+
+  function num(v, d = 0){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : d;
+  }
+
+  function clamp(v, a, b){
+    v = Number(v);
+    if(!Number.isFinite(v)) v = a;
+    return Math.max(a, Math.min(b, v));
+  }
+
+  function now(){
+    return performance.now();
   }
 
   function safeUrl(raw, fallback){
@@ -45,19 +52,12 @@
     }
   }
 
-  function num(v, fallback = 0){
-    const n = Number(v);
-    return Number.isFinite(n) ? n : fallback;
-  }
-
-  function clamp(v, min, max){
-    v = Number(v);
-    if(!Number.isFinite(v)) v = min;
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function now(){
-    return performance.now();
+  function safeDecode(v){
+    try{
+      return decodeURIComponent(String(v || ''));
+    }catch(_){
+      return String(v || '');
+    }
   }
 
   function mulberry32(seed){
@@ -68,6 +68,22 @@
       r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
       return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
     };
+  }
+
+  function pick(arr){
+    return arr[Math.floor(state.rng() * arr.length)];
+  }
+
+  function on(node, evt, fn, opt){
+    if(node && typeof node.addEventListener === 'function'){
+      node.addEventListener(evt, fn, opt);
+      return true;
+    }
+    return false;
+  }
+
+  function setText(node, text){
+    if(node) node.textContent = String(text);
   }
 
   const CFG = Object.assign({
@@ -88,6 +104,7 @@
     phaseBoss: clean(qs.get('phaseBoss'), '1'),
     hub: safeUrl(qs.get('hub'), DEFAULT_HUB),
     hubRoot: safeUrl(qs.get('hubRoot'), DEFAULT_HUB),
+    launcher: clean(qs.get('launcher'), ''),
     api: clean(qs.get('api'), ''),
     log: clean(qs.get('log'), ''),
     studyId: clean(qs.get('studyId'), ''),
@@ -106,190 +123,208 @@
       time: 120,
       lives: 6,
       bossHp: 420,
-      spawnEvery: 880,
+      spawnEvery: 900,
       maxTargets: 5,
-      junkChance: 0.34,
-      speedMin: 1.0,
-      speedMax: 1.8,
-      bossAttackEvery: 7200,
-      finalRushAt: 0.28,
-      minWinSec: 65,
-      shieldUntilSec: 25,
+      junkChance: .32,
+      speedMin: .80,
+      speedMax: 1.45,
+      bossAttackEvery: 7800,
+      finalRushAt: .28,
+      minWinSec: 55,
+      shieldUntilSec: 22,
       heroHitDmg: 54
     },
+
     normal: {
       time: 150,
       lives: 5,
       bossHp: 620,
-      spawnEvery: 720,
+      spawnEvery: 760,
       maxTargets: 6,
-      junkChance: 0.43,
-      speedMin: 1.25,
-      speedMax: 2.35,
-      bossAttackEvery: 5600,
-      finalRushAt: 0.32,
-      minWinSec: 80,
-      shieldUntilSec: 30,
+      junkChance: .40,
+      speedMin: 1.00,
+      speedMax: 1.90,
+      bossAttackEvery: 6200,
+      finalRushAt: .32,
+      minWinSec: 70,
+      shieldUntilSec: 28,
       heroHitDmg: 68
     },
+
     hard: {
       time: 180,
       lives: 4,
       bossHp: 820,
-      spawnEvery: 590,
+      spawnEvery: 650,
       maxTargets: 7,
-      junkChance: 0.50,
-      speedMin: 1.55,
-      speedMax: 2.95,
-      bossAttackEvery: 4600,
-      finalRushAt: 0.36,
-      minWinSec: 95,
-      shieldUntilSec: 36,
+      junkChance: .47,
+      speedMin: 1.20,
+      speedMax: 2.35,
+      bossAttackEvery: 5200,
+      finalRushAt: .36,
+      minWinSec: 85,
+      shieldUntilSec: 34,
       heroHitDmg: 82
     },
+
     challenge: {
       time: 180,
       lives: 4,
       bossHp: 980,
-      spawnEvery: 500,
+      spawnEvery: 560,
       maxTargets: 8,
-      junkChance: 0.56,
-      speedMin: 1.85,
-      speedMax: 3.35,
-      bossAttackEvery: 3900,
-      finalRushAt: 0.42,
-      minWinSec: 105,
-      shieldUntilSec: 42,
+      junkChance: .52,
+      speedMin: 1.35,
+      speedMax: 2.70,
+      bossAttackEvery: 4500,
+      finalRushAt: .40,
+      minWinSec: 95,
+      shieldUntilSec: 38,
       heroHitDmg: 96
     }
   };
 
   const tune = TUNING[DIFF] || TUNING.normal;
-  const plannedTime = clamp(num(CFG.time, tune.time), 90, 180);
+  const plannedTime = clamp(num(CFG.time, tune.time), 60, 180);
 
   const GOOD = [
-    { emoji:'🍎', label:'แอปเปิล', group:'fruit', dmg:10, charge:8 },
-    { emoji:'🥦', label:'บรอกโคลี', group:'green', dmg:12, charge:9 },
-    { emoji:'🥕', label:'แครอท', group:'green', dmg:10, charge:8 },
-    { emoji:'🍉', label:'แตงโม', group:'fruit', dmg:9, charge:7 },
-    { emoji:'🐟', label:'ปลา', group:'protein', dmg:13, charge:10 },
-    { emoji:'🥚', label:'ไข่', group:'protein', dmg:12, charge:9 },
-    { emoji:'🥛', label:'นม', group:'protein', dmg:11, charge:8 },
-    { emoji:'🍚', label:'ข้าว', group:'carb', dmg:10, charge:7 },
-    { emoji:'🫘', label:'ถั่ว', group:'protein', dmg:12, charge:9 },
-    { emoji:'🥬', label:'ผักใบเขียว', group:'green', dmg:12, charge:9 }
+    { emoji:'🍎', label:'แอปเปิล', group:'fruit', dmg:10, charge:8, tip:'ผลไม้มีวิตามิน' },
+    { emoji:'🍉', label:'แตงโม', group:'fruit', dmg:9, charge:7, tip:'ผลไม้สดช่วยให้สดชื่น' },
+    { emoji:'🥦', label:'บรอกโคลี', group:'green', dmg:12, charge:9, tip:'ผักมีใยอาหาร' },
+    { emoji:'🥬', label:'ผักใบเขียว', group:'green', dmg:12, charge:9, tip:'ผักช่วยให้แข็งแรง' },
+    { emoji:'🥕', label:'แครอท', group:'green', dmg:10, charge:8, tip:'ผักสีส้มมีประโยชน์' },
+    { emoji:'🐟', label:'ปลา', group:'protein', dmg:13, charge:10, tip:'โปรตีนช่วยซ่อมแซมร่างกาย' },
+    { emoji:'🥚', label:'ไข่', group:'protein', dmg:12, charge:9, tip:'ไข่เป็นโปรตีนดี' },
+    { emoji:'🥛', label:'นม', group:'protein', dmg:11, charge:8, tip:'นมช่วยเสริมแคลเซียม' },
+    { emoji:'🫘', label:'ถั่ว', group:'protein', dmg:12, charge:9, tip:'ถั่วเป็นโปรตีนจากพืช' },
+    { emoji:'🍚', label:'ข้าว', group:'carb', dmg:10, charge:7, tip:'ข้าวให้พลังงาน' }
   ];
 
   const JUNK = [
-    { emoji:'🍩', label:'โดนัท', group:'sweet', dmg:0, penalty:1 },
-    { emoji:'🥤', label:'น้ำอัดลม', group:'soda', dmg:0, penalty:1 },
-    { emoji:'🍟', label:'เฟรนช์ฟรายส์', group:'fried', dmg:0, penalty:1 },
-    { emoji:'🍔', label:'เบอร์เกอร์มันเยอะ', group:'fatty', dmg:0, penalty:1 },
-    { emoji:'🍭', label:'ลูกอม', group:'sweet', dmg:0, penalty:1 },
-    { emoji:'🍫', label:'ช็อกโกแลตหวาน', group:'sweet', dmg:0, penalty:1 },
-    { emoji:'🧁', label:'คัพเค้ก', group:'sweet', dmg:0, penalty:1 }
+    { emoji:'🥤', label:'น้ำอัดลม', group:'soda', penalty:1, tip:'น้ำตาลสูง' },
+    { emoji:'🍟', label:'เฟรนช์ฟรายส์', group:'fried', penalty:1, tip:'ของทอดกินบ่อยไม่ดี' },
+    { emoji:'🍩', label:'โดนัท', group:'sweet', penalty:1, tip:'หวานและมัน' },
+    { emoji:'🍭', label:'ลูกอม', group:'sweet', penalty:1, tip:'หวานมาก' },
+    { emoji:'🍫', label:'ช็อกโกแลตหวาน', group:'sweet', penalty:1, tip:'กินมากไม่ดี' },
+    { emoji:'🧁', label:'คัพเค้ก', group:'sweet', penalty:1, tip:'หวานมาก' },
+    { emoji:'🍔', label:'เบอร์เกอร์มันเยอะ', group:'fatty', penalty:1, tip:'ไขมันและเค็มสูง' }
   ];
 
-  const BOSS_IDENTITY = {
+  const BOSS = {
     name: 'Junk King',
-    emoji: '👑🍔',
-    title: 'ราชาอาหารขยะ',
+
     weakness: {
       phase1: {
         key: 'green',
-        label: 'อาหารสีเขียว',
+        label: 'ผักสีเขียว',
         icons: ['🥦','🥬','🥕'],
-        tip: 'อาหารสีเขียวช่วยเปิดโล่บอสเร็วขึ้น'
+        tip: 'ช่วยทำลายโล่บอส'
       },
+
       phase2: {
         key: 'protein',
         label: 'โปรตีนดี',
         icons: ['🐟','🥚','🫘','🥛'],
-        tip: 'โปรตีนดีช่วยลดพลัง Junk Storm'
+        tip: 'ช่วยต้าน Junk Storm'
       },
+
       phase3: {
         key: 'fruit',
         label: 'ผลไม้สด',
         icons: ['🍎','🍉'],
-        tip: 'ผลไม้สดช่วยชาร์จ HERO HIT ในช่วงบอสคลั่ง'
+        tip: 'ช่วยชาร์จ HERO HIT'
       }
     },
+
     skills: [
       {
         id: 'junkStorm',
         name: 'Junk Storm',
         emoji: '🌪️',
-        warning: 'บอสกำลังปล่อยพายุอาหารขยะ!',
-        pattern: ['junk','junk','good','junk','good','junk'],
-        telegraphMs: 1100,
+        warning: 'พายุอาหารขยะ!',
+        pattern: ['junk','junk','good','junk','weakness'],
+        telegraphMs: 900,
         waveDelay: 150,
         dangerGain: 12
       },
+
       {
         id: 'sodaSplash',
         name: 'Soda Splash',
         emoji: '🥤',
-        warning: 'Soda Splash! ระวังน้ำอัดลมเด้งเร็ว!',
-        pattern: ['soda','soda','good','soda','junk'],
-        telegraphMs: 950,
+        warning: 'น้ำอัดลมเด้งเร็ว!',
+        pattern: ['soda','soda','good','junk','weakness'],
+        telegraphMs: 820,
         waveDelay: 120,
         dangerGain: 16
       },
+
       {
         id: 'friedWall',
         name: 'Fried Wall',
         emoji: '🍟',
-        warning: 'Fried Wall! ของทอดกำลังปิดทาง!',
-        pattern: ['fried','fried','lane','good','fried','junk'],
-        telegraphMs: 1200,
+        warning: 'ของทอดปิดทาง!',
+        pattern: ['fried','fried','lane','good','weakness'],
+        telegraphMs: 1050,
         waveDelay: 135,
         dangerGain: 18
       },
+
       {
         id: 'sugarTrap',
         name: 'Sugar Trap',
         emoji: '🍩',
-        warning: 'Sugar Trap! ของหวานหลอกตากำลังมา!',
-        pattern: ['sweet','good','sweet','junk','sweet'],
-        telegraphMs: 1050,
-        waveDelay: 160,
+        warning: 'ของหวานหลอกตา!',
+        pattern: ['sweet','good','sweet','junk','weakness'],
+        telegraphMs: 950,
+        waveDelay: 150,
         dangerGain: 14
       },
+
       {
         id: 'burgerShield',
-        name: 'Burger Shield Regen',
+        name: 'Burger Shield',
         emoji: '🍔',
-        warning: 'Burger Shield! บอสกำลังฟื้นโล่!',
-        pattern: ['junk','good','junk','good','burger'],
-        telegraphMs: 1250,
-        waveDelay: 170,
+        warning: 'บอสฟื้นโล่!',
+        pattern: ['junk','good','burger','weakness'],
+        telegraphMs: 1100,
+        waveDelay: 160,
         dangerGain: 10,
         shieldRegen: true
       }
     ]
   };
 
-  const DAILY_CHALLENGES = [
+  const POWER_UPS = [
+    { id:'shield', emoji:'🛡️', label:'Hero Shield', durationSec:0 },
+    { id:'slow', emoji:'⏳', label:'Slow Time', durationSec:6 },
+    { id:'magnet', emoji:'🧲', label:'Good Magnet', durationSec:7 },
+    { id:'cleanBlast', emoji:'✨', label:'Clean Blast', durationSec:0 }
+  ];
+
+  const DAILY = [
     {
       id: 'no-soda',
-      title: 'ภารกิจวันนี้: ห้ามแตะน้ำอัดลม',
+      title: 'ห้ามแตะน้ำอัดลม',
       icon: '🥤',
       rule: 'avoid_emoji',
       value: '🥤',
       reward: 'Soda Dodger'
     },
+
     {
       id: 'green-power',
-      title: 'ภารกิจวันนี้: เก็บผักให้ครบ 8 ครั้ง',
+      title: 'เก็บผักให้ครบ 8 ครั้ง',
       icon: '🥦',
       rule: 'collect_group',
       value: 'green',
       target: 8,
       reward: 'Green Hero'
     },
+
     {
       id: 'combo-master',
-      title: 'ภารกิจวันนี้: ทำ Combo x15',
+      title: 'ทำ Combo x15',
       icon: '⚡',
       rule: 'combo',
       target: 15,
@@ -297,111 +332,21 @@
     }
   ];
 
-  const RESULT_BADGES = [
-    { id:'boss-breaker', icon:'👑', title:'Boss Breaker', test:s => s.bossDefeated },
-    { id:'green-hero', icon:'🥦', title:'Green Hero', test:s => s.greenHits >= 8 },
-    { id:'combo-master', icon:'⚡', title:'Combo Master', test:s => s.bestCombo >= 15 },
-    { id:'clean-player', icon:'🌟', title:'Clean Player', test:s => s.miss <= 2 },
-    { id:'comeback-kid', icon:'💪', title:'Comeback Kid', test:s => s.comebackTriggered },
-    { id:'hero-finisher', icon:'🔥', title:'Hero Finisher', test:s => s.finishMoveUsed },
-    { id:'protein-power', icon:'🐟', title:'Protein Power', test:s => s.proteinHits >= 6 },
-    { id:'fruit-boost', icon:'🍎', title:'Fruit Boost', test:s => s.fruitHits >= 5 },
-    { id:'storm-survivor', icon:'🌪️', title:'Storm Survivor', test:s => (s.bossSkillUsed?.junkStorm || 0) >= 1 },
-    { id:'soda-dodger', icon:'🥤', title:'Soda Dodger', test:s => !s.dailyFailed && s.dailyChallengeId === 'no-soda' },
-    { id:'shield-breaker', icon:'🛡️', title:'Shield Breaker', test:s => s.bossShieldRegenCount >= 1 && s.bossDefeated }
-  ];
-
-  const POWER_UPS = [
-    {
-      id: 'shield',
-      emoji: '🛡️',
-      label: 'Hero Shield',
-      tip: 'กันพลาดจากขยะ 1 ครั้ง',
-      durationSec: 0
-    },
-    {
-      id: 'slow',
-      emoji: '⏳',
-      label: 'Slow Time',
-      tip: 'ทำให้เป้าหมายเคลื่อนช้าลงชั่วคราว',
-      durationSec: 6
-    },
-    {
-      id: 'magnet',
-      emoji: '🧲',
-      label: 'Good Magnet',
-      tip: 'อาหารดีเด่นชัดและเข้าหาง่ายขึ้น',
-      durationSec: 7
-    },
-    {
-      id: 'cleanBlast',
-      emoji: '✨',
-      label: 'Clean Blast',
-      tip: 'ล้างอาหารขยะบนจอทันที',
-      durationSec: 0
-    }
-  ];
-
-  const PHASE_CINEMATIC = {
-    phase1: {
-      title: 'PHASE 1',
-      sub: 'Break the Junk Shield!',
-      emoji: '🛡️👑'
-    },
-    phase2: {
-      title: 'PHASE 2',
-      sub: 'Junk Storm is coming!',
-      emoji: '🌪️🍩'
-    },
-    phase3: {
-      title: 'PHASE 3',
-      sub: 'Boss Rage Mode!',
-      emoji: '😡🔥'
-    },
-    finalRush: {
-      title: 'FINAL RUSH',
-      sub: 'Use HERO HIT to finish!',
-      emoji: '🔥🦸'
-    }
-  };
-
-  const BOSS_SPEECH = {
-    intro: [
-      'ข้าคือ Junk King! ถ้าแยกอาหารดีไม่ได้ เจ้าผ่านไม่ได้แน่!',
-      'อาหารขยะกำลังบุกเมืองสุขภาพแล้ว!'
-    ],
-    shield: [
-      'โล่ของข้ายังแข็งแรงอยู่!',
-      'อาหารดีพวกนั้นทำอะไรข้าไม่ได้หรอก!'
-    ],
-    shieldBreak: [
-      'อะไรนะ! โล่ของข้าแตกแล้ว!',
-      'เจ้ารู้จักอาหารดีจริง ๆ งั้นหรือ!'
-    ],
-    phase2: [
-      'ถ้าอย่างนั้นรับ Junk Storm ไปเลย!',
-      'ขยะจะเยอะขึ้น เจ้าหลบให้ทันก็แล้วกัน!'
-    ],
-    phase3: [
-      'ข้าโกรธแล้ว! Boss Rage!',
-      'ตอนนี้ไม่มีเวลาให้ลังเลแล้ว!'
-    ],
-    finalRush: [
-      'FINAL RUSH! ข้าจะไม่ยอมแพ้ง่าย ๆ!',
-      'ถ้าจะชนะ ต้องใช้ HERO HIT ให้ถูกจังหวะ!'
-    ],
-    defeated: [
-      'อ๊าก! ข้าแพ้อาหารดีแล้ว!',
-      'เมืองสุขภาพปลอดภัย... ครั้งนี้เจ้าชนะ!'
-    ]
-  };
+  const el = {};
 
   const state = {
     patch: PATCH,
+
+    bootStarted: false,
     booted: false,
     started: false,
     paused: false,
     ended: false,
+
+    startLocked: false,
+    heroHitLocked: false,
+    exitLocked: false,
+    summaryRendered: false,
 
     score: 0,
     good: 0,
@@ -416,58 +361,21 @@
     bossHp: tune.bossHp,
     bossMaxHp: tune.bossHp,
     heroHit: 0,
+
     phase: 1,
     finalRush: false,
-    rage: 0,
-
     bossShield: true,
     elapsedSec: 0,
-    phaseAnnounced: {
-      shieldBreak: false,
-      phase2: false,
-      phase3: false,
-      finalRush: false
-    },
-
-    mission: {
-      phase1Good: 0,
-      phase2Dodge: 0,
-      phase3HeroHit: 0,
-      bossWavesSurvived: 0
-    },
+    rage: 0,
+    dangerMeter: 0,
 
     dailyChallenge: null,
     dailyProgress: 0,
     dailyFailed: false,
 
-    bossSpeechLast: '',
-    dangerMeter: 0,
-    dangerLaneActive: false,
-    dangerLaneX: 0,
-    warningActive: false,
-
-    heroCutInActive: false,
-    heroHitReadyAnnounced: false,
-    finishMoveUsed: false,
-    comebackTriggered: false,
-
     greenHits: 0,
     proteinHits: 0,
     fruitHits: 0,
-
-    comboSkillUsed: {
-      x5: false,
-      x10: false,
-      x15: false
-    },
-
-    weaknessMission: {
-      active: true,
-      hits: 0,
-      target: 6,
-      label: 'อาหารดี',
-      tip: 'เก็บอาหารดีเพื่อเปิดจุดอ่อนบอส'
-    },
 
     activePower: {
       shield: 0,
@@ -482,18 +390,22 @@
       cleanBlast: 0
     },
 
-    cinematicLock: false,
-    phaseCinematicShown: {
-      phase1: false,
+    targets: new Map(),
+    seq: 0,
+    rng: mulberry32(CFG.seed),
+
+    lastFrame: 0,
+    lastSpawn: 0,
+    lastBossAttack: 0,
+    startTs: 0,
+    endTs: 0,
+
+    phaseAnnounced: {
+      shieldBreak: false,
       phase2: false,
       phase3: false,
       finalRush: false
     },
-
-    damageTotal: 0,
-    shieldBlocks: 0,
-    microTipsShown: 0,
-    lastMicroTipAt: 0,
 
     bossSkillUsed: {
       junkStorm: 0,
@@ -507,32 +419,93 @@
     bossSkillCooldownLock: false,
     bossShieldRegenCount: 0,
 
-    lastFeedbackAt: 0,
-    lastSfxAt: 0,
+    finalRushToastAt: 0,
+    safeExitReady: false,
+    finishMoveUsed: false,
+    comebackTriggered: false,
+
+    balance: {
+      enabled: true,
+      streakGood: 0,
+      streakMiss: 0,
+      recentKinds: [],
+      recentMistakes: [],
+      forcedGoodNext: 0,
+      forcedWeaknessNext: 0,
+      junkLimit: 4,
+      calmUntil: 0,
+      lastAssistAt: 0,
+      lastDirectorAt: 0,
+      level: 0,
+      stress: 0,
+      mercy: 0
+    },
+
+    tapSafety: {
+      enabled: true,
+      targetZ: 105,
+      blockedTapCount: 0,
+      forcedRaisedTargets: 0,
+      lastTargetTapAt: 0,
+      lastEmptyTapAt: 0
+    },
+
+    singleHand: {
+      enabled: true,
+      mobileOnly: true,
+      side: 'right',
+      safePadTop: 186,
+      safePadBottom: 118,
+      safePadSide: 18,
+      lastModeSyncAt: 0
+    },
+
+    calibration: {
+      enabled: true,
+      debugOverlay: false,
+      safeTopAdjust: 0,
+      safeBottomAdjust: 0,
+      safeSideAdjust: 0,
+      minArenaHeight: 210,
+      lastSafeRect: null,
+      lastBlockedElement: '',
+      lastTapX: 0,
+      lastTapY: 0
+    },
+
+    flow: {
+      fromWarmupGate: false,
+      toCooldownGate: false,
+      launcher: '',
+      rawHub: '',
+      safeHub: ''
+    },
+
+    finalLock: {
+      enabled: true,
+      version: 'v8.15',
+      lastCheckAt: 0,
+      layoutReady: false,
+      tapReady: false,
+      flowReady: false,
+      calibrationReady: false,
+      singleHandReady: false,
+      domReady: false,
+      warnings: [],
+      errors: []
+    },
+
     sfxEnabled: true,
     vibrateEnabled: true,
-    finalRushToastLock: false,
-    lastFinalRushToastAt: 0,
-    safeExitReady: false,
+    lastSfxAt: 0,
+    lastStartAt: 0,
+    lastHeroHitAt: 0,
+    lastExitAt: 0,
+    lastClickAt: 0,
 
-    lastFrame: 0,
-    lastSpawn: 0,
-    lastBossAttack: 0,
-    startTs: 0,
-    endTs: 0,
-
-    targets: new Map(),
-    seq: 0,
-
-    rng: mulberry32(Number(CFG.seed || Date.now()))
+    domMode: 'unknown'
   };
-
-  const el = {};
-  let __audioCtx = null;
-
-  function $(id){
-    return DOC.getElementById(id);
-  }
+    /* ---------- DOM / CSS ---------- */
 
   function cacheElements(){
     Object.assign(el, {
@@ -545,11 +518,18 @@
       bootBackBtn: $('gjBootBackBtn'),
 
       introScreen: $('introScreen'),
+      gameScreen: $('gameScreen'),
+      summaryScreen: $('summaryScreen'),
+
       introStartBtn: $('introStartBtn') || $('startBtn'),
       introBackBtn: $('introBackBtn'),
 
-      gameScreen: $('gameScreen'),
-      summaryScreen: $('summaryScreen'),
+      gameWorld: $('gameWorld'),
+      targetLayer: $('targetLayer'),
+      fxLayer: $('fxLayer'),
+
+      bossAvatar: $('bossAvatar'),
+      bossWrap: $('bossWrap') || $('bossArena') || $('bossAvatar')?.parentElement,
 
       scoreText: $('scoreText'),
       timerText: $('timerText'),
@@ -557,33 +537,28 @@
       phaseText: $('phaseText'),
       bossHpText: $('bossHpText'),
       bossHpFill: $('bossHpFill'),
+
       heroHitText: $('heroHitText'),
       heroHitFill: $('heroHitFill'),
       heroHitBtn: $('heroHitBtn'),
+
       comboText: $('comboText'),
       goodText: $('goodText'),
       missText: $('missText'),
       rageText: $('rageText'),
-      goalText: $('goalText'),
 
-      backBtn: $('backBtn'),
+      coachText: $('coachText'),
+      goalText: $('goalText'),
+      announcer: $('announcer'),
+      toast: $('toast'),
+
       pauseBtn: $('pauseBtn'),
+      backBtn: $('backBtn'),
       resumeBtn: $('resumeBtn'),
+
       pauseOverlay: $('pauseOverlay'),
       pauseResumeBtn: $('pauseResumeBtn'),
       pauseBackBtn: $('pauseBackBtn'),
-
-      gameWorld: $('gameWorld'),
-      targetLayer: $('targetLayer') || $('foodLayer'),
-      fxLayer: $('fxLayer') || $('particleLayer') || $('overlayLayer'),
-
-      bossAvatar: $('bossAvatar'),
-      bossArena: $('bossArena'),
-      coachText: $('coachText'),
-      toast: $('toast'),
-      toastText: $('toastText'),
-      announcer: $('announcer'),
-      finalRushText: $('finalRushText'),
 
       summaryTitle: $('summaryTitle'),
       summaryScore: $('summaryScore'),
@@ -591,395 +566,609 @@
       summaryMiss: $('summaryMiss'),
       summaryStars: $('summaryStars'),
       summaryTip: $('summaryTip'),
+
       summaryReplayBtn: $('summaryReplayBtn') || $('replayBtn') || $('restartBtn'),
       summaryBackBtn: $('summaryBackBtn') || $('backHubBtn') || $('hubBtn') || $('homeBtn'),
+      goCooldownBtn: $('goCooldownBtn') || $('summaryBackBtn'),
 
-      replayBtn: $('replayBtn'),
-      restartBtn: $('restartBtn'),
-      homeBtn: $('homeBtn'),
-      hubBtn: $('hubBtn'),
-      backHubBtn: $('backHubBtn')
+      topHud: $('gjMobileHud'),
+      mobileHud: $('gjMobileHud'),
+      heroHitBigBtn: $('gjHeroHitBigBtn'),
+      dangerMeter: $('gjDangerMeter'),
+      feedbackControls: $('gjFeedbackControls')
     });
   }
 
-  function on(node, eventName, handler, options){
-    if(node && typeof node.addEventListener === 'function'){
-      node.addEventListener(eventName, handler, options);
-      return true;
-    }
-    return false;
-  }
+  function ensureScreenMarkup(){
+    let app = $('gjSoloBossApp') || $('app') || DOC.body;
 
-  function setText(node, text){
-    if(node) node.textContent = String(text);
-  }
-
-  function show(node){
-    if(!node) return;
-    node.hidden = false;
-    node.style.display = '';
-  }
-
-  function hide(node){
-    if(!node) return;
-    node.hidden = true;
-    node.style.display = 'none';
-  }
-
-  function hideBoot(){
-    if(el.boot){
-      el.boot.classList.add('is-hidden');
-      el.boot.style.display = 'none';
-    }
-    if(typeof WIN.GJ_SOLO_HIDE_BOOT === 'function'){
-      try{ WIN.GJ_SOLO_HIDE_BOOT(); }catch(_){}
-    }
-  }
-
-  function showBootError(err){
-    if(el.bootStatus) el.bootStatus.textContent = 'โหลดเกมไม่สำเร็จ';
-    if(el.bootError){
-      el.bootError.style.display = 'block';
-      el.bootError.textContent = String(err && (err.stack || err.message) || err || 'Unknown error');
-    }
-  }
-
-  function isCooldownHub(){
-    return String(CFG.hub || '').includes('warmup-gate.html') &&
-      String(CFG.hub || '').includes('phase=cooldown');
-  }
-
-  function updateExitButtonLabels(){
-    const label = isCooldownHub()
-      ? 'ไป Cooldown'
-      : 'กลับ Nutrition';
-
-    [el.summaryBackBtn, el.backBtn, el.bootBackBtn, el.introBackBtn, el.pauseBackBtn].forEach(btn => {
-      if(btn) btn.textContent = label;
-    });
-  }
-
-  function goHub(){
-    try{
-      if(state.started && !state.ended && !state.safeExitReady){
-        const ok = WIN.confirm('กำลังเล่นอยู่ ต้องการออกจากเกมหรือไม่?');
-        if(!ok) return;
-      }
-
-      WIN.location.href = CFG.hub || DEFAULT_HUB;
-    }catch(_){
-      WIN.location.href = DEFAULT_HUB;
-    }
-  }
-
-  function replayGame(){
-    try{
-      const u = new URL(location.href);
-      u.searchParams.set('seed', String(Date.now()));
-      WIN.location.href = u.toString();
-    }catch(_){
-      WIN.location.reload();
-    }
-  }
-
-  function rand(){
-    return state.rng();
-  }
-
-  function pick(arr){
-    return arr[Math.floor(rand() * arr.length)];
-  }
-
-  function worldRect(){
-    const node = el.gameWorld || el.app || DOC.body;
-    const r = node.getBoundingClientRect();
-    return {
-      width: Math.max(320, r.width || WIN.innerWidth),
-      height: Math.max(420, r.height || WIN.innerHeight)
-    };
-  }
-
-  function audioCtx(){
-    try{
-      if(!__audioCtx){
-        const AC = WIN.AudioContext || WIN.webkitAudioContext;
-        if(!AC) return null;
-        __audioCtx = new AC();
-      }
-      return __audioCtx;
-    }catch(_){
-      return null;
-    }
-  }
-
-  function beep(kind = 'good'){
-    if(!state.sfxEnabled) return;
-
-    const t = Date.now();
-    if(t - state.lastSfxAt < 55) return;
-    state.lastSfxAt = t;
-
-    try{
-      const ctx = audioCtx();
-      if(!ctx) return;
-
-      if(ctx.state === 'suspended'){
-        ctx.resume().catch(()=>{});
-      }
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      const cfg =
-        kind === 'bad' ? { f1:180, f2:95, dur:.13, gain:.055, type:'sawtooth' } :
-        kind === 'boss' ? { f1:110, f2:70, dur:.18, gain:.065, type:'square' } :
-        kind === 'hero' ? { f1:520, f2:880, dur:.18, gain:.060, type:'triangle' } :
-        kind === 'power' ? { f1:660, f2:990, dur:.16, gain:.050, type:'sine' } :
-        kind === 'win' ? { f1:620, f2:1040, dur:.22, gain:.070, type:'triangle' } :
-        { f1:420, f2:620, dur:.11, gain:.045, type:'sine' };
-
-      osc.type = cfg.type;
-      osc.frequency.setValueAtTime(cfg.f1, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(cfg.f2, ctx.currentTime + cfg.dur);
-
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(cfg.gain, ctx.currentTime + .018);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + cfg.dur);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + cfg.dur + .02);
-    }catch(_){}
-  }
-
-  function vibe(pattern = 20){
-    if(!state.vibrateEnabled) return;
-    try{
-      if(navigator.vibrate) navigator.vibrate(pattern);
-    }catch(_){}
-  }
-
-  function feedback(kind = 'good'){
-    if(kind === 'good'){
-      beep('good');
-      vibe(12);
-      return;
+    if(!$('introScreen')){
+      const intro = DOC.createElement('section');
+      intro.id = 'introScreen';
+      intro.innerHTML = `
+        <div class="gjCompatPanel">
+          <div class="gjCompatIcon">👑🍔</div>
+          <h1>GoodJunk Solo Boss</h1>
+          <p>เลือกอาหารดี หลบอาหารขยะ ทำลาย Junk King ให้ได้!</p>
+          <div id="goalText" class="gjCompatGoal">⭐ เตรียมพร้อมก่อนเริ่ม</div>
+          <div class="gjCompatActions">
+            <button id="introStartBtn" type="button">เริ่มสู้บอส</button>
+            <button id="introBackBtn" type="button">กลับ Nutrition</button>
+          </div>
+        </div>
+      `;
+      app.appendChild(intro);
     }
 
-    if(kind === 'bad'){
-      beep('bad');
-      vibe([30, 35, 30]);
-      return;
+    if(!$('gameScreen')){
+      const game = DOC.createElement('section');
+      game.id = 'gameScreen';
+      game.innerHTML = `
+        <div id="gameWorld" class="gjCompatWorld">
+          <div class="gjCompatBossBox" id="bossWrap">
+            <div id="bossAvatar" class="gjCompatBoss">👑🍔</div>
+            <div class="gjCompatBossHp">
+              <div id="bossHpFill"></div>
+            </div>
+            <div id="bossHpText">100%</div>
+          </div>
+
+          <div id="targetLayer"></div>
+          <div id="fxLayer"></div>
+
+          <div class="gjCompatHud gjHud">
+            <div>⭐ <b id="scoreText">0</b></div>
+            <div>⏱️ <b id="timerText">0</b></div>
+            <div>❤️ <b id="lifeText">0</b></div>
+            <div>PHASE <b id="phaseText">SHIELD</b></div>
+            <div>COMBO <b id="comboText">0</b></div>
+            <div>GOOD <b id="goodText">0</b></div>
+            <div>MISS <b id="missText">0</b></div>
+            <div>RAGE <b id="rageText">0</b></div>
+          </div>
+
+          <div class="gjCompatHeroMini">
+            <button id="heroHitBtn" type="button">
+              🦸 HERO HIT <span id="heroHitText">0%</span>
+            </button>
+            <div class="gjCompatHeroBar">
+              <div id="heroHitFill"></div>
+            </div>
+          </div>
+
+          <div id="coachText" class="gjCompatCoach">จุดอ่อนบอส: ผักสีเขียว</div>
+          <div id="announcer" class="gjCompatAnnouncer"></div>
+          <div id="toast" class="gjCompatToast"></div>
+
+          <div class="gjCompatGameBtns">
+            <button id="pauseBtn" type="button">พัก</button>
+            <button id="backBtn" type="button">ออก</button>
+          </div>
+        </div>
+
+        <div id="pauseOverlay" class="gjCompatPause">
+          <div>
+            <h2>พักเกม</h2>
+            <button id="pauseResumeBtn" type="button">เล่นต่อ</button>
+            <button id="pauseBackBtn" type="button">ออก</button>
+          </div>
+        </div>
+      `;
+      app.appendChild(game);
     }
 
-    if(kind === 'boss'){
-      beep('boss');
-      vibe([45, 30, 45]);
-      return;
+    if(!$('summaryScreen')){
+      const sum = DOC.createElement('section');
+      sum.id = 'summaryScreen';
+      sum.innerHTML = `
+        <div class="gjCompatPanel gjCompatSummary">
+          <div class="gjCompatIcon">🏆</div>
+          <h1 id="summaryTitle">สรุปผล</h1>
+
+          <div class="gjCompatSummaryGrid">
+            <div><span>คะแนน</span><b id="summaryScore">0</b></div>
+            <div><span>อาหารดี</span><b id="summaryGood">0</b></div>
+            <div><span>พลาด</span><b id="summaryMiss">0</b></div>
+            <div><span>ดาว</span><b id="summaryStars">☆</b></div>
+          </div>
+
+          <pre id="summaryTip" class="gjCompatSummaryTip"></pre>
+
+          <div class="gjCompatActions">
+            <button id="summaryReplayBtn" type="button">เล่นอีกครั้ง</button>
+            <button id="summaryBackBtn" type="button">ไป Cooldown</button>
+          </div>
+        </div>
+      `;
+      app.appendChild(sum);
     }
 
-    if(kind === 'hero'){
-      beep('hero');
-      vibe([25, 30, 25, 30, 55]);
-      return;
-    }
-
-    if(kind === 'power'){
-      beep('power');
-      vibe(18);
-      return;
-    }
-
-    if(kind === 'win'){
-      beep('win');
-      vibe([25, 25, 45, 25, 80]);
-    }
+    state.domMode = 'compat-ready';
   }
 
-  function toast(message, ms = 1200){
-    const msg = String(message || '');
+  function ensureRequiredDom(){
+    let app = $('gjSoloBossApp') || $('app');
 
-    if(el.toastText){
-      el.toastText.textContent = msg;
+    if(!app){
+      app = DOC.createElement('main');
+      app.id = 'gjSoloBossApp';
+      app.className = 'gj-solo-boss-app';
+      DOC.body.appendChild(app);
     }
 
-    if(el.toast){
-      el.toast.textContent = msg;
-      el.toast.classList.add('show');
-      el.toast.style.display = 'block';
-      clearTimeout(toast._t);
-      toast._t = setTimeout(() => {
-        el.toast.classList.remove('show');
-        el.toast.style.display = '';
-      }, ms);
-      return;
-    }
-
-    const t = DOC.createElement('div');
-    t.className = 'gjRuntimeToast';
-    t.textContent = msg;
-    t.style.cssText = [
-      'position:absolute',
-      'left:50%',
-      'bottom:calc(78px + env(safe-area-inset-bottom,0px))',
-      'transform:translateX(-50%)',
-      'z-index:9999',
-      'max-width:min(92vw,640px)',
-      'padding:12px 14px',
-      'border-radius:999px',
-      'background:rgba(15,23,42,.92)',
-      'border:1px solid rgba(148,163,184,.18)',
-      'color:#f8fafc',
-      'font-weight:1000',
-      'box-shadow:0 18px 42px rgba(0,0,0,.34)',
-      'text-align:center'
-    ].join(';');
-
-    (el.app || DOC.body).appendChild(t);
-    setTimeout(() => t.remove(), ms);
-  }
-
-  function safeFinalRushToast(message, ms = 1200){
-    const t = Date.now();
-
-    if(state.finalRush){
-      if(t - state.lastFinalRushToastAt < 2200) return;
-      state.lastFinalRushToastAt = t;
-    }
-
-    toast(message, ms);
-  }
-
-  function fx(x, y, text, type = 'good'){
-    const layer = el.fxLayer || el.app || DOC.body;
-    const n = DOC.createElement('div');
-    n.textContent = text;
-    n.className = `gjFx ${type}`;
-    n.style.cssText = [
-      'position:absolute',
-      `left:${x}px`,
-      `top:${y}px`,
-      'transform:translate(-50%,-50%)',
-      'z-index:60',
-      'pointer-events:none',
-      'font-size:24px',
-      'font-weight:1000',
-      `color:${type === 'bad' ? '#fca5a5' : type === 'gold' ? '#fde68a' : '#86efac'}`,
-      'text-shadow:0 10px 28px rgba(0,0,0,.42)',
-      'animation:gjFxFloat .7s ease-out forwards'
-    ].join(';');
-
-    ensureFxStyle();
-    layer.appendChild(n);
-    setTimeout(() => n.remove(), 760);
+    ensureScreenMarkup();
+    cacheElements();
   }
 
   function ensureFxStyle(){
-    if(DOC.getElementById('gj-solo-runtime-style')) return;
+    if($('gj-solo-runtime-style')) return;
+
     const style = DOC.createElement('style');
     style.id = 'gj-solo-runtime-style';
+
     style.textContent = `
-      @keyframes gjFxFloat{
-        from{ opacity:1; transform:translate(-50%,-50%) translateY(0) scale(1); }
-        to{ opacity:0; transform:translate(-50%,-50%) translateY(-36px) scale(1.12); }
+      *{
+        box-sizing:border-box;
       }
-      .gjSoloShake{ animation:gjSoloShake .24s linear 1; }
-      @keyframes gjSoloShake{
-        0%,100%{ transform:translateX(0); }
-        25%{ transform:translateX(-7px); }
-        50%{ transform:translateX(7px); }
-        75%{ transform:translateX(-4px); }
+
+      html,body{
+        margin:0;
+        width:100%;
+        height:100%;
+        overflow:hidden;
+        background:#020617;
+        color:#f8fafc;
+        font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+        -webkit-tap-highlight-color:transparent;
       }
-      .gjTargetPop{ animation:gjTargetPop .18s ease-out 1; }
-      @keyframes gjTargetPop{
-        from{ transform:translate(-50%,-50%) scale(.6); opacity:.2; }
-        to{ transform:translate(-50%,-50%) scale(1); opacity:1; }
+
+      #gjSoloBossApp,
+      #app{
+        position:relative;
+        width:100vw;
+        height:100dvh;
+        overflow:hidden;
+        isolation:isolate;
+        background:linear-gradient(180deg,#020617,#0f172a 56%,#111827);
       }
-      .gjBossShieldPulse{ animation:gjBossShieldPulse .7s ease-in-out 1; }
-      @keyframes gjBossShieldPulse{
-        0%{ filter:drop-shadow(0 0 0 rgba(96,165,250,0)); }
-        50%{ filter:drop-shadow(0 0 28px rgba(96,165,250,.75)); }
-        100%{ filter:drop-shadow(0 0 0 rgba(96,165,250,0)); }
+
+      #introScreen,
+      #gameScreen,
+      #summaryScreen{
+        position:absolute;
+        inset:0;
+        width:100%;
+        height:100%;
+        overflow:hidden;
       }
-      @keyframes gjWarningBlink{
-        0%,100%{ opacity:0; }
-        30%,70%{ opacity:1; }
+
+      #introScreen,
+      #summaryScreen{
+        z-index:180;
+        display:grid;
+        place-items:center;
+        padding:16px;
       }
-      @keyframes gjHeroCutIn{
-        0%{ transform:translateX(-110%); opacity:0; }
-        18%{ opacity:1; }
-        72%{ transform:translateX(0%); opacity:1; }
-        100%{ transform:translateX(110%); opacity:0; }
+
+      #gameScreen{
+        z-index:10;
+        display:block;
       }
-      @keyframes gjDangerPulse{
-        from{ opacity:.35; }
-        to{ opacity:.95; }
+
+      #gameWorld,
+      .gjCompatWorld{
+        position:absolute !important;
+        inset:0 !important;
+        overflow:hidden !important;
+        touch-action:manipulation !important;
+        background:linear-gradient(180deg,#061329,#0f172a 58%,#020617);
       }
-      .gjHeroReadyPulse{
-        animation:gjHeroReadyPulse .55s ease-in-out infinite alternate;
+
+      #targetLayer{
+        position:absolute !important;
+        inset:0 !important;
+        z-index:100 !important;
+        pointer-events:none !important;
       }
-      @keyframes gjHeroReadyPulse{
-        from{ filter:drop-shadow(0 0 0 rgba(34,197,94,0)); transform:scale(1); }
-        to{ filter:drop-shadow(0 0 18px rgba(34,197,94,.85)); transform:scale(1.08); }
+
+      #fxLayer{
+        position:absolute !important;
+        inset:0 !important;
+        z-index:140 !important;
+        pointer-events:none !important;
       }
-      @keyframes gjCinematicInOut{
-        0%{ opacity:0; transform:scale(1.04); }
-        16%{ opacity:1; transform:scale(1); }
-        78%{ opacity:1; transform:scale(1); }
-        100%{ opacity:0; transform:scale(1.08); }
-      }
-      @keyframes gjCinematicCard{
-        0%{ transform:scale(.72) rotate(-2deg); opacity:0; }
-        22%{ transform:scale(1.08) rotate(1deg); opacity:1; }
-        60%{ transform:scale(1) rotate(0deg); opacity:1; }
-        100%{ transform:scale(.92) rotate(0deg); opacity:0; }
-      }
-      @keyframes gjBigDamage{
-        0%{ opacity:0; transform:translate(-50%,-50%) scale(.6) rotate(-2deg); }
-        20%{ opacity:1; transform:translate(-50%,-50%) scale(1.18) rotate(1deg); }
-        100%{ opacity:0; transform:translate(-50%,-92%) scale(.96) rotate(0deg); }
-      }
-      .gjTintShield #gameWorld{
-        box-shadow:inset 0 0 120px rgba(96,165,250,.22);
-      }
-      .gjTintStorm #gameWorld{
-        box-shadow:inset 0 0 130px rgba(14,165,233,.24);
-      }
-      .gjTintRage #gameWorld{
-        box-shadow:inset 0 0 140px rgba(239,68,68,.24);
-      }
-      .gjTintFinal #gameWorld{
-        box-shadow:inset 0 0 160px rgba(250,204,21,.28);
-      }
+
+      .gjTarget,
+      .foodTarget,
+      .target,
+      .gj-food,
       .gjPowerTarget{
+        position:absolute !important;
+        z-index:105 !important;
+        pointer-events:auto !important;
+        touch-action:manipulation !important;
+        cursor:pointer !important;
+        user-select:none !important;
+        -webkit-user-select:none !important;
+        -webkit-tap-highlight-color:transparent !important;
+        display:grid;
+        place-items:center;
+        border-radius:999px;
+        border:2px solid rgba(255,255,255,.18);
+        transform:translate(-50%,-50%);
+        box-shadow:0 16px 34px rgba(0,0,0,.30);
+        font-weight:1000;
+      }
+
+      .gjTarget:active{
+        transform:translate(-50%,-50%) scale(.92) !important;
+      }
+
+      .gjTarget.good{
+        background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.34),rgba(34,197,94,.24),rgba(15,23,42,.86));
+        box-shadow:
+          0 0 0 4px rgba(34,197,94,.12),
+          0 0 28px rgba(34,197,94,.30),
+          0 18px 36px rgba(0,0,0,.28) !important;
+      }
+
+      .gjTarget.junk{
+        background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.24),rgba(239,68,68,.24),rgba(15,23,42,.88));
+        border-color:rgba(248,113,113,.55);
+        animation:gjJunkPulse .66s ease-in-out infinite alternate;
+      }
+
+      .gjTarget.power{
+        background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.44),rgba(250,204,21,.30),rgba(15,23,42,.88));
+        border-color:rgba(250,204,21,.72);
         animation:gjPowerPulse .72s ease-in-out infinite alternate;
       }
-      @keyframes gjPowerPulse{
-        from{ filter:brightness(1) saturate(1); transform:translate(-50%,-50%) scale(1); }
-        to{ filter:brightness(1.22) saturate(1.18); transform:translate(-50%,-50%) scale(1.08); }
+
+      @keyframes gjJunkPulse{
+        from{
+          filter:saturate(1) brightness(1);
+        }
+        to{
+          filter:saturate(1.2) brightness(1.16) drop-shadow(0 0 16px rgba(239,68,68,.36));
+        }
       }
+
+      @keyframes gjPowerPulse{
+        from{
+          filter:brightness(1);
+          transform:translate(-50%,-50%) scale(1);
+        }
+        to{
+          filter:brightness(1.2);
+          transform:translate(-50%,-50%) scale(1.06);
+        }
+      }
+
+      .gjCompatPanel{
+        width:min(92vw,680px);
+        margin:0 auto;
+        padding:20px;
+        border-radius:28px;
+        background:linear-gradient(180deg,rgba(15,23,42,.94),rgba(2,6,23,.90));
+        color:#f8fafc;
+        border:1px solid rgba(148,163,184,.18);
+        box-shadow:0 24px 70px rgba(0,0,0,.38);
+        text-align:center;
+      }
+
+      .gjCompatPanel h1{
+        margin:8px 0;
+        font-size:clamp(28px,7vw,48px);
+        line-height:1.02;
+        font-weight:1000;
+      }
+
+      .gjCompatPanel p{
+        color:#cbd5e1;
+        font-weight:800;
+        line-height:1.6;
+      }
+
+      .gjCompatIcon{
+        font-size:clamp(54px,14vw,96px);
+        line-height:1;
+      }
+
+      .gjCompatGoal{
+        margin:14px 0;
+        padding:12px;
+        border-radius:18px;
+        background:rgba(15,23,42,.62);
+        border:1px solid rgba(148,163,184,.16);
+        color:#fde68a;
+        font-weight:1000;
+        line-height:1.45;
+      }
+
+      .gjCompatActions{
+        display:flex;
+        gap:10px;
+        flex-wrap:wrap;
+        justify-content:center;
+        margin-top:14px;
+      }
+
+      .gjCompatActions button,
+      .gjCompatGameBtns button,
+      .gjCompatHeroMini button,
+      .gjCompatPause button{
+        min-height:48px;
+        padding:0 16px;
+        border:0;
+        border-radius:16px;
+        font:inherit;
+        font-weight:1000;
+        cursor:pointer;
+        background:linear-gradient(180deg,#86efac,#22c55e);
+        color:#052e16;
+      }
+
+      .gjCompatActions button + button,
+      .gjCompatGameBtns button,
+      .gjCompatPause button + button{
+        background:rgba(15,23,42,.78);
+        border:1px solid rgba(148,163,184,.18);
+        color:#f8fafc;
+      }
+
+      .gjCompatBossBox{
+        position:absolute;
+        left:50%;
+        top:76px;
+        transform:translateX(-50%);
+        z-index:42;
+        display:grid;
+        place-items:center;
+        gap:6px;
+        pointer-events:none;
+      }
+
+      .gjCompatBoss{
+        font-size:clamp(54px,13vw,96px);
+        filter:drop-shadow(0 18px 36px rgba(0,0,0,.45));
+        pointer-events:none;
+      }
+
+      .gjCompatBossHp{
+        width:min(320px,72vw);
+        height:14px;
+        border-radius:999px;
+        overflow:hidden;
+        background:rgba(2,6,23,.78);
+        border:1px solid rgba(148,163,184,.22);
+        pointer-events:none;
+      }
+
+      .gjCompatBossHp #bossHpFill{
+        height:100%;
+        width:100%;
+        background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);
+        border-radius:999px;
+      }
+
+      #bossHpText{
+        color:#e5e7eb;
+        font-weight:1000;
+        text-shadow:0 8px 18px rgba(0,0,0,.45);
+        pointer-events:none;
+      }
+
+      .gjCompatHud{
+        position:absolute;
+        left:12px;
+        top:12px;
+        z-index:50;
+        display:grid;
+        grid-template-columns:repeat(2,minmax(82px,auto));
+        gap:7px;
+        pointer-events:none;
+      }
+
+      .gjCompatHud > div{
+        min-height:32px;
+        padding:6px 9px;
+        border-radius:999px;
+        background:rgba(15,23,42,.76);
+        border:1px solid rgba(148,163,184,.18);
+        color:#f8fafc;
+        font-weight:900;
+        box-shadow:0 10px 24px rgba(0,0,0,.24);
+      }
+
+      .gjCompatHeroMini{
+        position:absolute;
+        right:12px;
+        bottom:14px;
+        z-index:58;
+        width:160px;
+      }
+
+      .gjCompatHeroMini button{
+        width:100%;
+        pointer-events:auto;
+      }
+
+      .gjCompatHeroBar{
+        margin-top:6px;
+        height:10px;
+        border-radius:999px;
+        overflow:hidden;
+        background:rgba(2,6,23,.74);
+        border:1px solid rgba(148,163,184,.18);
+      }
+
+      .gjCompatHeroBar #heroHitFill{
+        height:100%;
+        width:0%;
+        border-radius:999px;
+        background:linear-gradient(90deg,#38bdf8,#facc15);
+      }
+
+      .gjCompatCoach{
+        position:absolute;
+        left:50%;
+        bottom:16px;
+        transform:translateX(-50%);
+        z-index:48;
+        max-width:min(52vw,520px);
+        padding:9px 12px;
+        border-radius:999px;
+        background:rgba(15,23,42,.78);
+        border:1px solid rgba(148,163,184,.18);
+        color:#dbeafe;
+        font-size:13px;
+        font-weight:900;
+        text-align:center;
+        pointer-events:none;
+      }
+
+      .gjCompatAnnouncer{
+        position:absolute;
+        left:50%;
+        top:174px;
+        transform:translateX(-50%);
+        z-index:62;
+        max-width:min(90vw,640px);
+        padding:10px 14px;
+        border-radius:18px;
+        background:rgba(15,23,42,.82);
+        color:#fde68a;
+        font-weight:1000;
+        text-align:center;
+        display:none;
+        pointer-events:none;
+      }
+
+      .gjCompatToast,
+      .gjRuntimeToast{
+        position:absolute;
+        left:50%;
+        bottom:96px;
+        transform:translateX(-50%);
+        z-index:95;
+        max-width:min(92vw,620px);
+        padding:10px 14px;
+        border-radius:999px;
+        background:rgba(15,23,42,.92);
+        color:#fff;
+        border:1px solid rgba(148,163,184,.18);
+        font-weight:1000;
+        box-shadow:0 18px 42px rgba(0,0,0,.34);
+        text-align:center;
+        display:none;
+        pointer-events:none;
+      }
+
+      .gjCompatGameBtns{
+        position:absolute;
+        right:12px;
+        top:12px;
+        z-index:64;
+        display:flex;
+        gap:8px;
+      }
+
+      .gjCompatGameBtns button{
+        pointer-events:auto;
+      }
+
+      .gjCompatPause{
+        position:absolute;
+        inset:0;
+        z-index:150;
+        display:none;
+        place-items:center;
+        background:rgba(2,6,23,.72);
+        backdrop-filter:blur(8px);
+      }
+
+      .gjCompatPause.show{
+        display:grid;
+      }
+
+      .gjCompatPause > div{
+        width:min(90vw,420px);
+        padding:18px;
+        border-radius:24px;
+        background:rgba(15,23,42,.94);
+        border:1px solid rgba(148,163,184,.18);
+        color:#fff;
+        text-align:center;
+      }
+
+      .gjCompatSummaryGrid{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:8px;
+        margin:14px 0;
+      }
+
+      .gjCompatSummaryGrid > div{
+        border-radius:16px;
+        background:rgba(15,23,42,.62);
+        border:1px solid rgba(148,163,184,.16);
+        padding:10px;
+      }
+
+      .gjCompatSummaryGrid span{
+        display:block;
+        color:#cbd5e1;
+        font-size:12px;
+        font-weight:900;
+      }
+
+      .gjCompatSummaryGrid b{
+        display:block;
+        margin-top:4px;
+        font-size:20px;
+      }
+
+      .gjCompatSummaryTip{
+        max-height:min(42vh,360px);
+        overflow:auto;
+        white-space:pre-wrap;
+        text-align:left;
+        margin:12px 0 0;
+        padding:14px;
+        border-radius:18px;
+        background:rgba(15,23,42,.62);
+        border:1px solid rgba(148,163,184,.16);
+        color:#e5e7eb;
+        font:inherit;
+        font-size:14px;
+        line-height:1.55;
+        font-weight:800;
+      }
+
       #gjMobileHud{
         position:absolute;
-        left:calc(10px + env(safe-area-inset-left,0px));
-        right:calc(10px + env(safe-area-inset-right,0px));
-        top:calc(8px + env(safe-area-inset-top,0px));
+        left:10px;
+        right:10px;
+        top:6px;
         z-index:55;
         pointer-events:none;
         display:grid;
-        gap:8px;
+        gap:5px;
       }
+
       .gjMobileTopRow{
         display:flex;
-        gap:7px;
+        gap:6px;
         align-items:center;
         justify-content:center;
+        transform:scale(.88);
+        transform-origin:top center;
       }
+
       .gjMobilePill{
-        min-width:76px;
-        min-height:34px;
-        padding:6px 9px;
+        min-width:68px;
+        min-height:30px;
+        padding:5px 8px;
         border-radius:999px;
         display:inline-flex;
         align-items:center;
@@ -992,35 +1181,36 @@
         box-shadow:0 10px 26px rgba(0,0,0,.28);
         backdrop-filter:blur(8px);
       }
-      .gjMobilePill b{
-        font-size:14px;
-      }
+
       .gjBossBarWrap{
-        width:min(520px,92vw);
+        width:min(390px,86vw);
         justify-self:center;
-        padding:8px 10px 9px;
-        border-radius:16px;
+        padding:5px 8px;
+        border-radius:14px;
         background:rgba(15,23,42,.78);
         border:1px solid rgba(148,163,184,.20);
         box-shadow:0 12px 30px rgba(0,0,0,.28);
         backdrop-filter:blur(8px);
+        pointer-events:none;
       }
+
       .gjBossBarTop{
         display:flex;
-        align-items:center;
         justify-content:space-between;
         color:#e5e7eb;
-        font-size:12px;
+        font-size:11px;
         font-weight:1000;
-        margin-bottom:6px;
+        margin-bottom:5px;
       }
+
       .gjBossBar{
-        height:11px;
+        height:9px;
         border-radius:999px;
         overflow:hidden;
         background:rgba(2,6,23,.72);
         border:1px solid rgba(148,163,184,.16);
       }
+
       .gjBossFill{
         height:100%;
         width:100%;
@@ -1028,109 +1218,96 @@
         background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);
         transition:width .18s ease;
       }
+
       #gjHeroHitBigBtn{
         position:absolute;
-        right:calc(12px + env(safe-area-inset-right,0px));
-        bottom:calc(74px + env(safe-area-inset-bottom,0px));
-        z-index:75;
-        width:116px;
-        height:116px;
-        border-radius:34px;
-        border:3px solid rgba(250,204,21,.78);
-        background:
-          radial-gradient(circle at 35% 20%,rgba(255,255,255,.45),transparent 32%),
-          linear-gradient(180deg,#fde68a,#facc15 50%,#f59e0b);
+        right:7px;
+        bottom:76px;
+        z-index:72;
+        width:66px;
+        height:66px;
+        border-radius:20px;
+        border:2px solid rgba(250,204,21,.78);
+        background:linear-gradient(180deg,#fde68a,#facc15 50%,#f59e0b);
         color:#422006;
-        box-shadow:
-          0 0 0 6px rgba(250,204,21,.12),
-          0 22px 48px rgba(0,0,0,.38);
+        box-shadow:0 18px 38px rgba(0,0,0,.35);
         display:grid;
         grid-template-rows:auto auto auto;
         place-items:center;
-        gap:1px;
+        gap:0;
         cursor:pointer;
         font-weight:1000;
         touch-action:manipulation;
-        transform:translateZ(0);
+        pointer-events:auto;
       }
-      #gjHeroHitBigBtn:active{
-        transform:scale(.96);
-      }
-      #gjHeroHitBigBtn.not-ready{
-        opacity:.72;
-        filter:saturate(.72);
-        border-color:rgba(148,163,184,.38);
-        background:
-          radial-gradient(circle at 35% 20%,rgba(255,255,255,.22),transparent 32%),
-          linear-gradient(180deg,#94a3b8,#64748b);
-        color:#f8fafc;
-      }
-      #gjHeroHitBigBtn.ready{
-        animation:gjHeroButtonReady .48s ease-in-out infinite alternate;
-      }
+
       .gjHeroHitIcon{
-        font-size:34px;
+        font-size:19px;
         line-height:1;
       }
+
       .gjHeroHitText{
+        font-size:8.5px;
+        line-height:1;
+      }
+
+      .gjHeroHitPct{
         font-size:13px;
         line-height:1;
-        letter-spacing:-.02em;
       }
-      .gjHeroHitPct{
-        font-size:20px;
-        line-height:1;
+
+      #gjHeroHitBigBtn.ready{
+        animation:gjHeroReady .48s ease-in-out infinite alternate;
       }
-      @keyframes gjHeroButtonReady{
+
+      #gjHeroHitBigBtn.not-ready{
+        opacity:.74;
+        filter:saturate(.72);
+        background:linear-gradient(180deg,#94a3b8,#64748b);
+        color:#f8fafc;
+      }
+
+      @keyframes gjHeroReady{
         from{
           transform:scale(1);
-          box-shadow:
-            0 0 0 6px rgba(250,204,21,.12),
-            0 22px 48px rgba(0,0,0,.38),
-            0 0 18px rgba(250,204,21,.38);
         }
         to{
           transform:scale(1.07);
-          box-shadow:
-            0 0 0 9px rgba(250,204,21,.20),
-            0 26px 54px rgba(0,0,0,.42),
-            0 0 36px rgba(250,204,21,.75);
+          box-shadow:0 0 28px rgba(250,204,21,.75),0 22px 44px rgba(0,0,0,.40);
         }
       }
-      @keyframes gjHeroDenied{
-        0%,100%{ transform:translateX(0) scale(1); }
-        25%{ transform:translateX(-6px) scale(.98); }
-        50%{ transform:translateX(6px) scale(.98); }
-        75%{ transform:translateX(-3px) scale(.99); }
-      }
+
       #gjDangerMeter{
         position:absolute;
-        left:calc(12px + env(safe-area-inset-left,0px));
-        bottom:calc(86px + env(safe-area-inset-bottom,0px));
-        z-index:74;
-        width:min(210px,44vw);
-        padding:8px 10px 9px;
-        border-radius:16px;
+        left:7px;
+        bottom:80px;
+        z-index:70;
+        width:84px;
+        padding:5px 6px;
+        border-radius:13px;
         background:rgba(15,23,42,.78);
         border:1px solid rgba(148,163,184,.20);
         box-shadow:0 16px 34px rgba(0,0,0,.30);
         backdrop-filter:blur(8px);
         pointer-events:none;
       }
+
       .gjDangerLabel{
         color:#fecaca;
-        font-size:11px;
+        font-size:8.5px;
         font-weight:1000;
         letter-spacing:.08em;
-        margin-bottom:5px;
+        margin-bottom:3px;
       }
+
       .gjDangerTrack{
-        height:10px;
+        height:7px;
         border-radius:999px;
         background:rgba(2,6,23,.70);
         overflow:hidden;
         border:1px solid rgba(148,163,184,.16);
       }
+
       .gjDangerFill{
         width:0%;
         height:100%;
@@ -1138,719 +1315,284 @@
         background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);
         transition:width .18s ease;
       }
+
       #gjFeedbackControls{
         position:absolute;
-        left:calc(12px + env(safe-area-inset-left,0px));
-        top:calc(74px + env(safe-area-inset-top,0px));
-        z-index:82;
+        left:7px;
+        top:98px;
+        z-index:76;
         display:flex;
-        gap:7px;
+        gap:6px;
+        transform:scale(.78);
+        transform-origin:top left;
+        opacity:.68;
       }
+
       #gjFeedbackControls button{
-        width:38px;
-        height:38px;
+        width:32px;
+        height:32px;
         border-radius:999px;
         border:1px solid rgba(148,163,184,.22);
         background:rgba(15,23,42,.76);
         color:#f8fafc;
         box-shadow:0 12px 28px rgba(0,0,0,.26);
         backdrop-filter:blur(8px);
-        font-size:17px;
+        font-size:14px;
         cursor:pointer;
         touch-action:manipulation;
+        pointer-events:auto;
       }
-      @media (max-width:720px){
-        .gjHud{
-          display:none !important;
+
+      .gjSingleHandLeft #gjHeroHitBigBtn{
+        left:7px;
+        right:auto;
+      }
+
+      .gjSingleHandLeft #gjDangerMeter{
+        right:7px;
+        left:auto;
+      }
+
+      .gjSingleHandMode #coachText,
+      .gjSingleHandMode .gjCompatCoach{
+        left:7px !important;
+        right:7px !important;
+        bottom:5px !important;
+        transform:none !important;
+        max-width:none !important;
+        min-height:30px !important;
+        max-height:32px !important;
+        padding:6px 9px !important;
+        font-size:10px !important;
+        line-height:1.15 !important;
+        text-align:center !important;
+        border-radius:999px !important;
+        white-space:nowrap !important;
+        overflow:hidden !important;
+        text-overflow:ellipsis !important;
+        display:block !important;
+      }
+
+      .gjSingleHandMode .gjCompatGameBtns{
+        top:98px !important;
+        right:7px !important;
+        transform:scale(.78) !important;
+        transform-origin:top right;
+      }
+
+      .gjSingleHandMode .gjCompatGameBtns button{
+        min-height:32px !important;
+        padding:0 9px !important;
+        border-radius:999px !important;
+        font-size:11px !important;
+      }
+
+      .gjSingleHandMode .gjCompatBossBox{
+        top:126px !important;
+        transform:translateX(-50%) scale(.68) !important;
+      }
+
+      .gjSingleHandMode #bossAvatar,
+      .gjSingleHandMode .gjCompatBoss{
+        font-size:50px !important;
+      }
+
+      .is-playing #summaryScreen,
+      .is-playing #summaryBackBtn,
+      .is-playing #goCooldownBtn,
+      .is-playing #resumeBtn,
+      .is-playing #pauseResumeBtn{
+        display:none !important;
+      }
+
+      .is-paused #pauseBtn{
+        display:none !important;
+      }
+
+      .is-ended #gameScreen,
+      .is-ended #pauseBtn,
+      .is-ended #backBtn,
+      .is-ended #resumeBtn,
+      .is-ended #pauseResumeBtn,
+      .is-ended #gjHeroHitBigBtn,
+      .is-ended #gjDangerMeter,
+      .is-ended #coachText,
+      .is-ended .gjCompatCoach{
+        display:none !important;
+      }
+
+      .is-ended #summaryScreen{
+        display:grid !important;
+      }
+
+      @keyframes gjFxFloat{
+        from{
+          opacity:1;
+          transform:translate(-50%,-50%) translateY(0) scale(1);
         }
-        #gjMobileHud{
-          display:grid;
-        }
-        #gjHeroHitBigBtn{
-          width:104px;
-          height:104px;
-          border-radius:30px;
-          bottom:calc(70px + env(safe-area-inset-bottom,0px));
-        }
-        .gjHeroHitIcon{
-          font-size:30px;
-        }
-        .gjHeroHitPct{
-          font-size:18px;
-        }
-        #gjDangerMeter{
-          width:min(188px,46vw);
-          bottom:calc(82px + env(safe-area-inset-bottom,0px));
-        }
-        #gjFeedbackControls{
-          top:calc(122px + env(safe-area-inset-top,0px));
+        to{
+          opacity:0;
+          transform:translate(-50%,-50%) translateY(-36px) scale(1.12);
         }
       }
+
+      .gjFx{
+        position:absolute;
+        z-index:140;
+        pointer-events:none;
+        font-size:22px;
+        font-weight:1000;
+        text-shadow:0 10px 28px rgba(0,0,0,.42);
+        animation:gjFxFloat .7s ease-out forwards;
+      }
+
+      .gjArenaShield{
+        background:
+          radial-gradient(circle at 50% 8%,rgba(96,165,250,.20),transparent 34%),
+          linear-gradient(180deg,#061329,#0f172a 58%,#020617) !important;
+      }
+
+      .gjArenaStorm{
+        background:
+          radial-gradient(circle at 20% 12%,rgba(14,165,233,.26),transparent 32%),
+          linear-gradient(180deg,#082f49,#0f172a 58%,#020617) !important;
+      }
+
+      .gjArenaRage{
+        background:
+          radial-gradient(circle at 18% 18%,rgba(239,68,68,.25),transparent 30%),
+          linear-gradient(180deg,#3b0a0a,#111827 56%,#020617) !important;
+      }
+
+      .gjArenaFinal{
+        background:
+          radial-gradient(circle at 50% 0%,rgba(250,204,21,.30),transparent 34%),
+          linear-gradient(180deg,#451a03,#111827 50%,#020617) !important;
+      }
+
+      #gjCinematicOverlay,
+      #gjWarningFlash,
+      #gjFinalRushOverlay,
+      #gjHeroCutIn,
+      #gjBigDamage,
+      .gjShieldCrack,
+      #gjSafeAreaOverlay{
+        pointer-events:none !important;
+      }
+
       @media (min-width:721px){
         #gjMobileHud{
           display:none;
         }
       }
     `;
+
     DOC.head.appendChild(style);
   }
+    /* ---------- UI helpers ---------- */
 
-  function shake(){
-    const node = el.gameWorld || el.app;
+  function show(node){
     if(!node) return;
-    node.classList.remove('gjSoloShake');
-    void node.offsetWidth;
-    node.classList.add('gjSoloShake');
-  }
+    node.hidden = false;
 
-  function pulseBossShield(){
-    if(!el.bossAvatar) return;
-    el.bossAvatar.classList.remove('gjBossShieldPulse');
-    void el.bossAvatar.offsetWidth;
-    el.bossAvatar.classList.add('gjBossShieldPulse');
-  }
-
-  function removeTarget(id){
-    const item = state.targets.get(id);
-    if(!item) return;
-    state.targets.delete(id);
-    try{ item.node.remove(); }catch(_){}
-  }
-
-  function clearTargets(){
-    Array.from(state.targets.keys()).forEach(removeTarget);
-  }
-
-  function todayIndex(){
-    try{
-      const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone:'Asia/Bangkok',
-        year:'numeric',
-        month:'2-digit',
-        day:'2-digit'
-      }).formatToParts(new Date());
-
-      const m = {};
-      parts.forEach(p => {
-        if(p.type !== 'literal') m[p.type] = p.value;
-      });
-
-      return Number(`${m.year}${m.month}${m.day}`) || Date.now();
-    }catch(_){
-      return Math.floor(Date.now() / 86400000);
-    }
-  }
-
-  function setupDailyChallenge(){
-    const idx = todayIndex() % DAILY_CHALLENGES.length;
-    state.dailyChallenge = DAILY_CHALLENGES[idx];
-    state.dailyProgress = 0;
-    state.dailyFailed = false;
-  }
-
-  function calcAccuracy(){
-    const total = state.good + state.junkHit + state.missedGood;
-    if(total <= 0) return 100;
-    return Math.round((state.good / total) * 100);
-  }
-
-  function calcStars(){
-    const acc = calcAccuracy();
-    if(state.bossHp <= 0 && acc >= 88 && state.miss <= 3 && state.bestCombo >= 16) return '⭐⭐⭐';
-    if(state.bossHp <= 0 && acc >= 70) return '⭐⭐';
-    if(state.bossHp <= 0) return '⭐';
-    if(state.score >= 180) return '⭐';
-    return '☆';
-  }
-
-  function bossSay(group, ms = 1600){
-    const arr = BOSS_SPEECH[group] || [];
-    if(!arr.length) return;
-
-    const line = arr[Math.floor(rand() * arr.length)];
-    state.bossSpeechLast = line;
-
-    toast(`👑 ${line}`, ms);
-
-    if(el.announcer){
-      el.announcer.textContent = line;
-      el.announcer.style.display = 'block';
-    }
-  }
-
-  function currentWeakness(){
-    if(state.finalRush || state.phase >= 3) return BOSS_IDENTITY.weakness.phase3;
-    if(state.phase >= 2) return BOSS_IDENTITY.weakness.phase2;
-    return BOSS_IDENTITY.weakness.phase1;
-  }
-
-  function bossBookTip(){
-    const w = currentWeakness();
-    const skill = BOSS_IDENTITY.skills.find(s => s.id === state.lastBossSkillId);
-
-    if(skill){
-      return `${skill.name}: จุดอ่อนคือ ${w.label}`;
-    }
-
-    return `จุดอ่อนบอส: ${w.label}`;
-  }
-
-  function bossBookSummaryTip(){
-    const w = currentWeakness();
-    const skill = BOSS_IDENTITY.skills.find(s => s.id === state.lastBossSkillId);
-
-    if(skill){
-      return `Boss Book: บอสใช้ ${skill.name} รอบนี้ควรเก็บ “${w.label}” เพราะ ${w.tip}`;
-    }
-
-    return `Boss Book: บอสแพ้ “${w.label}” เพราะ ${w.tip}`;
-  }
-
-  function starGoalIntro(){
-    const daily = state.dailyChallenge;
-    return [
-      '⭐ เป้าหมาย 3 ดาว: ชนะบอส + พลาดไม่เกิน 3 + Combo x16',
-      `🎯 Weakness: ${currentWeakness().label}`,
-      daily ? `${daily.icon} ${daily.title}` : ''
-    ].filter(Boolean);
-  }
-
-  function isWeaknessData(data){
-    const w = currentWeakness();
-    return !!data && w.icons.includes(data.emoji);
-  }
-
-  function isWeaknessFood(item){
-    return !!item && !!item.data && isWeaknessData(item.data);
-  }
-
-  function updateWeaknessMission(item){
-    const w = currentWeakness();
-    state.weaknessMission.label = w.label;
-    state.weaknessMission.tip = w.tip;
-
-    if(item && isWeaknessFood(item)){
-      state.weaknessMission.hits++;
-      state.score += 5;
-      fx(item.x, item.y, 'WEAK!', 'gold');
-
-      if(state.weaknessMission.hits >= state.weaknessMission.target){
-        state.bossHp = clamp(state.bossHp - 32, 0, state.bossMaxHp);
-        state.weaknessMission.hits = 0;
-        state.weaknessMission.target = Math.min(10, state.weaknessMission.target + 1);
-        toast(`🎯 จุดอ่อนบอสแตก! ${w.label} ได้ผลมาก!`, 1500);
-        shake();
-      }
-    }
-  }
-
-  function updateFoodGroups(item){
-    const e = item && item.data ? item.data.emoji : '';
-
-    if(['🥦','🥬','🥕'].includes(e)) state.greenHits++;
-    if(['🐟','🥚','🫘','🥛'].includes(e)) state.proteinHits++;
-    if(['🍎','🍉'].includes(e)) state.fruitHits++;
-  }
-
-  function updateDailyChallengeOnGood(item){
-    const dc = state.dailyChallenge;
-    if(!dc || state.dailyFailed) return;
-
-    if(dc.rule === 'collect_group' && item.data.group === dc.value){
-      state.dailyProgress++;
-      if(state.dailyProgress === dc.target){
-        toast(`🏅 Daily สำเร็จ! ${dc.reward}`, 1600);
-        state.score += 35;
-      }
-    }
-
-    if(dc.rule === 'combo' && state.combo >= dc.target && state.dailyProgress < dc.target){
-      state.dailyProgress = dc.target;
-      toast(`🏅 Daily สำเร็จ! ${dc.reward}`, 1600);
-      state.score += 35;
-    }
-  }
-
-  function updateDailyChallengeOnJunk(item){
-    const dc = state.dailyChallenge;
-    if(!dc || state.dailyFailed) return;
-
-    if(dc.rule === 'avoid_emoji' && item.data.emoji === dc.value){
-      state.dailyFailed = true;
-      toast('Daily Challenge พลาดแล้ว แต่ยังชนะบอสได้!', 1500);
-    }
-  }
-
-  function checkComboSkills(){
-    if(state.combo >= 5 && !state.comboSkillUsed.x5){
-      state.comboSkillUsed.x5 = true;
-      state.heroHit = clamp(state.heroHit + 15, 0, 100);
-      toast('⚡ Combo Skill x5: HERO charge +15!', 1200);
-      fx(worldRect().width / 2, 160, 'COMBO x5', 'gold');
-    }
-
-    if(state.combo >= 10 && !state.comboSkillUsed.x10){
-      state.comboSkillUsed.x10 = true;
-      state.bossHp = clamp(state.bossHp - 28, 0, state.bossMaxHp);
-      toast('🔥 Combo Skill x10: Boss damage!', 1200);
-      shake();
-      fx(worldRect().width / 2, 190, 'COMBO x10', 'gold');
-    }
-
-    if(state.combo >= 15 && !state.comboSkillUsed.x15){
-      state.comboSkillUsed.x15 = true;
-      clearJunkTargets();
-      state.lives = clamp(state.lives + 1, 0, tune.lives);
-      toast('🌟 Combo Skill x15: ล้างขยะ + ฟื้นหัวใจ!', 1400);
-      fx(worldRect().width / 2, 220, 'COMBO x15', 'gold');
-    }
-  }
-
-  function clearJunkTargets(){
-    for(const [id, item] of Array.from(state.targets.entries())){
-      if(item.kind === 'junk'){
-        removeTarget(id);
-      }
-    }
-  }
-
-  function maybeComebackAssist(){
-    if(state.comebackTriggered) return;
-    if(state.lives > 1) return;
-    if(state.elapsedSec < 25) return;
-
-    state.comebackTriggered = true;
-    state.lives = Math.min(tune.lives, state.lives + 1);
-    state.heroHit = clamp(state.heroHit + 40, 0, 100);
-    clearJunkTargets();
-    toast('💪 Comeback Assist! ได้หัวใจ + HERO charge', 1600);
-    fx(worldRect().width / 2, worldRect().height / 2, 'COMEBACK!', 'gold');
-  }
-
-  function setDangerLane(active){
-    state.dangerLaneActive = !!active;
-
-    if(active){
-      const r = worldRect();
-      state.dangerLaneX = clamp(60 + rand() * (r.width - 120), 60, r.width - 60);
-      drawDangerLane();
+    if(node.id === 'introScreen' || node.id === 'summaryScreen'){
+      node.style.display = 'grid';
     }else{
-      const old = DOC.getElementById('gjDangerLane');
-      if(old) old.remove();
+      node.style.display = 'block';
     }
   }
 
-  function drawDangerLane(){
-    const parent = el.gameWorld || el.app;
-    if(!parent) return;
-
-    let lane = DOC.getElementById('gjDangerLane');
-    if(!lane){
-      lane = DOC.createElement('div');
-      lane.id = 'gjDangerLane';
-      lane.style.cssText = [
-        'position:absolute',
-        'top:0',
-        'bottom:0',
-        'width:74px',
-        'z-index:8',
-        'pointer-events:none',
-        'background:linear-gradient(90deg,transparent,rgba(239,68,68,.22),transparent)',
-        'border-left:2px dashed rgba(248,113,113,.55)',
-        'border-right:2px dashed rgba(248,113,113,.55)',
-        'animation:gjDangerPulse .6s ease-in-out infinite alternate'
-      ].join(';');
-      parent.appendChild(lane);
-    }
-
-    lane.style.left = `${state.dangerLaneX - 37}px`;
+  function hide(node){
+    if(!node) return;
+    node.hidden = true;
+    node.style.display = 'none';
   }
 
-  function warningFlash(text = 'ระวัง!'){
-    state.warningActive = true;
-
-    let w = DOC.getElementById('gjWarningFlash');
-    if(!w){
-      w = DOC.createElement('div');
-      w.id = 'gjWarningFlash';
-      w.style.cssText = [
-        'position:absolute',
-        'inset:0',
-        'z-index:70',
-        'pointer-events:none',
-        'display:grid',
-        'place-items:center',
-        'background:rgba(239,68,68,.16)',
-        'color:#fff',
-        'font-size:clamp(30px,8vw,72px)',
-        'font-weight:1000',
-        'text-shadow:0 16px 40px rgba(0,0,0,.55)',
-        'animation:gjWarningBlink .42s ease-in-out 3',
-        'text-align:center',
-        'padding:18px'
-      ].join(';');
-      (el.app || DOC.body).appendChild(w);
-    }
-
-    w.textContent = text;
-    w.style.display = 'grid';
-    w.style.animation = 'none';
-    void w.offsetWidth;
-    w.style.animation = 'gjWarningBlink .42s ease-in-out 3';
-
-    setTimeout(() => {
-      w.style.display = 'none';
-      state.warningActive = false;
-    }, 1300);
+  function toggleNode(node, yes, display = ''){
+    if(!node) return;
+    node.hidden = !yes;
+    node.style.display = yes ? display : 'none';
   }
 
-  function heroCutIn(text = 'HERO HIT READY!'){
-    let cut = DOC.getElementById('gjHeroCutIn');
-    if(!cut){
-      cut = DOC.createElement('div');
-      cut.id = 'gjHeroCutIn';
-      cut.style.cssText = [
-        'position:absolute',
-        'left:0',
-        'right:0',
-        'top:36%',
-        'z-index:90',
-        'pointer-events:none',
-        'padding:18px',
-        'background:linear-gradient(90deg,rgba(34,197,94,.0),rgba(34,197,94,.92),rgba(34,197,94,0))',
-        'color:#052e16',
-        'font-size:clamp(28px,7vw,64px)',
-        'font-weight:1000',
-        'text-align:center',
-        'text-shadow:0 2px 0 rgba(255,255,255,.28)',
-        'transform:translateX(-110%)',
-        'animation:gjHeroCutIn .92s cubic-bezier(.2,.9,.2,1) forwards'
-      ].join(';');
-      (el.app || DOC.body).appendChild(cut);
-    }
-
-    cut.textContent = `🦸 ${text}`;
-    cut.style.animation = 'none';
-    void cut.offsetWidth;
-    cut.style.animation = 'gjHeroCutIn .92s cubic-bezier(.2,.9,.2,1) forwards';
-
-    setTimeout(() => {
-      try{ cut.remove(); }catch(_){}
-    }, 1100);
-  }
-
-  function cinematicOverlay(key){
-    const data = PHASE_CINEMATIC[key];
-    if(!data) return;
-
-    let overlay = DOC.getElementById('gjCinematicOverlay');
-
-    if(!overlay){
-      overlay = DOC.createElement('div');
-      overlay.id = 'gjCinematicOverlay';
-      overlay.style.cssText = [
-        'position:absolute',
-        'inset:0',
-        'z-index:120',
-        'display:grid',
-        'place-items:center',
-        'pointer-events:none',
-        'background:radial-gradient(circle at 50% 50%,rgba(250,204,21,.22),rgba(2,6,23,.58) 45%,rgba(2,6,23,.72))',
-        'color:#fff',
-        'text-align:center',
-        'padding:18px',
-        'opacity:0',
-        'animation:gjCinematicInOut 1.55s ease-in-out forwards'
-      ].join(';');
-
-      (el.app || DOC.body).appendChild(overlay);
-    }
-
-    overlay.innerHTML = `
-      <div style="
-        transform:scale(.9);
-        animation:gjCinematicCard 1.55s ease-in-out forwards;
-      ">
-        <div style="font-size:clamp(58px,16vw,132px);line-height:1">${data.emoji}</div>
-        <div style="
-          margin-top:8px;
-          font-size:clamp(34px,10vw,86px);
-          line-height:.95;
-          font-weight:1000;
-          letter-spacing:-.06em;
-          text-shadow:0 18px 54px rgba(0,0,0,.55);
-        ">${data.title}</div>
-        <div style="
-          margin-top:10px;
-          font-size:clamp(17px,4vw,30px);
-          font-weight:1000;
-          color:#fde68a;
-          text-shadow:0 12px 32px rgba(0,0,0,.55);
-        ">${data.sub}</div>
-      </div>
-    `;
-
-    overlay.style.animation = 'none';
-    void overlay.offsetWidth;
-    overlay.style.animation = 'gjCinematicInOut 1.55s ease-in-out forwards';
-
-    state.cinematicLock = true;
-
-    setTimeout(() => {
-      state.cinematicLock = false;
-      try{ overlay.remove(); }catch(_){}
-    }, 1600);
-  }
-
-  function showPhaseCinematic(key){
-    if(state.phaseCinematicShown[key]) return;
-    state.phaseCinematicShown[key] = true;
-    cinematicOverlay(key);
-  }
-
-  function screenTint(kind = 'normal'){
-    const app = el.app || DOC.body;
-    if(!app) return;
-
-    app.classList.remove('gjTintShield','gjTintStorm','gjTintRage','gjTintFinal');
-
-    if(kind === 'shield') app.classList.add('gjTintShield');
-    if(kind === 'storm') app.classList.add('gjTintStorm');
-    if(kind === 'rage') app.classList.add('gjTintRage');
-    if(kind === 'final') app.classList.add('gjTintFinal');
-  }
-
-  function bigDamageText(amount, label = 'DMG'){
-    const r = worldRect();
-    fx(r.width / 2, Math.max(130, r.height * 0.34), `${label} -${amount}`, 'gold');
-
-    let dmg = DOC.getElementById('gjBigDamage');
-    if(!dmg){
-      dmg = DOC.createElement('div');
-      dmg.id = 'gjBigDamage';
-      dmg.style.cssText = [
-        'position:absolute',
-        'left:50%',
-        'top:28%',
-        'z-index:88',
-        'transform:translate(-50%,-50%)',
-        'pointer-events:none',
-        'font-size:clamp(34px,10vw,86px)',
-        'font-weight:1000',
-        'color:#fde68a',
-        'text-shadow:0 18px 52px rgba(0,0,0,.62)',
-        'animation:gjBigDamage .72s ease-out forwards'
-      ].join(';');
-      (el.app || DOC.body).appendChild(dmg);
-    }
-
-    dmg.textContent = `${label} -${amount}`;
-    dmg.style.animation = 'none';
-    void dmg.offsetWidth;
-    dmg.style.animation = 'gjBigDamage .72s ease-out forwards';
-
-    setTimeout(() => {
-      try{ dmg.remove(); }catch(_){}
-    }, 760);
-  }
-
-  function finishMove(){
-    if(state.finishMoveUsed) return;
-    state.finishMoveUsed = true;
-
-    clearTargets();
-    warningFlash('FINISH MOVE!');
-    heroCutIn('HEALTHY FINISH!');
-    feedback('hero');
-
-    setTimeout(() => {
-      bossSay('defeated', 1400);
-      shake();
-    }, 600);
-
-    setTimeout(() => {
-      endGame(true);
-    }, 1650);
-  }
-
-  function getBadges(summary){
-    return RESULT_BADGES
-      .filter(b => {
-        try{ return b.test(summary); }catch(_){ return false; }
-      })
-      .map(b => `${b.icon} ${b.title}`);
-  }
-
-  function kidLevel(){
-    const acc = calcAccuracy();
-
-    if(state.bossHp <= 0 && acc >= 85 && state.miss <= 3){
-      return {
-        icon: '🌟',
-        title: 'ยอดเยี่ยมมาก!',
-        good: 'เลือกอาหารดีได้แม่น และรับมือบอสได้ดีมาก',
-        caution: 'ครั้งหน้าลองรักษา Combo ให้ยาวขึ้นอีกนิด',
-        next: 'ลองเล่นระดับ hard หรือทำ Daily Challenge ให้สำเร็จ'
-      };
-    }
-
-    if(state.bossHp <= 0){
-      return {
-        icon: '🎉',
-        title: 'ชนะบอสแล้ว!',
-        good: 'แยกอาหารดีและอาหารขยะได้ดีขึ้น',
-        caution: 'ยังมีบางจังหวะที่แตะอาหารขยะหรือปล่อยอาหารดีหลุด',
-        next: 'รอบหน้าลองดู Weakness ของบอสก่อนแตะ'
-      };
-    }
-
-    if(state.good >= 18){
-      return {
-        icon: '💪',
-        title: 'เกือบชนะแล้ว!',
-        good: 'เก็บอาหารดีได้หลายครั้ง แปลว่าเริ่มเข้าใจแล้ว',
-        caution: 'ช่วง Junk Storm ต้องใจเย็นและอย่ารีบแตะ',
-        next: 'รอบหน้าลองเก็บ HERO HIT ให้เต็มก่อนบอสคลั่ง'
-      };
-    }
-
-    return {
-      icon: '🙂',
-      title: 'ลองใหม่ได้!',
-      good: 'เริ่มฝึกแยกอาหารดีและอาหารขยะแล้ว',
-      caution: 'ให้มองเป้าหมายก่อนแตะ อย่าแตะเร็วเกินไป',
-      next: 'จำง่าย ๆ: ผัก ผลไม้ โปรตีนดี ช่วยให้ Hero แข็งแรง'
-    };
-  }
-
-  function shortBadgeText(badges){
-    if(!Array.isArray(badges) || !badges.length) return 'ยังไม่ได้ Badge รอบนี้';
-    return badges.slice(0, 3).join(' • ');
-  }
-
-  function dailySummaryText(summary){
-    if(!summary.dailyChallengeTitle) return 'ไม่มี Daily Challenge ในรอบนี้';
-
-    if(summary.dailyReward){
-      return `สำเร็จ: ${summary.dailyReward}`;
-    }
-
-    if(summary.dailyFailed){
-      return 'พลาดแล้ว ลองใหม่พรุ่งนี้นะ';
-    }
-
-    return 'ยังไม่สำเร็จ แต่เล่นต่อได้ดีมาก';
-  }
-
-  function learningTipForSummary(summary){
-    const miss = Number(summary.miss || 0);
-    const acc = Number(summary.accPct || 0);
-
-    if(miss <= 2 && acc >= 80){
-      return 'วันนี้ทำได้ดีมาก เพราะแตะอาหารดีมากกว่าอาหารขยะ';
-    }
-
-    if(summary.junkHit >= summary.missedGood){
-      return 'จุดที่ต้องระวังคืออาหารขยะ เช่น น้ำอัดลม ของทอด และของหวาน';
-    }
-
-    if(summary.missedGood > 0){
-      return 'จุดที่ต้องฝึกคืออย่าปล่อยอาหารดีหลุด เพราะอาหารดีช่วยชาร์จ HERO HIT';
-    }
-
-    return 'ดู Boss Book และ Weakness ก่อน จะช่วยให้ชนะง่ายขึ้น';
-  }
-
-  function renderKidSummary(summary){
-    const level = kidLevel();
-    const badges = shortBadgeText(summary.resultBadges);
-    const daily = dailySummaryText(summary);
-    const learn = learningTipForSummary(summary);
-
-    return `
-${level.icon} ${level.title}
-
-✅ ทำได้ดี:
-${level.good}
-
-⚠️ ระวัง:
-${level.caution}
-
-🏅 Badge:
-${badges}
-
-🎯 Daily:
-${daily}
-
-💡 บทเรียน:
-${learn}
-
-➡️ ครั้งหน้า:
-${level.next}
-    `.trim();
-  }
-
-  function starTip(win){
-    const level = kidLevel();
-
-    if(win){
-      return `${level.icon} ${level.title} ${level.good}`;
-    }
-
-    return `${level.icon} ${level.title} ${level.next}`;
-  }
-
-  function microTip(kind, item){
+  function clickGuard(key = 'default', ms = 450){
     const t = Date.now();
-    if(t - state.lastMicroTipAt < 6500) return;
-    if(state.microTipsShown >= 5) return;
-    if(state.finalRush && state.timeLeft < 20) return;
 
-    let msg = '';
+    const map = {
+      start: 'lastStartAt',
+      hero: 'lastHeroHitAt',
+      exit: 'lastExitAt',
+      default: 'lastClickAt'
+    };
 
-    if(kind === 'good'){
-      if(item?.data?.group === 'green') msg = '🥦 ผักช่วยให้ร่างกายแข็งแรงและมีใยอาหาร';
-      else if(item?.data?.group === 'protein') msg = '🐟 โปรตีนช่วยซ่อมแซมร่างกายและสร้างกล้ามเนื้อ';
-      else if(item?.data?.group === 'fruit') msg = '🍎 ผลไม้มีวิตามินและช่วยให้สดชื่น';
-      else msg = '✅ อาหารดีช่วยเพิ่มพลังให้ Hero';
+    const prop = map[key] || map.default;
+
+    if(t - state[prop] < ms) return false;
+
+    state[prop] = t;
+    return true;
+  }
+
+  function syncActionButtons(){
+    const playing = state.started && !state.paused && !state.ended;
+    const paused = state.started && state.paused && !state.ended;
+    const ended = state.ended;
+
+    toggleNode(el.pauseBtn, playing);
+    toggleNode(el.backBtn, !ended);
+
+    toggleNode(el.resumeBtn, paused);
+    toggleNode(el.pauseResumeBtn, paused);
+
+    toggleNode(el.summaryBackBtn, ended, 'inline-flex');
+
+    if(el.pauseOverlay){
+      el.pauseOverlay.classList.toggle('show', paused);
+      el.pauseOverlay.style.display = paused ? 'grid' : 'none';
     }
 
-    if(kind === 'junk'){
-      if(item?.data?.group === 'soda') msg = '🥤 น้ำอัดลมมีน้ำตาลสูง ควรดื่มน้อยลง';
-      else if(item?.data?.group === 'fried') msg = '🍟 ของทอดกินบ่อยเกินไปไม่ดีต่อสุขภาพ';
-      else if(item?.data?.group === 'sweet') msg = '🍩 ของหวานกินได้บ้าง แต่ไม่ควรกินเยอะ';
-      else msg = '⚠️ อาหารขยะทำให้พลัง Hero ลดลง';
-    }
+    const big = $('gjHeroHitBigBtn');
+    if(big) big.style.display = ended ? 'none' : '';
 
-    if(!msg) return;
+    const danger = $('gjDangerMeter');
+    if(danger) danger.style.display = ended ? 'none' : '';
+  }
 
-    state.lastMicroTipAt = t;
-    state.microTipsShown++;
-    toast(msg, 1900);
+  function refreshUiState(){
+    const app = el.app || DOC.body;
+
+    app.classList.toggle('is-playing', state.started && !state.paused && !state.ended);
+    app.classList.toggle('is-paused', state.paused && !state.ended);
+    app.classList.toggle('is-ended', state.ended);
+
+    syncActionButtons();
+  }
+
+  function isMobileView(){
+    return WIN.innerWidth <= 720 || String(CFG.view || '').toLowerCase() === 'mobile';
+  }
+
+  function syncSingleHandMode(){
+    const app = el.app || DOC.body;
+    const active = state.singleHand.enabled && (!state.singleHand.mobileOnly || isMobileView());
+
+    app.classList.toggle('gjSingleHandMode', active);
+    app.classList.toggle('gjSingleHandRight', active && state.singleHand.side === 'right');
+    app.classList.toggle('gjSingleHandLeft', active && state.singleHand.side === 'left');
+
+    state.singleHand.lastModeSyncAt = Date.now();
   }
 
   function ensureMobileHud(){
     const app = el.app || DOC.body;
-    if(!app) return;
 
-    let hud = DOC.getElementById('gjMobileHud');
-    if(!hud){
-      hud = DOC.createElement('div');
+    if(!$('gjMobileHud')){
+      const hud = DOC.createElement('div');
       hud.id = 'gjMobileHud';
       hud.innerHTML = `
         <div class="gjMobileTopRow">
-          <div class="gjMobilePill">
-            <span>⏱️</span>
-            <b id="gjMobileTime">0</b>
-          </div>
-          <div class="gjMobilePill">
-            <span>⭐</span>
-            <b id="gjMobileScore">0</b>
-          </div>
-          <div class="gjMobilePill">
-            <span>❤️</span>
-            <b id="gjMobileLives">0</b>
-          </div>
+          <div class="gjMobilePill">⏱️ <b id="gjMobileTime">0</b></div>
+          <div class="gjMobilePill">⭐ <b id="gjMobileScore">0</b></div>
+          <div class="gjMobilePill">❤️ <b id="gjMobileLives">0</b></div>
         </div>
 
         <div class="gjBossBarWrap">
@@ -1866,221 +1608,598 @@ ${level.next}
       app.appendChild(hud);
     }
 
-    let hero = DOC.getElementById('gjHeroHitBigBtn');
-    if(!hero){
-      hero = DOC.createElement('button');
-      hero.id = 'gjHeroHitBigBtn';
-      hero.type = 'button';
-      hero.innerHTML = `
+    if(!$('gjHeroHitBigBtn')){
+      const btn = DOC.createElement('button');
+      btn.id = 'gjHeroHitBigBtn';
+      btn.type = 'button';
+      btn.innerHTML = `
         <span class="gjHeroHitIcon">🦸</span>
         <span class="gjHeroHitText">HERO HIT</span>
         <span class="gjHeroHitPct" id="gjHeroHitBigPct">0%</span>
       `;
-      hero.addEventListener('click', function(ev){
+
+      btn.addEventListener('click', ev => {
         ev.preventDefault();
         ev.stopPropagation();
         useHeroHit();
       }, { passive:false });
-      app.appendChild(hero);
+
+      app.appendChild(btn);
     }
 
-    let danger = DOC.getElementById('gjDangerMeter');
-    if(!danger){
-      danger = DOC.createElement('div');
-      danger.id = 'gjDangerMeter';
-      danger.innerHTML = `
+    if(!$('gjDangerMeter')){
+      const d = DOC.createElement('div');
+      d.id = 'gjDangerMeter';
+      d.innerHTML = `
         <div class="gjDangerLabel">DANGER</div>
         <div class="gjDangerTrack">
           <div id="gjDangerFill" class="gjDangerFill"></div>
         </div>
       `;
-      app.appendChild(danger);
+      app.appendChild(d);
     }
+
+    cacheElements();
   }
 
   function ensureFeedbackControls(){
     const app = el.app || DOC.body;
-    if(!app) return;
 
-    let wrap = DOC.getElementById('gjFeedbackControls');
-    if(wrap) return;
+    if($('gjFeedbackControls')) return;
 
-    wrap = DOC.createElement('div');
+    const wrap = DOC.createElement('div');
     wrap.id = 'gjFeedbackControls';
     wrap.innerHTML = `
       <button id="gjSfxToggle" type="button" aria-label="toggle sound">🔊</button>
       <button id="gjVibeToggle" type="button" aria-label="toggle vibration">📳</button>
+      <button id="gjHandToggle" type="button" aria-label="switch hand">🤚</button>
+      <button id="gjSafeDebugToggle" type="button" aria-label="safe area">□</button>
     `;
+
     app.appendChild(wrap);
 
-    const sfxBtn = DOC.getElementById('gjSfxToggle');
-    const vibeBtn = DOC.getElementById('gjVibeToggle');
-
-    sfxBtn?.addEventListener('click', ev => {
+    $('gjSfxToggle')?.addEventListener('click', ev => {
       ev.preventDefault();
       ev.stopPropagation();
+
       state.sfxEnabled = !state.sfxEnabled;
-      sfxBtn.textContent = state.sfxEnabled ? '🔊' : '🔇';
-      if(state.sfxEnabled) beep('power');
+      ev.currentTarget.textContent = state.sfxEnabled ? '🔊' : '🔇';
     });
 
-    vibeBtn?.addEventListener('click', ev => {
+    $('gjVibeToggle')?.addEventListener('click', ev => {
       ev.preventDefault();
       ev.stopPropagation();
+
       state.vibrateEnabled = !state.vibrateEnabled;
-      vibeBtn.textContent = state.vibrateEnabled ? '📳' : '🚫';
-      if(state.vibrateEnabled) vibe(25);
+      ev.currentTarget.textContent = state.vibrateEnabled ? '📳' : '🚫';
+    });
+
+    $('gjHandToggle')?.addEventListener('click', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      state.singleHand.side = state.singleHand.side === 'right' ? 'left' : 'right';
+      ev.currentTarget.textContent = state.singleHand.side === 'right' ? '🤚' : '✋';
+
+      syncSingleHandMode();
+      updateHud();
+
+      toast(state.singleHand.side === 'right' ? 'โหมดมือขวา' : 'โหมดมือซ้าย', 900);
+    });
+
+    $('gjSafeDebugToggle')?.addEventListener('click', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      state.calibration.debugOverlay = !state.calibration.debugOverlay;
+      ev.currentTarget.textContent = state.calibration.debugOverlay ? '▣' : '□';
+
+      getSafeArenaRect(60);
+      ensureSafeAreaOverlay();
+
+      toast(state.calibration.debugOverlay ? 'แสดงพื้นที่ spawn' : 'ซ่อนพื้นที่ spawn', 900);
     });
   }
 
-  function updateHud(){
-    state.elapsedSec = state.startTs ? Math.max(0, Math.round((Date.now() - state.startTs) / 1000)) : 0;
+  function ensureTapPriority(){
+    const world = el.gameWorld || $('gameWorld') || el.app || DOC.body;
+    const targetLayer = el.targetLayer || $('targetLayer');
+    const fxLayer = el.fxLayer || $('fxLayer');
 
-    setText(el.scoreText, state.score);
-    setText(el.timerText, Math.max(0, Math.ceil(state.timeLeft)));
-    setText(el.lifeText, '❤️'.repeat(Math.max(0, state.lives)) || '0');
-
-    const phaseLabel =
-      state.finalRush ? 'FINAL' :
-      state.phase === 3 ? 'RAGE' :
-      state.phase === 2 ? 'STORM' :
-      state.bossShield ? 'SHIELD' :
-      'HUNT';
-
-    setText(el.phaseText, phaseLabel);
-    setText(el.bossHpText, `${Math.max(0, Math.ceil((state.bossHp / state.bossMaxHp) * 100))}%`);
-    setText(el.heroHitText, `${Math.round(state.heroHit)}%`);
-    setText(el.comboText, state.combo);
-    setText(el.goodText, state.good);
-    setText(el.missText, state.miss);
-    setText(el.rageText, state.rage);
-
-    if(el.bossHpFill){
-      el.bossHpFill.style.width = `${clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100)}%`;
+    if(world){
+      world.style.position = world.style.position || 'absolute';
+      world.style.touchAction = 'manipulation';
     }
 
-    if(el.heroHitFill){
-      el.heroHitFill.style.width = `${clamp(state.heroHit, 0, 100)}%`;
+    if(targetLayer){
+      targetLayer.style.position = 'absolute';
+      targetLayer.style.inset = '0';
+      targetLayer.style.zIndex = '100';
+      targetLayer.style.pointerEvents = 'none';
     }
 
-    if(el.heroHitText){
-      if(state.heroHit >= 100){
-        el.heroHitText.classList.add('gjHeroReadyPulse');
+    if(fxLayer){
+      fxLayer.style.position = 'absolute';
+      fxLayer.style.inset = '0';
+      fxLayer.style.zIndex = '140';
+      fxLayer.style.pointerEvents = 'none';
+    }
 
-        if(!state.heroHitReadyAnnounced){
-          state.heroHitReadyAnnounced = true;
-          heroCutIn('HERO HIT READY!');
-          toast('⚡ HERO HIT พร้อมแล้ว! กดใช้ให้ถูกจังหวะ', 1500);
+    [
+      $('gjMobileHud'),
+      $('gjDangerMeter'),
+      $('coachText'),
+      DOC.querySelector('.gjCompatCoach'),
+      $('announcer'),
+      $('bossHpText'),
+      $('bossHpFill')?.parentElement
+    ].forEach(n => {
+      if(n) n.style.pointerEvents = 'none';
+    });
+
+    [
+      $('gjHeroHitBigBtn'),
+      $('heroHitBtn'),
+      $('pauseBtn'),
+      $('backBtn'),
+      $('resumeBtn'),
+      $('pauseResumeBtn'),
+      $('pauseBackBtn'),
+      $('summaryReplayBtn'),
+      $('summaryBackBtn')
+    ].forEach(n => {
+      if(n) n.style.pointerEvents = 'auto';
+    });
+  }
+
+  function raiseTargetNode(node){
+    if(!node) return;
+
+    node.style.position = 'absolute';
+    node.style.zIndex = '105';
+    node.style.pointerEvents = 'auto';
+    node.style.touchAction = 'manipulation';
+    node.style.userSelect = 'none';
+    node.style.webkitUserSelect = 'none';
+    node.style.webkitTapHighlightColor = 'transparent';
+
+    state.tapSafety.forcedRaisedTargets++;
+  }
+
+  function toast(message, ms = 1200){
+    const msg = String(message || '');
+
+    if(el.toast){
+      el.toast.textContent = msg;
+      el.toast.style.display = 'block';
+
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => {
+        if(el.toast) el.toast.style.display = 'none';
+      }, ms);
+
+      return;
+    }
+
+    const t = DOC.createElement('div');
+    t.className = 'gjRuntimeToast';
+    t.textContent = msg;
+    t.style.display = 'block';
+
+    (el.app || DOC.body).appendChild(t);
+
+    setTimeout(() => {
+      try{ t.remove(); }catch(_){}
+    }, ms);
+  }
+
+  function safeFinalRushToast(msg, ms = 1200){
+    const t = Date.now();
+
+    if(state.finalRush && t - state.finalRushToastAt < 2200) return;
+
+    state.finalRushToastAt = t;
+    toast(msg, ms);
+  }
+
+  let __audioCtx = null;
+
+  function beep(kind = 'good'){
+    if(!state.sfxEnabled) return;
+
+    const t = Date.now();
+    if(t - state.lastSfxAt < 60) return;
+    state.lastSfxAt = t;
+
+    try{
+      const AC = WIN.AudioContext || WIN.webkitAudioContext;
+      if(!AC) return;
+
+      __audioCtx = __audioCtx || new AC();
+      const ctx = __audioCtx;
+
+      if(ctx.state === 'suspended'){
+        ctx.resume().catch(() => {});
+      }
+
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+
+      const cfg =
+        kind === 'bad'
+          ? [180, 95, .13, .055, 'sawtooth']
+          : kind === 'hero'
+            ? [520, 880, .18, .06, 'triangle']
+            : kind === 'boss'
+              ? [110, 70, .18, .06, 'square']
+              : kind === 'win'
+                ? [620, 1040, .22, .07, 'triangle']
+                : [420, 620, .11, .045, 'sine'];
+
+      o.type = cfg[4];
+      o.frequency.setValueAtTime(cfg[0], ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(cfg[1], ctx.currentTime + cfg[2]);
+
+      g.gain.setValueAtTime(.0001, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(cfg[3], ctx.currentTime + .018);
+      g.gain.exponentialRampToValueAtTime(.0001, ctx.currentTime + cfg[2]);
+
+      o.connect(g);
+      g.connect(ctx.destination);
+      o.start();
+      o.stop(ctx.currentTime + cfg[2] + .02);
+    }catch(_){}
+  }
+
+  function vibe(p = 20){
+    if(state.vibrateEnabled && navigator.vibrate){
+      try{ navigator.vibrate(p); }catch(_){}
+    }
+  }
+
+  function feedback(kind = 'good'){
+    beep(kind);
+
+    if(kind === 'bad'){
+      vibe([30, 35, 30]);
+    }else if(kind === 'hero'){
+      vibe([25, 30, 25, 30, 55]);
+    }else if(kind === 'win'){
+      vibe([25, 25, 45, 25, 80]);
+    }else{
+      vibe(12);
+    }
+  }
+
+  function fx(x, y, text, type = 'good'){
+    const layer = el.fxLayer || el.app || DOC.body;
+
+    const n = DOC.createElement('div');
+    n.className = 'gjFx';
+    n.textContent = text;
+    n.style.left = `${x}px`;
+    n.style.top = `${y}px`;
+
+    n.style.color =
+      type === 'bad'
+        ? '#fca5a5'
+        : type === 'gold'
+          ? '#fde68a'
+          : '#86efac';
+
+    layer.appendChild(n);
+
+    setTimeout(() => {
+      try{ n.remove(); }catch(_){}
+    }, 760);
+  }
+
+  /* ---------- flow ---------- */
+
+  function buildCooldownFallback(){
+    try{
+      const u = new URL('../warmup-gate.html', location.href);
+
+      [
+        'pid',
+        'name',
+        'nick',
+        'diff',
+        'time',
+        'view',
+        'run',
+        'zone',
+        'cat',
+        'seed',
+        'studyId',
+        'section',
+        'session_code',
+        'api',
+        'log'
+      ].forEach(k => {
+        const v = CFG[k] || qs.get(k);
+        if(String(v || '').trim()){
+          u.searchParams.set(k, String(v).trim());
         }
-      }else{
-        el.heroHitText.classList.remove('gjHeroReadyPulse');
-        state.heroHitReadyAnnounced = false;
+      });
+
+      u.searchParams.set('phase', 'cooldown');
+      u.searchParams.set('game', 'goodjunk');
+      u.searchParams.set('gameId', 'goodjunk');
+      u.searchParams.set('mode', 'solo-boss');
+      u.searchParams.set('entry', 'solo-boss');
+      u.searchParams.set('phaseBoss', '1');
+
+      const zone = new URL('../nutrition-zone.html', location.href).toString();
+
+      u.searchParams.set('hub', zone);
+      u.searchParams.set('next', zone);
+
+      return u.toString();
+    }catch(_){
+      return DEFAULT_HUB;
+    }
+  }
+
+  function resolveExitHref(){
+    const raw = String(CFG.hub || '').trim();
+
+    try{
+      if(raw){
+        const u = new URL(raw, location.href);
+
+        if(u.pathname.includes('/warmup-gate.html') && u.searchParams.get('phase') === 'cooldown'){
+          return u.toString();
+        }
+
+        if(u.pathname.includes('/nutrition-zone.html')){
+          return u.toString();
+        }
+
+        if(u.pathname.includes('/hub.html') || u.pathname.includes('/hub-v2.html')){
+          return new URL('../nutrition-zone.html', location.href).toString();
+        }
+
+        return u.toString();
       }
+    }catch(_){}
+
+    if(state.flow.fromWarmupGate || CFG.entry === 'solo-boss'){
+      return buildCooldownFallback();
     }
 
-    if(el.coachText){
-      el.coachText.textContent = bossBookTip();
+    return DEFAULT_HUB;
+  }
+
+  function isCooldownHub(){
+    const h = resolveExitHref();
+    return h.includes('warmup-gate.html') && h.includes('phase=cooldown');
+  }
+
+  function readFlowSafety(){
+    const href = location.href;
+    const hub = String(CFG.hub || '');
+
+    state.flow.fromWarmupGate =
+      document.referrer.includes('warmup-gate.html') ||
+      href.includes('fromWarmup=1') ||
+      href.includes('entry=solo-boss');
+
+    state.flow.toCooldownGate =
+      hub.includes('warmup-gate.html') &&
+      hub.includes('phase=cooldown');
+
+    state.flow.rawHub = hub;
+    state.flow.safeHub = resolveExitHref();
+  }
+
+  function updateExitButtonLabels(){
+    const label = isCooldownHub() ? 'ไป Cooldown' : 'กลับ Nutrition';
+
+    [
+      el.summaryBackBtn,
+      el.backBtn,
+      el.bootBackBtn,
+      el.introBackBtn,
+      el.pauseBackBtn
+    ].forEach(b => {
+      if(b) b.textContent = label;
+    });
+  }
+
+  function goHub(){
+    if(!clickGuard('exit', 650)) return;
+
+    try{
+      if(state.started && !state.ended && !state.safeExitReady){
+        if(!WIN.confirm('กำลังเล่นอยู่ ต้องการออกจากเกมหรือไม่?')) return;
+      }
+
+      state.exitLocked = true;
+      WIN.location.href = resolveExitHref();
+    }catch(_){
+      WIN.location.href = DEFAULT_HUB;
+    }
+  }
+
+  function replayGame(){
+    if(!clickGuard('start', 850)) return;
+
+    try{
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(Date.now()));
+      u.searchParams.set('run', 'play');
+      u.searchParams.set('autostart', '1');
+
+      WIN.location.href = u.toString();
+    }catch(_){
+      WIN.location.reload();
+    }
+  }
+
+  /* ---------- layout / safe area ---------- */
+
+  function visibleRect(node){
+    if(!node) return null;
+
+    try{
+      const st = getComputedStyle(node);
+
+      if(st.display === 'none' || st.visibility === 'hidden' || node.hidden) return null;
+
+      const r = node.getBoundingClientRect();
+
+      if(r.width <= 0 || r.height <= 0) return null;
+
+      return r;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function worldRect(){
+    const node = el.gameWorld || el.app || DOC.body;
+    const r = node.getBoundingClientRect();
+
+    return {
+      width: Math.max(320, r.width || WIN.innerWidth),
+      height: Math.max(420, r.height || WIN.innerHeight)
+    };
+  }
+
+  function ensureSafeAreaOverlay(){
+    let o = $('gjSafeAreaOverlay');
+
+    if(!state.calibration.debugOverlay){
+      if(o) o.remove();
+      return;
     }
 
-    if(el.goalText){
-      let msg = 'Phase 1: Food Hunt — เก็บอาหารดีเพื่อทำลายโล่บอส 🛡️';
+    const parent = el.gameWorld || el.app || DOC.body;
 
-      if(!state.bossShield && state.phase === 1){
-        msg = 'โล่บอสแตกแล้ว! เก็บอาหารดีต่อเนื่องเพื่อเปิด Phase 2 ⚡';
-      }
+    if(!o){
+      o = DOC.createElement('div');
+      o.id = 'gjSafeAreaOverlay';
+      o.style.cssText = [
+        'position:absolute',
+        'z-index:130',
+        'pointer-events:none',
+        'border:2px dashed rgba(34,197,94,.88)',
+        'background:rgba(34,197,94,.08)',
+        'box-shadow:0 0 0 9999px rgba(2,6,23,.28)',
+        'border-radius:18px'
+      ].join(';');
 
-      if(state.phase === 2){
-        msg = 'Phase 2: Junk Storm — เก็บอาหารดี แต่ระวังขยะที่บอสปล่อยมา 🌪️';
-      }
-
-      if(state.phase === 3 && !state.finalRush){
-        msg = 'Phase 3: Boss Rage — บอสโกรธแล้ว! ใช้ HERO HIT ให้ถูกจังหวะ 😡';
-      }
-
-      if(state.finalRush){
-        msg = `🔥 FINAL RUSH! เอาตัวรอดและปิดฉากบอส หลังเล่นครบ ${tune.minWinSec}s`;
-      }
-
-      const daily = state.dailyChallenge
-        ? ` • Daily: ${state.dailyChallenge.title}${state.dailyFailed ? ' (พลาดแล้ว)' : ''}`
-        : '';
-
-      el.goalText.textContent = `${msg} • ${bossBookTip()}${daily}`;
+      parent.appendChild(o);
     }
 
-    if(el.bossAvatar){
-      if(state.bossShield){
-        el.bossAvatar.textContent = '🛡️👑🍔';
-      }else if(state.finalRush){
-        el.bossAvatar.textContent = '🔥👑🍔';
-      }else if(state.phase >= 3){
-        el.bossAvatar.textContent = '😡🍔';
-      }else if(state.phase >= 2){
-        el.bossAvatar.textContent = '🌪️🍔';
-      }else{
-        el.bossAvatar.textContent = '👑🍔';
-      }
+    const r = state.calibration.lastSafeRect;
+    if(!r) return;
+
+    o.style.left = `${r.left}px`;
+    o.style.top = `${r.top}px`;
+    o.style.width = `${Math.max(1, r.right - r.left)}px`;
+    o.style.height = `${Math.max(1, r.bottom - r.top)}px`;
+  }
+
+  function getSafeArenaRect(size = 60){
+    const wr = (el.gameWorld || el.app || DOC.body).getBoundingClientRect();
+
+    const vw = Math.max(320, wr.width || WIN.innerWidth);
+    const vh = Math.max(420, wr.height || WIN.innerHeight);
+
+    const single = state.singleHand.enabled && isMobileView();
+
+    let safeTop = WIN.innerWidth <= 720
+      ? (single ? state.singleHand.safePadTop : 178)
+      : 132;
+
+    let safeBottom = vh - (
+      WIN.innerWidth <= 720
+        ? (single ? state.singleHand.safePadBottom : 112)
+        : 96
+    );
+
+    [
+      visibleRect($('gjMobileHud')),
+      visibleRect(el.bossWrap),
+      visibleRect(el.bossAvatar)
+    ].filter(Boolean).forEach(r => {
+      safeTop = Math.max(safeTop, r.bottom - wr.top + 12);
+    });
+
+    [
+      visibleRect($('gjHeroHitBigBtn')),
+      visibleRect($('gjDangerMeter')),
+      visibleRect($('coachText')),
+      visibleRect(DOC.querySelector('.gjCompatCoach'))
+    ].filter(Boolean).forEach(r => {
+      safeBottom = Math.min(safeBottom, r.top - wr.top - 12);
+    });
+
+    if(safeBottom - safeTop < state.calibration.minArenaHeight){
+      safeTop = WIN.innerWidth <= 720 ? 184 : 150;
+      safeBottom = vh - (WIN.innerWidth <= 720 ? 106 : 110);
     }
 
-    ensureMobileHud();
-    ensureFeedbackControls();
+    const sidePad = single ? state.singleHand.safePadSide : 18;
 
-    const bossPct = clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100);
-    const heroPct = clamp(state.heroHit, 0, 100);
+    let rect = {
+      left: sidePad + size / 2 + state.calibration.safeSideAdjust,
+      right: vw - sidePad - size / 2 - state.calibration.safeSideAdjust,
+      top: safeTop + size / 2 + state.calibration.safeTopAdjust,
+      bottom: safeBottom - size / 2 - state.calibration.safeBottomAdjust
+    };
 
-    setText($('gjMobileTime'), Math.max(0, Math.ceil(state.timeLeft)));
-    setText($('gjMobileScore'), state.score);
-    setText($('gjMobileLives'), Math.max(0, state.lives));
-    setText($('gjMobilePhase'), state.finalRush ? 'FINAL RUSH' : phaseLabel);
-    setText($('gjMobileBossPct'), `${Math.ceil(bossPct)}%`);
-
-    const mbFill = $('gjMobileBossFill');
-    if(mbFill) mbFill.style.width = `${bossPct}%`;
-
-    const dangerFill = $('gjDangerFill');
-    if(dangerFill) dangerFill.style.width = `${clamp(state.dangerMeter, 0, 100)}%`;
-
-    const bigHero = $('gjHeroHitBigBtn');
-    const bigPct = $('gjHeroHitBigPct');
-
-    if(bigPct) bigPct.textContent = `${Math.round(heroPct)}%`;
-
-    if(bigHero){
-      bigHero.classList.toggle('ready', heroPct >= 100);
-      bigHero.classList.toggle('not-ready', heroPct < 100);
-      bigHero.setAttribute('aria-label', heroPct >= 100 ? 'ใช้ HERO HIT' : `HERO HIT ${Math.round(heroPct)} เปอร์เซ็นต์`);
+    if(rect.bottom - rect.top < state.calibration.minArenaHeight){
+      const mid = (rect.top + rect.bottom) / 2;
+      rect.top = clamp(mid - state.calibration.minArenaHeight / 2, 120, vh - 160);
+      rect.bottom = clamp(rect.top + state.calibration.minArenaHeight, rect.top + 120, vh - 80);
     }
+
+    rect.left = clamp(rect.left, size / 2 + 8, vw - size / 2 - 8);
+    rect.right = clamp(rect.right, rect.left + 80, vw - size / 2 - 8);
+    rect.top = clamp(rect.top, size / 2 + 90, vh - size / 2 - 90);
+    rect.bottom = clamp(rect.bottom, rect.top + 120, vh - size / 2 - 56);
+
+    state.calibration.lastSafeRect = { ...rect };
+    ensureSafeAreaOverlay();
+
+    return rect;
   }
 
   function isSafeSpawnPoint(x, y, size){
-    const safeTop = WIN.innerWidth <= 720 ? 154 : 118;
-    const safeBottom = WIN.innerWidth <= 720 ? 136 : 92;
+    const a = getSafeArenaRect(size);
 
-    if(y < safeTop) return false;
-    if(y > worldRect().height - safeBottom) return false;
+    if(x < a.left || x > a.right) return false;
+    if(y < a.top || y > a.bottom) return false;
 
     for(const item of state.targets.values()){
       const dx = item.x - x;
       const dy = item.y - y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      if(dist < (item.size + size) * 0.68) return false;
+
+      if(dist < (item.size + size) * .72) return false;
     }
 
     return true;
   }
 
   function pickSafeSpawn(size){
-    const r = worldRect();
-    let x = 0;
-    let y = 0;
+    const a = getSafeArenaRect(size);
 
-    for(let tries = 0; tries < 24; tries++){
-      x = clamp(44 + rand() * (r.width - 88), 40, r.width - 40);
-      y = clamp(164 + rand() * (r.height - 310), 154, r.height - 136);
+    for(let i = 0; i < 36; i++){
+      const x = clamp(
+        a.left + state.rng() * Math.max(1, a.right - a.left),
+        a.left,
+        a.right
+      );
 
-      if(state.dangerLaneActive && Math.abs(x - state.dangerLaneX) < 70){
-        if(rand() < 0.7) continue;
-      }
+      const y = clamp(
+        a.top + state.rng() * Math.max(1, a.bottom - a.top),
+        a.top,
+        a.bottom
+      );
 
       if(isSafeSpawnPoint(x, y, size)){
         return { x, y };
@@ -2088,9 +2207,99 @@ ${level.next}
     }
 
     return {
-      x: clamp(44 + rand() * (r.width - 88), 40, r.width - 40),
-      y: clamp(170 + rand() * (r.height - 320), 154, r.height - 136)
+      x: clamp((a.left + a.right) / 2 + (state.rng() - .5) * 120, a.left, a.right),
+      y: clamp((a.top + a.bottom) / 2 + (state.rng() - .5) * 120, a.top, a.bottom)
     };
+  }
+
+  function isPointCoveredByUi(x, y, node){
+    const top = DOC.elementFromPoint(x, y);
+
+    if(!top) return false;
+    if(top === node) return false;
+    if(node && node.contains(top)) return false;
+
+    const tl = el.targetLayer || $('targetLayer');
+
+    if(tl && tl.contains(top)) return false;
+
+    const id = String(top.id || '');
+    const cls = String(top.className || '');
+
+    if(
+      id === 'gjHeroHitBigBtn' ||
+      id === 'heroHitBtn' ||
+      id === 'pauseBtn' ||
+      id === 'backBtn' ||
+      id === 'summaryBackBtn'
+    ){
+      return true;
+    }
+
+    if(
+      id === 'coachText' ||
+      id === 'gjMobileHud' ||
+      id === 'gjDangerMeter' ||
+      cls.includes('gjCompatCoach') ||
+      cls.includes('gjMobilePill') ||
+      cls.includes('gjBossBarWrap')
+    ){
+      return true;
+    }
+
+    return false;
+  }
+
+  function nudgeTargetOutOfBlockedZone(item){
+    if(!item || !item.node) return;
+
+    const r = item.node.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+
+    if(!isPointCoveredByUi(cx, cy, item.node)) return;
+
+    state.tapSafety.blockedTapCount++;
+
+    const a = getSafeArenaRect(item.size);
+
+    item.x = clamp((a.left + a.right) / 2 + (state.rng() - .5) * 120, a.left, a.right);
+    item.y = clamp((a.top + a.bottom) / 2 + (state.rng() - .5) * 120, a.top, a.bottom);
+
+    item.node.style.left = `${item.x}px`;
+    item.node.style.top = `${item.y}px`;
+  }
+    /* ---------- game logic ---------- */
+
+  function todayIndex(){
+    return Math.floor(Date.now() / 86400000);
+  }
+
+  function setupDailyChallenge(){
+    state.dailyChallenge = DAILY[todayIndex() % DAILY.length];
+  }
+
+  function currentWeakness(){
+    if(state.finalRush || state.phase >= 3){
+      return BOSS.weakness.phase3;
+    }
+
+    if(state.phase >= 2){
+      return BOSS.weakness.phase2;
+    }
+
+    return BOSS.weakness.phase1;
+  }
+
+  function pickGoodByWeakness(){
+    const w = currentWeakness();
+    const list = GOOD.filter(g => w.icons.includes(g.emoji));
+    return list.length ? pick(list) : pick(GOOD);
+  }
+
+  function pickJunkByGroup(g){
+    const list = JUNK.filter(j => j.group === g);
+    return list.length ? pick(list) : pick(JUNK);
   }
 
   function hasSlowTime(){
@@ -2101,30 +2310,353 @@ ${level.next}
     return Date.now() < state.activePower.magnetUntil;
   }
 
-  function spawnPowerUp(forceId = ''){
+  function calcAccuracy(){
+    const total = state.good + state.junkHit + state.missedGood;
+    return total ? Math.round((state.good / total) * 100) : 100;
+  }
+
+  function calcStars(){
+    const acc = calcAccuracy();
+
+    if(state.bossHp <= 0 && acc >= 85 && state.miss <= 3 && state.bestCombo >= 15){
+      return '⭐⭐⭐';
+    }
+
+    if(state.bossHp <= 0 && acc >= 70){
+      return '⭐⭐';
+    }
+
+    if(state.bossHp <= 0 || state.score >= 180){
+      return '⭐';
+    }
+
+    return '☆';
+  }
+
+  function bossBookTip(){
+    const w = currentWeakness();
+    const skill = BOSS.skills.find(s => s.id === state.lastBossSkillId);
+
+    if(skill){
+      return `${skill.emoji} ${skill.name} • จุดอ่อน: ${w.label}`;
+    }
+
+    return `🎯 จุดอ่อน: ${w.label}`;
+  }
+
+  function fullCoachText(){
+    const w = currentWeakness();
+
+    if(state.finalRush){
+      return `🔥 FINAL • เก็บ ${w.label} • ใช้ HERO HIT`;
+    }
+
+    return bossBookTip();
+  }
+
+  function updateCoachText(){
+    setText(el.coachText, fullCoachText());
+    setText(el.goalText, fullCoachText());
+  }
+
+  /* ---------- balance director ---------- */
+
+  function balancePushKind(k){
+    state.balance.recentKinds.push(k);
+
+    if(state.balance.recentKinds.length > 10){
+      state.balance.recentKinds.shift();
+    }
+  }
+
+  function recentJunkRun(){
+    let n = 0;
+
+    for(let i = state.balance.recentKinds.length - 1; i >= 0; i--){
+      if(state.balance.recentKinds[i] === 'junk'){
+        n++;
+      }else{
+        break;
+      }
+    }
+
+    return n;
+  }
+
+  function isCalmWindow(){
+    return Date.now() < state.balance.calmUntil;
+  }
+
+  function directorJunkChance(base){
+    let c = base;
+
+    if(state.balance.streakGood >= 8){
+      c += .04;
+    }
+
+    if(state.balance.streakMiss >= 2){
+      c -= .12;
+    }
+
+    if(state.balance.streakMiss >= 3 || state.lives <= 1 || isCalmWindow()){
+      c -= .12;
+    }
+
+    if(recentJunkRun() >= state.balance.junkLimit){
+      c = .05;
+    }
+
+    return clamp(c, .16, .62);
+  }
+
+  function directorScale(){
+    let s = 1;
+
+    if(state.balance.streakGood >= 10){
+      s += .10;
+    }
+
+    if(state.balance.streakMiss >= 2 || state.lives <= 1 || isCalmWindow()){
+      s -= .18;
+    }
+
+    if(state.finalRush){
+      s += .10;
+    }
+
+    return clamp(s, .68, 1.28);
+  }
+
+  function directorAfterGood(){
+    state.balance.streakGood++;
+    state.balance.streakMiss = 0;
+    state.balance.stress = clamp(state.balance.stress - 8, 0, 100);
+  }
+
+  function directorAfterMistake(){
+    state.balance.streakMiss++;
+    state.balance.streakGood = 0;
+    state.balance.stress = clamp(state.balance.stress + 16, 0, 100);
+    state.balance.mercy = clamp(state.balance.mercy + 18, 0, 100);
+
+    if(state.balance.streakMiss >= 2){
+      state.balance.forcedGoodNext = Math.max(state.balance.forcedGoodNext, 1);
+    }
+
+    if(state.balance.streakMiss >= 3){
+      state.balance.forcedWeaknessNext = Math.max(state.balance.forcedWeaknessNext, 1);
+      state.balance.calmUntil = Date.now() + 5200;
+    }
+  }
+
+  function directorMaybeAssist(){
+    const t = Date.now();
+
+    if(t - state.balance.lastAssistAt < 10000) return;
+
+    if(state.lives <= 1 || state.balance.streakMiss >= 3){
+      state.balance.lastAssistAt = t;
+      state.balance.calmUntil = t + 5200;
+      state.balance.forcedWeaknessNext = 2;
+
+      if(state.activePower.shield <= 0){
+        spawnPowerUp('shield');
+      }
+
+      toast('💚 เกมให้จังหวะสวนกลับแล้ว!', 1200);
+    }
+  }
+
+  /* ---------- spawn ---------- */
+
+  function spawnTarget(forceKind = ''){
     if(state.ended || state.paused || !state.started) return;
 
-    const data = forceId
-      ? POWER_UPS.find(p => p.id === forceId) || pick(POWER_UPS)
-      : pick(POWER_UPS);
+    if(forceKind === 'good'){
+      balancePushKind('good');
+      return spawnTargetWithData('good', pick(GOOD));
+    }
 
-    const id = `power_${Date.now()}_${++state.seq}`;
-    const node = DOC.createElement('button');
-    const size = WIN.innerWidth <= 720 ? 62 : 70;
+    if(forceKind === 'junk'){
+      if(recentJunkRun() >= state.balance.junkLimit){
+        balancePushKind('good');
+        return spawnTargetWithData('good', pickGoodByWeakness());
+      }
+
+      balancePushKind('junk');
+      return spawnTargetWithData('junk', pick(JUNK));
+    }
+
+    if(state.balance.forcedWeaknessNext > 0){
+      state.balance.forcedWeaknessNext--;
+      balancePushKind('good');
+      return spawnTargetWithData('good', pickGoodByWeakness());
+    }
+
+    if(state.balance.forcedGoodNext > 0){
+      state.balance.forcedGoodNext--;
+      balancePushKind('good');
+      return spawnTargetWithData('good', pick(GOOD));
+    }
+
+    let jc =
+      tune.junkChance +
+      (state.phase === 2 ? .08 : 0) +
+      (state.phase >= 3 ? .12 : 0) +
+      (state.finalRush ? .14 : 0);
+
+    jc = directorJunkChance(jc);
+
+    const kind = state.rng() < jc ? 'junk' : 'good';
+
+    balancePushKind(kind);
+
+    if(kind === 'good'){
+      return spawnTargetWithData(
+        'good',
+        state.phase >= 2 && state.rng() < .34 ? pickGoodByWeakness() : pick(GOOD)
+      );
+    }
+
+    return spawnTargetWithData('junk', pick(JUNK));
+  }
+
+  function spawnTargetWithData(kind = 'good', data = null){
+    if(state.ended || state.paused || !state.started) return;
+
+    const extra =
+      state.finalRush ? 2 :
+      state.phase >= 3 ? 1 :
+      0;
+
+    if(state.targets.size >= tune.maxTargets + extra) return;
+
+    kind = kind === 'junk' ? 'junk' : 'good';
+    data = data || (kind === 'good' ? pick(GOOD) : pick(JUNK));
+
+    const mobile = isMobileView();
+    const single = state.singleHand.enabled && isMobileView();
+
+    const size = kind === 'good'
+      ? (
+          single
+            ? 46 + Math.floor(state.rng() * 12)
+            : mobile
+              ? 50 + Math.floor(state.rng() * 14)
+              : 58 + Math.floor(state.rng() * 20)
+        )
+      : (
+          single
+            ? 45 + Math.floor(state.rng() * 11)
+            : mobile
+              ? 48 + Math.floor(state.rng() * 13)
+              : 56 + Math.floor(state.rng() * 18)
+        );
+
     const p = pickSafeSpawn(size);
+    const id = `gj_${Date.now()}_${++state.seq}`;
 
+    const node = DOC.createElement('button');
     node.type = 'button';
-    node.className = 'gjTarget foodTarget target gj-food power gjPowerTarget gjTargetPop';
-    node.setAttribute('aria-label', data.label);
+    node.className = `gjTarget foodTarget target gj-food ${kind}`;
     node.textContent = data.emoji;
+    node.setAttribute('aria-label', data.label);
     node.style.left = `${p.x}px`;
     node.style.top = `${p.y}px`;
     node.style.width = `${size}px`;
     node.style.height = `${size}px`;
     node.style.fontSize = `${Math.round(size * .56)}px`;
-    node.style.background = 'radial-gradient(circle at 35% 30%,rgba(255,255,255,.44),rgba(250,204,21,.30),rgba(15,23,42,.88))';
-    node.style.border = '2px solid rgba(250,204,21,.72)';
-    node.style.boxShadow = '0 0 28px rgba(250,204,21,.42), 0 18px 36px rgba(0,0,0,.28)';
+
+    raiseTargetNode(node);
+
+    let speedMul =
+      (
+        state.finalRush ? 1.25 :
+        state.phase >= 3 ? 1.15 :
+        state.phase >= 2 ? 1.08 :
+        1
+      ) * directorScale();
+
+    if(hasSlowTime()){
+      speedMul *= .55;
+    }
+
+    if(isCalmWindow()){
+      speedMul *= .82;
+    }
+
+    const speed = (
+      tune.speedMin +
+      state.rng() * (tune.speedMax - tune.speedMin)
+    ) * speedMul;
+
+    const item = {
+      id,
+      node,
+      kind,
+      data,
+      x: p.x,
+      y: p.y,
+      vx: (state.rng() < .5 ? -1 : 1) * speed,
+      vy: (state.rng() < .5 ? -1 : 1) * speed * .62,
+      size,
+      born: now(),
+      ttl: kind === 'good'
+        ? (
+            state.finalRush ? 2200 :
+            state.phase >= 3 ? 2600 :
+            3400
+          )
+        : (
+            state.finalRush ? 2500 :
+            state.phase >= 3 ? 2900 :
+            3600
+          )
+    };
+
+    node.addEventListener('pointerdown', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      hitTarget(id);
+    }, { passive:false });
+
+    (el.targetLayer || el.gameWorld || el.app || DOC.body).appendChild(node);
+    state.targets.set(id, item);
+
+    setTimeout(() => {
+      raiseTargetNode(node);
+      nudgeTargetOutOfBlockedZone(item);
+    }, 40);
+  }
+
+  function spawnPowerUp(force = ''){
+    if(state.ended || state.paused || !state.started) return;
+
+    const data = force
+      ? POWER_UPS.find(p => p.id === force) || pick(POWER_UPS)
+      : pick(POWER_UPS);
+
+    const size = state.singleHand.enabled && isMobileView()
+      ? 48
+      : isMobileView()
+        ? 52
+        : 70;
+
+    const p = pickSafeSpawn(size);
+    const id = `power_${Date.now()}_${++state.seq}`;
+
+    const node = DOC.createElement('button');
+    node.type = 'button';
+    node.className = 'gjTarget foodTarget target gj-food power gjPowerTarget';
+    node.textContent = data.emoji;
+    node.setAttribute('aria-label', data.label);
+    node.style.left = `${p.x}px`;
+    node.style.top = `${p.y}px`;
+    node.style.width = `${size}px`;
+    node.style.height = `${size}px`;
+    node.style.fontSize = `${Math.round(size * .56)}px`;
+
+    raiseTargetNode(node);
 
     const item = {
       id,
@@ -2140,7 +2672,7 @@ ${level.next}
       ttl: 4800
     };
 
-    on(node, 'pointerdown', ev => {
+    node.addEventListener('pointerdown', ev => {
       ev.preventDefault();
       ev.stopPropagation();
       collectPowerUp(id);
@@ -2148,193 +2680,129 @@ ${level.next}
 
     (el.targetLayer || el.gameWorld || el.app || DOC.body).appendChild(node);
     state.targets.set(id, item);
+
+    setTimeout(() => {
+      nudgeTargetOutOfBlockedZone(item);
+    }, 40);
+  }
+
+  function maybeSpawnPowerUp(){
+    const chance =
+      state.lives <= 1 ? .11 :
+      state.finalRush ? .05 :
+      state.phase >= 2 ? .04 :
+      .025;
+
+    if(state.rng() < chance){
+      spawnPowerUp(state.lives <= 1 ? 'shield' : '');
+    }
   }
 
   function collectPowerUp(id){
     const item = state.targets.get(id);
-    if(!item || item.kind !== 'power') return;
+    if(!item) return;
 
-    const power = item.data;
+    const p = item.data;
+
     removeTarget(id);
 
-    state.powerUpsCollected[power.id] = (state.powerUpsCollected[power.id] || 0) + 1;
+    state.powerUpsCollected[p.id] = (state.powerUpsCollected[p.id] || 0) + 1;
 
-    if(power.id === 'shield'){
+    if(p.id === 'shield'){
       state.activePower.shield++;
-      toast('🛡️ Hero Shield พร้อมกันพลาด 1 ครั้ง!', 1300);
+      toast('🛡️ Shield กันพลาด 1 ครั้ง');
     }
 
-    if(power.id === 'slow'){
-      state.activePower.slowUntil = Date.now() + power.durationSec * 1000;
-      toast('⏳ Slow Time! เป้าหมายช้าลง', 1300);
+    if(p.id === 'slow'){
+      state.activePower.slowUntil = Date.now() + p.durationSec * 1000;
+      toast('⏳ Slow Time!');
     }
 
-    if(power.id === 'magnet'){
-      state.activePower.magnetUntil = Date.now() + power.durationSec * 1000;
-      toast('🧲 Good Magnet! อาหารดีเด่นขึ้น', 1300);
+    if(p.id === 'magnet'){
+      state.activePower.magnetUntil = Date.now() + p.durationSec * 1000;
+      toast('🧲 Good Magnet!');
     }
 
-    if(power.id === 'cleanBlast'){
+    if(p.id === 'cleanBlast'){
       clearJunkTargets();
       state.score += 18;
-      toast('✨ Clean Blast! ล้างขยะบนจอ', 1300);
-      shake();
+      toast('✨ Clean Blast!');
     }
 
-    fx(item.x, item.y, power.label, 'gold');
+    fx(item.x, item.y, p.label, 'gold');
     feedback('power');
     updateHud();
   }
 
-  function maybeSpawnPowerUp(){
-    if(state.ended || state.paused || !state.started) return;
+  function removeTarget(id){
+    const item = state.targets.get(id);
+    if(!item) return;
 
-    const chance =
-      state.lives <= 1 ? 0.11 :
-      state.finalRush ? 0.06 :
-      state.phase >= 2 ? 0.045 :
-      0.03;
+    state.targets.delete(id);
 
-    if(rand() < chance){
-      if(state.lives <= 1) spawnPowerUp('shield');
-      else spawnPowerUp();
+    try{
+      item.node.remove();
+    }catch(_){}
+  }
+
+  function clearTargets(){
+    Array.from(state.targets.keys()).forEach(removeTarget);
+  }
+
+  function clearJunkTargets(){
+    for(const [id, item] of Array.from(state.targets.entries())){
+      if(item.kind === 'junk'){
+        removeTarget(id);
+      }
     }
   }
 
-  function pickJunkByGroup(group){
-    const list = JUNK.filter(j => j.group === group);
-    return list.length ? pick(list) : pick(JUNK);
+  /* ---------- hit / miss ---------- */
+
+  function updateGroups(data){
+    if(['🥦','🥬','🥕'].includes(data.emoji)){
+      state.greenHits++;
+    }
+
+    if(['🐟','🥚','🫘','🥛'].includes(data.emoji)){
+      state.proteinHits++;
+    }
+
+    if(['🍎','🍉'].includes(data.emoji)){
+      state.fruitHits++;
+    }
   }
 
-  function pickGoodByWeakness(){
-    const w = currentWeakness();
-    const list = GOOD.filter(g => w.icons.includes(g.emoji));
-    return list.length ? pick(list) : pick(GOOD);
+  function updateDailyGood(data){
+    const d = state.dailyChallenge;
+
+    if(!d || state.dailyFailed) return;
+
+    if(d.rule === 'collect_group' && data.group === d.value){
+      state.dailyProgress++;
+
+      if(state.dailyProgress === d.target){
+        state.score += 35;
+        toast(`🏅 Daily สำเร็จ! ${d.reward}`);
+      }
+    }
+
+    if(d.rule === 'combo' && state.combo >= d.target && state.dailyProgress < d.target){
+      state.dailyProgress = d.target;
+      state.score += 35;
+      toast(`🏅 Daily สำเร็จ! ${d.reward}`);
+    }
   }
 
-  function spawnSpecificTarget(token = ''){
-    if(state.ended || state.paused || !state.started) return;
+  function updateDailyJunk(data){
+    const d = state.dailyChallenge;
 
-    if(token === 'good') return spawnTarget('good');
-    if(token === 'junk') return spawnTarget('junk');
-    if(token === 'soda') return spawnTargetWithData('junk', pickJunkByGroup('soda'));
-    if(token === 'fried') return spawnTargetWithData('junk', pickJunkByGroup('fried'));
-    if(token === 'sweet') return spawnTargetWithData('junk', pickJunkByGroup('sweet'));
-    if(token === 'burger') return spawnTargetWithData('junk', pickJunkByGroup('fatty'));
-    if(token === 'weakness') return spawnTargetWithData('good', pickGoodByWeakness());
+    if(!d || state.dailyFailed) return;
 
-    if(token === 'lane'){
-      setDangerLane(true);
-      setTimeout(() => setDangerLane(false), 3200);
-      return spawnTarget('junk');
+    if(d.rule === 'avoid_emoji' && data.emoji === d.value){
+      state.dailyFailed = true;
+      toast('Daily พลาดแล้ว แต่ยังชนะบอสได้!');
     }
-
-    return spawnTarget();
-  }
-
-  function spawnTargetWithData(forceKind = 'good', forceData = null){
-    if(state.ended || state.paused || !state.started) return;
-
-    const extra = state.finalRush ? 2 : state.phase >= 3 ? 1 : 0;
-    if(state.targets.size >= tune.maxTargets + extra) return;
-
-    const kind = forceKind === 'junk' ? 'junk' : 'good';
-    const data = forceData || (kind === 'good' ? pick(GOOD) : pick(JUNK));
-
-    const id = `gj_${Date.now()}_${++state.seq}`;
-    const node = DOC.createElement('button');
-
-    const size = kind === 'good'
-      ? 58 + Math.floor(rand() * 20)
-      : 56 + Math.floor(rand() * 18);
-
-    const p = pickSafeSpawn(size);
-    const x = p.x;
-    const y = p.y;
-
-    node.type = 'button';
-    node.className = `gjTarget foodTarget target gj-food ${kind} gjTargetPop`;
-    node.setAttribute('aria-label', data.label);
-    node.textContent = data.emoji;
-    node.style.left = `${x}px`;
-    node.style.top = `${y}px`;
-    node.style.width = `${size}px`;
-    node.style.height = `${size}px`;
-    node.style.fontSize = `${Math.round(size * 0.56)}px`;
-
-    node.style.background = kind === 'good'
-      ? 'radial-gradient(circle at 35% 30%,rgba(255,255,255,.32),rgba(34,197,94,.22),rgba(15,23,42,.86))'
-      : 'radial-gradient(circle at 35% 30%,rgba(255,255,255,.24),rgba(239,68,68,.24),rgba(15,23,42,.88))';
-
-    if(kind === 'good' && isWeaknessData(data)){
-      node.style.border = '2px solid rgba(250,204,21,.86)';
-      node.style.boxShadow = '0 0 30px rgba(250,204,21,.42), 0 18px 36px rgba(0,0,0,.28)';
-    }
-
-    if(kind === 'good' && hasMagnet()){
-      node.style.border = '2px solid rgba(34,197,94,.82)';
-      node.style.boxShadow = '0 0 30px rgba(34,197,94,.42), 0 18px 36px rgba(0,0,0,.28)';
-      node.style.transform = 'translate(-50%,-50%) scale(1.12)';
-    }
-
-    let speedMultiplier =
-      state.finalRush ? 1.35 :
-      state.phase >= 3 ? 1.22 :
-      state.phase >= 2 ? 1.12 :
-      1;
-
-    if(hasSlowTime()){
-      speedMultiplier *= 0.55;
-    }
-
-    const speed = (tune.speedMin + rand() * (tune.speedMax - tune.speedMin)) * speedMultiplier;
-    const vx = (rand() < 0.5 ? -1 : 1) * speed;
-    const vy = (rand() < 0.5 ? -1 : 1) * speed * 0.62;
-
-    const ttl = kind === 'good'
-      ? (state.finalRush ? 2100 : state.phase >= 3 ? 2500 : 3300)
-      : (state.finalRush ? 2400 : state.phase >= 3 ? 2800 : 3500);
-
-    const item = {
-      id,
-      node,
-      kind,
-      data,
-      x,
-      y,
-      vx,
-      vy,
-      size,
-      born: now(),
-      ttl
-    };
-
-    on(node, 'pointerdown', ev => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      hitTarget(id);
-    }, { passive:false });
-
-    (el.targetLayer || el.gameWorld || el.app || DOC.body).appendChild(node);
-    state.targets.set(id, item);
-  }
-
-  function spawnTarget(forceKind = ''){
-    if(forceKind === 'good'){
-      return spawnTargetWithData('good', pick(GOOD));
-    }
-
-    if(forceKind === 'junk'){
-      return spawnTargetWithData('junk', pick(JUNK));
-    }
-
-    let junkChance = tune.junkChance;
-    if(state.phase === 2) junkChance += 0.08;
-    if(state.phase >= 3) junkChance += 0.12;
-    if(state.finalRush) junkChance += 0.16;
-
-    const kind = rand() < junkChance ? 'junk' : 'good';
-    return spawnTargetWithData(kind, kind === 'good' ? pick(GOOD) : pick(JUNK));
   }
 
   function hitTarget(id){
@@ -2344,124 +2812,83 @@ ${level.next}
     if(!item) return;
 
     if(item.kind === 'power'){
-      collectPowerUp(id);
-      return;
+      return collectPowerUp(id);
     }
 
-    const x = item.x;
-    const y = item.y;
-
     if(item.kind === 'good'){
+      directorAfterGood();
+
       let damage = item.data.dmg + Math.floor(state.combo / 7);
 
       if(state.bossShield){
-        damage = Math.max(2, Math.round(damage * 0.35));
-        pulseBossShield();
-      }
-
-      if(state.phase === 1){
-        state.mission.phase1Good++;
+        damage = Math.max(2, Math.round(damage * .35));
       }
 
       state.score += 10 + Math.min(18, state.combo);
       state.good++;
       state.combo++;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
-      state.heroHit = clamp(state.heroHit + item.data.charge + Math.min(7, Math.floor(state.combo / 3)), 0, 100);
+
+      state.heroHit = clamp(
+        state.heroHit + item.data.charge + Math.min(7, Math.floor(state.combo / 3)),
+        0,
+        100
+      );
+
       state.bossHp = clamp(state.bossHp - damage, 0, state.bossMaxHp);
-      state.damageTotal += damage;
 
-      if(damage >= 16 || state.combo % 10 === 0){
-        bigDamageText(damage, state.bossShield ? 'SHIELD' : 'DMG');
-      }
+      updateGroups(item.data);
+      updateDailyGood(item.data);
 
-      updateFoodGroups(item);
-      updateWeaknessMission(item);
-      updateDailyChallengeOnGood(item);
-      microTip('good', item);
-      checkComboSkills();
+      fx(
+        item.x,
+        item.y,
+        state.bossShield ? `โล่ -${damage}` : `-${damage}`,
+        'good'
+      );
 
-      fx(x, y, state.bossShield ? `โล่ -${damage}` : `-${damage}`, state.bossShield ? 'gold' : 'good');
       feedback('good');
 
-      if(state.combo > 0 && state.combo % 8 === 0){
-        toast(`Combo x${state.combo}! HERO HIT ชาร์จเร็วขึ้น ⚡`);
+      if(state.combo % 8 === 0){
+        toast(`Combo x${state.combo}! ⚡`);
       }
     }else{
+      directorAfterMistake();
+
       state.junkHit++;
       state.miss++;
       state.combo = 0;
 
       if(state.activePower.shield > 0){
         state.activePower.shield--;
-        state.shieldBlocks++;
-        toast('🛡️ Hero Shield กันขยะไว้ได้!', 1100);
-        fx(x, y, 'BLOCK!', 'gold');
+        fx(item.x, item.y, 'BLOCK!', 'gold');
+        toast('🛡️ Shield กันไว้ได้!');
       }else{
         state.lives = Math.max(0, state.lives - item.data.penalty);
       }
 
-      state.rage = clamp(state.rage + 10, 0, 100);
-      state.dangerMeter = clamp(state.dangerMeter + 14, 0, 100);
       state.score = Math.max(0, state.score - 8);
+      state.dangerMeter = clamp(state.dangerMeter + 14, 0, 100);
 
-      updateDailyChallengeOnJunk(item);
-      microTip('junk', item);
-      maybeComebackAssist();
+      updateDailyJunk(item.data);
 
-      fx(x, y, 'พลาด!', 'bad');
-      shake();
+      fx(item.x, item.y, 'พลาด!', 'bad');
       feedback('bad');
-
-      if(state.phase >= 2){
-        bossMiniPunish();
-      }
+      directorMaybeAssist();
     }
 
     removeTarget(id);
+
     checkPhase();
     updateHud();
 
     if(state.bossHp <= 0){
       tryWinOrForceRush();
-      return;
     }
 
     if(state.lives <= 0){
       endGame(false);
     }
-  }
-
-  function bossMiniPunish(){
-    if(rand() < 0.38){
-      setTimeout(() => spawnTarget('junk'), 120);
-      setTimeout(() => spawnTarget('junk'), 260);
-      toast('บอสสวนกลับ! ระวังขยะเพิ่ม ⚠️', 950);
-    }
-  }
-
-  function tryWinOrForceRush(){
-    if(state.elapsedSec >= tune.minWinSec && state.finalRush){
-      finishMove();
-      return;
-    }
-
-    state.bossHp = Math.max(1, Math.round(state.bossMaxHp * 0.08));
-    state.finalRush = true;
-    state.phase = 3;
-
-    if(!state.phaseAnnounced.finalRush){
-      state.phaseAnnounced.finalRush = true;
-      toast('🔥 บอสยังไม่ยอมแพ้! Final Rush เริ่มแล้ว!', 1700);
-      bossSay('finalRush', 1400);
-      showPhaseCinematic('finalRush');
-      screenTint('final');
-    }else{
-      safeFinalRushToast(`🔥 ต้องเอาตัวรอดให้ครบ ${tune.minWinSec}s ก่อนปิดฉาก!`, 1400);
-    }
-
-    bossAttack();
-    updateHud();
   }
 
   function missGoodTarget(item){
@@ -2470,10 +2897,13 @@ ${level.next}
     state.combo = 0;
     state.lives = Math.max(0, state.lives - 1);
     state.dangerMeter = clamp(state.dangerMeter + 10, 0, 100);
+
+    directorAfterMistake();
+    directorMaybeAssist();
+
     fx(item.x, item.y, 'หลุด!', 'bad');
-    shake();
     feedback('bad');
-    maybeComebackAssist();
+
     updateHud();
 
     if(state.lives <= 0){
@@ -2482,7 +2912,6 @@ ${level.next}
   }
 
   function updateTargets(dt){
-    const r = worldRect();
     const t = now();
 
     for(const [id, item] of Array.from(state.targets.entries())){
@@ -2490,285 +2919,346 @@ ${level.next}
         item.x += item.vx * dt * 60;
         item.y += item.vy * dt * 60;
 
-        if(item.x < 32 || item.x > r.width - 32) item.vx *= -1;
-        if(item.y < 112 || item.y > r.height - 54) item.vy *= -1;
+        const safe = getSafeArenaRect(item.size);
 
-        item.x = clamp(item.x, 32, r.width - 32);
-        item.y = clamp(item.y, 112, r.height - 54);
+        item.x = clamp(item.x, safe.left, safe.right);
+        item.y = clamp(item.y, safe.top, safe.bottom);
+
+        if(item.x <= safe.left || item.x >= safe.right){
+          item.vx *= -1;
+        }
+
+        if(item.y <= safe.top || item.y >= safe.bottom){
+          item.vy *= -1;
+        }
 
         item.node.style.left = `${item.x}px`;
         item.node.style.top = `${item.y}px`;
 
-        if(state.dangerLaneActive && Math.abs(item.x - state.dangerLaneX) < 38 && item.kind === 'junk'){
-          item.node.style.transform = 'translate(-50%,-50%) scale(1.14)';
-        }else if(!(item.kind === 'good' && hasMagnet())){
-          item.node.style.transform = 'translate(-50%,-50%)';
+        if(state.tapSafety.enabled && Math.random() < .02){
+          nudgeTargetOutOfBlockedZone(item);
         }
       }
 
       if(t - item.born > item.ttl){
         if(item.kind === 'good'){
           missGoodTarget(item);
-        }else if(item.kind === 'junk' && state.phase >= 2){
-          state.mission.phase2Dodge++;
-          if(state.mission.phase2Dodge % 5 === 0){
-            state.score += 6;
-            fx(item.x, item.y, 'หลบดี!', 'good');
-          }
         }
 
         removeTarget(id);
       }
     }
   }
+    /* ---------- boss attack / phase ---------- */
 
-  function useHeroHit(){
-    if(state.ended || state.paused || !state.started) return;
+  function spawnSpecific(token){
+    if(token === 'good') return spawnTarget('good');
+    if(token === 'junk') return spawnTarget('junk');
+    if(token === 'soda') return spawnTargetWithData('junk', pickJunkByGroup('soda'));
+    if(token === 'fried') return spawnTargetWithData('junk', pickJunkByGroup('fried'));
+    if(token === 'sweet') return spawnTargetWithData('junk', pickJunkByGroup('sweet'));
+    if(token === 'burger') return spawnTargetWithData('junk', pickJunkByGroup('fatty'));
+    if(token === 'weakness') return spawnTargetWithData('good', pickGoodByWeakness());
 
-    if(state.heroHit < 100){
-      const need = Math.max(1, Math.ceil(100 - state.heroHit));
-      toast(`HERO HIT ยังไม่เต็ม ต้องการอีก ${need}% ⚡`, 1200);
-
-      const btn = $('gjHeroHitBigBtn');
-      if(btn){
-        btn.style.animation = 'none';
-        void btn.offsetWidth;
-        btn.style.animation = 'gjHeroDenied .28s ease-in-out 1';
-      }
-
-      return;
-    }
-
-    let damage = state.finalRush ? tune.heroHitDmg : Math.round(tune.heroHitDmg * 0.68);
-
-    if(state.bossShield){
-      damage = Math.round(damage * 0.45);
-      toast('🛡️ โล่บอสลดพลัง HERO HIT! ต้องสู้ต่อ!', 1300);
-      pulseBossShield();
-    }
-
-    state.heroHit = 0;
-    state.mission.phase3HeroHit++;
-    state.bossHp = clamp(state.bossHp - damage, 0, state.bossMaxHp);
-    state.score += 35;
-    state.damageTotal += damage;
-
-    clearTargets();
-    shake();
-
-    toast(`HERO HIT! โจมตีบอส -${damage} 👊`, 1400);
-    feedback('hero');
-    bigDamageText(damage, 'HERO HIT');
-    fx(worldRect().width / 2, worldRect().height / 2, 'HERO HIT!', 'gold');
-
-    updateHud();
-
-    if(state.bossHp <= 0){
-      if(state.elapsedSec >= tune.minWinSec && state.finalRush){
-        finishMove();
-      }else{
-        state.bossHp = Math.max(1, Math.round(state.bossMaxHp * 0.10));
-        state.finalRush = true;
-        state.phase = 3;
-        toast('🔥 บอสเข้าสู่ Rage Mode! ยังไม่จบง่าย ๆ!', 1500);
-        showPhaseCinematic('finalRush');
-        screenTint('final');
-        bossAttack();
-        updateHud();
-      }
-    }
+    return spawnTarget();
   }
 
   function bossShieldRegen(){
-    if(state.ended || state.paused || !state.started) return;
-
     state.bossShieldRegenCount++;
 
-    const regenHp = Math.round(state.bossMaxHp * 0.045);
-    state.bossHp = clamp(state.bossHp + regenHp, 1, state.bossMaxHp);
+    const regen = Math.round(state.bossMaxHp * .045);
 
-    if(!state.bossShield){
-      state.bossShield = true;
-      setTimeout(() => {
-        if(state.started && !state.ended){
-          state.bossShield = false;
-          toast('🛡️ โล่ฟื้นชั่วคราวหมดแล้ว!', 1100);
-          updateHud();
-        }
-      }, 5200);
-    }
+    state.bossHp = clamp(state.bossHp + regen, 1, state.bossMaxHp);
+    state.bossShield = true;
 
-    pulseBossShield();
-    bigDamageText(regenHp, 'REGEN');
-    toast(`🍔 Burger Shield ฟื้นพลังบอส +${regenHp}!`, 1500);
+    setTimeout(() => {
+      if(state.started && !state.ended){
+        state.bossShield = false;
+        updateHud();
+      }
+    }, 5200);
+
+    toast(`🍔 บอสฟื้นโล่ +${regen}`);
     updateHud();
   }
 
   function bossAttack(){
-    if(state.ended || state.paused || !state.started) return;
-    if(state.bossSkillCooldownLock) return;
+    if(state.ended || state.paused || !state.started || state.bossSkillCooldownLock) return;
 
     state.bossSkillCooldownLock = true;
+
     setTimeout(() => {
       state.bossSkillCooldownLock = false;
     }, 900);
 
-    let skill = pick(BOSS_IDENTITY.skills);
+    let skill = pick(BOSS.skills);
 
     for(let i = 0; i < 4; i++){
       if(skill.id !== state.lastBossSkillId) break;
-      skill = pick(BOSS_IDENTITY.skills);
+      skill = pick(BOSS.skills);
     }
 
     state.lastBossSkillId = skill.id;
     state.bossSkillUsed[skill.id] = (state.bossSkillUsed[skill.id] || 0) + 1;
 
-    warningFlash(skill.warning);
-    bossSay(
-      state.finalRush ? 'finalRush' :
-      state.phase >= 3 ? 'phase3' :
-      state.phase >= 2 ? 'phase2' :
-      'shield',
-      1300
-    );
+    safeFinalRushToast(`${skill.emoji} ${skill.name}!`, 1200);
+    feedback('boss');
 
-    const baseWave =
+    const base =
       state.finalRush ? 8 :
       state.phase === 3 ? 7 :
       state.phase === 2 ? 6 :
       5;
 
-    const wave = skill.id === 'sodaSplash' ? baseWave + 1 : baseWave;
+    let adjust = 0;
 
-    safeFinalRushToast(`${skill.emoji} ${skill.name} Wave x${wave}!`, 1200);
-    shake();
-    feedback('boss');
-
-    if(skill.id === 'dangerLane' || skill.id === 'friedWall'){
-      setDangerLane(true);
-      setTimeout(() => setDangerLane(false), skill.id === 'friedWall' ? 4200 : 3600);
+    if(state.balance.streakMiss >= 2){
+      adjust--;
     }
+
+    if(state.lives <= 1){
+      adjust--;
+    }
+
+    if(state.balance.streakGood >= 10 && state.lives >= 3){
+      adjust++;
+    }
+
+    const wave = clamp(
+      base + adjust + (skill.id === 'sodaSplash' ? 1 : 0),
+      3,
+      9
+    );
 
     if(skill.shieldRegen){
       setTimeout(() => {
-        if(!state.paused && !state.ended) bossShieldRegen();
+        bossShieldRegen();
       }, Math.max(500, skill.telegraphMs - 250));
     }
-
-    const pattern = skill.pattern || ['junk','junk','good','junk'];
 
     for(let i = 0; i < wave; i++){
       setTimeout(() => {
         if(state.ended || state.paused) return;
 
-        let token = pattern[i % pattern.length];
+        let token = skill.pattern[i % skill.pattern.length];
 
         if(state.finalRush && i === Math.floor(wave / 2)){
           token = 'weakness';
         }
 
-        spawnSpecificTarget(token);
+        spawnSpecific(token);
       }, skill.telegraphMs + i * (skill.waveDelay || 160));
     }
 
-    state.rage = clamp(state.rage + 12, 0, 100);
-    state.dangerMeter = clamp(state.dangerMeter + (skill.dangerGain || 10), 0, 100);
-    state.mission.bossWavesSurvived++;
+    setTimeout(() => {
+      if(!state.ended && !state.paused){
+        spawnTargetWithData('good', pickGoodByWeakness());
+        toast('🎯 โอกาสสวนกลับ!');
+      }
+    }, skill.telegraphMs + wave * (skill.waveDelay || 160) + 420);
+
+    state.dangerMeter = clamp(
+      state.dangerMeter + (skill.dangerGain || 10),
+      0,
+      100
+    );
   }
 
   function checkPhase(){
-    const hpPct = state.bossHp / state.bossMaxHp;
+    const hp = state.bossHp / state.bossMaxHp;
 
     if(state.bossShield && state.elapsedSec >= tune.shieldUntilSec){
       state.bossShield = false;
 
       if(!state.phaseAnnounced.shieldBreak){
         state.phaseAnnounced.shieldBreak = true;
-        toast('🛡️ โล่บอสแตกแล้ว! โจมตีแรงขึ้น!', 1500);
-        bossSay('shieldBreak', 1400);
-        screenTint('storm');
-        shake();
+        toast('🛡️ โล่บอสแตกแล้ว!');
+        setArenaTheme('storm');
       }
     }
 
-    if(!state.finalRush && (hpPct <= tune.finalRushAt || state.timeLeft <= 28)){
+    if(!state.finalRush && (hp <= tune.finalRushAt || state.timeLeft <= 28)){
       state.finalRush = true;
       state.phase = 3;
 
       if(!state.phaseAnnounced.finalRush){
         state.phaseAnnounced.finalRush = true;
-        toast('🔥 FINAL RUSH! บอสคลั่งเต็มพลัง!', 1700);
-        bossSay('finalRush', 1400);
-        showPhaseCinematic('finalRush');
-        screenTint('final');
-        shake();
+        toast('🔥 FINAL RUSH!');
+        setArenaTheme('final');
         bossAttack();
       }
+
       return;
     }
 
-    if(hpPct <= 0.62 && state.phase < 2){
+    if(hp <= .62 && state.phase < 2){
       state.phase = 2;
 
       if(!state.phaseAnnounced.phase2){
         state.phaseAnnounced.phase2 = true;
-        toast('🌪️ Phase 2: Junk Storm เริ่มแล้ว!', 1500);
-        bossSay('phase2', 1400);
-        showPhaseCinematic('phase2');
-        screenTint('storm');
-        shake();
+        toast('🌪️ Phase 2: Junk Storm');
+        setArenaTheme('storm');
         bossAttack();
       }
+
       return;
     }
 
-    if(hpPct <= 0.36 && state.phase < 3){
+    if(hp <= .36 && state.phase < 3){
       state.phase = 3;
 
       if(!state.phaseAnnounced.phase3){
         state.phaseAnnounced.phase3 = true;
-        toast('😡 Phase 3: Boss Rage!', 1500);
-        bossSay('phase3', 1400);
-        showPhaseCinematic('phase3');
-        screenTint('rage');
-        shake();
+        toast('😡 Phase 3: Boss Rage');
+        setArenaTheme('rage');
         bossAttack();
       }
     }
   }
 
+  function setArenaTheme(theme){
+    const n = el.gameWorld || DOC.body;
+
+    n.classList.remove(
+      'gjArenaShield',
+      'gjArenaStorm',
+      'gjArenaRage',
+      'gjArenaFinal'
+    );
+
+    n.classList.add(
+      theme === 'storm'
+        ? 'gjArenaStorm'
+        : theme === 'rage'
+          ? 'gjArenaRage'
+          : theme === 'final'
+            ? 'gjArenaFinal'
+            : 'gjArenaShield'
+    );
+  }
+
+  /* ---------- HERO HIT / finish ---------- */
+
+  function useHeroHit(){
+    if(!clickGuard('hero', 420) || state.heroHitLocked) return;
+
+    state.heroHitLocked = true;
+
+    setTimeout(() => {
+      state.heroHitLocked = false;
+    }, 520);
+
+    if(state.ended || state.paused || !state.started) return;
+
+    if(state.heroHit < 100){
+      toast(`HERO HIT ยังไม่เต็ม ${Math.round(state.heroHit)}%`);
+      return;
+    }
+
+    let dmg = state.finalRush
+      ? tune.heroHitDmg
+      : Math.round(tune.heroHitDmg * .68);
+
+    if(state.bossShield){
+      dmg = Math.round(dmg * .45);
+    }
+
+    state.heroHit = 0;
+    state.bossHp = clamp(state.bossHp - dmg, 0, state.bossMaxHp);
+    state.score += 35;
+
+    clearTargets();
+
+    fx(
+      worldRect().width / 2,
+      worldRect().height / 2,
+      `HERO -${dmg}`,
+      'gold'
+    );
+
+    feedback('hero');
+    updateHud();
+
+    if(state.bossHp <= 0){
+      if(state.finalRush && state.elapsedSec >= tune.minWinSec){
+        finishMove();
+      }else{
+        tryWinOrForceRush();
+      }
+    }
+  }
+
+  function tryWinOrForceRush(){
+    if(state.finalRush && state.elapsedSec >= tune.minWinSec){
+      return finishMove();
+    }
+
+    state.bossHp = Math.max(1, Math.round(state.bossMaxHp * .08));
+    state.finalRush = true;
+    state.phase = 3;
+
+    setArenaTheme('final');
+    toast('🔥 บอสยังไม่ยอมแพ้! Final Rush!');
+    bossAttack();
+    updateHud();
+  }
+
+  function finishMove(){
+    if(state.finishMoveUsed || state.ended || state.summaryRendered) return;
+
+    state.finishMoveUsed = true;
+
+    clearTargets();
+    feedback('hero');
+    toast('HEALTHY FINISH!');
+
+    setTimeout(() => {
+      endGame(true);
+    }, 1050);
+  }
+
+  /* ---------- loop ---------- */
+
   function gameLoop(ts){
     if(state.ended) return;
 
-    if(!state.lastFrame) state.lastFrame = ts;
-    const dt = Math.min(0.05, (ts - state.lastFrame) / 1000);
+    if(!state.lastFrame){
+      state.lastFrame = ts;
+    }
+
+    const dt = Math.min(.05, (ts - state.lastFrame) / 1000);
     state.lastFrame = ts;
 
     if(!state.paused && state.started){
-      state.elapsedSec = Math.max(0, Math.round((Date.now() - state.startTs) / 1000));
+      state.elapsedSec = Math.max(
+        0,
+        Math.round((Date.now() - state.startTs) / 1000)
+      );
+
       state.timeLeft = Math.max(0, state.timeLeft - dt);
 
       checkPhase();
+      directorMaybeAssist();
 
-      const spawnEvery =
-        state.finalRush ? tune.spawnEvery * 0.58 :
-        state.phase >= 3 ? tune.spawnEvery * 0.72 :
-        state.phase >= 2 ? tune.spawnEvery * 0.86 :
+      const spEvery =
+        state.finalRush ? tune.spawnEvery * .58 :
+        state.phase >= 3 ? tune.spawnEvery * .72 :
+        state.phase >= 2 ? tune.spawnEvery * .86 :
         tune.spawnEvery;
 
-      if(ts - state.lastSpawn >= spawnEvery){
+      if(ts - state.lastSpawn >= spEvery){
         state.lastSpawn = ts;
         spawnTarget();
         maybeSpawnPowerUp();
       }
 
-      const attackEvery =
-        state.finalRush ? tune.bossAttackEvery * 0.62 :
-        state.phase >= 3 ? tune.bossAttackEvery * 0.78 :
-        state.phase >= 2 ? tune.bossAttackEvery * 0.9 :
+      const atkEvery =
+        state.finalRush ? tune.bossAttackEvery * .62 :
+        state.phase >= 3 ? tune.bossAttackEvery * .78 :
+        state.phase >= 2 ? tune.bossAttackEvery * .9 :
         tune.bossAttackEvery;
 
-      if(ts - state.lastBossAttack >= attackEvery){
+      if(ts - state.lastBossAttack >= atkEvery){
         state.lastBossAttack = ts;
         bossAttack();
       }
@@ -2777,9 +3267,7 @@ ${level.next}
       updateHud();
 
       if(state.timeLeft <= 0){
-        const winByScore = state.score >= Math.round(state.bossMaxHp * 0.5);
-        const winByBoss = state.bossHp <= 0;
-        endGame(winByBoss || winByScore);
+        endGame(state.bossHp <= 0 || state.score >= Math.round(state.bossMaxHp * .50));
         return;
       }
     }
@@ -2787,73 +3275,135 @@ ${level.next}
     requestAnimationFrame(gameLoop);
   }
 
-  function showIntro(){
-    hideBoot();
-    show(el.introScreen);
-    hide(el.gameScreen);
-    hide(el.summaryScreen);
+  /* ---------- HUD / summary ---------- */
 
-    if(el.pauseOverlay) el.pauseOverlay.classList.remove('show');
+  function updateHud(){
+    state.elapsedSec = state.startTs
+      ? Math.max(0, Math.round((Date.now() - state.startTs) / 1000))
+      : 0;
 
-    if(el.goalText){
-      el.goalText.innerHTML = starGoalIntro().join(' • ');
+    const bossPct = clamp((state.bossHp / state.bossMaxHp) * 100, 0, 100);
+
+    const phaseLabel =
+      state.finalRush ? 'FINAL' :
+      state.phase === 3 ? 'RAGE' :
+      state.phase === 2 ? 'STORM' :
+      state.bossShield ? 'SHIELD' :
+      'HUNT';
+
+    setText(el.scoreText, state.score);
+    setText(el.timerText, Math.ceil(state.timeLeft));
+    setText(el.lifeText, '❤️'.repeat(Math.max(0, state.lives)) || '0');
+    setText(el.phaseText, phaseLabel);
+    setText(el.bossHpText, `${Math.ceil(bossPct)}%`);
+
+    if(el.bossHpFill){
+      el.bossHpFill.style.width = `${bossPct}%`;
     }
+
+    setText(el.heroHitText, `${Math.round(state.heroHit)}%`);
+
+    if(el.heroHitFill){
+      el.heroHitFill.style.width = `${state.heroHit}%`;
+    }
+
+    setText(el.comboText, state.combo);
+    setText(el.goodText, state.good);
+    setText(el.missText, state.miss);
+    setText(el.rageText, state.rage);
+
+    setText($('gjMobileTime'), Math.ceil(state.timeLeft));
+    setText($('gjMobileScore'), state.score);
+    setText($('gjMobileLives'), Math.max(0, state.lives));
+    setText($('gjMobilePhase'), phaseLabel);
+    setText($('gjMobileBossPct'), `${Math.ceil(bossPct)}%`);
+
+    const mb = $('gjMobileBossFill');
+    if(mb){
+      mb.style.width = `${bossPct}%`;
+    }
+
+    const df = $('gjDangerFill');
+    if(df){
+      df.style.width = `${clamp(state.dangerMeter, 0, 100)}%`;
+    }
+
+    const hb = $('gjHeroHitBigBtn');
+    const hp = $('gjHeroHitBigPct');
+
+    if(hp){
+      hp.textContent = `${Math.round(state.heroHit)}%`;
+    }
+
+    if(hb){
+      hb.classList.toggle('ready', state.heroHit >= 100);
+      hb.classList.toggle('not-ready', state.heroHit < 100);
+    }
+
+    updateCoachText();
+    syncSingleHandMode();
+    refreshUiState();
   }
 
-  function startGame(){
-    if(state.started && !state.ended) return;
+  function summaryText(s){
+    const win = s.win;
+    const badge = [];
 
-    setupDailyChallenge();
+    if(win){
+      badge.push('👑 Boss Breaker');
+    }
 
-    hideBoot();
-    hide(el.introScreen);
-    show(el.gameScreen);
-    hide(el.summaryScreen);
+    if(s.bestCombo >= 15){
+      badge.push('⚡ Combo Master');
+    }
 
-    if(el.pauseOverlay) el.pauseOverlay.classList.remove('show');
+    if(s.miss <= 2){
+      badge.push('🌟 Clean Player');
+    }
 
-    state.started = true;
-    state.paused = false;
-    state.ended = false;
-    state.safeExitReady = false;
-    state.startTs = Date.now();
-    state.elapsedSec = 0;
-    state.lastFrame = 0;
-    state.lastSpawn = 0;
-    state.lastBossAttack = now() + 2400;
+    if(s.greenHits >= 8){
+      badge.push('🥦 Green Hero');
+    }
 
-    updateHud();
+    const badges = badge.length
+      ? badge.slice(0, 3).join(' • ')
+      : 'ยังไม่ได้ Badge รอบนี้';
 
-    toast('Phase 1: ทำลายโล่ Junk King! 🛡️👑', 1600);
-    screenTint('shield');
-    showPhaseCinematic('phase1');
+    const title = win
+      ? '🎉 ชนะบอสแล้ว!'
+      : '💪 เกือบชนะแล้ว!';
 
-    setTimeout(() => {
-      bossSay('intro', 1700);
-    }, 450);
+    const good = win
+      ? 'แยกอาหารดีและรับมือบอสได้ดีขึ้น'
+      : 'เริ่มเก็บอาหารดีได้แล้ว';
 
-    setTimeout(() => {
-      starGoalIntro().forEach((line, i) => {
-        setTimeout(() => toast(line, 1500), i * 900);
-      });
-    }, 1300);
+    const caution = s.junkHit >= s.missedGood
+      ? 'ระวังอาหารขยะ เช่น น้ำอัดลม ของทอด และของหวาน'
+      : 'อย่าปล่อยอาหารดีหลุด เพราะช่วยชาร์จ HERO HIT';
 
-    requestAnimationFrame(gameLoop);
-  }
+    const next = win
+      ? 'ครั้งหน้าลองรักษา Combo ให้ยาวขึ้น'
+      : 'ครั้งหน้าดูจุดอ่อนบอสก่อนแตะ';
 
-  function pauseGame(){
-    if(!state.started || state.ended) return;
-    state.paused = true;
-    if(el.pauseOverlay) el.pauseOverlay.classList.add('show');
-    toast('พักเกม');
-  }
+    return `${title}
 
-  function resumeGame(){
-    if(!state.started || state.ended) return;
-    state.paused = false;
-    state.lastFrame = 0;
-    if(el.pauseOverlay) el.pauseOverlay.classList.remove('show');
-    toast('เล่นต่อ!');
+✅ ทำได้ดี:
+${good}
+
+⚠️ ระวัง:
+${caution}
+
+🏅 Badge:
+${badges}
+
+🎯 Daily:
+${s.dailyChallengeTitle ? (s.dailyFailed ? 'พลาดแล้ว ลองใหม่พรุ่งนี้นะ' : 'พยายามต่อได้ดีมาก') : 'ไม่มี Daily Challenge'}
+
+💡 บทเรียน:
+ผัก ผลไม้ และโปรตีนดีช่วยให้ Hero แข็งแรง
+
+➡️ ครั้งหน้า:
+${next}`;
   }
 
   function saveSummary(win){
@@ -2862,6 +3412,7 @@ ${level.next}
       mode: 'solo-boss',
       pid: CFG.pid,
       name: CFG.name,
+
       score: state.score,
       scoreFinal: state.score,
       good: state.good,
@@ -2874,102 +3425,197 @@ ${level.next}
       win,
       bossDefeated: win,
       bestCombo: state.bestCombo,
-      bossWavesSurvived: state.mission.bossWavesSurvived,
-      heroHitUsed: state.mission.phase3HeroHit,
-      phase1Good: state.mission.phase1Good,
-      phase2Dodge: state.mission.phase2Dodge,
-      dailyChallengeId: state.dailyChallenge?.id || '',
-      dailyChallengeTitle: state.dailyChallenge?.title || '',
-      dailyReward: state.dailyChallenge && !state.dailyFailed ? state.dailyChallenge.reward : '',
-      dailyFailed: state.dailyFailed,
-      dailyProgress: state.dailyProgress,
+
       greenHits: state.greenHits,
       proteinHits: state.proteinHits,
       fruitHits: state.fruitHits,
-      comebackTriggered: state.comebackTriggered,
-      finishMoveUsed: state.finishMoveUsed,
-      dangerMeter: state.dangerMeter,
-      weaknessHits: state.weaknessMission.hits,
+
+      dailyChallengeId: state.dailyChallenge?.id || '',
+      dailyChallengeTitle: state.dailyChallenge?.title || '',
+      dailyFailed: state.dailyFailed,
+      dailyProgress: state.dailyProgress,
+
       bossSkillUsed: { ...state.bossSkillUsed },
-      bossShieldRegenCount: state.bossShieldRegenCount,
-      lastBossSkillId: state.lastBossSkillId,
       powerUpsCollected: { ...state.powerUpsCollected },
-      shieldBlocks: state.shieldBlocks,
-      damageTotal: state.damageTotal,
-      microTipsShown: state.microTipsShown,
-      heroHitFinalPct: Math.round(state.heroHit),
-      dangerMeterFinal: Math.round(state.dangerMeter),
-      sfxEnabled: state.sfxEnabled,
-      vibrateEnabled: state.vibrateEnabled,
-      safeExitTarget: CFG.hub || '',
-      exitTargetType: isCooldownHub() ? 'cooldown-gate' : 'zone',
-      kidSummaryLevel: kidLevel().title,
-      learningTip: learningTipForSummary({
-        miss: state.miss,
-        accPct: calcAccuracy(),
-        junkHit: state.junkHit,
-        missedGood: state.missedGood
-      }),
+
       durationSec: Math.max(0, Math.round((Date.now() - state.startTs) / 1000)),
-      endedAt: new Date().toISOString(),
-      patch: PATCH
+
+      exitTargetType: isCooldownHub() ? 'cooldown-gate' : 'zone',
+      safeExitTarget: resolveExitHref(),
+
+      calibration: {
+        lastSafeRect: state.calibration.lastSafeRect,
+        lastBlockedElement: state.calibration.lastBlockedElement
+      },
+
+      tapSafety: {
+        blockedTapCount: state.tapSafety.blockedTapCount,
+        forcedRaisedTargets: state.tapSafety.forcedRaisedTargets
+      },
+
+      finalLock: {
+        version: state.finalLock.version,
+        domReady: state.finalLock.domReady,
+        layoutReady: state.finalLock.layoutReady,
+        tapReady: state.finalLock.tapReady,
+        flowReady: state.finalLock.flowReady
+      },
+
+      patch: PATCH,
+      endedAt: new Date().toISOString()
     };
 
-    payload.resultBadges = getBadges(payload);
-    payload.bossBookTip = bossBookSummaryTip();
-
     try{
-      localStorage.setItem(`HHA_LAST_SUMMARY:goodjunk:${CFG.pid || 'anon'}`, JSON.stringify(payload));
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-        ts: Date.now(),
-        payload,
-        ...payload
-      }));
+      localStorage.setItem(
+        `HHA_LAST_SUMMARY:goodjunk:${CFG.pid || 'anon'}`,
+        JSON.stringify(payload)
+      );
+
+      localStorage.setItem(
+        'HHA_LAST_SUMMARY',
+        JSON.stringify({
+          ts: Date.now(),
+          payload,
+          ...payload
+        })
+      );
     }catch(_){}
 
     return payload;
   }
 
   function endGame(win){
-    if(state.ended) return;
+    if(state.ended || state.summaryRendered) return;
 
     state.ended = true;
+    state.summaryRendered = true;
     state.paused = false;
     state.safeExitReady = true;
     state.endTs = Date.now();
 
     clearTargets();
-    setDangerLane(false);
 
     hide(el.gameScreen);
     hide(el.introScreen);
     show(el.summaryScreen);
 
-    if(el.pauseOverlay) el.pauseOverlay.classList.remove('show');
-
-    const summary = saveSummary(win);
+    const s = saveSummary(win);
 
     setText(el.summaryTitle, win ? 'ชนะ Junk King แล้ว!' : 'หมดพลังแล้ว');
-    setText(el.summaryScore, summary.score);
-    setText(el.summaryGood, summary.good);
-    setText(el.summaryMiss, summary.miss);
-    setText(el.summaryStars, summary.stars);
-
-    if(el.summaryScore) el.summaryScore.title = 'คะแนนรวม';
-    if(el.summaryGood) el.summaryGood.title = 'จำนวนอาหารดีที่เก็บได้';
-    if(el.summaryMiss) el.summaryMiss.title = 'จำนวนครั้งที่พลาด';
-    if(el.summaryStars) el.summaryStars.title = 'ดาวจากผลงาน';
+    setText(el.summaryScore, s.score);
+    setText(el.summaryGood, s.good);
+    setText(el.summaryMiss, s.miss);
+    setText(el.summaryStars, s.stars);
 
     if(el.summaryTip){
-      el.summaryTip.textContent = renderKidSummary(summary);
+      el.summaryTip.textContent = summaryText(s);
     }
 
     updateExitButtonLabels();
+    refreshUiState();
 
-    if(win) feedback('win');
-    else feedback('bad');
+    feedback(win ? 'win' : 'bad');
+    toast(win ? 'Victory! 🎉' : 'ลองใหม่อีกครั้งนะ 💪');
 
-    toast(win ? 'Victory! 🎉' : 'ลองใหม่อีกครั้งนะ 💪', 1500);
+    runFinalLockCheck('endGame');
+  }
+    /* ---------- start / pause / boot ---------- */
+
+  function showIntro(){
+    hide(el.boot);
+    show(el.introScreen);
+    hide(el.gameScreen);
+    hide(el.summaryScreen);
+
+    setupDailyChallenge();
+    updateCoachText();
+    refreshUiState();
+  }
+
+  function startGame(){
+    if(!clickGuard('start', 900) || state.startLocked) return;
+
+    state.startLocked = true;
+
+    setTimeout(() => {
+      state.startLocked = false;
+    }, 1000);
+
+    if(state.started && !state.ended) return;
+
+    setupDailyChallenge();
+
+    hide(el.boot);
+    hide(el.introScreen);
+    show(el.gameScreen);
+    hide(el.summaryScreen);
+
+    state.started = true;
+    state.paused = false;
+    state.ended = false;
+    state.safeExitReady = false;
+    state.summaryRendered = false;
+
+    state.startTs = Date.now();
+    state.lastFrame = 0;
+    state.lastSpawn = 0;
+    state.lastBossAttack = now() + 2400;
+
+    setArenaTheme('shield');
+    refreshUiState();
+    updateHud();
+    runFinalLockCheck('startGame');
+
+    toast('Phase 1: ทำลายโล่ Junk King! 🛡️👑', 1600);
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function pauseGame(){
+    if(!state.started || state.ended) return;
+
+    state.paused = true;
+    refreshUiState();
+    toast('พักเกม');
+    runFinalLockCheck('pause');
+  }
+
+  function resumeGame(){
+    if(!state.started || state.ended) return;
+
+    state.paused = false;
+    state.lastFrame = 0;
+    refreshUiState();
+    toast('เล่นต่อ!');
+    runFinalLockCheck('resume');
+  }
+
+  function bindWorldTapDebug(){
+    const world = el.gameWorld || $('gameWorld');
+
+    if(!world || world.dataset.tapDebugReady === '1') return;
+
+    world.dataset.tapDebugReady = '1';
+
+    world.addEventListener('pointerdown', ev => {
+      state.calibration.lastTapX = ev.clientX;
+      state.calibration.lastTapY = ev.clientY;
+
+      const isTarget = ev.target?.classList?.contains('gjTarget');
+
+      if(isTarget){
+        state.tapSafety.lastTargetTapAt = Date.now();
+        return;
+      }
+
+      const top = DOC.elementFromPoint(ev.clientX, ev.clientY);
+
+      state.calibration.lastBlockedElement = top
+        ? `${top.tagName || ''}#${top.id || ''}.${String(top.className || '').slice(0, 80)}`
+        : '';
+
+      state.tapSafety.lastEmptyTapAt = Date.now();
+    }, { passive:true });
   }
 
   function bindEvents(){
@@ -2979,8 +3625,8 @@ ${level.next}
     on(el.introStartBtn, 'click', startGame);
     on(el.introBackBtn, 'click', goHub);
 
-    on(el.backBtn, 'click', goHub);
     on(el.pauseBtn, 'click', pauseGame);
+    on(el.backBtn, 'click', goHub);
     on(el.resumeBtn, 'click', resumeGame);
 
     on(el.pauseResumeBtn, 'click', resumeGame);
@@ -2989,17 +3635,13 @@ ${level.next}
     on(el.summaryReplayBtn, 'click', replayGame);
     on(el.summaryBackBtn, 'click', goHub);
 
-    on(el.replayBtn, 'click', replayGame);
-    on(el.restartBtn, 'click', replayGame);
-    on(el.homeBtn, 'click', goHub);
-    on(el.hubBtn, 'click', goHub);
-    on(el.backHubBtn, 'click', goHub);
-
     on(el.heroHitBtn, 'click', useHeroHit);
 
     on(WIN, 'resize', () => {
+      cacheElements();
+      syncSingleHandMode();
+      runFinalLockCheck('resize');
       updateHud();
-      if(state.dangerLaneActive) drawDangerLane();
     });
 
     on(DOC, 'visibilitychange', () => {
@@ -3008,16 +3650,14 @@ ${level.next}
       }
     });
 
-    on(WIN, 'hha:goodjunk:solo:start', () => {
-      startGame();
-    });
-
-    on(DOC, 'hha:goodjunk:solo:start', () => {
-      startGame();
-    });
+    on(WIN, 'hha:goodjunk:solo:start', startGame);
+    on(DOC, 'hha:goodjunk:solo:start', startGame);
 
     on(WIN, 'keydown', ev => {
-      if(ev.key === 'Escape') pauseGame();
+      if(ev.key === 'Escape'){
+        pauseGame();
+      }
+
       if(ev.key === ' '){
         ev.preventDefault();
         useHeroHit();
@@ -3025,72 +3665,119 @@ ${level.next}
     });
   }
 
-  function ensureRequiredDom(){
-    let app = $('gjSoloBossApp') || $('app');
+  /* ---------- final lock ---------- */
 
-    if(!app){
-      app = DOC.createElement('main');
-      app.id = 'gjSoloBossApp';
-      app.className = 'gj-solo-boss-app';
-      DOC.body.appendChild(app);
+  function requiredFinalElements(){
+    return [
+      'gjSoloBossApp',
+      'introScreen',
+      'gameScreen',
+      'summaryScreen',
+      'gameWorld',
+      'targetLayer',
+      'fxLayer',
+      'bossAvatar',
+      'bossHpFill',
+      'heroHitBtn',
+      'heroHitText',
+      'summaryBackBtn'
+    ];
+  }
+
+  function finalLockWarn(msg, data = null){
+    state.finalLock.warnings.push({
+      t: Date.now(),
+      msg,
+      data
+    });
+
+    if(state.finalLock.warnings.length > 20){
+      state.finalLock.warnings.shift();
     }
 
-    function add(id, tag = 'div', parent = app){
-      let n = $(id);
-      if(!n){
-        n = DOC.createElement(tag);
-        n.id = id;
-        parent.appendChild(n);
+    console.warn('[GoodJunk FinalLock]', msg, data || '');
+  }
+
+  function finalLockError(msg, err = null){
+    state.finalLock.errors.push({
+      t: Date.now(),
+      msg,
+      err: String(err?.stack || err?.message || err || '')
+    });
+
+    if(state.finalLock.errors.length > 20){
+      state.finalLock.errors.shift();
+    }
+
+    console.error('[GoodJunk FinalLock]', msg, err || '');
+  }
+
+  function runFinalLockCheck(reason = 'manual'){
+    try{
+      state.finalLock.lastCheckAt = Date.now();
+
+      if(requiredFinalElements().filter(id => !$(id)).length){
+        ensureRequiredDom();
+        cacheElements();
       }
-      return n;
+
+      ensureFxStyle();
+      ensureMobileHud();
+      ensureFeedbackControls();
+      ensureTapPriority();
+      syncSingleHandMode();
+      readFlowSafety();
+      bindWorldTapDebug();
+
+      state.finalLock.domReady =
+        requiredFinalElements().filter(id => !$(id)).length === 0;
+
+      const safe = getSafeArenaRect(60);
+
+      state.finalLock.layoutReady =
+        !!safe &&
+        safe.bottom > safe.top &&
+        safe.bottom - safe.top >= 120;
+
+      state.finalLock.tapReady =
+        !!$('targetLayer') &&
+        getComputedStyle($('targetLayer')).pointerEvents === 'none';
+
+      state.finalLock.flowReady = !!resolveExitHref();
+      state.finalLock.calibrationReady = !!state.calibration.lastSafeRect;
+
+      state.finalLock.singleHandReady =
+        !isMobileView() ||
+        (el.app || DOC.body).classList.contains('gjSingleHandMode');
+
+      refreshUiState();
+
+      const ok =
+        state.finalLock.domReady &&
+        state.finalLock.layoutReady &&
+        state.finalLock.tapReady &&
+        state.finalLock.flowReady &&
+        state.finalLock.calibrationReady &&
+        state.finalLock.singleHandReady;
+
+      if(!ok){
+        finalLockWarn('final lock not fully ready', {
+          reason,
+          finalLock: { ...state.finalLock }
+        });
+      }
+
+      return ok;
+    }catch(err){
+      finalLockError('final lock failed', err);
+      return false;
     }
-
-    add('introScreen', 'section');
-    add('gameScreen', 'section');
-    add('summaryScreen', 'section');
-
-    add('introStartBtn', 'button');
-    add('introBackBtn', 'button');
-    add('backBtn', 'button');
-    add('pauseBtn', 'button');
-    add('resumeBtn', 'button');
-    add('summaryReplayBtn', 'button');
-    add('summaryBackBtn', 'button');
-
-    add('scoreText');
-    add('timerText');
-    add('lifeText');
-    add('phaseText');
-    add('bossHpText');
-    add('heroHitText');
-    add('heroHitBtn', 'button');
-    add('bossHpFill');
-    add('heroHitFill');
-    add('coachText');
-    add('announcer');
-    add('toast');
-    add('toastText');
-    add('comboText');
-    add('goodText');
-    add('missText');
-    add('rageText');
-
-    add('gameWorld');
-    add('targetLayer');
-    add('fxLayer');
-
-    add('summaryTitle');
-    add('summaryScore');
-    add('summaryGood');
-    add('summaryMiss');
-    add('summaryStars');
-    add('summaryTip');
-
-    cacheElements();
   }
 
   function boot(root, cfg){
-    if(state.booted) return;
+    if(state.bootStarted || state.booted) return;
+
+    state.bootStarted = true;
     state.booted = true;
 
     try{
@@ -3101,11 +3788,12 @@ ${level.next}
       ensureFxStyle();
       ensureRequiredDom();
       cacheElements();
-      updateExitButtonLabels();
+      readFlowSafety();
+      syncSingleHandMode();
       bindEvents();
+      runFinalLockCheck('boot');
+      updateExitButtonLabels();
       updateHud();
-
-      if(el.bootStatus) el.bootStatus.textContent = 'Game engine ready';
 
       if(CFG.run === 'play' || qs.get('autostart') === '1'){
         setTimeout(startGame, 220);
@@ -3119,9 +3807,15 @@ ${level.next}
       });
     }catch(err){
       console.error('[GoodJunk Solo Boss] boot failed', err);
-      showBootError(err);
+
+      if(el.bootError){
+        el.bootError.style.display = 'block';
+        el.bootError.textContent = String(err?.stack || err);
+      }
     }
   }
+
+  /* ---------- debug API ---------- */
 
   WIN.bootGoodJunkSoloBoss = boot;
 
@@ -3133,16 +3827,156 @@ ${level.next}
   WIN.GoodJunkSoloBoss = {
     PATCH,
     boot,
+
     start(root, cfg){
       boot(root, cfg);
       startGame();
     },
+
     pause: pauseGame,
     resume: resumeGame,
     goHub,
     useHeroHit,
+
+    setSingleHandMode(on = true, side = ''){
+      state.singleHand.enabled = !!on;
+
+      if(side === 'left' || side === 'right'){
+        state.singleHand.side = side;
+      }
+
+      syncSingleHandMode();
+      updateHud();
+
+      return this.debugSingleHand();
+    },
+
+    setSafeAdjust(top = 0, bottom = 0, side = 0){
+      state.calibration.safeTopAdjust = Number(top) || 0;
+      state.calibration.safeBottomAdjust = Number(bottom) || 0;
+      state.calibration.safeSideAdjust = Number(side) || 0;
+
+      getSafeArenaRect(60);
+      ensureSafeAreaOverlay();
+
+      return this.debugCalibration();
+    },
+
+    toggleSafeOverlay(on){
+      state.calibration.debugOverlay = typeof on === 'boolean'
+        ? on
+        : !state.calibration.debugOverlay;
+
+      getSafeArenaRect(60);
+      ensureSafeAreaOverlay();
+
+      return this.debugCalibration();
+    },
+
+    debugFlow(){
+      return {
+        patch: PATCH,
+        cfg: { ...CFG },
+        flow: { ...state.flow },
+        exitHref: resolveExitHref(),
+        isCooldownHub: isCooldownHub(),
+        started: state.started,
+        ended: state.ended
+      };
+    },
+
+    debugLayout(){
+      return {
+        patch: PATCH,
+        safeArena: getSafeArenaRect(60),
+        mobile: isMobileView(),
+        viewport: {
+          w: WIN.innerWidth,
+          h: WIN.innerHeight
+        },
+        hero: visibleRect($('gjHeroHitBigBtn')),
+        danger: visibleRect($('gjDangerMeter')),
+        coach: visibleRect($('coachText')) || visibleRect(DOC.querySelector('.gjCompatCoach')),
+        hud: visibleRect($('gjMobileHud')),
+        boss: visibleRect(el.bossAvatar)
+      };
+    },
+
+    debugTap(){
+      const targets = Array.from(state.targets.values()).map(item => {
+        const r = item.node.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const top = DOC.elementFromPoint(cx, cy);
+
+        return {
+          id: item.id,
+          kind: item.kind,
+          x: Math.round(item.x),
+          y: Math.round(item.y),
+          size: item.size,
+          topElementId: top?.id || '',
+          topElementClass: String(top?.className || '').slice(0, 80),
+          covered: isPointCoveredByUi(cx, cy, item.node)
+        };
+      });
+
+      return {
+        patch: PATCH,
+        targetCount: state.targets.size,
+        blockedTapCount: state.tapSafety.blockedTapCount,
+        targets
+      };
+    },
+
+    debugCalibration(){
+      return {
+        patch: PATCH,
+        calibration: { ...state.calibration },
+        safeArena: getSafeArenaRect(60),
+        viewport: {
+          w: WIN.innerWidth,
+          h: WIN.innerHeight
+        },
+        lastBlockedElement: state.calibration.lastBlockedElement
+      };
+    },
+
+    debugSingleHand(){
+      return {
+        patch: PATCH,
+        enabled: state.singleHand.enabled,
+        side: state.singleHand.side,
+        active: state.singleHand.enabled && isMobileView(),
+        safeArena: getSafeArenaRect(60),
+        viewport: {
+          w: WIN.innerWidth,
+          h: WIN.innerHeight
+        }
+      };
+    },
+
+    debugFinal(){
+      runFinalLockCheck('debugFinal');
+
+      return {
+        patch: PATCH,
+        finalLock: { ...state.finalLock },
+        flow: { ...state.flow },
+        safeArena: getSafeArenaRect(60),
+        requiredMissingNow: requiredFinalElements().filter(id => !$(id)),
+        targetCount: state.targets.size,
+        targets: this.debugTap().targets
+      };
+    },
+
+    debugHealth(){
+      return this.debugFinal();
+    },
+
     getState(){
-      return JSON.parse(JSON.stringify({
+      return {
+        patch: PATCH,
         score: state.score,
         good: state.good,
         miss: state.miss,
@@ -3152,12 +3986,10 @@ ${level.next}
         timeLeft: state.timeLeft,
         phase: state.phase,
         finalRush: state.finalRush,
-        bossShield: state.bossShield,
-        elapsedSec: state.elapsedSec,
-        dailyChallenge: state.dailyChallenge,
-        dangerMeter: state.dangerMeter,
-        patch: PATCH
-      }));
+        started: state.started,
+        paused: state.paused,
+        ended: state.ended
+      };
     }
   };
 
