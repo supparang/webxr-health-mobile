@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504e-HANDWASH-SUMMARY-METRICS-FIX -->
+<!-- FULL PATCH v20260504f-HANDWASH-VR-COOLDOWN-ZONE-FINAL -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2400,7 +2400,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
     (function(){
       'use strict';
 
-      const VERSION = '20260504-HANDWASH-PATCH9-LOCAL-TEACHER-MERGED';
+      const VERSION = '20260504f-HANDWASH-VR-COOLDOWN-ZONE-FINAL';
       const qs = new URLSearchParams(location.search);
       const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
       const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
@@ -4297,13 +4297,10 @@ function normalizeHeroReturnUrl(raw){
 
 function getCleanHygieneReturnUrl(){
   /*
-    Canonical return priority:
-    1) back if it is hygiene-zone.html
-    2) return if it is hygiene-zone.html
-    3) nextZone if it is hygiene-zone.html
-    4) hub only if it is hygiene-zone.html
-    5) exact requested Hygiene Zone fallback
-    Warmup/cooldown gate URLs are intentionally rejected.
+    Final canonical return:
+    - Prefer back / return / nextZone / hub ONLY when they are hygiene-zone.html.
+    - Reject warmup-gate.html, cooldown gate, and hub.html as zone return.
+    - Fallback to the exact Hygiene Zone URL requested by the user.
   */
   const candidates = [
     qs.get('back'),
@@ -4330,60 +4327,48 @@ function getCleanHygieneReturnUrl(){
 }
 
 function getHygieneZoneHref(){
-        const fallback = new URL('../hygiene-zone.html', location.href);
-        const fromHub = qs.get('hub') || '';
-        if(fromHub && /hygiene-zone\.html/i.test(fromHub)){
-          return fromHub;
-        }
-        const direct = qs.get('back') || qs.get('return') || qs.get('nextZone') || '';
-        if(direct && /hygiene-zone\.html/i.test(direct)){
-          return direct;
-        }
-        const keep = {
-          pid:qs.get('pid') || 'anon',
-          name:qs.get('name') || qs.get('nick') || 'Hero',
-          nick:qs.get('nick') || qs.get('name') || 'Hero',
-          diff:qs.get('diff') || rush.diff || 'normal',
-          time:qs.get('time') || String(state.timeLeft || 90),
-          view:qs.get('view') || 'mobile',
-          zone:'hygiene',
-          cat:'hygiene'
-        };
-        Object.entries(keep).forEach(([k,v]) => {
-          if(v !== '' && v != null) fallback.searchParams.set(k, String(v));
-        });
-        fallback.searchParams.set('hub', qs.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
-        return fallback.toString();
-      }
+  return getCleanHygieneReturnUrl();
+}
 
-      function buildHandwashCooldownHref(){
-        const cooldown = new URL('../warmup-gate.html', location.href);
-        const hygiene = getHygieneZoneHref();
-        const keep = {
-          pid:qs.get('pid') || 'anon',
-          name:qs.get('name') || qs.get('nick') || 'Hero',
-          nick:qs.get('nick') || qs.get('name') || 'Hero',
-          diff:qs.get('diff') || rush.diff || 'normal',
-          time:qs.get('time') || String(state.timeLeft || 90),
-          view:qs.get('view') || 'mobile',
-          run:qs.get('run') || 'play',
-          zone:'hygiene',
-          cat:'hygiene',
-          game:'handwash',
-          gameId:'handwash',
-          mode:'solo',
-          entry:'handwash',
-          phase:'cooldown',
-          next:hygiene,
-          hub:hygiene
-        };
-        Object.entries(keep).forEach(([k,v]) => {
-          if(v !== '' && v != null) cooldown.searchParams.set(k, String(v));
-        });
-        return cooldown.toString();
-      }
+function buildHandwashCooldownHref(){
+  const cooldown = heroUrl('warmup-gate.html');
+  const hygiene = getHygieneZoneHref();
 
-      function goHygieneAfterHandwash(){
+  const keep = {
+    pid:qs.get('pid') || 'anon',
+    name:qs.get('name') || qs.get('nick') || 'Hero',
+    nick:qs.get('nick') || qs.get('name') || 'Hero',
+    diff:qs.get('diff') || rush.diff || 'normal',
+    time:qs.get('time') || String(state.timeLeft || 90),
+    view:qs.get('view') || 'mobile',
+    run:qs.get('run') || 'play',
+    zone:'hygiene',
+    cat:'hygiene',
+    game:'handwash',
+    gameId:'handwash',
+    mode:'solo',
+    entry:'handwash',
+    theme:'handwash',
+    launcher:qs.get('launcher') || 'handwash-launcher',
+    phase:'cooldown',
+    gatePhase:'cooldown',
+    next:hygiene,
+    return:hygiene,
+    back:hygiene,
+    hub:hygiene,
+    hubRoot:qs.get('hubRoot') || qs.get('rootHub') || DEFAULT_HUB_ROOT,
+    cdnext:hygiene,
+    seed:qs.get('seed') || String(Date.now())
+  };
+
+  Object.entries(keep).forEach(([k,v]) => {
+    if(v !== '' && v != null) cooldown.searchParams.set(k, String(v));
+  });
+
+  return cooldown.toString();
+}
+
+function goHygieneAfterHandwash(){
         const useCooldown = qs.get('cooldown') !== '0' && qs.get('skipCooldown') !== '1';
         try{
           sessionStorage.setItem('HHA_HANDWASH_LAST_RETURN', getHygieneZoneHref());
