@@ -1,10 +1,9 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505-BRUSH-KIDS-ZONE-MOUSE-FIX-CORE-FLOW -->
-<!-- Fix:
-     - Mouse / touch / pointer can select tooth zones.
-     - Core Brush Kids flow:
-       howto -> main brushing -> Cavity Boss -> summary -> cooldown/zone
-     - Compatible with /herohealth/brush-vr-kids.html + /herohealth/warmup-gate.html.
+<!-- FULL PATCH v20260505-BRUSH-KIDS-MOUTH-SIM-REDESIGN -->
+<!-- Patch 3:
+     - Redesign main gameplay into child-friendly mouth simulation
+     - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
+     - Mouse / touch / pointer brushing on real mouth-like zones
 -->
 
 <!doctype html>
@@ -12,7 +11,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Brush Kids</title>
+  <title>HeroHealth • Brush Kids Mouth Simulation</title>
   <meta name="theme-color" content="#dffaff" />
   <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
@@ -24,48 +23,43 @@
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
 
-      --bg1:#f8feff;
-      --bg2:#e8fbff;
+      --bg1:#f7feff;
+      --bg2:#eafcff;
       --card:#ffffff;
       --line:#cdeffc;
       --ink:#17384f;
       --muted:#5f7f92;
 
-      --sky:#8be8ff;
-      --cyan:#22d3ee;
+      --cyan:#8be8ff;
+      --cyan2:#22d3ee;
       --green:#80df96;
       --yellow:#ffd95d;
       --pink:#ffc8de;
-      --violet:#bca7ff;
-      --bad:#ef4444;
+      --pink2:#ff9fd0;
+      --red:#ef4444;
 
       --shadow:0 18px 42px rgba(23,56,79,.12);
       --shadow-soft:0 10px 24px rgba(23,56,79,.08);
     }
 
     *{ box-sizing:border-box; }
-
-    html,
-    body{
+    html,body{
       margin:0;
       min-height:100%;
       -webkit-text-size-adjust:100%;
       -webkit-tap-highlight-color:transparent;
     }
-
     body{
       min-height:100dvh;
-      overflow-x:hidden;
       color:var(--ink);
+      overflow-x:hidden;
       font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
       background:
         radial-gradient(circle at 12% 5%, rgba(255,255,255,.95), transparent 24%),
         radial-gradient(circle at 88% 8%, rgba(255,217,93,.24), transparent 25%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
-
-    button,
-    a{
+    button,a{
       font:inherit;
       -webkit-tap-highlight-color:transparent;
       touch-action:manipulation;
@@ -90,10 +84,9 @@
       top:0;
       z-index:40;
       display:flex;
-      align-items:center;
       justify-content:space-between;
       gap:10px;
-      padding:2px 0 8px;
+      align-items:center;
       backdrop-filter:blur(12px);
       -webkit-backdrop-filter:blur(12px);
     }
@@ -110,18 +103,16 @@
       background:rgba(255,255,255,.92);
       box-shadow:var(--shadow-soft);
     }
-
     .brandIcon{
       width:44px;
       height:44px;
-      border-radius:17px;
+      border-radius:16px;
       display:grid;
       place-items:center;
       background:linear-gradient(180deg,#dffaff,#bdf4ff);
-      font-size:25px;
+      font-size:24px;
       flex:0 0 auto;
     }
-
     .brand strong{
       display:block;
       color:#12324b;
@@ -129,7 +120,6 @@
       line-height:1.05;
       font-weight:1000;
     }
-
     .brand small{
       display:block;
       margin-top:2px;
@@ -141,11 +131,9 @@
     .topActions{
       display:flex;
       gap:8px;
-      align-items:center;
-      justify-content:flex-end;
       flex-wrap:wrap;
+      justify-content:flex-end;
     }
-
     .iconBtn{
       width:52px;
       height:52px;
@@ -161,8 +149,7 @@
       font-weight:1000;
     }
 
-    .heroCard,
-    .panel{
+    .heroCard,.panel,.bossBox,.summaryPanel{
       border-radius:30px;
       border:3px solid var(--line);
       background:
@@ -174,22 +161,10 @@
       gap:12px;
     }
 
-    .stageHead{
-      display:grid;
-      gap:8px;
-    }
-
-    .badgeRow{
-      display:flex;
-      align-items:center;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
+    .stageHead{ display:grid; gap:8px; }
+    .badgeRow{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
     .badge{
       min-height:34px;
-      width:max-content;
-      max-width:100%;
       display:inline-flex;
       align-items:center;
       justify-content:center;
@@ -210,13 +185,12 @@
       letter-spacing:-.04em;
       font-weight:1000;
     }
-
     .lead{
       margin:0;
       max-width:820px;
       color:var(--muted);
       font-size:16px;
-      line-height:1.6;
+      line-height:1.58;
       font-weight:850;
     }
 
@@ -225,7 +199,6 @@
       grid-template-columns:repeat(6,minmax(0,1fr));
       gap:8px;
     }
-
     .stat{
       min-height:70px;
       border-radius:20px;
@@ -237,14 +210,12 @@
       gap:2px;
       box-shadow:var(--shadow-soft);
     }
-
     .stat .k{
       color:#5f7f92;
       font-size:12px;
       line-height:1;
       font-weight:1000;
     }
-
     .stat .v{
       color:#12324b;
       font-size:25px;
@@ -252,18 +223,8 @@
       font-weight:1000;
     }
 
-    .screens{
-      display:grid;
-    }
-
-    .screen{
-      display:none;
-    }
-
-    .screen.active{
-      display:grid;
-      gap:12px;
-    }
+    .screen{ display:none; }
+    .screen.active{ display:grid; gap:12px; }
 
     .btn{
       min-height:58px;
@@ -275,41 +236,21 @@
       justify-content:center;
       text-align:center;
       cursor:pointer;
-      color:#17384f;
       font-size:16px;
       font-weight:1000;
       box-shadow:var(--shadow-soft);
       text-decoration:none;
     }
-
-    .btnPrimary{
-      background:linear-gradient(180deg,#fff2a8,#ffd84d);
-      color:#503c00;
-    }
-
-    .btnGreen{
-      background:linear-gradient(180deg,#dcfff2,#baf4cf);
-      color:#143a22;
-    }
-
-    .btnSoft{
-      background:linear-gradient(180deg,#ecfeff,#ffffff);
-      color:#0f766e;
-      border:2px solid #bdf4ff;
-    }
-
-    .btnRed{
-      background:linear-gradient(180deg,#fff3f3,#ffdada);
-      color:#991b1b;
-      border:2px solid #fecaca;
-    }
+    .btnPrimary{ background:linear-gradient(180deg,#fff2a8,#ffd84d); color:#503c00; }
+    .btnGreen{ background:linear-gradient(180deg,#dcfff2,#baf4cf); color:#143a22; }
+    .btnSoft{ background:linear-gradient(180deg,#ecfeff,#fff); color:#0f766e; border:2px solid #bdf4ff; }
+    .btnRed{ background:linear-gradient(180deg,#fff3f3,#ffdada); color:#991b1b; border:2px solid #fecaca; }
 
     .howGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:12px;
     }
-
     .howCard{
       border-radius:24px;
       border:2px solid #d7f0fb;
@@ -318,7 +259,6 @@
       display:grid;
       gap:8px;
     }
-
     .howCard h2{
       margin:0;
       color:#12324b;
@@ -326,18 +266,12 @@
       line-height:1.12;
       font-weight:1000;
     }
-
-    .howCard p,
-    .howCard li{
+    .howCard ul{ margin:0; padding-left:18px; }
+    .howCard p,.howCard li{
       color:#5f7f92;
       font-size:14px;
       line-height:1.55;
       font-weight:850;
-    }
-
-    .howCard ul{
-      margin:0;
-      padding-left:18px;
     }
 
     .actions{
@@ -346,14 +280,12 @@
       gap:10px;
     }
 
-    /* Gameplay */
     .gameLayout{
       display:grid;
-      grid-template-columns:minmax(260px,360px) minmax(0,1fr);
+      grid-template-columns:minmax(280px,360px) minmax(0,1fr);
       gap:12px;
-      align-items:stretch;
+      align-items:start;
     }
-
     .taskPanel{
       border-radius:26px;
       border:2px solid #d7f0fb;
@@ -361,25 +293,21 @@
       padding:13px;
       display:grid;
       gap:10px;
-      align-content:start;
       box-shadow:var(--shadow-soft);
     }
-
     .taskTitle{
       color:#12324b;
       font-size:24px;
       line-height:1.08;
       font-weight:1000;
     }
-
     .taskText{
       margin:0;
-      color:#5f7f92;
+      color:var(--muted);
       font-size:14px;
-      line-height:1.5;
+      line-height:1.52;
       font-weight:850;
     }
-
     .progress{
       height:18px;
       border-radius:999px;
@@ -387,7 +315,6 @@
       background:#e9f7fd;
       overflow:hidden;
     }
-
     .bar{
       height:100%;
       width:0%;
@@ -396,13 +323,9 @@
       transition:width .16s ease;
     }
 
-    .zoneList{
-      display:grid;
-      gap:7px;
-    }
-
+    .zoneList{ display:grid; gap:7px; }
     .zoneRow{
-      min-height:42px;
+      min-height:44px;
       border-radius:15px;
       border:2px solid #d7f0fb;
       background:#f8fdff;
@@ -414,165 +337,186 @@
       cursor:pointer;
       user-select:none;
     }
-
     .zoneRow.active{
       background:#fff8dc;
       border-color:#ffd95d;
       outline:3px solid rgba(255,217,93,.18);
     }
-
     .zoneRow.done{
       background:#effcf3;
       border-color:#b8eec6;
       color:#166534;
     }
-
-    .zoneRow strong{
+    .zoneRow strong,.zoneRow span{
       font-size:13px;
       line-height:1.2;
       font-weight:1000;
     }
 
-    .zoneRow span{
-      font-size:13px;
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .mouthScene{
-      min-height:520px;
+    /* Mouth simulation */
+    .mouthWrap{
       border-radius:30px;
       border:3px solid #bdf4ff;
       background:
-        radial-gradient(circle at 50% 50%, rgba(255,255,255,.95), transparent 22%),
+        radial-gradient(circle at 50% 0%, rgba(255,255,255,.88), transparent 30%),
         linear-gradient(180deg,#dffaff,#f7fdff);
+      box-shadow:var(--shadow-soft);
+      padding:12px;
       position:relative;
       overflow:hidden;
+    }
+    .mouthScene{
+      position:relative;
+      min-height:560px;
+      height:560px;
+      border-radius:28px;
+      overflow:hidden;
+      background:linear-gradient(180deg,#dff7ff,#f7fdff);
       touch-action:none;
       user-select:none;
-      box-shadow:var(--shadow-soft);
     }
 
-    .mouthScene::before{
-      content:"";
+    .mouthBase{
       position:absolute;
-      inset:8%;
-      border-radius:45% 45% 48% 48%;
+      inset:5%;
+      border-radius:48%/44%;
       background:
-        radial-gradient(circle at 50% 18%, rgba(255,255,255,.98), transparent 22%),
-        linear-gradient(180deg,#ffc8de,#fff);
-      border:4px solid rgba(255,159,208,.52);
-      box-shadow:inset 0 -16px 34px rgba(244,114,182,.16);
+        radial-gradient(circle at 50% 10%, rgba(255,255,255,.55), transparent 20%),
+        linear-gradient(180deg,#ffbddb,#ffe2ef 22%, #ffeaf4 35%, #ffd0e4 100%);
+      box-shadow:inset 0 0 0 5px rgba(255,159,208,.45), inset 0 18px 30px rgba(255,255,255,.45);
     }
 
-    .teethGrid{
+    .upperGum,.lowerGum{
       position:absolute;
-      left:8%;
-      right:8%;
-      top:15%;
-      bottom:15%;
+      left:14%;
+      right:14%;
+      height:26%;
+      border-radius:50%;
+      background:linear-gradient(180deg,#ffb6d6,#ffdeeb);
+      box-shadow:inset 0 -12px 24px rgba(255,255,255,.35);
+    }
+    .upperGum{ top:17%; }
+    .lowerGum{ bottom:17%; transform:scaleY(-1); }
+
+    .teethArch{
+      position:absolute;
+      left:15%;
+      right:15%;
+      height:21%;
       display:grid;
       grid-template-columns:repeat(3,1fr);
-      grid-template-rows:repeat(2,1fr);
       gap:10px;
-      z-index:2;
+      z-index:3;
     }
+    .teethArch.upper{ top:24%; }
+    .teethArch.lower{ bottom:24%; }
 
     .toothZone{
       position:relative;
-      border:3px solid rgba(15,118,110,.20);
-      border-radius:24px;
+      border-radius:26px;
+      border:3px solid rgba(15,118,110,.18);
       background:
-        radial-gradient(circle at 50% 30%, #ffffff 0 28%, #f8fdff 46%, #dffaff 100%);
-      box-shadow:0 12px 24px rgba(23,56,79,.12);
-      display:grid;
-      place-items:center;
+        linear-gradient(180deg,#ffffff,#f6fdff);
+      box-shadow:0 10px 22px rgba(23,56,79,.10), inset 0 -8px 18px rgba(139,232,255,.22);
       cursor:pointer;
       touch-action:none;
       user-select:none;
-      transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
       overflow:hidden;
+      transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease;
     }
-
     .toothZone:hover{
       transform:translateY(-2px);
     }
-
     .toothZone.active{
       border-color:#ffd95d;
-      box-shadow:0 0 0 7px rgba(255,217,93,.20), 0 14px 28px rgba(80,60,0,.12);
+      box-shadow:0 0 0 8px rgba(255,217,93,.18), 0 12px 28px rgba(80,60,0,.12);
     }
-
     .toothZone.done{
       border-color:#80df96;
-      background:
-        radial-gradient(circle at 50% 30%, #ffffff 0 32%, #effcf3 54%, #dcfff2 100%);
+      background:linear-gradient(180deg,#ffffff,#effcf3);
     }
 
-    .plaque{
+    .toothGroup{
       position:absolute;
-      width:54%;
-      height:38%;
+      inset:12px;
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:6px;
+      align-items:end;
+      pointer-events:none;
+    }
+    .tooth{
+      height:100%;
+      border-radius:12px 12px 18px 18px;
+      background:linear-gradient(180deg,#fff,#f4fbff);
+      border:1px solid rgba(148,163,184,.22);
+      box-shadow:inset 0 -8px 10px rgba(139,232,255,.16);
+    }
+    .archFront .tooth{ border-radius:14px 14px 16px 16px; }
+    .lower .toothGroup{ align-items:start; }
+    .lower .tooth{ border-radius:18px 18px 12px 12px; }
+
+    .plaqueLayer{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+    }
+    .plaqueBlob{
+      position:absolute;
       border-radius:999px;
       background:
-        radial-gradient(circle at 30% 30%, rgba(255,217,93,.95), rgba(255,217,93,.55) 44%, rgba(239,68,68,.18));
-      filter:drop-shadow(0 6px 12px rgba(80,60,0,.14));
-      opacity:.9;
+        radial-gradient(circle at 30% 30%, rgba(255,217,93,.98), rgba(255,217,93,.68) 44%, rgba(239,68,68,.22));
+      filter:drop-shadow(0 5px 10px rgba(80,60,0,.14));
       transition:opacity .16s ease, transform .16s ease;
     }
 
-    .toothZone.done .plaque{
-      opacity:0;
-      transform:scale(.2);
-    }
-
     .zoneLabel{
-      position:relative;
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
       z-index:2;
-      background:rgba(255,255,255,.88);
+      background:rgba(255,255,255,.92);
       border:1px solid #d7f0fb;
       color:#12324b;
       border-radius:999px;
-      padding:6px 9px;
-      font-size:12px;
+      padding:8px 10px;
+      font-size:13px;
       font-weight:1000;
       text-align:center;
+      line-height:1.2;
       pointer-events:none;
+      min-width:88px;
     }
 
     .brush{
       position:absolute;
-      z-index:4;
-      width:70px;
-      height:70px;
+      z-index:10;
+      width:74px;
+      height:74px;
       border-radius:22px;
       display:grid;
       place-items:center;
-      background:rgba(255,255,255,.82);
+      background:rgba(255,255,255,.84);
       border:2px solid #bdf4ff;
-      box-shadow:0 12px 26px rgba(23,56,79,.16);
-      font-size:36px;
+      box-shadow:0 12px 26px rgba(23,56,79,.18);
+      font-size:38px;
       pointer-events:none;
       transform:translate(-50%,-50%) rotate(-18deg);
       opacity:0;
       transition:opacity .12s ease;
     }
+    .brush.show{ opacity:1; }
 
-    .brush.show{
-      opacity:1;
-    }
-
-    .fx{
+    .sparkle{
       position:absolute;
-      z-index:5;
+      z-index:11;
       pointer-events:none;
-      color:#fff;
       font-size:28px;
-      font-weight:1000;
-      text-shadow:0 3px 8px rgba(0,0,0,.22);
-      animation:floatUp .65s ease-out forwards;
+      color:#fff;
+      text-shadow:0 3px 8px rgba(0,0,0,.2);
+      animation:floatUp .7s ease-out forwards;
     }
-
     @keyframes floatUp{
       from{ transform:translate(-50%,-50%) scale(.8); opacity:1; }
       to{ transform:translate(-50%,-90%) scale(1.18); opacity:0; }
@@ -583,7 +527,6 @@
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:8px;
     }
-
     .dockBtn{
       min-height:58px;
       border:0;
@@ -598,26 +541,12 @@
       cursor:pointer;
     }
 
-    /* Boss */
-    .bossBox{
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:
-        radial-gradient(circle at 50% 10%, rgba(255,217,93,.24), transparent 25%),
-        linear-gradient(180deg,#ffffff,#f8feff);
-      box-shadow:var(--shadow);
-      padding:15px;
-      display:grid;
-      gap:12px;
-    }
-
     .bossTitle{
       color:#12324b;
       font-size:28px;
       line-height:1.15;
       font-weight:1000;
     }
-
     .bossHp{
       height:20px;
       border-radius:999px;
@@ -625,7 +554,6 @@
       background:#fff3f3;
       overflow:hidden;
     }
-
     .bossHpBar{
       height:100%;
       width:100%;
@@ -633,13 +561,11 @@
       background:linear-gradient(90deg,#22c55e,#ffd95d,#ef4444);
       transition:width .2s ease;
     }
-
     .bossChoices{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
     }
-
     .choiceBtn{
       min-height:58px;
       border-radius:18px;
@@ -652,7 +578,6 @@
       padding:10px;
       text-align:center;
     }
-
     .choiceBtn:hover{
       border-color:#ffd95d;
       background:#fff8dc;
@@ -660,10 +585,9 @@
 
     .summaryGrid{
       display:grid;
-      grid-template-columns:minmax(260px,.9fr) minmax(0,1.1fr);
+      grid-template-columns:minmax(260px,.95fr) minmax(0,1.05fr);
       gap:12px;
     }
-
     .scoreCard{
       min-height:340px;
       border-radius:28px;
@@ -675,38 +599,17 @@
       text-align:center;
       padding:18px;
     }
-
     .scoreNum{
       color:#503c00;
       font-size:64px;
       line-height:1;
       font-weight:1000;
     }
-
     .stars{
       margin-top:10px;
       font-size:34px;
       letter-spacing:4px;
     }
-
-    .summaryText{
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:#fff;
-      box-shadow:var(--shadow-soft);
-      padding:16px;
-      display:grid;
-      gap:12px;
-    }
-
-    .summaryText h2{
-      margin:0;
-      color:#12324b;
-      font-size:30px;
-      line-height:1.12;
-      font-weight:1000;
-    }
-
     .resultCard{
       border-radius:20px;
       border:2px solid #d7f0fb;
@@ -737,12 +640,7 @@
       font-size:15px;
       font-weight:1000;
     }
-
-    .toast.show{
-      display:grid;
-      animation:toastIn .24s ease-out;
-    }
-
+    .toast.show{ display:grid; animation:toastIn .24s ease-out; }
     @keyframes toastIn{
       from{ transform:translateX(-50%) translateY(14px); opacity:0; }
       to{ transform:translateX(-50%) translateY(0); opacity:1; }
@@ -761,105 +659,60 @@
       white-space:pre-wrap;
       word-break:break-word;
     }
-
-    .debug.show{
-      display:block;
-    }
+    .debug.show{ display:block; }
 
     @media (max-width:900px){
-      .stats{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .gameLayout,
-      .summaryGrid{
-        grid-template-columns:1fr;
-      }
-
-      .mouthScene{
-        min-height:470px;
-      }
+      .stats{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .gameLayout,.summaryGrid,.howGrid{ grid-template-columns:1fr; }
+      .mouthScene{ min-height:500px; height:500px; }
     }
-
     @media (max-width:640px){
       .page{
         padding:
           calc(7px + var(--sat))
           calc(7px + var(--sar))
-          calc(82px + var(--sab))
+          calc(84px + var(--sab))
           calc(7px + var(--sal));
         gap:8px;
       }
-
       .brand{
         min-height:52px;
         padding:6px 9px;
       }
-
       .brandIcon{
         width:38px;
         height:38px;
         border-radius:14px;
       }
+      .brand strong{ font-size:14px; }
+      .brand small{ font-size:10px; }
 
-      .brand strong{
-        font-size:14px;
-      }
-
-      .brand small{
-        font-size:10px;
-      }
-
-      .heroCard,
-      .panel{
+      .heroCard,.panel,.bossBox,.summaryPanel{
         border-radius:22px;
         padding:10px;
       }
-
-      .stageHead{
-        display:none;
-      }
+      .stageHead{ display:none; }
 
       .stats{
         grid-template-columns:repeat(3,minmax(0,1fr));
         gap:5px;
       }
-
       .stat{
         min-height:48px;
         padding:6px 7px;
         border-radius:14px;
       }
+      .stat .k{ font-size:10px; }
+      .stat .v{ font-size:16px; }
 
-      .stat .k{
-        font-size:10px;
-      }
-
-      .stat .v{
-        font-size:16px;
-      }
-
-      .actions,
-      .bossChoices{
-        grid-template-columns:1fr;
-      }
-
+      .actions,.bossChoices{ grid-template-columns:1fr; }
       .taskPanel{
         border-radius:18px;
         padding:9px;
       }
-
-      .taskTitle{
-        font-size:18px;
-      }
-
-      .taskText{
-        font-size:12px;
-      }
-
-      .zoneList{
-        display:none;
-      }
+      .taskTitle{ font-size:18px; }
+      .taskText{ font-size:12px; }
+      .zoneList{ display:none; }
 
       .dock{
         position:fixed;
@@ -869,68 +722,39 @@
         z-index:130;
         padding:6px;
         border-radius:22px;
-        background:rgba(255,255,255,.90);
+        background:rgba(255,255,255,.9);
         border:2px solid #bdf4ff;
         box-shadow:0 14px 28px rgba(23,56,79,.16);
         backdrop-filter:blur(12px);
         -webkit-backdrop-filter:blur(12px);
       }
-
       .dockBtn{
         min-height:50px;
         font-size:11px;
         border-radius:16px;
       }
 
+      .mouthWrap{ padding:8px; border-radius:20px; }
       .mouthScene{
-        min-height:calc(100dvh - 230px);
-        height:calc(100dvh - 230px);
+        min-height:calc(100dvh - 250px);
+        height:calc(100dvh - 250px);
         border-radius:20px;
       }
-
-      .teethGrid{
-        left:5%;
-        right:5%;
-        top:13%;
-        bottom:13%;
+      .teethArch{
+        left:11%;
+        right:11%;
         gap:6px;
       }
-
-      .toothZone{
-        border-radius:18px;
-      }
-
-      .zoneLabel{
-        padding:5px 7px;
-        font-size:10px;
-      }
-
-      .plaque{
-        width:62%;
-        height:44%;
-      }
-
-      .brush{
-        width:58px;
-        height:58px;
-        font-size:30px;
-      }
-
-      .summaryGrid{
-        grid-template-columns:1fr;
-      }
-
-      .scoreCard{
-        min-height:220px;
-      }
-
-      .scoreNum{
-        font-size:52px;
-      }
+      .teethArch.upper{ top:25%; }
+      .teethArch.lower{ bottom:25%; }
+      .toothZone{ border-radius:18px; }
+      .zoneLabel{ font-size:11px; padding:6px 8px; min-width:78px; }
+      .brush{ width:58px; height:58px; font-size:30px; }
+      .scoreCard{ min-height:220px; }
+      .scoreNum{ font-size:52px; }
     }
   </style>
 </head>
-
 <body data-stage="howto">
   <main class="page">
     <header class="topbar">
@@ -938,10 +762,9 @@
         <div class="brandIcon">🪥</div>
         <div>
           <strong>Brush Hero Kids</strong>
-          <small>เลือกโซนด้วย mouse / touch ได้แล้ว</small>
+          <small>simulation learning • mouth view</small>
         </div>
       </div>
-
       <div class="topActions">
         <button class="iconBtn" id="btnPause" type="button" title="Pause">⏸</button>
         <button class="iconBtn" id="btnBack" type="button" title="Back">🏠</button>
@@ -951,15 +774,12 @@
     <section class="heroCard">
       <div class="stageHead">
         <div class="badgeRow">
-          <div class="badge" id="modeBadge">Brush Kids</div>
+          <div class="badge" id="modeBadge">Learn</div>
           <div class="badge" id="diffBadge">Normal</div>
           <div class="badge" id="viewBadge">mobile</div>
         </div>
-
-        <h1 id="stageTitle">ช่วยฟันให้สะอาด</h1>
-        <p class="lead" id="stageLead">
-          เลือกโซนฟัน แล้วลากแปรงด้วย mouse หรือ touch ให้ครบทุกจุด
-        </p>
+        <h1 id="stageTitle">แปรงฟันให้ครบทุกโซน</h1>
+        <p class="lead" id="stageLead">เห็นตำแหน่งจริงในช่องปาก แล้วลากแปรงบนฟันเพื่อกำจัดคราบ</p>
       </div>
 
       <div class="stats">
@@ -972,102 +792,96 @@
       </div>
     </section>
 
-    <section class="screens">
-      <section class="screen active" id="screen-howto">
-        <div class="panel">
-          <div class="howGrid">
-            <div class="howCard">
-              <h2>วิธีเล่น</h2>
-              <ul>
-                <li>คลิก / แตะโซนฟันที่อยากแปรง</li>
-                <li>ลาก mouse หรือ finger บนโซนเพื่อแปรง</li>
-                <li>ทำ Clean ให้ครบ 100% ทุกโซน</li>
-                <li>ชนะ Boss ฟันผุ แล้วดู Summary</li>
-              </ul>
-            </div>
-
-            <div class="howCard">
-              <h2>เป้าหมาย</h2>
-              <p>
-                แปรงฟันให้ครบ 6 โซน: บนซ้าย บนหน้า บนขวา ล่างซ้าย ล่างหน้า ล่างขวา
-                และลด Plaque ให้เหลือน้อยที่สุด
-              </p>
-            </div>
+    <section class="screen active" id="screen-howto">
+      <div class="panel">
+        <div class="howGrid">
+          <div class="howCard">
+            <h2>วิธีเล่น</h2>
+            <ul>
+              <li>คลิก / แตะฟันใน “รูปปาก” เพื่อเลือกโซน</li>
+              <li>ลาก mouse หรือ finger บนฟันเพื่อแปรง</li>
+              <li>คราบสีเหลืองจะค่อย ๆ หายไป</li>
+              <li>ทำความสะอาดครบทุกโซนแล้วไปสู้ Boss</li>
+            </ul>
           </div>
-
-          <div class="actions">
-            <button class="btn btnPrimary" type="button" data-action="start">▶ เริ่มช่วยฟัน</button>
-            <button class="btn btnSoft" type="button" data-action="debug">🔎 Debug</button>
-            <button class="btn btnGreen" type="button" data-action="back">🏠 กลับ Hygiene Zone</button>
+          <div class="howCard">
+            <h2>แนวคิด simulation</h2>
+            <p>
+              หน้านี้ใช้ “ภาพปาก” แทนกล่องนามธรรม
+              เพื่อให้เด็กเห็นตำแหน่งฟันบน-ล่าง ซ้าย-ขวา
+              และเชื่อมโยงกับการแปรงฟันจริงได้ดีขึ้น
+            </p>
           </div>
-
-          <pre class="debug" id="debugBox"></pre>
         </div>
-      </section>
+        <div class="actions">
+          <button class="btn btnPrimary" type="button" data-action="start">▶ เริ่มแปรงฟัน</button>
+          <button class="btn btnSoft" type="button" data-action="debug">🔎 Debug</button>
+          <button class="btn btnGreen" type="button" data-action="back">🏠 กลับ Hygiene Zone</button>
+        </div>
+        <pre class="debug" id="debugBox"></pre>
+      </div>
+    </section>
 
-      <section class="screen" id="screen-main">
-        <div class="panel">
-          <div class="gameLayout">
-            <aside class="taskPanel">
-              <div class="taskTitle" id="taskTitle">เลือกโซนที่จะแปรง</div>
-              <p class="taskText" id="taskText">
-                ใช้ mouse คลิกโซนในรูปปาก แล้วลากแปรงบนโซนนั้น
-              </p>
+    <section class="screen" id="screen-main">
+      <div class="panel">
+        <div class="gameLayout">
+          <aside class="taskPanel">
+            <div class="taskTitle" id="taskTitle">🪥 เลือกฟันที่จะแปรง</div>
+            <p class="taskText" id="taskText">คลิกโซนฟันในรูปปาก แล้วลากแปรงจน Clean ครบ 100%</p>
+            <div class="progress"><div class="bar" id="zoneBar"></div></div>
+            <div class="zoneList" id="zoneList"></div>
+            <div class="dock">
+              <button class="dockBtn" type="button" data-dock="prev">⬅ โซนก่อน</button>
+              <button class="dockBtn" type="button" data-dock="auto">🪥 ช่วยแปรง</button>
+              <button class="dockBtn" type="button" data-dock="next">โซนถัดไป ➡</button>
+            </div>
+          </aside>
 
-              <div class="progress"><div class="bar" id="zoneBar"></div></div>
-
-              <div class="zoneList" id="zoneList"></div>
-
-              <div class="dock">
-                <button class="dockBtn" type="button" data-dock="prev">⬅ โซนก่อน</button>
-                <button class="dockBtn" type="button" data-dock="auto">🪥 ช่วยแปรง</button>
-                <button class="dockBtn" type="button" data-dock="next">โซนถัดไป ➡</button>
-              </div>
-            </aside>
-
+          <div class="mouthWrap">
             <div class="mouthScene" id="mouthScene">
-              <div class="teethGrid" id="teethGrid"></div>
+              <div class="mouthBase"></div>
+              <div class="upperGum"></div>
+              <div class="lowerGum"></div>
+
+              <div class="teethArch upper" id="upperArch"></div>
+              <div class="teethArch lower" id="lowerArch"></div>
+
               <div class="brush" id="brush">🪥</div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
-      <section class="screen" id="screen-boss">
-        <div class="bossBox">
-          <div class="bossTitle" id="bossTitle">👾 Cavity King มาแล้ว!</div>
-          <p class="lead" id="bossText">
-            เลือกขั้นตอนแปรงฟันให้ถูก เพื่อปราบ Boss ฟันผุ
-          </p>
+    <section class="screen" id="screen-boss">
+      <div class="bossBox">
+        <div class="bossTitle" id="bossTitle">👾 Cavity King มาแล้ว!</div>
+        <p class="lead" id="bossText">เลือกคำตอบให้ถูก เพื่อปราบ Boss ฟันผุ</p>
+        <div class="bossHp"><div class="bossHpBar" id="bossHpBar"></div></div>
+        <div class="bossChoices" id="bossChoices"></div>
+      </div>
+    </section>
 
-          <div class="bossHp"><div class="bossHpBar" id="bossHpBar"></div></div>
-
-          <div class="bossChoices" id="bossChoices"></div>
-        </div>
-      </section>
-
-      <section class="screen" id="screen-summary">
-        <div class="summaryGrid">
-          <div class="scoreCard">
-            <div>
-              <div class="scoreNum" id="summaryScore">0</div>
-              <div class="stars" id="summaryStars">☆☆☆</div>
-              <div style="margin-top:8px;font-weight:1000;color:#8d6118;">คะแนนของฉัน</div>
-            </div>
-          </div>
-
-          <div class="summaryText">
-            <h2>ผลการแปรงฟันของฉัน</h2>
-            <div class="resultCard" id="summaryResult">กำลังสรุปผล...</div>
-            <div class="resultCard" id="summaryCoach">Coach Advice</div>
-            <div class="actions">
-              <button class="btn btnPrimary" type="button" data-action="restart">🔁 เล่นอีกครั้ง</button>
-              <button class="btn btnSoft" type="button" data-action="cooldown">🧘 Cooldown</button>
-              <button class="btn btnGreen" type="button" data-action="back">🏠 กลับ Hygiene Zone</button>
-            </div>
+    <section class="screen" id="screen-summary">
+      <div class="summaryGrid">
+        <div class="scoreCard">
+          <div>
+            <div class="scoreNum" id="summaryScore">0</div>
+            <div class="stars" id="summaryStars">☆☆☆</div>
+            <div style="margin-top:8px;font-weight:1000;color:#8d6118;">คะแนนของฉัน</div>
           </div>
         </div>
-      </section>
+        <div class="summaryPanel">
+          <h2 style="margin:0;color:#12324b;font-size:30px;line-height:1.12;font-weight:1000;">ผลการแปรงฟันของฉัน</h2>
+          <div class="resultCard" id="summaryResult">กำลังสรุปผล...</div>
+          <div class="resultCard" id="summaryCoach">Coach Advice</div>
+          <div class="actions">
+            <button class="btn btnPrimary" type="button" data-action="restart">🔁 เล่นอีกครั้ง</button>
+            <button class="btn btnSoft" type="button" data-action="cooldown">🧘 Cooldown</button>
+            <button class="btn btnGreen" type="button" data-action="back">🏠 กลับ Hygiene Zone</button>
+          </div>
+        </div>
+      </div>
     </section>
   </main>
 
@@ -1077,16 +891,16 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505-BRUSH-KIDS-ZONE-MOUSE-FIX-CORE-FLOW';
+      const VERSION = '20260505-BRUSH-KIDS-MOUTH-SIM-REDESIGN';
       const qs = new URLSearchParams(location.search);
 
       const ZONES = [
-        { id:'upper-left',  label:'บนซ้าย',   icon:'🦷' },
-        { id:'upper-front', label:'บนหน้า',   icon:'😁' },
-        { id:'upper-right', label:'บนขวา',    icon:'🦷' },
-        { id:'lower-left',  label:'ล่างซ้าย', icon:'🦷' },
-        { id:'lower-front', label:'ล่างหน้า', icon:'😁' },
-        { id:'lower-right', label:'ล่างขวา',  icon:'🦷' }
+        { id:'upper-left',  label:'บนซ้าย',  icon:'🦷', arch:'upper', cls:'archSide'  },
+        { id:'upper-front', label:'บนหน้า',  icon:'😁', arch:'upper', cls:'archFront' },
+        { id:'upper-right', label:'บนขวา',   icon:'🦷', arch:'upper', cls:'archSide'  },
+        { id:'lower-left',  label:'ล่างซ้าย', icon:'🦷', arch:'lower', cls:'archSide' },
+        { id:'lower-front', label:'ล่างหน้า', icon:'😁', arch:'lower', cls:'archFront'},
+        { id:'lower-right', label:'ล่างขวา',  icon:'🦷', arch:'lower', cls:'archSide' }
       ];
 
       const BOSS_ORDER = [
@@ -1094,37 +908,46 @@
         'วางแปรงเบา ๆ',
         'แปรงเป็นวงเล็ก',
         'แปรงให้ครบทุกด้าน',
-        'ล้างปากและยิ้มสะอาด'
+        'บ้วนปากและยิ้มสะอาด'
       ];
 
+      function $(id){ return document.getElementById(id); }
+      function clamp(n,a,b){ return Math.max(a, Math.min(b, Number(n) || 0)); }
+
       const el = {
-        body:document.body,
         modeBadge:$('modeBadge'),
         diffBadge:$('diffBadge'),
         viewBadge:$('viewBadge'),
         stageTitle:$('stageTitle'),
         stageLead:$('stageLead'),
+
         timeText:$('timeText'),
         scoreText:$('scoreText'),
         comboText:$('comboText'),
         cleanText:$('cleanText'),
         plaqueText:$('plaqueText'),
         zoneText:$('zoneText'),
+
         zoneList:$('zoneList'),
-        teethGrid:$('teethGrid'),
-        mouthScene:$('mouthScene'),
-        brush:$('brush'),
+        zoneBar:$('zoneBar'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
-        zoneBar:$('zoneBar'),
+
+        upperArch:$('upperArch'),
+        lowerArch:$('lowerArch'),
+        mouthScene:$('mouthScene'),
+        brush:$('brush'),
+
         bossTitle:$('bossTitle'),
         bossText:$('bossText'),
         bossHpBar:$('bossHpBar'),
         bossChoices:$('bossChoices'),
+
         summaryScore:$('summaryScore'),
         summaryStars:$('summaryStars'),
         summaryResult:$('summaryResult'),
         summaryCoach:$('summaryCoach'),
+
         debugBox:$('debugBox'),
         toast:$('toast'),
         btnPause:$('btnPause'),
@@ -1132,32 +955,28 @@
       };
 
       const state = {
-        stage:qs.get('stage') || 'howto',
-        diff:normalizeDiff(qs.get('diff') || 'normal'),
-        view:normalizeView(qs.get('view') || 'mobile'),
-        mode:qs.get('mode') === 'challenge' ? 'challenge' : 'learn',
-        timeLeft:Number(qs.get('time') || (qs.get('mode') === 'challenge' ? 180 : 120)),
-        score:0,
-        combo:0,
-        maxCombo:0,
-        hits:0,
-        misses:0,
-        activeZone:'upper-left',
-        brushing:false,
-        lastPoint:null,
-        paused:false,
-        timer:null,
-        bossHp:100,
-        bossIndex:0,
-        bossWrong:0,
-        zoneProgress:{}
+        stage: qs.get('stage') || 'howto',
+        diff: normalizeDiff(qs.get('diff') || 'normal'),
+        view: normalizeView(qs.get('view') || 'mobile'),
+        mode: qs.get('mode') === 'challenge' ? 'challenge' : 'learn',
+        timeLeft: Number(qs.get('time') || (qs.get('mode') === 'challenge' ? 180 : 120)),
+        score: 0,
+        combo: 0,
+        maxCombo: 0,
+        hits: 0,
+        misses: 0,
+        activeZone: 'upper-left',
+        brushing: false,
+        paused: false,
+        lastPoint: null,
+        timer: null,
+        bossHp: 100,
+        bossIndex: 0,
+        bossWrong: 0,
+        zoneProgress: {}
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
-
-      function $(id){ return document.getElementById(id); }
-
-      function clamp(n,a,b){ return Math.max(a, Math.min(b, Number(n) || 0)); }
 
       function normalizeView(v){
         v = String(v || '').toLowerCase();
@@ -1166,7 +985,6 @@
         if(v === 'pc' || v === 'mobile' || v === 'cvr') return v;
         return 'mobile';
       }
-
       function normalizeDiff(v){
         v = String(v || '').toLowerCase();
         if(['easy','normal','hard','challenge'].includes(v)) return v;
@@ -1184,7 +1002,6 @@
           return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
         }
       }
-
       function heroUrl(path){
         return new URL(String(path || '').replace(/^\/+/, ''), herohealthBaseUrl());
       }
@@ -1200,7 +1017,6 @@
         }
         return value;
       }
-
       function cleanReturnUrl(raw){
         raw = String(raw || '').trim();
         if(!raw) return '';
@@ -1217,12 +1033,11 @@
           const ok = cleanReturnUrl(raw);
           if(ok) return ok;
         }
-
         const u = heroUrl('hygiene-zone.html');
         u.searchParams.set('pid', qs.get('pid') || 'anon');
         u.searchParams.set('name', qs.get('name') || qs.get('nick') || 'Hero');
         u.searchParams.set('diff', state.diff);
-        u.searchParams.set('time', String(state.timeLeft || qs.get('time') || 120));
+        u.searchParams.set('time', String(qs.get('time') || 120));
         u.searchParams.set('view', state.view);
         u.searchParams.set('hub', qs.get('hubRoot') || qs.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
         return u.toString();
@@ -1231,7 +1046,6 @@
       function cooldownUrl(){
         const z = zoneUrl();
         const u = heroUrl('warmup-gate.html');
-
         const keep = {
           pid:qs.get('pid') || 'anon',
           name:qs.get('name') || qs.get('nick') || 'Hero',
@@ -1255,10 +1069,14 @@
           hubRoot:qs.get('hubRoot') || qs.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
           seed:qs.get('seed') || String(Date.now())
         };
-
         Object.entries(keep).forEach(([k,v]) => u.searchParams.set(k, String(v)));
         return u.toString();
       }
+
+      function getZone(id){ return ZONES.find(z => z.id === id) || ZONES[0]; }
+      function totalClean(){ return ZONES.reduce((s,z) => s + (state.zoneProgress[z.id] || 0), 0) / ZONES.length; }
+      function totalPlaque(){ return clamp(100 - totalClean(), 0, 100); }
+      function completedZones(){ return ZONES.filter(z => (state.zoneProgress[z.id] || 0) >= 100).length; }
 
       function showToast(text){
         el.toast.textContent = text;
@@ -1275,15 +1093,15 @@
         if(screen) screen.classList.add('active');
 
         if(stage === 'howto'){
-          el.stageTitle.textContent = 'ช่วยฟันให้สะอาด';
-          el.stageLead.textContent = 'เลือกโซนฟัน แล้วลากแปรงด้วย mouse หรือ touch ให้ครบทุกจุด';
-        }else if(stage === 'main'){
           el.stageTitle.textContent = 'แปรงฟันให้ครบทุกโซน';
-          el.stageLead.textContent = 'เลือกโซน แล้วลากแปรงบนฟันเพื่อกำจัดคราบ';
+          el.stageLead.textContent = 'เห็นตำแหน่งจริงในช่องปาก แล้วลากแปรงบนฟันเพื่อกำจัดคราบ';
+        }else if(stage === 'main'){
+          el.stageTitle.textContent = 'simulation แปรงฟันในช่องปาก';
+          el.stageLead.textContent = 'คลิกโซนฟันในรูปปาก แล้วแปรงให้สะอาดทีละส่วน';
           if(!state.timer) startTimer();
         }else if(stage === 'boss'){
           el.stageTitle.textContent = 'ปราบ Cavity King';
-          el.stageLead.textContent = 'เลือกคำตอบให้ถูกเพื่อชนะ Boss ฟันผุ';
+          el.stageLead.textContent = 'ตอบขั้นตอนแปรงฟันให้ถูก';
         }else if(stage === 'summary'){
           el.stageTitle.textContent = 'ผลการแปรงฟันของฉัน';
           el.stageLead.textContent = 'ดู Clean Teeth, Plaque, Combo และคำแนะนำ';
@@ -1300,20 +1118,17 @@
           state.timeLeft -= 1;
           if(state.timeLeft <= 0){
             state.timeLeft = 0;
-            if(totalClean() >= 85) startBoss();
-            else{
-              showToast('หมดเวลา! ไปสู้ Boss ด้วยคะแนนที่มี');
-              startBoss();
-            }
+            startBoss();
           }
           renderHud();
         }, 1000);
       }
 
       function renderHud(){
-        el.diffBadge.textContent = state.diff[0].toUpperCase() + state.diff.slice(1);
+        el.diffBadge.textContent = state.diff.charAt(0).toUpperCase() + state.diff.slice(1);
         el.viewBadge.textContent = state.view;
         el.modeBadge.textContent = state.mode === 'challenge' ? 'Challenge' : 'Learn';
+
         el.timeText.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
         el.scoreText.textContent = String(Math.round(state.score));
         el.comboText.textContent = String(state.combo);
@@ -1335,29 +1150,57 @@
           `;
         }).join('');
 
-        el.zoneList.querySelectorAll('.zoneRow').forEach(row => bindZoneElement(row));
+        el.zoneList.querySelectorAll('.zoneRow').forEach(bindZoneElement);
 
-        el.teethGrid.innerHTML = ZONES.map(z => {
-          const p = Math.round(state.zoneProgress[z.id] || 0);
-          const active = z.id === state.activeZone;
-          const done = p >= 100;
-          return `
-            <button class="toothZone ${active ? 'active' : ''} ${done ? 'done' : ''}" data-zone="${z.id}" type="button" aria-label="${z.label}">
-              <span class="plaque" style="opacity:${clamp(1 - p / 100, 0, 1).toFixed(2)}"></span>
-              <span class="zoneLabel">${z.label}<br>${p}%</span>
-            </button>
-          `;
-        }).join('');
+        const upper = ZONES.filter(z => z.arch === 'upper').map(zoneCardHtml).join('');
+        const lower = ZONES.filter(z => z.arch === 'lower').map(zoneCardHtml).join('');
+        el.upperArch.innerHTML = upper;
+        el.lowerArch.innerHTML = lower;
 
-        el.teethGrid.querySelectorAll('.toothZone').forEach(zone => bindZoneElement(zone));
+        el.upperArch.querySelectorAll('.toothZone').forEach(bindZoneElement);
+        el.lowerArch.querySelectorAll('.toothZone').forEach(bindZoneElement);
 
-        const active = getActiveZone();
+        const active = getZone(state.activeZone);
         const p = Math.round(state.zoneProgress[state.activeZone] || 0);
         el.taskTitle.textContent = `🪥 แปรง: ${active.label}`;
         el.taskText.textContent = p >= 100
-          ? 'จุดนี้สะอาดแล้ว เลือกโซนถัดไปได้เลย'
-          : 'ลากแปรงบนโซนนี้ด้วย mouse หรือ touch จน Clean ครบ 100%';
+          ? 'โซนนี้สะอาดแล้ว เลือกจุดถัดไปในปากได้เลย'
+          : 'ลากแปรงบนฟันจริงในรูปปาก เพื่อกำจัดคราบสีเหลือง';
         el.zoneBar.style.width = p + '%';
+      }
+
+      function zoneCardHtml(z){
+        const p = Math.round(state.zoneProgress[z.id] || 0);
+        const active = z.id === state.activeZone;
+        const done = p >= 100;
+        const plaqueOpacity = clamp(1 - p / 100, 0, 1).toFixed(2);
+        const blobs = plaqueBlobs(z.id, plaqueOpacity);
+        const archExtra = z.cls ? (' ' + z.cls) : '';
+        const lower = z.arch === 'lower' ? ' lower' : '';
+        return `
+          <button class="toothZone${archExtra}${lower} ${active ? 'active' : ''} ${done ? 'done' : ''}" data-zone="${z.id}" type="button" aria-label="${z.label}">
+            <div class="toothGroup">
+              <span class="tooth"></span><span class="tooth"></span><span class="tooth"></span><span class="tooth"></span>
+            </div>
+            <div class="plaqueLayer">${blobs}</div>
+            <div class="zoneLabel">${z.label}<br>${p}%</div>
+          </button>
+        `;
+      }
+
+      function plaqueBlobs(id, opacity){
+        const map = {
+          'upper-left':  [[18,22,42,20],[52,48,30,18],[63,20,20,14]],
+          'upper-front': [[18,46,26,15],[40,22,26,18],[60,52,24,14]],
+          'upper-right': [[12,30,28,16],[44,18,36,20],[60,48,24,14]],
+          'lower-left':  [[16,40,38,20],[56,20,24,14],[60,54,20,12]],
+          'lower-front': [[18,22,28,16],[38,44,30,18],[60,20,22,14]],
+          'lower-right': [[14,20,28,14],[42,40,34,18],[62,18,20,12]]
+        };
+        const list = map[id] || [];
+        return list.map(([left,top,width,height]) => {
+          return `<span class="plaqueBlob" style="left:${left}%;top:${top}%;width:${width}%;height:${height}%;opacity:${opacity};"></span>`;
+        }).join('');
       }
 
       function bindZoneElement(node){
@@ -1367,6 +1210,7 @@
         node.addEventListener('pointercancel', onZonePointerUp);
 
         node.addEventListener('click', e => {
+          if(state.stage !== 'main') return;
           e.preventDefault();
           const id = node.dataset.zone;
           selectZone(id);
@@ -1374,6 +1218,7 @@
         });
 
         node.addEventListener('keydown', e => {
+          if(state.stage !== 'main') return;
           if(e.key === 'Enter' || e.key === ' '){
             e.preventDefault();
             const id = node.dataset.zone;
@@ -1391,6 +1236,7 @@
         e.preventDefault();
         try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
         selectZone(id);
+
         state.brushing = true;
         state.lastPoint = { x:e.clientX, y:e.clientY };
         moveBrush(e.clientX, e.clientY, true);
@@ -1399,7 +1245,6 @@
 
       function onZonePointerMove(e){
         if(state.stage !== 'main' || !state.brushing) return;
-        const id = state.activeZone;
         e.preventDefault();
 
         const last = state.lastPoint || { x:e.clientX, y:e.clientY };
@@ -1411,11 +1256,11 @@
         moveBrush(e.clientX, e.clientY, true);
 
         if(dist > 3){
-          addBrushProgress(id, clamp(dist / 9, 1.1, 6), e);
+          addBrushProgress(state.activeZone, clamp(dist / 9, 1.1, 6), e);
         }
       }
 
-      function onZonePointerUp(e){
+      function onZonePointerUp(){
         if(!state.brushing) return;
         state.brushing = false;
         state.lastPoint = null;
@@ -1427,18 +1272,28 @@
           el.brush.classList.remove('show');
           return;
         }
-
         const rect = el.mouthScene.getBoundingClientRect();
         el.brush.style.left = (x - rect.left) + 'px';
         el.brush.style.top = (y - rect.top) + 'px';
         el.brush.classList.add('show');
       }
 
+      function spawnSparkle(x,y,text){
+        const rect = el.mouthScene.getBoundingClientRect();
+        const fx = document.createElement('div');
+        fx.className = 'sparkle';
+        fx.textContent = text;
+        fx.style.left = (x - rect.left) + 'px';
+        fx.style.top = (y - rect.top) + 'px';
+        el.mouthScene.appendChild(fx);
+        setTimeout(() => fx.remove(), 720);
+      }
+
       function selectZone(id){
         if(!ZONES.some(z => z.id === id)) return;
         if(state.activeZone !== id){
           state.activeZone = id;
-          showToast('เลือกโซน: ' + getActiveZone().label);
+          showToast('เลือกโซน: ' + getZone(id).label);
         }
         renderZones();
       }
@@ -1456,7 +1311,9 @@
         state.maxCombo = Math.max(state.maxCombo, state.combo);
         state.score += Math.round(6 + state.combo * .22);
 
-        if(event && event.clientX != null) spawnFx(event.clientX, event.clientY, next >= 100 ? '✨' : '🫧');
+        if(event && event.clientX != null){
+          spawnSparkle(event.clientX, event.clientY, next >= 100 ? '✨' : '🫧');
+        }
 
         if(next >= 100 && before < 100){
           state.score += 80;
@@ -1471,23 +1328,6 @@
 
         render();
       }
-
-      function spawnFx(x,y,text){
-        const fx = document.createElement('div');
-        fx.className = 'fx';
-        fx.textContent = text;
-        const rect = el.mouthScene.getBoundingClientRect();
-        fx.style.left = (x - rect.left) + 'px';
-        fx.style.top = (y - rect.top) + 'px';
-        el.mouthScene.appendChild(fx);
-        setTimeout(() => fx.remove(), 700);
-      }
-
-      function getZone(id){ return ZONES.find(z => z.id === id) || ZONES[0]; }
-      function getActiveZone(){ return getZone(state.activeZone); }
-      function totalClean(){ return ZONES.reduce((s,z) => s + (state.zoneProgress[z.id] || 0), 0) / ZONES.length; }
-      function totalPlaque(){ return clamp(100 - totalClean(), 0, 100); }
-      function completedZones(){ return ZONES.filter(z => (state.zoneProgress[z.id] || 0) >= 100).length; }
 
       function nextZone(dir){
         const idx = ZONES.findIndex(z => z.id === state.activeZone);
@@ -1510,6 +1350,16 @@
         setStage('boss');
       }
 
+      function shuffleChoices(target){
+        const pool = BOSS_ORDER.concat(['กินขนมก่อนนอน','แปรงแรงมาก ๆ','ลืมแปรงฟัน','บ้วนปากอย่างเดียว']);
+        const out = [target];
+        for(const p of pool){
+          if(out.length >= 4) break;
+          if(p !== target && !out.includes(p)) out.push(p);
+        }
+        return out.sort(() => Math.random() - .5);
+      }
+
       function renderBoss(){
         const pct = clamp(state.bossHp, 0, 100);
         el.bossHpBar.style.width = pct + '%';
@@ -1528,19 +1378,8 @@
         });
       }
 
-      function shuffleChoices(target){
-        const pool = BOSS_ORDER.concat(['กินขนมก่อนนอน','แปรงแรงมาก ๆ','ลืมแปรงฟัน','บ้วนปากอย่างเดียว']);
-        const out = [target];
-        for(const p of pool){
-          if(out.length >= 4) break;
-          if(p !== target && !out.includes(p)) out.push(p);
-        }
-        return out.sort(() => Math.random() - .5);
-      }
-
       function answerBoss(choice){
         const target = BOSS_ORDER[state.bossIndex];
-
         if(choice === target){
           state.bossHp = clamp(state.bossHp - 22, 0, 100);
           state.bossIndex += 1;
@@ -1551,7 +1390,7 @@
           state.bossWrong += 1;
           state.combo = 0;
           state.score = Math.max(0, state.score - 25);
-          showToast('ยังไม่ใช่ ลองเลือกขั้นตอนที่ถูก');
+          showToast('ยังไม่ใช่ ลองใหม่');
         }
 
         if(state.bossHp <= 0 || state.bossIndex >= BOSS_ORDER.length){
@@ -1560,12 +1399,12 @@
           setTimeout(showSummary, 500);
           return;
         }
-
         render();
       }
 
       function showSummary(){
         setStage('summary');
+
         const clean = Math.round(totalClean());
         const plaque = Math.round(totalPlaque());
         const accuracy = Math.round((state.hits / Math.max(1, state.hits + state.misses + state.bossWrong)) * 100);
@@ -1574,6 +1413,7 @@
 
         el.summaryScore.textContent = String(Math.round(state.score));
         el.summaryStars.textContent = '⭐'.repeat(stars) + '☆'.repeat(3 - stars);
+
         el.summaryResult.innerHTML = `
           <strong>🦷 Clean Teeth: ${clean}%</strong>
           <span>คราบเหลือ: ${plaque}%</span>
@@ -1588,7 +1428,7 @@
 
         el.summaryCoach.textContent = weakest && weakest.pct < 90
           ? `รอบหน้าฝึกโซน “${weakest.label}” เพิ่มอีกนิดนะ`
-          : 'ยอดเยี่ยม! แปรงได้ครบทุกโซนแล้ว';
+          : 'ยอดเยี่ยม! ทำความสะอาดได้ครบทุกโซนในปากแล้ว';
 
         saveSummary({clean, plaque, accuracy, stars, bossWon});
       }
@@ -1625,22 +1465,21 @@
       }
 
       function escapeAttr(s){
-        return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+        return String(s || '').replace(/[&<>"']/g, function(m){
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+        });
       }
 
       function render(){
         renderHud();
-
         if(state.stage === 'main'){
           renderZones();
         }
-
         if(state.stage === 'boss'){
           renderBoss();
         }
-
         el.debugBox.textContent = [
-          'BRUSH KIDS',
+          'BRUSH KIDS MOUTH SIM',
           'VERSION: ' + VERSION,
           '',
           'Stage: ' + state.stage,
@@ -1657,7 +1496,7 @@
       }
 
       function bind(){
-        document.addEventListener('click', e => {
+        document.addEventListener('click', function(e){
           const action = e.target && e.target.closest && e.target.closest('[data-action]');
           if(action){
             const a = action.dataset.action;
@@ -1677,27 +1516,25 @@
           }
         });
 
-        el.btnBack.addEventListener('click', () => {
+        el.btnBack.addEventListener('click', function(){
           location.href = zoneUrl();
         });
 
-        el.btnPause.addEventListener('click', () => {
+        el.btnPause.addEventListener('click', function(){
           state.paused = !state.paused;
           el.btnPause.textContent = state.paused ? '▶' : '⏸';
           showToast(state.paused ? 'หยุดชั่วคราว' : 'เล่นต่อ');
         });
-      }
-
-      function init(){
-        el.diffBadge.textContent = state.diff[0].toUpperCase() + state.diff.slice(1);
-        el.viewBadge.textContent = state.view;
-        renderZones();
-        bind();
-        setStage(state.stage);
-        render();
 
         window.addEventListener('pointerup', onZonePointerUp);
         window.addEventListener('pointercancel', onZonePointerUp);
+      }
+
+      function init(){
+        bind();
+        renderZones();
+        setStage(state.stage);
+        render();
       }
 
       init();
