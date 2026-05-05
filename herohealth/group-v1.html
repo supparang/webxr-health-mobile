@@ -1,9 +1,18 @@
+<!-- === /herohealth/group-v1.html === -->
+<!-- FULL PATCH v20260505-GROUP-V1-SOLO-ARENA-V2-LAUNCHER -->
+<!-- ✅ ปรับหน้า Groups launcher ให้ Solo ดูน่าเล่นขึ้น -->
+<!-- ✅ ส่ง flags ไปให้ /herohealth/vr-groups/groups.html สำหรับ Solo Arena v2 -->
+<!-- ✅ รองรับ PC / Mobile / cVR -->
+<!-- ✅ Zone-first: กลับ Nutrition Zone ก่อน ไม่เด้ง Hub โดยตรง -->
+<!-- ✅ คง Race lobby path เดิม -->
+<!-- ✅ Battle / Duet / Coop แสดงเป็นเร็ว ๆ นี้ก่อน -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups v1</title>
+  <title>HeroHealth • Food Groups Arena</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
@@ -29,6 +38,7 @@
       --pink:#ff9fd0;
       --violet:#bca7ff;
       --orange:#ffb168;
+      --red:#ff7b73;
 
       --shadow:0 16px 34px rgba(93,155,185,.16);
       --shadow-lg:0 22px 48px rgba(75,138,170,.18);
@@ -49,7 +59,9 @@
       background:
         radial-gradient(1100px 620px at 50% -10%, rgba(255,255,255,.92), transparent 58%),
         radial-gradient(680px 420px at 12% 8%, rgba(255,255,255,.48), transparent 62%),
+        radial-gradient(560px 360px at 88% 18%, rgba(255,235,148,.36), transparent 64%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));
+      overflow-x:hidden;
     }
 
     .shell{
@@ -98,6 +110,12 @@
       border:1px solid #ffe39a;
       box-shadow:0 10px 22px rgba(255,214,111,.20);
       flex:0 0 auto;
+      animation:brandBounce 2.6s ease-in-out infinite;
+    }
+
+    @keyframes brandBounce{
+      0%,100%{ transform:translateY(0) rotate(0deg); }
+      50%{ transform:translateY(-4px) rotate(-3deg); }
     }
 
     .brand h1{
@@ -137,6 +155,16 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 18px 38px rgba(75,138,170,.20);
+    }
+
+    .btn:active{
+      transform:translateY(1px) scale(.99);
     }
 
     .btn.primary{
@@ -149,7 +177,9 @@
       position:relative;
       overflow:hidden;
       border-radius:30px;
-      background:linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,253,255,.92));
+      background:
+        radial-gradient(420px 260px at 78% 16%, rgba(255,217,102,.28), transparent 64%),
+        linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,253,255,.92));
       border:1px solid var(--line);
       box-shadow:var(--shadow-lg);
       padding:18px;
@@ -167,6 +197,18 @@
         radial-gradient(circle at 34% 34%, rgba(255,255,255,.65), transparent 26%),
         linear-gradient(180deg,#fff2ae,#ffd05f);
       opacity:.78;
+    }
+
+    .hero::before{
+      content:"🥚  🍚  🥦  🍎  🥑";
+      position:absolute;
+      left:18px;
+      bottom:-10px;
+      font-size:42px;
+      letter-spacing:8px;
+      opacity:.10;
+      pointer-events:none;
+      white-space:nowrap;
     }
 
     .heroRow{
@@ -212,6 +254,13 @@
       color:#5d7f95;
       font-size:.86rem;
       font-weight:1000;
+      box-shadow:0 8px 18px rgba(93,155,185,.10);
+    }
+
+    .chip.hot{
+      color:#9a6517;
+      background:linear-gradient(180deg,#fff9df,#fff0b4);
+      border-color:#ffe39a;
     }
 
     .heroPanel{
@@ -258,6 +307,13 @@
       padding:16px;
       display:grid;
       gap:12px;
+      min-height:276px;
+      transition:transform .16s ease, box-shadow .16s ease;
+    }
+
+    .modeCard:hover{
+      transform:translateY(-2px);
+      box-shadow:0 26px 54px rgba(75,138,170,.22);
     }
 
     .modeCard::before{
@@ -270,6 +326,13 @@
       border-radius:50%;
       opacity:.9;
       pointer-events:none;
+    }
+
+    .modeCard.solo{
+      border-color:#ffe39a;
+      background:
+        radial-gradient(420px 260px at 100% 0%, rgba(255,217,102,.36), transparent 58%),
+        linear-gradient(180deg,#fffef7,#f8fdff);
     }
 
     .modeCard.solo::before{ background:linear-gradient(180deg,#fff4b6,#ffd76d); }
@@ -300,6 +363,16 @@
       flex:0 0 auto;
     }
 
+    .solo .modeIcon{
+      background:linear-gradient(180deg,#fff9de,#fff0aa);
+      animation:soloPulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes soloPulse{
+      0%,100%{ transform:scale(1); box-shadow:0 10px 22px rgba(255,190,70,.14); }
+      50%{ transform:scale(1.05); box-shadow:0 16px 34px rgba(255,190,70,.24); }
+    }
+
     .statusPill{
       display:inline-flex;
       align-items:center;
@@ -316,6 +389,12 @@
       background:rgba(126,217,87,.14);
       border:1px solid rgba(126,217,87,.26);
       color:#45813a;
+    }
+
+    .statusPill.hot{
+      background:rgba(255,185,92,.18);
+      border:1px solid rgba(255,185,92,.30);
+      color:#9a6517;
     }
 
     .statusPill.soon{
@@ -364,6 +443,12 @@
       color:#5e7f94;
     }
 
+    .solo .modeMeta span{
+      color:#7f6418;
+      background:#fffdf2;
+      border-color:#ffeab3;
+    }
+
     .modeActions{
       position:relative;
       z-index:1;
@@ -382,11 +467,26 @@
       font-weight:1000;
       cursor:pointer;
       box-shadow:var(--shadow);
+      transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
+    }
+
+    .modeBtn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 18px 38px rgba(75,138,170,.22);
+    }
+
+    .modeBtn:active{
+      transform:translateY(1px) scale(.99);
     }
 
     .modeBtn.play{
       color:#fff;
       background:linear-gradient(180deg,var(--blue),var(--blue2));
+    }
+
+    .solo .modeBtn.play{
+      background:linear-gradient(180deg,#ffbf4d,#ff8f3d);
+      box-shadow:0 18px 34px rgba(255,143,61,.22);
     }
 
     .modeBtn.alt{
@@ -400,6 +500,11 @@
       color:#8aa0af;
       background:#eef6fb;
       border:1px dashed #cfe4ef;
+      box-shadow:none;
+    }
+
+    .modeBtn.disabled:hover{
+      transform:none;
       box-shadow:none;
     }
 
@@ -479,9 +584,15 @@
         font-size:26px;
       }
 
+      .hero{
+        border-radius:24px;
+        padding:14px;
+      }
+
       .modeCard{
         padding:14px;
         border-radius:24px;
+        min-height:auto;
       }
 
       .modeTitle{
@@ -496,6 +607,16 @@
         width:100%;
       }
     }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        animation:none !important;
+        transition:none !important;
+        scroll-behavior:auto !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -504,8 +625,8 @@
       <div class="brand">
         <div class="brandMark">🥦</div>
         <div>
-          <h1>Food Groups v1</h1>
-          <p>ตัวหลักของเกม Groups — zone-first และส่งค่ากลับ Nutrition Zone ให้ครบ</p>
+          <h1>Food Groups Arena</h1>
+          <p>ตัวหลักของเกม Groups — Solo Arena, Race และ zone-first flow</p>
         </div>
       </div>
 
@@ -520,19 +641,19 @@
     <section class="hero">
       <div class="heroRow">
         <div>
-          <h2>หน้าเกมหลักของ Groups</h2>
+          <h2>Food Groups Arena</h2>
           <p>
-            หน้านี้คือ launcher หลักของเกม Groups ใน Nutrition Zone
-            ตอนนี้เปิดให้เล่นจริงก่อน 2 โหมดคือ <b>Solo</b> และ <b>Race</b>
-            ส่วน Battle, Duet และ Coop แสดงไว้ก่อนแล้วค่อยเปิดภายหลัง
+            ฝึกแยกอาหารหลัก 5 หมู่ของไทยให้สนุกขึ้นด้วยภารกิจสุ่ม Wave Mission,
+            คอมโบ, Fever, Power-up และบอส Chaos Chef โดย <b>Solo Arena</b>
+            จะเป็นโหมดหลักสำหรับฝึกคนเดียว ส่วน Race ใช้แข่งกับเพื่อน
           </p>
 
           <div class="heroChips">
-            <span class="chip">🥇 Solo พร้อมเล่น</span>
-            <span class="chip">🏁 Race พร้อมเล่น</span>
-            <span class="chip">🖥️ รองรับ PC</span>
-            <span class="chip">📱 รองรับ Mobile</span>
-            <span class="chip">🥽 รองรับ cVR</span>
+            <span class="chip hot">🥇 Solo Arena v2</span>
+            <span class="chip">🌊 Wave Mission</span>
+            <span class="chip">🔥 Combo + Fever</span>
+            <span class="chip">👨‍🍳 Boss Chaos Chef</span>
+            <span class="chip">🖥️📱🥽 PC / Mobile / cVR</span>
           </div>
         </div>
 
@@ -542,12 +663,12 @@
             <div class="panelValue">group-v1.html</div>
           </div>
           <div class="panelCard">
-            <div class="panelLabel">Mini Game</div>
-            <div class="panelValue">groups-vr.html</div>
+            <div class="panelLabel">Solo Run</div>
+            <div class="panelValue">vr-groups/groups.html</div>
           </div>
           <div class="panelCard">
-            <div class="panelLabel">ตอนนี้เปิดจริง</div>
-            <div class="panelValue">Solo • Race</div>
+            <div class="panelLabel">เปิดจริง</div>
+            <div class="panelValue">Solo Arena • Race</div>
           </div>
           <div class="panelCard">
             <div class="panelLabel">View</div>
@@ -561,17 +682,19 @@
       <article class="modeCard solo">
         <div class="modeTop">
           <div class="modeIcon">🥇</div>
-          <div class="statusPill ready">พร้อมเล่น</div>
+          <div class="statusPill hot">แนะนำให้เล่น</div>
         </div>
         <div class="modeBody">
-          <h3 class="modeTitle">Solo</h3>
+          <h3 class="modeTitle">Solo Arena</h3>
           <p class="modeSub">
-            เล่นคนเดียว ฝึกจับหมวดอาหารให้ถูกต้อง วัดคะแนน ความแม่นยำ และสตรีค
+            ลุยภารกิจจัดอาหาร 5 หมู่แบบ Wave Mission มีคอมโบ Fever Power-up และบอส Chaos Chef
+            เล่นซ้ำแล้วสุ่มภารกิจใหม่ ไม่จำทางเดิมง่าย
           </p>
           <div class="modeMeta">
-            <span>เล่นคนเดียว</span>
-            <span>ฝึกพื้นฐาน</span>
-            <span>เหมาะเริ่มก่อน</span>
+            <span>🌊 6 Waves</span>
+            <span>🔥 Fever Combo</span>
+            <span>🧠 Memory Flash</span>
+            <span>👨‍🍳 Boss Chef</span>
           </div>
         </div>
         <div class="modeActions">
@@ -725,7 +848,7 @@
         const u = new URL(ROUTES.zone, location.href);
 
         const passKeys = [
-          'pid','name','nickName','studyId',
+          'pid','name','nickName','nick','studyId',
           'run','diff','view','time','seed',
           'debug','api','log',
           'studentKey','schoolCode','classRoom','studentNo',
@@ -738,7 +861,8 @@
         });
 
         if (!u.searchParams.get('pid')) u.searchParams.set('pid', 'anon');
-        if (!u.searchParams.get('name')) u.searchParams.set('name', first(q.get('name'), q.get('nickName'), 'Player'));
+        if (!u.searchParams.get('name')) u.searchParams.set('name', first(q.get('name'), q.get('nickName'), q.get('nick'), 'Player'));
+        if (!u.searchParams.get('nick')) u.searchParams.set('nick', first(q.get('nick'), q.get('nickName'), q.get('name'), 'Player'));
         if (!u.searchParams.get('diff')) u.searchParams.set('diff', 'normal');
         if (!u.searchParams.get('time')) u.searchParams.set('time', '60');
         if (!u.searchParams.get('view')) u.searchParams.set('view', 'mobile');
@@ -753,7 +877,8 @@
         const s = new URLSearchParams(q.toString());
 
         if (!s.get('pid')) s.set('pid', 'anon');
-        if (!s.get('name')) s.set('name', first(q.get('name'), q.get('nickName'), 'Player'));
+        if (!s.get('name')) s.set('name', first(q.get('name'), q.get('nickName'), q.get('nick'), 'Player'));
+        if (!s.get('nick')) s.set('nick', first(q.get('nick'), q.get('nickName'), q.get('name'), 'Player'));
         if (!s.get('diff')) s.set('diff', 'normal');
         if (!s.get('time')) s.set('time', '60');
         if (!s.get('run')) s.set('run', 'play');
@@ -775,8 +900,30 @@
           currentHref: location.href,
           overrides: {
             mode: 'solo',
+            entry: 'solo',
             view,
-            seed: String(Date.now())
+            seed: String(Date.now()),
+
+            // Groups Solo Arena v2 flags
+            soloPack: 'groups-solo-arena-v2',
+            missionPack: 'wave-random-boss',
+            replay: '1',
+            randomMission: '1',
+            waves: '6',
+            boss: 'chaos-chef',
+            bossPhase: '3',
+            fever: '1',
+            combo: '1',
+            powerups: '1',
+            traps: '1',
+            memoryFlash: '1',
+            adaptive: '1',
+
+            // research/play metadata
+            gameId: 'groups',
+            cat: 'nutrition',
+            theme: 'groups-arena',
+            returnTo: 'nutrition-zone'
           }
         });
       }
@@ -795,7 +942,11 @@
             race: '1',
             join: joinOnly ? '1' : '',
             view,
-            seed: String(Date.now())
+            seed: String(Date.now()),
+            gameId: 'groups',
+            cat: 'nutrition',
+            theme: 'groups-race',
+            returnTo: 'nutrition-zone'
           }
         });
       }
@@ -811,7 +962,12 @@
           currentHref: location.href,
           overrides: {
             mode: 'mini',
-            seed: String(Date.now())
+            entry: 'mini',
+            seed: String(Date.now()),
+            gameId: 'groups',
+            cat: 'nutrition',
+            theme: 'groups-mini',
+            returnTo: 'nutrition-zone'
           }
         });
       }
@@ -855,7 +1011,9 @@
 
         document.querySelectorAll('[data-soon]').forEach((btn) => {
           btn.addEventListener('click', () => {
-            showToast('โหมดนี้กำลังเตรียมเปิดเร็ว ๆ นี้');
+            const mode = btn.dataset.soon || '';
+            const label = mode ? mode.toUpperCase() : 'โหมดนี้';
+            showToast(label + ' กำลังเตรียมเปิดเร็ว ๆ นี้');
           });
         });
 
@@ -869,7 +1027,7 @@
                 return;
               }
             } catch (_) {}
-            showToast('ยังไม่มีโหมดล่าสุด เริ่มจาก Solo หรือ Race ได้เลย');
+            showToast('ยังไม่มีโหมดล่าสุด เริ่มจาก Solo Arena หรือ Race ได้เลย');
           });
         }
 
