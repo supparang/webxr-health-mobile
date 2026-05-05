@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505h-BRUSH-KIDS-ACTIVE-SCRUB-GAMEPLAY -->
+<!-- FULL PATCH v20260505i-BRUSH-KIDS-ARCADE-CHALLENGE-LAYER -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -857,6 +857,153 @@
   }
 }
 
+  
+/* === PATCH v20260505i-BRUSH-ARCADE-CHALLENGE-LAYER === */
+.arcadePanel{
+  border-radius:18px;
+  border:2px solid #ffd95d;
+  background:linear-gradient(180deg,#fff8dc,#ffffff);
+  padding:10px 12px;
+  display:grid;
+  gap:8px;
+  color:#7c5800;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.arcadePanel strong{
+  color:#503c00;
+  font-size:15px;
+}
+
+.arcadeGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:7px;
+}
+
+.arcadeChip{
+  min-height:34px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  padding:6px 9px;
+  background:#fff;
+  border:1px solid #ffe58d;
+  color:#7c5800;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.arcadeChip.good{
+  border-color:#b8eec6;
+  background:#effcf3;
+  color:#166534;
+}
+
+.arcadeChip.danger{
+  border-color:#fecaca;
+  background:#fff3f3;
+  color:#991b1b;
+  animation:dangerPulse .65s ease-in-out infinite;
+}
+
+@keyframes dangerPulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.025); }
+}
+
+.feverOverlay{
+  position:absolute;
+  inset:0;
+  z-index:8;
+  pointer-events:none;
+  opacity:0;
+  background:
+    radial-gradient(circle at 25% 22%, rgba(255,255,255,.7), transparent 14%),
+    radial-gradient(circle at 70% 40%, rgba(255,255,255,.5), transparent 12%),
+    radial-gradient(circle at 45% 75%, rgba(139,232,255,.38), transparent 18%);
+  transition:opacity .15s ease;
+}
+
+.feverOverlay.on{
+  opacity:.95;
+  animation:foamFeverPulse .55s ease-in-out infinite;
+}
+
+@keyframes foamFeverPulse{
+  0%,100%{ filter:hue-rotate(0deg) brightness(1); }
+  50%{ filter:hue-rotate(14deg) brightness(1.08); }
+}
+
+.plaqueMonster{
+  position:absolute;
+  z-index:6;
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  border:2px solid rgba(255,255,255,.85);
+  box-shadow:0 10px 18px rgba(80,60,0,.18);
+  background:linear-gradient(180deg,#fff2a8,#fb923c);
+  font-size:20px;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  animation:monsterWiggle .45s ease-in-out infinite;
+}
+
+.plaqueMonster.sugar{
+  background:linear-gradient(180deg,#fbcfe8,#f472b6);
+}
+
+.plaqueMonster.cavity{
+  background:linear-gradient(180deg,#ddd6fe,#8b5cf6);
+}
+
+@keyframes monsterWiggle{
+  0%,100%{ transform:translate(-50%,-50%) rotate(-8deg) scale(1); }
+  50%{ transform:translate(-50%,-50%) rotate(8deg) scale(1.08); }
+}
+
+.toothZone.zoneDanger{
+  border-color:#ef4444;
+  box-shadow:0 0 0 8px rgba(239,68,68,.15), 0 14px 28px rgba(153,27,27,.12);
+}
+
+.zoneFlash{
+  position:absolute;
+  inset:0;
+  z-index:7;
+  pointer-events:none;
+  background:radial-gradient(circle, rgba(255,217,93,.45), transparent 48%);
+  animation:zoneFlash .38s ease-out forwards;
+}
+
+@keyframes zoneFlash{
+  from{ opacity:1; transform:scale(.8); }
+  to{ opacity:0; transform:scale(1.25); }
+}
+
+.missionDone{
+  animation:missionDonePop .7s ease-out;
+}
+
+@keyframes missionDonePop{
+  0%{ transform:scale(1); box-shadow:0 0 0 rgba(34,197,94,0); }
+  40%{ transform:scale(1.025); box-shadow:0 0 0 8px rgba(34,197,94,.18); }
+  100%{ transform:scale(1); box-shadow:0 0 0 rgba(34,197,94,0); }
+}
+
+@media (max-width:640px){
+  .arcadePanel{ padding:8px 9px; font-size:11.5px; }
+  .arcadeGrid{ grid-template-columns:1fr; }
+  .plaqueMonster{ width:30px; height:30px; font-size:17px; }
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -944,6 +1091,18 @@
             </div>
             <div class="dragOnlyHint" id="dragOnlyHint">⚠️ กดเฉย ๆ ไม่สะอาด ต้องลากแปรงบนฟัน</div>
 
+            <div class="arcadePanel" id="arcadePanel">
+              <strong id="arcadeMissionTitle">🎯 Mini Mission: กำจัด Plaque Monster</strong>
+              <span id="arcadeMissionText">ลากแปรงไปโดนมอนสเตอร์บนฟัน 3 ตัว</span>
+              <div class="arcadeGrid">
+                <div class="arcadeChip" id="dangerChip"><span>⏱ Tooth Rescue</span><b id="dangerText">12s</b></div>
+                <div class="arcadeChip" id="feverChip"><span>🫧 Foam Fever</span><b id="feverText">0%</b></div>
+                <div class="arcadeChip" id="monsterChip"><span>👾 Monster</span><b id="monsterText">0</b></div>
+                <div class="arcadeChip" id="missionChip"><span>⭐ Mission</span><b id="missionText">0/3</b></div>
+              </div>
+            </div>
+
+
             <div class="zoneList" id="zoneList"></div>
             <div class="dock">
               <button class="dockBtn" type="button" data-dock="prev">⬅ โซนก่อน</button>
@@ -955,6 +1114,7 @@
           <div class="mouthWrap">
             <div class="mouthScene" id="mouthScene">
               <div class="mouthBase"></div>
+              <div class="feverOverlay" id="feverOverlay"></div>
               <div class="upperGum"></div>
               <div class="lowerGum"></div>
 
@@ -1006,7 +1166,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505h-BRUSH-KIDS-ACTIVE-SCRUB-GAMEPLAY';
+      const VERSION = '20260505i-BRUSH-KIDS-ARCADE-CHALLENGE-LAYER';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -1038,6 +1198,21 @@
         'lower-front': { title:'ฟันล่างหน้า', pattern:'ปัดขึ้นเบา ๆ จากเหงือกสู่ปลายฟัน', minMove:8,  bonus:'vertical' },
         'lower-right': { title:'ฟันล่างขวา',  pattern:'ลากเป็นวงเล็ก ๆ บนฟันกราม', minMove:9,  bonus:'circle' }
       };
+
+
+
+      const MONSTER_TYPES = [
+        { id:'plaque', icon:'🦠', label:'Plaque Monster', score:45, clean:7 },
+        { id:'sugar', icon:'🍬', label:'Sugar Blob', score:55, clean:8 },
+        { id:'cavity', icon:'👾', label:'Cavity Bug', score:70, clean:10 }
+      ];
+
+      const ARCADE_MISSIONS = [
+        { id:'monster3', title:'กำจัด Plaque Monster', text:'ลากแปรงไปโดนมอนสเตอร์บนฟัน 3 ตัว', target:3, type:'monster' },
+        { id:'combo18', title:'ทำ Combo 18', text:'ลากให้ถูกทิศทางต่อเนื่องจน Combo ถึง 18', target:18, type:'combo' },
+        { id:'fever1', title:'เปิด Foam Fever', text:'ลากดีต่อเนื่องจนเปิด Foam Fever 1 ครั้ง', target:1, type:'fever' },
+        { id:'rescue2', title:'ช่วยฟันด่วน 2 โซน', text:'ทำความสะอาดก่อน timer danger หมด 2 โซน', target:2, type:'rescue' }
+      ];
 
 
       const BOSS_ORDER = [
@@ -1072,6 +1247,18 @@
         scrubMeterFill:$('scrubMeterFill'),
         scrubMeterText:$('scrubMeterText'),
         dragOnlyHint:$('dragOnlyHint'),
+        arcadePanel:$('arcadePanel'),
+        arcadeMissionTitle:$('arcadeMissionTitle'),
+        arcadeMissionText:$('arcadeMissionText'),
+        dangerChip:$('dangerChip'),
+        dangerText:$('dangerText'),
+        feverChip:$('feverChip'),
+        feverText:$('feverText'),
+        monsterChip:$('monsterChip'),
+        monsterText:$('monsterText'),
+        missionChip:$('missionChip'),
+        missionText:$('missionText'),
+        feverOverlay:$('feverOverlay'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
 
@@ -1115,7 +1302,20 @@
         bossHp: 100,
         bossIndex: 0,
         bossWrong: 0,
-        zoneProgress: {}
+        zoneProgress: {},
+        zoneDanger: 12,
+        zoneDangerMax: 12,
+        feverMeter: 0,
+        feverUntil: 0,
+        feverCount: 0,
+        monsters: [],
+        monsterSeq: 0,
+        monstersHit: 0,
+        rescuedZones: 0,
+        mission: null,
+        missionProgress: 0,
+        missionDone: false,
+        lastMonsterSpawn: 0
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
@@ -1321,6 +1521,7 @@
           el.stageTitle.textContent = 'simulation แปรงฟันในช่องปาก';
           el.stageLead.textContent = 'คลิกโซนฟันในรูปปาก แล้วแปรงให้สะอาดทีละส่วน';
           if(!state.timer) startTimer();
+          setTimeout(() => { if(state.stage === 'main') { maybeSpawnMonster(true); renderZones(); } }, 700);
         }else if(stage === 'boss'){
           el.stageTitle.textContent = 'ปราบ Cavity King';
           el.stageLead.textContent = 'ตอบขั้นตอนแปรงฟันให้ถูก';
@@ -1332,19 +1533,38 @@
         render();
         window.scrollTo({top:0, behavior:'smooth'});
       }
-
       function startTimer(){
-        clearInterval(state.timer);
-        state.timer = setInterval(() => {
-          if(state.paused || state.stage !== 'main') return;
-          state.timeLeft -= 1;
-          if(state.timeLeft <= 0){
-            state.timeLeft = 0;
-            startBoss();
-          }
-          renderHud();
-        }, 1000);
-      }
+  clearInterval(state.timer);
+  chooseArcadeMission();
+  resetZoneDanger(true);
+
+  state.timer = setInterval(() => {
+    if(state.paused || state.stage !== 'main') return;
+
+    state.timeLeft -= 1;
+    state.zoneDanger -= 1;
+
+    if(isFeverActive()){
+      state.feverMeter = Math.max(0, state.feverMeter - 1.4);
+    }
+
+    decayMonsters();
+    maybeSpawnMonster();
+
+    if(state.zoneDanger <= 0){
+      dangerPenalty();
+      resetZoneDanger(false);
+    }
+
+    if(state.timeLeft <= 0){
+      state.timeLeft = 0;
+      startBoss();
+    }
+
+    renderHud();
+    renderZones();
+  }, 1000);
+}
 
       function renderHud(){
         el.diffBadge.textContent = state.diff.charAt(0).toUpperCase() + state.diff.slice(1);
@@ -1390,26 +1610,29 @@
           : 'ลากแปรงบนฟันจริงในรูปปาก เพื่อกำจัดคราบสีเหลือง';
         el.zoneBar.style.width = p + '%';
         updateScrubMission();
+        updateArcadePanel();
       }
-
       function zoneCardHtml(z){
-        const p = Math.round(state.zoneProgress[z.id] || 0);
-        const active = z.id === state.activeZone;
-        const done = p >= 100;
-        const plaqueOpacity = clamp(1 - p / 100, 0, 1).toFixed(2);
-        const blobs = plaqueBlobs(z.id, plaqueOpacity);
-        const archExtra = z.cls ? (' ' + z.cls) : '';
-        const lower = z.arch === 'lower' ? ' lower' : '';
-        return `
-          <button class="toothZone${archExtra}${lower} ${active ? 'active' : ''} ${done ? 'done' : ''}" data-zone="${z.id}" type="button" aria-label="${z.label}">
-            <div class="toothGroup">
-              <span class="tooth"></span><span class="tooth"></span><span class="tooth"></span><span class="tooth"></span>
-            </div>
-            <div class="plaqueLayer">${blobs}</div>
-            <div class="zoneLabel">${z.label}<br>${p}%</div>
-          </button>
-        `;
-      }
+  const p = Math.round(state.zoneProgress[z.id] || 0);
+  const active = z.id === state.activeZone;
+  const done = p >= 100;
+  const plaqueOpacity = clamp(1 - p / 100, 0, 1).toFixed(2);
+  const blobs = plaqueBlobs(z.id, plaqueOpacity);
+  const monsters = monsterSprites(z.id);
+  const archExtra = z.cls ? (' ' + z.cls) : '';
+  const lower = z.arch === 'lower' ? ' lower' : '';
+  const danger = active && state.zoneDanger <= 4 && !done;
+  return `
+    <button class="toothZone${archExtra}${lower} ${active ? 'active' : ''} ${done ? 'done' : ''} ${danger ? 'zoneDanger' : ''}" data-zone="${z.id}" type="button" aria-label="${z.label}">
+      <div class="toothGroup">
+        <span class="tooth"></span><span class="tooth"></span><span class="tooth"></span><span class="tooth"></span>
+      </div>
+      <div class="plaqueLayer">${blobs}</div>
+      ${monsters}
+      <div class="zoneLabel">${z.label}<br>${p}%</div>
+    </button>
+  `;
+}
 
       function plaqueBlobs(id, opacity){
         const map = {
@@ -1613,6 +1836,217 @@
       }
 
 
+
+      function seededFloat(seed){
+        const x = Math.sin(Number(seed || 1) * 999.123) * 10000;
+        return x - Math.floor(x);
+      }
+
+      function chooseArcadeMission(){
+        if(state.mission) return;
+        const seed = Number(qs.get('seed') || Date.now());
+        const idx = Math.floor(seededFloat(seed) * ARCADE_MISSIONS.length) % ARCADE_MISSIONS.length;
+        state.mission = ARCADE_MISSIONS[idx];
+        state.missionProgress = 0;
+        state.missionDone = false;
+      }
+
+      function resetZoneDanger(first=false){
+        const base = state.diff === 'easy' ? 16 : state.diff === 'hard' ? 10 : state.diff === 'challenge' ? 8 : 12;
+        state.zoneDangerMax = base;
+        state.zoneDanger = first ? base : Math.max(6, base - Math.min(4, completedZones()));
+      }
+
+      function isFeverActive(){
+        return Date.now() < state.feverUntil;
+      }
+
+      function activateFever(){
+        state.feverUntil = Date.now() + 5200;
+        state.feverCount += 1;
+        state.feverMeter = 100;
+        state.score += 120;
+        updateMission('fever', 1);
+        showToast('🫧 Foam Fever! คราบหายเร็ว x2');
+      }
+
+      function maybeBuildFever(quality, event){
+        if(quality < .95) return;
+
+        state.feverMeter = clamp(state.feverMeter + (state.diff === 'challenge' ? 5.8 : 7.2), 0, 100);
+
+        if(state.feverMeter >= 100 && !isFeverActive()){
+          activateFever();
+          if(event && event.clientX != null) spawnStreak(event.clientX, event.clientY, 'FOAM FEVER!');
+        }
+      }
+
+      function randomZoneWithPlaque(){
+        const choices = ZONES.filter(z => (state.zoneProgress[z.id] || 0) < 100);
+        if(!choices.length) return state.activeZone;
+        const i = Math.floor(Math.random() * choices.length);
+        return choices[i].id;
+      }
+
+      function maybeSpawnMonster(force=false){
+        const now = Date.now();
+        const max = state.diff === 'easy' ? 2 : state.diff === 'normal' ? 3 : 4;
+
+        if(!force && state.monsters.length >= max) return;
+        if(!force && now - state.lastMonsterSpawn < (state.diff === 'challenge' ? 3300 : 4300)) return;
+        if(!force && Math.random() > .58) return;
+
+        const zone = Math.random() < .66 ? state.activeZone : randomZoneWithPlaque();
+        const type = MONSTER_TYPES[Math.floor(Math.random() * MONSTER_TYPES.length)];
+        const id = 'm' + (++state.monsterSeq);
+
+        state.monsters.push({
+          id,
+          zone,
+          type:type.id,
+          icon:type.icon,
+          score:type.score,
+          clean:type.clean,
+          x:18 + Math.random() * 64,
+          y:24 + Math.random() * 52,
+          born:now,
+          ttl:state.diff === 'challenge' ? 9000 : 11000
+        });
+
+        state.lastMonsterSpawn = now;
+      }
+
+      function decayMonsters(){
+        const now = Date.now();
+        const before = state.monsters.length;
+        state.monsters = state.monsters.filter(m => now - m.born < m.ttl);
+
+        const escaped = before - state.monsters.length;
+        if(escaped > 0){
+          state.misses += escaped;
+          state.combo = Math.max(0, state.combo - escaped * 2);
+          const id = state.activeZone;
+          state.zoneProgress[id] = clamp((state.zoneProgress[id] || 0) - escaped * 3, 0, 100);
+          showToast('มี Plaque Monster หนีไป! คราบกลับมาเล็กน้อย');
+        }
+      }
+
+      function monsterSprites(zoneId){
+        return state.monsters
+          .filter(m => m.zone === zoneId)
+          .map(m => `<span class="plaqueMonster ${m.type}" data-monster="${m.id}" style="left:${m.x}%;top:${m.y}%;">${m.icon}</span>`)
+          .join('');
+      }
+
+      function hitMonstersAt(zoneId, x, y){
+        if(!x && !y) return 0;
+
+        const sceneRect = el.mouthScene.getBoundingClientRect();
+        const localX = x - sceneRect.left;
+        const localY = y - sceneRect.top;
+
+        const zoneNode = document.querySelector(`.toothZone[data-zone="${zoneId}"]`);
+        if(!zoneNode) return 0;
+
+        const zr = zoneNode.getBoundingClientRect();
+        const zx = ((x - zr.left) / Math.max(1, zr.width)) * 100;
+        const zy = ((y - zr.top) / Math.max(1, zr.height)) * 100;
+
+        let hit = 0;
+        const keep = [];
+
+        state.monsters.forEach(m => {
+          if(m.zone !== zoneId){
+            keep.push(m);
+            return;
+          }
+
+          const dx = m.x - zx;
+          const dy = m.y - zy;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+
+          if(dist <= 23){
+            hit += 1;
+            state.monstersHit += 1;
+            state.score += m.score;
+            state.combo += 2;
+            state.zoneProgress[zoneId] = clamp((state.zoneProgress[zoneId] || 0) + m.clean, 0, 100);
+            updateMission('monster', 1);
+            spawnSparkle(x, y, '💥');
+            spawnStreak(x, y, '+' + m.score);
+          }else{
+            keep.push(m);
+          }
+        });
+
+        state.monsters = keep;
+        return hit;
+      }
+
+      function dangerPenalty(){
+        const id = state.activeZone;
+        if((state.zoneProgress[id] || 0) >= 100) return;
+
+        const loss = state.diff === 'challenge' ? 9 : state.diff === 'hard' ? 7 : 5;
+        state.zoneProgress[id] = clamp((state.zoneProgress[id] || 0) - loss, 0, 100);
+        state.combo = Math.max(0, state.combo - 3);
+        state.misses += 1;
+        maybeSpawnMonster(true);
+        flashZone(id);
+        showToast('⏱ ช้าไป! คราบกลับมาและมีมอนสเตอร์โผล่');
+      }
+
+      function flashZone(id){
+        const node = document.querySelector(`.toothZone[data-zone="${id}"]`);
+        if(!node) return;
+        const fx = document.createElement('span');
+        fx.className = 'zoneFlash';
+        node.appendChild(fx);
+        setTimeout(() => fx.remove(), 430);
+      }
+
+      function updateMission(type, amount){
+        chooseArcadeMission();
+        if(!state.mission || state.missionDone) return;
+        if(state.mission.type !== type) return;
+
+        if(type === 'combo'){
+          state.missionProgress = Math.max(state.missionProgress, state.combo);
+        }else{
+          state.missionProgress += amount || 1;
+        }
+
+        if(state.missionProgress >= state.mission.target){
+          state.missionProgress = state.mission.target;
+          state.missionDone = true;
+          state.score += 250;
+          showToast('⭐ Mini Mission Complete!');
+          if(el.arcadePanel){
+            el.arcadePanel.classList.remove('missionDone');
+            void el.arcadePanel.offsetWidth;
+            el.arcadePanel.classList.add('missionDone');
+          }
+        }
+      }
+
+      function updateArcadePanel(){
+        chooseArcadeMission();
+
+        if(el.arcadeMissionTitle) el.arcadeMissionTitle.textContent = '🎯 Mini Mission: ' + state.mission.title;
+        if(el.arcadeMissionText) el.arcadeMissionText.textContent = state.mission.text;
+
+        if(el.dangerText) el.dangerText.textContent = Math.max(0, state.zoneDanger) + 's';
+        if(el.feverText) el.feverText.textContent = isFeverActive() ? 'FEVER!' : Math.round(state.feverMeter) + '%';
+        if(el.monsterText) el.monsterText.textContent = String(state.monsters.length);
+        if(el.missionText) el.missionText.textContent = state.missionProgress + '/' + state.mission.target;
+
+        if(el.dangerChip) el.dangerChip.classList.toggle('danger', state.zoneDanger <= 4);
+        if(el.feverChip) el.feverChip.classList.toggle('good', isFeverActive());
+        if(el.missionChip) el.missionChip.classList.toggle('good', !!state.missionDone);
+        if(el.feverOverlay) el.feverOverlay.classList.toggle('on', isFeverActive());
+      }
+
+
       function selectZone(id){
         if(!ZONES.some(z => z.id === id)) return;
         if(state.activeZone !== id){
@@ -1626,7 +2060,8 @@
   if(before >= 100) return;
 
   const diffMul = state.diff === 'easy' ? 1.18 : state.diff === 'hard' ? .82 : state.diff === 'challenge' ? .68 : 1;
-  const next = clamp(before + amount * diffMul, 0, 100);
+  const feverMul = isFeverActive() ? 2.05 : 1;
+  const next = clamp(before + amount * diffMul * feverMul, 0, 100);
   state.zoneProgress[id] = next;
 
   state.hits += 1;
@@ -1641,14 +2076,20 @@
   state.score += Math.round((5 + state.combo * .25) * Math.max(.55, quality));
 
   if(event && event.clientX != null){
+    hitMonstersAt(id, event.clientX, event.clientY);
+    maybeBuildFever(quality, event);
     spawnSparkle(event.clientX, event.clientY, next >= 100 ? '✨' : quality >= .95 ? '🫧' : '💦');
     if(state.combo > 0 && state.combo % 12 === 0){
       spawnStreak(event.clientX, event.clientY, 'Combo ' + state.combo + '!');
     }
   }
 
+  updateMission('combo', 0);
+
   if(next >= 100 && before < 100){
     state.score += 90;
+    if(state.zoneDanger > 0){ state.rescuedZones += 1; updateMission('rescue', 1); }
+    resetZoneDanger(false);
     showToast('สะอาดแล้ว: ' + getZone(id).label);
     const nextZone = ZONES.find(z => (state.zoneProgress[z.id] || 0) < 100);
     if(nextZone){
@@ -1681,7 +2122,12 @@
       function startBoss(){
         clearInterval(state.timer);
         state.timer = null;
-        state.bossHp = 100;
+        const plaque = Math.round(totalPlaque());
+        const cleanBonus = Math.round(totalClean() / 8);
+        const monsterPenalty = Math.min(28, state.monsters.length * 7 + Math.max(0, plaque - 30) * .35);
+        state.bossHp = clamp(100 - cleanBonus + monsterPenalty, 60, 125);
+        if(state.missionDone) state.bossHp = Math.max(45, state.bossHp - 18);
+        if(state.feverCount > 0) state.bossHp = Math.max(45, state.bossHp - 10);
         state.bossIndex = 0;
         state.bossWrong = 0;
         setStage('boss');
@@ -1701,7 +2147,7 @@
         const pct = clamp(state.bossHp, 0, 100);
         el.bossHpBar.style.width = pct + '%';
         el.bossTitle.textContent = pct <= 0 ? '🏆 ชนะ Cavity King!' : '👾 Cavity King ทดสอบความจำ';
-        el.bossText.textContent = `เลือกขั้นตอนที่ ${state.bossIndex + 1}/${BOSS_ORDER.length}: ${BOSS_ORDER[state.bossIndex] || 'สำเร็จแล้ว'}`;
+        el.bossText.textContent = `Clean/Plaque จากเกมหลักมีผลกับ HP Boss • ขั้นที่ ${state.bossIndex + 1}/${BOSS_ORDER.length}: ${BOSS_ORDER[state.bossIndex] || 'สำเร็จแล้ว'}`;
 
         const target = BOSS_ORDER[state.bossIndex] || BOSS_ORDER[BOSS_ORDER.length - 1];
         const choices = shuffleChoices(target);
@@ -1757,6 +2203,8 @@
           <span>แปรงครบ: ${completedZones()}/${ZONES.length} โซน</span>
           <span>Max Combo: ${state.maxCombo}</span>
           <span>Boss: ${bossWon ? 'ชนะแล้ว' : 'ยังไม่ชนะ'} • พลาด ${state.bossWrong}</span>
+          <span>Monsters Hit: ${state.monstersHit} • Fever: ${state.feverCount} ครั้ง</span>
+          <span>Mini Mission: ${state.missionDone ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}</span>
         `;
 
         const weakest = ZONES
@@ -1789,6 +2237,10 @@
           bossWon:extra.bossWon,
           bossWrong:state.bossWrong,
           maxCombo:state.maxCombo,
+          monstersHit:state.monstersHit,
+          feverCount:state.feverCount,
+          mission:state.mission,
+          missionDone:state.missionDone,
           zones:ZONES.map(z => ({id:z.id,label:z.label,pct:Math.round(state.zoneProgress[z.id] || 0)})),
           endedAt:new Date().toISOString(),
           returnUrl:zoneUrl()
