@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504g-HANDWASH-VR-FINAL-SUMMARY-POLISH -->
+<!-- FULL PATCH v20260504i-HANDWASH-VR-FULLSCREEN-GAMEPLAY -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2144,6 +2144,383 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
   }
 }
 
+  
+/* === PATCH v20260504h-HANDWASH-MOBILE-MAIN-SCROLL-FIX === */
+/* Fix: มือถือเล่นไม่ได้เพราะ stage main สูงเกินจอและ scroll ถูก lock */
+
+html,
+body{
+  scroll-behavior:smooth;
+}
+
+/* main/order ต้องยัง scroll ได้ ถ้าคอนเทนต์สูงกว่าจอ */
+body.hha-play-lock{
+  overflow-y:auto !important;
+  overscroll-behavior-y:contain;
+}
+
+body[data-stage="main"],
+body[data-stage="order"],
+body[data-stage="summary"]{
+  overflow-y:auto !important;
+}
+
+body[data-stage="main"] .page,
+body[data-stage="order"] .page{
+  align-content:start;
+  min-height:auto;
+  padding-bottom:calc(96px + var(--sab));
+}
+
+/* กัน scroll เฉพาะพื้นที่มือเท่านั้น */
+body[data-stage="main"] .handScene,
+body[data-stage="main"] .hands,
+body[data-stage="main"] .hotspot{
+  touch-action:none;
+}
+
+/* ส่วน panel อื่นต้องเลื่อนได้ */
+body[data-stage="main"] .heroCard,
+body[data-stage="main"] .panel,
+body[data-stage="main"] .stepPanel,
+body[data-stage="main"] .rushHud,
+body[data-stage="order"] .heroCard,
+body[data-stage="order"] .panel{
+  touch-action:pan-y;
+}
+
+@media (max-width:640px){
+  body[data-stage="main"] .page{
+    padding-top:calc(6px + var(--sat));
+    padding-left:calc(7px + var(--sal));
+    padding-right:calc(7px + var(--sar));
+    gap:8px;
+  }
+
+  body[data-stage="main"] .heroCard{
+    padding:8px;
+    border-radius:18px;
+  }
+
+  body[data-stage="main"] .stageHead,
+  body[data-stage="main"] .stepsBar,
+  body[data-stage="main"] .flowLine{
+    display:none !important;
+  }
+
+  body[data-stage="main"] .stats{
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:5px;
+  }
+
+  body[data-stage="main"] .stat{
+    min-height:46px;
+    padding:6px 7px;
+    border-radius:13px;
+  }
+
+  body[data-stage="main"] .stat .k{
+    font-size:10px;
+  }
+
+  body[data-stage="main"] .stat .v{
+    font-size:15px;
+  }
+
+  body[data-stage="main"] .rushHud{
+    padding:7px;
+    border-radius:16px;
+    gap:6px;
+  }
+
+  body[data-stage="main"] .rushTitle{
+    font-size:13px;
+  }
+
+  body[data-stage="main"] .rushGrid{
+    grid-template-columns:1fr;
+    gap:5px;
+  }
+
+  body[data-stage="main"] .rushMission{
+    max-height:48px;
+    padding:6px 8px;
+    font-size:10.5px;
+    line-height:1.28;
+    overflow:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  body[data-stage="main"] .panel{
+    padding:8px;
+    border-radius:18px;
+  }
+
+  body[data-stage="main"] .simLayout{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+
+  body[data-stage="main"] .stepPanel{
+    padding:8px;
+    border-radius:17px;
+    gap:6px;
+  }
+
+  body[data-stage="main"] .stepTitle{
+    font-size:18px;
+    line-height:1.12;
+  }
+
+  body[data-stage="main"] .stepText{
+    font-size:12px;
+    line-height:1.35;
+    margin:0;
+  }
+
+  body[data-stage="main"] .stepProgress{
+    height:16px;
+  }
+
+  body[data-stage="main"] .stepClock{
+    min-height:38px;
+    padding:7px 10px;
+    border-radius:14px;
+    font-size:12px;
+  }
+
+  body[data-stage="main"] .gestureGuide{
+    padding:7px 9px;
+    border-radius:14px;
+    font-size:11.5px;
+    line-height:1.35;
+  }
+
+  body[data-stage="main"] .targetBtn{
+    min-height:50px;
+    border-radius:16px;
+    padding:9px 10px;
+    font-size:13px;
+  }
+
+  body[data-stage="main"] .statusList{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:5px;
+  }
+
+  body[data-stage="main"] .statusPill{
+    min-height:30px;
+    padding:5px 7px;
+    border-radius:12px;
+    font-size:11px;
+  }
+
+  body[data-stage="main"] .toolRow{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:5px;
+  }
+
+  body[data-stage="main"] .toolBtn{
+    min-height:54px;
+    padding:6px 5px;
+    border-radius:13px;
+    font-size:11.5px;
+  }
+
+  body[data-stage="main"] .toolBtn .emoji{
+    font-size:22px;
+  }
+
+  /* ให้พื้นที่มือเห็นเร็วขึ้น ไม่ต้องเลื่อนยาว */
+  body[data-stage="main"] .handScene{
+    min-height:440px;
+    height:440px;
+    max-height:none;
+    border-radius:18px;
+    margin-top:0;
+  }
+
+  body[data-stage="main"] .hands{
+    top:118px;
+    height:270px;
+  }
+
+  body[data-stage="main"] .sink{
+    top:224px;
+    height:170px;
+  }
+
+  body[data-stage="main"] .faucet{
+    top:4px;
+    transform:translateX(-50%) scale(.74);
+    transform-origin:top center;
+  }
+
+  body[data-stage="main"] .soapPump{
+    top:14px;
+    right:4px;
+    transform:scale(.62);
+    transform-origin:top right;
+  }
+
+  body[data-stage="main"] .towel{
+    right:5px;
+    bottom:8px;
+    transform:scale(.62);
+    transform-origin:bottom right;
+  }
+
+  body[data-stage="main"] .handZoneLabel{
+    top:82px;
+    width:min(94%,520px);
+    padding:6px 8px;
+    font-size:10.5px;
+    line-height:1.22;
+  }
+
+  body[data-stage="main"] .scrubHint{
+    bottom:8px;
+    width:min(94%,520px);
+    padding:7px 9px;
+    font-size:11px;
+    border-radius:16px;
+  }
+
+  body[data-stage="main"] .hotspot{
+    min-width:82px;
+    min-height:58px;
+  }
+
+  body[data-stage="main"] .coachBubble{
+    top:calc(48px + var(--sat));
+    width:min(500px,92vw);
+  }
+}
+
+@media (max-width:640px) and (max-height:760px){
+  body[data-stage="main"] .rushHud{
+    display:none !important;
+  }
+
+  body[data-stage="main"] .handScene{
+    min-height:395px;
+    height:395px;
+  }
+
+  body[data-stage="main"] .hands{
+    top:104px;
+    height:242px;
+  }
+
+  body[data-stage="main"] .sink{
+    top:204px;
+    height:148px;
+  }
+
+  body[data-stage="main"] .stepText{
+    display:none;
+  }
+}
+
+  
+/* === PATCH v20260504i-HANDWASH-FULLSCREEN-GAMEPLAY-LAYOUT === */
+body[data-stage="main"]{
+  background:radial-gradient(circle at 50% 0%, rgba(255,255,255,.96), transparent 26%),linear-gradient(180deg,#e8fbff,#f7feff);
+}
+body[data-stage="main"] .page{
+  width:100%;max-width:none;min-height:100dvh;align-content:start;
+  padding:calc(8px + var(--sat)) calc(8px + var(--sar)) calc(88px + var(--sab)) calc(8px + var(--sal));
+  gap:8px;
+}
+body[data-stage="main"] .heroCard{border-radius:20px;padding:8px;box-shadow:0 10px 26px rgba(23,56,79,.09);}
+body[data-stage="main"] .stageHead,
+body[data-stage="main"] .stepsBar,
+body[data-stage="main"] .flowLine,
+body[data-stage="main"] .lead{display:none!important;}
+body[data-stage="main"] .stats{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
+body[data-stage="main"] .stat{min-height:44px;padding:6px 8px;border-radius:14px;border-width:2px;background:rgba(255,255,255,.90);}
+body[data-stage="main"] .stat .k{font-size:10px;line-height:1;}
+body[data-stage="main"] .stat .v{margin-top:2px;font-size:18px;line-height:1;}
+body[data-stage="main"] .rushHud{border-radius:18px;padding:8px;gap:7px;background:rgba(255,255,255,.86);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);}
+body[data-stage="main"] .rushTitle{margin:0;font-size:14px;line-height:1.15;}
+body[data-stage="main"] .rushGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+body[data-stage="main"] .rushMission{min-height:34px;max-height:54px;overflow:auto;padding:6px 8px;border-radius:14px;font-size:11px;line-height:1.25;}
+body[data-stage="main"] .panel{border-radius:20px;padding:8px;box-shadow:0 12px 28px rgba(23,56,79,.08);}
+body[data-stage="main"] .simLayout{display:grid;grid-template-columns:minmax(260px,390px) minmax(0,1fr);gap:10px;align-items:stretch;}
+body[data-stage="main"] .stepPanel{border-radius:18px;padding:10px;gap:8px;align-content:start;}
+body[data-stage="main"] .stepTitle{font-size:20px;line-height:1.08;}
+body[data-stage="main"] .stepText{font-size:12px;line-height:1.35;}
+body[data-stage="main"] .stepProgress{height:16px;}
+body[data-stage="main"] .stepClock{min-height:38px;padding:7px 10px;border-radius:14px;}
+body[data-stage="main"] .gestureGuide{padding:8px 10px;border-radius:14px;font-size:12px;line-height:1.35;}
+body[data-stage="main"] .targetBtn,body[data-stage="main"] .secondaryBtn{min-height:48px;border-radius:15px;padding:9px 10px;font-size:13px;}
+body[data-stage="main"] .toolRow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+body[data-stage="main"] .toolBtn{min-height:56px;border-radius:15px;padding:7px 6px;font-size:12px;}
+body[data-stage="main"] .toolBtn .emoji{font-size:24px;}
+body[data-stage="main"] .statusList{grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+body[data-stage="main"] .statusPill{min-height:31px;padding:5px 7px;border-radius:12px;font-size:11px;}
+body[data-stage="main"] .handScene{min-height:calc(100dvh - 178px);height:calc(100dvh - 178px);max-height:760px;border-radius:22px;margin:0;overflow:hidden;border-width:3px;}
+body[data-stage="main"] .hands{top:22%;height:62%;}
+body[data-stage="main"] .sink{top:46%;height:43%;}
+body[data-stage="main"] .faucet{top:2%;}
+body[data-stage="main"] .soapPump{top:4%;right:2%;}
+body[data-stage="main"] .towel{right:2%;bottom:2%;}
+body[data-stage="main"] .handZoneLabel{top:15%;width:min(92%,620px);padding:8px 11px;border-radius:16px;font-size:12px;line-height:1.25;}
+body[data-stage="main"] .scrubHint{bottom:12px;width:min(92%,620px);padding:8px 11px;border-radius:18px;font-size:12px;}
+body[data-stage="main"] .mainJumpToHand{
+  position:fixed;right:calc(10px + var(--sar));bottom:calc(78px + var(--sab));z-index:120;
+  min-width:54px;height:54px;border-radius:999px;border:0;display:grid;place-items:center;
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);color:#503c00;box-shadow:0 12px 24px rgba(80,60,0,.20);
+  font-size:24px;font-weight:1000;
+}
+@media (max-width:760px){
+  body[data-stage="main"] .page{padding:calc(5px + var(--sat)) calc(5px + var(--sar)) calc(76px + var(--sab)) calc(5px + var(--sal));gap:6px;}
+  body[data-stage="main"] .heroCard{border-radius:16px;padding:6px;}
+  body[data-stage="main"] .stats{grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;}
+  body[data-stage="main"] .stat{min-height:39px;padding:4px 6px;border-radius:12px;}
+  body[data-stage="main"] .stat:nth-child(2),body[data-stage="main"] .stat:nth-child(3),body[data-stage="main"] .stat:nth-child(7){display:none;}
+  body[data-stage="main"] .stat .k{font-size:9.5px;}
+  body[data-stage="main"] .stat .v{font-size:15px;}
+  body[data-stage="main"] .rushHud{display:none!important;}
+  body[data-stage="main"] .panel{padding:5px;border-radius:16px;}
+  body[data-stage="main"] .simLayout{grid-template-columns:1fr;gap:5px;}
+  body[data-stage="main"] .stepPanel{padding:7px;border-radius:15px;gap:5px;}
+  body[data-stage="main"] .stepTitle{font-size:16px;line-height:1.05;}
+  body[data-stage="main"] .stepText{display:none;}
+  body[data-stage="main"] .stepProgress{height:12px;}
+  body[data-stage="main"] .stepClock{min-height:31px;padding:5px 8px;font-size:11px;border-radius:12px;}
+  body[data-stage="main"] .gestureGuide{padding:6px 8px;font-size:11px;line-height:1.25;border-radius:12px;}
+  body[data-stage="main"] .targetBtn{min-height:44px;border-radius:14px;font-size:12px;padding:7px 8px;}
+  body[data-stage="main"] .statusList{display:none;}
+  body[data-stage="main"] .toolRow{
+    position:fixed;left:calc(6px + var(--sal));right:calc(6px + var(--sar));bottom:calc(8px + var(--sab));z-index:118;
+    grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:6px;border-radius:22px;background:rgba(255,255,255,.88);
+    border:2px solid rgba(189,244,255,.9);box-shadow:0 14px 28px rgba(23,56,79,.16);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  }
+  body[data-stage="main"] .toolBtn{min-height:52px;border-radius:16px;padding:5px 4px;font-size:11px;}
+  body[data-stage="main"] .toolBtn .emoji{font-size:21px;}
+  body[data-stage="main"] .handScene{min-height:calc(100dvh - 230px);height:calc(100dvh - 230px);max-height:none;border-radius:18px;}
+  body[data-stage="main"] .hands{top:18%;height:68%;}
+  body[data-stage="main"] .sink{top:43%;height:45%;}
+  body[data-stage="main"] .faucet{top:0;transform:translateX(-50%) scale(.72);transform-origin:top center;}
+  body[data-stage="main"] .soapPump{top:9px;right:3px;transform:scale(.58);transform-origin:top right;}
+  body[data-stage="main"] .towel{right:3px;bottom:5px;transform:scale(.58);transform-origin:bottom right;}
+  body[data-stage="main"] .handZoneLabel{top:68px;width:min(94%,520px);padding:6px 8px;font-size:10.5px;line-height:1.18;opacity:.94;}
+  body[data-stage="main"] .scrubHint{bottom:8px;width:min(94%,520px);padding:7px 9px;font-size:11px;border-radius:16px;}
+  body[data-stage="main"] .hotspot{min-width:86px;min-height:60px;}
+  body[data-stage="main"] .coachBubble{top:calc(44px + var(--sat));width:min(500px,92vw);}
+}
+@media (max-width:760px) and (max-height:760px){
+  body[data-stage="main"] .gestureGuide{display:none;}
+  body[data-stage="main"] .handScene{min-height:calc(100dvh - 178px);height:calc(100dvh - 178px);}
+  body[data-stage="main"] .handZoneLabel{top:54px;}
+  body[data-stage="main"] .toolBtn{min-height:48px;}
+}
+@media (min-width:1100px){
+  body[data-stage="main"] .handScene{min-height:calc(100dvh - 190px);height:calc(100dvh - 190px);}
+}
+
   </style>
 </head>
 
@@ -2493,6 +2870,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
     </section>
   </main>
 
+  <button id="mainJumpToHand" class="mainJumpToHand" type="button" aria-label="ไปที่พื้นที่ล้างมือ" style="display:none;">🤲</button>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="rushPop" class="rushPop"></div>
   <div id="coachBubble" class="coachBubble" role="status" aria-live="polite"><div class="coachIcon" id="coachIcon">🧼</div><div class="coachText" id="coachText">พร้อมล้างมือแล้ว</div></div>
@@ -2503,7 +2881,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
     (function(){
       'use strict';
 
-      const VERSION = '20260504g-HANDWASH-VR-FINAL-SUMMARY-POLISH';
+      const VERSION = '20260504i-HANDWASH-VR-FULLSCREEN-GAMEPLAY';
       const qs = new URLSearchParams(location.search);
       const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
       const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
@@ -2968,6 +3346,7 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
         germLayer:$('germLayer'),
         traceLayer:$('traceLayer'),
         practiceSpark:$('practiceSpark'),
+        mainJumpToHand:$('mainJumpToHand'),
         toast:$('toast'),
         rushPop:$('rushPop'),
         coachBubble:$('coachBubble'),
@@ -3278,9 +3657,57 @@ body[data-stage="main"] .heroCard,body[data-stage="order"] .heroCard{ overflow:v
 
 
       /* === PATCH v20260504-HANDWASH-PATCH5-MOBILE-TOUCH-QA === */
-      function applyStageUiLock(){ const playLock = state.stage === 'main' || state.stage === 'order'; document.body.classList.toggle('hha-play-lock', playLock); if(state.stage==='summary'){ document.documentElement.style.overflowY='auto'; document.body.style.overflowY='auto'; }else{ document.documentElement.style.overflowY=''; document.body.style.overflowY=''; } }
-      function safeScrollForStage(){ try{ if(state.stage==='main'){ const panel=document.querySelector('.panel'); if(panel&&window.innerWidth<=720){ setTimeout(()=>panel.scrollIntoView({block:'start',behavior:'smooth'}),80); } return; } if(state.stage==='summary'){ setTimeout(()=>window.scrollTo({top:0,behavior:'smooth'}),80); } }catch(_){} }
-      function preventPlayDragScroll(){ document.addEventListener('touchmove', function(e){ if(state.stage!=='main') return; const inScene=e.target&&e.target.closest&&e.target.closest('.handScene'); if(!inScene) return; e.preventDefault(); }, {passive:false}); document.addEventListener('gesturestart', function(e){ if(state.stage==='main'||state.stage==='order') e.preventDefault(); }, {passive:false}); }
+      function applyStageUiLock(){
+  const playLock = state.stage === 'main' || state.stage === 'order';
+  document.body.classList.toggle('hha-play-lock', playLock);
+
+  if(el.mainJumpToHand){
+    const showJump = state.stage === 'main' && window.innerWidth <= 760;
+    el.mainJumpToHand.style.display = showJump ? 'grid' : 'none';
+  }
+
+  if(state.stage === 'main' || state.stage === 'order' || state.stage === 'summary'){
+    document.documentElement.style.overflowY = 'auto';
+    document.body.style.overflowY = 'auto';
+  }else{
+    document.documentElement.style.overflowY = '';
+    document.body.style.overflowY = '';
+  }
+}
+      function safeScrollForStage(){
+  try{
+    if(state.stage === 'main'){
+      const panel = document.querySelector('.panel');
+      if(panel && window.innerWidth <= 760){
+        setTimeout(() => {
+          panel.scrollIntoView({ block:'start', behavior:'smooth' });
+        }, 80);
+      }
+      return;
+    }
+
+    if(state.stage === 'summary'){
+      setTimeout(() => {
+        window.scrollTo({ top:0, behavior:'smooth' });
+      }, 80);
+    }
+  }catch(_){}
+}
+      function preventPlayDragScroll(){
+  document.addEventListener('touchmove', function(e){
+    if(state.stage !== 'main') return;
+    const target = e.target;
+    const inHandScene = target && target.closest && target.closest('.handScene');
+    if(!inHandScene) return;
+    e.preventDefault();
+  }, { passive:false });
+
+  document.addEventListener('gesturestart', function(e){
+    if(state.stage === 'main' || state.stage === 'order'){
+      e.preventDefault();
+    }
+  }, { passive:false });
+}
       function hardenFaucetTap(){ if(!el.mainFaucet || el.mainFaucet.__hardenedTap) return; el.mainFaucet.__hardenedTap=true; el.mainFaucet.removeAttribute('data-click'); let last=0; function fire(e){ if(e){e.preventDefault();e.stopPropagation();} const now=Date.now(); if(now-last<420) return; last=now; run('water'); } el.mainFaucet.addEventListener('pointerup', fire, {passive:false}); el.mainFaucet.addEventListener('click', function(e){e.preventDefault();e.stopPropagation();}, {passive:false}); el.mainFaucet.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' ') fire(e); }); }
       function hardenSummaryButtons(){ const summary=document.getElementById('screen-summary'); if(!summary || summary.__hardenedSummary) return; summary.__hardenedSummary=true; summary.addEventListener('touchmove', function(){}, {passive:true}); }
 
@@ -4945,6 +5372,7 @@ function updateRushHud(){
       preventPlayDragScroll();
       hardenFaucetTap();
       hardenSummaryButtons();
+        bindFullscreenGameplayTools();
       render();
       coachStageEnter(state.stage);
       setTimeout(() => coachSay('พร้อมแล้ว กดเริ่มฝึกหรือไปล้างมือจริงได้เลย', 'good', '🧼', 'init-ready'), 450);
