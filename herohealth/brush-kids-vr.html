@@ -1,379 +1,114 @@
+<!-- === /herohealth/brush-vr-kids.html === -->
+<!-- FULL PATCH v20260505-BRUSH-KIDS-LAUNCHER-CANONICAL-FLOW -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Brush Kids</title>
-  <meta name="color-scheme" content="dark light" />
+  <title>HeroHealth • Brush Kids Launcher</title>
+  <meta name="theme-color" content="#dffaff" />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="./favicon.ico" />
   <style>
-    :root{
-      --bg1:#0f172a;
-      --bg2:#172554;
-      --panel:rgba(15,23,42,.82);
-      --stroke:rgba(255,255,255,.14);
-      --text:#f8fafc;
-      --muted:#cbd5e1;
-      --pink:#f472b6;
-      --blue:#38bdf8;
-      --green:#22c55e;
-      --yellow:#facc15;
-      --shadow:0 18px 50px rgba(0,0,0,.28);
-      --radius:26px;
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{ margin:0; padding:0; }
-
-    body{
-      min-height:100vh;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at top left, rgba(56,189,248,.18), transparent 28%),
-        radial-gradient(circle at top right, rgba(244,114,182,.16), transparent 26%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
-    }
-
-    .wrap{
-      width:min(1100px,100%);
-      margin:0 auto;
-      padding:18px;
-      display:grid;
-      gap:16px;
-    }
-
-    .hero{
-      display:grid;
-      grid-template-columns:120px 1fr;
-      gap:16px;
-      align-items:center;
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow:var(--shadow);
-    }
-
-    .hero img{
-      width:110px;
-      height:110px;
-      object-fit:contain;
-      border-radius:22px;
-      background:rgba(255,255,255,.08);
-      padding:8px;
-    }
-
-    .kicker{
-      font-size:12px;
-      font-weight:900;
-      letter-spacing:.08em;
-      text-transform:uppercase;
-      color:#bfdbfe;
-    }
-
-    h1{
-      margin:6px 0 8px;
-      font-size:clamp(30px,5vw,48px);
-      line-height:1;
-    }
-
-    .sub{
-      color:var(--muted);
-      font-size:16px;
-      line-height:1.55;
-      max-width:760px;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-    }
-
-    .card{
-      border:1px solid var(--stroke);
-      background:var(--panel);
-      border-radius:var(--radius);
-      padding:16px;
-      box-shadow:var(--shadow);
-    }
-
-    .mode-card{
-      cursor:pointer;
-      transition:transform .14s ease, outline-color .14s ease, box-shadow .14s ease;
-      outline:4px solid transparent;
-    }
-
-    .mode-card:hover{
-      transform:translateY(-2px);
-    }
-
-    .mode-card.active{
-      outline-color:var(--yellow);
-      box-shadow:0 18px 40px rgba(0,0,0,.34);
-    }
-
-    .mode-title{
-      font-size:22px;
-      font-weight:1000;
-      margin:0 0 8px;
-    }
-
-    .mode-time{
-      display:inline-block;
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .list{
-      margin:0;
-      padding-left:18px;
-      line-height:1.7;
-      color:#e2e8f0;
-    }
-
-    .tips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:10px;
-    }
-
-    .chip{
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.08);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .mission{
-      font-size:18px;
-      font-weight:1000;
-      margin-bottom:10px;
-    }
-
-    .mini{
-      color:var(--muted);
-      line-height:1.55;
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    button{
-      border:none;
-      border-radius:18px;
-      min-height:52px;
-      padding:12px 18px;
-      font:inherit;
-      font-size:15px;
-      font-weight:1000;
-      cursor:pointer;
-      transition:transform .14s ease, opacity .14s ease;
-    }
-
-    button:hover{
-      transform:translateY(-1px);
-    }
-
-    .primary{
-      background:linear-gradient(180deg,#22c55e,#16a34a);
-      color:#fff;
-    }
-
-    .secondary{
-      background:linear-gradient(180deg,#38bdf8,#2563eb);
-      color:#fff;
-    }
-
-    .ghost{
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      border:1px solid var(--stroke);
-    }
-
-    .note{
-      font-size:13px;
-      color:#bfdbfe;
-      font-weight:800;
-    }
-
-    @media (max-width:800px){
-      .hero{ grid-template-columns:82px 1fr; }
-      .hero img{ width:78px; height:78px; }
-      .grid{ grid-template-columns:1fr; }
-      .actions{ display:grid; grid-template-columns:1fr; }
-      button{ width:100%; }
-    }
+    :root{--sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);--bg1:#f8feff;--bg2:#e8fbff;--line:#cdeffc;--ink:#17384f;--muted:#5f7f92;--shadow:0 18px 42px rgba(23,56,79,.12);--shadow-soft:0 10px 24px rgba(23,56,79,.08);}
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+    body{min-height:100dvh;color:var(--ink);font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;background:radial-gradient(circle at 12% 5%,rgba(255,255,255,.95),transparent 24%),radial-gradient(circle at 88% 8%,rgba(255,217,93,.24),transparent 25%),linear-gradient(180deg,var(--bg1),var(--bg2))}
+    button,input,select,a{font:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+    .page{min-height:100dvh;width:min(1080px,100%);margin:0 auto;padding:calc(12px + var(--sat)) calc(12px + var(--sar)) calc(18px + var(--sab)) calc(12px + var(--sal));display:grid;align-content:center;gap:14px}
+    .hero{border-radius:32px;border:3px solid var(--line);background:radial-gradient(circle at 90% 12%,rgba(255,217,93,.27),transparent 26%),linear-gradient(180deg,#fff,#f4fdff);box-shadow:var(--shadow);padding:18px;overflow:hidden;position:relative}
+    .hero::before{content:"";position:absolute;left:-30px;top:-30px;width:124px;height:124px;border-radius:999px;background:rgba(139,232,255,.26);filter:blur(8px)}
+    .heroInner{position:relative;z-index:1;display:grid;grid-template-columns:116px minmax(0,1fr);gap:14px;align-items:center}
+    .coach{width:106px;height:106px;border-radius:30px;display:grid;place-items:center;background:linear-gradient(180deg,#dffaff,#bdf4ff);border:3px dashed rgba(23,56,79,.14);box-shadow:var(--shadow-soft);overflow:hidden;font-size:54px}
+    .coach img{width:96px;height:96px;object-fit:contain}
+    .heroText{min-width:0;display:grid;gap:9px}
+    .badgeRow{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .badge{min-height:34px;width:max-content;max-width:100%;display:inline-flex;align-items:center;justify-content:center;padding:7px 11px;border-radius:999px;border:2px solid #bdf4ff;background:#ecfeff;color:#0f766e;font-size:12px;font-weight:1000}
+    h1{margin:0;font-size:clamp(34px,5vw,54px);line-height:1.02;letter-spacing:-.04em;color:#12324b;font-weight:1000}
+    .lead{margin:0;color:var(--muted);font-size:16px;line-height:1.62;font-weight:850;max-width:780px}
+    .config{display:grid;grid-template-columns:1.2fr repeat(3,minmax(0,1fr));gap:12px}
+    .card{border-radius:26px;border:3px solid var(--line);background:rgba(255,255,255,.96);box-shadow:var(--shadow-soft);padding:14px;display:grid;gap:9px}
+    .label{color:#37566e;font-size:13px;font-weight:1000}
+    .input,.select{width:100%;min-height:48px;border-radius:18px;border:3px solid #d7f0fb;background:#fff;color:#17384f;padding:10px 12px;outline:none;font-size:15px;font-weight:1000}
+    .modeGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .modeCard{border-radius:28px;border:3px solid var(--line);background:rgba(255,255,255,.96);box-shadow:var(--shadow-soft);padding:15px;display:grid;gap:10px;cursor:pointer;outline:4px solid transparent;transition:transform .14s ease,outline-color .14s ease,box-shadow .14s ease}
+    .modeCard:hover{transform:translateY(-2px)} .modeCard.active{outline-color:rgba(255,217,93,.48);border-color:#ffd95d;background:radial-gradient(circle at 88% 10%,rgba(255,217,93,.24),transparent 24%),linear-gradient(180deg,#fff,#fffaf0)}
+    .modeTitle{display:flex;justify-content:space-between;gap:8px;align-items:center;color:#12324b;font-size:22px;line-height:1.1;font-weight:1000}
+    .modeTime{min-height:34px;display:inline-flex;align-items:center;justify-content:center;padding:7px 10px;border-radius:999px;background:#ecfeff;border:2px solid #bdf4ff;color:#0f766e;font-size:12px;font-weight:1000;white-space:nowrap}
+    .list{margin:0;padding-left:18px;color:#5f7f92;font-size:14px;line-height:1.65;font-weight:850}
+    .chips{display:flex;gap:7px;flex-wrap:wrap}.chip{min-height:30px;display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border-radius:999px;background:#f7fdff;border:1px solid #d7f0fb;color:#37566e;font-size:11px;font-weight:1000}
+    .missionPanel{border-radius:28px;border:3px solid var(--line);background:radial-gradient(circle at 12% 12%,rgba(139,232,255,.22),transparent 24%),linear-gradient(180deg,#fff,#f8feff);box-shadow:var(--shadow);padding:15px;display:grid;gap:10px}
+    .missionTitle{color:#12324b;font-size:23px;line-height:1.12;font-weight:1000}.missionText{margin:0;color:#5f7f92;font-size:15px;line-height:1.55;font-weight:850}
+    .flow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;padding:10px;border-radius:22px;border:2px solid #d7f0fb;background:#f7fdff}
+    .flowStep{min-height:54px;border-radius:16px;background:#fff;border:1px solid #d7f0fb;display:grid;place-items:center;text-align:center;padding:7px 6px;color:#37566e;font-size:11px;line-height:1.22;font-weight:1000}
+    .actions{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:10px}.btn{min-height:58px;border:0;border-radius:20px;padding:12px 16px;display:inline-flex;align-items:center;justify-content:center;text-align:center;text-decoration:none;cursor:pointer;color:#17384f;font-size:16px;font-weight:1000;box-shadow:var(--shadow-soft)}
+    .btnPrimary{background:linear-gradient(180deg,#fff2a8,#ffd84d);color:#503c00}.btnGreen{background:linear-gradient(180deg,#dcfff2,#baf4cf);color:#143a22}.btnSoft{background:linear-gradient(180deg,#ecfeff,#fff);color:#0f766e;border:2px solid #bdf4ff}.btnTest{background:linear-gradient(180deg,#f3e8ff,#ddd6fe);color:#5b21b6;border:2px solid #c4b5fd}
+    .note{border-radius:20px;border:2px dashed #d7f0fb;background:rgba(255,255,255,.78);color:#5f7f92;padding:12px;font-size:12px;line-height:1.45;font-weight:850}.debug{display:none;border-radius:20px;border:2px dashed #d7f0fb;background:#fff;color:#5f7f92;padding:12px;font-size:12px;line-height:1.45;font-weight:800;white-space:pre-wrap;word-break:break-word}.debug.show{display:block}
+    @media (max-width:900px){.heroInner{grid-template-columns:92px minmax(0,1fr)}.coach{width:84px;height:84px;border-radius:24px}.coach img{width:76px;height:76px}.config{grid-template-columns:repeat(2,minmax(0,1fr))}.flow{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media (max-width:640px){.page{align-content:start;padding:calc(9px + var(--sat)) calc(9px + var(--sar)) calc(14px + var(--sab)) calc(9px + var(--sal))}.hero,.missionPanel{border-radius:24px;padding:13px}.heroInner{grid-template-columns:1fr;text-align:center;justify-items:center}.badgeRow{justify-content:center}h1{font-size:34px}.config,.modeGrid,.actions,.flow{grid-template-columns:1fr}.modeTitle{font-size:20px}.btn{width:100%}}
   </style>
 </head>
 <body>
-  <div class="wrap">
+  <main class="page">
     <section class="hero">
-      <img src="./img/coach-happy.png" alt="Coach Smile" />
-      <div>
-        <div class="kicker">HeroHealth • Hygiene Zone</div>
-        <h1>Brush Kids</h1>
-        <div class="sub">
-          ฝึกแปรงฟันให้ครบทุกโซน ค่อย ๆ ถูอย่างสม่ำเสมอ และอยู่ให้ครบเวลาที่แนะนำ
-          เพื่อช่วยสร้างนิสัยดูแลสุขอนามัยช่องปากแบบสนุกและเหมาะกับเด็ก
+      <div class="heroInner">
+        <div class="coach" aria-hidden="true"><img src="./img/coach-happy.png" alt="" onerror="this.remove();this.parentNode.textContent='🪥';" /></div>
+        <div class="heroText">
+          <div class="badgeRow"><div class="badge">🪥 HYGIENE ZONE</div><div class="badge">Brush Kids</div><div class="badge">Canonical Flow</div></div>
+          <h1>Brush Hero Kids</h1>
+          <p class="lead">ฝึกแปรงฟันให้ครบทุกโซนแบบ child-friendly: ฟันหน้า → ฟันบน → ฟันล่าง → ฟันกราม → ด้านใน → ลิ้น แล้วสรุปผลกลับ Hygiene Zone</p>
         </div>
       </div>
     </section>
-
-    <section class="grid">
-      <article id="modeLearn" class="card mode-card active" data-mode="learn" tabindex="0">
-        <div class="mode-title">โหมดเรียนรู้</div>
-        <div class="mode-time">2 นาที</div>
-        <ul class="list">
-          <li>เหมาะกับการฝึกครั้งแรก</li>
-          <li>เน้นแปรงให้ครบทุกโซน</li>
-          <li>ค่อย ๆ ทำตามขั้นตอน</li>
-        </ul>
-        <div class="tips">
-          <span class="chip">อ่านง่าย</span>
-          <span class="chip">ไม่รีบเกิน</span>
-          <span class="chip">เหมาะกับเด็ก</span>
-        </div>
-      </article>
-
-      <article id="modeChallenge" class="card mode-card" data-mode="challenge" tabindex="0">
-        <div class="mode-title">โหมดท้าทาย</div>
-        <div class="mode-time">3 นาที</div>
-        <ul class="list">
-          <li>อยู่ครบเวลามากขึ้น</li>
-          <li>วัดความสม่ำเสมอ</li>
-          <li>มีเก็บงานช่วงท้าย</li>
-        </ul>
-        <div class="tips">
-          <span class="chip">ท้าทายขึ้น</span>
-          <span class="chip">ฝึกต่อเนื่อง</span>
-          <span class="chip">เก็บรายละเอียด</span>
-        </div>
-      </article>
+    <section class="config" aria-label="ตั้งค่าการเล่น">
+      <label class="card"><span class="label">ชื่อผู้เล่น</span><input id="fieldName" class="input" type="text" maxlength="40" placeholder="Hero" /></label>
+      <label class="card"><span class="label">ระดับ</span><select id="fieldDiff" class="select"><option value="easy">easy</option><option value="normal">normal</option><option value="hard">hard</option><option value="challenge">challenge</option></select></label>
+      <label class="card"><span class="label">เวลาเล่น</span><select id="fieldTime" class="select"><option value="120">120 วินาที</option><option value="150">150 วินาที</option><option value="180">180 วินาที</option></select></label>
+      <label class="card"><span class="label">มุมมอง</span><select id="fieldView" class="select"><option value="mobile">mobile</option><option value="pc">pc</option><option value="cvr">cardboard</option></select></label>
     </section>
-
-    <section class="card">
-      <div class="mission">ภารกิจของวันนี้</div>
-      <div class="mini" id="missionText">
-        แปรงให้ครบทุกโซนใน 2 นาที และอย่ารีบเกินไป
-      </div>
+    <section class="modeGrid" aria-label="เลือกโหมด Brush">
+      <article id="modeLearn" class="modeCard active" data-mode="learn" tabindex="0" role="button"><div class="modeTitle"><span>โหมดเรียนรู้</span><span class="modeTime">2 นาที</span></div><ul class="list"><li>เหมาะกับเด็กเล่นครั้งแรก</li><li>เห็นโซนที่ต้องแปรงชัด</li><li>เน้นแปรงครบ ไม่เร่งเกิน</li></ul><div class="chips"><span class="chip">อ่านง่าย</span><span class="chip">เหมาะกับเด็ก</span><span class="chip">Warmup ก่อน</span></div></article>
+      <article id="modeChallenge" class="modeCard" data-mode="challenge" tabindex="0" role="button"><div class="modeTitle"><span>โหมดท้าทาย</span><span class="modeTime">3 นาที</span></div><ul class="list"><li>ฝึกต่อเนื่องนานขึ้น</li><li>มีเป้าหมาย Clean Teeth สูงขึ้น</li><li>เหมาะกับเด็กที่เล่นคล่องแล้ว</li></ul><div class="chips"><span class="chip">ท้าทายขึ้น</span><span class="chip">Combo</span><span class="chip">Boss พร้อม</span></div></article>
     </section>
-
-    <section class="actions">
-      <button id="btnStart" class="primary" type="button">เริ่มผ่าน Warmup</button>
-      <button id="btnDirect" class="secondary" type="button">เข้าเกมตรง ๆ</button>
-      <button id="btnBackHub" class="ghost" type="button">กลับ HUB</button>
-    </section>
-
-    <div class="note">
-      game key ภายในยังใช้ <strong>brush</strong> และ variant ใช้ <strong>kids-vr</strong>
-    </div>
-  </div>
-
+    <section class="missionPanel"><div class="missionTitle">ภารกิจของวันนี้</div><p class="missionText" id="missionText">แปรงให้ครบทุกโซนใน 2 นาที และอย่ารีบเกินไป</p><div class="flow" aria-label="Brush flow"><div class="flowStep">1<br>Warmup</div><div class="flowStep">2<br>Brush</div><div class="flowStep">3<br>Cavity Boss</div><div class="flowStep">4<br>Summary</div><div class="flowStep">5<br>Cooldown</div></div></section>
+    <section class="actions"><button id="btnStart" class="btn btnPrimary" type="button">▶ เริ่ม Brush Flow</button><button id="btnDirect" class="btn btnTest" type="button">🧪 Test เข้าเกมตรง</button><button id="btnBackZone" class="btn btnGreen" type="button">🏠 กลับ Hygiene Zone</button></section>
+    <button id="btnDebug" class="btn btnSoft" type="button">🔎 ดูลิงก์ Flow</button>
+    <div class="note">ใช้ path หลัก: <strong>/herohealth/vr-brush-kids/brush.html</strong> และกลับ <strong>/herohealth/hygiene-zone.html</strong> แบบเดียวกับ Handwash</div>
+    <pre id="debugBox" class="debug"></pre>
+  </main>
   <script>
-    const qs = new URLSearchParams(location.search);
-
-    const HUB_URL =
-      qs.get('hub') ||
-      new URL('./hub.html', location.href).href;
-
-    let selectedMode = qs.get('mode') === 'challenge' ? 'challenge' : 'learn';
-
-    const missionText = document.getElementById('missionText');
-    const modeLearn = document.getElementById('modeLearn');
-    const modeChallenge = document.getElementById('modeChallenge');
-
-    function setMode(mode){
-      selectedMode = mode === 'challenge' ? 'challenge' : 'learn';
-
-      modeLearn.classList.toggle('active', selectedMode === 'learn');
-      modeChallenge.classList.toggle('active', selectedMode === 'challenge');
-
-      missionText.textContent =
-        selectedMode === 'learn'
-          ? 'แปรงให้ครบทุกโซนใน 2 นาที และอย่ารีบเกินไป'
-          : 'แปรงให้ครบทุกโซนใน 3 นาที เก็บรายละเอียดให้เรียบร้อย และรักษาความสม่ำเสมอ';
-    }
-
-    function buildRunUrl(){
-      const u = new URL('./vr-brush-kids/brush.html', location.href);
-      u.searchParams.set('mode', selectedMode);
-      u.searchParams.set('hub', HUB_URL);
-      u.searchParams.set('game', 'brush');
-      u.searchParams.set('variant', 'kids-vr');
-      u.searchParams.set('zone', 'hygiene');
-
-      [
-        'pid','studyId','phase','conditionGroup',
-        'runMode','seed','view','log'
-      ].forEach(k => {
-        const v = qs.get(k);
-        if (v) u.searchParams.set(k, v);
-      });
-
-      return u.href;
-    }
-
-    function buildWarmupUrl(runUrl){
-      const nextKey = 'HHA_BRUSH_NEXT';
-      try { sessionStorage.setItem(nextKey, runUrl); } catch {}
-
-      const u = new URL('./gate/warmup-gate.html', location.href);
-      u.searchParams.set('game', 'brush');
-      u.searchParams.set('variant', 'kids-vr');
-      u.searchParams.set('zone', 'hygiene');
-      u.searchParams.set('hub', HUB_URL);
-      u.searchParams.set('next', runUrl);
-      u.searchParams.set('nextKey', nextKey);
-
-      [
-        'pid','studyId','phase','conditionGroup',
-        'runMode','seed','view','log'
-      ].forEach(k => {
-        const v = qs.get(k);
-        if (v) u.searchParams.set(k, v);
-      });
-
-      return u.href;
-    }
-
-    function startViaWarmup(){
-      const runUrl = buildRunUrl();
-      location.href = buildWarmupUrl(runUrl);
-    }
-
-    function startDirect(){
-      location.href = buildRunUrl();
-    }
-
-    function goHub(){
-      location.href = HUB_URL;
-    }
-
-    [modeLearn, modeChallenge].forEach(card => {
-      card.addEventListener('click', () => setMode(card.dataset.mode || 'learn'));
-      card.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          setMode(card.dataset.mode || 'learn');
-        }
-      });
-    });
-
-    document.getElementById('btnStart').addEventListener('click', startViaWarmup);
-    document.getElementById('btnDirect').addEventListener('click', startDirect);
-    document.getElementById('btnBackHub').addEventListener('click', goHub);
-
-    setMode(selectedMode);
+    (function(){
+      'use strict';
+      const VERSION='20260505-BRUSH-KIDS-LAUNCHER-CANONICAL-FLOW';
+      const q=new URLSearchParams(location.search);
+      const STORAGE_KEY='HHA_BRUSH_KIDS_LAUNCHER_PREFS';
+      const DEFAULT_HUB_ROOT='https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const fieldName=document.getElementById('fieldName'),fieldDiff=document.getElementById('fieldDiff'),fieldTime=document.getElementById('fieldTime'),fieldView=document.getElementById('fieldView');
+      const modeLearn=document.getElementById('modeLearn'),modeChallenge=document.getElementById('modeChallenge'),missionText=document.getElementById('missionText');
+      const btnStart=document.getElementById('btnStart'),btnDirect=document.getElementById('btnDirect'),btnBackZone=document.getElementById('btnBackZone'),btnDebug=document.getElementById('btnDebug'),debugBox=document.getElementById('debugBox');
+      let selectedMode=q.get('mode')==='challenge'?'challenge':'learn';
+      function first(){for(let i=0;i<arguments.length;i++){const v=String(arguments[i]||'').trim();if(v)return v;}return'';}
+      function safeParse(text,fallback){try{return JSON.parse(text)}catch(_){return fallback}}
+      function getSaved(){try{return safeParse(localStorage.getItem(STORAGE_KEY),{})||{}}catch(_){return{}}}
+      function savePrefs(){const data={name:fieldName.value.trim()||'Hero',diff:fieldDiff.value||'normal',time:fieldTime.value||'120',view:fieldView.value||'mobile',mode:selectedMode};try{localStorage.setItem(STORAGE_KEY,JSON.stringify(data))}catch(_){}}
+      function setSelect(select,value,fallback){const wanted=first(value,fallback);const ok=Array.from(select.options).some(opt=>opt.value===wanted);select.value=ok?wanted:fallback}
+      function normalizeView(v){v=String(v||'').toLowerCase();if(v==='cardboard'||v==='vr')return'cvr';if(v==='desktop')return'pc';if(v==='pc'||v==='mobile'||v==='cvr')return v;return'mobile'}
+      function normalizeDiff(v){v=String(v||'').toLowerCase();if(v==='easy'||v==='normal'||v==='hard'||v==='challenge')return v;return'normal'}
+      function herohealthBaseUrl(){try{const path=location.pathname,marker='/herohealth/',idx=path.indexOf(marker);if(idx>=0)return location.origin+path.slice(0,idx+marker.length);return new URL('./',location.href).toString()}catch(_){return'https://supparang.github.io/webxr-health-mobile/herohealth/'}}
+      function heroUrl(relativePath){const clean=String(relativePath||'').replace(/^\/+/,'');return new URL(clean,herohealthBaseUrl())}
+      function decodeMaybeTwice(raw){let value=String(raw||'').trim();for(let i=0;i<2;i++){try{const next=decodeURIComponent(value);if(next===value)break;value=next}catch(_){break}}return value}
+      function normalizeReturnUrl(raw){raw=String(raw||'').trim();if(!raw)return'';try{const decoded=decodeMaybeTwice(raw);const u=new URL(decoded,herohealthBaseUrl());if(/hygiene-zone\.html$/i.test(u.pathname))return u.toString();return''}catch(_){return''}}
+      function loadPrefs(){const saved=getSaved();fieldName.value=first(q.get('name'),q.get('nick'),saved.name,'Hero');setSelect(fieldDiff,normalizeDiff(first(q.get('diff'),saved.diff)),'normal');setSelect(fieldTime,first(q.get('time'),saved.time),selectedMode==='challenge'?'180':'120');setSelect(fieldView,normalizeView(first(q.get('view'),saved.view)),'mobile');selectedMode=q.get('mode')==='challenge'||saved.mode==='challenge'?'challenge':'learn';setMode(selectedMode,false)}
+      function playerParams(){const name=fieldName.value.trim()||'Hero';return{pid:first(q.get('pid'),'anon'),name,nick:first(q.get('nick'),name),diff:normalizeDiff(fieldDiff.value||'normal'),time:fieldTime.value||(selectedMode==='challenge'?'180':'120'),view:fieldView.value||'mobile',run:first(q.get('run'),'play'),zone:'hygiene',cat:'hygiene',game:'brush',gameId:'brush',variant:'kids-vr',mode:selectedMode,entry:'brush-kids',theme:'brush',launcher:'brush-vr-kids',v:VERSION}}
+      function hygieneZoneUrl(){const explicit=normalizeReturnUrl(first(q.get('hub'),q.get('return'),q.get('back'),q.get('nextZone')));if(explicit)return explicit;const url=heroUrl('hygiene-zone.html');const p=playerParams();['pid','name','diff','time','view'].forEach(k=>url.searchParams.set(k,p[k]));url.searchParams.set('hub',first(q.get('rootHub'),q.get('hubRoot'),DEFAULT_HUB_ROOT));return url.toString()}
+      function runUrl(){const url=heroUrl('vr-brush-kids/brush.html');const p=playerParams(),zone=hygieneZoneUrl();Object.entries(p).forEach(([k,v])=>url.searchParams.set(k,String(v)));url.searchParams.set('hub',zone);url.searchParams.set('back',zone);url.searchParams.set('return',zone);url.searchParams.set('stage','howto');url.searchParams.set('cooldown','1');url.searchParams.set('seed',first(q.get('seed'),String(Date.now())));['studyId','phase','conditionGroup','runMode','log','api'].forEach(k=>{const v=q.get(k);if(v)url.searchParams.set(k,v)});return url.toString()}
+      function warmupUrl(){const next=runUrl(),zone=hygieneZoneUrl(),url=heroUrl('warmup-gate.html'),p=playerParams();Object.entries(p).forEach(([k,v])=>url.searchParams.set(k,String(v)));url.searchParams.set('phase','warmup');url.searchParams.set('next',next);url.searchParams.set('hub',zone);url.searchParams.set('return',zone);url.searchParams.set('back',zone);url.searchParams.set('seed',first(q.get('seed'),String(Date.now())));try{sessionStorage.setItem('HHA_BRUSH_NEXT',next)}catch(_){}return url.toString()}
+      function setMode(mode,update=true){selectedMode=mode==='challenge'?'challenge':'learn';modeLearn.classList.toggle('active',selectedMode==='learn');modeChallenge.classList.toggle('active',selectedMode==='challenge');missionText.textContent=selectedMode==='learn'?'แปรงให้ครบทุกโซนใน 2 นาที เน้นช้า ชัด และครบจุด':'แปรงให้ครบทุกโซนใน 3 นาที เก็บรายละเอียดให้ดี และเตรียมเจอ Boss ฟันผุ';if(selectedMode==='challenge'&&fieldTime.value==='120')fieldTime.value='180';if(selectedMode==='learn'&&fieldTime.value==='180')fieldTime.value='120';if(update)updateLinks()}
+      function updateLinks(){savePrefs();btnBackZone.onclick=function(){location.href=hygieneZoneUrl()};debugBox.textContent=['BRUSH KIDS LAUNCHER','VERSION: '+VERSION,'','Hygiene Zone:',hygieneZoneUrl(),'','Warmup URL:',warmupUrl(),'','Run URL:',runUrl()].join('\n')}
+      function startViaWarmup(){savePrefs();location.href=warmupUrl()}
+      function startDirect(){savePrefs();location.href=runUrl()}
+      function bind(){[fieldName,fieldDiff,fieldTime,fieldView].forEach(input=>{input.addEventListener('input',updateLinks);input.addEventListener('change',updateLinks)});[modeLearn,modeChallenge].forEach(card=>{card.addEventListener('click',()=>setMode(card.dataset.mode||'learn'));card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setMode(card.dataset.mode||'learn')}})});btnStart.addEventListener('click',startViaWarmup);btnDirect.addEventListener('click',startDirect);btnDebug.addEventListener('click',()=>{updateLinks();debugBox.classList.toggle('show')})}
+      loadPrefs();bind();updateLinks();
+    })();
   </script>
 </body>
 </html>
