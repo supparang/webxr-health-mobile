@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504j-HANDWASH-VR-MOBILE-BOSS-SCROLL-FIX -->
+<!-- FULL PATCH v20260504k-HANDWASH-VR-REPLAY-CHALLENGE-PACK -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2776,6 +2776,218 @@ body[data-stage="order"] .bossJumpChoices{
   }
 }
 
+  
+/* === PATCH v20260504k-HANDWASH-REPLAY-CHALLENGE-PACK === */
+.replayBox{
+  border-radius:24px;
+  border:2px solid #d7f0fb;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(255,217,93,.20), transparent 26%),
+    linear-gradient(180deg,#ffffff,#f7fdff);
+  padding:14px;
+  display:grid;
+  gap:11px;
+}
+
+.replayBox h3{
+  margin:0;
+  color:#12324b;
+  font-size:20px;
+  line-height:1.12;
+  font-weight:1000;
+}
+
+.replayLead{
+  margin:0;
+  color:#5f7f92;
+  font-size:13px;
+  line-height:1.45;
+  font-weight:900;
+}
+
+.replayGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+
+.replayCard{
+  min-height:58px;
+  border-radius:18px;
+  padding:9px 10px;
+  border:1px solid #d7f0fb;
+  background:#fff;
+  display:grid;
+  gap:3px;
+}
+
+.replayCard span{
+  color:#5f7f92;
+  font-size:11px;
+  line-height:1.1;
+  font-weight:1000;
+}
+
+.replayCard strong{
+  color:#17384f;
+  font-size:20px;
+  line-height:1.05;
+  font-weight:1000;
+}
+
+.dailyList,
+.badgeCollection{
+  display:grid;
+  gap:7px;
+}
+
+.dailyItem{
+  min-height:42px;
+  border-radius:16px;
+  padding:8px 10px;
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:8px;
+  align-items:center;
+  border:1px solid #d7f0fb;
+  background:#fff;
+  color:#37566e;
+  font-size:12px;
+  line-height:1.25;
+  font-weight:1000;
+}
+
+.dailyItem.done{
+  background:#effcf3;
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.dailyItem.next{
+  background:#fff8dc;
+  border-color:#ffe58d;
+  color:#7c5800;
+}
+
+.dailyItem small{
+  color:inherit;
+  opacity:.82;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.badgeCollection{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.replayBadge{
+  min-height:64px;
+  border-radius:18px;
+  padding:9px 7px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  gap:4px;
+  background:#f8fdff;
+  border:1px solid #d7f0fb;
+  color:#7890a3;
+  font-size:11px;
+  line-height:1.15;
+  font-weight:1000;
+  filter:grayscale(.9);
+  opacity:.72;
+}
+
+.replayBadge.unlocked{
+  background:#effcf3;
+  border-color:#b8eec6;
+  color:#166534;
+  filter:none;
+  opacity:1;
+  box-shadow:0 8px 18px rgba(22,101,52,.08);
+}
+
+.replayBadge .ico{
+  font-size:24px;
+  line-height:1;
+}
+
+.replayActions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+
+.replayBtn{
+  min-height:48px;
+  border:0;
+  border-radius:16px;
+  padding:9px 12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  cursor:pointer;
+  font-size:13px;
+  line-height:1.2;
+  font-weight:1000;
+  box-shadow:0 8px 18px rgba(23,56,79,.08);
+}
+
+.replayBtn.primary{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  color:#503c00;
+}
+
+.replayBtn.hard{
+  background:linear-gradient(180deg,#fff3f3,#ffdada);
+  color:#991b1b;
+  border:2px solid #fecaca;
+}
+
+.replayBtn.challenge{
+  background:linear-gradient(180deg,#f3e8ff,#ddd6fe);
+  color:#5b21b6;
+  border:2px solid #c4b5fd;
+}
+
+.replayTip{
+  border-radius:18px;
+  padding:10px 12px;
+  background:#ecfeff;
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+  font-size:13px;
+  line-height:1.45;
+  font-weight:1000;
+}
+
+.newRecordFlash{
+  animation:newRecordFlash 1.05s ease-out;
+}
+
+@keyframes newRecordFlash{
+  0%{ transform:scale(1); box-shadow:0 0 0 rgba(255,217,93,0); }
+  35%{ transform:scale(1.03); box-shadow:0 0 0 8px rgba(255,217,93,.22); }
+  100%{ transform:scale(1); box-shadow:0 0 0 rgba(255,217,93,0); }
+}
+
+@media (max-width:640px){
+  .replayGrid,
+  .replayActions{
+    grid-template-columns:1fr;
+  }
+
+  .badgeCollection{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .replayBox{
+    border-radius:20px;
+    padding:12px;
+  }
+}
+
   </style>
 </head>
 
@@ -3099,6 +3311,38 @@ body[data-stage="order"] .bossJumpChoices{
               <div>ผลภารกิจจะแสดงหลังจบเกม</div>
             </div>
 
+
+            <div class="replayBox" id="replayBox">
+              <h3>🔁 เล่นซ้ำให้เก่งขึ้น</h3>
+              <p class="replayLead" id="replayLead">ระบบจะดูคะแนนดีที่สุด ภารกิจวันนี้ และ Badge ที่ปลดล็อกแล้ว</p>
+
+              <div class="replayGrid">
+                <div class="replayCard"><span>Personal Best</span><strong id="replayBestScore">0</strong></div>
+                <div class="replayCard"><span>Best Clean</span><strong id="replayBestClean">0%</strong></div>
+                <div class="replayCard"><span>เล่นทั้งหมด</span><strong id="replayTotalPlays">0</strong></div>
+                <div class="replayCard"><span>Badge</span><strong id="replayBadgeCount">0/8</strong></div>
+              </div>
+
+              <div>
+                <h3 style="font-size:17px;margin-bottom:7px;">🎯 Daily Challenge</h3>
+                <div class="dailyList" id="dailyChallengeList"></div>
+              </div>
+
+              <div>
+                <h3 style="font-size:17px;margin-bottom:7px;">🏅 Badge Collection</h3>
+                <div class="badgeCollection" id="badgeCollection"></div>
+              </div>
+
+              <div class="replayTip" id="replayTip">รอบหน้าลองทำ Clean ให้สูงขึ้นและลด Germ ให้น้อยลง</div>
+
+              <div class="replayActions">
+                <button class="replayBtn primary" type="button" data-click="restart">🔁 เล่นอีกรอบ</button>
+                <button class="replayBtn hard" id="btnReplayHard" type="button" data-click="restartHard">🔥 ลอง Hard</button>
+                <button class="replayBtn challenge" id="btnReplayChallenge" type="button" data-click="restartChallenge">💜 Challenge</button>
+              </div>
+            </div>
+
+
             <div class="researchBox" id="researchBox">
               <h3>📊 ข้อมูลสำหรับครู/วิจัย</h3>
               <div class="researchGrid">
@@ -3139,7 +3383,7 @@ body[data-stage="order"] .bossJumpChoices{
     (function(){
       'use strict';
 
-      const VERSION = '20260504j-HANDWASH-VR-MOBILE-BOSS-SCROLL-FIX';
+      const VERSION = '20260504k-HANDWASH-VR-REPLAY-CHALLENGE-PACK';
       const qs = new URLSearchParams(location.search);
       const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
       const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
@@ -4820,6 +5064,7 @@ function renderSummary(){
         else if(scrub.cleanPct >= 80) coachSay('ทำได้ดีมาก รอบหน้าล้างจุดที่ยังเหลืออีกนิด', 'good', '🧼', 'summary-good');
         else coachSay('ไม่เป็นไร รอบหน้าลองถูซอกนิ้วและปลายนิ้วให้นานขึ้น', 'warn', '👍', 'summary-try');
         const researchMetrics = saveResearchSummary();
+        renderReplayPanel(stars, completed, researchMetrics);
         renderResearchPanel();
         sfx(bossWon ? 'win' : 'stage');
         saveSummary(stars, completed, acc, kidSummary, researchMetrics);
@@ -5332,6 +5577,7 @@ function goHygieneAfterHandwash(){
           researchMetrics:researchMetrics || null,
           researchSessionId:research.sessionId,
           researchEventsCount:research.events.length,
+          replayProfile:loadReplayProfile(),
           summaryBadgesRendered:true,
           weakestZoneDisplay:weakestZoneDisplay(researchMetrics && researchMetrics.weakestZone),
           returnUrl:getHygieneZoneHref(),
@@ -5571,6 +5817,8 @@ function updateRushHud(){
         else if(action === 'skip') skipStep();
         else if(action === 'order') doOrder(value);
         else if(action === 'restart') restart();
+        else if(action === 'restartHard') restartWithDiff('hard');
+        else if(action === 'restartChallenge') restartWithDiff('challenge');
         else if(action === 'back') goBack();
         else if(action === 'teacher') openTeacherReview();
         else if(action === 'toggleResearch') toggleResearchText();
