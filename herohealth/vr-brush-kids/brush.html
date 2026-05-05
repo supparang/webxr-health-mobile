@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505i-BRUSH-KIDS-ARCADE-CHALLENGE-LAYER -->
+<!-- FULL PATCH v20260505j-BRUSH-KIDS-HYPE-REPLAY-BOSS-ATTACK -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -1004,6 +1004,214 @@
   .plaqueMonster{ width:30px; height:30px; font-size:17px; }
 }
 
+  
+/* === PATCH v20260505j-BRUSH-HYPE-REPLAY-BOSS-ATTACK === */
+.hypeBanner{
+  border-radius:18px;
+  border:2px solid #c4b5fd;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(255,255,255,.45), transparent 24%),
+    linear-gradient(180deg,#f3e8ff,#ffffff);
+  padding:10px 12px;
+  display:grid;
+  gap:8px;
+  color:#5b21b6;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:1000;
+  box-shadow:0 10px 22px rgba(91,33,182,.08);
+}
+
+.hypeBanner.danger{
+  border-color:#fecaca;
+  background:linear-gradient(180deg,#fff3f3,#ffffff);
+  color:#991b1b;
+  animation:dangerPulse .45s ease-in-out infinite;
+}
+
+.hypeBanner.fever{
+  border-color:#b8eec6;
+  background:linear-gradient(180deg,#effcf3,#ffffff);
+  color:#166534;
+}
+
+.hypeMiniGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;
+}
+
+.hypeMini{
+  min-height:34px;
+  border-radius:999px;
+  padding:6px 9px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:6px;
+  background:#fff;
+  border:1px solid rgba(196,181,253,.85);
+  color:#5b21b6;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.powerUpSprite{
+  position:absolute;
+  z-index:7;
+  width:42px;
+  height:42px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  border:2px solid rgba(255,255,255,.9);
+  background:linear-gradient(180deg,#fff,#dffaff);
+  box-shadow:0 12px 22px rgba(23,56,79,.18);
+  font-size:23px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  animation:powerFloat .75s ease-in-out infinite;
+}
+
+.powerUpSprite.shield{
+  background:linear-gradient(180deg,#dcfff2,#86efac);
+}
+
+.powerUpSprite.time{
+  background:linear-gradient(180deg,#e0f2fe,#7dd3fc);
+}
+
+.powerUpSprite.bomb{
+  background:linear-gradient(180deg,#fff2a8,#facc15);
+}
+
+.powerUpSprite.star{
+  background:linear-gradient(180deg,#f3e8ff,#c4b5fd);
+}
+
+@keyframes powerFloat{
+  0%,100%{ transform:translate(-50%,-50%) scale(1) rotate(-4deg); }
+  50%{ transform:translate(-50%,-58%) scale(1.08) rotate(4deg); }
+}
+
+.bossAttackOverlay{
+  position:absolute;
+  inset:0;
+  z-index:9;
+  pointer-events:none;
+  display:grid;
+  place-items:center;
+  opacity:0;
+  background:radial-gradient(circle at 50% 50%, rgba(239,68,68,.25), transparent 58%);
+  color:#fff;
+  font-size:clamp(28px,5vw,56px);
+  font-weight:1000;
+  text-shadow:0 4px 18px rgba(0,0,0,.4);
+}
+
+.bossAttackOverlay.on{
+  animation:bossAttackBoom .72s ease-out forwards;
+}
+
+@keyframes bossAttackBoom{
+  0%{ opacity:0; transform:scale(.8); }
+  18%{ opacity:1; transform:scale(1.03); }
+  100%{ opacity:0; transform:scale(1.18); }
+}
+
+.comboMega{
+  position:fixed;
+  left:50%;
+  top:22%;
+  z-index:900;
+  transform:translateX(-50%);
+  pointer-events:none;
+  border-radius:999px;
+  padding:12px 18px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  box-shadow:0 18px 42px rgba(23,56,79,.28);
+  font-size:clamp(18px,4vw,34px);
+  line-height:1;
+  font-weight:1000;
+  opacity:0;
+}
+
+.comboMega.show{
+  animation:comboMegaPop .82s ease-out forwards;
+}
+
+@keyframes comboMegaPop{
+  0%{ opacity:0; transform:translateX(-50%) scale(.72) translateY(18px); }
+  25%{ opacity:1; transform:translateX(-50%) scale(1.08) translateY(0); }
+  100%{ opacity:0; transform:translateX(-50%) scale(1) translateY(-16px); }
+}
+
+.replayRewardBox{
+  border-radius:22px;
+  border:2px solid #ffd95d;
+  background:linear-gradient(180deg,#fff8dc,#ffffff);
+  padding:12px;
+  display:grid;
+  gap:8px;
+  color:#7c5800;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.replayBadges{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:7px;
+}
+
+.replayBadgeMini{
+  min-height:44px;
+  border-radius:16px;
+  border:1px solid #ffe58d;
+  background:#fff;
+  padding:8px 9px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  color:#7c5800;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.replayBadgeMini.unlocked{
+  background:#effcf3;
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.mouthScene.screenShake{
+  animation:screenShake .28s ease-in-out;
+}
+
+@keyframes screenShake{
+  0%,100%{ transform:translate(0,0); }
+  20%{ transform:translate(-4px,2px); }
+  40%{ transform:translate(4px,-2px); }
+  60%{ transform:translate(-3px,-2px); }
+  80%{ transform:translate(3px,2px); }
+}
+
+@media (max-width:640px){
+  .hypeMiniGrid,
+  .replayBadges{
+    grid-template-columns:1fr;
+  }
+  .powerUpSprite{
+    width:34px;
+    height:34px;
+    border-radius:13px;
+    font-size:19px;
+  }
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -1109,6 +1317,17 @@
               <button class="dockBtn" type="button" data-dock="auto">🎯 เป้าหมาย</button>
               <button class="dockBtn" type="button" data-dock="next">โซนถัดไป ➡</button>
             </div>
+
+            <div class="hypeBanner" id="hypeBanner">
+              <strong id="hypeTitle">⚡ Boss Pressure: ระวัง Cavity Storm</strong>
+              <span id="hypeText">แปรงช้า Plaque จะเพิ่ม และ Boss จะโจมตีฟัน</span>
+              <div class="hypeMiniGrid">
+                <div class="hypeMini"><span>👾 Boss</span><b id="bossPressureText">0%</b></div>
+                <div class="hypeMini"><span>🛡 Shield</span><b id="shieldText">0</b></div>
+                <div class="hypeMini"><span>✖ Multiplier</span><b id="multiplierText">x1</b></div>
+              </div>
+            </div>
+
           </aside>
 
           <div class="mouthWrap">
@@ -1122,6 +1341,7 @@
               <div class="teethArch lower" id="lowerArch"></div>
 
               <div class="brush" id="brush">🪥</div>
+              <div class="bossAttackOverlay" id="bossAttackOverlay">⚡ CAVITY STORM!</div>
             </div>
           </div>
         </div>
@@ -1150,6 +1370,13 @@
           <h2 style="margin:0;color:#12324b;font-size:30px;line-height:1.12;font-weight:1000;">ผลการแปรงฟันของฉัน</h2>
           <div class="resultCard" id="summaryResult">กำลังสรุปผล...</div>
           <div class="resultCard" id="summaryCoach">Coach Advice</div>
+          
+          <div class="replayRewardBox" id="replayRewardBox">
+            <strong id="replayRewardTitle">🔁 Replay Challenge</strong>
+            <span id="replayRewardText">ทำลายคะแนนเดิมและปลดล็อก Badge</span>
+            <div class="replayBadges" id="replayBadges"></div>
+          </div>
+
           <div class="actions">
             <button class="btn btnPrimary" type="button" data-action="restart">🔁 เล่นอีกครั้ง</button>
             <button class="btn btnSoft" type="button" data-action="cooldown">🧘 Cooldown</button>
@@ -1160,13 +1387,14 @@
     </section>
   </main>
 
+  <div class="comboMega" id="comboMega">COMBO!</div>
   <div class="toast" id="toast"></div>
 
   <script>
     (function(){
       'use strict';
 
-      const VERSION = '20260505i-BRUSH-KIDS-ARCADE-CHALLENGE-LAYER';
+      const VERSION = '20260505j-BRUSH-KIDS-HYPE-REPLAY-BOSS-ATTACK';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -1206,6 +1434,26 @@
         { id:'sugar', icon:'🍬', label:'Sugar Blob', score:55, clean:8 },
         { id:'cavity', icon:'👾', label:'Cavity Bug', score:70, clean:10 }
       ];
+
+
+      const POWERUPS = [
+        { id:'shield', icon:'🛡', label:'Foam Shield', cls:'shield' },
+        { id:'time',   icon:'⏱', label:'+5 sec', cls:'time' },
+        { id:'bomb',   icon:'💥', label:'Clean Bomb', cls:'bomb' },
+        { id:'star',   icon:'⭐', label:'Star Bonus', cls:'star' }
+      ];
+
+      const REPLAY_BADGES = [
+        { id:'storm_blocker', icon:'🛡', title:'Storm Blocker', pass:() => state.bossAttacksBlocked >= 1 },
+        { id:'monster_hunter', icon:'👾', title:'Monster Hunter', pass:() => state.monstersHit >= 6 },
+        { id:'fever_master', icon:'🫧', title:'Fever Master', pass:() => state.feverCount >= 2 },
+        { id:'combo_hero', icon:'🔥', title:'Combo Hero', pass:() => state.maxCombo >= 30 },
+        { id:'clean_legend', icon:'✨', title:'Clean Legend', pass:() => totalClean() >= 95 },
+        { id:'mission_star', icon:'⭐', title:'Mission Star', pass:() => !!state.missionDone }
+      ];
+
+      const REPLAY_KEY = 'HHA_BRUSH_ARCADE_REPLAY_PROFILE';
+
 
       const ARCADE_MISSIONS = [
         { id:'monster3', title:'กำจัด Plaque Monster', text:'ลากแปรงไปโดนมอนสเตอร์บนฟัน 3 ตัว', target:3, type:'monster' },
@@ -1259,6 +1507,18 @@
         missionChip:$('missionChip'),
         missionText:$('missionText'),
         feverOverlay:$('feverOverlay'),
+        hypeBanner:$('hypeBanner'),
+        hypeTitle:$('hypeTitle'),
+        hypeText:$('hypeText'),
+        bossPressureText:$('bossPressureText'),
+        shieldText:$('shieldText'),
+        multiplierText:$('multiplierText'),
+        bossAttackOverlay:$('bossAttackOverlay'),
+        comboMega:$('comboMega'),
+        replayRewardBox:$('replayRewardBox'),
+        replayRewardTitle:$('replayRewardTitle'),
+        replayRewardText:$('replayRewardText'),
+        replayBadges:$('replayBadges'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
 
@@ -1315,7 +1575,16 @@
         mission: null,
         missionProgress: 0,
         missionDone: false,
-        lastMonsterSpawn: 0
+        lastMonsterSpawn: 0,
+        powerUps: [],
+        powerSeq: 0,
+        lastPowerSpawn: 0,
+        shield: 0,
+        bossPressure: 0,
+        bossAttacksBlocked: 0,
+        bossAttacksHit: 0,
+        multiplier: 1,
+        rushWaveDone: false
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
@@ -1544,16 +1813,27 @@
     state.timeLeft -= 1;
     state.zoneDanger -= 1;
 
+    updateBossPressure();
+    decayMonsters();
+    decayPowerups();
+    maybeSpawnMonster();
+    maybeSpawnPowerUp();
+
     if(isFeverActive()){
       state.feverMeter = Math.max(0, state.feverMeter - 1.4);
     }
 
-    decayMonsters();
-    maybeSpawnMonster();
-
     if(state.zoneDanger <= 0){
       dangerPenalty();
       resetZoneDanger(false);
+    }
+
+    if(state.bossPressure >= 100){
+      bossAttack();
+    }
+
+    if(totalClean() >= 52 && !state.rushWaveDone){
+      startRushWave();
     }
 
     if(state.timeLeft <= 0){
@@ -1611,6 +1891,7 @@
         el.zoneBar.style.width = p + '%';
         updateScrubMission();
         updateArcadePanel();
+        updateHypePanel();
       }
       function zoneCardHtml(z){
   const p = Math.round(state.zoneProgress[z.id] || 0);
@@ -1619,6 +1900,7 @@
   const plaqueOpacity = clamp(1 - p / 100, 0, 1).toFixed(2);
   const blobs = plaqueBlobs(z.id, plaqueOpacity);
   const monsters = monsterSprites(z.id);
+  const powers = powerSprites(z.id);
   const archExtra = z.cls ? (' ' + z.cls) : '';
   const lower = z.arch === 'lower' ? ' lower' : '';
   const danger = active && state.zoneDanger <= 4 && !done;
@@ -1629,6 +1911,7 @@
       </div>
       <div class="plaqueLayer">${blobs}</div>
       ${monsters}
+      ${powers}
       <div class="zoneLabel">${z.label}<br>${p}%</div>
     </button>
   `;
@@ -1877,6 +2160,7 @@
 
         if(state.feverMeter >= 100 && !isFeverActive()){
           activateFever();
+          showMega('🫧 FOAM FEVER!');
           if(event && event.clientX != null) spawnStreak(event.clientX, event.clientY, 'FOAM FEVER!');
         }
       }
@@ -2047,6 +2331,248 @@
       }
 
 
+
+      function maybeSpawnPowerUp(force=false){
+        const now = Date.now();
+        if(!force && state.powerUps.length >= 2) return;
+        if(!force && now - state.lastPowerSpawn < 9500) return;
+        if(!force && Math.random() > .42) return;
+
+        const type = POWERUPS[Math.floor(Math.random() * POWERUPS.length)];
+        const zone = Math.random() < .72 ? state.activeZone : randomZoneWithPlaque();
+        const id = 'p' + (++state.powerSeq);
+
+        state.powerUps.push({
+          id,
+          zone,
+          type:type.id,
+          icon:type.icon,
+          label:type.label,
+          cls:type.cls,
+          x:18 + Math.random() * 64,
+          y:24 + Math.random() * 52,
+          born:now,
+          ttl:9500
+        });
+
+        state.lastPowerSpawn = now;
+      }
+
+      function decayPowerups(){
+        const now = Date.now();
+        state.powerUps = state.powerUps.filter(p => now - p.born < p.ttl);
+      }
+
+      function powerSprites(zoneId){
+        return state.powerUps
+          .filter(p => p.zone === zoneId)
+          .map(p => `<span class="powerUpSprite ${p.cls}" data-power="${p.id}" style="left:${p.x}%;top:${p.y}%;">${p.icon}</span>`)
+          .join('');
+      }
+
+      function hitPowerupsAt(zoneId, x, y){
+        if(!x && !y) return 0;
+
+        const zoneNode = document.querySelector(`.toothZone[data-zone="${zoneId}"]`);
+        if(!zoneNode) return 0;
+
+        const zr = zoneNode.getBoundingClientRect();
+        const zx = ((x - zr.left) / Math.max(1, zr.width)) * 100;
+        const zy = ((y - zr.top) / Math.max(1, zr.height)) * 100;
+
+        let hit = 0;
+        const keep = [];
+
+        state.powerUps.forEach(p => {
+          if(p.zone !== zoneId){
+            keep.push(p);
+            return;
+          }
+
+          const dx = p.x - zx;
+          const dy = p.y - zy;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+
+          if(dist <= 24){
+            hit += 1;
+            applyPowerUp(p, x, y);
+          }else{
+            keep.push(p);
+          }
+        });
+
+        state.powerUps = keep;
+        return hit;
+      }
+
+      function applyPowerUp(p, x, y){
+        if(p.type === 'shield'){
+          state.shield = Math.min(3, state.shield + 1);
+          showToast('🛡 Foam Shield +1');
+        }else if(p.type === 'time'){
+          state.timeLeft += 5;
+          showToast('⏱ เวลา +5 วินาที');
+        }else if(p.type === 'bomb'){
+          state.zoneProgress[state.activeZone] = clamp((state.zoneProgress[state.activeZone] || 0) + 18, 0, 100);
+          state.monsters = state.monsters.filter(m => m.zone !== state.activeZone);
+          showToast('💥 Clean Bomb! โซนนี้สะอาดขึ้น');
+        }else if(p.type === 'star'){
+          state.score += 220;
+          state.multiplier = Math.min(3, state.multiplier + .25);
+          showToast('⭐ Star Bonus! Multiplier เพิ่ม');
+        }
+
+        state.score += 90;
+        spawnSparkle(x, y, p.icon);
+        spawnStreak(x, y, p.label);
+      }
+
+      function updateBossPressure(){
+        const plaque = totalPlaque();
+        const monsterFactor = state.monsters.length * 4;
+        const dangerFactor = state.zoneDanger <= 4 ? 5 : 1.5;
+        const cleanRelief = totalClean() >= 85 ? 5 : 0;
+
+        state.bossPressure = clamp(state.bossPressure + (plaque / 50) + monsterFactor + dangerFactor - cleanRelief, 0, 100);
+      }
+
+      function bossAttack(){
+        state.bossPressure = 0;
+
+        if(state.shield > 0){
+          state.shield -= 1;
+          state.bossAttacksBlocked += 1;
+          showMega('🛡 BLOCKED!');
+          showToast('Shield กัน Cavity Storm ได้!');
+          return;
+        }
+
+        state.bossAttacksHit += 1;
+        state.combo = 0;
+        const id = state.activeZone;
+        const loss = state.diff === 'challenge' ? 18 : state.diff === 'hard' ? 14 : 10;
+        state.zoneProgress[id] = clamp((state.zoneProgress[id] || 0) - loss, 0, 100);
+
+        maybeSpawnMonster(true);
+        maybeSpawnMonster(true);
+        showBossAttack();
+        showToast('⚡ Cavity Storm! คราบกลับมา');
+      }
+
+      function showBossAttack(){
+        if(el.mouthScene){
+          el.mouthScene.classList.remove('screenShake');
+          void el.mouthScene.offsetWidth;
+          el.mouthScene.classList.add('screenShake');
+        }
+
+        if(el.bossAttackOverlay){
+          el.bossAttackOverlay.classList.remove('on');
+          void el.bossAttackOverlay.offsetWidth;
+          el.bossAttackOverlay.classList.add('on');
+        }
+      }
+
+      function showMega(text){
+        if(!el.comboMega) return;
+        el.comboMega.textContent = text;
+        el.comboMega.classList.remove('show');
+        void el.comboMega.offsetWidth;
+        el.comboMega.classList.add('show');
+      }
+
+      function startRushWave(){
+        state.rushWaveDone = true;
+        showMega('RUSH WAVE!');
+        showToast('⚡ Rush Wave! มอนสเตอร์บุกหลายตัว');
+
+        for(let i = 0; i < 4; i++){
+          setTimeout(() => {
+            maybeSpawnMonster(true);
+            if(i % 2 === 0) maybeSpawnPowerUp(true);
+            renderZones();
+          }, i * 260);
+        }
+      }
+
+      function updateHypePanel(){
+        if(!el.hypeBanner) return;
+
+        const pressure = Math.round(state.bossPressure);
+        if(el.bossPressureText) el.bossPressureText.textContent = pressure + '%';
+        if(el.shieldText) el.shieldText.textContent = String(state.shield || 0);
+        if(el.multiplierText) el.multiplierText.textContent = 'x' + state.multiplier.toFixed(2).replace(/\.00$/,'');
+
+        el.hypeBanner.classList.toggle('danger', pressure >= 75);
+        el.hypeBanner.classList.toggle('fever', isFeverActive());
+
+        if(el.hypeTitle){
+          el.hypeTitle.textContent = isFeverActive()
+            ? '🫧 Foam Fever ทำงาน!'
+            : pressure >= 75
+              ? '⚡ Cavity Storm ใกล้โจมตี!'
+              : '⚡ Boss Pressure: ระวัง Cavity Storm';
+        }
+
+        if(el.hypeText){
+          el.hypeText.textContent = isFeverActive()
+            ? 'คราบหายเร็วขึ้น เก็บ combo ให้ต่อเนื่อง!'
+            : pressure >= 75
+              ? 'รีบกำจัดคราบหรือเก็บ Shield ไม่งั้น Boss จะโจมตี'
+              : 'แปรงเร็ว กำจัด Monster และเก็บ Power-up เพื่อเอาชนะ';
+        }
+      }
+
+      function loadReplayProfile(){
+        try{
+          return JSON.parse(localStorage.getItem(REPLAY_KEY) || '{}') || {};
+        }catch(_){
+          return {};
+        }
+      }
+
+      function saveReplayProfile(p){
+        try{ localStorage.setItem(REPLAY_KEY, JSON.stringify(p)); }catch(_){}
+      }
+
+      function renderReplayRewards(){
+        const profile = loadReplayProfile();
+        profile.bestScore = Math.max(Number(profile.bestScore || 0), Math.round(state.score));
+        profile.bestClean = Math.max(Number(profile.bestClean || 0), Math.round(totalClean()));
+        profile.plays = Number(profile.plays || 0) + 1;
+        profile.badges = profile.badges || {};
+
+        const newly = [];
+        REPLAY_BADGES.forEach(b => {
+          if(b.pass() && !profile.badges[b.id]){
+            profile.badges[b.id] = new Date().toISOString();
+            newly.push(b);
+          }
+        });
+
+        saveReplayProfile(profile);
+
+        if(el.replayRewardTitle){
+          el.replayRewardTitle.textContent = newly.length
+            ? '🏅 ปลดล็อก Badge ใหม่!'
+            : '🔁 Replay Challenge';
+        }
+
+        if(el.replayRewardText){
+          el.replayRewardText.textContent = `Best Score ${profile.bestScore} • Best Clean ${profile.bestClean}% • เล่นแล้ว ${profile.plays} รอบ`;
+        }
+
+        if(el.replayBadges){
+          el.replayBadges.innerHTML = REPLAY_BADGES.map(b => {
+            const unlocked = !!profile.badges[b.id];
+            return `<div class="replayBadgeMini ${unlocked ? 'unlocked' : ''}">
+              <span>${b.icon} ${b.title}</span><b>${unlocked ? 'ได้แล้ว' : 'ยัง'}</b>
+            </div>`;
+          }).join('');
+        }
+      }
+
+
       function selectZone(id){
         if(!ZONES.some(z => z.id === id)) return;
         if(state.activeZone !== id){
@@ -2073,14 +2599,17 @@
   }
 
   state.maxCombo = Math.max(state.maxCombo, state.combo);
-  state.score += Math.round((5 + state.combo * .25) * Math.max(.55, quality));
+  state.multiplier = clamp(1 + Math.floor(state.combo / 15) * .25, 1, 3);
+  state.score += Math.round((5 + state.combo * .25) * Math.max(.55, quality) * state.multiplier);
 
   if(event && event.clientX != null){
     hitMonstersAt(id, event.clientX, event.clientY);
+    hitPowerupsAt(id, event.clientX, event.clientY);
     maybeBuildFever(quality, event);
     spawnSparkle(event.clientX, event.clientY, next >= 100 ? '✨' : quality >= .95 ? '🫧' : '💦');
     if(state.combo > 0 && state.combo % 12 === 0){
       spawnStreak(event.clientX, event.clientY, 'Combo ' + state.combo + '!');
+      showMega('🔥 Combo ' + state.combo);
     }
   }
 
@@ -2204,6 +2733,8 @@
           <span>Max Combo: ${state.maxCombo}</span>
           <span>Boss: ${bossWon ? 'ชนะแล้ว' : 'ยังไม่ชนะ'} • พลาด ${state.bossWrong}</span>
           <span>Monsters Hit: ${state.monstersHit} • Fever: ${state.feverCount} ครั้ง</span>
+          <span>Cavity Storm: โดน ${state.bossAttacksHit} • กันได้ ${state.bossAttacksBlocked}</span>
+          <span>Multiplier สูงสุดโดยประมาณ: x${state.multiplier.toFixed(2).replace(/\.00$/,'')}</span>
           <span>Mini Mission: ${state.missionDone ? 'สำเร็จ' : 'ยังไม่สำเร็จ'}</span>
         `;
 
@@ -2216,6 +2747,7 @@
           : 'ยอดเยี่ยม! ทำความสะอาดได้ครบทุกโซนในปากแล้ว';
 
         saveSummary({clean, plaque, accuracy, stars, bossWon});
+        renderReplayRewards();
       }
 
       function saveSummary(extra){
@@ -2241,6 +2773,11 @@
           feverCount:state.feverCount,
           mission:state.mission,
           missionDone:state.missionDone,
+          shield:state.shield,
+          bossPressure:state.bossPressure,
+          bossAttacksHit:state.bossAttacksHit,
+          bossAttacksBlocked:state.bossAttacksBlocked,
+          multiplier:state.multiplier,
           zones:ZONES.map(z => ({id:z.id,label:z.label,pct:Math.round(state.zoneProgress[z.id] || 0)})),
           endedAt:new Date().toISOString(),
           returnUrl:zoneUrl()
