@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-handwash/handwash-vr.html === -->
-<!-- FULL PATCH v20260504i-HANDWASH-VR-FULLSCREEN-GAMEPLAY -->
+<!-- FULL PATCH v20260504j-HANDWASH-VR-MOBILE-BOSS-SCROLL-FIX -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -2521,6 +2521,261 @@ body[data-stage="main"] .mainJumpToHand{
   body[data-stage="main"] .handScene{min-height:calc(100dvh - 190px);height:calc(100dvh - 190px);}
 }
 
+  
+/* === PATCH v20260504j-HANDWASH-MOBILE-BOSS-SCROLL-FIX === */
+/* Fix: หน้า Boss WHO / stage=order บนมือถือสูงเกินจอและเลื่อนไม่ได้ */
+
+/* order ต้อง scroll ได้เสมอ */
+body[data-stage="order"],
+body[data-stage="order"].hha-play-lock{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  height:auto !important;
+  min-height:100dvh !important;
+  overscroll-behavior-y:auto !important;
+}
+
+body[data-stage="order"] .page{
+  width:100%;
+  max-width:none;
+  min-height:auto !important;
+  height:auto !important;
+  align-content:start !important;
+  overflow:visible !important;
+  padding:
+    calc(7px + var(--sat))
+    calc(7px + var(--sar))
+    calc(96px + var(--sab))
+    calc(7px + var(--sal));
+  gap:8px;
+}
+
+body[data-stage="order"] .screen.active,
+body[data-stage="order"] .heroCard,
+body[data-stage="order"] .panel{
+  overflow:visible !important;
+  height:auto !important;
+  max-height:none !important;
+  touch-action:pan-y !important;
+}
+
+/* ลดส่วนหัว Boss */
+body[data-stage="order"] .stageHead,
+body[data-stage="order"] .stepsBar,
+body[data-stage="order"] .flowLine,
+body[data-stage="order"] .lead{
+  display:none !important;
+}
+
+body[data-stage="order"] .heroCard{
+  border-radius:18px;
+  padding:8px;
+  box-shadow:0 10px 26px rgba(23,56,79,.09);
+}
+
+body[data-stage="order"] .stats{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:5px;
+}
+
+body[data-stage="order"] .stat{
+  min-height:42px;
+  padding:5px 7px;
+  border-radius:13px;
+}
+
+body[data-stage="order"] .stat .k{
+  font-size:10px;
+  line-height:1;
+}
+
+body[data-stage="order"] .stat .v{
+  margin-top:2px;
+  font-size:15px;
+  line-height:1;
+}
+
+body[data-stage="order"] .panel{
+  border-radius:18px;
+  padding:8px;
+}
+
+body[data-stage="order"] .rushHud{
+  border-radius:17px;
+  padding:8px;
+  gap:6px;
+}
+
+body[data-stage="order"] .rushTitle{
+  font-size:14px;
+  line-height:1.15;
+}
+
+body[data-stage="order"] .rushGrid{
+  grid-template-columns:1fr;
+  gap:5px;
+}
+
+body[data-stage="order"] .rushMission{
+  min-height:30px;
+  max-height:50px;
+  overflow:auto;
+  padding:6px 8px;
+  border-radius:13px;
+  font-size:10.5px;
+  line-height:1.25;
+}
+
+/* Boss layout ให้เป็นแนวตั้งและเลื่อนได้ */
+body[data-stage="order"] .bossLayout,
+body[data-stage="order"] .bossGrid,
+body[data-stage="order"] .orderLayout{
+  display:grid !important;
+  grid-template-columns:1fr !important;
+  gap:8px !important;
+  align-items:start !important;
+  overflow:visible !important;
+  height:auto !important;
+  max-height:none !important;
+}
+
+body[data-stage="order"] .bossBox,
+body[data-stage="order"] .orderBox,
+body[data-stage="order"] .bossPanel{
+  overflow:visible !important;
+  height:auto !important;
+  max-height:none !important;
+}
+
+/* Boss title/card ย่อ */
+body[data-stage="order"] .bossTitle{
+  font-size:18px;
+  line-height:1.15;
+}
+
+body[data-stage="order"] .bossLog,
+body[data-stage="order"] .bossText{
+  font-size:12px;
+  line-height:1.35;
+}
+
+/* รูป/การ์ด boss ไม่กินจอมาก */
+body[data-stage="order"] .bossAvatar,
+body[data-stage="order"] .bossKing,
+body[data-stage="order"] .bossFace{
+  max-height:190px !important;
+  transform:scale(.82);
+  transform-origin:center top;
+}
+
+body[data-stage="order"] .bossHpWrap{
+  min-height:18px;
+  border-radius:999px;
+}
+
+/* choices ต้องกดง่ายและอยู่ใน scroll flow */
+body[data-stage="order"] .orderList,
+body[data-stage="order"] .choiceList,
+body[data-stage="order"] .bossChoices{
+  display:grid !important;
+  gap:7px !important;
+  overflow:visible !important;
+  height:auto !important;
+  max-height:none !important;
+}
+
+body[data-stage="order"] .orderBtn,
+body[data-stage="order"] .choiceBtn{
+  min-height:52px !important;
+  border-radius:15px !important;
+  padding:9px 10px !important;
+  font-size:13px !important;
+  line-height:1.25 !important;
+  white-space:normal !important;
+}
+
+/* ปุ่มช่วยเลื่อนไป choices */
+body[data-stage="order"] .bossJumpChoices{
+  position:fixed;
+  right:calc(10px + var(--sar));
+  bottom:calc(12px + var(--sab));
+  z-index:150;
+  min-width:56px;
+  height:56px;
+  border:0;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  color:#503c00;
+  box-shadow:0 12px 24px rgba(80,60,0,.22);
+  font-size:24px;
+  font-weight:1000;
+}
+
+@media (max-width:640px){
+  body[data-stage="order"] .page{
+    padding:
+      calc(5px + var(--sat))
+      calc(5px + var(--sar))
+      calc(84px + var(--sab))
+      calc(5px + var(--sal));
+    gap:6px;
+  }
+
+  body[data-stage="order"] .heroCard{
+    padding:6px;
+    border-radius:16px;
+  }
+
+  body[data-stage="order"] .stat:nth-child(2),
+  body[data-stage="order"] .stat:nth-child(3),
+  body[data-stage="order"] .stat:nth-child(7){
+    display:none;
+  }
+
+  body[data-stage="order"] .panel{
+    padding:6px;
+    border-radius:16px;
+  }
+
+  body[data-stage="order"] .rushHud{
+    display:none !important;
+  }
+
+  body[data-stage="order"] .bossTitle{
+    font-size:16px;
+  }
+
+  body[data-stage="order"] .bossAvatar,
+  body[data-stage="order"] .bossKing,
+  body[data-stage="order"] .bossFace{
+    max-height:150px !important;
+    transform:scale(.72);
+  }
+
+  body[data-stage="order"] .orderBtn,
+  body[data-stage="order"] .choiceBtn{
+    min-height:50px !important;
+    font-size:12.5px !important;
+  }
+}
+
+/* จอเตี้ยมาก: บีบ boss card เพิ่ม */
+@media (max-width:640px) and (max-height:760px){
+  body[data-stage="order"] .bossAvatar,
+  body[data-stage="order"] .bossKing,
+  body[data-stage="order"] .bossFace{
+    max-height:110px !important;
+    transform:scale(.62);
+  }
+
+  body[data-stage="order"] .bossLog,
+  body[data-stage="order"] .bossText{
+    display:none;
+  }
+}
+
   </style>
 </head>
 
@@ -2870,6 +3125,9 @@ body[data-stage="main"] .mainJumpToHand{
     </section>
   </main>
 
+  
+  <button id="bossJumpChoices" class="bossJumpChoices" type="button" aria-label="ไปที่ตัวเลือก Boss" style="display:none;">👇</button>
+
   <button id="mainJumpToHand" class="mainJumpToHand" type="button" aria-label="ไปที่พื้นที่ล้างมือ" style="display:none;">🤲</button>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="rushPop" class="rushPop"></div>
@@ -2881,7 +3139,7 @@ body[data-stage="main"] .mainJumpToHand{
     (function(){
       'use strict';
 
-      const VERSION = '20260504i-HANDWASH-VR-FULLSCREEN-GAMEPLAY';
+      const VERSION = '20260504j-HANDWASH-VR-MOBILE-BOSS-SCROLL-FIX';
       const qs = new URLSearchParams(location.search);
       const DEFAULT_HYGIENE_RETURN_URL = 'https://supparang.github.io/webxr-health-mobile/herohealth/hygiene-zone.html?pid=anon&name=Hero&diff=normal&time=90&view=mobile&hub=https%3A%2F%2Fsupparang.github.io%2Fwebxr-health-mobile%2Fherohealth%2Fhub.html';
       const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
@@ -3346,6 +3604,7 @@ body[data-stage="main"] .mainJumpToHand{
         germLayer:$('germLayer'),
         traceLayer:$('traceLayer'),
         practiceSpark:$('practiceSpark'),
+        bossJumpChoices:$('bossJumpChoices'),
         mainJumpToHand:$('mainJumpToHand'),
         toast:$('toast'),
         rushPop:$('rushPop'),
@@ -3666,17 +3925,36 @@ body[data-stage="main"] .mainJumpToHand{
     el.mainJumpToHand.style.display = showJump ? 'grid' : 'none';
   }
 
+  if(el.bossJumpChoices){
+    const showBossJump = state.stage === 'order' && window.innerWidth <= 760;
+    el.bossJumpChoices.style.display = showBossJump ? 'grid' : 'none';
+  }
+
   if(state.stage === 'main' || state.stage === 'order' || state.stage === 'summary'){
     document.documentElement.style.overflowY = 'auto';
     document.body.style.overflowY = 'auto';
+    document.documentElement.style.height = 'auto';
+    document.body.style.height = 'auto';
   }else{
     document.documentElement.style.overflowY = '';
     document.body.style.overflowY = '';
+    document.documentElement.style.height = '';
+    document.body.style.height = '';
   }
 }
       function safeScrollForStage(){
   try{
     if(state.stage === 'main'){
+      const panel = document.querySelector('.panel');
+      if(panel && window.innerWidth <= 760){
+        setTimeout(() => {
+          panel.scrollIntoView({ block:'start', behavior:'smooth' });
+        }, 80);
+      }
+      return;
+    }
+
+    if(state.stage === 'order'){
       const panel = document.querySelector('.panel');
       if(panel && window.innerWidth <= 760){
         setTimeout(() => {
@@ -3696,14 +3974,17 @@ body[data-stage="main"] .mainJumpToHand{
       function preventPlayDragScroll(){
   document.addEventListener('touchmove', function(e){
     if(state.stage !== 'main') return;
+
     const target = e.target;
     const inHandScene = target && target.closest && target.closest('.handScene');
+
     if(!inHandScene) return;
+
     e.preventDefault();
   }, { passive:false });
 
   document.addEventListener('gesturestart', function(e){
-    if(state.stage === 'main' || state.stage === 'order'){
+    if(state.stage === 'main'){
       e.preventDefault();
     }
   }, { passive:false });
@@ -5373,6 +5654,7 @@ function updateRushHud(){
       hardenFaucetTap();
       hardenSummaryButtons();
         bindFullscreenGameplayTools();
+        bindBossScrollTools();
       render();
       coachStageEnter(state.stage);
       setTimeout(() => coachSay('พร้อมแล้ว กดเริ่มฝึกหรือไปล้างมือจริงได้เลย', 'good', '🧼', 'init-ready'), 450);
