@@ -39,9 +39,7 @@
       color:var(--ink);
     }
 
-    button{
-      font:inherit;
-    }
+    button{ font:inherit; }
 
     .shell-back{
       position:fixed;
@@ -60,9 +58,7 @@
       cursor:pointer;
     }
 
-    .shell-back:active{
-      transform:scale(.96);
-    }
+    .shell-back:active{ transform:scale(.96); }
 
     .shell-loading{
       position:fixed;
@@ -344,9 +340,7 @@
       cursor:pointer;
     }
 
-    .gjm-start-btn:active{
-      transform:scale(.97);
-    }
+    .gjm-start-btn:active{ transform:scale(.97); }
 
     .noscript{
       position:fixed;
@@ -394,22 +388,15 @@
         padding:7px 9px;
       }
 
-      .gjm-pill b{
-        font-size:18px;
-      }
-
-      .gjm-pill span{
-        font-size:10px;
-      }
+      .gjm-pill b{ font-size:18px; }
+      .gjm-pill span{ font-size:10px; }
 
       .gjm-start-card{
         padding:18px;
         border-radius:27px;
       }
 
-      .gjm-start-icon{
-        font-size:50px;
-      }
+      .gjm-start-icon{ font-size:50px; }
 
       .gjm-rules{
         grid-template-columns:1fr;
@@ -425,12 +412,176 @@
         padding:8px 10px;
       }
 
-      .gjm-rule b{
-        font-size:25px;
+      .gjm-rule b{ font-size:25px; }
+      .gjm-rule span{ margin-top:0; }
+    }
+
+    /* === PATCH v8.41.21-MOBILE-NO-BLOCK-TARGET === */
+    /* ลดการบังเป้า/อาหารบนมือถือ */
+    @media (max-width:720px){
+
+      .gjm-hud{
+        left:8px;
+        right:8px;
+        top:calc(6px + var(--safe-top));
+        grid-template-columns:repeat(4,1fr);
+        gap:5px;
       }
 
-      .gjm-rule span{
-        margin-top:0;
+      .gjm-pill{
+        min-height:38px;
+        padding:5px 6px;
+        border-radius:13px;
+      }
+
+      .gjm-pill span{
+        font-size:8.5px;
+        letter-spacing:.03em;
+      }
+
+      .gjm-pill b{
+        font-size:15px;
+        margin-top:1px;
+      }
+
+      .shell-back{
+        left:calc(8px + var(--safe-left));
+        bottom:calc(8px + var(--safe-bottom));
+        padding:8px 10px;
+        font-size:11px;
+        opacity:.72;
+        max-width:132px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
+      .shell-back:active,
+      .shell-back:hover{
+        opacity:1;
+      }
+
+      .gjpu-root{
+        top:auto !important;
+        right:calc(8px + env(safe-area-inset-right)) !important;
+        bottom:calc(8px + env(safe-area-inset-bottom)) !important;
+        width:auto !important;
+        max-width:calc(100vw - 156px) !important;
+        display:flex !important;
+        flex-direction:row !important;
+        gap:5px !important;
+        z-index:100020 !important;
+        pointer-events:none !important;
+      }
+
+      .gjpu-card{
+        width:44px !important;
+        min-height:44px !important;
+        grid-template-columns:1fr !important;
+        padding:5px !important;
+        border-radius:15px !important;
+        opacity:.76 !important;
+      }
+
+      .gjpu-card.on{
+        opacity:.96 !important;
+      }
+
+      .gjpu-card .ico{
+        width:32px !important;
+        height:32px !important;
+        border-radius:12px !important;
+        font-size:20px !important;
+        margin:auto !important;
+      }
+
+      .gjpu-card b,
+      .gjpu-card span{
+        display:none !important;
+      }
+
+      .gjpu-item{
+        width:62px !important;
+        min-height:68px !important;
+        border-radius:21px !important;
+        padding:6px 5px !important;
+        z-index:38 !important;
+      }
+
+      .gjpu-item::after{
+        inset:-12px !important;
+      }
+
+      .gjpu-item b{
+        font-size:30px !important;
+      }
+
+      .gjpu-item span{
+        font-size:9px !important;
+      }
+
+      .gjpu-toast{
+        bottom:calc(70px + env(safe-area-inset-bottom)) !important;
+        width:min(360px, calc(100vw - 24px)) !important;
+        font-size:12px !important;
+        padding:9px 12px !important;
+      }
+
+      .gjm-message{
+        top:58% !important;
+        width:min(350px, calc(100vw - 28px)) !important;
+        padding:12px !important;
+        border-radius:22px !important;
+      }
+
+      .gjm-message b{
+        font-size:19px !important;
+      }
+
+      .gjm-message span{
+        font-size:12px !important;
+      }
+    }
+
+    @media (max-width:420px){
+      .gjm-hud{
+        grid-template-columns:repeat(4,1fr);
+        gap:4px;
+      }
+
+      .gjm-pill{
+        min-height:34px;
+        padding:4px 5px;
+      }
+
+      .gjm-pill span{
+        display:none;
+      }
+
+      .gjm-pill b{
+        font-size:14px;
+      }
+
+      .shell-back{
+        max-width:108px;
+        font-size:10.5px;
+        padding:7px 9px;
+      }
+
+      .gjpu-root{
+        max-width:calc(100vw - 126px) !important;
+        gap:4px !important;
+      }
+
+      .gjpu-card{
+        width:39px !important;
+        min-height:39px !important;
+      }
+
+      .gjpu-card .ico{
+        width:29px !important;
+        height:29px !important;
+        font-size:18px !important;
       }
     }
   </style>
@@ -668,7 +819,7 @@
 
             try{
               localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-                patch:'v8.41.20-COOLDOWN-NEXT-BACK-LAUNCHER-BASE',
+                patch:'v8.41.21-MOBILE-NO-BLOCK-TARGET',
                 cooldownUrl:buildCooldownUrl({
                   reason:'reward-summary',
                   score:summary.score,
@@ -716,7 +867,7 @@
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.20-COOLDOWN-NEXT-BACK-LAUNCHER-BASE',
+        version:'v8.41.21-MOBILE-NO-BLOCK-TARGET',
         canonical:CANONICAL,
         safeBackUrl:safeBackUrl,
         buildNutritionZoneUrl:buildNutritionZoneUrl,
@@ -736,34 +887,26 @@
     })();
   </script>
 
-  <!-- GoodJunk Solo Boss Ultimate Pack -->
   <script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
   <script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
   <script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
 
-  <!-- Reward + Reward Polish -->
   <script src="./goodjunk-solo-boss-reward.js?v=20260504-v8404"></script>
   <script src="./goodjunk-solo-boss-reward-polish.js?v=20260504-v8415"></script>
 
-  <!-- Director + Core Bridges -->
   <script src="./goodjunk-solo-boss-director.js?v=20260504-v8405"></script>
   <script src="./goodjunk-solo-boss-shim.js?v=20260504-v8406"></script>
   <script src="./goodjunk-solo-boss-merge.js?v=20260504-v8407"></script>
 
-  <!-- Challenge + Visual Variety -->
   <script src="./goodjunk-solo-boss-foodbank.js?v=20260504-v8413"></script>
   <script src="./goodjunk-solo-boss-visual-variety.js?v=20260504-v8414"></script>
 
-  <!-- Main Playable Integration + Mobile Polish + Touch Comfort + Powerups -->
   <script src="./goodjunk-solo-boss-main.js?v=20260504-v8410"></script>
   <script src="./goodjunk-solo-boss-mobile-polish.js?v=20260504-v8412"></script>
   <script src="./goodjunk-solo-boss-touch-comfort.js?v=20260504-v84110"></script>
-  <script src="./goodjunk-solo-boss-powerups.js?v=20260504-v84115"></script>
+  <script src="./goodjunk-solo-boss-powerups.js?v=20260504-v84121"></script>
 
-  <!-- Guard -->
   <script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
-
-  <!-- Final QA / Version Health: ต้องอยู่ท้ายสุด -->
   <script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
 </body>
 </html>
