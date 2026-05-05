@@ -520,7 +520,9 @@
       const CANONICAL = {
         nutritionZone: 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
         hub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
-        cooldown: 'https://supparang.github.io/webxr-health-mobile/herohealth/gate/cooldown.html'
+
+        // สำคัญ: warmup/cooldown ใช้ไฟล์เดียวกัน แล้วเปลี่ยน phase เอา
+        warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/gate/warmup-gate.html'
       };
 
       function q(name, fallback){
@@ -547,6 +549,38 @@
         return CANONICAL.nutritionZone + '?' + keep.toString();
       }
 
+      function buildWarmupUrl(extra){
+        extra = extra || {};
+
+        const runUrl = new URL(location.href);
+        runUrl.searchParams.set('run', 'play');
+        runUrl.searchParams.set('phase', 'main');
+
+        const keep = new URLSearchParams();
+
+        keep.set('zone', 'nutrition');
+        keep.set('cat', 'nutrition');
+        keep.set('gameId', 'goodjunk');
+        keep.set('game', 'goodjunk');
+        keep.set('mode', 'solo_boss');
+        keep.set('phase', 'warmup');
+
+        keep.set('pid', q('pid', 'anon'));
+        keep.set('name', playerName());
+        keep.set('diff', q('diff', 'normal'));
+        keep.set('time', q('time', '120'));
+        keep.set('view', q('view', 'mobile'));
+
+        // หลัง warmup ให้เข้าเกมเดิม
+        keep.set('hub', buildNutritionZoneUrl());
+        keep.set('next', runUrl.href);
+        keep.set('back', buildNutritionZoneUrl());
+
+        if(extra.reason) keep.set('reason', String(extra.reason));
+
+        return CANONICAL.warmupGate + '?' + keep.toString();
+      }
+
       function buildCooldownUrl(extra){
         extra = extra || {};
 
@@ -558,6 +592,8 @@
         keep.set('gameId', 'goodjunk');
         keep.set('game', 'goodjunk');
         keep.set('mode', 'solo_boss');
+
+        // สำคัญ: ใช้ warmup-gate.html แต่ phase เป็น cooldown
         keep.set('phase', 'cooldown');
 
         keep.set('pid', q('pid', 'anon'));
@@ -566,7 +602,7 @@
         keep.set('time', q('time', '120'));
         keep.set('view', q('view', 'mobile'));
 
-        // สำคัญ: หลัง cooldown ต้องกลับ Nutrition Zone
+        // หลัง cooldown กลับ Nutrition Zone
         keep.set('hub', nutritionUrl);
         keep.set('next', nutritionUrl);
         keep.set('back', nutritionUrl);
@@ -576,7 +612,7 @@
         if(extra.stars !== undefined) keep.set('stars', String(extra.stars));
         if(extra.rank !== undefined) keep.set('rank', String(extra.rank));
 
-        return CANONICAL.cooldown + '?' + keep.toString();
+        return CANONICAL.warmupGate + '?' + keep.toString();
       }
 
       function safeBackUrl(){
@@ -585,6 +621,10 @@
 
       function goNutritionZone(){
         location.href = buildNutritionZoneUrl();
+      }
+
+      function goWarmup(extra){
+        location.href = buildWarmupUrl(extra || {});
       }
 
       function goCooldown(extra){
@@ -621,7 +661,8 @@
 
       function patchRewardZoneButtonToCooldown(){
         // ปุ่มใน Reward Summary เดิมชื่อ "กลับ Nutrition Zone"
-        // ปรับให้ไป Cooldown ก่อน แล้ว Cooldown ค่อยกลับ Nutrition Zone
+        // ปรับให้ไป warmup-gate.html?phase=cooldown ก่อน
+        // แล้ว cooldown ค่อยกลับ Nutrition Zone
         window.addEventListener('gj:reward-summary-shown', function(ev){
           const summary = ev && ev.detail ? ev.detail : {};
 
@@ -635,7 +676,7 @@
 
             try{
               localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-                patch:'v8.41.8-COOLDOWN-BACK-NUTRITION-ZONE',
+                patch:'v8.41.9-USE-WARMUP-GATE-FOR-COOLDOWN',
                 cooldownUrl:buildCooldownUrl({
                   reason:'reward-summary',
                   score:summary.score,
@@ -681,12 +722,14 @@
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.8-FINAL-HTML-SHELL-COOLDOWN-BACK-NUTRITION-ZONE',
+        version:'v8.41.9-FINAL-HTML-SHELL-WARMUP-GATE-COOLDOWN',
         canonical:CANONICAL,
         safeBackUrl:safeBackUrl,
         buildNutritionZoneUrl:buildNutritionZoneUrl,
+        buildWarmupUrl:buildWarmupUrl,
         buildCooldownUrl:buildCooldownUrl,
         goNutritionZone:goNutritionZone,
+        goWarmup:goWarmup,
         goCooldown:goCooldown
       };
 
