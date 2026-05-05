@@ -521,8 +521,10 @@
         nutritionZone: 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
         hub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
 
-        // สำคัญ: warmup/cooldown ใช้ไฟล์เดียวกัน แล้วเปลี่ยน phase เอา
-        warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/gate/warmup-gate.html'
+        // สำคัญ: warmup/cooldown gate อยู่ที่ /herohealth/warmup-gate.html
+        // Warmup  = warmup-gate.html?phase=warmup
+        // Cooldown = warmup-gate.html?phase=cooldown
+        warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html'
       };
 
       function q(name, fallback){
@@ -676,7 +678,7 @@
 
             try{
               localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-                patch:'v8.41.9-USE-WARMUP-GATE-FOR-COOLDOWN',
+                patch:'v8.41.11-FIX-WARMUP-GATE-PATH-PLUS-TOUCH-COMFORT',
                 cooldownUrl:buildCooldownUrl({
                   reason:'reward-summary',
                   score:summary.score,
@@ -722,7 +724,7 @@
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.9-FINAL-HTML-SHELL-WARMUP-GATE-COOLDOWN',
+        version:'v8.41.11-FINAL-HTML-SHELL-WARMUP-GATE-PATH-TOUCH-COMFORT',
         canonical:CANONICAL,
         safeBackUrl:safeBackUrl,
         buildNutritionZoneUrl:buildNutritionZoneUrl,
@@ -758,7 +760,7 @@
   <script src="./goodjunk-solo-boss-foodbank.js?v=20260504-v8413"></script>
   <script src="./goodjunk-solo-boss-visual-variety.js?v=20260504-v8414"></script>
 
-  <!-- Main Playable Integration + Mobile Polish -->
+  <!-- Main Playable Integration + Mobile Polish + Touch Comfort -->
   <script src="./goodjunk-solo-boss-main.js?v=20260504-v8410"></script>
   <script src="./goodjunk-solo-boss-mobile-polish.js?v=20260504-v8412"></script>
   <script src="./goodjunk-solo-boss-touch-comfort.js?v=20260504-v84110"></script>
