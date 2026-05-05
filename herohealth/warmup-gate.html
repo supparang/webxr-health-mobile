@@ -1,14 +1,16 @@
 <!-- === /herohealth/warmup-gate.html === -->
-<!-- FULL PATCH v20260505g-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-FIX -->
+<!-- FULL PATCH v20260505h-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-AUTO-FIX -->
 <!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
 <!-- FINAL RULE:
      GoodJunk cooldown:
      - กลับหน้าหลัก / Home = https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html
      - กลับหน้าโหมดเกม / กลับหน้าเลือกเกม = https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html
+     - Auto redirect หลัง cooldown = https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html
 -->
 <!-- IMPORTANT:
      เวอร์ชันนี้ไม่ใช้ MutationObserver สำหรับ GoodJunk cooldown
      และไม่ใช้ setInterval ถาวร เพื่อกัน browser ค้าง / หน้าไม่ตอบสนอง
+     เพิ่ม AUTO REDIRECT FIX ก่อน gate-core โหลด เพื่อให้ gate-core อ่าน next/back/hub ถูกตั้งแต่ต้น
 -->
 
 <!doctype html>
@@ -365,7 +367,7 @@
       }
 
       window.HHA_GATE_BOOT = {
-        patch: 'v20260505g-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-FIX',
+        patch: 'v20260505h-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-AUTO-FIX',
         phase: phase(),
         game: game(),
         nextHref: nextHref(),
@@ -746,10 +748,6 @@
             return;
           }
 
-          /*
-            In case gate-core's rendered content does not expose readable "6/6"
-            but the URL is already Brush cooldown, never allow it to hang.
-          */
           if(Date.now() - startedAt > 4500){
             go('cooldown-timeout-fallback');
             return;
@@ -807,7 +805,7 @@
     })();
   </script>
 
-<script>
+  <script>
     /*
       === PATCH v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX ===
       FINAL RULE:
@@ -929,10 +927,6 @@
       function boot(){
         markButtons();
 
-        /*
-          gate-core render ปุ่มทีหลังได้ จึง mark ซ้ำแค่ไม่กี่รอบพอ
-          ห้ามใช้ MutationObserver / setInterval ถาวรใน GoodJunk cooldown อีก
-        */
         window.setTimeout(markButtons, 300);
         window.setTimeout(markButtons, 900);
         window.setTimeout(markButtons, 1800);
@@ -940,7 +934,7 @@
 
         try{
           localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
-            patch: 'v20260505g-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-FIX',
+            patch: 'v20260505h-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-AUTO-FIX',
             rule: {
               main: HUB_V2,
               mode: GOODJUNK_LAUNCHER
@@ -955,6 +949,55 @@
       }else{
         boot();
       }
+    })();
+  </script>
+
+  <script>
+    /*
+      === PATCH v20260505h-GOODJUNK-COOLDOWN-AUTO-REDIRECT-FIX ===
+      Must run before gate-core is imported.
+      Forces gate-core auto redirect to:
+      - next/back = goodjunk-launcher.html
+      - hub = hub-v2.html
+    */
+    (function(){
+      'use strict';
+
+      const GOODJUNK_LAUNCHER =
+        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
+
+      const HUB_V2 =
+        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+
+      const qs = new URLSearchParams(location.search || '');
+
+      const game = String(qs.get('game') || qs.get('gameId') || qs.get('theme') || '').toLowerCase();
+      const phase = String(qs.get('phase') || qs.get('gatePhase') || '').toLowerCase();
+
+      if(game !== 'goodjunk' || phase !== 'cooldown') return;
+
+      qs.set('hub', HUB_V2);
+      qs.set('next', GOODJUNK_LAUNCHER);
+      qs.set('back', GOODJUNK_LAUNCHER);
+
+      const newUrl =
+        location.pathname + '?' + qs.toString() + (location.hash || '');
+
+      history.replaceState(null, '', newUrl);
+
+      window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
+      window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
+      window.HH_GATE_FORCE_HUB = HUB_V2;
+
+      try{
+        localStorage.setItem('HH_GATE_GOODJUNK_AUTO_TARGET_FIXED', JSON.stringify({
+          patch:'v20260505h-GOODJUNK-COOLDOWN-AUTO-REDIRECT-FIX',
+          next:GOODJUNK_LAUNCHER,
+          back:GOODJUNK_LAUNCHER,
+          hub:HUB_V2,
+          savedAt:new Date().toISOString()
+        }));
+      }catch(e){}
     })();
   </script>
 
