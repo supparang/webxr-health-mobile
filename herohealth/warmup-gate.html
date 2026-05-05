@@ -574,5 +574,97 @@
       }
     }
   </script>
+  <script>
+(function(){
+  'use strict';
+
+  const qs = new URLSearchParams(location.search || '');
+
+  const GOODJUNK_LAUNCHER =
+    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
+
+  const HUB_V2 =
+    'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+
+  function dec(v, fallback){
+    v = v || '';
+    if(!v) return fallback || '';
+    try{ return decodeURIComponent(v); }
+    catch(e){ return v || fallback || ''; }
+  }
+
+  function isGoodJunkCooldown(){
+    return (
+      (qs.get('game') === 'goodjunk' || qs.get('gameId') === 'goodjunk') &&
+      qs.get('phase') === 'cooldown'
+    );
+  }
+
+  function hardFixGoodJunkCooldownButtons(){
+    if(!isGoodJunkCooldown()) return;
+
+    const chooseGameUrl = GOODJUNK_LAUNCHER;
+    const mainUrl = HUB_V2;
+
+    // กันระบบเดิมอ่านค่า query แล้วพากลับผิด
+    window.HH_GATE_FORCE_NEXT = chooseGameUrl;
+    window.HH_GATE_FORCE_BACK = chooseGameUrl;
+    window.HH_GATE_FORCE_HUB = mainUrl;
+
+    // แก้ปุ่มจากข้อความที่เห็นในภาพ
+    const buttons = Array.from(document.querySelectorAll('button, a'));
+
+    buttons.forEach(btn => {
+      const text = (btn.textContent || '').trim();
+
+      if(text.includes('กลับหน้าเลือกเกม')){
+        btn.onclick = function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          location.href = chooseGameUrl;
+        };
+        if(btn.tagName.toLowerCase() === 'a'){
+          btn.setAttribute('href', chooseGameUrl);
+        }
+      }
+
+      if(text.includes('กลับหน้าหลัก')){
+        btn.onclick = function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          location.href = mainUrl;
+        };
+        if(btn.tagName.toLowerCase() === 'a'){
+          btn.setAttribute('href', mainUrl);
+        }
+      }
+    });
+
+    // ถ้าหน้า gate มี auto redirect หลัง cooldown เสร็จ ให้บังคับกลับ launcher
+    try{
+      localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
+        patch: 'GOODJUNK-COOLDOWN-BUTTON-HARD-FIX',
+        phase: 'cooldown',
+        game: 'goodjunk',
+        chooseGameUrl,
+        mainUrl,
+        savedAt: new Date().toISOString()
+      }));
+    }catch(e){}
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){
+      hardFixGoodJunkCooldownButtons();
+      setTimeout(hardFixGoodJunkCooldownButtons, 300);
+      setTimeout(hardFixGoodJunkCooldownButtons, 1000);
+    });
+  }else{
+    hardFixGoodJunkCooldownButtons();
+    setTimeout(hardFixGoodJunkCooldownButtons, 300);
+    setTimeout(hardFixGoodJunkCooldownButtons, 1000);
+  }
+})();
+</script>
 </body>
 </html>
