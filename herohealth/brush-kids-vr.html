@@ -1,5 +1,5 @@
 <!-- === /herohealth/brush-vr-kids.html === -->
-<!-- FULL PATCH v20260505-BRUSH-KIDS-LAUNCHER-CANONICAL-FLOW -->
+<!-- FULL PATCH v20260505c-BRUSH-KIDS-LAUNCHER-SHARED-WARMUP-GATE -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -78,7 +78,7 @@
   <script>
     (function(){
       'use strict';
-      const VERSION='20260505-BRUSH-KIDS-LAUNCHER-CANONICAL-FLOW';
+      const VERSION='20260505c-BRUSH-KIDS-LAUNCHER-SHARED-WARMUP-GATE';
       const q=new URLSearchParams(location.search);
       const STORAGE_KEY='HHA_BRUSH_KIDS_LAUNCHER_PREFS';
       const DEFAULT_HUB_ROOT='https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
@@ -103,7 +103,7 @@
       function runUrl(){const url=heroUrl('vr-brush-kids/brush.html');const p=playerParams(),zone=hygieneZoneUrl();Object.entries(p).forEach(([k,v])=>url.searchParams.set(k,String(v)));url.searchParams.set('hub',zone);url.searchParams.set('back',zone);url.searchParams.set('return',zone);url.searchParams.set('stage','howto');url.searchParams.set('cooldown','1');url.searchParams.set('seed',first(q.get('seed'),String(Date.now())));['studyId','phase','conditionGroup','runMode','log','api'].forEach(k=>{const v=q.get(k);if(v)url.searchParams.set(k,v)});return url.toString()}
       function warmupUrl(){const next=runUrl(),zone=hygieneZoneUrl(),url=heroUrl('warmup-gate.html'),p=playerParams();Object.entries(p).forEach(([k,v])=>url.searchParams.set(k,String(v)));url.searchParams.set('phase','warmup');url.searchParams.set('next',next);url.searchParams.set('hub',zone);url.searchParams.set('return',zone);url.searchParams.set('back',zone);url.searchParams.set('seed',first(q.get('seed'),String(Date.now())));try{sessionStorage.setItem('HHA_BRUSH_NEXT',next)}catch(_){}return url.toString()}
       function setMode(mode,update=true){selectedMode=mode==='challenge'?'challenge':'learn';modeLearn.classList.toggle('active',selectedMode==='learn');modeChallenge.classList.toggle('active',selectedMode==='challenge');missionText.textContent=selectedMode==='learn'?'แปรงให้ครบทุกโซนใน 2 นาที เน้นช้า ชัด และครบจุด':'แปรงให้ครบทุกโซนใน 3 นาที เก็บรายละเอียดให้ดี และเตรียมเจอ Boss ฟันผุ';if(selectedMode==='challenge'&&fieldTime.value==='120')fieldTime.value='180';if(selectedMode==='learn'&&fieldTime.value==='180')fieldTime.value='120';if(update)updateLinks()}
-      function updateLinks(){savePrefs();btnBackZone.onclick=function(){location.href=hygieneZoneUrl()};debugBox.textContent=['BRUSH KIDS LAUNCHER','VERSION: '+VERSION,'','Hygiene Zone:',hygieneZoneUrl(),'','Warmup URL:',warmupUrl(),'','Run URL:',runUrl()].join('\n')}
+      function updateLinks(){savePrefs();btnBackZone.onclick=function(){location.href=hygieneZoneUrl()};debugBox.textContent=['BRUSH KIDS LAUNCHER • SHARED WARMUP-GATE • SHARED WARMUP-GATE','VERSION: '+VERSION,'','Hygiene Zone:',hygieneZoneUrl(),'','Warmup URL:',warmupUrl(),'','Run URL:',runUrl()].join('\n')}
       function startViaWarmup(){savePrefs();location.href=warmupUrl()}
       function startDirect(){savePrefs();location.href=runUrl()}
       function bind(){[fieldName,fieldDiff,fieldTime,fieldView].forEach(input=>{input.addEventListener('input',updateLinks);input.addEventListener('change',updateLinks)});[modeLearn,modeChallenge].forEach(card=>{card.addEventListener('click',()=>setMode(card.dataset.mode||'learn'));card.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setMode(card.dataset.mode||'learn')}})});btnStart.addEventListener('click',startViaWarmup);btnDirect.addEventListener('click',startDirect);btnDebug.addEventListener('click',()=>{updateLinks();debugBox.classList.toggle('show')})}
