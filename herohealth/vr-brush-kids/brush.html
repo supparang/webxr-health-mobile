@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505d-BRUSH-KIDS-DIRECT-ENTRY-WARMUP-REQUIRED -->
+<!-- FULL PATCH v20260505h-BRUSH-KIDS-ACTIVE-SCRUB-GAMEPLAY -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -753,6 +753,110 @@
       .scoreCard{ min-height:220px; }
       .scoreNum{ font-size:52px; }
     }
+  
+/* === PATCH v20260505h-BRUSH-ACTIVE-SCRUB-GAMEPLAY === */
+/* Click = select only. Real progress requires dragging/scrubbing. */
+.scrubMission{
+  border-radius:18px;
+  border:2px solid #bdf4ff;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  padding:10px 12px;
+  display:grid;
+  gap:6px;
+  color:#0f766e;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.scrubMission strong{
+  color:#12324b;
+  font-size:15px;
+}
+
+.scrubMeter{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  align-items:center;
+  min-height:34px;
+  border-radius:999px;
+  background:#f8fdff;
+  border:1px solid #d7f0fb;
+  padding:5px 8px;
+}
+
+.scrubMeterBar{
+  height:12px;
+  border-radius:999px;
+  background:#e9f7fd;
+  overflow:hidden;
+}
+
+.scrubMeterFill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#22c55e,#8be8ff,#ffd95d);
+  transition:width .12s ease;
+}
+
+.scrubMeterText{
+  color:#37566e;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.dragOnlyHint{
+  border-radius:16px;
+  border:2px dashed #ffd95d;
+  background:#fff8dc;
+  color:#7c5800;
+  padding:9px 10px;
+  font-size:12px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.toothZone.scrubbing{
+  border-color:#22d3ee;
+  box-shadow:0 0 0 8px rgba(34,211,238,.18), 0 14px 28px rgba(23,56,79,.14);
+}
+
+.toothZone.badScrub{
+  animation:badScrubShake .22s ease-out;
+}
+
+@keyframes badScrubShake{
+  0%,100%{ transform:translateX(0); }
+  30%{ transform:translateX(-3px); }
+  70%{ transform:translateX(3px); }
+}
+
+.scrubStreakPop{
+  position:absolute;
+  z-index:12;
+  pointer-events:none;
+  padding:6px 9px;
+  border-radius:999px;
+  background:rgba(34,197,94,.94);
+  color:white;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:0 8px 18px rgba(22,101,52,.24);
+  animation:floatUp .8s ease-out forwards;
+}
+
+@media (max-width:640px){
+  .scrubMission{
+    padding:8px 9px;
+    font-size:11.5px;
+  }
+  .dragOnlyHint{
+    font-size:11px;
+  }
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -829,10 +933,21 @@
             <div class="taskTitle" id="taskTitle">🪥 เลือกฟันที่จะแปรง</div>
             <p class="taskText" id="taskText">คลิกโซนฟันในรูปปาก แล้วลากแปรงจน Clean ครบ 100%</p>
             <div class="progress"><div class="bar" id="zoneBar"></div></div>
+
+            <div class="scrubMission">
+              <strong id="scrubMissionTitle">ภารกิจ: ลากแปรงจริง</strong>
+              <span id="scrubMissionText">คลิกเพื่อเลือกโซน แล้วลากแปรงบนฟันให้ต่อเนื่อง</span>
+              <div class="scrubMeter">
+                <div class="scrubMeterBar"><div class="scrubMeterFill" id="scrubMeterFill"></div></div>
+                <span class="scrubMeterText" id="scrubMeterText">0%</span>
+              </div>
+            </div>
+            <div class="dragOnlyHint" id="dragOnlyHint">⚠️ กดเฉย ๆ ไม่สะอาด ต้องลากแปรงบนฟัน</div>
+
             <div class="zoneList" id="zoneList"></div>
             <div class="dock">
               <button class="dockBtn" type="button" data-dock="prev">⬅ โซนก่อน</button>
-              <button class="dockBtn" type="button" data-dock="auto">🪥 ช่วยแปรง</button>
+              <button class="dockBtn" type="button" data-dock="auto">🎯 เป้าหมาย</button>
               <button class="dockBtn" type="button" data-dock="next">โซนถัดไป ➡</button>
             </div>
           </aside>
@@ -891,7 +1006,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505d-BRUSH-KIDS-DIRECT-ENTRY-WARMUP-REQUIRED';
+      const VERSION = '20260505h-BRUSH-KIDS-ACTIVE-SCRUB-GAMEPLAY';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -913,6 +1028,17 @@
         { id:'lower-front', label:'ล่างหน้า', icon:'😁', arch:'lower', cls:'archFront'},
         { id:'lower-right', label:'ล่างขวา',  icon:'🦷', arch:'lower', cls:'archSide' }
       ];
+
+
+      const SCRUB_GOALS = {
+        'upper-left':  { title:'ฟันบนซ้าย',   pattern:'ลากเป็นวงเล็ก ๆ บนฟันกราม', minMove:9,  bonus:'circle' },
+        'upper-front': { title:'ฟันบนหน้า',   pattern:'ปัดลงเบา ๆ จากเหงือกสู่ปลายฟัน', minMove:8,  bonus:'vertical' },
+        'upper-right': { title:'ฟันบนขวา',    pattern:'ลากเป็นวงเล็ก ๆ บนฟันกราม', minMove:9,  bonus:'circle' },
+        'lower-left':  { title:'ฟันล่างซ้าย', pattern:'ลากเป็นวงเล็ก ๆ บนฟันกราม', minMove:9,  bonus:'circle' },
+        'lower-front': { title:'ฟันล่างหน้า', pattern:'ปัดขึ้นเบา ๆ จากเหงือกสู่ปลายฟัน', minMove:8,  bonus:'vertical' },
+        'lower-right': { title:'ฟันล่างขวา',  pattern:'ลากเป็นวงเล็ก ๆ บนฟันกราม', minMove:9,  bonus:'circle' }
+      };
+
 
       const BOSS_ORDER = [
         'เลือกโซนฟัน',
@@ -941,6 +1067,11 @@
 
         zoneList:$('zoneList'),
         zoneBar:$('zoneBar'),
+        scrubMissionTitle:$('scrubMissionTitle'),
+        scrubMissionText:$('scrubMissionText'),
+        scrubMeterFill:$('scrubMeterFill'),
+        scrubMeterText:$('scrubMeterText'),
+        dragOnlyHint:$('dragOnlyHint'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
 
@@ -1258,6 +1389,7 @@
           ? 'โซนนี้สะอาดแล้ว เลือกจุดถัดไปในปากได้เลย'
           : 'ลากแปรงบนฟันจริงในรูปปาก เพื่อกำจัดคราบสีเหลือง';
         el.zoneBar.style.width = p + '%';
+        updateScrubMission();
       }
 
       function zoneCardHtml(z){
@@ -1293,70 +1425,118 @@
           return `<span class="plaqueBlob" style="left:${left}%;top:${top}%;width:${width}%;height:${height}%;opacity:${opacity};"></span>`;
         }).join('');
       }
-
       function bindZoneElement(node){
-        node.addEventListener('pointerdown', onZonePointerDown);
-        node.addEventListener('pointermove', onZonePointerMove);
-        node.addEventListener('pointerup', onZonePointerUp);
-        node.addEventListener('pointercancel', onZonePointerUp);
+  node.addEventListener('pointerdown', onZonePointerDown);
+  node.addEventListener('pointermove', onZonePointerMove);
+  node.addEventListener('pointerup', onZonePointerUp);
+  node.addEventListener('pointercancel', onZonePointerUp);
 
-        node.addEventListener('click', e => {
-          if(state.stage !== 'main') return;
-          e.preventDefault();
-          const id = node.dataset.zone;
-          selectZone(id);
-          addBrushProgress(id, 4, e);
-        });
+  node.addEventListener('click', e => {
+    if(state.stage !== 'main') return;
+    e.preventDefault();
+    const id = node.dataset.zone;
+    selectZone(id);
+    clickOnlyWarning(node);
+  });
 
-        node.addEventListener('keydown', e => {
-          if(state.stage !== 'main') return;
-          if(e.key === 'Enter' || e.key === ' '){
-            e.preventDefault();
-            const id = node.dataset.zone;
-            selectZone(id);
-            addBrushProgress(id, 8, e);
-          }
-        });
-      }
-
+  node.addEventListener('keydown', e => {
+    if(state.stage !== 'main') return;
+    if(e.key === 'Enter' || e.key === ' '){
+      e.preventDefault();
+      const id = node.dataset.zone;
+      selectZone(id);
+      clickOnlyWarning(node);
+    }
+  });
+}
       function onZonePointerDown(e){
-        if(state.stage !== 'main') return;
-        const id = e.currentTarget && e.currentTarget.dataset.zone;
-        if(!id) return;
+  if(state.stage !== 'main') return;
+  const id = e.currentTarget && e.currentTarget.dataset.zone;
+  if(!id) return;
 
-        e.preventDefault();
-        try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
-        selectZone(id);
+  e.preventDefault();
+  try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
 
-        state.brushing = true;
-        state.lastPoint = { x:e.clientX, y:e.clientY };
-        moveBrush(e.clientX, e.clientY, true);
-        addBrushProgress(id, 5, e);
-      }
+  selectZone(id);
 
+  state.brushing = true;
+  state.scrubStarted = false;
+  state.scrubDistance = 0;
+  state.scrubGoodMoves = 0;
+  state.scrubBadMoves = 0;
+  state.lastMoveAngle = null;
+  state.lastPoint = { x:e.clientX, y:e.clientY };
+
+  e.currentTarget.classList.add('scrubbing');
+  moveBrush(e.clientX, e.clientY, true);
+}
       function onZonePointerMove(e){
-        if(state.stage !== 'main' || !state.brushing) return;
-        e.preventDefault();
+  if(state.stage !== 'main' || !state.brushing) return;
+  e.preventDefault();
 
-        const last = state.lastPoint || { x:e.clientX, y:e.clientY };
-        const dx = e.clientX - last.x;
-        const dy = e.clientY - last.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
+  const id = state.activeZone;
+  const goal = SCRUB_GOALS[id] || { minMove:8, bonus:'circle' };
 
-        state.lastPoint = { x:e.clientX, y:e.clientY };
-        moveBrush(e.clientX, e.clientY, true);
+  const last = state.lastPoint || { x:e.clientX, y:e.clientY };
+  const dx = e.clientX - last.x;
+  const dy = e.clientY - last.y;
+  const dist = Math.sqrt(dx*dx + dy*dy);
 
-        if(dist > 3){
-          addBrushProgress(state.activeZone, clamp(dist / 9, 1.1, 6), e);
-        }
-      }
+  state.lastPoint = { x:e.clientX, y:e.clientY };
+  moveBrush(e.clientX, e.clientY, true);
 
+  if(dist < 2) return;
+
+  state.scrubDistance += dist;
+
+  if(dist < goal.minMove){
+    state.scrubBadMoves += 1;
+    return;
+  }
+
+  state.scrubStarted = true;
+  const angle = Math.atan2(dy, dx);
+  let angleChange = 0;
+  if(state.lastMoveAngle !== null){
+    angleChange = Math.abs(angle - state.lastMoveAngle);
+    if(angleChange > Math.PI) angleChange = (Math.PI * 2) - angleChange;
+  }
+  state.lastMoveAngle = angle;
+
+  let quality = 1;
+
+  if(goal.bonus === 'vertical'){
+    const vertical = Math.abs(dy) > Math.abs(dx) * 1.15;
+    quality = vertical ? 1.28 : .62;
+  }else if(goal.bonus === 'circle'){
+    const hasTurn = angleChange > .35;
+    quality = hasTurn ? 1.35 : .72;
+  }
+
+  if(quality < .8){
+    state.scrubBadMoves += 1;
+    markBadScrub(id);
+  }else{
+    state.scrubGoodMoves += 1;
+  }
+
+  const amount = clamp((dist / 11) * quality, .4, 5.8);
+  addBrushProgress(id, amount, e, quality);
+}
       function onZonePointerUp(){
-        if(!state.brushing) return;
-        state.brushing = false;
-        state.lastPoint = null;
-        moveBrush(0,0,false);
-      }
+  if(!state.brushing) return;
+
+  state.brushing = false;
+  state.lastPoint = null;
+  state.lastMoveAngle = null;
+
+  document.querySelectorAll('.toothZone.scrubbing').forEach(n => n.classList.remove('scrubbing'));
+  moveBrush(0,0,false);
+
+  if(!state.scrubStarted){
+    showToast('ต้องลากแปรงบนฟัน ไม่ใช่กดเฉย ๆ');
+  }
+}
 
       function moveBrush(x,y,show){
         if(!show){
@@ -1380,6 +1560,59 @@
         setTimeout(() => fx.remove(), 720);
       }
 
+
+      function clickOnlyWarning(node){
+        if(!node) return;
+        showToast('คลิกเลือกได้ แต่ต้องลากแปรงถึงจะสะอาด');
+        try{
+          node.classList.add('badScrub');
+          setTimeout(() => node.classList.remove('badScrub'), 260);
+        }catch(_){}
+      }
+
+      function markBadScrub(id){
+        const node = document.querySelector(`[data-zone="${id}"].toothZone`);
+        if(!node) return;
+        node.classList.add('badScrub');
+        setTimeout(() => node.classList.remove('badScrub'), 240);
+      }
+
+      function spawnStreak(x,y,text){
+        const rect = el.mouthScene.getBoundingClientRect();
+        const fx = document.createElement('div');
+        fx.className = 'scrubStreakPop';
+        fx.textContent = text;
+        fx.style.left = (x - rect.left) + 'px';
+        fx.style.top = (y - rect.top) + 'px';
+        el.mouthScene.appendChild(fx);
+        setTimeout(() => fx.remove(), 850);
+      }
+
+      function updateScrubMission(){
+        const goal = SCRUB_GOALS[state.activeZone] || {};
+        const p = Math.round(state.zoneProgress[state.activeZone] || 0);
+
+        if(el.scrubMissionTitle){
+          el.scrubMissionTitle.textContent = 'ภารกิจ: ' + (goal.title || getZone(state.activeZone).label);
+        }
+
+        if(el.scrubMissionText){
+          el.scrubMissionText.textContent = goal.pattern || 'ลากแปรงบนฟันให้ต่อเนื่อง';
+        }
+
+        if(el.scrubMeterFill) el.scrubMeterFill.style.width = p + '%';
+        if(el.scrubMeterText) el.scrubMeterText.textContent = p + '%';
+
+        if(el.dragOnlyHint){
+          el.dragOnlyHint.textContent = p <= 0
+            ? '⚠️ กดเฉย ๆ ไม่สะอาด ต้องลากแปรงบนฟัน'
+            : p < 100
+              ? 'ลากต่อเนื่องให้ถูกทิศทาง คราบจะหายเร็วขึ้น'
+              : 'สะอาดแล้ว! ไปโซนต่อไป';
+        }
+      }
+
+
       function selectZone(id){
         if(!ZONES.some(z => z.id === id)) return;
         if(state.activeZone !== id){
@@ -1388,37 +1621,45 @@
         }
         renderZones();
       }
+      function addBrushProgress(id, amount, event, quality=1){
+  const before = state.zoneProgress[id] || 0;
+  if(before >= 100) return;
 
-      function addBrushProgress(id, amount, event){
-        const before = state.zoneProgress[id] || 0;
-        if(before >= 100) return;
+  const diffMul = state.diff === 'easy' ? 1.18 : state.diff === 'hard' ? .82 : state.diff === 'challenge' ? .68 : 1;
+  const next = clamp(before + amount * diffMul, 0, 100);
+  state.zoneProgress[id] = next;
 
-        const diffMul = state.diff === 'easy' ? 1.25 : state.diff === 'hard' ? .86 : state.diff === 'challenge' ? .72 : 1;
-        const next = clamp(before + amount * diffMul, 0, 100);
-        state.zoneProgress[id] = next;
+  state.hits += 1;
 
-        state.hits += 1;
-        state.combo += 1;
-        state.maxCombo = Math.max(state.maxCombo, state.combo);
-        state.score += Math.round(6 + state.combo * .22);
+  if(quality >= .95){
+    state.combo += 1;
+  }else{
+    state.combo = Math.max(0, state.combo - 1);
+  }
 
-        if(event && event.clientX != null){
-          spawnSparkle(event.clientX, event.clientY, next >= 100 ? '✨' : '🫧');
-        }
+  state.maxCombo = Math.max(state.maxCombo, state.combo);
+  state.score += Math.round((5 + state.combo * .25) * Math.max(.55, quality));
 
-        if(next >= 100 && before < 100){
-          state.score += 80;
-          showToast('สะอาดแล้ว: ' + getZone(id).label);
-          const nextZone = ZONES.find(z => (state.zoneProgress[z.id] || 0) < 100);
-          if(nextZone){
-            state.activeZone = nextZone.id;
-          }else{
-            setTimeout(startBoss, 650);
-          }
-        }
+  if(event && event.clientX != null){
+    spawnSparkle(event.clientX, event.clientY, next >= 100 ? '✨' : quality >= .95 ? '🫧' : '💦');
+    if(state.combo > 0 && state.combo % 12 === 0){
+      spawnStreak(event.clientX, event.clientY, 'Combo ' + state.combo + '!');
+    }
+  }
 
-        render();
-      }
+  if(next >= 100 && before < 100){
+    state.score += 90;
+    showToast('สะอาดแล้ว: ' + getZone(id).label);
+    const nextZone = ZONES.find(z => (state.zoneProgress[z.id] || 0) < 100);
+    if(nextZone){
+      state.activeZone = nextZone.id;
+    }else{
+      setTimeout(startBoss, 650);
+    }
+  }
+
+  render();
+}
 
       function nextZone(dir){
         const idx = ZONES.findIndex(z => z.id === state.activeZone);
@@ -1428,9 +1669,14 @@
         showToast('เลือกโซน: ' + ZONES[ni].label);
       }
 
-      function autoBrush(){
-        addBrushProgress(state.activeZone, 12, null);
+
+      function showGoalHint(){
+        const goal = SCRUB_GOALS[state.activeZone] || {};
+        showToast(goal.pattern || 'ลากแปรงบนฟันให้ต่อเนื่อง');
       }
+      function autoBrush(){
+  showGoalHint();
+}
 
       function startBoss(){
         clearInterval(state.timer);
@@ -1603,7 +1849,7 @@
             const d = dock.dataset.dock;
             if(d === 'prev') nextZone(-1);
             else if(d === 'next') nextZone(1);
-            else if(d === 'auto') autoBrush();
+            else if(d === 'auto' || d === 'goal') showGoalHint();
           }
         });
 
