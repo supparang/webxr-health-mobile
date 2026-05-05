@@ -1,72 +1,96 @@
+<!-- === /herohealth/vr-groups/groups.html === -->
+<!-- FULL PATCH v20260505-GROUPS-SOLO-ARENA-V2-CORE -->
+<!-- ✅ Groups Solo Arena v2 -->
+<!-- ✅ 6 Waves + Random Mission -->
+<!-- ✅ Combo + Fever Mode -->
+<!-- ✅ Power-ups: Shield / Hint / Slow -->
+<!-- ✅ Trap Label + Memory Flash -->
+<!-- ✅ Chaos Chef Boss 3 Phases -->
+<!-- ✅ PC / Mobile / cVR friendly -->
+<!-- ✅ Zone-first: กลับ Nutrition Zone / Launcher / Hub ได้ชัดเจน -->
+<!-- ✅ บันทึก HHA_GROUPS_LAST_SUMMARY ลง localStorage -->
+<!-- ✅ ไม่แตะ backend / realtime / Apps Script -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Food Groups Solo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>HeroHealth • Groups Solo Arena</title>
   <meta name="color-scheme" content="light" />
-  <meta name="theme-color" content="#90d6ff" />
-  <link rel="icon" href="../favicon.ico" />
+  <meta name="theme-color" content="#9fe3ff" />
+
   <style>
     :root{
-      --bg1:#eefaff;
-      --bg2:#d7f2ff;
-      --bg3:#bfe8ff;
-      --card:#ffffffee;
-      --ink:#24435a;
-      --muted:#64859b;
-      --line:#d4ebf6;
-      --blue:#57b6ff;
-      --blue2:#80cbff;
-      --green:#7fd370;
-      --green2:#59bf55;
-      --yellow:#ffd968;
-      --pink:#ffb8ca;
-      --red:#ff9a9a;
+      --sky1:#e9f9ff;
+      --sky2:#d5f1ff;
+      --sky3:#bfe8ff;
+
+      --card:#fffefb;
+      --card2:#f8fdff;
+      --line:#d6edf7;
+
+      --text:#29485f;
+      --muted:#6a8ba0;
+
+      --blue:#61bbff;
+      --blue2:#2f95ff;
+      --green:#7ed957;
+      --green2:#4fc64c;
+      --yellow:#ffd966;
+      --orange:#ffac4b;
+      --red:#ff6b6b;
+      --pink:#ff9fd0;
       --violet:#bca7ff;
-      --shadow:0 16px 34px rgba(84,146,177,.16);
-      --stage-shadow:0 20px 50px rgba(92,162,193,.18);
+
+      --shadow:0 16px 34px rgba(93,155,185,.16);
+      --shadow-lg:0 22px 48px rgba(75,138,170,.18);
+
       --sat: env(safe-area-inset-top, 0px);
       --sab: env(safe-area-inset-bottom, 0px);
       --sal: env(safe-area-inset-left, 0px);
       --sar: env(safe-area-inset-right, 0px);
     }
 
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      overflow:hidden;
-    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body{ min-height:100%; }
 
     body{
-      font-family: ui-rounded, "Nunito", "Noto Sans Thai", system-ui, sans-serif;
-      color:var(--ink);
+      margin:0;
+      overflow:hidden;
+      touch-action:manipulation;
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
+      color:var(--text);
       background:
-        radial-gradient(1000px 560px at 50% -10%, rgba(255,255,255,.92), transparent 58%),
-        radial-gradient(650px 420px at 12% 10%, rgba(255,255,255,.45), transparent 62%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 54%,var(--bg3));
+        radial-gradient(900px 520px at 50% -8%, rgba(255,255,255,.95), transparent 60%),
+        radial-gradient(640px 380px at 8% 12%, rgba(255,255,255,.42), transparent 64%),
+        radial-gradient(620px 420px at 95% 14%, rgba(255,217,102,.28), transparent 64%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
     }
 
-    .shell{
-      height:100dvh;
-      display:grid;
-      grid-template-rows:auto auto auto minmax(300px,1fr) auto;
-      gap:10px;
+    button{
+      font:inherit;
+    }
+
+    .game{
+      min-height:100dvh;
+      width:min(1180px,100%);
+      margin:0 auto;
       padding:
         calc(10px + var(--sat))
         calc(10px + var(--sar))
-        calc(10px + var(--sab))
+        calc(12px + var(--sab))
         calc(10px + var(--sal));
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      gap:10px;
     }
 
-    .topbar{
-      display:flex;
-      align-items:center;
+    .topHud{
+      display:grid;
+      grid-template-columns:1fr auto;
       gap:10px;
-      justify-content:space-between;
-      min-width:0;
+      align-items:stretch;
     }
 
     .brand{
@@ -76,421 +100,605 @@
       gap:10px;
       padding:10px 12px;
       border-radius:22px;
-      background:var(--card);
+      background:rgba(255,255,255,.88);
       border:1px solid var(--line);
       box-shadow:var(--shadow);
-      flex:1 1 auto;
+      backdrop-filter:blur(8px);
     }
 
-    .brandMark{
-      width:46px;
-      height:46px;
-      border-radius:16px;
+    .brandIcon{
+      width:48px;
+      height:48px;
+      border-radius:17px;
       display:grid;
       place-items:center;
-      font-size:26px;
-      background:linear-gradient(180deg,#fff5c8,#ffe27e);
-      border:1px solid #ffe8ab;
+      font-size:28px;
+      background:linear-gradient(180deg,#fff7c7,#ffd76f);
+      border:1px solid #ffe39a;
       flex:0 0 auto;
+      animation:floatIcon 2.4s ease-in-out infinite;
+    }
+
+    @keyframes floatIcon{
+      0%,100%{ transform:translateY(0) rotate(0deg); }
+      50%{ transform:translateY(-4px) rotate(-4deg); }
     }
 
     .brand h1{
       margin:0;
-      font-size:18px;
+      font-size:clamp(1.1rem,2.2vw,1.55rem);
       line-height:1.05;
       font-weight:1000;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
 
     .brand p{
       margin:4px 0 0;
       color:var(--muted);
-      font-size:11px;
+      font-size:.84rem;
       font-weight:900;
-    }
-
-    .actions{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      flex:0 0 auto;
-    }
-
-    .btn{
-      min-height:42px;
-      border-radius:16px;
-      border:1px solid var(--line);
-      background:var(--card);
-      padding:0 14px;
-      color:var(--ink);
-      font:inherit;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-      white-space:nowrap;
-    }
-
-    .btn.primary{
-      color:#fff;
-      border-color:#73c4f1;
-      background:linear-gradient(180deg,var(--blue2),var(--blue));
-    }
-
-    .chipRow{
-      display:grid;
-      grid-template-columns: repeat(4,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .chip{
-      min-width:0;
-      padding:10px 12px;
-      border-radius:18px;
-      background:var(--card);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-    }
-
-    .chipLabel{
-      font-size:11px;
-      font-weight:1000;
-      color:var(--muted);
-      margin-bottom:4px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .chipValue{
-      font-size:18px;
-      line-height:1.1;
-      font-weight:1000;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .goalCard{
-      position:relative;
-      overflow:hidden;
-      min-width:0;
-      border-radius:24px;
-      background:linear-gradient(180deg,#ffffffee,#f6fcffee);
-      border:1px solid #d8edf7;
-      box-shadow:var(--shadow);
-      padding:14px 16px;
-    }
-
-    .goalCard::after{
-      content:"";
-      position:absolute;
-      right:-28px;
-      top:-30px;
-      width:130px;
-      height:130px;
-      border-radius:50%;
-      background:
-        radial-gradient(circle at 40% 35%, #fff8 0 18%, transparent 70%),
-        linear-gradient(180deg,#fff4a2,#ffd45a);
-      opacity:.85;
-    }
-
-    .goalTop{
+    .hudStats{
       display:flex;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      flex-wrap:wrap;
-      position:relative;
-      z-index:1;
-    }
-
-    .goalTag{
-      display:inline-flex;
-      align-items:center;
       gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#f0fbff;
-      border:1px solid #d9eef8;
-      font-size:12px;
-      font-weight:1000;
-      color:#5f8198;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-items:stretch;
     }
 
-    .goalTitle{
-      margin:10px 0 0;
+    .stat{
+      min-width:86px;
+      padding:8px 10px;
+      border-radius:18px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      text-align:center;
+    }
+
+    .stat small{
+      display:block;
+      color:var(--muted);
+      font-size:.72rem;
+      font-weight:1000;
+      line-height:1;
+      margin-bottom:4px;
+    }
+
+    .stat b{
+      display:block;
+      font-size:1.05rem;
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .arena{
+      min-height:0;
+      display:grid;
+      grid-template-columns:1fr 320px;
+      gap:10px;
+    }
+
+    .stage{
+      position:relative;
+      min-height:0;
+      overflow:hidden;
+      border-radius:30px;
+      background:
+        radial-gradient(520px 280px at 50% 5%, rgba(255,255,255,.88), transparent 70%),
+        linear-gradient(180deg,rgba(255,255,255,.82),rgba(248,253,255,.94));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-lg);
+      display:grid;
+      grid-template-rows:auto 1fr auto;
+      padding:14px;
+    }
+
+    .stage::before{
+      content:"🥚  🍚  🥦  🍎  🥑";
+      position:absolute;
+      left:18px;
+      bottom:10px;
+      font-size:54px;
+      letter-spacing:12px;
+      opacity:.08;
+      white-space:nowrap;
+      pointer-events:none;
+      animation:foodDrift 9s linear infinite;
+    }
+
+    @keyframes foodDrift{
+      0%{ transform:translateX(0); }
+      50%{ transform:translateX(22px); }
+      100%{ transform:translateX(0); }
+    }
+
+    .missionBar{
       position:relative;
       z-index:1;
-      font-size:24px;
+      display:grid;
+      gap:8px;
+    }
+
+    .missionTop{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .waveTitle{
+      margin:0;
+      font-size:clamp(1.05rem,2vw,1.35rem);
       font-weight:1000;
       line-height:1.15;
     }
 
-    .goalSub{
-      margin:8px 0 0;
-      position:relative;
-      z-index:1;
-      color:#5f8198;
-      font-size:13px;
+    .waveText{
+      margin:3px 0 0;
+      color:var(--muted);
+      font-size:.9rem;
       font-weight:900;
+      line-height:1.45;
     }
 
-    .coach{
-      margin-top:10px;
-      position:relative;
-      z-index:1;
+    .pillRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      justify-content:flex-end;
+    }
+
+    .pill{
       display:inline-flex;
       align-items:center;
-      gap:10px;
-      min-height:42px;
-      padding:10px 12px;
-      border-radius:16px;
-      background:#fff;
-      border:1px dashed #d7eaf4;
-      color:#5e7f95;
-      font-size:12px;
-      font-weight:1000;
-      max-width:100%;
-    }
-
-    .stageWrap{
-      position:relative;
-      min-height:300px;
-      overflow:hidden;
-      border-radius:28px;
-      background:
-        radial-gradient(circle at 50% 0%, rgba(255,255,255,.88), transparent 45%),
-        linear-gradient(180deg,#f8fdff 0%, #effaff 60%, #e6f7ff 100%);
-      border:1px solid #d6edf7;
-      box-shadow:var(--stage-shadow);
-    }
-
-    .stage{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      touch-action:none;
-      user-select:none;
-      -webkit-user-select:none;
-    }
-
-    .ground{
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:56px;
-      background:
-        radial-gradient(circle at 16% 40%, rgba(255,255,255,.55), transparent 18%),
-        radial-gradient(circle at 72% 32%, rgba(255,255,255,.45), transparent 18%),
-        linear-gradient(180deg,#b8ef9f,#8eda72);
-      border-top:1px solid rgba(101,176,86,.26);
-      pointer-events:none;
-    }
-
-    .goalProgress{
-      position:absolute;
-      left:14px;
-      right:14px;
-      top:12px;
-      height:14px;
+      min-height:30px;
+      padding:5px 10px;
       border-radius:999px;
-      background:#ffffffd9;
-      border:1px solid #d9eef7;
-      overflow:hidden;
-      pointer-events:none;
-      box-shadow:0 8px 18px rgba(132,186,214,.12);
-      z-index:2;
+      background:#fff;
+      border:1px solid var(--line);
+      color:#5d7f95;
+      font-size:.78rem;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(93,155,185,.08);
     }
 
-    .goalFill{
+    .pill.hot{
+      color:#9a6517;
+      background:linear-gradient(180deg,#fff9df,#fff0b4);
+      border-color:#ffe39a;
+    }
+
+    .timeTrack{
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#e5f4fb;
+      border:1px solid #d3edf8;
+    }
+
+    .timeFill{
       height:100%;
-      width:0%;
-      border-radius:inherit;
-      background:linear-gradient(90deg,#7fd370,#51be56);
+      width:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--green),var(--yellow),var(--orange));
+      transition:width .08s linear;
+    }
+
+    .foodZone{
+      position:relative;
+      z-index:1;
+      min-height:0;
+      display:grid;
+      place-items:center;
+      padding:12px 4px;
+    }
+
+    .foodCard{
+      width:min(520px,100%);
+      min-height:250px;
+      border-radius:32px;
+      background:
+        radial-gradient(240px 160px at 50% 6%, rgba(255,255,255,.82), transparent 72%),
+        linear-gradient(180deg,#fffefb,#ffffff);
+      border:1px solid #ffeab3;
+      box-shadow:0 24px 54px rgba(255,172,75,.15);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:20px;
+      transform:translateY(0) scale(1);
+      transition:transform .18s ease, filter .18s ease;
+    }
+
+    .foodCard.pop{
+      animation:cardPop .24s ease;
+    }
+
+    @keyframes cardPop{
+      0%{ transform:scale(.96) translateY(6px); opacity:.58; }
+      100%{ transform:scale(1) translateY(0); opacity:1; }
+    }
+
+    .foodEmoji{
+      font-size:clamp(5.2rem,12vw,8.5rem);
+      line-height:1;
+      filter:drop-shadow(0 16px 18px rgba(80,120,140,.12));
+    }
+
+    .foodName{
+      margin-top:8px;
+      font-size:clamp(1.4rem,3.2vw,2rem);
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .foodHint{
+      margin-top:8px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.35;
+      min-height:24px;
+    }
+
+    .fakeLabel{
+      margin:0 auto 10px;
+      display:none;
+      width:max-content;
+      max-width:100%;
+      padding:7px 12px;
+      border-radius:999px;
+      color:#9a3a2f;
+      background:#fff0ec;
+      border:1px solid #ffd1c9;
+      font-weight:1000;
+      font-size:.86rem;
+    }
+
+    .fakeLabel.show{
+      display:inline-flex;
+    }
+
+    .choices{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .choice{
+      min-height:76px;
+      border:none;
+      cursor:pointer;
+      border-radius:22px;
+      padding:8px 6px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:var(--text);
+      box-shadow:var(--shadow);
+      display:grid;
+      place-items:center;
+      gap:3px;
+      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
+    }
+
+    .choice:hover{
+      transform:translateY(-2px);
+      box-shadow:0 18px 38px rgba(75,138,170,.22);
+    }
+
+    .choice:active{
+      transform:translateY(1px) scale(.99);
+    }
+
+    .choice .num{
+      display:block;
+      width:32px;
+      height:32px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#eef9ff,#dff2ff);
+      color:#397b9c;
+      font-weight:1000;
+    }
+
+    .choice .name{
+      display:block;
+      font-size:.86rem;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .choice .ex{
+      display:block;
+      color:var(--muted);
+      font-size:.72rem;
+      font-weight:900;
+      line-height:1.1;
+    }
+
+    .memoryHidden .choice .name,
+    .memoryHidden .choice .ex{
+      filter:blur(5px);
+      opacity:.42;
+    }
+
+    .side{
+      min-height:0;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
+    }
+
+    .panel{
+      border-radius:24px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      padding:12px;
+      overflow:hidden;
+    }
+
+    .panel h2{
+      margin:0 0 8px;
+      font-size:1rem;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .bossPanel{
+      display:none;
+      background:
+        radial-gradient(160px 90px at 80% 0%, rgba(255,111,111,.18), transparent 70%),
+        rgba(255,255,255,.9);
+      border-color:#ffd1c9;
+    }
+
+    .bossPanel.show{
+      display:block;
+    }
+
+    .bossName{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-weight:1000;
+    }
+
+    .bossEmoji{
+      font-size:38px;
+      animation:bossShake 1.5s ease-in-out infinite;
+    }
+
+    @keyframes bossShake{
+      0%,100%{ transform:rotate(0deg); }
+      25%{ transform:rotate(-5deg); }
+      75%{ transform:rotate(5deg); }
+    }
+
+    .hpTrack{
+      height:16px;
+      border-radius:999px;
+      background:#ffe7e2;
+      border:1px solid #ffd1c9;
+      overflow:hidden;
+      margin-top:9px;
+    }
+
+    .hpFill{
+      height:100%;
+      width:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ff7b73,#ffb168);
       transition:width .18s ease;
     }
 
-    .banner{
-      position:absolute;
-      left:50%;
-      top:42px;
-      transform:translateX(-50%) translateY(-10px);
-      padding:10px 14px;
-      border-radius:999px;
-      background:#ffffffef;
-      border:1px solid #d6ebf6;
-      box-shadow:0 14px 30px rgba(107,167,196,.14);
-      font-size:12px;
-      font-weight:1000;
-      color:#5b7a90;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
-      z-index:18;
-      white-space:nowrap;
+    .powerGrid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
     }
 
-    .banner.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
-
-    .item{
-      position:absolute;
-      display:flex;
-      flex-direction:column;
-      align-items:center;
-      justify-content:center;
-      gap:2px;
-      border:0;
-      border-radius:22px;
-      background:#fff;
-      border:2px solid #dceef7;
-      box-shadow:0 12px 28px rgba(104,168,198,.16);
-      color:var(--ink);
+    .power{
+      min-height:48px;
+      border:none;
       cursor:pointer;
-      font:inherit;
-      padding:0;
-      overflow:hidden;
-      transform:translate3d(0,0,0);
-      transition:transform .08s ease, opacity .15s ease;
-      touch-action:none;
-      z-index:8;
-    }
-
-    .item:active{ transform:scale(.96); }
-    .item.goodGlow{ box-shadow:0 16px 30px rgba(91,197,95,.24); }
-    .item.badGlow{ box-shadow:0 16px 30px rgba(255,122,122,.24); }
-
-    .itemEmoji{
-      font-size:34px;
-      line-height:1;
-    }
-
-    .itemLabel{
-      font-size:11px;
-      line-height:1.1;
+      border-radius:18px;
+      padding:8px 10px;
+      background:#fff;
+      border:1px solid var(--line);
+      color:var(--text);
+      box-shadow:0 10px 22px rgba(93,155,185,.12);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
       font-weight:1000;
-      color:#5d7d92;
-      padding:0 4px 8px;
-      text-align:center;
     }
 
-    .itemPulse{
-      animation:itemPulse .5s ease;
+    .power:disabled{
+      cursor:not-allowed;
+      opacity:.48;
+      box-shadow:none;
     }
 
-    @keyframes itemPulse{
-      0%{ transform:scale(.88); }
-      40%{ transform:scale(1.06); }
-      100%{ transform:scale(1); }
+    .power small{
+      display:block;
+      color:var(--muted);
+      font-weight:900;
+      font-size:.72rem;
     }
 
-    .popFx{
-      position:absolute;
-      font-size:18px;
-      font-weight:1000;
-      pointer-events:none;
-      z-index:20;
-      animation:popFx .55s ease forwards;
+    .logBox{
+      min-height:0;
+      overflow:auto;
+      display:grid;
+      align-content:start;
+      gap:8px;
+      padding-right:2px;
+      scrollbar-width:thin;
     }
 
-    .popFx.good{ color:#4fab41; }
-    .popFx.bad{ color:#e35c5c; }
+    .logItem{
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+      padding:9px 10px;
+      font-weight:900;
+      color:#5e7f94;
+      line-height:1.35;
+    }
 
-    @keyframes popFx{
-      0%{ opacity:0; transform:translate(-50%, 6px) scale(.7); }
-      20%{ opacity:1; transform:translate(-50%, -10px) scale(1); }
-      100%{ opacity:0; transform:translate(-50%, -34px) scale(1.06); }
+    .logItem.good{
+      color:#377d37;
+      background:#f3fff0;
+      border-color:#d8f4cf;
+    }
+
+    .logItem.bad{
+      color:#a5483e;
+      background:#fff4f1;
+      border-color:#ffd1c9;
     }
 
     .bottomBar{
       display:grid;
-      grid-template-columns: repeat(4,minmax(0,1fr));
+      grid-template-columns:1fr auto;
       gap:10px;
+      align-items:center;
     }
 
-    .stat{
-      background:var(--card);
+    .feedback{
+      min-height:48px;
+      display:flex;
+      align-items:center;
+      padding:9px 12px;
+      border-radius:20px;
+      background:rgba(255,255,255,.86);
       border:1px solid var(--line);
-      border-radius:18px;
       box-shadow:var(--shadow);
-      padding:10px 12px;
-      min-width:0;
+      font-weight:1000;
+      line-height:1.35;
     }
 
-    .statLabel{
-      font-size:11px;
-      font-weight:1000;
-      color:var(--muted);
-      margin-bottom:4px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
+    .navBtns{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
     }
 
-    .statValue{
-      font-size:18px;
+    .navBtn{
+      min-height:46px;
+      border:none;
+      cursor:pointer;
+      border-radius:18px;
+      padding:0 13px;
+      background:#fff;
+      color:var(--text);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
       font-weight:1000;
-      line-height:1.1;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+    }
+
+    .navBtn.primary{
+      color:#fff;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      border:none;
     }
 
     .overlay{
-      position:absolute;
+      position:fixed;
       inset:0;
-      display:none;
-      place-items:center;
-      padding:18px;
-      background:rgba(237,250,255,.58);
-      backdrop-filter: blur(6px);
       z-index:40;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(14px + var(--sab))
+        calc(14px + var(--sal));
+      background:rgba(224,244,255,.72);
+      backdrop-filter:blur(10px);
     }
 
-    .overlay.show{ display:grid; }
+    .overlay.hidden{
+      display:none;
+    }
 
     .modal{
-      width:min(680px, 100%);
-      border-radius:30px;
-      background:#fffefa;
-      border:1px solid #d7edf7;
-      box-shadow:0 22px 55px rgba(92,162,193,.22);
-      padding:22px 20px;
+      width:min(720px,100%);
+      max-height:calc(100dvh - 28px);
+      overflow:auto;
+      border-radius:32px;
+      background:linear-gradient(180deg,#fffefb,#f8fdff);
+      border:1px solid var(--line);
+      box-shadow:0 30px 80px rgba(50,90,120,.24);
+      padding:18px;
       text-align:center;
     }
 
-    .modalBadge{
-      width:90px;
-      height:90px;
+    .modalIcon{
+      width:86px;
+      height:86px;
       margin:0 auto 10px;
+      border-radius:28px;
       display:grid;
       place-items:center;
-      border-radius:28px;
-      background:linear-gradient(180deg,#fff6cc,#ffde7c);
-      border:1px solid #ffe8a2;
-      font-size:46px;
+      font-size:50px;
+      background:linear-gradient(180deg,#fff7c7,#ffd76f);
+      border:1px solid #ffe39a;
     }
 
     .modal h2{
       margin:0;
-      font-size:30px;
+      font-size:clamp(1.45rem,4vw,2.2rem);
       line-height:1.08;
       font-weight:1000;
     }
 
     .modal p{
-      margin:10px auto 0;
-      max-width:520px;
-      font-size:14px;
-      line-height:1.7;
-      color:#607f94;
+      color:var(--muted);
       font-weight:900;
+      line-height:1.55;
+      margin:10px auto;
+      max-width:58ch;
+    }
+
+    .modalGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:14px 0;
+      text-align:left;
+    }
+
+    .infoCard{
+      padding:12px;
+      border-radius:22px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 10px 22px rgba(93,155,185,.10);
+    }
+
+    .infoCard b{
+      display:block;
+      font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .infoCard span{
+      display:block;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+      font-size:.88rem;
     }
 
     .modalActions{
@@ -498,985 +706,1673 @@
       gap:10px;
       justify-content:center;
       flex-wrap:wrap;
-      margin-top:16px;
+      margin-top:12px;
     }
 
     .bigBtn{
-      min-width:160px;
-      min-height:50px;
-      border-radius:18px;
-      border:0;
+      min-height:52px;
+      border:none;
       cursor:pointer;
-      font:inherit;
-      font-weight:1000;
-      box-shadow:0 12px 26px rgba(105,165,194,.15);
-      padding:0 18px;
-    }
-
-    .bigBtn.primary{
-      color:#fff;
-      background:linear-gradient(180deg,#80cbff,#57b6ff);
-    }
-
-    .bigBtn.green{
-      color:#fff;
-      background:linear-gradient(180deg,#8ad97f,#61c45f);
-    }
-
-    .bigBtn.ghost{
-      color:#5f8197;
-      background:#f4fbff;
-      border:1px solid #d8edf7;
-    }
-
-    .summaryGrid{
-      display:grid;
-      grid-template-columns: repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin-top:14px;
-      text-align:left;
-    }
-
-    .summaryCard{
       border-radius:20px;
-      border:1px solid #d8edf7;
-      background:#f8fdff;
-      padding:12px 14px;
-    }
-
-    .summaryCard h3{
-      margin:0 0 6px;
-      font-size:13px;
-      font-weight:1000;
-      color:#607f95;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    .summaryCard .big{
-      font-size:24px;
-      font-weight:1000;
-      line-height:1.1;
-      color:var(--ink);
-    }
-
-    .stars{
-      margin-top:10px;
-      font-size:30px;
-      line-height:1;
-    }
-
-    .grade{
-      margin-top:10px;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-width:120px;
-      min-height:48px;
       padding:0 18px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid #d9eef7;
-      font-size:24px;
       font-weight:1000;
-      color:#5b7b90;
+      color:#fff;
+      background:linear-gradient(180deg,#ffbf4d,#ff8f3d);
+      box-shadow:0 18px 34px rgba(255,143,61,.22);
     }
 
-    .grade.s{ background:#fff7d9; border-color:#ffe298; color:#9b6700; }
-    .grade.a{ background:#f5ffe9; border-color:#cfe8a8; color:#4f842d; }
-    .grade.b{ background:#eefaff; border-color:#cae6f6; color:#3b6b87; }
-    .grade.c{ background:#fff5ef; border-color:#f2d9ca; color:#865c45; }
+    .bigBtn.alt{
+      color:var(--text);
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+    }
 
-    .crosshair{
-      position:absolute;
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + var(--sab));
+      transform:translateX(-50%) translateY(14px);
+      min-width:min(560px,calc(100vw - 28px));
+      max-width:calc(100vw - 28px);
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(40,72,95,.94);
+      color:#fff;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 18px 40px rgba(0,0,0,.22);
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+      z-index:80;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .fxGood{
+      animation:goodFlash .28s ease;
+    }
+
+    @keyframes goodFlash{
+      0%{ filter:brightness(1); }
+      45%{ filter:brightness(1.12) saturate(1.15); }
+      100%{ filter:brightness(1); }
+    }
+
+    .fxBad{
+      animation:badShake .28s ease;
+    }
+
+    @keyframes badShake{
+      0%,100%{ transform:translateX(0); }
+      25%{ transform:translateX(-6px); }
+      75%{ transform:translateX(6px); }
+    }
+
+    .feverMode .stage{
+      border-color:#ffd166;
+      box-shadow:0 28px 70px rgba(255,177,104,.30);
+      background:
+        radial-gradient(480px 260px at 50% 8%, rgba(255,231,122,.50), transparent 72%),
+        linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,250,225,.94));
+    }
+
+    .feverMode .timeFill{
+      background:linear-gradient(90deg,#ffdf6b,#ff9f43,#ff6b6b);
+    }
+
+    .slowMode .foodCard{
+      filter:saturate(.92) brightness(1.03);
+      box-shadow:0 24px 54px rgba(97,187,255,.22);
+    }
+
+    .cvrCrosshair{
+      display:none;
+      position:fixed;
       left:50%;
       top:50%;
-      width:32px;
-      height:32px;
-      transform:translate(-50%,-50%);
-      display:none;
+      width:42px;
+      height:42px;
+      margin-left:-21px;
+      margin-top:-21px;
       pointer-events:none;
-      z-index:30;
+      z-index:25;
+      border-radius:50%;
+      border:3px solid rgba(47,149,255,.75);
+      box-shadow:0 0 0 6px rgba(255,255,255,.42), 0 8px 22px rgba(0,0,0,.12);
     }
 
-    .crosshair::before,
-    .crosshair::after{
+    .cvrCrosshair::before,
+    .cvrCrosshair::after{
       content:"";
       position:absolute;
-      background:rgba(36,67,90,.84);
-      border-radius:999px;
-    }
-
-    .crosshair::before{
+      background:rgba(47,149,255,.85);
       left:50%;
-      top:2px;
-      bottom:2px;
-      width:2px;
-      transform:translateX(-50%);
-    }
-
-    .crosshair::after{
       top:50%;
-      left:2px;
-      right:2px;
-      height:2px;
-      transform:translateY(-50%);
+      transform:translate(-50%,-50%);
     }
 
-    body.view-cvr .crosshair{ display:block; }
+    .cvrCrosshair::before{ width:24px; height:3px; }
+    .cvrCrosshair::after{ width:3px; height:24px; }
 
-    .debugPanel{
-      position:absolute;
-      right:14px;
-      bottom:14px;
-      max-width:min(360px, 90vw);
-      padding:10px 12px;
-      border-radius:16px;
-      background:rgba(255,255,255,.94);
-      border:1px solid #d9edf7;
-      color:#5f7f95;
-      font-size:11px;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-      z-index:25;
-      display:none;
-      white-space:pre-wrap;
+    body.view-cvr .cvrCrosshair{
+      display:block;
     }
 
-    body.debug .debugPanel{ display:block; }
-
-    @media (max-width: 760px){
-      .shell{
-        grid-template-rows:auto auto auto minmax(250px,1fr) auto;
-        gap:8px;
-        padding:
-          calc(8px + var(--sat))
-          calc(8px + var(--sar))
-          calc(8px + var(--sab))
-          calc(8px + var(--sal));
+    @media (max-width: 960px){
+      body{
+        overflow:auto;
       }
 
-      .topbar{
-        align-items:flex-start;
-        gap:8px;
+      .game{
+        min-height:100dvh;
+        grid-template-rows:auto auto auto;
       }
 
-      .brand{
-        padding:10px 10px;
-        border-radius:18px;
-      }
-
-      .brandMark{
-        width:42px;
-        height:42px;
-        border-radius:14px;
-        font-size:24px;
-      }
-
-      .brand h1{
-        font-size:16px;
-      }
-
-      .brand p{
-        font-size:10px;
-        margin-top:2px;
-      }
-
-      .actions{
-        flex:0 0 124px;
-        display:grid;
+      .topHud{
         grid-template-columns:1fr;
-        gap:8px;
-        align-self:stretch;
       }
 
-      .btn{
-        min-height:36px;
-        border-radius:14px;
-        padding:0 10px;
-        font-size:13px;
-      }
-
-      .chipRow{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      }
-
-      .chip{
-        padding:8px 10px;
-        border-radius:14px;
-      }
-
-      .chipLabel{
-        font-size:10px;
-        margin-bottom:2px;
-      }
-
-      .chipValue{
-        font-size:16px;
-      }
-
-      .goalCard{
-        padding:12px;
-        border-radius:20px;
-      }
-
-      .goalTag{
-        padding:6px 10px;
-        font-size:11px;
-      }
-
-      .goalTitle{
-        font-size:18px;
-        line-height:1.15;
-        margin-top:8px;
-      }
-
-      .goalSub{
-        font-size:12px;
-        margin-top:6px;
-      }
-
-      .coach{
-        margin-top:8px;
-        min-height:34px;
-        padding:8px 10px;
-        border-radius:14px;
-        font-size:11px;
-      }
-
-      .stageWrap{
-        min-height:250px;
-        border-radius:22px;
-      }
-
-      .goalProgress{
-        left:10px;
-        right:10px;
-        top:10px;
-        height:12px;
-      }
-
-      .banner{
-        top:34px;
-        font-size:11px;
-        padding:8px 12px;
-      }
-
-      .bottomBar{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
+      .hudStats{
+        justify-content:stretch;
       }
 
       .stat{
-        padding:8px 10px;
-        border-radius:14px;
+        flex:1 1 80px;
       }
 
-      .statLabel{
-        font-size:10px;
-        margin-bottom:2px;
+      .arena{
+        grid-template-columns:1fr;
       }
 
-      .statValue{
-        font-size:16px;
+      .side{
+        grid-template-rows:auto auto auto;
       }
 
-      .modal{
-        padding:18px 14px;
-        border-radius:24px;
-      }
-
-      .modalBadge{
-        width:76px;
-        height:76px;
-        font-size:38px;
-        border-radius:22px;
-      }
-
-      .modal h2{
-        font-size:24px;
-      }
-
-      .modal p{
-        font-size:13px;
-      }
-
-      .bigBtn{
-        min-width:140px;
-        min-height:46px;
-        border-radius:16px;
+      .logBox{
+        max-height:160px;
       }
     }
 
-    @media (max-width: 420px){
-      .goalSub{
-        display:none;
-      }
-
-      .coach{
-        font-size:10px;
-        padding:7px 9px;
-      }
-
-      .actions{
-        flex:0 0 116px;
-      }
-
-      .btn{
-        font-size:12px;
-        padding:0 8px;
-      }
-
-      .stageWrap{
-        min-height:230px;
-      }
-    }
-
-    /* ===== GROUPS MOBILE HUD FIX v2 ===== */
-    body.compact-mobile .shell{
-      grid-template-rows:auto auto minmax(440px, 1fr);
-      gap:8px;
-    }
-
-    body.compact-mobile .chipRow.compact-chip-row{
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:6px;
-    }
-
-    body.compact-mobile .chip{
-      padding:7px 8px;
-      border-radius:14px;
-    }
-
-    body.compact-mobile .chipLabel{
-      font-size:9px;
-      margin-bottom:2px;
-    }
-
-    body.compact-mobile .chipValue{
-      font-size:13px;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal{
-      position:absolute;
-      left:10px;
-      top:10px;
-      right:auto;
-      width:min(72%, 280px);
-      z-index:16;
-      padding:8px 10px;
-      border-radius:18px;
-      background:rgba(255,255,255,.90);
-      backdrop-filter:blur(6px);
-      box-shadow:0 10px 22px rgba(96,154,183,.12);
-      pointer-events:none;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal::after{
-      width:82px;
-      height:82px;
-      right:-14px;
-      top:-14px;
-      opacity:.72;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal .goalTop{
-      position:relative;
-      justify-content:flex-start;
-      gap:6px;
-      min-height:26px;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal #phaseTag{
-      position:absolute;
-      top:0;
-      right:0;
-      padding:4px 8px;
-      font-size:10px;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal .goalTag{
-      padding:4px 8px;
-      font-size:10px;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal .goalTitle{
-      margin-top:4px;
-      font-size:15px;
-      line-height:1.08;
-      padding-right:74px;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal .goalSub{
-      display:none;
-    }
-
-    body.compact-mobile .goalCard.in-stage-goal .coach{
-      margin-top:5px;
-      min-height:0;
-      padding:6px 8px;
-      border-radius:12px;
-      font-size:9.5px;
-      line-height:1.3;
-      display:block;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      pointer-events:none;
-    }
-
-    body.compact-mobile .goalProgress{
-      display:none;
-    }
-
-    body.compact-mobile .banner{
-      top:86px;
-      font-size:11px;
-      padding:8px 12px;
-      z-index:18;
-    }
-
-    body.compact-mobile .bottomBar.in-stage-bottom{
-      position:absolute;
-      left:8px;
-      right:8px;
-      bottom:8px;
-      z-index:16;
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:6px;
-      pointer-events:none;
-    }
-
-    body.compact-mobile .bottomBar.in-stage-bottom .stat{
-      padding:6px 8px;
-      border-radius:14px;
-      background:rgba(255,255,255,.88);
-      backdrop-filter:blur(6px);
-      box-shadow:0 8px 18px rgba(94,153,182,.10);
-    }
-
-    body.compact-mobile .bottomBar.in-stage-bottom .statLabel{
-      font-size:9px;
-      margin-bottom:1px;
-    }
-
-    body.compact-mobile .bottomBar.in-stage-bottom .statValue{
-      font-size:12px;
-    }
-
-    body.compact-mobile .actions{
-      flex:0 0 108px;
-      display:grid;
-      grid-template-columns:1fr;
-      gap:6px;
-    }
-
-    body.compact-mobile .btn{
-      min-height:34px;
-      border-radius:13px;
-      padding:0 8px;
-      font-size:12px;
-    }
-
-    body.compact-mobile .brand{
-      padding:9px 10px;
-      border-radius:18px;
-    }
-
-    body.compact-mobile .brandMark{
-      width:40px;
-      height:40px;
-      border-radius:14px;
-      font-size:22px;
-    }
-
-    body.compact-mobile .brand h1{
-      font-size:15px;
-    }
-
-    body.compact-mobile .brand p{
-      font-size:10px;
-      margin-top:2px;
-    }
-
-    @media (max-width: 420px){
-      body.compact-mobile .shell{
-        grid-template-rows:auto auto minmax(400px, 1fr);
-      }
-
-      body.compact-mobile .chipRow.compact-chip-row{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      body.compact-mobile .bottomBar.in-stage-bottom{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      body.compact-mobile .stageWrap{
-        min-height:480px;
-      }
-
-      body.compact-mobile .goalCard.in-stage-goal{
-        width:min(82%, 300px);
-        padding:7px 9px;
-      }
-
-      body.compact-mobile .goalCard.in-stage-goal .goalTitle{
-        font-size:14px;
-        padding-right:68px;
-      }
-
-      body.compact-mobile .bottomBar.in-stage-bottom .statValue{
-        font-size:13px;
-      }
-    }
-
-    /* ===== SUMMARY SCROLL FIX ===== */
-    body.groups-summary-open #summaryOverlay{
-      position: fixed !important;
-      inset: 0 !important;
-      z-index: 9999 !important;
-      display: none;
-      padding:
-        max(12px, calc(10px + var(--sat)))
-        12px
-        max(18px, calc(18px + var(--sab)))
-        12px;
-      background: rgba(237,250,255,.72);
-      backdrop-filter: blur(8px);
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      align-items: flex-start;
-      justify-content: center;
-    }
-
-    body.groups-summary-open #summaryOverlay.show{
-      display: flex !important;
-    }
-
-    body.groups-summary-open #summaryOverlay .modal{
-      width: min(720px, 100%);
-      margin: 0 auto;
-      max-height: none !important;
-    }
-
-    body.groups-summary-open .stageWrap{
-      overflow: visible !important;
-    }
-
-    @media (max-width: 768px){
-      body.groups-summary-open #summaryOverlay{
+    @media (max-width: 680px){
+      .game{
         padding:
-          max(10px, calc(8px + var(--sat)))
-          10px
-          max(16px, calc(16px + var(--sab)))
-          10px;
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(10px + var(--sab))
+          calc(8px + var(--sal));
       }
 
-      body.groups-summary-open #summaryOverlay .modal{
-        border-radius: 22px;
-        padding: 16px 12px;
+      .brand{
+        border-radius:20px;
       }
 
-      body.groups-summary-open #summaryOverlay .summaryGrid{
-        grid-template-columns: 1fr !important;
-        gap: 8px;
+      .brandIcon{
+        width:44px;
+        height:44px;
+        font-size:25px;
       }
 
-      body.groups-summary-open #summaryOverlay .summaryCard{
-        padding: 10px 12px;
+      .choices{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
-      body.groups-summary-open #summaryOverlay .summaryCard .big{
-        font-size: 20px;
+      .choice{
+        min-height:66px;
+      }
+
+      .foodCard{
+        min-height:210px;
+        border-radius:26px;
+      }
+
+      .bottomBar{
+        grid-template-columns:1fr;
+      }
+
+      .navBtns{
+        justify-content:stretch;
+      }
+
+      .navBtn{
+        flex:1 1 auto;
+      }
+
+      .modalGrid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      *,
+      *::before,
+      *::after{
+        animation:none !important;
+        transition:none !important;
+        scroll-behavior:auto !important;
       }
     }
   </style>
 </head>
-<body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brandMark">🥦</div>
-        <div>
-          <h1>Food Groups Solo</h1>
-          <p id="ctxLine">run=play • diff=normal • time=80 • view=mobile</p>
-        </div>
-      </div>
 
-      <div class="actions">
-        <button class="btn" id="btnRecenter" type="button">🎯 Recenter</button>
-        <button class="btn" id="btnReplayTop" type="button">🔁 Replay</button>
-        <button class="btn primary" id="btnBackTop" type="button">🏠 HUB</button>
-      </div>
+<body>
+  <div class="game" id="gameRoot">
+    <header class="topHud">
+      <section class="brand">
+        <div class="brandIcon">🥦</div>
+        <div>
+          <h1>Groups Solo Arena</h1>
+          <p id="subTitle">จัดอาหารหลัก 5 หมู่ • Wave Mission • Boss Chef</p>
+        </div>
+      </section>
+
+      <section class="hudStats" aria-label="Game stats">
+        <div class="stat"><small>คะแนน</small><b id="scoreTxt">0</b></div>
+        <div class="stat"><small>เวลา</small><b id="timeTxt">120</b></div>
+        <div class="stat"><small>หัวใจ</small><b id="lifeTxt">❤️❤️❤️</b></div>
+        <div class="stat"><small>คอมโบ</small><b id="comboTxt">0</b></div>
+        <div class="stat"><small>ถูกต้อง</small><b id="accTxt">0%</b></div>
+      </section>
     </header>
 
-    <section class="chipRow">
-      <div class="chip">
-        <div class="chipLabel">Player</div>
-        <div class="chipValue" id="chipPlayer">anon</div>
-      </div>
-      <div class="chip">
-        <div class="chipLabel">Time</div>
-        <div class="chipValue" id="chipTime">00:00</div>
-      </div>
-      <div class="chip">
-        <div class="chipLabel">Score</div>
-        <div class="chipValue" id="chipScore">0</div>
-      </div>
-      <div class="chip">
-        <div class="chipLabel">Streak</div>
-        <div class="chipValue" id="chipStreak">0</div>
-      </div>
-    </section>
-
-    <section class="goalCard">
-      <div class="goalTop">
-        <div class="goalTag" id="goalTag">🎯 เป้าหมายตอนนี้</div>
-        <div class="goalTag" id="phaseTag">Practice</div>
-      </div>
-      <div class="goalTitle" id="goalTitle">แตะอาหารให้ถูกหมู่</div>
-      <div class="goalSub" id="goalSub">ฝึกสั้นก่อน 15 วินาที แล้วค่อยเริ่มรอบจริง</div>
-      <div class="coach" id="coachBubble">โค้ช: พร้อมแล้วแตะปุ่มเริ่มได้เลย ✨</div>
-    </section>
-
-    <section class="stageWrap" id="stageWrap">
-      <div class="goalProgress" aria-hidden="true">
-        <div class="goalFill" id="goalFill"></div>
-      </div>
-
-      <div class="banner" id="banner">พร้อมลุย!</div>
-      <div class="crosshair" id="crosshair" aria-hidden="true"></div>
-
-      <div class="stage" id="stage"></div>
-      <div class="ground" aria-hidden="true"></div>
-
-      <div class="overlay show" id="introOverlay">
-        <div class="modal">
-          <div class="modalBadge">🥕</div>
-          <h2 id="introTitle">เริ่มฝึกก่อน 15 วินาที</h2>
-          <p id="introDesc">
-            แตะอาหารที่อยู่ในหมู่ที่กำหนดให้ถูกต้อง
-            ฝึกสั้นก่อน แล้วค่อยเริ่มรอบจริงคะแนนจริง
-          </p>
-          <div class="modalActions">
-            <button class="bigBtn primary" id="btnStartPractice" type="button">เริ่มฝึกเลย</button>
-            <button class="bigBtn ghost" id="btnGoHubIntro" type="button">กลับ HUB</button>
+    <main class="arena">
+      <section class="stage" id="stage">
+        <div class="missionBar">
+          <div class="missionTop">
+            <div>
+              <h2 class="waveTitle" id="waveTitle">Wave 1</h2>
+              <p class="waveText" id="waveText">เตรียมเริ่มภารกิจ</p>
+            </div>
+            <div class="pillRow">
+              <span class="pill hot" id="modePill">Solo Arena</span>
+              <span class="pill" id="viewPill">Mobile</span>
+              <span class="pill" id="feverPill">Fever: พร้อม</span>
+            </div>
           </div>
+
+          <div class="timeTrack" aria-label="Item timer">
+            <div class="timeFill" id="itemTimeFill"></div>
+          </div>
+        </div>
+
+        <div class="foodZone">
+          <article class="foodCard" id="foodCard">
+            <div>
+              <div class="fakeLabel" id="fakeLabel">ป้ายหลอก</div>
+              <div class="foodEmoji" id="foodEmoji">🥦</div>
+              <div class="foodName" id="foodName">ผัก</div>
+              <div class="foodHint" id="foodHint">กดเริ่มเพื่อเข้า Wave Mission</div>
+            </div>
+          </article>
+        </div>
+
+        <section class="choices" id="choices" aria-label="Food group choices"></section>
+      </section>
+
+      <aside class="side">
+        <section class="panel bossPanel" id="bossPanel">
+          <h2>Boss Stage</h2>
+          <div class="bossName">
+            <span class="bossEmoji">👨‍🍳</span>
+            <span>
+              Chaos Chef
+              <small id="bossPhaseTxt" style="display:block;color:var(--muted);font-weight:900;">Phase 1</small>
+            </span>
+          </div>
+          <div class="hpTrack">
+            <div class="hpFill" id="bossHpFill"></div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Power-up</h2>
+          <div class="powerGrid">
+            <button class="power" id="btnShield" type="button">
+              <span>🛡 Shield <small>กันพลาด 1 ครั้ง</small></span>
+              <b id="shieldCount">1</b>
+            </button>
+            <button class="power" id="btnHint" type="button">
+              <span>💡 Hint <small>บอกหมู่ที่ถูก</small></span>
+              <b id="hintCount">2</b>
+            </button>
+            <button class="power" id="btnSlow" type="button">
+              <span>⏱ Slow <small>ชะลอเวลา</small></span>
+              <b id="slowCount">1</b>
+            </button>
+          </div>
+        </section>
+
+        <section class="panel logBox" id="logBox" aria-label="Game feedback log"></section>
+
+        <section class="panel">
+          <h2>จำให้แม่น</h2>
+          <div class="logItem">หมู่ 1 โปรตีน: เนื้อ นม ไข่ ถั่วเมล็ดแห้ง</div>
+          <div class="logItem">หมู่ 2 คาร์โบไฮเดรต: ข้าว แป้ง เผือก มัน น้ำตาล</div>
+          <div class="logItem">หมู่ 3 ผัก • หมู่ 4 ผลไม้ • หมู่ 5 ไขมัน</div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="bottomBar">
+      <div class="feedback" id="feedback">พร้อมแล้ว! กดเริ่มเพื่อจัดอาหารหลัก 5 หมู่ให้ทันเวลา</div>
+      <div class="navBtns">
+        <button class="navBtn" id="btnLauncher" type="button">🎮 โหมดเกม</button>
+        <button class="navBtn primary" id="btnZone" type="button">🍎 Nutrition Zone</button>
+        <button class="navBtn" id="btnHub" type="button">🏠 HUB</button>
+      </div>
+    </footer>
+  </div>
+
+  <div class="overlay" id="startOverlay">
+    <section class="modal">
+      <div class="modalIcon">🥇</div>
+      <h2>Groups Solo Arena v2</h2>
+      <p>
+        จัดอาหารให้ตรงกับอาหารหลัก 5 หมู่ของไทย ผ่าน 6 Wave Mission
+        มีคอมโบ Fever, Power-up, ป้ายหลอก, Memory Flash และบอส Chaos Chef
+      </p>
+
+      <div class="modalGrid">
+        <div class="infoCard">
+          <b>🌊 Wave Mission</b>
+          <span>แต่ละด่านมีจังหวะต่างกัน เล่นซ้ำแล้วไม่จำทางเดิมง่าย</span>
+        </div>
+        <div class="infoCard">
+          <b>🔥 Combo + Fever</b>
+          <span>ตอบถูกติดกันเพื่อเพิ่มคะแนนและโจมตีบอสแรงขึ้น</span>
+        </div>
+        <div class="infoCard">
+          <b>🧠 Memory Flash</b>
+          <span>บางช่วงชื่อหมู่จะถูกซ่อน ต้องจำให้แม่น</span>
+        </div>
+        <div class="infoCard">
+          <b>👨‍🍳 Chaos Chef</b>
+          <span>บอสมี 3 phase และใช้ป้ายหลอกให้สับสน</span>
         </div>
       </div>
 
-      <div class="overlay" id="midOverlay">
-        <div class="modal">
-          <div class="modalBadge">🚀</div>
-          <h2>พร้อมเริ่มรอบจริง</h2>
-          <p>
-            ฝึกเสร็จแล้ว รอบต่อไปจะนับคะแนนจริง
-            เป้าหมายจะเปลี่ยนไปเรื่อย ๆ เก็บให้เร็วและแม่นที่สุด
-          </p>
-          <div class="modalActions">
-            <button class="bigBtn green" id="btnStartMain" type="button">เริ่มรอบจริง</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="overlay" id="summaryOverlay">
-        <div class="modal">
-          <div class="modalBadge">🏆</div>
-          <h2>สรุปผล Food Groups Solo</h2>
-          <p id="summaryLead">ยอดเยี่ยมมาก! มาดูผลรอบนี้กัน</p>
-
-          <div class="stars" id="summaryStars">⭐⭐☆</div>
-          <div class="grade" id="summaryGrade">B</div>
-
-          <div class="summaryGrid">
-            <div class="summaryCard">
-              <h3>คะแนนรวม</h3>
-              <div class="big" id="sumScore">0</div>
-            </div>
-            <div class="summaryCard">
-              <h3>Accuracy</h3>
-              <div class="big" id="sumAcc">0%</div>
-            </div>
-            <div class="summaryCard">
-              <h3>Correct / Wrong / Miss</h3>
-              <div class="big" id="sumCwm">0 / 0 / 0</div>
-            </div>
-            <div class="summaryCard">
-              <h3>Best Streak</h3>
-              <div class="big" id="sumStreak">0</div>
-            </div>
-            <div class="summaryCard">
-              <h3>หมู่ที่เด่นที่สุด</h3>
-              <div class="big" id="sumBestCat">-</div>
-            </div>
-            <div class="summaryCard">
-              <h3>หมู่ที่ควรฝึกเพิ่ม</h3>
-              <div class="big" id="sumNeedCat">-</div>
-            </div>
-          </div>
-
-          <div class="modalActions">
-            <button class="bigBtn green" id="btnReplaySummary" type="button">เล่นอีกครั้ง</button>
-            <button class="bigBtn ghost" id="btnBackSummary" type="button">กลับ HUB</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="debugPanel" id="debugPanel"></div>
-    </section>
-
-    <section class="bottomBar">
-      <div class="stat">
-        <div class="statLabel">Goal</div>
-        <div class="statValue" id="statGoal">0 / 0</div>
-      </div>
-      <div class="stat">
-        <div class="statLabel">Accuracy</div>
-        <div class="statValue" id="statAcc">0%</div>
-      </div>
-      <div class="stat">
-        <div class="statLabel">Fever</div>
-        <div class="statValue" id="statFever">Ready</div>
-      </div>
-      <div class="stat">
-        <div class="statLabel">Miss</div>
-        <div class="statValue" id="statMiss">0</div>
+      <div class="modalActions">
+        <button class="bigBtn" id="btnStart" type="button">เริ่มเล่น Solo Arena</button>
+        <button class="bigBtn alt" id="btnPractice" type="button">โหมดซ้อมง่าย</button>
       </div>
     </section>
-  </main>
+  </div>
 
-  <script type="module">
-    const PATCH = 'v20260405-groups-shell-full-r1';
+  <div class="overlay hidden" id="summaryOverlay">
+    <section class="modal">
+      <div class="modalIcon" id="summaryIcon">🏆</div>
+      <h2 id="summaryTitle">สรุปผล</h2>
+      <p id="summaryText">เยี่ยมมาก!</p>
 
-    const q = new URL(location.href).searchParams;
+      <div class="modalGrid" id="summaryGrid"></div>
 
-    const ui = {
-      ctxLine: document.getElementById('ctxLine'),
-      chipPlayer: document.getElementById('chipPlayer'),
-      chipTime: document.getElementById('chipTime'),
-      chipScore: document.getElementById('chipScore'),
-      chipStreak: document.getElementById('chipStreak'),
+      <div class="modalActions">
+        <button class="bigBtn" id="btnReplay" type="button">เล่นซ้ำ</button>
+        <button class="bigBtn alt" id="btnSummaryLauncher" type="button">กลับหน้าโหมดเกม</button>
+        <button class="bigBtn alt" id="btnSummaryZone" type="button">กลับ Nutrition Zone</button>
+      </div>
+    </section>
+  </div>
 
-      goalTag: document.getElementById('goalTag'),
-      phaseTag: document.getElementById('phaseTag'),
-      goalTitle: document.getElementById('goalTitle'),
-      goalSub: document.getElementById('goalSub'),
-      coachBubble: document.getElementById('coachBubble'),
-      goalFill: document.getElementById('goalFill'),
+  <div class="toast" id="toast">พร้อมเล่น</div>
+  <div class="cvrCrosshair" aria-hidden="true"></div>
 
-      stageWrap: document.getElementById('stageWrap'),
-      stage: document.getElementById('stage'),
-      banner: document.getElementById('banner'),
-      crosshair: document.getElementById('crosshair'),
+  <script>
+    (() => {
+      'use strict';
 
-      statGoal: document.getElementById('statGoal'),
-      statAcc: document.getElementById('statAcc'),
-      statFever: document.getElementById('statFever'),
-      statMiss: document.getElementById('statMiss'),
+      const q = new URLSearchParams(location.search);
 
-      introOverlay: document.getElementById('introOverlay'),
-      midOverlay: document.getElementById('midOverlay'),
-      summaryOverlay: document.getElementById('summaryOverlay'),
+      const $ = (id) => document.getElementById(id);
 
-      btnStartPractice: document.getElementById('btnStartPractice'),
-      btnGoHubIntro: document.getElementById('btnGoHubIntro'),
-      btnStartMain: document.getElementById('btnStartMain'),
+      const els = {
+        root: $('gameRoot'),
+        subTitle: $('subTitle'),
+        scoreTxt: $('scoreTxt'),
+        timeTxt: $('timeTxt'),
+        lifeTxt: $('lifeTxt'),
+        comboTxt: $('comboTxt'),
+        accTxt: $('accTxt'),
 
-      btnReplayTop: document.getElementById('btnReplayTop'),
-      btnReplaySummary: document.getElementById('btnReplaySummary'),
-      btnBackTop: document.getElementById('btnBackTop'),
-      btnBackSummary: document.getElementById('btnBackSummary'),
-      btnRecenter: document.getElementById('btnRecenter'),
+        stage: $('stage'),
+        waveTitle: $('waveTitle'),
+        waveText: $('waveText'),
+        modePill: $('modePill'),
+        viewPill: $('viewPill'),
+        feverPill: $('feverPill'),
+        itemTimeFill: $('itemTimeFill'),
 
-      summaryLead: document.getElementById('summaryLead'),
-      summaryStars: document.getElementById('summaryStars'),
-      summaryGrade: document.getElementById('summaryGrade'),
-      sumScore: document.getElementById('sumScore'),
-      sumAcc: document.getElementById('sumAcc'),
-      sumCwm: document.getElementById('sumCwm'),
-      sumStreak: document.getElementById('sumStreak'),
-      sumBestCat: document.getElementById('sumBestCat'),
-      sumNeedCat: document.getElementById('sumNeedCat'),
+        foodCard: $('foodCard'),
+        fakeLabel: $('fakeLabel'),
+        foodEmoji: $('foodEmoji'),
+        foodName: $('foodName'),
+        foodHint: $('foodHint'),
+        choices: $('choices'),
 
-      debugPanel: document.getElementById('debugPanel'),
+        bossPanel: $('bossPanel'),
+        bossPhaseTxt: $('bossPhaseTxt'),
+        bossHpFill: $('bossHpFill'),
 
-      introTitle: document.getElementById('introTitle'),
-      introDesc: document.getElementById('introDesc')
-    };
+        btnShield: $('btnShield'),
+        btnHint: $('btnHint'),
+        btnSlow: $('btnSlow'),
+        shieldCount: $('shieldCount'),
+        hintCount: $('hintCount'),
+        slowCount: $('slowCount'),
 
-    const CTX = {
-      pid: cleanPid(q.get('pid') || 'anon'),
-      name: cleanName(q.get('name') || q.get('nick') || 'Rocky'),
-      studyId: String(q.get('studyId') || '').trim(),
-      diff: oneOf(q.get('diff'), ['easy','normal','hard'], 'normal'),
-      timeSec: clampInt(q.get('time'), 80, 30, 180),
-      seed: String(q.get('seed') || Date.now()),
-      hub: q.get('hub') || new URL('../hub.html', location.href).toString(),
-      view: oneOf(q.get('view'), ['pc','mobile','cvr','vr'], 'mobile'),
-      run: oneOf(q.get('run'), ['play','research','demo'], 'play'),
-      mode: 'solo',
-      game: 'groups',
-      gameId: 'groups',
-      zone: 'nutrition',
-      cat: 'nutrition',
-      theme: 'groups',
-      cooldown: q.get('cooldown') === '1',
-      returnPhase: q.get('returnPhase') || '',
-      cooldownGateUrl: new URL('../warmup-gate.html', location.href).toString(),
-      debug: q.get('debug') === '1'
-    };
+        logBox: $('logBox'),
+        feedback: $('feedback'),
 
-    window.__GROUPS_RUN_CTX__ = CTX;
+        btnLauncher: $('btnLauncher'),
+        btnZone: $('btnZone'),
+        btnHub: $('btnHub'),
 
-    const goalCardEl = document.querySelector('.goalCard');
-    const chipRowEl = document.querySelector('.chipRow');
-    const bottomBarEl = document.querySelector('.bottomBar');
+        startOverlay: $('startOverlay'),
+        summaryOverlay: $('summaryOverlay'),
+        summaryIcon: $('summaryIcon'),
+        summaryTitle: $('summaryTitle'),
+        summaryText: $('summaryText'),
+        summaryGrid: $('summaryGrid'),
 
-    const isCompactMobile =
-      CTX.view === 'mobile' &&
-      window.matchMedia('(max-width: 768px)').matches;
+        btnStart: $('btnStart'),
+        btnPractice: $('btnPractice'),
+        btnReplay: $('btnReplay'),
+        btnSummaryLauncher: $('btnSummaryLauncher'),
+        btnSummaryZone: $('btnSummaryZone'),
 
-    if (CTX.debug) document.body.classList.add('debug');
-    if (CTX.view === 'cvr' || CTX.view === 'vr') document.body.classList.add('view-cvr');
-    if (CTX.view === 'mobile') document.body.classList.add('view-mobile');
-    if (CTX.view === 'pc') document.body.classList.add('view-pc');
+        toast: $('toast')
+      };
 
-    if (isCompactMobile) {
-      document.body.classList.add('compact-mobile');
-
-      if (goalCardEl && ui.stageWrap) {
-        goalCardEl.classList.add('in-stage-goal');
-        ui.stageWrap.appendChild(goalCardEl);
-      }
-
-      if (bottomBarEl && ui.stageWrap) {
-        bottomBarEl.classList.add('in-stage-bottom');
-        ui.stageWrap.appendChild(bottomBarEl);
-      }
-
-      if (chipRowEl) {
-        chipRowEl.classList.add('compact-chip-row');
-      }
-    }
-
-    if (ui.btnRecenter && (CTX.view !== 'pc')) {
-      ui.btnRecenter.style.display = 'none';
-    }
-
-    try {
-      const [
-        { createGroupsLogger },
-        { createGroupsAiHooks },
-        { createGroupsRenderer },
-        { createGroupsSoloCore }
-      ] = await Promise.all([
-        import('./groups.log.js'),
-        import('./ai-hooks.js'),
-        import('./groups.renderer.js'),
-        import('./groups.solo.core.js')
-      ]);
-
-      const logger = createGroupsLogger(CTX, {
-        patch: PATCH,
-        maxLogs: 300
-      });
-
-      const ai = createGroupsAiHooks({
-        enabled: CTX.run !== 'research',
-        adaptive: true,
-        coach: true,
-        deterministic: CTX.run === 'research'
-      });
-
-      const renderer = createGroupsRenderer({
-        stageEl: ui.stage,
-        bannerEl: ui.banner,
-        goalFillEl: ui.goalFill,
-        debug: CTX.debug
-      });
-
-      const core = createGroupsSoloCore({
-        ctx: CTX,
-        ui,
-        renderer,
-        logger,
-        ai,
-        options: {
-          patch: PATCH
+      const GROUPS = [
+        {
+          id: 1,
+          key: 'protein',
+          label: 'โปรตีน',
+          short: 'โปรตีน',
+          icon: '🥚',
+          examples: 'เนื้อ นม ไข่ ถั่ว',
+          tip: 'หมู่ 1 โปรตีน ช่วยสร้างและซ่อมแซมร่างกาย'
+        },
+        {
+          id: 2,
+          key: 'carb',
+          label: 'คาร์โบไฮเดรต',
+          short: 'ข้าว/แป้ง',
+          icon: '🍚',
+          examples: 'ข้าว แป้ง เผือก มัน น้ำตาล',
+          tip: 'หมู่ 2 คาร์โบไฮเดรต ให้พลังงาน'
+        },
+        {
+          id: 3,
+          key: 'vegetable',
+          label: 'ผัก',
+          short: 'ผัก',
+          icon: '🥦',
+          examples: 'ผักต่าง ๆ',
+          tip: 'หมู่ 3 ผัก มีใยอาหารและช่วยให้ร่างกายแข็งแรง'
+        },
+        {
+          id: 4,
+          key: 'fruit',
+          label: 'ผลไม้',
+          short: 'ผลไม้',
+          icon: '🍎',
+          examples: 'ผลไม้ต่าง ๆ',
+          tip: 'หมู่ 4 ผลไม้ มีวิตามินและแร่ธาตุ'
+        },
+        {
+          id: 5,
+          key: 'fat',
+          label: 'ไขมัน',
+          short: 'ไขมัน',
+          icon: '🥑',
+          examples: 'น้ำมัน กะทิ เนย',
+          tip: 'หมู่ 5 ไขมัน ให้พลังงานและช่วยดูดซึมวิตามินบางชนิด'
         }
-      });
+      ];
 
-      window.__GROUPS_CORE__ = core;
-      core.boot();
+      const FOODS = [
+        { emoji:'🥚', name:'ไข่', group:1 },
+        { emoji:'🍗', name:'ไก่', group:1 },
+        { emoji:'🐟', name:'ปลา', group:1 },
+        { emoji:'🥛', name:'นม', group:1 },
+        { emoji:'🫘', name:'ถั่วเมล็ดแห้ง', group:1 },
+        { emoji:'🥩', name:'เนื้อสัตว์', group:1 },
 
-      if (CTX.view === 'cvr' || CTX.view === 'vr') {
-        const s = document.createElement('script');
-        s.src = '../vr/vr-ui.js';
-        s.async = true;
-        document.body.appendChild(s);
+        { emoji:'🍚', name:'ข้าว', group:2 },
+        { emoji:'🍞', name:'ขนมปัง', group:2 },
+        { emoji:'🥔', name:'มันฝรั่ง', group:2 },
+        { emoji:'🍠', name:'มันเทศ', group:2 },
+        { emoji:'🌽', name:'ข้าวโพด', group:2 },
+        { emoji:'🍜', name:'เส้นก๋วยเตี๋ยว', group:2 },
+
+        { emoji:'🥦', name:'บรอกโคลี', group:3 },
+        { emoji:'🥬', name:'ผักใบเขียว', group:3 },
+        { emoji:'🥕', name:'แครอต', group:3 },
+        { emoji:'🥒', name:'แตงกวา', group:3 },
+        { emoji:'🍅', name:'มะเขือเทศ', group:3 },
+        { emoji:'🌶️', name:'พริก', group:3 },
+
+        { emoji:'🍎', name:'แอปเปิล', group:4 },
+        { emoji:'🍌', name:'กล้วย', group:4 },
+        { emoji:'🍊', name:'ส้ม', group:4 },
+        { emoji:'🍇', name:'องุ่น', group:4 },
+        { emoji:'🍉', name:'แตงโม', group:4 },
+        { emoji:'🥭', name:'มะม่วง', group:4 },
+
+        { emoji:'🥑', name:'อะโวคาโด', group:5 },
+        { emoji:'🧈', name:'เนย', group:5 },
+        { emoji:'🥥', name:'กะทิ', group:5 },
+        { emoji:'🫒', name:'น้ำมันมะกอก', group:5 },
+        { emoji:'🥜', name:'ถั่วลิสง', group:5 },
+        { emoji:'🌰', name:'เมล็ดพืช', group:5 }
+      ];
+
+      const DIFF = {
+        easy: {
+          totalTime: 150,
+          itemMs: 7600,
+          lives: 4,
+          waveCounts: [5, 5, 5, 5, 7, 8],
+          bossHp: 90,
+          label: 'Easy'
+        },
+        normal: {
+          totalTime: 120,
+          itemMs: 6500,
+          lives: 3,
+          waveCounts: [5, 6, 6, 6, 8, 9],
+          bossHp: 110,
+          label: 'Normal'
+        },
+        hard: {
+          totalTime: 105,
+          itemMs: 5400,
+          lives: 3,
+          waveCounts: [6, 7, 7, 7, 9, 11],
+          bossHp: 130,
+          label: 'Hard'
+        },
+        challenge: {
+          totalTime: 90,
+          itemMs: 4600,
+          lives: 2,
+          waveCounts: [6, 8, 8, 8, 10, 12],
+          bossHp: 150,
+          label: 'Challenge'
+        }
+      };
+
+      const cfg = {
+        view: clean(q.get('view') || 'mobile'),
+        mode: clean(q.get('mode') || 'solo'),
+        diff: clean(q.get('diff') || 'normal'),
+        pid: clean(q.get('pid') || 'anon'),
+        name: clean(q.get('name') || q.get('nick') || q.get('nickName') || 'Hero'),
+        seed: clean(q.get('seed') || String(Date.now())),
+        time: Number(q.get('time') || 0),
+        waves: clamp(Number(q.get('waves') || 6), 3, 6),
+        practice: false
+      };
+
+      if (!DIFF[cfg.diff]) cfg.diff = 'normal';
+
+      const baseDiff = DIFF[cfg.diff];
+      const rng = makeRng(hashSeed(cfg.seed));
+
+      const ROUTES = {
+        launcher: '../group-v1.html',
+        zone: '../nutrition-zone.html',
+        hub: '../hub-v2.html'
+      };
+
+      const state = {
+        active: false,
+        ended: false,
+        screen: 'intro',
+
+        score: 0,
+        totalTime: cfg.time > 0 ? clamp(cfg.time, 60, 240) : baseDiff.totalTime,
+        timeLeft: cfg.time > 0 ? clamp(cfg.time, 60, 240) : baseDiff.totalTime,
+
+        lives: baseDiff.lives,
+        combo: 0,
+        maxCombo: 0,
+        feverLeft: 0,
+        feverUntil: 0,
+        shieldArmed: false,
+        slowUntil: 0,
+
+        attempts: 0,
+        correct: 0,
+        miss: 0,
+        timeoutMiss: 0,
+        responseTotal: 0,
+
+        waveIndex: 0,
+        waveItemIndex: 0,
+        waves: [],
+        current: null,
+        currentStarted: 0,
+        itemDeadline: 0,
+        itemDuration: baseDiff.itemMs,
+
+        bossHp: baseDiff.bossHp,
+        bossMaxHp: baseDiff.bossHp,
+        bossPhase: 1,
+
+        power: {
+          shield: 1,
+          hint: 2,
+          slow: 1
+        },
+
+        groupStats: {
+          1: { seen:0, correct:0, miss:0 },
+          2: { seen:0, correct:0, miss:0 },
+          3: { seen:0, correct:0, miss:0 },
+          4: { seen:0, correct:0, miss:0 },
+          5: { seen:0, correct:0, miss:0 }
+        },
+
+        recentFoods: [],
+        events: [],
+
+        totalTimer: null,
+        itemRaf: 0,
+        memoryTimer: 0,
+        nextTimer: 0
+      };
+
+      init();
+
+      function init(){
+        if (cfg.view === 'cvr') {
+          document.body.classList.add('view-cvr');
+        }
+
+        els.viewPill.textContent = cfg.view === 'cvr' ? 'cVR' : titleCase(cfg.view);
+        els.modePill.textContent = 'Solo Arena • ' + baseDiff.label;
+        els.subTitle.textContent = 'ผู้เล่น: ' + cfg.name + ' • อาหารหลัก 5 หมู่';
+
+        renderChoices(false);
+        bindEvents();
+        updateHud();
+        updatePowerButtons();
+        log('กดเริ่มเพื่อเข้า Food Groups Arena', 'good');
       }
 
-    } catch (err) {
-      console.error('[GroupsSolo] boot failed:', err);
-      showBootError(err);
-    }
+      function bindEvents(){
+        els.btnStart.addEventListener('click', () => startGame(false));
+        els.btnPractice.addEventListener('click', () => startGame(true));
+        els.btnReplay.addEventListener('click', () => replay());
+        els.btnSummaryLauncher.addEventListener('click', goLauncher);
+        els.btnSummaryZone.addEventListener('click', goZone);
 
-    function showBootError(err){
-      const msg = (err && err.message) ? err.message : String(err || 'unknown error');
+        els.btnLauncher.addEventListener('click', goLauncher);
+        els.btnZone.addEventListener('click', goZone);
+        els.btnHub.addEventListener('click', goHub);
 
-      document.body.classList.add('debug');
+        els.btnShield.addEventListener('click', useShield);
+        els.btnHint.addEventListener('click', useHint);
+        els.btnSlow.addEventListener('click', useSlow);
 
-      if (ui.introOverlay) ui.introOverlay.classList.add('show');
-      if (ui.midOverlay) ui.midOverlay.classList.remove('show');
-      if (ui.summaryOverlay) ui.summaryOverlay.classList.remove('show');
+        document.addEventListener('keydown', (ev) => {
+          if (!state.active) return;
+          const k = ev.key;
+          if (['1','2','3','4','5'].includes(k)) {
+            answer(Number(k));
+          } else if (k.toLowerCase() === 'h') {
+            useHint();
+          } else if (k.toLowerCase() === 's') {
+            useShield();
+          } else if (k.toLowerCase() === 't') {
+            useSlow();
+          } else if (k === ' ' || k === 'Enter') {
+            shootCenter();
+          }
+        });
 
-      if (ui.introTitle) {
-        ui.introTitle.textContent = 'เปิดเกมไม่สำเร็จ';
+        window.addEventListener('hha:shoot', shootCenter);
+        document.addEventListener('dblclick', () => {
+          if (cfg.view === 'cvr') shootCenter();
+        }, { passive:true });
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden && state.active) {
+            state.itemDeadline += 1200;
+          }
+        });
       }
-      if (ui.introDesc) {
-        ui.introDesc.textContent =
-          'โหลดโมดูลของ Groups Solo ไม่สำเร็จ กรุณาตรวจ path ไฟล์หรือ syntax error แล้วลองใหม่อีกครั้ง';
+
+      function startGame(practice){
+        cfg.practice = !!practice;
+
+        state.active = true;
+        state.ended = false;
+        state.screen = 'playing';
+
+        state.score = 0;
+        state.totalTime = practice ? 150 : (cfg.time > 0 ? clamp(cfg.time, 60, 240) : baseDiff.totalTime);
+        state.timeLeft = state.totalTime;
+        state.lives = practice ? 4 : baseDiff.lives;
+
+        state.combo = 0;
+        state.maxCombo = 0;
+        state.feverLeft = 0;
+        state.feverUntil = 0;
+        state.shieldArmed = false;
+        state.slowUntil = 0;
+
+        state.attempts = 0;
+        state.correct = 0;
+        state.miss = 0;
+        state.timeoutMiss = 0;
+        state.responseTotal = 0;
+
+        state.waveIndex = 0;
+        state.waveItemIndex = 0;
+        state.current = null;
+
+        state.bossHp = practice ? 80 : baseDiff.bossHp;
+        state.bossMaxHp = state.bossHp;
+        state.bossPhase = 1;
+
+        state.power.shield = practice ? 2 : 1;
+        state.power.hint = practice ? 3 : 2;
+        state.power.slow = practice ? 2 : 1;
+
+        state.groupStats = {
+          1: { seen:0, correct:0, miss:0 },
+          2: { seen:0, correct:0, miss:0 },
+          3: { seen:0, correct:0, miss:0 },
+          4: { seen:0, correct:0, miss:0 },
+          5: { seen:0, correct:0, miss:0 }
+        };
+
+        state.recentFoods = [];
+        state.events = [];
+        state.waves = buildWaves();
+
+        clearTimers();
+
+        els.startOverlay.classList.add('hidden');
+        els.summaryOverlay.classList.add('hidden');
+        els.logBox.innerHTML = '';
+        document.body.classList.remove('feverMode', 'slowMode');
+
+        updateHud();
+        updatePowerButtons();
+        startTotalTimer();
+        startWave(0);
+
+        toast(practice ? 'เริ่มโหมดซ้อมง่าย!' : 'เริ่ม Solo Arena!');
       }
-      if (ui.coachBubble) {
-        ui.coachBubble.textContent = `โค้ช: มีข้อผิดพลาดตอนเปิดเกม — ${msg}`;
+
+      function buildWaves(){
+        const counts = baseDiff.waveCounts.slice();
+        if (cfg.practice) {
+          for (let i = 0; i < counts.length; i++) counts[i] = Math.max(4, counts[i] - 2);
+        }
+
+        return [
+          {
+            title:'Wave 1: Rookie Sort',
+            text:'จัดอาหารให้ถูกหมู่แบบพื้นฐาน เริ่มจับจังหวะให้แม่น',
+            count:counts[0],
+            speed:1,
+            trap:false,
+            memory:false,
+            storm:false,
+            boss:false
+          },
+          {
+            title:'Wave 2: Speed Combo',
+            text:'ตอบให้ถูกต่อเนื่องเพื่อสร้างคอมโบ ยิ่งเร็วคะแนนยิ่งดี',
+            count:counts[1],
+            speed:1.14,
+            trap:false,
+            memory:false,
+            storm:false,
+            boss:false
+          },
+          {
+            title:'Wave 3: Trap Label',
+            text:'ระวังป้ายหลอก! ให้ดูอาหารจริง ไม่ใช่ดูป้าย',
+            count:counts[2],
+            speed:1.18,
+            trap:true,
+            memory:false,
+            storm:false,
+            boss:false
+          },
+          {
+            title:'Wave 4: Memory Flash',
+            text:'ชื่อหมู่จะถูกซ่อนช่วงท้าย ต้องจำอาหารหลัก 5 หมู่ให้แม่น',
+            count:counts[3],
+            speed:1.22,
+            trap:false,
+            memory:true,
+            storm:false,
+            boss:false
+          },
+          {
+            title:'Wave 5: Food Storm',
+            text:'อาหารมาไวขึ้น ต้องนิ่ง เร็ว และแม่น',
+            count:counts[4],
+            speed:1.34,
+            trap:true,
+            memory:true,
+            storm:true,
+            boss:false
+          },
+          {
+            title:'Final Wave: Chaos Chef',
+            text:'โจมตีบอสด้วยคำตอบที่ถูกต้อง ระวังป้ายหลอกและเวลาเร่งขึ้น',
+            count:counts[5],
+            speed:1.38,
+            trap:true,
+            memory:true,
+            storm:true,
+            boss:true
+          }
+        ].slice(0, cfg.waves);
       }
-      if (ui.debugPanel) {
-        ui.debugPanel.textContent = `BOOT ERROR\nPATCH: ${PATCH}\n${msg}`;
+
+      function startTotalTimer(){
+        clearInterval(state.totalTimer);
+        state.totalTimer = setInterval(() => {
+          if (!state.active || state.ended) return;
+
+          state.timeLeft -= 1;
+          if (state.feverUntil && Date.now() > state.feverUntil) {
+            stopFever();
+          }
+          if (state.slowUntil && Date.now() > state.slowUntil) {
+            stopSlow();
+          }
+
+          updateHud();
+
+          if (state.timeLeft <= 0) {
+            endGame(false, 'หมดเวลาแล้ว');
+          }
+        }, 1000);
       }
 
-      if (ui.btnStartPractice) ui.btnStartPractice.disabled = true;
-      if (ui.btnStartMain) ui.btnStartMain.disabled = true;
-    }
+      function startWave(index){
+        if (index >= state.waves.length) {
+          endGame(true, 'ผ่านครบทุก Wave แล้ว!');
+          return;
+        }
 
-    function cleanPid(v){
-      return String(v || 'anon')
-        .trim()
-        .replace(/[.#$[\]/]/g, '-')
-        .replace(/\s+/g, '-')
-        .slice(0, 36) || 'anon';
-    }
+        state.waveIndex = index;
+        state.waveItemIndex = 0;
 
-    function cleanName(v){
-      return String(v || '')
-        .trim()
-        .replace(/\s+/g, ' ')
-        .slice(0, 24) || 'Rocky';
-    }
+        const wave = state.waves[index];
 
-    function oneOf(v, list, fallback){
-      const s = String(v || '').trim();
-      return list.includes(s) ? s : fallback;
-    }
+        els.waveTitle.textContent = wave.title;
+        els.waveText.textContent = wave.text;
+        els.stage.classList.remove('memoryHidden');
 
-    function clampInt(v, fallback, min, max){
-      const n = Number(v);
-      if (!Number.isFinite(n)) return fallback;
-      return Math.max(min, Math.min(max, Math.round(n)));
-    }
+        if (wave.boss) {
+          els.bossPanel.classList.add('show');
+          state.bossHp = Math.max(state.bossHp, Math.round(state.bossMaxHp * 0.72));
+          updateBoss();
+          log('👨‍🍳 Chaos Chef มาแล้ว! ตอบถูกเพื่อโจมตีบอส', 'bad');
+          toast('Final Boss: Chaos Chef!');
+        } else {
+          els.bossPanel.classList.remove('show');
+          log('🌊 ' + wave.title, 'good');
+          toast(wave.title);
+        }
+
+        setFeedback(wave.text);
+        nextItem();
+      }
+
+      function nextItem(){
+        clearItemTimers();
+
+        if (!state.active || state.ended) return;
+
+        if (state.lives <= 0) {
+          endGame(false, 'หัวใจหมดแล้ว');
+          return;
+        }
+
+        if (state.timeLeft <= 0) {
+          endGame(false, 'หมดเวลาแล้ว');
+          return;
+        }
+
+        const wave = state.waves[state.waveIndex];
+
+        if (!wave) {
+          endGame(true, 'จบเกมแล้ว');
+          return;
+        }
+
+        if (!wave.boss && state.waveItemIndex >= wave.count) {
+          startWave(state.waveIndex + 1);
+          return;
+        }
+
+        if (wave.boss && state.bossHp <= 0) {
+          endGame(true, 'ปราบ Chaos Chef สำเร็จ!');
+          return;
+        }
+
+        if (wave.boss && state.waveItemIndex >= wave.count && state.bossHp > 0) {
+          state.waveItemIndex = Math.max(0, wave.count - 4);
+          log('บอสยังไม่แพ้! ต่อเวลาโจมตีอีกชุด', 'bad');
+        }
+
+        const item = buildItem(wave);
+        state.current = item;
+        state.currentStarted = Date.now();
+        state.itemDuration = computeItemDuration(wave);
+        state.itemDeadline = Date.now() + state.itemDuration;
+        state.waveItemIndex += 1;
+
+        renderItem(item, wave);
+        updateHud();
+        tickItemTimer();
+      }
+
+      function buildItem(wave){
+        let food = null;
+        let guard = 0;
+
+        while (!food && guard < 30) {
+          const candidate = FOODS[Math.floor(rng() * FOODS.length)];
+          if (!state.recentFoods.includes(candidate.name)) food = candidate;
+          guard += 1;
+        }
+
+        if (!food) food = FOODS[Math.floor(rng() * FOODS.length)];
+
+        state.recentFoods.push(food.name);
+        if (state.recentFoods.length > 4) state.recentFoods.shift();
+
+        let fakeGroup = null;
+        const trapChance = wave.boss ? bossTrapChance() : (wave.trap ? 0.38 : 0);
+
+        if (rng() < trapChance) {
+          const wrong = GROUPS.filter(g => g.id !== food.group);
+          fakeGroup = wrong[Math.floor(rng() * wrong.length)];
+        }
+
+        return {
+          food,
+          answer: food.group,
+          fakeGroup,
+          bonus: rng() < 0.12 ? 'star' : ''
+        };
+      }
+
+      function computeItemDuration(wave){
+        let ms = baseDiff.itemMs;
+
+        if (cfg.practice) ms += 900;
+        ms = Math.round(ms / wave.speed);
+
+        if (wave.boss) {
+          ms = Math.round(ms / (1 + ((state.bossPhase - 1) * 0.13)));
+        }
+
+        if (state.slowUntil && Date.now() < state.slowUntil) {
+          ms = Math.round(ms * 1.45);
+        }
+
+        return clamp(ms, 2600, 9200);
+      }
+
+      function renderItem(item, wave){
+        const food = item.food;
+        const group = getGroup(food.group);
+
+        els.foodCard.classList.remove('pop');
+        void els.foodCard.offsetWidth;
+        els.foodCard.classList.add('pop');
+
+        els.foodEmoji.textContent = food.emoji;
+        els.foodName.textContent = food.name;
+        els.foodHint.textContent = 'อาหารนี้อยู่หมู่ไหน?';
+
+        if (item.fakeGroup) {
+          els.fakeLabel.textContent = '⚠️ ป้ายหลอก: อาจเป็นหมู่ ' + item.fakeGroup.id + ' ' + item.fakeGroup.short;
+          els.fakeLabel.classList.add('show');
+        } else {
+          els.fakeLabel.classList.remove('show');
+          els.fakeLabel.textContent = '';
+        }
+
+        renderChoices(false);
+
+        if (wave.memory) {
+          clearTimeout(state.memoryTimer);
+          const hideDelay = wave.boss ? 1450 : 2100;
+          state.memoryTimer = setTimeout(() => {
+            if (!state.active || state.ended) return;
+            els.stage.classList.add('memoryHidden');
+            els.foodHint.textContent = 'Memory Flash! จำชื่อหมู่ให้ได้';
+          }, hideDelay);
+        } else {
+          els.stage.classList.remove('memoryHidden');
+        }
+
+        if (wave.boss) {
+          updateBoss();
+        }
+
+        state.groupStats[food.group].seen += 1;
+      }
+
+      function renderChoices(){
+        els.choices.innerHTML = GROUPS.map(g => {
+          return [
+            '<button class="choice" type="button" data-group="' + g.id + '" aria-label="หมู่ ' + g.id + ' ' + esc(g.label) + '">',
+              '<span class="num">' + g.id + '</span>',
+              '<span class="name">หมู่ ' + g.id + ' ' + esc(g.short) + '</span>',
+              '<span class="ex">' + esc(g.examples) + '</span>',
+            '</button>'
+          ].join('');
+        }).join('');
+
+        els.choices.querySelectorAll('[data-group]').forEach(btn => {
+          btn.addEventListener('click', () => answer(Number(btn.dataset.group)));
+        });
+      }
+
+      function answer(groupId){
+        if (!state.active || state.ended || !state.current) return;
+
+        const item = state.current;
+        state.current = null;
+
+        clearItemTimers();
+
+        const food = item.food;
+        const correct = groupId === item.answer;
+        const answerGroup = getGroup(groupId);
+        const trueGroup = getGroup(item.answer);
+        const rt = Date.now() - state.currentStarted;
+
+        state.attempts += 1;
+        state.responseTotal += rt;
+
+        const event = {
+          type: 'answer',
+          ts: Date.now(),
+          wave: state.waveIndex + 1,
+          food: food.name,
+          emoji: food.emoji,
+          trueGroup: item.answer,
+          answerGroup: groupId,
+          correct,
+          rt,
+          comboBefore: state.combo,
+          fever: isFever()
+        };
+        state.events.push(event);
+
+        if (correct) {
+          state.correct += 1;
+          state.groupStats[item.answer].correct += 1;
+
+          state.combo += 1;
+          state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+          const speedBonus = Math.max(0, Math.round((state.itemDeadline - Date.now()) / 80));
+          let gain = 100 + speedBonus + Math.min(120, state.combo * 8);
+
+          if (item.bonus === 'star') gain += 40;
+          if (isFever()) gain *= 2;
+
+          state.score += gain;
+
+          if (state.combo > 0 && state.combo % 5 === 0) {
+            startFever();
+          }
+
+          const wave = state.waves[state.waveIndex];
+          if (wave && wave.boss) {
+            const damage = Math.round((isFever() ? 18 : 12) + Math.min(18, state.combo * 1.5));
+            state.bossHp = Math.max(0, state.bossHp - damage);
+            updateBoss();
+            setFeedback('✅ ถูกต้อง! ' + food.name + ' = หมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' • โจมตีบอส ' + damage + ' แต้ม');
+            log('✅ ' + food.emoji + ' ' + food.name + ' → หมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' +' + gain, 'good');
+          } else {
+            setFeedback('✅ ถูกต้อง! ' + trueGroup.tip + ' +' + gain);
+            log('✅ ' + food.emoji + ' ' + food.name + ' → หมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' +' + gain, 'good');
+          }
+
+          playTone('good');
+          flashStage('good');
+        } else {
+          applyMiss('ผิดหมู่', item, answerGroup, trueGroup);
+        }
+
+        updateHud();
+
+        state.nextTimer = setTimeout(() => {
+          nextItem();
+        }, correct ? 620 : 900);
+      }
+
+      function applyMiss(reason, item, answerGroup, trueGroup){
+        const food = item.food;
+
+        state.miss += 1;
+        state.groupStats[item.answer].miss += 1;
+
+        if (state.shieldArmed) {
+          state.shieldArmed = false;
+          setFeedback('🛡 Shield ช่วยไว้! ' + food.name + ' คือหมู่ ' + trueGroup.id + ' ' + trueGroup.short);
+          log('🛡 Shield กันพลาด: ' + food.emoji + ' ' + food.name, 'good');
+          playTone('shield');
+        } else {
+          state.lives = Math.max(0, state.lives - 1);
+          state.combo = 0;
+
+          const wave = state.waves[state.waveIndex];
+          if (wave && wave.boss) {
+            state.bossHp = Math.min(state.bossMaxHp, state.bossHp + 6);
+            updateBoss();
+          }
+
+          const answerText = answerGroup ? 'คุณตอบหมู่ ' + answerGroup.id + ' ' + answerGroup.short : 'หมดเวลา';
+          setFeedback('❌ ' + reason + ' — ' + food.name + ' คือหมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' (' + answerText + ')');
+          log('❌ ' + food.emoji + ' ' + food.name + ' คือหมู่ ' + trueGroup.id + ' ' + trueGroup.short, 'bad');
+          playTone('bad');
+          flashStage('bad');
+        }
+
+        updateHud();
+      }
+
+      function timeoutCurrent(){
+        if (!state.active || state.ended || !state.current) return;
+
+        const item = state.current;
+        state.current = null;
+        state.attempts += 1;
+        state.timeoutMiss += 1;
+
+        const trueGroup = getGroup(item.answer);
+
+        state.events.push({
+          type: 'timeout',
+          ts: Date.now(),
+          wave: state.waveIndex + 1,
+          food: item.food.name,
+          emoji: item.food.emoji,
+          trueGroup: item.answer,
+          correct: false,
+          rt: state.itemDuration,
+          fever: isFever()
+        });
+
+        applyMiss('หมดเวลา', item, null, trueGroup);
+
+        state.nextTimer = setTimeout(() => {
+          nextItem();
+        }, 780);
+      }
+
+      function tickItemTimer(){
+        cancelAnimationFrame(state.itemRaf);
+
+        const tick = () => {
+          if (!state.active || state.ended || !state.current) return;
+
+          const now = Date.now();
+          const remain = Math.max(0, state.itemDeadline - now);
+          const pct = clamp((remain / state.itemDuration) * 100, 0, 100);
+
+          els.itemTimeFill.style.width = pct.toFixed(1) + '%';
+
+          if (remain <= 0) {
+            timeoutCurrent();
+            return;
+          }
+
+          state.itemRaf = requestAnimationFrame(tick);
+        };
+
+        tick();
+      }
+
+      function startFever(){
+        state.feverUntil = Date.now() + 7000;
+        document.body.classList.add('feverMode');
+        els.feverPill.textContent = '🔥 FEVER x2';
+        toast('🔥 FEVER MODE! คะแนน x2');
+        playTone('fever');
+      }
+
+      function stopFever(){
+        state.feverUntil = 0;
+        document.body.classList.remove('feverMode');
+        els.feverPill.textContent = 'Fever: พร้อม';
+      }
+
+      function isFever(){
+        return state.feverUntil && Date.now() < state.feverUntil;
+      }
+
+      function useShield(){
+        if (!state.active || state.ended) return;
+        if (state.power.shield <= 0 || state.shieldArmed) return;
+
+        state.power.shield -= 1;
+        state.shieldArmed = true;
+        updatePowerButtons();
+        setFeedback('🛡 เปิด Shield แล้ว กันพลาดได้ 1 ครั้ง');
+        toast('Shield พร้อมป้องกัน!');
+        playTone('shield');
+      }
+
+      function useHint(){
+        if (!state.active || state.ended || !state.current) return;
+        if (state.power.hint <= 0) return;
+
+        state.power.hint -= 1;
+        const group = getGroup(state.current.answer);
+        els.foodHint.textContent = '💡 Hint: อยู่หมู่ ' + group.id + ' ' + group.short;
+        setFeedback('💡 Hint: ' + state.current.food.name + ' อยู่หมู่ ' + group.id + ' ' + group.short);
+        updatePowerButtons();
+        toast('ใช้ Hint แล้ว');
+        playTone('hint');
+      }
+
+      function useSlow(){
+        if (!state.active || state.ended) return;
+        if (state.power.slow <= 0) return;
+
+        state.power.slow -= 1;
+        state.slowUntil = Date.now() + 6500;
+        document.body.classList.add('slowMode');
+
+        if (state.current) {
+          state.itemDeadline += 2600;
+          state.itemDuration += 2600;
+        }
+
+        updatePowerButtons();
+        setFeedback('⏱ Slow Time! อาหารจะช้าลงช่วงสั้น ๆ');
+        toast('Slow Time ทำงาน!');
+        playTone('hint');
+      }
+
+      function stopSlow(){
+        state.slowUntil = 0;
+        document.body.classList.remove('slowMode');
+      }
+
+      function updateBoss(){
+        const pct = state.bossMaxHp > 0 ? (state.bossHp / state.bossMaxHp) * 100 : 0;
+        els.bossHpFill.style.width = clamp(pct, 0, 100).toFixed(1) + '%';
+
+        let phase = 1;
+        if (pct <= 34) phase = 3;
+        else if (pct <= 67) phase = 2;
+
+        if (phase !== state.bossPhase) {
+          state.bossPhase = phase;
+          log('👨‍🍳 Chaos Chef เข้าสู่ Phase ' + phase + '!', 'bad');
+          toast('Boss Phase ' + phase + '!');
+        }
+
+        els.bossPhaseTxt.textContent = 'Phase ' + state.bossPhase + ' • HP ' + Math.max(0, Math.round(state.bossHp)) + '/' + state.bossMaxHp;
+      }
+
+      function bossTrapChance(){
+        if (state.bossPhase === 1) return 0.40;
+        if (state.bossPhase === 2) return 0.52;
+        return 0.64;
+      }
+
+      function updateHud(){
+        els.scoreTxt.textContent = String(Math.round(state.score));
+        els.timeTxt.textContent = String(Math.max(0, Math.round(state.timeLeft)));
+        els.lifeTxt.textContent = '❤️'.repeat(state.lives) || '💔';
+        els.comboTxt.textContent = String(state.combo);
+
+        const acc = state.attempts ? Math.round((state.correct / state.attempts) * 100) : 0;
+        els.accTxt.textContent = acc + '%';
+
+        const wave = state.waves[state.waveIndex];
+        if (wave) {
+          const progress = wave.boss
+            ? 'Boss'
+            : Math.min(state.waveItemIndex + 1, wave.count) + '/' + wave.count;
+
+          els.modePill.textContent = 'Wave ' + (state.waveIndex + 1) + ' • ' + progress;
+        }
+
+        if (isFever()) {
+          const left = Math.max(0, Math.ceil((state.feverUntil - Date.now()) / 1000));
+          els.feverPill.textContent = '🔥 FEVER ' + left + 's';
+        }
+      }
+
+      function updatePowerButtons(){
+        els.shieldCount.textContent = String(state.power.shield);
+        els.hintCount.textContent = String(state.power.hint);
+        els.slowCount.textContent = String(state.power.slow);
+
+        els.btnShield.disabled = state.power.shield <= 0 || state.shieldArmed || !state.active;
+        els.btnHint.disabled = state.power.hint <= 0 || !state.active;
+        els.btnSlow.disabled = state.power.slow <= 0 || !state.active;
+      }
+
+      function endGame(win, reason){
+        if (state.ended) return;
+
+        state.active = false;
+        state.ended = true;
+        state.screen = 'summary';
+
+        clearTimers();
+        stopFever();
+        stopSlow();
+
+        const summary = buildSummary(win, reason);
+        saveSummary(summary);
+        renderSummary(summary);
+
+        els.summaryOverlay.classList.remove('hidden');
+        updatePowerButtons();
+
+        playTone(win ? 'win' : 'bad');
+      }
+
+      function buildSummary(win, reason){
+        const acc = state.attempts ? Math.round((state.correct / state.attempts) * 100) : 0;
+        const avgRt = state.correct ? Math.round(state.responseTotal / Math.max(1, state.attempts)) : 0;
+        const weak = findWeakGroup();
+
+        let stars = 1;
+        if (acc >= 70) stars = 2;
+        if (acc >= 82 && state.maxCombo >= 5) stars = 3;
+        if (acc >= 92 && state.maxCombo >= 8 && win) stars = 4;
+        if (acc >= 96 && state.maxCombo >= 10 && win) stars = 5;
+
+        return {
+          schema: 'hha-groups-solo-arena-v2',
+          gameId: 'groups',
+          mode: 'solo',
+          player: cfg.name,
+          pid: cfg.pid,
+          diff: cfg.diff,
+          view: cfg.view,
+          seed: cfg.seed,
+          win,
+          reason,
+          score: Math.round(state.score),
+          stars,
+          accuracy: acc,
+          attempts: state.attempts,
+          correct: state.correct,
+          miss: state.miss,
+          timeoutMiss: state.timeoutMiss,
+          maxCombo: state.maxCombo,
+          avgResponseMs: avgRt,
+          weakGroup: weak,
+          groupStats: state.groupStats,
+          completedAt: bangkokIsoNow(),
+          eventsCount: state.events.length
+        };
+      }
+
+      function renderSummary(summary){
+        els.summaryIcon.textContent = summary.win ? '🏆' : '⭐';
+        els.summaryTitle.textContent = summary.win ? 'ชนะแล้ว! ปราบ Chaos Chef สำเร็จ' : 'สรุปผลการฝึก';
+        els.summaryText.textContent =
+          summary.reason + ' • ได้ ' + summary.stars + ' ดาว • ความแม่นยำ ' + summary.accuracy + '%';
+
+        const weakText = summary.weakGroup
+          ? 'หมู่ ' + summary.weakGroup.id + ' ' + summary.weakGroup.short
+          : 'ยังไม่มีหมู่ที่พลาดชัดเจน';
+
+        els.summaryGrid.innerHTML = [
+          infoHtml('คะแนน', String(summary.score), 'ยิ่งตอบเร็วและต่อคอมโบ คะแนนยิ่งสูง'),
+          infoHtml('ความแม่นยำ', summary.accuracy + '%', summary.correct + '/' + summary.attempts + ' ครั้ง'),
+          infoHtml('คอมโบสูงสุด', String(summary.maxCombo), 'คอมโบช่วยเปิด Fever Mode'),
+          infoHtml('หมู่ที่ควรฝึกเพิ่ม', weakText, 'ใช้เป็นข้อมูล learning analytics ต่อได้'),
+          infoHtml('เวลาตอบเฉลี่ย', summary.avgResponseMs + ' ms', 'ดูความคล่องในการจำแนกอาหาร'),
+          infoHtml('ดาวที่ได้', '⭐'.repeat(summary.stars), 'เป้าหมายคือ 4–5 ดาว')
+        ].join('');
+      }
+
+      function saveSummary(summary){
+        try {
+          localStorage.setItem('HHA_GROUPS_LAST_SUMMARY', JSON.stringify(summary));
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+        } catch (_) {}
+      }
+
+      function findWeakGroup(){
+        let worst = null;
+        let worstMissRate = 0;
+
+        GROUPS.forEach(g => {
+          const st = state.groupStats[g.id];
+          if (!st || st.seen <= 0) return;
+
+          const rate = st.miss / st.seen;
+          if (st.miss > 0 && rate >= worstMissRate) {
+            worstMissRate = rate;
+            worst = g;
+          }
+        });
+
+        return worst;
+      }
+
+      function replay(){
+        els.summaryOverlay.classList.add('hidden');
+        startGame(cfg.practice);
+      }
+
+      function clearTimers(){
+        clearInterval(state.totalTimer);
+        clearItemTimers();
+        clearTimeout(state.nextTimer);
+      }
+
+      function clearItemTimers(){
+        cancelAnimationFrame(state.itemRaf);
+        clearTimeout(state.memoryTimer);
+        els.stage.classList.remove('memoryHidden');
+      }
+
+      function setFeedback(text){
+        els.feedback.textContent = text;
+      }
+
+      function log(text, kind){
+        const item = document.createElement('div');
+        item.className = 'logItem ' + (kind || '');
+        item.textContent = text;
+        els.logBox.prepend(item);
+
+        while (els.logBox.children.length > 7) {
+          els.logBox.removeChild(els.logBox.lastElementChild);
+        }
+      }
+
+      function flashStage(kind){
+        const cls = kind === 'good' ? 'fxGood' : 'fxBad';
+        els.stage.classList.remove(cls);
+        void els.stage.offsetWidth;
+        els.stage.classList.add(cls);
+        setTimeout(() => els.stage.classList.remove(cls), 320);
+      }
+
+      function shootCenter(){
+        if (!state.active || state.ended) return;
+
+        const buttons = Array.from(els.choices.querySelectorAll('.choice'));
+        if (!buttons.length) return;
+
+        const cx = window.innerWidth / 2;
+        const cy = window.innerHeight / 2;
+
+        let best = null;
+        let bestDist = Infinity;
+
+        buttons.forEach(btn => {
+          const r = btn.getBoundingClientRect();
+          const bx = r.left + r.width / 2;
+          const by = r.top + r.height / 2;
+          const d = Math.hypot(cx - bx, cy - by);
+          if (d < bestDist) {
+            bestDist = d;
+            best = btn;
+          }
+        });
+
+        if (best) best.click();
+      }
+
+      function toast(text){
+        els.toast.textContent = text;
+        els.toast.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => els.toast.classList.remove('show'), 1700);
+      }
+
+      function goLauncher(){
+        location.href = buildReturnUrl(ROUTES.launcher);
+      }
+
+      function goZone(){
+        location.href = buildReturnUrl(ROUTES.zone);
+      }
+
+      function goHub(){
+        const hub = q.get('hubRoot') || q.get('hub') || ROUTES.hub;
+        location.href = safeUrl(hub, ROUTES.hub);
+      }
+
+      function buildReturnUrl(path){
+        const u = new URL(path, location.href);
+        const passKeys = [
+          'pid','name','nick','nickName','studyId',
+          'run','diff','view','time','seed',
+          'debug','api','log',
+          'studentKey','schoolCode','classRoom','studentNo',
+          'conditionGroup','sessionNo','weekNo','teacher','grade',
+          'hub','hubRoot'
+        ];
+
+        passKeys.forEach(k => {
+          const v = q.get(k);
+          if (v != null && v !== '') u.searchParams.set(k, v);
+        });
+
+        if (!u.searchParams.get('pid')) u.searchParams.set('pid', cfg.pid);
+        if (!u.searchParams.get('name')) u.searchParams.set('name', cfg.name);
+        if (!u.searchParams.get('diff')) u.searchParams.set('diff', cfg.diff);
+        if (!u.searchParams.get('view')) u.searchParams.set('view', cfg.view);
+        u.searchParams.set('game', 'groups');
+        u.searchParams.set('gameId', 'groups');
+        u.searchParams.set('cat', 'nutrition');
+
+        return u.toString();
+      }
+
+      function safeUrl(raw, fallback){
+        try {
+          const s = String(raw || '').trim();
+          if (!s) return new URL(fallback, location.href).toString();
+
+          let decoded = s;
+          for (let i = 0; i < 2; i++) {
+            try {
+              const d = decodeURIComponent(decoded);
+              if (d === decoded) break;
+              decoded = d;
+            } catch (_) {
+              break;
+            }
+          }
+
+          return new URL(decoded, location.href).toString();
+        } catch (_) {
+          return new URL(fallback, location.href).toString();
+        }
+      }
+
+      function getGroup(id){
+        return GROUPS.find(g => g.id === Number(id)) || GROUPS[0];
+      }
+
+      function infoHtml(title, value, note){
+        return [
+          '<div class="infoCard">',
+            '<b>' + esc(title) + '</b>',
+            '<span style="font-size:1.25rem;color:var(--text);font-weight:1000;">' + esc(value) + '</span>',
+            '<span>' + esc(note) + '</span>',
+          '</div>'
+        ].join('');
+      }
+
+      function playTone(kind){
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          if (!AudioContext) return;
+
+          const ctx = playTone._ctx || new AudioContext();
+          playTone._ctx = ctx;
+
+          if (ctx.state === 'suspended') ctx.resume();
+
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+
+          let freq = 520;
+          let dur = 0.10;
+
+          if (kind === 'good') { freq = 680; dur = 0.09; }
+          else if (kind === 'bad') { freq = 180; dur = 0.16; }
+          else if (kind === 'fever') { freq = 880; dur = 0.18; }
+          else if (kind === 'shield') { freq = 430; dur = 0.12; }
+          else if (kind === 'hint') { freq = 760; dur = 0.08; }
+          else if (kind === 'win') { freq = 980; dur = 0.22; }
+
+          o.type = kind === 'bad' ? 'sawtooth' : 'sine';
+          o.frequency.value = freq;
+
+          g.gain.setValueAtTime(0.0001, ctx.currentTime);
+          g.gain.exponentialRampToValueAtTime(0.055, ctx.currentTime + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+
+          o.connect(g);
+          g.connect(ctx.destination);
+          o.start();
+          o.stop(ctx.currentTime + dur + 0.02);
+        } catch (_) {}
+      }
+
+      function makeRng(seed){
+        let a = seed >>> 0;
+        return function(){
+          a += 0x6D2B79F5;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function hashSeed(s){
+        s = String(s || 'seed');
+        let h = 2166136261;
+        for (let i = 0; i < s.length; i++) {
+          h ^= s.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      function bangkokIsoNow(){
+        const d = new Date();
+        const local = new Date(d.getTime() + (7 * 60 * 60 * 1000));
+        return local.toISOString().replace('Z', '+07:00');
+      }
+
+      function clean(v){
+        return String(v == null ? '' : v).trim();
+      }
+
+      function clamp(v, min, max){
+        v = Number(v);
+        if (!Number.isFinite(v)) v = min;
+        return Math.max(min, Math.min(max, v));
+      }
+
+      function titleCase(s){
+        s = String(s || '');
+        return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+      }
+
+      function esc(s){
+        return String(s == null ? '' : s)
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#39;");
+      }
+    })();
   </script>
 </body>
 </html>
