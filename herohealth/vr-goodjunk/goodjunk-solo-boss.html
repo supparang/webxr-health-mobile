@@ -521,8 +521,11 @@
         nutritionZone: 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
         goodjunkLauncher: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
 
-        // ปุ่ม “กลับหน้าหลัก” ใน warmup/cooldown ต้องไป Hub v2
-        hub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html',
+        // ปลายทางของ launcher ตามที่กำหนด: hub=hub.html
+        launcherHub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
+
+        // ปุ่ม “กลับหน้าหลัก” ใน warmup/cooldown ไป Hub v2
+        gateMainHub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html',
 
         // Warmup/Cooldown gate อยู่ที่ /herohealth/warmup-gate.html
         // Warmup  = warmup-gate.html?phase=warmup
@@ -547,9 +550,7 @@
         keep.set('diff', q('diff', 'normal'));
         keep.set('time', q('time', '120'));
         keep.set('view', q('view', 'mobile'));
-
-        // Nutrition Zone กลับหน้าหลักเป็น Hub v2
-        keep.set('hub', CANONICAL.hub);
+        keep.set('hub', CANONICAL.gateMainHub);
 
         return CANONICAL.nutritionZone + '?' + keep.toString();
       }
@@ -560,11 +561,13 @@
         keep.set('pid', q('pid', 'anon'));
         keep.set('name', playerName());
         keep.set('diff', q('diff', 'normal'));
-        keep.set('time', q('time', '90'));
-        keep.set('view', q('view', 'pc'));
 
-        // GoodJunk Launcher กลับหน้าหลักเป็น Hub v2
-        keep.set('hub', CANONICAL.hub);
+        // ตาม URL ที่กำหนด: time=90 และ view=mobile
+        keep.set('time', '90');
+        keep.set('view', 'mobile');
+
+        // ตาม URL ที่กำหนด: hub=hub.html
+        keep.set('hub', CANONICAL.launcherHub);
 
         return CANONICAL.goodjunkLauncher + '?' + keep.toString();
       }
@@ -596,7 +599,7 @@
         // hub = ปุ่มกลับหน้าหลักใน gate → Hub v2
         // next = จบ warmup แล้วเข้าเกม
         // back = ย้อนกลับไป GoodJunk Launcher
-        keep.set('hub', CANONICAL.hub);
+        keep.set('hub', CANONICAL.gateMainHub);
         keep.set('next', runUrl.href);
         keep.set('back', launcherUrl);
 
@@ -628,8 +631,8 @@
 
         // สำคัญ:
         // hub = ปุ่ม “กลับหน้าหลัก” ใน cooldown → Hub v2
-        // next/back = จบ cooldown / ย้อนกลับ → GoodJunk Launcher
-        keep.set('hub', CANONICAL.hub);
+        // next/back = จบ cooldown / ย้อนกลับ → GoodJunk Launcher ตาม URL ที่กำหนด
+        keep.set('hub', CANONICAL.gateMainHub);
         keep.set('next', launcherUrl);
         keep.set('back', launcherUrl);
 
@@ -709,7 +712,7 @@
 
             try{
               localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-                patch:'v8.41.13-COOLDOWN-MAIN-BUTTON-HUB-V2',
+                patch:'v8.41.14-COOLDOWN-BACK-GOODJUNK-LAUNCHER-MOBILE-HUBHTML',
                 cooldownUrl:buildCooldownUrl({
                   reason:'reward-summary',
                   score:summary.score,
@@ -718,7 +721,8 @@
                 }),
                 goodjunkLauncherUrl:buildGoodJunkLauncherUrl(),
                 nutritionZoneUrl:buildNutritionZoneUrl(),
-                hubV2Url:CANONICAL.hub,
+                gateMainHubUrl:CANONICAL.gateMainHub,
+                launcherHubUrl:CANONICAL.launcherHub,
                 savedAt:new Date().toISOString()
               }));
             }catch(e){}
@@ -757,7 +761,7 @@
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.13-FINAL-HTML-SHELL-COOLDOWN-HUB-V2-LAUNCHER-BACK',
+        version:'v8.41.14-FINAL-HTML-SHELL-COOLDOWN-BACK-LAUNCHER-MOBILE-HUBHTML',
         canonical:CANONICAL,
         safeBackUrl:safeBackUrl,
         buildNutritionZoneUrl:buildNutritionZoneUrl,
