@@ -1,9 +1,13 @@
 <!-- === /herohealth/warmup-gate.html === -->
-<!-- FULL PATCH v20260505-GATE-GOODJUNK-COOLDOWN-LAUNCHER-HARDENED -->
+<!-- FULL PATCH v20260505-GATE-GOODJUNK-COOLDOWN-LAUNCHER-LIGHT-FIX -->
 <!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
 <!-- GoodJunk cooldown hard rule:
      กลับหน้าเลือกเกม = /herohealth/goodjunk-launcher.html
      กลับหน้าหลัก = /herohealth/hub-v2.html
+-->
+<!-- IMPORTANT:
+     เวอร์ชันนี้ตัด MutationObserver + setInterval ถาวรออกแล้ว
+     เพื่อแก้อาการ browser ขึ้น “หน้าไม่ตอบสนอง”
 -->
 
 <!doctype html>
@@ -312,7 +316,7 @@
 
       function isGoodJunkCooldown(){
         const g = game();
-        return (g === 'goodjunk') && phase() === 'cooldown';
+        return g === 'goodjunk' && phase() === 'cooldown';
       }
 
       function defaultZone(){
@@ -360,7 +364,7 @@
       }
 
       window.HHA_GATE_BOOT = {
-        patch: 'v20260505-GATE-GOODJUNK-COOLDOWN-LAUNCHER-HARDENED',
+        patch: 'v20260505-GATE-GOODJUNK-COOLDOWN-LAUNCHER-LIGHT-FIX',
         phase: phase(),
         game: game(),
         nextHref: nextHref(),
@@ -582,8 +586,7 @@
       observer.observe(document.documentElement, {
         childList:true,
         subtree:true,
-        characterData:true,
-        attributes:true
+        characterData:true
       });
 
       window.setInterval(tick, 600);
@@ -593,9 +596,13 @@
 
   <script>
     /*
-      === PATCH v20260505-GOODJUNK-COOLDOWN-FORCE-LAUNCHER-HARDENED ===
-      This must run before and after gate-core because gate-core may render buttons late
-      or override click handlers.
+      === PATCH v20260505-GOODJUNK-COOLDOWN-FORCE-LAUNCHER-LIGHT ===
+      สำคัญ:
+      - ไม่ใช้ MutationObserver
+      - ไม่ใช้ setInterval ถาวร
+      - ไม่แก้ onclick ซ้ำไม่หยุด
+      - ใช้ capture click ดักตอนกดจริง
+      - patch ปุ่มเพียงไม่กี่รอบหลัง gate-core render
     */
     (function(){
       'use strict';
@@ -617,12 +624,12 @@
 
       if(!isGoodJunkCooldown()) return;
 
-      function forceGo(url){
-        try{
-          location.assign(url);
-        }catch(e){
-          location.href = url;
-        }
+      window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
+      window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
+      window.HH_GATE_FORCE_HUB = HUB_V2;
+
+      function go(url){
+        window.location.href = url;
       }
 
       function labelOf(el){
@@ -631,70 +638,39 @@
         ).replace(/\s+/g, ' ').trim();
       }
 
-      function patchElement(el){
-        if(!el || !el.matches) return;
+      function patchButtonsOnce(){
+        const buttons = Array.from(document.querySelectorAll('button, a, [role="button"]'));
 
-        const text = labelOf(el);
+        buttons.forEach(el => {
+          const text = labelOf(el);
 
-        const isChooseGame =
-          text.includes('กลับหน้าเลือกเกม') ||
-          text.includes('เลือกเกม') ||
-          text.includes('เลือกโหมด') ||
-          text.includes('กลับเลือกโหมด');
+          const isChooseGame =
+            text.includes('กลับหน้าเลือกเกม') ||
+            text.includes('เลือกเกม') ||
+            text.includes('เลือกโหมด') ||
+            text.includes('กลับเลือกโหมด');
 
-        const isMain =
-          text.includes('กลับหน้าหลัก') ||
-          text.includes('หน้าหลัก') ||
-          text.includes('Home');
+          const isMain =
+            text.includes('กลับหน้าหลัก') ||
+            text.includes('หน้าหลัก') ||
+            text.includes('Home');
 
-        if(isChooseGame){
-          el.dataset.hhGateForce = 'goodjunk-launcher';
-          el.onclick = function(ev){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-            forceGo(GOODJUNK_LAUNCHER);
-            return false;
-          };
+          if(isChooseGame){
+            el.dataset.hhGateForce = 'goodjunk-launcher';
 
-          if(el.tagName && el.tagName.toLowerCase() === 'a'){
-            el.setAttribute('href', GOODJUNK_LAUNCHER);
+            if(el.tagName && el.tagName.toLowerCase() === 'a'){
+              el.setAttribute('href', GOODJUNK_LAUNCHER);
+            }
           }
-        }
 
-        if(isMain){
-          el.dataset.hhGateForce = 'hub-v2';
-          el.onclick = function(ev){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-            forceGo(HUB_V2);
-            return false;
-          };
+          if(isMain){
+            el.dataset.hhGateForce = 'hub-v2';
 
-          if(el.tagName && el.tagName.toLowerCase() === 'a'){
-            el.setAttribute('href', HUB_V2);
+            if(el.tagName && el.tagName.toLowerCase() === 'a'){
+              el.setAttribute('href', HUB_V2);
+            }
           }
-        }
-      }
-
-      function patchAllButtons(){
-        window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_HUB = HUB_V2;
-
-        document.querySelectorAll('button, a, [role="button"]').forEach(patchElement);
-
-        try{
-          localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
-            patch: 'v20260505-GOODJUNK-COOLDOWN-FORCE-LAUNCHER-HARDENED',
-            phase: 'cooldown',
-            game: 'goodjunk',
-            chooseGameUrl: GOODJUNK_LAUNCHER,
-            mainUrl: HUB_V2,
-            savedAt: new Date().toISOString()
-          }));
-        }catch(e){}
+        });
       }
 
       document.addEventListener('click', function(ev){
@@ -724,7 +700,7 @@
           ev.preventDefault();
           ev.stopPropagation();
           if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          forceGo(GOODJUNK_LAUNCHER);
+          go(GOODJUNK_LAUNCHER);
           return false;
         }
 
@@ -732,26 +708,32 @@
           ev.preventDefault();
           ev.stopPropagation();
           if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          forceGo(HUB_V2);
+          go(HUB_V2);
           return false;
         }
       }, true);
 
-      const observer = new MutationObserver(function(){
-        patchAllButtons();
-      });
-
       function boot(){
-        patchAllButtons();
+        patchButtonsOnce();
 
-        observer.observe(document.body || document.documentElement, {
-          childList:true,
-          subtree:true,
-          characterData:true,
-          attributes:true
-        });
+        /*
+          gate-core อาจ render ปุ่มช้ากว่า DOMContentLoaded เล็กน้อย
+          ใช้แค่ไม่กี่ครั้งพอ ไม่ใช้ interval ถาวร ไม่ใช้ MutationObserver
+        */
+        window.setTimeout(patchButtonsOnce, 300);
+        window.setTimeout(patchButtonsOnce, 900);
+        window.setTimeout(patchButtonsOnce, 1800);
 
-        window.setInterval(patchAllButtons, 700);
+        try{
+          localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
+            patch: 'v20260505-GOODJUNK-COOLDOWN-FORCE-LAUNCHER-LIGHT',
+            phase: 'cooldown',
+            game: 'goodjunk',
+            chooseGameUrl: GOODJUNK_LAUNCHER,
+            mainUrl: HUB_V2,
+            savedAt: new Date().toISOString()
+          }));
+        }catch(e){}
       }
 
       if(document.readyState === 'loading'){
