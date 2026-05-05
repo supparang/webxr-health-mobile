@@ -1,14 +1,7 @@
 <!-- === /herohealth/warmup-gate.html === -->
-<!-- FULL PATCH v20260505-GATE-GOODJUNK-COOLDOWN-LAUNCHER-LIGHT-FIX -->
+<!-- FULL PATCH v20260505e-BRUSH-WARMUP-COOLDOWN-AUTO-NEXT -->
 <!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
-<!-- GoodJunk cooldown hard rule:
-     กลับหน้าเลือกเกม = /herohealth/goodjunk-launcher.html
-     กลับหน้าหลัก = /herohealth/hub-v2.html
--->
-<!-- IMPORTANT:
-     เวอร์ชันนี้ตัด MutationObserver + setInterval ถาวรออกแล้ว
-     เพื่อแก้อาการ browser ขึ้น “หน้าไม่ตอบสนอง”
--->
+<!-- หน้าที่ของไฟล์นี้: โหลด /herohealth/gate/gate-core.js เพื่อให้ไปเปิด mini-game ของแต่ละเกมจริง ๆ -->
 
 <!doctype html>
 <html lang="th">
@@ -278,12 +271,6 @@
 
       const q = new URLSearchParams(location.search);
 
-      const GOODJUNK_LAUNCHER =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
-
-      const HUB_V2 =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-
       function clean(v, d=''){
         v = String(v ?? '').trim();
         return v || d;
@@ -314,11 +301,6 @@
         return clean(q.get('game') || q.get('gameId') || q.get('theme'), 'game').toLowerCase();
       }
 
-      function isGoodJunkCooldown(){
-        const g = game();
-        return g === 'goodjunk' && phase() === 'cooldown';
-      }
-
       function defaultZone(){
         const z = clean(q.get('zone') || q.get('cat'), '');
         if(z === 'fitness') return './fitness-zone.html';
@@ -327,17 +309,10 @@
       }
 
       function nextHref(){
-        if(isGoodJunkCooldown()){
-          return GOODJUNK_LAUNCHER;
-        }
-
         const n = safeDecode(q.get('next') || '');
         if(n) return safeUrl(n, defaultZone());
 
         if(phase() === 'cooldown'){
-          const b = safeDecode(q.get('back') || '');
-          if(b) return safeUrl(b, defaultZone());
-
           return safeUrl(q.get('hub'), defaultZone());
         }
 
@@ -345,40 +320,17 @@
       }
 
       function backHref(){
-        if(isGoodJunkCooldown()){
-          return GOODJUNK_LAUNCHER;
-        }
-
-        const b = safeDecode(q.get('back') || '');
-        if(b) return safeUrl(b, defaultZone());
-
-        return safeUrl(q.get('hub'), defaultZone());
-      }
-
-      function hubHref(){
-        if(isGoodJunkCooldown()){
-          return HUB_V2;
-        }
-
         return safeUrl(q.get('hub'), defaultZone());
       }
 
       window.HHA_GATE_BOOT = {
-        patch: 'v20260505-GATE-GOODJUNK-COOLDOWN-LAUNCHER-LIGHT-FIX',
+        patch: 'v20260505e-BRUSH-WARMUP-COOLDOWN-AUTO-NEXT',
         phase: phase(),
         game: game(),
         nextHref: nextHref(),
         backHref: backHref(),
-        hubHref: hubHref(),
-        params: Object.fromEntries(q.entries()),
-        isGoodJunkCooldown: isGoodJunkCooldown()
+        params: Object.fromEntries(q.entries())
       };
-
-      if(isGoodJunkCooldown()){
-        window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_HUB = HUB_V2;
-      }
 
       const icon = document.getElementById('gateBootIcon');
       const title = document.getElementById('gateBootTitle');
@@ -415,7 +367,7 @@
 
       if(sub){
         sub.textContent = p === 'cooldown'
-          ? 'ระบบจะเปิด mini-game ทบทวนหลังเล่น ก่อนกลับปลายทาง'
+          ? 'ระบบจะเปิด mini-game ทบทวนหลังเล่น ก่อนกลับโซน'
           : 'ระบบจะเปิด mini-game เตรียมตัวก่อนเข้าเกมหลัก';
       }
 
@@ -427,15 +379,11 @@
         location.reload();
       });
 
-      continueBtn?.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
+      continueBtn?.addEventListener('click', function(){
         location.href = nextHref();
       });
 
-      backBtn?.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
+      backBtn?.addEventListener('click', function(){
         location.href = backHref();
       });
 
@@ -456,295 +404,7 @@
       };
     })();
   </script>
-
-  <script>
-    /*
-      === PATCH v20260505-BRUSH-GATE-AUTO-NEXT-ADAPTER ===
-      Purpose:
-      - Keep using the shared /herohealth/warmup-gate.html like Handwash.
-      - Do NOT create a separate brush-warmup.html.
-      - If gate-core's Brush warmup reaches 8/8 but does not navigate, this adapter safely continues to next.
-      - Only active for game=brush and phase=warmup.
-    */
-    (function(){
-      'use strict';
-
-      const q = new URLSearchParams(location.search);
-      const game = String(q.get('game') || q.get('gameId') || q.get('theme') || '').toLowerCase();
-      const phase = String(q.get('phase') || q.get('gatePhase') || 'warmup').toLowerCase();
-
-      if(game !== 'brush' || phase !== 'warmup') return;
-
-      let fired = false;
-      let observer = null;
-      const startedAt = Date.now();
-
-      function safeDecode(v){
-        v = String(v || '');
-        if(!v) return '';
-        try{ return decodeURIComponent(v); }
-        catch(_){ return v; }
-      }
-
-      function fallbackZone(){
-        try{
-          const u = new URL('./hygiene-zone.html', location.href);
-          ['pid','name','diff','time','view'].forEach(k => {
-            const v = q.get(k);
-            if(v) u.searchParams.set(k, v);
-          });
-          u.searchParams.set(
-            'hub',
-            q.get('hubRoot') ||
-            q.get('rootHub') ||
-            'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
-          );
-          return u.toString();
-        }catch(_){
-          return './hygiene-zone.html';
-        }
-      }
-
-      function nextHref(){
-        try{
-          const n = safeDecode(q.get('next') || '');
-          if(n) return new URL(n, location.href).toString();
-
-          const key = q.get('nextKey');
-          if(key){
-            try{
-              const stored = sessionStorage.getItem(key);
-              if(stored) return new URL(stored, location.href).toString();
-            }catch(_){}
-          }
-
-          const stored = sessionStorage.getItem('HHA_BRUSH_NEXT');
-          if(stored) return new URL(stored, location.href).toString();
-        }catch(_){}
-
-        return fallbackZone();
-      }
-
-      function goNext(reason){
-        if(fired) return;
-        fired = true;
-
-        try{ if(observer) observer.disconnect(); }catch(_){}
-
-        const target = nextHref();
-        console.log('[brush warmup adapter] continue:', reason, target);
-
-        const status = document.getElementById('gateBootStatusText');
-        if(status) status.textContent = 'Brush warmup complete → continuing...';
-
-        window.setTimeout(() => {
-          location.href = target;
-        }, 450);
-      }
-
-      function textReady(){
-        const text = (document.body && document.body.innerText || '').replace(/\s+/g, ' ');
-        if(!text) return false;
-
-        if(/\b8\s*\/\s*8\b/.test(text)) return true;
-        if(text.includes('พร้อมแล้ว') && (text.includes('แปรง') || text.includes('ไปต่อ'))) return true;
-        if(text.includes('ไปแปรงฟัน') || text.includes('แปรงฟันกันเลย')) return true;
-
-        return false;
-      }
-
-      function buttonReady(){
-        const buttons = Array.from(document.querySelectorAll('button,a,[role="button"]'));
-        return buttons.some(btn => {
-          const t = String(btn.textContent || '').replace(/\s+/g, ' ');
-          const disabled = btn.disabled || btn.getAttribute('aria-disabled') === 'true';
-          if(disabled) return false;
-          return t.includes('ไปต่อ') || t.includes('ไปแปรง') || t.includes('เข้าเกม') || t.includes('เริ่มเกม');
-        });
-      }
-
-      function tick(){
-        if(fired) return;
-
-        if(textReady() || buttonReady()){
-          window.setTimeout(() => goNext('complete-detected'), 650);
-          return;
-        }
-
-        if(Date.now() - startedAt > 45000){
-          const actions = document.getElementById('gateBootActions');
-          const continueBtn = document.getElementById('gateContinueBtn');
-
-          if(actions) actions.style.display = 'flex';
-          if(continueBtn){
-            continueBtn.onclick = () => goNext('manual-safety-continue');
-          }
-        }
-      }
-
-      observer = new MutationObserver(tick);
-      observer.observe(document.documentElement, {
-        childList:true,
-        subtree:true,
-        characterData:true
-      });
-
-      window.setInterval(tick, 600);
-      window.addEventListener('pageshow', tick);
-    })();
-  </script>
-
-  <script>
-    /*
-      === PATCH v20260505-GOODJUNK-COOLDOWN-FORCE-LAUNCHER-LIGHT ===
-      สำคัญ:
-      - ไม่ใช้ MutationObserver
-      - ไม่ใช้ setInterval ถาวร
-      - ไม่แก้ onclick ซ้ำไม่หยุด
-      - ใช้ capture click ดักตอนกดจริง
-      - patch ปุ่มเพียงไม่กี่รอบหลัง gate-core render
-    */
-    (function(){
-      'use strict';
-
-      const qs = new URLSearchParams(location.search || '');
-
-      const GOODJUNK_LAUNCHER =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
-
-      const HUB_V2 =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-
-      function isGoodJunkCooldown(){
-        return (
-          (qs.get('game') === 'goodjunk' || qs.get('gameId') === 'goodjunk') &&
-          String(qs.get('phase') || '').toLowerCase() === 'cooldown'
-        );
-      }
-
-      if(!isGoodJunkCooldown()) return;
-
-      window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_HUB = HUB_V2;
-
-      function go(url){
-        window.location.href = url;
-      }
-
-      function labelOf(el){
-        return String(
-          (el && (el.textContent || el.getAttribute('aria-label') || el.getAttribute('title'))) || ''
-        ).replace(/\s+/g, ' ').trim();
-      }
-
-      function patchButtonsOnce(){
-        const buttons = Array.from(document.querySelectorAll('button, a, [role="button"]'));
-
-        buttons.forEach(el => {
-          const text = labelOf(el);
-
-          const isChooseGame =
-            text.includes('กลับหน้าเลือกเกม') ||
-            text.includes('เลือกเกม') ||
-            text.includes('เลือกโหมด') ||
-            text.includes('กลับเลือกโหมด');
-
-          const isMain =
-            text.includes('กลับหน้าหลัก') ||
-            text.includes('หน้าหลัก') ||
-            text.includes('Home');
-
-          if(isChooseGame){
-            el.dataset.hhGateForce = 'goodjunk-launcher';
-
-            if(el.tagName && el.tagName.toLowerCase() === 'a'){
-              el.setAttribute('href', GOODJUNK_LAUNCHER);
-            }
-          }
-
-          if(isMain){
-            el.dataset.hhGateForce = 'hub-v2';
-
-            if(el.tagName && el.tagName.toLowerCase() === 'a'){
-              el.setAttribute('href', HUB_V2);
-            }
-          }
-        });
-      }
-
-      document.addEventListener('click', function(ev){
-        const el = ev.target && ev.target.closest
-          ? ev.target.closest('button, a, [role="button"]')
-          : null;
-
-        if(!el) return;
-
-        const text = labelOf(el);
-        const forced = el.dataset && el.dataset.hhGateForce;
-
-        const isChooseGame =
-          forced === 'goodjunk-launcher' ||
-          text.includes('กลับหน้าเลือกเกม') ||
-          text.includes('เลือกเกม') ||
-          text.includes('เลือกโหมด') ||
-          text.includes('กลับเลือกโหมด');
-
-        const isMain =
-          forced === 'hub-v2' ||
-          text.includes('กลับหน้าหลัก') ||
-          text.includes('หน้าหลัก') ||
-          text.includes('Home');
-
-        if(isChooseGame){
-          ev.preventDefault();
-          ev.stopPropagation();
-          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          go(GOODJUNK_LAUNCHER);
-          return false;
-        }
-
-        if(isMain){
-          ev.preventDefault();
-          ev.stopPropagation();
-          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          go(HUB_V2);
-          return false;
-        }
-      }, true);
-
-      function boot(){
-        patchButtonsOnce();
-
-        /*
-          gate-core อาจ render ปุ่มช้ากว่า DOMContentLoaded เล็กน้อย
-          ใช้แค่ไม่กี่ครั้งพอ ไม่ใช้ interval ถาวร ไม่ใช้ MutationObserver
-        */
-        window.setTimeout(patchButtonsOnce, 300);
-        window.setTimeout(patchButtonsOnce, 900);
-        window.setTimeout(patchButtonsOnce, 1800);
-
-        try{
-          localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
-            patch: 'v20260505-GOODJUNK-COOLDOWN-FORCE-LAUNCHER-LIGHT',
-            phase: 'cooldown',
-            game: 'goodjunk',
-            chooseGameUrl: GOODJUNK_LAUNCHER,
-            mainUrl: HUB_V2,
-            savedAt: new Date().toISOString()
-          }));
-        }catch(e){}
-      }
-
-      if(document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', boot);
-      }else{
-        boot();
-      }
-    })();
-  </script>
-
-  <script type="module">
+<script type="module">
     import bootGate from './gate/gate-core.js?v=20260503n-gate-core-goodjunk-flow';
 
     const root = document.getElementById('gate-app');
