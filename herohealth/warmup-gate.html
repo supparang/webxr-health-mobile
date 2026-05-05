@@ -1,5 +1,5 @@
 <!-- === /herohealth/warmup-gate.html === -->
-<!-- FULL PATCH v20260503n-HHA-WARMUP-GATE-SHELL-CORE-ONLY -->
+<!-- FULL PATCH v20260505-BRUSH-COMPAT-HHA-WARMUP-GATE-SHELL-CORE-ONLY -->
 <!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
 <!-- หน้าที่ของไฟล์นี้: โหลด /herohealth/gate/gate-core.js เพื่อให้ไปเปิด mini-game ของแต่ละเกมจริง ๆ -->
 
@@ -324,7 +324,7 @@
       }
 
       window.HHA_GATE_BOOT = {
-        patch: 'v20260503n-HHA-WARMUP-GATE-SHELL-CORE-ONLY',
+        patch: 'v20260505-BRUSH-COMPAT-HHA-WARMUP-GATE-SHELL-CORE-ONLY',
         phase: phase(),
         game: game(),
         nextHref: nextHref(),
@@ -353,6 +353,7 @@
           g === 'goodjunk' ? '🍎' :
           g === 'plate' ? '🍽️' :
           g === 'hydration' ? '💧' :
+          g === 'brush' ? '🪥' :
           g === 'groups' ? '🥦' :
           g === 'jump-duck' || g === 'jumpduck' ? '🐶' :
           '🎮';
@@ -403,6 +404,153 @@
       };
     })();
   </script>
+
+
+  <script>
+    /*
+      === PATCH v20260505-BRUSH-GATE-AUTO-NEXT-ADAPTER ===
+      Purpose:
+      - Keep using the shared /herohealth/warmup-gate.html like Handwash.
+      - Do NOT create a separate brush-warmup.html.
+      - If gate-core's Brush warmup reaches 8/8 but does not navigate, this adapter safely continues to next.
+      - Only active for game=brush and phase=warmup.
+    */
+    (function(){
+      'use strict';
+
+      const q = new URLSearchParams(location.search);
+      const game = String(q.get('game') || q.get('gameId') || q.get('theme') || '').toLowerCase();
+      const phase = String(q.get('phase') || q.get('gatePhase') || 'warmup').toLowerCase();
+
+      if(game !== 'brush' || phase !== 'warmup') return;
+
+      let fired = false;
+      let observer = null;
+      let startedAt = Date.now();
+
+      function safeDecode(v){
+        v = String(v || '');
+        if(!v) return '';
+        try{ return decodeURIComponent(v); }
+        catch(_){ return v; }
+      }
+
+      function fallbackZone(){
+        try{
+          const u = new URL('./hygiene-zone.html', location.href);
+          ['pid','name','diff','time','view'].forEach(k => {
+            const v = q.get(k);
+            if(v) u.searchParams.set(k, v);
+          });
+          u.searchParams.set('hub', q.get('hubRoot') || q.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+          return u.toString();
+        }catch(_){
+          return './hygiene-zone.html';
+        }
+      }
+
+      function nextHref(){
+        try{
+          const n = safeDecode(q.get('next') || '');
+          if(n) return new URL(n, location.href).toString();
+
+          const key = q.get('nextKey');
+          if(key){
+            try{
+              const stored = sessionStorage.getItem(key);
+              if(stored) return new URL(stored, location.href).toString();
+            }catch(_){}
+          }
+
+          const stored = sessionStorage.getItem('HHA_BRUSH_NEXT');
+          if(stored) return new URL(stored, location.href).toString();
+        }catch(_){}
+
+        return fallbackZone();
+      }
+
+      function goNext(reason){
+        if(fired) return;
+        fired = true;
+
+        try{ if(observer) observer.disconnect(); }catch(_){}
+
+        const target = nextHref();
+        console.log('[brush warmup adapter] continue:', reason, target);
+
+        const status = document.getElementById('gateBootStatusText');
+        if(status) status.textContent = 'Brush warmup complete → continuing...';
+
+        window.setTimeout(() => {
+          location.href = target;
+        }, 450);
+      }
+
+      function textReady(){
+        const text = (document.body && document.body.innerText || '').replace(/\s+/g, ' ');
+        if(!text) return false;
+
+        /*
+          Common gate-core Brush warmup completion signals:
+          - "8/8"
+          - "พร้อมแล้ว"
+          - "ไปแปรงฟัน"
+          - "แปรงฟันกันเลย"
+        */
+        if(/\b8\s*\/\s*8\b/.test(text)) return true;
+        if(text.includes('พร้อมแล้ว') && (text.includes('แปรง') || text.includes('ไปต่อ'))) return true;
+        if(text.includes('ไปแปรงฟัน') || text.includes('แปรงฟันกันเลย')) return true;
+
+        return false;
+      }
+
+      function buttonReady(){
+        const buttons = Array.from(document.querySelectorAll('button,a,[role="button"]'));
+        return buttons.some(btn => {
+          const t = String(btn.textContent || '').replace(/\s+/g, ' ');
+          const disabled = btn.disabled || btn.getAttribute('aria-disabled') === 'true';
+          if(disabled) return false;
+          return t.includes('ไปต่อ') || t.includes('ไปแปรง') || t.includes('เข้าเกม') || t.includes('เริ่มเกม');
+        });
+      }
+
+      function tick(){
+        if(fired) return;
+
+        if(textReady() || buttonReady()){
+          window.setTimeout(() => goNext('complete-detected'), 650);
+          return;
+        }
+
+        /*
+          Safety fallback:
+          If Brush warmup has been running a long time and no UI navigation occurred,
+          show the shared boot continue action if it exists, but do not force too early.
+        */
+        if(Date.now() - startedAt > 45000){
+          const actions = document.getElementById('gateBootActions');
+          const continueBtn = document.getElementById('gateContinueBtn');
+
+          if(actions) actions.style.display = 'flex';
+          if(continueBtn){
+            continueBtn.onclick = () => goNext('manual-safety-continue');
+          }
+        }
+      }
+
+      observer = new MutationObserver(tick);
+      observer.observe(document.documentElement, {
+        childList:true,
+        subtree:true,
+        characterData:true,
+        attributes:true
+      });
+
+      window.setInterval(tick, 600);
+      window.addEventListener('pageshow', tick);
+    })();
+  </script>
+
 
   <script type="module">
     import bootGate from './gate/gate-core.js?v=20260503n-gate-core-goodjunk-flow';
