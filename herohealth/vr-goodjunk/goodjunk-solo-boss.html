@@ -14,14 +14,8 @@
       --safe-bottom: env(safe-area-inset-bottom);
       --safe-left: env(safe-area-inset-left);
       --safe-right: env(safe-area-inset-right);
-
-      --green:#22c55e;
-      --blue:#2563eb;
-      --yellow:#facc15;
-      --red:#ef4444;
       --ink:#172033;
       --muted:#64748b;
-      --card:rgba(255,255,255,.92);
     }
 
     *{
@@ -209,10 +203,7 @@
 
     .gjm-area{
       position:absolute;
-      left:0;
-      right:0;
-      top:0;
-      bottom:0;
+      inset:0;
       overflow:hidden;
     }
 
@@ -528,8 +519,6 @@
         gateMainHub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html',
 
         // Warmup/Cooldown gate อยู่ที่ /herohealth/warmup-gate.html
-        // Warmup  = warmup-gate.html?phase=warmup
-        // Cooldown = warmup-gate.html?phase=cooldown
         warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html'
       };
 
@@ -562,9 +551,9 @@
         keep.set('name', playerName());
         keep.set('diff', q('diff', 'normal'));
 
-        // ตาม URL ที่กำหนด: time=90 และ view=mobile
+        // ตาม URL ที่กำหนดล่าสุด: time=90 และ view=pc
         keep.set('time', '90');
-        keep.set('view', 'mobile');
+        keep.set('view', 'pc');
 
         // ตาม URL ที่กำหนด: hub=hub.html
         keep.set('hub', CANONICAL.launcherHub);
@@ -580,7 +569,6 @@
         runUrl.searchParams.set('phase', 'main');
 
         const launcherUrl = buildGoodJunkLauncherUrl();
-
         const keep = new URLSearchParams();
 
         keep.set('zone', 'nutrition');
@@ -629,7 +617,6 @@
         keep.set('time', q('time', '120'));
         keep.set('view', q('view', 'mobile'));
 
-        // สำคัญ:
         // hub = ปุ่ม “กลับหน้าหลัก” ใน cooldown → Hub v2
         // next/back = จบ cooldown / ย้อนกลับ → GoodJunk Launcher ตาม URL ที่กำหนด
         keep.set('hub', CANONICAL.gateMainHub);
@@ -689,16 +676,12 @@
         btn.innerHTML = '🎮 กลับเลือกโหมด GoodJunk';
         btn.setAttribute('aria-label', 'กลับหน้าเลือกโหมด GoodJunk');
 
-        // ปุ่มลอยซ้ายล่าง = กลับ GoodJunk Launcher ตรง ๆ
         btn.addEventListener('click', function(){
           goGoodJunkLauncher();
         });
       }
 
       function patchRewardZoneButtonToCooldown(){
-        // ปุ่มใน Reward Summary เดิมชื่อ "กลับ Nutrition Zone"
-        // ปรับให้ไป warmup-gate.html?phase=cooldown ก่อน
-        // แล้ว cooldown ค่อยกลับ GoodJunk Launcher
         window.addEventListener('gj:reward-summary-shown', function(ev){
           const summary = ev && ev.detail ? ev.detail : {};
 
@@ -712,7 +695,7 @@
 
             try{
               localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-                patch:'v8.41.16-HTML-SHELL-WITH-POWERUPS',
+                patch:'v8.41.18-COOLDOWN-BACK-LAUNCHER-PC',
                 cooldownUrl:buildCooldownUrl({
                   reason:'reward-summary',
                   score:summary.score,
@@ -761,7 +744,7 @@
       }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v8.41.16-FINAL-HTML-SHELL-WITH-POWERUPS',
+        version:'v8.41.18-FINAL-HTML-SHELL-COOLDOWN-BACK-LAUNCHER-PC',
         canonical:CANONICAL,
         safeBackUrl:safeBackUrl,
         buildNutritionZoneUrl:buildNutritionZoneUrl,
@@ -781,7 +764,7 @@
     })();
   </script>
 
-       <!-- GoodJunk Solo Boss Ultimate Pack -->
+  <!-- GoodJunk Solo Boss Ultimate Pack -->
   <script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
   <script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
   <script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
