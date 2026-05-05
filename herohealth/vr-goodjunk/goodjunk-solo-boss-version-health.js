@@ -1,10 +1,12 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss-version-health.js ===
 // GoodJunk Solo Boss Final QA Guard + Version Health
-// PATCH v8.41.6-FINAL-QA-GUARD-VERSION-HEALTH
+// PATCH v8.41.17-VERSION-HEALTH-TOUCH-COMFORT-POWERUPS
 // ✅ checks addon globals
 // ✅ checks script src/version query
 // ✅ checks script order
 // ✅ checks critical APIs
+// ✅ checks touch comfort
+// ✅ checks powerups
 // ✅ debugBoss=1 health panel
 // ✅ localStorage deploy report
 // ✅ emits gj:version-health-ready / gj:version-health-report
@@ -17,7 +19,7 @@
   const DOC = document;
   const QS = new URLSearchParams(location.search || '');
 
-  const PATCH = 'v8.41.6-FINAL-QA-GUARD-VERSION-HEALTH';
+  const PATCH = 'v8.41.17-VERSION-HEALTH-TOUCH-COMFORT-POWERUPS';
 
   const CFG = {
     debug: QS.get('debugBoss') === '1',
@@ -144,6 +146,26 @@
       apis:['polishAllFoods','showHint','patchShim']
     },
     {
+      id:'touchComfort',
+      label:'Touch Comfort',
+      file:'goodjunk-solo-boss-touch-comfort.js',
+      query:'v84110',
+      global:'GoodJunkSoloBossTouchComfort',
+      alias:'GJTC',
+      required:true,
+      apis:['adjustAllFoods','findNearestFood','getState']
+    },
+    {
+      id:'powerups',
+      label:'Powerups',
+      file:'goodjunk-solo-boss-powerups.js',
+      query:'v84115',
+      global:'GoodJunkSoloBossPowerups',
+      alias:'GJPU',
+      required:true,
+      apis:['spawnPowerup','collectPowerup','updateHUD']
+    },
+    {
       id:'guard',
       label:'Guard',
       file:'goodjunk-solo-boss-guard.js',
@@ -178,6 +200,8 @@
     'visualVariety',
     'main',
     'mobilePolish',
+    'touchComfort',
+    'powerups',
     'guard',
     'versionHealth'
   ];
@@ -328,6 +352,7 @@
       hudTime:Boolean(DOC.getElementById('gjmTime')),
       hudLives:Boolean(DOC.getElementById('gjmLives')),
       hudCombo:Boolean(DOC.getElementById('gjmCombo')),
+      powerupsRoot:Boolean(DOC.getElementById('gjPowerupsRoot')),
       urlRun:QS.get('run') || '',
       urlMode:QS.get('mode') || QS.get('entry') || '',
       urlView:QS.get('view') || '',
@@ -742,7 +767,7 @@
     }).join('');
 
     const issuesHtml = report.issues.length
-      ? report.issues.slice(0, 12).map(i => `
+      ? report.issues.slice(0, 14).map(i => `
           <div class="gjvh-issue ${i.level === 'error' ? 'error' : 'warn'}">
             <b>${esc(i.type)}</b><br>${esc(i.message)}
           </div>
@@ -755,6 +780,7 @@ playArea: ${report.runtime.playArea}
 startBtn: ${report.runtime.startBtn}
 backBtn: ${report.runtime.backBtn}
 rewardLayer: ${report.runtime.rewardLayer}
+powerupsRoot: ${report.runtime.powerupsRoot}
 
 run: ${report.runtime.urlRun || '-'}
 mode: ${report.runtime.urlMode || '-'}
