@@ -1,5 +1,5 @@
 <!-- === /herohealth/warmup-gate.html === -->
-<!-- FULL PATCH v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX -->
+<!-- FULL PATCH v20260505g-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-FIX -->
 <!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
 <!-- FINAL RULE:
      GoodJunk cooldown:
@@ -365,7 +365,7 @@
       }
 
       window.HHA_GATE_BOOT = {
-        patch: 'v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX',
+        patch: 'v20260505g-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-FIX',
         phase: phase(),
         game: game(),
         nextHref: nextHref(),
@@ -460,142 +460,354 @@
 
   <script>
     /*
-      === PATCH v20260505-BRUSH-GATE-AUTO-NEXT-ADAPTER ===
-      Purpose:
-      - Keep using the shared /herohealth/warmup-gate.html like Handwash.
-      - Do NOT create a separate brush-warmup.html.
-      - If gate-core's Brush warmup reaches 8/8 but does not navigate, this adapter safely continues to next.
-      - Only active for game=brush and phase=warmup.
+      === PATCH v20260505g-BRUSH-WARMUP-COOLDOWN-RETURN-FIX ===
+      Brush only:
+      - phase=warmup: complete 8/8 -> next brush.html
+      - phase=cooldown: complete 6/6 / Brush Smile Cooldown -> Hygiene Zone
+      - keeps shared warmup-gate.html, same pattern as Handwash
+      - does not affect GoodJunk / other games
     */
     (function(){
       'use strict';
 
-      const q = new URLSearchParams(location.search);
+      const q = new URLSearchParams(location.search || '');
       const game = String(q.get('game') || q.get('gameId') || q.get('theme') || '').toLowerCase();
-      const phase = String(q.get('phase') || q.get('gatePhase') || 'warmup').toLowerCase();
+      const phase = String(q.get('phase') || q.get('gatePhase') || 'warmup').toLowerCase() === 'cooldown'
+        ? 'cooldown'
+        : 'warmup';
 
-      if(game !== 'brush' || phase !== 'warmup') return;
+      if(game !== 'brush') return;
 
       let fired = false;
       let observer = null;
+      let intervalId = 0;
       const startedAt = Date.now();
 
-      function safeDecode(v){
-        v = String(v || '');
-        if(!v) return '';
-        try{ return decodeURIComponent(v); }
-        catch(_){ return v; }
+      function decodeMaybeTwice(v){
+        v = String(v || '').trim();
+        for(let i = 0; i < 2; i++){
+          try{
+            const next = decodeURIComponent(v);
+            if(next === v) break;
+            v = next;
+          }catch(_){
+            break;
+          }
+        }
+        return v;
       }
 
-      function fallbackZone(){
+      function heroBase(){
         try{
-          const u = new URL('./hygiene-zone.html', location.href);
-          ['pid','name','diff','time','view'].forEach(k => {
-            const v = q.get(k);
-            if(v) u.searchParams.set(k, v);
-          });
-          u.searchParams.set(
-            'hub',
-            q.get('hubRoot') ||
-            q.get('rootHub') ||
-            'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
-          );
-          return u.toString();
+          const marker = '/herohealth/';
+          const idx = location.pathname.indexOf(marker);
+          if(idx >= 0){
+            return location.origin + location.pathname.slice(0, idx + marker.length);
+          }
+          return new URL('./', location.href).toString();
         }catch(_){
-          return './hygiene-zone.html';
+          return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
         }
       }
 
-      function nextHref(){
+      function heroUrl(path){
+        return new URL(String(path || '').replace(/^\/+/, ''), heroBase());
+      }
+
+      function safeUrl(raw){
+        raw = String(raw || '').trim();
+        if(!raw) return '';
         try{
-          const n = safeDecode(q.get('next') || '');
-          if(n) return new URL(n, location.href).toString();
-
-          const key = q.get('nextKey');
-          if(key){
-            try{
-              const stored = sessionStorage.getItem(key);
-              if(stored) return new URL(stored, location.href).toString();
-            }catch(_){}
-          }
-
-          const stored = sessionStorage.getItem('HHA_BRUSH_NEXT');
-          if(stored) return new URL(stored, location.href).toString();
-        }catch(_){}
-
-        return fallbackZone();
+          return new URL(decodeMaybeTwice(raw), heroBase()).toString();
+        }catch(_){
+          return '';
+        }
       }
 
-      function goNext(reason){
-        if(fired) return;
-        fired = true;
+      function fallbackHygieneZone(){
+        const u = heroUrl('hygiene-zone.html');
 
-        try{ if(observer) observer.disconnect(); }catch(_){}
+        ['pid','name','diff','time','view'].forEach(k => {
+          const v = q.get(k);
+          if(v) u.searchParams.set(k, v);
+        });
 
-        const target = nextHref();
-        console.log('[brush warmup adapter] continue:', reason, target);
+        u.searchParams.set(
+          'hub',
+          q.get('hubRoot') ||
+          q.get('rootHub') ||
+          'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
+        );
 
-        const status = document.getElementById('gateBootStatusText');
-        if(status) status.textContent = 'Brush warmup complete → continuing...';
-
-        window.setTimeout(() => {
-          location.href = target;
-        }, 450);
+        return u.toString();
       }
 
-      function textReady(){
-        const text = (document.body && document.body.innerText || '').replace(/\s+/g, ' ');
-        if(!text) return false;
-
-        if(/\b8\s*\/\s*8\b/.test(text)) return true;
-        if(text.includes('พร้อมแล้ว') && (text.includes('แปรง') || text.includes('ไปต่อ'))) return true;
-        if(text.includes('ไปแปรงฟัน') || text.includes('แปรงฟันกันเลย')) return true;
-
+      function rejectLoop(url){
+        if(!url) return true;
+        if(/warmup-gate\.html/i.test(url)) return true;
+        if(/vr-brush-kids\/brush\.html/i.test(url)) return true;
         return false;
       }
 
-      function buttonReady(){
-        const buttons = Array.from(document.querySelectorAll('button,a,[role="button"]'));
-        return buttons.some(btn => {
-          const t = String(btn.textContent || '').replace(/\s+/g, ' ');
-          const disabled = btn.disabled || btn.getAttribute('aria-disabled') === 'true';
-          if(disabled) return false;
-          return t.includes('ไปต่อ') || t.includes('ไปแปรง') || t.includes('เข้าเกม') || t.includes('เริ่มเกม');
+      function warmupTarget(){
+        const next = safeUrl(q.get('next'));
+        if(next) return next;
+
+        const key = q.get('nextKey');
+        if(key){
+          try{
+            const stored = sessionStorage.getItem(key);
+            const ok = safeUrl(stored);
+            if(ok) return ok;
+          }catch(_){}
+        }
+
+        try{
+          const stored = sessionStorage.getItem('HHA_BRUSH_NEXT');
+          const ok = safeUrl(stored);
+          if(ok) return ok;
+        }catch(_){}
+
+        const u = heroUrl('vr-brush-kids/brush.html');
+        [
+          'pid','name','nick','diff','time','view','run','zone','cat',
+          'game','gameId','variant','mode','entry','theme','launcher',
+          'hub','back','return','seed'
+        ].forEach(k => {
+          const v = q.get(k);
+          if(v) u.searchParams.set(k, v);
         });
+
+        u.searchParams.set('game', 'brush');
+        u.searchParams.set('gameId', 'brush');
+        u.searchParams.set('zone', 'hygiene');
+        u.searchParams.set('cat', 'hygiene');
+        u.searchParams.set('stage', 'howto');
+        u.searchParams.set('wgok', '1');
+        u.searchParams.set('fromWarmup', '1');
+
+        return u.toString();
+      }
+
+      function cooldownTarget(){
+        const candidates = [
+          q.get('cdnext'),
+          q.get('next'),
+          q.get('return'),
+          q.get('back'),
+          q.get('hub')
+        ];
+
+        for(const raw of candidates){
+          const url = safeUrl(raw);
+          if(!url) continue;
+          if(rejectLoop(url)) continue;
+          if(/hygiene-zone\.html/i.test(url)) return url;
+        }
+
+        for(const raw of candidates){
+          const url = safeUrl(raw);
+          if(!url) continue;
+          if(rejectLoop(url)) continue;
+          return url;
+        }
+
+        return fallbackHygieneZone();
+      }
+
+      function targetHref(){
+        return phase === 'cooldown' ? cooldownTarget() : warmupTarget();
+      }
+
+      function stopWatchers(){
+        try{ if(observer) observer.disconnect(); }catch(_){}
+        if(intervalId) clearInterval(intervalId);
+      }
+
+      function go(reason){
+        if(fired) return;
+        fired = true;
+        stopWatchers();
+
+        const target = targetHref();
+        console.log('[brush gate return fix]', phase, reason, target);
+
+        const status = document.getElementById('gateBootStatusText');
+        if(status){
+          status.textContent = phase === 'cooldown'
+            ? 'Brush cooldown complete → returning to Hygiene Zone...'
+            : 'Brush warmup complete → continuing...';
+        }
+
+        window.setTimeout(() => {
+          location.replace(target);
+        }, 280);
+      }
+
+      function pageText(){
+        return String((document.body && document.body.innerText) || '')
+          .replace(/\u00a0/g, ' ')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      function warmupDone(text){
+        return /\b8\s*\/\s*8\b/.test(text) ||
+          text.includes('ไปแปรงฟัน') ||
+          text.includes('แปรงฟันกันเลย') ||
+          (text.includes('พร้อมแล้ว') && (text.includes('แปรง') || text.includes('ไปต่อ')));
+      }
+
+      function cooldownDone(text){
+        return /\b6\s*\/\s*6\b/.test(text) ||
+          /ดาว\s*6\s*\/\s*6/.test(text) ||
+          text.includes('Brush Smile Cooldown') ||
+          text.includes('รอยยิ้มสดใสแล้ว') ||
+          text.includes('กลับ HUB ได้เลย') ||
+          text.includes('กลับ Hygiene Zone') ||
+          text.includes('กลับโซน');
+      }
+
+      function ensureBrushReturnButton(){
+        if(phase !== 'cooldown') return;
+
+        if(document.getElementById('brushCooldownReturnBtn')) return;
+
+        const btn = document.createElement('button');
+        btn.id = 'brushCooldownReturnBtn';
+        btn.type = 'button';
+        btn.textContent = '🏠 กลับ Hygiene Zone';
+        btn.setAttribute('aria-label', 'กลับ Hygiene Zone');
+        btn.style.cssText = [
+          'position:fixed',
+          'right:18px',
+          'bottom:18px',
+          'z-index:2147483647',
+          'min-height:56px',
+          'padding:12px 18px',
+          'border:0',
+          'border-radius:999px',
+          'background:linear-gradient(180deg,#dcfff2,#baf4cf)',
+          'color:#143a22',
+          'font:900 16px system-ui,-apple-system,Segoe UI,sans-serif',
+          'box-shadow:0 14px 28px rgba(0,0,0,.28)',
+          'cursor:pointer'
+        ].join(';');
+
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          e.stopPropagation();
+          go('fixed-return-button');
+        });
+
+        document.documentElement.appendChild(btn);
+      }
+
+      function patchBootButtons(){
+        const actions = document.getElementById('gateBootActions');
+        const continueBtn = document.getElementById('gateContinueBtn');
+        const backBtn = document.getElementById('gateBackBtn');
+
+        if(actions) actions.style.display = 'flex';
+
+        if(continueBtn){
+          continueBtn.textContent = phase === 'cooldown' ? 'กลับ Hygiene Zone' : 'ไปต่อ';
+          continueBtn.onclick = function(e){
+            if(e){
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            go('gate-continue-button');
+          };
+        }
+
+        if(backBtn){
+          backBtn.textContent = 'กลับ Hygiene Zone';
+          backBtn.onclick = function(e){
+            if(e){
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            location.href = fallbackHygieneZone();
+          };
+        }
       }
 
       function tick(){
         if(fired) return;
 
-        if(textReady() || buttonReady()){
-          window.setTimeout(() => goNext('complete-detected'), 650);
-          return;
-        }
+        ensureBrushReturnButton();
 
-        if(Date.now() - startedAt > 45000){
-          const actions = document.getElementById('gateBootActions');
-          const continueBtn = document.getElementById('gateContinueBtn');
+        const text = pageText();
 
-          if(actions) actions.style.display = 'flex';
-          if(continueBtn){
-            continueBtn.onclick = () => goNext('manual-safety-continue');
+        if(phase === 'cooldown'){
+          if(cooldownDone(text)){
+            go('cooldown-complete');
+            return;
+          }
+
+          /*
+            In case gate-core's rendered content does not expose readable "6/6"
+            but the URL is already Brush cooldown, never allow it to hang.
+          */
+          if(Date.now() - startedAt > 4500){
+            go('cooldown-timeout-fallback');
+            return;
+          }
+        }else{
+          if(warmupDone(text)){
+            go('warmup-complete');
+            return;
+          }
+
+          if(Date.now() - startedAt > 45000){
+            patchBootButtons();
           }
         }
       }
+
+      document.addEventListener('click', function(e){
+        if(phase !== 'cooldown') return;
+
+        const btn = e.target && e.target.closest
+          ? e.target.closest('button,a,[role="button"]')
+          : null;
+
+        if(!btn) return;
+
+        const label = String(btn.textContent || btn.getAttribute('aria-label') || '')
+          .replace(/\s+/g, ' ')
+          .trim();
+
+        if(label.includes('กลับ') || label.includes('HUB') || label.includes('Zone') || label.includes('โซน')){
+          e.preventDefault();
+          e.stopPropagation();
+          if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+          go('captured-return-click');
+        }
+      }, true);
 
       observer = new MutationObserver(tick);
       observer.observe(document.documentElement, {
         childList:true,
         subtree:true,
-        characterData:true
+        characterData:true,
+        attributes:true
       });
 
-      window.setInterval(tick, 600);
+      intervalId = window.setInterval(tick, 250);
+
+      window.addEventListener('DOMContentLoaded', tick);
+      window.addEventListener('load', tick);
       window.addEventListener('pageshow', tick);
+
+      window.setTimeout(tick, 60);
+      window.setTimeout(tick, 500);
+      window.setTimeout(tick, 1500);
     })();
   </script>
 
-  <script>
+<script>
     /*
       === PATCH v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX ===
       FINAL RULE:
@@ -728,7 +940,7 @@
 
         try{
           localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
-            patch: 'v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX',
+            patch: 'v20260505g-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-FIX',
             rule: {
               main: HUB_V2,
               mode: GOODJUNK_LAUNCHER
