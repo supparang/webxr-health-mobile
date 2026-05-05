@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505-BRUSH-KIDS-MOUTH-SIM-REDESIGN -->
+<!-- FULL PATCH v20260505d-BRUSH-KIDS-DIRECT-ENTRY-WARMUP-REQUIRED -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -891,8 +891,19 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505-BRUSH-KIDS-MOUTH-SIM-REDESIGN';
+      const VERSION = '20260505d-BRUSH-KIDS-DIRECT-ENTRY-WARMUP-REQUIRED';
       const qs = new URLSearchParams(location.search);
+
+      /*
+        === PATCH v20260505d: DIRECT ENTRY MUST PASS WARMUP ===
+        Zone links may point directly to /herohealth/vr-brush-kids/brush.html.
+        This guard redirects to /herohealth/warmup-gate.html first unless:
+          - wgok=1 / warmupDone=1 / fromWarmup=1 is present, or
+          - wgskip=1 / requireWarmup=0 is used for debugging.
+        The warmup next URL returns here with wgok=1.
+      */
+      enforceWarmupBeforePlay();
+
 
       const ZONES = [
         { id:'upper-left',  label:'บนซ้าย',  icon:'🦷', arch:'upper', cls:'archSide'  },
@@ -977,6 +988,86 @@
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
+
+
+      function warmupSessionKey(){
+        const pid = qs.get('pid') || 'anon';
+        const seed = qs.get('seed') || 'noseed';
+        return 'HHA_BRUSH_WARMUP_OK_' + pid + '_' + seed;
+      }
+
+      function hasWarmupOk(){
+        const ok =
+          qs.get('wgok') === '1' ||
+          qs.get('fromWarmup') === '1' ||
+          qs.get('warmupDone') === '1';
+
+        if(ok){
+          try{ sessionStorage.setItem(warmupSessionKey(), '1'); }catch(_){}
+          return true;
+        }
+
+        try{
+          if(sessionStorage.getItem(warmupSessionKey()) === '1') return true;
+        }catch(_){}
+
+        return false;
+      }
+
+      function shouldEnforceWarmup(){
+        if(qs.get('wgskip') === '1') return false;
+        if(qs.get('requireWarmup') === '0') return false;
+
+        const phase = String(qs.get('phase') || qs.get('gatePhase') || '').toLowerCase();
+        if(phase === 'cooldown') return false;
+
+        return !hasWarmupOk();
+      }
+
+      function enforceWarmupBeforePlay(){
+        if(!shouldEnforceWarmup()) return;
+
+        const next = new URL(location.href);
+        next.searchParams.set('wgok', '1');
+        next.searchParams.set('fromWarmup', '1');
+        next.searchParams.set('stage', 'howto');
+        next.searchParams.delete('requireWarmup');
+
+        const warm = new URL('../warmup-gate.html', location.href);
+
+        [
+          'pid','name','nick','diff','time','view','run',
+          'zone','cat','game','gameId','variant','mode',
+          'entry','theme','launcher','studyId','conditionGroup',
+          'runMode','log','api','seed'
+        ].forEach(k => {
+          const v = qs.get(k);
+          if(v) warm.searchParams.set(k, v);
+        });
+
+        warm.searchParams.set('phase', 'warmup');
+        warm.searchParams.set('gatePhase', 'warmup');
+        warm.searchParams.set('game', 'brush');
+        warm.searchParams.set('gameId', 'brush');
+        warm.searchParams.set('variant', 'kids-vr');
+        warm.searchParams.set('zone', 'hygiene');
+        warm.searchParams.set('cat', 'hygiene');
+        warm.searchParams.set('next', next.toString());
+
+        const returnUrl = qs.get('return') || qs.get('back') || qs.get('hub') || '';
+        if(returnUrl){
+          warm.searchParams.set('hub', returnUrl);
+          warm.searchParams.set('return', returnUrl);
+          warm.searchParams.set('back', returnUrl);
+        }
+
+        try{
+          sessionStorage.setItem('HHA_BRUSH_NEXT', next.toString());
+        }catch(_){}
+
+        location.replace(warm.toString());
+      }
+
 
       function normalizeView(v){
         v = String(v || '').toLowerCase();
