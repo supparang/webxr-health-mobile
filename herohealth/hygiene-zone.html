@@ -1,5 +1,5 @@
 <!-- === /herohealth/hygiene-zone.html === -->
-<!-- FULL PATCH v20260504-HYGIENE-ZONE-HANDWASH-LAUNCHER-CANONICAL -->
+<!-- FULL PATCH v20260505d-HYGIENE-ZONE-BRUSH-DIRECT-ENTRY-WARMUP-REQUIRED -->
 <!-- Handwash canonical flow:
      Hygiene Zone
      -> /herohealth/handwash-launcher.html
@@ -502,7 +502,7 @@
         <div class="badgeRow">
           <div class="badge">🧼 Hygiene Zone</div>
           <div class="badge">Child-friendly</div>
-          <div class="badge">Handwash Launcher Fixed</div>
+          <div class="badge">Brush Direct Entry</div>
         </div>
 
         <h1>โซนสุขอนามัย</h1>
@@ -539,7 +539,7 @@
 
       <div class="quickLinks">
         <a class="btn btnPrimary" id="quickHandwash" href="./handwash-launcher.html">🧼 Handwash</a>
-        <a class="btn btnSoft" id="quickBrush" href="./brush-kids-vr.html">🪥 Brush</a>
+        <a class="btn btnSoft" id="quickBrush" href="./vr-brush-kids/brush.html">🪥 Brush</a>
         <a class="btn btnGreen" id="quickHub" href="./hub.html">🏠 กลับ Hub</a>
       </div>
     </section>
@@ -584,9 +584,9 @@
           <div class="gameIcon">🪥</div>
           <h3>Brush Hero</h3>
           <p>ฝึกแปรงฟันแบบ child-friendly เห็นเป้าหมายชัดและเล่นง่าย</p>
-          <span class="tag">Kids Mode</span>
+          <span class="tag">ผ่าน Warmup ก่อนเล่น</span>
           <div class="gameActions">
-            <a class="btn btnSoft" id="gameBrush" href="./brush-kids-vr.html">▶ เริ่ม Brush</a>
+            <a class="btn btnSoft" id="gameBrush" href="./vr-brush-kids/brush.html">▶ เริ่ม Brush</a>
           </div>
         </article>
 
@@ -640,7 +640,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260504-HYGIENE-ZONE-HANDWASH-LAUNCHER-CANONICAL';
+      const VERSION = '20260505d-HYGIENE-ZONE-BRUSH-DIRECT-ENTRY-WARMUP-REQUIRED';
       const DEFAULT_HUB_ROOT = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
       const DEFAULT_TIME = '90';
 
@@ -786,7 +786,19 @@
         els.quickHandwash.href = handwash;
         els.gameHandwash.href = handwash;
 
-        els.quickBrush.href = gameHref('brush-kids-vr.html', { game:'brush', gameId:'brush', zone:'hygiene', cat:'hygiene' });
+        els.quickBrush.href = gameHref('vr-brush-kids/brush.html', {
+          game:'brush',
+          gameId:'brush',
+          zone:'hygiene',
+          cat:'hygiene',
+          variant:'kids-vr',
+          mode:'learn',
+          entry:'brush-kids',
+          theme:'brush',
+          launcher:'hygiene-zone',
+          stage:'howto',
+          cooldown:'1'
+        });
         els.gameBrush.href = els.quickBrush.href;
         els.gameBath.href = gameHref('vr-bath/bath.html', { game:'bath', gameId:'bath', zone:'hygiene', cat:'hygiene' });
         els.gameGerm.href = gameHref('germ-detective-rush.html', { game:'germ', gameId:'germ', zone:'hygiene', cat:'hygiene' });
