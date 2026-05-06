@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505l-BRUSH-KIDS-CINEMATIC-DIRECTOR-FINAL-POLISH -->
+<!-- FULL PATCH v20260505m-BRUSH-KIDS-TOOTHPASTE-PREP-SIMULATION -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -1522,6 +1522,377 @@
 @keyframes fireworkPop{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}20%{transform:translate(-50%,-50%) scale(1.2);opacity:1}100%{transform:translate(-50%,-130%) scale(.8);opacity:0}}
 @media (max-width:640px){.directorGrid{grid-template-columns:1fr}.directorPanel{padding:8px 9px;font-size:11.5px}.cinematicCard{border-radius:24px;padding:18px}}
 
+  
+/* === PATCH v20260505m-BRUSH-TOOTHPASTE-PREP-SIMULATION === */
+.prepLayout{
+  display:grid;
+  grid-template-columns:minmax(260px,.8fr) minmax(0,1.2fr);
+  gap:12px;
+  align-items:stretch;
+}
+
+.prepInfo{
+  border-radius:26px;
+  border:2px solid #d7f0fb;
+  background:#fff;
+  padding:14px;
+  display:grid;
+  gap:10px;
+  align-content:start;
+  box-shadow:var(--shadow-soft);
+}
+
+.prepInfo h2{
+  margin:0;
+  color:#12324b;
+  font-size:26px;
+  line-height:1.12;
+  font-weight:1000;
+}
+
+.prepInfo p{
+  margin:0;
+  color:#5f7f92;
+  font-size:14px;
+  line-height:1.55;
+  font-weight:850;
+}
+
+.prepTargetCard{
+  border-radius:18px;
+  border:2px solid #bdf4ff;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  padding:10px 12px;
+  display:grid;
+  gap:8px;
+  color:#0f766e;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.prepMeter{
+  height:20px;
+  border-radius:999px;
+  border:2px solid #d7f0fb;
+  background:#f8fdff;
+  overflow:hidden;
+  position:relative;
+}
+
+.prepMeter::before,
+.prepMeter::after{
+  content:"";
+  position:absolute;
+  top:0;
+  bottom:0;
+  width:2px;
+  background:#22c55e;
+  opacity:.75;
+  z-index:2;
+}
+
+.prepMeter::before{ left:42%; }
+.prepMeter::after{ left:62%; }
+
+.prepMeterFill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#38bdf8,#22c55e,#ffd95d,#ef4444);
+  transition:width .16s ease;
+}
+
+.prepMeterText{
+  color:#37566e;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.prepStage{
+  position:relative;
+  min-height:520px;
+  border-radius:30px;
+  border:3px solid #bdf4ff;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255,255,255,.85), transparent 16%),
+    radial-gradient(circle at 80% 12%, rgba(255,217,93,.20), transparent 22%),
+    linear-gradient(180deg,#e0f7ff,#ffffff);
+  box-shadow:var(--shadow-soft);
+  overflow:hidden;
+  touch-action:none;
+  user-select:none;
+}
+
+.prepTable{
+  position:absolute;
+  left:6%;
+  right:6%;
+  bottom:7%;
+  height:26%;
+  border-radius:34px;
+  background:linear-gradient(180deg,#fff8dc,#ffe58d);
+  border:3px solid rgba(255,217,93,.65);
+  box-shadow:0 18px 36px rgba(80,60,0,.12);
+}
+
+.prepBrush{
+  position:absolute;
+  left:50%;
+  bottom:22%;
+  transform:translateX(-50%) rotate(-5deg);
+  width:min(420px,78%);
+  height:92px;
+  border-radius:999px;
+  background:linear-gradient(90deg,#93c5fd 0 64%,#e0f2fe 64% 100%);
+  border:3px solid rgba(23,56,79,.14);
+  box-shadow:0 16px 28px rgba(23,56,79,.14);
+  z-index:3;
+}
+
+.prepBrush::before{
+  content:"";
+  position:absolute;
+  left:6%;
+  top:50%;
+  width:30%;
+  height:54%;
+  transform:translateY(-50%);
+  border-radius:18px;
+  background:
+    repeating-linear-gradient(90deg,#ffffff 0 9px,#bdf4ff 9px 15px);
+  border:3px solid rgba(14,116,144,.20);
+  box-shadow:inset 0 -8px 14px rgba(14,116,144,.10);
+}
+
+.prepBrush::after{
+  content:"แปรงสีฟัน";
+  position:absolute;
+  right:8%;
+  top:50%;
+  transform:translateY(-50%);
+  color:#075985;
+  font-size:16px;
+  font-weight:1000;
+}
+
+.pasteOnBrush{
+  position:absolute;
+  left:9%;
+  top:20%;
+  height:28px;
+  width:0%;
+  max-width:28%;
+  border-radius:999px;
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255,255,255,.9), transparent 18%),
+    linear-gradient(90deg,#ffffff,#dffaff,#93c5fd);
+  border:2px solid rgba(14,116,144,.18);
+  z-index:4;
+  transition:width .16s ease, background .16s ease;
+}
+
+.pasteOnBrush.good{
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255,255,255,.9), transparent 18%),
+    linear-gradient(90deg,#dcfff2,#86efac);
+}
+
+.pasteOnBrush.tooMuch{
+  background:
+    radial-gradient(circle at 20% 25%, rgba(255,255,255,.9), transparent 18%),
+    linear-gradient(90deg,#fff2a8,#fb923c);
+}
+
+.toothpasteTube{
+  position:absolute;
+  right:10%;
+  top:18%;
+  width:220px;
+  max-width:40%;
+  height:88px;
+  border-radius:28px 18px 18px 28px;
+  background:linear-gradient(180deg,#ffffff,#dffaff);
+  border:3px solid #93c5fd;
+  box-shadow:0 16px 28px rgba(23,56,79,.14);
+  cursor:pointer;
+  z-index:5;
+  display:grid;
+  place-items:center;
+  color:#075985;
+  font-size:18px;
+  font-weight:1000;
+}
+
+.toothpasteTube::before{
+  content:"";
+  position:absolute;
+  left:-28px;
+  top:50%;
+  width:32px;
+  height:44px;
+  transform:translateY(-50%);
+  border-radius:10px 0 0 10px;
+  background:linear-gradient(180deg,#38bdf8,#0284c7);
+  border:3px solid #075985;
+}
+
+.toothpasteTube::after{
+  content:"ยาสีฟัน";
+  position:relative;
+  z-index:2;
+}
+
+.toothpasteTube.squeeze{
+  animation:tubeSqueeze .22s ease-out;
+}
+
+@keyframes tubeSqueeze{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(.94,1.08); }
+}
+
+.pasteBlob{
+  position:absolute;
+  z-index:8;
+  width:54px;
+  height:34px;
+  border-radius:999px;
+  background:
+    radial-gradient(circle at 26% 26%, #fff, transparent 20%),
+    linear-gradient(90deg,#ffffff,#dffaff,#93c5fd);
+  border:2px solid rgba(14,116,144,.18);
+  box-shadow:0 12px 22px rgba(23,56,79,.16);
+  left:58%;
+  top:40%;
+  transform:translate(-50%,-50%);
+  cursor:grab;
+  touch-action:none;
+}
+
+.pasteBlob.dragging{
+  cursor:grabbing;
+  transform:translate(-50%,-50%) scale(1.08);
+}
+
+.peaGuide{
+  position:absolute;
+  left:9%;
+  top:8%;
+  z-index:5;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  border-radius:999px;
+  border:2px dashed #22c55e;
+  background:rgba(239,252,243,.92);
+  color:#166534;
+  padding:9px 12px;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:0 10px 22px rgba(22,101,52,.08);
+}
+
+.peaDot{
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  background:linear-gradient(180deg,#86efac,#22c55e);
+  box-shadow:inset 0 3px 6px rgba(255,255,255,.35);
+}
+
+.prepFeedback{
+  position:absolute;
+  left:50%;
+  top:58%;
+  z-index:9;
+  transform:translateX(-50%);
+  width:min(620px,86%);
+  border-radius:22px;
+  border:2px solid #bdf4ff;
+  background:rgba(255,255,255,.92);
+  box-shadow:0 16px 32px rgba(23,56,79,.14);
+  padding:12px 14px;
+  color:#37566e;
+  text-align:center;
+  font-size:15px;
+  line-height:1.4;
+  font-weight:1000;
+}
+
+.prepFeedback.good{
+  border-color:#b8eec6;
+  background:#effcf3;
+  color:#166534;
+}
+
+.prepFeedback.warn{
+  border-color:#ffe58d;
+  background:#fff8dc;
+  color:#7c5800;
+}
+
+.prepFeedback.bad{
+  border-color:#fecaca;
+  background:#fff3f3;
+  color:#991b1b;
+}
+
+.prepActions{
+  display:grid;
+  grid-template-columns:1.2fr 1fr;
+  gap:10px;
+}
+
+.prepReadyPulse{
+  animation:prepReadyPulse .75s ease-in-out infinite;
+}
+
+@keyframes prepReadyPulse{
+  0%,100%{ box-shadow:0 10px 22px rgba(23,56,79,.08); }
+  50%{ box-shadow:0 0 0 8px rgba(34,197,94,.18),0 10px 22px rgba(23,56,79,.08); }
+}
+
+@media (max-width:900px){
+  .prepLayout{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:640px){
+  .prepStage{
+    min-height:430px;
+    border-radius:22px;
+  }
+  .toothpasteTube{
+    top:14%;
+    right:7%;
+    width:160px;
+    height:70px;
+    font-size:14px;
+  }
+  .prepBrush{
+    bottom:24%;
+    height:76px;
+    width:86%;
+  }
+  .prepBrush::after{
+    font-size:12px;
+  }
+  .pasteBlob{
+    width:46px;
+    height:30px;
+  }
+  .prepFeedback{
+    top:58%;
+    font-size:12.5px;
+    padding:10px;
+  }
+  .prepActions{
+    grid-template-columns:1fr;
+  }
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -1567,8 +1938,8 @@
           <div class="howCard">
             <h2>วิธีเล่น</h2>
             <ul>
-              <li>คลิก / แตะฟันใน “รูปปาก” เพื่อเลือกโซน</li>
-              <li>ลาก mouse หรือ finger บนฟันเพื่อแปรง</li>
+              <li>เริ่มจากใส่ยาสีฟันบนแปรงให้พอดี</li>
+              <li>จากนั้นจึงลากแปรงบนฟันเพื่อกำจัดคราบ</li>
               <li>คราบสีเหลืองจะค่อย ๆ หายไป</li>
               <li>ทำความสะอาดครบทุกโซนแล้วไปสู้ Boss</li>
             </ul>
@@ -1590,6 +1961,45 @@
         <pre class="debug" id="debugBox"></pre>
       </div>
     </section>
+
+
+    <section class="screen" id="screen-prep">
+      <div class="panel">
+        <div class="prepLayout">
+          <aside class="prepInfo">
+            <h2>🪥 เตรียมแปรงก่อน</h2>
+            <p>
+              ก่อนเริ่ม Brush Quest เด็กต้องใส่ยาสีฟันลงบนขนแปรงให้ “พอดี”
+              ถ้าใส่น้อยไปยังไม่พร้อม ถ้าเยอะเกินไปต้องลองใหม่
+            </p>
+
+            <div class="prepTargetCard">
+              <strong id="prepGoalTitle">เป้าหมาย: ขนาดเมล็ดถั่ว</strong>
+              <span id="prepGoalText">ลากยาสีฟันไปบนขนแปรง แล้วให้แถบอยู่ในช่วงสีเขียว</span>
+              <div class="prepMeter"><div class="prepMeterFill" id="prepMeterFill"></div></div>
+              <span class="prepMeterText" id="prepMeterText">0% • ยังไม่ได้ใส่ยาสีฟัน</span>
+            </div>
+
+            <div class="prepActions">
+              <button class="btn btnPrimary" id="btnPrepReady" type="button" data-action="prepDone" disabled>▶ พร้อมแปรงฟัน</button>
+              <button class="btn btnSoft" type="button" data-action="prepReset">↺ ลองใส่ใหม่</button>
+            </div>
+          </aside>
+
+          <div class="prepStage" id="prepStage">
+            <div class="peaGuide"><span class="peaDot"></span><span>ใส่แค่พอดี ไม่เยอะเกินไป</span></div>
+            <button class="toothpasteTube" id="toothpasteTube" type="button" aria-label="บีบยาสีฟัน"></button>
+            <div class="prepTable"></div>
+            <div class="prepBrush" id="prepBrush">
+              <div class="pasteOnBrush" id="pasteOnBrush"></div>
+            </div>
+            <div class="pasteBlob" id="pasteBlob" aria-label="ยาสีฟัน" role="button" tabindex="0"></div>
+            <div class="prepFeedback warn" id="prepFeedback">แตะ/ลากยาสีฟันไปวางบนขนแปรงก่อนนะ</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
 
     <section class="screen" id="screen-main">
       <div class="panel">
@@ -1763,7 +2173,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505l-BRUSH-KIDS-CINEMATIC-DIRECTOR-FINAL-POLISH';
+      const VERSION = '20260505m-BRUSH-KIDS-TOOTHPASTE-PREP-SIMULATION';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -1948,6 +2358,15 @@
         dailyGoalTitle:$('dailyGoalTitle'),
         dailyGoalText:$('dailyGoalText'),
         dailyGoalList:$('dailyGoalList'),
+        prepStage:$('prepStage'),
+        prepBrush:$('prepBrush'),
+        toothpasteTube:$('toothpasteTube'),
+        pasteBlob:$('pasteBlob'),
+        pasteOnBrush:$('pasteOnBrush'),
+        prepFeedback:$('prepFeedback'),
+        prepMeterFill:$('prepMeterFill'),
+        prepMeterText:$('prepMeterText'),
+        btnPrepReady:$('btnPrepReady'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
 
@@ -2027,7 +2446,11 @@
         directorLevel:'normal',
         directorScore:50,
         sfxEnabled:true,
-        lastCinematic:''
+        lastCinematic:'',
+        prepDone:false,
+        prepPaste:0,
+        prepDragging:false,
+        prepLastPoint:null
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
@@ -2219,6 +2642,148 @@
         showToast.t = setTimeout(() => el.toast.classList.remove('show'), 1300);
       }
 
+
+      function resetPrep(){
+        state.prepDone = false;
+        state.prepPaste = 0;
+        state.prepDragging = false;
+        state.prepLastPoint = null;
+        renderPrep();
+
+        if(el.pasteBlob){
+          el.pasteBlob.style.left = '58%';
+          el.pasteBlob.style.top = '40%';
+          el.pasteBlob.classList.remove('dragging');
+        }
+      }
+
+      function prepQuality(){
+        if(state.prepPaste >= 42 && state.prepPaste <= 62) return 'good';
+        if(state.prepPaste > 62) return 'tooMuch';
+        if(state.prepPaste > 0) return 'tooLittle';
+        return 'empty';
+      }
+
+      function renderPrep(){
+        if(!el.prepStage) return;
+
+        const ql = prepQuality();
+        const pct = Math.round(state.prepPaste);
+
+        if(el.prepMeterFill) el.prepMeterFill.style.width = clamp(pct, 0, 100) + '%';
+        if(el.pasteOnBrush){
+          el.pasteOnBrush.style.width = Math.min(28, pct * .45) + '%';
+          el.pasteOnBrush.classList.toggle('good', ql === 'good');
+          el.pasteOnBrush.classList.toggle('tooMuch', ql === 'tooMuch');
+        }
+
+        if(el.btnPrepReady){
+          el.btnPrepReady.disabled = ql !== 'good';
+          el.btnPrepReady.classList.toggle('prepReadyPulse', ql === 'good');
+        }
+
+        if(!el.prepFeedback || !el.prepMeterText) return;
+
+        el.prepFeedback.classList.remove('good','warn','bad');
+
+        if(ql === 'empty'){
+          el.prepFeedback.classList.add('warn');
+          el.prepFeedback.textContent = 'แตะ/ลากยาสีฟันไปวางบนขนแปรงก่อนนะ';
+          el.prepMeterText.textContent = '0% • ยังไม่ได้ใส่ยาสีฟัน';
+        }else if(ql === 'tooLittle'){
+          el.prepFeedback.classList.add('warn');
+          el.prepFeedback.textContent = 'ยังน้อยไปอีกนิด ลาก/แตะเพิ่มให้ใกล้ขนาดเมล็ดถั่ว';
+          el.prepMeterText.textContent = pct + '% • น้อยไป';
+        }else if(ql === 'tooMuch'){
+          el.prepFeedback.classList.add('bad');
+          el.prepFeedback.textContent = 'เยอะเกินไปแล้ว ลองกด “ลองใส่ใหม่” ให้พอดีกว่านี้';
+          el.prepMeterText.textContent = pct + '% • เยอะเกินไป';
+        }else{
+          el.prepFeedback.classList.add('good');
+          el.prepFeedback.textContent = 'พอดีแล้ว! พร้อมเข้า Brush Quest';
+          el.prepMeterText.textContent = pct + '% • พอดี';
+        }
+      }
+
+      function addPaste(amount){
+        state.prepPaste = clamp(state.prepPaste + amount, 0, 100);
+        if(el.toothpasteTube){
+          el.toothpasteTube.classList.remove('squeeze');
+          void el.toothpasteTube.offsetWidth;
+          el.toothpasteTube.classList.add('squeeze');
+        }
+        sfx('tap');
+        renderPrep();
+      }
+
+      function isOverPrepBrush(clientX, clientY){
+        if(!el.prepBrush) return false;
+        const r = el.prepBrush.getBoundingClientRect();
+        return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+      }
+
+      function movePasteBlob(clientX, clientY){
+        if(!el.pasteBlob || !el.prepStage) return;
+        const r = el.prepStage.getBoundingClientRect();
+        const x = clamp(((clientX - r.left) / Math.max(1, r.width)) * 100, 6, 94);
+        const y = clamp(((clientY - r.top) / Math.max(1, r.height)) * 100, 8, 88);
+        el.pasteBlob.style.left = x + '%';
+        el.pasteBlob.style.top = y + '%';
+      }
+
+      function prepPointerDown(e){
+        if(state.stage !== 'prep') return;
+        e.preventDefault();
+        state.prepDragging = true;
+        state.prepLastPoint = { x:e.clientX, y:e.clientY };
+        if(el.pasteBlob) el.pasteBlob.classList.add('dragging');
+        try{ e.currentTarget.setPointerCapture(e.pointerId); }catch(_){}
+        movePasteBlob(e.clientX, e.clientY);
+      }
+
+      function prepPointerMove(e){
+        if(state.stage !== 'prep' || !state.prepDragging) return;
+        e.preventDefault();
+
+        const last = state.prepLastPoint || { x:e.clientX, y:e.clientY };
+        const dx = e.clientX - last.x;
+        const dy = e.clientY - last.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        state.prepLastPoint = { x:e.clientX, y:e.clientY };
+
+        movePasteBlob(e.clientX, e.clientY);
+
+        if(isOverPrepBrush(e.clientX, e.clientY) && dist > 2){
+          addPaste(clamp(dist / 22, .8, 3.8));
+        }
+      }
+
+      function prepPointerUp(e){
+        if(!state.prepDragging) return;
+        state.prepDragging = false;
+        state.prepLastPoint = null;
+        if(el.pasteBlob) el.pasteBlob.classList.remove('dragging');
+
+        if(e && isOverPrepBrush(e.clientX, e.clientY)){
+          addPaste(8);
+        }else if(prepQuality() === 'empty'){
+          showToast('ลากยาสีฟันไปวางบนขนแปรงก่อน');
+        }
+      }
+
+      function finishPrep(){
+        if(prepQuality() !== 'good'){
+          showToast('ต้องใส่ยาสีฟันให้พอดีก่อน');
+          return;
+        }
+
+        state.prepDone = true;
+        sfx('power');
+        cinematic('🪥','READY TO BRUSH!','ใส่ยาสีฟันพอดีแล้ว ไปช่วยเมืองฟันกัน','prep-ready');
+        setStage('main');
+      }
+
+
       function setStage(stage){
         state.stage = stage;
         document.body.dataset.stage = stage;
@@ -2226,7 +2791,11 @@
         const screen = $('screen-' + stage);
         if(screen) screen.classList.add('active');
 
-        if(stage === 'howto'){
+        if(stage === 'prep'){
+          el.stageTitle.textContent = 'เตรียมแปรงสีฟัน';
+          el.stageLead.textContent = 'ใส่ยาสีฟันให้พอดีก่อนเริ่มแปรงฟัน';
+          resetPrep();
+        }else if(stage === 'howto'){
           el.stageTitle.textContent = 'แปรงฟันให้ครบทุกโซน';
           el.stageLead.textContent = 'เห็นตำแหน่งจริงในช่องปาก แล้วลากแปรงบนฟันเพื่อกำจัดคราบ';
         }else if(stage === 'main'){
@@ -3740,11 +4309,35 @@
       }
 
       function bind(){
+        if(el.pasteBlob){
+          el.pasteBlob.addEventListener('pointerdown', prepPointerDown);
+          el.pasteBlob.addEventListener('pointermove', prepPointerMove);
+          el.pasteBlob.addEventListener('pointerup', prepPointerUp);
+          el.pasteBlob.addEventListener('pointercancel', prepPointerUp);
+          el.pasteBlob.addEventListener('keydown', function(e){
+            if(e.key === 'Enter' || e.key === ' '){
+              e.preventDefault();
+              addPaste(12);
+            }
+          });
+        }
+
+        if(el.toothpasteTube){
+          el.toothpasteTube.addEventListener('click', function(){
+            if(state.stage === 'prep') addPaste(10);
+          });
+        }
+
+        window.addEventListener('pointerup', prepPointerUp);
+        window.addEventListener('pointercancel', prepPointerUp);
+
         document.addEventListener('click', function(e){
           const action = e.target && e.target.closest && e.target.closest('[data-action]');
           if(action){
             const a = action.dataset.action;
-            if(a === 'start') setStage('main');
+            if(a === 'start') setStage('prep');
+            else if(a === 'prepDone') finishPrep();
+            else if(a === 'prepReset') resetPrep();
             else if(a === 'back') location.href = zoneUrl();
             else if(a === 'restart') restart();
             else if(a === 'cooldown') location.href = cooldownUrl();
