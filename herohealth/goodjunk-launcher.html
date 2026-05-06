@@ -1,10 +1,10 @@
 <!-- === /herohealth/goodjunk-launcher.html === -->
-<!-- FULL PATCH v20260505b-GOODJUNK-LAUNCHER-FULL-3D-VR-FLOW -->
+<!-- FULL PATCH v20260506-GOODJUNK-LAUNCHER-FULL-3D-VR-PNG8441-FIX -->
 <!-- GoodJunk Launcher:
      ✅ Solo Boss 2D ผ่าน Warmup Gate
      ✅ Solo Boss 3D / Enter VR เข้า Full 3D VR Flow โดยตรง
-     ✅ Full 3D Flow = 3D Warmup → 3D Boss → 3D Summary → 3D Cooldown → Launcher
-     ✅ Race / Battle / Coop / Duet lobby links
+     ✅ FIX: no double ? in soloBoss3dFlow URL
+     ✅ v/assetv cache bust = 20260506-png8441
      ✅ Back main → hub-v2.html
 -->
 
@@ -853,7 +853,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v20260505b-GOODJUNK-LAUNCHER-FULL-3D-VR-FLOW';
+      const PATCH = 'v20260506-GOODJUNK-LAUNCHER-FULL-3D-VR-PNG8441-FIX';
 
       const ROUTES = {
         launcher: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
@@ -861,7 +861,13 @@
         warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',
 
         soloBoss2d: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss.html',
-        soloBoss3dFlow: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html?v=20260506-png8437',
+
+        /*
+          สำคัญมาก:
+          ห้ามใส่ ?v= ตรงนี้
+          buildSolo3dFlowUrl() จะเติม v / assetv เอง เพื่อไม่ให้เกิด ?? ซ้อน
+        */
+        soloBoss3dFlow: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html',
 
         race: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-race-lobby.html',
         battle: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-battle-lobby.html',
@@ -941,9 +947,9 @@
 
         try{
           localStorage.setItem('GJ_LAUNCHER_PATCH_LAST', JSON.stringify({
-            patch:PATCH,
-            prefs:p,
-            savedAt:new Date().toISOString()
+            patch: PATCH,
+            prefs: p,
+            savedAt: new Date().toISOString()
           }));
         }catch(e){}
 
@@ -1053,9 +1059,18 @@
 
       function buildSolo3dFlowUrl(){
         const p = baseParams('solo_boss_vr_flow');
+
         p.set('phase', 'full3d');
         p.set('flow', 'full3d');
         p.set('vrflow', '1');
+
+        /*
+          ต้องตรงกับไฟล์ goodjunk-solo-boss-vr-flow.html ล่าสุด:
+          v8.44.1-GOODJUNK-VR-START-BUTTON-BIND-FIRST
+        */
+        p.set('v', '20260506-png8441');
+        p.set('assetv', '20260506-png8441');
+
         return ROUTES.soloBoss3dFlow + '?' + p.toString();
       }
 
@@ -1140,12 +1155,14 @@
 
         try{
           localStorage.setItem('GJ_LAUNCHER_BOOT_LAST', JSON.stringify({
-            patch:PATCH,
-            href:location.href,
-            solo3dFlowUrl:buildSolo3dFlowUrl(),
-            savedAt:new Date().toISOString()
+            patch: PATCH,
+            href: location.href,
+            solo3dFlowUrl: buildSolo3dFlowUrl(),
+            savedAt: new Date().toISOString()
           }));
         }catch(e){}
+
+        console.log('[GoodJunk Launcher boot]', PATCH, buildSolo3dFlowUrl());
       }
 
       if(document.readyState === 'loading'){
