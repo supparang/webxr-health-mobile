@@ -1,6 +1,7 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.43.0-GOODJUNK-FULL-3D-VR-FLOW -->
+<!-- FULL PATCH v8.43.1-GOODJUNK-FULL-3D-VR-FLOW-START-PANEL -->
 <!-- Full 3D VR Flow in one page:
+     ✅ 3D Start Panel / Aim + Shoot to Start
      ✅ 3D Warmup
      ✅ 3D Main Boss
      ✅ 3D Summary
@@ -441,7 +442,7 @@
 
 <body>
   <section class="hud">
-    <div class="pill"><span>Stage</span><b id="hudStage">Warmup</b></div>
+    <div class="pill"><span>Stage</span><b id="hudStage">Ready</b></div>
     <div class="pill"><span>Score</span><b id="hudScore">0</b></div>
     <div class="pill"><span>Time</span><b id="hudTime">120</b></div>
     <div class="pill"><span>Life</span><b id="hudLives">💚💚💚</b></div>
@@ -449,7 +450,7 @@
   </section>
 
   <div class="bossBar"><i id="bossHpFill"></i></div>
-  <div class="mission" id="missionText">เตรียมตัวเข้าสู่สนามโภชนาการ 3D</div>
+  <div class="mission" id="missionText">เล็งป้าย START แล้วกด 🎯 เพื่อเริ่มใน VR</div>
   <div class="crosshair"></div>
 
   <button class="back" id="backBtn" type="button">🎮 โหมดเกม</button>
@@ -461,7 +462,7 @@
       <div class="icon">🥽🥗👾</div>
       <h1>GoodJunk Full 3D VR Flow</h1>
       <p>
-        กด Enter VR ได้เลย จากนั้นเล่นต่อเนื่องในฉาก 3D:
+        กด Enter VR ได้เลย แล้วเล็งป้าย START ในฉาก 3D เพื่อเริ่ม:
         Warmup → Boss Game → Summary → Cooldown → กลับหน้าโหมดเกม
       </p>
 
@@ -475,8 +476,8 @@
           <span>อย่ายิง junk และ fake healthy</span>
         </div>
         <div class="rule">
-          <b>🧘</b>
-          <span>จบด้วย cooldown ใน 3D</span>
+          <b>🎯</b>
+          <span>เล็ง START แล้วกดยิงได้ใน VR</span>
         </div>
       </div>
 
@@ -587,7 +588,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.43.0-GOODJUNK-FULL-3D-VR-FLOW';
+      const PATCH = 'v8.43.1-GOODJUNK-FULL-3D-VR-FLOW-START-PANEL';
 
       const WIN = window;
       const DOC = document;
@@ -753,7 +754,8 @@
           state.stage === 'warmup' ? 'Warmup' :
           state.stage === 'main' ? 'Boss' :
           state.stage === 'summary' ? 'Summary' :
-          state.stage === 'cooldown' ? 'Cooldown' : 'Ready';
+          state.stage === 'cooldown' ? 'Cooldown' :
+          state.stage === 'done' ? 'Done' : 'Ready';
 
         if(el.hudScore) el.hudScore.textContent = String(state.score);
         if(el.hudTime) el.hudTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
@@ -782,20 +784,29 @@
         if(el.targetRoot) el.targetRoot.innerHTML = '';
       }
 
-      function createTarget(kind, data, opts){
+      function makeTargetEntity(kind, data, opts){
         opts = opts || {};
 
         const wrap = DOC.createElement('a-entity');
         wrap.classList.add('gj-target');
+        wrap.setAttribute('data-gj-target-root', '1');
         wrap.dataset.kind = kind;
         wrap.dataset.consumed = '0';
-        wrap.__data = data;
+        wrap.__data = data || {};
 
         const x = opts.x ?? rand(-4.2,4.2);
         const y = opts.y ?? rand(1.05,3.05);
         const z = opts.z ?? rand(-11.5,-8.0);
 
         wrap.setAttribute('position', `${x} ${y} ${z}`);
+
+        return wrap;
+      }
+
+      function createTarget(kind, data, opts){
+        opts = opts || {};
+
+        const wrap = makeTargetEntity(kind, data, opts);
 
         const orb = DOC.createElement('a-sphere');
         orb.setAttribute('radius', kind === 'power' || kind === 'breath' ? '0.38' : '0.34');
@@ -823,6 +834,7 @@
         wrap.appendChild(label);
 
         const dur = opts.dur || Math.max(3200, D.speed - state.combo * 65);
+        const pos = wrap.getAttribute('position');
 
         if(opts.static){
           wrap.setAttribute('animation__float', {
@@ -831,12 +843,12 @@
             loop:true,
             dur:900,
             easing:'easeInOutSine',
-            to:`${x} ${y + 0.22} ${z}`
+            to:`${pos.x} ${pos.y + 0.22} ${pos.z}`
           });
         }else{
           wrap.setAttribute('animation__fly', {
             property:'position',
-            to:`${x * 0.22} ${y + rand(-0.25,0.25)} 0.9`,
+            to:`${pos.x * 0.22} ${pos.y + rand(-0.25,0.25)} 0.9`,
             dur:dur,
             easing:'linear'
           });
@@ -861,6 +873,103 @@
         state.targets.add(wrap);
 
         return wrap;
+      }
+
+      function createVrStartPanel(){
+        if(id('vrStartPanel')) return;
+
+        const panel = makeTargetEntity('vr-start', {
+          icon:'▶️',
+          label:'START',
+          color:'#22c55e'
+        }, {
+          x:0,
+          y:2.05,
+          z:-4.8,
+          static:true
+        });
+
+        panel.id = 'vrStartPanel';
+
+        const bg = DOC.createElement('a-plane');
+        bg.setAttribute('width', '3.7');
+        bg.setAttribute('height', '1.45');
+        bg.setAttribute('color', '#ffffff');
+        bg.setAttribute('opacity', '0.88');
+        bg.setAttribute('material', 'transparent:true; opacity:0.88; side:double');
+        bg.setAttribute('position', '0 0 0');
+
+        const title = DOC.createElement('a-text');
+        title.setAttribute('value', 'GOODJUNK 3D VR');
+        title.setAttribute('align', 'center');
+        title.setAttribute('color', '#0f172a');
+        title.setAttribute('width', '4.8');
+        title.setAttribute('position', '0 0.42 0.04');
+
+        const sub = DOC.createElement('a-text');
+        sub.setAttribute('value', 'Aim + Shoot to Start');
+        sub.setAttribute('align', 'center');
+        sub.setAttribute('color', '#2563eb');
+        sub.setAttribute('width', '4.2');
+        sub.setAttribute('position', '0 0.08 0.04');
+
+        const orb = DOC.createElement('a-sphere');
+        orb.setAttribute('radius', '0.34');
+        orb.setAttribute('color', '#22c55e');
+        orb.setAttribute('position', '0 -0.42 0.08');
+        orb.setAttribute('emissive', '#22c55e');
+        orb.setAttribute('emissive-intensity', '0.25');
+        orb.setAttribute('animation__pulse', {
+          property:'scale',
+          dir:'alternate',
+          loop:true,
+          dur:650,
+          easing:'easeInOutSine',
+          to:'1.16 1.16 1.16'
+        });
+
+        const icon = DOC.createElement('a-text');
+        icon.setAttribute('value', '▶️');
+        icon.setAttribute('align', 'center');
+        icon.setAttribute('color', '#0f172a');
+        icon.setAttribute('width', '2.2');
+        icon.setAttribute('position', '0 -0.46 0.43');
+
+        panel.appendChild(bg);
+        panel.appendChild(title);
+        panel.appendChild(sub);
+        panel.appendChild(orb);
+        panel.appendChild(icon);
+
+        panel.setAttribute('animation__float', {
+          property:'position',
+          dir:'alternate',
+          loop:true,
+          dur:900,
+          easing:'easeInOutSine',
+          to:'0 2.18 -4.8'
+        });
+
+        panel.addEventListener('click', function(e){
+          e.preventDefault();
+          startWarmupFromVr();
+        });
+
+        el.targetRoot.appendChild(panel);
+        state.targets.add(panel);
+
+        setMission('เล็งป้าย START แล้วกด 🎯 เพื่อเริ่มใน VR');
+      }
+
+      function startWarmupFromVr(){
+        const panel = id('vrStartPanel');
+        if(panel){
+          try{ panel.remove(); }catch(e){}
+          state.targets.delete(panel);
+        }
+
+        hide(el.startOverlay);
+        startWarmup();
       }
 
       function spawnWarmupSet(){
@@ -921,17 +1030,32 @@
       }
 
       function shoot(){
-        if(['warmup','main','cooldown'].indexOf(state.stage) < 0) return;
-
-        state.shots += 1;
+        if(['intro','warmup','main','cooldown'].indexOf(state.stage) < 0) return;
 
         const t = nearestTarget();
+
+        if(t && t.dataset && t.dataset.kind === 'vr-start'){
+          startWarmupFromVr();
+          return;
+        }
+
+        if(state.stage === 'intro'){
+          toast('เล็งป้าย START สีเขียว แล้วกด 🎯');
+          return;
+        }
+
+        state.shots += 1;
 
         if(!t){
           if(state.stage === 'main'){
             state.combo = 0;
             toast('พลาดเป้า! เล็งใหม่');
+          }else if(state.stage === 'warmup'){
+            toast('เล็งอาหารดีหรือโล่ใน Warmup');
+          }else if(state.stage === 'cooldown'){
+            toast('เล็ง 🌬️ 💧 🥦 ให้ครบ');
           }
+
           updateHud();
           return;
         }
@@ -944,6 +1068,11 @@
 
         const kind = wrap.dataset.kind;
         const data = wrap.__data || {};
+
+        if(kind === 'vr-start'){
+          startWarmupFromVr();
+          return;
+        }
 
         wrap.dataset.consumed = '1';
         state.targets.delete(wrap);
@@ -1333,10 +1462,10 @@
       }
 
       function bind(){
-        el.startBtn?.addEventListener('click', startWarmup);
+        el.startBtn?.addEventListener('click', startWarmupFromVr);
 
         el.vrHintBtn?.addEventListener('click', () => {
-          toast('กด Enter VR ของ A-Frame แล้วใช้ crosshair + ปุ่มยิง 🎯');
+          toast('กด Enter VR แล้วเล็งป้าย START จากนั้นกด 🎯 หรือแตะจอ');
         });
 
         el.shootBtn?.addEventListener('click', e => {
@@ -1386,12 +1515,14 @@
 
       function boot(){
         makeDecor();
+        createVrStartPanel();
         bind();
         updateHud();
 
         WIN.GoodJunkFull3DVRFlow = {
           version:PATCH,
           startWarmup,
+          startWarmupFromVr,
           startMain,
           startCooldown,
           shoot,
