@@ -1,13 +1,14 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.43.1-GOODJUNK-FULL-3D-VR-FLOW-START-PANEL -->
+<!-- FULL PATCH v8.43.3-GOODJUNK-FULL-3D-VR-START-FORCE -->
 <!-- Full 3D VR Flow in one page:
-     ✅ 3D Start Panel / Aim + Shoot to Start
+     ✅ 3D START panel bigger / closer / clearer
+     ✅ Press shoot during intro starts warmup immediately
      ✅ 3D Warmup
      ✅ 3D Main Boss
      ✅ 3D Summary
      ✅ 3D Cooldown
      ✅ Return to goodjunk-launcher.html
-     ✅ No warmup-gate navigation during VR session
+     ✅ Food Cards instead of unclear color balls
 -->
 
 <!doctype html>
@@ -27,14 +28,12 @@
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
-
       --ink:#172033;
       --muted:#64748b;
       --green:#22c55e;
       --blue:#2563eb;
       --gold:#facc15;
       --red:#ef4444;
-      --panel:rgba(255,255,255,.88);
     }
 
     *{
@@ -54,7 +53,10 @@
       overscroll-behavior:none;
     }
 
-    button{ font:inherit; cursor:pointer; }
+    button{
+      font:inherit;
+      cursor:pointer;
+    }
 
     a-scene{
       width:100vw;
@@ -176,8 +178,15 @@
       transform:translate(-50%,-50%);
     }
 
-    .crosshair::before{ width:2px; height:46px; }
-    .crosshair::after{ width:46px; height:2px; }
+    .crosshair::before{
+      width:2px;
+      height:46px;
+    }
+
+    .crosshair::after{
+      width:46px;
+      height:2px;
+    }
 
     .shoot{
       position:fixed;
@@ -197,7 +206,9 @@
         inset 0 -7px 0 rgba(15,23,42,.10);
     }
 
-    .shoot:active{ transform:scale(.94); }
+    .shoot:active{
+      transform:scale(.94);
+    }
 
     .back{
       position:fixed;
@@ -387,7 +398,9 @@
       color:#0f172a;
     }
 
-    .hidden{ display:none !important; }
+    .hidden{
+      display:none !important;
+    }
 
     @media (max-width:720px){
       .hud{
@@ -403,8 +416,14 @@
         border-radius:12px;
       }
 
-      .pill span{ display:none; }
-      .pill b{ font-size:13px; margin-top:0; }
+      .pill span{
+        display:none;
+      }
+
+      .pill b{
+        font-size:13px;
+        margin-top:0;
+      }
 
       .bossBar{
         top:calc(46px + var(--sat));
@@ -419,7 +438,9 @@
         padding:8px 12px;
       }
 
-      .rules{ grid-template-columns:1fr; }
+      .rules{
+        grid-template-columns:1fr;
+      }
 
       .rule{
         min-height:54px;
@@ -429,7 +450,9 @@
         text-align:left;
       }
 
-      .rule span{ margin-top:0; }
+      .rule span{
+        margin-top:0;
+      }
 
       .shoot{
         width:70px;
@@ -450,7 +473,7 @@
   </section>
 
   <div class="bossBar"><i id="bossHpFill"></i></div>
-  <div class="mission" id="missionText">เล็งป้าย START แล้วกด 🎯 เพื่อเริ่มใน VR</div>
+  <div class="mission" id="missionText">กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ</div>
   <div class="crosshair"></div>
 
   <button class="back" id="backBtn" type="button">🎮 โหมดเกม</button>
@@ -462,7 +485,7 @@
       <div class="icon">🥽🥗👾</div>
       <h1>GoodJunk Full 3D VR Flow</h1>
       <p>
-        กด Enter VR ได้เลย แล้วเล็งป้าย START ในฉาก 3D เพื่อเริ่ม:
+        เข้า Enter VR ได้เลย แล้วกด 🎯 เพื่อเริ่มทันที หรือเล็งป้าย START ในฉาก 3D:
         Warmup → Boss Game → Summary → Cooldown → กลับหน้าโหมดเกม
       </p>
 
@@ -477,7 +500,7 @@
         </div>
         <div class="rule">
           <b>🎯</b>
-          <span>เล็ง START แล้วกดยิงได้ใน VR</span>
+          <span>กดปุ่มยิงตอนเริ่มเกมได้เลย</span>
         </div>
       </div>
 
@@ -588,7 +611,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.43.1-GOODJUNK-FULL-3D-VR-FLOW-START-PANEL';
+      const PATCH = 'v8.43.3-GOODJUNK-FULL-3D-VR-START-FORCE';
 
       const WIN = window;
       const DOC = document;
@@ -622,35 +645,35 @@
       const D = DIFF[cfg.diff] || DIFF.normal;
 
       const GOOD = [
-        { icon:'🥦', label:'ผัก', color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
-        { icon:'🥕', label:'ผัก', color:'#fb923c', tip:'ผักมีใยอาหาร' },
-        { icon:'🍎', label:'ผลไม้', color:'#ef4444', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
-        { icon:'🍌', label:'ผลไม้', color:'#facc15', tip:'ผลไม้ให้พลังงานดี' },
-        { icon:'🥚', label:'โปรตีน', color:'#fde68a', tip:'โปรตีนช่วยซ่อมแซมร่างกาย' },
-        { icon:'🐟', label:'โปรตีน', color:'#38bdf8', tip:'ปลาเป็นโปรตีนที่ดี' },
-        { icon:'🍚', label:'ข้าว/แป้ง', color:'#ffffff', tip:'ข้าวให้พลังงาน' },
-        { icon:'💧', label:'น้ำ', color:'#60a5fa', tip:'น้ำเปล่าดีต่อร่างกาย' }
+        { icon:'🥦', label:'VEG', color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
+        { icon:'🥕', label:'VEG', color:'#fb923c', tip:'ผักมีใยอาหาร' },
+        { icon:'🍎', label:'FRUIT', color:'#ef4444', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
+        { icon:'🍌', label:'FRUIT', color:'#facc15', tip:'ผลไม้ให้พลังงานดี' },
+        { icon:'🥚', label:'PROTEIN', color:'#fde68a', tip:'โปรตีนช่วยซ่อมแซมร่างกาย' },
+        { icon:'🐟', label:'PROTEIN', color:'#38bdf8', tip:'ปลาเป็นโปรตีนที่ดี' },
+        { icon:'🍚', label:'CARB', color:'#ffffff', tip:'ข้าวให้พลังงาน' },
+        { icon:'💧', label:'WATER', color:'#60a5fa', tip:'น้ำเปล่าดีต่อร่างกาย' }
       ];
 
       const JUNK = [
-        { icon:'🍟', label:'Junk', color:'#f97316', tip:'อาหารทอดควรกินแต่น้อย' },
-        { icon:'🍩', label:'Junk', color:'#f472b6', tip:'ขนมหวานน้ำตาลสูง' },
-        { icon:'🥤', label:'Junk', color:'#ef4444', tip:'น้ำหวานมีน้ำตาลสูง' },
-        { icon:'🍬', label:'Junk', color:'#ec4899', tip:'ลูกอมหวานจัด' },
-        { icon:'🍔', label:'Junk', color:'#a16207', tip:'อาหารไขมันสูงควรระวัง' }
+        { icon:'🍟', label:'FRIED', color:'#f97316', tip:'อาหารทอดควรกินแต่น้อย' },
+        { icon:'🍩', label:'SWEET', color:'#f472b6', tip:'ขนมหวานน้ำตาลสูง' },
+        { icon:'🥤', label:'SODA', color:'#ef4444', tip:'น้ำหวานมีน้ำตาลสูง' },
+        { icon:'🍬', label:'CANDY', color:'#ec4899', tip:'ลูกอมหวานจัด' },
+        { icon:'🍔', label:'FAST', color:'#a16207', tip:'อาหารไขมันสูงควรระวัง' }
       ];
 
       const FAKE = [
-        { icon:'🧃', label:'Fake', color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' },
-        { icon:'🥣', label:'Fake', color:'#c084fc', tip:'ซีเรียลบางชนิดน้ำตาลสูง' },
-        { icon:'🍫', label:'Fake', color:'#92400e', tip:'energy bar บางชนิดหวานมาก' }
+        { icon:'🧃', label:'JUICE', color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' },
+        { icon:'🥣', label:'CEREAL', color:'#c084fc', tip:'ซีเรียลบางชนิดน้ำตาลสูง' },
+        { icon:'🍫', label:'BAR', color:'#92400e', tip:'energy bar บางชนิดหวานมาก' }
       ];
 
       const POWER = [
-        { id:'shield', icon:'🛡️', label:'Shield', color:'#38bdf8' },
-        { id:'fever', icon:'⚡', label:'Fever', color:'#facc15' },
-        { id:'heal', icon:'💚', label:'Heal', color:'#22c55e' },
-        { id:'powerFood', icon:'⭐', label:'Power', color:'#f59e0b' }
+        { id:'shield', icon:'🛡️', label:'SHIELD', color:'#38bdf8' },
+        { id:'fever', icon:'⚡', label:'FEVER', color:'#facc15' },
+        { id:'heal', icon:'💚', label:'HEAL', color:'#22c55e' },
+        { id:'powerFood', icon:'⭐', label:'POWER', color:'#f59e0b' }
       ];
 
       const el = {
@@ -799,39 +822,183 @@
         const z = opts.z ?? rand(-11.5,-8.0);
 
         wrap.setAttribute('position', `${x} ${y} ${z}`);
-
         return wrap;
       }
 
       function createTarget(kind, data, opts){
         opts = opts || {};
+        data = data || {};
 
         const wrap = makeTargetEntity(kind, data, opts);
 
-        const orb = DOC.createElement('a-sphere');
-        orb.setAttribute('radius', kind === 'power' || kind === 'breath' ? '0.38' : '0.34');
-        orb.setAttribute('color', data.color || '#ffffff');
-        orb.setAttribute('roughness', '0.45');
-        orb.setAttribute('emissive', kind === 'power' || kind === 'breath' ? data.color || '#facc15' : '#000');
-        orb.setAttribute('emissive-intensity', kind === 'power' || kind === 'breath' ? '0.28' : '0');
+        const isGood = kind === 'good' || kind === 'warm-good';
+        const isJunk = kind === 'junk' || kind === 'warm-junk';
+        const isFake = kind === 'fake';
+        const isPower = kind === 'power' || kind === 'warm-power';
+        const isBreath = kind === 'breath';
 
-        const text = DOC.createElement('a-text');
-        text.setAttribute('value', data.icon || '?');
-        text.setAttribute('align', 'center');
-        text.setAttribute('width', '2.7');
-        text.setAttribute('color', '#111827');
-        text.setAttribute('position', '0 0.02 0.38');
+        const theme = isGood ? {
+          bg:'#dcfce7',
+          rim:'#22c55e',
+          text:'#14532d',
+          title:'GOOD',
+          sub:data.label || 'FOOD'
+        } : isJunk ? {
+          bg:'#fee2e2',
+          rim:'#ef4444',
+          text:'#7f1d1d',
+          title:'JUNK',
+          sub:'AVOID'
+        } : isFake ? {
+          bg:'#fef3c7',
+          rim:'#f59e0b',
+          text:'#78350f',
+          title:'FAKE',
+          sub:'CHECK'
+        } : isPower ? {
+          bg:'#dbeafe',
+          rim:data.color || '#38bdf8',
+          text:'#172554',
+          title:String(data.label || 'POWER').toUpperCase(),
+          sub:'ORB'
+        } : isBreath ? {
+          bg:'#e0f2fe',
+          rim:data.color || '#60a5fa',
+          text:'#0c4a6e',
+          title:String(data.label || 'CALM').toUpperCase(),
+          sub:'COOLDOWN'
+        } : {
+          bg:'#ffffff',
+          rim:'#94a3b8',
+          text:'#0f172a',
+          title:'ITEM',
+          sub:'TARGET'
+        };
 
-        const label = DOC.createElement('a-text');
-        label.setAttribute('value', data.label || '');
-        label.setAttribute('align', 'center');
-        label.setAttribute('width', '2.1');
-        label.setAttribute('color', '#0f172a');
-        label.setAttribute('position', '0 -0.5 0.08');
+        const card = DOC.createElement('a-plane');
+        card.setAttribute('width', isPower ? '1.34' : '1.42');
+        card.setAttribute('height', isPower ? '1.06' : '1.12');
+        card.setAttribute('color', theme.bg);
+        card.setAttribute('material', 'side:double; roughness:0.65; metalness:0');
+        card.setAttribute('position', '0 0 0');
 
-        wrap.appendChild(orb);
-        wrap.appendChild(text);
-        wrap.appendChild(label);
+        const rim = DOC.createElement('a-ring');
+        rim.setAttribute('radius-inner', '0.62');
+        rim.setAttribute('radius-outer', '0.69');
+        rim.setAttribute('color', theme.rim);
+        rim.setAttribute('position', '0 0 0.035');
+
+        const title = DOC.createElement('a-text');
+        title.setAttribute('value', theme.title);
+        title.setAttribute('align', 'center');
+        title.setAttribute('color', theme.text);
+        title.setAttribute('width', '3.4');
+        title.setAttribute('position', '0 0.20 0.06');
+
+        const sub = DOC.createElement('a-text');
+        sub.setAttribute('value', theme.sub);
+        sub.setAttribute('align', 'center');
+        sub.setAttribute('color', theme.text);
+        sub.setAttribute('width', '2.55');
+        sub.setAttribute('position', '0 -0.20 0.06');
+
+        wrap.appendChild(card);
+        wrap.appendChild(rim);
+        wrap.appendChild(title);
+        wrap.appendChild(sub);
+
+        if(isGood){
+          const leaf = DOC.createElement('a-cone');
+          leaf.setAttribute('radius-bottom', '0.18');
+          leaf.setAttribute('radius-top', '0.02');
+          leaf.setAttribute('height', '0.48');
+          leaf.setAttribute('color', '#16a34a');
+          leaf.setAttribute('position', '-0.32 0.42 0.08');
+          leaf.setAttribute('rotation', '0 0 -35');
+          wrap.appendChild(leaf);
+
+          const leaf2 = DOC.createElement('a-cone');
+          leaf2.setAttribute('radius-bottom', '0.18');
+          leaf2.setAttribute('radius-top', '0.02');
+          leaf2.setAttribute('height', '0.48');
+          leaf2.setAttribute('color', '#22c55e');
+          leaf2.setAttribute('position', '0.32 0.42 0.08');
+          leaf2.setAttribute('rotation', '0 0 35');
+          wrap.appendChild(leaf2);
+        }
+
+        if(isJunk){
+          const cross1 = DOC.createElement('a-box');
+          cross1.setAttribute('width', '0.78');
+          cross1.setAttribute('height', '0.12');
+          cross1.setAttribute('depth', '0.08');
+          cross1.setAttribute('color', '#ef4444');
+          cross1.setAttribute('position', '0 0.43 0.08');
+          cross1.setAttribute('rotation', '0 0 35');
+          wrap.appendChild(cross1);
+
+          const cross2 = DOC.createElement('a-box');
+          cross2.setAttribute('width', '0.78');
+          cross2.setAttribute('height', '0.12');
+          cross2.setAttribute('depth', '0.08');
+          cross2.setAttribute('color', '#ef4444');
+          cross2.setAttribute('position', '0 0.43 0.08');
+          cross2.setAttribute('rotation', '0 0 -35');
+          wrap.appendChild(cross2);
+        }
+
+        if(isFake){
+          const warn = DOC.createElement('a-cone');
+          warn.setAttribute('radius-bottom', '0.32');
+          warn.setAttribute('height', '0.56');
+          warn.setAttribute('color', '#facc15');
+          warn.setAttribute('position', '0 0.43 0.08');
+          warn.setAttribute('rotation', '0 0 180');
+          wrap.appendChild(warn);
+
+          const bang = DOC.createElement('a-text');
+          bang.setAttribute('value', '!');
+          bang.setAttribute('align', 'center');
+          bang.setAttribute('color', '#7c2d12');
+          bang.setAttribute('width', '4');
+          bang.setAttribute('position', '0 0.36 0.14');
+          wrap.appendChild(bang);
+        }
+
+        if(isPower){
+          const glow = DOC.createElement('a-sphere');
+          glow.setAttribute('radius', '0.26');
+          glow.setAttribute('color', theme.rim);
+          glow.setAttribute('position', '0 0.43 0.11');
+          glow.setAttribute('emissive', theme.rim);
+          glow.setAttribute('emissive-intensity', '0.35');
+          glow.setAttribute('animation__pulse', {
+            property:'scale',
+            dir:'alternate',
+            loop:true,
+            dur:520,
+            easing:'easeInOutSine',
+            to:'1.22 1.22 1.22'
+          });
+          wrap.appendChild(glow);
+        }
+
+        if(isBreath){
+          const calm = DOC.createElement('a-torus');
+          calm.setAttribute('radius', '0.25');
+          calm.setAttribute('radius-tubular', '0.035');
+          calm.setAttribute('color', theme.rim);
+          calm.setAttribute('position', '0 0.42 0.11');
+          calm.setAttribute('animation__pulse', {
+            property:'scale',
+            dir:'alternate',
+            loop:true,
+            dur:850,
+            easing:'easeInOutSine',
+            to:'1.28 1.28 1.28'
+          });
+          wrap.appendChild(calm);
+        }
 
         const dur = opts.dur || Math.max(3200, D.speed - state.combo * 65);
         const pos = wrap.getAttribute('position');
@@ -858,10 +1025,11 @@
 
         wrap.setAttribute('animation__spin', {
           property:'rotation',
-          to:`0 ${rand(180,360)} 0`,
+          to:`0 ${rand(12,38)} 0`,
           dur:1500,
+          dir:'alternate',
           loop:true,
-          easing:'linear'
+          easing:'easeInOutSine'
         });
 
         wrap.addEventListener('click', e => {
@@ -876,70 +1044,106 @@
       }
 
       function createVrStartPanel(){
-        if(id('vrStartPanel')) return;
+        const old = id('vrStartPanel');
+        if(old){
+          try{ old.remove(); }catch(e){}
+          state.targets.delete(old);
+        }
 
         const panel = makeTargetEntity('vr-start', {
-          icon:'▶️',
+          icon:'START',
           label:'START',
           color:'#22c55e'
         }, {
           x:0,
-          y:2.05,
-          z:-4.8,
+          y:1.65,
+          z:-2.65,
           static:true
         });
 
         panel.id = 'vrStartPanel';
 
-        const bg = DOC.createElement('a-plane');
-        bg.setAttribute('width', '3.7');
-        bg.setAttribute('height', '1.45');
-        bg.setAttribute('color', '#ffffff');
-        bg.setAttribute('opacity', '0.88');
-        bg.setAttribute('material', 'transparent:true; opacity:0.88; side:double');
-        bg.setAttribute('position', '0 0 0');
+        const back = DOC.createElement('a-box');
+        back.setAttribute('width', '3.8');
+        back.setAttribute('height', '2.05');
+        back.setAttribute('depth', '0.08');
+        back.setAttribute('color', '#ffffff');
+        back.setAttribute('position', '0 0 0');
+        back.setAttribute('material', 'opacity:0.94; transparent:true; roughness:0.55');
+
+        const rimTop = DOC.createElement('a-box');
+        rimTop.setAttribute('width', '3.95');
+        rimTop.setAttribute('height', '0.12');
+        rimTop.setAttribute('depth', '0.12');
+        rimTop.setAttribute('color', '#22c55e');
+        rimTop.setAttribute('position', '0 1.08 0.08');
+
+        const rimBottom = DOC.createElement('a-box');
+        rimBottom.setAttribute('width', '3.95');
+        rimBottom.setAttribute('height', '0.12');
+        rimBottom.setAttribute('depth', '0.12');
+        rimBottom.setAttribute('color', '#22c55e');
+        rimBottom.setAttribute('position', '0 -1.08 0.08');
 
         const title = DOC.createElement('a-text');
         title.setAttribute('value', 'GOODJUNK 3D VR');
         title.setAttribute('align', 'center');
         title.setAttribute('color', '#0f172a');
-        title.setAttribute('width', '4.8');
-        title.setAttribute('position', '0 0.42 0.04');
+        title.setAttribute('width', '4.9');
+        title.setAttribute('position', '0 0.62 0.12');
 
         const sub = DOC.createElement('a-text');
-        sub.setAttribute('value', 'Aim + Shoot to Start');
+        sub.setAttribute('value', 'PRESS SHOOT TO START');
         sub.setAttribute('align', 'center');
         sub.setAttribute('color', '#2563eb');
-        sub.setAttribute('width', '4.2');
-        sub.setAttribute('position', '0 0.08 0.04');
+        sub.setAttribute('width', '4.35');
+        sub.setAttribute('position', '0 0.25 0.12');
 
-        const orb = DOC.createElement('a-sphere');
-        orb.setAttribute('radius', '0.34');
-        orb.setAttribute('color', '#22c55e');
-        orb.setAttribute('position', '0 -0.42 0.08');
-        orb.setAttribute('emissive', '#22c55e');
-        orb.setAttribute('emissive-intensity', '0.25');
-        orb.setAttribute('animation__pulse', {
-          property:'scale',
-          dir:'alternate',
-          loop:true,
-          dur:650,
-          easing:'easeInOutSine',
-          to:'1.16 1.16 1.16'
-        });
+        const startPlate = DOC.createElement('a-box');
+        startPlate.setAttribute('width', '2.2');
+        startPlate.setAttribute('height', '0.62');
+        startPlate.setAttribute('depth', '0.12');
+        startPlate.setAttribute('color', '#bbf7d0');
+        startPlate.setAttribute('position', '0 -0.38 0.16');
 
-        const icon = DOC.createElement('a-text');
-        icon.setAttribute('value', '▶️');
-        icon.setAttribute('align', 'center');
-        icon.setAttribute('color', '#0f172a');
-        icon.setAttribute('width', '2.2');
-        icon.setAttribute('position', '0 -0.46 0.43');
+        const startText = DOC.createElement('a-text');
+        startText.setAttribute('value', 'START');
+        startText.setAttribute('align', 'center');
+        startText.setAttribute('color', '#14532d');
+        startText.setAttribute('width', '3.2');
+        startText.setAttribute('position', '0 -0.48 0.27');
 
-        panel.appendChild(bg);
+        const orbL = DOC.createElement('a-sphere');
+        orbL.setAttribute('radius', '0.18');
+        orbL.setAttribute('color', '#22c55e');
+        orbL.setAttribute('position', '-1.38 -0.38 0.22');
+        orbL.setAttribute('emissive', '#22c55e');
+        orbL.setAttribute('emissive-intensity', '0.35');
+
+        const orbR = DOC.createElement('a-sphere');
+        orbR.setAttribute('radius', '0.18');
+        orbR.setAttribute('color', '#22c55e');
+        orbR.setAttribute('position', '1.38 -0.38 0.22');
+        orbR.setAttribute('emissive', '#22c55e');
+        orbR.setAttribute('emissive-intensity', '0.35');
+
+        const hint = DOC.createElement('a-text');
+        hint.setAttribute('value', 'Look here + tap / shoot');
+        hint.setAttribute('align', 'center');
+        hint.setAttribute('color', '#475569');
+        hint.setAttribute('width', '3.7');
+        hint.setAttribute('position', '0 -0.86 0.14');
+
+        panel.appendChild(back);
+        panel.appendChild(rimTop);
+        panel.appendChild(rimBottom);
         panel.appendChild(title);
         panel.appendChild(sub);
-        panel.appendChild(orb);
-        panel.appendChild(icon);
+        panel.appendChild(startPlate);
+        panel.appendChild(startText);
+        panel.appendChild(orbL);
+        panel.appendChild(orbR);
+        panel.appendChild(hint);
 
         panel.setAttribute('animation__float', {
           property:'position',
@@ -947,7 +1151,7 @@
           loop:true,
           dur:900,
           easing:'easeInOutSine',
-          to:'0 2.18 -4.8'
+          to:'0 1.78 -2.65'
         });
 
         panel.addEventListener('click', function(e){
@@ -958,7 +1162,8 @@
         el.targetRoot.appendChild(panel);
         state.targets.add(panel);
 
-        setMission('เล็งป้าย START แล้วกด 🎯 เพื่อเริ่มใน VR');
+        setMission('กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ');
+        toast('กด 🎯 เพื่อเริ่ม Full 3D Flow ได้เลย');
       }
 
       function startWarmupFromVr(){
@@ -1007,9 +1212,9 @@
       function spawnCooldownSet(){
         clearTargets();
 
-        createTarget('breath', { icon:'🌬️', label:'หายใจ', color:'#bfdbfe' }, { x:-2.1, y:1.9, z:-5.6, static:true });
-        createTarget('breath', { icon:'💧', label:'น้ำเปล่า', color:'#60a5fa' }, { x:0, y:2.25, z:-6.0, static:true });
-        createTarget('breath', { icon:'🥦', label:'อาหารดี', color:'#22c55e' }, { x:2.1, y:1.9, z:-5.6, static:true });
+        createTarget('breath', { icon:'🌬️', label:'BREATHE', color:'#bfdbfe' }, { x:-2.1, y:1.9, z:-5.6, static:true });
+        createTarget('breath', { icon:'💧', label:'WATER', color:'#60a5fa' }, { x:0, y:2.25, z:-6.0, static:true });
+        createTarget('breath', { icon:'🥦', label:'GOOD', color:'#22c55e' }, { x:2.1, y:1.9, z:-5.6, static:true });
       }
 
       function nearestTarget(){
@@ -1032,15 +1237,15 @@
       function shoot(){
         if(['intro','warmup','main','cooldown'].indexOf(state.stage) < 0) return;
 
-        const t = nearestTarget();
-
-        if(t && t.dataset && t.dataset.kind === 'vr-start'){
+        if(state.stage === 'intro'){
           startWarmupFromVr();
           return;
         }
 
-        if(state.stage === 'intro'){
-          toast('เล็งป้าย START สีเขียว แล้วกด 🎯');
+        const t = nearestTarget();
+
+        if(t && t.dataset && t.dataset.kind === 'vr-start'){
+          startWarmupFromVr();
           return;
         }
 
@@ -1053,7 +1258,7 @@
           }else if(state.stage === 'warmup'){
             toast('เล็งอาหารดีหรือโล่ใน Warmup');
           }else if(state.stage === 'cooldown'){
-            toast('เล็ง 🌬️ 💧 🥦 ให้ครบ');
+            toast('เล็ง BREATHE / WATER / GOOD ให้ครบ');
           }
 
           updateHud();
@@ -1083,11 +1288,12 @@
           state.warmGood += 1;
           state.score += 10;
           toast('ดีมาก! อาหารดี');
+
           if(state.warmGood >= 2){
-            setMission('Warmup: ยิง 🛡️ power-up orb เพื่อเริ่มสู้บอส');
+            setMission('Warmup: ยิง SHIELD เพื่อเริ่มสู้บอส');
           }
         }else if(kind === 'warm-junk'){
-          toast('นี่คือ junk — อย่ายิงตอนเล่นจริง!');
+          toast('นี่คือ JUNK — อย่ายิงตอนเล่นจริง!');
         }else if(kind === 'warm-power'){
           state.warmPower += 1;
           state.shield = 1;
@@ -1129,7 +1335,7 @@
           state.powerFoodReady = false;
           toast('⭐ Power Food Strike!');
         }else{
-          toast(`ดีมาก ${data.icon || '🥦'} Combo x${state.combo}`);
+          toast(`GOOD! ${data.label || 'FOOD'} Combo x${state.combo}`);
         }
 
         state.score += Math.round(points);
@@ -1160,8 +1366,8 @@
         cameraShake();
 
         toast(kind === 'fake'
-          ? `ระวัง fake healthy ${data.icon || '🧃'}`
-          : `โดน junk ${data.icon || '🍟'}`
+          ? `ระวัง FAKE healthy: ${data.label || 'CHECK'}`
+          : `โดน JUNK: ${data.label || 'AVOID'}`
         );
 
         if(state.lives <= 0){
@@ -1190,7 +1396,7 @@
 
       function hitBreath(data){
         state.cooldownBreath += 1;
-        state.cooldownGood += data.icon === '🥦' ? 1 : 0;
+        state.cooldownGood += String(data.label || '').toUpperCase() === 'GOOD' ? 1 : 0;
         state.score += 5;
 
         toast(`Cooldown ${state.cooldownBreath}/3`);
@@ -1210,7 +1416,7 @@
         if(kind === 'good'){
           state.misses += 1;
           state.combo = 0;
-          toast(`พลาดอาหารดี ${data.icon || ''}`);
+          toast(`พลาดอาหารดี ${data.label || ''}`);
         }
 
         try{ wrap.remove(); }catch(e){}
@@ -1223,7 +1429,7 @@
 
         fx.setAttribute('value',
           kind.includes('good') ? '+GOOD' :
-          kind === 'power' || kind === 'warm-power' ? data.icon || '⭐' :
+          kind === 'power' || kind === 'warm-power' ? 'POWER' :
           kind === 'breath' ? '+CALM' :
           'MISS'
         );
@@ -1313,7 +1519,7 @@
         hide(el.summaryOverlay);
         hide(el.finalOverlay);
 
-        setMission('Warmup: ยิงอาหารดี 2 ชิ้น แล้วอย่ายิง junk');
+        setMission('Warmup: ยิง GOOD 2 ชิ้น แล้วอย่ายิง JUNK');
         spawnWarmupSet();
         updateHud();
         toast('Warmup เริ่มแล้ว!');
@@ -1325,7 +1531,7 @@
 
         clearTargets();
 
-        setMission('Boss: ยิงอาหารดี ลด HP บอส!');
+        setMission('Boss: ยิง GOOD ลด HP บอส!');
         toast('Boss Fight เริ่ม!');
         updateHud();
 
@@ -1436,7 +1642,7 @@
           el.scene.setAttribute('background','color','#e0f2fe');
         }
 
-        setMission('Cooldown: ยิง 🌬️ 💧 🥦 ให้ครบ 3 ชิ้น');
+        setMission('Cooldown: ยิง BREATHE / WATER / GOOD ให้ครบ 3 ชิ้น');
         spawnCooldownSet();
         updateHud();
         toast('เริ่ม 3D Cooldown');
@@ -1465,7 +1671,7 @@
         el.startBtn?.addEventListener('click', startWarmupFromVr);
 
         el.vrHintBtn?.addEventListener('click', () => {
-          toast('กด Enter VR แล้วเล็งป้าย START จากนั้นกด 🎯 หรือแตะจอ');
+          toast('กด Enter VR แล้วกด 🎯 เพื่อเริ่มได้เลย');
         });
 
         el.shootBtn?.addEventListener('click', e => {
@@ -1516,6 +1722,10 @@
       function boot(){
         makeDecor();
         createVrStartPanel();
+
+        setTimeout(createVrStartPanel, 500);
+        setTimeout(createVrStartPanel, 1200);
+
         bind();
         updateHud();
 
