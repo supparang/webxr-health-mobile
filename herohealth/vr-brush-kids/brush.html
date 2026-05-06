@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505r-BRUSH-KIDS-PATCH24-RELEASE-CANDIDATE-QA -->
+<!-- FULL PATCH v20260505s-BRUSH-KIDS-PATCH30-FINAL-RELEASE-PACK -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -3185,6 +3185,437 @@ body.p24-cute-polish .toothPet::after{
   .p24Card{box-shadow:none;border:0;width:100%;max-height:none;}
 }
 
+  
+/* === PATCH v20260505s-BRUSH-PATCH30-FINAL-RELEASE-PACK === */
+
+/* Patch 25: Real Test Fix Build */
+.p30StatusDock{
+  position:fixed;
+  right:calc(12px + env(safe-area-inset-right,0px));
+  bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  z-index:10320;
+  display:grid;
+  gap:7px;
+  width:min(330px,calc(100vw - 24px));
+  pointer-events:none;
+}
+
+.p30StatusCard{
+  pointer-events:auto;
+  border-radius:22px;
+  border:2px solid rgba(189,244,255,.95);
+  background:rgba(255,255,255,.94);
+  box-shadow:0 16px 36px rgba(23,56,79,.16);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  color:#17384f;
+  font:1000 12px/1.35 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  padding:10px;
+  display:grid;
+  gap:8px;
+}
+
+.p30StatusCard.warn{
+  border-color:#ffe58d;
+  background:#fffdf1;
+  color:#7c5800;
+}
+
+.p30StatusCard.fail{
+  border-color:#fecaca;
+  background:#fff6f6;
+  color:#991b1b;
+}
+
+.p30StatusHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+
+.p30StatusHeader strong{
+  font-size:13px;
+}
+
+.p30StatusHeader button{
+  border:0;
+  border-radius:999px;
+  padding:6px 9px;
+  background:#ecfeff;
+  border:1px solid #bdf4ff;
+  color:#0f766e;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+.p30StatusBody{
+  display:grid;
+  gap:6px;
+}
+
+.p30MiniRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  min-height:30px;
+  border-radius:12px;
+  padding:5px 7px;
+  background:#f8fdff;
+  border:1px solid #d7f0fb;
+}
+
+.p30MiniRow.pass{
+  background:#effcf3;
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.p30MiniRow.warn{
+  background:#fff8dc;
+  border-color:#ffe58d;
+  color:#7c5800;
+}
+
+.p30MiniRow.fail{
+  background:#fff3f3;
+  border-color:#fecaca;
+  color:#991b1b;
+}
+
+/* Patch 27: asset-light visual polish */
+body.p30-asset-polish .toothZone{
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255,255,255,.9), transparent 18%),
+    linear-gradient(180deg,#ffffff,#f8fdff 55%,#e0f7ff);
+}
+
+body.p30-asset-polish .toothZone.done{
+  background:
+    radial-gradient(circle at 25% 18%, rgba(255,255,255,.95), transparent 18%),
+    linear-gradient(180deg,#ffffff,#dcfff2);
+}
+
+body.p30-asset-polish .brush,
+body.p30-asset-polish .bossBrush,
+body.p30-asset-polish .ghostBrush{
+  background:
+    linear-gradient(90deg,#60a5fa 0 52%,#fef3c7 52% 100%);
+  border-color:rgba(14,116,144,.35);
+}
+
+body.p30-asset-polish .brush::after,
+body.p30-asset-polish .bossBrush::after,
+body.p30-asset-polish .ghostBrush::after{
+  content:"";
+  position:absolute;
+  left:10%;
+  top:20%;
+  width:32%;
+  height:34%;
+  border-radius:8px;
+  background:repeating-linear-gradient(90deg,#fff 0 5px,#bae6fd 5px 9px);
+  box-shadow:0 4px 8px rgba(14,116,144,.12);
+}
+
+body.p30-asset-polish .bossHitZone{
+  background:
+    radial-gradient(circle at 35% 26%, rgba(255,255,255,.42), transparent 16%),
+    radial-gradient(circle at 38% 42%, #111827 0 5px, transparent 6px),
+    radial-gradient(circle at 62% 42%, #111827 0 5px, transparent 6px),
+    linear-gradient(180deg,#ddd6fe,#8b5cf6);
+}
+
+body.p30-asset-polish .bossHitZone.vulnerable{
+  background:
+    radial-gradient(circle at 36% 38%, #111827 0 5px, transparent 6px),
+    radial-gradient(circle at 62% 38%, #111827 0 5px, transparent 6px),
+    linear-gradient(180deg,#fff2a8,#facc15);
+}
+
+/* Patch 28: cVR final assist */
+.p30GazeRing{
+  position:fixed;
+  left:50%;
+  top:50%;
+  z-index:10400;
+  width:58px;
+  height:58px;
+  transform:translate(-50%,-50%);
+  border-radius:999px;
+  pointer-events:none;
+  display:none;
+}
+
+.p30GazeRing::before{
+  content:"";
+  position:absolute;
+  inset:8px;
+  border-radius:999px;
+  border:3px solid rgba(23,56,79,.85);
+  box-shadow:0 0 0 3px rgba(255,255,255,.72);
+}
+
+.p30GazeRing::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:999px;
+  border:4px solid transparent;
+  border-top-color:#22c55e;
+  border-right-color:#ffd95d;
+  transform:rotate(var(--p30-gaze,0deg));
+  opacity:.9;
+}
+
+body.p30-cvr-final .p30GazeRing{
+  display:block;
+}
+
+.p30RecenterBtn{
+  position:fixed;
+  left:50%;
+  bottom:calc(70px + env(safe-area-inset-bottom,0px));
+  z-index:10410;
+  transform:translateX(-50%);
+  min-height:46px;
+  border:0;
+  border-radius:999px;
+  padding:9px 14px;
+  display:none;
+  background:rgba(255,255,255,.94);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+  box-shadow:0 14px 30px rgba(23,56,79,.16);
+  font:1000 13px ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+body.p30-cvr-final .p30RecenterBtn{
+  display:block;
+}
+
+/* Patch 29/30 modal */
+.p30Modal{
+  position:fixed;
+  inset:0;
+  z-index:10450;
+  display:none;
+  place-items:center;
+  padding:18px;
+  background:rgba(2,6,23,.45);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+.p30Modal.show{
+  display:grid;
+}
+
+.p30Card{
+  width:min(1040px,96vw);
+  max-height:min(860px,92dvh);
+  overflow:auto;
+  border-radius:34px;
+  border:3px solid #bdf4ff;
+  background:linear-gradient(180deg,#ffffff,#f8feff);
+  box-shadow:0 34px 96px rgba(2,6,23,.36);
+  padding:16px;
+  display:grid;
+  gap:12px;
+  color:#17384f;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.p30Card h2{
+  margin:0;
+  color:#12324b;
+  font-size:clamp(24px,4vw,42px);
+  line-height:1.05;
+  letter-spacing:-.04em;
+  font-weight:1000;
+}
+
+.p30Card p{
+  margin:0;
+  color:#5f7f92;
+  font-size:14px;
+  line-height:1.45;
+  font-weight:850;
+}
+
+.p30Tabs{
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+}
+
+.p30Tab{
+  min-height:40px;
+  border:0;
+  border-radius:999px;
+  padding:8px 12px;
+  background:#ecfeff;
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+  cursor:pointer;
+  font-weight:1000;
+}
+
+.p30Tab.active{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  border-color:#ffd95d;
+  color:#503c00;
+}
+
+.p30Grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.p30Box{
+  border-radius:22px;
+  border:2px solid #d7f0fb;
+  background:#fff;
+  padding:12px;
+  display:grid;
+  gap:8px;
+  color:#37566e;
+  font-size:13px;
+  line-height:1.42;
+  font-weight:900;
+}
+
+.p30Box strong{
+  color:#12324b;
+  font-size:16px;
+}
+
+.p30Box.pass{
+  border-color:#b8eec6;
+  background:#effcf3;
+  color:#166534;
+}
+
+.p30Box.warn{
+  border-color:#ffe58d;
+  background:#fff8dc;
+  color:#7c5800;
+}
+
+.p30Box.fail{
+  border-color:#fecaca;
+  background:#fff3f3;
+  color:#991b1b;
+}
+
+.p30Code{
+  border-radius:18px;
+  background:#0f172a;
+  color:#dffaff;
+  padding:12px;
+  max-height:340px;
+  overflow:auto;
+  font:800 11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.p30Actions{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:8px;
+}
+
+.p30Actions button{
+  min-height:46px;
+  border:0;
+  border-radius:16px;
+  padding:9px 10px;
+  cursor:pointer;
+  font:1000 12px ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+}
+
+.p30Actions button.gold{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  border-color:#ffd95d;
+  color:#503c00;
+}
+
+.p30Actions button.green{
+  background:linear-gradient(180deg,#dcfff2,#ffffff);
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.p30Toast{
+  position:fixed;
+  left:50%;
+  top:16%;
+  z-index:10480;
+  transform:translateX(-50%);
+  min-height:48px;
+  width:min(760px,92vw);
+  display:none;
+  place-items:center;
+  text-align:center;
+  border-radius:999px;
+  padding:10px 18px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  box-shadow:0 18px 44px rgba(23,56,79,.28);
+  font:1000 15px ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.p30Toast.show{
+  display:grid;
+  animation:p30ToastPop 1.15s ease-out forwards;
+}
+
+@keyframes p30ToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(.9)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.98)}
+}
+
+@media (max-width:760px){
+  .p30StatusDock{
+    right:8px;
+    left:8px;
+    bottom:calc(58px + env(safe-area-inset-bottom,0px));
+    width:auto;
+  }
+  body.p20-kid-simple .p30StatusDock,
+  body.p24-kid-tuned .p30StatusDock{
+    display:none;
+  }
+  .p30Grid,
+  .p30Actions{
+    grid-template-columns:1fr;
+  }
+  .p30StatusCard{
+    border-radius:18px;
+    padding:8px;
+  }
+  .p30StatusBody{
+    display:none;
+  }
+  .p30StatusCard.open .p30StatusBody{
+    display:grid;
+  }
+}
+
+@media print{
+  .p30StatusDock,.p30Toast,.p30GazeRing,.p30RecenterBtn{display:none !important}
+  .p30Modal{position:static;display:block;background:white;padding:0}
+  .p30Card{box-shadow:none;border:0;width:100%;max-height:none}
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -3497,7 +3928,7 @@ body.p24-cute-polish .toothPet::after{
     (function(){
       'use strict';
 
-      const VERSION = '20260505r-BRUSH-KIDS-PATCH24-RELEASE-CANDIDATE-QA';
+      const VERSION = '20260505s-BRUSH-KIDS-PATCH30-FINAL-RELEASE-PACK';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -7737,6 +8168,642 @@ body.p24-cute-polish .toothPet::after{
     const qa = runQa();
     saveP24('p24_init', { qaStatus:qa.status, recommendedMode:recommendedMode() });
     setTimeout(() => toast('🚀 Patch 24 Release Candidate พร้อมทดสอบ'), 700);
+  }
+
+  init();
+})();
+</script>
+
+
+  <div class="p30StatusDock" id="p30StatusDock">
+    <div class="p30StatusCard open" id="p30StatusCard">
+      <div class="p30StatusHeader">
+        <div>
+          <strong id="p30StatusTitle">🚀 Brush Final Pack</strong><br>
+          <span id="p30StatusSub">Patch 30 ready</span>
+        </div>
+        <button id="p30OpenBtn" type="button">Open</button>
+      </div>
+      <div class="p30StatusBody" id="p30StatusBody"></div>
+    </div>
+  </div>
+
+  <div class="p30GazeRing" id="p30GazeRing"></div>
+  <button class="p30RecenterBtn" id="p30RecenterBtn" type="button">🎯 Recenter cVR</button>
+
+  <div class="p30Modal" id="p30Modal" aria-hidden="true">
+    <div class="p30Card">
+      <h2 id="p30Title">Brush Patch 30 Final Release Pack</h2>
+      <p id="p30Subtitle">Test fix, split manifest, asset polish, cVR final, dashboard export, release pack</p>
+
+      <div class="p30Tabs">
+        <button class="p30Tab active" data-p30-tab="overview" type="button">Overview</button>
+        <button class="p30Tab" data-p30-tab="test" type="button">Test Fix</button>
+        <button class="p30Tab" data-p30-tab="split" type="button">Split Files</button>
+        <button class="p30Tab" data-p30-tab="assets" type="button">Assets</button>
+        <button class="p30Tab" data-p30-tab="dashboard" type="button">Dashboard</button>
+        <button class="p30Tab" data-p30-tab="release" type="button">Release</button>
+      </div>
+
+      <div class="p30Grid" id="p30Grid"></div>
+      <div class="p30Code" id="p30Json">Loading...</div>
+
+      <div class="p30Actions">
+        <button class="gold" id="p30RunBtn" type="button">🧪 Run Test</button>
+        <button class="green" id="p30CsvBtn" type="button">📊 CSV</button>
+        <button id="p30JsonBtn" type="button">⬇ JSON</button>
+        <button id="p30SplitBtn" type="button">🧩 Split Manifest</button>
+        <button id="p30PrintBtn" type="button">🖨 Print</button>
+        <button id="p30CloseBtn" type="button">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="p30Toast" id="p30Toast"></div>
+
+
+<script>
+/*
+  === PATCH v20260505s-BRUSH-PATCH30-FINAL-RELEASE-PACK ===
+  Patch 25: Real Test Fix Build
+  Patch 26: Split Files / Maintainable Manifest
+  Patch 27: Real Asset Polish Pack
+  Patch 28: cVR / Cardboard Final Assist
+  Patch 29: Teacher / Parent Dashboard Export
+  Patch 30: Final Release Pack
+*/
+(function(){
+  'use strict';
+
+  const qs = new URLSearchParams(location.search || '');
+  const P30 = {
+    version:'20260505s-BRUSH-KIDS-PATCH30-FINAL-RELEASE-PACK',
+    startedAt:Date.now(),
+    activeTab:'overview',
+    test:null,
+    manifest:null,
+    gazeTimer:0,
+    gazeTarget:null,
+    gazeProgress:0
+  };
+
+  function $(id){ return document.getElementById(id); }
+  function all(sel){ return Array.from(document.querySelectorAll(sel)); }
+
+  function toast(msg){
+    const el = $('p30Toast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1250);
+  }
+
+  function stage(){
+    return document.body && document.body.dataset ? (document.body.dataset.stage || '') : '';
+  }
+
+  function exists(sel){ return !!document.querySelector(sel); }
+  function count(sel){ return document.querySelectorAll(sel).length; }
+
+  function getNumber(id, fallback=0){
+    const el = $(id);
+    if(!el) return fallback;
+    const m = String(el.textContent || '').match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : fallback;
+  }
+
+  function readJson(key, fallback){
+    try{ return JSON.parse(localStorage.getItem(key) || '') || fallback; }
+    catch(_){ return fallback; }
+  }
+
+  function writeJson(key, value){
+    try{ localStorage.setItem(key, JSON.stringify(value)); }catch(_){}
+  }
+
+  function key(prefix){
+    return prefix + '_' + (qs.get('pid') || 'anon');
+  }
+
+  function device(){
+    return {
+      ua:navigator.userAgent,
+      width:window.innerWidth,
+      height:window.innerHeight,
+      dpr:window.devicePixelRatio || 1,
+      memory:navigator.deviceMemory || null,
+      cores:navigator.hardwareConcurrency || null,
+      touch:'ontouchstart' in window || navigator.maxTouchPoints > 0,
+      view:qs.get('view') || 'mobile'
+    };
+  }
+
+  function currentMetrics(){
+    return {
+      stage:stage(),
+      score:getNumber('scoreText',0),
+      clean:getNumber('cleanText',0),
+      plaque:getNumber('plaqueText',100),
+      combo:getNumber('comboText',0),
+      time:getNumber('timeText',0)
+    };
+  }
+
+  function runRealTest(){
+    const checks = [];
+    function add(id, label, pass, level='fail', fix=''){
+      checks.push({ id, label, pass:!!pass, level, fix });
+    }
+
+    add('html-loaded','HTML loaded', !!document.body);
+    add('viewport','Viewport usable', window.innerWidth >= 320 && window.innerHeight >= 430, 'warn', 'ใช้มือถือแนวตั้ง/แนวนอนที่สูงพอ');
+    add('core-screens','Core screens present', exists('#screen-howto') && exists('#screen-main') && exists('#screen-boss') && exists('#screen-summary'));
+    add('prep-screen','Prep toothpaste screen present', exists('#screen-prep') || exists('#prepStage'), 'warn', 'ถ้าขาด prep ให้ใช้ไฟล์ patch 9+');
+    add('mouth','Mouth scene present', exists('#mouthScene'), 'warn', 'ตรวจว่า main render แล้วหรือยัง');
+    add('buttons','Interactive buttons present', count('button') >= 8, 'warn', 'ปุ่มน้อยผิดปกติ');
+    add('qa-layer','Patch24 QA layer present', exists('#p24Dock'), 'warn');
+    add('research-layer','Research/Data layer present', exists('#p20ResearchModal') || exists('#p20ResearchBtn'), 'warn');
+    add('city-layer','Tooth City layer present', exists('#patch16Hud') || exists('#toothCityCard'), 'warn');
+    add('patch30-layer','Patch30 layer present', exists('#p30StatusDock'));
+    add('storage','localStorage usable', storageOk(), 'warn', 'ถ้า browser blocked storage จะเก็บ progress ไม่ได้');
+    add('overflow','No obvious horizontal overflow', document.documentElement.scrollWidth <= window.innerWidth + 12, 'warn', 'ถ้ามี overflow ให้เปิด Kid/Lite mode');
+    add('cooldown-link','Return params available', !!(qs.get('return') || qs.get('back') || qs.get('hub')), 'warn', 'ควรส่ง return/back/hub จาก zone');
+
+    const fail = checks.filter(x => !x.pass && x.level === 'fail').length;
+    const warn = checks.filter(x => !x.pass && x.level === 'warn').length;
+    const status = fail ? 'fail' : warn ? 'warn' : 'pass';
+
+    P30.test = {
+      status,
+      fail,
+      warn,
+      pass:checks.filter(x => x.pass).length,
+      checks,
+      metrics:currentMetrics(),
+      device:device(),
+      ranAt:new Date().toISOString()
+    };
+
+    saveEvent('real_test', P30.test);
+    renderStatus();
+    renderModal('test');
+    toast(status === 'pass' ? '✅ Real Test PASS' : status === 'warn' ? '⚠️ Real Test มี warning' : '❌ Real Test มี fail');
+    return P30.test;
+  }
+
+  function storageOk(){
+    try{
+      const k = 'HHA_P30_STORAGE_TEST';
+      localStorage.setItem(k,'1');
+      localStorage.removeItem(k);
+      return true;
+    }catch(_){ return false; }
+  }
+
+  function splitManifest(){
+    return {
+      patch:'Patch 26 Split Files / Maintainable Build',
+      recommendation:'หลัง test เสถียรแล้ว ควรแยกจากไฟล์เดี่ยวเป็นชุด module',
+      files:[
+        { path:'/herohealth/vr-brush-kids/brush.html', role:'HTML shell + script includes + root containers' },
+        { path:'/herohealth/vr-brush-kids/brush.css', role:'All visual styles / responsive / child-friendly theme' },
+        { path:'/herohealth/vr-brush-kids/brush.state.js', role:'State, config, URL params, localStorage helpers' },
+        { path:'/herohealth/vr-brush-kids/brush.prep.js', role:'Toothpaste prep simulation' },
+        { path:'/herohealth/vr-brush-kids/brush.surface.js', role:'Surface mastery + ghost guide + tongue bonus' },
+        { path:'/herohealth/vr-brush-kids/brush.gameplay.js', role:'Main scrub gameplay, monsters, pets, powerups, burst' },
+        { path:'/herohealth/vr-brush-kids/brush.boss.js', role:'Action boss battle + bonus quiz' },
+        { path:'/herohealth/vr-brush-kids/brush.progression.js', role:'Tooth City, season, daily boss, replay/badges' },
+        { path:'/herohealth/vr-brush-kids/brush.research.js', role:'Telemetry, research schema, report/export' },
+        { path:'/herohealth/vr-brush-kids/brush.qa.js', role:'QA guard, anti-stuck, release manifest' }
+      ],
+      migrationOrder:[
+        'Freeze this single-file release candidate',
+        'Move CSS first',
+        'Move isolated add-on layers next: research/progression/QA',
+        'Move gameplay modules after test parity',
+        'Run browser test after each split'
+      ]
+    };
+  }
+
+  function assetPack(){
+    return {
+      patch:'Patch 27 Real Asset Polish Pack',
+      mode:'asset-light now, replace with PNG/SVG later',
+      recommendedAssets:[
+        { id:'mouth-bg', file:'assets/brush/mouth-bg.svg', size:'1024x768', note:'child-friendly mouth, not scary' },
+        { id:'tooth-sprite', file:'assets/brush/tooth-clean.svg', size:'256x256', note:'large rounded teeth' },
+        { id:'brush-sprite', file:'assets/brush/toothbrush.svg', size:'512x256', note:'blue/yellow brush, soft bristles' },
+        { id:'paste-tube', file:'assets/brush/toothpaste-tube.svg', size:'512x256', note:'pea-size guide' },
+        { id:'plaque-monster', file:'assets/brush/plaque-monster.svg', size:'256x256', note:'cute, not frightening' },
+        { id:'tooth-pet', file:'assets/brush/tooth-pet-pack.svg', size:'512x512', note:'4 pet expressions' },
+        { id:'cavity-king', file:'assets/brush/cavity-king.svg', size:'512x512', note:'boss with friendly villain style' }
+      ],
+      currentCssPolish:'body.p30-asset-polish enabled'
+    };
+  }
+
+  function dashboardExport(){
+    const events = [
+      ...readJson(key('HHA_BRUSH_V20_EVENTS'), []),
+      ...readJson(key('HHA_BRUSH_P24_EVENTS'), []),
+      ...readJson(key('HHA_BRUSH_P30_EVENTS'), [])
+    ];
+
+    let summary = {};
+    try{
+      summary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_RESEARCH_SUMMARY_V20') || localStorage.getItem(key('HHA_BRUSH_V20_SUMMARY')) || '{}') || {};
+    }catch(_){}
+
+    let city = {};
+    try{
+      city = JSON.parse(localStorage.getItem(key('HHA_BRUSH_TOOTH_CITY_PROFILE')) || '{}') || {};
+    }catch(_){}
+
+    return {
+      patch:'Patch 29 Teacher / Parent Dashboard Export',
+      generatedAt:new Date().toISOString(),
+      context:{
+        pid:qs.get('pid') || 'anon',
+        name:qs.get('name') || qs.get('nick') || 'Hero',
+        diff:qs.get('diff') || 'normal',
+        view:qs.get('view') || 'mobile'
+      },
+      summary,
+      city,
+      eventsCount:events.length,
+      eventsTail:events.slice(-80),
+      parentReport:parentReport(summary, city),
+      teacherReport:teacherReport(summary, city, events)
+    };
+  }
+
+  function parentReport(summary, city){
+    const final = summary.final || {};
+    const learning = summary.learningMetrics || {};
+    const gameplay = summary.gameplayMetrics || {};
+
+    const strengths = [];
+    if((final.cleanPct || 0) >= 90) strengths.push('ทำความสะอาดได้ดีมาก');
+    if((learning.surfaceMasteryPct || 0) >= 80) strengths.push('ฝึกหลายผิวฟันได้ดี');
+    if((gameplay.petsRescued || 0) > 0) strengths.push('มีส่วนร่วมจากการช่วย Tooth Pet');
+    if(!strengths.length) strengths.push('เล่นครบขั้นตอนและเริ่มเข้าใจลำดับการแปรงฟัน');
+
+    const next = [];
+    if((learning.surfaceMasteryPct || 0) < 80) next.push('ฝึกด้านในฟันและด้านบดเคี้ยวเพิ่ม');
+    if(!learning.tongueDone) next.push('เพิ่ม Fresh Breath Bonus โดยแปรงลิ้นเบา ๆ');
+    if((final.cleanPct || 0) < 90) next.push('ตั้งเป้า Clean 90% ขึ้นไป');
+    if(!next.length) next.push('ลองเล่น Daily Boss หรือ Hard Mode เพื่อเพิ่มความท้าทาย');
+
+    return { strengths, next };
+  }
+
+  function teacherReport(summary, city, events){
+    const final = summary.final || {};
+    return {
+      learningOutcome:'toothbrushing sequence, toothpaste amount, brushing surface awareness',
+      observableMetrics:[
+        'cleanPct=' + (final.cleanPct || 0),
+        'surfaceMasteryPct=' + ((summary.learningMetrics || {}).surfaceMasteryPct || 0),
+        'events=' + events.length
+      ],
+      suggestedRubric:[
+        '1 = ต้องมีผู้ช่วยมาก',
+        '2 = ทำตามคำแนะนำได้บางส่วน',
+        '3 = ทำขั้นตอนหลักครบ',
+        '4 = ทำครบและเลือกท่าถูกหลายจุด',
+        '5 = ทำครบ สะอาดสูง และเล่นซ้ำได้ด้วยตนเอง'
+      ]
+    };
+  }
+
+  function releasePack(){
+    const test = P30.test || runRealTest();
+    return {
+      manifestVersion:'HHA_BRUSH_PATCH30_FINAL_RELEASE_PACK',
+      patch:P30.version,
+      generatedAt:new Date().toISOString(),
+      status:test.status,
+      test,
+      splitManifest:splitManifest(),
+      assetPack:assetPack(),
+      cvr:{
+        enabled:document.body.classList.contains('p30-cvr-final'),
+        view:qs.get('view') || 'mobile',
+        features:['gaze dwell assist','center reticle','recenter button','center tap/click selection']
+      },
+      dashboard:dashboardExport(),
+      releaseChecklist:[
+        { item:'Upload to /herohealth/vr-brush-kids/brush.html', status:'ready' },
+        { item:'Test Zone → warmup → brush', status:'manual-test-required' },
+        { item:'Test prep → main → boss → summary', status:'ready' },
+        { item:'Test summary → cooldown → hygiene-zone', status:'manual-test-required' },
+        { item:'Test mobile portrait', status:'manual-test-required' },
+        { item:'Test mobile landscape', status:'manual-test-required' },
+        { item:'Test view=cvr', status:'manual-test-required' },
+        { item:'Export data JSON/CSV', status:'ready' }
+      ],
+      knownIssues:[
+        'Browser extension runtime.lastError messages are external and can be ignored unless there are TypeError/SyntaxError/404 errors.',
+        'Warmup/cooldown navigation must be tested on the deployed GitHub Pages URL.',
+        'This is still a large single-file build; split-file migration is recommended after pilot testing.'
+      ],
+      finalFiles:[
+        '/herohealth/vr-brush-kids/brush.html',
+        '/herohealth/warmup-gate.html',
+        '/herohealth/hygiene-zone.html'
+      ]
+    };
+  }
+
+  function renderStatus(){
+    const test = P30.test || runRealTestNoRender();
+    const card = $('p30StatusCard');
+    const title = $('p30StatusTitle');
+    const sub = $('p30StatusSub');
+    const body = $('p30StatusBody');
+
+    if(card){
+      card.classList.remove('warn','fail');
+      if(test.status === 'warn') card.classList.add('warn');
+      if(test.status === 'fail') card.classList.add('fail');
+    }
+    if(title) title.textContent = test.status === 'pass' ? '✅ Brush Final Pack' : test.status === 'warn' ? '⚠️ Brush Final Pack' : '❌ Brush Final Pack';
+    if(sub) sub.textContent = `Pass ${test.pass} • Warn ${test.warn} • Fail ${test.fail}`;
+
+    if(body){
+      const rows = [
+        ['Stage', stage() || '-','pass'],
+        ['Device', `${window.innerWidth}×${window.innerHeight}`,'pass'],
+        ['Storage', storageOk() ? 'OK' : 'Blocked', storageOk() ? 'pass' : 'warn'],
+        ['cVR', document.body.classList.contains('p30-cvr-final') ? 'ON' : 'OFF','pass'],
+        ['Status', test.status.toUpperCase(), test.status]
+      ];
+      body.innerHTML = rows.map(r => `<div class="p30MiniRow ${r[2]}"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
+    }
+  }
+
+  function runRealTestNoRender(){
+    const checks = [];
+    function add(id, label, pass, level='fail', fix=''){ checks.push({id,label,pass:!!pass,level,fix}); }
+    add('html-loaded','HTML loaded',!!document.body);
+    add('core-screens','Core screens present',exists('#screen-howto') && exists('#screen-main') && exists('#screen-boss') && exists('#screen-summary'));
+    add('prep-screen','Prep screen present',exists('#screen-prep') || exists('#prepStage'),'warn');
+    add('mouth','Mouth scene present',exists('#mouthScene'),'warn');
+    add('buttons','Buttons present',count('button') >= 8,'warn');
+    add('patch30','Patch30 present',exists('#p30StatusDock'));
+    add('storage','Storage usable',storageOk(),'warn');
+    add('overflow','No horizontal overflow',document.documentElement.scrollWidth <= window.innerWidth + 12,'warn');
+    const fail = checks.filter(x=>!x.pass && x.level==='fail').length;
+    const warn = checks.filter(x=>!x.pass && x.level==='warn').length;
+    return {status:fail?'fail':warn?'warn':'pass',fail,warn,pass:checks.filter(x=>x.pass).length,checks,ranAt:new Date().toISOString(),device:device(),metrics:currentMetrics()};
+  }
+
+  function renderModal(tab){
+    P30.activeTab = tab || P30.activeTab || 'overview';
+    const modal = $('p30Modal');
+    const grid = $('p30Grid');
+    const json = $('p30Json');
+    const pack = releasePack();
+
+    all('.p30Tab').forEach(btn => btn.classList.toggle('active', btn.dataset.p30Tab === P30.activeTab));
+
+    let boxes = [];
+    let data = pack;
+
+    if(P30.activeTab === 'overview'){
+      boxes = [
+        box('Patch 25', 'Real Test Fix Build', pack.test.status, `Pass ${pack.test.pass} / Warn ${pack.test.warn} / Fail ${pack.test.fail}`),
+        box('Patch 26', 'Split Manifest', 'ready', `${pack.splitManifest.files.length} suggested files`),
+        box('Patch 27', 'Asset Polish', 'ready', 'Asset-light CSS polish ON'),
+        box('Patch 28', 'cVR Final', pack.cvr.enabled ? 'on' : 'available', pack.cvr.features.join(', ')),
+        box('Patch 29', 'Dashboard Export', 'ready', `${pack.dashboard.eventsCount} local events`),
+        box('Patch 30', 'Final Release Pack', pack.status, 'Manifest + checklist ready')
+      ];
+      data = pack;
+    }else if(P30.activeTab === 'test'){
+      boxes = pack.test.checks.map(c => box(c.pass ? '✅' : c.level === 'warn' ? '⚠️' : '❌', c.label, c.pass ? 'pass' : c.level, c.fix || ''));
+      data = pack.test;
+    }else if(P30.activeTab === 'split'){
+      boxes = pack.splitManifest.files.map(f => box('🧩', f.path, 'file', f.role));
+      data = pack.splitManifest;
+    }else if(P30.activeTab === 'assets'){
+      boxes = pack.assetPack.recommendedAssets.map(a => box(a.id, a.file, 'asset', a.note));
+      data = pack.assetPack;
+    }else if(P30.activeTab === 'dashboard'){
+      const d = pack.dashboard;
+      boxes = [
+        box('Parent', 'Parent Report', 'ready', d.parentReport.strengths.join(' • ')),
+        box('Teacher', 'Teacher Report', 'ready', d.teacherReport.learningOutcome),
+        box('Events', 'Local event count', 'ready', String(d.eventsCount)),
+        box('Export', 'CSV / JSON ready', 'ready', 'Use buttons below')
+      ];
+      data = d;
+    }else if(P30.activeTab === 'release'){
+      boxes = pack.releaseChecklist.map(x => box(x.status === 'ready' ? '✅' : '🧪', x.item, x.status, ''));
+      data = pack;
+    }
+
+    if(grid) grid.innerHTML = boxes.join('');
+    if(json) json.textContent = JSON.stringify(data, null, 2);
+
+    if(modal){
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+    }
+  }
+
+  function box(k,t,status,detail){
+    const cls = status === 'pass' || status === 'ready' || status === 'on' ? 'pass' : status === 'fail' ? 'fail' : status === 'warn' ? 'warn' : '';
+    return `<div class="p30Box ${cls}">
+      <strong>${escapeHtml(k)} • ${escapeHtml(t)}</strong>
+      ${detail ? `<span>${escapeHtml(detail)}</span>` : ''}
+      <span>Status: ${escapeHtml(String(status).toUpperCase())}</span>
+    </div>`;
+  }
+
+  function escapeHtml(s){
+    return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  }
+
+  function closeModal(){
+    const modal = $('p30Modal');
+    if(modal){
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden','true');
+    }
+  }
+
+  function downloadText(filename, text, type='text/plain'){
+    const blob = new Blob([text], {type});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
+  }
+
+  function toCsv(rows){
+    if(!rows.length) return '';
+    const keys = Array.from(rows.reduce((set,row) => {
+      Object.keys(row || {}).forEach(k => set.add(k));
+      return set;
+    }, new Set()));
+    const esc = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+    return [keys.map(esc).join(','), ...rows.map(r => keys.map(k => esc(typeof r[k] === 'object' ? JSON.stringify(r[k]) : r[k])).join(','))].join('\n');
+  }
+
+  function downloadCsv(){
+    const d = dashboardExport();
+    const rows = (d.eventsTail || []).map(e => ({
+      ts:e.timestampIso || e.ts || '',
+      event:e.eventType || e.type || '',
+      stage:e.stage || '',
+      score:e.score || '',
+      clean:e.cleanPct || e.clean || '',
+      combo:e.combo || '',
+      view:(d.context || {}).view || ''
+    }));
+    downloadText('brush-dashboard-events.csv', toCsv(rows), 'text/csv');
+    toast('📊 Download CSV แล้ว');
+    saveEvent('download_csv', { rows:rows.length });
+  }
+
+  function downloadJson(){
+    const pack = releasePack();
+    downloadText('brush-patch30-release-pack.json', JSON.stringify(pack, null, 2), 'application/json');
+    toast('⬇ Download JSON แล้ว');
+    saveEvent('download_json');
+  }
+
+  function downloadSplit(){
+    downloadText('brush-split-manifest.json', JSON.stringify(splitManifest(), null, 2), 'application/json');
+    toast('🧩 Download split manifest แล้ว');
+    saveEvent('download_split_manifest');
+  }
+
+  function saveEvent(type, payload={}){
+    try{
+      const arr = readJson(key('HHA_BRUSH_P30_EVENTS'), []);
+      arr.push({ type, ts:new Date().toISOString(), patch:P30.version, stage:stage(), payload });
+      while(arr.length > 300) arr.shift();
+      writeJson(key('HHA_BRUSH_P30_EVENTS'), arr);
+    }catch(_){}
+  }
+
+  function setupCvrFinal(){
+    const view = String(qs.get('view') || '').toLowerCase();
+    const cvr = view === 'cvr' || view === 'vr' || view === 'cardboard';
+    document.body.classList.toggle('p30-cvr-final', cvr);
+    if(!cvr) return;
+
+    let lastClick = 0;
+    function centerTarget(){
+      return document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+    }
+
+    function centerClick(){
+      const now = Date.now();
+      if(now - lastClick < 500) return;
+      lastClick = now;
+      const x = window.innerWidth / 2;
+      const y = window.innerHeight / 2;
+      const target = centerTarget();
+      if(!target) return;
+
+      ['pointerdown','pointerup','click'].forEach((type, idx) => {
+        setTimeout(() => {
+          try{
+            target.dispatchEvent(new PointerEvent(type, {bubbles:true, clientX:x, clientY:y, pointerId:77, pointerType:'mouse'}));
+          }catch(_){
+            target.click && target.click();
+          }
+        }, idx * 60);
+      });
+      saveEvent('cvr_center_click', { tag:target.tagName, id:target.id || '', cls:target.className || '' });
+    }
+
+    function tick(){
+      const target = centerTarget();
+      const interactive = target && target.closest && target.closest('button,a,[role="button"],[data-zone],.toothZone,.bossHitZone,.tongueBonusZone');
+      if(interactive){
+        if(P30.gazeTarget === interactive){
+          P30.gazeProgress += 7;
+        }else{
+          P30.gazeTarget = interactive;
+          P30.gazeProgress = 0;
+        }
+      }else{
+        P30.gazeTarget = null;
+        P30.gazeProgress = 0;
+      }
+
+      if($('p30GazeRing')){
+        $('p30GazeRing').style.setProperty('--p30-gaze', Math.min(360, P30.gazeProgress * 3.6) + 'deg');
+      }
+
+      if(P30.gazeProgress >= 100){
+        P30.gazeProgress = 0;
+        centerClick();
+      }
+    }
+
+    P30.gazeTimer = setInterval(tick, 120);
+    toast('🎯 cVR final assist ON');
+  }
+
+  function recenter(){
+    P30.gazeProgress = 0;
+    P30.gazeTarget = null;
+    toast('🎯 Recenter แล้ว');
+    saveEvent('cvr_recenter');
+  }
+
+  function bind(){
+    if($('p30OpenBtn')) $('p30OpenBtn').addEventListener('click', () => renderModal('overview'));
+
+    all('.p30Tab').forEach(btn => {
+      btn.addEventListener('click', () => renderModal(btn.dataset.p30Tab || 'overview'));
+    });
+
+    if($('p30RunBtn')) $('p30RunBtn').addEventListener('click', () => { runRealTest(); renderModal('test'); });
+    if($('p30CsvBtn')) $('p30CsvBtn').addEventListener('click', downloadCsv);
+    if($('p30JsonBtn')) $('p30JsonBtn').addEventListener('click', downloadJson);
+    if($('p30SplitBtn')) $('p30SplitBtn').addEventListener('click', downloadSplit);
+    if($('p30PrintBtn')) $('p30PrintBtn').addEventListener('click', () => window.print());
+    if($('p30CloseBtn')) $('p30CloseBtn').addEventListener('click', closeModal);
+    if($('p30RecenterBtn')) $('p30RecenterBtn').addEventListener('click', recenter);
+
+    const modal = $('p30Modal');
+    if(modal) modal.addEventListener('click', e => { if(e.target === modal) closeModal(); });
+
+    window.addEventListener('error', e => {
+      saveEvent('window_error', { message:e.message, source:e.filename, line:e.lineno, col:e.colno });
+      toast('❌ พบ JS error ดู console');
+    });
+
+    window.addEventListener('unhandledrejection', e => {
+      saveEvent('unhandled_rejection', { reason:String(e.reason || '') });
+    });
+  }
+
+  function init(){
+    document.body.classList.add('p30-asset-polish');
+    bind();
+    setupCvrFinal();
+    runRealTest();
+    renderStatus();
+
+    setInterval(renderStatus, 5000);
+    setInterval(() => saveEvent('p30_heartbeat', currentMetrics()), 15000);
+
+    setTimeout(() => toast('🚀 Patch 30 Final Release Pack พร้อมทดสอบ'), 800);
   }
 
   init();
