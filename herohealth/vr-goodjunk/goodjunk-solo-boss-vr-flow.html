@@ -547,1172 +547,329 @@
   </a-scene>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const PATCH = 'v8.44.0-GOODJUNK-VR-NO-AFRAME-EARLY-MATERIAL';
+    const PATCH = 'v20260506-GOODJUNK-LAUNCHER-FULL-3D-VR-PNG8440-FIX';
 
-      const WIN = window;
-      const DOC = document;
-      const QS = new URLSearchParams(location.search || '');
+    const ROUTES = {
+      launcher: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
+      hubV2: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html',
+      warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',
 
-      const ROUTES = {
-        launcher:'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
-        hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
+      soloBoss2d: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss.html',
+
+      /*
+        สำคัญมาก:
+        ห้ามใส่ ?v= ตรงนี้
+        buildSolo3dFlowUrl() จะเติม v / assetv เอง เพื่อไม่ให้เกิด ?? ซ้อน
+      */
+      soloBoss3dFlow: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html',
+
+      race: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-race-lobby.html',
+      battle: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-battle-lobby.html',
+      coop: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-coop-lobby.html',
+      duet: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-duet-lobby.html'
+    };
+
+    const QS = new URLSearchParams(location.search || '');
+
+    const els = {
+      homeBtn: document.getElementById('homeBtn'),
+      playerName: document.getElementById('playerName'),
+      diffSelect: document.getElementById('diffSelect'),
+      timeSelect: document.getElementById('timeSelect'),
+      viewSelect: document.getElementById('viewSelect'),
+      saveBtn: document.getElementById('saveBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+
+      solo2dWarmupBtn: document.getElementById('solo2dWarmupBtn'),
+      solo2dDirectBtn: document.getElementById('solo2dDirectBtn'),
+      solo3dFlowBtn: document.getElementById('solo3dFlowBtn'),
+      solo3dDirectBtn: document.getElementById('solo3dDirectBtn')
+    };
+
+    function q(name, fallback){
+      const v = QS.get(name);
+      return v === null || v === '' ? fallback : v;
+    }
+
+    function getSaved(){
+      try{
+        return JSON.parse(localStorage.getItem('GJ_LAUNCHER_PREFS') || '{}') || {};
+      }catch(e){
+        return {};
+      }
+    }
+
+    function setSaved(obj){
+      try{
+        localStorage.setItem('GJ_LAUNCHER_PREFS', JSON.stringify(obj || {}));
+      }catch(e){}
+    }
+
+    function defaultView(){
+      const w = window.innerWidth || 390;
+      const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      return coarse || w <= 720 ? 'mobile' : 'pc';
+    }
+
+    function initForm(){
+      const saved = getSaved();
+
+      const name = q('name', q('nick', saved.name || 'Hero'));
+      const diff = q('diff', saved.diff || 'normal');
+      const time = q('time', saved.time || '120');
+      const view = q('view', saved.view || defaultView());
+
+      if(els.playerName) els.playerName.value = name;
+      if(els.diffSelect) els.diffSelect.value = ['easy','normal','hard','challenge'].includes(diff) ? diff : 'normal';
+      if(els.timeSelect) els.timeSelect.value = ['90','120','150'].includes(String(time)) ? String(time) : '120';
+      if(els.viewSelect) els.viewSelect.value = ['pc','mobile','cvr'].includes(view) ? view : defaultView();
+    }
+
+    function prefs(){
+      return {
+        pid: q('pid', 'anon'),
+        name: (els.playerName && els.playerName.value.trim()) || q('name', q('nick', 'Hero')),
+        diff: (els.diffSelect && els.diffSelect.value) || q('diff', 'normal'),
+        time: (els.timeSelect && els.timeSelect.value) || q('time', '120'),
+        view: (els.viewSelect && els.viewSelect.value) || q('view', defaultView())
+      };
+    }
+
+    function savePrefs(){
+      const p = prefs();
+      setSaved(p);
+
+      try{
+        localStorage.setItem('GJ_LAUNCHER_PATCH_LAST', JSON.stringify({
+          patch: PATCH,
+          prefs: p,
+          savedAt: new Date().toISOString()
+        }));
+      }catch(e){}
+
+      flashButton(els.saveBtn, '✅ บันทึกแล้ว');
+    }
+
+    function flashButton(btn, text){
+      if(!btn) return;
+
+      const old = btn.textContent;
+      btn.textContent = text;
+
+      setTimeout(() => {
+        btn.textContent = old;
+      }, 950);
+    }
+
+    function resetPrefs(){
+      try{
+        localStorage.removeItem('GJ_LAUNCHER_PREFS');
+      }catch(e){}
+
+      if(els.playerName) els.playerName.value = 'Hero';
+      if(els.diffSelect) els.diffSelect.value = 'normal';
+      if(els.timeSelect) els.timeSelect.value = '120';
+      if(els.viewSelect) els.viewSelect.value = defaultView();
+
+      flashButton(els.resetBtn, 'รีเซ็ตแล้ว');
+    }
+
+    function baseParams(mode){
+      const p = prefs();
+      const out = new URLSearchParams();
+
+      out.set('pid', p.pid || 'anon');
+      out.set('name', p.name || 'Hero');
+      out.set('diff', p.diff || 'normal');
+      out.set('time', p.time || '120');
+      out.set('view', p.view || defaultView());
+
+      out.set('run', 'play');
+      out.set('zone', 'nutrition');
+      out.set('cat', 'nutrition');
+      out.set('game', 'goodjunk');
+      out.set('gameId', 'goodjunk');
+      out.set('mode', mode);
+      out.set('entry', mode);
+      out.set('theme', 'goodjunk');
+
+      out.set('hub', ROUTES.hubV2);
+      out.set('back', ROUTES.launcher);
+      out.set('return', ROUTES.launcher);
+
+      const api = q('api', '');
+      const studyId = q('studyId', '');
+      const log = q('log', '');
+      const seed = q('seed', '');
+
+      if(api) out.set('api', api);
+      if(studyId) out.set('studyId', studyId);
+      if(log) out.set('log', log);
+      if(seed) out.set('seed', seed);
+
+      return out;
+    }
+
+    function buildSolo2dMainUrl(){
+      const p = baseParams('solo_boss');
+      p.set('phase', 'main');
+      return ROUTES.soloBoss2d + '?' + p.toString();
+    }
+
+    function buildSolo2dWarmupUrl(){
+      const mainUrl = buildSolo2dMainUrl();
+      const p0 = prefs();
+      const p = new URLSearchParams();
+
+      p.set('zone', 'nutrition');
+      p.set('cat', 'nutrition');
+      p.set('gameId', 'goodjunk');
+      p.set('game', 'goodjunk');
+      p.set('mode', 'solo_boss');
+      p.set('phase', 'warmup');
+
+      p.set('pid', p0.pid || 'anon');
+      p.set('name', p0.name || 'Hero');
+      p.set('diff', p0.diff || 'normal');
+      p.set('time', p0.time || '120');
+      p.set('view', p0.view || defaultView());
+
+      p.set('hub', ROUTES.hubV2);
+      p.set('next', mainUrl);
+      p.set('back', ROUTES.launcher);
+      p.set('return', ROUTES.launcher);
+      p.set('reason', 'goodjunk-launcher-solo-boss-2d');
+
+      const api = q('api', '');
+      const studyId = q('studyId', '');
+      const log = q('log', '');
+      const seed = q('seed', '');
+
+      if(api) p.set('api', api);
+      if(studyId) p.set('studyId', studyId);
+      if(log) p.set('log', log);
+      if(seed) p.set('seed', seed);
+
+      return ROUTES.warmupGate + '?' + p.toString();
+    }
+
+    function buildSolo3dFlowUrl(){
+      const p = baseParams('solo_boss_vr_flow');
+
+      p.set('phase', 'full3d');
+      p.set('flow', 'full3d');
+      p.set('vrflow', '1');
+
+      /*
+        ต้องให้ตรงกับไฟล์ goodjunk-solo-boss-vr-flow.html ล่าสุด:
+        v8.44.0-GOODJUNK-VR-NO-AFRAME-EARLY-MATERIAL
+      */
+      p.set('v', '20260506-png8440');
+      p.set('assetv', '20260506-png8440');
+
+      return ROUTES.soloBoss3dFlow + '?' + p.toString();
+    }
+
+    function buildModeUrl(mode, test){
+      const p = baseParams(mode);
+
+      if(test){
+        p.set('test', '1');
+        p.set('room', 'TEST');
+        p.set('roomCode', 'TEST');
+      }
+
+      p.set('multiplayer', '1');
+      p.set('recommendedMode', mode);
+
+      const route = ROUTES[mode] || ROUTES.launcher;
+      return route + '?' + p.toString();
+    }
+
+    function go(url){
+      savePrefs();
+      location.href = url;
+    }
+
+    function bind(){
+      els.homeBtn?.addEventListener('click', function(){
+        location.href = ROUTES.hubV2;
+      });
+
+      els.saveBtn?.addEventListener('click', savePrefs);
+      els.resetBtn?.addEventListener('click', resetPrefs);
+
+      els.solo2dWarmupBtn?.addEventListener('click', function(){
+        go(buildSolo2dWarmupUrl());
+      });
+
+      els.solo2dDirectBtn?.addEventListener('click', function(){
+        go(buildSolo2dMainUrl());
+      });
+
+      els.solo3dFlowBtn?.addEventListener('click', function(){
+        go(buildSolo3dFlowUrl());
+      });
+
+      els.solo3dDirectBtn?.addEventListener('click', function(){
+        go(buildSolo3dFlowUrl());
+      });
+
+      document.querySelectorAll('[data-mode-direct]').forEach(btn => {
+        btn.addEventListener('click', function(){
+          const mode = btn.getAttribute('data-mode-direct');
+          go(buildModeUrl(mode, false));
+        });
+      });
+
+      document.querySelectorAll('[data-mode-test]').forEach(btn => {
+        btn.addEventListener('click', function(){
+          const mode = btn.getAttribute('data-mode-test');
+          go(buildModeUrl(mode, true));
+        });
+      });
+    }
+
+    function expose(){
+      window.GoodJunkLauncher = {
+        version: PATCH,
+        routes: ROUTES,
+        prefs,
+        buildSolo2dMainUrl,
+        buildSolo2dWarmupUrl,
+        buildSolo3dFlowUrl,
+        buildModeUrl
       };
 
-      function q(k,d){
-        const v = QS.get(k);
-        return v === null || v === '' ? d : v;
-      }
-
-      const ASSET_BASE = '/webxr-health-mobile/herohealth/assets/goodjunk/';
-      const ASSET_VER = q('assetv', q('v', '20260506-png8440'));
-
-      const ASSET = {
-        broccoli: ASSET_BASE + 'broccoli.png',
-        apple: ASSET_BASE + 'apple.png',
-        water: ASSET_BASE + 'water.png',
-        egg: ASSET_BASE + 'egg.png',
-        fries: ASSET_BASE + 'fries.png',
-        soda: ASSET_BASE + 'soda.png',
-        donut: ASSET_BASE + 'donut.png',
-        candy: ASSET_BASE + 'candy.png',
-        juice: ASSET_BASE + 'juice-box.png',
-        shield: ASSET_BASE + 'shield.png',
-        fever: ASSET_BASE + 'fever.png',
-        heart: ASSET_BASE + 'heart.png'
-      };
-
-      const cfg = {
-        pid:q('pid','anon'),
-        name:q('name',q('nick','Hero')),
-        diff:String(q('diff','normal')).toLowerCase(),
-        time:Math.max(45, Number(q('time','120')) || 120),
-        view:String(q('view','mobile')).toLowerCase()
-      };
-
-      const DIFF = {
-        easy:{ lives:5, bossHp:130, spawnMs:1150, speed:6300, junk:.18, fake:.07, power:.11 },
-        normal:{ lives:4, bossHp:170, spawnMs:980, speed:5600, junk:.28, fake:.13, power:.10 },
-        hard:{ lives:3, bossHp:210, spawnMs:850, speed:5000, junk:.34, fake:.18, power:.09 },
-        challenge:{ lives:3, bossHp:250, spawnMs:720, speed:4400, junk:.40, fake:.22, power:.08 }
-      };
-
-      const D = DIFF[cfg.diff] || DIFF.normal;
-
-      const GOOD = [
-        { id:'broccoli', label:'VEG', asset:ASSET.broccoli, color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
-        { id:'apple', label:'FRUIT', asset:ASSET.apple, color:'#ef4444', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
-        { id:'water', label:'WATER', asset:ASSET.water, color:'#60a5fa', tip:'น้ำเปล่าดีต่อร่างกาย' },
-        { id:'egg', label:'PROTEIN', asset:ASSET.egg, color:'#fde68a', tip:'โปรตีนช่วยซ่อมแซมร่างกาย' }
-      ];
-
-      const JUNK = [
-        { id:'fries', label:'FRIES', asset:ASSET.fries, color:'#f97316', tip:'อาหารทอดควรกินแต่น้อย' },
-        { id:'soda', label:'SODA', asset:ASSET.soda, color:'#ef4444', tip:'น้ำหวานมีน้ำตาลสูง' },
-        { id:'donut', label:'DONUT', asset:ASSET.donut, color:'#f472b6', tip:'ขนมหวานน้ำตาลสูง' },
-        { id:'candy', label:'CANDY', asset:ASSET.candy, color:'#ec4899', tip:'ลูกอมหวานจัด' }
-      ];
-
-      const FAKE = [
-        { id:'juice', label:'SUGAR JUICE', asset:ASSET.juice, color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' }
-      ];
-
-      const POWER = [
-        { id:'shield', label:'SHIELD', asset:ASSET.shield, color:'#38bdf8' },
-        { id:'fever', label:'FEVER', asset:ASSET.fever, color:'#facc15' },
-        { id:'heal', label:'HEAL', asset:ASSET.heart, color:'#22c55e' }
-      ];
-
-      const el = {
-        scene:id('scene'),
-        camera:id('camera'),
-        cameraRig:id('cameraRig'),
-        targetRoot:id('targetRoot'),
-        fxRoot:id('fxRoot'),
-
-        hudStage:id('hudStage'),
-        hudScore:id('hudScore'),
-        hudTime:id('hudTime'),
-        hudLives:id('hudLives'),
-        hudPower:id('hudPower'),
-        bossHpFill:id('bossHpFill'),
-        missionText:id('missionText'),
-
-        startOverlay:id('startOverlay'),
-        summaryOverlay:id('summaryOverlay'),
-        finalOverlay:id('finalOverlay'),
-
-        startBtn:id('startBtn'),
-        vrHintBtn:id('vrHintBtn'),
-        shootBtn:id('shootBtn'),
-        backBtn:id('backBtn'),
-
-        cooldownBtn:id('cooldownBtn'),
-        replayBtn:id('replayBtn'),
-        launcherBtn:id('launcherBtn'),
-        finalLauncherBtn:id('finalLauncherBtn'),
-        finalHubBtn:id('finalHubBtn'),
-
-        toast:id('toast'),
-
-        summaryIcon:id('summaryIcon'),
-        summaryTitle:id('summaryTitle'),
-        summaryTip:id('summaryTip'),
-        sumScore:id('sumScore'),
-        sumRank:id('sumRank'),
-        sumGood:id('sumGood'),
-        sumMiss:id('sumMiss')
-      };
-
-      const state = {
-        stage:'intro',
-        started:false,
-        ended:false,
-
-        score:0,
-        lives:D.lives,
-        timeLeft:cfg.time,
-        bossHp:D.bossHp,
-        bossMaxHp:D.bossHp,
-
-        combo:0,
-        bestCombo:0,
-        goodHits:0,
-        junkHits:0,
-        fakeHits:0,
-        misses:0,
-        shots:0,
-
-        shield:0,
-        feverUntil:0,
-        powerFoodReady:false,
-
-        warmGood:0,
-        warmPower:0,
-
-        cooldownBreath:0,
-        cooldownGood:0,
-
-        targets:new Set(),
-        spawnTimer:0,
-        clockTimer:0,
-        startAt:0,
-        bound:false,
-        worldBuilt:false
-      };
-
-      function id(x){ return DOC.getElementById(x); }
-      function rand(a,b){ return a + Math.random() * (b-a); }
-      function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
-      function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
-      function now(){ return Date.now(); }
-      function isFever(){ return state.feverUntil > now(); }
-
-      function withAssetVersion(url){
-        return String(url || '') + '?v=' + encodeURIComponent(ASSET_VER);
-      }
-
-      function toast(t){
-        if(!el.toast) return;
-        el.toast.textContent = String(t || '');
-        el.toast.classList.add('show');
-        clearTimeout(toast._t);
-        toast._t = setTimeout(() => el.toast.classList.remove('show'), 1500);
-      }
-
-      function show(node){ node && node.classList.remove('hidden'); }
-      function hide(node){ node && node.classList.add('hidden'); }
-
-      function updateHud(){
-        if(el.hudStage) el.hudStage.textContent =
-          state.stage === 'warmup' ? 'Warmup' :
-          state.stage === 'main' ? 'Boss' :
-          state.stage === 'summary' ? 'Summary' :
-          state.stage === 'cooldown' ? 'Cooldown' :
-          state.stage === 'done' ? 'Done' : 'Ready';
-
-        if(el.hudScore) el.hudScore.textContent = String(state.score);
-        if(el.hudTime) el.hudTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
-        if(el.hudLives) el.hudLives.textContent = state.lives > 0 ? '💚'.repeat(state.lives) : '💔';
-
-        const powers = [];
-        if(state.shield > 0) powers.push('🛡️' + state.shield);
-        if(isFever()) powers.push('⚡' + Math.ceil((state.feverUntil - now()) / 1000) + 's');
-        if(state.powerFoodReady) powers.push('⭐');
-
-        if(el.hudPower) el.hudPower.textContent = powers.join(' ') || '—';
-
-        const hpPct = clamp(state.bossHp / state.bossMaxHp, 0, 1);
-        if(el.bossHpFill) el.bossHpFill.style.width = Math.round(hpPct * 100) + '%';
-      }
-
-      function setMission(t){
-        if(el.missionText) el.missionText.textContent = t;
-      }
-
-      function add(parent, tag, attrs){
-        const node = DOC.createElement(tag);
-        parent.appendChild(node);
-
-        Object.keys(attrs || {}).forEach(k => {
-          node.setAttribute(k, attrs[k]);
-        });
-
-        return node;
-      }
-
-      function clearTargets(){
-        state.targets.forEach(x => {
-          try{ x.remove(); }catch(e){}
-        });
-        state.targets.clear();
-        if(el.targetRoot) el.targetRoot.innerHTML = '';
-      }
-
-      function buildWorld(){
-        if(state.worldBuilt) return;
-        state.worldBuilt = true;
-
-        add(el.scene, 'a-entity', {
-          light:'type:hemisphere; intensity:1.15; color:#ffffff; groundColor:#bbf7d0'
-        });
-
-        add(el.scene, 'a-entity', {
-          light:'type:directional; intensity:0.75; color:#fff7ed',
-          position:'3 6 4'
-        });
-
-        add(el.scene, 'a-sky', {
-          color:'#dff7ec'
-        });
-
-        add(el.scene, 'a-circle', {
-          position:'0 0 -4',
-          rotation:'-90 0 0',
-          radius:'18',
-          color:'#b7f3c6',
-          material:'roughness:0.9; metalness:0'
-        });
-
-        add(el.scene, 'a-ring', {
-          position:'0 0.03 -4',
-          rotation:'-90 0 0',
-          'radius-inner':'3.2',
-          'radius-outer':'3.28',
-          color:'#ffffff',
-          material:'opacity:0.45; transparent:true'
-        });
-
-        buildBoss();
-        makeDecor();
-      }
-
-      function buildBoss(){
-        const root = add(el.scene, 'a-entity', {
-          id:'bossRoot',
-          position:'0 2.1 -8'
-        });
-
-        el.bossRoot = root;
-
-        add(root, 'a-sphere', { radius:'1.05', color:'#7c2d12', material:'roughness:0.7' });
-        add(root, 'a-sphere', { position:'-0.38 0.25 0.82', radius:'0.16', color:'#ffffff' });
-        add(root, 'a-sphere', { position:'0.38 0.25 0.82', radius:'0.16', color:'#ffffff' });
-        add(root, 'a-sphere', { position:'-0.38 0.25 0.94', radius:'0.07', color:'#111827' });
-        add(root, 'a-sphere', { position:'0.38 0.25 0.94', radius:'0.07', color:'#111827' });
-        add(root, 'a-cone', { position:'-0.7 0.94 0', rotation:'0 0 20', 'radius-bottom':'0.22', height:'0.65', color:'#ef4444' });
-        add(root, 'a-cone', { position:'0.7 0.94 0', rotation:'0 0 -20', 'radius-bottom':'0.22', height:'0.65', color:'#ef4444' });
-      }
-
-      function makeTargetEntity(kind, data, opts){
-        opts = opts || {};
-        const wrap = DOC.createElement('a-entity');
-
-        wrap.classList.add('gj-target');
-        wrap.dataset.kind = kind;
-        wrap.dataset.consumed = '0';
-        wrap.__data = data || {};
-
-        const x = opts.x ?? rand(-3.2,3.2);
-        const y = opts.y ?? rand(1.25,2.35);
-        const z = opts.z ?? rand(-8.5,-5.6);
-
-        el.targetRoot.appendChild(wrap);
-        wrap.setAttribute('position', `${x} ${y} ${z}`);
-
-        return wrap;
-      }
-
-      function makeHalo(parent, color, radius){
-        const ring = add(parent, 'a-ring', {
-          'radius-inner':String((radius || .88) - .10),
-          'radius-outer':String(radius || .88),
-          position:'0 0.08 0.02',
-          color:color || '#22c55e',
-          material:'side:double; opacity:0.94; transparent:true'
-        });
-
-        return ring;
-      }
-
-      function makeBillboardImage(parent, asset, size){
-        const s = Number(size || 1.26);
-        const texUrl = withAssetVersion(asset);
-
-        return add(parent, 'a-plane', {
-          width:String(s),
-          height:String(s),
-          position:'0 0.10 0.34',
-          geometry:`primitive:plane; width:${s}; height:${s}`,
-          material:[
-            `src:url(${texUrl})`,
-            'shader:flat',
-            'transparent:true',
-            'alphaTest:0.01',
-            'side:double',
-            'color:#ffffff'
-          ].join('; ')
-        });
-      }
-
-      function makeCheckBadge(parent){
-        const g = add(parent, 'a-entity', {});
-        add(g, 'a-sphere', { radius:'0.22', color:'#16a34a', position:'0.60 -0.54 0.34' });
-        add(g, 'a-box', { width:'0.055', height:'0.19', depth:'0.05', color:'#ffffff', position:'0.53 -0.54 0.55', rotation:'0 0 -38' });
-        add(g, 'a-box', { width:'0.055', height:'0.34', depth:'0.05', color:'#ffffff', position:'0.64 -0.48 0.55', rotation:'0 0 42' });
-        return g;
-      }
-
-      function makeXBadge(parent){
-        const g = add(parent, 'a-entity', {});
-        add(g, 'a-sphere', { radius:'0.22', color:'#ef4444', position:'0.60 -0.54 0.34' });
-        add(g, 'a-box', { width:'0.34', height:'0.065', depth:'0.05', color:'#ffffff', position:'0.60 -0.54 0.55', rotation:'0 0 42' });
-        add(g, 'a-box', { width:'0.34', height:'0.065', depth:'0.05', color:'#ffffff', position:'0.60 -0.54 0.55', rotation:'0 0 -42' });
-        return g;
-      }
-
-      function makeWarnBadge(parent){
-        const g = add(parent, 'a-entity', {});
-        add(g, 'a-sphere', { radius:'0.22', color:'#f59e0b', position:'0.60 -0.54 0.34' });
-        add(g, 'a-box', { width:'0.08', height:'0.34', depth:'0.05', color:'#ffffff', position:'0.60 -0.54 0.55' });
-        add(g, 'a-sphere', { radius:'0.04', color:'#ffffff', position:'0.60 -0.78 0.55' });
-        return g;
-      }
-
-      function createTarget(kind, data, opts){
-        opts = opts || {};
-        data = data || {};
-
-        const wrap = makeTargetEntity(kind, data, opts);
-
-        const isGood = kind === 'good' || kind === 'warm-good';
-        const isJunk = kind === 'junk' || kind === 'warm-junk';
-        const isFake = kind === 'fake';
-        const isPower = kind === 'power' || kind === 'warm-power';
-        const isBreath = kind === 'breath';
-
-        const scale = Number(opts.scale || 1.22);
-        wrap.setAttribute('scale', `${scale} ${scale} ${scale}`);
-
-        const theme = isGood ? {
-          halo:'#22c55e'
-        } : isJunk ? {
-          halo:'#ef4444'
-        } : isFake ? {
-          halo:'#f59e0b'
-        } : isPower ? {
-          halo:data.color || '#38bdf8'
-        } : isBreath ? {
-          halo:data.color || '#60a5fa'
-        } : {
-          halo:'#94a3b8'
-        };
-
-        add(wrap, 'a-box', {
-          width:'2.35',
-          height:'1.95',
-          depth:'0.42',
-          position:'0 0.08 0.08',
-          material:'transparent:true; opacity:0.001'
-        });
-
-        makeHalo(wrap, theme.halo, isPower ? .82 : .90);
-
-        const asset = data.asset || ASSET.apple;
-        makeBillboardImage(wrap, asset, isPower ? 1.08 : 1.26);
-
-        if(isGood){
-          makeCheckBadge(wrap);
-        }else if(isJunk){
-          makeXBadge(wrap);
-        }else if(isFake){
-          makeWarnBadge(wrap);
-        }
-
-        const dur = opts.dur || Math.max(3200, D.speed - state.combo * 65);
-        const pos = wrap.getAttribute('position');
-
-        if(opts.static){
-          wrap.setAttribute('animation__float', {
-            property:'position',
-            dir:'alternate',
-            loop:true,
-            dur:900,
-            easing:'easeInOutSine',
-            to:`${pos.x} ${pos.y + 0.18} ${pos.z}`
-          });
-        }else{
-          wrap.setAttribute('animation__fly', {
-            property:'position',
-            to:`${pos.x * 0.22} ${pos.y + rand(-0.16,0.16)} 0.9`,
-            dur:dur,
-            easing:'linear'
-          });
-
-          wrap.addEventListener('animationcomplete__fly', () => expireTarget(wrap, kind, data));
-        }
-
-        wrap.setAttribute('animation__tilt', {
-          property:'rotation',
-          to:`0 ${rand(8,24)} 0`,
-          dur:1200,
-          dir:'alternate',
-          loop:true,
-          easing:'easeInOutSine'
-        });
-
-        wrap.addEventListener('click', e => {
-          e.preventDefault();
-          hitTarget(wrap);
-        });
-
-        state.targets.add(wrap);
-        return wrap;
-      }
-
-      function createVrStartPanel(){
-        const old = id('vrStartPanel');
-        if(old){
-          try{ old.remove(); }catch(e){}
-          state.targets.delete(old);
-        }
-
-        const panel = makeTargetEntity('vr-start', { label:'START', color:'#22c55e' }, {
-          x:0,
-          y:1.65,
-          z:-2.65,
-          static:true
-        });
-
-        panel.id = 'vrStartPanel';
-
-        add(panel, 'a-box', { width:'3.8', height:'2.05', depth:'0.08', color:'#ffffff', position:'0 0 0', material:'opacity:0.94; transparent:true; roughness:0.55' });
-        add(panel, 'a-box', { width:'3.95', height:'0.12', depth:'0.12', color:'#22c55e', position:'0 1.08 0.08' });
-        add(panel, 'a-box', { width:'3.95', height:'0.12', depth:'0.12', color:'#22c55e', position:'0 -1.08 0.08' });
-        add(panel, 'a-box', { width:'2.2', height:'0.62', depth:'0.12', color:'#bbf7d0', position:'0 -0.38 0.16' });
-
-        add(panel, 'a-sphere', { radius:'0.20', color:'#22c55e', position:'-1.25 -0.38 0.28' });
-        add(panel, 'a-sphere', { radius:'0.20', color:'#22c55e', position:'1.25 -0.38 0.28' });
-
-        panel.setAttribute('animation__float', {
-          property:'position',
-          dir:'alternate',
-          loop:true,
-          dur:900,
-          easing:'easeInOutSine',
-          to:'0 1.78 -2.65'
-        });
-
-        panel.addEventListener('click', function(e){
-          e.preventDefault();
-          startWarmupFromVr();
-        });
-
-        state.targets.add(panel);
-
-        setMission('กด 🎯 เพื่อเริ่ม หรือเล็งแผ่นสีเขียวกลางฉาก');
-        toast('กด 🎯 เพื่อเริ่ม Full 3D Flow ได้เลย');
-      }
-
-      function startWarmupFromVr(){
-        const panel = id('vrStartPanel');
-        if(panel){
-          try{ panel.remove(); }catch(e){}
-          state.targets.delete(panel);
-        }
-
-        hide(el.startOverlay);
-        startWarmup();
-      }
-
-      function spawnWarmupSet(){
-        clearTargets();
-
-        createTarget('warm-good', GOOD[0], {
-          x:-1.35,
-          y:1.58,
-          z:-3.8,
-          static:true,
-          scale:1.34
-        });
-
-        createTarget('warm-good', GOOD[1], {
-          x:1.35,
-          y:1.58,
-          z:-3.8,
-          static:true,
-          scale:1.34
-        });
-
-        createTarget('warm-junk', JUNK[0], {
-          x:0,
-          y:2.38,
-          z:-4.1,
-          static:true,
-          scale:1.18
-        });
-
-        createTarget('warm-power', POWER[0], {
-          x:0,
-          y:1.62,
-          z:-3.12,
-          static:true,
-          scale:1.20
-        });
-
-        setMission('Warmup: ยิง broccoli/apple แล้วค่อยยิง SHIELD');
-      }
-
-      function spawnMain(){
-        if(state.stage !== 'main') return;
-
-        const r = Math.random();
-
-        if(r < D.power){
-          createTarget('power', pick(POWER), { scale:1.16 });
-          return;
-        }
-
-        if(r < D.power + D.fake){
-          createTarget('fake', pick(FAKE), { scale:1.18 });
-          return;
-        }
-
-        if(r < D.power + D.fake + D.junk){
-          createTarget('junk', pick(JUNK), { scale:1.20 });
-          return;
-        }
-
-        createTarget('good', pick(GOOD), { scale:1.22 });
-      }
-
-      function spawnCooldownSet(){
-        clearTargets();
-
-        createTarget('breath', { label:'BREATHE', asset:ASSET.water, color:'#bfdbfe' }, {
-          x:-1.35,
-          y:1.62,
-          z:-3.8,
-          static:true,
-          scale:1.24
-        });
-
-        createTarget('breath', { label:'WATER', asset:ASSET.water, color:'#60a5fa' }, {
-          x:0,
-          y:1.75,
-          z:-3.7,
-          static:true,
-          scale:1.24
-        });
-
-        createTarget('breath', { label:'GOOD', asset:ASSET.broccoli, color:'#22c55e' }, {
-          x:1.35,
-          y:1.62,
-          z:-3.8,
-          static:true,
-          scale:1.24
-        });
-      }
-
-      function aimAssistTarget(){
-        if(!el.camera || !el.camera.object3D || !WIN.THREE) return null;
-
-        const cam = el.camera.object3D;
-        const camPos = new THREE.Vector3();
-        const camDir = new THREE.Vector3();
-
-        cam.getWorldPosition(camPos);
-        cam.getWorldDirection(camDir);
-
-        let best = null;
-        let bestAngle = Infinity;
-
-        const maxAngle =
-          state.stage === 'warmup' ? 0.34 :
-          state.stage === 'cooldown' ? 0.34 :
-          0.23;
-
-        state.targets.forEach(t => {
-          if(!t || !t.object3D || t.dataset.consumed === '1') return;
-
-          const kind = t.dataset.kind;
-          if(kind === 'vr-start' && state.stage !== 'intro') return;
-
-          const pos = new THREE.Vector3();
-          t.object3D.getWorldPosition(pos);
-
-          const dir = pos.clone().sub(camPos).normalize();
-          const angle = camDir.angleTo(dir);
-
-          if(angle < bestAngle && angle <= maxAngle){
-            bestAngle = angle;
-            best = t;
-          }
-        });
-
-        return best;
-      }
-
-      function shoot(){
-        if(['intro','warmup','main','cooldown'].indexOf(state.stage) < 0) return;
-
-        if(state.stage === 'intro'){
-          startWarmupFromVr();
-          return;
-        }
-
-        const t = aimAssistTarget();
-
-        state.shots += 1;
-
-        if(!t){
-          if(state.stage === 'main'){
-            state.combo = 0;
-            toast('พลาดเป้า! เล็งใหม่');
-          }else if(state.stage === 'warmup'){
-            toast('เล็งอาหารดีหรือโล่ใน Warmup');
-          }else if(state.stage === 'cooldown'){
-            toast('เล็ง BREATHE / WATER / GOOD ให้ครบ');
-          }
-
-          updateHud();
-          return;
-        }
-
-        hitTarget(t);
-      }
-
-      function hitTarget(wrap){
-        if(!wrap || wrap.dataset.consumed === '1') return;
-
-        const kind = wrap.dataset.kind;
-        const data = wrap.__data || {};
-
-        if(kind === 'vr-start'){
-          startWarmupFromVr();
-          return;
-        }
-
-        wrap.dataset.consumed = '1';
-        state.targets.delete(wrap);
-
-        popFx(wrap, kind, data);
-
-        if(kind === 'warm-good'){
-          state.warmGood += 1;
-          state.score += 10;
-          toast('ดีมาก! อาหารดี');
-
-          if(state.warmGood >= 2){
-            setMission('Warmup: ยิง SHIELD เพื่อเริ่มสู้บอส');
-          }
-        }else if(kind === 'warm-junk'){
-          toast('นี่คือ JUNK — อย่ายิงตอนเล่นจริง!');
-        }else if(kind === 'warm-power'){
-          state.warmPower += 1;
-          state.shield = 1;
-          toast('ได้ Shield แล้ว! พร้อมสู้บอส');
-          setTimeout(startMain, 850);
-        }else if(kind === 'good'){
-          hitGood(data);
-        }else if(kind === 'junk' || kind === 'fake'){
-          hitBad(data, kind);
-        }else if(kind === 'power'){
-          hitPower(data);
-        }else if(kind === 'breath'){
-          hitBreath(data);
-        }
-
-        setTimeout(() => {
-          try{ wrap.remove(); }catch(e){}
-        }, 30);
-
-        updateHud();
-      }
-
-      function hitGood(data){
-        state.goodHits += 1;
-        state.combo += 1;
-        state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-        let points = 10 + Math.min(35, state.combo * 2);
-        let damage = 10 + Math.min(28, state.combo * 1.6);
-
-        if(isFever()){
-          points *= 2;
-          damage *= 1.55;
-        }
-
-        state.score += Math.round(points);
-        state.bossHp = Math.max(0, state.bossHp - Math.round(damage));
-        bossHitFx();
-
-        toast(`GOOD! ${data.label || 'FOOD'} Combo x${state.combo}`);
-
-        if(state.bossHp <= 0){
-          endMain(true, 'boss-defeated');
-        }
-      }
-
-      function hitBad(data, kind){
-        if(state.shield > 0){
-          state.shield -= 1;
-          toast('🛡️ Shield ช่วยกันพลาด!');
-          return;
-        }
-
-        state.combo = 0;
-        state.misses += 1;
-
-        if(kind === 'junk') state.junkHits += 1;
-        if(kind === 'fake') state.fakeHits += 1;
-
-        state.lives -= 1;
-        state.bossHp = Math.min(state.bossMaxHp, state.bossHp + 8);
-
-        cameraShake();
-
-        toast(kind === 'fake'
-          ? `ระวัง FAKE healthy: ${data.label || 'CHECK'}`
-          : `โดน JUNK: ${data.label || 'AVOID'}`
-        );
-
-        if(state.lives <= 0){
-          endMain(false, 'no-lives');
-        }
-      }
-
-      function hitPower(data){
-        state.score += 35;
-        state.combo += 1;
-
-        if(data.id === 'shield'){
-          state.shield = Math.min(2, state.shield + 1);
-          toast('🛡️ ได้ Shield!');
-        }else if(data.id === 'fever'){
-          state.feverUntil = now() + 6500;
-          toast('⚡ Fever Time!');
-        }else if(data.id === 'heal'){
-          state.lives = Math.min(D.lives, state.lives + 1);
-          toast('💚 ฟื้นพลัง +1');
-        }
-      }
-
-      function hitBreath(data){
-        state.cooldownBreath += 1;
-        state.cooldownGood += String(data.label || '').toUpperCase() === 'GOOD' ? 1 : 0;
-        state.score += 5;
-
-        toast(`Cooldown ${state.cooldownBreath}/3`);
-
-        if(state.cooldownBreath >= 3){
-          setMission('Cooldown สำเร็จ! กลับหน้าโหมดเกมได้เลย');
-          setTimeout(showFinal, 700);
-        }
-      }
-
-      function expireTarget(wrap, kind, data){
-        if(!wrap || wrap.dataset.consumed === '1') return;
-
-        wrap.dataset.consumed = '1';
-        state.targets.delete(wrap);
-
-        if(kind === 'good'){
-          state.misses += 1;
-          state.combo = 0;
-          toast(`พลาดอาหารดี ${data.label || ''}`);
-        }
-
-        try{ wrap.remove(); }catch(e){}
-        updateHud();
-      }
-
-      function popFx(wrap, kind, data){
-        const pos = wrap.object3D.position.clone();
-
-        const fx = add(el.fxRoot, 'a-sphere', {
-          radius:'0.10',
-          color:kind.includes('good') ? '#16a34a' :
-                kind === 'power' || kind === 'warm-power' || kind === 'breath' ? '#f59e0b' :
-                '#ef4444',
-          position:`${pos.x} ${pos.y + 0.32} ${pos.z}`
-        });
-
-        fx.setAttribute('animation__rise', {
-          property:'position',
-          to:`${pos.x} ${pos.y + 1.05} ${pos.z}`,
-          dur:650,
-          easing:'easeOutQuad'
-        });
-
-        fx.setAttribute('animation__fade', {
-          property:'scale',
-          to:'0.01 0.01 0.01',
-          dur:650,
-          easing:'easeOutQuad'
-        });
-
-        setTimeout(() => {
-          try{ fx.remove(); }catch(e){}
-        }, 720);
-      }
-
-      function bossHitFx(){
-        if(!el.bossRoot) return;
-
-        el.bossRoot.setAttribute('animation__hit', {
-          property:'scale',
-          from:'1.16 1.16 1.16',
-          to:'1 1 1',
-          dur:190,
-          easing:'easeOutQuad'
-        });
-
-        const beam = add(el.fxRoot, 'a-cylinder', {
-          radius:'0.035',
-          height:'6.8',
-          color:isFever() ? '#facc15' : '#22c55e',
-          material:'transparent:true; opacity:0.65',
-          position:'0 1.65 -4',
-          rotation:'90 0 0'
-        });
-
-        beam.setAttribute('animation__fade', {
-          property:'scale',
-          to:'0.01 0.01 0.01',
-          dur:220
-        });
-
-        setTimeout(() => {
-          try{ beam.remove(); }catch(e){}
-        }, 260);
-      }
-
-      function cameraShake(){
-        if(!el.cameraRig) return;
-
-        el.cameraRig.setAttribute('animation__shake', {
-          property:'position',
-          from:'0.06 1.6 0.04',
-          to:'0 1.6 0',
-          dur:180,
-          easing:'easeOutQuad'
-        });
-      }
-
-      function startWarmup(){
-        state.stage = 'warmup';
-        state.started = true;
-        state.ended = false;
-        state.warmGood = 0;
-        state.warmPower = 0;
-
-        hide(el.startOverlay);
-        hide(el.summaryOverlay);
-        hide(el.finalOverlay);
-
-        spawnWarmupSet();
-        updateHud();
-        toast('Warmup เริ่มแล้ว!');
-      }
-
-      function startMain(){
-        state.stage = 'main';
-        state.startAt = now();
-
-        clearTargets();
-
-        setMission('Boss: ยิง GOOD ลด HP บอส!');
-        toast('Boss Fight เริ่ม!');
-        updateHud();
-
-        clearInterval(state.spawnTimer);
-        state.spawnTimer = setInterval(spawnMain, Math.max(430, D.spawnMs));
-
-        clearInterval(state.clockTimer);
-        state.clockTimer = setInterval(() => {
-          if(state.stage !== 'main') return;
-
-          state.timeLeft -= 1;
-
-          if(state.timeLeft <= 0){
-            endMain(state.bossHp <= state.bossMaxHp * 0.25, 'time-up');
-          }
-
-          updateHud();
-        }, 1000);
-      }
-
-      function calculateRank(){
-        const acc = state.shots > 0 ? state.goodHits / Math.max(1,state.shots) : 0;
-        const hpWin = state.bossHp <= 0;
-        const survival = state.lives / D.lives;
-
-        let stars = 1;
-        if(hpWin) stars += 1;
-        if(acc >= .55) stars += 1;
-        if(state.bestCombo >= 8) stars += 1;
-        if(survival >= .5) stars += 1;
-
-        stars = clamp(stars,1,5);
-
-        let rank = 'C';
-        if(stars >= 5) rank = 'S';
-        else if(stars >= 4) rank = 'A';
-        else if(stars >= 3) rank = 'B';
-
-        return { rank, stars, acc };
-      }
-
-      function endMain(win, reason){
-        if(state.stage !== 'main') return;
-
-        state.stage = 'summary';
-        state.ended = true;
-
-        clearInterval(state.spawnTimer);
-        clearInterval(state.clockTimer);
-        clearTargets();
-
-        const result = calculateRank();
-
-        if(el.summaryIcon) el.summaryIcon.textContent = win ? '🏆' : '💪';
-        if(el.summaryTitle) el.summaryTitle.textContent = win ? 'Victory!' : 'Good Try!';
-        if(el.summaryTip){
-          el.summaryTip.textContent = state.fakeHits > 0
-            ? 'วันนี้พลาด fake healthy ด้วย ระวังน้ำหวาน/ซีเรียลหวานที่ดูเหมือนสุขภาพดี'
-            : 'เลือกอาหารดีได้ดีมาก รอบหน้าลองรักษา combo ให้สูงขึ้น';
-        }
-
-        if(el.sumScore) el.sumScore.textContent = String(state.score);
-        if(el.sumRank) el.sumRank.textContent = `${result.rank} ⭐${result.stars}`;
-        if(el.sumGood) el.sumGood.textContent = String(state.goodHits);
-        if(el.sumMiss) el.sumMiss.textContent = String(state.misses + state.junkHits + state.fakeHits);
-
-        show(el.summaryOverlay);
-        setMission('Summary: ดูผล แล้วทำ 3D Cooldown ต่อ');
-
-        saveSummary(win, reason, result);
-        updateHud();
-      }
-
-      function saveSummary(win, reason, result){
-        try{
-          localStorage.setItem('GJ_FULL_3D_VR_LAST_SUMMARY', JSON.stringify({
-            patch:PATCH,
-            win,
-            reason,
-            score:state.score,
-            rank:result.rank,
-            stars:result.stars,
-            goodHits:state.goodHits,
-            junkHits:state.junkHits,
-            fakeHits:state.fakeHits,
-            misses:state.misses,
-            bestCombo:state.bestCombo,
-            launcher:ROUTES.launcher,
-            savedAt:new Date().toISOString()
-          }));
-        }catch(e){}
-      }
-
-      function startCooldown(){
-        state.stage = 'cooldown';
-        state.cooldownBreath = 0;
-        state.cooldownGood = 0;
-
-        hide(el.summaryOverlay);
-        clearTargets();
-
-        setMission('Cooldown: ยิง BREATHE / WATER / GOOD ให้ครบ 3 ชิ้น');
-        spawnCooldownSet();
-        updateHud();
-        toast('เริ่ม 3D Cooldown');
-      }
-
-      function showFinal(){
-        state.stage = 'done';
-        clearTargets();
-        show(el.finalOverlay);
-        updateHud();
-      }
-
-      function goLauncher(){
-        location.href = ROUTES.launcher;
-      }
-
-      function goHub(){
-        location.href = ROUTES.hub;
-      }
-
-      function replay(){
-        location.reload();
-      }
-
-      function bind(){
-        if(state.bound) return;
-        state.bound = true;
-
-        el.startBtn?.addEventListener('click', startWarmupFromVr);
-
-        el.vrHintBtn?.addEventListener('click', () => {
-          toast('กด Enter VR แล้วกด 🎯 เพื่อเริ่มได้เลย');
-        });
-
-        el.shootBtn?.addEventListener('click', e => {
-          e.preventDefault();
-          shoot();
-        });
-
-        DOC.addEventListener('keydown', e => {
-          if(e.code === 'Space' || e.code === 'Enter'){
-            e.preventDefault();
-            shoot();
-          }
-        });
-
-        el.backBtn?.addEventListener('click', goLauncher);
-        el.cooldownBtn?.addEventListener('click', startCooldown);
-        el.replayBtn?.addEventListener('click', replay);
-        el.launcherBtn?.addEventListener('click', goLauncher);
-        el.finalLauncherBtn?.addEventListener('click', goLauncher);
-        el.finalHubBtn?.addEventListener('click', goHub);
-
-        DOC.addEventListener('click', e => {
-          const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
-          if(t){
-            e.preventDefault();
-            hitTarget(t);
-          }
-        }, true);
-      }
-
-      function makeDecor(){
-        for(let i=0;i<20;i++){
-          const dot = DOC.createElement('a-sphere');
-          const a = Math.PI * 2 * i / 20;
-          const r = 9 + (i % 3);
-
-          el.fxRoot.appendChild(dot);
-
-          dot.setAttribute('position', `${Math.cos(a)*r} ${rand(.4,2.9)} ${-4 + Math.sin(a)*r}`);
-          dot.setAttribute('radius', String(rand(.05,.13)));
-          dot.setAttribute('color', i % 2 ? '#ffffff' : '#86efac');
-          dot.setAttribute('material','transparent:true; opacity:0.45');
-        }
-      }
-
-      function debugAssetLoad(){
-        const files = [
-          'broccoli.png',
-          'apple.png',
-          'water.png',
-          'egg.png',
-          'fries.png',
-          'soda.png',
-          'donut.png',
-          'candy.png',
-          'juice-box.png',
-          'shield.png',
-          'fever.png',
-          'heart.png'
-        ];
-
-        files.forEach(name => {
-          const img = new Image();
-
-          img.onload = function(){
-            console.log('[GoodJunk asset OK]', name, img.naturalWidth, img.naturalHeight);
-          };
-
-          img.onerror = function(){
-            console.warn('[GoodJunk asset MISSING]', ASSET_BASE + name);
-          };
-
-          img.src = ASSET_BASE + name + '?v=' + encodeURIComponent(ASSET_VER);
-        });
-      }
-
-      function boot(){
-        debugAssetLoad();
-
-        function startAfterSceneReady(){
-          if(startAfterSceneReady.done) return;
-          startAfterSceneReady.done = true;
-
-          buildWorld();
-          createVrStartPanel();
-
-          bind();
-          updateHud();
-
-          WIN.GoodJunkFull3DVRFlow = {
-            version:PATCH,
-            startWarmup,
-            startWarmupFromVr,
-            startMain,
-            startCooldown,
-            shoot,
-            goLauncher,
-            getState:()=>({...state, patch:PATCH})
-          };
-
-          WIN.GJF3D = WIN.GoodJunkFull3DVRFlow;
-
-          try{
-            localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
-              patch:PATCH,
-              href:location.href,
-              assetv:ASSET_VER,
-              savedAt:new Date().toISOString()
-            }));
-          }catch(e){}
-
-          console.log('[GoodJunk VR boot]', PATCH, 'assetv=', ASSET_VER);
-        }
-
-        if(el.scene && el.scene.hasLoaded){
-          startAfterSceneReady();
-        }else if(el.scene){
-          el.scene.addEventListener('loaded', startAfterSceneReady, { once:true });
-          el.scene.addEventListener('renderstart', startAfterSceneReady, { once:true });
-
-          setTimeout(function(){
-            if(el.scene && el.scene.hasLoaded) startAfterSceneReady();
-          }, 1200);
-        }else{
-          setTimeout(startAfterSceneReady, 500);
-        }
-      }
-
-      if(DOC.readyState === 'loading'){
-        DOC.addEventListener('DOMContentLoaded', boot);
-      }else{
-        boot();
-      }
-    })();
-  </script>
+      window.GJL = window.GoodJunkLauncher;
+    }
+
+    function boot(){
+      initForm();
+      bind();
+      expose();
+
+      try{
+        localStorage.setItem('GJ_LAUNCHER_BOOT_LAST', JSON.stringify({
+          patch: PATCH,
+          href: location.href,
+          solo3dFlowUrl: buildSolo3dFlowUrl(),
+          savedAt: new Date().toISOString()
+        }));
+      }catch(e){}
+
+      console.log('[GoodJunk Launcher boot]', PATCH, buildSolo3dFlowUrl());
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', boot);
+    }else{
+      boot();
+    }
+  })();
+</script>
 </body>
 </html>
