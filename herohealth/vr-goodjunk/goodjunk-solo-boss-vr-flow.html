@@ -1,13 +1,12 @@
-ฃ<!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.43.8-GOODJUNK-VR-PNG-FORCE-LOAD -->
-<!-- Full 3D VR Flow:
-     ✅ PNG billboard targets with absolute GitHub Pages path
-     ✅ assetv / v cache bust for PNG images
-     ✅ GOOD/JUNK/FAKE/POWER visually clear
-     ✅ Easy warmup aiming
-     ✅ Aim assist for Cardboard/cVR
-     ✅ Press shoot during intro starts immediately
-     ✅ Full 3D flow in one page
+<!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
+<!-- FULL PATCH v8.44.0-GOODJUNK-VR-NO-AFRAME-EARLY-MATERIAL -->
+<!-- Fix:
+     ✅ A-Frame 1.4.2
+     ✅ No vr-ui.js early injection
+     ✅ No a-text in 3D scene
+     ✅ No early material entities in HTML
+     ✅ Build all 3D objects only after scene loaded/renderstart
+     ✅ PNG billboard targets: GOOD/JUNK/FAKE/POWER
 -->
 
 <!doctype html>
@@ -19,7 +18,7 @@
   <meta name="theme-color" content="#bbf7d0" />
   <meta name="color-scheme" content="light" />
 
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
   <style>
     :root{
@@ -35,10 +34,7 @@
       --red:#ef4444;
     }
 
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-    }
+    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
 
     html,body{
       margin:0;
@@ -52,14 +48,12 @@
       overscroll-behavior:none;
     }
 
-    button{
-      font:inherit;
-      cursor:pointer;
-    }
+    button{ font:inherit; cursor:pointer; }
 
     a-scene{
       width:100vw;
       height:100dvh;
+      background:#dff7ec;
     }
 
     .hud{
@@ -78,8 +72,8 @@
       min-height:42px;
       border-radius:15px;
       padding:6px 8px;
-      background:rgba(255,255,255,.82);
-      border:2px solid rgba(255,255,255,.92);
+      background:rgba(255,255,255,.84);
+      border:2px solid rgba(255,255,255,.94);
       box-shadow:0 10px 24px rgba(15,23,42,.13);
       backdrop-filter:blur(8px);
       overflow:hidden;
@@ -198,9 +192,7 @@
         inset 0 -7px 0 rgba(15,23,42,.10);
     }
 
-    .shoot:active{
-      transform:scale(.94);
-    }
+    .shoot:active{ transform:scale(.94); }
 
     .back{
       position:fixed;
@@ -278,10 +270,7 @@
       box-shadow:0 30px 80px rgba(15,23,42,.34);
     }
 
-    .icon{
-      font-size:62px;
-      line-height:1;
-    }
+    .icon{ font-size:62px; line-height:1; }
 
     .card h1{
       margin:8px 0 0;
@@ -390,9 +379,7 @@
       color:#0f172a;
     }
 
-    .hidden{
-      display:none !important;
-    }
+    .hidden{ display:none !important; }
 
     @media (max-width:720px){
       .hud{
@@ -408,14 +395,8 @@
         border-radius:12px;
       }
 
-      .pill span{
-        display:none;
-      }
-
-      .pill b{
-        font-size:13px;
-        margin-top:0;
-      }
+      .pill span{ display:none; }
+      .pill b{ font-size:13px; margin-top:0; }
 
       .bossBar{
         top:calc(46px + var(--sat));
@@ -430,9 +411,7 @@
         padding:8px 12px;
       }
 
-      .rules{
-        grid-template-columns:1fr;
-      }
+      .rules{ grid-template-columns:1fr; }
 
       .rule{
         min-height:54px;
@@ -442,9 +421,7 @@
         text-align:left;
       }
 
-      .rule span{
-        margin-top:0;
-      }
+      .rule span{ margin-top:0; }
 
       .shoot{
         width:70px;
@@ -542,8 +519,7 @@
 
   <a-scene
     id="scene"
-    renderer="antialias:true; colorManagement:true; physicallyCorrectLights:true"
-    background="color:#dff7ec"
+    renderer="antialias:true; colorManagement:true"
     vr-mode-ui="enabled:true"
     loading-screen="enabled:false">
 
@@ -552,75 +528,29 @@
       <img id="img-apple" src="/webxr-health-mobile/herohealth/assets/goodjunk/apple.png" crossorigin="anonymous" />
       <img id="img-water" src="/webxr-health-mobile/herohealth/assets/goodjunk/water.png" crossorigin="anonymous" />
       <img id="img-egg" src="/webxr-health-mobile/herohealth/assets/goodjunk/egg.png" crossorigin="anonymous" />
-
       <img id="img-fries" src="/webxr-health-mobile/herohealth/assets/goodjunk/fries.png" crossorigin="anonymous" />
       <img id="img-soda" src="/webxr-health-mobile/herohealth/assets/goodjunk/soda.png" crossorigin="anonymous" />
       <img id="img-donut" src="/webxr-health-mobile/herohealth/assets/goodjunk/donut.png" crossorigin="anonymous" />
       <img id="img-candy" src="/webxr-health-mobile/herohealth/assets/goodjunk/candy.png" crossorigin="anonymous" />
       <img id="img-juice-box" src="/webxr-health-mobile/herohealth/assets/goodjunk/juice-box.png" crossorigin="anonymous" />
-
       <img id="img-shield" src="/webxr-health-mobile/herohealth/assets/goodjunk/shield.png" crossorigin="anonymous" />
       <img id="img-fever" src="/webxr-health-mobile/herohealth/assets/goodjunk/fever.png" crossorigin="anonymous" />
       <img id="img-heart" src="/webxr-health-mobile/herohealth/assets/goodjunk/heart.png" crossorigin="anonymous" />
     </a-assets>
 
     <a-entity id="cameraRig" position="0 1.6 0">
-      <a-camera id="camera" look-controls wasd-controls="enabled:false">
-        <a-entity
-          id="aimRay"
-          raycaster="objects:.gj-target; far:34; interval:60"
-          cursor="fuse:false"
-          position="0 0 -1"
-          geometry="primitive:ring; radiusInner:0.012; radiusOuter:0.018"
-          material="color:#ffffff; shader:flat; opacity:0.9">
-        </a-entity>
-      </a-camera>
-    </a-entity>
-
-    <a-entity light="type:hemisphere; intensity:1.15; color:#ffffff; groundColor:#bbf7d0"></a-entity>
-    <a-entity light="type:directional; intensity:0.75; color:#fff7ed" position="3 6 4"></a-entity>
-
-    <a-sky id="sky" color="#dff7ec"></a-sky>
-
-    <a-circle
-      position="0 0 -4"
-      rotation="-90 0 0"
-      radius="18"
-      color="#b7f3c6"
-      material="roughness:0.9; metalness:0">
-    </a-circle>
-
-    <a-ring
-      position="0 0.03 -4"
-      rotation="-90 0 0"
-      radius-inner="3.2"
-      radius-outer="3.28"
-      color="#ffffff"
-      opacity="0.45">
-    </a-ring>
-
-    <a-entity id="bossRoot" position="0 2.1 -8" visible="true">
-      <a-sphere id="bossBody" radius="1.05" color="#7c2d12" roughness="0.7"></a-sphere>
-      <a-sphere position="-0.38 0.25 0.82" radius="0.16" color="#ffffff"></a-sphere>
-      <a-sphere position="0.38 0.25 0.82" radius="0.16" color="#ffffff"></a-sphere>
-      <a-sphere position="-0.38 0.25 0.94" radius="0.07" color="#111827"></a-sphere>
-      <a-sphere position="0.38 0.25 0.94" radius="0.07" color="#111827"></a-sphere>
-      <a-cone position="-0.7 0.94 0" rotation="0 0 20" radius-bottom="0.22" height="0.65" color="#ef4444"></a-cone>
-      <a-cone position="0.7 0.94 0" rotation="0 0 -20" radius-bottom="0.22" height="0.65" color="#ef4444"></a-cone>
-      <a-text value="JUNK BOSS" align="center" color="#172033" width="4.8" position="0 1.42 0.1"></a-text>
+      <a-camera id="camera" look-controls wasd-controls="enabled:false"></a-camera>
     </a-entity>
 
     <a-entity id="targetRoot"></a-entity>
     <a-entity id="fxRoot"></a-entity>
   </a-scene>
 
-  <script src="../vr/vr-ui.js?v=20260506-vr-ui"></script>
-
   <script>
     (function(){
       'use strict';
 
-      const PATCH = 'v8.43.8-GOODJUNK-VR-PNG-FORCE-LOAD';
+      const PATCH = 'v8.44.0-GOODJUNK-VR-NO-AFRAME-EARLY-MATERIAL';
 
       const WIN = window;
       const DOC = document;
@@ -631,30 +561,28 @@
         hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
       };
 
+      function q(k,d){
+        const v = QS.get(k);
+        return v === null || v === '' ? d : v;
+      }
+
       const ASSET_BASE = '/webxr-health-mobile/herohealth/assets/goodjunk/';
-      const ASSET_VER = q('assetv', q('v', '20260506-png8438'));
+      const ASSET_VER = q('assetv', q('v', '20260506-png8440'));
 
       const ASSET = {
         broccoli: ASSET_BASE + 'broccoli.png',
         apple: ASSET_BASE + 'apple.png',
         water: ASSET_BASE + 'water.png',
         egg: ASSET_BASE + 'egg.png',
-
         fries: ASSET_BASE + 'fries.png',
         soda: ASSET_BASE + 'soda.png',
         donut: ASSET_BASE + 'donut.png',
         candy: ASSET_BASE + 'candy.png',
         juice: ASSET_BASE + 'juice-box.png',
-
         shield: ASSET_BASE + 'shield.png',
         fever: ASSET_BASE + 'fever.png',
         heart: ASSET_BASE + 'heart.png'
       };
-
-      function q(k,d){
-        const v = QS.get(k);
-        return v === null || v === '' ? d : v;
-      }
 
       const cfg = {
         pid:q('pid','anon'),
@@ -699,12 +627,10 @@
 
       const el = {
         scene:id('scene'),
-        sky:id('sky'),
         camera:id('camera'),
-        aimRay:id('aimRay'),
+        cameraRig:id('cameraRig'),
         targetRoot:id('targetRoot'),
         fxRoot:id('fxRoot'),
-        bossRoot:id('bossRoot'),
 
         hudStage:id('hudStage'),
         hudScore:id('hudScore'),
@@ -772,7 +698,9 @@
         targets:new Set(),
         spawnTimer:0,
         clockTimer:0,
-        startAt:0
+        startAt:0,
+        bound:false,
+        worldBuilt:false
       };
 
       function id(x){ return DOC.getElementById(x); }
@@ -824,6 +752,17 @@
         if(el.missionText) el.missionText.textContent = t;
       }
 
+      function add(parent, tag, attrs){
+        const node = DOC.createElement(tag);
+        parent.appendChild(node);
+
+        Object.keys(attrs || {}).forEach(k => {
+          node.setAttribute(k, attrs[k]);
+        });
+
+        return node;
+      }
+
       function clearTargets(){
         state.targets.forEach(x => {
           try{ x.remove(); }catch(e){}
@@ -832,12 +771,66 @@
         if(el.targetRoot) el.targetRoot.innerHTML = '';
       }
 
+      function buildWorld(){
+        if(state.worldBuilt) return;
+        state.worldBuilt = true;
+
+        add(el.scene, 'a-entity', {
+          light:'type:hemisphere; intensity:1.15; color:#ffffff; groundColor:#bbf7d0'
+        });
+
+        add(el.scene, 'a-entity', {
+          light:'type:directional; intensity:0.75; color:#fff7ed',
+          position:'3 6 4'
+        });
+
+        add(el.scene, 'a-sky', {
+          color:'#dff7ec'
+        });
+
+        add(el.scene, 'a-circle', {
+          position:'0 0 -4',
+          rotation:'-90 0 0',
+          radius:'18',
+          color:'#b7f3c6',
+          material:'roughness:0.9; metalness:0'
+        });
+
+        add(el.scene, 'a-ring', {
+          position:'0 0.03 -4',
+          rotation:'-90 0 0',
+          'radius-inner':'3.2',
+          'radius-outer':'3.28',
+          color:'#ffffff',
+          material:'opacity:0.45; transparent:true'
+        });
+
+        buildBoss();
+        makeDecor();
+      }
+
+      function buildBoss(){
+        const root = add(el.scene, 'a-entity', {
+          id:'bossRoot',
+          position:'0 2.1 -8'
+        });
+
+        el.bossRoot = root;
+
+        add(root, 'a-sphere', { radius:'1.05', color:'#7c2d12', material:'roughness:0.7' });
+        add(root, 'a-sphere', { position:'-0.38 0.25 0.82', radius:'0.16', color:'#ffffff' });
+        add(root, 'a-sphere', { position:'0.38 0.25 0.82', radius:'0.16', color:'#ffffff' });
+        add(root, 'a-sphere', { position:'-0.38 0.25 0.94', radius:'0.07', color:'#111827' });
+        add(root, 'a-sphere', { position:'0.38 0.25 0.94', radius:'0.07', color:'#111827' });
+        add(root, 'a-cone', { position:'-0.7 0.94 0', rotation:'0 0 20', 'radius-bottom':'0.22', height:'0.65', color:'#ef4444' });
+        add(root, 'a-cone', { position:'0.7 0.94 0', rotation:'0 0 -20', 'radius-bottom':'0.22', height:'0.65', color:'#ef4444' });
+      }
+
       function makeTargetEntity(kind, data, opts){
         opts = opts || {};
         const wrap = DOC.createElement('a-entity');
 
         wrap.classList.add('gj-target');
-        wrap.setAttribute('data-gj-target-root', '1');
         wrap.dataset.kind = kind;
         wrap.dataset.consumed = '0';
         wrap.__data = data || {};
@@ -846,150 +839,65 @@
         const y = opts.y ?? rand(1.25,2.35);
         const z = opts.z ?? rand(-8.5,-5.6);
 
+        el.targetRoot.appendChild(wrap);
         wrap.setAttribute('position', `${x} ${y} ${z}`);
+
         return wrap;
       }
 
-      function makeText(value, color, y, z, width){
-        const t = DOC.createElement('a-text');
-        t.setAttribute('value', String(value || ''));
-        t.setAttribute('align', 'center');
-        t.setAttribute('color', color || '#0f172a');
-        t.setAttribute('width', String(width || 3.2));
-        t.setAttribute('position', `0 ${y || -0.80} ${z || 0.26}`);
-        return t;
-      }
+      function makeHalo(parent, color, radius){
+        const ring = add(parent, 'a-ring', {
+          'radius-inner':String((radius || .88) - .10),
+          'radius-outer':String(radius || .88),
+          position:'0 0.08 0.02',
+          color:color || '#22c55e',
+          material:'side:double; opacity:0.94; transparent:true'
+        });
 
-      function makeHalo(color, radius){
-        const ring = DOC.createElement('a-ring');
-        ring.setAttribute('radius-inner', String((radius || .88) - .10));
-        ring.setAttribute('radius-outer', String(radius || .88));
-        ring.setAttribute('color', color || '#22c55e');
-        ring.setAttribute('position', '0 0.08 0.02');
-        ring.setAttribute('material', 'side:double; opacity:0.94; transparent:true');
         return ring;
       }
 
-      function makeBillboardImage(asset, size){
-        const img = DOC.createElement('a-plane');
+      function makeBillboardImage(parent, asset, size){
         const s = Number(size || 1.26);
         const texUrl = withAssetVersion(asset);
 
-        img.setAttribute('width', String(s));
-        img.setAttribute('height', String(s));
-        img.setAttribute('position', '0 0.10 0.34');
-        img.setAttribute('geometry', `primitive: plane; width:${s}; height:${s}`);
-
-        img.setAttribute('material', [
-          'shader: flat',
-          'transparent: true',
-          'alphaTest: 0.01',
-          'side: double',
-          'color: #ffffff'
-        ].join('; '));
-
-        const pre = new Image();
-        pre.crossOrigin = 'anonymous';
-
-        pre.onload = function(){
-          img.setAttribute('material', [
-            `src: ${texUrl}`,
-            'shader: flat',
-            'transparent: true',
-            'alphaTest: 0.01',
-            'side: double',
-            'color: #ffffff'
-          ].join('; '));
-
-          console.log('[GoodJunk PNG applied]', texUrl, pre.naturalWidth, pre.naturalHeight);
-        };
-
-        pre.onerror = function(){
-          console.warn('[GoodJunk PNG failed]', texUrl);
-        };
-
-        pre.src = texUrl;
-
-        return img;
+        return add(parent, 'a-plane', {
+          width:String(s),
+          height:String(s),
+          position:'0 0.10 0.34',
+          geometry:`primitive:plane; width:${s}; height:${s}`,
+          material:[
+            `src:url(${texUrl})`,
+            'shader:flat',
+            'transparent:true',
+            'alphaTest:0.01',
+            'side:double',
+            'color:#ffffff'
+          ].join('; ')
+        });
       }
 
-      function makeCheckBadge(){
-        const g = DOC.createElement('a-entity');
-
-        const bg = DOC.createElement('a-sphere');
-        bg.setAttribute('radius', '0.22');
-        bg.setAttribute('color', '#16a34a');
-        bg.setAttribute('position', '0.60 -0.54 0.34');
-
-        const a = DOC.createElement('a-box');
-        a.setAttribute('width', '0.055');
-        a.setAttribute('height', '0.19');
-        a.setAttribute('depth', '0.05');
-        a.setAttribute('color', '#ffffff');
-        a.setAttribute('position', '0.53 -0.54 0.55');
-        a.setAttribute('rotation', '0 0 -38');
-
-        const b = DOC.createElement('a-box');
-        b.setAttribute('width', '0.055');
-        b.setAttribute('height', '0.34');
-        b.setAttribute('depth', '0.05');
-        b.setAttribute('color', '#ffffff');
-        b.setAttribute('position', '0.64 -0.48 0.55');
-        b.setAttribute('rotation', '0 0 42');
-
-        g.appendChild(bg);
-        g.appendChild(a);
-        g.appendChild(b);
+      function makeCheckBadge(parent){
+        const g = add(parent, 'a-entity', {});
+        add(g, 'a-sphere', { radius:'0.22', color:'#16a34a', position:'0.60 -0.54 0.34' });
+        add(g, 'a-box', { width:'0.055', height:'0.19', depth:'0.05', color:'#ffffff', position:'0.53 -0.54 0.55', rotation:'0 0 -38' });
+        add(g, 'a-box', { width:'0.055', height:'0.34', depth:'0.05', color:'#ffffff', position:'0.64 -0.48 0.55', rotation:'0 0 42' });
         return g;
       }
 
-      function makeXBadge(){
-        const g = DOC.createElement('a-entity');
-
-        const bg = DOC.createElement('a-sphere');
-        bg.setAttribute('radius', '0.22');
-        bg.setAttribute('color', '#ef4444');
-        bg.setAttribute('position', '0.60 -0.54 0.34');
-
-        const a = DOC.createElement('a-box');
-        a.setAttribute('width', '0.34');
-        a.setAttribute('height', '0.065');
-        a.setAttribute('depth', '0.05');
-        a.setAttribute('color', '#ffffff');
-        a.setAttribute('position', '0.60 -0.54 0.55');
-        a.setAttribute('rotation', '0 0 42');
-
-        const b = DOC.createElement('a-box');
-        b.setAttribute('width', '0.34');
-        b.setAttribute('height', '0.065');
-        b.setAttribute('depth', '0.05');
-        b.setAttribute('color', '#ffffff');
-        b.setAttribute('position', '0.60 -0.54 0.55');
-        b.setAttribute('rotation', '0 0 -42');
-
-        g.appendChild(bg);
-        g.appendChild(a);
-        g.appendChild(b);
+      function makeXBadge(parent){
+        const g = add(parent, 'a-entity', {});
+        add(g, 'a-sphere', { radius:'0.22', color:'#ef4444', position:'0.60 -0.54 0.34' });
+        add(g, 'a-box', { width:'0.34', height:'0.065', depth:'0.05', color:'#ffffff', position:'0.60 -0.54 0.55', rotation:'0 0 42' });
+        add(g, 'a-box', { width:'0.34', height:'0.065', depth:'0.05', color:'#ffffff', position:'0.60 -0.54 0.55', rotation:'0 0 -42' });
         return g;
       }
 
-      function makeWarnBadge(){
-        const g = DOC.createElement('a-entity');
-
-        const bg = DOC.createElement('a-sphere');
-        bg.setAttribute('radius', '0.22');
-        bg.setAttribute('color', '#f59e0b');
-        bg.setAttribute('position', '0.60 -0.54 0.34');
-
-        const bang = DOC.createElement('a-text');
-        bang.setAttribute('value', '!');
-        bang.setAttribute('align', 'center');
-        bang.setAttribute('color', '#ffffff');
-        bang.setAttribute('width', '2.6');
-        bang.setAttribute('position', '0.60 -0.63 0.56');
-
-        g.appendChild(bg);
-        g.appendChild(bang);
+      function makeWarnBadge(parent){
+        const g = add(parent, 'a-entity', {});
+        add(g, 'a-sphere', { radius:'0.22', color:'#f59e0b', position:'0.60 -0.54 0.34' });
+        add(g, 'a-box', { width:'0.08', height:'0.34', depth:'0.05', color:'#ffffff', position:'0.60 -0.54 0.55' });
+        add(g, 'a-sphere', { radius:'0.04', color:'#ffffff', position:'0.60 -0.78 0.55' });
         return g;
       }
 
@@ -1009,57 +917,38 @@
         wrap.setAttribute('scale', `${scale} ${scale} ${scale}`);
 
         const theme = isGood ? {
-          halo:'#22c55e',
-          text:'#14532d',
-          label:'GOOD FOOD'
+          halo:'#22c55e'
         } : isJunk ? {
-          halo:'#ef4444',
-          text:'#7f1d1d',
-          label:'JUNK'
+          halo:'#ef4444'
         } : isFake ? {
-          halo:'#f59e0b',
-          text:'#78350f',
-          label:'CHECK SUGAR'
+          halo:'#f59e0b'
         } : isPower ? {
-          halo:data.color || '#38bdf8',
-          text:'#172554',
-          label:String(data.label || 'POWER').toUpperCase()
+          halo:data.color || '#38bdf8'
         } : isBreath ? {
-          halo:data.color || '#60a5fa',
-          text:'#0c4a6e',
-          label:String(data.label || 'CALM').toUpperCase()
+          halo:data.color || '#60a5fa'
         } : {
-          halo:'#94a3b8',
-          text:'#0f172a',
-          label:'TARGET'
+          halo:'#94a3b8'
         };
 
-        const hitbox = DOC.createElement('a-box');
-        hitbox.setAttribute('width', '2.35');
-        hitbox.setAttribute('height', '1.95');
-        hitbox.setAttribute('depth', '0.42');
-        hitbox.setAttribute('position', '0 0.08 0.08');
-        hitbox.setAttribute('material', 'transparent:true; opacity:0.001');
-        wrap.appendChild(hitbox);
+        add(wrap, 'a-box', {
+          width:'2.35',
+          height:'1.95',
+          depth:'0.42',
+          position:'0 0.08 0.08',
+          material:'transparent:true; opacity:0.001'
+        });
 
-        wrap.appendChild(makeHalo(theme.halo, isPower ? .82 : .90));
+        makeHalo(wrap, theme.halo, isPower ? .82 : .90);
 
         const asset = data.asset || ASSET.apple;
-        wrap.appendChild(makeBillboardImage(asset, isPower ? 1.08 : 1.26));
+        makeBillboardImage(wrap, asset, isPower ? 1.08 : 1.26);
 
         if(isGood){
-          wrap.appendChild(makeCheckBadge());
-          wrap.appendChild(makeText('GOOD', '#14532d', -0.82, 0.28, 3.2));
+          makeCheckBadge(wrap);
         }else if(isJunk){
-          wrap.appendChild(makeXBadge());
-          wrap.appendChild(makeText('JUNK', '#7f1d1d', -0.82, 0.28, 3.2));
+          makeXBadge(wrap);
         }else if(isFake){
-          wrap.appendChild(makeWarnBadge());
-          wrap.appendChild(makeText('SUGAR?', '#78350f', -0.82, 0.28, 3.2));
-        }else if(isPower){
-          wrap.appendChild(makeText(theme.label, '#172554', -0.82, 0.28, 3.2));
-        }else if(isBreath){
-          wrap.appendChild(makeText(theme.label, '#0c4a6e', -0.82, 0.28, 3.2));
+          makeWarnBadge(wrap);
         }
 
         const dur = opts.dur || Math.max(3200, D.speed - state.combo * 65);
@@ -1099,9 +988,7 @@
           hitTarget(wrap);
         });
 
-        el.targetRoot.appendChild(wrap);
         state.targets.add(wrap);
-
         return wrap;
       }
 
@@ -1121,63 +1008,13 @@
 
         panel.id = 'vrStartPanel';
 
-        const back = DOC.createElement('a-box');
-        back.setAttribute('width', '3.8');
-        back.setAttribute('height', '2.05');
-        back.setAttribute('depth', '0.08');
-        back.setAttribute('color', '#ffffff');
-        back.setAttribute('position', '0 0 0');
-        back.setAttribute('material', 'opacity:0.94; transparent:true; roughness:0.55');
+        add(panel, 'a-box', { width:'3.8', height:'2.05', depth:'0.08', color:'#ffffff', position:'0 0 0', material:'opacity:0.94; transparent:true; roughness:0.55' });
+        add(panel, 'a-box', { width:'3.95', height:'0.12', depth:'0.12', color:'#22c55e', position:'0 1.08 0.08' });
+        add(panel, 'a-box', { width:'3.95', height:'0.12', depth:'0.12', color:'#22c55e', position:'0 -1.08 0.08' });
+        add(panel, 'a-box', { width:'2.2', height:'0.62', depth:'0.12', color:'#bbf7d0', position:'0 -0.38 0.16' });
 
-        const rimTop = DOC.createElement('a-box');
-        rimTop.setAttribute('width', '3.95');
-        rimTop.setAttribute('height', '0.12');
-        rimTop.setAttribute('depth', '0.12');
-        rimTop.setAttribute('color', '#22c55e');
-        rimTop.setAttribute('position', '0 1.08 0.08');
-
-        const rimBottom = DOC.createElement('a-box');
-        rimBottom.setAttribute('width', '3.95');
-        rimBottom.setAttribute('height', '0.12');
-        rimBottom.setAttribute('depth', '0.12');
-        rimBottom.setAttribute('color', '#22c55e');
-        rimBottom.setAttribute('position', '0 -1.08 0.08');
-
-        const title = DOC.createElement('a-text');
-        title.setAttribute('value', 'GOODJUNK 3D VR');
-        title.setAttribute('align', 'center');
-        title.setAttribute('color', '#0f172a');
-        title.setAttribute('width', '4.9');
-        title.setAttribute('position', '0 0.62 0.12');
-
-        const sub = DOC.createElement('a-text');
-        sub.setAttribute('value', 'PRESS SHOOT TO START');
-        sub.setAttribute('align', 'center');
-        sub.setAttribute('color', '#2563eb');
-        sub.setAttribute('width', '4.35');
-        sub.setAttribute('position', '0 0.25 0.12');
-
-        const startPlate = DOC.createElement('a-box');
-        startPlate.setAttribute('width', '2.2');
-        startPlate.setAttribute('height', '0.62');
-        startPlate.setAttribute('depth', '0.12');
-        startPlate.setAttribute('color', '#bbf7d0');
-        startPlate.setAttribute('position', '0 -0.38 0.16');
-
-        const startText = DOC.createElement('a-text');
-        startText.setAttribute('value', 'START');
-        startText.setAttribute('align', 'center');
-        startText.setAttribute('color', '#14532d');
-        startText.setAttribute('width', '3.2');
-        startText.setAttribute('position', '0 -0.48 0.27');
-
-        panel.appendChild(back);
-        panel.appendChild(rimTop);
-        panel.appendChild(rimBottom);
-        panel.appendChild(title);
-        panel.appendChild(sub);
-        panel.appendChild(startPlate);
-        panel.appendChild(startText);
+        add(panel, 'a-sphere', { radius:'0.20', color:'#22c55e', position:'-1.25 -0.38 0.28' });
+        add(panel, 'a-sphere', { radius:'0.20', color:'#22c55e', position:'1.25 -0.38 0.28' });
 
         panel.setAttribute('animation__float', {
           property:'position',
@@ -1193,10 +1030,9 @@
           startWarmupFromVr();
         });
 
-        el.targetRoot.appendChild(panel);
         state.targets.add(panel);
 
-        setMission('กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ');
+        setMission('กด 🎯 เพื่อเริ่ม หรือเล็งแผ่นสีเขียวกลางฉาก');
         toast('กด 🎯 เพื่อเริ่ม Full 3D Flow ได้เลย');
       }
 
@@ -1300,23 +1136,6 @@
         });
       }
 
-      function nearestTarget(){
-        const ray = el.aimRay && el.aimRay.components && el.aimRay.components.raycaster;
-
-        if(ray && ray.intersections && ray.intersections.length){
-          const hit = ray.intersections.find(x => {
-            const obj = x.object && x.object.el;
-            return obj && obj.closest && obj.closest('.gj-target');
-          });
-
-          if(hit && hit.object && hit.object.el){
-            return hit.object.el.closest('.gj-target');
-          }
-        }
-
-        return null;
-      }
-
       function aimAssistTarget(){
         if(!el.camera || !el.camera.object3D || !WIN.THREE) return null;
 
@@ -1339,7 +1158,7 @@
           if(!t || !t.object3D || t.dataset.consumed === '1') return;
 
           const kind = t.dataset.kind;
-          if(kind === 'vr-start') return;
+          if(kind === 'vr-start' && state.stage !== 'intro') return;
 
           const pos = new THREE.Vector3();
           t.object3D.getWorldPosition(pos);
@@ -1364,16 +1183,7 @@
           return;
         }
 
-        let t = nearestTarget();
-
-        if(!t){
-          t = aimAssistTarget();
-        }
-
-        if(t && t.dataset && t.dataset.kind === 'vr-start'){
-          startWarmupFromVr();
-          return;
-        }
+        const t = aimAssistTarget();
 
         state.shots += 1;
 
@@ -1455,18 +1265,11 @@
           damage *= 1.55;
         }
 
-        if(state.powerFoodReady){
-          points += 80;
-          damage *= 2.4;
-          state.powerFoodReady = false;
-          toast('⭐ Power Food Strike!');
-        }else{
-          toast(`GOOD! ${data.label || 'FOOD'} Combo x${state.combo}`);
-        }
-
         state.score += Math.round(points);
         state.bossHp = Math.max(0, state.bossHp - Math.round(damage));
         bossHitFx();
+
+        toast(`GOOD! ${data.label || 'FOOD'} Combo x${state.combo}`);
 
         if(state.bossHp <= 0){
           endMain(true, 'boss-defeated');
@@ -1548,38 +1351,28 @@
 
       function popFx(wrap, kind, data){
         const pos = wrap.object3D.position.clone();
-        const fx = DOC.createElement('a-text');
 
-        fx.setAttribute('value',
-          kind.includes('good') ? '+GOOD' :
-          kind === 'power' || kind === 'warm-power' ? 'POWER' :
-          kind === 'breath' ? '+CALM' :
-          'MISS'
-        );
+        const fx = add(el.fxRoot, 'a-sphere', {
+          radius:'0.10',
+          color:kind.includes('good') ? '#16a34a' :
+                kind === 'power' || kind === 'warm-power' || kind === 'breath' ? '#f59e0b' :
+                '#ef4444',
+          position:`${pos.x} ${pos.y + 0.32} ${pos.z}`
+        });
 
-        fx.setAttribute('align','center');
-        fx.setAttribute('width','3');
-        fx.setAttribute('color',
-          kind.includes('good') ? '#16a34a' :
-          kind === 'power' || kind === 'warm-power' || kind === 'breath' ? '#f59e0b' :
-          '#ef4444'
-        );
-
-        fx.setAttribute('position', `${pos.x} ${pos.y + 0.32} ${pos.z}`);
         fx.setAttribute('animation__rise', {
           property:'position',
           to:`${pos.x} ${pos.y + 1.05} ${pos.z}`,
           dur:650,
           easing:'easeOutQuad'
         });
+
         fx.setAttribute('animation__fade', {
-          property:'opacity',
-          to:'0',
+          property:'scale',
+          to:'0.01 0.01 0.01',
           dur:650,
           easing:'easeOutQuad'
         });
-
-        el.fxRoot.appendChild(fx);
 
         setTimeout(() => {
           try{ fx.remove(); }catch(e){}
@@ -1597,21 +1390,20 @@
           easing:'easeOutQuad'
         });
 
-        const beam = DOC.createElement('a-cylinder');
-        beam.setAttribute('radius','0.035');
-        beam.setAttribute('height','6.8');
-        beam.setAttribute('color', isFever() ? '#facc15' : '#22c55e');
-        beam.setAttribute('opacity','0.65');
-        beam.setAttribute('material','transparent:true; opacity:0.65');
-        beam.setAttribute('position','0 1.65 -4');
-        beam.setAttribute('rotation','90 0 0');
-        beam.setAttribute('animation__fade', {
-          property:'opacity',
-          to:'0',
-          dur:220
+        const beam = add(el.fxRoot, 'a-cylinder', {
+          radius:'0.035',
+          height:'6.8',
+          color:isFever() ? '#facc15' : '#22c55e',
+          material:'transparent:true; opacity:0.65',
+          position:'0 1.65 -4',
+          rotation:'90 0 0'
         });
 
-        el.fxRoot.appendChild(beam);
+        beam.setAttribute('animation__fade', {
+          property:'scale',
+          to:'0.01 0.01 0.01',
+          dur:220
+        });
 
         setTimeout(() => {
           try{ beam.remove(); }catch(e){}
@@ -1619,10 +1411,9 @@
       }
 
       function cameraShake(){
-        const rig = id('cameraRig');
-        if(!rig) return;
+        if(!el.cameraRig) return;
 
-        rig.setAttribute('animation__shake', {
+        el.cameraRig.setAttribute('animation__shake', {
           property:'position',
           from:'0.06 1.6 0.04',
           to:'0 1.6 0',
@@ -1665,10 +1456,6 @@
           if(state.stage !== 'main') return;
 
           state.timeLeft -= 1;
-
-          if(el.scene){
-            el.scene.setAttribute('background', 'color', isFever() ? '#fff7cc' : '#dff7ec');
-          }
 
           if(state.timeLeft <= 0){
             endMain(state.bossHp <= state.bossMaxHp * 0.25, 'time-up');
@@ -1757,12 +1544,7 @@
         state.cooldownGood = 0;
 
         hide(el.summaryOverlay);
-
         clearTargets();
-
-        if(el.scene){
-          el.scene.setAttribute('background','color','#e0f2fe');
-        }
 
         setMission('Cooldown: ยิง BREATHE / WATER / GOOD ให้ครบ 3 ชิ้น');
         spawnCooldownSet();
@@ -1790,6 +1572,9 @@
       }
 
       function bind(){
+        if(state.bound) return;
+        state.bound = true;
+
         el.startBtn?.addEventListener('click', startWarmupFromVr);
 
         el.vrHintBtn?.addEventListener('click', () => {
@@ -1808,8 +1593,6 @@
           }
         });
 
-        WIN.addEventListener('hha:shoot', shoot);
-
         el.backBtn?.addEventListener('click', goLauncher);
         el.cooldownBtn?.addEventListener('click', startCooldown);
         el.replayBtn?.addEventListener('click', replay);
@@ -1827,17 +1610,17 @@
       }
 
       function makeDecor(){
-        for(let i=0;i<24;i++){
+        for(let i=0;i<20;i++){
           const dot = DOC.createElement('a-sphere');
-          const a = Math.PI * 2 * i / 24;
+          const a = Math.PI * 2 * i / 20;
           const r = 9 + (i % 3);
+
+          el.fxRoot.appendChild(dot);
 
           dot.setAttribute('position', `${Math.cos(a)*r} ${rand(.4,2.9)} ${-4 + Math.sin(a)*r}`);
           dot.setAttribute('radius', String(rand(.05,.13)));
           dot.setAttribute('color', i % 2 ? '#ffffff' : '#86efac');
           dot.setAttribute('material','transparent:true; opacity:0.45');
-
-          el.fxRoot.appendChild(dot);
         }
       }
 
@@ -1875,36 +1658,53 @@
       function boot(){
         debugAssetLoad();
 
-        makeDecor();
-        createVrStartPanel();
+        function startAfterSceneReady(){
+          if(startAfterSceneReady.done) return;
+          startAfterSceneReady.done = true;
 
-        setTimeout(createVrStartPanel, 500);
-        setTimeout(createVrStartPanel, 1200);
+          buildWorld();
+          createVrStartPanel();
 
-        bind();
-        updateHud();
+          bind();
+          updateHud();
 
-        WIN.GoodJunkFull3DVRFlow = {
-          version:PATCH,
-          startWarmup,
-          startWarmupFromVr,
-          startMain,
-          startCooldown,
-          shoot,
-          goLauncher,
-          getState:()=>({...state, patch:PATCH})
-        };
+          WIN.GoodJunkFull3DVRFlow = {
+            version:PATCH,
+            startWarmup,
+            startWarmupFromVr,
+            startMain,
+            startCooldown,
+            shoot,
+            goLauncher,
+            getState:()=>({...state, patch:PATCH})
+          };
 
-        WIN.GJF3D = WIN.GoodJunkFull3DVRFlow;
+          WIN.GJF3D = WIN.GoodJunkFull3DVRFlow;
 
-        try{
-          localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
-            patch:PATCH,
-            href:location.href,
-            assetv:ASSET_VER,
-            savedAt:new Date().toISOString()
-          }));
-        }catch(e){}
+          try{
+            localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
+              patch:PATCH,
+              href:location.href,
+              assetv:ASSET_VER,
+              savedAt:new Date().toISOString()
+            }));
+          }catch(e){}
+
+          console.log('[GoodJunk VR boot]', PATCH, 'assetv=', ASSET_VER);
+        }
+
+        if(el.scene && el.scene.hasLoaded){
+          startAfterSceneReady();
+        }else if(el.scene){
+          el.scene.addEventListener('loaded', startAfterSceneReady, { once:true });
+          el.scene.addEventListener('renderstart', startAfterSceneReady, { once:true });
+
+          setTimeout(function(){
+            if(el.scene && el.scene.hasLoaded) startAfterSceneReady();
+          }, 1200);
+        }else{
+          setTimeout(startAfterSceneReady, 500);
+        }
       }
 
       if(DOC.readyState === 'loading'){
