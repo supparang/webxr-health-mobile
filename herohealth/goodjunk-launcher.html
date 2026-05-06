@@ -1,12 +1,11 @@
 <!-- === /herohealth/goodjunk-launcher.html === -->
-<!-- FULL PATCH v20260505-GOODJUNK-LAUNCHER-SOLO-BOSS-3D-VR -->
+<!-- FULL PATCH v20260505b-GOODJUNK-LAUNCHER-FULL-3D-VR-FLOW -->
 <!-- GoodJunk Launcher:
-     ✅ Solo Boss 2D
-     ✅ Solo Boss 3D / Enter VR
+     ✅ Solo Boss 2D ผ่าน Warmup Gate
+     ✅ Solo Boss 3D / Enter VR เข้า Full 3D VR Flow โดยตรง
+     ✅ Full 3D Flow = 3D Warmup → 3D Boss → 3D Summary → 3D Cooldown → Launcher
      ✅ Race / Battle / Coop / Duet lobby links
      ✅ Back main → hub-v2.html
-     ✅ Warmup flow for solo boss modes
-     ✅ Cooldown after game is handled by warmup-gate.html
 -->
 
 <!doctype html>
@@ -642,7 +641,7 @@
               <span>🍟 Junk Food</span>
               <span>🧃 Fake Healthy</span>
               <span>🛡️ Power-up</span>
-              <span>🥽 Enter VR</span>
+              <span>🥽 Full 3D VR Flow</span>
             </div>
           </div>
 
@@ -716,9 +715,9 @@
               </p>
               <div class="modeTags">
                 <span>Stable 2D</span>
+                <span>Warmup Gate</span>
                 <span>Boss Phase</span>
                 <span>Power-up</span>
-                <span>Mobile Friendly</span>
               </div>
             </div>
           </div>
@@ -734,22 +733,22 @@
           <div class="modeInner">
             <div class="modeIcon">🥽</div>
             <div class="modeText">
-              <h3>Solo Boss 3D / Enter VR</h3>
+              <h3>Solo Boss Full 3D / Enter VR</h3>
               <p>
-                เข้าสู่สนามโภชนาการ 3D ยิงอาหารดีด้วย crosshair เพื่อโจมตีบอส
-                เล่นได้ทั้ง PC, Mobile, Cardboard/cVR และ Enter VR
+                เข้า Full 3D VR Flow แบบไม่เด้งออกจากหน้า:
+                3D Warmup → Boss Game → Summary → 3D Cooldown → กลับหน้าโหมดเกม
               </p>
               <div class="modeTags">
-                <span>3D Arena</span>
+                <span>Full 3D Flow</span>
                 <span>Enter VR</span>
-                <span>Crosshair Shoot</span>
-                <span>Boss + Power-up</span>
+                <span>No Gate Jump</span>
+                <span>3D Cooldown</span>
               </div>
             </div>
           </div>
 
           <div class="modeActions">
-            <button class="playBtn violet" id="solo3dWarmupBtn" type="button">🥽 เริ่ม 3D / VR</button>
+            <button class="playBtn violet" id="solo3dFlowBtn" type="button">🥽 เริ่ม Full 3D Flow</button>
             <button class="playBtn secondary" id="solo3dDirectBtn" type="button">⚡ ทดสอบตรง</button>
           </div>
         </article>
@@ -845,8 +844,8 @@
 
     <div class="note">
       <b>Flow:</b>
-      Solo Boss 2D/3D จะผ่าน Warmup → Main Game → Summary → Cooldown → กลับหน้านี้
-      โดยปุ่มกลับหน้าหลักใช้ <b>hub-v2.html</b> และกลับหน้าโหมดเกมใช้ <b>goodjunk-launcher.html</b>
+      Solo Boss 2D ใช้ Warmup Gate เดิม ส่วน Solo Boss Full 3D / Enter VR จะเล่นครบในหน้าเดียว:
+      <b>3D Warmup → 3D Boss → 3D Summary → 3D Cooldown → goodjunk-launcher.html</b>
     </div>
   </main>
 
@@ -854,7 +853,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v20260505-GOODJUNK-LAUNCHER-SOLO-BOSS-3D-VR';
+      const PATCH = 'v20260505b-GOODJUNK-LAUNCHER-FULL-3D-VR-FLOW';
 
       const ROUTES = {
         launcher: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
@@ -862,7 +861,7 @@
         warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',
 
         soloBoss2d: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss.html',
-        soloBoss3d: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss-vr.html',
+        soloBoss3dFlow: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html',
 
         race: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-race-lobby.html',
         battle: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-battle-lobby.html',
@@ -883,7 +882,7 @@
 
         solo2dWarmupBtn: document.getElementById('solo2dWarmupBtn'),
         solo2dDirectBtn: document.getElementById('solo2dDirectBtn'),
-        solo3dWarmupBtn: document.getElementById('solo3dWarmupBtn'),
+        solo3dFlowBtn: document.getElementById('solo3dFlowBtn'),
         solo3dDirectBtn: document.getElementById('solo3dDirectBtn')
       };
 
@@ -964,10 +963,12 @@
         try{
           localStorage.removeItem('GJ_LAUNCHER_PREFS');
         }catch(e){}
+
         if(els.playerName) els.playerName.value = 'Hero';
         if(els.diffSelect) els.diffSelect.value = 'normal';
         if(els.timeSelect) els.timeSelect.value = '120';
         if(els.viewSelect) els.viewSelect.value = defaultView();
+
         flashButton(els.resetBtn, 'รีเซ็ตแล้ว');
       }
 
@@ -997,27 +998,24 @@
         const api = q('api', '');
         const studyId = q('studyId', '');
         const log = q('log', '');
+        const seed = q('seed', '');
 
         if(api) out.set('api', api);
         if(studyId) out.set('studyId', studyId);
         if(log) out.set('log', log);
+        if(seed) out.set('seed', seed);
 
         return out;
       }
 
-      function buildSoloMainUrl(kind){
-        const mode = kind === '3d' ? 'solo_boss_vr' : 'solo_boss';
-        const p = baseParams(mode);
-
+      function buildSolo2dMainUrl(){
+        const p = baseParams('solo_boss');
         p.set('phase', 'main');
-
-        return (kind === '3d' ? ROUTES.soloBoss3d : ROUTES.soloBoss2d) + '?' + p.toString();
+        return ROUTES.soloBoss2d + '?' + p.toString();
       }
 
-      function buildWarmupUrl(kind){
-        const mode = kind === '3d' ? 'solo_boss_vr' : 'solo_boss';
-        const mainUrl = buildSoloMainUrl(kind);
-
+      function buildSolo2dWarmupUrl(){
+        const mainUrl = buildSolo2dMainUrl();
         const p0 = prefs();
         const p = new URLSearchParams();
 
@@ -1025,7 +1023,7 @@
         p.set('cat', 'nutrition');
         p.set('gameId', 'goodjunk');
         p.set('game', 'goodjunk');
-        p.set('mode', mode);
+        p.set('mode', 'solo_boss');
         p.set('phase', 'warmup');
 
         p.set('pid', p0.pid || 'anon');
@@ -1038,17 +1036,27 @@
         p.set('next', mainUrl);
         p.set('back', ROUTES.launcher);
         p.set('return', ROUTES.launcher);
-        p.set('reason', kind === '3d' ? 'goodjunk-launcher-solo-boss-3d' : 'goodjunk-launcher-solo-boss-2d');
+        p.set('reason', 'goodjunk-launcher-solo-boss-2d');
 
         const api = q('api', '');
         const studyId = q('studyId', '');
         const log = q('log', '');
+        const seed = q('seed', '');
 
         if(api) p.set('api', api);
         if(studyId) p.set('studyId', studyId);
         if(log) p.set('log', log);
+        if(seed) p.set('seed', seed);
 
         return ROUTES.warmupGate + '?' + p.toString();
+      }
+
+      function buildSolo3dFlowUrl(){
+        const p = baseParams('solo_boss_vr_flow');
+        p.set('phase', 'full3d');
+        p.set('flow', 'full3d');
+        p.set('vrflow', '1');
+        return ROUTES.soloBoss3dFlow + '?' + p.toString();
       }
 
       function buildModeUrl(mode, test){
@@ -1081,19 +1089,19 @@
         els.resetBtn?.addEventListener('click', resetPrefs);
 
         els.solo2dWarmupBtn?.addEventListener('click', function(){
-          go(buildWarmupUrl('2d'));
+          go(buildSolo2dWarmupUrl());
         });
 
         els.solo2dDirectBtn?.addEventListener('click', function(){
-          go(buildSoloMainUrl('2d'));
+          go(buildSolo2dMainUrl());
         });
 
-        els.solo3dWarmupBtn?.addEventListener('click', function(){
-          go(buildWarmupUrl('3d'));
+        els.solo3dFlowBtn?.addEventListener('click', function(){
+          go(buildSolo3dFlowUrl());
         });
 
         els.solo3dDirectBtn?.addEventListener('click', function(){
-          go(buildSoloMainUrl('3d'));
+          go(buildSolo3dFlowUrl());
         });
 
         document.querySelectorAll('[data-mode-direct]').forEach(btn => {
@@ -1116,8 +1124,9 @@
           version: PATCH,
           routes: ROUTES,
           prefs,
-          buildSoloMainUrl,
-          buildWarmupUrl,
+          buildSolo2dMainUrl,
+          buildSolo2dWarmupUrl,
+          buildSolo3dFlowUrl,
           buildModeUrl
         };
 
@@ -1133,6 +1142,7 @@
           localStorage.setItem('GJ_LAUNCHER_BOOT_LAST', JSON.stringify({
             patch:PATCH,
             href:location.href,
+            solo3dFlowUrl:buildSolo3dFlowUrl(),
             savedAt:new Date().toISOString()
           }));
         }catch(e){}
