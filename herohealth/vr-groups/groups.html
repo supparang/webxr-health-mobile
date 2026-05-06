@@ -1,9 +1,10 @@
 <!doctype html>
+<!-- FIXED PATCH v20260506-GROUPS-v3.8-SYNTAX-ANSWERBAR: closes main IIFE + keeps floating answer bar -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Groups Solo SAFE</title>
+  <title>HeroHealth • Groups Solo SAFE v3.8 Fixed</title>
   <meta name="theme-color" content="#9fe3ff" />
   <style>
     :root{
@@ -1034,7 +1035,7 @@ body{
 
       if(storm){
         const item = state.current;
-        const idx = Number(state.stormSelectedIndex || 0);
+        const idx = Number(state.stormSelected || 0);
         const si = item.items && item.items[idx] ? item.items[idx] : null;
 
         if(si && si.food){
@@ -1173,7 +1174,7 @@ body{
       let selected = null;
 
       if(storm && storm.items){
-        selected = storm.items[Number(state.stormSelectedIndex || 0)] || null;
+        selected = storm.items[Number(state.stormSelected || 0)] || null;
       }
 
       const correct = selected ? Number(groupId) === Number(selected.answer) : false;
@@ -1246,6 +1247,7 @@ body{
   updateQuickStatus();
 
 })();
+    })();
   </script>
 </body>
 </html>
