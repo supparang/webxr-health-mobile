@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505k-BRUSH-KIDS-ACTION-BOSS-WAVE-PROGRESSION -->
+<!-- FULL PATCH v20260505l-BRUSH-KIDS-CINEMATIC-DIRECTOR-FINAL-POLISH -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -1497,6 +1497,31 @@
   }
 }
 
+  
+/* === PATCH v20260505l-BRUSH-CINEMATIC-DIRECTOR-FINAL-POLISH === */
+.directorPanel{border-radius:18px;border:2px solid #bae6fd;background:linear-gradient(180deg,#e0f2fe,#fff);padding:10px 12px;display:grid;gap:8px;color:#075985;font-size:13px;line-height:1.35;font-weight:1000;box-shadow:0 10px 22px rgba(7,89,133,.08)}
+.directorPanel.kind{border-color:#b8eec6;background:linear-gradient(180deg,#effcf3,#fff);color:#166534}
+.directorPanel.hot{border-color:#ffd95d;background:linear-gradient(180deg,#fff8dc,#fff);color:#7c5800}
+.directorPanel.danger{border-color:#fecaca;background:linear-gradient(180deg,#fff3f3,#fff);color:#991b1b;animation:dangerPulse .62s ease-in-out infinite}
+.directorGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.directorChip{min-height:34px;border-radius:999px;padding:6px 9px;display:flex;align-items:center;justify-content:space-between;gap:6px;background:#fff;border:1px solid rgba(186,230,253,.9);color:#075985;font-size:11px;font-weight:1000}
+.cinematicOverlay{position:fixed;inset:0;z-index:9999;pointer-events:none;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.22),transparent 32%),rgba(2,6,23,.30);opacity:0}
+.cinematicOverlay.show{animation:cinematicInOut 1.15s ease-out forwards}
+.cinematicCard{width:min(720px,88vw);border-radius:34px;border:3px solid rgba(255,255,255,.85);background:radial-gradient(circle at 90% 10%,rgba(255,217,93,.28),transparent 24%),linear-gradient(180deg,rgba(255,255,255,.96),rgba(236,254,255,.92));color:#12324b;box-shadow:0 30px 80px rgba(2,6,23,.32);padding:24px;text-align:center;display:grid;gap:8px;transform:scale(.92)}
+.cinematicOverlay.show .cinematicCard{animation:cinematicCardPop 1.15s ease-out forwards}
+.cinematicIcon{font-size:clamp(42px,8vw,72px);line-height:1}
+.cinematicTitle{font-size:clamp(26px,5vw,48px);line-height:1;letter-spacing:-.04em;font-weight:1000}
+.cinematicText{color:#37566e;font-size:clamp(14px,2.2vw,18px);line-height:1.35;font-weight:1000}
+@keyframes cinematicInOut{0%{opacity:0}12%{opacity:1}82%{opacity:1}100%{opacity:0}}
+@keyframes cinematicCardPop{0%{transform:scale(.8) translateY(22px);opacity:0}18%{transform:scale(1.04) translateY(0);opacity:1}100%{transform:scale(1) translateY(-6px);opacity:1}}
+.dailyGoalBox{border-radius:20px;border:2px solid #bae6fd;background:linear-gradient(180deg,#e0f2fe,#fff);padding:12px;display:grid;gap:8px;color:#075985;font-size:13px;line-height:1.35;font-weight:1000}
+.dailyGoalList{display:grid;gap:6px}
+.dailyGoalItem{min-height:38px;border-radius:14px;border:1px solid rgba(186,230,253,.9);background:#fff;padding:7px 9px;display:flex;justify-content:space-between;gap:8px;align-items:center}
+.dailyGoalItem.done{border-color:#b8eec6;background:#effcf3;color:#166534}
+.finishFirework{position:fixed;z-index:10000;pointer-events:none;font-size:28px;animation:fireworkPop .9s ease-out forwards}
+@keyframes fireworkPop{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}20%{transform:translate(-50%,-50%) scale(1.2);opacity:1}100%{transform:translate(-50%,-130%) scale(.8);opacity:0}}
+@media (max-width:640px){.directorGrid{grid-template-columns:1fr}.directorPanel{padding:8px 9px;font-size:11.5px}.cinematicCard{border-radius:24px;padding:18px}}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -1658,6 +1683,17 @@
               <span id="bonusQuizHint">ทำลาย Shield ก่อน แล้วตอบคำถามเพื่อโจมตีแรงขึ้น</span>
               <div class="bossChoices" id="bossChoices"></div>
             </div>
+
+            <div class="directorPanel" id="directorPanel">
+              <strong id="directorTitle">🤖 Difficulty Director: Fair Challenge</strong>
+              <span id="directorText">ระบบจะปรับความกดดันให้สนุกแต่ไม่โหดเกินไป</span>
+              <div class="directorGrid">
+                <div class="directorChip"><span>🎚 Level</span><b id="directorLevelText">Normal</b></div>
+                <div class="directorChip"><span>🎯 Focus</span><b id="directorFocusText">Clean</b></div>
+                <div class="directorChip"><span>🔊 SFX</span><b id="sfxText">ON</b></div>
+              </div>
+            </div>
+
           </aside>
         </div>
       </div>
@@ -1688,6 +1724,13 @@
           </div>
 
           
+          
+          <div class="dailyGoalBox" id="dailyGoalBox">
+            <strong id="dailyGoalTitle">📅 Daily Brush Challenge</strong>
+            <span id="dailyGoalText">ภารกิจประจำวันช่วยให้เด็กมีเป้าหมายเล่นซ้ำ</span>
+            <div class="dailyGoalList" id="dailyGoalList"></div>
+          </div>
+
           <div class="replayRewardBox" id="replayRewardBox">
             <strong id="replayRewardTitle">🔁 Replay Challenge</strong>
             <span id="replayRewardText">ทำลายคะแนนเดิมและปลดล็อก Badge</span>
@@ -1704,6 +1747,15 @@
     </section>
   </main>
 
+  
+  <div class="cinematicOverlay" id="cinematicOverlay" aria-hidden="true">
+    <div class="cinematicCard">
+      <div class="cinematicIcon" id="cinematicIcon">🪥</div>
+      <div class="cinematicTitle" id="cinematicTitle">Brush Hero</div>
+      <div class="cinematicText" id="cinematicText">ช่วยเมืองฟันให้ปลอดภัย!</div>
+    </div>
+  </div>
+
   <div class="comboMega" id="comboMega">COMBO!</div>
   <div class="toast" id="toast"></div>
 
@@ -1711,7 +1763,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505k-BRUSH-KIDS-ACTION-BOSS-WAVE-PROGRESSION';
+      const VERSION = '20260505l-BRUSH-KIDS-CINEMATIC-DIRECTOR-FINAL-POLISH';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -1752,6 +1804,24 @@
         { id:'cavity', icon:'👾', label:'Cavity Bug', score:70, clean:10 }
       ];
 
+
+
+
+      const DIRECTOR_LEVELS = {
+        kind:{ label:'Kind', monsterRate:.55, pressureRate:.62, hint:'ช่วยให้เด็กเล่นต่อได้ ไม่กดดันเกินไป' },
+        normal:{ label:'Normal', monsterRate:1, pressureRate:1, hint:'สมดุลระหว่างฝึกและความตื่นเต้น' },
+        hot:{ label:'Hot', monsterRate:1.28, pressureRate:1.2, hint:'กำลังเล่นดี เพิ่มความท้าทายเล็กน้อย' },
+        danger:{ label:'Danger', monsterRate:1.55, pressureRate:1.38, hint:'รอบนี้โหดขึ้น ระวัง Cavity Storm' }
+      };
+
+      const DAILY_GOALS = [
+        { id:'clean90', icon:'🦷', label:'Clean 90%+', pass:() => totalClean() >= 90 },
+        { id:'monster6', icon:'👾', label:'กำจัด Monster 6 ตัว', pass:() => state.monstersHit >= 6 },
+        { id:'fever2', icon:'🫧', label:'Foam Fever 2 ครั้ง', pass:() => state.feverCount >= 2 },
+        { id:'bosswin', icon:'👑', label:'ชนะ Cavity King', pass:() => state.bossHp <= 0 },
+        { id:'stormblock', icon:'🛡', label:'กัน Storm 1 ครั้ง', pass:() => state.bossAttacksBlocked >= 1 },
+        { id:'combo30', icon:'🔥', label:'Combo 30+', pass:() => state.maxCombo >= 30 }
+      ];
 
 
       const WAVES = [
@@ -1864,6 +1934,20 @@
         unlockBox:$('unlockBox'),
         unlockTitle:$('unlockTitle'),
         unlockText:$('unlockText'),
+        directorPanel:$('directorPanel'),
+        directorTitle:$('directorTitle'),
+        directorText:$('directorText'),
+        directorLevelText:$('directorLevelText'),
+        directorFocusText:$('directorFocusText'),
+        sfxText:$('sfxText'),
+        cinematicOverlay:$('cinematicOverlay'),
+        cinematicIcon:$('cinematicIcon'),
+        cinematicTitle:$('cinematicTitle'),
+        cinematicText:$('cinematicText'),
+        dailyGoalBox:$('dailyGoalBox'),
+        dailyGoalTitle:$('dailyGoalTitle'),
+        dailyGoalText:$('dailyGoalText'),
+        dailyGoalList:$('dailyGoalList'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
 
@@ -1939,7 +2023,11 @@
         bossLastPoint: null,
         bossHits: 0,
         bossBonusReady: false,
-        bossQuizUsed: 0
+        bossQuizUsed: 0,
+        directorLevel:'normal',
+        directorScore:50,
+        sfxEnabled:true,
+        lastCinematic:''
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
@@ -2145,6 +2233,7 @@
           el.stageTitle.textContent = 'simulation แปรงฟันในช่องปาก';
           el.stageLead.textContent = 'คลิกโซนฟันในรูปปาก แล้วแปรงให้สะอาดทีละส่วน';
           if(!state.timer) startTimer();
+          cinematic('🪥','BRUSH QUEST!','ช่วยเมืองฟันจาก Cavity Monsters','start-main');
           setTimeout(() => { if(state.stage === 'main') { maybeSpawnMonster(true); renderZones(); } }, 700);
         }else if(stage === 'boss'){
           el.stageTitle.textContent = 'ปราบ Cavity King';
@@ -2171,7 +2260,8 @@
     updateBossPressure();
     decayMonsters();
     decayPowerups();
-    maybeSpawnMonster();
+    const dd = director();
+    if(Math.random() < dd.monsterRate) maybeSpawnMonster();
     maybeSpawnPowerUp();
 
     if(isFeverActive()){
@@ -2248,6 +2338,7 @@
         updateArcadePanel();
         updateHypePanel();
         updateWave();
+        updateDirectorPanel();
       }
       function zoneCardHtml(z){
   const p = Math.round(state.zoneProgress[z.id] || 0);
@@ -2506,6 +2597,8 @@
         state.feverMeter = 100;
         state.score += 120;
         updateMission('fever', 1);
+        sfx('fever');
+        cinematic('🫧','FOAM FEVER!','คราบหายเร็ว x2 เก็บ Combo ต่อเลย','fever');
         showToast('🫧 Foam Fever! คราบหายเร็ว x2');
       }
 
@@ -2607,6 +2700,7 @@
 
           if(dist <= 23){
             hit += 1;
+            sfx('monster');
             state.monstersHit += 1;
             state.score += m.score;
             state.combo += 2;
@@ -2660,6 +2754,8 @@
           state.missionProgress = state.mission.target;
           state.missionDone = true;
           state.score += 250;
+          sfx('win');
+          cinematic('⭐','MISSION COMPLETE!','โบนัส +250 และ Boss จะอ่อนลง','mission');
           showToast('⭐ Mini Mission Complete!');
           if(el.arcadePanel){
             el.arcadePanel.classList.remove('missionDone');
@@ -2762,6 +2858,7 @@
       }
 
       function applyPowerUp(p, x, y){
+        sfx('power');
         if(p.type === 'shield'){
           state.shield = Math.min(3, state.shield + 1);
           showToast('🛡 Foam Shield +1');
@@ -2789,7 +2886,7 @@
         const dangerFactor = state.zoneDanger <= 4 ? 5 : 1.5;
         const cleanRelief = totalClean() >= 85 ? 5 : 0;
 
-        state.bossPressure = clamp(state.bossPressure + (plaque / 50) + monsterFactor + dangerFactor - cleanRelief, 0, 100);
+        state.bossPressure = clamp(state.bossPressure + ((plaque / 50) + monsterFactor + dangerFactor - cleanRelief) * director().pressureRate, 0, 100);
       }
 
       function bossAttack(){
@@ -2812,6 +2909,8 @@
         maybeSpawnMonster(true);
         maybeSpawnMonster(true);
         showBossAttack();
+        sfx('danger');
+        cinematic('⚡','CAVITY STORM!','รีบเก็บ Shield และกำจัดคราบ','storm');
         showToast('⚡ Cavity Storm! คราบกลับมา');
       }
 
@@ -2839,6 +2938,8 @@
 
       function startRushWave(){
         state.rushWaveDone = true;
+        sfx('boss');
+        cinematic('⚡','RUSH WAVE!','มอนสเตอร์บุกหลายตัว เก็บ Power-up ให้ทัน','rush');
         showMega('RUSH WAVE!');
         showToast('⚡ Rush Wave! มอนสเตอร์บุกหลายตัว');
 
@@ -2941,6 +3042,8 @@
         if(wave.id !== state.waveIndex){
           state.waveIndex = wave.id;
           state.waveAnnounced[wave.id] = true;
+          sfx(wave.key === 'storm' ? 'danger' : 'boss');
+          cinematic(wave.key === 'storm' ? '⚡' : wave.key === 'king' ? '👑' : '🌊', wave.title, wave.text, 'wave-' + wave.id);
           showMega(wave.title.replace('Wave ', 'W'));
           showToast(wave.text);
 
@@ -3089,6 +3192,9 @@
           state.bossHp = 0;
           state.score += 420;
           stopBossTimer();
+          sfx('win');
+          cinematic('🏆','VICTORY!','เมืองฟันปลอดภัยแล้ว','victory');
+          fireworkBurst();
           showMega('VICTORY!');
           setTimeout(showSummary, 600);
           return;
@@ -3168,6 +3274,139 @@
       }
 
 
+
+      function sfx(type='tap'){
+        if(state.sfxEnabled === false) return;
+        try{
+          const AC = window.AudioContext || window.webkitAudioContext;
+          if(!AC) return;
+          if(!sfx.ctx) sfx.ctx = new AC();
+          const ctx = sfx.ctx;
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          const map = { tap:[520,.035], clean:[740,.07], monster:[180,.09], fever:[920,.12], power:[660,.09], boss:[140,.12], win:[880,.16], danger:[110,.12] };
+          const cfg = map[type] || map.tap;
+          osc.frequency.setValueAtTime(cfg[0], now);
+          osc.type = type === 'danger' || type === 'boss' ? 'sawtooth' : 'sine';
+          gain.gain.setValueAtTime(.0001, now);
+          gain.gain.exponentialRampToValueAtTime(.06, now + .01);
+          gain.gain.exponentialRampToValueAtTime(.0001, now + cfg[1]);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + cfg[1] + .03);
+        }catch(_){}
+      }
+
+      function cinematic(icon, title, text, key=''){
+        if(!el.cinematicOverlay) return;
+        const k = key || title;
+        if(k && state.lastCinematic === k && Date.now() - (cinematic.lastAt || 0) < 1800) return;
+        state.lastCinematic = k;
+        cinematic.lastAt = Date.now();
+        if(el.cinematicIcon) el.cinematicIcon.textContent = icon;
+        if(el.cinematicTitle) el.cinematicTitle.textContent = title;
+        if(el.cinematicText) el.cinematicText.textContent = text || '';
+        el.cinematicOverlay.classList.remove('show');
+        void el.cinematicOverlay.offsetWidth;
+        el.cinematicOverlay.classList.add('show');
+        setTimeout(() => { if(el.cinematicOverlay) el.cinematicOverlay.classList.remove('show'); }, 1250);
+      }
+
+      function fireworkBurst(){
+        const icons = ['✨','🫧','⭐','🎉','🦷','🪥'];
+        for(let i = 0; i < 16; i++){
+          const f = document.createElement('div');
+          f.className = 'finishFirework';
+          f.textContent = icons[i % icons.length];
+          f.style.left = (15 + Math.random() * 70) + 'vw';
+          f.style.top = (30 + Math.random() * 48) + 'vh';
+          f.style.animationDelay = (Math.random() * .35).toFixed(2) + 's';
+          document.body.appendChild(f);
+          setTimeout(() => f.remove(), 1200);
+        }
+      }
+
+      function updateDirector(){
+        const clean = totalClean();
+        const pressure = state.bossPressure || 0;
+        const combo = state.combo || 0;
+        const misses = (state.misses || 0) + (state.bossAttacksHit || 0) + Math.max(0, (state.monsters || []).length - 2);
+        state.directorScore = clamp(42 + clean * .28 + combo * .42 - pressure * .18 - misses * 2.4, 0, 100);
+        let level = 'normal';
+        if(state.directorScore < 28) level = 'kind';
+        else if(state.directorScore > 78) level = 'danger';
+        else if(state.directorScore > 62) level = 'hot';
+        state.directorLevel = level;
+      }
+
+      function director(){
+        return DIRECTOR_LEVELS[state.directorLevel] || DIRECTOR_LEVELS.normal;
+      }
+
+      function updateDirectorPanel(){
+        updateDirector();
+        const d = director();
+        if(el.directorPanel){
+          el.directorPanel.classList.toggle('kind', state.directorLevel === 'kind');
+          el.directorPanel.classList.toggle('hot', state.directorLevel === 'hot');
+          el.directorPanel.classList.toggle('danger', state.directorLevel === 'danger');
+        }
+        if(el.directorLevelText) el.directorLevelText.textContent = d.label;
+        if(el.directorFocusText){
+          el.directorFocusText.textContent =
+            state.directorLevel === 'kind' ? 'ช่วยเล่น' :
+            state.directorLevel === 'danger' ? 'ระวัง Storm' :
+            state.directorLevel === 'hot' ? 'Combo' : 'Clean';
+        }
+        if(el.sfxText) el.sfxText.textContent = state.sfxEnabled ? 'ON' : 'OFF';
+        if(el.directorTitle){
+          el.directorTitle.textContent =
+            state.directorLevel === 'kind' ? '🤖 Director: ช่วยให้เล่นต่อได้' :
+            state.directorLevel === 'danger' ? '🤖 Director: Challenge สูงขึ้น!' :
+            state.directorLevel === 'hot' ? '🤖 Director: กำลังเล่นดี' :
+            '🤖 Director: Fair Challenge';
+        }
+        if(el.directorText) el.directorText.textContent = d.hint;
+      }
+
+      function dailySeedIndex(){
+        const d = new Date();
+        const key = `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`;
+        let n = 0;
+        for(let i=0;i<key.length;i++) n = (n * 31 + key.charCodeAt(i)) >>> 0;
+        return n;
+      }
+
+      function selectedDailyGoals(){
+        const seed = dailySeedIndex();
+        const out = [];
+        const used = {};
+        for(let i=0; out.length < 3 && i < DAILY_GOALS.length * 3; i++){
+          const idx = (seed + i * 5 + i * i) % DAILY_GOALS.length;
+          const g = DAILY_GOALS[idx];
+          if(!used[g.id]){
+            used[g.id] = true;
+            out.push(g);
+          }
+        }
+        return out;
+      }
+
+      function renderDailyGoals(){
+        if(!el.dailyGoalList) return;
+        const goals = selectedDailyGoals();
+        el.dailyGoalList.innerHTML = goals.map(g => {
+          const done = !!g.pass();
+          return `<div class="dailyGoalItem ${done ? 'done' : ''}">
+            <span>${done ? '✅' : '⭐'} ${g.icon} ${g.label}</span>
+            <b>${done ? 'ผ่าน' : 'ลองใหม่'}</b>
+          </div>`;
+        }).join('');
+      }
+
+
       function selectZone(id){
         if(!ZONES.some(z => z.id === id)) return;
         if(state.activeZone !== id){
@@ -3214,6 +3453,8 @@
     state.score += 90;
     if(state.zoneDanger > 0){ state.rescuedZones += 1; updateMission('rescue', 1); }
     resetZoneDanger(false);
+    sfx('clean');
+    cinematic('✨','ZONE CLEAN!','ไปช่วยโซนถัดไปในปาก','zone-clean-' + id);
     showToast('สะอาดแล้ว: ' + getZone(id).label);
     const nextZone = ZONES.find(z => (state.zoneProgress[z.id] || 0) < 100);
     if(nextZone){
@@ -3271,6 +3512,8 @@
 
   setStage('boss');
   startBossTimer();
+  sfx('boss');
+  cinematic('👑','FINAL BOSS!','ลากแปรงโจมตี Cavity King ในปากจริง','finalboss');
   showMega('FINAL BOSS!');
 }
 
@@ -3413,6 +3656,7 @@
         if(el.skillTitle) el.skillTitle.textContent = skill[0];
         if(el.skillText) el.skillText.textContent = skill[1];
         renderUnlockChallenge(stars, bossWon);
+        renderDailyGoals();
 
         saveSummary({clean, plaque, accuracy, stars, bossWon, skill:skill[0]});
         renderReplayRewards();
@@ -3449,6 +3693,8 @@
           bossQuizUsed:state.bossQuizUsed,
           waveIndex:state.waveIndex,
           skill:extra.skill || '',
+          directorLevel:state.directorLevel,
+          directorScore:state.directorScore,
           multiplier:state.multiplier,
           zones:ZONES.map(z => ({id:z.id,label:z.label,pct:Math.round(state.zoneProgress[z.id] || 0)})),
           endedAt:new Date().toISOString(),
@@ -3513,6 +3759,14 @@
             else if(d === 'auto' || d === 'goal') showGoalHint();
           }
         });
+
+        if(el.sfxText){
+          el.sfxText.addEventListener('click', function(){
+            state.sfxEnabled = !state.sfxEnabled;
+            if(state.sfxEnabled) sfx('tap');
+            render();
+          });
+        }
 
         el.btnBack.addEventListener('click', function(){
           location.href = zoneUrl();
