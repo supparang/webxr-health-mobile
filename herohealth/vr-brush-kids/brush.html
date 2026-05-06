@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505n-BRUSH-KIDS-SUPER-BURST-CHALLENGE-PETS -->
+<!-- FULL PATCH v20260505o-BRUSH-KIDS-SURFACE-MASTERY-GHOST-GUIDE -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -2096,6 +2096,14 @@
   .toothPet{ width:32px; height:32px; border-radius:13px; font-size:18px; }
 }
 
+  
+/* === PATCH v20260505o-BRUSH-SURFACE-MASTERY-GHOST-GUIDE === */
+.surfacePanel{border-radius:18px;border:2px solid #b8eec6;background:radial-gradient(circle at 92% 12%,rgba(255,255,255,.55),transparent 22%),linear-gradient(180deg,#effcf3,#fff);padding:10px 12px;display:grid;gap:8px;color:#166534;font-size:13px;line-height:1.35;font-weight:1000;box-shadow:0 10px 22px rgba(22,101,52,.08)}
+.surfacePanel.warn{border-color:#ffe58d;background:linear-gradient(180deg,#fff8dc,#fff);color:#7c5800}.surfacePanel.mastered{border-color:#c4b5fd;background:linear-gradient(180deg,#f3e8ff,#fff);color:#5b21b6}.surfaceSteps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.surfaceStep{min-height:38px;border-radius:14px;border:1px solid #b8eec6;background:#fff;display:grid;place-items:center;text-align:center;padding:5px 4px;color:#166534;font-size:10.5px;line-height:1.12;font-weight:1000}.surfaceStep.active{border-color:#ffd95d;background:#fff8dc;color:#7c5800;animation:missionDonePop .7s ease-out}.surfaceStep.done{border-color:#b8eec6;background:#dcfff2;color:#166534}.surfaceStep.lock{opacity:.55;filter:grayscale(.35)}
+.ghostBrush{position:absolute;z-index:13;width:58px;height:58px;border-radius:20px;display:grid;place-items:center;background:rgba(255,255,255,.72);border:2px dashed rgba(14,116,144,.55);box-shadow:0 12px 22px rgba(14,116,144,.14);font-size:30px;pointer-events:none;opacity:.82}.ghostBrush.vertical{animation:ghostVertical 1.15s ease-in-out infinite}.ghostBrush.circle{animation:ghostCircle 1.2s ease-in-out infinite}.ghostBrush.horizontal{animation:ghostHorizontal 1.05s ease-in-out infinite}.ghostBrush.gumline{animation:ghostGumline 1.25s ease-in-out infinite}@keyframes ghostVertical{0%,100%{transform:translate(-50%,-70%) rotate(-12deg)}50%{transform:translate(-50%,10%) rotate(-12deg)}}@keyframes ghostHorizontal{0%,100%{transform:translate(-85%,-50%) rotate(-12deg)}50%{transform:translate(-15%,-50%) rotate(-12deg)}}@keyframes ghostCircle{0%{transform:translate(-50%,-50%) rotate(-12deg) translateX(0)}25%{transform:translate(-20%,-72%) rotate(8deg)}50%{transform:translate(-50%,-30%) rotate(22deg)}75%{transform:translate(-78%,-72%) rotate(-18deg)}100%{transform:translate(-50%,-50%) rotate(-12deg) translateX(0)}}@keyframes ghostGumline{0%,100%{transform:translate(-78%,-30%) rotate(-8deg)}50%{transform:translate(-22%,-30%) rotate(-8deg)}}
+.surfaceCompletePop{position:fixed;left:50%;top:28%;z-index:10002;transform:translateX(-50%);pointer-events:none;border-radius:999px;padding:12px 18px;background:rgba(91,33,182,.96);color:#fff;font-size:clamp(18px,4vw,32px);font-weight:1000;box-shadow:0 18px 42px rgba(91,33,182,.28);opacity:0}.surfaceCompletePop.show{animation:comboMegaPop .88s ease-out forwards}.surfaceSummaryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.surfaceSummaryItem{min-height:42px;border-radius:16px;border:1px solid #b8eec6;background:#effcf3;color:#166534;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;font-size:12px;font-weight:1000}.surfaceSummaryItem.warn{border-color:#ffe58d;background:#fff8dc;color:#7c5800}
+@media(max-width:640px){.surfacePanel{padding:8px 9px;font-size:11.5px}.surfaceSteps{grid-template-columns:repeat(2,minmax(0,1fr))}.ghostBrush{width:48px;height:48px;border-radius:16px;font-size:25px}.surfaceSummaryGrid{grid-template-columns:1fr}}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -2279,6 +2287,7 @@
 
               <div class="brush" id="brush">🪥</div>
               <div class="burstSweep" id="burstSweep"></div>
+              <div class="ghostBrush circle" id="ghostBrush">🪥</div>
               <div class="bossAttackOverlay" id="bossAttackOverlay">⚡ CAVITY STORM!</div>
             </div>
           </div>
@@ -2360,6 +2369,13 @@
           </div>
 
           
+          
+          <div class="replayRewardBox" id="surfaceRewardBox">
+            <strong id="surfaceRewardTitle">🦷 Brushing Surface Mastery</strong>
+            <span id="surfaceRewardText">ดูว่าฝึกด้านนอก/ด้านใน/ด้านบดเคี้ยว/แนวเหงือกได้ครบแค่ไหน</span>
+            <div class="surfaceSummaryGrid" id="surfaceSummaryGrid"></div>
+          </div>
+
           <div class="replayRewardBox" id="petRewardBox">
             <strong id="petRewardTitle">🐾 Tooth Pet Rescue</strong>
             <span id="petRewardText">ช่วยน้องฟันที่ติดคราบเพื่อปลดล็อกผู้ช่วย</span>
@@ -2391,6 +2407,7 @@
     </div>
   </div>
 
+  <div class="surfaceCompletePop" id="surfaceCompletePop">SURFACE MASTERED!</div>
   <div class="perfectScrubBadge" id="perfectScrubBadge">PERFECT SCRUB!</div>
   <div class="comboMega" id="comboMega">COMBO!</div>
   <div class="toast" id="toast"></div>
@@ -2399,7 +2416,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505n-BRUSH-KIDS-SUPER-BURST-CHALLENGE-PETS';
+      const VERSION = '20260505o-BRUSH-KIDS-SURFACE-MASTERY-GHOST-GUIDE';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -2444,12 +2461,21 @@
 
 
 
+
+      const SURFACES = [
+        { id:'outer', icon:'🙂', label:'ด้านนอก', guide:'circle', text:'วางแปรงบนฟันด้านนอก แล้ววนเป็นวงเล็ก ๆ', at:25 },
+        { id:'inner', icon:'↕️', label:'ด้านใน', guide:'vertical', text:'แปรงด้านในด้วยการปัดขึ้นลงเบา ๆ', at:50 },
+        { id:'chewing', icon:'↔️', label:'ด้านบดเคี้ยว', guide:'horizontal', text:'ถูไปมาเบา ๆ บนด้านบดเคี้ยวของฟันกราม', at:75 },
+        { id:'gumline', icon:'🌿', label:'แนวเหงือก', guide:'gumline', text:'ลากเบา ๆ ตามแนวเหงือก ไม่กดแรงเกินไป', at:100 }
+      ];
+
       const CHALLENGE_CARDS = [
         { id:'combo10', icon:'🔥', title:'Combo Spark', text:'ทำ Combo +10 ก่อนหมดเวลา', type:'comboGain', target:10, sec:18 },
         { id:'monster2', icon:'👾', title:'Monster Hunt', text:'กำจัด Monster 2 ตัวก่อนหมดเวลา', type:'monster', target:2, sec:20 },
         { id:'pet1', icon:'🐾', title:'Rescue Friend', text:'ช่วย Tooth Pet 1 ตัวก่อนหมดเวลา', type:'pet', target:1, sec:22 },
         { id:'clean20', icon:'✨', title:'Clean Sprint', text:'เพิ่ม Clean โซนนี้ 20% ก่อนหมดเวลา', type:'cleanGain', target:20, sec:18 },
-        { id:'fever', icon:'🫧', title:'Fever Charge', text:'ชาร์จ Foam Fever ให้ถึง 80%', type:'feverMeter', target:80, sec:24 }
+        { id:'fever', icon:'🫧', title:'Fever Charge', text:'ชาร์จ Foam Fever ให้ถึง 80%', type:'feverMeter', target:80, sec:24 },
+        { id:'surface2', icon:'🦷', title:'Surface Master', text:'ฝึกผิวฟันให้สำเร็จ 2 ชั้น', type:'surface', target:2, sec:34 }
       ];
 
       const TOOTH_PETS = [
@@ -2473,7 +2499,8 @@
         { id:'fever2', icon:'🫧', label:'Foam Fever 2 ครั้ง', pass:() => state.feverCount >= 2 },
         { id:'bosswin', icon:'👑', label:'ชนะ Cavity King', pass:() => state.bossHp <= 0 },
         { id:'stormblock', icon:'🛡', label:'กัน Storm 1 ครั้ง', pass:() => state.bossAttacksBlocked >= 1 },
-        { id:'combo30', icon:'🔥', label:'Combo 30+', pass:() => state.maxCombo >= 30 }
+        { id:'combo30', icon:'🔥', label:'Combo 30+', pass:() => state.maxCombo >= 30 },
+        { id:'surface80', icon:'🦷', label:'Surface Mastery 80%', pass:() => surfaceMasteryPct() >= 80 }
       ];
 
 
@@ -2500,7 +2527,8 @@
         { id:'clean_legend', icon:'✨', title:'Clean Legend', pass:() => totalClean() >= 95 },
         { id:'mission_star', icon:'⭐', title:'Mission Star', pass:() => !!state.missionDone },
         { id:'pet_rescuer', icon:'🐾', title:'Pet Rescuer', pass:() => state.petsRescued >= 2 },
-        { id:'burst_master', icon:'🌈', title:'Burst Master', pass:() => state.burstUsed >= 1 }
+        { id:'burst_master', icon:'🌈', title:'Burst Master', pass:() => state.burstUsed >= 1 },
+        { id:'surface_master', icon:'🦷', title:'Surface Master', pass:() => surfaceMasteryPct() >= 80 }
       ];
 
       const REPLAY_KEY = 'HHA_BRUSH_ARCADE_REPLAY_PROFILE';
@@ -2627,6 +2655,16 @@
         petRewardTitle:$('petRewardTitle'),
         petRewardText:$('petRewardText'),
         petSummaryGrid:$('petSummaryGrid'),
+        surfacePanel:$('surfacePanel'),
+        surfaceTitle:$('surfaceTitle'),
+        surfaceText:$('surfaceText'),
+        surfaceSteps:$('surfaceSteps'),
+        ghostBrush:$('ghostBrush'),
+        surfaceCompletePop:$('surfaceCompletePop'),
+        surfaceRewardBox:$('surfaceRewardBox'),
+        surfaceRewardTitle:$('surfaceRewardTitle'),
+        surfaceRewardText:$('surfaceRewardText'),
+        surfaceSummaryGrid:$('surfaceSummaryGrid'),
         taskTitle:$('taskTitle'),
         taskText:$('taskText'),
 
@@ -2723,7 +2761,10 @@
         pets:[],
         petSeq:0,
         petsRescued:0,
-        petCollection:{}
+        petCollection:{},
+        surfaceMastery:{},
+        surfacesMastered:0,
+        ghostGuide:true
       };
 
       ZONES.forEach(z => state.zoneProgress[z.id] = 0);
@@ -3186,6 +3227,7 @@
         updateDirectorPanel();
         updateBurstPanel();
         updateChallengePanel();
+        updateSurfacePanel();
       }
       function zoneCardHtml(z){
   const p = Math.round(state.zoneProgress[z.id] || 0);
@@ -3395,11 +3437,11 @@
         const p = Math.round(state.zoneProgress[state.activeZone] || 0);
 
         if(el.scrubMissionTitle){
-          el.scrubMissionTitle.textContent = 'ภารกิจ: ' + (goal.title || getZone(state.activeZone).label);
+          el.scrubMissionTitle.textContent = 'ภารกิจ: ' + surfaceForProgress(state.zoneProgress[state.activeZone] || 0).label + ' • ' + (goal.title || getZone(state.activeZone).label);
         }
 
         if(el.scrubMissionText){
-          el.scrubMissionText.textContent = goal.pattern || 'ลากแปรงบนฟันให้ต่อเนื่อง';
+          el.scrubMissionText.textContent = surfaceForProgress(state.zoneProgress[state.activeZone] || 0).text + ' • ' + (goal.pattern || 'ลากแปรงบนฟันให้ต่อเนื่อง');
         }
 
         if(el.scrubMeterFill) el.scrubMeterFill.style.width = p + '%';
@@ -4509,6 +4551,88 @@
       }
 
 
+
+      function surfaceForProgress(p){
+        p = Number(p || 0);
+        if(p < 25) return SURFACES[0];
+        if(p < 50) return SURFACES[1];
+        if(p < 75) return SURFACES[2];
+        return SURFACES[3];
+      }
+
+      function surfaceKey(zoneId, surfaceId){ return zoneId + ':' + surfaceId; }
+      function isSurfaceDone(zoneId, surfaceId){ return !!state.surfaceMastery[surfaceKey(zoneId, surfaceId)]; }
+      function surfaceDoneCount(zoneId){ return SURFACES.filter(s => isSurfaceDone(zoneId, s.id)).length; }
+      function totalSurfaceTargets(){ return ZONES.length * SURFACES.length; }
+      function surfaceMasteryPct(){ return Math.round((state.surfacesMastered / Math.max(1, totalSurfaceTargets())) * 100); }
+
+      function showSurfacePop(text){
+        if(!el.surfaceCompletePop) return;
+        el.surfaceCompletePop.textContent = text;
+        el.surfaceCompletePop.classList.remove('show');
+        void el.surfaceCompletePop.offsetWidth;
+        el.surfaceCompletePop.classList.add('show');
+      }
+
+      function markSurfaceMilestones(zoneId, before, after, event){
+        SURFACES.forEach(s => {
+          if(after >= s.at && !isSurfaceDone(zoneId, s.id)){
+            state.surfaceMastery[surfaceKey(zoneId, s.id)] = true;
+            state.surfacesMastered += 1;
+            state.score += 95;
+            addSmileEnergy(10, 'surface');
+            updateChallenge('surface', 1);
+            sfx('clean');
+            showSurfacePop(s.icon + ' ' + s.label + ' MASTERED!');
+            if(event && event.clientX != null) spawnStreak(event.clientX, event.clientY, s.label + '!');
+          }
+        });
+      }
+
+      function surfaceQualityBonus(quality, zoneId){
+        const p = state.zoneProgress[zoneId] || 0;
+        const s = surfaceForProgress(p);
+        if(s.id === 'gumline' && quality > 1.35) return .72;
+        if(s.id === 'chewing' && quality >= .85) return 1.12;
+        if(s.id === 'inner' && quality >= .95) return 1.12;
+        if(s.id === 'outer' && quality >= .95) return 1.08;
+        return 1;
+      }
+
+      function updateSurfacePanel(){
+        const p = state.zoneProgress[state.activeZone] || 0;
+        const s = surfaceForProgress(p);
+        if(el.surfaceTitle) el.surfaceTitle.textContent = `🦷 Surface Mastery: ${s.icon} ${s.label}`;
+        if(el.surfaceText) el.surfaceText.textContent = s.text;
+        if(el.surfacePanel){
+          el.surfacePanel.classList.toggle('warn', s.id === 'gumline');
+          el.surfacePanel.classList.toggle('mastered', surfaceDoneCount(state.activeZone) >= SURFACES.length);
+        }
+        if(el.surfaceSteps){
+          el.surfaceSteps.innerHTML = SURFACES.map(sf => {
+            const done = isSurfaceDone(state.activeZone, sf.id);
+            const active = sf.id === s.id;
+            return `<div class="surfaceStep ${done ? 'done' : ''} ${active ? 'active' : ''}"><span>${done ? '✅' : sf.icon}</span><span>${sf.label}</span></div>`;
+          }).join('');
+        }
+        if(el.ghostBrush){
+          el.ghostBrush.className = 'ghostBrush ' + s.guide;
+          el.ghostBrush.style.left = '50%';
+          el.ghostBrush.style.top = '50%';
+        }
+      }
+
+      function renderSurfaceSummary(){
+        if(!el.surfaceSummaryGrid) return;
+        const items = SURFACES.map(s => {
+          const count = ZONES.filter(z => isSurfaceDone(z.id, s.id)).length;
+          const done = count >= ZONES.length;
+          return `<div class="surfaceSummaryItem ${done ? '' : 'warn'}"><span>${done ? '✅' : '⭐'} ${s.icon} ${s.label}</span><b>${count}/${ZONES.length}</b></div>`;
+        });
+        items.push(`<div class="surfaceSummaryItem ${surfaceMasteryPct() >= 80 ? '' : 'warn'}"><span>🧠 Mastery รวม</span><b>${surfaceMasteryPct()}%</b></div>`);
+        el.surfaceSummaryGrid.innerHTML = items.join('');
+      }
+
       function selectZone(id){
         if(!ZONES.some(z => z.id === id)) return;
         if(state.activeZone !== id){
@@ -4523,8 +4647,10 @@
 
   const diffMul = state.diff === 'easy' ? 1.18 : state.diff === 'hard' ? .82 : state.diff === 'challenge' ? .68 : 1;
   const feverMul = isFeverActive() ? 2.05 : 1;
-  const next = clamp(before + amount * diffMul * feverMul, 0, 100);
+  const surfMul = surfaceQualityBonus(quality, id);
+  const next = clamp(before + amount * diffMul * feverMul * surfMul, 0, 100);
   state.zoneProgress[id] = next;
+  markSurfaceMilestones(id, before, next, event);
 
   state.hits += 1;
 
@@ -4749,6 +4875,7 @@
           <span>Multiplier สูงสุดโดยประมาณ: x${state.multiplier.toFixed(2).replace(/\.00$/,'')}</span>
           <span>Mini Mission: ${state.missionDone ? 'สำเร็จ' : 'ยังไม่สำเร็จ'} • Challenge Cards ${state.challengeDone}</span>
           <span>Super Burst: ${state.burstUsed} • Tooth Pet Rescue: ${state.petsRescued}</span>
+          <span>Surface Mastery: ${surfaceMasteryPct()}%</span>
         `;
 
         const weakest = ZONES
@@ -4765,6 +4892,7 @@
         renderUnlockChallenge(stars, bossWon);
         renderDailyGoals();
         renderPetSummary();
+        renderSurfaceSummary();
 
         saveSummary({clean, plaque, accuracy, stars, bossWon, skill:skill[0]});
         renderReplayRewards();
@@ -4808,6 +4936,8 @@
           challengeDone:state.challengeDone,
           petsRescued:state.petsRescued,
           petCollection:state.petCollection,
+          surfacesMastered:state.surfacesMastered,
+          surfaceMasteryPct:surfaceMasteryPct(),
           multiplier:state.multiplier,
           zones:ZONES.map(z => ({id:z.id,label:z.label,pct:Math.round(state.zoneProgress[z.id] || 0)})),
           endedAt:new Date().toISOString(),
