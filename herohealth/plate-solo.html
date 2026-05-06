@@ -3,599 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Solo v2.0</title>
+  <title>HeroHealth • Plate Solo</title>
   <meta name="theme-color" content="#ffdd75" />
-  <style>
-    :root{
-      --bg1:#fff7d6; --bg2:#dff7ff; --bg3:#f6f1ff;
-      --card:#fffef8; --ink:#244055; --muted:#668198; --line:rgba(38,64,85,.14);
-      --good:#35c86b; --warn:#ffbd35; --bad:#ff5d5d; --blue:#49a6ff; --violet:#8e75ff;
-      --shadow:0 18px 48px rgba(33,65,89,.16);
-    }
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--ink);
-      overflow:hidden;
-      background:linear-gradient(145deg,var(--bg1),var(--bg2) 55%,var(--bg3));
-    }
-    button{font:inherit;color:inherit}
-    .app{
-      position:relative;
-      width:100vw;
-      height:100dvh;
-      overflow:hidden;
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-    }
-    .skyFX{
-      position:absolute;
-      inset:-15%;
-      pointer-events:none;
-      background:
-        radial-gradient(circle at 16% 18%,rgba(255,255,255,.85),transparent 25%),
-        radial-gradient(circle at 82% 18%,rgba(255,210,105,.35),transparent 22%),
-        radial-gradient(circle at 50% 90%,rgba(117,218,255,.22),transparent 34%);
-      filter:blur(.2px)
-    }
+  <meta name="color-scheme" content="light" />
 
-    .hud{
-      position:relative;
-      z-index:5;
-      display:grid;
-      grid-template-columns:1fr auto 1fr;
-      gap:10px;
-      align-items:start;
-      padding:10px max(10px,env(safe-area-inset-right)) 8px max(10px,env(safe-area-inset-left));
-    }
-    .hudCard{
-      background:rgba(255,255,255,.82);
-      border:1px solid rgba(255,255,255,.75);
-      box-shadow:0 10px 28px rgba(33,65,89,.11);
-      border-radius:22px;
-      padding:9px 11px;
-      backdrop-filter:blur(12px)
-    }
-    .stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:6px;
-      min-width:270px
-    }
-    .stat{
-      padding:6px 8px;
-      border-radius:15px;
-      background:#fff7;
-      box-shadow:inset 0 0 0 1px var(--line);
-      text-align:center;
-      line-height:1.05
-    }
-    .stat b{display:block;font-size:1.12rem}
-    .stat span{font-size:.72rem;color:var(--muted);font-weight:800}
-
-    .centerHud{min-width:min(460px,46vw);text-align:center}
-    .title{font-weight:1000;font-size:1rem}
-    .subtitle{font-size:.76rem;color:var(--muted);font-weight:800;margin-top:2px}
-    .timerBar{
-      height:10px;
-      background:#edf7ff;
-      border-radius:999px;
-      overflow:hidden;
-      margin-top:8px;
-      box-shadow:inset 0 0 0 1px rgba(0,0,0,.05)
-    }
-    .timerFill{
-      height:100%;
-      width:100%;
-      background:linear-gradient(90deg,#35c86b,#ffbd35,#ff5d5d);
-      border-radius:999px;
-      transition:width .2s linear
-    }
-    .timerFill.danger{animation:pulseRed .45s infinite alternate}
-
-    .missionBox{max-width:390px}
-    .missionTitle{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      font-weight:1000;
-      font-size:.82rem;
-      margin-bottom:6px
-    }
-    .missions{display:flex;flex-wrap:wrap;gap:6px}
-    .mission{
-      font-size:.73rem;
-      font-weight:900;
-      padding:6px 8px;
-      border-radius:999px;
-      background:#fff;
-      box-shadow:inset 0 0 0 1px var(--line);
-      white-space:nowrap
-    }
-    .mission.done{background:#eaffef;color:#197b3c}
-    .mission.hot{background:#fff2cc;color:#9b5b00;animation:bob .7s infinite alternate}
-
-    .stage{
-      position:relative;
-      z-index:2;
-      min-height:0;
-      display:grid;
-      grid-template-columns:320px 1fr 320px;
-      gap:12px;
-      padding:0 12px 10px;
-    }
-    .panel{
-      background:rgba(255,255,255,.72);
-      border:1px solid rgba(255,255,255,.75);
-      box-shadow:var(--shadow);
-      border-radius:28px;
-      padding:12px;
-      min-height:0;
-      overflow:hidden;
-      backdrop-filter:blur(12px)
-    }
-    .meters{display:grid;gap:9px}
-    .groupMeter{
-      background:#fff;
-      border-radius:20px;
-      padding:9px;
-      box-shadow:inset 0 0 0 1px var(--line)
-    }
-    .gmTop{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      font-size:.82rem;
-      font-weight:1000
-    }
-    .gmTop small{font-size:.72rem;color:var(--muted)}
-    .bar{
-      height:13px;
-      margin-top:7px;
-      background:#eff7fb;
-      border-radius:999px;
-      overflow:hidden;
-      position:relative
-    }
-    .bar i{
-      display:block;
-      height:100%;
-      width:0;
-      border-radius:999px;
-      background:var(--good);
-      transition:width .22s ease,background .22s ease
-    }
-    .bar.over i{background:var(--bad)}
-    .bar.warn i{background:var(--warn)}
-    .need{
-      margin-top:5px;
-      font-size:.72rem;
-      color:var(--muted);
-      font-weight:850
-    }
-    .hintBox{
-      margin-top:10px;
-      border-radius:22px;
-      padding:10px;
-      background:linear-gradient(135deg,#fff,#f3fbff);
-      box-shadow:inset 0 0 0 1px var(--line);
-      font-weight:900;
-      font-size:.88rem;
-      min-height:58px
-    }
-    .hintBox b{color:#168048}
-
-    .bossBox{
-      margin-top:10px;
-      border-radius:22px;
-      padding:10px;
-      background:linear-gradient(135deg,#fff1f1,#fff);
-      box-shadow:inset 0 0 0 1px rgba(255,93,93,.18);
-      display:none
-    }
-    .bossBox.on{display:block}
-    .bossTop{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      font-weight:1000
-    }
-    .bossHp{
-      height:12px;
-      background:#ffe1e1;
-      border-radius:999px;
-      overflow:hidden;
-      margin-top:8px
-    }
-    .bossHp i{
-      display:block;
-      height:100%;
-      width:100%;
-      background:linear-gradient(90deg,#ff8a00,#ff3d5a);
-      border-radius:999px;
-      transition:width .2s ease
-    }
-    .bossMood{
-      font-size:.78rem;
-      color:#9e3240;
-      font-weight:900;
-      margin-top:5px
-    }
-
-    .arena{
-      position:relative;
-      min-height:0;
-      border-radius:34px;
-      overflow:hidden;
-      background:radial-gradient(circle at 50% 42%,rgba(255,255,255,.62),rgba(255,255,255,.22) 46%,rgba(255,255,255,.05) 72%);
-      box-shadow:inset 0 0 0 1px rgba(255,255,255,.55)
-    }
-    .plateWrap{
-      position:absolute;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      width:min(52vw,520px);
-      aspect-ratio:1;
-      display:grid;
-      place-items:center;
-      pointer-events:none
-    }
-    .plate{
-      width:78%;
-      aspect-ratio:1;
-      border-radius:50%;
-      background:radial-gradient(circle,#fff 0 45%,#f7fbff 46% 62%,#dcecf5 63% 67%,#fff 68%);
-      box-shadow:0 28px 60px rgba(55,92,120,.20), inset 0 0 0 8px rgba(255,255,255,.7);
-      position:relative;
-      display:grid;
-      place-items:center;
-      transition:transform .18s ease
-    }
-    .plate.good{animation:plateGlow .85s infinite alternate}
-    .plate.bad{animation:shake .25s 2}
-    .plateFoods{
-      width:62%;
-      height:62%;
-      border-radius:50%;
-      display:flex;
-      flex-wrap:wrap;
-      align-content:center;
-      justify-content:center;
-      gap:6px;
-      font-size:2.05rem;
-      line-height:1
-    }
-    .plateFoods span{
-      filter:drop-shadow(0 4px 4px rgba(0,0,0,.12));
-      animation:pop .25s ease
-    }
-    .plateLabel{
-      position:absolute;
-      bottom:12%;
-      left:50%;
-      transform:translateX(-50%);
-      font-weight:1000;
-      color:#607d92;
-      background:#fff;
-      padding:5px 10px;
-      border-radius:999px;
-      box-shadow:0 6px 14px rgba(0,0,0,.08);
-      font-size:.78rem
-    }
-    .spawnLayer{
-      position:absolute;
-      inset:0;
-      overflow:hidden
-    }
-    .foodCard{
-      position:absolute;
-      top:-82px;
-      width:86px;
-      min-height:86px;
-      border:0;
-      border-radius:24px;
-      background:rgba(255,255,255,.94);
-      box-shadow:0 16px 36px rgba(24,61,84,.22);
-      display:grid;
-      place-items:center;
-      padding:5px;
-      cursor:pointer;
-      user-select:none;
-      touch-action:manipulation;
-      animation:fall linear forwards;
-      transform:translateZ(0)
-    }
-    .foodCard .emoji{font-size:2.28rem;line-height:1}
-    .foodCard .name{
-      font-size:.66rem;
-      font-weight:1000;
-      color:#496a80;
-      margin-top:2px
-    }
-    .foodCard.goodNow{outline:3px solid rgba(53,200,107,.32)}
-    .foodCard.junk{background:#fff3f3}
-    .foodCard.power{
-      background:#f5f0ff;
-      outline:3px solid rgba(142,117,255,.25)
-    }
-    .foodCard.dangerFood{outline:3px solid rgba(255,93,93,.28)}
-    .foodCard:active{transform:scale(.94)}
-
-    .floatText{
-      position:absolute;
-      left:50%;
-      top:44%;
-      transform:translate(-50%,-50%);
-      z-index:7;
-      font-size:1.4rem;
-      font-weight:1000;
-      color:#fff;
-      text-shadow:0 4px 18px rgba(0,0,0,.25);
-      padding:10px 16px;
-      border-radius:999px;
-      background:rgba(36,64,85,.75);
-      animation:floatUp .85s ease forwards;
-      pointer-events:none;
-      white-space:nowrap
-    }
-    .phaseBanner{
-      position:absolute;
-      left:50%;
-      top:18px;
-      transform:translateX(-50%);
-      z-index:7;
-      background:rgba(36,64,85,.86);
-      color:#fff;
-      border-radius:999px;
-      padding:10px 15px;
-      font-size:.92rem;
-      font-weight:1000;
-      box-shadow:0 12px 28px rgba(0,0,0,.18);
-      opacity:0;
-      pointer-events:none
-    }
-    .phaseBanner.show{animation:banner .95s ease}
-
-    .sideTitle{font-weight:1000;margin:0 0 8px;font-size:.95rem}
-    .howList{display:grid;gap:8px;font-size:.82rem;font-weight:850;color:#496a80}
-    .howItem{
-      background:#fff;
-      border-radius:18px;
-      padding:9px;
-      box-shadow:inset 0 0 0 1px var(--line)
-    }
-    .powerRow{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:7px;
-      margin-top:10px
-    }
-    .power{
-      background:#fff;
-      border-radius:18px;
-      padding:9px 6px;
-      text-align:center;
-      box-shadow:inset 0 0 0 1px var(--line);
-      font-weight:1000;
-      font-size:.75rem
-    }
-    .power b{display:block;font-size:1.2rem}
-    .power.on{background:#eef8ff;color:#12689c}
-    .log{
-      margin-top:10px;
-      height:132px;
-      overflow:auto;
-      display:grid;
-      align-content:start;
-      gap:6px;
-      padding-right:3px
-    }
-    .logLine{
-      background:#fff;
-      border-radius:15px;
-      padding:7px 9px;
-      font-size:.74rem;
-      font-weight:850;
-      color:#5a768c;
-      box-shadow:inset 0 0 0 1px var(--line)
-    }
-
-    .bottomBar{
-      position:relative;
-      z-index:4;
-      display:flex;
-      gap:8px;
-      justify-content:center;
-      align-items:center;
-      padding:0 12px max(10px,env(safe-area-inset-bottom));
-    }
-    .btn{
-      border:0;
-      border-radius:999px;
-      background:#fff;
-      padding:10px 14px;
-      font-weight:1000;
-      box-shadow:0 10px 24px rgba(36,64,85,.14);
-      cursor:pointer
-    }
-    .btn.primary{background:linear-gradient(135deg,#35c86b,#62d98b);color:#fff}
-    .btn.warn{background:linear-gradient(135deg,#ffbd35,#ff8a00);color:#fff}
-    .btn.ghost{background:rgba(255,255,255,.65)}
-    .btn:disabled{opacity:.45;cursor:not-allowed}
-
-    .overlay{
-      position:absolute;
-      inset:0;
-      z-index:20;
-      background:linear-gradient(145deg,rgba(255,247,214,.94),rgba(223,247,255,.95));
-      display:grid;
-      place-items:center;
-      padding:18px
-    }
-    .modal{
-      width:min(720px,96vw);
-      background:rgba(255,255,255,.9);
-      border:1px solid rgba(255,255,255,.9);
-      box-shadow:0 24px 70px rgba(36,64,85,.22);
-      border-radius:34px;
-      padding:20px;
-      text-align:center
-    }
-    .heroIcon{font-size:4rem;filter:drop-shadow(0 10px 16px rgba(0,0,0,.12))}
-    .modal h1{margin:4px 0 8px;font-size:clamp(1.45rem,3vw,2.4rem)}
-    .modal p{
-      margin:7px auto;
-      color:#5b788e;
-      font-weight:850;
-      max-width:600px;
-      line-height:1.48
-    }
-    .modalGrid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:10px;
-      margin:16px 0
-    }
-    .miniCard{
-      background:#fff;
-      border-radius:22px;
-      padding:12px;
-      box-shadow:inset 0 0 0 1px var(--line);
-      font-weight:950
-    }
-    .miniCard b{display:block;font-size:1.6rem}
-    .summaryStats{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:8px;
-      margin:14px 0
-    }
-    .sumBox{
-      background:#fff;
-      border-radius:20px;
-      padding:10px;
-      box-shadow:inset 0 0 0 1px var(--line)
-    }
-    .sumBox b{display:block;font-size:1.25rem}
-    .sumBox span{font-size:.76rem;font-weight:850;color:#668198}
-    .recommend{
-      background:#fff;
-      border-radius:22px;
-      padding:12px;
-      margin:10px 0;
-      text-align:left;
-      font-weight:850;
-      color:#496a80;
-      box-shadow:inset 0 0 0 1px var(--line)
-    }
-
-    .hidden{display:none!important}
-    .fever{animation:feverBg .9s infinite alternate}
-    .screenFlash{
-      position:absolute;
-      inset:0;
-      background:rgba(255,255,255,.0);
-      pointer-events:none;
-      z-index:12
-    }
-    .screenFlash.on{animation:flash .28s ease}
-
-    @keyframes fall{
-      to{top:calc(100% + 110px);transform:rotate(var(--rot,0deg))}
-    }
-    @keyframes floatUp{
-      to{opacity:0;transform:translate(-50%,-110%) scale(1.1)}
-    }
-    @keyframes banner{
-      0%{opacity:0;transform:translate(-50%,-12px) scale(.96)}
-      15%,80%{opacity:1;transform:translate(-50%,0) scale(1)}
-      100%{opacity:0;transform:translate(-50%,-14px) scale(.98)}
-    }
-    @keyframes pop{
-      0%{transform:scale(.2)}
-      80%{transform:scale(1.15)}
-      100%{transform:scale(1)}
-    }
-    @keyframes bob{to{transform:translateY(-2px)}}
-    @keyframes shake{
-      0%,100%{transform:translateX(0)}
-      25%{transform:translateX(-7px)}
-      75%{transform:translateX(7px)}
-    }
-    @keyframes plateGlow{
-      to{
-        box-shadow:
-          0 30px 70px rgba(53,200,107,.28),
-          0 0 0 12px rgba(53,200,107,.08),
-          inset 0 0 0 8px rgba(255,255,255,.7)
-      }
-    }
-    @keyframes pulseRed{
-      to{filter:saturate(1.7);box-shadow:0 0 14px rgba(255,93,93,.7)}
-    }
-    @keyframes feverBg{
-      to{filter:saturate(1.2) brightness(1.03)}
-    }
-    @keyframes flash{
-      0%{background:rgba(255,255,255,.0)}
-      35%{background:rgba(255,255,255,.55)}
-      100%{background:rgba(255,255,255,0)}
-    }
-
-    @media(max-width:980px){
-      body{overflow:auto}
-      .app{height:100dvh}
-      .hud{grid-template-columns:1fr}
-      .stats{min-width:0}
-      .centerHud{min-width:0}
-      .missionBox{max-width:none}
-      .stage{
-        grid-template-columns:1fr;
-        overflow:auto;
-        padding-bottom:88px
-      }
-      .panel.left{order:2}
-      .panel.right{order:3}
-      .arena{
-        height:58dvh;
-        min-height:440px;
-        order:1
-      }
-      .plateWrap{width:min(82vw,440px)}
-      .bottomBar{
-        position:absolute;
-        bottom:0;
-        left:0;
-        right:0;
-        background:linear-gradient(0deg,rgba(255,247,214,.94),rgba(255,247,214,0));
-        padding-top:22px
-      }
-      .modalGrid,.summaryStats{grid-template-columns:1fr}
-      .foodCard{width:78px;min-height:78px}
-      .foodCard .emoji{font-size:2rem}
-    }
-    @media(max-width:520px){
-      .stats{grid-template-columns:repeat(3,1fr)}
-      .hudCard{border-radius:18px}
-      .panel{border-radius:22px}
-      .arena{min-height:410px}
-      .foodCard{
-        width:72px;
-        min-height:74px;
-        border-radius:20px
-      }
-      .foodCard .name{font-size:.6rem}
-      .plateFoods{font-size:1.72rem}
-      .bottomBar{justify-content:space-around}
-      .btn{padding:9px 10px;font-size:.86rem}
-      .mission{font-size:.68rem}
-      .modal{padding:15px;border-radius:26px}
-    }
-  </style>
+  <link rel="stylesheet" href="./plate-solo.css?v=20260506-v26" />
+  <script defer src="./plate-solo.js?v=20260506-v26"></script>
 </head>
+
 <body>
   <div id="app" class="app">
     <div class="skyFX"></div>
@@ -603,19 +18,33 @@
 
     <header class="hud">
       <section class="hudCard stats">
-        <div class="stat"><b id="score">0</b><span>คะแนน</span></div>
-        <div class="stat"><b id="combo">0</b><span>คอมโบ</span></div>
-        <div class="stat"><b id="balance">0%</b><span>สมดุล</span></div>
+        <div class="stat">
+          <b id="score">0</b>
+          <span>คะแนน</span>
+        </div>
+        <div class="stat">
+          <b id="combo">0</b>
+          <span>คอมโบ</span>
+        </div>
+        <div class="stat">
+          <b id="balance">0%</b>
+          <span>สมดุล</span>
+        </div>
       </section>
 
       <section class="hudCard centerHud">
         <div class="title">🍽️ Plate Solo: Balanced Plate Rush</div>
         <div id="phaseText" class="subtitle">เตรียมจัดจานให้ครบ พอดี และไม่ล้น</div>
-        <div class="timerBar"><i id="timerFill" class="timerFill"></i></div>
+        <div class="timerBar">
+          <i id="timerFill" class="timerFill"></i>
+        </div>
       </section>
 
       <section class="hudCard missionBox">
-        <div class="missionTitle"><span>🎯 ภารกิจรอบนี้</span><span id="timeText">--</span></div>
+        <div class="missionTitle">
+          <span>🎯 ภารกิจรอบนี้</span>
+          <span id="timeText">--</span>
+        </div>
         <div id="missions" class="missions"></div>
       </section>
     </header>
@@ -634,13 +63,51 @@
             <span id="bossName">👾 Greasy Monster</span>
             <span id="bossPct">100%</span>
           </div>
-          <div class="bossHp"><i id="bossHp"></i></div>
-          <div id="bossMood" class="bossMood">ทำ Perfect Pick เพื่อลดพลังบอส!</div>
+          <div class="bossHp">
+            <i id="bossHp"></i>
+          </div>
+          <div id="bossMood" class="bossMood">
+            ทำ Perfect Pick เพื่อลดพลังบอส!
+          </div>
         </div>
       </aside>
 
       <section id="arena" class="arena">
         <div id="phaseBanner" class="phaseBanner">Wave 1</div>
+        <div id="bossSkillFlash" class="bossSkillFlash">Boss Skill!</div>
+
+        <div id="orderBox" class="orderBox">
+          <div class="orderTop">
+            <span>⚡ ภารกิจด่วน</span>
+            <span id="orderSec">--</span>
+          </div>
+          <div id="orderText" class="orderText">
+            เติมหมู่ที่จานยังขาด!
+          </div>
+          <div class="orderTimer">
+            <i id="orderFill"></i>
+          </div>
+        </div>
+
+        <div id="duelLayer" class="duelLayer"></div>
+
+        <div id="miniEventBox" class="miniEventBox">
+          <div class="miniEventTop">
+            <span>🎲 Mini Event</span>
+            <span id="miniEventSec">--</span>
+          </div>
+          <div id="miniEventText" class="miniEventText">
+            เตรียมพร้อม!
+          </div>
+          <div class="miniEventTimer">
+            <i id="miniEventFill"></i>
+          </div>
+        </div>
+
+        <div id="aimReticle" class="aimReticle hidden">
+          <div class="aimHint">เล็งกลางจอ แล้วกดเลือกเป้า</div>
+        </div>
+
         <div id="spawnLayer" class="spawnLayer"></div>
 
         <div class="plateWrap">
@@ -653,17 +120,32 @@
 
       <aside class="panel right">
         <h2 class="sideTitle">🧑‍🍳 วิธีเล่นแบบเร็ว</h2>
+
         <div class="howList">
-          <div class="howItem">✅ เลือกอาหารที่ <b>จานยังขาด</b> เพื่อเพิ่มคอมโบ</div>
-          <div class="howItem">⚠️ อาหารดีแต่หมู่นั้นเต็มแล้ว = <b>ล้น</b> เสียสมดุล</div>
-          <div class="howItem">❌ ของหวาน/ทอด/น้ำหวาน ทำให้บอสแข็งแรงขึ้น</div>
-          <div class="howItem">🔥 คอมโบสูงจะเข้า Fever คะแนนพุ่ง!</div>
+          <div class="howItem">
+            ✅ เลือกอาหารที่ <b>จานยังขาด</b> เพื่อเพิ่มคอมโบ
+          </div>
+          <div class="howItem">
+            ⚠️ อาหารดีแต่หมู่นั้นเต็มแล้ว = <b>ล้น</b> เสียสมดุล
+          </div>
+          <div class="howItem">
+            ❌ ของหวาน/ทอด/น้ำหวาน ทำให้บอสแข็งแรงขึ้น
+          </div>
+          <div class="howItem">
+            🔥 คอมโบสูงจะเข้า Fever คะแนนพุ่ง!
+          </div>
         </div>
 
         <div class="powerRow">
-          <div id="pShield" class="power"><b>🛡️</b>Shield</div>
-          <div id="pFreeze" class="power"><b>❄️</b>Freeze</div>
-          <div id="pFever" class="power"><b>🔥</b>Fever</div>
+          <div id="pShield" class="power">
+            <b>🛡️</b>Shield
+          </div>
+          <div id="pFreeze" class="power">
+            <b>❄️</b>Freeze
+          </div>
+          <div id="pFever" class="power">
+            <b>🔥</b>Fever
+          </div>
         </div>
 
         <div id="log" class="log"></div>
@@ -674,23 +156,57 @@
       <button id="btnPause" class="btn ghost">⏸️ พัก</button>
       <button id="btnHint" class="btn warn">💡 Hint</button>
       <button id="btnSkill" class="btn primary">✨ Rescue</button>
+      <button id="btnAim" class="btn primary hidden">🎯 เลือกเป้า</button>
       <button id="btnBack" class="btn ghost">↩️ กลับ</button>
     </nav>
 
     <section id="startOverlay" class="overlay">
       <div class="modal">
         <div class="heroIcon">🍽️⚡</div>
+
         <h1>Balanced Plate Rush</h1>
+
         <p>
           เกมนี้ไม่ใช่แค่จำแนกหมู่อาหาร แต่ต้องเลือกให้
           <b>ถูกเวลา ถูกหมู่ และไม่ล้นจาน</b>
           ก่อนบอสทำให้จานเสียสมดุล!
         </p>
+
         <div class="modalGrid">
-          <div class="miniCard"><b>⚖️</b>คุมสมดุล</div>
-          <div class="miniCard"><b>🔥</b>ทำคอมโบ</div>
-          <div class="miniCard"><b>👾</b>สู้บอสท้ายเกม</div>
+          <div class="miniCard">
+            <b>⚖️</b>คุมสมดุล
+          </div>
+          <div class="miniCard">
+            <b>🔥</b>ทำคอมโบ
+          </div>
+          <div class="miniCard">
+            <b>👾</b>สู้บอสท้ายเกม
+          </div>
         </div>
+
+        <div id="dailyBox" class="dailyBox">
+          <b>📅 Daily Challenge</b><br>
+          วันนี้มีภารกิจพิเศษ รอโหลด...
+        </div>
+
+        <div id="goalLock" class="goalLock">
+          <div class="goalLockTitle">🎯 เป้าหมายก่อนเริ่ม</div>
+          <div class="goalCards">
+            <div class="goalCard">
+              <b>⚖️ คุมสมดุล</b>
+              เติมอาหารให้พอดี ไม่ล้น
+            </div>
+            <div class="goalCard">
+              <b>🔥 ทำคอมโบ</b>
+              เลือกถูกต่อเนื่องเพื่อเข้า Fever
+            </div>
+            <div class="goalCard">
+              <b>🚫 หลบ Junk</b>
+              อย่ากดของทอด ของหวาน น้ำหวาน
+            </div>
+          </div>
+        </div>
+
         <button id="btnStart" class="btn primary" style="font-size:1.1rem;padding:13px 22px">
           เริ่มทำจานสุขภาพ!
         </button>
@@ -700,16 +216,33 @@
     <section id="summaryOverlay" class="overlay hidden">
       <div class="modal">
         <div id="rankIcon" class="heroIcon">🏆</div>
+
         <h1 id="summaryTitle">สรุปผล</h1>
         <p id="summaryLine">ทำได้ดีมาก!</p>
 
+        <div id="starRow" class="starRow"></div>
+        <div id="bestRow" class="bestRow"></div>
+
         <div class="summaryStats">
-          <div class="sumBox"><b id="sumScore">0</b><span>คะแนน</span></div>
-          <div class="sumBox"><b id="sumBalance">0%</b><span>สมดุล</span></div>
-          <div class="sumBox"><b id="sumCombo">0</b><span>คอมโบสูงสุด</span></div>
-          <div class="sumBox"><b id="sumMission">0/3</b><span>ภารกิจ</span></div>
+          <div class="sumBox">
+            <b id="sumScore">0</b>
+            <span>คะแนน</span>
+          </div>
+          <div class="sumBox">
+            <b id="sumBalance">0%</b>
+            <span>สมดุล</span>
+          </div>
+          <div class="sumBox">
+            <b id="sumCombo">0</b>
+            <span>คอมโบสูงสุด</span>
+          </div>
+          <div class="sumBox">
+            <b id="sumMission">0/3</b>
+            <span>ภารกิจ</span>
+          </div>
         </div>
 
+        <div id="badgeRow" class="badgeRow"></div>
         <div id="recommend" class="recommend"></div>
 
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">
@@ -720,1289 +253,5 @@
       </div>
     </section>
   </div>
-
-<script>
-(() => {
-  'use strict';
-
-  const VERSION = '20260506-PLATE-SOLO-V2-RUSH-BOSS-FULL';
-  const $ = (id) => document.getElementById(id);
-  const Q = new URL(location.href).searchParams;
-  const qs = (k, d='') => Q.get(k) ?? d;
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const now = () => performance.now();
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#39;'
-  }[m]));
-
-  function hashSeed(str){
-    let h = 2166136261 >>> 0;
-    str = String(str || 'plate');
-    for(let i=0;i<str.length;i++){
-      h ^= str.charCodeAt(i);
-      h = Math.imul(h, 16777619);
-    }
-    return h >>> 0;
-  }
-
-  function mulberry32(seed){
-    let t = seed >>> 0;
-    return function(){
-      t += 0x6D2B79F5;
-      let r = Math.imul(t ^ (t >>> 15), 1 | t);
-      r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
-      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
-    };
-  }
-
-  const rand = mulberry32(hashSeed(qs('seed', Date.now())));
-  const pick = (arr) => arr[Math.floor(rand() * arr.length)] || arr[0];
-  const chance = (p) => rand() < p;
-
-  const DIFF = qs('diff','normal').toLowerCase();
-
-  const CFG = {
-    easy:{
-      spawn:1220,
-      life:5200,
-      junk:.12,
-      speed:1,
-      bossAtk:6500,
-      target:3.6
-    },
-    normal:{
-      spawn:980,
-      life:4600,
-      junk:.19,
-      speed:1.12,
-      bossAtk:5600,
-      target:4
-    },
-    hard:{
-      spawn:790,
-      life:3900,
-      junk:.26,
-      speed:1.24,
-      bossAtk:4700,
-      target:4.3
-    },
-    challenge:{
-      spawn:650,
-      life:3300,
-      junk:.32,
-      speed:1.38,
-      bossAtk:3900,
-      target:4.5
-    }
-  }[DIFF] || {
-    spawn:980,
-    life:4600,
-    junk:.19,
-    speed:1.12,
-    bossAtk:5600,
-    target:4
-  };
-
-  const GROUPS = [
-    {id:'protein', label:'โปรตีน', icon:'🥚'},
-    {id:'carb', label:'ข้าว/แป้ง', icon:'🍚'},
-    {id:'veg', label:'ผัก', icon:'🥦'},
-    {id:'fruit', label:'ผลไม้', icon:'🍎'},
-    {id:'fat', label:'ไขมันดี', icon:'🥜'}
-  ];
-
-  const FOODS = [
-    {emoji:'🥚', name:'ไข่', effects:{protein:1}},
-    {emoji:'🐟', name:'ปลา', effects:{protein:1}},
-    {emoji:'🍗', name:'ไก่', effects:{protein:1}},
-    {emoji:'🫘', name:'ถั่ว', effects:{protein:.7,fat:.35}, mixed:true},
-    {emoji:'🥛', name:'นม', effects:{protein:.7,fat:.25}, mixed:true},
-
-    {emoji:'🍚', name:'ข้าว', effects:{carb:1}},
-    {emoji:'🍞', name:'ขนมปัง', effects:{carb:1}},
-    {emoji:'🥔', name:'มัน', effects:{carb:1}},
-    {emoji:'🍠', name:'เผือก/มัน', effects:{carb:1}},
-
-    {emoji:'🥦', name:'บรอกโคลี', effects:{veg:1}},
-    {emoji:'🥬', name:'ผักใบ', effects:{veg:1}},
-    {emoji:'🥕', name:'แครอต', effects:{veg:1}},
-    {emoji:'🥒', name:'แตงกวา', effects:{veg:1}},
-
-    {emoji:'🍎', name:'แอปเปิล', effects:{fruit:1}},
-    {emoji:'🍌', name:'กล้วย', effects:{fruit:1}},
-    {emoji:'🍊', name:'ส้ม', effects:{fruit:1}},
-    {emoji:'🍉', name:'แตงโม', effects:{fruit:1}},
-
-    {emoji:'🥜', name:'ถั่ว/ไขมันดี', effects:{fat:1}},
-    {emoji:'🥑', name:'อะโวคาโด', effects:{fat:1}},
-    {emoji:'🫒', name:'น้ำมันดี', effects:{fat:1}},
-
-    {emoji:'🍟', name:'เฟรนช์ฟรายส์', junk:true, effects:{fat:1.2,carb:.5}},
-    {emoji:'🍰', name:'เค้กหวาน', junk:true, effects:{carb:1,fat:.6}},
-    {emoji:'🧃', name:'น้ำหวาน', junk:true, effects:{carb:1}},
-    {emoji:'🍩', name:'โดนัท', junk:true, effects:{carb:.8,fat:.8}},
-    {emoji:'🍔', name:'เบอร์เกอร์', junk:true, effects:{carb:.8,fat:1,protein:.3}}
-  ];
-
-  const POWERS = [
-    {emoji:'🛡️', name:'Shield', power:'shield'},
-    {emoji:'❄️', name:'Freeze', power:'freeze'},
-    {emoji:'💡', name:'Smart Hint', power:'hint'}
-  ];
-
-  const state = {
-    running:false,
-    paused:false,
-    ended:false,
-    startedAt:0,
-    pauseStarted:0,
-    pausedMs:0,
-    totalSec:clamp(Number(qs('time', '100')) || 100, 60, 180),
-
-    score:0,
-    combo:0,
-    bestCombo:0,
-    hits:0,
-    misses:0,
-    junkHits:0,
-    overloads:0,
-    missedGood:0,
-
-    fill:Object.fromEntries(GROUPS.map(g => [g.id,0])),
-    groupHits:Object.fromEntries(GROUPS.map(g => [g.id,0])),
-    plateItems:[],
-
-    active:new Map(),
-    nextId:1,
-    lastSpawn:0,
-    lastBossAtk:0,
-
-    wave:0,
-    rush:false,
-    feverUntil:0,
-    lastFever:0,
-    shield:0,
-    freezeUntil:0,
-    rescueUsed:false,
-
-    boss:false,
-    bossHp:100,
-    bossDefeated:false,
-
-    missions:[],
-    logs:[],
-    lastHintAt:0,
-
-    sessionId:'plate-' + Date.now().toString(36) + '-' + Math.floor(rand()*1e6).toString(36)
-  };
-
-  const els = {
-    app:$('app'),
-    score:$('score'),
-    combo:$('combo'),
-    balance:$('balance'),
-    timeText:$('timeText'),
-    timerFill:$('timerFill'),
-    phaseText:$('phaseText'),
-    missions:$('missions'),
-    meters:$('meters'),
-    hintBox:$('hintBox'),
-    bossBox:$('bossBox'),
-    bossHp:$('bossHp'),
-    bossPct:$('bossPct'),
-    bossMood:$('bossMood'),
-    bossName:$('bossName'),
-    arena:$('arena'),
-    spawnLayer:$('spawnLayer'),
-    plate:$('plate'),
-    plateFoods:$('plateFoods'),
-    plateLabel:$('plateLabel'),
-    phaseBanner:$('phaseBanner'),
-    log:$('log'),
-    flash:$('flash'),
-    startOverlay:$('startOverlay'),
-    summaryOverlay:$('summaryOverlay'),
-    rankIcon:$('rankIcon'),
-    summaryTitle:$('summaryTitle'),
-    summaryLine:$('summaryLine'),
-    sumScore:$('sumScore'),
-    sumBalance:$('sumBalance'),
-    sumCombo:$('sumCombo'),
-    sumMission:$('sumMission'),
-    recommend:$('recommend'),
-    pShield:$('pShield'),
-    pFreeze:$('pFreeze'),
-    pFever:$('pFever'),
-    btnStart:$('btnStart'),
-    btnPause:$('btnPause'),
-    btnHint:$('btnHint'),
-    btnSkill:$('btnSkill'),
-    btnBack:$('btnBack'),
-    btnReplay:$('btnReplay'),
-    btnCooldown:$('btnCooldown'),
-    btnSummaryBack:$('btnSummaryBack')
-  };
-
-  let audioCtx = null;
-
-  function sfx(kind){
-    try{
-      audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-
-      const map = {
-        good:[660,.055,'sine',.045],
-        perfect:[880,.075,'triangle',.055],
-        bad:[150,.08,'sawtooth',.035],
-        boss:[90,.16,'square',.04],
-        fever:[980,.12,'triangle',.06],
-        tick:[520,.035,'sine',.025]
-      };
-
-      const [freq,dur,type,gain] = map[kind] || map.good;
-      const o = audioCtx.createOscillator();
-      const g = audioCtx.createGain();
-
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.value = gain;
-
-      o.connect(g);
-      g.connect(audioCtx.destination);
-      o.start();
-
-      g.gain.exponentialRampToValueAtTime(.0001, audioCtx.currentTime + dur);
-      o.stop(audioCtx.currentTime + dur + .015);
-    }catch(e){}
-  }
-
-  function init(){
-    renderMeters();
-    state.missions = chooseMissions();
-    renderMissions();
-    updateAll();
-    logLine('พร้อมแล้ว: เลือกอาหารให้ครบและไม่ล้นจาน');
-    bind();
-  }
-
-  function bind(){
-    els.btnStart.addEventListener('click', startGame);
-    els.btnPause.addEventListener('click', togglePause);
-    els.btnHint.addEventListener('click', () => showHint(true));
-    els.btnSkill.addEventListener('click', rescueSkill);
-    els.btnBack.addEventListener('click', goBack);
-    els.btnReplay.addEventListener('click', () => location.reload());
-    els.btnCooldown.addEventListener('click', goCooldown);
-    els.btnSummaryBack.addEventListener('click', goBack);
-
-    document.addEventListener('visibilitychange', () => {
-      if(document.hidden && state.running && !state.paused) togglePause(true);
-    });
-  }
-
-  function startGame(){
-    state.running = true;
-    state.startedAt = now();
-    state.lastSpawn = now();
-
-    els.startOverlay.classList.add('hidden');
-
-    showBanner('Wave 1 • เติมจานให้ครบ!');
-    showHint(true);
-
-    postLog('session_start', {
-      version:VERSION,
-      diff:DIFF,
-      duration:state.totalSec
-    });
-
-    requestAnimationFrame(loop);
-  }
-
-  function togglePause(forcePause=false){
-    if(!state.running || state.ended) return;
-
-    if(!state.paused || forcePause){
-      state.paused = true;
-      state.pauseStarted = now();
-      els.btnPause.textContent = '▶️ เล่นต่อ';
-      logLine('พักเกมไว้ก่อน');
-    }else{
-      state.paused = false;
-      state.pausedMs += now() - state.pauseStarted;
-      els.btnPause.textContent = '⏸️ พัก';
-      state.lastSpawn = now();
-      requestAnimationFrame(loop);
-      logLine('กลับมาเล่นต่อ!');
-    }
-  }
-
-  function elapsedSec(){
-    return Math.max(0, (now() - state.startedAt - state.pausedMs) / 1000);
-  }
-
-  function timeLeft(){
-    return Math.max(0, state.totalSec - elapsedSec());
-  }
-
-  function isFever(){
-    return now() < state.feverUntil;
-  }
-
-  function isFreeze(){
-    return now() < state.freezeUntil;
-  }
-
-  function loop(){
-    if(!state.running || state.ended) return;
-    if(state.paused){
-      requestAnimationFrame(loop);
-      return;
-    }
-
-    const tLeft = timeLeft();
-
-    updatePhase(tLeft);
-
-    if(tLeft <= 0){
-      endGame();
-      return;
-    }
-
-    if(!isFreeze() && now() - state.lastSpawn > spawnDelay()){
-      spawnFood();
-    }
-
-    expireCards();
-
-    if(state.boss && !state.bossDefeated && now() - state.lastBossAtk > CFG.bossAtk){
-      bossAttack();
-    }
-
-    updateAll();
-    requestAnimationFrame(loop);
-  }
-
-  function updatePhase(tLeft){
-    const e = elapsedSec();
-    const pct = e / state.totalSec;
-
-    let newWave = pct < .22 ? 1 : pct < .48 ? 2 : pct < .72 ? 3 : 4;
-    const rush = !state.boss && e > 16 && (Math.floor(e) % 28) >= 20;
-
-    if(tLeft <= 26 && !state.boss){
-      startBoss();
-    }
-
-    if(state.boss) newWave = 5;
-
-    if(newWave !== state.wave){
-      state.wave = newWave;
-      const names = {
-        1:'Wave 1 • เติมจาน',
-        2:'Wave 2 • ระวังล้น',
-        3:'Wave 3 • Food Rush',
-        4:'Rush Window!',
-        5:'Boss Plate!'
-      };
-      showBanner(names[newWave] || 'Wave');
-      sfx(newWave === 5 ? 'boss' : 'tick');
-    }
-
-    if(rush !== state.rush){
-      state.rush = rush;
-      if(rush){
-        showBanner('⚡ Rush 8 วิ • คะแนน x2');
-        logLine('Rush Window! รีบเลือกให้แม่น');
-      }
-    }
-  }
-
-  function spawnDelay(){
-    let d = CFG.spawn;
-
-    if(state.wave >= 2) d *= .9;
-    if(state.wave >= 3) d *= .78;
-    if(state.rush) d *= .55;
-    if(isFever()) d *= .58;
-    if(state.boss) d *= .7;
-
-    return d;
-  }
-
-  function cardLife(){
-    let life = CFG.life / CFG.speed;
-
-    if(state.rush) life *= .75;
-    if(isFever()) life *= .78;
-    if(state.boss) life *= .82;
-
-    return clamp(life, 2100, 6200);
-  }
-
-  function chooseFood(){
-    if(chance(.075) && !state.boss){
-      return {...pick(POWERS), type:'power'};
-    }
-
-    let junkRate = CFG.junk
-      + (state.wave-1)*.035
-      + (state.rush ? .06 : 0)
-      + (state.boss ? .08 : 0);
-
-    if(chance(clamp(junkRate, .08, .48))){
-      return {...pick(FOODS.filter(f => f.junk))};
-    }
-
-    const missing = GROUPS
-      .filter(g => state.fill[g.id] < CFG.target * .82)
-      .map(g => g.id);
-
-    if(missing.length && chance(.56)){
-      const g = pick(missing);
-      const pool = FOODS.filter(f => !f.junk && f.effects && f.effects[g]);
-      return {...pick(pool)};
-    }
-
-    return {...pick(FOODS.filter(f => !f.junk))};
-  }
-
-  function spawnFood(){
-    state.lastSpawn = now();
-
-    const food = chooseFood();
-    const id = 'f' + state.nextId++;
-
-    const card = document.createElement('button');
-    card.className = 'foodCard';
-
-    if(food.type === 'power'){
-      card.classList.add('power');
-    }else if(food.junk){
-      card.classList.add('junk');
-    }else if(wouldOverload(food)){
-      card.classList.add('dangerFood');
-    }else{
-      card.classList.add('goodNow');
-    }
-
-    const left = 5 + rand() * 82;
-    card.style.left = left + '%';
-    card.style.setProperty('--rot', ((rand() * 18) - 9).toFixed(1) + 'deg');
-
-    const life = cardLife();
-    card.style.animationDuration = life + 'ms';
-
-    card.innerHTML = `
-      <div>
-        <div class="emoji">${food.emoji}</div>
-        <div class="name">${esc(food.name)}</div>
-      </div>
-    `;
-
-    card.addEventListener('pointerdown', (ev) => {
-      ev.preventDefault();
-      pickFood(id);
-    }, {passive:false});
-
-    els.spawnLayer.appendChild(card);
-
-    state.active.set(id, {
-      food,
-      el:card,
-      born:now(),
-      expire:now()+life
-    });
-  }
-
-  function expireCards(){
-    const n = now();
-
-    for(const [id,obj] of Array.from(state.active.entries())){
-      if(n >= obj.expire){
-        obj.el.remove();
-        state.active.delete(id);
-
-        if(!obj.food.junk && obj.food.type !== 'power'){
-          state.missedGood++;
-          state.combo = 0;
-          if(chance(.22)){
-            feedback('หลุดไป! คอมโบหาย', 'bad');
-          }
-        }
-      }
-    }
-  }
-
-  function pickFood(id){
-    if(!state.running || state.paused || state.ended) return;
-
-    const obj = state.active.get(id);
-    if(!obj) return;
-
-    obj.el.remove();
-    state.active.delete(id);
-
-    const f = obj.food;
-
-    if(f.type === 'power') return applyPower(f);
-    if(f.junk) return handleJunk(f);
-
-    return handleHealthy(f);
-  }
-
-  function wouldOverload(food){
-    if(!food.effects) return false;
-
-    return Object.entries(food.effects).some(([g,v]) => {
-      return state.fill[g] + Number(v||0) > CFG.target + .25;
-    });
-  }
-
-  function handleHealthy(f){
-    const overload = wouldOverload(f);
-
-    applyEffects(f.effects, true);
-
-    state.hits++;
-
-    Object.keys(f.effects || {}).forEach(g => {
-      state.groupHits[g] = (state.groupHits[g] || 0) + 1;
-    });
-
-    state.plateItems.push(f.emoji);
-    state.plateItems = state.plateItems.slice(-18);
-
-    if(overload){
-      state.overloads++;
-      state.combo = 0;
-      state.score = Math.max(0, state.score - 18);
-      state.bossHp = clamp(state.bossHp + (state.boss ? 3 : 1), 0, 100);
-
-      feedback('⚠️ ดีแต่ล้นแล้ว!', 'bad');
-      sfx('bad');
-      shakePlate();
-      logLine(`${f.emoji} ${f.name}: หมู่นี้เริ่มล้น`);
-    }else{
-      const mult =
-        (state.rush ? 2 : 1) *
-        (isFever() ? 2 : 1) *
-        (state.boss ? 1.25 : 1);
-
-      state.combo++;
-      state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-      const gain = Math.round((45 + Math.min(state.combo, 12) * 5) * mult);
-      state.score += gain;
-
-      if(state.boss && !state.bossDefeated){
-        damageBoss(5 + Math.min(10, state.combo));
-      }
-
-      feedback(
-        state.combo >= 5 ? `🔥 Combo ${state.combo}! +${gain}` : `✅ ดีมาก! +${gain}`,
-        state.combo >= 5 ? 'perfect' : 'good'
-      );
-
-      sfx(state.combo >= 5 ? 'perfect' : 'good');
-
-      if(state.combo >= 6 && state.combo % 6 === 0 && now() - state.lastFever > 9000){
-        triggerFever();
-      }
-
-      logLine(`${f.emoji} ${f.name}: เติมถูกจังหวะ`);
-    }
-
-    updateMissionHot();
-    showHint(false);
-    updateAll();
-  }
-
-  function handleJunk(f){
-    if(state.shield > 0){
-      state.shield--;
-      state.score += 12;
-      feedback('🛡️ Shield กันของหลอก!', 'good');
-      sfx('good');
-      logLine('Shield บล็อก junk ได้ 1 ครั้ง');
-      updateAll();
-      return;
-    }
-
-    state.junkHits++;
-    state.misses++;
-    state.combo = 0;
-    state.score = Math.max(0, state.score - 35);
-
-    applyEffects(f.effects, true);
-
-    if(state.boss){
-      state.bossHp = clamp(state.bossHp + 7, 0, 100);
-    }
-
-    feedback(`❌ ${f.name} ทำจานเสียสมดุล`, 'bad');
-    sfx('bad');
-    shakePlate();
-    flash();
-    logLine(`${f.emoji} ${f.name}: ของหลอก!`);
-    showHint(true);
-    updateAll();
-  }
-
-  function applyEffects(effects, add=true){
-    Object.entries(effects || {}).forEach(([g,v]) => {
-      if(!(g in state.fill)) return;
-
-      const delta = Number(v || 0) * (add ? 1 : -1);
-      state.fill[g] = clamp(state.fill[g] + delta, 0, CFG.target + 2.2);
-    });
-  }
-
-  function applyPower(f){
-    if(f.power === 'shield'){
-      state.shield = clamp(state.shield + 1, 0, 2);
-      feedback('🛡️ ได้ Shield!', 'perfect');
-      logLine('ได้ Shield กัน junk');
-    }else if(f.power === 'freeze'){
-      state.freezeUntil = now() + 3000;
-      feedback('❄️ Freeze 3 วิ!', 'perfect');
-      logLine('Freeze: อาหารหยุดเกิดชั่วคราว');
-    }else{
-      showHint(true);
-      state.score += 10;
-      feedback('💡 Smart Hint +10', 'good');
-    }
-
-    sfx('perfect');
-    updateAll();
-  }
-
-  function triggerFever(){
-    state.lastFever = now();
-    state.feverUntil = now() + 7500;
-
-    els.app.classList.add('fever');
-    setTimeout(() => els.app.classList.remove('fever'), 7600);
-
-    showBanner('🔥 FEVER MODE! คะแนน x2');
-    feedback('🔥 Fever Mode!', 'perfect');
-    sfx('fever');
-  }
-
-  function startBoss(){
-    state.boss = true;
-    state.bossHp = Math.min(state.bossHp, 100);
-    state.lastBossAtk = now() + 1500;
-
-    els.bossBox.classList.add('on');
-
-    showBanner('👾 Boss Plate: Greasy Monster!');
-    feedback('บอสมาแล้ว! รักษาจานให้สมดุล', 'bad');
-    sfx('boss');
-    logLine('Boss Phase: ทำ Perfect Pick เพื่อลด HP บอส');
-  }
-
-  function damageBoss(dmg){
-    state.bossHp = clamp(state.bossHp - dmg, 0, 100);
-
-    if(state.bossHp <= 0 && !state.bossDefeated){
-      state.bossDefeated = true;
-      state.score += 220;
-
-      showBanner('🏆 ชนะบอส! +220');
-      feedback('👑 Boss Crusher!', 'perfect');
-      sfx('fever');
-      logLine('ชนะบอส Greasy Monster แล้ว!');
-    }
-  }
-
-  function bossAttack(){
-    if(state.bossDefeated) return;
-
-    state.lastBossAtk = now();
-
-    const atk = pick([
-      {txt:'บอสเทน้ำมัน! ไขมันเพิ่ม', fx:{fat:.8}},
-      {txt:'บอสขโมยผักออกจากจาน!', fx:{veg:-.7}},
-      {txt:'Carbzilla แอบเติมแป้ง!', fx:{carb:.7}},
-      {txt:'Sugar Storm ทำให้คาร์บพุ่ง!', fx:{carb:.6}}
-    ]);
-
-    Object.entries(atk.fx).forEach(([g,v]) => {
-      state.fill[g] = clamp(state.fill[g] + v, 0, CFG.target + 2.2);
-    });
-
-    state.combo = 0;
-
-    feedback('👾 ' + atk.txt, 'bad');
-    shakePlate();
-    flash();
-    sfx('boss');
-    logLine(atk.txt);
-    showHint(true);
-    updateAll();
-  }
-
-  function rescueSkill(){
-    if(!state.running || state.paused || state.ended || state.rescueUsed) return;
-
-    state.rescueUsed = true;
-    els.btnSkill.disabled = true;
-
-    state.freezeUntil = now() + 2500;
-    state.shield = Math.max(state.shield, 1);
-
-    const missing = mostMissingGroup();
-    if(missing){
-      state.fill[missing.id] = Math.min(CFG.target * .7, state.fill[missing.id] + .9);
-    }
-
-    state.score += 30;
-
-    feedback('✨ Rescue! Freeze + Shield + เติมหมู่ที่ขาด', 'perfect');
-    sfx('fever');
-    logLine('ใช้ Rescue Skill แล้ว');
-    updateAll();
-  }
-
-  function balanceScore(){
-    const vals = GROUPS.map(g => {
-      const f = state.fill[g.id];
-
-      if(f <= CFG.target){
-        return (f / CFG.target) * 100;
-      }
-
-      return Math.max(0, 100 - (f - CFG.target) * 32);
-    });
-
-    return Math.round(vals.reduce((a,b)=>a+b,0) / vals.length);
-  }
-
-  function mostMissingGroup(){
-    return GROUPS
-      .map(g => ({...g, need: CFG.target - state.fill[g.id]}))
-      .sort((a,b)=>b.need-a.need)[0];
-  }
-
-  function mostOverGroup(){
-    return GROUPS
-      .map(g => ({...g, over: state.fill[g.id] - CFG.target}))
-      .sort((a,b)=>b.over-a.over)[0];
-  }
-
-  function showHint(force){
-    if(!force && now() - state.lastHintAt < 2400) return;
-
-    state.lastHintAt = now();
-
-    const missing = mostMissingGroup();
-    const over = mostOverGroup();
-
-    let msg = 'เติมหมู่ที่ยังขาดก่อน จะได้คอมโบสูง!';
-
-    if(over && over.over > .35){
-      msg = `⚠️ <b>${over.icon} ${over.label}</b> เริ่มล้นแล้ว หยุดเติมก่อน!`;
-    }else if(missing && missing.need > .65){
-      msg = `รีบเติม <b>${missing.icon} ${missing.label}</b> จานยังขาดอยู่!`;
-    }else if(balanceScore() >= 86){
-      msg = 'เยี่ยม! จานใกล้สมดุลมาก รักษาคอมโบไว้!';
-    }
-
-    if(state.boss && !state.bossDefeated){
-      msg += ' ทำถูกต่อเนื่องเพื่อลดพลังบอส!';
-    }
-
-    els.hintBox.innerHTML = msg;
-  }
-
-  function renderMeters(){
-    els.meters.innerHTML = GROUPS.map(g => `
-      <div class="groupMeter" data-g="${g.id}">
-        <div class="gmTop">
-          <span>${g.icon} ${g.label}</span>
-          <small id="gmv-${g.id}">0/${CFG.target}</small>
-        </div>
-        <div id="bar-${g.id}" class="bar"><i id="bari-${g.id}"></i></div>
-        <div id="need-${g.id}" class="need">ยังขาด</div>
-      </div>
-    `).join('');
-  }
-
-  function updateMeters(){
-    GROUPS.forEach(g => {
-      const v = state.fill[g.id];
-      const pct = clamp((v / CFG.target) * 100, 0, 145);
-
-      const bar = $('bar-' + g.id);
-      const fill = $('bari-' + g.id);
-      const label = $('gmv-' + g.id);
-      const need = $('need-' + g.id);
-
-      fill.style.width = Math.min(pct, 100) + '%';
-      bar.classList.toggle('over', v > CFG.target + .25);
-      bar.classList.toggle('warn', v >= CFG.target * .82 && v <= CFG.target + .25);
-      label.textContent = `${v.toFixed(1)}/${CFG.target}`;
-
-      if(v > CFG.target + .25){
-        need.textContent = 'ล้นแล้ว! อย่าเติมเพิ่ม';
-      }else if(v >= CFG.target * .82){
-        need.textContent = 'พอดีแล้ว';
-      }else{
-        need.textContent = `ยังขาด ${(CFG.target-v).toFixed(1)}`;
-      }
-    });
-  }
-
-  function chooseMissions(){
-    const pool = [
-      {id:'veg', txt:'เก็บผัก 4 ครั้ง', type:'group', group:'veg', target:4},
-      {id:'fruit', txt:'เก็บผลไม้ 3 ครั้ง', type:'group', group:'fruit', target:3},
-      {id:'protein', txt:'เติมโปรตีน 3 ครั้ง', type:'group', group:'protein', target:3},
-      {id:'combo', txt:'ทำคอมโบ 8', type:'combo', target:8},
-      {id:'rainbow', txt:'ครบทั้ง 5 หมู่', type:'rainbow', target:5},
-      {id:'lowjunk', txt:'โดน junk ไม่เกิน 2', type:'endLowJunk', target:2},
-      {id:'balance', txt:'จบด้วยสมดุล 80%+', type:'endBalance', target:80},
-      {id:'boss', txt:'ชนะบอสท้ายเกม', type:'boss'}
-    ];
-
-    const arr = [];
-    while(arr.length < 3 && pool.length){
-      arr.push(pool.splice(Math.floor(rand()*pool.length),1)[0]);
-    }
-    return arr;
-  }
-
-  function missionStatus(m, final=false){
-    if(m.type === 'group'){
-      return {
-        done:(state.groupHits[m.group]||0) >= m.target,
-        val:Math.min(state.groupHits[m.group]||0, m.target),
-        max:m.target
-      };
-    }
-
-    if(m.type === 'combo'){
-      return {
-        done:state.bestCombo >= m.target,
-        val:Math.min(state.bestCombo, m.target),
-        max:m.target
-      };
-    }
-
-    if(m.type === 'rainbow'){
-      const c = GROUPS.filter(g => (state.groupHits[g.id]||0) > 0).length;
-      return {done:c>=5, val:c, max:5};
-    }
-
-    if(m.type === 'endLowJunk'){
-      return {
-        done:final ? state.junkHits <= m.target : state.junkHits <= m.target,
-        val:Math.min(state.junkHits, m.target),
-        max:m.target,
-        inverse:true
-      };
-    }
-
-    if(m.type === 'endBalance'){
-      return {
-        done:final ? balanceScore() >= m.target : balanceScore() >= m.target,
-        val:balanceScore(),
-        max:m.target,
-        pct:true
-      };
-    }
-
-    if(m.type === 'boss'){
-      return {
-        done:state.bossDefeated,
-        val:state.bossDefeated?1:0,
-        max:1
-      };
-    }
-
-    return {done:false,val:0,max:1};
-  }
-
-  function renderMissions(final=false){
-    els.missions.innerHTML = state.missions.map(m => {
-      const st = missionStatus(m, final);
-      const progress = st.pct
-        ? `${st.val}%`
-        : (st.inverse ? `${st.val}/${st.max}` : `${st.val}/${st.max}`);
-
-      return `
-        <span id="mis-${m.id}" class="mission ${st.done?'done':''}">
-          ${st.done?'✅':'🎯'} ${esc(m.txt)} <small>${progress}</small>
-        </span>
-      `;
-    }).join('');
-  }
-
-  function updateMissionHot(){
-    renderMissions(false);
-
-    for(const m of state.missions){
-      const st = missionStatus(m,false);
-      const el = $('mis-' + m.id);
-
-      if(el && !st.done && st.val >= st.max - 1){
-        el.classList.add('hot');
-      }
-    }
-  }
-
-  function updateAll(){
-    const left = Math.ceil(timeLeft());
-
-    els.score.textContent = Math.round(state.score);
-    els.combo.textContent = state.combo;
-    els.balance.textContent = balanceScore() + '%';
-    els.timeText.textContent = left + 's';
-
-    els.timerFill.style.width = clamp((left / state.totalSec) * 100, 0, 100) + '%';
-    els.timerFill.classList.toggle('danger', left <= 15);
-
-    const phaseName = state.boss
-      ? (state.bossDefeated ? 'Boss defeated • รักษาจานให้จบสวย' : 'Boss Plate • ทำถูกเพื่อลด HP')
-      : state.rush
-        ? 'Rush Window • คะแนน x2'
-        : `Wave ${state.wave || 1} • ${DIFF}`;
-
-    els.phaseText.textContent = isFever()
-      ? '🔥 FEVER MODE • คะแนน x2'
-      : phaseName;
-
-    updateMeters();
-    renderPlate();
-    updatePowers();
-    updateBoss();
-    renderMissions(false);
-  }
-
-  function updatePowers(){
-    els.pShield.classList.toggle('on', state.shield > 0);
-    els.pFreeze.classList.toggle('on', isFreeze());
-    els.pFever.classList.toggle('on', isFever());
-
-    els.pShield.innerHTML = `<b>🛡️</b>Shield ${state.shield ? 'x'+state.shield : ''}`;
-  }
-
-  function updateBoss(){
-    els.bossBox.classList.toggle('on', state.boss);
-    els.bossHp.style.width = state.bossHp + '%';
-    els.bossPct.textContent = Math.round(state.bossHp) + '%';
-
-    els.bossMood.textContent = state.bossDefeated
-      ? 'ชนะบอสแล้ว! รักษาจานให้สมดุลจนจบ'
-      : (state.boss ? 'Perfect Pick จะลด HP บอส / junk ทำให้บอสฟื้น' : 'บอสยังไม่มา');
-  }
-
-  function renderPlate(){
-    els.plateFoods.innerHTML = state.plateItems.map(x => `<span>${x}</span>`).join('');
-
-    const b = balanceScore();
-
-    els.plate.classList.toggle('good', b >= 84);
-    els.plateLabel.textContent = b >= 90
-      ? 'Perfect Plate!'
-      : b >= 75
-        ? 'Good Balance'
-        : 'Need Balance';
-  }
-
-  function feedback(txt, kind){
-    const div = document.createElement('div');
-    div.className = 'floatText';
-    div.textContent = txt;
-
-    if(kind === 'good') div.style.background = 'rgba(36,144,80,.82)';
-    if(kind === 'bad') div.style.background = 'rgba(214,55,69,.82)';
-    if(kind === 'perfect') div.style.background = 'rgba(120,80,220,.86)';
-
-    els.arena.appendChild(div);
-    setTimeout(()=>div.remove(), 900);
-  }
-
-  function showBanner(txt){
-    els.phaseBanner.textContent = txt;
-    els.phaseBanner.classList.remove('show');
-    void els.phaseBanner.offsetWidth;
-    els.phaseBanner.classList.add('show');
-  }
-
-  function shakePlate(){
-    els.plate.classList.remove('bad');
-    void els.plate.offsetWidth;
-    els.plate.classList.add('bad');
-  }
-
-  function flash(){
-    els.flash.classList.remove('on');
-    void els.flash.offsetWidth;
-    els.flash.classList.add('on');
-  }
-
-  function logLine(txt){
-    state.logs.unshift(txt);
-    state.logs = state.logs.slice(0, 7);
-    els.log.innerHTML = state.logs.map(x => `<div class="logLine">${esc(x)}</div>`).join('');
-  }
-
-  function endGame(){
-    state.ended = true;
-    state.running = false;
-
-    for(const obj of state.active.values()) obj.el.remove();
-    state.active.clear();
-
-    renderMissions(true);
-
-    const bal = balanceScore();
-    const done = state.missions.filter(m => missionStatus(m,true).done).length;
-    const rank = getRank(bal, done);
-
-    els.rankIcon.textContent = rank.icon;
-    els.summaryTitle.textContent = `${rank.title}`;
-    els.summaryLine.textContent = rank.line;
-
-    els.sumScore.textContent = Math.round(state.score);
-    els.sumBalance.textContent = bal + '%';
-    els.sumCombo.textContent = state.bestCombo;
-    els.sumMission.textContent = `${done}/${state.missions.length}`;
-    els.recommend.innerHTML = buildRecommend(bal);
-
-    els.summaryOverlay.classList.remove('hidden');
-
-    const summary = {
-      projectTag:'HeroHealth',
-      gameId:'plate-solo',
-      version:VERSION,
-      sessionId:state.sessionId,
-      pid:qs('pid','anon'),
-      name:qs('name', qs('nick','Hero')),
-      diff:DIFF,
-      runMode:qs('run','play'),
-      view:qs('view','mobile'),
-      scoreFinal:Math.round(state.score),
-      balancePct:bal,
-      comboMax:state.bestCombo,
-      hits:state.hits,
-      misses:state.misses,
-      junkHits:state.junkHits,
-      overloads:state.overloads,
-      missedGood:state.missedGood,
-      missionsDone:done,
-      missionsTotal:state.missions.length,
-      bossDefeated:state.bossDefeated,
-      durationPlayedSec:Math.round(elapsedSec()),
-      endedAt:new Date().toISOString()
-    };
-
-    try{
-      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-      localStorage.setItem('HHA_LAST_SUMMARY_plate', JSON.stringify(summary));
-    }catch(e){}
-
-    postLog('session_end', summary);
-  }
-
-  function getRank(bal, done){
-    const s = state.score;
-
-    if(bal >= 90 && done >= 3 && state.bossDefeated){
-      return {
-        icon:'👑',
-        title:'SS • Plate Master',
-        line:'สุดยอด! จานสมดุล ชนะบอส และทำภารกิจครบ'
-      };
-    }
-
-    if(bal >= 82 && done >= 2){
-      return {
-        icon:'🏆',
-        title:'S • Balance Hero',
-        line:'ยอดเยี่ยม! จานสมดุลมาก เล่นอีกรอบลุ้น SS ได้เลย'
-      };
-    }
-
-    if(bal >= 70 || s >= 600){
-      return {
-        icon:'⭐',
-        title:'A • Smart Chef',
-        line:'ดีมาก! รอบหน้าเน้นหมู่ที่ยังขาดและอย่าให้ล้น'
-      };
-    }
-
-    if(bal >= 55){
-      return {
-        icon:'🌟',
-        title:'B • Healthy Builder',
-        line:'เริ่มดีแล้ว! ลองดูแถบสมดุลก่อนเลือกอาหาร'
-      };
-    }
-
-    return {
-      icon:'🍽️',
-      title:'C • Plate Starter',
-      line:'ไม่เป็นไร! รอบหน้าลองเติมหมู่ที่ขาดก่อนนะ'
-    };
-  }
-
-  function buildRecommend(bal){
-    const miss = mostMissingGroup();
-    const over = mostOverGroup();
-    const tips = [];
-
-    if(miss && miss.need > .5){
-      tips.push(`• รอบหน้าเติม <b>${miss.icon} ${miss.label}</b> ให้เร็วกว่านี้`);
-    }
-
-    if(over && over.over > .25){
-      tips.push(`• ระวัง <b>${over.icon} ${over.label}</b> ล้น อย่าเลือกซ้ำเมื่อแถบเต็ม`);
-    }
-
-    if(state.junkHits > 2){
-      tips.push('• ลดการเลือก junk เช่น 🍟 🍰 🧃 เพื่อไม่ให้บอสฟื้นพลัง');
-    }
-
-    if(state.bestCombo < 6){
-      tips.push('• พยายามทำคอมโบ 6 เพื่อเข้า Fever Mode');
-    }
-
-    if(!tips.length){
-      tips.push('• เล่นดีมาก! รอบหน้าลองเพิ่มระดับความยากหรือทำ Perfect Plate');
-    }
-
-    return `<b>คำแนะนำสั้น ๆ</b><br>${tips.join('<br>')}`;
-  }
-
-  function goBack(){
-    const hub = qs('hub','') || qs('back','');
-
-    if(hub){
-      location.href = hub;
-      return;
-    }
-
-    const u = new URL(
-      location.pathname.includes('/plate/')
-        ? '../nutrition-zone.html'
-        : './nutrition-zone.html',
-      location.href
-    );
-
-    preserveParams(u, [
-      'pid',
-      'name',
-      'nick',
-      'diff',
-      'time',
-      'view',
-      'run',
-      'seed',
-      'studyId',
-      'section',
-      'session_code'
-    ]);
-
-    location.href = u.toString();
-  }
-
-  function goCooldown(){
-    const gate = new URL(
-      location.pathname.includes('/plate/')
-        ? '../warmup-gate.html'
-        : './warmup-gate.html',
-      location.href
-    );
-
-    preserveParams(gate, [
-      'pid',
-      'name',
-      'nick',
-      'diff',
-      'time',
-      'view',
-      'run',
-      'seed',
-      'studyId',
-      'section',
-      'session_code',
-      'log',
-      'api'
-    ]);
-
-    gate.searchParams.set('phase','cooldown');
-    gate.searchParams.set('zone','nutrition');
-    gate.searchParams.set('game','plate');
-    gate.searchParams.set('mode','solo');
-    gate.searchParams.set('entry','plate-solo');
-
-    gate.searchParams.set(
-      'hub',
-      qs('hub','') || new URL(
-        location.pathname.includes('/plate/')
-          ? '../nutrition-zone.html'
-          : './nutrition-zone.html',
-        location.href
-      ).toString()
-    );
-
-    gate.searchParams.set(
-      'next',
-      qs('hub','') || new URL(
-        location.pathname.includes('/plate/')
-          ? '../nutrition-zone.html'
-          : './nutrition-zone.html',
-        location.href
-      ).toString()
-    );
-
-    location.href = gate.toString();
-  }
-
-  function preserveParams(url, keys){
-    keys.forEach(k => {
-      const v = qs(k,'');
-      if(v) url.searchParams.set(k,v);
-    });
-  }
-
-  function postLog(eventType, extra){
-    const endpoint = qs('log','') || qs('api','');
-    if(!endpoint) return;
-
-    const payload = {
-      table:eventType === 'session_end' ? 'sessions' : 'events',
-      eventType,
-      gameId:'plate-solo',
-      sessionId:state.sessionId,
-      timestampIso:new Date().toISOString(),
-      extra
-    };
-
-    try{
-      const body = JSON.stringify(payload);
-
-      if(navigator.sendBeacon){
-        navigator.sendBeacon(endpoint, new Blob([body], {type:'application/json'}));
-      }else{
-        fetch(endpoint, {
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body,
-          keepalive:true
-        }).catch(()=>{});
-      }
-    }catch(e){}
-  }
-
-  init();
-})();
-</script>
 </body>
 </html>
