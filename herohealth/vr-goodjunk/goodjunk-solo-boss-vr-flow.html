@@ -1,10 +1,12 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.43.7-GOODJUNK-VR-PNG-PATH-FIX -->
+ฃ<!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
+<!-- FULL PATCH v8.43.8-GOODJUNK-VR-PNG-FORCE-LOAD -->
 <!-- Full 3D VR Flow:
      ✅ PNG billboard targets with absolute GitHub Pages path
+     ✅ assetv / v cache bust for PNG images
      ✅ GOOD/JUNK/FAKE/POWER visually clear
      ✅ Easy warmup aiming
      ✅ Aim assist for Cardboard/cVR
+     ✅ Press shoot during intro starts immediately
      ✅ Full 3D flow in one page
 -->
 
@@ -612,13 +614,13 @@
     <a-entity id="fxRoot"></a-entity>
   </a-scene>
 
-  <script src="../vr/vr-ui.js?v=20260505-vr-ui"></script>
+  <script src="../vr/vr-ui.js?v=20260506-vr-ui"></script>
 
   <script>
     (function(){
       'use strict';
 
-      const PATCH = 'v8.43.7-GOODJUNK-VR-PNG-PATH-FIX';
+      const PATCH = 'v8.43.8-GOODJUNK-VR-PNG-FORCE-LOAD';
 
       const WIN = window;
       const DOC = document;
@@ -630,6 +632,7 @@
       };
 
       const ASSET_BASE = '/webxr-health-mobile/herohealth/assets/goodjunk/';
+      const ASSET_VER = q('assetv', q('v', '20260506-png8438'));
 
       const ASSET = {
         broccoli: ASSET_BASE + 'broccoli.png',
@@ -779,6 +782,10 @@
       function now(){ return Date.now(); }
       function isFever(){ return state.feverUntil > now(); }
 
+      function withAssetVersion(url){
+        return String(url || '') + '?v=' + encodeURIComponent(ASSET_VER);
+      }
+
       function toast(t){
         if(!el.toast) return;
         el.toast.textContent = String(t || '');
@@ -865,27 +872,43 @@
 
       function makeBillboardImage(asset, size){
         const img = DOC.createElement('a-plane');
+        const s = Number(size || 1.26);
+        const texUrl = withAssetVersion(asset);
 
-        img.setAttribute('width', String(size || 1.18));
-        img.setAttribute('height', String(size || 1.18));
-        img.setAttribute('position', '0 0.10 0.22');
+        img.setAttribute('width', String(s));
+        img.setAttribute('height', String(s));
+        img.setAttribute('position', '0 0.10 0.34');
+        img.setAttribute('geometry', `primitive: plane; width:${s}; height:${s}`);
 
-        img.setAttribute(
-          'material',
-          [
-            `src: url(${asset})`,
+        img.setAttribute('material', [
+          'shader: flat',
+          'transparent: true',
+          'alphaTest: 0.01',
+          'side: double',
+          'color: #ffffff'
+        ].join('; '));
+
+        const pre = new Image();
+        pre.crossOrigin = 'anonymous';
+
+        pre.onload = function(){
+          img.setAttribute('material', [
+            `src: ${texUrl}`,
             'shader: flat',
             'transparent: true',
-            'alphaTest: 0.02',
+            'alphaTest: 0.01',
             'side: double',
             'color: #ffffff'
-          ].join('; ')
-        );
+          ].join('; '));
 
-        img.setAttribute(
-          'geometry',
-          `primitive: plane; width:${size || 1.18}; height:${size || 1.18}`
-        );
+          console.log('[GoodJunk PNG applied]', texUrl, pre.naturalWidth, pre.naturalHeight);
+        };
+
+        pre.onerror = function(){
+          console.warn('[GoodJunk PNG failed]', texUrl);
+        };
+
+        pre.src = texUrl;
 
         return img;
       }
@@ -1022,7 +1045,7 @@
         wrap.appendChild(makeHalo(theme.halo, isPower ? .82 : .90));
 
         const asset = data.asset || ASSET.apple;
-        wrap.appendChild(makeBillboardImage(asset, isPower ? 1.00 : 1.14));
+        wrap.appendChild(makeBillboardImage(asset, isPower ? 1.08 : 1.26));
 
         if(isGood){
           wrap.appendChild(makeCheckBadge());
@@ -1845,7 +1868,7 @@
             console.warn('[GoodJunk asset MISSING]', ASSET_BASE + name);
           };
 
-          img.src = ASSET_BASE + name + '?v=8437';
+          img.src = ASSET_BASE + name + '?v=' + encodeURIComponent(ASSET_VER);
         });
       }
 
@@ -1878,6 +1901,7 @@
           localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
             patch:PATCH,
             href:location.href,
+            assetv:ASSET_VER,
             savedAt:new Date().toISOString()
           }));
         }catch(e){}
