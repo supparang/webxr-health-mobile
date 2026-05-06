@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505s-BRUSH-KIDS-PATCH30-FINAL-RELEASE-PACK -->
+<!-- FULL PATCH v20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -3616,6 +3616,14 @@ body.p30-cvr-final .p30RecenterBtn{
   .p30Card{box-shadow:none;border:0;width:100%;max-height:none}
 }
 
+  
+/* === PATCH 20260506a: QA modal must not block game unless explicitly opened === */
+body:not(.debug-open-qa) #p24Modal:not(.show),
+body:not(.debug-open-qa) #p30Modal:not(.show),
+body:not(.debug-open-qa) #p20ResearchModal:not(.show){
+  display:none !important;
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -3928,7 +3936,7 @@ body.p30-cvr-final .p30RecenterBtn{
     (function(){
       'use strict';
 
-      const VERSION = '20260505s-BRUSH-KIDS-PATCH30-FINAL-RELEASE-PACK';
+      const VERSION = '20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -7714,7 +7722,7 @@ body.p30-cvr-final .p30RecenterBtn{
 
   const qs = new URLSearchParams(location.search || '');
   const P24 = {
-    version:'20260505r-BRUSH-KIDS-PATCH24-RELEASE-CANDIDATE-QA',
+    version:'20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL',
     startedAt:Date.now(),
     qa:null,
     lastManifest:null,
@@ -7842,7 +7850,7 @@ body.p30-cvr-final .p30RecenterBtn{
     };
 
     setBadge(status, status === 'pass' ? '✅ QA: PASS' : status === 'warn' ? `⚠️ QA: ${warnCount} warn` : `❌ QA: ${failCount} fail`);
-    renderModal('qa');
+    // Patch 20260506a: do NOT auto-open QA modal on page load. Buttons still call renderModal().
     saveP24('qa_run', P24.qa);
     toast(status === 'pass' ? '✅ QA ผ่าน' : status === 'warn' ? '⚠️ QA มี warning ต้องตรวจ' : '❌ QA มีจุดต้องแก้');
     return P24.qa;
@@ -8167,7 +8175,7 @@ body.p30-cvr-final .p30RecenterBtn{
     bind();
     const qa = runQa();
     saveP24('p24_init', { qaStatus:qa.status, recommendedMode:recommendedMode() });
-    setTimeout(() => toast('🚀 Patch 24 Release Candidate พร้อมทดสอบ'), 700);
+    setTimeout(() => toast('✅ QA พร้อมใช้ กดปุ่ม QA เมื่อต้องการตรวจ'), 700);
   }
 
   init();
@@ -8237,7 +8245,7 @@ body.p30-cvr-final .p30RecenterBtn{
 
   const qs = new URLSearchParams(location.search || '');
   const P30 = {
-    version:'20260505s-BRUSH-KIDS-PATCH30-FINAL-RELEASE-PACK',
+    version:'20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL',
     startedAt:Date.now(),
     activeTab:'overview',
     test:null,
@@ -8348,7 +8356,7 @@ body.p30-cvr-final .p30RecenterBtn{
 
     saveEvent('real_test', P30.test);
     renderStatus();
-    renderModal('test');
+    // Patch 20260506a: do NOT auto-open Test modal on page load. Buttons still call renderModal().
     toast(status === 'pass' ? '✅ Real Test PASS' : status === 'warn' ? '⚠️ Real Test มี warning' : '❌ Real Test มี fail');
     return P30.test;
   }
@@ -8803,7 +8811,7 @@ body.p30-cvr-final .p30RecenterBtn{
     setInterval(renderStatus, 5000);
     setInterval(() => saveEvent('p30_heartbeat', currentMetrics()), 15000);
 
-    setTimeout(() => toast('🚀 Patch 30 Final Release Pack พร้อมทดสอบ'), 800);
+    setTimeout(() => toast('🎮 เข้าเกมได้เลย • กด Open/QA เมื่อต้องการตรวจ'), 800);
   }
 
   init();
