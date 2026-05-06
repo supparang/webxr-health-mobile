@@ -1,14 +1,17 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.44.2-GOODJUNK-VR-WAIT-SCENE-SYSTEMS-BEFORE-MATERIAL -->
+<!-- FULL PATCH v8.44.3-GOODJUNK-VR-AIMABLE-LANES-NO-BOUNCE -->
 <!-- Fix:
      ✅ A-Frame 1.4.2
      ✅ No vr-ui.js early injection
      ✅ No a-text in 3D scene
-     ✅ No early material entities in HTML
-     ✅ Bind HTML buttons immediately
-     ✅ Wait for scene.hasLoaded + scene.systems before building world/material/targets
-     ✅ Prevent standard.js/material.js scene.systems null
-     ✅ PNG billboard targets: GOOD/JUNK/FAKE/POWER
+     ✅ Wait for scene.hasLoaded + scene.systems before building material/targets
+     ✅ Warmup/Cooldown targets stay still
+     ✅ Main targets move by clear left/center/right lanes
+     ✅ No vertical bouncing
+     ✅ Larger hitbox + easier aim assist
+     ✅ PC: Space/Enter shoots
+     ✅ Mobile: 🎯 button shoots
+     ✅ VR/Quest/Cardboard: aim center crosshair + shoot
 -->
 
 <!doctype html>
@@ -131,7 +134,7 @@
       top:calc(78px + var(--sat));
       z-index:31;
       transform:translateX(-50%);
-      width:min(620px, calc(100vw - 24px));
+      width:min(680px, calc(100vw - 24px));
       border-radius:999px;
       padding:9px 14px;
       background:rgba(15,23,42,.78);
@@ -150,15 +153,15 @@
       left:50%;
       top:50%;
       z-index:24;
-      width:34px;
-      height:34px;
-      margin-left:-17px;
-      margin-top:-17px;
+      width:42px;
+      height:42px;
+      margin-left:-21px;
+      margin-top:-21px;
       border-radius:999px;
-      border:3px solid rgba(255,255,255,.95);
+      border:4px solid rgba(255,255,255,.96);
       box-shadow:
-        0 0 0 3px rgba(15,23,42,.22),
-        0 0 18px rgba(34,197,94,.35);
+        0 0 0 4px rgba(15,23,42,.24),
+        0 0 22px rgba(34,197,94,.46);
       pointer-events:none;
     }
 
@@ -168,26 +171,26 @@
       position:absolute;
       left:50%;
       top:50%;
-      background:rgba(15,23,42,.50);
+      background:rgba(15,23,42,.55);
       border-radius:999px;
       transform:translate(-50%,-50%);
     }
 
-    .crosshair::before{ width:2px; height:46px; }
-    .crosshair::after{ width:46px; height:2px; }
+    .crosshair::before{ width:3px; height:56px; }
+    .crosshair::after{ width:56px; height:3px; }
 
     .shoot{
       position:fixed;
       right:calc(14px + var(--sar));
       bottom:calc(14px + var(--sab));
       z-index:35;
-      width:76px;
-      height:76px;
+      width:82px;
+      height:82px;
       border:0;
       border-radius:999px;
       background:linear-gradient(180deg,#fff7ed,#facc15);
       color:#172033;
-      font-size:28px;
+      font-size:30px;
       font-weight:1000;
       box-shadow:
         0 16px 34px rgba(15,23,42,.24),
@@ -219,7 +222,7 @@
     .toast{
       position:fixed;
       left:50%;
-      bottom:calc(100px + var(--sab));
+      bottom:calc(106px + var(--sab));
       z-index:36;
       transform:translateX(-50%) translateY(10px) scale(.96);
       width:min(460px, calc(100vw - 24px));
@@ -426,9 +429,9 @@
       .rule span{ margin-top:0; }
 
       .shoot{
-        width:70px;
-        height:70px;
-        font-size:25px;
+        width:74px;
+        height:74px;
+        font-size:27px;
       }
     }
   </style>
@@ -444,11 +447,11 @@
   </section>
 
   <div class="bossBar"><i id="bossHpFill"></i></div>
-  <div class="mission" id="missionText">กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ</div>
+  <div class="mission" id="missionText">เล็งเป้ากลางจอให้ทับอาหาร แล้วกด 🎯 เพื่อยิง</div>
   <div class="crosshair"></div>
 
   <button class="back" id="backBtn" type="button">🎮 โหมดเกม</button>
-  <button class="shoot" id="shootBtn" type="button" aria-label="ยิง">🎯</button>
+  <button class="shoot" id="shootBtn" type="button" aria-label="ยิงจากเป้ากลางจอ">🎯</button>
   <div class="toast" id="toast"></div>
 
   <section class="overlay" id="startOverlay">
@@ -456,7 +459,7 @@
       <div class="icon">🥽🥗👾</div>
       <h1>GoodJunk Full 3D VR Flow</h1>
       <p>
-        กด Enter VR ได้เลย แล้วกด 🎯 เพื่อเริ่มทันที:
+        เล็งเป้ากลางจอให้ทับอาหาร แล้วกด 🎯 เพื่อยิง:
         Warmup → Boss Game → Summary → Cooldown → กลับหน้าโหมดเกม
       </p>
 
@@ -471,7 +474,7 @@
         </div>
         <div class="rule">
           <b>🎯</b>
-          <span>กดปุ่มยิงตอนเริ่มเกมได้เลย</span>
+          <span>PC กด Space / Mobile กดปุ่มยิง</span>
         </div>
       </div>
 
@@ -552,7 +555,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.44.2-GOODJUNK-VR-WAIT-SCENE-SYSTEMS-BEFORE-MATERIAL';
+      const PATCH = 'v8.44.3-GOODJUNK-VR-AIMABLE-LANES-NO-BOUNCE';
 
       const WIN = window;
       const DOC = document;
@@ -569,7 +572,7 @@
       }
 
       const ASSET_BASE = '/webxr-health-mobile/herohealth/assets/goodjunk/';
-      const ASSET_VER = q('assetv', q('v', '20260506-png8442'));
+      const ASSET_VER = q('assetv', q('v', '20260506-png8443'));
 
       const ASSET = {
         broccoli: ASSET_BASE + 'broccoli.png',
@@ -595,10 +598,10 @@
       };
 
       const DIFF = {
-        easy:{ lives:5, bossHp:130, spawnMs:1150, speed:6300, junk:.18, fake:.07, power:.11 },
-        normal:{ lives:4, bossHp:170, spawnMs:980, speed:5600, junk:.28, fake:.13, power:.10 },
-        hard:{ lives:3, bossHp:210, spawnMs:850, speed:5000, junk:.34, fake:.18, power:.09 },
-        challenge:{ lives:3, bossHp:250, spawnMs:720, speed:4400, junk:.40, fake:.22, power:.08 }
+        easy:{ lives:5, bossHp:130, spawnMs:1250, speed:7000, junk:.16, fake:.06, power:.12 },
+        normal:{ lives:4, bossHp:170, spawnMs:1080, speed:6400, junk:.25, fake:.11, power:.11 },
+        hard:{ lives:3, bossHp:210, spawnMs:950, speed:5800, junk:.32, fake:.16, power:.10 },
+        challenge:{ lives:3, bossHp:250, spawnMs:850, speed:5300, junk:.38, fake:.20, power:.09 }
       };
 
       const D = DIFF[cfg.diff] || DIFF.normal;
@@ -626,6 +629,25 @@
         { id:'fever', label:'FEVER', asset:ASSET.fever, color:'#facc15' },
         { id:'heal', label:'HEAL', asset:ASSET.heart, color:'#22c55e' }
       ];
+
+      const LANES = [
+        { x:-2.35, y:1.55, z:-7.2 },
+        { x: 0.00, y:1.70, z:-7.6 },
+        { x: 2.35, y:1.55, z:-7.2 }
+      ];
+
+      let laneCursor = 0;
+
+      function nextLane(){
+        const lane = LANES[laneCursor % LANES.length];
+        laneCursor += 1;
+
+        return {
+          x: lane.x + rand(-0.20, 0.20),
+          y: lane.y + rand(-0.06, 0.06),
+          z: lane.z + rand(-0.30, 0.20)
+        };
+      }
 
       const el = {
         scene:id('scene'),
@@ -916,9 +938,11 @@
         wrap.dataset.consumed = '0';
         wrap.__data = data || {};
 
-        const x = opts.x ?? rand(-3.2,3.2);
-        const y = opts.y ?? rand(1.25,2.35);
-        const z = opts.z ?? rand(-8.5,-5.6);
+        const lane = opts.lane || nextLane();
+
+        const x = opts.x ?? lane.x;
+        const y = opts.y ?? lane.y;
+        const z = opts.z ?? lane.z;
 
         if(el.targetRoot) el.targetRoot.appendChild(wrap);
         wrap.setAttribute('position', `${x} ${y} ${z}`);
@@ -928,16 +952,16 @@
 
       function makeHalo(parent, color, radius){
         return add(parent, 'a-ring', {
-          'radius-inner':String((radius || .88) - .10),
-          'radius-outer':String(radius || .88),
+          'radius-inner':String((radius || .92) - .10),
+          'radius-outer':String(radius || .92),
           position:'0 0.08 0.02',
           color:color || '#22c55e',
-          material:'side:double; opacity:0.94; transparent:true'
+          material:'side:double; opacity:0.96; transparent:true'
         });
       }
 
       function makeBillboardImage(parent, asset, size){
-        const s = Number(size || 1.26);
+        const s = Number(size || 1.36);
         const texUrl = withAssetVersion(asset);
 
         return add(parent, 'a-plane', {
@@ -1007,7 +1031,7 @@
         const isPower = kind === 'power' || kind === 'warm-power';
         const isBreath = kind === 'breath';
 
-        const scale = Number(opts.scale || 1.22);
+        const scale = Number(opts.scale || 1.34);
         wrap.setAttribute('scale', `${scale} ${scale} ${scale}`);
 
         const theme = isGood ? {
@@ -1025,17 +1049,17 @@
         };
 
         add(wrap, 'a-box', {
-          width:'2.35',
-          height:'1.95',
-          depth:'0.42',
+          width:'3.10',
+          height:'2.55',
+          depth:'0.70',
           position:'0 0.08 0.08',
           material:'transparent:true; opacity:0.001'
         });
 
-        makeHalo(wrap, theme.halo, isPower ? .82 : .90);
+        makeHalo(wrap, theme.halo, isPower ? .88 : .98);
 
         const asset = data.asset || ASSET.apple;
-        makeBillboardImage(wrap, asset, isPower ? 1.08 : 1.26);
+        makeBillboardImage(wrap, asset, isPower ? 1.18 : 1.42);
 
         if(isGood){
           makeCheckBadge(wrap);
@@ -1045,22 +1069,22 @@
           makeWarnBadge(wrap);
         }
 
-        const dur = opts.dur || Math.max(3200, D.speed - state.combo * 65);
+        const dur = opts.dur || Math.max(4100, D.speed - state.combo * 30);
         const pos = wrap.getAttribute('position');
 
         if(opts.static){
-          wrap.setAttribute('animation__float', {
-            property:'position',
-            dir:'alternate',
-            loop:true,
-            dur:900,
-            easing:'easeInOutSine',
-            to:`${pos.x} ${pos.y + 0.18} ${pos.z}`
-          });
+          /*
+            Warmup / Cooldown targets stay still.
+            No bouncing, no floating.
+          */
         }else{
+          /*
+            Main game: targets move straight toward player in lanes.
+            No vertical bouncing.
+          */
           wrap.setAttribute('animation__fly', {
             property:'position',
-            to:`${pos.x * 0.22} ${pos.y + rand(-0.16,0.16)} 0.9`,
+            to:`${pos.x * 0.38} ${pos.y} -1.25`,
             dur:dur,
             easing:'linear'
           });
@@ -1070,8 +1094,8 @@
 
         wrap.setAttribute('animation__tilt', {
           property:'rotation',
-          to:`0 ${rand(8,24)} 0`,
-          dur:1200,
+          to:`0 ${rand(-5,5)} 0`,
+          dur:1400,
           dir:'alternate',
           loop:true,
           easing:'easeInOutSine'
@@ -1102,7 +1126,8 @@
           x:0,
           y:1.65,
           z:-2.65,
-          static:true
+          static:true,
+          lane:{ x:0, y:1.65, z:-2.65 }
         });
 
         panel.id = 'vrStartPanel';
@@ -1111,18 +1136,8 @@
         add(panel, 'a-box', { width:'3.95', height:'0.12', depth:'0.12', color:'#22c55e', position:'0 1.08 0.08' });
         add(panel, 'a-box', { width:'3.95', height:'0.12', depth:'0.12', color:'#22c55e', position:'0 -1.08 0.08' });
         add(panel, 'a-box', { width:'2.2', height:'0.62', depth:'0.12', color:'#bbf7d0', position:'0 -0.38 0.16' });
-
         add(panel, 'a-sphere', { radius:'0.20', color:'#22c55e', position:'-1.25 -0.38 0.28' });
         add(panel, 'a-sphere', { radius:'0.20', color:'#22c55e', position:'1.25 -0.38 0.28' });
-
-        panel.setAttribute('animation__float', {
-          property:'position',
-          dir:'alternate',
-          loop:true,
-          dur:900,
-          easing:'easeInOutSine',
-          to:'0 1.78 -2.65'
-        });
 
         panel.addEventListener('click', function(e){
           e.preventDefault();
@@ -1131,7 +1146,7 @@
 
         state.targets.add(panel);
 
-        setMission('กด 🎯 เพื่อเริ่ม หรือเล็งแผ่นสีเขียวกลางฉาก');
+        setMission('เล็งเป้ากลางจอให้ทับแผ่นสีเขียว แล้วกด 🎯 เพื่อเริ่ม');
         toast('กด 🎯 เพื่อเริ่ม Full 3D Flow ได้เลย');
       }
 
@@ -1163,72 +1178,94 @@
         clearTargets();
 
         createTarget('warm-good', GOOD[0], {
-          x:-1.35,
-          y:1.58,
+          x:-1.45,
+          y:1.62,
           z:-3.8,
           static:true,
-          scale:1.34
+          scale:1.48,
+          lane:{ x:-1.45, y:1.62, z:-3.8 }
         });
 
         createTarget('warm-good', GOOD[1], {
-          x:1.35,
-          y:1.58,
+          x:1.45,
+          y:1.62,
           z:-3.8,
           static:true,
-          scale:1.34
+          scale:1.48,
+          lane:{ x:1.45, y:1.62, z:-3.8 }
         });
 
         createTarget('warm-junk', JUNK[0], {
           x:0,
-          y:2.38,
+          y:2.35,
           z:-4.1,
           static:true,
-          scale:1.18
+          scale:1.32,
+          lane:{ x:0, y:2.35, z:-4.1 }
         });
 
         createTarget('warm-power', POWER[0], {
           x:0,
           y:1.62,
-          z:-3.12,
+          z:-3.08,
           static:true,
-          scale:1.20
+          scale:1.34,
+          lane:{ x:0, y:1.62, z:-3.08 }
         });
 
-        setMission('Warmup: ยิง broccoli/apple แล้วค่อยยิง SHIELD');
+        setMission('Warmup: เล็ง broccoli/apple แล้วกด 🎯 จากนั้นยิง SHIELD');
       }
 
       function spawnMain(){
         if(state.stage !== 'main') return;
 
+        const lane = nextLane();
         const r = Math.random();
 
         if(r < D.power){
-          createTarget('power', pick(POWER), { scale:1.16 });
+          createTarget('power', pick(POWER), {
+            lane,
+            scale:1.32,
+            dur:Math.max(4200, D.speed + 800)
+          });
           return;
         }
 
         if(r < D.power + D.fake){
-          createTarget('fake', pick(FAKE), { scale:1.18 });
+          createTarget('fake', pick(FAKE), {
+            lane,
+            scale:1.36,
+            dur:Math.max(4200, D.speed + 500)
+          });
           return;
         }
 
         if(r < D.power + D.fake + D.junk){
-          createTarget('junk', pick(JUNK), { scale:1.20 });
+          createTarget('junk', pick(JUNK), {
+            lane,
+            scale:1.38,
+            dur:Math.max(4100, D.speed + 350)
+          });
           return;
         }
 
-        createTarget('good', pick(GOOD), { scale:1.22 });
+        createTarget('good', pick(GOOD), {
+          lane,
+          scale:1.42,
+          dur:Math.max(4100, D.speed + 350)
+        });
       }
 
       function spawnCooldownSet(){
         clearTargets();
 
         createTarget('breath', { label:'BREATHE', asset:ASSET.water, color:'#bfdbfe' }, {
-          x:-1.35,
+          x:-1.45,
           y:1.62,
           z:-3.8,
           static:true,
-          scale:1.24
+          scale:1.34,
+          lane:{ x:-1.45, y:1.62, z:-3.8 }
         });
 
         createTarget('breath', { label:'WATER', asset:ASSET.water, color:'#60a5fa' }, {
@@ -1236,15 +1273,17 @@
           y:1.75,
           z:-3.7,
           static:true,
-          scale:1.24
+          scale:1.34,
+          lane:{ x:0, y:1.75, z:-3.7 }
         });
 
         createTarget('breath', { label:'GOOD', asset:ASSET.broccoli, color:'#22c55e' }, {
-          x:1.35,
+          x:1.45,
           y:1.62,
           z:-3.8,
           static:true,
-          scale:1.24
+          scale:1.34,
+          lane:{ x:1.45, y:1.62, z:-3.8 }
         });
       }
 
@@ -1259,12 +1298,12 @@
         cam.getWorldDirection(camDir);
 
         let best = null;
-        let bestAngle = Infinity;
+        let bestScore = Infinity;
 
         const maxAngle =
-          state.stage === 'warmup' ? 0.34 :
-          state.stage === 'cooldown' ? 0.34 :
-          0.23;
+          state.stage === 'warmup' ? 0.55 :
+          state.stage === 'cooldown' ? 0.55 :
+          0.38;
 
         state.targets.forEach(t => {
           if(!t || !t.object3D || t.dataset.consumed === '1') return;
@@ -1277,9 +1316,11 @@
 
           const dir = pos.clone().sub(camPos).normalize();
           const angle = camDir.angleTo(dir);
+          const distance = camPos.distanceTo(pos);
+          const score = angle * 10 + distance * 0.03;
 
-          if(angle < bestAngle && angle <= maxAngle){
-            bestAngle = angle;
+          if(angle <= maxAngle && score < bestScore){
+            bestScore = score;
             best = t;
           }
         });
@@ -1302,7 +1343,7 @@
         if(!t){
           if(state.stage === 'main'){
             state.combo = 0;
-            toast('พลาดเป้า! เล็งใหม่');
+            toast('พลาดเป้า! หันเป้ากลางจอให้ทับอาหารก่อนยิง');
           }else if(state.stage === 'warmup'){
             toast('เล็งอาหารดีหรือโล่ใน Warmup');
           }else if(state.stage === 'cooldown'){
@@ -1562,12 +1603,12 @@
 
         clearTargets();
 
-        setMission('Boss: ยิง GOOD ลด HP บอส!');
+        setMission('Boss: เล็งอาหารดีในเลน แล้วกด 🎯 ยิงลด HP บอส!');
         toast('Boss Fight เริ่ม!');
         updateHud();
 
         clearInterval(state.spawnTimer);
-        state.spawnTimer = setInterval(spawnMain, Math.max(430, D.spawnMs));
+        state.spawnTimer = setInterval(spawnMain, Math.max(520, D.spawnMs));
 
         clearInterval(state.clockTimer);
         state.clockTimer = setInterval(() => {
@@ -1664,7 +1705,7 @@
         hide(el.summaryOverlay);
         clearTargets();
 
-        setMission('Cooldown: ยิง BREATHE / WATER / GOOD ให้ครบ 3 ชิ้น');
+        setMission('Cooldown: เล็ง BREATHE / WATER / GOOD แล้วกด 🎯 ให้ครบ 3 ชิ้น');
         spawnCooldownSet();
         updateHud();
         toast('เริ่ม 3D Cooldown');
@@ -1700,7 +1741,7 @@
 
         el.vrHintBtn?.addEventListener('click', function(e){
           e.preventDefault();
-          toast('กด Enter VR แล้วกด 🎯 เพื่อเริ่มได้เลย');
+          toast('หันหัว/เมาส์ให้เป้ากลางจอทับอาหาร แล้วกด 🎯 หรือ Space');
         });
 
         el.shootBtn?.addEventListener('click', function(e){
@@ -1782,11 +1823,6 @@
       function boot(){
         debugAssetLoad();
 
-        /*
-          v8.44.2:
-          bind HTML buttons immediately.
-          Build A-Frame material objects only after scene.systems is ready.
-        */
         bind();
         updateHud();
 
