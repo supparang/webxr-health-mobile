@@ -1,859 +1,1148 @@
 <!-- === /herohealth/goodjunk-launcher.html === -->
-<!-- FULL PATCH v20260503v-GOODJUNK-LAUNCHER-RETURN-NUTRITION-ZONE-LOCKED -->
-<!-- จุดสำคัญ:
-     1) Solo Boss ต้องเข้า warmup-gate.html?phase=warmup ก่อน
-     2) warmup จบแล้วเข้า /vr-goodjunk/goodjunk-solo-boss.html
-     3) เกมจบแล้ว hub ต้องพาไป warmup-gate.html?phase=cooldown
-     4) cooldown จบแล้วกลับ nutrition-zone URL ตัวเต็มที่กำหนด
+<!-- FULL PATCH v20260505-GOODJUNK-LAUNCHER-SOLO-BOSS-3D-VR -->
+<!-- GoodJunk Launcher:
+     ✅ Solo Boss 2D
+     ✅ Solo Boss 3D / Enter VR
+     ✅ Race / Battle / Coop / Duet lobby links
+     ✅ Back main → hub-v2.html
+     ✅ Warmup flow for solo boss modes
+     ✅ Cooldown after game is handled by warmup-gate.html
 -->
 
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>HeroHealth • GoodJunk Launcher</title>
-  <meta name="theme-color" content="#9fe3ff" />
+  <meta name="theme-color" content="#bbf7d0" />
+  <meta name="color-scheme" content="light" />
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./goodjunk-page-base.css" />
 
   <style>
     :root{
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-right:env(safe-area-inset-right,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);
 
-      --bg:#f7fcff;
+      --ink:#183247;
+      --muted:#5f7f91;
       --card:#ffffff;
-      --line:#dbeaf4;
-      --text:#334155;
-      --muted:#6d7d8b;
+      --line:rgba(148,163,184,.28);
 
-      --sky:#7fcfff;
-      --green:#7ed957;
-      --gold:#ffd45f;
-      --pink:#ff9fd0;
-      --violet:#bca7ff;
+      --green:#22c55e;
+      --green2:#16a34a;
+      --blue:#2563eb;
+      --sky:#38bdf8;
+      --gold:#facc15;
+      --orange:#fb923c;
+      --pink:#fb7185;
+      --violet:#a855f7;
+      --bad:#ef4444;
 
-      --shadow:0 18px 42px rgba(0,0,0,.09);
-      --shadow-soft:0 10px 24px rgba(0,0,0,.06);
+      --shadow:0 22px 60px rgba(15,23,42,.16);
     }
 
     *{
       box-sizing:border-box;
-    }
-
-    html,
-    body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 10% 0%, rgba(127,207,255,.24), transparent 24%),
-        radial-gradient(circle at 90% 4%, rgba(255,212,92,.22), transparent 24%),
-        linear-gradient(180deg,#f7fcff,#fffef8);
       -webkit-tap-highlight-color:transparent;
     }
 
+    html,body{
+      margin:0;
+      min-height:100%;
+      color:var(--ink);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:
+        radial-gradient(circle at 10% 0%,rgba(34,197,94,.26),transparent 30%),
+        radial-gradient(circle at 92% 4%,rgba(56,189,248,.24),transparent 28%),
+        radial-gradient(circle at 50% 100%,rgba(250,204,21,.22),transparent 34%),
+        linear-gradient(180deg,#e9fff2 0%,#eff8ff 48%,#fff7dc 100%);
+      overscroll-behavior:none;
+    }
+
     body{
       min-height:100dvh;
     }
 
-    .gj-launcher-wrap{
-      min-height:100dvh;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(14px + var(--sab))
-        calc(14px + var(--sal));
-      display:grid;
-      place-items:center;
-    }
-
-    .gj-launcher-shell{
-      width:min(96vw,1080px);
-      display:grid;
-      gap:14px;
-    }
-
-    .gj-hero{
-      border-radius:28px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#f7fff4);
-      box-shadow:var(--shadow);
-      padding:18px;
-      position:relative;
-      overflow:hidden;
-    }
-
-    .gj-hero::before{
-      content:"";
-      position:absolute;
-      left:-24px;
-      top:-24px;
-      width:110px;
-      height:110px;
-      border-radius:999px;
-      background:rgba(127,207,255,.16);
-      filter:blur(8px);
-    }
-
-    .gj-hero::after{
-      content:"";
-      position:absolute;
-      right:-28px;
-      bottom:-28px;
-      width:120px;
-      height:120px;
-      border-radius:999px;
-      background:rgba(255,212,92,.18);
-      filter:blur(8px);
-    }
-
-    .gj-hero-row{
-      position:relative;
-      z-index:1;
-      display:flex;
-      flex-wrap:wrap;
-      align-items:center;
-      gap:10px;
-    }
-
-    .gj-kicker{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:38px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:#eaf8ff;
-      border:2px solid var(--line);
-      color:#5ea8d0;
-      font-size:13px;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .gj-hero-title{
-      margin:0;
-      font-size:clamp(26px,4vw,38px);
-      line-height:1.04;
-      color:#67a91c;
-      font-weight:1000;
-    }
-
-    .gj-hero-sub{
-      position:relative;
-      z-index:1;
-      margin:8px 0 0;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.7;
-      font-weight:900;
-    }
-
-    .gj-flow-note{
-      position:relative;
-      z-index:1;
-      margin-top:12px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#f0fff4;
-      border:2px solid #d8f5df;
-      color:#467d48;
-      font-size:13px;
-      line-height:1.55;
-      font-weight:900;
-    }
-
-    .gj-config{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .gj-config-card{
-      border-radius:22px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#ffffff);
-      box-shadow:var(--shadow-soft);
-      padding:14px;
-    }
-
-    .gj-field{
-      display:grid;
-      gap:8px;
-    }
-
-    .gj-label{
-      font-size:13px;
-      color:#6f6b63;
-      font-weight:1000;
-    }
-
-    .gj-input,
-    .gj-select{
-      width:100%;
-      min-height:46px;
-      padding:10px 12px;
-      border-radius:16px;
-      border:3px solid var(--line);
-      background:#fff;
-      color:#4d4a42;
-      font-size:15px;
-      font-weight:1000;
-      outline:none;
-    }
-
-    .gj-input:focus,
-    .gj-select:focus{
-      border-color:#8dd5ff;
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-    }
-
-    .gj-mode-grid{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .gj-mode-card{
-      border:none;
-      cursor:pointer;
-      text-align:left;
-      border-radius:24px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#ffffff);
-      box-shadow:var(--shadow-soft);
-      padding:16px 14px;
-      transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease;
-      color:inherit;
+    button,input,select{
       font:inherit;
     }
 
-    .gj-mode-card:hover{
-      transform:translateY(-2px);
-      box-shadow:var(--shadow);
-      border-color:#9ddcff;
+    button{
+      cursor:pointer;
     }
 
-    .gj-mode-card:active{
-      transform:translateY(0);
+    .page{
+      min-height:100dvh;
+      padding:
+        calc(18px + var(--safe-top))
+        calc(16px + var(--safe-right))
+        calc(24px + var(--safe-bottom))
+        calc(16px + var(--safe-left));
     }
 
-    .gj-mode-card.is-primary{
-      border-color:#ffe08a;
-      background:linear-gradient(180deg,#fff9df,#ffffff);
-    }
-
-    .gj-mode-icon{
-      width:64px;
-      height:64px;
-      border-radius:20px;
-      display:grid;
-      place-items:center;
-      font-size:32px;
-      margin-bottom:10px;
-      border:3px solid transparent;
-      background:#fff;
-    }
-
-    .gj-mode-card.solo .gj-mode-icon{
-      background:linear-gradient(180deg,#fff8dc,#fff0b8);
-      border-color:#ffe08a;
-    }
-
-    .gj-mode-card.duet .gj-mode-icon{
-      background:linear-gradient(180deg,#eefbff,#dff6ff);
-      border-color:#bfe8ff;
-    }
-
-    .gj-mode-card.race .gj-mode-icon{
-      background:linear-gradient(180deg,#f4fff1,#e5ffd9);
-      border-color:#c6efb8;
-    }
-
-    .gj-mode-card.battle .gj-mode-icon{
-      background:linear-gradient(180deg,#fff3f3,#ffe0e0);
-      border-color:#ffd0d0;
-    }
-
-    .gj-mode-card.coop .gj-mode-icon{
-      background:linear-gradient(180deg,#f8f2ff,#eee3ff);
-      border-color:#d8c4ff;
-    }
-
-    .gj-mode-title{
-      font-size:20px;
-      line-height:1.08;
-      color:#4d4a42;
-      font-weight:1000;
-    }
-
-    .gj-mode-desc{
-      margin-top:6px;
-      font-size:13px;
-      line-height:1.6;
-      color:#75706b;
-      font-weight:900;
-      min-height:62px;
-    }
-
-    .gj-mode-tag{
-      margin-top:10px;
-      display:inline-flex;
+    .topbar{
+      width:min(1120px,100%);
+      margin:0 auto;
+      display:flex;
       align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:8px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6b675f;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .gj-panel{
-      border-radius:24px;
-      border:3px solid var(--line);
-      background:linear-gradient(180deg,#fffef9,#ffffff);
-      box-shadow:var(--shadow-soft);
-      padding:16px;
-    }
-
-    .gj-panel-title{
-      margin:0 0 8px;
-      font-size:20px;
-      line-height:1.1;
-      color:#67a91c;
-      font-weight:1000;
-    }
-
-    .gj-panel-sub{
-      margin:0;
-      font-size:14px;
-      line-height:1.7;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .gj-launcher-actions{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      justify-content:space-between;
       gap:10px;
     }
 
-    .gj-btn{
-      min-height:52px;
-      border:none;
-      border-radius:18px;
-      padding:0 16px;
-      display:inline-flex;
+    .brand{
+      display:flex;
       align-items:center;
-      justify-content:center;
-      text-decoration:none;
-      color:#17384f;
-      font-size:15px;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow-soft);
-      touch-action:manipulation;
+      gap:10px;
+      min-width:0;
     }
 
-    .gj-btn-primary{
-      background:linear-gradient(180deg,#ffe486,#ffc93c);
-      color:#4a3200;
+    .brandIcon{
+      width:54px;
+      height:54px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:31px;
+      background:linear-gradient(180deg,#dcfce7,#bfdbfe);
+      box-shadow:inset 0 -6px 0 rgba(15,23,42,.08),0 14px 28px rgba(15,23,42,.12);
+      border:2px solid rgba(255,255,255,.9);
+      flex:0 0 auto;
     }
 
-    .gj-btn-success{
-      background:linear-gradient(180deg,#9ff2b0,#68d878);
-      color:#173d1d;
+    .brandText{
+      min-width:0;
     }
 
-    .gj-btn-warn{
-      background:linear-gradient(180deg,#eaf8ff,#cfeeff);
-      color:#24556f;
-    }
-
-    .gj-debug{
-      display:none;
-      border-radius:18px;
-      border:2px dashed #d8e8f3;
-      background:#fbfdff;
-      padding:12px;
-      color:#627486;
-      font-size:12px;
-      line-height:1.45;
-      font-weight:800;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    .gj-debug.show{
+    .brandText b{
       display:block;
+      color:#0f172a;
+      font-size:clamp(19px,4.2vw,30px);
+      line-height:1.05;
+      letter-spacing:-.035em;
     }
 
-    @media (max-width:980px){
-      .gj-config{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+    .brandText span{
+      display:block;
+      margin-top:3px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
 
-      .gj-mode-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
+    .homeBtn{
+      min-height:44px;
+      border:0;
+      border-radius:999px;
+      padding:0 14px;
+      background:rgba(15,23,42,.78);
+      color:#fff;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 12px 28px rgba(15,23,42,.16);
+      backdrop-filter:blur(8px);
+      border:2px solid rgba(255,255,255,.82);
+      flex:0 0 auto;
+    }
 
-      .gj-launcher-actions{
+    .hero{
+      width:min(1120px,100%);
+      margin:18px auto 0;
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:16px;
+      align-items:stretch;
+    }
+
+    .heroCard,
+    .settingCard{
+      border-radius:32px;
+      background:
+        radial-gradient(circle at 16% 8%,rgba(34,197,94,.16),transparent 34%),
+        linear-gradient(180deg,rgba(255,255,255,.96),rgba(248,253,255,.92));
+      border:3px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+
+    .heroCard{
+      padding:22px;
+      min-height:260px;
+    }
+
+    .heroGlow{
+      position:absolute;
+      inset:-40%;
+      background:
+        radial-gradient(circle at 20% 30%,rgba(250,204,21,.24),transparent 22%),
+        radial-gradient(circle at 70% 40%,rgba(34,197,94,.20),transparent 24%),
+        radial-gradient(circle at 42% 76%,rgba(37,99,235,.14),transparent 22%);
+      animation:heroGlow 6s ease-in-out infinite alternate;
+      pointer-events:none;
+    }
+
+    .heroInner{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:1fr 190px;
+      gap:12px;
+      align-items:center;
+      min-height:220px;
+    }
+
+    .heroText h1{
+      margin:0;
+      color:#0f172a;
+      font-size:clamp(34px,8vw,64px);
+      line-height:.95;
+      letter-spacing:-.06em;
+    }
+
+    .heroText p{
+      margin:12px 0 0;
+      max-width:620px;
+      color:#475569;
+      font-size:15px;
+      line-height:1.52;
+      font-weight:850;
+    }
+
+    .heroTags{
+      margin-top:14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+
+    .heroTags span{
+      border-radius:999px;
+      padding:7px 10px;
+      background:rgba(15,23,42,.07);
+      color:#334155;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .heroMascot{
+      width:190px;
+      height:190px;
+      border-radius:42px;
+      display:grid;
+      place-items:center;
+      font-size:86px;
+      background:
+        radial-gradient(circle at 36% 25%,rgba(255,255,255,.9),transparent 30%),
+        linear-gradient(180deg,#bbf7d0,#bfdbfe);
+      box-shadow:inset 0 -12px 0 rgba(15,23,42,.08),0 18px 34px rgba(15,23,42,.13);
+      border:3px solid rgba(255,255,255,.85);
+      animation:mascotFloat 1.4s ease-in-out infinite alternate;
+    }
+
+    .settingCard{
+      padding:18px;
+    }
+
+    .settingCard h2{
+      margin:0;
+      color:#0f172a;
+      font-size:20px;
+      letter-spacing:-.03em;
+    }
+
+    .formGrid{
+      margin-top:12px;
+      display:grid;
+      gap:9px;
+    }
+
+    .field label{
+      display:block;
+      margin:0 0 5px;
+      color:#64748b;
+      font-size:11px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .field input,
+    .field select{
+      width:100%;
+      min-height:44px;
+      border-radius:16px;
+      border:2px solid rgba(191,219,254,.85);
+      background:rgba(255,255,255,.82);
+      color:#0f172a;
+      padding:0 12px;
+      font-size:14px;
+      font-weight:850;
+      outline:none;
+      box-shadow:inset 0 2px 8px rgba(15,23,42,.05);
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:#38bdf8;
+      box-shadow:0 0 0 4px rgba(56,189,248,.16);
+    }
+
+    .quickBtns{
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .quickBtn{
+      min-height:44px;
+      border:0;
+      border-radius:16px;
+      color:#fff;
+      background:linear-gradient(135deg,#22c55e,#2563eb);
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(37,99,235,.18);
+    }
+
+    .quickBtn.secondary{
+      color:#172033;
+      background:#fff;
+      border:2px solid rgba(191,219,254,.9);
+      box-shadow:none;
+    }
+
+    .section{
+      width:min(1120px,100%);
+      margin:18px auto 0;
+    }
+
+    .sectionHead{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:10px;
+    }
+
+    .sectionHead h2{
+      margin:0;
+      color:#0f172a;
+      font-size:clamp(22px,5vw,34px);
+      letter-spacing:-.04em;
+    }
+
+    .sectionHead p{
+      margin:4px 0 0;
+      color:#64748b;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:850;
+    }
+
+    .modeGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .modeCard{
+      position:relative;
+      overflow:hidden;
+      min-height:230px;
+      border-radius:30px;
+      padding:18px;
+      background:rgba(255,255,255,.92);
+      border:3px solid rgba(255,255,255,.96);
+      box-shadow:var(--shadow);
+      color:#172033;
+    }
+
+    .modeCard.feature{
+      grid-column:1 / -1;
+      min-height:250px;
+      background:
+        radial-gradient(circle at 14% 10%,rgba(34,197,94,.28),transparent 34%),
+        radial-gradient(circle at 86% 0%,rgba(59,130,246,.24),transparent 32%),
+        linear-gradient(135deg,rgba(255,255,255,.97),rgba(239,246,255,.94));
+    }
+
+    .modeCard.vr{
+      background:
+        radial-gradient(circle at 18% 12%,rgba(34,197,94,.30),transparent 34%),
+        radial-gradient(circle at 88% 0%,rgba(37,99,235,.26),transparent 32%),
+        radial-gradient(circle at 50% 100%,rgba(250,204,21,.22),transparent 34%),
+        linear-gradient(135deg,rgba(255,255,255,.97),rgba(239,246,255,.94));
+      border-color:rgba(255,255,255,.98);
+    }
+
+    .modeGlow{
+      position:absolute;
+      inset:-46%;
+      background:
+        radial-gradient(circle at 24% 28%,rgba(250,204,21,.20),transparent 20%),
+        radial-gradient(circle at 70% 44%,rgba(34,197,94,.16),transparent 24%);
+      pointer-events:none;
+      animation:modeGlow 6s ease-in-out infinite alternate;
+    }
+
+    .modeInner{
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:82px 1fr;
+      gap:13px;
+      align-items:start;
+    }
+
+    .modeIcon{
+      width:82px;
+      height:82px;
+      border-radius:25px;
+      display:grid;
+      place-items:center;
+      font-size:45px;
+      background:linear-gradient(180deg,#dcfce7,#bfdbfe);
+      border:2px solid rgba(255,255,255,.9);
+      box-shadow:inset 0 -8px 0 rgba(15,23,42,.08),0 14px 26px rgba(15,23,42,.13);
+    }
+
+    .modeText h3{
+      margin:0;
+      color:#0f172a;
+      font-size:clamp(22px,4.8vw,34px);
+      line-height:1.04;
+      letter-spacing:-.04em;
+    }
+
+    .modeText p{
+      margin:7px 0 0;
+      color:#475569;
+      font-size:14px;
+      line-height:1.4;
+      font-weight:850;
+    }
+
+    .modeTags{
+      margin-top:10px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .modeTags span{
+      border-radius:999px;
+      padding:6px 9px;
+      background:rgba(15,23,42,.07);
+      color:#334155;
+      font-size:11px;
+      font-weight:1000;
+    }
+
+    .modeActions{
+      position:relative;
+      z-index:1;
+      margin-top:15px;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .playBtn{
+      min-height:50px;
+      border:0;
+      border-radius:18px;
+      padding:0 13px;
+      color:#fff;
+      background:linear-gradient(135deg,#22c55e,#2563eb);
+      font-size:14px;
+      font-weight:1000;
+      box-shadow:0 14px 28px rgba(37,99,235,.20);
+    }
+
+    .playBtn.secondary{
+      color:#172033;
+      background:rgba(255,255,255,.86);
+      border:2px solid rgba(191,219,254,.95);
+      box-shadow:none;
+    }
+
+    .playBtn.orange{
+      background:linear-gradient(135deg,#fb923c,#ef4444);
+    }
+
+    .playBtn.violet{
+      background:linear-gradient(135deg,#a855f7,#2563eb);
+    }
+
+    .playBtn:active,
+    .homeBtn:active,
+    .quickBtn:active{
+      transform:scale(.97);
+    }
+
+    .note{
+      margin:16px auto 0;
+      width:min(1120px,100%);
+      border-radius:24px;
+      padding:14px 16px;
+      background:rgba(15,23,42,.72);
+      color:#e5e7eb;
+      border:2px solid rgba(255,255,255,.72);
+      font-size:13px;
+      line-height:1.45;
+      font-weight:850;
+      box-shadow:0 14px 32px rgba(15,23,42,.14);
+      backdrop-filter:blur(8px);
+    }
+
+    .note b{
+      color:#fde68a;
+    }
+
+    @keyframes heroGlow{
+      from{ transform:rotate(0deg) scale(1); opacity:.7; }
+      to{ transform:rotate(8deg) scale(1.08); opacity:1; }
+    }
+
+    @keyframes mascotFloat{
+      from{ transform:translateY(0) rotate(-3deg); }
+      to{ transform:translateY(-8px) rotate(3deg); }
+    }
+
+    @keyframes modeGlow{
+      from{ transform:rotate(0deg) scale(1); opacity:.62; }
+      to{ transform:rotate(8deg) scale(1.08); opacity:1; }
+    }
+
+    @media (max-width:860px){
+      .hero{
         grid-template-columns:1fr;
+      }
+
+      .heroInner{
+        grid-template-columns:1fr;
+        text-align:center;
+      }
+
+      .heroMascot{
+        width:130px;
+        height:130px;
+        border-radius:34px;
+        font-size:66px;
+        margin:0 auto;
+        grid-row:1;
+      }
+
+      .heroTags{
+        justify-content:center;
+      }
+
+      .modeGrid{
+        grid-template-columns:1fr;
+      }
+
+      .modeCard.feature{
+        grid-column:auto;
       }
     }
 
-    @media (max-width:640px){
-      .gj-launcher-shell{
-        width:min(96vw,1080px);
+    @media (max-width:560px){
+      .page{
+        padding:
+          calc(12px + var(--safe-top))
+          calc(10px + var(--safe-right))
+          calc(18px + var(--safe-bottom))
+          calc(10px + var(--safe-left));
       }
 
-      .gj-config{
+      .brandIcon{
+        width:46px;
+        height:46px;
+        border-radius:17px;
+        font-size:27px;
+      }
+
+      .brandText span{
+        max-width:190px;
+      }
+
+      .homeBtn{
+        min-height:40px;
+        padding:0 11px;
+        font-size:12px;
+      }
+
+      .heroCard,
+      .settingCard,
+      .modeCard{
+        border-radius:25px;
+      }
+
+      .heroCard{
+        padding:18px;
+      }
+
+      .modeInner{
+        grid-template-columns:64px 1fr;
+        gap:11px;
+      }
+
+      .modeIcon{
+        width:64px;
+        height:64px;
+        border-radius:21px;
+        font-size:38px;
+      }
+
+      .modeActions{
         grid-template-columns:1fr;
       }
 
-      .gj-mode-grid{
+      .quickBtns{
         grid-template-columns:1fr;
-      }
-
-      .gj-mode-desc{
-        min-height:auto;
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="gj-launcher-wrap">
-    <div class="gj-launcher-shell">
-
-      <section class="gj-hero">
-        <div class="gj-hero-row">
-          <div class="gj-kicker">🍎 GOODJUNK</div>
-          <h1 class="gj-hero-title">เลือกโหมดที่อยากเล่น</h1>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandIcon">🥗</div>
+        <div class="brandText">
+          <b>GoodJunk VR</b>
+          <span>เลือกโหมดเกมโภชนาการ</span>
         </div>
+      </div>
 
-        <p class="gj-hero-sub">
-          เลือกชื่อ ระดับ เวลา และมุมมอง แล้วกดโหมดที่ต้องการเล่น
-          โหมดหลายคนจะเน้นเก็บ <b>good / junk</b> ส่วน <b>phase boss</b> ใช้เฉพาะ Solo Boss
-        </p>
+      <button class="homeBtn" id="homeBtn" type="button">🏠 หน้าหลัก</button>
+    </header>
 
-        <div class="gj-flow-note">
-          👑 Solo Boss จะเข้า Warmup ก่อน 1 ครั้งต่อวัน → เข้าเกมบอสจริง → จบแล้วไป Cooldown → กลับ Nutrition Zone
+    <section class="hero">
+      <article class="heroCard">
+        <div class="heroGlow"></div>
+        <div class="heroInner">
+          <div class="heroText">
+            <h1>Good Food vs Junk Boss</h1>
+            <p>
+              เลือกอาหารดี หลบอาหารขยะ ระวัง fake healthy และใช้พลังพิเศษ
+              เพื่อฝึกการตัดสินใจด้านโภชนาการให้สนุก ท้าทาย และเล่นซ้ำได้
+            </p>
+
+            <div class="heroTags">
+              <span>🥦 Good Food</span>
+              <span>🍟 Junk Food</span>
+              <span>🧃 Fake Healthy</span>
+              <span>🛡️ Power-up</span>
+              <span>🥽 Enter VR</span>
+            </div>
+          </div>
+
+          <div class="heroMascot">🥦👾</div>
         </div>
-      </section>
+      </article>
 
-      <section class="gj-config" aria-label="ตั้งค่าการเล่น">
-        <div class="gj-config-card">
-          <label class="gj-field">
-            <span class="gj-label">ชื่อผู้เล่น</span>
-            <input id="fieldName" class="gj-input" type="text" maxlength="40" placeholder="Hero" />
-          </label>
-        </div>
+      <aside class="settingCard">
+        <h2>ตั้งค่าก่อนเล่น</h2>
 
-        <div class="gj-config-card">
-          <label class="gj-field">
-            <span class="gj-label">ระดับ</span>
-            <select id="fieldDiff" class="gj-select">
-              <option value="easy">easy</option>
-              <option value="normal">normal</option>
-              <option value="hard">hard</option>
-              <option value="challenge">challenge</option>
+        <div class="formGrid">
+          <div class="field">
+            <label for="playerName">ชื่อผู้เล่น</label>
+            <input id="playerName" type="text" autocomplete="off" placeholder="Hero" />
+          </div>
+
+          <div class="field">
+            <label for="diffSelect">ระดับความยาก</label>
+            <select id="diffSelect">
+              <option value="easy">easy — ง่าย</option>
+              <option value="normal">normal — ปกติ</option>
+              <option value="hard">hard — ท้าทาย</option>
+              <option value="challenge">challenge — สุดโหด</option>
             </select>
-          </label>
-        </div>
+          </div>
 
-        <div class="gj-config-card">
-          <label class="gj-field">
-            <span class="gj-label">เวลาเล่น</span>
-            <select id="fieldTime" class="gj-select">
-              <option value="60">60 วินาที</option>
+          <div class="field">
+            <label for="timeSelect">เวลาเล่น</label>
+            <select id="timeSelect">
               <option value="90">90 วินาที</option>
               <option value="120">120 วินาที</option>
               <option value="150">150 วินาที</option>
-              <option value="180">180 วินาที</option>
             </select>
-          </label>
+          </div>
+
+          <div class="field">
+            <label for="viewSelect">รูปแบบจอ</label>
+            <select id="viewSelect">
+              <option value="mobile">Mobile</option>
+              <option value="pc">PC</option>
+              <option value="cvr">Cardboard / cVR</option>
+            </select>
+          </div>
         </div>
 
-        <div class="gj-config-card">
-          <label class="gj-field">
-            <span class="gj-label">มุมมอง</span>
-            <select id="fieldView" class="gj-select">
-              <option value="mobile">mobile</option>
-              <option value="pc">pc</option>
-              <option value="cvr">cardboard</option>
-            </select>
-          </label>
+        <div class="quickBtns">
+          <button class="quickBtn" id="saveBtn" type="button">💾 บันทึกค่า</button>
+          <button class="quickBtn secondary" id="resetBtn" type="button">รีเซ็ต</button>
         </div>
-      </section>
+      </aside>
+    </section>
 
-      <section class="gj-panel">
-        <h2 class="gj-panel-title">โหมดการเล่น</h2>
-        <p class="gj-panel-sub">
-          กดการ์ดเพื่อเริ่มเล่น ระบบจะส่งข้อมูล player, difficulty, time, view, seed และ flow ต่อไปอัตโนมัติ
-        </p>
+    <section class="section">
+      <div class="sectionHead">
+        <div>
+          <h2>Solo Boss</h2>
+          <p>โหมดเล่นคนเดียว ใช้ phase boss ได้เต็มที่</p>
+        </div>
+      </div>
 
-        <div class="gj-mode-grid" style="margin-top:12px;">
-          <button class="gj-mode-card solo is-primary" type="button" data-mode="solo-boss">
-            <div class="gj-mode-icon">👑</div>
-            <div class="gj-mode-title">Solo Boss</div>
-            <div class="gj-mode-desc">
-              เล่นเดี่ยว ผ่าน Warmup แล้วสู้ Junk King แบบ Phase Boss
+      <div class="modeGrid" id="soloGrid">
+        <article class="modeCard feature">
+          <div class="modeGlow"></div>
+          <div class="modeInner">
+            <div class="modeIcon">👾</div>
+            <div class="modeText">
+              <h3>Solo Boss 2D</h3>
+              <p>
+                เวอร์ชัน 2D ที่เสถียรแล้ว เก็บอาหารดี หลบ junk/fake healthy
+                ใช้โล่ แม่เหล็ก Fever และ Power Food เพื่อชนะบอส
+              </p>
+              <div class="modeTags">
+                <span>Stable 2D</span>
+                <span>Boss Phase</span>
+                <span>Power-up</span>
+                <span>Mobile Friendly</span>
+              </div>
             </div>
-            <div class="gj-mode-tag">warmup → boss → cooldown</div>
-          </button>
+          </div>
 
-          <button class="gj-mode-card duet" type="button" data-mode="duet">
-            <div class="gj-mode-icon">🤝</div>
-            <div class="gj-mode-title">Duet</div>
-            <div class="gj-mode-desc">เล่นเป็นคู่ เน้นเก็บ good และหลบ junk</div>
-            <div class="gj-mode-tag">2 players</div>
-          </button>
+          <div class="modeActions">
+            <button class="playBtn" id="solo2dWarmupBtn" type="button">▶️ เริ่มผ่าน Warmup</button>
+            <button class="playBtn secondary" id="solo2dDirectBtn" type="button">⚡ ทดสอบตรง</button>
+          </div>
+        </article>
 
-          <button class="gj-mode-card race" type="button" data-mode="race">
-            <div class="gj-mode-icon">🏁</div>
-            <div class="gj-mode-title">Race</div>
-            <div class="gj-mode-desc">แข่งกันเก็บของดีให้ได้มากกว่า</div>
-            <div class="gj-mode-tag">race</div>
-          </button>
+        <article class="modeCard feature vr" id="gjSoloBoss3dLauncherCard">
+          <div class="modeGlow"></div>
+          <div class="modeInner">
+            <div class="modeIcon">🥽</div>
+            <div class="modeText">
+              <h3>Solo Boss 3D / Enter VR</h3>
+              <p>
+                เข้าสู่สนามโภชนาการ 3D ยิงอาหารดีด้วย crosshair เพื่อโจมตีบอส
+                เล่นได้ทั้ง PC, Mobile, Cardboard/cVR และ Enter VR
+              </p>
+              <div class="modeTags">
+                <span>3D Arena</span>
+                <span>Enter VR</span>
+                <span>Crosshair Shoot</span>
+                <span>Boss + Power-up</span>
+              </div>
+            </div>
+          </div>
 
-          <button class="gj-mode-card battle" type="button" data-mode="battle">
-            <div class="gj-mode-icon">⚔️</div>
-            <div class="gj-mode-title">Battle</div>
-            <div class="gj-mode-desc">แข่งคะแนน good / junk แบบตรง ๆ</div>
-            <div class="gj-mode-tag">battle</div>
-          </button>
+          <div class="modeActions">
+            <button class="playBtn violet" id="solo3dWarmupBtn" type="button">🥽 เริ่ม 3D / VR</button>
+            <button class="playBtn secondary" id="solo3dDirectBtn" type="button">⚡ ทดสอบตรง</button>
+          </div>
+        </article>
+      </div>
+    </section>
 
-          <button class="gj-mode-card coop" type="button" data-mode="coop">
-            <div class="gj-mode-icon">🫶</div>
-            <div class="gj-mode-title">Co-op</div>
-            <div class="gj-mode-desc">ช่วยกันเก็บของดี ลดการพลาดของทีม</div>
-            <div class="gj-mode-tag">team play</div>
-          </button>
+    <section class="section">
+      <div class="sectionHead">
+        <div>
+          <h2>Multiplayer Modes</h2>
+          <p>โหมดหลายคนเน้นเก็บอาหารดี vs junk ไม่ใช้ phase boss</p>
         </div>
-      </section>
+      </div>
 
-      <section class="gj-launcher-actions">
-        <a id="btnBackHub" class="gj-btn gj-btn-success" href="./nutrition-zone.html">🥗 กลับ Nutrition</a>
-        <button id="btnSoloQuick" class="gj-btn gj-btn-primary" type="button">👑 เข้า Solo Boss</button>
-        <button id="btnDebug" class="gj-btn gj-btn-warn" type="button">🔎 ดูลิงก์ Flow</button>
-      </section>
+      <div class="modeGrid">
+        <article class="modeCard">
+          <div class="modeInner">
+            <div class="modeIcon">🏁</div>
+            <div class="modeText">
+              <h3>Race</h3>
+              <p>แข่งเก็บอาหารดีให้เร็วและแม่นที่สุด คะแนนรวมจัดอันดับผู้เล่น</p>
+              <div class="modeTags">
+                <span>2–10 players</span>
+                <span>Speed</span>
+                <span>Leaderboard</span>
+              </div>
+            </div>
+          </div>
+          <div class="modeActions">
+            <button class="playBtn orange" data-mode-direct="race" type="button">เข้า Race Lobby</button>
+            <button class="playBtn secondary" data-mode-test="race" type="button">ทดสอบ Race</button>
+          </div>
+        </article>
 
-      <pre id="debugBox" class="gj-debug"></pre>
+        <article class="modeCard">
+          <div class="modeInner">
+            <div class="modeIcon">⚔️</div>
+            <div class="modeText">
+              <h3>Battle</h3>
+              <p>ทำภารกิจเพื่อเปิดการโจมตีคู่แข่ง เน้นเลือกอาหารดีและหลบ junk</p>
+              <div class="modeTags">
+                <span>Attack Skill</span>
+                <span>Mission</span>
+                <span>Good vs Junk</span>
+              </div>
+            </div>
+          </div>
+          <div class="modeActions">
+            <button class="playBtn orange" data-mode-direct="battle" type="button">เข้า Battle Lobby</button>
+            <button class="playBtn secondary" data-mode-test="battle" type="button">ทดสอบ Battle</button>
+          </div>
+        </article>
 
+        <article class="modeCard">
+          <div class="modeInner">
+            <div class="modeIcon">🤝</div>
+            <div class="modeText">
+              <h3>Co-op</h3>
+              <p>ช่วยกันเก็บอาหารดี ทำคะแนนทีม และรักษาความแม่นยำร่วมกัน</p>
+              <div class="modeTags">
+                <span>Team</span>
+                <span>Cooperate</span>
+                <span>Shared Score</span>
+              </div>
+            </div>
+          </div>
+          <div class="modeActions">
+            <button class="playBtn" data-mode-direct="coop" type="button">เข้า Co-op Lobby</button>
+            <button class="playBtn secondary" data-mode-test="coop" type="button">ทดสอบ Co-op</button>
+          </div>
+        </article>
+
+        <article class="modeCard">
+          <div class="modeInner">
+            <div class="modeIcon">👥</div>
+            <div class="modeText">
+              <h3>Duet</h3>
+              <p>เล่นคู่ แบ่งหน้าที่อัตโนมัติ เช่น คนหนึ่งเก็บ good อีกคนกัน junk</p>
+              <div class="modeTags">
+                <span>2 players</span>
+                <span>Auto Roles</span>
+                <span>Pair Mission</span>
+              </div>
+            </div>
+          </div>
+          <div class="modeActions">
+            <button class="playBtn" data-mode-direct="duet" type="button">เข้า Duet Lobby</button>
+            <button class="playBtn secondary" data-mode-test="duet" type="button">ทดสอบ Duet</button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="note">
+      <b>Flow:</b>
+      Solo Boss 2D/3D จะผ่าน Warmup → Main Game → Summary → Cooldown → กลับหน้านี้
+      โดยปุ่มกลับหน้าหลักใช้ <b>hub-v2.html</b> และกลับหน้าโหมดเกมใช้ <b>goodjunk-launcher.html</b>
     </div>
-  </div>
+  </main>
 
   <script>
     (function(){
       'use strict';
 
-      const q = new URLSearchParams(location.search);
-      const STORAGE_KEY = 'HHA_GJ_LAUNCHER_PREFS';
+      const PATCH = 'v20260505-GOODJUNK-LAUNCHER-SOLO-BOSS-3D-VR';
 
-      const CANONICAL_HUB = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+      const ROUTES = {
+        launcher: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
+        hubV2: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html',
+        warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',
 
-      const fieldName = document.getElementById('fieldName');
-      const fieldDiff = document.getElementById('fieldDiff');
-      const fieldTime = document.getElementById('fieldTime');
-      const fieldView = document.getElementById('fieldView');
+        soloBoss2d: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss.html',
+        soloBoss3d: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-solo-boss-vr.html',
 
-      const btnBackHub = document.getElementById('btnBackHub');
-      const btnSoloQuick = document.getElementById('btnSoloQuick');
-      const btnDebug = document.getElementById('btnDebug');
-      const debugBox = document.getElementById('debugBox');
-      const modeCards = Array.from(document.querySelectorAll('.gj-mode-card'));
+        race: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-race-lobby.html',
+        battle: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-battle-lobby.html',
+        coop: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-coop-lobby.html',
+        duet: 'https://supparang.github.io/webxr-health-mobile/herohealth/vr-goodjunk/goodjunk-duet-lobby.html'
+      };
 
-      function first(){
-        for(let i = 0; i < arguments.length; i++){
-          const v = arguments[i];
-          if(String(v || '').trim()) return String(v).trim();
-        }
-        return '';
+      const QS = new URLSearchParams(location.search || '');
+
+      const els = {
+        homeBtn: document.getElementById('homeBtn'),
+        playerName: document.getElementById('playerName'),
+        diffSelect: document.getElementById('diffSelect'),
+        timeSelect: document.getElementById('timeSelect'),
+        viewSelect: document.getElementById('viewSelect'),
+        saveBtn: document.getElementById('saveBtn'),
+        resetBtn: document.getElementById('resetBtn'),
+
+        solo2dWarmupBtn: document.getElementById('solo2dWarmupBtn'),
+        solo2dDirectBtn: document.getElementById('solo2dDirectBtn'),
+        solo3dWarmupBtn: document.getElementById('solo3dWarmupBtn'),
+        solo3dDirectBtn: document.getElementById('solo3dDirectBtn')
+      };
+
+      function q(name, fallback){
+        const v = QS.get(name);
+        return v === null || v === '' ? fallback : v;
       }
 
-      function lower(v){
-        return String(v || '').trim().toLowerCase();
-      }
-
-      function safeJsonParse(text, fallback){
+      function getSaved(){
         try{
-          return JSON.parse(text);
-        }catch(_){
-          return fallback;
+          return JSON.parse(localStorage.getItem('GJ_LAUNCHER_PREFS') || '{}') || {};
+        }catch(e){
+          return {};
         }
       }
 
-      function storageGet(key, fallback){
+      function setSaved(obj){
         try{
-          const raw = localStorage.getItem(key);
-          return raw == null ? fallback : raw;
-        }catch(_){
-          return fallback;
-        }
+          localStorage.setItem('GJ_LAUNCHER_PREFS', JSON.stringify(obj || {}));
+        }catch(e){}
       }
 
-      function storageSet(key, value){
-        try{
-          localStorage.setItem(key, value);
-        }catch(_){}
+      function defaultView(){
+        const w = window.innerWidth || 390;
+        const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        return coarse || w <= 720 ? 'mobile' : 'pc';
       }
 
-      function getPid(){
-        return first(q.get('pid'), 'anon');
+      function initForm(){
+        const saved = getSaved();
+
+        const name = q('name', q('nick', saved.name || 'Hero'));
+        const diff = q('diff', saved.diff || 'normal');
+        const time = q('time', saved.time || '120');
+        const view = q('view', saved.view || defaultView());
+
+        if(els.playerName) els.playerName.value = name;
+        if(els.diffSelect) els.diffSelect.value = ['easy','normal','hard','challenge'].includes(diff) ? diff : 'normal';
+        if(els.timeSelect) els.timeSelect.value = ['90','120','150'].includes(String(time)) ? String(time) : '120';
+        if(els.viewSelect) els.viewSelect.value = ['pc','mobile','cvr'].includes(view) ? view : defaultView();
       }
 
-      function getSavedPrefs(){
-        const raw = storageGet(STORAGE_KEY, '');
-        const data = safeJsonParse(raw, null);
-        return data && typeof data === 'object' ? data : {};
-      }
-
-      function setSelectValue(select, value, fallback){
-        const wanted = first(value, fallback);
-        const ok = Array.from(select.options).some(opt => opt.value === wanted);
-        select.value = ok ? wanted : fallback;
+      function prefs(){
+        return {
+          pid: q('pid', 'anon'),
+          name: (els.playerName && els.playerName.value.trim()) || q('name', q('nick', 'Hero')),
+          diff: (els.diffSelect && els.diffSelect.value) || q('diff', 'normal'),
+          time: (els.timeSelect && els.timeSelect.value) || q('time', '120'),
+          view: (els.viewSelect && els.viewSelect.value) || q('view', defaultView())
+        };
       }
 
       function savePrefs(){
-        storageSet(STORAGE_KEY, JSON.stringify({
-          name: fieldName.value.trim() || 'Hero',
-          diff: fieldDiff.value || 'normal',
-          time: fieldTime.value || '120',
-          view: fieldView.value || 'mobile'
-        }));
+        const p = prefs();
+        setSaved(p);
+
+        try{
+          localStorage.setItem('GJ_LAUNCHER_PATCH_LAST', JSON.stringify({
+            patch:PATCH,
+            prefs:p,
+            savedAt:new Date().toISOString()
+          }));
+        }catch(e){}
+
+        flashButton(els.saveBtn, '✅ บันทึกแล้ว');
       }
 
-      function loadPrefs(){
-        const saved = getSavedPrefs();
-
-        fieldName.value = first(q.get('name'), saved.name, 'Hero');
-        setSelectValue(fieldDiff, first(q.get('diff'), saved.diff), 'normal');
-        setSelectValue(fieldTime, first(q.get('time'), saved.time), '120');
-        setSelectValue(fieldView, first(q.get('view'), saved.view), 'mobile');
+      function flashButton(btn, text){
+        if(!btn) return;
+        const old = btn.textContent;
+        btn.textContent = text;
+        setTimeout(() => {
+          btn.textContent = old;
+        }, 950);
       }
 
-      function getNutritionZoneHref(){
-        const u = new URL('./nutrition-zone.html', location.href);
-
-        const pid = first(q.get('pid'), getPid(), 'anon');
-        const diff = fieldDiff.value || first(q.get('diff'), 'normal');
-        const time = fieldTime.value || first(q.get('time'), '120');
-        const view = fieldView.value || first(q.get('view'), 'mobile');
-
-        u.searchParams.set('pid', pid);
-        u.searchParams.set('diff', diff);
-        u.searchParams.set('time', time);
-        u.searchParams.set('view', view);
-        u.searchParams.set('hub', CANONICAL_HUB);
-
-        return u.toString();
+      function resetPrefs(){
+        try{
+          localStorage.removeItem('GJ_LAUNCHER_PREFS');
+        }catch(e){}
+        if(els.playerName) els.playerName.value = 'Hero';
+        if(els.diffSelect) els.diffSelect.value = 'normal';
+        if(els.timeSelect) els.timeSelect.value = '120';
+        if(els.viewSelect) els.viewSelect.value = defaultView();
+        flashButton(els.resetBtn, 'รีเซ็ตแล้ว');
       }
 
-      function commonParams(){
-        return {
-          pid: getPid(),
-          name: fieldName.value.trim() || 'Hero',
-          nick: fieldName.value.trim() || 'Hero',
-          diff: fieldDiff.value || 'normal',
-          time: fieldTime.value || '120',
-          view: fieldView.value || 'mobile',
-          run: first(q.get('run'), 'play'),
-          zone: 'nutrition',
-          cat: 'nutrition',
-          game: 'goodjunk',
-          gameId: 'goodjunk',
-          seed: first(q.get('seed'), String(Date.now())),
-          studyId: first(q.get('studyId'), ''),
-          section: first(q.get('section'), ''),
-          session_code: first(q.get('session_code'), ''),
-          api: first(q.get('api'), ''),
-          log: first(q.get('log'), '')
-        };
+      function baseParams(mode){
+        const p = prefs();
+        const out = new URLSearchParams();
+
+        out.set('pid', p.pid || 'anon');
+        out.set('name', p.name || 'Hero');
+        out.set('diff', p.diff || 'normal');
+        out.set('time', p.time || '120');
+        out.set('view', p.view || defaultView());
+
+        out.set('run', 'play');
+        out.set('zone', 'nutrition');
+        out.set('cat', 'nutrition');
+        out.set('game', 'goodjunk');
+        out.set('gameId', 'goodjunk');
+        out.set('mode', mode);
+        out.set('entry', mode);
+        out.set('theme', 'goodjunk');
+
+        out.set('hub', ROUTES.hubV2);
+        out.set('back', ROUTES.launcher);
+        out.set('return', ROUTES.launcher);
+
+        const api = q('api', '');
+        const studyId = q('studyId', '');
+        const log = q('log', '');
+
+        if(api) out.set('api', api);
+        if(studyId) out.set('studyId', studyId);
+        if(log) out.set('log', log);
+
+        return out;
       }
 
-      function applyParams(url, params){
-        Object.entries(params).forEach(([k, v]) => {
-          if(v !== '' && v != null){
-            url.searchParams.set(k, String(v));
-          }
-        });
+      function buildSoloMainUrl(kind){
+        const mode = kind === '3d' ? 'solo_boss_vr' : 'solo_boss';
+        const p = baseParams(mode);
 
-        return url;
+        p.set('phase', 'main');
+
+        return (kind === '3d' ? ROUTES.soloBoss3d : ROUTES.soloBoss2d) + '?' + p.toString();
       }
 
-      function buildCooldownGateUrl(){
-        const p = commonParams();
-        const nutrition = getNutritionZoneHref();
-        const u = new URL('./warmup-gate.html', location.href);
+      function buildWarmupUrl(kind){
+        const mode = kind === '3d' ? 'solo_boss_vr' : 'solo_boss';
+        const mainUrl = buildSoloMainUrl(kind);
 
-        applyParams(u, {
-          ...p,
-          phase: 'cooldown',
-          mode: 'solo-boss',
-          entry: 'solo-boss',
-          phaseBoss: '1',
-          multiplayer: '0',
+        const p0 = prefs();
+        const p = new URLSearchParams();
 
-          // cooldown จบแล้วกลับ nutrition-zone URL ตัวเต็ม
-          next: nutrition,
-          hub: nutrition
-        });
+        p.set('zone', 'nutrition');
+        p.set('cat', 'nutrition');
+        p.set('gameId', 'goodjunk');
+        p.set('game', 'goodjunk');
+        p.set('mode', mode);
+        p.set('phase', 'warmup');
 
-        return u.toString();
+        p.set('pid', p0.pid || 'anon');
+        p.set('name', p0.name || 'Hero');
+        p.set('diff', p0.diff || 'normal');
+        p.set('time', p0.time || '120');
+        p.set('view', p0.view || defaultView());
+
+        p.set('hub', ROUTES.hubV2);
+        p.set('next', mainUrl);
+        p.set('back', ROUTES.launcher);
+        p.set('return', ROUTES.launcher);
+        p.set('reason', kind === '3d' ? 'goodjunk-launcher-solo-boss-3d' : 'goodjunk-launcher-solo-boss-2d');
+
+        const api = q('api', '');
+        const studyId = q('studyId', '');
+        const log = q('log', '');
+
+        if(api) p.set('api', api);
+        if(studyId) p.set('studyId', studyId);
+        if(log) p.set('log', log);
+
+        return ROUTES.warmupGate + '?' + p.toString();
       }
 
-      function buildSoloBossRunUrl(){
-        const p = commonParams();
-        const u = new URL('./vr-goodjunk/goodjunk-solo-boss.html', location.href);
+      function buildModeUrl(mode, test){
+        const p = baseParams(mode);
 
-        applyParams(u, {
-          ...p,
-          mode: 'solo-boss',
-          entry: 'solo-boss',
-          phaseBoss: '1',
-          multiplayer: '0',
-
-          // เกมจบแล้วไป cooldown gate
-          hub: buildCooldownGateUrl()
-        });
-
-        return u.toString();
-      }
-
-      function buildWarmupGateUrl(){
-        const p = commonParams();
-        const nutrition = getNutritionZoneHref();
-        const u = new URL('./warmup-gate.html', location.href);
-
-        applyParams(u, {
-          ...p,
-          phase: 'warmup',
-          mode: 'solo-boss',
-          entry: 'solo-boss',
-          phaseBoss: '1',
-          multiplayer: '0',
-
-          // warmup จบแล้วเข้าเกมจริง
-          next: buildSoloBossRunUrl(),
-
-          // ปุ่มกลับใน warmup กลับ nutrition-zone URL ตัวเต็ม
-          hub: nutrition
-        });
-
-        return u.toString();
-      }
-
-      function buildMultiplayerHref(mode){
-        const p = commonParams();
-
-        const map = {
-          duet: './vr-goodjunk/goodjunk-duet-lobby.html',
-          race: './vr-goodjunk/goodjunk-race-lobby.html',
-          battle: './vr-goodjunk/goodjunk-battle-lobby.html',
-          coop: './vr-goodjunk/goodjunk-coop-lobby.html'
-        };
-
-        const href = map[mode] || './goodjunk-vr.html';
-        const u = new URL(href, location.href);
-
-        applyParams(u, {
-          ...p,
-          mode,
-          entry: mode,
-          recommendedMode: mode,
-          theme: 'goodjunk',
-          multiplayer: '1',
-          nick: p.nick,
-
-          // โหมดหลายคนกลับ nutrition-zone URL ตัวเต็ม
-          hub: getNutritionZoneHref()
-        });
-
-        return u.toString();
-      }
-
-      function buildModeHref(mode){
-        mode = lower(mode);
-
-        if(mode === 'solo-boss'){
-          return buildWarmupGateUrl();
+        if(test){
+          p.set('test', '1');
+          p.set('room', 'TEST');
+          p.set('roomCode', 'TEST');
         }
 
-        return buildMultiplayerHref(mode);
+        p.set('multiplayer', '1');
+        p.set('recommendedMode', mode);
+
+        const route = ROUTES[mode] || ROUTES.launcher;
+        return route + '?' + p.toString();
       }
 
-      function goMode(mode){
+      function go(url){
         savePrefs();
-        location.href = buildModeHref(mode);
+        location.href = url;
       }
 
-      function showDebug(){
-        const data = {
-          patch: 'v20260503v-GOODJUNK-LAUNCHER-RETURN-NUTRITION-ZONE-LOCKED',
-          nutritionZone: getNutritionZoneHref(),
-          warmupGate: buildWarmupGateUrl(),
-          gameRun: buildSoloBossRunUrl(),
-          cooldownGate: buildCooldownGateUrl()
+      function bind(){
+        els.homeBtn?.addEventListener('click', function(){
+          location.href = ROUTES.hubV2;
+        });
+
+        els.saveBtn?.addEventListener('click', savePrefs);
+        els.resetBtn?.addEventListener('click', resetPrefs);
+
+        els.solo2dWarmupBtn?.addEventListener('click', function(){
+          go(buildWarmupUrl('2d'));
+        });
+
+        els.solo2dDirectBtn?.addEventListener('click', function(){
+          go(buildSoloMainUrl('2d'));
+        });
+
+        els.solo3dWarmupBtn?.addEventListener('click', function(){
+          go(buildWarmupUrl('3d'));
+        });
+
+        els.solo3dDirectBtn?.addEventListener('click', function(){
+          go(buildSoloMainUrl('3d'));
+        });
+
+        document.querySelectorAll('[data-mode-direct]').forEach(btn => {
+          btn.addEventListener('click', function(){
+            const mode = btn.getAttribute('data-mode-direct');
+            go(buildModeUrl(mode, false));
+          });
+        });
+
+        document.querySelectorAll('[data-mode-test]').forEach(btn => {
+          btn.addEventListener('click', function(){
+            const mode = btn.getAttribute('data-mode-test');
+            go(buildModeUrl(mode, true));
+          });
+        });
+      }
+
+      function expose(){
+        window.GoodJunkLauncher = {
+          version: PATCH,
+          routes: ROUTES,
+          prefs,
+          buildSoloMainUrl,
+          buildWarmupUrl,
+          buildModeUrl
         };
 
-        debugBox.classList.toggle('show');
-        debugBox.textContent = JSON.stringify(data, null, 2);
+        window.GJL = window.GoodJunkLauncher;
       }
 
-      loadPrefs();
+      function boot(){
+        initForm();
+        bind();
+        expose();
 
-      btnBackHub.href = getNutritionZoneHref();
+        try{
+          localStorage.setItem('GJ_LAUNCHER_BOOT_LAST', JSON.stringify({
+            patch:PATCH,
+            href:location.href,
+            savedAt:new Date().toISOString()
+          }));
+        }catch(e){}
+      }
 
-      [fieldName, fieldDiff, fieldTime, fieldView].forEach(el => {
-        el.addEventListener('input', () => {
-          savePrefs();
-          btnBackHub.href = getNutritionZoneHref();
-        });
-
-        el.addEventListener('change', () => {
-          savePrefs();
-          btnBackHub.href = getNutritionZoneHref();
-        });
-      });
-
-      modeCards.forEach(card => {
-        card.addEventListener('click', function(){
-          const mode = lower(card.dataset.mode);
-          goMode(mode);
-        });
-      });
-
-      btnSoloQuick.addEventListener('click', function(){
-        goMode('solo-boss');
-      });
-
-      btnDebug.addEventListener('click', showDebug);
-
-      window.GoodJunkLauncher = {
-        buildWarmupGateUrl,
-        buildSoloBossRunUrl,
-        buildCooldownGateUrl,
-        buildModeHref,
-        getNutritionZoneHref,
-
-        debug(){
-          return {
-            nutritionZone: getNutritionZoneHref(),
-            warmupGate: buildWarmupGateUrl(),
-            gameRun: buildSoloBossRunUrl(),
-            cooldownGate: buildCooldownGateUrl()
-          };
-        }
-      };
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', boot);
+      }else{
+        boot();
+      }
     })();
   </script>
 </body>
