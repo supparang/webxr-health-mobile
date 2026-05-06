@@ -1,12 +1,13 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.44.1-GOODJUNK-VR-START-BUTTON-BIND-FIRST -->
+<!-- FULL PATCH v8.44.2-GOODJUNK-VR-WAIT-SCENE-SYSTEMS-BEFORE-MATERIAL -->
 <!-- Fix:
      ✅ A-Frame 1.4.2
      ✅ No vr-ui.js early injection
      ✅ No a-text in 3D scene
      ✅ No early material entities in HTML
-     ✅ Bind HTML buttons immediately before waiting for A-Frame scene
-     ✅ Start button can proceed even if scene loaded/renderstart is delayed
+     ✅ Bind HTML buttons immediately
+     ✅ Wait for scene.hasLoaded + scene.systems before building world/material/targets
+     ✅ Prevent standard.js/material.js scene.systems null
      ✅ PNG billboard targets: GOOD/JUNK/FAKE/POWER
 -->
 
@@ -551,7 +552,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.44.1-GOODJUNK-VR-START-BUTTON-BIND-FIRST';
+      const PATCH = 'v8.44.2-GOODJUNK-VR-WAIT-SCENE-SYSTEMS-BEFORE-MATERIAL';
 
       const WIN = window;
       const DOC = document;
@@ -568,7 +569,7 @@
       }
 
       const ASSET_BASE = '/webxr-health-mobile/herohealth/assets/goodjunk/';
-      const ASSET_VER = q('assetv', q('v', '20260506-png8441'));
+      const ASSET_VER = q('assetv', q('v', '20260506-png8442'));
 
       const ASSET = {
         broccoli: ASSET_BASE + 'broccoli.png',
@@ -701,7 +702,8 @@
         clockTimer:0,
         startAt:0,
         bound:false,
-        worldBuilt:false
+        worldBuilt:false,
+        waitingScene:false
       };
 
       function id(x){ return DOC.getElementById(x); }
@@ -710,6 +712,77 @@
       function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
       function now(){ return Date.now(); }
       function isFever(){ return state.feverUntil > now(); }
+
+      function sceneSystemsReady(){
+        return !!(
+          el.scene &&
+          el.scene.hasLoaded &&
+          el.scene.systems &&
+          el.scene.object3D &&
+          typeof AFRAME !== 'undefined'
+        );
+      }
+
+      function waitSceneSystemsReady(cb){
+        if(sceneSystemsReady()){
+          cb();
+          return;
+        }
+
+        if(state.waitingScene) return;
+        state.waitingScene = true;
+
+        setMission('กำลังเตรียมฉาก VR... รอสักครู่');
+        toast('กำลังเตรียมฉาก VR...');
+
+        if(el.startBtn){
+          el.startBtn.disabled = true;
+          el.startBtn.textContent = 'กำลังเตรียมฉาก VR...';
+        }
+
+        let tries = 0;
+        const maxTries = 80;
+
+        const tick = function(){
+          tries += 1;
+
+          if(sceneSystemsReady()){
+            state.waitingScene = false;
+
+            if(el.startBtn){
+              el.startBtn.disabled = false;
+              el.startBtn.textContent = 'เริ่ม Full 3D Flow';
+            }
+
+            cb();
+            return;
+          }
+
+          if(tries >= maxTries){
+            state.waitingScene = false;
+
+            if(el.startBtn){
+              el.startBtn.disabled = false;
+              el.startBtn.textContent = 'เริ่ม Full 3D Flow';
+            }
+
+            console.warn('[GoodJunk VR] scene systems not ready after wait');
+            toast('ฉาก VR ยังไม่พร้อม ลอง reload อีกครั้ง');
+            setMission('ฉาก VR ยังไม่พร้อม ลอง reload อีกครั้ง');
+            show(el.startOverlay);
+            return;
+          }
+
+          setTimeout(tick, 100);
+        };
+
+        if(el.scene){
+          el.scene.addEventListener('loaded', tick, { once:true });
+          el.scene.addEventListener('renderstart', tick, { once:true });
+        }
+
+        setTimeout(tick, 100);
+      }
 
       function withAssetVersion(url){
         return String(url || '') + '?v=' + encodeURIComponent(ASSET_VER);
@@ -776,7 +849,10 @@
 
       function buildWorld(){
         if(state.worldBuilt) return;
-        state.worldBuilt = true;
+        if(!sceneSystemsReady()){
+          console.warn('[GoodJunk VR] blocked buildWorld before scene.systems ready');
+          return;
+        }
 
         add(el.scene, 'a-entity', {
           light:'type:hemisphere; intensity:1.15; color:#ffffff; groundColor:#bbf7d0'
@@ -810,6 +886,8 @@
 
         buildBoss();
         makeDecor();
+
+        state.worldBuilt = true;
       }
 
       function buildBoss(){
@@ -903,18 +981,25 @@
       }
 
       function createTarget(kind, data, opts){
+        if(!sceneSystemsReady()){
+          console.warn('[GoodJunk VR] blocked createTarget before scene.systems ready:', kind);
+          return null;
+        }
+
         try{
           if(!state.worldBuilt){
             buildWorld();
           }
         }catch(err){
           console.warn('[GoodJunk VR] buildWorld before createTarget failed', err);
+          return null;
         }
 
         opts = opts || {};
         data = data || {};
 
         const wrap = makeTargetEntity(kind, data, opts);
+        if(!wrap) return null;
 
         const isGood = kind === 'good' || kind === 'warm-good';
         const isJunk = kind === 'junk' || kind === 'warm-junk';
@@ -1002,6 +1087,11 @@
       }
 
       function createVrStartPanel(){
+        if(!sceneSystemsReady()){
+          console.warn('[GoodJunk VR] blocked createVrStartPanel before scene.systems ready');
+          return;
+        }
+
         const old = id('vrStartPanel');
         if(old){
           try{ old.remove(); }catch(e){}
@@ -1046,26 +1136,27 @@
       }
 
       function startWarmupFromVr(){
-        /*
-          v8.44.1 FIX:
-          ปุ่ม Start ต้องไปต่อได้ทันที แม้ A-Frame scene ยังไม่ fired loaded/renderstart
-        */
-        try{
-          if(!state.worldBuilt){
-            buildWorld();
+        waitSceneSystemsReady(function(){
+          try{
+            if(!state.worldBuilt){
+              buildWorld();
+            }
+          }catch(err){
+            console.warn('[GoodJunk VR] buildWorld before warmup failed', err);
+            toast('โหลดฉากไม่สำเร็จ ลอง reload');
+            show(el.startOverlay);
+            return;
           }
-        }catch(err){
-          console.warn('[GoodJunk VR] buildWorld fallback before warmup', err);
-        }
 
-        const panel = id('vrStartPanel');
-        if(panel){
-          try{ panel.remove(); }catch(e){}
-          state.targets.delete(panel);
-        }
+          const panel = id('vrStartPanel');
+          if(panel){
+            try{ panel.remove(); }catch(e){}
+            state.targets.delete(panel);
+          }
 
-        hide(el.startOverlay);
-        startWarmup();
+          hide(el.startOverlay);
+          startWarmup();
+        });
       }
 
       function spawnWarmupSet(){
@@ -1371,6 +1462,8 @@
       }
 
       function popFx(wrap, kind, data){
+        if(!wrap || !wrap.object3D || !sceneSystemsReady()) return;
+
         const pos = wrap.object3D.position.clone();
 
         const fx = add(el.fxRoot, 'a-sphere', {
@@ -1380,6 +1473,8 @@
                 '#ef4444',
           position:`${pos.x} ${pos.y + 0.32} ${pos.z}`
         });
+
+        if(!fx) return;
 
         fx.setAttribute('animation__rise', {
           property:'position',
@@ -1401,7 +1496,7 @@
       }
 
       function bossHitFx(){
-        if(!el.bossRoot) return;
+        if(!el.bossRoot || !sceneSystemsReady()) return;
 
         el.bossRoot.setAttribute('animation__hit', {
           property:'scale',
@@ -1419,6 +1514,8 @@
           position:'0 1.65 -4',
           rotation:'90 0 0'
         });
+
+        if(!beam) return;
 
         beam.setAttribute('animation__fade', {
           property:'scale',
@@ -1635,6 +1732,8 @@
       }
 
       function makeDecor(){
+        if(!sceneSystemsReady()) return;
+
         for(let i=0;i<20;i++){
           const dot = DOC.createElement('a-sphere');
           const a = Math.PI * 2 * i / 20;
@@ -1684,14 +1783,17 @@
         debugAssetLoad();
 
         /*
-          v8.44.1:
-          bind HTML buttons ทันที ไม่ต้องรอ A-Frame scene ready
+          v8.44.2:
+          bind HTML buttons immediately.
+          Build A-Frame material objects only after scene.systems is ready.
         */
         bind();
         updateHud();
 
         WIN.GoodJunkFull3DVRFlow = {
           version:PATCH,
+          sceneSystemsReady,
+          waitSceneSystemsReady,
           startWarmup,
           startWarmupFromVr,
           startMain,
@@ -1705,6 +1807,12 @@
 
         function startAfterSceneReady(){
           if(startAfterSceneReady.done) return;
+
+          if(!sceneSystemsReady()){
+            setTimeout(startAfterSceneReady, 100);
+            return;
+          }
+
           startAfterSceneReady.done = true;
 
           try{
@@ -1732,12 +1840,9 @@
           el.scene.addEventListener('loaded', startAfterSceneReady, { once:true });
           el.scene.addEventListener('renderstart', startAfterSceneReady, { once:true });
 
-          /*
-            สำคัญ:
-            อย่ารอ scene ตลอดไป เพราะบาง browser / WebXR emulator อาจไม่ยิง event
-          */
-          setTimeout(startAfterSceneReady, 700);
-          setTimeout(startAfterSceneReady, 1500);
+          setTimeout(startAfterSceneReady, 1000);
+          setTimeout(startAfterSceneReady, 2200);
+          setTimeout(startAfterSceneReady, 3800);
         }else{
           setTimeout(startAfterSceneReady, 500);
         }
