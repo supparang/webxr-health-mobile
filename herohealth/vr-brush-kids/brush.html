@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505o-BRUSH-KIDS-SURFACE-MASTERY-GHOST-GUIDE -->
+<!-- FULL PATCH v20260505p-BRUSH-KIDS-PATCH16-TOOTH-CITY-FINAL-SUITE -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -2104,6 +2104,327 @@
 .surfaceCompletePop{position:fixed;left:50%;top:28%;z-index:10002;transform:translateX(-50%);pointer-events:none;border-radius:999px;padding:12px 18px;background:rgba(91,33,182,.96);color:#fff;font-size:clamp(18px,4vw,32px);font-weight:1000;box-shadow:0 18px 42px rgba(91,33,182,.28);opacity:0}.surfaceCompletePop.show{animation:comboMegaPop .88s ease-out forwards}.surfaceSummaryGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.surfaceSummaryItem{min-height:42px;border-radius:16px;border:1px solid #b8eec6;background:#effcf3;color:#166534;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;font-size:12px;font-weight:1000}.surfaceSummaryItem.warn{border-color:#ffe58d;background:#fff8dc;color:#7c5800}
 @media(max-width:640px){.surfacePanel{padding:8px 9px;font-size:11.5px}.surfaceSteps{grid-template-columns:repeat(2,minmax(0,1fr))}.ghostBrush{width:48px;height:48px;border-radius:16px;font-size:25px}.surfaceSummaryGrid{grid-template-columns:1fr}}
 
+  
+/* === PATCH v20260505p-BRUSH-PATCH16-TOOTH-CITY-FINAL-SUITE === */
+.patch16Hud{
+  position:fixed;
+  left:calc(10px + env(safe-area-inset-left,0px));
+  top:calc(78px + env(safe-area-inset-top,0px));
+  z-index:750;
+  width:min(340px,calc(100vw - 20px));
+  display:grid;
+  gap:8px;
+  pointer-events:none;
+}
+
+.patch16Card{
+  pointer-events:auto;
+  border-radius:22px;
+  border:2px solid rgba(189,244,255,.95);
+  background:rgba(255,255,255,.92);
+  box-shadow:0 16px 34px rgba(23,56,79,.14);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  padding:10px;
+  color:#17384f;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-weight:1000;
+}
+
+.patch16Header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  cursor:pointer;
+}
+
+.patch16Header strong{
+  font-size:13px;
+  line-height:1.2;
+}
+
+.patch16Header span{
+  font-size:11px;
+  color:#5f7f92;
+}
+
+.patch16Body{
+  display:none;
+  margin-top:8px;
+  gap:8px;
+}
+
+.patch16Card.open .patch16Body{
+  display:grid;
+}
+
+.cityGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:6px;
+}
+
+.cityTile{
+  min-height:58px;
+  border-radius:16px;
+  border:1px solid #d7f0fb;
+  background:#f8fdff;
+  padding:6px;
+  display:grid;
+  place-items:center;
+  text-align:center;
+  gap:2px;
+  font-size:10.5px;
+  color:#37566e;
+  line-height:1.1;
+}
+
+.cityTile.clean{
+  background:#effcf3;
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.cityTile.alert{
+  background:#fff8dc;
+  border-color:#ffe58d;
+  color:#7c5800;
+}
+
+.cityTile.boss{
+  background:#fff3f3;
+  border-color:#fecaca;
+  color:#991b1b;
+}
+
+.cityTile b{
+  font-size:15px;
+}
+
+.patch16Bars{
+  display:grid;
+  gap:6px;
+}
+
+.patch16Bar{
+  height:12px;
+  border-radius:999px;
+  background:#e9f7fd;
+  border:1px solid #d7f0fb;
+  overflow:hidden;
+}
+
+.patch16Fill{
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#22c55e,#8be8ff,#ffd95d,#f472b6);
+  transition:width .22s ease;
+}
+
+.patch16MiniText{
+  color:#5f7f92;
+  font-size:11px;
+  line-height:1.35;
+  font-weight:900;
+}
+
+.patch16Actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:6px;
+}
+
+.patch16Btn{
+  min-height:38px;
+  border:0;
+  border-radius:14px;
+  padding:7px 9px;
+  cursor:pointer;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:1px solid #bdf4ff;
+  color:#0f766e;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.patch16Btn.gold{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  border-color:#ffd95d;
+  color:#503c00;
+}
+
+.patch16Btn.purple{
+  background:linear-gradient(180deg,#f3e8ff,#ffffff);
+  border-color:#c4b5fd;
+  color:#5b21b6;
+}
+
+.patch16Modal{
+  position:fixed;
+  inset:0;
+  z-index:10050;
+  display:none;
+  place-items:center;
+  padding:18px;
+  background:rgba(2,6,23,.38);
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+
+.patch16Modal.show{
+  display:grid;
+}
+
+.patch16ModalCard{
+  width:min(880px,96vw);
+  max-height:min(760px,88dvh);
+  overflow:auto;
+  border-radius:30px;
+  border:3px solid #bdf4ff;
+  background:linear-gradient(180deg,#ffffff,#f8feff);
+  box-shadow:0 28px 80px rgba(2,6,23,.30);
+  padding:16px;
+  display:grid;
+  gap:12px;
+  color:#17384f;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.patch16ModalCard h2{
+  margin:0;
+  font-size:clamp(24px,4vw,38px);
+  line-height:1.05;
+  letter-spacing:-.035em;
+  color:#12324b;
+}
+
+.reportGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.reportBox{
+  border-radius:20px;
+  border:2px solid #d7f0fb;
+  background:#fff;
+  padding:12px;
+  display:grid;
+  gap:7px;
+  color:#37566e;
+  font-size:13px;
+  line-height:1.45;
+  font-weight:900;
+}
+
+.reportBox strong{
+  color:#12324b;
+  font-size:16px;
+}
+
+.patch16Toast{
+  position:fixed;
+  left:50%;
+  top:16%;
+  z-index:10040;
+  transform:translateX(-50%);
+  min-height:48px;
+  width:min(680px,92vw);
+  border-radius:999px;
+  background:rgba(23,56,79,.94);
+  color:white;
+  display:none;
+  place-items:center;
+  text-align:center;
+  padding:10px 18px;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-size:15px;
+  font-weight:1000;
+  box-shadow:0 18px 44px rgba(23,56,79,.28);
+}
+
+.patch16Toast.show{
+  display:grid;
+  animation:patch16ToastPop 1.15s ease-out forwards;
+}
+
+@keyframes patch16ToastPop{
+  0%{ opacity:0; transform:translateX(-50%) translateY(20px) scale(.86); }
+  18%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1.03); }
+  82%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1); }
+  100%{ opacity:0; transform:translateX(-50%) translateY(-10px) scale(.98); }
+}
+
+.cvrReticle{
+  position:fixed;
+  left:50%;
+  top:50%;
+  z-index:9000;
+  width:34px;
+  height:34px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  display:none;
+}
+
+.cvrReticle::before,
+.cvrReticle::after{
+  content:"";
+  position:absolute;
+  background:rgba(23,56,79,.82);
+  border-radius:999px;
+  box-shadow:0 0 0 2px rgba(255,255,255,.55);
+}
+
+.cvrReticle::before{
+  left:50%;
+  top:0;
+  width:4px;
+  height:100%;
+  transform:translateX(-50%);
+}
+
+.cvrReticle::after{
+  left:0;
+  top:50%;
+  width:100%;
+  height:4px;
+  transform:translateY(-50%);
+}
+
+body.patch16-cvr .cvrReticle{
+  display:block;
+}
+
+body.patch16-cvr .patch16Hud{
+  top:calc(12px + env(safe-area-inset-top,0px));
+  width:min(300px,92vw);
+}
+
+@media (max-width:760px){
+  .patch16Hud{
+    left:8px;
+    right:8px;
+    top:auto;
+    bottom:calc(82px + env(safe-area-inset-bottom,0px));
+    width:auto;
+  }
+  .patch16Card:not(.open) .patch16Body{
+    display:none;
+  }
+  .reportGrid{
+    grid-template-columns:1fr;
+  }
+}
+
+@media print{
+  .patch16Hud,.patch16Toast,.cvrReticle{ display:none !important; }
+  .patch16Modal{ position:static; display:block; background:white; padding:0; }
+  .patch16ModalCard{ box-shadow:none; max-height:none; width:100%; border:0; }
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -2416,7 +2737,7 @@
     (function(){
       'use strict';
 
-      const VERSION = '20260505o-BRUSH-KIDS-SURFACE-MASTERY-GHOST-GUIDE';
+      const VERSION = '20260505p-BRUSH-KIDS-PATCH16-TOOTH-CITY-FINAL-SUITE';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -5062,5 +5383,556 @@
       init();
     })();
   </script>
+
+  <div class="patch16Hud" id="patch16Hud">
+    <div class="patch16Card open" id="toothCityCard">
+      <div class="patch16Header" data-p16-toggle="toothCityCard">
+        <div>
+          <strong>🏙️ Tooth City Adventure</strong>
+          <span id="p16SeasonText">Season loading...</span>
+        </div>
+        <span>แตะเพื่อย่อ/ขยาย</span>
+      </div>
+      <div class="patch16Body">
+        <div class="cityGrid" id="p16CityGrid"></div>
+        <div class="patch16Bars">
+          <div class="patch16MiniText" id="p16CityText">เมืองฟันกำลังโหลด...</div>
+          <div class="patch16Bar"><div class="patch16Fill" id="p16CityFill"></div></div>
+        </div>
+        <div class="patch16Actions">
+          <button class="patch16Btn gold" id="p16DailyBossBtn" type="button">👑 Daily Boss</button>
+          <button class="patch16Btn purple" id="p16ReportBtn" type="button">📋 Report</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="patch16Modal" id="patch16ReportModal" aria-hidden="true">
+    <div class="patch16ModalCard">
+      <h2>📋 Brush Hero Report</h2>
+      <div class="reportGrid" id="p16ReportGrid"></div>
+      <div class="patch16Actions">
+        <button class="patch16Btn gold" id="p16PrintBtn" type="button">🖨️ Print / Save PDF</button>
+        <button class="patch16Btn" id="p16CloseReportBtn" type="button">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="patch16Toast" id="patch16Toast"></div>
+  <div class="cvrReticle" id="cvrReticle"></div>
+
+
+<script>
+/*
+  === PATCH v20260505p-BRUSH-PATCH16-TOOTH-CITY-FINAL-SUITE ===
+  Soft add-on layer over the Brush game:
+  Patch 12: Tooth City Adventure + Zone Mastery
+  Patch 13: Cardboard VR / cVR Polish
+  Patch 14: Research Telemetry
+  Patch 15: Parent / Teacher Report
+  Patch 16: Tooth City Season + Daily Boss
+*/
+(function(){
+  'use strict';
+
+  const qs = new URLSearchParams(location.search || '');
+  const P16 = {
+    version:'20260505p-BRUSH-KIDS-PATCH16-TOOTH-CITY-FINAL-SUITE',
+    game:'brush',
+    zones:[
+      {id:'upper-left',  icon:'🦷', name:'เมืองฟันบนซ้าย'},
+      {id:'upper-front', icon:'😁', name:'เมืองฟันบนหน้า'},
+      {id:'upper-right', icon:'🦷', name:'เมืองฟันบนขวา'},
+      {id:'lower-left',  icon:'🦷', name:'เมืองฟันล่างซ้าย'},
+      {id:'lower-front', icon:'😁', name:'เมืองฟันล่างหน้า'},
+      {id:'lower-right', icon:'🦷', name:'เมืองฟันล่างขวา'}
+    ],
+    bosses:[
+      {id:'cavityKing', icon:'👑', name:'Cavity King', rule:'Boss โจมตีปกติ'},
+      {id:'sugarWitch', icon:'🧙‍♀️', name:'Sugar Witch', rule:'Sugar Blob โผล่เร็วขึ้น'},
+      {id:'plaqueDragon', icon:'🐉', name:'Plaque Dragon', rule:'Plaque กลับมาไวขึ้น'},
+      {id:'nightSnack', icon:'🌙', name:'Night Snack Monster', rule:'Boss Pressure เพิ่มเร็วขึ้น'}
+    ],
+    telemetry:[],
+    lastUrl:location.href,
+    startedAt:Date.now(),
+    lastStage:'',
+    lastScore:0
+  };
+
+  function $(id){ return document.getElementById(id); }
+
+  function bangkokYmd(){
+    try{
+      return new Intl.DateTimeFormat('en-CA', {
+        timeZone:'Asia/Bangkok',
+        year:'numeric',
+        month:'2-digit',
+        day:'2-digit'
+      }).format(new Date());
+    }catch(_){
+      return new Date().toISOString().slice(0,10);
+    }
+  }
+
+  function dayNumber(){
+    const s = bangkokYmd();
+    let n = 0;
+    for(let i = 0; i < s.length; i++) n = ((n * 31) + s.charCodeAt(i)) >>> 0;
+    return n;
+  }
+
+  function storeKey(){
+    return 'HHA_BRUSH_TOOTH_CITY_PROFILE_' + (qs.get('pid') || 'anon');
+  }
+
+  function telemetryKey(){
+    return 'HHA_BRUSH_RESEARCH_EVENTS_' + (qs.get('pid') || 'anon');
+  }
+
+  function readJson(key, fallback){
+    try{
+      return JSON.parse(localStorage.getItem(key) || '') || fallback;
+    }catch(_){
+      return fallback;
+    }
+  }
+
+  function writeJson(key, value){
+    try{
+      localStorage.setItem(key, JSON.stringify(value));
+    }catch(_){}
+  }
+
+  function defaultProfile(){
+    const zones = {};
+    P16.zones.forEach(z => {
+      zones[z.id] = { level:1, xp:0, cleanBest:0, masteryBest:0, saved:0, lastPlayed:'' };
+    });
+    return {
+      version:P16.version,
+      pid:qs.get('pid') || 'anon',
+      createdAt:new Date().toISOString(),
+      plays:0,
+      totalXp:0,
+      bestScore:0,
+      bestClean:0,
+      badges:{},
+      secret:{},
+      zones,
+      daily:{}
+    };
+  }
+
+  function profile(){
+    const p = readJson(storeKey(), null) || defaultProfile();
+    if(!p.zones) p.zones = defaultProfile().zones;
+    P16.zones.forEach(z => {
+      if(!p.zones[z.id]) p.zones[z.id] = { level:1, xp:0, cleanBest:0, masteryBest:0, saved:0, lastPlayed:'' };
+    });
+    if(!p.badges) p.badges = {};
+    if(!p.secret) p.secret = {};
+    if(!p.daily) p.daily = {};
+    return p;
+  }
+
+  function saveProfile(p){
+    p.updatedAt = new Date().toISOString();
+    p.version = P16.version;
+    writeJson(storeKey(), p);
+  }
+
+  function dailyBoss(){
+    return P16.bosses[dayNumber() % P16.bosses.length];
+  }
+
+  function seasonName(){
+    const seasons = ['Foam Festival','Sugar Storm','Golden Smile','Cavity Castle'];
+    return seasons[Math.floor(dayNumber() / 7) % seasons.length];
+  }
+
+  function toast(msg){
+    const el = $('patch16Toast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1250);
+  }
+
+  function currentStage(){
+    return document.body && document.body.dataset ? (document.body.dataset.stage || '') : '';
+  }
+
+  function readNumberFromText(id, fallback=0){
+    const el = $(id);
+    if(!el) return fallback;
+    const m = String(el.textContent || '').match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : fallback;
+  }
+
+  function collectSnapshot(){
+    const stage = currentStage();
+    const score = readNumberFromText('scoreText', P16.lastScore);
+    const clean = readNumberFromText('cleanText', 0);
+    const plaque = readNumberFromText('plaqueText', 100);
+    const combo = readNumberFromText('comboText', 0);
+    const time = readNumberFromText('timeText', 0);
+
+    return {
+      ts:new Date().toISOString(),
+      localDate:bangkokYmd(),
+      game:'brush',
+      version:P16.version,
+      pid:qs.get('pid') || 'anon',
+      name:qs.get('name') || qs.get('nick') || 'Hero',
+      diff:qs.get('diff') || 'normal',
+      view:qs.get('view') || 'mobile',
+      stage,
+      score,
+      clean,
+      plaque,
+      combo,
+      time,
+      url:location.href
+    };
+  }
+
+  function logEvent(type, extra={}){
+    const ev = Object.assign({ type }, collectSnapshot(), extra);
+    P16.telemetry.push(ev);
+    if(P16.telemetry.length > 220) P16.telemetry.shift();
+
+    try{
+      const old = readJson(telemetryKey(), []);
+      old.push(ev);
+      while(old.length > 650) old.shift();
+      writeJson(telemetryKey(), old);
+    }catch(_){}
+  }
+
+  function computeCityProgress(p){
+    let total = 0;
+    let max = P16.zones.length * 5;
+    P16.zones.forEach(z => total += Math.max(1, Math.min(5, Number(p.zones[z.id].level || 1))));
+    return Math.round((total / max) * 100);
+  }
+
+  function zoneClass(zp){
+    if((zp.level || 1) >= 5) return 'clean';
+    if((zp.cleanBest || 0) < 45) return 'boss';
+    if((zp.cleanBest || 0) < 75) return 'alert';
+    return 'clean';
+  }
+
+  function renderCity(){
+    const p = profile();
+    const boss = dailyBoss();
+    const cityGrid = $('p16CityGrid');
+    const cityFill = $('p16CityFill');
+
+    if($('p16SeasonText')) $('p16SeasonText').textContent = seasonName() + ' • Daily Boss: ' + boss.name;
+
+    if(cityGrid){
+      cityGrid.innerHTML = P16.zones.map(z => {
+        const zp = p.zones[z.id];
+        return `<div class="cityTile ${zoneClass(zp)}" title="${z.name}">
+          <b>${z.icon}</b>
+          <span>Lv.${zp.level || 1}</span>
+          <span>${Math.round(zp.cleanBest || 0)}%</span>
+        </div>`;
+      }).join('');
+    }
+
+    const prog = computeCityProgress(p);
+    if(cityFill) cityFill.style.width = prog + '%';
+    if($('p16CityText')){
+      $('p16CityText').textContent = `Tooth City ${prog}% • XP ${p.totalXp || 0} • Best ${p.bestScore || 0}`;
+    }
+  }
+
+  function updateProfileFromSummary(){
+    let summary = null;
+    try{
+      summary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_SUMMARY') || localStorage.getItem('HHA_LAST_SUMMARY_BRUSH') || localStorage.getItem('HHA_LAST_SUMMARY') || 'null');
+    }catch(_){}
+
+    const snap = collectSnapshot();
+    const p = profile();
+
+    const score = Number((summary && (summary.score || summary.scoreFinal)) || snap.score || 0);
+    const clean = Number((summary && (summary.cleanPct || summary.clean || summary.accuracyGoodPct)) || snap.clean || 0);
+    const surface = Number((summary && summary.surfaceMasteryPct) || 0);
+    const pets = Number((summary && summary.petsRescued) || 0);
+    const burst = Number((summary && summary.burstUsed) || 0);
+    const bossWon = !!(summary && (summary.bossWon || summary.stars >= 2)) || currentStage() === 'summary';
+
+    p.plays = Number(p.plays || 0) + 1;
+    p.bestScore = Math.max(Number(p.bestScore || 0), score);
+    p.bestClean = Math.max(Number(p.bestClean || 0), clean);
+    p.totalXp = Number(p.totalXp || 0) + Math.round(score / 20) + Math.round(clean) + Math.round(surface);
+
+    const today = bangkokYmd();
+    const boss = dailyBoss();
+    p.daily[today] = p.daily[today] || { boss:boss.id, wins:0, plays:0 };
+    p.daily[today].plays += 1;
+    if(bossWon) p.daily[today].wins += 1;
+
+    P16.zones.forEach((z, idx) => {
+      const zp = p.zones[z.id];
+      const zonePct = summary && summary.zones && summary.zones[idx] ? Number(summary.zones[idx].pct || 0) : clean;
+      zp.cleanBest = Math.max(Number(zp.cleanBest || 0), zonePct);
+      zp.masteryBest = Math.max(Number(zp.masteryBest || 0), surface);
+      zp.xp = Number(zp.xp || 0) + Math.round(zonePct / 10) + Math.round(surface / 12);
+      zp.saved = Number(zp.saved || 0) + (zonePct >= 80 ? 1 : 0);
+      zp.lastPlayed = today;
+      zp.level = Math.max(1, Math.min(5, 1 + Math.floor(Number(zp.xp || 0) / 70)));
+    });
+
+    if(clean >= 95 && bossWon) p.badges.goldenSmile = new Date().toISOString();
+    if(surface >= 90) p.badges.surfaceMaster = new Date().toISOString();
+    if(pets >= 2) p.badges.petHero = new Date().toISOString();
+    if(burst >= 1) p.badges.burstMaster = new Date().toISOString();
+    if(bossWon && p.daily[today].boss === boss.id) p.badges.dailyBoss = new Date().toISOString();
+
+    saveProfile(p);
+    renderCity();
+    logEvent('profile_update', { score, clean, surface, bossWon, dailyBoss:boss.id });
+  }
+
+  function buildReport(){
+    const p = profile();
+    let summary = {};
+    try{ summary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_SUMMARY') || '{}') || {}; }catch(_){}
+
+    const events = readJson(telemetryKey(), []);
+    const recent = events.slice(-20);
+    const boss = dailyBoss();
+
+    const strengths = [];
+    const needs = [];
+
+    if((p.bestClean || 0) >= 90) strengths.push('ทำความสะอาดได้ดีมาก');
+    else needs.push('ควรฝึกให้ Clean สูงกว่า 90%');
+
+    if(p.badges.surfaceMaster) strengths.push('ฝึก Surface Mastery ได้ดี');
+    else needs.push('ควรฝึกด้านใน/ด้านบดเคี้ยว/แนวเหงือกเพิ่ม');
+
+    if(p.badges.petHero) strengths.push('มีแรงจูงใจจากการช่วย Tooth Pet');
+    if(!p.badges.dailyBoss) needs.push('ลองทำ Daily Boss ให้สำเร็จ');
+
+    return {
+      profile:p,
+      summary,
+      events:recent,
+      boss,
+      strengths:strengths.length ? strengths : ['เล่นครบ flow และเริ่มสร้างทักษะการแปรง'],
+      needs:needs.length ? needs : ['รักษาความสม่ำเสมอและเพิ่มความแม่นยำ']
+    };
+  }
+
+  function openReport(){
+    const modal = $('patch16ReportModal');
+    const grid = $('p16ReportGrid');
+    const r = buildReport();
+    const p = r.profile;
+
+    if(grid){
+      grid.innerHTML = `
+        <div class="reportBox">
+          <strong>🏙️ Tooth City</strong>
+          <span>Progress: ${computeCityProgress(p)}%</span>
+          <span>Total XP: ${p.totalXp || 0}</span>
+          <span>Plays: ${p.plays || 0}</span>
+          <span>Best Score: ${p.bestScore || 0}</span>
+          <span>Best Clean: ${p.bestClean || 0}%</span>
+        </div>
+
+        <div class="reportBox">
+          <strong>👑 Daily Boss</strong>
+          <span>${r.boss.icon} ${r.boss.name}</span>
+          <span>${r.boss.rule}</span>
+          <span>Season: ${seasonName()}</span>
+          <span>Today: ${bangkokYmd()}</span>
+        </div>
+
+        <div class="reportBox">
+          <strong>✅ จุดแข็ง</strong>
+          ${r.strengths.map(x => `<span>• ${x}</span>`).join('')}
+        </div>
+
+        <div class="reportBox">
+          <strong>🎯 ควรฝึกต่อ</strong>
+          ${r.needs.map(x => `<span>• ${x}</span>`).join('')}
+        </div>
+
+        <div class="reportBox">
+          <strong>🦷 Zone Mastery</strong>
+          ${P16.zones.map(z => {
+            const zp = p.zones[z.id];
+            return `<span>${z.icon} ${z.name}: Lv.${zp.level || 1} • Clean ${Math.round(zp.cleanBest || 0)}%</span>`;
+          }).join('')}
+        </div>
+
+        <div class="reportBox">
+          <strong>🔬 Research Telemetry</strong>
+          <span>Events stored: ${readJson(telemetryKey(), []).length}</span>
+          <span>Recent stage: ${collectSnapshot().stage || '-'}</span>
+          <span>View: ${qs.get('view') || 'mobile'}</span>
+          <span>Diff: ${qs.get('diff') || 'normal'}</span>
+        </div>
+      `;
+    }
+
+    if(modal){
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+    }
+    logEvent('open_report');
+  }
+
+  function closeReport(){
+    const modal = $('patch16ReportModal');
+    if(modal){
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden','true');
+    }
+  }
+
+  function setupCvr(){
+    const view = String(qs.get('view') || '').toLowerCase();
+    const isCvr = view === 'cvr' || view === 'vr' || view === 'cardboard';
+    document.body.classList.toggle('patch16-cvr', isCvr);
+
+    if(!isCvr) return;
+
+    let lastShot = 0;
+    function shootCenter(){
+      const now = Date.now();
+      if(now - lastShot < 360) return;
+      lastShot = now;
+
+      const x = window.innerWidth / 2;
+      const y = window.innerHeight / 2;
+      const target = document.elementFromPoint(x, y);
+
+      if(target){
+        const ev = new PointerEvent('pointerdown', { bubbles:true, clientX:x, clientY:y, pointerId:99, pointerType:'mouse' });
+        target.dispatchEvent(ev);
+        setTimeout(() => {
+          target.dispatchEvent(new PointerEvent('pointerup', { bubbles:true, clientX:x, clientY:y, pointerId:99, pointerType:'mouse' }));
+        }, 80);
+      }
+
+      logEvent('cvr_shoot', { x, y });
+    }
+
+    window.addEventListener('click', shootCenter, true);
+    window.addEventListener('keydown', e => {
+      if(e.code === 'Space' || e.code === 'Enter') shootCenter();
+    });
+
+    toast('🎯 cVR mode: มองเป้าแล้วแตะ/กดเพื่อเลือก');
+  }
+
+  function startDailyBoss(){
+    const boss = dailyBoss();
+    const url = new URL(location.href);
+    url.searchParams.set('dailyBoss', boss.id);
+    url.searchParams.set('season', seasonName());
+    url.searchParams.set('diff', qs.get('diff') || 'normal');
+    url.searchParams.set('stage', 'howto');
+
+    try{
+      sessionStorage.setItem('HHA_BRUSH_DAILY_BOSS', JSON.stringify({
+        date:bangkokYmd(),
+        boss,
+        season:seasonName()
+      }));
+    }catch(_){}
+
+    toast(`${boss.icon} Daily Boss: ${boss.name}`);
+    logEvent('daily_boss_start', { boss:boss.id, season:seasonName() });
+    setTimeout(() => { location.href = url.toString(); }, 650);
+  }
+
+  function bind(){
+    document.addEventListener('click', e => {
+      const t = e.target;
+      if(!t) return;
+
+      const toggle = t.closest && t.closest('[data-p16-toggle]');
+      if(toggle){
+        const id = toggle.getAttribute('data-p16-toggle');
+        const card = $(id);
+        if(card) card.classList.toggle('open');
+      }
+    });
+
+    if($('p16ReportBtn')) $('p16ReportBtn').addEventListener('click', openReport);
+    if($('p16CloseReportBtn')) $('p16CloseReportBtn').addEventListener('click', closeReport);
+    if($('p16PrintBtn')) $('p16PrintBtn').addEventListener('click', () => window.print());
+    if($('p16DailyBossBtn')) $('p16DailyBossBtn').addEventListener('click', startDailyBoss);
+
+    const modal = $('patch16ReportModal');
+    if(modal){
+      modal.addEventListener('click', e => {
+        if(e.target === modal) closeReport();
+      });
+    }
+  }
+
+  function watchGame(){
+    let lastTick = 0;
+
+    setInterval(() => {
+      const snap = collectSnapshot();
+
+      if(snap.stage !== P16.lastStage){
+        logEvent('stage_change', { from:P16.lastStage, to:snap.stage });
+        P16.lastStage = snap.stage;
+      }
+
+      if(Date.now() - lastTick > 5000){
+        logEvent('heartbeat');
+        lastTick = Date.now();
+      }
+
+      if(snap.stage === 'summary' && !watchGame.summarySaved){
+        watchGame.summarySaved = true;
+        updateProfileFromSummary();
+        toast('🏙️ Tooth City updated!');
+      }
+    }, 1200);
+
+    window.addEventListener('beforeunload', () => {
+      logEvent('leave_page', { durationMs:Date.now() - P16.startedAt });
+    });
+  }
+
+  function init(){
+    bind();
+    renderCity();
+    setupCvr();
+    watchGame();
+
+    logEvent('patch16_init', {
+      season:seasonName(),
+      dailyBoss:dailyBoss().id,
+      hasReport:true,
+      hasTelemetry:true
+    });
+
+    setTimeout(() => {
+      const boss = dailyBoss();
+      toast(`${seasonName()} • Daily Boss วันนี้: ${boss.icon} ${boss.name}`);
+    }, 900);
+  }
+
+  init();
+})();
+</script>
+
 </body>
 </html>
