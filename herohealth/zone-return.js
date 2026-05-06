@@ -1,113 +1,166 @@
-﻿(function (W, D) {
-  'use strict';
+// === /herohealth/zone-return.js ===
+// PATCH v20260506-ZONE-RETURN-SAFE-EXPORTS
+// ✅ export buildHubRoot
+// ✅ export buildReturnUrl / withCommonParams / preserveParams
+// ✅ safe URL decode
+// ✅ preserve HeroHealth common params
+// ✅ ใช้ได้กับ group-v1.html และหน้า launcher อื่น ๆ
 
-  const byId = (id) => D.getElementById(id);
-  const toast = byId('toast');
+'use strict';
 
-  const ZONES = {
-    hygiene: './hygiene-zone.html',
-    nutrition: './nutrition-zone.html',
-    fitness: './fitness-zone.html'
-  };
+const DEFAULT_HUB = './hub-v2.html';
+const DEFAULT_ZONE = './nutrition-zone.html';
 
-  function showToast(message) {
-    if (!toast) return;
-    toast.textContent = message;
-    toast.classList.add('show');
-    W.clearTimeout(showToast._timer);
-    showToast._timer = W.setTimeout(() => toast.classList.remove('show'), 1800);
-  }
+const PASS_KEYS = [
+  'pid',
+  'name',
+  'nick',
+  'nickName',
+  'studentKey',
+  'schoolCode',
+  'classRoom',
+  'studentNo',
 
-  function readLastGame() {
-    try {
-      return localStorage.getItem('HH_FITNESS_LAST_GAME_V1') ||
-        localStorage.getItem('HHA_LAST_ZONE') ||
-        '';
-    } catch (_) {
-      return '';
-    }
-  }
+  'diff',
+  'time',
+  'view',
+  'run',
+  'seed',
 
-  function pickRecommendedUrl() {
-    const last = String(readLastGame() || '').toLowerCase();
-    if (last.includes('hygiene')) return ZONES.hygiene;
-    if (last.includes('nutrition')) return ZONES.nutrition;
-    return ZONES.fitness;
-  }
+  'hub',
+  'hubRoot',
+  'returnHub',
+  'zone',
+  'cat',
+  'game',
+  'gameId',
+  'mode',
+  'entry',
+  'recommendedMode',
 
-  function bindLinks() {
-    const recommended = byId('btnQuickRecommended');
-    if (recommended) recommended.href = pickRecommendedUrl();
+  'studyId',
+  'phase',
+  'conditionGroup',
+  'section',
+  'session_code',
+  'sessionCode',
+  'sessionNo',
+  'weekNo',
+  'teacher',
+  'grade',
 
-    const allGames = byId('btnQuickAllGames');
-    if (allGames) allGames.href = ZONES.fitness;
-  }
+  'api',
+  'log',
+  'debug'
+];
 
-  function bindButtons() {
-    const btnSettings = byId('btnSettings');
-    const btnRewards = byId('btnRewards');
-
-    if (btnSettings) {
-      btnSettings.addEventListener('click', () => {
-        showToast('หน้า local app พร้อมใช้งานแล้ว');
-      });
-    }
-
-    if (btnRewards) {
-      btnRewards.addEventListener('click', () => {
-        showToast('รางวัลจะอิงจากผลการเล่นในแต่ละโซน');
-      });
-    }
-  }
-
-  function refreshProfile() {
-    const quickline = byId('heroQuickline');
-    if (quickline) {
-      quickline.textContent = 'เริ่มจาก Fitness ได้เลย หรือเลือกโซนที่ต้องการจากการ์ดด้านล่าง';
-    }
-  }
-
-  function boot() {
-    bindLinks();
-    bindButtons();
-    refreshProfile();
-  }
-
-  if (D.readyState === 'loading') {
-    D.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
-    boot();
-  }
-})(window, document);
-/* === PATCH v20260506-ZONE-RETURN-BUILD-HUB-ROOT-EXPORT === */
-/* Fix: group-v1.html imports buildHubRoot but zone-return.js did not export it */
-
-export function buildHubRoot(fallback = './hub-v2.html'){
+export function safeDecodeUrl(raw, fallback = ''){
   try{
-    const params = new URLSearchParams(window.location.search || '');
+    let s = String(raw || '').trim();
+    if(!s) return fallback;
 
-    const explicit =
-      params.get('hubRoot') ||
-      params.get('hub') ||
-      params.get('returnHub') ||
-      '';
-
-    if(explicit){
+    for(let i = 0; i < 2; i++){
       try{
-        let decoded = String(explicit);
-        for(let i = 0; i < 2; i++){
-          const d = decodeURIComponent(decoded);
-          if(d === decoded) break;
-          decoded = d;
-        }
-        return new URL(decoded, window.location.href).toString();
+        const d = decodeURIComponent(s);
+        if(d === s) break;
+        s = d;
       }catch(_){
-        return String(explicit);
+        break;
       }
     }
 
-    return new URL(fallback, window.location.href).toString();
+    return new URL(s, window.location.href).toString();
   }catch(_){
     return fallback;
   }
 }
+
+export function getSearchParams(){
+  try{
+    return new URLSearchParams(window.location.search || '');
+  }catch(_){
+    return new URLSearchParams('');
+  }
+}
+
+export function buildHubRoot(fallback = DEFAULT_HUB){
+  try{
+    const p = getSearchParams();
+
+    const explicit =
+      p.get('hubRoot') ||
+      p.get('hub') ||
+      p.get('returnHub') ||
+      '';
+
+    const decoded = safeDecodeUrl(explicit, '');
+    if(decoded) return decoded;
+
+    return new URL(fallback || DEFAULT_HUB, window.location.href).toString();
+  }catch(_){
+    return fallback || DEFAULT_HUB;
+  }
+}
+
+export function buildReturnUrl(path = DEFAULT_ZONE, extra = {}){
+  try{
+    const u = new URL(path || DEFAULT_ZONE, window.location.href);
+    const p = getSearchParams();
+
+    PASS_KEYS.forEach(k => {
+      const v = p.get(k);
+      if(v !== null && v !== '') u.searchParams.set(k, v);
+    });
+
+    if(extra && typeof extra === 'object'){
+      Object.keys(extra).forEach(k => {
+        const v = extra[k];
+        if(v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k, String(v));
+        }
+      });
+    }
+
+    if(!u.searchParams.get('pid')) u.searchParams.set('pid', p.get('pid') || 'anon');
+    if(!u.searchParams.get('name')) u.searchParams.set('name', p.get('name') || p.get('nick') || 'Hero');
+    if(!u.searchParams.get('diff')) u.searchParams.set('diff', p.get('diff') || 'normal');
+    if(!u.searchParams.get('view')) u.searchParams.set('view', p.get('view') || 'mobile');
+
+    return u.toString();
+  }catch(_){
+    return String(path || DEFAULT_ZONE);
+  }
+}
+
+export function withCommonParams(path = DEFAULT_ZONE, extra = {}){
+  return buildReturnUrl(path, extra);
+}
+
+export function preserveParams(path = DEFAULT_ZONE, extra = {}){
+  return buildReturnUrl(path, extra);
+}
+
+export function goTo(path = DEFAULT_ZONE, extra = {}){
+  window.location.href = buildReturnUrl(path, extra);
+}
+
+export function getParam(name, fallback = ''){
+  try{
+    const p = getSearchParams();
+    const v = p.get(name);
+    return v === null || v === '' ? fallback : v;
+  }catch(_){
+    return fallback;
+  }
+}
+
+export default {
+  safeDecodeUrl,
+  getSearchParams,
+  buildHubRoot,
+  buildReturnUrl,
+  withCommonParams,
+  preserveParams,
+  goTo,
+  getParam
+};
