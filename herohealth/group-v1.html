@@ -1,21 +1,19 @@
 <!-- === /herohealth/group-v1.html === -->
-<!-- FULL PATCH v20260505-GROUP-V1-SOLO-ARENA-V2-LAUNCHER -->
-<!-- ✅ ปรับหน้า Groups launcher ให้ Solo ดูน่าเล่นขึ้น -->
-<!-- ✅ ส่ง flags ไปให้ /herohealth/vr-groups/groups.html สำหรับ Solo Arena v2 -->
-<!-- ✅ รองรับ PC / Mobile / cVR -->
-<!-- ✅ Zone-first: กลับ Nutrition Zone ก่อน ไม่เด้ง Hub โดยตรง -->
-<!-- ✅ คง Race lobby path เดิม -->
-<!-- ✅ Battle / Duet / Coop แสดงเป็นเร็ว ๆ นี้ก่อน -->
+<!-- PATCH v20260506-GROUPS-LAUNCHER-SAFE-FULL -->
+<!-- ✅ No module import: กัน error buildHubRoot missing export -->
+<!-- ✅ Solo launcher ไป /herohealth/vr-groups/groups.html -->
+<!-- ✅ Preserve pid/name/diff/time/view/hub/study params -->
+<!-- ✅ Nutrition Zone first flow -->
+<!-- ✅ Mobile friendly / child-friendly -->
 
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Food Groups Arena</title>
+  <title>HeroHealth • Food Groups</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
-  <link rel="icon" href="./favicon.ico" />
 
   <style>
     :root{
@@ -35,508 +33,446 @@
       --green:#7ed957;
       --green2:#4fc64c;
       --yellow:#ffd966;
+      --orange:#ffac4b;
       --pink:#ff9fd0;
-      --violet:#bca7ff;
-      --orange:#ffb168;
       --red:#ff7b73;
 
       --shadow:0 16px 34px rgba(93,155,185,.16);
-      --shadow-lg:0 22px 48px rgba(75,138,170,.18);
+      --shadow-lg:0 22px 54px rgba(75,138,170,.20);
 
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --sat:env(safe-area-inset-top,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+      --sar:env(safe-area-inset-right,0px);
     }
 
-    *{ box-sizing:border-box; }
-    html,body{ min-height:100%; }
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      min-height:100%;
+      margin:0;
+    }
 
     body{
-      margin:0;
       font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
       color:var(--text);
       background:
-        radial-gradient(1100px 620px at 50% -10%, rgba(255,255,255,.92), transparent 58%),
-        radial-gradient(680px 420px at 12% 8%, rgba(255,255,255,.48), transparent 62%),
-        radial-gradient(560px 360px at 88% 18%, rgba(255,235,148,.36), transparent 64%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 56%,var(--sky3));
+        radial-gradient(900px 520px at 50% -8%, rgba(255,255,255,.95), transparent 60%),
+        radial-gradient(640px 380px at 8% 12%, rgba(255,255,255,.42), transparent 64%),
+        radial-gradient(620px 420px at 95% 14%, rgba(255,217,102,.28), transparent 64%),
+        linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
       overflow-x:hidden;
     }
 
-    .shell{
+    button{
+      font:inherit;
+    }
+
+    .page{
+      width:min(1120px,100%);
+      margin:0 auto;
       min-height:100dvh;
       padding:
-        calc(14px + var(--sat))
+        calc(16px + var(--sat))
         calc(14px + var(--sar))
         calc(18px + var(--sab))
         calc(14px + var(--sal));
-      width:min(1180px,100%);
-      margin:0 auto;
       display:grid;
+      grid-template-rows:auto 1fr auto;
       gap:14px;
     }
 
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .brand{
-      min-width:0;
-      display:flex;
-      align-items:center;
-      gap:12px;
-      padding:12px 14px;
-      background:rgba(255,255,255,.86);
-      border:1px solid var(--line);
-      border-radius:24px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(6px);
-      flex:1 1 520px;
-    }
-
-    .brandMark{
-      width:56px;
-      height:56px;
-      border-radius:18px;
+    .hero{
       display:grid;
-      place-items:center;
-      font-size:30px;
-      background:linear-gradient(180deg,#fff3b7,#ffd76f);
+      grid-template-columns:1.2fr .8fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .heroCard{
+      position:relative;
+      overflow:hidden;
+      border-radius:32px;
+      background:
+        radial-gradient(420px 240px at 75% 4%, rgba(255,217,102,.35), transparent 70%),
+        linear-gradient(180deg,rgba(255,255,255,.92),rgba(248,253,255,.92));
+      border:1px solid var(--line);
+      box-shadow:var(--shadow-lg);
+      padding:22px;
+    }
+
+    .heroCard::after{
+      content:"🥚 🍚 🥦 🍎 🥑";
+      position:absolute;
+      right:18px;
+      bottom:8px;
+      font-size:58px;
+      opacity:.10;
+      letter-spacing:12px;
+      white-space:nowrap;
+      pointer-events:none;
+    }
+
+    .badge{
+      display:inline-flex;
+      min-height:34px;
+      align-items:center;
+      gap:7px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:linear-gradient(180deg,#fff9df,#fff0b4);
       border:1px solid #ffe39a;
-      box-shadow:0 10px 22px rgba(255,214,111,.20);
-      flex:0 0 auto;
-      animation:brandBounce 2.6s ease-in-out infinite;
-    }
-
-    @keyframes brandBounce{
-      0%,100%{ transform:translateY(0) rotate(0deg); }
-      50%{ transform:translateY(-4px) rotate(-3deg); }
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:clamp(1.3rem,2.3vw,1.9rem);
-      line-height:1.05;
+      color:#9a6517;
+      font-size:.82rem;
       font-weight:1000;
+      box-shadow:0 10px 24px rgba(255,172,75,.14);
     }
 
-    .brand p{
-      margin:4px 0 0;
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(2rem,5vw,4rem);
+      line-height:.98;
+      font-weight:1000;
+      letter-spacing:-.04em;
+    }
+
+    .lead{
+      margin:0;
+      max-width:62ch;
       color:var(--muted);
-      font-size:.95rem;
-      font-weight:800;
+      font-size:clamp(1rem,2vw,1.18rem);
+      font-weight:900;
+      line-height:1.55;
     }
 
-    .actions{
+    .heroActions{
+      margin-top:18px;
       display:flex;
       gap:10px;
       flex-wrap:wrap;
-      justify-content:flex-end;
     }
 
     .btn{
-      min-height:46px;
+      min-height:54px;
       border:none;
-      border-radius:18px;
-      padding:0 16px;
-      font:inherit;
-      font-weight:1000;
       cursor:pointer;
+      border-radius:20px;
+      padding:0 18px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
       color:var(--text);
       background:#fff;
       border:1px solid var(--line);
       box-shadow:var(--shadow);
+      font-weight:1000;
+      transition:transform .12s ease, box-shadow .12s ease;
       text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
     }
 
     .btn:hover{
-      transform:translateY(-1px);
-      box-shadow:0 18px 38px rgba(75,138,170,.20);
-    }
-
-    .btn:active{
-      transform:translateY(1px) scale(.99);
+      transform:translateY(-2px);
+      box-shadow:0 18px 38px rgba(75,138,170,.22);
     }
 
     .btn.primary{
       color:#fff;
       border:none;
+      background:linear-gradient(180deg,var(--orange),#ff8f3d);
+      box-shadow:0 18px 38px rgba(255,143,61,.24);
+    }
+
+    .btn.green{
+      color:#fff;
+      border:none;
+      background:linear-gradient(180deg,var(--green),var(--green2));
+    }
+
+    .btn.blue{
+      color:#fff;
+      border:none;
       background:linear-gradient(180deg,var(--blue),var(--blue2));
     }
 
-    .hero{
-      position:relative;
-      overflow:hidden;
-      border-radius:30px;
-      background:
-        radial-gradient(420px 260px at 78% 16%, rgba(255,217,102,.28), transparent 64%),
-        linear-gradient(180deg,rgba(255,255,255,.88),rgba(248,253,255,.92));
-      border:1px solid var(--line);
-      box-shadow:var(--shadow-lg);
-      padding:18px;
-    }
-
-    .hero::after{
-      content:"";
-      position:absolute;
-      right:-40px;
-      top:-36px;
-      width:180px;
-      height:180px;
-      border-radius:50%;
-      background:
-        radial-gradient(circle at 34% 34%, rgba(255,255,255,.65), transparent 26%),
-        linear-gradient(180deg,#fff2ae,#ffd05f);
-      opacity:.78;
-    }
-
-    .hero::before{
-      content:"🥚  🍚  🥦  🍎  🥑";
-      position:absolute;
-      left:18px;
-      bottom:-10px;
-      font-size:42px;
-      letter-spacing:8px;
-      opacity:.10;
-      pointer-events:none;
-      white-space:nowrap;
-    }
-
-    .heroRow{
-      position:relative;
-      z-index:1;
-      display:grid;
-      grid-template-columns:1.1fr .9fr;
-      gap:16px;
-      align-items:center;
-    }
-
-    .hero h2{
-      margin:0 0 8px;
-      font-size:clamp(1.6rem,3vw,2.4rem);
-      line-height:1.08;
-      font-weight:1000;
-    }
-
-    .hero p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.6;
-      font-weight:800;
-      max-width:62ch;
-    }
-
-    .heroChips{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:14px;
-    }
-
-    .chip{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:#5d7f95;
-      font-size:.86rem;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(93,155,185,.10);
-    }
-
-    .chip.hot{
-      color:#9a6517;
-      background:linear-gradient(180deg,#fff9df,#fff0b4);
-      border-color:#ffe39a;
-    }
-
-    .heroPanel{
-      display:grid;
-      gap:10px;
-    }
-
-    .panelCard{
-      border-radius:22px;
-      padding:14px;
-      background:rgba(255,255,255,.84);
+    .statusCard{
+      border-radius:32px;
+      background:rgba(255,255,255,.9);
       border:1px solid var(--line);
       box-shadow:var(--shadow);
+      padding:18px;
+      display:grid;
+      gap:10px;
+      align-content:start;
     }
 
-    .panelLabel{
+    .coach{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffefb,#fff9df);
+      border:1px solid #ffe39a;
+    }
+
+    .coachIcon{
+      width:70px;
+      height:70px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      font-size:42px;
+      background:linear-gradient(180deg,#fff7c7,#ffd76f);
+      border:1px solid #ffe39a;
+      flex:0 0 auto;
+      animation:floatCoach 2.4s ease-in-out infinite;
+    }
+
+    @keyframes floatCoach{
+      0%,100%{ transform:translateY(0) rotate(0deg); }
+      50%{ transform:translateY(-5px) rotate(-3deg); }
+    }
+
+    .coach b{
+      display:block;
+      font-size:1.05rem;
+      font-weight:1000;
+      line-height:1.12;
+    }
+
+    .coach span{
+      display:block;
+      margin-top:4px;
       color:var(--muted);
-      font-size:.82rem;
-      font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-      margin-bottom:4px;
+      font-size:.88rem;
+      line-height:1.35;
+      font-weight:900;
     }
 
-    .panelValue{
-      font-size:1.2rem;
+    .miniGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+    }
+
+    .mini{
+      border-radius:20px;
+      padding:10px;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 10px 22px rgba(93,155,185,.10);
+    }
+
+    .mini small{
+      display:block;
+      color:var(--muted);
       font-weight:1000;
-      line-height:1.2;
+      font-size:.72rem;
+      line-height:1;
+      margin-bottom:5px;
+    }
+
+    .mini b{
+      display:block;
+      font-size:.96rem;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .sectionTitle{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:2px;
+    }
+
+    .sectionTitle h2{
+      margin:0;
+      font-size:1.35rem;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .sectionTitle p{
+      margin:0;
+      color:var(--muted);
+      font-size:.9rem;
+      font-weight:900;
     }
 
     .modeGrid{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
     }
 
     .modeCard{
       position:relative;
       overflow:hidden;
+      min-height:220px;
       border-radius:28px;
-      background:linear-gradient(180deg,var(--card),var(--card2));
+      background:rgba(255,255,255,.92);
       border:1px solid var(--line);
-      box-shadow:var(--shadow-lg);
+      box-shadow:var(--shadow);
       padding:16px;
       display:grid;
+      align-content:space-between;
       gap:12px;
-      min-height:276px;
-      transition:transform .16s ease, box-shadow .16s ease;
-    }
-
-    .modeCard:hover{
-      transform:translateY(-2px);
-      box-shadow:0 26px 54px rgba(75,138,170,.22);
     }
 
     .modeCard::before{
       content:"";
       position:absolute;
-      right:-28px;
-      top:-30px;
-      width:138px;
-      height:138px;
+      inset:-60px -60px auto auto;
+      width:160px;
+      height:160px;
       border-radius:50%;
-      opacity:.9;
+      background:rgba(97,187,255,.18);
       pointer-events:none;
     }
 
-    .modeCard.solo{
+    .modeCard.hot{
       border-color:#ffe39a;
       background:
-        radial-gradient(420px 260px at 100% 0%, rgba(255,217,102,.36), transparent 58%),
-        linear-gradient(180deg,#fffef7,#f8fdff);
-    }
-
-    .modeCard.solo::before{ background:linear-gradient(180deg,#fff4b6,#ffd76d); }
-    .modeCard.race::before{ background:linear-gradient(180deg,#b8e7ff,#73c7ff); }
-    .modeCard.battle::before{ background:linear-gradient(180deg,#ffd0c7,#ff9b81); }
-    .modeCard.duet::before{ background:linear-gradient(180deg,#ffe0f2,#ff9fd0); }
-    .modeCard.coop::before{ background:linear-gradient(180deg,#e6dbff,#b79cff); }
-
-    .modeTop{
-      position:relative;
-      z-index:1;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
+        radial-gradient(180px 120px at 90% 0%, rgba(255,217,102,.25), transparent 70%),
+        rgba(255,255,255,.94);
     }
 
     .modeIcon{
-      width:58px;
-      height:58px;
-      border-radius:18px;
+      width:62px;
+      height:62px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:30px;
-      background:#fff;
-      border:1px solid rgba(0,0,0,.04);
-      box-shadow:0 10px 22px rgba(120,160,185,.12);
-      flex:0 0 auto;
-    }
-
-    .solo .modeIcon{
-      background:linear-gradient(180deg,#fff9de,#fff0aa);
-      animation:soloPulse 1.8s ease-in-out infinite;
-    }
-
-    @keyframes soloPulse{
-      0%,100%{ transform:scale(1); box-shadow:0 10px 22px rgba(255,190,70,.14); }
-      50%{ transform:scale(1.05); box-shadow:0 16px 34px rgba(255,190,70,.24); }
-    }
-
-    .statusPill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:32px;
-      padding:6px 12px;
-      border-radius:999px;
-      font-size:.82rem;
-      font-weight:1000;
-      white-space:nowrap;
-    }
-
-    .statusPill.ready{
-      background:rgba(126,217,87,.14);
-      border:1px solid rgba(126,217,87,.26);
-      color:#45813a;
-    }
-
-    .statusPill.hot{
-      background:rgba(255,185,92,.18);
-      border:1px solid rgba(255,185,92,.30);
-      color:#9a6517;
-    }
-
-    .statusPill.soon{
-      background:rgba(255,185,92,.16);
-      border:1px solid rgba(255,185,92,.26);
-      color:#9a6517;
-    }
-
-    .modeBody{
+      font-size:36px;
+      background:linear-gradient(180deg,#eef9ff,#dff2ff);
+      border:1px solid #d3edf8;
       position:relative;
       z-index:1;
     }
 
-    .modeTitle{
+    .modeCard.hot .modeIcon{
+      background:linear-gradient(180deg,#fff7c7,#ffd76f);
+      border-color:#ffe39a;
+    }
+
+    .modeCard h3{
       margin:0;
-      font-size:1.35rem;
-      line-height:1.12;
+      font-size:1.12rem;
+      line-height:1.1;
       font-weight:1000;
-    }
-
-    .modeSub{
-      margin:6px 0 0;
-      color:var(--muted);
-      font-size:.95rem;
-      line-height:1.55;
-      font-weight:800;
-    }
-
-    .modeMeta{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:10px;
-    }
-
-    .modeMeta span{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid var(--line);
-      font-size:.8rem;
-      font-weight:1000;
-      color:#5e7f94;
-    }
-
-    .solo .modeMeta span{
-      color:#7f6418;
-      background:#fffdf2;
-      border-color:#ffeab3;
-    }
-
-    .modeActions{
       position:relative;
       z-index:1;
+    }
+
+    .modeCard p{
+      margin:7px 0 0;
+      color:var(--muted);
+      font-size:.88rem;
+      line-height:1.38;
+      font-weight:900;
+      position:relative;
+      z-index:1;
+    }
+
+    .modeCard .btn{
+      width:100%;
+      min-height:48px;
+      position:relative;
+      z-index:1;
+    }
+
+    .howto{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .groupCard{
+      border-radius:24px;
+      background:rgba(255,255,255,.92);
+      border:1px solid var(--line);
+      box-shadow:var(--shadow);
+      padding:14px;
+      text-align:center;
+    }
+
+    .groupIcon{
+      width:56px;
+      height:56px;
+      margin:0 auto 8px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:linear-gradient(180deg,#fffefb,#eef9ff);
+      border:1px solid var(--line);
+    }
+
+    .groupCard b{
+      display:block;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .groupCard span{
+      display:block;
+      margin-top:5px;
+      color:var(--muted);
+      font-size:.78rem;
+      line-height:1.3;
+      font-weight:900;
+    }
+
+    .footer{
       display:flex;
+      justify-content:space-between;
+      align-items:center;
       gap:10px;
       flex-wrap:wrap;
-      margin-top:auto;
-    }
-
-    .modeBtn{
-      min-height:46px;
-      border:none;
-      border-radius:18px;
-      padding:0 16px;
-      font:inherit;
-      font-weight:1000;
-      cursor:pointer;
-      box-shadow:var(--shadow);
-      transition:transform .14s ease, box-shadow .14s ease, filter .14s ease;
-    }
-
-    .modeBtn:hover{
-      transform:translateY(-1px);
-      box-shadow:0 18px 38px rgba(75,138,170,.22);
-    }
-
-    .modeBtn:active{
-      transform:translateY(1px) scale(.99);
-    }
-
-    .modeBtn.play{
-      color:#fff;
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-    }
-
-    .solo .modeBtn.play{
-      background:linear-gradient(180deg,#ffbf4d,#ff8f3d);
-      box-shadow:0 18px 34px rgba(255,143,61,.22);
-    }
-
-    .modeBtn.alt{
-      color:var(--text);
-      background:#fff;
-      border:1px solid var(--line);
-    }
-
-    .modeBtn.disabled{
-      cursor:not-allowed;
-      color:#8aa0af;
-      background:#eef6fb;
-      border:1px dashed #cfe4ef;
-      box-shadow:none;
-    }
-
-    .modeBtn.disabled:hover{
-      transform:none;
-      box-shadow:none;
-    }
-
-    .footerNote{
-      border-radius:22px;
-      padding:14px 16px;
-      background:rgba(255,255,255,.78);
+      border-radius:24px;
+      padding:12px;
+      background:rgba(255,255,255,.82);
       border:1px solid var(--line);
       box-shadow:var(--shadow);
+    }
+
+    .footerInfo{
       color:var(--muted);
-      font-weight:800;
-      line-height:1.6;
+      font-size:.86rem;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .footerBtns{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
     }
 
     .toast{
       position:fixed;
       left:50%;
-      bottom:18px;
-      transform:translateX(-50%) translateY(14px);
+      bottom:calc(18px + var(--sab));
+      transform:translateX(-50%) translateY(16px);
+      z-index:80;
+      opacity:0;
+      pointer-events:none;
       min-width:min(520px,calc(100vw - 28px));
       max-width:calc(100vw - 28px);
       padding:12px 14px;
       border-radius:18px;
       background:rgba(40,72,95,.94);
       color:#fff;
-      font-weight:900;
-      text-align:center;
       box-shadow:0 18px 40px rgba(0,0,0,.22);
-      opacity:0;
-      pointer-events:none;
+      font-weight:1000;
+      text-align:center;
       transition:opacity .18s ease, transform .18s ease;
-      z-index:30;
     }
 
     .toast.show{
@@ -544,521 +480,512 @@
       transform:translateX(-50%) translateY(0);
     }
 
-    @media (max-width: 900px){
-      .heroRow,
-      .modeGrid{
+    @media (max-width:960px){
+      .hero{
         grid-template-columns:1fr;
+      }
+
+      .modeGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .howto{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
     }
 
-    @media (max-width: 640px){
-      .shell{
+    @media (max-width:560px){
+      .page{
         padding:
           calc(10px + var(--sat))
           calc(10px + var(--sar))
-          calc(14px + var(--sab))
+          calc(12px + var(--sab))
           calc(10px + var(--sal));
-        gap:10px;
       }
 
-      .topbar{
-        align-items:stretch;
+      .heroCard,
+      .statusCard{
+        border-radius:26px;
+        padding:15px;
       }
 
-      .actions{
+      .heroCard::after{
+        font-size:42px;
+        right:8px;
+        bottom:8px;
+      }
+
+      .heroActions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .modeGrid{
+        grid-template-columns:1fr;
+      }
+
+      .howto{
+        grid-template-columns:1fr;
+      }
+
+      .miniGrid{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .footer{
+        display:grid;
+      }
+
+      .footerBtns{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .footerBtns .btn{
         width:100%;
-      }
-
-      .actions .btn{
-        flex:1 1 auto;
-      }
-
-      .brand{
-        padding:10px 12px;
-        border-radius:20px;
-      }
-
-      .brandMark{
-        width:50px;
-        height:50px;
-        font-size:26px;
-      }
-
-      .hero{
-        border-radius:24px;
-        padding:14px;
-      }
-
-      .modeCard{
-        padding:14px;
-        border-radius:24px;
-        min-height:auto;
-      }
-
-      .modeTitle{
-        font-size:1.22rem;
-      }
-
-      .modeActions{
-        flex-direction:column;
-      }
-
-      .modeBtn{
-        width:100%;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        animation:none !important;
-        transition:none !important;
-        scroll-behavior:auto !important;
       }
     }
   </style>
 </head>
+
 <body>
-  <main class="shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brandMark">🥦</div>
-        <div>
-          <h1>Food Groups Arena</h1>
-          <p>ตัวหลักของเกม Groups — Solo Arena, Race และ zone-first flow</p>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="btn" id="btnContinue" type="button">▶ เล่นล่าสุด</button>
-        <button class="btn" id="btnMini" type="button">✨ Mini VR</button>
-        <button class="btn primary" id="btnBackZone" type="button">🍎 กลับ Nutrition Zone</button>
-        <button class="btn" id="btnBackHub" type="button">🏠 กลับ HUB</button>
-      </div>
-    </header>
-
+  <main class="page">
     <section class="hero">
-      <div class="heroRow">
+      <article class="heroCard">
+        <span class="badge">🥦 HeroHealth Nutrition Zone</span>
+        <h1>Food Groups<br>Portal Arena</h1>
+        <p class="lead">
+          ฝึกจำแนกอาหารหลัก 5 หมู่แบบเกม Arcade:
+          อาหารขึ้นกลางสนาม แล้วส่งเข้า Portal ให้ถูกหมู่
+          สะสม Combo เข้า Fever และสู้กับ Chaos Chef Boss
+        </p>
+
+        <div class="heroActions">
+          <button class="btn primary" id="btnPlaySolo" type="button">🚀 เริ่ม Solo Arena</button>
+          <button class="btn green" id="btnPractice" type="button">🧪 โหมดซ้อม</button>
+          <button class="btn blue" id="btnChallenge" type="button">🔥 Challenge</button>
+        </div>
+      </article>
+
+      <aside class="statusCard">
+        <div class="coach">
+          <div class="coachIcon">👨‍🍳</div>
+          <div>
+            <b>Chaos Chef รออยู่!</b>
+            <span>ตอบถูกเพื่อโจมตีบอส ตอบผิดบอสฟื้น HP และป่วนสนาม</span>
+          </div>
+        </div>
+
+        <div class="miniGrid">
+          <div class="mini">
+            <small>Player</small>
+            <b id="playerTxt">Hero</b>
+          </div>
+          <div class="mini">
+            <small>Difficulty</small>
+            <b id="diffTxt">Normal</b>
+          </div>
+          <div class="mini">
+            <small>View</small>
+            <b id="viewTxt">Mobile</b>
+          </div>
+          <div class="mini">
+            <small>Time</small>
+            <b id="timeTxt">90s</b>
+          </div>
+        </div>
+
+        <button class="btn" id="btnDirectGame" type="button">🎯 เข้าเกมตรง</button>
+      </aside>
+    </section>
+
+    <section>
+      <div class="sectionTitle">
         <div>
-          <h2>Food Groups Arena</h2>
-          <p>
-            ฝึกแยกอาหารหลัก 5 หมู่ของไทยให้สนุกขึ้นด้วยภารกิจสุ่ม Wave Mission,
-            คอมโบ, Fever, Power-up และบอส Chaos Chef โดย <b>Solo Arena</b>
-            จะเป็นโหมดหลักสำหรับฝึกคนเดียว ส่วน Race ใช้แข่งกับเพื่อน
-          </p>
-
-          <div class="heroChips">
-            <span class="chip hot">🥇 Solo Arena v2</span>
-            <span class="chip">🌊 Wave Mission</span>
-            <span class="chip">🔥 Combo + Fever</span>
-            <span class="chip">👨‍🍳 Boss Chaos Chef</span>
-            <span class="chip">🖥️📱🥽 PC / Mobile / cVR</span>
-          </div>
+          <h2>เลือกโหมด</h2>
+          <p>ตอนนี้โฟกัส Solo ให้สนุกและนิ่งก่อน แล้วค่อยต่อ multiplayer ภายหลัง</p>
         </div>
+      </div>
 
-        <div class="heroPanel">
-          <div class="panelCard">
-            <div class="panelLabel">Main Game</div>
-            <div class="panelValue">group-v1.html</div>
+      <div class="modeGrid">
+        <article class="modeCard hot">
+          <div>
+            <div class="modeIcon">🚀</div>
+            <h3>Solo Arena</h3>
+            <p>โหมดหลักแบบ GoodJunk Solo: ส่งอาหารเข้า Portal 5 หมู่ และสู้ Boss</p>
           </div>
-          <div class="panelCard">
-            <div class="panelLabel">Solo Run</div>
-            <div class="panelValue">vr-groups/groups.html</div>
+          <button class="btn primary" data-start="normal" type="button">เริ่มเล่น</button>
+        </article>
+
+        <article class="modeCard">
+          <div>
+            <div class="modeIcon">🧪</div>
+            <h3>Practice</h3>
+            <p>ช้าลง หัวใจเยอะขึ้น เหมาะสำหรับลองจำหมู่ก่อนเล่นจริง</p>
           </div>
-          <div class="panelCard">
-            <div class="panelLabel">เปิดจริง</div>
-            <div class="panelValue">Solo Arena • Race</div>
+          <button class="btn green" data-start="easy" type="button">ซ้อมก่อน</button>
+        </article>
+
+        <article class="modeCard">
+          <div>
+            <div class="modeIcon">🔥</div>
+            <h3>Challenge</h3>
+            <p>เร็วขึ้น บอสป่วนมากขึ้น เหมาะกับผู้เล่นที่จำหมู่ได้แล้ว</p>
           </div>
-          <div class="panelCard">
-            <div class="panelLabel">View</div>
-            <div class="panelValue" id="viewLabel">mobile</div>
+          <button class="btn blue" data-start="hard" type="button">ท้าทาย</button>
+        </article>
+
+        <article class="modeCard">
+          <div>
+            <div class="modeIcon">🌪</div>
+            <h3>Storm Focus</h3>
+            <p>เข้าเกมพร้อม seed ใหม่ เล่นซ้ำแล้วลำดับอาหารเปลี่ยน</p>
           </div>
-        </div>
+          <button class="btn" data-start="normal-newseed" type="button">สุ่มใหม่</button>
+        </article>
       </div>
     </section>
 
-    <section class="modeGrid">
-      <article class="modeCard solo">
-        <div class="modeTop">
-          <div class="modeIcon">🥇</div>
-          <div class="statusPill hot">แนะนำให้เล่น</div>
+    <section>
+      <div class="sectionTitle">
+        <div>
+          <h2>จำง่าย 5 หมู่</h2>
+          <p>ใช้ mapping อาหารหลัก 5 หมู่ของไทยแบบคงที่</p>
         </div>
-        <div class="modeBody">
-          <h3 class="modeTitle">Solo Arena</h3>
-          <p class="modeSub">
-            ลุยภารกิจจัดอาหาร 5 หมู่แบบ Wave Mission มีคอมโบ Fever Power-up และบอส Chaos Chef
-            เล่นซ้ำแล้วสุ่มภารกิจใหม่ ไม่จำทางเดิมง่าย
-          </p>
-          <div class="modeMeta">
-            <span>🌊 6 Waves</span>
-            <span>🔥 Fever Combo</span>
-            <span>🧠 Memory Flash</span>
-            <span>👨‍🍳 Boss Chef</span>
-          </div>
-        </div>
-        <div class="modeActions">
-          <button class="modeBtn play" data-mode="solo" data-view="pc" type="button">เล่น Solo • PC</button>
-          <button class="modeBtn alt" data-mode="solo" data-view="mobile" type="button">เล่น Solo • Mobile</button>
-          <button class="modeBtn alt" data-mode="solo" data-view="cvr" type="button">เล่น Solo • cVR</button>
-        </div>
-      </article>
+      </div>
 
-      <article class="modeCard race">
-        <div class="modeTop">
-          <div class="modeIcon">🏁</div>
-          <div class="statusPill ready">พร้อมเล่น</div>
-        </div>
-        <div class="modeBody">
-          <h3 class="modeTitle">Race</h3>
-          <p class="modeSub">
-            แข่งหลายเครื่อง ใครจัดหมวดได้เร็วและแม่นที่สุดก็ชนะ เหมาะเล่นกับเพื่อน
-          </p>
-          <div class="modeMeta">
-            <span>หลายคน</span>
-            <span>มีห้องแข่ง</span>
-            <span>มีอันดับผู้ชนะ</span>
-          </div>
-        </div>
-        <div class="modeActions">
-          <button class="modeBtn play" data-mode="race" data-view="mobile" type="button">เข้า Race Lobby</button>
-          <button class="modeBtn alt" data-mode="race" data-action="join" data-view="mobile" type="button">มีรหัสห้องแล้ว</button>
-        </div>
-      </article>
+      <div class="howto">
+        <article class="groupCard">
+          <div class="groupIcon">🥚</div>
+          <b>หมู่ 1 โปรตีน</b>
+          <span>เนื้อ นม ไข่ ถั่วเมล็ดแห้ง</span>
+        </article>
 
-      <article class="modeCard battle">
-        <div class="modeTop">
-          <div class="modeIcon">⚔️</div>
-          <div class="statusPill soon">เร็ว ๆ นี้</div>
-        </div>
-        <div class="modeBody">
-          <h3 class="modeTitle">Battle</h3>
-          <p class="modeSub">
-            แข่งกันแบบกดดันขึ้นกว่าเดิม เน้นแพ้ชนะชัดเจนและความตื่นเต้นระหว่างเกม
-          </p>
-          <div class="modeMeta">
-            <span>โหมดแข่งขัน</span>
-            <span>กำลังเตรียมเปิด</span>
-          </div>
-        </div>
-        <div class="modeActions">
-          <button class="modeBtn disabled" data-soon="battle" type="button">เร็ว ๆ นี้</button>
-        </div>
-      </article>
+        <article class="groupCard">
+          <div class="groupIcon">🍚</div>
+          <b>หมู่ 2 ข้าว/แป้ง</b>
+          <span>ข้าว แป้ง เผือก มัน น้ำตาล</span>
+        </article>
 
-      <article class="modeCard duet">
-        <div class="modeTop">
-          <div class="modeIcon">🤝</div>
-          <div class="statusPill soon">เร็ว ๆ นี้</div>
-        </div>
-        <div class="modeBody">
-          <h3 class="modeTitle">Duet</h3>
-          <p class="modeSub">
-            เล่น 2 คนเป็นคู่ ช่วยกันทำเป้าหมายและฝึกความแม่นยำไปพร้อมกัน
-          </p>
-          <div class="modeMeta">
-            <span>2 คน</span>
-            <span>เล่นเป็นคู่</span>
-          </div>
-        </div>
-        <div class="modeActions">
-          <button class="modeBtn disabled" data-soon="duet" type="button">เร็ว ๆ นี้</button>
-        </div>
-      </article>
+        <article class="groupCard">
+          <div class="groupIcon">🥦</div>
+          <b>หมู่ 3 ผัก</b>
+          <span>ผักต่าง ๆ</span>
+        </article>
 
-      <article class="modeCard coop">
-        <div class="modeTop">
-          <div class="modeIcon">🧩</div>
-          <div class="statusPill soon">เร็ว ๆ นี้</div>
-        </div>
-        <div class="modeBody">
-          <h3 class="modeTitle">Coop</h3>
-          <p class="modeSub">
-            เล่นเป็นทีม ช่วยกันทำเป้าหมายรวม เน้นความร่วมมือและความสนุกของทีม
-          </p>
-          <div class="modeMeta">
-            <span>เล่นเป็นทีม</span>
-            <span>เป้าหมายร่วม</span>
-          </div>
-        </div>
-        <div class="modeActions">
-          <button class="modeBtn disabled" data-soon="coop" type="button">เร็ว ๆ นี้</button>
-        </div>
-      </article>
+        <article class="groupCard">
+          <div class="groupIcon">🍎</div>
+          <b>หมู่ 4 ผลไม้</b>
+          <span>ผลไม้ต่าง ๆ</span>
+        </article>
+
+        <article class="groupCard">
+          <div class="groupIcon">🥑</div>
+          <b>หมู่ 5 ไขมัน</b>
+          <span>น้ำมัน กะทิ เนย ถั่วบางชนิด</span>
+        </article>
+      </div>
     </section>
 
-    <section class="footerNote">
-      หน้านี้คือ <b>ตัวหลักของเกม Groups</b> ส่วน <b>groups-vr.html</b> เป็นหน้ารอง/mini game
-      และทุกทางออกจากเกมควรกลับมาที่ <b>Nutrition Zone</b> ก่อน ไม่ใช่เด้งกลับ Hub โดยตรง
-    </section>
+    <footer class="footer">
+      <div class="footerInfo" id="routeInfo">
+        Ready • Groups Launcher Safe
+      </div>
+
+      <div class="footerBtns">
+        <button class="btn" id="btnZone" type="button">🍎 Nutrition Zone</button>
+        <button class="btn" id="btnHub" type="button">🏠 HUB</button>
+      </div>
+    </footer>
   </main>
 
-  <div class="toast" id="toast">โหมดนี้กำลังเตรียมเปิดเร็ว ๆ นี้</div>
+  <div class="toast" id="toast">พร้อมเล่น</div>
 
-  <script type="module">
-    import { buildZoneGameUrl, buildHubRoot, rememberZoneGame } from './zone-return.js';
-
+  <script>
     (() => {
       'use strict';
 
-      const q = new URLSearchParams(location.search);
+      const q = new URLSearchParams(location.search || '');
+
+      const PATHS = {
+        game: './vr-groups/groups.html',
+        zone: './nutrition-zone.html',
+        hub: './hub-v2.html'
+      };
+
+      const PASS_KEYS = [
+        'pid',
+        'name',
+        'nick',
+        'nickName',
+        'studentKey',
+        'schoolCode',
+        'classRoom',
+        'studentNo',
+
+        'diff',
+        'time',
+        'view',
+        'run',
+        'seed',
+
+        'hub',
+        'hubRoot',
+        'returnHub',
+        'zone',
+        'cat',
+        'game',
+        'gameId',
+        'mode',
+        'entry',
+        'recommendedMode',
+
+        'studyId',
+        'phase',
+        'conditionGroup',
+        'section',
+        'session_code',
+        'sessionCode',
+        'sessionNo',
+        'weekNo',
+        'teacher',
+        'grade',
+
+        'api',
+        'log',
+        'debug'
+      ];
 
       const $ = (id) => document.getElementById(id);
 
       const els = {
-        btnContinue: $('btnContinue'),
-        btnBackZone: $('btnBackZone'),
-        btnBackHub: $('btnBackHub'),
-        btnMini: $('btnMini'),
-        toast: $('toast'),
-        viewLabel: $('viewLabel')
+        playerTxt: $('playerTxt'),
+        diffTxt: $('diffTxt'),
+        viewTxt: $('viewTxt'),
+        timeTxt: $('timeTxt'),
+        routeInfo: $('routeInfo'),
+
+        btnPlaySolo: $('btnPlaySolo'),
+        btnPractice: $('btnPractice'),
+        btnChallenge: $('btnChallenge'),
+        btnDirectGame: $('btnDirectGame'),
+        btnZone: $('btnZone'),
+        btnHub: $('btnHub'),
+
+        toast: $('toast')
       };
 
-      const ROUTES = {
-        zone: './nutrition-zone.html',
-        mini: './groups-vr.html',
-        soloRun: './vr-groups/groups.html',
-        raceLobby: './vr-groups/groups-race-lobby.html'
+      const ctx = {
+        pid: clean(q.get('pid') || 'anon'),
+        name: clean(q.get('name') || q.get('nick') || q.get('nickName') || 'Hero'),
+        diff: clean(q.get('diff') || 'normal'),
+        time: clean(q.get('time') || '90'),
+        view: clean(q.get('view') || 'mobile'),
+        run: clean(q.get('run') || 'play'),
+        hub: clean(q.get('hub') || q.get('hubRoot') || '')
       };
 
-      const LAST_MODE_KEY = 'HHA_GROUPS_LAST_MODE';
-      const LAST_URL_KEY = 'HHA_GROUPS_LAST_URL';
+      init();
 
-      const hubRoot = buildHubRoot(q, location.href);
-      const zoneUrl = buildZoneUrl();
+      function init(){
+        els.playerTxt.textContent = ctx.name;
+        els.diffTxt.textContent = title(ctx.diff);
+        els.viewTxt.textContent = ctx.view === 'cvr' ? 'Cardboard' : title(ctx.view);
+        els.timeTxt.textContent = ctx.time + 's';
 
-      bindEvents();
-      renderMeta();
+        els.routeInfo.textContent =
+          'pid=' + ctx.pid +
+          ' • diff=' + ctx.diff +
+          ' • view=' + ctx.view +
+          ' • time=' + ctx.time;
 
-      function renderMeta() {
-        if (els.viewLabel) {
-          els.viewLabel.textContent = q.get('view') || 'mobile';
-        }
-      }
+        els.btnPlaySolo.addEventListener('click', () => startGame({
+          diff: ctx.diff || 'normal',
+          time: ctx.time || '90',
+          seed: q.get('seed') || String(Date.now())
+        }));
 
-      function first(...vals) {
-        for (const v of vals) {
-          const s = String(v ?? '').trim();
-          if (s) return s;
-        }
-        return '';
-      }
+        els.btnPractice.addEventListener('click', () => startGame({
+          diff: 'easy',
+          time: '150',
+          practice: '1',
+          seed: q.get('seed') || String(Date.now())
+        }));
 
-      function buildZoneUrl() {
-        const u = new URL(ROUTES.zone, location.href);
+        els.btnChallenge.addEventListener('click', () => startGame({
+          diff: 'hard',
+          time: '90',
+          seed: String(Date.now())
+        }));
 
-        const passKeys = [
-          'pid','name','nickName','nick','studyId',
-          'run','diff','view','time','seed',
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo',
-          'conditionGroup','sessionNo','weekNo','teacher','grade'
-        ];
+        els.btnDirectGame.addEventListener('click', () => startGame({
+          diff: ctx.diff || 'normal',
+          time: ctx.time || '90',
+          seed: q.get('seed') || String(Date.now())
+        }));
 
-        passKeys.forEach((k) => {
-          const v = q.get(k);
-          if (v != null && v !== '') u.searchParams.set(k, v);
+        document.querySelectorAll('[data-start]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const mode = btn.dataset.start || 'normal';
+
+            if(mode === 'easy'){
+              startGame({
+                diff: 'easy',
+                time: '150',
+                practice: '1',
+                seed: q.get('seed') || String(Date.now())
+              });
+              return;
+            }
+
+            if(mode === 'hard'){
+              startGame({
+                diff: 'hard',
+                time: '90',
+                seed: String(Date.now())
+              });
+              return;
+            }
+
+            if(mode === 'normal-newseed'){
+              startGame({
+                diff: 'normal',
+                time: ctx.time || '90',
+                seed: String(Date.now())
+              });
+              return;
+            }
+
+            startGame({
+              diff: ctx.diff || 'normal',
+              time: ctx.time || '90',
+              seed: q.get('seed') || String(Date.now())
+            });
+          });
         });
 
-        if (!u.searchParams.get('pid')) u.searchParams.set('pid', 'anon');
-        if (!u.searchParams.get('name')) u.searchParams.set('name', first(q.get('name'), q.get('nickName'), q.get('nick'), 'Player'));
-        if (!u.searchParams.get('nick')) u.searchParams.set('nick', first(q.get('nick'), q.get('nickName'), q.get('name'), 'Player'));
-        if (!u.searchParams.get('diff')) u.searchParams.set('diff', 'normal');
-        if (!u.searchParams.get('time')) u.searchParams.set('time', '60');
-        if (!u.searchParams.get('view')) u.searchParams.set('view', 'mobile');
+        els.btnZone.addEventListener('click', () => {
+          location.href = buildUrl(PATHS.zone, {
+            zone: 'nutrition',
+            cat: 'nutrition',
+            game: 'groups',
+            gameId: 'groups'
+          });
+        });
 
-        u.searchParams.set('hubRoot', hubRoot);
-        u.searchParams.set('hub', hubRoot);
+        els.btnHub.addEventListener('click', () => {
+          const explicitHub = q.get('hubRoot') || '';
+          if(explicitHub){
+            location.href = safeDecodeUrl(explicitHub, buildUrl(PATHS.hub, {}));
+            return;
+          }
+          location.href = buildUrl(PATHS.hub, {});
+        });
+
+        toast('Groups Launcher พร้อมแล้ว');
+      }
+
+      function startGame(extra){
+        const url = buildUrl(PATHS.game, {
+          ...extra,
+          pid: ctx.pid,
+          name: ctx.name,
+          run: 'play',
+          view: ctx.view,
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'groups',
+          gameId: 'groups',
+          mode: 'solo',
+          entry: 'solo',
+          recommendedMode: 'solo',
+          hub: getZoneReturnUrl()
+        });
+
+        toast('กำลังเข้า Groups Solo...');
+        setTimeout(() => {
+          location.href = url;
+        }, 120);
+      }
+
+      function buildUrl(path, extra){
+        const u = new URL(path, location.href);
+
+        PASS_KEYS.forEach(k => {
+          const v = q.get(k);
+          if(v !== null && v !== '') u.searchParams.set(k, v);
+        });
+
+        if(extra && typeof extra === 'object'){
+          Object.keys(extra).forEach(k => {
+            const v = extra[k];
+            if(v !== undefined && v !== null && v !== '') {
+              u.searchParams.set(k, String(v));
+            }
+          });
+        }
+
+        if(!u.searchParams.get('pid')) u.searchParams.set('pid', ctx.pid || 'anon');
+        if(!u.searchParams.get('name')) u.searchParams.set('name', ctx.name || 'Hero');
+        if(!u.searchParams.get('diff')) u.searchParams.set('diff', ctx.diff || 'normal');
+        if(!u.searchParams.get('time')) u.searchParams.set('time', ctx.time || '90');
+        if(!u.searchParams.get('view')) u.searchParams.set('view', ctx.view || 'mobile');
 
         return u.toString();
       }
 
-      function buildBaseSearch(viewOverride = '') {
-        const s = new URLSearchParams(q.toString());
+      function getZoneReturnUrl(){
+        const explicitHub = q.get('hub') || q.get('returnHub') || '';
+        const decoded = safeDecodeUrl(explicitHub, '');
+        if(decoded) return decoded;
 
-        if (!s.get('pid')) s.set('pid', 'anon');
-        if (!s.get('name')) s.set('name', first(q.get('name'), q.get('nickName'), q.get('nick'), 'Player'));
-        if (!s.get('nick')) s.set('nick', first(q.get('nick'), q.get('nickName'), q.get('name'), 'Player'));
-        if (!s.get('diff')) s.set('diff', 'normal');
-        if (!s.get('time')) s.set('time', '60');
-        if (!s.get('run')) s.set('run', 'play');
-
-        s.set('view', viewOverride || s.get('view') || 'mobile');
-        s.set('hubRoot', hubRoot);
-
-        return s;
+        return buildUrl(PATHS.zone, {
+          zone: 'nutrition',
+          cat: 'nutrition',
+          game: 'groups',
+          gameId: 'groups'
+        });
       }
 
-      function buildSoloUrl(view = 'mobile') {
-        const sp = buildBaseSearch(view);
+      function safeDecodeUrl(raw, fallback){
+        try{
+          let s = String(raw || '').trim();
+          if(!s) return fallback || '';
 
-        return buildZoneGameUrl({
-          basePath: ROUTES.soloRun,
-          searchParams: sp,
-          zone: 'nutrition',
-          gameKey: 'groups',
-          currentHref: location.href,
-          overrides: {
-            mode: 'solo',
-            entry: 'solo',
-            view,
-            seed: String(Date.now()),
-
-            // Groups Solo Arena v2 flags
-            soloPack: 'groups-solo-arena-v2',
-            missionPack: 'wave-random-boss',
-            replay: '1',
-            randomMission: '1',
-            waves: '6',
-            boss: 'chaos-chef',
-            bossPhase: '3',
-            fever: '1',
-            combo: '1',
-            powerups: '1',
-            traps: '1',
-            memoryFlash: '1',
-            adaptive: '1',
-
-            // research/play metadata
-            gameId: 'groups',
-            cat: 'nutrition',
-            theme: 'groups-arena',
-            returnTo: 'nutrition-zone'
+          for(let i = 0; i < 2; i++){
+            try{
+              const d = decodeURIComponent(s);
+              if(d === s) break;
+              s = d;
+            }catch(_){
+              break;
+            }
           }
-        });
-      }
 
-      function buildRaceLobbyUrl(joinOnly = false, view = 'mobile') {
-        const sp = buildBaseSearch(view);
-
-        return buildZoneGameUrl({
-          basePath: ROUTES.raceLobby,
-          searchParams: sp,
-          zone: 'nutrition',
-          gameKey: 'groups',
-          currentHref: location.href,
-          overrides: {
-            mode: 'race',
-            race: '1',
-            join: joinOnly ? '1' : '',
-            view,
-            seed: String(Date.now()),
-            gameId: 'groups',
-            cat: 'nutrition',
-            theme: 'groups-race',
-            returnTo: 'nutrition-zone'
-          }
-        });
-      }
-
-      function buildMiniUrl() {
-        const sp = buildBaseSearch(q.get('view') || 'mobile');
-
-        return buildZoneGameUrl({
-          basePath: ROUTES.mini,
-          searchParams: sp,
-          zone: 'nutrition',
-          gameKey: 'groups',
-          currentHref: location.href,
-          overrides: {
-            mode: 'mini',
-            entry: 'mini',
-            seed: String(Date.now()),
-            gameId: 'groups',
-            cat: 'nutrition',
-            theme: 'groups-mini',
-            returnTo: 'nutrition-zone'
-          }
-        });
-      }
-
-      function saveLast(mode, href) {
-        try {
-          localStorage.setItem(LAST_MODE_KEY, mode);
-          localStorage.setItem(LAST_URL_KEY, href);
-        } catch (_) {}
-      }
-
-      function markGroupsStart() {
-        rememberZoneGame({
-          zone: 'nutrition',
-          gameKey: 'groups',
-          gameTitle: 'Groups'
-        });
-      }
-
-      function bindEvents() {
-        document.querySelectorAll('[data-mode="solo"]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const view = btn.dataset.view || 'mobile';
-            const href = buildSoloUrl(view);
-            saveLast('solo', href);
-            markGroupsStart();
-            location.href = href;
-          });
-        });
-
-        document.querySelectorAll('[data-mode="race"]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const joinOnly = btn.dataset.action === 'join';
-            const view = btn.dataset.view || q.get('view') || 'mobile';
-            const href = buildRaceLobbyUrl(joinOnly, view);
-            saveLast('race', href);
-            markGroupsStart();
-            location.href = href;
-          });
-        });
-
-        document.querySelectorAll('[data-soon]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const mode = btn.dataset.soon || '';
-            const label = mode ? mode.toUpperCase() : 'โหมดนี้';
-            showToast(label + ' กำลังเตรียมเปิดเร็ว ๆ นี้');
-          });
-        });
-
-        if (els.btnContinue) {
-          els.btnContinue.addEventListener('click', () => {
-            try {
-              const lastUrl = localStorage.getItem(LAST_URL_KEY);
-              if (lastUrl) {
-                markGroupsStart();
-                location.href = lastUrl;
-                return;
-              }
-            } catch (_) {}
-            showToast('ยังไม่มีโหมดล่าสุด เริ่มจาก Solo Arena หรือ Race ได้เลย');
-          });
-        }
-
-        if (els.btnBackZone) {
-          els.btnBackZone.addEventListener('click', () => {
-            location.href = zoneUrl;
-          });
-        }
-
-        if (els.btnBackHub) {
-          els.btnBackHub.addEventListener('click', () => {
-            location.href = hubRoot;
-          });
-        }
-
-        if (els.btnMini) {
-          els.btnMini.addEventListener('click', () => {
-            markGroupsStart();
-            location.href = buildMiniUrl();
-          });
+          return new URL(s, location.href).toString();
+        }catch(_){
+          return fallback || '';
         }
       }
 
-      function showToast(text) {
-        if (!els.toast) return;
+      function toast(text){
+        if(!els.toast) return;
         els.toast.textContent = text;
         els.toast.classList.add('show');
-        clearTimeout(showToast._t);
-        showToast._t = setTimeout(() => {
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => {
           els.toast.classList.remove('show');
-        }, 1800);
+        }, 1500);
+      }
+
+      function clean(v){
+        return String(v == null ? '' : v).trim();
+      }
+
+      function title(s){
+        s = clean(s);
+        if(!s) return '';
+        return s.charAt(0).toUpperCase() + s.slice(1);
       }
     })();
   </script>
