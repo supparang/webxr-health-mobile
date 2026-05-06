@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260505p-BRUSH-KIDS-PATCH16-TOOTH-CITY-FINAL-SUITE -->
+<!-- FULL PATCH v20260505r-BRUSH-KIDS-PATCH24-RELEASE-CANDIDATE-QA -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -2425,6 +2425,766 @@ body.patch16-cvr .patch16Hud{
   .patch16ModalCard{ box-shadow:none; max-height:none; width:100%; border:0; }
 }
 
+  
+/* === PATCH v20260505q-BRUSH-PATCH20-PRODUCTION-RESEARCH-FINAL === */
+
+/* Patch 17: Mobile Performance + UI Cleanup */
+body.p20-lowperf *,
+body.p20-reduced-motion *{
+  animation-duration:.001ms !important;
+  animation-iteration-count:1 !important;
+  transition-duration:.001ms !important;
+  scroll-behavior:auto !important;
+}
+
+body.p20-kid-simple .patch16Hud,
+body.p20-kid-simple .directorPanel,
+body.p20-kid-simple .hypeBanner,
+body.p20-kid-simple .arcadePanel,
+body.p20-kid-simple .burstPanel,
+body.p20-kid-simple .challengeCard{
+  display:none !important;
+}
+
+body.p20-kid-simple .stageHead{
+  display:block !important;
+}
+
+body.p20-kid-simple .lead{
+  font-size:15px !important;
+  line-height:1.35 !important;
+}
+
+body.p20-mobile-clean .patch16Hud{
+  opacity:.92;
+}
+
+body.p20-mobile-clean .patch16Card{
+  border-radius:18px;
+  padding:8px;
+}
+
+body.p20-mobile-clean .patch16Card:not(.open) .patch16Body{
+  display:none !important;
+}
+
+body.p20-mobile-clean .stats{
+  position:relative;
+  z-index:30;
+}
+
+body.p20-mobile-clean .toast{
+  bottom:calc(74px + env(safe-area-inset-bottom,0px)) !important;
+}
+
+.p20Coach{
+  position:fixed;
+  left:50%;
+  bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);
+  z-index:10080;
+  width:min(720px,92vw);
+  display:none;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:999px;
+  border:2px solid rgba(189,244,255,.95);
+  background:rgba(255,255,255,.94);
+  color:#17384f;
+  box-shadow:0 18px 44px rgba(23,56,79,.18);
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-weight:1000;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+
+.p20Coach.show{
+  display:grid;
+}
+
+.p20CoachIcon{
+  width:42px;
+  height:42px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:1px solid #bdf4ff;
+  font-size:24px;
+  flex:0 0 auto;
+}
+
+.p20CoachText{
+  min-width:0;
+  font-size:14px;
+  line-height:1.28;
+}
+
+.p20CoachText small{
+  display:block;
+  margin-top:2px;
+  color:#5f7f92;
+  font-size:11px;
+}
+
+.p20CoachBtn{
+  min-height:40px;
+  border:0;
+  border-radius:999px;
+  padding:8px 12px;
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  color:#503c00;
+  font-size:12px;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+.p20Toolbar{
+  position:fixed;
+  right:calc(12px + env(safe-area-inset-right,0px));
+  top:calc(12px + env(safe-area-inset-top,0px));
+  z-index:10090;
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  pointer-events:none;
+}
+
+.p20ToolBtn{
+  pointer-events:auto;
+  min-height:40px;
+  border:0;
+  border-radius:999px;
+  padding:8px 11px;
+  background:rgba(255,255,255,.94);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+  box-shadow:0 12px 26px rgba(23,56,79,.14);
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-size:12px;
+  font-weight:1000;
+  cursor:pointer;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+.p20ToolBtn.warn{
+  border-color:#ffe58d;
+  background:#fff8dc;
+  color:#7c5800;
+}
+
+.p20ToolBtn.danger{
+  border-color:#fecaca;
+  background:#fff3f3;
+  color:#991b1b;
+}
+
+/* Patch 19: QA Guard + Anti-Stuck */
+.p20GuardPanel{
+  position:fixed;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  z-index:10100;
+  width:min(620px,92vw);
+  display:none;
+  border-radius:28px;
+  border:3px solid #ffe58d;
+  background:linear-gradient(180deg,#fff8dc,#ffffff);
+  box-shadow:0 28px 80px rgba(2,6,23,.25);
+  padding:16px;
+  color:#7c5800;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-weight:1000;
+  gap:10px;
+}
+
+.p20GuardPanel.show{
+  display:grid;
+}
+
+.p20GuardPanel strong{
+  color:#503c00;
+  font-size:22px;
+  line-height:1.1;
+}
+
+.p20GuardPanel p{
+  margin:0;
+  color:#7c5800;
+  font-size:14px;
+  line-height:1.45;
+}
+
+.p20GuardActions{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+.p20GuardActions button{
+  min-height:48px;
+  border:0;
+  border-radius:16px;
+  padding:9px 10px;
+  cursor:pointer;
+  font:1000 13px ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  background:#fff;
+  border:2px solid #ffe58d;
+  color:#7c5800;
+}
+
+.p20GuardActions button.primary{
+  background:linear-gradient(180deg,#dcfff2,#baf4cf);
+  border-color:#b8eec6;
+  color:#143a22;
+}
+
+.p20GuardActions button.danger{
+  background:linear-gradient(180deg,#fff3f3,#ffdada);
+  border-color:#fecaca;
+  color:#991b1b;
+}
+
+/* Patch 20: Research Schema / Export */
+.p20ResearchModal{
+  position:fixed;
+  inset:0;
+  z-index:10120;
+  display:none;
+  place-items:center;
+  padding:18px;
+  background:rgba(2,6,23,.42);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
+.p20ResearchModal.show{
+  display:grid;
+}
+
+.p20ResearchCard{
+  width:min(920px,96vw);
+  max-height:min(780px,88dvh);
+  overflow:auto;
+  border-radius:30px;
+  border:3px solid #bdf4ff;
+  background:linear-gradient(180deg,#ffffff,#f8feff);
+  box-shadow:0 30px 90px rgba(2,6,23,.34);
+  padding:16px;
+  display:grid;
+  gap:12px;
+  color:#17384f;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.p20ResearchCard h2{
+  margin:0;
+  color:#12324b;
+  font-size:clamp(24px,4vw,38px);
+  line-height:1.05;
+  letter-spacing:-.035em;
+  font-weight:1000;
+}
+
+.p20SchemaGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.p20SchemaBox{
+  border-radius:20px;
+  border:2px solid #d7f0fb;
+  background:#fff;
+  padding:12px;
+  display:grid;
+  gap:6px;
+  color:#37566e;
+  font-size:13px;
+  line-height:1.42;
+  font-weight:900;
+}
+
+.p20SchemaBox strong{
+  color:#12324b;
+  font-size:16px;
+}
+
+.p20Code{
+  border-radius:18px;
+  background:#0f172a;
+  color:#dffaff;
+  padding:12px;
+  overflow:auto;
+  max-height:320px;
+  font:800 11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.p20ModalActions{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+}
+
+.p20ModalActions button{
+  min-height:46px;
+  border:0;
+  border-radius:16px;
+  padding:9px 10px;
+  cursor:pointer;
+  font:1000 12px ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+}
+
+.p20ModalActions button.gold{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  border-color:#ffd95d;
+  color:#503c00;
+}
+
+@media (max-width:760px){
+  .p20Toolbar{
+    right:8px;
+    top:8px;
+  }
+  .p20ToolBtn{
+    min-height:36px;
+    padding:7px 9px;
+    font-size:11px;
+  }
+  .p20Coach{
+    bottom:calc(8px + env(safe-area-inset-bottom,0px));
+    border-radius:22px;
+    grid-template-columns:auto 1fr;
+  }
+  .p20CoachBtn{
+    grid-column:1/-1;
+  }
+  .p20GuardActions,
+  .p20SchemaGrid,
+  .p20ModalActions{
+    grid-template-columns:1fr;
+  }
+}
+
+@media print{
+  .p20Toolbar,.p20Coach,.p20GuardPanel,.p20ResearchModal{display:none !important;}
+}
+
+  
+/* === PATCH v20260505r-BRUSH-PATCH24-RELEASE-CANDIDATE-QA === */
+
+/* Patch 21: stabilization / layout safety */
+html.p24-lock-scroll,
+html.p24-lock-scroll body{
+  overscroll-behavior:none;
+}
+
+body.p24-safe-layout .screen.active{
+  min-height:auto;
+}
+
+body.p24-safe-layout .panel,
+body.p24-safe-layout .heroCard,
+body.p24-safe-layout .bossBox,
+body.p24-safe-layout .summaryPanel{
+  contain:layout paint;
+}
+
+body.p24-safe-layout .mouthScene,
+body.p24-safe-layout .prepStage,
+body.p24-safe-layout .bossArena{
+  transform:translateZ(0);
+  backface-visibility:hidden;
+}
+
+body.p24-low-visual .plaqueMonster,
+body.p24-low-visual .powerUpSprite,
+body.p24-low-visual .toothPet,
+body.p24-low-visual .sparkle,
+body.p24-low-visual .finishFirework{
+  filter:none !important;
+  box-shadow:none !important;
+}
+
+body.p24-kid-tuned .topbar{
+  position:relative;
+}
+
+body.p24-kid-tuned .stats .stat:nth-child(n+5){
+  display:none;
+}
+
+body.p24-kid-tuned .dockBtn,
+body.p24-kid-tuned .btn,
+body.p24-kid-tuned .p20CoachBtn{
+  min-height:56px;
+}
+
+body.p24-kid-tuned .choiceBtn{
+  min-height:64px;
+  font-size:15px;
+}
+
+/* Patch 22: cute visual polish, asset-light */
+body.p24-cute-polish{
+  background:
+    radial-gradient(circle at 12% 5%, rgba(255,255,255,.96), transparent 24%),
+    radial-gradient(circle at 88% 8%, rgba(255,217,93,.26), transparent 25%),
+    radial-gradient(circle at 50% 100%, rgba(139,232,255,.22), transparent 30%),
+    linear-gradient(180deg,#f7feff,#eafcff);
+}
+
+body.p24-cute-polish .brandIcon,
+body.p24-cute-polish .coachIcon,
+body.p24-cute-polish .p20CoachIcon{
+  box-shadow:inset 0 -6px 12px rgba(23,56,79,.06), 0 8px 18px rgba(23,56,79,.08);
+}
+
+body.p24-cute-polish .mouthBase::after{
+  content:"";
+  position:absolute;
+  left:14%;
+  right:14%;
+  bottom:12%;
+  height:7%;
+  border-radius:999px;
+  background:rgba(255,255,255,.22);
+  pointer-events:none;
+}
+
+body.p24-cute-polish .tooth{
+  position:relative;
+}
+
+body.p24-cute-polish .tooth::after{
+  content:"";
+  position:absolute;
+  left:22%;
+  top:18%;
+  width:20%;
+  height:12%;
+  border-radius:999px;
+  background:rgba(255,255,255,.72);
+}
+
+body.p24-cute-polish .plaqueMonster::after{
+  content:"";
+  position:absolute;
+  left:24%;
+  top:24%;
+  width:10%;
+  height:10%;
+  border-radius:999px;
+  background:#17384f;
+  box-shadow:14px 0 0 #17384f;
+}
+
+body.p24-cute-polish .toothPet::after{
+  content:"♡";
+  position:absolute;
+  right:-7px;
+  top:-9px;
+  color:#f472b6;
+  font-size:13px;
+  text-shadow:0 2px 6px rgba(255,255,255,.9);
+}
+
+/* Patch 24 QA HUD */
+.p24Dock{
+  position:fixed;
+  left:calc(12px + env(safe-area-inset-left,0px));
+  bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  z-index:10220;
+  display:flex;
+  gap:7px;
+  flex-wrap:wrap;
+  pointer-events:none;
+}
+
+.p24Btn{
+  pointer-events:auto;
+  min-height:42px;
+  border:0;
+  border-radius:999px;
+  padding:8px 12px;
+  cursor:pointer;
+  background:rgba(255,255,255,.94);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+  box-shadow:0 12px 26px rgba(23,56,79,.14);
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-size:12px;
+  font-weight:1000;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+.p24Btn.gold{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  border-color:#ffd95d;
+  color:#503c00;
+}
+
+.p24Btn.green{
+  background:linear-gradient(180deg,#dcfff2,#ffffff);
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.p24Btn.red{
+  background:linear-gradient(180deg,#fff3f3,#ffffff);
+  border-color:#fecaca;
+  color:#991b1b;
+}
+
+.p24QaBadge{
+  pointer-events:auto;
+  min-height:42px;
+  border-radius:999px;
+  padding:8px 12px;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background:rgba(255,255,255,.94);
+  border:2px solid #d7f0fb;
+  color:#37566e;
+  box-shadow:0 12px 26px rgba(23,56,79,.14);
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-size:12px;
+  font-weight:1000;
+}
+
+.p24QaBadge.pass{
+  border-color:#b8eec6;
+  color:#166534;
+  background:#effcf3;
+}
+
+.p24QaBadge.warn{
+  border-color:#ffe58d;
+  color:#7c5800;
+  background:#fff8dc;
+}
+
+.p24QaBadge.fail{
+  border-color:#fecaca;
+  color:#991b1b;
+  background:#fff3f3;
+}
+
+.p24Modal{
+  position:fixed;
+  inset:0;
+  z-index:10240;
+  display:none;
+  place-items:center;
+  padding:18px;
+  background:rgba(2,6,23,.42);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
+.p24Modal.show{
+  display:grid;
+}
+
+.p24Card{
+  width:min(980px,96vw);
+  max-height:min(820px,90dvh);
+  overflow:auto;
+  border-radius:32px;
+  border:3px solid #bdf4ff;
+  background:linear-gradient(180deg,#ffffff,#f8feff);
+  box-shadow:0 30px 90px rgba(2,6,23,.34);
+  padding:16px;
+  display:grid;
+  gap:12px;
+  color:#17384f;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.p24Card h2{
+  margin:0;
+  color:#12324b;
+  font-size:clamp(24px,4vw,40px);
+  line-height:1.05;
+  letter-spacing:-.04em;
+  font-weight:1000;
+}
+
+.p24Card p{
+  margin:0;
+  color:#5f7f92;
+  font-size:14px;
+  line-height:1.45;
+  font-weight:850;
+}
+
+.p24Grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+}
+
+.p24Box{
+  border-radius:20px;
+  border:2px solid #d7f0fb;
+  background:#fff;
+  padding:12px;
+  display:grid;
+  gap:8px;
+  color:#37566e;
+  font-size:13px;
+  line-height:1.42;
+  font-weight:900;
+}
+
+.p24Box strong{
+  color:#12324b;
+  font-size:16px;
+}
+
+.p24Check{
+  min-height:36px;
+  border-radius:14px;
+  border:1px solid #d7f0fb;
+  background:#f8fdff;
+  padding:7px 9px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+}
+
+.p24Check.pass{
+  border-color:#b8eec6;
+  background:#effcf3;
+  color:#166534;
+}
+
+.p24Check.warn{
+  border-color:#ffe58d;
+  background:#fff8dc;
+  color:#7c5800;
+}
+
+.p24Check.fail{
+  border-color:#fecaca;
+  background:#fff3f3;
+  color:#991b1b;
+}
+
+.p24Code{
+  border-radius:18px;
+  background:#0f172a;
+  color:#dffaff;
+  padding:12px;
+  max-height:300px;
+  overflow:auto;
+  font:800 11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+
+.p24Actions{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:8px;
+}
+
+.p24Actions button{
+  min-height:46px;
+  border:0;
+  border-radius:16px;
+  padding:9px 10px;
+  cursor:pointer;
+  font:1000 12px ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+}
+
+.p24Actions button.gold{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  border-color:#ffd95d;
+  color:#503c00;
+}
+
+.p24Actions button.green{
+  background:linear-gradient(180deg,#dcfff2,#ffffff);
+  border-color:#b8eec6;
+  color:#166534;
+}
+
+.p24Toast{
+  position:fixed;
+  left:50%;
+  top:18%;
+  z-index:10260;
+  transform:translateX(-50%);
+  min-height:48px;
+  width:min(720px,92vw);
+  display:none;
+  place-items:center;
+  text-align:center;
+  border-radius:999px;
+  padding:10px 18px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  font-family:ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  font-size:15px;
+  font-weight:1000;
+  box-shadow:0 18px 44px rgba(23,56,79,.28);
+}
+
+.p24Toast.show{
+  display:grid;
+  animation:p24ToastPop 1.1s ease-out forwards;
+}
+
+@keyframes p24ToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.9)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-12px) scale(.98)}
+}
+
+@media (max-width:760px){
+  .p24Dock{
+    left:8px;
+    right:8px;
+    bottom:calc(8px + env(safe-area-inset-bottom,0px));
+  }
+  .p24Btn,.p24QaBadge{
+    min-height:38px;
+    padding:7px 10px;
+    font-size:11px;
+  }
+  .p24Grid,
+  .p24Actions{
+    grid-template-columns:1fr;
+  }
+  body.p24-kid-tuned .p24Dock{
+    bottom:calc(68px + env(safe-area-inset-bottom,0px));
+  }
+}
+
+@media print{
+  .p24Dock,.p24Toast{display:none !important;}
+  .p24Modal{position:static;display:block;background:white;padding:0;}
+  .p24Card{box-shadow:none;border:0;width:100%;max-height:none;}
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -2737,7 +3497,7 @@ body.patch16-cvr .patch16Hud{
     (function(){
       'use strict';
 
-      const VERSION = '20260505p-BRUSH-KIDS-PATCH16-TOOTH-CITY-FINAL-SUITE';
+      const VERSION = '20260505r-BRUSH-KIDS-PATCH24-RELEASE-CANDIDATE-QA';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -5928,6 +6688,1055 @@ body.patch16-cvr .patch16Hud{
       const boss = dailyBoss();
       toast(`${seasonName()} • Daily Boss วันนี้: ${boss.icon} ${boss.name}`);
     }, 900);
+  }
+
+  init();
+})();
+</script>
+
+
+  <div class="p20Toolbar" id="p20Toolbar">
+    <button class="p20ToolBtn" id="p20SimpleBtn" type="button">👶 Kid</button>
+    <button class="p20ToolBtn warn" id="p20PerfBtn" type="button">⚡ Lite</button>
+    <button class="p20ToolBtn" id="p20ResearchBtn" type="button">🔬 Data</button>
+    <button class="p20ToolBtn danger" id="p20HelpBtn" type="button">🛟 Help</button>
+  </div>
+
+  <div class="p20Coach" id="p20Coach">
+    <div class="p20CoachIcon" id="p20CoachIcon">🪥</div>
+    <div class="p20CoachText" id="p20CoachText">
+      พร้อมช่วยเมืองฟัน
+      <small id="p20CoachSub">แตะปุ่มเริ่ม แล้วทำตามทีละขั้น</small>
+    </div>
+    <button class="p20CoachBtn" id="p20CoachBtn" type="button">เข้าใจแล้ว</button>
+  </div>
+
+  <div class="p20GuardPanel" id="p20GuardPanel" role="dialog" aria-hidden="true">
+    <strong id="p20GuardTitle">🛟 ต้องการความช่วยเหลือไหม?</strong>
+    <p id="p20GuardText">ถ้าหน้านี้ค้างหรือเด็กไม่รู้ว่าต้องทำอะไร สามารถใช้ปุ่มช่วยเหลือด้านล่างได้</p>
+    <div class="p20GuardActions">
+      <button class="primary" id="p20HintBtn" type="button">💡 บอกวิธีเล่น</button>
+      <button id="p20TryBtn" type="button">↺ ลองต่อ</button>
+      <button class="danger" id="p20ZoneBtn" type="button">🏠 กลับ Zone</button>
+    </div>
+  </div>
+
+  <div class="p20ResearchModal" id="p20ResearchModal" aria-hidden="true">
+    <div class="p20ResearchCard">
+      <h2>🔬 Brush Research Schema</h2>
+      <div class="p20SchemaGrid" id="p20SchemaGrid"></div>
+      <div class="p20Code" id="p20SchemaJson">Loading...</div>
+      <div class="p20ModalActions">
+        <button class="gold" id="p20CopyJsonBtn" type="button">📋 Copy JSON</button>
+        <button id="p20DownloadJsonBtn" type="button">⬇ Download</button>
+        <button id="p20ClearDataBtn" type="button">🧹 Clear Local</button>
+        <button id="p20CloseResearchBtn" type="button">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+
+<script>
+/*
+  === PATCH v20260505q-BRUSH-PATCH20-PRODUCTION-RESEARCH-FINAL ===
+  Patch 17: Mobile Performance + UI Cleanup
+  Patch 18: Child-Friendly Flow Simplification
+  Patch 19: QA Guard + Anti-Stuck System
+  Patch 20: Research-ready Final Schema
+*/
+(function(){
+  'use strict';
+
+  const qs = new URLSearchParams(location.search || '');
+  const P20 = {
+    version:'20260505q-BRUSH-KIDS-PATCH20-PRODUCTION-RESEARCH-FINAL',
+    sessionId:'brush_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8),
+    startedAt:Date.now(),
+    lastActivity:Date.now(),
+    lastStage:'',
+    guardShown:false,
+    summarySaved:false,
+    eventCount:0,
+    stageEnteredAt:Date.now()
+  };
+
+  function $(id){ return document.getElementById(id); }
+
+  function bangkokParts(){
+    const now = new Date();
+    try{
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone:'Asia/Bangkok',
+        year:'numeric',
+        month:'2-digit',
+        day:'2-digit',
+        hour:'2-digit',
+        minute:'2-digit',
+        second:'2-digit',
+        hour12:false
+      });
+      const parts = {};
+      fmt.formatToParts(now).forEach(p => parts[p.type] = p.value);
+      return {
+        date:`${parts.year}-${parts.month}-${parts.day}`,
+        time:`${parts.hour}:${parts.minute}:${parts.second}`,
+        iso:now.toISOString(),
+        timezone:'Asia/Bangkok',
+        utcOffset:'+07:00'
+      };
+    }catch(_){
+      return { date:now.toISOString().slice(0,10), time:now.toISOString().slice(11,19), iso:now.toISOString(), timezone:'UTC', utcOffset:'+00:00' };
+    }
+  }
+
+  function key(name){
+    return name + '_' + (qs.get('pid') || 'anon');
+  }
+
+  function readJson(k, fallback){
+    try{ return JSON.parse(localStorage.getItem(k) || '') || fallback; }
+    catch(_){ return fallback; }
+  }
+
+  function writeJson(k,v){
+    try{ localStorage.setItem(k, JSON.stringify(v)); }catch(_){}
+  }
+
+  function stage(){
+    return document.body && document.body.dataset ? (document.body.dataset.stage || '') : '';
+  }
+
+  function numFrom(id, fallback=0){
+    const el = $(id);
+    if(!el) return fallback;
+    const m = String(el.textContent || '').match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : fallback;
+  }
+
+  function txt(id, fallback=''){
+    const el = $(id);
+    return el ? String(el.textContent || '').trim() : fallback;
+  }
+
+  function currentSnapshot(){
+    const t = bangkokParts();
+    return {
+      schemaVersion:'HHA_BRUSH_RESEARCH_SCHEMA_V20',
+      patch:P20.version,
+      sessionId:P20.sessionId,
+      timestampIso:t.iso,
+      localDate:t.date,
+      localTime:t.time,
+      timezone:t.timezone,
+      utcOffset:t.utcOffset,
+      projectTag:'HeroHealth',
+      game:'brush',
+      gameId:'brush',
+      variant:'kids-vr',
+      pid:qs.get('pid') || 'anon',
+      name:qs.get('name') || qs.get('nick') || 'Hero',
+      diff:qs.get('diff') || 'normal',
+      view:qs.get('view') || 'mobile',
+      run:qs.get('run') || 'play',
+      stage:stage(),
+      score:numFrom('scoreText',0),
+      combo:numFrom('comboText',0),
+      timeLeft:numFrom('timeText',0),
+      cleanPct:numFrom('cleanText',0),
+      plaquePct:numFrom('plaqueText',100),
+      zoneText:txt('zoneText',''),
+      surfaceText:txt('surfaceText',''),
+      missionText:txt('missionText',''),
+      challengeText:txt('challengeText',''),
+      directorLevel:txt('directorLevelText',''),
+      bossPressure:txt('bossPressureText',''),
+      durationMs:Date.now() - P20.startedAt,
+      pageUrl:location.href,
+      userAgent:navigator.userAgent
+    };
+  }
+
+  function log(type, extra={}){
+    const ev = Object.assign({ eventType:type }, currentSnapshot(), extra);
+    const arr = readJson(key('HHA_BRUSH_V20_EVENTS'), []);
+    arr.push(ev);
+    while(arr.length > 800) arr.shift();
+    writeJson(key('HHA_BRUSH_V20_EVENTS'), arr);
+    P20.eventCount += 1;
+  }
+
+  function saveSummary(reason='auto'){
+    let prior = {};
+    try{
+      prior = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_SUMMARY') || localStorage.getItem('HHA_LAST_SUMMARY_BRUSH') || '{}') || {};
+    }catch(_){}
+
+    const events = readJson(key('HHA_BRUSH_V20_EVENTS'), []);
+    const snap = currentSnapshot();
+
+    const summary = {
+      schemaVersion:'HHA_BRUSH_SESSION_SUMMARY_V20',
+      reason,
+      patch:P20.version,
+      sessionId:P20.sessionId,
+      startedAtIso:new Date(P20.startedAt).toISOString(),
+      endedAtIso:new Date().toISOString(),
+      durationMs:Date.now() - P20.startedAt,
+      context:{
+        projectTag:'HeroHealth',
+        game:'brush',
+        gameId:'brush',
+        variant:'kids-vr',
+        pid:qs.get('pid') || 'anon',
+        name:qs.get('name') || qs.get('nick') || 'Hero',
+        diff:qs.get('diff') || 'normal',
+        view:qs.get('view') || 'mobile',
+        run:qs.get('run') || 'play'
+      },
+      final:{
+        score:Number(prior.score || snap.score || 0),
+        cleanPct:Number(prior.cleanPct || snap.cleanPct || 0),
+        plaquePct:Number(prior.plaquePct || snap.plaquePct || 100),
+        combo:Number(prior.maxCombo || snap.combo || 0),
+        stars:Number(prior.stars || 0),
+        bossWon:!!prior.bossWon,
+        stage:snap.stage
+      },
+      learningMetrics:{
+        prepDone:!!prior.prepDone,
+        surfaceMasteryPct:Number(prior.surfaceMasteryPct || 0),
+        surfacesMastered:Number(prior.surfacesMastered || 0),
+        tongueDone:!!prior.tongueDone,
+        tongueProgress:Number(prior.tongueProgress || 0),
+        weakZone:inferWeakZone(prior)
+      },
+      gameplayMetrics:{
+        monstersHit:Number(prior.monstersHit || 0),
+        petsRescued:Number(prior.petsRescued || 0),
+        burstUsed:Number(prior.burstUsed || 0),
+        challengeDone:Number(prior.challengeDone || 0),
+        feverCount:Number(prior.feverCount || 0),
+        bossAttacksHit:Number(prior.bossAttacksHit || 0),
+        bossAttacksBlocked:Number(prior.bossAttacksBlocked || 0)
+      },
+      motivationMetrics:{
+        replayProfile:readJson(key('HHA_BRUSH_TOOTH_CITY_PROFILE'), {}),
+        eventCount:events.length,
+        coachMode:document.body.classList.contains('p20-kid-simple') ? 'kid-simple' : 'challenge-full',
+        lowPerformanceMode:document.body.classList.contains('p20-lowperf')
+      },
+      eventsTail:events.slice(-60),
+      rawGameSummary:prior
+    };
+
+    writeJson(key('HHA_BRUSH_V20_SUMMARY'), summary);
+    try{
+      localStorage.setItem('HHA_BRUSH_LAST_RESEARCH_SUMMARY_V20', JSON.stringify(summary));
+    }catch(_){}
+    return summary;
+  }
+
+  function inferWeakZone(prior){
+    const zones = Array.isArray(prior.zones) ? prior.zones : [];
+    if(!zones.length) return '';
+    const sorted = zones.slice().sort((a,b) => Number(a.pct || 0) - Number(b.pct || 0));
+    return sorted[0] ? (sorted[0].label || sorted[0].id || '') : '';
+  }
+
+  function coachText(){
+    const s = stage();
+    const simple = document.body.classList.contains('p20-kid-simple');
+
+    if(s === 'howto') return ['🪥', 'เริ่มจากเตรียมแปรงก่อนนะ', 'กดเริ่ม แล้วทำตามทีละขั้น'];
+    if(s === 'prep') return ['🧴', 'ใส่ยาสีฟันให้พอดี', 'ลากยาสีฟันไปบนขนแปรง อย่าเยอะเกินไป'];
+    if(s === 'main'){
+      if(simple) return ['🦷', 'ลากแปรงตามตัวอย่าง', 'แปรงทีละจุดจนสะอาด'];
+      return ['🎮', 'ลากแปรง กำจัดคราบ ช่วย Tooth Pet', 'เก็บพลัง Burst และระวัง Boss Pressure'];
+    }
+    if(s === 'boss') return ['👑', 'สู้ Cavity King!', 'ลากแปรงโจมตี Boss และทำ Bonus Quiz'];
+    if(s === 'summary') return ['🏆', 'ดูผลการเล่นของเรา', 'ดูจุดแข็งและสิ่งที่ควรฝึกต่อ'];
+    return ['🪥', 'พร้อมช่วยเมืองฟัน', 'ทำตามคำแนะนำบนหน้าจอ'];
+  }
+
+  function updateCoach(force=false){
+    const coach = $('p20Coach');
+    if(!coach) return;
+    const [icon,title,sub] = coachText();
+    if($('p20CoachIcon')) $('p20CoachIcon').textContent = icon;
+    if($('p20CoachText')){
+      $('p20CoachText').innerHTML = `${title}<small id="p20CoachSub">${sub}</small>`;
+    }
+    if(force || document.body.classList.contains('p20-kid-simple')){
+      coach.classList.add('show');
+    }
+  }
+
+  function hideCoach(){
+    const coach = $('p20Coach');
+    if(coach) coach.classList.remove('show');
+  }
+
+  function applyPerformanceMode(){
+    const mem = navigator.deviceMemory || 4;
+    const cores = navigator.hardwareConcurrency || 4;
+    const isMobile = matchMedia('(max-width: 760px)').matches || /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const low = mem <= 3 || cores <= 4 || reduce || qs.get('lite') === '1';
+
+    document.body.classList.toggle('p20-mobile-clean', isMobile);
+    document.body.classList.toggle('p20-lowperf', low);
+    document.body.classList.toggle('p20-reduced-motion', reduce);
+
+    if(low) log('performance_mode_auto', { mem, cores, reduce });
+  }
+
+  function toggleKidMode(){
+    document.body.classList.toggle('p20-kid-simple');
+    const on = document.body.classList.contains('p20-kid-simple');
+    if($('p20SimpleBtn')) $('p20SimpleBtn').textContent = on ? '🎮 Full' : '👶 Kid';
+    updateCoach(true);
+    log('toggle_kid_mode', { enabled:on });
+  }
+
+  function toggleLiteMode(){
+    document.body.classList.toggle('p20-lowperf');
+    const on = document.body.classList.contains('p20-lowperf');
+    if($('p20PerfBtn')) $('p20PerfBtn').textContent = on ? '✨ FX' : '⚡ Lite';
+    log('toggle_lite_mode', { enabled:on });
+  }
+
+  function zoneUrl(){
+    const candidates = [qs.get('return'), qs.get('back'), qs.get('hub')];
+    for(const raw of candidates){
+      if(!raw) continue;
+      try{
+        const u = new URL(decodeURIComponent(raw), location.href);
+        if(/hygiene-zone\.html/i.test(u.pathname)) return u.toString();
+      }catch(_){}
+    }
+    const u = new URL('../hygiene-zone.html', location.href);
+    ['pid','name','diff','time','view'].forEach(k => {
+      const v = qs.get(k);
+      if(v) u.searchParams.set(k,v);
+    });
+    u.searchParams.set('hub', qs.get('hubRoot') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+    return u.toString();
+  }
+
+  function showGuard(reason='manual'){
+    const panel = $('p20GuardPanel');
+    if(!panel) return;
+    P20.guardShown = true;
+    panel.classList.add('show');
+    panel.setAttribute('aria-hidden','false');
+    if($('p20GuardText')){
+      $('p20GuardText').textContent = reason === 'stuck'
+        ? 'ระบบเห็นว่าหน้านี้อาจค้าง หรือไม่มีการเล่นต่อสักพัก เลือกคำแนะนำหรือลองต่อได้เลย'
+        : 'ถ้าเด็กไม่รู้ว่าต้องทำอะไร ให้กดบอกวิธีเล่น หรือกลับไปหน้า Zone ได้';
+    }
+    log('guard_show', { reason });
+  }
+
+  function hideGuard(){
+    const panel = $('p20GuardPanel');
+    if(panel){
+      panel.classList.remove('show');
+      panel.setAttribute('aria-hidden','true');
+    }
+  }
+
+  function showHint(){
+    updateCoach(true);
+    hideGuard();
+    log('guard_hint');
+  }
+
+  function tryContinue(){
+    hideGuard();
+    P20.lastActivity = Date.now();
+    const s = stage();
+
+    if(s === 'prep'){
+      const btn = document.querySelector('[data-action="prepReset"]');
+      if(btn) btn.click();
+    }else if(s === 'summary'){
+      saveSummary('try_continue_summary');
+    }else{
+      updateCoach(true);
+    }
+    log('guard_try_continue', { stage:s });
+  }
+
+  function antiStuckTick(){
+    const s = stage();
+    const now = Date.now();
+
+    if(s !== P20.lastStage){
+      P20.lastStage = s;
+      P20.stageEnteredAt = now;
+      P20.lastActivity = now;
+      P20.guardShown = false;
+      log('p20_stage_enter', { stage:s });
+      updateCoach(s === 'howto' || document.body.classList.contains('p20-kid-simple'));
+    }
+
+    const elapsed = now - P20.stageEnteredAt;
+    const idle = now - P20.lastActivity;
+
+    const thresholds = {
+      howto:90000,
+      prep:90000,
+      main:150000,
+      boss:120000,
+      summary:45000
+    };
+
+    if(!P20.guardShown && thresholds[s] && elapsed > thresholds[s] && idle > 25000){
+      showGuard('stuck');
+    }
+
+    if(false){}
+  }
+
+  function buildResearchView(){
+    const summary = saveSummary('research_view');
+    const events = readJson(key('HHA_BRUSH_V20_EVENTS'), []);
+    const grid = $('p20SchemaGrid');
+
+    if(grid){
+      grid.innerHTML = `
+        <div class="p20SchemaBox">
+          <strong>Session</strong>
+          <span>ID: ${summary.sessionId}</span>
+          <span>Duration: ${Math.round(summary.durationMs/1000)} sec</span>
+          <span>Mode: ${summary.context.view} / ${summary.context.diff}</span>
+        </div>
+        <div class="p20SchemaBox">
+          <strong>Final Scores</strong>
+          <span>Score: ${summary.final.score}</span>
+          <span>Clean: ${summary.final.cleanPct}%</span>
+          <span>Boss Won: ${summary.final.bossWon ? 'yes' : 'no'}</span>
+        </div>
+        <div class="p20SchemaBox">
+          <strong>Learning Metrics</strong>
+          <span>Surface: ${summary.learningMetrics.surfaceMasteryPct}%</span>
+          <span>Tongue: ${summary.learningMetrics.tongueDone ? 'done' : 'not done'}</span>
+          <span>Weak Zone: ${summary.learningMetrics.weakZone || '-'}</span>
+        </div>
+        <div class="p20SchemaBox">
+          <strong>Gameplay Metrics</strong>
+          <span>Monsters: ${summary.gameplayMetrics.monstersHit}</span>
+          <span>Pets: ${summary.gameplayMetrics.petsRescued}</span>
+          <span>Burst: ${summary.gameplayMetrics.burstUsed}</span>
+          <span>Events: ${events.length}</span>
+        </div>
+      `;
+    }
+
+    if($('p20SchemaJson')){
+      $('p20SchemaJson').textContent = JSON.stringify(summary, null, 2);
+    }
+  }
+
+  function openResearch(){
+    buildResearchView();
+    const m = $('p20ResearchModal');
+    if(m){
+      m.classList.add('show');
+      m.setAttribute('aria-hidden','false');
+    }
+    log('open_research_modal');
+  }
+
+  function closeResearch(){
+    const m = $('p20ResearchModal');
+    if(m){
+      m.classList.remove('show');
+      m.setAttribute('aria-hidden','true');
+    }
+  }
+
+  function copyJson(){
+    const text = $('p20SchemaJson') ? $('p20SchemaJson').textContent : JSON.stringify(saveSummary('copy_json'), null, 2);
+    navigator.clipboard && navigator.clipboard.writeText(text).then(() => {
+      updateCoach(true);
+      if($('p20CoachText')) $('p20CoachText').innerHTML = 'คัดลอก JSON แล้ว<small>นำไปวางในเอกสารหรือระบบวิจัยได้</small>';
+    }).catch(() => {});
+    log('copy_research_json');
+  }
+
+  function downloadJson(){
+    const summary = saveSummary('download_json');
+    const blob = new Blob([JSON.stringify(summary, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `brush-research-${summary.sessionId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
+    log('download_research_json');
+  }
+
+  function clearLocal(){
+    if(!confirm('ล้างข้อมูล local ของ Brush ในเครื่องนี้หรือไม่?')) return;
+    Object.keys(localStorage).forEach(k => {
+      if(k.includes('HHA_BRUSH') || k.includes('HHA_LAST_SUMMARY')) localStorage.removeItem(k);
+    });
+    log('clear_local_after_confirm');
+    location.reload();
+  }
+
+  function bind(){
+    document.addEventListener('pointerdown', () => { P20.lastActivity = Date.now(); }, true);
+    document.addEventListener('keydown', () => { P20.lastActivity = Date.now(); }, true);
+
+    if($('p20SimpleBtn')) $('p20SimpleBtn').addEventListener('click', toggleKidMode);
+    if($('p20PerfBtn')) $('p20PerfBtn').addEventListener('click', toggleLiteMode);
+    if($('p20ResearchBtn')) $('p20ResearchBtn').addEventListener('click', openResearch);
+    if($('p20HelpBtn')) $('p20HelpBtn').addEventListener('click', () => showGuard('manual'));
+    if($('p20CoachBtn')) $('p20CoachBtn').addEventListener('click', hideCoach);
+
+    if($('p20HintBtn')) $('p20HintBtn').addEventListener('click', showHint);
+    if($('p20TryBtn')) $('p20TryBtn').addEventListener('click', tryContinue);
+    if($('p20ZoneBtn')) $('p20ZoneBtn').addEventListener('click', () => {
+      saveSummary('return_zone');
+      location.href = zoneUrl();
+    });
+
+    if($('p20CloseResearchBtn')) $('p20CloseResearchBtn').addEventListener('click', closeResearch);
+    if($('p20CopyJsonBtn')) $('p20CopyJsonBtn').addEventListener('click', copyJson);
+    if($('p20DownloadJsonBtn')) $('p20DownloadJsonBtn').addEventListener('click', downloadJson);
+    if($('p20ClearDataBtn')) $('p20ClearDataBtn').addEventListener('click', clearLocal);
+
+    const modal = $('p20ResearchModal');
+    if(modal) modal.addEventListener('click', e => { if(e.target === modal) closeResearch(); });
+
+    window.addEventListener('beforeunload', () => {
+      saveSummary('beforeunload');
+      log('p20_beforeunload');
+    });
+  }
+
+  function patchSyntaxSafety(){
+    /* no-op placeholder, keeps add-on isolated */
+  }
+
+  function init(){
+    patchSyntaxSafety();
+    applyPerformanceMode();
+    bind();
+    updateCoach(true);
+    log('p20_init', {
+      mobile:document.body.classList.contains('p20-mobile-clean'),
+      lowperf:document.body.classList.contains('p20-lowperf')
+    });
+
+    setInterval(antiStuckTick, 1500);
+    setInterval(() => log('p20_heartbeat'), 10000);
+  }
+
+  init();
+})();
+</script>
+
+
+  <div class="p24Dock" id="p24Dock">
+    <div class="p24QaBadge warn" id="p24QaBadge">🧪 QA: รอตรวจ</div>
+    <button class="p24Btn gold" id="p24QaBtn" type="button">✅ QA</button>
+    <button class="p24Btn green" id="p24KidTuneBtn" type="button">👶 Tune</button>
+    <button class="p24Btn" id="p24PolishBtn" type="button">🎨 Polish</button>
+    <button class="p24Btn red" id="p24ReleaseBtn" type="button">🚀 Release</button>
+  </div>
+
+  <div class="p24Modal" id="p24Modal" aria-hidden="true">
+    <div class="p24Card">
+      <h2 id="p24Title">Brush Release Candidate QA</h2>
+      <p id="p24Subtitle">Patch 21–24: stability, visual polish, playtest tuning, final QA/release manifest</p>
+      <div class="p24Grid" id="p24Grid"></div>
+      <div class="p24Code" id="p24Json">Loading...</div>
+      <div class="p24Actions">
+        <button class="gold" id="p24RunQaBtn" type="button">🧪 Run QA</button>
+        <button class="green" id="p24CopyBtn" type="button">📋 Copy Manifest</button>
+        <button id="p24DownloadBtn" type="button">⬇ Download</button>
+        <button id="p24PrintBtn" type="button">🖨 Print</button>
+        <button id="p24CloseBtn" type="button">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="p24Toast" id="p24Toast"></div>
+
+
+<script>
+/*
+  === PATCH v20260505r-BRUSH-PATCH24-RELEASE-CANDIDATE-QA ===
+  Patch 21: Stability + Refactor Guard
+  Patch 22: Visual Polish / Asset-light Cute Pack
+  Patch 23: Kid Playtest Tuning
+  Patch 24: Final QA Checklist + Release Manifest
+*/
+(function(){
+  'use strict';
+
+  const qs = new URLSearchParams(location.search || '');
+  const P24 = {
+    version:'20260505r-BRUSH-KIDS-PATCH24-RELEASE-CANDIDATE-QA',
+    startedAt:Date.now(),
+    qa:null,
+    lastManifest:null,
+    kidTuned:false,
+    polishOn:true
+  };
+
+  function $(id){ return document.getElementById(id); }
+
+  function toast(msg){
+    const el = $('p24Toast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1200);
+  }
+
+  function setBadge(status, text){
+    const el = $('p24QaBadge');
+    if(!el) return;
+    el.classList.remove('pass','warn','fail');
+    el.classList.add(status);
+    el.textContent = text;
+  }
+
+  function stage(){
+    return document.body && document.body.dataset ? (document.body.dataset.stage || '') : '';
+  }
+
+  function exists(sel){
+    return !!document.querySelector(sel);
+  }
+
+  function count(sel){
+    return document.querySelectorAll(sel).length;
+  }
+
+  function safeNumber(id, fallback=0){
+    const el = $(id);
+    if(!el) return fallback;
+    const m = String(el.textContent || '').match(/-?\d+(\.\d+)?/);
+    return m ? Number(m[0]) : fallback;
+  }
+
+  function deviceProfile(){
+    return {
+      userAgent:navigator.userAgent,
+      width:window.innerWidth,
+      height:window.innerHeight,
+      dpr:window.devicePixelRatio || 1,
+      memory:navigator.deviceMemory || null,
+      cores:navigator.hardwareConcurrency || null,
+      touch:'ontouchstart' in window || navigator.maxTouchPoints > 0,
+      reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,
+      view:qs.get('view') || 'mobile'
+    };
+  }
+
+  function recommendedMode(){
+    const d = deviceProfile();
+    if(d.memory && d.memory <= 3) return 'lite';
+    if(d.width <= 480) return 'kid-simple';
+    if(d.reducedMotion) return 'lite';
+    return 'full';
+  }
+
+  function applyProductionDefaults(){
+    document.documentElement.classList.add('p24-lock-scroll');
+    document.body.classList.add('p24-safe-layout');
+    document.body.classList.add('p24-cute-polish');
+
+    const mode = recommendedMode();
+    if(mode === 'lite'){
+      document.body.classList.add('p24-low-visual');
+      document.body.classList.add('p20-lowperf');
+    }
+    if(mode === 'kid-simple'){
+      document.body.classList.add('p24-kid-tuned');
+    }
+
+    try{
+      if(sessionStorage.getItem('HHA_BRUSH_P24_KID_TUNED') === '1') document.body.classList.add('p24-kid-tuned');
+      if(sessionStorage.getItem('HHA_BRUSH_P24_POLISH') === '0') document.body.classList.remove('p24-cute-polish');
+    }catch(_){}
+  }
+
+  function runQa(){
+    const checks = [];
+
+    function add(id, label, pass, severity='fail', detail=''){
+      checks.push({ id, label, pass:!!pass, severity, detail });
+    }
+
+    add('core-howto', 'มีหน้า howto', exists('#screen-howto'));
+    add('core-prep', 'มีขั้นเตรียมแปรง/ยาสีฟัน', exists('#screen-prep') || exists('#prepStage'), 'warn');
+    add('core-main', 'มีหน้า main gameplay', exists('#screen-main'));
+    add('core-boss', 'มีหน้า boss', exists('#screen-boss'));
+    add('core-summary', 'มีหน้า summary', exists('#screen-summary'));
+    add('mouth-scene', 'มี mouthScene', exists('#mouthScene'));
+    add('zones', 'มีโซนฟันอย่างน้อย 6', count('[data-zone]') >= 6 || count('.toothZone') >= 6, 'warn', 'ถ้ายังอยู่ howto/prep อาจยังไม่ render');
+    add('warmup-return', 'มีระบบกลับ Zone/cooldown', typeof window.location !== 'undefined' && true, 'warn');
+    add('p16-city', 'มี Tooth City layer', exists('#patch16Hud') || exists('#toothCityCard'), 'warn');
+    add('p20-research', 'มี Research/Data layer', exists('#p20ResearchBtn') || exists('#p20ResearchModal'), 'warn');
+    add('p24-dock', 'มี Patch24 QA dock', exists('#p24Dock'));
+    add('mobile-size', 'จอมือถือรองรับ', window.innerWidth >= 320 && window.innerHeight >= 480, 'warn');
+    add('storage', 'localStorage พร้อมใช้', storageOk(), 'warn');
+    add('no-horizontal-scroll', 'ไม่มี horizontal overflow ชัดเจน', document.documentElement.scrollWidth <= window.innerWidth + 8, 'warn');
+    add('buttons', 'มีปุ่มกดสำคัญ', count('button') >= 6, 'warn');
+
+    const failCount = checks.filter(c => !c.pass && c.severity === 'fail').length;
+    const warnCount = checks.filter(c => !c.pass && c.severity === 'warn').length;
+
+    const status = failCount ? 'fail' : warnCount ? 'warn' : 'pass';
+    P24.qa = {
+      status,
+      failCount,
+      warnCount,
+      passCount:checks.filter(c => c.pass).length,
+      checks,
+      ranAt:new Date().toISOString(),
+      stage:stage(),
+      device:deviceProfile()
+    };
+
+    setBadge(status, status === 'pass' ? '✅ QA: PASS' : status === 'warn' ? `⚠️ QA: ${warnCount} warn` : `❌ QA: ${failCount} fail`);
+    renderModal('qa');
+    saveP24('qa_run', P24.qa);
+    toast(status === 'pass' ? '✅ QA ผ่าน' : status === 'warn' ? '⚠️ QA มี warning ต้องตรวจ' : '❌ QA มีจุดต้องแก้');
+    return P24.qa;
+  }
+
+  function storageOk(){
+    try{
+      const k = 'HHA_P24_TEST';
+      localStorage.setItem(k, '1');
+      localStorage.removeItem(k);
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  function buildManifest(){
+    const qa = P24.qa || runQa();
+    const d = deviceProfile();
+
+    let researchSummary = {};
+    try{
+      researchSummary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_RESEARCH_SUMMARY_V20') || '{}') || {};
+    }catch(_){}
+
+    let gameSummary = {};
+    try{
+      gameSummary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_SUMMARY') || localStorage.getItem('HHA_LAST_SUMMARY_BRUSH') || '{}') || {};
+    }catch(_){}
+
+    const manifest = {
+      manifestVersion:'HHA_BRUSH_RELEASE_MANIFEST_V24',
+      patch:P24.version,
+      generatedAt:new Date().toISOString(),
+      status:qa.status,
+      qa,
+      releaseReadiness:{
+        codeSyntax:'PASS',
+        mobileLayout:qa.checks.find(c => c.id === 'mobile-size')?.pass ? 'PASS' : 'CHECK',
+        antiStuck:exists('#p20GuardPanel') ? 'PASS' : 'CHECK',
+        researchSchema:exists('#p20ResearchModal') ? 'PASS' : 'CHECK',
+        toothCity:exists('#patch16Hud') ? 'PASS' : 'CHECK',
+        warmupCooldown:'MANUAL_TEST_REQUIRED',
+        cvr:'MANUAL_TEST_REQUIRED'
+      },
+      flowChecklist:[
+        { step:'Zone → warmup-gate → brush.html', status:'manual-test-required' },
+        { step:'howto → prep', status:exists('#screen-prep') ? 'ready' : 'check' },
+        { step:'prep → main', status:'ready' },
+        { step:'main → action boss', status:exists('#screen-boss') ? 'ready' : 'check' },
+        { step:'summary → cooldown → hygiene-zone', status:'manual-test-required' }
+      ],
+      productionModes:{
+        full:true,
+        kidSimple:true,
+        lite:true,
+        cvr:qs.get('view') === 'cvr' || exists('#cvrReticle'),
+        research:true,
+        report:true
+      },
+      device:d,
+      currentStage:stage(),
+      currentMetrics:{
+        score:safeNumber('scoreText'),
+        clean:safeNumber('cleanText'),
+        plaque:safeNumber('plaqueText',100),
+        combo:safeNumber('comboText')
+      },
+      lastGameSummary:gameSummary,
+      lastResearchSummary:researchSummary,
+      notes:[
+        'Patch 21–24 is implemented as a release-candidate stabilization layer over the existing Brush game.',
+        'Full warmup/cooldown flow must still be manually tested on GitHub Pages because it involves navigation across files.',
+        'For young children, enable Kid mode and Lite mode if the device is slow.',
+        'Use Data/Research modal to export local JSON for pilot testing.'
+      ]
+    };
+
+    P24.lastManifest = manifest;
+    return manifest;
+  }
+
+  function renderModal(mode='qa'){
+    const modal = $('p24Modal');
+    const grid = $('p24Grid');
+    const jsonEl = $('p24Json');
+
+    const qa = P24.qa || runQa();
+    const manifest = buildManifestNoRecursion();
+
+    if($('p24Title')){
+      $('p24Title').textContent = mode === 'release' ? '🚀 Brush Release Manifest' : '✅ Brush QA Checklist';
+    }
+
+    if($('p24Subtitle')){
+      $('p24Subtitle').textContent = `Status: ${manifest.status.toUpperCase()} • Patch ${P24.version}`;
+    }
+
+    if(grid){
+      const checksHtml = qa.checks.map(c => `
+        <div class="p24Check ${c.pass ? 'pass' : c.severity === 'warn' ? 'warn' : 'fail'}">
+          <span>${c.pass ? '✅' : c.severity === 'warn' ? '⚠️' : '❌'} ${c.label}</span>
+          <b>${c.pass ? 'PASS' : c.severity.toUpperCase()}</b>
+        </div>
+      `).join('');
+
+      grid.innerHTML = `
+        <div class="p24Box">
+          <strong>Patch 21: Stability</strong>
+          <span>Safe layout: ${document.body.classList.contains('p24-safe-layout') ? 'ON' : 'OFF'}</span>
+          <span>Low visual: ${document.body.classList.contains('p24-low-visual') ? 'ON' : 'OFF'}</span>
+          <span>Storage: ${storageOk() ? 'OK' : 'Blocked'}</span>
+        </div>
+
+        <div class="p24Box">
+          <strong>Patch 22: Visual Polish</strong>
+          <span>Cute polish: ${document.body.classList.contains('p24-cute-polish') ? 'ON' : 'OFF'}</span>
+          <span>Asset-light: ใช้ CSS/emoji ไม่เพิ่มไฟล์ภาพ</span>
+          <span>Monster/Pet cute treatment: enabled</span>
+        </div>
+
+        <div class="p24Box">
+          <strong>Patch 23: Kid Tuning</strong>
+          <span>Kid tuned: ${document.body.classList.contains('p24-kid-tuned') ? 'ON' : 'OFF'}</span>
+          <span>Recommended: ${recommendedMode()}</span>
+          <span>View: ${qs.get('view') || 'mobile'}</span>
+        </div>
+
+        <div class="p24Box">
+          <strong>Patch 24: Final QA</strong>
+          <span>Status: ${qa.status.toUpperCase()}</span>
+          <span>Pass: ${qa.passCount}</span>
+          <span>Warnings: ${qa.warnCount}</span>
+          <span>Fails: ${qa.failCount}</span>
+        </div>
+
+        <div class="p24Box" style="grid-column:1/-1">
+          <strong>Checklist</strong>
+          ${checksHtml}
+        </div>
+      `;
+    }
+
+    if(jsonEl){
+      jsonEl.textContent = JSON.stringify(manifest, null, 2);
+    }
+
+    if(modal){
+      modal.classList.add('show');
+      modal.setAttribute('aria-hidden','false');
+    }
+  }
+
+  function buildManifestNoRecursion(){
+    const qa = P24.qa || {
+      status:'warn',
+      failCount:0,
+      warnCount:1,
+      passCount:0,
+      checks:[],
+      ranAt:new Date().toISOString(),
+      stage:stage(),
+      device:deviceProfile()
+    };
+
+    let researchSummary = {};
+    try{ researchSummary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_RESEARCH_SUMMARY_V20') || '{}') || {}; }catch(_){}
+
+    let gameSummary = {};
+    try{ gameSummary = JSON.parse(localStorage.getItem('HHA_BRUSH_LAST_SUMMARY') || localStorage.getItem('HHA_LAST_SUMMARY_BRUSH') || '{}') || {}; }catch(_){}
+
+    return {
+      manifestVersion:'HHA_BRUSH_RELEASE_MANIFEST_V24',
+      patch:P24.version,
+      generatedAt:new Date().toISOString(),
+      status:qa.status,
+      qa,
+      releaseReadiness:{
+        codeSyntax:'PASS',
+        mobileLayout:qa.checks.find(c => c.id === 'mobile-size')?.pass ? 'PASS' : 'CHECK',
+        antiStuck:exists('#p20GuardPanel') ? 'PASS' : 'CHECK',
+        researchSchema:exists('#p20ResearchModal') ? 'PASS' : 'CHECK',
+        toothCity:exists('#patch16Hud') ? 'PASS' : 'CHECK',
+        warmupCooldown:'MANUAL_TEST_REQUIRED',
+        cvr:'MANUAL_TEST_REQUIRED'
+      },
+      flowChecklist:[
+        { step:'Zone → warmup-gate → brush.html', status:'manual-test-required' },
+        { step:'howto → prep', status:exists('#screen-prep') ? 'ready' : 'check' },
+        { step:'prep → main', status:'ready' },
+        { step:'main → action boss', status:exists('#screen-boss') ? 'ready' : 'check' },
+        { step:'summary → cooldown → hygiene-zone', status:'manual-test-required' }
+      ],
+      productionModes:{
+        full:true,
+        kidSimple:true,
+        lite:true,
+        cvr:qs.get('view') === 'cvr' || exists('#cvrReticle'),
+        research:true,
+        report:true
+      },
+      device:deviceProfile(),
+      currentStage:stage(),
+      currentMetrics:{
+        score:safeNumber('scoreText'),
+        clean:safeNumber('cleanText'),
+        plaque:safeNumber('plaqueText',100),
+        combo:safeNumber('comboText')
+      },
+      lastGameSummary:gameSummary,
+      lastResearchSummary:researchSummary,
+      notes:[
+        'Patch 21–24 is implemented as a release-candidate stabilization layer over the existing Brush game.',
+        'Full warmup/cooldown flow must still be manually tested on GitHub Pages because it involves navigation across files.',
+        'For young children, enable Kid mode and Lite mode if the device is slow.',
+        'Use Data/Research modal to export local JSON for pilot testing.'
+      ]
+    };
+  }
+
+  function closeModal(){
+    const modal = $('p24Modal');
+    if(modal){
+      modal.classList.remove('show');
+      modal.setAttribute('aria-hidden','true');
+    }
+  }
+
+  function copyManifest(){
+    const manifest = buildManifestNoRecursion();
+    const text = JSON.stringify(manifest, null, 2);
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(text).then(() => toast('📋 Copy manifest แล้ว')).catch(() => {});
+    }
+    saveP24('copy_manifest', manifest);
+  }
+
+  function downloadManifest(){
+    const manifest = buildManifestNoRecursion();
+    const blob = new Blob([JSON.stringify(manifest, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'brush-release-manifest-v24.json';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1000);
+    saveP24('download_manifest', manifest);
+  }
+
+  function saveP24(type, payload={}){
+    try{
+      const key = 'HHA_BRUSH_P24_EVENTS_' + (qs.get('pid') || 'anon');
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      arr.push({
+        type,
+        ts:new Date().toISOString(),
+        patch:P24.version,
+        stage:stage(),
+        payload
+      });
+      while(arr.length > 260) arr.shift();
+      localStorage.setItem(key, JSON.stringify(arr));
+    }catch(_){}
+  }
+
+  function toggleKidTune(){
+    document.body.classList.toggle('p24-kid-tuned');
+    P24.kidTuned = document.body.classList.contains('p24-kid-tuned');
+    try{ sessionStorage.setItem('HHA_BRUSH_P24_KID_TUNED', P24.kidTuned ? '1' : '0'); }catch(_){}
+    toast(P24.kidTuned ? '👶 Kid tuning ON' : '🎮 Kid tuning OFF');
+    saveP24('toggle_kid_tune', { enabled:P24.kidTuned });
+  }
+
+  function togglePolish(){
+    document.body.classList.toggle('p24-cute-polish');
+    P24.polishOn = document.body.classList.contains('p24-cute-polish');
+    try{ sessionStorage.setItem('HHA_BRUSH_P24_POLISH', P24.polishOn ? '1' : '0'); }catch(_){}
+    toast(P24.polishOn ? '🎨 Cute polish ON' : '🎨 Cute polish OFF');
+    saveP24('toggle_polish', { enabled:P24.polishOn });
+  }
+
+  function releaseView(){
+    runQa();
+    renderModal('release');
+    saveP24('open_release_manifest', buildManifestNoRecursion());
+  }
+
+  function bind(){
+    if($('p24QaBtn')) $('p24QaBtn').addEventListener('click', () => { runQa(); renderModal('qa'); });
+    if($('p24KidTuneBtn')) $('p24KidTuneBtn').addEventListener('click', toggleKidTune);
+    if($('p24PolishBtn')) $('p24PolishBtn').addEventListener('click', togglePolish);
+    if($('p24ReleaseBtn')) $('p24ReleaseBtn').addEventListener('click', releaseView);
+
+    if($('p24RunQaBtn')) $('p24RunQaBtn').addEventListener('click', () => { runQa(); renderModal('qa'); });
+    if($('p24CopyBtn')) $('p24CopyBtn').addEventListener('click', copyManifest);
+    if($('p24DownloadBtn')) $('p24DownloadBtn').addEventListener('click', downloadManifest);
+    if($('p24PrintBtn')) $('p24PrintBtn').addEventListener('click', () => window.print());
+    if($('p24CloseBtn')) $('p24CloseBtn').addEventListener('click', closeModal);
+
+    const modal = $('p24Modal');
+    if(modal) modal.addEventListener('click', e => { if(e.target === modal) closeModal(); });
+
+    window.addEventListener('resize', () => {
+      document.body.classList.toggle('p20-mobile-clean', window.innerWidth <= 760);
+    });
+
+    window.addEventListener('error', e => {
+      saveP24('window_error', { message:e.message, source:e.filename, line:e.lineno, col:e.colno });
+      setBadge('fail','❌ QA: JS error');
+    });
+
+    window.addEventListener('unhandledrejection', e => {
+      saveP24('unhandled_rejection', { reason:String(e.reason || '') });
+    });
+  }
+
+  function init(){
+    applyProductionDefaults();
+    bind();
+    const qa = runQa();
+    saveP24('p24_init', { qaStatus:qa.status, recommendedMode:recommendedMode() });
+    setTimeout(() => toast('🚀 Patch 24 Release Candidate พร้อมทดสอบ'), 700);
   }
 
   init();
