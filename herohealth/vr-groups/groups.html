@@ -1,2378 +1,307 @@
-<!-- === /herohealth/vr-groups/groups.html === -->
-<!-- FULL PATCH v20260505-GROUPS-SOLO-ARENA-V2-CORE -->
-<!-- ✅ Groups Solo Arena v2 -->
-<!-- ✅ 6 Waves + Random Mission -->
-<!-- ✅ Combo + Fever Mode -->
-<!-- ✅ Power-ups: Shield / Hint / Slow -->
-<!-- ✅ Trap Label + Memory Flash -->
-<!-- ✅ Chaos Chef Boss 3 Phases -->
-<!-- ✅ PC / Mobile / cVR friendly -->
-<!-- ✅ Zone-first: กลับ Nutrition Zone / Launcher / Hub ได้ชัดเจน -->
-<!-- ✅ บันทึก HHA_GROUPS_LAST_SUMMARY ลง localStorage -->
-<!-- ✅ ไม่แตะ backend / realtime / Apps Script -->
-
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Groups Solo Arena</title>
-  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • Groups Solo SAFE</title>
   <meta name="theme-color" content="#9fe3ff" />
-
   <style>
     :root{
-      --sky1:#e9f9ff;
-      --sky2:#d5f1ff;
-      --sky3:#bfe8ff;
-
-      --card:#fffefb;
-      --card2:#f8fdff;
-      --line:#d6edf7;
-
-      --text:#29485f;
-      --muted:#6a8ba0;
-
-      --blue:#61bbff;
-      --blue2:#2f95ff;
-      --green:#7ed957;
-      --green2:#4fc64c;
-      --yellow:#ffd966;
-      --orange:#ffac4b;
-      --red:#ff6b6b;
-      --pink:#ff9fd0;
-      --violet:#bca7ff;
-
+      --sky1:#e9f9ff; --sky2:#d5f1ff; --sky3:#bfe8ff;
+      --card:#fffefb; --card2:#f8fdff; --line:#d6edf7;
+      --text:#29485f; --muted:#6a8ba0;
+      --blue:#61bbff; --blue2:#2f95ff; --green:#7ed957; --green2:#4fc64c;
+      --yellow:#ffd966; --orange:#ffac4b; --red:#ff6b6b; --violet:#bca7ff;
       --shadow:0 16px 34px rgba(93,155,185,.16);
-      --shadow-lg:0 22px 48px rgba(75,138,170,.18);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-      --sar: env(safe-area-inset-right, 0px);
+      --shadow2:0 24px 60px rgba(75,138,170,.20);
+      --sat:env(safe-area-inset-top,0px); --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px); --sar:env(safe-area-inset-right,0px);
     }
-
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-    html,body{ min-height:100%; }
-
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{min-height:100%;margin:0}
     body{
-      margin:0;
-      overflow:hidden;
-      touch-action:manipulation;
-      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(900px 520px at 50% -8%, rgba(255,255,255,.95), transparent 60%),
-        radial-gradient(640px 380px at 8% 12%, rgba(255,255,255,.42), transparent 64%),
-        radial-gradient(620px 420px at 95% 14%, rgba(255,217,102,.28), transparent 64%),
+      overflow:hidden; touch-action:manipulation; color:var(--text);
+      font-family:ui-rounded,"Noto Sans Thai",system-ui,sans-serif;
+      background:radial-gradient(900px 520px at 50% -8%,rgba(255,255,255,.96),transparent 60%),
+        radial-gradient(640px 380px at 8% 12%,rgba(255,255,255,.44),transparent 64%),
+        radial-gradient(620px 420px at 95% 14%,rgba(255,217,102,.28),transparent 64%),
         linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
     }
-
-    button{
-      font:inherit;
-    }
-
-    .game{
-      min-height:100dvh;
-      width:min(1180px,100%);
-      margin:0 auto;
-      padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(12px + var(--sab))
-        calc(10px + var(--sal));
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      gap:10px;
-    }
-
-    .topHud{
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      align-items:stretch;
-    }
-
-    .brand{
-      min-width:0;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:22px;
-      background:rgba(255,255,255,.88);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
-    }
-
-    .brandIcon{
-      width:48px;
-      height:48px;
-      border-radius:17px;
-      display:grid;
-      place-items:center;
-      font-size:28px;
-      background:linear-gradient(180deg,#fff7c7,#ffd76f);
-      border:1px solid #ffe39a;
-      flex:0 0 auto;
-      animation:floatIcon 2.4s ease-in-out infinite;
-    }
-
-    @keyframes floatIcon{
-      0%,100%{ transform:translateY(0) rotate(0deg); }
-      50%{ transform:translateY(-4px) rotate(-4deg); }
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:clamp(1.1rem,2.2vw,1.55rem);
-      line-height:1.05;
-      font-weight:1000;
-    }
-
-    .brand p{
-      margin:4px 0 0;
-      color:var(--muted);
-      font-size:.84rem;
-      font-weight:900;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .hudStats{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-      align-items:stretch;
-    }
-
-    .stat{
-      min-width:86px;
-      padding:8px 10px;
-      border-radius:18px;
-      background:rgba(255,255,255,.88);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      text-align:center;
-    }
-
-    .stat small{
-      display:block;
-      color:var(--muted);
-      font-size:.72rem;
-      font-weight:1000;
-      line-height:1;
-      margin-bottom:4px;
-    }
-
-    .stat b{
-      display:block;
-      font-size:1.05rem;
-      line-height:1;
-      font-weight:1000;
-    }
-
-    .arena{
-      min-height:0;
-      display:grid;
-      grid-template-columns:1fr 320px;
-      gap:10px;
-    }
-
-    .stage{
-      position:relative;
-      min-height:0;
-      overflow:hidden;
-      border-radius:30px;
-      background:
-        radial-gradient(520px 280px at 50% 5%, rgba(255,255,255,.88), transparent 70%),
-        linear-gradient(180deg,rgba(255,255,255,.82),rgba(248,253,255,.94));
-      border:1px solid var(--line);
-      box-shadow:var(--shadow-lg);
-      display:grid;
-      grid-template-rows:auto 1fr auto;
-      padding:14px;
-    }
-
-    .stage::before{
-      content:"🥚  🍚  🥦  🍎  🥑";
-      position:absolute;
-      left:18px;
-      bottom:10px;
-      font-size:54px;
-      letter-spacing:12px;
-      opacity:.08;
-      white-space:nowrap;
-      pointer-events:none;
-      animation:foodDrift 9s linear infinite;
-    }
-
-    @keyframes foodDrift{
-      0%{ transform:translateX(0); }
-      50%{ transform:translateX(22px); }
-      100%{ transform:translateX(0); }
-    }
-
-    .missionBar{
-      position:relative;
-      z-index:1;
-      display:grid;
-      gap:8px;
-    }
-
-    .missionTop{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
-      flex-wrap:wrap;
-    }
-
-    .waveTitle{
-      margin:0;
-      font-size:clamp(1.05rem,2vw,1.35rem);
-      font-weight:1000;
-      line-height:1.15;
-    }
-
-    .waveText{
-      margin:3px 0 0;
-      color:var(--muted);
-      font-size:.9rem;
-      font-weight:900;
-      line-height:1.45;
-    }
-
-    .pillRow{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      justify-content:flex-end;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      min-height:30px;
-      padding:5px 10px;
-      border-radius:999px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:#5d7f95;
-      font-size:.78rem;
-      font-weight:1000;
-      box-shadow:0 8px 18px rgba(93,155,185,.08);
-    }
-
-    .pill.hot{
-      color:#9a6517;
-      background:linear-gradient(180deg,#fff9df,#fff0b4);
-      border-color:#ffe39a;
-    }
-
-    .timeTrack{
-      height:12px;
-      border-radius:999px;
-      overflow:hidden;
-      background:#e5f4fb;
-      border:1px solid #d3edf8;
-    }
-
-    .timeFill{
-      height:100%;
-      width:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--green),var(--yellow),var(--orange));
-      transition:width .08s linear;
-    }
-
-    .foodZone{
-      position:relative;
-      z-index:1;
-      min-height:0;
-      display:grid;
-      place-items:center;
-      padding:12px 4px;
-    }
-
-    .foodCard{
-      width:min(520px,100%);
-      min-height:250px;
-      border-radius:32px;
-      background:
-        radial-gradient(240px 160px at 50% 6%, rgba(255,255,255,.82), transparent 72%),
-        linear-gradient(180deg,#fffefb,#ffffff);
-      border:1px solid #ffeab3;
-      box-shadow:0 24px 54px rgba(255,172,75,.15);
-      display:grid;
-      place-items:center;
-      text-align:center;
-      padding:20px;
-      transform:translateY(0) scale(1);
-      transition:transform .18s ease, filter .18s ease;
-    }
-
-    .foodCard.pop{
-      animation:cardPop .24s ease;
-    }
-
-    @keyframes cardPop{
-      0%{ transform:scale(.96) translateY(6px); opacity:.58; }
-      100%{ transform:scale(1) translateY(0); opacity:1; }
-    }
-
-    .foodEmoji{
-      font-size:clamp(5.2rem,12vw,8.5rem);
-      line-height:1;
-      filter:drop-shadow(0 16px 18px rgba(80,120,140,.12));
-    }
-
-    .foodName{
-      margin-top:8px;
-      font-size:clamp(1.4rem,3.2vw,2rem);
-      font-weight:1000;
-      line-height:1.05;
-    }
-
-    .foodHint{
-      margin-top:8px;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.35;
-      min-height:24px;
-    }
-
-    .fakeLabel{
-      margin:0 auto 10px;
-      display:none;
-      width:max-content;
-      max-width:100%;
-      padding:7px 12px;
-      border-radius:999px;
-      color:#9a3a2f;
-      background:#fff0ec;
-      border:1px solid #ffd1c9;
-      font-weight:1000;
-      font-size:.86rem;
-    }
-
-    .fakeLabel.show{
-      display:inline-flex;
-    }
-
-    .choices{
-      position:relative;
-      z-index:1;
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-    }
-
-    .choice{
-      min-height:76px;
-      border:none;
-      cursor:pointer;
-      border-radius:22px;
-      padding:8px 6px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:var(--text);
-      box-shadow:var(--shadow);
-      display:grid;
-      place-items:center;
-      gap:3px;
-      transition:transform .12s ease, box-shadow .12s ease, filter .12s ease;
-    }
-
-    .choice:hover{
-      transform:translateY(-2px);
-      box-shadow:0 18px 38px rgba(75,138,170,.22);
-    }
-
-    .choice:active{
-      transform:translateY(1px) scale(.99);
-    }
-
-    .choice .num{
-      display:block;
-      width:32px;
-      height:32px;
-      border-radius:12px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#eef9ff,#dff2ff);
-      color:#397b9c;
-      font-weight:1000;
-    }
-
-    .choice .name{
-      display:block;
-      font-size:.86rem;
-      font-weight:1000;
-      line-height:1.1;
-    }
-
-    .choice .ex{
-      display:block;
-      color:var(--muted);
-      font-size:.72rem;
-      font-weight:900;
-      line-height:1.1;
-    }
-
-    .memoryHidden .choice .name,
-    .memoryHidden .choice .ex{
-      filter:blur(5px);
-      opacity:.42;
-    }
-
-    .side{
-      min-height:0;
-      display:grid;
-      grid-template-rows:auto auto 1fr auto;
-      gap:10px;
-    }
-
-    .panel{
-      border-radius:24px;
-      background:rgba(255,255,255,.88);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      padding:12px;
-      overflow:hidden;
-    }
-
-    .panel h2{
-      margin:0 0 8px;
-      font-size:1rem;
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .bossPanel{
-      display:none;
-      background:
-        radial-gradient(160px 90px at 80% 0%, rgba(255,111,111,.18), transparent 70%),
-        rgba(255,255,255,.9);
-      border-color:#ffd1c9;
-    }
-
-    .bossPanel.show{
-      display:block;
-    }
-
-    .bossName{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-weight:1000;
-    }
-
-    .bossEmoji{
-      font-size:38px;
-      animation:bossShake 1.5s ease-in-out infinite;
-    }
-
-    @keyframes bossShake{
-      0%,100%{ transform:rotate(0deg); }
-      25%{ transform:rotate(-5deg); }
-      75%{ transform:rotate(5deg); }
-    }
-
-    .hpTrack{
-      height:16px;
-      border-radius:999px;
-      background:#ffe7e2;
-      border:1px solid #ffd1c9;
-      overflow:hidden;
-      margin-top:9px;
-    }
-
-    .hpFill{
-      height:100%;
-      width:100%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#ff7b73,#ffb168);
-      transition:width .18s ease;
-    }
-
-    .powerGrid{
-      display:grid;
-      grid-template-columns:1fr;
-      gap:8px;
-    }
-
-    .power{
-      min-height:48px;
-      border:none;
-      cursor:pointer;
-      border-radius:18px;
-      padding:8px 10px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:var(--text);
-      box-shadow:0 10px 22px rgba(93,155,185,.12);
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-      font-weight:1000;
-    }
-
-    .power:disabled{
-      cursor:not-allowed;
-      opacity:.48;
-      box-shadow:none;
-    }
-
-    .power small{
-      display:block;
-      color:var(--muted);
-      font-weight:900;
-      font-size:.72rem;
-    }
-
-    .logBox{
-      min-height:0;
-      overflow:auto;
-      display:grid;
-      align-content:start;
-      gap:8px;
-      padding-right:2px;
-      scrollbar-width:thin;
-    }
-
-    .logItem{
-      border-radius:18px;
-      background:#fff;
-      border:1px solid var(--line);
-      padding:9px 10px;
-      font-weight:900;
-      color:#5e7f94;
-      line-height:1.35;
-    }
-
-    .logItem.good{
-      color:#377d37;
-      background:#f3fff0;
-      border-color:#d8f4cf;
-    }
-
-    .logItem.bad{
-      color:#a5483e;
-      background:#fff4f1;
-      border-color:#ffd1c9;
-    }
-
-    .bottomBar{
-      display:grid;
-      grid-template-columns:1fr auto;
-      gap:10px;
-      align-items:center;
-    }
-
-    .feedback{
-      min-height:48px;
-      display:flex;
-      align-items:center;
-      padding:9px 12px;
-      border-radius:20px;
-      background:rgba(255,255,255,.86);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      font-weight:1000;
-      line-height:1.35;
-    }
-
-    .navBtns{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
-
-    .navBtn{
-      min-height:46px;
-      border:none;
-      cursor:pointer;
-      border-radius:18px;
-      padding:0 13px;
-      background:#fff;
-      color:var(--text);
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-      font-weight:1000;
-    }
-
-    .navBtn.primary{
-      color:#fff;
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
-      border:none;
-    }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index:40;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(14px + var(--sat))
-        calc(14px + var(--sar))
-        calc(14px + var(--sab))
-        calc(14px + var(--sal));
-      background:rgba(224,244,255,.72);
-      backdrop-filter:blur(10px);
-    }
-
-    .overlay.hidden{
-      display:none;
-    }
-
-    .modal{
-      width:min(720px,100%);
-      max-height:calc(100dvh - 28px);
-      overflow:auto;
-      border-radius:32px;
-      background:linear-gradient(180deg,#fffefb,#f8fdff);
-      border:1px solid var(--line);
-      box-shadow:0 30px 80px rgba(50,90,120,.24);
-      padding:18px;
-      text-align:center;
-    }
-
-    .modalIcon{
-      width:86px;
-      height:86px;
-      margin:0 auto 10px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      font-size:50px;
-      background:linear-gradient(180deg,#fff7c7,#ffd76f);
-      border:1px solid #ffe39a;
-    }
-
-    .modal h2{
-      margin:0;
-      font-size:clamp(1.45rem,4vw,2.2rem);
-      line-height:1.08;
-      font-weight:1000;
-    }
-
-    .modal p{
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.55;
-      margin:10px auto;
-      max-width:58ch;
-    }
-
-    .modalGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin:14px 0;
-      text-align:left;
-    }
-
-    .infoCard{
-      padding:12px;
-      border-radius:22px;
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:0 10px 22px rgba(93,155,185,.10);
-    }
-
-    .infoCard b{
-      display:block;
-      font-weight:1000;
-      margin-bottom:4px;
-    }
-
-    .infoCard span{
-      display:block;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.45;
-      font-size:.88rem;
-    }
-
-    .modalActions{
-      display:flex;
-      gap:10px;
-      justify-content:center;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .bigBtn{
-      min-height:52px;
-      border:none;
-      cursor:pointer;
-      border-radius:20px;
-      padding:0 18px;
-      font-weight:1000;
-      color:#fff;
-      background:linear-gradient(180deg,#ffbf4d,#ff8f3d);
-      box-shadow:0 18px 34px rgba(255,143,61,.22);
-    }
-
-    .bigBtn.alt{
-      color:var(--text);
-      background:#fff;
-      border:1px solid var(--line);
-      box-shadow:var(--shadow);
-    }
-
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom:calc(18px + var(--sab));
-      transform:translateX(-50%) translateY(14px);
-      min-width:min(560px,calc(100vw - 28px));
-      max-width:calc(100vw - 28px);
-      padding:12px 14px;
-      border-radius:18px;
-      background:rgba(40,72,95,.94);
-      color:#fff;
-      font-weight:1000;
-      text-align:center;
-      box-shadow:0 18px 40px rgba(0,0,0,.22);
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
-      z-index:80;
-    }
-
-    .toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
-
-    .fxGood{
-      animation:goodFlash .28s ease;
-    }
-
-    @keyframes goodFlash{
-      0%{ filter:brightness(1); }
-      45%{ filter:brightness(1.12) saturate(1.15); }
-      100%{ filter:brightness(1); }
-    }
-
-    .fxBad{
-      animation:badShake .28s ease;
-    }
-
-    @keyframes badShake{
-      0%,100%{ transform:translateX(0); }
-      25%{ transform:translateX(-6px); }
-      75%{ transform:translateX(6px); }
-    }
-
-    .feverMode .stage{
-      border-color:#ffd166;
-      box-shadow:0 28px 70px rgba(255,177,104,.30);
-      background:
-        radial-gradient(480px 260px at 50% 8%, rgba(255,231,122,.50), transparent 72%),
-        linear-gradient(180deg,rgba(255,255,255,.88),rgba(255,250,225,.94));
-    }
-
-    .feverMode .timeFill{
-      background:linear-gradient(90deg,#ffdf6b,#ff9f43,#ff6b6b);
-    }
-
-    .slowMode .foodCard{
-      filter:saturate(.92) brightness(1.03);
-      box-shadow:0 24px 54px rgba(97,187,255,.22);
-    }
-
-    .cvrCrosshair{
-      display:none;
-      position:fixed;
-      left:50%;
-      top:50%;
-      width:42px;
-      height:42px;
-      margin-left:-21px;
-      margin-top:-21px;
-      pointer-events:none;
-      z-index:25;
-      border-radius:50%;
-      border:3px solid rgba(47,149,255,.75);
-      box-shadow:0 0 0 6px rgba(255,255,255,.42), 0 8px 22px rgba(0,0,0,.12);
-    }
-
-    .cvrCrosshair::before,
-    .cvrCrosshair::after{
-      content:"";
-      position:absolute;
-      background:rgba(47,149,255,.85);
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-    }
-
-    .cvrCrosshair::before{ width:24px; height:3px; }
-    .cvrCrosshair::after{ width:3px; height:24px; }
-
-    body.view-cvr .cvrCrosshair{
-      display:block;
-    }
-
-    @media (max-width: 960px){
-      body{
-        overflow:auto;
-      }
-
-      .game{
-        min-height:100dvh;
-        grid-template-rows:auto auto auto;
-      }
-
-      .topHud{
-        grid-template-columns:1fr;
-      }
-
-      .hudStats{
-        justify-content:stretch;
-      }
-
-      .stat{
-        flex:1 1 80px;
-      }
-
-      .arena{
-        grid-template-columns:1fr;
-      }
-
-      .side{
-        grid-template-rows:auto auto auto;
-      }
-
-      .logBox{
-        max-height:160px;
-      }
-    }
-
-    @media (max-width: 680px){
-      .game{
-        padding:
-          calc(8px + var(--sat))
-          calc(8px + var(--sar))
-          calc(10px + var(--sab))
-          calc(8px + var(--sal));
-      }
-
-      .brand{
-        border-radius:20px;
-      }
-
-      .brandIcon{
-        width:44px;
-        height:44px;
-        font-size:25px;
-      }
-
-      .choices{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .choice{
-        min-height:66px;
-      }
-
-      .foodCard{
-        min-height:210px;
-        border-radius:26px;
-      }
-
-      .bottomBar{
-        grid-template-columns:1fr;
-      }
-
-      .navBtns{
-        justify-content:stretch;
-      }
-
-      .navBtn{
-        flex:1 1 auto;
-      }
-
-      .modalGrid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (prefers-reduced-motion: reduce){
-      *,
-      *::before,
-      *::after{
-        animation:none !important;
-        transition:none !important;
-        scroll-behavior:auto !important;
-      }
-    }
+    button{font:inherit}
+    .game{min-height:100dvh;width:min(1180px,100%);margin:0 auto;padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(12px + var(--sab)) calc(10px + var(--sal));display:grid;grid-template-rows:auto 1fr auto;gap:10px}
+    .top{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:stretch}
+    .brand,.stat,.stage,.panel,.feedback,.navBtn{background:rgba(255,255,255,.88);border:1px solid var(--line);box-shadow:var(--shadow)}
+    .brand{display:flex;align-items:center;gap:10px;border-radius:24px;padding:10px 12px;min-width:0}
+    .logo{width:50px;height:50px;border-radius:18px;display:grid;place-items:center;font-size:30px;background:linear-gradient(180deg,#fff7c7,#ffd76f);border:1px solid #ffe39a;animation:floaty 2.4s ease-in-out infinite}
+    @keyframes floaty{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-4px) rotate(-4deg)}}
+    h1{font-size:clamp(1.1rem,2.2vw,1.58rem);line-height:1.05;margin:0;font-weight:1000}
+    .brand p{margin:4px 0 0;color:var(--muted);font-size:.84rem;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:stretch}
+    .stat{min-width:86px;border-radius:18px;padding:8px 10px;text-align:center}
+    .stat small{display:block;color:var(--muted);font-size:.72rem;font-weight:1000;line-height:1;margin-bottom:4px}
+    .stat b{display:block;font-size:1.05rem;line-height:1;font-weight:1000}
+    .arena{min-height:0;display:grid;grid-template-columns:1fr 330px;gap:10px}
+    .stage{position:relative;min-height:0;overflow:hidden;border-radius:30px;padding:14px;display:grid;grid-template-rows:auto 1fr auto;background:linear-gradient(180deg,rgba(255,255,255,.84),rgba(248,253,255,.94));box-shadow:var(--shadow2)}
+    .stage.wave1{background:linear-gradient(180deg,#ffffff,#f8fdff)}
+    .stage.wave2{background:radial-gradient(520px 280px at 50% 5%,rgba(126,217,87,.16),transparent 70%),linear-gradient(180deg,#fff,#f4fff1)}
+    .stage.wave3{background:radial-gradient(520px 280px at 50% 5%,rgba(255,172,75,.20),transparent 70%),linear-gradient(180deg,#fff,#fff8ec)}
+    .stage.wave4{background:radial-gradient(520px 280px at 50% 5%,rgba(188,167,255,.22),transparent 70%),linear-gradient(180deg,#fff,#f9f6ff)}
+    .stage.wave5{background:radial-gradient(520px 280px at 50% 5%,rgba(97,187,255,.24),transparent 70%),linear-gradient(180deg,#fff,#eef9ff)}
+    .stage.wave6{background:radial-gradient(520px 280px at 50% 5%,rgba(255,123,115,.22),transparent 70%),linear-gradient(180deg,#fff,#fff6f1)}
+    .stage::before{content:"🥚  🍚  🥦  🍎  🥑";position:absolute;left:18px;bottom:10px;font-size:54px;letter-spacing:12px;opacity:.08;pointer-events:none;white-space:nowrap;animation:drift 9s linear infinite}
+    @keyframes drift{0%,100%{transform:translateX(0)}50%{transform:translateX(22px)}}
+    .mission{position:relative;z-index:1;display:grid;gap:8px}
+    .missionTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap}
+    .waveTitle{font-size:clamp(1.05rem,2vw,1.35rem);margin:0;font-weight:1000;line-height:1.15}
+    .waveText{margin:3px 0 0;color:var(--muted);font-size:.9rem;font-weight:900;line-height:1.45}
+    .pills{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end}
+    .pill{display:inline-flex;align-items:center;min-height:30px;padding:5px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);color:#5d7f95;font-size:.78rem;font-weight:1000;box-shadow:0 8px 18px rgba(93,155,185,.08)}
+    .pill.hot{color:#9a6517;background:linear-gradient(180deg,#fff9df,#fff0b4);border-color:#ffe39a}
+    .timeTrack{height:12px;border-radius:999px;overflow:hidden;background:#e5f4fb;border:1px solid #d3edf8}
+    .timeFill{height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--yellow),var(--orange));transition:width .08s linear}
+    .foodZone{position:relative;z-index:1;display:grid;place-items:center;min-height:0;padding:12px 4px}
+    .foodCard{width:min(520px,100%);min-height:250px;border-radius:32px;background:linear-gradient(180deg,#fffefb,#fff);border:1px solid #ffeab3;box-shadow:0 24px 54px rgba(255,172,75,.15);display:grid;place-items:center;text-align:center;padding:20px}
+    .foodCard.pop{animation:pop .24s ease}.foodCard.good{animation:goodHit .36s ease}.foodCard.bad{animation:badHit .36s ease}
+    @keyframes pop{0%{transform:scale(.96) translateY(6px);opacity:.58}100%{transform:scale(1);opacity:1}}
+    @keyframes goodHit{0%{transform:scale(1)}45%{transform:scale(1.06) rotate(-1deg)}100%{transform:scale(1)}}
+    @keyframes badHit{0%,100%{transform:translateX(0)}22%{transform:translateX(-8px)}48%{transform:translateX(8px)}72%{transform:translateX(-4px)}}
+    .emoji{font-size:clamp(5.2rem,12vw,8.5rem);line-height:1;filter:drop-shadow(0 16px 18px rgba(80,120,140,.12))}
+    .foodName{margin-top:8px;font-size:clamp(1.4rem,3.2vw,2rem);font-weight:1000;line-height:1.05}
+    .hint{margin-top:8px;color:var(--muted);font-weight:900;line-height:1.35;min-height:24px}
+    .fakeLabel{margin:0 auto 10px;display:none;width:max-content;max-width:100%;padding:7px 12px;border-radius:999px;color:#9a3a2f;background:#fff0ec;border:1px solid #ffd1c9;font-weight:1000;font-size:.86rem}.fakeLabel.show{display:inline-flex}
+    .stormBoard{display:none;width:min(720px,100%);margin:0 auto;gap:10px}.stormActive .foodCard{display:none}.stormActive .stormBoard{display:grid}
+    .stormHeader{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}.stormHeader b{font-size:1rem;font-weight:1000;color:#9a6517}.stormHeader span{display:inline-flex;min-height:30px;align-items:center;padding:5px 10px;border-radius:999px;background:#fff9df;border:1px solid #ffe39a;color:#9a6517;font-size:.8rem;font-weight:1000}
+    .stormTargets{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stormTarget{min-height:178px;border:none;cursor:pointer;border-radius:26px;padding:14px 10px;background:linear-gradient(180deg,#fff,#fffdf3);border:2px solid #ffeab3;box-shadow:0 18px 42px rgba(255,172,75,.14);display:grid;place-items:center;text-align:center;color:var(--text)}
+    .stormTarget.selected{border-color:#ffac4b;box-shadow:0 0 0 5px rgba(255,172,75,.18),0 24px 54px rgba(255,172,75,.22);transform:translateY(-2px) scale(1.02)}.stormTarget.done{opacity:.42;filter:grayscale(.2);transform:scale(.96)}.stormTarget.good{border-color:#7ed957;background:#f3fff0}.stormTarget.bad{border-color:#ff7b73;background:#fff4f1}
+    .stormEmoji{font-size:clamp(3.2rem,8vw,5.4rem);line-height:1}.stormName{margin-top:7px;font-size:1.05rem;font-weight:1000;line-height:1.1}.stormHint{margin-top:5px;color:var(--muted);font-size:.76rem;font-weight:900;line-height:1.2}
+    .choices{position:relative;z-index:1;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}.choice{min-height:76px;border:none;cursor:pointer;border-radius:22px;padding:8px 6px;background:#fff;border:1px solid var(--line);color:var(--text);box-shadow:var(--shadow);display:grid;place-items:center;gap:3px}.choice:active{transform:translateY(1px) scale(.99)}.choice .num{display:grid;place-items:center;width:32px;height:32px;border-radius:12px;background:linear-gradient(180deg,#eef9ff,#dff2ff);color:#397b9c;font-weight:1000}.choice .name{font-size:.86rem;font-weight:1000;line-height:1.1}.choice .ex{color:var(--muted);font-size:.72rem;font-weight:900;line-height:1.1}.choice.goodFlash{border-color:#7ed957;background:#f3fff0}.choice.badFlash{border-color:#ff7b73;background:#fff4f1}.choice.decoy{border-color:#ff9b81;background:#fff6f3;box-shadow:0 0 0 5px rgba(255,123,115,.14),0 18px 38px rgba(255,123,115,.16);animation:decoy .9s ease-in-out infinite}.choice.decoy::after{content:"เชฟชี้!";display:block;margin-top:2px;padding:2px 7px;border-radius:999px;background:#fff0ec;border:1px solid #ffd1c9;color:#a5483e;font-size:.68rem;font-weight:1000}@keyframes decoy{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+    .memoryHidden .choice .name,.memoryHidden .choice .ex{filter:blur(5px);opacity:.42}.bossFog .foodName{filter:blur(8px);opacity:.35}.bossRage .stage{border-color:#ffb168;box-shadow:0 28px 70px rgba(255,123,115,.22)}
+    .side{min-height:0;display:grid;grid-auto-rows:max-content;gap:10px;overflow:auto;padding-right:2px;scrollbar-width:thin}.panel{border-radius:24px;padding:12px}.panel h2{margin:0 0 8px;font-size:1rem;line-height:1.1;font-weight:1000}.bossPanel{display:none;background:radial-gradient(160px 90px at 80% 0%,rgba(255,111,111,.18),transparent 70%),rgba(255,255,255,.9);border-color:#ffd1c9}.bossPanel.show{display:block}.bossName{display:flex;align-items:center;gap:8px;font-weight:1000}.bossEmoji{font-size:38px;animation:bossShake 1.5s ease-in-out infinite}@keyframes bossShake{0%,100%{transform:rotate(0)}25%{transform:rotate(-5deg)}75%{transform:rotate(5deg)}}.hpTrack{height:16px;border-radius:999px;background:#ffe7e2;border:1px solid #ffd1c9;overflow:hidden;margin-top:9px}.hpFill{height:100%;width:100%;border-radius:999px;background:linear-gradient(90deg,#ff7b73,#ffb168);transition:width .18s ease}.bossSkill{margin-top:8px;padding:8px 10px;border-radius:16px;background:#fff4f1;border:1px solid #ffd1c9;color:#a5483e;font-size:.82rem;font-weight:1000;line-height:1.35}.bossSkill.idle{background:#f8fdff;border-color:var(--line);color:var(--muted)}
+    .avatarStage{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center}.avatar{width:64px;height:64px;border-radius:22px;display:grid;place-items:center;font-size:38px;background:linear-gradient(180deg,#fff7c7,#ffd76f);border:1px solid #ffe39a;box-shadow:0 14px 30px rgba(255,172,75,.18)}.avatarInfo b{display:block;font-size:1rem;font-weight:1000;line-height:1.1}.avatarInfo span{display:block;margin-top:4px;color:var(--muted);font-size:.82rem;font-weight:900;line-height:1.35}.miniGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.mini{border-radius:16px;padding:8px 9px;background:#fff;border:1px solid var(--line);box-shadow:0 8px 18px rgba(93,155,185,.08)}.mini small{display:block;color:var(--muted);font-size:.68rem;font-weight:1000;line-height:1;margin-bottom:4px}.mini b{display:block;font-size:.95rem;font-weight:1000;line-height:1.1}.director{min-height:42px;border-radius:18px;padding:9px 10px;background:#fff;border:1px solid var(--line);color:#5e7f94;font-weight:900;line-height:1.35}.logBox{max-height:220px;overflow:auto;display:grid;gap:8px}.logItem{border-radius:18px;background:#fff;border:1px solid var(--line);padding:9px 10px;font-weight:900;color:#5e7f94;line-height:1.35}.logItem.good{color:#377d37;background:#f3fff0;border-color:#d8f4cf}.logItem.bad{color:#a5483e;background:#fff4f1;border-color:#ffd1c9}.exportGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.exportBtn{min-height:42px;border:none;cursor:pointer;border-radius:16px;padding:8px 10px;background:#fff;border:1px solid var(--line);color:var(--text);font-weight:1000;box-shadow:0 8px 18px rgba(93,155,185,.08)}.exportBtn.primary{color:#fff;border:none;background:linear-gradient(180deg,var(--green),var(--green2))}.status{margin-top:8px;border-radius:16px;padding:8px 9px;background:#f8fdff;border:1px solid var(--line);color:var(--muted);font-size:.76rem;font-weight:900;line-height:1.35;min-height:38px}.powerGrid{display:grid;gap:8px}.power{min-height:48px;border:none;cursor:pointer;border-radius:18px;padding:8px 10px;background:#fff;border:1px solid var(--line);color:var(--text);box-shadow:0 10px 22px rgba(93,155,185,.12);display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:1000}.power:disabled{opacity:.48;cursor:not-allowed;box-shadow:none}.power small{display:block;color:var(--muted);font-weight:900;font-size:.72rem}
+    .bottom{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}.feedback{min-height:48px;display:flex;align-items:center;padding:9px 12px;border-radius:20px;font-weight:1000;line-height:1.35}.navs{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}.navBtn{min-height:46px;border:none;cursor:pointer;border-radius:18px;padding:0 13px;color:var(--text);font-weight:1000}.navBtn.primary{color:#fff;background:linear-gradient(180deg,var(--blue),var(--blue2));border:none}
+    .overlay{position:fixed;inset:0;z-index:40;display:grid;place-items:center;padding:calc(14px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));background:rgba(224,244,255,.72);backdrop-filter:blur(10px)}.overlay.hidden{display:none}.modal{width:min(740px,100%);max-height:calc(100dvh - 28px);overflow:auto;border-radius:32px;background:linear-gradient(180deg,#fffefb,#f8fdff);border:1px solid var(--line);box-shadow:0 30px 80px rgba(50,90,120,.24);padding:18px;text-align:center}.modalIcon{width:86px;height:86px;margin:0 auto 10px;border-radius:28px;display:grid;place-items:center;font-size:50px;background:linear-gradient(180deg,#fff7c7,#ffd76f);border:1px solid #ffe39a}.modal h2{margin:0;font-size:clamp(1.45rem,4vw,2.2rem);line-height:1.08;font-weight:1000}.modal p{color:var(--muted);font-weight:900;line-height:1.55;margin:10px auto;max-width:58ch}.modalGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0;text-align:left}.infoCard{padding:12px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 10px 22px rgba(93,155,185,.10)}.infoCard b{display:block;font-weight:1000;margin-bottom:4px}.infoCard span{display:block;color:var(--muted);font-weight:900;line-height:1.45;font-size:.88rem}.modalActions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:12px}.bigBtn{min-height:52px;border:none;cursor:pointer;border-radius:20px;padding:0 18px;font-weight:1000;color:#fff;background:linear-gradient(180deg,#ffbf4d,#ff8f3d);box-shadow:0 18px 34px rgba(255,143,61,.22)}.bigBtn.alt{color:var(--text);background:#fff;border:1px solid var(--line);box-shadow:var(--shadow)}.summaryReward{margin:14px auto 4px;width:min(560px,100%);border-radius:26px;padding:14px;background:linear-gradient(180deg,#fffefb,#fff7d2);border:1px solid #ffe39a;box-shadow:0 18px 42px rgba(255,172,75,.18);display:grid;gap:8px}.rankBadge{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:8px 13px;border-radius:999px;background:linear-gradient(180deg,#fff9df,#fff0b4);border:1px solid #ffe39a;color:#9a6517;font-weight:1000;margin:0 auto}.toast{position:fixed;left:50%;bottom:calc(18px + var(--sab));transform:translateX(-50%) translateY(14px);min-width:min(560px,calc(100vw - 28px));max-width:calc(100vw - 28px);padding:12px 14px;border-radius:18px;background:rgba(40,72,95,.94);color:#fff;font-weight:1000;text-align:center;box-shadow:0 18px 40px rgba(0,0,0,.22);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;z-index:80}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .floatScore{position:fixed;z-index:85;pointer-events:none;left:50%;top:42%;transform:translate(-50%,-50%);padding:8px 13px;border-radius:999px;background:linear-gradient(180deg,#fff9df,#fff0b4);border:1px solid #ffe39a;color:#9a6517;font-weight:1000;box-shadow:0 18px 42px rgba(255,172,75,.22);animation:floatScore .78s ease forwards}.floatScore.bad{background:#fff4f1;border-color:#ffd1c9;color:#a5483e}@keyframes floatScore{0%{opacity:0;transform:translate(-50%,-30%) scale(.88)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}100%{opacity:0;transform:translate(-50%,-105%) scale(.94)}}.burst{position:fixed;z-index:84;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;width:170px;height:170px;border-radius:50%;opacity:0;animation:burst .55s ease forwards}.burst.good{background:radial-gradient(circle,rgba(126,217,87,.34),rgba(126,217,87,0) 68%)}.burst.bad{background:radial-gradient(circle,rgba(255,107,107,.32),rgba(255,107,107,0) 68%)}.burst.fever{background:radial-gradient(circle,rgba(255,217,102,.42),rgba(255,217,102,0) 68%)}@keyframes burst{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}.ribbon,.bossWarn{position:fixed;z-index:87;left:50%;top:14%;transform:translateX(-50%);pointer-events:none;width:min(560px,calc(100vw - 28px));padding:11px 14px;border-radius:22px;background:rgba(255,255,255,.94);border:1px solid #ffe39a;box-shadow:0 22px 60px rgba(255,172,75,.18);color:#9a6517;text-align:center;font-weight:1000;animation:ribbon .9s ease forwards}.bossWarn{top:16%;background:#fff4f1;border-color:#ffd1c9;color:#a5483e}@keyframes ribbon{0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.94)}18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}78%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-20px) scale(.96)}}.feverMode .stage{border-color:#ffd166;box-shadow:0 28px 70px rgba(255,177,104,.30)}.crosshair{display:none;position:fixed;left:50%;top:50%;width:42px;height:42px;margin-left:-21px;margin-top:-21px;pointer-events:none;z-index:25;border-radius:50%;border:3px solid rgba(47,149,255,.75);box-shadow:0 0 0 6px rgba(255,255,255,.42),0 8px 22px rgba(0,0,0,.12)}body.view-cvr .crosshair{display:block}
+    @media(max-width:960px){body{overflow:auto}.game{grid-template-rows:auto auto auto}.top{grid-template-columns:1fr}.stats{justify-content:stretch}.stat{flex:1 1 80px}.arena{grid-template-columns:1fr}.side{max-height:none;overflow:visible}.logBox{max-height:160px}}
+    @media(max-width:680px){.game{padding:calc(8px + var(--sat)) calc(8px + var(--sar)) calc(10px + var(--sab)) calc(8px + var(--sal))}.missionShelf,.stormTargets,.exportGrid{grid-template-columns:1fr}.choices{grid-template-columns:repeat(2,minmax(0,1fr))}.choice{min-height:82px}.foodCard{min-height:210px;border-radius:26px}.stormTarget{min-height:98px;grid-template-columns:70px 1fr;text-align:left;align-items:center}.stormEmoji{font-size:3rem}.bottom{grid-template-columns:1fr}.navs{justify-content:stretch}.navBtn{flex:1 1 auto}.modalGrid{grid-template-columns:1fr}}
   </style>
 </head>
-
 <body>
   <div class="game" id="gameRoot">
-    <header class="topHud">
-      <section class="brand">
-        <div class="brandIcon">🥦</div>
-        <div>
-          <h1>Groups Solo Arena</h1>
-          <p id="subTitle">จัดอาหารหลัก 5 หมู่ • Wave Mission • Boss Chef</p>
-        </div>
-      </section>
-
-      <section class="hudStats" aria-label="Game stats">
-        <div class="stat"><small>คะแนน</small><b id="scoreTxt">0</b></div>
-        <div class="stat"><small>เวลา</small><b id="timeTxt">120</b></div>
-        <div class="stat"><small>หัวใจ</small><b id="lifeTxt">❤️❤️❤️</b></div>
-        <div class="stat"><small>คอมโบ</small><b id="comboTxt">0</b></div>
-        <div class="stat"><small>ถูกต้อง</small><b id="accTxt">0%</b></div>
-      </section>
+    <header class="top">
+      <section class="brand"><div class="logo">🥦</div><div><h1>Groups Solo Arena SAFE</h1><p id="subTitle">จัดอาหารหลัก 5 หมู่ • Wave Mission • Boss Chef</p></div></section>
+      <section class="stats" aria-label="Game stats"><div class="stat"><small>คะแนน</small><b id="scoreTxt">0</b></div><div class="stat"><small>เวลา</small><b id="timeTxt">120</b></div><div class="stat"><small>หัวใจ</small><b id="lifeTxt">❤️❤️❤️</b></div><div class="stat"><small>คอมโบ</small><b id="comboTxt">0</b></div><div class="stat"><small>ถูกต้อง</small><b id="accTxt">0%</b></div></section>
     </header>
 
     <main class="arena">
-      <section class="stage" id="stage">
-        <div class="missionBar">
-          <div class="missionTop">
-            <div>
-              <h2 class="waveTitle" id="waveTitle">Wave 1</h2>
-              <p class="waveText" id="waveText">เตรียมเริ่มภารกิจ</p>
-            </div>
-            <div class="pillRow">
-              <span class="pill hot" id="modePill">Solo Arena</span>
-              <span class="pill" id="viewPill">Mobile</span>
-              <span class="pill" id="feverPill">Fever: พร้อม</span>
-            </div>
-          </div>
-
-          <div class="timeTrack" aria-label="Item timer">
-            <div class="timeFill" id="itemTimeFill"></div>
-          </div>
+      <section class="stage wave1" id="stage">
+        <div class="mission">
+          <div class="missionTop"><div><h2 class="waveTitle" id="waveTitle">Wave 1</h2><p class="waveText" id="waveText">เตรียมเริ่มภารกิจ</p></div><div class="pills"><span class="pill hot" id="modePill">Solo SAFE</span><span class="pill" id="viewPill">Mobile</span><span class="pill" id="feverPill">Fever: พร้อม</span></div></div>
+          <div class="timeTrack"><div class="timeFill" id="itemTimeFill"></div></div>
         </div>
-
-        <div class="foodZone">
-          <article class="foodCard" id="foodCard">
-            <div>
-              <div class="fakeLabel" id="fakeLabel">ป้ายหลอก</div>
-              <div class="foodEmoji" id="foodEmoji">🥦</div>
-              <div class="foodName" id="foodName">ผัก</div>
-              <div class="foodHint" id="foodHint">กดเริ่มเพื่อเข้า Wave Mission</div>
-            </div>
-          </article>
+        <div class="foodZone" id="foodZone">
+          <article class="foodCard" id="foodCard"><div><div class="fakeLabel" id="fakeLabel">ป้ายหลอก</div><div class="emoji" id="foodEmoji">🥦</div><div class="foodName" id="foodName">ผัก</div><div class="hint" id="foodHint">กดเริ่มเพื่อเข้า Wave Mission</div></div></article>
+          <section class="stormBoard" id="stormBoard"><div class="stormHeader"><b>🌪 Food Storm</b><span id="stormCounter">เลือกอาหาร แล้วกดหมู่ให้ถูก</span></div><div class="stormTargets" id="stormTargets"></div></section>
         </div>
-
-        <section class="choices" id="choices" aria-label="Food group choices"></section>
+        <section class="choices" id="choices"></section>
       </section>
 
       <aside class="side">
-        <section class="panel bossPanel" id="bossPanel">
-          <h2>Boss Stage</h2>
-          <div class="bossName">
-            <span class="bossEmoji">👨‍🍳</span>
-            <span>
-              Chaos Chef
-              <small id="bossPhaseTxt" style="display:block;color:var(--muted);font-weight:900;">Phase 1</small>
-            </span>
-          </div>
-          <div class="hpTrack">
-            <div class="hpFill" id="bossHpFill"></div>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Power-up</h2>
-          <div class="powerGrid">
-            <button class="power" id="btnShield" type="button">
-              <span>🛡 Shield <small>กันพลาด 1 ครั้ง</small></span>
-              <b id="shieldCount">1</b>
-            </button>
-            <button class="power" id="btnHint" type="button">
-              <span>💡 Hint <small>บอกหมู่ที่ถูก</small></span>
-              <b id="hintCount">2</b>
-            </button>
-            <button class="power" id="btnSlow" type="button">
-              <span>⏱ Slow <small>ชะลอเวลา</small></span>
-              <b id="slowCount">1</b>
-            </button>
-          </div>
-        </section>
-
-        <section class="panel logBox" id="logBox" aria-label="Game feedback log"></section>
-
-        <section class="panel">
-          <h2>จำให้แม่น</h2>
-          <div class="logItem">หมู่ 1 โปรตีน: เนื้อ นม ไข่ ถั่วเมล็ดแห้ง</div>
-          <div class="logItem">หมู่ 2 คาร์โบไฮเดรต: ข้าว แป้ง เผือก มัน น้ำตาล</div>
-          <div class="logItem">หมู่ 3 ผัก • หมู่ 4 ผลไม้ • หมู่ 5 ไขมัน</div>
-        </section>
+        <section class="panel bossPanel" id="bossPanel"><h2>Boss Stage</h2><div class="bossName"><span class="bossEmoji">👨‍🍳</span><span>Chaos Chef<small id="bossPhaseTxt" style="display:block;color:var(--muted);font-weight:900">Phase 1</small></span></div><div class="hpTrack"><div class="hpFill" id="bossHpFill"></div></div><div class="bossSkill idle" id="bossSkillTxt">บอสยังไม่ใช้สกิล</div></section>
+        <section class="panel"><h2>Food Hero</h2><div class="avatarStage"><div class="avatar" id="heroAvatar">🧑‍🚀</div><div class="avatarInfo"><b id="avatarMoodTxt">พร้อมลุยภารกิจ!</b><span>ตอบถูก ทำคอมโบ เก็บเหรียญ และปลดล็อกยศ</span></div></div><div class="miniGrid"><div class="mini"><small>Rank</small><b id="rankTxt">Food Rookie</b></div><div class="mini"><small>Coins</small><b id="coinTxt">0</b></div></div></section>
+        <section class="panel"><h2>Adaptive Director</h2><div class="director" id="directorStatus">เกมจะช่วยฝึกหมู่ที่พลาดบ่อยแบบยุติธรรม</div></section>
+        <section class="panel"><h2>Research Metrics</h2><div class="miniGrid"><div class="mini"><small>Session</small><b id="sessionIdTxt">-</b></div><div class="mini"><small>Events</small><b id="eventCountTxt">0</b></div><div class="mini"><small>Fever</small><b id="feverCountTxt">0</b></div><div class="mini"><small>Storm</small><b id="stormCountTxt">0</b></div></div><div class="status" id="exportStatus">ข้อมูลจะเก็บใน localStorage หลังเริ่มเกม</div></section>
+        <section class="panel"><h2>Teacher Export</h2><div class="exportGrid"><button class="exportBtn primary" id="btnCopyJson" type="button">📋 Copy JSON</button><button class="exportBtn primary" id="btnCopyCsv" type="button">📄 Copy CSV</button><button class="exportBtn" id="btnDownloadJson" type="button">⬇ JSON</button><button class="exportBtn" id="btnDownloadCsv" type="button">⬇ CSV</button></div></section>
+        <section class="panel"><h2>Power-up</h2><div class="powerGrid"><button class="power" id="btnShield" type="button"><span>🛡 Shield <small>กันพลาด 1 ครั้ง</small></span><b id="shieldCount">1</b></button><button class="power" id="btnHint" type="button"><span>💡 Hint <small>บอกหมู่ที่ถูก</small></span><b id="hintCount">2</b></button><button class="power" id="btnSlow" type="button"><span>⏱ Slow <small>ชะลอเวลา</small></span><b id="slowCount">1</b></button></div></section>
+        <section class="panel logBox" id="logBox"></section>
+        <section class="panel"><h2>จำให้แม่น</h2><div class="logItem">หมู่ 1 โปรตีน: เนื้อ นม ไข่ ถั่วเมล็ดแห้ง</div><div class="logItem">หมู่ 2 คาร์โบไฮเดรต: ข้าว แป้ง เผือก มัน น้ำตาล</div><div class="logItem">หมู่ 3 ผัก • หมู่ 4 ผลไม้ • หมู่ 5 ไขมัน</div></section>
       </aside>
     </main>
 
-    <footer class="bottomBar">
-      <div class="feedback" id="feedback">พร้อมแล้ว! กดเริ่มเพื่อจัดอาหารหลัก 5 หมู่ให้ทันเวลา</div>
-      <div class="navBtns">
-        <button class="navBtn" id="btnLauncher" type="button">🎮 โหมดเกม</button>
-        <button class="navBtn primary" id="btnZone" type="button">🍎 Nutrition Zone</button>
-        <button class="navBtn" id="btnHub" type="button">🏠 HUB</button>
-      </div>
-    </footer>
+    <footer class="bottom"><div class="feedback" id="feedback">พร้อมแล้ว! กดเริ่มเพื่อจัดอาหารหลัก 5 หมู่ให้ทันเวลา</div><div class="navs"><button class="navBtn" id="btnLauncher" type="button">🎮 โหมดเกม</button><button class="navBtn primary" id="btnZone" type="button">🍎 Nutrition Zone</button><button class="navBtn" id="btnHub" type="button">🏠 HUB</button></div></footer>
   </div>
 
-  <div class="overlay" id="startOverlay">
-    <section class="modal">
-      <div class="modalIcon">🥇</div>
-      <h2>Groups Solo Arena v2</h2>
-      <p>
-        จัดอาหารให้ตรงกับอาหารหลัก 5 หมู่ของไทย ผ่าน 6 Wave Mission
-        มีคอมโบ Fever, Power-up, ป้ายหลอก, Memory Flash และบอส Chaos Chef
-      </p>
+  <div class="overlay" id="startOverlay"><section class="modal"><div class="modalIcon">🥇</div><h2>Groups Solo Arena SAFE</h2><p>เวอร์ชันนี้เน้นรันได้จริงก่อน: มี Wave, Food Storm, Boss, Fever, Power-up, Summary และ Export โดยยังไม่เปิดระบบ Cloud Logger ที่เสี่ยง error</p><div class="modalGrid"><div class="infoCard"><b>🌊 Wave Mission</b><span>6 ด่าน เล่นแล้วจังหวะเปลี่ยน</span></div><div class="infoCard"><b>🔥 Combo + Fever</b><span>ตอบถูกต่อเนื่องได้คะแนนเพิ่ม</span></div><div class="infoCard"><b>🌪 Food Storm</b><span>หลายอาหารพร้อมกัน ต้องเลือกแล้วตอบ</span></div><div class="infoCard"><b>👨‍🍳 Boss Chef</b><span>บอสมีขโมยเวลา ซ่อนชื่อ และปุ่มหลอก</span></div></div><div class="modalActions"><button class="bigBtn" id="btnStart" type="button">เริ่มเล่น Solo Arena</button><button class="bigBtn alt" id="btnPractice" type="button">โหมดซ้อมง่าย</button></div></section></div>
 
-      <div class="modalGrid">
-        <div class="infoCard">
-          <b>🌊 Wave Mission</b>
-          <span>แต่ละด่านมีจังหวะต่างกัน เล่นซ้ำแล้วไม่จำทางเดิมง่าย</span>
-        </div>
-        <div class="infoCard">
-          <b>🔥 Combo + Fever</b>
-          <span>ตอบถูกติดกันเพื่อเพิ่มคะแนนและโจมตีบอสแรงขึ้น</span>
-        </div>
-        <div class="infoCard">
-          <b>🧠 Memory Flash</b>
-          <span>บางช่วงชื่อหมู่จะถูกซ่อน ต้องจำให้แม่น</span>
-        </div>
-        <div class="infoCard">
-          <b>👨‍🍳 Chaos Chef</b>
-          <span>บอสมี 3 phase และใช้ป้ายหลอกให้สับสน</span>
-        </div>
-      </div>
+  <div class="overlay hidden" id="summaryOverlay"><section class="modal"><div class="modalIcon" id="summaryIcon">🏆</div><h2 id="summaryTitle">สรุปผล</h2><p id="summaryText">เยี่ยมมาก!</p><div class="summaryReward"><div class="rankBadge" id="summaryRankBadge">Food Rookie</div><div id="summaryRewardLine">เก็บ Hero Coins และปลดล็อก Trophy</div><div id="summaryTrophyLine">ยังไม่มี Trophy</div></div><div class="modalGrid" id="summaryGrid"></div><div class="modalActions"><button class="bigBtn" id="btnReplay" type="button">เล่นซ้ำ</button><button class="bigBtn alt" id="btnSummaryLauncher" type="button">กลับหน้าโหมดเกม</button><button class="bigBtn alt" id="btnSummaryZone" type="button">กลับ Nutrition Zone</button></div></section></div>
 
-      <div class="modalActions">
-        <button class="bigBtn" id="btnStart" type="button">เริ่มเล่น Solo Arena</button>
-        <button class="bigBtn alt" id="btnPractice" type="button">โหมดซ้อมง่าย</button>
-      </div>
-    </section>
-  </div>
-
-  <div class="overlay hidden" id="summaryOverlay">
-    <section class="modal">
-      <div class="modalIcon" id="summaryIcon">🏆</div>
-      <h2 id="summaryTitle">สรุปผล</h2>
-      <p id="summaryText">เยี่ยมมาก!</p>
-
-      <div class="modalGrid" id="summaryGrid"></div>
-
-      <div class="modalActions">
-        <button class="bigBtn" id="btnReplay" type="button">เล่นซ้ำ</button>
-        <button class="bigBtn alt" id="btnSummaryLauncher" type="button">กลับหน้าโหมดเกม</button>
-        <button class="bigBtn alt" id="btnSummaryZone" type="button">กลับ Nutrition Zone</button>
-      </div>
-    </section>
-  </div>
-
-  <div class="toast" id="toast">พร้อมเล่น</div>
-  <div class="cvrCrosshair" aria-hidden="true"></div>
+  <div class="toast" id="toast">พร้อมเล่น</div><div class="crosshair"></div>
 
   <script>
-    (() => {
-      'use strict';
-
-      const q = new URLSearchParams(location.search);
-
-      const $ = (id) => document.getElementById(id);
-
-      const els = {
-        root: $('gameRoot'),
-        subTitle: $('subTitle'),
-        scoreTxt: $('scoreTxt'),
-        timeTxt: $('timeTxt'),
-        lifeTxt: $('lifeTxt'),
-        comboTxt: $('comboTxt'),
-        accTxt: $('accTxt'),
-
-        stage: $('stage'),
-        waveTitle: $('waveTitle'),
-        waveText: $('waveText'),
-        modePill: $('modePill'),
-        viewPill: $('viewPill'),
-        feverPill: $('feverPill'),
-        itemTimeFill: $('itemTimeFill'),
-
-        foodCard: $('foodCard'),
-        fakeLabel: $('fakeLabel'),
-        foodEmoji: $('foodEmoji'),
-        foodName: $('foodName'),
-        foodHint: $('foodHint'),
-        choices: $('choices'),
-
-        bossPanel: $('bossPanel'),
-        bossPhaseTxt: $('bossPhaseTxt'),
-        bossHpFill: $('bossHpFill'),
-
-        btnShield: $('btnShield'),
-        btnHint: $('btnHint'),
-        btnSlow: $('btnSlow'),
-        shieldCount: $('shieldCount'),
-        hintCount: $('hintCount'),
-        slowCount: $('slowCount'),
-
-        logBox: $('logBox'),
-        feedback: $('feedback'),
-
-        btnLauncher: $('btnLauncher'),
-        btnZone: $('btnZone'),
-        btnHub: $('btnHub'),
-
-        startOverlay: $('startOverlay'),
-        summaryOverlay: $('summaryOverlay'),
-        summaryIcon: $('summaryIcon'),
-        summaryTitle: $('summaryTitle'),
-        summaryText: $('summaryText'),
-        summaryGrid: $('summaryGrid'),
-
-        btnStart: $('btnStart'),
-        btnPractice: $('btnPractice'),
-        btnReplay: $('btnReplay'),
-        btnSummaryLauncher: $('btnSummaryLauncher'),
-        btnSummaryZone: $('btnSummaryZone'),
-
-        toast: $('toast')
-      };
-
-      const GROUPS = [
-        {
-          id: 1,
-          key: 'protein',
-          label: 'โปรตีน',
-          short: 'โปรตีน',
-          icon: '🥚',
-          examples: 'เนื้อ นม ไข่ ถั่ว',
-          tip: 'หมู่ 1 โปรตีน ช่วยสร้างและซ่อมแซมร่างกาย'
-        },
-        {
-          id: 2,
-          key: 'carb',
-          label: 'คาร์โบไฮเดรต',
-          short: 'ข้าว/แป้ง',
-          icon: '🍚',
-          examples: 'ข้าว แป้ง เผือก มัน น้ำตาล',
-          tip: 'หมู่ 2 คาร์โบไฮเดรต ให้พลังงาน'
-        },
-        {
-          id: 3,
-          key: 'vegetable',
-          label: 'ผัก',
-          short: 'ผัก',
-          icon: '🥦',
-          examples: 'ผักต่าง ๆ',
-          tip: 'หมู่ 3 ผัก มีใยอาหารและช่วยให้ร่างกายแข็งแรง'
-        },
-        {
-          id: 4,
-          key: 'fruit',
-          label: 'ผลไม้',
-          short: 'ผลไม้',
-          icon: '🍎',
-          examples: 'ผลไม้ต่าง ๆ',
-          tip: 'หมู่ 4 ผลไม้ มีวิตามินและแร่ธาตุ'
-        },
-        {
-          id: 5,
-          key: 'fat',
-          label: 'ไขมัน',
-          short: 'ไขมัน',
-          icon: '🥑',
-          examples: 'น้ำมัน กะทิ เนย',
-          tip: 'หมู่ 5 ไขมัน ให้พลังงานและช่วยดูดซึมวิตามินบางชนิด'
-        }
-      ];
-
-      const FOODS = [
-        { emoji:'🥚', name:'ไข่', group:1 },
-        { emoji:'🍗', name:'ไก่', group:1 },
-        { emoji:'🐟', name:'ปลา', group:1 },
-        { emoji:'🥛', name:'นม', group:1 },
-        { emoji:'🫘', name:'ถั่วเมล็ดแห้ง', group:1 },
-        { emoji:'🥩', name:'เนื้อสัตว์', group:1 },
-
-        { emoji:'🍚', name:'ข้าว', group:2 },
-        { emoji:'🍞', name:'ขนมปัง', group:2 },
-        { emoji:'🥔', name:'มันฝรั่ง', group:2 },
-        { emoji:'🍠', name:'มันเทศ', group:2 },
-        { emoji:'🌽', name:'ข้าวโพด', group:2 },
-        { emoji:'🍜', name:'เส้นก๋วยเตี๋ยว', group:2 },
-
-        { emoji:'🥦', name:'บรอกโคลี', group:3 },
-        { emoji:'🥬', name:'ผักใบเขียว', group:3 },
-        { emoji:'🥕', name:'แครอต', group:3 },
-        { emoji:'🥒', name:'แตงกวา', group:3 },
-        { emoji:'🍅', name:'มะเขือเทศ', group:3 },
-        { emoji:'🌶️', name:'พริก', group:3 },
-
-        { emoji:'🍎', name:'แอปเปิล', group:4 },
-        { emoji:'🍌', name:'กล้วย', group:4 },
-        { emoji:'🍊', name:'ส้ม', group:4 },
-        { emoji:'🍇', name:'องุ่น', group:4 },
-        { emoji:'🍉', name:'แตงโม', group:4 },
-        { emoji:'🥭', name:'มะม่วง', group:4 },
-
-        { emoji:'🥑', name:'อะโวคาโด', group:5 },
-        { emoji:'🧈', name:'เนย', group:5 },
-        { emoji:'🥥', name:'กะทิ', group:5 },
-        { emoji:'🫒', name:'น้ำมันมะกอก', group:5 },
-        { emoji:'🥜', name:'ถั่วลิสง', group:5 },
-        { emoji:'🌰', name:'เมล็ดพืช', group:5 }
-      ];
-
-      const DIFF = {
-        easy: {
-          totalTime: 150,
-          itemMs: 7600,
-          lives: 4,
-          waveCounts: [5, 5, 5, 5, 7, 8],
-          bossHp: 90,
-          label: 'Easy'
-        },
-        normal: {
-          totalTime: 120,
-          itemMs: 6500,
-          lives: 3,
-          waveCounts: [5, 6, 6, 6, 8, 9],
-          bossHp: 110,
-          label: 'Normal'
-        },
-        hard: {
-          totalTime: 105,
-          itemMs: 5400,
-          lives: 3,
-          waveCounts: [6, 7, 7, 7, 9, 11],
-          bossHp: 130,
-          label: 'Hard'
-        },
-        challenge: {
-          totalTime: 90,
-          itemMs: 4600,
-          lives: 2,
-          waveCounts: [6, 8, 8, 8, 10, 12],
-          bossHp: 150,
-          label: 'Challenge'
-        }
-      };
-
-      const cfg = {
-        view: clean(q.get('view') || 'mobile'),
-        mode: clean(q.get('mode') || 'solo'),
-        diff: clean(q.get('diff') || 'normal'),
-        pid: clean(q.get('pid') || 'anon'),
-        name: clean(q.get('name') || q.get('nick') || q.get('nickName') || 'Hero'),
-        seed: clean(q.get('seed') || String(Date.now())),
-        time: Number(q.get('time') || 0),
-        waves: clamp(Number(q.get('waves') || 6), 3, 6),
-        practice: false
-      };
-
-      if (!DIFF[cfg.diff]) cfg.diff = 'normal';
-
-      const baseDiff = DIFF[cfg.diff];
-      const rng = makeRng(hashSeed(cfg.seed));
-
-      const ROUTES = {
-        launcher: '../group-v1.html',
-        zone: '../nutrition-zone.html',
-        hub: '../hub-v2.html'
-      };
-
-      const state = {
-        active: false,
-        ended: false,
-        screen: 'intro',
-
-        score: 0,
-        totalTime: cfg.time > 0 ? clamp(cfg.time, 60, 240) : baseDiff.totalTime,
-        timeLeft: cfg.time > 0 ? clamp(cfg.time, 60, 240) : baseDiff.totalTime,
-
-        lives: baseDiff.lives,
-        combo: 0,
-        maxCombo: 0,
-        feverLeft: 0,
-        feverUntil: 0,
-        shieldArmed: false,
-        slowUntil: 0,
-
-        attempts: 0,
-        correct: 0,
-        miss: 0,
-        timeoutMiss: 0,
-        responseTotal: 0,
-
-        waveIndex: 0,
-        waveItemIndex: 0,
-        waves: [],
-        current: null,
-        currentStarted: 0,
-        itemDeadline: 0,
-        itemDuration: baseDiff.itemMs,
-
-        bossHp: baseDiff.bossHp,
-        bossMaxHp: baseDiff.bossHp,
-        bossPhase: 1,
-
-        power: {
-          shield: 1,
-          hint: 2,
-          slow: 1
-        },
-
-        groupStats: {
-          1: { seen:0, correct:0, miss:0 },
-          2: { seen:0, correct:0, miss:0 },
-          3: { seen:0, correct:0, miss:0 },
-          4: { seen:0, correct:0, miss:0 },
-          5: { seen:0, correct:0, miss:0 }
-        },
-
-        recentFoods: [],
-        events: [],
-
-        totalTimer: null,
-        itemRaf: 0,
-        memoryTimer: 0,
-        nextTimer: 0
-      };
-
-      init();
-
-      function init(){
-        if (cfg.view === 'cvr') {
-          document.body.classList.add('view-cvr');
-        }
-
-        els.viewPill.textContent = cfg.view === 'cvr' ? 'cVR' : titleCase(cfg.view);
-        els.modePill.textContent = 'Solo Arena • ' + baseDiff.label;
-        els.subTitle.textContent = 'ผู้เล่น: ' + cfg.name + ' • อาหารหลัก 5 หมู่';
-
-        renderChoices(false);
-        bindEvents();
-        updateHud();
-        updatePowerButtons();
-        log('กดเริ่มเพื่อเข้า Food Groups Arena', 'good');
-      }
-
-      function bindEvents(){
-        els.btnStart.addEventListener('click', () => startGame(false));
-        els.btnPractice.addEventListener('click', () => startGame(true));
-        els.btnReplay.addEventListener('click', () => replay());
-        els.btnSummaryLauncher.addEventListener('click', goLauncher);
-        els.btnSummaryZone.addEventListener('click', goZone);
-
-        els.btnLauncher.addEventListener('click', goLauncher);
-        els.btnZone.addEventListener('click', goZone);
-        els.btnHub.addEventListener('click', goHub);
-
-        els.btnShield.addEventListener('click', useShield);
-        els.btnHint.addEventListener('click', useHint);
-        els.btnSlow.addEventListener('click', useSlow);
-
-        document.addEventListener('keydown', (ev) => {
-          if (!state.active) return;
-          const k = ev.key;
-          if (['1','2','3','4','5'].includes(k)) {
-            answer(Number(k));
-          } else if (k.toLowerCase() === 'h') {
-            useHint();
-          } else if (k.toLowerCase() === 's') {
-            useShield();
-          } else if (k.toLowerCase() === 't') {
-            useSlow();
-          } else if (k === ' ' || k === 'Enter') {
-            shootCenter();
-          }
-        });
-
-        window.addEventListener('hha:shoot', shootCenter);
-        document.addEventListener('dblclick', () => {
-          if (cfg.view === 'cvr') shootCenter();
-        }, { passive:true });
-
-        document.addEventListener('visibilitychange', () => {
-          if (document.hidden && state.active) {
-            state.itemDeadline += 1200;
-          }
-        });
-      }
-
-      function startGame(practice){
-        cfg.practice = !!practice;
-
-        state.active = true;
-        state.ended = false;
-        state.screen = 'playing';
-
-        state.score = 0;
-        state.totalTime = practice ? 150 : (cfg.time > 0 ? clamp(cfg.time, 60, 240) : baseDiff.totalTime);
-        state.timeLeft = state.totalTime;
-        state.lives = practice ? 4 : baseDiff.lives;
-
-        state.combo = 0;
-        state.maxCombo = 0;
-        state.feverLeft = 0;
-        state.feverUntil = 0;
-        state.shieldArmed = false;
-        state.slowUntil = 0;
-
-        state.attempts = 0;
-        state.correct = 0;
-        state.miss = 0;
-        state.timeoutMiss = 0;
-        state.responseTotal = 0;
-
-        state.waveIndex = 0;
-        state.waveItemIndex = 0;
-        state.current = null;
-
-        state.bossHp = practice ? 80 : baseDiff.bossHp;
-        state.bossMaxHp = state.bossHp;
-        state.bossPhase = 1;
-
-        state.power.shield = practice ? 2 : 1;
-        state.power.hint = practice ? 3 : 2;
-        state.power.slow = practice ? 2 : 1;
-
-        state.groupStats = {
-          1: { seen:0, correct:0, miss:0 },
-          2: { seen:0, correct:0, miss:0 },
-          3: { seen:0, correct:0, miss:0 },
-          4: { seen:0, correct:0, miss:0 },
-          5: { seen:0, correct:0, miss:0 }
-        };
-
-        state.recentFoods = [];
-        state.events = [];
-        state.waves = buildWaves();
-
-        clearTimers();
-
-        els.startOverlay.classList.add('hidden');
-        els.summaryOverlay.classList.add('hidden');
-        els.logBox.innerHTML = '';
-        document.body.classList.remove('feverMode', 'slowMode');
-
-        updateHud();
-        updatePowerButtons();
-        startTotalTimer();
-        startWave(0);
-
-        toast(practice ? 'เริ่มโหมดซ้อมง่าย!' : 'เริ่ม Solo Arena!');
-      }
-
-      function buildWaves(){
-        const counts = baseDiff.waveCounts.slice();
-        if (cfg.practice) {
-          for (let i = 0; i < counts.length; i++) counts[i] = Math.max(4, counts[i] - 2);
-        }
-
-        return [
-          {
-            title:'Wave 1: Rookie Sort',
-            text:'จัดอาหารให้ถูกหมู่แบบพื้นฐาน เริ่มจับจังหวะให้แม่น',
-            count:counts[0],
-            speed:1,
-            trap:false,
-            memory:false,
-            storm:false,
-            boss:false
-          },
-          {
-            title:'Wave 2: Speed Combo',
-            text:'ตอบให้ถูกต่อเนื่องเพื่อสร้างคอมโบ ยิ่งเร็วคะแนนยิ่งดี',
-            count:counts[1],
-            speed:1.14,
-            trap:false,
-            memory:false,
-            storm:false,
-            boss:false
-          },
-          {
-            title:'Wave 3: Trap Label',
-            text:'ระวังป้ายหลอก! ให้ดูอาหารจริง ไม่ใช่ดูป้าย',
-            count:counts[2],
-            speed:1.18,
-            trap:true,
-            memory:false,
-            storm:false,
-            boss:false
-          },
-          {
-            title:'Wave 4: Memory Flash',
-            text:'ชื่อหมู่จะถูกซ่อนช่วงท้าย ต้องจำอาหารหลัก 5 หมู่ให้แม่น',
-            count:counts[3],
-            speed:1.22,
-            trap:false,
-            memory:true,
-            storm:false,
-            boss:false
-          },
-          {
-            title:'Wave 5: Food Storm',
-            text:'อาหารมาไวขึ้น ต้องนิ่ง เร็ว และแม่น',
-            count:counts[4],
-            speed:1.34,
-            trap:true,
-            memory:true,
-            storm:true,
-            boss:false
-          },
-          {
-            title:'Final Wave: Chaos Chef',
-            text:'โจมตีบอสด้วยคำตอบที่ถูกต้อง ระวังป้ายหลอกและเวลาเร่งขึ้น',
-            count:counts[5],
-            speed:1.38,
-            trap:true,
-            memory:true,
-            storm:true,
-            boss:true
-          }
-        ].slice(0, cfg.waves);
-      }
-
-      function startTotalTimer(){
-        clearInterval(state.totalTimer);
-        state.totalTimer = setInterval(() => {
-          if (!state.active || state.ended) return;
-
-          state.timeLeft -= 1;
-          if (state.feverUntil && Date.now() > state.feverUntil) {
-            stopFever();
-          }
-          if (state.slowUntil && Date.now() > state.slowUntil) {
-            stopSlow();
-          }
-
-          updateHud();
-
-          if (state.timeLeft <= 0) {
-            endGame(false, 'หมดเวลาแล้ว');
-          }
-        }, 1000);
-      }
-
-      function startWave(index){
-        if (index >= state.waves.length) {
-          endGame(true, 'ผ่านครบทุก Wave แล้ว!');
-          return;
-        }
-
-        state.waveIndex = index;
-        state.waveItemIndex = 0;
-
-        const wave = state.waves[index];
-
-        els.waveTitle.textContent = wave.title;
-        els.waveText.textContent = wave.text;
-        els.stage.classList.remove('memoryHidden');
-
-        if (wave.boss) {
-          els.bossPanel.classList.add('show');
-          state.bossHp = Math.max(state.bossHp, Math.round(state.bossMaxHp * 0.72));
-          updateBoss();
-          log('👨‍🍳 Chaos Chef มาแล้ว! ตอบถูกเพื่อโจมตีบอส', 'bad');
-          toast('Final Boss: Chaos Chef!');
-        } else {
-          els.bossPanel.classList.remove('show');
-          log('🌊 ' + wave.title, 'good');
-          toast(wave.title);
-        }
-
-        setFeedback(wave.text);
-        nextItem();
-      }
-
-      function nextItem(){
-        clearItemTimers();
-
-        if (!state.active || state.ended) return;
-
-        if (state.lives <= 0) {
-          endGame(false, 'หัวใจหมดแล้ว');
-          return;
-        }
-
-        if (state.timeLeft <= 0) {
-          endGame(false, 'หมดเวลาแล้ว');
-          return;
-        }
-
-        const wave = state.waves[state.waveIndex];
-
-        if (!wave) {
-          endGame(true, 'จบเกมแล้ว');
-          return;
-        }
-
-        if (!wave.boss && state.waveItemIndex >= wave.count) {
-          startWave(state.waveIndex + 1);
-          return;
-        }
-
-        if (wave.boss && state.bossHp <= 0) {
-          endGame(true, 'ปราบ Chaos Chef สำเร็จ!');
-          return;
-        }
-
-        if (wave.boss && state.waveItemIndex >= wave.count && state.bossHp > 0) {
-          state.waveItemIndex = Math.max(0, wave.count - 4);
-          log('บอสยังไม่แพ้! ต่อเวลาโจมตีอีกชุด', 'bad');
-        }
-
-        const item = buildItem(wave);
-        state.current = item;
-        state.currentStarted = Date.now();
-        state.itemDuration = computeItemDuration(wave);
-        state.itemDeadline = Date.now() + state.itemDuration;
-        state.waveItemIndex += 1;
-
-        renderItem(item, wave);
-        updateHud();
-        tickItemTimer();
-      }
-
-      function buildItem(wave){
-        let food = null;
-        let guard = 0;
-
-        while (!food && guard < 30) {
-          const candidate = FOODS[Math.floor(rng() * FOODS.length)];
-          if (!state.recentFoods.includes(candidate.name)) food = candidate;
-          guard += 1;
-        }
-
-        if (!food) food = FOODS[Math.floor(rng() * FOODS.length)];
-
-        state.recentFoods.push(food.name);
-        if (state.recentFoods.length > 4) state.recentFoods.shift();
-
-        let fakeGroup = null;
-        const trapChance = wave.boss ? bossTrapChance() : (wave.trap ? 0.38 : 0);
-
-        if (rng() < trapChance) {
-          const wrong = GROUPS.filter(g => g.id !== food.group);
-          fakeGroup = wrong[Math.floor(rng() * wrong.length)];
-        }
-
-        return {
-          food,
-          answer: food.group,
-          fakeGroup,
-          bonus: rng() < 0.12 ? 'star' : ''
-        };
-      }
-
-      function computeItemDuration(wave){
-        let ms = baseDiff.itemMs;
-
-        if (cfg.practice) ms += 900;
-        ms = Math.round(ms / wave.speed);
-
-        if (wave.boss) {
-          ms = Math.round(ms / (1 + ((state.bossPhase - 1) * 0.13)));
-        }
-
-        if (state.slowUntil && Date.now() < state.slowUntil) {
-          ms = Math.round(ms * 1.45);
-        }
-
-        return clamp(ms, 2600, 9200);
-      }
-
-      function renderItem(item, wave){
-        const food = item.food;
-        const group = getGroup(food.group);
-
-        els.foodCard.classList.remove('pop');
-        void els.foodCard.offsetWidth;
-        els.foodCard.classList.add('pop');
-
-        els.foodEmoji.textContent = food.emoji;
-        els.foodName.textContent = food.name;
-        els.foodHint.textContent = 'อาหารนี้อยู่หมู่ไหน?';
-
-        if (item.fakeGroup) {
-          els.fakeLabel.textContent = '⚠️ ป้ายหลอก: อาจเป็นหมู่ ' + item.fakeGroup.id + ' ' + item.fakeGroup.short;
-          els.fakeLabel.classList.add('show');
-        } else {
-          els.fakeLabel.classList.remove('show');
-          els.fakeLabel.textContent = '';
-        }
-
-        renderChoices(false);
-
-        if (wave.memory) {
-          clearTimeout(state.memoryTimer);
-          const hideDelay = wave.boss ? 1450 : 2100;
-          state.memoryTimer = setTimeout(() => {
-            if (!state.active || state.ended) return;
-            els.stage.classList.add('memoryHidden');
-            els.foodHint.textContent = 'Memory Flash! จำชื่อหมู่ให้ได้';
-          }, hideDelay);
-        } else {
-          els.stage.classList.remove('memoryHidden');
-        }
-
-        if (wave.boss) {
-          updateBoss();
-        }
-
-        state.groupStats[food.group].seen += 1;
-      }
-
-      function renderChoices(){
-        els.choices.innerHTML = GROUPS.map(g => {
-          return [
-            '<button class="choice" type="button" data-group="' + g.id + '" aria-label="หมู่ ' + g.id + ' ' + esc(g.label) + '">',
-              '<span class="num">' + g.id + '</span>',
-              '<span class="name">หมู่ ' + g.id + ' ' + esc(g.short) + '</span>',
-              '<span class="ex">' + esc(g.examples) + '</span>',
-            '</button>'
-          ].join('');
-        }).join('');
-
-        els.choices.querySelectorAll('[data-group]').forEach(btn => {
-          btn.addEventListener('click', () => answer(Number(btn.dataset.group)));
-        });
-      }
-
-      function answer(groupId){
-        if (!state.active || state.ended || !state.current) return;
-
-        const item = state.current;
-        state.current = null;
-
-        clearItemTimers();
-
-        const food = item.food;
-        const correct = groupId === item.answer;
-        const answerGroup = getGroup(groupId);
-        const trueGroup = getGroup(item.answer);
-        const rt = Date.now() - state.currentStarted;
-
-        state.attempts += 1;
-        state.responseTotal += rt;
-
-        const event = {
-          type: 'answer',
-          ts: Date.now(),
-          wave: state.waveIndex + 1,
-          food: food.name,
-          emoji: food.emoji,
-          trueGroup: item.answer,
-          answerGroup: groupId,
-          correct,
-          rt,
-          comboBefore: state.combo,
-          fever: isFever()
-        };
-        state.events.push(event);
-
-        if (correct) {
-          state.correct += 1;
-          state.groupStats[item.answer].correct += 1;
-
-          state.combo += 1;
-          state.maxCombo = Math.max(state.maxCombo, state.combo);
-
-          const speedBonus = Math.max(0, Math.round((state.itemDeadline - Date.now()) / 80));
-          let gain = 100 + speedBonus + Math.min(120, state.combo * 8);
-
-          if (item.bonus === 'star') gain += 40;
-          if (isFever()) gain *= 2;
-
-          state.score += gain;
-
-          if (state.combo > 0 && state.combo % 5 === 0) {
-            startFever();
-          }
-
-          const wave = state.waves[state.waveIndex];
-          if (wave && wave.boss) {
-            const damage = Math.round((isFever() ? 18 : 12) + Math.min(18, state.combo * 1.5));
-            state.bossHp = Math.max(0, state.bossHp - damage);
-            updateBoss();
-            setFeedback('✅ ถูกต้อง! ' + food.name + ' = หมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' • โจมตีบอส ' + damage + ' แต้ม');
-            log('✅ ' + food.emoji + ' ' + food.name + ' → หมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' +' + gain, 'good');
-          } else {
-            setFeedback('✅ ถูกต้อง! ' + trueGroup.tip + ' +' + gain);
-            log('✅ ' + food.emoji + ' ' + food.name + ' → หมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' +' + gain, 'good');
-          }
-
-          playTone('good');
-          flashStage('good');
-        } else {
-          applyMiss('ผิดหมู่', item, answerGroup, trueGroup);
-        }
-
-        updateHud();
-
-        state.nextTimer = setTimeout(() => {
-          nextItem();
-        }, correct ? 620 : 900);
-      }
-
-      function applyMiss(reason, item, answerGroup, trueGroup){
-        const food = item.food;
-
-        state.miss += 1;
-        state.groupStats[item.answer].miss += 1;
-
-        if (state.shieldArmed) {
-          state.shieldArmed = false;
-          setFeedback('🛡 Shield ช่วยไว้! ' + food.name + ' คือหมู่ ' + trueGroup.id + ' ' + trueGroup.short);
-          log('🛡 Shield กันพลาด: ' + food.emoji + ' ' + food.name, 'good');
-          playTone('shield');
-        } else {
-          state.lives = Math.max(0, state.lives - 1);
-          state.combo = 0;
-
-          const wave = state.waves[state.waveIndex];
-          if (wave && wave.boss) {
-            state.bossHp = Math.min(state.bossMaxHp, state.bossHp + 6);
-            updateBoss();
-          }
-
-          const answerText = answerGroup ? 'คุณตอบหมู่ ' + answerGroup.id + ' ' + answerGroup.short : 'หมดเวลา';
-          setFeedback('❌ ' + reason + ' — ' + food.name + ' คือหมู่ ' + trueGroup.id + ' ' + trueGroup.short + ' (' + answerText + ')');
-          log('❌ ' + food.emoji + ' ' + food.name + ' คือหมู่ ' + trueGroup.id + ' ' + trueGroup.short, 'bad');
-          playTone('bad');
-          flashStage('bad');
-        }
-
-        updateHud();
-      }
-
-      function timeoutCurrent(){
-        if (!state.active || state.ended || !state.current) return;
-
-        const item = state.current;
-        state.current = null;
-        state.attempts += 1;
-        state.timeoutMiss += 1;
-
-        const trueGroup = getGroup(item.answer);
-
-        state.events.push({
-          type: 'timeout',
-          ts: Date.now(),
-          wave: state.waveIndex + 1,
-          food: item.food.name,
-          emoji: item.food.emoji,
-          trueGroup: item.answer,
-          correct: false,
-          rt: state.itemDuration,
-          fever: isFever()
-        });
-
-        applyMiss('หมดเวลา', item, null, trueGroup);
-
-        state.nextTimer = setTimeout(() => {
-          nextItem();
-        }, 780);
-      }
-
-      function tickItemTimer(){
-        cancelAnimationFrame(state.itemRaf);
-
-        const tick = () => {
-          if (!state.active || state.ended || !state.current) return;
-
-          const now = Date.now();
-          const remain = Math.max(0, state.itemDeadline - now);
-          const pct = clamp((remain / state.itemDuration) * 100, 0, 100);
-
-          els.itemTimeFill.style.width = pct.toFixed(1) + '%';
-
-          if (remain <= 0) {
-            timeoutCurrent();
-            return;
-          }
-
-          state.itemRaf = requestAnimationFrame(tick);
-        };
-
-        tick();
-      }
-
-      function startFever(){
-        state.feverUntil = Date.now() + 7000;
-        document.body.classList.add('feverMode');
-        els.feverPill.textContent = '🔥 FEVER x2';
-        toast('🔥 FEVER MODE! คะแนน x2');
-        playTone('fever');
-      }
-
-      function stopFever(){
-        state.feverUntil = 0;
-        document.body.classList.remove('feverMode');
-        els.feverPill.textContent = 'Fever: พร้อม';
-      }
-
-      function isFever(){
-        return state.feverUntil && Date.now() < state.feverUntil;
-      }
-
-      function useShield(){
-        if (!state.active || state.ended) return;
-        if (state.power.shield <= 0 || state.shieldArmed) return;
-
-        state.power.shield -= 1;
-        state.shieldArmed = true;
-        updatePowerButtons();
-        setFeedback('🛡 เปิด Shield แล้ว กันพลาดได้ 1 ครั้ง');
-        toast('Shield พร้อมป้องกัน!');
-        playTone('shield');
-      }
-
-      function useHint(){
-        if (!state.active || state.ended || !state.current) return;
-        if (state.power.hint <= 0) return;
-
-        state.power.hint -= 1;
-        const group = getGroup(state.current.answer);
-        els.foodHint.textContent = '💡 Hint: อยู่หมู่ ' + group.id + ' ' + group.short;
-        setFeedback('💡 Hint: ' + state.current.food.name + ' อยู่หมู่ ' + group.id + ' ' + group.short);
-        updatePowerButtons();
-        toast('ใช้ Hint แล้ว');
-        playTone('hint');
-      }
-
-      function useSlow(){
-        if (!state.active || state.ended) return;
-        if (state.power.slow <= 0) return;
-
-        state.power.slow -= 1;
-        state.slowUntil = Date.now() + 6500;
-        document.body.classList.add('slowMode');
-
-        if (state.current) {
-          state.itemDeadline += 2600;
-          state.itemDuration += 2600;
-        }
-
-        updatePowerButtons();
-        setFeedback('⏱ Slow Time! อาหารจะช้าลงช่วงสั้น ๆ');
-        toast('Slow Time ทำงาน!');
-        playTone('hint');
-      }
-
-      function stopSlow(){
-        state.slowUntil = 0;
-        document.body.classList.remove('slowMode');
-      }
-
-      function updateBoss(){
-        const pct = state.bossMaxHp > 0 ? (state.bossHp / state.bossMaxHp) * 100 : 0;
-        els.bossHpFill.style.width = clamp(pct, 0, 100).toFixed(1) + '%';
-
-        let phase = 1;
-        if (pct <= 34) phase = 3;
-        else if (pct <= 67) phase = 2;
-
-        if (phase !== state.bossPhase) {
-          state.bossPhase = phase;
-          log('👨‍🍳 Chaos Chef เข้าสู่ Phase ' + phase + '!', 'bad');
-          toast('Boss Phase ' + phase + '!');
-        }
-
-        els.bossPhaseTxt.textContent = 'Phase ' + state.bossPhase + ' • HP ' + Math.max(0, Math.round(state.bossHp)) + '/' + state.bossMaxHp;
-      }
-
-      function bossTrapChance(){
-        if (state.bossPhase === 1) return 0.40;
-        if (state.bossPhase === 2) return 0.52;
-        return 0.64;
-      }
-
-      function updateHud(){
-        els.scoreTxt.textContent = String(Math.round(state.score));
-        els.timeTxt.textContent = String(Math.max(0, Math.round(state.timeLeft)));
-        els.lifeTxt.textContent = '❤️'.repeat(state.lives) || '💔';
-        els.comboTxt.textContent = String(state.combo);
-
-        const acc = state.attempts ? Math.round((state.correct / state.attempts) * 100) : 0;
-        els.accTxt.textContent = acc + '%';
-
-        const wave = state.waves[state.waveIndex];
-        if (wave) {
-          const progress = wave.boss
-            ? 'Boss'
-            : Math.min(state.waveItemIndex + 1, wave.count) + '/' + wave.count;
-
-          els.modePill.textContent = 'Wave ' + (state.waveIndex + 1) + ' • ' + progress;
-        }
-
-        if (isFever()) {
-          const left = Math.max(0, Math.ceil((state.feverUntil - Date.now()) / 1000));
-          els.feverPill.textContent = '🔥 FEVER ' + left + 's';
-        }
-      }
-
-      function updatePowerButtons(){
-        els.shieldCount.textContent = String(state.power.shield);
-        els.hintCount.textContent = String(state.power.hint);
-        els.slowCount.textContent = String(state.power.slow);
-
-        els.btnShield.disabled = state.power.shield <= 0 || state.shieldArmed || !state.active;
-        els.btnHint.disabled = state.power.hint <= 0 || !state.active;
-        els.btnSlow.disabled = state.power.slow <= 0 || !state.active;
-      }
-
-      function endGame(win, reason){
-        if (state.ended) return;
-
-        state.active = false;
-        state.ended = true;
-        state.screen = 'summary';
-
-        clearTimers();
-        stopFever();
-        stopSlow();
-
-        const summary = buildSummary(win, reason);
-        saveSummary(summary);
-        renderSummary(summary);
-
-        els.summaryOverlay.classList.remove('hidden');
-        updatePowerButtons();
-
-        playTone(win ? 'win' : 'bad');
-      }
-
-      function buildSummary(win, reason){
-        const acc = state.attempts ? Math.round((state.correct / state.attempts) * 100) : 0;
-        const avgRt = state.correct ? Math.round(state.responseTotal / Math.max(1, state.attempts)) : 0;
-        const weak = findWeakGroup();
-
-        let stars = 1;
-        if (acc >= 70) stars = 2;
-        if (acc >= 82 && state.maxCombo >= 5) stars = 3;
-        if (acc >= 92 && state.maxCombo >= 8 && win) stars = 4;
-        if (acc >= 96 && state.maxCombo >= 10 && win) stars = 5;
-
-        return {
-          schema: 'hha-groups-solo-arena-v2',
-          gameId: 'groups',
-          mode: 'solo',
-          player: cfg.name,
-          pid: cfg.pid,
-          diff: cfg.diff,
-          view: cfg.view,
-          seed: cfg.seed,
-          win,
-          reason,
-          score: Math.round(state.score),
-          stars,
-          accuracy: acc,
-          attempts: state.attempts,
-          correct: state.correct,
-          miss: state.miss,
-          timeoutMiss: state.timeoutMiss,
-          maxCombo: state.maxCombo,
-          avgResponseMs: avgRt,
-          weakGroup: weak,
-          groupStats: state.groupStats,
-          completedAt: bangkokIsoNow(),
-          eventsCount: state.events.length
-        };
-      }
-
-      function renderSummary(summary){
-        els.summaryIcon.textContent = summary.win ? '🏆' : '⭐';
-        els.summaryTitle.textContent = summary.win ? 'ชนะแล้ว! ปราบ Chaos Chef สำเร็จ' : 'สรุปผลการฝึก';
-        els.summaryText.textContent =
-          summary.reason + ' • ได้ ' + summary.stars + ' ดาว • ความแม่นยำ ' + summary.accuracy + '%';
-
-        const weakText = summary.weakGroup
-          ? 'หมู่ ' + summary.weakGroup.id + ' ' + summary.weakGroup.short
-          : 'ยังไม่มีหมู่ที่พลาดชัดเจน';
-
-        els.summaryGrid.innerHTML = [
-          infoHtml('คะแนน', String(summary.score), 'ยิ่งตอบเร็วและต่อคอมโบ คะแนนยิ่งสูง'),
-          infoHtml('ความแม่นยำ', summary.accuracy + '%', summary.correct + '/' + summary.attempts + ' ครั้ง'),
-          infoHtml('คอมโบสูงสุด', String(summary.maxCombo), 'คอมโบช่วยเปิด Fever Mode'),
-          infoHtml('หมู่ที่ควรฝึกเพิ่ม', weakText, 'ใช้เป็นข้อมูล learning analytics ต่อได้'),
-          infoHtml('เวลาตอบเฉลี่ย', summary.avgResponseMs + ' ms', 'ดูความคล่องในการจำแนกอาหาร'),
-          infoHtml('ดาวที่ได้', '⭐'.repeat(summary.stars), 'เป้าหมายคือ 4–5 ดาว')
-        ].join('');
-      }
-
-      function saveSummary(summary){
-        try {
-          localStorage.setItem('HHA_GROUPS_LAST_SUMMARY', JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
-        } catch (_) {}
-      }
-
-      function findWeakGroup(){
-        let worst = null;
-        let worstMissRate = 0;
-
-        GROUPS.forEach(g => {
-          const st = state.groupStats[g.id];
-          if (!st || st.seen <= 0) return;
-
-          const rate = st.miss / st.seen;
-          if (st.miss > 0 && rate >= worstMissRate) {
-            worstMissRate = rate;
-            worst = g;
-          }
-        });
-
-        return worst;
-      }
-
-      function replay(){
-        els.summaryOverlay.classList.add('hidden');
-        startGame(cfg.practice);
-      }
-
-      function clearTimers(){
-        clearInterval(state.totalTimer);
-        clearItemTimers();
-        clearTimeout(state.nextTimer);
-      }
-
-      function clearItemTimers(){
-        cancelAnimationFrame(state.itemRaf);
-        clearTimeout(state.memoryTimer);
-        els.stage.classList.remove('memoryHidden');
-      }
-
-      function setFeedback(text){
-        els.feedback.textContent = text;
-      }
-
-      function log(text, kind){
-        const item = document.createElement('div');
-        item.className = 'logItem ' + (kind || '');
-        item.textContent = text;
-        els.logBox.prepend(item);
-
-        while (els.logBox.children.length > 7) {
-          els.logBox.removeChild(els.logBox.lastElementChild);
-        }
-      }
-
-      function flashStage(kind){
-        const cls = kind === 'good' ? 'fxGood' : 'fxBad';
-        els.stage.classList.remove(cls);
-        void els.stage.offsetWidth;
-        els.stage.classList.add(cls);
-        setTimeout(() => els.stage.classList.remove(cls), 320);
-      }
-
-      function shootCenter(){
-        if (!state.active || state.ended) return;
-
-        const buttons = Array.from(els.choices.querySelectorAll('.choice'));
-        if (!buttons.length) return;
-
-        const cx = window.innerWidth / 2;
-        const cy = window.innerHeight / 2;
-
-        let best = null;
-        let bestDist = Infinity;
-
-        buttons.forEach(btn => {
-          const r = btn.getBoundingClientRect();
-          const bx = r.left + r.width / 2;
-          const by = r.top + r.height / 2;
-          const d = Math.hypot(cx - bx, cy - by);
-          if (d < bestDist) {
-            bestDist = d;
-            best = btn;
-          }
-        });
-
-        if (best) best.click();
-      }
-
-      function toast(text){
-        els.toast.textContent = text;
-        els.toast.classList.add('show');
-        clearTimeout(toast._t);
-        toast._t = setTimeout(() => els.toast.classList.remove('show'), 1700);
-      }
-
-      function goLauncher(){
-        location.href = buildReturnUrl(ROUTES.launcher);
-      }
-
-      function goZone(){
-        location.href = buildReturnUrl(ROUTES.zone);
-      }
-
-      function goHub(){
-        const hub = q.get('hubRoot') || q.get('hub') || ROUTES.hub;
-        location.href = safeUrl(hub, ROUTES.hub);
-      }
-
-      function buildReturnUrl(path){
-        const u = new URL(path, location.href);
-        const passKeys = [
-          'pid','name','nick','nickName','studyId',
-          'run','diff','view','time','seed',
-          'debug','api','log',
-          'studentKey','schoolCode','classRoom','studentNo',
-          'conditionGroup','sessionNo','weekNo','teacher','grade',
-          'hub','hubRoot'
-        ];
-
-        passKeys.forEach(k => {
-          const v = q.get(k);
-          if (v != null && v !== '') u.searchParams.set(k, v);
-        });
-
-        if (!u.searchParams.get('pid')) u.searchParams.set('pid', cfg.pid);
-        if (!u.searchParams.get('name')) u.searchParams.set('name', cfg.name);
-        if (!u.searchParams.get('diff')) u.searchParams.set('diff', cfg.diff);
-        if (!u.searchParams.get('view')) u.searchParams.set('view', cfg.view);
-        u.searchParams.set('game', 'groups');
-        u.searchParams.set('gameId', 'groups');
-        u.searchParams.set('cat', 'nutrition');
-
-        return u.toString();
-      }
-
-      function safeUrl(raw, fallback){
-        try {
-          const s = String(raw || '').trim();
-          if (!s) return new URL(fallback, location.href).toString();
-
-          let decoded = s;
-          for (let i = 0; i < 2; i++) {
-            try {
-              const d = decodeURIComponent(decoded);
-              if (d === decoded) break;
-              decoded = d;
-            } catch (_) {
-              break;
-            }
-          }
-
-          return new URL(decoded, location.href).toString();
-        } catch (_) {
-          return new URL(fallback, location.href).toString();
-        }
-      }
-
-      function getGroup(id){
-        return GROUPS.find(g => g.id === Number(id)) || GROUPS[0];
-      }
-
-      function infoHtml(title, value, note){
-        return [
-          '<div class="infoCard">',
-            '<b>' + esc(title) + '</b>',
-            '<span style="font-size:1.25rem;color:var(--text);font-weight:1000;">' + esc(value) + '</span>',
-            '<span>' + esc(note) + '</span>',
-          '</div>'
-        ].join('');
-      }
-
-      function playTone(kind){
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          if (!AudioContext) return;
-
-          const ctx = playTone._ctx || new AudioContext();
-          playTone._ctx = ctx;
-
-          if (ctx.state === 'suspended') ctx.resume();
-
-          const o = ctx.createOscillator();
-          const g = ctx.createGain();
-
-          let freq = 520;
-          let dur = 0.10;
-
-          if (kind === 'good') { freq = 680; dur = 0.09; }
-          else if (kind === 'bad') { freq = 180; dur = 0.16; }
-          else if (kind === 'fever') { freq = 880; dur = 0.18; }
-          else if (kind === 'shield') { freq = 430; dur = 0.12; }
-          else if (kind === 'hint') { freq = 760; dur = 0.08; }
-          else if (kind === 'win') { freq = 980; dur = 0.22; }
-
-          o.type = kind === 'bad' ? 'sawtooth' : 'sine';
-          o.frequency.value = freq;
-
-          g.gain.setValueAtTime(0.0001, ctx.currentTime);
-          g.gain.exponentialRampToValueAtTime(0.055, ctx.currentTime + 0.015);
-          g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
-
-          o.connect(g);
-          g.connect(ctx.destination);
-          o.start();
-          o.stop(ctx.currentTime + dur + 0.02);
-        } catch (_) {}
-      }
-
-      function makeRng(seed){
-        let a = seed >>> 0;
-        return function(){
-          a += 0x6D2B79F5;
-          let t = a;
-          t = Math.imul(t ^ (t >>> 15), t | 1);
-          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        };
-      }
-
-      function hashSeed(s){
-        s = String(s || 'seed');
-        let h = 2166136261;
-        for (let i = 0; i < s.length; i++) {
-          h ^= s.charCodeAt(i);
-          h = Math.imul(h, 16777619);
-        }
-        return h >>> 0;
-      }
-
-      function bangkokIsoNow(){
-        const d = new Date();
-        const local = new Date(d.getTime() + (7 * 60 * 60 * 1000));
-        return local.toISOString().replace('Z', '+07:00');
-      }
-
-      function clean(v){
-        return String(v == null ? '' : v).trim();
-      }
-
-      function clamp(v, min, max){
-        v = Number(v);
-        if (!Number.isFinite(v)) v = min;
-        return Math.max(min, Math.min(max, v));
-      }
-
-      function titleCase(s){
-        s = String(s || '');
-        return s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
-      }
-
-      function esc(s){
-        return String(s == null ? '' : s)
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;')
-          .replaceAll("'","&#39;");
-      }
-    })();
+  (() => {
+    'use strict';
+    const q = new URLSearchParams(location.search);
+    const $ = id => document.getElementById(id);
+    const els = {
+      stage:$('stage'), subTitle:$('subTitle'), scoreTxt:$('scoreTxt'), timeTxt:$('timeTxt'), lifeTxt:$('lifeTxt'), comboTxt:$('comboTxt'), accTxt:$('accTxt'),
+      waveTitle:$('waveTitle'), waveText:$('waveText'), modePill:$('modePill'), viewPill:$('viewPill'), feverPill:$('feverPill'), itemTimeFill:$('itemTimeFill'),
+      foodZone:$('foodZone'), foodCard:$('foodCard'), fakeLabel:$('fakeLabel'), foodEmoji:$('foodEmoji'), foodName:$('foodName'), foodHint:$('foodHint'),
+      stormTargets:$('stormTargets'), stormCounter:$('stormCounter'), choices:$('choices'),
+      bossPanel:$('bossPanel'), bossPhaseTxt:$('bossPhaseTxt'), bossHpFill:$('bossHpFill'), bossSkillTxt:$('bossSkillTxt'),
+      heroAvatar:$('heroAvatar'), avatarMoodTxt:$('avatarMoodTxt'), rankTxt:$('rankTxt'), coinTxt:$('coinTxt'), directorStatus:$('directorStatus'),
+      sessionIdTxt:$('sessionIdTxt'), eventCountTxt:$('eventCountTxt'), feverCountTxt:$('feverCountTxt'), stormCountTxt:$('stormCountTxt'), exportStatus:$('exportStatus'),
+      btnCopyJson:$('btnCopyJson'), btnCopyCsv:$('btnCopyCsv'), btnDownloadJson:$('btnDownloadJson'), btnDownloadCsv:$('btnDownloadCsv'),
+      btnShield:$('btnShield'), btnHint:$('btnHint'), btnSlow:$('btnSlow'), shieldCount:$('shieldCount'), hintCount:$('hintCount'), slowCount:$('slowCount'),
+      logBox:$('logBox'), feedback:$('feedback'), btnLauncher:$('btnLauncher'), btnZone:$('btnZone'), btnHub:$('btnHub'),
+      startOverlay:$('startOverlay'), summaryOverlay:$('summaryOverlay'), summaryIcon:$('summaryIcon'), summaryTitle:$('summaryTitle'), summaryText:$('summaryText'), summaryGrid:$('summaryGrid'), summaryRankBadge:$('summaryRankBadge'), summaryRewardLine:$('summaryRewardLine'), summaryTrophyLine:$('summaryTrophyLine'),
+      btnStart:$('btnStart'), btnPractice:$('btnPractice'), btnReplay:$('btnReplay'), btnSummaryLauncher:$('btnSummaryLauncher'), btnSummaryZone:$('btnSummaryZone'), toast:$('toast')
+    };
+    const GROUPS = [
+      {id:1,short:'โปรตีน',examples:'เนื้อ นม ไข่ ถั่ว',tip:'หมู่ 1 โปรตีน ช่วยสร้างและซ่อมแซมร่างกาย'},
+      {id:2,short:'ข้าว/แป้ง',examples:'ข้าว แป้ง เผือก มัน น้ำตาล',tip:'หมู่ 2 คาร์โบไฮเดรต ให้พลังงาน'},
+      {id:3,short:'ผัก',examples:'ผักต่าง ๆ',tip:'หมู่ 3 ผัก มีใยอาหาร'},
+      {id:4,short:'ผลไม้',examples:'ผลไม้ต่าง ๆ',tip:'หมู่ 4 ผลไม้ มีวิตามิน'},
+      {id:5,short:'ไขมัน',examples:'น้ำมัน กะทิ เนย',tip:'หมู่ 5 ไขมัน ให้พลังงาน'}
+    ];
+    const FOODS = [
+      ['🥚','ไข่',1],['🍗','ไก่',1],['🐟','ปลา',1],['🥛','นม',1],['🫘','ถั่วเมล็ดแห้ง',1],['🥩','เนื้อสัตว์',1],
+      ['🍚','ข้าว',2],['🍞','ขนมปัง',2],['🥔','มันฝรั่ง',2],['🍠','มันเทศ',2],['🌽','ข้าวโพด',2],['🍜','เส้นก๋วยเตี๋ยว',2],
+      ['🥦','บรอกโคลี',3],['🥬','ผักใบเขียว',3],['🥕','แครอต',3],['🥒','แตงกวา',3],['🍅','มะเขือเทศ',3],['🌶️','พริก',3],
+      ['🍎','แอปเปิล',4],['🍌','กล้วย',4],['🍊','ส้ม',4],['🍇','องุ่น',4],['🍉','แตงโม',4],['🥭','มะม่วง',4],
+      ['🥑','อะโวคาโด',5],['🧈','เนย',5],['🥥','กะทิ',5],['🫒','น้ำมันมะกอก',5],['🥜','ถั่วลิสง',5],['🌰','เมล็ดพืช',5]
+    ].map(x => ({emoji:x[0], name:x[1], group:x[2]}));
+    const DIFF = {
+      easy:{time:150,itemMs:7600,lives:4,counts:[5,5,5,5,6,8],bossHp:90,label:'Easy'},
+      normal:{time:120,itemMs:6500,lives:3,counts:[5,6,6,6,7,9],bossHp:110,label:'Normal'},
+      hard:{time:105,itemMs:5400,lives:3,counts:[6,7,7,7,8,10],bossHp:130,label:'Hard'},
+      challenge:{time:90,itemMs:4700,lives:2,counts:[6,8,8,8,9,11],bossHp:150,label:'Challenge'}
+    };
+    const cfg = {
+      view: clean(q.get('view') || 'mobile'), diff: clean(q.get('diff') || 'normal'), pid: clean(q.get('pid') || 'anon'),
+      name: clean(q.get('name') || q.get('nick') || 'Hero'), seed: clean(q.get('seed') || String(Date.now())),
+      time: Number(q.get('time') || 0), waves: clamp(Number(q.get('waves') || 6), 3, 6)
+    };
+    if (!DIFF[cfg.diff]) cfg.diff = 'normal';
+    const base = DIFF[cfg.diff];
+    const rng = makeRng(hashSeed(cfg.seed));
+    const KEY = 'HHA_GROUPS_SAFE_LAST_SESSION';
+    const LOGS_KEY = 'HHA_GROUPS_SAFE_SESSION_LOGS';
+    const state = {
+      active:false, ended:false, practice:false, score:0, coins:0, timeLeft:0, totalTime:0, lives:0, combo:0, maxCombo:0,
+      attempts:0, correct:0, miss:0, responseTotal:0, waveIndex:0, waveItemIndex:0, waves:[], current:null,
+      currentStarted:0, itemDeadline:0, itemDuration:0, bossHp:0, bossMaxHp:0, bossPhase:1, bossTimer:0, feverUntil:0, slowUntil:0,
+      power:{shield:1,hint:2,slow:1}, shieldArmed:false, recent:[], stormSelected:0,
+      groupStats:{1:{seen:0,correct:0,miss:0},2:{seen:0,correct:0,miss:0},3:{seen:0,correct:0,miss:0},4:{seen:0,correct:0,miss:0},5:{seen:0,correct:0,miss:0}},
+      events:[], sessionId:'', totalTimer:0, itemRaf:0, memoryTimer:0, nextTimer:0
+    };
+    init();
+
+    function init(){
+      if (cfg.view === 'cvr') document.body.classList.add('view-cvr');
+      els.viewPill.textContent = cfg.view === 'cvr' ? 'cVR' : titleCase(cfg.view);
+      els.modePill.textContent = 'Solo SAFE • ' + base.label;
+      els.subTitle.textContent = 'ผู้เล่น: ' + cfg.name + ' • อาหารหลัก 5 หมู่';
+      renderChoices(); bindEvents(); resetHud(); refreshExportStatus(); log('กดเริ่มเพื่อเข้า Food Groups Arena SAFE','good');
+    }
+    function bindEvents(){
+      els.btnStart.addEventListener('click',()=>startGame(false)); els.btnPractice.addEventListener('click',()=>startGame(true)); els.btnReplay.addEventListener('click',()=>startGame(state.practice));
+      els.btnLauncher.addEventListener('click',goLauncher); els.btnSummaryLauncher.addEventListener('click',goLauncher); els.btnZone.addEventListener('click',goZone); els.btnSummaryZone.addEventListener('click',goZone); els.btnHub.addEventListener('click',goHub);
+      els.btnShield.addEventListener('click',useShield); els.btnHint.addEventListener('click',useHint); els.btnSlow.addEventListener('click',useSlow);
+      els.btnCopyJson.addEventListener('click',()=>exportData('copy-json')); els.btnCopyCsv.addEventListener('click',()=>exportData('copy-csv')); els.btnDownloadJson.addEventListener('click',()=>exportData('download-json')); els.btnDownloadCsv.addEventListener('click',()=>exportData('download-csv'));
+      document.addEventListener('keydown',ev=>{ if(!state.active)return; if(['1','2','3','4','5'].includes(ev.key)) answer(Number(ev.key)); if(ev.key===' '||ev.key==='Enter') shootCenter(); });
+      window.addEventListener('hha:shoot', shootCenter);
+      document.addEventListener('dblclick',()=>{ if(cfg.view==='cvr') shootCenter(); },{passive:true});
+    }
+    function startGame(practice){
+      state.active=true; state.ended=false; state.practice=!!practice; state.sessionId='groups-safe-'+Date.now().toString(36)+'-'+Math.floor(rng()*99999).toString(36);
+      state.score=0; state.coins=0; state.totalTime=practice?150:(cfg.time>0?clamp(cfg.time,60,240):base.time); state.timeLeft=state.totalTime; state.lives=practice?4:base.lives; state.combo=0; state.maxCombo=0;
+      state.attempts=0; state.correct=0; state.miss=0; state.responseTotal=0; state.waveIndex=0; state.waveItemIndex=0; state.current=null; state.bossHp=practice?80:base.bossHp; state.bossMaxHp=state.bossHp; state.bossPhase=1;
+      state.power={shield:practice?2:1,hint:practice?3:2,slow:practice?2:1}; state.shieldArmed=false; state.feverUntil=0; state.slowUntil=0; state.recent=[]; state.events=[];
+      state.groupStats={1:{seen:0,correct:0,miss:0},2:{seen:0,correct:0,miss:0},3:{seen:0,correct:0,miss:0},4:{seen:0,correct:0,miss:0},5:{seen:0,correct:0,miss:0}};
+      state.waves=buildWaves(); clearTimers(); clearStorm(); document.body.classList.remove('feverMode','bossRage','bossFog'); els.startOverlay.classList.add('hidden'); els.summaryOverlay.classList.add('hidden'); els.logBox.innerHTML='';
+      record('session_start',{practice:!!practice,diff:cfg.diff,view:cfg.view}); updateHud(); updatePower(); updateResearch(); startTotalTimer(); startWave(0); toast(practice?'เริ่มโหมดซ้อมง่าย!':'เริ่ม Solo Arena SAFE!');
+    }
+    function buildWaves(){ const c=base.counts.slice(); if(state.practice){for(let i=0;i<c.length;i++)c[i]=Math.max(4,c[i]-2);} return [
+      {title:'Wave 1: Rookie Sort',text:'จัดอาหารให้ถูกหมู่แบบพื้นฐาน',count:c[0],speed:1,trap:false,memory:false,storm:false,boss:false},
+      {title:'Wave 2: Speed Combo',text:'ตอบให้ถูกต่อเนื่องเพื่อสร้างคอมโบ',count:c[1],speed:1.15,trap:false,memory:false,storm:false,boss:false},
+      {title:'Wave 3: Trap Label',text:'ระวังป้ายหลอก ดูอาหารจริงเป็นหลัก',count:c[2],speed:1.18,trap:true,memory:false,storm:false,boss:false},
+      {title:'Wave 4: Memory Flash',text:'ชื่อหมู่ถูกซ่อน ต้องจำอาหารหลัก 5 หมู่',count:c[3],speed:1.22,trap:false,memory:true,storm:false,boss:false},
+      {title:'Wave 5: Food Storm',text:'เลือกอาหารบนจอก่อน แล้วกดหมู่ให้ถูก',count:c[4],speed:1.3,trap:true,memory:false,storm:true,boss:false},
+      {title:'Final Wave: Chaos Chef',text:'โจมตีบอสด้วยคำตอบที่ถูกต้อง',count:c[5],speed:1.36,trap:true,memory:true,storm:false,boss:true}
+    ].slice(0,cfg.waves); }
+    function startTotalTimer(){ clearInterval(state.totalTimer); state.totalTimer=setInterval(()=>{ if(!state.active||state.ended)return; state.timeLeft-=1; if(state.feverUntil&&Date.now()>state.feverUntil)stopFever(); if(state.slowUntil&&Date.now()>state.slowUntil)stopSlow(); updateHud(); if(state.timeLeft<=0)endGame(false,'หมดเวลาแล้ว'); },1000); }
+    function startWave(index){ if(index>=state.waves.length){endGame(true,'ผ่านครบทุก Wave แล้ว!');return;} state.waveIndex=index; state.waveItemIndex=0; const w=state.waves[index]; setWaveTheme(index+1); record('wave_start',{wave:index+1,title:w.title,boss:w.boss,storm:w.storm}); els.waveTitle.textContent=w.title; els.waveText.textContent=w.text; els.bossPanel.classList.toggle('show',!!w.boss); if(w.boss){updateBoss(); log('👨‍🍳 Chaos Chef มาแล้ว! ตอบถูกเพื่อโจมตีบอส','bad');} else log('🌊 '+w.title,'good'); setFeedback(w.text); nextItem(); }
+    function nextItem(){ clearItemTimers(); if(!state.active||state.ended)return; if(state.lives<=0){endGame(false,'หัวใจหมดแล้ว');return;} const w=state.waves[state.waveIndex]; if(!w){endGame(true,'จบเกมแล้ว');return;} if(!w.boss&&state.waveItemIndex>=w.count){startWave(state.waveIndex+1);return;} if(w.boss&&state.bossHp<=0){endGame(true,'ปราบ Chaos Chef สำเร็จ!');return;} if(w.boss&&state.waveItemIndex>=w.count&&state.bossHp>0)state.waveItemIndex=Math.max(0,w.count-3);
+      const item=(w.storm&&rng()<0.65&&!state.practice)?buildStormItem():buildItem(w); state.current=item; state.currentStarted=Date.now(); state.itemDuration=(item.storm?1.65:1)*computeDuration(w); state.itemDeadline=Date.now()+state.itemDuration; state.waveItemIndex+=1; record(item.storm?'storm_start':'item_start',{wave:state.waveIndex+1,food:item.storm?item.items.map(x=>x.food.name).join('|'):item.food.name}); if(item.storm)renderStorm(item); else renderItem(item,w); updateHud(); updateDirector(); tickTimer(); }
+    function buildItem(w){ let food=pickFood(); state.recent.push(food.name); if(state.recent.length>4)state.recent.shift(); let fake=null; if((w.trap||w.boss)&&rng()<(w.boss?0.46:0.34)){ const wrong=GROUPS.filter(g=>g.id!==food.group); fake=wrong[Math.floor(rng()*wrong.length)]; } return {storm:false,food,answer:food.group,fake}; }
+    function buildStormItem(){ const items=[]; const used=new Set(); let guard=0; while(items.length<3&&guard<80){ const f=pickFood(); if(!items.some(x=>x.food.name===f.name)&&(!used.has(f.group)||rng()<0.25)){items.push({food:f,answer:f.group,done:false,missed:false}); used.add(f.group);} guard++; } while(items.length<3){const f=pickFood();items.push({food:f,answer:f.group,done:false,missed:false});} record('storm_spawn',{count:items.length}); return {storm:true,items}; }
+    function pickFood(){ const focus=computeFocusGroup(); if(focus&&rng()<0.42){ const list=FOODS.filter(f=>f.group===focus&&!state.recent.includes(f.name)); if(list.length)return list[Math.floor(rng()*list.length)]; } let food=null,guard=0; while(!food&&guard<40){const f=FOODS[Math.floor(rng()*FOODS.length)]; if(!state.recent.includes(f.name))food=f; guard++;} return food||FOODS[Math.floor(rng()*FOODS.length)]; }
+    function renderItem(item,w){ clearStorm(); els.foodCard.classList.remove('pop','good','bad'); void els.foodCard.offsetWidth; els.foodCard.classList.add('pop'); els.foodEmoji.textContent=item.food.emoji; els.foodName.textContent=item.food.name; els.foodHint.textContent='อาหารนี้อยู่หมู่ไหน?'; if(item.fake){els.fakeLabel.textContent='⚠️ ป้ายหลอก: อาจเป็นหมู่ '+item.fake.id+' '+item.fake.short; els.fakeLabel.classList.add('show');}else{els.fakeLabel.classList.remove('show');} renderChoices(); state.groupStats[item.answer].seen+=1; if(w.memory){state.memoryTimer=setTimeout(()=>{if(state.active&&state.current===item){els.stage.classList.add('memoryHidden'); els.foodHint.textContent='Memory Flash! จำชื่อหมู่ให้ได้';}},1800);} if(w.boss){scheduleBossSkill(item);} }
+    function renderStorm(item){ clearStorm(); els.foodZone.classList.add('stormActive'); state.stormSelected=firstOpen(item); item.items.forEach(x=>state.groupStats[x.answer].seen+=1); els.stormCounter.textContent=stormText(item); els.stormTargets.innerHTML=item.items.map((si,i)=>'<button class="stormTarget '+(i===state.stormSelected?'selected':'')+'" data-i="'+i+'" type="button"><div><div class="stormEmoji">'+esc(si.food.emoji)+'</div><div class="stormName">'+esc(si.food.name)+'</div><div class="stormHint">แตะเลือก แล้วกดหมู่</div></div></button>').join(''); els.stormTargets.querySelectorAll('[data-i]').forEach(btn=>btn.addEventListener('click',()=>{const i=Number(btn.dataset.i); if(state.current&&state.current.storm&&state.current.items[i]&&!state.current.items[i].done){state.stormSelected=i; updateStormUi(); setFeedback('เลือก '+state.current.items[i].food.emoji+' '+state.current.items[i].food.name+' แล้ว กดหมู่ให้ถูก');}})); renderChoices(); setFeedback('🌪 Food Storm! เลือกอาหารก่อน แล้วกดหมู่ 1–5'); }
+    function renderChoices(){ els.choices.innerHTML=GROUPS.map(g=>'<button class="choice" type="button" data-group="'+g.id+'"><span class="num">'+g.id+'</span><span class="name">หมู่ '+g.id+' '+esc(g.short)+'</span><span class="ex">'+esc(g.examples)+'</span></button>').join(''); els.choices.querySelectorAll('[data-group]').forEach(btn=>btn.addEventListener('click',()=>answer(Number(btn.dataset.group)))); }
+    function answer(groupId){ if(!state.active||state.ended||!state.current)return; if(state.current.storm){answerStorm(groupId);return;} const item=state.current; state.current=null; clearItemTimers(); clearBossSkill(); const rt=Date.now()-state.currentStarted; state.attempts++; state.responseTotal+=rt; const correct=groupId===item.answer; record('answer',{wave:state.waveIndex+1,food:item.food.name,trueGroup:item.answer,answerGroup:groupId,correct,responseMs:rt}); if(correct){hitCorrect(item,rt);} else hitMiss(item,groupId,'ผิดหมู่'); updateHud(); state.nextTimer=setTimeout(nextItem,correct?620:900); }
+    function hitCorrect(item,rt){ const g=getGroup(item.answer); state.correct++; state.groupStats[item.answer].correct++; state.combo++; state.maxCombo=Math.max(state.maxCombo,state.combo); let gain=100+Math.max(0,Math.round((state.itemDeadline-Date.now())/90))+Math.min(120,state.combo*8); if(isFever())gain*=2; state.score+=gain; state.coins+=Math.max(2,Math.round(gain/50)); if(state.combo>0&&state.combo%5===0)startFever(); if(state.waves[state.waveIndex].boss){const dmg=Math.round((isFever()?18:12)+Math.min(18,state.combo*1.5)); state.bossHp=Math.max(0,state.bossHp-dmg); updateBoss(); setFeedback('✅ ถูกต้อง! '+item.food.name+' = หมู่ '+g.id+' '+g.short+' • โจมตีบอส '+dmg); } else setFeedback('✅ ถูกต้อง! '+g.tip+' +'+gain); log('✅ '+item.food.emoji+' '+item.food.name+' → หมู่ '+g.id+' '+g.short+' +'+gain,'good'); floatScore('+'+gain,'good'); burst(isFever()?'fever':'good'); flashFood(true); flashChoice(item.answer,true); setAvatar('happy'); playTone('good'); }
+    function hitMiss(item,groupId,reason){ const g=getGroup(item.answer); state.miss++; state.groupStats[item.answer].miss++; if(state.shieldArmed){state.shieldArmed=false; setFeedback('🛡 Shield ช่วยไว้! '+item.food.name+' คือหมู่ '+g.id+' '+g.short); log('🛡 Shield กันพลาด: '+item.food.name,'good'); floatScore('Shield!','good'); burst('good'); setAvatar('shield'); playTone('shield');} else {state.lives=Math.max(0,state.lives-1); state.combo=0; if(state.waves[state.waveIndex].boss){state.bossHp=Math.min(state.bossMaxHp,state.bossHp+6); updateBoss();} setFeedback('❌ '+reason+' — '+item.food.name+' คือหมู่ '+g.id+' '+g.short); log('❌ '+item.food.emoji+' '+item.food.name+' คือหมู่ '+g.id+' '+g.short,'bad'); floatScore('-1 ❤️','bad'); burst('bad'); flashFood(false); flashChoice(item.answer,true); setAvatar('sad'); playTone('bad');} if(state.lives<=0)endGame(false,'หัวใจหมดแล้ว'); }
+    function answerStorm(groupId){ const storm=state.current; let idx=state.stormSelected; let si=storm.items[idx]; if(!si||si.done){idx=firstOpen(storm); si=storm.items[idx]; state.stormSelected=idx;} if(!si){finishStorm();return;} const rt=Date.now()-state.currentStarted; state.attempts++; state.responseTotal+=rt; const correct=groupId===si.answer; record('storm_answer',{wave:state.waveIndex+1,food:si.food.name,trueGroup:si.answer,answerGroup:groupId,correct,responseMs:rt}); if(correct){si.done=true; state.correct++; state.groupStats[si.answer].correct++; state.combo++; state.maxCombo=Math.max(state.maxCombo,state.combo); let gain=125+Math.max(0,Math.round((state.itemDeadline-Date.now())/110))+Math.min(140,state.combo*9); if(isFever())gain*=2; state.score+=gain; state.coins+=Math.max(3,Math.round(gain/50)); if(state.combo>0&&state.combo%5===0)startFever(); setFeedback('✅ Storm ถูกต้อง! '+si.food.name+' = หมู่ '+si.answer+' +'+gain); log('🌪✅ '+si.food.emoji+' '+si.food.name+' +'+gain,'good'); floatScore('+'+gain,'good'); burst(isFever()?'fever':'good'); flashStorm(idx,true); setAvatar('happy'); playTone('good');} else {si.done=true; si.missed=true; state.miss++; state.groupStats[si.answer].miss++; if(state.shieldArmed){state.shieldArmed=false; setFeedback('🛡 Shield ช่วยไว้ใน Food Storm'); floatScore('Shield!','good'); setAvatar('shield');}else{state.lives=Math.max(0,state.lives-1); state.combo=0; setFeedback('❌ Storm พลาด — '+si.food.name+' คือหมู่ '+si.answer); log('🌪❌ '+si.food.name+' คือหมู่ '+si.answer,'bad'); floatScore('-1 ❤️','bad'); burst('bad'); flashStorm(idx,false); setAvatar('sad'); playTone('bad');}} state.stormSelected=firstOpen(storm); updateStormUi(); updateHud(); if(state.lives<=0){endGame(false,'หัวใจหมดแล้ว');return;} finishStorm(); }
+    function finishStorm(){ const st=state.current; if(!st||!st.storm)return; if(!st.items.every(x=>x.done)){updateStormUi();return;} clearItemTimers(); clearStorm(); const perfect=st.items.every(x=>!x.missed); if(perfect){state.score+=120; state.coins+=8; log('🌪🏅 Food Storm Perfect! +120','good'); record('storm_perfect',{wave:state.waveIndex+1}); ribbon('🏅 Food Storm Perfect!');} state.current=null; state.nextTimer=setTimeout(nextItem,perfect?720:960); }
+    function timeoutCurrent(){ if(!state.active||state.ended||!state.current)return; if(state.current.storm){state.current.items.forEach(x=>{if(!x.done){x.done=true;x.missed=true;state.attempts++;state.miss++;state.groupStats[x.answer].miss++;}}); state.lives=Math.max(0,state.lives-1); record('storm_timeout',{wave:state.waveIndex+1}); clearStorm(); state.current=null; updateHud(); if(state.lives<=0)endGame(false,'หัวใจหมดแล้ว'); else state.nextTimer=setTimeout(nextItem,800); return;} const item=state.current; state.current=null; state.attempts++; record('timeout',{wave:state.waveIndex+1,food:item.food.name,trueGroup:item.answer}); hitMiss(item,0,'หมดเวลา'); if(!state.ended)state.nextTimer=setTimeout(nextItem,780); }
+    function computeDuration(w){ let ms=base.itemMs; if(state.practice)ms+=900; ms=Math.round(ms/w.speed); if(w.boss)ms=Math.round(ms/(1+(state.bossPhase-1)*0.16)); if(state.slowUntil&&Date.now()<state.slowUntil)ms=Math.round(ms*1.45); const focus=computeFocusGroup(); if(focus)ms=Math.round(ms*1.08); return clamp(ms,2600,9200); }
+    function tickTimer(){ cancelAnimationFrame(state.itemRaf); const tick=()=>{ if(!state.active||state.ended||!state.current)return; const remain=Math.max(0,state.itemDeadline-Date.now()); els.itemTimeFill.style.width=clamp((remain/state.itemDuration)*100,0,100).toFixed(1)+'%'; if(remain<=0){timeoutCurrent();return;} state.itemRaf=requestAnimationFrame(tick);}; tick(); }
+    function updateBoss(){ const pct=state.bossMaxHp>0?(state.bossHp/state.bossMaxHp)*100:0; els.bossHpFill.style.width=clamp(pct,0,100).toFixed(1)+'%'; let phase=pct<=34?3:(pct<=67?2:1); if(phase!==state.bossPhase){state.bossPhase=phase; if(phase===3){document.body.classList.add('bossRage'); bossWarn('🔥 Chaos Chef Rage!');}} els.bossPhaseTxt.textContent='Phase '+state.bossPhase+' • HP '+Math.max(0,Math.round(state.bossHp))+'/'+state.bossMaxHp; }
+    function scheduleBossSkill(item){ clearBossSkill(); state.bossTimer=setTimeout(()=>{ if(!state.active||state.ended||state.current!==item)return; const types=['time','decoy','fog']; const type=types[Math.floor(rng()*types.length)]; if(type==='time'){state.itemDeadline=Math.max(Date.now()+1200,state.itemDeadline-(state.bossPhase===3?1400:900)); setBossText('⏱ เชฟขโมยเวลา!'); bossWarn('⏱ เชฟขโมยเวลา!');} if(type==='fog'){document.body.classList.add('bossFog'); setBossText('🌫 เชฟซ่อนชื่ออาหาร!'); bossWarn('🌫 ดู emoji ให้ดี'); state.bossTimer=setTimeout(()=>document.body.classList.remove('bossFog'),1600);} if(type==='decoy'){const wrong=GROUPS.filter(g=>g.id!==item.answer); const d=wrong[Math.floor(rng()*wrong.length)]; const btn=els.choices.querySelector('[data-group="'+d.id+'"]'); if(btn)btn.classList.add('decoy'); setBossText('🎯 เชฟชี้ปุ่มหลอก!'); bossWarn('🎯 อย่าเชื่อเชฟ!');} record('boss_skill',{type}); }, state.bossPhase===1?650:360); }
+    function clearBossSkill(){ clearTimeout(state.bossTimer); document.body.classList.remove('bossFog'); els.choices.querySelectorAll('.decoy').forEach(x=>x.classList.remove('decoy')); setBossText('บอสยังไม่ใช้สกิล',true); }
+    function setBossText(text,idle){ els.bossSkillTxt.textContent=text; els.bossSkillTxt.classList.toggle('idle',!!idle); }
+    function startFever(){ state.feverUntil=Date.now()+7000; document.body.classList.add('feverMode'); els.feverPill.textContent='🔥 FEVER x2'; record('fever_start',{wave:state.waveIndex+1,combo:state.combo}); ribbon('🔥 FEVER MODE! คะแนน x2'); burst('fever'); setAvatar('fever'); playTone('fever'); }
+    function stopFever(){ state.feverUntil=0; document.body.classList.remove('feverMode'); els.feverPill.textContent='Fever: พร้อม'; setAvatar('ready'); }
+    function isFever(){ return !!(state.feverUntil&&Date.now()<state.feverUntil); }
+    function useShield(){ if(!state.active||state.power.shield<=0||state.shieldArmed)return; state.power.shield--; state.shieldArmed=true; updatePower(); setFeedback('🛡 เปิด Shield แล้ว กันพลาดได้ 1 ครั้ง'); record('powerup',{type:'shield'}); toast('Shield พร้อมป้องกัน!'); }
+    function useHint(){ if(!state.active||!state.current||state.power.hint<=0)return; state.power.hint--; let ans=0; if(state.current.storm){const si=state.current.items[state.stormSelected]; if(si)ans=si.answer;} else ans=state.current.answer; const g=getGroup(ans); els.foodHint.textContent='💡 Hint: อยู่หมู่ '+g.id+' '+g.short; setFeedback('💡 Hint: อยู่หมู่ '+g.id+' '+g.short); updatePower(); record('powerup',{type:'hint'}); }
+    function useSlow(){ if(!state.active||state.power.slow<=0)return; state.power.slow--; state.slowUntil=Date.now()+6500; if(state.current){state.itemDeadline+=2600; state.itemDuration+=2600;} updatePower(); setFeedback('⏱ Slow Time! อาหารจะช้าลงช่วงสั้น ๆ'); record('powerup',{type:'slow'}); }
+    function stopSlow(){ state.slowUntil=0; }
+    function endGame(win,reason){ if(state.ended)return; state.active=false; state.ended=true; clearTimers(); clearStorm(); stopFever(); stopSlow(); clearBossSkill(); const summary=buildSummary(win,reason); saveSession(summary); renderSummary(summary); els.summaryOverlay.classList.remove('hidden'); updatePower(); playTone(win?'win':'bad'); }
+    function buildSummary(win,reason){ const acc=state.attempts?Math.round((state.correct/state.attempts)*100):0; const avg=state.attempts?Math.round(state.responseTotal/state.attempts):0; const rank=computeRank(state.score,acc,win); const weak=findWeakGroup(); return {schema:'hha-groups-safe-v3.2',sessionId:state.sessionId,gameId:'groups',mode:'solo',player:cfg.name,pid:cfg.pid,diff:cfg.diff,view:cfg.view,seed:cfg.seed,win,reason,score:Math.round(state.score),coins:Math.round(state.coins),rank,accuracy:acc,attempts:state.attempts,correct:state.correct,miss:state.miss,maxCombo:state.maxCombo,avgResponseMs:avg,weakGroup:weak?{id:weak.id,short:weak.short}:null,groupStats:state.groupStats,events:state.events.slice(-200),completedAt:bangkokIsoNow()}; }
+    function renderSummary(s){ els.summaryIcon.textContent=s.win?'🏆':'⭐'; els.summaryTitle.textContent=s.win?'ชนะแล้ว!':'สรุปผลการฝึก'; els.summaryText.textContent=s.reason+' • คะแนน '+s.score+' • ความแม่นยำ '+s.accuracy+'%'; els.summaryRankBadge.textContent='🏆 '+s.rank; els.summaryRewardLine.textContent='Hero Coins '+s.coins+' • Combo สูงสุด '+s.maxCombo; els.summaryTrophyLine.textContent=s.weakGroup?'ควรฝึกเพิ่ม: หมู่ '+s.weakGroup.id+' '+s.weakGroup.short:'ยังไม่มีหมู่ที่พลาดชัดเจน'; els.summaryGrid.innerHTML=[infoHtml('คะแนน',s.score,'ตอบเร็วและคอมโบสูง คะแนนยิ่งดี'),infoHtml('ความแม่นยำ',s.accuracy+'%',s.correct+'/'+s.attempts+' ครั้ง'),infoHtml('Rank',s.rank,'ยศจากคะแนนและความแม่นยำ'),infoHtml('คอมโบสูงสุด',s.maxCombo,'คอมโบช่วยเปิด Fever'),infoHtml('เวลาตอบเฉลี่ย',s.avgResponseMs+' ms','ใช้ดูความคล่อง'),infoHtml('Session',s.sessionId.slice(-8),'บันทึกใน localStorage')].join(''); }
+    function saveSession(summary){ try{localStorage.setItem(KEY,JSON.stringify(summary)); let logs=[]; try{logs=JSON.parse(localStorage.getItem(LOGS_KEY)||'[]'); if(!Array.isArray(logs))logs=[];}catch(_){logs=[];} logs.unshift(summary); logs=logs.slice(0,30); localStorage.setItem(LOGS_KEY,JSON.stringify(logs)); refreshExportStatus();}catch(_){} }
+    function exportData(action){ const data=getExportData(); if(!data){toast('ยังไม่มีข้อมูล');return;} const name='groups-'+(data.sessionId||'session').slice(-8); if(action==='copy-json')copyText(JSON.stringify(data,null,2)).then(()=>toast('Copy JSON แล้ว')); if(action==='copy-csv')copyText(toCsv(data)).then(()=>toast('Copy CSV แล้ว')); if(action==='download-json')download(name+'.json',JSON.stringify(data,null,2),'application/json;charset=utf-8'); if(action==='download-csv')download(name+'.csv',toCsv(data),'text/csv;charset=utf-8'); }
+    function getExportData(){ if(state.sessionId)return buildSummary(state.ended,'partial/current'); try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(_){return null;} }
+    function toCsv(data){ const rows=[['session_id','event_type','wave','food','true_group','answer_group','correct','response_ms','score']]; (data.events||[]).forEach(e=>rows.push([data.sessionId,e.type,e.wave||'',e.food||'',e.trueGroup||'',e.answerGroup||'',e.correct??'',e.responseMs||'',e.score||''])); return rows.map(r=>r.map(csvCell).join(',')).join('\n'); }
+    function refreshExportStatus(){ try{const d=JSON.parse(localStorage.getItem(KEY)||'null'); els.exportStatus.textContent=d?'พร้อม export: '+String(d.sessionId||'').slice(-8)+' • score '+d.score:'ยังไม่มีข้อมูล export';}catch(_){els.exportStatus.textContent='ยังไม่มีข้อมูล export';} }
+    function resetHud(){ state.timeLeft=cfg.time>0?cfg.time:base.time; state.lives=base.lives; updateHud(); updatePower(); updateResearch(); }
+    function updateHud(){ els.scoreTxt.textContent=String(Math.round(state.score)); els.timeTxt.textContent=String(Math.max(0,Math.round(state.timeLeft))); els.lifeTxt.textContent='❤️'.repeat(state.lives)||'💔'; els.comboTxt.textContent=String(state.combo); const acc=state.attempts?Math.round((state.correct/state.attempts)*100):0; els.accTxt.textContent=acc+'%'; const w=state.waves[state.waveIndex]; if(w)els.modePill.textContent='Wave '+(state.waveIndex+1)+' • '+(w.boss?'Boss':Math.min(state.waveItemIndex,w.count)+'/'+w.count); if(isFever())els.feverPill.textContent='🔥 FEVER '+Math.max(0,Math.ceil((state.feverUntil-Date.now())/1000))+'s'; els.rankTxt.textContent=computeRank(state.score,acc,false); els.coinTxt.textContent=String(Math.round(state.coins)); }
+    function updatePower(){ els.shieldCount.textContent=state.power.shield; els.hintCount.textContent=state.power.hint; els.slowCount.textContent=state.power.slow; els.btnShield.disabled=!state.active||state.power.shield<=0||state.shieldArmed; els.btnHint.disabled=!state.active||state.power.hint<=0; els.btnSlow.disabled=!state.active||state.power.slow<=0; }
+    function updateResearch(){ els.sessionIdTxt.textContent=state.sessionId?state.sessionId.slice(-8):'-'; els.eventCountTxt.textContent=String(state.events.length); els.feverCountTxt.textContent=String(state.events.filter(e=>e.type==='fever_start').length); els.stormCountTxt.textContent=String(state.events.filter(e=>e.type==='storm_spawn').length); }
+    function updateDirector(){ const g=computeFocusGroup(); els.directorStatus.textContent=g?'กำลังช่วยฝึกหมู่ '+g+' '+getGroup(g).short+' เพิ่มเล็กน้อย':'ยังไม่พบหมู่ที่อ่อนชัดเจน เกมสุ่มแบบสมดุล'; }
+    function record(type,data){ const e={type,t:Date.now(),bangkokTs:bangkokIsoNow(),wave:state.waveIndex+1,score:Math.round(state.score),combo:state.combo,lives:state.lives,...(data||{})}; state.events.push(e); if(state.events.length>300)state.events.splice(0,state.events.length-300); updateResearch(); }
+    function computeFocusGroup(){ let best=0,score=0; GROUPS.forEach(g=>{const st=state.groupStats[g.id]; if(!st||st.seen<2||st.miss<=0)return; const s=(st.miss/Math.max(1,st.seen))*(Math.min(1,st.seen/4)); if(s>score){score=s; best=g.id;}}); return score>=0.22?best:0; }
+    function computeRank(score,acc,win){ let p=0; if(score>=600)p++; if(score>=1200)p++; if(score>=2200)p++; if(acc>=75)p++; if(acc>=88)p++; if(win)p++; if(p>=5)return'5 Groups Master'; if(p>=4)return'Food Hero Pro'; if(p>=3)return'Combo Chef'; if(p>=2)return'Smart Sorter'; return'Food Rookie'; }
+    function findWeakGroup(){ let worst=null,rate=0; GROUPS.forEach(g=>{const st=state.groupStats[g.id]; if(st.seen&&st.miss/st.seen>=rate&&st.miss>0){rate=st.miss/st.seen; worst=g;}}); return worst; }
+    function updateStormUi(){ if(!state.current||!state.current.storm)return; els.stormCounter.textContent=stormText(state.current); els.stormTargets.querySelectorAll('[data-i]').forEach(btn=>{const i=Number(btn.dataset.i); const si=state.current.items[i]; btn.classList.toggle('selected',i===state.stormSelected&&si&&!si.done); btn.classList.toggle('done',!!(si&&si.done)); const h=btn.querySelector('.stormHint'); if(h&&si)h.textContent=si.done?(si.missed?'❌ ผ่านไปก่อน':'✅ ถูกแล้ว'):(i===state.stormSelected?'กำลังเลือกอยู่':'แตะเลือก แล้วกดหมู่');}); }
+    function firstOpen(st){ const i=st.items.findIndex(x=>!x.done); return i>=0?i:0; }
+    function stormText(st){ return st.items.filter(x=>x.done).length+'/'+st.items.length+' ชิ้น'; }
+    function clearStorm(){ els.foodZone.classList.remove('stormActive'); els.stormTargets.innerHTML=''; els.stormCounter.textContent='เลือกอาหาร แล้วกดหมู่ให้ถูก'; els.stage.classList.remove('memoryHidden'); }
+    function clearTimers(){ clearInterval(state.totalTimer); clearItemTimers(); clearTimeout(state.nextTimer); clearTimeout(state.bossTimer); }
+    function clearItemTimers(){ cancelAnimationFrame(state.itemRaf); clearTimeout(state.memoryTimer); clearBossSkill(); els.stage.classList.remove('memoryHidden'); }
+    function setFeedback(t){ els.feedback.textContent=t; }
+    function log(t,kind){ const d=document.createElement('div'); d.className='logItem '+(kind||''); d.textContent=t; els.logBox.prepend(d); while(els.logBox.children.length>8)els.logBox.removeChild(els.logBox.lastElementChild); }
+    function flashFood(good){ els.foodCard.classList.remove('good','bad'); void els.foodCard.offsetWidth; els.foodCard.classList.add(good?'good':'bad'); setTimeout(()=>els.foodCard.classList.remove('good','bad'),420); }
+    function flashChoice(groupId,good){ const b=els.choices.querySelector('[data-group="'+groupId+'"]'); if(!b)return; b.classList.add(good?'goodFlash':'badFlash'); setTimeout(()=>b.classList.remove('goodFlash','badFlash'),520); }
+    function flashStorm(i,good){ const b=els.stormTargets.querySelector('[data-i="'+i+'"]'); if(!b)return; b.classList.add(good?'good':'bad'); setTimeout(()=>b.classList.remove('good','bad'),520); }
+    function floatScore(t,kind){ const d=document.createElement('div'); d.className='floatScore '+(kind==='bad'?'bad':''); d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),820); }
+    function burst(kind){ const d=document.createElement('div'); d.className='burst '+(kind||'good'); document.body.appendChild(d); setTimeout(()=>d.remove(),620); }
+    function ribbon(t){ const d=document.createElement('div'); d.className='ribbon'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),950); }
+    function bossWarn(t){ const d=document.createElement('div'); d.className='bossWarn'; d.textContent=t; document.body.appendChild(d); setTimeout(()=>d.remove(),1050); }
+    function setAvatar(m){ let icon='🧑‍🚀',text='พร้อมลุยภารกิจ!'; if(m==='happy'){icon='😄';text='เยี่ยมมาก!'} if(m==='fever'){icon='🔥';text='Fever Hero!'} if(m==='sad'){icon='😵';text='ไม่เป็นไร ลองใหม่'} if(m==='shield'){icon='🛡️';text='Shield ช่วยไว้แล้ว!'} els.heroAvatar.textContent=icon; els.avatarMoodTxt.textContent=text; if(['happy','sad','shield'].includes(m))setTimeout(()=>{if(state.active&&!isFever())setAvatar('ready');},1000); }
+    function shootCenter(){ if(!state.active||state.ended)return; const buttons=[...els.choices.querySelectorAll('.choice')]; if(!buttons.length)return; const cx=innerWidth/2,cy=innerHeight/2; let best=null,bd=Infinity; buttons.forEach(b=>{const r=b.getBoundingClientRect(); const d=Math.hypot(cx-(r.left+r.width/2),cy-(r.top+r.height/2)); if(d<bd){bd=d;best=b;}}); if(best)best.click(); }
+    function goLauncher(){ location.href=withParams('../group-v1.html'); }
+    function goZone(){ location.href=withParams('../nutrition-zone.html'); }
+    function goHub(){ const hub=q.get('hub')||'../hub-v2.html'; location.href=safeUrl(hub,'../hub-v2.html'); }
+    function withParams(path){ const u=new URL(path,location.href); ['pid','name','nick','diff','view','time','seed','hub'].forEach(k=>{const v=q.get(k); if(v)u.searchParams.set(k,v);}); u.searchParams.set('game','groups'); u.searchParams.set('cat','nutrition'); return u.toString(); }
+    function playTone(kind){ try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ctx=playTone.ctx||(playTone.ctx=new AC());if(ctx.state==='suspended')ctx.resume();const o=ctx.createOscillator(),g=ctx.createGain();let f=520,d=.1;if(kind==='good'){f=720;d=.08}else if(kind==='bad'){f=150;d=.18}else if(kind==='fever'){f=940;d=.22}else if(kind==='shield'){f=480;d=.13}else if(kind==='win'){f=1040;d=.26}o.type=kind==='bad'?'sawtooth':'sine';o.frequency.value=f;g.gain.setValueAtTime(.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(.055,ctx.currentTime+.015);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+d);o.connect(g);g.connect(ctx.destination);o.start();o.stop(ctx.currentTime+d+.02);}catch(_){} }
+    function toast(t){ els.toast.textContent=t; els.toast.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>els.toast.classList.remove('show'),1700); }
+    function getGroup(id){ return GROUPS.find(g=>g.id===Number(id))||GROUPS[0]; }
+    function setWaveTheme(n){ for(let i=1;i<=6;i++)els.stage.classList.remove('wave'+i); els.stage.classList.add('wave'+n); }
+    function infoHtml(t,v,n){ return '<div class="infoCard"><b>'+esc(t)+'</b><span style="font-size:1.25rem;color:var(--text);font-weight:1000">'+esc(v)+'</span><span>'+esc(n)+'</span></div>'; }
+    function copyText(text){ if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text); return new Promise((res,rej)=>{try{const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.left='-9999px';document.body.appendChild(ta);ta.select();const ok=document.execCommand('copy');ta.remove();ok?res():rej(new Error('copy failed'));}catch(e){rej(e);}}); }
+    function download(name,text,mime){ const blob=new Blob([text],{type:mime||'text/plain'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{a.remove();URL.revokeObjectURL(url);},300); }
+    function csvCell(v){ if(v==null)return''; const s=String(v); return /[",\n\r]/.test(s)?'"'+s.replaceAll('"','""')+'"':s; }
+    function safeUrl(raw,fallback){ try{return new URL(String(raw||fallback),location.href).toString();}catch(_){return new URL(fallback,location.href).toString();} }
+    function bangkokIsoNow(){ const d=new Date(Date.now()+7*60*60*1000); return d.toISOString().replace('Z','+07:00'); }
+    function makeRng(seed){ let a=seed>>>0; return function(){ a+=0x6D2B79F5; let t=a; t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61); return ((t^(t>>>14))>>>0)/4294967296; }; }
+    function hashSeed(s){ s=String(s||'seed'); let h=2166136261; for(let i=0;i<s.length;i++){h^=s.charCodeAt(i); h=Math.imul(h,16777619);} return h>>>0; }
+    function clean(v){ return String(v==null?'':v).trim(); }
+    function clamp(v,min,max){ v=Number(v); if(!Number.isFinite(v))v=min; return Math.max(min,Math.min(max,v)); }
+    function titleCase(s){ s=String(s||''); return s?s.charAt(0).toUpperCase()+s.slice(1):''; }
+    function esc(s){ return String(s==null?'':s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#39;'); }
+  })();
   </script>
 </body>
 </html>
