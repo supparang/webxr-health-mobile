@@ -83,6 +83,162 @@
     .floatScore{position:fixed;z-index:85;pointer-events:none;left:50%;top:42%;transform:translate(-50%,-50%);padding:8px 13px;border-radius:999px;background:linear-gradient(180deg,#fff9df,#fff0b4);border:1px solid #ffe39a;color:#9a6517;font-weight:1000;box-shadow:0 18px 42px rgba(255,172,75,.22);animation:floatScore .78s ease forwards}.floatScore.bad{background:#fff4f1;border-color:#ffd1c9;color:#a5483e}@keyframes floatScore{0%{opacity:0;transform:translate(-50%,-30%) scale(.88)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.12)}100%{opacity:0;transform:translate(-50%,-105%) scale(.94)}}.burst{position:fixed;z-index:84;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;width:170px;height:170px;border-radius:50%;opacity:0;animation:burst .55s ease forwards}.burst.good{background:radial-gradient(circle,rgba(126,217,87,.34),rgba(126,217,87,0) 68%)}.burst.bad{background:radial-gradient(circle,rgba(255,107,107,.32),rgba(255,107,107,0) 68%)}.burst.fever{background:radial-gradient(circle,rgba(255,217,102,.42),rgba(255,217,102,0) 68%)}@keyframes burst{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}25%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(1.6)}}.ribbon,.bossWarn{position:fixed;z-index:87;left:50%;top:14%;transform:translateX(-50%);pointer-events:none;width:min(560px,calc(100vw - 28px));padding:11px 14px;border-radius:22px;background:rgba(255,255,255,.94);border:1px solid #ffe39a;box-shadow:0 22px 60px rgba(255,172,75,.18);color:#9a6517;text-align:center;font-weight:1000;animation:ribbon .9s ease forwards}.bossWarn{top:16%;background:#fff4f1;border-color:#ffd1c9;color:#a5483e}@keyframes ribbon{0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.94)}18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}78%{opacity:1}100%{opacity:0;transform:translateX(-50%) translateY(-20px) scale(.96)}}.feverMode .stage{border-color:#ffd166;box-shadow:0 28px 70px rgba(255,177,104,.30)}.crosshair{display:none;position:fixed;left:50%;top:50%;width:42px;height:42px;margin-left:-21px;margin-top:-21px;pointer-events:none;z-index:25;border-radius:50%;border:3px solid rgba(47,149,255,.75);box-shadow:0 0 0 6px rgba(255,255,255,.42),0 8px 22px rgba(0,0,0,.12)}body.view-cvr .crosshair{display:block}
     @media(max-width:960px){body{overflow:auto}.game{grid-template-rows:auto auto auto}.top{grid-template-columns:1fr}.stats{justify-content:stretch}.stat{flex:1 1 80px}.arena{grid-template-columns:1fr}.side{max-height:none;overflow:visible}.logBox{max-height:160px}}
     @media(max-width:680px){.game{padding:calc(8px + var(--sat)) calc(8px + var(--sar)) calc(10px + var(--sab)) calc(8px + var(--sal))}.missionShelf,.stormTargets,.exportGrid{grid-template-columns:1fr}.choices{grid-template-columns:repeat(2,minmax(0,1fr))}.choice{min-height:82px}.foodCard{min-height:210px;border-radius:26px}.stormTarget{min-height:98px;grid-template-columns:70px 1fr;text-align:left;align-items:center}.stormEmoji{font-size:3rem}.bottom{grid-template-columns:1fr}.navs{justify-content:stretch}.navBtn{flex:1 1 auto}.modalGrid{grid-template-columns:1fr}}
+    /* =========================================================
+   HOTFIX v20260506-GROUPS-FORCE-FLOATING-ANSWER-BAR
+   ✅ บังคับให้ปุ่มหมู่ 1–5 เห็นเสมอ ทุกขนาดหน้าจอ
+   ✅ แก้กรณี tablet/landscape กว้างเกิน 960px
+   ========================================================= */
+
+html,
+body{
+  overflow-x:hidden !important;
+  padding-bottom:180px !important;
+}
+
+.game{
+  padding-bottom:180px !important;
+}
+
+.stage{
+  overflow:visible !important;
+  padding-bottom:130px !important;
+}
+
+/* บังคับปุ่มตอบให้ลอยติดล่างจอเสมอ */
+.choices{
+  position:fixed !important;
+  left:12px !important;
+  right:12px !important;
+  bottom:calc(74px + env(safe-area-inset-bottom, 0px)) !important;
+  z-index:2147483000 !important;
+
+  display:grid !important;
+  grid-template-columns:repeat(5, minmax(0, 1fr)) !important;
+  gap:8px !important;
+
+  padding:10px !important;
+  border-radius:24px !important;
+  background:rgba(255,255,255,.98) !important;
+  border:1px solid rgba(214,237,247,.98) !important;
+  box-shadow:0 18px 52px rgba(75,138,170,.28) !important;
+  backdrop-filter:blur(12px) !important;
+
+  opacity:1 !important;
+  visibility:visible !important;
+  transform:none !important;
+  pointer-events:auto !important;
+}
+
+.choice{
+  min-width:0 !important;
+  min-height:76px !important;
+  border-radius:18px !important;
+  padding:7px 4px !important;
+  display:grid !important;
+  place-items:center !important;
+  background:#fff !important;
+  border:1px solid #d6edf7 !important;
+  color:#29485f !important;
+  box-shadow:0 10px 22px rgba(93,155,185,.14) !important;
+  pointer-events:auto !important;
+}
+
+.choice .num{
+  width:34px !important;
+  height:34px !important;
+  border-radius:13px !important;
+  display:grid !important;
+  place-items:center !important;
+  font-size:1rem !important;
+  font-weight:1000 !important;
+  background:linear-gradient(180deg,#eef9ff,#dff2ff) !important;
+  color:#397b9c !important;
+}
+
+.choice .name{
+  display:block !important;
+  font-size:.82rem !important;
+  line-height:1.08 !important;
+  font-weight:1000 !important;
+  text-align:center !important;
+}
+
+.choice .ex{
+  display:none !important;
+}
+
+/* feedback อยู่ใต้ปุ่มตอบ */
+.bottomBar{
+  position:fixed !important;
+  left:12px !important;
+  right:12px !important;
+  bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  z-index:2147482999 !important;
+  display:grid !important;
+  grid-template-columns:1fr !important;
+}
+
+.feedback{
+  min-height:50px !important;
+  border-radius:18px !important;
+  background:rgba(255,255,255,.98) !important;
+  box-shadow:0 14px 36px rgba(75,138,170,.20) !important;
+}
+
+.navBtns{
+  display:none !important;
+}
+
+/* ลดพื้นที่ว่างกลางจอเล็กน้อย */
+.foodZone{
+  padding-bottom:120px !important;
+}
+
+@media (max-width:520px){
+  html,
+  body{
+    padding-bottom:166px !important;
+  }
+
+  .game{
+    padding-bottom:166px !important;
+  }
+
+  .choices{
+    left:8px !important;
+    right:8px !important;
+    bottom:calc(66px + env(safe-area-inset-bottom, 0px)) !important;
+    gap:5px !important;
+    padding:7px !important;
+    border-radius:20px !important;
+  }
+
+  .choice{
+    min-height:62px !important;
+    border-radius:16px !important;
+    padding:5px 2px !important;
+  }
+
+  .choice .num{
+    width:29px !important;
+    height:29px !important;
+    font-size:.88rem !important;
+  }
+
+  .choice .name{
+    font-size:.62rem !important;
+  }
+
+  .bottomBar{
+    left:8px !important;
+    right:8px !important;
+  }
+
+  .feedback{
+    min-height:46px !important;
+    font-size:.78rem !important;
+  }
+}
   </style>
 </head>
 <body>
