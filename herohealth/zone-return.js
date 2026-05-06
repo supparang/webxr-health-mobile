@@ -79,3 +79,35 @@
     boot();
   }
 })(window, document);
+/* === PATCH v20260506-ZONE-RETURN-BUILD-HUB-ROOT-EXPORT === */
+/* Fix: group-v1.html imports buildHubRoot but zone-return.js did not export it */
+
+export function buildHubRoot(fallback = './hub-v2.html'){
+  try{
+    const params = new URLSearchParams(window.location.search || '');
+
+    const explicit =
+      params.get('hubRoot') ||
+      params.get('hub') ||
+      params.get('returnHub') ||
+      '';
+
+    if(explicit){
+      try{
+        let decoded = String(explicit);
+        for(let i = 0; i < 2; i++){
+          const d = decodeURIComponent(decoded);
+          if(d === decoded) break;
+          decoded = d;
+        }
+        return new URL(decoded, window.location.href).toString();
+      }catch(_){
+        return String(explicit);
+      }
+    }
+
+    return new URL(fallback, window.location.href).toString();
+  }catch(_){
+    return fallback;
+  }
+}
