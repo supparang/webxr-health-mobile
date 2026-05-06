@@ -1,0 +1,1421 @@
+<!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
+<!-- FULL PATCH v8.43.0-GOODJUNK-FULL-3D-VR-FLOW -->
+<!-- Full 3D VR Flow in one page:
+     ✅ 3D Warmup
+     ✅ 3D Main Boss
+     ✅ 3D Summary
+     ✅ 3D Cooldown
+     ✅ Return to goodjunk-launcher.html
+     ✅ No warmup-gate navigation during VR session
+-->
+
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>HeroHealth • GoodJunk Full 3D VR Flow</title>
+  <meta name="theme-color" content="#bbf7d0" />
+  <meta name="color-scheme" content="light" />
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    :root{
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+
+      --ink:#172033;
+      --muted:#64748b;
+      --green:#22c55e;
+      --blue:#2563eb;
+      --gold:#facc15;
+      --red:#ef4444;
+      --panel:rgba(255,255,255,.88);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:#dff7ec;
+      color:var(--ink);
+      touch-action:none;
+      overscroll-behavior:none;
+    }
+
+    button{ font:inherit; cursor:pointer; }
+
+    a-scene{
+      width:100vw;
+      height:100dvh;
+    }
+
+    .hud{
+      position:fixed;
+      left:calc(8px + var(--sal));
+      right:calc(8px + var(--sar));
+      top:calc(6px + var(--sat));
+      z-index:30;
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:6px;
+      pointer-events:none;
+    }
+
+    .pill{
+      min-height:42px;
+      border-radius:15px;
+      padding:6px 8px;
+      background:rgba(255,255,255,.82);
+      border:2px solid rgba(255,255,255,.92);
+      box-shadow:0 10px 24px rgba(15,23,42,.13);
+      backdrop-filter:blur(8px);
+      overflow:hidden;
+    }
+
+    .pill span{
+      display:block;
+      color:#64748b;
+      font-size:9px;
+      font-weight:1000;
+      text-transform:uppercase;
+      letter-spacing:.05em;
+    }
+
+    .pill b{
+      display:block;
+      margin-top:2px;
+      color:#0f172a;
+      font-size:15px;
+      line-height:1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .bossBar{
+      position:fixed;
+      left:calc(14px + var(--sal));
+      right:calc(14px + var(--sar));
+      top:calc(56px + var(--sat));
+      z-index:30;
+      height:14px;
+      border-radius:999px;
+      background:rgba(15,23,42,.20);
+      border:2px solid rgba(255,255,255,.78);
+      overflow:hidden;
+      box-shadow:0 10px 24px rgba(15,23,42,.14);
+      pointer-events:none;
+    }
+
+    .bossBar i{
+      display:block;
+      width:100%;
+      height:100%;
+      background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);
+      border-radius:999px;
+      transition:width .22s ease;
+    }
+
+    .mission{
+      position:fixed;
+      left:50%;
+      top:calc(78px + var(--sat));
+      z-index:31;
+      transform:translateX(-50%);
+      width:min(560px, calc(100vw - 24px));
+      border-radius:999px;
+      padding:9px 14px;
+      background:rgba(15,23,42,.78);
+      color:#fff;
+      border:2px solid rgba(255,255,255,.78);
+      text-align:center;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 12px 28px rgba(15,23,42,.18);
+      backdrop-filter:blur(8px);
+      pointer-events:none;
+    }
+
+    .crosshair{
+      position:fixed;
+      left:50%;
+      top:50%;
+      z-index:24;
+      width:34px;
+      height:34px;
+      margin-left:-17px;
+      margin-top:-17px;
+      border-radius:999px;
+      border:3px solid rgba(255,255,255,.95);
+      box-shadow:
+        0 0 0 3px rgba(15,23,42,.22),
+        0 0 18px rgba(34,197,94,.35);
+      pointer-events:none;
+    }
+
+    .crosshair::before,
+    .crosshair::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      background:rgba(15,23,42,.50);
+      border-radius:999px;
+      transform:translate(-50%,-50%);
+    }
+
+    .crosshair::before{ width:2px; height:46px; }
+    .crosshair::after{ width:46px; height:2px; }
+
+    .shoot{
+      position:fixed;
+      right:calc(14px + var(--sar));
+      bottom:calc(14px + var(--sab));
+      z-index:35;
+      width:76px;
+      height:76px;
+      border:0;
+      border-radius:999px;
+      background:linear-gradient(180deg,#fff7ed,#facc15);
+      color:#172033;
+      font-size:28px;
+      font-weight:1000;
+      box-shadow:
+        0 16px 34px rgba(15,23,42,.24),
+        inset 0 -7px 0 rgba(15,23,42,.10);
+    }
+
+    .shoot:active{ transform:scale(.94); }
+
+    .back{
+      position:fixed;
+      left:calc(10px + var(--sal));
+      bottom:calc(14px + var(--sab));
+      z-index:35;
+      border:2px solid rgba(255,255,255,.86);
+      border-radius:999px;
+      padding:9px 12px;
+      background:rgba(15,23,42,.72);
+      color:#fff;
+      font-size:12px;
+      font-weight:1000;
+      box-shadow:0 12px 28px rgba(15,23,42,.22);
+      backdrop-filter:blur(8px);
+      max-width:132px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(100px + var(--sab));
+      z-index:36;
+      transform:translateX(-50%) translateY(10px) scale(.96);
+      width:min(440px, calc(100vw - 24px));
+      border-radius:999px;
+      padding:11px 15px;
+      background:rgba(15,23,42,.86);
+      color:#fff;
+      border:2px solid rgba(255,255,255,.75);
+      text-align:center;
+      font-size:13px;
+      line-height:1.28;
+      font-weight:1000;
+      opacity:0;
+      transition:.18s ease;
+      pointer-events:none;
+      backdrop-filter:blur(8px);
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0) scale(1);
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:grid;
+      place-items:center;
+      padding:
+        calc(18px + var(--sat))
+        calc(18px + var(--sar))
+        calc(18px + var(--sab))
+        calc(18px + var(--sal));
+      background:
+        radial-gradient(circle at 50% 28%,rgba(255,255,255,.74),transparent 38%),
+        rgba(15,23,42,.42);
+      backdrop-filter:blur(5px);
+    }
+
+    .card{
+      width:min(570px, calc(100vw - 28px));
+      max-height:calc(100dvh - 28px);
+      overflow:auto;
+      border-radius:32px;
+      padding:22px;
+      text-align:center;
+      background:rgba(255,255,255,.96);
+      border:3px solid rgba(255,255,255,.95);
+      box-shadow:0 30px 80px rgba(15,23,42,.34);
+    }
+
+    .icon{
+      font-size:62px;
+      line-height:1;
+    }
+
+    .card h1{
+      margin:8px 0 0;
+      color:#0f172a;
+      font-size:clamp(28px,7vw,44px);
+      line-height:1.05;
+      letter-spacing:-.04em;
+    }
+
+    .card p{
+      margin:10px auto 0;
+      color:#475569;
+      font-size:15px;
+      line-height:1.45;
+      font-weight:800;
+      max-width:460px;
+    }
+
+    .rules{
+      margin-top:15px;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+    }
+
+    .rule{
+      border-radius:18px;
+      padding:10px 8px;
+      min-height:82px;
+      background:linear-gradient(180deg,#fff,#f8fafc);
+      border:2px solid rgba(226,232,240,.9);
+    }
+
+    .rule b{
+      display:block;
+      font-size:28px;
+      line-height:1;
+    }
+
+    .rule span{
+      display:block;
+      margin-top:6px;
+      color:#334155;
+      font-size:12px;
+      font-weight:950;
+      line-height:1.15;
+    }
+
+    .actions{
+      margin-top:17px;
+      display:flex;
+      gap:9px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .primary,
+    .secondary{
+      min-height:48px;
+      border-radius:18px;
+      padding:0 17px;
+      font-size:15px;
+      font-weight:1000;
+    }
+
+    .primary{
+      border:0;
+      color:#fff;
+      background:linear-gradient(135deg,#22c55e,#2563eb);
+      box-shadow:0 14px 30px rgba(37,99,235,.24);
+    }
+
+    .secondary{
+      color:#172033;
+      background:#f8fafc;
+      border:2px solid #dbeafe;
+    }
+
+    .stats{
+      margin:15px auto 0;
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
+      max-width:430px;
+    }
+
+    .stat{
+      border-radius:18px;
+      padding:12px;
+      background:#f8fafc;
+      border:2px solid #e2e8f0;
+    }
+
+    .stat span{
+      display:block;
+      color:#64748b;
+      font-size:11px;
+      font-weight:1000;
+      text-transform:uppercase;
+    }
+
+    .stat b{
+      display:block;
+      margin-top:4px;
+      font-size:22px;
+      color:#0f172a;
+    }
+
+    .hidden{ display:none !important; }
+
+    @media (max-width:720px){
+      .hud{
+        grid-template-columns:repeat(5,1fr);
+        gap:4px;
+        left:8px;
+        right:8px;
+      }
+
+      .pill{
+        min-height:34px;
+        padding:5px;
+        border-radius:12px;
+      }
+
+      .pill span{ display:none; }
+      .pill b{ font-size:13px; margin-top:0; }
+
+      .bossBar{
+        top:calc(46px + var(--sat));
+        left:12px;
+        right:12px;
+        height:12px;
+      }
+
+      .mission{
+        top:calc(64px + var(--sat));
+        font-size:12px;
+        padding:8px 12px;
+      }
+
+      .rules{ grid-template-columns:1fr; }
+
+      .rule{
+        min-height:54px;
+        display:grid;
+        grid-template-columns:42px 1fr;
+        align-items:center;
+        text-align:left;
+      }
+
+      .rule span{ margin-top:0; }
+
+      .shoot{
+        width:70px;
+        height:70px;
+        font-size:25px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <section class="hud">
+    <div class="pill"><span>Stage</span><b id="hudStage">Warmup</b></div>
+    <div class="pill"><span>Score</span><b id="hudScore">0</b></div>
+    <div class="pill"><span>Time</span><b id="hudTime">120</b></div>
+    <div class="pill"><span>Life</span><b id="hudLives">💚💚💚</b></div>
+    <div class="pill"><span>Power</span><b id="hudPower">—</b></div>
+  </section>
+
+  <div class="bossBar"><i id="bossHpFill"></i></div>
+  <div class="mission" id="missionText">เตรียมตัวเข้าสู่สนามโภชนาการ 3D</div>
+  <div class="crosshair"></div>
+
+  <button class="back" id="backBtn" type="button">🎮 โหมดเกม</button>
+  <button class="shoot" id="shootBtn" type="button" aria-label="ยิง">🎯</button>
+  <div class="toast" id="toast"></div>
+
+  <section class="overlay" id="startOverlay">
+    <div class="card">
+      <div class="icon">🥽🥗👾</div>
+      <h1>GoodJunk Full 3D VR Flow</h1>
+      <p>
+        กด Enter VR ได้เลย จากนั้นเล่นต่อเนื่องในฉาก 3D:
+        Warmup → Boss Game → Summary → Cooldown → กลับหน้าโหมดเกม
+      </p>
+
+      <div class="rules">
+        <div class="rule">
+          <b>🥦</b>
+          <span>ยิงอาหารดี เพื่อโจมตีบอส</span>
+        </div>
+        <div class="rule">
+          <b>🍟</b>
+          <span>อย่ายิง junk และ fake healthy</span>
+        </div>
+        <div class="rule">
+          <b>🧘</b>
+          <span>จบด้วย cooldown ใน 3D</span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="startBtn" type="button">เริ่ม Full 3D Flow</button>
+        <button class="secondary" id="vrHintBtn" type="button">วิธีเล่น VR</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="overlay hidden" id="summaryOverlay">
+    <div class="card">
+      <div class="icon" id="summaryIcon">🏆</div>
+      <h1 id="summaryTitle">Summary</h1>
+      <p id="summaryTip">สรุปผลการเลือกอาหารของวันนี้</p>
+
+      <div class="stats">
+        <div class="stat"><span>Score</span><b id="sumScore">0</b></div>
+        <div class="stat"><span>Rank</span><b id="sumRank">A</b></div>
+        <div class="stat"><span>Good</span><b id="sumGood">0</b></div>
+        <div class="stat"><span>Miss</span><b id="sumMiss">0</b></div>
+      </div>
+
+      <div class="actions">
+        <button class="primary" id="cooldownBtn" type="button">🧘 ทำ 3D Cooldown</button>
+        <button class="secondary" id="replayBtn" type="button">🔁 เล่นอีก</button>
+        <button class="secondary" id="launcherBtn" type="button">🎮 โหมดเกม</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="overlay hidden" id="finalOverlay">
+    <div class="card">
+      <div class="icon">🌟</div>
+      <h1>Cooldown สำเร็จ</h1>
+      <p>
+        เก่งมาก! วันนี้เลือกอาหารดีและทบทวนโภชนาการครบแล้ว
+        กลับหน้าโหมดเกมเพื่อเลือกเล่นอีกโหมดได้เลย
+      </p>
+
+      <div class="actions">
+        <button class="primary" id="finalLauncherBtn" type="button">🎮 กลับหน้าโหมดเกม</button>
+        <button class="secondary" id="finalHubBtn" type="button">🏠 หน้าหลัก</button>
+      </div>
+    </div>
+  </section>
+
+  <a-scene
+    id="scene"
+    renderer="antialias:true; colorManagement:true; physicallyCorrectLights:true"
+    background="color:#dff7ec"
+    vr-mode-ui="enabled:true"
+    loading-screen="enabled:false">
+
+    <a-entity id="cameraRig" position="0 1.6 0">
+      <a-camera id="camera" look-controls wasd-controls="enabled:false">
+        <a-entity
+          id="aimRay"
+          raycaster="objects:.gj-target; far:34; interval:60"
+          cursor="fuse:false"
+          position="0 0 -1"
+          geometry="primitive:ring; radiusInner:0.012; radiusOuter:0.018"
+          material="color:#ffffff; shader:flat; opacity:0.9">
+        </a-entity>
+      </a-camera>
+    </a-entity>
+
+    <a-entity light="type:hemisphere; intensity:1.15; color:#ffffff; groundColor:#bbf7d0"></a-entity>
+    <a-entity light="type:directional; intensity:0.75; color:#fff7ed" position="3 6 4"></a-entity>
+
+    <a-sky id="sky" color="#dff7ec"></a-sky>
+
+    <a-circle
+      position="0 0 -4"
+      rotation="-90 0 0"
+      radius="18"
+      color="#b7f3c6"
+      material="roughness:0.9; metalness:0">
+    </a-circle>
+
+    <a-ring
+      position="0 0.03 -4"
+      rotation="-90 0 0"
+      radius-inner="3.2"
+      radius-outer="3.28"
+      color="#ffffff"
+      opacity="0.45">
+    </a-ring>
+
+    <a-entity id="bossRoot" position="0 2.1 -8" visible="true">
+      <a-sphere id="bossBody" radius="1.05" color="#7c2d12" roughness="0.7"></a-sphere>
+      <a-sphere position="-0.38 0.25 0.82" radius="0.16" color="#ffffff"></a-sphere>
+      <a-sphere position="0.38 0.25 0.82" radius="0.16" color="#ffffff"></a-sphere>
+      <a-sphere position="-0.38 0.25 0.94" radius="0.07" color="#111827"></a-sphere>
+      <a-sphere position="0.38 0.25 0.94" radius="0.07" color="#111827"></a-sphere>
+      <a-cone position="-0.7 0.94 0" rotation="0 0 20" radius-bottom="0.22" height="0.65" color="#ef4444"></a-cone>
+      <a-cone position="0.7 0.94 0" rotation="0 0 -20" radius-bottom="0.22" height="0.65" color="#ef4444"></a-cone>
+      <a-text value="JUNK BOSS" align="center" color="#172033" width="4.8" position="0 1.42 0.1"></a-text>
+    </a-entity>
+
+    <a-entity id="targetRoot"></a-entity>
+    <a-entity id="fxRoot"></a-entity>
+  </a-scene>
+
+  <script src="../vr/vr-ui.js?v=20260505-vr-ui"></script>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const PATCH = 'v8.43.0-GOODJUNK-FULL-3D-VR-FLOW';
+
+      const WIN = window;
+      const DOC = document;
+      const QS = new URLSearchParams(location.search || '');
+
+      const ROUTES = {
+        launcher:'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
+        hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
+      };
+
+      function q(k,d){
+        const v = QS.get(k);
+        return v === null || v === '' ? d : v;
+      }
+
+      const cfg = {
+        pid:q('pid','anon'),
+        name:q('name',q('nick','Hero')),
+        diff:String(q('diff','normal')).toLowerCase(),
+        time:Math.max(45, Number(q('time','120')) || 120),
+        view:String(q('view','mobile')).toLowerCase()
+      };
+
+      const DIFF = {
+        easy:{ lives:5, bossHp:130, spawnMs:1150, speed:6300, junk:.18, fake:.07, power:.11 },
+        normal:{ lives:4, bossHp:170, spawnMs:980, speed:5600, junk:.28, fake:.13, power:.10 },
+        hard:{ lives:3, bossHp:210, spawnMs:850, speed:5000, junk:.34, fake:.18, power:.09 },
+        challenge:{ lives:3, bossHp:250, spawnMs:720, speed:4400, junk:.40, fake:.22, power:.08 }
+      };
+
+      const D = DIFF[cfg.diff] || DIFF.normal;
+
+      const GOOD = [
+        { icon:'🥦', label:'ผัก', color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
+        { icon:'🥕', label:'ผัก', color:'#fb923c', tip:'ผักมีใยอาหาร' },
+        { icon:'🍎', label:'ผลไม้', color:'#ef4444', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
+        { icon:'🍌', label:'ผลไม้', color:'#facc15', tip:'ผลไม้ให้พลังงานดี' },
+        { icon:'🥚', label:'โปรตีน', color:'#fde68a', tip:'โปรตีนช่วยซ่อมแซมร่างกาย' },
+        { icon:'🐟', label:'โปรตีน', color:'#38bdf8', tip:'ปลาเป็นโปรตีนที่ดี' },
+        { icon:'🍚', label:'ข้าว/แป้ง', color:'#ffffff', tip:'ข้าวให้พลังงาน' },
+        { icon:'💧', label:'น้ำ', color:'#60a5fa', tip:'น้ำเปล่าดีต่อร่างกาย' }
+      ];
+
+      const JUNK = [
+        { icon:'🍟', label:'Junk', color:'#f97316', tip:'อาหารทอดควรกินแต่น้อย' },
+        { icon:'🍩', label:'Junk', color:'#f472b6', tip:'ขนมหวานน้ำตาลสูง' },
+        { icon:'🥤', label:'Junk', color:'#ef4444', tip:'น้ำหวานมีน้ำตาลสูง' },
+        { icon:'🍬', label:'Junk', color:'#ec4899', tip:'ลูกอมหวานจัด' },
+        { icon:'🍔', label:'Junk', color:'#a16207', tip:'อาหารไขมันสูงควรระวัง' }
+      ];
+
+      const FAKE = [
+        { icon:'🧃', label:'Fake', color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' },
+        { icon:'🥣', label:'Fake', color:'#c084fc', tip:'ซีเรียลบางชนิดน้ำตาลสูง' },
+        { icon:'🍫', label:'Fake', color:'#92400e', tip:'energy bar บางชนิดหวานมาก' }
+      ];
+
+      const POWER = [
+        { id:'shield', icon:'🛡️', label:'Shield', color:'#38bdf8' },
+        { id:'fever', icon:'⚡', label:'Fever', color:'#facc15' },
+        { id:'heal', icon:'💚', label:'Heal', color:'#22c55e' },
+        { id:'powerFood', icon:'⭐', label:'Power', color:'#f59e0b' }
+      ];
+
+      const el = {
+        scene:id('scene'),
+        sky:id('sky'),
+        camera:id('camera'),
+        aimRay:id('aimRay'),
+        targetRoot:id('targetRoot'),
+        fxRoot:id('fxRoot'),
+        bossRoot:id('bossRoot'),
+
+        hudStage:id('hudStage'),
+        hudScore:id('hudScore'),
+        hudTime:id('hudTime'),
+        hudLives:id('hudLives'),
+        hudPower:id('hudPower'),
+        bossHpFill:id('bossHpFill'),
+        missionText:id('missionText'),
+
+        startOverlay:id('startOverlay'),
+        summaryOverlay:id('summaryOverlay'),
+        finalOverlay:id('finalOverlay'),
+
+        startBtn:id('startBtn'),
+        vrHintBtn:id('vrHintBtn'),
+        shootBtn:id('shootBtn'),
+        backBtn:id('backBtn'),
+
+        cooldownBtn:id('cooldownBtn'),
+        replayBtn:id('replayBtn'),
+        launcherBtn:id('launcherBtn'),
+        finalLauncherBtn:id('finalLauncherBtn'),
+        finalHubBtn:id('finalHubBtn'),
+
+        toast:id('toast'),
+
+        summaryIcon:id('summaryIcon'),
+        summaryTitle:id('summaryTitle'),
+        summaryTip:id('summaryTip'),
+        sumScore:id('sumScore'),
+        sumRank:id('sumRank'),
+        sumGood:id('sumGood'),
+        sumMiss:id('sumMiss')
+      };
+
+      const state = {
+        stage:'intro',
+        started:false,
+        ended:false,
+
+        score:0,
+        lives:D.lives,
+        timeLeft:cfg.time,
+        bossHp:D.bossHp,
+        bossMaxHp:D.bossHp,
+
+        combo:0,
+        bestCombo:0,
+        goodHits:0,
+        junkHits:0,
+        fakeHits:0,
+        misses:0,
+        shots:0,
+
+        shield:0,
+        feverUntil:0,
+        powerFoodReady:false,
+
+        warmGood:0,
+        warmPower:0,
+
+        cooldownBreath:0,
+        cooldownGood:0,
+
+        targets:new Set(),
+        spawnTimer:0,
+        clockTimer:0,
+        startAt:0
+      };
+
+      function id(x){ return DOC.getElementById(x); }
+      function rand(a,b){ return a + Math.random() * (b-a); }
+      function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
+      function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
+      function now(){ return Date.now(); }
+      function isFever(){ return state.feverUntil > now(); }
+
+      function toast(t){
+        if(!el.toast) return;
+        el.toast.textContent = String(t || '');
+        el.toast.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => el.toast.classList.remove('show'), 1500);
+      }
+
+      function show(node){ node && node.classList.remove('hidden'); }
+      function hide(node){ node && node.classList.add('hidden'); }
+
+      function updateHud(){
+        if(el.hudStage) el.hudStage.textContent =
+          state.stage === 'warmup' ? 'Warmup' :
+          state.stage === 'main' ? 'Boss' :
+          state.stage === 'summary' ? 'Summary' :
+          state.stage === 'cooldown' ? 'Cooldown' : 'Ready';
+
+        if(el.hudScore) el.hudScore.textContent = String(state.score);
+        if(el.hudTime) el.hudTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
+        if(el.hudLives) el.hudLives.textContent = state.lives > 0 ? '💚'.repeat(state.lives) : '💔';
+
+        const powers = [];
+        if(state.shield > 0) powers.push('🛡️' + state.shield);
+        if(isFever()) powers.push('⚡' + Math.ceil((state.feverUntil - now()) / 1000) + 's');
+        if(state.powerFoodReady) powers.push('⭐');
+
+        if(el.hudPower) el.hudPower.textContent = powers.join(' ') || '—';
+
+        const hpPct = clamp(state.bossHp / state.bossMaxHp, 0, 1);
+        if(el.bossHpFill) el.bossHpFill.style.width = Math.round(hpPct * 100) + '%';
+      }
+
+      function setMission(t){
+        if(el.missionText) el.missionText.textContent = t;
+      }
+
+      function clearTargets(){
+        state.targets.forEach(x => {
+          try{ x.remove(); }catch(e){}
+        });
+        state.targets.clear();
+        if(el.targetRoot) el.targetRoot.innerHTML = '';
+      }
+
+      function createTarget(kind, data, opts){
+        opts = opts || {};
+
+        const wrap = DOC.createElement('a-entity');
+        wrap.classList.add('gj-target');
+        wrap.dataset.kind = kind;
+        wrap.dataset.consumed = '0';
+        wrap.__data = data;
+
+        const x = opts.x ?? rand(-4.2,4.2);
+        const y = opts.y ?? rand(1.05,3.05);
+        const z = opts.z ?? rand(-11.5,-8.0);
+
+        wrap.setAttribute('position', `${x} ${y} ${z}`);
+
+        const orb = DOC.createElement('a-sphere');
+        orb.setAttribute('radius', kind === 'power' || kind === 'breath' ? '0.38' : '0.34');
+        orb.setAttribute('color', data.color || '#ffffff');
+        orb.setAttribute('roughness', '0.45');
+        orb.setAttribute('emissive', kind === 'power' || kind === 'breath' ? data.color || '#facc15' : '#000');
+        orb.setAttribute('emissive-intensity', kind === 'power' || kind === 'breath' ? '0.28' : '0');
+
+        const text = DOC.createElement('a-text');
+        text.setAttribute('value', data.icon || '?');
+        text.setAttribute('align', 'center');
+        text.setAttribute('width', '2.7');
+        text.setAttribute('color', '#111827');
+        text.setAttribute('position', '0 0.02 0.38');
+
+        const label = DOC.createElement('a-text');
+        label.setAttribute('value', data.label || '');
+        label.setAttribute('align', 'center');
+        label.setAttribute('width', '2.1');
+        label.setAttribute('color', '#0f172a');
+        label.setAttribute('position', '0 -0.5 0.08');
+
+        wrap.appendChild(orb);
+        wrap.appendChild(text);
+        wrap.appendChild(label);
+
+        const dur = opts.dur || Math.max(3200, D.speed - state.combo * 65);
+
+        if(opts.static){
+          wrap.setAttribute('animation__float', {
+            property:'position',
+            dir:'alternate',
+            loop:true,
+            dur:900,
+            easing:'easeInOutSine',
+            to:`${x} ${y + 0.22} ${z}`
+          });
+        }else{
+          wrap.setAttribute('animation__fly', {
+            property:'position',
+            to:`${x * 0.22} ${y + rand(-0.25,0.25)} 0.9`,
+            dur:dur,
+            easing:'linear'
+          });
+
+          wrap.addEventListener('animationcomplete__fly', () => expireTarget(wrap, kind, data));
+        }
+
+        wrap.setAttribute('animation__spin', {
+          property:'rotation',
+          to:`0 ${rand(180,360)} 0`,
+          dur:1500,
+          loop:true,
+          easing:'linear'
+        });
+
+        wrap.addEventListener('click', e => {
+          e.preventDefault();
+          hitTarget(wrap);
+        });
+
+        el.targetRoot.appendChild(wrap);
+        state.targets.add(wrap);
+
+        return wrap;
+      }
+
+      function spawnWarmupSet(){
+        clearTargets();
+
+        createTarget('warm-good', GOOD[0], { x:-2.2, y:1.7, z:-5.5, static:true });
+        createTarget('warm-good', GOOD[2], { x:0, y:2.05, z:-5.8, static:true });
+        createTarget('warm-junk', JUNK[0], { x:2.2, y:1.7, z:-5.5, static:true });
+        createTarget('warm-power', POWER[0], { x:0, y:3.05, z:-6.2, static:true });
+      }
+
+      function spawnMain(){
+        if(state.stage !== 'main') return;
+
+        const r = Math.random();
+
+        if(r < D.power){
+          createTarget('power', pick(POWER));
+          return;
+        }
+
+        if(r < D.power + D.fake){
+          createTarget('fake', pick(FAKE));
+          return;
+        }
+
+        if(r < D.power + D.fake + D.junk){
+          createTarget('junk', pick(JUNK));
+          return;
+        }
+
+        createTarget('good', pick(GOOD));
+      }
+
+      function spawnCooldownSet(){
+        clearTargets();
+
+        createTarget('breath', { icon:'🌬️', label:'หายใจ', color:'#bfdbfe' }, { x:-2.1, y:1.9, z:-5.6, static:true });
+        createTarget('breath', { icon:'💧', label:'น้ำเปล่า', color:'#60a5fa' }, { x:0, y:2.25, z:-6.0, static:true });
+        createTarget('breath', { icon:'🥦', label:'อาหารดี', color:'#22c55e' }, { x:2.1, y:1.9, z:-5.6, static:true });
+      }
+
+      function nearestTarget(){
+        const ray = el.aimRay && el.aimRay.components && el.aimRay.components.raycaster;
+
+        if(ray && ray.intersections && ray.intersections.length){
+          const hit = ray.intersections.find(x => {
+            const obj = x.object && x.object.el;
+            return obj && obj.closest && obj.closest('.gj-target');
+          });
+
+          if(hit && hit.object && hit.object.el){
+            return hit.object.el.closest('.gj-target');
+          }
+        }
+
+        return null;
+      }
+
+      function shoot(){
+        if(['warmup','main','cooldown'].indexOf(state.stage) < 0) return;
+
+        state.shots += 1;
+
+        const t = nearestTarget();
+
+        if(!t){
+          if(state.stage === 'main'){
+            state.combo = 0;
+            toast('พลาดเป้า! เล็งใหม่');
+          }
+          updateHud();
+          return;
+        }
+
+        hitTarget(t);
+      }
+
+      function hitTarget(wrap){
+        if(!wrap || wrap.dataset.consumed === '1') return;
+
+        const kind = wrap.dataset.kind;
+        const data = wrap.__data || {};
+
+        wrap.dataset.consumed = '1';
+        state.targets.delete(wrap);
+
+        popFx(wrap, kind, data);
+
+        if(kind === 'warm-good'){
+          state.warmGood += 1;
+          state.score += 10;
+          toast('ดีมาก! อาหารดี');
+          if(state.warmGood >= 2){
+            setMission('Warmup: ยิง 🛡️ power-up orb เพื่อเริ่มสู้บอส');
+          }
+        }else if(kind === 'warm-junk'){
+          toast('นี่คือ junk — อย่ายิงตอนเล่นจริง!');
+        }else if(kind === 'warm-power'){
+          state.warmPower += 1;
+          state.shield = 1;
+          toast('ได้ Shield แล้ว! พร้อมสู้บอส');
+          setTimeout(startMain, 850);
+        }else if(kind === 'good'){
+          hitGood(data);
+        }else if(kind === 'junk' || kind === 'fake'){
+          hitBad(data, kind);
+        }else if(kind === 'power'){
+          hitPower(data);
+        }else if(kind === 'breath'){
+          hitBreath(data);
+        }
+
+        setTimeout(() => {
+          try{ wrap.remove(); }catch(e){}
+        }, 30);
+
+        updateHud();
+      }
+
+      function hitGood(data){
+        state.goodHits += 1;
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+
+        let points = 10 + Math.min(35, state.combo * 2);
+        let damage = 10 + Math.min(28, state.combo * 1.6);
+
+        if(isFever()){
+          points *= 2;
+          damage *= 1.55;
+        }
+
+        if(state.powerFoodReady){
+          points += 80;
+          damage *= 2.4;
+          state.powerFoodReady = false;
+          toast('⭐ Power Food Strike!');
+        }else{
+          toast(`ดีมาก ${data.icon || '🥦'} Combo x${state.combo}`);
+        }
+
+        state.score += Math.round(points);
+        state.bossHp = Math.max(0, state.bossHp - Math.round(damage));
+        bossHitFx();
+
+        if(state.bossHp <= 0){
+          endMain(true, 'boss-defeated');
+        }
+      }
+
+      function hitBad(data, kind){
+        if(state.shield > 0){
+          state.shield -= 1;
+          toast('🛡️ Shield ช่วยกันพลาด!');
+          return;
+        }
+
+        state.combo = 0;
+        state.misses += 1;
+
+        if(kind === 'junk') state.junkHits += 1;
+        if(kind === 'fake') state.fakeHits += 1;
+
+        state.lives -= 1;
+        state.bossHp = Math.min(state.bossMaxHp, state.bossHp + 8);
+
+        cameraShake();
+
+        toast(kind === 'fake'
+          ? `ระวัง fake healthy ${data.icon || '🧃'}`
+          : `โดน junk ${data.icon || '🍟'}`
+        );
+
+        if(state.lives <= 0){
+          endMain(false, 'no-lives');
+        }
+      }
+
+      function hitPower(data){
+        state.score += 35;
+        state.combo += 1;
+
+        if(data.id === 'shield'){
+          state.shield = Math.min(2, state.shield + 1);
+          toast('🛡️ ได้ Shield!');
+        }else if(data.id === 'fever'){
+          state.feverUntil = now() + 6500;
+          toast('⚡ Fever Time!');
+        }else if(data.id === 'heal'){
+          state.lives = Math.min(D.lives, state.lives + 1);
+          toast('💚 ฟื้นพลัง +1');
+        }else if(data.id === 'powerFood'){
+          state.powerFoodReady = true;
+          toast('⭐ Power Food พร้อม!');
+        }
+      }
+
+      function hitBreath(data){
+        state.cooldownBreath += 1;
+        state.cooldownGood += data.icon === '🥦' ? 1 : 0;
+        state.score += 5;
+
+        toast(`Cooldown ${state.cooldownBreath}/3`);
+
+        if(state.cooldownBreath >= 3){
+          setMission('Cooldown สำเร็จ! กลับหน้าโหมดเกมได้เลย');
+          setTimeout(showFinal, 700);
+        }
+      }
+
+      function expireTarget(wrap, kind, data){
+        if(!wrap || wrap.dataset.consumed === '1') return;
+
+        wrap.dataset.consumed = '1';
+        state.targets.delete(wrap);
+
+        if(kind === 'good'){
+          state.misses += 1;
+          state.combo = 0;
+          toast(`พลาดอาหารดี ${data.icon || ''}`);
+        }
+
+        try{ wrap.remove(); }catch(e){}
+        updateHud();
+      }
+
+      function popFx(wrap, kind, data){
+        const pos = wrap.object3D.position.clone();
+        const fx = DOC.createElement('a-text');
+
+        fx.setAttribute('value',
+          kind.includes('good') ? '+GOOD' :
+          kind === 'power' || kind === 'warm-power' ? data.icon || '⭐' :
+          kind === 'breath' ? '+CALM' :
+          'MISS'
+        );
+
+        fx.setAttribute('align','center');
+        fx.setAttribute('width','3');
+        fx.setAttribute('color',
+          kind.includes('good') ? '#16a34a' :
+          kind === 'power' || kind === 'warm-power' || kind === 'breath' ? '#f59e0b' :
+          '#ef4444'
+        );
+
+        fx.setAttribute('position', `${pos.x} ${pos.y + 0.32} ${pos.z}`);
+        fx.setAttribute('animation__rise', {
+          property:'position',
+          to:`${pos.x} ${pos.y + 1.05} ${pos.z}`,
+          dur:650,
+          easing:'easeOutQuad'
+        });
+        fx.setAttribute('animation__fade', {
+          property:'opacity',
+          to:'0',
+          dur:650,
+          easing:'easeOutQuad'
+        });
+
+        el.fxRoot.appendChild(fx);
+
+        setTimeout(() => {
+          try{ fx.remove(); }catch(e){}
+        }, 720);
+      }
+
+      function bossHitFx(){
+        if(!el.bossRoot) return;
+
+        el.bossRoot.setAttribute('animation__hit', {
+          property:'scale',
+          from:'1.16 1.16 1.16',
+          to:'1 1 1',
+          dur:190,
+          easing:'easeOutQuad'
+        });
+
+        const beam = DOC.createElement('a-cylinder');
+        beam.setAttribute('radius','0.035');
+        beam.setAttribute('height','6.8');
+        beam.setAttribute('color', isFever() ? '#facc15' : '#22c55e');
+        beam.setAttribute('opacity','0.65');
+        beam.setAttribute('material','transparent:true; opacity:0.65');
+        beam.setAttribute('position','0 1.65 -4');
+        beam.setAttribute('rotation','90 0 0');
+        beam.setAttribute('animation__fade', {
+          property:'opacity',
+          to:'0',
+          dur:220
+        });
+
+        el.fxRoot.appendChild(beam);
+
+        setTimeout(() => {
+          try{ beam.remove(); }catch(e){}
+        }, 260);
+      }
+
+      function cameraShake(){
+        const rig = id('cameraRig');
+        if(!rig) return;
+
+        rig.setAttribute('animation__shake', {
+          property:'position',
+          from:'0.06 1.6 0.04',
+          to:'0 1.6 0',
+          dur:180,
+          easing:'easeOutQuad'
+        });
+      }
+
+      function startWarmup(){
+        state.stage = 'warmup';
+        state.started = true;
+        state.ended = false;
+        state.warmGood = 0;
+        state.warmPower = 0;
+
+        hide(el.startOverlay);
+        hide(el.summaryOverlay);
+        hide(el.finalOverlay);
+
+        setMission('Warmup: ยิงอาหารดี 2 ชิ้น แล้วอย่ายิง junk');
+        spawnWarmupSet();
+        updateHud();
+        toast('Warmup เริ่มแล้ว!');
+      }
+
+      function startMain(){
+        state.stage = 'main';
+        state.startAt = now();
+
+        clearTargets();
+
+        setMission('Boss: ยิงอาหารดี ลด HP บอส!');
+        toast('Boss Fight เริ่ม!');
+        updateHud();
+
+        clearInterval(state.spawnTimer);
+        state.spawnTimer = setInterval(spawnMain, Math.max(430, D.spawnMs));
+
+        clearInterval(state.clockTimer);
+        state.clockTimer = setInterval(() => {
+          if(state.stage !== 'main') return;
+
+          state.timeLeft -= 1;
+
+          if(el.scene){
+            el.scene.setAttribute('background', 'color', isFever() ? '#fff7cc' : '#dff7ec');
+          }
+
+          if(state.timeLeft <= 0){
+            endMain(state.bossHp <= state.bossMaxHp * 0.25, 'time-up');
+          }
+
+          updateHud();
+        }, 1000);
+      }
+
+      function calculateRank(){
+        const acc = state.shots > 0 ? state.goodHits / Math.max(1,state.shots) : 0;
+        const hpWin = state.bossHp <= 0;
+        const survival = state.lives / D.lives;
+
+        let stars = 1;
+        if(hpWin) stars += 1;
+        if(acc >= .55) stars += 1;
+        if(state.bestCombo >= 8) stars += 1;
+        if(survival >= .5) stars += 1;
+
+        stars = clamp(stars,1,5);
+
+        let rank = 'C';
+        if(stars >= 5) rank = 'S';
+        else if(stars >= 4) rank = 'A';
+        else if(stars >= 3) rank = 'B';
+
+        return { rank, stars, acc };
+      }
+
+      function endMain(win, reason){
+        if(state.stage !== 'main') return;
+
+        state.stage = 'summary';
+        state.ended = true;
+
+        clearInterval(state.spawnTimer);
+        clearInterval(state.clockTimer);
+        clearTargets();
+
+        const result = calculateRank();
+
+        if(el.summaryIcon) el.summaryIcon.textContent = win ? '🏆' : '💪';
+        if(el.summaryTitle) el.summaryTitle.textContent = win ? 'Victory!' : 'Good Try!';
+        if(el.summaryTip){
+          el.summaryTip.textContent = state.fakeHits > 0
+            ? 'วันนี้พลาด fake healthy ด้วย ระวังน้ำหวาน/ซีเรียลหวานที่ดูเหมือนสุขภาพดี'
+            : 'เลือกอาหารดีได้ดีมาก รอบหน้าลองรักษา combo ให้สูงขึ้น';
+        }
+
+        if(el.sumScore) el.sumScore.textContent = String(state.score);
+        if(el.sumRank) el.sumRank.textContent = `${result.rank} ⭐${result.stars}`;
+        if(el.sumGood) el.sumGood.textContent = String(state.goodHits);
+        if(el.sumMiss) el.sumMiss.textContent = String(state.misses + state.junkHits + state.fakeHits);
+
+        show(el.summaryOverlay);
+        setMission('Summary: ดูผล แล้วทำ 3D Cooldown ต่อ');
+
+        saveSummary(win, reason, result);
+        updateHud();
+      }
+
+      function saveSummary(win, reason, result){
+        try{
+          localStorage.setItem('GJ_FULL_3D_VR_LAST_SUMMARY', JSON.stringify({
+            patch:PATCH,
+            win,
+            reason,
+            score:state.score,
+            rank:result.rank,
+            stars:result.stars,
+            goodHits:state.goodHits,
+            junkHits:state.junkHits,
+            fakeHits:state.fakeHits,
+            misses:state.misses,
+            bestCombo:state.bestCombo,
+            launcher:ROUTES.launcher,
+            savedAt:new Date().toISOString()
+          }));
+        }catch(e){}
+      }
+
+      function startCooldown(){
+        state.stage = 'cooldown';
+        state.cooldownBreath = 0;
+        state.cooldownGood = 0;
+
+        hide(el.summaryOverlay);
+
+        clearTargets();
+
+        if(el.scene){
+          el.scene.setAttribute('background','color','#e0f2fe');
+        }
+
+        setMission('Cooldown: ยิง 🌬️ 💧 🥦 ให้ครบ 3 ชิ้น');
+        spawnCooldownSet();
+        updateHud();
+        toast('เริ่ม 3D Cooldown');
+      }
+
+      function showFinal(){
+        state.stage = 'done';
+        clearTargets();
+        show(el.finalOverlay);
+        updateHud();
+      }
+
+      function goLauncher(){
+        location.href = ROUTES.launcher;
+      }
+
+      function goHub(){
+        location.href = ROUTES.hub;
+      }
+
+      function replay(){
+        location.reload();
+      }
+
+      function bind(){
+        el.startBtn?.addEventListener('click', startWarmup);
+
+        el.vrHintBtn?.addEventListener('click', () => {
+          toast('กด Enter VR ของ A-Frame แล้วใช้ crosshair + ปุ่มยิง 🎯');
+        });
+
+        el.shootBtn?.addEventListener('click', e => {
+          e.preventDefault();
+          shoot();
+        });
+
+        DOC.addEventListener('keydown', e => {
+          if(e.code === 'Space' || e.code === 'Enter'){
+            e.preventDefault();
+            shoot();
+          }
+        });
+
+        WIN.addEventListener('hha:shoot', shoot);
+
+        el.backBtn?.addEventListener('click', goLauncher);
+        el.cooldownBtn?.addEventListener('click', startCooldown);
+        el.replayBtn?.addEventListener('click', replay);
+        el.launcherBtn?.addEventListener('click', goLauncher);
+        el.finalLauncherBtn?.addEventListener('click', goLauncher);
+        el.finalHubBtn?.addEventListener('click', goHub);
+
+        DOC.addEventListener('click', e => {
+          const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
+          if(t){
+            e.preventDefault();
+            hitTarget(t);
+          }
+        }, true);
+      }
+
+      function makeDecor(){
+        for(let i=0;i<24;i++){
+          const dot = DOC.createElement('a-sphere');
+          const a = Math.PI * 2 * i / 24;
+          const r = 9 + (i % 3);
+
+          dot.setAttribute('position', `${Math.cos(a)*r} ${rand(.4,2.9)} ${-4 + Math.sin(a)*r}`);
+          dot.setAttribute('radius', String(rand(.05,.13)));
+          dot.setAttribute('color', i % 2 ? '#ffffff' : '#86efac');
+          dot.setAttribute('material','transparent:true; opacity:0.45');
+
+          el.fxRoot.appendChild(dot);
+        }
+      }
+
+      function boot(){
+        makeDecor();
+        bind();
+        updateHud();
+
+        WIN.GoodJunkFull3DVRFlow = {
+          version:PATCH,
+          startWarmup,
+          startMain,
+          startCooldown,
+          shoot,
+          goLauncher,
+          getState:()=>({...state, patch:PATCH})
+        };
+
+        WIN.GJF3D = WIN.GoodJunkFull3DVRFlow;
+
+        try{
+          localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
+            patch:PATCH,
+            href:location.href,
+            savedAt:new Date().toISOString()
+          }));
+        }catch(e){}
+      }
+
+      if(DOC.readyState === 'loading'){
+        DOC.addEventListener('DOMContentLoaded', boot);
+      }else{
+        boot();
+      }
+    })();
+  </script>
+</body>
+</html>
