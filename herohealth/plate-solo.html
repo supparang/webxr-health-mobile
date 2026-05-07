@@ -7,8 +7,8 @@
   <meta name="theme-color" content="#ffdd75" />
   <meta name="color-scheme" content="light" />
 
-  <link rel="stylesheet" href="./plate-solo.css?v=20260506-v27" />
-  <script defer src="./plate-solo.js?v=20260506-v26"></script>
+  <link rel="stylesheet" href="./plate-solo.css?v=20260506-v40" />
+  <script defer src="./plate-solo.js?v=20260506-v40"></script>
 </head>
 
 <body>
@@ -74,7 +74,116 @@
 
       <section id="arena" class="arena">
         <div id="phaseBanner" class="phaseBanner">Wave 1</div>
+
+        <div id="arcadeHud" class="arcadeHud hidden">
+          <div class="arcadeStats">
+            <div class="arcadeStat">
+              <b id="miniScore">0</b>
+              <span>คะแนน</span>
+            </div>
+            <div class="arcadeStat">
+              <b id="miniCombo">0</b>
+              <span>คอมโบ</span>
+            </div>
+            <div class="arcadeStat">
+              <b id="miniBalance">0%</b>
+              <span>สมดุล</span>
+            </div>
+            <div class="arcadeStat">
+              <b id="miniTime">--</b>
+              <span>เวลา</span>
+            </div>
+          </div>
+
+          <div id="compactMeters" class="compactMeters"></div>
+
+          <div id="plateHealthHud" class="plateHealthHud">
+            <span id="plateHealthIcon">❤️</span>
+            <div class="plateHealthBar">
+              <i id="plateHealthFill"></i>
+            </div>
+            <span id="plateHealthText">Plate 100%</span>
+          </div>
+
+          <button id="btnInfoToggle" class="infoToggleBtn" type="button">
+            📊 ข้อมูล
+          </button>
+        </div>
+
+        <div id="infoDrawer" class="infoDrawer hidden">
+          <div class="infoDrawerHead">
+            <b>📊 ข้อมูลจานสุขภาพ</b>
+            <button id="btnInfoClose" type="button">ปิด</button>
+          </div>
+          <div id="infoDrawerContent" class="infoDrawerContent"></div>
+        </div>
+
+        <div id="feverLayer" class="feverLayer hidden">
+          <div class="feverText">🔥 FEVER!</div>
+          <div class="feverSub">คะแนน x2 • รีบทำคอมโบ!</div>
+        </div>
+
+        <div id="finalRush" class="finalRush hidden">
+          ⏱️ Final Rush! รักษาจานให้สมดุล!
+        </div>
+
+        <div id="aiDirectorChip" class="aiDirectorChip hidden">
+          <span id="aiDirectorIcon">🤖</span>
+          <span id="aiDirectorText">AI Coach พร้อมช่วย</span>
+        </div>
+
+        <div id="practiceCoach" class="practiceCoach hidden">
+          <div class="practiceTop">
+            <span id="practiceIcon">🧑‍🍳</span>
+            <span id="practiceTitle">Practice Mode</span>
+            <span id="practiceSec">20s</span>
+          </div>
+          <div id="practiceText" class="practiceText">
+            ลองเลือกอาหารที่จานยังขาดก่อนนะ
+          </div>
+          <div class="practiceTimer">
+            <i id="practiceFill"></i>
+          </div>
+          <button id="btnSkipPractice" class="practiceSkip" type="button">
+            ข้าม Practice
+          </button>
+        </div>
+
+        <div id="bossAvatar" class="bossAvatar hidden">
+          <div id="bossFace" class="bossFace">👾</div>
+          <div id="bossLabel" class="bossLabel">Boss</div>
+        </div>
+
         <div id="bossSkillFlash" class="bossSkillFlash">Boss Skill!</div>
+
+        <div id="bossMechanicBox" class="bossMechanicBox">
+          <div class="bossMechanicTop">
+            <span id="bossMechanicTitle">Boss Mission</span>
+            <span id="bossMechanicSec">--</span>
+          </div>
+          <div id="bossMechanicText" class="bossMechanicText">
+            เตรียมแก้เกมจากบอส!
+          </div>
+          <div class="bossMechanicTimer">
+            <i id="bossMechanicFill"></i>
+          </div>
+        </div>
+
+        <div id="lastSaveBox" class="lastSaveBox">
+          <div class="lastSaveTop">
+            <span>🚨 LAST SAVE</span>
+            <span id="lastSaveSec">--</span>
+          </div>
+          <div id="lastSaveText" class="lastSaveText">
+            จานใกล้พัง! รีบกู้สมดุล
+          </div>
+          <div class="lastSaveTimer">
+            <i id="lastSaveFill"></i>
+          </div>
+        </div>
+
+        <div id="juiceLayer" class="juiceLayer"></div>
+        <div id="laneWarn" class="laneWarn"></div>
 
         <div id="orderBox" class="orderBox">
           <div class="orderTop">
@@ -112,6 +221,7 @@
 
         <div class="plateWrap">
           <div id="plate" class="plate">
+            <div id="plateCrack" class="plateCrack"></div>
             <div id="plateFoods" class="plateFoods"></div>
             <div id="plateLabel" class="plateLabel">Perfect Plate?</div>
           </div>
