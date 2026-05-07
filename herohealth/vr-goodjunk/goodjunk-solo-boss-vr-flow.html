@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL MERGED PATCH v8.44.7-GOODJUNK-VR-SUMMARY-GUARD-RANK-FIX -->
+<!-- FULL MERGED PATCH v8.44.8-GOODJUNK-VR-AFRAME-MATERIAL-SAFE-FIX -->
 <!-- GoodJunk Full 3D VR Flow
      ✅ PNG object targets from /herohealth/assets/goodjunk/*.png
      ✅ Runtime remove white background
@@ -10,6 +10,8 @@
      ✅ Debug panel + version stamp + boot safety
      ✅ Summary guard: no empty Score 0 / Good 0 / Rank A
      ✅ Hide HUD / crosshair / shoot button on Summary / Final
+     ✅ A-Frame material safe: wait scene loaded before dynamic material
+     ✅ Safe remove dynamic a-text / FX objects
 -->
 
 <!doctype html>
@@ -20,6 +22,7 @@
   <title>HeroHealth • GoodJunk Full 3D VR Flow</title>
   <meta name="theme-color" content="#bbf7d0" />
   <meta name="color-scheme" content="light" />
+  <link rel="icon" href="data:," />
 
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 
@@ -957,8 +960,8 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.44.7-GOODJUNK-VR-SUMMARY-GUARD-RANK-FIX';
-      const ASSET_VERSION = 'v8447';
+      const PATCH = 'v8.44.8-GOODJUNK-VR-AFRAME-MATERIAL-SAFE-FIX';
+      const ASSET_VERSION = 'v8448';
 
       const WIN = window;
       const DOC = document;
@@ -1154,6 +1157,63 @@
         DOC.body.classList.toggle('view-pc', cfg.view === 'pc');
       }
 
+      function sceneReady(){
+        return !!(el.scene && el.scene.hasLoaded && el.scene.systems);
+      }
+
+      function afterSceneReady(fn){
+        if(sceneReady()){
+          try{ fn(); }catch(err){ saveLastError('afterSceneReady-now', err); }
+          return;
+        }
+
+        if(el.scene){
+          el.scene.addEventListener('loaded', function once(){
+            try{ fn(); }catch(err){ saveLastError('afterSceneReady-loaded', err); }
+          }, { once:true });
+          return;
+        }
+
+        setTimeout(function(){
+          try{ fn(); }catch(err){ saveLastError('afterSceneReady-timeout', err); }
+        }, 250);
+      }
+
+      function safeSetAttr(entity, name, value){
+        if(!entity) return false;
+
+        try{
+          if(name === 'material' && !entity.sceneEl){
+            afterSceneReady(function(){
+              if(entity && entity.parentNode){
+                entity.setAttribute(name, value);
+              }
+            });
+            return true;
+          }
+
+          entity.setAttribute(name, value);
+          return true;
+        }catch(err){
+          saveLastError('safeSetAttr:' + name, err);
+          return false;
+        }
+      }
+
+      function safeRemoveEntity(entity, delay){
+        if(!entity) return;
+
+        setTimeout(function(){
+          try{
+            if(entity.parentNode){
+              entity.parentNode.removeChild(entity);
+            }
+          }catch(err){
+            saveLastError('safeRemoveEntity', err);
+          }
+        }, Number(delay || 0));
+      }
+
       function setSummaryOpen(on){
         DOC.body.classList.toggle('summary-open', !!on);
       }
@@ -1308,27 +1368,35 @@
       function applyImageMaterial(entity, file){
         if(!entity) return;
 
-        entity.setAttribute('material', {
-          color:'#ffffff',
-          transparent:true,
-          opacity:0.001,
-          alphaTest:0.01,
-          side:'double',
-          shader:'flat',
-          depthTest:true
-        });
+        afterSceneReady(function(){
+          if(!entity || !entity.parentNode) return;
 
-        cleanWhitePngUrl(file).then(function(cleanUrl){
-          if(!entity.parentNode) return;
-
-          entity.setAttribute('material', {
-            src:cleanUrl,
+          safeSetAttr(entity, 'material', {
+            color:'#ffffff',
             transparent:true,
-            opacity:1,
-            alphaTest:0.02,
+            opacity:0.001,
+            alphaTest:0.01,
             side:'double',
             shader:'flat',
             depthTest:true
+          });
+
+          cleanWhitePngUrl(file).then(function(cleanUrl){
+            afterSceneReady(function(){
+              if(!entity || !entity.parentNode) return;
+
+              safeSetAttr(entity, 'material', {
+                src:cleanUrl,
+                transparent:true,
+                opacity:1,
+                alphaTest:0.02,
+                side:'double',
+                shader:'flat',
+                depthTest:true
+              });
+            });
+          }).catch(function(err){
+            saveLastError('applyImageMaterial-cleanWhitePngUrl', err);
           });
         });
       }
@@ -1529,6 +1597,12 @@
       function hide(node){ node && node.classList.add('hidden'); }
 
       function saveLastError(label, err){
+        const t = Date.now();
+        if(saveLastError._last && t - saveLastError._last < 1200){
+          return;
+        }
+        saveLastError._last = t;
+
         try{
           const payload = {
             patch:PATCH,
@@ -1556,7 +1630,7 @@
       function setVersionStamp(){
         if(!el.versionStamp) return;
 
-        el.versionStamp.textContent = '8.44.7 FIX';
+        el.versionStamp.textContent = '8.44.8 SAFE';
         el.versionStamp.title = PATCH + ' | ' + assetUrl('broccoli.png');
       }
 
@@ -1649,8 +1723,8 @@
         }
 
         if(el.bossBody){
-          el.bossBody.setAttribute('color', bodyColor);
-          el.bossBody.setAttribute('material', {
+          safeSetAttr(el.bossBody, 'color', bodyColor);
+          safeSetAttr(el.bossBody, 'material', {
             color: bodyColor,
             emissive: p >= 4 ? '#7c3aed' : p >= 2 ? '#7f1d1d' : '#000000',
             emissiveIntensity: p >= 4 ? 0.22 : p >= 2 ? 0.12 : 0
@@ -1658,8 +1732,8 @@
         }
 
         if(el.bossAura){
-          el.bossAura.setAttribute('color', auraColor);
-          el.bossAura.setAttribute('material', {
+          safeSetAttr(el.bossAura, 'color', auraColor);
+          safeSetAttr(el.bossAura, 'material', {
             transparent:true,
             opacity:auraOpacity,
             side:'double'
@@ -1667,17 +1741,17 @@
         }
 
         if(el.bossWarningRing){
-          el.bossWarningRing.setAttribute('visible', warningVisible ? 'true' : 'false');
-          el.bossWarningRing.setAttribute('color', p === 4 ? '#facc15' : '#ef4444');
+          safeSetAttr(el.bossWarningRing, 'visible', warningVisible ? 'true' : 'false');
+          safeSetAttr(el.bossWarningRing, 'color', p === 4 ? '#facc15' : '#ef4444');
         }
 
-        if(el.bossLabel) el.bossLabel.setAttribute('value', label);
-        if(el.bossBelly) el.bossBelly.setAttribute('color', bellyColor);
-        if(el.bossHornL) el.bossHornL.setAttribute('color', hornColor);
-        if(el.bossHornR) el.bossHornR.setAttribute('color', hornColor);
+        if(el.bossLabel) safeSetAttr(el.bossLabel, 'value', label);
+        if(el.bossBelly) safeSetAttr(el.bossBelly, 'color', bellyColor);
+        if(el.bossHornL) safeSetAttr(el.bossHornL, 'color', hornColor);
+        if(el.bossHornR) safeSetAttr(el.bossHornR, 'color', hornColor);
 
         const panic = 1 + (1 - pct) * 0.10;
-        el.bossRoot.setAttribute('scale', `${panic} ${panic} ${panic}`);
+        safeSetAttr(el.bossRoot, 'scale', `${panic} ${panic} ${panic}`);
       }
 
       function updateBossPhase(){
@@ -1711,12 +1785,14 @@
 
       function clearTargets(){
         state.targets.forEach(x => {
-          try{ x.remove(); }catch(e){}
+          safeRemoveEntity(x, 0);
         });
 
         state.targets.clear();
 
-        if(el.targetRoot) el.targetRoot.innerHTML = '';
+        if(el.targetRoot){
+          try{ el.targetRoot.innerHTML = ''; }catch(e){}
+        }
       }
 
       function makeTargetEntity(kind, data, opts){
@@ -1733,10 +1809,10 @@
         const y = opts.y ?? rand(1.38, 2.04);
         const z = opts.z ?? rand(-6.8, -5.6);
 
-        wrap.setAttribute('position', `${x} ${y} ${z}`);
+        safeSetAttr(wrap, 'position', `${x} ${y} ${z}`);
 
         const targetScale = Number(opts.scale || 1);
-        wrap.setAttribute('scale', `${targetScale} ${targetScale} ${targetScale}`);
+        safeSetAttr(wrap, 'scale', `${targetScale} ${targetScale} ${targetScale}`);
 
         return wrap;
       }
@@ -1744,11 +1820,11 @@
       function makeHitbox(w,h,d){
         const hitbox = DOC.createElement('a-box');
         hitbox.classList.add('gj-hitbox');
-        hitbox.setAttribute('width', String(w || 2.45));
-        hitbox.setAttribute('height', String(h || 2.1));
-        hitbox.setAttribute('depth', String(d || 0.4));
-        hitbox.setAttribute('position', '0 0.05 0.04');
-        hitbox.setAttribute('material', 'transparent:true; opacity:0.001; depthWrite:false');
+        safeSetAttr(hitbox, 'width', String(w || 2.45));
+        safeSetAttr(hitbox, 'height', String(h || 2.1));
+        safeSetAttr(hitbox, 'depth', String(d || 0.4));
+        safeSetAttr(hitbox, 'position', '0 0.05 0.04');
+        safeSetAttr(hitbox, 'material', 'transparent:true; opacity:0.001; depthWrite:false');
         return hitbox;
       }
 
@@ -1762,25 +1838,32 @@
         const mark = DOC.createElement('a-entity');
 
         const circle = DOC.createElement('a-circle');
-        circle.setAttribute('radius', '0.22');
-        circle.setAttribute('color', isGood ? '#16a34a' : isJunk ? '#ef4444' : '#f59e0b');
-        circle.setAttribute('position', '0 0 0.03');
+        safeSetAttr(circle, 'radius', '0.22');
+        safeSetAttr(circle, 'color', isGood ? '#16a34a' : isJunk ? '#ef4444' : '#f59e0b');
+        safeSetAttr(circle, 'position', '0 0 0.03');
 
         const t = DOC.createElement('a-text');
-        t.setAttribute('value', isGood ? '✓' : isJunk ? 'X' : '!');
-        t.setAttribute('align', 'center');
-        t.setAttribute('color', '#ffffff');
-        t.setAttribute('width', '1.5');
-        t.setAttribute('position', '0 -0.07 0.06');
+        safeSetAttr(t, 'value', isGood ? '✓' : isJunk ? 'X' : '!');
+        safeSetAttr(t, 'align', 'center');
+        safeSetAttr(t, 'color', '#ffffff');
+        safeSetAttr(t, 'width', '1.5');
+        safeSetAttr(t, 'position', '0 -0.07 0.06');
 
         mark.appendChild(circle);
         mark.appendChild(t);
-        mark.setAttribute('position', '0.68 -0.56 0.20');
+        safeSetAttr(mark, 'position', '0.68 -0.56 0.20');
 
         return mark;
       }
 
       function createTarget(kind, data, opts){
+        if(!sceneReady()){
+          afterSceneReady(function(){
+            createTarget(kind, data, opts);
+          });
+          return null;
+        }
+
         opts = opts || {};
         data = data || {};
 
@@ -1821,12 +1904,12 @@
         wrap.appendChild(makeHitbox(2.55, 2.25, 0.48));
 
         const halo = DOC.createElement('a-ring');
-        halo.setAttribute('radius-inner', '0.86');
-        halo.setAttribute('radius-outer', '1.02');
-        halo.setAttribute('color', theme.rim);
-        halo.setAttribute('position', '0 0.08 0.02');
-        halo.setAttribute('material', 'transparent:true; opacity:0.54; side:double');
-        halo.setAttribute('animation__pulse', {
+        safeSetAttr(halo, 'radius-inner', '0.86');
+        safeSetAttr(halo, 'radius-outer', '1.02');
+        safeSetAttr(halo, 'color', theme.rim);
+        safeSetAttr(halo, 'position', '0 0.08 0.02');
+        safeSetAttr(halo, 'material', 'transparent:true; opacity:0.54; side:double');
+        safeSetAttr(halo, 'animation__pulse', {
           property:'scale',
           dir:'alternate',
           loop:true,
@@ -1837,16 +1920,16 @@
         wrap.appendChild(halo);
 
         const plate = DOC.createElement('a-circle');
-        plate.setAttribute('radius', '0.84');
-        plate.setAttribute('color', theme.bg);
-        plate.setAttribute('position', '0 0.08 0.035');
-        plate.setAttribute('material', 'transparent:true; opacity:0.18; side:double');
+        safeSetAttr(plate, 'radius', '0.84');
+        safeSetAttr(plate, 'color', theme.bg);
+        safeSetAttr(plate, 'position', '0 0.08 0.035');
+        safeSetAttr(plate, 'material', 'transparent:true; opacity:0.18; side:double');
         wrap.appendChild(plate);
 
         const imgPanel = DOC.createElement('a-plane');
-        imgPanel.setAttribute('width', isPower ? '1.42' : '1.58');
-        imgPanel.setAttribute('height', isPower ? '1.42' : '1.58');
-        imgPanel.setAttribute('position', '0 0.14 0.24');
+        safeSetAttr(imgPanel, 'width', isPower ? '1.42' : '1.58');
+        safeSetAttr(imgPanel, 'height', isPower ? '1.42' : '1.58');
+        safeSetAttr(imgPanel, 'position', '0 0.14 0.24');
         wrap.appendChild(imgPanel);
         applyImageMaterial(imgPanel, data.file || 'broccoli.png');
 
@@ -1854,7 +1937,8 @@
         if(mark) wrap.appendChild(mark);
 
         const actionLabel = DOC.createElement('a-text');
-        actionLabel.setAttribute(
+        safeSetAttr(
+          actionLabel,
           'value',
           isGood ? 'EAT' :
           isJunk ? 'NO!' :
@@ -1862,33 +1946,34 @@
           isPower ? theme.label :
           'CALM'
         );
-        actionLabel.setAttribute('align', 'center');
-        actionLabel.setAttribute(
+        safeSetAttr(actionLabel, 'align', 'center');
+        safeSetAttr(
+          actionLabel,
           'color',
           isGood ? '#14532d' :
           isJunk ? '#7f1d1d' :
           isFake ? '#78350f' :
           '#172554'
         );
-        actionLabel.setAttribute('width', cfg.view === 'cvr' ? '2.25' : '2.65');
-        actionLabel.setAttribute('position', cfg.view === 'cvr' ? '0 -0.86 0.26' : '0 -0.93 0.26');
-        actionLabel.setAttribute('visible', cfg.view === 'cvr' ? 'false' : 'true');
+        safeSetAttr(actionLabel, 'width', cfg.view === 'cvr' ? '2.25' : '2.65');
+        safeSetAttr(actionLabel, 'position', cfg.view === 'cvr' ? '0 -0.86 0.26' : '0 -0.93 0.26');
+        safeSetAttr(actionLabel, 'visible', cfg.view === 'cvr' ? 'false' : 'true');
         wrap.appendChild(actionLabel);
 
         const name = DOC.createElement('a-text');
-        name.setAttribute('value', data.label || theme.label);
-        name.setAttribute('align', 'center');
-        name.setAttribute('color', '#0f172a');
-        name.setAttribute('width', '2.45');
-        name.setAttribute('position', '0 1.02 0.26');
-        name.setAttribute('visible', cfg.view === 'cvr' ? 'false' : 'true');
+        safeSetAttr(name, 'value', data.label || theme.label);
+        safeSetAttr(name, 'align', 'center');
+        safeSetAttr(name, 'color', '#0f172a');
+        safeSetAttr(name, 'width', '2.45');
+        safeSetAttr(name, 'position', '0 1.02 0.26');
+        safeSetAttr(name, 'visible', cfg.view === 'cvr' ? 'false' : 'true');
         wrap.appendChild(name);
 
         const dur = opts.dur || Math.max(3300, comfortDur() - state.combo * 45);
         const pos = wrap.getAttribute('position');
 
         if(opts.static){
-          wrap.setAttribute('animation__float', {
+          safeSetAttr(wrap, 'animation__float', {
             property:'position',
             dir:'alternate',
             loop:true,
@@ -1900,7 +1985,7 @@
           const targetZ = cfg.view === 'cvr' ? 1.18 : 0.92;
           const targetYJitter = cfg.view === 'cvr' ? rand(-0.07,0.07) : rand(-0.16,0.16);
 
-          wrap.setAttribute('animation__fly', {
+          safeSetAttr(wrap, 'animation__fly', {
             property:'position',
             to:`${pos.x * 0.20} ${pos.y + targetYJitter} ${targetZ}`,
             dur:dur,
@@ -1910,7 +1995,7 @@
           wrap.addEventListener('animationcomplete__fly', () => expireTarget(wrap, kind, data));
         }
 
-        wrap.setAttribute('animation__tilt', {
+        safeSetAttr(wrap, 'animation__tilt', {
           property:'rotation',
           to:`0 ${rand(-8,8)} ${rand(-3,3)}`,
           dur:1100,
@@ -1919,7 +2004,7 @@
           easing:'easeInOutSine'
         });
 
-        wrap.setAttribute('animation__spawnpop', {
+        safeSetAttr(wrap, 'animation__spawnpop', {
           property:'scale',
           from:'0.55 0.55 0.55',
           to:wrap.getAttribute('scale') || '1 1 1',
@@ -1939,11 +2024,16 @@
       }
 
       function createVrStartPanel(){
+        if(!sceneReady()){
+          afterSceneReady(createVrStartPanel);
+          return;
+        }
+
         if(state.stage !== 'intro') return;
 
         const old = id('vrStartPanel');
         if(old){
-          try{ old.remove(); }catch(e){}
+          safeRemoveEntity(old, 0);
           state.targets.delete(old);
         }
 
@@ -1963,85 +2053,85 @@
         panel.appendChild(makeHitbox(4.1, 2.45, 0.5));
 
         const back = DOC.createElement('a-box');
-        back.setAttribute('width', '3.8');
-        back.setAttribute('height', '2.05');
-        back.setAttribute('depth', '0.08');
-        back.setAttribute('color', '#ffffff');
-        back.setAttribute('position', '0 0 0');
-        back.setAttribute('material', 'opacity:0.94; transparent:true; roughness:0.55');
+        safeSetAttr(back, 'width', '3.8');
+        safeSetAttr(back, 'height', '2.05');
+        safeSetAttr(back, 'depth', '0.08');
+        safeSetAttr(back, 'color', '#ffffff');
+        safeSetAttr(back, 'position', '0 0 0');
+        safeSetAttr(back, 'material', 'opacity:0.94; transparent:true; roughness:0.55');
         panel.appendChild(back);
 
         const rimTop = DOC.createElement('a-box');
-        rimTop.setAttribute('width', '3.95');
-        rimTop.setAttribute('height', '0.12');
-        rimTop.setAttribute('depth', '0.12');
-        rimTop.setAttribute('color', '#22c55e');
-        rimTop.setAttribute('position', '0 1.08 0.08');
+        safeSetAttr(rimTop, 'width', '3.95');
+        safeSetAttr(rimTop, 'height', '0.12');
+        safeSetAttr(rimTop, 'depth', '0.12');
+        safeSetAttr(rimTop, 'color', '#22c55e');
+        safeSetAttr(rimTop, 'position', '0 1.08 0.08');
         panel.appendChild(rimTop);
 
         const rimBottom = DOC.createElement('a-box');
-        rimBottom.setAttribute('width', '3.95');
-        rimBottom.setAttribute('height', '0.12');
-        rimBottom.setAttribute('depth', '0.12');
-        rimBottom.setAttribute('color', '#22c55e');
-        rimBottom.setAttribute('position', '0 -1.08 0.08');
+        safeSetAttr(rimBottom, 'width', '3.95');
+        safeSetAttr(rimBottom, 'height', '0.12');
+        safeSetAttr(rimBottom, 'depth', '0.12');
+        safeSetAttr(rimBottom, 'color', '#22c55e');
+        safeSetAttr(rimBottom, 'position', '0 -1.08 0.08');
         panel.appendChild(rimBottom);
 
         const title = DOC.createElement('a-text');
-        title.setAttribute('value', 'GOODJUNK 3D VR');
-        title.setAttribute('align', 'center');
-        title.setAttribute('color', '#0f172a');
-        title.setAttribute('width', '4.9');
-        title.setAttribute('position', '0 0.62 0.16');
+        safeSetAttr(title, 'value', 'GOODJUNK 3D VR');
+        safeSetAttr(title, 'align', 'center');
+        safeSetAttr(title, 'color', '#0f172a');
+        safeSetAttr(title, 'width', '4.9');
+        safeSetAttr(title, 'position', '0 0.62 0.16');
         panel.appendChild(title);
 
         const sub = DOC.createElement('a-text');
-        sub.setAttribute('value', 'PRESS SHOOT TO START');
-        sub.setAttribute('align', 'center');
-        sub.setAttribute('color', '#2563eb');
-        sub.setAttribute('width', '4.35');
-        sub.setAttribute('position', '0 0.25 0.16');
+        safeSetAttr(sub, 'value', 'PRESS SHOOT TO START');
+        safeSetAttr(sub, 'align', 'center');
+        safeSetAttr(sub, 'color', '#2563eb');
+        safeSetAttr(sub, 'width', '4.35');
+        safeSetAttr(sub, 'position', '0 0.25 0.16');
         panel.appendChild(sub);
 
         const startPlate = DOC.createElement('a-box');
-        startPlate.setAttribute('width', '2.2');
-        startPlate.setAttribute('height', '0.62');
-        startPlate.setAttribute('depth', '0.12');
-        startPlate.setAttribute('color', '#bbf7d0');
-        startPlate.setAttribute('position', '0 -0.38 0.16');
+        safeSetAttr(startPlate, 'width', '2.2');
+        safeSetAttr(startPlate, 'height', '0.62');
+        safeSetAttr(startPlate, 'depth', '0.12');
+        safeSetAttr(startPlate, 'color', '#bbf7d0');
+        safeSetAttr(startPlate, 'position', '0 -0.38 0.16');
         panel.appendChild(startPlate);
 
         const startText = DOC.createElement('a-text');
-        startText.setAttribute('value', 'START');
-        startText.setAttribute('align', 'center');
-        startText.setAttribute('color', '#14532d');
-        startText.setAttribute('width', '3.2');
-        startText.setAttribute('position', '0 -0.48 0.29');
+        safeSetAttr(startText, 'value', 'START');
+        safeSetAttr(startText, 'align', 'center');
+        safeSetAttr(startText, 'color', '#14532d');
+        safeSetAttr(startText, 'width', '3.2');
+        safeSetAttr(startText, 'position', '0 -0.48 0.29');
         panel.appendChild(startText);
 
         const shield = DOC.createElement('a-plane');
-        shield.setAttribute('width', '0.62');
-        shield.setAttribute('height', '0.62');
-        shield.setAttribute('position', '-1.38 -0.38 0.25');
+        safeSetAttr(shield, 'width', '0.62');
+        safeSetAttr(shield, 'height', '0.62');
+        safeSetAttr(shield, 'position', '-1.38 -0.38 0.25');
         panel.appendChild(shield);
         applyImageMaterial(shield, 'shield.png');
 
         const apple = DOC.createElement('a-plane');
-        apple.setAttribute('width', '0.62');
-        apple.setAttribute('height', '0.62');
-        apple.setAttribute('position', '1.38 -0.38 0.25');
+        safeSetAttr(apple, 'width', '0.62');
+        safeSetAttr(apple, 'height', '0.62');
+        safeSetAttr(apple, 'position', '1.38 -0.38 0.25');
         panel.appendChild(apple);
         applyImageMaterial(apple, 'apple.png');
 
         const hint = DOC.createElement('a-text');
-        hint.setAttribute('value', 'Tap / Shoot');
-        hint.setAttribute('align', 'center');
-        hint.setAttribute('color', '#475569');
-        hint.setAttribute('width', '3.7');
-        hint.setAttribute('position', '0 -0.86 0.16');
+        safeSetAttr(hint, 'value', 'Tap / Shoot');
+        safeSetAttr(hint, 'align', 'center');
+        safeSetAttr(hint, 'color', '#475569');
+        safeSetAttr(hint, 'width', '3.7');
+        safeSetAttr(hint, 'position', '0 -0.86 0.16');
         panel.appendChild(hint);
 
-        panel.setAttribute('animation__float', {
+        safeSetAttr(panel, 'animation__float', {
           property:'position',
           dir:'alternate',
           loop:true,
@@ -2063,9 +2153,14 @@
       }
 
       function startWarmupFromVr(){
+        if(!sceneReady()){
+          afterSceneReady(startWarmupFromVr);
+          return;
+        }
+
         const panel = id('vrStartPanel');
         if(panel){
-          try{ panel.remove(); }catch(e){}
+          safeRemoveEntity(panel, 0);
           state.targets.delete(panel);
         }
 
@@ -2315,6 +2410,7 @@
       }
 
       function createCooldownDecor(){
+        if(!sceneReady()) return;
         if(!el.fxRoot) return;
 
         clearCooldownDecor();
@@ -2324,18 +2420,18 @@
           const x = rand(-3.8, 3.8);
           const z = rand(-5.2, -3.2);
 
-          flower.setAttribute('position', `${x} 0.12 ${z}`);
+          safeSetAttr(flower, 'position', `${x} 0.12 ${z}`);
 
           const stem = DOC.createElement('a-cylinder');
-          stem.setAttribute('radius', '0.025');
-          stem.setAttribute('height', '0.32');
-          stem.setAttribute('color', '#16a34a');
-          stem.setAttribute('position', '0 0.16 0');
+          safeSetAttr(stem, 'radius', '0.025');
+          safeSetAttr(stem, 'height', '0.32');
+          safeSetAttr(stem, 'color', '#16a34a');
+          safeSetAttr(stem, 'position', '0 0.16 0');
 
           const head = DOC.createElement('a-sphere');
-          head.setAttribute('radius', '0.09');
-          head.setAttribute('color', i % 2 ? '#facc15' : '#fb7185');
-          head.setAttribute('position', '0 0.34 0');
+          safeSetAttr(head, 'radius', '0.09');
+          safeSetAttr(head, 'color', i % 2 ? '#facc15' : '#fb7185');
+          safeSetAttr(head, 'position', '0 0.34 0');
 
           flower.appendChild(stem);
           flower.appendChild(head);
@@ -2345,21 +2441,21 @@
 
         const rainbow = DOC.createElement('a-ring');
         rainbow.classList.add('cooldown-decor');
-        rainbow.setAttribute('radius-inner', '2.15');
-        rainbow.setAttribute('radius-outer', '2.22');
-        rainbow.setAttribute('theta-start', '0');
-        rainbow.setAttribute('theta-length', '180');
-        rainbow.setAttribute('position', '0 3.05 -6.2');
-        rainbow.setAttribute('rotation', '0 0 0');
-        rainbow.setAttribute('color', '#38bdf8');
-        rainbow.setAttribute('material', 'transparent:true; opacity:0.55; side:double');
+        safeSetAttr(rainbow, 'radius-inner', '2.15');
+        safeSetAttr(rainbow, 'radius-outer', '2.22');
+        safeSetAttr(rainbow, 'theta-start', '0');
+        safeSetAttr(rainbow, 'theta-length', '180');
+        safeSetAttr(rainbow, 'position', '0 3.05 -6.2');
+        safeSetAttr(rainbow, 'rotation', '0 0 0');
+        safeSetAttr(rainbow, 'color', '#38bdf8');
+        safeSetAttr(rainbow, 'material', 'transparent:true; opacity:0.55; side:double');
 
         el.fxRoot.appendChild(rainbow);
       }
 
       function clearCooldownDecor(){
         try{
-          Array.from(DOC.querySelectorAll('.cooldown-decor')).forEach(x => x.remove());
+          Array.from(DOC.querySelectorAll('.cooldown-decor')).forEach(x => safeRemoveEntity(x, 0));
         }catch(e){}
       }
 
@@ -2506,10 +2602,7 @@
           hitBreath(data);
         }
 
-        setTimeout(() => {
-          try{ wrap.remove(); }catch(e){}
-        }, 30);
-
+        safeRemoveEntity(wrap, 40);
         updateHud();
       }
 
@@ -2772,37 +2865,39 @@
           sfx('miss');
         }
 
-        try{ wrap.remove(); }catch(e){}
+        safeRemoveEntity(wrap, 0);
         updateHud();
       }
 
       function popFx(wrap, kind, data){
+        if(!sceneReady()) return;
+
         const pos = wrap.object3D.position.clone();
         const fx = DOC.createElement('a-text');
 
-        fx.setAttribute('value',
+        safeSetAttr(fx, 'value',
           kind.includes('good') ? '+GOOD' :
           kind === 'power' || kind === 'warm-power' ? 'POWER' :
           kind === 'breath' ? '+CALM' :
           'MISS'
         );
 
-        fx.setAttribute('align','center');
-        fx.setAttribute('width','3');
-        fx.setAttribute('color',
+        safeSetAttr(fx, 'align','center');
+        safeSetAttr(fx, 'width','3');
+        safeSetAttr(fx, 'color',
           kind.includes('good') ? '#16a34a' :
           kind === 'power' || kind === 'warm-power' || kind === 'breath' ? '#f59e0b' :
           '#ef4444'
         );
 
-        fx.setAttribute('position', `${pos.x} ${pos.y + 0.32} ${pos.z}`);
-        fx.setAttribute('animation__rise', {
+        safeSetAttr(fx, 'position', `${pos.x} ${pos.y + 0.32} ${pos.z}`);
+        safeSetAttr(fx, 'animation__rise', {
           property:'position',
           to:`${pos.x} ${pos.y + 1.05} ${pos.z}`,
           dur:650,
           easing:'easeOutQuad'
         });
-        fx.setAttribute('animation__fade', {
+        safeSetAttr(fx, 'animation__fade', {
           property:'opacity',
           to:'0',
           dur:650,
@@ -2810,18 +2905,16 @@
         });
 
         el.fxRoot.appendChild(fx);
-
-        setTimeout(() => {
-          try{ fx.remove(); }catch(e){}
-        }, 720);
+        safeRemoveEntity(fx, 900);
       }
 
       function bossHitFx(){
+        if(!sceneReady()) return;
         if(!el.bossRoot) return;
 
         sfx('boss');
 
-        el.bossRoot.setAttribute('animation__hit', {
+        safeSetAttr(el.bossRoot, 'animation__hit', {
           property:'scale',
           from:'1.22 1.22 1.22',
           to:'1 1 1',
@@ -2829,7 +2922,7 @@
           easing:'easeOutBack'
         });
 
-        el.bossRoot.setAttribute('animation__shake', {
+        safeSetAttr(el.bossRoot, 'animation__shake', {
           property:'rotation',
           from:'0 -7 0',
           to:'0 7 0',
@@ -2840,14 +2933,14 @@
         });
 
         const beam = DOC.createElement('a-cylinder');
-        beam.setAttribute('radius','0.045');
-        beam.setAttribute('height','6.8');
-        beam.setAttribute('color', isFever() ? '#facc15' : '#22c55e');
-        beam.setAttribute('opacity','0.78');
-        beam.setAttribute('material','transparent:true; opacity:0.78; emissive:#22c55e; emissiveIntensity:0.35');
-        beam.setAttribute('position','0 1.65 -4');
-        beam.setAttribute('rotation','90 0 0');
-        beam.setAttribute('animation__fade', {
+        safeSetAttr(beam, 'radius','0.045');
+        safeSetAttr(beam, 'height','6.8');
+        safeSetAttr(beam, 'color', isFever() ? '#facc15' : '#22c55e');
+        safeSetAttr(beam, 'opacity','0.78');
+        safeSetAttr(beam, 'material','transparent:true; opacity:0.78; emissive:#22c55e; emissiveIntensity:0.35');
+        safeSetAttr(beam, 'position','0 1.65 -4');
+        safeSetAttr(beam, 'rotation','90 0 0');
+        safeSetAttr(beam, 'animation__fade', {
           property:'opacity',
           to:'0',
           dur:260
@@ -2856,19 +2949,19 @@
         el.fxRoot.appendChild(beam);
 
         const burst = DOC.createElement('a-ring');
-        burst.setAttribute('radius-inner', '0.25');
-        burst.setAttribute('radius-outer', '0.34');
-        burst.setAttribute('position', '0 2.1 -7.0');
-        burst.setAttribute('color', isFever() ? '#facc15' : '#22c55e');
-        burst.setAttribute('material', 'transparent:true; opacity:0.75; side:double');
-        burst.setAttribute('animation__grow', {
+        safeSetAttr(burst, 'radius-inner', '0.25');
+        safeSetAttr(burst, 'radius-outer', '0.34');
+        safeSetAttr(burst, 'position', '0 2.1 -7.0');
+        safeSetAttr(burst, 'color', isFever() ? '#facc15' : '#22c55e');
+        safeSetAttr(burst, 'material', 'transparent:true; opacity:0.75; side:double');
+        safeSetAttr(burst, 'animation__grow', {
           property:'scale',
           from:'0.3 0.3 0.3',
           to:'3.2 3.2 3.2',
           dur:360,
           easing:'easeOutQuad'
         });
-        burst.setAttribute('animation__fade', {
+        safeSetAttr(burst, 'animation__fade', {
           property:'opacity',
           to:'0',
           dur:360
@@ -2878,45 +2971,41 @@
 
         for(let i = 0; i < 8; i++){
           const crumb = DOC.createElement('a-box');
-          crumb.setAttribute('width', '0.08');
-          crumb.setAttribute('height', '0.08');
-          crumb.setAttribute('depth', '0.08');
-          crumb.setAttribute('color', i % 2 ? '#f97316' : '#ef4444');
+          safeSetAttr(crumb, 'width', '0.08');
+          safeSetAttr(crumb, 'height', '0.08');
+          safeSetAttr(crumb, 'depth', '0.08');
+          safeSetAttr(crumb, 'color', i % 2 ? '#f97316' : '#ef4444');
 
           const x = rand(-0.4, 0.4);
           const y = rand(1.8, 2.45);
           const z = -7 + rand(-0.05, 0.25);
 
-          crumb.setAttribute('position', `${x} ${y} ${z}`);
-          crumb.setAttribute('animation__fly', {
+          safeSetAttr(crumb, 'position', `${x} ${y} ${z}`);
+          safeSetAttr(crumb, 'animation__fly', {
             property:'position',
             to:`${x + rand(-1.0,1.0)} ${y + rand(.3,1.0)} ${z + rand(.2,.8)}`,
             dur:480,
             easing:'easeOutQuad'
           });
-          crumb.setAttribute('animation__fade', {
+          safeSetAttr(crumb, 'animation__fade', {
             property:'opacity',
             to:'0',
             dur:480
           });
 
           el.fxRoot.appendChild(crumb);
-
-          setTimeout(() => {
-            try{ crumb.remove(); }catch(e){}
-          }, 560);
+          safeRemoveEntity(crumb, 620);
         }
 
-        setTimeout(() => {
-          try{ beam.remove(); }catch(e){}
-          try{ burst.remove(); }catch(e){}
-        }, 420);
+        safeRemoveEntity(beam, 520);
+        safeRemoveEntity(burst, 560);
       }
 
       function bossHealFx(){
+        if(!sceneReady()) return;
         if(!el.bossRoot) return;
 
-        el.bossRoot.setAttribute('animation__healpop', {
+        safeSetAttr(el.bossRoot, 'animation__healpop', {
           property:'scale',
           from:'1.20 1.20 1.20',
           to:'1 1 1',
@@ -2925,19 +3014,19 @@
         });
 
         const aura = DOC.createElement('a-ring');
-        aura.setAttribute('radius-inner', '0.65');
-        aura.setAttribute('radius-outer', '0.76');
-        aura.setAttribute('position', '0 2.05 -7.05');
-        aura.setAttribute('color', '#ef4444');
-        aura.setAttribute('material', 'transparent:true; opacity:0.76; side:double');
-        aura.setAttribute('animation__grow', {
+        safeSetAttr(aura, 'radius-inner', '0.65');
+        safeSetAttr(aura, 'radius-outer', '0.76');
+        safeSetAttr(aura, 'position', '0 2.05 -7.05');
+        safeSetAttr(aura, 'color', '#ef4444');
+        safeSetAttr(aura, 'material', 'transparent:true; opacity:0.76; side:double');
+        safeSetAttr(aura, 'animation__grow', {
           property:'scale',
           from:'0.4 0.4 0.4',
           to:'3.4 3.4 3.4',
           dur:430,
           easing:'easeOutQuad'
         });
-        aura.setAttribute('animation__fade', {
+        safeSetAttr(aura, 'animation__fade', {
           property:'opacity',
           to:'0',
           dur:430
@@ -2946,18 +3035,18 @@
         el.fxRoot.appendChild(aura);
 
         const healText = DOC.createElement('a-text');
-        healText.setAttribute('value', 'BOSS HEAL!');
-        healText.setAttribute('align', 'center');
-        healText.setAttribute('color', '#ef4444');
-        healText.setAttribute('width', '3.2');
-        healText.setAttribute('position', '0 3.2 -7.0');
-        healText.setAttribute('animation__rise', {
+        safeSetAttr(healText, 'value', 'BOSS HEAL!');
+        safeSetAttr(healText, 'align', 'center');
+        safeSetAttr(healText, 'color', '#ef4444');
+        safeSetAttr(healText, 'width', '3.2');
+        safeSetAttr(healText, 'position', '0 3.2 -7.0');
+        safeSetAttr(healText, 'animation__rise', {
           property:'position',
           to:'0 3.75 -7.0',
           dur:650,
           easing:'easeOutQuad'
         });
-        healText.setAttribute('animation__fade', {
+        safeSetAttr(healText, 'animation__fade', {
           property:'opacity',
           to:'0',
           dur:650
@@ -2965,17 +3054,15 @@
 
         el.fxRoot.appendChild(healText);
 
-        setTimeout(() => {
-          try{ aura.remove(); }catch(e){}
-          try{ healText.remove(); }catch(e){}
-        }, 720);
+        safeRemoveEntity(aura, 760);
+        safeRemoveEntity(healText, 900);
       }
 
       function cameraShake(){
         const rig = id('cameraRig');
         if(!rig) return;
 
-        rig.setAttribute('animation__shake', {
+        safeSetAttr(rig, 'animation__shake', {
           property:'position',
           from:'0.06 1.6 0.04',
           to:'0 1.6 0',
@@ -2985,29 +3072,30 @@
       }
 
       function spawnStarFx(){
+        if(!sceneReady()) return;
         if(!el.fxRoot) return;
 
         for(let i = 0; i < 7; i++){
           const star = DOC.createElement('a-text');
-          star.setAttribute('value', '★');
-          star.setAttribute('align', 'center');
-          star.setAttribute('color', i % 2 ? '#facc15' : '#22c55e');
-          star.setAttribute('width', '2.2');
+          safeSetAttr(star, 'value', '★');
+          safeSetAttr(star, 'align', 'center');
+          safeSetAttr(star, 'color', i % 2 ? '#facc15' : '#22c55e');
+          safeSetAttr(star, 'width', '2.2');
 
           const x = rand(-1.4, 1.4);
           const y = rand(1.1, 2.2);
           const z = rand(-3.6, -2.6);
 
-          star.setAttribute('position', `${x} ${y} ${z}`);
+          safeSetAttr(star, 'position', `${x} ${y} ${z}`);
 
-          star.setAttribute('animation__rise', {
+          safeSetAttr(star, 'animation__rise', {
             property:'position',
             to:`${x} ${y + rand(.7,1.2)} ${z}`,
             dur:850,
             easing:'easeOutQuad'
           });
 
-          star.setAttribute('animation__fade', {
+          safeSetAttr(star, 'animation__fade', {
             property:'opacity',
             to:'0',
             dur:850,
@@ -3015,14 +3103,16 @@
           });
 
           el.fxRoot.appendChild(star);
-
-          setTimeout(() => {
-            try{ star.remove(); }catch(e){}
-          }, 920);
+          safeRemoveEntity(star, 980);
         }
       }
 
       function startWarmup(){
+        if(!sceneReady()){
+          afterSceneReady(startWarmup);
+          return;
+        }
+
         setSummaryOpen(false);
 
         state.stage = 'warmup';
@@ -3056,6 +3146,11 @@
       }
 
       function startMain(){
+        if(!sceneReady()){
+          afterSceneReady(startMain);
+          return;
+        }
+
         setSummaryOpen(false);
 
         state.stage = 'main';
@@ -3091,7 +3186,7 @@
         updateBossVisual();
 
         if(el.bossRoot){
-          el.bossRoot.setAttribute('animation__bossintro', {
+          safeSetAttr(el.bossRoot, 'animation__bossintro', {
             property:'position',
             from:'0 2.45 -9.2',
             to:'0 2.05 -8',
@@ -3118,7 +3213,7 @@
           updateMiniMission('tick');
 
           if(el.scene){
-            el.scene.setAttribute('background', 'color', isFever() ? '#fff7cc' : '#dff7ec');
+            safeSetAttr(el.scene, 'background', 'color', isFever() ? '#fff7cc' : '#dff7ec');
           }
 
           if(state.timeLeft <= 0){
@@ -3397,6 +3492,11 @@
       }
 
       function startCooldown(){
+        if(!sceneReady()){
+          afterSceneReady(startCooldown);
+          return;
+        }
+
         setSummaryOpen(false);
 
         state.stage = 'cooldown';
@@ -3409,7 +3509,7 @@
         clearCooldownDecor();
 
         if(el.scene){
-          el.scene.setAttribute('background','color','#e0f2fe');
+          safeSetAttr(el.scene, 'background','color','#e0f2fe');
         }
 
         setMission('Cooldown Garden: ยิง WATER / HEART / GOOD รับดาวสุขภาพ');
@@ -3457,6 +3557,7 @@
       }
 
       function makeDecor(){
+        if(!sceneReady()) return;
         if(!el.fxRoot) return;
 
         for(let i=0;i<24;i++){
@@ -3464,10 +3565,10 @@
           const a = Math.PI * 2 * i / 24;
           const r = 9 + (i % 3);
 
-          dot.setAttribute('position', `${Math.cos(a)*r} ${rand(.4,2.9)} ${-4 + Math.sin(a)*r}`);
-          dot.setAttribute('radius', String(rand(.05,.13)));
-          dot.setAttribute('color', i % 2 ? '#ffffff' : '#86efac');
-          dot.setAttribute('material','transparent:true; opacity:0.45');
+          safeSetAttr(dot, 'position', `${Math.cos(a)*r} ${rand(.4,2.9)} ${-4 + Math.sin(a)*r}`);
+          safeSetAttr(dot, 'radius', String(rand(.05,.13)));
+          safeSetAttr(dot, 'color', i % 2 ? '#ffffff' : '#86efac');
+          safeSetAttr(dot, 'material','transparent:true; opacity:0.45');
 
           el.fxRoot.appendChild(dot);
         }
@@ -3500,6 +3601,7 @@
           href:location.href,
           view:cfg.view,
           diff:cfg.diff,
+          sceneReady:sceneReady(),
           stage:state.stage,
           hasRealMainPlay:hasRealMainPlay(),
           summaryOpen:DOC.body.classList.contains('summary-open'),
@@ -3786,16 +3888,18 @@
             console.warn('[GoodJunk VR] self-test failed', test);
           }
 
-          makeDecor();
-          createVrStartPanel();
+          afterSceneReady(function(){
+            makeDecor();
+            createVrStartPanel();
 
-          setTimeout(function(){
-            if(state.stage === 'intro') createVrStartPanel();
-          }, 500);
+            setTimeout(function(){
+              if(state.stage === 'intro') createVrStartPanel();
+            }, 500);
 
-          setTimeout(function(){
-            if(state.stage === 'intro') createVrStartPanel();
-          }, 1200);
+            setTimeout(function(){
+              if(state.stage === 'intro') createVrStartPanel();
+            }, 1200);
+          });
 
           bind();
           updateHud();
@@ -3853,6 +3957,7 @@
               versionStamp:true,
               debugPanel:true,
               summaryGuard:true,
+              materialSafe:true,
               selfTest:test,
               savedAt:new Date().toISOString()
             }));
