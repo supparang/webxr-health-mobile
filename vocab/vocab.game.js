@@ -933,9 +933,11 @@
     const html = buildAiHelpText(game.currentQuestion, game.currentStage);
 
     if(UI.renderAiHelp){
-      UI.renderAiHelp(html);
-      if(WIN.VocabVoice && typeof WIN.VocabVoice.speakAiHelp === "function"){
-      WIN.VocabVoice.speakAiHelp(html);
+     UI.renderAiHelp(html);
+   }
+
+   if(WIN.VocabVoice && typeof WIN.VocabVoice.speakAiHelp === "function"){
+     WIN.VocabVoice.speakAiHelp(html);
    }
 
     if(UI.updatePowerHud) UI.updatePowerHud();
