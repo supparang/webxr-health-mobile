@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL MERGED PATCH v8.44.6-GOODJUNK-VR-MERGE-STABILIZE-DEPLOY-SAFETY -->
+<!-- FULL MERGED PATCH v8.44.7-GOODJUNK-VR-SUMMARY-GUARD-RANK-FIX -->
 <!-- GoodJunk Full 3D VR Flow
      ✅ PNG object targets from /herohealth/assets/goodjunk/*.png
      ✅ Runtime remove white background
@@ -8,6 +8,8 @@
      ✅ Boss phase + lane pattern
      ✅ Mobile/cVR HUD cleanup
      ✅ Debug panel + version stamp + boot safety
+     ✅ Summary guard: no empty Score 0 / Good 0 / Rank A
+     ✅ Hide HUD / crosshair / shoot button on Summary / Final
 -->
 
 <!doctype html>
@@ -549,6 +551,20 @@
     .bootSafeActions button:nth-child(2){ background:linear-gradient(135deg,#0f172a,#334155); }
     .bootSafeActions button:nth-child(3){ background:linear-gradient(135deg,#f59e0b,#ef4444); }
 
+    body.summary-open .crosshair,
+    body.summary-open .shoot,
+    body.summary-open .back,
+    body.summary-open .mission,
+    body.summary-open .bossBar,
+    body.summary-open .hud,
+    body.summary-open .versionStamp{
+      display:none !important;
+    }
+
+    body.summary-open .overlay{
+      z-index:80;
+    }
+
     .hidden{ display:none !important; }
 
     body.view-cvr .hud{
@@ -789,7 +805,7 @@
 
       <div class="stats">
         <div class="stat"><span>Score</span><b id="sumScore">0</b></div>
-        <div class="stat"><span>Rank</span><b id="sumRank">A</b></div>
+        <div class="stat"><span>Rank</span><b id="sumRank">C ⭐☆☆☆☆</b></div>
         <div class="stat"><span>Good Food</span><b id="sumGood">0</b></div>
         <div class="stat"><span>Watch Out</span><b id="sumMiss">0</b></div>
       </div>
@@ -941,8 +957,8 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.44.6-GOODJUNK-VR-MERGE-STABILIZE-DEPLOY-SAFETY';
-      const ASSET_VERSION = 'v8446';
+      const PATCH = 'v8.44.7-GOODJUNK-VR-SUMMARY-GUARD-RANK-FIX';
+      const ASSET_VERSION = 'v8447';
 
       const WIN = window;
       const DOC = document;
@@ -1136,6 +1152,10 @@
         DOC.body.classList.toggle('view-cvr', cfg.view === 'cvr');
         DOC.body.classList.toggle('view-mobile', cfg.view === 'mobile');
         DOC.body.classList.toggle('view-pc', cfg.view === 'pc');
+      }
+
+      function setSummaryOpen(on){
+        DOC.body.classList.toggle('summary-open', !!on);
       }
 
       function heroBase(){
@@ -1536,7 +1556,7 @@
       function setVersionStamp(){
         if(!el.versionStamp) return;
 
-        el.versionStamp.textContent = '8.44.6 QA';
+        el.versionStamp.textContent = '8.44.7 FIX';
         el.versionStamp.title = PATCH + ' | ' + assetUrl('broccoli.png');
       }
 
@@ -3003,6 +3023,8 @@
       }
 
       function startWarmup(){
+        setSummaryOpen(false);
+
         state.stage = 'warmup';
         state.started = true;
         state.ended = false;
@@ -3034,8 +3056,25 @@
       }
 
       function startMain(){
+        setSummaryOpen(false);
+
         state.stage = 'main';
         state.startAt = now();
+        state.ended = false;
+
+        state.score = 0;
+        state.goodHits = 0;
+        state.junkHits = 0;
+        state.fakeHits = 0;
+        state.misses = 0;
+        state.shots = 0;
+        state.combo = 0;
+        state.bestCombo = 0;
+        state.perfectStreak = 0;
+        state.rankBonus = 0;
+
+        state.timeLeft = cfg.time;
+        state.bossHp = state.bossMaxHp;
         state.bossPhase = computeBossPhase();
         state.waveIndex = 0;
         state.waveLock = false;
@@ -3090,11 +3129,70 @@
         }, 1000);
       }
 
+      function hasRealMainPlay(){
+        const totalHits = state.goodHits + state.junkHits + state.fakeHits;
+        const playedMs = state.startAt > 0 ? now() - state.startAt : 0;
+
+        return (
+          state.startAt > 0 &&
+          playedMs >= 1200 &&
+          (
+            totalHits > 0 ||
+            state.shots > 0 ||
+            state.score > 0 ||
+            state.bestCombo > 0 ||
+            state.bossHp < state.bossMaxHp
+          )
+        );
+      }
+
+      function resetEmptyMainState(){
+        clearInterval(state.spawnTimer);
+        clearInterval(state.clockTimer);
+        clearTargets();
+
+        state.stage = 'warmup';
+        state.ended = false;
+
+        state.score = 0;
+        state.timeLeft = cfg.time;
+        state.bossHp = state.bossMaxHp;
+
+        state.combo = 0;
+        state.bestCombo = 0;
+        state.goodHits = 0;
+        state.junkHits = 0;
+        state.fakeHits = 0;
+        state.misses = 0;
+        state.shots = 0;
+        state.perfectStreak = 0;
+        state.rankBonus = 0;
+
+        state.waveIndex = 0;
+        state.waveLock = false;
+        state.nextPowerAt = 0;
+
+        updateHud();
+      }
+
       function calculateRank(){
-        const accuracy = state.shots > 0 ? state.goodHits / Math.max(1,state.shots) : 0;
+        const totalAction = state.goodHits + state.junkHits + state.fakeHits + state.shots;
+        const missTotal = state.misses + state.junkHits + state.fakeHits;
+
+        if(state.score <= 0 || totalAction <= 0 || !hasRealMainPlay()){
+          return {
+            rank:'C',
+            stars:1,
+            acc:0
+          };
+        }
+
+        const accuracy = state.shots > 0
+          ? state.goodHits / Math.max(1, state.shots)
+          : state.goodHits > 0 ? 1 : 0;
+
         const hpWin = state.bossHp <= 0;
         const survival = state.lives / Math.max(1, D.lives);
-        const missTotal = state.misses + state.junkHits + state.fakeHits;
 
         let stars = 1;
 
@@ -3106,6 +3204,13 @@
         if(missTotal <= 2 && state.goodHits >= 8) stars += 1;
 
         stars += Math.min(1, state.rankBonus || 0);
+
+        if(state.score < 120 || state.goodHits < 3){
+          stars = Math.min(stars, 2);
+        }else if(state.score < 260 || state.goodHits < 5){
+          stars = Math.min(stars, 3);
+        }
+
         stars = clamp(stars, 1, 5);
 
         let rank = 'C';
@@ -3166,8 +3271,51 @@
       function endMain(win, reason){
         if(state.stage !== 'main') return;
 
+        if(!hasRealMainPlay()){
+          console.warn('[GoodJunk VR] blocked empty summary', {
+            patch:PATCH,
+            reason,
+            score:state.score,
+            goodHits:state.goodHits,
+            junkHits:state.junkHits,
+            fakeHits:state.fakeHits,
+            shots:state.shots,
+            startAt:state.startAt,
+            bossHp:state.bossHp,
+            bossMaxHp:state.bossMaxHp
+          });
+
+          try{
+            localStorage.setItem('GJ_FULL_3D_VR_BLOCKED_EMPTY_SUMMARY', JSON.stringify({
+              patch:PATCH,
+              reason,
+              score:state.score,
+              goodHits:state.goodHits,
+              shots:state.shots,
+              href:location.href,
+              savedAt:new Date().toISOString()
+            }));
+          }catch(e){}
+
+          setSummaryOpen(false);
+          hide(el.summaryOverlay);
+          hide(el.finalOverlay);
+
+          toast('ยังไม่ได้เล่น Boss จริง เริ่มใหม่ให้นะ');
+          bigFeedback('START BOSS!', 'warn');
+
+          resetEmptyMainState();
+
+          setTimeout(function(){
+            startMain();
+          }, 700);
+
+          return;
+        }
+
         state.stage = 'summary';
         state.ended = true;
+        setSummaryOpen(true);
 
         clearInterval(state.spawnTimer);
         clearInterval(state.clockTimer);
@@ -3176,6 +3324,11 @@
         const result = calculateRank();
         const lesson = summaryLessonTip();
         const newBest = saveBestScore();
+
+        if(state.score <= 0 || state.goodHits <= 0){
+          win = false;
+          reason = reason || 'empty-score';
+        }
 
         if(el.summaryIcon) el.summaryIcon.textContent = win ? '🏆' : '💪';
 
@@ -3244,6 +3397,8 @@
       }
 
       function startCooldown(){
+        setSummaryOpen(false);
+
         state.stage = 'cooldown';
         state.cooldownBreath = 0;
         state.cooldownGood = 0;
@@ -3267,6 +3422,8 @@
 
       function showFinal(){
         state.stage = 'done';
+        setSummaryOpen(true);
+
         clearTargets();
         clearCooldownDecor();
 
@@ -3295,6 +3452,7 @@
       }
 
       function replay(){
+        setSummaryOpen(false);
         location.reload();
       }
 
@@ -3343,6 +3501,8 @@
           view:cfg.view,
           diff:cfg.diff,
           stage:state.stage,
+          hasRealMainPlay:hasRealMainPlay(),
+          summaryOpen:DOC.body.classList.contains('summary-open'),
           bossPhase:state.bossPhase,
           bossHp:state.bossHp + '/' + state.bossMaxHp,
           score:state.score,
@@ -3395,6 +3555,7 @@
       function debugForceWarmup(){
         closeDebug();
         try{
+          setSummaryOpen(false);
           clearInterval(state.spawnTimer);
           clearInterval(state.clockTimer);
           clearTargets();
@@ -3408,6 +3569,7 @@
       function debugForceBoss(){
         closeDebug();
         try{
+          setSummaryOpen(false);
           clearInterval(state.spawnTimer);
           clearInterval(state.clockTimer);
           clearTargets();
@@ -3425,6 +3587,7 @@
       function debugForceCooldown(){
         closeDebug();
         try{
+          setSummaryOpen(false);
           clearInterval(state.spawnTimer);
           clearInterval(state.clockTimer);
           clearTargets();
@@ -3689,6 +3852,7 @@
               cleanBg:true,
               versionStamp:true,
               debugPanel:true,
+              summaryGuard:true,
               selfTest:test,
               savedAt:new Date().toISOString()
             }));
