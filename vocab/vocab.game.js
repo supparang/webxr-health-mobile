@@ -934,7 +934,9 @@
 
     if(UI.renderAiHelp){
       UI.renderAiHelp(html);
-    }
+      if(WIN.VocabVoice && typeof WIN.VocabVoice.speakAiHelp === "function"){
+      WIN.VocabVoice.speakAiHelp(html);
+   }
 
     if(UI.updatePowerHud) UI.updatePowerHud();
 
