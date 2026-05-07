@@ -1,121 +1,249 @@
 /* =========================================================
  * /english/js/lesson-aihelp-us-voice.js
- * PATCH v20260506-US-VOICE-AIHELP
+ * PATCH v20260506b-STRICT-US-VOICE-DOCTOR
  *
- * ✅ Force AI Help voice to real US English when available
- * ✅ Prefer Google/Microsoft/Samantha en-US voices
- * ✅ Works on Android / Chrome / Edge / iOS Safari fallback
- * ✅ Exposes:
- *    window.LessonUSVoice.speak(text)
- *    window.speakAIHelpUS(text)
+ * เป้าหมาย:
+ * ✅ AI Help ใช้เสียง en-US จริงเมื่อ browser/device มีให้
+ * ✅ ไม่หลอกว่าเป็น US ถ้าเครื่องไม่มี US voice
+ * ✅ แสดงชื่อ voice ที่ใช้จริงบนจอ
+ * ✅ มี debug panel: US Voice / Current Voice / Available en-US
+ * ✅ กัน fallback ไป UK / AU / IN / Samsung English โดยไม่รู้ตัว
+ *
+ * ใช้:
+ * window.speakAIHelpUS("Great job. Speak clearly and slowly.");
+ * window.LessonUSVoice.debug();
  * ========================================================= */
 
 (function () {
   'use strict';
 
-  const VOICE_PATCH_ID = 'lesson-aihelp-us-voice-v20260506';
-
-  const preferredVoiceNames = [
-    'Google US English',
-    'Microsoft Aria Online (Natural) - English (United States)',
-    'Microsoft Jenny Online (Natural) - English (United States)',
-    'Microsoft Guy Online (Natural) - English (United States)',
-    'Microsoft Ava Online (Natural) - English (United States)',
-    'Microsoft Andrew Online (Natural) - English (United States)',
-    'Samantha',
-    'Alex'
-  ];
+  const PATCH_ID = 'lesson-aihelp-us-voice-strict-v20260506b';
 
   let cachedVoice = null;
-  let voicesReady = false;
+  let lastVoiceName = '';
+  let lastVoiceLang = '';
+  let voiceLoadTimer = null;
+
+  const BAD_ACCENT_PATTERNS = [
+    /en-gb/i,
+    /en-au/i,
+    /en-in/i,
+    /en-ie/i,
+    /en-za/i,
+    /united kingdom/i,
+    /british/i,
+    /australia/i,
+    /australian/i,
+    /india/i,
+    /indian/i
+  ];
+
+  const BEST_US_PATTERNS = [
+    /google us english/i,
+    /microsoft aria.*english.*united states/i,
+    /microsoft jenny.*english.*united states/i,
+    /microsoft guy.*english.*united states/i,
+    /microsoft ava.*english.*united states/i,
+    /microsoft andrew.*english.*united states/i,
+    /samantha/i,
+    /alex/i,
+    /english.*united states/i,
+    /\bus english\b/i,
+    /\bus\b/i
+  ];
+
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, function (m) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m];
+    });
+  }
 
   function getVoices() {
     try {
-      return window.speechSynthesis ? window.speechSynthesis.getVoices() || [] : [];
+      if (!window.speechSynthesis) return [];
+      return window.speechSynthesis.getVoices() || [];
     } catch (e) {
       return [];
     }
   }
 
-  function scoreVoice(v) {
+  function isBadAccent(v) {
+    const s = `${v.name || ''} ${v.lang || ''}`;
+    return BAD_ACCENT_PATTERNS.some(rx => rx.test(s));
+  }
+
+  function isStrictUS(v) {
+    const lang = String(v.lang || '').toLowerCase();
+    if (!lang.startsWith('en-us')) return false;
+    if (isBadAccent(v)) return false;
+    return true;
+  }
+
+  function scoreUSVoice(v) {
+    if (!isStrictUS(v)) return -9999;
+
     const name = String(v.name || '');
     const lang = String(v.lang || '').toLowerCase();
 
-    let score = 0;
+    let score = 1000;
 
-    if (lang === 'en-us') score += 100;
-    if (lang.startsWith('en-us')) score += 90;
+    if (lang === 'en-us') score += 200;
+    if (/google us english/i.test(name)) score += 500;
+    if (/microsoft/i.test(name) && /united states/i.test(name)) score += 450;
+    if (/online.*natural/i.test(name)) score += 180;
+    if (/aria/i.test(name)) score += 120;
+    if (/jenny/i.test(name)) score += 110;
+    if (/guy/i.test(name)) score += 90;
+    if (/samantha/i.test(name)) score += 250;
+    if (/alex/i.test(name)) score += 180;
+    if (/united states/i.test(name)) score += 180;
+    if (/\bus\b/i.test(name)) score += 120;
 
-    if (/united states/i.test(name)) score += 60;
-    if (/\bUS\b/i.test(name)) score += 50;
-    if (/american/i.test(name)) score += 50;
-
-    if (/google us english/i.test(name)) score += 100;
-    if (/microsoft/i.test(name) && /united states/i.test(name)) score += 90;
-    if (/aria/i.test(name)) score += 30;
-    if (/jenny/i.test(name)) score += 28;
-    if (/samantha/i.test(name)) score += 70;
-    if (/alex/i.test(name)) score += 55;
-
-    // กันเสียง UK / AU / India หลุดมา
-    if (lang === 'en-gb' || /united kingdom|british|uk english/i.test(name)) score -= 200;
-    if (lang === 'en-au' || /australia|australian/i.test(name)) score -= 200;
-    if (lang === 'en-in' || /india|indian/i.test(name)) score -= 200;
+    BEST_US_PATTERNS.forEach((rx, i) => {
+      if (rx.test(name)) score += (BEST_US_PATTERNS.length - i) * 10;
+    });
 
     return score;
   }
 
-  function pickUSVoice() {
+  function pickStrictUSVoice() {
     const voices = getVoices();
 
-    if (!voices.length) return null;
-
-    // 1) exact preferred names
-    for (const wanted of preferredVoiceNames) {
-      const found = voices.find(v => String(v.name || '').toLowerCase() === wanted.toLowerCase());
-      if (found && String(found.lang || '').toLowerCase().startsWith('en-us')) {
-        cachedVoice = found;
-        return found;
-      }
-    }
-
-    // 2) any strong en-US voice
-    const sorted = voices
-      .map(v => ({ voice: v, score: scoreVoice(v) }))
-      .filter(x => x.score > 0)
+    const usVoices = voices
+      .filter(isStrictUS)
+      .map(v => ({
+        voice: v,
+        score: scoreUSVoice(v)
+      }))
       .sort((a, b) => b.score - a.score);
 
-    cachedVoice = sorted.length ? sorted[0].voice : null;
+    cachedVoice = usVoices.length ? usVoices[0].voice : null;
     return cachedVoice;
   }
 
-  function ensureVoiceReady() {
-    if (!('speechSynthesis' in window)) return;
-
-    const voices = getVoices();
-    if (voices.length) {
-      voicesReady = true;
-      pickUSVoice();
-      return;
-    }
-
-    // Chrome/Android โหลด voices ช้ากว่า DOM
-    window.speechSynthesis.onvoiceschanged = function () {
-      voicesReady = true;
-      pickUSVoice();
-    };
-  }
-
   function normalizeText(text) {
-    let s = String(text || '').trim();
-
-    // กัน AI Help อ่าน emoji / สัญลักษณ์ยาว ๆ มากเกินไป
-    s = s
+    return String(text || '')
       .replace(/[🎯🏠▶️📊🎤📖👾🎧🏆⭐🔥⚡💡✅❌]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
+  }
 
-    return s;
+  function toast(msg, type) {
+    let box = document.getElementById('lessonUsVoiceToast');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'lessonUsVoiceToast';
+      box.style.cssText = [
+        'position:fixed',
+        'left:12px',
+        'right:12px',
+        'bottom:82px',
+        'z-index:999999',
+        'padding:12px 14px',
+        'border-radius:16px',
+        'font:800 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif',
+        'color:#eaffff',
+        'background:rgba(8,18,33,.94)',
+        'border:1px solid rgba(120,230,255,.38)',
+        'box-shadow:0 14px 40px rgba(0,0,0,.35)',
+        'display:none',
+        'white-space:normal'
+      ].join(';');
+      document.body.appendChild(box);
+    }
+
+    box.innerHTML = msg;
+    box.style.display = 'block';
+    box.style.borderColor = type === 'warn'
+      ? 'rgba(255,210,90,.65)'
+      : 'rgba(120,230,255,.55)';
+
+    clearTimeout(box._t);
+    box._t = setTimeout(() => {
+      box.style.display = 'none';
+    }, 5200);
+  }
+
+  function renderDoctorPanel() {
+    let panel = document.getElementById('lessonUsVoiceDoctor');
+    if (!panel) {
+      panel = document.createElement('details');
+      panel.id = 'lessonUsVoiceDoctor';
+      panel.style.cssText = [
+        'position:fixed',
+        'right:10px',
+        'bottom:136px',
+        'z-index:999998',
+        'max-width:min(420px,calc(100vw - 20px))',
+        'background:rgba(6,16,30,.96)',
+        'color:#eaffff',
+        'border:1px solid rgba(120,230,255,.35)',
+        'border-radius:18px',
+        'box-shadow:0 14px 44px rgba(0,0,0,.35)',
+        'font:700 12px/1.45 system-ui,-apple-system,Segoe UI,sans-serif',
+        'overflow:hidden'
+      ].join(';');
+
+      panel.innerHTML = `
+        <summary style="cursor:pointer;padding:10px 12px;font-weight:900;color:#75eeff;">
+          🇺🇸 US Voice Doctor
+        </summary>
+        <div id="lessonUsVoiceDoctorBody" style="padding:0 12px 12px;"></div>
+      `;
+      document.body.appendChild(panel);
+    }
+
+    const body = document.getElementById('lessonUsVoiceDoctorBody');
+    const voices = getVoices();
+    const usVoices = voices.filter(isStrictUS);
+    const selected = cachedVoice || pickStrictUSVoice();
+
+    body.innerHTML = `
+      <div style="margin:8px 0;padding:8px;border-radius:12px;background:rgba(255,255,255,.07);">
+        <div><b>Selected:</b> ${selected ? esc(selected.name) : '<span style="color:#ffd166">No strict en-US voice found</span>'}</div>
+        <div><b>Lang:</b> ${selected ? esc(selected.lang) : '-'}</div>
+        <div><b>Last spoken:</b> ${lastVoiceName ? esc(lastVoiceName) + ' / ' + esc(lastVoiceLang) : '-'}</div>
+      </div>
+
+      <div style="margin:8px 0;">
+        <b>Available strict en-US voices:</b> ${usVoices.length}
+      </div>
+
+      <div style="max-height:150px;overflow:auto;padding-right:4px;">
+        ${
+          usVoices.length
+            ? usVoices.map(v => `
+                <div style="padding:6px 0;border-top:1px solid rgba(255,255,255,.08);">
+                  🇺🇸 ${esc(v.name)} <span style="opacity:.75">(${esc(v.lang)})</span>
+                </div>
+              `).join('')
+            : `
+                <div style="color:#ffd166;padding:8px 0;">
+                  เครื่อง/browser นี้ยังไม่ส่ง voice en-US จริงมาให้ Web Speech API
+                </div>
+              `
+        }
+      </div>
+
+      <button id="lessonUsVoiceTestBtn" type="button"
+        style="margin-top:10px;width:100%;height:38px;border:0;border-radius:999px;background:#65e8ff;color:#06202a;font-weight:1000;">
+        Test US Voice
+      </button>
+    `;
+
+    const testBtn = document.getElementById('lessonUsVoiceTestBtn');
+    if (testBtn && !testBtn.dataset.bound) {
+      testBtn.dataset.bound = '1';
+      testBtn.addEventListener('click', function () {
+        speakUS('Hello. This is the American English voice for AI Help.', { debug: true });
+      });
+    }
   }
 
   function speakUS(text, options) {
@@ -125,7 +253,39 @@
     if (!msg) return false;
 
     if (!('speechSynthesis' in window) || !window.SpeechSynthesisUtterance) {
-      console.warn('[AIHelp US Voice] speechSynthesis not supported.');
+      toast('⚠️ Browser นี้ไม่รองรับ speechSynthesis', 'warn');
+      return false;
+    }
+
+    const voice = cachedVoice || pickStrictUSVoice();
+
+    if (!voice) {
+      renderDoctorPanel();
+
+      toast(
+        '⚠️ ยังไม่ได้เสียง US จริงจากเครื่องนี้<br>' +
+        'ตอนนี้ browser ไม่มี voice ที่เป็น <b>en-US</b> ให้เลือก จึงอาจออกสำเนียงไม่ใช่ US<br>' +
+        'ให้เปิด <b>US Voice Doctor</b> เพื่อดูรายชื่อเสียงที่เครื่องมี',
+        'warn'
+      );
+
+      // fallback แบบบอกตรง ๆ ว่าไม่ใช่ strict US
+      // ถ้าไม่อยากให้พูดเลยเวลาไม่มี US ให้ comment block นี้ออก
+      try {
+        window.speechSynthesis.cancel();
+        const fallback = new SpeechSynthesisUtterance(msg);
+        fallback.lang = 'en-US';
+        fallback.rate = 0.86;
+        fallback.pitch = 1.02;
+        fallback.volume = 1;
+        fallback.onstart = function () {
+          lastVoiceName = 'fallback browser voice';
+          lastVoiceLang = fallback.lang || 'en-US';
+          renderDoctorPanel();
+        };
+        window.speechSynthesis.speak(fallback);
+      } catch (e) {}
+
       return false;
     }
 
@@ -134,27 +294,28 @@
     } catch (e) {}
 
     const u = new SpeechSynthesisUtterance(msg);
-
-    // สำคัญที่สุด: บังคับ US
-    u.lang = 'en-US';
-
-    const voice = cachedVoice || pickUSVoice();
-    if (voice) {
-      u.voice = voice;
-      u.lang = voice.lang || 'en-US';
-    }
-
-    // ปรับให้ออกเสียงแบบครู US ชัด ๆ ไม่เร็วเกิน
-    u.rate = Number(options.rate || 0.88);
+    u.voice = voice;
+    u.lang = voice.lang || 'en-US';
+    u.rate = Number(options.rate || 0.86);
     u.pitch = Number(options.pitch || 1.02);
     u.volume = Number(options.volume || 1);
 
     u.onstart = function () {
+      lastVoiceName = voice.name || '';
+      lastVoiceLang = voice.lang || '';
       document.documentElement.classList.add('aihelp-speaking-us');
+      renderDoctorPanel();
+
+      toast(
+        '🇺🇸 AI Help Voice: <b>' + esc(lastVoiceName) + '</b><br>Lang: <b>' + esc(lastVoiceLang) + '</b>',
+        'ok'
+      );
+
       window.dispatchEvent(new CustomEvent('lesson:aihelp-voice-start', {
         detail: {
-          lang: u.lang,
-          voice: voice ? voice.name : 'fallback-en-US'
+          voice: lastVoiceName,
+          lang: lastVoiceLang,
+          strictUS: true
         }
       }));
     };
@@ -163,8 +324,9 @@
       document.documentElement.classList.remove('aihelp-speaking-us');
       window.dispatchEvent(new CustomEvent('lesson:aihelp-voice-end', {
         detail: {
-          lang: u.lang,
-          voice: voice ? voice.name : 'fallback-en-US'
+          voice: lastVoiceName,
+          lang: lastVoiceLang,
+          strictUS: true
         }
       }));
     };
@@ -177,50 +339,72 @@
     return true;
   }
 
-  function injectTinyStyle() {
-    if (document.getElementById(VOICE_PATCH_ID + '-style')) return;
+  function injectStyle() {
+    if (document.getElementById(PATCH_ID + '-style')) return;
 
     const style = document.createElement('style');
-    style.id = VOICE_PATCH_ID + '-style';
+    style.id = PATCH_ID + '-style';
     style.textContent = `
       .aihelp-speaking-us .ai-help-btn,
       .aihelp-speaking-us [data-ai-help],
-      .aihelp-speaking-us button[aria-label*="AI"] {
-        box-shadow: 0 0 0 3px rgba(105,225,255,.25), 0 0 22px rgba(105,225,255,.38) !important;
+      .aihelp-speaking-us button[aria-label*="AI"],
+      .aihelp-speaking-us button {
+        filter: drop-shadow(0 0 10px rgba(105,232,255,.28));
       }
     `;
     document.head.appendChild(style);
   }
 
   function patchKnownGlobals() {
-    // ให้โค้ดเดิมเรียกใช้ได้ง่าย
     window.LessonUSVoice = {
       speak: speakUS,
-      pickVoice: pickUSVoice,
+      pickVoice: pickStrictUSVoice,
       getVoice: function () {
-        return cachedVoice || pickUSVoice();
+        return cachedVoice || pickStrictUSVoice();
       },
-      listUSVoices: function () {
-        return getVoices().filter(v => String(v.lang || '').toLowerCase().startsWith('en-us'));
+      getAllVoices: getVoices,
+      getUSVoices: function () {
+        return getVoices().filter(isStrictUS);
+      },
+      debug: function () {
+        pickStrictUSVoice();
+        renderDoctorPanel();
+        const panel = document.getElementById('lessonUsVoiceDoctor');
+        if (panel) panel.open = true;
+        return {
+          selected: cachedVoice ? {
+            name: cachedVoice.name,
+            lang: cachedVoice.lang
+          } : null,
+          usVoices: getVoices().filter(isStrictUS).map(v => ({
+            name: v.name,
+            lang: v.lang
+          })),
+          allVoices: getVoices().map(v => ({
+            name: v.name,
+            lang: v.lang
+          }))
+        };
       }
     };
 
     window.speakAIHelpUS = speakUS;
 
-    // ถ้าโปรเจกต์มีฟังก์ชันชื่อพวกนี้อยู่แล้ว ให้ครอบด้วย US Voice
     const possibleNames = [
       'speakAIHelp',
       'speakAiHelp',
       'playAIHelpVoice',
       'playAiHelpVoice',
       'lessonSpeak',
-      'speakLessonTip'
+      'speakLessonTip',
+      'speakCoach',
+      'speakHint'
     ];
 
     possibleNames.forEach(function (name) {
       const oldFn = window[name];
 
-      if (typeof oldFn === 'function' && !oldFn.__usVoicePatched) {
+      if (typeof oldFn === 'function' && !oldFn.__strictUSVoicePatched) {
         const wrapped = function (text) {
           if (typeof text === 'string' && text.trim()) {
             return speakUS(text);
@@ -228,40 +412,42 @@
           return oldFn.apply(this, arguments);
         };
 
-        wrapped.__usVoicePatched = true;
+        wrapped.__strictUSVoicePatched = true;
         window[name] = wrapped;
       }
     });
   }
 
   function patchAIHelpButtons() {
-    const buttons = Array.from(document.querySelectorAll('button, [role="button"], .ai-help-btn, [data-ai-help]'));
+    const buttons = Array.from(document.querySelectorAll(
+      'button, [role="button"], .ai-help-btn, [data-ai-help], [data-speak]'
+    ));
 
     buttons.forEach(function (btn) {
-      if (btn.dataset.usVoiceAiHelpBound === '1') return;
+      if (btn.dataset.strictUsVoiceBound === '1') return;
 
       const label = String(btn.textContent || btn.getAttribute('aria-label') || '').toLowerCase();
-      const isAiHelp =
+      const isAIHelp =
         btn.hasAttribute('data-ai-help') ||
+        btn.hasAttribute('data-speak') ||
         label.includes('ai help') ||
         label.includes('ai guide') ||
         label.includes('ai learning') ||
         label.includes('help');
 
-      if (!isAiHelp) return;
+      if (!isAIHelp) return;
 
-      btn.dataset.usVoiceAiHelpBound = '1';
+      btn.dataset.strictUsVoiceBound = '1';
 
       btn.addEventListener('click', function () {
-        // ให้ engine เดิมทำงานก่อน แล้วค่อยดูว่ามีข้อความ help ใหม่ขึ้นไหม
-        window.setTimeout(function () {
-          const helpText =
+        setTimeout(function () {
+          const text =
             btn.getAttribute('data-speak') ||
             btn.getAttribute('data-ai-help') ||
             readVisibleAIHelpText();
 
-          if (helpText) speakUS(helpText);
-        }, 120);
+          if (text) speakUS(text);
+        }, 160);
       }, true);
     });
   }
@@ -275,7 +461,9 @@
       '[data-ai-help-text]',
       '.coach-text',
       '.ai-coach-text',
-      '.hint-text'
+      '.hint-text',
+      '.help-text',
+      '.feedback-text'
     ];
 
     for (const sel of selectors) {
@@ -287,20 +475,45 @@
     return '';
   }
 
+  function loadVoicesAggressively() {
+    pickStrictUSVoice();
+    renderDoctorPanel();
+
+    if (!window.speechSynthesis) return;
+
+    window.speechSynthesis.onvoiceschanged = function () {
+      pickStrictUSVoice();
+      renderDoctorPanel();
+    };
+
+    clearInterval(voiceLoadTimer);
+
+    let tries = 0;
+    voiceLoadTimer = setInterval(function () {
+      tries += 1;
+      pickStrictUSVoice();
+      renderDoctorPanel();
+
+      if (cachedVoice || tries >= 20) {
+        clearInterval(voiceLoadTimer);
+      }
+    }, 250);
+  }
+
   function init() {
-    injectTinyStyle();
-    ensureVoiceReady();
+    injectStyle();
     patchKnownGlobals();
+    loadVoicesAggressively();
     patchAIHelpButtons();
 
     let tries = 0;
-    const timer = window.setInterval(function () {
+    const timer = setInterval(function () {
       tries += 1;
-      ensureVoiceReady();
       patchKnownGlobals();
+      pickStrictUSVoice();
       patchAIHelpButtons();
 
-      if (tries >= 20) window.clearInterval(timer);
+      if (tries >= 20) clearInterval(timer);
     }, 300);
 
     try {
@@ -313,7 +526,7 @@
         subtree: true
       });
 
-      window.setTimeout(function () {
+      setTimeout(function () {
         try { mo.disconnect(); } catch (e) {}
       }, 15000);
     } catch (e) {}
