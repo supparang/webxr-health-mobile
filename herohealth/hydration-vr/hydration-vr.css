@@ -1,11 +1,7 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.css
-   Version: v9.9.0-full-css
-   Purpose:
-   - Aqua Rush arcade UI
-   - PC / Mobile / Cardboard cVR friendly
-   - Child-friendly HeroHealth visual style
+   Version: v10.0.0-production
    ========================================================= */
 
 :root{
@@ -104,7 +100,7 @@ button{
 }
 
 /* =========================================================
-   App Shell / Background
+   App / Background
    ========================================================= */
 
 .hha-hydration-page,
@@ -508,6 +504,20 @@ body.hha-hydration-arena::after{
   filter:drop-shadow(0 4px 6px rgba(0,0,0,.15));
 }
 
+.hha-target-icon.has-img{
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+}
+
+.hha-target-icon.has-img img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 5px 8px rgba(0,0,0,.16));
+}
+
 .hha-target-label{
   font-size:14px;
   font-weight:1000;
@@ -830,7 +840,7 @@ body.hha-hydration-arena::after{
 }
 
 /* =========================================================
-   Daily Challenge / Wave Lesson / Mission
+   Daily / Wave / Mission
    ========================================================= */
 
 .hha-daily-challenge{
@@ -1054,7 +1064,7 @@ body.hha-hydration-arena::after{
 }
 
 /* =========================================================
-   Boss HUD / Boss Attack
+   Boss
    ========================================================= */
 
 .hha-heat-boss-hud{
@@ -1213,8 +1223,6 @@ body.hha-hydration-arena::after{
   color:#855438;
 }
 
-/* Boss screen overlays */
-
 body.hha-boss-attacking::before{
   content:'';
   position:fixed;
@@ -1244,6 +1252,77 @@ body[data-heat-attack="sweat-drain"]::before{
 @keyframes hhaBossAttackPulse{
   from{ opacity:.18; }
   to{ opacity:.52; }
+}
+
+body.hha-hydration-boss-drama{
+  background:
+    radial-gradient(circle at 50% 5%, rgba(255,197,72,.42), transparent 34%),
+    radial-gradient(circle at 18% 22%, rgba(255,119,92,.22), transparent 30%),
+    linear-gradient(180deg,#fff2d5 0%,#e6fbff 52%,#d9f4ff 100%);
+}
+
+body.hha-hydration-final-tension::before{
+  content:'';
+  position:fixed;
+  inset:0;
+  z-index:45;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 42%, rgba(255,94,72,.2) 100%);
+  animation:hhaFinalTensionPulse .48s ease-in-out infinite alternate;
+}
+
+@keyframes hhaFinalTensionPulse{
+  from{ opacity:.18; }
+  to{ opacity:.72; }
+}
+
+.hha-boss-damage-pop{
+  position:fixed;
+  z-index:12020;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  padding:8px 12px;
+  border-radius:999px;
+  background:#fff2d4;
+  color:#b54818;
+  font-weight:1000;
+  font-size:18px;
+  box-shadow:0 12px 28px rgba(130,54,22,.22);
+  animation:hhaBossDamagePop .75s ease forwards;
+}
+
+@keyframes hhaBossDamagePop{
+  0%{ opacity:0; transform:translate(-50%,-20%) scale(.78); }
+  18%{ opacity:1; transform:translate(-50%,-50%) scale(1.15); }
+  100%{ opacity:0; transform:translate(-50%,-105%) scale(.96); }
+}
+
+.hha-boss-victory-fx{
+  position:fixed;
+  inset:0;
+  z-index:18000;
+  display:grid;
+  place-items:center;
+  pointer-events:none;
+  background:radial-gradient(circle, rgba(255,246,160,.38), transparent 62%);
+  animation:hhaBossVictoryFx 1.35s ease forwards;
+}
+
+.hha-boss-victory-fx b{
+  padding:18px 28px;
+  border-radius:999px;
+  background:#fff;
+  color:#178a45;
+  font-size:28px;
+  font-weight:1000;
+  box-shadow:0 22px 60px rgba(38,135,78,.24);
+}
+
+@keyframes hhaBossVictoryFx{
+  0%{ opacity:0; transform:scale(.82); }
+  20%{ opacity:1; transform:scale(1); }
+  100%{ opacity:0; transform:scale(1.12); }
 }
 
 /* =========================================================
@@ -1311,7 +1390,7 @@ body[data-heat-attack="sweat-drain"]::before{
 }
 
 /* =========================================================
-   FX / Juice
+   FX
    ========================================================= */
 
 body.hha-fever-mode{
@@ -1542,7 +1621,7 @@ body.hha-dehydration-danger::after{
 }
 
 /* =========================================================
-   Pause Overlay
+   Pause
    ========================================================= */
 
 .hha-pause-overlay{
@@ -1602,7 +1681,7 @@ body.hha-dehydration-danger::after{
 }
 
 /* =========================================================
-   Summary / Reward Screen
+   Summary
    ========================================================= */
 
 .hha-hydration-summary{
@@ -1786,6 +1865,30 @@ body.hha-dehydration-danger::after{
   font-weight:900;
 }
 
+.hha-next-goal{
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:22px;
+  background:linear-gradient(180deg,#eef8ff,#ffffff);
+  border:3px solid rgba(88,201,255,.35);
+  text-align:left;
+}
+
+.hha-next-goal b{
+  display:block;
+  color:#24607f;
+  font-size:14px;
+  font-weight:1000;
+}
+
+.hha-next-goal span{
+  display:block;
+  margin-top:3px;
+  color:#587b91;
+  font-size:12px;
+  font-weight:900;
+}
+
 .hha-badges{
   margin:12px 0;
   text-align:left;
@@ -1939,12 +2042,12 @@ body.hha-dehydration-danger::after{
 }
 
 /* =========================================================
-   Cardboard / cVR support
+   cVR / Mode
    ========================================================= */
 
 body.hha-view-cvr .hha-hydration-target{
-  width:104px;
-  height:120px;
+  width:112px;
+  height:128px;
 }
 
 body.hha-view-cvr .hha-target-icon{
@@ -1968,8 +2071,13 @@ body.hha-view-cvr .hha-control-btn{
   height:48px;
 }
 
+body.hha-view-pc .hha-hydration-target{
+  width:92px;
+  height:108px;
+}
+
 /* =========================================================
-   Mobile Safe Layout
+   Mobile
    ========================================================= */
 
 @media (max-width:520px){
@@ -2128,13 +2236,18 @@ body.hha-view-cvr .hha-control-btn{
   }
 
   .hha-hydration-target{
-    width:84px;
-    height:100px;
+    width:88px;
+    height:104px;
     border-radius:22px;
   }
 
   .hha-target-icon{
     font-size:36px;
+  }
+
+  .hha-target-icon.has-img{
+    width:48px;
+    height:48px;
   }
 
   .hha-target-label{
@@ -2208,10 +2321,6 @@ body.hha-view-cvr .hha-control-btn{
     padding:18px;
   }
 }
-
-/* =========================================================
-   Reduced motion
-   ========================================================= */
 
 @media (prefers-reduced-motion: reduce){
   *,
