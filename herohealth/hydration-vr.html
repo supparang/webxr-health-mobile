@@ -9,17 +9,19 @@
   <title>HeroHealth • Hydration VR</title>
 
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css?v=20260506-v9-9-2" />
+  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css?v=20260506-v10-0-0" />
 
   <!--
     HeroHealth Hydration VR
     File: /herohealth/hydration-vr.html
-    Version: v9.9.2-shell-watchdog
+    Version: v10.0.0-production-shell
     Flow:
-      launcher / hub / zone
+      Zone / Launcher / Warmup Gate
       -> hydration-vr.html
       -> hydration-vr.css
       -> hydration-vr.js
+      -> Summary
+      -> Cooldown Gate / Zone
 
     Supported URL params:
       pid, name, nick, diff, time, seed, view, run, hub, zone, game, mode,
@@ -59,7 +61,7 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_HTML_VERSION = 'v9.9.2-shell-watchdog';
+    window.HHA.HYDRATION_HTML_VERSION = 'v10.0.0-production-shell';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr.html';
 
     window.HHA_LOAD_SCRIPT = function(src){
@@ -140,14 +142,14 @@
       var u = new URL(location.href);
       var view = u.searchParams.get('view') || 'mobile';
 
-      HHA_LOAD_SCRIPT('./herohealth-logger.js?v=20260506-v9-9-2')
+      HHA_LOAD_SCRIPT('./herohealth-logger.js?v=20260506-v10-0-0')
         .catch(function(){})
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr/hydration-vr.js?v=20260506-v9-9-2');
+          return HHA_LOAD_SCRIPT('./hydration-vr/hydration-vr.js?v=20260506-v10-0-0');
         })
         .then(function(){
           if(view === 'cvr'){
-            return HHA_LOAD_SCRIPT('./vr/vr-ui.js?v=20260506-v9-9-2').catch(function(){});
+            return HHA_LOAD_SCRIPT('./vr/vr-ui.js?v=20260506-v10-0-0').catch(function(){});
           }
         })
         .then(function(){
