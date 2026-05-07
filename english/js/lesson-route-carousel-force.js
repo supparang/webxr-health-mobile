@@ -1,23 +1,20 @@
 /* =========================================================
  * /english/js/lesson-route-carousel-force.js
- * PATCH v20260507-CAROUSEL-FORCE
+ * PATCH v20260507b-CAROUSEL-FORCE-FALLBACK-MOUNT
  *
- * แก้ปัญหา Mission Route S01–S15 เลื่อนไม่ได้
- *
- * วิธีแก้:
- * ✅ ไม่ใช้ native overflow scroll เป็นหลัก
- * ✅ ใช้ carousel transform translateX แทน
- * ✅ กด ← → ได้แน่นอน
+ * Fix:
+ * ✅ ไม่ต้องรอหา Mission Route root เดิม
+ * ✅ ถ้าหา root ไม่เจอ จะ mount carousel ใหม่เอง
+ * ✅ ปุ่ม ← → ใช้ transform เลื่อนจริง ไม่พึ่ง native scroll
  * ✅ ปัดซ้าย/ขวาได้
- * ✅ สร้างแถว S01–S15 ใหม่จากข้อมูลตรง ๆ
- * ✅ ซ่อน route card เดิมที่เลื่อนไม่ได้
- * ✅ ถ้ากด card ใหม่ จะพยายาม click card เดิมให้ engine เดิมทำงานต่อ
+ * ✅ กด card แล้วพยายามเปิด session เดิม
+ * ✅ เหมาะกับกรณี console ขึ้น "Mission Route root not found yet."
  * ========================================================= */
 
 (function () {
   'use strict';
 
-  const PATCH_ID = 'lesson-route-carousel-force-v20260507';
+  const PATCH_ID = 'lesson-route-carousel-force-v20260507b';
 
   const ROUTE = [
     { id: 'S01', skill: 'SPEAKING',  icon: '🎙️', type: 'normal', label: 'PLAY' },
@@ -38,12 +35,11 @@
   ];
 
   let activeIndex = 0;
-  let originalMap = new Map();
-  let routeRoot = null;
   let shell = null;
   let rail = null;
   let viewport = null;
   let progressText = null;
+  let originalMap = new Map();
   let didDrag = false;
 
   function esc(s) {
@@ -80,7 +76,35 @@
     return 'Normal Mission';
   }
 
-  function findRouteRoot() {
+  function collectOriginalCards() {
+    originalMap = new Map();
+
+    const all = Array.from(document.querySelectorAll(
+      'a, button, div, article, li, section, [role="button"], [data-session], [data-session-no]'
+    ));
+
+    all.forEach(function (el) {
+      if (el.closest && el.closest('#lessonRouteCarouselForce')) return;
+
+      const t = txt(el);
+      const sid = getSessionIdFromText(t);
+      if (!sid) return;
+
+      if (!/(SPEAKING|READING|WRITING|LISTENING|PLAY|BOSS|FINAL)/i.test(t)) return;
+
+      const r = el.getBoundingClientRect();
+      const area = r.width * r.height;
+
+      if (area < 800 || area > 120000) return;
+
+      const old = originalMap.get(sid);
+      if (!old || area > old.area) {
+        originalMap.set(sid, { el, area });
+      }
+    });
+  }
+
+  function findMissionRouteRoot() {
     const candidates = Array.from(document.querySelectorAll(
       'section, article, main > div, .card, .panel, .glass, .screen, .page-section, div'
     ));
@@ -92,13 +116,12 @@
       const t = txt(el);
 
       if (!/Mission Route/i.test(t)) return;
-      if (!/\bS01\b/i.test(t)) return;
-      if (!/\bS03\b/i.test(t)) return;
+      if (!/\bS01\b/i.test(t) && !/\bS1\b/i.test(t)) return;
 
       const r = el.getBoundingClientRect();
       const area = r.width * r.height;
 
-      if (area > 10000 && area < bestArea) {
+      if (area > 5000 && area < bestArea) {
         best = el;
         bestArea = area;
       }
@@ -107,55 +130,55 @@
     return best;
   }
 
-  function collectOriginalCards() {
-    originalMap = new Map();
+  function findFallbackMountTarget() {
+    const preferred = [
+      '#home',
+      '#homePanel',
+      '#homeView',
+      '#sessions',
+      '#sessionsView',
+      '#main',
+      'main',
+      '.main',
+      '.app-main',
+      '.content',
+      '.page',
+      '.screen',
+      'body'
+    ];
 
-    const all = Array.from(document.querySelectorAll(
-      'a, button, div, article, li, section, [role="button"], [data-session], [data-session-no]'
+    for (const sel of preferred) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+
+    return document.body;
+  }
+
+  function findHeroCard() {
+    const candidates = Array.from(document.querySelectorAll(
+      'section, article, main > div, .card, .panel, .glass, .hero, .page-section, div'
     ));
 
-    all.forEach(function (el) {
-      const t = txt(el);
-      const sid = getSessionIdFromText(t);
-      if (!sid) return;
+    let best = null;
+    let bestArea = 0;
 
-      if (!/(SPEAKING|READING|WRITING|LISTENING|PLAY|BOSS|FINAL)/i.test(t)) return;
+    candidates.forEach(function (el) {
+      if (el.closest && el.closest('#lessonRouteCarouselForce')) return;
+
+      const t = txt(el);
+      if (!/future career|S1–S15|S1-S15|Hybrid 3D|career/i.test(t)) return;
 
       const r = el.getBoundingClientRect();
       const area = r.width * r.height;
 
-      if (area < 1000 || area > 90000) return;
-
-      const old = originalMap.get(sid);
-
-      if (!old || area > old.area) {
-        originalMap.set(sid, {
-          el,
-          area
-        });
+      if (area > bestArea) {
+        best = el;
+        bestArea = area;
       }
     });
-  }
 
-  function hideOldRouteCards() {
-    originalMap.forEach(function (info) {
-      const el = info.el;
-      if (!el) return;
-
-      if (el.closest && el.closest('#lessonRouteCarouselForce')) return;
-
-      setI(el, 'display', 'none');
-    });
-
-    [
-      'lessonRouteRebuildShell',
-      'lessonRouteHardControls',
-      'lessonRouteHardDebug',
-      'lessonRouteRebuildControls'
-    ].forEach(function (id) {
-      const el = document.getElementById(id);
-      if (el) setI(el, 'display', 'none');
-    });
+    return best;
   }
 
   function injectStyle() {
@@ -176,9 +199,65 @@
         width: 100% !important;
         max-width: 100% !important;
         min-width: 0 !important;
-        margin: 14px 0 2px !important;
+        margin: 18px 0 !important;
+        padding: 18px !important;
+        border-radius: 28px !important;
+        border: 1px solid rgba(180,224,255,.20) !important;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(104,226,255,.16), transparent 36%),
+          radial-gradient(circle at 88% 24%, rgba(255,96,145,.12), transparent 34%),
+          linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06)) !important;
+        box-shadow:
+          inset 0 1px 0 rgba(255,255,255,.18),
+          0 18px 52px rgba(0,0,0,.22) !important;
         pointer-events: auto !important;
+        box-sizing: border-box !important;
       }
+
+      #lessonRouteCarouselForce .force-title {
+        color: #f0fbff !important;
+        font: 1000 26px/1.15 system-ui,-apple-system,Segoe UI,sans-serif !important;
+        margin: 0 0 8px !important;
+        letter-spacing: -.4px !important;
+      }
+
+      #lessonRouteCarouselForce .force-subtitle {
+        color: rgba(220,238,255,.82) !important;
+        font: 900 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif !important;
+        margin: 0 0 12px !important;
+      }
+
+      #lessonRouteCarouselForce .force-legend {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        margin: 10px 0 14px !important;
+      }
+
+      #lessonRouteCarouselForce .force-pill {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 7px !important;
+        padding: 7px 11px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(255,255,255,.16) !important;
+        background: rgba(255,255,255,.10) !important;
+        color: #eaf8ff !important;
+        font: 900 12px/1 system-ui,-apple-system,Segoe UI,sans-serif !important;
+      }
+
+      #lessonRouteCarouselForce .dot-normal,
+      #lessonRouteCarouselForce .dot-boss,
+      #lessonRouteCarouselForce .dot-final {
+        width: 11px !important;
+        height: 11px !important;
+        border-radius: 999px !important;
+        display: inline-block !important;
+      }
+
+      #lessonRouteCarouselForce .dot-normal { background:#6fe8ff !important; }
+      #lessonRouteCarouselForce .dot-boss { background:#ff5f91 !important; }
+      #lessonRouteCarouselForce .dot-final { background:#ffd65f !important; }
 
       #lessonRouteCarouselForce .route-force-controls {
         display: grid !important;
@@ -274,18 +353,6 @@
         overflow: hidden !important;
       }
 
-      #lessonRouteCarouselForce .route-force-card::before {
-        content: "" !important;
-        position: absolute !important;
-        left: 0 !important;
-        right: 0 !important;
-        top: 52px !important;
-        height: 40px !important;
-        background: rgba(112,230,255,.10) !important;
-        border-top: 1px solid rgba(255,255,255,.08) !important;
-        border-bottom: 1px solid rgba(255,255,255,.08) !important;
-      }
-
       #lessonRouteCarouselForce .route-force-card.boss {
         border-color: rgba(255,100,145,.48) !important;
         background:
@@ -309,8 +376,6 @@
       }
 
       #lessonRouteCarouselForce .route-force-icon {
-        position: relative !important;
-        z-index: 1 !important;
         width: 56px !important;
         height: 56px !important;
         border-radius: 999px !important;
@@ -321,8 +386,6 @@
       }
 
       #lessonRouteCarouselForce .route-force-id {
-        position: relative !important;
-        z-index: 1 !important;
         font-size: 22px !important;
         font-weight: 1000 !important;
         letter-spacing: .5px !important;
@@ -330,8 +393,6 @@
       }
 
       #lessonRouteCarouselForce .route-force-skill {
-        position: relative !important;
-        z-index: 1 !important;
         font-size: 13px !important;
         font-weight: 1000 !important;
         opacity: .86 !important;
@@ -340,8 +401,6 @@
       }
 
       #lessonRouteCarouselForce .route-force-label {
-        position: relative !important;
-        z-index: 1 !important;
         margin-top: 2px !important;
         padding: 5px 10px !important;
         border-radius: 999px !important;
@@ -377,8 +436,15 @@
 
       @media (max-width: 820px) {
         #lessonRouteCarouselForce {
-          width: calc(100vw - 52px) !important;
-          max-width: calc(100vw - 52px) !important;
+          width: calc(100vw - 20px) !important;
+          max-width: calc(100vw - 20px) !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          padding: 14px !important;
+        }
+
+        #lessonRouteCarouselForce .force-title {
+          font-size: 24px !important;
         }
 
         #lessonRouteCarouselForce .route-force-card {
@@ -390,6 +456,7 @@
         }
       }
     `;
+
     document.head.appendChild(style);
   }
 
@@ -402,10 +469,19 @@
       return;
     }
 
-    shell = document.createElement('div');
+    shell = document.createElement('section');
     shell.id = 'lessonRouteCarouselForce';
 
     shell.innerHTML = `
+      <h2 class="force-title">Mission Route: S1 → S15</h2>
+      <p class="force-subtitle">ผ่านด่านปกติ ปลดล็อก Boss และไปสู่ Final Network Mission</p>
+
+      <div class="force-legend">
+        <span class="force-pill"><span class="dot-normal"></span> Normal</span>
+        <span class="force-pill"><span class="dot-boss"></span> Boss</span>
+        <span class="force-pill"><span class="dot-final"></span> Final</span>
+      </div>
+
       <div class="route-force-controls">
         <button class="route-force-btn" id="routeForcePrev" type="button" aria-label="Previous session">←</button>
         <div class="route-force-progress">S01 / S15 • ปัดซ้าย–ขวา หรือกดลูกศร</div>
@@ -443,18 +519,64 @@
     rail = shell.querySelector('.route-force-rail');
     viewport = shell.querySelector('.route-force-viewport');
     progressText = shell.querySelector('.route-force-progress');
+  }
 
-    const legend = Array.from(routeRoot.querySelectorAll('div, nav, section'))
-      .find(function (el) {
-        const t = txt(el);
-        return /Normal/i.test(t) && /Boss/i.test(t) && /Final/i.test(t);
-      });
+  function mountShell() {
+    const routeRoot = findMissionRouteRoot();
 
-    if (legend && legend.parentElement) {
-      legend.insertAdjacentElement('afterend', shell);
-    } else {
+    if (routeRoot) {
+      routeRoot.innerHTML = '';
       routeRoot.appendChild(shell);
+      return 'route-root';
     }
+
+    const hero = findHeroCard();
+
+    if (hero && hero.parentElement) {
+      hero.insertAdjacentElement('afterend', shell);
+      return 'after-hero';
+    }
+
+    const mount = findFallbackMountTarget();
+
+    if (mount === document.body) {
+      const nav = document.querySelector('nav, .bottom-nav, .tabbar, .dock');
+      if (nav && nav.parentElement) {
+        nav.parentElement.insertBefore(shell, nav);
+        return 'before-nav';
+      }
+
+      document.body.appendChild(shell);
+      return 'body';
+    }
+
+    if (mount.firstElementChild) {
+      mount.insertBefore(shell, mount.firstElementChild.nextElementSibling || null);
+    } else {
+      mount.appendChild(shell);
+    }
+
+    return 'fallback';
+  }
+
+  function hideBrokenOldRoute() {
+    collectOriginalCards();
+
+    originalMap.forEach(function (info) {
+      const el = info.el;
+      if (!el || (el.closest && el.closest('#lessonRouteCarouselForce'))) return;
+      setI(el, 'display', 'none');
+    });
+
+    [
+      'lessonRouteRebuildShell',
+      'lessonRouteHardControls',
+      'lessonRouteHardDebug',
+      'lessonRouteRebuildControls'
+    ].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (el) setI(el, 'display', 'none');
+    });
   }
 
   function getStep() {
@@ -470,7 +592,7 @@
   }
 
   function update(instant) {
-    if (!rail) return;
+    if (!rail || !shell) return;
 
     activeIndex = clampIndex(activeIndex);
 
@@ -478,10 +600,11 @@
     const x = -activeIndex * step;
 
     if (instant) {
-      setI(rail, 'transition', 'none');
+      rail.style.transition = 'none';
       rail.style.transform = `translate3d(${x}px,0,0)`;
+
       requestAnimationFrame(function () {
-        rail.style.removeProperty('transition');
+        rail.style.transition = '';
       });
     } else {
       rail.style.transform = `translate3d(${x}px,0,0)`;
@@ -515,25 +638,19 @@
   }
 
   function openSession(sid) {
-    const info = originalMap.get(sid);
-
     window.dispatchEvent(new CustomEvent('lesson:route-select', {
-      detail: {
-        session: sid,
-        source: PATCH_ID
-      }
+      detail: { session: sid, source: PATCH_ID }
     }));
 
-    // 1) พยายามกด card เดิม เพื่อให้ engine เดิมทำงาน
-    if (info && info.el && typeof info.el.click === 'function') {
+    const n = Number(String(sid).replace('S', ''));
+
+    const original = originalMap.get(sid);
+    if (original && original.el && typeof original.el.click === 'function') {
       try {
-        info.el.click();
+        original.el.click();
         return;
       } catch (e) {}
     }
-
-    // 2) พยายามเรียก global function ที่อาจมีใน lesson engine
-    const n = Number(String(sid).replace('S', ''));
 
     const fnNames = [
       'selectSession',
@@ -542,7 +659,8 @@
       'chooseSession',
       'openSession',
       'playSession',
-      'goSession'
+      'goSession',
+      'setSession'
     ];
 
     for (const name of fnNames) {
@@ -550,7 +668,7 @@
         try {
           window[name](sid, n);
           return;
-        } catch (e) {
+        } catch (e1) {
           try {
             window[name](n);
             return;
@@ -559,11 +677,10 @@
       }
     }
 
-    // 3) fallback: เปลี่ยน URL param แล้ว reload หน้า
     try {
       const url = new URL(location.href);
+      url.searchParams.set('s', String(n));
       url.searchParams.set('session', sid);
-      url.searchParams.set('s', sid);
       location.href = url.toString();
     } catch (e) {}
   }
@@ -697,79 +814,12 @@
     viewport.addEventListener('pointerup', end, { passive: true, capture: true });
     viewport.addEventListener('pointercancel', end, { passive: true, capture: true });
     viewport.addEventListener('pointerleave', end, { passive: true, capture: true });
-
-    // Touch fallback สำหรับ Android บางเครื่อง
-    let tDown = false;
-    let tx = 0;
-    let ty = 0;
-    let tBase = 0;
-    let tMoved = false;
-
-    viewport.addEventListener('touchstart', function (ev) {
-      if (!ev.touches || !ev.touches.length) return;
-
-      const t = ev.touches[0];
-      tDown = true;
-      tMoved = false;
-      didDrag = false;
-      tx = t.clientX;
-      ty = t.clientY;
-      tBase = currentX();
-
-      shell.classList.add('dragging');
-    }, { passive: true, capture: true });
-
-    viewport.addEventListener('touchmove', function (ev) {
-      if (!tDown || !ev.touches || !ev.touches.length) return;
-
-      const t = ev.touches[0];
-      const dx = t.clientX - tx;
-      const dy = t.clientY - ty;
-
-      if (Math.abs(dx) < 4 || Math.abs(dx) < Math.abs(dy)) return;
-
-      tMoved = true;
-      didDrag = true;
-
-      rail.style.transform = `translate3d(${tBase + dx}px,0,0)`;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-    }, { passive: false, capture: true });
-
-    viewport.addEventListener('touchend', function (ev) {
-      if (!tDown) return;
-
-      tDown = false;
-      shell.classList.remove('dragging');
-
-      let dx = 0;
-
-      if (ev.changedTouches && ev.changedTouches.length) {
-        dx = ev.changedTouches[0].clientX - tx;
-      }
-
-      if (tMoved && Math.abs(dx) > 36) {
-        if (dx < 0) go(1);
-        else go(-1);
-      } else {
-        update(false);
-      }
-
-      setTimeout(function () {
-        didDrag = false;
-      }, 180);
-    }, { passive: true, capture: true });
   }
 
-  function exposeDebug() {
+  function exposeDebug(mountMode) {
     window.LessonRouteCarouselForce = {
-      next: function () {
-        go(1);
-      },
-      prev: function () {
-        go(-1);
-      },
+      next: function () { go(1); },
+      prev: function () { go(-1); },
       goTo: function (sessionOrIndex) {
         if (typeof sessionOrIndex === 'string') {
           const sid = sessionOrIndex.toUpperCase();
@@ -783,11 +833,12 @@
       debug: function () {
         const info = {
           patch: PATCH_ID,
+          mountMode,
           activeIndex,
           activeSession: ROUTE[activeIndex],
-          routeRootFound: !!routeRoot,
           shellFound: !!shell,
           railFound: !!rail,
+          viewportFound: !!viewport,
           originalCards: Array.from(originalMap.keys()),
           railTransform: rail ? rail.style.transform : '',
           viewportWidth: viewport ? viewport.clientWidth : 0,
@@ -802,23 +853,24 @@
 
   function init() {
     injectStyle();
-
-    routeRoot = findRouteRoot();
-
-    if (!routeRoot) {
-      console.warn('[LessonRouteCarouselForce] Mission Route root not found yet.');
-      return false;
-    }
-
     collectOriginalCards();
     buildShell();
-    hideOldRouteCards();
+
+    if (!shell.parentElement) {
+      const mountMode = mountShell();
+      exposeDebug(mountMode);
+      console.log('[LessonRouteCarouselForce] mounted', mountMode);
+    } else {
+      exposeDebug('already-mounted');
+    }
+
+    hideBrokenOldRoute();
     bindControls();
     bindSwipe();
-    exposeDebug();
     update(true);
 
     console.log('[LessonRouteCarouselForce] ready', {
+      patch: PATCH_ID,
       originalCards: Array.from(originalMap.keys())
     });
 
@@ -826,19 +878,17 @@
   }
 
   function run() {
-    let tries = 0;
+    init();
 
+    let tries = 0;
     const timer = setInterval(function () {
       tries += 1;
+      init();
 
-      const ok = init();
-
-      if (ok || tries >= 40) {
+      if (document.getElementById('lessonRouteCarouselForce') || tries >= 20) {
         clearInterval(timer);
       }
-    }, 250);
-
-    init();
+    }, 350);
   }
 
   if (document.readyState === 'loading') {
