@@ -1,13 +1,14 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.js
-   Version: v9.9.0-full-engine
+   Version: v9.9.2-boss-fair-win
    Purpose:
    - Aqua Rush hydration game
    - PC / Mobile / Cardboard cVR
    - Wave + Mini Mission + Heat Boss + Fever
    - Badge / Personal Best / Daily Challenge
    - HeroHealth event hooks + safe summary
+   - v9.9.2: Boss fair win + combo pressure + green-zone pressure
    ========================================================= */
 
 (function(){
@@ -15,7 +16,7 @@
 
   window.HHA = window.HHA || {};
   window.HHA.Hydration = window.HHA.Hydration || {
-    VERSION: 'v9.9.0-full-engine',
+    VERSION: 'v9.9.2-boss-fair-win',
     booted: false,
     started: false,
     destroyed: false,
@@ -26,11 +27,7 @@
   };
 
   const HYD = window.HHA.Hydration;
-  HYD.VERSION = 'v9.9.0-full-engine';
-
-  /* =========================================================
-     Namespace exports for inline onclick
-     ========================================================= */
+  HYD.VERSION = 'v9.9.2-boss-fair-win';
 
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
   window.toggleHydrationPause = toggleHydrationPause;
@@ -39,10 +36,6 @@
   window.restartHydrationSameChallenge = restartHydrationSameChallenge;
   window.restartHydrationNewSeed = restartHydrationNewSeed;
   window.answerHydrationQuickCheck = answerHydrationQuickCheck;
-
-  /* =========================================================
-     Safe Helpers
-     ========================================================= */
 
   function clamp(n, min, max){
     n = Number(n);
@@ -105,6 +98,7 @@
       HYD.timers.delete(id);
       try{ fn(); }catch(e){ hhaHydrationDebugError(e); }
     }, ms);
+
     HYD.timers.add(id);
     return id;
   }
@@ -208,10 +202,6 @@
     if(n) n.textContent = String(text || '');
   }
 
-  /* =========================================================
-     Seeded RNG
-     ========================================================= */
-
   function hhaHydrationHashSeed(s){
     s = String(s || 'hydration');
     let h = 2166136261;
@@ -247,10 +237,6 @@
     if(!arr.length) return null;
     return arr[Math.floor(hhaHydrationRand() * arr.length)];
   }
-
-  /* =========================================================
-     Context / Flow
-     ========================================================= */
 
   const HHA_HYDRATION_FLOW = {
     started: false,
@@ -291,10 +277,6 @@
       conditionGroup: u.searchParams.get('conditionGroup') || ''
     };
   }
-
-  /* =========================================================
-     Data: Waves / Items / Missions / Boss / Learning
-     ========================================================= */
 
   const HHA_HYDRATION_WAVES = [
     {
@@ -527,11 +509,46 @@
   };
 
   const HHA_HYDRATION_DAILY_CHALLENGES = [
-    { id:'green-day', icon:'💚', title:'Green Zone Day', goalText:'จบเกมด้วย Hydration 70%+', test:r => r.hydration >= 70, reward:'Green Hero' },
-    { id:'combo-day', icon:'🔥', title:'Combo Splash Day', goalText:'ทำ Combo 10+', test:r => r.maxCombo >= 10, reward:'Fever Bonus' },
-    { id:'mission-day', icon:'🎯', title:'Mission Rush Day', goalText:'ทำ Mission สำเร็จ 3 ครั้ง', test:r => r.missionsCompleted >= 3, reward:'Mission Badge' },
-    { id:'boss-day', icon:'🌞', title:'Heat Boss Day', goalText:'ชนะ Heat Monster', test:r => r.bossDefeated, reward:'Boss Slayer' },
-    { id:'clean-choice-day', icon:'🧋', title:'Sugar Dodger Day', goalText:'โดนของเสี่ยงไม่เกิน 2 ครั้ง', test:r => r.hitsJunk <= 2, reward:'Sugar Dodger' }
+    {
+      id:'green-day',
+      icon:'💚',
+      title:'Green Zone Day',
+      goalText:'จบเกมด้วย Hydration 60%+',
+      test:r => r.hydration >= 60,
+      reward:'Green Hero'
+    },
+    {
+      id:'combo-day',
+      icon:'🔥',
+      title:'Combo Splash Day',
+      goalText:'ทำ Combo 10+',
+      test:r => r.maxCombo >= 10,
+      reward:'Fever Bonus'
+    },
+    {
+      id:'mission-day',
+      icon:'🎯',
+      title:'Mission Rush Day',
+      goalText:'ทำ Mission สำเร็จ 3 ครั้ง',
+      test:r => r.missionsCompleted >= 3,
+      reward:'Mission Badge'
+    },
+    {
+      id:'boss-day',
+      icon:'🌞',
+      title:'Heat Boss Day',
+      goalText:'ชนะ Heat Monster',
+      test:r => r.bossDefeated,
+      reward:'Boss Slayer'
+    },
+    {
+      id:'clean-choice-day',
+      icon:'🧋',
+      title:'Sugar Dodger Day',
+      goalText:'โดนของเสี่ยงไม่เกิน 2 ครั้ง',
+      test:r => r.hitsJunk <= 2,
+      reward:'Sugar Dodger'
+    }
   ];
 
   const HHA_HYDRATION_QUICK_CHECKS = [
@@ -584,10 +601,6 @@
     { id:'ice-guardian', icon:'🧊', title:'Ice Guardian', desc:'ใช้ Shield ช่วยกันอันตราย', test:r => r.shieldUsed >= 1 || r.shieldLeft >= 2 },
     { id:'daily-hero', icon:'📅', title:'Daily Hero', desc:'ผ่านภารกิจประจำวัน', test:r => r.dailyCleared }
   ];
-
-  /* =========================================================
-     Runtime State
-     ========================================================= */
 
   const HHA_HYDRATION_STATE = {
     score: 0,
@@ -650,10 +663,6 @@
   let HHA_LAST_TICK_MS = 0;
   let HHA_LAST_SPAWN_MS = 0;
   let HHA_LAST_WAVE_ID = '';
-
-  /* =========================================================
-     Setup / Boot UI
-     ========================================================= */
 
   function mountHydrationStartOverlay(){
     const ctx = getHydrationCtx();
@@ -742,6 +751,9 @@
     if(HYD.booted) return;
 
     HYD.booted = true;
+    HYD.ready = true;
+    window.HHA_HYDRATION_ENGINE_READY = true;
+
     HYD.destroyed = false;
     HYD.debug = hhaHydrationIsDebug();
 
@@ -770,10 +782,6 @@
 
     hhaHydrationDebugLog('booted', ctx);
   }
-
-  /* =========================================================
-     Game Start / Cleanup
-     ========================================================= */
 
   function startHydrationArcadeGame(options){
     options = options || {};
@@ -911,10 +919,6 @@
     document.body.removeAttribute('data-heat-attack');
   }
 
-  /* =========================================================
-     Tick / Waves / Difficulty
-     ========================================================= */
-
   function getHydrationDifficultyTuning(){
     const diff = qs('diff', 'normal');
 
@@ -991,6 +995,7 @@
     maybeStartHydrationMission(now, wave);
     updateHydrationMissionTick(now, dt);
     updateHeatBossAttackTick(now, dt, wave);
+    applyGreenZoneBossPressure(dt);
 
     const tune = getHydrationDifficultyTuning();
 
@@ -1027,10 +1032,6 @@
       document.body.classList.remove('hha-dehydration-danger');
     }
   }
-
-  /* =========================================================
-     Playfield / Spawn / Targets
-     ========================================================= */
 
   function getHydrationPlayfield(){
     let field = document.getElementById('hha-hydration-playfield');
@@ -1164,7 +1165,7 @@
     const info = getHydrationLearn(item);
 
     if(item.kind === 'good'){
-      const gained = item.score * (S.feverActive ? 2 : 1);
+      const gained = Math.round(item.score * (S.feverActive ? 1.55 : 1));
 
       S.score += gained;
       S.hydration = clamp(S.hydration + item.hydration, 0, 100);
@@ -1172,11 +1173,24 @@
       S.maxCombo = Math.max(S.maxCombo, S.combo);
       S.hitsGood += 1;
 
+      applyBossComboPressure();
+
       if(item.shield){
         S.shield += item.shield;
       }
 
       S.fever = clamp(S.fever + 12, 0, 100);
+
+      if(HHA_HEAT_BOSS_STATE.active){
+        let bossHitDamage = 1.6;
+
+        if(item.id === 'water') bossHitDamage = 2.4;
+        if(item.id === 'ice') bossHitDamage = 3.2;
+        if(S.combo >= 8) bossHitDamage += 1.2;
+        if(S.feverActive) bossHitDamage += 1.8;
+
+        damageHeatBoss(bossHitDamage, 'good_item_hit');
+      }
 
       showHydrationPop(node, `+${gained} ${item.short}`, 'good');
       showHydrationLearnPop(node, item);
@@ -1259,10 +1273,6 @@
 
     return all.find(x => x.id === id) || null;
   }
-
-  /* =========================================================
-     HUD / UI
-     ========================================================= */
 
   function updateHydrationHUD(){
     const S = HHA_HYDRATION_STATE;
@@ -1473,10 +1483,6 @@
     }, 2600);
   }
 
-  /* =========================================================
-     Pause
-     ========================================================= */
-
   function toggleHydrationPause(){
     if(HHA_HYDRATION_FLOW.ended || !HYD.started) return;
 
@@ -1538,10 +1544,6 @@
     `;
   }
 
-  /* =========================================================
-     Fever
-     ========================================================= */
-
   function startHydrationFever(){
     const S = HHA_HYDRATION_STATE;
     if(S.feverActive) return;
@@ -1550,7 +1552,7 @@
     S.fever = 0;
 
     document.body.classList.add('hha-fever-mode');
-    showHydrationBanner('🌈 FEVER MODE! คะแนน x2 เก็บน้ำรัว ๆ!');
+    showHydrationBanner('🌈 FEVER MODE! คะแนนพิเศษ เก็บน้ำรัว ๆ!');
     hydrationFeedback('fever');
     spawnHydrationFeverRing();
 
@@ -1571,12 +1573,15 @@
     updateHydrationHUD();
   }
 
-  /* =========================================================
-     Missions
-     ========================================================= */
-
   function scheduleNextHydrationMission(now){
-    const gap = 18000 + hhaHydrationRand() * 10000;
+    const BS = HHA_HEAT_BOSS_STATE;
+
+    let gap = 14500 + hhaHydrationRand() * 6500;
+
+    if(BS.active){
+      gap = 3400 + hhaHydrationRand() * 2200;
+    }
+
     HHA_HYDRATION_MISSION_STATE.nextAt = now + gap;
   }
 
@@ -1688,20 +1693,14 @@
     }
 
     if(BS.active){
-      BS.hp = clamp(BS.hp - (m.bossDamage || 10), 0, 100);
-      S.bossHp = BS.hp;
-      mountHeatBossHUD();
-      pulseHeatBossDamage();
-
-      if(BS.hp <= 0){
-        defeatHeatBoss();
-      }
+      const bossMissionDamage = (m.bossDamage || 10) * 1.65;
+      damageHeatBoss(bossMissionDamage, 'mission_clear');
     }
 
     MS.completed += 1;
 
     showHydrationBanner(`สำเร็จ! ${m.icon} +${m.rewardScore}`);
-    showHydrationMissionToast(`✅ Mission Clear! บอสเสียพลัง -${m.bossDamage || 10}`);
+    showHydrationMissionToast(`✅ Mission Clear! บอสเสียพลัง -${Math.round((m.bossDamage || 10) * 1.65)}`);
     hydrationFeedback('mission');
     spawnHydrationMissionBurst();
 
@@ -1811,28 +1810,98 @@
     }, 1400);
   }
 
-  /* =========================================================
-     Boss
-     ========================================================= */
+  function applyBossComboPressure(){
+    const BS = HHA_HEAT_BOSS_STATE;
+    const S = HHA_HYDRATION_STATE;
+
+    if(!BS.active) return;
+    if(BS.hp <= 0) return;
+
+    if(S.combo > 0 && S.combo % 10 === 0){
+      damageHeatBoss(8, 'combo_milestone_' + S.combo);
+      showHydrationMissionToast('🔥 Combo ' + S.combo + '! บอสเสียพลัง -8');
+    }
+  }
+
+  function applyGreenZoneBossPressure(dt){
+    const BS = HHA_HEAT_BOSS_STATE;
+    const S = HHA_HYDRATION_STATE;
+
+    if(!BS.active) return;
+    if(BS.hp <= 0) return;
+
+    if(S.hydration >= 90){
+      damageHeatBoss(1.25 * dt, 'green_zone_pressure_90');
+      return;
+    }
+
+    if(S.hydration >= 80){
+      damageHeatBoss(0.9 * dt, 'green_zone_pressure_80');
+    }
+  }
+
+  function getHydrationBossStartHp(){
+    const diff = qs('diff', 'normal');
+
+    if(diff === 'easy') return 45;
+    if(diff === 'hard') return 80;
+    if(diff === 'challenge') return 100;
+
+    return 58;
+  }
+
+  function damageHeatBoss(amount, reason){
+    const BS = HHA_HEAT_BOSS_STATE;
+    const S = HHA_HYDRATION_STATE;
+
+    if(!BS.active) return;
+    if(BS.hp <= 0) return;
+
+    amount = Number(amount || 0);
+    if(amount <= 0) return;
+
+    BS.hp = clamp(BS.hp - amount, 0, 100);
+    S.bossHp = BS.hp;
+
+    mountHeatBossHUD();
+    pulseHeatBossDamage();
+
+    emitHydrationEvent('boss_damage', {
+      amount: Math.round(amount),
+      reason: reason || 'unknown',
+      bossHp: Math.round(BS.hp),
+      score: Math.round(S.score)
+    });
+
+    if(BS.hp <= 0){
+      defeatHeatBoss();
+    }
+  }
 
   function startHeatBossPhase(){
     const S = HHA_HYDRATION_STATE;
     const BS = HHA_HEAT_BOSS_STATE;
 
+    const startHp = getHydrationBossStartHp();
+
     BS.active = true;
-    BS.hp = 100;
+    BS.hp = startHp;
     BS.attack = null;
     BS.attackCount = 0;
-    BS.nextAttackAt = performance.now() + 2500;
+    BS.nextAttackAt = performance.now() + 2200;
     BS.attackEndsAt = 0;
 
-    S.bossHp = 100;
+    S.bossHp = startHp;
 
     document.body.classList.add('hha-heat-boss');
-    showHydrationBanner('🌞 Heat Monster มาแล้ว! ทำ Mission เพื่อลด HP!');
+    showHydrationBanner('🌞 Heat Monster มาแล้ว! เก็บน้ำ + ทำ Mission เพื่อลด HP!');
     mountHeatBossHUD();
 
-    emitHydrationEvent('boss_start', {});
+    HHA_HYDRATION_MISSION_STATE.nextAt = performance.now() + 1500;
+
+    emitHydrationEvent('boss_start', {
+      bossHp: startHp
+    });
   }
 
   function mountHeatBossHUD(){
@@ -1974,8 +2043,6 @@
     const BS = HHA_HEAT_BOSS_STATE;
     const S = HHA_HYDRATION_STATE;
 
-    if(!BS.active && BS.hp <= 0) return;
-
     BS.active = false;
     BS.attack = null;
     BS.hp = 0;
@@ -2013,10 +2080,6 @@
       boss.classList.remove('damage');
     }, 420);
   }
-
-  /* =========================================================
-     Learning
-     ========================================================= */
 
   function getHydrationLearn(item){
     return HHA_HYDRATION_LEARN[item.id] || {
@@ -2135,10 +2198,6 @@
     };
   }
 
-  /* =========================================================
-     Quick Check
-     ========================================================= */
-
   function maybeShowHydrationQuickCheck(){
     if(HHA_HYDRATION_FLOW.paused || HHA_HYDRATION_FLOW.ended) return;
     if(hhaHydrationRand() > 0.32) return;
@@ -2215,10 +2274,6 @@
 
     updateHydrationHUD();
   }
-
-  /* =========================================================
-     Juice / Audio / Vibration / FX
-     ========================================================= */
 
   function initHydrationJuice(){
     try{
@@ -2479,10 +2534,6 @@
     }, 360);
   }
 
-  /* =========================================================
-     Aim Assist / cVR Shoot
-     ========================================================= */
-
   function findNearestHydrationTarget(x, y, maxPx){
     const nodes = hhaHydrationQSA('.hha-hydration-target');
     let best = null;
@@ -2549,10 +2600,6 @@
     hhaHydrationOn(window, 'hha:shoot', onHydrationShoot, false);
   }
 
-  /* =========================================================
-     Daily / Best / Badge / Summary
-     ========================================================= */
-
   function getHydrationPlayerKey(){
     const pid = qs('pid', 'anon') || 'anon';
     const diff = qs('diff', 'normal') || 'normal';
@@ -2614,10 +2661,26 @@
   }
 
   function calculateHydrationMedal(r){
-    if(r.score >= 2600 && r.hydration >= 65 && r.bossDefeated) return 'Aqua Legend 🏆';
-    if(r.score >= 2200 && r.hydration >= 60) return 'Aqua Master 💎';
-    if(r.score >= 1600 && r.hydration >= 50) return 'Gold 💧';
-    if(r.score >= 900) return 'Silver ⭐';
+    if(r.score >= 2600 && r.hydration >= 65 && r.bossDefeated){
+      return 'Aqua Legend 🏆';
+    }
+
+    if(r.score >= 2200 && r.hydration >= 60 && r.bossDefeated){
+      return 'Aqua Master 💎';
+    }
+
+    if(r.score >= 2200 && r.hydration >= 55){
+      return 'Aqua Hero 💧';
+    }
+
+    if(r.score >= 1600 && r.hydration >= 50){
+      return 'Gold 💧';
+    }
+
+    if(r.score >= 900){
+      return 'Silver ⭐';
+    }
+
     return 'Bronze 👍';
   }
 
@@ -2626,6 +2689,35 @@
       try{ return b.test(result); }
       catch(e){ return false; }
     });
+  }
+
+  function applyHydrationFairBossWinBeforeSummary(){
+    const S = HHA_HYDRATION_STATE;
+    const BS = HHA_HEAT_BOSS_STATE;
+    const MS = HHA_HYDRATION_MISSION_STATE;
+
+    if(BS.hp <= 0 || S.bossHp <= 0) return;
+
+    const excellentHydration = S.hydration >= 85;
+    const strongCombo = S.maxCombo >= 30;
+    const goodScore = S.score >= 5000;
+    const missionOk = MS.completed >= 1;
+
+    if(excellentHydration && strongCombo && goodScore && missionOk){
+      BS.hp = 0;
+      S.bossHp = 0;
+      S.score += 500;
+
+      emitHydrationEvent('boss_fair_win', {
+        reason: 'excellent_hydration_combo_score',
+        hydration: Math.round(S.hydration),
+        maxCombo: S.maxCombo,
+        missionsCompleted: MS.completed,
+        score: Math.round(S.score)
+      });
+
+      showHydrationMissionToast('🏆 เล่นดีมาก! ชนะ Heat Boss แบบ Fair Win');
+    }
   }
 
   function endHydrationGame(){
@@ -2639,6 +2731,8 @@
     const S = HHA_HYDRATION_STATE;
     const MS = HHA_HYDRATION_MISSION_STATE;
     const BS = HHA_HEAT_BOSS_STATE;
+
+    applyHydrationFairBossWinBeforeSummary();
 
     hhaHydrationRemove('.hha-hydration-target');
     hhaHydrationRemove('.hha-hydration-controls');
@@ -2736,6 +2830,13 @@
       box = document.createElement('div');
       box.className = 'hha-hydration-summary';
       document.body.appendChild(box);
+    }
+
+    const dbg = document.getElementById('hha-hydration-debug');
+    if(dbg){
+      dbg.style.opacity = '.22';
+      dbg.style.transform = 'scale(.82)';
+      dbg.style.transformOrigin = 'left bottom';
     }
 
     hydrationFeedback(result.stars >= 3 ? 'mission' : 'good');
@@ -2867,12 +2968,12 @@
       return '🧋 ระวังน้ำหวานและของเค็ม พวกนี้ทำให้เสีย Combo และ Hydration ลดเร็ว';
     }
 
-    if(r.missionsCompleted <= 1){
+    if(r.missionsCompleted <= 1 && !r.bossDefeated){
       return '🎯 ลองโฟกัส Mission กลางจอให้มากขึ้น เพราะ Mission ช่วยลดพลังบอสได้';
     }
 
     if(!r.bossDefeated && r.score >= 1200){
-      return '🌞 คะแนนดีแล้ว รอบหน้าลองทำ Mission ตอน Boss เพื่อชนะ Heat Monster';
+      return '🌞 คะแนนดีแล้ว รอบหน้าลองทำ Mission และเก็บน้ำดีตอน Boss เพื่อชนะ Heat Monster';
     }
 
     if(r.maxCombo < 5){
@@ -2898,10 +2999,6 @@
     u.searchParams.set('seed', String(Date.now()));
     location.href = u.toString();
   }
-
-  /* =========================================================
-     Back / Exit / Logging
-     ========================================================= */
 
   function goHydrationBackHub(){
     const ctx = HHA_HYDRATION_FLOW.ctx || getHydrationCtx();
@@ -3045,10 +3142,6 @@
     }, { passive:true });
   }
 
-  /* =========================================================
-     Viewport / Debug
-     ========================================================= */
-
   function updateHydrationViewportVars(){
     try{
       const vh = window.innerHeight * 0.01;
@@ -3095,14 +3188,10 @@
       <span>hydration: ${Math.round(S.hydration || 0)}</span>
       <span>combo: ${S.combo || 0}</span>
       <span>mission: ${MS.active ? esc(MS.active.id) : '-'}</span>
-      <span>boss: ${BS.active ? Math.round(BS.hp || 0) : '-'}</span>
+      <span>boss: ${BS.active ? Math.round(BS.hp || 0) : Math.round(BS.hp || 0)}</span>
       <span>${esc(extra || HYD.VERSION)}</span>
     `;
   }
-
-  /* =========================================================
-     Boot
-     ========================================================= */
 
   if(document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', bootHydrationGame, { once:true });
