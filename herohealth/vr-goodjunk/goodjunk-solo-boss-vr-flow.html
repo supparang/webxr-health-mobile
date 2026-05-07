@@ -1,14 +1,11 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.43.5-GOODJUNK-FULL-3D-VR-PNG-TARGETS -->
-<!-- Full 3D VR Flow in one page:
-     ✅ ใช้ PNG object targets จาก /herohealth/assets/goodjunk/*.png
-     ✅ GOOD = วงเขียว + check + object food จริง
-     ✅ JUNK = วงแดง + X + object junk จริง
-     ✅ FAKE = วงเหลือง + ! + juice-box
-     ✅ POWER = shield / heart / fever image
-     ✅ กด 🎯 ตอน intro เพื่อเริ่ม Warmup ได้ทันที
-     ✅ Aim comfort + hitbox ใหญ่ขึ้น
-     ✅ 3D Warmup → 3D Boss → Summary → 3D Cooldown → Launcher
+<!-- FULL PATCH v8.43.6b-GOODJUNK-PNG-HARD-URL-START-NO-RECREATE -->
+<!-- GoodJunk Full 3D VR Flow:
+     ✅ Hard URL PNG targets from /herohealth/assets/goodjunk/*.png
+     ✅ No a-assets dependency for target images
+     ✅ START panel does not recreate after warmup starts
+     ✅ Larger hitbox + aim assist
+     ✅ Warmup → Main Boss → Summary → 3D Cooldown → Launcher
 -->
 
 <!doctype html>
@@ -555,26 +552,11 @@
     vr-mode-ui="enabled:true"
     loading-screen="enabled:false">
 
-    <a-assets timeout="10000">
-      <img id="gjApple" src="../assets/goodjunk/apple.png" crossorigin="anonymous" />
-      <img id="gjBroccoli" src="../assets/goodjunk/broccoli.png" crossorigin="anonymous" />
-      <img id="gjCandy" src="../assets/goodjunk/candy.png" crossorigin="anonymous" />
-      <img id="gjDonut" src="../assets/goodjunk/donut.png" crossorigin="anonymous" />
-      <img id="gjEgg" src="../assets/goodjunk/egg.png" crossorigin="anonymous" />
-      <img id="gjFever" src="../assets/goodjunk/fever.png" crossorigin="anonymous" />
-      <img id="gjFries" src="../assets/goodjunk/fries.png" crossorigin="anonymous" />
-      <img id="gjHeart" src="../assets/goodjunk/heart.png" crossorigin="anonymous" />
-      <img id="gjJuiceBox" src="../assets/goodjunk/juice-box.png" crossorigin="anonymous" />
-      <img id="gjShield" src="../assets/goodjunk/shield.png" crossorigin="anonymous" />
-      <img id="gjSoda" src="../assets/goodjunk/soda.png" crossorigin="anonymous" />
-      <img id="gjWater" src="../assets/goodjunk/water.png" crossorigin="anonymous" />
-    </a-assets>
-
     <a-entity id="cameraRig" position="0 1.6 0">
       <a-camera id="camera" look-controls wasd-controls="enabled:false">
         <a-entity
           id="aimRay"
-          raycaster="objects:.gj-target; far:34; interval:60"
+          raycaster="objects:.gj-hitbox; far:34; interval:60"
           cursor="fuse:false"
           position="0 0 -1"
           geometry="primitive:ring; radiusInner:0.012; radiusOuter:0.018"
@@ -626,7 +608,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.43.5-GOODJUNK-FULL-3D-VR-PNG-TARGETS';
+      const PATCH = 'v8.43.6b-GOODJUNK-PNG-HARD-URL-START-NO-RECREATE';
 
       const WIN = window;
       const DOC = document;
@@ -636,6 +618,24 @@
         launcher:'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
         hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
       };
+
+      const ASSET_VERSION = 'v8436b';
+
+      function heroBase(){
+        try{
+          const marker = '/herohealth/';
+          const idx = location.pathname.indexOf(marker);
+          if(idx >= 0){
+            return location.origin + location.pathname.slice(0, idx + marker.length);
+          }
+        }catch(e){}
+
+        return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+      }
+
+      function assetUrl(file){
+        return heroBase() + 'assets/goodjunk/' + String(file || 'broccoli.png') + '?v=' + ASSET_VERSION;
+      }
 
       function q(k,d){
         const v = QS.get(k);
@@ -660,27 +660,27 @@
       const D = DIFF[cfg.diff] || DIFF.normal;
 
       const GOOD = [
-        { id:'broccoli', label:'BROCCOLI', img:'#gjBroccoli', type:'good', color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
-        { id:'apple', label:'APPLE', img:'#gjApple', type:'good', color:'#22c55e', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
-        { id:'egg', label:'EGG', img:'#gjEgg', type:'good', color:'#22c55e', tip:'ไข่เป็นโปรตีนที่ดี' },
-        { id:'water', label:'WATER', img:'#gjWater', type:'good', color:'#22c55e', tip:'น้ำเปล่าดีต่อร่างกาย' }
+        { id:'broccoli', label:'BROCCOLI', file:'broccoli.png', type:'good', color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
+        { id:'apple', label:'APPLE', file:'apple.png', type:'good', color:'#22c55e', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
+        { id:'egg', label:'EGG', file:'egg.png', type:'good', color:'#22c55e', tip:'ไข่เป็นโปรตีนที่ดี' },
+        { id:'water', label:'WATER', file:'water.png', type:'good', color:'#22c55e', tip:'น้ำเปล่าดีต่อร่างกาย' }
       ];
 
       const JUNK = [
-        { id:'fries', label:'FRIES', img:'#gjFries', type:'junk', color:'#ef4444', tip:'ของทอดควรกินแต่น้อย' },
-        { id:'soda', label:'SODA', img:'#gjSoda', type:'junk', color:'#ef4444', tip:'น้ำอัดลมมีน้ำตาลสูง' },
-        { id:'donut', label:'DONUT', img:'#gjDonut', type:'junk', color:'#ef4444', tip:'ขนมหวานน้ำตาลสูง' },
-        { id:'candy', label:'CANDY', img:'#gjCandy', type:'junk', color:'#ef4444', tip:'ลูกอมหวานจัด' }
+        { id:'fries', label:'FRIES', file:'fries.png', type:'junk', color:'#ef4444', tip:'ของทอดควรกินแต่น้อย' },
+        { id:'soda', label:'SODA', file:'soda.png', type:'junk', color:'#ef4444', tip:'น้ำอัดลมมีน้ำตาลสูง' },
+        { id:'donut', label:'DONUT', file:'donut.png', type:'junk', color:'#ef4444', tip:'ขนมหวานน้ำตาลสูง' },
+        { id:'candy', label:'CANDY', file:'candy.png', type:'junk', color:'#ef4444', tip:'ลูกอมหวานจัด' }
       ];
 
       const FAKE = [
-        { id:'juice-box', label:'SUGAR JUICE', img:'#gjJuiceBox', type:'fake', color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' }
+        { id:'juice-box', label:'SUGAR JUICE', file:'juice-box.png', type:'fake', color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' }
       ];
 
       const POWER = [
-        { id:'shield', label:'SHIELD', img:'#gjShield', type:'power', color:'#38bdf8' },
-        { id:'fever', label:'FEVER', img:'#gjFever', type:'power', color:'#facc15' },
-        { id:'heal', label:'HEART', img:'#gjHeart', type:'power', color:'#22c55e' }
+        { id:'shield', label:'SHIELD', file:'shield.png', type:'power', color:'#38bdf8' },
+        { id:'fever', label:'FEVER', file:'fever.png', type:'power', color:'#facc15' },
+        { id:'heal', label:'HEART', file:'heart.png', type:'power', color:'#22c55e' }
       ];
 
       const el = {
@@ -770,8 +770,10 @@
 
       function toast(t){
         if(!el.toast) return;
+
         el.toast.textContent = String(t || '');
         el.toast.classList.add('show');
+
         clearTimeout(toast._t);
         toast._t = setTimeout(() => el.toast.classList.remove('show'), 1500);
       }
@@ -780,12 +782,14 @@
       function hide(node){ node && node.classList.add('hidden'); }
 
       function updateHud(){
-        if(el.hudStage) el.hudStage.textContent =
-          state.stage === 'warmup' ? 'Warmup' :
-          state.stage === 'main' ? 'Boss' :
-          state.stage === 'summary' ? 'Summary' :
-          state.stage === 'cooldown' ? 'Cooldown' :
-          state.stage === 'done' ? 'Done' : 'Ready';
+        if(el.hudStage){
+          el.hudStage.textContent =
+            state.stage === 'warmup' ? 'Warmup' :
+            state.stage === 'main' ? 'Boss' :
+            state.stage === 'summary' ? 'Summary' :
+            state.stage === 'cooldown' ? 'Cooldown' :
+            state.stage === 'done' ? 'Done' : 'Ready';
+        }
 
         if(el.hudScore) el.hudScore.textContent = String(state.score);
         if(el.hudTime) el.hudTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
@@ -810,7 +814,9 @@
         state.targets.forEach(x => {
           try{ x.remove(); }catch(e){}
         });
+
         state.targets.clear();
+
         if(el.targetRoot) el.targetRoot.innerHTML = '';
       }
 
@@ -818,7 +824,7 @@
         opts = opts || {};
 
         const wrap = DOC.createElement('a-entity');
-        wrap.classList.add('gj-target');
+        wrap.classList.add('gj-target-root');
         wrap.setAttribute('data-gj-target-root', '1');
         wrap.dataset.kind = kind;
         wrap.dataset.consumed = '0';
@@ -836,75 +842,54 @@
         return wrap;
       }
 
+      function materialSrc(file){
+        return [
+          'src:' + assetUrl(file),
+          'transparent:true',
+          'alphaTest:0.01',
+          'side:double',
+          'shader:flat',
+          'depthTest:true'
+        ].join(';');
+      }
+
+      function makeHitbox(w,h,d){
+        const hitbox = DOC.createElement('a-box');
+        hitbox.classList.add('gj-hitbox');
+        hitbox.setAttribute('width', String(w || 2.45));
+        hitbox.setAttribute('height', String(h || 2.1));
+        hitbox.setAttribute('depth', String(d || 0.4));
+        hitbox.setAttribute('position', '0 0.05 0.04');
+        hitbox.setAttribute('material', 'transparent:true; opacity:0.001; depthWrite:false');
+        return hitbox;
+      }
+
       function makeMark(kind){
         const isGood = kind === 'good' || kind === 'warm-good';
         const isJunk = kind === 'junk' || kind === 'warm-junk';
         const isFake = kind === 'fake';
 
-        if(isGood){
-          const mark = DOC.createElement('a-entity');
+        if(!isGood && !isJunk && !isFake) return null;
 
-          const circle = DOC.createElement('a-circle');
-          circle.setAttribute('radius', '0.18');
-          circle.setAttribute('color', '#16a34a');
-          circle.setAttribute('position', '0 0 0.03');
+        const mark = DOC.createElement('a-entity');
 
-          const t = DOC.createElement('a-text');
-          t.setAttribute('value', '✓');
-          t.setAttribute('align', 'center');
-          t.setAttribute('color', '#ffffff');
-          t.setAttribute('width', '1.5');
-          t.setAttribute('position', '0 -0.065 0.06');
+        const circle = DOC.createElement('a-circle');
+        circle.setAttribute('radius', '0.22');
+        circle.setAttribute('color', isGood ? '#16a34a' : isJunk ? '#ef4444' : '#f59e0b');
+        circle.setAttribute('position', '0 0 0.03');
 
-          mark.appendChild(circle);
-          mark.appendChild(t);
-          mark.setAttribute('position', '0.55 -0.44 0.12');
-          return mark;
-        }
+        const t = DOC.createElement('a-text');
+        t.setAttribute('value', isGood ? '✓' : isJunk ? 'X' : '!');
+        t.setAttribute('align', 'center');
+        t.setAttribute('color', '#ffffff');
+        t.setAttribute('width', '1.5');
+        t.setAttribute('position', '0 -0.07 0.06');
 
-        if(isJunk){
-          const mark = DOC.createElement('a-entity');
+        mark.appendChild(circle);
+        mark.appendChild(t);
+        mark.setAttribute('position', '0.68 -0.56 0.20');
 
-          const circle = DOC.createElement('a-circle');
-          circle.setAttribute('radius', '0.18');
-          circle.setAttribute('color', '#ef4444');
-          circle.setAttribute('position', '0 0 0.03');
-
-          const t = DOC.createElement('a-text');
-          t.setAttribute('value', 'X');
-          t.setAttribute('align', 'center');
-          t.setAttribute('color', '#ffffff');
-          t.setAttribute('width', '1.3');
-          t.setAttribute('position', '0 -0.055 0.06');
-
-          mark.appendChild(circle);
-          mark.appendChild(t);
-          mark.setAttribute('position', '0.55 -0.44 0.12');
-          return mark;
-        }
-
-        if(isFake){
-          const mark = DOC.createElement('a-entity');
-
-          const circle = DOC.createElement('a-circle');
-          circle.setAttribute('radius', '0.18');
-          circle.setAttribute('color', '#f59e0b');
-          circle.setAttribute('position', '0 0 0.03');
-
-          const t = DOC.createElement('a-text');
-          t.setAttribute('value', '!');
-          t.setAttribute('align', 'center');
-          t.setAttribute('color', '#ffffff');
-          t.setAttribute('width', '1.4');
-          t.setAttribute('position', '0 -0.065 0.06');
-
-          mark.appendChild(circle);
-          mark.appendChild(t);
-          mark.setAttribute('position', '0.55 -0.44 0.12');
-          return mark;
-        }
-
-        return null;
+        return mark;
       }
 
       function createTarget(kind, data, opts){
@@ -922,50 +907,38 @@
         const theme = isGood ? {
           bg:'#dcfce7',
           rim:'#22c55e',
-          glow:'#86efac',
           label:'GOOD'
         } : isJunk ? {
           bg:'#fee2e2',
           rim:'#ef4444',
-          glow:'#fecaca',
           label:'JUNK'
         } : isFake ? {
           bg:'#fef3c7',
           rim:'#f59e0b',
-          glow:'#fde68a',
           label:'FAKE'
         } : isPower ? {
           bg:'#dbeafe',
           rim:data.color || '#38bdf8',
-          glow:data.color || '#bfdbfe',
           label:data.label || 'POWER'
         } : isBreath ? {
           bg:'#e0f2fe',
-          rim:'#38bdf8',
-          glow:'#bfdbfe',
+          rim:data.color || '#38bdf8',
           label:data.label || 'CALM'
         } : {
           bg:'#ffffff',
           rim:'#94a3b8',
-          glow:'#e2e8f0',
           label:'ITEM'
         };
 
-        const hitbox = DOC.createElement('a-box');
-        hitbox.setAttribute('width', '2.35');
-        hitbox.setAttribute('height', '2.05');
-        hitbox.setAttribute('depth', '0.34');
-        hitbox.setAttribute('position', '0 0.05 0.04');
-        hitbox.setAttribute('material', 'transparent:true; opacity:0.001');
-        wrap.appendChild(hitbox);
+        wrap.appendChild(makeHitbox(2.55, 2.25, 0.48));
 
-        const glow = DOC.createElement('a-ring');
-        glow.setAttribute('radius-inner', '0.83');
-        glow.setAttribute('radius-outer', '0.98');
-        glow.setAttribute('color', theme.rim);
-        glow.setAttribute('position', '0 0.08 0.02');
-        glow.setAttribute('material', 'transparent:true; opacity:0.72; side:double');
-        glow.setAttribute('animation__pulse', {
+        const halo = DOC.createElement('a-ring');
+        halo.setAttribute('radius-inner', '0.86');
+        halo.setAttribute('radius-outer', '1.02');
+        halo.setAttribute('color', theme.rim);
+        halo.setAttribute('position', '0 0.08 0.02');
+        halo.setAttribute('material', 'transparent:true; opacity:0.78; side:double');
+        halo.setAttribute('animation__pulse', {
           property:'scale',
           dir:'alternate',
           loop:true,
@@ -973,51 +946,52 @@
           easing:'easeInOutSine',
           to:'1.08 1.08 1.08'
         });
-        wrap.appendChild(glow);
+        wrap.appendChild(halo);
 
         const plate = DOC.createElement('a-circle');
-        plate.setAttribute('radius', '0.78');
+        plate.setAttribute('radius', '0.82');
         plate.setAttribute('color', theme.bg);
         plate.setAttribute('position', '0 0.08 0.035');
-        plate.setAttribute('material', 'transparent:true; opacity:0.72; side:double');
+        plate.setAttribute('material', 'transparent:true; opacity:0.52; side:double');
         wrap.appendChild(plate);
 
-        const img = DOC.createElement('a-image');
-        img.setAttribute('src', data.img || '#gjApple');
-        img.setAttribute('width', isPower ? '1.14' : '1.20');
-        img.setAttribute('height', isPower ? '1.14' : '1.20');
-        img.setAttribute('position', '0 0.12 0.12');
-        img.setAttribute('material', 'transparent:true; alphaTest:0.05; side:double');
-        wrap.appendChild(img);
+        const imgPanel = DOC.createElement('a-plane');
+        imgPanel.setAttribute('width', isPower ? '1.42' : '1.55');
+        imgPanel.setAttribute('height', isPower ? '1.42' : '1.55');
+        imgPanel.setAttribute('position', '0 0.14 0.24');
+        imgPanel.setAttribute('material', materialSrc(data.file || 'broccoli.png'));
+        wrap.appendChild(imgPanel);
 
         const mark = makeMark(kind);
         if(mark) wrap.appendChild(mark);
 
-        const label = DOC.createElement('a-text');
-        label.setAttribute('value',
+        const actionLabel = DOC.createElement('a-text');
+        actionLabel.setAttribute(
+          'value',
           isGood ? 'EAT' :
           isJunk ? 'NO!' :
           isFake ? 'CHECK' :
           isPower ? theme.label :
           'CALM'
         );
-        label.setAttribute('align', 'center');
-        label.setAttribute('color',
+        actionLabel.setAttribute('align', 'center');
+        actionLabel.setAttribute(
+          'color',
           isGood ? '#14532d' :
           isJunk ? '#7f1d1d' :
           isFake ? '#78350f' :
           '#172554'
         );
-        label.setAttribute('width', '2.55');
-        label.setAttribute('position', '0 -0.82 0.14');
-        wrap.appendChild(label);
+        actionLabel.setAttribute('width', '2.65');
+        actionLabel.setAttribute('position', '0 -0.93 0.26');
+        wrap.appendChild(actionLabel);
 
         const name = DOC.createElement('a-text');
         name.setAttribute('value', data.label || theme.label);
         name.setAttribute('align', 'center');
         name.setAttribute('color', '#0f172a');
-        name.setAttribute('width', '2.35');
-        name.setAttribute('position', '0 0.94 0.14');
+        name.setAttribute('width', '2.45');
+        name.setAttribute('position', '0 1.02 0.26');
         wrap.appendChild(name);
 
         const dur = opts.dur || Math.max(3300, D.speed - state.combo * 60);
@@ -1064,6 +1038,8 @@
       }
 
       function createVrStartPanel(){
+        if(state.stage !== 'intro') return;
+
         const old = id('vrStartPanel');
         if(old){
           try{ old.remove(); }catch(e){}
@@ -1072,7 +1048,7 @@
 
         const panel = makeTargetEntity('vr-start', {
           label:'START',
-          img:'#gjShield',
+          file:'shield.png',
           color:'#22c55e'
         }, {
           x:0,
@@ -1084,13 +1060,7 @@
 
         panel.id = 'vrStartPanel';
 
-        const hitbox = DOC.createElement('a-box');
-        hitbox.setAttribute('width', '4.0');
-        hitbox.setAttribute('height', '2.3');
-        hitbox.setAttribute('depth', '0.24');
-        hitbox.setAttribute('position', '0 0 0.02');
-        hitbox.setAttribute('material', 'transparent:true; opacity:0.001');
-        panel.appendChild(hitbox);
+        panel.appendChild(makeHitbox(4.1, 2.45, 0.5));
 
         const back = DOC.createElement('a-box');
         back.setAttribute('width', '3.8');
@@ -1122,7 +1092,7 @@
         title.setAttribute('align', 'center');
         title.setAttribute('color', '#0f172a');
         title.setAttribute('width', '4.9');
-        title.setAttribute('position', '0 0.62 0.12');
+        title.setAttribute('position', '0 0.62 0.16');
         panel.appendChild(title);
 
         const sub = DOC.createElement('a-text');
@@ -1130,7 +1100,7 @@
         sub.setAttribute('align', 'center');
         sub.setAttribute('color', '#2563eb');
         sub.setAttribute('width', '4.35');
-        sub.setAttribute('position', '0 0.25 0.12');
+        sub.setAttribute('position', '0 0.25 0.16');
         panel.appendChild(sub);
 
         const startPlate = DOC.createElement('a-box');
@@ -1146,23 +1116,21 @@
         startText.setAttribute('align', 'center');
         startText.setAttribute('color', '#14532d');
         startText.setAttribute('width', '3.2');
-        startText.setAttribute('position', '0 -0.48 0.27');
+        startText.setAttribute('position', '0 -0.48 0.29');
         panel.appendChild(startText);
 
-        const shield = DOC.createElement('a-image');
-        shield.setAttribute('src', '#gjShield');
+        const shield = DOC.createElement('a-plane');
         shield.setAttribute('width', '0.62');
         shield.setAttribute('height', '0.62');
-        shield.setAttribute('position', '-1.38 -0.38 0.22');
-        shield.setAttribute('material', 'transparent:true; alphaTest:0.05; side:double');
+        shield.setAttribute('position', '-1.38 -0.38 0.25');
+        shield.setAttribute('material', materialSrc('shield.png'));
         panel.appendChild(shield);
 
-        const apple = DOC.createElement('a-image');
-        apple.setAttribute('src', '#gjApple');
+        const apple = DOC.createElement('a-plane');
         apple.setAttribute('width', '0.62');
         apple.setAttribute('height', '0.62');
-        apple.setAttribute('position', '1.38 -0.38 0.22');
-        apple.setAttribute('material', 'transparent:true; alphaTest:0.05; side:double');
+        apple.setAttribute('position', '1.38 -0.38 0.25');
+        apple.setAttribute('material', materialSrc('apple.png'));
         panel.appendChild(apple);
 
         const hint = DOC.createElement('a-text');
@@ -1170,7 +1138,7 @@
         hint.setAttribute('align', 'center');
         hint.setAttribute('color', '#475569');
         hint.setAttribute('width', '3.7');
-        hint.setAttribute('position', '0 -0.86 0.14');
+        hint.setAttribute('position', '0 -0.86 0.16');
         panel.appendChild(hint);
 
         panel.setAttribute('animation__float', {
@@ -1269,7 +1237,7 @@
       function spawnCooldownSet(){
         clearTargets();
 
-        createTarget('breath', { id:'water', label:'WATER', img:'#gjWater', color:'#60a5fa' }, {
+        createTarget('breath', { id:'water', label:'WATER', file:'water.png', color:'#60a5fa' }, {
           x:-1.25,
           y:1.55,
           z:-3.6,
@@ -1277,7 +1245,7 @@
           scale:1.12
         });
 
-        createTarget('breath', { id:'heart', label:'HEART', img:'#gjHeart', color:'#22c55e' }, {
+        createTarget('breath', { id:'heart', label:'HEART', file:'heart.png', color:'#22c55e' }, {
           x:0,
           y:1.85,
           z:-3.65,
@@ -1285,7 +1253,7 @@
           scale:1.12
         });
 
-        createTarget('breath', { id:'broccoli', label:'GOOD', img:'#gjBroccoli', color:'#22c55e' }, {
+        createTarget('breath', { id:'broccoli', label:'GOOD', file:'broccoli.png', color:'#22c55e' }, {
           x:1.25,
           y:1.55,
           z:-3.6,
@@ -1294,17 +1262,22 @@
         });
       }
 
+      function rootFromHit(elm){
+        if(!elm || !elm.closest) return null;
+        return elm.closest('[data-gj-target-root="1"]');
+      }
+
       function nearestTarget(){
         const ray = el.aimRay && el.aimRay.components && el.aimRay.components.raycaster;
 
         if(ray && ray.intersections && ray.intersections.length){
           const hit = ray.intersections.find(x => {
             const obj = x.object && x.object.el;
-            return obj && obj.closest && obj.closest('.gj-target');
+            return obj && rootFromHit(obj);
           });
 
           if(hit && hit.object && hit.object.el){
-            return hit.object.el.closest('.gj-target');
+            return rootFromHit(hit.object.el);
           }
         }
 
@@ -1814,10 +1787,13 @@
         el.finalHubBtn?.addEventListener('click', goHub);
 
         DOC.addEventListener('click', e => {
-          const t = e.target && e.target.closest ? e.target.closest('.gj-target') : null;
-          if(t){
+          const targetRoot = e.target && e.target.closest
+            ? rootFromHit(e.target)
+            : null;
+
+          if(targetRoot){
             e.preventDefault();
-            hitTarget(t);
+            hitTarget(targetRoot);
           }
         }, true);
       }
@@ -1841,14 +1817,20 @@
         makeDecor();
         createVrStartPanel();
 
-        setTimeout(createVrStartPanel, 500);
-        setTimeout(createVrStartPanel, 1200);
+        setTimeout(function(){
+          if(state.stage === 'intro') createVrStartPanel();
+        }, 500);
+
+        setTimeout(function(){
+          if(state.stage === 'intro') createVrStartPanel();
+        }, 1200);
 
         bind();
         updateHud();
 
         WIN.GoodJunkFull3DVRFlow = {
           version:PATCH,
+          assetUrl,
           startWarmup,
           startWarmupFromVr,
           startMain,
@@ -1864,6 +1846,7 @@
           localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
             patch:PATCH,
             href:location.href,
+            assetTest:assetUrl('broccoli.png'),
             savedAt:new Date().toISOString()
           }));
         }catch(e){}
