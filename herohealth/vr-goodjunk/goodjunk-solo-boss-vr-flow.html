@@ -1,8 +1,8 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL PATCH v8.43.6b-GOODJUNK-PNG-HARD-URL-START-NO-RECREATE -->
+<!-- FULL PATCH v8.43.7-GOODJUNK-VR-PNG-TARGETS-CLEAN-WHITE-BG -->
 <!-- GoodJunk Full 3D VR Flow:
      ✅ Hard URL PNG targets from /herohealth/assets/goodjunk/*.png
-     ✅ No a-assets dependency for target images
+     ✅ Runtime clean white background with canvas flood-fill from image edges
      ✅ START panel does not recreate after warmup starts
      ✅ Larger hitbox + aim assist
      ✅ Warmup → Main Boss → Summary → 3D Cooldown → Launcher
@@ -608,7 +608,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v8.43.6b-GOODJUNK-PNG-HARD-URL-START-NO-RECREATE';
+      const PATCH = 'v8.43.7-GOODJUNK-VR-PNG-TARGETS-CLEAN-WHITE-BG';
 
       const WIN = window;
       const DOC = document;
@@ -619,7 +619,8 @@
         hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
       };
 
-      const ASSET_VERSION = 'v8436b';
+      const ASSET_VERSION = 'v8437';
+      const CLEAN_IMG_CACHE = new Map();
 
       function heroBase(){
         try{
@@ -635,6 +636,170 @@
 
       function assetUrl(file){
         return heroBase() + 'assets/goodjunk/' + String(file || 'broccoli.png') + '?v=' + ASSET_VERSION;
+      }
+
+      function cleanWhitePngUrl(file){
+        const rawUrl = assetUrl(file);
+
+        if(CLEAN_IMG_CACHE.has(rawUrl)){
+          return CLEAN_IMG_CACHE.get(rawUrl);
+        }
+
+        const promise = new Promise(function(resolve){
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+
+          img.onload = function(){
+            try{
+              const canvas = DOC.createElement('canvas');
+              const w = img.naturalWidth || img.width || 1;
+              const h = img.naturalHeight || img.height || 1;
+
+              canvas.width = w;
+              canvas.height = h;
+
+              const ctx = canvas.getContext('2d', { willReadFrequently:true });
+              ctx.drawImage(img, 0, 0, w, h);
+
+              const imageData = ctx.getImageData(0, 0, w, h);
+              const data = imageData.data;
+              const seen = new Uint8Array(w * h);
+              const stack = [];
+
+              function whiteLikeAtPixel(p){
+                const i = p * 4;
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+
+                if(a < 16) return true;
+
+                const nearWhite = r > 232 && g > 232 && b > 232;
+                const nearLightGray = r > 220 && g > 220 && b > 220 && Math.abs(r - g) < 18 && Math.abs(g - b) < 18;
+
+                return nearWhite || nearLightGray;
+              }
+
+              function push(x, y){
+                if(x < 0 || y < 0 || x >= w || y >= h) return;
+
+                const p = y * w + x;
+                if(seen[p]) return;
+                if(!whiteLikeAtPixel(p)) return;
+
+                seen[p] = 1;
+                stack.push([x, y]);
+              }
+
+              for(let x = 0; x < w; x++){
+                push(x, 0);
+                push(x, h - 1);
+              }
+
+              for(let y = 0; y < h; y++){
+                push(0, y);
+                push(w - 1, y);
+              }
+
+              while(stack.length){
+                const item = stack.pop();
+                const x = item[0];
+                const y = item[1];
+                const p = y * w + x;
+                const i = p * 4;
+
+                data[i + 3] = 0;
+
+                push(x + 1, y);
+                push(x - 1, y);
+                push(x, y + 1);
+                push(x, y - 1);
+              }
+
+              /*
+                Soft edge cleanup: remove nearly white pixels adjacent to transparent edge.
+                Keeps white details inside object safer than full chroma key.
+              */
+              for(let pass = 0; pass < 2; pass++){
+                const toClear = [];
+
+                for(let y = 1; y < h - 1; y++){
+                  for(let x = 1; x < w - 1; x++){
+                    const p = y * w + x;
+                    const i = p * 4;
+
+                    if(data[i + 3] === 0) continue;
+                    if(!whiteLikeAtPixel(p)) continue;
+
+                    const n1 = ((y - 1) * w + x) * 4;
+                    const n2 = ((y + 1) * w + x) * 4;
+                    const n3 = (y * w + (x - 1)) * 4;
+                    const n4 = (y * w + (x + 1)) * 4;
+
+                    if(
+                      data[n1 + 3] === 0 ||
+                      data[n2 + 3] === 0 ||
+                      data[n3 + 3] === 0 ||
+                      data[n4 + 3] === 0
+                    ){
+                      toClear.push(i);
+                    }
+                  }
+                }
+
+                toClear.forEach(function(i){
+                  data[i + 3] = 0;
+                });
+              }
+
+              ctx.putImageData(imageData, 0, 0);
+
+              resolve(canvas.toDataURL('image/png'));
+            }catch(err){
+              console.warn('[GoodJunk] cleanWhitePngUrl failed:', file, err);
+              resolve(rawUrl);
+            }
+          };
+
+          img.onerror = function(){
+            console.warn('[GoodJunk] image load failed:', rawUrl);
+            resolve(rawUrl);
+          };
+
+          img.src = rawUrl;
+        });
+
+        CLEAN_IMG_CACHE.set(rawUrl, promise);
+        return promise;
+      }
+
+      function applyImageMaterial(entity, file){
+        if(!entity) return;
+
+        entity.setAttribute('material', {
+          color:'#ffffff',
+          transparent:true,
+          opacity:0.001,
+          alphaTest:0.01,
+          side:'double',
+          shader:'flat',
+          depthTest:true
+        });
+
+        cleanWhitePngUrl(file).then(function(cleanUrl){
+          if(!entity.parentNode) return;
+
+          entity.setAttribute('material', {
+            src:cleanUrl,
+            transparent:true,
+            opacity:1,
+            alphaTest:0.02,
+            side:'double',
+            shader:'flat',
+            depthTest:true
+          });
+        });
       }
 
       function q(k,d){
@@ -842,17 +1007,6 @@
         return wrap;
       }
 
-      function materialSrc(file){
-        return [
-          'src:' + assetUrl(file),
-          'transparent:true',
-          'alphaTest:0.01',
-          'side:double',
-          'shader:flat',
-          'depthTest:true'
-        ].join(';');
-      }
-
       function makeHitbox(w,h,d){
         const hitbox = DOC.createElement('a-box');
         hitbox.classList.add('gj-hitbox');
@@ -949,18 +1103,18 @@
         wrap.appendChild(halo);
 
         const plate = DOC.createElement('a-circle');
-        plate.setAttribute('radius', '0.82');
+        plate.setAttribute('radius', '0.84');
         plate.setAttribute('color', theme.bg);
         plate.setAttribute('position', '0 0.08 0.035');
-        plate.setAttribute('material', 'transparent:true; opacity:0.52; side:double');
+        plate.setAttribute('material', 'transparent:true; opacity:0.32; side:double');
         wrap.appendChild(plate);
 
         const imgPanel = DOC.createElement('a-plane');
-        imgPanel.setAttribute('width', isPower ? '1.42' : '1.55');
-        imgPanel.setAttribute('height', isPower ? '1.42' : '1.55');
+        imgPanel.setAttribute('width', isPower ? '1.42' : '1.58');
+        imgPanel.setAttribute('height', isPower ? '1.42' : '1.58');
         imgPanel.setAttribute('position', '0 0.14 0.24');
-        imgPanel.setAttribute('material', materialSrc(data.file || 'broccoli.png'));
         wrap.appendChild(imgPanel);
+        applyImageMaterial(imgPanel, data.file || 'broccoli.png');
 
         const mark = makeMark(kind);
         if(mark) wrap.appendChild(mark);
@@ -1123,15 +1277,15 @@
         shield.setAttribute('width', '0.62');
         shield.setAttribute('height', '0.62');
         shield.setAttribute('position', '-1.38 -0.38 0.25');
-        shield.setAttribute('material', materialSrc('shield.png'));
         panel.appendChild(shield);
+        applyImageMaterial(shield, 'shield.png');
 
         const apple = DOC.createElement('a-plane');
         apple.setAttribute('width', '0.62');
         apple.setAttribute('height', '0.62');
         apple.setAttribute('position', '1.38 -0.38 0.25');
-        apple.setAttribute('material', materialSrc('apple.png'));
         panel.appendChild(apple);
+        applyImageMaterial(apple, 'apple.png');
 
         const hint = DOC.createElement('a-text');
         hint.setAttribute('value', 'Tap / Shoot');
@@ -1831,6 +1985,7 @@
         WIN.GoodJunkFull3DVRFlow = {
           version:PATCH,
           assetUrl,
+          cleanWhitePngUrl,
           startWarmup,
           startWarmupFromVr,
           startMain,
@@ -1847,6 +2002,7 @@
             patch:PATCH,
             href:location.href,
             assetTest:assetUrl('broccoli.png'),
+            cleanBg:true,
             savedAt:new Date().toISOString()
           }));
         }catch(e){}
