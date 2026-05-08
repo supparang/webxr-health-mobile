@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>HeroHealth • Groups Solo Arena v7.9.2</title>
+<title>HeroHealth • Groups Solo Arena v7.9.3</title>
 <meta name="theme-color" content="#bfeeff"/>
 <style>
 :root{--ink:#29485f;--muted:#6b8da4;--line:#d6edf7;--blue:#61bbff;--green:#7ed957;--yellow:#ffd966;--orange:#ff9f43;--red:#ff6b6b;--pink:#ff9fd0;--violet:#bca7ff;--sab:env(safe-area-inset-bottom,0px);--sat:env(safe-area-inset-top,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
@@ -185,6 +185,93 @@ button{font:inherit}
   }
 }
 
+
+/* === GROUPS SOLO ARENA v7.9.3 — SUMMARY SCROLL HOTFIX === */
+/* ✅ Summary เลื่อนได้บนมือถือ/แท็บเล็ต */
+/* ✅ body ยัง lock เกมได้ แต่ summary overlay อนุญาต pan-y */
+/* ✅ ปุ่มท้าย summary ไม่ถูกตัดหาย */
+
+#summaryOverlay{
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  -webkit-overflow-scrolling:touch !important;
+  overscroll-behavior:contain !important;
+  touch-action:pan-y !important;
+  align-items:start !important;
+  justify-items:center !important;
+  place-items:start center !important;
+  padding-top:calc(18px + var(--sat)) !important;
+  padding-bottom:calc(28px + var(--sab)) !important;
+}
+
+#summaryOverlay,
+#summaryOverlay *{
+  touch-action:pan-y !important;
+}
+
+#summaryOverlay .modal{
+  margin:0 auto !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+
+#summaryOverlay .modalGrid{
+  padding-bottom:8px !important;
+}
+
+#summaryOverlay .bigBtn{
+  touch-action:manipulation !important;
+}
+
+@media (max-width:900px), (max-height:760px){
+  #summaryOverlay .modal{
+    width:min(760px,100%) !important;
+    border-radius:28px !important;
+    padding:16px !important;
+  }
+
+  #summaryOverlay .modalIcon{
+    width:68px !important;
+    height:68px !important;
+    border-radius:24px !important;
+    font-size:40px !important;
+    margin-bottom:8px !important;
+  }
+
+  #summaryOverlay .modal h2{
+    font-size:clamp(1.55rem,6vw,2.15rem) !important;
+  }
+
+  #summaryOverlay .modal p{
+    margin:6px auto 10px !important;
+  }
+
+  #summaryOverlay .modalGrid{
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+  }
+
+  #summaryOverlay .infoCard{
+    border-radius:18px !important;
+    padding:10px 12px !important;
+  }
+}
+
+@media (orientation:landscape) and (max-height:560px){
+  #summaryOverlay{
+    padding-top:10px !important;
+    padding-bottom:18px !important;
+  }
+
+  #summaryOverlay .modal{
+    width:min(980px,100%) !important;
+  }
+
+  #summaryOverlay .modalGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -214,7 +301,7 @@ button{font:inherit}
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id),q=new URLSearchParams(location.search);
-const APP_VERSION='v7.9.2-visibility-spawn-hotfix',APP_SCHEMA='groups-solo-arena-v7.9.2-visibility-spawn-hotfix';
+const APP_VERSION='v7.9.3-summary-scroll-hotfix',APP_SCHEMA='groups-solo-arena-v7.9.3-summary-scroll-hotfix';
 const BUILD_FLAGS={actionArena:true,dragDrop:true,cvr:true,bossOrders:true,researchMetrics:true,cloudQueue:true,kidSummary:true};
 const GROUPS=[{id:1,short:'โปรตีน',label:'หมู่ 1 โปรตีน',ex:'เนื้อ นม ไข่ ถั่ว'},{id:2,short:'ข้าว/แป้ง',label:'หมู่ 2 ข้าว/แป้ง',ex:'ข้าว แป้ง เผือก มัน น้ำตาล'},{id:3,short:'ผัก',label:'หมู่ 3 ผัก',ex:'ผักต่าง ๆ'},{id:4,short:'ผลไม้',label:'หมู่ 4 ผลไม้',ex:'ผลไม้ต่าง ๆ'},{id:5,short:'ไขมัน',label:'หมู่ 5 ไขมัน',ex:'น้ำมัน ไขมัน กะทิ เนย'}];
 const FOODS=[['🥚','ไข่',1],['🍗','ไก่',1],['🐟','ปลา',1],['🥛','นม',1],['🫘','ถั่วเมล็ดแห้ง',1],['🥩','เนื้อสัตว์',1],['🍚','ข้าว',2],['🍞','ขนมปัง',2],['🥔','มันฝรั่ง',2],['🍠','มันเทศ',2],['🌽','ข้าวโพด',2],['🍜','เส้นก๋วยเตี๋ยว',2],['🥦','บรอกโคลี',3],['🥬','ผักใบเขียว',3],['🥕','แครอต',3],['🥒','แตงกวา',3],['🍅','มะเขือเทศ',3],['🌶️','พริก',3],['🍎','แอปเปิล',4],['🍌','กล้วย',4],['🍊','ส้ม',4],['🍇','องุ่น',4],['🍉','แตงโม',4],['🥭','มะม่วง',4],['🥑','อะโวคาโด',5],['🧈','เนย',5],['🥥','กะทิ',5],['🫒','น้ำมันมะกอก',5],['🥜','ถั่วลิสง',5],['🌰','เมล็ดพืช',5]].map(x=>({emoji:x[0],name:x[1],group:x[2]}));
@@ -226,11 +313,11 @@ const els={scoreTxt:$('scoreTxt'),timeTxt:$('timeTxt'),lifeTxt:$('lifeTxt'),comb
 const state={active:false,ended:false,practice:false,sessionId:'',score:0,timeLeft:cfg.time,totalTime:cfg.time,lives:3,combo:0,maxCombo:0,attempts:0,correct:0,miss:0,crashes:0,actors:[],selectedId:null,nextActorId:1,lastTs:0,raf:0,spawnTimer:0,totalTimer:0,wave:1,phase:'calm',phaseChanges:0,feverUntil:0,powerCharge:0,powerThreshold:6,lastPowerTier:0,powerActive:false,assistShield:0,missStreak:0,bossHp:120,bossMaxHp:120,bossActive:false,bossRage:false,bossOrder:null,bossOrderSerial:0,bossOrderRaf:0,bossOrderCooldownUntil:0,bossOrdersCleared:0,bossOrdersFailed:0,bossAnswerCount:0,objective:null,events:[],audioReady:false,lastDangerToneAt:0,lastComboSplashAt:0,lastSpawnToneAt:0,firstSelectDone:false,firstSortDone:false,firstDangerCueDone:false,firstBossCueDone:false,firstDragCueDone:false,drag:{active:false,actorId:null,pointerId:null,startX:0,startY:0,lastX:0,lastY:0,moved:false,offsetX:0,offsetY:0,hoverGroup:0,guide:null},cvr:{enabled:false,aimType:'',aimId:null,aimGroup:0,lastAimKey:'',lastHintAt:0,lastShootAt:0},research:{startedAt:'',endedAt:'',groupStats:{},waveStats:{},inputStats:{},bossOrderStats:{started:0,cleared:0,failed:0},rtTotal:0,rtCount:0,rtBest:0,rtWorst:0,crashByWave:{},answerEvents:[],summary:null},cloud:{enabled:false,api:'',queue:[],sending:false,sent:0,fail:0,disabledUntil:0,lastStatus:'off'},lastInputMode:'tap'};
 init();
 function init(){document.body.dataset.version=APP_VERSION;runBootSelfCheck();renderGates();bind();initResearchShell();initCloudLogger();initCvrMode();setPhase('calm','เริ่มเกมแบบพื้นฐาน',true);setObjective(makeObjective(1));updateHud();updateTeacher()}
-function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v7.9.2-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v7.9.2-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
+function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v7.9.3-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v7.9.3-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
 function on(el,type,fn){if(!el){console.warn('[Groups bind skipped]',type);return}el.addEventListener(type,fn)}
 function renderGates(){els.gates.innerHTML=GROUPS.map(g=>`<button class="gate" data-group="${g.id}"><div><div class="num">${g.id}</div><div class="label">${esc(g.label)}</div><div class="ex">${esc(g.ex)}</div></div></button>`).join('');els.gates.querySelectorAll('.gate').forEach(btn=>btn.addEventListener('click',()=>{state.lastInputMode=state.cvr.enabled?'cvr_tap_gate':'tap_gate';sortSelected(Number(btn.dataset.group))}))}
 function cleanupRuntime(){clearInterval(state.totalTimer);clearTimeout(state.spawnTimer);cancelAnimationFrame(state.raf);cancelAnimationFrame(state.bossOrderRaf||0);clearBossOrder();clearDragState();clearCvrAimClasses();els.actorLayer.innerHTML='';els.floorLine.classList.remove('warn');document.querySelectorAll('.fly,.pop,.flash,.combo,.orderToast,.dragGuide,.coach,.nearGroundWarn').forEach(e=>{try{e.remove()}catch(_){}});els.gates.querySelectorAll('.accept,.reject,.hint,.dragHover,.cvrAim,.target,.avoid').forEach(e=>e.classList.remove('accept','reject','hint','dragHover','cvrAim','target','avoid'))}
-function start(practice){cleanupRuntime();state.practice=!!practice;state.active=true;state.ended=false;state.sessionId='groups-'+Date.now().toString(36);state.score=0;state.timeLeft=practice?Math.max(150,cfg.time+30):clamp(cfg.time+profile.timeBonus,60,240);state.totalTime=state.timeLeft;state.lives=practice?Math.max(5,profile.lives+1):profile.lives;state.combo=0;state.maxCombo=0;state.attempts=0;state.correct=0;state.miss=0;state.crashes=0;state.assistShield=practice?1:0;state.missStreak=0;state.actors=[];state.selectedId=null;state.nextActorId=1;state.wave=1;state.phaseChanges=0;state.feverUntil=0;state.powerCharge=0;state.lastPowerTier=0;state.powerThreshold=practice?5:6;state.powerActive=false;state.bossHp=practice?Math.max(75,Math.round(profile.bossHp*.85)):profile.bossHp;state.bossMaxHp=state.bossHp;state.bossActive=false;state.bossRage=false;state.bossOrder=null;state.bossOrderSerial=0;state.bossOrderCooldownUntil=0;state.bossOrdersCleared=0;state.bossOrdersFailed=0;state.bossAnswerCount=0;state.events=[];state.firstSelectDone=false;state.firstSortDone=false;state.firstDangerCueDone=false;state.firstBossCueDone=false;state.firstDragCueDone=false;state.lastInputMode=state.cvr.enabled?'cvr':'tap';resetResearch();els.startOverlay.classList.add('hidden');els.summaryOverlay.classList.add('hidden');setFeedback(state.cvr.enabled?'เริ่มแล้ว! มองอาหารแล้วแตะเพื่อเลือก จากนั้นมอง Gate แล้วแตะเพื่อส่ง':'เริ่มแล้ว! แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ให้ถูก');showCoach('🍌','แตะอาหารก่อน','เลือกอาหารที่ใกล้ชนพื้น แล้วส่งเข้าประตูหมู่ 1–5');if(state.cvr.enabled)showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');setWave(1);updateHud();updateTeacher();queueCloudEvent('session_start',makeCloudPayload('session_start'),{});state.totalTimer=setInterval(tickSecond,1000);scheduleSpawn(250);setTimeout(()=>ensureLiveActors('start'),180);state.lastTs=performance.now();state.raf=requestAnimationFrame(loop);logEvent('session_start',{practice:!!practice})}
+function start(practice){cleanupRuntime();document.body.classList.remove('summaryOpen');state.practice=!!practice;state.active=true;state.ended=false;state.sessionId='groups-'+Date.now().toString(36);state.score=0;state.timeLeft=practice?Math.max(150,cfg.time+30):clamp(cfg.time+profile.timeBonus,60,240);state.totalTime=state.timeLeft;state.lives=practice?Math.max(5,profile.lives+1):profile.lives;state.combo=0;state.maxCombo=0;state.attempts=0;state.correct=0;state.miss=0;state.crashes=0;state.assistShield=practice?1:0;state.missStreak=0;state.actors=[];state.selectedId=null;state.nextActorId=1;state.wave=1;state.phaseChanges=0;state.feverUntil=0;state.powerCharge=0;state.lastPowerTier=0;state.powerThreshold=practice?5:6;state.powerActive=false;state.bossHp=practice?Math.max(75,Math.round(profile.bossHp*.85)):profile.bossHp;state.bossMaxHp=state.bossHp;state.bossActive=false;state.bossRage=false;state.bossOrder=null;state.bossOrderSerial=0;state.bossOrderCooldownUntil=0;state.bossOrdersCleared=0;state.bossOrdersFailed=0;state.bossAnswerCount=0;state.events=[];state.firstSelectDone=false;state.firstSortDone=false;state.firstDangerCueDone=false;state.firstBossCueDone=false;state.firstDragCueDone=false;state.lastInputMode=state.cvr.enabled?'cvr':'tap';resetResearch();els.startOverlay.classList.add('hidden');els.summaryOverlay.classList.add('hidden');setFeedback(state.cvr.enabled?'เริ่มแล้ว! มองอาหารแล้วแตะเพื่อเลือก จากนั้นมอง Gate แล้วแตะเพื่อส่ง':'เริ่มแล้ว! แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ให้ถูก');showCoach('🍌','แตะอาหารก่อน','เลือกอาหารที่ใกล้ชนพื้น แล้วส่งเข้าประตูหมู่ 1–5');if(state.cvr.enabled)showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');setWave(1);updateHud();updateTeacher();queueCloudEvent('session_start',makeCloudPayload('session_start'),{});state.totalTimer=setInterval(tickSecond,1000);scheduleSpawn(250);setTimeout(()=>ensureLiveActors('start'),180);state.lastTs=performance.now();state.raf=requestAnimationFrame(loop);logEvent('session_start',{practice:!!practice})}
 function tickSecond(){if(!state.active||state.ended)return;state.timeLeft--;if(Date.now()>state.feverUntil)state.feverUntil=0;updateDirector();updateHud();if(state.cloud.enabled&&state.timeLeft%15===0)flushCloudQueue(false,false);if(state.timeLeft<=0)end(false,'หมดเวลาแล้ว')}
 function loop(ts){if(!state.active||state.ended)return;const dt=Math.min(.05,(ts-state.lastTs)/1000||.016);state.lastTs=ts;updateActors(dt);updateCvrAim();state.raf=requestAnimationFrame(loop)}
 
@@ -325,7 +412,17 @@ function showCvrHintSoft(t){if(!state.cvr.enabled||!els.cvrHint)return;els.cvrHi
 function updateHud(){els.scoreTxt.textContent=Math.round(state.score);els.timeTxt.textContent=Math.max(0,state.timeLeft);els.lifeTxt.textContent='💗'.repeat(state.lives)||'💔';els.comboTxt.textContent=state.combo;els.accTxt.textContent=(state.attempts?Math.round(state.correct/state.attempts*100):0)+'%';els.feverChip.textContent=isFever()?'🔥 Fever x2':'Fever: พร้อม';updateBoss();updatePower()}
 function updateTeacher(){els.sessionTxt.textContent=state.sessionId?state.sessionId.slice(-8):'-';els.eventsTxt.textContent=state.events.length;els.actorsTxt.textContent=state.actors.length;els.bossHpTxt.textContent=state.bossActive?Math.round(state.bossHp):'-';els.cloudStatusTxt.textContent=state.cloud.lastStatus||'off';els.cloudQueueTxt.textContent=state.cloud.queue?state.cloud.queue.length:0;els.versionTxt.textContent=APP_VERSION.replace('v','')}
 function setFeedback(t){els.feedback.textContent=t}
-function end(win,reason){if(state.ended)return;state.active=false;state.ended=true;logEvent('session_end',{win,reason,score:state.score});finalizeResearch(win,reason);queueCloudEvent('session_end',makeCloudPayload('session_end'),{immediate:true,keepalive:true});flushCloudQueue(false,true);const data=exportData();try{localStorage.setItem(STORAGE.lastMetrics,JSON.stringify(data));localStorage.setItem(STORAGE.lastSummary,JSON.stringify(data.summary))}catch(_){}cleanupRuntime();const acc=state.attempts?Math.round(state.correct/state.attempts*100):0,stars=computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank=computeRank(win,acc,state.maxCombo,state.wave,state.crashes),best=findBestGroup(),weak=findWeakGroup();els.summaryIcon.textContent=win?'🏆':'⭐';els.summaryTitle.textContent=win?'ชนะแล้ว!':'สรุปผลการเล่น';els.summaryText.textContent=(win?'ปราบ Chaos Chef สำเร็จ!':reason)+' • '+rank+' • '+'⭐'.repeat(stars);els.summaryGrid.innerHTML=[infoHtml('Hero Rank',rank,'ระดับฮีโร่อาหารของรอบนี้'),infoHtml('ระดับความยาก',cfg.diff,'ใช้จูนความเร็ว จำนวนอาหาร และหัวใจ'),infoHtml('ดาวที่ได้','⭐'.repeat(stars),'เป้าหมายคือ 5 ดาว'),infoHtml('คะแนน',Math.round(state.score),'คะแนนจากการจัดอาหารเข้าประตู'),infoHtml('ความแม่นยำ',acc+'%',state.correct+'/'+state.attempts+' ครั้ง'),infoHtml('คอมโบสูงสุด',state.maxCombo,'ตอบถูกต่อเนื่องได้สูงสุด'),infoHtml('ชนพื้น',state.crashes,state.crashes===0?'เยี่ยมมาก! จัดทันทุกชิ้น':'จำนวนอาหารที่จัดไม่ทัน'),infoHtml('ทำได้ดี',best?'หมู่ '+best.id+' '+best.short:'ยังไม่มีข้อมูล','หมู่อาหารที่ตอบถูกได้ดีที่สุด'),infoHtml('ควรฝึกเพิ่ม',weak?'หมู่ '+weak.id+' '+weak.short:'ยังไม่พบจุดอ่อนชัดเจน',weak?weak.ex:'เล่นได้สมดุลดีมาก'),infoHtml('คำสั่งบอส',state.bossOrdersCleared+'/'+(state.bossOrdersCleared+state.bossOrdersFailed),'ทำ Chef Order สำเร็จระหว่างสู้บอส'),infoHtml('Wave สุดท้าย',state.wave,'ระดับความท้าทายที่ไปถึง'),infoHtml('จังหวะเกมเปลี่ยน',state.phaseChanges+' ครั้ง','เกมเพิ่ม/ลดความท้าทายตามการเล่น')].join('');els.summaryOverlay.classList.remove('hidden')}
+function end(win,reason){if(state.ended)return;state.active=false;state.ended=true;logEvent('session_end',{win,reason,score:state.score});finalizeResearch(win,reason);queueCloudEvent('session_end',makeCloudPayload('session_end'),{immediate:true,keepalive:true});flushCloudQueue(false,true);const data=exportData();try{localStorage.setItem(STORAGE.lastMetrics,JSON.stringify(data));localStorage.setItem(STORAGE.lastSummary,JSON.stringify(data.summary))}catch(_){}cleanupRuntime();const acc=state.attempts?Math.round(state.correct/state.attempts*100):0,stars=computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank=computeRank(win,acc,state.maxCombo,state.wave,state.crashes),best=findBestGroup(),weak=findWeakGroup();els.summaryIcon.textContent=win?'🏆':'⭐';els.summaryTitle.textContent=win?'ชนะแล้ว!':'สรุปผลการเล่น';els.summaryText.textContent=(win?'ปราบ Chaos Chef สำเร็จ!':reason)+' • '+rank+' • '+'⭐'.repeat(stars);els.summaryGrid.innerHTML=[infoHtml('Hero Rank',rank,'ระดับฮีโร่อาหารของรอบนี้'),infoHtml('ระดับความยาก',cfg.diff,'ใช้จูนความเร็ว จำนวนอาหาร และหัวใจ'),infoHtml('ดาวที่ได้','⭐'.repeat(stars),'เป้าหมายคือ 5 ดาว'),infoHtml('คะแนน',Math.round(state.score),'คะแนนจากการจัดอาหารเข้าประตู'),infoHtml('ความแม่นยำ',acc+'%',state.correct+'/'+state.attempts+' ครั้ง'),infoHtml('คอมโบสูงสุด',state.maxCombo,'ตอบถูกต่อเนื่องได้สูงสุด'),infoHtml('ชนพื้น',state.crashes,state.crashes===0?'เยี่ยมมาก! จัดทันทุกชิ้น':'จำนวนอาหารที่จัดไม่ทัน'),infoHtml('ทำได้ดี',best?'หมู่ '+best.id+' '+best.short:'ยังไม่มีข้อมูล','หมู่อาหารที่ตอบถูกได้ดีที่สุด'),infoHtml('ควรฝึกเพิ่ม',weak?'หมู่ '+weak.id+' '+weak.short:'ยังไม่พบจุดอ่อนชัดเจน',weak?weak.ex:'เล่นได้สมดุลดีมาก'),infoHtml('คำสั่งบอส',state.bossOrdersCleared+'/'+(state.bossOrdersCleared+state.bossOrdersFailed),'ทำ Chef Order สำเร็จระหว่างสู้บอส'),infoHtml('Wave สุดท้าย',state.wave,'ระดับความท้าทายที่ไปถึง'),infoHtml('จังหวะเกมเปลี่ยน',state.phaseChanges+' ครั้ง','เกมเพิ่ม/ลดความท้าทายตามการเล่น')].join('');els.summaryOverlay.classList.remove('hidden');enableSummaryScroll()}
+
+function enableSummaryScroll(){
+  try{
+    if(!els.summaryOverlay)return;
+    els.summaryOverlay.scrollTop=0;
+    document.body.classList.add('summaryOpen');
+    requestAnimationFrame(()=>{try{els.summaryOverlay.scrollTop=0}catch(_){}});
+  }catch(_){}
+}
+
 function computeStars(win,acc,maxCombo,crashes,wave){let s=1;if(acc>=60)s=2;if(acc>=75&&maxCombo>=5)s=3;if(acc>=88&&maxCombo>=8&&crashes<=2)s=4;if(win&&acc>=92&&maxCombo>=10&&crashes===0&&wave>=5)s=5;return clamp(s,1,5)}
 function computeRank(win,acc,maxCombo,wave,crashes){if(win&&acc>=92&&maxCombo>=12&&crashes===0)return'Food Hero Master';if(win&&acc>=85&&maxCombo>=8)return'5 Groups Hero';if(wave>=4&&acc>=75)return'Smart Food Sorter';if(acc>=60)return'Food Learner';return'Food Rookie'}
 function groupSummary(){const s={};GROUPS.forEach(g=>s[g.id]={id:g.id,short:g.short,ex:g.ex,seen:0,correct:0,miss:0,crash:0});state.events.forEach(e=>{const d=e.data||{},gid=Number(d.trueGroup||d.group||0);if(!s[gid])return;if(e.type==='answer'){s[gid].seen++;d.correct?s[gid].correct++:s[gid].miss++}if(e.type==='crash'){s[gid].seen++;s[gid].crash++;s[gid].miss++}});return s}
