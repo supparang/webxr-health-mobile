@@ -1,13 +1,13 @@
 // === /herohealth/plate-solo.js ===
 // HeroHealth Plate Solo — FULL SAFE FILE BUILD
-// v20260508-v40.2-file-safe
+// v20260508-v40.3-boss-combo-replay-polish
 // เป้าหมาย: เล่นได้ทันที, อาหารโผล่แน่นอน, ไม่พังเมื่อ asset รูปหาย, รองรับ mobile/cVR,
-// มี Rush/Fever/Boss/Mission/Plate Health/Last Save/Summary/Safe logging.
+// มี Rush/Fever/Boss/Mission/Plate Health/Last Save/Summary/Safe logging + Boss Warning/Counter/Enrage + Combo Milestones + Replay Goals.
 
 (() => {
   'use strict';
 
-  const VERSION = '20260508-PLATE-SOLO-V4.0.2-FILE-SAFE';
+  const VERSION = '20260508-PLATE-SOLO-V4.0.3-BOSS-COMBO-REPLAY-POLISH';
   const DOC = document;
   const WIN = window;
   const $ = (id) => DOC.getElementById(id);
@@ -120,10 +120,41 @@
     boss:false, bossHp:100, bossDefeated:false, bossType:null, lastBossAtk:0, bossMechanic:null, bossMechanicStats:null, bossMechanicExpire:0, lastBossMechanicAt:0,
     order:null, orderExpire:0, lastOrderAt:0, duel:null, duelExpire:0, lastDuelAt:0, mini:null, miniStats:null, miniExpire:0, lastMiniAt:0,
     perfectPicks:0, riskyPicks:0, aimPicks:0, lastAimTarget:null, adaptiveOn:ADAPTIVE_ON, recentPerf:[], goodStreak:0, badStreak:0, directorLevel:0, assistLevel:0, directorMood:'normal', directorLastAt:0,
-    missions:[], dailyChallenge:null, stars:0, logs:[], lastHintAt:0, bestBefore:null, unlockedBadges:new Set(), newBadges:[], sessionId:'plate-'+Date.now().toString(36)+'-'+Math.floor(rand()*1e6).toString(36), eventQueue:[], lastFlushAt:0, apiDisabled:false
+    missions:[], dailyChallenge:null, stars:0, logs:[], lastHintAt:0, bestBefore:null, unlockedBadges:new Set(), newBadges:[], comboMilestones:new Set(), bossEnraged:false, bossWarnActive:false, bossWarnExpire:0, bossWarningStarted:0, bossCounterCount:0, bossAttackCount:0, nearMissUsed:false, nearMissCount:0, replayGoal:'', sessionId:'plate-'+Date.now().toString(36)+'-'+Math.floor(rand()*1e6).toString(36), eventQueue:[], lastFlushAt:0, apiDisabled:false
   };
 
   let audioCtx=null; function sfx(kind){ try{audioCtx=audioCtx||new(WIN.AudioContext||WIN.webkitAudioContext)(); const m={good:[660,.055,'sine',.045],perfect:[880,.075,'triangle',.055],bad:[150,.08,'sawtooth',.035],boss:[90,.16,'square',.04],fever:[980,.12,'triangle',.06],tick:[520,.035,'sine',.025]}; const [f,d,t,gain]=m[kind]||m.good; const o=audioCtx.createOscillator(), g=audioCtx.createGain(); o.type=t; o.frequency.value=f; g.gain.value=gain; o.connect(g); g.connect(audioCtx.destination); o.start(); g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+d); o.stop(audioCtx.currentTime+d+.015);}catch(e){} }
+
+  function installV403Styles(){
+    if(DOC.getElementById('plateSoloV403Styles')) return;
+    const st = DOC.createElement('style');
+    st.id = 'plateSoloV403Styles';
+    st.textContent = `
+      .boss-warning #arena,.boss-warning .arena{box-shadow:0 0 0 5px rgba(255,82,82,.18),0 0 42px rgba(255,82,82,.28) inset!important}
+      .boss-enraged #arena,.boss-enraged .arena{animation:plateBossRumble .42s infinite alternate}
+      .boss-enraged .bossFace{filter:drop-shadow(0 0 16px rgba(255,80,40,.45)); transform:scale(1.08)}
+      .counterFx,.milestoneToast,.nearMissFx{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);z-index:90;border-radius:24px;padding:14px 18px;font-weight:1000;text-align:center;pointer-events:none;box-shadow:0 20px 48px rgba(25,55,80,.22);animation:platePopToast 1.05s both}
+      .counterFx{background:linear-gradient(135deg,#fff8d7,#dfffea);border:3px solid rgba(255,204,64,.75);color:#215a40;font-size:clamp(24px,4vw,46px)}
+      .milestoneToast{background:linear-gradient(135deg,#fff,#ffe8b5);border:3px solid rgba(255,180,40,.55);color:#7a4500;font-size:clamp(20px,3.2vw,34px)}
+      .nearMissFx{background:linear-gradient(135deg,#e8f7ff,#fff);border:3px solid rgba(80,180,255,.55);color:#1e5a78;font-size:clamp(18px,3vw,30px)}
+      .foodCard.comboGlow{box-shadow:0 18px 44px rgba(255,187,45,.38),0 0 0 4px rgba(255,228,120,.45)!important}
+      .replayChallenge{margin-top:12px;border-radius:18px;padding:12px 14px;background:linear-gradient(135deg,#f5fbff,#fff8df);border:1px solid rgba(98,164,210,.28);font-weight:850;color:#31546a}
+      @keyframes plateBossRumble{from{transform:translateX(-1px)}to{transform:translateX(1px)}}
+      @keyframes platePopToast{0%{opacity:0;transform:translate(-50%,-50%) scale(.72)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.08)}70%{opacity:1;transform:translate(-50%,-62%) scale(1)}100%{opacity:0;transform:translate(-50%,-82%) scale(.9)}}
+    `;
+    DOC.head.appendChild(st);
+  }
+
+  function popFx(cls, html, ms=1100){
+    const root = els.juiceLayer || els.arena || DOC.body;
+    const d = DOC.createElement('div');
+    d.className = cls;
+    d.innerHTML = html;
+    root.appendChild(d);
+    setTimeout(()=>{try{d.remove();}catch(e){}}, ms);
+  }
+
+
   function screenMode(){ const w=Math.max(DOC.documentElement.clientWidth||0,WIN.innerWidth||0); return w<=520?'small':(w<=980?'mobile':'desktop'); }
   function isAimMode(){return VIEW==='cvr'||VIEW==='cardboard'||VIEW==='vr-cardboard';}
   function elapsedSec(){return Math.max(0,(now()-state.startedAt-state.pausedMs)/1000);} function timeLeft(){return Math.max(0,state.totalSec-elapsedSec());}
@@ -172,13 +203,13 @@
   function cardLife(){let life=CFG.life; if(state.rush)life*=.75; if(isFever())life*=.78; if(state.boss)life*=.82; return clamp(life*clamp((1-state.directorLevel*.045)*(1+state.assistLevel*.14),.78,1.45),1900,6800);}
   function choosePracticeFood(){const ph=state.practicePhase||0; if(ph===0){const m=mostMissingGroup(),pool=FOODS.filter(f=>!f.junk&&f.effects&&f.effects[m.id]); return{...pick(pool.length?pool:FOODS.filter(f=>!f.junk))};} if(ph===1){if(chance(.52))return{...pick(FOODS.filter(f=>!f.junk&&f.effects&&f.effects.carb))}; return{...pick(FOODS.filter(f=>!f.junk&&f.effects&&(f.effects.veg||f.effects.fruit||f.effects.protein)))};} if(chance(.48))return{...pick(FOODS.filter(f=>f.junk))}; const m=mostMissingGroup(),pool=FOODS.filter(f=>!f.junk&&f.effects&&f.effects[m.id]); return{...pick(pool.length?pool:FOODS.filter(f=>!f.junk))};}
   function chooseFood(){if(state.practiceActive)return choosePracticeFood(); const m=mostMissingGroup(); if(state.mini&&state.mini.type==='healthyRain'&&chance(.82)){const pool=FOODS.filter(f=>!f.junk&&f.effects&&(f.effects[m.id]||GROUPS.some(g=>state.fill[g.id]<CFG.target*.82&&f.effects[g.id]))); return{...pick(pool.length?pool:FOODS.filter(f=>!f.junk))};} if(state.mini&&state.mini.type==='missingAlert'&&chance(.72)){const g=state.mini.group||m.id,pool=FOODS.filter(f=>!f.junk&&f.effects&&f.effects[g]); return{...pick(pool.length?pool:FOODS.filter(f=>!f.junk))};} if(chance(.075)&&!state.boss&&!state.mini&&!state.lastSaveActive)return{...pick(POWERS)}; let jr=CFG.junk+(state.wave-1)*.035+(state.rush?.06:0)+(state.boss?.08:0)+(state.directorLevel*.025-state.assistLevel*.035); if(state.mini&&state.mini.type==='junkInvasion')jr+=.42; if(state.lastSaveActive)jr+=.12; if(chance(clamp(jr,.08,.72)))return{...pick(FOODS.filter(f=>f.junk))}; const missingIds=GROUPS.filter(g=>state.fill[g.id]<CFG.target*.82).map(g=>g.id); if(missingIds.length&&chance(.56)){const g=pick(missingIds); return{...pick(FOODS.filter(f=>!f.junk&&f.effects&&f.effects[g]))};} return{...pick(FOODS.filter(f=>!f.junk))};}
-  function spawnFood(forced=null){state.lastSpawn=now(); const food=forced?{...forced}:chooseFood(); if(!food)return; const id='f'+state.nextId++, card=DOC.createElement('button'), visual=classifyFoodCard(food), mov=chooseMovement(food), place=chooseSpawnPlacement(food,mov), size=foodSizeClass(food,mov), fast=['junk-fast','junk-invasion','boss-swipe','rain-fast','rush-move'].includes(mov.label)?'fastObject':''; card.className=`foodCard assetMode ${visual.cls} ${mov.cls} ${size} ${fast} ${place.edgeClass}`; card.style.left=place.leftPct+'%'; card.style.setProperty('--rot',((rand()*18)-9).toFixed(1)+'deg'); const life=Math.round(cardLife()*(mov.lifeScale||1)); card.style.animationDuration=life+'ms'; card.style.setProperty('--life',life+'ms'); card.style.setProperty('--startX',Math.round((rand()*120)-60)+'px'); card.style.setProperty('--endX',Math.round((rand()*150)-75)+'px'); card.style.setProperty('--sway',Math.round(22+rand()*28)+'px'); card.innerHTML=`<div>${foodVisualHtml(food)}<div class="name">${esc(food.name)}</div></div><div class="foodTag">${esc(visual.tag)}</div>`; card.addEventListener('pointerdown',ev=>{ev.preventDefault(); pickFood(id);},{passive:false}); (els.spawnLayer||els.arena).appendChild(card); state.active.set(id,{food,el:card,born:now(),expire:now()+life}); postLog('target_spawn',{emoji:food.emoji,name:food.name,kind:food.type==='power'?'power':food.junk?'junk':'healthy',visualTag:visual.tag,movement:mov.label,lifeMs:life,lane:place.lane,leftPct:place.leftPct,wave:state.wave,boss:!!state.boss});}
+  function spawnFood(forced=null){state.lastSpawn=now(); const food=forced?{...forced}:chooseFood(); if(!food)return; const id='f'+state.nextId++, card=DOC.createElement('button'), visual=classifyFoodCard(food), mov=chooseMovement(food), place=chooseSpawnPlacement(food,mov), size=foodSizeClass(food,mov), fast=['junk-fast','junk-invasion','boss-swipe','rain-fast','rush-move'].includes(mov.label)?'fastObject':'', comboGlow=(!food.junk&&food.type!=='power'&&state.combo>=8&&!wouldOverload(food))?'comboGlow':''; card.className=`foodCard assetMode ${visual.cls} ${mov.cls} ${size} ${fast} ${comboGlow} ${place.edgeClass}`; card.style.left=place.leftPct+'%'; card.style.setProperty('--rot',((rand()*18)-9).toFixed(1)+'deg'); const life=Math.round(cardLife()*(mov.lifeScale||1)); card.style.animationDuration=life+'ms'; card.style.setProperty('--life',life+'ms'); card.style.setProperty('--startX',Math.round((rand()*120)-60)+'px'); card.style.setProperty('--endX',Math.round((rand()*150)-75)+'px'); card.style.setProperty('--sway',Math.round(22+rand()*28)+'px'); card.innerHTML=`<div>${foodVisualHtml(food)}<div class="name">${esc(food.name)}</div></div><div class="foodTag">${esc(visual.tag)}</div>`; card.addEventListener('pointerdown',ev=>{ev.preventDefault(); pickFood(id);},{passive:false}); (els.spawnLayer||els.arena).appendChild(card); state.active.set(id,{food,el:card,born:now(),expire:now()+life}); postLog('target_spawn',{emoji:food.emoji,name:food.name,kind:food.type==='power'?'power':food.junk?'junk':'healthy',visualTag:visual.tag,movement:mov.label,lifeMs:life,lane:place.lane,leftPct:place.leftPct,wave:state.wave,boss:!!state.boss});}
   function clearActiveCards(){for(const obj of state.active.values()){try{obj.el.remove();}catch(e){}} state.active.clear();}
   function expireCards(){const n=now(); for(const[id,obj]of Array.from(state.active.entries())){if(n>=obj.expire){obj.el.remove(); state.active.delete(id); if(!obj.food.junk&&obj.food.type!=='power'){state.missedGood++; state.combo=0; damagePlate(4,'ปล่อยอาหารดีหลุด'); recordPerf('missedGood',false); if(chance(.22))feedback('หลุดไป! คอมโบหาย','bad');}}}}
   function pickFood(id){if(!state.running||state.paused||state.ended)return; const obj=state.active.get(id); if(!obj)return; obj.el.remove(); state.active.delete(id); const f=obj.food; if(f.type==='power')return applyPower(f); if(f.junk)return handleJunk(f); return handleHealthy(f);}
 
-  function handleHealthy(f){const overload=wouldOverload(f), lastSaveWasActive=state.lastSaveActive; checkOrderOnPick(f,overload,false); checkMiniOnHealthy(f,overload); checkBossMechanicOnHealthy(f,overload); applyEffects(f.effects); state.hits++; Object.keys(f.effects||{}).forEach(g=>state.groupHits[g]=(state.groupHits[g]||0)+1); state.plateItems.push(f.emoji); state.plateItems=state.plateItems.slice(-18); if(overload){state.overloads++; state.riskyPicks++; state.combo=0; loseScore(18,'-18 ล้น!'); damagePlate(10,'หมู่อาหารล้น'); if(lastSaveWasActive)checkLastSaveOnHealthy(f,true); if(state.boss)state.bossHp=clamp(state.bossHp+3,0,100); feedback('⚠️ หมู่นี้เต็มแล้ว!','bad'); sfx('bad'); shakePlate(); logLine(`${f.emoji} ${f.name}: หมู่นี้เริ่มล้น`); recordPerf('overload',false); if(state.practiceActive)state.practiceMistakes++;}else{state.perfectPicks++; const mult=(state.rush?2:1)*(isFever()?2:1)*(state.boss?1.25:1); state.combo++; state.bestCombo=Math.max(state.bestCombo,state.combo); const gain=Math.round((45+Math.min(state.combo,12)*5)*mult); addScore(gain,state.combo>=5?`Combo +${gain}`:`+${gain}`,state.combo>=5?'combo':'good'); healPlate(state.combo>=5?4:2,'เลือกอาหารถูก'); if(lastSaveWasActive)checkLastSaveOnHealthy(f,false); if(state.boss&&!state.bossDefeated)damageBoss(5+Math.min(10,state.combo)); feedback(state.combo>=5?`🔥 Combo ${state.combo}! +${gain}`:`✅ เติมถูกหมู่! +${gain}`,state.combo>=5?'perfect':'good'); sfx(state.combo>=5?'perfect':'good'); if(state.combo>=6&&state.combo%6===0&&now()-state.lastFever>9000)triggerFever(); if([5,10,15].includes(state.combo))comboBoom(state.combo); logLine(`${f.emoji} ${f.name}: เติมถูกจังหวะ`); recordPerf('perfect',true); if(state.practiceActive)state.practiceHits++;} updateMissionHot(); showHint(false); updateAll(); postLog('target_hit',{kind:'healthy',emoji:f.emoji,name:f.name,overload,balancePct:balanceScore(),plateHealth:Math.round(state.plateHealth),combo:state.combo,score:Math.round(state.score)});}
-  function handleJunk(f){const lastSaveWasActive=state.lastSaveActive; checkOrderOnPick(f,true,true); checkMiniOnJunk(); checkBossMechanicOnJunk(); if(state.shield>0){state.shield--; addScore(12,'Shield +12','power'); feedback('🛡️ Shield กันของหลอก!','good'); sfx('good'); logLine('Shield บล็อก junk ได้ 1 ครั้ง'); recordPerf('blocked',true); if(state.practiceActive)state.practiceHits++; updateAll(); return;} state.junkHits++; state.misses++; state.combo=0; loseScore(35,'-35 Junk!'); if(lastSaveWasActive)checkLastSaveOnJunk(); else damagePlate(16,'โดน junk'); applyEffects(f.effects); if(state.boss)state.bossHp=clamp(state.bossHp+7,0,100); feedback(`❌ หลบ ${f.name}! จานเสียสมดุล`,'bad'); sfx('bad'); shakePlate(); flash(); logLine(`${f.emoji} ${f.name}: ของหลอก!`); recordPerf('junk',false); if(state.practiceActive)state.practiceMistakes++; showHint(true); updateAll(); postLog('target_hit',{kind:'junk',emoji:f.emoji,name:f.name,balancePct:balanceScore(),plateHealth:Math.round(state.plateHealth),combo:state.combo,score:Math.round(state.score)});}
+  function handleHealthy(f){const overload=wouldOverload(f), lastSaveWasActive=state.lastSaveActive; checkOrderOnPick(f,overload,false); checkMiniOnHealthy(f,overload); checkBossMechanicOnHealthy(f,overload); applyEffects(f.effects); state.hits++; Object.keys(f.effects||{}).forEach(g=>state.groupHits[g]=(state.groupHits[g]||0)+1); state.plateItems.push(f.emoji); state.plateItems=state.plateItems.slice(-18); if(overload){state.overloads++; state.riskyPicks++; state.combo=0; loseScore(18,'-18 ล้น!'); damagePlate(10,'หมู่อาหารล้น'); if(lastSaveWasActive)checkLastSaveOnHealthy(f,true); if(state.boss)state.bossHp=clamp(state.bossHp+3,0,100); feedback('⚠️ หมู่นี้เต็มแล้ว!','bad'); sfx('bad'); shakePlate(); logLine(`${f.emoji} ${f.name}: หมู่นี้เริ่มล้น`); recordPerf('overload',false); if(state.practiceActive)state.practiceMistakes++;}else{state.perfectPicks++; const mult=(state.rush?2:1)*(isFever()?2:1)*(state.boss?1.25:1); state.combo++; state.bestCombo=Math.max(state.bestCombo,state.combo); const gain=Math.round((45+Math.min(state.combo,12)*5)*mult); addScore(gain,state.combo>=5?`Combo +${gain}`:`+${gain}`,state.combo>=5?'combo':'good'); healPlate(state.combo>=5?4:2,'เลือกอาหารถูก'); if(lastSaveWasActive)checkLastSaveOnHealthy(f,false); if(state.boss&&!state.bossDefeated){tryBossCounter(f,overload)||damageBoss(5+Math.min(10,state.combo));} checkComboMilestone(); feedback(state.combo>=5?`🔥 Combo ${state.combo}! +${gain}`:`✅ เติมถูกหมู่! +${gain}`,state.combo>=5?'perfect':'good'); sfx(state.combo>=5?'perfect':'good'); if(state.combo>=6&&state.combo%6===0&&now()-state.lastFever>9000)triggerFever(); if([5,10,15].includes(state.combo))comboBoom(state.combo); logLine(`${f.emoji} ${f.name}: เติมถูกจังหวะ`); recordPerf('perfect',true); if(state.practiceActive)state.practiceHits++;} updateMissionHot(); showHint(false); updateAll(); postLog('target_hit',{kind:'healthy',emoji:f.emoji,name:f.name,overload,balancePct:balanceScore(),plateHealth:Math.round(state.plateHealth),combo:state.combo,score:Math.round(state.score)});}
+  function handleJunk(f){const lastSaveWasActive=state.lastSaveActive; checkOrderOnPick(f,true,true); checkMiniOnJunk(); checkBossMechanicOnJunk(); if(state.shield>0){state.shield--; addScore(12,'Shield +12','power'); feedback('🛡️ Shield กันของหลอก!','good'); sfx('good'); logLine('Shield บล็อก junk ได้ 1 ครั้ง'); recordPerf('blocked',true); if(state.practiceActive)state.practiceHits++; updateAll(); return;} if(tryNearMissRescue(f)){updateAll(); return;} state.junkHits++; state.misses++; state.combo=0; loseScore(35,'-35 Junk!'); if(lastSaveWasActive)checkLastSaveOnJunk(); else damagePlate(16,'โดน junk'); applyEffects(f.effects); if(state.boss)state.bossHp=clamp(state.bossHp+7,0,100); feedback(`❌ หลบ ${f.name}! จานเสียสมดุล`,'bad'); sfx('bad'); shakePlate(); flash(); logLine(`${f.emoji} ${f.name}: ของหลอก!`); recordPerf('junk',false); if(state.practiceActive)state.practiceMistakes++; showHint(true); updateAll(); postLog('target_hit',{kind:'junk',emoji:f.emoji,name:f.name,balancePct:balanceScore(),plateHealth:Math.round(state.plateHealth),combo:state.combo,score:Math.round(state.score)});}
   function applyPower(f){if(f.power==='shield'){state.shield=clamp(state.shield+1,0,2); feedback('🛡️ ได้ Shield!','perfect'); logLine('ได้ Shield กัน junk');}else if(f.power==='freeze'){state.freezeUntil=now()+3000; feedback('❄️ Freeze 3 วิ!','perfect'); logLine('Freeze: อาหารหยุดเกิดชั่วคราว');}else{showHint(true); addScore(10,'Hint +10','power'); feedback('💡 Smart Hint +10','good');} sfx('perfect'); updateAll();}
   function triggerFever(){state.lastFever=now(); state.feverUntil=now()+7500; els.app.classList.add('fever'); if(els.feverLayer)els.feverLayer.classList.remove('hidden'); setTimeout(()=>{els.app.classList.remove('fever'); if(els.feverLayer)els.feverLayer.classList.add('hidden');},7600); showBanner('🔥 FEVER MODE! คะแนน x2'); feedback('🔥 Fever Mode!','perfect'); sfx('fever');}
 
@@ -189,13 +220,200 @@
   function completeLastSave(success,reason){if(!state.lastSaveActive)return; state.lastSaveActive=false; state.lastSaveSuccess=!!success; if(success){healPlate(42,'Last Save สำเร็จ'); addScore(140,'Last Save +140','boss'); state.combo+=2; state.bestCombo=Math.max(state.bestCombo,state.combo); if(state.boss&&!state.bossDefeated)damageBoss(16); feedback('❤️ กู้จานสำเร็จ!','perfect'); coinBurst('boss',14); sfx('perfect');}else{loseScore(45,'-45 Last Save'); state.combo=0; state.plateHealth=Math.max(state.plateHealth,18); feedback('⚠️ กู้จานไม่สำเร็จ แต่ยังเล่นต่อได้!','bad'); shakePlate(); sfx('bad');} if(els.lastSaveBox)els.lastSaveBox.classList.remove('on'); els.app.classList.remove('last-save-active'); state.lastSaveStats=null;}
 
   function updatePhase(tLeft){const e=elapsedSec(),pct=e/state.totalSec; let nw=pct<.22?1:pct<.48?2:pct<.72?3:4; const rush=!state.boss&&e>16&&(Math.floor(e)%28)>=20; if(els.finalRush)els.finalRush.classList.toggle('hidden',tLeft>15); if(tLeft<=26&&!state.boss)startBoss(); if(state.boss)nw=5; if(nw!==state.wave){state.wave=nw; showBanner(({1:'Wave 1 • เติมจาน',2:'Wave 2 • ระวังล้น',3:'Wave 3 • Food Rush',4:'Rush Window!',5:'Boss Plate!'})[nw]||'Wave'); sfx(nw===5?'boss':'tick');} if(rush!==state.rush){state.rush=rush; if(rush){showBanner('⚡ Rush 8 วิ • คะแนน x2'); logLine('Rush Window! รีบเลือกให้แม่น');}}}
-  function startBoss(){state.boss=true; state.bossHp=Math.min(state.bossHp,100); state.lastBossAtk=now()+1500; state.bossType=pick(BOSSES); els.app.classList.add('boss-mode','boss-'+state.bossType.id); els.app.classList.remove('boss-defeated'); if(els.bossAvatar)els.bossAvatar.classList.remove('hidden'); if(els.bossFace)els.bossFace.textContent=state.bossType.icon; if(els.bossLabel)els.bossLabel.textContent=state.bossType.name; if(els.bossBox)els.bossBox.classList.add('on'); if(els.bossName)els.bossName.textContent=state.bossType.title; showBanner(`${state.bossType.icon} Boss Plate!`); feedback(state.bossType.intro,'bad'); sfx('boss'); logLine(`Boss Phase: ${state.bossType.name}`);}
+  function startBoss(){state.boss=true; state.bossHp=Math.min(state.bossHp,100); state.bossEnraged=false; state.bossWarnActive=false; state.bossWarnExpire=0; state.bossCounterCount=0; state.bossAttackCount=0; state.lastBossAtk=now()+1500; state.bossType=pick(BOSSES); els.app.classList.add('boss-mode','boss-'+state.bossType.id); els.app.classList.remove('boss-defeated'); if(els.bossAvatar)els.bossAvatar.classList.remove('hidden'); if(els.bossFace)els.bossFace.textContent=state.bossType.icon; if(els.bossLabel)els.bossLabel.textContent=state.bossType.name; if(els.bossBox)els.bossBox.classList.add('on'); if(els.bossName)els.bossName.textContent=state.bossType.title; showBanner(`${state.bossType.icon} Boss Plate!`); feedback(state.bossType.intro,'bad'); sfx('boss'); logLine(`Boss Phase: ${state.bossType.name}`);}
   function animateBoss(kind){if(!els.bossAvatar)return; els.bossAvatar.classList.remove('hit','attack'); void els.bossAvatar.offsetWidth; els.bossAvatar.classList.add(kind); setTimeout(()=>els.bossAvatar&&els.bossAvatar.classList.remove(kind),520);}
   function pulseBossArena(){els.arena.classList.remove('boss-pulse'); void els.arena.offsetWidth; els.arena.classList.add('boss-pulse'); setTimeout(()=>els.arena&&els.arena.classList.remove('boss-pulse'),520);}
   function showBossSkill(txt){if(!els.bossSkillFlash)return; els.bossSkillFlash.textContent=txt; els.bossSkillFlash.classList.remove('show'); void els.bossSkillFlash.offsetWidth; els.bossSkillFlash.classList.add('show');}
-  function bossAttackDelay(){return CFG.bossAtk*clamp((1-state.directorLevel*.06)*(1+state.assistLevel*.10),.72,1.32);}
-  function bossAttack(){if(state.bossDefeated)return; state.lastBossAtk=now(); const b=state.bossType||BOSSES[0]; animateBoss('attack'); pulseBossArena(); damagePlate(7,'บอสโจมตี'); if(now()-state.lastBossMechanicAt>9000)startBossMechanic(); if(b.id==='greasy'){state.fill.fat=clamp(state.fill.fat+.9,0,CFG.target+2.2); state.fill.veg=clamp(state.fill.veg-.25,0,CFG.target+2.2); showBossSkill('👾 Oil Splash! ไขมันพุ่ง'); feedback('👾 บอสเทน้ำมัน! ระวังไขมันล้น','bad');}else if(b.id==='sugar'){state.fill.carb=clamp(state.fill.carb+.65,0,CFG.target+2.2); const junk=FOODS.filter(f=>f.junk&&['🍰','🧃','🍩','🥤'].includes(f.emoji)); spawnFood({...pick(junk)}); setTimeout(()=>state.running&&!state.ended&&spawnFood({...pick(junk)}),350); showBossSkill('🍭 Sweet Rain! ของหวานตกลงมา'); feedback('🍭 Sugar Storm ปล่อยของหวาน!','bad');}else if(b.id==='carbzilla'){state.fill.carb=clamp(state.fill.carb+1.05,0,CFG.target+2.2); state.fill.protein=clamp(state.fill.protein-.2,0,CFG.target+2.2); showBossSkill('🍚 Carb Burst! คาร์บเพิ่มแรง'); feedback('🍚 Carbzilla ทำให้คาร์บล้น!','bad');}else{state.fill.veg=clamp(state.fill.veg-.35,0,CFG.target+2.2); state.fill.fruit=clamp(state.fill.fruit-.35,0,CFG.target+2.2); if(!state.duel&&!state.order&&!state.lastSaveActive)startDuel(); showBossSkill('🌀 Choice Trap! ต้องเลือกให้ไว'); feedback('🌀 Chaos Chef เปิดกับดักเลือก 1 จาก 2!','bad');} state.combo=0; shakePlate(); flash(); sfx('boss'); showHint(true); updateAll();}
-  function damageBoss(dmg){state.bossHp=clamp(state.bossHp-dmg,0,100); animateBoss('hit'); if(state.boss&&!state.bossDefeated)pulseBossArena(); if(state.bossHp<=0&&!state.bossDefeated){state.bossDefeated=true; addScore(220,'Boss +220','boss'); els.app.classList.add('boss-defeated'); showBanner('🏆 ชนะบอส! +220'); feedback('👑 Boss Crusher!','perfect'); sfx('fever'); logLine('ชนะบอสแล้ว!'); const d=DOC.createElement('div'); d.className='victoryBurst'; d.innerHTML='<div class="victoryBurstText">🏆 BOSS DOWN!</div>'; (els.juiceLayer||els.arena).appendChild(d); coinBurst('boss',18); setTimeout(()=>d.remove(),1700);}}
+  function bossAttackDelay(){return CFG.bossAtk*clamp((1-state.directorLevel*.06)*(1+state.assistLevel*.10)*(state.bossEnraged?.72:1),.58,1.32);}
+
+  function isBossWarning(){
+    return state.boss && !state.bossDefeated && state.bossWarnActive && now() < state.bossWarnExpire;
+  }
+
+  function bossWarningDuration(){
+    return state.bossEnraged ? 1050 : 1450;
+  }
+
+  function maybeBossEnrage(){
+    if(!state.boss || state.bossDefeated || state.bossEnraged || state.bossHp > 50) return;
+    state.bossEnraged = true;
+    if(els.app) els.app.classList.add('boss-enraged');
+    showBanner('🔥 BOSS ENRAGED!');
+    feedback('🔥 บอสโกรธแล้ว! โจมตีเร็วขึ้น แต่ counter ได้แรงขึ้น', 'bad');
+    sfx('boss');
+    logLine('Boss Enrage: ระวังสกิลถี่ขึ้น!');
+    postLog('boss_enrage',{bossType:state.bossType?state.bossType.id:'', bossHp:Math.round(state.bossHp)});
+  }
+
+  function startBossWarning(){
+    if(!state.boss || state.bossDefeated || state.bossWarnActive) return;
+    const b = state.bossType || BOSSES[0];
+    state.bossWarnActive = true;
+    state.bossWarningStarted = now();
+    state.bossWarnExpire = now() + bossWarningDuration();
+    if(els.app) els.app.classList.add('boss-warning');
+    const txt = state.bossEnraged ? `🔥 ${b.skillName || 'Boss Skill'} กำลังมา! COUNTER เร็ว!` : `⚠️ ${b.skillName || 'Boss Skill'} กำลังมา! เลือกของดีเพื่อ COUNTER`;
+    showBossSkill(txt);
+    showBanner('⚠️ Boss Warning!');
+    feedback('⚡ เลือกอาหารดีที่ยังไม่ล้น เพื่อสวนกลับ!', 'bad');
+    sfx('tick');
+    postLog('boss_warning',{bossType:b.id, enraged:!!state.bossEnraged, warnMs:bossWarningDuration()});
+  }
+
+  function tryBossCounter(food, overload){
+    if(!isBossWarning() || !food || food.junk || overload) return false;
+    const missing = mostMissingGroup();
+    const goodMissing = food.effects && food.effects[missing.id];
+    const goodCombo = state.combo >= 4;
+    if(!goodMissing && !goodCombo) return false;
+
+    state.bossWarnActive = false;
+    state.bossWarnExpire = 0;
+    state.bossCounterCount++;
+    state.lastBossAtk = now() + 900;
+    if(els.app) els.app.classList.remove('boss-warning');
+
+    const dmg = clamp(18 + Math.min(18, state.combo * 1.25) + (state.bossEnraged ? 8 : 0), 18, 46);
+    damageBoss(dmg);
+    healPlate(state.bossEnraged ? 12 : 8, 'Boss Counter');
+    addScore(state.bossEnraged ? 125 : 90, state.bossEnraged ? 'ENRAGE COUNTER +125' : 'COUNTER +90', 'boss');
+    popFx('counterFx', `⚡ COUNTER!<br><small>บอสเสีย HP -${Math.round(dmg)}</small>`, 1150);
+    showBanner('⚡ COUNTER สำเร็จ!');
+    feedback('⚡ สวนสกิลบอสสำเร็จ!', 'perfect');
+    sfx('fever');
+    logLine('COUNTER! เลือกอาหารดีทันก่อนบอสโจมตี');
+    postLog('boss_counter',{bossType:state.bossType?state.bossType.id:'', dmg:Math.round(dmg), combo:state.combo, enraged:!!state.bossEnraged});
+    return true;
+  }
+
+  function checkComboMilestone(){
+    const marks = [
+      {n:3, txt:'⚡ Combo 3! จับจังหวะได้แล้ว', score:25},
+      {n:5, txt:'🔥 Combo 5! เริ่มติดไฟ', score:45},
+      {n:10, txt:'🏆 Combo 10! Plate Rush!', score:90},
+      {n:15, txt:'👑 Combo 15! Master Chef!', score:140},
+      {n:20, txt:'🌟 Combo 20! Legendary Plate!', score:220}
+    ];
+    for(const m of marks){
+      if(state.combo >= m.n && !state.comboMilestones.has(m.n)){
+        state.comboMilestones.add(m.n);
+        addScore(m.score, `Milestone +${m.score}`, 'mission');
+        popFx('milestoneToast', `${m.txt}<br><small>โบนัส +${m.score}</small>`, 1150);
+        if(m.n >= 10 && now() - state.lastFever > 3500) triggerFever();
+        sfx('perfect');
+        postLog('combo_milestone',{combo:m.n, scoreBonus:m.score});
+      }
+    }
+  }
+
+  function tryNearMissRescue(food){
+    if(state.nearMissUsed || state.practiceActive || state.combo < 8 || state.plateHealth < 18) return false;
+    state.nearMissUsed = true;
+    state.nearMissCount++;
+    const lost = Math.min(4, Math.floor(state.combo / 2));
+    state.combo = Math.max(0, state.combo - lost);
+    state.shield = Math.max(state.shield, 1);
+    healPlate(8, 'Near Miss Rescue');
+    addScore(25, 'Near Miss +25', 'power');
+    popFx('nearMissFx', `💙 NEAR MISS!<br><small>คอมโบสูงช่วยกันพลาด 1 ครั้ง</small>`, 1100);
+    feedback('💙 Near Miss! ยังไม่เสียเต็ม ได้ Shield 1 ครั้ง', 'perfect');
+    sfx('perfect');
+    logLine(`Near Miss Rescue: กัน ${food ? food.name : 'junk'} ได้ 1 ครั้ง`);
+    postLog('near_miss_rescue',{comboAfter:state.combo, food:food?food.name:'', plateHealth:Math.round(state.plateHealth)});
+    return true;
+  }
+
+  function buildReplayChallenge(stars, bal, done){
+    if(!state.bossDefeated) return '👾 Replay Goal: เล่นอีกตาเพื่อชนะบอสท้ายเกม';
+    if(stars < 3) return '⭐ Replay Goal: เล่นอีกตาเพื่อเก็บ 3 ดาว';
+    if(bal < 92) return '⚖️ Replay Goal: ทำ Perfect Plate 92%+';
+    if(state.bestCombo < 15) return '🔥 Replay Goal: ทำ Combo 15+';
+    if(state.junkHits > 0) return '🚫 Replay Goal: จบแบบไม่โดน junk เลย';
+    return '👑 Replay Goal: ทำคะแนนใหม่ให้สูงกว่าเดิม!';
+  }
+
+  function bossAttack(){
+    if(state.bossDefeated) return;
+
+    if(!state.bossWarnActive){
+      startBossWarning();
+      return;
+    }
+
+    if(now() < state.bossWarnExpire) return;
+
+    state.bossWarnActive = false;
+    state.bossWarnExpire = 0;
+    if(els.app) els.app.classList.remove('boss-warning');
+
+    state.lastBossAtk = now();
+    state.bossAttackCount++;
+
+    const b = state.bossType || BOSSES[0];
+    animateBoss('attack');
+    pulseBossArena();
+    damagePlate(state.bossEnraged ? 10 : 7, 'บอสโจมตี');
+
+    if(now() - state.lastBossMechanicAt > (state.bossEnraged ? 6500 : 9000)) startBossMechanic();
+
+    if(b.id==='greasy'){
+      state.fill.fat=clamp(state.fill.fat+(state.bossEnraged?1.15:.9),0,CFG.target+2.2);
+      state.fill.veg=clamp(state.fill.veg-(state.bossEnraged?.35:.25),0,CFG.target+2.2);
+      showBossSkill('👾 Oil Splash! ไขมันพุ่ง');
+      feedback('👾 บอสเทน้ำมัน! ระวังไขมันล้น','bad');
+    }else if(b.id==='sugar'){
+      state.fill.carb=clamp(state.fill.carb+(state.bossEnraged?.85:.65),0,CFG.target+2.2);
+      const junk=FOODS.filter(f=>f.junk&&['🍰','🧃','🍩','🥤'].includes(f.emoji));
+      spawnFood({...pick(junk)});
+      setTimeout(()=>state.running&&!state.ended&&spawnFood({...pick(junk)}), state.bossEnraged?240:350);
+      if(state.bossEnraged) setTimeout(()=>state.running&&!state.ended&&spawnFood({...pick(junk)}),520);
+      showBossSkill('🍭 Sweet Rain! ของหวานตกลงมา');
+      feedback('🍭 Sugar Storm ปล่อยของหวาน!','bad');
+    }else if(b.id==='carbzilla'){
+      state.fill.carb=clamp(state.fill.carb+(state.bossEnraged?1.28:1.05),0,CFG.target+2.2);
+      state.fill.protein=clamp(state.fill.protein-(state.bossEnraged?.3:.2),0,CFG.target+2.2);
+      showBossSkill('🍚 Carb Burst! คาร์บเพิ่มแรง');
+      feedback('🍚 Carbzilla ทำให้คาร์บล้น!','bad');
+    }else{
+      state.fill.veg=clamp(state.fill.veg-(state.bossEnraged?.5:.35),0,CFG.target+2.2);
+      state.fill.fruit=clamp(state.fill.fruit-(state.bossEnraged?.5:.35),0,CFG.target+2.2);
+      if(!state.duel&&!state.order&&!state.lastSaveActive) startDuel();
+      showBossSkill('🌀 Choice Trap! ต้องเลือกให้ไว');
+      feedback('🌀 Chaos Chef เปิดกับดักเลือก 1 จาก 2!','bad');
+    }
+
+    state.combo = 0;
+    shakePlate(); flash(); sfx('boss'); showHint(true); updateAll();
+    postLog('boss_attack_hit',{bossType:b.id, enraged:!!state.bossEnraged, attackCount:state.bossAttackCount, balancePct:balanceScore(), plateHealth:Math.round(state.plateHealth)});
+  }
+
+  function damageBoss(dmg){
+    state.bossHp = clamp(state.bossHp - dmg, 0, 100);
+    animateBoss('hit');
+    if(state.boss && !state.bossDefeated) pulseBossArena();
+    maybeBossEnrage();
+
+    if(state.bossHp <= 0 && !state.bossDefeated){
+      state.bossDefeated = true;
+      state.bossWarnActive = false;
+      state.bossWarnExpire = 0;
+      addScore(220,'Boss +220','boss');
+      els.app.classList.add('boss-defeated');
+      els.app.classList.remove('boss-warning','boss-enraged');
+      showBanner('🏆 ชนะบอส! +220');
+      feedback('👑 Boss Crusher!','perfect');
+      sfx('fever');
+      logLine('ชนะบอสแล้ว!');
+      const d=DOC.createElement('div');
+      d.className='victoryBurst';
+      d.innerHTML='<div class="victoryBurstText">🏆 BOSS DOWN!</div>';
+      (els.juiceLayer||els.arena).appendChild(d);
+      coinBurst('boss',18);
+      setTimeout(()=>d.remove(),1700);
+      postLog('boss_defeated',{bossType:state.bossType?state.bossType.id:'', counters:state.bossCounterCount, attacks:state.bossAttackCount, score:Math.round(state.score)});
+    }
+  }
+
   function startBossMechanic(){if(!state.boss||state.bossDefeated||!state.bossType||state.bossMechanic||state.lastSaveActive)return; state.lastBossMechanicAt=now(); const m0=mostMissingGroup(),b=state.bossType; let m=b.id==='greasy'?{type:'avoidGroup',group:'fat',icon:'🥜',title:'👾 Oil Warning!',text:'น้ำมันกำลังล้น! ห้ามเติมไขมันดีช่วงนี้',sec:6,reward:105,penalty:30}:b.id==='sugar'?{type:'avoidJunk',title:'🍭 Sugar Storm!',text:'พายุน้ำตาลมาแล้ว! ห้ามโดน junk',sec:6,reward:110,penalty:35}:b.id==='carbzilla'?{type:'avoidGroup',group:'carb',icon:'🍚',title:'🍚 Carb Lock!',text:'Carbzilla ป่วนจาน! ห้ามเติมข้าว/แป้ง',sec:6,reward:105,penalty:30}:{type:'quickFix',group:m0.id,icon:m0.icon,title:'🌀 Chaos Fix!',text:`รีบเติม ${m0.icon} ${m0.label} ให้ถูก 2 ครั้ง`,sec:7,target:2,reward:125,penalty:28}; state.bossMechanic=m; state.bossMechanicExpire=now()+m.sec*1000; state.bossMechanicStats={hits:0}; if(els.bossMechanicBox)els.bossMechanicBox.classList.add('on'); if(els.bossMechanicTitle)els.bossMechanicTitle.textContent=m.title; if(els.bossMechanicText)els.bossMechanicText.textContent=m.text; if(els.bossMechanicSec)els.bossMechanicSec.textContent=m.sec+'s'; if(els.bossMechanicFill)els.bossMechanicFill.style.width='100%'; els.app.classList.add('boss-mechanic-active'); showBanner(m.title); feedback(m.text,'bad'); sfx('boss');}
   function updateBossMechanic(){if(!state.bossMechanic)return; const m=state.bossMechanic,left=Math.max(0,state.bossMechanicExpire-now()); if(els.bossMechanicSec)els.bossMechanicSec.textContent=Math.ceil(left/1000)+'s'; if(els.bossMechanicFill)els.bossMechanicFill.style.width=clamp(left/(m.sec*1000)*100,0,100)+'%'; if(left<=0){if(m.type==='avoidGroup'||m.type==='avoidJunk')completeBossMechanic(true,'หลบสกิลบอสสำเร็จ!'); else completeBossMechanic(false,'แก้เกมไม่ทัน!');}}
   function checkBossMechanicOnHealthy(food,overload){if(!state.bossMechanic)return; const m=state.bossMechanic; if(m.type==='avoidGroup'&&food.effects&&food.effects[m.group])return completeBossMechanic(false,`เผลอเติม ${m.icon} ระหว่างสกิลบอส!`); if(m.type==='quickFix'&&!overload&&food.effects&&food.effects[m.group]){state.bossMechanicStats.hits++; if(state.bossMechanicStats.hits>=(m.target||2))completeBossMechanic(true,'แก้เกม Chaos สำเร็จ!'); else feedback(`ดีมาก! อีก ${(m.target||2)-state.bossMechanicStats.hits} ครั้ง`,'good');}}
@@ -223,11 +441,11 @@
 
   function updateAll(){const left=state.practiceActive?Math.ceil(practiceLeftSec()):Math.ceil(timeLeft()); els.score.textContent=Math.round(state.score); els.combo.textContent=state.combo; els.balance.textContent=balanceScore()+'%'; els.timeText.textContent=left+'s'; if(els.miniScore)els.miniScore.textContent=Math.round(state.score); if(els.miniCombo)els.miniCombo.textContent=state.combo; if(els.miniBalance)els.miniBalance.textContent=balanceScore()+'%'; if(els.miniTime)els.miniTime.textContent=left+'s'; const total=state.practiceActive?PRACTICE_SEC:state.totalSec; els.timerFill.style.width=clamp(left/total*100,0,100)+'%'; els.timerFill.classList.toggle('danger',left<=15); const phaseName=state.boss?(state.bossDefeated?'Boss defeated • รักษาจานให้จบสวย':'Boss Plate • ทำถูกเพื่อลด HP'):state.rush?'Rush Window • คะแนน x2':`Wave ${state.wave||1} • ${DIFF}`; els.phaseText.textContent=state.practiceActive?'🧑‍🍳 Practice Mode • ลองก่อน คะแนนยังไม่คิดจริง':isFever()?'🔥 FEVER MODE • คะแนน x2':phaseName; updateMeters(); renderPlate(); updatePowers(); updateBoss(); renderMissions(); updatePlateHealthUI();}
   function updatePowers(){if(els.pShield){els.pShield.classList.toggle('on',state.shield>0); els.pShield.innerHTML=`<b>🛡️</b>Shield ${state.shield?'x'+state.shield:''}`;} if(els.pFreeze)els.pFreeze.classList.toggle('on',isFreeze()); if(els.pFever)els.pFever.classList.toggle('on',isFever());}
-  function updateBoss(){if(els.bossBox)els.bossBox.classList.toggle('on',state.boss); if(els.bossHp)els.bossHp.style.width=state.bossHp+'%'; if(els.bossPct)els.bossPct.textContent=Math.round(state.bossHp)+'%'; if(els.bossName&&state.bossType)els.bossName.textContent=state.bossType.title; if(els.bossMood)els.bossMood.textContent=state.bossDefeated?'ชนะบอสแล้ว! รักษาจานให้สมดุลจนจบ':state.boss?'Perfect Pick จะลด HP บอส / junk ทำให้บอสฟื้น':'บอสยังไม่มา';}
+  function updateBoss(){if(els.bossBox)els.bossBox.classList.toggle('on',state.boss); if(els.bossHp)els.bossHp.style.width=state.bossHp+'%'; if(els.bossPct)els.bossPct.textContent=Math.round(state.bossHp)+'%'; if(els.bossName&&state.bossType)els.bossName.textContent=state.bossType.title; if(els.bossMood)els.bossMood.textContent=state.bossDefeated?'ชนะบอสแล้ว! รักษาจานให้สมดุลจนจบ':state.boss?(isBossWarning()?'⚠️ Boss Warning: เลือกอาหารดีเพื่อ COUNTER!':state.bossEnraged?'🔥 บอสโกรธแล้ว! Counter จะได้โบนัสแรงขึ้น':'Perfect Pick จะลด HP บอส / junk ทำให้บอสฟื้น'):'บอสยังไม่มา';}
 
   function updatePracticeCoach(){const left=practiceLeftSec(); let ph=0; if(left<=PRACTICE_SEC*.66)ph=1; if(left<=PRACTICE_SEC*.33)ph=2; state.practicePhase=ph; const data=[{icon:'✅',title:'Practice 1/3',text:'เลือกอาหารที่มีป้าย “ควรเก็บ” เพื่อเติมหมู่ที่จานยังขาด'},{icon:'⚠️',title:'Practice 2/3',text:'ถ้าเห็นป้าย “ล้น!” ให้ระวัง อาหารดีแต่หมู่นั้นเต็มแล้ว'},{icon:'🚫',title:'Practice 3/3',text:'หลบ Junk เช่น ของทอด ของหวาน น้ำหวาน แล้วเก็บของดีให้ทัน'}][ph]; if(els.practiceIcon)els.practiceIcon.textContent=data.icon; if(els.practiceTitle)els.practiceTitle.textContent=data.title; if(els.practiceText)els.practiceText.textContent=data.text; if(els.practiceSec)els.practiceSec.textContent=Math.ceil(left)+'s'; if(els.practiceFill)els.practiceFill.style.width=clamp(left/PRACTICE_SEC*100,0,100)+'%'; if(ph===1)state.fill.carb=Math.max(state.fill.carb,CFG.target);}
   function updatePractice(){const left=practiceLeftSec(); if(left<=0)return finishPractice(false); updatePracticeCoach(); const delay=left>PRACTICE_SEC*.66?1050:left>PRACTICE_SEC*.33?900:780; if(!isFreeze()&&now()-state.lastSpawn>delay)spawnFood(); expireCards(); updateAll();}
-  function resetForMainRound(){clearActiveCards(); Object.assign(state,{score:0,combo:0,bestCombo:0,plateHealth:100,plateHealthMin:100,lastSaveActive:false,lastSaveUsed:false,lastSaveSuccess:false,lastSaveStats:null,hits:0,misses:0,junkHits:0,overloads:0,missedGood:0,fill:Object.fromEntries(GROUPS.map(g=>[g.id,0])),groupHits:Object.fromEntries(GROUPS.map(g=>[g.id,0])),plateItems:[],wave:0,rush:false,feverUntil:0,lastFever:0,shield:0,freezeUntil:0,rescueUsed:false,boss:false,bossHp:100,bossDefeated:false,bossType:null,bossMechanic:null,bossMechanicStats:null,order:null,duel:null,mini:null,miniStats:null,perfectPicks:0,riskyPicks:0,aimPicks:0,recentPerf:[],goodStreak:0,badStreak:0,directorLevel:0,assistLevel:0,directorMood:'normal',lastSpawnLane:-1,spawnLaneHistory:[]}); if(els.btnSkill)els.btnSkill.disabled=false; ['orderBox','miniEventBox','bossMechanicBox','lastSaveBox'].forEach(k=>els[k]&&els[k].classList.remove('on')); if(els.duelLayer)els.duelLayer.innerHTML=''; ['finalRush','feverLayer','aiDirectorChip'].forEach(k=>els[k]&&els[k].classList.add('hidden')); els.app.classList.remove('boss-mode','boss-greasy','boss-sugar','boss-carbzilla','boss-chaos','boss-defeated','boss-mechanic-active','ai-assist','ai-challenge','ai-hot','plate-warn','plate-danger','plate-critical','last-save-active'); updateAll();}
+  function resetForMainRound(){clearActiveCards(); Object.assign(state,{score:0,combo:0,bestCombo:0,plateHealth:100,plateHealthMin:100,lastSaveActive:false,lastSaveUsed:false,lastSaveSuccess:false,lastSaveStats:null,hits:0,misses:0,junkHits:0,overloads:0,missedGood:0,fill:Object.fromEntries(GROUPS.map(g=>[g.id,0])),groupHits:Object.fromEntries(GROUPS.map(g=>[g.id,0])),plateItems:[],wave:0,rush:false,feverUntil:0,lastFever:0,shield:0,freezeUntil:0,rescueUsed:false,boss:false,bossHp:100,bossDefeated:false,bossType:null,bossMechanic:null,bossMechanicStats:null,order:null,duel:null,mini:null,miniStats:null,perfectPicks:0,riskyPicks:0,aimPicks:0,recentPerf:[],goodStreak:0,badStreak:0,directorLevel:0,assistLevel:0,directorMood:'normal',comboMilestones:new Set(),bossEnraged:false,bossWarnActive:false,bossWarnExpire:0,bossWarningStarted:0,bossCounterCount:0,bossAttackCount:0,nearMissUsed:false,nearMissCount:0,replayGoal:'',lastSpawnLane:-1,spawnLaneHistory:[]}); if(els.btnSkill)els.btnSkill.disabled=false; ['orderBox','miniEventBox','bossMechanicBox','lastSaveBox'].forEach(k=>els[k]&&els[k].classList.remove('on')); if(els.duelLayer)els.duelLayer.innerHTML=''; ['finalRush','feverLayer','aiDirectorChip'].forEach(k=>els[k]&&els[k].classList.add('hidden')); els.app.classList.remove('boss-mode','boss-greasy','boss-sugar','boss-carbzilla','boss-chaos','boss-defeated','boss-enraged','boss-warning','boss-mechanic-active','ai-assist','ai-challenge','ai-hot','plate-warn','plate-danger','plate-critical','last-save-active'); updateAll();}
   function startPractice(){resetForMainRound(); state.practiceActive=true; state.practiceStarted=now(); state.practiceHits=0; state.practiceMistakes=0; state.practicePhase=0; state.lastSpawn=now(); els.app.classList.add('practice-mode'); if(els.practiceCoach)els.practiceCoach.classList.remove('hidden'); updatePracticeCoach(); showBanner('🧑‍🍳 Practice 20 วิ'); feedback('ลองก่อน! คะแนนยังไม่คิดจริง','good'); sfx('good');}
   function finishPractice(skipped){if(!state.practiceActive)return; state.practiceActive=false; state.practiceDone=true; clearActiveCards(); resetForMainRound(); if(els.practiceCoach)els.practiceCoach.classList.add('hidden'); els.app.classList.remove('practice-mode'); showBanner(skipped?'ข้าม Practice • เริ่มเกมจริง!':'Practice จบแล้ว • เริ่มเกมจริง!'); feedback(skipped?'เริ่มเกมจริง!':'พร้อมแล้ว เริ่มเกมจริง!','perfect'); sfx('perfect'); startRealGame();}
   function startGame(){state.running=true; state.ended=false; state.paused=false; els.app.classList.add('playing'); if(els.arcadeHud)els.arcadeHud.classList.remove('hidden'); els.startOverlay.classList.add('hidden'); if(state.practiceEnabled&&!state.practiceDone)startPractice(); else startRealGame(); requestAnimationFrame(loop);}
@@ -240,7 +458,7 @@
   function loadBest(){const raw=SAFE_STORE.get(bestKey(),''); return raw?(safeJsonParse(raw,{score:0,balance:0,combo:0,stars:0,date:''})||{score:0,balance:0,combo:0,stars:0,date:''}):{score:0,balance:0,combo:0,stars:0,date:''};}
   function loadBadgeSet(){const arr=safeJsonParse(SAFE_STORE.get(badgeKey(),'[]'),[]); return new Set(Array.isArray(arr)?arr:[]);} function updateBadgeCollection(badges){const old=state.unlockedBadges||new Set(),news=badges.filter(b=>!old.has(b)),merged=new Set([...old,...badges]); state.unlockedBadges=merged; state.newBadges=news; SAFE_STORE.set(badgeKey(),safeJsonStringify(Array.from(merged))); return news;}
   function calcStars(bal,done){let s=0; if(bal>=60&&state.score>=250)s=1; if(bal>=75&&done>=2&&state.bestCombo>=6)s=2; if(bal>=88&&done>=3&&state.bestCombo>=9&&(state.bossDefeated||state.bossHp<=15))s=3; if(dailyStatus().done&&s<2)s=2; return clamp(s,0,3);}
-  function endGame(){state.ended=true; state.running=false; clearActiveCards(); renderMissions(); els.app.classList.remove('playing'); if(els.arcadeHud)els.arcadeHud.classList.add('hidden'); const bal=balanceScore(),done=state.missions.filter(m=>missionStatus(m).done).length,stars=calcStars(bal,done); state.stars=stars; const rank=bal>=90&&done>=3&&state.bossDefeated?{icon:'👑',title:'SS • Plate Master',line:'สุดยอด! จานสมดุล ชนะบอส และทำภารกิจครบ'}:bal>=82&&done>=2?{icon:'🏆',title:'S • Balance Hero',line:'ยอดเยี่ยม! จานสมดุลมาก เล่นอีกรอบลุ้น SS ได้เลย'}:bal>=70||state.score>=600?{icon:'⭐',title:'A • Smart Chef',line:'ดีมาก! รอบหน้าเน้นหมู่ที่ยังขาดและอย่าให้ล้น'}:bal>=55?{icon:'🌟',title:'B • Healthy Builder',line:'เริ่มดีแล้ว! ลองดูแถบสมดุลก่อนเลือกอาหาร'}:{icon:'🍽️',title:'C • Plate Starter',line:'ไม่เป็นไร! รอบหน้าลองเติมหมู่ที่ขาดก่อนนะ'}; if(els.rankIcon)els.rankIcon.textContent=rank.icon; if(els.summaryTitle)els.summaryTitle.textContent=rank.title; if(els.summaryLine)els.summaryLine.textContent=rank.line; if(els.starRow)els.starRow.innerHTML=`<span class="star ${stars>=1?'on':''}">⭐</span><span class="star ${stars>=2?'on':''}">⭐</span><span class="star ${stars>=3?'on':''}">⭐</span><div class="starLabel">${stars>=3?'สุดยอด! 3 ดาวแบบ Plate Hero':stars===2?'ดีมาก! อีกนิดเดียวถึง 3 ดาว':stars===1?'ผ่านแล้ว! รอบหน้าลุ้น 2 ดาว':'ลองใหม่ได้! เริ่มจากเติมหมู่ที่ขาดก่อน'}</div>`; if(els.sumScore)els.sumScore.textContent=Math.round(state.score); if(els.sumBalance)els.sumBalance.textContent=bal+'%'; if(els.sumCombo)els.sumCombo.textContent=state.bestCombo; if(els.sumMission)els.sumMission.textContent=`${done}/${state.missions.length}`; const badges=[]; if(bal>=85)badges.push('⚖️ Balance Master'); if(state.bestCombo>=10)badges.push('🔥 Combo Chef'); if(state.junkHits===0)badges.push('🚫 Junk Dodger'); if(state.bossDefeated)badges.push('👾 Boss Crusher'); if(done>=3)badges.push('🎯 Mission Clear'); if(state.lastSaveSuccess)badges.push('❤️ Plate Saver'); if(!badges.length)badges.push('🍽️ Plate Starter'); const news=updateBadgeCollection(badges); if(els.badgeRow)els.badgeRow.innerHTML=badges.map(b=>`<span class="badge ${news.includes(b)?'new':''}">${esc(b)}${news.includes(b)?' • NEW':''}</span>`).join(''); if(els.recommend)els.recommend.innerHTML=`<div class="childSummary"><div class="childLine">🌟 วันนี้เก่ง: <b>${bal>=85?'คุมจานสมดุลได้ยอดเยี่ยม':state.bestCombo>=8?'ทำคอมโบได้ดีมาก':'เลือกอาหารได้ดีขึ้นแล้ว'}</b></div><div class="childLine">🎯 ฝึกต่อ: <b>${state.junkHits>2?'หลบ junk เช่น 🍟 🍰 🧃 ให้มากขึ้น':`เติม ${mostMissingGroup().icon} ${mostMissingGroup().label} ให้เร็วกว่านี้`}</b></div><div class="childLine">❤️ พลังจานสุดท้าย: <b>${Math.round(state.plateHealth)}%</b></div><div class="childLine">🔁 เป้าหมายรอบหน้า: <b>${stars>=2?'รอบหน้าลุ้น 3 ดาว':'รอบหน้าลองทำ 2 ดาว'}</b></div></div>`; els.summaryOverlay.classList.remove('hidden'); const summary={timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,scoreFinal:Math.round(state.score),balancePct:bal,comboMax:state.bestCombo,hits:state.hits,misses:state.misses,junkHits:state.junkHits,overloads:state.overloads,missionsDone:done,stars,bossDefeated:state.bossDefeated,plateHealthFinal:Math.round(state.plateHealth),lastSaveUsed:state.lastSaveUsed,lastSaveSuccess:state.lastSaveSuccess,durationPlayedSec:Math.round(elapsedSec())}; SAFE_STORE.set('HHA_LAST_SUMMARY',safeJsonStringify(summary)); SAFE_STORE.set('HHA_LAST_SUMMARY_plate_solo',safeJsonStringify(summary)); SAFE_STORE.set(dailyKey(),safeJsonStringify(summary)); postLog('session_end',summary); flushLogs(true);}
+  function endGame(){state.ended=true; state.running=false; clearActiveCards(); renderMissions(); els.app.classList.remove('playing'); if(els.arcadeHud)els.arcadeHud.classList.add('hidden'); const bal=balanceScore(),done=state.missions.filter(m=>missionStatus(m).done).length,stars=calcStars(bal,done); state.stars=stars; const rank=bal>=90&&done>=3&&state.bossDefeated?{icon:'👑',title:'SS • Plate Master',line:'สุดยอด! จานสมดุล ชนะบอส และทำภารกิจครบ'}:bal>=82&&done>=2?{icon:'🏆',title:'S • Balance Hero',line:'ยอดเยี่ยม! จานสมดุลมาก เล่นอีกรอบลุ้น SS ได้เลย'}:bal>=70||state.score>=600?{icon:'⭐',title:'A • Smart Chef',line:'ดีมาก! รอบหน้าเน้นหมู่ที่ยังขาดและอย่าให้ล้น'}:bal>=55?{icon:'🌟',title:'B • Healthy Builder',line:'เริ่มดีแล้ว! ลองดูแถบสมดุลก่อนเลือกอาหาร'}:{icon:'🍽️',title:'C • Plate Starter',line:'ไม่เป็นไร! รอบหน้าลองเติมหมู่ที่ขาดก่อนนะ'}; if(els.rankIcon)els.rankIcon.textContent=rank.icon; if(els.summaryTitle)els.summaryTitle.textContent=rank.title; if(els.summaryLine)els.summaryLine.textContent=rank.line; if(els.starRow)els.starRow.innerHTML=`<span class="star ${stars>=1?'on':''}">⭐</span><span class="star ${stars>=2?'on':''}">⭐</span><span class="star ${stars>=3?'on':''}">⭐</span><div class="starLabel">${stars>=3?'สุดยอด! 3 ดาวแบบ Plate Hero':stars===2?'ดีมาก! อีกนิดเดียวถึง 3 ดาว':stars===1?'ผ่านแล้ว! รอบหน้าลุ้น 2 ดาว':'ลองใหม่ได้! เริ่มจากเติมหมู่ที่ขาดก่อน'}</div>`; if(els.sumScore)els.sumScore.textContent=Math.round(state.score); if(els.sumBalance)els.sumBalance.textContent=bal+'%'; if(els.sumCombo)els.sumCombo.textContent=state.bestCombo; if(els.sumMission)els.sumMission.textContent=`${done}/${state.missions.length}`; const badges=[]; if(bal>=85)badges.push('⚖️ Balance Master'); if(state.bestCombo>=10)badges.push('🔥 Combo Chef'); if(state.junkHits===0)badges.push('🚫 Junk Dodger'); if(state.bossDefeated)badges.push('👾 Boss Crusher'); if(state.bossCounterCount>=2)badges.push('⚡ Counter Hero'); if(state.bossEnraged&&state.bossDefeated)badges.push('🔥 Enrage Survivor'); if(state.nearMissUsed)badges.push('💙 Near Miss Saver'); if(done>=3)badges.push('🎯 Mission Clear'); if(state.lastSaveSuccess)badges.push('❤️ Plate Saver'); if(!badges.length)badges.push('🍽️ Plate Starter'); const news=updateBadgeCollection(badges); if(els.badgeRow)els.badgeRow.innerHTML=badges.map(b=>`<span class="badge ${news.includes(b)?'new':''}">${esc(b)}${news.includes(b)?' • NEW':''}</span>`).join(''); state.replayGoal=buildReplayChallenge(stars,bal,done); if(els.recommend)els.recommend.innerHTML=`<div class="childSummary"><div class="childLine">🌟 วันนี้เก่ง: <b>${bal>=85?'คุมจานสมดุลได้ยอดเยี่ยม':state.bestCombo>=8?'ทำคอมโบได้ดีมาก':'เลือกอาหารได้ดีขึ้นแล้ว'}</b></div><div class="childLine">🎯 ฝึกต่อ: <b>${state.junkHits>2?'หลบ junk เช่น 🍟 🍰 🧃 ให้มากขึ้น':`เติม ${mostMissingGroup().icon} ${mostMissingGroup().label} ให้เร็วกว่านี้`}</b></div><div class="childLine">❤️ พลังจานสุดท้าย: <b>${Math.round(state.plateHealth)}%</b></div><div class="childLine">🔁 เป้าหมายรอบหน้า: <b>${stars>=2?'รอบหน้าลุ้น 3 ดาว':'รอบหน้าลองทำ 2 ดาว'}</b></div><div class="replayChallenge">${esc(state.replayGoal)}</div></div>`; els.summaryOverlay.classList.remove('hidden'); const summary={timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,scoreFinal:Math.round(state.score),balancePct:bal,comboMax:state.bestCombo,hits:state.hits,misses:state.misses,junkHits:state.junkHits,overloads:state.overloads,missionsDone:done,stars,bossDefeated:state.bossDefeated,bossEnraged:state.bossEnraged,bossCounterCount:state.bossCounterCount,bossAttackCount:state.bossAttackCount,nearMissUsed:state.nearMissUsed,nearMissCount:state.nearMissCount,replayGoal:state.replayGoal,plateHealthFinal:Math.round(state.plateHealth),lastSaveUsed:state.lastSaveUsed,lastSaveSuccess:state.lastSaveSuccess,durationPlayedSec:Math.round(elapsedSec())}; SAFE_STORE.set('HHA_LAST_SUMMARY',safeJsonStringify(summary)); SAFE_STORE.set('HHA_LAST_SUMMARY_plate_solo',safeJsonStringify(summary)); SAFE_STORE.set(dailyKey(),safeJsonStringify(summary)); postLog('session_end',summary); flushLogs(true);}
 
   function preserveParams(url,keys){keys.forEach(k=>{const v=qs(k,''); if(v!==null&&v!==undefined&&String(v)!=='')url.searchParams.set(k,v);});}
   function goBack(){flushLogs(true); const hub=qs('hub','')||qs('back',''); if(hub){location.href=hub; return;} const u=new URL(location.pathname.includes('/plate/')?'../nutrition-zone.html':'./nutrition-zone.html',location.href); preserveParams(u,['pid','name','nick','diff','time','view','run','seed','studyId','phase','conditionGroup','section','session_code','log','api']); u.searchParams.set('zone','nutrition'); u.searchParams.set('from','plate-solo'); location.href=u.toString();}
@@ -252,6 +470,6 @@
   function updateAimTarget(){if(!isAimMode()||!state.running||state.paused||state.ended)return; const r0=els.arena.getBoundingClientRect(),cx=r0.left+r0.width/2,cy=r0.top+r0.height/2; let bestId=null,bestD=Infinity; for(const[id,obj]of state.active.entries()){const r=obj.el.getBoundingClientRect(),d=Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy); if(d<bestD){bestD=d; bestId=id;}} const range=screenMode()==='small'?285:250; for(const[id,obj]of state.active.entries())obj.el.classList.toggle('aimLock',id===bestId&&bestD<range); state.lastAimTarget=bestD<range?bestId:null;}
   function selectAimTarget(){if(!isAimMode())return; updateAimTarget(); if(state.lastAimTarget&&state.active.has(state.lastAimTarget)){state.aimPicks++; pickFood(state.lastAimTarget);}else{feedback('🎯 เล็งอาหารให้ตรงกลางก่อน','bad'); sfx('bad');}}
   function bind(){els.btnStart.addEventListener('click',startGame); if(els.btnSkipPractice)els.btnSkipPractice.addEventListener('click',()=>{if(state.practiceActive)finishPractice(true);}); els.btnPause.addEventListener('click',()=>togglePause(false)); els.btnHint.addEventListener('click',()=>showHint(true)); els.btnSkill.addEventListener('click',rescueSkill); if(els.btnAim)els.btnAim.addEventListener('click',selectAimTarget); els.btnBack.addEventListener('click',goBack); if(els.btnReplay)els.btnReplay.addEventListener('click',()=>location.reload()); if(els.btnCooldown)els.btnCooldown.addEventListener('click',goCooldown); if(els.btnSummaryBack)els.btnSummaryBack.addEventListener('click',goBack); els.arena.addEventListener('pointerdown',ev=>{if(!isAimMode())return; if(ev.target.closest('.foodCard'))return; ev.preventDefault(); selectAimTarget();},{passive:false}); DOC.addEventListener('visibilitychange',()=>{if(DOC.hidden&&state.running&&!state.paused)togglePause(true);});}
-  function init(){try{const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true;}catch(e){} Object.keys(FOOD_ASSET_FILES).forEach(e=>{const src=assetCandidatesForEmoji(e)[0]; if(src){try{const img=new Image(); img.src=src;}catch(err){}}}); renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!');}
+  function init(){installV403Styles(); try{const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true;}catch(e){} Object.keys(FOOD_ASSET_FILES).forEach(e=>{const src=assetCandidatesForEmoji(e)[0]; if(src){try{const img=new Image(); img.src=src;}catch(err){}}}); renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!');}
   WIN.addEventListener('pagehide',()=>flushLogs(true)); WIN.addEventListener('beforeunload',()=>flushLogs(true)); init();
-})();
+})()
