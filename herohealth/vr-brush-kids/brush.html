@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260506f-BRUSH-KIDS-CLEAN-PLAY-STABLE-BUILD -->
+<!-- FULL PATCH v20260506g-BRUSH-KIDS-SUMMARY-POLISH-COOLDOWN-HARDEN -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -4133,6 +4133,194 @@ body[data-stage="prep"] .screen.active{
   [data-action="debug"]{ display:none !important; }
 }
 
+  
+/* === PATCH 20260506g: SUMMARY POLISH + COOLDOWN HARDEN === */
+#screen-summary .summaryGrid{
+  align-items:stretch;
+}
+
+#screen-summary .scoreCard{
+  position:sticky;
+  top:12px;
+  min-height:min(76vh,820px);
+  overflow:hidden;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255,255,255,.82), transparent 18%),
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.42), transparent 12%),
+    radial-gradient(circle at 84% 14%, rgba(255,255,255,.32), transparent 14%),
+    linear-gradient(180deg,#fff8dc,#fff0a8);
+  border-color:#ffd84d;
+}
+
+#screen-summary .scoreCard::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:7%;
+  width:260px;
+  height:260px;
+  transform:translateX(-50%);
+  border-radius:999px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(255,255,255,.92), transparent 26%),
+    radial-gradient(circle, rgba(255,217,93,.36), transparent 64%);
+  pointer-events:none;
+}
+
+.summaryHeroVisual{
+  position:relative;
+  z-index:2;
+  width:100%;
+  min-height:100%;
+  display:grid;
+  align-content:center;
+  justify-items:center;
+  gap:16px;
+  padding:24px;
+  text-align:center;
+}
+
+.summaryHeroIcon{
+  width:min(230px,58vw);
+  aspect-ratio:1/1;
+  border-radius:42px;
+  display:grid;
+  place-items:center;
+  font-size:clamp(76px,14vw,140px);
+  background:
+    radial-gradient(circle at 38% 28%, rgba(255,255,255,.96), transparent 22%),
+    linear-gradient(180deg,#ffffff,#fff2a8);
+  border:4px solid rgba(255,216,77,.72);
+  box-shadow:0 24px 54px rgba(80,60,0,.16);
+}
+
+.summaryHeroTitle{
+  color:#503c00;
+  font-size:clamp(26px,4.4vw,54px);
+  line-height:1.05;
+  letter-spacing:-.04em;
+  font-weight:1000;
+}
+
+.summaryHeroScore{
+  color:#503c00;
+  font-size:clamp(54px,9vw,96px);
+  line-height:.9;
+  letter-spacing:-.05em;
+  font-weight:1000;
+}
+
+.summaryHeroStars{
+  font-size:clamp(28px,4.2vw,44px);
+  filter:drop-shadow(0 5px 9px rgba(80,60,0,.18));
+}
+
+.summaryHeroLabel{
+  color:#8d6118;
+  font-size:15px;
+  line-height:1.3;
+  font-weight:1000;
+}
+
+.summaryMiniGrid{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+  margin-top:4px;
+}
+
+.summaryMiniCard{
+  min-height:58px;
+  border-radius:18px;
+  border:2px solid rgba(255,216,77,.62);
+  background:rgba(255,255,255,.72);
+  display:grid;
+  align-content:center;
+  gap:2px;
+  padding:8px;
+  color:#503c00;
+  box-shadow:0 10px 20px rgba(80,60,0,.08);
+}
+
+.summaryMiniCard span{
+  color:#8d6118;
+  font-size:11px;
+  font-weight:1000;
+}
+
+.summaryMiniCard strong{
+  color:#12324b;
+  font-size:20px;
+  line-height:1;
+  font-weight:1000;
+}
+
+.summaryCooldownNote{
+  width:100%;
+  border-radius:20px;
+  background:rgba(255,255,255,.78);
+  border:2px dashed rgba(34,197,94,.55);
+  padding:10px 12px;
+  color:#166534;
+  font-size:13px;
+  line-height:1.35;
+  font-weight:1000;
+}
+
+.cooldownRouteToast{
+  position:fixed;
+  left:50%;
+  top:12%;
+  z-index:450000;
+  transform:translateX(-50%);
+  width:min(760px,92vw);
+  min-height:46px;
+  display:none;
+  place-items:center;
+  text-align:center;
+  padding:10px 16px;
+  border-radius:999px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  box-shadow:0 18px 46px rgba(23,56,79,.24);
+  font:1000 14px/1.25 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.cooldownRouteToast.show{
+  display:grid;
+  animation:cooldownRouteToastPop 1.15s ease-out forwards;
+}
+
+@keyframes cooldownRouteToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(.9)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.98)}
+}
+
+@media (max-width:900px){
+  #screen-summary .scoreCard{
+    position:relative;
+    min-height:auto;
+  }
+  .summaryHeroVisual{
+    padding:18px;
+  }
+  .summaryHeroIcon{
+    width:min(190px,52vw);
+  }
+}
+
+@media (max-width:640px){
+  .summaryMiniGrid{
+    grid-template-columns:1fr;
+  }
+  .summaryHeroVisual{
+    gap:10px;
+  }
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -4445,7 +4633,7 @@ body[data-stage="prep"] .screen.active{
     (function(){
       'use strict';
 
-      const VERSION = '20260506f-BRUSH-KIDS-CLEAN-PLAY-STABLE-BUILD';
+      const VERSION = '20260506g-BRUSH-KIDS-SUMMARY-POLISH-COOLDOWN-HARDEN';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -7158,6 +7346,9 @@ body[data-stage="prep"] .screen.active{
   setInterval(sync, 800);
 })();
 </script>
+
+
+  <div class="cooldownRouteToast" id="cooldownRouteToast"></div>
 
 </body>
 </html>
