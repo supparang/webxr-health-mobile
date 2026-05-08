@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL -->
+<!-- FULL PATCH v20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -3624,6 +3624,94 @@ body:not(.debug-open-qa) #p20ResearchModal:not(.show){
   display:none !important;
 }
 
+  
+/* === PATCH 20260506b: PLAY-FIRST MOBILE HUD FIX === */
+body.p30-play-first #patch16Hud,
+body.p30-play-first #p24Dock,
+body.p30-play-first #p30StatusDock{
+  display:none !important;
+}
+
+body.p30-play-first #p20Toolbar{
+  top:calc(8px + env(safe-area-inset-top,0px)) !important;
+  right:calc(8px + env(safe-area-inset-right,0px)) !important;
+  transform:scale(.88);
+  transform-origin:top right;
+}
+
+body.p30-play-first #p20Toolbar .p20ToolBtn:not(#p20HelpBtn){
+  display:none !important;
+}
+
+body.p30-stage-summary #p30StatusDock{ display:grid !important; }
+body.p30-stage-summary #p24Dock{ display:flex !important; }
+body.p30-stage-summary #patch16Hud{ display:grid !important; }
+
+body.p30-stage-summary #p20Toolbar .p20ToolBtn{
+  display:inline-flex !important;
+}
+
+body.p30-play-first .actions,
+body.p30-play-first .dock,
+body.p30-play-first [data-action="start"],
+body.p30-play-first [data-action="prepDone"],
+body.p30-play-first [data-action="main"],
+body.p30-play-first .btnPrimary{
+  position:relative;
+  z-index:10500;
+}
+
+body.p30-play-first #toothCityCard,
+body.p30-play-first #p30StatusCard,
+body.p30-play-first #p24QaBadge{
+  pointer-events:none !important;
+}
+
+body.p30-stage-summary #toothCityCard,
+body.p30-stage-summary #p30StatusCard,
+body.p30-stage-summary #p24QaBadge{
+  pointer-events:auto !important;
+}
+
+@media (max-width:760px){
+  body.p30-play-first{
+    padding-bottom:calc(86px + env(safe-area-inset-bottom,0px));
+  }
+
+  body.p30-play-first .screen.active{
+    padding-bottom:calc(92px + env(safe-area-inset-bottom,0px));
+  }
+
+  body.p30-play-first .heroCard,
+  body.p30-play-first .panel{
+    margin-left:8px;
+    margin-right:8px;
+  }
+
+  body.p30-play-first .actions{
+    position:sticky;
+    bottom:calc(8px + env(safe-area-inset-bottom,0px));
+    z-index:10550;
+    background:rgba(240,253,255,.92);
+    border-radius:22px;
+    padding:8px;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+
+  body.p30-play-first .btnPrimary{
+    min-height:58px;
+    font-size:16px;
+  }
+}
+
+#p24Modal:not(.show),
+#p30Modal:not(.show),
+#p20ResearchModal:not(.show),
+#patch16ReportModal:not(.show){
+  display:none !important;
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -3936,7 +4024,7 @@ body:not(.debug-open-qa) #p20ResearchModal:not(.show){
     (function(){
       'use strict';
 
-      const VERSION = '20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL';
+      const VERSION = '20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -7722,7 +7810,7 @@ body:not(.debug-open-qa) #p20ResearchModal:not(.show){
 
   const qs = new URLSearchParams(location.search || '');
   const P24 = {
-    version:'20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL',
+    version:'20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX',
     startedAt:Date.now(),
     qa:null,
     lastManifest:null,
@@ -8245,7 +8333,7 @@ body:not(.debug-open-qa) #p20ResearchModal:not(.show){
 
   const qs = new URLSearchParams(location.search || '');
   const P30 = {
-    version:'20260506a-BRUSH-KIDS-PATCH30-NO-AUTO-QA-MODAL',
+    version:'20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX',
     startedAt:Date.now(),
     activeTab:'overview',
     test:null,
@@ -8815,6 +8903,90 @@ body:not(.debug-open-qa) #p20ResearchModal:not(.show){
   }
 
   init();
+})();
+</script>
+
+
+<script>
+/* === PATCH 20260506b: PLAY-FIRST MOBILE HUD FIX === */
+(function(){
+  'use strict';
+
+  function stage(){
+    return document.body && document.body.dataset ? (document.body.dataset.stage || '') : '';
+  }
+
+  function applyPlayFirst(){
+    const s = stage() || 'howto';
+    const isSummary = s === 'summary';
+
+    document.body.classList.toggle('p30-stage-summary', isSummary);
+    document.body.classList.toggle('p30-play-first', !isSummary);
+
+    const city = document.getElementById('toothCityCard');
+    if(city && !isSummary){
+      city.classList.remove('open');
+      city.style.display = 'none';
+    }else if(city && isSummary){
+      city.style.display = '';
+      city.classList.add('open');
+    }
+
+    const p30 = document.getElementById('p30StatusDock');
+    if(p30 && !isSummary) p30.style.display = 'none';
+    else if(p30 && isSummary) p30.style.display = '';
+
+    const p24 = document.getElementById('p24Dock');
+    if(p24 && !isSummary) p24.style.display = 'none';
+    else if(p24 && isSummary) p24.style.display = '';
+
+    const toolbar = document.getElementById('p20Toolbar');
+    if(toolbar && !isSummary){
+      toolbar.style.pointerEvents = 'none';
+      Array.from(toolbar.querySelectorAll('button')).forEach(btn => {
+        btn.style.pointerEvents = btn.id === 'p20HelpBtn' ? 'auto' : 'none';
+      });
+    }else if(toolbar){
+      toolbar.style.pointerEvents = '';
+      Array.from(toolbar.querySelectorAll('button')).forEach(btn => btn.style.pointerEvents = '');
+    }
+  }
+
+  function fixStartButtons(){
+    Array.from(document.querySelectorAll('[data-action="start"]')).forEach(btn => {
+      if(!btn.dataset.p30Fixed){
+        btn.dataset.p30Fixed = '1';
+        if(!/เริ่ม|Start|Brush/i.test(btn.textContent || '')){
+          btn.textContent = '▶ เริ่มเตรียมแปรงฟัน';
+        }
+      }
+    });
+  }
+
+  function init(){
+    applyPlayFirst();
+    fixStartButtons();
+
+    const obs = new MutationObserver(() => {
+      applyPlayFirst();
+      fixStartButtons();
+    });
+
+    obs.observe(document.body, {
+      attributes:true,
+      attributeFilter:['data-stage','class'],
+      childList:true,
+      subtree:true
+    });
+
+    setInterval(() => {
+      applyPlayFirst();
+      fixStartButtons();
+    }, 1000);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
 </script>
 
