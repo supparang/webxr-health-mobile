@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>HeroHealth • Groups Solo Arena v7.9.1</title>
+<title>HeroHealth • Groups Solo Arena v7.9.2</title>
 <meta name="theme-color" content="#bfeeff"/>
 <style>
 :root{--ink:#29485f;--muted:#6b8da4;--line:#d6edf7;--blue:#61bbff;--green:#7ed957;--yellow:#ffd966;--orange:#ff9f43;--red:#ff6b6b;--pink:#ff9fd0;--violet:#bca7ff;--sab:env(safe-area-inset-bottom,0px);--sat:env(safe-area-inset-top,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
@@ -50,6 +50,141 @@ button{font:inherit}
 .toast{position:fixed;left:50%;bottom:calc(18px + var(--sab));transform:translateX(-50%) translateY(14px);z-index:130;min-width:min(560px,calc(100vw - 28px));max-width:calc(100vw - 28px);border-radius:18px;padding:12px 14px;background:rgba(40,72,95,.94);color:white;font-weight:1000;text-align:center;opacity:0;pointer-events:none;transition:.18s}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .cvrCross{position:fixed;left:50%;top:50%;z-index:120;width:54px;height:54px;transform:translate(-50%,-50%);pointer-events:none;display:none}.cvrCross:before,.cvrCross:after{content:"";position:absolute;left:50%;top:50%;background:rgba(40,72,95,.72);border-radius:999px;transform:translate(-50%,-50%);box-shadow:0 0 10px rgba(255,255,255,.7)}.cvrCross:before{width:34px;height:4px}.cvrCross:after{width:4px;height:34px}.cvrRing{position:absolute;inset:5px;border-radius:50%;border:3px solid rgba(97,187,255,.85);box-shadow:0 0 0 6px rgba(97,187,255,.12),0 0 22px rgba(97,187,255,.42);animation:ring 1.05s ease-in-out infinite}@keyframes ring{0%,100%{transform:scale(.94);opacity:.74}50%{transform:scale(1.06);opacity:1}}body.view-cvr .cvrCross{display:block}.cvrHint{position:fixed;left:50%;top:calc(50% + 48px);z-index:121;transform:translateX(-50%);pointer-events:none;min-width:min(440px,calc(100vw - 28px));padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid var(--line);color:#397b9c;text-align:center;font-weight:1000;font-size:.82rem;box-shadow:0 18px 44px rgba(47,149,255,.18);display:none}body.view-cvr .cvrHint.show{display:block}body.view-cvr .food{width:150px;height:150px}body.view-cvr .food .emoji{font-size:74px}body.view-cvr .gate{min-height:118px}.coach{position:absolute;left:50%;top:50%;z-index:30;transform:translate(-50%,-50%);width:min(520px,calc(100% - 28px));pointer-events:none;opacity:0;animation:coach .95s ease forwards}.coachBox{display:grid;grid-template-columns:54px minmax(0,1fr);gap:10px;align-items:center;padding:12px 14px;border-radius:28px;background:rgba(255,255,255,.94);border:2px solid rgba(255,217,102,.82);box-shadow:0 24px 70px rgba(255,172,75,.24);text-align:left}.coachIcon{width:54px;height:54px;border-radius:20px;display:grid;place-items:center;font-size:32px;background:linear-gradient(180deg,#fff0a8,#ffd966)}.coachTitle{font-weight:1000;font-size:1.05rem;color:#7f4c00}.coachSub{margin-top:3px;color:#9a6517;font-size:.82rem;font-weight:1000}@keyframes coach{0%{opacity:0;transform:translate(-50%,-36%) scale(.88)}18%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}76%{opacity:1;transform:translate(-50%,-54%) scale(1)}100%{opacity:0;transform:translate(-50%,-70%) scale(.96)}}@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
 @media(max-width:900px){.topHud{grid-template-columns:1fr}.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}.stat{min-width:0;padding:6px 4px;border-radius:16px}.stat small{font-size:.58rem}.stat b{font-size:.86rem}.brand{padding:7px 10px}.brandIcon{width:42px;height:42px;font-size:25px}.brand h1{font-size:1.25rem}.brand p{font-size:.75rem}.waveHud{padding:9px}.waveTitle{font-size:1.05rem}.waveSub{font-size:.75rem}.chip{font-size:.68rem;min-height:26px;padding:4px 8px}.miniHud{top:86px;width:min(250px,50vw)}.objective{left:8px}.phase{right:8px}.miniCard{grid-template-columns:34px 1fr;padding:8px;border-radius:20px}.miniIcon{width:34px;height:34px;font-size:20px}.miniTitle{font-size:.72rem}.miniSub{font-size:.62rem}.boss{top:8px;width:calc(100% - 16px)}.bossShell{grid-template-columns:58px 1fr;padding:7px;border-radius:22px}.bossFace{width:58px;height:58px;font-size:38px;border-radius:20px}.bossSkill{font-size:.62rem}.bossOrder{top:86px;width:calc(100% - 18px)}.bossOrderCard{grid-template-columns:38px minmax(0,1fr) auto;border-radius:20px;padding:8px;gap:8px}.bossOrderIcon{width:38px;height:38px;border-radius:14px;font-size:23px}.bossOrderTitle{font-size:.78rem}.bossOrderSub{font-size:.64rem}.bossOrderTime{min-width:38px;min-height:24px;font-size:.62rem}.food{width:96px;height:96px}.food .emoji{font-size:48px}.food .name{font-size:.65rem}.gates{gap:5px;padding:7px}.gate{min-height:78px;border-radius:20px}.gate .num{width:30px;height:30px;border-radius:12px}.gate .label{font-size:.68rem}.gate .ex{display:none}.bottomBar{grid-template-columns:1fr}.navs{display:none}.power{left:8px;bottom:calc(72px + var(--sab));min-width:142px;min-height:48px;border-radius:20px}.teacher{right:8px;bottom:calc(72px + var(--sab));min-height:44px}.howto{bottom:calc(124px + var(--sab));min-height:42px;font-size:.78rem}.modalGrid{grid-template-columns:1fr}.howtoStrip{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.howtoCard{min-height:104px;border-radius:20px;padding:10px 8px}.howtoIcon{font-size:32px}.howtoTitle{font-size:.82rem}.howtoSub{font-size:.66rem}.demoBoard{min-height:104px;border-radius:22px}.demoFood{width:48px;height:48px;font-size:28px}.demoGate{min-height:34px;border-radius:13px;font-size:.72rem}.combo,.orderToast{top:20%;font-size:.82rem;padding:10px 12px}.coach{width:calc(100% - 22px)}.coachBox{grid-template-columns:42px 1fr;border-radius:22px;padding:10px}.coachIcon{width:42px;height:42px;border-radius:16px;font-size:25px}.coachTitle{font-size:.86rem}.coachSub{font-size:.68rem}}
+
+/* === GROUPS SOLO ARENA v7.9.2 — VISIBILITY + SPAWN HOTFIX === */
+/* ✅ Gate 1–5 fixed inside arena, never disappears behind playfield/footer */
+/* ✅ Food spawns in visible safe zone */
+/* ✅ Empty arena auto-respawns */
+/* ✅ Landscape/mobile layout safer */
+
+.stage{
+  grid-template-rows:auto minmax(0,1fr) !important;
+}
+
+.playfield{
+  padding-bottom:130px !important;
+}
+
+.actorLayer{
+  top:0 !important;
+  left:0 !important;
+  right:0 !important;
+  bottom:132px !important;
+  z-index:18 !important;
+  pointer-events:auto !important;
+}
+
+.floor,
+.floorLine{
+  bottom:132px !important;
+  z-index:19 !important;
+}
+
+.gates{
+  position:absolute !important;
+  left:12px !important;
+  right:12px !important;
+  bottom:12px !important;
+  z-index:55 !important;
+  display:grid !important;
+  grid-template-columns:repeat(5,minmax(0,1fr)) !important;
+  gap:9px !important;
+  padding:0 !important;
+  pointer-events:auto !important;
+}
+
+.gate{
+  display:grid !important;
+  min-height:104px !important;
+  opacity:1 !important;
+  visibility:visible !important;
+  border-style:solid !important;
+  background-clip:padding-box !important;
+  transform:translateZ(0);
+}
+
+.food,
+.foodActor{
+  z-index:35 !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+}
+
+.food.selected,
+.foodActor.selected{
+  z-index:42 !important;
+}
+
+.food.dragging,
+.foodActor.dragging{
+  z-index:80 !important;
+}
+
+.objectiveHud,
+.phaseHud,
+.bossOrderHud{
+  z-index:64 !important;
+}
+
+@media (max-width:900px){
+  .playfield{
+    padding-bottom:104px !important;
+  }
+
+  .actorLayer{
+    bottom:104px !important;
+  }
+
+  .floor,
+  .floorLine{
+    bottom:104px !important;
+  }
+
+  .gates{
+    left:7px !important;
+    right:7px !important;
+    bottom:7px !important;
+    gap:5px !important;
+  }
+
+  .gate{
+    min-height:82px !important;
+    border-radius:20px !important;
+  }
+}
+
+@media (orientation:landscape) and (max-height:620px){
+  .playfield{
+    padding-bottom:86px !important;
+  }
+
+  .actorLayer{
+    bottom:86px !important;
+  }
+
+  .floor,
+  .floorLine{
+    bottom:86px !important;
+  }
+
+  .gates{
+    bottom:6px !important;
+  }
+
+  .gate{
+    min-height:72px !important;
+  }
+
+  .gate .label{
+    font-size:.68rem !important;
+  }
+
+  .gate .ex{
+    display:none !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -79,7 +214,7 @@ button{font:inherit}
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id),q=new URLSearchParams(location.search);
-const APP_VERSION='v7.9.1-reset-research-hotfix',APP_SCHEMA='groups-solo-arena-v7.9.1-reset-research-hotfix';
+const APP_VERSION='v7.9.2-visibility-spawn-hotfix',APP_SCHEMA='groups-solo-arena-v7.9.2-visibility-spawn-hotfix';
 const BUILD_FLAGS={actionArena:true,dragDrop:true,cvr:true,bossOrders:true,researchMetrics:true,cloudQueue:true,kidSummary:true};
 const GROUPS=[{id:1,short:'โปรตีน',label:'หมู่ 1 โปรตีน',ex:'เนื้อ นม ไข่ ถั่ว'},{id:2,short:'ข้าว/แป้ง',label:'หมู่ 2 ข้าว/แป้ง',ex:'ข้าว แป้ง เผือก มัน น้ำตาล'},{id:3,short:'ผัก',label:'หมู่ 3 ผัก',ex:'ผักต่าง ๆ'},{id:4,short:'ผลไม้',label:'หมู่ 4 ผลไม้',ex:'ผลไม้ต่าง ๆ'},{id:5,short:'ไขมัน',label:'หมู่ 5 ไขมัน',ex:'น้ำมัน ไขมัน กะทิ เนย'}];
 const FOODS=[['🥚','ไข่',1],['🍗','ไก่',1],['🐟','ปลา',1],['🥛','นม',1],['🫘','ถั่วเมล็ดแห้ง',1],['🥩','เนื้อสัตว์',1],['🍚','ข้าว',2],['🍞','ขนมปัง',2],['🥔','มันฝรั่ง',2],['🍠','มันเทศ',2],['🌽','ข้าวโพด',2],['🍜','เส้นก๋วยเตี๋ยว',2],['🥦','บรอกโคลี',3],['🥬','ผักใบเขียว',3],['🥕','แครอต',3],['🥒','แตงกวา',3],['🍅','มะเขือเทศ',3],['🌶️','พริก',3],['🍎','แอปเปิล',4],['🍌','กล้วย',4],['🍊','ส้ม',4],['🍇','องุ่น',4],['🍉','แตงโม',4],['🥭','มะม่วง',4],['🥑','อะโวคาโด',5],['🧈','เนย',5],['🥥','กะทิ',5],['🫒','น้ำมันมะกอก',5],['🥜','ถั่วลิสง',5],['🌰','เมล็ดพืช',5]].map(x=>({emoji:x[0],name:x[1],group:x[2]}));
@@ -91,17 +226,28 @@ const els={scoreTxt:$('scoreTxt'),timeTxt:$('timeTxt'),lifeTxt:$('lifeTxt'),comb
 const state={active:false,ended:false,practice:false,sessionId:'',score:0,timeLeft:cfg.time,totalTime:cfg.time,lives:3,combo:0,maxCombo:0,attempts:0,correct:0,miss:0,crashes:0,actors:[],selectedId:null,nextActorId:1,lastTs:0,raf:0,spawnTimer:0,totalTimer:0,wave:1,phase:'calm',phaseChanges:0,feverUntil:0,powerCharge:0,powerThreshold:6,lastPowerTier:0,powerActive:false,assistShield:0,missStreak:0,bossHp:120,bossMaxHp:120,bossActive:false,bossRage:false,bossOrder:null,bossOrderSerial:0,bossOrderRaf:0,bossOrderCooldownUntil:0,bossOrdersCleared:0,bossOrdersFailed:0,bossAnswerCount:0,objective:null,events:[],audioReady:false,lastDangerToneAt:0,lastComboSplashAt:0,lastSpawnToneAt:0,firstSelectDone:false,firstSortDone:false,firstDangerCueDone:false,firstBossCueDone:false,firstDragCueDone:false,drag:{active:false,actorId:null,pointerId:null,startX:0,startY:0,lastX:0,lastY:0,moved:false,offsetX:0,offsetY:0,hoverGroup:0,guide:null},cvr:{enabled:false,aimType:'',aimId:null,aimGroup:0,lastAimKey:'',lastHintAt:0,lastShootAt:0},research:{startedAt:'',endedAt:'',groupStats:{},waveStats:{},inputStats:{},bossOrderStats:{started:0,cleared:0,failed:0},rtTotal:0,rtCount:0,rtBest:0,rtWorst:0,crashByWave:{},answerEvents:[],summary:null},cloud:{enabled:false,api:'',queue:[],sending:false,sent:0,fail:0,disabledUntil:0,lastStatus:'off'},lastInputMode:'tap'};
 init();
 function init(){document.body.dataset.version=APP_VERSION;runBootSelfCheck();renderGates();bind();initResearchShell();initCloudLogger();initCvrMode();setPhase('calm','เริ่มเกมแบบพื้นฐาน',true);setObjective(makeObjective(1));updateHud();updateTeacher()}
-function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v7.9.1-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v7.9.1-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
+function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v7.9.2-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v7.9.2-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
 function on(el,type,fn){if(!el){console.warn('[Groups bind skipped]',type);return}el.addEventListener(type,fn)}
 function renderGates(){els.gates.innerHTML=GROUPS.map(g=>`<button class="gate" data-group="${g.id}"><div><div class="num">${g.id}</div><div class="label">${esc(g.label)}</div><div class="ex">${esc(g.ex)}</div></div></button>`).join('');els.gates.querySelectorAll('.gate').forEach(btn=>btn.addEventListener('click',()=>{state.lastInputMode=state.cvr.enabled?'cvr_tap_gate':'tap_gate';sortSelected(Number(btn.dataset.group))}))}
 function cleanupRuntime(){clearInterval(state.totalTimer);clearTimeout(state.spawnTimer);cancelAnimationFrame(state.raf);cancelAnimationFrame(state.bossOrderRaf||0);clearBossOrder();clearDragState();clearCvrAimClasses();els.actorLayer.innerHTML='';els.floorLine.classList.remove('warn');document.querySelectorAll('.fly,.pop,.flash,.combo,.orderToast,.dragGuide,.coach,.nearGroundWarn').forEach(e=>{try{e.remove()}catch(_){}});els.gates.querySelectorAll('.accept,.reject,.hint,.dragHover,.cvrAim,.target,.avoid').forEach(e=>e.classList.remove('accept','reject','hint','dragHover','cvrAim','target','avoid'))}
-function start(practice){cleanupRuntime();state.practice=!!practice;state.active=true;state.ended=false;state.sessionId='groups-'+Date.now().toString(36);state.score=0;state.timeLeft=practice?Math.max(150,cfg.time+30):clamp(cfg.time+profile.timeBonus,60,240);state.totalTime=state.timeLeft;state.lives=practice?Math.max(5,profile.lives+1):profile.lives;state.combo=0;state.maxCombo=0;state.attempts=0;state.correct=0;state.miss=0;state.crashes=0;state.assistShield=practice?1:0;state.missStreak=0;state.actors=[];state.selectedId=null;state.nextActorId=1;state.wave=1;state.phaseChanges=0;state.feverUntil=0;state.powerCharge=0;state.lastPowerTier=0;state.powerThreshold=practice?5:6;state.powerActive=false;state.bossHp=practice?Math.max(75,Math.round(profile.bossHp*.85)):profile.bossHp;state.bossMaxHp=state.bossHp;state.bossActive=false;state.bossRage=false;state.bossOrder=null;state.bossOrderSerial=0;state.bossOrderCooldownUntil=0;state.bossOrdersCleared=0;state.bossOrdersFailed=0;state.bossAnswerCount=0;state.events=[];state.firstSelectDone=false;state.firstSortDone=false;state.firstDangerCueDone=false;state.firstBossCueDone=false;state.firstDragCueDone=false;state.lastInputMode=state.cvr.enabled?'cvr':'tap';resetResearch();els.startOverlay.classList.add('hidden');els.summaryOverlay.classList.add('hidden');setFeedback(state.cvr.enabled?'เริ่มแล้ว! มองอาหารแล้วแตะเพื่อเลือก จากนั้นมอง Gate แล้วแตะเพื่อส่ง':'เริ่มแล้ว! แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ให้ถูก');showCoach('🍌','แตะอาหารก่อน','เลือกอาหารที่ใกล้ชนพื้น แล้วส่งเข้าประตูหมู่ 1–5');if(state.cvr.enabled)showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');setWave(1);updateHud();updateTeacher();queueCloudEvent('session_start',makeCloudPayload('session_start'),{});state.totalTimer=setInterval(tickSecond,1000);scheduleSpawn(250);state.lastTs=performance.now();state.raf=requestAnimationFrame(loop);logEvent('session_start',{practice:!!practice})}
+function start(practice){cleanupRuntime();state.practice=!!practice;state.active=true;state.ended=false;state.sessionId='groups-'+Date.now().toString(36);state.score=0;state.timeLeft=practice?Math.max(150,cfg.time+30):clamp(cfg.time+profile.timeBonus,60,240);state.totalTime=state.timeLeft;state.lives=practice?Math.max(5,profile.lives+1):profile.lives;state.combo=0;state.maxCombo=0;state.attempts=0;state.correct=0;state.miss=0;state.crashes=0;state.assistShield=practice?1:0;state.missStreak=0;state.actors=[];state.selectedId=null;state.nextActorId=1;state.wave=1;state.phaseChanges=0;state.feverUntil=0;state.powerCharge=0;state.lastPowerTier=0;state.powerThreshold=practice?5:6;state.powerActive=false;state.bossHp=practice?Math.max(75,Math.round(profile.bossHp*.85)):profile.bossHp;state.bossMaxHp=state.bossHp;state.bossActive=false;state.bossRage=false;state.bossOrder=null;state.bossOrderSerial=0;state.bossOrderCooldownUntil=0;state.bossOrdersCleared=0;state.bossOrdersFailed=0;state.bossAnswerCount=0;state.events=[];state.firstSelectDone=false;state.firstSortDone=false;state.firstDangerCueDone=false;state.firstBossCueDone=false;state.firstDragCueDone=false;state.lastInputMode=state.cvr.enabled?'cvr':'tap';resetResearch();els.startOverlay.classList.add('hidden');els.summaryOverlay.classList.add('hidden');setFeedback(state.cvr.enabled?'เริ่มแล้ว! มองอาหารแล้วแตะเพื่อเลือก จากนั้นมอง Gate แล้วแตะเพื่อส่ง':'เริ่มแล้ว! แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ให้ถูก');showCoach('🍌','แตะอาหารก่อน','เลือกอาหารที่ใกล้ชนพื้น แล้วส่งเข้าประตูหมู่ 1–5');if(state.cvr.enabled)showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');setWave(1);updateHud();updateTeacher();queueCloudEvent('session_start',makeCloudPayload('session_start'),{});state.totalTimer=setInterval(tickSecond,1000);scheduleSpawn(250);setTimeout(()=>ensureLiveActors('start'),180);state.lastTs=performance.now();state.raf=requestAnimationFrame(loop);logEvent('session_start',{practice:!!practice})}
 function tickSecond(){if(!state.active||state.ended)return;state.timeLeft--;if(Date.now()>state.feverUntil)state.feverUntil=0;updateDirector();updateHud();if(state.cloud.enabled&&state.timeLeft%15===0)flushCloudQueue(false,false);if(state.timeLeft<=0)end(false,'หมดเวลาแล้ว')}
 function loop(ts){if(!state.active||state.ended)return;const dt=Math.min(.05,(ts-state.lastTs)/1000||.016);state.lastTs=ts;updateActors(dt);updateCvrAim();state.raf=requestAnimationFrame(loop)}
+
+function ensureLiveActors(reason){
+  if(!state.active||state.ended)return;
+  if(state.actors&&state.actors.length>0)return;
+  clearTimeout(state.spawnTimer);
+  state.spawnTimer=0;
+  spawnActor();
+  scheduleSpawn(spawnInterval());
+  logEvent('auto_respawn',{reason:reason||'empty_arena'});
+}
+
 function scheduleSpawn(ms){clearTimeout(state.spawnTimer);state.spawnTimer=setTimeout(()=>{if(!state.active||state.ended)return;spawnActor();scheduleSpawn(spawnInterval())},ms)}
 function spawnInterval(){let base=profile.spawnBase;if(state.practice)base+=180;if(state.wave>=2)base-=90;if(state.wave>=3)base-=100;if(state.wave>=4)base-=130;if(state.bossActive)base-=state.bossRage?220:120;if(state.phase==='comeback')base+=260;if(state.phase==='speed')base-=130;if(state.lives<=1)base+=220;return clamp(base+Math.floor(rng()*180),profile.spawnMin,1700)}
 function maxActors(){let m=profile.maxActorsBase;if(state.practice)m=Math.max(3,m-1);if(state.wave>=2)m++;if(state.wave>=4)m++;if(state.bossActive)m++;if(state.phase==='comeback'||state.lives<=1)m=Math.max(2,m-1);return clamp(m,2,7)}
-function spawnActor(){if(state.actors.length>=maxActors())return;const food=pickFood(),lane=Math.floor(rng()*5),x=clamp(10+lane*20+(rng()*8-4),8,92);let speed=profile.speedBase+state.wave*profile.speedWave+rng()*4;if(state.practice)speed*=.86;if(state.phase==='comeback')speed/=profile.assist;if(state.phase==='speed')speed*=1.08;if(state.bossActive)speed*=state.bossRage?1.18:1.08;if(state.lives<=1)speed*=.88;const a={id:state.nextActorId++,food,group:food.group,lane,x,y:-10,speed,born:Date.now(),fake:state.wave>=3&&rng()<.22,bonus:rng()<(state.wave>=3?.12:.06),dragging:false,el:document.createElement('button')};a.el.type='button';a.el.className='food'+(a.fake?' fake':'')+' spawn';a.el.style.left=a.x+'%';a.el.style.top=a.y+'%';a.el.innerHTML=`<div><div class="emoji">${a.bonus?'⭐':esc(food.emoji)}</div><div class="name">${esc(food.name)}</div></div>`;a.el.addEventListener('pointerdown',ev=>beginDrag(a.id,ev));a.el.addEventListener('click',ev=>{if(a._suppressClick){a._suppressClick=false;ev.preventDefault();ev.stopPropagation();return}state.lastInputMode=state.cvr.enabled?'cvr_tap_actor':'tap_actor';selectActor(a.id)});els.actorLayer.appendChild(a.el);setTimeout(()=>{try{a.el.classList.remove('spawn')}catch(_){}} ,420);state.actors.push(a);if(!state.selectedId&&state.actors.length===1)selectActor(a.id);logEvent('spawn',{id:a.id,food:food.name,group:food.group,lane,bonus:!!a.bonus});if(Date.now()-state.lastSpawnToneAt>420){state.lastSpawnToneAt=Date.now();playTone('spawn')}}
+function spawnActor(){if(state.actors.length>=maxActors())return;const food=pickFood(),lane=Math.floor(rng()*5),x=clamp(10+lane*20+(rng()*8-4),8,92);let speed=profile.speedBase+state.wave*profile.speedWave+rng()*4;if(state.practice)speed*=.86;if(state.phase==='comeback')speed/=profile.assist;if(state.phase==='speed')speed*=1.08;if(state.bossActive)speed*=state.bossRage?1.18:1.08;if(state.lives<=1)speed*=.88;const a={id:state.nextActorId++,food,group:food.group,lane,x,y:8,speed,born:Date.now(),fake:state.wave>=3&&rng()<.22,bonus:rng()<(state.wave>=3?.12:.06),dragging:false,el:document.createElement('button')};a.el.type='button';a.el.className='food'+(a.fake?' fake':'')+' spawn';a.el.style.left=a.x+'%';a.el.style.top=a.y+'%';a.el.innerHTML=`<div><div class="emoji">${a.bonus?'⭐':esc(food.emoji)}</div><div class="name">${esc(food.name)}</div></div>`;a.el.addEventListener('pointerdown',ev=>beginDrag(a.id,ev));a.el.addEventListener('click',ev=>{if(a._suppressClick){a._suppressClick=false;ev.preventDefault();ev.stopPropagation();return}state.lastInputMode=state.cvr.enabled?'cvr_tap_actor':'tap_actor';selectActor(a.id)});els.actorLayer.appendChild(a.el);setTimeout(()=>{try{a.el.classList.remove('spawn')}catch(_){}} ,420);state.actors.push(a);if(!state.selectedId&&state.actors.length===1)selectActor(a.id);logEvent('spawn',{id:a.id,food:food.name,group:food.group,lane,bonus:!!a.bonus});if(Date.now()-state.lastSpawnToneAt>420){state.lastSpawnToneAt=Date.now();playTone('spawn')}}
 function updateActors(dt){const crashLine=82;let danger=false;state.actors.slice().forEach(a=>{if(!a.dragging){a.y+=a.speed*dt;a.el.style.top=a.y+'%'}a.el.classList.toggle('danger',a.y>=68);if(a.y>=68)danger=true;if(!a.dragging&&a.y>=crashLine)crashActor(a)});els.floorLine.classList.toggle('warn',danger);if(danger&&Date.now()-state.lastDangerToneAt>950){state.lastDangerToneAt=Date.now();playTone('warning');nearGroundWarn()}if(danger&&!state.firstDangerCueDone){state.firstDangerCueDone=true;showCoach('⚠️','ใกล้ชนพื้นแล้ว!','รีบเลือกอาหารชิ้นที่ต่ำที่สุดก่อน ไม่งั้นจะเสียหัวใจ')}updateTeacher()}
 function pickFood(){const focus=weakGroup();if(focus&&rng()<.34){const list=FOODS.filter(f=>f.group===focus);return list[Math.floor(rng()*list.length)]}return FOODS[Math.floor(rng()*FOODS.length)]}
 function beginDrag(id,ev){if(!state.active||state.ended)return;const a=getActor(id);if(!a)return;ev.preventDefault();ev.stopPropagation();selectActor(id);const r=a.el.getBoundingClientRect();Object.assign(state.drag,{active:true,actorId:id,pointerId:ev.pointerId,startX:ev.clientX,startY:ev.clientY,lastX:ev.clientX,lastY:ev.clientY,moved:false,offsetX:ev.clientX-(r.left+r.width/2),offsetY:ev.clientY-(r.top+r.height/2),hoverGroup:0});a.dragging=true;a.el.classList.add('dragging');try{a.el.setPointerCapture(ev.pointerId)}catch(_){}a.el.addEventListener('pointermove',onDragMove);a.el.addEventListener('pointerup',endDrag);a.el.addEventListener('pointercancel',cancelDrag);if(!state.firstDragCueDone){state.firstDragCueDone=true;dragGuide('ลากอาหารไปปล่อยบน Gate หมู่ที่ถูกได้เลย')}}
@@ -119,7 +265,7 @@ function selectNearestActor(){if(!state.actors.length)return;const a=state.actor
 function sortSelected(groupId){if(!state.active||state.ended)return;let a=getActor(state.selectedId);if(!a){selectNearestActor();a=getActor(state.selectedId)}if(!a){toast('ยังไม่มีอาหารให้จัดหมู่');return}const good=Number(groupId)===Number(a.group),rt=Date.now()-a.born,gate=getGate(groupId),trueGate=getGate(a.group);state.attempts++;if(good){state.correct++;state.missStreak=0;state.combo++;state.maxCombo=Math.max(state.maxCombo,state.combo);let gain=35+Math.max(0,Math.min(45,Math.round((82-a.y)*.8)))+Math.min(80,state.combo*4);if(a.bonus)gain+=35;if(state.powerActive)gain+=45;if(isFever())gain=Math.round(gain*1.5);gain=Math.round(gain*profile.scoreMul);state.score+=gain;if(state.bossActive){let dmg=Math.round((isFever()?16:10)+Math.min(22,state.combo*1.15)+(state.powerActive?24:0));if(state.practice)dmg=Math.round(dmg*1.15);if(cfg.diff==='hard')dmg=Math.round(dmg*.92);if(cfg.diff==='challenge')dmg=Math.round(dmg*.86);state.bossHp=Math.max(0,state.bossHp-dmg);bossHit(dmg);if(state.bossHp<=0){end(true,'ปราบ Chaos Chef สำเร็จ!');return}}logEvent('answer',{food:a.food.name,emoji:a.food.emoji,trueGroup:a.group,answerGroup:groupId,correct:true,lane:a.lane,crashed:false,inputMode:state.lastInputMode});recordAnswer({eventType:'answer',actor:a,answerGroup:groupId,correct:true,responseMs:rt,inputMode:state.lastInputMode,scoreGain:gain,crashed:false});flyToGate(a,gate,true,'+'+gain);removeActor(a.id);pulseGate(groupId,'accept');popAtGate(gate,'ถูกหมู่!','good');screenFlash('good');playTone(state.combo>=5?'combo':'good');setFeedback('✅ ถูกต้อง! '+a.food.name+' = หมู่ '+a.group+' '+getGroup(a.group).short);if(!state.firstSortDone){state.firstSortDone=true;showCoach('🔥','ทำคอมโบต่อ!','ตอบถูกต่อเนื่องเพื่อชาร์จ Power Sort และไปสู้บอส')}chargePower();if(state.combo>0&&state.combo%5===0)startFever();updateObjective(true,groupId,a);updateBossOrder({correct:true,groupId,trueGroup:a.group,responseMs:rt,actor:a})}else{state.miss++;state.combo=0;state.missStreak++;if(state.missStreak>=3&&state.assistShield<=0&&cfg.diff!=='challenge'){state.assistShield=1;toast('🌱 Comeback Shield พร้อมช่วยกันพลาด 1 ครั้ง')}logEvent('answer',{food:a.food.name,emoji:a.food.emoji,trueGroup:a.group,answerGroup:groupId,correct:false,lane:a.lane,crashed:false,inputMode:state.lastInputMode});recordAnswer({eventType:'answer',actor:a,answerGroup:groupId,correct:false,responseMs:rt,inputMode:state.lastInputMode,scoreGain:0,crashed:false});flyToGate(a,gate,false,'ผิด!');removeActor(a.id);pulseGate(groupId,'reject');pulseGate(a.group,'hint');popAtGate(gate,'ผิดหมู่!','bad');setTimeout(()=>popAtGate(trueGate,'ควรเป็นหมู่นี้','hot'),260);screenFlash('bad');playTone('bad');loseHeart('ตอบผิด');setFeedback('❌ '+a.food.name+' คือหมู่ '+a.group+' '+getGroup(a.group).short);if(!state.firstSortDone){state.firstSortDone=true;showCoach('💡','ดูประตูที่ถูก','ถ้าตอบผิด ประตูที่ถูกจะกระพริบเตือนให้จำ')}updateObjective(false,groupId,a);updateBossOrder({correct:false,groupId,trueGroup:a.group,responseMs:rt,actor:a});if(state.bossActive)bossAttack('เชฟโจมตี!')}state.powerActive=false;setNextSelected();maybeAdvanceWave();maybeStartBossOrder();updateDirector();updateHud();updateTeacher()}
 function crashActor(a){state.miss++;state.crashes++;state.combo=0;state.missStreak++;if(state.missStreak>=3&&state.assistShield<=0&&cfg.diff!=='challenge'){state.assistShield=1;toast('🌱 Comeback Shield พร้อมช่วยกันพลาด 1 ครั้ง')}logEvent('crash',{food:a.food.name,emoji:a.food.emoji,trueGroup:a.group,lane:a.lane,crashed:true});recordAnswer({eventType:'crash',actor:a,answerGroup:0,correct:false,responseMs:Date.now()-a.born,inputMode:'timeout_crash',scoreGain:0,crashed:true});pulseGate(a.group,'hint');popAtGate(getGate(a.group),'ชนพื้น! จำหมู่นี้','hot');pop(a.el,'ชนพื้น! -1 ❤️','bad');screenFlash('bad');playTone('crash');removeActor(a.id);loseHeart('ชนพื้น');updateObjective(false,0,a);updateBossOrder({correct:false,groupId:0,trueGroup:a.group,responseMs:Date.now()-a.born,actor:a,crashed:true});setFeedback('⚠️ '+a.food.name+' ชนพื้น! ต้องส่งเข้าหมู่ '+a.group+' '+getGroup(a.group).short);if(state.bossActive)bossAttack('เชฟซ้ำเติม!');setNextSelected();updateDirector();updateHud();updateTeacher()}
 function loseHeart(reason){if(state.assistShield>0&&cfg.diff!=='challenge'){state.assistShield--;logEvent('assist_shield_block',{reason});toast('🌱 Comeback Shield ช่วยไว้! ไม่เสียหัวใจ');screenFlash('good');return}state.lives=Math.max(0,state.lives-1);logEvent('miss',{reason,lives:state.lives});if(state.lives<=0)end(false,'หัวใจหมดแล้ว')}
-function removeActor(id){const i=state.actors.findIndex(a=>a.id===id);if(i<0)return;const a=state.actors[i];try{a.el.remove()}catch(_){}state.actors.splice(i,1);if(state.selectedId===id)state.selectedId=null;if(state.drag.actorId===id)clearDragState(false)}
+function removeActor(id){const i=state.actors.findIndex(a=>a.id===id);if(i<0)return;const a=state.actors[i];try{a.el.remove()}catch(_){}state.actors.splice(i,1);if(state.selectedId===id)state.selectedId=null;if(state.drag.actorId===id)clearDragState(false);if(state.active&&!state.ended&&state.actors.length===0){setTimeout(()=>ensureLiveActors('remove_actor'),120)}}
 function setNextSelected(){if(state.selectedId||!state.actors.length)return;selectNearestActor()}
 function maybeAdvanceWave(){const c=state.correct;let n=1;if(c>=6)n=2;if(c>=14)n=3;if(c>=23)n=4;if(c>=34)n=5;if(state.practice){if(c>=5)n=2;if(c>=12)n=3;if(c>=20)n=4;if(c>=30)n=5}if(n!==state.wave)setWave(n)}
 function setWave(w){state.wave=w;const names={1:['Wave 1: Rookie Sort','อาหารชิ้นเดียว เริ่มจับจังหวะให้แม่น'],2:['Wave 2: Lane Rush','อาหารตกหลาย lane เร็วขึ้น'],3:['Wave 3: Trap Labels','ระวังป้ายหลอก ดูอาหารจริงให้ดี'],4:['Wave 4: Food Storm','อาหารมาหลายชิ้น ต้องจัดให้ทัน'],5:['Final Wave: Chaos Chef','บอสอยู่บนฉาก โยนอาหารและใช้สกิล']};els.waveTitle.textContent=names[w][0];els.waveSub.textContent=names[w][1];els.waveChip.textContent='Wave '+w;setObjective(makeObjective(w));w===5?startBoss():stopBoss();toast(names[w][0]);logEvent('wave_start',{wave:w})}
