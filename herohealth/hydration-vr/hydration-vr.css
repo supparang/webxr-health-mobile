@@ -2332,3 +2332,170 @@ body.hha-view-pc .hha-hydration-target{
     transition-duration:.01ms !important;
   }
 }
+/* =========================================================
+   Hydration v10.0.2 Target Size Balance Patch
+   File: /herohealth/hydration-vr/hydration-vr.css
+   Purpose:
+   - ลดขนาดเป้าให้ดูเป็น arcade target มากขึ้น
+   - ลดความรู้สึกเป็นการ์ดใหญ่ลอย
+   - ยังแตะง่ายบน mobile และ cVR
+   ========================================================= */
+
+/* ---------- Base target: compact arcade card ---------- */
+.hha-hydration-target{
+  width:84px;
+  height:98px;
+  border-radius:20px;
+  padding:7px 5px;
+  gap:2px;
+  box-shadow:
+    0 10px 22px rgba(34,76,120,.18),
+    inset 0 0 0 3px rgba(255,255,255,.68);
+}
+
+.hha-hydration-target.is-good{
+  outline-width:3px;
+}
+
+.hha-hydration-target.is-junk{
+  outline-width:3px;
+}
+
+.hha-hydration-target.is-danger{
+  outline-width:3px;
+}
+
+/* ---------- Emoji / image visual size ---------- */
+.hha-target-icon{
+  font-size:31px;
+  line-height:1;
+  min-height:33px;
+  display:grid;
+  place-items:center;
+}
+
+.hha-target-icon.has-img{
+  width:38px;
+  height:38px;
+}
+
+.hha-target-icon.has-img img{
+  max-width:100%;
+  max-height:100%;
+  object-fit:contain;
+  filter:drop-shadow(0 4px 6px rgba(0,0,0,.14));
+}
+
+/* ---------- Text inside target ---------- */
+.hha-target-label{
+  font-size:11px;
+  line-height:1.05;
+  font-weight:1000;
+  max-width:100%;
+  white-space:normal;
+}
+
+.hha-target-short{
+  font-size:9px;
+  line-height:1.05;
+  font-weight:900;
+  max-width:100%;
+  white-space:normal;
+}
+
+/* ---------- PC: smaller, faster-looking ---------- */
+body.hha-view-pc .hha-hydration-target{
+  width:74px;
+  height:88px;
+  border-radius:18px;
+  padding:6px 5px;
+}
+
+body.hha-view-pc .hha-target-icon{
+  font-size:29px;
+  min-height:31px;
+}
+
+body.hha-view-pc .hha-target-icon.has-img{
+  width:34px;
+  height:34px;
+}
+
+body.hha-view-pc .hha-target-label{
+  font-size:10px;
+}
+
+body.hha-view-pc .hha-target-short{
+  font-size:8.5px;
+}
+
+/* ---------- Mobile: still touch-friendly, but less bulky ---------- */
+@media (max-width:520px){
+  .hha-hydration-target{
+    width:76px;
+    height:90px;
+    border-radius:18px;
+    padding:6px 5px;
+    gap:1px;
+  }
+
+  .hha-target-icon{
+    font-size:29px;
+    min-height:31px;
+  }
+
+  .hha-target-icon.has-img{
+    width:34px;
+    height:34px;
+  }
+
+  .hha-target-label{
+    font-size:10px;
+    line-height:1.05;
+  }
+
+  .hha-target-short{
+    font-size:8.5px;
+    line-height:1.05;
+  }
+}
+
+/* ---------- cVR: bigger than PC, but not giant ---------- */
+body.hha-view-cvr .hha-hydration-target{
+  width:92px;
+  height:108px;
+  border-radius:22px;
+  padding:8px 6px;
+}
+
+body.hha-view-cvr .hha-target-icon{
+  font-size:35px;
+  min-height:38px;
+}
+
+body.hha-view-cvr .hha-target-icon.has-img{
+  width:42px;
+  height:42px;
+}
+
+body.hha-view-cvr .hha-target-label{
+  font-size:12px;
+}
+
+body.hha-view-cvr .hha-target-short{
+  font-size:10px;
+}
+
+/* ---------- Slightly quicker target feeling ---------- */
+.hha-hydration-target{
+  animation:
+    hhaTargetFloat .78s ease-in-out infinite alternate,
+    hhaTargetDrift var(--move-dur, 1.28s) ease-in-out infinite alternate;
+}
+
+/* ---------- Reduce visual heaviness ---------- */
+.hha-hydration-target.is-boss-wave{
+  box-shadow:
+    0 0 0 4px rgba(255,210,80,.28),
+    0 12px 26px rgba(255,88,70,.22);
+}
