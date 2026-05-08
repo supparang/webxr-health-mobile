@@ -1,152 +1,154 @@
-<!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL MERGED PATCH v8.44.8-GOODJUNK-VR-AFRAME-MATERIAL-SAFE-FIX -->
-<!-- GoodJunk Full 3D VR Flow
-     ✅ PNG object targets from /herohealth/assets/goodjunk/*.png
-     ✅ Runtime remove white background
-     ✅ Warmup → Boss → Summary → Cooldown → Launcher
-     ✅ Visual feedback + SFX
-     ✅ Boss phase + lane pattern
-     ✅ Mobile/cVR HUD cleanup
-     ✅ Debug panel + version stamp + boot safety
-     ✅ Summary guard: no empty Score 0 / Good 0 / Rank A
-     ✅ Hide HUD / crosshair / shoot button on Summary / Final
-     ✅ A-Frame material safe: wait scene loaded before dynamic material
-     ✅ Safe remove dynamic a-text / FX objects
--->
-
+<!-- /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html -->
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • GoodJunk Full 3D VR Flow</title>
-  <meta name="theme-color" content="#bbf7d0" />
+  <title>HeroHealth • GoodJunk Solo Boss VR Flow</title>
+  <meta name="theme-color" content="#dff6ef" />
   <meta name="color-scheme" content="light" />
-  <link rel="icon" href="data:," />
+  <link rel="icon" href="../favicon.ico" />
 
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
   <style>
     :root{
+      --bg:#dff6ef;
+      --card:#ffffffd9;
+      --line:#ffffff;
+      --ink:#0f172a;
+      --muted:#475569;
+      --good:#16a34a;
+      --warn:#f59e0b;
+      --bad:#ef4444;
+      --blue:#2563eb;
+      --shadow:0 16px 40px rgba(15,23,42,.16);
+
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
-      --ink:#172033;
-      --muted:#64748b;
-      --green:#22c55e;
-      --blue:#2563eb;
-      --gold:#facc15;
-      --red:#ef4444;
     }
 
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-
+    *{ box-sizing:border-box; }
     html,body{
       margin:0;
       width:100%;
       height:100%;
       overflow:hidden;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:#dff7ec;
+      background:var(--bg);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
       color:var(--ink);
-      touch-action:none;
+      -webkit-tap-highlight-color:transparent;
+      touch-action:manipulation;
+    }
+
+    body{
+      position:fixed;
+      inset:0;
       overscroll-behavior:none;
     }
 
-    button{ font:inherit; cursor:pointer; }
+    #app{
+      position:fixed;
+      inset:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255,255,255,.65), transparent 28%),
+        linear-gradient(180deg,#e8fbf5 0%,#dff6ef 100%);
+    }
 
-    a-scene{ width:100vw; height:100dvh; }
+    a-scene{
+      position:fixed !important;
+      inset:0 !important;
+      width:100% !important;
+      height:100% !important;
+    }
 
     .hud{
       position:fixed;
-      left:calc(8px + var(--sal));
-      right:calc(8px + var(--sar));
-      top:calc(6px + var(--sat));
+      top:calc(10px + var(--sat));
+      left:calc(10px + var(--sal));
+      right:calc(10px + var(--sar));
       z-index:30;
       display:grid;
-      grid-template-columns:repeat(5,1fr);
-      gap:6px;
+      gap:8px;
       pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .hudTop{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr 1fr 1fr;
+      gap:8px;
     }
 
     .pill{
-      min-height:42px;
-      border-radius:15px;
-      padding:6px 8px;
+      min-height:54px;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      padding:0 16px;
+      border-radius:18px;
       background:rgba(255,255,255,.82);
       border:2px solid rgba(255,255,255,.92);
-      box-shadow:0 10px 24px rgba(15,23,42,.13);
-      backdrop-filter:blur(8px);
-      overflow:hidden;
-    }
-
-    .pill span{
-      display:block;
-      color:#64748b;
-      font-size:9px;
+      box-shadow:var(--shadow);
       font-weight:1000;
-      text-transform:uppercase;
-      letter-spacing:.05em;
-    }
-
-    .pill b{
-      display:block;
-      margin-top:2px;
-      color:#0f172a;
-      font-size:15px;
-      line-height:1;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      font-size:18px;
+      color:#111827;
+      backdrop-filter:blur(8px);
     }
 
     .bossBar{
-      position:fixed;
-      left:calc(14px + var(--sal));
-      right:calc(14px + var(--sar));
-      top:calc(56px + var(--sat));
-      z-index:30;
-      height:14px;
+      height:18px;
       border-radius:999px;
-      background:rgba(15,23,42,.20);
-      border:2px solid rgba(255,255,255,.78);
       overflow:hidden;
-      box-shadow:0 10px 24px rgba(15,23,42,.14);
-      pointer-events:none;
+      background:rgba(255,255,255,.80);
+      border:2px solid rgba(255,255,255,.92);
+      box-shadow:var(--shadow);
     }
 
     .bossBar i{
       display:block;
-      width:100%;
       height:100%;
-      background:linear-gradient(90deg,#22c55e,#facc15,#ef4444);
+      width:100%;
+      background:linear-gradient(90deg,#22c55e,#facc15,#f97316,#ef4444);
       border-radius:999px;
       transition:width .22s ease;
     }
 
     .mission{
-      position:fixed;
-      left:50%;
-      top:calc(64px + var(--sat));
-      z-index:31;
-      transform:translateX(-50%);
-      width:min(560px, calc(100vw - 24px));
-      max-height:42px;
-      overflow:hidden;
-      white-space:nowrap;
-      text-overflow:ellipsis;
-      border-radius:999px;
-      padding:9px 14px;
-      background:rgba(15,23,42,.78);
-      color:#fff;
-      border:2px solid rgba(255,255,255,.78);
+      min-height:48px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
       text-align:center;
-      font-size:13px;
+      padding:8px 16px;
+      border-radius:999px;
+      background:#3e4a59;
+      color:#fff;
+      font-size:15px;
       font-weight:1000;
-      box-shadow:0 12px 28px rgba(15,23,42,.18);
-      backdrop-filter:blur(8px);
+      letter-spacing:.01em;
+      box-shadow:var(--shadow);
+      pointer-events:none;
+    }
+
+    .versionStamp{
+      position:fixed;
+      top:calc(150px + var(--sat));
+      right:calc(12px + var(--sar));
+      z-index:31;
+      min-height:48px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:0 18px;
+      border-radius:999px;
+      background:rgba(78,90,105,.88);
+      color:#fff;
+      font-size:14px;
+      font-weight:1000;
+      box-shadow:var(--shadow);
       pointer-events:none;
     }
 
@@ -154,2002 +156,720 @@
       position:fixed;
       left:50%;
       top:50%;
-      z-index:24;
-      width:34px;
-      height:34px;
-      margin-left:-17px;
-      margin-top:-17px;
+      transform:translate(-50%,-50%);
+      width:28px;
+      height:28px;
       border-radius:999px;
-      border:3px solid rgba(255,255,255,.95);
+      border:3px solid rgba(255,255,255,.92);
       box-shadow:
-        0 0 0 3px rgba(15,23,42,.22),
-        0 0 18px rgba(34,197,94,.35);
+        0 0 0 2px rgba(15,23,42,.18),
+        0 0 0 8px rgba(255,255,255,.08);
+      z-index:29;
       pointer-events:none;
     }
-
-    .crosshair::before,
-    .crosshair::after{
+    .crosshair:before,
+    .crosshair:after{
       content:"";
       position:absolute;
       left:50%;
       top:50%;
-      background:rgba(15,23,42,.50);
-      border-radius:999px;
+      background:rgba(15,23,42,.55);
       transform:translate(-50%,-50%);
     }
+    .crosshair:before{ width:2px; height:34px; }
+    .crosshair:after{ width:34px; height:2px; }
 
-    .crosshair::before{ width:2px; height:46px; }
-    .crosshair::after{ width:46px; height:2px; }
-
-    .shoot{
+    .bottomBar{
       position:fixed;
-      right:calc(14px + var(--sar));
-      bottom:calc(14px + var(--sab));
+      left:calc(18px + var(--sal));
+      right:calc(18px + var(--sar));
+      bottom:calc(18px + var(--sab));
       z-index:35;
-      width:76px;
-      height:76px;
-      border:0;
-      border-radius:999px;
-      background:linear-gradient(180deg,#fff7ed,#facc15);
-      color:#172033;
-      font-size:28px;
-      font-weight:1000;
-      box-shadow:
-        0 16px 34px rgba(15,23,42,.24),
-        inset 0 -7px 0 rgba(15,23,42,.10);
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:14px;
     }
 
-    .shoot:active{ transform:scale(.94); }
-
-    .back{
-      position:fixed;
-      left:calc(10px + var(--sal));
-      bottom:calc(14px + var(--sab));
-      z-index:35;
-      border:2px solid rgba(255,255,255,.86);
+    .btn{
+      min-height:60px;
+      border:none;
       border-radius:999px;
-      padding:9px 12px;
-      background:rgba(15,23,42,.72);
+      background:#374151;
       color:#fff;
-      font-size:12px;
+      font:inherit;
+      font-size:16px;
       font-weight:1000;
-      box-shadow:0 12px 28px rgba(15,23,42,.22);
-      backdrop-filter:blur(8px);
-      max-width:132px;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      box-shadow:var(--shadow);
+      cursor:pointer;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,#1f2937,#111827);
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#16a34a,#15803d);
     }
 
     .toast{
       position:fixed;
       left:50%;
-      bottom:calc(100px + var(--sab));
-      z-index:36;
-      transform:translateX(-50%) translateY(10px) scale(.96);
-      width:min(440px, calc(100vw - 24px));
-      border-radius:999px;
-      padding:11px 15px;
-      background:rgba(15,23,42,.86);
-      color:#fff;
-      border:2px solid rgba(255,255,255,.75);
-      text-align:center;
-      font-size:13px;
-      line-height:1.28;
+      bottom:calc(92px + var(--sab));
+      transform:translateX(-50%) translateY(10px);
+      z-index:60;
+      min-height:46px;
+      max-width:min(88vw,520px);
+      padding:10px 18px;
+      border-radius:16px;
+      background:rgba(255,255,255,.96);
+      color:#0f172a;
+      font-size:14px;
       font-weight:1000;
+      box-shadow:0 22px 42px rgba(15,23,42,.18);
       opacity:0;
-      transition:.18s ease;
       pointer-events:none;
-      backdrop-filter:blur(8px);
+      transition:.18s ease;
+      text-align:center;
     }
-
     .toast.show{
       opacity:1;
-      transform:translateX(-50%) translateY(0) scale(1);
+      transform:translateX(-50%) translateY(0);
     }
-
-    .bigFx{
-      position:fixed;
-      left:50%;
-      top:46%;
-      z-index:37;
-      transform:translate(-50%,-50%) scale(.75);
-      min-width:min(420px, calc(100vw - 32px));
-      padding:14px 18px;
-      border-radius:28px;
-      text-align:center;
-      color:#fff;
-      font-size:clamp(28px,8vw,54px);
-      line-height:1;
-      font-weight:1000;
-      letter-spacing:-.05em;
-      text-shadow:0 4px 16px rgba(15,23,42,.28);
-      opacity:0;
-      pointer-events:none;
-      filter:drop-shadow(0 18px 34px rgba(15,23,42,.24));
-    }
-
-    .bigFx.show{ animation:bigFxPop .72s ease-out forwards; }
-    .bigFx.good{ background:linear-gradient(135deg,rgba(34,197,94,.94),rgba(22,163,74,.86)); border:3px solid rgba(220,252,231,.95); }
-    .bigFx.bad{ background:linear-gradient(135deg,rgba(239,68,68,.94),rgba(185,28,28,.86)); border:3px solid rgba(254,202,202,.95); }
-    .bigFx.power{ background:linear-gradient(135deg,rgba(56,189,248,.94),rgba(37,99,235,.86)); border:3px solid rgba(219,234,254,.95); }
-    .bigFx.warn{ background:linear-gradient(135deg,rgba(245,158,11,.94),rgba(217,119,6,.86)); border:3px solid rgba(254,243,199,.95); }
-
-    @keyframes bigFxPop{
-      0%{ opacity:0; transform:translate(-50%,-50%) scale(.72); }
-      14%{ opacity:1; transform:translate(-50%,-50%) scale(1.08); }
-      54%{ opacity:1; transform:translate(-50%,-50%) scale(1); }
-      100%{ opacity:0; transform:translate(-50%,-58%) scale(.92); }
-    }
-
-    .overlay{
-      position:fixed;
-      inset:0;
-      z-index:60;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(18px + var(--sat))
-        calc(18px + var(--sar))
-        calc(18px + var(--sab))
-        calc(18px + var(--sal));
-      background:
-        radial-gradient(circle at 50% 28%,rgba(255,255,255,.74),transparent 38%),
-        rgba(15,23,42,.42);
-      backdrop-filter:blur(5px);
-    }
-
-    .card{
-      width:min(570px, calc(100vw - 28px));
-      max-height:calc(100dvh - 28px);
-      overflow:auto;
-      border-radius:32px;
-      padding:22px;
-      text-align:center;
-      background:rgba(255,255,255,.96);
-      border:3px solid rgba(255,255,255,.95);
-      box-shadow:0 30px 80px rgba(15,23,42,.34);
-    }
-
-    .icon{ font-size:62px; line-height:1; }
-
-    .card h1{
-      margin:8px 0 0;
-      color:#0f172a;
-      font-size:clamp(28px,7vw,44px);
-      line-height:1.05;
-      letter-spacing:-.04em;
-    }
-
-    .card p{
-      margin:10px auto 0;
-      color:#475569;
-      font-size:15px;
-      line-height:1.45;
-      font-weight:800;
-      max-width:460px;
-    }
-
-    .rules{
-      margin-top:15px;
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-    }
-
-    .rule{
-      border-radius:18px;
-      padding:10px 8px;
-      min-height:82px;
-      background:linear-gradient(180deg,#fff,#f8fafc);
-      border:2px solid rgba(226,232,240,.9);
-    }
-
-    .rule b{ display:block; font-size:28px; line-height:1; }
-    .rule span{ display:block; margin-top:6px; color:#334155; font-size:12px; font-weight:950; line-height:1.15; }
-
-    .actions{
-      margin-top:17px;
-      display:flex;
-      gap:9px;
-      justify-content:center;
-      flex-wrap:wrap;
-    }
-
-    .primary,.secondary{
-      min-height:48px;
-      border-radius:18px;
-      padding:0 17px;
-      font-size:15px;
-      font-weight:1000;
-    }
-
-    .primary{
-      border:0;
-      color:#fff;
-      background:linear-gradient(135deg,#22c55e,#2563eb);
-      box-shadow:0 14px 30px rgba(37,99,235,.24);
-    }
-
-    .secondary{
-      color:#172033;
-      background:#f8fafc;
-      border:2px solid #dbeafe;
-    }
-
-    .stats{
-      margin:15px auto 0;
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:8px;
-      max-width:430px;
-    }
-
-    .stat{
-      border-radius:18px;
-      padding:12px;
-      background:#f8fafc;
-      border:2px solid #e2e8f0;
-    }
-
-    .stat span{
-      display:block;
-      color:#64748b;
-      font-size:11px;
-      font-weight:1000;
-      text-transform:uppercase;
-    }
-
-    .stat b{
-      display:block;
-      margin-top:4px;
-      font-size:22px;
-      color:#0f172a;
-    }
-
-    .versionStamp{
-      position:fixed;
-      right:calc(10px + var(--sar));
-      top:calc(104px + var(--sat));
-      z-index:34;
-      min-height:26px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:5px 8px;
-      border-radius:999px;
-      background:rgba(15,23,42,.58);
-      color:#fff;
-      border:1px solid rgba(255,255,255,.42);
-      font-size:10px;
-      font-weight:1000;
-      letter-spacing:.02em;
-      box-shadow:0 8px 18px rgba(15,23,42,.16);
-      backdrop-filter:blur(8px);
-      user-select:none;
-    }
-
-    .debugPanel,
-    .bootSafe{
-      position:fixed;
-      inset:0;
-      z-index:90;
-      display:grid;
-      place-items:center;
-      padding:
-        calc(16px + var(--sat))
-        calc(16px + var(--sar))
-        calc(16px + var(--sab))
-        calc(16px + var(--sal));
-      background:rgba(2,6,23,.58);
-      backdrop-filter:blur(8px);
-    }
-
-    .debugCard{
-      width:min(720px, calc(100vw - 24px));
-      max-height:calc(100dvh - 24px);
-      overflow:auto;
-      border-radius:24px;
-      background:rgba(15,23,42,.96);
-      color:#e5e7eb;
-      border:1px solid rgba(255,255,255,.18);
-      box-shadow:0 28px 80px rgba(0,0,0,.42);
-      padding:14px;
-    }
-
-    .debugHead{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-    }
-
-    .debugHead b{ font-size:16px; color:#fff; }
-
-    .debugHead button,
-    .debugActions button{
-      min-height:36px;
-      border:1px solid rgba(255,255,255,.18);
-      border-radius:12px;
-      padding:0 10px;
-      color:#fff;
-      background:rgba(30,41,59,.92);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .debugPanel pre{
-      margin:12px 0 0;
-      white-space:pre-wrap;
-      word-break:break-word;
-      background:rgba(2,6,23,.58);
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:16px;
-      padding:12px;
-      color:#bfdbfe;
-      font-size:12px;
-      line-height:1.45;
-      max-height:50dvh;
-      overflow:auto;
-    }
-
-    .debugActions{
-      margin-top:12px;
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-    }
-
-    .bootSafe{ z-index:95; background:rgba(15,23,42,.64); }
-
-    .bootSafeCard{
-      width:min(560px, calc(100vw - 28px));
-      border-radius:28px;
-      background:rgba(255,255,255,.97);
-      color:#0f172a;
-      border:3px solid rgba(255,255,255,.96);
-      box-shadow:0 28px 80px rgba(15,23,42,.38);
-      padding:20px;
-      text-align:center;
-    }
-
-    .bootSafeCard h2{
-      margin:0;
-      font-size:clamp(24px,6vw,36px);
-      line-height:1.05;
-      letter-spacing:-.04em;
-    }
-
-    .bootSafeCard p{
-      margin:12px auto 0;
-      max-width:460px;
-      color:#475569;
-      font-size:14px;
-      line-height:1.5;
-      font-weight:850;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    .bootSafeActions{
-      margin-top:16px;
-      display:flex;
-      gap:9px;
-      flex-wrap:wrap;
-      justify-content:center;
-    }
-
-    .bootSafeActions button{
-      min-height:46px;
-      border-radius:16px;
-      border:0;
-      padding:0 14px;
-      font-size:14px;
-      font-weight:1000;
-      color:#fff;
-      background:linear-gradient(135deg,#22c55e,#2563eb);
-      box-shadow:0 12px 28px rgba(37,99,235,.18);
-    }
-
-    .bootSafeActions button:nth-child(2){ background:linear-gradient(135deg,#0f172a,#334155); }
-    .bootSafeActions button:nth-child(3){ background:linear-gradient(135deg,#f59e0b,#ef4444); }
-
-    body.summary-open .crosshair,
-    body.summary-open .shoot,
-    body.summary-open .back,
-    body.summary-open .mission,
-    body.summary-open .bossBar,
-    body.summary-open .hud,
-    body.summary-open .versionStamp{
-      display:none !important;
-    }
-
-    body.summary-open .overlay{
-      z-index:80;
-    }
-
-    .hidden{ display:none !important; }
-
-    body.view-cvr .hud{
-      left:calc(10px + var(--sal));
-      right:calc(10px + var(--sar));
-      top:calc(4px + var(--sat));
-      grid-template-columns:1.15fr .85fr .85fr;
-      max-width:520px;
-      margin:0 auto;
-      transform:scale(.92);
-      transform-origin:top center;
-    }
-
-    body.view-cvr .hud .pill:nth-child(2),
-    body.view-cvr .hud .pill:nth-child(5){ display:none; }
-
-    body.view-cvr .pill{
-      min-height:30px;
-      padding:4px 7px;
-      border-radius:999px;
-      background:rgba(15,23,42,.58);
-      border:1px solid rgba(255,255,255,.56);
-      box-shadow:0 8px 18px rgba(15,23,42,.16);
-    }
-
-    body.view-cvr .pill span{ display:none; }
-    body.view-cvr .pill b{ color:#fff; font-size:12px; margin:0; text-align:center; }
-
-    body.view-cvr .bossBar{
-      top:calc(40px + var(--sat));
-      left:18%;
-      right:18%;
-      height:9px;
-      border-width:1px;
-      opacity:.86;
-    }
-
-    body.view-cvr .mission{
-      top:calc(54px + var(--sat));
-      width:min(420px, calc(100vw - 48px));
-      min-height:28px;
-      max-height:32px;
-      padding:6px 11px;
-      font-size:11px;
-      border-width:1px;
-      opacity:.88;
-    }
-
-    body.view-cvr .crosshair{
-      width:28px;
-      height:28px;
-      margin-left:-14px;
-      margin-top:-14px;
-      border-width:2px;
-      opacity:.82;
-    }
-
-    body.view-cvr .crosshair::before{ height:36px; }
-    body.view-cvr .crosshair::after{ width:36px; }
-
-    body.view-cvr .shoot{
-      width:72px;
-      height:72px;
-      right:calc(12px + var(--sar));
-      bottom:calc(12px + var(--sab));
-      font-size:25px;
-    }
-
-    body.view-cvr .back{
-      min-height:36px;
-      max-width:92px;
-      padding:7px 9px;
-      font-size:11px;
-      left:calc(8px + var(--sal));
-      bottom:calc(14px + var(--sab));
-      opacity:.88;
-    }
-
-    body.view-cvr .bigFx{
-      top:58%;
-      min-width:min(300px, calc(100vw - 72px));
-      padding:10px 14px;
-      border-radius:22px;
-      font-size:clamp(24px,7vw,40px);
-      opacity:.96;
-    }
-
-    body.view-cvr .versionStamp{
-      top:calc(82px + var(--sat));
-      right:calc(8px + var(--sar));
-      opacity:.62;
-      font-size:9px;
-      min-height:22px;
-      padding:4px 7px;
-    }
-
-    body.view-mobile .hud{ top:calc(5px + var(--sat)); }
-    body.view-mobile .mission{ top:calc(58px + var(--sat)); }
-    body.view-mobile .bossBar{ top:calc(43px + var(--sat)); }
 
     @media (max-width:720px){
-      .hud{
+      .hudTop{
         grid-template-columns:repeat(5,1fr);
-        gap:4px;
-        left:8px;
-        right:8px;
       }
-
       .pill{
-        min-height:34px;
-        padding:5px;
-        border-radius:12px;
+        min-height:46px;
+        padding:0 12px;
+        font-size:16px;
       }
-
-      .pill span{ display:none; }
-      .pill b{ font-size:13px; margin-top:0; }
-
-      .bossBar{
-        top:calc(43px + var(--sat));
-        left:12px;
-        right:12px;
-        height:12px;
-      }
-
       .mission{
-        top:calc(58px + var(--sat));
-        font-size:11px;
-        padding:6px 10px;
-        max-height:32px;
+        min-height:42px;
+        font-size:13px;
       }
-
-      .rules{ grid-template-columns:1fr; }
-
-      .rule{
+      .versionStamp{
+        top:calc(140px + var(--sat));
+        min-height:42px;
+        font-size:12px;
+      }
+      .bottomBar{
+        grid-template-columns:1fr 1fr 1fr;
+        gap:10px;
+      }
+      .btn{
         min-height:54px;
-        display:grid;
-        grid-template-columns:42px 1fr;
-        align-items:center;
-        text-align:left;
+        font-size:14px;
       }
+    }
 
-      .rule span{ margin-top:0; }
-
-      .shoot{
-        width:72px;
-        height:72px;
-        font-size:25px;
-      }
+    body.summary-open .hud,
+    body.summary-open .versionStamp,
+    body.summary-open .crosshair,
+    body.summary-open .bottomBar,
+    body.summary-open .toast{
+      display:none !important;
     }
   </style>
 </head>
-
 <body>
-  <section class="hud">
-    <div class="pill"><span>Stage</span><b id="hudStage">Ready</b></div>
-    <div class="pill"><span>Score</span><b id="hudScore">0</b></div>
-    <div class="pill"><span>Time</span><b id="hudTime">120</b></div>
-    <div class="pill"><span>Life</span><b id="hudLives">💚💚💚</b></div>
-    <div class="pill"><span>Power</span><b id="hudPower">—</b></div>
-  </section>
+  <div id="app">
+    <a-scene
+      id="scene"
+      embedded
+      background="color:#dff6ef"
+      renderer="antialias:true; colorManagement:true"
+      vr-mode-ui="enabled:true"
+      device-orientation-permission-ui="enabled:false">
 
-  <div class="bossBar"><i id="bossHpFill"></i></div>
-  <div class="mission" id="missionText">กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ</div>
-  <div class="crosshair"></div>
+      <a-assets>
+        <img id="asset-broccoli" src="../assets/goodjunk/broccoli.png" crossorigin="anonymous">
+        <img id="asset-apple" src="../assets/goodjunk/apple.png" crossorigin="anonymous">
+        <img id="asset-shield" src="../assets/goodjunk/shield.png" crossorigin="anonymous">
+        <img id="asset-donut" src="../assets/goodjunk/donut.png" crossorigin="anonymous">
+        <img id="asset-fries" src="../assets/goodjunk/fries.png" crossorigin="anonymous">
+        <img id="asset-water" src="../assets/goodjunk/water.png" crossorigin="anonymous">
+      </a-assets>
 
-  <button class="back" id="backBtn" type="button">🎮 โหมดเกม</button>
-  <button class="shoot" id="shootBtn" type="button" aria-label="ยิง">🎯</button>
-
-  <div class="toast" id="toast"></div>
-  <div class="bigFx" id="bigFx"></div>
-  <div class="versionStamp" id="versionStamp">GJ VR</div>
-
-  <section class="bootSafe hidden" id="bootSafe">
-    <div class="bootSafeCard">
-      <h2>GoodJunk VR ตรวจพบปัญหา</h2>
-      <p id="bootSafeMsg">กำลังตรวจสอบ...</p>
-      <div class="bootSafeActions">
-        <button id="bootSafeReloadBtn" type="button">โหลดใหม่</button>
-        <button id="bootSafeLauncherBtn" type="button">กลับหน้าโหมดเกม</button>
-        <button id="bootSafeDebugBtn" type="button">เปิด Debug</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="debugPanel hidden" id="debugPanel">
-    <div class="debugCard">
-      <div class="debugHead">
-        <b>GoodJunk VR Debug</b>
-        <button id="debugCloseBtn" type="button">ปิด</button>
-      </div>
-      <pre id="debugText">loading...</pre>
-      <div class="debugActions">
-        <button id="debugWarmupBtn" type="button">Warmup</button>
-        <button id="debugBossBtn" type="button">Boss</button>
-        <button id="debugCooldownBtn" type="button">Cooldown</button>
-        <button id="debugClearBtn" type="button">Clear</button>
-        <button id="debugAssetBtn" type="button">Test Asset</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="overlay" id="startOverlay">
-    <div class="card">
-      <div class="icon">🥽🥗👾</div>
-      <h1>GoodJunk Full 3D VR Flow</h1>
-      <p>
-        เข้า Enter VR ได้เลย แล้วกด 🎯 เพื่อเริ่มทันที หรือเล็งป้าย START ในฉาก 3D:
-        Warmup → Boss Game → Summary → Cooldown → กลับหน้าโหมดเกม
-      </p>
-
-      <div class="rules">
-        <div class="rule">
-          <b>🥦</b>
-          <span>ยิงอาหารดี เพื่อโจมตีบอส</span>
-        </div>
-        <div class="rule">
-          <b>🍟</b>
-          <span>อย่ายิง junk และ fake healthy</span>
-        </div>
-        <div class="rule">
-          <b>🎯</b>
-          <span>กดปุ่มยิงตอนเริ่มเกมได้เลย</span>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button class="primary" id="startBtn" type="button">เริ่ม Full 3D Flow</button>
-        <button class="secondary" id="vrHintBtn" type="button">วิธีเล่น VR</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="overlay hidden" id="summaryOverlay">
-    <div class="card">
-      <div class="icon" id="summaryIcon">🏆</div>
-      <h1 id="summaryTitle">Summary</h1>
-      <p id="summaryTip">สรุปผลการเลือกอาหารของวันนี้</p>
-
-      <div class="stats">
-        <div class="stat"><span>Score</span><b id="sumScore">0</b></div>
-        <div class="stat"><span>Rank</span><b id="sumRank">C ⭐☆☆☆☆</b></div>
-        <div class="stat"><span>Good Food</span><b id="sumGood">0</b></div>
-        <div class="stat"><span>Watch Out</span><b id="sumMiss">0</b></div>
-      </div>
-
-      <div class="actions">
-        <button class="primary" id="cooldownBtn" type="button">🧘 ทำ 3D Cooldown</button>
-        <button class="secondary" id="replayBtn" type="button">🔁 เล่นอีกลุ้น Rank S</button>
-        <button class="secondary" id="launcherBtn" type="button">🎮 โหมดเกม</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="overlay hidden" id="finalOverlay">
-    <div class="card">
-      <div class="icon">🌟</div>
-      <h1>ได้รับดาวสุขภาพแล้ว!</h1>
-      <p>
-        วันนี้เลือกอาหารดี หลบอาหารขยะ และทบทวนสุขภาพครบแล้ว กลับหน้าโหมดเกมเพื่อเล่นต่อได้เลย
-      </p>
-
-      <div class="actions">
-        <button class="primary" id="finalLauncherBtn" type="button">🎮 กลับหน้าโหมดเกม</button>
-        <button class="secondary" id="finalHubBtn" type="button">🏠 หน้าหลัก</button>
-      </div>
-    </div>
-  </section>
-
-  <a-scene
-    id="scene"
-    renderer="antialias:true; colorManagement:true; physicallyCorrectLights:true"
-    background="color:#dff7ec"
-    vr-mode-ui="enabled:true"
-    loading-screen="enabled:false">
-
-    <a-entity id="cameraRig" position="0 1.6 0">
-      <a-camera id="camera" look-controls wasd-controls="enabled:false">
-        <a-entity
-          id="aimRay"
-          raycaster="objects:.gj-hitbox; far:34; interval:60"
-          cursor="fuse:false"
-          position="0 0 -1"
-          geometry="primitive:ring; radiusInner:0.012; radiusOuter:0.018"
-          material="color:#ffffff; shader:flat; opacity:0.9">
-        </a-entity>
-      </a-camera>
-    </a-entity>
-
-    <a-entity light="type:hemisphere; intensity:1.15; color:#ffffff; groundColor:#bbf7d0"></a-entity>
-    <a-entity light="type:directional; intensity:0.75; color:#fff7ed" position="3 6 4"></a-entity>
-
-    <a-sky id="sky" color="#dff7ec"></a-sky>
-
-    <a-circle
-      position="0 0 -4"
-      rotation="-90 0 0"
-      radius="18"
-      color="#b7f3c6"
-      material="roughness:0.9; metalness:0">
-    </a-circle>
-
-    <a-ring
-      position="0 0.03 -4"
-      rotation="-90 0 0"
-      radius-inner="3.2"
-      radius-outer="3.28"
-      color="#ffffff"
-      opacity="0.45">
-    </a-ring>
-
-    <a-entity id="bossRoot" position="0 2.05 -8" visible="true">
-      <a-sphere
-        id="bossBody"
-        radius="1.02"
-        color="#7c2d12"
-        roughness="0.72"
-        material="emissive:#000000; emissiveIntensity:0">
-      </a-sphere>
-
-      <a-circle
-        id="bossBelly"
-        radius="0.42"
-        position="0 -0.18 0.92"
-        color="#fef3c7"
-        material="side:double; opacity:0.96; transparent:true">
-      </a-circle>
-
-      <a-text value="JUNK" align="center" color="#7f1d1d" width="2.25" position="0 -0.28 0.98"></a-text>
-
-      <a-sphere id="bossEyeL" position="-0.36 0.28 0.82" radius="0.17" color="#ffffff"></a-sphere>
-      <a-sphere id="bossEyeR" position="0.36 0.28 0.82" radius="0.17" color="#ffffff"></a-sphere>
-      <a-sphere id="bossPupilL" position="-0.36 0.28 0.96" radius="0.07" color="#111827"></a-sphere>
-      <a-sphere id="bossPupilR" position="0.36 0.28 0.96" radius="0.07" color="#111827"></a-sphere>
-
-      <a-box id="bossBrowL" width="0.34" height="0.07" depth="0.06" color="#111827" position="-0.36 0.52 0.94" rotation="0 0 22"></a-box>
-      <a-box id="bossBrowR" width="0.34" height="0.07" depth="0.06" color="#111827" position="0.36 0.52 0.94" rotation="0 0 -22"></a-box>
-
-      <a-box id="bossMouth" width="0.48" height="0.11" depth="0.07" color="#111827" position="0 -0.02 0.99"></a-box>
-      <a-cone position="-0.16 -0.11 1.03" radius-bottom="0.045" radius-top="0.005" height="0.18" color="#ffffff" rotation="180 0 0"></a-cone>
-      <a-cone position="0.16 -0.11 1.03" radius-bottom="0.045" radius-top="0.005" height="0.18" color="#ffffff" rotation="180 0 0"></a-cone>
-
-      <a-cone id="bossHornL" position="-0.70 0.94 0" rotation="0 0 20" radius-bottom="0.22" height="0.65" color="#ef4444"></a-cone>
-      <a-cone id="bossHornR" position="0.70 0.94 0" rotation="0 0 -20" radius-bottom="0.22" height="0.65" color="#ef4444"></a-cone>
-
-      <a-entity id="bossCrown" position="0 1.28 0.05">
-        <a-box width="0.38" height="0.30" depth="0.18" color="#f97316" position="-0.42 0 0"></a-box>
-        <a-box width="0.38" height="0.42" depth="0.18" color="#ef4444" position="0 0.08 0"></a-box>
-        <a-box width="0.38" height="0.30" depth="0.18" color="#f97316" position="0.42 0 0"></a-box>
-        <a-text value="!" align="center" color="#ffffff" width="1.8" position="0 0.02 0.13"></a-text>
+      <a-entity id="cameraRig" position="0 1.6 0">
+        <a-camera
+          id="camera"
+          wasd-controls-enabled="false"
+          look-controls="touchEnabled:true; mouseEnabled:true"
+          raycaster="objects: .clickable; far: 12; interval: 60"
+          cursor="rayOrigin: mouse">
+        </a-camera>
       </a-entity>
 
-      <a-ring
-        id="bossAura"
-        radius-inner="1.17"
-        radius-outer="1.26"
-        position="0 0 0.02"
-        color="#f97316"
-        material="transparent:true; opacity:0.22; side:double"
-        animation__pulse="property:scale; dir:alternate; loop:true; dur:850; easing:easeInOutSine; to:1.12 1.12 1.12">
-      </a-ring>
+      <!-- Sky / Ground -->
+      <a-sky color="#e5f7f0"></a-sky>
+      <a-plane
+        rotation="-90 0 0"
+        width="40"
+        height="40"
+        color="#8bc29a"
+        position="0 0 -6">
+      </a-plane>
 
-      <a-ring
-        id="bossWarningRing"
-        radius-inner="1.38"
-        radius-outer="1.47"
-        position="0 0 0.0"
-        color="#ef4444"
-        visible="false"
-        material="transparent:true; opacity:0.72; side:double"
-        animation__spin="property:rotation; to:0 0 360; loop:true; dur:1800; easing:linear">
-      </a-ring>
+      <!-- Boss -->
+      <a-entity id="bossRoot" position="0 2.2 -6.2">
+        <a-sphere radius="0.82" color="#6b1f0f"></a-sphere>
+        <a-cone radius-bottom="0.12" radius-top="0.02" height="0.36" color="#d33" position="-0.36 0.76 0.18" rotation="0 0 18"></a-cone>
+        <a-cone radius-bottom="0.12" radius-top="0.02" height="0.36" color="#d33" position="0.36 0.76 0.18" rotation="0 0 -18"></a-cone>
 
-      <a-text
-        id="bossLabel"
-        value="JUNK BOSS"
-        align="center"
-        color="#172033"
-        width="4.8"
-        position="0 1.64 0.1">
-      </a-text>
-    </a-entity>
+        <a-sphere radius="0.12" color="#fff" position="-0.24 0.1 0.70"></a-sphere>
+        <a-sphere radius="0.12" color="#fff" position="0.24 0.1 0.70"></a-sphere>
+        <a-sphere radius="0.05" color="#111" position="-0.22 0.08 0.79"></a-sphere>
+        <a-sphere radius="0.05" color="#111" position="0.22 0.08 0.79"></a-sphere>
 
-    <a-entity id="targetRoot"></a-entity>
-    <a-entity id="fxRoot"></a-entity>
-  </a-scene>
+        <a-box depth="0.03" height="0.04" width="0.28" color="#111827" position="-0.24 0.33 0.72" rotation="0 0 -18"></a-box>
+        <a-box depth="0.03" height="0.04" width="0.28" color="#111827" position="0.24 0.33 0.72" rotation="0 0 18"></a-box>
 
-  <script src="../vr/vr-ui.js?v=20260505-vr-ui"></script>
+        <a-plane width="0.44" height="0.18" color="#f7f0c6" position="-0.18 -0.28 0.73" rotation="0 0 22"></a-plane>
+        <a-box depth="0.05" width="0.08" height="0.18" color="#fff" position="-0.06 -0.18 0.78"></a-box>
+        <a-box depth="0.05" width="0.08" height="0.18" color="#fff" position="0.08 -0.26 0.78"></a-box>
+      </a-entity>
+
+      <!-- Boss label -->
+      <a-entity position="0 3.25 -6.2">
+        <a-text value="JUNK BOSS" align="center" color="#1f2937" width="4"></a-text>
+      </a-entity>
+
+      <!-- roots -->
+      <a-entity id="targetRoot"></a-entity>
+      <a-entity id="fxRoot"></a-entity>
+    </a-scene>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="hudTop">
+        <div class="pill" id="hudStage">Warmup</div>
+        <div class="pill" id="hudScore">0</div>
+        <div class="pill" id="hudTime">90</div>
+        <div class="pill" id="hudLives">💚💚</div>
+        <div class="pill" id="hudCombo">–</div>
+      </div>
+
+      <div class="bossBar"><i id="bossHpFill"></i></div>
+
+      <div class="mission" id="missionText">Warmup: ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD</div>
+    </div>
+
+    <div class="versionStamp" id="versionStamp">8.44.8a TARGET</div>
+    <div class="crosshair"></div>
+
+    <div class="bottomBar">
+      <button class="btn" id="btnBack">🎮 โหมดเกม</button>
+      <button class="btn primary" id="btnEnterVr">🥽 ENTER VR</button>
+      <button class="btn good" id="btnShoot">🎯 ยิง</button>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
 
   <script>
     (function(){
       'use strict';
 
-      const PATCH = 'v8.44.8-GOODJUNK-VR-AFRAME-MATERIAL-SAFE-FIX';
-      const ASSET_VERSION = 'v8448';
+      const PATCH = 'v8.44.8a-GOODJUNK-VR-WARMUP-TARGET-VISIBLE-HOTFIX';
+      const ASSET_VERSION = 'v8448a';
 
-      const WIN = window;
-      const DOC = document;
-      const QS = new URLSearchParams(location.search || '');
-
+      const q = new URLSearchParams(location.search || '');
       const ROUTES = {
-        launcher:'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
-        hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
+        launcher: q.get('return') || q.get('back') || '../goodjunk-launcher.html',
+        hub: q.get('hub') || '../hub-v2.html'
       };
-
-      const CLEAN_IMG_CACHE = new Map();
-
-      function q(k,d){
-        const v = QS.get(k);
-        return v === null || v === '' ? d : v;
-      }
-
-      const cfg = {
-        pid:q('pid','anon'),
-        name:q('name',q('nick','Hero')),
-        diff:String(q('diff','normal')).toLowerCase(),
-        time:Math.max(45, Number(q('time','120')) || 120),
-        view:String(q('view','mobile')).toLowerCase()
-      };
-
-      function id(x){ return DOC.getElementById(x); }
-      function rand(a,b){ return a + Math.random() * (b-a); }
-      function pick(a){ return a[Math.floor(Math.random()*a.length)]; }
-      function clamp(v,a,b){ return Math.max(a, Math.min(b,v)); }
-      function now(){ return Date.now(); }
-
-      const DIFF = {
-        easy:{ lives:5, bossHp:130, spawnMs:1150, speed:6300, junk:.18, fake:.07, power:.11 },
-        normal:{ lives:4, bossHp:170, spawnMs:980, speed:5600, junk:.28, fake:.13, power:.10 },
-        hard:{ lives:3, bossHp:210, spawnMs:850, speed:5000, junk:.34, fake:.18, power:.09 },
-        challenge:{ lives:3, bossHp:250, spawnMs:720, speed:4400, junk:.40, fake:.22, power:.08 }
-      };
-
-      const D = DIFF[cfg.diff] || DIFF.normal;
 
       const GOOD = [
-        { id:'broccoli', label:'BROCCOLI', file:'broccoli.png', type:'good', color:'#22c55e', tip:'ผักช่วยให้ร่างกายแข็งแรง' },
-        { id:'apple', label:'APPLE', file:'apple.png', type:'good', color:'#22c55e', tip:'ผลไม้จริงดีกว่าน้ำหวาน' },
-        { id:'egg', label:'EGG', file:'egg.png', type:'good', color:'#22c55e', tip:'ไข่เป็นโปรตีนที่ดี' },
-        { id:'water', label:'WATER', file:'water.png', type:'good', color:'#22c55e', tip:'น้ำเปล่าดีต่อร่างกาย' }
-      ];
-
-      const JUNK = [
-        { id:'fries', label:'FRIES', file:'fries.png', type:'junk', color:'#ef4444', tip:'ของทอดควรกินแต่น้อย' },
-        { id:'soda', label:'SODA', file:'soda.png', type:'junk', color:'#ef4444', tip:'น้ำอัดลมมีน้ำตาลสูง' },
-        { id:'donut', label:'DONUT', file:'donut.png', type:'junk', color:'#ef4444', tip:'ขนมหวานน้ำตาลสูง' },
-        { id:'candy', label:'CANDY', file:'candy.png', type:'junk', color:'#ef4444', tip:'ลูกอมหวานจัด' }
-      ];
-
-      const FAKE = [
-        { id:'juice-box', label:'SUGAR JUICE', file:'juice-box.png', type:'fake', color:'#f59e0b', tip:'น้ำผลไม้กล่องอาจมีน้ำตาลสูง' }
+        { id:'broccoli', label:'BROCCOLI', asset:'asset-broccoli' },
+        { id:'apple', label:'APPLE', asset:'asset-apple' }
       ];
 
       const POWER = [
-        { id:'shield', label:'SHIELD', file:'shield.png', type:'power', color:'#38bdf8' },
-        { id:'fever', label:'FEVER', file:'fever.png', type:'power', color:'#facc15' },
-        { id:'heal', label:'HEART', file:'heart.png', type:'power', color:'#22c55e' }
+        { id:'shield', label:'SHIELD', asset:'asset-shield' }
       ];
 
-      const LANES = {
-        left:   { x:-1.85, y:1.55, z:-6.15 },
-        mid:    { x:0.00,  y:1.68, z:-6.35 },
-        right:  { x:1.85,  y:1.55, z:-6.15 },
-        highL:  { x:-1.15, y:2.06, z:-6.55 },
-        highR:  { x:1.15,  y:2.06, z:-6.55 },
-        closeL: { x:-1.35, y:1.50, z:-4.85 },
-        closeM: { x:0.00,  y:1.62, z:-4.95 },
-        closeR: { x:1.35,  y:1.50, z:-4.85 }
-      };
+      const JUNK = [
+        { id:'donut', label:'DONUT', asset:'asset-donut' },
+        { id:'fries', label:'FRIES', asset:'asset-fries' }
+      ];
+
+      const DOC = document;
+      const WIN = window;
 
       const el = {
-        scene:id('scene'),
-        sky:id('sky'),
-        camera:id('camera'),
-        aimRay:id('aimRay'),
-        targetRoot:id('targetRoot'),
-        fxRoot:id('fxRoot'),
+        scene: DOC.getElementById('scene'),
+        cameraRig: DOC.getElementById('cameraRig'),
+        camera: DOC.getElementById('camera'),
+        targetRoot: DOC.getElementById('targetRoot'),
+        fxRoot: DOC.getElementById('fxRoot'),
+        bossRoot: DOC.getElementById('bossRoot'),
 
-        bossRoot:id('bossRoot'),
-        bossBody:id('bossBody'),
-        bossAura:id('bossAura'),
-        bossWarningRing:id('bossWarningRing'),
-        bossLabel:id('bossLabel'),
-        bossMouth:id('bossMouth'),
-        bossBelly:id('bossBelly'),
-        bossHornL:id('bossHornL'),
-        bossHornR:id('bossHornR'),
-        bossCrown:id('bossCrown'),
+        hudStage: DOC.getElementById('hudStage'),
+        hudScore: DOC.getElementById('hudScore'),
+        hudTime: DOC.getElementById('hudTime'),
+        hudLives: DOC.getElementById('hudLives'),
+        hudCombo: DOC.getElementById('hudCombo'),
+        bossHpFill: DOC.getElementById('bossHpFill'),
+        missionText: DOC.getElementById('missionText'),
+        versionStamp: DOC.getElementById('versionStamp'),
 
-        hudStage:id('hudStage'),
-        hudScore:id('hudScore'),
-        hudTime:id('hudTime'),
-        hudLives:id('hudLives'),
-        hudPower:id('hudPower'),
-        bossHpFill:id('bossHpFill'),
-        missionText:id('missionText'),
-
-        startOverlay:id('startOverlay'),
-        summaryOverlay:id('summaryOverlay'),
-        finalOverlay:id('finalOverlay'),
-
-        startBtn:id('startBtn'),
-        vrHintBtn:id('vrHintBtn'),
-        shootBtn:id('shootBtn'),
-        backBtn:id('backBtn'),
-
-        cooldownBtn:id('cooldownBtn'),
-        replayBtn:id('replayBtn'),
-        launcherBtn:id('launcherBtn'),
-        finalLauncherBtn:id('finalLauncherBtn'),
-        finalHubBtn:id('finalHubBtn'),
-
-        toast:id('toast'),
-        bigFx:id('bigFx'),
-
-        versionStamp:id('versionStamp'),
-        debugPanel:id('debugPanel'),
-        debugText:id('debugText'),
-        debugCloseBtn:id('debugCloseBtn'),
-        debugWarmupBtn:id('debugWarmupBtn'),
-        debugBossBtn:id('debugBossBtn'),
-        debugCooldownBtn:id('debugCooldownBtn'),
-        debugClearBtn:id('debugClearBtn'),
-        debugAssetBtn:id('debugAssetBtn'),
-
-        bootSafe:id('bootSafe'),
-        bootSafeMsg:id('bootSafeMsg'),
-        bootSafeReloadBtn:id('bootSafeReloadBtn'),
-        bootSafeLauncherBtn:id('bootSafeLauncherBtn'),
-        bootSafeDebugBtn:id('bootSafeDebugBtn')
+        btnBack: DOC.getElementById('btnBack'),
+        btnEnterVr: DOC.getElementById('btnEnterVr'),
+        btnShoot: DOC.getElementById('btnShoot'),
+        toast: DOC.getElementById('toast')
       };
 
       const state = {
         stage:'intro',
-        started:false,
-        ended:false,
-
         score:0,
-        lives:D.lives,
-        timeLeft:cfg.time,
-        bossHp:D.bossHp,
-        bossMaxHp:D.bossHp,
-
+        timeLeft:Number(q.get('time') || 90),
+        lives:2,
         combo:0,
-        bestCombo:0,
-        goodHits:0,
-        junkHits:0,
-        fakeHits:0,
-        misses:0,
-        shots:0,
-
-        shield:0,
-        feverUntil:0,
-        powerFoodReady:false,
-
-        warmGood:0,
-        warmPower:0,
-
-        cooldownBreath:0,
-        cooldownGood:0,
-
-        bossPhase:1,
-        waveIndex:0,
-        waveLock:false,
-        lastPhaseAnnounce:0,
-        nextPowerAt:0,
-
-        miniMission:{
-          id:'good-streak',
-          title:'ยิง GOOD 3 ครั้งติด',
-          progress:0,
-          goal:3,
-          done:false
-        },
-        perfectStreak:0,
-        bestSavedScore:0,
-        rankBonus:0,
-
+        bossHp:100,
+        warmGoodHits:0,
+        warmShieldHit:false,
+        warmStarted:false,
+        startPanelBusy:false,
         targets:new Set(),
-        spawnTimer:0,
-        clockTimer:0,
-        startAt:0
+        clockTimer:0
       };
 
-      function applyViewClass(){
-        DOC.body.classList.toggle('view-cvr', cfg.view === 'cvr');
-        DOC.body.classList.toggle('view-mobile', cfg.view === 'mobile');
-        DOC.body.classList.toggle('view-pc', cfg.view === 'pc');
+      function now(){ return Date.now(); }
+      function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+      function saveLastError(where, err){
+        try{
+          console.error('[GoodJunk VR]', where, err);
+          localStorage.setItem('GJ_VR_LAST_ERR', JSON.stringify({
+            where,
+            message:String(err && (err.stack || err.message) || err || ''),
+            at:new Date().toISOString(),
+            patch:PATCH
+          }));
+        }catch(_){}
       }
 
       function sceneReady(){
-        return !!(el.scene && el.scene.hasLoaded && el.scene.systems);
+        return !!(el.scene && el.scene.hasLoaded);
       }
 
       function afterSceneReady(fn){
         if(sceneReady()){
-          try{ fn(); }catch(err){ saveLastError('afterSceneReady-now', err); }
+          fn();
           return;
         }
-
-        if(el.scene){
-          el.scene.addEventListener('loaded', function once(){
-            try{ fn(); }catch(err){ saveLastError('afterSceneReady-loaded', err); }
-          }, { once:true });
-          return;
-        }
-
-        setTimeout(function(){
-          try{ fn(); }catch(err){ saveLastError('afterSceneReady-timeout', err); }
-        }, 250);
+        el.scene.addEventListener('loaded', fn, { once:true });
       }
 
-      function safeSetAttr(entity, name, value){
-        if(!entity) return false;
-
+      function safeSetAttr(node, name, value){
         try{
-          if(name === 'material' && !entity.sceneEl){
-            afterSceneReady(function(){
-              if(entity && entity.parentNode){
-                entity.setAttribute(name, value);
-              }
-            });
-            return true;
-          }
-
-          entity.setAttribute(name, value);
-          return true;
+          if(!node) return;
+          node.setAttribute(name, value);
         }catch(err){
           saveLastError('safeSetAttr:' + name, err);
-          return false;
         }
       }
 
-      function safeRemoveEntity(entity, delay){
-        if(!entity) return;
-
-        setTimeout(function(){
+      function safeRemoveEntity(node, delay){
+        delay = Number(delay || 0);
+        WIN.setTimeout(function(){
           try{
-            if(entity.parentNode){
-              entity.parentNode.removeChild(entity);
+            if(node && node.parentNode){
+              node.parentNode.removeChild(node);
             }
           }catch(err){
             saveLastError('safeRemoveEntity', err);
           }
-        }, Number(delay || 0));
+        }, delay);
       }
 
-      function setSummaryOpen(on){
-        DOC.body.classList.toggle('summary-open', !!on);
-      }
-
-      function heroBase(){
-        try{
-          const marker = '/herohealth/';
-          const idx = location.pathname.indexOf(marker);
-          if(idx >= 0){
-            return location.origin + location.pathname.slice(0, idx + marker.length);
-          }
-        }catch(e){}
-
-        return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-      }
-
-      function assetUrl(file){
-        return heroBase() + 'assets/goodjunk/' + String(file || 'broccoli.png') + '?v=' + ASSET_VERSION;
-      }
-
-      function cleanWhitePngUrl(file){
-        const rawUrl = assetUrl(file);
-
-        if(CLEAN_IMG_CACHE.has(rawUrl)){
-          return CLEAN_IMG_CACHE.get(rawUrl);
-        }
-
-        const promise = new Promise(function(resolve){
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-
-          img.onload = function(){
-            try{
-              const canvas = DOC.createElement('canvas');
-              const w = img.naturalWidth || img.width || 1;
-              const h = img.naturalHeight || img.height || 1;
-
-              canvas.width = w;
-              canvas.height = h;
-
-              const ctx = canvas.getContext('2d', { willReadFrequently:true });
-              ctx.drawImage(img, 0, 0, w, h);
-
-              const imageData = ctx.getImageData(0, 0, w, h);
-              const data = imageData.data;
-              const seen = new Uint8Array(w * h);
-              const stack = [];
-
-              function whiteLikeAtPixel(p){
-                const i = p * 4;
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                const a = data[i + 3];
-
-                if(a < 16) return true;
-
-                const nearWhite = r > 232 && g > 232 && b > 232;
-                const nearLightGray = r > 220 && g > 220 && b > 220 && Math.abs(r - g) < 18 && Math.abs(g - b) < 18;
-
-                return nearWhite || nearLightGray;
-              }
-
-              function push(x, y){
-                if(x < 0 || y < 0 || x >= w || y >= h) return;
-
-                const p = y * w + x;
-                if(seen[p]) return;
-                if(!whiteLikeAtPixel(p)) return;
-
-                seen[p] = 1;
-                stack.push([x, y]);
-              }
-
-              for(let x = 0; x < w; x++){
-                push(x, 0);
-                push(x, h - 1);
-              }
-
-              for(let y = 0; y < h; y++){
-                push(0, y);
-                push(w - 1, y);
-              }
-
-              while(stack.length){
-                const item = stack.pop();
-                const x = item[0];
-                const y = item[1];
-                const p = y * w + x;
-                const i = p * 4;
-
-                data[i + 3] = 0;
-
-                push(x + 1, y);
-                push(x - 1, y);
-                push(x, y + 1);
-                push(x, y - 1);
-              }
-
-              for(let pass = 0; pass < 2; pass++){
-                const toClear = [];
-
-                for(let y = 1; y < h - 1; y++){
-                  for(let x = 1; x < w - 1; x++){
-                    const p = y * w + x;
-                    const i = p * 4;
-
-                    if(data[i + 3] === 0) continue;
-                    if(!whiteLikeAtPixel(p)) continue;
-
-                    const n1 = ((y - 1) * w + x) * 4;
-                    const n2 = ((y + 1) * w + x) * 4;
-                    const n3 = (y * w + (x - 1)) * 4;
-                    const n4 = (y * w + (x + 1)) * 4;
-
-                    if(
-                      data[n1 + 3] === 0 ||
-                      data[n2 + 3] === 0 ||
-                      data[n3 + 3] === 0 ||
-                      data[n4 + 3] === 0
-                    ){
-                      toClear.push(i);
-                    }
-                  }
-                }
-
-                toClear.forEach(function(i){
-                  data[i + 3] = 0;
-                });
-              }
-
-              ctx.putImageData(imageData, 0, 0);
-              resolve(canvas.toDataURL('image/png'));
-            }catch(err){
-              saveLastError('cleanWhitePngUrl', err);
-              resolve(rawUrl);
-            }
-          };
-
-          img.onerror = function(){
-            console.warn('[GoodJunk] image load failed:', rawUrl);
-            resolve(rawUrl);
-          };
-
-          img.src = rawUrl;
-        });
-
-        CLEAN_IMG_CACHE.set(rawUrl, promise);
-        return promise;
-      }
-
-      function applyImageMaterial(entity, file){
-        if(!entity) return;
-
-        afterSceneReady(function(){
-          if(!entity || !entity.parentNode) return;
-
-          safeSetAttr(entity, 'material', {
-            color:'#ffffff',
-            transparent:true,
-            opacity:0.001,
-            alphaTest:0.01,
-            side:'double',
-            shader:'flat',
-            depthTest:true
-          });
-
-          cleanWhitePngUrl(file).then(function(cleanUrl){
-            afterSceneReady(function(){
-              if(!entity || !entity.parentNode) return;
-
-              safeSetAttr(entity, 'material', {
-                src:cleanUrl,
-                transparent:true,
-                opacity:1,
-                alphaTest:0.02,
-                side:'double',
-                shader:'flat',
-                depthTest:true
-              });
-            });
-          }).catch(function(err){
-            saveLastError('applyImageMaterial-cleanWhitePngUrl', err);
-          });
-        });
-      }
-
-      function isFever(){ return state.feverUntil > now(); }
-
-      function bestKey(){
-        return 'GJ_FULL_3D_VR_BEST_' + cfg.pid + '_' + cfg.diff;
-      }
-
-      function loadBestScore(){
-        try{
-          const raw = localStorage.getItem(bestKey());
-          const n = Number(raw || 0);
-          state.bestSavedScore = Number.isFinite(n) ? n : 0;
-        }catch(e){
-          state.bestSavedScore = 0;
-        }
-      }
-
-      function saveBestScore(){
-        try{
-          const prev = Number(localStorage.getItem(bestKey()) || 0);
-          if(state.score > prev){
-            localStorage.setItem(bestKey(), String(state.score));
-            state.bestSavedScore = state.score;
-            return true;
-          }
-        }catch(e){}
-        return false;
-      }
-
-      function lane(name){
-        return LANES[name] || LANES.mid;
-      }
-
-      function laneNames(){
-        return ['left','mid','right'];
-      }
-
-      function shuffledLanes(){
-        const arr = laneNames().slice();
-        for(let i = arr.length - 1; i > 0; i--){
-          const j = Math.floor(Math.random() * (i + 1));
-          const t = arr[i];
-          arr[i] = arr[j];
-          arr[j] = t;
-        }
-        return arr;
-      }
-
-      function comfortDur(extra){
-        const base =
-          cfg.view === 'cvr' ? D.speed + 650 :
-          cfg.view === 'mobile' ? D.speed + 350 :
-          D.speed;
-
-        const phaseCut =
-          state.bossPhase === 4 ? 720 :
-          state.bossPhase === 3 ? 420 :
-          state.bossPhase === 2 ? 260 :
-          0;
-
-        return Math.max(3000, base - phaseCut + Number(extra || 0));
-      }
-
-      function bossHpPct(){
-        return clamp(state.bossHp / state.bossMaxHp, 0, 1);
-      }
-
-      function computeBossPhase(){
-        const pct = bossHpPct();
-        if(pct <= 0.25) return 4;
-        if(pct <= 0.50) return 3;
-        if(pct <= 0.75) return 2;
-        return 1;
-      }
-
-      function phaseSpawnDelay(){
-        const comfortAdd = cfg.view === 'cvr' ? 260 : cfg.view === 'mobile' ? 120 : 0;
-
-        if(state.bossPhase === 4) return Math.max(520, D.spawnMs - 180 + comfortAdd);
-        if(state.bossPhase === 3) return Math.max(600, D.spawnMs - 90 + comfortAdd);
-        if(state.bossPhase === 2) return Math.max(680, D.spawnMs - 40 + comfortAdd);
-        return Math.max(760, D.spawnMs + comfortAdd);
-      }
-
-      function shortMission(t){
-        if(cfg.view !== 'cvr') return t;
-
-        const s = String(t || '');
-        if(s.includes('Warmup')) return 'ยิง GOOD 2 ชิ้น → SHIELD';
-        if(s.includes('Boss')) return 'ยิง GOOD ลด HP บอส';
-        if(s.includes('Junk Rush')) return 'ยิง GOOD เท่านั้น';
-        if(s.includes('Fake')) return 'ดูให้ดี อย่ายิง FAKE';
-        if(s.includes('Final')) return 'Final: ยิง GOOD!';
-        if(s.includes('Cooldown')) return 'ยิง WATER / HEART / GOOD';
-        if(s.includes('Summary')) return 'ดูผล แล้ว Cooldown';
-
-        return s.length > 30 ? s.slice(0, 30) + '…' : s;
-      }
-
-      function setMission(t){
-        if(el.missionText) el.missionText.textContent = shortMission(t);
-      }
-
-      function toast(t){
+      function showToast(text){
         if(!el.toast) return;
-
-        el.toast.textContent = String(t || '');
+        el.toast.textContent = text || '';
         el.toast.classList.add('show');
-
-        clearTimeout(toast._t);
-        toast._t = setTimeout(() => el.toast.classList.remove('show'), 1500);
+        clearTimeout(showToast._t);
+        showToast._t = setTimeout(function(){
+          el.toast.classList.remove('show');
+        }, 1450);
       }
 
-      let audioCtx = null;
-
-      function getAudio(){
-        try{
-          if(!audioCtx){
-            audioCtx = new (WIN.AudioContext || WIN.webkitAudioContext)();
-          }
-          if(audioCtx.state === 'suspended'){
-            audioCtx.resume().catch(function(){});
-          }
-          return audioCtx;
-        }catch(e){
-          return null;
-        }
-      }
-
-      function beep(freq, dur, type, gain){
-        const ctx = getAudio();
-        if(!ctx) return;
-
-        const osc = ctx.createOscillator();
-        const g = ctx.createGain();
-
-        osc.type = type || 'sine';
-        osc.frequency.value = freq || 440;
-
-        g.gain.setValueAtTime(0.0001, ctx.currentTime);
-        g.gain.exponentialRampToValueAtTime(gain || 0.08, ctx.currentTime + 0.018);
-        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + (dur || 0.16));
-
-        osc.connect(g);
-        g.connect(ctx.destination);
-
-        osc.start();
-        osc.stop(ctx.currentTime + (dur || 0.16) + 0.03);
-      }
-
-      function sfx(kind){
-        if(kind === 'good'){
-          beep(660, .10, 'sine', .075);
-          setTimeout(() => beep(880, .12, 'sine', .06), 80);
-        }else if(kind === 'bad'){
-          beep(180, .18, 'sawtooth', .055);
-          setTimeout(() => beep(130, .15, 'sawtooth', .045), 90);
-        }else if(kind === 'power'){
-          beep(520, .08, 'triangle', .075);
-          setTimeout(() => beep(780, .10, 'triangle', .07), 70);
-          setTimeout(() => beep(1040, .12, 'triangle', .06), 145);
-        }else if(kind === 'boss'){
-          beep(92, .13, 'square', .045);
-          setTimeout(() => beep(140, .10, 'square', .035), 80);
-        }else if(kind === 'miss'){
-          beep(220, .09, 'sawtooth', .04);
-        }else if(kind === 'start'){
-          beep(440, .08, 'sine', .06);
-          setTimeout(() => beep(660, .10, 'sine', .06), 80);
-        }
-      }
-
-      function bigFeedback(text, cls){
-        if(!el.bigFx) return;
-
-        if(cfg.view === 'cvr'){
-          text = String(text || '')
-            .replace('SHIELD BLOCK!', 'BLOCK!')
-            .replace('POWER READY!', 'POWER!')
-            .replace('GOOD FOOD!', 'GOOD!')
-            .replace('CHECK FIRST!', 'CHECK!')
-            .replace('BOSS FIGHT!', 'BOSS!');
-        }
-
-        el.bigFx.className = 'bigFx';
-        el.bigFx.textContent = text;
-
-        void el.bigFx.offsetWidth;
-
-        el.bigFx.classList.add(cls || 'good');
-        el.bigFx.classList.add('show');
-      }
-
-      function show(node){ node && node.classList.remove('hidden'); }
-      function hide(node){ node && node.classList.add('hidden'); }
-
-      function saveLastError(label, err){
-        const t = Date.now();
-        if(saveLastError._last && t - saveLastError._last < 1200){
-          return;
-        }
-        saveLastError._last = t;
-
-        try{
-          const payload = {
-            patch:PATCH,
-            label:String(label || 'error'),
-            message:String(err && (err.message || err) || ''),
-            stack:String(err && err.stack || ''),
-            href:location.href,
-            stage:state && state.stage,
-            savedAt:new Date().toISOString()
-          };
-
-          localStorage.setItem('GJ_FULL_3D_VR_LAST_ERROR', JSON.stringify(payload));
-          console.warn('[GoodJunk VR]', label, err);
-        }catch(e){}
-      }
-
-      WIN.addEventListener('error', function(ev){
-        saveLastError('window-error', ev.error || ev.message);
-      });
-
-      WIN.addEventListener('unhandledrejection', function(ev){
-        saveLastError('unhandled-rejection', ev.reason);
-      });
-
-      function setVersionStamp(){
-        if(!el.versionStamp) return;
-
-        el.versionStamp.textContent = '8.44.8 SAFE';
-        el.versionStamp.title = PATCH + ' | ' + assetUrl('broccoli.png');
-      }
-
-      function showBootSafe(msg){
-        if(el.bootSafeMsg){
-          el.bootSafeMsg.textContent = String(msg || 'Unknown boot issue');
-        }
-
-        show(el.bootSafe);
-
-        try{
-          localStorage.setItem('GJ_FULL_3D_VR_BOOT_SAFE_LAST', JSON.stringify({
-            patch:PATCH,
-            message:String(msg || ''),
-            href:location.href,
-            savedAt:new Date().toISOString()
-          }));
-        }catch(e){}
-      }
-
-      function hideBootSafe(){
-        hide(el.bootSafe);
+      function setMission(text){
+        if(el.missionText) el.missionText.textContent = text || '';
       }
 
       function updateHud(){
         if(el.hudStage){
           el.hudStage.textContent =
+            state.stage === 'intro' ? 'Ready' :
             state.stage === 'warmup' ? 'Warmup' :
-            state.stage === 'main' ? 'Boss' :
-            state.stage === 'summary' ? 'Summary' :
-            state.stage === 'cooldown' ? 'Cooldown' :
-            state.stage === 'done' ? 'Done' : 'Ready';
+            state.stage === 'main' ? 'Main' :
+            'Done';
         }
-
         if(el.hudScore) el.hudScore.textContent = String(state.score);
-        if(el.hudTime) el.hudTime.textContent = String(Math.max(0, Math.ceil(state.timeLeft)));
-        if(el.hudLives) el.hudLives.textContent = state.lives > 0 ? '💚'.repeat(state.lives) : '💔';
-
-        const powers = [];
-        if(state.shield > 0) powers.push('🛡️' + state.shield);
-        if(isFever()) powers.push('⚡' + Math.ceil((state.feverUntil - now()) / 1000) + 's');
-        if(state.powerFoodReady) powers.push('⭐');
-
-        if(el.hudPower) el.hudPower.textContent = powers.join(' ') || '—';
-
-        const hpPct = clamp(state.bossHp / state.bossMaxHp, 0, 1);
-        if(el.bossHpFill) el.bossHpFill.style.width = Math.round(hpPct * 100) + '%';
-
-        if(state.stage === 'main' || state.stage === 'summary'){
-          updateBossVisual();
-        }
-      }
-
-      function updateBossVisual(){
-        if(!el.bossRoot) return;
-
-        const p = state.bossPhase || computeBossPhase();
-        const pct = bossHpPct();
-
-        let bodyColor = '#7c2d12';
-        let auraColor = '#f97316';
-        let auraOpacity = 0.22;
-        let label = 'JUNK BOSS';
-        let hornColor = '#ef4444';
-        let bellyColor = '#fef3c7';
-        let warningVisible = false;
-
-        if(p === 2){
-          bodyColor = '#991b1b';
-          auraColor = '#ef4444';
-          auraOpacity = 0.34;
-          label = 'JUNK RUSH!';
-          hornColor = '#dc2626';
-        }else if(p === 3){
-          bodyColor = '#854d0e';
-          auraColor = '#f59e0b';
-          auraOpacity = 0.38;
-          label = 'FAKE TRICK!';
-          hornColor = '#f59e0b';
-          bellyColor = '#fef3c7';
-          warningVisible = true;
-        }else if(p === 4){
-          bodyColor = '#581c87';
-          auraColor = '#a855f7';
-          auraOpacity = 0.46;
-          label = 'FINAL STORM!';
-          hornColor = '#facc15';
-          bellyColor = '#fee2e2';
-          warningVisible = true;
-        }
-
-        if(el.bossBody){
-          safeSetAttr(el.bossBody, 'color', bodyColor);
-          safeSetAttr(el.bossBody, 'material', {
-            color: bodyColor,
-            emissive: p >= 4 ? '#7c3aed' : p >= 2 ? '#7f1d1d' : '#000000',
-            emissiveIntensity: p >= 4 ? 0.22 : p >= 2 ? 0.12 : 0
-          });
-        }
-
-        if(el.bossAura){
-          safeSetAttr(el.bossAura, 'color', auraColor);
-          safeSetAttr(el.bossAura, 'material', {
-            transparent:true,
-            opacity:auraOpacity,
-            side:'double'
-          });
-        }
-
-        if(el.bossWarningRing){
-          safeSetAttr(el.bossWarningRing, 'visible', warningVisible ? 'true' : 'false');
-          safeSetAttr(el.bossWarningRing, 'color', p === 4 ? '#facc15' : '#ef4444');
-        }
-
-        if(el.bossLabel) safeSetAttr(el.bossLabel, 'value', label);
-        if(el.bossBelly) safeSetAttr(el.bossBelly, 'color', bellyColor);
-        if(el.bossHornL) safeSetAttr(el.bossHornL, 'color', hornColor);
-        if(el.bossHornR) safeSetAttr(el.bossHornR, 'color', hornColor);
-
-        const panic = 1 + (1 - pct) * 0.10;
-        safeSetAttr(el.bossRoot, 'scale', `${panic} ${panic} ${panic}`);
-      }
-
-      function updateBossPhase(){
-        const next = computeBossPhase();
-
-        if(next === state.bossPhase) return;
-
-        state.bossPhase = next;
-        state.lastPhaseAnnounce = now();
-
-        if(next === 2){
-          setMission('Phase 2: Junk Rush! ยิง GOOD หลบ JUNK');
-          bigFeedback('JUNK RUSH!', 'bad');
-          sfx('bad');
-        }else if(next === 3){
-          setMission('Phase 3: Fake Healthy! เจอของหลอก ต้องคิดก่อนยิง');
-          bigFeedback('FAKE TRICK!', 'warn');
-          sfx('power');
-        }else if(next === 4){
-          setMission('Final Phase: ยิง GOOD ให้ไว เอาชนะบอส!');
-          bigFeedback('FINAL STORM!', 'warn');
-          sfx('boss');
-        }
-
-        updateBossVisual();
-
-        if(state.stage === 'main'){
-          resetSpawnTimer();
-        }
+        if(el.hudTime) el.hudTime.textContent = String(state.timeLeft);
+        if(el.hudLives) el.hudLives.textContent = '💚'.repeat(Math.max(0, state.lives)) || '–';
+        if(el.hudCombo) el.hudCombo.textContent = state.combo > 0 ? 'x' + state.combo : '–';
+        if(el.bossHpFill) el.bossHpFill.style.width = clamp(state.bossHp,0,100) + '%';
+        if(el.versionStamp) el.versionStamp.textContent = '8.44.8a TARGET';
       }
 
       function clearTargets(){
-        state.targets.forEach(x => {
-          safeRemoveEntity(x, 0);
-        });
+        try{
+          Array.from(state.targets).forEach(function(node){
+            safeRemoveEntity(node, 0);
+          });
+          state.targets.clear();
 
-        state.targets.clear();
-
-        if(el.targetRoot){
-          try{ el.targetRoot.innerHTML = ''; }catch(e){}
+          if(el.targetRoot){
+            Array.from(el.targetRoot.children || []).forEach(function(child){
+              safeRemoveEntity(child, 0);
+            });
+          }
+        }catch(err){
+          saveLastError('clearTargets', err);
         }
       }
 
-      function makeTargetEntity(kind, data, opts){
-        opts = opts || {};
+      function hardClearStartPanels(){
+        try{
+          const selectors = [
+            '#vrStartPanel',
+            '[data-kind="vr-start"]',
+            '.gj-start-panel',
+            '.gj-vr-start-panel'
+          ];
+
+          selectors.forEach(function(sel){
+            Array.from(document.querySelectorAll(sel)).forEach(function(node){
+              try{
+                state.targets.delete(node);
+                safeRemoveEntity(node, 0);
+              }catch(_){}
+            });
+          });
+
+          if(el.targetRoot){
+            Array.from(el.targetRoot.children || []).forEach(function(child){
+              const kind = child.dataset && child.dataset.kind;
+              const idv = child.id || '';
+              if(kind === 'vr-start' || idv === 'vrStartPanel'){
+                try{
+                  state.targets.delete(child);
+                  safeRemoveEntity(child, 0);
+                }catch(_){}
+              }
+            });
+          }
+        }catch(err){
+          saveLastError('hardClearStartPanels', err);
+        }
+      }
+
+      function resetCameraForWarmup(){
+        try{
+          if(el.cameraRig){
+            safeSetAttr(el.cameraRig, 'position', '0 1.6 0');
+            safeSetAttr(el.cameraRig, 'rotation', '0 0 0');
+          }
+          if(el.camera){
+            safeSetAttr(el.camera, 'position', '0 0 0');
+            safeSetAttr(el.camera, 'rotation', '0 0 0');
+          }
+        }catch(err){
+          saveLastError('resetCameraForWarmup', err);
+        }
+      }
+
+      function spawnVrStartPanel(){
+        hardClearStartPanels();
 
         const wrap = DOC.createElement('a-entity');
-        wrap.classList.add('gj-target-root');
-        wrap.setAttribute('data-gj-target-root', '1');
-        wrap.dataset.kind = kind;
-        wrap.dataset.consumed = '0';
-        wrap.__data = data || {};
+        wrap.id = 'vrStartPanel';
+        wrap.dataset.kind = 'vr-start';
+        wrap.classList.add('gj-vr-start-panel');
 
-        const x = opts.x ?? rand(-2.15, 2.15);
-        const y = opts.y ?? rand(1.38, 2.04);
-        const z = opts.z ?? rand(-6.8, -5.6);
+        safeSetAttr(wrap, 'position', '0 1.8 -3.1');
 
-        safeSetAttr(wrap, 'position', `${x} ${y} ${z}`);
+        const panel = DOC.createElement('a-plane');
+        safeSetAttr(panel, 'width', '2.8');
+        safeSetAttr(panel, 'height', '1.18');
+        safeSetAttr(panel, 'color', '#ffffff');
+        safeSetAttr(panel, 'opacity', '0.94');
+        safeSetAttr(panel, 'material', 'transparent:true; opacity:0.94; side:double');
+        wrap.appendChild(panel);
 
-        const targetScale = Number(opts.scale || 1);
-        safeSetAttr(wrap, 'scale', `${targetScale} ${targetScale} ${targetScale}`);
+        const title = DOC.createElement('a-text');
+        safeSetAttr(title, 'value', '🎯 START WARMUP');
+        safeSetAttr(title, 'align', 'center');
+        safeSetAttr(title, 'color', '#0f172a');
+        safeSetAttr(title, 'width', '3.6');
+        safeSetAttr(title, 'position', '0 0.18 0.03');
+        wrap.appendChild(title);
 
-        return wrap;
-      }
+        const sub = DOC.createElement('a-text');
+        safeSetAttr(sub, 'value', 'แตะปุ่มล่าง หรือยิงป้ายนี้เพื่อเริ่ม');
+        safeSetAttr(sub, 'align', 'center');
+        safeSetAttr(sub, 'color', '#475569');
+        safeSetAttr(sub, 'width', '3.0');
+        safeSetAttr(sub, 'position', '0 -0.14 0.03');
+        wrap.appendChild(sub);
 
-      function makeHitbox(w,h,d){
-        const hitbox = DOC.createElement('a-box');
-        hitbox.classList.add('gj-hitbox');
-        safeSetAttr(hitbox, 'width', String(w || 2.45));
-        safeSetAttr(hitbox, 'height', String(h || 2.1));
-        safeSetAttr(hitbox, 'depth', String(d || 0.4));
-        safeSetAttr(hitbox, 'position', '0 0.05 0.04');
-        safeSetAttr(hitbox, 'material', 'transparent:true; opacity:0.001; depthWrite:false');
-        return hitbox;
-      }
-
-      function makeMark(kind){
-        const isGood = kind === 'good' || kind === 'warm-good';
-        const isJunk = kind === 'junk' || kind === 'warm-junk';
-        const isFake = kind === 'fake';
-
-        if(!isGood && !isJunk && !isFake) return null;
-
-        const mark = DOC.createElement('a-entity');
-
-        const circle = DOC.createElement('a-circle');
-        safeSetAttr(circle, 'radius', '0.22');
-        safeSetAttr(circle, 'color', isGood ? '#16a34a' : isJunk ? '#ef4444' : '#f59e0b');
-        safeSetAttr(circle, 'position', '0 0 0.03');
-
-        const t = DOC.createElement('a-text');
-        safeSetAttr(t, 'value', isGood ? '✓' : isJunk ? 'X' : '!');
-        safeSetAttr(t, 'align', 'center');
-        safeSetAttr(t, 'color', '#ffffff');
-        safeSetAttr(t, 'width', '1.5');
-        safeSetAttr(t, 'position', '0 -0.07 0.06');
-
-        mark.appendChild(circle);
-        mark.appendChild(t);
-        safeSetAttr(mark, 'position', '0.68 -0.56 0.20');
-
-        return mark;
-      }
-
-      function createTarget(kind, data, opts){
-        if(!sceneReady()){
-          afterSceneReady(function(){
-            createTarget(kind, data, opts);
-          });
-          return null;
-        }
-
-        opts = opts || {};
-        data = data || {};
-
-        const wrap = makeTargetEntity(kind, data, opts);
-
-        const isGood = kind === 'good' || kind === 'warm-good';
-        const isJunk = kind === 'junk' || kind === 'warm-junk';
-        const isFake = kind === 'fake';
-        const isPower = kind === 'power' || kind === 'warm-power';
-        const isBreath = kind === 'breath';
-
-        const theme = isGood ? {
-          bg:'#dcfce7',
-          rim:'#22c55e',
-          label:'GOOD'
-        } : isJunk ? {
-          bg:'#fee2e2',
-          rim:'#ef4444',
-          label:'JUNK'
-        } : isFake ? {
-          bg:'#fef3c7',
-          rim:'#f59e0b',
-          label:'FAKE'
-        } : isPower ? {
-          bg:'#dbeafe',
-          rim:data.color || '#38bdf8',
-          label:data.label || 'POWER'
-        } : isBreath ? {
-          bg:'#e0f2fe',
-          rim:data.color || '#38bdf8',
-          label:data.label || 'CALM'
-        } : {
-          bg:'#ffffff',
-          rim:'#94a3b8',
-          label:'ITEM'
-        };
-
-        wrap.appendChild(makeHitbox(2.55, 2.25, 0.48));
-
-        const halo = DOC.createElement('a-ring');
-        safeSetAttr(halo, 'radius-inner', '0.86');
-        safeSetAttr(halo, 'radius-outer', '1.02');
-        safeSetAttr(halo, 'color', theme.rim);
-        safeSetAttr(halo, 'position', '0 0.08 0.02');
-        safeSetAttr(halo, 'material', 'transparent:true; opacity:0.54; side:double');
-        safeSetAttr(halo, 'animation__pulse', {
-          property:'scale',
-          dir:'alternate',
-          loop:true,
-          dur:720,
-          easing:'easeInOutSine',
-          to:'1.08 1.08 1.08'
-        });
-        wrap.appendChild(halo);
-
-        const plate = DOC.createElement('a-circle');
-        safeSetAttr(plate, 'radius', '0.84');
-        safeSetAttr(plate, 'color', theme.bg);
-        safeSetAttr(plate, 'position', '0 0.08 0.035');
-        safeSetAttr(plate, 'material', 'transparent:true; opacity:0.18; side:double');
-        wrap.appendChild(plate);
-
-        const imgPanel = DOC.createElement('a-plane');
-        safeSetAttr(imgPanel, 'width', isPower ? '1.42' : '1.58');
-        safeSetAttr(imgPanel, 'height', isPower ? '1.42' : '1.58');
-        safeSetAttr(imgPanel, 'position', '0 0.14 0.24');
-        wrap.appendChild(imgPanel);
-        applyImageMaterial(imgPanel, data.file || 'broccoli.png');
-
-        const mark = makeMark(kind);
-        if(mark) wrap.appendChild(mark);
-
-        const actionLabel = DOC.createElement('a-text');
-        safeSetAttr(
-          actionLabel,
-          'value',
-          isGood ? 'EAT' :
-          isJunk ? 'NO!' :
-          isFake ? 'CHECK' :
-          isPower ? theme.label :
-          'CALM'
-        );
-        safeSetAttr(actionLabel, 'align', 'center');
-        safeSetAttr(
-          actionLabel,
-          'color',
-          isGood ? '#14532d' :
-          isJunk ? '#7f1d1d' :
-          isFake ? '#78350f' :
-          '#172554'
-        );
-        safeSetAttr(actionLabel, 'width', cfg.view === 'cvr' ? '2.25' : '2.65');
-        safeSetAttr(actionLabel, 'position', cfg.view === 'cvr' ? '0 -0.86 0.26' : '0 -0.93 0.26');
-        safeSetAttr(actionLabel, 'visible', cfg.view === 'cvr' ? 'false' : 'true');
-        wrap.appendChild(actionLabel);
-
-        const name = DOC.createElement('a-text');
-        safeSetAttr(name, 'value', data.label || theme.label);
-        safeSetAttr(name, 'align', 'center');
-        safeSetAttr(name, 'color', '#0f172a');
-        safeSetAttr(name, 'width', '2.45');
-        safeSetAttr(name, 'position', '0 1.02 0.26');
-        safeSetAttr(name, 'visible', cfg.view === 'cvr' ? 'false' : 'true');
-        wrap.appendChild(name);
-
-        const dur = opts.dur || Math.max(3300, comfortDur() - state.combo * 45);
-        const pos = wrap.getAttribute('position');
-
-        if(opts.static){
-          safeSetAttr(wrap, 'animation__float', {
-            property:'position',
-            dir:'alternate',
-            loop:true,
-            dur:900,
-            easing:'easeInOutSine',
-            to:`${pos.x} ${pos.y + 0.20} ${pos.z}`
-          });
-        }else{
-          const targetZ = cfg.view === 'cvr' ? 1.18 : 0.92;
-          const targetYJitter = cfg.view === 'cvr' ? rand(-0.07,0.07) : rand(-0.16,0.16);
-
-          safeSetAttr(wrap, 'animation__fly', {
-            property:'position',
-            to:`${pos.x * 0.20} ${pos.y + targetYJitter} ${targetZ}`,
-            dur:dur,
-            easing:'linear'
-          });
-
-          wrap.addEventListener('animationcomplete__fly', () => expireTarget(wrap, kind, data));
-        }
-
-        safeSetAttr(wrap, 'animation__tilt', {
-          property:'rotation',
-          to:`0 ${rand(-8,8)} ${rand(-3,3)}`,
-          dur:1100,
-          dir:'alternate',
-          loop:true,
-          easing:'easeInOutSine'
-        });
-
-        safeSetAttr(wrap, 'animation__spawnpop', {
-          property:'scale',
-          from:'0.55 0.55 0.55',
-          to:wrap.getAttribute('scale') || '1 1 1',
-          dur:260,
-          easing:'easeOutBack'
-        });
-
-        wrap.addEventListener('click', e => {
-          e.preventDefault();
-          hitTarget(wrap);
-        });
+        const hit = DOC.createElement('a-plane');
+        safeSetAttr(hit, 'width', '2.8');
+        safeSetAttr(hit, 'height', '1.18');
+        safeSetAttr(hit, 'position', '0 0 0.06');
+        safeSetAttr(hit, 'opacity', '0.001');
+        safeSetAttr(hit, 'material', 'transparent:true; opacity:0.001; side:double');
+        hit.classList.add('clickable');
+        hit.addEventListener('click', startWarmupFromVr);
+        wrap.appendChild(hit);
 
         el.targetRoot.appendChild(wrap);
         state.targets.add(wrap);
+      }
 
+      function createTarget(kind, data, opts){
+        opts = opts || {};
+
+        const wrap = DOC.createElement('a-entity');
+        wrap.dataset.kind = kind;
+        wrap.dataset.id = data.id;
+
+        const x = Number(opts.x || 0);
+        const y = Number(opts.y || 1.5);
+        const z = Number(opts.z || -3);
+        const scale = Number(opts.scale || 1);
+
+        safeSetAttr(wrap, 'position', `${x} ${y} ${z}`);
+        safeSetAttr(wrap, 'scale', `${scale} ${scale} ${scale}`);
+
+        const plate = DOC.createElement('a-circle');
+        safeSetAttr(plate, 'radius', '0.56');
+        safeSetAttr(plate, 'color', '#ffffff');
+        safeSetAttr(plate, 'position', '0 0 -0.03');
+        safeSetAttr(plate, 'material', 'transparent:true; opacity:0.94; side:double');
+        wrap.appendChild(plate);
+
+        const ring = DOC.createElement('a-ring');
+        safeSetAttr(ring, 'radius-inner', '0.51');
+        safeSetAttr(ring, 'radius-outer', '0.60');
+        safeSetAttr(ring, 'color',
+          kind === 'warm-good' ? '#16a34a' :
+          kind === 'warm-power' ? '#2563eb' :
+          '#ef4444'
+        );
+        safeSetAttr(ring, 'position', '0 0 -0.01');
+        wrap.appendChild(ring);
+
+        const icon = DOC.createElement('a-plane');
+        safeSetAttr(icon, 'width', '0.72');
+        safeSetAttr(icon, 'height', '0.72');
+        safeSetAttr(icon, 'position', '0 0 0.02');
+        safeSetAttr(icon, 'material',
+          `src:#${data.asset}; transparent:true; alphaTest:0.08; side:double; shader:flat`
+        );
+        icon.classList.add('clickable');
+        icon.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          hitTarget(wrap);
+        });
+        wrap.appendChild(icon);
+
+        const label = DOC.createElement('a-text');
+        safeSetAttr(label, 'value', data.label);
+        safeSetAttr(label, 'align', 'center');
+        safeSetAttr(label, 'color', '#1f2937');
+        safeSetAttr(label, 'width', '2.2');
+        safeSetAttr(label, 'position', '0 0.86 0.03');
+        wrap.appendChild(label);
+
+        if(opts.static){
+          safeSetAttr(wrap, 'rotation', '0 0 0');
+        }
+
+        el.targetRoot.appendChild(wrap);
+        state.targets.add(wrap);
         return wrap;
       }
 
-      function createVrStartPanel(){
-        if(!sceneReady()){
-          afterSceneReady(createVrStartPanel);
+      function spawnWarmupSet(){
+        clearTargets();
+        hardClearStartPanels();
+        resetCameraForWarmup();
+
+        // GOOD 2 ชิ้น เห็นชัดหน้า camera
+        createTarget('warm-good', GOOD[0], {
+          x:-1.05,
+          y:1.58,
+          z:-2.85,
+          static:true,
+          scale:1.28
+        });
+
+        createTarget('warm-good', GOOD[1], {
+          x:1.05,
+          y:1.58,
+          z:-2.85,
+          static:true,
+          scale:1.28
+        });
+
+        // JUNK ตัวอย่าง เพื่อให้เห็นว่าของไม่ดีคืออะไร
+        createTarget('warm-junk', JUNK[0], {
+          x:0,
+          y:2.12,
+          z:-3.12,
+          static:true,
+          scale:1.00
+        });
+
+        // SHIELD อยู่ใกล้ด้านล่าง
+        createTarget('warm-power', POWER[0], {
+          x:0,
+          y:1.12,
+          z:-2.55,
+          static:true,
+          scale:1.18
+        });
+
+        setMission('Warmup: ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD');
+        showToast('เป้าโผล่แล้ว! ยิง GOOD 2 ชิ้นก่อน');
+
+        // fallback: ถ้าเป้าไม่ขึ้น ให้ spawn ซ้ำ
+        setTimeout(function(){
+          if(state.stage !== 'warmup') return;
+
+          const warmTargets = Array.from(state.targets).filter(function(t){
+            const k = t && t.dataset && t.dataset.kind;
+            return k === 'warm-good' || k === 'warm-junk' || k === 'warm-power';
+          });
+
+          if(warmTargets.length < 3){
+            console.warn('[GoodJunk VR] warmup targets missing, respawn');
+            clearTargets();
+
+            createTarget('warm-good', GOOD[0], {
+              x:-0.95, y:1.55, z:-2.60, static:true, scale:1.34
+            });
+            createTarget('warm-good', GOOD[1], {
+              x:0.95, y:1.55, z:-2.60, static:true, scale:1.34
+            });
+            createTarget('warm-power', POWER[0], {
+              x:0, y:1.12, z:-2.35, static:true, scale:1.24
+            });
+
+            setMission('Warmup: เห็นเป้าแล้ว ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD');
+            showToast('respawn เป้าให้อัตโนมัติแล้ว');
+          }
+        }, 600);
+
+        updateHud();
+      }
+
+      function hitTarget(wrap){
+        if(!wrap || !wrap.dataset) return;
+        const kind = wrap.dataset.kind || '';
+        const id = wrap.dataset.id || '';
+
+        if(state.stage === 'warmup'){
+          if(kind === 'warm-good'){
+            state.warmGoodHits += 1;
+            state.score += 10;
+            state.combo += 1;
+            showToast('ดีมาก! นี่คือ GOOD');
+            safeRemoveEntity(wrap, 0);
+            state.targets.delete(wrap);
+
+            if(state.warmGoodHits >= 2){
+              setMission('ดีมาก! ตอนนี้ยิง SHIELD ได้เลย');
+            }else{
+              setMission('Warmup: ยิง GOOD อีก 1 ชิ้น แล้วค่อยยิง SHIELD');
+            }
+          }
+          else if(kind === 'warm-power'){
+            if(state.warmGoodHits < 2){
+              showToast('ยังไม่ใช่! ยิง GOOD ให้ครบ 2 ชิ้นก่อน');
+              setMission('Warmup: ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD');
+              return;
+            }
+
+            state.warmShieldHit = true;
+            state.score += 20;
+            state.combo += 1;
+            showToast('สุดยอด! ได้ SHIELD แล้ว');
+            safeRemoveEntity(wrap, 0);
+            state.targets.delete(wrap);
+
+            setMission('Warmup ผ่านแล้ว! กำลังเข้า Main...');
+            updateHud();
+
+            setTimeout(function(){
+              startMain();
+            }, 800);
+            return;
+          }
+          else if(kind === 'warm-junk'){
+            showToast('DONUT คือ JUNK — อย่ายิงตอนนี้');
+            setMission('Warmup: อย่ายิง JUNK ให้ยิง GOOD 2 ชิ้น แล้วค่อย SHIELD');
+            return;
+          }
+
+          updateHud();
           return;
         }
 
-        if(state.stage !== 'intro') return;
+        if(state.stage === 'main'){
+          if(id === 'broccoli' || id === 'apple'){
+            state.score += 20;
+            state.combo += 1;
+            state.bossHp = clamp(state.bossHp - 10, 0, 100);
+            showToast('GOOD HIT! โจมตีบอส');
+          }else if(id === 'shield'){
+            state.score += 15;
+            state.combo += 1;
+            showToast('ได้ SHIELD!');
+          }else{
+            state.combo = 0;
+            showToast('อันนี้ JUNK ระวัง!');
+          }
 
-        const old = id('vrStartPanel');
-        if(old){
-          safeRemoveEntity(old, 0);
-          state.targets.delete(old);
+          safeRemoveEntity(wrap, 0);
+          state.targets.delete(wrap);
+          updateHud();
+
+          if(state.bossHp <= 0){
+            state.stage = 'done';
+            setMission('ชนะแล้ว! บอสแพ้แล้ว 🎉');
+            showToast('JUNK BOSS DEFEATED!');
+            clearInterval(state.clockTimer);
+            clearTargets();
+            updateHud();
+            return;
+          }
+
+          if(state.targets.size < 3){
+            spawnMainTargets();
+          }
         }
+      }
 
-        const panel = makeTargetEntity('vr-start', {
-          label:'START',
-          file:'shield.png',
-          color:'#22c55e'
-        }, {
-          x:0,
-          y:1.65,
-          z:-2.65,
-          static:true,
-          scale:1
-        });
+      function spawnMainTargets(){
+        clearTargets();
+        createTarget('main-good', GOOD[0], { x:-1.15, y:1.45, z:-2.95, scale:1.2 });
+        createTarget('main-good', GOOD[1], { x:1.15, y:1.45, z:-2.95, scale:1.2 });
+        createTarget('main-power', POWER[0], { x:0, y:1.05, z:-2.55, scale:1.12 });
+        createTarget('main-junk', JUNK[1], { x:0, y:2.05, z:-3.15, scale:0.98 });
 
-        panel.id = 'vrStartPanel';
-        panel.appendChild(makeHitbox(4.1, 2.45, 0.5));
+        setMission('Main: ยิง GOOD / เก็บ SHIELD / หลีกเลี่ยง JUNK');
+      }
 
-        const back = DOC.createElement('a-box');
-        safeSetAttr(back, 'width', '3.8');
-        safeSetAttr(back, 'height', '2.05');
-        safeSetAttr(back, 'depth', '0.08');
-        safeSetAttr(back, 'color', '#ffffff');
-        safeSetAttr(back, 'position', '0 0 0');
-        safeSetAttr(back, 'material', 'opacity:0.94; transparent:true; roughness:0.55');
-        panel.appendChild(back);
-
-        const rimTop = DOC.createElement('a-box');
-        safeSetAttr(rimTop, 'width', '3.95');
-        safeSetAttr(rimTop, 'height', '0.12');
-        safeSetAttr(rimTop, 'depth', '0.12');
-        safeSetAttr(rimTop, 'color', '#22c55e');
-        safeSetAttr(rimTop, 'position', '0 1.08 0.08');
-        panel.appendChild(rimTop);
-
-        const rimBottom = DOC.createElement('a-box');
-        safeSetAttr(rimBottom, 'width', '3.95');
-        safeSetAttr(rimBottom, 'height', '0.12');
-        safeSetAttr(rimBottom, 'depth', '0.12');
-        safeSetAttr(rimBottom, 'color', '#22c55e');
-        safeSetAttr(rimBottom, 'position', '0 -1.08 0.08');
-        panel.appendChild(rimBottom);
-
-        const title = DOC.createElement('a-text');
-        safeSetAttr(title, 'value', 'GOODJUNK 3D VR');
-        safeSetAttr(title, 'align', 'center');
-        safeSetAttr(title, 'color', '#0f172a');
-        safeSetAttr(title, 'width', '4.9');
-        safeSetAttr(title, 'position', '0 0.62 0.16');
-        panel.appendChild(title);
-
-        const sub = DOC.createElement('a-text');
-        safeSetAttr(sub, 'value', 'PRESS SHOOT TO START');
-        safeSetAttr(sub, 'align', 'center');
-        safeSetAttr(sub, 'color', '#2563eb');
-        safeSetAttr(sub, 'width', '4.35');
-        safeSetAttr(sub, 'position', '0 0.25 0.16');
-        panel.appendChild(sub);
-
-        const startPlate = DOC.createElement('a-box');
-        safeSetAttr(startPlate, 'width', '2.2');
-        safeSetAttr(startPlate, 'height', '0.62');
-        safeSetAttr(startPlate, 'depth', '0.12');
-        safeSetAttr(startPlate, 'color', '#bbf7d0');
-        safeSetAttr(startPlate, 'position', '0 -0.38 0.16');
-        panel.appendChild(startPlate);
-
-        const startText = DOC.createElement('a-text');
-        safeSetAttr(startText, 'value', 'START');
-        safeSetAttr(startText, 'align', 'center');
-        safeSetAttr(startText, 'color', '#14532d');
-        safeSetAttr(startText, 'width', '3.2');
-        safeSetAttr(startText, 'position', '0 -0.48 0.29');
-        panel.appendChild(startText);
-
-        const shield = DOC.createElement('a-plane');
-        safeSetAttr(shield, 'width', '0.62');
-        safeSetAttr(shield, 'height', '0.62');
-        safeSetAttr(shield, 'position', '-1.38 -0.38 0.25');
-        panel.appendChild(shield);
-        applyImageMaterial(shield, 'shield.png');
-
-        const apple = DOC.createElement('a-plane');
-        safeSetAttr(apple, 'width', '0.62');
-        safeSetAttr(apple, 'height', '0.62');
-        safeSetAttr(apple, 'position', '1.38 -0.38 0.25');
-        panel.appendChild(apple);
-        applyImageMaterial(apple, 'apple.png');
-
-        const hint = DOC.createElement('a-text');
-        safeSetAttr(hint, 'value', 'Tap / Shoot');
-        safeSetAttr(hint, 'align', 'center');
-        safeSetAttr(hint, 'color', '#475569');
-        safeSetAttr(hint, 'width', '3.7');
-        safeSetAttr(hint, 'position', '0 -0.86 0.16');
-        panel.appendChild(hint);
-
-        safeSetAttr(panel, 'animation__float', {
-          property:'position',
-          dir:'alternate',
-          loop:true,
-          dur:900,
-          easing:'easeInOutSine',
-          to:'0 1.78 -2.65'
-        });
-
-        panel.addEventListener('click', function(e){
-          e.preventDefault();
-          startWarmupFromVr();
-        });
-
-        el.targetRoot.appendChild(panel);
-        state.targets.add(panel);
-
-        setMission('กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ');
-        toast('กด 🎯 เพื่อเริ่ม Full 3D Flow ได้เลย');
+      function startMain(){
+        state.stage = 'main';
+        clearTargets();
+        spawnMainTargets();
+        updateHud();
       }
 
       function startWarmupFromVr(){
@@ -2158,1832 +878,127 @@
           return;
         }
 
-        const panel = id('vrStartPanel');
-        if(panel){
-          safeRemoveEntity(panel, 0);
-          state.targets.delete(panel);
-        }
-
-        hide(el.startOverlay);
-        startWarmup();
-      }
-
-      function spawnWarmupSet(){
-        clearTargets();
-
-        createTarget('warm-good', GOOD[0], {
-          x:-1.22,
-          y:1.50,
-          z:-3.55,
-          static:true,
-          scale:1.20
-        });
-
-        createTarget('warm-good', GOOD[1], {
-          x:1.22,
-          y:1.50,
-          z:-3.55,
-          static:true,
-          scale:1.20
-        });
-
-        createTarget('warm-junk', JUNK[0], {
-          x:0,
-          y:2.16,
-          z:-3.95,
-          static:true,
-          scale:1.05
-        });
-
-        createTarget('warm-power', POWER[0], {
-          x:0,
-          y:1.52,
-          z:-2.95,
-          static:true,
-          scale:1.16
-        });
-
-        setMission('Warmup: ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD');
-      }
-
-      function spawnAt(kind, data, x, y, z, scale, dur){
-        if(typeof x === 'string'){
-          const p = lane(x);
-          return createTarget(kind, data, {
-            x:p.x,
-            y:p.y,
-            z:p.z,
-            scale:scale || 1.08,
-            dur:dur || comfortDur()
-          });
-        }
-
-        return createTarget(kind, data, {
-          x:x,
-          y:y,
-          z:z,
-          scale:scale || 1.08,
-          dur:dur || comfortDur()
-        });
-      }
-
-      function spawnLaneTarget(kind, pool, laneName, delay, scale){
-        setTimeout(function(){
-          if(state.stage !== 'main') return;
-          spawnAt(kind, pick(pool), laneName, null, null, scale || 1.08, comfortDur());
-        }, Number(delay || 0));
-      }
-
-      function spawnGoodLine(){
-        spawnLaneTarget('good', GOOD, 'left', 0, 1.10);
-        spawnLaneTarget('good', GOOD, 'mid', 240, 1.10);
-        spawnLaneTarget('good', GOOD, 'right', 480, 1.10);
-        setMission('ยิง GOOD ต่อเนื่อง ทำ Combo!');
-      }
-
-      function spawnTeachingPair(){
-        const lanes = shuffledLanes();
-        spawnLaneTarget('good', GOOD, lanes[0], 0, 1.10);
-        spawnLaneTarget('junk', JUNK, lanes[1], 260, 1.04);
-        setMission('ดูรูปให้ดี: ยิงอาหารดี หลีกเลี่ยง Junk');
-      }
-
-      function spawnJunkRush(){
-        spawnLaneTarget('junk', JUNK, 'left', 0, 1.04);
-        spawnLaneTarget('good', GOOD, 'mid', 160, 1.12);
-        spawnLaneTarget('junk', JUNK, 'right', 320, 1.04);
-        setMission('Junk Rush: ยิง GOOD ตรงกลาง!');
-        bigFeedback('WATCH JUNK!', 'bad');
-      }
-
-      function spawnFakeTrick(){
-        const lanes = shuffledLanes();
-        spawnLaneTarget('fake', FAKE, lanes[0], 0, 1.06);
-        spawnLaneTarget('good', GOOD, lanes[1], 240, 1.12);
-        spawnLaneTarget('junk', JUNK, lanes[2], 480, 1.03);
-        setMission('Fake Trick: ดูให้ดี อย่ายิงของหลอก!');
-        bigFeedback('CHECK FIRST!', 'warn');
-      }
-
-      function spawnPowerWave(){
-        spawnLaneTarget('good', GOOD, 'closeL', 0, 1.08);
-        spawnLaneTarget('power', POWER, 'closeM', 180, 1.16);
-        spawnLaneTarget('good', GOOD, 'closeR', 360, 1.08);
-        setMission('Power Wave: เก็บ Power แล้วโจมตีบอส!');
-        bigFeedback('POWER WAVE!', 'power');
-        sfx('power');
-      }
-
-      function spawnFinalStorm(){
-        const pattern = Math.random();
-
-        if(pattern < .5){
-          spawnLaneTarget('junk', JUNK, 'left', 0, 1.03);
-          spawnLaneTarget('good', GOOD, 'mid', 140, 1.10);
-          spawnLaneTarget('fake', FAKE, 'right', 280, 1.03);
-          spawnLaneTarget('good', GOOD, 'highL', 420, 1.04);
-          spawnLaneTarget('junk', JUNK, 'highR', 560, 1.02);
-        }else{
-          spawnLaneTarget('good', GOOD, 'left', 0, 1.08);
-          spawnLaneTarget('fake', FAKE, 'mid', 140, 1.03);
-          spawnLaneTarget('good', GOOD, 'right', 280, 1.08);
-          spawnLaneTarget('junk', JUNK, 'highL', 420, 1.02);
-          spawnLaneTarget('good', GOOD, 'highR', 560, 1.04);
-        }
-
-        setMission('Final Storm: ยิง GOOD เท่านั้น!');
-      }
-
-      function spawnMain(){
-        if(state.stage !== 'main') return;
-
-        updateBossPhase();
-
-        if(state.waveLock) return;
-
-        state.waveIndex += 1;
-
-        if(now() >= state.nextPowerAt){
-          state.waveLock = true;
-          spawnPowerWave();
-
-          state.nextPowerAt = now() + 14500 + Math.random() * 5200;
-
-          setTimeout(() => {
-            state.waveLock = false;
-          }, cfg.view === 'cvr' ? 1250 : 950);
-
-          return;
-        }
-
-        if(state.bossPhase === 1){
-          if(state.waveIndex % 5 === 0){
-            spawnTeachingPair();
-          }else if(state.waveIndex % 3 === 0){
-            spawnLaneTarget('good', GOOD, pick(laneNames()), 0, 1.10);
-          }else{
-            spawnGoodLine();
-          }
-          return;
-        }
-
-        if(state.bossPhase === 2){
-          if(state.waveIndex % 3 === 0){
-            spawnJunkRush();
-          }else{
-            const lanes = shuffledLanes();
-            spawnLaneTarget('good', GOOD, lanes[0], 0, 1.10);
-
-            if(Math.random() < .65){
-              spawnLaneTarget('junk', JUNK, lanes[1], 280, 1.03);
-            }
-          }
-          return;
-        }
-
-        if(state.bossPhase === 3){
-          if(state.waveIndex % 3 === 0){
-            spawnFakeTrick();
-          }else{
-            const lanes = shuffledLanes();
-            const r = Math.random();
-
-            if(r < .50){
-              spawnLaneTarget('good', GOOD, lanes[0], 0, 1.10);
-              spawnLaneTarget('fake', FAKE, lanes[1], 300, 1.03);
-            }else{
-              spawnLaneTarget('fake', FAKE, lanes[0], 0, 1.04);
-              spawnLaneTarget('good', GOOD, lanes[1], 300, 1.10);
-            }
-          }
-          return;
-        }
-
-        if(state.bossPhase === 4){
-          if(state.waveIndex % 2 === 0){
-            spawnFinalStorm();
-          }else{
-            const lanes = shuffledLanes();
-            const badKind = Math.random() < .55 ? 'junk' : 'fake';
-            const badPool = badKind === 'junk' ? JUNK : FAKE;
-
-            spawnLaneTarget('good', GOOD, lanes[0], 0, 1.08);
-            spawnLaneTarget(badKind, badPool, lanes[1], 260, 1.03);
-            spawnLaneTarget('good', GOOD, lanes[2], 520, 1.06);
-          }
-
-          if(state.timeLeft <= 20){
-            setMission('Final 20s: ยิง GOOD ให้ไว!');
-          }
-        }
-      }
-
-      function spawnCooldownSet(){
-        clearTargets();
-        setMission('Cooldown Garden: ยิง WATER / HEART / GOOD รับดาวสุขภาพ');
-
-        createTarget('breath', { id:'water', label:'WATER', file:'water.png', color:'#60a5fa' }, {
-          x:-1.35,
-          y:1.50,
-          z:-3.45,
-          static:true,
-          scale:1.16
-        });
-
-        createTarget('breath', { id:'heart', label:'HEART', file:'heart.png', color:'#22c55e' }, {
-          x:0,
-          y:1.80,
-          z:-3.55,
-          static:true,
-          scale:1.16
-        });
-
-        createTarget('breath', { id:'broccoli', label:'GOOD', file:'broccoli.png', color:'#22c55e' }, {
-          x:1.35,
-          y:1.50,
-          z:-3.45,
-          static:true,
-          scale:1.16
-        });
-
-        createCooldownDecor();
-      }
-
-      function createCooldownDecor(){
-        if(!sceneReady()) return;
-        if(!el.fxRoot) return;
-
-        clearCooldownDecor();
-
-        for(let i = 0; i < 10; i++){
-          const flower = DOC.createElement('a-entity');
-          const x = rand(-3.8, 3.8);
-          const z = rand(-5.2, -3.2);
-
-          safeSetAttr(flower, 'position', `${x} 0.12 ${z}`);
-
-          const stem = DOC.createElement('a-cylinder');
-          safeSetAttr(stem, 'radius', '0.025');
-          safeSetAttr(stem, 'height', '0.32');
-          safeSetAttr(stem, 'color', '#16a34a');
-          safeSetAttr(stem, 'position', '0 0.16 0');
-
-          const head = DOC.createElement('a-sphere');
-          safeSetAttr(head, 'radius', '0.09');
-          safeSetAttr(head, 'color', i % 2 ? '#facc15' : '#fb7185');
-          safeSetAttr(head, 'position', '0 0.34 0');
-
-          flower.appendChild(stem);
-          flower.appendChild(head);
-          flower.classList.add('cooldown-decor');
-          el.fxRoot.appendChild(flower);
-        }
-
-        const rainbow = DOC.createElement('a-ring');
-        rainbow.classList.add('cooldown-decor');
-        safeSetAttr(rainbow, 'radius-inner', '2.15');
-        safeSetAttr(rainbow, 'radius-outer', '2.22');
-        safeSetAttr(rainbow, 'theta-start', '0');
-        safeSetAttr(rainbow, 'theta-length', '180');
-        safeSetAttr(rainbow, 'position', '0 3.05 -6.2');
-        safeSetAttr(rainbow, 'rotation', '0 0 0');
-        safeSetAttr(rainbow, 'color', '#38bdf8');
-        safeSetAttr(rainbow, 'material', 'transparent:true; opacity:0.55; side:double');
-
-        el.fxRoot.appendChild(rainbow);
-      }
-
-      function clearCooldownDecor(){
-        try{
-          Array.from(DOC.querySelectorAll('.cooldown-decor')).forEach(x => safeRemoveEntity(x, 0));
-        }catch(e){}
-      }
-
-      function rootFromHit(elm){
-        if(!elm || !elm.closest) return null;
-        return elm.closest('[data-gj-target-root="1"]');
-      }
-
-      function nearestTarget(){
-        const ray = el.aimRay && el.aimRay.components && el.aimRay.components.raycaster;
-
-        if(ray && ray.intersections && ray.intersections.length){
-          const hit = ray.intersections.find(x => {
-            const obj = x.object && x.object.el;
-            return obj && rootFromHit(obj);
-          });
-
-          if(hit && hit.object && hit.object.el){
-            return rootFromHit(hit.object.el);
-          }
-        }
-
-        return null;
-      }
-
-      function aimAssistTarget(){
-        if(!el.camera || !el.camera.object3D || typeof THREE === 'undefined') return null;
-
-        const cam = el.camera.object3D;
-        const camPos = new THREE.Vector3();
-        const camDir = new THREE.Vector3();
-
-        cam.getWorldPosition(camPos);
-        cam.getWorldDirection(camDir);
-
-        let best = null;
-        let bestAngle = Infinity;
-
-        const maxAngle =
-          state.stage === 'warmup' ? 0.36 :
-          state.stage === 'cooldown' ? 0.36 :
-          state.stage === 'intro' ? 0.42 :
-          0.24;
-
-        state.targets.forEach(t => {
-          if(!t || !t.object3D || t.dataset.consumed === '1') return;
-
-          const pos = new THREE.Vector3();
-          t.object3D.getWorldPosition(pos);
-
-          const dir = pos.clone().sub(camPos).normalize();
-          const angle = camDir.angleTo(dir);
-
-          if(angle < bestAngle && angle <= maxAngle){
-            bestAngle = angle;
-            best = t;
-          }
-        });
-
-        return best;
-      }
-
-      function shoot(){
-        if(['intro','warmup','main','cooldown'].indexOf(state.stage) < 0) return;
-
-        if(state.stage === 'intro'){
-          startWarmupFromVr();
-          return;
-        }
-
-        let t = nearestTarget();
-
-        if(!t){
-          t = aimAssistTarget();
-        }
-
-        if(t && t.dataset && t.dataset.kind === 'vr-start'){
-          startWarmupFromVr();
-          return;
-        }
-
-        state.shots += 1;
-
-        if(!t){
-          if(state.stage === 'main'){
-            state.combo = 0;
-            toast('พลาดเป้า! เล็งใหม่');
-          }else if(state.stage === 'warmup'){
-            toast('เล็งอาหาร GOOD หรือ SHIELD');
-          }else if(state.stage === 'cooldown'){
-            toast('เล็ง WATER / HEART / GOOD ให้ครบ');
-          }
-
-          updateHud();
-          return;
-        }
-
-        hitTarget(t);
-      }
-
-      function hitTarget(wrap){
-        if(!wrap || wrap.dataset.consumed === '1') return;
-
-        const kind = wrap.dataset.kind;
-        const data = wrap.__data || {};
-
-        if(kind === 'vr-start'){
-          startWarmupFromVr();
-          return;
-        }
-
-        wrap.dataset.consumed = '1';
-        state.targets.delete(wrap);
-
-        popFx(wrap, kind, data);
-
-        if(kind === 'warm-good'){
-          state.warmGood += 1;
-          state.score += 10;
-          toast('ดีมาก! อาหารดี');
-          sfx('good');
-
-          if(state.warmGood >= 2){
-            setMission('Warmup: ยิง SHIELD เพื่อเริ่มสู้บอส');
-          }
-        }else if(kind === 'warm-junk'){
-          toast('นี่คือ JUNK — อย่ายิงตอนเล่นจริง!');
-          bigFeedback('NO JUNK!', 'bad');
-          sfx('bad');
-        }else if(kind === 'warm-power'){
-          state.warmPower += 1;
-          state.shield = 1;
-          toast('ได้ Shield แล้ว! พร้อมสู้บอส');
-          bigFeedback('SHIELD!', 'power');
-          sfx('power');
-          setTimeout(startMain, 850);
-        }else if(kind === 'good'){
-          hitGood(data);
-        }else if(kind === 'junk' || kind === 'fake'){
-          hitBad(data, kind);
-        }else if(kind === 'power'){
-          hitPower(data);
-        }else if(kind === 'breath'){
-          hitBreath(data);
-        }
-
-        safeRemoveEntity(wrap, 40);
-        updateHud();
-      }
-
-      function resetMiniMission(){
-        const missions = [
-          {
-            id:'good-streak',
-            title:'ยิง GOOD 3 ครั้งติด',
-            progress:0,
-            goal:3,
-            done:false
-          },
-          {
-            id:'combo-5',
-            title:'ทำ Combo x5',
-            progress:0,
-            goal:5,
-            done:false
-          },
-          {
-            id:'avoid-junk',
-            title:'หลบ JUNK ให้ได้ 20 วินาที',
-            progress:0,
-            goal:20,
-            done:false,
-            startAt:now()
-          }
-        ];
-
-        state.miniMission = pick(missions);
-      }
-
-      function miniMissionText(){
-        const m = state.miniMission || {};
-        if(!m.title) return '';
-        return `Mission: ${m.title} ${Math.min(m.progress || 0, m.goal || 1)}/${m.goal || 1}`;
-      }
-
-      function updateMiniMission(eventName){
-        const m = state.miniMission;
-        if(!m || m.done) return;
-
-        if(m.id === 'good-streak'){
-          if(eventName === 'good'){
-            m.progress += 1;
-          }else if(eventName === 'bad'){
-            m.progress = 0;
-          }
-        }
-
-        if(m.id === 'combo-5'){
-          m.progress = Math.max(m.progress || 0, state.combo);
-        }
-
-        if(m.id === 'avoid-junk'){
-          if(eventName === 'bad'){
-            m.progress = 0;
-            m.startAt = now();
-          }else{
-            m.progress = Math.floor((now() - (m.startAt || now())) / 1000);
-          }
-        }
-
-        if(m.progress >= m.goal){
-          completeMiniMission();
-        }
-      }
-
-      function completeMiniMission(){
-        const m = state.miniMission;
-        if(!m || m.done) return;
-
-        m.done = true;
-        state.rankBonus += 1;
-        state.score += 120;
-
-        toast('🌟 Mini Mission สำเร็จ +120');
-        bigFeedback('MISSION!', 'power');
-        sfx('power');
-
-        setMission('Mini Mission สำเร็จ! ยิง GOOD ต่อเพื่อชนะบอส');
-      }
-
-      function hitGood(data){
-        state.goodHits += 1;
-        state.combo += 1;
-        state.perfectStreak += 1;
-        state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-        let points = 14 + Math.min(55, state.combo * 3);
-        let damage = 11 + Math.min(34, state.combo * 1.85);
-
-        if(state.combo >= 5 && state.combo % 5 === 0){
-          points += 60;
-          damage += 12;
-          bigFeedback(`COMBO x${state.combo}`, 'good');
-          sfx('power');
-        }
-
-        if(isFever()){
-          points *= 2.1;
-          damage *= 1.65;
-        }
-
-        if(state.powerFoodReady){
-          points += 120;
-          damage *= 2.6;
-          state.powerFoodReady = false;
-          toast('⭐ Power Food Strike!');
-          bigFeedback('POWER HIT!', 'power');
-          sfx('power');
-        }else{
-          toast(`GOOD! ${data.label || 'FOOD'} Combo x${state.combo}`);
-          if(state.combo < 5){
-            bigFeedback('GOOD!', 'good');
-            sfx('good');
-          }
-        }
-
-        updateMiniMission('good');
-
-        state.score += Math.round(points);
-        state.bossHp = Math.max(0, state.bossHp - Math.round(damage));
-
-        bossHitFx();
-        updateBossVisual();
-
-        if(state.perfectStreak > 0 && state.perfectStreak % 7 === 0){
-          state.shield = Math.min(2, state.shield + 1);
-          toast('🛡️ Perfect Streak ได้ Shield!');
-          bigFeedback('STREAK SHIELD!', 'power');
-          sfx('power');
-        }
-
-        if(state.bossHp <= 0){
-          endMain(true, 'boss-defeated');
-        }
-      }
-
-      function hitBad(data, kind){
-        updateMiniMission('bad');
-        state.perfectStreak = 0;
-
-        if(state.shield > 0){
-          state.shield -= 1;
-          state.combo = Math.max(0, state.combo - 1);
-
-          toast('🛡️ Shield ช่วยกันพลาด!');
-          bigFeedback('SHIELD BLOCK!', 'power');
-          sfx('power');
-          updateHud();
-          return;
-        }
-
-        state.combo = 0;
-        state.misses += 1;
-
-        if(kind === 'junk') state.junkHits += 1;
-        if(kind === 'fake') state.fakeHits += 1;
-
-        const hpHeal =
-          cfg.diff === 'easy' ? 5 :
-          cfg.diff === 'normal' ? 7 :
-          9;
-
-        state.lives -= 1;
-        state.bossHp = Math.min(state.bossMaxHp, state.bossHp + hpHeal);
-
-        bossHealFx();
-        cameraShake();
-        updateBossVisual();
-
-        toast(kind === 'fake'
-          ? `ระวัง FAKE: ${data.label || 'CHECK'}`
-          : `โดน JUNK: ${data.label || 'AVOID'}`
-        );
-
-        bigFeedback(kind === 'fake' ? 'CHECK!' : 'JUNK!', kind === 'fake' ? 'warn' : 'bad');
-        sfx('bad');
-
-        if(state.lives <= 0){
-          endMain(false, 'no-lives');
-        }
-      }
-
-      function hitPower(data){
-        state.score += 55;
-        state.combo += 1;
-        state.perfectStreak += 1;
-
-        if(data.id === 'shield'){
-          state.shield = Math.min(3, state.shield + 1);
-          toast('🛡️ ได้ Shield!');
-          bigFeedback('SHIELD ON!', 'power');
-        }else if(data.id === 'fever'){
-          state.feverUntil = now() + 8000;
-          toast('⚡ Fever Time!');
-          bigFeedback('FEVER!', 'power');
-        }else if(data.id === 'heal'){
-          state.lives = Math.min(D.lives + 1, state.lives + 1);
-          toast('💚 ฟื้นพลัง +1');
-          bigFeedback('HEAL +1', 'good');
-        }else{
-          state.powerFoodReady = true;
-          toast('⭐ Power พร้อม!');
-          bigFeedback('POWER READY!', 'power');
-        }
-
-        sfx('power');
-        updateMiniMission('good');
-      }
-
-      function hitBreath(data){
-        state.cooldownBreath += 1;
-        state.cooldownGood += String(data.label || '').toUpperCase() === 'GOOD' ? 1 : 0;
-        state.score += 5;
-
-        const label = String(data.label || '').toUpperCase();
-
-        if(label === 'WATER'){
-          toast('💧 ดื่มน้ำเปล่า ดีต่อร่างกาย');
-          bigFeedback('WATER!', 'power');
-        }else if(label === 'HEART'){
-          toast('💚 ใจดีต่อสุขภาพ');
-          bigFeedback('HEALTH +', 'good');
-        }else{
-          toast('🥦 เลือกอาหารดี');
-          bigFeedback('GOOD FOOD!', 'good');
-        }
-
-        spawnStarFx();
-        sfx('good');
-
-        if(state.cooldownBreath < 3){
-          setMission(`Cooldown: รับดาวสุขภาพ ${state.cooldownBreath}/3`);
-        }
-
-        if(state.cooldownBreath >= 3){
-          setMission('Cooldown สำเร็จ! กลับหน้าโหมดเกมได้เลย');
-          bigFeedback('HEALTH STAR!', 'good');
-          sfx('power');
-          setTimeout(showFinal, 900);
-        }
-
-        updateHud();
-      }
-
-      function expireTarget(wrap, kind, data){
-        if(!wrap || wrap.dataset.consumed === '1') return;
-
-        wrap.dataset.consumed = '1';
-        state.targets.delete(wrap);
-
-        if(kind === 'good'){
-          state.misses += 1;
-          state.combo = 0;
-          state.perfectStreak = 0;
-          updateMiniMission('bad');
-          toast(`พลาดอาหารดี ${data.label || ''}`);
-          sfx('miss');
-        }
-
-        safeRemoveEntity(wrap, 0);
-        updateHud();
-      }
-
-      function popFx(wrap, kind, data){
-        if(!sceneReady()) return;
-
-        const pos = wrap.object3D.position.clone();
-        const fx = DOC.createElement('a-text');
-
-        safeSetAttr(fx, 'value',
-          kind.includes('good') ? '+GOOD' :
-          kind === 'power' || kind === 'warm-power' ? 'POWER' :
-          kind === 'breath' ? '+CALM' :
-          'MISS'
-        );
-
-        safeSetAttr(fx, 'align','center');
-        safeSetAttr(fx, 'width','3');
-        safeSetAttr(fx, 'color',
-          kind.includes('good') ? '#16a34a' :
-          kind === 'power' || kind === 'warm-power' || kind === 'breath' ? '#f59e0b' :
-          '#ef4444'
-        );
-
-        safeSetAttr(fx, 'position', `${pos.x} ${pos.y + 0.32} ${pos.z}`);
-        safeSetAttr(fx, 'animation__rise', {
-          property:'position',
-          to:`${pos.x} ${pos.y + 1.05} ${pos.z}`,
-          dur:650,
-          easing:'easeOutQuad'
-        });
-        safeSetAttr(fx, 'animation__fade', {
-          property:'opacity',
-          to:'0',
-          dur:650,
-          easing:'easeOutQuad'
-        });
-
-        el.fxRoot.appendChild(fx);
-        safeRemoveEntity(fx, 900);
-      }
-
-      function bossHitFx(){
-        if(!sceneReady()) return;
-        if(!el.bossRoot) return;
-
-        sfx('boss');
-
-        safeSetAttr(el.bossRoot, 'animation__hit', {
-          property:'scale',
-          from:'1.22 1.22 1.22',
-          to:'1 1 1',
-          dur:210,
-          easing:'easeOutBack'
-        });
-
-        safeSetAttr(el.bossRoot, 'animation__shake', {
-          property:'rotation',
-          from:'0 -7 0',
-          to:'0 7 0',
-          dir:'alternate',
-          dur:70,
-          loop:4,
-          easing:'easeInOutSine'
-        });
-
-        const beam = DOC.createElement('a-cylinder');
-        safeSetAttr(beam, 'radius','0.045');
-        safeSetAttr(beam, 'height','6.8');
-        safeSetAttr(beam, 'color', isFever() ? '#facc15' : '#22c55e');
-        safeSetAttr(beam, 'opacity','0.78');
-        safeSetAttr(beam, 'material','transparent:true; opacity:0.78; emissive:#22c55e; emissiveIntensity:0.35');
-        safeSetAttr(beam, 'position','0 1.65 -4');
-        safeSetAttr(beam, 'rotation','90 0 0');
-        safeSetAttr(beam, 'animation__fade', {
-          property:'opacity',
-          to:'0',
-          dur:260
-        });
-
-        el.fxRoot.appendChild(beam);
-
-        const burst = DOC.createElement('a-ring');
-        safeSetAttr(burst, 'radius-inner', '0.25');
-        safeSetAttr(burst, 'radius-outer', '0.34');
-        safeSetAttr(burst, 'position', '0 2.1 -7.0');
-        safeSetAttr(burst, 'color', isFever() ? '#facc15' : '#22c55e');
-        safeSetAttr(burst, 'material', 'transparent:true; opacity:0.75; side:double');
-        safeSetAttr(burst, 'animation__grow', {
-          property:'scale',
-          from:'0.3 0.3 0.3',
-          to:'3.2 3.2 3.2',
-          dur:360,
-          easing:'easeOutQuad'
-        });
-        safeSetAttr(burst, 'animation__fade', {
-          property:'opacity',
-          to:'0',
-          dur:360
-        });
-
-        el.fxRoot.appendChild(burst);
-
-        for(let i = 0; i < 8; i++){
-          const crumb = DOC.createElement('a-box');
-          safeSetAttr(crumb, 'width', '0.08');
-          safeSetAttr(crumb, 'height', '0.08');
-          safeSetAttr(crumb, 'depth', '0.08');
-          safeSetAttr(crumb, 'color', i % 2 ? '#f97316' : '#ef4444');
-
-          const x = rand(-0.4, 0.4);
-          const y = rand(1.8, 2.45);
-          const z = -7 + rand(-0.05, 0.25);
-
-          safeSetAttr(crumb, 'position', `${x} ${y} ${z}`);
-          safeSetAttr(crumb, 'animation__fly', {
-            property:'position',
-            to:`${x + rand(-1.0,1.0)} ${y + rand(.3,1.0)} ${z + rand(.2,.8)}`,
-            dur:480,
-            easing:'easeOutQuad'
-          });
-          safeSetAttr(crumb, 'animation__fade', {
-            property:'opacity',
-            to:'0',
-            dur:480
-          });
-
-          el.fxRoot.appendChild(crumb);
-          safeRemoveEntity(crumb, 620);
-        }
-
-        safeRemoveEntity(beam, 520);
-        safeRemoveEntity(burst, 560);
-      }
-
-      function bossHealFx(){
-        if(!sceneReady()) return;
-        if(!el.bossRoot) return;
-
-        safeSetAttr(el.bossRoot, 'animation__healpop', {
-          property:'scale',
-          from:'1.20 1.20 1.20',
-          to:'1 1 1',
-          dur:260,
-          easing:'easeOutBack'
-        });
-
-        const aura = DOC.createElement('a-ring');
-        safeSetAttr(aura, 'radius-inner', '0.65');
-        safeSetAttr(aura, 'radius-outer', '0.76');
-        safeSetAttr(aura, 'position', '0 2.05 -7.05');
-        safeSetAttr(aura, 'color', '#ef4444');
-        safeSetAttr(aura, 'material', 'transparent:true; opacity:0.76; side:double');
-        safeSetAttr(aura, 'animation__grow', {
-          property:'scale',
-          from:'0.4 0.4 0.4',
-          to:'3.4 3.4 3.4',
-          dur:430,
-          easing:'easeOutQuad'
-        });
-        safeSetAttr(aura, 'animation__fade', {
-          property:'opacity',
-          to:'0',
-          dur:430
-        });
-
-        el.fxRoot.appendChild(aura);
-
-        const healText = DOC.createElement('a-text');
-        safeSetAttr(healText, 'value', 'BOSS HEAL!');
-        safeSetAttr(healText, 'align', 'center');
-        safeSetAttr(healText, 'color', '#ef4444');
-        safeSetAttr(healText, 'width', '3.2');
-        safeSetAttr(healText, 'position', '0 3.2 -7.0');
-        safeSetAttr(healText, 'animation__rise', {
-          property:'position',
-          to:'0 3.75 -7.0',
-          dur:650,
-          easing:'easeOutQuad'
-        });
-        safeSetAttr(healText, 'animation__fade', {
-          property:'opacity',
-          to:'0',
-          dur:650
-        });
-
-        el.fxRoot.appendChild(healText);
-
-        safeRemoveEntity(aura, 760);
-        safeRemoveEntity(healText, 900);
-      }
-
-      function cameraShake(){
-        const rig = id('cameraRig');
-        if(!rig) return;
-
-        safeSetAttr(rig, 'animation__shake', {
-          property:'position',
-          from:'0.06 1.6 0.04',
-          to:'0 1.6 0',
-          dur:180,
-          easing:'easeOutQuad'
-        });
-      }
-
-      function spawnStarFx(){
-        if(!sceneReady()) return;
-        if(!el.fxRoot) return;
-
-        for(let i = 0; i < 7; i++){
-          const star = DOC.createElement('a-text');
-          safeSetAttr(star, 'value', '★');
-          safeSetAttr(star, 'align', 'center');
-          safeSetAttr(star, 'color', i % 2 ? '#facc15' : '#22c55e');
-          safeSetAttr(star, 'width', '2.2');
-
-          const x = rand(-1.4, 1.4);
-          const y = rand(1.1, 2.2);
-          const z = rand(-3.6, -2.6);
-
-          safeSetAttr(star, 'position', `${x} ${y} ${z}`);
-
-          safeSetAttr(star, 'animation__rise', {
-            property:'position',
-            to:`${x} ${y + rand(.7,1.2)} ${z}`,
-            dur:850,
-            easing:'easeOutQuad'
-          });
-
-          safeSetAttr(star, 'animation__fade', {
-            property:'opacity',
-            to:'0',
-            dur:850,
-            easing:'easeOutQuad'
-          });
-
-          el.fxRoot.appendChild(star);
-          safeRemoveEntity(star, 980);
-        }
-      }
-
-      function startWarmup(){
-        if(!sceneReady()){
-          afterSceneReady(startWarmup);
-          return;
-        }
-
-        setSummaryOpen(false);
-
+        state.startPanelBusy = false;
         state.stage = 'warmup';
-        state.started = true;
-        state.ended = false;
-        state.warmGood = 0;
-        state.warmPower = 0;
+        state.warmStarted = true;
+        state.warmGoodHits = 0;
+        state.warmShieldHit = false;
+        state.combo = 0;
+        state.score = 0;
+        state.bossHp = 100;
+        state.lives = 2;
 
-        hide(el.startOverlay);
-        hide(el.summaryOverlay);
-        hide(el.finalOverlay);
-
-        setMission('Warmup: ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD');
+        hardClearStartPanels();
+        resetCameraForWarmup();
         spawnWarmupSet();
         updateHud();
-        toast('Warmup เริ่มแล้ว!');
-        bigFeedback('WARMUP!', 'good');
-        sfx('start');
       }
 
-      function resetSpawnTimer(){
-        clearInterval(state.spawnTimer);
-
-        state.spawnTimer = setInterval(function(){
-          spawnMain();
-
-          if(state.stage === 'main' && state.bossPhase >= 3 && Math.random() < .22){
-            setTimeout(spawnMain, 360);
-          }
-        }, phaseSpawnDelay());
-      }
-
-      function startMain(){
-        if(!sceneReady()){
-          afterSceneReady(startMain);
-          return;
-        }
-
-        setSummaryOpen(false);
-
-        state.stage = 'main';
-        state.startAt = now();
-        state.ended = false;
-
-        state.score = 0;
-        state.goodHits = 0;
-        state.junkHits = 0;
-        state.fakeHits = 0;
-        state.misses = 0;
-        state.shots = 0;
-        state.combo = 0;
-        state.bestCombo = 0;
-        state.perfectStreak = 0;
-        state.rankBonus = 0;
-
-        state.timeLeft = cfg.time;
-        state.bossHp = state.bossMaxHp;
-        state.bossPhase = computeBossPhase();
-        state.waveIndex = 0;
-        state.waveLock = false;
-        state.nextPowerAt = now() + 6500;
-
-        resetMiniMission();
-
-        clearTargets();
-
-        setMission(miniMissionText());
-        toast('Boss Fight เริ่ม!');
-        bigFeedback('BOSS FIGHT!', 'warn');
-        sfx('boss');
-        updateBossVisual();
-
-        if(el.bossRoot){
-          safeSetAttr(el.bossRoot, 'animation__bossintro', {
-            property:'position',
-            from:'0 2.45 -9.2',
-            to:'0 2.05 -8',
-            dur:650,
-            easing:'easeOutBack'
-          });
-        }
-
-        updateHud();
-        resetSpawnTimer();
-
-        setTimeout(() => {
-          if(state.stage === 'main' && state.miniMission && !state.miniMission.done){
-            setMission(miniMissionText());
-            toast(state.miniMission.title);
-          }
-        }, 1200);
-
-        clearInterval(state.clockTimer);
-        state.clockTimer = setInterval(() => {
-          if(state.stage !== 'main') return;
-
-          state.timeLeft -= 1;
-          updateMiniMission('tick');
-
-          if(el.scene){
-            safeSetAttr(el.scene, 'background', 'color', isFever() ? '#fff7cc' : '#dff7ec');
-          }
-
-          if(state.timeLeft <= 0){
-            endMain(state.bossHp <= state.bossMaxHp * 0.25, 'time-up');
-          }
-
-          updateHud();
-        }, 1000);
-      }
-
-      function hasRealMainPlay(){
-        const totalHits = state.goodHits + state.junkHits + state.fakeHits;
-        const playedMs = state.startAt > 0 ? now() - state.startAt : 0;
-
-        return (
-          state.startAt > 0 &&
-          playedMs >= 1200 &&
-          (
-            totalHits > 0 ||
-            state.shots > 0 ||
-            state.score > 0 ||
-            state.bestCombo > 0 ||
-            state.bossHp < state.bossMaxHp
-          )
-        );
-      }
-
-      function resetEmptyMainState(){
-        clearInterval(state.spawnTimer);
-        clearInterval(state.clockTimer);
-        clearTargets();
-
-        state.stage = 'warmup';
-        state.ended = false;
-
-        state.score = 0;
-        state.timeLeft = cfg.time;
-        state.bossHp = state.bossMaxHp;
-
-        state.combo = 0;
-        state.bestCombo = 0;
-        state.goodHits = 0;
-        state.junkHits = 0;
-        state.fakeHits = 0;
-        state.misses = 0;
-        state.shots = 0;
-        state.perfectStreak = 0;
-        state.rankBonus = 0;
-
-        state.waveIndex = 0;
-        state.waveLock = false;
-        state.nextPowerAt = 0;
-
-        updateHud();
-      }
-
-      function calculateRank(){
-        const totalAction = state.goodHits + state.junkHits + state.fakeHits + state.shots;
-        const missTotal = state.misses + state.junkHits + state.fakeHits;
-
-        if(state.score <= 0 || totalAction <= 0 || !hasRealMainPlay()){
-          return {
-            rank:'C',
-            stars:1,
-            acc:0
-          };
-        }
-
-        const accuracy = state.shots > 0
-          ? state.goodHits / Math.max(1, state.shots)
-          : state.goodHits > 0 ? 1 : 0;
-
-        const hpWin = state.bossHp <= 0;
-        const survival = state.lives / Math.max(1, D.lives);
-
-        let stars = 1;
-
-        if(hpWin) stars += 1;
-        if(accuracy >= .50) stars += 1;
-        if(state.bestCombo >= 6) stars += 1;
-        if(survival >= .45) stars += 1;
-        if(state.miniMission && state.miniMission.done) stars += 1;
-        if(missTotal <= 2 && state.goodHits >= 8) stars += 1;
-
-        stars += Math.min(1, state.rankBonus || 0);
-
-        if(state.score < 120 || state.goodHits < 3){
-          stars = Math.min(stars, 2);
-        }else if(state.score < 260 || state.goodHits < 5){
-          stars = Math.min(stars, 3);
-        }
-
-        stars = clamp(stars, 1, 5);
-
-        let rank = 'C';
-        if(stars >= 5) rank = 'S';
-        else if(stars >= 4) rank = 'A';
-        else if(stars >= 3) rank = 'B';
-
-        return { rank, stars, acc:accuracy };
-      }
-
-      function starsText(n){
-        n = Math.max(1, Math.min(5, Number(n || 1)));
-        return '⭐'.repeat(n) + '☆'.repeat(5 - n);
-      }
-
-      function summaryLessonTip(){
-        const missTotal = state.misses + state.junkHits + state.fakeHits;
-
-        if(state.fakeHits > 0){
-          return {
-            icon:'🧃',
-            title:'ระวังของที่ดูเหมือนสุขภาพดี',
-            text:'น้ำผลไม้กล่องหรือของหวานบางอย่างอาจมีน้ำตาลสูง รอบหน้าดูรูปและสีเตือนก่อนยิง'
-          };
-        }
-
-        if(state.junkHits > 0){
-          return {
-            icon:'🍟',
-            title:'หลีกเลี่ยงอาหารขยะ',
-            text:'ของทอด น้ำหวาน และขนมหวานควรกินแต่น้อย รอบหน้าพยายามยิงเฉพาะอาหารดี'
-          };
-        }
-
-        if(state.bestCombo >= 8){
-          return {
-            icon:'🔥',
-            title:'Combo ดีมาก!',
-            text:'เล่นได้แม่นมาก ลองเล่นอีกครั้งเพื่อเก็บ Rank S และทำคะแนนสูงสุด'
-          };
-        }
-
-        if(missTotal === 0 && state.goodHits >= 6){
-          return {
-            icon:'🥦',
-            title:'เลือกอาหารดีได้เยี่ยม!',
-            text:'ผัก ผลไม้ ไข่ และน้ำเปล่า ช่วยให้ร่างกายแข็งแรง ลองเล่นอีกเพื่อทำ Combo ให้สูงขึ้น'
-          };
-        }
-
-        return {
-          icon:'🍎',
-          title:'เริ่มดีแล้ว!',
-          text:'รอบหน้าเล็งอาหารดีให้ไวขึ้น เก็บ Power และพยายามรักษา Combo'
-        };
-      }
-
-      function endMain(win, reason){
-        if(state.stage !== 'main') return;
-
-        if(!hasRealMainPlay()){
-          console.warn('[GoodJunk VR] blocked empty summary', {
-            patch:PATCH,
-            reason,
-            score:state.score,
-            goodHits:state.goodHits,
-            junkHits:state.junkHits,
-            fakeHits:state.fakeHits,
-            shots:state.shots,
-            startAt:state.startAt,
-            bossHp:state.bossHp,
-            bossMaxHp:state.bossMaxHp
-          });
-
-          try{
-            localStorage.setItem('GJ_FULL_3D_VR_BLOCKED_EMPTY_SUMMARY', JSON.stringify({
-              patch:PATCH,
-              reason,
-              score:state.score,
-              goodHits:state.goodHits,
-              shots:state.shots,
-              href:location.href,
-              savedAt:new Date().toISOString()
-            }));
-          }catch(e){}
-
-          setSummaryOpen(false);
-          hide(el.summaryOverlay);
-          hide(el.finalOverlay);
-
-          toast('ยังไม่ได้เล่น Boss จริง เริ่มใหม่ให้นะ');
-          bigFeedback('START BOSS!', 'warn');
-
-          resetEmptyMainState();
-
-          setTimeout(function(){
-            startMain();
-          }, 700);
-
-          return;
-        }
-
-        state.stage = 'summary';
-        state.ended = true;
-        setSummaryOpen(true);
-
-        clearInterval(state.spawnTimer);
-        clearInterval(state.clockTimer);
-        clearTargets();
-
-        const result = calculateRank();
-        const lesson = summaryLessonTip();
-        const newBest = saveBestScore();
-
-        if(state.score <= 0 || state.goodHits <= 0){
-          win = false;
-          reason = reason || 'empty-score';
-        }
-
-        if(el.summaryIcon) el.summaryIcon.textContent = win ? '🏆' : '💪';
-
-        if(el.summaryTitle){
-          el.summaryTitle.textContent = win
-            ? 'ชนะ Junk Boss!'
-            : 'เก่งมาก ลองอีกครั้ง!';
-        }
-
-        if(el.summaryTip){
-          const bestLine = newBest
-            ? '<br><b style="color:#16a34a;">🎉 New Personal Best!</b>'
-            : '<br><span style="color:#64748b;">Best: ' + state.bestSavedScore + ' คะแนน</span>';
-
-          el.summaryTip.innerHTML =
-            '<b style="font-size:20px;color:#0f172a;">' +
-            lesson.icon + ' ' + lesson.title +
-            '</b><br>' +
-            '<span style="display:block;margin-top:8px;">' +
-            lesson.text +
-            '</span>' +
-            bestLine;
-        }
-
-        if(el.sumScore) el.sumScore.textContent = String(state.score);
-        if(el.sumRank) el.sumRank.textContent = `${result.rank} ${starsText(result.stars)}`;
-        if(el.sumGood) el.sumGood.textContent = String(state.goodHits);
-        if(el.sumMiss) el.sumMiss.textContent = String(state.misses + state.junkHits + state.fakeHits);
-
-        show(el.summaryOverlay);
-        setMission('Summary: ดูผล แล้วทำ 3D Cooldown รับดาวสุขภาพ');
-        bigFeedback(win ? 'VICTORY!' : 'GOOD TRY!', win ? 'good' : 'warn');
-        sfx(win ? 'power' : 'good');
-
-        saveSummary(win, reason, result, lesson);
-        updateHud();
-      }
-
-      function saveSummary(win, reason, result, lesson){
+      function shootCenter(){
         try{
-          localStorage.setItem('GJ_FULL_3D_VR_LAST_SUMMARY', JSON.stringify({
-            patch:PATCH,
-            game:'goodjunk',
-            mode:'solo_boss_vr_flow',
-            win,
-            reason,
-            score:state.score,
-            rank:result.rank,
-            stars:result.stars,
-            accuracy:result.acc,
-            goodHits:state.goodHits,
-            junkHits:state.junkHits,
-            fakeHits:state.fakeHits,
-            misses:state.misses,
-            bestCombo:state.bestCombo,
-            miniMission:state.miniMission,
-            perfectStreak:state.perfectStreak,
-            rankBonus:state.rankBonus,
-            bestSavedScore:state.bestSavedScore,
-            lesson:lesson || summaryLessonTip(),
-            launcher:ROUTES.launcher,
-            hub:ROUTES.hub,
-            savedAt:new Date().toISOString()
-          }));
-        }catch(e){}
-      }
+          const camEl = el.camera;
+          const camObj = camEl && camEl.getObject3D('camera');
+          if(!camObj) return;
 
-      function startCooldown(){
-        if(!sceneReady()){
-          afterSceneReady(startCooldown);
-          return;
-        }
+          const rc = new THREE.Raycaster();
+          rc.setFromCamera(new THREE.Vector2(0, 0), camObj);
 
-        setSummaryOpen(false);
+          const clickableMeshes = [];
+          Array.from(document.querySelectorAll('.clickable')).forEach(function(node){
+            if(node && node.object3D){
+              node.object3D.traverse(function(obj){
+                if(obj.isMesh) clickableMeshes.push(obj);
+              });
+            }
+          });
 
-        state.stage = 'cooldown';
-        state.cooldownBreath = 0;
-        state.cooldownGood = 0;
+          const hits = rc.intersectObjects(clickableMeshes, true);
+          if(!hits.length) return;
 
-        hide(el.summaryOverlay);
-
-        clearTargets();
-        clearCooldownDecor();
-
-        if(el.scene){
-          safeSetAttr(el.scene, 'background','color','#e0f2fe');
-        }
-
-        setMission('Cooldown Garden: ยิง WATER / HEART / GOOD รับดาวสุขภาพ');
-        spawnCooldownSet();
-        updateHud();
-        toast('เริ่ม 3D Cooldown');
-        bigFeedback('COOLDOWN', 'power');
-        sfx('good');
-      }
-
-      function showFinal(){
-        state.stage = 'done';
-        setSummaryOpen(true);
-
-        clearTargets();
-        clearCooldownDecor();
-
-        if(el.finalOverlay){
-          const title = el.finalOverlay.querySelector('h1');
-          const p = el.finalOverlay.querySelector('p');
-
-          if(title) title.textContent = 'ได้รับดาวสุขภาพแล้ว!';
-          if(p){
-            p.textContent =
-              'วันนี้เลือกอาหารดี หลบอาหารขยะ และทบทวนสุขภาพครบแล้ว กลับหน้าโหมดเกมเพื่อเล่นต่อได้เลย';
+          let obj = hits[0].object;
+          while(obj && obj.el == null){
+            obj = obj.parent;
           }
-        }
 
-        show(el.finalOverlay);
-        bigFeedback('COMPLETE!', 'good');
-        updateHud();
+          if(obj && obj.el){
+            obj.el.dispatchEvent(new MouseEvent('click', { bubbles:true }));
+          }
+        }catch(err){
+          saveLastError('shootCenter', err);
+        }
       }
 
-      function goLauncher(){
+      function goBack(){
         location.href = ROUTES.launcher;
       }
 
-      function goHub(){
-        location.href = ROUTES.hub;
-      }
-
-      function replay(){
-        setSummaryOpen(false);
-        location.reload();
-      }
-
-      function makeDecor(){
-        if(!sceneReady()) return;
-        if(!el.fxRoot) return;
-
-        for(let i=0;i<24;i++){
-          const dot = DOC.createElement('a-sphere');
-          const a = Math.PI * 2 * i / 24;
-          const r = 9 + (i % 3);
-
-          safeSetAttr(dot, 'position', `${Math.cos(a)*r} ${rand(.4,2.9)} ${-4 + Math.sin(a)*r}`);
-          safeSetAttr(dot, 'radius', String(rand(.05,.13)));
-          safeSetAttr(dot, 'color', i % 2 ? '#ffffff' : '#86efac');
-          safeSetAttr(dot, 'material','transparent:true; opacity:0.45');
-
-          el.fxRoot.appendChild(dot);
+      function enterVr(){
+        if(el.scene && el.scene.enterVR){
+          el.scene.enterVR();
         }
       }
 
-      function debugSnapshot(){
-        const targetList = [];
-        try{
-          state.targets.forEach(t => {
-            if(!t) return;
-            const p = t.getAttribute('position');
-            targetList.push({
-              kind:t.dataset && t.dataset.kind,
-              consumed:t.dataset && t.dataset.consumed,
-              pos:p ? { x:p.x, y:p.y, z:p.z } : null,
-              label:t.__data && t.__data.label,
-              file:t.__data && t.__data.file
-            });
-          });
-        }catch(e){}
+      function startClock(){
+        clearInterval(state.clockTimer);
+        state.clockTimer = setInterval(function(){
+          if(state.stage !== 'warmup' && state.stage !== 'main') return;
 
-        let lastError = null;
-        try{
-          lastError = JSON.parse(localStorage.getItem('GJ_FULL_3D_VR_LAST_ERROR') || 'null');
-        }catch(e){}
+          state.timeLeft = Math.max(0, state.timeLeft - 1);
+          updateHud();
 
-        return {
-          patch:PATCH,
-          assetVersion:ASSET_VERSION,
-          href:location.href,
-          view:cfg.view,
-          diff:cfg.diff,
-          sceneReady:sceneReady(),
-          stage:state.stage,
-          hasRealMainPlay:hasRealMainPlay(),
-          summaryOpen:DOC.body.classList.contains('summary-open'),
-          bossPhase:state.bossPhase,
-          bossHp:state.bossHp + '/' + state.bossMaxHp,
-          score:state.score,
-          timeLeft:state.timeLeft,
-          lives:state.lives,
-          combo:state.combo,
-          bestCombo:state.bestCombo,
-          shield:state.shield,
-          feverActive:isFever(),
-          waveIndex:state.waveIndex,
-          waveLock:state.waveLock,
-          miniMission:state.miniMission,
-          targetsCount:state.targets.size,
-          targets:targetList,
-          assetTest:{
-            broccoli:assetUrl('broccoli.png'),
-            fries:assetUrl('fries.png'),
-            shield:assetUrl('shield.png')
-          },
-          lastError:lastError
-        };
-      }
-
-      function refreshDebug(){
-        if(!el.debugText) return;
-        try{
-          el.debugText.textContent = JSON.stringify(debugSnapshot(), null, 2);
-        }catch(err){
-          el.debugText.textContent = String(err && (err.stack || err.message) || err);
-        }
-      }
-
-      function openDebug(){
-        show(el.debugPanel);
-        refreshDebug();
-
-        clearInterval(openDebug._timer);
-        openDebug._timer = setInterval(function(){
-          if(el.debugPanel && !el.debugPanel.classList.contains('hidden')){
-            refreshDebug();
+          if(state.timeLeft <= 0){
+            clearInterval(state.clockTimer);
+            state.stage = 'done';
+            clearTargets();
+            setMission('หมดเวลาแล้ว');
+            showToast('หมดเวลา');
+            updateHud();
           }
-        }, 700);
-      }
-
-      function closeDebug(){
-        hide(el.debugPanel);
-        clearInterval(openDebug._timer);
-      }
-
-      function debugForceWarmup(){
-        closeDebug();
-        try{
-          setSummaryOpen(false);
-          clearInterval(state.spawnTimer);
-          clearInterval(state.clockTimer);
-          clearTargets();
-          state.stage = 'intro';
-          startWarmupFromVr();
-        }catch(err){
-          saveLastError('debugForceWarmup', err);
-        }
-      }
-
-      function debugForceBoss(){
-        closeDebug();
-        try{
-          setSummaryOpen(false);
-          clearInterval(state.spawnTimer);
-          clearInterval(state.clockTimer);
-          clearTargets();
-          hide(el.startOverlay);
-          hide(el.summaryOverlay);
-          hide(el.finalOverlay);
-          state.stage = 'warmup';
-          state.shield = Math.max(1, state.shield);
-          startMain();
-        }catch(err){
-          saveLastError('debugForceBoss', err);
-        }
-      }
-
-      function debugForceCooldown(){
-        closeDebug();
-        try{
-          setSummaryOpen(false);
-          clearInterval(state.spawnTimer);
-          clearInterval(state.clockTimer);
-          clearTargets();
-          hide(el.startOverlay);
-          hide(el.summaryOverlay);
-          hide(el.finalOverlay);
-          startCooldown();
-        }catch(err){
-          saveLastError('debugForceCooldown', err);
-        }
-      }
-
-      function debugTestAssets(){
-        const files = [
-          'broccoli.png','apple.png','egg.png','water.png',
-          'fries.png','soda.png','donut.png','candy.png',
-          'juice-box.png','shield.png','heart.png','fever.png'
-        ];
-
-        let done = 0;
-        const results = [];
-
-        files.forEach(file => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          const url = assetUrl(file);
-
-          img.onload = function(){
-            results.push('✅ ' + file + ' ' + (img.naturalWidth || img.width) + 'x' + (img.naturalHeight || img.height));
-            done += 1;
-            finish();
-          };
-
-          img.onerror = function(){
-            results.push('❌ ' + file + ' load failed: ' + url);
-            done += 1;
-            finish();
-          };
-
-          img.src = url;
-        });
-
-        function finish(){
-          if(done < files.length) return;
-
-          try{
-            localStorage.setItem('GJ_FULL_3D_VR_ASSET_TEST', JSON.stringify({
-              patch:PATCH,
-              results,
-              savedAt:new Date().toISOString()
-            }));
-          }catch(e){}
-
-          if(el.debugText){
-            el.debugText.textContent = results.join('\n');
-          }
-
-          toast('Asset test complete');
-        }
-      }
-
-      function runSelfTest(){
-        const missing = [];
-
-        [
-          ['scene', el.scene],
-          ['camera', el.camera],
-          ['aimRay', el.aimRay],
-          ['targetRoot', el.targetRoot],
-          ['fxRoot', el.fxRoot],
-          ['bossRoot', el.bossRoot],
-          ['shootBtn', el.shootBtn],
-          ['startBtn', el.startBtn],
-          ['versionStamp', el.versionStamp]
-        ].forEach(pair => {
-          if(!pair[1]) missing.push('el.' + pair[0]);
-        });
-
-        return {
-          ok:missing.length === 0,
-          missing,
-          patch:PATCH,
-          assetVersion:ASSET_VERSION,
-          assetUrls:[
-            assetUrl('broccoli.png'),
-            assetUrl('fries.png'),
-            assetUrl('shield.png')
-          ]
-        };
-      }
-
-      function bind(){
-        el.startBtn?.addEventListener('click', startWarmupFromVr);
-
-        el.vrHintBtn?.addEventListener('click', () => {
-          toast('กด Enter VR แล้วกด 🎯 เพื่อเริ่มได้เลย');
-        });
-
-        el.shootBtn?.addEventListener('click', e => {
-          e.preventDefault();
-          shoot();
-        });
-
-        DOC.addEventListener('keydown', e => {
-          if(e.code === 'Space' || e.code === 'Enter'){
-            e.preventDefault();
-            shoot();
-          }
-        });
-
-        WIN.addEventListener('hha:shoot', shoot);
-
-        el.backBtn?.addEventListener('click', goLauncher);
-        el.cooldownBtn?.addEventListener('click', startCooldown);
-        el.replayBtn?.addEventListener('click', replay);
-        el.launcherBtn?.addEventListener('click', goLauncher);
-        el.finalLauncherBtn?.addEventListener('click', goLauncher);
-        el.finalHubBtn?.addEventListener('click', goHub);
-
-        DOC.addEventListener('click', e => {
-          const targetRoot = e.target && e.target.closest
-            ? rootFromHit(e.target)
-            : null;
-
-          if(targetRoot){
-            e.preventDefault();
-            hitTarget(targetRoot);
-          }
-        }, true);
-
-        let versionTapCount = 0;
-        let versionTapTimer = 0;
-
-        el.versionStamp?.addEventListener('click', function(){
-          versionTapCount += 1;
-
-          clearTimeout(versionTapTimer);
-          versionTapTimer = setTimeout(function(){
-            versionTapCount = 0;
-          }, 1200);
-
-          if(versionTapCount >= 5){
-            versionTapCount = 0;
-            openDebug();
-          }
-        });
-
-        el.debugCloseBtn?.addEventListener('click', closeDebug);
-        el.debugWarmupBtn?.addEventListener('click', debugForceWarmup);
-        el.debugBossBtn?.addEventListener('click', debugForceBoss);
-        el.debugCooldownBtn?.addEventListener('click', debugForceCooldown);
-
-        el.debugClearBtn?.addEventListener('click', function(){
-          clearTargets();
-          refreshDebug();
-          toast('Clear targets');
-        });
-
-        el.debugAssetBtn?.addEventListener('click', debugTestAssets);
-
-        el.bootSafeReloadBtn?.addEventListener('click', function(){
-          location.reload();
-        });
-
-        el.bootSafeLauncherBtn?.addEventListener('click', function(){
-          location.href = ROUTES.launcher;
-        });
-
-        el.bootSafeDebugBtn?.addEventListener('click', function(){
-          hideBootSafe();
-          openDebug();
-        });
+        }, 1000);
       }
 
       function boot(){
-        try{
-          applyViewClass();
-          setVersionStamp();
-          loadBestScore();
+        updateHud();
+        spawnVrStartPanel();
+        startClock();
 
-          const test = runSelfTest();
-
-          try{
-            localStorage.setItem('GJ_FULL_3D_VR_SELF_TEST_LAST', JSON.stringify({
-              ...test,
-              href:location.href,
-              savedAt:new Date().toISOString()
-            }));
-          }catch(e){}
-
-          if(!test.ok){
-            showBootSafe(
-              'ไฟล์ยัง merge ไม่ครบ หรือ element/function หาย:\n' +
-              test.missing.join('\n')
-            );
-            console.warn('[GoodJunk VR] self-test failed', test);
+        el.btnBack.addEventListener('click', goBack);
+        el.btnEnterVr.addEventListener('click', function(){
+          enterVr();
+          if(!state.warmStarted){
+            startWarmupFromVr();
           }
+        });
+        el.btnShoot.addEventListener('click', function(){
+          if(state.stage === 'intro'){
+            startWarmupFromVr();
+            return;
+          }
+          shootCenter();
+        });
 
-          afterSceneReady(function(){
-            makeDecor();
-            createVrStartPanel();
+        // auto ready
+        setMission('Warmup: ยิง GOOD 2 ชิ้น แล้วค่อยยิง SHIELD');
 
-            setTimeout(function(){
-              if(state.stage === 'intro') createVrStartPanel();
-            }, 500);
-
-            setTimeout(function(){
-              if(state.stage === 'intro') createVrStartPanel();
-            }, 1200);
-          });
-
-          bind();
-          updateHud();
-
-          setTimeout(function(){
-            try{
-              cleanWhitePngUrl('broccoli.png').then(function(url){
-                console.log('[GoodJunk VR] broccoli asset ready', url.slice(0, 48));
-              });
-            }catch(err){
-              saveLastError('asset-preload-check', err);
-            }
-          }, 800);
-
-          WIN.GoodJunkFull3DVRFlow = {
-            version:PATCH,
+        try{
+          localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
+            patch:PATCH,
             assetVersion:ASSET_VERSION,
-            assetUrl,
-            cleanWhitePngUrl,
-            debugSnapshot,
-            openDebug,
-            debugTestAssets,
-            runSelfTest,
-            startWarmup,
-            startWarmupFromVr,
-            startMain,
-            startCooldown,
-            shoot,
-            goLauncher,
-            getState:()=>({...state, patch:PATCH})
-          };
+            href:location.href,
+            savedAt:new Date().toISOString(),
+            targetVisibleHotfix:true
+          }));
+        }catch(_){}
+      }
 
-          WIN.GJF3D = WIN.GoodJunkFull3DVRFlow;
-
-          WIN.GJVR_CHECK = function(){
-            try{
-              const snap = debugSnapshot();
-              console.log('[GJVR_CHECK]', snap);
-              return snap;
-            }catch(err){
-              console.error('[GJVR_CHECK failed]', err);
-              return err;
-            }
-          };
-
-          try{
-            localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST', JSON.stringify({
-              patch:PATCH,
-              href:location.href,
-              view:cfg.view,
-              diff:cfg.diff,
-              assetVersion:ASSET_VERSION,
-              assetTest:assetUrl('broccoli.png'),
-              cleanBg:true,
-              versionStamp:true,
-              debugPanel:true,
-              summaryGuard:true,
-              materialSafe:true,
-              selfTest:test,
-              savedAt:new Date().toISOString()
-            }));
-          }catch(e){}
+      afterSceneReady(function(){
+        try{
+          boot();
         }catch(err){
-          saveLastError('boot-failed', err);
-
-          showBootSafe(
-            'Boot failed:\n' +
-            String(err && (err.stack || err.message) || err)
-          );
+          saveLastError('boot', err);
         }
-      }
+      });
 
-      if(typeof AFRAME === 'undefined'){
-        showBootSafe(
-          'A-Frame ยังไม่โหลด หรือโหลดไม่สำเร็จ\n' +
-          'ตรวจ internet / CDN / cache แล้วลองโหลดใหม่'
-        );
-      }
-
-      if(DOC.readyState === 'loading'){
-        DOC.addEventListener('DOMContentLoaded', boot);
-      }else{
-        boot();
-      }
     })();
   </script>
 </body>
