@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER -->
+<!-- FULL PATCH v20260506e-BRUSH-KIDS-START-BUTTON-ROUTER-FIX -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -3987,7 +3987,61 @@ body.clean-play .btnPrimary{
   z-index:200000 !important;
 }
 
-  </style>
+  
+/* === PATCH 20260506e: START BUTTON ROUTER FIX === */
+body:not(.brush-stage-summary) #patch16Hud,
+body:not(.brush-stage-summary) #p20Toolbar,
+body:not(.brush-stage-summary) #p20Coach,
+body:not(.brush-stage-summary) #p24Dock,
+body:not(.brush-stage-summary) #p30StatusDock,
+body:not(.brush-stage-summary) #p30cStartBar,
+body:not(.brush-stage-summary) #cleanRouterBar{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+body.brush-stage-summary #patch16Hud{display:grid !important;visibility:visible !important;pointer-events:auto !important;}
+body.brush-stage-summary #p20Toolbar{display:flex !important;visibility:visible !important;pointer-events:auto !important;}
+body.brush-stage-summary #p24Dock{display:flex !important;visibility:visible !important;pointer-events:auto !important;}
+body.brush-stage-summary #p30StatusDock{display:grid !important;visibility:visible !important;pointer-events:auto !important;}
+.brushStartFixBar{
+  position:fixed;left:50%;bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);z-index:400000;width:min(720px,92vw);
+  display:none;grid-template-columns:1fr auto;gap:8px;padding:8px;border-radius:24px;
+  background:rgba(240,253,255,.96);border:2px solid #bdf4ff;
+  box-shadow:0 18px 48px rgba(23,56,79,.20);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+}
+body.brush-stage-howto .brushStartFixBar,
+body.brush-stage-prep .brushStartFixBar{display:grid;}
+.brushStartFixMain,.brushStartFixMini{
+  border:0;border-radius:18px;min-height:60px;padding:10px 14px;cursor:pointer;
+  font:1000 16px/1.15 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+.brushStartFixMain{background:linear-gradient(180deg,#fff2a8,#ffd84d);color:#503c00;box-shadow:0 12px 26px rgba(80,60,0,.12);}
+.brushStartFixMini{min-width:82px;background:linear-gradient(180deg,#ecfeff,#ffffff);border:2px solid #bdf4ff;color:#0f766e;}
+.brushStartFixToast{
+  position:fixed;left:50%;top:12%;z-index:400001;transform:translateX(-50%);
+  width:min(720px,92vw);min-height:46px;display:none;place-items:center;text-align:center;
+  padding:10px 16px;border-radius:999px;background:rgba(23,56,79,.94);color:#fff;
+  box-shadow:0 18px 46px rgba(23,56,79,.24);
+  font:1000 14px/1.25 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+.brushStartFixToast.show{display:grid;animation:brushStartFixToastPop 1.15s ease-out forwards;}
+@keyframes brushStartFixToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(.9)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.98)}
+}
+body.brush-stage-howto .screen.active,
+body.brush-stage-prep .screen.active{padding-bottom:calc(108px + env(safe-area-inset-bottom,0px)) !important;}
+body.brush-play-unlocked .screen.active,
+body.brush-play-unlocked .actions,
+body.brush-play-unlocked button[data-action],
+body.brush-play-unlocked .btn,
+body.brush-play-unlocked .btnPrimary{position:relative;z-index:250000 !important;}
+
+</style>
 </head>
 <body data-stage="howto">
   <main class="page">
@@ -4299,7 +4353,7 @@ body.clean-play .btnPrimary{
     (function(){
       'use strict';
 
-      const VERSION = '20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER';
+      const VERSION = '20260506e-BRUSH-KIDS-START-BUTTON-ROUTER-FIX';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -8085,7 +8139,7 @@ body.clean-play .btnPrimary{
 
   const qs = new URLSearchParams(location.search || '');
   const P24 = {
-    version:'20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER',
+    version:'20260506e-BRUSH-KIDS-START-BUTTON-ROUTER-FIX',
     startedAt:Date.now(),
     qa:null,
     lastManifest:null,
@@ -8608,7 +8662,7 @@ body.clean-play .btnPrimary{
 
   const qs = new URLSearchParams(location.search || '');
   const P30 = {
-    version:'20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER',
+    version:'20260506e-BRUSH-KIDS-START-BUTTON-ROUTER-FIX',
     startedAt:Date.now(),
     activeTab:'overview',
     test:null,
@@ -9444,60 +9498,73 @@ body.clean-play .btnPrimary{
   <div class="cleanToast" id="cleanToast"></div>
 
 
+
+  <div class="brushStartFixBar" id="brushStartFixBar">
+    <button class="brushStartFixMain" id="brushStartFixMain" type="button">▶ เริ่มเตรียมแปรงฟัน</button>
+    <button class="brushStartFixMini" id="brushStartFixSkip" type="button">เข้าเกมเลย</button>
+  </div>
+  <div class="brushStartFixToast" id="brushStartFixToast"></div>
+
+
 <script>
-/* === PATCH 20260506d: CLEAN PLAY DIRECT ROUTER === */
+/* === PATCH 20260506e: START BUTTON ROUTER FIX === */
 (function(){
   'use strict';
+  var routing = false;
 
   function $(id){ return document.getElementById(id); }
-
-  function params(){
-    return new URLSearchParams(location.search || '');
-  }
+  function q(){ return new URLSearchParams(location.search || ''); }
 
   function currentStage(){
-    const ds = document.body && document.body.dataset ? document.body.dataset.stage : '';
+    var ds = document.body && document.body.dataset ? document.body.dataset.stage : '';
     if(ds) return ds;
-    const active = document.querySelector('.screen.active');
+    var active = document.querySelector('.screen.active');
     if(active && active.id) return active.id.replace(/^screen-/,'');
-    return params().get('stage') || 'howto';
-  }
-
-  function gotoStage(stage){
-    const url = new URL(location.href);
-    url.searchParams.set('stage', stage);
-    url.searchParams.set('v', '20260506d');
-    // Keep cache-busting small and deterministic per click.
-    url.searchParams.set('_r', Date.now().toString(36));
-    location.replace(url.toString());
+    return q().get('stage') || 'howto';
   }
 
   function toast(msg){
-    const el = $('cleanToast');
+    var el = $('brushStartFixToast');
     if(!el) return;
     el.textContent = msg;
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 1200);
+    setTimeout(function(){ el.classList.remove('show'); }, 1200);
+  }
+
+  function routeTo(stage){
+    if(routing) return;
+    routing = true;
+    var url = new URL(location.href);
+    url.searchParams.set('stage', stage);
+    url.searchParams.set('v', '20260506e');
+    url.searchParams.set('_r', Date.now().toString(36));
+    location.href = url.toString();
   }
 
   function sync(){
-    const s = currentStage();
-    const isSummary = s === 'summary';
+    var s = currentStage();
+    var summary = s === 'summary';
 
-    document.body.classList.add('clean-play');
-    ['howto','prep','main','boss','summary'].forEach(x => {
-      document.body.classList.toggle('clean-' + x, s === x);
+    document.body.classList.add('brush-play-unlocked');
+    ['howto','prep','main','boss','summary'].forEach(function(x){
+      document.body.classList.toggle('brush-stage-' + x, s === x);
     });
-    document.body.classList.toggle('clean-summary', isSummary);
+    document.body.classList.toggle('brush-stage-summary', summary);
 
-    // Kill blockers before summary, no exceptions.
-    const blockers = ['patch16Hud','p20Toolbar','p20Coach','p24Dock','p30StatusDock','p30cStartBar'];
-    blockers.forEach(id => {
-      const el = $(id);
+    var bar = $('brushStartFixBar');
+    if(bar) bar.style.display = (s === 'howto' || s === 'prep') ? 'grid' : 'none';
+
+    var main = $('brushStartFixMain');
+    var skip = $('brushStartFixSkip');
+    if(main) main.textContent = s === 'prep' ? '▶ พร้อมแล้ว ไปเล่นจริง' : '▶ เริ่มเตรียมแปรงฟัน';
+    if(skip) skip.textContent = s === 'prep' ? 'ข้าม Prep' : 'เข้าเกมเลย';
+
+    ['patch16Hud','p20Toolbar','p20Coach','p24Dock','p30StatusDock','p30cStartBar','cleanRouterBar'].forEach(function(id){
+      var el = $(id);
       if(!el) return;
-      if(!isSummary){
+      if(!summary){
         el.style.display = 'none';
         el.style.visibility = 'hidden';
         el.style.pointerEvents = 'none';
@@ -9507,104 +9574,56 @@ body.clean-play .btnPrimary{
         el.style.pointerEvents = '';
       }
     });
-
-    const bar = $('cleanRouterBar');
-    const main = $('cleanRouterMain');
-    const skip = $('cleanRouterSkip');
-
-    if(bar){
-      bar.style.display = (s === 'howto' || s === 'prep') ? 'grid' : 'none';
-    }
-
-    if(main){
-      main.textContent = s === 'prep' ? '▶ พร้อมแล้ว ไปเล่นจริง' : '▶ เริ่มเตรียมแปรงฟัน';
-    }
-    if(skip){
-      skip.textContent = s === 'prep' ? 'ข้าม Prep' : 'เข้าเกมเลย';
-    }
-  }
-
-  function tryNativeStart(){
-    const stageBefore = currentStage();
-
-    const btn = document.querySelector('[data-action="start"]');
-    if(btn){
-      try{ btn.click(); }catch(_){}
-      try{
-        btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
-      }catch(_){}
-    }
-
-    setTimeout(() => {
-      if(currentStage() === stageBefore){
-        gotoStage('prep');
-      }
-    }, 300);
-  }
-
-  function tryPrepDone(){
-    const stageBefore = currentStage();
-
-    const btn = document.querySelector('[data-action="prepDone"]');
-    if(btn){
-      try{ btn.click(); }catch(_){}
-      try{
-        btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
-      }catch(_){}
-    }
-
-    setTimeout(() => {
-      if(currentStage() === stageBefore){
-        gotoStage('main');
-      }
-    }, 300);
   }
 
   function mainAction(){
-    const s = currentStage();
+    var s = currentStage();
     if(s === 'howto'){
-      toast('กำลังเข้าเตรียมแปรง...');
-      tryNativeStart();
+      toast('กำลังไปหน้าเตรียมแปรง...');
+      routeTo('prep');
     }else if(s === 'prep'){
       toast('กำลังเข้าเกมแปรงฟัน...');
-      tryPrepDone();
+      routeTo('main');
     }else{
-      gotoStage('main');
+      routeTo('main');
     }
   }
 
   function skipAction(){
-    const s = currentStage();
-    if(s === 'howto') gotoStage('main');
-    else if(s === 'prep') gotoStage('main');
-    else gotoStage('main');
+    toast('เข้าเกมแปรงฟันเลย...');
+    routeTo('main');
   }
 
   function bind(){
-    if($('cleanRouterMain')) $('cleanRouterMain').addEventListener('click', mainAction);
-    if($('cleanRouterSkip')) $('cleanRouterSkip').addEventListener('click', skipAction);
+    var main = $('brushStartFixMain');
+    var skip = $('brushStartFixSkip');
+    if(main) main.addEventListener('click', mainAction);
+    if(skip) skip.addEventListener('click', skipAction);
 
-    // Fallback for the visible yellow button inside howto.
     document.addEventListener('click', function(e){
-      const btn = e.target && e.target.closest ? e.target.closest('button,[role="button"],a') : null;
+      var btn = e.target && e.target.closest ? e.target.closest('button,a,[role="button"]') : null;
       if(!btn) return;
-      const text = String(btn.textContent || '').trim();
-      const action = btn.dataset ? btn.dataset.action : '';
 
-      if(currentStage() === 'howto' && (action === 'start' || /เริ่มแปรงฟัน|เริ่มเตรียม|Start/i.test(text))){
+      var s = currentStage();
+      var action = btn.dataset ? btn.dataset.action : '';
+      var text = String(btn.textContent || '').trim();
+
+      if(s === 'howto' && (action === 'start' || /เริ่มแปรงฟัน|เริ่มเตรียม|Start/i.test(text))){
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         mainAction();
+        return;
       }
 
-      if(currentStage() === 'prep' && (action === 'prepDone' || /พร้อม|ไปเล่น|เริ่ม/i.test(text))){
+      if(s === 'prep' && (action === 'prepDone' || /พร้อม|ไปเล่น|เริ่ม/i.test(text))){
         e.preventDefault();
-        e.stopPropagation();
+        e.stopImmediatePropagation();
         mainAction();
+        return;
       }
     }, true);
 
-    const mo = new MutationObserver(sync);
+    var mo = new MutationObserver(sync);
     mo.observe(document.body, { attributes:true, attributeFilter:['data-stage','class'], childList:true, subtree:true });
     window.addEventListener('resize', sync);
     setInterval(sync, 500);
@@ -9613,7 +9632,7 @@ body.clean-play .btnPrimary{
   function init(){
     sync();
     bind();
-    setTimeout(() => {
+    setTimeout(function(){
       sync();
       if(currentStage() === 'howto') toast('กด ▶ เริ่มเตรียมแปรงฟัน หรือ เข้าเกมเลย');
     }, 600);
