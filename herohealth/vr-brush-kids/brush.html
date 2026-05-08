@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX -->
+<!-- FULL PATCH v20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -3712,6 +3712,281 @@ body.p30-stage-summary #p24QaBadge{
   display:none !important;
 }
 
+  
+/* === PATCH 20260506c: EMERGENCY PLAY UNLOCK === */
+/* Hard rule: before summary, diagnostics/progression panels must not block gameplay controls. */
+body:not(.stage-summary) #patch16Hud,
+body:not(.stage-summary) #p24Dock,
+body:not(.stage-summary) #p30StatusDock,
+body:not(.stage-summary) #patch16ReportModal:not(.show),
+body:not(.stage-summary) #p24Modal:not(.show),
+body:not(.stage-summary) #p30Modal:not(.show),
+body:not(.stage-summary) #p20ResearchModal:not(.show){
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+body.p30c-play-unlock #patch16Hud,
+body.p30c-play-unlock #p24Dock,
+body.p30c-play-unlock #p30StatusDock{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+body.p30c-play-unlock #p20Toolbar{
+  pointer-events:none !important;
+}
+
+body.p30c-play-unlock #p20Toolbar .p20ToolBtn:not(#p20HelpBtn){
+  display:none !important;
+  pointer-events:none !important;
+}
+
+body.p30c-play-unlock #p20HelpBtn{
+  pointer-events:auto !important;
+}
+
+body.stage-summary #patch16Hud{
+  display:grid !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+
+body.stage-summary #p24Dock{
+  display:flex !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+
+body.stage-summary #p30StatusDock{
+  display:grid !important;
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+
+.p30cStartBar{
+  position:fixed;
+  left:50%;
+  bottom:calc(12px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%);
+  z-index:200000;
+  width:min(720px,92vw);
+  display:none;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  padding:8px;
+  border-radius:24px;
+  background:rgba(240,253,255,.94);
+  border:2px solid #bdf4ff;
+  box-shadow:0 18px 46px rgba(23,56,79,.18);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+
+body.stage-howto .p30cStartBar{
+  display:grid;
+}
+
+.p30cPlayBtn,
+.p30cMiniBtn{
+  border:0;
+  border-radius:18px;
+  min-height:58px;
+  padding:10px 14px;
+  font:1000 16px/1.15 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+  cursor:pointer;
+}
+
+.p30cPlayBtn{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  color:#503c00;
+  box-shadow:0 12px 24px rgba(80,60,0,.12);
+}
+
+.p30cMiniBtn{
+  min-width:74px;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+}
+
+.p30cToast{
+  position:fixed;
+  left:50%;
+  top:14%;
+  z-index:200001;
+  transform:translateX(-50%);
+  width:min(720px,92vw);
+  min-height:46px;
+  display:none;
+  place-items:center;
+  text-align:center;
+  padding:10px 16px;
+  border-radius:999px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  box-shadow:0 18px 46px rgba(23,56,79,.24);
+  font:1000 14px/1.25 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.p30cToast.show{
+  display:grid;
+  animation:p30cToastPop 1.1s ease-out forwards;
+}
+
+@keyframes p30cToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(16px) scale(.9)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.98)}
+}
+
+body.stage-howto .screen.active,
+body.stage-prep .screen.active,
+body.stage-main .screen.active,
+body.stage-boss .screen.active{
+  padding-bottom:calc(92px + env(safe-area-inset-bottom,0px)) !important;
+}
+
+/* emergency: if old fixed panels remain visible, place active screen controls above them */
+body.p30c-play-unlock .screen.active,
+body.p30c-play-unlock .actions,
+body.p30c-play-unlock button[data-action],
+body.p30c-play-unlock .btnPrimary{
+  position:relative;
+  z-index:150000 !important;
+}
+
+  
+/* === PATCH 20260506d: CLEAN PLAY DIRECT ROUTER === */
+/* Clean play first: nothing diagnostic is allowed to block howto/prep/main/boss. */
+body:not(.clean-summary) #patch16Hud,
+body:not(.clean-summary) #p20Toolbar,
+body:not(.clean-summary) #p20Coach,
+body:not(.clean-summary) #p24Dock,
+body:not(.clean-summary) #p30StatusDock,
+body:not(.clean-summary) #p30cStartBar,
+body:not(.clean-summary) #p24Modal:not(.show),
+body:not(.clean-summary) #p30Modal:not(.show),
+body:not(.clean-summary) #p20ResearchModal:not(.show),
+body:not(.clean-summary) #patch16ReportModal:not(.show),
+body:not(.clean-summary) .patch16Hud,
+body:not(.clean-summary) .p20Toolbar,
+body:not(.clean-summary) .p20Coach,
+body:not(.clean-summary) .p24Dock,
+body:not(.clean-summary) .p30StatusDock{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+body.clean-summary #patch16Hud,
+body.clean-summary #p20Toolbar,
+body.clean-summary #p24Dock,
+body.clean-summary #p30StatusDock{
+  visibility:visible !important;
+  pointer-events:auto !important;
+}
+
+body.clean-summary #patch16Hud{ display:grid !important; }
+body.clean-summary #p20Toolbar{ display:flex !important; }
+body.clean-summary #p24Dock{ display:flex !important; }
+body.clean-summary #p30StatusDock{ display:grid !important; }
+
+.cleanRouterBar{
+  position:fixed;
+  left:50%;
+  bottom:calc(10px + env(safe-area-inset-bottom,0px));
+  z-index:300000;
+  transform:translateX(-50%);
+  width:min(720px,92vw);
+  display:none;
+  grid-template-columns:1fr auto;
+  gap:8px;
+  padding:8px;
+  border-radius:24px;
+  background:rgba(240,253,255,.96);
+  border:2px solid #bdf4ff;
+  box-shadow:0 18px 48px rgba(23,56,79,.20);
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+}
+
+body.clean-howto .cleanRouterBar,
+body.clean-prep .cleanRouterBar{
+  display:grid;
+}
+
+.cleanRouterMain,
+.cleanRouterMini{
+  border:0;
+  border-radius:18px;
+  min-height:60px;
+  padding:10px 14px;
+  cursor:pointer;
+  font:1000 16px/1.15 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.cleanRouterMain{
+  background:linear-gradient(180deg,#fff2a8,#ffd84d);
+  color:#503c00;
+  box-shadow:0 12px 26px rgba(80,60,0,.12);
+}
+
+.cleanRouterMini{
+  min-width:82px;
+  background:linear-gradient(180deg,#ecfeff,#ffffff);
+  border:2px solid #bdf4ff;
+  color:#0f766e;
+}
+
+.cleanToast{
+  position:fixed;
+  left:50%;
+  top:12%;
+  z-index:300001;
+  transform:translateX(-50%);
+  width:min(720px,92vw);
+  min-height:46px;
+  display:none;
+  place-items:center;
+  text-align:center;
+  padding:10px 16px;
+  border-radius:999px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  box-shadow:0 18px 46px rgba(23,56,79,.24);
+  font:1000 14px/1.25 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+
+.cleanToast.show{
+  display:grid;
+  animation:cleanToastPop 1.15s ease-out forwards;
+}
+
+@keyframes cleanToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(18px) scale(.9)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-10px) scale(.98)}
+}
+
+body.clean-howto .screen.active,
+body.clean-prep .screen.active{
+  padding-bottom:calc(104px + env(safe-area-inset-bottom,0px)) !important;
+}
+
+body.clean-play .screen.active,
+body.clean-play button,
+body.clean-play .actions,
+body.clean-play .btn,
+body.clean-play .btnPrimary{
+  position:relative;
+  z-index:200000 !important;
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -4024,7 +4299,7 @@ body.p30-stage-summary #p24QaBadge{
     (function(){
       'use strict';
 
-      const VERSION = '20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX';
+      const VERSION = '20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -7810,7 +8085,7 @@ body.p30-stage-summary #p24QaBadge{
 
   const qs = new URLSearchParams(location.search || '');
   const P24 = {
-    version:'20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX',
+    version:'20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER',
     startedAt:Date.now(),
     qa:null,
     lastManifest:null,
@@ -8333,7 +8608,7 @@ body.p30-stage-summary #p24QaBadge{
 
   const qs = new URLSearchParams(location.search || '');
   const P30 = {
-    version:'20260506b-BRUSH-KIDS-PLAY-FIRST-MOBILE-HUD-FIX',
+    version:'20260506d-BRUSH-KIDS-CLEAN-PLAY-DIRECT-ROUTER',
     startedAt:Date.now(),
     activeTab:'overview',
     test:null,
@@ -8983,6 +9258,365 @@ body.p30-stage-summary #p24QaBadge{
       applyPlayFirst();
       fixStartButtons();
     }, 1000);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+
+  <div class="p30cStartBar" id="p30cStartBar">
+    <button class="p30cPlayBtn" id="p30cPlayBtn" type="button">▶ เริ่มเตรียมแปรงฟัน</button>
+    <button class="p30cMiniBtn" id="p30cHideBtn" type="button">ซ่อน</button>
+  </div>
+  <div class="p30cToast" id="p30cToast"></div>
+
+
+<script>
+/* === PATCH 20260506c: EMERGENCY PLAY UNLOCK === */
+(function(){
+  'use strict';
+
+  function $(id){ return document.getElementById(id); }
+
+  function currentStage(){
+    const ds = document.body && document.body.dataset ? document.body.dataset.stage : '';
+    if(ds) return ds;
+    const active = document.querySelector('.screen.active');
+    if(active && active.id) return active.id.replace(/^screen-/,'');
+    const q = new URLSearchParams(location.search || '');
+    return q.get('stage') || 'howto';
+  }
+
+  function toast(msg){
+    const el = $('p30cToast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1200);
+  }
+
+  function syncStageClasses(){
+    const s = currentStage();
+    document.body.classList.add('p30c-play-unlock');
+
+    ['howto','prep','main','boss','summary'].forEach(x => {
+      document.body.classList.toggle('stage-' + x, s === x);
+    });
+
+    const playing = s !== 'summary';
+    const hideIds = ['patch16Hud','p24Dock','p30StatusDock'];
+    hideIds.forEach(id => {
+      const el = $(id);
+      if(!el) return;
+      if(playing){
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+        el.style.pointerEvents = 'none';
+      }else{
+        el.style.display = '';
+        el.style.visibility = '';
+        el.style.pointerEvents = '';
+      }
+    });
+
+    const toolbar = $('p20Toolbar');
+    if(toolbar && playing){
+      Array.from(toolbar.querySelectorAll('button')).forEach(btn => {
+        if(btn.id !== 'p20HelpBtn'){
+          btn.style.display = 'none';
+          btn.style.pointerEvents = 'none';
+        }
+      });
+    }else if(toolbar){
+      Array.from(toolbar.querySelectorAll('button')).forEach(btn => {
+        btn.style.display = '';
+        btn.style.pointerEvents = '';
+      });
+    }
+
+    const bar = $('p30cStartBar');
+    if(bar){
+      bar.style.display = s === 'howto' ? 'grid' : 'none';
+    }
+  }
+
+  function clickAction(actionName){
+    const btn = document.querySelector('[data-action="' + actionName + '"]');
+    if(!btn) return false;
+
+    try{
+      btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles:true, cancelable:true, pointerId:31, pointerType:'mouse' }));
+    }catch(_){}
+
+    try{
+      btn.dispatchEvent(new MouseEvent('mousedown', { bubbles:true, cancelable:true }));
+      btn.dispatchEvent(new MouseEvent('mouseup', { bubbles:true, cancelable:true }));
+      btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
+    }catch(_){}
+
+    try{ btn.click(); }catch(_){}
+    return true;
+  }
+
+  function clickByText(re){
+    const buttons = Array.from(document.querySelectorAll('button,a,[role="button"]'));
+    const btn = buttons.find(b => re.test(String(b.textContent || '').trim()));
+    if(!btn) return false;
+
+    try{
+      btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
+      btn.click && btn.click();
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  function emergencyStart(){
+    syncStageClasses();
+    toast('กำลังเริ่มขั้นเตรียมแปรง...');
+
+    let ok = clickAction('start');
+    if(!ok) ok = clickByText(/เริ่ม|Start|Brush/i);
+
+    setTimeout(() => {
+      syncStageClasses();
+      if(currentStage() === 'howto'){
+        toast('ถ้ายังไม่ไปต่อ ให้รีเฟรชแบบล้างแคช แล้วกดเริ่มอีกครั้ง');
+      }
+    }, 550);
+  }
+
+  function bind(){
+    const play = $('p30cPlayBtn');
+    if(play) play.addEventListener('click', emergencyStart);
+
+    const hide = $('p30cHideBtn');
+    if(hide) hide.addEventListener('click', () => {
+      const bar = $('p30cStartBar');
+      if(bar) bar.style.display = 'none';
+    });
+
+    // Capture clicks on old overlay buttons before they block the game.
+    document.addEventListener('click', function(e){
+      const target = e.target && e.target.closest ? e.target.closest('button,a,[role="button"]') : null;
+      if(!target) return;
+
+      const txt = String(target.textContent || '').trim();
+      if(currentStage() !== 'summary' && /QA|Release|Report|Daily Boss|Open|Data|Polish|Tune/i.test(txt)){
+        e.preventDefault();
+        e.stopPropagation();
+        syncStageClasses();
+        toast('ซ่อนแผงตรวจสอบไว้ก่อน เล่นเกมให้จบแล้วค่อยดู Report/QA');
+      }
+    }, true);
+
+    const mo = new MutationObserver(syncStageClasses);
+    mo.observe(document.body, { attributes:true, attributeFilter:['data-stage','class'], childList:true, subtree:true });
+
+    window.addEventListener('resize', syncStageClasses);
+    setInterval(syncStageClasses, 500);
+  }
+
+  function init(){
+    syncStageClasses();
+    bind();
+    setTimeout(() => {
+      syncStageClasses();
+      if(currentStage() === 'howto') toast('กดปุ่ม ▶ เริ่มเตรียมแปรงฟัน ด้านล่าง');
+    }, 600);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+
+
+  <div class="cleanRouterBar" id="cleanRouterBar">
+    <button class="cleanRouterMain" id="cleanRouterMain" type="button">▶ เริ่มเตรียมแปรงฟัน</button>
+    <button class="cleanRouterMini" id="cleanRouterSkip" type="button">ข้ามไปเล่น</button>
+  </div>
+  <div class="cleanToast" id="cleanToast"></div>
+
+
+<script>
+/* === PATCH 20260506d: CLEAN PLAY DIRECT ROUTER === */
+(function(){
+  'use strict';
+
+  function $(id){ return document.getElementById(id); }
+
+  function params(){
+    return new URLSearchParams(location.search || '');
+  }
+
+  function currentStage(){
+    const ds = document.body && document.body.dataset ? document.body.dataset.stage : '';
+    if(ds) return ds;
+    const active = document.querySelector('.screen.active');
+    if(active && active.id) return active.id.replace(/^screen-/,'');
+    return params().get('stage') || 'howto';
+  }
+
+  function gotoStage(stage){
+    const url = new URL(location.href);
+    url.searchParams.set('stage', stage);
+    url.searchParams.set('v', '20260506d');
+    // Keep cache-busting small and deterministic per click.
+    url.searchParams.set('_r', Date.now().toString(36));
+    location.replace(url.toString());
+  }
+
+  function toast(msg){
+    const el = $('cleanToast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 1200);
+  }
+
+  function sync(){
+    const s = currentStage();
+    const isSummary = s === 'summary';
+
+    document.body.classList.add('clean-play');
+    ['howto','prep','main','boss','summary'].forEach(x => {
+      document.body.classList.toggle('clean-' + x, s === x);
+    });
+    document.body.classList.toggle('clean-summary', isSummary);
+
+    // Kill blockers before summary, no exceptions.
+    const blockers = ['patch16Hud','p20Toolbar','p20Coach','p24Dock','p30StatusDock','p30cStartBar'];
+    blockers.forEach(id => {
+      const el = $(id);
+      if(!el) return;
+      if(!isSummary){
+        el.style.display = 'none';
+        el.style.visibility = 'hidden';
+        el.style.pointerEvents = 'none';
+      }else{
+        el.style.display = '';
+        el.style.visibility = '';
+        el.style.pointerEvents = '';
+      }
+    });
+
+    const bar = $('cleanRouterBar');
+    const main = $('cleanRouterMain');
+    const skip = $('cleanRouterSkip');
+
+    if(bar){
+      bar.style.display = (s === 'howto' || s === 'prep') ? 'grid' : 'none';
+    }
+
+    if(main){
+      main.textContent = s === 'prep' ? '▶ พร้อมแล้ว ไปเล่นจริง' : '▶ เริ่มเตรียมแปรงฟัน';
+    }
+    if(skip){
+      skip.textContent = s === 'prep' ? 'ข้าม Prep' : 'เข้าเกมเลย';
+    }
+  }
+
+  function tryNativeStart(){
+    const stageBefore = currentStage();
+
+    const btn = document.querySelector('[data-action="start"]');
+    if(btn){
+      try{ btn.click(); }catch(_){}
+      try{
+        btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
+      }catch(_){}
+    }
+
+    setTimeout(() => {
+      if(currentStage() === stageBefore){
+        gotoStage('prep');
+      }
+    }, 300);
+  }
+
+  function tryPrepDone(){
+    const stageBefore = currentStage();
+
+    const btn = document.querySelector('[data-action="prepDone"]');
+    if(btn){
+      try{ btn.click(); }catch(_){}
+      try{
+        btn.dispatchEvent(new MouseEvent('click', { bubbles:true, cancelable:true }));
+      }catch(_){}
+    }
+
+    setTimeout(() => {
+      if(currentStage() === stageBefore){
+        gotoStage('main');
+      }
+    }, 300);
+  }
+
+  function mainAction(){
+    const s = currentStage();
+    if(s === 'howto'){
+      toast('กำลังเข้าเตรียมแปรง...');
+      tryNativeStart();
+    }else if(s === 'prep'){
+      toast('กำลังเข้าเกมแปรงฟัน...');
+      tryPrepDone();
+    }else{
+      gotoStage('main');
+    }
+  }
+
+  function skipAction(){
+    const s = currentStage();
+    if(s === 'howto') gotoStage('main');
+    else if(s === 'prep') gotoStage('main');
+    else gotoStage('main');
+  }
+
+  function bind(){
+    if($('cleanRouterMain')) $('cleanRouterMain').addEventListener('click', mainAction);
+    if($('cleanRouterSkip')) $('cleanRouterSkip').addEventListener('click', skipAction);
+
+    // Fallback for the visible yellow button inside howto.
+    document.addEventListener('click', function(e){
+      const btn = e.target && e.target.closest ? e.target.closest('button,[role="button"],a') : null;
+      if(!btn) return;
+      const text = String(btn.textContent || '').trim();
+      const action = btn.dataset ? btn.dataset.action : '';
+
+      if(currentStage() === 'howto' && (action === 'start' || /เริ่มแปรงฟัน|เริ่มเตรียม|Start/i.test(text))){
+        e.preventDefault();
+        e.stopPropagation();
+        mainAction();
+      }
+
+      if(currentStage() === 'prep' && (action === 'prepDone' || /พร้อม|ไปเล่น|เริ่ม/i.test(text))){
+        e.preventDefault();
+        e.stopPropagation();
+        mainAction();
+      }
+    }, true);
+
+    const mo = new MutationObserver(sync);
+    mo.observe(document.body, { attributes:true, attributeFilter:['data-stage','class'], childList:true, subtree:true });
+    window.addEventListener('resize', sync);
+    setInterval(sync, 500);
+  }
+
+  function init(){
+    sync();
+    bind();
+    setTimeout(() => {
+      sync();
+      if(currentStage() === 'howto') toast('กด ▶ เริ่มเตรียมแปรงฟัน หรือ เข้าเกมเลย');
+    }, 600);
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
