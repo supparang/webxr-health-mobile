@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.js
-   Version: v10.0.0-production
+   Version: v10.0.1-emoji-default
    Purpose:
    - Aqua Rush hydration game
    - PC / Mobile / Cardboard cVR
@@ -9,7 +9,7 @@
    - Badge / Personal Best / Daily Challenge
    - Boss fair win + combo pressure + green-zone pressure
    - Boss drama + endgame tension
-   - Image target fallback
+   - Emoji default target + optional image target fallback
    - Summary + learning analytics + cooldown flow
    ========================================================= */
 
@@ -18,7 +18,7 @@
 
   window.HHA = window.HHA || {};
   window.HHA.Hydration = window.HHA.Hydration || {
-    VERSION: 'v10.0.0-production',
+    VERSION: 'v10.0.1-emoji-default',
     booted: false,
     started: false,
     destroyed: false,
@@ -29,7 +29,7 @@
   };
 
   const HYD = window.HHA.Hydration;
-  HYD.VERSION = 'v10.0.0-production';
+  HYD.VERSION = 'v10.0.1-emoji-default';
 
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
   window.toggleHydrationPause = toggleHydrationPause;
@@ -299,6 +299,13 @@
 
   const HHA_HYDRATION_ASSET_BASE = './assets/hydration/';
 
+  /*
+    v10.0.1
+    Default = emoji first.
+    If image files are uploaded and paths are correct, change this to true.
+  */
+  const HHA_HYDRATION_USE_IMAGE_TARGETS = false;
+
   const HHA_HYDRATION_ITEM_IMAGES = {
     water: 'water.png',
     watermelon: 'watermelon.png',
@@ -313,8 +320,11 @@
   };
 
   function getHydrationItemImageSrc(item){
+    if(!HHA_HYDRATION_USE_IMAGE_TARGETS) return '';
+
     const file = HHA_HYDRATION_ITEM_IMAGES[item.id];
     if(!file) return '';
+
     return HHA_HYDRATION_ASSET_BASE + file;
   }
 
