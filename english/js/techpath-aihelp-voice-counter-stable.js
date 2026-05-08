@@ -1,25 +1,25 @@
 /* =========================================================
  * /english/js/techpath-aihelp-voice-counter-stable.js
- * PATCH v20260508b-AIHELP-VOICE-COUNTER-STABLE-QUALITY
+ * PATCH v20260508c-AIHELP-VOICE-COUNTER-STABLE-FINAL
  *
- * ✅ คืนตัวเลือกเสียง AI Help
+ * ใช้ไฟล์นี้ตัวเดียวสำหรับ AI Help:
+ * ✅ เลือกเสียง AI Help ได้
  * ✅ เลือกเสียงแล้วใช้เสียงนั้นจริง
  * ✅ เลือกเสียง US / natural voice ที่ฟังนุ่ม ชัด ก่อน
  * ✅ มี preset โทนเสียง Teacher / Clear US / Coach
  * ✅ กด AI Help แล้วนับ 0/3 -> 1/3 -> 2/3 -> 3/3
+ * ✅ ครบ 3 ครั้งแล้วกันไม่ให้ใช้ AI Help เพิ่ม
  * ✅ ไม่ยุ่งกับ route / level / student / loading
  * ✅ ไม่บังปุ่มเล่นเกม
  *
- * ใช้ไฟล์นี้ตัวเดียวสำหรับ:
- * - AI Help voice picker
- * - AI Help selected voice lock
- * - AI Help counter
+ * IMPORTANT:
+ * อย่าโหลดไฟล์ voice/counter ตัวอื่นซ้อนกับไฟล์นี้
  * ========================================================= */
 
 (function () {
   'use strict';
 
-  const PATCH_ID = 'techpath-aihelp-voice-counter-stable-v20260508b';
+  const PATCH_ID = 'techpath-aihelp-voice-counter-stable-v20260508c';
 
   const VOICE_KEY = 'TECHPATH_AIHELP_SELECTED_VOICE_URI';
   const OLD_VOICE_KEY = 'LESSON_AIHELP_SELECTED_VOICE_V1';
@@ -78,6 +78,20 @@
         "'": '&#39;'
       }[m];
     });
+  }
+
+  function normSession(v) {
+    const raw = String(v || '').trim().toUpperCase();
+
+    if (/^S(0[1-9]|1[0-5])$/.test(raw)) return raw;
+
+    const m = raw.match(/(\d{1,2})/);
+    if (m) {
+      const n = Math.max(1, Math.min(15, Number(m[1]) || 1));
+      return 'S' + String(n).padStart(2, '0');
+    }
+
+    return 'S01';
   }
 
   function injectStyle() {
@@ -165,6 +179,13 @@
         pointer-events: none !important;
       }
 
+      .techpath-aihelp-count-added {
+        margin-top: 4px !important;
+        font-weight: 900 !important;
+        color: #eaffff !important;
+        opacity: .88 !important;
+      }
+
       @media (max-width: 820px) {
         #techPathAIHelpStable {
           left: 10px !important;
@@ -209,7 +230,7 @@
     if (isUS(v)) score += 1000;
     if (String(v.lang || '').toLowerCase() === 'en-us') score += 350;
 
-    /* เสียงที่มักฟังนุ่ม/ชัดกว่า */
+    // กลุ่มเสียงที่มักฟังนุ่ม/ชัดกว่า
     if (/Microsoft Jenny/i.test(s)) score += 950;
     if (/Microsoft Aria/i.test(s)) score += 920;
     if (/Microsoft Ava/i.test(s)) score += 880;
@@ -219,15 +240,15 @@
     if (/Microsoft Zira/i.test(s)) score += 720;
     if (/Alex/i.test(s)) score += 620;
 
-    /* เสียงผู้ชายชัด แต่แข็งกว่า จึงให้รองลงมา */
+    // เสียงผู้ชายชัด แต่แข็งกว่า จึงให้รองลงมา
     if (/Microsoft Guy/i.test(s)) score += 560;
     if (/Microsoft David/i.test(s)) score += 470;
     if (/Microsoft Mark/i.test(s)) score += 420;
 
-    /* กันสำเนียงที่ไม่ใช่ US หลุดมาเป็นตัวแรก */
+    // กันสำเนียงที่ไม่ใช่ US หลุดมาเป็นตัวแรก
     if (isBadAccent(v)) score -= 2500;
 
-    /* ลดเสียง generic ที่มัก robot */
+    // ลดเสียง generic ที่มัก robot
     if (/default/i.test(s)) score -= 120;
     if (/compact/i.test(s)) score -= 120;
     if (/novelty/i.test(s)) score -= 200;
@@ -268,7 +289,7 @@
 
     if (!voices.length) return null;
 
-    /* ถ้าผู้ใช้เลือกไว้แล้ว ให้เคารพเสียงที่เลือก */
+    // ถ้าผู้ใช้เลือกไว้แล้ว ให้เคารพเสียงที่เลือก
     if (key) {
       const exact = voices.find(function (v) {
         return v.voiceURI === key || v.name === key;
@@ -291,7 +312,7 @@
       if (loose) return loose;
     }
 
-    /* ถ้ายังไม่เคยเลือก ให้เลือกเสียงที่ดีที่สุดอัตโนมัติ */
+    // ถ้ายังไม่เคยเลือก ให้เลือกเสียงที่ดีที่สุดอัตโนมัติ
     return voices[0] || null;
   }
 
@@ -411,10 +432,9 @@
 
     select.innerHTML = voices.map(function (v) {
       const tag = isUS(v) && !isBadAccent(v) ? '🇺🇸 US • ' : 'EN • ';
-      const score = voiceScore(v);
       const selected = current && current.voiceURI === v.voiceURI ? 'selected' : '';
 
-      return `<option value="${esc(v.voiceURI)}" ${selected}>${esc(tag + v.name + ' (' + v.lang + ') • score ' + score)}</option>`;
+      return `<option value="${esc(v.voiceURI)}" ${selected}>${esc(tag + v.name + ' (' + v.lang + ')')}</option>`;
     }).join('');
 
     if (presetSelect) {
@@ -438,7 +458,7 @@
   }
 
   function sessionKey() {
-    const s =
+    const rawSession =
       qs('session') ||
       qs('s') ||
       window.LESSON_SESSION ||
@@ -446,10 +466,11 @@
       window.currentS ||
       'S01';
 
+    const session = normSession(rawSession);
     const level = qs('level') || qs('diff') || window.LESSON_LEVEL || window.currentLevel || 'normal';
     const pid = qs('pid') || qs('studentId') || qs('student_id') || window.studentId || 'anon';
 
-    return `TECHPATH_AIHELP_USED_${pid}_${String(s).toUpperCase()}_${level}`;
+    return `TECHPATH_AIHELP_USED_${pid}_${session}_${level}`;
   }
 
   function getCount() {
@@ -483,7 +504,7 @@
   function incCount(source) {
     const now = Date.now();
 
-    /* กันนับซ้ำจาก click + function speak ในจังหวะเดียวกัน */
+    // กันนับซ้ำจาก click + function speak ในจังหวะเดียวกัน
     if (now - lastCountAt < 900) {
       return getCount();
     }
@@ -544,18 +565,19 @@
       updateTextNodes(card, /ใช้แล้ว\s*\d+\s*\/\s*\d+\s*ครั้ง/g, `ใช้แล้ว ${usedText} ครั้ง`);
       updateTextNodes(card, /\b\d+\s*\/\s*\d+\b/g, usedText);
 
-      if (!new RegExp(`${n}\\s*/\\s*${MAX_HELP}`).test(txt(card))) {
-        const exists = card.querySelector('.techpath-aihelp-count-added');
+      const exists = card.querySelector('.techpath-aihelp-count-added');
 
+      if (!new RegExp(`${n}\\s*/\\s*${MAX_HELP}`).test(txt(card))) {
         if (!exists) {
           const add = document.createElement('div');
           add.className = 'techpath-aihelp-count-added';
           add.textContent = `ใช้แล้ว ${usedText} ครั้ง`;
-          add.style.cssText = 'margin-top:4px;font-weight:900;color:#eaffff;opacity:.88;';
           card.appendChild(add);
         } else {
           exists.textContent = `ใช้แล้ว ${usedText} ครั้ง`;
         }
+      } else if (exists) {
+        exists.textContent = `ใช้แล้ว ${usedText} ครั้ง`;
       }
     });
   }
@@ -608,7 +630,7 @@
       u.lang = 'en-US';
     }
 
-    /* ค่าที่ฟังนุ่ม ชัด ไม่แหบ ไม่ยาน */
+    // ค่าที่ฟังนุ่ม ชัด ไม่แหบ ไม่ยาน
     u.rate = preset.rate;
     u.pitch = preset.pitch;
     u.volume = preset.volume;
@@ -663,6 +685,11 @@
     if (!msg || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return false;
 
     if (!options.noCount) {
+      if (getCount() >= MAX_HELP) {
+        showBadge(`⚠️ ใช้ AI Help ครบแล้ว (${MAX_HELP}/${MAX_HELP})`);
+        return false;
+      }
+
       incCount('speakStable');
     }
 
@@ -739,8 +766,16 @@
 
       btn.dataset.techPathStableAihelpBound = '1';
 
-      btn.addEventListener('click', function () {
+      btn.addEventListener('click', function (ev) {
+        if (getCount() >= MAX_HELP) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          showBadge(`⚠️ ใช้ AI Help ครบแล้ว (${MAX_HELP}/${MAX_HELP})`);
+          return false;
+        }
+
         incCount('aihelp-button-click');
+        return true;
       }, true);
     });
   }
@@ -764,6 +799,11 @@
         const first = String(arguments[0] || '');
 
         if (!/voice selected|test voice|selected voice|voice style selected/i.test(first)) {
+          if (getCount() >= MAX_HELP) {
+            showBadge(`⚠️ ใช้ AI Help ครบแล้ว (${MAX_HELP}/${MAX_HELP})`);
+            return false;
+          }
+
           incCount('aihelp-global-' + name);
         }
 
@@ -799,6 +839,9 @@
           localStorage.removeItem(OLD_VOICE_KEY);
         } catch (e) {}
 
+        const select = document.getElementById('techPathAIHelpVoiceSelect');
+        if (select) select.value = '';
+
         populateVoicePicker();
         return getSelectedVoice();
       },
@@ -828,6 +871,7 @@
           preset: p,
           count: getCount(),
           max: MAX_HELP,
+          sessionKey: sessionKey(),
           counterCards: findAiHelpLimitCards().length,
           voices: sortedVoices().map(function (voice) {
             return {
