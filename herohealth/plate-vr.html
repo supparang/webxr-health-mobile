@@ -2,771 +2,186 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Solo Launcher</title>
-  <meta name="theme-color" content="#9fe3ff" />
-  <meta name="color-scheme" content="light" />
-
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#e9fff3" />
+  <title>HeroHealth • Plate Launcher</title>
   <style>
     :root{
-      --bg:#f7fcff;
-      --card:#ffffff;
-      --line:#dbeaf4;
-      --text:#334155;
-      --muted:#6d7d8b;
-      --sky:#7fcfff;
-      --gold:#ffd45f;
-      --gold-soft:#fff8ea;
-      --shadow:0 14px 30px rgba(0,0,0,.08);
+      --bg1:#f6fff1;--bg2:#e7fbff;--bg3:#eef1ff;--card:#fff;--line:#d8edf6;
+      --text:#244761;--muted:#668aa0;--green:#45d483;--blue:#5cbcff;--yellow:#ffd65d;
+      --red:#ff5a70;--shadow:0 22px 54px rgba(42,78,102,.14);
+      --safeTop:env(safe-area-inset-top,0px);--safeBottom:env(safe-area-inset-bottom,0px);
     }
-
-    *{ box-sizing:border-box; }
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;width:100%;min-height:100%;overflow-x:hidden}
+    body{
+      font-family:"Noto Sans Thai","Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 10% 10%, rgba(255,233,168,.35), transparent 22%),
-        radial-gradient(circle at 90% 10%, rgba(127,207,255,.24), transparent 20%),
-        linear-gradient(180deg,#f7fcff,#fffef9);
-      -webkit-tap-highlight-color:transparent;
+        radial-gradient(circle at 14% 12%,rgba(255,232,126,.55),transparent 30%),
+        radial-gradient(circle at 82% 14%,rgba(116,230,180,.45),transparent 30%),
+        radial-gradient(circle at 50% 92%,rgba(112,210,255,.38),transparent 36%),
+        linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));
+      user-select:none;touch-action:manipulation;
     }
-
-    body{ overflow-x:hidden; }
-
-    .page{
-      max-width:980px;
-      margin:0 auto;
-      padding:18px 16px 28px;
+    button,select,input{font:inherit}button{border:0}.hidden{display:none!important}
+    .page{min-height:100vh;padding:calc(18px + var(--safeTop)) 16px calc(34px + var(--safeBottom));position:relative}
+    .page:before{content:"";position:fixed;inset:-20%;pointer-events:none;background:radial-gradient(circle at 25% 35%,rgba(255,255,255,.8),transparent 25%),radial-gradient(circle at 78% 58%,rgba(255,255,255,.62),transparent 28%);opacity:.9}
+    .wrap{width:min(1180px,100%);margin:0 auto;position:relative;z-index:1}
+    .hero{display:grid;grid-template-columns:1.08fr .92fr;gap:16px;align-items:stretch;margin-bottom:16px}
+    .heroCard,.settingsCard,.modeCard,.flowCard,.miniCard{
+      background:rgba(255,255,255,.78);border:1px solid rgba(216,237,246,.92);
+      border-radius:30px;box-shadow:var(--shadow);backdrop-filter:blur(18px);
     }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.08fr .92fr;
-      gap:16px;
-      align-items:stretch;
-    }
-
-    .card{
-      background:linear-gradient(180deg,#fffef9,#f9fcff);
-      border:1px solid var(--line);
-      border-radius:28px;
-      padding:18px;
-      box-shadow:var(--shadow);
-    }
-
-    .heroMain{
-      display:flex;
-      gap:14px;
-      align-items:flex-start;
-    }
-
-    .badge{
-      width:70px;
-      height:70px;
-      border-radius:22px;
-      display:grid;
-      place-items:center;
-      background:linear-gradient(180deg,#ffe49d,#ffd15f);
-      font-size:36px;
-      flex:0 0 auto;
-      box-shadow:0 10px 20px rgba(255,208,94,.24);
-    }
-
-    h1{
-      margin:0 0 6px;
-      font-size:32px;
-      line-height:1.08;
-      color:#284255;
-      font-weight:1000;
-    }
-
-    .sub{
-      margin:0;
-      color:var(--muted);
-      line-height:1.5;
-      font-size:14px;
-      font-weight:700;
-    }
-
-    .pillRow{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      margin-top:12px;
-    }
-
-    .pill{
-      min-height:34px;
-      padding:0 12px;
-      border-radius:999px;
-      display:inline-flex;
-      align-items:center;
-      background:#fff;
-      border:1px solid #e7dcc0;
-      font-size:13px;
-      font-weight:900;
-      color:#7b6121;
-    }
-
-    .goalCard{
-      border:1px solid #f0ddb0;
-      background:
-        radial-gradient(circle at 92% 18%, rgba(255,215,106,.16), transparent 20%),
-        linear-gradient(180deg,#fffdf6,#fff9ef);
-    }
-
-    .goalTitle{
-      font-size:12px;
-      font-weight:1000;
-      color:#8a6120;
-      margin-bottom:6px;
-    }
-
-    .goalBig{
-      font-size:25px;
-      font-weight:1000;
-      line-height:1.18;
-      color:#284255;
-      margin-bottom:8px;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:16px;
-      margin-top:16px;
-    }
-
-    .sectionTitle{
-      font-size:16px;
-      font-weight:1000;
-      color:#2d4859;
-      margin:0 0 12px;
-    }
-
-    .field{ margin-bottom:12px; }
-
-    .label{
-      display:block;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:900;
-      margin-bottom:6px;
-    }
-
-    .input{
-      width:100%;
-      min-height:50px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#fff;
-      padding:0 14px;
-      font-size:15px;
-      font-weight:850;
-      color:#284255;
-      outline:none;
-    }
-
-    .input:focus{
-      border-color:var(--sky);
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-    }
-
-    .optionGrid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-    }
-
-    .optionBtn{
-      min-height:50px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#fff;
-      color:#2f4f63;
-      font-size:14px;
-      font-weight:1000;
-      cursor:pointer;
-      touch-action:manipulation;
-      transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
-    }
-
-    .optionBtn.active{
-      background:#eef8ff;
-      border-color:var(--sky);
-      box-shadow:0 0 0 4px rgba(127,207,255,.18);
-      transform:translateY(-1px);
-    }
-
-    .helper{
-      font-size:12px;
-      color:#6d7d8b;
-      line-height:1.45;
-      margin-top:5px;
-      font-weight:750;
-    }
-
-    .steps{
-      display:grid;
-      gap:10px;
-    }
-
-    .step{
-      display:flex;
-      gap:12px;
-      align-items:flex-start;
-      padding:12px;
-      border-radius:18px;
-      background:#fff;
-      border:1px solid var(--line);
-    }
-
-    .stepNo{
-      width:42px;
-      height:42px;
-      border-radius:14px;
-      display:grid;
-      place-items:center;
-      background:#eef8ff;
-      font-size:21px;
-      flex:0 0 auto;
-    }
-
-    .stepTitle{
-      font-size:14px;
-      font-weight:1000;
-      color:#2d4859;
-      margin-bottom:4px;
-    }
-
-    .stepText{
-      font-size:13px;
-      line-height:1.45;
-      color:var(--muted);
-      font-weight:700;
-    }
-
-    .lastSummary{
-      margin-top:14px;
-      padding:14px;
-      border-radius:20px;
-      border:1px solid #d7ecdc;
-      background:linear-gradient(180deg,#fbfffb,#f4fff4);
-      display:none;
-    }
-
-    .lastSummary.show{ display:block; }
-
-    .lastSummaryTitle{
-      font-size:13px;
-      font-weight:1000;
-      color:#2f6f3c;
-      margin-bottom:8px;
-    }
-
-    .lastSummaryGrid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:8px;
-    }
-
-    .miniBox{
-      background:#fff;
-      border:1px solid #dfeee1;
-      border-radius:14px;
-      padding:10px;
-      text-align:center;
-    }
-
-    .miniLabel{
-      font-size:11px;
-      color:#6d7d8b;
-      font-weight:900;
-      margin-bottom:4px;
-    }
-
-    .miniValue{
-      font-size:19px;
-      font-weight:1000;
-      color:#2d4859;
-      line-height:1;
-    }
-
-    .actionRow{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:16px;
-    }
-
-    .btn{
-      min-height:54px;
-      padding:0 18px;
-      border:none;
-      border-radius:18px;
-      font-size:16px;
-      font-weight:1000;
-      cursor:pointer;
-      touch-action:manipulation;
-      transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;
-    }
-
-    .btn:active{ transform:scale(.985); }
-
-    .btnPrimary{
-      background:var(--sky);
-      color:#17384f;
-      box-shadow:0 10px 18px rgba(127,207,255,.22);
-    }
-
-    .btnSecondary{
-      background:#fff;
-      color:#2f4f63;
-      border:1px solid var(--line);
-    }
-
-    .btnGold{
-      background:linear-gradient(180deg,#ffe7a3,#ffd468);
-      color:#7a5609;
-      box-shadow:0 10px 18px rgba(255,212,104,.24);
-    }
-
-    .footerNote{
-      margin-top:16px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#fff;
-      border:1px solid var(--line);
-      color:#60727f;
-      font-size:13px;
-      line-height:1.5;
-      font-weight:800;
-    }
-
-    @media (max-width: 860px){
-      .hero{ grid-template-columns:1fr; }
-      .grid{ grid-template-columns:1fr; }
-      .lastSummaryGrid{ grid-template-columns:1fr 1fr 1fr; }
-    }
-
-    @media (max-width: 640px){
-      .page{ padding:14px 12px 24px; }
-      h1{ font-size:27px; }
-      .goalBig{ font-size:22px; }
-      .heroMain{ gap:12px; }
-      .badge{
-        width:62px;
-        height:62px;
-        border-radius:20px;
-        font-size:32px;
-      }
-      .actionRow{ flex-direction:column; }
-      .btn{ width:100%; }
-      .lastSummaryGrid{ grid-template-columns:1fr; }
-    }
+    .heroCard{padding:22px;overflow:hidden;position:relative}.heroCard:after{content:"🍽️";position:absolute;right:22px;bottom:8px;font-size:98px;opacity:.16}
+    .kicker{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#effff5;color:#16864f;border:1px solid #bdeed1;font-weight:1000;font-size:13px}
+    h1{margin:14px 0 8px;font-size:clamp(28px,4.2vw,46px);line-height:1.08;font-weight:1000;letter-spacing:-.6px}
+    .lead{margin:0;color:#55768b;font-weight:850;line-height:1.55;max-width:650px}
+    .heroBadges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+    .badge,.tag{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--line);font-weight:1000}
+    .badge{min-height:34px;padding:7px 11px;background:#fff;color:#446579;font-size:12px;box-shadow:0 8px 18px rgba(42,78,102,.06)}
+    .settingsCard{padding:18px;display:flex;flex-direction:column;gap:12px}
+    .settingsTitle{font-size:18px;font-weight:1000;color:#31536a;display:flex;justify-content:space-between;gap:10px;align-items:center}
+    .ctxLine,.note{padding:10px 12px;border-radius:18px;background:#f8fdff;border:1px solid var(--line);color:#57788e;font-weight:900;line-height:1.45;font-size:13px}
+    .formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{padding:10px;border-radius:18px;background:#fff;border:1px solid var(--line)}
+    .field label{display:block;color:#668aa0;font-size:11px;font-weight:1000;margin-bottom:5px}
+    .field select,.field input{width:100%;min-height:38px;border:0;outline:0;background:#f3f9fc;border-radius:14px;padding:0 10px;color:#244761;font-weight:1000}
+    .modes{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0}
+    .modeCard{min-height:250px;padding:16px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;transition:.15s ease}
+    .modeCard.ready{cursor:pointer}.modeCard.ready:hover{transform:translateY(-3px);box-shadow:0 26px 62px rgba(42,78,102,.18);border-color:#afe9c7}
+    .modeCard.selected{border-color:#45d483;box-shadow:0 26px 62px rgba(35,190,104,.18);outline:4px solid rgba(69,212,131,.18)}
+    .modeCard.soon{opacity:.76}.modeIcon{width:62px;height:62px;display:flex;align-items:center;justify-content:center;border-radius:24px;background:linear-gradient(135deg,#fff,#effff5);border:1px solid var(--line);font-size:34px;box-shadow:0 12px 24px rgba(42,78,102,.08)}
+    .modeTitle{margin:12px 0 4px;font-size:19px;line-height:1.12;font-weight:1000;color:#244761}
+    .modeDesc{margin:0;color:#668aa0;line-height:1.38;font-size:13px;font-weight:850}
+    .modeMeta{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+    .tag{padding:4px 8px;background:#f1f9fc;color:#55768b;font-size:11px}.tag.ready{background:#effff5;border-color:#bdf0d0;color:#16864f}.tag.soon{background:#fff8dd;border-color:#ffe08d;color:#8a6100}
+    .modeBtn{width:100%;min-height:46px;border-radius:999px;color:white;background:linear-gradient(90deg,var(--green),var(--blue));font-weight:1000;box-shadow:0 12px 24px rgba(47,140,255,.18);cursor:pointer}
+    .modeBtn.disabled{background:#dfeef5;color:#668aa0;box-shadow:none;cursor:not-allowed}
+    .bottomGrid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start}.flowCard,.miniCard{padding:16px}
+    .cardTitle{margin:0 0 10px;font-size:18px;font-weight:1000;color:#31536a}
+    .flowSteps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+    .step{min-height:86px;padding:10px;border-radius:18px;background:#fff;border:1px solid var(--line);text-align:center;color:#55768b;font-weight:900;font-size:12px;line-height:1.28}.step b{display:block;color:#244761;font-size:22px;margin-bottom:3px}
+    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.primaryBtn,.ghostBtn{min-height:52px;padding:0 18px;border-radius:999px;font-weight:1000;cursor:pointer}
+    .primaryBtn{color:white;background:linear-gradient(90deg,var(--green),var(--blue));box-shadow:0 14px 28px rgba(47,140,255,.19)}.ghostBtn{color:#31536a;background:#fff;border:1px solid var(--line);box-shadow:0 10px 20px rgba(42,78,102,.08)}
+    .miniGrid{display:grid;grid-template-columns:1fr;gap:9px}
+    .toast{position:fixed;left:50%;bottom:calc(18px + var(--safeBottom));z-index:20;transform:translateX(-50%) translateY(20px);opacity:0;max-width:min(560px,92vw);padding:12px 16px;border-radius:999px;background:rgba(36,71,97,.92);color:white;font-weight:1000;box-shadow:0 18px 36px rgba(42,78,102,.22);pointer-events:none;transition:.18s ease;text-align:center}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .debug{margin-top:10px;padding:10px;border-radius:14px;background:#f2f8fb;color:#6b879a;font-size:11px;line-height:1.38;word-break:break-all;display:none}.debug.on{display:block}
+    @media (max-width:1100px){.modes{grid-template-columns:repeat(3,1fr)}}
+    @media (max-width:820px){.page{padding:calc(12px + var(--safeTop)) 10px calc(28px + var(--safeBottom))}.hero,.bottomGrid{grid-template-columns:1fr}.modes{grid-template-columns:1fr}.modeCard{min-height:unset}.formGrid,.flowSteps{grid-template-columns:1fr}.actions{flex-direction:column}.primaryBtn,.ghostBtn{width:100%}}
   </style>
 </head>
-
 <body>
-  <div class="page">
-    <section class="hero">
-      <div class="card">
-        <div class="heroMain">
-          <div class="badge">🍽️</div>
-          <div>
-            <h1>Plate Solo</h1>
-            <p class="sub">
-              เกมหลักของ Plate — เข้าเล่นตรง ไม่ผ่าน warmup-gate ซ้ำ
-              เพราะในเกมมี mission overlay และ goal bar อยู่แล้ว
-            </p>
-
-            <div class="pillRow">
-              <div class="pill">Main Game</div>
-              <div class="pill">Goal Locked</div>
-              <div class="pill">No Scroll During Play</div>
-            </div>
+  <main class="page">
+    <div class="wrap">
+      <section class="hero" aria-label="Plate game launcher">
+        <div class="heroCard">
+          <div class="kicker">🥗 Nutrition Zone • Plate Game</div>
+          <h1>Plate Launcher</h1>
+          <p class="lead">
+            เลือกโหมดเกม Plate แล้วระบบจะพาไป Warmup ก่อนเข้าเกมจริง
+            ตอนนี้เปิดให้เล่น <b>Solo</b> เป็นหลัก ส่วนโหมดทีมวางปุ่มไว้ให้ครบเพื่อเชื่อมต่อขั้นต่อไป
+          </p>
+          <div class="heroBadges">
+            <span class="badge">🍽️ Balanced Plate</span><span class="badge">🎯 5 Food Groups</span>
+            <span class="badge">⚡ Boss / Combo / Daily</span><span class="badge">📱 PC • Mobile • cVR</span>
           </div>
         </div>
-
-        <div class="lastSummary" id="lastSummaryBox">
-          <div class="lastSummaryTitle">ผลล่าสุด</div>
-          <div class="lastSummaryGrid">
-            <div class="miniBox">
-              <div class="miniLabel">คะแนน</div>
-              <div class="miniValue" id="lastScore">0</div>
-            </div>
-            <div class="miniBox">
-              <div class="miniLabel">เก็บถูก</div>
-              <div class="miniValue" id="lastHits">0</div>
-            </div>
-            <div class="miniBox">
-              <div class="miniLabel">พลาด</div>
-              <div class="miniValue" id="lastMistakes">0</div>
-            </div>
+        <aside class="settingsCard">
+          <div class="settingsTitle"><span>⚙️ ตั้งค่าก่อนเล่น</span><span id="selectedModeChip" class="tag ready">Solo</span></div>
+          <div id="ctxLine" class="ctxLine">กำลังอ่านค่าจาก URL...</div>
+          <div class="formGrid">
+            <div class="field"><label for="diffSelect">ระดับความยาก</label><select id="diffSelect"><option value="easy">easy • เบา ๆ</option><option value="normal">normal • แนะนำ</option><option value="hard">hard • ท้าทาย</option><option value="challenge">challenge • โหดสุด</option></select></div>
+            <div class="field"><label for="timeSelect">เวลาเล่น</label><select id="timeSelect"><option value="60">60 วินาที</option><option value="90">90 วินาที</option><option value="120">120 วินาที</option><option value="150">150 วินาที</option></select></div>
+            <div class="field"><label for="viewSelect">โหมดอุปกรณ์</label><select id="viewSelect"><option value="pc">PC</option><option value="mobile">Mobile</option><option value="cvr">Cardboard / cVR</option></select></div>
+            <div class="field"><label for="runSelect">Run</label><select id="runSelect"><option value="play">play</option><option value="research">research</option></select></div>
           </div>
-        </div>
-      </div>
+          <div class="actions"><button id="btnStartSelected" class="primaryBtn">▶️ เริ่มโหมดที่เลือก</button><button id="btnBackZone" class="ghostBtn">↩️ กลับ Nutrition Zone</button></div>
+          <div id="debugBox" class="debug"></div>
+        </aside>
+      </section>
 
-      <div class="card goalCard">
-        <div class="goalTitle">flow ใหม่</div>
-        <div class="goalBig">Launcher → Main Game → Mission Overlay → Play → Summary → HUB</div>
-        <p class="sub">
-          ตัด warmup-gate ก่อนเล่นออก เพื่อไม่ให้ผู้เล่นรู้สึกว่าย้อนไปย้อนมา
-          ระหว่างเล่น goal จะถูกล็อกไว้บนจอตลอด
-        </p>
-      </div>
-    </section>
+      <section class="modes" aria-label="Plate modes">
+        <article class="modeCard ready selected" data-mode="solo" data-ready="1"><div><div class="modeIcon">🍽️</div><h2 class="modeTitle">Solo</h2><p class="modeDesc">เล่นคนเดียว เก็บอาหารให้จานสมดุล หลบ junk สู้บอสท้ายเกม</p><div class="modeMeta"><span class="tag ready">เล่นได้แล้ว</span><span class="tag">Warmup</span><span class="tag">Boss</span></div></div><button class="modeBtn" data-start="solo">เริ่ม Solo</button></article>
+        <article class="modeCard soon" data-mode="duet" data-ready="0"><div><div class="modeIcon">👫</div><h2 class="modeTitle">Duet</h2><p class="modeDesc">ผู้เล่น 2 คนช่วยกันเติมจาน คนหนึ่งดูหมู่ที่ขาด อีกคนคุม junk</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">2 Players</span></div></div><button class="modeBtn disabled" data-start="duet">กำลังเตรียม</button></article>
+        <article class="modeCard soon" data-mode="race" data-ready="0"><div><div class="modeIcon">🏁</div><h2 class="modeTitle">Race</h2><p class="modeDesc">แข่งทำจานสมดุลให้เร็วและแม่นที่สุด คะแนนรวมแยกผู้เล่น</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">Room Code</span></div></div><button class="modeBtn disabled" data-start="race">กำลังเตรียม</button></article>
+        <article class="modeCard soon" data-mode="battle" data-ready="0"><div><div class="modeIcon">⚔️</div><h2 class="modeTitle">Battle</h2><p class="modeDesc">ทำภารกิจเพื่อปล่อยสกิลรบกวนคู่แข่ง แต่ยังต้องรักษาจานตัวเอง</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">Mission Skill</span></div></div><button class="modeBtn disabled" data-start="battle">กำลังเตรียม</button></article>
+        <article class="modeCard soon" data-mode="coop" data-ready="0"><div><div class="modeIcon">🤝</div><h2 class="modeTitle">Co-op</h2><p class="modeDesc">ช่วยกันทำจานใหญ่ของทีมให้ครบ 5 หมู่ ทุกคนมีหน้าที่ต่างกัน</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">Team Goal</span></div></div><button class="modeBtn disabled" data-start="coop">กำลังเตรียม</button></article>
+      </section>
 
-    <section class="grid">
-      <div class="card">
-        <h2 class="sectionTitle">ตั้งค่าก่อนเริ่ม</h2>
-
-        <div class="field">
-          <label class="label" for="playerName">ชื่อผู้เล่น</label>
-          <input class="input" id="playerName" type="text" placeholder="Hero" />
-        </div>
-
-        <div class="field">
-          <label class="label" for="playerPid">PID</label>
-          <input class="input" id="playerPid" type="text" placeholder="anon" />
-        </div>
-
-        <div class="field">
-          <label class="label" for="studyId">Study ID</label>
-          <input class="input" id="studyId" type="text" placeholder="optional" />
-        </div>
-
-        <div class="field">
-          <label class="label" for="sectionInput">Section</label>
-          <input class="input" id="sectionInput" type="text" placeholder="optional" />
-        </div>
-
-        <div class="field">
-          <label class="label" for="sessionCodeInput">Session Code</label>
-          <input class="input" id="sessionCodeInput" type="text" placeholder="optional" />
-        </div>
-
-        <div class="field">
-          <label class="label" for="logInput">Log Endpoint</label>
-          <input class="input" id="logInput" type="text" placeholder="https://your-script-endpoint/exec" />
-          <div class="helper">ถ้าเว้นว่าง เกมจะเล่นได้ปกติ แต่จะไม่ส่ง research log</div>
-        </div>
-
-        <div class="field">
-          <label class="label">ระดับความยาก</label>
-          <div class="optionGrid" id="diffGrid">
-            <button class="optionBtn" type="button" data-value="easy">easy</button>
-            <button class="optionBtn active" type="button" data-value="normal">normal</button>
-            <button class="optionBtn" type="button" data-value="hard">hard</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="label">เวลา</label>
-          <div class="optionGrid" id="timeGrid">
-            <button class="optionBtn" type="button" data-value="60">60s</button>
-            <button class="optionBtn active" type="button" data-value="90">90s</button>
-            <button class="optionBtn" type="button" data-value="120">120s</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label class="label">มุมมอง</label>
-          <div class="optionGrid" id="viewGrid">
-            <button class="optionBtn active" type="button" data-value="mobile">mobile</button>
-            <button class="optionBtn" type="button" data-value="pc">pc</button>
-            <button class="optionBtn" type="button" data-value="cvr">cVR</button>
-          </div>
-          <div class="helper">หน้าเล่นจริงจะล็อก goal ไว้ให้เห็นตลอดทุกโหมด</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2 class="sectionTitle">flow ที่ไม่ย้อนไปย้อนมา</h2>
-
-        <div class="steps">
-          <div class="step">
-            <div class="stepNo">1️⃣</div>
-            <div>
-              <div class="stepTitle">Launcher</div>
-              <div class="stepText">เลือกชื่อ ระดับ เวลา และมุมมองก่อนเริ่ม</div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">2️⃣</div>
-            <div>
-              <div class="stepTitle">Plate Solo Main Game</div>
-              <div class="stepText">เข้าเกมหลักทันที ไม่คั่น warmup-gate อีก</div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">3️⃣</div>
-            <div>
-              <div class="stepTitle">Mission Overlay</div>
-              <div class="stepText">เกมบอก goal ก่อนเริ่มเล่นในหน้าเดียวกัน</div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">4️⃣</div>
-            <div>
-              <div class="stepTitle">Locked Gameplay</div>
-              <div class="stepText">ระหว่างเล่นไม่เลื่อน และ goal จะเห็นตลอด</div>
-            </div>
-          </div>
-
-          <div class="step">
-            <div class="stepNo">5️⃣</div>
-            <div>
-              <div class="stepTitle">Summary / Create Plate</div>
-              <div class="stepText">จบแล้วค่อยดูสรุป คิดต่อ และสร้างจานของตัวเอง</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="actionRow">
-          <button class="btn btnPrimary" id="btnStartFlow" type="button">เริ่ม Plate Solo</button>
-          <button class="btn btnGold" id="btnDirectRun" type="button">เข้า Main Game</button>
-          <button class="btn btnSecondary" id="btnBackHub" type="button">กลับ HUB</button>
-        </div>
-
-        <div class="actionRow">
-          <button class="btn btnSecondary" id="btnReplayLatest" type="button">เล่นค่าล่าสุดอีกครั้ง</button>
-        </div>
-      </div>
-    </section>
-
-    <div class="footerNote">
-      ไฟล์นี้คือ launcher ของ Plate Solo เท่านั้น ส่วน main game จริงอยู่ที่
-      <strong>/herohealth/plate/plate-vr.html</strong>
+      <section class="bottomGrid">
+        <div class="flowCard"><h2 class="cardTitle">🧭 Flow ที่ใช้กับ Plate</h2><div class="flowSteps"><div class="step"><b>1</b>Nutrition Zone</div><div class="step"><b>2</b>Plate Launcher</div><div class="step"><b>3</b>Warmup Gate</div><div class="step"><b>4</b>Main Game</div><div class="step"><b>5</b>Cooldown → Zone</div></div></div>
+        <div class="miniCard"><h2 class="cardTitle">✅ สถานะตอนนี้</h2><div class="miniGrid"><div class="note">Solo จะส่งเข้า <b>/herohealth/warmup-gate.html</b> ก่อน แล้วค่อยไป <b>/herohealth/plate-solo.html</b></div><div class="note">ค่าจาก Hub/Zone เช่น pid, diff, time, view, run, seed, log/api จะถูกส่งต่อให้ครบ</div><div class="note">Duet / Race / Battle / Co-op วางเป็นการ์ดไว้ก่อน ไม่พาไป 404 จนกว่าไฟล์โหมดนั้นจะพร้อม</div></div></div>
+      </section>
     </div>
-  </div>
+  </main>
+  <div id="toast" class="toast">พร้อม</div>
 
   <script>
-  (function(){
-    'use strict';
-
-    function qs(name, fallback=''){
-      try{ return new URL(location.href).searchParams.get(name) ?? fallback; }
-      catch(_){ return fallback; }
-    }
-
-    function clean(v, d=''){
-      v = String(v ?? '').trim();
-      return v || d;
-    }
-
-    function setActive(groupEl, value){
-      if(!groupEl) return;
-      groupEl.querySelectorAll('.optionBtn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === value);
-      });
-      groupEl.dataset.value = value;
-    }
-
-    function getActive(groupEl, fallback){
-      return groupEl?.dataset?.value || fallback;
-    }
-
-    const $playerName = document.getElementById('playerName');
-    const $playerPid = document.getElementById('playerPid');
-    const $studyId = document.getElementById('studyId');
-    const $sectionInput = document.getElementById('sectionInput');
-    const $sessionCodeInput = document.getElementById('sessionCodeInput');
-    const $logInput = document.getElementById('logInput');
-
-    const $diffGrid = document.getElementById('diffGrid');
-    const $timeGrid = document.getElementById('timeGrid');
-    const $viewGrid = document.getElementById('viewGrid');
-
-    const $btnStartFlow = document.getElementById('btnStartFlow');
-    const $btnDirectRun = document.getElementById('btnDirectRun');
-    const $btnBackHub = document.getElementById('btnBackHub');
-    const $btnReplayLatest = document.getElementById('btnReplayLatest');
-
-    const $lastSummaryBox = document.getElementById('lastSummaryBox');
-    const $lastScore = document.getElementById('lastScore');
-    const $lastHits = document.getElementById('lastHits');
-    const $lastMistakes = document.getElementById('lastMistakes');
-
-    const defaults = {
-      pid: clean(qs('pid'),'anon'),
-      name: clean(qs('name'),'Hero'),
-      studyId: clean(qs('studyId'),''),
-      section: clean(qs('section'),''),
-      session_code: clean(qs('session_code'),''),
-      log: clean(qs('log'),''),
-      diff: clean(qs('diff'),'normal'),
-      time: clean(qs('time'),'90'),
-      view: clean(qs('view'),'mobile'),
-      run: clean(qs('run'),'play'),
-      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
-      zone: clean(qs('zone'),'nutrition'),
-      game: clean(qs('game'),'plate'),
-      mode: clean(qs('mode'),'solo')
-    };
-
-    const LAUNCHER_SAVE_KEY = 'HHA_PLATE_LAUNCHER_LAST_V2';
-
-    function saveLauncherState(){
-      try{
-        localStorage.setItem(LAUNCHER_SAVE_KEY, JSON.stringify({
-          pid: clean($playerPid.value, 'anon'),
-          name: clean($playerName.value, 'Hero'),
-          studyId: clean($studyId.value, ''),
-          section: clean($sectionInput.value, ''),
-          session_code: clean($sessionCodeInput.value, ''),
-          log: clean($logInput.value, ''),
-          diff: getActive($diffGrid, 'normal'),
-          time: getActive($timeGrid, '90'),
-          view: getActive($viewGrid, 'mobile')
-        }));
-      }catch(_){}
-    }
-
-    function loadLauncherState(){
-      try{
-        const raw = localStorage.getItem(LAUNCHER_SAVE_KEY);
-        if(!raw) return;
-        const saved = JSON.parse(raw);
-        if(!saved || typeof saved !== 'object') return;
-
-        if(!qs('pid')) $playerPid.value = saved.pid || defaults.pid;
-        if(!qs('name')) $playerName.value = saved.name || defaults.name;
-        if(!qs('studyId')) $studyId.value = saved.studyId || defaults.studyId;
-        if(!qs('section')) $sectionInput.value = saved.section || defaults.section;
-        if(!qs('session_code')) $sessionCodeInput.value = saved.session_code || defaults.session_code;
-        if(!qs('log')) $logInput.value = saved.log || defaults.log;
-
-        if(!qs('diff') && saved.diff) setActive($diffGrid, saved.diff);
-        if(!qs('time') && saved.time) setActive($timeGrid, String(saved.time));
-        if(!qs('view') && saved.view) setActive($viewGrid, saved.view);
-      }catch(_){}
-    }
-
-    function applyDefaults(){
-      $playerName.value = defaults.name;
-      $playerPid.value = defaults.pid;
-      $studyId.value = defaults.studyId;
-      $sectionInput.value = defaults.section;
-      $sessionCodeInput.value = defaults.session_code;
-      $logInput.value = defaults.log;
-
-      setActive($diffGrid, defaults.diff);
-      setActive($timeGrid, defaults.time);
-      setActive($viewGrid, defaults.view);
-
-      loadLauncherState();
-    }
-
-    function readLastSummary(){
-      try{
-        const raw = localStorage.getItem('HHA_LAST_SUMMARY_PLATE') || localStorage.getItem('HHA_LAST_SUMMARY');
-        if(!raw) return null;
-        return JSON.parse(raw);
-      }catch(_){
-        return null;
-      }
-    }
-
-    function renderLastSummary(){
-      const s = readLastSummary();
-      if(!s || !s.summary) return;
-      const sum = s.summary;
-
-      $lastSummaryBox.classList.add('show');
-      $lastScore.textContent = String(sum.score ?? 0);
-      $lastHits.textContent = String(sum.hits ?? sum.goalHits ?? 0);
-      $lastMistakes.textContent = String(sum.mistakes ?? 0);
-    }
-
-    function buildRunUrl(extra={}){
-      const runUrl = new URL('/webxr-health-mobile/herohealth/plate/plate-vr.html', location.origin);
-
-      const payload = {
-        pid: clean($playerPid.value, 'anon'),
-        name: clean($playerName.value, 'Hero'),
-        studyId: clean($studyId.value, ''),
-        section: clean($sectionInput.value, ''),
-        session_code: clean($sessionCodeInput.value, ''),
-        diff: getActive($diffGrid, 'normal'),
-        time: getActive($timeGrid, '90'),
-        seed: String(Date.now()),
-        hub: defaults.hub,
-        view: getActive($viewGrid, 'mobile'),
-        run: defaults.run,
-        zone: defaults.zone,
-        game: defaults.game,
-        mode: defaults.mode,
-        entry: 'launcher_direct',
-        fromLauncher: '1',
-        skipWarmup: '1',
-        log: clean($logInput.value, ''),
-        ...extra
+    (() => {
+      'use strict';
+      const VERSION = '20260509-PLATE-LAUNCHER-V1.0-MODE-SELECTOR';
+      const DOC = document;
+      const Q = new URL(location.href).searchParams;
+      const $ = (id) => DOC.getElementById(id);
+      const qa = (sel, root = DOC) => Array.from(root.querySelectorAll(sel));
+      const qs = (k, d = '') => Q.get(k) ?? d;
+      const PARAM_KEYS = ['pid','name','nick','diff','time','view','run','seed','studyId','phase','conditionGroup','section','session_code','log','api'];
+      const MODE_META = {
+        solo:{label:'Solo',ready:true,game:'plate',mode:'solo',entry:'plate-solo',runFile:'./plate-solo.html'},
+        duet:{label:'Duet',ready:false,game:'plate',mode:'duet',entry:'plate-duet',runFile:'./plate-duet-lobby.html'},
+        race:{label:'Race',ready:false,game:'plate',mode:'race',entry:'plate-race',runFile:'./plate-race-lobby.html'},
+        battle:{label:'Battle',ready:false,game:'plate',mode:'battle',entry:'plate-battle',runFile:'./plate-battle-lobby.html'},
+        coop:{label:'Co-op',ready:false,game:'plate',mode:'coop',entry:'plate-coop',runFile:'./plate-coop-lobby.html'}
       };
+      const state = {selectedMode: normalizeMode(qs('mode', localStorage.getItem('HHA_PLATE_LAST_MODE') || 'solo')), baseHub:'', zoneUrl:''};
 
-      Object.entries(payload).forEach(([k,v]) => {
-        if(v !== '' && v != null) runUrl.searchParams.set(k, String(v));
-      });
+      function normalizeMode(mode){mode=String(mode||'solo').toLowerCase(); if(mode==='co-op')mode='coop'; return MODE_META[mode]?mode:'solo';}
+      function safeSet(key, value){try{localStorage.setItem(key,value);}catch(e){}}
+      function setSelectValue(id, value, fallback){const el=$(id); if(!el)return; const ok=Array.from(el.options).some(o=>o.value===String(value)); el.value=ok?String(value):String(fallback);}
+      function guessView(){const w=Math.max(document.documentElement.clientWidth||0,window.innerWidth||0); return w>=900?'pc':'mobile';}
+      function preserveTo(url, keys){keys.forEach(k=>{const v=qs(k,''); if(String(v)!=='')url.searchParams.set(k,v);});}
+      function buildZoneUrl(){const zone=new URL('./nutrition-zone.html',location.href); preserveTo(zone,PARAM_KEYS); zone.searchParams.set('zone','nutrition'); zone.searchParams.set('from','plate-launcher'); return zone.toString();}
 
-      return runUrl;
-    }
+      function init(){
+        state.zoneUrl=buildZoneUrl();
+        state.baseHub=qs('hub','') || state.zoneUrl;
+        setSelectValue('diffSelect', qs('diff', localStorage.getItem('HHA_PLATE_LAST_DIFF') || 'normal'), 'normal');
+        setSelectValue('timeSelect', qs('time', localStorage.getItem('HHA_PLATE_LAST_TIME') || '90'), '90');
+        setSelectValue('viewSelect', qs('view', localStorage.getItem('HHA_PLATE_LAST_VIEW') || guessView()), guessView());
+        setSelectValue('runSelect', qs('run','play'), 'play');
+        bind(); selectMode(state.selectedMode,false); renderCtx(); renderDebug();
+        try{console.info('[Plate Launcher]', VERSION, 'loaded');}catch(e){}
+      }
 
-    function startPlateSolo(extra={}){
-      saveLauncherState();
-      location.href = buildRunUrl(extra).toString();
-    }
-
-    [$diffGrid, $timeGrid, $viewGrid].forEach(group => {
-      if(!group) return;
-      group.querySelectorAll('.optionBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          setActive(group, btn.dataset.value);
-          saveLauncherState();
+      function bind(){
+        qa('.modeCard').forEach(card=>{
+          card.addEventListener('click',ev=>{
+            const mode=normalizeMode(card.dataset.mode);
+            selectMode(mode,true);
+            if(ev.target.closest('[data-start]')) startMode(mode);
+          });
         });
-      });
-    });
+        qa('[data-start]').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation(); startMode(normalizeMode(btn.dataset.start));}));
+        $('btnStartSelected').addEventListener('click',()=>startMode(state.selectedMode));
+        $('btnBackZone').addEventListener('click',goZone);
+        ['diffSelect','timeSelect','viewSelect','runSelect'].forEach(id=>{const el=$(id); if(el)el.addEventListener('change',()=>{rememberSettings();renderCtx();renderDebug();});});
+        document.addEventListener('keydown',ev=>{if(ev.key==='Enter')startMode(state.selectedMode);});
+      }
 
-    [$playerName, $playerPid, $studyId, $sectionInput, $sessionCodeInput, $logInput].forEach(el => {
-      if(!el) return;
-      el.addEventListener('input', saveLauncherState);
-      el.addEventListener('change', saveLauncherState);
-    });
-
-    $btnStartFlow.addEventListener('click', () => {
-      startPlateSolo({
-        entry:'launcher_direct',
-        skipWarmup:'1'
-      });
-    });
-
-    $btnDirectRun.addEventListener('click', () => {
-      startPlateSolo({
-        entry:'direct_run_from_launcher',
-        skipWarmup:'1'
-      });
-    });
-
-    $btnReplayLatest.addEventListener('click', () => {
-      loadLauncherState();
-      startPlateSolo({
-        entry:'continue_latest',
-        skipWarmup:'1'
-      });
-    });
-
-    $btnBackHub.addEventListener('click', () => {
-      location.href = defaults.hub;
-    });
-
-    applyDefaults();
-    renderLastSummary();
-  })();
+      function rememberSettings(){safeSet('HHA_PLATE_LAST_MODE',state.selectedMode); safeSet('HHA_PLATE_LAST_DIFF',$('diffSelect').value); safeSet('HHA_PLATE_LAST_TIME',$('timeSelect').value); safeSet('HHA_PLATE_LAST_VIEW',$('viewSelect').value);}
+      function selectMode(mode,userAction){mode=normalizeMode(mode); state.selectedMode=mode; rememberSettings(); qa('.modeCard').forEach(card=>card.classList.toggle('selected',normalizeMode(card.dataset.mode)===mode)); const meta=MODE_META[mode]||MODE_META.solo; $('selectedModeChip').textContent=meta.label; $('selectedModeChip').classList.toggle('ready',!!meta.ready); $('selectedModeChip').classList.toggle('soon',!meta.ready); if(userAction&&!meta.ready)toast(`${meta.label} วางโหมดไว้แล้ว แต่ยังไม่เปิดเล่น เพื่อกัน 404`); renderDebug();}
+      function addCommonParams(url){preserveTo(url,PARAM_KEYS); url.searchParams.set('pid',qs('pid','anon')); url.searchParams.set('name',qs('name',qs('nick','Hero'))); url.searchParams.set('diff',$('diffSelect').value); url.searchParams.set('time',$('timeSelect').value); url.searchParams.set('view',$('viewSelect').value); url.searchParams.set('run',$('runSelect').value); if(!url.searchParams.get('seed'))url.searchParams.set('seed',qs('seed',String(Date.now()))); url.searchParams.set('zone','nutrition'); url.searchParams.set('cat','nutrition'); url.searchParams.set('game','plate'); url.searchParams.set('gameId','plate'); url.searchParams.set('hub',state.baseHub||state.zoneUrl);}
+      function buildRunUrl(mode){const meta=MODE_META[normalizeMode(mode)]||MODE_META.solo; const runUrl=new URL(meta.runFile,location.href); addCommonParams(runUrl); runUrl.searchParams.set('mode',meta.mode); runUrl.searchParams.set('entry',meta.entry); runUrl.searchParams.set('recommendedMode',meta.mode); runUrl.searchParams.set('theme','plate'); if(meta.mode!=='solo')runUrl.searchParams.set('multiplayer','1'); return runUrl;}
+      function buildWarmupUrl(mode){const meta=MODE_META[normalizeMode(mode)]||MODE_META.solo; const runUrl=buildRunUrl(mode); const gate=new URL('./warmup-gate.html',location.href); addCommonParams(gate); gate.searchParams.set('phase','warmup'); gate.searchParams.set('game','plate'); gate.searchParams.set('gameId','plate'); gate.searchParams.set('mode',meta.mode); gate.searchParams.set('entry',meta.entry); gate.searchParams.set('fromLauncher','plate-vr'); gate.searchParams.set('hub',state.baseHub||state.zoneUrl); gate.searchParams.set('next',runUrl.toString()); return gate;}
+      function startMode(mode){mode=normalizeMode(mode); const meta=MODE_META[mode]||MODE_META.solo; selectMode(mode,false); if(!meta.ready){toast(`${meta.label} ยังไม่เปิดเล่นตอนนี้ — โหมดนี้จะทำต่อหลัง Solo เสถียร`); return;} rememberSettings(); const target=buildWarmupUrl(mode); toast(`กำลังเข้า ${meta.label} ผ่าน Warmup...`); setTimeout(()=>{location.href=target.toString();},180);}
+      function goZone(){location.href=state.zoneUrl;}
+      function renderCtx(){const pid=qs('pid','anon'); const name=qs('name',qs('nick','Hero')); $('ctxLine').innerHTML=`ผู้เล่น: <b>${escapeHtml(name||'Hero')}</b> · PID: <b>${escapeHtml(pid||'anon')}</b><br>Diff: <b>${escapeHtml($('diffSelect').value)}</b> · Time: <b>${escapeHtml($('timeSelect').value)}s</b> · View: <b>${escapeHtml($('viewSelect').value)}</b>`;}
+      function renderDebug(){const box=$('debugBox'); if(!box)return; const on=qs('debug','0')==='1'; box.classList.toggle('on',on); if(!on)return; const mode=state.selectedMode; box.innerHTML=`<b>VERSION</b>: ${escapeHtml(VERSION)}<br><b>mode</b>: ${escapeHtml(mode)}<br><b>run</b>: ${escapeHtml(buildRunUrl(mode).toString())}<br><b>warmup</b>: ${escapeHtml(buildWarmupUrl(mode).toString())}`;}
+      function toast(msg){const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2200);}
+      function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+      init();
+    })();
   </script>
 </body>
 </html>
