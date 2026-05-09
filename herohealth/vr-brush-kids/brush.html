@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-brush-kids/brush.html === -->
-<!-- FULL PATCH v20260506h-BRUSH-KIDS-DAILY-GATE-VERIFY-FIX -->
+<!-- FULL PATCH v20260506i-BRUSH-KIDS-COOLDOWN-ONCE-FORCE-FIX -->
 <!-- Patch 3:
      - Redesign main gameplay into child-friendly mouth simulation
      - Keep HeroHealth flow: howto -> main -> boss -> summary -> cooldown -> hygiene zone
@@ -4352,6 +4352,37 @@ body[data-stage="prep"] .screen.active{
   100%{opacity:0;transform:translateX(-50%) translateY(-8px) scale(.98)}
 }
 
+  
+/* === PATCH 20260506i: COOLDOWN ONCE FORCE FIX === */
+.cooldownOnceToast{
+  position:fixed;
+  left:50%;
+  top:calc(10px + env(safe-area-inset-top,0px));
+  z-index:470000;
+  transform:translateX(-50%);
+  width:min(760px,92vw);
+  min-height:44px;
+  display:none;
+  place-items:center;
+  text-align:center;
+  padding:9px 14px;
+  border-radius:999px;
+  background:rgba(23,56,79,.94);
+  color:#fff;
+  box-shadow:0 16px 42px rgba(23,56,79,.22);
+  font:1000 13px/1.25 ui-rounded,"SF Pro Rounded","Noto Sans Thai","Segoe UI",system-ui,sans-serif;
+}
+.cooldownOnceToast.show{
+  display:grid;
+  animation:cooldownOnceToastPop 1.25s ease-out forwards;
+}
+@keyframes cooldownOnceToastPop{
+  0%{opacity:0;transform:translateX(-50%) translateY(-12px) scale(.92)}
+  18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.03)}
+  82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}
+  100%{opacity:0;transform:translateX(-50%) translateY(-8px) scale(.98)}
+}
+
   </style>
 </head>
 <body data-stage="howto">
@@ -4664,7 +4695,7 @@ body[data-stage="prep"] .screen.active{
     (function(){
       'use strict';
 
-      const VERSION = '20260506h-BRUSH-KIDS-DAILY-GATE-VERIFY-FIX';
+      const VERSION = '20260506i-BRUSH-KIDS-COOLDOWN-ONCE-FORCE-FIX';
       const qs = new URLSearchParams(location.search);
 
       /*
@@ -7383,292 +7414,6 @@ body[data-stage="prep"] .screen.active{
 
   <div class="gateVerifyToast" id="gateVerifyToast"></div>
 
-<script>
-/* === PATCH 20260506h: DAILY GATE VERIFY + ONCE-PER-DAY FIX === */
-(function(){
-  'use strict';
-
-  var PATCH = '20260506h-BRUSH-KIDS-DAILY-GATE-VERIFY-FIX';
-
-  function $(id){ return document.getElementById(id); }
-  function qs(){ return new URLSearchParams(location.search || ''); }
-
-  function toast(msg){
-    var el = $('gateVerifyToast');
-    if(!el) return;
-    el.textContent = msg;
-    el.classList.remove('show');
-    void el.offsetWidth;
-    el.classList.add('show');
-    setTimeout(function(){ el.classList.remove('show'); }, 1300);
-  }
-
-  function bangkokYmd(){
-    try{
-      return new Intl.DateTimeFormat('en-CA', {
-        timeZone:'Asia/Bangkok',
-        year:'numeric',
-        month:'2-digit',
-        day:'2-digit'
-      }).format(new Date());
-    }catch(_){
-      return new Date().toISOString().slice(0,10);
-    }
-  }
-
-  function ctx(){
-    var p = qs();
-    return {
-      pid:p.get('pid') || 'anon',
-      name:p.get('name') || p.get('nick') || 'Hero',
-      nick:p.get('nick') || p.get('name') || 'Hero',
-      diff:p.get('diff') || 'normal',
-      time:p.get('time') || '90',
-      view:p.get('view') || 'mobile',
-      run:p.get('run') || 'play',
-      zone:'hygiene',
-      cat:'hygiene',
-      game:'brush',
-      gameId:'brush',
-      variant:'kids-vr',
-      mode:p.get('mode') || 'learn',
-      entry:'brush-kids',
-      theme:'brush',
-      launcher:p.get('launcher') || 'hygiene-zone',
-      seed:p.get('seed') || String(Date.now()),
-      ymd:bangkokYmd()
-    };
-  }
-
-  function gateKeys(phase, c){
-    var upper = String(phase || '').toUpperCase();
-    var lower = String(phase || '').toLowerCase();
-    var pid = c.pid || 'anon';
-    var modes = {};
-    modes[c.mode || 'learn'] = true;
-    modes.learn = true;
-
-    var out = [];
-    Object.keys(modes).forEach(function(mode){
-      out.push('HHA_GATE_' + upper + '_' + pid + '_brush_' + mode + '_' + c.ymd);
-      out.push('HHA_GATE_' + upper + '_' + pid + '_' + (c.gameId || 'brush') + '_' + mode + '_' + c.ymd);
-      out.push('HHA_GATE_' + lower + '_' + pid + '_brush_' + mode + '_' + c.ymd);
-      out.push('HHA_GATE_' + lower + '_' + pid + '_' + (c.gameId || 'brush') + '_' + mode + '_' + c.ymd);
-    });
-
-    return Array.from(new Set(out));
-  }
-
-  function markGateDone(phase, reason){
-    var c = ctx();
-    var keys = gateKeys(phase, c);
-    var payload = {
-      done:true,
-      phase:String(phase || '').toLowerCase(),
-      game:'brush',
-      mode:c.mode || 'learn',
-      pid:c.pid || 'anon',
-      ymd:c.ymd,
-      reason:reason || 'brush-page',
-      patch:PATCH,
-      at:new Date().toISOString()
-    };
-
-    keys.forEach(function(k){
-      try{ localStorage.setItem(k, JSON.stringify(payload)); }catch(_){}
-    });
-
-    try{ localStorage.setItem('HHA_BRUSH_GATE_LAST_MARK', JSON.stringify(payload)); }catch(_){}
-    return keys;
-  }
-
-  function listGateKeys(){
-    try{
-      return Object.keys(localStorage)
-        .filter(function(k){ return /HHA_GATE|HHA_BRUSH_GATE/i.test(k); })
-        .sort()
-        .map(function(k){ return { key:k, value:localStorage.getItem(k) }; });
-    }catch(_){
-      return [];
-    }
-  }
-
-  function resetToday(){
-    var c = ctx();
-    var suffix = '_' + c.ymd;
-    var removed = [];
-    try{
-      Object.keys(localStorage).forEach(function(k){
-        if(/HHA_GATE_(WARMUP|COOLDOWN|warmup|cooldown)/.test(k) && k.endsWith(suffix)){
-          removed.push(k);
-          localStorage.removeItem(k);
-        }
-      });
-    }catch(_){}
-    console.table(removed.map(function(k){ return { removed:k }; }));
-    return removed;
-  }
-
-  function stage(){
-    var ds = document.body && document.body.dataset ? document.body.dataset.stage : '';
-    if(ds) return ds;
-    var active = document.querySelector('.screen.active');
-    if(active && active.id) return active.id.replace(/^screen-/,'');
-    return qs().get('stage') || 'howto';
-  }
-
-  function heroRootUrl(path){
-    var url = new URL(location.href);
-    var idx = url.pathname.indexOf('/herohealth/');
-    var rootPath = idx >= 0 ? url.pathname.slice(0, idx + '/herohealth/'.length) : '/herohealth/';
-    return url.origin + rootPath + path.replace(/^\/+/, '');
-  }
-
-  function zoneUrl(){
-    var p = qs();
-    var raw = p.get('return') || p.get('back') || p.get('hub') || '';
-
-    try{
-      if(raw){
-        var decoded = decodeURIComponent(raw);
-        var candidate = new URL(decoded, location.href);
-        if(/hygiene-zone\.html/i.test(candidate.pathname)){
-          candidate.searchParams.set('pid', p.get('pid') || 'anon');
-          candidate.searchParams.set('name', p.get('name') || p.get('nick') || 'Hero');
-          candidate.searchParams.set('diff', p.get('diff') || 'normal');
-          candidate.searchParams.set('time', p.get('time') || '90');
-          candidate.searchParams.set('view', p.get('view') || 'mobile');
-          candidate.searchParams.set('hub', p.get('hubRoot') || p.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
-          return candidate.toString();
-        }
-      }
-    }catch(_){}
-
-    var u = new URL(heroRootUrl('hygiene-zone.html'));
-    u.searchParams.set('pid', p.get('pid') || 'anon');
-    u.searchParams.set('name', p.get('name') || p.get('nick') || 'Hero');
-    u.searchParams.set('diff', p.get('diff') || 'normal');
-    u.searchParams.set('time', p.get('time') || '90');
-    u.searchParams.set('view', p.get('view') || 'mobile');
-    u.searchParams.set('hub', p.get('hubRoot') || p.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
-    return u.toString();
-  }
-
-  function cooldownUrl(){
-    var p = qs();
-    var c = ctx();
-    var z = zoneUrl();
-    var u = new URL(heroRootUrl('warmup-gate.html'));
-
-    var keep = {
-      pid:c.pid,
-      name:c.name,
-      nick:c.nick,
-      diff:c.diff,
-      time:c.time,
-      view:c.view,
-      run:c.run,
-      zone:'hygiene',
-      cat:'hygiene',
-      game:'brush',
-      gameId:'brush',
-      variant:'kids-vr',
-      mode:'learn',
-      entry:'brush-kids',
-      theme:'brush',
-      launcher:'hygiene-zone',
-      phase:'cooldown',
-      gatePhase:'cooldown',
-      next:z,
-      hub:z,
-      return:z,
-      back:z,
-      hubRoot:p.get('hubRoot') || p.get('rootHub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html',
-      seed:c.seed,
-      v:'20260506h'
-    };
-
-    Object.keys(keep).forEach(function(k){ u.searchParams.set(k, String(keep[k])); });
-    return u.toString();
-  }
-
-  function canonicalizeUrlSilently(){
-    var p = qs();
-    var changed = false;
-    var u = new URL(location.href);
-    var canonical = {
-      game:'brush',
-      gameId:'brush',
-      zone:'hygiene',
-      cat:'hygiene',
-      variant:'kids-vr',
-      mode:'learn',
-      entry:'brush-kids',
-      theme:'brush',
-      launcher:'hygiene-zone'
-    };
-
-    Object.keys(canonical).forEach(function(k){
-      if(p.get(k) !== canonical[k]){
-        u.searchParams.set(k, canonical[k]);
-        changed = true;
-      }
-    });
-
-    if(changed && !p.get('_gateFixed')){
-      u.searchParams.set('_gateFixed','1');
-      history.replaceState(null, '', u.toString());
-    }
-  }
-
-  function bindCooldown(){
-    document.addEventListener('click', function(e){
-      var btn = e.target && e.target.closest ? e.target.closest('[data-action="cooldown"], button, a, [role="button"]') : null;
-      if(!btn) return;
-
-      var text = String(btn.textContent || '').trim();
-      var isCooldown = (btn.dataset && btn.dataset.action === 'cooldown') || /Cooldown|คูลดาวน์|ผ่อนคลาย/i.test(text);
-      if(!isCooldown) return;
-
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
-      toast('กำลังไป Cooldown...');
-      setTimeout(function(){ location.href = cooldownUrl(); }, 160);
-    }, true);
-  }
-
-  function init(){
-    canonicalizeUrlSilently();
-
-    var s = stage();
-    if(s !== 'summary'){
-      var keys = markGateDone('warmup', 'arrived-brush-' + s);
-      try{ console.info('[Brush Gate] Warmup marked done for today:', keys); }catch(_){}
-    }
-
-    bindCooldown();
-
-    window.HHA_BRUSH_GATE = {
-      patch:PATCH,
-      ctx:ctx,
-      keys:function(phase){ return gateKeys(phase || 'warmup', ctx()); },
-      mark:function(phase){ return markGateDone(phase || 'warmup', 'manual-console'); },
-      list:listGateKeys,
-      resetToday:resetToday,
-      cooldownUrl:cooldownUrl,
-      zoneUrl:zoneUrl
-    };
-
-    setTimeout(function(){
-      if(stage() !== 'summary') toast('Warmup วันนี้บันทึกแล้ว • รอบถัดไปควรข้าม warmup');
-    }, 650);
-  }
-
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-  else init();
-})();
-</script>
-
+  <div class="cooldownOnceToast" id="cooldownOnceToast"></div>
 </body>
 </html>
