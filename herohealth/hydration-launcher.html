@@ -622,7 +622,7 @@
 
     <section class="hero">
       <article class="panel intro">
-        <div class="kicker">HeroHealth Fitness Zone</div>
+        <div class="kicker">HeroHealth Nutrition Zone</div>
 
         <h2>Aqua Rush</h2>
 
@@ -751,7 +751,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v10.1.0-hydration-launcher';
+      const VERSION = 'v10.1.1-nutrition-zone-fix';
       const STORE_KEY = 'HHA_HYDRATION_LAUNCHER_PREFS';
 
       const state = {
@@ -871,7 +871,7 @@
         const incomingHub = qs('hub', '');
         if(incomingHub) return incomingHub;
 
-        const zone = qs('zone', 'fitness');
+        const zone = qs('zone', 'nutrition');
         if(zone === 'nutrition') return './nutrition-zone.html';
         if(zone === 'hygiene') return './hygiene-zone.html';
 
@@ -890,7 +890,7 @@
         gameUrl.searchParams.set('seed', qs('seed', String(Date.now())));
         gameUrl.searchParams.set('view', state.view);
         gameUrl.searchParams.set('run', qs('run', 'play'));
-        gameUrl.searchParams.set('zone', qs('zone', 'fitness'));
+        gameUrl.searchParams.set('zone', qs('zone', 'nutrition'));
         gameUrl.searchParams.set('game', 'hydration');
         gameUrl.searchParams.set('gameId', 'hydration');
         gameUrl.searchParams.set('mode', state.view);
