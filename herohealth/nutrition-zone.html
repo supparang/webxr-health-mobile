@@ -1059,5 +1059,180 @@
       window.__nutritionGoPlate = openPlate;
     })();
   </script>
+  <!-- =========================================================
+  HeroHealth Nutrition Zone → Hydration Launcher Link Patch
+  File: /herohealth/nutrition-zone.html
+  Patch: v10.1.1-hydration-nutrition-link
+========================================================= -->
+<script>
+(function(){
+  'use strict';
+
+  const VERSION = 'v10.1.1-hydration-nutrition-link';
+
+  function qs(k, d){
+    try{
+      return new URL(location.href).searchParams.get(k) || d;
+    }catch(e){
+      return d;
+    }
+  }
+
+  function buildHydrationLauncherUrl(){
+    const u = new URL('./hydration-launcher.html', location.href);
+    const hubBack = location.href;
+
+    u.searchParams.set('pid', qs('pid', 'anon'));
+    u.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+    u.searchParams.set('nick', qs('nick', qs('name', 'Hero')));
+    u.searchParams.set('diff', qs('diff', 'normal'));
+    u.searchParams.set('time', qs('time', '90'));
+    u.searchParams.set('view', qs('view', 'mobile'));
+    u.searchParams.set('run', qs('run', 'play'));
+    u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('game', 'hydration');
+    u.searchParams.set('gameId', 'hydration');
+    u.searchParams.set('entry', 'nutrition-zone');
+    u.searchParams.set('theme', 'hydration');
+    u.searchParams.set('hub', hubBack);
+
+    [
+      'log',
+      'api',
+      'studyId',
+      'phase',
+      'conditionGroup',
+      'section',
+      'session_code',
+      'schoolCode',
+      'classRoom'
+    ].forEach(function(k){
+      const v = qs(k, '');
+      if(v) u.searchParams.set(k, v);
+    });
+
+    return u.toString();
+  }
+
+  function looksLikeHydrationLink(el){
+    if(!el) return false;
+
+    const href = String(el.getAttribute('href') || '').toLowerCase();
+    const dataGame = String(el.dataset.game || el.dataset.gameId || '').toLowerCase();
+    const text = String(el.textContent || '').toLowerCase();
+
+    return (
+      href.includes('hydration-vr.html') ||
+      href.includes('hydration-launcher.html') ||
+      dataGame === 'hydration' ||
+      text.includes('hydration') ||
+      text.includes('aqua rush')
+    );
+  }
+
+  function patchHydrationLinks(){
+    const launcherUrl = buildHydrationLauncherUrl();
+    let patched = 0;
+
+    document.querySelectorAll('a, button').forEach(function(el){
+      if(!looksLikeHydrationLink(el)) return;
+
+      el.dataset.hhaHydrationPatched = VERSION;
+      el.dataset.game = 'hydration';
+      el.dataset.gameId = 'hydration';
+
+      if(el.tagName.toLowerCase() === 'a'){
+        el.setAttribute('href', launcherUrl);
+        patched += 1;
+        return;
+      }
+
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        location.href = launcherUrl;
+      }, { passive:false });
+
+      patched += 1;
+    });
+
+    window.HHA = window.HHA || {};
+    window.HHA.NUTRITION_HYDRATION_LINK_PATCH = {
+      version: VERSION,
+      patched: patched,
+      launcherUrl: launcherUrl
+    };
+
+    return patched;
+  }
+
+  function addFallbackHydrationButton(){
+    if(document.querySelector('[data-hha-hydration-fallback="1"]')) return;
+
+    const box = document.createElement('a');
+    box.href = buildHydrationLauncherUrl();
+    box.dataset.hhaHydrationFallback = '1';
+    box.setAttribute('aria-label', 'เปิดเกม Hydration Aqua Rush');
+
+    box.style.cssText = [
+      'position:fixed',
+      'right:14px',
+      'bottom:14px',
+      'z-index:9999',
+      'display:flex',
+      'align-items:center',
+      'gap:10px',
+      'max-width:min(320px,calc(100vw - 28px))',
+      'padding:12px 14px',
+      'border-radius:22px',
+      'background:linear-gradient(180deg,#ffffff,#eafbff)',
+      'box-shadow:0 16px 38px rgba(20,70,110,.22)',
+      'border:3px solid rgba(67,199,255,.36)',
+      'color:#24506d',
+      'text-decoration:none',
+      'font-family:system-ui,-apple-system,Segoe UI,sans-serif',
+      'font-weight:1000'
+    ].join(';');
+
+    box.innerHTML = `
+      <span style="
+        width:42px;
+        height:42px;
+        border-radius:16px;
+        display:grid;
+        place-items:center;
+        background:#e9fbff;
+        font-size:28px;
+        flex:0 0 auto;
+      ">💧</span>
+      <span style="display:block;line-height:1.1">
+        Hydration
+        <small style="
+          display:block;
+          margin-top:3px;
+          color:#66879c;
+          font-size:11px;
+          font-weight:900;
+        ">เข้า Aqua Rush Launcher</small>
+      </span>
+    `;
+
+    document.body.appendChild(box);
+  }
+
+  function boot(){
+    const patched = patchHydrationLinks();
+
+    if(!patched){
+      addFallbackHydrationButton();
+    }
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
