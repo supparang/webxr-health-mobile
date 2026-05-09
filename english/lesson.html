@@ -7456,15 +7456,39 @@
       boot();
     }
   })();
-  </script>
-  <!-- Level balance -->
- <!-- ปิดก่อน เพราะอาจทำให้ boot ค้าง/ชนกัน -->
-<!-- <script src="./js/lesson-level-balance.js?v=20260506-level-balance-v1"></script> -->
-<!-- <script src="./js/lesson-level-balance-hard-apply.js?v=20260506b-hard-apply"></script> -->
-<!-- <script src="./js/lesson-level-url-lock.js?v=20260508-level-url-lock"></script> -->
-<!-- <script src="./js/techpath-voice-natural-fix.js?v=20260508-voice-natural"></script> -->
-<!-- AI Help voice + counter: ใช้ตัวเดียวเท่านั้น -->
-<!-- AI Help voice + counter: ใช้ตัวเดียวเท่านั้น -->
 <script src="./js/techpath-aihelp-voice-counter-stable.js?v=20260509e-manual-voice"></script>
+
+<script>
+(function(){
+  setTimeout(function(){
+    console.log('[TechPath Boot Check]', {
+      TECHPATH_BOOT_OK: window.TECHPATH_BOOT_OK,
+      hasData: !!window.TECHPATH_LESSON_DATA,
+      bootClass: document.getElementById('boot')?.className,
+      appExists: !!document.getElementById('app'),
+      aiHelp: !!window.TechPathAIHelpStable
+    });
+
+    if (window.TECHPATH_BOOT_OK === true) {
+      document.getElementById('boot')?.classList.add('off');
+      return;
+    }
+
+    const boot = document.getElementById('boot');
+    if (boot) {
+      boot.innerHTML = `
+        <div class="bootBox">
+          <h1 class="bootTitle">Boot Error</h1>
+          <p class="bootSub">เปิด Console เพื่อดู error ล่าสุด</p>
+          <button onclick="location.href='./lesson.html?s=1&diff=normal&level=normal&run=play&v=' + Date.now()"
+            style="margin-top:24px;padding:14px 22px;border-radius:18px;border:0;background:#72e8ff;color:#06111f;font-weight:1000">
+            Reload S1
+          </button>
+        </div>
+      `;
+    }
+  }, 3500);
+})();
+</script>
 </body>
 </html>
