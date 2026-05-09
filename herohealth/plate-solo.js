@@ -7,7 +7,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260508-PLATE-SOLO-V4.0.3-BOSS-COMBO-REPLAY-POLISH';
+  const VERSION = '20260508-PLATE-SOLO-V4.0.4-LAYER-LANE-POLISH';
   const DOC = document;
   const WIN = window;
   const $ = (id) => DOC.getElementById(id);
@@ -196,9 +196,44 @@
 
   function classifyFoodCard(food){if(food.type==='power')return{cls:'power',tag:'Power'}; if(state.lastSaveActive&&state.lastSaveStats){const g=state.lastSaveStats.needGroup; if(food.junk)return{cls:'bossForbidden junk',tag:'ห้ามโดน!'}; if(food.effects&&food.effects[g]&&!wouldOverload(food))return{cls:'bossWanted goodNow',tag:'กู้จาน!'};} if(state.bossMechanic){const m=state.bossMechanic; if(m.type==='avoidJunk'&&food.junk)return{cls:'bossForbidden junk',tag:'ห้ามโดน!'}; if(m.type==='avoidGroup'&&food.effects&&food.effects[m.group])return{cls:'bossForbidden dangerFood',tag:'ห้ามตอนนี้!'}; if(m.type==='quickFix'&&food.effects&&food.effects[m.group]&&!wouldOverload(food))return{cls:'bossWanted goodNow',tag:'รีบเก็บ!'};} if(food.junk)return{cls:'junk',tag:'หลบ!'}; if(wouldOverload(food))return{cls:'riskyFood dangerFood',tag:'ล้น!'}; const m=mostMissingGroup(); if(food.effects&&food.effects[m.id])return{cls:'goodNow',tag:'ควรเก็บ'}; return{cls:'neutralFood',tag:'ใช้ได้'};}
   function chooseMovement(food){if(state.mini&&state.mini.type==='healthyRain'&&!food.junk)return{cls:'move-rain-fast',lifeScale:.72,label:'rain-fast'}; if(state.mini&&state.mini.type==='junkInvasion'&&food.junk)return{cls:chance(.5)?'move-junk-dash':'move-junk-wobble',lifeScale:.68,label:'junk-invasion'}; if(food.type==='power')return{cls:'move-power-float',lifeScale:1.18,label:'power-float'}; if(food.junk)return state.boss||state.rush?{cls:chance(.55)?'move-junk-dash':'move-junk-wobble',lifeScale:.72,label:'junk-fast'}:{cls:chance(.5)?'move-junk-wobble':'move-drift-right',lifeScale:.9,label:'junk-wobble'}; if(state.boss&&chance(.38))return{cls:'move-boss-swipe',lifeScale:.78,label:'boss-swipe'}; if(state.rush&&chance(.45))return{cls:chance(.5)?'move-zigzag':'move-drift-left',lifeScale:.82,label:'rush-move'}; if(chance(.28))return{cls:chance(.5)?'move-drift-left':'move-drift-right',lifeScale:1,label:'drift'}; if(chance(.18))return{cls:'move-zigzag',lifeScale:.95,label:'zigzag'}; return{cls:'move-fall',lifeScale:1,label:'fall'};}
-  function spawnLanes(){return screenMode()==='small'?[11,25,39,53,67,81]:screenMode()==='mobile'?[9,22,35,48,61,74,87]:[7,17,27,37,47,57,67,77,87];}
+  function spawnLanes(){
+    const mode=screenMode();
+    /* v40.4: during Practice, keep targets away from the center coach/plate area */
+    if(state.practiceActive){
+      if(mode==='small') return [10,24,76,90];
+      if(mode==='mobile') return [8,20,32,68,80,92];
+      return [6,16,27,73,84,94];
+    }
+    /* v40.4: regular play still uses many lanes, but fewer exact-center targets */
+    if(mode==='small') return [9,23,37,63,77,91];
+    if(mode==='mobile') return [8,20,32,44,56,68,80,92];
+    return [6,16,26,36,64,74,84,94];
+  }
   function foodSizeClass(food,m){if(food.type==='power')return'size-power'; if(food.junk)return state.boss||(state.mini&&state.mini.type==='junkInvasion')?'size-boss':'size-junk'; if(state.boss&&m&&m.label==='boss-swipe')return'size-boss'; return'size-good';}
-  function chooseSpawnPlacement(food,m){const lanes=spawnLanes(); let cs=lanes.map((pct,i)=>({pct,i,score:rand()})).map(x=>{if(x.i===state.lastSpawnLane)x.score-=.7; if(state.spawnLaneHistory.includes(x.i))x.score-=.35; if(m&&(m.label==='boss-swipe'||m.label==='junk-fast'))x.score+=Math.abs(x.pct-50)/70; if(food.type==='power'){if(x.pct<18||x.pct>82)x.score-=.5; if(x.pct>=35&&x.pct<=65)x.score+=.3;} if(isAimMode())x.score+=(1-Math.abs(x.pct-50)/50)*.35; return x;}).sort((a,b)=>b.score-a.score); const c=cs[0]||{pct:50,i:0}; state.lastSpawnLane=c.i; state.spawnLaneHistory.push(c.i); state.spawnLaneHistory=state.spawnLaneHistory.slice(-3); return{leftPct:c.pct,lane:c.i,edgeClass:c.pct<=14?'lane-edge-left':c.pct>=84?'lane-edge-right':''};}
+  function chooseSpawnPlacement(food,m){
+    const lanes=spawnLanes();
+    let cs=lanes.map((pct,i)=>({pct,i,score:rand()})).map(x=>{
+      if(x.i===state.lastSpawnLane)x.score-=.7;
+      if(state.spawnLaneHistory.includes(x.i))x.score-=.35;
+
+      /* v40.4: stop targets from hiding behind the central plate/Practice coach */
+      if(state.practiceActive && x.pct>30 && x.pct<70)x.score-=1.6;
+      if(!state.practiceActive && x.pct>42 && x.pct<58)x.score-=.35;
+
+      if(m&&(m.label==='boss-swipe'||m.label==='junk-fast'))x.score+=Math.abs(x.pct-50)/70;
+      if(food.type==='power'){
+        if(x.pct<18||x.pct>82)x.score-=.5;
+        if(x.pct>=35&&x.pct<=65 && !state.practiceActive)x.score+=.3;
+      }
+      if(isAimMode())x.score+=(1-Math.abs(x.pct-50)/50)*.28;
+      return x;
+    }).sort((a,b)=>b.score-a.score);
+    const c=cs[0]||{pct:50,i:0};
+    state.lastSpawnLane=c.i;
+    state.spawnLaneHistory.push(c.i);
+    state.spawnLaneHistory=state.spawnLaneHistory.slice(-3);
+    return{leftPct:c.pct,lane:c.i,edgeClass:c.pct<=14?'lane-edge-left':c.pct>=84?'lane-edge-right':''};
+  }
   function spawnDelay(){let d=CFG.spawn; if(state.wave>=2)d*=.9; if(state.wave>=3)d*=.78; if(state.rush)d*=.55; if(isFever())d*=.58; if(state.boss)d*=.7; if(state.mini&&state.mini.type==='healthyRain')d*=.55; if(state.mini&&state.mini.type==='junkInvasion')d*=.48; if(state.mini&&state.mini.type==='missingAlert')d*=.7; return d*clamp((1-state.directorLevel*.055)*(1+state.assistLevel*.115),.74,1.38);}
   function cardLife(){let life=CFG.life; if(state.rush)life*=.75; if(isFever())life*=.78; if(state.boss)life*=.82; return clamp(life*clamp((1-state.directorLevel*.045)*(1+state.assistLevel*.14),.78,1.45),1900,6800);}
   function choosePracticeFood(){const ph=state.practicePhase||0; if(ph===0){const m=mostMissingGroup(),pool=FOODS.filter(f=>!f.junk&&f.effects&&f.effects[m.id]); return{...pick(pool.length?pool:FOODS.filter(f=>!f.junk))};} if(ph===1){if(chance(.52))return{...pick(FOODS.filter(f=>!f.junk&&f.effects&&f.effects.carb))}; return{...pick(FOODS.filter(f=>!f.junk&&f.effects&&(f.effects.veg||f.effects.fruit||f.effects.protein)))};} if(chance(.48))return{...pick(FOODS.filter(f=>f.junk))}; const m=mostMissingGroup(),pool=FOODS.filter(f=>!f.junk&&f.effects&&f.effects[m.id]); return{...pick(pool.length?pool:FOODS.filter(f=>!f.junk))};}
