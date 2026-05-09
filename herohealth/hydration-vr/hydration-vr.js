@@ -281,7 +281,7 @@
       seed: u.searchParams.get('seed') || String(Date.now()),
       view: u.searchParams.get('view') || 'mobile',
       run: u.searchParams.get('run') || 'play',
-      zone: u.searchParams.get('zone') || 'fitness',
+      zone: u.searchParams.get('zone') || 'nutrition',
       game: u.searchParams.get('game') || 'hydration',
       mode: u.searchParams.get('mode') || u.searchParams.get('view') || 'mobile',
       hub: u.searchParams.get('hub') || '',
@@ -3247,7 +3247,7 @@
 
     const ctx = HHA_HYDRATION_FLOW.ctx || getHydrationCtx();
 
-    const hubBack = ctx.hub || './fitness-zone.html';
+    const hubBack = ctx.hub || './nutrition-zone.html';
     const cooldown = new URL('./warmup-gate.html', location.href);
 
     cooldown.searchParams.set('phase', 'cooldown');
