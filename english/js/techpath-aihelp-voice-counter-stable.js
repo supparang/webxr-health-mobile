@@ -1,12 +1,13 @@
 /* =========================================================
  * /english/js/techpath-aihelp-voice-counter-stable.js
- * PATCH v20260508c-AIHELP-VOICE-COUNTER-STABLE-FINAL
+ * PATCH v20260509d-AIHELP-VOICE-COUNTER-STABLE-BEST-US
  *
  * ใช้ไฟล์นี้ตัวเดียวสำหรับ AI Help:
  * ✅ เลือกเสียง AI Help ได้
- * ✅ เลือกเสียงแล้วใช้เสียงนั้นจริง
+ * ✅ บังคับเลือกเสียง American English ที่ดีที่สุดให้อัตโนมัติ
  * ✅ เลือกเสียง US / natural voice ที่ฟังนุ่ม ชัด ก่อน
  * ✅ มี preset โทนเสียง Teacher / Clear US / Coach
+ * ✅ AI Help ใช้เสียงที่ล็อกไว้จริงทุกครั้ง
  * ✅ กด AI Help แล้วนับ 0/3 -> 1/3 -> 2/3 -> 3/3
  * ✅ ครบ 3 ครั้งแล้วกันไม่ให้ใช้ AI Help เพิ่ม
  * ✅ ไม่ยุ่งกับ route / level / student / loading
@@ -19,13 +20,19 @@
 (function () {
   'use strict';
 
-  const PATCH_ID = 'techpath-aihelp-voice-counter-stable-v20260508c';
+  const PATCH_ID = 'techpath-aihelp-voice-counter-stable-v20260509d-best-us';
 
   const VOICE_KEY = 'TECHPATH_AIHELP_SELECTED_VOICE_URI';
   const OLD_VOICE_KEY = 'LESSON_AIHELP_SELECTED_VOICE_V1';
   const PRESET_KEY = 'TECHPATH_AIHELP_VOICE_PRESET';
 
   const MAX_HELP = 3;
+
+  /*
+   * true = เลือกเสียง US ที่ดีที่สุดให้อัตโนมัติเสมอ
+   * เพื่อกันเสียงเก่าใน localStorage เช่น Mark/David/เสียงแหบ มาทับ
+   */
+  const FORCE_BEST_US_VOICE = true;
 
   const VOICE_QUALITY_PRESETS = {
     teacher: {
@@ -105,7 +112,7 @@
         position: fixed !important;
         right: 10px !important;
         bottom: 88px !important;
-        z-index: 999998 !important;
+        z-index: 9999998 !important;
         width: min(440px, calc(100vw - 20px)) !important;
         border-radius: 16px !important;
         border: 1px solid rgba(105,232,255,.38) !important;
@@ -114,6 +121,12 @@
         box-shadow: 0 18px 48px rgba(0,0,0,.36) !important;
         overflow: hidden !important;
         font: 800 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif !important;
+        pointer-events: auto !important;
+      }
+
+      #techPathAIHelpStable,
+      #techPathAIHelpStable * {
+        pointer-events: auto !important;
       }
 
       #techPathAIHelpStable summary {
@@ -122,6 +135,9 @@
         color: #75eeff !important;
         font-weight: 1000 !important;
         user-select: none !important;
+        position: relative !important;
+        z-index: 9999999 !important;
+        touch-action: manipulation !important;
       }
 
       #techPathAIHelpStable .body {
@@ -138,6 +154,9 @@
         padding: 0 10px !important;
         font-weight: 900 !important;
         outline: none !important;
+        position: relative !important;
+        z-index: 9999999 !important;
+        touch-action: manipulation !important;
       }
 
       #techPathAIHelpStable select + select {
@@ -153,6 +172,9 @@
         background: #65e8ff !important;
         color: #06202a !important;
         font-weight: 1000 !important;
+        position: relative !important;
+        z-index: 9999999 !important;
+        touch-action: manipulation !important;
       }
 
       #techPathAIHelpStable .note {
@@ -166,7 +188,7 @@
         left: 12px !important;
         right: 12px !important;
         bottom: 92px !important;
-        z-index: 999999 !important;
+        z-index: 9999999 !important;
         display: none;
         padding: 10px 14px !important;
         border-radius: 16px !important;
@@ -213,8 +235,12 @@
 
   function isUS(v) {
     const s = `${v && v.name ? v.name : ''} ${v && v.lang ? v.lang : ''}`;
+    const lang = String(v && v.lang ? v.lang : '').toLowerCase();
 
-    return /en-us|united states|google us|us english|samantha|alex|jenny|aria|ava|zira|david|guy|mark/i.test(s);
+    return (
+      lang === 'en-us' ||
+      /united states|google us|us english|samantha|alex|jenny|aria|ava|zira|david|guy|mark/i.test(s)
+    );
   }
 
   function isBadAccent(v) {
@@ -225,33 +251,40 @@
 
   function voiceScore(v) {
     const s = `${v && v.name ? v.name : ''} ${v && v.lang ? v.lang : ''}`;
+    const lang = String(v && v.lang ? v.lang : '').toLowerCase();
+
     let score = 0;
 
-    if (isUS(v)) score += 1000;
-    if (String(v.lang || '').toLowerCase() === 'en-us') score += 350;
+    // บังคับกลุ่ม American English ขึ้นก่อน
+    if (lang === 'en-us') score += 5000;
+    if (/united states/i.test(s)) score += 2500;
+    if (/us english/i.test(s)) score += 1500;
+    if (/\bus\b/i.test(s)) score += 900;
 
-    // กลุ่มเสียงที่มักฟังนุ่ม/ชัดกว่า
-    if (/Microsoft Jenny/i.test(s)) score += 950;
-    if (/Microsoft Aria/i.test(s)) score += 920;
-    if (/Microsoft Ava/i.test(s)) score += 880;
-    if (/Microsoft Ana/i.test(s)) score += 840;
-    if (/Google US English/i.test(s)) score += 820;
-    if (/Samantha/i.test(s)) score += 780;
-    if (/Microsoft Zira/i.test(s)) score += 720;
-    if (/Alex/i.test(s)) score += 620;
+    // Google US มักชัดและใช้ได้ดีบน Chrome
+    if (/Google US English/i.test(s)) score += 3200;
 
-    // เสียงผู้ชายชัด แต่แข็งกว่า จึงให้รองลงมา
-    if (/Microsoft Guy/i.test(s)) score += 560;
-    if (/Microsoft David/i.test(s)) score += 470;
-    if (/Microsoft Mark/i.test(s)) score += 420;
+    // เสียงที่มักฟังนุ่ม/ชัดที่สุด
+    if (/Microsoft Jenny/i.test(s)) score += 3000;
+    if (/Microsoft Aria/i.test(s)) score += 2900;
+    if (/Microsoft Ava/i.test(s)) score += 2800;
+    if (/Microsoft Ana/i.test(s)) score += 2600;
+    if (/Samantha/i.test(s)) score += 2500;
+    if (/Microsoft Zira/i.test(s)) score += 2300;
+    if (/Alex/i.test(s)) score += 2100;
 
-    // กันสำเนียงที่ไม่ใช่ US หลุดมาเป็นตัวแรก
-    if (isBadAccent(v)) score -= 2500;
+    // เสียงผู้ชาย ชัดแต่บางเครื่องแข็ง/แหบกว่า
+    if (/Microsoft Guy/i.test(s)) score += 1800;
+    if (/Microsoft David/i.test(s)) score += 1500;
+    if (/Microsoft Mark/i.test(s)) score += 1300;
 
-    // ลดเสียง generic ที่มัก robot
-    if (/default/i.test(s)) score -= 120;
-    if (/compact/i.test(s)) score -= 120;
-    if (/novelty/i.test(s)) score -= 200;
+    // กันสำเนียงที่ไม่ใช่ US หลุดมา
+    if (isBadAccent(v)) score -= 10000;
+
+    // ลดเสียง generic / robot
+    if (/default/i.test(s)) score -= 500;
+    if (/compact/i.test(s)) score -= 500;
+    if (/novelty/i.test(s)) score -= 800;
 
     return score;
   }
@@ -267,7 +300,7 @@
   function selectedKey() {
     const select = document.getElementById('techPathAIHelpVoiceSelect');
 
-    if (select && select.value) {
+    if (select && select.value && !FORCE_BEST_US_VOICE) {
       try {
         localStorage.setItem(VOICE_KEY, select.value);
         localStorage.setItem(OLD_VOICE_KEY, select.value);
@@ -284,10 +317,27 @@
   }
 
   function getSelectedVoice() {
-    const key = selectedKey();
     const voices = sortedVoices();
 
     if (!voices.length) return null;
+
+    // โหมดใหม่: เลือกเสียง US ที่ดีที่สุดให้อัตโนมัติเสมอ
+    // เพื่อกันค่าเสียงเก่าใน localStorage เช่น Mark/David/เสียงแหบ มาทับ
+    if (FORCE_BEST_US_VOICE) {
+      const best = voices[0] || null;
+
+      if (best) {
+        try {
+          localStorage.setItem(VOICE_KEY, best.voiceURI || best.name);
+          localStorage.setItem(OLD_VOICE_KEY, best.voiceURI || best.name);
+          localStorage.setItem(PRESET_KEY, 'teacher');
+        } catch (e) {}
+      }
+
+      return best;
+    }
+
+    const key = selectedKey();
 
     // ถ้าผู้ใช้เลือกไว้แล้ว ให้เคารพเสียงที่เลือก
     if (key) {
@@ -312,7 +362,6 @@
       if (loose) return loose;
     }
 
-    // ถ้ายังไม่เคยเลือก ให้เลือกเสียงที่ดีที่สุดอัตโนมัติ
     return voices[0] || null;
   }
 
@@ -443,8 +492,8 @@
 
     if (current) {
       try {
-        localStorage.setItem(VOICE_KEY, current.voiceURI);
-        localStorage.setItem(OLD_VOICE_KEY, current.voiceURI);
+        localStorage.setItem(VOICE_KEY, current.voiceURI || current.name);
+        localStorage.setItem(OLD_VOICE_KEY, current.voiceURI || current.name);
       } catch (e) {}
 
       const preset = getVoicePreset();
@@ -861,6 +910,7 @@
 
         return {
           patch: PATCH_ID,
+          forceBestUSVoice: FORCE_BEST_US_VOICE,
           voicePanel: !!document.getElementById('techPathAIHelpStable'),
           selectedVoice: v ? {
             name: v.name,
