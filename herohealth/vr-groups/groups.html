@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>HeroHealth • Groups Solo Arena v8.0</title>
+<title>HeroHealth • Groups Solo Arena v9.0</title>
 <meta name="theme-color" content="#bfeeff"/>
 <style>
 :root{--ink:#29485f;--muted:#6b8da4;--line:#d6edf7;--blue:#61bbff;--green:#7ed957;--yellow:#ffd966;--orange:#ff9f43;--red:#ff6b6b;--pink:#ff9fd0;--violet:#bca7ff;--sab:env(safe-area-inset-bottom,0px);--sat:env(safe-area-inset-top,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
@@ -452,8 +452,8 @@ body.view-cvr .foodActor .emoji{
 /* === GROUPS SOLO ARENA v8.0 — PRODUCTION CANDIDATE POLISH === */
 /* ✅ action-first UI, less blocking, clearer replay motivation */
 
-body[data-version="v8.0-production-candidate"] .brand p::after{
-  content:" • v8.0 PC";
+body[data-version="v9.0-production-release"] .brand p::after{
+  content:" • v9.0";
   opacity:.72;
 }
 
@@ -494,6 +494,190 @@ body[data-version="v8.0-production-candidate"] .brand p::after{
   }
 }
 
+
+/* === GROUPS SOLO ARENA v8.1 — GAMEPLAY UI + KID SUMMARY POLISH === */
+/* ✅ floating buttons no longer cover gates */
+/* ✅ coach warning smaller and less blocking */
+/* ✅ summary shorter, clearer, and easier for kids */
+
+body.isPlaying .howtoBtn,
+body.isPlaying .teacherToggle{
+  opacity:0 !important;
+  pointer-events:none !important;
+  transform:translateY(10px) scale(.88) !important;
+}
+
+body.isPlaying .powerSortBtn{
+  bottom:calc(128px + var(--sab)) !important;
+  left:12px !important;
+  min-width:118px !important;
+  min-height:42px !important;
+  border-radius:19px !important;
+  padding:6px 9px !important;
+  opacity:.92 !important;
+}
+
+body.isPlaying .powerIcon{
+  font-size:20px !important;
+}
+
+body.isPlaying .powerText b{
+  font-size:.78rem !important;
+}
+
+body.isPlaying .powerText small{
+  font-size:.58rem !important;
+}
+
+.coach{
+  top:31% !important;
+  width:min(390px,calc(100% - 34px)) !important;
+  opacity:.94 !important;
+}
+
+.coachBox{
+  grid-template-columns:38px minmax(0,1fr) !important;
+  padding:8px 10px !important;
+  border-radius:20px !important;
+}
+
+.coachIcon{
+  width:38px !important;
+  height:38px !important;
+  border-radius:14px !important;
+  font-size:22px !important;
+}
+
+.coachTitle{
+  font-size:.80rem !important;
+}
+
+.coachSub{
+  font-size:.64rem !important;
+  line-height:1.18 !important;
+}
+
+#summaryOverlay .modalGrid{
+  grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  gap:10px !important;
+}
+
+#summaryOverlay .infoCard{
+  min-height:92px !important;
+}
+
+#summaryOverlay .summaryFocus{
+  grid-column:1/-1 !important;
+  background:linear-gradient(180deg,#fff9df,#fffefb) !important;
+  border-color:#ffe39a !important;
+}
+
+@media (max-width:720px){
+  #summaryOverlay .modalGrid{
+    grid-template-columns:1fr !important;
+  }
+
+  #summaryOverlay .infoCard{
+    min-height:auto !important;
+  }
+}
+
+@media (orientation:landscape) and (max-height:620px){
+  body.isPlaying .powerSortBtn{
+    bottom:calc(90px + var(--sab)) !important;
+    min-width:104px !important;
+  }
+
+  .coach{
+    top:25% !important;
+  }
+
+  #summaryOverlay .modalGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+  }
+}
+
+
+/* === GROUPS SOLO ARENA v9.0 — PRODUCTION RELEASE === */
+/* ✅ personal best / daily challenge / badges */
+/* ✅ compact child-friendly summary */
+/* ✅ release-safe UI */
+
+body[data-version="v9.0-production-release"] .brand p::after{
+  content:" • Release";
+  opacity:.72;
+}
+
+.summaryFocus{
+  position:relative;
+  overflow:hidden;
+}
+
+.summaryFocus::after{
+  content:"";
+  position:absolute;
+  right:-30px;
+  top:-30px;
+  width:120px;
+  height:120px;
+  border-radius:50%;
+  background:rgba(255,217,102,.18);
+  pointer-events:none;
+}
+
+.progressChipRow{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-top:8px;
+}
+
+.progressChip{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  border-radius:999px;
+  padding:5px 9px;
+  background:#fff;
+  border:1px solid var(--line);
+  color:#397b9c;
+  font-weight:1000;
+  font-size:.72rem;
+}
+
+.progressChip.hot{
+  background:#fff9df;
+  border-color:#ffe39a;
+  color:#9a6517;
+}
+
+.progressChip.good{
+  background:#f3fff0;
+  border-color:#d8f4cf;
+  color:#377d37;
+}
+
+.progressChip.badge{
+  background:#fff6fb;
+  border-color:#ffd5eb;
+  color:#8b3c66;
+}
+
+#summaryOverlay .modal{
+  max-width:920px;
+}
+
+#summaryOverlay .modalGrid{
+  align-items:stretch;
+}
+
+@media(max-width:720px){
+  .progressChip{
+    font-size:.66rem;
+    padding:4px 7px;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -523,19 +707,19 @@ body[data-version="v8.0-production-candidate"] .brand p::after{
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id),q=new URLSearchParams(location.search);
-const APP_VERSION='v8.0-production-candidate',APP_SCHEMA='groups-solo-arena-v8.0-production-candidate';
-const BUILD_FLAGS={actionArena:true,dragDrop:true,cvr:true,bossOrders:true,researchMetrics:true,cloudQueue:true,kidSummary:true,productionCandidate:true,waveMission:true,replayMotivation:true,endgameStable:true};
+const APP_VERSION='v9.0-production-release',APP_SCHEMA='groups-solo-arena-v9.0-production-release';
+const BUILD_FLAGS={actionArena:true,dragDrop:true,cvr:true,bossOrders:true,researchMetrics:true,cloudQueue:true,kidSummary:true,productionRelease:true,waveMission:true,replayMotivation:true,endgameStable:true,personalBest:true,dailyChallenge:true,badges:true};
 const GROUPS=[{id:1,short:'โปรตีน',label:'หมู่ 1 โปรตีน',ex:'เนื้อ นม ไข่ ถั่ว'},{id:2,short:'ข้าว/แป้ง',label:'หมู่ 2 ข้าว/แป้ง',ex:'ข้าว แป้ง เผือก มัน น้ำตาล'},{id:3,short:'ผัก',label:'หมู่ 3 ผัก',ex:'ผักต่าง ๆ'},{id:4,short:'ผลไม้',label:'หมู่ 4 ผลไม้',ex:'ผลไม้ต่าง ๆ'},{id:5,short:'ไขมัน',label:'หมู่ 5 ไขมัน',ex:'น้ำมัน ไขมัน กะทิ เนย'}];
 const FOODS=[['🥚','ไข่',1],['🍗','ไก่',1],['🐟','ปลา',1],['🥛','นม',1],['🫘','ถั่วเมล็ดแห้ง',1],['🥩','เนื้อสัตว์',1],['🍚','ข้าว',2],['🍞','ขนมปัง',2],['🥔','มันฝรั่ง',2],['🍠','มันเทศ',2],['🌽','ข้าวโพด',2],['🍜','เส้นก๋วยเตี๋ยว',2],['🥦','บรอกโคลี',3],['🥬','ผักใบเขียว',3],['🥕','แครอต',3],['🥒','แตงกวา',3],['🍅','มะเขือเทศ',3],['🌶️','พริก',3],['🍎','แอปเปิล',4],['🍌','กล้วย',4],['🍊','ส้ม',4],['🍇','องุ่น',4],['🍉','แตงโม',4],['🥭','มะม่วง',4],['🥑','อะโวคาโด',5],['🧈','เนย',5],['🥥','กะทิ',5],['🫒','น้ำมันมะกอก',5],['🥜','ถั่วลิสง',5],['🌰','เมล็ดพืช',5]].map(x=>({emoji:x[0],name:x[1],group:x[2]}));
 const cfg={diff:clean(q.get('diff')||'normal'),view:clean(q.get('view')||'mobile'),pid:clean(q.get('pid')||'anon'),name:clean(q.get('name')||q.get('nick')||'Hero'),seed:clean(q.get('seed')||String(Date.now())),time:clamp(Number(q.get('time')||120),60,240)};
 cfg.logEnabled=q.get('log')==='1'||q.get('log')==='true';cfg.api=clean(q.get('api')||'');cfg.studyId=clean(q.get('studyId')||'');cfg.conditionGroup=clean(q.get('conditionGroup')||'');cfg.sessionCode=clean(q.get('session_code')||q.get('sessionCode')||'');
 const DIFF={easy:{lives:5,timeBonus:30,spawnBase:1380,spawnMin:780,speedBase:15.2,speedWave:2.05,maxActorsBase:3,bossHp:90,scoreMul:.9,assist:1.32},normal:{lives:4,timeBonus:0,spawnBase:1160,spawnMin:610,speedBase:17.2,speedWave:2.35,maxActorsBase:5,bossHp:125,scoreMul:.97,assist:1.24},hard:{lives:3,timeBonus:-5,spawnBase:1040,spawnMin:520,speedBase:19.7,speedWave:2.9,maxActorsBase:6,bossHp:145,scoreMul:1.05,assist:1.14},challenge:{lives:3,timeBonus:-15,spawnBase:920,spawnMin:460,speedBase:22,speedWave:3.35,maxActorsBase:7,bossHp:165,scoreMul:1.12,assist:1.08}};
-const profile=DIFF[cfg.diff]||DIFF.normal,STORAGE={lastMetrics:'HHA_GROUPS_LAST_SESSION_METRICS',lastSummary:'HHA_LAST_SUMMARY',cloudQueue:'HHA_GROUPS_CLOUD_QUEUE',cloudStats:'HHA_GROUPS_CLOUD_STATS',cloudDisabledUntil:'HHA_GROUPS_CLOUD_DISABLED_UNTIL',qaLast:'HHA_GROUPS_QA_LAST'},rng=makeRng(hashSeed(cfg.seed));
+const profile=DIFF[cfg.diff]||DIFF.normal,STORAGE={lastMetrics:'HHA_GROUPS_LAST_SESSION_METRICS',lastSummary:'HHA_LAST_SUMMARY',cloudQueue:'HHA_GROUPS_CLOUD_QUEUE',cloudStats:'HHA_GROUPS_CLOUD_STATS',cloudDisabledUntil:'HHA_GROUPS_CLOUD_DISABLED_UNTIL',qaLast:'HHA_GROUPS_QA_LAST',personalBest:'HHA_GROUPS_PERSONAL_BEST',history:'HHA_GROUPS_HISTORY',daily:'HHA_GROUPS_DAILY'},rng=makeRng(hashSeed(cfg.seed));
 const els={scoreTxt:$('scoreTxt'),timeTxt:$('timeTxt'),lifeTxt:$('lifeTxt'),comboTxt:$('comboTxt'),accTxt:$('accTxt'),stage:$('stage'),waveTitle:$('waveTitle'),waveSub:$('waveSub'),waveChip:$('waveChip'),phaseChip:$('phaseChip'),feverChip:$('feverChip'),playfield:$('playfield'),actorLayer:$('actorLayer'),floorLine:$('floorLine'),gates:$('gates'),feedback:$('feedback'),bossBox:$('bossBox'),bossFace:$('bossFace'),bossPhase:$('bossPhase'),bossHpFill:$('bossHpFill'),bossSkill:$('bossSkill'),objectiveIcon:$('objectiveIcon'),objectiveTitle:$('objectiveTitle'),objectiveSub:$('objectiveSub'),objectiveFill:$('objectiveFill'),phaseIcon:$('phaseIcon'),phaseTitle:$('phaseTitle'),phaseSub:$('phaseSub'),phaseFill:$('phaseFill'),startOverlay:$('startOverlay'),summaryOverlay:$('summaryOverlay'),summaryIcon:$('summaryIcon'),summaryTitle:$('summaryTitle'),summaryText:$('summaryText'),summaryGrid:$('summaryGrid'),btnStart:$('btnStart'),btnPractice:$('btnPractice'),btnReplay:$('btnReplay'),btnSummaryLauncher:$('btnSummaryLauncher'),btnSummaryZone:$('btnSummaryZone'),btnLauncher:$('btnLauncher'),btnZone:$('btnZone'),btnHub:$('btnHub'),btnTeacher:$('btnTeacher'),btnHowto:$('btnHowto'),btnPowerSort:$('btnPowerSort'),powerSortTitle:$('powerSortTitle'),powerSortHint:$('powerSortHint'),sessionTxt:$('sessionTxt'),eventsTxt:$('eventsTxt'),actorsTxt:$('actorsTxt'),bossHpTxt:$('bossHpTxt'),cloudStatusTxt:$('cloudStatusTxt'),cloudQueueTxt:$('cloudQueueTxt'),versionTxt:$('versionTxt'),btnCopyJson:$('btnCopyJson'),btnCopyCsv:$('btnCopyCsv'),btnDownloadJson:$('btnDownloadJson'),btnDownloadCsv:$('btnDownloadCsv'),toast:$('toast'),cvrHint:$('cvrHint')};
 const state={active:false,ended:false,practice:false,sessionId:'',score:0,timeLeft:cfg.time,totalTime:cfg.time,lives:3,combo:0,maxCombo:0,attempts:0,correct:0,miss:0,crashes:0,actors:[],selectedId:null,nextActorId:1,lastTs:0,raf:0,spawnTimer:0,totalTimer:0,wave:1,phase:'calm',phaseChanges:0,feverUntil:0,powerCharge:0,powerThreshold:6,lastPowerTier:0,powerActive:false,assistShield:0,missStreak:0,bossHp:120,bossMaxHp:120,bossActive:false,bossRage:false,bossOrder:null,bossOrderSerial:0,bossOrderRaf:0,bossOrderCooldownUntil:0,bossOrdersCleared:0,bossOrdersFailed:0,bossAnswerCount:0,objective:null,events:[],audioReady:false,lastDangerToneAt:0,lastComboSplashAt:0,lastSpawnToneAt:0,firstSelectDone:false,firstSortDone:false,firstDangerCueDone:false,firstBossCueDone:false,firstDragCueDone:false,drag:{active:false,actorId:null,pointerId:null,startX:0,startY:0,lastX:0,lastY:0,moved:false,offsetX:0,offsetY:0,hoverGroup:0,guide:null},cvr:{enabled:false,aimType:'',aimId:null,aimGroup:0,lastAimKey:'',lastHintAt:0,lastShootAt:0},research:{startedAt:'',endedAt:'',groupStats:{},waveStats:{},inputStats:{},bossOrderStats:{started:0,cleared:0,failed:0},rtTotal:0,rtCount:0,rtBest:0,rtWorst:0,crashByWave:{},answerEvents:[],summary:null},cloud:{enabled:false,api:'',queue:[],sending:false,sent:0,fail:0,disabledUntil:0,lastStatus:'off'},lastInputMode:'tap',finalWin:false,finalReason:'',summaryShown:false,endLock:false,lastRuntimeError:'',recoveries:0,emptyArenaTicks:0};
 init();
 function init(){document.body.dataset.version=APP_VERSION;if(typeof installRuntimeGuards==='function')installRuntimeGuards();runBootSelfCheck();renderGates();bind();initResearchShell();initCloudLogger();initCvrMode();setPhase('calm','เริ่มเกมแบบพื้นฐาน',true);setObjective(makeObjective(1));updateHud();updateTeacher()}
-function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v8.0-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v8.0-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
+function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v9.0-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v9.0-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
 function on(el,type,fn){if(!el){console.warn('[Groups bind skipped]',type);return}el.addEventListener(type,fn)}
 function renderGates(){els.gates.innerHTML=GROUPS.map(g=>`<button class="gate" data-group="${g.id}"><div><div class="num">${g.id}</div><div class="label">${esc(g.label)}</div><div class="ex">${esc(g.ex)}</div></div></button>`).join('');els.gates.querySelectorAll('.gate').forEach(btn=>btn.addEventListener('click',()=>{state.lastInputMode=state.cvr.enabled?'cvr_tap_gate':'tap_gate';sortSelected(Number(btn.dataset.group))}))}
 function cleanupRuntime(){clearInterval(state.totalTimer);clearTimeout(state.spawnTimer);cancelAnimationFrame(state.raf);cancelAnimationFrame(state.bossOrderRaf||0);clearBossOrder();clearDragState();clearCvrAimClasses();els.actorLayer.innerHTML='';els.floorLine.classList.remove('warn');document.querySelectorAll('.fly,.pop,.flash,.combo,.orderToast,.dragGuide,.coach,.nearGroundWarn').forEach(e=>{try{e.remove()}catch(_){}});els.gates.querySelectorAll('.accept,.reject,.hint,.dragHover,.cvrAim,.target,.avoid').forEach(e=>e.classList.remove('accept','reject','hint','dragHover','cvrAim','target','avoid'))}
@@ -549,7 +733,7 @@ function finalQaRuntimeReset(){
  }catch(_){}
 }
 
-function start(practice){cleanupRuntime();finalQaRuntimeReset();document.body.classList.remove('summaryOpen','gameRecovering');state.practice=!!practice;state.active=true;state.ended=false;state.finalWin=false;state.finalReason='';state.summaryShown=false;state.endLock=false;state.emptyArenaTicks=0;state.sessionId='groups-'+Date.now().toString(36);state.score=0;state.timeLeft=practice?Math.max(150,cfg.time+30):clamp(cfg.time+profile.timeBonus,60,240);state.totalTime=state.timeLeft;state.lives=practice?Math.max(5,profile.lives+1):profile.lives;state.combo=0;state.maxCombo=0;state.attempts=0;state.correct=0;state.miss=0;state.crashes=0;state.assistShield=practice?1:0;state.missStreak=0;state.actors=[];state.selectedId=null;state.nextActorId=1;state.wave=1;state.phaseChanges=0;state.feverUntil=0;state.powerCharge=0;state.lastPowerTier=0;state.powerThreshold=practice?5:6;state.powerActive=false;state.bossHp=practice?Math.max(75,Math.round(profile.bossHp*.85)):profile.bossHp;state.bossMaxHp=state.bossHp;state.bossActive=false;state.bossRage=false;state.bossOrder=null;state.bossOrderSerial=0;state.bossOrderCooldownUntil=0;state.bossOrdersCleared=0;state.bossOrdersFailed=0;state.bossAnswerCount=0;state.events=[];state.firstSelectDone=false;state.firstSortDone=false;state.firstDangerCueDone=false;state.firstBossCueDone=false;state.firstDragCueDone=false;state.lastInputMode=state.cvr.enabled?'cvr':'tap';resetResearch();els.startOverlay.classList.add('hidden');els.summaryOverlay.classList.add('hidden');setFeedback(state.cvr.enabled?'เริ่มแล้ว! มองอาหารแล้วแตะเพื่อเลือก จากนั้นมอง Gate แล้วแตะเพื่อส่ง':'เริ่มแล้ว! แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ให้ถูก');showCoach('🍌','แตะอาหารก่อน','เลือกอาหารที่ใกล้ชนพื้น แล้วส่งเข้าประตูหมู่ 1–5');if(state.cvr.enabled)showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');setWave(1);updateHud();updateTeacher();queueCloudEvent('session_start',makeCloudPayload('session_start'),{});state.totalTimer=setInterval(tickSecond,1000);scheduleSpawn(220);setTimeout(()=>startSpawnBurst(),140);state.lastTs=performance.now();state.raf=requestAnimationFrame(loop);logEvent('session_start',{practice:!!practice})}
+function start(practice){cleanupRuntime();finalQaRuntimeReset();document.body.classList.remove('summaryOpen','gameRecovering');document.body.classList.add('isPlaying');state.practice=!!practice;state.active=true;state.ended=false;state.finalWin=false;state.finalReason='';state.summaryShown=false;state.endLock=false;state.emptyArenaTicks=0;state.sessionId='groups-'+Date.now().toString(36);state.score=0;state.timeLeft=practice?Math.max(150,cfg.time+30):clamp(cfg.time+profile.timeBonus,60,240);state.totalTime=state.timeLeft;state.lives=practice?Math.max(5,profile.lives+1):profile.lives;state.combo=0;state.maxCombo=0;state.attempts=0;state.correct=0;state.miss=0;state.crashes=0;state.assistShield=practice?1:0;state.missStreak=0;state.actors=[];state.selectedId=null;state.nextActorId=1;state.wave=1;state.phaseChanges=0;state.feverUntil=0;state.powerCharge=0;state.lastPowerTier=0;state.powerThreshold=practice?5:6;state.powerActive=false;state.bossHp=practice?Math.max(75,Math.round(profile.bossHp*.85)):profile.bossHp;state.bossMaxHp=state.bossHp;state.bossActive=false;state.bossRage=false;state.bossOrder=null;state.bossOrderSerial=0;state.bossOrderCooldownUntil=0;state.bossOrdersCleared=0;state.bossOrdersFailed=0;state.bossAnswerCount=0;state.events=[];state.firstSelectDone=false;state.firstSortDone=false;state.firstDangerCueDone=false;state.firstBossCueDone=false;state.firstDragCueDone=false;state.lastInputMode=state.cvr.enabled?'cvr':'tap';resetResearch();els.startOverlay.classList.add('hidden');els.summaryOverlay.classList.add('hidden');setFeedback(state.cvr.enabled?'เริ่มแล้ว! มองอาหารแล้วแตะเพื่อเลือก จากนั้นมอง Gate แล้วแตะเพื่อส่ง':'เริ่มแล้ว! แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ให้ถูก');showCoach('🍌','แตะอาหารก่อน','เลือกอาหารที่ใกล้ชนพื้น แล้วส่งเข้าประตูหมู่ 1–5');if(state.cvr.enabled)showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');setWave(1);updateHud();updateTeacher();queueCloudEvent('session_start',makeCloudPayload('session_start'),{});state.totalTimer=setInterval(tickSecond,1000);scheduleSpawn(220);setTimeout(()=>startSpawnBurst(),140);state.lastTs=performance.now();state.raf=requestAnimationFrame(loop);logEvent('session_start',{practice:!!practice})}
 function tickSecond(){if(!state.active||state.ended)return;state.timeLeft--;if(Date.now()>state.feverUntil)state.feverUntil=0;updateDirector();updateHud();if(state.cloud.enabled&&state.timeLeft%15===0)flushCloudQueue(false,false);if(state.timeLeft<=0){end(false,'หมดเวลาแล้ว');return}}
 function loop(ts){if(!state.active||state.ended)return;const dt=Math.min(.05,(ts-state.lastTs)/1000||.016);state.lastTs=ts;updateActors(dt);if(state.actors.length<Math.min(2,maxActors())){state.emptyArenaTicks=(state.emptyArenaTicks||0)+1;if(state.emptyArenaTicks>16)ensureLiveActors('loop_refill')}else state.emptyArenaTicks=0;updateCvrAim();state.raf=requestAnimationFrame(loop)}
 
@@ -750,7 +934,7 @@ function screenFlash(k){const el=document.createElement('div');el.className='fla
 function showCombo(t){if(Date.now()-state.lastComboSplashAt<420)return;state.lastComboSplashAt=Date.now();const el=document.createElement('div');el.className='combo';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),940)}
 function orderToast(t,bad){const el=document.createElement('div');el.className='orderToast '+(bad?'bad':'');el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),940)}
 function nearGroundWarn(){const old=els.playfield.querySelector('.nearGroundWarn');if(old)old.remove();const e=document.createElement('div');e.className='nearGroundWarn';e.textContent='⚠️ ใกล้ชนพื้นแล้ว! รีบส่งเข้าประตู';els.playfield.appendChild(e);setTimeout(()=>e.remove(),700)}
-function showCoach(icon,title,sub){const e=document.createElement('div');e.className='coach';e.innerHTML='<div class="coachBox"><div class="coachIcon">'+esc(icon)+'</div><div><div class="coachTitle">'+esc(title)+'</div><div class="coachSub">'+esc(sub)+'</div></div></div>';els.playfield.appendChild(e);setTimeout(()=>e.remove(),980)}
+function showCoach(icon,title,sub){document.querySelectorAll('.coach').forEach(x=>{try{x.remove()}catch(_){}});const e=document.createElement('div');e.className='coach';e.innerHTML='<div class="coachBox"><div class="coachIcon">'+esc(icon)+'</div><div><div class="coachTitle">'+esc(title)+'</div><div class="coachSub">'+esc(sub)+'</div></div></div>';els.playfield.appendChild(e);setTimeout(()=>{try{e.remove()}catch(_){}},720)}
 function dragGuide(t){clearDragGuide();const e=document.createElement('div');e.className='combo';e.textContent=t;document.body.appendChild(e);state.drag.guide=e;setTimeout(clearDragGuide,1100)}
 function clearDragGuide(){if(state.drag.guide){state.drag.guide.remove();state.drag.guide=null}}
 function initCvrMode(){const v=String(cfg.view||'').toLowerCase(),en=v==='cvr'||v==='cardboard'||q.get('cvr')==='1'||q.get('vr')==='1';state.cvr.enabled=!!en;document.body.classList.toggle('view-cvr',en);if(en){showCvrHint('มองอาหารแล้วแตะเพื่อเลือก');logEvent('cvr_mode_start',{view:cfg.view})}}
@@ -766,7 +950,17 @@ function showCvrHintSoft(t){if(!state.cvr.enabled||!els.cvrHint)return;els.cvrHi
 function updateHud(){els.scoreTxt.textContent=Math.round(state.score);els.timeTxt.textContent=Math.max(0,state.timeLeft);els.lifeTxt.textContent='💗'.repeat(state.lives)||'💔';els.comboTxt.textContent=state.combo;els.accTxt.textContent=(state.attempts?Math.round(state.correct/state.attempts*100):0)+'%';els.feverChip.textContent=isFever()?'🔥 Fever x2':'Fever: พร้อม';updateBoss();updatePower()}
 function updateTeacher(){els.sessionTxt.textContent=state.sessionId?state.sessionId.slice(-8):'-';els.eventsTxt.textContent=state.events.length;els.actorsTxt.textContent=state.actors.length;els.bossHpTxt.textContent=state.bossActive?Math.round(state.bossHp):'-';els.cloudStatusTxt.textContent=state.cloud.lastStatus||'off';els.cloudQueueTxt.textContent=state.cloud.queue?state.cloud.queue.length:0;els.versionTxt.textContent=APP_VERSION.replace('v','')}
 function setFeedback(t){els.feedback.textContent=t}
-function end(win,reason){if(state.endLock||state.ended)return;state.endLock=true;state.finalWin=!!win;state.finalReason=reason||'';state.active=false;state.ended=true;logEvent('session_end',{win,reason,score:state.score});finalizeResearch(win,reason);queueCloudEvent('session_end',makeCloudPayload('session_end'),{immediate:true,keepalive:true});flushCloudQueue(false,true);const data=exportData();try{localStorage.setItem(STORAGE.lastMetrics,JSON.stringify(data));localStorage.setItem(STORAGE.lastSummary,JSON.stringify(data.summary))}catch(_){}cleanupRuntime();const acc=state.attempts?Math.round(state.correct/state.attempts*100):0,stars=computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank=computeRank(win,acc,state.maxCombo,state.wave,state.crashes),best=findBestGroup(),weak=findWeakGroup();els.summaryIcon.textContent=win?'🏆':'⭐';els.summaryTitle.textContent=win?'ชนะแล้ว!':'สรุปผลการเล่น';els.summaryText.textContent=(win?'ปราบ Chaos Chef สำเร็จ!':reason)+' • '+rank+' • '+'⭐'.repeat(stars);els.summaryGrid.innerHTML=[infoHtml('Hero Rank',rank,'ระดับฮีโร่อาหารของรอบนี้'),infoHtml('ระดับความยาก',cfg.diff,'ใช้จูนความเร็ว จำนวนอาหาร และหัวใจ'),infoHtml('ดาวที่ได้','⭐'.repeat(stars),'เป้าหมายคือ 5 ดาว'),infoHtml('คะแนน',Math.round(state.score),'คะแนนจากการจัดอาหารเข้าประตู'),infoHtml('ความแม่นยำ',acc+'%',state.correct+'/'+state.attempts+' ครั้ง'),infoHtml('คอมโบสูงสุด',state.maxCombo,'ตอบถูกต่อเนื่องได้สูงสุด'),infoHtml('ชนพื้น',state.crashes,state.crashes===0?'เยี่ยมมาก! จัดทันทุกชิ้น':'จำนวนอาหารที่จัดไม่ทัน'),infoHtml('ทำได้ดี',best?'หมู่ '+best.id+' '+best.short:'ยังไม่มีข้อมูล','หมู่อาหารที่ตอบถูกได้ดีที่สุด'),infoHtml('ควรฝึกเพิ่ม',weak?'หมู่ '+weak.id+' '+weak.short:'ยังไม่พบจุดอ่อนชัดเจน',weak?weak.ex:'เล่นได้สมดุลดีมาก'),infoHtml('คำสั่งบอส',state.bossOrdersCleared+'/'+(state.bossOrdersCleared+state.bossOrdersFailed),'ทำ Chef Order สำเร็จระหว่างสู้บอส'),infoHtml('Wave สุดท้าย',state.wave,'ระดับความท้าทายที่ไปถึง'),infoHtml('จังหวะเกมเปลี่ยน',state.phaseChanges+' ครั้ง','เกมเพิ่ม/ลดความท้าทายตามการเล่น'),infoHtml('เป้าหมายรอบหน้า',replayGoalText(win,acc,stars,weak),'ทำให้เด็กอยากเล่นซ้ำและฝึกหมู่ที่ยังไม่แม่น')].join('');state.summaryShown=true;els.summaryOverlay.classList.remove('hidden');enableSummaryScroll();updateTeacher()}
+function end(win,reason){if(state.endLock||state.ended)return;state.endLock=true;state.finalWin=!!win;state.finalReason=reason||'';state.active=false;state.ended=true;document.body.classList.remove('isPlaying');logEvent('session_end',{win,reason,score:state.score});finalizeResearch(win,reason);queueCloudEvent('session_end',makeCloudPayload('session_end'),{immediate:true,keepalive:true});flushCloudQueue(false,true);const data=exportData();try{localStorage.setItem(STORAGE.lastMetrics,JSON.stringify(data));localStorage.setItem(STORAGE.lastSummary,JSON.stringify(data.summary))}catch(_){}cleanupRuntime();const acc=state.attempts?Math.round(state.correct/state.attempts*100):0,stars=computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank=computeRank(win,acc,state.maxCombo,state.wave,state.crashes),best=findBestGroup(),weak=findWeakGroup(),progress=updateReplayProgress(win,acc,stars,rank,best,weak);els.summaryIcon.textContent=win?'🏆':'⭐';els.summaryTitle.textContent=win?'ชนะแล้ว!':'สรุปผลการเล่น';els.summaryText.textContent=(win?'ปราบ Chaos Chef สำเร็จ!':reason)+' • '+rank+' • '+'⭐'.repeat(stars)+(progress.isNewBest?' • 🏆 สถิติใหม่':'');els.summaryGrid.innerHTML=[
+  focusInfoHtml('ความก้าวหน้า','คะแนนสูงสุด '+progress.bestScore+' • Badge '+progress.badgeCount,progressHtml(progress)),
+  infoHtml('Hero Rank',rank,'ระดับฮีโร่อาหารของรอบนี้'),
+  infoHtml('ดาว / คะแนน','⭐'.repeat(stars)+' • '+Math.round(state.score),'เป้าหมายคือ 5 ดาว'),
+  infoHtml('ความแม่นยำ',acc+'%',state.correct+'/'+state.attempts+' ครั้ง'),
+  infoHtml('คอมโบสูงสุด',state.maxCombo,'ตอบถูกต่อเนื่องได้สูงสุด'),
+  infoHtml('ชนพื้น',state.crashes,state.crashes===0?'เยี่ยมมาก! จัดทันทุกชิ้น':'จำนวนอาหารที่จัดไม่ทัน'),
+  infoHtml('Wave สุดท้าย',state.wave,'ระดับความท้าทายที่ไปถึง'),
+  infoHtml('ควรฝึกเพิ่ม',weak?'หมู่ '+weak.id+' '+weak.short:'ยังไม่พบจุดอ่อนชัดเจน',weak?weak.ex:'เล่นได้สมดุลดีมาก'),
+  focusInfoHtml('เป้าหมายรอบหน้า',replayGoalText(win,acc,stars,weak),'Daily: '+(progress.daily?progress.daily.desc:'ฝึกต่อให้แม่นขึ้น'))
+].join('');;state.summaryShown=true;document.body.classList.remove('isPlaying');els.summaryOverlay.classList.remove('hidden');enableSummaryScroll();updateTeacher()}
 
 function enableSummaryScroll(){
   try{
@@ -777,6 +971,130 @@ function enableSummaryScroll(){
   }catch(_){}
 }
 
+
+
+function todayBangkok(){
+  try{
+    return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+  }catch(_){
+    return new Date().toISOString().slice(0,10);
+  }
+}
+function readJsonKey(key, fallback){
+  try{
+    const raw=localStorage.getItem(key);
+    if(!raw)return fallback;
+    const obj=JSON.parse(raw);
+    return obj||fallback;
+  }catch(_){return fallback}
+}
+function writeJsonKey(key, value){
+  try{localStorage.setItem(key,JSON.stringify(value));return true}catch(_){return false}
+}
+function dailyChallenge(){
+  const date=todayBangkok();
+  let n=0;
+  for(let i=0;i<date.length;i++)n=(n+date.charCodeAt(i)*(i+3))%997;
+  const all=[
+    {id:'combo8',label:'คอมโบ 8+',desc:'ทำคอมโบให้ได้อย่างน้อย 8',done:()=>state.maxCombo>=8},
+    {id:'acc85',label:'แม่นยำ 85%+',desc:'ตอบถูกให้ได้อย่างน้อย 85%',done:(acc)=>acc>=85},
+    {id:'wave4',label:'ไปถึง Wave 4',desc:'เล่นให้ผ่านถึง Wave 4',done:()=>state.wave>=4},
+    {id:'noCrash',label:'ไม่ชนพื้น',desc:'จบเกมโดยชนพื้น 0 ครั้ง',done:()=>state.crashes===0&&state.attempts>0},
+    {id:'bossTry',label:'เจอบอส',desc:'ไปให้ถึง Final Wave',done:()=>state.wave>=5}
+  ];
+  return Object.assign({date},all[n%all.length]);
+}
+function badgeDefinitions(){
+  return [
+    {id:'firstPlay',label:'เริ่มภารกิจ',emoji:'🎮',done:()=>true},
+    {id:'combo10',label:'Combo Hero',emoji:'🔥',done:()=>state.maxCombo>=10},
+    {id:'accuracy90',label:'ตาไวแม่นยำ',emoji:'🎯',done:(acc)=>acc>=90},
+    {id:'noCrash',label:'ไม่ตกพื้น',emoji:'🛡️',done:()=>state.crashes===0&&state.attempts>0},
+    {id:'bossWin',label:'ปราบเชฟ',emoji:'👨‍🍳',done:()=>!!state.finalWin},
+    {id:'fiveStars',label:'5 ดาว',emoji:'⭐',done:(acc,stars)=>stars>=5}
+  ];
+}
+function updateReplayProgress(win,acc,stars,rank,bestGroup,weakGroup){
+  const now=new Date().toISOString();
+  const old=readJsonKey(STORAGE.personalBest,{score:0,stars:0,maxCombo:0,bestAcc:0,wins:0,plays:0,badges:{},bestGroups:{}});
+  const beforeScore=Number(old.score||0);
+  const beforeStars=Number(old.stars||0);
+  const beforeCombo=Number(old.maxCombo||0);
+  const beforeAcc=Number(old.bestAcc||0);
+  const badges=Object.assign({},old.badges||{});
+  const earned=[];
+  badgeDefinitions().forEach(b=>{
+    if(!badges[b.id]&&b.done(acc,stars)){
+      badges[b.id]={label:b.label,emoji:b.emoji,earnedAt:now};
+      earned.push(b.emoji+' '+b.label);
+    }
+  });
+  const bestGroups=Object.assign({},old.bestGroups||{});
+  if(bestGroup&&bestGroup.id){
+    const key=String(bestGroup.id);
+    bestGroups[key]=(bestGroups[key]||0)+1;
+  }
+  const pb={
+    score:Math.max(beforeScore,Math.round(state.score)),
+    stars:Math.max(beforeStars,stars),
+    maxCombo:Math.max(beforeCombo,state.maxCombo),
+    bestAcc:Math.max(beforeAcc,acc),
+    wins:(old.wins||0)+(win?1:0),
+    plays:(old.plays||0)+1,
+    lastPlayedAt:now,
+    lastRank:rank,
+    badges,
+    bestGroups
+  };
+  writeJsonKey(STORAGE.personalBest,pb);
+
+  const history=readJsonKey(STORAGE.history,[]);
+  if(Array.isArray(history)){
+    history.push({at:now,score:Math.round(state.score),stars,acc,maxCombo:state.maxCombo,wave:state.wave,win,rank,weakGroup:weakGroup?weakGroup.short:''});
+    writeJsonKey(STORAGE.history,history.slice(-20));
+  }
+
+  const challenge=dailyChallenge();
+  const completed=!!challenge.done(acc,stars);
+  const daily=readJsonKey(STORAGE.daily,{});
+  if(daily.date!==challenge.date){
+    daily.date=challenge.date;daily.completed={};daily.plays=0;
+  }
+  daily.plays=(daily.plays||0)+1;
+  if(completed)daily.completed[challenge.id]=now;
+  daily.lastChallenge={id:challenge.id,label:challenge.label,desc:challenge.desc,completed};
+  writeJsonKey(STORAGE.daily,daily);
+
+  return {
+    isNewBest:Math.round(state.score)>beforeScore,
+    scoreDelta:Math.round(state.score)-beforeScore,
+    bestScore:pb.score,
+    bestStars:pb.stars,
+    bestCombo:pb.maxCombo,
+    bestAcc:pb.bestAcc,
+    plays:pb.plays,
+    wins:pb.wins,
+    earnedBadges:earned,
+    badgeCount:Object.keys(pb.badges||{}).length,
+    daily:{label:challenge.label,desc:challenge.desc,completed,plays:daily.plays},
+    bestGroups:pb.bestGroups
+  };
+}
+function progressSnapshot(){
+  const pb=readJsonKey(STORAGE.personalBest,{score:0,stars:0,maxCombo:0,bestAcc:0,wins:0,plays:0,badges:{}});
+  const daily=readJsonKey(STORAGE.daily,{});
+  return {personalBest:pb,daily};
+}
+function progressHtml(progress){
+  const chips=[];
+  if(progress.isNewBest)chips.push('<span class="progressChip hot">🏆 สถิติใหม่</span>');
+  chips.push('<span class="progressChip good">คะแนนสูงสุด '+esc(progress.bestScore)+'</span>');
+  chips.push('<span class="progressChip">เล่นแล้ว '+esc(progress.plays)+' รอบ</span>');
+  if(progress.daily&&progress.daily.completed)chips.push('<span class="progressChip hot">✅ Daily: '+esc(progress.daily.label)+'</span>');
+  else if(progress.daily)chips.push('<span class="progressChip">🎯 Daily: '+esc(progress.daily.label)+'</span>');
+  (progress.earnedBadges||[]).slice(0,3).forEach(b=>chips.push('<span class="progressChip badge">'+esc(b)+'</span>'));
+  return '<div class="progressChipRow">'+chips.join('')+'</div>';
+}
 
 function replayGoalText(win,acc,stars,weak){
   if(!win&&state.wave<5)return'ลองไปให้ถึง Final Wave และปราบ Chaos Chef';
@@ -798,7 +1116,7 @@ function bucket(){return{seen:0,correct:0,miss:0,crash:0,responseTotalMs:0,respo
 function recordAnswer(p){const a=p.actor,gid=Number(a.group||0),w=Number(state.wave||1),ok=!!p.correct,cr=!!p.crashed,rt=Math.max(0,Math.round(Number(p.responseMs||0))),mode=String(p.inputMode||state.lastInputMode||(state.cvr.enabled?'cvr_unknown':'tap'));upd(state.research.groupStats[gid]||(state.research.groupStats[gid]=bucket()),ok,cr,rt);upd(state.research.waveStats[w]||(state.research.waveStats[w]=bucket()),ok,cr,rt);if(!state.research.inputStats[mode])state.research.inputStats[mode]={count:0,correct:0,miss:0,crash:0,responseTotalMs:0};const input=state.research.inputStats[mode];input.count++;ok?input.correct++:input.miss++;if(cr)input.crash++;input.responseTotalMs+=rt;if(cr)state.research.crashByWave[w]=(state.research.crashByWave[w]||0)+1;state.research.rtTotal+=rt;state.research.rtCount++;if(!state.research.rtBest||rt<state.research.rtBest)state.research.rtBest=rt;if(!state.research.rtWorst||rt>state.research.rtWorst)state.research.rtWorst=rt;const ev={eventType:p.eventType||'answer',timestamp:new Date().toISOString(),wave:w,actorId:a.id,food:a.food?a.food.name:'',emoji:a.food?a.food.emoji:'',trueGroup:gid,answerGroup:Number(p.answerGroup||0),correct:ok,responseMs:rt,inputMode:mode,crashed:cr,lane:a.lane,y:Math.round(a.y),scoreGain:Number(p.scoreGain||0),scoreTotal:Math.round(state.score),combo:state.combo,lives:state.lives};state.research.answerEvents.push(ev);if(state.research.answerEvents.length>500)state.research.answerEvents.splice(0,state.research.answerEvents.length-500);queueCloudEvent('answer_event',makeCloudPayload('answer_event',ev),{})}
 function upd(b,ok,cr,rt){b.seen++;ok?b.correct++:b.miss++;if(cr)b.crash++;if(rt>0){b.responseTotalMs+=rt;b.responseCount++;if(!b.bestResponseMs||rt<b.bestResponseMs)b.bestResponseMs=rt;if(!b.worstResponseMs||rt>b.worstResponseMs)b.worstResponseMs=rt}}
 function finalizeResearch(win,reason){state.research.endedAt=new Date().toISOString();const acc=state.attempts?Math.round(state.correct/state.attempts*100):0;state.research.summary={win:!!win,reason:reason||'',score:Math.round(state.score),attempts:state.attempts,correct:state.correct,miss:state.miss,crashes:state.crashes,accuracy:acc,maxCombo:state.maxCombo,wave:state.wave,phaseChanges:state.phaseChanges,stars:computeStars(!!win,acc,state.maxCombo,state.crashes,state.wave),rank:computeRank(!!win,acc,state.maxCombo,state.wave,state.crashes),bestGroup:findBestGroup(),weakGroup:findWeakGroup()}}
-function exportData(){const win=state.ended?!!state.finalWin:state.bossHp<=0,acc=state.attempts?Math.round(state.correct/state.attempts*100):0,summary={version:APP_VERSION,score:Math.round(state.score),attempts:state.attempts,correct:state.correct,miss:state.miss,crashes:state.crashes,maxCombo:state.maxCombo,wave:state.wave,win,accuracy:acc,stars:computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank:computeRank(win,acc,state.maxCombo,state.wave,state.crashes),bestGroup:findBestGroup(),weakGroup:findWeakGroup(),phaseChanges:state.phaseChanges,bossOrdersCleared:state.bossOrdersCleared,bossOrdersFailed:state.bossOrdersFailed,bossAnswerCount:state.bossAnswerCount,replayGoal:replayGoalText(win,acc,computeStars(win,acc,state.maxCombo,state.crashes,state.wave),findWeakGroup())};return{schema:APP_SCHEMA,build:{version:APP_VERSION,flags:{actionArena:true,dragDrop:true,cvr:true,bossOrders:true,researchMetrics:true,cloudQueue:true,kidSummary:true}},projectTag:'HeroHealth',gameId:'groups',mode:'solo',cat:'nutrition',sessionId:state.sessionId,pid:cfg.pid,name:cfg.name,diff:cfg.diff,view:cfg.view,seed:cfg.seed,studyId:cfg.studyId,conditionGroup:cfg.conditionGroup,sessionCode:cfg.sessionCode,startedAt:state.research.startedAt,endedAt:state.research.endedAt||new Date().toISOString(),durationSec:Math.max(0,Math.round(state.totalTime-state.timeLeft)),summary,metrics:{groupStats:state.research.groupStats,waveStats:state.research.waveStats,inputStats:state.research.inputStats,bossOrderStats:state.research.bossOrderStats,rtAvgMs:state.research.rtCount?Math.round(state.research.rtTotal/state.research.rtCount):0,rtBestMs:state.research.rtBest||0,rtWorstMs:state.research.rtWorst||0,crashByWave:state.research.crashByWave,answerEvents:state.research.answerEvents.slice(-300)},cloud:{enabled:!!state.cloud.enabled,queue:state.cloud.queue?state.cloud.queue.length:0,sent:state.cloud.sent||0,fail:state.cloud.fail||0,status:state.cloud.lastStatus||'off'},events:state.events.slice(-500)}}
+function exportData(){const win=state.ended?!!state.finalWin:state.bossHp<=0,acc=state.attempts?Math.round(state.correct/state.attempts*100):0,summary={version:APP_VERSION,score:Math.round(state.score),attempts:state.attempts,correct:state.correct,miss:state.miss,crashes:state.crashes,maxCombo:state.maxCombo,wave:state.wave,win,accuracy:acc,stars:computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank:computeRank(win,acc,state.maxCombo,state.wave,state.crashes),bestGroup:findBestGroup(),weakGroup:findWeakGroup(),phaseChanges:state.phaseChanges,bossOrdersCleared:state.bossOrdersCleared,bossOrdersFailed:state.bossOrdersFailed,bossAnswerCount:state.bossAnswerCount,replayGoal:replayGoalText(win,acc,computeStars(win,acc,state.maxCombo,state.crashes,state.wave),findWeakGroup()),progress:progressSnapshot()};return{schema:APP_SCHEMA,build:{version:APP_VERSION,flags:BUILD_FLAGS},projectTag:'HeroHealth',gameId:'groups',mode:'solo',cat:'nutrition',sessionId:state.sessionId,pid:cfg.pid,name:cfg.name,diff:cfg.diff,view:cfg.view,seed:cfg.seed,studyId:cfg.studyId,conditionGroup:cfg.conditionGroup,sessionCode:cfg.sessionCode,startedAt:state.research.startedAt,endedAt:state.research.endedAt||new Date().toISOString(),durationSec:Math.max(0,Math.round(state.totalTime-state.timeLeft)),summary,metrics:{groupStats:state.research.groupStats,waveStats:state.research.waveStats,inputStats:state.research.inputStats,bossOrderStats:state.research.bossOrderStats,rtAvgMs:state.research.rtCount?Math.round(state.research.rtTotal/state.research.rtCount):0,rtBestMs:state.research.rtBest||0,rtWorstMs:state.research.rtWorst||0,crashByWave:state.research.crashByWave,answerEvents:state.research.answerEvents.slice(-300)},cloud:{enabled:!!state.cloud.enabled,queue:state.cloud.queue?state.cloud.queue.length:0,sent:state.cloud.sent||0,fail:state.cloud.fail||0,status:state.cloud.lastStatus||'off'},events:state.events.slice(-500)}}
 function buildCsv(){const rows=[['session_id','pid','name','diff','view','seed','event_index','event_type','wave','food','emoji','true_group','answer_group','correct','response_ms','input_mode','crashed','score_gain','score_total','combo','lives','timestamp']];const a=state.research.answerEvents||[];a.forEach((e,i)=>rows.push([state.sessionId,cfg.pid,cfg.name,cfg.diff,cfg.view,cfg.seed,i+1,e.eventType,e.wave,e.food,e.emoji,e.trueGroup,e.answerGroup,e.correct,e.responseMs,e.inputMode,e.crashed,e.scoreGain,e.scoreTotal,e.combo,e.lives,e.timestamp]));if(!a.length)rows.push([state.sessionId,cfg.pid,cfg.name,cfg.diff,cfg.view,cfg.seed,'','no_answer_events','','','','','','','','','','',Math.round(state.score),state.combo,state.lives,new Date().toISOString()]);return rows.map(r=>r.map(csvCell).join(',')).join('\n')}
 function initCloudLogger(){state.cloud.enabled=!!(cfg.logEnabled&&cfg.api);state.cloud.api=normalizeApiUrl(cfg.api);state.cloud.queue=loadCloudQueue();state.cloud.disabledUntil=loadCloudDisabledUntil();const st=loadCloudStats();state.cloud.sent=st.sent||0;state.cloud.fail=st.fail||0;if(!state.cloud.enabled||!state.cloud.api){state.cloud.lastStatus='off';return}if(isCloudDisabled()){state.cloud.lastStatus='paused';return}state.cloud.lastStatus='ready';if(state.cloud.queue.length)flushCloudQueue(false,false)}
 function makeCloudPayload(type,data){return{schema:'groups-cloud-v7.9',eventType:type,clientTs:new Date().toISOString(),projectTag:'HeroHealth',gameId:'groups',mode:'solo',cat:'nutrition',sessionId:state.sessionId||'',pid:cfg.pid,name:cfg.name,diff:cfg.diff,view:cfg.view,seed:cfg.seed,studyId:cfg.studyId,conditionGroup:cfg.conditionGroup,sessionCode:cfg.sessionCode,score:Math.round(state.score||0),combo:state.combo||0,wave:state.wave||1,lives:state.lives||0,data:data||null,summary:type==='session_end'?(state.research.summary||null):null,href:location.href}}
@@ -810,6 +1128,7 @@ function logEvent(type,data){state.events.push({t:new Date().toISOString(),type,
 function goZone(){location.href=withParams('../nutrition-zone.html')}function goLauncher(){location.href=withParams('../group-v1.html')}function goHub(){location.href=safeUrl(q.get('hub')||'../hub-v2.html')}function withParams(path){const u=new URL(path,location.href);['pid','name','diff','view','time','seed','hub','api','log','studyId','conditionGroup','session_code','sessionCode'].forEach(k=>{const v=q.get(k);if(v)u.searchParams.set(k,v)});u.searchParams.set('game','groups');u.searchParams.set('cat','nutrition');return u.toString()}
 function getActor(id){return state.actors.find(a=>a.id===id)||null}function getGate(id){return els.gates.querySelector('[data-group="'+Number(id)+'"]')}function getGroup(id){return GROUPS.find(g=>g.id===Number(id))||GROUPS[0]}function weakGroup(){if(state.attempts<5)return 0;const m={};state.events.forEach(e=>{const d=e.data||{};if((e.type==='answer'&&d.correct===false)||e.type==='crash'){const g=Number(d.trueGroup||d.group||0);if(g)m[g]=(m[g]||0)+1}});let best=0,max=0;Object.keys(m).forEach(k=>{if(m[k]>max){max=m[k];best=Number(k)}});return best}
 function infoHtml(t,v,n){return`<div class="infoCard"><b>${esc(t)}</b><span style="font-size:1.2rem;color:var(--ink);display:block">${esc(v)}</span><span>${esc(n)}</span></div>`}
+function focusInfoHtml(t,v,n){return`<div class="infoCard summaryFocus"><b>${esc(t)}</b><span style="font-size:1.16rem;color:var(--ink);display:block">${esc(v)}</span><span>${esc(n)}</span></div>`}
 function toast(t){els.toast.textContent=t;els.toast.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>els.toast.classList.remove('show'),1700)}
 function unlockAudioOnce(){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ctx=playTone.ctx||new AC();playTone.ctx=ctx;if(ctx.state==='suspended')ctx.resume();state.audioReady=true}catch(_){}}
 function playTone(kind){try{const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;const ctx=playTone.ctx||new AC();playTone.ctx=ctx;if(ctx.state==='suspended')ctx.resume();const now=ctx.currentTime;if(kind==='good'){tone(ctx,720,.07,'sine',.05,now);tone(ctx,940,.08,'sine',.035,now+.055);return}if(kind==='combo'){tone(ctx,720,.06,'sine',.045,now);tone(ctx,920,.07,'sine',.05,now+.055);tone(ctx,1160,.09,'sine',.045,now+.115);return}if(kind==='bad'||kind==='crash'||kind==='bossAttack'){tone(ctx,150,.18,'sawtooth',.05,now);tone(ctx,95,.22,'square',.035,now+.06);return}if(kind==='warning'){tone(ctx,520,.06,'square',.026,now);tone(ctx,520,.06,'square',.022,now+.12);return}if(kind==='fever'||kind==='power'){tone(ctx,760,.07,'sine',.045,now);tone(ctx,960,.08,'sine',.05,now+.055);tone(ctx,1280,.12,'sine',.052,now+.125);return}if(kind==='bossHit'){tone(ctx,240,.08,'sawtooth',.045,now);tone(ctx,680,.12,'triangle',.046,now+.055);return}if(kind==='spawn'){tone(ctx,420,.05,'sine',.022,now);return}if(kind==='select'){tone(ctx,620,.045,'sine',.02,now);return}tone(ctx,560,.08,'sine',.04,now)}catch(_){}}
@@ -841,7 +1160,7 @@ function showRuntimeErrorBanner(text){
 }
 
 function runBootSelfCheck(){const required=['scoreTxt','timeTxt','lifeTxt','comboTxt','accTxt','stage','playfield','actorLayer','floorLine','gates','feedback','startOverlay','summaryOverlay','btnStart','btnPractice','btnReplay','btnZone','btnHub','btnLauncher','btnPowerSort','btnTeacher','btnHowto','toast'],missing=required.filter(id=>!document.getElementById(id)),report={version:APP_VERSION,ok:missing.length===0,missing,checkedAt:new Date().toISOString()};try{localStorage.setItem(STORAGE.qaLast,JSON.stringify(report))}catch(_){}if(missing.length)console.warn('[Groups Solo Arena QA] Missing DOM ids:',missing);return report}
-window.HHA_GROUPS_QA={version:APP_VERSION,state(){return{active:state.active,ended:state.ended,score:state.score,wave:state.wave,actors:state.actors.length,selectedId:state.selectedId,bossActive:state.bossActive,bossHp:state.bossHp,cvr:state.cvr.enabled,cloud:state.cloud.lastStatus}},export(){return exportData()},clearCloudQueue(){try{localStorage.removeItem(STORAGE.cloudQueue);state.cloud.queue=[];updateTeacher();return true}catch(_){return false}},selfCheck(){return runBootSelfCheck()},forceRespawn(){ensureLiveActors('qa_force');return this.state()},runtimeError(){return state.lastRuntimeError||''},productionCheck(){return{version:APP_VERSION,selfCheck:runBootSelfCheck(),state:this.state(),exportSchema:exportData().schema,ok:!state.lastRuntimeError}}};
+window.HHA_GROUPS_QA={version:APP_VERSION,state(){return{active:state.active,ended:state.ended,score:state.score,wave:state.wave,actors:state.actors.length,selectedId:state.selectedId,bossActive:state.bossActive,bossHp:state.bossHp,cvr:state.cvr.enabled,cloud:state.cloud.lastStatus}},export(){return exportData()},clearCloudQueue(){try{localStorage.removeItem(STORAGE.cloudQueue);state.cloud.queue=[];updateTeacher();return true}catch(_){return false}},selfCheck(){return runBootSelfCheck()},forceRespawn(){ensureLiveActors('qa_force');return this.state()},runtimeError(){return state.lastRuntimeError||''},productionCheck(){return{version:APP_VERSION,selfCheck:runBootSelfCheck(),state:this.state(),exportSchema:exportData().schema,progress:progressSnapshot(),ok:!state.lastRuntimeError}},releaseCheck(){return this.productionCheck()},resetProgress(){try{localStorage.removeItem(STORAGE.personalBest);localStorage.removeItem(STORAGE.history);localStorage.removeItem(STORAGE.daily);return true}catch(_){return false}}};
 })();
 </script>
 </body>
