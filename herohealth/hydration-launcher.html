@@ -1,0 +1,1055 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
+  <meta name="theme-color" content="#dff8ff" />
+  <meta name="color-scheme" content="light" />
+
+  <title>HeroHealth • Hydration Launcher</title>
+
+  <!--
+    File: /herohealth/hydration-launcher.html
+    Version: v10.1.0-hydration-launcher
+    Purpose:
+    - Launcher for Hydration / Aqua Rush
+    - Select view: PC / Mobile / Cardboard VR
+    - Select difficulty and time
+    - Start through warmup-gate.html
+    - Return to Fitness Zone by default
+  -->
+
+  <style>
+    :root{
+      --sky1:#e6fbff;
+      --sky2:#d9f4ff;
+      --sky3:#bff2ff;
+
+      --card:#ffffff;
+      --card2:#f4fcff;
+      --line:#cceefb;
+
+      --text:#24445c;
+      --muted:#66879c;
+
+      --blue:#43c7ff;
+      --blue2:#2388ff;
+      --green:#62e68f;
+      --green2:#35c76d;
+      --yellow:#fff5c7;
+      --orange:#ffb45a;
+      --red:#ff6b6b;
+
+      --shadow:0 20px 60px rgba(30,75,115,.22);
+      --soft:0 10px 26px rgba(28,72,105,.14);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,
+    body{
+      width:100%;
+      min-height:100%;
+      margin:0;
+      padding:0;
+    }
+
+    body{
+      font-family:
+        ui-rounded,
+        "Apple Color Emoji",
+        "Segoe UI Emoji",
+        "Noto Color Emoji",
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 20% 10%, rgba(118,226,255,.48), transparent 30%),
+        radial-gradient(circle at 84% 18%, rgba(121,255,207,.38), transparent 32%),
+        linear-gradient(180deg,var(--sky1),var(--sky2));
+      overflow-x:hidden;
+      user-select:none;
+    }
+
+    body::before{
+      content:'';
+      position:fixed;
+      inset:0;
+      z-index:-2;
+      background:
+        linear-gradient(115deg, transparent 0 44%, rgba(255,255,255,.18) 45% 48%, transparent 49% 100%),
+        linear-gradient(65deg, transparent 0 52%, rgba(255,255,255,.13) 53% 56%, transparent 57% 100%);
+      background-size:260px 260px, 340px 340px;
+      animation:lightMove 10s linear infinite;
+      opacity:.72;
+    }
+
+    body::after{
+      content:'';
+      position:fixed;
+      left:-10vw;
+      right:-10vw;
+      bottom:-92px;
+      height:210px;
+      z-index:-1;
+      border-radius:50% 50% 0 0;
+      background:
+        radial-gradient(circle at 30% 0%, rgba(255,255,255,.28), transparent 28%),
+        linear-gradient(180deg, rgba(73,202,255,.18), rgba(58,202,173,.17));
+      animation:wave 4.8s ease-in-out infinite alternate;
+      pointer-events:none;
+    }
+
+    @keyframes lightMove{
+      from{ background-position:0 0, 0 0; }
+      to{ background-position:260px 160px, -340px 190px; }
+    }
+
+    @keyframes wave{
+      from{ transform:translateX(-18px) translateY(0); }
+      to{ transform:translateX(18px) translateY(-12px); }
+    }
+
+    button{
+      font:inherit;
+    }
+
+    .wrap{
+      width:min(980px, 94vw);
+      margin:0 auto;
+      padding:22px 0 34px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-bottom:16px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .logo{
+      width:58px;
+      height:58px;
+      border-radius:22px;
+      display:grid;
+      place-items:center;
+      font-size:38px;
+      background:linear-gradient(180deg,#ffffff,#d9f6ff);
+      box-shadow:var(--soft);
+      border:3px solid rgba(116,215,255,.36);
+      flex:0 0 auto;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:28px;
+      line-height:1.05;
+      font-weight:1000;
+      color:#168bd6;
+    }
+
+    .brand p{
+      margin:3px 0 0;
+      color:#5d8097;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .back-btn{
+      border:0;
+      border-radius:18px;
+      padding:12px 16px;
+      background:#fff;
+      color:#28759c;
+      box-shadow:inset 0 0 0 3px rgba(79,184,235,.22), var(--soft);
+      font-weight:1000;
+      cursor:pointer;
+      white-space:nowrap;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.04fr .96fr;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .panel{
+      border-radius:34px;
+      padding:22px;
+      background:rgba(255,255,255,.92);
+      box-shadow:var(--shadow);
+      border:4px solid rgba(111,210,255,.38);
+      backdrop-filter:blur(8px);
+    }
+
+    .intro{
+      position:relative;
+      overflow:hidden;
+      min-height:420px;
+    }
+
+    .intro::after{
+      content:'';
+      position:absolute;
+      width:280px;
+      height:280px;
+      right:-110px;
+      bottom:-120px;
+      border-radius:999px;
+      background:radial-gradient(circle, rgba(91,206,255,.26), transparent 62%);
+      pointer-events:none;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#e9fbff;
+      color:#2380b5;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .intro h2{
+      margin:14px 0 8px;
+      font-size:54px;
+      line-height:.96;
+      letter-spacing:-1px;
+      color:#168bd6;
+      font-weight:1000;
+    }
+
+    .intro .lead{
+      margin:0 0 18px;
+      max-width:500px;
+      color:#5f8198;
+      font-size:17px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .howto{
+      display:grid;
+      gap:10px;
+      margin:18px 0;
+    }
+
+    .howto .row{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:12px 14px;
+      border-radius:22px;
+      background:linear-gradient(180deg,#f4fcff,#ffffff);
+      box-shadow:inset 0 0 0 2px rgba(92,202,255,.16);
+    }
+
+    .howto .icon{
+      width:48px;
+      height:48px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:#e9fbff;
+      flex:0 0 auto;
+    }
+
+    .howto b{
+      display:block;
+      font-size:15px;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .howto span{
+      display:block;
+      margin-top:2px;
+      color:#6d8fa3;
+      font-size:12px;
+      line-height:1.25;
+      font-weight:900;
+    }
+
+    .goal{
+      margin-top:16px;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#f1fff7,#ffffff);
+      border:3px solid rgba(94,218,126,.32);
+    }
+
+    .goal b{
+      display:block;
+      color:#1d7d45;
+      font-size:15px;
+      font-weight:1000;
+    }
+
+    .goal span{
+      display:block;
+      margin-top:4px;
+      color:#557a68;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .setup h3{
+      margin:0 0 12px;
+      font-size:24px;
+      font-weight:1000;
+      color:#24506d;
+    }
+
+    .section{
+      margin:16px 0;
+    }
+
+    .section-title{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:9px;
+    }
+
+    .section-title b{
+      font-size:15px;
+      font-weight:1000;
+      color:#24506d;
+    }
+
+    .section-title span{
+      color:#7a98aa;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .choices{
+      display:grid;
+      gap:10px;
+    }
+
+    .choices.mode{
+      grid-template-columns:repeat(3,1fr);
+    }
+
+    .choices.diff,
+    .choices.time{
+      grid-template-columns:repeat(4,1fr);
+    }
+
+    .choice{
+      min-height:82px;
+      border:0;
+      border-radius:22px;
+      padding:12px 10px;
+      background:#ffffff;
+      color:var(--text);
+      box-shadow:inset 0 0 0 3px rgba(92,202,255,.18), var(--soft);
+      cursor:pointer;
+      font-weight:1000;
+      transition:.16s ease;
+      text-align:center;
+    }
+
+    .choice:hover{
+      transform:translateY(-2px);
+      box-shadow:inset 0 0 0 3px rgba(67,199,255,.34), 0 14px 30px rgba(28,72,105,.18);
+    }
+
+    .choice.active{
+      background:linear-gradient(180deg,#e9fbff,#ffffff);
+      box-shadow:
+        inset 0 0 0 4px rgba(53,199,109,.68),
+        0 14px 32px rgba(44,160,112,.18);
+    }
+
+    .choice i{
+      display:block;
+      font-style:normal;
+      font-size:28px;
+      line-height:1;
+      margin-bottom:6px;
+    }
+
+    .choice small{
+      display:block;
+      margin-top:3px;
+      color:#7393a8;
+      font-size:10px;
+      font-weight:900;
+      line-height:1.2;
+    }
+
+    .choice.compact{
+      min-height:58px;
+      display:grid;
+      place-items:center;
+      font-size:14px;
+    }
+
+    .summary{
+      margin:18px 0 14px;
+      padding:14px;
+      border-radius:24px;
+      background:linear-gradient(180deg,#fffbe6,#ffffff);
+      border:3px solid rgba(255,205,94,.32);
+      color:#665122;
+      font-weight:1000;
+      text-align:center;
+    }
+
+    .summary span{
+      display:block;
+      margin-top:4px;
+      color:#806d3e;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .start-btn{
+      width:100%;
+      border:0;
+      border-radius:24px;
+      padding:17px 18px;
+      color:white;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      box-shadow:0 16px 34px rgba(35,136,255,.28);
+      font-size:20px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .start-btn:active{
+      transform:scale(.98);
+    }
+
+    .sub-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .soft-btn{
+      width:100%;
+      border:0;
+      border-radius:20px;
+      padding:13px 14px;
+      background:#ffffff;
+      color:#28759c;
+      box-shadow:inset 0 0 0 3px rgba(79,184,235,.22);
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .debug{
+      display:none;
+      margin-top:12px;
+      padding:10px 12px;
+      border-radius:18px;
+      background:rgba(0,0,0,.68);
+      color:#fff;
+      font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:11px;
+      line-height:1.35;
+      word-break:break-all;
+    }
+
+    body.debug-on .debug{
+      display:block;
+    }
+
+    .bubble{
+      position:fixed;
+      border-radius:999px;
+      background:rgba(255,255,255,.45);
+      box-shadow:inset 0 0 0 3px rgba(255,255,255,.3);
+      pointer-events:none;
+      animation:bubbleFloat linear infinite;
+      z-index:-1;
+    }
+
+    .b1{
+      width:82px;
+      height:82px;
+      left:7vw;
+      bottom:-100px;
+      animation-duration:13s;
+    }
+
+    .b2{
+      width:48px;
+      height:48px;
+      left:68vw;
+      bottom:-80px;
+      animation-duration:10s;
+      animation-delay:-3s;
+    }
+
+    .b3{
+      width:110px;
+      height:110px;
+      left:86vw;
+      bottom:-130px;
+      animation-duration:16s;
+      animation-delay:-6s;
+    }
+
+    @keyframes bubbleFloat{
+      0%{
+        opacity:0;
+        transform:translateY(0) scale(.9);
+      }
+      12%{
+        opacity:.72;
+      }
+      100%{
+        opacity:0;
+        transform:translateY(-120vh) translateX(24px) scale(1.1);
+      }
+    }
+
+    @media (max-width:800px){
+      .hero{
+        grid-template-columns:1fr;
+      }
+
+      .intro{
+        min-height:auto;
+      }
+
+      .intro h2{
+        font-size:42px;
+      }
+
+      .choices.mode{
+        grid-template-columns:1fr;
+      }
+
+      .choices.diff,
+      .choices.time{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .brand h1{
+        font-size:22px;
+      }
+
+      .back-btn{
+        padding:10px 12px;
+        font-size:13px;
+      }
+    }
+
+    @media (max-width:480px){
+      .wrap{
+        width:94vw;
+        padding:14px 0 24px;
+      }
+
+      .panel{
+        border-radius:28px;
+        padding:18px;
+      }
+
+      .logo{
+        width:50px;
+        height:50px;
+        border-radius:18px;
+        font-size:32px;
+      }
+
+      .intro h2{
+        font-size:36px;
+      }
+
+      .intro .lead{
+        font-size:14px;
+      }
+
+      .choice{
+        min-height:70px;
+      }
+
+      .sub-actions{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bubble b1"></div>
+  <div class="bubble b2"></div>
+  <div class="bubble b3"></div>
+
+  <main class="wrap">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">💧</div>
+        <div>
+          <h1>Hydration • Aqua Rush</h1>
+          <p>เลือกโหมด แล้วเริ่มภารกิจเติมน้ำ</p>
+        </div>
+      </div>
+
+      <button class="back-btn" type="button" id="backBtn">🏠 กลับ Zone</button>
+    </header>
+
+    <section class="hero">
+      <article class="panel intro">
+        <div class="kicker">HeroHealth Fitness Zone</div>
+
+        <h2>Aqua Rush</h2>
+
+        <p class="lead">
+          เก็บน้ำเปล่าและอาหารฉ่ำน้ำ หลบน้ำหวาน/ของเค็ม แล้วสู้ Heat Monster ให้ชนะ!
+        </p>
+
+        <div class="howto">
+          <div class="row">
+            <div class="icon">💧</div>
+            <div>
+              <b>เก็บของดี</b>
+              <span>น้ำเปล่า แตงโม แตงกวา Ice Shield ช่วยเพิ่ม Hydration</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="icon">🧋</div>
+            <div>
+              <b>หลบของเสี่ยง</b>
+              <span>น้ำหวาน อาหารเค็ม และแดดแรงทำให้เสียพลังเร็ว</span>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="icon">🌞</div>
+            <div>
+              <b>ชนะ Heat Monster</b>
+              <span>ทำ Mission เก็บ Combo และรักษา Hydration เพื่อปราบบอส</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="goal">
+          <b>เป้าหมายการเรียนรู้</b>
+          <span>
+            เด็กจะฝึกเลือกเครื่องดื่มที่เหมาะสม รู้จักผลของน้ำหวาน/ของเค็ม
+            และดูแลร่างกายเมื่ออากาศร้อนหรือเสียเหงื่อ
+          </span>
+        </div>
+      </article>
+
+      <article class="panel setup">
+        <h3>ตั้งค่าก่อนเริ่ม</h3>
+
+        <div class="section">
+          <div class="section-title">
+            <b>1) เลือกอุปกรณ์</b>
+            <span id="autoViewHint">เลือกให้ตรงกับเครื่องที่ใช้</span>
+          </div>
+
+          <div class="choices mode" data-group="view">
+            <button class="choice" type="button" data-value="pc">
+              <i>🖥️</i>
+              PC
+              <small>คลิกด้วยเมาส์</small>
+            </button>
+
+            <button class="choice" type="button" data-value="mobile">
+              <i>📱</i>
+              Mobile
+              <small>แตะหน้าจอ</small>
+            </button>
+
+            <button class="choice" type="button" data-value="cvr">
+              <i>🥽</i>
+              Cardboard
+              <small>ยิงด้วย crosshair</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">
+            <b>2) เลือกระดับ</b>
+            <span>เริ่ม normal ได้เลย</span>
+          </div>
+
+          <div class="choices diff" data-group="diff">
+            <button class="choice compact" type="button" data-value="easy">easy</button>
+            <button class="choice compact" type="button" data-value="normal">normal</button>
+            <button class="choice compact" type="button" data-value="hard">hard</button>
+            <button class="choice compact" type="button" data-value="challenge">challenge</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">
+            <b>3) เลือกเวลา</b>
+            <span>90s เหมาะกับการทดสอบ</span>
+          </div>
+
+          <div class="choices time" data-group="time">
+            <button class="choice compact" type="button" data-value="90">90s</button>
+            <button class="choice compact" type="button" data-value="120">120s</button>
+            <button class="choice compact" type="button" data-value="150">150s</button>
+            <button class="choice compact" type="button" data-value="180">180s</button>
+          </div>
+        </div>
+
+        <div class="summary" id="summaryBox">
+          พร้อมเริ่มภารกิจ
+          <span>normal • 90s • mobile</span>
+        </div>
+
+        <button class="start-btn" type="button" id="startBtn">
+          เริ่มผ่าน Warmup 💧
+        </button>
+
+        <div class="sub-actions">
+          <button class="soft-btn" type="button" id="directBtn">
+            ทดสอบเกมตรง
+          </button>
+
+          <button class="soft-btn" type="button" id="resetBtn">
+            รีเซ็ตค่าเลือก
+          </button>
+        </div>
+
+        <div class="debug" id="debugBox"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const VERSION = 'v10.1.0-hydration-launcher';
+      const STORE_KEY = 'HHA_HYDRATION_LAUNCHER_PREFS';
+
+      const state = {
+        view: 'mobile',
+        diff: 'normal',
+        time: '90'
+      };
+
+      function qs(k, d){
+        try{
+          return new URL(location.href).searchParams.get(k) || d;
+        }catch(e){
+          return d;
+        }
+      }
+
+      function isDebug(){
+        return qs('debug', '') === '1';
+      }
+
+      function detectView(){
+        const q = qs('view', '');
+        if(q === 'pc' || q === 'mobile' || q === 'cvr') return q;
+
+        try{
+          const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+          const narrow = window.innerWidth <= 720;
+          if(coarse || narrow) return 'mobile';
+        }catch(e){}
+
+        return 'pc';
+      }
+
+      function getStoredPrefs(){
+        try{
+          const raw = localStorage.getItem(STORE_KEY);
+          if(!raw) return null;
+          return JSON.parse(raw);
+        }catch(e){
+          return null;
+        }
+      }
+
+      function savePrefs(){
+        try{
+          localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        }catch(e){}
+      }
+
+      function loadInitialState(){
+        const stored = getStoredPrefs() || {};
+
+        state.view = qs('view', stored.view || detectView());
+        state.diff = qs('diff', stored.diff || 'normal');
+        state.time = qs('time', stored.time || '90');
+
+        if(!['pc','mobile','cvr'].includes(state.view)) state.view = detectView();
+        if(!['easy','normal','hard','challenge'].includes(state.diff)) state.diff = 'normal';
+        if(!['90','120','150','180'].includes(state.time)) state.time = '90';
+      }
+
+      function setActive(group, value){
+        document.querySelectorAll('[data-group="' + group + '"] .choice').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.value === value);
+        });
+      }
+
+      function updateUI(){
+        setActive('view', state.view);
+        setActive('diff', state.diff);
+        setActive('time', state.time);
+
+        const label = state.view === 'pc'
+          ? 'PC'
+          : state.view === 'cvr'
+            ? 'Cardboard VR'
+            : 'Mobile';
+
+        const summary = document.getElementById('summaryBox');
+        if(summary){
+          summary.innerHTML = `
+            พร้อมเริ่มภารกิจ
+            <span>${state.diff} • ${state.time}s • ${label}</span>
+          `;
+        }
+
+        const hint = document.getElementById('autoViewHint');
+        if(hint){
+          hint.textContent = state.view === detectView()
+            ? 'เลือกตามอุปกรณ์อัตโนมัติ'
+            : 'ปรับเองแล้ว';
+        }
+
+        updateDebug();
+      }
+
+      function bindChoices(){
+        document.querySelectorAll('.choice[data-value]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const group = btn.closest('[data-group]');
+            if(!group) return;
+
+            const key = group.dataset.group;
+            const value = btn.dataset.value;
+
+            if(key === 'view') state.view = value;
+            if(key === 'diff') state.diff = value;
+            if(key === 'time') state.time = value;
+
+            savePrefs();
+            updateUI();
+          });
+        });
+      }
+
+      function getDefaultZoneBack(){
+        const incomingHub = qs('hub', '');
+        if(incomingHub) return incomingHub;
+
+        const zone = qs('zone', 'fitness');
+        if(zone === 'nutrition') return './nutrition-zone.html';
+        if(zone === 'hygiene') return './hygiene-zone.html';
+
+        return './fitness-zone.html';
+      }
+
+      function buildGameUrl(){
+        const gameUrl = new URL('./hydration-vr.html', location.href);
+        const hubBack = getDefaultZoneBack();
+
+        gameUrl.searchParams.set('pid', qs('pid', 'anon'));
+        gameUrl.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+        gameUrl.searchParams.set('nick', qs('nick', qs('name', 'Hero')));
+        gameUrl.searchParams.set('diff', state.diff);
+        gameUrl.searchParams.set('time', state.time);
+        gameUrl.searchParams.set('seed', qs('seed', String(Date.now())));
+        gameUrl.searchParams.set('view', state.view);
+        gameUrl.searchParams.set('run', qs('run', 'play'));
+        gameUrl.searchParams.set('zone', qs('zone', 'fitness'));
+        gameUrl.searchParams.set('game', 'hydration');
+        gameUrl.searchParams.set('gameId', 'hydration');
+        gameUrl.searchParams.set('mode', state.view);
+        gameUrl.searchParams.set('entry', 'hydration-launcher');
+        gameUrl.searchParams.set('theme', 'hydration');
+        gameUrl.searchParams.set('hub', hubBack);
+
+        preserveOptionalParams(gameUrl);
+
+        return gameUrl;
+      }
+
+      function preserveOptionalParams(url){
+        [
+          'log',
+          'api',
+          'studyId',
+          'phase',
+          'conditionGroup',
+          'section',
+          'session_code',
+          'schoolCode',
+          'classRoom'
+        ].forEach(k => {
+          const v = qs(k, '');
+          if(v) url.searchParams.set(k, v);
+        });
+
+        return url;
+      }
+
+      function buildWarmupUrl(){
+        const gameUrl = buildGameUrl();
+        const hubBack = getDefaultZoneBack();
+
+        const warmup = new URL('./warmup-gate.html', location.href);
+
+        warmup.searchParams.set('phase', 'warmup');
+        warmup.searchParams.set('game', 'hydration');
+        warmup.searchParams.set('gameId', 'hydration');
+        warmup.searchParams.set('zone', qs('zone', 'fitness'));
+        warmup.searchParams.set('mode', state.view);
+        warmup.searchParams.set('view', state.view);
+        warmup.searchParams.set('pid', qs('pid', 'anon'));
+        warmup.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+        warmup.searchParams.set('nick', qs('nick', qs('name', 'Hero')));
+        warmup.searchParams.set('diff', state.diff);
+        warmup.searchParams.set('time', state.time);
+        warmup.searchParams.set('seed', qs('seed', String(Date.now())));
+        warmup.searchParams.set('hub', hubBack);
+        warmup.searchParams.set('next', gameUrl.toString());
+        warmup.searchParams.set('fromLauncher', 'hydration-launcher');
+
+        preserveOptionalParams(warmup);
+
+        return warmup;
+      }
+
+      function goBack(){
+        const back = getDefaultZoneBack();
+        try{
+          const u = new URL(back, location.href);
+
+          [
+            'pid',
+            'name',
+            'nick',
+            'diff',
+            'time',
+            'view',
+            'run',
+            'zone'
+          ].forEach(k => {
+            const v = qs(k, '');
+            if(v) u.searchParams.set(k, v);
+          });
+
+          location.href = u.toString();
+        }catch(e){
+          location.href = back;
+        }
+      }
+
+      function startWarmup(){
+        savePrefs();
+        location.href = buildWarmupUrl().toString();
+      }
+
+      function startDirect(){
+        savePrefs();
+        location.href = buildGameUrl().toString();
+      }
+
+      function resetPrefs(){
+        try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+        state.view = detectView();
+        state.diff = 'normal';
+        state.time = '90';
+        savePrefs();
+        updateUI();
+      }
+
+      function updateDebug(){
+        if(!isDebug()) return;
+
+        document.body.classList.add('debug-on');
+
+        const box = document.getElementById('debugBox');
+        if(!box) return;
+
+        let warm = '';
+        let game = '';
+
+        try{
+          warm = buildWarmupUrl().toString();
+          game = buildGameUrl().toString();
+        }catch(e){
+          warm = 'build error';
+          game = 'build error';
+        }
+
+        box.innerHTML = `
+          version: ${VERSION}<br>
+          view: ${state.view}<br>
+          diff: ${state.diff}<br>
+          time: ${state.time}<br>
+          warmup: ${warm}<br>
+          direct: ${game}
+        `;
+      }
+
+      function bindButtons(){
+        const startBtn = document.getElementById('startBtn');
+        const directBtn = document.getElementById('directBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const backBtn = document.getElementById('backBtn');
+
+        if(startBtn) startBtn.addEventListener('click', startWarmup);
+        if(directBtn) directBtn.addEventListener('click', startDirect);
+        if(resetBtn) resetBtn.addEventListener('click', resetPrefs);
+        if(backBtn) backBtn.addEventListener('click', goBack);
+      }
+
+      function boot(){
+        loadInitialState();
+        bindChoices();
+        bindButtons();
+        updateUI();
+
+        window.HHA = window.HHA || {};
+        window.HHA.HYDRATION_LAUNCHER_VERSION = VERSION;
+      }
+
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', boot, { once:true });
+      }else{
+        boot();
+      }
+    })();
+  </script>
+</body>
+</html>
