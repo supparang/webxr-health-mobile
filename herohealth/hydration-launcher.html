@@ -1051,5 +1051,340 @@
       }
     })();
   </script>
+  <script>
+(function(){
+  'use strict';
+
+  const VERSION = 'v10.1.2-cooldown-nutrition-return';
+  const STORE_KEY = 'HHA_HYDRATION_LAUNCHER_PREFS';
+
+  const state = {
+    view: 'mobile',
+    diff: 'normal',
+    time: '90'
+  };
+
+  function qs(k, d){
+    try{
+      return new URL(location.href).searchParams.get(k) || d;
+    }catch(e){
+      return d;
+    }
+  }
+
+  function isDebug(){
+    return qs('debug', '') === '1';
+  }
+
+  function detectView(){
+    const q = qs('view', '');
+    if(q === 'pc' || q === 'mobile' || q === 'cvr') return q;
+
+    try{
+      const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+      const narrow = window.innerWidth <= 720;
+      if(coarse || narrow) return 'mobile';
+    }catch(e){}
+
+    return 'pc';
+  }
+
+  function getStoredPrefs(){
+    try{
+      const raw = localStorage.getItem(STORE_KEY);
+      if(!raw) return null;
+      return JSON.parse(raw);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function savePrefs(){
+    try{
+      localStorage.setItem(STORE_KEY, JSON.stringify(state));
+    }catch(e){}
+  }
+
+  function loadInitialState(){
+    const stored = getStoredPrefs() || {};
+
+    state.view = qs('view', stored.view || detectView());
+    state.diff = qs('diff', stored.diff || 'normal');
+    state.time = qs('time', stored.time || '90');
+
+    if(!['pc','mobile','cvr'].includes(state.view)) state.view = detectView();
+    if(!['easy','normal','hard','challenge'].includes(state.diff)) state.diff = 'normal';
+    if(!['90','120','150','180'].includes(state.time)) state.time = '90';
+  }
+
+  function setActive(group, value){
+    document.querySelectorAll('[data-group="' + group + '"] .choice').forEach(function(btn){
+      btn.classList.toggle('active', btn.dataset.value === value);
+    });
+  }
+
+  function updateUI(){
+    setActive('view', state.view);
+    setActive('diff', state.diff);
+    setActive('time', state.time);
+
+    const label = state.view === 'pc'
+      ? 'PC'
+      : state.view === 'cvr'
+        ? 'Cardboard VR'
+        : 'Mobile';
+
+    const summary = document.getElementById('summaryBox');
+    if(summary){
+      summary.innerHTML = `
+        พร้อมเริ่มภารกิจ
+        <span>${state.diff} • ${state.time}s • ${label}</span>
+      `;
+    }
+
+    const hint = document.getElementById('autoViewHint');
+    if(hint){
+      hint.textContent = state.view === detectView()
+        ? 'เลือกตามอุปกรณ์อัตโนมัติ'
+        : 'ปรับเองแล้ว';
+    }
+
+    updateDebug();
+  }
+
+  function bindChoices(){
+    document.querySelectorAll('.choice[data-value]').forEach(function(btn){
+      btn.addEventListener('click', function(){
+        const group = btn.closest('[data-group]');
+        if(!group) return;
+
+        const key = group.dataset.group;
+        const value = btn.dataset.value;
+
+        if(key === 'view') state.view = value;
+        if(key === 'diff') state.diff = value;
+        if(key === 'time') state.time = value;
+
+        savePrefs();
+        updateUI();
+      });
+    });
+  }
+
+  function getDefaultZoneBack(){
+    /*
+      Hydration อยู่ Nutrition Zone เท่านั้น
+      ถ้า hub เก่ามาจาก Fitness Zone / Hub อื่น จะไม่ให้ hijack return path
+      ยอมรับเฉพาะ hub ที่เป็น nutrition-zone.html เท่านั้น
+    */
+    const incomingHub = qs('hub', '');
+
+    try{
+      const decoded = decodeURIComponent(incomingHub || '');
+      if(decoded && decoded.includes('nutrition-zone.html')){
+        return incomingHub;
+      }
+    }catch(e){}
+
+    return './nutrition-zone.html';
+  }
+
+  function preserveOptionalParams(url, opts){
+    opts = opts || {};
+
+    [
+      'log',
+      'api',
+      'studyId',
+      'conditionGroup',
+      'section',
+      'session_code',
+      'schoolCode',
+      'classRoom'
+    ].forEach(function(k){
+      const v = qs(k, '');
+      if(v) url.searchParams.set(k, v);
+    });
+
+    /*
+      ถ้ามี phase เดิมจาก research flow:
+      - gameUrl เก็บเป็น phase ได้
+      - warmupUrl ห้าม overwrite phase=warmup จึงเก็บเป็น studyPhase แทน
+    */
+    const oldPhase = qs('phase', '');
+    if(oldPhase){
+      if(opts.skipPhase){
+        url.searchParams.set('studyPhase', oldPhase);
+      }else{
+        url.searchParams.set('phase', oldPhase);
+      }
+    }
+
+    return url;
+  }
+
+  function buildGameUrl(){
+    const gameUrl = new URL('./hydration-vr.html', location.href);
+    const hubBack = getDefaultZoneBack();
+
+    gameUrl.searchParams.set('pid', qs('pid', 'anon'));
+    gameUrl.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+    gameUrl.searchParams.set('nick', qs('nick', qs('name', 'Hero')));
+    gameUrl.searchParams.set('diff', state.diff);
+    gameUrl.searchParams.set('time', state.time);
+    gameUrl.searchParams.set('seed', qs('seed', String(Date.now())));
+    gameUrl.searchParams.set('view', state.view);
+    gameUrl.searchParams.set('run', qs('run', 'play'));
+
+    gameUrl.searchParams.set('zone', 'nutrition');
+    gameUrl.searchParams.set('game', 'hydration');
+    gameUrl.searchParams.set('gameId', 'hydration');
+    gameUrl.searchParams.set('mode', state.view);
+    gameUrl.searchParams.set('entry', 'hydration-launcher');
+    gameUrl.searchParams.set('theme', 'hydration');
+    gameUrl.searchParams.set('hub', hubBack);
+
+    preserveOptionalParams(gameUrl, { skipPhase:false });
+
+    return gameUrl;
+  }
+
+  function buildWarmupUrl(){
+    const gameUrl = buildGameUrl();
+    const hubBack = getDefaultZoneBack();
+
+    const warmup = new URL('./warmup-gate.html', location.href);
+
+    warmup.searchParams.set('phase', 'warmup');
+    warmup.searchParams.set('game', 'hydration');
+    warmup.searchParams.set('gameId', 'hydration');
+    warmup.searchParams.set('zone', 'nutrition');
+    warmup.searchParams.set('mode', state.view);
+    warmup.searchParams.set('view', state.view);
+    warmup.searchParams.set('pid', qs('pid', 'anon'));
+    warmup.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+    warmup.searchParams.set('nick', qs('nick', qs('name', 'Hero')));
+    warmup.searchParams.set('diff', state.diff);
+    warmup.searchParams.set('time', state.time);
+    warmup.searchParams.set('seed', qs('seed', String(Date.now())));
+    warmup.searchParams.set('hub', hubBack);
+    warmup.searchParams.set('next', gameUrl.toString());
+    warmup.searchParams.set('fromLauncher', 'hydration-launcher');
+
+    preserveOptionalParams(warmup, { skipPhase:true });
+
+    return warmup;
+  }
+
+  function goBack(){
+    const back = getDefaultZoneBack();
+
+    try{
+      const u = new URL(back, location.href);
+
+      u.searchParams.set('zone', 'nutrition');
+
+      [
+        'pid',
+        'name',
+        'nick',
+        'diff',
+        'time',
+        'view',
+        'run'
+      ].forEach(function(k){
+        const v = qs(k, '');
+        if(v) u.searchParams.set(k, v);
+      });
+
+      location.href = u.toString();
+    }catch(e){
+      location.href = './nutrition-zone.html';
+    }
+  }
+
+  function startWarmup(){
+    savePrefs();
+    location.href = buildWarmupUrl().toString();
+  }
+
+  function startDirect(){
+    savePrefs();
+    location.href = buildGameUrl().toString();
+  }
+
+  function resetPrefs(){
+    try{ localStorage.removeItem(STORE_KEY); }catch(e){}
+    state.view = detectView();
+    state.diff = 'normal';
+    state.time = '90';
+    savePrefs();
+    updateUI();
+  }
+
+  function updateDebug(){
+    if(!isDebug()) return;
+
+    document.body.classList.add('debug-on');
+
+    const box = document.getElementById('debugBox');
+    if(!box) return;
+
+    let warm = '';
+    let game = '';
+    let back = '';
+
+    try{
+      warm = buildWarmupUrl().toString();
+      game = buildGameUrl().toString();
+      back = getDefaultZoneBack();
+    }catch(e){
+      warm = 'build error';
+      game = 'build error';
+      back = 'build error';
+    }
+
+    box.innerHTML = `
+      version: ${VERSION}<br>
+      zone: nutrition<br>
+      view: ${state.view}<br>
+      diff: ${state.diff}<br>
+      time: ${state.time}<br>
+      return: ${back}<br>
+      warmup: ${warm}<br>
+      direct: ${game}
+    `;
+  }
+
+  function bindButtons(){
+    const startBtn = document.getElementById('startBtn');
+    const directBtn = document.getElementById('directBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const backBtn = document.getElementById('backBtn');
+
+    if(startBtn) startBtn.addEventListener('click', startWarmup);
+    if(directBtn) directBtn.addEventListener('click', startDirect);
+    if(resetBtn) resetBtn.addEventListener('click', resetPrefs);
+    if(backBtn) backBtn.addEventListener('click', goBack);
+  }
+
+  function boot(){
+    loadInitialState();
+    bindChoices();
+    bindButtons();
+    updateUI();
+
+    window.HHA = window.HHA || {};
+    window.HHA.HYDRATION_LAUNCHER_VERSION = VERSION;
+    window.HHA.HYDRATION_LAUNCHER_ZONE = 'nutrition';
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
