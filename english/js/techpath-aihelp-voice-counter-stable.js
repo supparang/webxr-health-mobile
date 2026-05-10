@@ -1,10 +1,11 @@
 /* =========================================================
  * /english/js/techpath-aihelp-voice-counter-stable.js
- * PATCH v20260509e-AIHELP-VOICE-COUNTER-STABLE-MANUAL-VOICE
+ * PATCH v20260510f-AIHELP-VOICE-COUNTER-STABLE-HIDE-NOVELTY
  *
  * ใช้ไฟล์นี้ตัวเดียวสำหรับ AI Help:
  * ✅ มีรายการเสียงให้เลือกเองได้จริง
  * ✅ เลือกเสียงแล้วใช้เสียงนั้นจริง
+ * ✅ ซ่อน/กรองเสียงตลก เสียงเอฟเฟกต์ เสียงแปลก เช่น Bubbles, Bells, Jester, Bad News
  * ✅ มีปุ่ม Auto Best US Voice สำหรับเลือกเสียง American English ที่ดีที่สุดอัตโนมัติ
  * ✅ มี preset โทนเสียง Teacher / Clear US / Coach
  * ✅ AI Help ใช้เสียงที่เลือกไว้จริงทุกครั้ง
@@ -20,7 +21,7 @@
 (function () {
   'use strict';
 
-  const PATCH_ID = 'techpath-aihelp-voice-counter-stable-v20260509e-manual-voice';
+  const PATCH_ID = 'techpath-aihelp-voice-counter-stable-v20260510f-hide-novelty';
 
   const VOICE_KEY = 'TECHPATH_AIHELP_SELECTED_VOICE_URI';
   const OLD_VOICE_KEY = 'LESSON_AIHELP_SELECTED_VOICE_V1';
@@ -251,7 +252,18 @@
 
   function isBadAccent(v) {
     const s = `${v && v.name ? v.name : ''} ${v && v.lang ? v.lang : ''}`;
+
     return /en-gb|united kingdom|british|en-au|australia|australian|en-in|india|indian/i.test(s);
+  }
+
+  function isNoveltyVoice(v) {
+    const s = `${v && v.name ? v.name : ''} ${v && v.lang ? v.lang : ''}`;
+
+    /*
+     * กรองเสียงเอฟเฟกต์/เสียงตลก/เสียงประหลาดที่ไม่เหมาะกับบทเรียน
+     * โดยเฉพาะ Chrome/macOS voices เช่น Bubbles, Bells, Jester, Bad News
+     */
+    return /albert|bad news|bahh|bells|boing|bubbles|cellos|good news|hysterical|jester|junior|organ|superstar|trinoids|whisper|zarvox|deranged|pipe organ|wobble|zarvox|flo|fred|grandma|grandpa|reed|rocko|sandy|shelley|ralph|kathy|princess|vicki|victoria/i.test(s);
   }
 
   function voiceScore(v) {
@@ -275,11 +287,15 @@
     if (/Microsoft Zira/i.test(s)) score += 2300;
     if (/Alex/i.test(s)) score += 2100;
 
+    /*
+     * เสียงผู้ชายชัด แต่บางเครื่องแข็ง/แหบกว่า จึงให้รองลงมา
+     */
     if (/Microsoft Guy/i.test(s)) score += 1800;
     if (/Microsoft David/i.test(s)) score += 1500;
     if (/Microsoft Mark/i.test(s)) score += 1300;
 
     if (isBadAccent(v)) score -= 10000;
+    if (isNoveltyVoice(v)) score -= 20000;
 
     if (/default/i.test(s)) score -= 500;
     if (/compact/i.test(s)) score -= 500;
@@ -289,8 +305,17 @@
   }
 
   function sortedVoices() {
-    return getVoices()
-      .filter(isEnglish)
+    const voices = getVoices().filter(isEnglish);
+
+    /*
+     * ปกติให้ตัด novelty voices ออกจาก dropdown
+     * ถ้าเครื่องมีแต่เสียง novelty จริง ๆ จึง fallback กลับไปใช้ voices ทั้งหมด
+     */
+    const clean = voices.filter(function (v) {
+      return !isNoveltyVoice(v);
+    });
+
+    return (clean.length ? clean : voices)
       .sort(function (a, b) {
         return voiceScore(b) - voiceScore(a);
       });
