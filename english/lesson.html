@@ -5209,36 +5209,75 @@
     }
 
     function decideAiDifficulty(){
-      const meta = sessionMeta(state.currentSession);
-      const completed = Object.values(state.progress.completed || {}).slice(-5);
-      const startDiff = state.profile.difficulty || 'normal';
+  const meta = sessionMeta(state.currentSession);
+  const s = Number(state.currentSession || 1);
+  const url = params();
 
-      if(meta.final) return 'challenge';
+  /*
+   * PATCH v20260510-level-progression
+   * ไล่ระดับจากง่ายไปยากตาม Session
+   * ไม่ให้ S ต้น ๆ กระโดดเป็น challenge เร็วเกินไป
+   */
 
-      if(!completed.length){
-        if(meta.boss && (startDiff === 'easy' || startDiff === 'normal')) return 'hard';
-        return startDiff === 'challenge' ? 'hard' : startDiff;
-      }
+  const requested =
+    url.get('level') ||
+    url.get('diff') ||
+    state.profile.difficulty ||
+    'normal';
 
-      const avgAcc = completed.reduce(function(sum,r){
-        return sum + Number(r.accuracy || 0);
-      },0) / completed.length;
+  const allowed = ['easy','normal','hard','challenge'];
 
-      const avgScore = completed.reduce(function(sum,r){
-        return sum + Number(r.score || 0);
-      },0) / completed.length;
+  function safeLevel(v){
+    return allowed.includes(v) ? v : 'normal';
+  }
 
-      let level = 'easy';
+  function baseLevelBySession(n){
+    if (n <= 3) return 'easy';
+    if (n <= 6) return 'normal';
+    if (n <= 10) return 'hard';
+    return 'challenge';
+  }
 
-      if(avgAcc >= 92 && avgScore >= 120) level = 'challenge';
-      else if(avgAcc >= 78) level = 'hard';
-      else if(avgAcc >= 55) level = 'normal';
+  function bossLevelBySession(n){
+    if (n === 3) return 'normal';
+    if (n === 6) return 'hard';
+    if (n === 9) return 'hard';
+    if (n === 12) return 'challenge';
+    if (n === 15) return 'challenge';
+    return baseLevelBySession(n);
+  }
 
-      if(meta.boss && level === 'easy') level = 'normal';
-      if(meta.boss && level === 'normal') level = 'hard';
+  let level = meta && meta.boss
+    ? bossLevelBySession(s)
+    : baseLevelBySession(s);
 
-      return level;
-    }
+  /*
+   * ถ้า URL ตั้ง level/diff มา ให้ใช้เป็น "เพดานเริ่มต้น" ได้
+   * แต่ไม่ให้ S ต้น ๆ กระโดดสูงเกินไป
+   */
+  const requestedLevel = safeLevel(requested);
+  const order = { easy:0, normal:1, hard:2, challenge:3 };
+
+  if (s <= 3) {
+    level = order[requestedLevel] > order.normal ? level : requestedLevel;
+    if (meta && meta.boss && level === 'easy') level = 'normal';
+  } else if (s <= 6) {
+    level = order[requestedLevel] > order.hard ? level : requestedLevel;
+    if (meta && meta.boss && level === 'normal') level = 'hard';
+  } else {
+    /*
+     * ช่วงกลาง-ท้าย ยอมให้ใช้ระดับจาก URL ได้
+     * แต่ยังรักษา final ให้ challenge เสมอ
+     */
+    level = requestedLevel;
+    if (s >= 7 && order[level] < order.hard) level = 'hard';
+    if (s >= 11 && order[level] < order.challenge) level = 'challenge';
+  }
+
+  if (meta && meta.final) level = 'challenge';
+
+  return safeLevel(level);
+}
 
     function pickQuestion(){
       const meta = sessionMeta(state.currentSession);
