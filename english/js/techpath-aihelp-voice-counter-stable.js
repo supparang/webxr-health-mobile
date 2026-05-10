@@ -251,7 +251,6 @@
 
   function isBadAccent(v) {
     const s = `${v && v.name ? v.name : ''} ${v && v.lang ? v.lang : ''}`;
-
     return /en-gb|united kingdom|british|en-au|australia|australian|en-in|india|indian/i.test(s);
   }
 
