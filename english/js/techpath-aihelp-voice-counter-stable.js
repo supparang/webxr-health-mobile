@@ -1025,13 +1025,20 @@
   }
 
   let tries = 0;
-  const timer = setInterval(function () {
-    tries += 1;
+const timer = setInterval(function () {
+  tries += 1;
 
-    init();
+  patchNativeSpeak();
+  patchAiHelpGlobals();
+  bindAiHelpButtons();
 
-    if (tries >= 30) clearInterval(timer);
-  }, 500);
+  if (tries === 1 || tries === 4 || tries === 8) {
+    populateVoicePicker();
+    updateCounterUi(getCount());
+  }
+
+  if (tries >= 8) clearInterval(timer);
+}, 700);
 
   if (window.speechSynthesis) {
     window.speechSynthesis.onvoiceschanged = function () {
@@ -1041,18 +1048,28 @@
   }
 
   try {
-    const mo = new MutationObserver(function () {
+  let moTimer = null;
+
+  const mo = new MutationObserver(function () {
+    clearTimeout(moTimer);
+
+    moTimer = setTimeout(function () {
       bindAiHelpButtons();
-      updateCounterUi(getCount());
-    });
 
-    mo.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+      /*
+       * ไม่เรียก updateCounterUi ทุก mutation
+       * เพราะ updateCounterUi แก้ DOM แล้วทำให้ observer ยิงซ้ำได้
+       */
+    }, 500);
+  });
 
-    setTimeout(function () {
-      try { mo.disconnect(); } catch (e) {}
-    }, 20000);
-  } catch (e) {}
+  mo.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+
+  setTimeout(function () {
+    try { mo.disconnect(); } catch (e) {}
+  }, 12000);
+} catch (e) {}
 })();
