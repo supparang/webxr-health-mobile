@@ -1,281 +1,360 @@
 /* =========================================================
- * /english/js/techpath-loading-watchdog.js
- * PATCH v20260507-LOADING-WATCHDOG
+ * /english/js/techpath-boot-watchdog.js
+ * PATCH v20260510b-BOOT-WATCHDOG-RECOVER-APP
  *
- * ✅ แก้หน้า Loading TechPath VR ค้าง
- * ✅ ซ่อน loading overlay หลัง timeout
- * ✅ เปิด main UI / Home / Lesson container กลับมา
- * ✅ set READY badge
- * ✅ ไม่แตะข้อมูลผู้เรียน / voice / route
+ * ✅ แสดง error จริงถ้า boot ไม่ผ่าน
+ * ✅ ถ้า data ครบ + QA ผ่าน แต่จอดำ จะกู้หน้า app/homeView กลับมา
+ * ✅ ไม่ยุ่ง lesson engine หลัก
+ * ✅ ไม่ซ่อน error จริง
  * ========================================================= */
 
 (function () {
   'use strict';
 
-  const PATCH_ID = 'techpath-loading-watchdog-v20260507';
-  const TIMEOUT_MS = 4500;
+  const PATCH_ID = 'techpath-boot-watchdog-v20260510b-recover-app';
+  const CHECK_DELAY_MS = 3200;
+  const RECOVER_DELAY_MS = 5200;
 
-  function txt(el) {
-    return String(el && el.textContent ? el.textContent : '')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
+  let lastError = null;
+  let lastRejection = null;
+  let rendered = false;
 
-  function setI(el, prop, value) {
-    if (el && el.style) el.style.setProperty(prop, value, 'important');
-  }
-
-  function isLoadingOverlay(el) {
-    if (!el) return false;
-
-    const t = txt(el);
-
-    return (
-      /Loading TechPath/i.test(t) ||
-      /Preparing S1.?S15/i.test(t) ||
-      /Preparing S1–S15/i.test(t) ||
-      /Loading.*VR/i.test(t)
-    );
-  }
-
-  function hideLoadingOverlays() {
-    const candidates = Array.from(document.querySelectorAll(
-      [
-        '#loading',
-        '#loader',
-        '#loadingScreen',
-        '#loading-screen',
-        '#boot',
-        '#bootScreen',
-        '.loading',
-        '.loader',
-        '.loading-screen',
-        '.boot-screen',
-        '.splash',
-        '.splash-screen',
-        'section',
-        'div'
-      ].join(',')
-    ));
-
-    let hidden = 0;
-
-    candidates.forEach(function (el) {
-      if (!isLoadingOverlay(el)) return;
-
-      setI(el, 'display', 'none');
-      setI(el, 'visibility', 'hidden');
-      setI(el, 'opacity', '0');
-      setI(el, 'pointer-events', 'none');
-      setI(el, 'z-index', '-1');
-
-      el.setAttribute('aria-hidden', 'true');
-      hidden += 1;
-    });
-
-    return hidden;
-  }
-
-  function revealMainUi() {
-    const selectors = [
-      '#app',
-      '#root',
-      '#main',
-      'main',
-      '.app',
-      '.page',
-      '.screen',
-      '.home',
-      '.lesson',
-      '.lesson-app',
-      '.lesson-shell',
-      '.tp-app',
-      '.tp-shell'
-    ];
-
-    selectors.forEach(function (sel) {
-      document.querySelectorAll(sel).forEach(function (el) {
-        if (isLoadingOverlay(el)) return;
-
-        setI(el, 'display', '');
-        setI(el, 'visibility', 'visible');
-        setI(el, 'opacity', '1');
-        setI(el, 'pointer-events', 'auto');
-      });
-    });
-
-    setI(document.documentElement, 'overflow-y', 'auto');
-    setI(document.body, 'overflow-y', 'auto');
-    setI(document.body, 'visibility', 'visible');
-    setI(document.body, 'opacity', '1');
-  }
-
-  function setReadyText() {
-    Array.from(document.querySelectorAll('*')).forEach(function (el) {
-      const t = txt(el);
-
-      if (/LOADING|Loading|Preparing/i.test(t) && t.length < 80) {
-        if (/status|ready|loading|preparing/i.test(String(el.className || '') + ' ' + String(el.id || ''))) {
-          el.textContent = 'READY';
-        }
-      }
-    });
-
-    window.TECHPATH_READY = true;
-    window.LESSON_READY = true;
-
-    window.dispatchEvent(new CustomEvent('techpath:watchdog-ready', {
-      detail: {
-        patch: PATCH_ID,
-        ts: Date.now()
-      }
-    }));
-  }
-
-  function tryCallKnownBootFunctions() {
-    const fns = [
-      'init',
-      'boot',
-      'startApp',
-      'initLesson',
-      'bootLesson',
-      'renderHome',
-      'showHome',
-      'mountHome',
-      'initTechPath',
-      'bootTechPath'
-    ];
-
-    fns.forEach(function (name) {
-      if (typeof window[name] === 'function' && !window[name].__watchdogCalled) {
-        try {
-          window[name].__watchdogCalled = true;
-          window[name]();
-        } catch (e) {
-          // เงียบไว้ เพราะบางฟังก์ชันต้องใช้ args
-        }
-      }
+  function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, function (m) {
+      return {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m];
     });
   }
 
-  function showSmallNotice(message) {
-    let box = document.getElementById('techPathLoadingWatchdogNotice');
-
-    if (!box) {
-      box = document.createElement('div');
-      box.id = 'techPathLoadingWatchdogNotice';
-      box.style.cssText = [
-        'position:fixed',
-        'left:12px',
-        'right:12px',
-        'bottom:92px',
-        'z-index:9999999',
-        'padding:10px 14px',
-        'border-radius:16px',
-        'background:rgba(5,17,32,.96)',
-        'color:#eaffff',
-        'border:1px solid rgba(105,232,255,.48)',
-        'box-shadow:0 14px 44px rgba(0,0,0,.38)',
-        'font:900 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif',
-        'text-align:center',
-        'pointer-events:none'
-      ].join(';');
-
-      document.body.appendChild(box);
-    }
-
-    box.textContent = message;
-    box.style.display = 'block';
-
-    clearTimeout(box._t);
-    box._t = setTimeout(function () {
-      box.style.display = 'none';
-    }, 3000);
+  function byId(id) {
+    return document.getElementById(id);
   }
 
-  function rescue(reason) {
-    const hidden = hideLoadingOverlays();
+  function getDataReport() {
+    const data = window.TECHPATH_LESSON_DATA || null;
+    const sessions = data && Array.isArray(data.SESSIONS) ? data.SESSIONS.length : 0;
+    const banks = data && data.SESSION_BANK ? Object.keys(data.SESSION_BANK).length : 0;
 
-    revealMainUi();
-    setReadyText();
-    tryCallKnownBootFunctions();
-
-    if (hidden > 0) {
-      showSmallNotice('โหลดนานเกินไป จึงปลดหน้า Loading ให้แล้ว');
-    }
-
-    console.log('[TechPath Loading Watchdog] rescue', {
-      patch: PATCH_ID,
-      reason,
-      hiddenLoadingOverlays: hidden,
-      ready: true
-    });
-
-    return hidden;
-  }
-
-  function exposeApi() {
-    window.TechPathLoadingWatchdog = {
-      version: PATCH_ID,
-      rescue: function () {
-        return rescue('manual');
-      },
-      debug: function () {
-        const loading = Array.from(document.querySelectorAll('div, section'))
-          .filter(isLoadingOverlay)
-          .map(function (el) {
-            return {
-              id: el.id || '',
-              className: String(el.className || ''),
-              text: txt(el).slice(0, 120),
-              display: getComputedStyle(el).display,
-              visibility: getComputedStyle(el).visibility,
-              opacity: getComputedStyle(el).opacity
-            };
-          });
-
-        return {
-          patch: PATCH_ID,
-          loadingOverlaysFound: loading.length,
-          loading,
-          ready: !!window.TECHPATH_READY
-        };
-      }
+    return {
+      hasData: !!data,
+      dataVersion: data && data.VERSION ? data.VERSION : '',
+      sessions,
+      banks,
+      dataOk: !!data && sessions === 15 && banks === 15
     };
   }
 
-  function run() {
-    exposeApi();
+  function getStatus() {
+    const boot = byId('boot');
+    const app = byId('app');
+    const homeView = byId('homeView');
+    const gameView = byId('gameView');
+    const summaryView = byId('summaryView');
+    const data = getDataReport();
 
-    // รอบแรก: ลอง boot เฉย ๆ ก่อน
-    setTimeout(function () {
-      tryCallKnownBootFunctions();
-    }, 900);
+    return {
+      patch: PATCH_ID,
+      TECHPATH_BOOT_OK: window.TECHPATH_BOOT_OK,
+      qaReport: window.TECHPATH_QA_REPORT,
+      bootExists: !!boot,
+      bootClass: boot ? boot.className : '',
+      appExists: !!app,
+      appClass: app ? app.className : '',
+      appDisplay: app ? getComputedStyle(app).display : '',
+      appVisibility: app ? getComputedStyle(app).visibility : '',
+      homeExists: !!homeView,
+      homeClass: homeView ? homeView.className : '',
+      gameClass: gameView ? gameView.className : '',
+      summaryClass: summaryView ? summaryView.className : '',
+      hasData: data.hasData,
+      dataVersion: data.dataVersion,
+      sessions: data.sessions,
+      banks: data.banks,
+      dataOk: data.dataOk,
+      aiHelpStable: !!window.TechPathAIHelpStable,
+      aiHelpDebug: window.TechPathAIHelpStable && typeof window.TechPathAIHelpStable.debug === 'function'
+        ? safeCall(function () { return window.TechPathAIHelpStable.debug(); })
+        : null,
+      lastError,
+      lastRejection,
+      location: location.href
+    };
+  }
 
-    // รอบหลัก: ถ้ายังค้าง ให้ซ่อน loading
-    setTimeout(function () {
-      rescue('timeout');
-    }, TIMEOUT_MS);
+  function safeCall(fn) {
+    try {
+      return fn();
+    } catch (e) {
+      return { error: String(e && (e.stack || e.message) || e) };
+    }
+  }
 
-    // รอบสำรอง: กรณี engine render loading กลับมาใหม่
-    let tries = 0;
-    const timer = setInterval(function () {
-      tries += 1;
+  function reloadUrl() {
+    try {
+      const url = new URL(location.href);
+      url.searchParams.set('s', url.searchParams.get('s') || '1');
+      url.searchParams.set('diff', url.searchParams.get('diff') || 'normal');
+      url.searchParams.set('level', url.searchParams.get('level') || 'normal');
+      url.searchParams.set('run', url.searchParams.get('run') || 'play');
+      url.searchParams.set('v', String(Date.now()));
+      return url.toString();
+    } catch (e) {
+      return './lesson.html?s=1&diff=normal&level=normal&run=play&v=' + Date.now();
+    }
+  }
 
-      const loadingCount = Array.from(document.querySelectorAll('div, section'))
-        .filter(isLoadingOverlay).length;
+  function shouldIgnoreError(msg) {
+    msg = String(msg || '');
 
-      if (loadingCount > 0 && tries >= 4) {
-        rescue('interval');
-      }
+    if (/A listener indicated an asynchronous response/i.test(msg)) return true;
+    if (/message channel closed/i.test(msg)) return true;
+    if (/Extension context invalidated/i.test(msg)) return true;
+    if (/chrome-extension:/i.test(msg)) return true;
+    if (/moz-extension:/i.test(msg)) return true;
+    if (/favicon.ico/i.test(msg)) return true;
 
-      if (tries >= 16) clearInterval(timer);
-    }, 1000);
+    return false;
+  }
+
+  function renderBootError(title, subtitle, detail) {
+    const boot = byId('boot');
+
+    if (!boot || window.TECHPATH_BOOT_OK === true) return;
+
+    rendered = true;
+
+    const status = getStatus();
+
+    boot.classList.remove('off');
+    boot.style.display = 'flex';
+    boot.style.visibility = 'visible';
+    boot.style.opacity = '1';
+
+    boot.innerHTML = `
+      <div class="bootBox" style="max-width:980px;width:min(980px,calc(100vw - 28px));">
+        <h1 class="bootTitle">${esc(title || 'Boot Error')}</h1>
+        <p class="bootSub">${esc(subtitle || 'เปิด Console เพื่อดู error ล่าสุด')}</p>
+
+        <pre style="
+          white-space:pre-wrap;
+          text-align:left;
+          color:#ffd5dc;
+          background:rgba(0,0,0,.35);
+          padding:14px;
+          border-radius:16px;
+          font-size:13px;
+          max-width:980px;
+          max-height:46vh;
+          overflow:auto;
+          line-height:1.45;
+          border:1px solid rgba(255,255,255,.14);
+        ">${esc(detail || '')}
+
+---- BOOT STATUS ----
+${esc(JSON.stringify(status, null, 2))}</pre>
+
+        <button onclick="location.href='${esc(reloadUrl())}'"
+          style="
+            margin-top:18px;
+            padding:14px 22px;
+            border-radius:18px;
+            border:0;
+            background:#72e8ff;
+            color:#06111f;
+            font-weight:1000;
+            cursor:pointer;
+          ">
+          Reload S1
+        </button>
+      </div>
+    `;
+  }
+
+  function formatErrorEvent(e) {
+    const lines = [];
+
+    lines.push(String(e && e.message ? e.message : 'JS Error'));
+
+    if (e && e.filename) {
+      lines.push(String(e.filename) + ':' + String(e.lineno || '') + ':' + String(e.colno || ''));
+    }
+
+    if (e && e.error && e.error.stack) {
+      lines.push('');
+      lines.push(String(e.error.stack));
+    }
+
+    return lines.join('\n');
+  }
+
+  function formatRejectionEvent(e) {
+    const reason = e ? e.reason : null;
+
+    if (!reason) return 'Unhandled promise rejection';
+    if (reason.stack) return String(reason.stack);
+    if (reason.message) return String(reason.message);
+
+    try {
+      return JSON.stringify(reason, null, 2);
+    } catch (err) {
+      return String(reason);
+    }
+  }
+
+  function recoverApp() {
+    const data = getDataReport();
+    const boot = byId('boot');
+    const app = byId('app');
+    const homeView = byId('homeView');
+    const gameView = byId('gameView');
+    const summaryView = byId('summaryView');
+
+    if (!data.dataOk || !app || !homeView) return false;
+
+    const qaOk = Array.isArray(window.TECHPATH_QA_REPORT)
+      ? window.TECHPATH_QA_REPORT.length === 0
+      : true;
+
+    if (!qaOk) return false;
+
+    window.TECHPATH_BOOT_OK = true;
+
+    if (boot) {
+      boot.classList.add('off');
+      boot.style.opacity = '0';
+      boot.style.visibility = 'hidden';
+      boot.style.pointerEvents = 'none';
+    }
+
+    app.classList.remove('hidden');
+    app.style.display = '';
+    app.style.visibility = 'visible';
+    app.style.opacity = '1';
+
+    homeView.classList.remove('hidden');
+    homeView.style.display = '';
+
+    if (gameView) gameView.classList.remove('on');
+    if (summaryView) summaryView.classList.remove('on');
+
+    document.body.style.background = '';
+    document.body.style.minHeight = '100dvh';
+
+    try {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    } catch (e) {
+      window.scrollTo(0, 0);
+    }
+
+    console.log('[TechPath Boot Watchdog] recovered app/homeView safely', getStatus());
+
+    return true;
+  }
+
+  function checkBoot() {
+    const status = getStatus();
+
+    console.log('[TechPath Boot Watchdog]', status);
+
+    if (window.TECHPATH_BOOT_OK === true) {
+      recoverApp();
+      return;
+    }
+
+    if (recoverApp()) return;
+
+    if (rendered) return;
+
+    if (!status.hasData) {
+      renderBootError(
+        'Boot Error',
+        'lesson-data.js ไม่โหลด หรือ TECHPATH_LESSON_DATA หาย',
+        'ตรวจสอบไฟล์ ./js/lesson-data.js ในแท็บ Network ว่าเป็น 200 หรือ 404'
+      );
+      return;
+    }
+
+    if (status.sessions !== 15 || status.banks !== 15) {
+      renderBootError(
+        'Boot Error',
+        'ข้อมูล S1–S15 ไม่ครบ',
+        'SESSIONS = ' + status.sessions + '\nSESSION_BANK = ' + status.banks
+      );
+      return;
+    }
+
+    renderBootError(
+      'Boot Error',
+      'boot() ไม่สำเร็จ แต่ data ครบ',
+      'ระบบพบ data ครบแล้ว แต่ boot ไม่ตั้ง TECHPATH_BOOT_OK=true\nลองเรียก window.TechPathBootWatchdog.recover() ใน Console'
+    );
+  }
+
+  window.addEventListener('error', function (e) {
+    const msg = formatErrorEvent(e);
+
+    lastError = {
+      message: String(e && e.message || ''),
+      filename: String(e && e.filename || ''),
+      lineno: e && e.lineno,
+      colno: e && e.colno,
+      detail: msg
+    };
+
+    if (shouldIgnoreError(msg)) {
+      console.warn('[TechPath Boot Watchdog] ignored noise error:', lastError);
+      return;
+    }
+
+    if (window.TECHPATH_BOOT_OK !== true) {
+      renderBootError('Boot Error', 'JS Error', msg);
+    }
+  });
+
+  window.addEventListener('unhandledrejection', function (e) {
+    const msg = formatRejectionEvent(e);
+
+    lastRejection = { detail: msg };
+
+    if (shouldIgnoreError(msg)) {
+      console.warn('[TechPath Boot Watchdog] ignored promise noise:', lastRejection);
+      return;
+    }
+
+    if (window.TECHPATH_BOOT_OK !== true) {
+      renderBootError('Boot Error', 'Promise Error', msg);
+    }
+  });
+
+  window.TechPathBootWatchdog = {
+    version: PATCH_ID,
+    debug: getStatus,
+    check: checkBoot,
+    recover: recoverApp,
+    show: function () {
+      renderBootError(
+        'Boot Debug',
+        'Manual Debug',
+        JSON.stringify(getStatus(), null, 2)
+      );
+    },
+    reloadUrl
+  };
+
+  function schedule() {
+    setTimeout(checkBoot, CHECK_DELAY_MS);
+    setTimeout(recoverApp, RECOVER_DELAY_MS);
+    setTimeout(recoverApp, RECOVER_DELAY_MS + 2500);
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
+    document.addEventListener('DOMContentLoaded', schedule, { once: true });
   } else {
-    run();
+    schedule();
   }
 })();
