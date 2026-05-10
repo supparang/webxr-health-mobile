@@ -1,29 +1,24 @@
 /* =========================================================
  * /english/js/techpath-copy-guard-safe.js
- * PATCH v20260507-COPY-GUARD-SAFE
+ * PATCH v20260510a-COPY-GUARD-SAFE
  *
- * ✅ กัน copy/source แบบไม่ทำให้ lesson พัง
- * ✅ กัน right click / select / drag / Ctrl+U / Ctrl+S / F12
- * ✅ ไม่บล็อก input, textarea, select, contenteditable
- * ✅ ไม่บังปุ่มเข้า Session
- * ✅ ใส่ watermark เบา ๆ
- * ✅ soft warning เมื่อพยายามเปิด DevTools
+ * ✅ ลดการ copy แบบง่าย ๆ
+ * ✅ กัน right click / select / drag / copy / cut / save / print / view-source shortcuts
+ * ✅ ไม่บล็อก input / textarea เพื่อให้ผู้เรียนยังพิมพ์คำตอบได้
+ * ✅ ไม่ทำให้ lesson boot พัง
+ * ✅ ไม่ยุ่ง AI Help / voice / counter
  *
  * หมายเหตุ:
- * ป้องกันได้ระดับ deterrent เท่านั้น เพราะ source ฝั่ง client
- * ไม่มีทางซ่อนจาก browser ได้ 100%
+ * กัน source code 100% ไม่ได้ เพราะ browser ต้องโหลดไฟล์มาใช้งาน
+ * ไฟล์นี้ใช้เพื่อ discourage casual copying เท่านั้น
  * ========================================================= */
 
 (function () {
   'use strict';
 
-  const PATCH_ID = 'techpath-copy-guard-safe-v20260507';
+  const PATCH_ID = 'techpath-copy-guard-safe-v20260510a';
 
-  const ENABLE_GUARD = true;
-  const ENABLE_WATERMARK = true;
-  const ENABLE_DEVTOOLS_SOFT_NOTICE = true;
-
-  function isEditableTarget(el) {
+  function isEditable(el) {
     if (!el) return false;
 
     const tag = String(el.tagName || '').toLowerCase();
@@ -32,46 +27,62 @@
       tag === 'input' ||
       tag === 'textarea' ||
       tag === 'select' ||
-      tag === 'option' ||
       el.isContentEditable ||
-      !!(el.closest && el.closest('input, textarea, select, [contenteditable="true"], .allow-copy, [data-allow-copy]'))
+      !!(el.closest && el.closest('input, textarea, select, [contenteditable="true"]'))
     );
   }
 
-  function showNotice(message) {
-    let box = document.getElementById('techPathCopyGuardNotice');
+  function toast(msg) {
+    try {
+      let el = document.getElementById('techPathCopyGuardToast');
 
-    if (!box) {
-      box = document.createElement('div');
-      box.id = 'techPathCopyGuardNotice';
-      box.style.cssText = [
-        'position:fixed',
-        'left:12px',
-        'right:12px',
-        'bottom:92px',
-        'z-index:9999999',
-        'display:none',
-        'padding:12px 14px',
-        'border-radius:16px',
-        'background:rgba(5,17,32,.96)',
-        'color:#eaffff',
-        'border:1px solid rgba(105,232,255,.45)',
-        'box-shadow:0 14px 44px rgba(0,0,0,.38)',
-        'font:900 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif',
-        'text-align:center',
-        'pointer-events:none'
-      ].join(';');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'techPathCopyGuardToast';
+        el.style.cssText = [
+          'position:fixed',
+          'left:50%',
+          'bottom:92px',
+          'transform:translateX(-50%)',
+          'z-index:99999999',
+          'width:min(620px,calc(100vw - 24px))',
+          'padding:12px 16px',
+          'border-radius:18px',
+          'background:rgba(5,17,32,.96)',
+          'color:#eaffff',
+          'border:1px solid rgba(105,232,255,.45)',
+          'box-shadow:0 16px 44px rgba(0,0,0,.38)',
+          'font:900 13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif',
+          'text-align:center',
+          'pointer-events:none',
+          'display:none'
+        ].join(';');
 
-      document.body.appendChild(box);
-    }
+        document.body.appendChild(el);
+      }
 
-    box.textContent = message || 'This lesson is protected.';
-    box.style.display = 'block';
+      el.textContent = msg;
+      el.style.display = 'block';
 
-    clearTimeout(box._t);
-    box._t = setTimeout(function () {
-      box.style.display = 'none';
-    }, 2600);
+      clearTimeout(el._t);
+      el._t = setTimeout(function () {
+        el.style.display = 'none';
+      }, 1800);
+    } catch (e) {}
+  }
+
+  function blockEvent(e, msg) {
+    if (isEditable(e.target)) return true;
+
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+    } catch (err) {}
+
+    if (msg) toast(msg);
+
+    return false;
   }
 
   function injectStyle() {
@@ -79,46 +90,24 @@
 
     const style = document.createElement('style');
     style.id = PATCH_ID + '-style';
-
     style.textContent = `
-      html.techpath-copy-guard-on,
-      html.techpath-copy-guard-on body {
-        -webkit-touch-callout: none !important;
+      body.techpath-copy-guard-on,
+      body.techpath-copy-guard-on * {
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
 
-      html.techpath-copy-guard-on body,
-      html.techpath-copy-guard-on .card,
-      html.techpath-copy-guard-on .panel,
-      html.techpath-copy-guard-on .glass,
-      html.techpath-copy-guard-on button,
-      html.techpath-copy-guard-on a {
-        -webkit-user-select: none !important;
-        user-select: none !important;
-      }
-
-      html.techpath-copy-guard-on input,
-      html.techpath-copy-guard-on textarea,
-      html.techpath-copy-guard-on select,
-      html.techpath-copy-guard-on [contenteditable="true"],
-      html.techpath-copy-guard-on .allow-copy,
-      html.techpath-copy-guard-on [data-allow-copy] {
+      body.techpath-copy-guard-on input,
+      body.techpath-copy-guard-on textarea,
+      body.techpath-copy-guard-on select,
+      body.techpath-copy-guard-on [contenteditable="true"],
+      body.techpath-copy-guard-on input *,
+      body.techpath-copy-guard-on textarea *,
+      body.techpath-copy-guard-on select * {
         -webkit-user-select: text !important;
         user-select: text !important;
-      }
-
-      #techPathSourceWatermark {
-        position: fixed !important;
-        right: 12px !important;
-        top: 82px !important;
-        z-index: 999990 !important;
-        pointer-events: none !important;
-        opacity: .16 !important;
-        color: #eaffff !important;
-        font: 1000 11px/1.25 system-ui,-apple-system,Segoe UI,sans-serif !important;
-        letter-spacing: .4px !important;
-        text-align: right !important;
-        text-shadow: 0 2px 12px rgba(0,0,0,.55) !important;
-        max-width: 50vw !important;
+        -webkit-touch-callout: default !important;
       }
 
       @media print {
@@ -131,151 +120,70 @@
     document.head.appendChild(style);
   }
 
-  function addWatermark() {
-    if (!ENABLE_WATERMARK) return;
-    if (document.getElementById('techPathSourceWatermark')) return;
+  function bindGuards() {
+    document.body.classList.add('techpath-copy-guard-on');
 
-    const qs = new URLSearchParams(location.search);
-    const sid = qs.get('studentId') || qs.get('student_id') || qs.get('pid') || window.studentId || '';
-    const name = qs.get('name') || qs.get('studentName') || window.studentName || '';
-
-    const wm = document.createElement('div');
-    wm.id = 'techPathSourceWatermark';
-    wm.innerHTML =
-      'TechPath English VR<br>' +
-      'Protected Learning Content' +
-      (sid || name ? '<br>' + String(sid || name).replace(/[<>&"]/g, '') : '');
-
-    document.body.appendChild(wm);
-  }
-
-  function blockEvent(ev, msg) {
-    if (!ENABLE_GUARD) return;
-    if (isEditableTarget(ev.target)) return;
-
-    ev.preventDefault();
-    ev.stopPropagation();
-
-    if (msg) showNotice(msg);
-
-    return false;
-  }
-
-  function bindMouseAndTouchGuard() {
-    document.addEventListener('contextmenu', function (ev) {
-      return blockEvent(ev, 'Right click is disabled for this lesson.');
+    document.addEventListener('contextmenu', function (e) {
+      return blockEvent(e, 'โหมดบทเรียน: ปิดคลิกขวาเพื่อป้องกันการคัดลอก');
     }, true);
 
-    document.addEventListener('copy', function (ev) {
-      return blockEvent(ev, 'Copy is disabled for protected lesson content.');
+    document.addEventListener('dragstart', function (e) {
+      return blockEvent(e, '');
     }, true);
 
-    document.addEventListener('cut', function (ev) {
-      return blockEvent(ev, 'Cut is disabled for protected lesson content.');
+    document.addEventListener('selectstart', function (e) {
+      if (isEditable(e.target)) return true;
+      return blockEvent(e, '');
     }, true);
 
-    document.addEventListener('dragstart', function (ev) {
-      return blockEvent(ev, '');
+    document.addEventListener('copy', function (e) {
+      if (isEditable(e.target)) return true;
+      return blockEvent(e, 'ปิดการคัดลอกเนื้อหาบทเรียน');
     }, true);
 
-    document.addEventListener('selectstart', function (ev) {
-      if (isEditableTarget(ev.target)) return;
-      ev.preventDefault();
-      return false;
+    document.addEventListener('cut', function (e) {
+      if (isEditable(e.target)) return true;
+      return blockEvent(e, 'ปิดการตัด/คัดลอกเนื้อหาบทเรียน');
     }, true);
-  }
 
-  function bindKeyboardGuard() {
-    document.addEventListener('keydown', function (ev) {
-      if (!ENABLE_GUARD) return;
-      if (isEditableTarget(ev.target)) return;
+    document.addEventListener('keydown', function (e) {
+      const key = String(e.key || '').toLowerCase();
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
 
-      const key = String(ev.key || '').toLowerCase();
-      const ctrl = ev.ctrlKey || ev.metaKey;
-      const shift = ev.shiftKey;
+      if (isEditable(e.target)) {
+        return true;
+      }
 
       const blocked =
         key === 'f12' ||
-        (ctrl && key === 'u') ||
         (ctrl && key === 's') ||
         (ctrl && key === 'p') ||
+        (ctrl && key === 'u') ||
         (ctrl && key === 'c') ||
         (ctrl && key === 'x') ||
-        (ctrl && shift && (key === 'i' || key === 'j' || key === 'c')) ||
-        (ctrl && shift && key === 'k');
+        (ctrl && key === 'a') ||
+        (ctrl && shift && (key === 'i' || key === 'j' || key === 'c'));
 
       if (blocked) {
-        ev.preventDefault();
-        ev.stopPropagation();
-        showNotice('This lesson source is protected.');
-        return false;
+        return blockEvent(e, 'ปิด shortcut นี้ในโหมดบทเรียน');
       }
+
+      return true;
     }, true);
-  }
-
-  function bindDevtoolsSoftNotice() {
-    if (!ENABLE_DEVTOOLS_SOFT_NOTICE) return;
-
-    let lastOpen = false;
-
-    setInterval(function () {
-      const threshold = 160;
-      const open =
-        (window.outerWidth - window.innerWidth > threshold) ||
-        (window.outerHeight - window.innerHeight > threshold);
-
-      if (open && !lastOpen) {
-        lastOpen = true;
-        showNotice('Developer tools detected. Please use the lesson normally.');
-      }
-
-      if (!open) lastOpen = false;
-    }, 1200);
-  }
-
-  function protectConsole() {
-    try {
-      const msg =
-        '%cTechPath English VR%c\\nProtected learning content. Unauthorized copying is not allowed.';
-      console.log(
-        msg,
-        'font-size:18px;font-weight:900;color:#65e8ff;',
-        'font-size:12px;color:#dff7ff;'
-      );
-    } catch (e) {}
-  }
-
-  function exposeApi() {
-    window.TechPathCopyGuard = {
-      version: PATCH_ID,
-      enable: function () {
-        document.documentElement.classList.add('techpath-copy-guard-on');
-        showNotice('Copy guard enabled.');
-      },
-      disable: function () {
-        document.documentElement.classList.remove('techpath-copy-guard-on');
-        showNotice('Copy guard disabled for this session.');
-      },
-      status: function () {
-        return {
-          patch: PATCH_ID,
-          enabled: document.documentElement.classList.contains('techpath-copy-guard-on'),
-          watermark: !!document.getElementById('techPathSourceWatermark')
-        };
-      }
-    };
   }
 
   function init() {
     injectStyle();
-    document.documentElement.classList.add('techpath-copy-guard-on');
+    bindGuards();
 
-    addWatermark();
-    bindMouseAndTouchGuard();
-    bindKeyboardGuard();
-    bindDevtoolsSoftNotice();
-    protectConsole();
-    exposeApi();
+    window.TechPathCopyGuard = {
+      version: PATCH_ID,
+      enabled: true,
+      note: 'Client-side guard only. It discourages casual copying but cannot fully hide browser-delivered source code.'
+    };
+
+    console.log('[TechPath Copy Guard] enabled', window.TechPathCopyGuard);
   }
 
   if (document.readyState === 'loading') {
