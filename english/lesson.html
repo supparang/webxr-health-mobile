@@ -7449,8 +7449,7 @@
         hardFail(e.reason || new Error('Unhandled promise rejection'));
       }
     });
-
-        if(document.readyState === 'loading'){
+            if(document.readyState === 'loading'){
       document.addEventListener('DOMContentLoaded',boot,{once:true});
     }else{
       boot();
@@ -7460,5 +7459,30 @@
 
   <script src="./js/techpath-aihelp-voice-counter-stable.js?v=20260509e-manual-voice"></script>
   <script src="./js/techpath-boot-watchdog.js?v=20260509-boot-watchdog"></script>
+
+  <script>
+  (function(){
+    function forceOpenIfReady(){
+      var boot = document.getElementById('boot');
+      var app = document.getElementById('app');
+      var hasData =
+        !!window.TECHPATH_LESSON_DATA &&
+        Array.isArray(window.TECHPATH_LESSON_DATA.SESSIONS) &&
+        window.TECHPATH_LESSON_DATA.SESSIONS.length === 15 &&
+        window.TECHPATH_LESSON_DATA.SESSION_BANK &&
+        Object.keys(window.TECHPATH_LESSON_DATA.SESSION_BANK).length === 15;
+
+      if (boot && app && hasData) {
+        window.TECHPATH_BOOT_OK = true;
+        boot.classList.add('off');
+        console.log('[TechPath Force Open] boot overlay closed safely');
+      }
+    }
+
+    setTimeout(forceOpenIfReady, 800);
+    setTimeout(forceOpenIfReady, 1800);
+    setTimeout(forceOpenIfReady, 3200);
+  })();
+  </script>
 </body>
 </html>
