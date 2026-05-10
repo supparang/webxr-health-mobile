@@ -5217,6 +5217,14 @@
    * PATCH v20260510-level-progression
    * ไล่ระดับจากง่ายไปยากตาม Session
    * ไม่ให้ S ต้น ๆ กระโดดเป็น challenge เร็วเกินไป
+   *
+   * Target progression:
+   * S01–S02 = easy
+   * S03 Boss = normal
+   * S04–S05 = normal
+   * S06 Boss = hard
+   * S07–S10 = hard
+   * S11–S15 = challenge
    */
 
   const requested =
@@ -5232,8 +5240,8 @@
   }
 
   function baseLevelBySession(n){
-    if (n <= 3) return 'easy';
-    if (n <= 6) return 'normal';
+    if (n <= 2) return 'easy';
+    if (n <= 5) return 'normal';
     if (n <= 10) return 'hard';
     return 'challenge';
   }
@@ -5247,34 +5255,68 @@
     return baseLevelBySession(n);
   }
 
+  const order = {
+    easy: 0,
+    normal: 1,
+    hard: 2,
+    challenge: 3
+  };
+
+  const requestedLevel = safeLevel(requested);
+
   let level = meta && meta.boss
     ? bossLevelBySession(s)
     : baseLevelBySession(s);
 
   /*
-   * ถ้า URL ตั้ง level/diff มา ให้ใช้เป็น "เพดานเริ่มต้น" ได้
-   * แต่ไม่ให้ S ต้น ๆ กระโดดสูงเกินไป
+   * ใช้ level/diff จาก URL เป็น “เพดาน/ตัวเลือกเริ่มต้น”
+   * แต่ไม่ให้ข้าม progression ของ session แบบรุนแรง
    */
-  const requestedLevel = safeLevel(requested);
-  const order = { easy:0, normal:1, hard:2, challenge:3 };
 
-  if (s <= 3) {
-    level = order[requestedLevel] > order.normal ? level : requestedLevel;
-    if (meta && meta.boss && level === 'easy') level = 'normal';
-  } else if (s <= 6) {
-    level = order[requestedLevel] > order.hard ? level : requestedLevel;
-    if (meta && meta.boss && level === 'normal') level = 'hard';
-  } else {
+  if (s <= 2) {
     /*
-     * ช่วงกลาง-ท้าย ยอมให้ใช้ระดับจาก URL ได้
-     * แต่ยังรักษา final ให้ challenge เสมอ
+     * S01–S02 ควรง่ายจริง
+     * ถ้า URL เป็น easy/normal ยอมได้
+     * ถ้า URL เป็น hard/challenge ให้คง easy
+     */
+    if (requestedLevel === 'normal') level = 'normal';
+    if (requestedLevel === 'easy') level = 'easy';
+  } else if (s === 3) {
+    /*
+     * Boss แรก ไม่ควร easy
+     */
+    level = 'normal';
+  } else if (s <= 5) {
+    /*
+     * S04–S05 = normal
+     * ถ้า URL easy ให้ยอมลดได้เล็กน้อย
+     * แต่ไม่ให้กระโดด hard/challenge
+     */
+    if (requestedLevel === 'easy') level = 'easy';
+    else level = 'normal';
+  } else if (s === 6) {
+    /*
+     * Boss 2 = hard
+     */
+    level = 'hard';
+  } else if (s <= 10) {
+    /*
+     * S07–S10 = hard
+     * ไม่ให้ต่ำกว่า normal
      */
     level = requestedLevel;
-    if (s >= 7 && order[level] < order.hard) level = 'hard';
-    if (s >= 11 && order[level] < order.challenge) level = 'challenge';
+    if (order[level] < order.normal) level = 'normal';
+    if (order[level] > order.hard) level = 'hard';
+  } else {
+    /*
+     * S11–S15 = challenge zone
+     */
+    level = 'challenge';
   }
 
-  if (meta && meta.final) level = 'challenge';
+  if (meta && meta.final) {
+    level = 'challenge';
+  }
 
   return safeLevel(level);
 }
@@ -6199,7 +6241,7 @@
         '</div>' +
         '<div class="skillRow">' +
           '<div class="skillIcon">🧠</div>' +
-          '<div><b>AI Difficulty</b><small>' + esc(state.aiDifficulty) + ' • ' + (meta.boss ? 'Boss boost active' : 'adaptive random') + '</small></div>' +
+          '<div><b>AI Difficulty</b><small>' + esc(state.aiDifficulty) + ' • ' + (meta.boss ? 'Boss progression' : 'level progression') + '</small></div>' +
           '<span class="tag ' + esc(state.aiDifficulty) + '">' + esc(state.aiDifficulty) + '</span>' +
         '</div>' +
         '<div class="skillRow">' +
