@@ -1073,3 +1073,18 @@ const timer = setInterval(function () {
   }, 12000);
 } catch (e) {}
 })();
+function updateCounterUi(n) {
+  window.TECHPATH_AIHELP_USED = n;
+  window.LESSON_AIHELP_USED = n;
+  window.TECHPATH_AIHELP_LIMIT = {
+    used: n,
+    max: MAX_HELP,
+    remaining: Math.max(0, MAX_HELP - n)
+  };
+
+  /*
+   * ไม่ append ข้อความ "ใช้แล้ว 1/3 ครั้ง" เพิ่มเอง
+   * เพราะ lesson.html มี AI Help Limit UI ของตัวเองอยู่แล้ว
+   * กันข้อความซ้ำใต้ปุ่ม และลด MutationObserver วนหนัก
+   */
+}
