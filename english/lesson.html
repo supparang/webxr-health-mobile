@@ -7456,8 +7456,56 @@
     }
   })();
   </script>
+    <script>
+  (function(){
+    function forceHomeVisible(){
+      var dataOk =
+        !!window.TECHPATH_LESSON_DATA &&
+        Array.isArray(window.TECHPATH_LESSON_DATA.SESSIONS) &&
+        window.TECHPATH_LESSON_DATA.SESSIONS.length === 15 &&
+        window.TECHPATH_LESSON_DATA.SESSION_BANK &&
+        Object.keys(window.TECHPATH_LESSON_DATA.SESSION_BANK).length === 15;
 
-  <script src="./js/techpath-aihelp-voice-counter-stable.js?v=20260510f-hide-novelty"></script>
-  <script src="./js/techpath-boot-watchdog.js?v=20260510b-recover-app"></script>
+      var boot = document.getElementById('boot');
+      var app = document.getElementById('app');
+      var home = document.getElementById('homeView');
+      var game = document.getElementById('gameView');
+      var summary = document.getElementById('summaryView');
+
+      if (!dataOk || !app || !home) return;
+
+      window.TECHPATH_BOOT_OK = true;
+
+      if (boot) {
+        boot.classList.add('off');
+        boot.style.display = 'none';
+        boot.style.visibility = 'hidden';
+        boot.style.opacity = '0';
+        boot.style.pointerEvents = 'none';
+      }
+
+      app.classList.remove('hidden');
+      app.style.display = 'flex';
+      app.style.flexDirection = 'column';
+      app.style.visibility = 'visible';
+      app.style.opacity = '1';
+
+      home.classList.remove('hidden');
+      home.style.display = 'block';
+      home.style.visibility = 'visible';
+      home.style.opacity = '1';
+
+      if (game) game.classList.remove('on');
+      if (summary) summary.classList.remove('on');
+
+      console.log('[TechPath Force Home Visible] OK');
+    }
+
+    setTimeout(forceHomeVisible, 300);
+    setTimeout(forceHomeVisible, 900);
+    setTimeout(forceHomeVisible, 1800);
+    setTimeout(forceHomeVisible, 3200);
+  })();
+  </script>
 </body>
 </html>
