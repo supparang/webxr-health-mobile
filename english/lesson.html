@@ -7459,37 +7459,13 @@
 <script src="./js/techpath-aihelp-voice-counter-stable.js?v=20260509e-manual-voice"></script>
 
 <script>
-(function(){
-  setTimeout(function(){
-    console.log('[TechPath Boot Check]', {
-      TECHPATH_BOOT_OK: window.TECHPATH_BOOT_OK,
-      hasData: !!window.TECHPATH_LESSON_DATA,
-      bootClass: document.getElementById('boot')?.className,
-      appExists: !!document.getElementById('app'),
-      aiHelp: !!window.TechPathAIHelpStable
-    });
-
-    if (window.TECHPATH_BOOT_OK === true) {
-      document.getElementById('boot')?.classList.add('off');
-      return;
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded',boot,{once:true});
+    }else{
+      boot();
     }
-
-    const boot = document.getElementById('boot');
-    if (boot) {
-      boot.innerHTML = `
-        <div class="bootBox">
-          <h1 class="bootTitle">Boot Error</h1>
-          <p class="bootSub">เปิด Console เพื่อดู error ล่าสุด</p>
-          <button onclick="location.href='./lesson.html?s=1&diff=normal&level=normal&run=play&v=' + Date.now()"
-            style="margin-top:24px;padding:14px 22px;border-radius:18px;border:0;background:#72e8ff;color:#06111f;font-weight:1000">
-            Reload S1
-          </button>
-        </div>
-      `;
-    }
-  }, 3500);
-})();
-</script>
+  })();
+  </script>
 
   <script src="./js/techpath-aihelp-voice-counter-stable.js?v=20260509e-manual-voice"></script>
   <script src="./js/techpath-boot-watchdog.js?v=20260509-boot-watchdog"></script>
