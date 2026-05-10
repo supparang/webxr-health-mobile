@@ -7449,7 +7449,7 @@
         hardFail(e.reason || new Error('Unhandled promise rejection'));
       }
     });
-                if(document.readyState === 'loading'){
+                    if(document.readyState === 'loading'){
       document.addEventListener('DOMContentLoaded',boot,{once:true});
     }else{
       boot();
