@@ -780,33 +780,31 @@
   }
 
   function speakStable(text, options) {
-    options = options || {};
+  options = options || {};
 
-    const msg = cleanSpeakText(text);
-    if (!msg || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return false;
+  const msg = cleanSpeakText(text);
+  if (!msg || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return false;
 
-    if (!options.noCount) {
-      if (getCount() >= MAX_HELP) {
-        showBadge(`⚠️ ใช้ AI Help ครบแล้ว (${MAX_HELP}/${MAX_HELP})`);
-        return false;
-      }
+  /*
+   * IMPORTANT:
+   * ไม่นับ AI Help ในไฟล์นี้แล้ว
+   * lesson.html เป็นเจ้าของ counter หลักผ่าน registerAiHelpUse()
+   * กันปัญหา patch นับ 3/3 แต่ lesson reset เป็น 0/3
+   */
 
-      incCount('speakStable');
-    }
+  const u = new SpeechSynthesisUtterance(msg);
+  fixUtterance(u);
 
-    const u = new SpeechSynthesisUtterance(msg);
-    fixUtterance(u);
+  try {
+    if (nativeCancel) nativeCancel();
+    else window.speechSynthesis.cancel();
+  } catch (e) {}
 
-    try {
-      if (nativeCancel) nativeCancel();
-      else window.speechSynthesis.cancel();
-    } catch (e) {}
+  if (nativeSpeak) nativeSpeak(u);
+  else window.speechSynthesis.speak(u);
 
-    if (nativeSpeak) nativeSpeak(u);
-    else window.speechSynthesis.speak(u);
-
-    return true;
-  }
+  return true;
+}
 
   function patchNativeSpeak() {
     if (!window.speechSynthesis || !window.speechSynthesis.speak) return;
@@ -861,25 +859,12 @@
   }
 
   function bindAiHelpButtons() {
-    Array.from(document.querySelectorAll('button, a, [role="button"]')).forEach(function (btn) {
-      if (btn.dataset.techPathStableAihelpBound === '1') return;
-      if (!isAiHelpButton(btn)) return;
-
-      btn.dataset.techPathStableAihelpBound = '1';
-
-      btn.addEventListener('click', function (ev) {
-        if (getCount() >= MAX_HELP) {
-          ev.preventDefault();
-          ev.stopPropagation();
-          showBadge(`⚠️ ใช้ AI Help ครบแล้ว (${MAX_HELP}/${MAX_HELP})`);
-          return false;
-        }
-
-        incCount('aihelp-button-click');
-        return true;
-      }, true);
-    });
-  }
+  /*
+   * ไม่ bind ปุ่ม AI Help แล้ว
+   * เพราะ lesson.html มี els.aiHelpBtn.addEventListener('click', aiHelp)
+   * และมี registerAiHelpUse() อยู่แล้ว
+   */
+}
 
   function patchAiHelpGlobals() {
     const names = [
@@ -898,15 +883,6 @@
 
       const wrapped = function () {
         const first = String(arguments[0] || '');
-
-        if (!/voice selected|test voice|selected voice|voice style selected|auto best american/i.test(first)) {
-          if (getCount() >= MAX_HELP) {
-            showBadge(`⚠️ ใช้ AI Help ครบแล้ว (${MAX_HELP}/${MAX_HELP})`);
-            return false;
-          }
-
-          incCount('aihelp-global-' + name);
-        }
 
         return speakStable(first || 'Here is your AI help.', {
           noCount: true
@@ -1074,13 +1050,12 @@ const timer = setInterval(function () {
 } catch (e) {}
 })();
 function updateCounterUi(n) {
-  window.TECHPATH_AIHELP_USED = n;
-  window.LESSON_AIHELP_USED = n;
-  window.TECHPATH_AIHELP_LIMIT = {
-    used: n,
-    max: MAX_HELP,
-    remaining: Math.max(0, MAX_HELP - n)
-  };
+  /*
+   * ปิด counter UI ของ patch นี้
+   * ให้ lesson.html แสดง AI Help Limit เองเท่านั้น
+   */
+  window.TECHPATH_AIHELP_VOICE_PATCH_READY = true;
+}
 
   /*
    * ไม่ append ข้อความ "ใช้แล้ว 1/3 ครั้ง" เพิ่มเอง
