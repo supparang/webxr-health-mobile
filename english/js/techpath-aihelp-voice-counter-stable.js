@@ -890,12 +890,13 @@
     window[name] = wrapped;
   });
 
-  window.TechPathAIHelpStable = {
+    window.TechPathAIHelpStable = {
     version: PATCH_ID,
+    mode: 'voice-only-no-counter',
     speak: speakStable,
-    getSelectedVoice,
-    getBestUSVoice,
-    getVoicePreset,
+    getSelectedVoice: getSelectedVoice,
+    getBestUSVoice: getBestUSVoice,
+    getVoicePreset: getVoicePreset,
 
     openVoice: function () {
       buildVoicePicker();
@@ -909,18 +910,10 @@
     },
 
     count: function () {
-      /*
-       * ไม่อ่าน/ไม่ล็อก counter จาก sessionStorage แล้ว
-       * เพื่อไม่ชนกับ lesson.html
-       */
       return window.LESSON_AIHELP_USED || window.TECHPATH_AIHELP_USED || 0;
     },
 
     reset: function () {
-      /*
-       * ไม่ reset counter เองแล้ว
-       * lesson.html เป็นผู้ reset ตอนเริ่ม session / สุ่มข้อใหม่
-       */
       return true;
     },
 
@@ -1001,8 +994,7 @@
       };
     }
   };
-}
-
+    
   function init() {
     injectStyle();
     buildVoicePicker();
