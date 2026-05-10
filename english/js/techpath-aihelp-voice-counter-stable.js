@@ -779,18 +779,11 @@
       .trim();
   }
 
-  function speakStable(text, options) {
+  ffunction speakStable(text, options) {
   options = options || {};
 
   const msg = cleanSpeakText(text);
   if (!msg || !window.speechSynthesis || !window.SpeechSynthesisUtterance) return false;
-
-  /*
-   * IMPORTANT:
-   * ไม่นับ AI Help ในไฟล์นี้แล้ว
-   * lesson.html เป็นเจ้าของ counter หลักผ่าน registerAiHelpUse()
-   * กันปัญหา patch นับ 3/3 แต่ lesson reset เป็น 0/3
-   */
 
   const u = new SpeechSynthesisUtterance(msg);
   fixUtterance(u);
@@ -861,129 +854,154 @@
   function bindAiHelpButtons() {
   /*
    * ไม่ bind ปุ่ม AI Help แล้ว
-   * เพราะ lesson.html มี els.aiHelpBtn.addEventListener('click', aiHelp)
-   * และมี registerAiHelpUse() อยู่แล้ว
+   * lesson.html เป็นคนคุม counter เอง
    */
 }
 
   function patchAiHelpGlobals() {
-    const names = [
-      'speakAIHelpUS',
-      'speakAIHelp',
-      'playAIHelpVoice',
-      'playAiHelpVoice',
-      'speakCoach',
-      'speakHint'
-    ];
+  const names = [
+    'speakAIHelpUS',
+    'speakAIHelp',
+    'playAIHelpVoice',
+    'playAiHelpVoice',
+    'speakCoach',
+    'speakHint'
+  ];
 
-    names.forEach(function (name) {
-      const old = window[name];
+  names.forEach(function (name) {
+    const old = window[name];
 
-      if (typeof old === 'function' && old.__techPathStableCounterWrapped) return;
+    if (typeof old === 'function' && old.__techPathStableVoiceWrapped) return;
 
-      const wrapped = function () {
-        const first = String(arguments[0] || '');
+    const wrapped = function () {
+      const first = String(arguments[0] || '');
 
-        return speakStable(first || 'Here is your AI help.', {
-          noCount: true
-        });
-      };
-
-      wrapped.__techPathStableCounterWrapped = true;
-      window[name] = wrapped;
-    });
-
-    window.TechPathAIHelpStable = {
-      version: PATCH_ID,
-      speak: speakStable,
-      getSelectedVoice,
-      getBestUSVoice,
-      getVoicePreset,
-      openVoice: function () {
-        buildVoicePicker();
-        document.getElementById('techPathAIHelpStable').open = true;
-      },
-      closeVoice: function () {
-        const el = document.getElementById('techPathAIHelpStable');
-        if (el) el.open = false;
-      },
-      count: getCount,
-      reset: function () {
-        return setCount(0);
-      },
-      clearSelectedVoice: function () {
-        try {
-          localStorage.removeItem(VOICE_KEY);
-          localStorage.removeItem(OLD_VOICE_KEY);
-        } catch (e) {}
-
-        const select = document.getElementById('techPathAIHelpVoiceSelect');
-        if (select) select.value = '';
-
-        populateVoicePicker();
-        return getSelectedVoice();
-      },
-      setBestUSVoice: function () {
-        const best = getBestUSVoice();
-
-        if (best) {
-          saveSelectedVoice(best);
-
-          try {
-            localStorage.setItem(PRESET_KEY, 'teacher');
-          } catch (e) {}
-
-          populateVoicePicker();
-        }
-
-        return best;
-      },
-      setPreset: function (presetKey) {
-        if (!VOICE_QUALITY_PRESETS[presetKey]) presetKey = DEFAULT_VOICE_PRESET;
-
-        try {
-          localStorage.setItem(PRESET_KEY, presetKey);
-        } catch (e) {}
-
-        populateVoicePicker();
-        return getVoicePreset();
-      },
-      debug: function () {
-        const v = getSelectedVoice();
-        const p = getVoicePreset();
-
-        return {
-          patch: PATCH_ID,
-          forceBestUSVoice: FORCE_BEST_US_VOICE,
-          voicePanel: !!document.getElementById('techPathAIHelpStable'),
-          selectedVoice: v ? {
-            name: v.name,
-            lang: v.lang,
-            voiceURI: v.voiceURI,
-            score: voiceScore(v)
-          } : null,
-          preset: p,
-          count: getCount(),
-          max: MAX_HELP,
-          sessionKey: sessionKey(),
-          counterCards: findAiHelpLimitCards().length,
-          voices: sortedVoices().map(function (voice) {
-            return {
-              name: voice.name,
-              lang: voice.lang,
-              voiceURI: voice.voiceURI,
-              score: voiceScore(voice)
-            };
-          }),
-          nativeSpeakPatched: !!(
-            window.speechSynthesis &&
-            window.speechSynthesis.speak &&
-            window.speechSynthesis.speak.__techPathStablePatched
-          )
-        };
-      }
+      /*
+       * Voice-only patch:
+       * ไฟล์นี้ไม่คุม counter แล้ว
+       * lesson.html เป็นเจ้าของ AI Help counter ผ่าน registerAiHelpUse()
+       */
+      return speakStable(first || 'Here is your AI help.', {
+        noCount: true
+      });
     };
-  }
+
+    wrapped.__techPathStableVoiceWrapped = true;
+    window[name] = wrapped;
+  });
+
+  window.TechPathAIHelpStable = {
+    version: PATCH_ID,
+    speak: speakStable,
+    getSelectedVoice,
+    getBestUSVoice,
+    getVoicePreset,
+
+    openVoice: function () {
+      buildVoicePicker();
+      const el = document.getElementById('techPathAIHelpStable');
+      if (el) el.open = true;
+    },
+
+    closeVoice: function () {
+      const el = document.getElementById('techPathAIHelpStable');
+      if (el) el.open = false;
+    },
+
+    count: function () {
+      /*
+       * ไม่อ่าน/ไม่ล็อก counter จาก sessionStorage แล้ว
+       * เพื่อไม่ชนกับ lesson.html
+       */
+      return window.LESSON_AIHELP_USED || window.TECHPATH_AIHELP_USED || 0;
+    },
+
+    reset: function () {
+      /*
+       * ไม่ reset counter เองแล้ว
+       * lesson.html เป็นผู้ reset ตอนเริ่ม session / สุ่มข้อใหม่
+       */
+      return true;
+    },
+
+    clearSelectedVoice: function () {
+      try {
+        localStorage.removeItem(VOICE_KEY);
+        localStorage.removeItem(OLD_VOICE_KEY);
+      } catch (e) {}
+
+      const select = document.getElementById('techPathAIHelpVoiceSelect');
+      if (select) select.value = '';
+
+      populateVoicePicker();
+      return getSelectedVoice();
+    },
+
+    setBestUSVoice: function () {
+      const best = getBestUSVoice();
+
+      if (best) {
+        saveSelectedVoice(best);
+
+        try {
+          localStorage.setItem(PRESET_KEY, 'teacher');
+        } catch (e) {}
+
+        populateVoicePicker();
+      }
+
+      return best;
+    },
+
+    setPreset: function (presetKey) {
+      if (!VOICE_QUALITY_PRESETS[presetKey]) presetKey = DEFAULT_VOICE_PRESET;
+
+      try {
+        localStorage.setItem(PRESET_KEY, presetKey);
+      } catch (e) {}
+
+      populateVoicePicker();
+      return getVoicePreset();
+    },
+
+    debug: function () {
+      const v = getSelectedVoice();
+      const p = getVoicePreset();
+
+      return {
+        patch: PATCH_ID,
+        mode: 'voice-only-no-counter',
+        forceBestUSVoice: FORCE_BEST_US_VOICE,
+        voicePanel: !!document.getElementById('techPathAIHelpStable'),
+        selectedVoice: v ? {
+          name: v.name,
+          lang: v.lang,
+          voiceURI: v.voiceURI,
+          score: voiceScore(v)
+        } : null,
+        preset: p,
+        lessonCounter: {
+          LESSON_AIHELP_USED: window.LESSON_AIHELP_USED,
+          TECHPATH_AIHELP_USED: window.TECHPATH_AIHELP_USED,
+          TECHPATH_AIHELP_LIMIT: window.TECHPATH_AIHELP_LIMIT
+        },
+        voices: sortedVoices().map(function (voice) {
+          return {
+            name: voice.name,
+            lang: voice.lang,
+            voiceURI: voice.voiceURI,
+            score: voiceScore(voice)
+          };
+        }),
+        nativeSpeakPatched: !!(
+          window.speechSynthesis &&
+          window.speechSynthesis.speak &&
+          window.speechSynthesis.speak.__techPathStablePatched
+        )
+      };
+    }
+  };
+}
 
   function init() {
     injectStyle();
@@ -1050,10 +1068,6 @@ const timer = setInterval(function () {
 } catch (e) {}
 })();
 function updateCounterUi(n) {
-  /*
-   * ปิด counter UI ของ patch นี้
-   * ให้ lesson.html แสดง AI Help Limit เองเท่านั้น
-   */
   window.TECHPATH_AIHELP_VOICE_PATCH_READY = true;
 }
 
