@@ -7,7 +7,7 @@
 (() => {
   'use strict';
 
-  var VERSION = '20260509-PLATE-SOLO-V4.0.8-SUMMARY-FAIR-SCORE-POLISH';
+  var VERSION = '20260509-PLATE-SOLO-V4.0.9-RETURN-NUTRITION-ZONE-FIX';
   var DOC = window.document;
   var WIN = window;
   var $ = function(id){ return DOC.getElementById(id); };
@@ -520,12 +520,67 @@
       state.score=fairScore;
       try{ console.info('[Plate Solo] fair summary score applied', {rawScore,fairScore}); }catch(e){}
     }
-    const stars=calcStars(bal,done); state.stars=stars; const rank=bal>=90&&done>=3&&state.bossDefeated?{icon:'👑',title:'SS • Plate Master',line:'สุดยอด! จานสมดุล ชนะบอส และทำภารกิจครบ'}:bal>=82&&done>=2?{icon:'🏆',title:'S • Balance Hero',line:'ยอดเยี่ยม! จานสมดุลมาก เล่นอีกรอบลุ้น SS ได้เลย'}:bal>=70||state.score>=600||state.bestCombo>=10?{icon:'⭐',title:'A • Smart Chef',line:'ดีมาก! รอบหน้าเน้นหมู่ที่ยังขาดและอย่าให้ล้น'}:bal>=55?{icon:'🌟',title:'B • Healthy Builder',line:'เริ่มดีแล้ว! ลองดูแถบสมดุลก่อนเลือกอาหาร'}:{icon:'🍽️',title:'C • Plate Starter',line:'ไม่เป็นไร! รอบหน้าลองเติมหมู่ที่ขาดก่อนนะ'}; if(els.rankIcon)els.rankIcon.textContent=rank.icon; if(els.summaryTitle)els.summaryTitle.textContent=rank.title; if(els.summaryLine)els.summaryLine.textContent=rank.line; if(els.starRow)els.starRow.innerHTML=`<span class="star ${stars>=1?'on':''}">⭐</span><span class="star ${stars>=2?'on':''}">⭐</span><span class="star ${stars>=3?'on':''}">⭐</span><div class="starLabel">${stars>=3?'สุดยอด! 3 ดาวแบบ Plate Hero':stars===2?'ดีมาก! อีกนิดเดียวถึง 3 ดาว':stars===1?'ผ่านแล้ว! รอบหน้าลุ้น 2 ดาว':'ลองใหม่ได้! เริ่มจากเติมหมู่ที่ขาดก่อน'}</div>`; if(els.sumScore)els.sumScore.textContent=Math.round(state.score); if(els.sumBalance)els.sumBalance.textContent=bal+'%'; if(els.sumCombo)els.sumCombo.textContent=state.bestCombo; if(els.sumMission)els.sumMission.textContent=`${done}/${state.missions.length}`; const badges=[]; if(bal>=85)badges.push('⚖️ Balance Master'); if(state.bestCombo>=10)badges.push('🔥 Combo Chef'); if(state.junkHits===0)badges.push('🚫 Junk Dodger'); if(state.bossDefeated)badges.push('👾 Boss Crusher'); if(state.bossCounterCount>=2)badges.push('⚡ Counter Hero'); if(state.bossEnraged&&state.bossDefeated)badges.push('🔥 Enrage Survivor'); if(state.nearMissUsed)badges.push('💙 Near Miss Saver'); if(done>=3)badges.push('🎯 Mission Clear'); if(state.lastSaveSuccess)badges.push('❤️ Plate Saver'); if(!badges.length)badges.push('🍽️ Plate Starter'); const news=updateBadgeCollection(badges); if(els.badgeRow)els.badgeRow.innerHTML=badges.map(b=>`<span class="badge ${news.includes(b)?'new':''}">${esc(b)}${news.includes(b)?' • NEW':''}</span>`).join(''); state.replayGoal=buildReplayChallenge(stars,bal,done); if(els.recommend)els.recommend.innerHTML=`<div class="childSummary"><div class="childLine">🌟 วันนี้เก่ง: <b>${bal>=85?'คุมจานสมดุลได้ยอดเยี่ยม':state.bestCombo>=8?'ทำคอมโบได้ดีมาก':'เลือกอาหารได้ดีขึ้นแล้ว'}</b></div><div class="childLine">🎯 ฝึกต่อ: <b>${state.junkHits>2?'หลบ junk เช่น 🍟 🍰 🧃 ให้มากขึ้น':`เติม ${mostMissingGroup().icon} ${mostMissingGroup().label} ให้เร็วกว่านี้`}</b></div><div class="childLine">❤️ พลังจานสุดท้าย: <b>${Math.round(state.plateHealth)}%</b></div><div class="childLine">🔁 เป้าหมายรอบหน้า: <b>${stars>=2?'รอบหน้าลุ้น 3 ดาว':'รอบหน้าลองทำ 2 ดาว'}</b></div><div class="replayChallenge">${esc(state.replayGoal)}</div></div>`; els.summaryOverlay.classList.remove('hidden'); const summary={timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,summaryPolishHint:'v40.8-fair-score-mobile-summary-polish',sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,scoreFinal:Math.round(state.score),balancePct:bal,comboMax:state.bestCombo,hits:state.hits,misses:state.misses,junkHits:state.junkHits,overloads:state.overloads,missionsDone:done,stars,bossDefeated:state.bossDefeated,bossEnraged:state.bossEnraged,bossCounterCount:state.bossCounterCount,bossAttackCount:state.bossAttackCount,nearMissUsed:state.nearMissUsed,nearMissCount:state.nearMissCount,replayGoal:state.replayGoal,plateHealthFinal:Math.round(state.plateHealth),lastSaveUsed:state.lastSaveUsed,lastSaveSuccess:state.lastSaveSuccess,durationPlayedSec:Math.round(elapsedSec())}; SAFE_STORE.set('HHA_LAST_SUMMARY',safeJsonStringify(summary)); SAFE_STORE.set('HHA_LAST_SUMMARY_plate_solo',safeJsonStringify(summary)); SAFE_STORE.set(dailyKey(),safeJsonStringify(summary)); postLog('session_end',summary); flushLogs(true);}
+    const stars=calcStars(bal,done); state.stars=stars; const rank=bal>=90&&done>=3&&state.bossDefeated?{icon:'👑',title:'SS • Plate Master',line:'สุดยอด! จานสมดุล ชนะบอส และทำภารกิจครบ'}:bal>=82&&done>=2?{icon:'🏆',title:'S • Balance Hero',line:'ยอดเยี่ยม! จานสมดุลมาก เล่นอีกรอบลุ้น SS ได้เลย'}:bal>=70||state.score>=600||state.bestCombo>=10?{icon:'⭐',title:'A • Smart Chef',line:'ดีมาก! รอบหน้าเน้นหมู่ที่ยังขาดและอย่าให้ล้น'}:bal>=55?{icon:'🌟',title:'B • Healthy Builder',line:'เริ่มดีแล้ว! ลองดูแถบสมดุลก่อนเลือกอาหาร'}:{icon:'🍽️',title:'C • Plate Starter',line:'ไม่เป็นไร! รอบหน้าลองเติมหมู่ที่ขาดก่อนนะ'}; if(els.rankIcon)els.rankIcon.textContent=rank.icon; if(els.summaryTitle)els.summaryTitle.textContent=rank.title; if(els.summaryLine)els.summaryLine.textContent=rank.line; if(els.starRow)els.starRow.innerHTML=`<span class="star ${stars>=1?'on':''}">⭐</span><span class="star ${stars>=2?'on':''}">⭐</span><span class="star ${stars>=3?'on':''}">⭐</span><div class="starLabel">${stars>=3?'สุดยอด! 3 ดาวแบบ Plate Hero':stars===2?'ดีมาก! อีกนิดเดียวถึง 3 ดาว':stars===1?'ผ่านแล้ว! รอบหน้าลุ้น 2 ดาว':'ลองใหม่ได้! เริ่มจากเติมหมู่ที่ขาดก่อน'}</div>`; if(els.sumScore)els.sumScore.textContent=Math.round(state.score); if(els.sumBalance)els.sumBalance.textContent=bal+'%'; if(els.sumCombo)els.sumCombo.textContent=state.bestCombo; if(els.sumMission)els.sumMission.textContent=`${done}/${state.missions.length}`; const badges=[]; if(bal>=85)badges.push('⚖️ Balance Master'); if(state.bestCombo>=10)badges.push('🔥 Combo Chef'); if(state.junkHits===0)badges.push('🚫 Junk Dodger'); if(state.bossDefeated)badges.push('👾 Boss Crusher'); if(state.bossCounterCount>=2)badges.push('⚡ Counter Hero'); if(state.bossEnraged&&state.bossDefeated)badges.push('🔥 Enrage Survivor'); if(state.nearMissUsed)badges.push('💙 Near Miss Saver'); if(done>=3)badges.push('🎯 Mission Clear'); if(state.lastSaveSuccess)badges.push('❤️ Plate Saver'); if(!badges.length)badges.push('🍽️ Plate Starter'); const news=updateBadgeCollection(badges); if(els.badgeRow)els.badgeRow.innerHTML=badges.map(b=>`<span class="badge ${news.includes(b)?'new':''}">${esc(b)}${news.includes(b)?' • NEW':''}</span>`).join(''); state.replayGoal=buildReplayChallenge(stars,bal,done); if(els.recommend)els.recommend.innerHTML=`<div class="childSummary"><div class="childLine">🌟 วันนี้เก่ง: <b>${bal>=85?'คุมจานสมดุลได้ยอดเยี่ยม':state.bestCombo>=8?'ทำคอมโบได้ดีมาก':'เลือกอาหารได้ดีขึ้นแล้ว'}</b></div><div class="childLine">🎯 ฝึกต่อ: <b>${state.junkHits>2?'หลบ junk เช่น 🍟 🍰 🧃 ให้มากขึ้น':`เติม ${mostMissingGroup().icon} ${mostMissingGroup().label} ให้เร็วกว่านี้`}</b></div><div class="childLine">❤️ พลังจานสุดท้าย: <b>${Math.round(state.plateHealth)}%</b></div><div class="childLine">🔁 เป้าหมายรอบหน้า: <b>${stars>=2?'รอบหน้าลุ้น 3 ดาว':'รอบหน้าลองทำ 2 ดาว'}</b></div><div class="replayChallenge">${esc(state.replayGoal)}</div></div>`; els.summaryOverlay.classList.remove('hidden'); const summary={timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,summaryPolishHint:'v40.9-return-nutrition-zone-fix',sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,scoreFinal:Math.round(state.score),balancePct:bal,comboMax:state.bestCombo,hits:state.hits,misses:state.misses,junkHits:state.junkHits,overloads:state.overloads,missionsDone:done,stars,bossDefeated:state.bossDefeated,bossEnraged:state.bossEnraged,bossCounterCount:state.bossCounterCount,bossAttackCount:state.bossAttackCount,nearMissUsed:state.nearMissUsed,nearMissCount:state.nearMissCount,replayGoal:state.replayGoal,plateHealthFinal:Math.round(state.plateHealth),lastSaveUsed:state.lastSaveUsed,lastSaveSuccess:state.lastSaveSuccess,durationPlayedSec:Math.round(elapsedSec())}; SAFE_STORE.set('HHA_LAST_SUMMARY',safeJsonStringify(summary)); SAFE_STORE.set('HHA_LAST_SUMMARY_plate_solo',safeJsonStringify(summary)); SAFE_STORE.set(dailyKey(),safeJsonStringify(summary)); postLog('session_end',summary); flushLogs(true);}
 
   function preserveParams(url,keys){keys.forEach(k=>{const v=qs(k,''); if(v!==null&&v!==undefined&&String(v)!=='')url.searchParams.set(k,v);});}
-  function goBack(){flushLogs(true); const hub=qs('hub','')||qs('back',''); if(hub){location.href=hub; return;} const u=new URL(location.pathname.includes('/plate/')?'../nutrition-zone.html':'./nutrition-zone.html',location.href); preserveParams(u,['pid','name','nick','diff','time','view','run','seed','studyId','phase','conditionGroup','section','session_code','log','api']); u.searchParams.set('zone','nutrition'); u.searchParams.set('from','plate-solo'); location.href=u.toString();}
-  function goCooldown(){flushLogs(true); const gate=new URL(location.pathname.includes('/plate/')?'../warmup-gate.html':'./warmup-gate.html',location.href), zoneUrl=new URL(location.pathname.includes('/plate/')?'../nutrition-zone.html':'./nutrition-zone.html',location.href); preserveParams(gate,['pid','name','nick','diff','time','view','run','seed','studyId','phase','conditionGroup','section','session_code','log','api']); preserveParams(zoneUrl,['pid','name','nick','diff','time','view','run','seed','studyId','phase','conditionGroup','section','session_code','log','api']); zoneUrl.searchParams.set('zone','nutrition'); zoneUrl.searchParams.set('from','plate-solo-cooldown'); const hub=qs('hub','')||zoneUrl.toString(); gate.searchParams.set('phase','cooldown'); gate.searchParams.set('zone','nutrition'); gate.searchParams.set('game','plate'); gate.searchParams.set('mode','solo'); gate.searchParams.set('entry','plate-solo'); gate.searchParams.set('hub',hub); gate.searchParams.set('next',hub); location.href=gate.toString();}
-  function postLog(eventType,extra={}){const endpoint=HHA.logEndpoint; if(!endpoint||state.apiDisabled)return; state.eventQueue.push({table:eventType==='session_end'?'sessions':'events',eventType,projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,summaryPolishHint:'v40.8-fair-score-mobile-summary-polish',sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,runMode:HHA.runMode,timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),pageUrl:location.href,userAgent:navigator.userAgent,extra}); state.eventQueue=state.eventQueue.slice(-50); if(eventType==='session_end'||eventType==='session_start'||now()-state.lastFlushAt>5000)flushLogs(eventType==='session_end');}
+  function canonicalHubUrl(){
+    return qs('hub','') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+  }
+  function buildNutritionZoneUrl(fromTag){
+    /* v40.9: ปุ่มกลับ / cooldown ต้องกลับ Nutrition Zone เสมอ ไม่เด้งไป Hub โดยตรง */
+    const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html', location.href);
+    preserveParams(u,['pid','name','nick','diff','time','view','run','seed','studyId','conditionGroup','section','session_code','log','api']);
+
+    u.searchParams.set('pid', qs('pid','anon'));
+    const nm = qs('name', qs('nick',''));
+    if(nm) u.searchParams.set('name', nm);
+
+    u.searchParams.set('diff', qs('diff','normal'));
+    u.searchParams.set('time', qs('time','120'));
+    u.searchParams.set('view', qs('view','mobile'));
+    u.searchParams.set('run', qs('run','play'));
+
+    u.searchParams.set('zone','nutrition');
+    u.searchParams.set('from', fromTag || 'plate-solo');
+    u.searchParams.set('hub', canonicalHubUrl());
+
+    return u;
+  }
+  function goBack(){
+    flushLogs(true);
+    location.href = buildNutritionZoneUrl('plate-solo').toString();
+  }
+  function goCooldown(){
+    flushLogs(true);
+
+    const gate = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html', location.href);
+    const zoneUrl = buildNutritionZoneUrl('plate-solo-cooldown');
+
+    preserveParams(gate,['pid','name','nick','diff','time','view','run','seed','studyId','conditionGroup','section','session_code','log','api']);
+    gate.searchParams.set('pid', qs('pid','anon'));
+    const nm = qs('name', qs('nick',''));
+    if(nm) gate.searchParams.set('name', nm);
+
+    gate.searchParams.set('diff', qs('diff','normal'));
+    gate.searchParams.set('time', qs('time','120'));
+    gate.searchParams.set('view', qs('view','mobile'));
+    gate.searchParams.set('run', qs('run','play'));
+
+    gate.searchParams.set('phase','cooldown');
+    gate.searchParams.set('zone','nutrition');
+    gate.searchParams.set('game','plate');
+    gate.searchParams.set('gameId','plate');
+    gate.searchParams.set('mode','solo');
+    gate.searchParams.set('entry','plate-solo');
+    gate.searchParams.set('from','plate-solo-summary');
+
+    /* สำคัญ: หลัง cooldown ให้กลับ Nutrition Zone URL ไม่ใช่ hub.html */
+    gate.searchParams.set('hub', zoneUrl.toString());
+    gate.searchParams.set('next', zoneUrl.toString());
+
+    location.href = gate.toString();
+  }
+  function postLog(eventType,extra={}){const endpoint=HHA.logEndpoint; if(!endpoint||state.apiDisabled)return; state.eventQueue.push({table:eventType==='session_end'?'sessions':'events',eventType,projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,summaryPolishHint:'v40.9-return-nutrition-zone-fix',sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,runMode:HHA.runMode,timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),pageUrl:location.href,userAgent:navigator.userAgent,extra}); state.eventQueue=state.eventQueue.slice(-50); if(eventType==='session_end'||eventType==='session_start'||now()-state.lastFlushAt>5000)flushLogs(eventType==='session_end');}
   function flushLogs(force=false){const endpoint=HHA.logEndpoint; if(!endpoint||state.apiDisabled||!state.eventQueue.length)return; state.lastFlushAt=now(); const batch=state.eventQueue.splice(0,force?state.eventQueue.length:Math.min(8,state.eventQueue.length)),body=safeJsonStringify({table:'events',source:'plate-solo',batch:true,count:batch.length,events:batch}); try{if(navigator.sendBeacon&&force){const ok=navigator.sendBeacon(endpoint,new Blob([body],{type:'application/json'})); if(!ok)state.eventQueue.unshift(...batch); return;} fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:!!force}).then(res=>{if(res.status===401||res.status===403){state.apiDisabled=true; try{sessionStorage.setItem('HHA_API_DISABLED',String(Date.now()));}catch(e){}} if(!res.ok&&!force)state.eventQueue.unshift(...batch);}).catch(()=>{if(!force)state.eventQueue.unshift(...batch);});}catch(e){if(!force)state.eventQueue.unshift(...batch);}}
 
   function setupAimMode(){const on=isAimMode(); if(els.aimReticle)els.aimReticle.classList.toggle('hidden',!on); if(els.btnAim)els.btnAim.classList.toggle('hidden',!on); if(on)logLine('โหมด Cardboard/cVR: เล็งกลางจอแล้วกดเลือกเป้า');}
