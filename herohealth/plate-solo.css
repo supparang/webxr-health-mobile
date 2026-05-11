@@ -1,588 +1,421 @@
-/* === Plate Solo v41.1 IMMERSIVE GAMEPLAY MODE ===
-   Append to /herohealth/plate-solo.css AFTER v41.0.
-   Goal: when game starts, show full gameplay screen with only arena + HUD + core buttons.
+/* === Plate Solo v41.2 HUD + TARGET SAFE MODE ===
+   Append to /herohealth/plate-solo.css AFTER v41.1.
+   Goal:
+   - HUD stays readable but uses less vertical space.
+   - Food targets have a protected playable zone.
+   - Event/mission boxes become compact chips and do not steal gameplay.
+   - Info drawer opens as a bottom sheet only when requested.
 */
 
-:root{
-  --plate-controls-h:64px;
-  --plate-game-pad:6px;
+/* ===== Full gameplay viewport safety ===== */
+body.plate-playing{
+  overscroll-behavior:none !important;
 }
 
-/* Runtime vh fallback set by JS v41.1 */
-@supports (height: 100dvh){
-  :root{ --hha-vh:100dvh; }
+#app.playing.hud-target-safe,
+.app.playing.hud-target-safe{
+  background:
+    radial-gradient(circle at 50% 44%, rgba(255,255,255,.72), transparent 22%),
+    radial-gradient(circle at 50% 88%, rgba(109,220,255,.26), transparent 34%),
+    linear-gradient(135deg,#f4fff4,#e7fbff 58%,#eef1ff) !important;
 }
 
-/* ===== Gameplay mode: lock page and make arena dominant ===== */
-
-body.plate-playing,
-body.plate-immersive{
-  overflow:hidden !important;
-  height:var(--hha-vh, 100dvh) !important;
-}
-
-#app.playing.immersive-gameplay,
-.app.playing.immersive-gameplay,
-#app.playing,
-.app.playing{
-  height:var(--hha-vh, 100dvh) !important;
-  min-height:var(--hha-vh, 100dvh) !important;
-  max-height:var(--hha-vh, 100dvh) !important;
-  overflow:hidden !important;
-  padding:
-    calc(var(--plate-game-pad) + var(--safeTop,0px))
-    var(--plate-game-pad)
-    calc(var(--plate-controls-h) + var(--safeBottom,0px) + 4px) !important;
-}
-
-/* ===== Wide screen: keep 3 columns but make side panels compact ===== */
-
-@media (min-width: 1181px){
-  #app.playing #gameShell,
-  .app.playing .gameShell{
-    height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 14px) !important;
-    max-height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 14px) !important;
-    display:grid !important;
-    grid-template-columns:clamp(210px,16vw,280px) minmax(0,1fr) clamp(210px,16vw,280px) !important;
-    grid-template-rows:64px minmax(0,1fr) !important;
-    gap:8px !important;
-    overflow:hidden !important;
-  }
-
-  #app.playing #arena,
-  .app.playing #arena,
-  #app.playing .arena,
-  .app.playing .arena{
-    height:100% !important;
-    min-height:0 !important;
-    max-height:none !important;
-  }
-
-  #app.playing #leftPanel,
-  #app.playing .leftPanel,
-  #app.playing #rightPanel,
-  #app.playing .rightPanel,
-  .app.playing #leftPanel,
-  .app.playing .leftPanel,
-  .app.playing #rightPanel,
-  .app.playing .rightPanel{
-    min-height:0 !important;
-    max-height:100% !important;
-    overflow:auto !important;
-    padding:8px !important;
-    border-radius:22px !important;
-  }
-
-  #app.playing #topStats,
-  #app.playing .topStats,
-  #app.playing #topCenter,
-  #app.playing .topCenter,
-  #app.playing #headerCard,
-  #app.playing .headerCard,
-  #app.playing #topRight,
-  #app.playing .topRight,
-  .app.playing #topStats,
-  .app.playing .topStats,
-  .app.playing #topCenter,
-  .app.playing .topCenter,
-  .app.playing #headerCard,
-  .app.playing .headerCard,
-  .app.playing #topRight,
-  .app.playing .topRight{
-    min-height:0 !important;
-    height:64px !important;
-    overflow:hidden !important;
-    padding:6px 8px !important;
-    border-radius:18px !important;
-  }
-
-  #app.playing .statCard,
-  #app.playing .stat,
-  #app.playing .scoreCard,
-  .app.playing .statCard,
-  .app.playing .stat,
-  .app.playing .scoreCard{
-    min-height:48px !important;
-    padding:5px !important;
-    border-radius:14px !important;
-  }
-
-  #app.playing #score,
-  #app.playing #combo,
-  #app.playing #balance,
-  .app.playing #score,
-  .app.playing #combo,
-  .app.playing #balance{
-    font-size:18px !important;
-  }
-
-  #app.playing .groupMeter,
-  .app.playing .groupMeter{
-    padding:7px 8px !important;
-    border-radius:14px !important;
-  }
-
-  #app.playing .bar,
-  .app.playing .bar{
-    height:10px !important;
-    margin-top:5px !important;
-  }
-
-  #app.playing .need,
-  .app.playing .need{
-    margin-top:4px !important;
-    font-size:10px !important;
-  }
-
-  #app.playing #log,
-  .app.playing #log,
-  #app.playing .log,
-  .app.playing .log{
-    height:auto !important;
-    max-height:18vh !important;
-  }
-
-  #app.playing .logLine,
-  .app.playing .logLine{
-    padding:6px 8px !important;
-    margin-bottom:5px !important;
-    font-size:10px !important;
-  }
-}
-
-/* ===== Tablet/mobile/landscape: immersive arena only ===== */
-
-@media (max-width: 1180px){
-  #app.playing #gameShell,
-  .app.playing .gameShell{
-    width:100% !important;
-    height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 10px) !important;
-    max-height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 10px) !important;
-    display:grid !important;
-    grid-template-columns:1fr !important;
-    grid-template-rows:minmax(0,1fr) !important;
-    overflow:hidden !important;
-    gap:0 !important;
-  }
-
-  #app.playing #topStats,
-  #app.playing .topStats,
-  #app.playing #topCenter,
-  #app.playing .topCenter,
-  #app.playing #headerCard,
-  #app.playing .headerCard,
-  #app.playing #topRight,
-  #app.playing .topRight,
-  #app.playing #missionPanelTop,
-  #app.playing .missionPanelTop,
-  #app.playing #leftPanel,
-  #app.playing .leftPanel,
-  #app.playing #rightPanel,
-  #app.playing .rightPanel,
-  .app.playing #topStats,
-  .app.playing .topStats,
-  .app.playing #topCenter,
-  .app.playing .topCenter,
-  .app.playing #headerCard,
-  .app.playing .headerCard,
-  .app.playing #topRight,
-  .app.playing .topRight,
-  .app.playing #missionPanelTop,
-  .app.playing .missionPanelTop,
-  .app.playing #leftPanel,
-  .app.playing .leftPanel,
-  .app.playing #rightPanel,
-  .app.playing .rightPanel{
-    display:none !important;
-  }
-
-  #app.playing #centerPanel,
-  #app.playing .centerPanel,
-  .app.playing #centerPanel,
-  .app.playing .centerPanel{
-    grid-column:1 / 2 !important;
-    grid-row:1 / 2 !important;
-    width:100% !important;
-    height:100% !important;
-    min-height:0 !important;
-    overflow:hidden !important;
-    border-radius:22px !important;
-  }
-
-  #app.playing #arena,
-  #app.playing .arena,
-  .app.playing #arena,
-  .app.playing .arena{
-    width:100% !important;
-    height:100% !important;
-    min-height:0 !important;
-    max-height:none !important;
-    border-radius:22px !important;
-  }
-}
-
-/* ===== HUD: compact, non-blocking ===== */
-
-#app.playing #arcadeHud,
-.app.playing #arcadeHud,
-#app.playing .arcadeHud,
-.app.playing .arcadeHud{
-  left:6px !important;
-  right:6px !important;
+/* ===== HUD becomes compact glass chips ===== */
+#app.playing.hud-target-safe #arcadeHud,
+.app.playing.hud-target-safe #arcadeHud,
+#app.playing.hud-target-safe .arcadeHud,
+.app.playing.hud-target-safe .arcadeHud{
+  left:8px !important;
+  right:8px !important;
   top:6px !important;
-  gap:5px !important;
-  z-index:180 !important;
+  gap:6px !important;
+  pointer-events:none !important;
 }
 
-#app.playing .arcadeBox,
-#app.playing .miniStat,
-.app.playing .arcadeBox,
-.app.playing .miniStat{
-  min-height:38px !important;
-  border-radius:13px !important;
-  padding:4px !important;
+#app.playing.hud-target-safe .arcadeBox,
+#app.playing.hud-target-safe .miniStat,
+.app.playing.hud-target-safe .arcadeBox,
+.app.playing.hud-target-safe .miniStat{
+  min-height:36px !important;
+  border-radius:14px !important;
+  padding:4px 6px !important;
+  background:rgba(255,255,255,.66) !important;
+  border:1px solid rgba(216,237,246,.78) !important;
+  box-shadow:0 8px 20px rgba(42,78,102,.08) !important;
+  backdrop-filter:blur(12px) !important;
 }
 
-#app.playing .arcadeBox b,
-#app.playing .miniStat b,
-#app.playing #miniScore,
-#app.playing #miniCombo,
-#app.playing #miniBalance,
-#app.playing #miniTime,
-.app.playing .arcadeBox b,
-.app.playing .miniStat b,
-.app.playing #miniScore,
-.app.playing #miniCombo,
-.app.playing #miniBalance,
-.app.playing #miniTime{
-  font-size:15px !important;
+#app.playing.hud-target-safe .arcadeBox b,
+#app.playing.hud-target-safe .miniStat b,
+#app.playing.hud-target-safe #miniScore,
+#app.playing.hud-target-safe #miniCombo,
+#app.playing.hud-target-safe #miniBalance,
+#app.playing.hud-target-safe #miniTime,
+.app.playing.hud-target-safe .arcadeBox b,
+.app.playing.hud-target-safe .miniStat b,
+.app.playing.hud-target-safe #miniScore,
+.app.playing.hud-target-safe #miniCombo,
+.app.playing.hud-target-safe #miniBalance,
+.app.playing.hud-target-safe #miniTime{
+  font-size:14px !important;
 }
 
-#app.playing .arcadeBox small,
-#app.playing .miniStat small,
-.app.playing .arcadeBox small,
-.app.playing .miniStat small{
+#app.playing.hud-target-safe .arcadeBox small,
+#app.playing.hud-target-safe .miniStat small,
+.app.playing.hud-target-safe .arcadeBox small,
+.app.playing.hud-target-safe .miniStat small{
   font-size:8px !important;
+  margin-top:1px !important;
 }
 
-#app.playing #plateHealthHud,
-#app.playing .plateHealthHud,
-.app.playing #plateHealthHud,
-.app.playing .plateHealthHud{
-  left:6px !important;
-  right:6px !important;
-  top:50px !important;
+/* Plate Health becomes thin and tucked under HUD */
+#app.playing.hud-target-safe #plateHealthHud,
+#app.playing.hud-target-safe .plateHealthHud,
+.app.playing.hud-target-safe #plateHealthHud,
+.app.playing.hud-target-safe .plateHealthHud{
+  top:48px !important;
+  min-height:24px !important;
+  padding:4px 8px !important;
+  background:rgba(255,255,255,.62) !important;
+  backdrop-filter:blur(12px) !important;
+}
+
+#app.playing.hud-target-safe .plateHealthBar,
+.app.playing.hud-target-safe .plateHealthBar{
+  height:8px !important;
+}
+
+#app.playing.hud-target-safe #plateHealthText,
+.app.playing.hud-target-safe #plateHealthText{
+  font-size:10px !important;
+  min-width:58px !important;
+}
+
+/* Compact meters are useful on portrait, but should be tiny */
+#app.playing.hud-target-safe #compactMeters,
+#app.playing.hud-target-safe .compactMeters,
+.app.playing.hud-target-safe #compactMeters,
+.app.playing.hud-target-safe .compactMeters{
+  top:78px !important;
+  gap:3px !important;
+}
+
+#app.playing.hud-target-safe .compactMeter,
+.app.playing.hud-target-safe .compactMeter{
+  padding:2px 4px !important;
+}
+
+#app.playing.hud-target-safe .compactMeterIcon,
+.app.playing.hud-target-safe .compactMeterIcon{
+  font-size:10px !important;
+}
+
+#app.playing.hud-target-safe .compactMeterBar,
+.app.playing.hud-target-safe .compactMeterBar{
+  height:6px !important;
+}
+
+/* ===== Event chips must not block target lane ===== */
+#app.playing.hud-target-safe #phaseBanner,
+#app.playing.hud-target-safe .phaseBanner,
+.app.playing.hud-target-safe #phaseBanner,
+.app.playing.hud-target-safe .phaseBanner{
+  top:104px !important;
+  left:8px !important;
+  right:auto !important;
+  transform:none !important;
+  max-width:calc(100% - 84px) !important;
   min-height:28px !important;
-  padding:5px 8px !important;
-  z-index:182 !important;
-}
-
-#app.playing #compactMeters,
-#app.playing .compactMeters,
-.app.playing #compactMeters,
-.app.playing .compactMeters{
-  left:6px !important;
-  right:6px !important;
-  top:84px !important;
-  gap:4px !important;
-  z-index:181 !important;
-}
-
-/* Hide compact meters in short landscape to save gameplay */
-@media (orientation: landscape) and (max-height: 620px){
-  #app.playing #compactMeters,
-  #app.playing .compactMeters,
-  .app.playing #compactMeters,
-  .app.playing .compactMeters{
-    display:none !important;
-  }
-
-  #app.playing #plateHealthHud,
-  .app.playing #plateHealthHud,
-  #app.playing .plateHealthHud,
-  .app.playing .plateHealthHud{
-    top:44px !important;
-  }
-}
-
-/* ===== Practice coach: no more giant center card ===== */
-
-#app.playing.practice-mode #practiceCoach,
-#app.playing.practice-mode .practiceCoach,
-.app.playing.practice-mode #practiceCoach,
-.app.playing.practice-mode .practiceCoach{
-  left:50% !important;
-  top:118px !important;
-  width:min(520px, calc(100% - 18px)) !important;
-  max-width:calc(100% - 18px) !important;
-  min-height:0 !important;
-  max-height:76px !important;
-  overflow:hidden !important;
-  padding:8px 10px !important;
-  border-radius:18px !important;
-  transform:translateX(-50%) scale(1) !important;
-  z-index:190 !important;
-}
-
-#app.playing.practice-mode #practiceCoach .practiceHead,
-#app.playing.practice-mode .practiceCoach .practiceHead,
-.app.playing.practice-mode #practiceCoach .practiceHead,
-.app.playing.practice-mode .practiceCoach .practiceHead{
-  margin-bottom:3px !important;
-  font-size:12px !important;
-}
-
-#app.playing.practice-mode #practiceText,
-#app.playing.practice-mode .practiceText,
-.app.playing.practice-mode #practiceText,
-.app.playing.practice-mode .practiceText{
-  font-size:12px !important;
-  line-height:1.18 !important;
-  white-space:nowrap !important;
-  overflow:hidden !important;
-  text-overflow:ellipsis !important;
-}
-
-#app.playing.practice-mode .practiceBar,
-.app.playing.practice-mode .practiceBar{
-  height:7px !important;
-  margin:5px 0 0 !important;
-}
-
-#app.playing.practice-mode #btnSkipPractice,
-#app.playing.practice-mode .btnSkipPractice,
-.app.playing.practice-mode #btnSkipPractice,
-.app.playing.practice-mode .btnSkipPractice{
-  min-height:0 !important;
-  padding:4px 10px !important;
+  padding:6px 10px !important;
   font-size:11px !important;
-  position:absolute !important;
-  right:8px !important;
-  bottom:7px !important;
+  text-align:left !important;
+  border-radius:999px !important;
+  background:rgba(255,255,255,.7) !important;
+  backdrop-filter:blur(12px) !important;
 }
 
-/* ===== Alerts: upper overlay, compact ===== */
-
-#app.playing #btnInfoToggle,
-.app.playing #btnInfoToggle,
-#app.playing .btnInfoToggle,
-.app.playing .btnInfoToggle{
-  top:116px !important;
+#app.playing.hud-target-safe #btnInfoToggle,
+#app.playing.hud-target-safe .btnInfoToggle,
+.app.playing.hud-target-safe #btnInfoToggle,
+.app.playing.hud-target-safe .btnInfoToggle{
+  top:102px !important;
   right:8px !important;
-  min-height:32px !important;
+  min-height:30px !important;
+  padding:0 10px !important;
+  font-size:11px !important;
+  background:rgba(49,83,106,.82) !important;
+}
+
+/* Mission/event panels as compact strips */
+#app.playing.hud-target-safe #orderBox,
+#app.playing.hud-target-safe #bossMechanicBox,
+.app.playing.hud-target-safe #orderBox,
+.app.playing.hud-target-safe #bossMechanicBox{
+  top:138px !important;
+  left:8px !important;
+  width:calc(100% - 16px) !important;
+  max-height:44px !important;
+  overflow:hidden !important;
+  padding:6px 9px !important;
+  border-radius:999px !important;
+  font-size:11px !important;
+  background:rgba(255,255,255,.72) !important;
+  backdrop-filter:blur(12px) !important;
+}
+
+#app.playing.hud-target-safe #miniEventBox,
+#app.playing.hud-target-safe #lastSaveBox,
+.app.playing.hud-target-safe #miniEventBox,
+.app.playing.hud-target-safe #lastSaveBox{
+  top:186px !important;
+  left:8px !important;
+  width:calc(100% - 16px) !important;
+  max-height:44px !important;
+  overflow:hidden !important;
+  padding:6px 9px !important;
+  border-radius:999px !important;
+  font-size:11px !important;
+  background:rgba(255,255,255,.72) !important;
+  backdrop-filter:blur(12px) !important;
+}
+
+#app.playing.hud-target-safe .eventBar,
+#app.playing.hud-target-safe .orderBar,
+#app.playing.hud-target-safe .miniEventBar,
+#app.playing.hud-target-safe .bossMechanicBar,
+#app.playing.hud-target-safe .lastSaveBar,
+.app.playing.hud-target-safe .eventBar,
+.app.playing.hud-target-safe .orderBar,
+.app.playing.hud-target-safe .miniEventBar,
+.app.playing.hud-target-safe .bossMechanicBar,
+.app.playing.hud-target-safe .lastSaveBar{
+  height:5px !important;
+  margin-top:3px !important;
+}
+
+/* ===== Practice coach becomes a true top strip ===== */
+#app.playing.practice-mode.hud-target-safe #practiceCoach,
+#app.playing.practice-mode.hud-target-safe .practiceCoach,
+.app.playing.practice-mode.hud-target-safe #practiceCoach,
+.app.playing.practice-mode.hud-target-safe .practiceCoach{
+  top:116px !important;
+  width:calc(100% - 16px) !important;
+  max-width:calc(100% - 16px) !important;
+  max-height:54px !important;
+  padding:6px 8px !important;
+  border-radius:16px !important;
+  background:rgba(255,255,255,.72) !important;
+  backdrop-filter:blur(12px) !important;
+}
+
+#app.playing.practice-mode.hud-target-safe #practiceText,
+#app.playing.practice-mode.hud-target-safe .practiceText,
+.app.playing.practice-mode.hud-target-safe #practiceText,
+.app.playing.practice-mode.hud-target-safe .practiceText{
+  font-size:11px !important;
+}
+
+/* ===== Food target safe zone ===== */
+#app.playing.hud-target-safe #spawnLayer,
+#app.playing.hud-target-safe .spawnLayer,
+.app.playing.hud-target-safe #spawnLayer,
+.app.playing.hud-target-safe .spawnLayer{
+  inset:0 0 0 0 !important;
+  overflow:hidden !important;
+}
+
+#app.playing.hud-target-safe .foodCard,
+.app.playing.hud-target-safe .foodCard{
+  width:clamp(82px, 12vw, 104px) !important;
+  min-height:clamp(100px, 15vw, 124px) !important;
+  border-radius:19px !important;
+  padding:6px 6px 24px !important;
+  z-index:92 !important;
+  box-shadow:0 12px 28px rgba(42,78,102,.16) !important;
+}
+
+#app.playing.hud-target-safe .foodVisual,
+.app.playing.hud-target-safe .foodVisual{
+  width:clamp(48px, 7vw, 60px) !important;
+  height:clamp(48px, 7vw, 60px) !important;
+}
+
+#app.playing.hud-target-safe .foodVisual .foodEmojiFallback,
+.app.playing.hud-target-safe .foodVisual .foodEmojiFallback{
+  font-size:clamp(34px, 6.2vw, 46px) !important;
+}
+
+#app.playing.hud-target-safe .foodCard .name,
+.app.playing.hud-target-safe .foodCard .name{
+  font-size:10.5px !important;
+  margin-top:2px !important;
+}
+
+#app.playing.hud-target-safe .foodTag,
+.app.playing.hud-target-safe .foodTag{
+  bottom:-6px !important;
+  font-size:9.5px !important;
+  padding:3px 7px !important;
+}
+
+/* Give falling objects slightly more visible runway below the HUD */
+#app.playing.hud-target-safe .foodCard{
+  animation-timing-function:linear !important;
+}
+
+/* ===== Info drawer as bottom sheet ===== */
+#app.playing.hud-target-safe #infoDrawer,
+#app.playing.hud-target-safe .infoDrawer,
+.app.playing.hud-target-safe #infoDrawer,
+.app.playing.hud-target-safe .infoDrawer{
+  position:absolute !important;
+  left:8px !important;
+  right:8px !important;
+  top:auto !important;
+  bottom:8px !important;
+  width:auto !important;
+  max-height:min(45%, 340px) !important;
+  z-index:245 !important;
+  border-radius:22px !important;
+  padding:12px !important;
+  background:rgba(255,255,255,.92) !important;
+  backdrop-filter:blur(16px) !important;
+}
+
+/* ===== Plate background even softer ===== */
+#app.playing.hud-target-safe #plate,
+#app.playing.hud-target-safe .plate,
+.app.playing.hud-target-safe #plate,
+.app.playing.hud-target-safe .plate{
+  scale:.52 !important;
+  opacity:.24 !important;
+}
+
+/* ===== Controls take less space ===== */
+#app.playing.hud-target-safe #controlBar,
+#app.playing.hud-target-safe .controlBar,
+.app.playing.hud-target-safe #controlBar,
+.app.playing.hud-target-safe .controlBar{
+  min-height:50px !important;
+  padding:4px !important;
+  gap:5px !important;
+  background:rgba(255,255,255,.72) !important;
+  backdrop-filter:blur(14px) !important;
+}
+
+#app.playing.hud-target-safe #btnPause,
+#app.playing.hud-target-safe #btnHint,
+#app.playing.hud-target-safe #btnSkill,
+#app.playing.hud-target-safe #btnBack,
+#app.playing.hud-target-safe #btnAim,
+.app.playing.hud-target-safe #btnPause,
+.app.playing.hud-target-safe #btnHint,
+.app.playing.hud-target-safe #btnSkill,
+.app.playing.hud-target-safe #btnBack,
+.app.playing.hud-target-safe #btnAim{
+  min-height:40px !important;
   padding:0 10px !important;
   font-size:12px !important;
-  z-index:195 !important;
 }
 
-#app.playing #phaseBanner,
-.app.playing #phaseBanner,
-#app.playing .phaseBanner,
-.app.playing .phaseBanner{
-  top:116px !important;
-  max-width:calc(100% - 86px) !important;
-  min-height:32px !important;
-  padding:7px 10px !important;
-  font-size:12px !important;
-  z-index:192 !important;
-}
+/* ===== Small portrait ===== */
+@media (max-width:560px){
+  #app.playing.hud-target-safe #arcadeHud,
+  .app.playing.hud-target-safe #arcadeHud{
+    grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  }
 
-#app.playing #orderBox,
-#app.playing #bossMechanicBox,
-.app.playing #orderBox,
-.app.playing #bossMechanicBox{
-  top:154px !important;
-  width:calc(100% - 16px) !important;
-  left:8px !important;
-  transform:none !important;
-  padding:8px 10px !important;
-  border-radius:17px !important;
-  font-size:12px !important;
-}
+  #app.playing.hud-target-safe .foodCard,
+  .app.playing.hud-target-safe .foodCard{
+    width:82px !important;
+    min-height:102px !important;
+  }
 
-#app.playing #miniEventBox,
-#app.playing #lastSaveBox,
-.app.playing #miniEventBox,
-.app.playing #lastSaveBox{
-  top:194px !important;
-  width:calc(100% - 16px) !important;
-  left:8px !important;
-  transform:none !important;
-  padding:8px 10px !important;
-  border-radius:17px !important;
-  font-size:12px !important;
-}
+  #app.playing.hud-target-safe .foodVisual,
+  .app.playing.hud-target-safe .foodVisual{
+    width:48px !important;
+    height:48px !important;
+  }
 
-/* ===== Food cards: prevent edge clipping and keep targets readable ===== */
-
-#app.playing .foodCard,
-.app.playing .foodCard{
-  width:clamp(84px, 13vw, 108px) !important;
-  min-height:clamp(104px, 16vw, 132px) !important;
-  padding:7px 7px 26px !important;
-  z-index:88 !important;
-}
-
-#app.playing .foodVisual,
-.app.playing .foodVisual{
-  width:clamp(50px, 8vw, 64px) !important;
-  height:clamp(50px, 8vw, 64px) !important;
-}
-
-#app.playing .foodVisual .foodEmojiFallback,
-.app.playing .foodVisual .foodEmojiFallback{
-  font-size:clamp(36px, 7vw, 50px) !important;
-}
-
-#app.playing .foodCard .name,
-.app.playing .foodCard .name{
-  font-size:11px !important;
-  line-height:1.05 !important;
-}
-
-#app.playing .foodTag,
-.app.playing .foodTag{
-  font-size:10px !important;
-  padding:3px 8px !important;
-}
-
-/* Edge lanes should not transform farther outward */
-#app.playing .foodCard.lane-edge-left,
-#app.playing .foodCard.lane-edge-right,
-.app.playing .foodCard.lane-edge-left,
-.app.playing .foodCard.lane-edge-right{
-  transform:translateX(-50%) rotate(var(--rot,0deg)) !important;
-}
-
-/* ===== Plate as background only ===== */
-
-#app.playing #plate,
-#app.playing .plate,
-.app.playing #plate,
-.app.playing .plate{
-  opacity:.30 !important;
-  scale:.58 !important;
-  z-index:3 !important;
-}
-
-/* ===== Controls: small and always visible ===== */
-
-#app.playing #controlBar,
-#app.playing .controlBar,
-.app.playing #controlBar,
-.app.playing .controlBar{
-  left:6px !important;
-  right:6px !important;
-  bottom:calc(5px + var(--safeBottom,0px)) !important;
-  transform:none !important;
-  width:auto !important;
-  max-width:none !important;
-  min-height:52px !important;
-  padding:5px !important;
-  gap:6px !important;
-  overflow-x:auto !important;
-  justify-content:center !important;
-  z-index:260 !important;
-}
-
-#app.playing #btnPause,
-#app.playing #btnHint,
-#app.playing #btnSkill,
-#app.playing #btnBack,
-#app.playing #btnAim,
-.app.playing #btnPause,
-.app.playing #btnHint,
-.app.playing #btnSkill,
-.app.playing #btnBack,
-.app.playing #btnAim{
-  min-height:42px !important;
-  padding:0 11px !important;
-  font-size:13px !important;
-  flex:0 0 auto !important;
-}
-
-@media (max-width: 480px){
-  :root{ --plate-controls-h:58px; }
-
-  #app.playing #btnPause,
-  #app.playing #btnHint,
-  #app.playing #btnSkill,
-  #app.playing #btnBack,
-  #app.playing #btnAim,
-  .app.playing #btnPause,
-  .app.playing #btnHint,
-  .app.playing #btnSkill,
-  .app.playing #btnBack,
-  .app.playing #btnAim{
-    min-height:40px !important;
-    padding:0 9px !important;
-    font-size:12px !important;
+  #app.playing.hud-target-safe .foodVisual .foodEmojiFallback,
+  .app.playing.hud-target-safe .foodVisual .foodEmojiFallback{
+    font-size:35px !important;
   }
 }
 
-@media (orientation: landscape) and (max-height: 620px){
-  :root{ --plate-controls-h:50px; }
+/* ===== Short landscape: only essential HUD ===== */
+@media (orientation:landscape) and (max-height:620px){
+  :root{ --plate-controls-h:48px; }
 
-  #app.playing.practice-mode #practiceCoach,
-  .app.playing.practice-mode #practiceCoach,
-  #app.playing.practice-mode .practiceCoach,
-  .app.playing.practice-mode .practiceCoach{
-    top:78px !important;
-    max-height:54px !important;
-    padding:6px 8px !important;
+  #app.playing.hud-target-safe #compactMeters,
+  .app.playing.hud-target-safe #compactMeters,
+  #app.playing.hud-target-safe .compactMeters,
+  .app.playing.hud-target-safe .compactMeters{
+    display:none !important;
   }
 
-  #app.playing #btnInfoToggle,
-  #app.playing .btnInfoToggle,
-  .app.playing #btnInfoToggle,
-  .app.playing .btnInfoToggle{
-    top:78px !important;
+  #app.playing.hud-target-safe #arcadeHud,
+  .app.playing.hud-target-safe #arcadeHud{
+    top:4px !important;
   }
 
-  #app.playing #phaseBanner,
-  #app.playing .phaseBanner,
-  .app.playing #phaseBanner,
-  .app.playing .phaseBanner{
-    top:78px !important;
+  #app.playing.hud-target-safe .arcadeBox,
+  #app.playing.hud-target-safe .miniStat,
+  .app.playing.hud-target-safe .arcadeBox,
+  .app.playing.hud-target-safe .miniStat{
+    min-height:30px !important;
   }
 
-  #app.playing #orderBox,
-  #app.playing #bossMechanicBox,
-  .app.playing #orderBox,
-  .app.playing #bossMechanicBox{
-    top:112px !important;
+  #app.playing.hud-target-safe #plateHealthHud,
+  .app.playing.hud-target-safe #plateHealthHud{
+    top:38px !important;
+    min-height:22px !important;
   }
 
-  #app.playing #miniEventBox,
-  #app.playing #lastSaveBox,
-  .app.playing #miniEventBox,
-  .app.playing #lastSaveBox{
-    top:148px !important;
+  #app.playing.hud-target-safe #btnInfoToggle,
+  .app.playing.hud-target-safe #btnInfoToggle,
+  #app.playing.hud-target-safe #phaseBanner,
+  .app.playing.hud-target-safe #phaseBanner{
+    top:66px !important;
   }
 
-  #app.playing #controlBar,
-  #app.playing .controlBar,
-  .app.playing #controlBar,
-  .app.playing .controlBar{
-    min-height:46px !important;
+  #app.playing.practice-mode.hud-target-safe #practiceCoach,
+  .app.playing.practice-mode.hud-target-safe #practiceCoach{
+    top:66px !important;
+    max-height:42px !important;
   }
 
-  #app.playing #btnPause,
-  #app.playing #btnHint,
-  #app.playing #btnSkill,
-  #app.playing #btnBack,
-  #app.playing #btnAim,
-  .app.playing #btnPause,
-  .app.playing #btnHint,
-  .app.playing #btnSkill,
-  .app.playing #btnBack,
-  .app.playing #btnAim{
-    min-height:38px !important;
+  #app.playing.hud-target-safe #orderBox,
+  #app.playing.hud-target-safe #bossMechanicBox,
+  .app.playing.hud-target-safe #orderBox,
+  .app.playing.hud-target-safe #bossMechanicBox{
+    top:100px !important;
   }
-}
 
-/* Start and summary screens must remain scrollable */
-#startOverlay,
-#summaryOverlay{
-  overflow:auto !important;
+  #app.playing.hud-target-safe #miniEventBox,
+  #app.playing.hud-target-safe #lastSaveBox,
+  .app.playing.hud-target-safe #miniEventBox,
+  .app.playing.hud-target-safe #lastSaveBox{
+    top:136px !important;
+  }
+
+  #app.playing.hud-target-safe #controlBar,
+  .app.playing.hud-target-safe #controlBar{
+    min-height:44px !important;
+  }
+
+  #app.playing.hud-target-safe #btnPause,
+  #app.playing.hud-target-safe #btnHint,
+  #app.playing.hud-target-safe #btnSkill,
+  #app.playing.hud-target-safe #btnBack,
+  #app.playing.hud-target-safe #btnAim,
+  .app.playing.hud-target-safe #btnPause,
+  .app.playing.hud-target-safe #btnHint,
+  .app.playing.hud-target-safe #btnSkill,
+  .app.playing.hud-target-safe #btnBack,
+  .app.playing.hud-target-safe #btnAim{
+    min-height:36px !important;
+    padding:0 8px !important;
+    font-size:11px !important;
+  }
 }

@@ -7,7 +7,7 @@
 (() => {
   'use strict';
 
-  var VERSION = '20260511-PLATE-SOLO-V41.1-IMMERSIVE-GAMEPLAY-MODE';
+  var VERSION = '20260511-PLATE-SOLO-V41.2-HUD-TARGET-SAFE-MODE';
   var DOC = window.document;
   var WIN = window;
   var $ = function(id){ return DOC.getElementById(id); };
@@ -218,19 +218,19 @@
   function spawnLanes(){
     const mode=screenMode();
     /*
-     * v41.1 Immersive lane safety:
-     * - no half-card clipping at the left/right edge
-     * - practice avoids the center coach/plate area
-     * - normal play keeps enough variety without hiding behind HUD/plate
+     * v41.2 HUD/Target Safe lanes:
+     * - side margins are safer, especially on mobile
+     * - center lanes are available but not dominant
+     * - practice keeps targets away from coach strip
      */
     if(state.practiceActive){
-      if(mode==='small') return [15,30,70,85];
-      if(mode==='mobile') return [13,26,39,61,74,87];
-      return [10,22,34,66,78,90];
+      if(mode==='small') return [18,33,67,82];
+      if(mode==='mobile') return [15,28,41,59,72,85];
+      return [12,24,36,64,76,88];
     }
-    if(mode==='small') return [13,27,41,59,73,87];
-    if(mode==='mobile') return [12,24,36,48,52,64,76,88];
-    return [9,19,29,39,61,71,81,91];
+    if(mode==='small') return [16,30,44,56,70,84];
+    if(mode==='mobile') return [14,26,38,50,62,74,86];
+    return [10,20,30,40,60,70,80,90];
   }
   function foodSizeClass(food,m){if(food.type==='power')return'size-power'; if(food.junk)return state.boss||(state.mini&&state.mini.type==='junkInvasion')?'size-boss':'size-junk'; if(state.boss&&m&&m.label==='boss-swipe')return'size-boss'; return'size-good';}
   function chooseSpawnPlacement(food,m){
@@ -513,7 +513,7 @@
     state.ended=false;
     state.paused=false;
     try{DOC.body.classList.add('plate-playing','plate-immersive');}catch(e){}
-    els.app.classList.add('playing','immersive-gameplay');
+    els.app.classList.add('playing','immersive-gameplay','hud-target-safe');
     if(els.arcadeHud)els.arcadeHud.classList.remove('hidden');
     els.startOverlay.classList.add('hidden');
     if(state.practiceEnabled&&!state.practiceDone)startPractice(); else startRealGame();
@@ -528,7 +528,7 @@
   function loadBest(){const raw=SAFE_STORE.get(bestKey(),''); return raw?(safeJsonParse(raw,{score:0,balance:0,combo:0,stars:0,date:''})||{score:0,balance:0,combo:0,stars:0,date:''}):{score:0,balance:0,combo:0,stars:0,date:''};}
   function loadBadgeSet(){const arr=safeJsonParse(SAFE_STORE.get(badgeKey(),'[]'),[]); return new Set(Array.isArray(arr)?arr:[]);} function updateBadgeCollection(badges){const old=state.unlockedBadges||new Set(),news=badges.filter(b=>!old.has(b)),merged=new Set([...old,...badges]); state.unlockedBadges=merged; state.newBadges=news; SAFE_STORE.set(badgeKey(),safeJsonStringify(Array.from(merged))); return news;}
   function calcStars(bal,done){let s=0; if(bal>=60&&state.score>=250)s=1; if(bal>=75&&done>=2&&state.bestCombo>=6)s=2; if(bal>=88&&done>=3&&state.bestCombo>=9&&(state.bossDefeated||state.bossHp<=15))s=3; if(dailyStatus().done&&s<2)s=2; return clamp(s,0,3);}
-  function endGame(){state.ended=true; state.running=false; try{DOC.body.classList.remove('plate-playing','plate-immersive');}catch(e){} clearActiveCards(); renderMissions(); els.app.classList.remove('playing','immersive-gameplay'); if(els.arcadeHud)els.arcadeHud.classList.add('hidden'); const bal=balanceScore(),done=state.missions.filter(m=>missionStatus(m).done).length;
+  function endGame(){state.ended=true; state.running=false; try{DOC.body.classList.remove('plate-playing','plate-immersive');}catch(e){} clearActiveCards(); renderMissions(); els.app.classList.remove('playing','immersive-gameplay','hud-target-safe'); if(els.arcadeHud)els.arcadeHud.classList.add('hidden'); const bal=balanceScore(),done=state.missions.filter(m=>missionStatus(m).done).length;
     const rawScore=Math.round(Number(state.score)||0);
     const fairScore=Math.max(
       rawScore,
