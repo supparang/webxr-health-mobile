@@ -7,11 +7,21 @@
 (() => {
   'use strict';
 
-  var VERSION = '20260509-PLATE-SOLO-V4.0.9-RETURN-NUTRITION-ZONE-FIX';
+  var VERSION = '20260511-PLATE-SOLO-V41.1-IMMERSIVE-GAMEPLAY-MODE';
   var DOC = window.document;
   var WIN = window;
   var $ = function(id){ return DOC.getElementById(id); };
   try{ console.info('[Plate Solo]', VERSION, 'loaded'); }catch(e){}
+  function setGameplayViewportVars(){
+    try{
+      const h = Math.max(420, Math.round(WIN.innerHeight || DOC.documentElement.clientHeight || 720));
+      DOC.documentElement.style.setProperty('--hha-vh', h + 'px');
+      DOC.documentElement.style.setProperty('--plate-runtime-vh', h + 'px');
+    }catch(e){}
+  }
+  setGameplayViewportVars();
+  WIN.addEventListener('resize', setGameplayViewportVars, {passive:true});
+  WIN.addEventListener('orientationchange', () => setTimeout(setGameplayViewportVars, 120), {passive:true});
   const Q = new URL(location.href).searchParams;
   const qs = (k, d = '') => Q.get(k) ?? d;
   const clamp = (v, a, b) => Math.max(a, Math.min(b, Number(v) || 0));
@@ -207,16 +217,20 @@
   function chooseMovement(food){if(state.mini&&state.mini.type==='healthyRain'&&!food.junk)return{cls:'move-rain-fast',lifeScale:.72,label:'rain-fast'}; if(state.mini&&state.mini.type==='junkInvasion'&&food.junk)return{cls:chance(.5)?'move-junk-dash':'move-junk-wobble',lifeScale:.68,label:'junk-invasion'}; if(food.type==='power')return{cls:'move-power-float',lifeScale:1.18,label:'power-float'}; if(food.junk)return state.boss||state.rush?{cls:chance(.55)?'move-junk-dash':'move-junk-wobble',lifeScale:.72,label:'junk-fast'}:{cls:chance(.5)?'move-junk-wobble':'move-drift-right',lifeScale:.9,label:'junk-wobble'}; if(state.boss&&chance(.38))return{cls:'move-boss-swipe',lifeScale:.78,label:'boss-swipe'}; if(state.rush&&chance(.45))return{cls:chance(.5)?'move-zigzag':'move-drift-left',lifeScale:.82,label:'rush-move'}; if(chance(.28))return{cls:chance(.5)?'move-drift-left':'move-drift-right',lifeScale:1,label:'drift'}; if(chance(.18))return{cls:'move-zigzag',lifeScale:.95,label:'zigzag'}; return{cls:'move-fall',lifeScale:1,label:'fall'};}
   function spawnLanes(){
     const mode=screenMode();
-    /* v40.4: during Practice, keep targets away from the center coach/plate area */
+    /*
+     * v41.1 Immersive lane safety:
+     * - no half-card clipping at the left/right edge
+     * - practice avoids the center coach/plate area
+     * - normal play keeps enough variety without hiding behind HUD/plate
+     */
     if(state.practiceActive){
-      if(mode==='small') return [10,24,76,90];
-      if(mode==='mobile') return [8,20,32,68,80,92];
-      return [6,16,27,73,84,94];
+      if(mode==='small') return [15,30,70,85];
+      if(mode==='mobile') return [13,26,39,61,74,87];
+      return [10,22,34,66,78,90];
     }
-    /* v40.4: regular play still uses many lanes, but fewer exact-center targets */
-    if(mode==='small') return [9,23,37,63,77,91];
-    if(mode==='mobile') return [8,20,32,44,56,68,80,92];
-    return [6,16,26,36,64,74,84,94];
+    if(mode==='small') return [13,27,41,59,73,87];
+    if(mode==='mobile') return [12,24,36,48,52,64,76,88];
+    return [9,19,29,39,61,71,81,91];
   }
   function foodSizeClass(food,m){if(food.type==='power')return'size-power'; if(food.junk)return state.boss||(state.mini&&state.mini.type==='junkInvasion')?'size-boss':'size-junk'; if(state.boss&&m&&m.label==='boss-swipe')return'size-boss'; return'size-good';}
   function chooseSpawnPlacement(food,m){
@@ -226,8 +240,9 @@
       if(state.spawnLaneHistory.includes(x.i))x.score-=.35;
 
       /* v40.4: stop targets from hiding behind the central plate/Practice coach */
-      if(state.practiceActive && x.pct>30 && x.pct<70)x.score-=1.6;
-      if(!state.practiceActive && x.pct>42 && x.pct<58)x.score-=.35;
+      if(x.pct<8 || x.pct>92)x.score-=2.2;
+      if(state.practiceActive && x.pct>34 && x.pct<66)x.score-=2.0;
+      if(!state.practiceActive && x.pct>43 && x.pct<57)x.score-=.45;
 
       if(m&&(m.label==='boss-swipe'||m.label==='junk-fast'))x.score+=Math.abs(x.pct-50)/70;
       if(food.type==='power'){
@@ -492,7 +507,18 @@
   function resetForMainRound(){clearActiveCards(); Object.assign(state,{score:0,combo:0,bestCombo:0,plateHealth:100,plateHealthMin:100,lastSaveActive:false,lastSaveUsed:false,lastSaveSuccess:false,lastSaveStats:null,hits:0,misses:0,junkHits:0,overloads:0,missedGood:0,fill:Object.fromEntries(GROUPS.map(g=>[g.id,0])),groupHits:Object.fromEntries(GROUPS.map(g=>[g.id,0])),plateItems:[],wave:0,rush:false,feverUntil:0,lastFever:0,shield:0,freezeUntil:0,rescueUsed:false,boss:false,bossHp:100,bossDefeated:false,bossType:null,bossMechanic:null,bossMechanicStats:null,order:null,duel:null,mini:null,miniStats:null,perfectPicks:0,riskyPicks:0,aimPicks:0,recentPerf:[],goodStreak:0,badStreak:0,directorLevel:0,assistLevel:0,directorMood:'normal',comboMilestones:new Set(),bossEnraged:false,bossWarnActive:false,bossWarnExpire:0,bossWarningStarted:0,bossCounterCount:0,bossAttackCount:0,nearMissUsed:false,nearMissCount:0,replayGoal:'',lastSpawnLane:-1,spawnLaneHistory:[]}); if(els.btnSkill)els.btnSkill.disabled=false; ['orderBox','miniEventBox','bossMechanicBox','lastSaveBox'].forEach(k=>els[k]&&els[k].classList.remove('on')); if(els.duelLayer)els.duelLayer.innerHTML=''; ['finalRush','feverLayer','aiDirectorChip'].forEach(k=>els[k]&&els[k].classList.add('hidden')); els.app.classList.remove('boss-mode','boss-greasy','boss-sugar','boss-carbzilla','boss-chaos','boss-defeated','boss-enraged','boss-warning','boss-mechanic-active','ai-assist','ai-challenge','ai-hot','plate-warn','plate-danger','plate-critical','last-save-active'); updateAll();}
   function startPractice(){resetForMainRound(); state.practiceActive=true; state.practiceStarted=now(); state.practiceHits=0; state.practiceMistakes=0; state.practicePhase=0; state.lastSpawn=now(); els.app.classList.add('practice-mode'); if(els.practiceCoach)els.practiceCoach.classList.remove('hidden'); updatePracticeCoach(); showBanner('🧑‍🍳 Practice 20 วิ'); feedback('ลองก่อน! คะแนนยังไม่คิดจริง','good'); sfx('good');}
   function finishPractice(skipped){if(!state.practiceActive)return; state.practiceActive=false; state.practiceDone=true; clearActiveCards(); resetForMainRound(); if(els.practiceCoach)els.practiceCoach.classList.add('hidden'); els.app.classList.remove('practice-mode'); showBanner(skipped?'ข้าม Practice • เริ่มเกมจริง!':'Practice จบแล้ว • เริ่มเกมจริง!'); feedback(skipped?'เริ่มเกมจริง!':'พร้อมแล้ว เริ่มเกมจริง!','perfect'); sfx('perfect'); startRealGame();}
-  function startGame(){state.running=true; state.ended=false; state.paused=false; els.app.classList.add('playing'); if(els.arcadeHud)els.arcadeHud.classList.remove('hidden'); els.startOverlay.classList.add('hidden'); if(state.practiceEnabled&&!state.practiceDone)startPractice(); else startRealGame(); requestAnimationFrame(loop);}
+  function startGame(){
+    setGameplayViewportVars();
+    state.running=true;
+    state.ended=false;
+    state.paused=false;
+    try{DOC.body.classList.add('plate-playing','plate-immersive');}catch(e){}
+    els.app.classList.add('playing','immersive-gameplay');
+    if(els.arcadeHud)els.arcadeHud.classList.remove('hidden');
+    els.startOverlay.classList.add('hidden');
+    if(state.practiceEnabled&&!state.practiceDone)startPractice(); else startRealGame();
+    requestAnimationFrame(loop);
+  }
   function startRealGame(){state.practiceActive=false; state.practiceDone=true; state.startedAt=now(); state.pausedMs=0; state.lastSpawn=now(); if(els.practiceCoach)els.practiceCoach.classList.add('hidden'); els.app.classList.remove('practice-mode'); showBanner('Wave 1 • เติมจานให้ครบ!'); showHint(true); postLog('session_start',{version:VERSION,diff:DIFF,view:VIEW,durationPlannedSec:state.totalSec,activeSeed:String(ACTIVE_SEED),dailyYmd:DAILY_YMD});}
   function togglePause(force=false){if(!state.running||state.ended)return; if(!state.paused||force){state.paused=true; state.pauseStarted=now(); els.btnPause.textContent='▶️ เล่นต่อ'; logLine('พักเกมไว้ก่อน');}else{state.paused=false; state.pausedMs+=now()-state.pauseStarted; els.btnPause.textContent='⏸️ พัก'; state.lastSpawn=now(); requestAnimationFrame(loop); logLine('กลับมาเล่นต่อ!');}}
   function loop(){if(!state.running||state.ended)return; if(state.paused){requestAnimationFrame(loop); return;} if(state.practiceActive){updatePractice(); requestAnimationFrame(loop); return;} const left=timeLeft(); updatePhase(left); updateAIDirector(); if(left<=0){endGame(); return;} maybeStartMiniEvent(left); maybeStartOrder(left); maybeStartDuel(left); updateOrderAndDuel(); updateMiniEvent(); updateBossMechanic(); updateLastSave(); if(!isFreeze()&&!state.duel&&now()-state.lastSpawn>spawnDelay())spawnFood(); expireCards(); if(state.boss&&!state.bossDefeated&&now()-state.lastBossAtk>bossAttackDelay())bossAttack(); updateAll(); requestAnimationFrame(loop);}
@@ -502,7 +528,7 @@
   function loadBest(){const raw=SAFE_STORE.get(bestKey(),''); return raw?(safeJsonParse(raw,{score:0,balance:0,combo:0,stars:0,date:''})||{score:0,balance:0,combo:0,stars:0,date:''}):{score:0,balance:0,combo:0,stars:0,date:''};}
   function loadBadgeSet(){const arr=safeJsonParse(SAFE_STORE.get(badgeKey(),'[]'),[]); return new Set(Array.isArray(arr)?arr:[]);} function updateBadgeCollection(badges){const old=state.unlockedBadges||new Set(),news=badges.filter(b=>!old.has(b)),merged=new Set([...old,...badges]); state.unlockedBadges=merged; state.newBadges=news; SAFE_STORE.set(badgeKey(),safeJsonStringify(Array.from(merged))); return news;}
   function calcStars(bal,done){let s=0; if(bal>=60&&state.score>=250)s=1; if(bal>=75&&done>=2&&state.bestCombo>=6)s=2; if(bal>=88&&done>=3&&state.bestCombo>=9&&(state.bossDefeated||state.bossHp<=15))s=3; if(dailyStatus().done&&s<2)s=2; return clamp(s,0,3);}
-  function endGame(){state.ended=true; state.running=false; clearActiveCards(); renderMissions(); els.app.classList.remove('playing'); if(els.arcadeHud)els.arcadeHud.classList.add('hidden'); const bal=balanceScore(),done=state.missions.filter(m=>missionStatus(m).done).length;
+  function endGame(){state.ended=true; state.running=false; try{DOC.body.classList.remove('plate-playing','plate-immersive');}catch(e){} clearActiveCards(); renderMissions(); els.app.classList.remove('playing','immersive-gameplay'); if(els.arcadeHud)els.arcadeHud.classList.add('hidden'); const bal=balanceScore(),done=state.missions.filter(m=>missionStatus(m).done).length;
     const rawScore=Math.round(Number(state.score)||0);
     const fairScore=Math.max(
       rawScore,
@@ -587,6 +613,6 @@
   function updateAimTarget(){if(!isAimMode()||!state.running||state.paused||state.ended)return; const r0=els.arena.getBoundingClientRect(),cx=r0.left+r0.width/2,cy=r0.top+r0.height/2; let bestId=null,bestD=Infinity; for(const[id,obj]of state.active.entries()){const r=obj.el.getBoundingClientRect(),d=Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy); if(d<bestD){bestD=d; bestId=id;}} const range=screenMode()==='small'?285:250; for(const[id,obj]of state.active.entries())obj.el.classList.toggle('aimLock',id===bestId&&bestD<range); state.lastAimTarget=bestD<range?bestId:null;}
   function selectAimTarget(){if(!isAimMode())return; updateAimTarget(); if(state.lastAimTarget&&state.active.has(state.lastAimTarget)){state.aimPicks++; pickFood(state.lastAimTarget);}else{feedback('🎯 เล็งอาหารให้ตรงกลางก่อน','bad'); sfx('bad');}}
   function bind(){els.btnStart.addEventListener('click',startGame); if(els.btnSkipPractice)els.btnSkipPractice.addEventListener('click',()=>{if(state.practiceActive)finishPractice(true);}); els.btnPause.addEventListener('click',()=>togglePause(false)); els.btnHint.addEventListener('click',()=>showHint(true)); els.btnSkill.addEventListener('click',rescueSkill); if(els.btnAim)els.btnAim.addEventListener('click',selectAimTarget); els.btnBack.addEventListener('click',goBack); if(els.btnReplay)els.btnReplay.addEventListener('click',()=>location.reload()); if(els.btnCooldown)els.btnCooldown.addEventListener('click',goCooldown); if(els.btnSummaryBack)els.btnSummaryBack.addEventListener('click',goBack); els.arena.addEventListener('pointerdown',ev=>{if(!isAimMode())return; if(ev.target.closest('.foodCard'))return; ev.preventDefault(); selectAimTarget();},{passive:false}); DOC.addEventListener('visibilitychange',()=>{if(DOC.hidden&&state.running&&!state.paused)togglePause(true);});}
-  function init(){installV403Styles(); if(els.app)els.app.classList.add('emoji-only-mode'); try{const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true;}catch(e){} /* v40.7 emoji-only: skip PNG preloading to prevent asset 404 spam. */ renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!');}
+  function init(){installV403Styles(); setGameplayViewportVars(); if(els.app)els.app.classList.add('emoji-only-mode','v41-immersive-ready'); try{const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true;}catch(e){} /* v40.7 emoji-only: skip PNG preloading to prevent asset 404 spam. */ renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!');}
   WIN.addEventListener('pagehide',()=>flushLogs(true)); WIN.addEventListener('beforeunload',()=>flushLogs(true)); init();
 })();

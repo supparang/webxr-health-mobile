@@ -1,1280 +1,170 @@
-/* === /herohealth/plate-solo.css ===
-   HeroHealth • Plate Solo
-   Full CSS v20260508-v40.4-layer-lane-fix
-   Balanced Plate Rush
-   Child-friendly / Mobile-first / PC / Cardboard cVR
+/* === Plate Solo v41.1 IMMERSIVE GAMEPLAY MODE ===
+   Append to /herohealth/plate-solo.css AFTER v41.0.
+   Goal: when game starts, show full gameplay screen with only arena + HUD + core buttons.
 */
 
 :root{
-  --sky1:#f7fff3;
-  --sky2:#e7fbff;
-  --sky3:#eaf0ff;
-  --card:#ffffff;
-  --card2:#f8fdff;
-  --glass:rgba(255,255,255,.78);
-  --glass2:rgba(255,255,255,.62);
-  --line:#d9ebf3;
-  --text:#244761;
-  --muted:#6f8da1;
-  --soft:#eef7fb;
-  --blue:#5cbcff;
-  --blue2:#2f8cff;
-  --green:#45d483;
-  --green2:#22b96b;
-  --yellow:#ffd560;
-  --orange:#ff9a2e;
-  --red:#ff5a70;
-  --pink:#ff8fd1;
-  --violet:#a78bfa;
-  --cyan:#58d7ff;
-  --shadow:0 20px 50px rgba(45,85,110,.14);
-  --shadow2:0 14px 30px rgba(45,85,110,.12);
-  --radius:28px;
-  --safeTop:env(safe-area-inset-top,0px);
-  --safeBottom:env(safe-area-inset-bottom,0px);
+  --plate-controls-h:64px;
+  --plate-game-pad:6px;
 }
 
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{width:100%;min-height:100%;margin:0;overflow-x:hidden}
-body{
-  font-family:"Inter","Noto Sans Thai","Noto Sans",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  color:var(--text);
-  background:
-    radial-gradient(circle at 16% 12%, rgba(255,236,156,.72), transparent 34%),
-    radial-gradient(circle at 84% 12%, rgba(144,235,196,.52), transparent 34%),
-    radial-gradient(circle at 50% 82%, rgba(116,219,255,.48), transparent 36%),
-    linear-gradient(135deg,var(--sky1),var(--sky2) 54%,var(--sky3));
-  touch-action:manipulation;
-  user-select:none;
-}
-button,input,select,textarea{font:inherit}
-button{border:0}
-.hidden{display:none !important}
-
-#app,.app{
-  min-height:100vh;
-  position:relative;
-  padding:calc(10px + var(--safeTop)) 14px calc(82px + var(--safeBottom));
-  overflow:hidden;
-}
-#app::before,.app::before{
-  content:"";
-  position:fixed;
-  inset:-20%;
-  pointer-events:none;
-  background:
-    radial-gradient(circle at 20% 50%, rgba(255,255,255,.72), transparent 26%),
-    radial-gradient(circle at 80% 55%, rgba(255,255,255,.55), transparent 28%);
-  opacity:.75;
-  z-index:0;
-}
-#app > *,.app > *{position:relative;z-index:1}
-
-/* ---------- Layout ---------- */
-.gameShell,#gameShell{
-  width:min(1560px,100%);
-  margin:0 auto;
-  display:grid;
-  grid-template-columns:330px minmax(500px,1fr) 330px;
-  grid-template-rows:auto minmax(560px,1fr);
-  gap:14px;
-  align-items:stretch;
-}
-.topStats,#topStats{grid-column:1 / 2;grid-row:1;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.topCenter,#topCenter,.headerCard,#headerCard{grid-column:2 / 3;grid-row:1}
-.topRight,#topRight,.missionPanelTop,#missionPanelTop{grid-column:3 / 4;grid-row:1}
-.leftPanel,#leftPanel{grid-column:1 / 2;grid-row:2}
-.centerPanel,#centerPanel{grid-column:2 / 3;grid-row:2;min-width:0}
-.rightPanel,#rightPanel{grid-column:3 / 4;grid-row:2}
-#meters,#missions,#log,#hintBox,#bossBox{min-width:0}
-
-/* ---------- Cards ---------- */
-.statCard,.stat,.scoreCard{
-  min-height:64px;
-  padding:10px 12px;
-  border-radius:18px;
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.82);
-  box-shadow:0 8px 20px rgba(42,78,102,.08);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  line-height:1.1;
-  backdrop-filter:blur(14px);
-}
-.statCard b,.stat b,.scoreCard b,#score,#combo,#balance{
-  font-size:24px;
-  font-weight:1000;
-  letter-spacing:.2px;
-  color:#234964;
-}
-.statCard small,.stat small,.scoreCard small{
-  margin-top:4px;
-  font-size:12px;
-  color:#6688a0;
-  font-weight:800;
-}
-.headerCard,#headerCard,.topCenter{
-  min-height:78px;
-  padding:14px 18px 12px;
-  border-radius:24px;
-  border:1px solid var(--line);
-  background:rgba(255,255,255,.84);
-  box-shadow:var(--shadow2);
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  text-align:center;
-  backdrop-filter:blur(16px);
-}
-.headerTitle,#headerTitle,.title{
-  margin:0;
-  font-weight:1000;
-  font-size:20px;
-  line-height:1.18;
-  color:#244761;
-}
-#phaseText,.phaseText{
-  margin-top:5px;
-  font-weight:900;
-  color:#66849a;
-  font-size:13px;
-}
-.timerBar,#timerBar{
-  width:100%;
-  max-width:440px;
-  height:12px;
-  margin-top:10px;
-  border-radius:999px;
-  background:#e9f5fb;
-  overflow:hidden;
-  box-shadow:inset 0 1px 3px rgba(35,70,100,.11);
-}
-#timerFill,.timerFill{
-  display:block;
-  width:100%;
-  height:100%;
-  border-radius:inherit;
-  background:linear-gradient(90deg,var(--green),#ffe15b,#ff697b);
-  transition:width .2s linear;
-}
-#timerFill.danger,.timerFill.danger{animation:dangerPulse .65s infinite alternate}
-.panel,.leftPanel,.rightPanel,#leftPanel,#rightPanel{
-  border-radius:28px;
-  border:1px solid rgba(205,226,236,.9);
-  background:rgba(255,255,255,.62);
-  box-shadow:var(--shadow);
-  backdrop-filter:blur(18px);
-  overflow:hidden;
-}
-.leftPanel,#leftPanel{padding:18px 16px}
-.rightPanel,#rightPanel{padding:16px}
-.panelTitle,.sectionTitle{
-  margin:0 0 12px;
-  font-size:17px;
-  font-weight:1000;
-  color:#31536a;
-}
-
-/* ---------- Mission Panel ---------- */
-#missions,.missions{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
-.mission{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  min-height:34px;
-  padding:7px 10px;
-  border-radius:999px;
-  border:1px solid #d5eaf3;
-  background:rgba(255,255,255,.78);
-  color:#426276;
-  font-weight:900;
-  font-size:13px;
-  box-shadow:0 5px 14px rgba(42,78,102,.06);
-}
-.mission small{color:#708ea2;font-weight:1000}
-.mission.done{color:#16794a;border-color:#baf0d1;background:#effff5}
-.mission.hot{animation:missionHot .8s infinite alternate;border-color:#ffd166}
-
-/* ---------- Group Meters ---------- */
-#meters,.meters{display:flex;flex-direction:column;gap:10px}
-.groupMeter{
-  padding:12px 13px;
-  border-radius:18px;
-  border:1px solid #d8eaf3;
-  background:rgba(255,255,255,.74);
-  box-shadow:0 8px 16px rgba(42,78,102,.06);
-}
-.gmTop{display:flex;justify-content:space-between;gap:8px;align-items:center;font-weight:1000;color:#31556e}
-.gmTop span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gmTop small{flex:0 0 auto;color:#63849c}
-.bar{
-  height:15px;
-  margin-top:9px;
-  border-radius:999px;
-  background:#eaf5fa;
-  overflow:hidden;
-  box-shadow:inset 0 1px 4px rgba(35,70,100,.12);
-}
-.bar i{display:block;width:0;height:100%;border-radius:inherit;background:linear-gradient(90deg,#35cd78,#ffd65d);transition:width .18s ease}
-.bar.warn i{background:linear-gradient(90deg,#ffce4f,#ff9e2e)}
-.bar.over i{background:linear-gradient(90deg,#ff5a70,#ff334e)}
-.need{margin-top:7px;color:#668aa0;font-size:12px;font-weight:900}
-.groupMeter:last-child{margin-bottom:0}
-
-/* ---------- Center Arena ---------- */
-.centerPanel,#centerPanel{
-  border-radius:30px;
-  border:1px solid rgba(205,226,236,.88);
-  background:linear-gradient(180deg,rgba(255,255,255,.26),rgba(255,255,255,.06)),rgba(212,247,245,.35);
-  box-shadow:var(--shadow);
-  overflow:hidden;
-  position:relative;
-}
-#arena,.arena{
-  position:relative;
-  width:100%;
-  min-height:560px;
-  height:calc(100vh - 178px - var(--safeTop) - var(--safeBottom));
-  max-height:740px;
-  overflow:hidden;
-  border-radius:30px;
-  isolation:isolate;
-  background:
-    radial-gradient(circle at 50% 48%, rgba(255,255,255,.92), transparent 22%),
-    radial-gradient(circle at 50% 45%, rgba(183,231,255,.58), transparent 44%),
-    radial-gradient(circle at 20% 18%, rgba(179,255,206,.35), transparent 32%),
-    linear-gradient(180deg,rgba(217,255,245,.62),rgba(213,244,255,.58));
-}
-
-/* arcade HUD inside arena */
-#arcadeHud,.arcadeHud{
-  position:absolute;
-  left:10%;
-  right:10%;
-  top:10px;
-  z-index:120;
-  display:grid;
-  grid-template-columns:repeat(4,1fr);
-  gap:8px;
-  pointer-events:none;
-}
-.arcadeBox,.miniStat{
-  min-height:52px;
-  border-radius:16px;
-  border:1px solid rgba(216,234,243,.9);
-  background:rgba(255,255,255,.78);
-  box-shadow:0 8px 20px rgba(42,78,102,.08);
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  font-weight:1000;
-}
-.arcadeBox b,.miniStat b,#miniScore,#miniCombo,#miniBalance,#miniTime{
-  font-size:20px;
-  line-height:1;
-  color:#244761;
-}
-.arcadeBox small,.miniStat small{margin-top:3px;font-size:11px;color:#668aa0}
-#compactMeters,.compactMeters{
-  position:absolute;
-  left:10px;
-  right:10px;
-  top:70px;
-  z-index:119;
-  display:flex;
-  gap:6px;
-  pointer-events:none;
-}
-.compactMeter{
-  flex:1;
-  display:flex;
-  align-items:center;
-  gap:5px;
-  min-width:0;
-  padding:4px 6px;
-  border-radius:999px;
-  background:rgba(255,255,255,.7);
-  border:1px solid rgba(210,232,242,.8);
-}
-.compactMeterIcon{flex:0 0 auto;font-size:13px}
-.compactMeterBar{flex:1;min-width:0;height:8px;border-radius:999px;background:#e7f4fa;overflow:hidden}
-.compactMeterBar i{display:block;height:100%;width:0;border-radius:inherit;background:#55d887}
-.compactMeter.warn .compactMeterBar i{background:#ffd65d}
-.compactMeter.over .compactMeterBar i{background:#ff5a70}
-.compactMeter.miss .compactMeterBar i{background:#8ad5ff}
-#plateHealthHud,.plateHealthHud{
-  position:absolute;
-  left:10%;
-  right:10%;
-  top:84px;
-  z-index:122;
-  display:flex;
-  align-items:center;
-  gap:8px;
-  min-height:34px;
-  padding:7px 12px;
-  border-radius:999px;
-  border:1px solid #d9edf5;
-  background:rgba(255,255,255,.78);
-  box-shadow:0 8px 20px rgba(42,78,102,.08);
-  pointer-events:none;
-}
-#plateHealthIcon,.plateHealthIcon{font-size:18px}
-.plateHealthBar{flex:1;height:12px;border-radius:999px;background:#e7f4fa;overflow:hidden}
-#plateHealthFill,.plateHealthFill{display:block;height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#39d77f,#8ee86e);transition:width .18s ease}
-#plateHealthText,.plateHealthText{flex:0 0 auto;min-width:76px;text-align:right;font-size:12px;font-weight:1000;color:#527288}
-
-/* Layering fix v40.4 */
-#spawnLayer,.spawnLayer{position:absolute;inset:0;z-index:40 !important;pointer-events:auto !important}
-#plate,.plate{
-  position:absolute;
-  left:50%;
-  top:52%;
-  width:min(420px,56%);
-  aspect-ratio:1;
-  transform:translate(-50%,-50%);
-  border-radius:50%;
-  z-index:5 !important;
-  pointer-events:none !important;
-  scale:.78;
-  opacity:.58;
-  filter:saturate(.92) contrast(.96);
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,.96) 0 48%, rgba(239,249,255,.96) 49% 62%, transparent 63%),
-    conic-gradient(from 0deg, rgba(90,187,255,.22), rgba(130,230,165,.22), rgba(255,214,95,.2), rgba(255,133,165,.18), rgba(90,187,255,.22));
-  box-shadow:inset 0 0 0 12px rgba(255,255,255,.9),inset 0 0 0 20px rgba(203,234,247,.72),0 18px 42px rgba(45,85,110,.12);
-  transition:opacity .25s ease,scale .25s ease,filter .25s ease;
-}
-#app.playing #plate,#app.playing .plate,.app.playing #plate,.app.playing .plate{scale:.74;opacity:.50}
-#plate.good,.plate.good{opacity:.70;filter:saturate(1.05) contrast(1.02);box-shadow:inset 0 0 0 12px rgba(255,255,255,.95),inset 0 0 0 20px rgba(180,242,205,.82),0 18px 48px rgba(53,200,125,.22)}
-#plate.danger,.plate.danger{opacity:.64;animation:plateDanger .6s infinite alternate}
-#plate.bad,.plate.bad{animation:plateShake .38s ease}
-#plateFoods,.plateFoods{
-  position:absolute;
-  inset:19%;
-  display:flex;
-  flex-wrap:wrap;
-  align-content:center;
-  justify-content:center;
-  gap:5px;
-  pointer-events:none !important;
-}
-#plateCrack,.plateCrack{position:absolute;inset:0;pointer-events:none !important;border-radius:50%;opacity:0}
-.plate.danger #plateCrack,.plate.danger .plateCrack{opacity:.35;background:linear-gradient(42deg, transparent 46%, rgba(255,79,101,.45) 47% 49%, transparent 50%),linear-gradient(112deg, transparent 52%, rgba(255,79,101,.35) 53% 55%, transparent 56%)}
-#plateLabel,.plateLabel{
-  position:absolute;
-  left:50%;
-  bottom:15%;
-  transform:translateX(-50%);
-  padding:7px 13px;
-  border-radius:999px;
-  color:#628198;
-  background:rgba(255,255,255,.82);
-  border:1px solid #d7eaf3;
-  box-shadow:0 8px 20px rgba(42,78,102,.08);
-  font-size:13px;
-  font-weight:1000;
-  white-space:nowrap;
-}
-.plateFoodIcon{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:12px;background:rgba(255,255,255,.72);box-shadow:0 3px 10px rgba(42,78,102,.08);overflow:hidden}
-.plateFoodIcon img{width:92%;height:92%;object-fit:contain}
-.foodEmojiFallback{display:none}
-
-/* ---------- Food cards ---------- */
-.foodCard{
-  position:absolute;
-  top:-110px;
-  left:50%;
-  transform:translateX(-50%) rotate(var(--rot,0deg));
-  width:116px;
-  min-height:136px;
-  padding:8px 8px 28px;
-  border-radius:22px;
-  background:rgba(255,255,255,.9);
-  border:3px solid rgba(255,255,255,.82);
-  box-shadow:0 18px 35px rgba(42,78,102,.16);
-  color:#31536a;
-  font-weight:1000;
-  cursor:pointer;
-  z-index:60 !important;
-  pointer-events:auto !important;
-  touch-action:none;
-  will-change:transform,top,opacity;
-  animation:foodFall var(--life,4600ms) linear forwards;
-}
-.foodCard:active{transform:translateX(-50%) rotate(var(--rot,0deg)) scale(.95)}
-.foodCard .name{margin-top:3px;font-size:12px;line-height:1.15;color:#527288}
-.foodTag{
-  position:absolute;
-  left:50%;
-  bottom:-8px;
-  transform:translateX(-50%);
-  min-width:58px;
-  padding:4px 9px;
-  border-radius:999px;
-  font-size:11px;
-  font-weight:1000;
-  white-space:nowrap;
-  color:#31536a;
-  background:#fff1b5;
-  box-shadow:0 8px 18px rgba(42,78,102,.12);
-}
-.foodVisual{width:70px;height:70px;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;position:relative}
-.foodVisual img,.foodImg{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 6px 8px rgba(42,78,102,.14))}
-.foodVisual.assetFallback .foodEmojiFallback,.foodVisual .foodEmojiFallback{font-size:46px;line-height:1}
-.foodVisual.assetFallback .foodEmojiFallback{display:inline !important}
-.assetPackDebug{display:none}
-.asset-debug .assetPackDebug,#app.asset-debug .assetPackDebug{display:block;position:absolute;right:-9px;top:-8px;padding:1px 5px;border-radius:999px;font-size:9px;color:white;background:rgba(34,65,85,.72)}
-.goodNow{border-color:#95ebb7;box-shadow:0 18px 35px rgba(30,186,105,.19)}
-.neutralFood{border-color:#d8edf6}
-.riskyFood,.dangerFood{border-color:#ffd46a}
-.junk,.bossForbidden{border-color:#ffb5c0;background:rgba(255,249,250,.95);box-shadow:0 18px 35px rgba(214,55,69,.18)}
-.bossWanted{border-color:#a78bfa;box-shadow:0 18px 35px rgba(123,97,255,.2)}
-.power{border-color:#aeeeff;background:rgba(244,253,255,.96);box-shadow:0 18px 35px rgba(50,180,230,.18)}
-.foodCard.aimLock{z-index:80 !important;outline:5px solid rgba(255,224,90,.62);box-shadow:0 0 0 10px rgba(255,255,255,.45),0 0 34px rgba(255,200,70,.72),0 20px 38px rgba(42,78,102,.18)}
-.size-good{width:112px;min-height:132px}
-.size-junk{width:108px;min-height:128px}
-.size-power{width:104px;min-height:122px}
-.size-boss{width:124px;min-height:144px}
-.fastObject{filter:saturate(1.08)}
-.lane-edge-left{transform:translateX(-40%) rotate(var(--rot,0deg))}
-.lane-edge-right{transform:translateX(-60%) rotate(var(--rot,0deg))}
-.move-fall{animation-name:foodFall}
-.move-rain-fast{animation-name:foodRainFast}
-.move-junk-dash{animation-name:junkDash}
-.move-junk-wobble{animation-name:junkWobble}
-.move-power-float{animation-name:powerFloat}
-.move-boss-swipe{animation-name:bossSwipe}
-.move-zigzag{animation-name:foodZigzag}
-.move-drift-left{animation-name:driftLeft}
-.move-drift-right{animation-name:driftRight}
-
-/* ---------- Practice ---------- */
-#practiceCoach,.practiceCoach{
-  position:absolute;
-  left:50%;
-  top:clamp(76px,14vh,132px) !important;
-  width:min(560px,84vw);
-  max-width:min(520px,82vw) !important;
-  transform:translateX(-50%) scale(.86) !important;
-  z-index:90 !important;
-  padding:18px 20px;
-  border-radius:28px;
-  border:2px solid rgba(137,232,170,.95);
-  background:rgba(255,255,255,.94);
-  box-shadow:0 18px 45px rgba(32,77,105,.18) !important;
-  text-align:center;
-  backdrop-filter:blur(18px);
-}
-#practiceCoach .practiceHead,.practiceHead{display:flex;justify-content:center;gap:10px;align-items:center;margin-bottom:8px;color:#16864f;font-weight:1000}
-#practiceIcon,.practiceIcon{font-size:20px}
-#practiceTitle,.practiceTitle{font-weight:1000;color:#16864f}
-#practiceText,.practiceText{font-weight:900;color:#31536a;line-height:1.45}
-#practiceSec,.practiceSec{color:#244761;font-weight:1000}
-.practiceBar{height:13px;border-radius:999px;background:#e9f7ef;overflow:hidden;margin:12px 0 14px;box-shadow:inset 0 1px 4px rgba(35,70,100,.1)}
-#practiceFill,.practiceFill{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#42d77e,#ffe15d,#ff8b20)}
-#btnSkipPractice,.btnSkipPractice{padding:10px 18px;border-radius:999px;color:#fff;background:#496579;box-shadow:0 10px 22px rgba(42,78,102,.18);font-weight:1000;cursor:pointer}
-#app.practice-mode #plate,.app.practice-mode .plate{scale:.70;opacity:.42}
-#app.practice-mode .foodCard,.app.practice-mode .foodCard{z-index:75 !important}
-
-/* ---------- Phase / event widgets ---------- */
-#phaseBanner,.phaseBanner{
-  position:absolute;
-  left:50%;
-  top:126px;
-  transform:translateX(-50%) translateY(-16px);
-  z-index:135;
-  max-width:min(78%,620px);
-  padding:9px 18px;
-  border-radius:999px;
-  background:rgba(255,255,255,.9);
-  color:#31536a;
-  border:1px solid #d8edf6;
-  box-shadow:0 14px 30px rgba(42,78,102,.12);
-  font-weight:1000;
-  opacity:0;
-  pointer-events:none;
-  text-align:center;
-}
-#phaseBanner.show,.phaseBanner.show{animation:bannerIn 1.4s ease forwards}
-#orderBox,#miniEventBox,#bossMechanicBox,#lastSaveBox{
-  position:absolute;
-  left:50%;
-  transform:translateX(-50%);
-  z-index:128;
-  width:min(620px,84%);
-  padding:10px 12px;
-  border-radius:22px;
-  border:1px solid #d8edf6;
-  background:rgba(255,255,255,.9);
-  box-shadow:0 14px 30px rgba(42,78,102,.12);
-  opacity:0;
-  pointer-events:none;
-  translate:0 -12px;
-  transition:opacity .18s ease, translate .18s ease;
-}
-#orderBox{top:132px}
-#miniEventBox{top:172px}
-#bossMechanicBox{top:132px;border-color:#ffc2ce}
-#lastSaveBox{top:172px;border-color:#ffbac5}
-#orderBox.on,#miniEventBox.on,#bossMechanicBox.on,#lastSaveBox.on{opacity:1;translate:0 0}
-.eventTop,.orderTop,.miniEventTop,.bossMechanicTop,.lastSaveTop{display:flex;justify-content:space-between;gap:12px;align-items:center;font-weight:1000}
-#orderText,#miniEventText,#bossMechanicText,#lastSaveText{color:#31536a;font-weight:1000}
-#orderSec,#miniEventSec,#bossMechanicSec,#lastSaveSec{color:#244761;font-weight:1000;white-space:nowrap}
-.eventBar,.orderBar,.miniEventBar,.bossMechanicBar,.lastSaveBar{height:10px;margin-top:8px;border-radius:999px;background:#e9f5fb;overflow:hidden}
-#orderFill,#miniEventFill,#bossMechanicFill,#lastSaveFill{display:block;height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#45d483,#ffd65d,#ff5a70)}
-
-/* ---------- Boss ---------- */
-#bossBox,.bossBox{display:none;margin-bottom:12px;padding:12px;border-radius:22px;border:1px solid #ffc6d0;background:rgba(255,247,249,.9);box-shadow:0 10px 22px rgba(214,55,69,.08)}
-#bossBox.on,.bossBox.on{display:block}
-#bossName,.bossName{font-weight:1000;color:#8a3144}
-.bossHpWrap,#bossHpWrap{height:13px;margin:9px 0;border-radius:999px;background:#ffe5ea;overflow:hidden}
-#bossHp,.bossHp{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#ff5a70,#ff9a2e);transition:width .18s ease}
-#bossPct,.bossPct{font-weight:1000;color:#8a3144}
-#bossMood,.bossMood{margin-top:4px;font-size:12px;color:#8b6170;font-weight:850}
-#bossAvatar,.bossAvatar{
-  position:absolute;
-  right:24px;
-  top:142px;
-  z-index:126;
-  width:96px;
-  height:108px;
-  border-radius:30px;
-  display:flex;
-  flex-direction:column;
-  align-items:center;
-  justify-content:center;
-  gap:4px;
-  color:white;
-  background:linear-gradient(180deg,#6e4ef6,#a34cff);
-  box-shadow:0 22px 40px rgba(92,64,170,.28);
-  border:3px solid rgba(255,255,255,.62);
-  pointer-events:none;
-}
-#bossFace,.bossFace{font-size:44px;line-height:1;filter:drop-shadow(0 6px 8px rgba(0,0,0,.18))}
-#bossLabel,.bossLabel{max-width:84px;font-size:10px;font-weight:1000;text-align:center;line-height:1.1}
-.bossAvatar.attack{animation:bossAttack .48s ease}
-.bossAvatar.hit{animation:bossHit .48s ease}
-#bossSkillFlash,.bossSkillFlash{
-  position:absolute;
-  left:50%;
-  top:210px;
-  transform:translateX(-50%) scale(.94);
-  z-index:136;
-  padding:10px 18px;
-  border-radius:999px;
-  color:#fff;
-  background:linear-gradient(90deg,#8b5cf6,#ff5a70);
-  box-shadow:0 18px 35px rgba(123,97,255,.22);
-  font-weight:1000;
-  opacity:0;
-  pointer-events:none;
-}
-#bossSkillFlash.show,.bossSkillFlash.show{animation:skillFlash 1.15s ease forwards}
-.boss-mode #arena,.app.boss-mode #arena,.boss-mode .arena,.app.boss-mode .arena{background:radial-gradient(circle at 50% 48%, rgba(255,255,255,.88), transparent 20%),radial-gradient(circle at 20% 18%, rgba(255,215,107,.34), transparent 30%),radial-gradient(circle at 80% 20%, rgba(255,107,139,.26), transparent 28%),linear-gradient(180deg,rgba(255,244,225,.68),rgba(226,239,255,.62))}
-.boss-greasy #arena,.boss-greasy .arena{background:radial-gradient(circle at 50% 48%, rgba(255,255,255,.88), transparent 20%),radial-gradient(circle at 25% 20%, rgba(255,201,82,.4), transparent 34%),linear-gradient(180deg,#fff5d8,#e1fbff)}
-.boss-sugar #arena,.boss-sugar .arena{background:radial-gradient(circle at 50% 48%, rgba(255,255,255,.9), transparent 20%),radial-gradient(circle at 70% 15%, rgba(255,143,209,.42), transparent 34%),linear-gradient(180deg,#fff0fb,#e8f9ff)}
-.boss-carbzilla #arena,.boss-carbzilla .arena{background:radial-gradient(circle at 50% 48%, rgba(255,255,255,.9), transparent 20%),radial-gradient(circle at 30% 18%, rgba(255,216,114,.5), transparent 32%),linear-gradient(180deg,#fff6dc,#edf8ff)}
-.boss-chaos #arena,.boss-chaos .arena{background:radial-gradient(circle at 50% 48%, rgba(255,255,255,.88), transparent 20%),radial-gradient(circle at 22% 18%, rgba(167,139,250,.35), transparent 34%),radial-gradient(circle at 80% 15%, rgba(88,215,255,.34), transparent 32%),linear-gradient(180deg,#f3f0ff,#e7fbff)}
-.boss-defeated #arena,.boss-defeated .arena{background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.94), transparent 22%),radial-gradient(circle at 50% 20%, rgba(255,232,117,.42), transparent 36%),linear-gradient(180deg,#f2fff4,#e7fbff)}
-#arena.boss-pulse,.arena.boss-pulse{animation:arenaPulse .52s ease}
-#laneWarn,.laneWarn{position:absolute;inset:0;z-index:70;pointer-events:none;opacity:0;background:repeating-linear-gradient(90deg,transparent 0 9%,rgba(255,91,112,.15) 9.5% 10.5%,transparent 11% 20%)}
-#laneWarn.show,.laneWarn.show{animation:laneWarn .45s ease}
-
-/* ---------- Duel ---------- */
-#duelLayer,.duelLayer{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:140;pointer-events:none}
-.duelBox{width:min(680px,90%);padding:18px;border-radius:28px;border:1px solid #d8edf6;background:rgba(255,255,255,.94);box-shadow:0 22px 55px rgba(42,78,102,.2);pointer-events:auto;text-align:center}
-.duelTitle{font-weight:1000;color:#31536a;margin-bottom:12px}
-.duelChoices{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.duelBtn{min-height:132px;border-radius:24px;background:#fff;border:2px solid #d9edf5;box-shadow:0 12px 24px rgba(42,78,102,.09);cursor:pointer;color:#31536a;font-weight:1000}
-.duelBtn:active{transform:scale(.97)}
-.duelTimer{height:10px;margin-top:14px;border-radius:999px;background:#e9f5fb;overflow:hidden}
-#duelFill{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#45d483,#ffd65d,#ff5a70)}
-
-/* ---------- Right hint/log/powers ---------- */
-#hintBox,.hintBox{margin-bottom:12px;padding:11px 13px;border-radius:18px;background:rgba(255,255,255,.78);border:1px solid #d8edf6;color:#45677b;font-weight:900;line-height:1.42}
-.powerRow,#powerRow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
-.powerChip,#pShield,#pFreeze,#pFever{min-height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 6px;border-radius:18px;border:1px solid #d8edf6;background:rgba(255,255,255,.72);color:#31536a;font-size:12px;font-weight:1000}
-.powerChip b,#pShield b,#pFreeze b,#pFever b{font-size:20px}
-.powerChip.on,#pShield.on,#pFreeze.on,#pFever.on{background:#fff8d9;border-color:#ffd560;box-shadow:0 10px 22px rgba(255,205,75,.16)}
-#log,.log{height:250px;overflow:auto;padding-right:4px}
-.logLine{padding:9px 11px;margin-bottom:7px;border-radius:999px;color:#5d7b91;background:rgba(255,255,255,.68);border:1px solid #d8edf6;font-size:12px;font-weight:900}
-#log::-webkit-scrollbar{width:8px}
-#log::-webkit-scrollbar-thumb{border-radius:999px;background:#c6d8e5}
-
-/* ---------- Bottom controls ---------- */
-.controlBar,#controlBar{
-  position:fixed;
-  left:50%;
-  bottom:calc(14px + var(--safeBottom));
-  z-index:250;
-  transform:translateX(-50%);
-  display:flex;
-  gap:10px;
-  align-items:center;
-  justify-content:center;
-  padding:8px;
-  border-radius:999px;
-  background:rgba(255,255,255,.72);
-  border:1px solid rgba(216,234,243,.86);
-  box-shadow:0 18px 35px rgba(42,78,102,.14);
-  backdrop-filter:blur(18px);
-}
-.gameBtn,#btnPause,#btnHint,#btnSkill,#btnBack,#btnAim,#btnReplay,#btnCooldown,#btnSummaryBack,#btnStart{
-  min-height:48px;
-  padding:0 18px;
-  border-radius:999px;
-  background:#fff;
-  color:#31536a;
-  border:1px solid #d6eaf4;
-  box-shadow:0 10px 22px rgba(42,78,102,.1);
-  font-weight:1000;
-  cursor:pointer;
-}
-#btnHint{background:#ffad2e;color:white;border-color:#ffad2e}
-#btnSkill{background:#45d483;color:white;border-color:#45d483}
-#btnSkill:disabled{opacity:.52;filter:grayscale(.3)}
-#btnBack,#btnSummaryBack{background:#eaf5fb}
-#btnStart,.startBtn{min-height:56px;padding:0 26px;background:linear-gradient(90deg,#45d483,#5cbcff);color:white;border:0;font-size:18px}
-.gameBtn:active,#btnPause:active,#btnHint:active,#btnSkill:active,#btnBack:active,#btnAim:active,#btnReplay:active,#btnCooldown:active,#btnSummaryBack:active,#btnStart:active{transform:translateY(1px) scale(.98)}
-
-/* ---------- Info Drawer ---------- */
-#btnInfoToggle,.btnInfoToggle{position:absolute;right:10%;top:122px;z-index:125;min-height:38px;padding:0 14px;border-radius:999px;color:#fff;background:#45677b;box-shadow:0 10px 22px rgba(42,78,102,.16);font-weight:1000;cursor:pointer}
-#infoDrawer,.infoDrawer{position:absolute;right:14px;top:166px;bottom:16px;width:min(320px,86%);z-index:170;padding:14px;border-radius:24px;background:rgba(255,255,255,.94);border:1px solid #d8edf6;box-shadow:0 22px 50px rgba(42,78,102,.2);overflow:auto}
-.infoDrawerHead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;font-weight:1000}
-#btnInfoClose{width:34px;height:34px;border-radius:50%;background:#eef7fb;color:#31536a;font-weight:1000;cursor:pointer}
-.infoBlock{padding:10px;border-radius:16px;background:#f8fdff;border:1px solid #d8edf6;color:#45677b;font-size:13px;line-height:1.42;margin-bottom:8px}
-
-/* ---------- Overlays ---------- */
-.overlay,#startOverlay,#summaryOverlay{
-  position:fixed;
-  inset:0;
-  z-index:500;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:18px;
-  background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.92), rgba(235,249,255,.82) 48%, rgba(230,242,255,.78));
-  backdrop-filter:blur(10px);
-}
-.overlayCard,.startCard,.summaryCard{
-  width:min(760px,94vw);
-  max-height:92vh;
-  overflow:auto;
-  padding:24px;
-  border-radius:34px;
-  background:rgba(255,255,255,.92);
-  border:1px solid #d8edf6;
-  box-shadow:0 30px 70px rgba(42,78,102,.2);
-  text-align:center;
-}
-.startTitle,.summaryTitle,#summaryTitle{margin:0;color:#244761;font-size:28px;line-height:1.15;font-weight:1000}
-.startSub,#summaryLine,.summaryLine{margin:8px auto 16px;color:#5d7b91;font-weight:900;line-height:1.45}
-#dailyBox,.dailyBox,#goalLock,.goalLock{margin:12px 0;padding:14px;border-radius:22px;background:#f8fdff;border:1px solid #d8edf6;color:#45677b;font-weight:900;text-align:left}
-.goalLockTitle{font-weight:1000;margin-bottom:8px;color:#31536a}
-.goalCards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.goalCard{padding:10px;border-radius:16px;background:white;border:1px solid #d8edf6;font-size:13px;line-height:1.35}
-.goalCard b{display:block;margin-bottom:4px;color:#244761}
-.summaryGrid,#summaryGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
-.summaryStat{padding:12px;border-radius:18px;background:#f8fdff;border:1px solid #d8edf6}
-.summaryStat b,#sumScore,#sumBalance,#sumCombo,#sumMission{display:block;color:#244761;font-size:22px;font-weight:1000}
-.summaryStat small{color:#6c8da2;font-weight:900}
-#rankIcon,.rankIcon{font-size:56px;line-height:1;margin-bottom:8px}
-#starRow,.starRow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px}
-.star{font-size:32px;filter:grayscale(1);opacity:.36}
-.star.on{filter:none;opacity:1;animation:starPop .52s ease}
-.starLabel{flex-basis:100%;color:#5d7b91;font-weight:900}
-#bestRow,.bestRow,#badgeRow,.badgeRow{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:10px 0}
-.bestChip,.badge{display:inline-flex;align-items:center;min-height:32px;padding:6px 10px;border-radius:999px;border:1px solid #d8edf6;background:#f8fdff;color:#45677b;font-size:12px;font-weight:1000}
-.bestChip.new,.badge.new{background:#fff7d7;border-color:#ffd560;color:#8a5c00}
-#recommend,.recommend{margin-top:12px}
-.childSummary{padding:12px;border-radius:22px;background:#f8fdff;border:1px solid #d8edf6;text-align:left}
-.childLine{margin:6px 0;color:#45677b;line-height:1.38}
-
-/* ---------- FX ---------- */
-#flash,.flash{position:absolute;inset:0;z-index:180;background:rgba(255,90,112,.22);opacity:0;pointer-events:none}
-#flash.on,.flash.on{animation:flashFx .42s ease}
-#juiceLayer,.juiceLayer{position:absolute;inset:0;z-index:210;pointer-events:none;overflow:hidden}
-.floatText{
-  position:absolute;
-  left:50%;
-  top:46%;
-  transform:translate(-50%,-50%);
-  z-index:214;
-  padding:10px 16px;
-  border-radius:999px;
-  color:white;
-  font-weight:1000;
-  box-shadow:0 16px 30px rgba(42,78,102,.18);
-  animation:floatText .9s ease forwards;
-  pointer-events:none;
-  text-align:center;
-}
-.scorePop{position:absolute;z-index:215;padding:8px 12px;border-radius:999px;color:white;font-weight:1000;text-shadow:0 1px 0 rgba(0,0,0,.12);background:#45d483;animation:scorePop .88s ease forwards}
-.scorePop.bad{background:#ff5a70}
-.scorePop.combo{background:#ff9a2e}
-.scorePop.boss{background:#8b5cf6}
-.scorePop.mission{background:#2f8cff}
-.scorePop.power{background:#58d7ff}
-.coinFx{position:absolute;left:50%;top:50%;z-index:216;font-size:22px;animation:coinBurst .9s ease forwards}
-.comboBoom{position:absolute;left:50%;top:30%;z-index:216;transform:translateX(-50%) scale(.86);padding:12px 18px;border-radius:999px;color:white;background:linear-gradient(90deg,#ff9a2e,#ff5a70,#8b5cf6);box-shadow:0 20px 40px rgba(255,90,112,.24);font-weight:1000;animation:comboBoom .95s ease forwards;text-align:center}
-.victoryBurst{position:absolute;inset:0;z-index:217;display:flex;align-items:center;justify-content:center;pointer-events:none}
-.victoryBurstText{padding:18px 28px;border-radius:999px;color:white;background:linear-gradient(90deg,#45d483,#2f8cff,#8b5cf6);box-shadow:0 24px 50px rgba(47,140,255,.25);font-size:28px;font-weight:1000;animation:victoryBurst .9s ease forwards}
-#feverLayer,.feverLayer{position:absolute;inset:0;z-index:60;pointer-events:none;background:radial-gradient(circle at 50% 50%, rgba(255,223,80,.18), transparent 34%),linear-gradient(90deg, rgba(255,90,112,.10), rgba(255,200,72,.10), rgba(86,216,130,.10));animation:feverGlow .7s infinite alternate}
-#finalRush,.finalRush{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-8deg);z-index:115;color:rgba(255,90,112,.16);font-size:min(80px,12vw);font-weight:1000;pointer-events:none;letter-spacing:2px;text-transform:uppercase;animation:finalRush .65s infinite alternate}
-#aiDirectorChip,.aiDirectorChip{position:absolute;left:50%;top:110px;transform:translateX(-50%);z-index:160;display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.92);border:1px solid #d8edf6;color:#45677b;box-shadow:0 14px 30px rgba(42,78,102,.12);font-weight:1000}
-.aiDirectorChip.assist{border-color:#abe4ff;background:#f1fbff}
-.aiDirectorChip.challenge{border-color:#ffe09a;background:#fff9e6}
-.aiDirectorChip.hot{border-color:#ffb1bf;background:#fff2f4}
-#aimReticle,.aimReticle{position:absolute;left:50%;top:50%;z-index:230;width:54px;height:54px;margin-left:-27px;margin-top:-27px;border:4px solid rgba(255,213,96,.9);border-radius:50%;box-shadow:0 0 0 6px rgba(255,255,255,.46),0 0 22px rgba(255,213,96,.6);pointer-events:none}
-#aimReticle::before,#aimReticle::after,.aimReticle::before,.aimReticle::after{content:"";position:absolute;background:rgba(255,213,96,.95)}
-#aimReticle::before,.aimReticle::before{left:50%;top:-12px;width:4px;height:76px;transform:translateX(-50%)}
-#aimReticle::after,.aimReticle::after{top:50%;left:-12px;height:4px;width:76px;transform:translateY(-50%)}
-
-/* ---------- Boot error ---------- */
-.bootError{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px;background:#f4fbff}
-.bootErrorCard{width:min(620px,94vw);padding:22px;border-radius:26px;border:1px solid #d8edf6;background:white;box-shadow:var(--shadow);color:#31536a}
-.bootErrorCard h2{margin:0 0 10px}
-.bootErrorCard code{display:block;margin-top:10px;padding:10px;white-space:pre-wrap;border-radius:12px;background:#f3f8fb;color:#8a3144}
-
-/* ---------- States ---------- */
-.plate-warn #arena,.app.plate-warn #arena{box-shadow:inset 0 0 0 3px rgba(255,213,96,.28)}
-.plate-danger #arena,.app.plate-danger #arena{box-shadow:inset 0 0 0 4px rgba(255,90,112,.25)}
-.plate-critical #arena,.app.plate-critical #arena{animation:criticalPulse .55s infinite alternate}
-.last-save-active #arena,.app.last-save-active #arena{box-shadow:inset 0 0 0 5px rgba(255,90,112,.28),0 0 0 999px rgba(255,90,112,.02)}
-.fever #arena,.app.fever #arena{filter:saturate(1.1)}
-.ai-assist .foodCard{box-shadow:0 18px 34px rgba(42,78,102,.13)}
-.ai-challenge .foodCard{filter:saturate(1.06)}
-.ai-hot .foodCard{filter:saturate(1.12) contrast(1.02)}
-
-/* ---------- Responsive ---------- */
-@media (max-width:1180px){
-  .gameShell,#gameShell{grid-template-columns:300px 1fr;grid-template-rows:auto auto minmax(520px,1fr)}
-  .topStats,#topStats{grid-column:1 / 2;grid-row:1}
-  .topCenter,#topCenter,.headerCard,#headerCard{grid-column:2 / 3;grid-row:1}
-  .topRight,#topRight,.missionPanelTop,#missionPanelTop{grid-column:1 / 3;grid-row:2}
-  .leftPanel,#leftPanel{grid-column:1 / 2;grid-row:3}
-  .centerPanel,#centerPanel{grid-column:2 / 3;grid-row:3}
-  .rightPanel,#rightPanel{grid-column:1 / 3;grid-row:4}
-  #log,.log{height:150px}
-}
-@media (max-width:860px){
-  #app,.app{padding:calc(8px + var(--safeTop)) 10px calc(86px + var(--safeBottom))}
-  .gameShell,#gameShell{display:flex;flex-direction:column;gap:10px}
-  .topStats,#topStats{order:1;grid-template-columns:repeat(3,1fr)}
-  .topCenter,#topCenter,.headerCard,#headerCard{order:2}
-  .topRight,#topRight,.missionPanelTop,#missionPanelTop{order:3}
-  .centerPanel,#centerPanel{order:4}
-  .leftPanel,#leftPanel{order:5}
-  .rightPanel,#rightPanel{order:6}
-  #arena,.arena{min-height:520px;height:calc(100vh - 250px - var(--safeTop) - var(--safeBottom));max-height:620px}
-  #arcadeHud,.arcadeHud{left:8px;right:8px;top:10px}
-  #plateHealthHud,.plateHealthHud{left:8px;right:8px;top:70px}
-  #compactMeters,.compactMeters{top:108px}
-  #btnInfoToggle,.btnInfoToggle{top:146px;right:10px}
-  #phaseBanner,.phaseBanner{top:146px}
-  #plate,.plate{scale:.68;opacity:.46;width:min(360px,68%)}
-  #app.playing #plate,#app.playing .plate,.app.playing #plate,.app.playing .plate{scale:.64;opacity:.42}
-  .foodCard{z-index:70 !important;width:104px;min-height:124px;border-radius:20px}
-  .foodVisual{width:62px;height:62px}
-  .size-boss{width:114px;min-height:134px}
-  .size-power{width:98px;min-height:116px}
-  #practiceCoach,.practiceCoach{top:clamp(66px,11vh,104px) !important;max-width:min(430px,86vw) !important;transform:translateX(-50%) scale(.80) !important}
-  #orderBox,#miniEventBox,#bossMechanicBox,#lastSaveBox{width:calc(100% - 20px);left:10px;transform:none}
-  #orderBox{top:142px}
-  #bossMechanicBox{top:142px}
-  #miniEventBox{top:184px}
-  #lastSaveBox{top:184px}
-  #bossAvatar,.bossAvatar{right:8px;top:200px;width:76px;height:88px;border-radius:24px}
-  #bossFace,.bossFace{font-size:34px}
-  #bossLabel,.bossLabel{font-size:9px}
-  .controlBar,#controlBar{width:calc(100% - 20px);overflow:auto;justify-content:flex-start}
-  .gameBtn,#btnPause,#btnHint,#btnSkill,#btnBack,#btnAim,#btnReplay,#btnCooldown,#btnSummaryBack,#btnStart{min-height:46px;padding:0 14px;flex:0 0 auto}
-  .goalCards{grid-template-columns:1fr}
-  .summaryGrid,#summaryGrid{grid-template-columns:repeat(2,1fr)}
-}
-@media (max-width:560px){
-  .statCard,.stat,.scoreCard{min-height:56px;padding:8px 6px}
-  .statCard b,.stat b,.scoreCard b,#score,#combo,#balance{font-size:19px}
-  .statCard small,.stat small,.scoreCard small{font-size:10px}
-  .headerTitle,#headerTitle,.title{font-size:17px}
-  #phaseText,.phaseText{font-size:12px}
-  #arena,.arena{min-height:500px;height:calc(100vh - 244px - var(--safeTop) - var(--safeBottom))}
-  #arcadeHud,.arcadeHud{grid-template-columns:repeat(4,1fr);gap:5px}
-  .arcadeBox,.miniStat{min-height:46px;border-radius:14px}
-  .arcadeBox b,.miniStat b,#miniScore,#miniCombo,#miniBalance,#miniTime{font-size:16px}
-  .arcadeBox small,.miniStat small{font-size:9px}
-  #plate,.plate{width:300px;max-width:76%}
-  .foodCard{width:96px;min-height:118px;padding:7px 7px 27px}
-  .foodVisual{width:56px;height:56px}
-  .foodVisual.assetFallback .foodEmojiFallback,.foodVisual .foodEmojiFallback{font-size:40px}
-  .foodCard .name{font-size:11px}
-  .foodTag{font-size:10px}
-  #practiceCoach,.practiceCoach{width:90vw;padding:14px 14px}
-  #practiceText,.practiceText{font-size:13px}
-  #log,.log{height:180px}
-  .overlayCard,.startCard,.summaryCard{padding:18px;border-radius:28px}
-  .startTitle,.summaryTitle,#summaryTitle{font-size:23px}
-  .summaryGrid,#summaryGrid{gap:8px}
-}
-@media (max-height:720px){
-  #practiceCoach,.practiceCoach{top:58px !important;transform:translateX(-50%) scale(.76) !important}
-  #arena,.arena{min-height:480px}
-}
-
-/* ---------- Animations ---------- */
-@keyframes foodFall{0%{top:-118px;opacity:0;transform:translateX(calc(-50% + var(--startX,0px))) rotate(var(--rot,0deg)) scale(.94)}8%{opacity:1}100%{top:104%;opacity:.92;transform:translateX(calc(-50% + var(--endX,0px))) rotate(calc(var(--rot,0deg) + 10deg)) scale(1)}}
-@keyframes foodRainFast{0%{top:-120px;opacity:0;transform:translateX(calc(-50% + var(--startX,0px))) rotate(var(--rot,0deg)) scale(.95)}6%{opacity:1}100%{top:105%;opacity:.92;transform:translateX(calc(-50% + var(--endX,0px))) rotate(calc(var(--rot,0deg) + 18deg)) scale(1.03)}}
-@keyframes junkDash{0%{top:-115px;opacity:0;transform:translateX(calc(-50% - 90px)) rotate(-12deg)}8%{opacity:1}50%{transform:translateX(calc(-50% + 80px)) rotate(14deg)}100%{top:105%;opacity:.95;transform:translateX(calc(-50% - 40px)) rotate(-8deg)}}
-@keyframes junkWobble{0%{top:-115px;opacity:0;transform:translateX(-50%) rotate(-10deg)}8%{opacity:1}25%{transform:translateX(calc(-50% + var(--sway,32px))) rotate(12deg)}50%{transform:translateX(calc(-50% - var(--sway,32px))) rotate(-14deg)}75%{transform:translateX(calc(-50% + 18px)) rotate(9deg)}100%{top:105%;opacity:.94;transform:translateX(-50%) rotate(-8deg)}}
-@keyframes powerFloat{0%{top:-110px;opacity:0;transform:translateX(-50%) scale(.8) rotate(-8deg)}8%{opacity:1}50%{transform:translateX(calc(-50% + 18px)) scale(1.08) rotate(8deg)}100%{top:103%;opacity:.95;transform:translateX(calc(-50% - 18px)) scale(.98) rotate(-4deg)}}
-@keyframes bossSwipe{0%{top:-120px;opacity:0;transform:translateX(calc(-50% - 140px)) rotate(-16deg) scale(1.04)}8%{opacity:1}40%{transform:translateX(calc(-50% + 130px)) rotate(18deg) scale(1.07)}70%{transform:translateX(calc(-50% - 80px)) rotate(-12deg) scale(1.05)}100%{top:105%;opacity:.94;transform:translateX(calc(-50% + 40px)) rotate(10deg) scale(1.02)}}
-@keyframes foodZigzag{0%{top:-115px;opacity:0;transform:translateX(-50%) rotate(var(--rot,0deg))}8%{opacity:1}25%{transform:translateX(calc(-50% + 46px)) rotate(10deg)}50%{transform:translateX(calc(-50% - 42px)) rotate(-10deg)}75%{transform:translateX(calc(-50% + 32px)) rotate(8deg)}100%{top:104%;opacity:.94;transform:translateX(calc(-50% - 22px)) rotate(-6deg)}}
-@keyframes driftLeft{0%{top:-115px;opacity:0;transform:translateX(calc(-50% + 70px)) rotate(8deg)}8%{opacity:1}100%{top:104%;opacity:.94;transform:translateX(calc(-50% - 80px)) rotate(-10deg)}}
-@keyframes driftRight{0%{top:-115px;opacity:0;transform:translateX(calc(-50% - 70px)) rotate(-8deg)}8%{opacity:1}100%{top:104%;opacity:.94;transform:translateX(calc(-50% + 80px)) rotate(10deg)}}
-@keyframes plateShake{0%,100%{translate:0 0}20%{translate:-8px 0}40%{translate:8px 0}60%{translate:-5px 0}80%{translate:5px 0}}
-@keyframes plateDanger{from{filter:saturate(1) contrast(1)}to{filter:saturate(1.18) contrast(1.06) drop-shadow(0 0 20px rgba(255,90,112,.22))}}
-@keyframes flashFx{0%{opacity:0}20%{opacity:1}100%{opacity:0}}
-@keyframes floatText{0%{opacity:0;translate:0 18px;scale:.9}18%{opacity:1;translate:0 0;scale:1}100%{opacity:0;translate:0 -44px;scale:1.04}}
-@keyframes scorePop{0%{opacity:0;transform:translate(-50%,18px) scale(.86)}18%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-58px) scale(1.08)}}
-@keyframes coinBurst{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx,0px)), calc(-50% + var(--dy,0px))) scale(1.16) rotate(var(--rot,180deg))}}
-@keyframes comboBoom{0%{opacity:0;transform:translateX(-50%) scale(.72) rotate(-3deg)}20%{opacity:1;transform:translateX(-50%) scale(1.06) rotate(1deg)}100%{opacity:0;transform:translateX(-50%) scale(1.16) rotate(0)}}
-@keyframes victoryBurst{0%{opacity:0;transform:scale(.72) rotate(-6deg)}18%{opacity:1;transform:scale(1.06) rotate(2deg)}100%{opacity:0;transform:scale(1.18) rotate(0)}}
-@keyframes bannerIn{0%{opacity:0;transform:translateX(-50%) translateY(-16px) scale(.94)}15%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}82%{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}100%{opacity:0;transform:translateX(-50%) translateY(-12px) scale(.98)}}
-@keyframes feverGlow{from{opacity:.45}to{opacity:.9}}
-@keyframes finalRush{from{opacity:.14;scale:.96}to{opacity:.25;scale:1.04}}
-@keyframes bossAttack{0%,100%{transform:translateX(0) rotate(0) scale(1)}35%{transform:translateX(-22px) rotate(-8deg) scale(1.08)}70%{transform:translateX(8px) rotate(6deg) scale(.98)}}
-@keyframes bossHit{0%,100%{transform:translateX(0) scale(1);filter:none}35%{transform:translateX(12px) scale(.92);filter:brightness(1.35)}70%{transform:translateX(-8px) scale(1.04)}}
-@keyframes skillFlash{0%{opacity:0;transform:translateX(-50%) scale(.84)}18%{opacity:1;transform:translateX(-50%) scale(1)}82%{opacity:1}100%{opacity:0;transform:translateX(-50%) scale(1.06)}}
-@keyframes arenaPulse{0%{filter:brightness(1)}35%{filter:brightness(1.12) saturate(1.15)}100%{filter:brightness(1)}}
-@keyframes laneWarn{0%{opacity:0}20%{opacity:1}100%{opacity:0}}
-@keyframes dangerPulse{from{filter:saturate(1)}to{filter:saturate(1.25) brightness(1.08)}}
-@keyframes missionHot{from{transform:translateY(0)}to{transform:translateY(-2px);box-shadow:0 10px 20px rgba(255,205,75,.22)}}
-@keyframes starPop{0%{transform:scale(.6) rotate(-12deg)}60%{transform:scale(1.22) rotate(7deg)}100%{transform:scale(1) rotate(0)}}
-@keyframes criticalPulse{from{filter:saturate(1)}to{filter:saturate(1.18) brightness(1.03)}}
-
-@media (prefers-reduced-motion:reduce){
-  *,*::before,*::after{
-    animation-duration:.01ms !important;
-    animation-iteration-count:1 !important;
-    scroll-behavior:auto !important;
-    transition-duration:.01ms !important;
-  }
-}
-/* === Plate Solo v40.8 SUMMARY POLISH + FAIR SCORE UI ===
-   Append to /herohealth/plate-solo.css
-   Fixes summary page that looks too empty/left-aligned on mobile.
-*/
-
-#summaryOverlay{
-  align-items:flex-start !important;
-  justify-content:center !important;
-  overflow:auto !important;
-  padding:calc(14px + var(--safeTop,0px)) 14px calc(22px + var(--safeBottom,0px)) !important;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(255,255,255,.94), rgba(234,249,255,.86) 52%, rgba(230,242,255,.88)) !important;
-}
-
-#summaryOverlay .summaryCard,
-#summaryOverlay .overlayCard,
-.summaryCard{
-  width:min(760px, 100%) !important;
-  max-height:none !important;
-  margin:0 auto !important;
-  padding:20px !important;
-  border-radius:30px !important;
-  text-align:center !important;
-  background:rgba(255,255,255,.92) !important;
-  border:1px solid #d8edf6 !important;
-  box-shadow:0 28px 70px rgba(42,78,102,.18) !important;
-}
-
-#rankIcon{
-  font-size:54px !important;
-  line-height:1 !important;
-  margin:0 0 8px !important;
-}
-
-#summaryTitle{
-  font-size:clamp(28px, 7vw, 46px) !important;
-  line-height:1.05 !important;
-  margin:0 !important;
-  letter-spacing:-.6px !important;
-  text-align:center !important;
-}
-
-#summaryLine{
-  margin:8px auto 12px !important;
-  max-width:620px !important;
-  font-size:clamp(16px, 4.4vw, 24px) !important;
-  line-height:1.35 !important;
-  text-align:center !important;
-  color:#5d7b91 !important;
-}
-
-#starRow{
-  justify-content:center !important;
-  gap:8px !important;
-  margin:10px 0 14px !important;
-}
-
-#starRow .star,
-.starRow .star{
-  font-size:clamp(32px, 8vw, 46px) !important;
-}
-
-#starRow .starLabel,
-.starRow .starLabel{
-  flex-basis:100% !important;
-  font-size:clamp(15px, 4vw, 20px) !important;
-  color:#668aa0 !important;
-  font-weight:1000 !important;
-}
-
-/* Stat grid must be cards, not a tall left column */
-#summaryGrid,
-.summaryGrid{
-  display:grid !important;
-  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
-  gap:10px !important;
-  margin:14px 0 !important;
-  width:100% !important;
-}
-
-#summaryGrid > *,
-.summaryGrid > *,
-.summaryStat{
-  min-height:96px !important;
-  padding:12px 10px !important;
-  border-radius:20px !important;
-  background:#f8fdff !important;
-  border:1px solid #d8edf6 !important;
-  box-shadow:0 10px 22px rgba(42,78,102,.07) !important;
-  display:flex !important;
-  flex-direction:column !important;
-  align-items:center !important;
-  justify-content:center !important;
-  text-align:center !important;
-}
-
-#sumScore,
-#sumBalance,
-#sumCombo,
-#sumMission{
-  display:block !important;
-  font-size:clamp(26px, 7vw, 38px) !important;
-  line-height:1 !important;
-  font-weight:1000 !important;
-  color:#244761 !important;
-  margin-bottom:5px !important;
-}
-
-#summaryGrid small,
-.summaryGrid small,
-.summaryStat small{
-  font-size:clamp(12px, 3.2vw, 15px) !important;
-  color:#668aa0 !important;
-  font-weight:1000 !important;
-}
-
-#badgeRow,
-.badgeRow,
-#bestRow,
-.bestRow{
-  justify-content:center !important;
-  gap:8px !important;
-  margin:12px 0 !important;
-}
-
-#badgeRow .badge,
-.badgeRow .badge,
-.bestChip{
-  min-height:36px !important;
-  padding:7px 11px !important;
-  font-size:clamp(12px, 3.4vw, 15px) !important;
-}
-
-#recommend,
-.recommend{
-  margin-top:14px !important;
-}
-
-#recommend .childSummary,
-.childSummary{
-  padding:16px !important;
-  border-radius:24px !important;
-  text-align:left !important;
-  background:#f8fdff !important;
-  border:1px solid #d8edf6 !important;
-}
-
-#recommend .childLine,
-.childLine{
-  margin:7px 0 !important;
-  font-size:clamp(15px, 4.1vw, 20px) !important;
-  line-height:1.38 !important;
-}
-
-.replayChallenge{
-  margin-top:12px !important;
-  padding:13px 14px !important;
-  border-radius:20px !important;
-  text-align:center !important;
-  color:#244761 !important;
-  background:linear-gradient(90deg,#f8fbff,#fff9df) !important;
-  border:1px solid #d8edf6 !important;
-  font-size:clamp(16px, 4.5vw, 22px) !important;
-  font-weight:1000 !important;
-}
-
-#summaryOverlay .actions,
-.summaryCard .actions{
-  display:grid !important;
-  grid-template-columns:repeat(3, minmax(0,1fr)) !important;
-  gap:10px !important;
-  margin-top:14px !important;
-}
-
-#summaryOverlay #btnReplay,
-#summaryOverlay #btnCooldown,
-#summaryOverlay #btnSummaryBack{
-  width:100% !important;
-  min-height:56px !important;
-  padding:0 12px !important;
-  border-radius:999px !important;
-  font-size:clamp(15px, 4vw, 20px) !important;
-}
-
-/* Make summary feel like a reward screen */
-#summaryOverlay .badge.new{
-  animation:summaryBadgePop .7s ease both !important;
-}
-
-@keyframes summaryBadgePop{
-  0%{ transform:scale(.86); opacity:.2; }
-  60%{ transform:scale(1.07); opacity:1; }
-  100%{ transform:scale(1); opacity:1; }
-}
-
-@media (max-width:700px){
-  #summaryOverlay{
-    padding:10px 10px calc(18px + var(--safeBottom,0px)) !important;
-  }
-
-  #summaryOverlay .summaryCard,
-  #summaryOverlay .overlayCard,
-  .summaryCard{
-    padding:16px 14px !important;
-    border-radius:28px !important;
-  }
-
-  #summaryGrid,
-  .summaryGrid{
-    grid-template-columns:repeat(2, minmax(0,1fr)) !important;
-  }
-
-  #summaryOverlay .actions,
-  .summaryCard .actions{
-    grid-template-columns:1fr !important;
-  }
-}
-
-@media (max-height:760px){
-  #summaryOverlay .summaryCard,
-  #summaryOverlay .overlayCard,
-  .summaryCard{
-    padding-top:14px !important;
-  }
-
-  #rankIcon{
-    font-size:42px !important;
-  }
-
-  #summaryTitle{
-    font-size:32px !important;
-  }
-
-  #summaryGrid > *,
-  .summaryGrid > *,
-  .summaryStat{
-    min-height:78px !important;
-  }
-}
-/* === Plate Solo v41.0 GAMEPLAY VIEWPORT HOTFIX ===
-   Append to /herohealth/plate-solo.css
-   Goal: while playing, the whole gameplay area must fit on screen.
-   - PC/tablet: keep 3 columns but shrink sidebars and use 100dvh.
-   - Mobile/landscape: focus the arena; side panels become hidden during play.
-   - Summary/start overlays are not affected.
-*/
-
-:root{
-  --plate-controls-h:76px;
-}
-
-/* Use modern viewport height where available */
+/* Runtime vh fallback set by JS v41.1 */
 @supports (height: 100dvh){
-  #app,
-  .app{
-    min-height:100dvh !important;
-  }
+  :root{ --hha-vh:100dvh; }
 }
 
-/* Prevent page-level vertical drift while playing */
+/* ===== Gameplay mode: lock page and make arena dominant ===== */
+
+body.plate-playing,
+body.plate-immersive{
+  overflow:hidden !important;
+  height:var(--hha-vh, 100dvh) !important;
+}
+
+#app.playing.immersive-gameplay,
+.app.playing.immersive-gameplay,
 #app.playing,
 .app.playing{
-  height:100dvh !important;
-  min-height:100dvh !important;
+  height:var(--hha-vh, 100dvh) !important;
+  min-height:var(--hha-vh, 100dvh) !important;
+  max-height:var(--hha-vh, 100dvh) !important;
   overflow:hidden !important;
   padding:
-    calc(8px + var(--safeTop,0px))
-    10px
-    calc(var(--plate-controls-h) + var(--safeBottom,0px)) !important;
+    calc(var(--plate-game-pad) + var(--safeTop,0px))
+    var(--plate-game-pad)
+    calc(var(--plate-controls-h) + var(--safeBottom,0px) + 4px) !important;
 }
 
-/* Desktop / wide tablet: everything must fit within viewport */
-@media (min-width: 1025px){
+/* ===== Wide screen: keep 3 columns but make side panels compact ===== */
+
+@media (min-width: 1181px){
   #app.playing #gameShell,
   .app.playing .gameShell{
-    width:min(100%, 1680px) !important;
-    height:calc(100dvh - var(--safeTop,0px) - var(--safeBottom,0px) - var(--plate-controls-h) - 18px) !important;
-    max-height:calc(100dvh - var(--safeTop,0px) - var(--safeBottom,0px) - var(--plate-controls-h) - 18px) !important;
+    height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 14px) !important;
+    max-height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 14px) !important;
     display:grid !important;
-    grid-template-columns:clamp(220px,18vw,300px) minmax(0,1fr) clamp(220px,18vw,300px) !important;
-    grid-template-rows:74px minmax(0,1fr) !important;
-    gap:10px !important;
-    align-items:stretch !important;
+    grid-template-columns:clamp(210px,16vw,280px) minmax(0,1fr) clamp(210px,16vw,280px) !important;
+    grid-template-rows:64px minmax(0,1fr) !important;
+    gap:8px !important;
     overflow:hidden !important;
   }
 
-  #app.playing #topStats,
-  .app.playing .topStats{
-    grid-column:1 / 2 !important;
-    grid-row:1 !important;
+  #app.playing #arena,
+  .app.playing #arena,
+  #app.playing .arena,
+  .app.playing .arena{
+    height:100% !important;
     min-height:0 !important;
-  }
-
-  #app.playing #topCenter,
-  #app.playing .topCenter,
-  #app.playing #headerCard,
-  #app.playing .headerCard,
-  .app.playing #topCenter,
-  .app.playing .topCenter,
-  .app.playing #headerCard,
-  .app.playing .headerCard{
-    grid-column:2 / 3 !important;
-    grid-row:1 !important;
-    min-height:0 !important;
-  }
-
-  #app.playing #topRight,
-  #app.playing .topRight,
-  #app.playing #missionPanelTop,
-  #app.playing .missionPanelTop,
-  .app.playing #topRight,
-  .app.playing .topRight,
-  .app.playing #missionPanelTop,
-  .app.playing .missionPanelTop{
-    grid-column:3 / 4 !important;
-    grid-row:1 !important;
-    min-height:0 !important;
-    overflow:hidden !important;
+    max-height:none !important;
   }
 
   #app.playing #leftPanel,
   #app.playing .leftPanel,
-  .app.playing #leftPanel,
-  .app.playing .leftPanel{
-    grid-column:1 / 2 !important;
-    grid-row:2 !important;
-    min-height:0 !important;
-    overflow:auto !important;
-    padding:10px !important;
-  }
-
-  #app.playing #centerPanel,
-  #app.playing .centerPanel,
-  .app.playing #centerPanel,
-  .app.playing .centerPanel{
-    grid-column:2 / 3 !important;
-    grid-row:2 !important;
-    min-height:0 !important;
-    overflow:hidden !important;
-  }
-
   #app.playing #rightPanel,
   #app.playing .rightPanel,
+  .app.playing #leftPanel,
+  .app.playing .leftPanel,
   .app.playing #rightPanel,
   .app.playing .rightPanel{
-    grid-column:3 / 4 !important;
-    grid-row:2 !important;
     min-height:0 !important;
+    max-height:100% !important;
     overflow:auto !important;
-    padding:10px !important;
+    padding:8px !important;
+    border-radius:22px !important;
   }
 
-  #app.playing #arena,
-  #app.playing .arena,
-  .app.playing #arena,
-  .app.playing .arena{
-    width:100% !important;
-    height:100% !important;
+  #app.playing #topStats,
+  #app.playing .topStats,
+  #app.playing #topCenter,
+  #app.playing .topCenter,
+  #app.playing #headerCard,
+  #app.playing .headerCard,
+  #app.playing #topRight,
+  #app.playing .topRight,
+  .app.playing #topStats,
+  .app.playing .topStats,
+  .app.playing #topCenter,
+  .app.playing .topCenter,
+  .app.playing #headerCard,
+  .app.playing .headerCard,
+  .app.playing #topRight,
+  .app.playing .topRight{
     min-height:0 !important;
-    max-height:none !important;
-    border-radius:26px !important;
+    height:64px !important;
+    overflow:hidden !important;
+    padding:6px 8px !important;
+    border-radius:18px !important;
   }
 
-  #app.playing #log,
-  #app.playing .log,
-  .app.playing #log,
-  .app.playing .log{
-    height:auto !important;
-    max-height:22vh !important;
+  #app.playing .statCard,
+  #app.playing .stat,
+  #app.playing .scoreCard,
+  .app.playing .statCard,
+  .app.playing .stat,
+  .app.playing .scoreCard{
+    min-height:48px !important;
+    padding:5px !important;
+    border-radius:14px !important;
+  }
+
+  #app.playing #score,
+  #app.playing #combo,
+  #app.playing #balance,
+  .app.playing #score,
+  .app.playing #combo,
+  .app.playing #balance{
+    font-size:18px !important;
   }
 
   #app.playing .groupMeter,
   .app.playing .groupMeter{
-    padding:8px 9px !important;
-    border-radius:15px !important;
+    padding:7px 8px !important;
+    border-radius:14px !important;
   }
 
-  #app.playing .gmTop,
-  .app.playing .gmTop{
-    font-size:12px !important;
+  #app.playing .bar,
+  .app.playing .bar{
+    height:10px !important;
+    margin-top:5px !important;
   }
 
   #app.playing .need,
   .app.playing .need{
+    margin-top:4px !important;
     font-size:10px !important;
   }
 
-  #app.playing .mission,
-  .app.playing .mission{
+  #app.playing #log,
+  .app.playing #log,
+  #app.playing .log,
+  .app.playing .log{
+    height:auto !important;
+    max-height:18vh !important;
+  }
+
+  #app.playing .logLine,
+  .app.playing .logLine{
+    padding:6px 8px !important;
+    margin-bottom:5px !important;
     font-size:10px !important;
-    min-height:28px !important;
-    padding:4px 7px !important;
   }
 }
 
-/* Medium / small screens: gameplay-first. Side panels hide while playing. */
-@media (max-width: 1024px){
+/* ===== Tablet/mobile/landscape: immersive arena only ===== */
+
+@media (max-width: 1180px){
   #app.playing #gameShell,
   .app.playing .gameShell{
     width:100% !important;
-    height:calc(100dvh - var(--safeTop,0px) - var(--safeBottom,0px) - var(--plate-controls-h) - 16px) !important;
-    max-height:calc(100dvh - var(--safeTop,0px) - var(--safeBottom,0px) - var(--plate-controls-h) - 16px) !important;
+    height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 10px) !important;
+    max-height:calc(var(--hha-vh, 100dvh) - var(--plate-controls-h) - var(--safeTop,0px) - var(--safeBottom,0px) - 10px) !important;
     display:grid !important;
     grid-template-columns:1fr !important;
     grid-template-rows:minmax(0,1fr) !important;
-    gap:0 !important;
     overflow:hidden !important;
+    gap:0 !important;
   }
 
-  /* Duplicate information already exists in arcadeHud, compactMeters, plateHealthHud, and info drawer */
   #app.playing #topStats,
   #app.playing .topStats,
   #app.playing #topCenter,
@@ -1312,11 +202,11 @@ button{border:0}
   .app.playing .centerPanel{
     grid-column:1 / 2 !important;
     grid-row:1 / 2 !important;
-    min-height:0 !important;
     width:100% !important;
     height:100% !important;
+    min-height:0 !important;
     overflow:hidden !important;
-    border-radius:26px !important;
+    border-radius:22px !important;
   }
 
   #app.playing #arena,
@@ -1327,267 +217,292 @@ button{border:0}
     height:100% !important;
     min-height:0 !important;
     max-height:none !important;
-    border-radius:26px !important;
+    border-radius:22px !important;
   }
+}
 
-  /* Bring key HUD closer and smaller */
-  #app.playing #arcadeHud,
-  #app.playing .arcadeHud,
-  .app.playing #arcadeHud,
-  .app.playing .arcadeHud{
-    left:8px !important;
-    right:8px !important;
-    top:8px !important;
-    gap:5px !important;
-    z-index:160 !important;
-  }
+/* ===== HUD: compact, non-blocking ===== */
 
-  #app.playing .arcadeBox,
-  #app.playing .miniStat,
-  .app.playing .arcadeBox,
-  .app.playing .miniStat{
-    min-height:42px !important;
-    border-radius:14px !important;
-  }
+#app.playing #arcadeHud,
+.app.playing #arcadeHud,
+#app.playing .arcadeHud,
+.app.playing .arcadeHud{
+  left:6px !important;
+  right:6px !important;
+  top:6px !important;
+  gap:5px !important;
+  z-index:180 !important;
+}
 
-  #app.playing #plateHealthHud,
-  #app.playing .plateHealthHud,
-  .app.playing #plateHealthHud,
-  .app.playing .plateHealthHud{
-    left:8px !important;
-    right:8px !important;
-    top:58px !important;
-    min-height:30px !important;
-    padding:5px 9px !important;
-    z-index:162 !important;
-  }
+#app.playing .arcadeBox,
+#app.playing .miniStat,
+.app.playing .arcadeBox,
+.app.playing .miniStat{
+  min-height:38px !important;
+  border-radius:13px !important;
+  padding:4px !important;
+}
 
+#app.playing .arcadeBox b,
+#app.playing .miniStat b,
+#app.playing #miniScore,
+#app.playing #miniCombo,
+#app.playing #miniBalance,
+#app.playing #miniTime,
+.app.playing .arcadeBox b,
+.app.playing .miniStat b,
+.app.playing #miniScore,
+.app.playing #miniCombo,
+.app.playing #miniBalance,
+.app.playing #miniTime{
+  font-size:15px !important;
+}
+
+#app.playing .arcadeBox small,
+#app.playing .miniStat small,
+.app.playing .arcadeBox small,
+.app.playing .miniStat small{
+  font-size:8px !important;
+}
+
+#app.playing #plateHealthHud,
+#app.playing .plateHealthHud,
+.app.playing #plateHealthHud,
+.app.playing .plateHealthHud{
+  left:6px !important;
+  right:6px !important;
+  top:50px !important;
+  min-height:28px !important;
+  padding:5px 8px !important;
+  z-index:182 !important;
+}
+
+#app.playing #compactMeters,
+#app.playing .compactMeters,
+.app.playing #compactMeters,
+.app.playing .compactMeters{
+  left:6px !important;
+  right:6px !important;
+  top:84px !important;
+  gap:4px !important;
+  z-index:181 !important;
+}
+
+/* Hide compact meters in short landscape to save gameplay */
+@media (orientation: landscape) and (max-height: 620px){
   #app.playing #compactMeters,
   #app.playing .compactMeters,
   .app.playing #compactMeters,
   .app.playing .compactMeters{
-    left:8px !important;
-    right:8px !important;
-    top:94px !important;
-    gap:4px !important;
-    z-index:161 !important;
-  }
-
-  #app.playing #btnInfoToggle,
-  #app.playing .btnInfoToggle,
-  .app.playing #btnInfoToggle,
-  .app.playing .btnInfoToggle{
-    top:132px !important;
-    right:10px !important;
-    min-height:34px !important;
-    padding:0 12px !important;
-    z-index:190 !important;
-  }
-
-  #app.playing #phaseBanner,
-  #app.playing .phaseBanner,
-  .app.playing #phaseBanner,
-  .app.playing .phaseBanner{
-    top:132px !important;
-    max-width:calc(100% - 86px) !important;
-    font-size:12px !important;
-    padding:7px 11px !important;
-    z-index:185 !important;
-  }
-
-  #app.playing #orderBox,
-  #app.playing #bossMechanicBox,
-  .app.playing #orderBox,
-  .app.playing #bossMechanicBox{
-    top:170px !important;
-    width:calc(100% - 18px) !important;
-    left:9px !important;
-    transform:none !important;
-  }
-
-  #app.playing #miniEventBox,
-  #app.playing #lastSaveBox,
-  .app.playing #miniEventBox,
-  .app.playing #lastSaveBox{
-    top:214px !important;
-    width:calc(100% - 18px) !important;
-    left:9px !important;
-    transform:none !important;
-  }
-}
-
-/* Very small phones: even tighter */
-@media (max-width: 560px){
-  :root{ --plate-controls-h:70px; }
-
-  #app.playing,
-  .app.playing{
-    padding:6px 6px calc(var(--plate-controls-h) + var(--safeBottom,0px)) !important;
-  }
-
-  #app.playing #gameShell,
-  .app.playing .gameShell{
-    height:calc(100dvh - var(--safeTop,0px) - var(--safeBottom,0px) - var(--plate-controls-h) - 10px) !important;
-    max-height:calc(100dvh - var(--safeTop,0px) - var(--safeBottom,0px) - var(--plate-controls-h) - 10px) !important;
-  }
-
-  #app.playing #centerPanel,
-  #app.playing .centerPanel,
-  #app.playing #arena,
-  #app.playing .arena,
-  .app.playing #centerPanel,
-  .app.playing .centerPanel,
-  .app.playing #arena,
-  .app.playing .arena{
-    border-radius:22px !important;
-  }
-
-  #app.playing #arcadeHud,
-  .app.playing #arcadeHud{
-    top:6px !important;
-  }
-
-  #app.playing #plateHealthHud,
-  .app.playing #plateHealthHud{
-    top:54px !important;
-  }
-
-  #app.playing #compactMeters,
-  .app.playing #compactMeters{
-    top:88px !important;
-  }
-
-  #app.playing #btnInfoToggle,
-  .app.playing #btnInfoToggle{
-    top:122px !important;
-  }
-
-  #app.playing #phaseBanner,
-  .app.playing #phaseBanner{
-    top:122px !important;
-  }
-
-  #app.playing #orderBox,
-  #app.playing #bossMechanicBox,
-  .app.playing #orderBox,
-  .app.playing #bossMechanicBox{
-    top:158px !important;
-  }
-
-  #app.playing #miniEventBox,
-  #app.playing #lastSaveBox,
-  .app.playing #miniEventBox,
-  .app.playing #lastSaveBox{
-    top:200px !important;
-  }
-
-  #app.playing .controlBar,
-  #app.playing #controlBar,
-  .app.playing .controlBar,
-  .app.playing #controlBar{
-    left:6px !important;
-    right:6px !important;
-    bottom:calc(6px + var(--safeBottom,0px)) !important;
-    transform:none !important;
-    width:auto !important;
-    padding:5px !important;
-    gap:6px !important;
-  }
-
-  #app.playing #btnPause,
-  #app.playing #btnHint,
-  #app.playing #btnSkill,
-  #app.playing #btnBack,
-  #app.playing #btnAim,
-  .app.playing #btnPause,
-  .app.playing #btnHint,
-  .app.playing #btnSkill,
-  .app.playing #btnBack,
-  .app.playing #btnAim{
-    min-height:44px !important;
-    padding:0 11px !important;
-    font-size:14px !important;
-  }
-}
-
-/* Landscape phone/tablet: hide even more vertical chrome */
-@media (orientation: landscape) and (max-height: 620px){
-  :root{ --plate-controls-h:58px; }
-
-  #app.playing,
-  .app.playing{
-    padding:4px 6px calc(var(--plate-controls-h) + var(--safeBottom,0px)) !important;
-  }
-
-  #app.playing #arcadeHud,
-  .app.playing #arcadeHud{
-    grid-template-columns:repeat(4, minmax(0,1fr)) !important;
-    top:5px !important;
-  }
-
-  #app.playing .arcadeBox,
-  #app.playing .miniStat,
-  .app.playing .arcadeBox,
-  .app.playing .miniStat{
-    min-height:34px !important;
-  }
-
-  #app.playing .arcadeBox b,
-  #app.playing .miniStat b,
-  #app.playing #miniScore,
-  #app.playing #miniCombo,
-  #app.playing #miniBalance,
-  #app.playing #miniTime{
-    font-size:14px !important;
-  }
-
-  #app.playing .arcadeBox small,
-  #app.playing .miniStat small{
-    font-size:8px !important;
-  }
-
-  #app.playing #plateHealthHud,
-  .app.playing #plateHealthHud{
-    top:44px !important;
-    min-height:26px !important;
-  }
-
-  #app.playing #compactMeters,
-  .app.playing #compactMeters{
     display:none !important;
   }
 
-  #app.playing #btnInfoToggle,
-  .app.playing #btnInfoToggle{
-    top:76px !important;
+  #app.playing #plateHealthHud,
+  .app.playing #plateHealthHud,
+  #app.playing .plateHealthHud,
+  .app.playing .plateHealthHud{
+    top:44px !important;
   }
+}
 
-  #app.playing #phaseBanner,
-  .app.playing #phaseBanner{
-    top:76px !important;
-  }
+/* ===== Practice coach: no more giant center card ===== */
 
-  #app.playing #orderBox,
-  #app.playing #bossMechanicBox,
-  .app.playing #orderBox,
-  .app.playing #bossMechanicBox{
-    top:110px !important;
-  }
+#app.playing.practice-mode #practiceCoach,
+#app.playing.practice-mode .practiceCoach,
+.app.playing.practice-mode #practiceCoach,
+.app.playing.practice-mode .practiceCoach{
+  left:50% !important;
+  top:118px !important;
+  width:min(520px, calc(100% - 18px)) !important;
+  max-width:calc(100% - 18px) !important;
+  min-height:0 !important;
+  max-height:76px !important;
+  overflow:hidden !important;
+  padding:8px 10px !important;
+  border-radius:18px !important;
+  transform:translateX(-50%) scale(1) !important;
+  z-index:190 !important;
+}
 
-  #app.playing #miniEventBox,
-  #app.playing #lastSaveBox,
-  .app.playing #miniEventBox,
-  .app.playing #lastSaveBox{
-    top:148px !important;
-  }
+#app.playing.practice-mode #practiceCoach .practiceHead,
+#app.playing.practice-mode .practiceCoach .practiceHead,
+.app.playing.practice-mode #practiceCoach .practiceHead,
+.app.playing.practice-mode .practiceCoach .practiceHead{
+  margin-bottom:3px !important;
+  font-size:12px !important;
+}
 
-  #app.playing .controlBar,
-  #app.playing #controlBar,
-  .app.playing .controlBar,
-  .app.playing #controlBar{
-    min-height:46px !important;
-    bottom:calc(4px + var(--safeBottom,0px)) !important;
-  }
+#app.playing.practice-mode #practiceText,
+#app.playing.practice-mode .practiceText,
+.app.playing.practice-mode #practiceText,
+.app.playing.practice-mode .practiceText{
+  font-size:12px !important;
+  line-height:1.18 !important;
+  white-space:nowrap !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+}
+
+#app.playing.practice-mode .practiceBar,
+.app.playing.practice-mode .practiceBar{
+  height:7px !important;
+  margin:5px 0 0 !important;
+}
+
+#app.playing.practice-mode #btnSkipPractice,
+#app.playing.practice-mode .btnSkipPractice,
+.app.playing.practice-mode #btnSkipPractice,
+.app.playing.practice-mode .btnSkipPractice{
+  min-height:0 !important;
+  padding:4px 10px !important;
+  font-size:11px !important;
+  position:absolute !important;
+  right:8px !important;
+  bottom:7px !important;
+}
+
+/* ===== Alerts: upper overlay, compact ===== */
+
+#app.playing #btnInfoToggle,
+.app.playing #btnInfoToggle,
+#app.playing .btnInfoToggle,
+.app.playing .btnInfoToggle{
+  top:116px !important;
+  right:8px !important;
+  min-height:32px !important;
+  padding:0 10px !important;
+  font-size:12px !important;
+  z-index:195 !important;
+}
+
+#app.playing #phaseBanner,
+.app.playing #phaseBanner,
+#app.playing .phaseBanner,
+.app.playing .phaseBanner{
+  top:116px !important;
+  max-width:calc(100% - 86px) !important;
+  min-height:32px !important;
+  padding:7px 10px !important;
+  font-size:12px !important;
+  z-index:192 !important;
+}
+
+#app.playing #orderBox,
+#app.playing #bossMechanicBox,
+.app.playing #orderBox,
+.app.playing #bossMechanicBox{
+  top:154px !important;
+  width:calc(100% - 16px) !important;
+  left:8px !important;
+  transform:none !important;
+  padding:8px 10px !important;
+  border-radius:17px !important;
+  font-size:12px !important;
+}
+
+#app.playing #miniEventBox,
+#app.playing #lastSaveBox,
+.app.playing #miniEventBox,
+.app.playing #lastSaveBox{
+  top:194px !important;
+  width:calc(100% - 16px) !important;
+  left:8px !important;
+  transform:none !important;
+  padding:8px 10px !important;
+  border-radius:17px !important;
+  font-size:12px !important;
+}
+
+/* ===== Food cards: prevent edge clipping and keep targets readable ===== */
+
+#app.playing .foodCard,
+.app.playing .foodCard{
+  width:clamp(84px, 13vw, 108px) !important;
+  min-height:clamp(104px, 16vw, 132px) !important;
+  padding:7px 7px 26px !important;
+  z-index:88 !important;
+}
+
+#app.playing .foodVisual,
+.app.playing .foodVisual{
+  width:clamp(50px, 8vw, 64px) !important;
+  height:clamp(50px, 8vw, 64px) !important;
+}
+
+#app.playing .foodVisual .foodEmojiFallback,
+.app.playing .foodVisual .foodEmojiFallback{
+  font-size:clamp(36px, 7vw, 50px) !important;
+}
+
+#app.playing .foodCard .name,
+.app.playing .foodCard .name{
+  font-size:11px !important;
+  line-height:1.05 !important;
+}
+
+#app.playing .foodTag,
+.app.playing .foodTag{
+  font-size:10px !important;
+  padding:3px 8px !important;
+}
+
+/* Edge lanes should not transform farther outward */
+#app.playing .foodCard.lane-edge-left,
+#app.playing .foodCard.lane-edge-right,
+.app.playing .foodCard.lane-edge-left,
+.app.playing .foodCard.lane-edge-right{
+  transform:translateX(-50%) rotate(var(--rot,0deg)) !important;
+}
+
+/* ===== Plate as background only ===== */
+
+#app.playing #plate,
+#app.playing .plate,
+.app.playing #plate,
+.app.playing .plate{
+  opacity:.30 !important;
+  scale:.58 !important;
+  z-index:3 !important;
+}
+
+/* ===== Controls: small and always visible ===== */
+
+#app.playing #controlBar,
+#app.playing .controlBar,
+.app.playing #controlBar,
+.app.playing .controlBar{
+  left:6px !important;
+  right:6px !important;
+  bottom:calc(5px + var(--safeBottom,0px)) !important;
+  transform:none !important;
+  width:auto !important;
+  max-width:none !important;
+  min-height:52px !important;
+  padding:5px !important;
+  gap:6px !important;
+  overflow-x:auto !important;
+  justify-content:center !important;
+  z-index:260 !important;
+}
+
+#app.playing #btnPause,
+#app.playing #btnHint,
+#app.playing #btnSkill,
+#app.playing #btnBack,
+#app.playing #btnAim,
+.app.playing #btnPause,
+.app.playing #btnHint,
+.app.playing #btnSkill,
+.app.playing #btnBack,
+.app.playing #btnAim{
+  min-height:42px !important;
+  padding:0 11px !important;
+  font-size:13px !important;
+  flex:0 0 auto !important;
+}
+
+@media (max-width: 480px){
+  :root{ --plate-controls-h:58px; }
 
   #app.playing #btnPause,
   #app.playing #btnHint,
@@ -1600,10 +515,73 @@ button{border:0}
   .app.playing #btnBack,
   .app.playing #btnAim{
     min-height:40px !important;
+    padding:0 9px !important;
+    font-size:12px !important;
   }
 }
 
-/* Safety: start/summary overlays can scroll, but game view should not clip */
+@media (orientation: landscape) and (max-height: 620px){
+  :root{ --plate-controls-h:50px; }
+
+  #app.playing.practice-mode #practiceCoach,
+  .app.playing.practice-mode #practiceCoach,
+  #app.playing.practice-mode .practiceCoach,
+  .app.playing.practice-mode .practiceCoach{
+    top:78px !important;
+    max-height:54px !important;
+    padding:6px 8px !important;
+  }
+
+  #app.playing #btnInfoToggle,
+  #app.playing .btnInfoToggle,
+  .app.playing #btnInfoToggle,
+  .app.playing .btnInfoToggle{
+    top:78px !important;
+  }
+
+  #app.playing #phaseBanner,
+  #app.playing .phaseBanner,
+  .app.playing #phaseBanner,
+  .app.playing .phaseBanner{
+    top:78px !important;
+  }
+
+  #app.playing #orderBox,
+  #app.playing #bossMechanicBox,
+  .app.playing #orderBox,
+  .app.playing #bossMechanicBox{
+    top:112px !important;
+  }
+
+  #app.playing #miniEventBox,
+  #app.playing #lastSaveBox,
+  .app.playing #miniEventBox,
+  .app.playing #lastSaveBox{
+    top:148px !important;
+  }
+
+  #app.playing #controlBar,
+  #app.playing .controlBar,
+  .app.playing #controlBar,
+  .app.playing .controlBar{
+    min-height:46px !important;
+  }
+
+  #app.playing #btnPause,
+  #app.playing #btnHint,
+  #app.playing #btnSkill,
+  #app.playing #btnBack,
+  #app.playing #btnAim,
+  .app.playing #btnPause,
+  .app.playing #btnHint,
+  .app.playing #btnSkill,
+  .app.playing #btnBack,
+  .app.playing #btnAim{
+    min-height:38px !important;
+  }
+}
+
+/* Start and summary screens must remain scrollable */
 #startOverlay,
 #summaryOverlay{
   overflow:auto !important;
