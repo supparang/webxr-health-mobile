@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>HeroHealth • Groups Solo Arena v9.0.1</title>
+<title>HeroHealth • Groups Solo Arena v9.0.2</title>
 <meta name="theme-color" content="#bfeeff"/>
 <style>
 :root{--ink:#29485f;--muted:#6b8da4;--line:#d6edf7;--blue:#61bbff;--green:#7ed957;--yellow:#ffd966;--orange:#ff9f43;--red:#ff6b6b;--pink:#ff9fd0;--violet:#bca7ff;--sab:env(safe-area-inset-bottom,0px);--sat:env(safe-area-inset-top,0px);--sal:env(safe-area-inset-left,0px);--sar:env(safe-area-inset-right,0px)}
@@ -452,7 +452,7 @@ body.view-cvr .foodActor .emoji{
 /* === GROUPS SOLO ARENA v8.0 — PRODUCTION CANDIDATE POLISH === */
 /* ✅ action-first UI, less blocking, clearer replay motivation */
 
-body[data-version="v9.0.1-progress-html-hotfix"] .brand p::after{
+body[data-version="v9.0.2-release-qa-micro-fix"] .brand p::after{
   content:" • v9.0";
   opacity:.72;
 }
@@ -603,7 +603,7 @@ body.isPlaying .powerText small{
 /* ✅ compact child-friendly summary */
 /* ✅ release-safe UI */
 
-body[data-version="v9.0.1-progress-html-hotfix"] .brand p::after{
+body[data-version="v9.0.2-release-qa-micro-fix"] .brand p::after{
   content:" • Release";
   opacity:.72;
 }
@@ -683,6 +683,64 @@ body[data-version="v9.0.1-progress-html-hotfix"] .brand p::after{
 .progressChipRow{line-height:1.25}
 .summaryFocus .progressChipRow{margin-top:10px}
 
+
+/* === GROUPS SOLO ARENA v9.0.2 — RELEASE QA MICRO FIX === */
+/* ✅ Summary bottom buttons no longer clipped */
+/* ✅ Thai-friendly wording: เหรียญ / Daily สำเร็จ / Daily ยังไม่สำเร็จ */
+/* ✅ Safer mobile/landscape bottom spacing */
+
+#summaryOverlay{
+  padding-bottom:calc(88px + var(--sab)) !important;
+}
+
+#summaryOverlay .modal{
+  margin-bottom:calc(44px + var(--sab)) !important;
+}
+
+#summaryOverlay .modal > div:last-child{
+  padding-bottom:calc(24px + var(--sab)) !important;
+}
+
+#summaryOverlay .bigBtn{
+  min-width:142px;
+}
+
+.progressChip.dailyDone{
+  background:#f3fff0;
+  border-color:#d8f4cf;
+  color:#377d37;
+}
+
+.progressChip.dailyTodo{
+  background:#fff9df;
+  border-color:#ffe39a;
+  color:#9a6517;
+}
+
+@media (max-width:720px){
+  #summaryOverlay{
+    padding-bottom:calc(112px + var(--sab)) !important;
+  }
+
+  #summaryOverlay .modal > div:last-child{
+    gap:8px !important;
+  }
+
+  #summaryOverlay .bigBtn{
+    min-width:min(220px,100%);
+  }
+}
+
+@media (orientation:landscape) and (max-height:620px){
+  #summaryOverlay{
+    padding-bottom:calc(74px + var(--sab)) !important;
+  }
+
+  #summaryOverlay .modal{
+    margin-bottom:calc(30px + var(--sab)) !important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -712,7 +770,7 @@ body[data-version="v9.0.1-progress-html-hotfix"] .brand p::after{
 <script>
 (()=>{'use strict';
 const $=id=>document.getElementById(id),q=new URLSearchParams(location.search);
-const APP_VERSION='v9.0.1-progress-html-hotfix',APP_SCHEMA='groups-solo-arena-v9.0.1-progress-html-hotfix';
+const APP_VERSION='v9.0.2-release-qa-micro-fix',APP_SCHEMA='groups-solo-arena-v9.0.2-release-qa-micro-fix';
 const BUILD_FLAGS={actionArena:true,dragDrop:true,cvr:true,bossOrders:true,researchMetrics:true,cloudQueue:true,kidSummary:true,productionRelease:true,waveMission:true,replayMotivation:true,endgameStable:true,personalBest:true,dailyChallenge:true,badges:true};
 const GROUPS=[{id:1,short:'โปรตีน',label:'หมู่ 1 โปรตีน',ex:'เนื้อ นม ไข่ ถั่ว'},{id:2,short:'ข้าว/แป้ง',label:'หมู่ 2 ข้าว/แป้ง',ex:'ข้าว แป้ง เผือก มัน น้ำตาล'},{id:3,short:'ผัก',label:'หมู่ 3 ผัก',ex:'ผักต่าง ๆ'},{id:4,short:'ผลไม้',label:'หมู่ 4 ผลไม้',ex:'ผลไม้ต่าง ๆ'},{id:5,short:'ไขมัน',label:'หมู่ 5 ไขมัน',ex:'น้ำมัน ไขมัน กะทิ เนย'}];
 const FOODS=[['🥚','ไข่',1],['🍗','ไก่',1],['🐟','ปลา',1],['🥛','นม',1],['🫘','ถั่วเมล็ดแห้ง',1],['🥩','เนื้อสัตว์',1],['🍚','ข้าว',2],['🍞','ขนมปัง',2],['🥔','มันฝรั่ง',2],['🍠','มันเทศ',2],['🌽','ข้าวโพด',2],['🍜','เส้นก๋วยเตี๋ยว',2],['🥦','บรอกโคลี',3],['🥬','ผักใบเขียว',3],['🥕','แครอต',3],['🥒','แตงกวา',3],['🍅','มะเขือเทศ',3],['🌶️','พริก',3],['🍎','แอปเปิล',4],['🍌','กล้วย',4],['🍊','ส้ม',4],['🍇','องุ่น',4],['🍉','แตงโม',4],['🥭','มะม่วง',4],['🥑','อะโวคาโด',5],['🧈','เนย',5],['🥥','กะทิ',5],['🫒','น้ำมันมะกอก',5],['🥜','ถั่วลิสง',5],['🌰','เมล็ดพืช',5]].map(x=>({emoji:x[0],name:x[1],group:x[2]}));
@@ -724,7 +782,7 @@ const els={scoreTxt:$('scoreTxt'),timeTxt:$('timeTxt'),lifeTxt:$('lifeTxt'),comb
 const state={active:false,ended:false,practice:false,sessionId:'',score:0,timeLeft:cfg.time,totalTime:cfg.time,lives:3,combo:0,maxCombo:0,attempts:0,correct:0,miss:0,crashes:0,actors:[],selectedId:null,nextActorId:1,lastTs:0,raf:0,spawnTimer:0,totalTimer:0,wave:1,phase:'calm',phaseChanges:0,feverUntil:0,powerCharge:0,powerThreshold:6,lastPowerTier:0,powerActive:false,assistShield:0,missStreak:0,bossHp:120,bossMaxHp:120,bossActive:false,bossRage:false,bossOrder:null,bossOrderSerial:0,bossOrderRaf:0,bossOrderCooldownUntil:0,bossOrdersCleared:0,bossOrdersFailed:0,bossAnswerCount:0,objective:null,events:[],audioReady:false,lastDangerToneAt:0,lastComboSplashAt:0,lastSpawnToneAt:0,firstSelectDone:false,firstSortDone:false,firstDangerCueDone:false,firstBossCueDone:false,firstDragCueDone:false,drag:{active:false,actorId:null,pointerId:null,startX:0,startY:0,lastX:0,lastY:0,moved:false,offsetX:0,offsetY:0,hoverGroup:0,guide:null},cvr:{enabled:false,aimType:'',aimId:null,aimGroup:0,lastAimKey:'',lastHintAt:0,lastShootAt:0},research:{startedAt:'',endedAt:'',groupStats:{},waveStats:{},inputStats:{},bossOrderStats:{started:0,cleared:0,failed:0},rtTotal:0,rtCount:0,rtBest:0,rtWorst:0,crashByWave:{},answerEvents:[],summary:null},cloud:{enabled:false,api:'',queue:[],sending:false,sent:0,fail:0,disabledUntil:0,lastStatus:'off'},lastInputMode:'tap',finalWin:false,finalReason:'',summaryShown:false,endLock:false,lastRuntimeError:'',recoveries:0,emptyArenaTicks:0};
 init();
 function init(){document.body.dataset.version=APP_VERSION;if(typeof installRuntimeGuards==='function')installRuntimeGuards();runBootSelfCheck();renderGates();bind();initResearchShell();initCloudLogger();initCvrMode();setPhase('calm','เริ่มเกมแบบพื้นฐาน',true);setObjective(makeObjective(1));updateHud();updateTeacher()}
-function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v9.0.1-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v9.0.1-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
+function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v9.0.2-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v9.0.2-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
 function on(el,type,fn){if(!el){console.warn('[Groups bind skipped]',type);return}el.addEventListener(type,fn)}
 function renderGates(){els.gates.innerHTML=GROUPS.map(g=>`<button class="gate" data-group="${g.id}"><div><div class="num">${g.id}</div><div class="label">${esc(g.label)}</div><div class="ex">${esc(g.ex)}</div></div></button>`).join('');els.gates.querySelectorAll('.gate').forEach(btn=>btn.addEventListener('click',()=>{state.lastInputMode=state.cvr.enabled?'cvr_tap_gate':'tap_gate';sortSelected(Number(btn.dataset.group))}))}
 function cleanupRuntime(){clearInterval(state.totalTimer);clearTimeout(state.spawnTimer);cancelAnimationFrame(state.raf);cancelAnimationFrame(state.bossOrderRaf||0);clearBossOrder();clearDragState();clearCvrAimClasses();els.actorLayer.innerHTML='';els.floorLine.classList.remove('warn');document.querySelectorAll('.fly,.pop,.flash,.combo,.orderToast,.dragGuide,.coach,.nearGroundWarn').forEach(e=>{try{e.remove()}catch(_){}});els.gates.querySelectorAll('.accept,.reject,.hint,.dragHover,.cvrAim,.target,.avoid').forEach(e=>e.classList.remove('accept','reject','hint','dragHover','cvrAim','target','avoid'))}
@@ -956,7 +1014,7 @@ function updateHud(){els.scoreTxt.textContent=Math.round(state.score);els.timeTx
 function updateTeacher(){els.sessionTxt.textContent=state.sessionId?state.sessionId.slice(-8):'-';els.eventsTxt.textContent=state.events.length;els.actorsTxt.textContent=state.actors.length;els.bossHpTxt.textContent=state.bossActive?Math.round(state.bossHp):'-';els.cloudStatusTxt.textContent=state.cloud.lastStatus||'off';els.cloudQueueTxt.textContent=state.cloud.queue?state.cloud.queue.length:0;els.versionTxt.textContent=APP_VERSION.replace('v','')}
 function setFeedback(t){els.feedback.textContent=t}
 function end(win,reason){if(state.endLock||state.ended)return;state.endLock=true;state.finalWin=!!win;state.finalReason=reason||'';state.active=false;state.ended=true;document.body.classList.remove('isPlaying');logEvent('session_end',{win,reason,score:state.score});finalizeResearch(win,reason);queueCloudEvent('session_end',makeCloudPayload('session_end'),{immediate:true,keepalive:true});flushCloudQueue(false,true);const data=exportData();try{localStorage.setItem(STORAGE.lastMetrics,JSON.stringify(data));localStorage.setItem(STORAGE.lastSummary,JSON.stringify(data.summary))}catch(_){}cleanupRuntime();const acc=state.attempts?Math.round(state.correct/state.attempts*100):0,stars=computeStars(win,acc,state.maxCombo,state.crashes,state.wave),rank=computeRank(win,acc,state.maxCombo,state.wave,state.crashes),best=findBestGroup(),weak=findWeakGroup(),progress=updateReplayProgress(win,acc,stars,rank,best,weak);els.summaryIcon.textContent=win?'🏆':'⭐';els.summaryTitle.textContent=win?'ชนะแล้ว!':'สรุปผลการเล่น';els.summaryText.textContent=(win?'ปราบ Chaos Chef สำเร็จ!':reason)+' • '+rank+' • '+'⭐'.repeat(stars)+(progress.isNewBest?' • 🏆 สถิติใหม่':'');els.summaryGrid.innerHTML=[
-  focusInfoHtmlRaw('ความก้าวหน้า','คะแนนสูงสุด '+progress.bestScore+' • Badge '+progress.badgeCount,progressHtml(progress)),
+  focusInfoHtmlRaw('ความก้าวหน้า','คะแนนสูงสุด '+progress.bestScore+' • เหรียญ '+progress.badgeCount,progressHtml(progress)),
   infoHtml('Hero Rank',rank,'ระดับฮีโร่อาหารของรอบนี้'),
   infoHtml('ดาว / คะแนน','⭐'.repeat(stars)+' • '+Math.round(state.score),'เป้าหมายคือ 5 ดาว'),
   infoHtml('ความแม่นยำ',acc+'%',state.correct+'/'+state.attempts+' ครั้ง'),
@@ -964,7 +1022,7 @@ function end(win,reason){if(state.endLock||state.ended)return;state.endLock=true
   infoHtml('ชนพื้น',state.crashes,state.crashes===0?'เยี่ยมมาก! จัดทันทุกชิ้น':'จำนวนอาหารที่จัดไม่ทัน'),
   infoHtml('Wave สุดท้าย',state.wave,'ระดับความท้าทายที่ไปถึง'),
   infoHtml('ควรฝึกเพิ่ม',weak?'หมู่ '+weak.id+' '+weak.short:'ยังไม่พบจุดอ่อนชัดเจน',weak?weak.ex:'เล่นได้สมดุลดีมาก'),
-  focusInfoHtml('เป้าหมายรอบหน้า',replayGoalText(win,acc,stars,weak),'Daily: '+(progress.daily?progress.daily.desc:'ฝึกต่อให้แม่นขึ้น'))
+  focusInfoHtml('เป้าหมายรอบหน้า',replayGoalText(win,acc,stars,weak),(progress.daily&&progress.daily.completed?'Daily สำเร็จแล้ว: ':'Daily ยังไม่สำเร็จ: ')+(progress.daily?progress.daily.desc:'ฝึกต่อให้แม่นขึ้น'))
 ].join('');;state.summaryShown=true;document.body.classList.remove('isPlaying');els.summaryOverlay.classList.remove('hidden');enableSummaryScroll();updateTeacher()}
 
 function enableSummaryScroll(){
@@ -1095,8 +1153,11 @@ function progressHtml(progress){
   if(progress.isNewBest)chips.push('<span class="progressChip hot">🏆 สถิติใหม่</span>');
   chips.push('<span class="progressChip good">คะแนนสูงสุด '+esc(progress.bestScore)+'</span>');
   chips.push('<span class="progressChip">เล่นแล้ว '+esc(progress.plays)+' รอบ</span>');
-  if(progress.daily&&progress.daily.completed)chips.push('<span class="progressChip hot">✅ Daily: '+esc(progress.daily.label)+'</span>');
-  else if(progress.daily)chips.push('<span class="progressChip">🎯 Daily: '+esc(progress.daily.label)+'</span>');
+  if(progress.daily&&progress.daily.completed){
+    chips.push('<span class="progressChip dailyDone">✅ Daily สำเร็จ: '+esc(progress.daily.label)+'</span>');
+  }else if(progress.daily){
+    chips.push('<span class="progressChip dailyTodo">🎯 Daily ยังไม่สำเร็จ: '+esc(progress.daily.label)+'</span>');
+  }
   (progress.earnedBadges||[]).slice(0,3).forEach(b=>chips.push('<span class="progressChip badge">'+esc(b)+'</span>'));
   return '<div class="progressChipRow">'+chips.join('')+'</div>';
 }
