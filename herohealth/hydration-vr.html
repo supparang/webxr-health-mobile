@@ -14,19 +14,20 @@
   <!--
     HeroHealth Hydration VR
     File: /herohealth/hydration-vr.html
-    Version: v10.0.3-boss-90s-balance-shell
+    Version: v10.1.2-cooldown-nutrition-return-shell
 
     Flow:
-      Zone / Launcher / Warmup Gate
+      Nutrition Zone / Launcher / Warmup Gate
       -> hydration-vr.html
       -> hydration-vr.css
       -> hydration-vr.js
       -> Summary
-      -> Cooldown Gate / Zone
+      -> Cooldown Gate
+      -> Nutrition Zone
 
     Supported URL params:
       pid, name, nick, diff, time, seed, view, run, hub, zone, game, mode,
-      log, api, studyId, phase, conditionGroup
+      log, api, studyId, phase, studyPhase, conditionGroup
 
     view:
       pc | mobile | cvr
@@ -143,14 +144,14 @@
       var u = new URL(location.href);
       var view = u.searchParams.get('view') || 'mobile';
 
-      HHA_LOAD_SCRIPT('./herohealth-logger.js?v=20260506-v10-0-3')
+      HHA_LOAD_SCRIPT('./herohealth-logger.js?v=20260506-v10-1-2')
         .catch(function(){})
         .then(function(){
           return HHA_LOAD_SCRIPT('./hydration-vr/hydration-vr.js?v=20260506-v10-1-2');
         })
         .then(function(){
           if(view === 'cvr'){
-            return HHA_LOAD_SCRIPT('./vr/vr-ui.js?v=20260506-v10-0-3').catch(function(){});
+            return HHA_LOAD_SCRIPT('./vr/vr-ui.js?v=20260506-v10-1-2').catch(function(){});
           }
         })
         .then(function(){
@@ -169,110 +170,5 @@
         });
     })();
   </script>
-  <script>
-(function(){
-  'use strict';
-
-  const VERSION = 'v10.1.2-hydration-nutrition-link';
-
-  function qs(k, d){
-    try{
-      return new URL(location.href).searchParams.get(k) || d;
-    }catch(e){
-      return d;
-    }
-  }
-
-  function buildHydrationLauncherUrl(){
-    const u = new URL('./hydration-launcher.html', location.href);
-
-    u.searchParams.set('pid', qs('pid', 'anon'));
-    u.searchParams.set('name', qs('name', qs('nick', 'Hero')));
-    u.searchParams.set('nick', qs('nick', qs('name', 'Hero')));
-    u.searchParams.set('diff', qs('diff', 'normal'));
-    u.searchParams.set('time', qs('time', '90'));
-    u.searchParams.set('view', qs('view', 'mobile'));
-    u.searchParams.set('run', qs('run', 'play'));
-    u.searchParams.set('zone', 'nutrition');
-    u.searchParams.set('game', 'hydration');
-    u.searchParams.set('gameId', 'hydration');
-    u.searchParams.set('entry', 'nutrition-zone');
-    u.searchParams.set('theme', 'hydration');
-    u.searchParams.set('hub', location.href);
-
-    [
-      'log',
-      'api',
-      'studyId',
-      'phase',
-      'conditionGroup',
-      'section',
-      'session_code',
-      'schoolCode',
-      'classRoom'
-    ].forEach(function(k){
-      const v = qs(k, '');
-      if(v) u.searchParams.set(k, v);
-    });
-
-    return u.toString();
-  }
-
-  function looksLikeHydrationLink(el){
-    if(!el) return false;
-
-    const href = String(el.getAttribute('href') || '').toLowerCase();
-    const dataGame = String(el.dataset.game || el.dataset.gameId || '').toLowerCase();
-    const text = String(el.textContent || '').toLowerCase();
-
-    return (
-      href.includes('hydration-vr.html') ||
-      href.includes('hydration-launcher.html') ||
-      dataGame === 'hydration' ||
-      text.includes('hydration') ||
-      text.includes('aqua rush')
-    );
-  }
-
-  function patchHydrationLinks(){
-    const launcherUrl = buildHydrationLauncherUrl();
-    let patched = 0;
-
-    document.querySelectorAll('a, button').forEach(function(el){
-      if(!looksLikeHydrationLink(el)) return;
-
-      el.dataset.hhaHydrationPatched = VERSION;
-      el.dataset.game = 'hydration';
-      el.dataset.gameId = 'hydration';
-
-      if(el.tagName.toLowerCase() === 'a'){
-        el.setAttribute('href', launcherUrl);
-        patched += 1;
-        return;
-      }
-
-      el.addEventListener('click', function(ev){
-        ev.preventDefault();
-        location.href = launcherUrl;
-      }, { passive:false });
-
-      patched += 1;
-    });
-
-    window.HHA = window.HHA || {};
-    window.HHA.NUTRITION_HYDRATION_LINK_PATCH = {
-      version: VERSION,
-      patched: patched,
-      launcherUrl: launcherUrl
-    };
-  }
-
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', patchHydrationLinks, { once:true });
-  }else{
-    patchHydrationLinks();
-  }
-})();
-</script>
 </body>
 </html>
