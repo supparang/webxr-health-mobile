@@ -2499,3 +2499,397 @@ body.hha-view-cvr .hha-target-short{
     0 0 0 4px rgba(255,210,80,.28),
     0 12px 26px rgba(255,88,70,.22);
 }
+/* =========================================================
+   Hydration v10.1.3 Summary Typography Polish
+   File: /herohealth/hydration-vr/hydration-vr.css
+   Purpose:
+   - แก้ตัวอักษร/ตัวเลขใน Summary ที่เว้นห่างเกินไป
+   - ทำให้คะแนน อ่านง่าย ดูเป็น reward screen มากขึ้น
+   - ปรับปุ่มล่างให้กระชับและสวยขึ้น
+   ========================================================= */
+
+/* ---------- Reset spacing เฉพาะ Summary ---------- */
+.hha-hydration-summary,
+.hha-hydration-summary *{
+  letter-spacing: normal !important;
+  word-spacing: normal !important;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---------- Summary card ---------- */
+.hha-summary-card{
+  max-width: 720px;
+  margin: 18px auto;
+  padding: 34px 34px 30px;
+}
+
+/* ---------- New Personal Best badge ---------- */
+.hha-summary-kicker{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: auto;
+  max-width: 100%;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 22px;
+  font-weight: 1000;
+  line-height: 1.15;
+  white-space: normal;
+  text-align: center;
+}
+
+/* ---------- Medal title ---------- */
+.hha-summary-title{
+  margin-top: 22px;
+  font-size: clamp(38px, 6vw, 60px);
+  line-height: 1.05;
+  font-weight: 1000;
+  text-align: center;
+  white-space: normal;
+}
+
+/* ---------- Stars ---------- */
+.hha-stars{
+  margin: 16px 0 24px;
+  font-size: clamp(38px, 5.2vw, 54px);
+  line-height: 1;
+  text-align: center;
+  letter-spacing: 2px !important;
+}
+
+/* ---------- Big score ---------- */
+.hha-score-big{
+  padding: 26px 18px 22px;
+  border-radius: 34px;
+}
+
+.hha-score-big b{
+  display: block;
+  font-size: clamp(64px, 10vw, 96px);
+  line-height: .95;
+  font-weight: 1000;
+  letter-spacing: -1px !important;
+  word-spacing: 0 !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.hha-score-big span{
+  display: block;
+  margin-top: 8px;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 1000;
+}
+
+/* ---------- Metric grid ---------- */
+.hha-summary-grid{
+  gap: 16px;
+}
+
+.hha-summary-grid > div{
+  min-height: 118px;
+  padding: 18px 12px;
+  border-radius: 26px;
+}
+
+.hha-summary-grid b{
+  font-size: clamp(34px, 4.8vw, 46px);
+  line-height: 1;
+  font-weight: 1000;
+  white-space: nowrap;
+}
+
+.hha-summary-grid span{
+  margin-top: 8px;
+  font-size: 16px;
+  line-height: 1.15;
+  font-weight: 1000;
+}
+
+/* ---------- Daily / Learning / Goal / Best / Tip cards ---------- */
+.hha-daily-result,
+.hha-learning-summary,
+.hha-next-goal,
+.hha-best-row,
+.hha-summary-tip{
+  line-height: 1.28;
+}
+
+.hha-daily-result b,
+.hha-next-goal b,
+.hha-best-row b{
+  display: block;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 1000;
+}
+
+.hha-daily-result span,
+.hha-daily-result em,
+.hha-next-goal span,
+.hha-best-row span,
+.hha-summary-tip{
+  font-size: 17px;
+  line-height: 1.32;
+  font-weight: 900;
+}
+
+/* ---------- Learning summary ---------- */
+.hha-learning-summary{
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.hha-learning-summary b{
+  display: block;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 1000;
+}
+
+.hha-learning-summary span{
+  display: block;
+  margin-top: 4px;
+  font-size: 17px;
+  line-height: 1.32;
+  font-weight: 900;
+}
+
+/* ---------- Badges ---------- */
+.hha-badges > b{
+  display: block;
+  margin-bottom: 12px;
+  font-size: 24px;
+  line-height: 1.15;
+  font-weight: 1000;
+}
+
+.hha-badge-list{
+  gap: 14px;
+}
+
+.hha-badge{
+  min-height: 118px;
+  padding: 18px;
+  border-radius: 24px;
+}
+
+.hha-badge i{
+  display: block;
+  font-size: 34px;
+  line-height: 1;
+  margin-bottom: 8px;
+  font-style: normal;
+}
+
+.hha-badge strong{
+  display: block;
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 1000;
+  white-space: normal;
+}
+
+.hha-badge span{
+  display: block;
+  margin-top: 5px;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+/* ---------- Summary buttons ---------- */
+.hha-summary-actions{
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.hha-summary-btn{
+  min-height: 66px;
+  border-radius: 24px;
+  padding: 16px 18px;
+  font-size: clamp(20px, 3.8vw, 28px);
+  line-height: 1.08;
+  font-weight: 1000;
+  text-align: center;
+  white-space: normal;
+}
+
+/* ปุ่มกลับ Nutrition Zone ให้ดูเป็นประโยค ไม่แยกคำกว้างเกิน */
+.hha-summary-btn.ghost{
+  color: #247aa5;
+}
+
+/* ---------- Desktop summary width ---------- */
+@media (min-width: 900px){
+  .hha-summary-card{
+    max-width: 760px;
+  }
+
+  .hha-summary-actions{
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hha-summary-btn{
+    font-size: 24px;
+  }
+}
+
+/* ---------- Mobile summary polish ---------- */
+@media (max-width: 560px){
+  .hha-summary-card{
+    width: calc(100vw - 22px);
+    margin: 10px auto;
+    padding: 22px 16px 20px;
+    border-radius: 28px;
+  }
+
+  .hha-summary-kicker{
+    padding: 9px 16px;
+    font-size: 17px;
+    line-height: 1.15;
+  }
+
+  .hha-summary-title{
+    margin-top: 16px;
+    font-size: 38px;
+    line-height: 1.05;
+  }
+
+  .hha-stars{
+    font-size: 38px;
+    margin: 12px 0 18px;
+  }
+
+  .hha-score-big{
+    padding: 20px 12px 18px;
+    border-radius: 26px;
+  }
+
+  .hha-score-big b{
+    font-size: 68px;
+    letter-spacing: -1px !important;
+  }
+
+  .hha-score-big span{
+    font-size: 15px;
+  }
+
+  .hha-summary-grid{
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .hha-summary-grid > div{
+    min-height: 92px;
+    padding: 14px 8px;
+    border-radius: 22px;
+  }
+
+  .hha-summary-grid b{
+    font-size: 30px;
+  }
+
+  .hha-summary-grid span{
+    font-size: 13px;
+  }
+
+  .hha-daily-result,
+  .hha-learning-summary,
+  .hha-next-goal,
+  .hha-best-row,
+  .hha-summary-tip{
+    border-radius: 22px;
+  }
+
+  .hha-daily-result b,
+  .hha-next-goal b,
+  .hha-best-row b,
+  .hha-learning-summary b{
+    font-size: 17px;
+  }
+
+  .hha-daily-result span,
+  .hha-daily-result em,
+  .hha-next-goal span,
+  .hha-best-row span,
+  .hha-summary-tip,
+  .hha-learning-summary span{
+    font-size: 14px;
+  }
+
+  .hha-learning-summary{
+    gap: 12px;
+  }
+
+  .hha-learning-icon{
+    width: 58px;
+    height: 58px;
+    min-width: 58px;
+    font-size: 34px;
+  }
+
+  .hha-badges > b{
+    font-size: 22px;
+  }
+
+  .hha-badge-list{
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .hha-badge{
+    min-height: 106px;
+    padding: 14px 12px;
+    border-radius: 20px;
+  }
+
+  .hha-badge i{
+    font-size: 30px;
+  }
+
+  .hha-badge strong{
+    font-size: 17px;
+    line-height: 1.15;
+  }
+
+  .hha-badge span{
+    font-size: 12px;
+  }
+
+  .hha-summary-actions{
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .hha-summary-btn{
+    min-height: 58px;
+    border-radius: 20px;
+    padding: 13px 12px;
+    font-size: 21px;
+    line-height: 1.1;
+  }
+}
+
+/* ---------- Very small screen ---------- */
+@media (max-width: 390px){
+  .hha-summary-title{
+    font-size: 34px;
+  }
+
+  .hha-score-big b{
+    font-size: 58px;
+  }
+
+  .hha-summary-btn{
+    font-size: 18px;
+  }
+
+  .hha-badge-list{
+    grid-template-columns: 1fr;
+  }
+}
