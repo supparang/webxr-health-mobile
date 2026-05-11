@@ -865,3 +865,242 @@ button{border:0}
     transition-duration:.01ms !important;
   }
 }
+/* === Plate Solo v40.8 SUMMARY POLISH + FAIR SCORE UI ===
+   Append to /herohealth/plate-solo.css
+   Fixes summary page that looks too empty/left-aligned on mobile.
+*/
+
+#summaryOverlay{
+  align-items:flex-start !important;
+  justify-content:center !important;
+  overflow:auto !important;
+  padding:calc(14px + var(--safeTop,0px)) 14px calc(22px + var(--safeBottom,0px)) !important;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255,255,255,.94), rgba(234,249,255,.86) 52%, rgba(230,242,255,.88)) !important;
+}
+
+#summaryOverlay .summaryCard,
+#summaryOverlay .overlayCard,
+.summaryCard{
+  width:min(760px, 100%) !important;
+  max-height:none !important;
+  margin:0 auto !important;
+  padding:20px !important;
+  border-radius:30px !important;
+  text-align:center !important;
+  background:rgba(255,255,255,.92) !important;
+  border:1px solid #d8edf6 !important;
+  box-shadow:0 28px 70px rgba(42,78,102,.18) !important;
+}
+
+#rankIcon{
+  font-size:54px !important;
+  line-height:1 !important;
+  margin:0 0 8px !important;
+}
+
+#summaryTitle{
+  font-size:clamp(28px, 7vw, 46px) !important;
+  line-height:1.05 !important;
+  margin:0 !important;
+  letter-spacing:-.6px !important;
+  text-align:center !important;
+}
+
+#summaryLine{
+  margin:8px auto 12px !important;
+  max-width:620px !important;
+  font-size:clamp(16px, 4.4vw, 24px) !important;
+  line-height:1.35 !important;
+  text-align:center !important;
+  color:#5d7b91 !important;
+}
+
+#starRow{
+  justify-content:center !important;
+  gap:8px !important;
+  margin:10px 0 14px !important;
+}
+
+#starRow .star,
+.starRow .star{
+  font-size:clamp(32px, 8vw, 46px) !important;
+}
+
+#starRow .starLabel,
+.starRow .starLabel{
+  flex-basis:100% !important;
+  font-size:clamp(15px, 4vw, 20px) !important;
+  color:#668aa0 !important;
+  font-weight:1000 !important;
+}
+
+/* Stat grid must be cards, not a tall left column */
+#summaryGrid,
+.summaryGrid{
+  display:grid !important;
+  grid-template-columns:repeat(4, minmax(0,1fr)) !important;
+  gap:10px !important;
+  margin:14px 0 !important;
+  width:100% !important;
+}
+
+#summaryGrid > *,
+.summaryGrid > *,
+.summaryStat{
+  min-height:96px !important;
+  padding:12px 10px !important;
+  border-radius:20px !important;
+  background:#f8fdff !important;
+  border:1px solid #d8edf6 !important;
+  box-shadow:0 10px 22px rgba(42,78,102,.07) !important;
+  display:flex !important;
+  flex-direction:column !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+}
+
+#sumScore,
+#sumBalance,
+#sumCombo,
+#sumMission{
+  display:block !important;
+  font-size:clamp(26px, 7vw, 38px) !important;
+  line-height:1 !important;
+  font-weight:1000 !important;
+  color:#244761 !important;
+  margin-bottom:5px !important;
+}
+
+#summaryGrid small,
+.summaryGrid small,
+.summaryStat small{
+  font-size:clamp(12px, 3.2vw, 15px) !important;
+  color:#668aa0 !important;
+  font-weight:1000 !important;
+}
+
+#badgeRow,
+.badgeRow,
+#bestRow,
+.bestRow{
+  justify-content:center !important;
+  gap:8px !important;
+  margin:12px 0 !important;
+}
+
+#badgeRow .badge,
+.badgeRow .badge,
+.bestChip{
+  min-height:36px !important;
+  padding:7px 11px !important;
+  font-size:clamp(12px, 3.4vw, 15px) !important;
+}
+
+#recommend,
+.recommend{
+  margin-top:14px !important;
+}
+
+#recommend .childSummary,
+.childSummary{
+  padding:16px !important;
+  border-radius:24px !important;
+  text-align:left !important;
+  background:#f8fdff !important;
+  border:1px solid #d8edf6 !important;
+}
+
+#recommend .childLine,
+.childLine{
+  margin:7px 0 !important;
+  font-size:clamp(15px, 4.1vw, 20px) !important;
+  line-height:1.38 !important;
+}
+
+.replayChallenge{
+  margin-top:12px !important;
+  padding:13px 14px !important;
+  border-radius:20px !important;
+  text-align:center !important;
+  color:#244761 !important;
+  background:linear-gradient(90deg,#f8fbff,#fff9df) !important;
+  border:1px solid #d8edf6 !important;
+  font-size:clamp(16px, 4.5vw, 22px) !important;
+  font-weight:1000 !important;
+}
+
+#summaryOverlay .actions,
+.summaryCard .actions{
+  display:grid !important;
+  grid-template-columns:repeat(3, minmax(0,1fr)) !important;
+  gap:10px !important;
+  margin-top:14px !important;
+}
+
+#summaryOverlay #btnReplay,
+#summaryOverlay #btnCooldown,
+#summaryOverlay #btnSummaryBack{
+  width:100% !important;
+  min-height:56px !important;
+  padding:0 12px !important;
+  border-radius:999px !important;
+  font-size:clamp(15px, 4vw, 20px) !important;
+}
+
+/* Make summary feel like a reward screen */
+#summaryOverlay .badge.new{
+  animation:summaryBadgePop .7s ease both !important;
+}
+
+@keyframes summaryBadgePop{
+  0%{ transform:scale(.86); opacity:.2; }
+  60%{ transform:scale(1.07); opacity:1; }
+  100%{ transform:scale(1); opacity:1; }
+}
+
+@media (max-width:700px){
+  #summaryOverlay{
+    padding:10px 10px calc(18px + var(--safeBottom,0px)) !important;
+  }
+
+  #summaryOverlay .summaryCard,
+  #summaryOverlay .overlayCard,
+  .summaryCard{
+    padding:16px 14px !important;
+    border-radius:28px !important;
+  }
+
+  #summaryGrid,
+  .summaryGrid{
+    grid-template-columns:repeat(2, minmax(0,1fr)) !important;
+  }
+
+  #summaryOverlay .actions,
+  .summaryCard .actions{
+    grid-template-columns:1fr !important;
+  }
+}
+
+@media (max-height:760px){
+  #summaryOverlay .summaryCard,
+  #summaryOverlay .overlayCard,
+  .summaryCard{
+    padding-top:14px !important;
+  }
+
+  #rankIcon{
+    font-size:42px !important;
+  }
+
+  #summaryTitle{
+    font-size:32px !important;
+  }
+
+  #summaryGrid > *,
+  .summaryGrid > *,
+  .summaryStat{
+    min-height:78px !important;
+  }
+}
