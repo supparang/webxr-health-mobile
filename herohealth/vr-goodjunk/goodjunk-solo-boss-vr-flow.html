@@ -1,5 +1,5 @@
 <!-- === /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html === -->
-<!-- FULL MERGED PATCH v8.46.9f-GOODJUNK-VR-SUMMARY-BEST-OFFSET-FINAL -->
+<!-- FULL MERGED PATCH v8.46.9g-GOODJUNK-VR-SUMMARY-NO-BEST-LINE-FINAL -->
 <!doctype html>
 <html lang="th">
 <head>
@@ -221,26 +221,37 @@
     body.summary-open .stats,body.summary-open .actions{position:relative;z-index:145 !important;}
 
   
-    /* === v8.46.9f Summary Best Offset Final === */
+    /* === v8.46.9g Summary No Best Line Final === */
     body.summary-open #summaryTip{
-      transform:translateY(-28px) !important;
-      margin-bottom:-12px !important;
-      position:relative !important;
-      z-index:180 !important;
-      background:#ffffff !important;
-      border-radius:18px !important;
-      display:inline-block !important;
-      padding:4px 18px !important;
-      box-shadow:0 0 0 12px rgba(255,255,255,.99) !important;
+      display:none !important;
+      visibility:hidden !important;
+      opacity:0 !important;
+      pointer-events:none !important;
+      height:0 !important;
+      margin:0 !important;
+      padding:0 !important;
+      overflow:hidden !important;
     }
-    body.summary-open .stats{margin-top:0 !important;position:relative;z-index:170 !important;}
-    body.summary-open .actions{position:relative;z-index:170 !important;}
-    #summaryCrosshairBlocker{
-      position:fixed;left:50%;top:50%;width:124px;height:124px;
-      transform:translate(-50%,-50%);z-index:165;display:none;border-radius:999px;
-      background:#ffffff;box-shadow:0 0 0 24px rgba(255,255,255,.99);pointer-events:none;
+    body.summary-open .stats{
+      margin-top:18px !important;
+      position:relative;
+      z-index:145 !important;
     }
-    body.summary-open #summaryCrosshairBlocker{display:block !important;}
+    body.summary-open .actions{
+      position:relative;
+      z-index:145 !important;
+    }
+    body.summary-open #summaryCenterMask,
+    body.summary-open #summaryCrosshairBlocker{
+      display:none !important;
+      visibility:hidden !important;
+      opacity:0 !important;
+    }
+    body.summary-open #summaryOverlay .card,
+    body.summary-open #finalOverlay .card{
+      z-index:130 !important;
+      background:linear-gradient(180deg,#ffffff,#fbfdff) !important;
+    }
 
   </style>
 </head>
@@ -248,7 +259,7 @@
   <section class="hud"><div class="pill"><span>Stage</span><b id="hudStage">Ready</b></div><div class="pill"><span>Score</span><b id="hudScore">0</b></div><div class="pill"><span>Time</span><b id="hudTime">120</b></div><div class="pill"><span>Life</span><b id="hudLives">💚💚💚</b></div><div class="pill"><span>Power</span><b id="hudPower">—</b></div></section>
   <div class="bossBar"><i id="bossHpFill"></i></div><div class="mission" id="missionText">กด 🎯 เพื่อเริ่ม หรือเล็ง START แล้วแตะ</div><div class="crosshair"></div>
   <button class="back" id="backBtn" type="button">🎮 โหมดเกม</button><button class="shoot" id="shootBtn" type="button" aria-label="ยิง">🎯</button>
-  <div class="toast" id="toast"></div><div class="bigFx" id="bigFx"></div><div class="versionStamp" id="versionStamp">GJ VR</div><div id="summaryPureBackdrop" aria-hidden="true"></div><div id="summaryCenterMask" aria-hidden="true"></div><div id="summaryCrosshairBlocker" aria-hidden="true"></div>
+  <div class="toast" id="toast"></div><div class="bigFx" id="bigFx"></div><div class="versionStamp" id="versionStamp">GJ VR</div><div id="summaryPureBackdrop" aria-hidden="true"></div><div id="summaryCenterMask" aria-hidden="true"></div>
 
   <section class="bootSafe hidden" id="bootSafe"><div class="bootSafeCard"><h2>GoodJunk VR ตรวจพบปัญหา</h2><p id="bootSafeMsg">กำลังตรวจสอบ...</p><div class="bootSafeActions"><button id="bootSafeReloadBtn" type="button">โหลดใหม่</button><button id="bootSafeLauncherBtn" type="button">กลับหน้าโหมดเกม</button><button id="bootSafeDebugBtn" type="button">เปิด Debug</button></div></div></section>
   <section class="debugPanel hidden" id="debugPanel"><div class="debugCard"><div class="debugHead"><b>GoodJunk VR Debug</b><button id="debugCloseBtn" type="button">ปิด</button></div><pre id="debugText">loading...</pre><div class="debugActions"><button id="debugWarmupBtn" type="button">Warmup</button><button id="debugBossBtn" type="button">Boss</button><button id="debugCooldownBtn" type="button">Cooldown</button><button id="debugClearBtn" type="button">Clear</button><button id="debugAssetBtn" type="button">Test Asset</button></div></div></section>
@@ -270,7 +281,7 @@
 /* The game code below is compressed to fit safely in one transferable file. */
 (function(){
 'use strict';
-const PATCH='v8.46.9f-GOODJUNK-VR-SUMMARY-BEST-OFFSET-FINAL',ASSET_VERSION='v8469f';
+const PATCH='v8.46.9g-GOODJUNK-VR-SUMMARY-NO-BEST-LINE-FINAL',ASSET_VERSION='v8469g';
 const WIN=window,DOC=document,QS=new URLSearchParams(location.search||''),CLEAN_IMG_CACHE=new Map();
 const ROUTES={launcher:'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'};
 function q(k,d){const v=QS.get(k);return v===null||v===''?d:v} function id(x){return DOC.getElementById(x)} function rand(a,b){return a+Math.random()*(b-a)} function pick(a){return a[Math.floor(Math.random()*a.length)]} function clamp(v,a,b){return Math.max(a,Math.min(b,v))} function now(){return Date.now()}
@@ -375,7 +386,7 @@ function setMission(t){if(el.missionText)el.missionText.textContent=shortMission
 let audioCtx=null;function getAudio(){try{if(!audioCtx)audioCtx=new (WIN.AudioContext||WIN.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume().catch(()=>{});return audioCtx}catch(e){return null}} function beep(freq,dur,type,gain){const ctx=getAudio();if(!ctx)return;const osc=ctx.createOscillator(),g=ctx.createGain();osc.type=type||'sine';osc.frequency.value=freq||440;g.gain.setValueAtTime(.0001,ctx.currentTime);g.gain.exponentialRampToValueAtTime(gain||.08,ctx.currentTime+.018);g.gain.exponentialRampToValueAtTime(.0001,ctx.currentTime+(dur||.16));osc.connect(g);g.connect(ctx.destination);osc.start();osc.stop(ctx.currentTime+(dur||.16)+.03)} function sfx(kind){if(kind==='good'){beep(660,.1,'sine',.075);setTimeout(()=>beep(880,.12,'sine',.06),80)}else if(kind==='bad'){beep(180,.18,'sawtooth',.055);setTimeout(()=>beep(130,.15,'sawtooth',.045),90)}else if(kind==='power'){beep(520,.08,'triangle',.075);setTimeout(()=>beep(780,.1,'triangle',.07),70);setTimeout(()=>beep(1040,.12,'triangle',.06),145)}else if(kind==='boss'){beep(92,.13,'square',.045);setTimeout(()=>beep(140,.1,'square',.035),80)}else if(kind==='miss'){beep(220,.09,'sawtooth',.04)}else if(kind==='start'){beep(440,.08,'sine',.06);setTimeout(()=>beep(660,.1,'sine',.06),80)}}
 function bigFeedback(text,cls){if(!el.bigFx)return;if(cfg.view==='cvr')text=String(text||'').replace('SHIELD BLOCK!','BLOCK!').replace('POWER READY!','POWER!').replace('GOOD FOOD!','GOOD!').replace('CHECK FIRST!','CHECK!').replace('BOSS FIGHT!','BOSS!');el.bigFx.className='bigFx';el.bigFx.textContent=text;void el.bigFx.offsetWidth;el.bigFx.classList.add(cls||'good');el.bigFx.classList.add('show')} function show(n){n&&n.classList.remove('hidden')} function hide(n){n&&n.classList.add('hidden')} function setSummaryOpen(on){DOC.body.classList.toggle('summary-open',!!on)}
 function saveLastError(label,err){const t=Date.now();if(saveLastError._last&&t-saveLastError._last<1200)return;saveLastError._last=t;try{localStorage.setItem('GJ_FULL_3D_VR_LAST_ERROR',JSON.stringify({patch:PATCH,label:String(label||'error'),message:String(err&&(err.message||err)||''),stack:String(err&&err.stack||''),href:location.href,stage:state&&state.stage,savedAt:new Date().toISOString()}));console.warn('[GoodJunk VR]',label,err)}catch(e){}} WIN.addEventListener('error',ev=>saveLastError('window-error',ev.error||ev.message));WIN.addEventListener('unhandledrejection',ev=>saveLastError('unhandled-rejection',ev.reason));
-function setVersionStamp(){if(!el.versionStamp)return;el.versionStamp.textContent='8.46.9f FINAL';el.versionStamp.title=PATCH+' | '+assetUrl('broccoli.png')} function showBootSafe(msg){if(el.bootSafeMsg)el.bootSafeMsg.textContent=String(msg||'Unknown boot issue');show(el.bootSafe)} function hideBootSafe(){hide(el.bootSafe)}
+function setVersionStamp(){if(!el.versionStamp)return;el.versionStamp.textContent='8.46.9g FINAL';el.versionStamp.title=PATCH+' | '+assetUrl('broccoli.png')} function showBootSafe(msg){if(el.bootSafeMsg)el.bootSafeMsg.textContent=String(msg||'Unknown boot issue');show(el.bootSafe)} function hideBootSafe(){hide(el.bootSafe)}
 function updateHud(){if(el.hudStage)el.hudStage.textContent=state.stage==='warmup'?'Warmup':state.stage==='main'?'Boss':state.stage==='summary'?'Summary':state.stage==='cooldown'?'Cooldown':state.stage==='done'?'Done':'Ready';if(el.hudScore)el.hudScore.textContent=String(state.score);if(el.hudTime)el.hudTime.textContent=String(Math.max(0,Math.ceil(state.timeLeft)));if(el.hudLives)el.hudLives.textContent=state.lives>0?'💚'.repeat(state.lives):'💔';const powers=[];if(state.shield>0)powers.push('🛡️'+state.shield);if(isFever())powers.push('⚡'+Math.ceil((state.feverUntil-now())/1000)+'s');if(state.powerFoodReady)powers.push('⭐');if(el.hudPower)el.hudPower.textContent=powers.join(' ')||'—';const hpPct=clamp(state.bossHp/state.bossMaxHp,0,1);if(el.bossHpFill)el.bossHpFill.style.width=Math.round(hpPct*100)+'%';if(state.stage==='main'||state.stage==='summary')updateBossVisual()}
 function updateBossVisual(){if(!el.bossRoot)return;const p=state.bossPhase||computeBossPhase(),pct=bossHpPct();let body='#7c2d12',aura='#f97316',op=.22,label='JUNK BOSS',horn='#ef4444',belly='#fef3c7',warn=false;if(p===2){body='#991b1b';aura='#ef4444';op=.34;label='JUNK RUSH!';horn='#dc2626'}else if(p===3){body='#854d0e';aura='#f59e0b';op=.38;label='FAKE TRICK!';horn='#f59e0b';warn=true}else if(p===4){body='#581c87';aura='#a855f7';op=.46;label='FINAL STORM!';horn='#facc15';belly='#fee2e2';warn=true} if(el.bossBody){safeSetAttr(el.bossBody,'color',body);safeSetAttr(el.bossBody,'material',{color:body,emissive:p>=4?'#7c3aed':p>=2?'#7f1d1d':'#000000',emissiveIntensity:p>=4?.22:p>=2?.12:0})} if(el.bossAura){safeSetAttr(el.bossAura,'color',aura);safeSetAttr(el.bossAura,'material',{transparent:true,opacity:op,side:'double'})} if(el.bossWarningRing){safeSetAttr(el.bossWarningRing,'visible',warn?'true':'false');safeSetAttr(el.bossWarningRing,'color',p===4?'#facc15':'#ef4444')} if(el.bossLabel)safeSetAttr(el.bossLabel,'value',label);if(el.bossBelly)safeSetAttr(el.bossBelly,'color',belly);if(el.bossHornL)safeSetAttr(el.bossHornL,'color',horn);if(el.bossHornR)safeSetAttr(el.bossHornR,'color',horn);const panic=1+(1-pct)*.1;safeSetAttr(el.bossRoot,'scale',`${panic} ${panic} ${panic}`)}
 function updateBossPhase(){const next=computeBossPhase();if(next===state.bossPhase)return;state.bossPhase=next;if(next===2){setMission('Phase 2: Junk Rush! ยิง GOOD หลบ JUNK');bigFeedback('JUNK RUSH!','bad');sfx('bad')}else if(next===3){setMission('Phase 3: Fake Healthy! เจอของหลอก ต้องคิดก่อนยิง');bigFeedback('FAKE TRICK!','warn');sfx('power')}else if(next===4){setMission('Final Phase: ยิง GOOD ให้ไว เอาชนะบอส!');bigFeedback('FINAL STORM!','warn');sfx('boss')}updateBossVisual();if(state.stage==='main')resetSpawnTimer()}
@@ -1480,50 +1491,74 @@ function GJVR_SUMMARY_CENTER_MASK_CHECK(){
 }
 
 
-/* === v8.46.9f Move Best line away from stubborn fixed center cursor === */
-function v8469fBestOffsetMode(on){
+/* === v8.46.9g Remove Best line from Summary so fixed emulator cursor has no text to cover === */
+function v8469gNoBestLineMode(on){
   try{
-    let b=document.getElementById('summaryCrosshairBlocker');
-    if(!b){b=document.createElement('div');b.id='summaryCrosshairBlocker';b.setAttribute('aria-hidden','true');document.body.appendChild(b);}
-    b.style.display=on?'block':'none';
     if(el.summaryTip){
-      el.summaryTip.style.transform=on?'translateY(-28px)':'';
-      el.summaryTip.style.marginBottom=on?'-12px':'';
-      el.summaryTip.style.background=on?'#ffffff':'';
-      el.summaryTip.style.boxShadow=on?'0 0 0 12px rgba(255,255,255,.99)':'';
-      el.summaryTip.style.borderRadius=on?'18px':'';
-      el.summaryTip.style.padding=on?'4px 18px':'';
-      el.summaryTip.style.position=on?'relative':'';
-      el.summaryTip.style.zIndex=on?'180':'';
+      el.summaryTip.style.display = on ? 'none' : '';
+      el.summaryTip.style.visibility = on ? 'hidden' : '';
+      el.summaryTip.style.opacity = on ? '0' : '';
+      el.summaryTip.style.height = on ? '0' : '';
+      el.summaryTip.style.margin = on ? '0' : '';
+      el.summaryTip.style.padding = on ? '0' : '';
+      el.summaryTip.style.overflow = on ? 'hidden' : '';
     }
-  }catch(e){try{saveLastError('v8469fBestOffsetMode',e)}catch(_){}}
-}
-const _v8469f_original_setSummaryOpen=setSummaryOpen;
-setSummaryOpen=function(on){_v8469f_original_setSummaryOpen(on);v8469fBestOffsetMode(!!on);};
-const _v8469f_original_endMain=endMain;
-endMain=function(win,reason){
-  const r=_v8469f_original_endMain.apply(this,arguments);
-  setTimeout(function(){v8469fBestOffsetMode(true);},40);
-  setTimeout(function(){v8469fBestOffsetMode(true);},260);
-  setTimeout(function(){v8469fBestOffsetMode(true);},800);
-  return r;
-};
-const _v8469f_original_startCooldown=startCooldown;
-startCooldown=function(){v8469fBestOffsetMode(false);return _v8469f_original_startCooldown.apply(this,arguments);};
-const _v8469f_original_replay=replay;
-replay=function(){v8469fBestOffsetMode(false);return _v8469f_original_replay.apply(this,arguments);};
-function GJVR_SUMMARY_BEST_OFFSET_CHECK(){
-  let snap={};
-  try{snap=(typeof GJVR_SUMMARY_CENTER_MASK_CHECK==='function')?GJVR_SUMMARY_CENTER_MASK_CHECK():((typeof GJVR_SUMMARY_PURE_HTML_CHECK==='function')?GJVR_SUMMARY_PURE_HTML_CHECK():((typeof debugSnapshot==='function')?debugSnapshot():{}));}
-  catch(e){snap={error:String(e&&(e.message||e)||e)};}
-  const b=document.getElementById('summaryCrosshairBlocker');
-  snap.patch=PATCH;snap.version='8.46.9f FINAL';snap.summaryBestOffset=true;
-  snap.blockerDisplay=b&&b.style&&b.style.display;
-  snap.summaryTipTransform=el.summaryTip&&el.summaryTip.style&&el.summaryTip.style.transform;
-  console.log('[GJVR_SUMMARY_BEST_OFFSET_CHECK]',snap);return snap;
+    ['summaryCenterMask','summaryCrosshairBlocker'].forEach(function(id){
+      const n = document.getElementById(id);
+      if(n){
+        n.style.display = 'none';
+        n.style.visibility = 'hidden';
+        n.style.opacity = '0';
+      }
+    });
+  }catch(e){
+    try{saveLastError('v8469gNoBestLineMode',e)}catch(_){}
+  }
 }
 
-function boot(){try{applyViewClass();setVersionStamp();loadBestScore();const test=runSelfTest();if(!test.ok)showBootSafe('ไฟล์ยัง merge ไม่ครบ หรือ element/function หาย:\n'+test.missing.join('\n'));afterSceneReady(()=>{makeDecor();createVrStartPanel();setTimeout(()=>{if(state.stage==='intro')createVrStartPanel()},500);setTimeout(()=>{if(state.stage==='intro')createVrStartPanel()},1200)});bind();updateHud();setTimeout(()=>{try{cleanWhitePngUrl('broccoli.png').then(url=>console.log('[GoodJunk VR] broccoli asset ready',url.slice(0,48)))}catch(e){saveLastError('asset-preload-check',e)}},800);WIN.GoodJunkFull3DVRFlow={version:PATCH,assetVersion:ASSET_VERSION,assetUrl,cleanWhitePngUrl,debugSnapshot,openDebug,debugTestAssets,runSelfTest,startWarmup,startWarmupFromVr,startMain,startCooldown,shoot,hardClearStartPanels,resetCameraForWarmup,cameraFrontPosition,createTargetInFront,spawnWarmupSet,goLauncher,getState:()=>({...state,patch:PATCH})};WIN.GJF3D=WIN.GoodJunkFull3DVRFlow;WIN.GJVR_CHECK=function(){const snap=debugSnapshot();console.log('[GJVR_CHECK]',snap);return snap};WIN.GJVR_RC_CHECK=function(){const snap=rcSnapshot();console.log('[GJVR_RC_CHECK]',snap);return snap};WIN.GJVR_RELEASE_CHECK=GJVR_RELEASE_CHECK;WIN.GJVR_SUMMARY_CLEAN_CHECK=v8461SummaryCleanCheck;WIN.GJVR_CURSOR_CHECK=GJVR_CURSOR_CHECK;WIN.GJVR_SCENE_HIDE_CHECK=GJVR_SCENE_HIDE_CHECK;WIN.GJVR_V8467_CHECK=GJVR_V8467_CHECK;WIN.GJVR_V8468_CHECK=GJVR_V8468_CHECK;WIN.GJVR_PRODUCTION_CHECK=v8469bProductionCheck;WIN.GJVR_AIM_FORCE_HIDE_CHECK=GJVR_AIM_FORCE_HIDE_CHECK;WIN.GJVR_SUMMARY_PURE_HTML_CHECK=GJVR_SUMMARY_PURE_HTML_CHECK;WIN.GJVR_SUMMARY_CENTER_MASK_CHECK=GJVR_SUMMARY_CENTER_MASK_CHECK;WIN.GJVR_SUMMARY_BEST_OFFSET_CHECK=GJVR_SUMMARY_BEST_OFFSET_CHECK;try{localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST',JSON.stringify({patch:PATCH,href:location.href,view:cfg.view,diff:cfg.diff,assetVersion:ASSET_VERSION,assetTest:assetUrl('broccoli.png'),targetCleanFrontSpawnFinal:true,cleanPngFix:true,warmupLayoutFix:true,cameraFrontSpawnFix:true,billboardTargetFix:true,vrComfortHudFix:true,pngImagePlaneFix:true,directPngUrlFix:true,spawnCleanupFix:true,targetLimitFix:true,alwaysCleanPngFix:true,selfTest:test,savedAt:new Date().toISOString()}))}catch(e){}}catch(err){saveLastError('boot-failed',err);showBootSafe('Boot failed:\n'+String(err&&(err.stack||err.message)||err))}}
+const _v8469g_original_setSummaryOpen = setSummaryOpen;
+setSummaryOpen = function(on){
+  _v8469g_original_setSummaryOpen(on);
+  v8469gNoBestLineMode(!!on);
+};
+
+const _v8469g_original_endMain = endMain;
+endMain = function(win, reason){
+  const r = _v8469g_original_endMain.apply(this, arguments);
+  setTimeout(function(){ v8469gNoBestLineMode(true); }, 30);
+  setTimeout(function(){ v8469gNoBestLineMode(true); }, 250);
+  setTimeout(function(){ v8469gNoBestLineMode(true); }, 700);
+  return r;
+};
+
+const _v8469g_original_startCooldown = startCooldown;
+startCooldown = function(){
+  v8469gNoBestLineMode(false);
+  return _v8469g_original_startCooldown.apply(this, arguments);
+};
+
+const _v8469g_original_replay = replay;
+replay = function(){
+  v8469gNoBestLineMode(false);
+  return _v8469g_original_replay.apply(this, arguments);
+};
+
+function GJVR_SUMMARY_NO_BEST_LINE_CHECK(){
+  let snap = {};
+  try{
+    snap = (typeof GJVR_SUMMARY_CENTER_MASK_CHECK==='function') ? GJVR_SUMMARY_CENTER_MASK_CHECK() :
+           ((typeof GJVR_SUMMARY_PURE_HTML_CHECK==='function') ? GJVR_SUMMARY_PURE_HTML_CHECK() :
+           ((typeof debugSnapshot==='function') ? debugSnapshot() : {}));
+  }catch(e){ snap = { error:String(e && (e.message || e) || e) }; }
+  snap.patch = PATCH;
+  snap.version = '8.46.9g FINAL';
+  snap.summaryNoBestLine = true;
+  snap.summaryTipDisplay = el.summaryTip && el.summaryTip.style && el.summaryTip.style.display;
+  console.log('[GJVR_SUMMARY_NO_BEST_LINE_CHECK]', snap);
+  return snap;
+}
+
+function boot(){try{applyViewClass();setVersionStamp();loadBestScore();const test=runSelfTest();if(!test.ok)showBootSafe('ไฟล์ยัง merge ไม่ครบ หรือ element/function หาย:\n'+test.missing.join('\n'));afterSceneReady(()=>{makeDecor();createVrStartPanel();setTimeout(()=>{if(state.stage==='intro')createVrStartPanel()},500);setTimeout(()=>{if(state.stage==='intro')createVrStartPanel()},1200)});bind();updateHud();setTimeout(()=>{try{cleanWhitePngUrl('broccoli.png').then(url=>console.log('[GoodJunk VR] broccoli asset ready',url.slice(0,48)))}catch(e){saveLastError('asset-preload-check',e)}},800);WIN.GoodJunkFull3DVRFlow={version:PATCH,assetVersion:ASSET_VERSION,assetUrl,cleanWhitePngUrl,debugSnapshot,openDebug,debugTestAssets,runSelfTest,startWarmup,startWarmupFromVr,startMain,startCooldown,shoot,hardClearStartPanels,resetCameraForWarmup,cameraFrontPosition,createTargetInFront,spawnWarmupSet,goLauncher,getState:()=>({...state,patch:PATCH})};WIN.GJF3D=WIN.GoodJunkFull3DVRFlow;WIN.GJVR_CHECK=function(){const snap=debugSnapshot();console.log('[GJVR_CHECK]',snap);return snap};WIN.GJVR_RC_CHECK=function(){const snap=rcSnapshot();console.log('[GJVR_RC_CHECK]',snap);return snap};WIN.GJVR_RELEASE_CHECK=GJVR_RELEASE_CHECK;WIN.GJVR_SUMMARY_CLEAN_CHECK=v8461SummaryCleanCheck;WIN.GJVR_CURSOR_CHECK=GJVR_CURSOR_CHECK;WIN.GJVR_SCENE_HIDE_CHECK=GJVR_SCENE_HIDE_CHECK;WIN.GJVR_V8467_CHECK=GJVR_V8467_CHECK;WIN.GJVR_V8468_CHECK=GJVR_V8468_CHECK;WIN.GJVR_PRODUCTION_CHECK=v8469bProductionCheck;WIN.GJVR_AIM_FORCE_HIDE_CHECK=GJVR_AIM_FORCE_HIDE_CHECK;WIN.GJVR_SUMMARY_PURE_HTML_CHECK=GJVR_SUMMARY_PURE_HTML_CHECK;WIN.GJVR_SUMMARY_CENTER_MASK_CHECK=GJVR_SUMMARY_CENTER_MASK_CHECK;WIN.GJVR_SUMMARY_NO_BEST_LINE_CHECK=GJVR_SUMMARY_NO_BEST_LINE_CHECK;try{localStorage.setItem('GJ_FULL_3D_VR_BOOT_LAST',JSON.stringify({patch:PATCH,href:location.href,view:cfg.view,diff:cfg.diff,assetVersion:ASSET_VERSION,assetTest:assetUrl('broccoli.png'),targetCleanFrontSpawnFinal:true,cleanPngFix:true,warmupLayoutFix:true,cameraFrontSpawnFix:true,billboardTargetFix:true,vrComfortHudFix:true,pngImagePlaneFix:true,directPngUrlFix:true,spawnCleanupFix:true,targetLimitFix:true,alwaysCleanPngFix:true,selfTest:test,savedAt:new Date().toISOString()}))}catch(e){}}catch(err){saveLastError('boot-failed',err);showBootSafe('Boot failed:\n'+String(err&&(err.stack||err.message)||err))}}
 if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหลด หรือโหลดไม่สำเร็จ\nตรวจ internet / CDN / cache แล้วลองโหลดใหม่');if(DOC.readyState==='loading')DOC.addEventListener('DOMContentLoaded',boot);else boot();
 })();
   </script>
