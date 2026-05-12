@@ -1230,7 +1230,9 @@ function runBootSelfCheck(){const required=['scoreTxt','timeTxt','lifeTxt','comb
 window.HHA_GROUPS_QA={version:APP_VERSION,state(){return{active:state.active,ended:state.ended,score:state.score,wave:state.wave,actors:state.actors.length,selectedId:state.selectedId,bossActive:state.bossActive,bossHp:state.bossHp,cvr:state.cvr.enabled,cloud:state.cloud.lastStatus}},export(){return exportData()},clearCloudQueue(){try{localStorage.removeItem(STORAGE.cloudQueue);state.cloud.queue=[];updateTeacher();return true}catch(_){return false}},selfCheck(){return runBootSelfCheck()},forceRespawn(){ensureLiveActors('qa_force');return this.state()},runtimeError(){return state.lastRuntimeError||''},productionCheck(){return{version:APP_VERSION,selfCheck:runBootSelfCheck(),state:this.state(),exportSchema:exportData().schema,progress:progressSnapshot(),ok:!state.lastRuntimeError}},releaseCheck(){return this.productionCheck()},resetProgress(){try{localStorage.removeItem(STORAGE.personalBest);localStorage.removeItem(STORAGE.history);localStorage.removeItem(STORAGE.daily);return true}catch(_){return false}}};
 })();
 </script>
+  
   <script src="./groups-solo-v8-polish.js?v=20260511-groups-v8-polish"></script>
   <script src="./groups-solo-v8-core-hooks.js?v=20260511-groups-v81-core-hooks"></script>
+  <script src="./groups-solo-v8-spawn-merge.js?v=20260511-groups-v82-spawn-merge"></script>
 </body>
 </html>
