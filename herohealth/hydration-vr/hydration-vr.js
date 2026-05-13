@@ -3533,3 +3533,113 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
   }
 
 })();
+/* =========================================================
+   PATCH v20260513-hydration-target-safe-zone-pack3
+   กันเป้าโผล่ใต้ HUD / timebar / banner บน mobile
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var VERSION = 'v20260513-hydration-target-safe-zone-pack3';
+
+  function getView(){
+    try{
+      var u = new URL(location.href);
+      return u.searchParams.get('view') || document.body.dataset.view || 'mobile';
+    }catch(e){
+      return document.body.dataset.view || 'mobile';
+    }
+  }
+
+  function getSafeTop(){
+    var view = getView();
+    var w = window.innerWidth || 360;
+
+    if(view === 'cvr') return 190;
+    if(w <= 520) return 230;
+    if(w <= 820) return 190;
+    return 140;
+  }
+
+  function clamp(n, min, max){
+    n = Number(n);
+    if(!Number.isFinite(n)) n = min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function fixTargetPosition(target){
+    if(!target || target.dataset.hhaSafeZone === VERSION) return;
+    target.dataset.hhaSafeZone = VERSION;
+
+    requestAnimationFrame(function(){
+      try{
+        var playfield = document.getElementById('hha-hydration-playfield');
+        if(!playfield || !target.isConnected) return;
+
+        var pf = playfield.getBoundingClientRect();
+        var tw = target.offsetWidth || 70;
+        var th = target.offsetHeight || 84;
+
+        var pad = 10;
+        var safeTop = getSafeTop();
+        var maxLeft = Math.max(pad, pf.width - tw - pad);
+        var maxTop = Math.max(safeTop + 20, pf.height - th - 28);
+
+        var left = parseFloat(target.style.left || '0');
+        var top = parseFloat(target.style.top || '0');
+
+        if(!Number.isFinite(left)) left = pad + Math.random() * (maxLeft - pad);
+        if(!Number.isFinite(top)) top = safeTop + Math.random() * (maxTop - safeTop);
+
+        left = clamp(left, pad, maxLeft);
+
+        if(top < safeTop || top > maxTop){
+          top = safeTop + Math.random() * Math.max(20, maxTop - safeTop);
+        }
+
+        target.style.left = Math.round(left) + 'px';
+        target.style.top = Math.round(top) + 'px';
+      }catch(e){}
+    });
+  }
+
+  function observeTargets(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    playfield.querySelectorAll('.hha-hydration-target').forEach(fixTargetPosition);
+
+    var mo = new MutationObserver(function(records){
+      records.forEach(function(record){
+        Array.from(record.addedNodes || []).forEach(function(node){
+          if(!node || node.nodeType !== 1) return;
+
+          if(node.classList && node.classList.contains('hha-hydration-target')){
+            fixTargetPosition(node);
+          }
+
+          if(node.querySelectorAll){
+            node.querySelectorAll('.hha-hydration-target').forEach(fixTargetPosition);
+          }
+        });
+      });
+    });
+
+    mo.observe(playfield, { childList:true, subtree:true });
+
+    window.addEventListener('resize', function(){
+      playfield.querySelectorAll('.hha-hydration-target').forEach(function(t){
+        t.dataset.hhaSafeZone = '';
+        fixTargetPosition(t);
+      });
+    }, { passive:true });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', observeTargets, { once:true });
+  }else{
+    observeTargets();
+  }
+})();
