@@ -2270,3 +2270,387 @@ body.view-vr .target{
   border-color:rgba(255,174,66,.65);
   background:linear-gradient(180deg,#fff,#fff8dd);
 }
+/* =========================================================
+   Plate Solo FoodCard Gameplay Fix
+   PATCH v20260513-PLATE-FOODCARD-FALL-FIX
+   แก้: อาหารเป็นกล่อง, ไม่ตก, emoji-only โผล่, กด/แตะยาก
+   ========================================================= */
+
+#spawnLayer,
+.play-field{
+  position:absolute;
+  inset:0;
+  z-index:8;
+  overflow:hidden;
+  pointer-events:none;
+}
+
+.foodCard{
+  position:absolute;
+  top:-92px;
+  left:50%;
+  z-index:20;
+
+  width:clamp(66px, 8.5vw, 92px);
+  min-height:clamp(78px, 9vw, 104px);
+
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+
+  border:0;
+  border-radius:24px;
+  padding:8px 7px;
+
+  background:
+    radial-gradient(circle at 32% 18%, rgba(255,255,255,.95), transparent 34%),
+    linear-gradient(180deg,#ffffff,#f2fbff);
+
+  box-shadow:
+    0 14px 30px rgba(35,88,115,.20),
+    inset 0 -4px 10px rgba(42,91,120,.08);
+
+  color:#24465d;
+  font-weight:1000;
+  line-height:1.05;
+  text-align:center;
+
+  pointer-events:auto;
+  touch-action:none;
+  cursor:pointer;
+
+  transform:translateX(-50%) rotate(var(--rot,0deg));
+  animation-name:plateFoodFall;
+  animation-duration:var(--life, 4200ms);
+  animation-timing-function:linear;
+  animation-fill-mode:forwards;
+
+  will-change:transform, opacity;
+}
+
+.foodCard:hover{
+  filter:brightness(1.04);
+}
+
+.foodCard:active{
+  transform:translateX(-50%) scale(.94) rotate(var(--rot,0deg));
+}
+
+.foodCard .foodVisual{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  margin:0 auto 2px;
+}
+
+.foodCard .foodEmojiFallback{
+  display:block;
+  font-size:clamp(30px, 5vw, 44px);
+  line-height:1;
+  filter:drop-shadow(0 3px 3px rgba(40,80,100,.16));
+}
+
+.foodCard .name{
+  max-width:100%;
+  color:#24465d;
+  font-size:clamp(10px, 1.7vw, 13px);
+  font-weight:1000;
+  line-height:1.1;
+  white-space:normal;
+}
+
+.foodCard .foodTag{
+  position:absolute;
+  left:50%;
+  bottom:-11px;
+  transform:translateX(-50%);
+
+  min-width:48px;
+  padding:3px 7px;
+  border-radius:999px;
+
+  background:#eaffef;
+  color:#167231;
+  border:1px solid rgba(96,214,106,.45);
+
+  font-size:10px;
+  font-weight:1000;
+  line-height:1;
+  white-space:nowrap;
+  box-shadow:0 5px 12px rgba(35,88,115,.12);
+}
+
+/* ซ่อน label debug ที่ขึ้นว่า emoji-only */
+.foodCard .assetPackDebug,
+.plateFoodIcon .assetPackDebug,
+.foodVisual .assetPackDebug{
+  display:none !important;
+}
+
+/* ประเภทอาหาร */
+.foodCard.goodNow{
+  background:linear-gradient(180deg,#ffffff,#eaffef);
+  box-shadow:0 14px 30px rgba(55,160,80,.20);
+}
+
+.foodCard.goodNow .foodTag{
+  background:#dfffdf;
+  color:#13702d;
+}
+
+.foodCard.neutralFood{
+  background:linear-gradient(180deg,#ffffff,#eefaff);
+}
+
+.foodCard.riskyFood,
+.foodCard.dangerFood{
+  background:linear-gradient(180deg,#ffffff,#fff4d6);
+  box-shadow:0 14px 30px rgba(255,174,66,.22);
+}
+
+.foodCard.riskyFood .foodTag,
+.foodCard.dangerFood .foodTag{
+  background:#fff0c2;
+  color:#8a5600;
+}
+
+.foodCard.junk,
+.foodCard.bossForbidden{
+  background:linear-gradient(180deg,#ffffff,#ffecec);
+  box-shadow:0 14px 30px rgba(255,92,92,.22);
+}
+
+.foodCard.junk .foodTag,
+.foodCard.bossForbidden .foodTag{
+  background:#ffe0e0;
+  color:#b92828;
+}
+
+.foodCard.power{
+  background:linear-gradient(180deg,#ffffff,#efeaff);
+  box-shadow:0 14px 30px rgba(144,112,255,.22);
+}
+
+.foodCard.power .foodTag{
+  background:#eee6ff;
+  color:#6742c2;
+}
+
+/* ขนาด */
+.foodCard.size-power{
+  width:clamp(60px, 8vw, 82px);
+}
+
+.foodCard.size-junk{
+  width:clamp(66px, 8.5vw, 92px);
+}
+
+.foodCard.size-boss{
+  width:clamp(76px, 9.5vw, 108px);
+  min-height:clamp(90px, 10vw, 120px);
+}
+
+/* Animation หลัก: ตกจากบนลงล่าง */
+@keyframes plateFoodFall{
+  0%{
+    opacity:0;
+    transform:
+      translateX(-50%)
+      translateY(-40px)
+      rotate(var(--rot,0deg))
+      scale(.92);
+  }
+
+  8%{
+    opacity:1;
+    transform:
+      translateX(-50%)
+      translateY(8px)
+      rotate(var(--rot,0deg))
+      scale(1);
+  }
+
+  100%{
+    opacity:.98;
+    transform:
+      translateX(-50%)
+      translateY(calc(var(--plate-runtime-vh, 720px) * .78))
+      rotate(var(--rot,0deg))
+      scale(1);
+  }
+}
+
+/* Movement variants ที่ JS ใส่มา */
+.foodCard.move-fall{
+  animation-name:plateFoodFall;
+}
+
+.foodCard.move-drift-left{
+  animation-name:plateFoodDriftLeft;
+}
+
+.foodCard.move-drift-right{
+  animation-name:plateFoodDriftRight;
+}
+
+.foodCard.move-zigzag{
+  animation-name:plateFoodZigzag;
+}
+
+.foodCard.move-junk-wobble{
+  animation-name:plateFoodWobble;
+}
+
+.foodCard.move-junk-dash,
+.foodCard.move-boss-swipe{
+  animation-name:plateFoodDash;
+}
+
+.foodCard.move-power-float{
+  animation-name:platePowerFloat;
+}
+
+@keyframes plateFoodDriftLeft{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
+  }
+  12%{
+    opacity:1;
+  }
+  100%{
+    opacity:.98;
+    transform:translateX(calc(-50% - 46px)) translateY(calc(var(--plate-runtime-vh, 720px) * .78)) rotate(calc(var(--rot,0deg) - 10deg));
+  }
+}
+
+@keyframes plateFoodDriftRight{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
+  }
+  12%{
+    opacity:1;
+  }
+  100%{
+    opacity:.98;
+    transform:translateX(calc(-50% + 46px)) translateY(calc(var(--plate-runtime-vh, 720px) * .78)) rotate(calc(var(--rot,0deg) + 10deg));
+  }
+}
+
+@keyframes plateFoodZigzag{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
+  }
+  12%{
+    opacity:1;
+  }
+  32%{
+    transform:translateX(calc(-50% + 34px)) translateY(calc(var(--plate-runtime-vh, 720px) * .24)) rotate(8deg);
+  }
+  60%{
+    transform:translateX(calc(-50% - 34px)) translateY(calc(var(--plate-runtime-vh, 720px) * .48)) rotate(-8deg);
+  }
+  100%{
+    opacity:.98;
+    transform:translateX(-50%) translateY(calc(var(--plate-runtime-vh, 720px) * .78)) rotate(var(--rot,0deg));
+  }
+}
+
+@keyframes plateFoodWobble{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-42px) rotate(-8deg);
+  }
+  12%{
+    opacity:1;
+  }
+  35%{
+    transform:translateX(calc(-50% + 28px)) translateY(calc(var(--plate-runtime-vh, 720px) * .25)) rotate(12deg);
+  }
+  70%{
+    transform:translateX(calc(-50% - 22px)) translateY(calc(var(--plate-runtime-vh, 720px) * .54)) rotate(-12deg);
+  }
+  100%{
+    opacity:.98;
+    transform:translateX(-50%) translateY(calc(var(--plate-runtime-vh, 720px) * .78)) rotate(6deg);
+  }
+}
+
+@keyframes plateFoodDash{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-42px) scale(.94);
+  }
+  10%{
+    opacity:1;
+  }
+  100%{
+    opacity:.98;
+    transform:translateX(calc(-50% + var(--endX, 0px))) translateY(calc(var(--plate-runtime-vh, 720px) * .80)) scale(1.02);
+  }
+}
+
+@keyframes platePowerFloat{
+  0%{
+    opacity:0;
+    transform:translateX(-50%) translateY(-34px) scale(.9);
+  }
+  15%{
+    opacity:1;
+  }
+  50%{
+    transform:translateX(calc(-50% + 18px)) translateY(calc(var(--plate-runtime-vh, 720px) * .36)) scale(1.05);
+  }
+  100%{
+    opacity:.98;
+    transform:translateX(calc(-50% - 16px)) translateY(calc(var(--plate-runtime-vh, 720px) * .72)) scale(1);
+  }
+}
+
+/* ทำให้ Practice ไม่โหดเกินไป */
+body.plate-playing .foodCard{
+  animation-duration:var(--life, 5200ms);
+}
+
+body:not(.plate-playing) .foodCard{
+  pointer-events:none;
+}
+
+/* ป้องกันแถบอาหารไปทับ HUD */
+.plate-hud{
+  position:relative;
+  z-index:35;
+}
+
+.plate-controls{
+  position:relative;
+  z-index:35;
+}
+
+/* mobile */
+@media (max-width: 680px){
+  .foodCard{
+    width:62px;
+    min-height:74px;
+    border-radius:20px;
+    padding:7px 5px;
+  }
+
+  .foodCard .foodEmojiFallback{
+    font-size:32px;
+  }
+
+  .foodCard .name{
+    font-size:10px;
+  }
+
+  .foodCard .foodTag{
+    font-size:9px;
+    bottom:-9px;
+  }
+}
