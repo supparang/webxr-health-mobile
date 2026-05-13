@@ -3773,3 +3773,176 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     bootSafeSpawn();
   }
 })();
+/* =========================================================
+   PATCH v20260513-hydration-target-spacing-pack6
+   กันเป้าซ้อนกัน / กระจายเป้าให้เล่นสนุกขึ้น
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260513-hydration-target-spacing-pack6';
+
+  function getView(){
+    try{
+      var u = new URL(location.href);
+      return u.searchParams.get('view') || document.body.dataset.view || 'mobile';
+    }catch(e){
+      return document.body.dataset.view || 'mobile';
+    }
+  }
+
+  function safeTopPx(){
+    var view = getView();
+    var w = window.innerWidth || 390;
+    var h = window.innerHeight || 800;
+
+    if(view === 'cvr') return 190;
+    if(w <= 520 && h >= 760) return 245;
+    if(w <= 520) return 225;
+    if(w <= 820) return 185;
+    return 135;
+  }
+
+  function safeBottomPad(){
+    var w = window.innerWidth || 390;
+    if(w <= 520) return 84;
+    return 48;
+  }
+
+  function minDistance(){
+    var view = getView();
+    var w = window.innerWidth || 390;
+
+    if(view === 'cvr') return 96;
+    if(w <= 520) return 82;
+    if(w <= 820) return 90;
+    return 88;
+  }
+
+  function clamp(n, min, max){
+    n = Number(n);
+    if(!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function getCenter(el){
+    var left = parseFloat(el.style.left || '0');
+    var top = parseFloat(el.style.top || '0');
+    var w = el.offsetWidth || 68;
+    var h = el.offsetHeight || 82;
+
+    return {
+      x:left + w / 2,
+      y:top + h / 2
+    };
+  }
+
+  function tooClose(a, b, dist){
+    var ca = getCenter(a);
+    var cb = getCenter(b);
+    var dx = ca.x - cb.x;
+    var dy = ca.y - cb.y;
+    return Math.sqrt(dx * dx + dy * dy) < dist;
+  }
+
+  function randomPlace(target, playfield){
+    var rect = playfield.getBoundingClientRect();
+    var tw = target.offsetWidth || 68;
+    var th = target.offsetHeight || 82;
+
+    var padX = 12;
+    var topMin = safeTopPx();
+    var topMax = Math.max(topMin + 20, rect.height - th - safeBottomPad());
+
+    var leftMin = padX;
+    var leftMax = Math.max(leftMin, rect.width - tw - padX);
+
+    return {
+      left: leftMin + Math.random() * Math.max(1, leftMax - leftMin),
+      top: topMin + Math.random() * Math.max(1, topMax - topMin)
+    };
+  }
+
+  function repositionIfOverlap(target){
+    if(!target || !target.isConnected) return;
+
+    requestAnimationFrame(function(){
+      try{
+        var playfield = document.getElementById('hha-hydration-playfield');
+        if(!playfield || !target.isConnected) return;
+
+        var all = Array.from(playfield.querySelectorAll('.hha-hydration-target'))
+          .filter(function(t){
+            return t !== target && t.isConnected;
+          });
+
+        if(!all.length) return;
+
+        var dist = minDistance();
+        var overlaps = all.some(function(other){
+          return tooClose(target, other, dist);
+        });
+
+        if(!overlaps) return;
+
+        var tries = 0;
+        var ok = false;
+        var pos;
+
+        while(tries < 12 && !ok){
+          tries++;
+          pos = randomPlace(target, playfield);
+
+          target.style.left = Math.round(pos.left) + 'px';
+          target.style.top = Math.round(pos.top) + 'px';
+
+          ok = !all.some(function(other){
+            return tooClose(target, other, dist);
+          });
+        }
+
+        target.dataset.hhaSpacingPack = PATCH;
+      }catch(e){}
+    });
+  }
+
+  function bootSpacing(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    playfield.querySelectorAll('.hha-hydration-target').forEach(repositionIfOverlap);
+
+    var mo = new MutationObserver(function(records){
+      records.forEach(function(record){
+        Array.from(record.addedNodes || []).forEach(function(node){
+          if(!node || node.nodeType !== 1) return;
+
+          if(node.classList && node.classList.contains('hha-hydration-target')){
+            repositionIfOverlap(node);
+          }
+
+          if(node.querySelectorAll){
+            node.querySelectorAll('.hha-hydration-target').forEach(repositionIfOverlap);
+          }
+        });
+      });
+    });
+
+    mo.observe(playfield, {
+      childList:true,
+      subtree:true
+    });
+
+    window.addEventListener('resize', function(){
+      playfield.querySelectorAll('.hha-hydration-target').forEach(repositionIfOverlap);
+    }, { passive:true });
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', bootSpacing, { once:true });
+  }else{
+    bootSpacing();
+  }
+})();
