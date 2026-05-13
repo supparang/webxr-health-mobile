@@ -1886,103 +1886,115 @@
   }
 
   function chooseFood(){
-    if (state.practiceActive) return choosePracticeFood();
+  if (state.practiceActive) return choosePracticeFood();
 
-    const m = mostMissingGroup();
+  const m = mostMissingGroup();
 
-    if (state.mini && state.mini.type === 'healthyRain' && chance(.82)) {
-      const pool = FOODS.filter(f =>
-        !f.junk &&
-        f.effects &&
-        (
-          f.effects[m.id] ||
-          GROUPS.some(g =>
-            state.fill[g.id] < CFG.target * .82 &&
-            f.effects[g.id]
-          )
+  if (state.mini && state.mini.type === 'healthyRain' && chance(.82)) {
+    const pool = FOODS.filter(f =>
+      !f.junk &&
+      f.effects &&
+      (
+        f.effects[m.id] ||
+        GROUPS.some(g =>
+          state.fill[g.id] < CFG.target * .82 &&
+          f.effects[g.id]
         )
-      );
+      ) &&
+      !wouldOverload(f)
+    );
 
-      const safeHealthy = FOODS.filter(f =>
-  !f.junk &&
-  f.effects &&
-  !wouldOverload(f)
-);
-
-if (safeHealthy.length) {
-  return {
-    ...pick(safeHealthy)
-  };
-}
-
-// ถ้าทุกหมู่เต็มแล้ว ให้สุ่ม power หรือ junk แทน
-// เพื่อให้ผู้เล่นต้อง “รักษาสมดุล” ไม่ใช่เติมจนล้นทุกหมู่
-if (chance(.35)) {
-  return {
-    ...pick(POWERS)
-  };
-}
-
-return {
-  ...pick(FOODS.filter(f => f.junk))
-};
-    }
-
-    if (state.mini && state.mini.type === 'missingAlert' && chance(.72)) {
-      const g = state.mini.group || m.id;
-      const pool = FOODS.filter(f =>
-        !f.junk &&
-        f.effects &&
-        f.effects[g]
-      );
-
+    if (pool.length) {
       return {
-        ...pick(pool.length ? pool : FOODS.filter(f => !f.junk))
+        ...pick(pool)
       };
     }
+  }
 
-    if (chance(.075) && !state.boss && !state.mini && !state.lastSaveActive) {
+  if (state.mini && state.mini.type === 'missingAlert' && chance(.72)) {
+    const g = state.mini.group || m.id;
+    const pool = FOODS.filter(f =>
+      !f.junk &&
+      f.effects &&
+      f.effects[g] &&
+      !wouldOverload(f)
+    );
+
+    if (pool.length) {
       return {
-        ...pick(POWERS)
+        ...pick(pool)
       };
     }
+  }
 
-    let jr =
-      CFG.junk +
-      (state.wave - 1) * .035 +
-      (state.rush ? .06 : 0) +
-      (state.boss ? .08 : 0) +
-      (state.directorLevel * .025 - state.assistLevel * .035);
-
-    if (state.mini && state.mini.type === 'junkInvasion') jr += .42;
-    if (state.lastSaveActive) jr += .12;
-
-    if (chance(clamp(jr, .08, .72))) {
-      return {
-        ...pick(FOODS.filter(f => f.junk))
-      };
-    }
-
-    const missingIds = GROUPS
-      .filter(g => state.fill[g.id] < CFG.target * .82)
-      .map(g => g.id);
-
-    if (missingIds.length && chance(.56)) {
-      const g = pick(missingIds);
-
-      return {
-        ...pick(FOODS.filter(f =>
-          !f.junk &&
-          f.effects &&
-          f.effects[g]
-        ))
-      };
-    }
-
+  if (chance(.075) && !state.boss && !state.mini && !state.lastSaveActive) {
     return {
-      ...pick(FOODS.filter(f => !f.junk))
+      ...pick(POWERS)
     };
   }
+
+  let jr =
+    CFG.junk +
+    (state.wave - 1) * .035 +
+    (state.rush ? .06 : 0) +
+    (state.boss ? .08 : 0) +
+    (state.directorLevel * .025 - state.assistLevel * .035);
+
+  if (state.mini && state.mini.type === 'junkInvasion') jr += .42;
+  if (state.lastSaveActive) jr += .12;
+
+  if (chance(clamp(jr, .08, .72))) {
+    return {
+      ...pick(FOODS.filter(f => f.junk))
+    };
+  }
+
+  const missingIds = GROUPS
+    .filter(g => state.fill[g.id] < CFG.target * .82)
+    .map(g => g.id);
+
+  if (missingIds.length && chance(.64)) {
+    const g = pick(missingIds);
+    const pool = FOODS.filter(f =>
+      !f.junk &&
+      f.effects &&
+      f.effects[g] &&
+      !wouldOverload(f)
+    );
+
+    if (pool.length) {
+      return {
+        ...pick(pool)
+      };
+    }
+  }
+
+  // PATCH v20260513-PLATE-SOLO-BALANCE-SAFE-SPAWN
+  // โหมดปกติ: เลือกอาหารดีที่ยังไม่ทำให้ล้นก่อนเสมอ
+  const safeHealthy = FOODS.filter(f =>
+    !f.junk &&
+    f.effects &&
+    !wouldOverload(f)
+  );
+
+  if (safeHealthy.length) {
+    return {
+      ...pick(safeHealthy)
+    };
+  }
+
+  // ถ้าทุกหมู่เต็มแล้ว อย่าส่งอาหารดีมาให้เด็กกดจนล้นทุกหมู่
+  // ให้กลายเป็นช่วงรักษาสมดุล: power / junk / หลบของหลอก
+  if (chance(.40)) {
+    return {
+      ...pick(POWERS)
+    };
+  }
+
+  return {
+    ...pick(FOODS.filter(f => f.junk))
+  };
+}
 
   function spawnFood(forced = null){
   resolvePlateEls();
@@ -4010,11 +4022,7 @@ return {
       els.btnStart.classList.add('hidden');
     }
     if (els.startOverlay) els.startOverlay.classList.add('hidden');
-    const promptEl = byId('prompt');
-if (promptEl) {
-  promptEl.classList.add('hidden');
-  promptEl.style.display = 'none';
-}
+   
 
     if (state.practiceEnabled && !state.practiceDone) {
       startPractice();
@@ -4400,12 +4408,7 @@ if (promptEl) {
       els.btnStart.disabled = false;
       els.btnStart.classList.remove('hidden');
     }
-    const promptEl = byId('prompt');
-if (promptEl) {
-  promptEl.classList.remove('hidden');
-  promptEl.style.display = '';
-  promptEl.textContent = 'กดเล่นอีกครั้งเพื่อจัดจานอาหาร';
-}
+    howBanner('สรุปผล • เล่นอีกครั้งเพื่อจัดจานอาหาร');
     showSummaryOverlay();
 
     const summary = {
