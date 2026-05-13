@@ -3063,3 +3063,116 @@ body.hha-view-cvr .hha-target-icon,
 body[data-view="cvr"] .hha-target-icon{
   font-size:36px !important;
 }
+/* =========================================================
+   PATCH v20260513-hydration-mobile-layout-pack3
+   จัด HUD / timebar / banner บนมือถือ ไม่ให้แน่นและไม่บัง gameplay
+   ========================================================= */
+
+@media (max-width: 520px){
+
+  .hha-hydration-hud{
+    left:8px !important;
+    right:106px !important;
+    top:8px !important;
+    gap:6px !important;
+    justify-content:flex-start !important;
+    align-items:flex-start !important;
+    flex-wrap:wrap !important;
+  }
+
+  .hha-hud-pill{
+    min-width:72px !important;
+    padding:6px 8px !important;
+    border-radius:16px !important;
+  }
+
+  .hha-hud-pill b{
+    font-size:15px !important;
+    line-height:1 !important;
+  }
+
+  .hha-hud-pill span{
+    margin-top:1px !important;
+    font-size:9px !important;
+  }
+
+  .hha-hydration-controls{
+    right:8px !important;
+    top:8px !important;
+    gap:6px !important;
+  }
+
+  .hha-control-btn{
+    width:44px !important;
+    height:44px !important;
+    border-radius:16px !important;
+    font-size:19px !important;
+  }
+
+  /* เดิม timebar ชน HUD ให้ดันลงมา */
+  .hha-timebar{
+    top:118px !important;
+    width:min(420px,76vw) !important;
+  }
+
+  .hha-timebar span{
+    min-width:48px !important;
+    height:38px !important;
+    font-size:14px !important;
+    border-radius:18px !important;
+  }
+
+  .hha-timebar-track{
+    height:14px !important;
+  }
+
+  /* banner ใหญ่ไปนิด ลดและดันลงจาก timebar */
+  .hha-hydration-banner{
+    top:162px !important;
+    max-width:78vw !important;
+    padding:12px 18px !important;
+    font-size:17px !important;
+    line-height:1.25 !important;
+    border-radius:32px !important;
+  }
+
+  /* เป้าขนาด final สำหรับ mobile */
+  .hha-hydration-target{
+    width:70px !important;
+    height:84px !important;
+    border-radius:19px !important;
+    gap:1px !important;
+    padding:6px !important;
+  }
+
+  .hha-target-icon{
+    font-size:30px !important;
+  }
+
+  .hha-target-icon.has-img{
+    width:40px !important;
+    height:40px !important;
+  }
+
+  .hha-target-label{
+    font-size:10.5px !important;
+    line-height:1.05 !important;
+  }
+
+  .hha-target-short{
+    font-size:8.5px !important;
+    line-height:1 !important;
+  }
+}
+
+/* cVR ยังต้องใหญ่กว่า mobile นิดหนึ่ง */
+body.hha-view-cvr .hha-hydration-target,
+body[data-view="cvr"] .hha-hydration-target{
+  width:82px !important;
+  height:96px !important;
+}
+
+body.hha-view-cvr .hha-target-icon,
+body[data-view="cvr"] .hha-target-icon{
+  font-size:36px !important;
+}
