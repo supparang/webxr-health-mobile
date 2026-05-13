@@ -178,7 +178,11 @@ function resolvePlateEls(){
 
   els.phaseBanner = els.phaseBanner || byId('prompt');
   els.startOverlay = els.startOverlay || ensureEl('startOverlay', 'div', els.app, 'hidden');
-  els.summaryOverlay = els.summaryOverlay || byId('summaryModal') || byId('resultModal') || byId('summaryOverlay');
+  if (els.summaryOverlay) {
+  els.summaryOverlay.classList.remove('hidden');
+  els.summaryOverlay.classList.add('show');
+  els.summaryOverlay.setAttribute('aria-hidden', 'false');
+}
 
   els.btnStart = els.btnStart || byId('startBtn');
   els.btnPause = els.btnPause || byId('pauseBtn');
