@@ -2208,3 +2208,65 @@ body.view-vr .target{
     box-shadow:none;
   }
 }
+.meters-list{
+  display:grid;
+  gap:10px;
+  margin-top:12px;
+}
+
+.food-meter{
+  padding:10px;
+  border:1px solid rgba(169,214,232,.72);
+  border-radius:18px;
+  background:rgba(255,255,255,.82);
+}
+
+.meter-head{
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:center;
+  font-weight:1000;
+  color:#24465d;
+  font-size:13px;
+}
+
+.meter-value{
+  color:#6f8da0;
+  white-space:nowrap;
+}
+
+.meter-track{
+  position:relative;
+  height:12px;
+  margin-top:7px;
+  border-radius:999px;
+  background:#e7f4fa;
+  overflow:hidden;
+}
+
+.meter-fill{
+  display:block;
+  height:100%;
+  width:0%;
+  border-radius:999px;
+  background:linear-gradient(90deg,#65d86f,#ffd861,#ffae42);
+  transition:width .22s ease;
+}
+
+.meter-need{
+  margin-top:5px;
+  color:#6f8da0;
+  font-size:11px;
+  font-weight:850;
+}
+
+.food-meter.over{
+  border-color:rgba(255,107,107,.65);
+  background:linear-gradient(180deg,#fff,#fff0f0);
+}
+
+.food-meter.warn{
+  border-color:rgba(255,174,66,.65);
+  background:linear-gradient(180deg,#fff,#fff8dd);
+}
