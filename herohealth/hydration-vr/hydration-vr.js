@@ -3946,3 +3946,173 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     bootSpacing();
   }
 })();
+/* =========================================================
+   PATCH v20260513-hydration-gameplay-rush-pack7
+   Rush visual controller: end-game pressure without touching scoring core
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260513-hydration-gameplay-rush-pack7';
+  var lastMode = '';
+  var toastTimer = 0;
+
+  function q(sel){
+    try{ return document.querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel){
+    try{ return Array.from(document.querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function parseSecondsFromText(text){
+    text = String(text || '');
+    var nums = text.match(/\d+/g);
+    if(!nums || !nums.length) return null;
+
+    /* ปกติ timebar จะมีเลขวินาทีเด่นสุด เลือกเลขท้ายสุดเพื่อความปลอดภัย */
+    var n = Number(nums[nums.length - 1]);
+    if(!Number.isFinite(n)) return null;
+    return n;
+  }
+
+  function getRemainingSeconds(){
+    var candidates = [
+      '.hha-timebar span',
+      '.hha-hud-pill.time b',
+      '.hha-hud-pill.timer b',
+      '[data-hha-time]',
+      '[data-time-left]'
+    ];
+
+    for(var i=0; i<candidates.length; i++){
+      var el = q(candidates[i]);
+      if(!el) continue;
+
+      var n = parseSecondsFromText(el.textContent || el.getAttribute('data-time-left') || '');
+      if(n !== null) return n;
+    }
+
+    /* fallback: หา pill ที่มีคำว่า time/เวลา */
+    var pills = qa('.hha-hud-pill');
+    for(var j=0; j<pills.length; j++){
+      var t = pills[j].textContent || '';
+      if(/time|เวลา|วิ|sec/i.test(t)){
+        var m = parseSecondsFromText(t);
+        if(m !== null) return m;
+      }
+    }
+
+    return null;
+  }
+
+  function ensureToast(){
+    var el = document.getElementById('hha-rush-toast');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-rush-toast';
+    el.className = 'hha-rush-toast';
+    el.textContent = '⚡ Rush!';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function showToast(text){
+    var el = ensureToast();
+    el.textContent = text;
+    el.classList.add('show');
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){
+      el.classList.remove('show');
+    }, 1100);
+  }
+
+  function setMode(mode, seconds){
+    if(mode === lastMode) return;
+    lastMode = mode;
+
+    document.body.classList.remove(
+      'hha-hydration-rush',
+      'hha-hydration-last10'
+    );
+
+    if(mode === 'rush'){
+      document.body.classList.add('hha-hydration-rush');
+      showToast('⚡ Rush Mode! รีบเติมน้ำให้ทัน');
+    }
+
+    if(mode === 'last10'){
+      document.body.classList.add('hha-hydration-rush');
+      document.body.classList.add('hha-hydration-last10');
+      showToast('🔥 เหลือ ' + seconds + ' วิ! ระวังของหวาน');
+    }
+
+    if(mode === 'normal'){
+      var toast = document.getElementById('hha-rush-toast');
+      if(toast) toast.classList.remove('show');
+    }
+  }
+
+  function tick(){
+    try{
+      var sec = getRemainingSeconds();
+
+      if(sec === null){
+        requestAnimationFrame(tick);
+        return;
+      }
+
+      if(sec <= 10){
+        setMode('last10', sec);
+      }else if(sec <= 25){
+        setMode('rush', sec);
+      }else{
+        setMode('normal', sec);
+      }
+    }catch(e){}
+
+    requestAnimationFrame(tick);
+  }
+
+  function markTargets(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    var mo = new MutationObserver(function(records){
+      records.forEach(function(record){
+        Array.from(record.addedNodes || []).forEach(function(node){
+          if(!node || node.nodeType !== 1) return;
+
+          if(node.classList && node.classList.contains('hha-hydration-target')){
+            node.dataset.hhaRushPack = PATCH;
+          }
+
+          if(node.querySelectorAll){
+            node.querySelectorAll('.hha-hydration-target').forEach(function(t){
+              t.dataset.hhaRushPack = PATCH;
+            });
+          }
+        });
+      });
+    });
+
+    mo.observe(playfield, { childList:true, subtree:true });
+  }
+
+  function boot(){
+    markTargets();
+    tick();
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
