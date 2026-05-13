@@ -2984,3 +2984,82 @@ body[data-view="cvr"] .hha-target-icon{
   from{ transform:scale(1); filter:saturate(1); }
   to{ transform:scale(1.045); filter:saturate(1.35); }
 }
+/* =========================================================
+   PATCH v20260513-hydration-mobile-target-smaller
+   ลดขนาดเป้า Hydration บน Mobile ให้พอดีขึ้น
+   ========================================================= */
+
+/* default target */
+.hha-hydration-target{
+  width:74px !important;
+  height:88px !important;
+  border-radius:20px !important;
+  gap:1px !important;
+  padding:6px !important;
+}
+
+/* icon */
+.hha-target-icon{
+  font-size:32px !important;
+}
+
+.hha-target-icon.has-img{
+  width:40px !important;
+  height:40px !important;
+}
+
+/* text inside target */
+.hha-target-label{
+  font-size:11px !important;
+  line-height:1.05 !important;
+}
+
+.hha-target-short{
+  font-size:9px !important;
+  line-height:1 !important;
+}
+
+/* Mobile portrait: ลดอีกนิดให้ไม่บังจอ */
+@media (max-width: 520px){
+  .hha-hydration-target{
+    width:70px !important;
+    height:84px !important;
+    border-radius:19px !important;
+  }
+
+  .hha-target-icon{
+    font-size:30px !important;
+  }
+
+  .hha-target-label{
+    font-size:10.5px !important;
+  }
+
+  .hha-target-short{
+    font-size:8.5px !important;
+  }
+}
+
+/* PC ให้เล็กและไวขึ้น */
+@media (min-width: 820px){
+  .hha-hydration-target{
+    width:76px !important;
+    height:90px !important;
+  }
+
+  .hha-target-icon{
+    font-size:33px !important;
+  }
+}
+
+/* cVR ต้องยังเล็งง่าย ไม่เล็กเกิน */
+body.hha-view-cvr .hha-hydration-target,
+body[data-view="cvr"] .hha-hydration-target{
+  width:82px !important;
+  height:96px !important;
+}
+
+body.hha-view-cvr .hha-target-icon,
+body[data-view="cvr"] .hha-target-icon{
+  font-size:36px !important;
+}
