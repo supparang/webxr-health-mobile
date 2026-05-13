@@ -348,7 +348,39 @@
   function wouldOverload(food){return !!(food&&food.effects&&Object.entries(food.effects).some(([g,v])=>(state.fill[g]||0)+Number(v||0)>CFG.target+.25));}
   function applyEffects(effects){Object.entries(effects||{}).forEach(([g,v])=>{if(g in state.fill)state.fill[g]=clamp((state.fill[g]||0)+Number(v||0),0,CFG.target+2.2);});}
 
-  function renderMeters(){els.meters.innerHTML=GROUPS.map(g=>`<div class="groupMeter" data-g="${g.id}"><div class="gmTop"><span>${g.icon} ${g.label}</span><small id="gmv-${g.id}">0/${CFG.target}</small></div><div id="bar-${g.id}" class="bar"><i id="bari-${g.id}"></i></div><div id="need-${g.id}" class="need">ยังขาด</div></div>`).join('');}
+  function renderMeters(){
+  const missions = document.getElementById('missions');
+
+  if (!missions) {
+    console.warn('[Plate Solo] renderMeters skipped: #missions not found');
+    return;
+  }
+
+  missions.innerHTML = '';
+
+  const groups = [
+    { key:'protein', label:'หมู่ 1 โปรตีน', icon:'🥚' },
+    { key:'carb', label:'หมู่ 2 ข้าว/แป้ง', icon:'🍚' },
+    { key:'veg', label:'หมู่ 3 ผัก', icon:'🥦' },
+    { key:'fruit', label:'หมู่ 4 ผลไม้', icon:'🍎' },
+    { key:'fat', label:'หมู่ 5 ไขมัน', icon:'🥑' }
+  ];
+
+  groups.forEach((g, index) => {
+    const item = document.createElement('div');
+    item.className = 'goal-item';
+    item.dataset.group = g.key;
+    item.innerHTML = `
+      <div class="goal-icon">${g.icon}</div>
+      <div>
+        <div class="goal-name">${g.label}</div>
+        <div class="goal-desc">เก็บให้ครบเพื่อจานสมดุล</div>
+      </div>
+      <div class="goal-count" id="goalCount${index + 1}">0/1</div>
+    `;
+    missions.appendChild(item);
+  });
+}
   function updateMeters(){GROUPS.forEach(g=>{const v=state.fill[g.id]||0,pct=clamp((v/CFG.target)*100,0,145),bar=$('bar-'+g.id),fill=$('bari-'+g.id),label=$('gmv-'+g.id),need=$('need-'+g.id); if(!bar||!fill||!label||!need)return; fill.style.width=Math.min(pct,100)+'%'; bar.classList.toggle('over',v>CFG.target+.25); bar.classList.toggle('warn',v>=CFG.target*.82&&v<=CFG.target+.25); label.textContent=`${v.toFixed(1)}/${CFG.target}`; need.textContent=v>CFG.target+.25?'ล้นแล้ว! อย่าเติมเพิ่ม':(v>=CFG.target*.82?'พอดีแล้ว':`ยังขาด ${(CFG.target-v).toFixed(1)}`);});}
   function updatePlateHealthUI(){const hp=Math.round(state.plateHealth); if(els.plateHealthFill)els.plateHealthFill.style.width=clamp(hp,0,100)+'%'; if(els.plateHealthText)els.plateHealthText.textContent='Plate '+hp+'%'; if(els.plateHealthIcon)els.plateHealthIcon.textContent=hp<=25?'🚨':hp<=55?'💛':'❤️'; if(els.app){els.app.classList.toggle('plate-warn',hp<=55&&hp>25); els.app.classList.toggle('plate-danger',hp<=25); els.app.classList.toggle('plate-critical',hp<=15);}}
   function renderPlate(){els.plateFoods.innerHTML=state.plateItems.map(x=>plateFoodVisualHtml(x)).join(''); const b=balanceScore(); els.plate.classList.toggle('good',b>=84); els.plate.classList.toggle('danger',b<45||state.overloads>=3||state.plateHealth<=35); els.plateLabel.textContent=b>=90?'Perfect Plate!':b>=75?'Good Balance':state.plateHealth<=25?'Save Plate!':'Need Balance';}
