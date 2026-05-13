@@ -792,5 +792,110 @@
     renderLatest();
   })();
   </script>
+  <script>
+(function(){
+  'use strict';
+
+  function buildPlateSoloUrl(){
+    const p = new URLSearchParams(location.search);
+
+    const url = new URL(
+      'https://supparang.github.io/webxr-health-mobile/herohealth/plate-solo.html'
+    );
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'studentId',
+      'studentName',
+      'classSection',
+      'diff',
+      'time',
+      'view',
+      'run',
+      'studyId',
+      'conditionGroup',
+      'section',
+      'session_code',
+      'log',
+      'api',
+      'seed'
+    ].forEach(k => {
+      const v = p.get(k);
+      if (v !== null && v !== '') {
+        url.searchParams.set(k, v);
+      }
+    });
+
+    url.searchParams.set('zone', 'nutrition');
+    url.searchParams.set('game', 'plate');
+    url.searchParams.set('gameId', 'plate');
+    url.searchParams.set('mode', 'solo');
+    url.searchParams.set('entry', 'plate-solo');
+    url.searchParams.set('from', 'plate-v1');
+
+    const hub =
+      p.get('hub') ||
+      'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html';
+
+    url.searchParams.set('hub', hub);
+
+    return url.toString();
+  }
+
+  function patchPlateSoloLinks(){
+    const soloUrl = buildPlateSoloUrl();
+
+    const candidates = Array.from(document.querySelectorAll(
+      'a, button, [data-mode], [data-entry], [data-game-mode]'
+    ));
+
+    candidates.forEach(el => {
+      const text = (el.textContent || '').toLowerCase();
+      const mode = (
+        el.dataset.mode ||
+        el.dataset.entry ||
+        el.dataset.gameMode ||
+        ''
+      ).toLowerCase();
+
+      const isSolo =
+        mode.includes('solo') ||
+        mode.includes('plate-solo') ||
+        text.includes('solo') ||
+        text.includes('เล่นคนเดียว');
+
+      if (!isSolo) return;
+
+      el.dataset.fixedPlateSoloUrl = soloUrl;
+
+      if (el.tagName === 'A') {
+        el.href = soloUrl;
+      }
+
+      if (el.__plateSoloLinkFixed) return;
+      el.__plateSoloLinkFixed = true;
+
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        location.href = soloUrl;
+      }, true);
+    });
+
+    window.PLATE_SOLO_URL_FIXED = soloUrl;
+    console.info('[Plate v1] Plate Solo link fixed:', soloUrl);
+  }
+
+  document.addEventListener('DOMContentLoaded', patchPlateSoloLinks);
+
+  if (document.readyState === 'interactive' || document.readyState === 'complete') {
+    patchPlateSoloLinks();
+  }
+
+  setTimeout(patchPlateSoloLinks, 300);
+  setTimeout(patchPlateSoloLinks, 900);
+})();
+</script>
 </body>
 </html>
