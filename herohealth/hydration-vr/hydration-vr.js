@@ -20,15 +20,15 @@
 
   window.HHA = window.HHA || {};
   window.HHA.Hydration = window.HHA.Hydration || {
-    Version: v10.1.2-cooldown-nutrition-return
-    booted: false,
-    started: false,
-    destroyed: false,
-    timers: new Set(),
-    rafId: 0,
-    listeners: [],
-    debug: false
-  };
+  VERSION: 'v10.1.2-cooldown-nutrition-return',
+  booted: false,
+  started: false,
+  destroyed: false,
+  timers: new Set(),
+  rafId: 0,
+  listeners: [],
+  debug: false
+};
 
   const HYD = window.HHA.Hydration;
   HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
