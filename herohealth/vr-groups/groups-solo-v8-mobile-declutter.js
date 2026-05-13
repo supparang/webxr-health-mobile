@@ -1,247 +1,236 @@
 // === /herohealth/vr-groups/groups-solo-v8-mobile-declutter.js ===
-// HeroHealth Groups Solo — v8.9 Mobile Declutter + Gameplay Layer Fix
-// FIX:
-// 1) Hide intro/how-to/start content while gameplay is active
-// 2) Hide duplicate/large panels that crowd mobile gameplay
-// 3) Compact group gates, mission prompt, return button
-// 4) Release v8.8 scroll-force during gameplay
-// PATCH v20260513-GROUPS-SOLO-V89-MOBILE-DECLUTTER
+// HeroHealth Groups Solo — v8.9.1 Rescue Declutter
+// FIX: v8.9 detected gameplay too early and could block Start/Intro.
+// This version NEVER locks/hides intro until real gameplay is confirmed.
+// PATCH v20260513-GROUPS-SOLO-V891-RESCUE
 
 (function () {
   'use strict';
 
-  const VERSION = 'v8.9-mobile-declutter-20260513';
+  const VERSION = 'v8.9.1-rescue-declutter-20260513';
 
-  if (window.__HHA_GROUPS_SOLO_V89_MOBILE_DECLUTTER__) {
-    console.warn('[GroupsSolo v8.9] already installed');
+  if (window.__HHA_GROUPS_SOLO_V891_RESCUE_DECLUTTER__) {
+    console.warn('[GroupsSolo v8.9.1] already installed');
     return;
   }
-  window.__HHA_GROUPS_SOLO_V89_MOBILE_DECLUTTER__ = true;
+  window.__HHA_GROUPS_SOLO_V891_RESCUE_DECLUTTER__ = true;
 
   const WIN = window;
   const DOC = document;
 
   const state = {
-    playing: false,
-    summary: false,
-    countdown: false,
-    lastScanAt: 0,
-    lastMode: '',
-    marked: 0
+    confirmedPlaying: false,
+    ended: false,
+    countdownDone: false,
+    lastMode: 'intro',
+    lastApplyAt: 0
   };
 
   function textOf(el) {
-    return String(
-      el
-        ? el.textContent ||
-            (el.getAttribute && el.getAttribute('aria-label')) ||
-            ''
-        : ''
-    )
-      .replace(/\s+/g, ' ')
-      .trim();
+    return String(el ? (el.textContent || '') : '').replace(/\s+/g, ' ').trim();
   }
 
   function isVisible(el) {
     if (!el || !el.isConnected) return false;
     const cs = getComputedStyle(el);
-    if (
-      cs.display === 'none' ||
-      cs.visibility === 'hidden' ||
-      Number(cs.opacity) === 0
-    ) {
-      return false;
-    }
+    if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
     const r = el.getBoundingClientRect();
     return r.width > 8 && r.height > 8;
   }
 
   function looksLikeSummary() {
-    const bodyText = textOf(DOC.body);
+    const tx = textOf(DOC.body);
     return (
-      bodyText.includes('สรุปผลการเล่น') ||
-      bodyText.includes('Hero Rank') ||
-      bodyText.includes('Food Rookie') ||
-      bodyText.includes('ความแม่นยำ') ||
-      bodyText.includes('คอมโบสูงสุด')
+      tx.includes('สรุปผลการเล่น') ||
+      tx.includes('Hero Rank') ||
+      tx.includes('Food Rookie') ||
+      tx.includes('ความแม่นยำ') ||
+      tx.includes('คอมโบสูงสุด')
     );
   }
 
   function isCountdown() {
     return Boolean(
       DOC.getElementById('hha-groups-v831-overlay') ||
-        DOC.getElementById('hha-groups-v83-countdown') ||
-        DOC.body.classList.contains('hha-groups-v831-counting') ||
-        DOC.body.classList.contains('hha-groups-v83-counting')
+      DOC.getElementById('hha-groups-v83-countdown') ||
+      DOC.body.classList.contains('hha-groups-v831-counting') ||
+      DOC.body.classList.contains('hha-groups-v83-counting')
     );
   }
 
-  function hasActiveGameplayTarget() {
-    const selectors = [
-      '.hha-groups-v82-target',
-      '[data-hha-v82-target="1"]',
-      '[data-hha-food-target="1"]',
-      '.food-target',
-      '.target-food',
-      '.spawn-food'
-    ];
+  function hasVisibleStartButton() {
+    const nodes = DOC.querySelectorAll(
+      'button,a,[role="button"],.btn,.button,.start,.play,.start-btn,.play-btn,[data-start],[data-action]'
+    );
 
-    for (const sel of selectors) {
-      const nodes = DOC.querySelectorAll(sel);
-      for (const n of nodes) {
-        if (isVisible(n)) return true;
-      }
+    for (const n of nodes) {
+      if (!isVisible(n)) continue;
+
+      const tx = textOf(n).toLowerCase();
+      const action = String(n.getAttribute('data-action') || n.getAttribute('data-start') || '').toLowerCase();
+
+      const isStart =
+        action.includes('start') ||
+        action.includes('play') ||
+        tx.includes('เริ่ม') ||
+        tx.includes('เล่น') ||
+        tx.includes('start') ||
+        tx.includes('play');
+
+      const isBack =
+        tx.includes('กลับ') ||
+        tx.includes('nutrition') ||
+        tx.includes('zone') ||
+        tx.includes('hub');
+
+      if (isStart && !isBack) return true;
     }
 
     return false;
   }
 
-  function looksLikeGameplay() {
-    if (looksLikeSummary()) return false;
+  function hasActiveV82Targets() {
+    const nodes = DOC.querySelectorAll('.hha-groups-v82-target,[data-hha-v82-target="1"]');
+    for (const n of nodes) {
+      if (isVisible(n)) return true;
+    }
+    return false;
+  }
+
+  function apiState(name) {
+    try {
+      const api = WIN[name];
+      if (api && typeof api.getState === 'function') return api.getState() || {};
+    } catch (e) {}
+    return {};
+  }
+
+  function isRealGameplay() {
+    if (state.ended || looksLikeSummary()) return false;
     if (isCountdown()) return false;
 
-    const cls = String(DOC.body.className || '').toLowerCase();
+    /*
+      สำคัญ:
+      ห้ามใช้ข้อความ Wave / หมู่ 1–5 / Groups Solo Arena เป็นตัวตัดสินแล้ว
+      เพราะหน้า Intro ก็มีข้อความพวกนี้ ทำให้ v8.9 เดิมเข้าใจผิด
+    */
 
-    if (
-      cls.includes('hha-groups-v821-playing') ||
-      cls.includes('hha-groups-v822-playing') ||
-      cls.includes('hha-groups-v83-playing') ||
-      cls.includes('hha-groups-v87-playing') ||
-      cls.includes('playing')
-    ) {
-      return true;
-    }
+    if (hasVisibleStartButton() && !state.countdownDone) return false;
 
-    if (hasActiveGameplayTarget()) return true;
+    const s82 = apiState('HHA_GROUPS_V82');
+    const s83 = apiState('HHA_GROUPS_V83');
 
-    const tx = textOf(DOC.body);
+    if (s82 && (s82.playing || s82.hasStarted) && !s82.ended) return true;
+    if (s83 && s83.playing && !s83.ended && !s83.countdownActive) return true;
 
-    return (
-      tx.includes('Wave 1') ||
-      tx.includes('Calm Phase') ||
-      tx.includes('Fever:') ||
-      tx.includes('Target Group') ||
-      tx.includes('เลือก') && tx.includes('ส่งเข้าประตู') ||
-      tx.includes('หมู่ 1') && tx.includes('หมู่ 5')
-    );
+    if (hasActiveV82Targets()) return true;
+
+    if (state.confirmedPlaying) return true;
+
+    return false;
   }
 
   function injectStyle() {
-    if (DOC.getElementById('hha-groups-v89-style')) return;
+    if (DOC.getElementById('hha-groups-v891-style')) return;
 
     const style = DOC.createElement('style');
-    style.id = 'hha-groups-v89-style';
+    style.id = 'hha-groups-v891-style';
     style.textContent = `
       :root{
-        --hha-v89-safe-top: env(safe-area-inset-top, 0px);
-        --hha-v89-safe-bottom: env(safe-area-inset-bottom, 0px);
+        --hha-v891-safe-bottom: env(safe-area-inset-bottom, 0px);
       }
 
       /*
-        Gameplay mode: lock scrolling and remove intro/scroll-force classes.
+        Intro mode must stay clickable and scrollable.
       */
-      html.hha-groups-v89-playing,
-      html.hha-groups-v89-playing body{
-        overflow: hidden !important;
-        height: 100dvh !important;
-        min-height: 100dvh !important;
-        max-height: 100dvh !important;
-        overscroll-behavior: none !important;
-        touch-action: none !important;
+      html.hha-groups-v891-intro,
+      html.hha-groups-v891-intro body{
+        overflow-y: auto !important;
+        touch-action: pan-y !important;
+        height: auto !important;
+        max-height: none !important;
       }
 
-      body.hha-groups-v89-playing{
+      body.hha-groups-v891-intro button,
+      body.hha-groups-v891-intro a,
+      body.hha-groups-v891-intro [role="button"]{
+        pointer-events: auto !important;
+        touch-action: manipulation !important;
+      }
+
+      /*
+        Gameplay only: compact clutter.
+        This class is added only after real gameplay is confirmed.
+      */
+      html.hha-groups-v891-playing,
+      html.hha-groups-v891-playing body{
+        overflow: hidden !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        touch-action: none !important;
+        overscroll-behavior: none !important;
+      }
+
+      body.hha-groups-v891-playing{
         padding: 0 !important;
       }
 
-      /*
-        Hide old intro/how-to/start content while gameplay is active.
-      */
-      body.hha-groups-v89-playing [data-hha-v89-hide-playing="1"]{
+      body.hha-groups-v891-playing .hha-groups-v8-panel,
+      body.hha-groups-v891-playing .hha-groups-v81-mission,
+      body.hha-groups-v891-playing .hha-groups-v81-bossbar,
+      body.hha-groups-v891-playing .hha-groups-v82-chip,
+      body.hha-groups-v891-playing .hha-groups-v87-mission{
+        display: none !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
+
+      body.hha-groups-v891-playing [data-hha-v891-hide-during-play="1"]{
         display: none !important;
         opacity: 0 !important;
         visibility: hidden !important;
         pointer-events: none !important;
       }
 
-      /*
-        Hide duplicate or heavy panels during gameplay.
-      */
-      body.hha-groups-v89-playing .hha-groups-v8-panel,
-      body.hha-groups-v89-playing .hha-groups-v81-mission,
-      body.hha-groups-v89-playing .hha-groups-v81-bossbar,
-      body.hha-groups-v89-playing .hha-groups-v82-chip,
-      body.hha-groups-v89-playing .hha-groups-v87-mission,
-      body.hha-groups-v89-playing [data-hha-v89-heavy-panel="1"]{
-        display: none !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-      }
-
-      /*
-        Compact the big instruction prompt if the core game renders one.
-      */
-      body.hha-groups-v89-playing [data-hha-v89-big-prompt="1"]{
+      body.hha-groups-v891-playing [data-hha-v891-prompt="1"]{
         position: fixed !important;
         left: 50% !important;
-        bottom: calc(76px + var(--hha-v89-safe-bottom)) !important;
+        bottom: calc(72px + var(--hha-v891-safe-bottom)) !important;
         transform: translateX(-50%) !important;
         z-index: 99940 !important;
-        width: min(92vw, 520px) !important;
-        max-height: 74px !important;
+        width: min(88vw, 500px) !important;
+        max-height: 64px !important;
         overflow: hidden !important;
         border-radius: 22px !important;
         padding: 8px 12px !important;
-        font-size: clamp(18px, 5vw, 28px) !important;
-        line-height: 1.15 !important;
+        font-size: clamp(16px, 4.8vw, 24px) !important;
+        line-height: 1.14 !important;
         background: rgba(255,255,255,.92) !important;
-        box-shadow: 0 12px 32px rgba(35,81,107,.16) !important;
+        box-shadow: 0 12px 28px rgba(35,81,107,.16) !important;
       }
 
-      body.hha-groups-v89-playing [data-hha-v89-big-prompt="1"] *{
-        font-size: inherit !important;
-        line-height: 1.12 !important;
-      }
-
-      /*
-        Compact the 1–5 group gates.
-      */
-      body.hha-groups-v89-playing [data-hha-v89-gate="1"]{
+      body.hha-groups-v891-playing [data-hha-v891-gate="1"]{
         width: clamp(50px, 13vw, 68px) !important;
         min-width: clamp(50px, 13vw, 68px) !important;
         max-width: clamp(50px, 13vw, 68px) !important;
         min-height: 72px !important;
         max-height: 96px !important;
-        padding: 4px 4px !important;
+        padding: 4px !important;
         border-radius: 18px !important;
         font-size: 11px !important;
         line-height: 1.05 !important;
         overflow: hidden !important;
-        box-shadow: 0 8px 22px rgba(35,81,107,.14) !important;
       }
 
-      body.hha-groups-v89-playing [data-hha-v89-gate="1"] *{
+      body.hha-groups-v891-playing [data-hha-v891-gate="1"] *{
         font-size: min(11px, 3vw) !important;
         line-height: 1.05 !important;
       }
 
-      /*
-        Reduce giant target cards/circles on mobile if they are too big.
-      */
-      body.hha-groups-v89-playing [data-hha-v89-big-target="1"]{
-        transform: scale(.82) !important;
-        transform-origin: center center !important;
-        max-width: 42vw !important;
-        max-height: 26vh !important;
-      }
-
-      /*
-        Return button should not block gameplay.
-      */
-      body.hha-groups-v89-playing #hha-groups-v8-return,
-      body.hha-groups-v89-playing .hha-groups-v8-return{
+      body.hha-groups-v891-playing #hha-groups-v8-return,
+      body.hha-groups-v891-playing .hha-groups-v8-return{
         left: 8px !important;
-        bottom: calc(8px + var(--hha-v89-safe-bottom)) !important;
+        bottom: calc(8px + var(--hha-v891-safe-bottom)) !important;
         max-width: 46vw !important;
         padding: 8px 10px !important;
         border-radius: 999px !important;
@@ -250,33 +239,21 @@
         z-index: 99960 !important;
       }
 
-      /*
-        Hide bottom spacer from scroll-force while playing.
-      */
-      body.hha-groups-v89-playing #hha-groups-v881-bottom-spacer,
-      body.hha-groups-v89-playing .hha-groups-v881-bottom-spacer{
-        display: none !important;
-        height: 0 !important;
-      }
-
-      /*
-        Custom compact mission pill.
-      */
-      .hha-groups-v89-mini{
+      .hha-groups-v891-mini{
         position: fixed;
         left: 50%;
-        bottom: calc(10px + var(--hha-v89-safe-bottom));
+        bottom: calc(10px + var(--hha-v891-safe-bottom));
         transform: translateX(-50%);
         z-index: 99955;
-        width: min(52vw, 290px);
+        width: min(48vw, 230px);
         border-radius: 999px;
-        padding: 8px 12px;
+        padding: 7px 9px;
         background: linear-gradient(135deg, rgba(255,255,255,.94), rgba(236,250,255,.9));
         border: 2px solid rgba(255,255,255,.92);
         box-shadow: 0 12px 30px rgba(35,81,107,.16);
         color: #244e68;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: clamp(11px, 3vw, 14px);
+        font-family: system-ui, -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        font-size: 11px;
         line-height: 1.15;
         font-weight: 1000;
         text-align: center;
@@ -284,29 +261,14 @@
         display: none;
       }
 
-      body.hha-groups-v89-playing .hha-groups-v89-mini{
+      body.hha-groups-v891-playing .hha-groups-v891-mini{
         display: block;
       }
 
-      body.hha-groups-v89-summary .hha-groups-v89-mini,
-      body.hha-groups-v89-countdown .hha-groups-v89-mini{
+      body.hha-groups-v891-summary .hha-groups-v891-mini,
+      body.hha-groups-v891-countdown .hha-groups-v891-mini,
+      body.hha-groups-v891-intro .hha-groups-v891-mini{
         display: none !important;
-      }
-
-      @media (max-width: 640px){
-        body.hha-groups-v89-playing [data-hha-v89-big-prompt="1"]{
-          bottom: calc(68px + var(--hha-v89-safe-bottom)) !important;
-          width: min(86vw, 420px) !important;
-          max-height: 62px !important;
-          padding: 7px 10px !important;
-          font-size: clamp(16px, 4.8vw, 23px) !important;
-        }
-
-        .hha-groups-v89-mini{
-          width: min(48vw, 230px);
-          padding: 7px 9px;
-          font-size: 11px;
-        }
       }
     `;
 
@@ -314,13 +276,13 @@
   }
 
   function ensureMini() {
-    let el = DOC.getElementById('hha-groups-v89-mini');
+    let el = DOC.getElementById('hha-groups-v891-mini');
     if (el) return el;
 
     el = DOC.createElement('div');
-    el.id = 'hha-groups-v89-mini';
-    el.className = 'hha-groups-v89-mini';
-    el.textContent = 'ดูโจทย์ แล้วส่งเข้าประตูให้ถูกหมู่';
+    el.id = 'hha-groups-v891-mini';
+    el.className = 'hha-groups-v891-mini';
+    el.textContent = 'ส่งอาหารเข้าประตูให้ถูกหมู่';
     DOC.body.appendChild(el);
 
     return el;
@@ -330,8 +292,8 @@
     try {
       if (WIN.HHA_GROUPS_V87 && typeof WIN.HHA_GROUPS_V87.getState === 'function') {
         const s = WIN.HHA_GROUPS_V87.getState();
-        const m = s && s.mission && s.mission.group;
-        if (m && m.icon && m.label) return `${m.icon} เก็บหมู่ ${m.label}`;
+        const g = s && s.mission && s.mission.group;
+        if (g && g.icon && g.label) return `${g.icon} หมู่ ${g.label}`;
       }
     } catch (e) {}
 
@@ -339,40 +301,45 @@
       if (WIN.HHA_GROUPS_V82 && typeof WIN.HHA_GROUPS_V82.getState === 'function') {
         const s = WIN.HHA_GROUPS_V82.getState();
         const m = s && s.mission;
-        if (m && m.icon && m.label) return `${m.icon} เก็บหมู่ ${m.label}`;
+        if (m && m.icon && m.label) return `${m.icon} หมู่ ${m.label}`;
       }
     } catch (e) {}
 
-    const bodyText = textOf(DOC.body);
-    const m = bodyText.match(/เลือก\s+([^\s]{1,4})\s+([^ ]{1,20})\s+แล้ว/);
-    if (m) return `เลือก ${m[1]} ${m[2]}`;
-
-    return 'ส่งอาหารเข้าประตูหมู่ให้ถูก';
+    return 'ส่งเข้าประตูให้ถูกหมู่';
   }
 
   function updateMini() {
-    const el = ensureMini();
-    el.textContent = getMissionText();
+    ensureMini().textContent = getMissionText();
   }
 
-  function markIntroAndClutter() {
-    const now = Date.now();
-    if (now - state.lastScanAt < 180) return;
-    state.lastScanAt = now;
+  function markOnlyGameplayClutter() {
+    /*
+      ไม่แตะ intro ตอนยังไม่ได้เล่น
+      จะ mark เฉพาะหลัง confirmed gameplay แล้วเท่านั้น
+    */
+    if (!state.confirmedPlaying) return;
 
-    const nodes = DOC.querySelectorAll(
-      'main,section,article,div,h1,h2,h3,p,button,a,[role="button"]'
-    );
+    const nodes = DOC.querySelectorAll('div,section,article,p,h1,h2,h3,button,a,[role="button"]');
 
     nodes.forEach(function (el) {
       if (!el || el === DOC.body || el === DOC.documentElement) return;
+      if (!isVisible(el)) return;
 
       const tx = textOf(el);
       if (!tx) return;
 
+      const isBackOrStart =
+        tx.includes('กลับ Nutrition Zone') ||
+        tx.includes('เริ่ม') ||
+        tx.includes('เล่น') ||
+        tx.toLowerCase().includes('start') ||
+        tx.toLowerCase().includes('play');
+
       /*
-        Hide intro/how-to pieces only during gameplay.
+        ห้ามซ่อนปุ่มเริ่ม/ปุ่มกลับ
       */
+      if (isBackOrStart) return;
+
       const introLike =
         tx.includes('Groups Solo Arena') ||
         tx.includes('แตะอาหารที่ตกลงมา') ||
@@ -383,41 +350,18 @@
         tx.includes('วิธีเล่น');
 
       if (introLike && tx.length < 900) {
-        el.setAttribute('data-hha-v89-hide-playing', '1');
-        state.marked += 1;
+        el.setAttribute('data-hha-v891-hide-during-play', '1');
       }
 
-      /*
-        Hide heavy duplicate panels.
-      */
-      const heavyLike =
-        tx.includes('Comeback Shield') ||
-        tx.includes('Teacher') ||
-        tx.includes('Power') ||
-        tx.includes('Fever: พร้อม') ||
-        tx.includes('Daily') ||
-        tx.includes('Target Group') ||
-        tx.includes('Hero Rank') && !looksLikeSummary();
-
-      if (heavyLike && tx.length < 900) {
-        el.setAttribute('data-hha-v89-heavy-panel', '1');
-      }
-
-      /*
-        Core big mission prompt.
-      */
       const promptLike =
         tx.includes('เลือก') &&
         tx.includes('ส่ง') &&
         tx.includes('ประตูหมู่');
 
       if (promptLike && tx.length < 350) {
-        el.setAttribute('data-hha-v89-big-prompt', '1');
+        el.setAttribute('data-hha-v891-prompt', '1');
       }
 
-      /*
-        Group gates: หมู่ 1–5.
-      */
       const gateLike =
         /หมู่\s*[1-5]/.test(tx) &&
         (
@@ -430,86 +374,126 @@
         );
 
       if (gateLike && tx.length < 120) {
-        el.setAttribute('data-hha-v89-gate', '1');
-      }
-
-      /*
-        Big circular target cards.
-      */
-      const targetLike =
-        (
-          tx.includes('ผักใบเขียว') ||
-          tx.includes('มะม่วง') ||
-          tx.includes('Target Group')
-        ) &&
-        tx.length < 160;
-
-      if (targetLike) {
-        el.setAttribute('data-hha-v89-big-target', '1');
+        el.setAttribute('data-hha-v891-gate', '1');
       }
     });
   }
 
-  function releaseScrollForceForGameplay() {
-    DOC.documentElement.classList.remove('hha-groups-v881-force-scroll');
-    DOC.body.classList.remove('hha-groups-v881-force-scroll');
-
-    DOC.documentElement.classList.remove('hha-groups-v88-scroll-unlocked');
-    DOC.body.classList.remove('hha-groups-v88-scroll-unlocked');
-
-    DOC.documentElement.classList.add('hha-groups-v89-playing');
-    DOC.body.classList.add('hha-groups-v89-playing');
-
-    DOC.documentElement.style.setProperty('overflow-y', 'hidden', 'important');
-    DOC.body.style.setProperty('overflow-y', 'hidden', 'important');
-    DOC.body.style.setProperty('touch-action', 'none', 'important');
-  }
-
-  function unlockForIntroOrSummary() {
+  function removeBadOldClassesInIntro() {
+    /*
+      v8.9 เดิมอาจเคยทิ้ง class ไว้
+      ต้องล้างเพื่อให้หน้า Start กลับมากดได้
+    */
     DOC.documentElement.classList.remove('hha-groups-v89-playing');
     DOC.body.classList.remove('hha-groups-v89-playing');
 
-    if (looksLikeSummary()) {
-      DOC.documentElement.style.setProperty('overflow-y', 'auto', 'important');
-      DOC.body.style.setProperty('overflow-y', 'auto', 'important');
-      DOC.body.style.setProperty('touch-action', 'pan-y', 'important');
-    }
+    DOC.documentElement.style.removeProperty('overflow-y');
+    DOC.body.style.removeProperty('overflow-y');
+    DOC.body.style.removeProperty('touch-action');
+  }
+
+  function enterIntroMode(reason) {
+    state.lastMode = 'intro';
+
+    removeBadOldClassesInIntro();
+
+    DOC.documentElement.classList.add('hha-groups-v891-intro');
+    DOC.body.classList.add('hha-groups-v891-intro');
+
+    DOC.documentElement.classList.remove('hha-groups-v891-playing');
+    DOC.body.classList.remove('hha-groups-v891-playing');
+
+    DOC.body.classList.remove('hha-groups-v891-summary');
+    DOC.body.classList.remove('hha-groups-v891-countdown');
+
+    DOC.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+    DOC.body.style.setProperty('overflow-y', 'auto', 'important');
+    DOC.body.style.setProperty('touch-action', 'pan-y', 'important');
+  }
+
+  function enterGameplayMode(reason) {
+    state.lastMode = 'playing';
+    state.confirmedPlaying = true;
+
+    DOC.documentElement.classList.remove('hha-groups-v891-intro');
+    DOC.body.classList.remove('hha-groups-v891-intro');
+
+    DOC.documentElement.classList.add('hha-groups-v891-playing');
+    DOC.body.classList.add('hha-groups-v891-playing');
+
+    DOC.body.classList.remove('hha-groups-v891-summary');
+    DOC.body.classList.remove('hha-groups-v891-countdown');
+
+    markOnlyGameplayClutter();
+    updateMini();
+  }
+
+  function enterSummaryMode(reason) {
+    state.lastMode = 'summary';
+    state.ended = true;
+
+    DOC.documentElement.classList.remove('hha-groups-v891-playing');
+    DOC.body.classList.remove('hha-groups-v891-playing');
+
+    DOC.documentElement.classList.remove('hha-groups-v891-intro');
+    DOC.body.classList.remove('hha-groups-v891-intro');
+
+    DOC.body.classList.add('hha-groups-v891-summary');
+
+    DOC.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+    DOC.body.style.setProperty('overflow-y', 'auto', 'important');
+    DOC.body.style.setProperty('touch-action', 'pan-y', 'important');
+  }
+
+  function enterCountdownMode(reason) {
+    state.lastMode = 'countdown';
+
+    DOC.body.classList.add('hha-groups-v891-countdown');
+    DOC.documentElement.classList.remove('hha-groups-v891-playing');
+    DOC.body.classList.remove('hha-groups-v891-playing');
   }
 
   function applyMode(reason) {
     injectStyle();
-    markIntroAndClutter();
 
-    state.summary = looksLikeSummary();
-    state.countdown = isCountdown();
-    state.playing = looksLikeGameplay();
+    const now = Date.now();
+    if (now - state.lastApplyAt < 50) return;
+    state.lastApplyAt = now;
 
-    DOC.body.classList.toggle('hha-groups-v89-summary', state.summary);
-    DOC.body.classList.toggle('hha-groups-v89-countdown', state.countdown);
-
-    if (state.playing && !state.summary && !state.countdown) {
-      releaseScrollForceForGameplay();
-      updateMini();
-      state.lastMode = 'playing';
+    if (looksLikeSummary()) {
+      enterSummaryMode(reason);
       return;
     }
 
-    unlockForIntroOrSummary();
-    state.lastMode = state.summary ? 'summary' : state.countdown ? 'countdown' : 'intro';
+    if (isCountdown()) {
+      enterCountdownMode(reason);
+      return;
+    }
+
+    if (isRealGameplay()) {
+      enterGameplayMode(reason);
+      return;
+    }
+
+    enterIntroMode(reason);
   }
 
   function installHooks() {
     [
+      'groups:v831:countdown-done',
       'groups:start',
       'hha:start',
       'game:start',
       'groups:play',
-      'hha:play',
-      'groups:v831:countdown-done'
+      'hha:play'
     ].forEach(function (name) {
       WIN.addEventListener(name, function () {
-        setTimeout(() => applyMode(name), 30);
-        setTimeout(() => applyMode(name + '-late'), 400);
+        if (name === 'groups:v831:countdown-done') {
+          state.countdownDone = true;
+        }
+
+        setTimeout(() => applyMode(name), 80);
+        setTimeout(() => applyMode(name + '-late'), 600);
       });
     });
 
@@ -524,21 +508,23 @@
       'groups:v87:summary-ready'
     ].forEach(function (name) {
       WIN.addEventListener(name, function () {
-        setTimeout(() => applyMode(name), 30);
+        state.ended = true;
+        setTimeout(() => applyMode(name), 50);
       });
     });
 
     DOC.addEventListener('click', function () {
-      setTimeout(() => applyMode('click'), 80);
-      setTimeout(() => applyMode('click-late'), 520);
+      /*
+        อย่า block click ใด ๆ
+        แค่ตรวจ mode หลัง click เท่านั้น
+      */
+      setTimeout(() => applyMode('click'), 100);
+      setTimeout(() => applyMode('click-late'), 700);
     }, true);
 
-    WIN.addEventListener('resize', function () {
-      applyMode('resize');
-    });
-
-    WIN.addEventListener('orientationchange', function () {
-      setTimeout(() => applyMode('orientation'), 250);
+    WIN.addEventListener('resize', () => applyMode('resize'));
+    WIN.addEventListener('orientationchange', () => {
+      setTimeout(() => applyMode('orientation'), 260);
     });
 
     const mo = new MutationObserver(function () {
@@ -554,18 +540,30 @@
   }
 
   function publicApi() {
-    WIN.HHA_GROUPS_V89_DECLUTTER = {
+    WIN.HHA_GROUPS_V891_RESCUE = {
       version: VERSION,
       apply: applyMode,
+      confirmPlaying: function () {
+        state.confirmedPlaying = true;
+        applyMode('api-confirm-playing');
+      },
+      resetIntro: function () {
+        state.confirmedPlaying = false;
+        state.ended = false;
+        enterIntroMode('api-reset-intro');
+      },
       getState: function () {
         return {
           version: VERSION,
-          playing: state.playing,
-          summary: state.summary,
-          countdown: state.countdown,
+          confirmedPlaying: state.confirmedPlaying,
+          ended: state.ended,
+          countdownDone: state.countdownDone,
           mode: state.lastMode,
-          marked: state.marked,
-          mission: getMissionText(),
+          summary: looksLikeSummary(),
+          countdown: isCountdown(),
+          startButton: hasVisibleStartButton(),
+          activeTargets: hasActiveV82Targets(),
+          realGameplay: isRealGameplay(),
           bodyClass: DOC.body.className,
           htmlClass: DOC.documentElement.className
         };
@@ -579,17 +577,19 @@
     installHooks();
     publicApi();
 
-    applyMode('init');
+    /*
+      สำคัญมาก:
+      เริ่มต้นต้องเป็น Intro mode เสมอ
+      ไม่ให้ declutter เข้าใจผิดว่าเป็น gameplay
+    */
+    enterIntroMode('init');
 
     setInterval(function () {
-      applyMode('interval-fast');
-    }, 160);
-
-    setInterval(function () {
+      applyMode('interval');
       updateMini();
-    }, 650);
+    }, 300);
 
-    console.info('[GroupsSolo v8.9] mobile declutter installed', VERSION);
+    console.info('[GroupsSolo v8.9.1] rescue declutter installed', VERSION);
   }
 
   if (DOC.readyState === 'loading') {
