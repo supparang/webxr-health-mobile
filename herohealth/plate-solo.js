@@ -1,6 +1,6 @@
 // === /herohealth/plate-solo.js ===
 // HeroHealth Plate Solo — FULL SAFE FILE BUILD
-// v20260513-PLATE-SOLO-PORTION-TARGET-FIX2-FULL
+// v20260513-PLATE-SOLO-PORTION-TARGET-FIX3-COOLDOWN-GATE
 // ✅ Portion target fix: แต่ละหมู่มีเป้าหมาย/สเกลไม่เท่ากัน
 // ✅ ไม่เติมเต็มเร็วเกินไป / ไม่ใช้ x/4 เหมือนกันทุกหมู่
 // ✅ แก้ Syntax Error จาก updateMeters ซ้ำ / แก้ howBanner -> showBanner
@@ -10,7 +10,7 @@
 (() => {
   'use strict';
 
-  const VERSION = '20260513-PLATE-SOLO-PORTION-TARGET-FIX2-FULL';
+  const VERSION = '20260513-PLATE-SOLO-PORTION-TARGET-FIX3-COOLDOWN-GATE';
   const DOC = window.document;
   const WIN = window;
   const $ = id => DOC.getElementById(id);
@@ -679,6 +679,7 @@ function buildNutritionZoneUrl(fromTag){
   return u;
 }
 
+
 function goCooldown(){
   flushLogs(true);
 
@@ -714,12 +715,20 @@ function goCooldown(){
   gate.searchParams.set('time', qs('time','120'));
   gate.searchParams.set('view', qs('view','mobile'));
 
+  // PATCH FIX3: บังคับเข้า cooldown จริง ไม่ให้ warmup-gate ตีความเป็น play/warmup
   gate.searchParams.set('phase','cooldown');
+  gate.searchParams.set('run','cooldown');
+  gate.searchParams.set('gate','cooldown');
+  gate.searchParams.set('type','cooldown');
+  gate.searchParams.set('forceCooldown','1');
+
   gate.searchParams.set('zone','nutrition');
-  gate.searchParams.set('game','plate');
-  gate.searchParams.set('gameId','plate');
+
+  // PATCH FIX3: แยก key ของ Plate Solo ไม่ให้ชนกับ plate โหมดอื่น
+  gate.searchParams.set('game','plate-solo');
+  gate.searchParams.set('gameId','plate-solo');
   gate.searchParams.set('mode','solo');
-  gate.searchParams.set('entry','plate-solo');
+  gate.searchParams.set('entry','cooldown');
   gate.searchParams.set('from','plate-solo-summary');
 
   // สำคัญที่สุด: cooldown เสร็จแล้วกลับ Nutrition Zone URL นี้
@@ -728,7 +737,11 @@ function goCooldown(){
   // hub ของ gate ให้กลับ Nutrition Zone เช่นกัน เผื่อปุ่มกลับ/ข้าม cooldown
   gate.searchParams.set('hub', zoneUrl.toString());
 
-  location.href = gate.toString();
+  try {
+    console.info('[Plate Solo] cooldown url', gate.toString());
+  } catch(e) {}
+
+  location.assign(gate.toString());
 }
   function goBack(){ flushLogs(true); location.href=buildNutritionZoneUrl('plate-solo').toString(); }
 
@@ -738,9 +751,31 @@ function goCooldown(){
   function setupAimMode(){ const on=isAimMode(); if(els.aimReticle)els.aimReticle.classList.toggle('hidden',!on); if(els.btnAim)els.btnAim.classList.toggle('hidden',!on); if(on)logLine('โหมด Cardboard/cVR: เล็งกลางจอแล้วกดเลือกเป้า'); }
   function updateAimTarget(){ if(!isAimMode()||!state.running||state.paused||state.ended||!els.arena)return; const r0=els.arena.getBoundingClientRect(), cx=r0.left+r0.width/2, cy=r0.top+r0.height/2; let bestId=null,bestD=Infinity; for(const [id,obj] of state.active.entries()){ const r=obj.el.getBoundingClientRect(), d=Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy); if(d<bestD){bestD=d;bestId=id;} } const range=screenMode()==='small'?285:250; for(const [id,obj] of state.active.entries())obj.el.classList.toggle('aimLock',id===bestId&&bestD<range); state.lastAimTarget=bestD<range?bestId:null; }
   function selectAimTarget(){ if(!isAimMode())return; updateAimTarget(); if(state.lastAimTarget&&state.active.has(state.lastAimTarget)){state.aimPicks++;pickFood(state.lastAimTarget);} else {feedback('🎯 เล็งอาหารให้ตรงกลางก่อน','bad');sfx('bad');} }
+
+  function installCooldownClickFallback(){
+    if (DOC.__plateCooldownFallbackBound) return;
+
+    DOC.__plateCooldownFallbackBound = true;
+
+    DOC.addEventListener('click', ev => {
+      const btn = ev.target.closest(
+        '#btnCooldown, #cooldownBtn, [data-action="cooldown"], [data-go="cooldown"], .btnCooldown, .cooldownBtn, .btn-cooldown'
+      );
+
+      if (!btn) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      goCooldown();
+    }, true);
+
+    WIN.HHA_PLATE_GO_COOLDOWN = goCooldown;
+  }
+
   function bind(){ resolvePlateEls(); if(els.btnStart&&!els.btnStart.__plateBound){els.btnStart.__plateBound=true;els.btnStart.addEventListener('click',startGame);} if(els.btnSkipPractice&&!els.btnSkipPractice.__plateBound){els.btnSkipPractice.__plateBound=true;els.btnSkipPractice.addEventListener('click',()=>{if(state.practiceActive)finishPractice(true);});} if(els.btnPause&&!els.btnPause.__plateBound){els.btnPause.__plateBound=true;els.btnPause.addEventListener('click',()=>togglePause(false));} if(els.btnHint&&!els.btnHint.__plateBound){els.btnHint.__plateBound=true;els.btnHint.addEventListener('click',()=>showHint(true));} if(els.btnSkill&&!els.btnSkill.__plateBound){els.btnSkill.__plateBound=true;els.btnSkill.addEventListener('click',rescueSkill);} if(els.btnAim&&!els.btnAim.__plateBound){els.btnAim.__plateBound=true;els.btnAim.addEventListener('click',selectAimTarget);} if(els.btnBack&&!els.btnBack.__plateBound){els.btnBack.__plateBound=true;els.btnBack.addEventListener('click',goBack);} if(els.btnReplay&&!els.btnReplay.__plateBound){els.btnReplay.__plateBound=true;els.btnReplay.addEventListener('click',()=>location.reload());} if(els.btnCooldown&&!els.btnCooldown.__plateBound){els.btnCooldown.__plateBound=true;els.btnCooldown.addEventListener('click',goCooldown);} if(els.btnSummaryBack&&!els.btnSummaryBack.__plateBound){els.btnSummaryBack.__plateBound=true;els.btnSummaryBack.addEventListener('click',goBack);} if(els.arena&&!els.arena.__plateAimBound){els.arena.__plateAimBound=true;els.arena.addEventListener('pointerdown',ev=>{if(!isAimMode())return;if(ev.target.closest('.foodCard'))return;ev.preventDefault();selectAimTarget();},{passive:false});} if(!DOC.__plateVisibilityBound){DOC.__plateVisibilityBound=true;DOC.addEventListener('visibilitychange',()=>{if(DOC.hidden&&state.running&&!state.paused)togglePause(true);});} }
 
-  function init(){ installStyles(); resolvePlateEls(); hideSummaryOverlay(); state.ended=false; state.running=false; setGameplayViewportVars(); if(els.app)els.app.classList.add('emoji-only-mode','v41-immersive-ready'); try{ const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true; }catch(e){} renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!'); }
+  function init(){ installStyles(); resolvePlateEls(); hideSummaryOverlay(); state.ended=false; state.running=false; setGameplayViewportVars(); if(els.app)els.app.classList.add('emoji-only-mode','v41-immersive-ready'); try{ const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true; }catch(e){} renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); installCooldownClickFallback(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!'); }
 
   WIN.addEventListener('pagehide',()=>flushLogs(true));
   WIN.addEventListener('beforeunload',()=>flushLogs(true));
