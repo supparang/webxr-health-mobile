@@ -1046,6 +1046,202 @@
         border-radius:36px;
       }
     }
+    /* =========================================================
+   GoodJunk Race Summary Mobile Polish
+   PATCH v20260513-GOODJUNK-RACE-SUMMARY-MOBILE-POLISH
+   แก้ summary มือถือให้กระชับ อ่านง่าย ไม่ยาวเกิน
+   ========================================================= */
+
+@media (max-width: 720px){
+
+  .race-summary,
+  .race-result,
+  .summary-card,
+  .result-card,
+  .race-complete-card{
+    width: min(94vw, 680px) !important;
+    margin: 10px auto 18px !important;
+    padding: 18px 16px !important;
+    border-radius: 28px !important;
+  }
+
+  .race-summary .summary-kicker,
+  .race-result .summary-kicker,
+  .race-badge,
+  .mode-badge{
+    font-size: 13px !important;
+    padding: 7px 12px !important;
+    max-width: 100%;
+    white-space: normal !important;
+    text-align: center;
+  }
+
+  .race-summary .trophy-icon,
+  .race-result .trophy-icon,
+  .summary-medal,
+  .result-medal{
+    width: 96px !important;
+    height: 96px !important;
+    margin: 10px auto 12px !important;
+    font-size: 56px !important;
+    border-radius: 28px !important;
+  }
+
+  .race-summary h1,
+  .race-summary-title,
+  .result-title{
+    font-size: clamp(30px, 8vw, 42px) !important;
+    line-height: 1.08 !important;
+    margin: 8px 0 8px !important;
+    text-align: center !important;
+  }
+
+  .race-summary p,
+  .race-summary-subtitle,
+  .result-subtitle{
+    font-size: clamp(16px, 4.4vw, 22px) !important;
+    line-height: 1.35 !important;
+    margin: 0 auto 14px !important;
+    max-width: 28ch !important;
+    text-align: center !important;
+  }
+
+  .summary-stats,
+  .race-stats,
+  .result-stats{
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    margin: 14px 0 !important;
+  }
+
+  .summary-stat,
+  .race-stat,
+  .result-stat{
+    min-height: 92px !important;
+    padding: 10px 8px !important;
+    border-radius: 20px !important;
+  }
+
+  .summary-stat .label,
+  .race-stat .label,
+  .result-stat .label{
+    font-size: 12px !important;
+    line-height: 1.2 !important;
+  }
+
+  .summary-stat .num,
+  .race-stat .num,
+  .result-stat .num{
+    font-size: clamp(28px, 8vw, 40px) !important;
+    line-height: 1 !important;
+  }
+
+  .summary-stat:nth-child(n+4),
+  .race-stat:nth-child(n+4),
+  .result-stat:nth-child(n+4){
+    grid-column: span 1;
+  }
+
+  .leaderboard,
+  .race-leaderboard,
+  .rank-table{
+    margin-top: 14px !important;
+    padding: 12px !important;
+    border-radius: 24px !important;
+  }
+
+  .leaderboard h2,
+  .race-leaderboard h2,
+  .rank-table h2{
+    font-size: clamp(24px, 7vw, 36px) !important;
+    line-height: 1.1 !important;
+    margin: 0 0 12px !important;
+  }
+
+  .leader-row,
+  .race-rank-row,
+  .rank-row{
+    padding: 14px 14px !important;
+    border-radius: 22px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .leader-row .name,
+  .race-rank-row .name,
+  .rank-row .name{
+    font-size: clamp(22px, 6vw, 30px) !important;
+    line-height: 1.1 !important;
+  }
+
+  .leader-row .meta,
+  .race-rank-row .meta,
+  .rank-row .meta{
+    font-size: clamp(13px, 3.6vw, 18px) !important;
+    line-height: 1.35 !important;
+    word-break: keep-all;
+  }
+
+  .leader-row .score,
+  .race-rank-row .score,
+  .rank-row .score{
+    font-size: clamp(24px, 7vw, 34px) !important;
+    margin-top: 8px !important;
+  }
+
+  .teacher-panel,
+  .teacher-data-box,
+  .system-info-box{
+    margin-top: 12px !important;
+    padding: 14px !important;
+    border-radius: 22px !important;
+  }
+
+  .summary-actions,
+  .race-summary-actions,
+  .result-actions{
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin-top: 16px !important;
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  .summary-actions button,
+  .summary-actions a,
+  .race-summary-actions button,
+  .race-summary-actions a,
+  .result-actions button,
+  .result-actions a{
+    width: 100% !important;
+    min-height: 62px !important;
+    border-radius: 22px !important;
+    font-size: clamp(18px, 5vw, 24px) !important;
+    font-weight: 1000 !important;
+  }
+}
+
+/* ข้อความกำกับให้ Miss ชัดว่าเป็นข้อมูลรวมทั้งห้อง */
+.race-stat-miss .label::after,
+[data-stat="missTotal"] .label::after,
+.miss-total .label::after{
+  content: " ทั้งห้อง";
+  font-size: .85em;
+  opacity: .8;
+}
+
+/* ทำให้ปุ่มหลักเด่นขึ้น */
+.race-summary-actions .primary,
+.summary-actions .primary,
+.result-actions .primary{
+  box-shadow: 0 12px 26px rgba(72, 190, 70, .28) !important;
+}
+
+.race-summary-actions .zone,
+.summary-actions .zone,
+.result-actions .zone{
+  box-shadow: 0 12px 26px rgba(48, 165, 230, .24) !important;
+}
   </style>
 </head>
 
