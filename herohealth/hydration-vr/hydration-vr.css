@@ -2893,3 +2893,94 @@ body.hha-view-cvr .hha-target-short{
     grid-template-columns: 1fr;
   }
 }
+/* =========================================================
+   PATCH v20260513-hydration-target-size-balance
+   ลดขนาดเป้าให้ gameplay โล่งขึ้น แต่ยังกดง่ายบน mobile/cVR
+   ========================================================= */
+
+.hha-hydration-target{
+  width:82px;
+  height:96px;
+  border-radius:22px;
+  gap:2px;
+}
+
+.hha-target-icon{
+  font-size:36px;
+}
+
+.hha-target-icon.has-img{
+  width:46px;
+  height:46px;
+}
+
+.hha-target-label{
+  font-size:12px;
+  line-height:1.05;
+}
+
+.hha-target-short{
+  font-size:10px;
+}
+
+/* PC: ให้เล็กลงอีกนิด เพื่อเล่นเร็วและไม่ง่ายเกิน */
+@media (min-width: 820px){
+  .hha-hydration-target{
+    width:78px;
+    height:92px;
+    border-radius:21px;
+  }
+
+  .hha-target-icon{
+    font-size:34px;
+  }
+
+  .hha-target-icon.has-img{
+    width:44px;
+    height:44px;
+  }
+}
+
+/* Mobile จอเล็ก: ยังคงกดง่าย แต่ไม่บังจอ */
+@media (max-width: 520px){
+  .hha-hydration-target{
+    width:80px;
+    height:94px;
+    border-radius:21px;
+  }
+
+  .hha-target-icon{
+    font-size:35px;
+  }
+
+  .hha-target-label{
+    font-size:11px;
+  }
+
+  .hha-target-short{
+    font-size:9px;
+  }
+}
+
+/* cVR/Cardboard: ใหญ่กว่านิดหนึ่งเพื่อเล็งง่าย */
+body.hha-view-cvr .hha-hydration-target,
+body[data-view="cvr"] .hha-hydration-target{
+  width:88px;
+  height:102px;
+  border-radius:23px;
+}
+
+body.hha-view-cvr .hha-target-icon,
+body[data-view="cvr"] .hha-target-icon{
+  font-size:39px;
+}
+
+/* Danger/Boss ไม่ต้องใหญ่เกินไป ใช้ effect แทนขยายตัว */
+.hha-hydration-target.is-danger{
+  transform-origin:center;
+}
+
+@keyframes hhaDangerPulse{
+  from{ transform:scale(1); filter:saturate(1); }
+  to{ transform:scale(1.045); filter:saturate(1.35); }
+}
