@@ -7408,26 +7408,18 @@ body[data-stage="prep"] .screen.active{
   setInterval(sync, 800);
 })();
 </script>
-<script src="./brush.constants.js?v=20260506e"></script>
-<script src="./brush.storage.js?v=20260506e"></script>
-<script src="./brush.logger.js?v=20260506e"></script>
-<script src="./brush.audio.js?v=20260506e"></script>
-<script src="./brush.ui.js?v=20260506e"></script>
-<script src="./brush.game.js?v=20260506e"></script>
-<script src="./brush.scan.js?v=20260506e"></script>
-<script src="./brush.bossbreak.js?v=20260506e"></script>
-<script src="./brush.summary.js?v=20260506e"></script>
+<!-- Core game module -->
+<script type="module" src="./brush.js?v=20260506e"></script>
 
-<!-- PATCH P31: Flow guard / start button / cooldown route -->
+<!-- Safe patches / classic IIFE scripts -->
 <script src="./brush.flow-guard.js?v=20260511-P31"></script>
 <script src="./brush.polish.js?v=20260511-P34"></script>
 <script src="./brush.summary-final.js?v=20260512-P40"></script>
 <script src="./brush.summary-compact-override.js?v=20260513-P43"></script>
 <script src="./brush.boss-gate.js?v=20260513-P44"></script>
 <script src="./brush.boss-compact-sync.js?v=20260513-P45"></script>
-
-<!-- ต้องอยู่ท้ายสุดเสมอ -->
 <script src="./brush.summary-stage-lock.js?v=20260513-P46"></script>
+
   <div class="cooldownRouteToast" id="cooldownRouteToast"></div>
 
   <div class="gateVerifyToast" id="gateVerifyToast"></div>
