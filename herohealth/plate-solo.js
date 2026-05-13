@@ -6,7 +6,136 @@
 
 (() => {
   'use strict';
+  /* =========================================================
+   Plate Solo DOM Safety Shell
+   PATCH v20260513-PLATE-SOLO-DOM-SHELL-FIX
+   ต้องอยู่ก่อน init/createElements/renderMeters
+   ========================================================= */
 
+(function ensurePlateSoloShell(){
+  const DOC = document;
+
+  let app =
+    DOC.querySelector('.plate-app') ||
+    DOC.querySelector('#plateApp') ||
+    DOC.querySelector('#app') ||
+    DOC.querySelector('.game-app');
+
+  if (!app) {
+    app = DOC.createElement('div');
+    app.id = 'plateApp';
+    app.className = 'plate-app';
+    DOC.body.appendChild(app);
+  }
+
+  if (!DOC.querySelector('#plateShell')) {
+    app.innerHTML = `
+      <header class="plate-topbar">
+        <div class="plate-brand">
+          <div class="plate-logo">🥗</div>
+          <div class="plate-title-block">
+            <h1 class="plate-title">Plate Solo</h1>
+            <div class="plate-subtitle">จัดจานอาหารให้สมดุลครบ 5 หมู่</div>
+          </div>
+        </div>
+        <div class="plate-top-actions">
+          <button id="btnBack" class="btn">← กลับ</button>
+        </div>
+      </header>
+
+      <main id="plateShell" class="plate-main">
+        <aside class="plate-side">
+          <section class="goal-panel">
+            <h2 class="goal-title">ภารกิจ</h2>
+            <div id="missions" class="goal-list"></div>
+          </section>
+
+          <section class="progress-wrap" style="margin-top:12px;">
+            <div class="progress-label-row">
+              <span>ความสมดุล</span>
+              <span id="balanceText">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="balanceFill" class="progress-fill"></div>
+            </div>
+          </section>
+        </aside>
+
+        <section class="plate-play">
+          <div class="plate-hud">
+            <div class="plate-stat score-card">
+              <div class="stat-label">คะแนน</div>
+              <div id="scoreText" class="stat-value">0</div>
+            </div>
+            <div class="plate-stat timer-card">
+              <div class="stat-label">เวลา</div>
+              <div id="timerText" class="stat-value">90</div>
+            </div>
+            <div class="plate-stat combo-card">
+              <div class="stat-label">คอมโบ</div>
+              <div id="comboText" class="stat-value">0</div>
+            </div>
+            <div class="plate-stat balance-card">
+              <div class="stat-label">ครบหมู่</div>
+              <div id="groupText" class="stat-value">0/5</div>
+            </div>
+          </div>
+
+          <div id="gameStage" class="plate-stage">
+            <div id="prompt" class="plate-prompt">กดเริ่มเพื่อจัดจานอาหาร</div>
+            <div id="playField" class="play-field"></div>
+            <div id="dropZone" class="plate-drop-zone"></div>
+            <div id="plate" class="center-plate"></div>
+          </div>
+
+          <div class="plate-controls">
+            <div class="controls-left">
+              <span id="phaseBanner" class="status-pill">พร้อมเล่น</span>
+            </div>
+            <div class="controls-right">
+              <button id="startBtn" class="btn primary">เริ่มเล่น</button>
+              <button id="pauseBtn" class="btn">พัก</button>
+              <button id="summaryBtn" class="btn">สรุปผล</button>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div id="summaryModal" class="summary-modal" aria-hidden="true">
+        <div class="summary-card">
+          <div class="summary-kicker">Plate Solo</div>
+          <h2 class="summary-title">สรุปผล</h2>
+          <p id="summaryText" class="summary-subtitle">ยอดเยี่ยม! ลองจัดจานให้ครบ 5 หมู่ต่อไป</p>
+          <div class="summary-stats">
+            <div class="summary-stat">
+              <span id="sumScore" class="num">0</span>
+              <span class="label">คะแนน</span>
+            </div>
+            <div class="summary-stat">
+              <span id="sumCombo" class="num">0</span>
+              <span class="label">คอมโบสูงสุด</span>
+            </div>
+            <div class="summary-stat">
+              <span id="sumBalance" class="num">0%</span>
+              <span class="label">สมดุล</span>
+            </div>
+            <div class="summary-stat">
+              <span id="sumGroups" class="num">0/5</span>
+              <span class="label">ครบหมู่</span>
+            </div>
+          </div>
+          <div class="summary-actions">
+            <button id="replayBtn" class="btn primary">เล่นอีกครั้ง</button>
+            <button id="cooldownBtn" class="btn blue">ทำ Cooldown</button>
+            <button id="nutritionZoneBtn" class="btn">กลับ Nutrition Zone</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="toast" class="toast"></div>
+    `;
+  }
+})();
   var VERSION = '20260511-PLATE-SOLO-V41.2-HUD-TARGET-SAFE-MODE';
   var DOC = window.document;
   var WIN = window;
