@@ -589,22 +589,55 @@
     setTimeout(() => el.remove(), 850);
   }
 
-  function getBounds() {
-    const w = Math.max(320, WIN.innerWidth || DOC.documentElement.clientWidth || 360);
-    const h = Math.max(420, WIN.innerHeight || DOC.documentElement.clientHeight || 640);
+  ffunction getBounds() {
+  const w = Math.max(320, WIN.innerWidth || DOC.documentElement.clientWidth || 360);
+  const h = Math.max(420, WIN.innerHeight || DOC.documentElement.clientHeight || 640);
 
-    const topPad = w <= 640 ? 112 : 96;
-    const bottomPad = w <= 640 ? 120 : 90;
+  const elapsed = state.hasStarted
+    ? Math.max(0, (Date.now() - state.startedAt) / 1000)
+    : 0;
 
-    return {
-      w,
-      h,
-      left: 16,
-      right: w - 92,
-      top: topPad,
-      bottom: h - bottomPad
-    };
+  /*
+    สำคัญ:
+    ช่วงเริ่มเกม ห้ามสุ่มเป้าเกิดต่ำเกินไป
+    ให้เกิดเฉพาะช่วงบน/กลางบนก่อน เพื่อให้เด็กมีเวลามองและเลือกหมู่
+  */
+  let topPad;
+  let bottomLimit;
+
+  if (w <= 640) {
+    topPad = 118;
+
+    if (elapsed < 12) {
+      bottomLimit = Math.floor(h * 0.42);
+    } else if (elapsed < 25) {
+      bottomLimit = Math.floor(h * 0.50);
+    } else {
+      bottomLimit = h - 150;
+    }
+  } else {
+    topPad = 104;
+
+    if (elapsed < 12) {
+      bottomLimit = Math.floor(h * 0.40);
+    } else if (elapsed < 25) {
+      bottomLimit = Math.floor(h * 0.48);
+    } else {
+      bottomLimit = h - 120;
+    }
   }
+
+  bottomLimit = Math.max(topPad + 90, bottomLimit);
+
+  return {
+    w,
+    h,
+    left: 16,
+    right: w - 92,
+    top: topPad,
+    bottom: bottomLimit
+  };
+}
 
   function chooseSpawnFood() {
     const tuning = getTuning();
@@ -644,48 +677,92 @@
   }
 
   function activeLimit() {
-    const phase = currentPhase();
-    const diff = String(qs('diff', 'normal')).toLowerCase();
+  const phase = currentPhase();
+  const diff = String(qs('diff', 'normal')).toLowerCase();
 
-    let max = 4;
+  const elapsed = state.hasStarted
+    ? Math.max(0, (Date.now() - state.startedAt) / 1000)
+    : 0;
+
+  /*
+    ช่วงเริ่มเกม จำกัดจำนวนเป้าบนจอให้น้อยมากก่อน
+  */
+  let max;
+
+  if (elapsed < 12) {
+    max = 2;
+  } else if (elapsed < 25) {
+    max = 3;
+  } else {
+    max = 4;
     if (phase === 'storm') max = 5;
-    if (phase === 'boss') max = 6;
-    if (diff === 'easy') max -= 1;
-    if (diff === 'challenge') max += 1;
-    if (WIN.innerWidth <= 640) max = Math.max(3, max - 1);
-
-    return clamp(max, 3, 7);
+    if (phase === 'boss') max = 5;
   }
+
+  if (diff === 'easy') max -= 1;
+  if (diff === 'challenge' && elapsed >= 25) max += 1;
+
+  if (WIN.innerWidth <= 640) {
+    max = Math.max(2, max - 1);
+  }
+
+  return clamp(max, 1, 6);
+}
 
   function targetLifeMs() {
-    const t = getTuning();
-    const phase = currentPhase();
+  const t = getTuning();
+  const phase = currentPhase();
 
-    let life = 3900 / Math.max(0.75, Number(t.fallSpeed || 1));
-    if (phase === 'storm') life *= 0.86;
-    if (phase === 'boss') life *= 0.72;
+  const elapsed = state.hasStarted
+    ? Math.max(0, (Date.now() - state.startedAt) / 1000)
+    : 0;
 
-    return Math.round(clamp(life, 1700, 4600));
+  /*
+    เพิ่มเวลาอยู่บนจอ:
+    0–12 วิแรก: ช้ามาก ให้เด็กตั้งตัว
+    12–25 วิ: ค่อย ๆ เร็วขึ้น
+    หลัง 25 วิ: กลับเข้าสู่เกมปกติ
+  */
+  let life = 5200 / Math.max(0.65, Number(t.fallSpeed || 1));
+
+  if (elapsed < 12) {
+    life = 7600;
+  } else if (elapsed < 25) {
+    life = 6400;
+  } else {
+    if (phase === 'storm') life *= 0.95;
+    if (phase === 'boss') life *= 0.86;
   }
+
+  return Math.round(clamp(life, 4200, 8200));
+}
 
   function spawnDelayMs() {
-    const t = getTuning();
-    const phase = currentPhase();
+  const t = getTuning();
+  const phase = currentPhase();
 
-    let ms = Number(t.spawnMs || 950);
-    if (phase === 'storm') ms *= 0.86;
-    if (phase === 'boss') ms *= 0.72;
-    if (WIN.innerWidth <= 640) ms *= 1.05;
+  const elapsed = state.hasStarted
+    ? Math.max(0, (Date.now() - state.startedAt) / 1000)
+    : 0;
 
-    return Math.round(clamp(ms, 430, 1300));
+  let ms = Number(t.spawnMs || 950);
+
+  /*
+    ช่วงเริ่มเกมอย่าให้เป้าไหลมาเป็นฝน
+  */
+  if (elapsed < 12) {
+    ms = Math.max(ms, 1750);
+  } else if (elapsed < 25) {
+    ms = Math.max(ms, 1350);
+  } else {
+    if (phase === 'storm') ms *= 0.95;
+    if (phase === 'boss') ms *= 0.88;
   }
 
-  function classifyPoint(evOrPoint) {
-    return {
-      x: Number(evOrPoint?.clientX || evOrPoint?.x || WIN.innerWidth / 2),
-      y: Number(evOrPoint?.clientY || evOrPoint?.y || WIN.innerHeight / 2)
-    };
-  }
+  if (WIN.innerWidth <= 640) ms *= 1.12;
+
+  return Math.round(clamp(ms, 760, 2100));
+}
 
   function dispatchJudge(ok, target, point, reason) {
     const detail = {
