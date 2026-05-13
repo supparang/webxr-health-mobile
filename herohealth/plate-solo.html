@@ -1,30 +1,1336 @@
+<!-- === /herohealth/plate-solo.html === -->
+<!-- HeroHealth Plate Solo -->
+<!-- v20260513-PLATE-SOLO-HTML-SUMMARYFIX2-DOMSAFE -->
+<!-- ใช้คู่กับ /herohealth/plate-solo.js v20260513-PLATE-SOLO-SUMMARYFIX2-DOMFIX-POLISH -->
+
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Plate Solo</title>
-  <meta name="theme-color" content="#ffdd75" />
+  <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
 
-  <link rel="stylesheet" href="./plate-solo.css?v=20260512-plate-css-rc1">
-  <script src="./plate-solo.js?v=20260512-plate-main"></script>
-<!-- เอาออกก่อนทั้งหมด -->
-<!--
-<script src="./plate-solo-final-flow-patch.js?v=20260512-plate-final-flow-rc1"></script>
-<script src="./plate-solo-summary-actions-patch.js?v=20260512-plate-summary-actions-rc1"></script>
-<script src="./plate-solo-end-freeze-patch.js?v=20260512-plate-end-freeze-rc1"></script>
-<script src="./plate-solo-unblur-overlay-patch.js?v=20260512-plate-unblur-overlay-rc1"></script>
-<script src="./plate-solo-kill-blur-hard-patch.js?v=20260512-plate-kill-blur-hard-rc2"></script>
-<script src="./plate-solo-start-balance-patch.js?v=20260512-plate-start-balance-rc1"></script>
--->
+  <title>HeroHealth • Plate Solo</title>
+
+  <link rel="icon" href="./favicon.ico" />
+  <link rel="stylesheet" href="./plate-solo.css?v=20260513-summaryfix2" />
+
+  <style>
+    /*
+      Critical guard:
+      กัน Summary เด้งเองก่อน CSS หลักโหลดเสร็จ
+    */
+    #summaryOverlay.hidden,
+    #summaryModal.hidden,
+    .summary-modal.hidden{
+      display:none !important;
+      visibility:hidden !important;
+      opacity:0 !important;
+      pointer-events:none !important;
+    }
+
+    #summaryOverlay:not(.show),
+    #summaryModal:not(.show),
+    .summary-modal:not(.show){
+      display:none;
+      visibility:hidden;
+      opacity:0;
+      pointer-events:none;
+    }
+
+    #summaryOverlay.show,
+    #summaryModal.show,
+    .summary-modal.show{
+      display:flex !important;
+      visibility:visible !important;
+      opacity:1 !important;
+      pointer-events:auto !important;
+    }
+
+    body{
+      margin:0;
+      min-height:100vh;
+      background:
+        radial-gradient(circle at 20% 12%, rgba(255,255,255,.92), transparent 34%),
+        linear-gradient(135deg,#e8fbff 0%,#fff8dc 54%,#e9ffe9 100%);
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color:#24445d;
+      overflow-x:hidden;
+    }
+
+    .plate-app{
+      min-height:100vh;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        max(12px, env(safe-area-inset-right))
+        max(14px, env(safe-area-inset-bottom))
+        max(12px, env(safe-area-inset-left));
+      box-sizing:border-box;
+    }
+
+    .plate-topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height:74px;
+      padding:12px 16px;
+      border:1px solid rgba(147,207,230,.72);
+      border-radius:28px;
+      background:rgba(255,255,255,.86);
+      box-shadow:0 16px 42px rgba(34,82,110,.10);
+      backdrop-filter:blur(10px);
+    }
+
+    .plate-brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .plate-logo{
+      display:grid;
+      place-items:center;
+      width:52px;
+      height:52px;
+      border-radius:18px;
+      background:linear-gradient(135deg,#d8fff0,#fff4b8);
+      box-shadow:inset 0 -4px 10px rgba(42,91,120,.08);
+      font-size:30px;
+      flex:0 0 auto;
+    }
+
+    .plate-title-block{
+      min-width:0;
+    }
+
+    .plate-title{
+      margin:0;
+      color:#24445d;
+      font-size:clamp(25px,3vw,38px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.04em;
+    }
+
+    .plate-subtitle{
+      margin-top:4px;
+      color:#6c90a7;
+      font-size:clamp(13px,1.5vw,17px);
+      font-weight:850;
+    }
+
+    .plate-main{
+      width:min(1320px,100%);
+      margin:14px auto 0;
+      display:grid;
+      grid-template-columns:280px minmax(0,1fr);
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .plate-side{
+      border:1px solid rgba(147,207,230,.72);
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 20% 8%, rgba(255,255,230,.8), transparent 36%),
+        rgba(255,255,255,.76);
+      box-shadow:0 18px 42px rgba(34,82,110,.10);
+      padding:14px;
+      min-height:560px;
+      overflow:auto;
+    }
+
+    .goal-title{
+      margin:0 0 10px;
+      color:#24445d;
+      font-size:24px;
+      font-weight:1000;
+      letter-spacing:-.03em;
+    }
+
+    .goal-list{
+      display:grid;
+      gap:7px;
+    }
+
+    .mission{
+      display:block;
+      padding:4px 0;
+      color:#536f82;
+      font-size:14px;
+      line-height:1.25;
+      font-weight:900;
+    }
+
+    .mission small{
+      margin-left:4px;
+      color:#7997aa;
+      font-weight:1000;
+    }
+
+    .mission.done{
+      color:#238653;
+    }
+
+    .mission.hot{
+      color:#c07a00;
+    }
+
+    .panel-note{
+      margin-top:12px;
+      padding:12px;
+      border:1px dashed rgba(99,177,214,.5);
+      border-radius:18px;
+      background:rgba(244,253,255,.78);
+      color:#557486;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:850;
+    }
+
+    .progress-wrap{
+      margin-top:12px;
+    }
+
+    .progress-label-row{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      color:#557486;
+      font-size:13px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .progress-track{
+      height:12px;
+      border-radius:999px;
+      overflow:hidden;
+      background:#e7f4fa;
+      box-shadow:inset 0 2px 6px rgba(36,72,94,.08);
+    }
+
+    .progress-fill{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#65d86f,#ffd861,#ffae42);
+      transition:width .22s ease;
+    }
+
+    .meters-list{
+      display:grid;
+      gap:9px;
+      margin-top:10px;
+    }
+
+    .food-meter{
+      padding:9px 10px;
+      border:1px solid rgba(169,214,232,.72);
+      border-radius:18px;
+      background:rgba(255,255,255,.82);
+    }
+
+    .meter-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      color:#24465d;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .meter-name{
+      min-width:0;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+
+    .meter-value{
+      flex:0 0 auto;
+      color:#6f8da0;
+      white-space:nowrap;
+    }
+
+    .meter-track{
+      position:relative;
+      height:12px;
+      margin-top:7px;
+      border-radius:999px;
+      background:#e7f4fa;
+      overflow:hidden;
+    }
+
+    .meter-fill{
+      display:block;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#65d86f,#ffd861,#ffae42);
+      transition:width .22s ease;
+    }
+
+    .meter-need{
+      margin-top:5px;
+      color:#6f8da0;
+      font-size:11px;
+      font-weight:850;
+    }
+
+    .food-meter.over{
+      border-color:rgba(255,107,107,.65);
+      background:linear-gradient(180deg,#fff,#fff0f0);
+    }
+
+    .food-meter.warn{
+      border-color:rgba(255,174,66,.65);
+      background:linear-gradient(180deg,#fff,#fff8dd);
+    }
+
+    .plate-play{
+      min-width:0;
+      display:grid;
+      grid-template-rows:auto minmax(420px,1fr) auto;
+      gap:10px;
+    }
+
+    .plate-hud{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .plate-stat{
+      min-height:76px;
+      border:1px solid rgba(147,207,230,.72);
+      border-radius:18px;
+      background:rgba(255,255,255,.8);
+      box-shadow:0 12px 30px rgba(34,82,110,.08);
+      padding:12px;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      justify-content:center;
+    }
+
+    .score-card{
+      background:linear-gradient(180deg,#fff,#fff6d8);
+    }
+
+    .timer-card{
+      background:linear-gradient(180deg,#fff,#eefaff);
+    }
+
+    .combo-card{
+      background:linear-gradient(180deg,#fff,#f5ecff);
+    }
+
+    .balance-card{
+      background:linear-gradient(180deg,#fff,#eefff1);
+    }
+
+    .stat-label{
+      color:#7b99aa;
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .stat-value{
+      margin-top:3px;
+      color:#24445d;
+      font-size:clamp(28px,3.5vw,42px);
+      font-weight:1000;
+      line-height:1;
+      letter-spacing:-.05em;
+    }
+
+    .timer-fill{
+      display:block;
+      height:6px;
+      margin-top:8px;
+      border-radius:999px;
+      background:linear-gradient(90deg,#64d86f,#ffd861,#ff7c7c);
+      width:100%;
+      transition:width .2s linear;
+    }
+
+    .timer-fill.danger{
+      background:linear-gradient(90deg,#ffcf4a,#ff6464);
+    }
+
+    .plate-stage{
+      position:relative;
+      min-height:520px;
+      border:1px solid rgba(147,207,230,.78);
+      border-radius:28px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 16% 22%, rgba(255,255,255,.9) 0 8%, transparent 9%),
+        radial-gradient(circle at 82% 24%, rgba(255,255,255,.72) 0 7%, transparent 8%),
+        linear-gradient(180deg,#e9fbff 0%,#fffbd1 66%,#dff8c9 66%,#dff8c9 100%);
+      box-shadow:inset 0 -28px 90px rgba(85,190,90,.12),0 20px 42px rgba(34,82,110,.10);
+    }
+
+    .plate-stage::after{
+      content:"";
+      position:absolute;
+      left:0;
+      right:0;
+      bottom:0;
+      height:34%;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgba(80,170,80,.08) 0 18px,
+          rgba(80,170,80,.15) 18px 36px
+        );
+      pointer-events:none;
+    }
+
+    .plate-prompt{
+      position:absolute;
+      z-index:18;
+      top:14px;
+      left:50%;
+      transform:translateX(-50%);
+      min-width:min(560px,80%);
+      padding:10px 18px;
+      border:1px solid rgba(147,207,230,.72);
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      color:#3c5f74;
+      font-size:clamp(16px,2vw,24px);
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 10px 24px rgba(34,82,110,.10);
+    }
+
+    .play-field{
+      position:absolute;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+    }
+
+    .play-field .foodCard{
+      pointer-events:auto;
+    }
+
+    .plate-drop-zone{
+      position:absolute;
+      left:50%;
+      bottom:60px;
+      width:230px;
+      height:120px;
+      transform:translateX(-50%);
+      border-radius:50%;
+      background:rgba(255,255,255,.15);
+      z-index:8;
+      pointer-events:none;
+    }
+
+    .center-plate{
+      position:absolute;
+      z-index:12;
+      left:50%;
+      bottom:54px;
+      width:260px;
+      height:145px;
+      transform:translateX(-50%);
+      border-radius:50%;
+      background:
+        radial-gradient(ellipse at center,#fff 0 44%,#eaf7ff 45% 62%,#cbefff 63% 75%,rgba(255,255,255,.6) 76%);
+      border:9px solid rgba(224,246,255,.9);
+      box-shadow:
+        0 24px 36px rgba(54,105,130,.16),
+        inset 0 0 0 3px rgba(154,201,224,.24);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      color:#97acba;
+      font-weight:1000;
+      pointer-events:none;
+    }
+
+    .center-plate.good{
+      box-shadow:
+        0 24px 36px rgba(54,130,90,.18),
+        0 0 0 8px rgba(113,225,118,.24),
+        inset 0 0 0 3px rgba(154,224,180,.24);
+    }
+
+    .center-plate.danger{
+      box-shadow:
+        0 24px 36px rgba(130,54,54,.18),
+        0 0 0 8px rgba(255,107,107,.25),
+        inset 0 0 0 3px rgba(255,120,120,.28);
+    }
+
+    .plate-label{
+      position:absolute;
+      inset:0;
+      display:grid;
+      place-items:center;
+      color:#98acba;
+      font-size:15px;
+      font-weight:1000;
+      text-align:center;
+      padding:20px;
+    }
+
+    .plate-foods{
+      position:absolute;
+      inset:12% 10%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:4px;
+      z-index:2;
+      pointer-events:none;
+    }
+
+    .plateFoodIcon{
+      font-size:24px;
+      line-height:1;
+      filter:drop-shadow(0 2px 2px rgba(40,80,100,.14));
+    }
+
+    .plate-controls{
+      min-height:66px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 12px;
+      border:1px solid rgba(147,207,230,.72);
+      border-radius:24px;
+      background:rgba(255,255,255,.84);
+      box-shadow:0 16px 36px rgba(34,82,110,.09);
+      margin-bottom:14px;
+    }
+
+    .controls-left,
+    .controls-right{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .status-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:34px;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#effbff;
+      color:#5b87a0;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .btn{
+      appearance:none;
+      border:0;
+      min-height:42px;
+      padding:9px 16px;
+      border-radius:999px;
+      background:#f4fbff;
+      color:#24445d;
+      font-weight:1000;
+      font-size:15px;
+      cursor:pointer;
+      box-shadow:0 8px 18px rgba(35,80,110,.10);
+      touch-action:manipulation;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,#72ef88,#2fc76a);
+      color:#073b22;
+    }
+
+    .btn.blue{
+      background:linear-gradient(180deg,#82dfff,#35aeea);
+      color:#07384f;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe28a,#ffb833);
+      color:#604000;
+    }
+
+    .hidden{
+      display:none !important;
+    }
+
+    .foodCard{
+      position:absolute;
+      top:0;
+      transform:translateX(-50%);
+      min-width:74px;
+      min-height:88px;
+      padding:8px 7px;
+      border:0 !important;
+      border-radius:24px !important;
+      background:
+        radial-gradient(circle at 32% 18%, rgba(255,255,255,.95), transparent 34%),
+        linear-gradient(180deg,#ffffff,#f2fbff) !important;
+      box-shadow:
+        0 14px 30px rgba(35,88,115,.20),
+        inset 0 -4px 10px rgba(42,91,120,.08) !important;
+      color:#24445d;
+      font-family:inherit;
+      font-weight:1000;
+      cursor:pointer;
+      z-index:30;
+      animation-name:plateFoodFall;
+      animation-timing-function:linear;
+      animation-fill-mode:forwards;
+      will-change:transform,opacity;
+    }
+
+    .foodCard .assetPackDebug,
+    .foodVisual .assetPackDebug,
+    .plateFoodIcon .assetPackDebug{
+      display:none !important;
+    }
+
+    .foodEmojiFallback{
+      display:inline-block;
+      font-size:clamp(30px,4.8vw,44px);
+      line-height:1;
+      filter:drop-shadow(0 3px 3px rgba(40,80,100,.16));
+    }
+
+    .foodCard .name{
+      margin-top:3px;
+      font-size:clamp(10px,1.6vw,13px);
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .foodTag{
+      position:absolute;
+      left:50%;
+      bottom:-11px;
+      transform:translateX(-50%);
+      padding:3px 8px;
+      border-radius:999px;
+      background:#dffff0;
+      color:#24794d;
+      font-size:10px;
+      font-weight:1000;
+      white-space:nowrap;
+      box-shadow:0 6px 12px rgba(35,80,110,.10);
+    }
+
+    .foodCard.junk .foodTag,
+    .foodCard.bossForbidden .foodTag,
+    .foodCard.dangerFood .foodTag{
+      background:#ffe1e1;
+      color:#a73333;
+    }
+
+    .foodCard.power .foodTag{
+      background:#e6e8ff;
+      color:#4646a8;
+    }
+
+    .foodCard.goodNow{
+      box-shadow:
+        0 16px 34px rgba(54,160,95,.26),
+        0 0 0 4px rgba(86,222,117,.25) !important;
+    }
+
+    .foodCard.riskyFood,
+    .foodCard.dangerFood,
+    .foodCard.junk{
+      box-shadow:
+        0 16px 34px rgba(180,75,75,.24),
+        0 0 0 4px rgba(255,107,107,.18) !important;
+    }
+
+    .move-fall{
+      animation-name:plateFoodFall;
+    }
+
+    .move-drift-left{
+      animation-name:plateFoodDriftLeft;
+    }
+
+    .move-drift-right{
+      animation-name:plateFoodDriftRight;
+    }
+
+    .move-zigzag{
+      animation-name:plateFoodZigzag;
+    }
+
+    .move-junk-wobble{
+      animation-name:plateFoodWobble;
+    }
+
+    .move-junk-dash,
+    .move-boss-swipe,
+    .move-rain-fast{
+      animation-name:plateFoodDash;
+    }
+
+    .move-power-float{
+      animation-name:plateFoodPowerFloat;
+    }
+
+    .floatText,
+    .scorePop,
+    .comboBoom,
+    .coinFx,
+    .victoryBurst{
+      position:absolute;
+      z-index:80;
+      pointer-events:none;
+    }
+
+    .floatText{
+      left:50%;
+      top:38%;
+      transform:translate(-50%,-50%);
+      padding:10px 14px;
+      border-radius:18px;
+      color:white;
+      font-size:18px;
+      font-weight:1000;
+      box-shadow:0 14px 34px rgba(25,60,84,.22);
+      animation:floatTextPop .9s both;
+    }
+
+    .scorePop{
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.9);
+      color:#22623f;
+      font-size:18px;
+      font-weight:1000;
+      box-shadow:0 12px 26px rgba(25,60,84,.18);
+      animation:scorePopUp .9s both;
+    }
+
+    .scorePop.bad{
+      color:#b13a3a;
+    }
+
+    .scorePop.combo,
+    .scorePop.boss,
+    .scorePop.mission{
+      color:#a66a00;
+    }
+
+    .coinFx{
+      left:50%;
+      top:50%;
+      font-size:24px;
+      animation:coinBurst .95s both;
+    }
+
+    .comboBoom{
+      left:50%;
+      top:30%;
+      transform:translateX(-50%);
+      padding:12px 18px;
+      border-radius:22px;
+      background:linear-gradient(135deg,#fff4b8,#ffd4e6);
+      color:#8a4300;
+      font-size:24px;
+      font-weight:1000;
+      box-shadow:0 18px 42px rgba(40,80,100,.20);
+      animation:comboBoomPop 1s both;
+    }
+
+    .summary-modal{
+      position:fixed;
+      inset:0;
+      z-index:999;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(38,82,100,.48);
+      box-sizing:border-box;
+    }
+
+    .summary-card{
+      width:min(680px,94vw);
+      border-radius:32px;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(255,255,220,.9), transparent 36%),
+        linear-gradient(135deg,#ffffff,#ecfff2);
+      border:1px solid rgba(147,207,230,.78);
+      box-shadow:0 28px 80px rgba(20,60,80,.28);
+      padding:26px 24px;
+      text-align:center;
+      color:#24445d;
+    }
+
+    .summary-kicker{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:6px 12px;
+      border-radius:999px;
+      background:#e7f8ff;
+      color:#2c98d6;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .summary-title{
+      margin:14px 0 4px;
+      color:#24445d;
+      font-size:clamp(34px,6vw,54px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.05em;
+    }
+
+    .summary-subtitle{
+      margin:0 auto 18px;
+      color:#6a879a;
+      font-size:18px;
+      font-weight:850;
+    }
+
+    .summary-stats{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+      margin:16px 0;
+    }
+
+    .summary-stat{
+      min-height:80px;
+      border:1px solid rgba(147,207,230,.74);
+      border-radius:18px;
+      background:rgba(255,255,255,.75);
+      display:grid;
+      place-items:center;
+      padding:10px;
+    }
+
+    .summary-stat .num{
+      display:block;
+      color:#24445d;
+      font-size:clamp(28px,5vw,42px);
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .summary-stat .label{
+      color:#7191a5;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .summary-actions{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .starRow,
+    #starRow{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      flex-wrap:wrap;
+      margin:8px 0;
+    }
+
+    .star{
+      filter:grayscale(1);
+      opacity:.45;
+      font-size:28px;
+    }
+
+    .star.on{
+      filter:none;
+      opacity:1;
+    }
+
+    .starLabel{
+      width:100%;
+      color:#6c90a7;
+      font-size:13px;
+      font-weight:850;
+      margin-top:4px;
+    }
+
+    .badgeRow,
+    #badgeRow{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      flex-wrap:wrap;
+      margin:10px 0;
+    }
+
+    .badge{
+      display:inline-flex;
+      padding:6px 10px;
+      border-radius:999px;
+      background:#eefaff;
+      color:#35718f;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .badge.new{
+      background:#fff3c4;
+      color:#8b5a00;
+    }
+
+    #recommend{
+      margin-top:10px;
+      text-align:left;
+    }
+
+    .childSummary{
+      display:grid;
+      gap:6px;
+      padding:12px;
+      border-radius:18px;
+      background:rgba(245,252,255,.76);
+      color:#49697c;
+      font-size:14px;
+      font-weight:850;
+    }
+
+    .childLine b{
+      color:#24445d;
+    }
+
+    @keyframes plateFoodFall{
+      0%{
+        opacity:0;
+        transform:
+          translateX(-50%)
+          translateY(-40px)
+          rotate(var(--rot,0deg))
+          scale(.92);
+      }
+
+      8%{
+        opacity:1;
+        transform:
+          translateX(-50%)
+          translateY(8px)
+          rotate(var(--rot,0deg))
+          scale(1);
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(-50%)
+          translateY(calc(var(--plate-runtime-vh,720px) * .66))
+          rotate(var(--rot,0deg))
+          scale(1);
+      }
+    }
+
+    @keyframes plateFoodDriftLeft{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
+      }
+
+      12%{
+        opacity:1;
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(calc(-50% - 46px))
+          translateY(calc(var(--plate-runtime-vh,720px) * .66))
+          rotate(calc(var(--rot,0deg) - 10deg));
+      }
+    }
+
+    @keyframes plateFoodDriftRight{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
+      }
+
+      12%{
+        opacity:1;
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(calc(-50% + 46px))
+          translateY(calc(var(--plate-runtime-vh,720px) * .66))
+          rotate(calc(var(--rot,0deg) + 10deg));
+      }
+    }
+
+    @keyframes plateFoodZigzag{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
+      }
+
+      12%{
+        opacity:1;
+      }
+
+      32%{
+        transform:
+          translateX(calc(-50% + 34px))
+          translateY(calc(var(--plate-runtime-vh,720px) * .22))
+          rotate(8deg);
+      }
+
+      60%{
+        transform:
+          translateX(calc(-50% - 34px))
+          translateY(calc(var(--plate-runtime-vh,720px) * .43))
+          rotate(-8deg);
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(-50%)
+          translateY(calc(var(--plate-runtime-vh,720px) * .66))
+          rotate(var(--rot,0deg));
+      }
+    }
+
+    @keyframes plateFoodWobble{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-42px) rotate(-8deg);
+      }
+
+      12%{
+        opacity:1;
+      }
+
+      35%{
+        transform:
+          translateX(calc(-50% + 28px))
+          translateY(calc(var(--plate-runtime-vh,720px) * .22))
+          rotate(12deg);
+      }
+
+      70%{
+        transform:
+          translateX(calc(-50% - 22px))
+          translateY(calc(var(--plate-runtime-vh,720px) * .46))
+          rotate(-12deg);
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(-50%)
+          translateY(calc(var(--plate-runtime-vh,720px) * .66))
+          rotate(6deg);
+      }
+    }
+
+    @keyframes plateFoodDash{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-42px) scale(.94);
+      }
+
+      10%{
+        opacity:1;
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(calc(-50% + var(--endX,0px)))
+          translateY(calc(var(--plate-runtime-vh,720px) * .68))
+          scale(1.02);
+      }
+    }
+
+    @keyframes plateFoodPowerFloat{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-32px) scale(.9);
+      }
+
+      12%{
+        opacity:1;
+      }
+
+      100%{
+        opacity:.98;
+        transform:
+          translateX(calc(-50% + var(--endX,0px)))
+          translateY(calc(var(--plate-runtime-vh,720px) * .58))
+          scale(1.04);
+      }
+    }
+
+    @keyframes floatTextPop{
+      0%{
+        opacity:0;
+        transform:translate(-50%,-40%) scale(.8);
+      }
+
+      18%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1.04);
+      }
+
+      100%{
+        opacity:0;
+        transform:translate(-50%,-78%) scale(.92);
+      }
+    }
+
+    @keyframes scorePopUp{
+      0%{
+        opacity:0;
+        transform:translateY(10px) scale(.9);
+      }
+
+      20%{
+        opacity:1;
+        transform:translateY(0) scale(1.04);
+      }
+
+      100%{
+        opacity:0;
+        transform:translateY(-42px) scale(.92);
+      }
+    }
+
+    @keyframes coinBurst{
+      0%{
+        opacity:0;
+        transform:translate(0,0) scale(.7) rotate(0deg);
+      }
+
+      20%{
+        opacity:1;
+      }
+
+      100%{
+        opacity:0;
+        transform:
+          translate(var(--dx),var(--dy))
+          scale(.9)
+          rotate(var(--rot));
+      }
+    }
+
+    @keyframes comboBoomPop{
+      0%{
+        opacity:0;
+        transform:translateX(-50%) scale(.8);
+      }
+
+      18%{
+        opacity:1;
+        transform:translateX(-50%) scale(1.06);
+      }
+
+      100%{
+        opacity:0;
+        transform:translateX(-50%) translateY(-36px) scale(.94);
+      }
+    }
+
+    @media (max-width:900px){
+      .plate-main{
+        grid-template-columns:1fr;
+      }
+
+      .plate-side{
+        min-height:auto;
+        max-height:360px;
+      }
+    }
+
+    @media (max-width:680px){
+      .plate-app{
+        padding:8px;
+      }
+
+      .plate-topbar{
+        border-radius:22px;
+        min-height:62px;
+        padding:9px 10px;
+      }
+
+      .plate-logo{
+        width:44px;
+        height:44px;
+        border-radius:16px;
+        font-size:26px;
+      }
+
+      .plate-title{
+        font-size:25px;
+      }
+
+      .plate-subtitle{
+        font-size:12px;
+      }
+
+      .plate-main{
+        margin-top:8px;
+        gap:8px;
+      }
+
+      .plate-side{
+        border-radius:22px;
+        padding:10px;
+        max-height:300px;
+      }
+
+      .goal-title{
+        font-size:20px;
+      }
+
+      .mission{
+        font-size:12px;
+      }
+
+      .plate-hud{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        gap:8px;
+      }
+
+      .plate-stat{
+        min-height:64px;
+        border-radius:16px;
+        padding:10px;
+      }
+
+      .stat-value{
+        font-size:30px;
+      }
+
+      .plate-stage{
+        min-height:500px;
+        border-radius:22px;
+      }
+
+      .plate-prompt{
+        top:10px;
+        min-width:76%;
+        font-size:16px;
+      }
+
+      .center-plate{
+        width:210px;
+        height:120px;
+        bottom:54px;
+      }
+
+      .plate-label{
+        font-size:13px;
+      }
+
+      .foodCard{
+        min-width:62px !important;
+        min-height:74px !important;
+        border-radius:20px !important;
+        padding:7px 5px !important;
+      }
+
+      .foodCard .foodEmojiFallback{
+        font-size:32px !important;
+      }
+
+      .foodCard .name{
+        font-size:10px !important;
+      }
+
+      .foodTag{
+        font-size:9px !important;
+        bottom:-9px !important;
+      }
+
+      .plate-controls{
+        align-items:stretch;
+        flex-direction:column;
+        border-radius:20px;
+        min-height:unset;
+        padding:9px;
+        margin-bottom:16px;
+      }
+
+      .controls-left,
+      .controls-right{
+        width:100%;
+        justify-content:center;
+      }
+
+      .btn{
+        min-height:40px;
+        font-size:14px;
+        padding:8px 12px;
+      }
+
+      .summary-card{
+        padding:22px 16px;
+        border-radius:28px;
+      }
+
+      .summary-stats{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .summary-actions{
+        display:grid;
+        grid-template-columns:1fr;
+      }
+
+      .summary-actions .btn{
+        width:100%;
+        min-height:52px;
+      }
+    }
+  </style>
 </head>
 
 <body>
   <div id="plateApp" class="plate-app">
     <header class="plate-topbar">
       <div class="plate-brand">
-        <div class="plate-logo">🥗</div>
+        <div class="plate-logo" aria-hidden="true">🥗</div>
         <div class="plate-title-block">
           <h1 class="plate-title">Plate Solo</h1>
           <div class="plate-subtitle">จัดจานอาหารให้สมดุลครบ 5 หมู่</div>
@@ -32,36 +1338,42 @@
       </div>
 
       <div class="plate-top-actions">
-        <button id="btnBack" class="btn">← กลับ Nutrition Zone</button>
+        <button id="btnBack" class="btn" type="button">← กลับ Nutrition Zone</button>
       </div>
     </header>
 
-    <main class="plate-main">
+    <main id="plateShell" class="plate-main">
       <aside class="plate-side">
-        <section class="goal-panel">
+        <section class="goal-panel" aria-label="ภารกิจ">
           <h2 class="goal-title">ภารกิจอาหาร 5 หมู่</h2>
           <div id="missions" class="goal-list"></div>
         </section>
 
-        <section id="hintBox" class="cooldown-box">
-          <div class="cooldown-title">คำใบ้</div>
-          <div class="cooldown-text">เลือกอาหารให้ครบหมู่ โปรตีน ข้าว/แป้ง ผัก ผลไม้ และไขมัน</div>
+        <section id="hintBox" class="panel-note" aria-live="polite">
+          คำใบ้จะขึ้นตรงนี้ระหว่างเล่น
         </section>
 
-        <section class="progress-wrap" style="margin-top:12px;">
+        <section class="progress-wrap" aria-label="ความสมดุล">
           <div class="progress-label-row">
             <span>ความสมดุล</span>
-            <span id="balance">0%</span>
+            <span id="balanceText">0%</span>
           </div>
           <div class="progress-track">
-            <div id="balanceFill" class="progress-fill"></div>
+            <i id="balanceFill" class="progress-fill"></i>
           </div>
         </section>
 
-        <section id="log" class="panel-note" style="margin-top:12px;"></section>
+        <section id="log" class="panel-note" aria-live="polite">
+          พร้อมแล้ว
+        </section>
+
+        <section id="meters" class="meters-list" aria-label="แถบอาหาร 5 หมู่"></section>
+
+        <section id="dailyBox" class="panel-note"></section>
+        <section id="goalLock" class="panel-note"></section>
       </aside>
 
-      <section class="plate-play">
+      <section class="plate-play" aria-label="พื้นที่เล่น Plate Solo">
         <div class="plate-hud">
           <div class="plate-stat score-card">
             <div class="stat-label">คะแนน</div>
@@ -70,7 +1382,8 @@
 
           <div class="plate-stat timer-card">
             <div class="stat-label">เวลา</div>
-            <div id="timeText" class="stat-value">90</div>
+            <div id="timerText" class="stat-value">120</div>
+            <i id="timerFill" class="timer-fill"></i>
           </div>
 
           <div class="plate-stat combo-card">
@@ -80,67 +1393,160 @@
 
           <div class="plate-stat balance-card">
             <div class="stat-label">สมดุล</div>
-            <div id="phaseBanner" class="stat-value">0%</div>
+            <div id="balance" class="stat-value">0%</div>
           </div>
         </div>
 
-        <div id="arena" class="plate-stage">
+        <div id="gameStage" class="plate-stage">
+          <div id="prompt" class="plate-prompt">กดเริ่มเพื่อจัดจานอาหาร</div>
+
+          <div id="playField" class="play-field" aria-label="อาหารที่ตกลงมา"></div>
           <div id="spawnLayer" class="play-field"></div>
-          <div id="plate" class="center-plate"></div>
-          <div id="plateFoods"></div>
+
+          <div id="dropZone" class="plate-drop-zone"></div>
+
+          <div id="plate" class="center-plate">
+            <div id="plateFoods" class="plate-foods"></div>
+            <div id="plateLabel" class="plate-label">วางอาหารให้ครบ 5 หมู่</div>
+          </div>
+
+          <div id="juiceLayer" class="juice-layer"></div>
+          <div id="flash" class="flash"></div>
+          <div id="duelLayer" class="duel-layer"></div>
+
+          <div id="startOverlay" class="hidden" aria-hidden="true"></div>
+
+          <div id="feverLayer" class="hidden">🔥 FEVER</div>
+          <div id="finalRush" class="hidden">⚡ FINAL RUSH</div>
+
+          <div id="bossBox" class="boss-box">
+            <div id="bossName"></div>
+            <div class="boss-hp-track">
+              <i id="bossHp"></i>
+            </div>
+            <div id="bossPct"></div>
+            <div id="bossMood"></div>
+          </div>
+
+          <div id="bossAvatar" class="boss-avatar hidden">
+            <div id="bossFace" class="boss-face">👾</div>
+            <div id="bossLabel" class="boss-label">Boss</div>
+          </div>
+
+          <div id="bossSkillFlash" class="boss-skill-flash"></div>
+
+          <div id="bossMechanicBox" class="boss-mechanic-box">
+            <div id="bossMechanicTitle"></div>
+            <div id="bossMechanicText"></div>
+            <div id="bossMechanicSec"></div>
+            <i id="bossMechanicFill"></i>
+          </div>
+
+          <div id="lastSaveBox" class="last-save-box">
+            <div id="lastSaveText"></div>
+            <div id="lastSaveSec"></div>
+            <i id="lastSaveFill"></i>
+          </div>
+
+          <div id="orderBox" class="order-box">
+            <div id="orderText"></div>
+            <div id="orderSec"></div>
+            <i id="orderFill"></i>
+          </div>
+
+          <div id="miniEventBox" class="mini-event-box">
+            <div id="miniEventText"></div>
+            <div id="miniEventSec"></div>
+            <i id="miniEventFill"></i>
+          </div>
+
+          <div id="practiceCoach" class="practice-coach hidden">
+            <div id="practiceIcon">✅</div>
+            <div id="practiceTitle">Practice</div>
+            <div id="practiceText">ลองก่อน คะแนนยังไม่คิดจริง</div>
+            <div id="practiceSec"></div>
+            <i id="practiceFill"></i>
+            <button id="btnSkipPractice" class="btn" type="button">ข้ามซ้อม</button>
+          </div>
+
+          <div id="aiDirectorChip" class="ai-director-chip hidden">
+            <span id="aiDirectorIcon">🤖</span>
+            <span id="aiDirectorText">AI Coach</span>
+          </div>
+
+          <div id="aimReticle" class="aim-reticle hidden">＋</div>
         </div>
 
         <div class="plate-controls">
           <div class="controls-left">
-            <span class="status-pill">Plate Solo</span>
+            <span id="phaseBanner" class="status-pill">Plate Solo</span>
+
+            <span id="pShield" class="status-pill">🛡️ Shield</span>
+            <span id="pFreeze" class="status-pill">❄️ Freeze</span>
+            <span id="pFever" class="status-pill">🔥 Fever</span>
           </div>
 
           <div class="controls-right">
-            <button id="btnStart" class="btn primary">เริ่มเล่น</button>
-            <button id="btnPause" class="btn">พัก</button>
-            <button id="btnHint" class="btn blue">คำใบ้</button>
-            <button id="btnSkill" class="btn warn">สกิลช่วย</button>
+            <button id="startBtn" class="btn primary" type="button">เริ่มเล่น</button>
+            <button id="pauseBtn" class="btn" type="button">พัก</button>
+            <button id="btnHint" class="btn blue" type="button">คำใบ้</button>
+            <button id="btnSkill" class="btn warn" type="button">สกิลช่วย</button>
+            <button id="btnAim" class="btn blue hidden" type="button">ยิง/เลือก</button>
           </div>
         </div>
       </section>
     </main>
-
-    <div id="summaryOverlay" class="summary-modal hidden" aria-hidden="true">
-      <div class="summary-card">
-        <div class="summary-kicker">Plate Solo</div>
-        <h2 class="summary-title">สรุปผล</h2>
-        <p id="summaryText" class="summary-subtitle">จัดจานอาหารได้ดีมาก!</p>
-
-        <div class="summary-stats">
-          <div class="summary-stat">
-            <span id="sumScore" class="num">0</span>
-            <span class="label">คะแนน</span>
-          </div>
-          <div class="summary-stat">
-            <span id="sumBalance" class="num">0%</span>
-            <span class="label">สมดุล</span>
-          </div>
-          <div class="summary-stat">
-            <span id="sumTime" class="num">0</span>
-            <span class="label">เวลา</span>
-          </div>
-          <div class="summary-stat">
-            <span id="sumMission" class="num">0/5</span>
-            <span class="label">ภารกิจ</span>
-          </div>
-        </div>
-
-        <div class="summary-actions">
-          <button id="btnReplay" class="btn primary">เล่นอีกครั้ง</button>
-          <button id="btnCooldown" class="btn blue">ทำ Cooldown</button>
-          <button id="btnZone" class="btn">กลับ Nutrition Zone</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="toast" class="toast"></div>
   </div>
 
-  <script src="./plate-solo.js?v=20260513-domfix2"></script>
+  <!-- สำคัญมาก: ต้อง hidden ตั้งแต่ต้น ห้าม show ตอนโหลด -->
+  <div id="summaryOverlay" class="summary-modal hidden" aria-hidden="true">
+    <div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="summary-kicker">Plate Solo</div>
+
+      <div id="rankIcon" style="font-size:48px;margin-top:10px;">🍽️</div>
+
+      <h2 id="summaryTitle" class="summary-title">สรุปผล</h2>
+      <p id="summaryLine" class="summary-subtitle">จัดจานอาหารได้ดีมาก!</p>
+
+      <div id="starRow" class="starRow">
+        <span class="star">⭐</span>
+        <span class="star">⭐</span>
+        <span class="star">⭐</span>
+      </div>
+
+      <div class="summary-stats">
+        <div class="summary-stat">
+          <span id="sumScore" class="num">0</span>
+          <span class="label">คะแนน</span>
+        </div>
+
+        <div class="summary-stat">
+          <span id="sumBalance" class="num">0%</span>
+          <span class="label">สมดุล</span>
+        </div>
+
+        <div class="summary-stat">
+          <span id="sumCombo" class="num">0</span>
+          <span class="label">คอมโบสูงสุด</span>
+        </div>
+
+        <div class="summary-stat">
+          <span id="sumMission" class="num">0/5</span>
+          <span class="label">ภารกิจ</span>
+        </div>
+      </div>
+
+      <div id="badgeRow" class="badgeRow"></div>
+      <div id="recommend"></div>
+
+      <div class="summary-actions">
+        <button id="replayBtn" class="btn primary" type="button">เล่นอีกครั้ง</button>
+        <button id="cooldownBtn" class="btn blue" type="button">ทำ Cooldown</button>
+        <button id="nutritionZoneBtn" class="btn" type="button">กลับ Nutrition Zone</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="./plate-solo.js?v=20260513-summaryfix2" defer></script>
 </body>
 </html>
