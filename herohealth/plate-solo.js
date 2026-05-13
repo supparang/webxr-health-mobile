@@ -127,7 +127,41 @@
 
   const ids = 'app score combo balance timeText timerFill phaseText missions meters hintBox bossBox bossHp bossPct bossMood bossName arena spawnLayer plate plateFoods plateLabel phaseBanner arcadeHud miniScore miniCombo miniBalance miniTime compactMeters plateHealthIcon plateHealthFill plateHealthText btnInfoToggle btnInfoClose infoDrawer infoDrawerContent feverLayer finalRush aiDirectorChip aiDirectorIcon aiDirectorText practiceCoach practiceIcon practiceTitle practiceText practiceSec practiceFill btnSkipPractice bossAvatar bossFace bossLabel bossSkillFlash bossMechanicBox bossMechanicTitle bossMechanicText bossMechanicSec bossMechanicFill lastSaveBox lastSaveText lastSaveSec lastSaveFill orderBox orderText orderSec orderFill duelLayer miniEventBox miniEventText miniEventSec miniEventFill log flash juiceLayer laneWarn startOverlay summaryOverlay dailyBox goalLock rankIcon summaryTitle summaryLine starRow bestRow sumScore sumBalance sumCombo sumMission badgeRow recommend pShield pFreeze pFever btnStart btnPause btnHint btnSkill btnAim btnBack aimReticle btnReplay btnCooldown btnSummaryBack'.split(' ');
   const els = {}; ids.forEach(id=>els[id]=$(id));
-  function fallbackElement(id, tag='div'){ let el=els[id]||$(id); if(el)return el; el=DOC.createElement(tag); el.id=id; el.className='auto-created '+id; DOC.body.appendChild(el); els[id]=el; return el; }
+  function fallbackElement(selector, tagName, className, html){
+  let el = document.querySelector(selector);
+
+  if (el) return el;
+
+  el = document.createElement(tagName || 'div');
+
+  if (selector && selector.startsWith('#')) {
+    el.id = selector.slice(1);
+  }
+
+  if (className) {
+    el.className = className;
+  }
+
+  if (html !== undefined && html !== null) {
+    el.innerHTML = html;
+  }
+
+  const parent =
+    document.querySelector('.plate-app') ||
+    document.querySelector('#plateApp') ||
+    document.querySelector('#app') ||
+    document.querySelector('.game-app') ||
+    document.querySelector('main') ||
+    document.body;
+
+  if (!parent) {
+    console.warn('[Plate Solo] fallbackElement: no parent found for', selector);
+    return el;
+  }
+
+  parent.appendChild(el);
+  return el;
+}
   'app score combo balance timeText timerFill phaseText missions meters hintBox arena spawnLayer plate plateFoods plateLabel phaseBanner log startOverlay summaryOverlay btnStart btnPause btnHint btnSkill btnBack'.split(' ').forEach(id=>{ if(!els[id]) fallbackElement(id,id.startsWith('btn')?'button':'div'); });
 
   const state = {
