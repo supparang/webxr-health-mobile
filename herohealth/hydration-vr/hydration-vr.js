@@ -19,7 +19,8 @@
   'use strict';
 
   window.HHA = window.HHA || {};
-  window.HHA.Hydration = window.HHA.Hydration || {
+  window.HHA = window.HHA || {};
+window.HHA.Hydration = window.HHA.Hydration || {
   VERSION: 'v10.1.2-cooldown-nutrition-return',
   booted: false,
   started: false,
@@ -30,8 +31,8 @@
   debug: false
 };
 
-  const HYD = window.HHA.Hydration;
-  HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
+const HYD = window.HHA.Hydration;
+HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
 
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
   window.toggleHydrationPause = toggleHydrationPause;
