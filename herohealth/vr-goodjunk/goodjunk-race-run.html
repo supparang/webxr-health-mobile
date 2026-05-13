@@ -2661,19 +2661,19 @@
 
           <div class="race-stats-grid">
             <div class="race-stat-card">
-              <div class="race-stat-k">Good รวม</div>
+              <div class="race-stat-k">Good ห้องรวม</div>
               <div class="race-stat-v">${n(summary.total && summary.total.goodHit, state.goodHit)}</div>
             </div>
             <div class="race-stat-card">
-              <div class="race-stat-k">Junk รวม</div>
+              <div class="race-stat-k">Junk ห้องรวม</div>
               <div class="race-stat-v">${n(summary.total && summary.total.junkHit, state.junkHit)}</div>
             </div>
             <div class="race-stat-card">
-              <div class="race-stat-k">Miss รวม</div>
+              <div class="race-stat-k">Miss ห้องรวม</div>
               <div class="race-stat-v">${n(summary.total && summary.total.miss, state.miss)}</div>
             </div>
             <div class="race-stat-card">
-              <div class="race-stat-k">ผู้เล่นที่ส่งผล</div>
+              <div class="race-stat-k">ผู้เล่นในห้อง</div>
               <div class="race-stat-v">${n(summary.finishedPlayers, rows.length)}</div>
             </div>
           </div>
@@ -2885,267 +2885,234 @@ PID: ${esc(ctx.pid)}
   <script>
 /* =========================================================
    GoodJunk Race Summary Mobile Polish
-   PATCH v20260513-GJ-RACE-SUMMARY-MOBILE-POLISH
-   เป้าหมาย:
-   - ทำหน้าสรุป Race บนมือถือให้กะทัดรัดขึ้น
-   - เปลี่ยน label รวมให้เด็กเข้าใจว่าเป็น “ห้องรวม”
-   - ไม่แตะ gameplay / score / firebase
+   PATCH v20260513-GJ-RACE-RUN-SUMMARY-COMPACT-FINAL
+   ใช้ class จริงของ goodjunk-race-run.html
    ========================================================= */
-(() => {
-  'use strict';
 
-  const PATCH_ID = 'v20260513-GJ-RACE-SUMMARY-MOBILE-POLISH';
-  const STYLE_ID = 'gj-race-summary-mobile-polish-style';
+#raceResultMount.show{
+  align-items:flex-start;
+  padding-top:max(10px, env(safe-area-inset-top));
+  padding-bottom:max(14px, env(safe-area-inset-bottom));
+}
 
-  if (window.__GJ_RACE_SUMMARY_MOBILE_POLISH__) return;
-  window.__GJ_RACE_SUMMARY_MOBILE_POLISH__ = PATCH_ID;
+.race-result-card{
+  scroll-behavior:smooth;
+}
 
-  function injectStyle(){
-    if (document.getElementById(STYLE_ID)) return;
+.race-result-card .race-summary-kicker{
+  margin-inline:auto;
+}
 
-    const css = `
-      body.gjRaceSummaryActive{
-        overflow-x:hidden !important;
-      }
+.race-result-card .race-result-title{
+  text-align:center;
+}
 
-      body.gjRaceSummaryActive .gjRaceSummaryRoot{
-        box-sizing:border-box !important;
-      }
+.race-result-card .race-result-sub{
+  text-align:center;
+}
 
-      body.gjRaceSummaryActive .gjRaceSummaryRoot *,
-      body.gjRaceSummaryActive .gjRaceSummaryRoot *::before,
-      body.gjRaceSummaryActive .gjRaceSummaryRoot *::after{
-        box-sizing:border-box !important;
-      }
+.race-stat-card .race-stat-k{
+  line-height:1.25;
+}
 
-      body.gjRaceSummaryActive .gjRaceSummaryRoot .gjRaceCompactTrophy{
-        line-height:1 !important;
-      }
+.race-standing-row{
+  overflow:hidden;
+}
 
-      body.gjRaceSummaryActive .gjRaceSummaryRoot .gjRaceTeacherBox{
-        opacity:.92 !important;
-      }
+.race-standing-name,
+.race-standing-meta{
+  overflow-wrap:anywhere;
+}
 
-      @media (max-width: 760px){
-        body.gjRaceSummaryActive .gjRaceSummaryRoot{
-          width:calc(100vw - 18px) !important;
-          max-width:calc(100vw - 18px) !important;
-          margin:8px auto 14px auto !important;
-          padding:14px !important;
-          border-radius:28px !important;
-          max-height:none !important;
-          overflow:visible !important;
-        }
+.race-result-actions .btn.good{
+  background:linear-gradient(180deg,#a6f071,#7ed957);
+  border-color:#b8f29a;
+  color:#173b0b;
+  box-shadow:0 12px 26px rgba(72,190,70,.28);
+}
 
-        body.gjRaceSummaryActive .gjRaceSummaryRoot h1,
-        body.gjRaceSummaryActive .gjRaceSummaryRoot h2{
-          font-size:clamp(26px,7vw,36px) !important;
-          line-height:1.12 !important;
-          margin-top:8px !important;
-          margin-bottom:8px !important;
-        }
+.race-result-actions .btn.primary{
+  background:linear-gradient(180deg,#8bdcff,#58b7f5);
+  border-color:#9fe3ff;
+  color:#08374d;
+  box-shadow:0 12px 26px rgba(48,165,230,.24);
+}
 
-        body.gjRaceSummaryActive .gjRaceSummaryRoot p{
-          font-size:clamp(15px,4.2vw,18px) !important;
-          line-height:1.45 !important;
-          margin-top:6px !important;
-          margin-bottom:10px !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceCompactTrophy{
-          transform:scale(.82) !important;
-          transform-origin:center !important;
-          margin-top:0 !important;
-          margin-bottom:4px !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceSummaryRoot button,
-        body.gjRaceSummaryActive .gjRaceSummaryRoot a{
-          min-height:58px !important;
-          border-radius:22px !important;
-          font-size:clamp(16px,4.5vw,20px) !important;
-          font-weight:1000 !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceSummaryRoot details,
-        body.gjRaceSummaryActive .gjRaceSummaryRoot .gjRaceTeacherBox{
-          margin-top:12px !important;
-          margin-bottom:12px !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceSummaryRoot [class*="leader"],
-        body.gjRaceSummaryActive .gjRaceSummaryRoot [class*="rank"],
-        body.gjRaceSummaryActive .gjRaceSummaryRoot [class*="board"]{
-          max-width:100% !important;
-        }
-      }
-
-      @media (max-width: 430px){
-        body.gjRaceSummaryActive .gjRaceSummaryRoot{
-          width:calc(100vw - 14px) !important;
-          max-width:calc(100vw - 14px) !important;
-          padding:12px !important;
-          border-radius:24px !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceSummaryRoot h1,
-        body.gjRaceSummaryActive .gjRaceSummaryRoot h2{
-          font-size:28px !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceSummaryRoot p{
-          font-size:16px !important;
-        }
-
-        body.gjRaceSummaryActive .gjRaceSummaryRoot button,
-        body.gjRaceSummaryActive .gjRaceSummaryRoot a{
-          width:100% !important;
-        }
-      }
-    `;
-
-    const style = document.createElement('style');
-    style.id = STYLE_ID;
-    style.textContent = css;
-    document.head.appendChild(style);
+@media (max-width:760px){
+  #raceResultMount{
+    padding:8px 7px 14px;
   }
 
-  function replaceTextInTextNodes(root){
-    if (!root) return;
-
-    const pairs = [
-      ['Good รวม', 'Good ห้องรวม'],
-      ['Junk รวม', 'Junk ห้องรวม'],
-      ['Miss รวม', 'Miss ห้องรวม'],
-      ['ผู้เล่นที่ส่งผล', 'ผู้เล่นในห้อง']
-    ];
-
-    const walker = document.createTreeWalker(
-      root,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-
-    const nodes = [];
-    while (walker.nextNode()) nodes.push(walker.currentNode);
-
-    nodes.forEach(node => {
-      let text = node.nodeValue || '';
-      let changed = false;
-
-      pairs.forEach(([from, to]) => {
-        if (text.includes(from)) {
-          text = text.split(from).join(to);
-          changed = true;
-        }
-      });
-
-      if (changed) node.nodeValue = text;
-    });
+  .race-result-card{
+    width:calc(100vw - 14px);
+    max-width:calc(100vw - 14px);
+    max-height:none;
+    overflow:visible;
+    border-radius:28px;
+    padding:14px;
+    gap:12px;
   }
 
-  function findTextElement(keywords){
-    const walker = document.createTreeWalker(
-      document.body,
-      NodeFilter.SHOW_TEXT,
-      null
-    );
-
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      const text = String(node.nodeValue || '').trim();
-      if (!text) continue;
-
-      if (keywords.some(k => text.includes(k))) {
-        return node.parentElement || null;
-      }
-    }
-
-    return null;
+  .race-summary-kicker{
+    width:100%;
+    min-height:34px;
+    font-size:12px;
+    padding:7px 10px;
+    text-align:center;
+    justify-content:center;
+    white-space:normal;
   }
 
-  function findSummaryRoot(){
-    const anchor =
-      findTextElement(['Race Complete', 'คุณชนะ Race', 'ตารางอันดับ Race']) ||
-      null;
-
-    if (!anchor) return null;
-
-    let best = null;
-    let el = anchor;
-
-    for (let i = 0; i < 12 && el && el !== document.body; i++) {
-      const rect = el.getBoundingClientRect();
-
-      if (rect.width >= 280 && rect.height >= 260) {
-        best = el;
-      }
-
-      el = el.parentElement;
-    }
-
-    return best || anchor.closest('section,main,div');
+  .race-result-card > div[style*="font-size:54px"]{
+    font-size:44px !important;
+    margin-top:2px !important;
+    margin-bottom:2px !important;
   }
 
-  function markTrophy(root){
-    if (!root) return;
-
-    const all = Array.from(root.querySelectorAll('*'));
-
-    all.forEach(el => {
-      const txt = String(el.textContent || '').trim();
-
-      if (
-        txt === '🏆' ||
-        txt === '🥇' ||
-        txt === '🥈' ||
-        txt === '🥉'
-      ) {
-        el.classList.add('gjRaceCompactTrophy');
-      }
-
-      if (
-        txt.includes('ข้อมูลระบบสำหรับครู') ||
-        txt.includes('Debug') ||
-        txt.includes('debug')
-      ) {
-        const box = el.closest('details,div,section');
-        if (box) box.classList.add('gjRaceTeacherBox');
-      }
-    });
+  .race-result-title{
+    font-size:clamp(28px,7.4vw,38px);
+    line-height:1.12;
+    margin:4px 0 2px;
   }
 
-  function apply(){
-    injectStyle();
-
-    const root = findSummaryRoot();
-
-    if (!root) {
-      document.body.classList.remove('gjRaceSummaryActive');
-      return;
-    }
-
-    document.body.classList.add('gjRaceSummaryActive');
-    root.classList.add('gjRaceSummaryRoot');
-
-    replaceTextInTextNodes(root);
-    markTrophy(root);
+  .race-result-sub{
+    font-size:clamp(15px,4.2vw,18px);
+    line-height:1.42;
+    margin:0 auto 6px;
+    max-width:30ch;
   }
 
-  apply();
+  .race-top-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:8px;
+  }
 
-  const mo = new MutationObserver(() => {
-    apply();
-  });
+  .race-top-card{
+    padding:10px 7px;
+    border-radius:18px;
+    min-height:96px;
+  }
 
-  mo.observe(document.body, {
-    childList:true,
-    subtree:true,
-    characterData:true
-  });
+  .race-top-k{
+    font-size:10px;
+    line-height:1.2;
+  }
 
-  window.addEventListener('resize', apply, { passive:true });
-})();
+  .race-top-score{
+    font-size:clamp(28px,8vw,38px);
+    margin-top:6px;
+  }
+
+  .race-top-name{
+    font-size:12px;
+    margin-top:5px;
+    line-height:1.25;
+  }
+
+  .race-stats-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+  }
+
+  .race-stat-card{
+    min-height:88px;
+    padding:11px 8px;
+    border-radius:18px;
+  }
+
+  .race-stat-k{
+    font-size:13px;
+  }
+
+  .race-stat-v{
+    font-size:clamp(28px,8vw,38px);
+  }
+
+  .race-standings-card{
+    padding:12px;
+    border-radius:22px;
+  }
+
+  .race-standings-card .race-result-title{
+    font-size:clamp(25px,7vw,34px) !important;
+    margin-bottom:10px !important;
+    text-align:left;
+  }
+
+  .race-standing-row{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    padding:14px;
+    border-radius:20px;
+  }
+
+  .race-standing-name{
+    font-size:clamp(21px,6vw,30px);
+    line-height:1.15;
+  }
+
+  .race-standing-meta{
+    font-size:clamp(13px,3.7vw,17px);
+    line-height:1.35;
+  }
+
+  .race-standing-side{
+    font-size:clamp(25px,7vw,34px);
+    line-height:1;
+  }
+
+  .race-debug-details{
+    border-radius:22px;
+  }
+
+  .race-debug-details summary{
+    min-height:58px;
+    font-size:clamp(15px,4.2vw,18px);
+  }
+
+  .race-result-actions{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    padding-bottom:max(10px, env(safe-area-inset-bottom));
+  }
+
+  .race-result-actions .btn{
+    width:100%;
+    min-height:62px;
+    border-radius:23px;
+    font-size:clamp(18px,5vw,23px);
+  }
+}
+
+@media (max-width:420px){
+  .race-result-card{
+    padding:12px;
+    border-radius:24px;
+  }
+
+  .race-top-grid{
+    gap:7px;
+  }
+
+  .race-top-card{
+    min-height:90px;
+    padding:9px 5px;
+  }
+
+  .race-result-title{
+    font-size:28px;
+  }
+
+  .race-stats-grid{
+    gap:7px;
+  }
+
+  .race-stat-card{
+    min-height:84px;
+  }
+}
 </script>
 </body>
 </html>
