@@ -1801,12 +1801,12 @@
 
     if (state.wave >= 2) d *= .9;
     if (state.wave >= 3) d *= .78;
-    if (state.rush) d *= .55;
-    if (isFever()) d *= .58;
-    if (state.boss) d *= .7;
-    if (state.mini && state.mini.type === 'healthyRain') d *= .55;
-    if (state.mini && state.mini.type === 'junkInvasion') d *= .48;
-    if (state.mini && state.mini.type === 'missingAlert') d *= .7;
+    if (state.rush) d *= .70;
+    if (isFever()) d *= .72;
+    if (state.boss) d *= .82;
+    if (state.mini && state.mini.type === 'healthyRain') d *= .72;
+    if (state.mini && state.mini.type === 'junkInvasion') d *= .68;
+    if (state.mini && state.mini.type === 'missingAlert') d *= .78;
 
     return d * clamp(
       (1 - state.directorLevel * .055) *
@@ -1825,13 +1825,13 @@
 
     return clamp(
       life * clamp(
-        (1 - state.directorLevel * .045) *
-        (1 + state.assistLevel * .14),
-        .95,
-        1.75
+      (1 - state.directorLevel * .035) *
+      (1 + state.assistLevel * .16),
+        1.05,
+        1.85
       ),
-      3200,
-      8200
+      3800,
+      8800
     );
   }
 
@@ -1965,11 +1965,26 @@
   }
 
   function spawnFood(forced = null){
-    resolvePlateEls();
+  resolvePlateEls();
 
-    state.lastSpawn = now();
+  // PATCH v20260513-PLATE-SOLO-SPAWN-CAP
+  // กันอาหารแน่นจอเกิน โดยเฉพาะ Wave 3 / Rush / Mini Event
+  const maxActive =
+    state.practiceActive ? 4 :
+    state.boss ? 8 :
+    state.rush ? 7 :
+    state.mini ? 8 :
+    screenMode() === 'small' ? 5 :
+    screenMode() === 'mobile' ? 6 :
+    8;
 
-    const food = forced ? { ...forced } : chooseFood();
+  if (!forced && state.active && state.active.size >= maxActive) {
+    return;
+  }
+
+  state.lastSpawn = now();
+
+  const food = forced ? { ...forced } : chooseFood();
 
     if (!food) return;
 
@@ -3787,6 +3802,10 @@
   }
 
   function resetForMainRound(){
+    if (els.btnStart && !state.running) {
+      els.btnStart.disabled = false;
+      els.btnStart.classList.remove('hidden');
+    }
     clearActiveCards();
 
     Object.assign(state, {
@@ -3963,6 +3982,10 @@
     }
 
     if (els.arcadeHud) els.arcadeHud.classList.remove('hidden');
+    if (els.btnStart) {
+      els.btnStart.disabled = true;
+      els.btnStart.classList.add('hidden');
+    }
     if (els.startOverlay) els.startOverlay.classList.add('hidden');
 
     if (state.practiceEnabled && !state.practiceDone) {
@@ -4345,7 +4368,10 @@
         </div>
       `;
     }
-
+    if (els.btnStart) {
+      els.btnStart.disabled = false;
+      els.btnStart.classList.remove('hidden');
+    }
     showSummaryOverlay();
 
     const summary = {
