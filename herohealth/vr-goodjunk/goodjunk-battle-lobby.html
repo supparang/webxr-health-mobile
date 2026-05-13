@@ -1248,20 +1248,29 @@
         const existing = await dbGet(roomPath(room)).catch(() => null);
 
         if (existing){
-          listenRoom(room);
+  listenRoom(room);
 
-          const p = ctx();
-          const urlRole = String(qs('role','')).toLowerCase();
-          const isGuestLink = qs('join','') === '1' || urlRole === 'guest';
+  const urlRole = String(qs('role','')).toLowerCase();
+  const urlHost = String(qs('host','')).toLowerCase();
+  const isGuestLink = qs('join','') === '1' || urlRole === 'guest' || urlHost === '0';
 
-          if (isGuestLink){
-            setNotice('warn','พบห้อง Battle แล้ว กด “เข้าห้องเพื่อน” เพื่อร่วม Battle');
-          }else{
-            setNotice('warn','พบห้องเดิมแล้ว กดเข้าห้องเพื่อนหรือ Host กดเริ่มได้');
-          }
-        }else{
-          syncUi(null);
-        }
+  if (isGuestLink){
+    setNotice('warn','กำลังเข้าห้อง Battle ให้อัตโนมัติ...');
+
+    setTimeout(() => {
+      joinRoom().catch(err => {
+        console.error(err);
+        setNotice('bad','เข้าห้อง Battle ไม่สำเร็จ: ' + (err?.message || err));
+      });
+    }, 350);
+
+    return;
+  }
+
+  setNotice('warn','พบห้องเดิมแล้ว กดเข้าห้องเพื่อนหรือ Host กดเริ่มได้');
+}else{
+  syncUi(null);
+}
       }catch(err){
         console.error(err);
         setNotice('bad','Firebase ยังไม่พร้อม: ' + (err?.message || err));
