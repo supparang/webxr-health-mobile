@@ -20,7 +20,7 @@
 
   window.HHA = window.HHA || {};
   window.HHA.Hydration = window.HHA.Hydration || {
-    VERSION: 'v10.1.2-cooldown-nutrition-return',
+    Version: v10.1.2-cooldown-nutrition-return
     booted: false,
     started: false,
     destroyed: false,
