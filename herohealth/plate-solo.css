@@ -3083,3 +3083,34 @@ body:not(.plate-playing) .foodCard{
     bottom:-9px !important;
   }
 }
+/* =========================================================
+   Plate Solo Summary Visibility Guard
+   PATCH v20260513-PLATE-SUMMARY-NO-AUTO-SHOW
+   ========================================================= */
+
+#summaryOverlay.hidden,
+#summaryModal.hidden,
+.summary-modal.hidden{
+  display:none !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+#summaryOverlay:not(.show),
+#summaryModal:not(.show),
+.summary-modal:not(.show){
+  display:none;
+  visibility:hidden;
+  opacity:0;
+  pointer-events:none;
+}
+
+#summaryOverlay.show,
+#summaryModal.show,
+.summary-modal.show{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+}
