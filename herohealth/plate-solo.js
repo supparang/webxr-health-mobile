@@ -6,136 +6,7 @@
 
 (() => {
   'use strict';
-  /* =========================================================
-   Plate Solo DOM Safety Shell
-   PATCH v20260513-PLATE-SOLO-DOM-SHELL-FIX
-   ต้องอยู่ก่อน init/createElements/renderMeters
-   ========================================================= */
-
-(function ensurePlateSoloShell(){
-  const DOC = document;
-
-  let app =
-    DOC.querySelector('.plate-app') ||
-    DOC.querySelector('#plateApp') ||
-    DOC.querySelector('#app') ||
-    DOC.querySelector('.game-app');
-
-  if (!app) {
-    app = DOC.createElement('div');
-    app.id = 'plateApp';
-    app.className = 'plate-app';
-    DOC.body.appendChild(app);
-  }
-
-  if (!DOC.querySelector('#plateShell')) {
-    app.innerHTML = `
-      <header class="plate-topbar">
-        <div class="plate-brand">
-          <div class="plate-logo">🥗</div>
-          <div class="plate-title-block">
-            <h1 class="plate-title">Plate Solo</h1>
-            <div class="plate-subtitle">จัดจานอาหารให้สมดุลครบ 5 หมู่</div>
-          </div>
-        </div>
-        <div class="plate-top-actions">
-          <button id="btnBack" class="btn">← กลับ</button>
-        </div>
-      </header>
-
-      <main id="plateShell" class="plate-main">
-        <aside class="plate-side">
-          <section class="goal-panel">
-            <h2 class="goal-title">ภารกิจ</h2>
-            <div id="missions" class="goal-list"></div>
-          </section>
-
-          <section class="progress-wrap" style="margin-top:12px;">
-            <div class="progress-label-row">
-              <span>ความสมดุล</span>
-              <span id="balanceText">0%</span>
-            </div>
-            <div class="progress-track">
-              <div id="balanceFill" class="progress-fill"></div>
-            </div>
-          </section>
-        </aside>
-
-        <section class="plate-play">
-          <div class="plate-hud">
-            <div class="plate-stat score-card">
-              <div class="stat-label">คะแนน</div>
-              <div id="scoreText" class="stat-value">0</div>
-            </div>
-            <div class="plate-stat timer-card">
-              <div class="stat-label">เวลา</div>
-              <div id="timerText" class="stat-value">90</div>
-            </div>
-            <div class="plate-stat combo-card">
-              <div class="stat-label">คอมโบ</div>
-              <div id="comboText" class="stat-value">0</div>
-            </div>
-            <div class="plate-stat balance-card">
-              <div class="stat-label">ครบหมู่</div>
-              <div id="groupText" class="stat-value">0/5</div>
-            </div>
-          </div>
-
-          <div id="gameStage" class="plate-stage">
-            <div id="prompt" class="plate-prompt">กดเริ่มเพื่อจัดจานอาหาร</div>
-            <div id="playField" class="play-field"></div>
-            <div id="dropZone" class="plate-drop-zone"></div>
-            <div id="plate" class="center-plate"></div>
-          </div>
-
-          <div class="plate-controls">
-            <div class="controls-left">
-              <span id="phaseBanner" class="status-pill">พร้อมเล่น</span>
-            </div>
-            <div class="controls-right">
-              <button id="startBtn" class="btn primary">เริ่มเล่น</button>
-              <button id="pauseBtn" class="btn">พัก</button>
-              <button id="summaryBtn" class="btn">สรุปผล</button>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <div id="summaryModal" class="summary-modal" aria-hidden="true">
-        <div class="summary-card">
-          <div class="summary-kicker">Plate Solo</div>
-          <h2 class="summary-title">สรุปผล</h2>
-          <p id="summaryText" class="summary-subtitle">ยอดเยี่ยม! ลองจัดจานให้ครบ 5 หมู่ต่อไป</p>
-          <div class="summary-stats">
-            <div class="summary-stat">
-              <span id="sumScore" class="num">0</span>
-              <span class="label">คะแนน</span>
-            </div>
-            <div class="summary-stat">
-              <span id="sumCombo" class="num">0</span>
-              <span class="label">คอมโบสูงสุด</span>
-            </div>
-            <div class="summary-stat">
-              <span id="sumBalance" class="num">0%</span>
-              <span class="label">สมดุล</span>
-            </div>
-            <div class="summary-stat">
-              <span id="sumGroups" class="num">0/5</span>
-              <span class="label">ครบหมู่</span>
-            </div>
-          </div>
-          <div class="summary-actions">
-            <button id="replayBtn" class="btn primary">เล่นอีกครั้ง</button>
-            <button id="cooldownBtn" class="btn blue">ทำ Cooldown</button>
-            <button id="nutritionZoneBtn" class="btn">กลับ Nutrition Zone</button>
-          </div>
-        </div>
-      </div>
-
-      <div id="toast" class="toast"></div>
-    `;
-  }
-})();
+  
   var VERSION = '20260511-PLATE-SOLO-V41.2-HUD-TARGET-SAFE-MODE';
   var DOC = window.document;
   var WIN = window;
@@ -255,44 +126,111 @@
   }
 
   const ids = 'app score combo balance timeText timerFill phaseText missions meters hintBox bossBox bossHp bossPct bossMood bossName arena spawnLayer plate plateFoods plateLabel phaseBanner arcadeHud miniScore miniCombo miniBalance miniTime compactMeters plateHealthIcon plateHealthFill plateHealthText btnInfoToggle btnInfoClose infoDrawer infoDrawerContent feverLayer finalRush aiDirectorChip aiDirectorIcon aiDirectorText practiceCoach practiceIcon practiceTitle practiceText practiceSec practiceFill btnSkipPractice bossAvatar bossFace bossLabel bossSkillFlash bossMechanicBox bossMechanicTitle bossMechanicText bossMechanicSec bossMechanicFill lastSaveBox lastSaveText lastSaveSec lastSaveFill orderBox orderText orderSec orderFill duelLayer miniEventBox miniEventText miniEventSec miniEventFill log flash juiceLayer laneWarn startOverlay summaryOverlay dailyBox goalLock rankIcon summaryTitle summaryLine starRow bestRow sumScore sumBalance sumCombo sumMission badgeRow recommend pShield pFreeze pFever btnStart btnPause btnHint btnSkill btnAim btnBack aimReticle btnReplay btnCooldown btnSummaryBack'.split(' ');
-  const els = {}; ids.forEach(id=>els[id]=$(id));
-  function fallbackElement(selector, tagName, className, html){
-  let el = document.querySelector(selector);
 
+const els = {};
+
+function byId(id){
+  return DOC.getElementById(id);
+}
+
+function ensureEl(id, tagName, parent, className, html){
+  let el = byId(id);
   if (el) return el;
 
-  el = document.createElement(tagName || 'div');
+  el = DOC.createElement(tagName || 'div');
+  el.id = id;
 
-  if (selector && selector.startsWith('#')) {
-    el.id = selector.slice(1);
-  }
+  if (className) el.className = className;
+  if (html != null) el.innerHTML = html;
 
-  if (className) {
-    el.className = className;
-  }
+  const p =
+    parent ||
+    byId('plateApp') ||
+    DOC.querySelector('.plate-app') ||
+    byId('app') ||
+    DOC.querySelector('.game-app') ||
+    DOC.body;
 
-  if (html !== undefined && html !== null) {
-    el.innerHTML = html;
-  }
-
-  const parent =
-    document.querySelector('.plate-app') ||
-    document.querySelector('#plateApp') ||
-    document.querySelector('#app') ||
-    document.querySelector('.game-app') ||
-    document.querySelector('main') ||
-    document.body;
-
-  if (!parent) {
-    console.warn('[Plate Solo] fallbackElement: no parent found for', selector);
-    return el;
-  }
-
-  parent.appendChild(el);
+  if (p) p.appendChild(el);
   return el;
 }
-  'app score combo balance timeText timerFill phaseText missions meters hintBox arena spawnLayer plate plateFoods plateLabel phaseBanner log startOverlay summaryOverlay btnStart btnPause btnHint btnSkill btnBack'.split(' ').forEach(id=>{ if(!els[id]) fallbackElement(id,id.startsWith('btn')?'button':'div'); });
 
+function resolvePlateEls(){
+  ids.forEach(id => {
+    els[id] = byId(id);
+  });
+
+  /*
+    สำคัญ: map id เก่าที่ JS ใช้ ให้ตรงกับ id ใหม่ใน HTML
+  */
+  els.app = els.app || byId('plateApp') || DOC.querySelector('.plate-app') || DOC.body;
+
+  els.score = els.score || byId('scoreText');
+  els.combo = els.combo || byId('comboText');
+  els.balance = els.balance || byId('balanceText') || byId('balance');
+  els.timeText = els.timeText || byId('timerText');
+
+  els.arena = els.arena || byId('gameStage');
+  els.spawnLayer = els.spawnLayer || byId('playField');
+  els.plate = els.plate || byId('centerPlate') || byId('plate');
+  els.plateFoods = els.plateFoods || byId('plateFoods') || ensureEl('plateFoods', 'div', els.plate, 'plate-foods');
+  els.plateLabel = els.plateLabel || byId('plateLabel') || ensureEl('plateLabel', 'div', els.plate, 'plate-label', 'วางอาหารให้ครบ 5 หมู่');
+
+  els.phaseBanner = els.phaseBanner || byId('prompt');
+  els.startOverlay = els.startOverlay || ensureEl('startOverlay', 'div', els.app, 'hidden');
+  els.summaryOverlay = els.summaryOverlay || byId('summaryModal') || byId('resultModal') || byId('summaryOverlay');
+
+  els.btnStart = els.btnStart || byId('startBtn');
+  els.btnPause = els.btnPause || byId('pauseBtn');
+  els.btnHint = els.btnHint || byId('btnHint') || ensureEl('btnHint', 'button', DOC.querySelector('.controls-right') || els.app, 'btn blue', 'คำใบ้');
+  els.btnSkill = els.btnSkill || byId('btnSkill') || ensureEl('btnSkill', 'button', DOC.querySelector('.controls-right') || els.app, 'btn warn', 'สกิลช่วย');
+  els.btnBack = els.btnBack || byId('backBtn') || byId('btnBack');
+
+  els.btnReplay = els.btnReplay || byId('replayBtn') || byId('btnReplay');
+  els.btnCooldown = els.btnCooldown || byId('cooldownBtn') || byId('btnCooldown');
+  els.btnSummaryBack = els.btnSummaryBack || byId('nutritionZoneBtn') || byId('btnZone') || byId('btnSummaryBack');
+
+  els.missions = els.missions || ensureEl('missions', 'div', DOC.querySelector('.goal-panel') || els.app, 'goal-list');
+  els.meters = els.meters || ensureEl('meters', 'div', DOC.querySelector('.plate-side') || els.app, 'meters-list');
+
+  els.hintBox = els.hintBox || ensureEl('hintBox', 'div', DOC.querySelector('.plate-side') || els.app, 'panel-note');
+  els.log = els.log || ensureEl('log', 'div', DOC.querySelector('.plate-side') || els.app, 'panel-note');
+
+  els.timerFill = els.timerFill || ensureEl('timerFill', 'i', DOC.querySelector('.timer-card') || els.app, 'timer-fill');
+  els.phaseText = els.phaseText || byId('phaseText') || ensureEl('phaseText', 'div', DOC.querySelector('.combo-card') || els.app, 'stat-value', 'Ready');
+
+  els.juiceLayer = els.juiceLayer || ensureEl('juiceLayer', 'div', els.arena || els.app, 'juice-layer');
+  els.flash = els.flash || ensureEl('flash', 'div', els.arena || els.app, 'flash');
+}
+
+resolvePlateEls();
+
+function fallbackElement(selectorOrId, tagName, className, html){
+  const raw = String(selectorOrId || '').trim();
+  const id = raw.replace(/^#/, '');
+
+  if (!id) return null;
+
+  let el = byId(id) || DOC.querySelector(raw.startsWith('.') || raw.startsWith('[') ? raw : '#' + id);
+  if (el) return el;
+
+  el = DOC.createElement(tagName || 'div');
+  el.id = id;
+
+  if (className) el.className = className;
+  if (html != null) el.innerHTML = html;
+
+  const parent =
+    els.spawnLayer ||
+    els.arena ||
+    els.app ||
+    byId('plateApp') ||
+    DOC.querySelector('.plate-app') ||
+    DOC.body;
+
+  if (parent) parent.appendChild(el);
+  return el;
+}
   const state = {
     running:false, paused:false, ended:false, practiceEnabled:PRACTICE_ON, practiceActive:false, practiceDone:false, practiceStarted:0, practiceHits:0, practiceMistakes:0, practicePhase:0,
     startedAt:0, pausedMs:0, pauseStarted:0, totalSec:clamp(Number(qs('time','100'))||100,60,180),
@@ -349,37 +287,28 @@
   function applyEffects(effects){Object.entries(effects||{}).forEach(([g,v])=>{if(g in state.fill)state.fill[g]=clamp((state.fill[g]||0)+Number(v||0),0,CFG.target+2.2);});}
 
   function renderMeters(){
-  const missions = document.getElementById('missions');
+  resolvePlateEls();
 
-  if (!missions) {
-    console.warn('[Plate Solo] renderMeters skipped: #missions not found');
+  if (!els.meters) {
+    console.warn('[Plate Solo] renderMeters skipped: #meters not found');
     return;
   }
 
-  missions.innerHTML = '';
-
-  const groups = [
-    { key:'protein', label:'หมู่ 1 โปรตีน', icon:'🥚' },
-    { key:'carb', label:'หมู่ 2 ข้าว/แป้ง', icon:'🍚' },
-    { key:'veg', label:'หมู่ 3 ผัก', icon:'🥦' },
-    { key:'fruit', label:'หมู่ 4 ผลไม้', icon:'🍎' },
-    { key:'fat', label:'หมู่ 5 ไขมัน', icon:'🥑' }
-  ];
-
-  groups.forEach((g, index) => {
-    const item = document.createElement('div');
-    item.className = 'goal-item';
-    item.dataset.group = g.key;
-    item.innerHTML = `
-      <div class="goal-icon">${g.icon}</div>
-      <div>
-        <div class="goal-name">${g.label}</div>
-        <div class="goal-desc">เก็บให้ครบเพื่อจานสมดุล</div>
+  els.meters.innerHTML = GROUPS.map(g => `
+    <div id="bar-${g.id}" class="meter-row food-meter" data-group="${g.id}">
+      <div class="meter-head">
+        <span class="meter-name">${g.icon} ${esc(g.label)}</span>
+        <span id="gmv-${g.id}" class="meter-value">0.0/${CFG.target}</span>
       </div>
-      <div class="goal-count" id="goalCount${index + 1}">0/1</div>
-    `;
-    missions.appendChild(item);
-  });
+      <div class="meter-track">
+        <i id="bari-${g.id}" class="meter-fill"></i>
+      </div>
+      <div id="need-${g.id}" class="meter-need">ยังขาด ${CFG.target.toFixed(1)}</div>
+    </div>
+  `).join('');
+
+  if (els.balance) els.balance.textContent = '0%';
+  if (els.balanceFill) els.balanceFill.style.width = '0%';
 }
   function updateMeters(){GROUPS.forEach(g=>{const v=state.fill[g.id]||0,pct=clamp((v/CFG.target)*100,0,145),bar=$('bar-'+g.id),fill=$('bari-'+g.id),label=$('gmv-'+g.id),need=$('need-'+g.id); if(!bar||!fill||!label||!need)return; fill.style.width=Math.min(pct,100)+'%'; bar.classList.toggle('over',v>CFG.target+.25); bar.classList.toggle('warn',v>=CFG.target*.82&&v<=CFG.target+.25); label.textContent=`${v.toFixed(1)}/${CFG.target}`; need.textContent=v>CFG.target+.25?'ล้นแล้ว! อย่าเติมเพิ่ม':(v>=CFG.target*.82?'พอดีแล้ว':`ยังขาด ${(CFG.target-v).toFixed(1)}`);});}
   function updatePlateHealthUI(){const hp=Math.round(state.plateHealth); if(els.plateHealthFill)els.plateHealthFill.style.width=clamp(hp,0,100)+'%'; if(els.plateHealthText)els.plateHealthText.textContent='Plate '+hp+'%'; if(els.plateHealthIcon)els.plateHealthIcon.textContent=hp<=25?'🚨':hp<=55?'💛':'❤️'; if(els.app){els.app.classList.toggle('plate-warn',hp<=55&&hp>25); els.app.classList.toggle('plate-danger',hp<=25); els.app.classList.toggle('plate-critical',hp<=15);}}
