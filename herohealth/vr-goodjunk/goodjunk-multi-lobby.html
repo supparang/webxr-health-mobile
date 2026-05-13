@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Multiplayer Lobby</title>
+  <meta name="theme-color" content="#8ee6c9" />
+
+  <style>
+    :root{
+      --bg1:#efffff;
+      --bg2:#ddf8ff;
+      --card:#ffffffee;
+      --line:#cdeef0;
+      --text:#234054;
+      --muted:#6c8795;
+      --good:#47c97a;
+      --bad:#ff6b6b;
+      --blue:#4aa3ff;
+      --yellow:#ffd95a;
+      --shadow:0 18px 45px rgba(28,88,120,.16);
+      --r:24px;
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at top left,#fff7ca 0 16%,transparent 36%),
+        radial-gradient(circle at top right,#c7f5ff 0 20%,transparent 42%),
+        linear-gradient(160deg,var(--bg1),var(--bg2));
+    }
+
+    body{
+      padding:18px;
+      overflow-x:hidden;
+    }
+
+    .wrap{
+      width:min(1080px,100%);
+      margin:0 auto;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.15fr .85fr;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .panel{
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--r);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(12px);
+    }
+
+    .intro{
+      padding:24px;
+      min-height:260px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:#e7fff4;
+      border:1px solid #b9efd7;
+      color:#247951;
+      font-weight:800;
+      font-size:13px;
+    }
+
+    h1{
+      margin:16px 0 8px;
+      font-size:clamp(30px,5vw,54px);
+      line-height:1;
+      letter-spacing:-1.5px;
+    }
+
+    .lead{
+      max-width:720px;
+      color:var(--muted);
+      font-size:17px;
+      line-height:1.65;
+      margin:0;
+    }
+
+    .float-food{
+      position:absolute;
+      right:20px;
+      bottom:18px;
+      font-size:58px;
+      filter:drop-shadow(0 10px 16px rgba(0,0,0,.12));
+      animation:bob 2.8s ease-in-out infinite;
+    }
+
+    @keyframes bob{
+      0%,100%{ transform:translateY(0) rotate(-4deg); }
+      50%{ transform:translateY(-10px) rotate(4deg); }
+    }
+
+    .setup{
+      padding:18px;
+    }
+
+    .section-title{
+      margin:0 0 12px;
+      font-size:18px;
+      font-weight:900;
+    }
+
+    .field{
+      display:grid;
+      gap:7px;
+      margin-bottom:12px;
+    }
+
+    label{
+      font-size:13px;
+      font-weight:800;
+      color:#3f6174;
+    }
+
+    input,select{
+      width:100%;
+      min-height:46px;
+      border-radius:16px;
+      border:1px solid #cde6ed;
+      background:#fff;
+      padding:0 14px;
+      font-size:16px;
+      color:var(--text);
+      outline:none;
+    }
+
+    input:focus,select:focus{
+      border-color:#62cfff;
+      box-shadow:0 0 0 4px rgba(98,207,255,.18);
+    }
+
+    .mode-grid{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:12px;
+      margin:18px 0;
+    }
+
+    .mode-card{
+      border:2px solid #d8edf0;
+      border-radius:22px;
+      background:#fff;
+      padding:16px 12px;
+      min-height:150px;
+      cursor:pointer;
+      transition:.18s ease;
+      text-align:left;
+      box-shadow:0 10px 24px rgba(48,109,127,.08);
+    }
+
+    .mode-card:hover{
+      transform:translateY(-2px);
+      box-shadow:0 14px 30px rgba(48,109,127,.14);
+    }
+
+    .mode-card.active{
+      border-color:#39c987;
+      background:linear-gradient(180deg,#f0fff8,#fff);
+      box-shadow:0 14px 32px rgba(53,190,130,.20);
+    }
+
+    .mode-emoji{
+      display:block;
+      font-size:34px;
+      margin-bottom:8px;
+    }
+
+    .mode-name{
+      font-weight:950;
+      font-size:17px;
+      margin-bottom:5px;
+    }
+
+    .mode-desc{
+      font-size:13px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+
+    .row{
+      display:grid;
+      grid-template-columns:1fr 1fr 1fr;
+      gap:12px;
+    }
+
+    .actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+
+    .btn{
+      border:0;
+      min-height:50px;
+      padding:0 18px;
+      border-radius:18px;
+      font-weight:950;
+      font-size:15px;
+      cursor:pointer;
+      box-shadow:0 12px 24px rgba(35,80,105,.14);
+      transition:.18s ease;
+    }
+
+    .btn:hover{ transform:translateY(-1px); }
+
+    .primary{
+      color:white;
+      background:linear-gradient(135deg,#2acb81,#22a8ff);
+    }
+
+    .secondary{
+      color:#245;
+      background:#fff;
+      border:1px solid #d4ebf0;
+    }
+
+    .ghost{
+      color:#32718d;
+      background:#eefdff;
+      border:1px solid #bfeaf0;
+    }
+
+    .room-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border-radius:999px;
+      background:#fff9dc;
+      border:1px solid #f0df90;
+      color:#735d11;
+      font-weight:900;
+      font-size:13px;
+    }
+
+    .note{
+      margin-top:16px;
+      padding:14px 16px;
+      border-radius:18px;
+      background:#f5fbff;
+      border:1px dashed #bfdde8;
+      color:#5c7888;
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    @media (max-width:860px){
+      body{ padding:12px; }
+      .hero{ grid-template-columns:1fr; }
+      .mode-grid{ grid-template-columns:1fr 1fr; }
+      .row{ grid-template-columns:1fr; }
+      .float-food{ position:static; margin-top:16px; }
+    }
+
+    @media (max-width:480px){
+      .mode-grid{ grid-template-columns:1fr; }
+      .actions .btn{ width:100%; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="panel intro">
+        <span class="badge">🥗 HeroHealth • Nutrition Zone</span>
+        <h1>GoodJunk<br>Multi-player</h1>
+        <p class="lead">
+          เล่นกับเพื่อนด้วย Room Code เลือกโหมด Race, Battle, Coop หรือ Duet
+          โดยกติกาหลักคือเก็บอาหารดีและจัดการขยะให้ทันเวลา
+        </p>
+        <div class="float-food">🍎🥦🍟</div>
+      </div>
+
+      <div class="panel setup">
+        <h2 class="section-title">ตั้งค่าห้องเล่น</h2>
+
+        <div class="field">
+          <label for="nick">ชื่อผู้เล่น</label>
+          <input id="nick" autocomplete="name" placeholder="Hero" />
+        </div>
+
+        <div class="field">
+          <label for="room">Room Code</label>
+          <input id="room" maxlength="8" placeholder="เช่น GJ123" />
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="diff">ระดับ</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+              <option value="challenge">challenge</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="90">90 วินาที</option>
+              <option value="120" selected>120 วินาที</option>
+              <option value="150">150 วินาที</option>
+              <option value="180">180 วินาที</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="view">มุมมอง</label>
+            <select id="view">
+              <option value="pc">PC</option>
+              <option value="mobile" selected>Mobile</option>
+              <option value="cvr">Cardboard VR</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="mode-grid" id="modeGrid">
+      <button class="mode-card active" data-mode="race" type="button">
+        <span class="mode-emoji">🏁</span>
+        <div class="mode-name">Race</div>
+        <div class="mode-desc">แข่งคะแนน ใครเก็บของดีได้มากและพลาดน้อยที่สุดชนะ</div>
+      </button>
+
+      <button class="mode-card" data-mode="battle" type="button">
+        <span class="mode-emoji">⚔️</span>
+        <div class="mode-name">Battle</div>
+        <div class="mode-desc">สะสมคอมโบเพื่อปล่อย Junk Storm ใส่คู่แข่ง</div>
+      </button>
+
+      <button class="mode-card" data-mode="coop" type="button">
+        <span class="mode-emoji">🤝</span>
+        <div class="mode-name">Coop</div>
+        <div class="mode-desc">ช่วยกันทำ Team Goal และรักษา Team Health</div>
+      </button>
+
+      <button class="mode-card" data-mode="duet" type="button">
+        <span class="mode-emoji">👥</span>
+        <div class="mode-name">Duet</div>
+        <div class="mode-desc">เล่น 2 คน แบ่งหน้าที่ Collector / Guardian อัตโนมัติ</div>
+      </button>
+    </section>
+
+    <section class="panel setup">
+      <div class="room-pill" id="modeText">โหมดที่เลือก: Race</div>
+
+      <div class="actions">
+        <button class="btn primary" id="createBtn" type="button">สร้างห้องและเริ่มเล่น</button>
+        <button class="btn secondary" id="joinBtn" type="button">เข้าห้องด้วย Room Code</button>
+        <button class="btn ghost" id="randomBtn" type="button">สุ่ม Room Code ใหม่</button>
+        <button class="btn secondary" id="backBtn" type="button">กลับ Nutrition Zone</button>
+      </div>
+
+      <div class="note">
+        เวอร์ชันนี้เป็นฐาน Multi-player กลางของ GoodJunk ใช้ room code เดียวกันได้ทุกโหมด
+        และส่งค่าต่อไปยังหน้าเกมจริงพร้อม pid, diff, time, view, hub และ mode
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const $ = (s) => document.querySelector(s);
+      const params = new URLSearchParams(location.search);
+
+      const nickEl = $('#nick');
+      const roomEl = $('#room');
+      const diffEl = $('#diff');
+      const timeEl = $('#time');
+      const viewEl = $('#view');
+      const modeText = $('#modeText');
+
+      let mode = params.get('mode') || params.get('entry') || 'race';
+
+      function cleanRoom(v){
+        return String(v || '')
+          .toUpperCase()
+          .replace(/[^A-Z0-9]/g,'')
+          .slice(0,8);
+      }
+
+      function randomRoom(){
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let out = 'GJ';
+        for(let i=0;i<4;i++){
+          out += chars[Math.floor(Math.random()*chars.length)];
+        }
+        return out;
+      }
+
+      function defaultHub(){
+        const h = params.get('hub');
+        if(h) return h;
+        return new URL('../nutrition-zone.html', location.href).toString();
+      }
+
+      function setMode(next){
+        mode = next || 'race';
+        document.querySelectorAll('.mode-card').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        modeText.textContent = 'โหมดที่เลือก: ' + mode.toUpperCase();
+      }
+
+      function buildGameUrl(host){
+        const room = cleanRoom(roomEl.value) || randomRoom();
+        roomEl.value = room;
+
+        const out = new URL('./goodjunk-multiplayer.html', location.href);
+        const keep = [
+          'pid','name','studentId','studyId','classSection',
+          'api','log','seed','conditionGroup'
+        ];
+
+        keep.forEach(k => {
+          if(params.get(k)) out.searchParams.set(k, params.get(k));
+        });
+
+        out.searchParams.set('game','goodjunk');
+        out.searchParams.set('zone','nutrition');
+        out.searchParams.set('mode', mode);
+        out.searchParams.set('entry', mode);
+        out.searchParams.set('multiplayer','1');
+        out.searchParams.set('room', room);
+        out.searchParams.set('host', host ? '1' : '0');
+        out.searchParams.set('nick', nickEl.value.trim() || params.get('name') || 'Hero');
+        out.searchParams.set('name', nickEl.value.trim() || params.get('name') || 'Hero');
+        out.searchParams.set('diff', diffEl.value || 'normal');
+        out.searchParams.set('time', timeEl.value || '120');
+        out.searchParams.set('view', viewEl.value || 'mobile');
+        out.searchParams.set('run','play');
+        out.searchParams.set('hub', defaultHub());
+
+        location.href = out.toString();
+      }
+
+      document.querySelectorAll('.mode-card').forEach(btn => {
+        btn.addEventListener('click', () => setMode(btn.dataset.mode));
+      });
+
+      $('#randomBtn').addEventListener('click', () => {
+        roomEl.value = randomRoom();
+      });
+
+      $('#createBtn').addEventListener('click', () => buildGameUrl(true));
+      $('#joinBtn').addEventListener('click', () => buildGameUrl(false));
+
+      $('#backBtn').addEventListener('click', () => {
+        location.href = defaultHub();
+      });
+
+      nickEl.value = params.get('nick') || params.get('name') || 'Hero';
+      roomEl.value = cleanRoom(params.get('room')) || randomRoom();
+      diffEl.value = params.get('diff') || 'normal';
+      timeEl.value = params.get('time') || '120';
+      viewEl.value = params.get('view') || 'mobile';
+
+      setMode(mode);
+    })();
+  </script>
+</body>
+</html>
