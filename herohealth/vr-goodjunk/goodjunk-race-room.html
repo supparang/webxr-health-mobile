@@ -3,1173 +3,143 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Room</title>
-  <meta name="color-scheme" content="dark light" />
-  <link rel="icon" href="../favicon.ico" />
+  <title>GoodJunk Race • Redirecting</title>
+  <meta name="theme-color" content="#9fe3ff" />
+
   <style>
-    :root{
-      --bg1:#020617;
-      --bg2:#0b1226;
-      --panel:rgba(2,6,23,.76);
-      --stroke:rgba(148,163,184,.18);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --race:#38bdf8;
-      --race2:#7dd3fc;
-      --good:#22c55e;
-      --warn:#f59e0b;
-      --bad:#ef4444;
-      --violet:#a78bfa;
-      --shadow:0 24px 64px rgba(0,0,0,.28);
-
-      --sat: env(safe-area-inset-top, 0px);
-      --sar: env(safe-area-inset-right, 0px);
-      --sab: env(safe-area-inset-bottom, 0px);
-      --sal: env(safe-area-inset-left, 0px);
-    }
-
     *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
       min-height:100%;
-      color:var(--text);
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Thai","Noto Sans",Arial,sans-serif;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:#34515f;
       background:
-        radial-gradient(circle at 20% 0%, rgba(56,189,248,.12), transparent 24%),
-        radial-gradient(circle at 80% 0%, rgba(125,211,252,.08), transparent 24%),
-        linear-gradient(180deg,var(--bg2),var(--bg1));
+        radial-gradient(circle at 18% 12%,rgba(255,255,255,.92),transparent 22%),
+        radial-gradient(circle at 82% 8%,rgba(255,231,133,.38),transparent 24%),
+        linear-gradient(180deg,#e9f8ff,#fff7d8);
     }
 
-    body{ overflow-x:hidden; }
-
-    .page{
-      min-height:100vh;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      padding:
-        calc(12px + var(--sat))
-        calc(12px + var(--sar))
-        calc(16px + var(--sab))
-        calc(12px + var(--sal));
+    body{
+      display:grid;
+      place-items:center;
+      padding:18px;
     }
 
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
+    .card{
+      width:min(560px,100%);
+      border:4px solid #bfe3f2;
+      border-radius:30px;
+      background:#fffef9;
+      box-shadow:0 18px 42px rgba(86,155,194,.18);
+      padding:24px;
+      text-align:center;
     }
 
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:1px solid var(--stroke);
-      background:rgba(2,6,23,.55);
-      backdrop-filter:blur(10px);
-      box-shadow:var(--shadow);
+    .icon{
+      width:82px;
+      height:82px;
+      border-radius:28px;
+      margin:0 auto 14px;
+      display:grid;
+      place-items:center;
+      font-size:42px;
+      background:linear-gradient(180deg,#fff8dc,#ffe8a3);
+      border:4px solid #d7edf7;
     }
 
-    .brand-title{
-      font-size:16px;
-      font-weight:1100;
+    h1{
+      margin:0 0 8px;
+      font-size:clamp(26px,6vw,40px);
+      color:#4197bd;
       line-height:1.1;
     }
 
-    .brand-sub{
-      margin-top:2px;
-      color:var(--muted);
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
+    p{
+      margin:0 auto 18px;
+      max-width:440px;
+      color:#6b8795;
+      line-height:1.65;
+      font-weight:800;
     }
 
     .btn{
-      appearance:none;
-      border:1px solid rgba(148,163,184,.20);
-      background:rgba(255,255,255,.04);
-      color:var(--text);
-      border-radius:14px;
-      min-height:42px;
-      padding:10px 12px;
-      font:inherit;
+      min-height:52px;
+      border-radius:20px;
+      border:3px solid #8bdcff;
+      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
+      color:#08374d;
       font-weight:1000;
-      cursor:pointer;
+      padding:11px 16px;
       text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      gap:8px;
-      width:auto;
+      box-shadow:0 14px 30px rgba(86,155,194,.14);
     }
 
-    .btn.primary{
-      border-color:rgba(59,130,246,.28);
-      background:rgba(59,130,246,.14);
-    }
-
-    .btn.good{
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-    }
-
-    .btn.warn{
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-    }
-
-    .btn.violet{
-      border-color:rgba(167,139,250,.28);
-      background:rgba(167,139,250,.14);
-    }
-
-    .btn.ghost{
-      color:var(--muted);
-    }
-
-    .btn.bad{
-      border-color:rgba(239,68,68,.30);
-      background:rgba(239,68,68,.14);
-      color:#fecaca;
-    }
-
-    .shell{
-      width:min(1240px, 100%);
-      margin:0 auto;
-      display:grid;
-      gap:12px;
-    }
-
-    .hero{
-      display:grid;
-      grid-template-columns:1.12fr .88fr;
-      gap:12px;
-    }
-
-    .card{
-      border-radius:24px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.80);
-      padding:16px;
-      box-shadow:0 18px 44px rgba(0,0,0,.22);
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      width:max-content;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      border:1px solid rgba(56,189,248,.24);
-      background:rgba(56,189,248,.12);
-      color:#7dd3fc;
+    .mini{
+      margin-top:14px;
       font-size:12px;
-      font-weight:1000;
-    }
-
-    .title{
-      font-size:28px;
-      line-height:1.1;
-      font-weight:1100;
-      margin:0;
-    }
-
-    .muted{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
-      font-weight:900;
-    }
-
-    .pill-row{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:40px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.34);
-      color:#e2e8f0;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .pill b{ color:#fff; }
-
-    .meter-wrap{
-      display:grid;
-      gap:10px;
-    }
-
-    .meter-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      color:#e2e8f0;
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    .meter-bar{
-      height:18px;
-      border-radius:999px;
-      background:rgba(148,163,184,.14);
-      overflow:hidden;
-    }
-
-    .meter-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--race),var(--race2),#dbeafe);
-      transition:width .18s linear;
-    }
-
-    .room-grid{
-      display:grid;
-      grid-template-columns:1fr 320px;
-      gap:12px;
-    }
-
-    .panel{
-      border-radius:20px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.34);
-      padding:14px;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-    }
-
-    .panel-title{
-      font-size:15px;
-      font-weight:1100;
-      color:#f8fafc;
-    }
-
-    .room-code{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:12px 14px;
-      border-radius:18px;
-      border:1px solid rgba(56,189,248,.20);
-      background:rgba(56,189,248,.10);
-    }
-
-    .room-code-label{
-      font-size:12px;
-      color:#bfdbfe;
-      font-weight:1000;
-    }
-
-    .room-code-value{
-      font-size:22px;
-      line-height:1;
-      font-weight:1100;
-      letter-spacing:.04em;
-      color:#f8fafc;
-    }
-
-    .linkbox{
-      border-radius:16px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(15,23,42,.54);
-      padding:12px;
-      color:#dbeafe;
-      font-size:12px;
-      line-height:1.6;
+      color:#8a867f;
+      font-weight:800;
       word-break:break-all;
-      min-height:80px;
-    }
-
-    .qr{
-      width:220px;
-      height:220px;
-      max-width:100%;
-      margin:0 auto;
-      border-radius:18px;
-      border:1px dashed rgba(148,163,184,.18);
-      background:rgba(15,23,42,.42);
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-    }
-
-    .qr img{
-      width:220px;
-      height:220px;
-      display:block;
-    }
-
-    .players-card{
-      border-radius:24px;
-      border:1px solid rgba(148,163,184,.18);
-      background:rgba(15,23,42,.80);
-      padding:16px;
-      box-shadow:0 18px 44px rgba(0,0,0,.22);
-      display:flex;
-      flex-direction:column;
-      gap:14px;
-    }
-
-    .players-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-    }
-
-    .players-head-title{
-      font-size:18px;
-      font-weight:1100;
-      color:#f8fafc;
-    }
-
-    .status-chip{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:38px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(148,163,184,.16);
-      background:rgba(2,6,23,.28);
-      color:var(--muted);
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .status-chip.good{
-      color:#dcfce7;
-      border-color:rgba(34,197,94,.28);
-      background:rgba(34,197,94,.14);
-    }
-
-    .status-chip.warn{
-      color:#fde68a;
-      border-color:rgba(245,158,11,.28);
-      background:rgba(245,158,11,.14);
-    }
-
-    .table-wrap{
-      overflow:auto;
-      -webkit-overflow-scrolling:touch;
-    }
-
-    table{
-      width:100%;
-      min-width:740px;
-      border-collapse:separate;
-      border-spacing:0 8px;
-    }
-
-    th{
-      text-align:left;
-      color:#94a3b8;
-      font-size:12px;
-      font-weight:1000;
-      padding:0 10px 6px;
-    }
-
-    td{
-      padding:12px 10px;
-      background:rgba(2,6,23,.42);
-      font-size:14px;
-      font-weight:900;
-      color:#f8fafc;
-    }
-
-    tr td:first-child{
-      border-top-left-radius:14px;
-      border-bottom-left-radius:14px;
-    }
-
-    tr td:last-child{
-      border-top-right-radius:14px;
-      border-bottom-right-radius:14px;
-    }
-
-    tr.me-row td{
-      outline:1px solid rgba(56,189,248,.28);
-      background:rgba(30,41,59,.78);
-    }
-
-    .ready-dot{
-      display:inline-block;
-      width:10px;
-      height:10px;
-      border-radius:999px;
-      margin-right:8px;
-      vertical-align:middle;
-      background:#64748b;
-    }
-
-    .ready-dot.on{
-      background:#22c55e;
-      box-shadow:0 0 0 4px rgba(34,197,94,.14);
-    }
-
-    .host-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      min-height:28px;
-      padding:4px 8px;
-      border-radius:999px;
-      border:1px solid rgba(250,204,21,.24);
-      background:rgba(250,204,21,.12);
-      color:#fde68a;
-      font-size:11px;
-      font-weight:1100;
-    }
-
-    .note{
-      border-radius:18px;
-      border:1px solid rgba(148,163,184,.14);
-      background:rgba(2,6,23,.34);
-      padding:12px;
-      color:#e2e8f0;
-      font-size:14px;
-      line-height:1.55;
-    }
-
-    .actions{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-    }
-
-    @media (max-width:1040px){
-      .hero,
-      .room-grid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width:640px){
-      .page{
-        gap:10px;
-        padding:
-          calc(10px + var(--sat))
-          calc(10px + var(--sar))
-          calc(14px + var(--sab))
-          calc(10px + var(--sal));
-      }
-
-      .brand{
-        padding:8px 10px;
-        border-radius:16px;
-      }
-
-      .brand-title{
-        font-size:14px;
-      }
-
-      .top-actions{
-        width:100%;
-      }
-
-      .top-actions .btn{
-        flex:1 1 auto;
-      }
-
-      .title{
-        font-size:24px;
-      }
-
-      .room-code-value{
-        font-size:18px;
-      }
-
-      .actions .btn{
-        flex:1 1 calc(50% - 10px);
-      }
     }
   </style>
 </head>
+
 <body>
-  <div class="page">
-
-    <div class="topbar">
-      <div class="brand">
-        <div style="font-size:20px;">🏁</div>
-        <div>
-          <div class="brand-title">GoodJunk • Race Room</div>
-          <div class="brand-sub">รอผู้เล่น กดพร้อม แล้วเริ่มแข่ง</div>
-        </div>
-      </div>
-
-      <div class="top-actions">
-        <a class="btn ghost" id="btnBackLauncher" href="../goodjunk-launcher.html">← Launcher</a>
-        <a class="btn violet" id="btnGoHub" href="../hub.html">🏠 Hub</a>
-      </div>
-    </div>
-
-    <div class="shell">
-
-      <section class="hero">
-        <div class="card">
-          <div class="kicker">RACE LOBBY</div>
-          <h1 class="title">เข้าห้องและรอเริ่มเกม</h1>
-          <div class="muted">
-            ห้องนี้รองรับผู้เล่นได้สูงสุด 5 คน และต้องมีผู้เล่นกดพร้อมอย่างน้อย 2 คนก่อนเริ่ม
-          </div>
-
-          <div class="pill-row">
-            <span class="pill"><b>ROOM</b> <span id="uiRoomId">-</span></span>
-            <span class="pill"><b>MODE</b> race</span>
-            <span class="pill"><b>YOU</b> <span id="uiSelfName">-</span></span>
-            <span class="pill"><b>PID</b> <span id="uiSelfPid">-</span></span>
-          </div>
-
-          <div class="meter-wrap">
-            <div class="meter-head">
-              <span>Ready Progress</span>
-              <span><span id="uiReadyCount">0</span> / <span id="uiMinReady">2</span></span>
-            </div>
-            <div class="meter-bar">
-              <div class="meter-fill" id="uiReadyFill"></div>
-            </div>
-          </div>
-
-          <div class="note">
-            Host เท่านั้นที่กดเริ่มแข่งได้ เมื่อมีผู้เล่น ready อย่างน้อย 2 คน
-          </div>
-
-          <div class="actions">
-            <button class="btn good" id="btnReady" type="button">✅ Ready</button>
-            <button class="btn warn" id="btnUnready" type="button">⏸ Unready</button>
-            <button class="btn primary" id="btnStart" type="button">🚀 Start Race</button>
-            <button class="btn bad" id="btnLeave" type="button">↩ Leave Room</button>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="panel-title">ลิงก์เข้าห้อง</div>
-
-          <div class="room-grid">
-            <div class="panel">
-              <div class="room-code">
-                <div>
-                  <div class="room-code-label">ROOM CODE</div>
-                  <div class="room-code-value" id="uiRoomCode">-</div>
-                </div>
-                <button class="btn primary" id="btnCopyCode" type="button">Copy</button>
-              </div>
-
-              <div class="linkbox" id="uiShareLink">-</div>
-
-              <div class="actions">
-                <button class="btn primary" id="btnCopyLink" type="button">🔗 Copy Link</button>
-              </div>
-            </div>
-
-            <div class="panel">
-              <div class="panel-title">QR เข้าห้อง</div>
-              <div class="qr" id="uiQrBox"><span class="muted">ยังไม่มี QR</span></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="players-card">
-        <div class="players-head">
-          <div class="players-head-title">ผู้เล่นในห้อง</div>
-          <div class="actions">
-            <span class="status-chip" id="uiHostChip">HOST: -</span>
-            <span class="status-chip warn" id="uiRoomStateChip">WAITING</span>
-            <span class="status-chip" id="uiPlayerCountChip">0 / 5</span>
-          </div>
-        </div>
-
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>ผู้เล่น</th>
-                <th>พร้อม</th>
-                <th>สถานะ</th>
-                <th>เข้าห้องเมื่อ</th>
-              </tr>
-            </thead>
-            <tbody id="uiPlayersTbody">
-              <tr>
-                <td colspan="4">กำลังโหลดห้อง...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-    </div>
-  </div>
+  <main class="card">
+    <div class="icon">🏁</div>
+    <h1>กำลังพาไปห้อง Race ใหม่</h1>
+    <p>
+      ระบบ Race ใช้ Lobby กลางที่เชื่อม Firebase แล้ว เพื่อให้ผู้เล่นคนละเครื่องเห็นห้องเดียวกัน
+    </p>
+    <a id="go" class="btn" href="./goodjunk-race-lobby.html">ไป GoodJunk Race Lobby</a>
+    <div id="url" class="mini"></div>
+  </main>
 
   <script>
-    (function(){
-      const qs = new URLSearchParams(location.search);
-
-      const MODE = 'race';
-      const MAX_PLAYERS = 5;
-      const MIN_READY = 2;
-
-      const ROOM_KEY_PREFIX = 'GJ_ROOM_STATE:';
-      const CHANNEL_PREFIX = 'GJ_ROOM_CHANNEL:';
-
-      const $ = (id) => document.getElementById(id);
-
-      const ui = {
-        roomId: $('uiRoomId'),
-        selfName: $('uiSelfName'),
-        selfPid: $('uiSelfPid'),
-        readyCount: $('uiReadyCount'),
-        minReady: $('uiMinReady'),
-        readyFill: $('uiReadyFill'),
-        roomCode: $('uiRoomCode'),
-        shareLink: $('uiShareLink'),
-        qrBox: $('uiQrBox'),
-        hostChip: $('uiHostChip'),
-        roomStateChip: $('uiRoomStateChip'),
-        playerCountChip: $('uiPlayerCountChip'),
-        playersTbody: $('uiPlayersTbody'),
-
-        btnReady: $('btnReady'),
-        btnUnready: $('btnUnready'),
-        btnStart: $('btnStart'),
-        btnLeave: $('btnLeave'),
-        btnCopyCode: $('btnCopyCode'),
-        btnCopyLink: $('btnCopyLink'),
-        btnBackLauncher: $('btnBackLauncher'),
-        btnGoHub: $('btnGoHub')
-      };
-
-      const hubUrl = qs.get('hub') || '../hub.html';
-
-      function txt(v){ return String(v ?? '').trim(); }
-
-      function nowIso(){ try{ return new Date().toISOString(); }catch(_){ return ''; } }
-
-      function esc(s){
-        return String(s ?? '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;');
-      }
-
-      function shortTime(iso){
-        try{
-          const d = new Date(iso);
-          if (Number.isNaN(d.getTime())) return '-';
-          return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-        }catch(_){
-          return '-';
-        }
-      }
-
-      function clamp(n, min, max){
-        return Math.max(min, Math.min(max, n));
-      }
-
-      function randRoom(){
-        const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-        let s = 'GJ-';
-        for(let i=0;i<5;i++) s += pool[Math.floor(Math.random()*pool.length)];
-        return s;
-      }
-
-      function makeDevicePid(){
-        try{
-          const KEY = 'GJ_DEVICE_PID';
-          let pid = localStorage.getItem(KEY);
-          if (!pid){
-            pid = `p-${Math.random().toString(36).slice(2, 10)}`;
-            localStorage.setItem(KEY, pid);
-          }
-          return pid;
-        }catch(_){
-          return `p-${Math.random().toString(36).slice(2, 10)}`;
-        }
-      }
-
-      function normalizePid(raw){
-        const v = txt(raw).replace(/[.#$[\]/]/g,'-');
-        if (!v) return makeDevicePid();
-        if (v.toLowerCase() === 'anon') return makeDevicePid();
-        return v;
-      }
-
-      function normalizeName(raw){
-        return txt(raw).replace(/\s+/g,' ').slice(0, 48) || 'Player';
-      }
-
-      const SELF = {
-        pid: normalizePid(qs.get('pid') || ''),
-        name: normalizeName(qs.get('name') || 'Player'),
-      };
-
-      const ROOM_ID = txt(qs.get('roomId') || qs.get('room') || '').toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,24) || randRoom();
-      const ROOM_KEY = ROOM_KEY_PREFIX + ROOM_ID;
-      const CHANNEL_NAME = CHANNEL_PREFIX + ROOM_ID;
-
-      let roomState = null;
-      let bc = null;
-      let destroyed = false;
-
-      function roomStorageRead(){
-        try{
-          const raw = localStorage.getItem(ROOM_KEY);
-          return raw ? JSON.parse(raw) : null;
-        }catch(_){
-          return null;
-        }
-      }
-
-      function roomStorageWrite(state){
-        try{
-          localStorage.setItem(ROOM_KEY, JSON.stringify(state));
-        }catch(_){}
-      }
-
-      function deepClone(v){
-        return JSON.parse(JSON.stringify(v));
-      }
-
-      function baseRunUrl(){
-        const u = new URL('./goodjunk-race-run.html', location.href);
-        [
-          'pid','name','hub','run','diff','time','studyId','phase','conditionGroup',
-          'view','api','log','debug','ai'
-        ].forEach(k => {
-          const v = qs.get(k);
-          if (v != null && v !== '') u.searchParams.set(k, v);
-        });
-        u.searchParams.set('mode', MODE);
-        u.searchParams.set('roomId', ROOM_ID);
-        u.searchParams.set('hub', hubUrl);
-        return u.toString();
-      }
-
-      function lobbyJoinUrl(){
-        const u = new URL(location.href);
-        u.searchParams.set('roomId', ROOM_ID);
-        u.searchParams.set('mode', MODE);
-        u.searchParams.set('hub', hubUrl);
-        if (!u.searchParams.get('name')) u.searchParams.set('name', SELF.name);
-        return u.toString();
-      }
-
-      function createInitialRoom(){
-        const createdAt = nowIso();
-        return {
-          roomId: ROOM_ID,
-          mode: MODE,
-          status: 'waiting',
-          createdAt,
-          updatedAt: createdAt,
-          hostPid: SELF.pid,
-          hostName: SELF.name,
-          maxPlayers: MAX_PLAYERS,
-          minReady: MIN_READY,
-          runUrl: baseRunUrl(),
-          players: [
-            {
-              pid: SELF.pid,
-              name: SELF.name,
-              ready: false,
-              joinedAt: createdAt,
-              isHost: true
-            }
-          ]
-        };
-      }
-
-      function ensureRoom(){
-        const existing = roomStorageRead();
-        if (existing && typeof existing === 'object' && existing.roomId === ROOM_ID) {
-          roomState = normalizeRoom(existing);
-        } else {
-          roomState = normalizeRoom(createInitialRoom());
-          commitRoom('create');
-        }
-        joinSelfIfMissing();
-        renderAll();
-      }
-
-      function normalizeRoom(raw){
-        const players = Array.isArray(raw?.players) ? raw.players : [];
-        return {
-          roomId: txt(raw?.roomId || ROOM_ID),
-          mode: MODE,
-          status: txt(raw?.status || 'waiting'),
-          createdAt: txt(raw?.createdAt || nowIso()),
-          updatedAt: txt(raw?.updatedAt || nowIso()),
-          hostPid: txt(raw?.hostPid || SELF.pid),
-          hostName: txt(raw?.hostName || SELF.name),
-          maxPlayers: Math.max(2, Number(raw?.maxPlayers || MAX_PLAYERS) || MAX_PLAYERS),
-          minReady: Math.max(2, Number(raw?.minReady || MIN_READY) || MIN_READY),
-          runUrl: txt(raw?.runUrl || baseRunUrl()),
-          players: players.map((p, idx) => ({
-            pid: normalizePid(p?.pid || `p${idx+1}`),
-            name: normalizeName(p?.name || `Player ${idx+1}`),
-            ready: !!p?.ready,
-            joinedAt: txt(p?.joinedAt || nowIso()),
-            isHost: !!p?.isHost
-          })).slice(0, MAX_PLAYERS)
-        };
-      }
-
-      function sortPlayers(players){
-        return [...players].sort((a,b)=>{
-          if (a.pid === roomState.hostPid && b.pid !== roomState.hostPid) return -1;
-          if (b.pid === roomState.hostPid && a.pid !== roomState.hostPid) return 1;
-          if (Number(b.ready) !== Number(a.ready)) return Number(b.ready) - Number(a.ready);
-          return a.joinedAt.localeCompare(b.joinedAt);
-        });
-      }
-
-      function getReadyCount(){
-        return roomState.players.filter(p => p.ready).length;
-      }
-
-      function getSelfPlayer(){
-        return roomState.players.find(p => p.pid === SELF.pid) || null;
-      }
-
-      function isHost(){
-        return roomState.hostPid === SELF.pid;
-      }
-
-      function canStart(){
-        return isHost() && roomState.status === 'waiting' && getReadyCount() >= roomState.minReady;
-      }
-
-      function commitRoom(reason='update'){
-        roomState.updatedAt = nowIso();
-        roomStorageWrite(roomState);
-        broadcast({ type:'room-sync', reason, room: roomState });
-      }
-
-      function broadcast(payload){
-        if (bc) {
-          try{ bc.postMessage(payload); }catch(_){}
-        }
-      }
-
-      function joinSelfIfMissing(){
-        const exists = roomState.players.find(p => p.pid === SELF.pid);
-        if (exists) {
-          exists.name = SELF.name;
-          exists.isHost = (exists.pid === roomState.hostPid);
-          commitRoom('refresh-self');
-          return;
-        }
-
-        if (roomState.players.length >= roomState.maxPlayers) {
-          renderRoomFull();
-          return;
-        }
-
-        roomState.players.push({
-          pid: SELF.pid,
-          name: SELF.name,
-          ready: false,
-          joinedAt: nowIso(),
-          isHost: roomState.hostPid === SELF.pid
-        });
-        commitRoom('join-self');
-      }
-
-      function renderRoomFull(){
-        ui.playersTbody.innerHTML = `
-          <tr>
-            <td colspan="4">ห้องนี้เต็มแล้ว (${roomState.players.length}/${roomState.maxPlayers})</td>
-          </tr>
-        `;
-      }
-
-      function setSelfReady(v){
-        const p = getSelfPlayer();
-        if (!p) return;
-        p.ready = !!v;
-        commitRoom(v ? 'ready' : 'unready');
-        renderAll();
-      }
-
-      function leaveRoom(){
-        const before = roomState.players.length;
-        roomState.players = roomState.players.filter(p => p.pid !== SELF.pid);
-
-        if (!roomState.players.length) {
-          try{ localStorage.removeItem(ROOM_KEY); }catch(_){}
-          location.href = ui.btnBackLauncher.href;
-          return;
-        }
-
-        if (roomState.hostPid === SELF.pid) {
-          const nextHost = roomState.players[0];
-          roomState.hostPid = nextHost.pid;
-          roomState.hostName = nextHost.name;
-        }
-
-        roomState.players = roomState.players.map(p => ({
-          ...p,
-          isHost: p.pid === roomState.hostPid
-        }));
-
-        if (roomState.players.length !== before) {
-          commitRoom('leave');
-        }
-
-        location.href = ui.btnBackLauncher.href;
-      }
-
-      function startRace(){
-        if (!canStart()) return;
-
-        roomState.status = 'running';
-        roomState.runUrl = baseRunUrl();
-        commitRoom('start-race');
-
-        const runUrl = new URL(roomState.runUrl, location.href);
-        runUrl.searchParams.set('pid', SELF.pid);
-        runUrl.searchParams.set('name', SELF.name);
-        runUrl.searchParams.set('roomId', ROOM_ID);
-        runUrl.searchParams.set('hub', hubUrl);
-        location.href = runUrl.toString();
-      }
-
-      function maybeFollowRoomRunning(){
-        if (!roomState || roomState.status !== 'running') return;
-        const runUrl = new URL(roomState.runUrl || baseRunUrl(), location.href);
-        runUrl.searchParams.set('pid', SELF.pid);
-        runUrl.searchParams.set('name', SELF.name);
-        runUrl.searchParams.set('roomId', ROOM_ID);
-        runUrl.searchParams.set('hub', hubUrl);
-
-        const target = runUrl.toString();
-        if (location.href !== target) {
-          location.href = target;
-        }
-      }
-
-      function renderQr(url){
-        if (!url) {
-          ui.qrBox.innerHTML = '<span class="muted">ยังไม่มี QR</span>';
-          return;
-        }
-        const img = new Image();
-        img.alt = 'QR';
-        img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(url);
-        ui.qrBox.innerHTML = '';
-        ui.qrBox.appendChild(img);
-      }
-
-      async function copyText(text){
-        const value = txt(text);
-        if (!value) return false;
-        try{
-          await navigator.clipboard.writeText(value);
-          return true;
-        }catch(_){
-          try{
-            const ta = document.createElement('textarea');
-            ta.value = value;
-            ta.setAttribute('readonly', '');
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.focus();
-            ta.select();
-            const ok = document.execCommand('copy');
-            ta.remove();
-            return !!ok;
-          }catch(_2){
-            return false;
-          }
-        }
-      }
-
-      function renderPlayersTable(){
-        const players = sortPlayers(roomState.players);
-        if (!players.length) {
-          ui.playersTbody.innerHTML = `<tr><td colspan="4">ยังไม่มีผู้เล่น</td></tr>`;
-          return;
-        }
-
-        ui.playersTbody.innerHTML = players.map((p) => {
-          const isMe = p.pid === SELF.pid;
-          const readyDot = `<span class="ready-dot ${p.ready ? 'on' : ''}"></span>`;
-          const hostBadge = p.pid === roomState.hostPid ? `<span class="host-badge">👑 HOST</span>` : '';
-          return `
-            <tr class="${isMe ? 'me-row' : ''}">
-              <td>
-                <div style="font-weight:1100;line-height:1.1">${esc(p.name)} ${isMe ? '<span style="color:#7dd3fc;font-size:12px;">(คุณ)</span>' : ''}</div>
-                <div style="margin-top:4px;color:#94a3b8;font-size:12px;font-weight:900">${esc(p.pid)}</div>
-                <div style="margin-top:6px;">${hostBadge}</div>
-              </td>
-              <td>${readyDot}${p.ready ? 'พร้อม' : 'ยังไม่พร้อม'}</td>
-              <td>${p.pid === roomState.hostPid ? 'ควบคุมห้อง' : 'ผู้เล่น'}</td>
-              <td>${shortTime(p.joinedAt)}</td>
-            </tr>
-          `;
-        }).join('');
-      }
-
-      function renderAll(){
-        const readyCount = getReadyCount();
-        const selfPlayer = getSelfPlayer();
-        const joinUrl = lobbyJoinUrl();
-
-        ui.roomId.textContent = ROOM_ID;
-        ui.roomCode.textContent = ROOM_ID;
-        ui.selfName.textContent = SELF.name;
-        ui.selfPid.textContent = SELF.pid;
-
-        ui.readyCount.textContent = String(readyCount);
-        ui.minReady.textContent = String(roomState.minReady);
-        ui.readyFill.style.width = `${clamp((readyCount / roomState.minReady) * 100, 0, 100)}%`;
-
-        ui.shareLink.textContent = joinUrl;
-        renderQr(joinUrl);
-
-        ui.hostChip.textContent = `HOST: ${roomState.hostName || '-'}`;
-        ui.playerCountChip.textContent = `${roomState.players.length} / ${roomState.maxPlayers}`;
-        ui.roomStateChip.textContent = String(roomState.status || 'waiting').toUpperCase();
-
-        ui.roomStateChip.className =
-          `status-chip ${roomState.status === 'running' ? 'good' : readyCount >= roomState.minReady ? 'good' : 'warn'}`;
-
-        ui.btnReady.disabled = !selfPlayer || selfPlayer.ready || roomState.status !== 'waiting';
-        ui.btnUnready.disabled = !selfPlayer || !selfPlayer.ready || roomState.status !== 'waiting';
-        ui.btnStart.disabled = !canStart();
-        ui.btnStart.textContent = canStart()
-          ? `🚀 Start Race (${readyCount} ready)`
-          : isHost()
-            ? `🚀 Start Race (ต้อง ready ≥ ${roomState.minReady})`
-            : '🚀 รอ Host เริ่มเกม';
-
-        renderPlayersTable();
-      }
-
-      function installRealtimeSync(){
-        if ('BroadcastChannel' in window) {
-          try{
-            bc = new BroadcastChannel(CHANNEL_NAME);
-            bc.onmessage = (ev) => {
-              const msg = ev.data || {};
-              if (msg?.room?.roomId !== ROOM_ID) return;
-              roomState = normalizeRoom(msg.room);
-              renderAll();
-              maybeFollowRoomRunning();
-            };
-          }catch(_){}
-        }
-
-        window.addEventListener('storage', (ev) => {
-          if (ev.key !== ROOM_KEY) return;
-          const next = roomStorageRead();
-          if (!next) return;
-          roomState = normalizeRoom(next);
-          renderAll();
-          maybeFollowRoomRunning();
-        });
-      }
-
-      function bindActions(){
-        ui.btnReady.addEventListener('click', () => setSelfReady(true));
-        ui.btnUnready.addEventListener('click', () => setSelfReady(false));
-        ui.btnStart.addEventListener('click', startRace);
-        ui.btnLeave.addEventListener('click', leaveRoom);
-
-        ui.btnCopyCode.addEventListener('click', async () => {
-          const ok = await copyText(ROOM_ID);
-          ui.btnCopyCode.textContent = ok ? 'Copied' : 'Copy';
-          setTimeout(() => { ui.btnCopyCode.textContent = 'Copy'; }, 1200);
-        });
-
-        ui.btnCopyLink.addEventListener('click', async () => {
-          const ok = await copyText(lobbyJoinUrl());
-          ui.btnCopyLink.textContent = ok ? 'คัดลอกแล้ว' : 'Copy Link';
-          setTimeout(() => { ui.btnCopyLink.textContent = '🔗 Copy Link'; }, 1200);
-        });
-
-        ui.btnGoHub.href = hubUrl;
-
-        const backUrl = new URL('../goodjunk-launcher.html', location.href);
-        [
-          'pid','hub','run','diff','time','studyId','phase','conditionGroup',
-          'view','api','log','debug','ai'
-        ].forEach(k => {
-          const v = qs.get(k);
-          if (v != null && v !== '') backUrl.searchParams.set(k, v);
-        });
-        backUrl.searchParams.set('hub', hubUrl);
-        ui.btnBackLauncher.href = backUrl.toString();
-      }
-
-      function installLocalAdapterExpose(){
-        window.__RACE_ROOM__ = roomState;
-        window.RaceRoomLocalAdapter = {
-          getRoom: () => deepClone(roomState),
-          setReady: (v) => setSelfReady(!!v),
-          start: () => startRace(),
-          leave: () => leaveRoom()
-        };
-      }
-
-      function boot(){
-        bindActions();
-        installRealtimeSync();
-        ensureRoom();
-        installLocalAdapterExpose();
-
-        setInterval(() => {
-          if (destroyed) return;
-          const latest = roomStorageRead();
-          if (latest && latest.updatedAt !== roomState.updatedAt) {
-            roomState = normalizeRoom(latest);
-            window.__RACE_ROOM__ = roomState;
-            renderAll();
-            maybeFollowRoomRunning();
-          }
-        }, 600);
-      }
-
-      window.addEventListener('beforeunload', () => {
-        destroyed = true;
-        try{ bc && bc.close(); }catch(_){}
+    (() => {
+      'use strict';
+
+      const params = new URLSearchParams(location.search);
+      const out = new URL('./goodjunk-race-lobby.html', location.href);
+
+      const keep = [
+        'pid','name','nick',
+        'room','roomId',
+        'diff','time','view',
+        'hub','run','seed',
+        'api','log','studyId','conditionGroup',
+        'zone','cat','game','gameId','theme',
+        'entry','recommendedMode',
+        'cap','maxPlayers'
+      ];
+
+      keep.forEach(k => {
+        const v = params.get(k);
+        if (v !== null && v !== '') out.searchParams.set(k, v);
       });
 
-      boot();
+      out.searchParams.set('mode', 'race');
+      out.searchParams.set('entry', 'race');
+      out.searchParams.set('recommendedMode', 'race');
+      out.searchParams.set('multiplayer', '1');
+      out.searchParams.set('phaseBoss', '0');
+      out.searchParams.set('boss', '0');
+      out.searchParams.set('soloBoss', '0');
+      out.searchParams.set('bossMode', '0');
+
+      const a = document.getElementById('go');
+      const u = document.getElementById('url');
+
+      a.href = out.toString();
+      u.textContent = out.toString();
+
+      setTimeout(() => {
+        location.replace(out.toString());
+      }, 650);
     })();
   </script>
 </body>
