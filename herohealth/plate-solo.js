@@ -933,16 +933,16 @@
   }
 
   function applyEffects(effects){
-    Object.entries(effects || {}).forEach(([g,v]) => {
-      if (g in state.fill) {
-        state.fill[g] = clamp(
-          (state.fill[g] || 0) + Number(v || 0),
-          0,
-          CFG.target + 2.2
-        );
-      }
-    });
-  }
+  Object.entries(effects || {}).forEach(([g,v]) => {
+    if (g in state.fill) {
+      state.fill[g] = clamp(
+        (state.fill[g] || 0) + Number(v || 0),
+        0,
+        CFG.target + 1.0
+      );
+    }
+  });
+}
 
   function renderMeters(){
     resolvePlateEls();
@@ -1903,9 +1903,29 @@
         )
       );
 
-      return {
-        ...pick(pool.length ? pool : FOODS.filter(f => !f.junk))
-      };
+      const safeHealthy = FOODS.filter(f =>
+  !f.junk &&
+  f.effects &&
+  !wouldOverload(f)
+);
+
+if (safeHealthy.length) {
+  return {
+    ...pick(safeHealthy)
+  };
+}
+
+// ถ้าทุกหมู่เต็มแล้ว ให้สุ่ม power หรือ junk แทน
+// เพื่อให้ผู้เล่นต้อง “รักษาสมดุล” ไม่ใช่เติมจนล้นทุกหมู่
+if (chance(.35)) {
+  return {
+    ...pick(POWERS)
+  };
+}
+
+return {
+  ...pick(FOODS.filter(f => f.junk))
+};
     }
 
     if (state.mini && state.mini.type === 'missingAlert' && chance(.72)) {
@@ -2140,7 +2160,10 @@
     });
 
     state.plateItems.push(f.emoji);
-    state.plateItems = state.plateItems.slice(-18);
+
+// PATCH v20260513-PLATE-SOLO-PLATE-VISUAL-CAP
+// แสดงบนจานแค่ล่าสุด 10 ชิ้นพอ ไม่ให้จานรกจนเด็กงง
+    state.plateItems = state.plateItems.slice(-10);
 
     if (overload) {
       state.overloads++;
@@ -3987,6 +4010,11 @@
       els.btnStart.classList.add('hidden');
     }
     if (els.startOverlay) els.startOverlay.classList.add('hidden');
+    const promptEl = byId('prompt');
+if (promptEl) {
+  promptEl.classList.add('hidden');
+  promptEl.style.display = 'none';
+}
 
     if (state.practiceEnabled && !state.practiceDone) {
       startPractice();
@@ -4372,6 +4400,12 @@
       els.btnStart.disabled = false;
       els.btnStart.classList.remove('hidden');
     }
+    const promptEl = byId('prompt');
+if (promptEl) {
+  promptEl.classList.remove('hidden');
+  promptEl.style.display = '';
+  promptEl.textContent = 'กดเล่นอีกครั้งเพื่อจัดจานอาหาร';
+}
     showSummaryOverlay();
 
     const summary = {
