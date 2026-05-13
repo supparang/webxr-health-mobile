@@ -26,8 +26,30 @@
   }
 
   function isSummary(){
-    return /ผลการแปรงฟันของฉัน|Clean|Combo|Zone|Cooldown|กลับ Hygiene Zone/i.test(text());
+  const t = text();
+
+  /*
+   * STRICT SUMMARY GATE
+   * ห้ามให้ compact summary โผล่ระหว่าง Prep / Howto / Gameplay
+   */
+  const hasSummaryTitle =
+    /ผลการแปรงฟันของฉัน/i.test(t);
+
+  const hasRealEndMarkers =
+    /คะแนนของฉัน|Replay Challenge|Best Score|Best Clean|เล่นอีกครั้ง|กลับ Hygiene Zone/i.test(t);
+
+  const hasResultMetrics =
+    /Clean Teeth\s*:|คราบเหลือ\s*:|แปรงครบ\s*:|Boss\s*:|Surface Mastery\s*:/i.test(t);
+
+  const looksLikePrepOrPlay =
+    /พร้อมแปรงฟัน|พร้อมแล้ว ไปเล่นจริง|ลองใส่ใหม่|Prep|ลายยาสีฟัน|ยังไม่ได้ใส่ยาสีฟัน|Surface Master ฝึกผิวฟัน/i.test(t);
+
+  if(looksLikePrepOrPlay && !hasRealEndMarkers){
+    return false;
   }
+
+  return hasSummaryTitle && (hasRealEndMarkers || hasResultMetrics);
+}
 
   function safeNum(v, d){
     const n = Number(v);
@@ -592,17 +614,28 @@
     }
   }
 
-  function apply(){
-    if(!isSummary()) return;
+ function apply(){
+  if(!isSummary()){
+    const card = DOC.getElementById('hha-brush-compact-card');
+    const actions = DOC.getElementById('hha-brush-compact-actions');
 
-    DOC.documentElement.classList.add('hha-brush-summary-compact');
-    if(DOC.body) DOC.body.classList.add('hha-brush-summary-compact');
+    if(card) card.remove();
+    if(actions) actions.remove();
 
-    ensureStyle();
-    hideNativeActionButtons();
-    renderCompactCard();
-    renderActions();
+    DOC.documentElement.classList.remove('hha-brush-summary-compact');
+    if(DOC.body) DOC.body.classList.remove('hha-brush-summary-compact');
+
+    return;
   }
+
+  DOC.documentElement.classList.add('hha-brush-summary-compact');
+  if(DOC.body) DOC.body.classList.add('hha-brush-summary-compact');
+
+  ensureStyle();
+  hideNativeActionButtons();
+  renderCompactCard();
+  renderActions();
+}
 
   function observe(){
     let timer = null;
