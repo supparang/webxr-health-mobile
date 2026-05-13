@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260513-gj-battle-lobby-v1-guestlink-fix"></script>
+  <script src="../firebase-config.js?v=20260513-gj-battle-lobby-roomcode-v1"></script>
 
   <style>
     :root{
@@ -32,7 +32,10 @@
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
 
     html,body{
       margin:0;
@@ -46,7 +49,9 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    body{ overflow-x:hidden; }
+    body{
+      overflow-x:hidden;
+    }
 
     .app{
       width:min(96vw,1120px);
@@ -100,7 +105,10 @@
       filter:blur(4px);
     }
 
-    .hero > *{ position:relative; z-index:1; }
+    .hero > *{
+      position:relative;
+      z-index:1;
+    }
 
     .hero-top{
       display:flex;
@@ -173,8 +181,17 @@
       text-align:center;
     }
 
-    .btn:hover{ filter:brightness(1.04); transform:translateY(-1px); }
-    .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; filter:none; }
+    .btn:hover{
+      filter:brightness(1.04);
+      transform:translateY(-1px);
+    }
+
+    .btn:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none;
+      filter:none;
+    }
 
     .btn.good{
       background:linear-gradient(180deg,#a6f071,#7ed957);
@@ -221,7 +238,10 @@
       box-shadow:0 8px 18px rgba(160,112,35,.08);
     }
 
-    .step-icon{ font-size:30px; }
+    .step-icon{
+      font-size:30px;
+    }
+
     .step-text{
       margin-top:6px;
       font-size:13px;
@@ -330,6 +350,31 @@
       grid-template-columns:1fr auto;
       gap:10px;
       align-items:end;
+    }
+
+    .roomCodeBox{
+      border-radius:22px;
+      border:3px solid #ffe6ad;
+      background:#fffef9;
+      padding:14px;
+      display:grid;
+      gap:8px;
+      text-align:center;
+    }
+
+    .roomCodeLabel{
+      color:#8a5a00;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .roomCodeValue{
+      font-size:clamp(26px,6vw,42px);
+      line-height:1.05;
+      color:#b66a00;
+      font-weight:1000;
+      letter-spacing:.03em;
+      word-break:break-all;
     }
 
     .actions{
@@ -454,8 +499,13 @@
     }
 
     @media (max-width:980px){
-      .grid{ grid-template-columns:1fr; }
-      .steps{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .grid{
+        grid-template-columns:1fr;
+      }
+
+      .steps{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
     }
 
     @media (max-width:640px){
@@ -468,11 +518,41 @@
           calc(10px + var(--sal));
       }
 
-      .hero,.card{ padding:14px; }
-      .hero-actions{ justify-content:flex-start; }
-      .fields,.roomRow,.steps{ grid-template-columns:1fr; }
-      .actions .btn{ flex-basis:100%; width:100%; }
-      .brand-icon{ width:58px; height:58px; font-size:30px; border-radius:20px; }
+      .hero,
+      .card{
+        padding:14px;
+      }
+
+      .hero-actions{
+        justify-content:flex-start;
+      }
+
+      .fields,
+      .roomRow,
+      .steps{
+        grid-template-columns:1fr;
+      }
+
+      .actions .btn{
+        flex-basis:100%;
+        width:100%;
+      }
+
+      .brand-icon{
+        width:58px;
+        height:58px;
+        font-size:30px;
+        border-radius:20px;
+      }
+
+      .playerRow{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
+      .tag{
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -486,7 +566,7 @@
           <div>
             <div class="brand-title">GoodJunk Battle</div>
             <div class="brand-sub">
-              แข่งกับเพื่อน เก็บ Good เพื่อสะสมพลัง แล้วใช้ Skill โจมตีหรือป้องกัน!
+              Host สร้างห้องแล้วบอก Room Code ให้เพื่อน ส่วนเพื่อนใส่ Room Code เพื่อเข้าห้อง
             </div>
           </div>
         </div>
@@ -498,10 +578,10 @@
       </div>
 
       <div class="steps">
-        <div class="step"><div class="step-icon">1️⃣</div><div class="step-text">สร้างห้อง Battle</div></div>
-        <div class="step"><div class="step-icon">2️⃣</div><div class="step-text">เพื่อนเข้าห้อง</div></div>
-        <div class="step"><div class="step-icon">3️⃣</div><div class="step-text">เก็บ Good สะสมพลัง</div></div>
-        <div class="step"><div class="step-icon">4️⃣</div><div class="step-text">Attack / Shield ให้ถูกจังหวะ</div></div>
+        <div class="step"><div class="step-icon">1️⃣</div><div class="step-text">Host สร้างห้อง</div></div>
+        <div class="step"><div class="step-icon">2️⃣</div><div class="step-text">บอก Room Code</div></div>
+        <div class="step"><div class="step-icon">3️⃣</div><div class="step-text">เพื่อนใส่ Room Code</div></div>
+        <div class="step"><div class="step-icon">4️⃣</div><div class="step-text">Host กดเริ่ม Battle</div></div>
       </div>
     </section>
 
@@ -509,7 +589,7 @@
       <section class="panel card">
         <div class="card-title">⚔️ เริ่ม Battle Multiplayer</div>
         <div class="card-sub">
-          ใส่ชื่อเล่นและ Room Code แล้วสร้างห้องหรือเข้าห้องเพื่อน Host เป็นคนเริ่ม Battle
+          ใช้ Room Code เป็นหลัก ไม่ต้องส่งลิงก์หน้าเล่นให้เพื่อน เพื่อป้องกัน Guest กลายเป็น Host ซ้ำ
         </div>
 
         <div class="ruleBox">
@@ -518,15 +598,21 @@
           ⚡ Power 50 ใช้ Attack • 🛡️ Power 30 ใช้ Shield
         </div>
 
+        <div class="roomCodeBox">
+          <div class="roomCodeLabel">ROOM CODE ปัจจุบัน</div>
+          <div class="roomCodeValue" id="roomCodeDisplay">-</div>
+          <div class="card-sub">Host บอก Room Code นี้ให้เพื่อน ส่วนเพื่อนใส่รหัสเดียวกันในช่อง Room Code</div>
+        </div>
+
         <div class="fields">
           <div class="field">
             <label for="nick">ชื่อเล่น</label>
-            <input id="nick" autocomplete="nickname" placeholder="เช่น Hero" />
+            <input id="nick" autocomplete="nickname" placeholder="เช่น Hero หรือ KK" />
           </div>
 
           <div class="field">
             <label for="pid">PID</label>
-            <input id="pid" autocomplete="off" placeholder="anon" />
+            <input id="pid" autocomplete="off" placeholder="ระบบสร้างให้" />
           </div>
         </div>
 
@@ -535,7 +621,7 @@
             <label for="room">Room Code</label>
             <input id="room" autocomplete="off" spellcheck="false" placeholder="เช่น GJ-BT-AB12CD" />
           </div>
-          <button id="btnRandomRoom" class="btn warn" type="button">🎲 สุ่ม</button>
+          <button id="btnRandomRoom" class="btn warn" type="button">🎲 สุ่ม Room</button>
         </div>
 
         <div class="fields">
@@ -588,13 +674,13 @@
         </div>
 
         <div id="noticeBox" class="notice warn">
-          กด “สร้างห้อง Battle” ถ้าเป็น Host หรือใส่ Room Code แล้วกด “เข้าห้องเพื่อน”
+          Host กด “สร้างห้อง Battle” แล้วบอก Room Code ให้เพื่อน ส่วนเพื่อนใส่ Room Code แล้วกด “เข้าห้องเพื่อน”
         </div>
 
         <div class="actions">
           <button id="btnCreateRoom" class="btn good" type="button">⚔️ สร้างห้อง Battle</button>
           <button id="btnJoinRoom" class="btn info" type="button">👥 เข้าห้องเพื่อน</button>
-          <button id="btnCopyRoom" class="btn violet" type="button">📋 คัดลอกลิงก์</button>
+          <button id="btnCopyRoom" class="btn violet" type="button">📋 คัดลอก Room Code</button>
           <button id="btnStartBattle" class="btn bad" type="button" disabled>🚀 เริ่ม Battle</button>
         </div>
       </section>
@@ -632,9 +718,8 @@
   (() => {
     'use strict';
 
-    window.HHA_GOODJUNK_BATTLE_LOBBY = 'v1.0-guest-link-fix';
+    window.HHA_GOODJUNK_BATTLE_LOBBY = 'v1.1-room-code-flow';
 
-    const MODE = 'battle';
     const RUN_PATH = './goodjunk-vr-battle.html';
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(location.search);
@@ -653,11 +738,15 @@
       return s || d;
     }
 
-    function now(){ return Date.now(); }
+    function now(){
+      return Date.now();
+    }
 
     function log(msg){
       const el = $('logBox');
-      if (el) el.textContent = `[${new Date().toLocaleTimeString('th-TH',{hour12:false})}] ${msg}`;
+      if (el) {
+        el.textContent = `[${new Date().toLocaleTimeString('th-TH',{hour12:false})}] ${msg}`;
+      }
     }
 
     function safeKey(raw){
@@ -670,7 +759,9 @@
     function randomRoom(){
       const pool = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
       let s = 'GJ-BT-';
-      for(let i=0;i<6;i++) s += pool[Math.floor(Math.random()*pool.length)];
+      for(let i=0;i<6;i++){
+        s += pool[Math.floor(Math.random()*pool.length)];
+      }
       return s;
     }
 
@@ -678,9 +769,15 @@
       let s = String(v || '').trim().toUpperCase();
       s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
       if (!s) return '';
+
       if (!s.startsWith('GJ-BT-')) {
-        s = 'GJ-BT-' + s.replace(/^GJ-BT/i,'').replace(/^BT/i,'').replace(/^-/, '');
+        s = 'GJ-BT-' + s
+          .replace(/^GJ-BT/i,'')
+          .replace(/^GJBT/i,'')
+          .replace(/^BT/i,'')
+          .replace(/^-/, '');
       }
+
       return s.slice(0,16);
     }
 
@@ -710,9 +807,19 @@
       return Math.max(2, Math.min(10, Math.round(n)));
     }
 
+    function esc(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#39;");
+    }
+
     function ctx(){
       const room = sanitizeRoom($('room').value);
       if ($('room').value !== room) $('room').value = room;
+      updateRoomCodeDisplay(room);
 
       return {
         pid: clean($('pid').value,'anon'),
@@ -756,59 +863,39 @@
       chip.textContent = text;
     }
 
+    function updateRoomCodeDisplay(room){
+      const code = sanitizeRoom(room || $('room').value);
+      $('roomCodeDisplay').textContent = code || '-';
+    }
+
     function buildLauncherUrl(){
       const p = ctx();
       const u = new URL('./goodjunk-launcher.html', location.href);
+
       Object.entries({
-        pid:p.pid,name:p.name,nick:p.nick,diff:p.diff,time:p.time,view:p.view,hub:p.hub,
-        run:p.run,seed:p.seed,zone:p.zone,cat:p.cat,game:p.game,gameId:p.gameId,theme:p.theme,
-        recommendedMode:'battle',mode:'battle',entry:'battle',multiplayer:'1',
-        phaseBoss:'0',boss:'0',soloBoss:'0',bossMode:'0'
+        pid:p.pid,
+        name:p.name,
+        nick:p.nick,
+        diff:p.diff,
+        time:p.time,
+        view:p.view,
+        hub:p.hub,
+        run:p.run,
+        seed:p.seed,
+        zone:p.zone,
+        cat:p.cat,
+        game:p.game,
+        gameId:p.gameId,
+        theme:p.theme,
+        recommendedMode:'battle',
+        mode:'battle',
+        entry:'battle',
+        multiplayer:'1',
+        phaseBoss:'0',
+        boss:'0',
+        soloBoss:'0',
+        bossMode:'0'
       }).forEach(([k,v]) => u.searchParams.set(k,String(v)));
-      return u.toString();
-    }
-
-    function buildShareUrl(roomId){
-      const p = ctx();
-      const u = new URL(location.href);
-
-      u.searchParams.set('room', roomId || p.room);
-      u.searchParams.set('roomId', roomId || p.room);
-      u.searchParams.set('mode','battle');
-      u.searchParams.set('entry','battle');
-      u.searchParams.set('recommendedMode','battle');
-      u.searchParams.set('multiplayer','1');
-
-      u.searchParams.set('phaseBoss','0');
-      u.searchParams.set('boss','0');
-      u.searchParams.set('soloBoss','0');
-      u.searchParams.set('bossMode','0');
-
-      u.searchParams.set('diff',p.diff);
-      u.searchParams.set('time',p.time);
-      u.searchParams.set('view',p.view);
-      u.searchParams.set('hub',p.hub);
-      u.searchParams.set('zone',p.zone);
-      u.searchParams.set('cat',p.cat);
-      u.searchParams.set('game',p.game);
-      u.searchParams.set('gameId',p.gameId);
-      u.searchParams.set('theme',p.theme);
-
-      if (p.studyId) u.searchParams.set('studyId',p.studyId);
-      if (p.conditionGroup) u.searchParams.set('conditionGroup',p.conditionGroup);
-
-      /* สำคัญมาก:
-         ลิงก์สำหรับเพื่อนต้องไม่ส่ง pid/role/host ของ Host ไป
-         เพื่อไม่ให้มือถือเข้าเป็น Host คนเดิมแล้วค้าง 1/2 */
-      u.searchParams.delete('pid');
-      u.searchParams.delete('role');
-      u.searchParams.delete('host');
-
-      u.searchParams.set('name','Guest');
-      u.searchParams.set('nick','Guest');
-      u.searchParams.set('role','guest');
-      u.searchParams.set('host','0');
-      u.searchParams.set('join','1');
 
       return u.toString();
     }
@@ -819,6 +906,7 @@
       const matchId = room?.activeMatchId || room?.currentRun?.matchId || '';
 
       const u = new URL(RUN_PATH, location.href);
+
       Object.entries({
         mode:'battle',
         entry:'battle',
@@ -853,10 +941,13 @@
         autostart:'1',
         modeLocked:'1',
         maxPlayers:String(room?.cap || p.cap),
-        v:'20260513-battle-v1-guestlink-fix'
+        v:'20260513-battle-roomcode-v1'
       }).forEach(([k,v]) => {
-        if (v !== undefined && v !== null && v !== '') u.searchParams.set(k,String(v));
+        if (v !== undefined && v !== null && v !== '') {
+          u.searchParams.set(k,String(v));
+        }
       });
+
       return u.toString();
     }
 
@@ -889,19 +980,37 @@
       };
     }
 
-    function hydrate(){
-      const urlRole = String(qs('role','')).toLowerCase();
-      const urlHost = String(qs('host','')).toLowerCase();
-      const isGuestLink = qs('join','') === '1' || urlRole === 'guest' || urlHost === '0';
+    function writeUrlRoom(roomId){
+      try{
+        const code = sanitizeRoom(roomId);
+        const u = new URL(location.href);
 
-      $('nick').value = clean(qs('nick', qs('name', isGuestLink ? 'Guest' : 'Hero')), isGuestLink ? 'Guest' : 'Hero');
+        u.searchParams.set('room',code);
+        u.searchParams.set('roomId',code);
+        u.searchParams.set('mode','battle');
+        u.searchParams.set('entry','battle');
+        u.searchParams.set('recommendedMode','battle');
+        u.searchParams.set('multiplayer','1');
+        u.searchParams.set('phaseBoss','0');
+        u.searchParams.set('boss','0');
+        u.searchParams.set('soloBoss','0');
+        u.searchParams.set('bossMode','0');
+
+        history.replaceState(null,'',u.toString());
+      }catch(_){}
+    }
+
+    function hydrate(){
+      const isGuestHint =
+        String(qs('role','')).toLowerCase() === 'guest' ||
+        String(qs('host','')).toLowerCase() === '0' ||
+        qs('join','') === '1';
+
+      $('nick').value = clean(qs('nick', qs('name', isGuestHint ? 'Guest' : 'Hero')), isGuestHint ? 'Guest' : 'Hero');
 
       const rawPid = clean(qs('pid',''),'');
-      if (rawPid && rawPid !== 'anon' && rawPid !== 'anonymous' && !isGuestLink) {
+      if (rawPid && rawPid !== 'anon' && rawPid !== 'anonymous' && !isGuestHint) {
         $('pid').value = rawPid;
-      } else if (rawPid && rawPid !== 'anon' && rawPid !== 'anonymous' && isGuestLink) {
-        /* กันกรณี link guest ยังเผลอมี pid ติดมา */
-        $('pid').value = makePid('gj-guest');
       } else {
         $('pid').value = makeSessionPid();
       }
@@ -916,24 +1025,8 @@
       $('btnBackLauncherTop').href = buildLauncherUrl();
       $('btnBackHubTop').href = $('hub').value;
 
+      updateRoomCodeDisplay($('room').value);
       writeUrlRoom($('room').value);
-    }
-
-    function writeUrlRoom(roomId){
-      try{
-        const u = new URL(location.href);
-        u.searchParams.set('room',roomId);
-        u.searchParams.set('roomId',roomId);
-        u.searchParams.set('mode','battle');
-        u.searchParams.set('entry','battle');
-        u.searchParams.set('recommendedMode','battle');
-        u.searchParams.set('multiplayer','1');
-        u.searchParams.set('phaseBoss','0');
-        u.searchParams.set('boss','0');
-        u.searchParams.set('soloBoss','0');
-        u.searchParams.set('bossMode','0');
-        history.replaceState(null,'',u.toString());
-      }catch(_){}
     }
 
     function playersArray(room){
@@ -961,7 +1054,7 @@
           <div class="playerRow">
             <div>
               <div class="playerName">ยังไม่มีผู้เล่น</div>
-              <div class="playerMeta">สร้างห้องหรือเข้าห้องก่อนนะ</div>
+              <div class="playerMeta">Host สร้างห้อง หรือ Guest ใส่ Room Code เพื่อเข้าห้อง</div>
             </div>
             <div class="tag">0</div>
           </div>
@@ -975,21 +1068,12 @@
           <div class="playerRow">
             <div>
               <div class="playerName">${i+1}. ${esc(p.name || p.nick || p.pid || 'Player')}</div>
-              <div class="playerMeta">${role === 'Host' ? 'คนเปิดห้อง' : 'ผู้ร่วม Battle'}</div>
+              <div class="playerMeta">${role === 'Host' ? 'คนเปิดห้อง' : 'ผู้ร่วม Battle'} • ${esc(String(p.pid || '').slice(0,22))}</div>
             </div>
             <div class="tag">${role === 'Host' ? '⚔️ Host' : '🔥 Fighter'}</div>
           </div>
         `;
       }).join('');
-    }
-
-    function esc(s){
-      return String(s ?? '')
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'","&#39;");
     }
 
     function syncUi(room){
@@ -1011,8 +1095,11 @@
 
       if (status === 'started' || status === 'running'){
         setChip('good', 'กำลังเริ่ม Battle');
+
         if (me){
           location.href = buildRunUrl(room, host ? 'host' : 'guest');
+        }else{
+          setNotice('warn','ห้องนี้กำลังเริ่มแล้ว กรุณากด “เข้าห้องเพื่อน” ก่อน');
         }
         return;
       }
@@ -1021,6 +1108,7 @@
         setChip('warn', 'จบแล้ว • เริ่มรอบใหม่ได้');
         $('btnStartBattle').disabled = !host || count < 2;
         $('btnStartBattle').textContent = '🚀 เริ่ม Battle รอบใหม่';
+
         setNotice(host ? 'good' : 'warn',
           host
             ? `Battle จบรอบก่อนแล้ว มีผู้เล่น ${count}/${cap} คน กดเริ่มรอบใหม่ได้`
@@ -1037,10 +1125,12 @@
         setNotice(count >= 2 ? 'good' : 'warn',
           count >= 2
             ? `พร้อมเริ่ม Battle แล้ว มีผู้เล่น ${count}/${cap} คน`
-            : `สร้างห้องแล้ว ส่งลิงก์ให้เพื่อนเข้ามา อย่างน้อย 2 คนถึงเริ่มได้`
+            : `สร้างห้องแล้ว บอก Room Code <b>${esc(room.roomId || p.room)}</b> ให้เพื่อนเข้ามา อย่างน้อย 2 คนถึงเริ่มได้`
         );
-      }else{
+      }else if (me){
         setNotice('good', `เข้าห้อง Battle แล้ว รอ Host เริ่มเกม`);
+      }else{
+        setNotice('warn', `พบห้องนี้แล้ว กด “เข้าห้องเพื่อน” เพื่อร่วม Battle`);
       }
 
       log(`Room ${room.roomId} • status=${status} • players=${count}/${cap} • host=${host}`);
@@ -1048,8 +1138,9 @@
 
     async function createRoom(){
       const p = ctx();
+
       if (!p.room){
-        setNotice('bad','กรุณาใส่ Room Code');
+        setNotice('bad','กรุณาใส่หรือสุ่ม Room Code ก่อน');
         return;
       }
 
@@ -1057,6 +1148,13 @@
 
       const t = now();
       const path = roomPath(p.room);
+
+      const existing = await dbGet(path).catch(() => null);
+      if (existing && existing.status && existing.status !== 'ended'){
+        setNotice('warn',`มีห้อง ${esc(p.room)} อยู่แล้ว ถ้าจะใช้ห้องนี้ให้กด “เข้าห้องเพื่อน” หรือสุ่ม Room ใหม่`);
+        listenRoom(p.room);
+        return;
+      }
 
       const room = {
         roomId:p.room,
@@ -1087,13 +1185,15 @@
       await dbSet(path,room);
       listenRoom(p.room);
       writeUrlRoom(p.room);
-      setNotice('good','สร้างห้อง Battle แล้ว ส่งลิงก์ให้เพื่อนได้เลย');
+
+      setNotice('good',`สร้างห้อง Battle แล้ว Room Code คือ <b>${esc(p.room)}</b><br>ให้เพื่อนเปิด Battle Lobby แล้วใส่รหัสนี้`);
     }
 
     async function joinRoom(){
       const p = ctx();
+
       if (!p.room){
-        setNotice('bad','กรุณาใส่ Room Code');
+        setNotice('bad','กรุณาใส่ Room Code ก่อน');
         return;
       }
 
@@ -1103,7 +1203,8 @@
       const existing = await dbGet(path);
 
       if (!existing){
-        setNotice('bad','ยังไม่พบห้องนี้ ให้ Host สร้างห้องก่อน');
+        setNotice('bad',`ยังไม่พบห้อง <b>${esc(p.room)}</b><br>ตรวจ Room Code อีกครั้ง หรือให้ Host กดสร้างห้องก่อน`);
+        syncUi(null);
         return;
       }
 
@@ -1133,7 +1234,11 @@
 
       listenRoom(p.room);
       writeUrlRoom(p.room);
-      setNotice('good','เข้าห้อง Battle สำเร็จ รอ Host เริ่มเกม');
+
+      setNotice('good', role === 'host'
+        ? `กลับเข้าห้อง Host สำเร็จ`
+        : `เข้าห้อง Battle สำเร็จ รอ Host เริ่มเกม`
+      );
     }
 
     async function startBattle(){
@@ -1204,36 +1309,81 @@
       roomUnsub = dbOn(roomPath(roomId), syncUi);
     }
 
-    async function copyLink(){
+    async function copyRoomCode(){
       const p = ctx();
-      const url = buildShareUrl(p.room);
+      const code = sanitizeRoom(p.room);
+
+      if (!code){
+        setNotice('bad','ยังไม่มี Room Code กรุณาสร้างห้องหรือสุ่ม Room ก่อน');
+        return;
+      }
 
       try{
-        await navigator.clipboard.writeText(url);
-        setNotice('good','คัดลอกลิงก์ห้อง Battle สำหรับเพื่อนแล้ว');
+        await navigator.clipboard.writeText(code);
+        setNotice('good',`คัดลอก Room Code แล้ว: <b>${esc(code)}</b><br>ให้เพื่อนเปิด Battle Lobby แล้วใส่รหัสนี้`);
       }catch(_){
-        prompt('คัดลอกลิงก์ห้อง Battle สำหรับเพื่อน', url);
+        prompt('คัดลอก Room Code นี้ให้เพื่อน', code);
       }
     }
 
     function initEvents(){
       $('btnRandomRoom').addEventListener('click', () => {
         $('room').value = randomRoom();
+        updateRoomCodeDisplay($('room').value);
         writeUrlRoom($('room').value);
+        setNotice('warn',`สุ่ม Room Code ใหม่แล้ว ถ้าจะใช้รหัสนี้ให้กด “สร้างห้อง Battle”`);
       });
 
       $('btnCreateRoom').addEventListener('click', createRoom);
       $('btnJoinRoom').addEventListener('click', joinRoom);
-      $('btnCopyRoom').addEventListener('click', copyLink);
+      $('btnCopyRoom').addEventListener('click', copyRoomCode);
       $('btnStartBattle').addEventListener('click', startBattle);
 
       ['nick','pid','room','diff','time','view','cap','hub'].forEach(id => {
+        $(id).addEventListener('input', () => {
+          $('btnBackLauncherTop').href = buildLauncherUrl();
+          $('btnBackHubTop').href = $('hub').value;
+          if (id === 'room') {
+            const code = sanitizeRoom($('room').value);
+            updateRoomCodeDisplay(code);
+          }
+        });
+
         $(id).addEventListener('change', () => {
           $('btnBackLauncherTop').href = buildLauncherUrl();
           $('btnBackHubTop').href = $('hub').value;
-          if (id === 'room') writeUrlRoom(sanitizeRoom($('room').value));
+          if (id === 'room') {
+            const code = sanitizeRoom($('room').value);
+            $('room').value = code;
+            updateRoomCodeDisplay(code);
+            writeUrlRoom(code);
+            if (code) {
+              tryLookupRoom(code);
+            }
+          }
         });
       });
+    }
+
+    async function tryLookupRoom(roomId){
+      try{
+        if (!db) await firebaseReady();
+
+        const code = sanitizeRoom(roomId);
+        if (!code) return;
+
+        const existing = await dbGet(roomPath(code)).catch(() => null);
+
+        if (existing){
+          listenRoom(code);
+          setNotice('warn',`พบห้อง <b>${esc(code)}</b> แล้ว กด “เข้าห้องเพื่อน” เพื่อร่วม Battle`);
+        }else{
+          syncUi(null);
+          setNotice('warn',`ยังไม่พบห้อง <b>${esc(code)}</b> ถ้าคุณเป็น Host ให้กด “สร้างห้อง Battle”`);
+        }
+      }catch(err){
+        console.warn(err);
+      }
     }
 
     async function boot(){
@@ -1248,29 +1398,12 @@
         const existing = await dbGet(roomPath(room)).catch(() => null);
 
         if (existing){
-  listenRoom(room);
-
-  const urlRole = String(qs('role','')).toLowerCase();
-  const urlHost = String(qs('host','')).toLowerCase();
-  const isGuestLink = qs('join','') === '1' || urlRole === 'guest' || urlHost === '0';
-
-  if (isGuestLink){
-    setNotice('warn','กำลังเข้าห้อง Battle ให้อัตโนมัติ...');
-
-    setTimeout(() => {
-      joinRoom().catch(err => {
-        console.error(err);
-        setNotice('bad','เข้าห้อง Battle ไม่สำเร็จ: ' + (err?.message || err));
-      });
-    }, 350);
-
-    return;
-  }
-
-  setNotice('warn','พบห้องเดิมแล้ว กดเข้าห้องเพื่อนหรือ Host กดเริ่มได้');
-}else{
-  syncUi(null);
-}
+          listenRoom(room);
+          setNotice('warn',`พบห้อง <b>${esc(room)}</b> แล้ว ถ้าเป็นเพื่อนให้กด “เข้าห้องเพื่อน”`);
+        }else{
+          syncUi(null);
+          setNotice('warn',`Host กด “สร้างห้อง Battle” หรือ Guest ใส่ Room Code แล้วกด “เข้าห้องเพื่อน”`);
+        }
       }catch(err){
         console.error(err);
         setNotice('bad','Firebase ยังไม่พร้อม: ' + (err?.message || err));
