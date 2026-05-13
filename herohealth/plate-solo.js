@@ -312,7 +312,36 @@ function fallbackElement(selectorOrId, tagName, className, html){
 }
   function updateMeters(){GROUPS.forEach(g=>{const v=state.fill[g.id]||0,pct=clamp((v/CFG.target)*100,0,145),bar=$('bar-'+g.id),fill=$('bari-'+g.id),label=$('gmv-'+g.id),need=$('need-'+g.id); if(!bar||!fill||!label||!need)return; fill.style.width=Math.min(pct,100)+'%'; bar.classList.toggle('over',v>CFG.target+.25); bar.classList.toggle('warn',v>=CFG.target*.82&&v<=CFG.target+.25); label.textContent=`${v.toFixed(1)}/${CFG.target}`; need.textContent=v>CFG.target+.25?'ล้นแล้ว! อย่าเติมเพิ่ม':(v>=CFG.target*.82?'พอดีแล้ว':`ยังขาด ${(CFG.target-v).toFixed(1)}`);});}
   function updatePlateHealthUI(){const hp=Math.round(state.plateHealth); if(els.plateHealthFill)els.plateHealthFill.style.width=clamp(hp,0,100)+'%'; if(els.plateHealthText)els.plateHealthText.textContent='Plate '+hp+'%'; if(els.plateHealthIcon)els.plateHealthIcon.textContent=hp<=25?'🚨':hp<=55?'💛':'❤️'; if(els.app){els.app.classList.toggle('plate-warn',hp<=55&&hp>25); els.app.classList.toggle('plate-danger',hp<=25); els.app.classList.toggle('plate-critical',hp<=15);}}
-  function renderPlate(){els.plateFoods.innerHTML=state.plateItems.map(x=>plateFoodVisualHtml(x)).join(''); const b=balanceScore(); els.plate.classList.toggle('good',b>=84); els.plate.classList.toggle('danger',b<45||state.overloads>=3||state.plateHealth<=35); els.plateLabel.textContent=b>=90?'Perfect Plate!':b>=75?'Good Balance':state.plateHealth<=25?'Save Plate!':'Need Balance';}
+  function renderPlate(){
+  resolvePlateEls();
+
+  if (els.plateFoods) {
+    els.plateFoods.innerHTML = state.plateItems
+      .map(x => plateFoodVisualHtml(x))
+      .join('');
+  }
+
+  const b = balanceScore();
+
+  if (els.plate && els.plate.classList) {
+    els.plate.classList.toggle('good', b >= 84);
+    els.plate.classList.toggle(
+      'danger',
+      b < 45 || state.overloads >= 3 || state.plateHealth <= 35
+    );
+  }
+
+  if (els.plateLabel) {
+    els.plateLabel.textContent =
+      b >= 90
+        ? 'Perfect Plate!'
+        : b >= 75
+          ? 'Good Balance'
+          : state.plateHealth <= 25
+            ? 'Save Plate!'
+            : 'Need Balance';
+  }
+}
   function feedback(txt,kind='good'){const d=DOC.createElement('div'); d.className='floatText'; d.textContent=txt; if(kind==='good')d.style.background='rgba(36,144,80,.82)'; if(kind==='bad')d.style.background='rgba(214,55,69,.82)'; if(kind==='perfect')d.style.background='rgba(120,80,220,.86)'; (els.arena||DOC.body).appendChild(d); setTimeout(()=>d.remove(),900);}
   function showBanner(txt){els.phaseBanner.textContent=txt; els.phaseBanner.classList.remove('show'); void els.phaseBanner.offsetWidth; els.phaseBanner.classList.add('show');}
   function scorePop(text,kind='good'){const layer=els.juiceLayer||els.arena; const d=DOC.createElement('div'); d.className=`scorePop ${kind}`; d.textContent=text; d.style.left=(42+rand()*16).toFixed(1)+'%'; d.style.top=(42+rand()*14).toFixed(1)+'%'; layer.appendChild(d); setTimeout(()=>d.remove(),900);}
@@ -622,7 +651,74 @@ function fallbackElement(selectorOrId, tagName, className, html){
   function recordPerf(kind,good){if(!state.adaptiveOn)return; const t=now(); state.recentPerf.push({t,kind,good:!!good,balance:balanceScore(),combo:state.combo}); state.recentPerf=state.recentPerf.filter(x=>t-x.t<=16000).slice(-18); if(good){state.goodStreak++; state.badStreak=0;}else{state.badStreak++; state.goodStreak=0;}}
   function updateAIDirector(){if(!state.adaptiveOn||!state.running||state.paused||state.ended||state.practiceActive)return; if(now()-state.directorLastAt<3200)return; state.directorLastAt=now(); const r=state.recentPerf,total=r.length||1,good=r.filter(x=>x.good).length,acc=good/total,junk=r.filter(x=>x.kind==='junk').length,over=r.filter(x=>x.kind==='overload').length; let mood='normal',icon='🤖',msg='AI Coach: คุมจานให้พอดีต่อไป'; const struggling=total>=5&&(acc<.45||junk>=2||over>=2||balanceScore()<42||state.badStreak>=3),strong=total>=6&&(acc>=.78||state.goodStreak>=6||state.combo>=8||balanceScore()>=82); if(struggling){state.assistLevel=clamp(state.assistLevel+1,0,3); state.directorLevel=clamp(state.directorLevel-1,0,4); mood='assist'; icon='💙'; msg='AI Coach: ช่วยชะลอเกมนิดหนึ่ง ดูป้าย “ควรเก็บ”'; if(state.shield<=0&&state.badStreak>=4){state.shield=1; feedback('💙 AI Coach ให้ Shield ช่วย 1 ครั้ง','good');}}else if(strong){state.directorLevel=clamp(state.directorLevel+1,0,4); state.assistLevel=clamp(state.assistLevel-1,0,3); mood=state.directorLevel>=3?'hot':'challenge'; icon=state.directorLevel>=3?'🔥':'⚡'; msg=state.directorLevel>=3?'AI Coach: เก่งมาก! เพิ่มความท้าทายแล้ว':'AI Coach: จังหวะดีขึ้น เกมจะเร็วขึ้นนิดหนึ่ง';} state.directorMood=mood; if(els.aiDirectorChip){els.aiDirectorChip.classList.remove('hidden','assist','challenge','hot'); if(mood!=='normal')els.aiDirectorChip.classList.add(mood); if(els.aiDirectorIcon)els.aiDirectorIcon.textContent=icon; if(els.aiDirectorText)els.aiDirectorText.textContent=msg; clearTimeout(updateAIDirector._timer); updateAIDirector._timer=setTimeout(()=>els.aiDirectorChip&&els.aiDirectorChip.classList.add('hidden'),2600);} els.app.classList.remove('ai-assist','ai-challenge','ai-hot'); if(mood==='assist')els.app.classList.add('ai-assist'); if(mood==='challenge')els.app.classList.add('ai-challenge'); if(mood==='hot')els.app.classList.add('ai-hot');}
 
-  function updateAll(){const left=state.practiceActive?Math.ceil(practiceLeftSec()):Math.ceil(timeLeft()); els.score.textContent=Math.round(state.score); els.combo.textContent=state.combo; els.balance.textContent=balanceScore()+'%'; els.timeText.textContent=left+'s'; if(els.miniScore)els.miniScore.textContent=Math.round(state.score); if(els.miniCombo)els.miniCombo.textContent=state.combo; if(els.miniBalance)els.miniBalance.textContent=balanceScore()+'%'; if(els.miniTime)els.miniTime.textContent=left+'s'; const total=state.practiceActive?PRACTICE_SEC:state.totalSec; els.timerFill.style.width=clamp(left/total*100,0,100)+'%'; els.timerFill.classList.toggle('danger',left<=15); const phaseName=state.boss?(state.bossDefeated?'Boss defeated • รักษาจานให้จบสวย':'Boss Plate • ทำถูกเพื่อลด HP'):state.rush?'Rush Window • คะแนน x2':`Wave ${state.wave||1} • ${DIFF}`; els.phaseText.textContent=state.practiceActive?'🧑‍🍳 Practice Mode • ลองก่อน คะแนนยังไม่คิดจริง':isFever()?'🔥 FEVER MODE • คะแนน x2':phaseName; updateMeters(); renderPlate(); updatePowers(); updateBoss(); renderMissions(); updatePlateHealthUI();}
+  function setTextSafe(el, value){
+  if (el) el.textContent = value;
+}
+
+function setHtmlSafe(el, value){
+  if (el) el.innerHTML = value;
+}
+
+function setWidthSafe(el, value){
+  if (el && el.style) el.style.width = value;
+}
+
+function toggleSafe(el, cls, on){
+  if (el && el.classList) el.classList.toggle(cls, !!on);
+}
+
+function updateAll(){
+  resolvePlateEls();
+
+  const left = state.practiceActive
+    ? Math.ceil(practiceLeftSec())
+    : Math.ceil(timeLeft());
+
+  const bal = balanceScore();
+
+  setTextSafe(els.score, Math.round(state.score));
+  setTextSafe(els.combo, state.combo);
+  setTextSafe(els.balance, bal + '%');
+  setTextSafe(els.timeText, left);
+
+  setTextSafe(els.miniScore, Math.round(state.score));
+  setTextSafe(els.miniCombo, state.combo);
+  setTextSafe(els.miniBalance, bal + '%');
+  setTextSafe(els.miniTime, left + 's');
+
+  const total = state.practiceActive ? PRACTICE_SEC : state.totalSec;
+
+  if (els.timerFill) {
+    setWidthSafe(els.timerFill, clamp(left / total * 100, 0, 100) + '%');
+    toggleSafe(els.timerFill, 'danger', left <= 15);
+  }
+
+  const phaseName = state.boss
+    ? (
+        state.bossDefeated
+          ? 'Boss defeated • รักษาจานให้จบสวย'
+          : 'Boss Plate • ทำถูกเพื่อลด HP'
+      )
+    : state.rush
+      ? 'Rush Window • คะแนน x2'
+      : `Wave ${state.wave || 1} • ${DIFF}`;
+
+  setTextSafe(
+    els.phaseText,
+    state.practiceActive
+      ? '🧑‍🍳 Practice Mode • ลองก่อน คะแนนยังไม่คิดจริง'
+      : isFever()
+        ? '🔥 FEVER MODE • คะแนน x2'
+        : phaseName
+  );
+
+  updateMeters();
+  renderPlate();
+  updatePowers();
+  updateBoss();
+  renderMissions();
+  updatePlateHealthUI();
+}
   function updatePowers(){if(els.pShield){els.pShield.classList.toggle('on',state.shield>0); els.pShield.innerHTML=`<b>🛡️</b>Shield ${state.shield?'x'+state.shield:''}`;} if(els.pFreeze)els.pFreeze.classList.toggle('on',isFreeze()); if(els.pFever)els.pFever.classList.toggle('on',isFever());}
   function updateBoss(){if(els.bossBox)els.bossBox.classList.toggle('on',state.boss); if(els.bossHp)els.bossHp.style.width=state.bossHp+'%'; if(els.bossPct)els.bossPct.textContent=Math.round(state.bossHp)+'%'; if(els.bossName&&state.bossType)els.bossName.textContent=state.bossType.title; if(els.bossMood)els.bossMood.textContent=state.bossDefeated?'ชนะบอสแล้ว! รักษาจานให้สมดุลจนจบ':state.boss?(isBossWarning()?'⚠️ Boss Warning: เลือกอาหารดีเพื่อ COUNTER!':state.bossEnraged?'🔥 บอสโกรธแล้ว! Counter จะได้โบนัสแรงขึ้น':'Perfect Pick จะลด HP บอส / junk ทำให้บอสฟื้น'):'บอสยังไม่มา';}
 
@@ -736,7 +832,66 @@ function fallbackElement(selectorOrId, tagName, className, html){
   function setupAimMode(){const on=isAimMode(); if(els.aimReticle)els.aimReticle.classList.toggle('hidden',!on); if(els.btnAim)els.btnAim.classList.toggle('hidden',!on); if(on)logLine('โหมด Cardboard/cVR: เล็งกลางจอแล้วกดเลือกเป้า');}
   function updateAimTarget(){if(!isAimMode()||!state.running||state.paused||state.ended)return; const r0=els.arena.getBoundingClientRect(),cx=r0.left+r0.width/2,cy=r0.top+r0.height/2; let bestId=null,bestD=Infinity; for(const[id,obj]of state.active.entries()){const r=obj.el.getBoundingClientRect(),d=Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy); if(d<bestD){bestD=d; bestId=id;}} const range=screenMode()==='small'?285:250; for(const[id,obj]of state.active.entries())obj.el.classList.toggle('aimLock',id===bestId&&bestD<range); state.lastAimTarget=bestD<range?bestId:null;}
   function selectAimTarget(){if(!isAimMode())return; updateAimTarget(); if(state.lastAimTarget&&state.active.has(state.lastAimTarget)){state.aimPicks++; pickFood(state.lastAimTarget);}else{feedback('🎯 เล็งอาหารให้ตรงกลางก่อน','bad'); sfx('bad');}}
-  function bind(){els.btnStart.addEventListener('click',startGame); if(els.btnSkipPractice)els.btnSkipPractice.addEventListener('click',()=>{if(state.practiceActive)finishPractice(true);}); els.btnPause.addEventListener('click',()=>togglePause(false)); els.btnHint.addEventListener('click',()=>showHint(true)); els.btnSkill.addEventListener('click',rescueSkill); if(els.btnAim)els.btnAim.addEventListener('click',selectAimTarget); els.btnBack.addEventListener('click',goBack); if(els.btnReplay)els.btnReplay.addEventListener('click',()=>location.reload()); if(els.btnCooldown)els.btnCooldown.addEventListener('click',goCooldown); if(els.btnSummaryBack)els.btnSummaryBack.addEventListener('click',goBack); els.arena.addEventListener('pointerdown',ev=>{if(!isAimMode())return; if(ev.target.closest('.foodCard'))return; ev.preventDefault(); selectAimTarget();},{passive:false}); DOC.addEventListener('visibilitychange',()=>{if(DOC.hidden&&state.running&&!state.paused)togglePause(true);});}
+  function bind(){
+  resolvePlateEls();
+
+  if (els.btnStart) {
+    els.btnStart.addEventListener('click', startGame);
+  }
+
+  if (els.btnSkipPractice) {
+    els.btnSkipPractice.addEventListener('click', () => {
+      if (state.practiceActive) finishPractice(true);
+    });
+  }
+
+  if (els.btnPause) {
+    els.btnPause.addEventListener('click', () => togglePause(false));
+  }
+
+  if (els.btnHint) {
+    els.btnHint.addEventListener('click', () => showHint(true));
+  }
+
+  if (els.btnSkill) {
+    els.btnSkill.addEventListener('click', rescueSkill);
+  }
+
+  if (els.btnAim) {
+    els.btnAim.addEventListener('click', selectAimTarget);
+  }
+
+  if (els.btnBack) {
+    els.btnBack.addEventListener('click', goBack);
+  }
+
+  if (els.btnReplay) {
+    els.btnReplay.addEventListener('click', () => location.reload());
+  }
+
+  if (els.btnCooldown) {
+    els.btnCooldown.addEventListener('click', goCooldown);
+  }
+
+  if (els.btnSummaryBack) {
+    els.btnSummaryBack.addEventListener('click', goBack);
+  }
+
+  if (els.arena) {
+    els.arena.addEventListener('pointerdown', ev => {
+      if (!isAimMode()) return;
+      if (ev.target.closest('.foodCard')) return;
+      ev.preventDefault();
+      selectAimTarget();
+    }, { passive:false });
+  }
+
+  DOC.addEventListener('visibilitychange', () => {
+    if (DOC.hidden && state.running && !state.paused) {
+      togglePause(true);
+    }
+  });
+}
   function init(){installV403Styles(); setGameplayViewportVars(); if(els.app)els.app.classList.add('emoji-only-mode','v41-immersive-ready'); try{const disabledAt=Number(sessionStorage.getItem('HHA_API_DISABLED')||'0'); if(disabledAt&&Date.now()-disabledAt<15*60*1000)state.apiDisabled=true;}catch(e){} /* v40.7 emoji-only: skip PNG preloading to prevent asset 404 spam. */ renderMeters(); state.missions=chooseMissions(); state.dailyChallenge=chooseDailyChallenge(); state.bestBefore=loadBest(); state.unlockedBadges=loadBadgeSet(); renderDailyBox(); renderGoalLock(); setupAimMode(); renderMissions(); updateAll(); bind(); logLine('พร้อมแล้ว: วันนี้มี Daily Challenge และดาวให้ลุ้น!');}
   WIN.addEventListener('pagehide',()=>flushLogs(true)); WIN.addEventListener('beforeunload',()=>flushLogs(true)); init();
 })();
