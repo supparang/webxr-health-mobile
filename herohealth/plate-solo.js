@@ -625,10 +625,112 @@
   }
 
   function preserveParams(url,keys){ keys.forEach(k=>{ const v=qs(k,''); if(v!==null&&v!==undefined&&String(v)!=='')url.searchParams.set(k,v); }); }
-  function canonicalHubUrl(){ return qs('hub','') || 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html'; }
-  function buildNutritionZoneUrl(fromTag){ const u=new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',location.href); preserveParams(u,['pid','name','nick','diff','time','view','run','seed','studyId','conditionGroup','section','session_code','log','api']); u.searchParams.set('pid',qs('pid','anon')); const nm=qs('name',qs('nick','')); if(nm)u.searchParams.set('name',nm); u.searchParams.set('diff',qs('diff','normal')); u.searchParams.set('time',qs('time','120')); u.searchParams.set('view',qs('view','mobile')); u.searchParams.set('run',qs('run','play')); u.searchParams.set('zone','nutrition'); u.searchParams.set('from',fromTag||'plate-solo'); u.searchParams.set('hub',canonicalHubUrl()); return u; }
+  function canonicalHubUrl(){
+  // PATCH v20260513-PLATE-SOLO-COOLDOWN-RETURN-NUTRITION-ZONE
+  // hub ของ Nutrition Zone ต้องชี้กลับ Hub หลักเสมอ
+  return 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
+}
+
+function buildNutritionZoneUrl(fromTag){
+  // PATCH v20260513-PLATE-SOLO-COOLDOWN-RETURN-NUTRITION-ZONE
+  // หลัง cooldown ต้องกลับมาที่ Nutrition Zone ตาม URL ที่กำหนด
+  const u = new URL(
+    'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
+    location.href
+  );
+
+  preserveParams(u, [
+    'pid',
+    'name',
+    'nick',
+    'diff',
+    'time',
+    'view',
+    'seed',
+    'studyId',
+    'conditionGroup',
+    'section',
+    'session_code',
+    'log',
+    'api'
+  ]);
+
+  u.searchParams.set('pid', qs('pid','anon'));
+
+  const nm = qs('name', qs('nick',''));
+  if (nm) u.searchParams.set('name', nm);
+
+  u.searchParams.set('diff', qs('diff','normal'));
+  u.searchParams.set('time', qs('time','120'));
+  u.searchParams.set('view', qs('view','mobile'));
+
+  // กลับ zone ไม่ควรบังคับ run=play เพราะเป็นหน้า zone/launcher
+  u.searchParams.delete('run');
+
+  u.searchParams.set('zone','nutrition');
+  u.searchParams.set('from', fromTag || 'plate-solo');
+
+  // สำคัญ: hub ของ Nutrition Zone ต้องเป็น Hub หลัก
+  u.searchParams.set(
+    'hub',
+    'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
+  );
+
+  return u;
+}
+
+function goCooldown(){
+  flushLogs(true);
+
+  const gate = new URL(
+    'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',
+    location.href
+  );
+
+  const zoneUrl = buildNutritionZoneUrl('plate-solo-cooldown');
+
+  preserveParams(gate, [
+    'pid',
+    'name',
+    'nick',
+    'diff',
+    'time',
+    'view',
+    'seed',
+    'studyId',
+    'conditionGroup',
+    'section',
+    'session_code',
+    'log',
+    'api'
+  ]);
+
+  gate.searchParams.set('pid', qs('pid','anon'));
+
+  const nm = qs('name', qs('nick',''));
+  if (nm) gate.searchParams.set('name', nm);
+
+  gate.searchParams.set('diff', qs('diff','normal'));
+  gate.searchParams.set('time', qs('time','120'));
+  gate.searchParams.set('view', qs('view','mobile'));
+
+  gate.searchParams.set('phase','cooldown');
+  gate.searchParams.set('zone','nutrition');
+  gate.searchParams.set('game','plate');
+  gate.searchParams.set('gameId','plate');
+  gate.searchParams.set('mode','solo');
+  gate.searchParams.set('entry','plate-solo');
+  gate.searchParams.set('from','plate-solo-summary');
+
+  // สำคัญที่สุด: cooldown เสร็จแล้วกลับ Nutrition Zone URL นี้
+  gate.searchParams.set('next', zoneUrl.toString());
+
+  // hub ของ gate ให้กลับ Nutrition Zone เช่นกัน เผื่อปุ่มกลับ/ข้าม cooldown
+  gate.searchParams.set('hub', zoneUrl.toString());
+
+  location.href = gate.toString();
+}
   function goBack(){ flushLogs(true); location.href=buildNutritionZoneUrl('plate-solo').toString(); }
-  function goCooldown(){ flushLogs(true); const gate=new URL('https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',location.href), zoneUrl=buildNutritionZoneUrl('plate-solo-cooldown'); preserveParams(gate,['pid','name','nick','diff','time','view','run','seed','studyId','conditionGroup','section','session_code','log','api']); gate.searchParams.set('pid',qs('pid','anon')); const nm=qs('name',qs('nick','')); if(nm)gate.searchParams.set('name',nm); gate.searchParams.set('diff',qs('diff','normal')); gate.searchParams.set('time',qs('time','120')); gate.searchParams.set('view',qs('view','mobile')); gate.searchParams.set('run',qs('run','play')); gate.searchParams.set('phase','cooldown'); gate.searchParams.set('zone','nutrition'); gate.searchParams.set('game','plate'); gate.searchParams.set('gameId','plate'); gate.searchParams.set('mode','solo'); gate.searchParams.set('entry','plate-solo'); gate.searchParams.set('from','plate-solo-summary'); gate.searchParams.set('hub',zoneUrl.toString()); gate.searchParams.set('next',zoneUrl.toString()); location.href=gate.toString(); }
 
   function postLog(eventType,extra={}){ const endpoint=HHA.logEndpoint; if(!endpoint||state.apiDisabled)return; state.eventQueue.push({table:eventType==='session_end'?'sessions':'events',eventType,projectTag:HHA.projectTag,gameId:HHA.gameId,zone:HHA.zone,mode:HHA.mode,version:VERSION,sessionId:state.sessionId,pid:HHA.pid,name:HHA.name,diff:DIFF,view:VIEW,runMode:HHA.runMode,timestampIso:new Date().toISOString(),timestampBangkok:bangkokIso(),pageUrl:location.href,userAgent:navigator.userAgent,extra}); state.eventQueue=state.eventQueue.slice(-50); if(eventType==='session_end'||eventType==='session_start'||now()-state.lastFlushAt>5000)flushLogs(eventType==='session_end'); }
   function flushLogs(force=false){ const endpoint=HHA.logEndpoint; if(!endpoint||state.apiDisabled||!state.eventQueue.length)return; state.lastFlushAt=now(); const batch=state.eventQueue.splice(0,force?state.eventQueue.length:Math.min(8,state.eventQueue.length)); const body=safeJsonStringify({table:'events',source:'plate-solo',batch:true,count:batch.length,events:batch}); try{ if(navigator.sendBeacon&&force){ const ok=navigator.sendBeacon(endpoint,new Blob([body],{type:'application/json'})); if(!ok)state.eventQueue.unshift(...batch); return; } fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body,keepalive:!!force}).then(res=>{ if(res.status===401||res.status===403){state.apiDisabled=true;try{sessionStorage.setItem('HHA_API_DISABLED',String(Date.now()));}catch(e){}} if(!res.ok&&!force)state.eventQueue.unshift(...batch); }).catch(()=>{if(!force)state.eventQueue.unshift(...batch);}); }catch(e){ if(!force)state.eventQueue.unshift(...batch); } }
