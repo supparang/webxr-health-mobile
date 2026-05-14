@@ -4116,3 +4116,137 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260513-hydration-boss-fever-pack8
+   Detect Fever / Boss state from DOM and add visual class
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260513-hydration-boss-fever-pack8';
+  var lastBoss = false;
+  var lastFever = false;
+  var bossToastTimer = 0;
+  var feverToastTimer = 0;
+
+  function qa(sel){
+    try{ return Array.from(document.querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function textOfPage(){
+    try{
+      return document.body ? String(document.body.textContent || '') : '';
+    }catch(e){
+      return '';
+    }
+  }
+
+  function ensureToast(id, cls, text){
+    var el = document.getElementById(id);
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = id;
+    el.className = cls;
+    el.textContent = text || '';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function showBossToast(text){
+    var el = ensureToast('hha-boss-toast', 'hha-boss-toast', text);
+    el.textContent = text || '🌞 Heat Boss! รีบเติมน้ำ';
+    el.classList.add('show');
+
+    clearTimeout(bossToastTimer);
+    bossToastTimer = setTimeout(function(){
+      el.classList.remove('show');
+    }, 1200);
+  }
+
+  function showFeverToast(text){
+    var el = ensureToast('hha-fever-toast', 'hha-fever-toast', text);
+    el.textContent = text || '💧 Fever! เก็บน้ำให้ต่อเนื่อง';
+    el.classList.add('show');
+
+    clearTimeout(feverToastTimer);
+    feverToastTimer = setTimeout(function(){
+      el.classList.remove('show');
+    }, 1100);
+  }
+
+  function hasBossSignal(){
+    var t = textOfPage();
+
+    if(/Heat Boss|บอสแดด|Boss|Heat Monster|แดดร้อน/i.test(t)){
+      return true;
+    }
+
+    return qa('.hha-hydration-target.is-boss-wave, .hha-hydration-target.is-danger').length >= 1;
+  }
+
+  function hasFeverSignal(){
+    var t = textOfPage();
+
+    if(/Fever|FEVER|Combo Rush|Rush Mode/i.test(t)){
+      return true;
+    }
+
+    if(document.body.classList.contains('hha-hydration-rush')){
+      var goodTargets = qa('.hha-hydration-target.is-good').length;
+      if(goodTargets >= 2) return true;
+    }
+
+    return qa('.hha-hud-pill.fever, .fever, [data-fever="1"]').length >= 1;
+  }
+
+  function applyState(){
+    var boss = hasBossSignal();
+    var fever = hasFeverSignal();
+
+    if(boss !== lastBoss){
+      lastBoss = boss;
+      document.body.classList.toggle('hha-hydration-boss', boss);
+
+      if(boss){
+        showBossToast('🌞 Heat Boss! ระวังแดดแรง');
+      }
+    }
+
+    if(fever !== lastFever){
+      lastFever = fever;
+      document.body.classList.toggle('hha-hydration-fever', fever);
+
+      if(fever){
+        showFeverToast('💧 Fever! เก็บน้ำต่อเนื่อง');
+      }
+    }
+  }
+
+  function observe(){
+    applyState();
+
+    var mo = new MutationObserver(function(){
+      applyState();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      characterData:true,
+      attributes:true,
+      attributeFilter:['class','data-fever','data-wave','data-state']
+    });
+
+    setInterval(applyState, 600);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', observe, { once:true });
+  }else{
+    observe();
+  }
+})();
