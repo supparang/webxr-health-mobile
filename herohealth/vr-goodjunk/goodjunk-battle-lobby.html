@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260513-gj-battle-lobby-roomcode-v1"></script>
+  <script src="../firebase-config.js?v=20260513-gj-battle-lobby-roomcode-participants-v3"></script>
 
   <style>
     :root{
@@ -718,7 +718,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GOODJUNK_BATTLE_LOBBY = 'v1.1-room-code-flow';
+    window.HHA_GOODJUNK_BATTLE_LOBBY = 'v1.2-room-code-participants';
 
     const RUN_PATH = './goodjunk-vr-battle.html';
     const $ = id => document.getElementById(id);
@@ -941,7 +941,9 @@
         autostart:'1',
         modeLocked:'1',
         maxPlayers:String(room?.cap || p.cap),
-        v:'20260513-battle-roomcode-v1'
+        expectedPlayers:String(room?.expectedPlayers || room?.currentRun?.expectedPlayers || ''),
+        participantCount:String(room?.currentRun?.participantCount || room?.expectedPlayers || ''),
+        v:'20260513-battle-roomcode-participants-v3'
       }).forEach(([k,v]) => {
         if (v !== undefined && v !== null && v !== '') {
           u.searchParams.set(k,String(v));
@@ -1261,24 +1263,49 @@
           return;
         }
 
-        const count = playersArray(room).length;
+        const players = playersArray(room);
+        const count = players.length;
+
         if (count < 2){
           setNotice('warn','ต้องมีผู้เล่นอย่างน้อย 2 คนก่อนเริ่ม Battle');
           return;
         }
 
         const matchId = 'BT-' + safeKey(p.room) + '-' + Date.now().toString(36).toUpperCase();
+        const startedAt = now();
+
+        const participants = {};
+        players.forEach((pl, index) => {
+          const key = safeKey(pl.pid);
+          participants[key] = {
+            pid:pl.pid,
+            name:pl.name || pl.nick || `Player ${index + 1}`,
+            nick:pl.nick || pl.name || `Player ${index + 1}`,
+            role:pl.pid === room.hostPid || pl.role === 'host' ? 'host' : 'guest',
+            ready:true,
+            online:true,
+            joinedAt:pl.joinedAt || startedAt,
+            lastSeen:pl.lastSeen || startedAt,
+            battleIndex:index + 1
+          };
+        });
 
         await dbUpdate(roomPath(p.room), {
           status:'started',
           activeMatchId:matchId,
+          expectedPlayers:count,
+          participantCount:count,
+          runtimePlayers:participants,
           currentRun:{
             status:'started',
             matchId,
-            startedAt:now(),
-            by:p.pid
+            startedAt,
+            by:p.pid,
+            expectedPlayers:count,
+            participantCount:count,
+            participants
           },
-          updatedAt:now()
+          updatedAt:startedAt
         });
 
         await dbUpdate(matchPath(p.room, matchId), {
@@ -1287,8 +1314,12 @@
           mode:'battle',
           game:'goodjunk',
           status:'started',
-          createdAt:now(),
-          updatedAt:now()
+          expectedPlayers:count,
+          participantCount:count,
+          participants,
+          runtimePlayers:participants,
+          createdAt:startedAt,
+          updatedAt:startedAt
         });
 
         const fresh = await dbGet(roomPath(p.room));
@@ -1364,7 +1395,8 @@
         });
       });
     }
-      async function tryLookupRoom(roomId){
+
+    async function tryLookupRoom(roomId){
       try{
         if (!db) await firebaseReady();
 
@@ -1427,6 +1459,7 @@
         log('Firebase error: ' + (err?.message || err));
       }
     }
+
     boot();
   })();
   </script>
