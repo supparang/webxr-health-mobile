@@ -1,21 +1,25 @@
 /* =========================================================
    HeroHealth • GoodJunk Battle Guest WAIT Playable v6
    FILE: /herohealth/vr-goodjunk/goodjunk-vr-battle.guest-wait-playable-v6.js
-   PATCH: v20260514r
+   PATCH: v20260514s
 
    Fix:
    - KK ติด WAIT / รอคู่แข่ง แต่ fallback เล่นได้ไม่เสถียร
-   - v5 ไปเริ่มผิดฝั่งได้ ทำให้ Host จบ heart-zero เอง
-   - v6 เริ่มเฉพาะหน้าที่ติด WAIT / รอคู่แข่ง เท่านั้น
-   - ใช้ requestAnimationFrame loop ไม่ใช้ setInterval เป็นหลัก
-   - ไม่จบเพราะ heart-zero ระหว่าง fallback เพื่อกันค้าง/จบหลอก
-   - เขียนคะแนนเข้า Firebase ต่อเนื่อง
+   - Host เคยโดน fallback แทรกเอง เพราะมีคำว่า WAIT/รอคู่แข่งในหน้า
+   - v20260514s:
+     1) fallback ทำงานเฉพาะ role=guest หรือ host=0 หรือ join=1
+     2) Host role=host หรือ host=1 ห้ามเริ่ม fallback เด็ดขาด
+     3) #gjv6Root ใช้ pointer-events:auto เพื่อให้ Chrome mobile ส่ง event ถึง target
+     4) .gjv6-target ใช้ touch-action:manipulation
+     5) ใช้ requestAnimationFrame loop
+     6) ไม่จบเพราะ heart-zero ระหว่าง fallback เพื่อกันจบหลอก
+     7) เขียนคะแนนเข้า Firebase ต่อเนื่อง
    ========================================================= */
 
 (() => {
   'use strict';
 
-  const PATCH_ID = 'v20260514r-guest-wait-playable-v6';
+  const PATCH_ID = 'v20260514s-guest-wait-playable-v6-host-guard-input-fix';
 
   if (window.__GJ_BATTLE_GUEST_WAIT_PLAYABLE_V6__) return;
   window.__GJ_BATTLE_GUEST_WAIT_PLAYABLE_V6__ = PATCH_ID;
@@ -70,7 +74,10 @@
       room: ROOM,
       pid: PID,
       name: NAME,
-      time: GAME_SEC
+      time: GAME_SEC,
+      role: qs.get('role'),
+      host: qs.get('host'),
+      join: qs.get('join')
     });
 
     waitForDb().catch(err => {
@@ -113,20 +120,45 @@
     }
   }
 
+  function isGuestFallbackAllowed(){
+    const role = String(qs.get('role') || '').toLowerCase();
+    const host = String(qs.get('host') || '').toLowerCase();
+    const join = String(qs.get('join') || '').toLowerCase();
+
+    /*
+      สำคัญมาก:
+      Host ห้ามเริ่ม fallback เด็ดขาด
+      เพราะหน้า Host มีคำว่า WAIT / รอคู่แข่ง ในแผงคู่แข่งเหมือนกัน
+    */
+    if (role === 'host' || host === '1') return false;
+
+    /*
+      Guest เท่านั้นที่ fallback ทำงานได้
+      goodjunk-vr-battle runtime ควรส่ง role=guest หรือ host=0 มาให้ KK
+    */
+    if (role === 'guest' || host === '0' || join === '1') return true;
+
+    return false;
+  }
+
   function maybeStart(reason){
     if (started || finished) return;
 
     if (!String(location.href).includes('goodjunk-vr-battle')) return;
 
+    /*
+      Guard สำคัญ:
+      กัน Hero/Host ไม่ให้โดน fallback แทรกและจบเอง
+    */
+    if (!isGuestFallbackAllowed()){
+      removeOldFallbacks();
+      return;
+    }
+
     const text = bodyText();
 
     if (isSummary(text)) return;
 
-    /*
-      จุดสำคัญ:
-      v6 จะเริ่มเฉพาะหน้าที่ติด WAIT / รอคู่แข่ง เท่านั้น
-      ไม่เริ่มบน Host ที่กำลังเล่นปกติ
-    */
     const isWaitScreen =
       /รอคู่แข่ง/i.test(text) ||
       /\bWAIT\b/i.test(text) ||
@@ -427,7 +459,7 @@
         position:fixed;
         inset:0;
         z-index:2147485000;
-        pointer-events:none;
+        pointer-events:auto;
         font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       }
 
@@ -442,7 +474,7 @@
         position:fixed;
         z-index:2147485002;
         pointer-events:auto;
-        touch-action:none;
+        touch-action:manipulation;
         user-select:none;
         -webkit-user-select:none;
         display:grid;
@@ -627,6 +659,7 @@
 
     el.textContent = [
       'GJ_GUEST_WAIT_FIX_V6',
+      'PATCH', PATCH_ID,
       'PLAYER', NAME,
       'SCORE', String(state.score),
       'COMBO', String(state.combo),
