@@ -3543,3 +3543,66 @@ body.hha-hydration-boss .hha-hydration-target.is-junk{
     max-width:74vw;
   }
 }
+/* =========================================================
+   PATCH v20260513-hydration-summary-cooldown-pack9
+   Final Summary Actions / Cooldown / Nutrition Zone Return
+   ========================================================= */
+
+.hha-hydration-final-actions{
+  width:100%;
+  display:grid;
+  gap:10px;
+  margin-top:16px;
+}
+
+.hha-hydration-final-actions button{
+  width:100%;
+  border:0;
+  border-radius:20px;
+  padding:13px 16px;
+  font-size:16px;
+  font-weight:1000;
+  cursor:pointer;
+  box-shadow:0 10px 24px rgba(30,75,115,.16);
+}
+
+.hha-hydration-final-actions .hha-final-cooldown{
+  color:white;
+  background:linear-gradient(180deg,#62e68f,#35c76d);
+}
+
+.hha-hydration-final-actions .hha-final-zone{
+  color:white;
+  background:linear-gradient(180deg,#43c7ff,#2388ff);
+}
+
+.hha-hydration-final-actions .hha-final-replay{
+  color:#24607f;
+  background:#ffffff;
+  box-shadow:
+    inset 0 0 0 3px rgba(67,199,255,.22),
+    0 10px 24px rgba(30,75,115,.12);
+}
+
+.hha-hydration-summary,
+#hha-hydration-summary,
+#hydration-summary,
+.hha-summary,
+.hha-summary-panel{
+  max-height:92vh;
+  overflow:auto;
+}
+
+/* Mobile: summary buttons compact */
+@media (max-width:520px){
+  .hha-hydration-final-actions{
+    gap:8px;
+    margin-top:12px;
+  }
+
+  .hha-hydration-final-actions button{
+    padding:12px 14px;
+    border-radius:18px;
+    font-size:15px;
+  }
+}
