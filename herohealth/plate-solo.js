@@ -1987,7 +1987,7 @@
     };
     SAFE_STORE.set('HHA_LAST_SUMMARY', safeJsonStringify(summary));
     SAFE_STORE.set('HHA_LAST_SUMMARY_plate_solo', safeJsonStringify(summary));
-    SAFE_STORE.set(dailyKey(), safeJsonStringify(summary));
+    SAFE_STORE.set(dailyKey(), safeJsonStringify(summaary));
     postLog('session_end', summary); flushLogs(true);
   }
 
