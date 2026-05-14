@@ -46,13 +46,21 @@
     }
 
     body{
-      padding:calc(18px + var(--safe-top)) 14px calc(110px + var(--safe-bottom));
+      padding:calc(18px + var(--safe-top)) 14px calc(112px + var(--safe-bottom));
     }
 
     button,input,select{
       font:inherit;
       color:inherit;
       -webkit-tap-highlight-color:transparent;
+    }
+
+    code{
+      border-radius:8px;
+      padding:1px 5px;
+      background:rgba(255,255,255,.82);
+      color:#2f7896;
+      font-weight:900;
     }
 
     .page{
@@ -177,6 +185,7 @@
       font-size:12px;
       font-weight:1000;
       box-shadow:inset 0 0 0 2px rgba(255,217,102,.55);
+      white-space:nowrap;
     }
 
     .grid{
@@ -218,8 +227,8 @@
     }
 
     .option.soon{
-      opacity:.68;
-      filter:saturate(.85);
+      opacity:.7;
+      filter:saturate(.86);
     }
 
     .option .emoji{
@@ -426,6 +435,11 @@
         padding:13px;
       }
 
+      .section-head{
+        align-items:flex-start;
+        flex-direction:column;
+      }
+
       .mode-grid{
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
@@ -516,7 +530,7 @@
       <div class="section-head">
         <div>
           <h2 class="section-title">1) เลือกโหมดเกม</h2>
-          <p class="section-note">Solo ใช้งานได้แล้ว ส่วนโหมดทีมเตรียมต่อยอดด้วย Room Code</p>
+          <p class="section-note">ตอนนี้ Mobile Solo เปิดเล่นจริงแล้ว ส่วนโหมดทีมเตรียมต่อยอดด้วย Room Code</p>
         </div>
         <div id="modeHint" class="auto-pill">แนะนำ: Solo</div>
       </div>
@@ -666,7 +680,7 @@
       </div>
 
       <div id="status" class="status">
-        <strong>พร้อมเล่น:</strong> Mobile Solo จะเปิดไปที่ <code>groups-mobile.html</code> ซึ่งเป็นเวอร์ชัน Clean v9.2
+        <strong>พร้อมเล่น:</strong> Mobile Solo จะเปิดไปที่ <code>groups-mobile.html</code> เวอร์ชัน Ultimate Arcade v9.6
       </div>
     </section>
   </div>
@@ -685,7 +699,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.0-groups-mode-launcher-20260514';
+      const VERSION = 'v1.1-groups-mode-launcher-mobile-first-20260514';
 
       const state = {
         mode:'solo',
@@ -720,7 +734,7 @@
           emoji:'🌱',
           title:'Solo',
           ready:true,
-          note:'เล่นคนเดียว แข่งกับเวลา ใช้ Mobile Clean v9.2 ได้แล้ว'
+          note:'เล่นคนเดียว แข่งกับเวลา ใช้ Mobile Ultimate Arcade v9.6 ได้แล้ว'
         },
         race:{
           emoji:'🏁',
@@ -761,7 +775,7 @@
           title:'Mobile',
           ready:true,
           path:'/herohealth/vr-groups/groups-mobile.html',
-          note:'ใช้ Mobile Clean v9.2'
+          note:'ใช้ Mobile Ultimate Arcade v9.6'
         },
         cvr:{
           emoji:'🥽',
@@ -785,17 +799,31 @@
         if(!MODE_INFO[state.mode]) state.mode = 'solo';
 
         const urlView = qs('view','');
-        const autoMobile = window.innerWidth <= 720 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const autoMobile =
+          window.innerWidth <= 760 ||
+          /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
         state.view = VIEW_INFO[urlView] ? urlView : (autoMobile ? 'mobile' : 'pc');
+
+        /*
+          Mobile first:
+          ถ้าเข้าจากมือถือ ให้เลือก mobile เป็นค่าเริ่มต้นเสมอ
+        */
+        if(autoMobile) state.view = 'mobile';
 
         state.diff = qs('diff','normal');
         state.time = qs('time','90');
 
         els.playerName.value = qs('name','Hero');
         els.pid.value = qs('pid','anon');
-        els.diff.value = ['easy','normal','hard','challenge'].includes(state.diff) ? state.diff : 'normal';
-        els.time.value = ['60','90','120','150'].includes(String(state.time)) ? String(state.time) : '90';
+
+        els.diff.value = ['easy','normal','hard','challenge'].includes(state.diff)
+          ? state.diff
+          : 'normal';
+
+        els.time.value = ['60','90','120','150'].includes(String(state.time))
+          ? String(state.time)
+          : '90';
 
         const room = qs('room','') || qs('roomCode','');
         if(room) els.roomCode.value = room;
@@ -849,12 +877,17 @@
           ? `เริ่มเล่น ${mode.title}`
           : `เตรียม ${mode.title}`;
 
-        els.status.innerHTML = ready
-          ? `<strong>พร้อมเล่น:</strong> ${view.title} + ${mode.title} จะเปิดไปที่ <code>${view.path}</code>`
-          : `<strong>ยังไม่เปิดจริง:</strong> ${mode.note} • ${view.note}`;
+        if(ready){
+          els.status.innerHTML =
+            `<strong>พร้อมเล่น:</strong> ${view.title} + ${mode.title} จะเปิดไปที่ <code>${view.path}</code>`;
+        }else{
+          els.status.innerHTML =
+            `<strong>ยังไม่เปิดจริง:</strong> ${mode.note} • ${view.note}`;
+        }
 
         if(state.mode === 'solo' && state.view === 'mobile'){
-          els.status.innerHTML = `<strong>พร้อมเล่น:</strong> Mobile Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-mobile.html</code> เวอร์ชัน Clean v9.2`;
+          els.status.innerHTML =
+            `<strong>พร้อมเล่น:</strong> Mobile Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-mobile.html</code> เวอร์ชัน Ultimate Arcade v9.6`;
         }
       }
 
@@ -872,6 +905,7 @@
         const u = new URL('/webxr-health-mobile/herohealth/nutrition-zone.html', location.origin);
 
         copyCommonParams(u);
+
         u.searchParams.set('zone','nutrition');
         u.searchParams.set('from','groups-launcher');
         u.searchParams.set('hub','https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
@@ -941,7 +975,7 @@
         u.searchParams.set('diff', els.diff.value || 'normal');
         u.searchParams.set('time', els.time.value || '90');
         u.searchParams.set('view', view);
-        u.searchParams.set('run', mode === 'practice' ? 'practice' : 'play');
+        u.searchParams.set('run', 'play');
         u.searchParams.set('zone', 'nutrition');
         u.searchParams.set('game', 'groups');
         u.searchParams.set('mode', mode);
@@ -963,9 +997,11 @@
       function makeRoomCode(){
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let out = 'G';
+
         for(let i=0;i<4;i++){
           out += chars[Math.floor(Math.random()*chars.length)];
         }
+
         els.roomCode.value = out;
         return out;
       }
@@ -1019,8 +1055,14 @@
         });
 
         els.startBtn.addEventListener('click', start);
-        els.backZoneBtn.addEventListener('click', ()=>location.href = nutritionZoneUrl());
-        els.hubBtn.addEventListener('click', ()=>location.href = hubUrl());
+
+        els.backZoneBtn.addEventListener('click', ()=>{
+          location.href = nutritionZoneUrl();
+        });
+
+        els.hubBtn.addEventListener('click', ()=>{
+          location.href = hubUrl();
+        });
 
         window.HHA_GROUPS_LAUNCHER = {
           version:VERSION,
