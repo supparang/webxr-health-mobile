@@ -3606,3 +3606,91 @@ body.hha-hydration-boss .hha-hydration-target.is-junk{
     font-size:15px;
   }
 }
+/* =========================================================
+   PATCH v20260513-hydration-final-qa-lock-pack10
+   Final QA badge / debug-safe / no gameplay interference
+   ========================================================= */
+
+.hha-hydration-qa-badge{
+  position:fixed;
+  right:8px;
+  bottom:8px;
+  z-index:50000;
+  display:none;
+  max-width:78vw;
+  padding:8px 10px;
+  border-radius:14px;
+  background:rgba(255,255,255,.94);
+  color:#24607f;
+  font-size:11px;
+  font-weight:900;
+  line-height:1.25;
+  box-shadow:0 8px 20px rgba(30,75,115,.18);
+  border:2px solid rgba(67,199,255,.24);
+  pointer-events:none;
+}
+
+body.hha-debug .hha-hydration-qa-badge,
+body[data-debug="1"] .hha-hydration-qa-badge{
+  display:block;
+}
+
+.hha-hydration-boot-ok{
+  outline:0 !important;
+}
+
+.hha-hydration-boot-warn{
+  position:fixed;
+  inset:16px;
+  z-index:60000;
+  display:grid;
+  place-items:center;
+  pointer-events:auto;
+}
+
+.hha-hydration-boot-warn-card{
+  width:min(440px,94vw);
+  border-radius:26px;
+  padding:20px;
+  background:#fff;
+  color:#24445c;
+  box-shadow:0 24px 70px rgba(20,54,88,.28);
+  text-align:center;
+  font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+}
+
+.hha-hydration-boot-warn-card h2{
+  margin:6px 0 8px;
+  font-size:22px;
+  font-weight:1000;
+}
+
+.hha-hydration-boot-warn-card p{
+  margin:0;
+  color:#66879c;
+  font-size:13px;
+  font-weight:850;
+  line-height:1.35;
+}
+
+.hha-hydration-boot-warn-card button{
+  margin-top:14px;
+  width:100%;
+  border:0;
+  border-radius:18px;
+  padding:12px 14px;
+  color:white;
+  background:linear-gradient(180deg,#43c7ff,#2388ff);
+  font-size:16px;
+  font-weight:1000;
+  cursor:pointer;
+}
+
+@media (max-width:520px){
+  .hha-hydration-qa-badge{
+    right:6px;
+    bottom:6px;
+    font-size:10px;
+    padding:7px 9px;
+  }
+}
