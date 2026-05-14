@@ -1,0 +1,1021 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Battle v2 Run</title>
+  <meta name="theme-color" content="#ffd75a" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260514-battle-v2-run-clean"></script>
+
+  <style>
+    :root{
+      --bg1:#fff7d8;
+      --bg2:#eaf8ff;
+      --card:#fffdf4;
+      --line:#ffbd77;
+      --text:#87311b;
+      --muted:#8a6a4d;
+      --good:#72e98a;
+      --bad:#ff8d8d;
+      --power:#b79cff;
+    }
+
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      overflow:hidden;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      touch-action:manipulation;
+    }
+
+    .app{
+      height:100dvh;
+      padding:10px;
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:10px;
+    }
+
+    .top,.rival,.bottom{
+      border:3px solid var(--line);
+      border-radius:22px;
+      background:rgba(255,253,244,.96);
+      padding:10px;
+      box-shadow:0 12px 26px rgba(91,45,17,.10);
+    }
+
+    .top{
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .icon{
+      width:54px;
+      height:54px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      border:3px solid #ffd6a0;
+      background:linear-gradient(180deg,#fff3dc,#ffd75a);
+    }
+
+    .title{
+      min-width:0;
+    }
+
+    .title h1{
+      margin:0;
+      font-size:clamp(22px,5vw,34px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .title div{
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:900;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .actions{
+      display:flex;
+      gap:8px;
+    }
+
+    button{
+      min-height:44px;
+      border-radius:16px;
+      border:3px solid #ffd6a0;
+      background:#fff;
+      color:var(--text);
+      font-weight:1000;
+      font-size:14px;
+      padding:7px 12px;
+      cursor:pointer;
+    }
+
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:8px;
+    }
+
+    .stat{
+      border:2px solid #ffd6a0;
+      border-radius:16px;
+      background:#fffaf0;
+      padding:7px 4px;
+      text-align:center;
+      line-height:1.1;
+    }
+
+    .stat span{
+      display:block;
+      color:#8a5a00;
+      font-size:10px;
+      font-weight:1000;
+    }
+
+    .stat b{
+      display:block;
+      margin-top:3px;
+      font-size:18px;
+      font-weight:1000;
+    }
+
+    .rival{
+      display:grid;
+      gap:8px;
+    }
+
+    .rivalTitle{
+      display:flex;
+      justify-content:space-between;
+      gap:8px;
+      font-weight:1000;
+    }
+
+    .arena{
+      position:relative;
+      overflow:hidden;
+      border:4px solid var(--line);
+      border-radius:28px;
+      background:
+        linear-gradient(rgba(255,255,255,.18) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.18) 1px, transparent 1px),
+        linear-gradient(180deg,#eaf8ff,#fff8c8);
+      background-size:48px 48px,48px 48px,auto;
+      touch-action:manipulation;
+    }
+
+    .target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      border:7px solid var(--good);
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff,#ecffe9);
+      box-shadow:0 18px 34px rgba(50,120,40,.24);
+      font-size:42px;
+      cursor:pointer;
+      user-select:none;
+      touch-action:manipulation;
+      transform:scale(.2);
+      opacity:0;
+      transition:transform .12s ease, opacity .12s ease;
+    }
+
+    .target.show{
+      transform:scale(1);
+      opacity:1;
+    }
+
+    .target.junk{
+      border-color:var(--bad);
+      background:linear-gradient(180deg,#fffafa,#ffe1e1);
+    }
+
+    .target.power{
+      border-color:var(--power);
+      background:linear-gradient(180deg,#fff,#eee4ff);
+    }
+
+    .target.hit{
+      transform:scale(1.4) rotate(8deg);
+      opacity:0;
+    }
+
+    .target.miss{
+      transform:scale(.2);
+      opacity:0;
+      filter:grayscale(1);
+    }
+
+    .bottom{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+    }
+
+    .info{
+      font-size:13px;
+      font-weight:1000;
+      color:#8a5a00;
+      line-height:1.45;
+    }
+
+    .meter{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      border:2px solid #ffd6a0;
+      background:#fffaf0;
+      border-radius:999px;
+      padding:7px 10px;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:1000;
+      display:grid;
+      place-items:center;
+      padding:18px;
+      background:rgba(132,82,48,.50);
+      backdrop-filter:blur(14px);
+    }
+
+    .modal{
+      width:min(720px,94vw);
+      border:4px solid var(--line);
+      border-radius:34px;
+      background:#fffdf4;
+      box-shadow:0 22px 60px rgba(91,45,17,.26);
+      padding:22px;
+      text-align:center;
+    }
+
+    .modalIcon{
+      width:82px;
+      height:82px;
+      margin:0 auto 10px;
+      display:grid;
+      place-items:center;
+      border-radius:26px;
+      border:4px solid var(--line);
+      background:linear-gradient(180deg,#fff2dd,#ffd6a0);
+      font-size:42px;
+    }
+
+    .modal h2{
+      margin:0;
+      font-size:clamp(34px,8vw,56px);
+      line-height:1.08;
+      font-weight:1000;
+    }
+
+    .modal p{
+      font-weight:1000;
+      color:#8a5a00;
+    }
+
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:10px;
+      margin:14px 0;
+    }
+
+    .summaryCard{
+      border:3px solid #ffd6a0;
+      border-radius:20px;
+      background:#fffaf0;
+      padding:13px;
+      text-align:left;
+    }
+
+    .summaryCard b{
+      display:block;
+      font-size:24px;
+      margin-top:4px;
+    }
+
+    .summaryActions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+    }
+
+    .summaryActions button{
+      flex:1 1 170px;
+      min-height:52px;
+    }
+
+    @media(max-width:680px){
+      .top{
+        grid-template-columns:auto 1fr;
+      }
+
+      .actions{
+        grid-column:1 / -1;
+      }
+
+      .actions button{
+        flex:1;
+      }
+
+      .stats{
+        grid-template-columns:repeat(3,1fr);
+      }
+
+      .bottom{
+        grid-template-columns:1fr;
+      }
+
+      .meter{
+        justify-content:flex-start;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <section class="top">
+      <div class="icon">⚔️</div>
+      <div class="title">
+        <h1>GoodJunk Battle v2</h1>
+        <div id="subtitle">Clean Run</div>
+      </div>
+      <div class="actions">
+        <button id="lobbyBtn">Lobby</button>
+        <button id="hubBtn">Hub</button>
+      </div>
+    </section>
+
+    <section class="stats">
+      <div class="stat"><span>PLAYER</span><b id="playerName">-</b></div>
+      <div class="stat"><span>SCORE</span><b id="score">0</b></div>
+      <div class="stat"><span>COMBO</span><b id="combo">0</b></div>
+      <div class="stat"><span>HEART</span><b id="heart">❤️❤️❤️</b></div>
+      <div class="stat"><span>TIME</span><b id="timeLeft">90</b></div>
+    </section>
+
+    <section class="rival">
+      <div class="rivalTitle">
+        <span>คู่แข่ง: <b id="rivalName">รอคู่แข่ง</b></span>
+        <span id="statusTag">WAIT</span>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span>RIVAL SCORE</span><b id="rivalScore">0</b></div>
+        <div class="stat"><span>RIVAL HEART</span><b id="rivalHeart">-</b></div>
+        <div class="stat"><span>RIVAL GOOD</span><b id="rivalGood">0</b></div>
+        <div class="stat"><span>RIVAL JUNK</span><b id="rivalJunk">0</b></div>
+        <div class="stat"><span>ROOM</span><b id="roomLabel">-</b></div>
+      </div>
+    </section>
+
+    <section id="arena" class="arena"></section>
+
+    <section class="bottom">
+      <div id="info" class="info">กำลังเตรียม Battle…</div>
+      <div class="meter">
+        <div class="pill">Good <b id="good">0</b></div>
+        <div class="pill">Junk <b id="junk">0</b></div>
+        <div class="pill">Miss <b id="miss">0</b></div>
+        <div class="pill">Attack <b id="attack">0/3</b></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="overlay" class="overlay">
+    <div class="modal">
+      <div class="modalIcon">⏳</div>
+      <h2 id="overlayTitle">กำลังเตรียม</h2>
+      <p id="overlayText">รอข้อมูลห้อง Battle v2</p>
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const VERSION = 'goodjunk-battle-v2-run-20260514-clean';
+    const ROOM_BASE = 'hha-battle/goodjunk/battleV2Rooms';
+
+    const GOOD = ['🍎','🍌','🥕','🥦','🍚','🥚','🥛','🐟','🍊','🥬'];
+    const JUNK = ['🍟','🥤','🍩','🍬','🍔','🍕','🧁'];
+    const POWER = ['⚡','🛡️','💎'];
+
+    const $ = id => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+
+    const cfg = {
+      room:cleanRoom(params.get('room') || params.get('roomId') || ''),
+      matchId:clean(params.get('matchId') || ''),
+      pid:clean(params.get('pid') || ''),
+      name:clean(params.get('name') || params.get('nick') || 'Player'),
+      role:clean(params.get('role') || 'guest'),
+      time:Number(params.get('time') || 90),
+      startedAt:Number(params.get('startedAt') || 0),
+      hub:clean(params.get('hub') || '../nutrition-zone.html')
+    };
+
+    let db = null;
+    let auth = null;
+    let uid = '';
+
+    let room = null;
+    let unsub = null;
+
+    let running = false;
+    let ended = false;
+    let loop = null;
+    let writer = null;
+
+    let seq = 0;
+    let lastSpawn = 0;
+    const targets = new Map();
+
+    const state = {
+      score:0,
+      combo:0,
+      best:0,
+      heart:3,
+      good:0,
+      junk:0,
+      miss:0,
+      attack:0
+    };
+
+    boot();
+
+    async function boot(){
+      $('playerName').textContent = cfg.name;
+      $('roomLabel').textContent = cfg.room || '-';
+      $('subtitle').textContent = `${cfg.name} • ${cfg.role} • ${cfg.room}`;
+      $('hubBtn').onclick = () => location.href = cfg.hub || '../nutrition-zone.html';
+      $('lobbyBtn').onclick = goLobby;
+
+      try{
+        await firebaseReady();
+
+        if (!cfg.room) throw new Error('Missing room');
+
+        await attachRoom();
+        await ensurePlayerInRoom();
+
+        waitStart();
+      }catch(err){
+        console.error(err);
+        showOverlay('⚠️', 'เข้า Battle ไม่สำเร็จ', err?.message || err);
+      }
+    }
+
+    async function firebaseReady(){
+      if (!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
+
+      const fb = await window.HHA_FIREBASE_READY;
+      if (!fb || !fb.db || !fb.auth) throw new Error('Firebase not ready');
+
+      db = fb.db;
+      auth = fb.auth;
+
+      if (!auth.currentUser) throw new Error('Anonymous auth not ready');
+
+      uid = auth.currentUser.uid;
+    }
+
+    async function attachRoom(){
+      const ref = db.ref(roomPath(cfg.room));
+
+      unsub = ref.on('value', snap => {
+        room = snap.val();
+        renderRival();
+      });
+
+      room = await ref.get().then(s => s.val());
+      if (!room) throw new Error('Room not found');
+    }
+
+    async function ensurePlayerInRoom(){
+      const path = `${roomPath(cfg.room)}/players/${uid}`;
+      const existing = await db.ref(path).get().then(s => s.val()).catch(() => null);
+
+      if (!existing){
+        await db.ref(path).set({
+          uid,
+          pid:cfg.pid || uid,
+          name:cfg.name,
+          role:cfg.role === 'host' ? 'host' : 'guest',
+          ready:true,
+          joinedAt:Date.now(),
+          lastSeen:Date.now()
+        });
+      }else{
+        cfg.role = existing.role || cfg.role;
+        cfg.name = existing.name || cfg.name;
+        await db.ref(path).update({lastSeen:Date.now()});
+      }
+    }
+
+    function waitStart(){
+      const startedAt = Number(cfg.startedAt || room?.startedAt || Date.now() + 1500);
+      const delay = Math.max(0, startedAt - Date.now());
+
+      showOverlay('⚔️', 'เตรียม Battle', `เริ่มใน ${Math.ceil(delay/1000)} วินาที`);
+
+      let left = Math.ceil(delay / 1000);
+
+      const tick = setInterval(() => {
+        left -= 1;
+
+        if (left > 0){
+          showOverlay('⚔️', 'เตรียม Battle', `เริ่มใน ${left} วินาที`);
+        }else{
+          clearInterval(tick);
+          startGame();
+        }
+      }, 1000);
+
+      setTimeout(() => {
+        clearInterval(tick);
+        startGame();
+      }, delay + 80);
+    }
+
+    function startGame(){
+      if (running || ended) return;
+
+      running = true;
+      hideOverlay();
+
+      $('statusTag').textContent = 'PLAY';
+      $('info').textContent = 'แตะอาหารดี เก็บคะแนน เลี่ยง Junk แข่งกับเพื่อน!';
+
+      for (let i=0;i<5;i++) spawnTarget();
+
+      loop = setInterval(step, 90);
+      writer = setInterval(writeScore, 700);
+
+      writeScore();
+    }
+
+    function step(){
+      if (!running || ended) return;
+
+      const left = timeLeft();
+      $('timeLeft').textContent = left;
+
+      if (left <= 0 || state.heart <= 0){
+        finish(left <= 0 ? 'time-up' : 'heart-zero');
+        return;
+      }
+
+      expireTargets();
+
+      while (targets.size < 5) spawnTarget();
+
+      const now = Date.now();
+      if (now - lastSpawn > 760 && targets.size < 8){
+        spawnTarget();
+        lastSpawn = now;
+      }
+
+      renderHud();
+    }
+
+    function spawnTarget(){
+      if (!running || ended) return;
+
+      const arena = $('arena');
+      const rect = arena.getBoundingClientRect();
+
+      if (rect.width < 40 || rect.height < 40) return;
+
+      seq += 1;
+
+      let kind = 'good';
+      let emoji = pick(GOOD);
+
+      const roll = Math.random();
+      if (roll > .78 && roll <= .92){
+        kind = 'junk';
+        emoji = pick(JUNK);
+      }else if (roll > .92){
+        kind = 'power';
+        emoji = pick(POWER);
+      }
+
+      const size = rand(72, 98);
+      const id = 't' + seq + '-' + Date.now();
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `target ${kind}`;
+      btn.textContent = emoji;
+      btn.dataset.id = id;
+      btn.dataset.kind = kind;
+      btn.style.width = size + 'px';
+      btn.style.height = size + 'px';
+
+      const x = rand(14, Math.max(14, rect.width - size - 14));
+      const y = rand(14, Math.max(14, rect.height - size - 14));
+
+      btn.style.left = x + 'px';
+      btn.style.top = y + 'px';
+
+      const item = {
+        id,
+        btn,
+        kind,
+        emoji,
+        bornAt:Date.now(),
+        expiresAt:Date.now() + (kind === 'junk' ? 6800 : 5600),
+        hit:false
+      };
+
+      targets.set(id,item);
+      arena.appendChild(btn);
+
+      btn.addEventListener('pointerdown', ev => {
+        ev.preventDefault();
+        collect(id);
+      }, {passive:false});
+
+      btn.addEventListener('touchstart', ev => {
+        ev.preventDefault();
+        collect(id);
+      }, {passive:false});
+
+      btn.addEventListener('click', ev => {
+        ev.preventDefault();
+        collect(id);
+      });
+
+      requestAnimationFrame(() => btn.classList.add('show'));
+    }
+
+    function collect(id){
+      const t = targets.get(id);
+      if (!t || t.hit || ended) return;
+
+      t.hit = true;
+
+      if (t.kind === 'good'){
+        state.good += 1;
+        state.combo += 1;
+        state.best = Math.max(state.best,state.combo);
+        state.score += 10 + Math.min(20,state.combo);
+
+        if (state.good % 5 === 0){
+          state.attack = Math.min(3,state.attack + 1);
+        }
+
+        beep(620);
+        vibrate(15);
+      }
+
+      if (t.kind === 'junk'){
+        state.junk += 1;
+        state.miss += 1;
+        state.combo = 0;
+        state.score = Math.max(0,state.score - 10);
+        state.heart = Math.max(0,state.heart - 1);
+
+        beep(180);
+        vibrate([20,20,20]);
+      }
+
+      if (t.kind === 'power'){
+        state.score += 5;
+        if (t.emoji === '🛡️') state.heart = Math.min(3,state.heart + 1);
+        else state.attack = Math.min(3,state.attack + 1);
+
+        beep(820);
+        vibrate(15);
+      }
+
+      removeTarget(id,'hit');
+      renderHud();
+      writeScore();
+
+      setTimeout(() => {
+        if (!ended) spawnTarget();
+      },120);
+    }
+
+    function expireTargets(){
+      const now = Date.now();
+
+      for (const [id,t] of Array.from(targets.entries())){
+        if (t.hit) continue;
+
+        if (now >= t.expiresAt){
+          if (t.kind === 'good'){
+            state.miss += 1;
+            state.combo = 0;
+          }
+          removeTarget(id,'miss');
+        }
+      }
+    }
+
+    function removeTarget(id,mode){
+      const t = targets.get(id);
+      if (!t) return;
+
+      targets.delete(id);
+
+      if (t.btn && t.btn.isConnected){
+        t.btn.classList.add(mode === 'hit' ? 'hit' : 'miss');
+        setTimeout(() => {
+          try{t.btn.remove();}catch(_){}
+        },160);
+      }
+    }
+
+    async function writeScore(){
+      if (!db || !cfg.room || ended && state._finalWritten) return;
+
+      const payload = {
+        uid,
+        pid:cfg.pid || uid,
+        name:cfg.name,
+        role:cfg.role,
+        score:state.score,
+        combo:state.combo,
+        best:state.best,
+        heart:state.heart,
+        good:state.good,
+        junk:state.junk,
+        miss:state.miss,
+        attack:state.attack,
+        timeLeft:timeLeft(),
+        finished:ended,
+        updatedAt:Date.now()
+      };
+
+      await db.ref(`${roomPath(cfg.room)}/scores/${uid}`).set(payload).catch(() => {});
+    }
+
+    async function finish(reason){
+      if (ended) return;
+
+      ended = true;
+      running = false;
+
+      if (loop) clearInterval(loop);
+      if (writer) clearInterval(writer);
+
+      for (const id of Array.from(targets.keys())) removeTarget(id,'miss');
+
+      state._finalWritten = false;
+      await writeScore().catch(() => {});
+      state._finalWritten = true;
+
+      await db.ref(`${roomPath(cfg.room)}/results/${uid}`).set({
+        uid,
+        pid:cfg.pid || uid,
+        name:cfg.name,
+        role:cfg.role,
+        score:state.score,
+        combo:state.combo,
+        best:state.best,
+        heart:state.heart,
+        good:state.good,
+        junk:state.junk,
+        miss:state.miss,
+        attack:state.attack,
+        reason,
+        finished:true,
+        finishedAt:Date.now()
+      }).catch(() => {});
+
+      showSummary(reason);
+    }
+
+    function renderHud(){
+      $('score').textContent = state.score;
+      $('combo').textContent = state.combo;
+      $('heart').textContent = state.heart > 0 ? '❤️'.repeat(state.heart) : '—';
+      $('good').textContent = state.good;
+      $('junk').textContent = state.junk;
+      $('miss').textContent = state.miss;
+      $('attack').textContent = `${state.attack}/3`;
+      $('timeLeft').textContent = timeLeft();
+    }
+
+    function renderRival(){
+      if (!room) return;
+
+      const players = Object.entries(room.players || {});
+      const rivals = players.filter(([k]) => k !== uid);
+      const rivalEntry = rivals[0];
+
+      if (!rivalEntry){
+        $('rivalName').textContent = 'รอคู่แข่ง';
+        $('statusTag').textContent = 'WAIT';
+        return;
+      }
+
+      const [rivalUid,rivalPlayer] = rivalEntry;
+      const score = room.scores?.[rivalUid] || room.results?.[rivalUid] || null;
+
+      $('rivalName').textContent = rivalPlayer?.name || 'คู่แข่ง';
+      $('rivalScore').textContent = score?.score ?? 0;
+      $('rivalHeart').textContent = Number(score?.heart || 0) > 0 ? '❤️'.repeat(Number(score.heart)) : '-';
+      $('rivalGood').textContent = score?.good ?? 0;
+      $('rivalJunk').textContent = score?.junk ?? 0;
+
+      if (!ended){
+        $('statusTag').textContent = score?.finished ? 'DONE' : 'PLAY';
+      }
+    }
+
+    function showSummary(reason){
+      const allScores = room?.scores || {};
+      const allResults = room?.results || {};
+      const my = {
+        name:cfg.name,
+        score:state.score,
+        good:state.good,
+        junk:state.junk,
+        miss:state.miss,
+        reason
+      };
+
+      let rival = null;
+
+      for (const [k,v] of Object.entries({...allScores,...allResults})){
+        if (k !== uid){
+          rival = v;
+          break;
+        }
+      }
+
+      const myScore = Number(my.score || 0);
+      const rivalScore = Number(rival?.score || 0);
+
+      let title = 'จบ Battle!';
+      let icon = '🏁';
+
+      if (rival){
+        if (myScore > rivalScore){
+          title = 'ชนะ Battle!';
+          icon = '🏆';
+        }else if (myScore < rivalScore){
+          title = 'แพ้ Battle';
+          icon = '💪';
+        }else{
+          title = 'เสมอ Battle!';
+          icon = '🏁';
+        }
+      }
+
+      const overlay = $('overlay');
+      overlay.style.display = 'grid';
+      overlay.innerHTML = `
+        <div class="modal">
+          <div class="modalIcon">${icon}</div>
+          <h2>${esc(title)}</h2>
+          <p>เหตุผล: ${esc(reason)}</p>
+
+          <div class="summaryGrid">
+            <div class="summaryCard">
+              คุณ: <b>${esc(my.name)}</b>
+              <div>Score: <b>${myScore}</b></div>
+              <div>Good: ${my.good} • Junk: ${my.junk} • Miss: ${my.miss}</div>
+            </div>
+
+            <div class="summaryCard">
+              คู่แข่ง: <b>${esc(rival?.name || 'ยังไม่ส่งผล')}</b>
+              <div>Score: <b>${rival ? rivalScore : '-'}</b></div>
+              <div>Good: ${rival?.good ?? '-'} • Junk: ${rival?.junk ?? '-'} • Miss: ${rival?.miss ?? '-'}</div>
+            </div>
+          </div>
+
+          <div class="summaryActions">
+            <button id="againBtn">🔁 Battle อีกครั้ง</button>
+            <button id="backLobbyBtn">⚔️ กลับ Lobby</button>
+            <button id="backHubBtn">🏠 Hub</button>
+          </div>
+        </div>
+      `;
+
+      $('againBtn').onclick = goLobby;
+      $('backLobbyBtn').onclick = goLobby;
+      $('backHubBtn').onclick = () => location.href = cfg.hub || '../nutrition-zone.html';
+    }
+
+    function goLobby(){
+      const u = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+
+      Object.entries({
+        room:cfg.room,
+        roomId:cfg.room,
+        pid:cfg.pid,
+        name:cfg.name,
+        nick:cfg.name,
+        role:cfg.role,
+        host:cfg.role === 'host' ? '1' : '0',
+        time:String(cfg.time),
+        hub:cfg.hub,
+        mode:'battle-v2',
+        entry:'battle-v2'
+      }).forEach(([k,v]) => u.searchParams.set(k,String(v)));
+
+      location.href = u.toString();
+    }
+
+    function showOverlay(icon,title,text){
+      $('overlay').style.display = 'grid';
+      $('overlay').innerHTML = `
+        <div class="modal">
+          <div class="modalIcon">${icon}</div>
+          <h2>${esc(title)}</h2>
+          <p>${esc(text)}</p>
+        </div>
+      `;
+    }
+
+    function hideOverlay(){
+      $('overlay').style.display = 'none';
+    }
+
+    function timeLeft(){
+      const start = Number(cfg.startedAt || room?.startedAt || Date.now());
+      const sec = Number(cfg.time || room?.timeSec || 90);
+      return Math.max(0, Math.ceil(sec - ((Date.now() - start) / 1000)));
+    }
+
+    function roomPath(roomId){
+      return `${ROOM_BASE}/${safeKey(roomId)}`;
+    }
+
+    function pick(arr){
+      return arr[Math.floor(Math.random()*arr.length)];
+    }
+
+    function rand(min,max){
+      return Math.round(min + Math.random()*Math.max(0,max-min));
+    }
+
+    function beep(freq){
+      try{
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = window.__GJB2_AUDIO__ || new AudioCtx();
+        window.__GJB2_AUDIO__ = ctx;
+
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.frequency.value = freq || 440;
+        g.gain.value = .045;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start();
+        o.stop(ctx.currentTime + .055);
+      }catch(_){}
+    }
+
+    function vibrate(p){
+      try{
+        if (navigator.vibrate) navigator.vibrate(p);
+      }catch(_){}
+    }
+
+    function clean(v){return String(v ?? '').trim();}
+
+    function cleanRoom(v){
+      let s = clean(v).toUpperCase();
+      s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
+      if (!s) return '';
+      if (!s.startsWith('GJ-BT-')){
+        s = 'GJ-BT-' + s
+          .replace(/^GJ-BT/i,'')
+          .replace(/^GJBT/i,'')
+          .replace(/^BT/i,'')
+          .replace(/^-/, '');
+      }
+      return s.slice(0,16);
+    }
+
+    function safeKey(v){
+      return clean(v).replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';
+    }
+
+    function esc(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#39;");
+    }
+  })();
+  </script>
+</body>
+</html>
