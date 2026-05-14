@@ -796,105 +796,77 @@
 (function(){
   'use strict';
 
-  function buildPlateSoloUrl(){
-    const p = new URLSearchParams(location.search);
+  const Q = new URL(location.href).searchParams;
+  const qs = (k, d = '') => Q.get(k) ?? d;
 
-    const url = new URL(
-      'https://supparang.github.io/webxr-health-mobile/herohealth/plate-solo.html'
-    );
+  function buildPlateSoloUrl(){
+    const u = new URL('./plate-solo.html', location.href);
 
     [
       'pid',
       'name',
       'nick',
-      'studentId',
-      'studentName',
-      'classSection',
       'diff',
       'time',
       'view',
       'run',
+      'seed',
       'studyId',
       'conditionGroup',
       'section',
       'session_code',
       'log',
-      'api',
-      'seed'
+      'api'
     ].forEach(k => {
-      const v = p.get(k);
-      if (v !== null && v !== '') {
-        url.searchParams.set(k, v);
-      }
+      const v = qs(k, '');
+      if (v !== '') u.searchParams.set(k, v);
     });
 
-    url.searchParams.set('zone', 'nutrition');
-    url.searchParams.set('game', 'plate');
-    url.searchParams.set('gameId', 'plate');
-    url.searchParams.set('mode', 'solo');
-    url.searchParams.set('entry', 'plate-solo');
-    url.searchParams.set('from', 'plate-v1');
+    u.searchParams.set('pid', qs('pid', 'anon'));
+    u.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+    u.searchParams.set('diff', qs('diff', 'normal'));
+    u.searchParams.set('time', qs('time', '120'));
+    u.searchParams.set('view', qs('view', 'mobile'));
+    u.searchParams.set('run', qs('run', 'play'));
 
-    const hub =
-      p.get('hub') ||
-      'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html';
+    u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('game', 'plate');
+    u.searchParams.set('mode', 'solo');
+    u.searchParams.set('entry', 'plate-v1');
+    u.searchParams.set('from', 'plate-v1');
 
-    url.searchParams.set('hub', hub);
+    u.searchParams.set(
+      'hub',
+      qs(
+        'hub',
+        'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html'
+      )
+    );
 
-    return url.toString();
+    return u.toString();
   }
 
-  function patchPlateSoloLinks(){
-    const soloUrl = buildPlateSoloUrl();
+  function goPlateSolo(){
+    location.href = buildPlateSoloUrl();
+  }
 
-    const candidates = Array.from(document.querySelectorAll(
-      'a, button, [data-mode], [data-entry], [data-game-mode]'
-    ));
+  window.goPlateSolo = goPlateSolo;
 
-    candidates.forEach(el => {
-      const text = (el.textContent || '').toLowerCase();
-      const mode = (
-        el.dataset.mode ||
-        el.dataset.entry ||
-        el.dataset.gameMode ||
-        ''
-      ).toLowerCase();
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn =
+      document.getElementById('btnSolo') ||
+      document.getElementById('soloBtn') ||
+      document.querySelector('[data-mode="solo"]') ||
+      document.querySelector('[data-go="solo"]');
 
-      const isSolo =
-        mode.includes('solo') ||
-        mode.includes('plate-solo') ||
-        text.includes('solo') ||
-        text.includes('เล่นคนเดียว');
-
-      if (!isSolo) return;
-
-      el.dataset.fixedPlateSoloUrl = soloUrl;
-
-      if (el.tagName === 'A') {
-        el.href = soloUrl;
-      }
-
-      if (el.__plateSoloLinkFixed) return;
-      el.__plateSoloLinkFixed = true;
-
-      el.addEventListener('click', function(ev){
+    if (btn && !btn.__plateSoloBound) {
+      btn.__plateSoloBound = true;
+      btn.addEventListener('click', ev => {
         ev.preventDefault();
-        location.href = soloUrl;
-      }, true);
-    });
-
-    window.PLATE_SOLO_URL_FIXED = soloUrl;
-    console.info('[Plate v1] Plate Solo link fixed:', soloUrl);
-  }
-
-  document.addEventListener('DOMContentLoaded', patchPlateSoloLinks);
-
-  if (document.readyState === 'interactive' || document.readyState === 'complete') {
-    patchPlateSoloLinks();
-  }
-
-  setTimeout(patchPlateSoloLinks, 300);
-  setTimeout(patchPlateSoloLinks, 900);
+        goPlateSolo();
+      });
+    }
+  });
 })();
 </script>
 </body>
