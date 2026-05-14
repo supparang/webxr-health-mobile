@@ -3694,3 +3694,142 @@ body[data-debug="1"] .hha-hydration-qa-badge{
     padding:7px 9px;
   }
 }
+/* =========================================================
+   PATCH v20260514-hydration-summary-clean-pack11
+   Summary mobile clean / ลดปุ่มซ้ำ / ลดขนาดตัวอักษรท้ายเกม
+   ========================================================= */
+
+/* กันปุ่ม Pack9 ที่ถูก inject ซ้ำจนบังจอ */
+.hha-hydration-final-actions{
+  position:static !important;
+  width:100% !important;
+  max-width:100% !important;
+  margin:14px auto 8px !important;
+  padding:0 8px !important;
+  display:grid !important;
+  gap:8px !important;
+}
+
+.hha-hydration-final-actions button{
+  min-height:54px !important;
+  border-radius:18px !important;
+  font-size:18px !important;
+  line-height:1.15 !important;
+}
+
+/* ถ้ามีปุ่มเดิมของ Summary อยู่แล้ว ให้ Pack9 ทำตัวเป็นแถวสำรอง ไม่ลอยทับ */
+.hha-hydration-summary,
+#hha-hydration-summary,
+#hydration-summary,
+.hha-summary,
+.hha-summary-panel{
+  padding-bottom:28px !important;
+  overflow:auto !important;
+  -webkit-overflow-scrolling:touch !important;
+}
+
+/* Summary บนมือถือ */
+@media (max-width:520px){
+
+  .hha-hydration-summary,
+  #hha-hydration-summary,
+  #hydration-summary,
+  .hha-summary,
+  .hha-summary-panel{
+    width:100vw !important;
+    max-width:100vw !important;
+    padding-left:18px !important;
+    padding-right:18px !important;
+    padding-bottom:32px !important;
+  }
+
+  /* หัวข้อ Aqua Legend */
+  .hha-hydration-summary h1,
+  #hha-hydration-summary h1,
+  #hydration-summary h1,
+  .hha-summary h1,
+  .hha-summary-panel h1{
+    font-size:38px !important;
+    line-height:1.05 !important;
+    margin-bottom:10px !important;
+  }
+
+  /* คะแนนรวม */
+  .hha-hydration-summary .score,
+  #hha-hydration-summary .score,
+  #hydration-summary .score,
+  .hha-summary .score,
+  .hha-summary-panel .score{
+    font-size:54px !important;
+    line-height:1 !important;
+  }
+
+  /* กล่องทั่วไปใน Summary */
+  .hha-hydration-summary .card,
+  #hha-hydration-summary .card,
+  #hydration-summary .card,
+  .hha-summary .card,
+  .hha-summary-panel .card{
+    border-radius:22px !important;
+  }
+
+  /* ลดขนาดหัวข้อ Badge */
+  .hha-hydration-summary h2,
+  #hha-hydration-summary h2,
+  #hydration-summary h2,
+  .hha-summary h2,
+  .hha-summary-panel h2{
+    font-size:30px !important;
+    line-height:1.15 !important;
+  }
+
+  /* Badge cards */
+  .hha-hydration-summary [class*="badge"],
+  #hha-hydration-summary [class*="badge"],
+  #hydration-summary [class*="badge"],
+  .hha-summary [class*="badge"],
+  .hha-summary-panel [class*="badge"]{
+    font-size:16px !important;
+  }
+
+  .hha-hydration-summary [class*="badge"] b,
+  #hha-hydration-summary [class*="badge"] b,
+  #hydration-summary [class*="badge"] b,
+  .hha-summary [class*="badge"] b,
+  .hha-summary-panel [class*="badge"] b{
+    font-size:24px !important;
+    line-height:1.1 !important;
+  }
+
+  /* ปุ่มท้าย Summary ให้พอดีกับมือถือ */
+  .hha-hydration-final-actions{
+    margin-top:12px !important;
+    padding:0 !important;
+    gap:8px !important;
+  }
+
+  .hha-hydration-final-actions button{
+    min-height:50px !important;
+    padding:11px 12px !important;
+    border-radius:18px !important;
+    font-size:16px !important;
+  }
+
+  /* ถ้าปุ่มเดิมเป็น 2 คอลัมน์ ให้ยังคงอ่านง่าย */
+  .hha-summary-actions,
+  .hha-result-actions,
+  .hha-end-actions{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+  }
+
+  .hha-summary-actions button,
+  .hha-result-actions button,
+  .hha-end-actions button{
+    min-height:58px !important;
+    border-radius:20px !important;
+    font-size:18px !important;
+    line-height:1.1 !important;
+  }
+}
