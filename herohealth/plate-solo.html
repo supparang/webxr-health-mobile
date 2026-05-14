@@ -1,243 +1,343 @@
 <!-- === /herohealth/plate-solo.html === -->
 <!-- HeroHealth Plate Solo -->
-<!-- v20260513-PLATE-SOLO-HTML-SUMMARYFIX2-DOMSAFE -->
-<!-- ใช้คู่กับ /herohealth/plate-solo.js v20260513-PLATE-SOLO-SUMMARYFIX2-DOMFIX-POLISH -->
+<!-- v20260514-PLATE-SOLO-HTML-PORTION-TARGET-COOLDOWN-ZONEFIX -->
+<!-- ✅ เข้าได้จาก plate-v1.html -->
+<!-- ✅ รองรับ pid/name/diff/time/view/run/zone/game/hub -->
+<!-- ✅ มี Summary Overlay + Cooldown Button -->
+<!-- ✅ ปุ่ม Cooldown ส่งต่อให้ /herohealth/warmup-gate.html จาก plate-solo.js -->
+<!-- ✅ หลัง Cooldown กลับ Nutrition Zone ตาม hub/next ที่ JS สร้าง -->
+<!-- ✅ DOM id ครบสำหรับ plate-solo.js ล่าสุด -->
+<!-- ✅ Child-friendly / Mobile-first / PC-Mobile-cVR ready -->
 
 <!doctype html>
 <html lang="th">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Plate Solo</title>
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
-
-  <title>HeroHealth • Plate Solo</title>
-
   <link rel="icon" href="./favicon.ico" />
-  <link rel="stylesheet" href="./plate-solo.css?v=20260513-summaryfix2" />
 
   <style>
-    /*
-      Critical guard:
-      กัน Summary เด้งเองก่อน CSS หลักโหลดเสร็จ
-    */
-    #summaryOverlay.hidden,
-    #summaryModal.hidden,
-    .summary-modal.hidden{
-      display:none !important;
-      visibility:hidden !important;
-      opacity:0 !important;
-      pointer-events:none !important;
+    :root{
+      --bg1:#fff8dc;
+      --bg2:#e8fbff;
+      --bg3:#eaffef;
+
+      --panel:#fffef8;
+      --panel2:#f5fdff;
+      --card:#ffffff;
+      --line:#cfeaf5;
+
+      --text:#24485f;
+      --muted:#6b8aa0;
+
+      --blue:#47bfff;
+      --blue2:#208ad9;
+      --green:#53d67a;
+      --green2:#18a957;
+      --yellow:#ffd75a;
+      --orange:#ffaf4d;
+      --red:#ff6b6b;
+      --pink:#ff9ecf;
+      --purple:#9f83ff;
+
+      --shadow:0 18px 48px rgba(31,75,105,.16);
+      --shadow2:0 24px 70px rgba(31,75,105,.22);
+
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-right:env(safe-area-inset-right,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --safe-left:env(safe-area-inset-left,0px);
+
+      --plate-runtime-vh:100vh;
     }
 
-    #summaryOverlay:not(.show),
-    #summaryModal:not(.show),
-    .summary-modal:not(.show){
-      display:none;
-      visibility:hidden;
-      opacity:0;
-      pointer-events:none;
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
     }
 
-    #summaryOverlay.show,
-    #summaryModal.show,
-    .summary-modal.show{
-      display:flex !important;
-      visibility:visible !important;
-      opacity:1 !important;
-      pointer-events:auto !important;
-    }
-
+    html,
     body{
       margin:0;
-      min-height:100vh;
-      background:
-        radial-gradient(circle at 20% 12%, rgba(255,255,255,.92), transparent 34%),
-        linear-gradient(135deg,#e8fbff 0%,#fff8dc 54%,#e9ffe9 100%);
+      width:100%;
+      min-height:100%;
+      overflow-x:hidden;
       font-family:
+        ui-rounded,
+        "SF Pro Rounded",
+        "Aptos Rounded",
+        "Segoe UI",
         system-ui,
         -apple-system,
         BlinkMacSystemFont,
-        "Segoe UI",
         sans-serif;
-      color:#24445d;
-      overflow-x:hidden;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 18%, rgba(255,255,255,.95), transparent 22rem),
+        radial-gradient(circle at 86% 18%, rgba(255,255,255,.92), transparent 18rem),
+        linear-gradient(135deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+    }
+
+    body{
+      min-height:100vh;
+    }
+
+    button{
+      font:inherit;
+    }
+
+    .hidden{
+      display:none!important;
     }
 
     .plate-app{
+      width:100%;
       min-height:100vh;
+      min-height:var(--plate-runtime-vh);
       padding:
-        max(12px, env(safe-area-inset-top))
-        max(12px, env(safe-area-inset-right))
-        max(14px, env(safe-area-inset-bottom))
-        max(12px, env(safe-area-inset-left));
-      box-sizing:border-box;
+        calc(12px + var(--safe-top))
+        calc(14px + var(--safe-right))
+        calc(18px + var(--safe-bottom))
+        calc(14px + var(--safe-left));
+      position:relative;
+      isolation:isolate;
     }
 
-    .plate-topbar{
+    .bg-decor{
+      position:fixed;
+      inset:0;
+      z-index:-1;
+      overflow:hidden;
+      pointer-events:none;
+    }
+
+    .bubble{
+      position:absolute;
+      border-radius:999px;
+      background:rgba(255,255,255,.45);
+      filter:blur(.2px);
+      animation:floaty 8s ease-in-out infinite alternate;
+    }
+
+    .b1{width:190px;height:190px;left:4%;top:12%;}
+    .b2{width:260px;height:260px;right:4%;top:24%;animation-delay:-2s;}
+    .b3{width:180px;height:180px;left:45%;bottom:4%;animation-delay:-4s;}
+    .b4{width:130px;height:130px;right:18%;bottom:16%;animation-delay:-1s;}
+
+    @keyframes floaty{
+      from{transform:translateY(-8px) scale(1);}
+      to{transform:translateY(16px) scale(1.035);}
+    }
+
+    .topbar{
       display:flex;
       align-items:center;
       justify-content:space-between;
-      gap:12px;
-      min-height:74px;
-      padding:12px 16px;
-      border:1px solid rgba(147,207,230,.72);
-      border-radius:28px;
-      background:rgba(255,255,255,.86);
-      box-shadow:0 16px 42px rgba(34,82,110,.10);
-      backdrop-filter:blur(10px);
+      gap:14px;
+      max-width:1320px;
+      margin:0 auto 12px;
+      position:relative;
+      z-index:20;
     }
 
-    .plate-brand{
+    .brand{
       display:flex;
       align-items:center;
       gap:12px;
       min-width:0;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(130,190,215,.35);
+      border-radius:24px;
+      padding:10px 14px;
+      box-shadow:0 12px 28px rgba(30,80,110,.10);
+      backdrop-filter:blur(10px);
     }
 
-    .plate-logo{
+    .brandIcon{
+      width:48px;
+      height:48px;
+      border-radius:18px;
       display:grid;
       place-items:center;
-      width:52px;
-      height:52px;
-      border-radius:18px;
-      background:linear-gradient(135deg,#d8fff0,#fff4b8);
-      box-shadow:inset 0 -4px 10px rgba(42,91,120,.08);
-      font-size:30px;
-      flex:0 0 auto;
+      background:linear-gradient(135deg,#fff8d0,#dcfff1);
+      font-size:28px;
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.8);
     }
 
-    .plate-title-block{
+    .brandText{
       min-width:0;
     }
 
-    .plate-title{
-      margin:0;
-      color:#24445d;
-      font-size:clamp(25px,3vw,38px);
-      line-height:1;
+    .eyebrow{
+      font-size:12px;
       font-weight:1000;
-      letter-spacing:-.04em;
+      color:#2d97cf;
+      letter-spacing:.03em;
+      text-transform:uppercase;
     }
 
-    .plate-subtitle{
-      margin-top:4px;
-      color:#6c90a7;
-      font-size:clamp(13px,1.5vw,17px);
-      font-weight:850;
+    .brand h1{
+      margin:0;
+      font-size:clamp(20px,3vw,32px);
+      line-height:1.05;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    .plate-main{
-      width:min(1320px,100%);
-      margin:14px auto 0;
+    .brand p{
+      margin:3px 0 0;
+      color:var(--muted);
+      font-weight:800;
+      font-size:13px;
+    }
+
+    .top-actions{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .pill{
+      border-radius:999px;
+      padding:9px 12px;
+      font-size:13px;
+      font-weight:1000;
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(120,180,210,.32);
+      box-shadow:0 10px 24px rgba(30,80,110,.08);
+      color:var(--text);
+    }
+
+    .layout{
+      max-width:1320px;
+      margin:0 auto;
       display:grid;
-      grid-template-columns:280px minmax(0,1fr);
-      gap:12px;
+      grid-template-columns:minmax(230px,290px) minmax(0,1fr);
+      gap:14px;
       align-items:stretch;
     }
 
-    .plate-side{
-      border:1px solid rgba(147,207,230,.72);
-      border-radius:28px;
-      background:
-        radial-gradient(circle at 20% 8%, rgba(255,255,230,.8), transparent 36%),
-        rgba(255,255,255,.76);
-      box-shadow:0 18px 42px rgba(34,82,110,.10);
-      padding:14px;
-      min-height:560px;
-      overflow:auto;
+    .side{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      min-width:0;
+      position:relative;
+      z-index:18;
     }
 
-    .goal-title{
+    .panel{
+      background:rgba(255,254,248,.82);
+      border:1px solid rgba(130,190,215,.35);
+      border-radius:26px;
+      box-shadow:var(--shadow);
+      padding:14px;
+      backdrop-filter:blur(12px);
+    }
+
+    .panel h2,
+    .panel h3{
       margin:0 0 10px;
-      color:#24445d;
-      font-size:24px;
-      font-weight:1000;
-      letter-spacing:-.03em;
+      line-height:1.1;
+    }
+
+    .panel h2{
+      font-size:21px;
+    }
+
+    .panel h3{
+      font-size:16px;
+      color:#2f6179;
     }
 
     .goal-list{
       display:grid;
-      gap:7px;
+      gap:8px;
     }
 
     .mission{
       display:block;
-      padding:4px 0;
-      color:#536f82;
-      font-size:14px;
-      line-height:1.25;
+      border-radius:16px;
+      padding:9px 10px;
+      background:#fff;
+      border:1px solid rgba(120,180,210,.22);
       font-weight:900;
+      line-height:1.25;
+      box-shadow:0 7px 16px rgba(40,90,120,.06);
     }
 
     .mission small{
+      display:inline-block;
       margin-left:4px;
-      color:#7997aa;
+      color:#51788f;
       font-weight:1000;
     }
 
     .mission.done{
-      color:#238653;
+      background:linear-gradient(135deg,#effff5,#fffde8);
+      border-color:rgba(72,205,120,.36);
+      color:#176b45;
     }
 
     .mission.hot{
-      color:#c07a00;
+      outline:3px solid rgba(255,210,72,.32);
     }
 
-    .panel-note{
-      margin-top:12px;
-      padding:12px;
-      border:1px dashed rgba(99,177,214,.5);
-      border-radius:18px;
-      background:rgba(244,253,255,.78);
-      color:#557486;
-      font-size:13px;
-      line-height:1.35;
-      font-weight:850;
+    .balance-wrap{
+      display:grid;
+      gap:8px;
+      margin:10px 0;
     }
 
-    .progress-wrap{
-      margin-top:12px;
-    }
-
-    .progress-label-row{
+    .balance-head{
       display:flex;
+      align-items:center;
       justify-content:space-between;
       gap:10px;
-      color:#557486;
-      font-size:13px;
       font-weight:1000;
-      margin-bottom:6px;
     }
 
-    .progress-track{
-      height:12px;
+    .big-balance{
+      font-size:36px;
+      line-height:1;
+      font-weight:1000;
+      color:#24485f;
+    }
+
+    .progress{
+      height:14px;
       border-radius:999px;
+      background:#e6f3f7;
       overflow:hidden;
-      background:#e7f4fa;
-      box-shadow:inset 0 2px 6px rgba(36,72,94,.08);
+      box-shadow:inset 0 2px 5px rgba(40,80,100,.08);
     }
 
-    .progress-fill{
+    .progress i{
       display:block;
-      height:100%;
       width:0%;
+      height:100%;
       border-radius:999px;
-      background:linear-gradient(90deg,#65d86f,#ffd861,#ffae42);
-      transition:width .22s ease;
+      background:linear-gradient(90deg,#54d777,#ffd75a,#ff7d72);
+      transition:width .2s ease;
     }
 
     .meters-list{
       display:grid;
-      gap:9px;
-      margin-top:10px;
+      gap:8px;
     }
 
-    .food-meter{
-      padding:9px 10px;
-      border:1px solid rgba(169,214,232,.72);
+    .meter-row{
       border-radius:18px;
-      background:rgba(255,255,255,.82);
+      background:rgba(255,255,255,.85);
+      border:1px solid rgba(120,180,210,.22);
+      padding:10px;
+      box-shadow:0 8px 18px rgba(40,90,120,.06);
     }
 
     .meter-head{
@@ -245,631 +345,1173 @@
       align-items:center;
       justify-content:space-between;
       gap:8px;
-      color:#24465d;
-      font-size:13px;
       font-weight:1000;
+      font-size:13px;
     }
 
     .meter-name{
-      min-width:0;
-      overflow:hidden;
       white-space:nowrap;
+      overflow:hidden;
       text-overflow:ellipsis;
     }
 
     .meter-value{
-      flex:0 0 auto;
-      color:#6f8da0;
-      white-space:nowrap;
+      color:#426d84;
     }
 
     .meter-track{
-      position:relative;
       height:12px;
-      margin-top:7px;
       border-radius:999px;
-      background:#e7f4fa;
       overflow:hidden;
+      background:#e8f3f8;
+      margin-top:7px;
     }
 
-    .meter-fill{
+    .meter-track i{
       display:block;
       height:100%;
       width:0%;
       border-radius:999px;
-      background:linear-gradient(90deg,#65d86f,#ffd861,#ffae42);
-      transition:width .22s ease;
+      background:linear-gradient(90deg,#53d67a,#ffd75a);
+      transition:width .16s linear;
+    }
+
+    .meter-row.warn .meter-track i{
+      background:linear-gradient(90deg,#54d777,#ffe069);
+    }
+
+    .meter-row.over .meter-track i{
+      background:linear-gradient(90deg,#ff6b6b,#ffaf4d);
     }
 
     .meter-need{
       margin-top:5px;
-      color:#6f8da0;
-      font-size:11px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .meter-row.over .meter-need{
+      color:#b33333;
+    }
+
+    .panel-note{
+      max-height:150px;
+      overflow:auto;
+      border-radius:18px;
+      background:rgba(255,255,255,.72);
+      border:1px dashed rgba(90,155,190,.30);
+      padding:10px;
+      font-weight:850;
+      font-size:13px;
+      line-height:1.35;
+      color:#31586f;
+    }
+
+    .logLine{
+      padding:3px 0;
+      border-bottom:1px solid rgba(120,180,210,.14);
+    }
+
+    .logLine:last-child{
+      border-bottom:0;
+    }
+
+    .dailyBox,
+    .goalLock{
+      font-size:13px;
+      line-height:1.35;
+    }
+
+    .goalCards{
+      display:grid;
+      gap:8px;
+    }
+
+    .goalLockTitle{
+      font-weight:1000;
+      margin-bottom:8px;
+    }
+
+    .goalCard{
+      border-radius:16px;
+      background:#fff;
+      border:1px solid rgba(120,180,210,.20);
+      padding:9px 10px;
       font-weight:850;
     }
 
-    .food-meter.over{
-      border-color:rgba(255,107,107,.65);
-      background:linear-gradient(180deg,#fff,#fff0f0);
-    }
-
-    .food-meter.warn{
-      border-color:rgba(255,174,66,.65);
-      background:linear-gradient(180deg,#fff,#fff8dd);
-    }
-
-    .plate-play{
+    .main{
       min-width:0;
-      display:grid;
-      grid-template-rows:auto minmax(420px,1fr) auto;
-      gap:10px;
+      position:relative;
+      z-index:10;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
     }
 
-    .plate-hud{
+    .stats{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
       gap:10px;
     }
 
-    .plate-stat{
-      min-height:76px;
-      border:1px solid rgba(147,207,230,.72);
-      border-radius:18px;
-      background:rgba(255,255,255,.8);
-      box-shadow:0 12px 30px rgba(34,82,110,.08);
+    .stat-card{
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(130,190,215,.35);
+      border-radius:22px;
+      box-shadow:var(--shadow);
       padding:12px;
-      overflow:hidden;
+      min-height:86px;
       display:flex;
       flex-direction:column;
       justify-content:center;
-    }
-
-    .score-card{
-      background:linear-gradient(180deg,#fff,#fff6d8);
-    }
-
-    .timer-card{
-      background:linear-gradient(180deg,#fff,#eefaff);
-    }
-
-    .combo-card{
-      background:linear-gradient(180deg,#fff,#f5ecff);
-    }
-
-    .balance-card{
-      background:linear-gradient(180deg,#fff,#eefff1);
+      backdrop-filter:blur(12px);
+      overflow:hidden;
     }
 
     .stat-label{
-      color:#7b99aa;
+      color:#5b8096;
       font-size:12px;
       font-weight:1000;
+      margin-bottom:4px;
+    }
+
+    .stat-value{
+      font-size:clamp(24px,4vw,40px);
+      font-weight:1000;
+      line-height:1;
+      color:#24485f;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .stat-value{
-      margin-top:3px;
-      color:#24445d;
-      font-size:clamp(28px,3.5vw,42px);
-      font-weight:1000;
-      line-height:1;
-      letter-spacing:-.05em;
+    .stat-value.small{
+      font-size:clamp(16px,2.7vw,24px);
+      line-height:1.1;
+    }
+
+    .timer-fill-wrap{
+      height:7px;
+      border-radius:999px;
+      background:#e8f3f8;
+      margin-top:10px;
+      overflow:hidden;
     }
 
     .timer-fill{
       display:block;
-      height:6px;
-      margin-top:8px;
-      border-radius:999px;
-      background:linear-gradient(90deg,#64d86f,#ffd861,#ff7c7c);
+      height:100%;
       width:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#58d977,#ffd75a,#ff6b6b);
       transition:width .2s linear;
     }
 
     .timer-fill.danger{
-      background:linear-gradient(90deg,#ffcf4a,#ff6464);
+      background:linear-gradient(90deg,#ffaf4d,#ff6b6b);
+      animation:pulseDanger .6s infinite alternate;
     }
 
-    .plate-stage{
+    @keyframes pulseDanger{
+      from{filter:brightness(1);}
+      to{filter:brightness(1.18);}
+    }
+
+    .arena-wrap{
+      background:rgba(255,255,255,.50);
+      border:1px solid rgba(130,190,215,.36);
+      border-radius:32px;
+      padding:10px;
+      box-shadow:var(--shadow2);
       position:relative;
       min-height:520px;
-      border:1px solid rgba(147,207,230,.78);
-      border-radius:28px;
       overflow:hidden;
-      background:
-        radial-gradient(circle at 16% 22%, rgba(255,255,255,.9) 0 8%, transparent 9%),
-        radial-gradient(circle at 82% 24%, rgba(255,255,255,.72) 0 7%, transparent 8%),
-        linear-gradient(180deg,#e9fbff 0%,#fffbd1 66%,#dff8c9 66%,#dff8c9 100%);
-      box-shadow:inset 0 -28px 90px rgba(85,190,90,.12),0 20px 42px rgba(34,82,110,.10);
     }
 
-    .plate-stage::after{
+    .arena{
+      position:relative;
+      width:100%;
+      height:min(62vh,610px);
+      min-height:500px;
+      border-radius:26px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 18% 24%, rgba(255,255,255,.80), transparent 9rem),
+        radial-gradient(circle at 82% 22%, rgba(255,255,255,.60), transparent 9rem),
+        linear-gradient(180deg,#e8fbff 0%,#fff9cf 52%,#dff8dc 100%);
+      border:1px solid rgba(88,168,202,.24);
+      box-shadow:inset 0 0 0 2px rgba(255,255,255,.42);
+    }
+
+    .arena::before{
       content:"";
       position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
+      inset:auto 0 0;
       height:34%;
       background:
         repeating-linear-gradient(
           90deg,
-          rgba(80,170,80,.08) 0 18px,
-          rgba(80,170,80,.15) 18px 36px
+          rgba(67,180,100,.10) 0 22px,
+          rgba(255,255,255,.16) 22px 42px
         );
       pointer-events:none;
     }
 
-    .plate-prompt{
+    .arena::after{
+      content:"";
       position:absolute;
-      z-index:18;
-      top:14px;
-      left:50%;
-      transform:translateX(-50%);
-      min-width:min(560px,80%);
-      padding:10px 18px;
-      border:1px solid rgba(147,207,230,.72);
-      border-radius:999px;
-      background:rgba(255,255,255,.88);
-      color:#3c5f74;
-      font-size:clamp(16px,2vw,24px);
-      font-weight:1000;
-      text-align:center;
-      box-shadow:0 10px 24px rgba(34,82,110,.10);
+      inset:0;
+      background:
+        radial-gradient(circle at 18% 80%, rgba(80,170,105,.15), transparent 7rem),
+        radial-gradient(circle at 52% 86%, rgba(255,255,255,.34), transparent 9rem),
+        radial-gradient(circle at 78% 82%, rgba(255,255,255,.24), transparent 7rem);
+      pointer-events:none;
     }
 
-    .play-field{
+    .spawn-layer{
       position:absolute;
       inset:0;
       z-index:20;
       pointer-events:none;
     }
 
-    .play-field .foodCard{
+    .spawn-layer .foodCard{
       pointer-events:auto;
-    }
-
-    .plate-drop-zone{
-      position:absolute;
-      left:50%;
-      bottom:60px;
-      width:230px;
-      height:120px;
-      transform:translateX(-50%);
-      border-radius:50%;
-      background:rgba(255,255,255,.15);
-      z-index:8;
-      pointer-events:none;
     }
 
     .center-plate{
       position:absolute;
-      z-index:12;
       left:50%;
-      bottom:54px;
-      width:260px;
-      height:145px;
+      bottom:9%;
+      width:min(320px,42vw);
+      min-width:230px;
+      aspect-ratio:1.65/1;
       transform:translateX(-50%);
       border-radius:50%;
+      z-index:30;
       background:
-        radial-gradient(ellipse at center,#fff 0 44%,#eaf7ff 45% 62%,#cbefff 63% 75%,rgba(255,255,255,.6) 76%);
-      border:9px solid rgba(224,246,255,.9);
+        radial-gradient(ellipse at 50% 46%,#ffffff 0 38%,#e7f7ff 39% 55%,#bfe6f8 56% 70%,#fff 71%);
+      border:9px solid rgba(255,225,199,.75);
       box-shadow:
-        0 24px 36px rgba(54,105,130,.16),
-        inset 0 0 0 3px rgba(154,201,224,.24);
+        0 18px 50px rgba(30,80,110,.20),
+        inset 0 0 0 3px rgba(255,255,255,.72);
       display:grid;
       place-items:center;
-      text-align:center;
-      color:#97acba;
-      font-weight:1000;
+      padding:18px;
       pointer-events:none;
     }
 
     .center-plate.good{
       box-shadow:
-        0 24px 36px rgba(54,130,90,.18),
-        0 0 0 8px rgba(113,225,118,.24),
-        inset 0 0 0 3px rgba(154,224,180,.24);
+        0 18px 50px rgba(30,160,90,.22),
+        0 0 0 5px rgba(80,215,120,.18),
+        inset 0 0 0 3px rgba(255,255,255,.72);
     }
 
     .center-plate.danger{
       box-shadow:
-        0 24px 36px rgba(130,54,54,.18),
-        0 0 0 8px rgba(255,107,107,.25),
-        inset 0 0 0 3px rgba(255,120,120,.28);
+        0 18px 50px rgba(220,80,70,.22),
+        0 0 0 5px rgba(255,88,88,.20),
+        inset 0 0 0 3px rgba(255,255,255,.72);
+      animation:plateWarn .38s infinite alternate;
+    }
+
+    @keyframes plateWarn{
+      from{transform:translateX(-50%) rotate(-.5deg);}
+      to{transform:translateX(-50%) rotate(.5deg);}
+    }
+
+    .plate-foods{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:center;
+      gap:3px;
+      width:82%;
+      min-height:78px;
+      margin:auto;
+      text-align:center;
+    }
+
+    .plateFoodIcon{
+      display:inline-grid;
+      place-items:center;
+      width:30px;
+      height:30px;
+      font-size:24px;
+      filter:drop-shadow(0 4px 5px rgba(40,70,90,.15));
     }
 
     .plate-label{
       position:absolute;
-      inset:0;
-      display:grid;
-      place-items:center;
-      color:#98acba;
-      font-size:15px;
-      font-weight:1000;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      width:80%;
       text-align:center;
-      padding:20px;
-    }
-
-    .plate-foods{
-      position:absolute;
-      inset:12% 10%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      flex-wrap:wrap;
-      gap:4px;
-      z-index:2;
+      font-weight:1000;
+      color:rgba(36,72,95,.62);
+      font-size:14px;
       pointer-events:none;
-    }
-
-    .plateFoodIcon{
-      font-size:24px;
-      line-height:1;
-      filter:drop-shadow(0 2px 2px rgba(40,80,100,.14));
-    }
-
-    .plate-controls{
-      min-height:66px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      padding:10px 12px;
-      border:1px solid rgba(147,207,230,.72);
-      border-radius:24px;
-      background:rgba(255,255,255,.84);
-      box-shadow:0 16px 36px rgba(34,82,110,.09);
-      margin-bottom:14px;
-    }
-
-    .controls-left,
-    .controls-right{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .status-pill{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:6px 12px;
-      border-radius:999px;
-      background:#effbff;
-      color:#5b87a0;
-      font-size:13px;
-      font-weight:1000;
-    }
-
-    .btn{
-      appearance:none;
-      border:0;
-      min-height:42px;
-      padding:9px 16px;
-      border-radius:999px;
-      background:#f4fbff;
-      color:#24445d;
-      font-weight:1000;
-      font-size:15px;
-      cursor:pointer;
-      box-shadow:0 8px 18px rgba(35,80,110,.10);
-      touch-action:manipulation;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-    }
-
-    .btn.primary{
-      background:linear-gradient(180deg,#72ef88,#2fc76a);
-      color:#073b22;
-    }
-
-    .btn.blue{
-      background:linear-gradient(180deg,#82dfff,#35aeea);
-      color:#07384f;
-    }
-
-    .btn.warn{
-      background:linear-gradient(180deg,#ffe28a,#ffb833);
-      color:#604000;
-    }
-
-    .hidden{
-      display:none !important;
     }
 
     .foodCard{
       position:absolute;
-      top:0;
+      top:-110px;
+      left:50%;
       transform:translateX(-50%);
-      min-width:74px;
-      min-height:88px;
-      padding:8px 7px;
-      border:0 !important;
-      border-radius:24px !important;
-      background:
-        radial-gradient(circle at 32% 18%, rgba(255,255,255,.95), transparent 34%),
-        linear-gradient(180deg,#ffffff,#f2fbff) !important;
-      box-shadow:
-        0 14px 30px rgba(35,88,115,.20),
-        inset 0 -4px 10px rgba(42,91,120,.08) !important;
-      color:#24445d;
-      font-family:inherit;
+      z-index:45;
+      border:0;
+      border-radius:24px;
+      padding:10px 12px;
+      min-width:84px;
+      min-height:94px;
+      background:#fff;
+      color:#24485f;
+      box-shadow:0 14px 34px rgba(28,68,88,.22);
       font-weight:1000;
       cursor:pointer;
-      z-index:30;
-      animation-name:plateFoodFall;
-      animation-timing-function:linear;
-      animation-fill-mode:forwards;
-      will-change:transform,opacity;
+      touch-action:manipulation;
+      animation:plateFall var(--life,6200ms) linear forwards;
+      will-change:transform,top;
+      pointer-events:auto;
+      user-select:none;
     }
 
-    .foodCard .assetPackDebug,
-    .foodVisual .assetPackDebug,
-    .plateFoodIcon .assetPackDebug{
-      display:none !important;
-    }
-
-    .foodEmojiFallback{
-      display:inline-block;
-      font-size:clamp(30px,4.8vw,44px);
-      line-height:1;
-      filter:drop-shadow(0 3px 3px rgba(40,80,100,.16));
-    }
-
-    .foodCard .name{
-      margin-top:3px;
-      font-size:clamp(10px,1.6vw,13px);
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .foodTag{
-      position:absolute;
-      left:50%;
-      bottom:-11px;
-      transform:translateX(-50%);
-      padding:3px 8px;
-      border-radius:999px;
-      background:#dffff0;
-      color:#24794d;
-      font-size:10px;
-      font-weight:1000;
-      white-space:nowrap;
-      box-shadow:0 6px 12px rgba(35,80,110,.10);
-    }
-
-    .foodCard.junk .foodTag,
-    .foodCard.bossForbidden .foodTag,
-    .foodCard.dangerFood .foodTag{
-      background:#ffe1e1;
-      color:#a73333;
-    }
-
-    .foodCard.power .foodTag{
-      background:#e6e8ff;
-      color:#4646a8;
+    .foodCard:hover{
+      transform:translateX(-50%) scale(1.04);
     }
 
     .foodCard.goodNow{
-      box-shadow:
-        0 16px 34px rgba(54,160,95,.26),
-        0 0 0 4px rgba(86,222,117,.25) !important;
+      background:linear-gradient(180deg,#effff5,#ffffff);
+      outline:3px solid rgba(74,210,120,.25);
+    }
+
+    .foodCard.neutralFood{
+      background:#fff;
+    }
+
+    .foodCard.junk{
+      background:linear-gradient(180deg,#fff0ef,#ffffff);
+      outline:3px solid rgba(255,100,95,.20);
     }
 
     .foodCard.riskyFood,
-    .foodCard.dangerFood,
-    .foodCard.junk{
+    .foodCard.dangerFood{
+      background:linear-gradient(180deg,#fff5d9,#ffffff);
+      outline:3px solid rgba(255,185,60,.28);
+    }
+
+    .foodCard.power{
+      background:linear-gradient(180deg,#eaf8ff,#ffffff);
+      outline:3px solid rgba(70,190,255,.25);
+    }
+
+    .foodCard.bossWanted{
+      outline:4px solid rgba(80,220,120,.38);
+      box-shadow:0 18px 44px rgba(40,180,90,.24);
+    }
+
+    .foodCard.bossForbidden{
+      outline:4px solid rgba(255,90,90,.34);
+      box-shadow:0 18px 44px rgba(220,80,80,.22);
+    }
+
+    .foodCard.comboGlow{
       box-shadow:
-        0 16px 34px rgba(180,75,75,.24),
-        0 0 0 4px rgba(255,107,107,.18) !important;
+        0 18px 44px rgba(255,187,45,.38),
+        0 0 0 4px rgba(255,228,120,.45)!important;
     }
 
-    .move-fall{
-      animation-name:plateFoodFall;
+    .foodCard.aimLock{
+      outline:5px solid rgba(255,210,30,.90);
     }
 
-    .move-drift-left{
-      animation-name:plateFoodDriftLeft;
+    .foodVisual{
+      font-size:clamp(36px,7vw,56px);
+      line-height:1;
+      display:grid;
+      place-items:center;
+      filter:drop-shadow(0 5px 5px rgba(30,60,80,.12));
     }
 
-    .move-drift-right{
-      animation-name:plateFoodDriftRight;
+    .assetPackDebug{
+      display:none;
+    }
+
+    .name{
+      font-size:13px;
+      margin-top:3px;
+      line-height:1.1;
+    }
+
+    .foodTag{
+      display:inline-block;
+      margin-top:5px;
+      border-radius:999px;
+      padding:4px 8px;
+      background:rgba(70,140,190,.12);
+      color:#37677f;
+      font-size:11px;
+      line-height:1;
+    }
+
+    .foodCard.junk .foodTag,
+    .foodCard.bossForbidden .foodTag{
+      background:rgba(255,98,98,.15);
+      color:#b23838;
+    }
+
+    .foodCard.goodNow .foodTag,
+    .foodCard.bossWanted .foodTag{
+      background:rgba(70,210,120,.15);
+      color:#166c43;
+    }
+
+    .size-power{
+      min-width:82px;
+      min-height:88px;
+    }
+
+    .size-junk{
+      min-width:84px;
+    }
+
+    .size-boss{
+      min-width:92px;
+      min-height:102px;
+    }
+
+    .size-good{
+      min-width:84px;
+    }
+
+    @keyframes plateFall{
+      0%{
+        top:-110px;
+        transform:translateX(-50%) rotate(var(--rot,0deg));
+      }
+      100%{
+        top:calc(100% + 110px);
+        transform:translateX(calc(-50% + var(--endX,0px))) rotate(calc(var(--rot,0deg) * -1));
+      }
     }
 
     .move-zigzag{
-      animation-name:plateFoodZigzag;
+      animation-name:plateFallZig;
     }
 
-    .move-junk-wobble{
-      animation-name:plateFoodWobble;
+    @keyframes plateFallZig{
+      0%{top:-110px;transform:translateX(-50%) rotate(var(--rot,0deg));}
+      25%{transform:translateX(calc(-50% + var(--sway,36px))) rotate(7deg);}
+      50%{transform:translateX(calc(-50% - var(--sway,36px))) rotate(-7deg);}
+      75%{transform:translateX(calc(-50% + var(--sway,36px) / 2)) rotate(4deg);}
+      100%{top:calc(100% + 110px);transform:translateX(calc(-50% + var(--endX,0px))) rotate(calc(var(--rot,0deg) * -1));}
+    }
+
+    .move-drift-left{
+      animation-name:plateFallLeft;
+    }
+
+    @keyframes plateFallLeft{
+      0%{top:-110px;transform:translateX(calc(-50% + 60px)) rotate(var(--rot,0deg));}
+      100%{top:calc(100% + 110px);transform:translateX(calc(-50% - 80px)) rotate(-8deg);}
+    }
+
+    .move-drift-right{
+      animation-name:plateFallRight;
+    }
+
+    @keyframes plateFallRight{
+      0%{top:-110px;transform:translateX(calc(-50% - 60px)) rotate(var(--rot,0deg));}
+      100%{top:calc(100% + 110px);transform:translateX(calc(-50% + 80px)) rotate(8deg);}
     }
 
     .move-junk-dash,
     .move-boss-swipe,
     .move-rain-fast{
-      animation-name:plateFoodDash;
+      animation-timing-function:cubic-bezier(.18,.74,.18,1);
     }
 
-    .move-power-float{
-      animation-name:plateFoodPowerFloat;
+    .move-junk-wobble{
+      animation-name:plateJunkWobble;
+    }
+
+    @keyframes plateJunkWobble{
+      0%{top:-110px;transform:translateX(-50%) rotate(-8deg);}
+      20%{transform:translateX(calc(-50% + 28px)) rotate(10deg);}
+      40%{transform:translateX(calc(-50% - 22px)) rotate(-9deg);}
+      60%{transform:translateX(calc(-50% + 18px)) rotate(7deg);}
+      80%{transform:translateX(calc(-50% - 12px)) rotate(-5deg);}
+      100%{top:calc(100% + 110px);transform:translateX(calc(-50% + var(--endX,0px))) rotate(8deg);}
+    }
+
+    .phase-banner{
+      position:absolute;
+      left:50%;
+      top:18px;
+      transform:translateX(-50%);
+      z-index:85;
+      width:min(720px,86%);
+      border-radius:999px;
+      padding:10px 18px;
+      background:rgba(255,255,255,.90);
+      border:1px solid rgba(130,190,215,.40);
+      box-shadow:0 12px 28px rgba(40,90,120,.13);
+      text-align:center;
+      font-weight:1000;
+      color:#315b72;
+      backdrop-filter:blur(10px);
+    }
+
+    .phase-banner.show{
+      animation:bannerPop .95s both;
+    }
+
+    @keyframes bannerPop{
+      0%{opacity:0;transform:translateX(-50%) translateY(-12px) scale(.96);}
+      18%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.02);}
+      100%{opacity:1;transform:translateX(-50%) translateY(0) scale(1);}
+    }
+
+    .floating-layer,
+    .juice-layer,
+    .flash{
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      z-index:80;
     }
 
     .floatText,
-    .scorePop,
-    .comboBoom,
-    .coinFx,
-    .victoryBurst{
+    .scorePop{
       position:absolute;
-      z-index:80;
-      pointer-events:none;
-    }
-
-    .floatText{
       left:50%;
-      top:38%;
+      top:42%;
       transform:translate(-50%,-50%);
-      padding:10px 14px;
+      z-index:95;
       border-radius:18px;
-      color:white;
-      font-size:18px;
+      padding:10px 14px;
+      color:#fff;
       font-weight:1000;
-      box-shadow:0 14px 34px rgba(25,60,84,.22);
-      animation:floatTextPop .9s both;
+      box-shadow:0 18px 44px rgba(0,0,0,.22);
+      animation:platePop .9s both;
+      text-align:center;
+      max-width:min(520px,88%);
     }
 
     .scorePop{
-      padding:8px 12px;
-      border-radius:999px;
-      background:rgba(255,255,255,.9);
-      color:#22623f;
-      font-size:18px;
-      font-weight:1000;
-      box-shadow:0 12px 26px rgba(25,60,84,.18);
-      animation:scorePopUp .9s both;
+      background:#248f5c;
     }
 
     .scorePop.bad{
-      color:#b13a3a;
+      background:#d64245;
     }
 
     .scorePop.combo,
+    .scorePop.mission,
     .scorePop.boss,
-    .scorePop.mission{
-      color:#a66a00;
+    .scorePop.power{
+      background:#7b58dc;
     }
 
-    .coinFx{
+    .comboBoom,
+    .counterFx,
+    .milestoneToast,
+    .nearMissFx{
+      position:absolute;
       left:50%;
-      top:50%;
-      font-size:24px;
-      animation:coinBurst .95s both;
-    }
-
-    .comboBoom{
-      left:50%;
-      top:30%;
-      transform:translateX(-50%);
-      padding:12px 18px;
-      border-radius:22px;
-      background:linear-gradient(135deg,#fff4b8,#ffd4e6);
-      color:#8a4300;
-      font-size:24px;
+      top:40%;
+      transform:translate(-50%,-50%);
+      z-index:96;
+      border-radius:24px;
+      background:#fff7cf;
+      padding:14px 18px;
       font-weight:1000;
-      box-shadow:0 18px 42px rgba(40,80,100,.20);
-      animation:comboBoomPop 1s both;
-    }
-
-    .summary-modal{
-      position:fixed;
-      inset:0;
-      z-index:999;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(38,82,100,.48);
-      box-sizing:border-box;
-    }
-
-    .summary-card{
-      width:min(680px,94vw);
-      border-radius:32px;
-      background:
-        radial-gradient(circle at 10% 10%, rgba(255,255,220,.9), transparent 36%),
-        linear-gradient(135deg,#ffffff,#ecfff2);
-      border:1px solid rgba(147,207,230,.78);
-      box-shadow:0 28px 80px rgba(20,60,80,.28);
-      padding:26px 24px;
+      box-shadow:0 18px 54px rgba(20,50,80,.22);
+      animation:platePop 1.1s both;
       text-align:center;
-      color:#24445d;
+      pointer-events:none;
     }
 
-    .summary-kicker{
+    @keyframes platePop{
+      0%{opacity:0;transform:translate(-50%,-50%) scale(.72);}
+      18%{opacity:1;transform:translate(-50%,-50%) scale(1.08);}
+      72%{opacity:1;transform:translate(-50%,-70%) scale(1);}
+      100%{opacity:0;transform:translate(-50%,-92%) scale(.9);}
+    }
+
+    .flash.on{
+      background:rgba(255,255,255,.55);
+      animation:plateFlash .32s both;
+    }
+
+    @keyframes plateFlash{
+      0%{opacity:0;}
+      35%{opacity:1;}
+      100%{opacity:0;}
+    }
+
+    .controls{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(130,190,215,.35);
+      border-radius:24px;
+      box-shadow:var(--shadow);
+      padding:10px;
+      position:relative;
+      z-index:24;
+    }
+
+    .controls-left,
+    .controls-right{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .btn{
+      border:0;
+      border-radius:999px;
+      padding:12px 16px;
+      font-weight:1000;
+      color:#173a4e;
+      background:#ecf6ff;
+      box-shadow:0 10px 22px rgba(40,90,120,.10);
+      cursor:pointer;
+      transition:transform .12s ease, filter .12s ease, opacity .12s ease;
+      white-space:nowrap;
+    }
+
+    .btn:hover{
+      transform:translateY(-1px);
+      filter:brightness(1.03);
+    }
+
+    .btn:active{
+      transform:translateY(1px) scale(.98);
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,#55d77c,#2bc36d);
+      color:#06361f;
+    }
+
+    .btn.blue{
+      background:linear-gradient(135deg,#7bd9ff,#38bdf8);
+      color:#07374f;
+    }
+
+    .btn.warn{
+      background:linear-gradient(135deg,#ffe07c,#ffbf47);
+      color:#604000;
+    }
+
+    .btn.cool{
+      background:linear-gradient(135deg,#b4f2dc,#58d6a7);
+      color:#064330;
+    }
+
+    .btn.ghost{
+      background:#fff;
+      border:1px solid rgba(90,150,185,.28);
+      color:#31586f;
+    }
+
+    .btn.danger{
+      background:linear-gradient(135deg,#ff958f,#ff6b6b);
+      color:#fff;
+    }
+
+    .btn:disabled{
+      opacity:.55;
+      pointer-events:none;
+    }
+
+    .power-row{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+      color:#51788f;
+      font-weight:1000;
+    }
+
+    .power-pill{
       display:inline-flex;
       align-items:center;
-      justify-content:center;
-      padding:6px 12px;
+      gap:5px;
       border-radius:999px;
-      background:#e7f8ff;
-      color:#2c98d6;
-      font-size:12px;
-      font-weight:1000;
+      padding:8px 10px;
+      background:rgba(255,255,255,.70);
+      border:1px solid rgba(120,180,210,.25);
+      font-size:13px;
+      opacity:.65;
     }
 
-    .summary-title{
-      margin:14px 0 4px;
-      color:#24445d;
-      font-size:clamp(34px,6vw,54px);
-      line-height:1;
-      font-weight:1000;
-      letter-spacing:-.05em;
+    .power-pill.on{
+      opacity:1;
+      background:linear-gradient(135deg,#fff8dc,#e8fbff);
+      box-shadow:0 0 0 3px rgba(255,220,90,.18);
     }
 
-    .summary-subtitle{
-      margin:0 auto 18px;
-      color:#6a879a;
-      font-size:18px;
-      font-weight:850;
+    .bossBox,
+    .eventBox,
+    .lastSaveBox,
+    .orderBox,
+    .miniEventBox,
+    .bossMechanicBox{
+      position:absolute;
+      z-index:82;
+      left:14px;
+      top:66px;
+      width:min(330px,48%);
+      border-radius:20px;
+      background:rgba(255,255,255,.88);
+      border:1px solid rgba(120,180,210,.32);
+      box-shadow:0 16px 40px rgba(30,80,110,.18);
+      padding:10px 12px;
+      font-weight:900;
+      backdrop-filter:blur(10px);
+      display:none;
     }
 
-    .summary-stats{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:10px;
-      margin:16px 0;
-    }
-
-    .summary-stat{
-      min-height:80px;
-      border:1px solid rgba(147,207,230,.74);
-      border-radius:18px;
-      background:rgba(255,255,255,.75);
-      display:grid;
-      place-items:center;
-      padding:10px;
-    }
-
-    .summary-stat .num{
+    .bossBox.on,
+    .eventBox.on,
+    .lastSaveBox.on,
+    .orderBox.on,
+    .miniEventBox.on,
+    .bossMechanicBox.on{
       display:block;
-      color:#24445d;
-      font-size:clamp(28px,5vw,42px);
-      font-weight:1000;
-      line-height:1;
     }
 
-    .summary-stat .label{
-      color:#7191a5;
-      font-size:12px;
-      font-weight:1000;
+    .bossBox{
+      top:66px;
     }
 
-    .summary-actions{
-      display:flex;
-      justify-content:center;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-top:14px;
+    .orderBox{
+      top:180px;
     }
 
-    .starRow,
-    #starRow{
+    .miniEventBox{
+      top:250px;
+    }
+
+    .bossMechanicBox{
+      top:320px;
+    }
+
+    .lastSaveBox{
+      top:auto;
+      bottom:22px;
+      background:linear-gradient(135deg,#fff6d8,#fff);
+      border-color:rgba(255,185,60,.35);
+    }
+
+    .boss-head{
       display:flex;
       align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-size:13px;
+    }
+
+    .bossHpTrack,
+    .eventTrack{
+      height:9px;
+      border-radius:999px;
+      background:#e8f3f8;
+      overflow:hidden;
+      margin:8px 0 6px;
+    }
+
+    .bossHpTrack i,
+    .eventTrack i{
+      display:block;
+      height:100%;
+      width:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#ff6b6b,#ffd75a);
+      transition:width .2s linear;
+    }
+
+    .bossMood,
+    .eventText{
+      font-size:12px;
+      color:#51788f;
+      line-height:1.25;
+    }
+
+    .bossAvatar{
+      position:absolute;
+      right:22px;
+      top:72px;
+      z-index:75;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      background:rgba(255,255,255,.86);
+      border:1px solid rgba(120,180,210,.32);
+      border-radius:999px;
+      padding:8px 12px;
+      box-shadow:0 14px 34px rgba(30,80,110,.16);
+      font-weight:1000;
+      backdrop-filter:blur(10px);
+    }
+
+    .bossFace{
+      font-size:32px;
+      line-height:1;
+    }
+
+    .bossAvatar.hit{
+      animation:bossHit .45s both;
+    }
+
+    .bossAvatar.attack{
+      animation:bossAtk .45s both;
+    }
+
+    @keyframes bossHit{
+      0%{transform:translateX(0);}
+      35%{transform:translateX(10px) rotate(4deg);}
+      70%{transform:translateX(-6px) rotate(-3deg);}
+      100%{transform:translateX(0);}
+    }
+
+    @keyframes bossAtk{
+      0%{transform:scale(1);}
+      45%{transform:scale(1.13) translateX(-12px);}
+      100%{transform:scale(1);}
+    }
+
+    .bossSkillFlash{
+      position:absolute;
+      left:50%;
+      top:74px;
+      transform:translateX(-50%);
+      z-index:92;
+      border-radius:999px;
+      padding:10px 16px;
+      background:rgba(255,245,218,.92);
+      border:1px solid rgba(255,185,60,.38);
+      box-shadow:0 14px 34px rgba(120,80,40,.13);
+      font-weight:1000;
+      color:#72520a;
+      display:none;
+      text-align:center;
+      max-width:74%;
+    }
+
+    .bossSkillFlash.show{
+      display:block;
+      animation:bannerPop .72s both;
+    }
+
+    .boss-warning .arena{
+      box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.42),
+        0 0 0 5px rgba(255,82,82,.18),
+        0 0 42px rgba(255,82,82,.28) inset!important;
+    }
+
+    .boss-enraged .arena{
+      animation:plateBossRumble .42s infinite alternate;
+    }
+
+    @keyframes plateBossRumble{
+      from{transform:translateX(-1px);}
+      to{transform:translateX(1px);}
+    }
+
+    .last-save-active .arena{
+      box-shadow:
+        inset 0 0 0 2px rgba(255,255,255,.42),
+        0 0 0 5px rgba(255,200,0,.25),
+        0 0 46px rgba(255,125,0,.22) inset!important;
+    }
+
+    .practiceCoach{
+      position:absolute;
+      right:18px;
+      bottom:20px;
+      z-index:88;
+      width:min(360px,46%);
+      border-radius:24px;
+      background:rgba(255,255,255,.90);
+      border:1px solid rgba(120,180,210,.34);
+      box-shadow:0 18px 44px rgba(30,80,110,.18);
+      padding:12px;
+      backdrop-filter:blur(10px);
+    }
+
+    .practiceTop{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+
+    .practiceIcon{
+      width:42px;
+      height:42px;
+      border-radius:16px;
+      background:#eaf8ff;
+      display:grid;
+      place-items:center;
+      font-size:24px;
+      flex:0 0 auto;
+    }
+
+    .practiceTitle{
+      font-weight:1000;
+      margin-bottom:3px;
+    }
+
+    .practiceText{
+      color:#557a90;
+      font-size:13px;
+      font-weight:850;
+      line-height:1.25;
+    }
+
+    .practiceBar{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .practiceBar .eventTrack{
+      flex:1;
+      margin:0;
+    }
+
+    .practiceSec{
+      font-weight:1000;
+      color:#31586f;
+      min-width:36px;
+      text-align:right;
+    }
+
+    .duelLayer{
+      position:absolute;
+      inset:0;
+      z-index:89;
+      display:grid;
+      place-items:center;
+      pointer-events:none;
+    }
+
+    .duelBox{
+      width:min(560px,90%);
+      border-radius:28px;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(120,180,210,.36);
+      box-shadow:0 24px 70px rgba(25,65,95,.26);
+      padding:16px;
+      pointer-events:auto;
+      backdrop-filter:blur(12px);
+      text-align:center;
+    }
+
+    .duelTitle{
+      font-weight:1000;
+      margin-bottom:12px;
+    }
+
+    .duelChoices{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .duelBtn{
+      border:0;
+      border-radius:22px;
+      background:#fff;
+      box-shadow:0 12px 28px rgba(40,90,120,.14);
+      padding:12px;
+      cursor:pointer;
+      font-weight:1000;
+      color:#24485f;
+    }
+
+    .duelTimer{
+      height:10px;
+      border-radius:999px;
+      background:#e8f3f8;
+      overflow:hidden;
+      margin-top:12px;
+    }
+
+    .duelTimer i{
+      display:block;
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,#55d77c,#ffd75a,#ff6b6b);
+    }
+
+    .aiDirectorChip{
+      position:absolute;
+      left:50%;
+      bottom:20px;
+      transform:translateX(-50%);
+      z-index:87;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      padding:10px 14px;
+      background:rgba(255,255,255,.88);
+      border:1px solid rgba(120,180,210,.34);
+      box-shadow:0 14px 34px rgba(30,80,110,.14);
+      font-weight:1000;
+      backdrop-filter:blur(10px);
+    }
+
+    .aiDirectorChip.assist{
+      background:#eff8ff;
+    }
+
+    .aiDirectorChip.challenge,
+    .aiDirectorChip.hot{
+      background:#fff6dc;
+    }
+
+    .finalRush{
+      position:absolute;
+      top:16px;
+      right:18px;
+      z-index:83;
+      border-radius:999px;
+      padding:10px 14px;
+      background:linear-gradient(135deg,#fff6dc,#ffe1a3);
+      border:1px solid rgba(255,175,60,.32);
+      box-shadow:0 14px 34px rgba(120,80,30,.12);
+      font-weight:1000;
+      color:#7a4c00;
+    }
+
+    .feverLayer{
+      position:absolute;
+      inset:0;
+      z-index:60;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 50% 40%,rgba(255,220,80,.28),transparent 16rem),
+        linear-gradient(135deg,rgba(255,120,80,.12),rgba(255,230,90,.10));
+      animation:feverPulse .55s infinite alternate;
+    }
+
+    @keyframes feverPulse{
+      from{opacity:.35;}
+      to{opacity:.76;}
+    }
+
+    .aimReticle{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:64px;
+      height:64px;
+      margin-left:-32px;
+      margin-top:-32px;
+      z-index:91;
+      border-radius:999px;
+      border:3px solid rgba(255,218,72,.88);
+      box-shadow:
+        0 0 0 5px rgba(255,218,72,.22),
+        0 0 24px rgba(255,210,50,.45);
+      pointer-events:none;
+    }
+
+    .aimReticle::before,
+    .aimReticle::after{
+      content:"";
+      position:absolute;
+      background:rgba(255,218,72,.95);
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+    }
+
+    .aimReticle::before{
+      width:4px;
+      height:34px;
+    }
+
+    .aimReticle::after{
+      width:34px;
+      height:4px;
+    }
+
+    .summaryOverlay{
+      position:fixed;
+      inset:0;
+      z-index:9999;
+      display:none;
+      align-items:center;
       justify-content:center;
-      gap:4px;
-      flex-wrap:wrap;
-      margin:8px 0;
+      padding:
+        calc(18px + var(--safe-top))
+        calc(18px + var(--safe-right))
+        calc(18px + var(--safe-bottom))
+        calc(18px + var(--safe-left));
+      background:rgba(18,40,58,.48);
+      backdrop-filter:blur(6px);
+    }
+
+    .summaryOverlay.show{
+      display:flex!important;
+    }
+
+    .summaryCard{
+      width:min(640px,94vw);
+      max-height:92vh;
+      overflow:auto;
+      border-radius:30px;
+      background:linear-gradient(180deg,#fffef8,#effbff);
+      box-shadow:0 28px 80px rgba(10,30,60,.32);
+      padding:26px;
+      text-align:center;
+      color:#29485f;
+      border:1px solid rgba(120,180,220,.35);
+    }
+
+    .rankIcon{
+      font-size:58px;
+      line-height:1;
+      margin-bottom:6px;
+    }
+
+    .summaryCard h2{
+      margin:6px 0 4px;
+      font-size:clamp(30px,5.8vw,48px);
+      line-height:1;
+    }
+
+    .summaryCard p{
+      margin:0 0 10px;
+      color:#5c7b8f;
+      font-weight:900;
+    }
+
+    .starRow{
+      font-size:34px;
+      margin:10px 0;
     }
 
     .star{
       filter:grayscale(1);
-      opacity:.45;
-      font-size:28px;
+      opacity:.28;
     }
 
     .star.on{
@@ -878,449 +1520,404 @@
     }
 
     .starLabel{
-      width:100%;
-      color:#6c90a7;
-      font-size:13px;
-      font-weight:850;
+      font-size:14px;
+      font-weight:1000;
+      color:#5c7b8f;
       margin-top:4px;
     }
 
-    .badgeRow,
-    #badgeRow{
+    .summaryStats{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin:16px 0;
+    }
+
+    .summaryStats>div{
+      background:#fff;
+      border-radius:18px;
+      padding:12px;
+      border:1px solid rgba(70,140,190,.18);
+      box-shadow:0 8px 18px rgba(40,90,120,.06);
+    }
+
+    .summaryStats b{
+      display:block;
+      font-size:clamp(24px,5vw,34px);
+      line-height:1;
+    }
+
+    .summaryStats small{
+      display:block;
+      margin-top:4px;
+      font-weight:1000;
+      color:#6a8ba0;
+    }
+
+    .badgeRow{
       display:flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
+      gap:8px;
       flex-wrap:wrap;
+      justify-content:center;
       margin:10px 0;
     }
 
     .badge{
-      display:inline-flex;
-      padding:6px 10px;
       border-radius:999px;
-      background:#eefaff;
-      color:#35718f;
-      font-size:12px;
+      padding:8px 11px;
+      background:#fff6d6;
+      border:1px solid rgba(255,190,60,.35);
       font-weight:1000;
+      color:#674800;
     }
 
     .badge.new{
-      background:#fff3c4;
-      color:#8b5a00;
+      background:#e8fff2;
+      color:#176d45;
+      border-color:rgba(70,205,120,.32);
     }
 
-    #recommend{
-      margin-top:10px;
-      text-align:left;
+    .recommend{
+      margin-top:12px;
     }
 
     .childSummary{
       display:grid;
-      gap:6px;
-      padding:12px;
-      border-radius:18px;
-      background:rgba(245,252,255,.76);
-      color:#49697c;
-      font-size:14px;
-      font-weight:850;
+      gap:9px;
+      text-align:left;
     }
 
-    .childLine b{
-      color:#24445d;
+    .childLine,
+    .replayChallenge{
+      border-radius:17px;
+      background:#fff;
+      padding:11px 13px;
+      border:1px solid rgba(70,140,190,.16);
+      font-weight:900;
+      line-height:1.25;
     }
 
-    @keyframes plateFoodFall{
-      0%{
-        opacity:0;
-        transform:
-          translateX(-50%)
-          translateY(-40px)
-          rotate(var(--rot,0deg))
-          scale(.92);
-      }
-
-      8%{
-        opacity:1;
-        transform:
-          translateX(-50%)
-          translateY(8px)
-          rotate(var(--rot,0deg))
-          scale(1);
-      }
-
-      100%{
-        opacity:.98;
-        transform:
-          translateX(-50%)
-          translateY(calc(var(--plate-runtime-vh,720px) * .66))
-          rotate(var(--rot,0deg))
-          scale(1);
-      }
+    .replayChallenge{
+      background:#fff8df;
     }
 
-    @keyframes plateFoodDriftLeft{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
-      }
-
-      12%{
-        opacity:1;
-      }
-
-      100%{
-        opacity:.98;
-        transform:
-          translateX(calc(-50% - 46px))
-          translateY(calc(var(--plate-runtime-vh,720px) * .66))
-          rotate(calc(var(--rot,0deg) - 10deg));
-      }
+    .summaryActions{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:18px;
     }
 
-    @keyframes plateFoodDriftRight{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
-      }
-
-      12%{
-        opacity:1;
-      }
-
-      100%{
-        opacity:.98;
-        transform:
-          translateX(calc(-50% + 46px))
-          translateY(calc(var(--plate-runtime-vh,720px) * .66))
-          rotate(calc(var(--rot,0deg) + 10deg));
-      }
+    .miniHud{
+      display:none;
     }
 
-    @keyframes plateFoodZigzag{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-42px) rotate(var(--rot,0deg));
-      }
-
-      12%{
-        opacity:1;
-      }
-
-      32%{
-        transform:
-          translateX(calc(-50% + 34px))
-          translateY(calc(var(--plate-runtime-vh,720px) * .22))
-          rotate(8deg);
-      }
-
-      60%{
-        transform:
-          translateX(calc(-50% - 34px))
-          translateY(calc(var(--plate-runtime-vh,720px) * .43))
-          rotate(-8deg);
-      }
-
-      100%{
-        opacity:.98;
-        transform:
-          translateX(-50%)
-          translateY(calc(var(--plate-runtime-vh,720px) * .66))
-          rotate(var(--rot,0deg));
-      }
+    body.plate-playing .miniHud{
+      display:none;
     }
 
-    @keyframes plateFoodWobble{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-42px) rotate(-8deg);
-      }
-
-      12%{
-        opacity:1;
-      }
-
-      35%{
-        transform:
-          translateX(calc(-50% + 28px))
-          translateY(calc(var(--plate-runtime-vh,720px) * .22))
-          rotate(12deg);
-      }
-
-      70%{
-        transform:
-          translateX(calc(-50% - 22px))
-          translateY(calc(var(--plate-runtime-vh,720px) * .46))
-          rotate(-12deg);
-      }
-
-      100%{
-        opacity:.98;
-        transform:
-          translateX(-50%)
-          translateY(calc(var(--plate-runtime-vh,720px) * .66))
-          rotate(6deg);
-      }
+    .mobileOnly{
+      display:none;
     }
 
-    @keyframes plateFoodDash{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-42px) scale(.94);
+    @media (max-width:980px){
+      .plate-app{
+        padding:10px;
       }
 
-      10%{
-        opacity:1;
+      .topbar{
+        align-items:stretch;
+        flex-direction:column;
       }
 
-      100%{
-        opacity:.98;
-        transform:
-          translateX(calc(-50% + var(--endX,0px)))
-          translateY(calc(var(--plate-runtime-vh,720px) * .68))
-          scale(1.02);
-      }
-    }
-
-    @keyframes plateFoodPowerFloat{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-32px) scale(.9);
+      .top-actions{
+        justify-content:flex-start;
       }
 
-      12%{
-        opacity:1;
-      }
-
-      100%{
-        opacity:.98;
-        transform:
-          translateX(calc(-50% + var(--endX,0px)))
-          translateY(calc(var(--plate-runtime-vh,720px) * .58))
-          scale(1.04);
-      }
-    }
-
-    @keyframes floatTextPop{
-      0%{
-        opacity:0;
-        transform:translate(-50%,-40%) scale(.8);
-      }
-
-      18%{
-        opacity:1;
-        transform:translate(-50%,-50%) scale(1.04);
-      }
-
-      100%{
-        opacity:0;
-        transform:translate(-50%,-78%) scale(.92);
-      }
-    }
-
-    @keyframes scorePopUp{
-      0%{
-        opacity:0;
-        transform:translateY(10px) scale(.9);
-      }
-
-      20%{
-        opacity:1;
-        transform:translateY(0) scale(1.04);
-      }
-
-      100%{
-        opacity:0;
-        transform:translateY(-42px) scale(.92);
-      }
-    }
-
-    @keyframes coinBurst{
-      0%{
-        opacity:0;
-        transform:translate(0,0) scale(.7) rotate(0deg);
-      }
-
-      20%{
-        opacity:1;
-      }
-
-      100%{
-        opacity:0;
-        transform:
-          translate(var(--dx),var(--dy))
-          scale(.9)
-          rotate(var(--rot));
-      }
-    }
-
-    @keyframes comboBoomPop{
-      0%{
-        opacity:0;
-        transform:translateX(-50%) scale(.8);
-      }
-
-      18%{
-        opacity:1;
-        transform:translateX(-50%) scale(1.06);
-      }
-
-      100%{
-        opacity:0;
-        transform:translateX(-50%) translateY(-36px) scale(.94);
-      }
-    }
-
-    @media (max-width:900px){
-      .plate-main{
+      .layout{
         grid-template-columns:1fr;
       }
 
-      .plate-side{
-        min-height:auto;
-        max-height:360px;
+      .side{
+        order:2;
+      }
+
+      .main{
+        order:1;
+      }
+
+      .stats{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+      }
+
+      .stat-card{
+        min-height:76px;
+        padding:10px;
+      }
+
+      .stat-label{
+        font-size:11px;
+      }
+
+      .arena-wrap{
+        min-height:500px;
+      }
+
+      .arena{
+        height:60vh;
+        min-height:500px;
+      }
+
+      .side{
+        display:grid;
+        grid-template-columns:1fr 1fr;
+      }
+
+      .panel.goal-panel,
+      .panel.meters-panel{
+        grid-column:span 1;
+      }
+
+      .panel.info-panel{
+        grid-column:1 / -1;
+      }
+
+      .bossBox,
+      .eventBox,
+      .lastSaveBox,
+      .orderBox,
+      .miniEventBox,
+      .bossMechanicBox{
+        width:min(330px,58%);
       }
     }
 
-    @media (max-width:680px){
-      .plate-app{
-        padding:8px;
-      }
-
-      .plate-topbar{
+    @media (max-width:720px){
+      .brand{
         border-radius:22px;
-        min-height:62px;
-        padding:9px 10px;
       }
 
-      .plate-logo{
-        width:44px;
-        height:44px;
-        border-radius:16px;
-        font-size:26px;
+      .brandIcon{
+        width:42px;
+        height:42px;
       }
 
-      .plate-title{
-        font-size:25px;
+      .brand h1{
+        font-size:21px;
       }
 
-      .plate-subtitle{
+      .brand p{
         font-size:12px;
       }
 
-      .plate-main{
-        margin-top:8px;
-        gap:8px;
-      }
-
-      .plate-side{
-        border-radius:22px;
-        padding:10px;
-        max-height:300px;
-      }
-
-      .goal-title{
-        font-size:20px;
-      }
-
-      .mission{
-        font-size:12px;
-      }
-
-      .plate-hud{
+      .stats{
         grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
       }
 
-      .plate-stat{
-        min-height:64px;
-        border-radius:16px;
-        padding:10px;
+      .arena-wrap{
+        padding:8px;
+        border-radius:26px;
+        min-height:460px;
       }
 
-      .stat-value{
-        font-size:30px;
-      }
-
-      .plate-stage{
-        min-height:500px;
+      .arena{
+        min-height:455px;
+        height:62vh;
         border-radius:22px;
-      }
-
-      .plate-prompt{
-        top:10px;
-        min-width:76%;
-        font-size:16px;
       }
 
       .center-plate{
-        width:210px;
-        height:120px;
-        bottom:54px;
+        width:min(285px,62vw);
+        min-width:215px;
+        bottom:10%;
       }
 
-      .plate-label{
+      .phase-banner{
+        width:90%;
+        top:12px;
         font-size:13px;
       }
 
-      .foodCard{
-        min-width:62px !important;
-        min-height:74px !important;
-        border-radius:20px !important;
-        padding:7px 5px !important;
+      .bossAvatar{
+        right:12px;
+        top:62px;
       }
 
-      .foodCard .foodEmojiFallback{
-        font-size:32px !important;
+      .bossFace{
+        font-size:27px;
       }
 
-      .foodCard .name{
-        font-size:10px !important;
+      .bossBox,
+      .eventBox,
+      .lastSaveBox,
+      .orderBox,
+      .miniEventBox,
+      .bossMechanicBox{
+        left:10px;
+        width:min(300px,70%);
+        font-size:12px;
       }
 
-      .foodTag{
-        font-size:9px !important;
-        bottom:-9px !important;
+      .orderBox{top:176px;}
+      .miniEventBox{top:244px;}
+      .bossMechanicBox{top:312px;}
+
+      .practiceCoach{
+        right:10px;
+        bottom:12px;
+        width:min(320px,72%);
       }
 
-      .plate-controls{
-        align-items:stretch;
-        flex-direction:column;
-        border-radius:20px;
-        min-height:unset;
-        padding:9px;
-        margin-bottom:16px;
+      .side{
+        grid-template-columns:1fr;
+      }
+
+      .panel.goal-panel,
+      .panel.meters-panel,
+      .panel.info-panel{
+        grid-column:auto;
+      }
+
+      .controls{
+        justify-content:center;
       }
 
       .controls-left,
       .controls-right{
-        width:100%;
         justify-content:center;
       }
 
+      .summaryStats{
+        grid-template-columns:repeat(2,1fr);
+      }
+    }
+
+    @media (max-width:480px){
+      .plate-app{
+        padding:8px;
+      }
+
+      .topbar{
+        gap:8px;
+        margin-bottom:8px;
+      }
+
+      .brand{
+        padding:8px 10px;
+      }
+
+      .top-actions{
+        gap:6px;
+      }
+
+      .pill{
+        padding:7px 9px;
+        font-size:12px;
+      }
+
+      .stats{
+        gap:7px;
+      }
+
+      .stat-card{
+        border-radius:18px;
+        min-height:68px;
+      }
+
+      .stat-value{
+        font-size:26px;
+      }
+
+      .stat-value.small{
+        font-size:17px;
+      }
+
+      .arena-wrap{
+        min-height:430px;
+      }
+
+      .arena{
+        min-height:420px;
+        height:60vh;
+      }
+
+      .center-plate{
+        min-width:200px;
+        width:70vw;
+        bottom:11%;
+      }
+
+      .plateFoodIcon{
+        width:26px;
+        height:26px;
+        font-size:21px;
+      }
+
+      .foodCard{
+        min-width:78px;
+        min-height:88px;
+        border-radius:20px;
+        padding:9px 10px;
+      }
+
+      .foodVisual{
+        font-size:38px;
+      }
+
+      .name{
+        font-size:12px;
+      }
+
+      .foodTag{
+        font-size:10px;
+      }
+
       .btn{
-        min-height:40px;
-        font-size:14px;
-        padding:8px 12px;
+        padding:10px 12px;
+        font-size:13px;
       }
 
-      .summary-card{
+      .bossBox,
+      .eventBox,
+      .lastSaveBox,
+      .orderBox,
+      .miniEventBox,
+      .bossMechanicBox{
+        width:calc(100% - 20px);
+        max-width:none;
+        left:10px;
+      }
+
+      .bossAvatar{
+        display:none;
+      }
+
+      .practiceCoach{
+        width:calc(100% - 20px);
+        right:10px;
+      }
+
+      .aiDirectorChip{
+        width:calc(100% - 22px);
+        justify-content:center;
+        font-size:12px;
+        bottom:12px;
+      }
+
+      .summaryCard{
         padding:22px 16px;
-        border-radius:28px;
+        border-radius:26px;
       }
+    }
 
-      .summary-stats{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .summary-actions{
-        display:grid;
-        grid-template-columns:1fr;
-      }
-
-      .summary-actions .btn{
-        width:100%;
-        min-height:52px;
+    @media (prefers-reduced-motion:reduce){
+      *,
+      *::before,
+      *::after{
+        animation-duration:.001ms!important;
+        animation-iteration-count:1!important;
+        scroll-behavior:auto!important;
       }
     }
   </style>
@@ -1328,225 +1925,297 @@
 
 <body>
   <div id="plateApp" class="plate-app">
-    <header class="plate-topbar">
-      <div class="plate-brand">
-        <div class="plate-logo" aria-hidden="true">🥗</div>
-        <div class="plate-title-block">
-          <h1 class="plate-title">Plate Solo</h1>
-          <div class="plate-subtitle">จัดจานอาหารให้สมดุลครบ 5 หมู่</div>
+    <div class="bg-decor" aria-hidden="true">
+      <span class="bubble b1"></span>
+      <span class="bubble b2"></span>
+      <span class="bubble b3"></span>
+      <span class="bubble b4"></span>
+    </div>
+
+    <header class="topbar">
+      <div class="brand">
+        <div class="brandIcon" aria-hidden="true">🍽️</div>
+        <div class="brandText">
+          <div class="eyebrow">HeroHealth • Nutrition Zone</div>
+          <h1>Plate Solo</h1>
+          <p>จัดจานอาหารให้สมดุลครบ 5 หมู่</p>
         </div>
       </div>
 
-      <div class="plate-top-actions">
-        <button id="btnBack" class="btn" type="button">← กลับ Nutrition Zone</button>
+      <div class="top-actions">
+        <span class="pill" id="modePill">Solo</span>
+        <span class="pill" id="diffPill">Normal</span>
+        <button id="btnBack" class="btn ghost" type="button">← กลับ Zone</button>
       </div>
     </header>
 
-    <main id="plateShell" class="plate-main">
-      <aside class="plate-side">
-        <section class="goal-panel" aria-label="ภารกิจ">
-          <h2 class="goal-title">ภารกิจอาหาร 5 หมู่</h2>
+    <main class="layout">
+      <aside class="side">
+        <section class="panel goal-panel">
+          <h2>ภารกิจอาหาร 5 หมู่</h2>
           <div id="missions" class="goal-list"></div>
         </section>
 
-        <section id="hintBox" class="panel-note" aria-live="polite">
-          คำใบ้จะขึ้นตรงนี้ระหว่างเล่น
-        </section>
-
-        <section class="progress-wrap" aria-label="ความสมดุล">
-          <div class="progress-label-row">
-            <span>ความสมดุล</span>
-            <span id="balanceText">0%</span>
+        <section class="panel meters-panel">
+          <div class="balance-wrap">
+            <div class="balance-head">
+              <span>ความสมดุล</span>
+              <strong id="balance" class="big-balance">0%</strong>
+            </div>
+            <div class="progress" aria-hidden="true">
+              <i id="balanceFill"></i>
+            </div>
           </div>
-          <div class="progress-track">
-            <i id="balanceFill" class="progress-fill"></i>
+
+          <div id="hintBox" class="panel-note">
+            เติมหมู่ที่ยังขาดก่อน จะได้คอมโบสูง!
           </div>
+
+          <div id="meters" class="meters-list"></div>
         </section>
 
-        <section id="log" class="panel-note" aria-live="polite">
-          พร้อมแล้ว
+        <section class="panel info-panel">
+          <div id="dailyBox" class="dailyBox"></div>
+          <hr style="border:0;border-top:1px solid rgba(120,180,210,.18);margin:12px 0;">
+          <div id="goalLock" class="goalLock"></div>
+          <hr style="border:0;border-top:1px solid rgba(120,180,210,.18);margin:12px 0;">
+          <h3>บันทึกระหว่างเล่น</h3>
+          <div id="log" class="panel-note"></div>
         </section>
-
-        <section id="meters" class="meters-list" aria-label="แถบอาหาร 5 หมู่"></section>
-
-        <section id="dailyBox" class="panel-note"></section>
-        <section id="goalLock" class="panel-note"></section>
       </aside>
 
-      <section class="plate-play" aria-label="พื้นที่เล่น Plate Solo">
-        <div class="plate-hud">
-          <div class="plate-stat score-card">
+      <section class="main">
+        <section class="stats" aria-label="สถานะเกม">
+          <div class="stat-card">
             <div class="stat-label">คะแนน</div>
-            <div id="scoreText" class="stat-value">0</div>
+            <div id="score" class="stat-value">0</div>
           </div>
 
-          <div class="plate-stat timer-card">
+          <div class="stat-card timer-card">
             <div class="stat-label">เวลา</div>
-            <div id="timerText" class="stat-value">120</div>
-            <i id="timerFill" class="timer-fill"></i>
-          </div>
-
-          <div class="plate-stat combo-card">
-            <div class="stat-label">ช่วงเกม</div>
-            <div id="phaseText" class="stat-value">Ready</div>
-          </div>
-
-          <div class="plate-stat balance-card">
-            <div class="stat-label">สมดุล</div>
-            <div id="balance" class="stat-value">0%</div>
-          </div>
-        </div>
-
-        <div id="gameStage" class="plate-stage">
-          <div id="prompt" class="plate-prompt">กดเริ่มเพื่อจัดจานอาหาร</div>
-
-          <div id="playField" class="play-field" aria-label="อาหารที่ตกลงมา"></div>
-          <div id="spawnLayer" class="play-field"></div>
-
-          <div id="dropZone" class="plate-drop-zone"></div>
-
-          <div id="plate" class="center-plate">
-            <div id="plateFoods" class="plate-foods"></div>
-            <div id="plateLabel" class="plate-label">วางอาหารให้ครบ 5 หมู่</div>
-          </div>
-
-          <div id="juiceLayer" class="juice-layer"></div>
-          <div id="flash" class="flash"></div>
-          <div id="duelLayer" class="duel-layer"></div>
-
-          <div id="startOverlay" class="hidden" aria-hidden="true"></div>
-
-          <div id="feverLayer" class="hidden">🔥 FEVER</div>
-          <div id="finalRush" class="hidden">⚡ FINAL RUSH</div>
-
-          <div id="bossBox" class="boss-box">
-            <div id="bossName"></div>
-            <div class="boss-hp-track">
-              <i id="bossHp"></i>
+            <div id="timeText" class="stat-value">120</div>
+            <div class="timer-fill-wrap">
+              <i id="timerFill" class="timer-fill"></i>
             </div>
-            <div id="bossPct"></div>
-            <div id="bossMood"></div>
           </div>
 
-          <div id="bossAvatar" class="boss-avatar hidden">
-            <div id="bossFace" class="boss-face">👾</div>
-            <div id="bossLabel" class="boss-label">Boss</div>
+          <div class="stat-card combo-card">
+            <div class="stat-label">ช่วงเกม</div>
+            <div id="phaseText" class="stat-value small">Ready</div>
           </div>
 
-          <div id="bossSkillFlash" class="boss-skill-flash"></div>
-
-          <div id="bossMechanicBox" class="boss-mechanic-box">
-            <div id="bossMechanicTitle"></div>
-            <div id="bossMechanicText"></div>
-            <div id="bossMechanicSec"></div>
-            <i id="bossMechanicFill"></i>
+          <div class="stat-card">
+            <div class="stat-label">สมดุล</div>
+            <div id="balanceText" class="stat-value">0%</div>
           </div>
+        </section>
 
-          <div id="lastSaveBox" class="last-save-box">
-            <div id="lastSaveText"></div>
-            <div id="lastSaveSec"></div>
-            <i id="lastSaveFill"></i>
+        <section class="arena-wrap">
+          <div id="arena" class="arena">
+            <div id="feverLayer" class="feverLayer hidden"></div>
+            <div id="finalRush" class="finalRush hidden">🔥 FINAL RUSH</div>
+
+            <div id="phaseBanner" class="phase-banner">
+              กดเริ่มเพื่อจัดจานอาหาร
+            </div>
+
+            <div id="bossBox" class="bossBox">
+              <div class="boss-head">
+                <strong id="bossName">Boss Plate</strong>
+                <span id="bossPct">100%</span>
+              </div>
+              <div class="bossHpTrack">
+                <i id="bossHp"></i>
+              </div>
+              <div id="bossMood" class="bossMood">
+                บอสยังไม่มา
+              </div>
+            </div>
+
+            <div id="bossAvatar" class="bossAvatar hidden">
+              <span id="bossFace" class="bossFace">👾</span>
+              <span id="bossLabel">Boss</span>
+            </div>
+
+            <div id="bossSkillFlash" class="bossSkillFlash"></div>
+
+            <div id="orderBox" class="orderBox eventBox">
+              <div id="orderText" class="eventText">ภารกิจด่วน</div>
+              <div class="eventTrack">
+                <i id="orderFill"></i>
+              </div>
+              <div id="orderSec" class="eventText">0s</div>
+            </div>
+
+            <div id="miniEventBox" class="miniEventBox eventBox">
+              <div id="miniEventText" class="eventText">Mini Event</div>
+              <div class="eventTrack">
+                <i id="miniEventFill"></i>
+              </div>
+              <div id="miniEventSec" class="eventText">0s</div>
+            </div>
+
+            <div id="bossMechanicBox" class="bossMechanicBox eventBox">
+              <strong id="bossMechanicTitle">Boss Mission</strong>
+              <div id="bossMechanicText" class="eventText">ระวังสกิลบอส</div>
+              <div class="eventTrack">
+                <i id="bossMechanicFill"></i>
+              </div>
+              <div id="bossMechanicSec" class="eventText">0s</div>
+            </div>
+
+            <div id="lastSaveBox" class="lastSaveBox">
+              <strong>🚨 Last Save</strong>
+              <div id="lastSaveText" class="eventText">
+                จานใกล้พัง! กู้ให้ทัน
+              </div>
+              <div class="eventTrack">
+                <i id="lastSaveFill"></i>
+              </div>
+              <div id="lastSaveSec" class="eventText">0s</div>
+            </div>
+
+            <div id="practiceCoach" class="practiceCoach hidden">
+              <div class="practiceTop">
+                <div id="practiceIcon" class="practiceIcon">✅</div>
+                <div>
+                  <div id="practiceTitle" class="practiceTitle">Practice</div>
+                  <div id="practiceText" class="practiceText">
+                    ลองเลือกอาหารก่อนเริ่มเกมจริง
+                  </div>
+                </div>
+              </div>
+
+              <div class="practiceBar">
+                <div class="eventTrack">
+                  <i id="practiceFill"></i>
+                </div>
+                <div id="practiceSec" class="practiceSec">0s</div>
+              </div>
+
+              <button id="btnSkipPractice" type="button" class="btn ghost" style="margin-top:10px;">
+                ข้าม Practice
+              </button>
+            </div>
+
+            <div id="aiDirectorChip" class="aiDirectorChip hidden">
+              <span id="aiDirectorIcon">🤖</span>
+              <span id="aiDirectorText">AI Coach: คุมจานให้พอดีต่อไป</span>
+            </div>
+
+            <div id="duelLayer" class="duelLayer"></div>
+
+            <div id="spawnLayer" class="spawn-layer"></div>
+
+            <div id="plate" class="center-plate">
+              <div id="plateFoods" class="plate-foods"></div>
+              <div id="plateLabel" class="plate-label">วางอาหารให้ครบ 5 หมู่</div>
+            </div>
+
+            <div id="juiceLayer" class="juice-layer"></div>
+            <div id="flash" class="flash"></div>
+            <div id="aimReticle" class="aimReticle hidden"></div>
           </div>
+        </section>
 
-          <div id="orderBox" class="order-box">
-            <div id="orderText"></div>
-            <div id="orderSec"></div>
-            <i id="orderFill"></i>
-          </div>
-
-          <div id="miniEventBox" class="mini-event-box">
-            <div id="miniEventText"></div>
-            <div id="miniEventSec"></div>
-            <i id="miniEventFill"></i>
-          </div>
-
-          <div id="practiceCoach" class="practice-coach hidden">
-            <div id="practiceIcon">✅</div>
-            <div id="practiceTitle">Practice</div>
-            <div id="practiceText">ลองก่อน คะแนนยังไม่คิดจริง</div>
-            <div id="practiceSec"></div>
-            <i id="practiceFill"></i>
-            <button id="btnSkipPractice" class="btn" type="button">ข้ามซ้อม</button>
-          </div>
-
-          <div id="aiDirectorChip" class="ai-director-chip hidden">
-            <span id="aiDirectorIcon">🤖</span>
-            <span id="aiDirectorText">AI Coach</span>
-          </div>
-
-          <div id="aimReticle" class="aim-reticle hidden">＋</div>
-        </div>
-
-        <div class="plate-controls">
+        <section class="controls">
           <div class="controls-left">
-            <span id="phaseBanner" class="status-pill">Plate Solo</span>
-
-            <span id="pShield" class="status-pill">🛡️ Shield</span>
-            <span id="pFreeze" class="status-pill">❄️ Freeze</span>
-            <span id="pFever" class="status-pill">🔥 Fever</span>
+            <button id="btnStart" class="btn primary" type="button">เริ่มเล่น</button>
+            <button id="btnPause" class="btn ghost" type="button">⏸️ พัก</button>
+            <button id="btnHint" class="btn blue" type="button">คำใบ้</button>
+            <button id="btnSkill" class="btn warn" type="button">สกิลช่วย</button>
+            <button id="btnAim" class="btn blue hidden" type="button">🎯 เลือกเป้า</button>
           </div>
 
           <div class="controls-right">
-            <button id="startBtn" class="btn primary" type="button">เริ่มเล่น</button>
-            <button id="pauseBtn" class="btn" type="button">พัก</button>
-            <button id="btnHint" class="btn blue" type="button">คำใบ้</button>
-            <button id="btnSkill" class="btn warn" type="button">สกิลช่วย</button>
-            <button id="btnAim" class="btn blue hidden" type="button">ยิง/เลือก</button>
+            <div class="power-row">
+              <span id="pShield" class="power-pill"><b>🛡️</b> Shield</span>
+              <span id="pFreeze" class="power-pill"><b>❄️</b> Freeze</span>
+              <span id="pFever" class="power-pill"><b>🔥</b> Fever</span>
+            </div>
           </div>
-        </div>
+        </section>
       </section>
     </main>
-  </div>
 
-  <!-- สำคัญมาก: ต้อง hidden ตั้งแต่ต้น ห้าม show ตอนโหลด -->
-  <div id="summaryOverlay" class="summary-modal hidden" aria-hidden="true">
-    <div class="summary-card" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
-      <div class="summary-kicker">Plate Solo</div>
+    <section id="summaryOverlay" class="summaryOverlay hidden" aria-hidden="true">
+      <div class="summaryCard">
+        <div id="rankIcon" class="rankIcon">🍽️</div>
+        <h2 id="summaryTitle">Plate Summary</h2>
+        <p id="summaryLine">สรุปผลการจัดจานอาหาร</p>
 
-      <div id="rankIcon" style="font-size:48px;margin-top:10px;">🍽️</div>
+        <div id="starRow" class="starRow"></div>
 
-      <h2 id="summaryTitle" class="summary-title">สรุปผล</h2>
-      <p id="summaryLine" class="summary-subtitle">จัดจานอาหารได้ดีมาก!</p>
-
-      <div id="starRow" class="starRow">
-        <span class="star">⭐</span>
-        <span class="star">⭐</span>
-        <span class="star">⭐</span>
-      </div>
-
-      <div class="summary-stats">
-        <div class="summary-stat">
-          <span id="sumScore" class="num">0</span>
-          <span class="label">คะแนน</span>
+        <div class="summaryStats">
+          <div>
+            <b id="sumScore">0</b>
+            <small>คะแนน</small>
+          </div>
+          <div>
+            <b id="sumBalance">0%</b>
+            <small>สมดุล</small>
+          </div>
+          <div>
+            <b id="sumCombo">0</b>
+            <small>คอมโบสูงสุด</small>
+          </div>
+          <div>
+            <b id="sumMission">0/3</b>
+            <small>ภารกิจ</small>
+          </div>
         </div>
 
-        <div class="summary-stat">
-          <span id="sumBalance" class="num">0%</span>
-          <span class="label">สมดุล</span>
-        </div>
+        <div id="badgeRow" class="badgeRow"></div>
+        <div id="recommend" class="recommend"></div>
 
-        <div class="summary-stat">
-          <span id="sumCombo" class="num">0</span>
-          <span class="label">คอมโบสูงสุด</span>
-        </div>
-
-        <div class="summary-stat">
-          <span id="sumMission" class="num">0/5</span>
-          <span class="label">ภารกิจ</span>
+        <div class="summaryActions">
+          <button id="btnReplay" type="button" class="btn blue">เล่นอีกครั้ง</button>
+          <button id="btnCooldown" type="button" class="btn cool" data-action="cooldown">ทำ Cooldown</button>
+          <button id="btnSummaryBack" type="button" class="btn ghost">กลับ Nutrition Zone</button>
         </div>
       </div>
+    </section>
 
-      <div id="badgeRow" class="badgeRow"></div>
-      <div id="recommend"></div>
-
-      <div class="summary-actions">
-        <button id="replayBtn" class="btn primary" type="button">เล่นอีกครั้ง</button>
-        <button id="cooldownBtn" class="btn blue" type="button">ทำ Cooldown</button>
-        <button id="nutritionZoneBtn" class="btn" type="button">กลับ Nutrition Zone</button>
-      </div>
+    <div id="arcadeHud" class="miniHud hidden" aria-hidden="true">
+      <span id="miniScore">0</span>
+      <span id="miniCombo">0</span>
+      <span id="miniBalance">0%</span>
+      <span id="miniTime">0s</span>
     </div>
   </div>
 
-  <script src="./plate-solo.js?v=20260513-summaryfix2" defer></script>
+  <script>
+    (function(){
+      'use strict';
+
+      var q = new URL(location.href).searchParams;
+
+      function qs(k, d){
+        return q.get(k) || d || '';
+      }
+
+      function text(id, value){
+        var el = document.getElementById(id);
+        if (el) el.textContent = value;
+      }
+
+      var diff = qs('diff','normal');
+      var view = qs('view','mobile');
+
+      text('diffPill', diff.charAt(0).toUpperCase() + diff.slice(1));
+      text('modePill', view === 'cvr' || view === 'cardboard' || view === 'vr-cardboard'
+        ? 'Solo • Cardboard'
+        : 'Solo');
+
+      try {
+        document.documentElement.style.setProperty(
+          '--plate-runtime-vh',
+          Math.max(420, window.innerHeight || 720) + 'px'
+        );
+      } catch(e) {}
+    })();
+  </script>
+
+  <script src="./plate-solo.js?v=20260514-portion-target-fix2-cooldown-zonefix"></script>
 </body>
 </html>
