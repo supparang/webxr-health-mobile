@@ -95,7 +95,7 @@
     <div class="icon">⚔️</div>
     <h1>GoodJunk Battle</h1>
     <p>
-      กำลังพาไปหน้า Battle Lobby ตัวหลัก สำหรับสร้างห้อง เข้าห้อง และเริ่ม Battle Multiplayer
+      กำลังพาไปหน้า Battle Lobby ตัวหลัก สำหรับสร้างห้อง ใส่ Room Code และเริ่ม Battle Multiplayer
     </p>
     <a id="go" href="./goodjunk-battle-lobby.html">ไป Battle Lobby</a>
     <div id="url" class="mini"></div>
@@ -116,7 +116,8 @@
         'api','log','studyId','conditionGroup',
         'zone','cat','game','gameId','theme',
         'entry','recommendedMode',
-        'cap','maxPlayers'
+        'cap','maxPlayers',
+        'join','role','host'
       ].forEach(k => {
         const v = params.get(k);
         if (v !== null && v !== '') out.searchParams.set(k, v);
