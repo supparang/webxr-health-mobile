@@ -4460,3 +4460,183 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260513-hydration-final-qa-lock-pack10
+   Final QA Lock: view class / boot check / path sanity
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260513-hydration-final-qa-lock-pack10';
+
+  function getUrl(){
+    try{ return new URL(location.href); }
+    catch(e){ return new URL('./hydration-vr.html', location.origin); }
+  }
+
+  function getParam(k, d){
+    try{ return getUrl().searchParams.get(k) || d; }
+    catch(e){ return d; }
+  }
+
+  function q(sel){
+    try{ return document.querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel){
+    try{ return Array.from(document.querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function setViewClass(){
+    var view = getParam('view', 'mobile');
+
+    document.body.dataset.view = view;
+    document.body.classList.add('hha-view-' + view);
+
+    if(getParam('debug','') === '1' || getParam('qa','') === '1'){
+      document.body.dataset.debug = '1';
+      document.body.classList.add('hha-debug');
+    }
+  }
+
+  function nutritionZoneLooksOk(){
+    var hub = getParam('hub', '');
+
+    try{
+      var decoded = decodeURIComponent(hub || '');
+      if(decoded.indexOf('nutrition-zone.html') !== -1) return true;
+    }catch(e){}
+
+    return true; /* fallback เป็น ./nutrition-zone.html ใน pack9 แล้ว */
+  }
+
+  function collectStatus(){
+    var hyd = window.HHA && window.HHA.Hydration;
+
+    var hasPlayfield = !!q('#hha-hydration-playfield');
+    var hasStart = !!(
+      q('.hha-hydration-start') ||
+      q('.hha-start') ||
+      q('[data-hha-hydration-start]')
+    );
+
+    var hasHud = !!(
+      q('.hha-hydration-hud') ||
+      q('#hydration-hud') ||
+      q('.hha-timebar')
+    );
+
+    var hasSummary = !!(
+      q('#hha-hydration-summary') ||
+      q('.hha-hydration-summary') ||
+      q('#hydration-summary') ||
+      q('.hha-summary-panel') ||
+      q('.hha-summary')
+    );
+
+    var targets = qa('.hha-hydration-target').length;
+
+    return {
+      version: PATCH,
+      view: getParam('view','mobile'),
+      run: getParam('run','play'),
+      pid: getParam('pid','anon'),
+      diff: getParam('diff','normal'),
+      time: getParam('time','150'),
+      playfield: hasPlayfield,
+      start: hasStart,
+      hud: hasHud,
+      summary: hasSummary,
+      targets: targets,
+      hydBooted: !!(hyd && hyd.booted),
+      hydStarted: !!(hyd && hyd.started),
+      nutritionReturn: nutritionZoneLooksOk()
+    };
+  }
+
+  function ensureBadge(){
+    var el = document.getElementById('hha-hydration-qa-badge');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-hydration-qa-badge';
+    el.className = 'hha-hydration-qa-badge';
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function renderBadge(){
+    var st = collectStatus();
+    var el = ensureBadge();
+
+    el.innerHTML = [
+      'Hydration QA: ' + st.version,
+      'view=' + st.view + ' run=' + st.run,
+      'playfield=' + (st.playfield ? 'OK' : 'NO') +
+        ' hud=' + (st.hud ? 'OK' : 'NO') +
+        ' start=' + (st.start ? 'OK' : 'NO'),
+      'summary=' + (st.summary ? 'OK' : 'NO') +
+        ' targets=' + st.targets +
+        ' booted=' + (st.hydBooted ? 'OK' : 'WAIT')
+    ].join('<br>');
+  }
+
+  function showBootWarn(msg){
+    if(q('#hha-hydration-final-boot-warn')) return;
+
+    /* แสดงเฉพาะตอน debug/qa หรือกรณีไม่พบ playfield จริง ๆ */
+    var debug = getParam('debug','') === '1' || getParam('qa','') === '1';
+    if(!debug && q('#hha-hydration-playfield')) return;
+
+    var box = document.createElement('div');
+    box.id = 'hha-hydration-final-boot-warn';
+    box.className = 'hha-hydration-boot-warn';
+    box.innerHTML = [
+      '<div class="hha-hydration-boot-warn-card">',
+      '<div style="font-size:44px">⚠️</div>',
+      '<h2>Hydration QA พบจุดที่ต้องตรวจ</h2>',
+      '<p>' + String(msg || 'ตรวจ hydration-vr.js / hydration-vr.css / path อีกครั้ง') + '</p>',
+      '<button type="button" onclick="location.reload()">โหลดใหม่</button>',
+      '</div>'
+    ].join('');
+
+    document.body.appendChild(box);
+  }
+
+  function finalBootCheck(){
+    var st = collectStatus();
+
+    if(!st.playfield){
+      showBootWarn('ไม่พบ #hha-hydration-playfield ใน hydration-vr.html');
+      return;
+    }
+
+    /*
+      ถ้าไม่มี start ไม่มี summary และไม่มี target หลังโหลดพักหนึ่ง
+      อาจหมายถึง engine ไม่ boot
+    */
+    if(!st.start && !st.summary && st.targets === 0 && !st.hydBooted){
+      showBootWarn('โหลดหน้าได้ แต่ยังไม่พบ start screen / summary / target / HYD.booted');
+    }
+
+    document.body.classList.add('hha-hydration-boot-ok');
+  }
+
+  function boot(){
+    setViewClass();
+    renderBadge();
+
+    setTimeout(finalBootCheck, 1800);
+    setInterval(renderBadge, 1000);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
