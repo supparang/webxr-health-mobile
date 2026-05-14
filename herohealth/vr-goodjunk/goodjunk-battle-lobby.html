@@ -1375,12 +1375,29 @@
         const existing = await dbGet(roomPath(code)).catch(() => null);
 
         if (existing){
-          listenRoom(code);
-          setNotice('warn',`พบห้อง <b>${esc(code)}</b> แล้ว กด “เข้าห้องเพื่อน” เพื่อร่วม Battle`);
-        }else{
-          syncUi(null);
-          setNotice('warn',`ยังไม่พบห้อง <b>${esc(code)}</b> ถ้าคุณเป็น Host ให้กด “สร้างห้อง Battle”`);
-        }
+  listenRoom(room);
+
+  const urlRole = String(qs('role','')).toLowerCase();
+  const urlHost = String(qs('host','')).toLowerCase();
+  const isGuestLink = qs('join','') === '1' || urlRole === 'guest' || urlHost === '0';
+
+  if (isGuestLink){
+    setNotice('warn','กำลังเข้าห้อง Battle ให้อัตโนมัติ...');
+
+    try {
+      await joinRoom();
+    } catch (err) {
+      console.error(err);
+      setNotice('bad','เข้าห้อง Battle ไม่สำเร็จ: ' + (err?.message || err));
+    }
+
+    return;
+  }
+
+  setNotice('warn','พบห้องเดิมแล้ว กดเข้าห้องเพื่อนหรือ Host กดเริ่มได้');
+}else{
+  syncUi(null);
+}
       }catch(err){
         console.warn(err);
       }
