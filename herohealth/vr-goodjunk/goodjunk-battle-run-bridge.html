@@ -3,432 +3,139 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>GoodJunk Battle Run Bridge</title>
-  <meta name="color-scheme" content="light" />
+  <title>GoodJunk Battle Run • Redirect</title>
+  <meta name="theme-color" content="#ffb347" />
+
   <style>
-    :root{
-      --bg1:#dff4ff;
-      --bg2:#bfe8ff;
-      --bg3:#fff7d8;
-      --card:#fffef9;
-      --line:#bfe3f2;
-      --text:#4d4a42;
-      --muted:#7b7a72;
-      --green:#7ed957;
-      --blue:#58b7f5;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
-    }
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(circle at 10% 10%, rgba(255,255,255,.92), transparent 18%),
-        radial-gradient(circle at 88% 12%, rgba(255,255,255,.78), transparent 16%),
-        linear-gradient(180deg,var(--bg1),var(--bg2) 55%, var(--bg3));
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:#4d4034;
+      background:linear-gradient(180deg,#fff7d8,#e9f8ff);
     }
+
     body{
-      min-height:100dvh;
       display:grid;
       place-items:center;
       padding:18px;
     }
+
     .card{
-      width:min(680px,100%);
-      background:linear-gradient(180deg,var(--card),#f7fff4);
-      border:3px solid var(--line);
-      border-radius:28px;
-      box-shadow:var(--shadow);
-      padding:18px;
+      width:min(560px,100%);
+      border:4px solid #ffd98a;
+      border-radius:30px;
+      background:#fffef9;
+      box-shadow:0 18px 44px rgba(160,112,35,.16);
+      padding:24px;
+      text-align:center;
     }
-    .kicker{
-      display:inline-flex; align-items:center; gap:8px;
-      padding:8px 14px; border-radius:999px;
-      background:#fff4dd; border:2px solid var(--line);
-      color:#b7791f; font-size:13px; font-weight:1000;
-      margin-bottom:10px;
+
+    .icon{
+      width:86px;
+      height:86px;
+      margin:0 auto 14px;
+      border-radius:30px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      background:linear-gradient(180deg,#fff8dc,#ffd75a);
+      border:4px solid #ffe6ad;
     }
+
     h1{
-      margin:0 0 6px;
-      font-size:clamp(28px,5vw,42px);
-      line-height:1.05;
-      font-weight:1000;
-      color:#b7791f;
-      text-shadow:0 2px 0 #fff;
+      margin:0 0 8px;
+      color:#b66a00;
+      font-size:clamp(28px,6vw,42px);
     }
+
     p{
-      margin:0;
-      color:var(--muted);
-      line-height:1.7;
-      font-size:14px;
+      margin:0 auto 18px;
+      max-width:430px;
+      color:#7a6b5d;
+      line-height:1.65;
       font-weight:900;
     }
-    .status{
-      margin-top:14px;
-      padding:12px 14px;
-      border-radius:18px;
-      background:#fff;
-      border:2px solid var(--line);
-      color:#6d6a62;
-      font-size:13px;
-      line-height:1.7;
+
+    a{
+      min-height:54px;
+      border-radius:20px;
+      border:3px solid #ffe08a;
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      color:#553900;
       font-weight:1000;
-      box-shadow:0 8px 18px rgba(86,155,194,.08);
-      white-space:pre-wrap;
+      padding:12px 18px;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 14px 30px rgba(160,112,35,.14);
     }
-    .row{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
+
+    .mini{
       margin-top:14px;
-    }
-    .btn{
-      appearance:none; border:0; cursor:pointer;
-      min-height:48px; padding:12px 16px; border-radius:18px;
-      font-size:14px; font-weight:1000; transition:.12s ease;
-      box-shadow:0 10px 20px rgba(86,155,194,.14);
-    }
-    .btn:hover{ transform:translateY(-1px); filter:brightness(1.03); }
-    .btn:active{ transform:translateY(0); }
-    .btn-primary{ background:linear-gradient(180deg,var(--green),#58c33f); color:#fffef9; }
-    .btn-blue{ background:linear-gradient(180deg,#7fcfff,var(--blue)); color:#fffef9; }
-    .btn-ghost{ background:#fff; color:#6d6a62; border:2px solid var(--line); }
-    .debug{
-      margin-top:14px;
-      padding-top:10px;
-      border-top:1px dashed rgba(191,227,242,.95);
-      white-space:pre-wrap;
-      word-break:break-word;
-      font-size:11px;
-      color:#8a8a82;
-      max-height:220px;
-      overflow:auto;
+      color:#8a7b70;
+      font-size:12px;
+      line-height:1.5;
+      font-weight:800;
+      word-break:break-all;
     }
   </style>
 </head>
+
 <body>
   <main class="card">
-    <div class="kicker">⚔️ GOODJUNK BATTLE RUN BRIDGE</div>
-    <h1>กำลังพาเข้า Battle</h1>
-    <p>
-      ระบบกำลังตรวจห้อง battle และเตรียมพารามิเตอร์ให้สะอาดก่อนเข้า run page จริง
-    </p>
-
-    <div class="status" id="statusBox">กำลังเริ่มต้น...</div>
-
-    <div class="row">
-      <button id="btnEnterNow" class="btn btn-primary" type="button">🎯 เข้าเกมตอนนี้</button>
-      <button id="btnReloadRoom" class="btn btn-blue" type="button">🔄 โหลดห้องใหม่</button>
-      <button id="btnBackLobby" class="btn btn-ghost" type="button">↩️ กลับ Lobby</button>
-    </div>
-
-    <div class="debug" id="debugBox"></div>
+    <div class="icon">⚔️</div>
+    <h1>Battle Runtime</h1>
+    <p>กำลังพาไปหน้าเล่น Battle ตัวปัจจุบัน</p>
+    <a id="go" href="./goodjunk-vr-battle.html">ไป Battle Run</a>
+    <div id="url" class="mini"></div>
   </main>
 
   <script>
-    (function(){
+    (() => {
       'use strict';
 
-      const ROOT_PATH = 'hha-battle/goodjunk/rooms';
-      const RUN_PAGE = './goodjunk-battle-run.html';
-      const LOBBY_PAGE = './goodjunk-battle-lobby.html';
-      const FIREBASE_SDKS = [
-        'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
-        'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
-        'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
-        '../firebase-config.js'
-      ];
+      const params = new URLSearchParams(location.search);
+      const out = new URL('./goodjunk-vr-battle.html', location.href);
 
-      const q = new URLSearchParams(location.search);
-
-      const UI = {
-        statusBox: document.getElementById('statusBox'),
-        debugBox: document.getElementById('debugBox'),
-        btnEnterNow: document.getElementById('btnEnterNow'),
-        btnReloadRoom: document.getElementById('btnReloadRoom'),
-        btnBackLobby: document.getElementById('btnBackLobby')
-      };
-
-      const STATE = {
-        roomId: cleanRoom(qs('roomId') || qs('room') || ''),
-        pid: cleanPid(qs('pid') || ''),
-        uid: '',
-        name: cleanText(qs('name') || qs('nick') || readLS('GJ_BATTLE_NAME') || 'Player', 80),
-        diff: cleanDiff(qs('diff') || 'normal'),
-        timeSec: clampInt(qs('time') || '150', 90, 300, 150),
-        view: cleanText(qs('view') || 'mobile', 24),
-        run: cleanText(qs('run') || 'play', 24),
-        hub: qs('hub') || '../hub.html',
-        roomKind: cleanText(qs('roomKind') || 'battle', 24) || 'battle',
-        seed: cleanText(qs('seed') || String(Date.now()), 120),
-
-        db: null,
-        auth: null,
-        room: null,
-        roomState: null,
-        players: {},
-        redirectUrl: '',
-        autoEntered: false
-      };
-
-      function qs(key, fb=''){
-        try{
-          const v = q.get(key);
-          return v == null || v === '' ? fb : v;
-        }catch{
-          return fb;
-        }
-      }
-
-      function now(){ return Date.now(); }
-      function cleanText(v, max=120){ return String(v == null ? '' : v).trim().slice(0, max); }
-      function cleanPid(v){ return String(v == null ? '' : v).trim().replace(/[.#$[\]/]/g, '-').slice(0, 120); }
-      function cleanRoom(v){ return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 24); }
-      function cleanDiff(v){ const s = String(v || '').toLowerCase(); return (s === 'easy' || s === 'hard') ? s : 'normal'; }
-      function clampInt(v, min, max, fb){
-        const n = Number(v);
-        if (!Number.isFinite(n)) return fb;
-        return Math.max(min, Math.min(max, Math.round(n)));
-      }
-      function readLS(key){ try{ return localStorage.getItem(key) || ''; } catch{ return ''; } }
-
-      function setStatus(text){ UI.statusBox.textContent = text; }
-
-      function setDebug(){
-        UI.debugBox.textContent =
-          '[BRIDGE]\n' +
-          'roomId=' + (STATE.roomId || '-') + '\n' +
-          'pid=' + (STATE.pid || '-') + '\n' +
-          'uid=' + (STATE.uid || '-') + '\n' +
-          'name=' + (STATE.name || '-') + '\n' +
-          'diff=' + (STATE.diff || '-') + '\n' +
-          'time=' + (STATE.timeSec || '-') + '\n' +
-          'view=' + (STATE.view || '-') + '\n' +
-          'run=' + (STATE.run || '-') + '\n' +
-          'roomKind=' + (STATE.roomKind || '-') + '\n' +
-          'roomStatus=' + String((STATE.roomState || {}).status || '-') + '\n' +
-          'redirectUrl=' + (STATE.redirectUrl || '-') + '\n' +
-          'autoEntered=' + STATE.autoEntered + '\n' +
-          'forceBattleController=1';
-      }
-
-      function clearStaleSummaryState(){
-        try{ sessionStorage.removeItem('GJ_BATTLE_SHOW_LAST_SUMMARY'); }catch{}
-        try{ localStorage.removeItem('GJ_BATTLE_TEMP_SHOW_LAST_SUMMARY'); }catch{}
-        try{ delete window.__GJ_BATTLE_LAST_SUMMARY__; }catch{}
-        try{
-          if (window.state){
-            window.state.showSummary = false;
-            window.state.finished = false;
-            window.state.reason = '';
-          }
-        }catch{}
-      }
-
-      function loadScript(src){
-        return new Promise((resolve, reject) => {
-          const full = new URL(src, location.href).toString();
-          const found = Array.from(document.scripts).find(s => s.src === full);
-          if (found){
-            if (found.dataset.loaded === '1') return resolve(full);
-            found.addEventListener('load', () => resolve(full), { once:true });
-            found.addEventListener('error', () => reject(new Error('load failed: ' + src)), { once:true });
-            return;
-          }
-
-          const s = document.createElement('script');
-          s.src = full;
-          s.async = true;
-          s.onload = () => {
-            s.dataset.loaded = '1';
-            resolve(full);
-          };
-          s.onerror = () => reject(new Error('load failed: ' + src));
-          document.head.appendChild(s);
-        });
-      }
-
-      async function ensureFirebaseReady(){
-        if (!(window.firebase && window.firebase.apps && window.firebase.database && window.firebase.auth)){
-          for (const src of FIREBASE_SDKS) await loadScript(src);
-        }
-
-        const firebase = window.firebase;
-        const cfg = window.HHA_FIREBASE_CONFIG || window.__HHA_FIREBASE_CONFIG__ || window.firebaseConfig || null;
-
-        if (firebase.apps && !firebase.apps.length){
-          if (!cfg) throw new Error('Firebase config not found');
-          firebase.initializeApp(cfg);
-        }
-        if (!firebase.apps || !firebase.apps.length){
-          throw new Error('Firebase app init failed');
-        }
-
-        STATE.db = firebase.database();
-        STATE.auth = firebase.auth();
-
-        if (typeof window.HHA_ensureAnonymousAuth === 'function'){
-          await window.HHA_ensureAnonymousAuth();
-        } else if (!STATE.auth.currentUser){
-          await STATE.auth.signInAnonymously();
-        }
-
-        const user = STATE.auth.currentUser;
-        if (!user) throw new Error('Anonymous auth failed');
-
-        STATE.uid = cleanPid(user.uid || '');
-        if (!STATE.pid) STATE.pid = STATE.uid;
-      }
-
-      async function loadRoom(){
-        if (!STATE.roomId) throw new Error('roomId missing');
-
-        const snap = await STATE.db.ref(`${ROOT_PATH}/${STATE.roomId}`).once('value');
-        if (!snap.exists()) throw new Error('room not found');
-
-        STATE.room = snap.val() || {};
-        STATE.roomState = STATE.room.state || {};
-        STATE.players = STATE.room.players || {};
-      }
-
-      function buildRunUrl(){
-        const u = new URL(RUN_PAGE, location.href);
-
-        u.searchParams.set('roomId', STATE.roomId);
-        u.searchParams.set('pid', STATE.pid);
-        u.searchParams.set('name', STATE.name);
-        u.searchParams.set('diff', STATE.diff);
-        u.searchParams.set('time', String(STATE.timeSec));
-        u.searchParams.set('view', STATE.view);
-        u.searchParams.set('run', STATE.run);
-        u.searchParams.set('mode', 'battle');
-        u.searchParams.set('hub', STATE.hub);
-        u.searchParams.set('roomKind', STATE.roomKind);
-        u.searchParams.set('seed', STATE.seed || String(Date.now()));
-        u.searchParams.set('forceBattleController', '1');
-
-        return u.toString();
-      }
-
-      function buildLobbyUrl(){
-        const u = new URL(LOBBY_PAGE, location.href);
-        u.searchParams.set('roomId', STATE.roomId);
-        u.searchParams.set('pid', STATE.pid);
-        u.searchParams.set('name', STATE.name);
-        u.searchParams.set('diff', STATE.diff);
-        u.searchParams.set('time', String(STATE.timeSec));
-        u.searchParams.set('view', STATE.view);
-        u.searchParams.set('run', STATE.run);
-        u.searchParams.set('hub', STATE.hub);
-        u.searchParams.set('roomKind', STATE.roomKind);
-        return u.toString();
-      }
-
-      function roomStatus(){
-        return String((STATE.roomState || {}).status || 'waiting');
-      }
-
-      function activePlayers(){
-        const t = now();
-        const map = STATE.players || {};
-        return Object.entries(map)
-          .map(([key, p]) => Object.assign({ key }, p || {}))
-          .filter((p) => {
-            if (p.connected === false) return false;
-            const lastSeen = Number(p.lastSeen || p.updatedAt || p.joinedAt || 0);
-            if (!lastSeen) return true;
-            return (t - lastSeen) <= 15000;
-          })
-          .sort((a, b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
-      }
-
-      function enterRunNow(){
-        if (!STATE.redirectUrl) STATE.redirectUrl = buildRunUrl();
-        clearStaleSummaryState();
-        STATE.autoEntered = true;
-        setDebug();
-        location.href = STATE.redirectUrl;
-      }
-
-      function maybeAutoEnter(){
-        const status = roomStatus();
-
-        if (!STATE.redirectUrl) STATE.redirectUrl = buildRunUrl();
-
-        if (status === 'playing'){
-          setStatus('ห้องกำลังเล่นอยู่แล้ว\nกำลังพาเข้า run page...');
-          setDebug();
-          setTimeout(enterRunNow, 80);
-          return;
-        }
-
-        if (status === 'countdown'){
-          const endsAt = Number((STATE.roomState || {}).countdownEndsAt || 0);
-          const waitMs = Math.max(0, endsAt - now() + 100);
-          setStatus('ห้องอยู่ในช่วงนับถอยหลัง\nรอให้ countdown จบแล้วจะเข้า run page อัตโนมัติ...');
-          setDebug();
-          setTimeout(enterRunNow, waitMs);
-          return;
-        }
-
-        if (status === 'ended'){
-          setStatus('รอบก่อนจบแล้ว\nสามารถกดเข้าเกมตอนนี้เพื่อเข้า run page ใหม่ หรือกลับ lobby เพื่อเริ่มรอบใหม่');
-          setDebug();
-          return;
-        }
-
-        setStatus(
-          'ห้องยังไม่เริ่มเล่น\n' +
-          'ผู้เล่นในห้องตอนนี้: ' + activePlayers().length + ' คน\n' +
-          'กดเข้าเกมตอนนี้ได้ หรือกลับ lobby เพื่อรอ host กด Start'
-        );
-        setDebug();
-      }
-
-      function wireEvents(){
-        UI.btnEnterNow.addEventListener('click', () => {
-          STATE.redirectUrl = buildRunUrl();
-          enterRunNow();
-        });
-
-        UI.btnReloadRoom.addEventListener('click', async () => {
-          try{
-            setStatus('กำลังโหลดห้องใหม่...');
-            await loadRoom();
-            STATE.redirectUrl = buildRunUrl();
-            maybeAutoEnter();
-          } catch (err){
-            setStatus('โหลดห้องไม่สำเร็จ: ' + String(err.message || err));
-            setDebug();
-          }
-        });
-
-        UI.btnBackLobby.addEventListener('click', () => {
-          clearStaleSummaryState();
-          location.href = buildLobbyUrl();
-        });
-      }
-
-      async function boot(){
-        clearStaleSummaryState();
-        wireEvents();
-        setStatus('กำลังเชื่อม Firebase...');
-        setDebug();
-
-        await ensureFirebaseReady();
-        await loadRoom();
-
-        STATE.redirectUrl = buildRunUrl();
-        maybeAutoEnter();
-      }
-
-      boot().catch((err) => {
-        console.error('[goodjunk-battle-run-bridge] boot failed:', err);
-        setStatus('Bridge โหลดไม่สำเร็จ: ' + String(err && err.message ? err.message : err));
-        setDebug();
+      [
+        'pid','name','nick',
+        'room','roomId',
+        'matchId',
+        'diff','time','view',
+        'hub','run','seed',
+        'api','log','studyId','conditionGroup',
+        'zone','cat','game','gameId','theme',
+        'entry','recommendedMode',
+        'cap','maxPlayers',
+        'role','host','wait','autostart','modeLocked'
+      ].forEach(k => {
+        const v = params.get(k);
+        if (v !== null && v !== '') out.searchParams.set(k, v);
       });
+
+      out.searchParams.set('mode','battle');
+      out.searchParams.set('entry','battle');
+      out.searchParams.set('recommendedMode','battle');
+      out.searchParams.set('multiplayer','1');
+
+      out.searchParams.set('phaseBoss','0');
+      out.searchParams.set('boss','0');
+      out.searchParams.set('soloBoss','0');
+      out.searchParams.set('bossMode','0');
+
+      const go = document.getElementById('go');
+      const url = document.getElementById('url');
+
+      go.href = out.toString();
+      url.textContent = out.toString();
+
+      setTimeout(() => {
+        location.replace(out.toString());
+      }, 450);
     })();
   </script>
 </body>
