@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <title>HeroHealth • Groups Solo Mobile</title>
   <meta name="theme-color" content="#dff7ff" />
+
   <style>
     :root{
       --bg1:#e8f9ff;
@@ -22,7 +23,9 @@
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{
+      box-sizing:border-box;
+    }
 
     html,body{
       margin:0;
@@ -289,13 +292,24 @@
       white-space:nowrap;
     }
 
-    .chip.yellow{ background:#fff5ca; color:#806000; }
-    .chip.blue{ background:#e6f8ff; color:#28799a; }
-    .chip.heart{ background:#fff0f0; color:#bc4949; }
+    .chip.yellow{
+      background:#fff5ca;
+      color:#806000;
+    }
+
+    .chip.blue{
+      background:#e6f8ff;
+      color:#28799a;
+    }
+
+    .chip.heart{
+      background:#fff0f0;
+      color:#bc4949;
+    }
 
     .stage{
       position:absolute;
-      inset:104px 0 142px;
+      inset:104px 0 178px;
       z-index:10;
       overflow:hidden;
     }
@@ -335,18 +349,18 @@
       position:absolute;
       left:10px;
       right:10px;
-      bottom:calc(72px + var(--safe-bottom));
+      bottom:calc(100px + var(--safe-bottom));
       z-index:22;
-      min-height:74px;
-      border-radius:24px;
-      padding:10px 12px;
+      min-height:62px;
+      border-radius:22px;
+      padding:8px 10px;
       display:flex;
       align-items:center;
       justify-content:center;
       text-align:center;
       background:rgba(255,255,255,.92);
       box-shadow:0 14px 36px rgba(35,81,107,.14);
-      font-size:clamp(21px,6vw,32px);
+      font-size:clamp(18px,5.2vw,28px);
       line-height:1.12;
       font-weight:1000;
       pointer-events:none;
@@ -355,7 +369,7 @@
     .prompt small{
       display:block;
       color:#7193a8;
-      font-size:12px;
+      font-size:11px;
       font-weight:850;
       margin-top:4px;
     }
@@ -364,18 +378,19 @@
       position:absolute;
       left:8px;
       right:8px;
-      bottom:calc(8px + var(--safe-bottom));
+      bottom:calc(20px + var(--safe-bottom));
       z-index:25;
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:6px;
+      gap:5px;
     }
 
     .gate{
-      min-height:64px;
+      min-height:70px;
+      max-height:82px;
       border:0;
-      border-radius:18px;
-      padding:6px 3px 5px;
+      border-radius:17px;
+      padding:5px 2px 4px;
       background:rgba(255,255,255,.95);
       box-shadow:0 10px 26px rgba(35,81,107,.13);
       font-weight:1000;
@@ -385,44 +400,73 @@
     }
 
     .gate .num{
-      width:28px;
-      height:28px;
-      margin:0 auto 3px;
-      border-radius:12px;
+      width:26px;
+      height:26px;
+      margin:0 auto 2px;
+      border-radius:11px;
       display:grid;
       place-items:center;
-      font-size:15px;
+      font-size:14px;
       color:#fff;
     }
 
     .gate .label{
       display:block;
-      font-size:12px;
+      font-size:11px;
       line-height:1.02;
     }
 
     .gate .hint{
       display:block;
-      margin-top:3px;
+      margin-top:2px;
       color:#7193a8;
-      font-size:9px;
+      font-size:8px;
       line-height:1;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .gate.protein{ box-shadow:inset 0 0 0 3px #ffaaa0,0 10px 26px rgba(35,81,107,.13); }
-    .gate.carb{ box-shadow:inset 0 0 0 3px #ffe480,0 10px 26px rgba(35,81,107,.13); }
-    .gate.veg{ box-shadow:inset 0 0 0 3px #a7f28e,0 10px 26px rgba(35,81,107,.13); }
-    .gate.fruit{ box-shadow:inset 0 0 0 3px #ffb2d9,0 10px 26px rgba(35,81,107,.13); }
-    .gate.fat{ box-shadow:inset 0 0 0 3px #c7b4ff,0 10px 26px rgba(35,81,107,.13); }
+    .gate.protein{
+      box-shadow:inset 0 0 0 3px #ffaaa0,0 10px 26px rgba(35,81,107,.13);
+    }
 
-    .gate.protein .num{ background:#ff8e82; }
-    .gate.carb .num{ background:#f7c948; color:#6b4c00; }
-    .gate.veg .num{ background:#72d957; }
-    .gate.fruit .num{ background:#ff8fc8; }
-    .gate.fat .num{ background:#a98cff; }
+    .gate.carb{
+      box-shadow:inset 0 0 0 3px #ffe480,0 10px 26px rgba(35,81,107,.13);
+    }
+
+    .gate.veg{
+      box-shadow:inset 0 0 0 3px #a7f28e,0 10px 26px rgba(35,81,107,.13);
+    }
+
+    .gate.fruit{
+      box-shadow:inset 0 0 0 3px #ffb2d9,0 10px 26px rgba(35,81,107,.13);
+    }
+
+    .gate.fat{
+      box-shadow:inset 0 0 0 3px #c7b4ff,0 10px 26px rgba(35,81,107,.13);
+    }
+
+    .gate.protein .num{
+      background:#ff8e82;
+    }
+
+    .gate.carb .num{
+      background:#f7c948;
+      color:#6b4c00;
+    }
+
+    .gate.veg .num{
+      background:#72d957;
+    }
+
+    .gate.fruit .num{
+      background:#ff8fc8;
+    }
+
+    .gate.fat .num{
+      background:#a98cff;
+    }
 
     .gate.hit{
       animation:gateHit .26s ease both;
@@ -587,7 +631,7 @@
     .return-mini{
       position:fixed;
       left:10px;
-      bottom:calc(10px + var(--safe-bottom));
+      bottom:calc(12px + var(--safe-bottom));
       z-index:80;
       border:0;
       border-radius:999px;
@@ -599,26 +643,64 @@
       cursor:pointer;
     }
 
+    body.playing #returnBtn,
+    body.summary-mode #returnBtn{
+      display:none !important;
+    }
+
+    @media (max-height:740px){
+      .stage{
+        inset:96px 0 166px;
+      }
+
+      .food{
+        width:96px;
+        height:96px;
+        margin-left:-48px;
+        font-size:50px;
+      }
+
+      .prompt{
+        bottom:calc(94px + var(--safe-bottom));
+        min-height:58px;
+        font-size:clamp(17px,4.8vw,24px);
+      }
+
+      .gates{
+        bottom:calc(18px + var(--safe-bottom));
+      }
+
+      .gate{
+        min-height:66px;
+      }
+    }
+
     @media (min-width:720px){
-      .intro-card,.summary-card{
+      .intro-card,
+      .summary-card{
         padding:28px 22px;
       }
+
       .howto{
         grid-template-columns:repeat(4,1fr);
       }
+
       .stage{
         inset:112px 0 150px;
       }
+
       .food{
         width:132px;
         height:132px;
         margin-left:-66px;
         font-size:68px;
       }
+
       .gates{
         max-width:820px;
         margin:0 auto;
       }
+
       .prompt{
         max-width:680px;
         left:50%;
@@ -629,6 +711,7 @@
     }
   </style>
 </head>
+
 <body>
   <main id="intro" class="screen intro active">
     <section class="intro-card">
@@ -637,15 +720,44 @@
       <p class="lead">แตะอาหารที่ตกลงมา แล้วส่งเข้าประตูหมู่ 1–5 ให้ถูก ก่อนอาหารชนพื้น!</p>
 
       <div class="howto">
-        <div class="how"><b class="num">1</b><div class="emoji">🍌</div><h3>ดูอาหาร</h3><p>อ่านว่าอาหารคืออะไร</p></div>
-        <div class="how"><b class="num">2</b><div class="emoji">👀</div><h3>ดูหมู่</h3><p>คิดว่าอยู่หมู่ไหน</p></div>
-        <div class="how"><b class="num">3</b><div class="emoji">🚪</div><h3>ส่งเข้าประตู</h3><p>แตะประตูหมู่ที่ถูก</p></div>
-        <div class="how"><b class="num">4</b><div class="emoji">👨‍🍳</div><h3>สู้บอส</h3><p>ตอบให้แม่นตอนท้ายเกม</p></div>
+        <div class="how">
+          <b class="num">1</b>
+          <div class="emoji">🍌</div>
+          <h3>ดูอาหาร</h3>
+          <p>อ่านว่าอาหารคืออะไร</p>
+        </div>
+
+        <div class="how">
+          <b class="num">2</b>
+          <div class="emoji">👀</div>
+          <h3>ดูหมู่</h3>
+          <p>คิดว่าอยู่หมู่ไหน</p>
+        </div>
+
+        <div class="how">
+          <b class="num">3</b>
+          <div class="emoji">🚪</div>
+          <h3>ส่งเข้าประตู</h3>
+          <p>แตะประตูหมู่ที่ถูก</p>
+        </div>
+
+        <div class="how">
+          <b class="num">4</b>
+          <div class="emoji">👨‍🍳</div>
+          <h3>สู้บอส</h3>
+          <p>ตอบให้แม่นตอนท้ายเกม</p>
+        </div>
       </div>
 
       <div class="demo">
         <div class="demo-food">🍞</div>
-        <div class="demo-gates"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+        <div class="demo-gates">
+          <span>1</span>
+          <span>2</span>
+          <span>3</span>
+          <span>4</span>
+          <span>5</span>
+        </div>
       </div>
 
       <div class="actions">
@@ -661,6 +773,7 @@
         <div id="waveTitle" class="wave-title">Wave 1: Rookie Sort</div>
         <div id="waveSub" class="wave-sub">เริ่มจับจังหวะให้แม่น</div>
       </div>
+
       <div class="chips">
         <div id="timeChip" class="chip yellow">90s</div>
         <div id="phaseChip" class="chip blue">Calm Phase</div>
@@ -675,11 +788,35 @@
     <div id="prompt" class="prompt">เลือกอาหาร แล้วแตะประตูหมู่ที่ถูก</div>
 
     <div class="gates">
-      <button class="gate protein" data-group="protein" data-id="1" type="button"><span class="num">1</span><span class="label">หมู่ 1<br>โปรตีน</span><span class="hint">เนื้อ นม ไข่ ถั่ว</span></button>
-      <button class="gate carb" data-group="carb" data-id="2" type="button"><span class="num">2</span><span class="label">หมู่ 2<br>ข้าว/แป้ง</span><span class="hint">ข้าว แป้ง เผือก มัน</span></button>
-      <button class="gate veg" data-group="veg" data-id="3" type="button"><span class="num">3</span><span class="label">หมู่ 3<br>ผัก</span><span class="hint">ผักต่าง ๆ</span></button>
-      <button class="gate fruit" data-group="fruit" data-id="4" type="button"><span class="num">4</span><span class="label">หมู่ 4<br>ผลไม้</span><span class="hint">ผลไม้ต่าง ๆ</span></button>
-      <button class="gate fat" data-group="fat" data-id="5" type="button"><span class="num">5</span><span class="label">หมู่ 5<br>ไขมัน</span><span class="hint">น้ำมัน ไขมัน กะทิ</span></button>
+      <button class="gate protein" data-group="protein" data-id="1" type="button">
+        <span class="num">1</span>
+        <span class="label">หมู่ 1<br>โปรตีน</span>
+        <span class="hint">เนื้อ นม ไข่ ถั่ว</span>
+      </button>
+
+      <button class="gate carb" data-group="carb" data-id="2" type="button">
+        <span class="num">2</span>
+        <span class="label">หมู่ 2<br>ข้าว/แป้ง</span>
+        <span class="hint">ข้าว แป้ง เผือก มัน</span>
+      </button>
+
+      <button class="gate veg" data-group="veg" data-id="3" type="button">
+        <span class="num">3</span>
+        <span class="label">หมู่ 3<br>ผัก</span>
+        <span class="hint">ผักต่าง ๆ</span>
+      </button>
+
+      <button class="gate fruit" data-group="fruit" data-id="4" type="button">
+        <span class="num">4</span>
+        <span class="label">หมู่ 4<br>ผลไม้</span>
+        <span class="hint">ผลไม้ต่าง ๆ</span>
+      </button>
+
+      <button class="gate fat" data-group="fat" data-id="5" type="button">
+        <span class="num">5</span>
+        <span class="label">หมู่ 5<br>ไขมัน</span>
+        <span class="hint">น้ำมัน ไขมัน กะทิ</span>
+      </button>
     </div>
   </section>
 
@@ -690,10 +827,25 @@
       <div id="rankText" class="rank">Food Rookie</div>
 
       <div class="stats">
-        <div class="stat"><b id="scoreText">0</b><span>คะแนน</span></div>
-        <div class="stat"><b id="accuracyText">0%</b><span>ความแม่นยำ</span></div>
-        <div class="stat"><b id="comboText">0</b><span>คอมโบสูงสุด</span></div>
-        <div class="stat"><b id="missionText">0</b><span>ตอบถูก</span></div>
+        <div class="stat">
+          <b id="scoreText">0</b>
+          <span>คะแนน</span>
+        </div>
+
+        <div class="stat">
+          <b id="accuracyText">0%</b>
+          <span>ความแม่นยำ</span>
+        </div>
+
+        <div class="stat">
+          <b id="comboText">0</b>
+          <span>คอมโบสูงสุด</span>
+        </div>
+
+        <div class="stat">
+          <b id="missionText">0</b>
+          <span>ตอบถูก</span>
+        </div>
       </div>
 
       <div class="actions">
@@ -717,14 +869,49 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v9.0-mobile-clean-20260514';
+      const VERSION = 'v9.1-mobile-layout-polish-20260514';
 
       const GROUPS = [
-        { id:1, key:'protein', label:'โปรตีน', icon:'🐟', hint:'เนื้อ นม ไข่ ถั่ว', foods:['🐟','🥚','🍗','🥩','🫘','🥛'] },
-        { id:2, key:'carb', label:'ข้าว/แป้ง', icon:'🍚', hint:'ข้าว แป้ง เผือก มัน', foods:['🍚','🍞','🥔','🍠','🌽','🍜'] },
-        { id:3, key:'veg', label:'ผัก', icon:'🥦', hint:'ผักต่าง ๆ', foods:['🥦','🥬','🥕','🥒','🍅','🫛'] },
-        { id:4, key:'fruit', label:'ผลไม้', icon:'🍎', hint:'ผลไม้ต่าง ๆ', foods:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍'] },
-        { id:5, key:'fat', label:'ไขมัน', icon:'🥑', hint:'น้ำมัน ไขมัน กะทิ', foods:['🥑','🥜','🧈','🫒','🥥'] }
+        {
+          id:1,
+          key:'protein',
+          label:'โปรตีน',
+          icon:'🐟',
+          hint:'เนื้อ นม ไข่ ถั่ว',
+          foods:['🐟','🥚','🍗','🥩','🫘','🥛']
+        },
+        {
+          id:2,
+          key:'carb',
+          label:'ข้าว/แป้ง',
+          icon:'🍚',
+          hint:'ข้าว แป้ง เผือก มัน',
+          foods:['🍚','🍞','🥔','🍠','🌽','🍜']
+        },
+        {
+          id:3,
+          key:'veg',
+          label:'ผัก',
+          icon:'🥦',
+          hint:'ผักต่าง ๆ',
+          foods:['🥦','🥬','🥕','🥒','🍅','🫛']
+        },
+        {
+          id:4,
+          key:'fruit',
+          label:'ผลไม้',
+          icon:'🍎',
+          hint:'ผลไม้ต่าง ๆ',
+          foods:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍']
+        },
+        {
+          id:5,
+          key:'fat',
+          label:'ไขมัน',
+          icon:'🥑',
+          hint:'น้ำมัน ไขมัน กะทิ',
+          foods:['🥑','🥜','🧈','🫒','🥥']
+        }
       ];
 
       const $ = (id) => document.getElementById(id);
@@ -781,7 +968,9 @@
       function qs(name, fallback=''){
         try{
           return new URL(location.href).searchParams.get(name) || fallback;
-        }catch(e){ return fallback; }
+        }catch(e){
+          return fallback;
+        }
       }
 
       function clamp(n,min,max){
@@ -792,10 +981,12 @@
 
       function xmur3(str){
         let h = 1779033703 ^ str.length;
+
         for(let i=0;i<str.length;i++){
           h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
           h = (h << 13) | (h >>> 19);
         }
+
         return function(){
           h = Math.imul(h ^ (h >>> 16), 2246822507);
           h = Math.imul(h ^ (h >>> 13), 3266489909);
@@ -806,7 +997,11 @@
 
       function sfc32(a,b,c,d){
         return function(){
-          a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+          a >>>= 0;
+          b >>>= 0;
+          c >>>= 0;
+          d >>>= 0;
+
           let t = (a + b) | 0;
           a = b ^ (b >>> 9);
           b = (c + (c << 3)) | 0;
@@ -814,12 +1009,19 @@
           d = (d + 1) | 0;
           t = (t + d) | 0;
           c = (c + t) | 0;
+
           return (t >>> 0) / 4294967296;
         };
       }
 
       function makeRng(){
-        const seed = [qs('seed','groups-mobile'), qs('pid','anon'), qs('diff','normal'), VERSION].join('|');
+        const seed = [
+          qs('seed','groups-mobile'),
+          qs('pid','anon'),
+          qs('diff','normal'),
+          VERSION
+        ].join('|');
+
         const f = xmur3(seed);
         return sfc32(f(), f(), f(), f());
       }
@@ -835,22 +1037,39 @@
 
       function zoneUrl(){
         const hub = qs('hub','');
-        if(hub && hub.includes('nutrition-zone.html')) return hub;
+
+        if(hub && hub.includes('nutrition-zone.html')){
+          return hub;
+        }
 
         const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
-        ['pid','name','diff','time','view','seed','studyId','conditionGroup'].forEach(k=>{
+
+        [
+          'pid',
+          'name',
+          'diff',
+          'time',
+          'view',
+          'seed',
+          'studyId',
+          'conditionGroup'
+        ].forEach(k=>{
           const v = qs(k,'');
           if(v) u.searchParams.set(k,v);
         });
+
         u.searchParams.set('zone','nutrition');
         u.searchParams.set('from','groups-mobile');
         u.searchParams.set('hub','https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+
         return u.toString();
       }
 
       function showScreen(name){
         [els.intro, els.game, els.summary].forEach(el=>el.classList.remove('active'));
+
         document.body.classList.toggle('playing', name === 'game');
+        document.body.classList.toggle('summary-mode', name === 'summary');
 
         if(name === 'intro') els.intro.classList.add('active');
         if(name === 'game') els.game.classList.add('active');
@@ -951,6 +1170,7 @@
         if(state.ended) return;
 
         updatePhase();
+
         els.timeChip.textContent = remain() + 's';
         els.heartChip.textContent = heartsText();
 
@@ -961,6 +1181,7 @@
 
       function nextDelay(){
         let base = 1450;
+
         if(state.diff === 'easy') base = 1650;
         if(state.diff === 'hard') base = 1200;
         if(state.diff === 'challenge') base = 1000;
@@ -979,7 +1200,10 @@
         const group = pick(GROUPS);
         const icon = pick(group.foods);
 
-        state.current = { group, icon };
+        state.current = {
+          group,
+          icon
+        };
 
         els.food.textContent = icon;
         els.food.className = 'food ' + (state.phase === 'boss' ? 'bad' : 'good');
@@ -990,7 +1214,12 @@
         els.food.style.left = leftPct + '%';
         els.food.style.top = topPx + 'px';
 
-        els.prompt.innerHTML = `เลือก ${icon} แล้วส่งเข้าประตูหมู่ที่ถูก<small>${state.phase === 'boss' ? 'Boss: ตอบเร็วขึ้น!' : 'แตะประตูด้านล่าง'}</small>`;
+        els.prompt.innerHTML = `
+          <div>
+            เลือก ${icon} แล้วส่งเข้าประตูหมู่ที่ถูก
+            <small>${state.phase === 'boss' ? 'Boss: ตอบเร็วขึ้น!' : 'แตะประตูด้านล่าง'}</small>
+          </div>
+        `;
 
         const timeout = state.phase === 'boss' ? 2600 : state.phase === 'storm' ? 3200 : 4200;
 
@@ -1002,9 +1231,11 @@
 
       function flashGate(gate, ok){
         if(!gate) return;
+
         gate.classList.remove('hit','miss');
         void gate.offsetWidth;
         gate.classList.add(ok ? 'hit' : 'miss');
+
         setTimeout(()=>gate.classList.remove('hit','miss'), 320);
       }
 
@@ -1016,11 +1247,13 @@
         el.className = 'fx';
         el.textContent = text;
         els.game.appendChild(el);
+
         setTimeout(()=>el.remove(), 820);
       }
 
       function correct(gate){
         if(!state.current || state.locked || state.ended) return;
+
         state.locked = true;
         clearTimeout(state.foodTimer);
 
@@ -1030,13 +1263,22 @@
 
         let gain = 10 + Math.min(state.combo * 2, 20);
         if(state.phase === 'boss') gain += 8;
+
         state.score += gain;
 
         flashGate(gate, true);
         fx('เยี่ยม! +' + gain);
 
         try{
-          window.dispatchEvent(new CustomEvent('groups:judge',{detail:{ok:true, correct:true, score:state.score, combo:state.combo, version:VERSION}}));
+          window.dispatchEvent(new CustomEvent('groups:judge',{
+            detail:{
+              ok:true,
+              correct:true,
+              score:state.score,
+              combo:state.combo,
+              version:VERSION
+            }
+          }));
         }catch(e){}
 
         setTimeout(()=>{
@@ -1047,6 +1289,7 @@
 
       function miss(gate, label){
         if(!state.current || state.locked || state.ended) return;
+
         state.locked = true;
         clearTimeout(state.foodTimer);
 
@@ -1058,21 +1301,35 @@
         fx(label || 'ลองใหม่! -1 ❤️');
 
         try{
-          window.dispatchEvent(new CustomEvent('groups:judge',{detail:{ok:false, correct:false, score:state.score, miss:state.miss, version:VERSION}}));
+          window.dispatchEvent(new CustomEvent('groups:judge',{
+            detail:{
+              ok:false,
+              correct:false,
+              score:state.score,
+              miss:state.miss,
+              version:VERSION
+            }
+          }));
         }catch(e){}
 
         setTimeout(()=>{
           state.locked = false;
-          if(state.hearts <= 0) endGame('no-heart');
-          else spawnFood();
+
+          if(state.hearts <= 0){
+            endGame('no-heart');
+          }else{
+            spawnFood();
+          }
         }, 950);
       }
 
       function onGateClick(ev){
         const gate = ev.currentTarget;
+
         if(!state.current || state.locked || state.ended) return;
 
         const key = gate.dataset.group;
+
         if(key === state.current.group.key){
           correct(gate);
         }else{
@@ -1084,14 +1341,36 @@
         const total = Math.max(1, state.correct + state.miss);
         const acc = Math.round((state.correct / total) * 100);
 
-        if(acc >= 90 && state.bestCombo >= 8) return {name:'Food Hero', icon:'🏆'};
-        if(acc >= 75) return {name:'Smart Eater', icon:'⭐'};
-        if(acc >= 55) return {name:'Food Explorer', icon:'🌱'};
-        return {name:'Food Rookie', icon:'💪'};
+        if(acc >= 90 && state.bestCombo >= 8){
+          return {
+            name:'Food Hero',
+            icon:'🏆'
+          };
+        }
+
+        if(acc >= 75){
+          return {
+            name:'Smart Eater',
+            icon:'⭐'
+          };
+        }
+
+        if(acc >= 55){
+          return {
+            name:'Food Explorer',
+            icon:'🌱'
+          };
+        }
+
+        return {
+          name:'Food Rookie',
+          icon:'💪'
+        };
       }
 
       function endGame(reason){
         if(state.ended) return;
+
         state.ended = true;
 
         clearInterval(state.timer);
@@ -1128,7 +1407,13 @@
 
         try{
           localStorage.setItem('HHA_GROUPS_MOBILE_SUMMARY', JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({ts:summary.ts, game:'groups', mode:'solo-mobile', summary}));
+          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+            ts:summary.ts,
+            game:'groups',
+            mode:'solo-mobile',
+            summary
+          }));
+
           window.dispatchEvent(new CustomEvent('groups:end',{detail:summary}));
           window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:summary}));
         }catch(e){}
@@ -1149,7 +1434,11 @@
       function expose(){
         window.HHA_GROUPS_MOBILE_V9 = {
           version:VERSION,
-          getState:()=>Object.assign({},state,{current:state.current}),
+          getState:function(){
+            return Object.assign({},state,{
+              current:state.current
+            });
+          },
           end:endGame,
           returnToNutritionZone:goZone
         };
@@ -1160,6 +1449,7 @@
         state.duration = clamp(Number(qs('time','90')) || 90, 30, 240);
 
         document.querySelectorAll('.gate').forEach(g=>g.addEventListener('click', onGateClick));
+
         els.startBtn.addEventListener('click', ()=>start(false));
         els.practiceBtn.addEventListener('click', ()=>start(true));
         els.replayBtn.addEventListener('click', replay);
@@ -1168,7 +1458,7 @@
 
         expose();
 
-        console.info('[GroupsSolo Mobile v9] installed', VERSION);
+        console.info('[GroupsSolo Mobile v9.1] installed', VERSION);
       }
 
       init();
