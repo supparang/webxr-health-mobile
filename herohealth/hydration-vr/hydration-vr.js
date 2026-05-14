@@ -4640,3 +4640,121 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260514-hydration-summary-dedupe-pack11
+   ลบ/จัดปุ่ม Summary ซ้ำ ให้เหลือชุดที่ใช้งานชัดเจน
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260514-hydration-summary-dedupe-pack11';
+
+  function q(sel, root){
+    try{ return (root || document).querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel, root){
+    try{ return Array.from((root || document).querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function findSummary(){
+    var selectors = [
+      '#hha-hydration-summary',
+      '.hha-hydration-summary',
+      '#hydration-summary',
+      '.hha-summary-panel',
+      '.hha-summary',
+      '[data-hha-summary]'
+    ];
+
+    for(var i=0; i<selectors.length; i++){
+      var el = q(selectors[i]);
+      if(el) return el;
+    }
+
+    return null;
+  }
+
+  function textHasAction(text, key){
+    text = String(text || '').toLowerCase();
+    key = String(key || '').toLowerCase();
+
+    if(key === 'cooldown'){
+      return text.indexOf('cooldown') !== -1 || text.indexOf('คูลดาวน์') !== -1 || text.indexOf('ทำ cooldown') !== -1;
+    }
+
+    if(key === 'zone'){
+      return text.indexOf('nutrition') !== -1 || text.indexOf('zone') !== -1 || text.indexOf('กลับ') !== -1;
+    }
+
+    if(key === 'replay'){
+      return text.indexOf('เล่นใหม่') !== -1 || text.indexOf('เล่นอีกครั้ง') !== -1 || text.indexOf('replay') !== -1;
+    }
+
+    return false;
+  }
+
+  function cleanupDuplicateActions(summary){
+    if(!summary || !summary.isConnected) return;
+
+    var allButtons = qa('button, a', summary);
+    var hasCooldown = allButtons.some(function(b){ return textHasAction(b.textContent, 'cooldown'); });
+    var hasZone = allButtons.some(function(b){ return textHasAction(b.textContent, 'zone'); });
+    var hasReplay = allButtons.some(function(b){ return textHasAction(b.textContent, 'replay'); });
+
+    var pack9 = qa('.hha-hydration-final-actions', summary);
+
+    /*
+      ถ้า Summary เดิมมีปุ่มครบแล้ว ให้ลบชุด Pack9 ที่ inject ซ้ำ
+      เพื่อไม่ให้ท้ายจอมีปุ่มเขียว/ฟ้า/ขาวยักษ์ซ้ำหลายชุด
+    */
+    if(hasCooldown && hasZone && hasReplay && pack9.length > 0){
+      pack9.forEach(function(box){
+        try{ box.remove(); }catch(e){}
+      });
+      summary.dataset.hhaPack11 = PATCH + '-removed-duplicate';
+      return;
+    }
+
+    /*
+      ถ้ามี Pack9 หลายชุด ให้เหลือชุดเดียว
+    */
+    if(pack9.length > 1){
+      pack9.slice(1).forEach(function(box){
+        try{ box.remove(); }catch(e){}
+      });
+    }
+
+    summary.dataset.hhaPack11 = PATCH;
+  }
+
+  function scan(){
+    var summary = findSummary();
+    if(summary) cleanupDuplicateActions(summary);
+  }
+
+  function boot(){
+    scan();
+
+    var mo = new MutationObserver(function(){
+      scan();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true
+    });
+
+    setInterval(scan, 900);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
