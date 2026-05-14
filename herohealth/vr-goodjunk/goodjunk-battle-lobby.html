@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260513-gj-battle-lobby-roomcode-participants-v3"></script>
+  <script src="../firebase-config.js?v=20260514e-gj-battle-lobby-hostpid-url-lock"></script>
 
   <style>
     :root{
@@ -718,7 +718,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GOODJUNK_BATTLE_LOBBY = 'v1.2-room-code-participants';
+    window.HHA_GOODJUNK_BATTLE_LOBBY = 'v20260514e-hostpid-url-lock';
 
     const RUN_PATH = './goodjunk-vr-battle.html';
     const $ = id => document.getElementById(id);
@@ -905,6 +905,9 @@
       const rid = room?.roomId || p.room;
       const matchId = room?.activeMatchId || room?.currentRun?.matchId || '';
 
+      const trueHostPid = room?.hostPid || '';
+      const trueHostName = room?.hostName || '';
+
       const u = new URL(RUN_PATH, location.href);
 
       Object.entries({
@@ -916,12 +919,18 @@
         soloBoss:'0',
         bossMode:'0',
         multiplayer:'1',
+
         roomId:rid,
         room:rid,
         matchId,
+
+        hostPid:trueHostPid,
+        hostName:trueHostName,
+
         pid:p.pid,
         name:p.name,
         nick:p.nick,
+
         diff:room?.diff || p.diff,
         time:room?.time || p.time,
         view:p.view,
@@ -935,15 +944,17 @@
         theme:p.theme,
         studyId:p.studyId,
         conditionGroup:p.conditionGroup,
+
         role,
         host:role === 'host' ? '1' : '0',
+
         wait:'1',
         autostart:'1',
         modeLocked:'1',
         maxPlayers:String(room?.cap || p.cap),
         expectedPlayers:String(room?.expectedPlayers || room?.currentRun?.expectedPlayers || ''),
         participantCount:String(room?.currentRun?.participantCount || room?.expectedPlayers || ''),
-        v:'20260513-battle-roomcode-participants-v3'
+        v:'20260514e-hostpid-url-lock'
       }).forEach(([k,v]) => {
         if (v !== undefined && v !== null && v !== '') {
           u.searchParams.set(k,String(v));
@@ -956,7 +967,7 @@
     async function firebaseReady(){
       if (!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
       const fb = await window.HHA_FIREBASE_READY;
-      if (!fb || !fb.db) throw new Error('Firebase DB not ready');
+      if (!fb || !fb.db || !fb.auth || !fb.auth.currentUser) throw new Error('Firebase DB/Auth not ready');
       db = fb.db;
       return fb;
     }
@@ -1044,7 +1055,7 @@
 
     function isHost(room, me){
       const p = ctx();
-      return !!room && !!me && (room.hostPid === p.pid || me.role === 'host');
+      return !!room && !!me && room.hostPid === p.pid;
     }
 
     function renderPlayers(room){
@@ -1065,12 +1076,12 @@
       }
 
       wrap.innerHTML = players.map((p,i) => {
-        const role = p.pid === room.hostPid || p.role === 'host' ? 'Host' : 'Fighter';
+        const role = p.pid === room.hostPid ? 'Host' : 'Fighter';
         return `
           <div class="playerRow">
             <div>
               <div class="playerName">${i+1}. ${esc(p.name || p.nick || p.pid || 'Player')}</div>
-              <div class="playerMeta">${role === 'Host' ? 'คนเปิดห้อง' : 'ผู้ร่วม Battle'} • ${esc(String(p.pid || '').slice(0,22))}</div>
+              <div class="playerMeta">${role === 'Host' ? 'คนเปิดห้อง' : 'ผู้ร่วม Battle'} • ${esc(String(p.pid || '').slice(0,24))}</div>
             </div>
             <div class="tag">${role === 'Host' ? '⚔️ Host' : '🔥 Fighter'}</div>
           </div>
@@ -1095,7 +1106,7 @@
         return;
       }
 
-      if (status === 'started' || status === 'running'){
+      if (status === 'started' || status === 'running' || status === 'playing'){
         setChip('good', 'กำลังเริ่ม Battle');
 
         if (me){
@@ -1176,6 +1187,7 @@
             name:p.name,
             nick:p.nick,
             role:'host',
+            host:true,
             ready:true,
             online:true,
             joinedAt:t,
@@ -1226,13 +1238,18 @@
         name:p.name,
         nick:p.nick,
         role,
+        host:role === 'host',
         ready:true,
         online:true,
         joinedAt: existing.players?.[myKey]?.joinedAt || now(),
         lastSeen:now()
       });
 
-      await dbUpdate(path,{ updatedAt:now() });
+      await dbUpdate(path,{
+        updatedAt:now(),
+        hostPid:existing.hostPid,
+        hostName:existing.hostName || ''
+      });
 
       listenRoom(p.room);
       writeUrlRoom(p.room);
@@ -1277,11 +1294,14 @@
         const participants = {};
         players.forEach((pl, index) => {
           const key = safeKey(pl.pid);
+          const role = pl.pid === room.hostPid ? 'host' : 'guest';
+
           participants[key] = {
             pid:pl.pid,
             name:pl.name || pl.nick || `Player ${index + 1}`,
             nick:pl.nick || pl.name || `Player ${index + 1}`,
-            role:pl.pid === room.hostPid || pl.role === 'host' ? 'host' : 'guest',
+            role,
+            host:role === 'host',
             ready:true,
             online:true,
             joinedAt:pl.joinedAt || startedAt,
@@ -1292,18 +1312,27 @@
 
         await dbUpdate(roomPath(p.room), {
           status:'started',
+          phase:'started',
           activeMatchId:matchId,
+          hostPid:room.hostPid,
+          hostName:room.hostName || p.name,
           expectedPlayers:count,
           participantCount:count,
+          activeCount:count,
           runtimePlayers:participants,
+          activePlayers:participants,
           currentRun:{
             status:'started',
+            phase:'started',
             matchId,
             startedAt,
             by:p.pid,
             expectedPlayers:count,
             participantCount:count,
-            participants
+            activeCount:count,
+            participants,
+            runtimePlayers:participants,
+            activePlayers:participants
           },
           updatedAt:startedAt
         });
@@ -1314,10 +1343,15 @@
           mode:'battle',
           game:'goodjunk',
           status:'started',
+          phase:'started',
+          hostPid:room.hostPid,
+          hostName:room.hostName || p.name,
           expectedPlayers:count,
           participantCount:count,
+          activeCount:count,
           participants,
           runtimePlayers:participants,
+          activePlayers:participants,
           createdAt:startedAt,
           updatedAt:startedAt
         });
