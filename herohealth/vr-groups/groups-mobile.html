@@ -862,608 +862,1145 @@
   <button id="returnBtn" class="return-mini" type="button">← กลับ Nutrition Zone</button>
 
   <script>
-    (function(){
-      'use strict';
+(function(){
+  'use strict';
 
-      const VERSION = 'v9.2-mobile-balance-bottom-safe-20260514';
+  const VERSION = 'v9.3-mobile-arcade-feel-20260514';
 
-      const GROUPS = [
-        {
-          id:1,
-          key:'protein',
-          label:'โปรตีน',
-          icon:'🐟',
-          hint:'เนื้อ นม ไข่ ถั่ว',
-          foods:['🐟','🥚','🍗','🥩','🫘','🥛']
-        },
-        {
-          id:2,
-          key:'carb',
-          label:'ข้าว/แป้ง',
-          icon:'🍚',
-          hint:'ข้าว แป้ง เผือก มัน',
-          foods:['🍚','🍞','🥔','🍠','🌽','🍜']
-        },
-        {
-          id:3,
-          key:'veg',
-          label:'ผัก',
-          icon:'🥦',
-          hint:'ผักต่าง ๆ',
-          foods:['🥦','🥬','🥕','🥒','🍅','🫛']
-        },
-        {
-          id:4,
-          key:'fruit',
-          label:'ผลไม้',
-          icon:'🍎',
-          hint:'ผลไม้ต่าง ๆ',
-          foods:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍']
-        },
-        {
-          id:5,
-          key:'fat',
-          label:'ไขมัน',
-          icon:'🥑',
-          hint:'น้ำมัน ไขมัน กะทิ',
-          foods:['🥑','🥜','🧈','🫒','🥥']
-        }
-      ];
+  const GROUPS = [
+    {
+      id:1,
+      key:'protein',
+      label:'โปรตีน',
+      icon:'🐟',
+      hint:'เนื้อ นม ไข่ ถั่ว',
+      foods:['🐟','🥚','🍗','🥩','🫘','🥛']
+    },
+    {
+      id:2,
+      key:'carb',
+      label:'ข้าว/แป้ง',
+      icon:'🍚',
+      hint:'ข้าว แป้ง เผือก มัน',
+      foods:['🍚','🍞','🥔','🍠','🌽','🍜']
+    },
+    {
+      id:3,
+      key:'veg',
+      label:'ผัก',
+      icon:'🥦',
+      hint:'ผักต่าง ๆ',
+      foods:['🥦','🥬','🥕','🥒','🍅','🫛']
+    },
+    {
+      id:4,
+      key:'fruit',
+      label:'ผลไม้',
+      icon:'🍎',
+      hint:'ผลไม้ต่าง ๆ',
+      foods:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍']
+    },
+    {
+      id:5,
+      key:'fat',
+      label:'ไขมัน',
+      icon:'🥑',
+      hint:'น้ำมัน ไขมัน กะทิ',
+      foods:['🥑','🥜','🧈','🫒','🥥']
+    }
+  ];
 
-      const $ = (id) => document.getElementById(id);
+  const DECOYS = [
+    { icon:'🍩', label:'โดนัท', reason:'ขนมหวาน' },
+    { icon:'🥤', label:'น้ำหวาน', reason:'น้ำตาลสูง' },
+    { icon:'🍬', label:'ลูกอม', reason:'ลูกอม' },
+    { icon:'🍟', label:'ของทอด', reason:'ของทอด' },
+    { icon:'🍰', label:'เค้ก', reason:'ของหวาน' }
+  ];
 
-      const els = {
-        intro:$('intro'),
-        game:$('game'),
-        summary:$('summary'),
-        countdown:$('countdown'),
-        countMain:$('countMain'),
-        countTip:$('countTip'),
-        startBtn:$('startBtn'),
-        practiceBtn:$('practiceBtn'),
-        returnBtn:$('returnBtn'),
-        replayBtn:$('replayBtn'),
-        zoneBtn:$('zoneBtn'),
-        food:$('food'),
-        prompt:$('prompt'),
-        timeChip:$('timeChip'),
-        phaseChip:$('phaseChip'),
-        heartChip:$('heartChip'),
-        waveTitle:$('waveTitle'),
-        waveSub:$('waveSub'),
-        scoreText:$('scoreText'),
-        accuracyText:$('accuracyText'),
-        comboText:$('comboText'),
-        missionText:$('missionText'),
-        rankText:$('rankText'),
-        summaryBadge:$('summaryBadge')
+  const GOLDEN_RATE = {
+    easy:0.12,
+    normal:0.10,
+    hard:0.08,
+    challenge:0.07
+  };
+
+  const DECOY_RATE = {
+    easy:0.08,
+    normal:0.13,
+    hard:0.18,
+    challenge:0.24
+  };
+
+  const $ = (id) => document.getElementById(id);
+
+  const els = {
+    intro:$('intro'),
+    game:$('game'),
+    summary:$('summary'),
+    countdown:$('countdown'),
+    countMain:$('countMain'),
+    countTip:$('countTip'),
+    startBtn:$('startBtn'),
+    practiceBtn:$('practiceBtn'),
+    returnBtn:$('returnBtn'),
+    replayBtn:$('replayBtn'),
+    zoneBtn:$('zoneBtn'),
+    food:$('food'),
+    prompt:$('prompt'),
+    timeChip:$('timeChip'),
+    phaseChip:$('phaseChip'),
+    heartChip:$('heartChip'),
+    waveTitle:$('waveTitle'),
+    waveSub:$('waveSub'),
+    scoreText:$('scoreText'),
+    accuracyText:$('accuracyText'),
+    comboText:$('comboText'),
+    missionText:$('missionText'),
+    rankText:$('rankText'),
+    summaryBadge:$('summaryBadge')
+  };
+
+  const state = {
+    mode:'intro',
+    startedAt:0,
+    duration:90,
+    diff:'normal',
+    practice:false,
+
+    timer:null,
+    foodTimer:null,
+    fallRaf:0,
+
+    current:null,
+
+    score:0,
+    correct:0,
+    miss:0,
+    combo:0,
+    bestCombo:0,
+    hearts:3,
+
+    wave:1,
+    phase:'calm',
+    ended:false,
+    rng:null,
+    locked:false,
+
+    fever:0,
+    feverActive:false,
+    feverUntil:0,
+
+    spawned:0,
+    decoyDodged:0,
+    goldenHit:0,
+    bossCorrect:0,
+
+    audio:null
+  };
+
+  function qs(name, fallback=''){
+    try{
+      return new URL(location.href).searchParams.get(name) || fallback;
+    }catch(e){
+      return fallback;
+    }
+  }
+
+  function clamp(n,min,max){
+    n = Number(n);
+    if(!Number.isFinite(n)) n = min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function xmur3(str){
+    let h = 1779033703 ^ str.length;
+
+    for(let i=0;i<str.length;i++){
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+
+    return function(){
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      h ^= h >>> 16;
+      return h >>> 0;
+    };
+  }
+
+  function sfc32(a,b,c,d){
+    return function(){
+      a >>>= 0;
+      b >>>= 0;
+      c >>>= 0;
+      d >>>= 0;
+
+      let t = (a + b) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      d = (d + 1) | 0;
+      t = (t + d) | 0;
+      c = (c + t) | 0;
+
+      return (t >>> 0) / 4294967296;
+    };
+  }
+
+  function makeRng(){
+    const seed = [
+      qs('seed','groups-mobile'),
+      qs('pid','anon'),
+      qs('diff','normal'),
+      VERSION
+    ].join('|');
+
+    const f = xmur3(seed);
+    return sfc32(f(), f(), f(), f());
+  }
+
+  function rnd(){
+    if(!state.rng) state.rng = makeRng();
+    return state.rng();
+  }
+
+  function pick(arr){
+    return arr[Math.floor(rnd()*arr.length) % arr.length];
+  }
+
+  function injectArcadeStyle(){
+    if(document.getElementById('groups-mobile-v93-style')) return;
+
+    const style = document.createElement('style');
+    style.id = 'groups-mobile-v93-style';
+    style.textContent = `
+      body.fever-on .game{
+        background:
+          radial-gradient(circle at 50% 22%, rgba(255,245,150,.85), rgba(255,255,255,0) 34%),
+          linear-gradient(rgba(255,255,255,.46) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255,255,255,.46) 1px, transparent 1px),
+          linear-gradient(180deg,#ecfbff,#bcefff) !important;
+        background-size:auto,54px 54px,54px 54px,auto !important;
+      }
+
+      .food{
+        will-change:top,left,transform,filter;
+      }
+
+      .food.danger{
+        border-color:#ff7d7d !important;
+        animation:dangerPulse .28s ease-in-out infinite alternate !important;
+      }
+
+      .food.decoy{
+        border-color:#ff7d7d !important;
+        background:linear-gradient(145deg,#fff,#fff0f0) !important;
+        filter:saturate(1.1);
+      }
+
+      .food.golden{
+        border-color:#ffd966 !important;
+        background:linear-gradient(145deg,#fff8b8,#ffffff) !important;
+        box-shadow:
+          0 0 0 10px rgba(255,217,102,.22),
+          0 24px 58px rgba(35,81,107,.22) !important;
+      }
+
+      .food.fever{
+        border-color:#ffb347 !important;
+        box-shadow:
+          0 0 0 10px rgba(255,179,71,.2),
+          0 24px 58px rgba(35,81,107,.22) !important;
+      }
+
+      @keyframes dangerPulse{
+        from{ transform:scale(1) rotate(-2deg); filter:brightness(1); }
+        to{ transform:scale(1.08) rotate(2deg); filter:brightness(1.08); }
+      }
+
+      .fever-hud{
+        position:absolute;
+        left:10px;
+        right:10px;
+        top:calc(82px + var(--safe-top));
+        z-index:32;
+        height:13px;
+        border-radius:999px;
+        background:rgba(255,255,255,.72);
+        box-shadow:inset 0 0 0 2px rgba(255,255,255,.9), 0 8px 22px rgba(35,81,107,.12);
+        overflow:hidden;
+        pointer-events:none;
+      }
+
+      .fever-hud i{
+        display:block;
+        height:100%;
+        width:0%;
+        border-radius:inherit;
+        background:linear-gradient(90deg,#7ed957,#ffd966,#ff9d3f);
+        transition:width .16s ease;
+      }
+
+      .fever-label{
+        position:absolute;
+        top:calc(96px + var(--safe-top));
+        right:14px;
+        z-index:33;
+        border-radius:999px;
+        padding:5px 8px;
+        background:rgba(255,255,255,.9);
+        color:#806000;
+        font-size:10px;
+        font-weight:1000;
+        box-shadow:0 8px 18px rgba(35,81,107,.12);
+        pointer-events:none;
+      }
+
+      body.fever-on .fever-label{
+        background:#fff0c2;
+        color:#9a4d00;
+      }
+
+      .shake-lite{
+        animation:shakeLite .18s ease both;
+      }
+
+      @keyframes shakeLite{
+        0%{ transform:translateX(0); }
+        25%{ transform:translateX(-2px); }
+        50%{ transform:translateX(2px); }
+        100%{ transform:translateX(0); }
+      }
+
+      .prompt.decoy-prompt{
+        background:rgba(255,244,244,.95) !important;
+        color:#9b3d3d !important;
+      }
+
+      .prompt.golden-prompt{
+        background:rgba(255,249,217,.95) !important;
+        color:#806000 !important;
+      }
+
+      body.fever-on .prompt{
+        background:rgba(255,248,218,.96) !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function ensureFeverHud(){
+    let bar = document.getElementById('feverHud');
+    if(bar) return bar;
+
+    bar = document.createElement('div');
+    bar.id = 'feverHud';
+    bar.className = 'fever-hud';
+    bar.innerHTML = '<i id="feverFill"></i>';
+
+    const label = document.createElement('div');
+    label.id = 'feverLabel';
+    label.className = 'fever-label';
+    label.textContent = 'Fever 0%';
+
+    els.game.appendChild(bar);
+    els.game.appendChild(label);
+
+    return bar;
+  }
+
+  function updateFeverHud(){
+    ensureFeverHud();
+
+    const fill = document.getElementById('feverFill');
+    const label = document.getElementById('feverLabel');
+
+    const pct = clamp(state.fever,0,100);
+
+    if(fill) fill.style.width = pct + '%';
+
+    if(label){
+      if(state.feverActive){
+        const left = Math.max(0, Math.ceil((state.feverUntil - Date.now()) / 1000));
+        label.textContent = `🔥 Fever x2 • ${left}s`;
+      }else{
+        label.textContent = `Fever ${Math.round(pct)}%`;
+      }
+    }
+
+    document.body.classList.toggle('fever-on', state.feverActive);
+  }
+
+  function zoneUrl(){
+    const hub = qs('hub','');
+
+    if(hub && hub.includes('nutrition-zone.html')){
+      return hub;
+    }
+
+    const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
+
+    [
+      'pid',
+      'name',
+      'diff',
+      'time',
+      'view',
+      'seed',
+      'studyId',
+      'conditionGroup'
+    ].forEach(k=>{
+      const v = qs(k,'');
+      if(v) u.searchParams.set(k,v);
+    });
+
+    u.searchParams.set('zone','nutrition');
+    u.searchParams.set('from','groups-mobile');
+    u.searchParams.set('hub','https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+
+    return u.toString();
+  }
+
+  function showScreen(name){
+    [els.intro, els.game, els.summary].forEach(el=>el.classList.remove('active'));
+
+    document.body.classList.toggle('playing', name === 'game');
+    document.body.classList.toggle('summary-mode', name === 'summary');
+
+    if(name === 'intro') els.intro.classList.add('active');
+    if(name === 'game') els.game.classList.add('active');
+    if(name === 'summary') els.summary.classList.add('active');
+
+    state.mode = name;
+  }
+
+  function start(practice){
+    if(state.mode !== 'intro') return;
+
+    state.practice = Boolean(practice);
+    state.duration = state.practice ? 45 : clamp(Number(qs('time','90')) || 90, 30, 240);
+    state.diff = qs('diff','normal');
+
+    state.startedAt = Date.now();
+    state.ended = false;
+
+    state.score = 0;
+    state.correct = 0;
+    state.miss = 0;
+    state.combo = 0;
+    state.bestCombo = 0;
+    state.hearts = state.practice ? 5 : 3;
+
+    state.wave = 1;
+    state.phase = 'calm';
+
+    state.locked = false;
+    state.rng = makeRng();
+
+    state.fever = 0;
+    state.feverActive = false;
+    state.feverUntil = 0;
+
+    state.spawned = 0;
+    state.decoyDodged = 0;
+    state.goldenHit = 0;
+    state.bossCorrect = 0;
+
+    unlockAudio();
+
+    showScreen('game');
+    ensureFeverHud();
+    updateFeverHud();
+    runCountdown();
+  }
+
+  function runCountdown(){
+    els.countdown.classList.add('active');
+
+    const steps = [
+      {t:0, text:'3', tip:'ดูโจทย์ก่อน'},
+      {t:760, text:'2', tip:'คิดว่าอาหารอยู่หมู่ไหน'},
+      {t:1520, text:'1', tip:'แตะประตูหมู่ที่ถูก'},
+      {t:2280, text:'เริ่ม!', tip:'ลุยเลย!'}
+    ];
+
+    steps.forEach(s=>{
+      setTimeout(()=>{
+        els.countMain.textContent = s.text;
+        els.countTip.textContent = s.tip;
+      }, s.t);
+    });
+
+    setTimeout(()=>{
+      els.countdown.classList.remove('active');
+      spawnFood();
+      tick();
+      state.timer = setInterval(tick, 250);
+    }, 3000);
+  }
+
+  function elapsed(){
+    return Math.floor((Date.now() - state.startedAt) / 1000);
+  }
+
+  function remain(){
+    return Math.max(0, state.duration - elapsed());
+  }
+
+  function updatePhase(){
+    const e = elapsed();
+    const r = remain();
+
+    if(r <= Math.max(15, state.duration * 0.25)){
+      state.wave = 3;
+      state.phase = 'boss';
+      els.waveTitle.textContent = 'Wave 3: Boss Rush';
+      els.waveSub.textContent = 'เร็วขึ้น ตัวหลอกมากขึ้น ห้ามเสียหัวใจ';
+      els.phaseChip.textContent = state.feverActive ? '🔥 Fever!' : 'Boss Phase';
+      els.phaseChip.className = 'chip yellow';
+    }else if(e >= Math.max(22, state.duration * 0.35)){
+      state.wave = 2;
+      state.phase = 'storm';
+      els.waveTitle.textContent = 'Wave 2: Speed Sort';
+      els.waveSub.textContent = 'เริ่มเร็วขึ้น ระวังตัวหลอก';
+      els.phaseChip.textContent = state.feverActive ? '🔥 Fever!' : 'Speed Phase';
+      els.phaseChip.className = 'chip blue';
+    }else{
+      state.wave = 1;
+      state.phase = 'calm';
+      els.waveTitle.textContent = 'Wave 1: Rookie Sort';
+      els.waveSub.textContent = 'เริ่มจับจังหวะให้แม่น';
+      els.phaseChip.textContent = state.feverActive ? '🔥 Fever!' : 'Calm Phase';
+      els.phaseChip.className = 'chip blue';
+    }
+  }
+
+  function heartsText(){
+    return '❤️'.repeat(Math.max(0,state.hearts));
+  }
+
+  function tick(){
+    if(state.ended) return;
+
+    if(state.feverActive && Date.now() >= state.feverUntil){
+      state.feverActive = false;
+      state.fever = 0;
+      document.body.classList.remove('fever-on');
+      fx('Fever จบแล้ว');
+    }
+
+    updatePhase();
+    updateFeverHud();
+
+    els.timeChip.textContent = remain() + 's';
+    els.heartChip.textContent = heartsText();
+
+    if(remain() <= 0 || state.hearts <= 0){
+      endGame('time-or-heart');
+    }
+  }
+
+  function nextDelay(){
+    let base = 1280;
+
+    if(state.diff === 'easy') base = 1500;
+    if(state.diff === 'hard') base = 980;
+    if(state.diff === 'challenge') base = 780;
+
+    if(state.phase === 'storm') base *= .7;
+    if(state.phase === 'boss') base *= .52;
+    if(state.feverActive) base *= .72;
+
+    const comboPressure = Math.min(280, state.combo * 18);
+    base -= comboPressure;
+
+    return Math.round(Math.max(430, base));
+  }
+
+  function fallDuration(){
+    let base = 4300;
+
+    if(state.diff === 'easy') base = 4700;
+    if(state.diff === 'hard') base = 3600;
+    if(state.diff === 'challenge') base = 3100;
+
+    if(state.phase === 'storm') base *= .78;
+    if(state.phase === 'boss') base *= .62;
+    if(state.feverActive) base *= .82;
+
+    const comboPressure = Math.min(500, state.combo * 24);
+    base -= comboPressure;
+
+    return Math.round(Math.max(1800, base));
+  }
+
+  function chooseItem(){
+    const diff = state.diff || 'normal';
+    let decoyRate = DECOY_RATE[diff] ?? 0.13;
+    let goldenRate = GOLDEN_RATE[diff] ?? 0.10;
+
+    if(state.phase === 'storm') decoyRate += 0.05;
+    if(state.phase === 'boss') decoyRate += 0.09;
+    if(state.feverActive) goldenRate += 0.04;
+
+    const roll = rnd();
+
+    if(roll < decoyRate){
+      const d = pick(DECOYS);
+      return {
+        kind:'decoy',
+        icon:d.icon,
+        label:d.label,
+        reason:d.reason,
+        group:null
       };
+    }
 
-      const state = {
-        mode:'intro',
-        startedAt:0,
-        duration:90,
-        diff:'normal',
-        practice:false,
-        timer:null,
-        foodTimer:null,
-        current:null,
-        score:0,
-        correct:0,
-        miss:0,
-        combo:0,
-        bestCombo:0,
-        hearts:3,
-        wave:1,
-        phase:'calm',
-        ended:false,
-        rng:null,
-        locked:false
+    const group = pick(GROUPS);
+    const icon = pick(group.foods);
+
+    if(roll < decoyRate + goldenRate){
+      return {
+        kind:'golden',
+        icon,
+        group,
+        label:group.label
       };
+    }
 
-      function qs(name, fallback=''){
-        try{
-          return new URL(location.href).searchParams.get(name) || fallback;
-        }catch(e){
-          return fallback;
+    return {
+      kind:'food',
+      icon,
+      group,
+      label:group.label
+    };
+  }
+
+  function spawnFood(){
+    if(state.ended || state.mode !== 'game') return;
+
+    clearTimeout(state.foodTimer);
+    cancelAnimationFrame(state.fallRaf);
+
+    const item = chooseItem();
+
+    state.current = item;
+    state.spawned += 1;
+    state.locked = false;
+
+    els.food.textContent = item.kind === 'golden' ? item.icon : item.icon;
+    els.food.className = 'food';
+
+    if(item.kind === 'decoy') els.food.classList.add('decoy');
+    else if(item.kind === 'golden') els.food.classList.add('golden');
+    else els.food.classList.add(state.feverActive ? 'fever' : 'good');
+
+    const leftPct = 18 + rnd() * 64;
+
+    els.food.style.left = leftPct + '%';
+    els.food.style.top = '8px';
+
+    if(item.kind === 'decoy'){
+      els.prompt.classList.add('decoy-prompt');
+      els.prompt.classList.remove('golden-prompt');
+
+      els.prompt.innerHTML = `
+        <div>
+          หลบ ${item.icon} ${item.label} อย่าแตะประตู!
+          <small>รอให้ผ่านไป จะได้โบนัสหลบตัวหลอก</small>
+        </div>
+      `;
+    }else if(item.kind === 'golden'){
+      els.prompt.classList.add('golden-prompt');
+      els.prompt.classList.remove('decoy-prompt');
+
+      els.prompt.innerHTML = `
+        <div>
+          Golden Food ${item.icon} ส่งเข้าหมู่ ${item.group.id}
+          <small>ถูกแล้วได้โบนัส + เติม Fever</small>
+        </div>
+      `;
+    }else{
+      els.prompt.classList.remove('decoy-prompt','golden-prompt');
+
+      els.prompt.innerHTML = `
+        <div>
+          เลือก ${item.icon} แล้วส่งเข้าประตูหมู่ที่ถูก
+          <small>${state.phase === 'boss' ? 'Boss: เร็วขึ้น ระวังตัวหลอก!' : 'แตะประตูด้านล่าง'}</small>
+        </div>
+      `;
+    }
+
+    animateFall(fallDuration());
+  }
+
+  function animateFall(duration){
+    const startAt = performance.now();
+    const stage = document.getElementById('stage');
+    const food = els.food;
+
+    const stageRect = stage.getBoundingClientRect();
+    const foodRect = food.getBoundingClientRect();
+
+    const startY = 8;
+    const endY = Math.max(48, stageRect.height - foodRect.height - 8);
+
+    function frame(now){
+      if(state.ended || !state.current || state.locked || state.mode !== 'game') return;
+
+      const t = clamp((now - startAt) / duration, 0, 1);
+      const eased = t < .5
+        ? 2 * t * t
+        : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+      const y = startY + (endY - startY) * eased;
+      food.style.top = Math.round(y) + 'px';
+
+      food.classList.toggle('danger', t > .74 && state.current.kind !== 'decoy');
+
+      if(t > .78 && t < .82 && state.current.kind !== 'decoy'){
+        document.body.classList.add('shake-lite');
+        setTimeout(()=>document.body.classList.remove('shake-lite'), 180);
+      }
+
+      if(t >= 1){
+        onHitGround();
+        return;
+      }
+
+      state.fallRaf = requestAnimationFrame(frame);
+    }
+
+    state.fallRaf = requestAnimationFrame(frame);
+  }
+
+  function onHitGround(){
+    if(!state.current || state.locked || state.ended) return;
+
+    if(state.current.kind === 'decoy'){
+      dodgeDecoy();
+      return;
+    }
+
+    miss(null, 'ชนพื้น! -1 ❤️');
+  }
+
+  function flashGate(gate, ok){
+    if(!gate) return;
+
+    gate.classList.remove('hit','miss');
+    void gate.offsetWidth;
+    gate.classList.add(ok ? 'hit' : 'miss');
+
+    setTimeout(()=>gate.classList.remove('hit','miss'), 320);
+  }
+
+  function fx(text){
+    const old = document.querySelector('.fx');
+    if(old) old.remove();
+
+    const el = document.createElement('div');
+    el.className = 'fx';
+    el.textContent = text;
+    els.game.appendChild(el);
+
+    setTimeout(()=>el.remove(), 820);
+  }
+
+  function unlockAudio(){
+    try{
+      if(!state.audio){
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if(AC) state.audio = new AC();
+      }
+
+      if(state.audio && state.audio.state === 'suspended'){
+        state.audio.resume();
+      }
+    }catch(e){}
+  }
+
+  function beep(type){
+    try{
+      unlockAudio();
+
+      const ctx = state.audio;
+      if(!ctx) return;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      let freq = 520;
+      let dur = 0.08;
+
+      if(type === 'correct'){ freq = 740; dur = 0.07; }
+      if(type === 'miss'){ freq = 180; dur = 0.12; }
+      if(type === 'golden'){ freq = 980; dur = 0.11; }
+      if(type === 'fever'){ freq = 1220; dur = 0.16; }
+      if(type === 'dodge'){ freq = 640; dur = 0.08; }
+
+      osc.frequency.value = freq;
+      osc.type = type === 'miss' ? 'sawtooth' : 'sine';
+
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.055, ctx.currentTime + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + dur + 0.02);
+    }catch(e){}
+  }
+
+  function vibrate(ms){
+    try{
+      if(navigator.vibrate) navigator.vibrate(ms);
+    }catch(e){}
+  }
+
+  function addFever(amount){
+    if(state.feverActive) return;
+
+    state.fever = clamp(state.fever + amount, 0, 100);
+
+    if(state.fever >= 100){
+      activateFever();
+    }
+
+    updateFeverHud();
+  }
+
+  function activateFever(){
+    state.feverActive = true;
+    state.feverUntil = Date.now() + 8200;
+
+    document.body.classList.add('fever-on');
+
+    fx('🔥 FEVER x2!');
+    beep('fever');
+    vibrate([40,30,40]);
+
+    updateFeverHud();
+
+    try{
+      window.dispatchEvent(new CustomEvent('groups:fever',{
+        detail:{
+          active:true,
+          durationMs:8200,
+          version:VERSION
         }
-      }
+      }));
+    }catch(e){}
+  }
 
-      function clamp(n,min,max){
-        n = Number(n);
-        if(!Number.isFinite(n)) n = min;
-        return Math.max(min, Math.min(max, n));
-      }
+  function correct(gate){
+    if(!state.current || state.locked || state.ended) return;
 
-      function xmur3(str){
-        let h = 1779033703 ^ str.length;
+    const item = state.current;
 
-        for(let i=0;i<str.length;i++){
-          h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-          h = (h << 13) | (h >>> 19);
-        }
+    if(item.kind === 'decoy'){
+      miss(gate, 'แตะตัวหลอก! -1 ❤️');
+      return;
+    }
 
-        return function(){
-          h = Math.imul(h ^ (h >>> 16), 2246822507);
-          h = Math.imul(h ^ (h >>> 13), 3266489909);
-          h ^= h >>> 16;
-          return h >>> 0;
-        };
-      }
+    state.locked = true;
+    clearTimeout(state.foodTimer);
+    cancelAnimationFrame(state.fallRaf);
 
-      function sfc32(a,b,c,d){
-        return function(){
-          a >>>= 0;
-          b >>>= 0;
-          c >>>= 0;
-          d >>>= 0;
+    state.correct += 1;
+    state.combo += 1;
+    state.bestCombo = Math.max(state.bestCombo, state.combo);
 
-          let t = (a + b) | 0;
-          a = b ^ (b >>> 9);
-          b = (c + (c << 3)) | 0;
-          c = (c << 21) | (c >>> 11);
-          d = (d + 1) | 0;
-          t = (t + d) | 0;
-          c = (c + t) | 0;
+    if(state.phase === 'boss') state.bossCorrect += 1;
 
-          return (t >>> 0) / 4294967296;
-        };
-      }
+    let gain = 8 + Math.min(state.combo, 12);
 
-      function makeRng(){
-        const seed = [
-          qs('seed','groups-mobile'),
-          qs('pid','anon'),
-          qs('diff','normal'),
-          VERSION
-        ].join('|');
+    if(item.kind === 'golden'){
+      gain += 18;
+      state.goldenHit += 1;
+    }
 
-        const f = xmur3(seed);
-        return sfc32(f(), f(), f(), f());
-      }
+    if(state.phase === 'storm') gain += 3;
+    if(state.phase === 'boss') gain += 6;
+    if(state.feverActive) gain *= 2;
 
-      function rnd(){
-        if(!state.rng) state.rng = makeRng();
-        return state.rng();
-      }
+    state.score += gain;
 
-      function pick(arr){
-        return arr[Math.floor(rnd()*arr.length) % arr.length];
-      }
+    flashGate(gate, true);
 
-      function zoneUrl(){
-        const hub = qs('hub','');
+    if(item.kind === 'golden'){
+      fx('⭐ Golden +' + gain);
+      beep('golden');
+      addFever(28);
+    }else{
+      fx(state.feverActive ? '🔥 +' + gain : 'เยี่ยม! +' + gain);
+      beep('correct');
+      addFever(state.phase === 'boss' ? 16 : 12);
+    }
 
-        if(hub && hub.includes('nutrition-zone.html')){
-          return hub;
-        }
+    vibrate(18);
 
-        const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
-
-        [
-          'pid',
-          'name',
-          'diff',
-          'time',
-          'view',
-          'seed',
-          'studyId',
-          'conditionGroup'
-        ].forEach(k=>{
-          const v = qs(k,'');
-          if(v) u.searchParams.set(k,v);
-        });
-
-        u.searchParams.set('zone','nutrition');
-        u.searchParams.set('from','groups-mobile');
-        u.searchParams.set('hub','https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
-
-        return u.toString();
-      }
-
-      function showScreen(name){
-        [els.intro, els.game, els.summary].forEach(el=>el.classList.remove('active'));
-
-        document.body.classList.toggle('playing', name === 'game');
-        document.body.classList.toggle('summary-mode', name === 'summary');
-
-        if(name === 'intro') els.intro.classList.add('active');
-        if(name === 'game') els.game.classList.add('active');
-        if(name === 'summary') els.summary.classList.add('active');
-
-        state.mode = name;
-      }
-
-      function start(practice){
-        if(state.mode !== 'intro') return;
-
-        state.practice = Boolean(practice);
-        state.duration = state.practice ? 45 : clamp(Number(qs('time','90')) || 90, 30, 240);
-        state.diff = qs('diff','normal');
-        state.startedAt = Date.now();
-        state.ended = false;
-        state.score = 0;
-        state.correct = 0;
-        state.miss = 0;
-        state.combo = 0;
-        state.bestCombo = 0;
-        state.hearts = state.practice ? 5 : 3;
-        state.wave = 1;
-        state.phase = 'calm';
-        state.locked = false;
-        state.rng = makeRng();
-
-        showScreen('game');
-        runCountdown();
-      }
-
-      function runCountdown(){
-        els.countdown.classList.add('active');
-
-        const steps = [
-          {t:0, text:'3', tip:'ดูโจทย์ก่อน'},
-          {t:760, text:'2', tip:'คิดว่าอาหารอยู่หมู่ไหน'},
-          {t:1520, text:'1', tip:'แตะประตูหมู่ที่ถูก'},
-          {t:2280, text:'เริ่ม!', tip:'ลุยเลย!'}
-        ];
-
-        steps.forEach(s=>{
-          setTimeout(()=>{
-            els.countMain.textContent = s.text;
-            els.countTip.textContent = s.tip;
-          }, s.t);
-        });
-
-        setTimeout(()=>{
-          els.countdown.classList.remove('active');
-          spawnFood();
-          tick();
-          state.timer = setInterval(tick, 250);
-        }, 3000);
-      }
-
-      function elapsed(){
-        return Math.floor((Date.now() - state.startedAt) / 1000);
-      }
-
-      function remain(){
-        return Math.max(0, state.duration - elapsed());
-      }
-
-      function updatePhase(){
-        const e = elapsed();
-        const r = remain();
-
-        if(r <= Math.max(15, state.duration * 0.25)){
-          state.wave = 3;
-          state.phase = 'boss';
-          els.waveTitle.textContent = 'Wave 3: Boss Sort';
-          els.waveSub.textContent = 'ตอบให้ไว อย่าเสียหัวใจ';
-          els.phaseChip.textContent = 'Boss Phase';
-          els.phaseChip.className = 'chip yellow';
-        }else if(e >= Math.max(22, state.duration * 0.35)){
-          state.wave = 2;
-          state.phase = 'storm';
-          els.waveTitle.textContent = 'Wave 2: Speed Sort';
-          els.waveSub.textContent = 'เริ่มเร็วขึ้น แต่ยังอ่านโจทย์ทัน';
-          els.phaseChip.textContent = 'Speed Phase';
-          els.phaseChip.className = 'chip blue';
-        }else{
-          state.wave = 1;
-          state.phase = 'calm';
-          els.waveTitle.textContent = 'Wave 1: Rookie Sort';
-          els.waveSub.textContent = 'อาหารชิ้นเดียว เริ่มจับจังหวะให้แม่น';
-          els.phaseChip.textContent = 'Calm Phase';
-          els.phaseChip.className = 'chip blue';
-        }
-      }
-
-      function heartsText(){
-        return '❤️'.repeat(Math.max(0,state.hearts));
-      }
-
-      function tick(){
-        if(state.ended) return;
-
-        updatePhase();
-
-        els.timeChip.textContent = remain() + 's';
-        els.heartChip.textContent = heartsText();
-
-        if(remain() <= 0 || state.hearts <= 0){
-          endGame('time-or-heart');
-        }
-      }
-
-      function nextDelay(){
-        let base = 1350;
-
-        if(state.diff === 'easy') base = 1550;
-        if(state.diff === 'hard') base = 1050;
-        if(state.diff === 'challenge') base = 850;
-
-        if(state.phase === 'storm') base *= .72;
-        if(state.phase === 'boss') base *= .56;
-
-        const comboPressure = Math.min(260, state.combo * 18);
-        base -= comboPressure;
-
-        return Math.round(Math.max(520, base));
-      }
-
-      function spawnFood(){
-        if(state.ended || state.mode !== 'game') return;
-
-        clearTimeout(state.foodTimer);
-
-        const group = pick(GROUPS);
-        const icon = pick(group.foods);
-
-        state.current = {
-          group,
-          icon
-        };
-
-        els.food.textContent = icon;
-        els.food.className = 'food ' + (state.phase === 'boss' ? 'bad' : 'good');
-
-        const leftPct = 18 + rnd() * 64;
-        const topPx = 12 + rnd() * 40;
-
-        els.food.style.left = leftPct + '%';
-        els.food.style.top = topPx + 'px';
-
-        els.prompt.innerHTML = `
-          <div>
-            เลือก ${icon} แล้วส่งเข้าประตูหมู่ที่ถูก
-            <small>${state.phase === 'boss' ? 'Boss: ตอบเร็วขึ้น!' : 'แตะประตูด้านล่าง'}</small>
-          </div>
-        `;
-
-        const timeout = state.phase === 'boss' ? 2500 : state.phase === 'storm' ? 3100 : 4100;
-
-        state.foodTimer = setTimeout(()=>{
-          if(state.ended || state.locked) return;
-          miss(null, 'ชนพื้น! -1 ❤️');
-        }, timeout);
-      }
-
-      function flashGate(gate, ok){
-        if(!gate) return;
-
-        gate.classList.remove('hit','miss');
-        void gate.offsetWidth;
-        gate.classList.add(ok ? 'hit' : 'miss');
-
-        setTimeout(()=>gate.classList.remove('hit','miss'), 320);
-      }
-
-      function fx(text){
-        const old = document.querySelector('.fx');
-        if(old) old.remove();
-
-        const el = document.createElement('div');
-        el.className = 'fx';
-        el.textContent = text;
-        els.game.appendChild(el);
-
-        setTimeout(()=>el.remove(), 820);
-      }
-
-      function correct(gate){
-        if(!state.current || state.locked || state.ended) return;
-
-        state.locked = true;
-        clearTimeout(state.foodTimer);
-
-        state.correct += 1;
-        state.combo += 1;
-        state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-        let gain = 8 + Math.min(state.combo, 12);
-
-        if(state.phase === 'storm') gain += 3;
-        if(state.phase === 'boss') gain += 6;
-
-        state.score += gain;
-
-        flashGate(gate, true);
-        fx('เยี่ยม! +' + gain);
-
-        try{
-          window.dispatchEvent(new CustomEvent('groups:judge',{
-            detail:{
-              ok:true,
-              correct:true,
-              score:state.score,
-              combo:state.combo,
-              version:VERSION
-            }
-          }));
-        }catch(e){}
-
-        setTimeout(()=>{
-          state.locked = false;
-          spawnFood();
-        }, nextDelay());
-      }
-
-      function miss(gate, label){
-        if(!state.current || state.locked || state.ended) return;
-
-        state.locked = true;
-        clearTimeout(state.foodTimer);
-
-        state.miss += 1;
-        state.combo = 0;
-        state.hearts -= 1;
-
-        flashGate(gate, false);
-        fx(label || 'ลองใหม่! -1 ❤️');
-
-        try{
-          window.dispatchEvent(new CustomEvent('groups:judge',{
-            detail:{
-              ok:false,
-              correct:false,
-              score:state.score,
-              miss:state.miss,
-              version:VERSION
-            }
-          }));
-        }catch(e){}
-
-        setTimeout(()=>{
-          state.locked = false;
-
-          if(state.hearts <= 0){
-            endGame('no-heart');
-          }else{
-            spawnFood();
-          }
-        }, 950);
-      }
-
-      function onGateClick(ev){
-        const gate = ev.currentTarget;
-
-        if(!state.current || state.locked || state.ended) return;
-
-        const key = gate.dataset.group;
-
-        if(key === state.current.group.key){
-          correct(gate);
-        }else{
-          miss(gate, 'ผิดหมู่! -1 ❤️');
-        }
-      }
-
-      function rank(){
-        const total = Math.max(1, state.correct + state.miss);
-        const acc = Math.round((state.correct / total) * 100);
-
-        if(acc >= 95 && state.bestCombo >= 12 && state.correct >= 18){
-          return {
-            name:'Food Hero',
-            icon:'🏆'
-          };
-        }
-
-        if(acc >= 82 && state.bestCombo >= 6){
-          return {
-            name:'Smart Eater',
-            icon:'⭐'
-          };
-        }
-
-        if(acc >= 60){
-          return {
-            name:'Food Explorer',
-            icon:'🌱'
-          };
-        }
-
-        return {
-          name:'Food Rookie',
-          icon:'💪'
-        };
-      }
-
-      function endGame(reason){
-        if(state.ended) return;
-
-        state.ended = true;
-
-        clearInterval(state.timer);
-        clearTimeout(state.foodTimer);
-
-        const total = Math.max(1, state.correct + state.miss);
-        const acc = Math.round((state.correct / total) * 100);
-        const r = rank();
-
-        els.scoreText.textContent = state.score;
-        els.accuracyText.textContent = acc + '%';
-        els.comboText.textContent = state.bestCombo;
-        els.missionText.textContent = state.correct;
-        els.rankText.textContent = r.name;
-        els.summaryBadge.textContent = r.icon;
-
-        const summary = {
-          ts:new Date().toISOString(),
-          game:'groups',
-          mode:'solo-mobile',
-          patch:VERSION,
-          reason,
-          pid:qs('pid','anon'),
-          name:qs('name','Hero'),
-          diff:state.diff,
-          duration:state.duration,
+    try{
+      window.dispatchEvent(new CustomEvent('groups:judge',{
+        detail:{
+          ok:true,
+          correct:true,
           score:state.score,
-          correct:state.correct,
+          combo:state.combo,
+          kind:item.kind,
+          phase:state.phase,
+          feverActive:state.feverActive,
+          version:VERSION
+        }
+      }));
+    }catch(e){}
+
+    setTimeout(()=>{
+      state.locked = false;
+      spawnFood();
+    }, nextDelay());
+  }
+
+  function dodgeDecoy(){
+    if(!state.current || state.locked || state.ended) return;
+
+    state.locked = true;
+    cancelAnimationFrame(state.fallRaf);
+
+    state.decoyDodged += 1;
+    state.score += state.feverActive ? 12 : 6;
+
+    fx('หลบได้! +6');
+    beep('dodge');
+    addFever(8);
+
+    try{
+      window.dispatchEvent(new CustomEvent('groups:decoy-dodged',{
+        detail:{
+          score:state.score,
+          decoyDodged:state.decoyDodged,
+          version:VERSION
+        }
+      }));
+    }catch(e){}
+
+    setTimeout(()=>{
+      state.locked = false;
+      spawnFood();
+    }, 520);
+  }
+
+  function miss(gate, label){
+    if(!state.current || state.locked || state.ended) return;
+
+    state.locked = true;
+    clearTimeout(state.foodTimer);
+    cancelAnimationFrame(state.fallRaf);
+
+    state.miss += 1;
+    state.combo = 0;
+    state.hearts -= 1;
+    state.fever = Math.max(0, state.fever - 22);
+
+    flashGate(gate, false);
+    fx(label || 'ลองใหม่! -1 ❤️');
+    beep('miss');
+    vibrate([35,25,35]);
+
+    document.body.classList.add('shake-lite');
+    setTimeout(()=>document.body.classList.remove('shake-lite'), 190);
+
+    updateFeverHud();
+
+    try{
+      window.dispatchEvent(new CustomEvent('groups:judge',{
+        detail:{
+          ok:false,
+          correct:false,
+          score:state.score,
           miss:state.miss,
-          accuracy:acc,
-          bestCombo:state.bestCombo,
-          rank:r.name
-        };
+          phase:state.phase,
+          version:VERSION
+        }
+      }));
+    }catch(e){}
 
-        try{
-          localStorage.setItem('HHA_GROUPS_MOBILE_SUMMARY', JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
-            ts:summary.ts,
-            game:'groups',
-            mode:'solo-mobile',
-            summary
-          }));
+    setTimeout(()=>{
+      state.locked = false;
 
-          window.dispatchEvent(new CustomEvent('groups:end',{detail:summary}));
-          window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:summary}));
-        }catch(e){}
-
-        showScreen('summary');
+      if(state.hearts <= 0){
+        endGame('no-heart');
+      }else{
+        spawnFood();
       }
+    }, 950);
+  }
 
-      function replay(){
-        const u = new URL(location.href);
-        u.searchParams.set('seed', String(Date.now()));
-        location.href = u.toString();
-      }
+  function onGateClick(ev){
+    const gate = ev.currentTarget;
 
-      function goZone(){
-        location.href = zoneUrl();
-      }
+    if(!state.current || state.locked || state.ended) return;
 
-      function expose(){
-        window.HHA_GROUPS_MOBILE_V9 = {
-          version:VERSION,
-          getState:function(){
-            return Object.assign({},state,{
-              current:state.current
-            });
-          },
-          end:endGame,
-          returnToNutritionZone:goZone
-        };
-      }
+    const item = state.current;
 
-      function init(){
-        state.diff = qs('diff','normal');
-        state.duration = clamp(Number(qs('time','90')) || 90, 30, 240);
+    if(item.kind === 'decoy'){
+      miss(gate, 'แตะตัวหลอก! -1 ❤️');
+      return;
+    }
 
-        document.querySelectorAll('.gate').forEach(g=>g.addEventListener('click', onGateClick));
+    const key = gate.dataset.group;
 
-        els.startBtn.addEventListener('click', ()=>start(false));
-        els.practiceBtn.addEventListener('click', ()=>start(true));
-        els.replayBtn.addEventListener('click', replay);
-        els.zoneBtn.addEventListener('click', goZone);
-        els.returnBtn.addEventListener('click', goZone);
+    if(key === item.group.key){
+      correct(gate);
+    }else{
+      miss(gate, 'ผิดหมู่! -1 ❤️');
+    }
+  }
 
-        expose();
+  function rank(){
+    const total = Math.max(1, state.correct + state.miss);
+    const acc = Math.round((state.correct / total) * 100);
 
-        console.info('[GroupsSolo Mobile v9.2] installed', VERSION);
-      }
+    if(
+      acc >= 95 &&
+      state.bestCombo >= 12 &&
+      state.correct >= 18 &&
+      state.decoyDodged >= 2
+    ){
+      return {
+        name:'Food Hero',
+        icon:'🏆'
+      };
+    }
 
-      init();
-    })();
-  </script>
+    if(acc >= 82 && state.bestCombo >= 6){
+      return {
+        name:'Smart Eater',
+        icon:'⭐'
+      };
+    }
+
+    if(acc >= 60){
+      return {
+        name:'Food Explorer',
+        icon:'🌱'
+      };
+    }
+
+    return {
+      name:'Food Rookie',
+      icon:'💪'
+    };
+  }
+
+  function endGame(reason){
+    if(state.ended) return;
+
+    state.ended = true;
+    state.feverActive = false;
+
+    clearInterval(state.timer);
+    clearTimeout(state.foodTimer);
+    cancelAnimationFrame(state.fallRaf);
+
+    document.body.classList.remove('fever-on');
+
+    const total = Math.max(1, state.correct + state.miss);
+    const acc = Math.round((state.correct / total) * 100);
+    const r = rank();
+
+    els.scoreText.textContent = state.score;
+    els.accuracyText.textContent = acc + '%';
+    els.comboText.textContent = state.bestCombo;
+    els.missionText.textContent = state.correct;
+    els.rankText.textContent = r.name;
+    els.summaryBadge.textContent = r.icon;
+
+    const summary = {
+      ts:new Date().toISOString(),
+      game:'groups',
+      mode:'solo-mobile',
+      patch:VERSION,
+      reason,
+      pid:qs('pid','anon'),
+      name:qs('name','Hero'),
+      diff:state.diff,
+      duration:state.duration,
+      score:state.score,
+      correct:state.correct,
+      miss:state.miss,
+      accuracy:acc,
+      bestCombo:state.bestCombo,
+      decoyDodged:state.decoyDodged,
+      goldenHit:state.goldenHit,
+      bossCorrect:state.bossCorrect,
+      rank:r.name
+    };
+
+    try{
+      localStorage.setItem('HHA_GROUPS_MOBILE_SUMMARY', JSON.stringify(summary));
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify({
+        ts:summary.ts,
+        game:'groups',
+        mode:'solo-mobile',
+        summary
+      }));
+
+      window.dispatchEvent(new CustomEvent('groups:end',{detail:summary}));
+      window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:summary}));
+    }catch(e){}
+
+    showScreen('summary');
+  }
+
+  function replay(){
+    const u = new URL(location.href);
+    u.searchParams.set('seed', String(Date.now()));
+    location.href = u.toString();
+  }
+
+  function goZone(){
+    location.href = zoneUrl();
+  }
+
+  function expose(){
+    window.HHA_GROUPS_MOBILE_V9 = {
+      version:VERSION,
+      getState:function(){
+        return Object.assign({},state,{
+          current:state.current
+        });
+      },
+      end:endGame,
+      returnToNutritionZone:goZone
+    };
+  }
+
+  function init(){
+    injectArcadeStyle();
+
+    state.diff = qs('diff','normal');
+    state.duration = clamp(Number(qs('time','90')) || 90, 30, 240);
+
+    document.querySelectorAll('.gate').forEach(g=>g.addEventListener('click', onGateClick));
+
+    els.startBtn.addEventListener('click', ()=>start(false));
+    els.practiceBtn.addEventListener('click', ()=>start(true));
+    els.replayBtn.addEventListener('click', replay);
+    els.zoneBtn.addEventListener('click', goZone);
+    els.returnBtn.addEventListener('click', goZone);
+
+    expose();
+
+    console.info('[GroupsSolo Mobile v9.3] installed', VERSION);
+  }
+
+  init();
+})();
+</script>
 </body>
 </html>
