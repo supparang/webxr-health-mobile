@@ -1,21 +1,36 @@
 /* =========================================================
    HeroHealth • GoodJunk Battle Runtime Sync v2
    FILE: /herohealth/vr-goodjunk/goodjunk-vr-battle.runtime-sync-v2.js
-   PATCH: v20260514a
+   PATCH: v20260514c-rolelock-runtime-sync
 
-   Fix:
+   Purpose:
    - Runtime เห็น 1/2 ทั้งที่ Lobby มี 2/4
-   - Runtime แสดง Guest เป็น host ซ้ำ
-   - อ่านผู้เล่นจาก room.players / runtimePlayers / currentRun.participants / match.participants
-   - เขียน activeCount / expectedPlayers / runtimePlayers กลับ Firebase
-   - ถ้ามีผู้เล่น >= 2 แต่ status ยัง waiting ให้ host ดันเป็น started
+   - KK/Guest ถูก runtime ตั้งเป็น host ซ้ำ
+   - บังคับ role จาก room.hostPid เท่านั้น
+   - อ่านผู้เล่นจากหลาย path:
+     room.players
+     room.runtimePlayers
+     room.activePlayers
+     room.currentRun.participants
+     room.currentRun.runtimePlayers
+     room.currentRun.activePlayers
+     match.participants
+     match.runtimePlayers
+     match.activePlayers
+     match.players
+   - mirror activeCount / participants กลับ Firebase ให้ runtime เดิมอ่านได้
    ========================================================= */
 
 (() => {
   'use strict';
 
-  const PATCH_ID = 'v20260514a-runtime-sync-v2';
-  if (window.__GJ_BATTLE_RUNTIME_SYNC_V2__) return;
+  const PATCH_ID = 'v20260514c-rolelock-runtime-sync';
+
+  if (window.__GJ_BATTLE_RUNTIME_SYNC_V2__) {
+    console.info('[GJ Battle Runtime Sync v2] already loaded:', window.__GJ_BATTLE_RUNTIME_SYNC_V2__);
+    return;
+  }
+
   window.__GJ_BATTLE_RUNTIME_SYNC_V2__ = PATCH_ID;
 
   const params = new URLSearchParams(location.search);
@@ -24,13 +39,19 @@
   const PID = clean(params.get('pid') || '');
   const NAME = clean(params.get('name') || params.get('nick') || 'Player');
   const URL_MATCH = clean(params.get('matchId') || '');
-  const MIN_PLAYERS = 2;
 
+  const MIN_PLAYERS = 2;
   const LOG = '[GJ Battle Runtime Sync v2]';
 
   let db = null;
+  let auth = null;
   let timer = null;
   let forceStarted = false;
+  let lastRole = '';
+  let lastCount = 0;
+  let lastExpected = 0;
+  let lastMatchId = '';
+  let lastStatus = '';
 
   boot();
 
@@ -40,6 +61,10 @@
       return;
     }
 
+    if (!PID){
+      console.warn(LOG, 'no pid in URL; runtime sync will still try but role-lock may be limited');
+    }
+
     try{
       await waitForDb();
 
@@ -47,14 +72,16 @@
         patch: PATCH_ID,
         room: ROOM,
         pid: PID,
-        name: NAME
+        name: NAME,
+        uid: auth && auth.currentUser ? auth.currentUser.uid : ''
       });
 
       await syncOnce('boot');
+
       listenRoom();
 
       timer = setInterval(() => {
-        syncOnce('poll').catch(err => console.warn(LOG, err));
+        syncOnce('poll').catch(err => console.warn(LOG, 'poll failed', err));
       }, 900);
 
       window.addEventListener('pagehide', () => {
@@ -67,24 +94,26 @@
   }
 
   async function waitForDb(){
-    for (let i = 0; i < 30; i++){
+    for (let i = 0; i < 60; i++){
       if (window.HHA_FIREBASE_READY){
         const fb = await window.HHA_FIREBASE_READY;
-        if (fb && fb.db){
+
+        if (fb && fb.db && fb.auth && fb.auth.currentUser){
           db = fb.db;
+          auth = fb.auth;
+
+          console.info(LOG, 'Firebase auth ready', {
+            uid: fb.auth.currentUser.uid
+          });
+
           return;
         }
-      }
-
-      if (window.firebase && firebase.database){
-        db = firebase.database();
-        return;
       }
 
       await sleep(250);
     }
 
-    throw new Error('Firebase database not ready');
+    throw new Error('Firebase auth/db not ready');
   }
 
   function listenRoom(){
@@ -92,7 +121,7 @@
 
     ref.on('value', snap => {
       const room = snap && snap.val ? snap.val() : null;
-      syncWithRoom(room, 'listener').catch(err => console.warn(LOG, err));
+      syncWithRoom(room, 'listener').catch(err => console.warn(LOG, 'listener failed', err));
     });
   }
 
@@ -104,6 +133,11 @@
   async function syncWithRoom(room, reason){
     if (!room){
       console.warn(LOG, 'room not found', ROOM);
+      patchVisibleWaiting({
+        count: 1,
+        expected: MIN_PLAYERS,
+        participants: makeSelfOnlyParticipants('guest')
+      });
       return;
     }
 
@@ -112,6 +146,8 @@
       clean(room.activeMatchId || '') ||
       clean(room.currentRun?.matchId || '') ||
       `${ROOM}-R1`;
+
+    lastMatchId = matchId;
 
     const match = await dbGet(matchPath(ROOM, matchId)).catch(() => null);
 
@@ -122,19 +158,32 @@
     const expected = Math.max(
       MIN_PLAYERS,
       Number(room.expectedPlayers || 0),
+      Number(room.participantCount || 0),
+      Number(room.activeCount || 0),
       Number(room.currentRun?.expectedPlayers || 0),
+      Number(room.currentRun?.participantCount || 0),
+      Number(room.currentRun?.activeCount || 0),
       Number(match?.expectedPlayers || 0),
+      Number(match?.participantCount || 0),
+      Number(match?.activeCount || 0),
       count
     );
 
-    const myKey = PID ? safeKey(PID) : '';
-    const myData = myKey ? participants[myKey] : null;
-    const realRole =
-      myData?.role ||
-      (PID && room.hostPid === PID ? 'host' : 'guest');
+    const realRole = getTrueRole(room, PID);
+
+    lastRole = realRole;
+    lastCount = count;
+    lastExpected = expected;
 
     fixUrlRole(realRole);
+    fixVisibleRole(realRole, participants);
     patchVisibleWaiting({ count, expected, participants });
+
+    await repairMyRoleInFirebase({
+      room,
+      participants,
+      realRole
+    });
 
     await writeMirror({
       room,
@@ -146,10 +195,12 @@
     });
 
     const status = clean(room.status || '').toLowerCase();
-    const iAmHost = PID && room.hostPid === PID;
+    lastStatus = status;
+
+    const iAmRealHost = realRole === 'host';
 
     if (
-      iAmHost &&
+      iAmRealHost &&
       count >= MIN_PLAYERS &&
       !forceStarted &&
       (!status || status === 'waiting' || status === 'ready')
@@ -164,17 +215,24 @@
       });
     }
 
-    window.HHA_BATTLE_RUNTIME_PARTICIPANTS = {
+    const payload = {
       roomId: ROOM,
       matchId,
       participants,
       count,
       expected,
-      role: realRole
+      role: realRole,
+      status
     };
 
+    window.HHA_BATTLE_RUNTIME_PARTICIPANTS = payload;
+
     window.dispatchEvent(new CustomEvent('hha:battle:runtime-sync', {
-      detail: window.HHA_BATTLE_RUNTIME_PARTICIPANTS
+      detail: payload
+    }));
+
+    document.dispatchEvent(new CustomEvent('hha:battle:runtime-sync', {
+      detail: payload
     }));
 
     console.info(LOG, reason, {
@@ -183,31 +241,59 @@
       status,
       count,
       expected,
-      players: Object.values(participants).map(p => `${p.name} • ${p.role}`)
+      role: realRole,
+      hostPid: room.hostPid || '',
+      players: Object.values(participants).map(p => `${p.name || p.nick || p.pid} • ${p.role}`)
     });
+  }
+
+  function getTrueRole(room, pid){
+    if (!room || !pid) return 'guest';
+    return String(room.hostPid || '') === String(pid) ? 'host' : 'guest';
+  }
+
+  function makeSelfOnlyParticipants(role){
+    const out = {};
+    const pid = PID || 'runtime-self';
+    out[safeKey(pid)] = {
+      pid,
+      name: NAME || 'Player',
+      nick: NAME || 'Player',
+      role: role || 'guest',
+      host: role === 'host',
+      ready: true,
+      online: true,
+      joinedAt: Date.now(),
+      lastSeen: Date.now(),
+      source: 'runtime-self'
+    };
+    return out;
   }
 
   function collectAllPlayers(room, match){
     const out = {};
 
-    mergePlayers(out, room?.players, room);
-    mergePlayers(out, room?.runtimePlayers, room);
-    mergePlayers(out, room?.activePlayers, room);
-    mergePlayers(out, room?.currentRun?.participants, room);
-    mergePlayers(out, room?.currentRun?.runtimePlayers, room);
-    mergePlayers(out, room?.currentRun?.activePlayers, room);
+    mergePlayers(out, room?.players, room, 'room.players');
+    mergePlayers(out, room?.runtimePlayers, room, 'room.runtimePlayers');
+    mergePlayers(out, room?.activePlayers, room, 'room.activePlayers');
+    mergePlayers(out, room?.currentRun?.participants, room, 'room.currentRun.participants');
+    mergePlayers(out, room?.currentRun?.runtimePlayers, room, 'room.currentRun.runtimePlayers');
+    mergePlayers(out, room?.currentRun?.activePlayers, room, 'room.currentRun.activePlayers');
 
-    mergePlayers(out, match?.participants, room);
-    mergePlayers(out, match?.runtimePlayers, room);
-    mergePlayers(out, match?.activePlayers, room);
-    mergePlayers(out, match?.players, room);
+    mergePlayers(out, match?.participants, room, 'match.participants');
+    mergePlayers(out, match?.runtimePlayers, room, 'match.runtimePlayers');
+    mergePlayers(out, match?.activePlayers, room, 'match.activePlayers');
+    mergePlayers(out, match?.players, room, 'match.players');
 
     if (PID && !out[safeKey(PID)]){
+      const realRole = getTrueRole(room, PID);
+
       out[safeKey(PID)] = {
         pid: PID,
         name: NAME,
         nick: NAME,
-        role: room?.hostPid === PID ? 'host' : 'guest',
+        role: realRole,
+        host: realRole === 'host',
         ready: true,
         online: true,
         joinedAt: Date.now(),
@@ -216,10 +302,12 @@
       };
     }
 
+    normalizeBattleIndexes(out);
+
     return out;
   }
 
-  function mergePlayers(out, raw, room){
+  function mergePlayers(out, raw, room, source){
     if (!raw || typeof raw !== 'object') return;
 
     Object.values(raw).filter(Boolean).forEach((p, index) => {
@@ -227,37 +315,102 @@
       if (!pid) return;
 
       const key = safeKey(pid);
-      const isHost =
-        pid === room?.hostPid ||
-        p.role === 'host' ||
-        p.host === true ||
-        p.host === '1';
+      const realRole = getTrueRole(room, pid);
 
       out[key] = {
         ...out[key],
         ...p,
+
         pid,
         name: clean(p.name || p.nick || p.displayName || out[key]?.name || `Player ${index + 1}`),
         nick: clean(p.nick || p.name || p.displayName || out[key]?.nick || `Player ${index + 1}`),
-        role: isHost ? 'host' : 'guest',
+
+        // สำคัญมาก: ห้ามเชื่อ p.role === 'host' จาก script เก่า
+        role: realRole,
+        host: realRole === 'host',
+
         ready: p.ready !== false,
         online: p.online !== false,
         joinedAt: Number(p.joinedAt || out[key]?.joinedAt || Date.now()),
         lastSeen: Date.now(),
-        battleIndex: Number(p.battleIndex || out[key]?.battleIndex || index + 1)
+        battleIndex: Number(p.battleIndex || out[key]?.battleIndex || index + 1),
+        source
       };
+    });
+  }
+
+  function normalizeBattleIndexes(players){
+    const arr = Object.values(players || {})
+      .filter(Boolean)
+      .sort((a,b) => {
+        if (a.role === 'host' && b.role !== 'host') return -1;
+        if (a.role !== 'host' && b.role === 'host') return 1;
+        return Number(a.joinedAt || 0) - Number(b.joinedAt || 0);
+      });
+
+    arr.forEach((p, i) => {
+      const key = safeKey(p.pid);
+      if (players[key]){
+        players[key].battleIndex = i + 1;
+      }
+    });
+  }
+
+  async function repairMyRoleInFirebase({ room, participants, realRole }){
+    if (!PID) return;
+
+    const key = safeKey(PID);
+    const mine = participants[key] || null;
+
+    if (!mine) return;
+
+    const updates = {};
+
+    updates[`players/${key}/pid`] = PID;
+    updates[`players/${key}/name`] = mine.name || NAME || 'Player';
+    updates[`players/${key}/nick`] = mine.nick || mine.name || NAME || 'Player';
+    updates[`players/${key}/role`] = realRole;
+    updates[`players/${key}/host`] = realRole === 'host';
+    updates[`players/${key}/ready`] = true;
+    updates[`players/${key}/online`] = true;
+    updates[`players/${key}/lastSeen`] = Date.now();
+
+    updates[`runtimePlayers/${key}/role`] = realRole;
+    updates[`runtimePlayers/${key}/host`] = realRole === 'host';
+    updates[`runtimePlayers/${key}/lastSeen`] = Date.now();
+
+    updates[`activePlayers/${key}/role`] = realRole;
+    updates[`activePlayers/${key}/host`] = realRole === 'host';
+    updates[`activePlayers/${key}/lastSeen`] = Date.now();
+
+    updates[`currentRun/participants/${key}/role`] = realRole;
+    updates[`currentRun/participants/${key}/host`] = realRole === 'host';
+    updates[`currentRun/participants/${key}/lastSeen`] = Date.now();
+
+    updates[`currentRun/runtimePlayers/${key}/role`] = realRole;
+    updates[`currentRun/runtimePlayers/${key}/host`] = realRole === 'host';
+    updates[`currentRun/runtimePlayers/${key}/lastSeen`] = Date.now();
+
+    updates[`currentRun/activePlayers/${key}/role`] = realRole;
+    updates[`currentRun/activePlayers/${key}/host`] = realRole === 'host';
+    updates[`currentRun/activePlayers/${key}/lastSeen`] = Date.now();
+
+    await dbUpdate(roomPath(ROOM), updates).catch(err => {
+      console.warn(LOG, 'repair role failed', err);
     });
   }
 
   async function writeMirror({ matchId, participants, count, expected, reason }){
     const t = Date.now();
 
+    const cleanParticipants = normalizeParticipantsForWrite(participants);
+
     const roomUpdate = {
       activeCount: count,
       expectedPlayers: expected,
       participantCount: count,
-      runtimePlayers: participants,
-      activePlayers: participants,
+      runtimePlayers: cleanParticipants,
+      activePlayers: cleanParticipants,
       updatedAt: t,
       lastRuntimeSyncAt: t,
       lastRuntimeSyncReason: reason
@@ -266,9 +419,9 @@
     roomUpdate['currentRun/matchId'] = matchId;
     roomUpdate['currentRun/expectedPlayers'] = expected;
     roomUpdate['currentRun/participantCount'] = count;
-    roomUpdate['currentRun/participants'] = participants;
-    roomUpdate['currentRun/runtimePlayers'] = participants;
-    roomUpdate['currentRun/activePlayers'] = participants;
+    roomUpdate['currentRun/participants'] = cleanParticipants;
+    roomUpdate['currentRun/runtimePlayers'] = cleanParticipants;
+    roomUpdate['currentRun/activePlayers'] = cleanParticipants;
     roomUpdate['currentRun/activeCount'] = count;
 
     await dbUpdate(roomPath(ROOM), roomUpdate).catch(err => {
@@ -283,9 +436,9 @@
       expectedPlayers: expected,
       participantCount: count,
       activeCount: count,
-      participants,
-      runtimePlayers: participants,
-      activePlayers: participants,
+      participants: cleanParticipants,
+      runtimePlayers: cleanParticipants,
+      activePlayers: cleanParticipants,
       updatedAt: t,
       lastRuntimeSyncAt: t,
       lastRuntimeSyncReason: reason
@@ -294,8 +447,36 @@
     });
   }
 
+  function normalizeParticipantsForWrite(participants){
+    const out = {};
+
+    Object.values(participants || {}).filter(Boolean).forEach((p, index) => {
+      const pid = clean(p.pid || '');
+      if (!pid) return;
+
+      const key = safeKey(pid);
+      const role = clean(p.role || 'guest') === 'host' ? 'host' : 'guest';
+
+      out[key] = {
+        pid,
+        name: clean(p.name || p.nick || `Player ${index + 1}`),
+        nick: clean(p.nick || p.name || `Player ${index + 1}`),
+        role,
+        host: role === 'host',
+        ready: p.ready !== false,
+        online: p.online !== false,
+        joinedAt: Number(p.joinedAt || Date.now()),
+        lastSeen: Date.now(),
+        battleIndex: Number(p.battleIndex || index + 1)
+      };
+    });
+
+    return out;
+  }
+
   async function forceStart({ matchId, participants, count, expected, reason }){
     const t = Date.now();
+    const cleanParticipants = normalizeParticipantsForWrite(participants);
 
     console.warn(LOG, 'force start', {
       room: ROOM,
@@ -311,8 +492,8 @@
       activeCount: count,
       expectedPlayers: expected,
       participantCount: count,
-      runtimePlayers: participants,
-      activePlayers: participants,
+      runtimePlayers: cleanParticipants,
+      activePlayers: cleanParticipants,
       updatedAt: t,
       forceStartedAt: t,
       forceStartedBy: PID || 'runtime-sync-v2',
@@ -324,9 +505,9 @@
       'currentRun/by': PID || 'runtime-sync-v2',
       'currentRun/expectedPlayers': expected,
       'currentRun/participantCount': count,
-      'currentRun/participants': participants,
-      'currentRun/runtimePlayers': participants,
-      'currentRun/activePlayers': participants,
+      'currentRun/participants': cleanParticipants,
+      'currentRun/runtimePlayers': cleanParticipants,
+      'currentRun/activePlayers': cleanParticipants,
       'currentRun/activeCount': count
     });
 
@@ -339,9 +520,9 @@
       expectedPlayers: expected,
       participantCount: count,
       activeCount: count,
-      participants,
-      runtimePlayers: participants,
-      activePlayers: participants,
+      participants: cleanParticipants,
+      runtimePlayers: cleanParticipants,
+      activePlayers: cleanParticipants,
       startedAt: t,
       updatedAt: t,
       forceStartedAt: t,
@@ -351,28 +532,56 @@
 
   function patchVisibleWaiting({ count, expected, participants }){
     const c = Math.max(1, Number(count || 1));
-    const e = Math.max(2, Number(expected || 2));
+    const e = Math.max(MIN_PLAYERS, Number(expected || MIN_PLAYERS));
 
-    replaceText(/\b1\/2\b/g, `${c}/${e}`);
-    replaceText(/กำลังเตรียม Battle\s*\d+\/\d+/g, `กำลังเตรียม Battle ${c}/${e}`);
+    patchSimpleText(/\b1\/2\b/g, `${c}/${e}`);
+    patchSimpleText(/กำลังเตรียม Battle\s*\d+\/\d+/g, `กำลังเตรียม Battle ${c}/${e}`);
 
     if (c >= e){
-      replaceText(/รอผู้เล่นอีก\s*\d+\s*คน/g, 'พร้อมเริ่ม Battle แล้ว');
+      patchSimpleText(/รอผู้เล่นอีก\s*\d+\s*คน/g, 'พร้อมเริ่ม Battle แล้ว');
     }else{
-      replaceText(/รอผู้เล่นอีก\s*\d+\s*คน/g, `รอผู้เล่นอีก ${Math.max(0, e - c)} คน`);
+      patchSimpleText(/รอผู้เล่นอีก\s*\d+\s*คน/g, `รอผู้เล่นอีก ${Math.max(0, e - c)} คน`);
     }
 
-    const names = Object.values(participants || {})
-      .map(p => `${p.name || p.nick || 'Player'} • ${p.role || 'guest'}`)
-      .join('  |  ');
+    fixVisibleRole(lastRole, participants);
+  }
 
-    if (names && c >= 2){
-      replaceText(/(?:Hero|KK|Guest|Player)\s*•\s*host/g, names);
-      replaceText(/(?:Hero|KK|Guest|Player)\s*•\s*guest/g, names);
+  function fixVisibleRole(role, participants){
+    const arr = Object.values(participants || {})
+      .filter(Boolean)
+      .sort((a,b) => Number(a.battleIndex || 0) - Number(b.battleIndex || 0));
+
+    const displayNames = arr.map(p => `${p.name || p.nick || 'Player'} • ${p.role || 'guest'}`);
+
+    if (displayNames.length >= 2){
+      const joined = displayNames.join('  |  ');
+
+      patchSimpleText(/(?:Hero|KK|Guest|Player)\s*•\s*host/g, joined);
+      patchSimpleText(/(?:Hero|KK|Guest|Player)\s*•\s*guest/g, joined);
+      return;
+    }
+
+    if (role === 'guest'){
+      patchSimpleText(/KK\s*•\s*host/g, 'KK • guest');
+      patchSimpleText(/Guest\s*•\s*host/g, 'Guest • guest');
+      patchSimpleText(/Player\s*•\s*host/g, 'Player • guest');
     }
   }
 
-  function replaceText(pattern, replacement){
+  function fixUrlRole(realRole){
+    try{
+      const u = new URL(location.href);
+
+      u.searchParams.set('role', realRole);
+      u.searchParams.set('host', realRole === 'host' ? '1' : '0');
+
+      history.replaceState(null, '', u.toString());
+    }catch(_){}
+  }
+
+  function patchSimpleText(pattern, replacement){
+    if (!document.body) return;
+
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
@@ -393,22 +602,6 @@
     nodes.forEach(node => {
       node.nodeValue = String(node.nodeValue || '').replace(pattern, replacement);
     });
-  }
-
-  function fixUrlRole(realRole){
-    try{
-      const u = new URL(location.href);
-
-      if (realRole === 'host'){
-        u.searchParams.set('role', 'host');
-        u.searchParams.set('host', '1');
-      }else{
-        u.searchParams.set('role', 'guest');
-        u.searchParams.set('host', '0');
-      }
-
-      history.replaceState(null, '', u.toString());
-    }catch(_){}
   }
 
   function roomPath(roomId){
