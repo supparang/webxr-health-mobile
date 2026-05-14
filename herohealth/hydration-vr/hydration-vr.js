@@ -4250,3 +4250,213 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     observe();
   }
 })();
+/* =========================================================
+   PATCH v20260513-hydration-summary-cooldown-pack9
+   Inject final buttons + save latest summary
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260513-hydration-summary-cooldown-pack9';
+
+  function getUrl(){
+    try{ return new URL(location.href); }
+    catch(e){ return new URL('./hydration-vr.html', location.origin); }
+  }
+
+  function getParam(k, d){
+    try{ return getUrl().searchParams.get(k) || d; }
+    catch(e){ return d; }
+  }
+
+  function copyCommonParams(toUrl){
+    var u = getUrl();
+    [
+      'pid',
+      'name',
+      'nick',
+      'diff',
+      'time',
+      'view',
+      'run',
+      'log',
+      'api',
+      'studyId',
+      'conditionGroup'
+    ].forEach(function(k){
+      var v = u.searchParams.get(k);
+      if(v !== null && v !== '') toUrl.searchParams.set(k, v);
+    });
+
+    toUrl.searchParams.set('zone', 'nutrition');
+    toUrl.searchParams.set('game', 'hydration');
+
+    return toUrl;
+  }
+
+  function nutritionZoneUrl(){
+    var rawHub = getParam('hub', '');
+
+    try{
+      var decoded = decodeURIComponent(rawHub || '');
+      if(decoded && decoded.indexOf('nutrition-zone.html') !== -1){
+        return decoded;
+      }
+    }catch(e){}
+
+    var url = new URL('./nutrition-zone.html', location.href);
+    copyCommonParams(url);
+    url.searchParams.set('run', 'menu');
+    return url.toString();
+  }
+
+  function cooldownUrl(){
+    var returnUrl = nutritionZoneUrl();
+
+    /*
+      ใช้ warmup-gate.html เป็น gate กลางเหมือนเดิม
+      phase=cooldown เพื่อบอกว่าเป็น cooldown หลังจบเกม
+    */
+    var url = new URL('./warmup-gate.html', location.href);
+    copyCommonParams(url);
+
+    url.searchParams.set('phase', 'cooldown');
+    url.searchParams.set('studyPhase', 'cooldown');
+    url.searchParams.set('mode', getParam('mode', getParam('view', 'mobile')));
+    url.searchParams.set('next', returnUrl);
+    url.searchParams.set('hub', returnUrl);
+
+    return url.toString();
+  }
+
+  function saveLastSummary(summaryEl){
+    try{
+      var text = summaryEl ? String(summaryEl.textContent || '') : '';
+      var data = {
+        game:'hydration',
+        zone:'nutrition',
+        savedAt:new Date().toISOString(),
+        pid:getParam('pid','anon'),
+        name:getParam('name', getParam('nick','Hero')),
+        diff:getParam('diff','normal'),
+        time:getParam('time','150'),
+        view:getParam('view','mobile'),
+        text:text.slice(0, 1600),
+        url:location.href
+      };
+
+      localStorage.setItem('HHA_LAST_SUMMARY_HYDRATION', JSON.stringify(data));
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(data));
+    }catch(e){}
+  }
+
+  function restartGame(){
+    try{
+      if(typeof window.restartHydrationSameChallenge === 'function'){
+        window.restartHydrationSameChallenge();
+        return;
+      }
+    }catch(e){}
+
+    try{
+      var u = getUrl();
+      u.searchParams.set('run', 'play');
+      u.searchParams.set('seed', String(Date.now()));
+      location.href = u.toString();
+    }catch(e){
+      location.reload();
+    }
+  }
+
+  function goCooldown(){
+    try{
+      if(typeof window.goHydrationCooldownThenHub === 'function'){
+        window.goHydrationCooldownThenHub();
+        return;
+      }
+    }catch(e){}
+
+    location.href = cooldownUrl();
+  }
+
+  function goZone(){
+    location.href = nutritionZoneUrl();
+  }
+
+  function findSummary(){
+    var selectors = [
+      '#hha-hydration-summary',
+      '.hha-hydration-summary',
+      '#hydration-summary',
+      '.hha-summary-panel',
+      '.hha-summary',
+      '[data-hha-summary]'
+    ];
+
+    for(var i=0; i<selectors.length; i++){
+      try{
+        var el = document.querySelector(selectors[i]);
+        if(el) return el;
+      }catch(e){}
+    }
+
+    return null;
+  }
+
+  function injectActions(summaryEl){
+    if(!summaryEl || !summaryEl.isConnected) return;
+    if(summaryEl.dataset.hhaPack9 === PATCH) return;
+
+    summaryEl.dataset.hhaPack9 = PATCH;
+    saveLastSummary(summaryEl);
+
+    var old = summaryEl.querySelector('.hha-hydration-final-actions');
+    if(old) old.remove();
+
+    var actions = document.createElement('div');
+    actions.className = 'hha-hydration-final-actions';
+    actions.innerHTML = [
+      '<button type="button" class="hha-final-cooldown">🧘 ทำ Cooldown</button>',
+      '<button type="button" class="hha-final-zone">🥗 กลับ Nutrition Zone</button>',
+      '<button type="button" class="hha-final-replay">🔁 เล่นใหม่</button>'
+    ].join('');
+
+    summaryEl.appendChild(actions);
+
+    var cooldownBtn = actions.querySelector('.hha-final-cooldown');
+    var zoneBtn = actions.querySelector('.hha-final-zone');
+    var replayBtn = actions.querySelector('.hha-final-replay');
+
+    if(cooldownBtn) cooldownBtn.addEventListener('click', goCooldown);
+    if(zoneBtn) zoneBtn.addEventListener('click', goZone);
+    if(replayBtn) replayBtn.addEventListener('click', restartGame);
+  }
+
+  function scan(){
+    var summary = findSummary();
+    if(summary) injectActions(summary);
+  }
+
+  function boot(){
+    scan();
+
+    var mo = new MutationObserver(function(){
+      scan();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true
+    });
+
+    setInterval(scan, 900);
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
