@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Lobby v2.3.1</title>
+  <title>HeroHealth • GoodJunk Race Lobby v2.3.6</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-race-lobby-v231-guest-run-lock"></script>
+  <script src="../firebase-config.js?v=20260515-gj-race-lobby-v236-final"></script>
 
   <style>
     :root{
@@ -25,7 +25,6 @@
       --warn:#ffd75a;
       --good:#7ed957;
       --blue:#58b7f5;
-      --orange:#ffbd78;
       --red:#ff8d8d;
       --violet:#b79cff;
       --shadow:0 18px 44px rgba(50,120,160,.16);
@@ -593,10 +592,10 @@
       <div class="icon">🏁</div>
 
       <div>
-        <h1>GoodJunk Race v2.3.1</h1>
+        <h1>GoodJunk Race v2.3.6</h1>
         <p>
           เลือก Race Sprint สำหรับกลุ่มเล็ก หรือ Race Classroom สำหรับกิจกรรมห้องเรียน 5–10 คน
-          กติกา Race ไม่มี Attack ใส่คู่แข่ง ใช้ Boost ช่วยตัวเองและแข่ง progress ไปถึงเส้นชัย
+          Race ไม่มี Attack ใส่คู่แข่ง ใช้ Boost ช่วยตัวเองและแข่ง progress ไปถึงเส้นชัย
         </p>
       </div>
 
@@ -732,17 +731,17 @@
         </div>
 
         <div class="notice">
-          <b>Race Rule:</b> ไม่มี Attack ใส่คู่แข่ง • ใช้ Boost ช่วยตัวเอง • แสดง Top 3 + Your Rank • Host กดเริ่ม แล้วทุกเครื่องเข้า Run อัตโนมัติ
+          <b>Race Rule:</b> ไม่มี Attack ใส่คู่แข่ง • ใช้ Boost ช่วยตัวเอง • Host กดเริ่ม แล้วทุกเครื่องเข้า Run อัตโนมัติ
         </div>
       </section>
 
       <div class="notice">
-        <b>v2.3.1:</b> ล็อกปุ่ม Run สำรองแล้ว — Guest/KK จะกดเข้า Run เองไม่ได้ตอนยังเป็น lobby ต้องรอ Host กดเริ่ม Race
+        <b>v2.3.6:</b> Lobby final สำหรับ Race Sprint/Classroom • Guest กด Run เองไม่ได้ตอน lobby • เช็กผู้เล่นออนไลน์ก่อนเริ่ม
       </div>
     </section>
 
     <div class="footer">
-      HeroHealth • GoodJunk Race Lobby v2.3.1 • Guest Run Lock • Auto Redirect • Sprint/Classroom • no attack
+      HeroHealth • GoodJunk Race Lobby v2.3.6 • Guest Run Lock • Auto Redirect • Sprint/Classroom • no attack
     </div>
   </main>
 
@@ -750,7 +749,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_RACE_LOBBY = 'v20260515-race-lobby-v231-guest-run-lock-auto-redirect';
+    window.HHA_GJ_RACE_LOBBY = 'v20260515-race-lobby-v236-final';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/raceRooms';
 
@@ -998,7 +997,7 @@
         roomId:currentRoom,
         role:currentRole || 'guest',
         host:currentRole === 'host' ? '1' : '0',
-        v:'20260515-race-lobby-v231',
+        v:'20260515-race-lobby-v236',
         ...extra
       };
 
@@ -1451,21 +1450,6 @@
           players:resetPlayers,
           updatedAt:now()
         });
-
-        setTimeout(async () => {
-          try{
-            const latest = await dbGet(roomPath(currentRoom));
-            if (latest && latest.status === 'countdown' && latest.activeMatchId === matchId){
-              await dbUpdate(roomPath(currentRoom),{
-                status:'started',
-                startedAt:now(),
-                updatedAt:now()
-              });
-            }
-          }catch(err){
-            console.warn('[GoodJunk Race Lobby] countdown->started failed', err);
-          }
-        },3200);
 
         const runUrl = pass('./goodjunk-race-run.html',{
           matchId,
