@@ -9,40 +9,47 @@
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
 
-  <title>HeroHealth • Hydration Launcher</title>
-
+  <title>HeroHealth • Hydration Mode Hub</title>
   <link rel="icon" href="./favicon.ico" />
 
   <!--
     HeroHealth Hydration
     File: /herohealth/hydration-vr.html
-    Version: v20260514-pack14-launcher
+    Version: v20260515-hydration-mode-hub-pack14
 
     Purpose:
-      Launcher สำหรับเลือก PC / Mobile / Cardboard VR
-      แล้วส่งต่อไปยัง /herohealth/hydration-vr/run.html
+      หน้ารวมโหมด Hydration
+      - Solo: PC / Mobile / Cardboard VR
+      - Multiplayer: Duet / Race / Battle / Coop
 
-    Shared engine:
+    Shared run:
       /herohealth/hydration-vr/run.html
-      /herohealth/hydration-vr/hydration-vr.css
-      /herohealth/hydration-vr/hydration-vr.js
   -->
 
   <style>
     :root{
       --sky1:#e6fbff;
       --sky2:#d9f4ff;
+      --sky3:#c8efff;
+
+      --card:#ffffff;
+      --card2:#f4fcff;
+      --line:#cceefb;
+
       --text:#24445c;
       --muted:#66879c;
+
       --blue:#43c7ff;
       --blue2:#2388ff;
       --green:#62e68f;
       --green2:#35c76d;
+      --yellow:#fff6c8;
       --orange:#ffb258;
       --red:#ff6d6d;
-      --card:#ffffff;
-      --line:#cceefb;
-      --shadow:0 22px 60px rgba(30,75,115,.22);
+      --violet:#9f8cff;
+
+      --shadow:0 22px 60px rgba(30,75,115,.20);
+      --shadow2:0 12px 30px rgba(30,75,115,.14);
     }
 
     *{
@@ -50,12 +57,17 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    html,body{
+    html,
+    body{
       width:100%;
       min-height:100%;
       margin:0;
       padding:0;
       overflow-x:hidden;
+    }
+
+    body{
+      min-height:100svh;
       font-family:
         ui-rounded,
         "Apple Color Emoji",
@@ -68,249 +80,472 @@
         sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 18% 15%, rgba(105,220,255,.45), transparent 30%),
+        radial-gradient(circle at 18% 15%, rgba(105,220,255,.46), transparent 30%),
         radial-gradient(circle at 82% 18%, rgba(120,255,212,.34), transparent 32%),
         linear-gradient(180deg,var(--sky1),var(--sky2));
+      user-select:none;
+      -webkit-user-select:none;
     }
 
-    body{
-      min-height:100svh;
-      display:grid;
-      place-items:center;
-      padding:18px;
+    button,
+    input{
+      font:inherit;
     }
 
-    .launcher{
-      width:min(980px,100%);
-      display:grid;
-      gap:16px;
-    }
-
-    .hero{
-      border-radius:34px;
-      padding:24px;
-      background:rgba(255,255,255,.92);
-      box-shadow:var(--shadow);
-      border:4px solid rgba(111,210,255,.35);
-      text-align:center;
-      overflow:hidden;
-    }
-
-    .hero-icon{
-      width:88px;
-      height:88px;
-      margin:0 auto 10px;
-      border-radius:28px;
-      display:grid;
-      place-items:center;
-      font-size:56px;
-      background:linear-gradient(180deg,#eaffff,#c9f4ff);
-      box-shadow:0 14px 34px rgba(49,162,222,.16);
-    }
-
-    .kicker{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      padding:7px 12px;
-      border-radius:999px;
-      background:#e9fbff;
-      color:#2380b5;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    h1{
-      margin:12px 0 8px;
-      font-size:clamp(34px,7vw,58px);
-      line-height:.98;
-      color:#168bd6;
-      font-weight:1000;
-      letter-spacing:-1px;
-    }
-
-    .sub{
-      max-width:620px;
-      margin:0 auto;
-      color:var(--muted);
-      font-weight:850;
-      line-height:1.45;
-      font-size:15px;
-    }
-
-    .meta{
-      display:flex;
-      justify-content:center;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-top:14px;
-    }
-
-    .pill{
-      padding:8px 11px;
-      border-radius:999px;
-      background:#fff8d7;
-      color:#6d5a26;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .modes{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:14px;
-    }
-
-    .mode-card{
-      border:0;
-      border-radius:30px;
-      padding:18px;
-      min-height:238px;
-      text-align:left;
-      background:rgba(255,255,255,.94);
-      box-shadow:0 16px 42px rgba(30,75,115,.18);
+    button{
       cursor:pointer;
-      color:var(--text);
+    }
+
+    .page{
+      width:min(1280px,100%);
+      margin:0 auto;
+      padding:22px;
+      display:grid;
+      gap:18px;
+    }
+
+    .topbar{
       display:flex;
-      flex-direction:column;
-      gap:10px;
-      position:relative;
-      overflow:hidden;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
     }
 
-    .mode-card::after{
-      content:'';
-      position:absolute;
-      inset:auto -40px -60px auto;
-      width:150px;
-      height:150px;
-      border-radius:999px;
-      background:rgba(67,199,255,.12);
-      pointer-events:none;
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width:0;
     }
 
-    .mode-card:active{
-      transform:scale(.985);
-    }
-
-    .mode-icon{
+    .brand-icon{
       width:62px;
       height:62px;
       border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:38px;
-      background:linear-gradient(180deg,#eaffff,#dff8ff);
-      box-shadow:0 10px 24px rgba(49,162,222,.14);
+      font-size:40px;
+      background:rgba(255,255,255,.88);
+      box-shadow:var(--shadow2);
+      border:3px solid rgba(111,210,255,.35);
+      flex:0 0 auto;
     }
 
-    .mode-card h2{
+    .brand h1{
       margin:0;
-      font-size:24px;
+      font-size:clamp(30px,5vw,48px);
+      line-height:.96;
+      font-weight:1000;
+      letter-spacing:-1px;
+      color:#168bd6;
+    }
+
+    .brand p{
+      margin:4px 0 0;
+      color:#6b8da2;
+      font-weight:900;
+      font-size:14px;
+    }
+
+    .back-zone{
+      border:0;
+      border-radius:20px;
+      padding:12px 18px;
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      background:#fff;
+      color:#24607f;
+      box-shadow:var(--shadow2);
+      font-size:18px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .layout{
+      display:grid;
+      grid-template-columns:1.03fr .97fr;
+      gap:18px;
+      align-items:stretch;
+    }
+
+    .card{
+      background:rgba(255,255,255,.92);
+      border:4px solid rgba(111,210,255,.35);
+      box-shadow:var(--shadow);
+      border-radius:34px;
+      padding:24px;
+      overflow:hidden;
+    }
+
+    .intro-kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 14px;
+      border-radius:999px;
+      background:#e9fbff;
+      color:#2380b5;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .intro-title{
+      margin:24px 0 10px;
+      font-size:clamp(44px,9vw,78px);
+      line-height:.9;
+      font-weight:1000;
+      letter-spacing:-2px;
+      color:#168bd6;
+    }
+
+    .intro-sub{
+      margin:0 0 20px;
+      color:#66879c;
+      font-size:20px;
+      font-weight:1000;
+      line-height:1.35;
+    }
+
+    .rule-list{
+      display:grid;
+      gap:12px;
+      margin:22px 0;
+    }
+
+    .rule{
+      display:grid;
+      grid-template-columns:70px 1fr;
+      gap:14px;
+      align-items:center;
+      border-radius:24px;
+      background:rgba(255,255,255,.66);
+      border:3px solid rgba(204,238,251,.75);
+      padding:14px 16px;
+    }
+
+    .rule-icon{
+      width:58px;
+      height:58px;
+      border-radius:20px;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:#eaffff;
+    }
+
+    .rule b{
+      display:block;
+      font-size:19px;
+      line-height:1.12;
+      font-weight:1000;
+    }
+
+    .rule span{
+      display:block;
+      margin-top:4px;
+      color:#6b8da2;
+      font-size:14px;
+      font-weight:850;
+      line-height:1.25;
+    }
+
+    .learning{
+      margin-top:18px;
+      border-radius:26px;
+      border:4px solid rgba(98,230,143,.35);
+      background:linear-gradient(180deg,#f3fff7,#ffffff);
+      padding:18px;
+    }
+
+    .learning b{
+      display:block;
+      color:#1d7d45;
+      font-size:18px;
+      font-weight:1000;
+      margin-bottom:6px;
+    }
+
+    .learning p{
+      margin:0;
+      color:#557a68;
+      font-size:15px;
+      line-height:1.35;
+      font-weight:900;
+    }
+
+    .setup h2{
+      margin:0 0 18px;
+      font-size:32px;
       line-height:1.05;
       font-weight:1000;
     }
 
-    .mode-card p{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.35;
-      font-weight:850;
+    .step{
+      display:grid;
+      gap:10px;
+      margin:18px 0;
     }
 
-    .mode-list{
+    .step-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      color:#66879c;
+      font-weight:950;
+      font-size:14px;
+    }
+
+    .step-head strong{
+      color:var(--text);
+      font-size:20px;
+      font-weight:1000;
+    }
+
+    .choice-grid{
       display:grid;
-      gap:5px;
-      margin-top:auto;
-      color:#52758c;
-      font-size:12px;
+      gap:10px;
+    }
+
+    .choice-grid.modes{
+      grid-template-columns:repeat(5,1fr);
+    }
+
+    .choice-grid.devices{
+      grid-template-columns:repeat(3,1fr);
+    }
+
+    .choice-grid.diff,
+    .choice-grid.time{
+      grid-template-columns:repeat(4,1fr);
+    }
+
+    .choice{
+      border:4px solid rgba(204,238,251,.8);
+      border-radius:24px;
+      background:rgba(255,255,255,.86);
+      min-height:86px;
+      padding:12px 10px;
+      color:var(--text);
+      box-shadow:0 8px 20px rgba(30,75,115,.08);
+      display:grid;
+      place-items:center;
+      text-align:center;
+      font-weight:1000;
+      transition:.15s ease;
+    }
+
+    .choice .ico{
+      display:block;
+      font-size:30px;
+      line-height:1;
+      margin-bottom:5px;
+    }
+
+    .choice small{
+      display:block;
+      margin-top:2px;
+      color:#7191a4;
+      font-size:11px;
       font-weight:900;
     }
 
-    .play{
-      margin-top:8px;
-      width:100%;
+    .choice.is-active{
+      border-color:rgba(98,210,143,.9);
+      box-shadow:
+        0 10px 24px rgba(30,75,115,.12),
+        0 0 0 5px rgba(98,230,143,.14);
+      background:linear-gradient(180deg,#ffffff,#f4fff8);
+    }
+
+    .mp-panel{
+      display:none;
+      border-radius:24px;
+      padding:14px;
+      background:#f7fcff;
+      border:3px solid rgba(204,238,251,.8);
+    }
+
+    .mp-panel.show{
+      display:grid;
+      gap:10px;
+    }
+
+    .room-row{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:8px;
+    }
+
+    .room-row input{
+      min-width:0;
+      border:3px solid rgba(204,238,251,.9);
+      border-radius:18px;
+      padding:12px 14px;
+      background:white;
+      color:var(--text);
+      font-weight:1000;
+      outline:0;
+      text-transform:uppercase;
+    }
+
+    .room-row button{
       border:0;
-      border-radius:20px;
+      border-radius:18px;
       padding:12px 14px;
       color:white;
-      font-weight:1000;
-      font-size:16px;
       background:linear-gradient(180deg,var(--blue),var(--blue2));
-      box-shadow:0 12px 28px rgba(35,136,255,.24);
-      cursor:pointer;
+      font-weight:1000;
     }
 
-    .mode-card.mobile .play{
-      background:linear-gradient(180deg,var(--green),var(--green2));
+    .ready-box{
+      margin-top:18px;
+      border-radius:26px;
+      padding:18px;
+      text-align:center;
+      background:linear-gradient(180deg,#fffdf2,#fff8df);
+      border:4px solid rgba(255,210,90,.35);
+      color:#7a6022;
+      font-weight:950;
+      line-height:1.4;
     }
 
-    .mode-card.cvr .play{
-      background:linear-gradient(180deg,var(--orange),#ff7c5f);
+    .ready-box b{
+      display:block;
+      font-size:18px;
+      color:#7a6022;
+      margin-bottom:4px;
     }
 
-    .footer-actions{
+    .actions{
+      margin-top:18px;
+      display:grid;
+      gap:10px;
+    }
+
+    .start{
+      border:0;
+      border-radius:24px;
+      min-height:72px;
+      padding:16px;
+      color:white;
+      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      box-shadow:0 16px 36px rgba(35,136,255,.25);
+      font-size:24px;
+      font-weight:1000;
+    }
+
+    .sub-actions{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
     }
 
-    .footer-actions button,
-    .footer-actions a{
+    .sub-actions button{
       border:0;
-      border-radius:22px;
-      padding:14px 16px;
-      text-decoration:none;
-      text-align:center;
-      font-size:16px;
-      font-weight:1000;
-      cursor:pointer;
-      background:#fff;
+      border-radius:20px;
+      padding:14px;
+      background:white;
       color:#24607f;
-      box-shadow:0 12px 28px rgba(30,75,115,.14);
-    }
-
-    .footer-actions .primary{
-      color:white;
-      background:linear-gradient(180deg,var(--blue),var(--blue2));
+      box-shadow:var(--shadow2);
+      font-weight:1000;
+      font-size:16px;
     }
 
     .note{
+      margin:8px 0 0;
       text-align:center;
-      color:#6a8ba0;
+      color:#6b8da2;
       font-size:12px;
-      font-weight:800;
       line-height:1.35;
+      font-weight:800;
     }
 
-    @media (max-width:760px){
-      body{
-        padding:12px;
-        align-items:start;
-      }
-
-      .hero{
-        border-radius:28px;
-        padding:20px 16px;
-      }
-
-      .hero-icon{
-        width:76px;
-        height:76px;
-        font-size:48px;
-      }
-
-      .modes{
+    @media (max-width:980px){
+      .layout{
         grid-template-columns:1fr;
       }
 
-      .mode-card{
-        min-height:auto;
-        border-radius:26px;
+      .choice-grid.modes{
+        grid-template-columns:repeat(3,1fr);
+      }
+    }
+
+    @media (max-width:640px){
+      .page{
+        padding:12px;
       }
 
-      .footer-actions{
+      .topbar{
+        align-items:flex-start;
+      }
+
+      .brand-icon{
+        width:52px;
+        height:52px;
+        border-radius:18px;
+        font-size:34px;
+      }
+
+      .back-zone{
+        padding:10px 12px;
+        font-size:14px;
+      }
+
+      .card{
+        border-radius:28px;
+        padding:18px;
+      }
+
+      .intro-title{
+        font-size:50px;
+      }
+
+      .intro-sub{
+        font-size:16px;
+      }
+
+      .rule{
+        grid-template-columns:52px 1fr;
+        padding:12px;
+      }
+
+      .rule-icon{
+        width:46px;
+        height:46px;
+        border-radius:16px;
+        font-size:28px;
+      }
+
+      .rule b{
+        font-size:16px;
+      }
+
+      .rule span{
+        font-size:12px;
+      }
+
+      .setup h2{
+        font-size:26px;
+      }
+
+      .choice-grid.modes,
+      .choice-grid.devices{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .choice-grid.diff,
+      .choice-grid.time{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .choice{
+        min-height:76px;
+        border-radius:20px;
+      }
+
+      .sub-actions{
         grid-template-columns:1fr;
       }
     }
@@ -318,79 +553,222 @@
 </head>
 
 <body>
-  <main class="launcher" aria-label="Hydration launcher">
-    <section class="hero">
-      <div class="hero-icon">💧</div>
-      <div class="kicker">HeroHealth • Nutrition Zone</div>
-
-      <h1>Hydration Rush</h1>
-
-      <p class="sub">
-        เลือกวิธีเล่นก่อนเริ่มเกม ดื่มน้ำให้พอ หลบเครื่องดื่มหวาน
-        ทำภารกิจ เก็บคอมโบ และเอาชนะ Heat Boss
-      </p>
-
-      <div class="meta" id="hha-launcher-meta">
-        <span class="pill">ผู้เล่น: Hero</span>
-        <span class="pill">ระดับ: normal</span>
-        <span class="pill">เวลา: 150 วิ</span>
+  <main class="page" aria-label="Hydration mode hub">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon">💧</div>
+        <div>
+          <h1>Hydration • Aqua Rush</h1>
+          <p>เลือกโหมด แล้วเริ่มภารกิจเติมน้ำ</p>
+        </div>
       </div>
-    </section>
 
-    <section class="modes" aria-label="เลือกโหมดการเล่น">
-      <button class="mode-card pc" type="button" data-view="pc">
-        <div class="mode-icon">🖥️</div>
-        <h2>PC Mode</h2>
-        <p>เหมาะกับคอมพิวเตอร์ เมาส์ หรือจอใหญ่ เป้าเล็กลง เกมเร็วและท้าทายขึ้น</p>
-        <div class="mode-list">
-          <span>• Click/tap target</span>
-          <span>• HUD กว้าง อ่านง่าย</span>
-          <span>• เหมาะกับห้องเรียน/จอโปรเจกเตอร์</span>
+      <button type="button" class="back-zone" id="backZone">🏠 กลับ Zone</button>
+    </header>
+
+    <section class="layout">
+      <article class="card intro">
+        <span class="intro-kicker">HeroHealth • Nutrition Zone</span>
+        <h2 class="intro-title">Aqua Rush</h2>
+        <p class="intro-sub">
+          เก็บน้ำเปล่าและอาหารฉ่ำน้ำ หลบน้ำหวาน/ของเค็ม แล้วสู้ Heat Monster ให้ชนะ!
+        </p>
+
+        <div class="rule-list">
+          <div class="rule">
+            <div class="rule-icon">💧</div>
+            <div>
+              <b>เก็บของดี</b>
+              <span>น้ำเปล่า แตงโม แตงกวา และ Ice Shield ช่วยเพิ่ม Hydration</span>
+            </div>
+          </div>
+
+          <div class="rule">
+            <div class="rule-icon">🧋</div>
+            <div>
+              <b>หลบของเสี่ยง</b>
+              <span>น้ำหวาน อาหารเค็ม และแดดแรงทำให้เสียพลังเร็ว</span>
+            </div>
+          </div>
+
+          <div class="rule">
+            <div class="rule-icon">🌞</div>
+            <div>
+              <b>ชนะ Heat Monster</b>
+              <span>ทำ Mission เก็บ Combo และรักษา Hydration เพื่อปราบบอส</span>
+            </div>
+          </div>
         </div>
-        <span class="play">เริ่มเล่น PC</span>
-      </button>
 
-      <button class="mode-card mobile" type="button" data-view="mobile">
-        <div class="mode-icon">📱</div>
-        <h2>Mobile Mode</h2>
-        <p>เหมาะกับมือถือแนวตั้ง แตะเป้าได้ง่าย HUD กระชับ และ Summary ไม่ล้นจอ</p>
-        <div class="mode-list">
-          <span>• Touch-friendly</span>
-          <span>• เป้าขนาดพอดี</span>
-          <span>• เหมาะกับเด็กเล่นเอง</span>
+        <div class="learning">
+          <b>เป้าหมายการเรียนรู้</b>
+          <p>
+            เด็กจะฝึกเลือกเครื่องดื่มที่เหมาะสม รู้ทันผลของน้ำหวาน/ของเค็ม
+            และดูแลร่างกายเมื่ออากาศร้อนหรือเสียเหงื่อ
+          </p>
         </div>
-        <span class="play">เริ่มเล่น Mobile</span>
-      </button>
+      </article>
 
-      <button class="mode-card cvr" type="button" data-view="cvr">
-        <div class="mode-icon">🥽</div>
-        <h2>Cardboard VR</h2>
-        <p>เหมาะกับ Cardboard/cVR ใช้ crosshair กลางจอและแตะเพื่อยิงเป้า</p>
-        <div class="mode-list">
-          <span>• Crosshair aim</span>
-          <span>• Tap-to-shoot</span>
-          <span>• โหลด vr-ui.js เฉพาะ cVR</span>
+      <article class="card setup">
+        <h2>ตั้งค่าก่อนเริ่ม</h2>
+
+        <div class="step">
+          <div class="step-head">
+            <strong>1) เลือกโหมดเกม</strong>
+            <span id="modeHint">Solo เล่นคนเดียว</span>
+          </div>
+
+          <div class="choice-grid modes" id="modeChoices">
+            <button class="choice is-active" type="button" data-mode="solo">
+              <span class="ico">🎯</span>
+              Solo
+              <small>PC / Mobile / Cardboard</small>
+            </button>
+
+            <button class="choice" type="button" data-mode="duet">
+              <span class="ico">🤝</span>
+              Duet
+              <small>2 players</small>
+            </button>
+
+            <button class="choice" type="button" data-mode="race">
+              <span class="ico">🏁</span>
+              Race
+              <small>2–10 players</small>
+            </button>
+
+            <button class="choice" type="button" data-mode="battle">
+              <span class="ico">⚔️</span>
+              Battle
+              <small>Mission attack</small>
+            </button>
+
+            <button class="choice" type="button" data-mode="coop">
+              <span class="ico">🌈</span>
+              Coop
+              <small>Team boss</small>
+            </button>
+          </div>
         </div>
-        <span class="play">เริ่มเล่น Cardboard</span>
-      </button>
-    </section>
 
-    <section class="footer-actions">
-      <button type="button" class="primary" id="hha-quick-mobile">เล่น Mobile ทันที</button>
-      <button type="button" id="hha-back-zone">กลับ Nutrition Zone</button>
-    </section>
+        <div class="step">
+          <div class="step-head">
+            <strong>2) เลือกอุปกรณ์</strong>
+            <span id="deviceHint">เลือกตามอุปกรณ์อัตโนมัติได้</span>
+          </div>
 
-    <p class="note">
-      Launcher นี้แยกทางเข้า PC / Mobile / Cardboard VR แต่ใช้ run engine เดียวกัน
-      เพื่อลดการซ้ำของโค้ดและให้แก้ gameplay ที่เดียว
-    </p>
+          <div class="choice-grid devices" id="deviceChoices">
+            <button class="choice" type="button" data-view="pc">
+              <span class="ico">🖥️</span>
+              PC
+              <small>คลิกด้วยเมาส์</small>
+            </button>
+
+            <button class="choice is-active" type="button" data-view="mobile">
+              <span class="ico">📱</span>
+              Mobile
+              <small>แตะหน้าจอ</small>
+            </button>
+
+            <button class="choice" type="button" data-view="cvr">
+              <span class="ico">🥽</span>
+              Cardboard
+              <small>ยิงด้วย crosshair</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-head">
+            <strong>3) เลือกระดับ</strong>
+            <span id="diffHint">เริ่ม normal ได้เลย</span>
+          </div>
+
+          <div class="choice-grid diff" id="diffChoices">
+            <button class="choice" type="button" data-diff="easy">easy</button>
+            <button class="choice is-active" type="button" data-diff="normal">normal</button>
+            <button class="choice" type="button" data-diff="hard">hard</button>
+            <button class="choice" type="button" data-diff="challenge">challenge</button>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-head">
+            <strong>4) เลือกเวลา</strong>
+            <span id="timeHint">90s เหมาะกับการทดสอบ</span>
+          </div>
+
+          <div class="choice-grid time" id="timeChoices">
+            <button class="choice is-active" type="button" data-time="90">90s</button>
+            <button class="choice" type="button" data-time="120">120s</button>
+            <button class="choice" type="button" data-time="150">150s</button>
+            <button class="choice" type="button" data-time="180">180s</button>
+          </div>
+        </div>
+
+        <div class="step mp-panel" id="mpPanel">
+          <div class="step-head">
+            <strong>5) ห้อง Multiplayer</strong>
+            <span>ใช้ room code สำหรับเล่นพร้อมกัน</span>
+          </div>
+
+          <div class="room-row">
+            <input id="roomCode" maxlength="12" placeholder="ROOM CODE" />
+            <button type="button" id="genRoom">สร้าง</button>
+          </div>
+
+          <div class="note" id="mpNote">
+            Duet ใช้ 2 คน • Race/Battle/Coop รองรับ 2–10 คน
+          </div>
+        </div>
+
+        <div class="ready-box" id="readyBox">
+          <b>พร้อมเริ่มภารกิจ</b>
+          <span id="readyText">solo • normal • 90s • Mobile</span>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="start" id="startWarmup">เริ่มผ่าน Warmup 💧</button>
+
+          <div class="sub-actions">
+            <button type="button" id="directRun">ทดสอบเกมตรง</button>
+            <button type="button" id="resetChoices">รีเซ็ตค่าเลือก</button>
+          </div>
+        </div>
+
+        <p class="note">
+          หน้านี้เป็น Mode Hub รวมทุกโหมด แต่เกมจริงใช้ shared engine ที่
+          /herohealth/hydration-vr/run.html
+        </p>
+      </article>
+    </section>
   </main>
 
   <script>
     (function(){
       'use strict';
 
-      var ALLOWED = ['pc','mobile','cvr'];
+      var STORAGE_KEY = 'HHA_HYDRATION_MODE_HUB_CHOICES_V1';
+
+      var state = {
+        mode:'solo',
+        view:'mobile',
+        diff:'normal',
+        time:'90',
+        room:''
+      };
+
+      var MODE_HINT = {
+        solo:'Solo เล่นคนเดียว',
+        duet:'Duet เล่น 2 คน แบ่งหน้าที่ช่วยกัน',
+        race:'Race แข่งคะแนน 2–10 คน',
+        battle:'Battle ทำภารกิจเพื่อโจมตีคู่แข่ง',
+        coop:'Coop ร่วมทีมปราบ Heat Monster'
+      };
+
+      function $(id){
+        return document.getElementById(id);
+      }
 
       function getUrl(){
         try{ return new URL(location.href); }
@@ -400,6 +778,44 @@
       function getParam(k, d){
         try{ return getUrl().searchParams.get(k) || d; }
         catch(e){ return d; }
+      }
+
+      function escapeHtml(s){
+        return String(s || '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#39;");
+      }
+
+      function save(){
+        try{
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        }catch(e){}
+      }
+
+      function load(){
+        try{
+          var raw = localStorage.getItem(STORAGE_KEY);
+          if(raw){
+            var saved = JSON.parse(raw);
+            Object.assign(state, saved || {});
+          }
+        }catch(e){}
+
+        var u = getUrl();
+
+        state.mode = u.searchParams.get('mode') || state.mode || 'solo';
+        state.view = u.searchParams.get('view') || state.view || 'mobile';
+        state.diff = u.searchParams.get('diff') || state.diff || 'normal';
+        state.time = u.searchParams.get('time') || state.time || '90';
+        state.room = u.searchParams.get('room') || state.room || '';
+
+        if(!['solo','duet','race','battle','coop'].includes(state.mode)) state.mode = 'solo';
+        if(!['pc','mobile','cvr'].includes(state.view)) state.view = 'mobile';
+        if(!['easy','normal','hard','challenge'].includes(state.diff)) state.diff = 'normal';
+        if(!['90','120','150','180'].includes(String(state.time))) state.time = '90';
       }
 
       function nutritionZoneUrl(){
@@ -415,89 +831,190 @@
         return new URL('./nutrition-zone.html', location.href).toString();
       }
 
-      function buildRunUrl(view){
-        if(!ALLOWED.includes(view)) view = 'mobile';
-
+      function copyCommonParams(toUrl){
         var current = getUrl();
-        var run = new URL('./hydration-vr/run.html', location.href);
 
         [
           'pid',
           'name',
           'nick',
-          'diff',
-          'time',
-          'seed',
           'log',
           'api',
           'studyId',
-          'conditionGroup',
-          'phase',
-          'studyPhase'
+          'conditionGroup'
         ].forEach(function(k){
           var v = current.searchParams.get(k);
           if(v !== null && v !== ''){
-            run.searchParams.set(k, v);
+            toUrl.searchParams.set(k, v);
           }
         });
 
-        run.searchParams.set('view', view);
-        run.searchParams.set('run', 'play');
-        run.searchParams.set('zone', 'nutrition');
-        run.searchParams.set('game', 'hydration');
-        run.searchParams.set('mode', view);
+        if(!toUrl.searchParams.get('pid')) toUrl.searchParams.set('pid', 'anon');
+        if(!toUrl.searchParams.get('name')) toUrl.searchParams.set('name', getParam('nick','Hero'));
+
+        toUrl.searchParams.set('zone', 'nutrition');
+        toUrl.searchParams.set('game', 'hydration');
+        toUrl.searchParams.set('mode', state.mode);
+        toUrl.searchParams.set('view', state.view);
+        toUrl.searchParams.set('diff', state.diff);
+        toUrl.searchParams.set('time', state.time);
+        toUrl.searchParams.set('seed', String(Date.now()));
+        toUrl.searchParams.set('run', 'play');
+
+        if(state.mode !== 'solo'){
+          toUrl.searchParams.set('mp', '1');
+          toUrl.searchParams.set('room', state.room || makeRoomCode());
+        }
 
         var hub = current.searchParams.get('hub') || nutritionZoneUrl();
-        run.searchParams.set('hub', hub);
+        toUrl.searchParams.set('hub', hub);
 
-        if(!run.searchParams.get('pid')) run.searchParams.set('pid', 'anon');
-        if(!run.searchParams.get('name')) run.searchParams.set('name', 'Hero');
-        if(!run.searchParams.get('diff')) run.searchParams.set('diff', 'normal');
-        if(!run.searchParams.get('time')) run.searchParams.set('time', '150');
-        if(!run.searchParams.get('seed')) run.searchParams.set('seed', String(Date.now()));
+        return toUrl;
+      }
 
+      function buildRunUrl(){
+        var run = new URL('./hydration-vr/run.html', location.href);
+        copyCommonParams(run);
         return run.toString();
       }
 
-      function updateMeta(){
-        var meta = document.getElementById('hha-launcher-meta');
-        if(!meta) return;
+      function buildWarmupUrl(){
+        var next = buildRunUrl();
+        var gate = new URL('./warmup-gate.html', location.href);
 
-        var name = getParam('name', getParam('nick', 'Hero'));
-        var diff = getParam('diff', 'normal');
-        var time = getParam('time', '150');
+        copyCommonParams(gate);
+        gate.searchParams.set('phase','warmup');
+        gate.searchParams.set('studyPhase','warmup');
+        gate.searchParams.set('next', next);
+        gate.searchParams.set('hub', nutritionZoneUrl());
 
-        meta.innerHTML = [
-          '<span class="pill">ผู้เล่น: ' + escapeHtml(name) + '</span>',
-          '<span class="pill">ระดับ: ' + escapeHtml(diff) + '</span>',
-          '<span class="pill">เวลา: ' + escapeHtml(time) + ' วิ</span>'
-        ].join('');
+        return gate.toString();
       }
 
-      function escapeHtml(s){
-        return String(s || '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;')
-          .replaceAll("'","&#39;");
+      function makeRoomCode(){
+        var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        var out = 'HYD-';
+        for(var i=0; i<4; i++){
+          out += chars[Math.floor(Math.random() * chars.length)];
+        }
+        state.room = out;
+        return out;
+      }
+
+      function setActive(groupId, attr, value){
+        var group = $(groupId);
+        if(!group) return;
+
+        group.querySelectorAll('.choice').forEach(function(btn){
+          btn.classList.toggle('is-active', btn.dataset[attr] === String(value));
+        });
+      }
+
+      function render(){
+        setActive('modeChoices', 'mode', state.mode);
+        setActive('deviceChoices', 'view', state.view);
+        setActive('diffChoices', 'diff', state.diff);
+        setActive('timeChoices', 'time', state.time);
+
+        var modeHint = $('modeHint');
+        if(modeHint) modeHint.textContent = MODE_HINT[state.mode] || '';
+
+        var mpPanel = $('mpPanel');
+        if(mpPanel) mpPanel.classList.toggle('show', state.mode !== 'solo');
+
+        var room = $('roomCode');
+        if(room && document.activeElement !== room){
+          room.value = state.room || '';
+        }
+
+        var readyText = $('readyText');
+        if(readyText){
+          var bits = [
+            state.mode,
+            state.diff,
+            state.time + 's',
+            state.view === 'cvr' ? 'Cardboard' : state.view
+          ];
+
+          if(state.mode !== 'solo'){
+            bits.push(state.room || 'no room');
+          }
+
+          readyText.textContent = bits.join(' • ');
+        }
+
+        save();
+      }
+
+      function bindChoices(groupId, attr){
+        var group = $(groupId);
+        if(!group) return;
+
+        group.querySelectorAll('.choice').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            state[attr] = btn.dataset[attr];
+
+            if(attr === 'mode' && state.mode !== 'solo' && !state.room){
+              makeRoomCode();
+            }
+
+            render();
+          });
+        });
       }
 
       function bind(){
-        document.querySelectorAll('[data-view]').forEach(function(btn){
-          btn.addEventListener('click', function(){
-            location.href = buildRunUrl(btn.dataset.view || 'mobile');
-          });
-        });
+        bindChoices('modeChoices', 'mode');
+        bindChoices('deviceChoices', 'view');
+        bindChoices('diffChoices', 'diff');
+        bindChoices('timeChoices', 'time');
 
-        var quick = document.getElementById('hha-quick-mobile');
-        if(quick){
-          quick.addEventListener('click', function(){
-            location.href = buildRunUrl('mobile');
+        var room = $('roomCode');
+        if(room){
+          room.addEventListener('input', function(){
+            state.room = String(room.value || '').trim().toUpperCase();
+            render();
           });
         }
 
-        var back = document.getElementById('hha-back-zone');
+        var genRoom = $('genRoom');
+        if(genRoom){
+          genRoom.addEventListener('click', function(){
+            makeRoomCode();
+            render();
+          });
+        }
+
+        var startWarmup = $('startWarmup');
+        if(startWarmup){
+          startWarmup.addEventListener('click', function(){
+            location.href = buildWarmupUrl();
+          });
+        }
+
+        var directRun = $('directRun');
+        if(directRun){
+          directRun.addEventListener('click', function(){
+            location.href = buildRunUrl();
+          });
+        }
+
+        var reset = $('resetChoices');
+        if(reset){
+          reset.addEventListener('click', function(){
+            state = {
+              mode:'solo',
+              view:'mobile',
+              diff:'normal',
+              time:'90',
+              room:''
+            };
+            save();
+            render();
+          });
+        }
+
+        var back = $('backZone');
         if(back){
           back.addEventListener('click', function(){
             location.href = nutritionZoneUrl();
@@ -505,28 +1022,26 @@
         }
       }
 
-      /*
-        Backward compatibility:
-        ถ้าลิงก์เก่าเปิด hydration-vr.html?run=play&view=...
-        ให้ redirect ไป run.html อัตโนมัติ เพื่อไม่ทำให้ flow เดิมพัง
-      */
-      function maybeAutoRedirect(){
+      function maybeAutoRedirectOldLinks(){
         var u = getUrl();
         var run = u.searchParams.get('run') || '';
-        var forceLauncher = u.searchParams.get('launcher') === '1';
-        var view = u.searchParams.get('view') || '';
+        var launcher = u.searchParams.get('launcher') === '1';
 
-        if(forceLauncher) return;
+        if(launcher) return;
 
         if(run === 'play'){
-          if(!ALLOWED.includes(view)) view = 'mobile';
-          location.replace(buildRunUrl(view));
+          state.mode = u.searchParams.get('mode') || state.mode || 'solo';
+          state.view = u.searchParams.get('view') || state.view || 'mobile';
+          state.diff = u.searchParams.get('diff') || state.diff || 'normal';
+          state.time = u.searchParams.get('time') || state.time || '90';
+          location.replace(buildRunUrl());
         }
       }
 
-      updateMeta();
+      load();
       bind();
-      maybeAutoRedirect();
+      render();
+      maybeAutoRedirectOldLinks();
     })();
   </script>
 </body>
