@@ -1,19 +1,19 @@
 // === /herohealth/vr-groups/groups-cvr-direct-shoot-v18.js ===
-// HeroHealth Groups cVR — v1.8c Direct Shoot Lock Target
+// HeroHealth Groups cVR — v1.8d Wrong Gate Soft Retry
 // Fixes:
-// - Shooting 1–2 times then game ends.
-// - Wrong gate / food item / decoy should not instantly punish in cVR.
-// - Only correct gate and power item are sent to core.
-// - Old DOM click shooting must be disabled in groups-cvr.html.
-// PATCH v20260515-GROUPS-CVR-V18C-DIRECT-SHOOT-LOCK-TARGET
+// - Wrong gate warning feels stuck.
+// - Stale halo keeps locking the wrong gate.
+// - Food near floor after wrong tap can end too fast.
+// - Wrong gate now clears halo + nudges current item upward via core.softRetry().
+// PATCH v20260515-GROUPS-CVR-V18D-WRONG-GATE-SOFT-RETRY
 
 (function () {
   'use strict';
 
-  const VERSION = 'v1.8c-cvr-direct-shoot-lock-target-20260515';
+  const VERSION = 'v1.8d-cvr-wrong-gate-soft-retry-20260515';
 
-  if (window.__HHA_GROUPS_CVR_DIRECT_SHOOT_V18C__) return;
-  window.__HHA_GROUPS_CVR_DIRECT_SHOOT_V18C__ = true;
+  if (window.__HHA_GROUPS_CVR_DIRECT_SHOOT_V18D__) return;
+  window.__HHA_GROUPS_CVR_DIRECT_SHOOT_V18D__ = true;
 
   const WIN = window;
   const DOC = document;
@@ -25,8 +25,9 @@
     blocked: 0,
     misses: 0,
     lastTarget: '',
-    aimPx: 380,
-    recoveryCount: 0
+    aimPx: 390,
+    recoveryCount: 0,
+    softRetryCount: 0
   };
 
   function $(id) {
@@ -76,18 +77,18 @@
   }
 
   function injectStyle() {
-    if ($('groups-cvr-v18c-style')) return;
+    if ($('groups-cvr-v18d-style')) return;
 
     const style = DOC.createElement('style');
-    style.id = 'groups-cvr-v18c-style';
+    style.id = 'groups-cvr-v18d-style';
     style.textContent = `
-      .cvr-v18c-toast{
+      .cvr-v18d-toast{
         position:fixed;
         left:50%;
         top:66%;
         transform:translate(-50%,-50%);
         z-index:2147483300;
-        width:min(460px,86vw);
+        width:min(480px,88vw);
         border-radius:999px;
         padding:11px 16px;
         text-align:center;
@@ -102,33 +103,33 @@
         opacity:0;
       }
 
-      .cvr-v18c-toast.warn{
+      .cvr-v18d-toast.warn{
         background:#fff5ca;
         color:#806000;
       }
 
-      .cvr-v18c-toast.bad{
+      .cvr-v18d-toast.bad{
         background:#fff0f0;
         color:#9b3d3d;
       }
 
-      .cvr-v18c-toast.good{
+      .cvr-v18d-toast.good{
         background:#f5fff1;
         color:#31724b;
       }
 
-      .cvr-v18c-toast.show{
-        animation:cvrV18cToast .62s ease both;
+      .cvr-v18d-toast.show{
+        animation:cvrV18dToast .72s ease both;
       }
 
-      @keyframes cvrV18cToast{
+      @keyframes cvrV18dToast{
         0%{opacity:0; transform:translate(-50%,-35%) scale(.86);}
         24%{opacity:1; transform:translate(-50%,-50%) scale(1.05);}
         72%{opacity:1; transform:translate(-50%,-54%) scale(1);}
         100%{opacity:0; transform:translate(-50%,-70%) scale(.94);}
       }
 
-      .cvr-v18c-fire{
+      .cvr-v18d-fire{
         position:fixed;
         left:50%;
         bottom:calc(12px + env(safe-area-inset-bottom,0px));
@@ -151,18 +152,19 @@
         display:none;
       }
 
-      body.playing .cvr-v18c-fire{
+      body.playing .cvr-v18d-fire{
         display:block;
       }
 
       body.playing #cvrV16SafeShoot,
+      body.playing #cvrV18cFireBtn,
       body.playing #cvrV18bFireBtn,
       body.playing #cvrV18FireBtn{
         display:none !important;
       }
 
       @media (max-width:460px){
-        .cvr-v18c-fire{
+        .cvr-v18d-fire{
           min-width:132px;
           height:46px;
           font-size:15px;
@@ -175,17 +177,17 @@
   }
 
   function ensureUi() {
-    if (!$('cvrV18cToast')) {
+    if (!$('cvrV18dToast')) {
       const t = DOC.createElement('div');
-      t.id = 'cvrV18cToast';
-      t.className = 'cvr-v18c-toast';
+      t.id = 'cvrV18dToast';
+      t.className = 'cvr-v18d-toast';
       DOC.body.appendChild(t);
     }
 
-    if (!$('cvrV18cFireBtn')) {
+    if (!$('cvrV18dFireBtn')) {
       const btn = DOC.createElement('button');
-      btn.id = 'cvrV18cFireBtn';
-      btn.className = 'cvr-v18c-fire';
+      btn.id = 'cvrV18dFireBtn';
+      btn.className = 'cvr-v18d-fire';
       btn.type = 'button';
       btn.textContent = '🎯 ยิง';
       DOC.body.appendChild(btn);
@@ -193,10 +195,10 @@
   }
 
   function toast(text, kind) {
-    const el = $('cvrV18cToast');
+    const el = $('cvrV18dToast');
     if (!el) return;
 
-    el.className = 'cvr-v18c-toast ' + (kind || '');
+    el.className = 'cvr-v18d-toast ' + (kind || '');
     el.textContent = text;
     el.classList.remove('show');
     void el.offsetWidth;
@@ -268,6 +270,7 @@
         const clickable = closestClickableFromEntity(cur.el);
         if (clickable) return clickable;
       }
+
       cur = cur.parent;
     }
 
@@ -301,17 +304,6 @@
     if (!hits || !hits.length) return null;
 
     return closestClickableFromObject(hits[0].object);
-  }
-
-  function highlightedTarget() {
-    const highlighted = Array.from(DOC.querySelectorAll('.clickable')).find(el => {
-      const halo = el.querySelector('.cvr-v12-halo');
-      if (!halo) return false;
-      const visible = halo.getAttribute('visible');
-      return visible === true || visible === 'true';
-    });
-
-    return highlighted || null;
   }
 
   function projectedTarget() {
@@ -352,7 +344,7 @@
 
       let bias = 0;
 
-      if (el.dataset.role === 'item') bias -= 12;
+      if (el.dataset.role === 'item') bias -= 8;
       if (el.dataset.kind === 'power') bias -= 58;
       if (el.dataset.role === 'gate') bias -= 18;
 
@@ -361,7 +353,7 @@
       }
 
       if ((kind === 'food' || kind === 'golden') && el.dataset.role === 'gate' && el.dataset.group === needKey) {
-        bias -= 46;
+        bias -= 52;
       }
 
       if (kind === 'power' && el.dataset.role === 'item') {
@@ -381,7 +373,7 @@
 
     const threshold = Math.max(
       200,
-      Math.min(state.aimPx, Math.min(rect.width, rect.height) * 0.32)
+      Math.min(state.aimPx, Math.min(rect.width, rect.height) * 0.33)
     );
 
     if (bestDist <= threshold) return best;
@@ -389,8 +381,53 @@
     return null;
   }
 
+  function highlightedTarget() {
+    const highlighted = Array.from(DOC.querySelectorAll('.clickable')).find(el => {
+      const halo = el.querySelector('.cvr-v12-halo');
+      if (!halo) return false;
+
+      const visible = halo.getAttribute('visible');
+      return visible === true || visible === 'true';
+    });
+
+    return highlighted || null;
+  }
+
   function findTarget() {
-    return raycastTarget() || highlightedTarget() || projectedTarget();
+    /*
+      v18d: projected target comes before stale halo fallback.
+      This prevents old halo from locking the wrong gate forever.
+    */
+    return raycastTarget() || projectedTarget() || highlightedTarget();
+  }
+
+  function clearAimHalos() {
+    DOC.querySelectorAll('.cvr-v12-halo').forEach(halo => {
+      try {
+        halo.setAttribute('visible', 'false');
+      } catch (e) {}
+    });
+
+    DOC.querySelectorAll('.clickable').forEach(el => {
+      try {
+        el.setAttribute('scale', '1 1 1');
+      } catch (e) {}
+    });
+  }
+
+  function flashCorrectGate() {
+    const key = currentGroupKey();
+    if (!key) return;
+
+    const gate = DOC.querySelector(`.clickable[data-role="gate"][data-group="${key}"]`);
+    if (!gate) return;
+
+    try {
+      gate.setAttribute('scale', '1.22 1.22 1.22');
+      setTimeout(() => {
+        if (gate.isConnected) gate.setAttribute('scale', '1 1 1');
+      }, 580);
+    } catch (e) {}
   }
 
   function hasTargets() {
@@ -431,6 +468,25 @@
     state.recoveryCount += 1;
   }
 
+  function softRetry(reason) {
+    const core = coreApi();
+
+    clearAimHalos();
+    flashCorrectGate();
+
+    if (core && typeof core.softRetry === 'function') {
+      try {
+        core.softRetry(reason || 'v18d-soft-retry');
+        state.softRetryCount += 1;
+        return true;
+      } catch (e) {}
+    }
+
+    recoverIfBlank();
+    state.softRetryCount += 1;
+    return false;
+  }
+
   function describeTarget(target) {
     if (!target || !target.dataset) return 'ไม่มีเป้า';
 
@@ -460,7 +516,7 @@
     }
 
     if ((kind === 'food' || kind === 'golden') && ds.role === 'gate' && ds.group !== currentGroupKey()) {
-      return `ยังไม่ใช่หมู่ ${needId}`;
+      return `ยังไม่ใช่หมู่ ${needId} • หันไปหมู่ ${needId}`;
     }
 
     if (kind === 'power' && ds.role === 'gate') {
@@ -523,7 +579,7 @@
       state.blocked += 1;
       toast('เล็งเป้าหมายก่อน', 'warn');
       vibrate(10);
-      recoverIfBlank();
+      softRetry('no-target');
       return false;
     }
 
@@ -531,7 +587,7 @@
       state.blocked += 1;
       toast(blockedInstruction(target), 'warn');
       vibrate(8);
-      recoverIfBlank();
+      softRetry('blocked-wrong-target');
       return false;
     }
 
@@ -541,7 +597,7 @@
       state.blocked += 1;
       toast('ยิงไม่เข้า core', 'bad');
       vibrate(10);
-      recoverIfBlank();
+      softRetry('core-failed');
       return false;
     }
 
@@ -560,16 +616,17 @@
       toast('🎯 ยิงแล้ว', 'good');
     }
 
+    clearAimHalos();
     vibrate(18);
 
     setTimeout(recoverIfBlank, 700);
     setTimeout(recoverIfBlank, 1300);
 
     try {
-      WIN.dispatchEvent(new CustomEvent('groups-cvr:v18c-direct-shoot', {
+      WIN.dispatchEvent(new CustomEvent('groups-cvr:v18d-direct-shoot', {
         detail: {
           version: VERSION,
-          source: source || 'v18c',
+          source: source || 'v18d',
           target: state.lastTarget,
           ok: true
         }
@@ -594,24 +651,24 @@
           lastTarget: state.lastTarget,
           aimPx: state.aimPx,
           core: Boolean(coreApi()),
-          aliasFromV18c: true
+          aliasFromV18d: true
         };
       },
       setAimPx: function (px) {
-        state.aimPx = Math.max(180, Math.min(480, Number(px) || 380));
+        state.aimPx = Math.max(180, Math.min(500, Number(px) || 390));
       }
     };
   }
 
   function patchFinalGuard() {
     const fg = WIN.HHA_GROUPS_CVR_FINAL_GUARD_V16;
-    if (!fg || fg.__v18cPatched) return;
+    if (!fg || fg.__v18dPatched) return;
 
-    fg.__v18cPatched = true;
+    fg.__v18dPatched = true;
 
     if (typeof fg.safeShoot === 'function') {
       fg.safeShoot = function () {
-        return directShoot('final-guard-v18c');
+        return directShoot('final-guard-v18d');
       };
     }
   }
@@ -639,14 +696,14 @@
       if (!isPlaying()) return;
       ev.preventDefault && ev.preventDefault();
       ev.stopImmediatePropagation && ev.stopImmediatePropagation();
-      directShoot('hha-window-v18c');
+      directShoot('hha-window-v18d');
     }, true);
 
     DOC.addEventListener('hha:shoot', ev => {
       if (!isPlaying()) return;
       ev.preventDefault && ev.preventDefault();
       ev.stopImmediatePropagation && ev.stopImmediatePropagation();
-      directShoot('hha-document-v18c');
+      directShoot('hha-document-v18d');
     }, true);
 
     DOC.addEventListener('keydown', ev => {
@@ -655,14 +712,14 @@
       if (ev.code === 'Space' || ev.code === 'Enter') {
         ev.preventDefault();
         ev.stopImmediatePropagation && ev.stopImmediatePropagation();
-        directShoot('keyboard-v18c');
+        directShoot('keyboard-v18d');
       }
     }, true);
 
-    const fireBtn = $('cvrV18cFireBtn');
+    const fireBtn = $('cvrV18dFireBtn');
 
-    if (fireBtn && !fireBtn.__v18cBound) {
-      fireBtn.__v18cBound = true;
+    if (fireBtn && !fireBtn.__v18dBound) {
+      fireBtn.__v18dBound = true;
 
       fireBtn.addEventListener('pointerdown', ev => {
         ev.preventDefault();
@@ -674,7 +731,7 @@
         ev.preventDefault();
         ev.stopPropagation();
         ev.stopImmediatePropagation && ev.stopImmediatePropagation();
-        directShoot('button-v18c');
+        directShoot('button-v18d');
       }, true);
     }
 
@@ -685,7 +742,7 @@
       ev.preventDefault && ev.preventDefault();
       ev.stopImmediatePropagation && ev.stopImmediatePropagation();
 
-      directShoot('screen-pointerup-v18c');
+      directShoot('screen-pointerup-v18d');
     }, {
       capture: true,
       passive: false
@@ -698,6 +755,7 @@
       shoot: directShoot,
       findTarget,
       recoverIfBlank,
+      softRetry,
       getState: function () {
         return {
           version: VERSION,
@@ -709,14 +767,16 @@
           lastTarget: state.lastTarget,
           aimPx: state.aimPx,
           recoveryCount: state.recoveryCount,
+          softRetryCount: state.softRetryCount,
           coreReady: Boolean(coreApi()),
           directApiReady: Boolean(coreApi() && coreApi().directShootTarget),
+          softRetryReady: Boolean(coreApi() && coreApi().softRetry),
           targets: hasTargets(),
           current: currentItem()
         };
       },
       setAimPx: function (px) {
-        state.aimPx = Math.max(180, Math.min(480, Number(px) || 380));
+        state.aimPx = Math.max(180, Math.min(500, Number(px) || 390));
       }
     };
   }
@@ -736,7 +796,7 @@
       if (isPlaying()) recoverIfBlank();
     }, 900);
 
-    console.info('[Groups cVR v1.8c] direct shoot lock target installed', VERSION);
+    console.info('[Groups cVR v1.8d] wrong gate soft retry installed', VERSION);
   }
 
   if (DOC.readyState === 'loading') {
