@@ -551,7 +551,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.8c-cvr-core-direct-api-20260515';
+      const VERSION = 'v1.8d-cvr-core-soft-retry-20260515';
 
       const GROUPS = [
         {id:1,key:'protein',label:'โปรตีน',short:'PROTEIN',icon:'🐟',color:'#ff8e82',foods:['🐟','🥚','🍗','🥩','🫘','🥛']},
@@ -1613,6 +1613,24 @@
         return true;
       }
 
+      function softRetry(reason){
+        if(state.ended || state.mode !== 'game') return false;
+
+        state.spawnLock = false;
+
+        try{
+          if(state.current && state.itemEl && state.itemEl.isConnected){
+            state.itemY = Math.max(state.itemY, 1.75);
+            state.itemEl.setAttribute('position', `0 ${state.itemY.toFixed(3)} -2.65`);
+          }
+        }catch(e){}
+
+        try{ updateItemHint(); }catch(e){}
+        try{ updateHud(); }catch(e){}
+
+        return true;
+      }
+
       function forceSpawn(){
         if(state.ended || state.mode !== 'game') return false;
         state.spawnLock = false;
@@ -1650,7 +1668,7 @@
           },
 
           recoverArena: recoverArena,
-
+          softRetry: softRetry,
           forceSpawn: forceSpawn,
 
           rebuildGates: function(){
