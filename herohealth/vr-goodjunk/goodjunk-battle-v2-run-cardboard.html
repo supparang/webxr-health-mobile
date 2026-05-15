@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Battle Cardboard v2.2.4</title>
+  <meta name="theme-color" content="#ffd75a" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <style>
+    :root{
+      --bg1:#fff7d8;
+      --bg2:#e9f8ff;
+      --panel:#fffef9;
+      --panel2:#fff8e8;
+      --stroke:#ffbd78;
+      --stroke2:#ffdca8;
+      --text:#8b2f1d;
+      --muted:#755f48;
+      --good:#7ed957;
+      --blue:#58b7f5;
+      --violet:#b79cff;
+      --shadow:0 18px 44px rgba(160,112,35,.16);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%,rgba(255,255,255,.92),transparent 22%),
+        radial-gradient(circle at 88% 6%,rgba(255,141,141,.22),transparent 24%),
+        radial-gradient(circle at 80% 94%,rgba(88,183,245,.28),transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    body{
+      overflow-x:hidden;
+    }
+
+    .app{
+      width:min(96vw,980px);
+      margin:0 auto;
+      min-height:100dvh;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      display:grid;
+      gap:14px;
+      align-content:center;
+    }
+
+    .panel{
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border-radius:34px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+
+    .hero{
+      padding:22px;
+      display:grid;
+      gap:18px;
+      text-align:center;
+      position:relative;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-84px;
+      top:-90px;
+      width:230px;
+      height:230px;
+      border-radius:999px;
+      background:rgba(255,141,141,.18);
+      filter:blur(4px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-70px;
+      bottom:-88px;
+      width:210px;
+      height:210px;
+      border-radius:999px;
+      background:rgba(88,183,245,.20);
+      filter:blur(4px);
+    }
+
+    .hero > *{
+      position:relative;
+      z-index:1;
+    }
+
+    .icon{
+      width:96px;
+      height:96px;
+      margin:0 auto;
+      border-radius:34px;
+      border:4px solid var(--stroke2);
+      background:linear-gradient(180deg,#fff8dc,#ffd75a);
+      display:grid;
+      place-items:center;
+      font-size:56px;
+      box-shadow:0 14px 30px rgba(160,112,35,.14);
+    }
+
+    .title{
+      font-size:clamp(34px,6vw,58px);
+      line-height:1.02;
+      font-weight:1000;
+      color:var(--text);
+      letter-spacing:-.02em;
+    }
+
+    .subtitle{
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.65;
+      font-weight:900;
+      max-width:760px;
+      margin:0 auto;
+    }
+
+    .statusGrid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .status{
+      border:3px solid var(--stroke2);
+      background:#fff;
+      border-radius:22px;
+      padding:12px;
+      text-align:center;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(160,112,35,.08);
+    }
+
+    .status small{
+      display:block;
+      color:#8a6b30;
+      font-size:11px;
+      text-transform:uppercase;
+    }
+
+    .status b{
+      display:block;
+      margin-top:5px;
+      color:var(--text);
+      font-size:15px;
+      line-height:1.25;
+      word-break:break-word;
+    }
+
+    .card{
+      border:3px solid var(--stroke2);
+      background:#fff;
+      border-radius:26px;
+      padding:16px;
+      display:grid;
+      gap:12px;
+      text-align:left;
+      box-shadow:0 8px 18px rgba(160,112,35,.08);
+    }
+
+    .cardTitle{
+      font-size:22px;
+      font-weight:1000;
+      color:var(--text);
+      text-align:center;
+    }
+
+    .list{
+      display:grid;
+      gap:10px;
+      color:#665444;
+      font-size:14px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .item{
+      border:3px solid #ffe6ad;
+      background:#fffef9;
+      border-radius:18px;
+      padding:10px 12px;
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .btn{
+      min-height:56px;
+      border-radius:20px;
+      border:3px solid var(--stroke2);
+      background:#fffef9;
+      color:var(--text);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:12px 16px;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 22px rgba(160,112,35,.10);
+      user-select:none;
+      text-align:center;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#a6f071,#7ed957);
+      border-color:#b8f29a;
+      color:#173b0b;
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
+      border-color:#9fe3ff;
+      color:#08374d;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      border-color:#ffe08a;
+      color:#553900;
+    }
+
+    .btn.violet{
+      background:linear-gradient(180deg,#d7c7ff,#b79cff);
+      border-color:#d7c7ff;
+      color:#362066;
+    }
+
+    .notice{
+      border:3px dashed var(--stroke2);
+      background:#fffef9;
+      border-radius:22px;
+      padding:14px 16px;
+      color:#6b5c50;
+      font-size:14px;
+      line-height:1.6;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .crosshairDemo{
+      height:170px;
+      border:4px solid var(--stroke);
+      border-radius:28px;
+      background:
+        radial-gradient(circle at 50% 50%,rgba(255,215,90,.35),transparent 18%),
+        linear-gradient(rgba(255,255,255,.20) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.20) 1px, transparent 1px),
+        linear-gradient(180deg,#eaf8ff,#fff8c8);
+      background-size:auto,44px 44px,44px 44px,auto;
+      position:relative;
+      overflow:hidden;
+      display:grid;
+      place-items:center;
+    }
+
+    .crosshair{
+      width:76px;
+      height:76px;
+      border:5px solid rgba(139,47,29,.85);
+      border-radius:999px;
+      position:relative;
+      display:grid;
+      place-items:center;
+      font-size:34px;
+      background:rgba(255,255,255,.45);
+    }
+
+    .crosshair::before,
+    .crosshair::after{
+      content:"";
+      position:absolute;
+      background:rgba(139,47,29,.85);
+      border-radius:999px;
+    }
+
+    .crosshair::before{
+      width:110px;
+      height:5px;
+    }
+
+    .crosshair::after{
+      width:5px;
+      height:110px;
+    }
+
+    .crosshair span{
+      position:relative;
+      z-index:1;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    @media(max-width:720px){
+      .app{
+        width:min(98vw,720px);
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+        align-content:start;
+      }
+
+      .hero{
+        padding:16px;
+      }
+
+      .statusGrid,
+      .actions{
+        grid-template-columns:1fr;
+      }
+
+      .icon{
+        width:78px;
+        height:78px;
+        border-radius:28px;
+        font-size:46px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <section class="panel hero">
+      <div class="icon">🥽</div>
+
+      <div>
+        <div class="title">GoodJunk Battle Cardboard</div>
+        <div class="subtitle">
+          โหมด Cardboard แยกไฟล์ไว้แล้ว เพื่อเตรียมทำ Crosshair / Tap-to-shoot / HUD น้อยแบบ VR โดยยังไม่ย้อนกลับไปใช้ไฟล์ Battle เก่า
+        </div>
+      </div>
+
+      <div class="statusGrid">
+        <div class="status">
+          <small>Version</small>
+          <b>v2.2.4 Bridge</b>
+        </div>
+        <div class="status">
+          <small>Room</small>
+          <b id="roomText">-</b>
+        </div>
+        <div class="status">
+          <small>Player</small>
+          <b id="playerText">Hero</b>
+        </div>
+        <div class="status">
+          <small>Match</small>
+          <b id="matchText">-</b>
+        </div>
+      </div>
+
+      <div class="crosshairDemo">
+        <div class="crosshair"><span>🍎</span></div>
+      </div>
+
+      <section class="card">
+        <div class="cardTitle">🧭 แนวทาง Cardboard Battle</div>
+        <div class="list">
+          <div class="item">🎯 ใช้ Crosshair กลางจอ เล็งเป้า แล้วแตะจอเพื่อยิง/เลือกเป้า</div>
+          <div class="item">⚡ เมื่อ Attack เต็ม 3/3 จะใช้ Storm ผ่านปุ่ม gaze หรือแตะค้าง</div>
+          <div class="item">🛡 Shield จะทำงานแบบง่ายขึ้น เพื่อไม่ให้ผู้เล่นกดปุ่มยากในกล่อง VR</div>
+          <div class="item">🧊 Freeze / 🌫 Fog / 🧲 Magnet จะถูกปรับให้เห็นชัดแต่ไม่รก HUD</div>
+        </div>
+      </section>
+
+      <div class="notice">
+        รอบนี้ Cardboard เป็นหน้า Bridge ก่อน เพื่อให้โครงสร้างแยกโหมดครบและไม่เกิด dead link  
+        ถ้าต้องเล่นจริงตอนนี้ แนะนำใช้ Mobile หรือ PC ก่อน
+      </div>
+
+      <div class="actions">
+        <a id="btnMobile" class="btn good" href="./goodjunk-battle-v2-run-mobile.html">📱 เล่นด้วย Mobile</a>
+        <a id="btnPc" class="btn info" href="./goodjunk-battle-v2-run-pc.html">🖥️ เล่นด้วย PC</a>
+        <a id="btnLobby" class="btn warn" href="./goodjunk-battle-v2-lobby.html">⚔️ กลับ Lobby</a>
+        <a id="btnModes" class="btn violet" href="./goodjunk-modes.html">🎮 โหมดทั้งหมด</a>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  (() => {
+    'use strict';
+
+    window.HHA_GJ_BATTLE_V224_CARDBOARD = 'v20260515-cardboard-bridge';
+
+    const params = new URLSearchParams(location.search);
+    const $ = id => document.getElementById(id);
+
+    function qs(k,d=''){
+      return params.get(k) ?? d;
+    }
+
+    function setParams(path, view){
+      const u = new URL(path, location.href);
+
+      const pass = {
+        room: qs('room', qs('roomId','')),
+        roomId: qs('roomId', qs('room','')),
+        matchId: qs('matchId',''),
+        pid: qs('pid','anon'),
+        name: qs('name', qs('nick','Hero')),
+        nick: qs('nick', qs('name','Hero')),
+        role: qs('role','guest'),
+        host: qs('host','0'),
+        diff: qs('diff','normal'),
+        time: qs('time','90'),
+        view,
+        device:view,
+        hub: qs('hub','../nutrition-zone.html'),
+        zone: qs('zone','nutrition'),
+        cat: qs('cat','nutrition'),
+        game: qs('game','goodjunk'),
+        gameId: qs('gameId','goodjunk'),
+        theme: qs('theme','goodjunk'),
+        mode:'battle-v2',
+        entry:'battle-v2',
+        recommendedMode:'battle-v2',
+        multiplayer:'1',
+        v:'20260515-cardboard-bridge'
+      };
+
+      Object.entries(pass).forEach(([k,v]) => {
+        if (v !== undefined && v !== null && String(v) !== '') {
+          u.searchParams.set(k,String(v));
+        }
+      });
+
+      return u.toString();
+    }
+
+    function boot(){
+      const room = qs('room', qs('roomId','-'));
+      const name = qs('name', qs('nick','Hero'));
+      const matchId = qs('matchId','-');
+
+      $('roomText').textContent = room || '-';
+      $('playerText').textContent = name || 'Hero';
+      $('matchText').textContent = matchId || '-';
+
+      $('btnMobile').href = setParams('./goodjunk-battle-v2-run-mobile.html','mobile');
+      $('btnPc').href = setParams('./goodjunk-battle-v2-run-pc.html','pc');
+      $('btnLobby').href = setParams('./goodjunk-battle-v2-lobby.html','cardboard');
+      $('btnModes').href = setParams('./goodjunk-modes.html','cardboard');
+    }
+
+    boot();
+  })();
+  </script>
+</body>
+</html>
