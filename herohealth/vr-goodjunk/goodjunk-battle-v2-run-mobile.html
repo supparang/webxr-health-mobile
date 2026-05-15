@@ -3,20 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle Mobile v2.2.4</title>
+  <title>HeroHealth • GoodJunk Battle Mobile v2.2.7</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v224-mobile-global-end"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-mobile-v227-cap2"></script>
 
   <style>
     :root{
       --bg1:#fff7d8;
       --bg2:#eaf8ff;
-      --panel:#fffef8;
+      --panel:#fffef9;
       --line:#ffbd78;
       --line2:#ffdca8;
       --text:#8b2f1d;
@@ -25,147 +25,131 @@
       --bad:#ff8494;
       --power:#b79cff;
       --shield:#7ab7ff;
-      --ice:#8ee8ff;
-      --fog:#c9c9d8;
-      --magnet:#ff9fd0;
-      --cleanse:#85f5b2;
-      --shadow:0 14px 30px rgba(130,80,20,.14);
+      --shadow:0 18px 42px rgba(130,80,20,.14);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
     html,body{
       margin:0;
       width:100%;
-      height:100%;
-      overflow:hidden;
+      min-height:100%;
       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 8%,rgba(255,255,255,.86),transparent 22%),
-        radial-gradient(circle at 86% 4%,rgba(255,141,141,.20),transparent 24%),
-        radial-gradient(circle at 76% 94%,rgba(80,190,255,.24),transparent 26%),
+        radial-gradient(circle at 12% 8%,rgba(255,255,255,.88),transparent 22%),
+        radial-gradient(circle at 88% 4%,rgba(255,141,141,.20),transparent 24%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
+    body{overflow-x:hidden;}
+
     .app{
-      height:100dvh;
-      width:100vw;
+      min-height:100dvh;
       padding:
-        calc(6px + var(--sat))
-        calc(6px + var(--sar))
-        calc(6px + var(--sab))
-        calc(6px + var(--sal));
+        calc(10px + var(--sat))
+        calc(10px + var(--sar))
+        calc(12px + var(--sab))
+        calc(10px + var(--sal));
       display:grid;
-      grid-template-rows:auto auto minmax(54dvh,1fr) auto;
-      gap:6px;
-      overflow:hidden;
+      grid-template-rows:auto auto minmax(460px,1fr) auto;
+      gap:10px;
     }
 
     .box{
       border:4px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#fff8e8);
-      border-radius:20px;
+      border-radius:26px;
       box-shadow:var(--shadow);
     }
 
     .top{
-      padding:7px 8px;
+      padding:12px;
       display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:7px;
+      gap:10px;
+    }
+
+    .brand{
+      display:grid;
+      grid-template-columns:auto 1fr;
+      gap:10px;
       align-items:center;
     }
 
     .brandIcon{
-      width:44px;
-      height:44px;
-      border-radius:16px;
+      width:64px;
+      height:64px;
+      border-radius:22px;
       display:grid;
       place-items:center;
-      font-size:25px;
-      border:4px solid #ffe4ae;
+      font-size:34px;
+      border:4px solid var(--line2);
       background:linear-gradient(180deg,#fff8dc,#ffd75a);
     }
 
     h1{
       margin:0;
-      font-size:20px;
-      line-height:1.05;
+      font-size:clamp(30px,8vw,44px);
+      line-height:1;
       font-weight:1000;
       color:var(--text);
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
     }
 
     .meta{
-      margin-top:2px;
-      font-size:10px;
+      margin-top:4px;
       color:var(--muted);
+      font-size:13px;
       font-weight:900;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
+      line-height:1.35;
     }
 
     .topActions{
-      display:flex;
-      gap:5px;
-      justify-content:flex-end;
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
     }
 
     .btn{
-      min-height:34px;
+      min-height:46px;
       border:3px solid var(--line2);
-      border-radius:13px;
+      border-radius:18px;
       background:#fffef9;
       color:var(--text);
-      padding:5px 8px;
+      padding:8px 10px;
       font-weight:1000;
-      font-size:11px;
+      font-size:14px;
       cursor:pointer;
       text-decoration:none;
-      display:inline-flex;
+      display:flex;
       align-items:center;
       justify-content:center;
-      user-select:none;
       text-align:center;
+      user-select:none;
     }
 
-    .btn:disabled{
-      opacity:.46;
-      cursor:not-allowed;
-      filter:grayscale(.25);
-    }
-
-    .btn.attack{background:linear-gradient(180deg,#ffe785,#ffd75a);color:#5b3900;}
-    .btn.shield{background:linear-gradient(180deg,#bfe6ff,#7ab7ff);color:#123f5f;}
-    .btn.ice{background:linear-gradient(180deg,#dffbff,#8ee8ff);color:#115566;}
-    .btn.fog{background:linear-gradient(180deg,#f6f6ff,#c9c9d8);color:#45455c;}
-    .btn.magnet{background:linear-gradient(180deg,#ffd7ef,#ff9fd0);color:#6b1646;}
-    .btn.cleanse{background:linear-gradient(180deg,#d8ffe7,#85f5b2);color:#135c2d;}
-    .btn.danger{background:linear-gradient(180deg,#ffd1d1,#ff9a9a);color:#681818;}
+    .btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.25);}
+    .btn.good{background:linear-gradient(180deg,#a6f071,#7ed957);border-color:#b8f29a;color:#173b0b;}
+    .btn.warn{background:linear-gradient(180deg,#ffe785,#ffd75a);border-color:#ffe08a;color:#553900;}
+    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);border-color:#9fe3ff;color:#08374d;}
+    .btn.danger{background:linear-gradient(180deg,#ffd1d1,#ff8d8d);border-color:#ffc7c7;color:#6d1e1e;}
 
     .hud{
+      padding:8px;
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:5px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:7px;
     }
 
     .stat{
-      min-height:42px;
+      min-height:64px;
       border:3px solid var(--line2);
       background:#fffef9;
-      border-radius:14px;
-      padding:4px 3px;
+      border-radius:18px;
+      padding:7px 6px;
       display:grid;
       place-items:center;
       text-align:center;
@@ -173,9 +157,8 @@
     }
 
     .stat small{
-      display:block;
       color:#7c610e;
-      font-size:8px;
+      font-size:10px;
       line-height:1;
       text-transform:uppercase;
       font-weight:1000;
@@ -183,102 +166,105 @@
 
     .stat b{
       display:block;
-      margin-top:3px;
+      margin-top:4px;
       color:var(--text);
-      font-size:14px;
+      font-size:20px;
       line-height:1;
-      font-weight:1000;
       max-width:100%;
       overflow:hidden;
       text-overflow:ellipsis;
-      white-space:nowrap;
+    }
+
+    .rival{
+      padding:10px;
+      display:grid;
+      gap:8px;
+    }
+
+    .rivalTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      font-weight:1000;
+      font-size:20px;
+      text-align:left;
+    }
+
+    .badge{
+      border:3px solid #c9f5cf;
+      background:#f4fff5;
+      color:#387b28;
+      border-radius:999px;
+      padding:6px 12px;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    .rivalStats{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:7px;
     }
 
     .arena{
       position:relative;
       overflow:hidden;
       border:4px solid var(--line);
-      border-radius:22px;
-      min-height:54dvh;
-      height:100%;
+      border-radius:28px;
+      min-height:460px;
       background:
         linear-gradient(rgba(255,255,255,.20) 1px, transparent 1px),
         linear-gradient(90deg,rgba(255,255,255,.20) 1px, transparent 1px),
         linear-gradient(180deg,#eaf8ff,#fff8c8);
-      background-size:46px 46px,46px 46px,auto;
+      background-size:44px 44px,44px 44px,auto;
       touch-action:manipulation;
       box-shadow:var(--shadow);
     }
 
-    .arena.storm{animation:stormPulse .5s ease infinite alternate;}
-    .arena.freeze{filter:saturate(.8) brightness(.96);}
-    .arena.fog::after{
-      content:"";
-      position:absolute;
-      inset:0;
-      z-index:4;
-      pointer-events:none;
-      background:
-        radial-gradient(circle at 20% 25%,rgba(255,255,255,.74),transparent 26%),
-        radial-gradient(circle at 72% 35%,rgba(255,255,255,.70),transparent 30%),
-        radial-gradient(circle at 50% 78%,rgba(255,255,255,.66),transparent 28%),
-        rgba(225,225,235,.22);
-      backdrop-filter:blur(1.5px);
-      animation:fogMove 1.3s ease-in-out infinite alternate;
+    .arena.storm{
+      animation:stormPulse .45s ease infinite alternate;
     }
 
     @keyframes stormPulse{
       from{filter:saturate(1) brightness(1);}
-      to{filter:saturate(1.22) brightness(.94);}
-    }
-
-    @keyframes fogMove{
-      from{opacity:.72;}
-      to{opacity:.94;}
+      to{filter:saturate(1.18) brightness(.94);}
     }
 
     .target{
       position:absolute;
-      width:78px;
-      height:78px;
-      border-radius:26px;
+      width:92px;
+      height:92px;
+      border-radius:32px;
       display:grid;
       place-items:center;
-      border:6px solid var(--good);
+      border:7px solid var(--good);
       background:linear-gradient(180deg,#ffffff,#fffdf4);
       box-shadow:0 14px 30px rgba(80,120,70,.24);
-      font-size:43px;
+      font-size:50px;
       cursor:pointer;
       user-select:none;
       touch-action:manipulation;
-      transition:transform .08s ease, filter .08s ease;
       z-index:3;
     }
 
     .target.bad{border-color:var(--bad);}
     .target.power{border-color:var(--power);}
     .target.shield{border-color:var(--shield);}
-    .target.ice{border-color:var(--ice);}
-    .target.fogItem{border-color:var(--fog);}
-    .target.magnetItem{border-color:var(--magnet);}
-    .target.cleanseItem{border-color:var(--cleanse);}
-    .target.magnetBad{
-      border-color:var(--bad);
-      box-shadow:0 0 0 5px rgba(255,159,208,.35),0 14px 30px rgba(120,40,40,.24);
+
+    .target:active{transform:scale(.9);filter:brightness(1.05);}
+
+    .dock{
+      padding:10px;
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
     }
 
-    .target:active{
-      transform:scale(.90);
-      filter:brightness(1.05);
-    }
-
-    .target.freezeSlow{
-      animation:slowBob 1.2s ease-in-out infinite alternate;
-    }
-
-    @keyframes slowBob{
-      from{transform:translateY(-2px);}
-      to{transform:translateY(4px);}
+    .dock .btn{
+      min-height:54px;
+      font-size:13px;
+      line-height:1.2;
     }
 
     .pop{
@@ -287,7 +273,7 @@
       transform:translate(-50%,-50%);
       color:var(--text);
       font-weight:1000;
-      font-size:22px;
+      font-size:28px;
       pointer-events:none;
       animation:pop .65s ease forwards;
       text-shadow:0 2px 0 #fff;
@@ -295,141 +281,72 @@
 
     @keyframes pop{
       from{opacity:1;transform:translate(-50%,-50%) scale(.9);}
-      to{opacity:0;transform:translate(-50%,-95%) scale(1.18);}
+      to{opacity:0;transform:translate(-50%,-100%) scale(1.18);}
     }
 
     .toast{
       position:fixed;
       left:50%;
-      top:calc(12px + var(--sat));
+      top:calc(14px + var(--sat));
       transform:translateX(-50%);
       z-index:90;
-      max-width:min(92vw,640px);
+      max-width:min(92vw,720px);
       border:4px solid var(--line);
       background:#fffef9;
       color:var(--text);
-      border-radius:20px;
-      padding:10px 14px;
+      border-radius:22px;
+      padding:12px 16px;
       font-weight:1000;
-      font-size:13px;
+      font-size:14px;
       text-align:center;
       box-shadow:0 16px 36px rgba(60,35,15,.24);
       display:none;
     }
 
-    .toast.show{
-      display:block;
-      animation:toastIn .2s ease;
-    }
-
-    @keyframes toastIn{
-      from{opacity:0;transform:translateX(-50%) translateY(-8px);}
-      to{opacity:1;transform:translateX(-50%) translateY(0);}
-    }
-
-    .bottom{
-      padding:6px;
-      display:grid;
-      gap:5px;
-    }
-
-    .miniStats{
-      display:flex;
-      gap:5px;
-      justify-content:center;
-      flex-wrap:wrap;
-    }
-
-    .pill{
-      border:3px solid var(--line2);
-      border-radius:12px;
-      background:#fffef9;
-      color:var(--text);
-      min-height:30px;
-      padding:4px 7px;
-      font-size:10px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      white-space:nowrap;
-    }
-
-    .skillDock{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:5px;
-    }
-
-    .skillDock .btn{
-      min-height:38px;
-      padding:5px 4px;
-      font-size:10px;
-      border-radius:12px;
-      line-height:1.05;
-      display:grid;
-      gap:1px;
-    }
-
-    .skillDock .btn strong{
-      font-size:13px;
-      line-height:1;
-    }
-
-    .skillDock .btn.ready{
-      outline:4px solid rgba(255,215,90,.32);
-      animation:readyPulse .72s ease infinite alternate;
-    }
-
-    @keyframes readyPulse{
-      from{transform:translateY(0) scale(1);}
-      to{transform:translateY(-1px) scale(1.02);}
-    }
+    .toast.show{display:block;}
 
     .overlay{
       position:fixed;
       inset:0;
       z-index:60;
       display:none;
-      align-items:flex-start;
+      align-items:center;
       justify-content:center;
-      padding:calc(58px + var(--sat)) 12px calc(16px + var(--sab));
+      padding:calc(18px + var(--sat)) 18px calc(18px + var(--sab));
       background:rgba(98,55,30,.42);
       backdrop-filter:blur(6px);
       overflow:auto;
     }
 
-    .overlay.show{
-      display:flex;
-    }
+    .overlay.show{display:flex;}
 
     .modal{
-      width:min(94vw,720px);
-      max-height:calc(100dvh - 76px - var(--sat) - var(--sab));
+      width:min(94vw,760px);
+      max-height:calc(100dvh - 36px - var(--sat) - var(--sab));
       overflow:auto;
       border:4px solid var(--line);
       background:#fffef9;
-      border-radius:28px;
+      border-radius:32px;
       box-shadow:0 20px 52px rgba(80,45,15,.24);
-      padding:18px;
+      padding:22px;
       text-align:center;
     }
 
     .modalIcon{
-      width:70px;
-      height:70px;
-      margin:0 auto 10px;
+      width:82px;
+      height:82px;
+      margin:0 auto 12px;
       border:4px solid var(--line2);
-      border-radius:24px;
+      border-radius:28px;
       display:grid;
       place-items:center;
-      font-size:36px;
+      font-size:42px;
       background:linear-gradient(180deg,#fff8dc,#ffdca8);
     }
 
     .modal h2{
-      margin:0 0 8px;
-      font-size:clamp(34px,8vw,50px);
+      margin:0 0 10px;
+      font-size:clamp(42px,10vw,64px);
       color:var(--text);
       line-height:1.05;
     }
@@ -437,26 +354,24 @@
     .reason{
       display:inline-block;
       border:3px dashed var(--line2);
-      border-radius:16px;
-      padding:8px 12px;
+      border-radius:18px;
+      padding:9px 14px;
       color:#7c610e;
       font-weight:1000;
       margin-bottom:12px;
-      font-size:13px;
     }
 
     .resultGrid{
       display:grid;
-      grid-template-columns:1fr;
-      gap:10px;
+      gap:12px;
       text-align:left;
-      margin:10px 0;
+      margin:12px 0;
     }
 
     .resultCard{
       border:3px solid var(--line2);
-      border-radius:20px;
-      padding:12px;
+      border-radius:22px;
+      padding:14px;
       background:#fffaf0;
       font-weight:1000;
       color:var(--text);
@@ -464,74 +379,35 @@
 
     .resultCard b{
       display:block;
-      font-size:30px;
+      font-size:42px;
       line-height:1.05;
       margin:4px 0;
     }
 
     .resultActions{
       display:grid;
-      grid-template-columns:1fr;
-      gap:8px;
-      margin-top:10px;
+      gap:10px;
+      margin-top:12px;
     }
 
     .rematchBox{
       display:none;
       border:3px dashed var(--line2);
-      border-radius:20px;
-      padding:12px;
-      margin:10px 0;
+      border-radius:22px;
+      padding:14px;
+      margin:12px 0;
       background:#fff8db;
       color:#7c4d00;
       font-weight:1000;
-      font-size:13px;
     }
 
-    .rematchBox.show{
-      display:block;
-    }
+    .rematchBox.show{display:block;}
 
     .rematchActions{
-      display:flex;
+      display:grid;
+      grid-template-columns:1fr 1fr;
       gap:8px;
-      justify-content:center;
-      flex-wrap:wrap;
       margin-top:10px;
-    }
-
-    @media(max-width:420px){
-      .app{
-        grid-template-rows:auto auto minmax(56dvh,1fr) auto;
-        gap:5px;
-      }
-
-      .top{
-        grid-template-columns:auto 1fr;
-      }
-
-      .topActions{
-        grid-column:1/-1;
-        justify-content:stretch;
-      }
-
-      .topActions .btn{
-        flex:1 1 0;
-      }
-
-      .hud{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .arena{
-        min-height:56dvh;
-      }
-
-      .target{
-        width:80px;
-        height:80px;
-        font-size:44px;
-      }
     }
   </style>
 </head>
@@ -539,52 +415,53 @@
 <body>
   <div id="toast" class="toast"></div>
 
-  <div class="app">
+  <main class="app">
     <section class="box top">
-      <div class="brandIcon">⚔️</div>
-      <div>
-        <h1>GoodJunk Battle Mobile</h1>
-        <div id="meta" class="meta">loading…</div>
+      <div class="brand">
+        <div class="brandIcon">⚔️</div>
+        <div>
+          <h1>GoodJunk Battle</h1>
+          <div id="meta" class="meta">Battle 1v1 • loading…</div>
+        </div>
       </div>
+
       <div class="topActions">
         <a id="btnLobby" class="btn" href="./goodjunk-battle-v2-lobby.html">Lobby</a>
         <a id="btnHub" class="btn" href="../nutrition-zone.html">Hub</a>
+        <button id="btnSfx" class="btn" type="button">🔊 SFX</button>
       </div>
     </section>
 
-    <section class="hud">
+    <section class="box hud">
       <div class="stat"><small>Player</small><b id="playerName">-</b></div>
       <div class="stat"><small>Score</small><b id="score">0</b></div>
       <div class="stat"><small>Heart</small><b id="heart">❤️❤️❤️</b></div>
       <div class="stat"><small>Time</small><b id="timeLeft">90</b></div>
-      <div class="stat"><small>Rival</small><b id="rivalName">-</b></div>
-      <div class="stat"><small>Rival Score</small><b id="rivalScore">0</b></div>
+      <div class="stat"><small>Combo</small><b id="comboCount">0</b></div>
+      <div class="stat"><small>Attack</small><b id="attackCount">0/3</b></div>
     </section>
 
     <section id="arena" class="arena" aria-label="GoodJunk Battle Mobile Arena"></section>
 
-    <section class="box bottom">
-      <div class="miniStats">
-        <div class="pill">Good <span id="goodCount">0</span></div>
-        <div class="pill">Junk <span id="junkCount">0</span></div>
-        <div class="pill">Miss <span id="missCount">0</span></div>
-        <div class="pill">Atk <span id="attackCount">0/3</span></div>
-        <div class="pill">🛡 <span id="shieldCount">0</span></div>
-        <div class="pill">🍀 <span id="cleanseCount">0</span></div>
+    <section class="box rival">
+      <div class="rivalTitle">
+        <span>คู่แข่ง: <span id="rivalName">รอคู่แข่ง</span></span>
+        <span class="badge">1v1</span>
       </div>
-
-      <div class="skillDock">
-        <button id="btnStorm" class="btn attack" type="button" disabled><strong>⚡</strong>Storm</button>
-        <button id="btnMagnet" class="btn magnet" type="button" disabled><strong>🧲</strong>Magnet</button>
-        <button id="btnControl" class="btn ice" type="button" disabled><strong>🧊</strong>Freeze</button>
-        <button id="btnFog" class="btn fog" type="button" disabled><strong>🌫</strong>Fog</button>
-        <button id="btnComboBreak" class="btn danger" type="button" disabled><strong>💥</strong>Combo</button>
-        <button id="btnShield" class="btn shield" type="button" disabled><strong>🛡</strong>Shield</button>
-        <button id="btnCleanse" class="btn cleanse" type="button" disabled><strong>🍀</strong>Cleanse</button>
-        <button id="btnHint" class="btn" type="button"><strong>?</strong>Help</button>
+      <div class="rivalStats">
+        <div class="stat"><small>Rival Score</small><b id="rivalScore">0</b></div>
+        <div class="stat"><small>Rival Heart</small><b id="rivalHeart">-</b></div>
+        <div class="stat"><small>Room</small><b id="roomText">-</b></div>
       </div>
     </section>
-  </div>
+
+    <section class="box dock">
+      <button id="btnStorm" class="btn warn" type="button" disabled>⚡ Junk Storm<br>Attack 3/3</button>
+      <button id="btnShield" class="btn info" type="button" disabled>🛡 Shield<br>กันโจมตี</button>
+      <button id="btnFreeze" class="btn info" type="button" disabled>🧊 Freeze<br>Attack 2/3</button>
+      <button id="btnComboBreak" class="btn danger" type="button" disabled>💥 Combo Break<br>Combo 8+</button>
+    </section>
+  </main>
 
   <div id="overlay" class="overlay">
     <div class="modal">
@@ -608,13 +485,13 @@
       <div id="rematchBox" class="rematchBox">
         <div id="rematchText">รออีกฝ่าย...</div>
         <div class="rematchActions">
-          <button id="btnAcceptRematch" class="btn attack" type="button">✅ ยอมรับ</button>
+          <button id="btnAcceptRematch" class="btn good" type="button">✅ ยอมรับ</button>
           <button id="btnDeclineRematch" class="btn danger" type="button">❌ ปฏิเสธ</button>
         </div>
       </div>
 
       <div class="resultActions">
-        <button id="btnAgain" class="btn" type="button">🔁 Battle อีกครั้ง</button>
+        <button id="btnAgain" class="btn warn" type="button">🔁 Battle อีกครั้ง</button>
         <a id="btnLobbyEnd" class="btn" href="./goodjunk-battle-v2-lobby.html">⚔️ กลับ Lobby</a>
         <a id="btnHubEnd" class="btn" href="../nutrition-zone.html">🏠 Hub</a>
       </div>
@@ -625,14 +502,15 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_V224_MOBILE = 'v20260515-v224-mobile-global-end-final-summary';
+    window.HHA_GJ_BATTLE_MOBILE = 'v20260515-battle-run-mobile-v227-capacity-2';
 
-    const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
+    const ROOM_ROOT = 'hha-battle/goodjunk/battleRooms';
+    const CAPACITY = 2;
 
     const GOOD = ['🍎','🍌','🥦','🥬','🥕','🍊','🍇','🐟','🥚','🍚'];
     const BAD = ['🍟','🍔','🧁','🥤','🍭'];
     const POWER = ['⚡','💎'];
-    const ITEMS = ['🛡️','🧊','🌫️','🍀','🧲'];
+    const ITEMS = ['🛡️'];
 
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(location.search);
@@ -644,22 +522,21 @@
     let syncTimer = null;
     let toastTimer = null;
     let stormTimer = null;
-    let freezeTimer = null;
-    let fogTimer = null;
-    let cooldownUntil = 0;
     let ended = false;
     let finishing = false;
     let rematchStarting = false;
     let appliedAttackIds = new Set();
 
     const state = {
-      room: sanitizeRoom(qs('room', qs('roomId',''))),
+      room: normalizeRoom(qs('room', qs('roomId',''))),
       matchId: qs('matchId',''),
       pid: qs('pid','anon'),
-      name: qs('name','Hero'),
+      name: qs('name', qs('nick','Hero')),
       role: qs('role', qs('host','') === '1' ? 'host' : 'guest'),
+      view:'mobile',
       timeTotal: Number(qs('time','90')) || 90,
       timeLeft: Number(qs('time','90')) || 90,
+      diff: qs('diff','normal'),
       hub: qs('hub','../nutrition-zone.html'),
       score:0,
       good:0,
@@ -669,74 +546,35 @@
       combo:0,
       attack:0,
       shield:0,
-      freeze:0,
-      fog:0,
-      cleanse:0,
       roomData:null,
       rival:null,
       startedAt:0,
-      stormUntil:0,
-      freezeUntil:0,
-      fogUntil:0,
-      finalWritten:false
+      stormUntil:0
     };
 
-    function qs(k,d=''){
-      return params.get(k) ?? d;
-    }
+    function qs(k,d=''){ return params.get(k) ?? d; }
+    function now(){ return Date.now(); }
+    function safeKey(v){ return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room'; }
 
-    function now(){
-      return Date.now();
-    }
-
-    function safeKey(v){
-      return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';
-    }
-
-    function sanitizeRoom(v){
+    function normalizeRoom(v){
       let s = String(v || '').trim().toUpperCase();
       s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
-
       if (!s) return '';
-
       if (!s.startsWith('GJ-BT-')){
-        s = 'GJ-BT-' + s
-          .replace(/^GJ-BT/i,'')
-          .replace(/^GJBT/i,'')
-          .replace(/^BT/i,'')
-          .replace(/^-/, '');
+        s = 'GJ-BT-' + s.replace(/^GJ-BT/i,'').replace(/^GJBT/i,'').replace(/^BT/i,'').replace(/^-/, '');
       }
-
-      return s.slice(0,16);
+      return s.slice(0,15);
     }
 
-    function roomPath(){
-      return `${ROOM_ROOT}/${safeKey(state.room)}`;
-    }
-
-    function playerPath(pid=state.pid){
-      return `${roomPath()}/players/${safeKey(pid)}`;
-    }
-
-    function attacksPath(){
-      return `${roomPath()}/attacks`;
-    }
-
-    function rematchPath(){
-      return `${roomPath()}/rematch`;
-    }
+    function roomPath(){ return `${ROOM_ROOT}/${safeKey(state.room)}`; }
+    function playerPath(pid=state.pid){ return `${roomPath()}/players/${safeKey(pid)}`; }
+    function attacksPath(){ return `${roomPath()}/attacks`; }
+    function rematchPath(){ return `${roomPath()}/rematch`; }
 
     async function firebaseReady(){
-      if (!window.HHA_FIREBASE_READY) {
-        throw new Error('HHA_FIREBASE_READY not found');
-      }
-
+      if (!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
       const fb = await window.HHA_FIREBASE_READY;
-
-      if (!fb || !fb.db) {
-        throw new Error('Firebase DB not ready');
-      }
-
+      if (!fb || !fb.db) throw new Error('Firebase DB not ready');
       db = fb.db;
       return fb;
     }
@@ -751,45 +589,19 @@
       return val;
     }
 
-    async function dbSet(path,val){
-      await db.ref(path).set(val);
-      return val;
-    }
-
     function dbOn(path,cb){
       const ref = db.ref(path);
       const fn = snap => cb(snap && snap.val ? snap.val() : null);
       ref.on('value',fn);
-
-      return () => {
-        try{ ref.off('value',fn); }catch(_){}
-      };
+      return () => { try{ ref.off('value',fn); }catch(_){} };
     }
 
     function playersArray(room){
-      return Object.values(room?.players || {})
-        .filter(Boolean)
-        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+      return Object.values(room?.players || {}).filter(Boolean).sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
     }
 
-    function getMe(room){
-      return room?.players?.[safeKey(state.pid)] || null;
-    }
-
-    function getRival(room){
-      return playersArray(room).find(p => p.pid !== state.pid) || null;
-    }
-
-    function allPlayersFinished(room){
-      const players = playersArray(room);
-      return players.length >= 2 && players.every(p => p.finished === true);
-    }
-
-    function rematchVotesComplete(room){
-      const players = playersArray(room);
-      const votes = room?.rematch?.votes || {};
-      return players.length >= 2 && players.every(p => votes[safeKey(p.pid)] === true);
-    }
+    function getMe(room){ return room?.players?.[safeKey(state.pid)] || null; }
+    function getRival(room){ return playersArray(room).find(p => p.pid !== state.pid) || null; }
 
     function isHostForRoom(room){
       const me = getMe(room);
@@ -798,39 +610,42 @@
 
     function buildLobbyUrl(){
       const u = new URL('./goodjunk-battle-v2-lobby.html', location.href);
-      u.searchParams.set('room',state.room);
-      u.searchParams.set('roomId',state.room);
-      u.searchParams.set('matchId',state.matchId || '');
-      u.searchParams.set('name',state.name);
-      u.searchParams.set('pid',state.pid);
-      u.searchParams.set('role',state.role);
-      u.searchParams.set('host',state.role === 'host' ? '1' : '0');
-      u.searchParams.set('time',String(state.timeTotal));
-      u.searchParams.set('view','mobile');
-      u.searchParams.set('device','mobile');
-      u.searchParams.set('hub',state.hub);
-      u.searchParams.set('mode','battle-v2');
-      u.searchParams.set('entry','battle-v2');
+      passParams(u,{run:'menu'});
       return u.toString();
     }
 
-    function buildFreshRunUrl(newMatchId){
+    function buildRunUrl(matchId){
       const u = new URL('./goodjunk-battle-v2-run-mobile.html', location.href);
-      u.searchParams.set('room',state.room);
-      u.searchParams.set('roomId',state.room);
-      u.searchParams.set('matchId',newMatchId || '');
-      u.searchParams.set('pid',state.pid);
-      u.searchParams.set('name',state.name);
-      u.searchParams.set('role',state.role);
-      u.searchParams.set('host',state.role === 'host' ? '1' : '0');
-      u.searchParams.set('time',String(state.timeTotal));
-      u.searchParams.set('view','mobile');
-      u.searchParams.set('device','mobile');
-      u.searchParams.set('hub',state.hub);
-      u.searchParams.set('mode','battle-v2');
-      u.searchParams.set('entry','battle-v2');
-      u.searchParams.set('v','20260515-v224-mobile-rematch');
+      passParams(u,{matchId:matchId || state.matchId, run:'play'});
       return u.toString();
+    }
+
+    function passParams(u,extra={}){
+      const obj = {
+        room:state.room,
+        roomId:state.room,
+        matchId:state.matchId || '',
+        pid:state.pid,
+        name:state.name,
+        role:state.role,
+        host:state.role === 'host' ? '1' : '0',
+        diff:state.diff,
+        time:String(state.timeTotal),
+        view:'mobile',
+        device:'mobile',
+        hub:state.hub,
+        zone:'nutrition',
+        cat:'nutrition',
+        game:'goodjunk',
+        gameId:'goodjunk',
+        mode:'battle-v2',
+        entry:'battle-v2',
+        capacity:String(CAPACITY),
+        ...extra
+      };
+      Object.entries(obj).forEach(([k,v]) => {
+        if (v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k,String(v));
+      });
     }
 
     function hydrateLinks(){
@@ -854,70 +669,69 @@
       toastTimer = setTimeout(() => el.classList.remove('show'), ms);
     }
 
-    function setCooldown(ms=3000){
-      cooldownUntil = now() + ms;
-    }
-
-    function skillReady(){
-      return now() >= cooldownUntil;
-    }
-
     function updateHud(){
-      $('meta').textContent = `${state.name} • ${state.role} • ${state.room}`;
+      $('meta').textContent = `${state.name} • ${state.role} • ${state.room} • Battle 1v1`;
       $('playerName').textContent = state.name;
       $('score').textContent = String(Number(state.score || 0));
       $('heart').textContent = hearts(state.heart);
       $('timeLeft').textContent = String(Math.max(0,Number(state.timeLeft || 0)));
+      $('comboCount').textContent = String(Number(state.combo || 0));
+      $('attackCount').textContent = `${Math.min(3,Number(state.attack || 0))}/3`;
+      $('roomText').textContent = state.room || '-';
 
       if (state.rival){
         $('rivalName').textContent = state.rival.name || 'คู่แข่ง';
         $('rivalScore').textContent = String(Number(state.rival.score || 0));
+        $('rivalHeart').textContent = hearts(state.rival.heart ?? 3);
       }else{
-        $('rivalName').textContent = 'รอ';
+        $('rivalName').textContent = 'รอคู่แข่ง';
         $('rivalScore').textContent = '0';
+        $('rivalHeart').textContent = '-';
       }
 
-      $('goodCount').textContent = String(Number(state.good || 0));
-      $('junkCount').textContent = String(Number(state.junk || 0));
-      $('missCount').textContent = String(Number(state.miss || 0));
-      $('attackCount').textContent = `${Math.min(3,Number(state.attack || 0))}/3`;
-      $('shieldCount').textContent = String(Number(state.shield || 0));
-      $('cleanseCount').textContent = String(Number(state.cleanse || 0));
-
-      const canTarget = !ended && !!state.rival && skillReady();
-      const attackReady = Number(state.attack || 0) >= 3;
-      const controlReady = Number(state.freeze || 0) > 0 || Number(state.attack || 0) >= 2;
-      const fogReady = Number(state.fog || 0) > 0 || Number(state.attack || 0) >= 2;
-      const comboReady = Number(state.combo || 0) >= 8;
-      const shieldReady = Number(state.shield || 0) > 0;
-      const cleanseReady = Number(state.cleanse || 0) > 0 && hasNegativeEffect();
-
-      setBtn('btnStorm', canTarget && attackReady, attackReady);
-      setBtn('btnMagnet', canTarget && attackReady, attackReady);
-      setBtn('btnControl', canTarget && controlReady, controlReady);
-      setBtn('btnFog', canTarget && fogReady, fogReady);
-      setBtn('btnComboBreak', canTarget && comboReady, comboReady);
-      setBtn('btnShield', !ended && shieldReady, shieldReady);
-      setBtn('btnCleanse', !ended && cleanseReady, cleanseReady);
+      const ready = !ended && !!state.rival;
+      $('btnStorm').disabled = !(ready && Number(state.attack || 0) >= 3);
+      $('btnFreeze').disabled = !(ready && Number(state.attack || 0) >= 2);
+      $('btnComboBreak').disabled = !(ready && Number(state.combo || 0) >= 8);
+      $('btnShield').disabled = !(Number(state.shield || 0) > 0);
     }
 
-    function setBtn(id, enabled, ready){
-      const btn = $(id);
-      btn.disabled = !enabled;
-      btn.classList.toggle('ready', !!ready && !ended);
-    }
+    async function writeSelf(extra={}, force=false){
+      if (!db) return;
+      if (ended && !force) return;
 
-    function hasNegativeEffect(){
-      return now() < state.stormUntil || now() < state.freezeUntil || now() < state.fogUntil;
+      const payload = {
+        pid:state.pid,
+        name:state.name,
+        role:state.role,
+        view:'mobile',
+        score:Number(state.score || 0),
+        good:Number(state.good || 0),
+        junk:Number(state.junk || 0),
+        miss:Number(state.miss || 0),
+        heart:Number(state.heart || 0),
+        combo:Number(state.combo || 0),
+        attack:Number(state.attack || 0),
+        shield:Number(state.shield || 0),
+        updatedAt:now(),
+        ...extra
+      };
+
+      try{ await dbUpdate(playerPath(), payload); }
+      catch(err){ console.warn('[GJ Battle Mobile] writeSelf failed', err); }
     }
 
     function syncRoom(room){
       state.roomData = room || null;
       if (!room) return;
 
+      if (Number(room.capacity || CAPACITY) !== CAPACITY){
+        dbUpdate(roomPath(),{capacity:CAPACITY,updatedAt:now()}).catch(()=>{});
+      }
+
       const roomMatch = room.matchId || room.activeMatchId || '';
       if (room.status === 'started' && roomMatch && state.matchId && roomMatch !== state.matchId && ended){
-        location.href = buildFreshRunUrl(roomMatch);
+        location.href = buildRunUrl(roomMatch);
         return;
       }
 
@@ -940,9 +754,6 @@
         state.combo = Number(me.combo ?? state.combo ?? 0);
         state.attack = Number(me.attack ?? state.attack ?? 0);
         state.shield = Number(me.shield ?? state.shield ?? 0);
-        state.freeze = Number(me.freeze ?? state.freeze ?? 0);
-        state.fog = Number(me.fog ?? state.fog ?? 0);
-        state.cleanse = Number(me.cleanse ?? state.cleanse ?? 0);
       }
 
       handleIncomingAttacks(room);
@@ -950,62 +761,20 @@
       updateHud();
     }
 
-    async function writeSelf(extra={}, force=false){
-      if (!db) return;
-      if (ended && !force) return;
-
-      const payload = {
-        pid:state.pid,
-        name:state.name,
-        role:state.role,
-        view:'mobile',
-        score:Number(state.score || 0),
-        good:Number(state.good || 0),
-        junk:Number(state.junk || 0),
-        miss:Number(state.miss || 0),
-        heart:Number(state.heart || 0),
-        combo:Number(state.combo || 0),
-        attack:Number(state.attack || 0),
-        shield:Number(state.shield || 0),
-        freeze:Number(state.freeze || 0),
-        fog:Number(state.fog || 0),
-        cleanse:Number(state.cleanse || 0),
-        updatedAt:now(),
-        ...extra
-      };
-
-      try{
-        await dbUpdate(playerPath(), payload);
-      }catch(err){
-        console.warn('[GJ Battle Mobile] writeSelf failed', err);
-      }
-    }
-
-    function rand(min,max){
-      return min + Math.random() * (max - min);
-    }
-
-    function isStormActive(){
-      return now() < Number(state.stormUntil || 0);
-    }
-
-    function isFreezeActive(){
-      return now() < Number(state.freezeUntil || 0);
-    }
+    function rand(min,max){ return min + Math.random() * (max - min); }
+    function isStormActive(){ return now() < Number(state.stormUntil || 0); }
 
     function pickType(){
       if (isStormActive()){
         const r = Math.random();
-        if (r < .58) return 'bad';
-        if (r < .80) return 'good';
-        if (r < .90) return 'power';
-        return 'item';
+        if (r < .65) return 'bad';
+        if (r < .88) return 'good';
+        return 'power';
       }
-
       const r = Math.random();
-      if (r < .66) return 'good';
-      if (r < .82) return 'bad';
-      if (r < .92) return 'power';
+      if (r < .68) return 'good';
+      if (r < .84) return 'bad';
+      if (r < .94) return 'power';
       return 'item';
     }
 
@@ -1016,49 +785,39 @@
       return ITEMS[Math.floor(Math.random()*ITEMS.length)];
     }
 
-    function classForIcon(type, icon, forced=''){
-      if (forced === 'magnetBad') return 'bad magnetBad';
-      if (type === 'bad') return 'bad';
-      if (type === 'power') return 'power';
-      if (icon === '🛡️') return 'shield';
-      if (icon === '🧊') return 'ice';
-      if (icon === '🌫️') return 'fogItem';
-      if (icon === '🧲') return 'magnetItem';
-      if (icon === '🍀') return 'cleanseItem';
-      return '';
-    }
-
-    function spawnTarget(forceType='', forcedIcon='', forcedClass=''){
+    function spawnTarget(forceType='', forcedIcon=''){
       if (ended || finishing) return;
 
       const arena = $('arena');
       const rect = arena.getBoundingClientRect();
-      if (rect.width < 80 || rect.height < 80) return;
+      if (rect.width < 80 || rect.height < 120) return;
 
       const type = forceType || pickType();
       const icon = forcedIcon || pickIcon(type);
-      const cls = classForIcon(type, icon, forcedClass);
 
       const el = document.createElement('button');
       el.type = 'button';
-      el.className = `target ${cls}`;
-      if (isFreezeActive()) el.classList.add('freezeSlow');
+      el.className = 'target';
+      if (type === 'bad') el.classList.add('bad');
+      if (type === 'power') el.classList.add('power');
+      if (type === 'item') el.classList.add('shield');
       el.textContent = icon;
       el.dataset.type = type;
       el.dataset.icon = icon;
 
-      const size = Math.min(82, Math.max(72, rect.width * .18));
+      const size = Math.min(110, Math.max(82, rect.width * .17));
       const x = rand(8,Math.max(8,rect.width - size - 8));
-      const y = rand(8,Math.max(8,rect.height - size - 12));
+      const y = rand(8,Math.max(8,rect.height - size - 8));
 
       el.style.width = `${size}px`;
       el.style.height = `${size}px`;
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
+      el.style.fontSize = `${Math.round(size * .54)}px`;
+      el.style.borderRadius = `${Math.round(size * .34)}px`;
 
       let alive = true;
-      const ttlBase = type === 'bad' ? 1450 : type === 'power' ? 1250 : type === 'item' ? 1300 : 1550;
-      const ttl = isFreezeActive() ? Math.round(ttlBase * 1.35) : ttlBase;
+      const ttl = type === 'bad' ? 1500 : type === 'power' ? 1300 : 1700;
 
       const timer = setTimeout(() => {
         if (!alive || ended || finishing) return;
@@ -1076,24 +835,19 @@
       function hit(ev){
         ev.preventDefault();
         ev.stopPropagation();
-
         if (!alive || ended || finishing) return;
 
         alive = false;
         clearTimeout(timer);
         el.remove();
-
-        handleHit(type, icon, x + size/2, y + size/2, forcedClass);
+        handleHit(type, icon, x + size/2, y + size/2);
       }
 
-      el.addEventListener('click', hit, {passive:false});
       el.addEventListener('pointerdown', hit, {passive:false});
-      el.addEventListener('touchstart', hit, {passive:false});
-
       arena.appendChild(el);
     }
 
-    function handleHit(type, icon, x, y, forcedClass=''){
+    function handleHit(type, icon, x, y){
       if (type === 'good'){
         const plus = 10 + Math.min(12,state.combo + 1);
         state.good++;
@@ -1107,12 +861,12 @@
         }
 
         pop(x,y,'+' + plus);
-      }else if (type === 'bad' || forcedClass === 'magnetBad'){
+      }else if (type === 'bad'){
         if (state.shield > 0 && isStormActive()){
           state.shield = Math.max(0,state.shield - 1);
           state.combo = 0;
-          pop(x,y,'🛡️ Block');
-          showToast('🛡️ Shield กัน Junk Storm แล้ว!');
+          pop(x,y,'🛡️');
+          showToast('🛡 Shield กัน Junk แล้ว!');
         }else{
           state.junk++;
           state.combo = 0;
@@ -1125,14 +879,9 @@
         state.score += 5;
         pop(x,y,'+⚡');
       }else if (type === 'item'){
-        if (icon === '🛡️') state.shield = Math.min(2,state.shield + 1);
-        if (icon === '🧊') state.freeze = Math.min(2,state.freeze + 1);
-        if (icon === '🌫️') state.fog = Math.min(2,state.fog + 1);
-        if (icon === '🍀') state.cleanse = Math.min(1,state.cleanse + 1);
-        if (icon === '🧲') state.attack = Math.min(3,state.attack + 1);
-
+        state.shield = Math.min(2,state.shield + 1);
         state.score += 5;
-        pop(x,y,'+' + icon);
+        pop(x,y,'+🛡');
       }
 
       writeSelf();
@@ -1151,58 +900,32 @@
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
       arena.appendChild(el);
-
-      setTimeout(() => {
-        try{ el.remove(); }catch(_){}
-      },700);
+      setTimeout(() => { try{ el.remove(); }catch(_){} },700);
     }
 
     function clearTargets(){
-      document.querySelectorAll('.target,.pop').forEach(el => {
-        try{ el.remove(); }catch(_){}
-      });
+      document.querySelectorAll('.target,.pop').forEach(el => { try{ el.remove(); }catch(_){} });
     }
 
-    async function sendAttack(type, cost=0){
+    async function sendAttack(type){
       if (ended || finishing) return;
-      if (!skillReady()){
-        showToast('⏳ รอสกิลคูลดาวน์ก่อน');
-        return;
-      }
-      if (!state.rival){
-        showToast('ยังไม่มีคู่แข่ง');
-        return;
-      }
+      if (!state.rival) return showToast('ยังไม่มีคู่แข่ง');
 
-      if (type === 'junkStorm' || type === 'magnetTrap'){
-        if (state.attack < 3){
-          showToast('⚡ ต้องมี Attack 3/3');
-          return;
-        }
+      if (type === 'junkStorm'){
+        if (state.attack < 3) return showToast('⚡ ต้องมี Attack 3/3');
         state.attack = 0;
       }
 
       if (type === 'freeze'){
-        if (state.freeze > 0) state.freeze--;
-        else if (state.attack >= 2) state.attack -= 2;
-        else return showToast('🧊 ต้องมี Freeze หรือ Attack 2/3');
-      }
-
-      if (type === 'fog'){
-        if (state.fog > 0) state.fog--;
-        else if (state.attack >= 2) state.attack -= 2;
-        else return showToast('🌫 ต้องมี Fog หรือ Attack 2/3');
+        if (state.attack < 2) return showToast('🧊 ต้องมี Attack 2/3');
+        state.attack -= 2;
       }
 
       if (type === 'comboBreak'){
-        if (state.combo < 8){
-          showToast('💥 ต้องมี Combo ≥ 8');
-          return;
-        }
+        if (state.combo < 8) return showToast('💥 ต้องมี Combo 8+');
         state.combo = 0;
       }
 
-      setCooldown(3000);
       await writeSelf();
 
       const attackId = 'ATK-' + state.pid + '-' + Date.now().toString(36).toUpperCase();
@@ -1216,55 +939,12 @@
         toName:state.rival.name || 'คู่แข่ง',
         matchId:state.matchId || '',
         createdAt:now(),
-        durationMs:type === 'junkStorm' ? 5200 : type === 'freeze' ? 4200 : type === 'fog' ? 4200 : type === 'magnetTrap' ? 5200 : 0,
+        durationMs:type === 'junkStorm' ? 5200 : 3600,
         active:true
       });
 
-      const label = {
-        junkStorm:'⚡ Junk Storm',
-        magnetTrap:'🧲 Magnet Trap',
-        freeze:'🧊 Freeze',
-        fog:'🌫 Fog',
-        comboBreak:'💥 Combo Breaker'
-      }[type] || type;
-
-      showToast(`${label} ใส่ ${state.rival.name || 'คู่แข่ง'}!`);
+      showToast(type === 'junkStorm' ? '⚡ ส่ง Junk Storm!' : type === 'freeze' ? '🧊 ส่ง Freeze!' : '💥 ตัด Combo คู่แข่ง!');
       updateHud();
-    }
-
-    function useShield(){
-      if (state.shield <= 0) return showToast('🛡 ยังไม่มี Shield');
-      showToast('🛡 Shield จะกันการโจมตีครั้งถัดไป');
-      updateHud();
-    }
-
-    async function useCleanse(){
-      if (state.cleanse <= 0) return showToast('🍀 ยังไม่มี Cleanse');
-      if (!hasNegativeEffect()) return showToast('ยังไม่มีสถานะให้ล้าง');
-
-      state.cleanse = Math.max(0,state.cleanse - 1);
-      state.stormUntil = 0;
-      state.freezeUntil = 0;
-      state.fogUntil = 0;
-
-      $('arena').classList.remove('storm','freeze','fog');
-      clearTimeout(stormTimer);
-      clearTimeout(freezeTimer);
-      clearTimeout(fogTimer);
-
-      await writeSelf();
-      showToast('🍀 Cleanse ล้างสถานะแล้ว!');
-      updateHud();
-    }
-
-    function blockWithShieldIfPossible(atk){
-      if (state.shield > 0){
-        state.shield = Math.max(0,state.shield - 1);
-        writeSelf();
-        showToast(`🛡 Shield กัน ${atk.type} แล้ว!`);
-        return true;
-      }
-      return false;
     }
 
     function handleIncomingAttacks(room){
@@ -1278,11 +958,15 @@
 
         appliedAttackIds.add(atk.id);
 
-        if (blockWithShieldIfPossible(atk)) return;
-
-        const duration = Number(atk.durationMs || 4200);
+        if (state.shield > 0){
+          state.shield = Math.max(0,state.shield - 1);
+          writeSelf();
+          showToast('🛡 Shield กันการโจมตีแล้ว!');
+          return;
+        }
 
         if (atk.type === 'junkStorm'){
+          const duration = Number(atk.durationMs || 5200);
           state.stormUntil = Math.max(state.stormUntil || 0, now() + duration);
           $('arena').classList.add('storm');
           showToast(`⚠️ ${atk.fromName || 'คู่แข่ง'} ใช้ Junk Storm!`);
@@ -1294,43 +978,12 @@
           },duration);
 
           for(let i=0;i<8;i++){
-            setTimeout(() => spawnTarget('bad'), i * 310);
+            setTimeout(() => spawnTarget('bad'), i * 280);
           }
         }
 
         if (atk.type === 'freeze'){
-          state.freezeUntil = Math.max(state.freezeUntil || 0, now() + duration);
-          $('arena').classList.add('freeze');
-          showToast(`🧊 ${atk.fromName || 'คู่แข่ง'} ใช้ Freeze!`);
-
-          clearTimeout(freezeTimer);
-          freezeTimer = setTimeout(() => {
-            $('arena').classList.remove('freeze');
-            showToast('✅ Freeze จบแล้ว');
-          },duration);
-        }
-
-        if (atk.type === 'fog'){
-          state.fogUntil = Math.max(state.fogUntil || 0, now() + duration);
-          $('arena').classList.add('fog');
-          showToast(`🌫 ${atk.fromName || 'คู่แข่ง'} ใช้ Fog!`);
-
-          clearTimeout(fogTimer);
-          fogTimer = setTimeout(() => {
-            $('arena').classList.remove('fog');
-            showToast('✅ Fog จบแล้ว');
-          },duration);
-        }
-
-        if (atk.type === 'magnetTrap'){
-          showToast(`🧲 ${atk.fromName || 'คู่แข่ง'} ใช้ Magnet Trap!`);
-
-          for(let i=0;i<5;i++){
-            setTimeout(() => {
-              spawnTarget('good');
-              spawnTarget('bad','🍟','magnetBad');
-            }, i * 360);
-          }
+          showToast(`🧊 ${atk.fromName || 'คู่แข่ง'} ใช้ Freeze! เป้าจะมาช้าลง`);
         }
 
         if (atk.type === 'comboBreak'){
@@ -1350,7 +1003,7 @@
       clearInterval(spawnTimer);
       clearInterval(syncTimer);
       clearTargets();
-      $('arena').classList.remove('storm','freeze','fog');
+      $('arena').classList.remove('storm');
 
       await writeSelf({
         finished:true,
@@ -1361,8 +1014,10 @@
       let room = await dbGet(roomPath()).catch(() => state.roomData);
       if (!room) room = state.roomData;
 
-      const players = playersArray(room);
-      const currentMe = {
+      const playerMap = {};
+      playersArray(room).forEach(p => { playerMap[safeKey(p.pid)] = {...p}; });
+      playerMap[safeKey(state.pid)] = {
+        ...(playerMap[safeKey(state.pid)] || {}),
         pid:state.pid,
         name:state.name,
         role:state.role,
@@ -1377,12 +1032,6 @@
         finishedAt:now()
       };
 
-      const playerMap = {};
-      players.forEach(p => {
-        playerMap[safeKey(p.pid)] = {...p};
-      });
-      playerMap[safeKey(state.pid)] = {...(playerMap[safeKey(state.pid)] || {}), ...currentMe};
-
       const arr = Object.values(playerMap).filter(Boolean);
       const sorted = [...arr].sort((a,b) => {
         if (Number(b.score || 0) !== Number(a.score || 0)) return Number(b.score || 0) - Number(a.score || 0);
@@ -1390,6 +1039,7 @@
       });
 
       let winnerPid = sorted[0]?.pid || state.pid;
+
       if (reason === 'heart-zero' && loserPid){
         const other = arr.find(p => p.pid !== loserPid);
         if (other) winnerPid = other.pid;
@@ -1399,6 +1049,7 @@
         matchId:state.matchId || room?.matchId || room?.activeMatchId || '',
         roomId:state.room,
         mode:'battle-v2',
+        capacity:CAPACITY,
         reason,
         winnerPid,
         loserPid:loserPid || '',
@@ -1436,14 +1087,12 @@
       clearInterval(spawnTimer);
       clearInterval(syncTimer);
       clearTargets();
-      $('arena').classList.remove('storm','freeze','fog');
+      $('arena').classList.remove('storm');
 
       const players = summary.players || {};
       const me = players[safeKey(state.pid)] || Object.values(players).find(p => p.pid === state.pid) || {};
       const rival = Object.values(players).find(p => p.pid !== state.pid) || {};
 
-      const myScore = Number(me.score || 0);
-      const rivalScore = Number(rival.score || 0);
       const winnerIsMe = summary.winnerPid === state.pid;
 
       $('modalIcon').textContent = winnerIsMe ? '🏆' : '💪';
@@ -1451,11 +1100,11 @@
       $('modalReason').textContent = 'เหตุผล: ' + (summary.reason || 'ended');
 
       $('resultMeName').textContent = me.name || state.name;
-      $('resultMeScore').textContent = String(myScore);
+      $('resultMeScore').textContent = String(Number(me.score || 0));
       $('resultMeMeta').textContent = `Good: ${me.good || 0} • Junk: ${me.junk || 0} • Miss: ${me.miss || 0}`;
 
       $('resultRivalName').textContent = rival.name || 'คู่แข่ง';
-      $('resultRivalScore').textContent = String(rivalScore || 0);
+      $('resultRivalScore').textContent = String(Number(rival.score || 0));
       $('resultRivalMeta').textContent = `Good: ${rival.good || 0} • Junk: ${rival.junk || 0} • Miss: ${rival.miss || 0}`;
 
       $('overlay').classList.add('show');
@@ -1463,35 +1112,29 @@
       updateHud();
     }
 
+    function rematchVotesComplete(room){
+      const players = playersArray(room);
+      const votes = room?.rematch?.votes || {};
+      return players.length === CAPACITY && players.every(p => votes[safeKey(p.pid)] === true);
+    }
+
     async function requestRematch(){
       if (!db) return;
 
       const room = await dbGet(roomPath()).catch(() => null);
-      if (!room?.finalSummary){
-        showToast('⏳ รอผลสรุปกลางก่อน');
-        return;
-      }
-
-      const voteKey = safeKey(state.pid);
-      const currentMatchId = room.matchId || room.activeMatchId || state.matchId || '';
+      if (!room?.finalSummary) return showToast('⏳ รอผลสรุปกลางก่อน');
 
       await dbUpdate(rematchPath(),{
         requestedBy:state.pid,
         requestedByName:state.name,
         requestedAt:now(),
         status:'pending',
-        matchId:currentMatchId,
+        matchId:room.matchId || room.activeMatchId || state.matchId || '',
         updatedAt:now()
       });
 
-      await dbUpdate(`${rematchPath()}/votes`,{
-        [voteKey]:true
-      });
-
-      await dbUpdate(roomPath(),{
-        status:'rematch',
-        updatedAt:now()
-      });
+      await dbUpdate(`${rematchPath()}/votes`,{ [safeKey(state.pid)]:true });
+      await dbUpdate(roomPath(),{ status:'rematch', updatedAt:now() });
 
       $('rematchBox').classList.add('show');
       $('rematchText').textContent = 'คุณขอ Battle อีกครั้งแล้ว รออีกฝ่าย...';
@@ -1504,23 +1147,13 @@
 
     async function acceptRematch(){
       const room = await dbGet(roomPath()).catch(() => null);
+      if (!room?.rematch || room.rematch.status !== 'pending') return showToast('ยังไม่มีคำขอ Battle อีกครั้ง');
 
-      if (!room?.rematch || room.rematch.status !== 'pending'){
-        showToast('ยังไม่มีคำขอ Battle อีกครั้ง');
-        return;
-      }
-
-      const voteKey = safeKey(state.pid);
-
-      await dbUpdate(`${rematchPath()}/votes`,{
-        [voteKey]:true
-      });
+      await dbUpdate(`${rematchPath()}/votes`,{ [safeKey(state.pid)]:true });
 
       $('btnAcceptRematch').disabled = true;
       $('btnDeclineRematch').disabled = false;
       $('rematchText').textContent = 'คุณยอมรับแล้ว รอเริ่มรอบใหม่...';
-
-      showToast('✅ ยอมรับ Battle อีกครั้งแล้ว');
 
       const fresh = await dbGet(roomPath()).catch(() => null);
       if (fresh && rematchVotesComplete(fresh) && isHostForRoom(fresh)){
@@ -1541,9 +1174,7 @@
       $('btnDeclineRematch').disabled = true;
       $('btnAgain').disabled = false;
       $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
-      $('rematchText').textContent = 'คุณปฏิเสธ Battle อีกครั้งแล้ว';
-
-      showToast('❌ ปฏิเสธ Rematch แล้ว');
+      $('rematchText').textContent = 'มีผู้เล่นปฏิเสธ Battle อีกครั้ง';
     }
 
     async function startRematchIfHost(room){
@@ -1554,46 +1185,38 @@
 
       try{
         const players = playersArray(room);
-        const oldMatchId = room.matchId || room.activeMatchId || state.matchId || '';
+        if (players.length !== CAPACITY){
+          showToast('Rematch ต้องมีผู้เล่น 2 คนพอดี');
+          return;
+        }
+
         const newMatchId = 'BT2-' + safeKey(state.room) + '-' + Date.now().toString(36).toUpperCase();
 
-        await Promise.all(players.map(pl => {
-          return dbUpdate(playerPath(pl.pid),{
-            score:0,
-            good:0,
-            junk:0,
-            miss:0,
-            heart:3,
-            combo:0,
-            attack:0,
-            shield:0,
-            freeze:0,
-            fog:0,
-            cleanse:0,
-            finished:false,
-            finishReason:null,
-            finishedAt:null,
-            updatedAt:now()
-          }).catch(() => {});
-        }));
+        const resetPlayers = {};
+        players.forEach(pl => {
+          resetPlayers[safeKey(pl.pid)] = {
+            ...pl,
+            score:0, good:0, junk:0, miss:0, heart:3, combo:0, attack:0, shield:0,
+            finished:false, finishReason:'', finishedAt:null, updatedAt:now()
+          };
+        });
 
         await dbUpdate(roomPath(),{
           status:'started',
+          capacity:CAPACITY,
           matchId:newMatchId,
           activeMatchId:newMatchId,
-          previousMatchId:oldMatchId,
           startedAt:now(),
           endedAt:null,
           endReason:null,
           finalSummary:null,
           rematch:null,
           attacks:null,
+          players:resetPlayers,
           updatedAt:now()
         });
 
-        location.href = buildFreshRunUrl(newMatchId);
-      }catch(err){
-        showToast('เริ่ม Rematch ไม่สำเร็จ: ' + (err?.message || err),2600);
+        location.href = buildRunUrl(newMatchId);
       }finally{
         rematchStarting = false;
       }
@@ -1622,31 +1245,26 @@
         $('btnAcceptRematch').disabled = true;
         $('btnDeclineRematch').disabled = true;
         $('btnAgain').disabled = false;
-        $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
         return;
       }
 
-      if (rm.status === 'pending'){
-        if (myVote){
-          $('rematchText').textContent = requesterIsMe
-            ? 'คุณขอ Battle อีกครั้งแล้ว รออีกฝ่ายกดยอมรับ...'
-            : 'คุณยอมรับแล้ว รอเริ่มรอบใหม่...';
+      if (myVote){
+        $('rematchText').textContent = requesterIsMe
+          ? 'คุณขอ Battle อีกครั้งแล้ว รออีกฝ่ายกดยอมรับ...'
+          : 'คุณยอมรับแล้ว รอเริ่มรอบใหม่...';
 
-          $('btnAcceptRematch').disabled = true;
-          $('btnDeclineRematch').disabled = false;
-          $('btnAgain').disabled = true;
-          $('btnAgain').textContent = '✅ รออีกฝ่าย';
-        }else{
-          $('rematchText').textContent = `${requester} ขอ Battle อีกครั้ง`;
-          $('btnAcceptRematch').disabled = false;
-          $('btnDeclineRematch').disabled = false;
-          $('btnAgain').disabled = false;
-          $('btnAgain').textContent = '🔁 ขอ Battle เอง';
-        }
+        $('btnAcceptRematch').disabled = true;
+        $('btnDeclineRematch').disabled = false;
+        $('btnAgain').disabled = true;
+      }else{
+        $('rematchText').textContent = `${requester} ขอ Battle อีกครั้ง`;
+        $('btnAcceptRematch').disabled = false;
+        $('btnDeclineRematch').disabled = false;
+        $('btnAgain').disabled = false;
+      }
 
-        if (rematchVotesComplete(room) && isHostForRoom(room)){
-          startRematchIfHost(room).catch(() => {});
-        }
+      if (rematchVotesComplete(room) && isHostForRoom(room)){
+        startRematchIfHost(room).catch(() => {});
       }
     }
 
@@ -1678,26 +1296,18 @@
 
       spawnTimer = setInterval(() => {
         if (ended || finishing) return;
-
         const existing = document.querySelectorAll('.target').length;
-        const maxTargets = isFreezeActive() ? 6 : 9;
-
-        if (existing < maxTargets){
+        if (existing < 7){
           spawnTarget();
-
-          if (Math.random() < (isFreezeActive() ? .18 : .42)){
-            spawnTarget();
-          }
+          if (Math.random() < .45) spawnTarget();
         }
-      }, isFreezeActive() ? 760 : 500);
+      },520);
 
       syncTimer = setInterval(() => {
         if (!ended && !finishing) writeSelf();
       },1100);
 
-      for(let i=0;i<6;i++){
-        setTimeout(spawnTarget, i * 140);
-      }
+      for(let i=0;i<5;i++) setTimeout(spawnTarget, i * 150);
     }
 
     async function ensureJoined(){
@@ -1706,6 +1316,15 @@
 
       state.roomData = room;
       state.matchId = state.matchId || room.matchId || room.activeMatchId || '';
+
+      if (Number(room.capacity || CAPACITY) !== CAPACITY){
+        await dbUpdate(roomPath(),{capacity:CAPACITY,updatedAt:now()}).catch(()=>{});
+      }
+
+      const players = playersArray(room);
+      if (players.length > CAPACITY && !getMe(room)){
+        throw new Error('Battle room is full');
+      }
 
       if (room.finalSummary){
         renderFinalSummary(room.finalSummary);
@@ -1716,39 +1335,12 @@
 
       if (!me){
         await dbUpdate(playerPath(),{
-          pid:state.pid,
-          name:state.name,
-          role:state.role === 'host' && room.hostPid === state.pid ? 'host' : 'guest',
-          view:'mobile',
-          score:0,
-          good:0,
-          junk:0,
-          miss:0,
-          heart:3,
-          combo:0,
-          attack:0,
-          shield:0,
-          freeze:0,
-          fog:0,
-          cleanse:0,
-          ready:true,
-          finished:false,
-          joinedAt:now(),
-          updatedAt:now()
+          pid:state.pid, name:state.name, role:state.role,
+          view:'mobile', score:0, good:0, junk:0, miss:0, heart:3, combo:0, attack:0, shield:0,
+          ready:true, finished:false, joinedAt:now(), updatedAt:now()
         });
       }else{
-        await dbUpdate(playerPath(),{
-          view:'mobile',
-          updatedAt:now()
-        }).catch(() => {});
-      }
-
-      if (!room.startedAt){
-        await dbUpdate(roomPath(),{
-          startedAt:now(),
-          status:'started',
-          updatedAt:now()
-        }).catch(() => {});
+        await dbUpdate(playerPath(),{ view:'mobile', updatedAt:now() }).catch(() => {});
       }
 
       const fresh = await dbGet(roomPath()).catch(() => room);
@@ -1757,20 +1349,13 @@
 
     function initButtons(){
       $('btnStorm').addEventListener('click', () => sendAttack('junkStorm'));
-      $('btnMagnet').addEventListener('click', () => sendAttack('magnetTrap'));
-      $('btnControl').addEventListener('click', () => sendAttack('freeze'));
-      $('btnFog').addEventListener('click', () => sendAttack('fog'));
+      $('btnFreeze').addEventListener('click', () => sendAttack('freeze'));
       $('btnComboBreak').addEventListener('click', () => sendAttack('comboBreak'));
-      $('btnShield').addEventListener('click', useShield);
-      $('btnCleanse').addEventListener('click', useCleanse);
-
-      $('btnHint').addEventListener('click', () => {
-        showToast('⚡3/3 ใช้ Storm/Magnet • 🧊/🌫 โจมตีรบกวน • 🛡 กันโจมตี • 🍀 ล้างสถานะ',3200);
-      });
-
+      $('btnShield').addEventListener('click', () => showToast('🛡 Shield พร้อมกันการโจมตีครั้งถัดไป'));
       $('btnAgain').addEventListener('click', requestRematch);
       $('btnAcceptRematch').addEventListener('click', acceptRematch);
       $('btnDeclineRematch').addEventListener('click', declineRematch);
+      $('btnSfx').addEventListener('click', () => showToast('🔊 SFX พร้อมใช้'));
 
       $('btnAcceptRematch').disabled = true;
       $('btnDeclineRematch').disabled = true;
@@ -1779,10 +1364,6 @@
     async function boot(){
       hydrateLinks();
       initButtons();
-
-      $('meta').textContent = `${state.name} • ${state.role} • ${state.room}`;
-      $('playerName').textContent = state.name;
-
       updateHud();
 
       try{
@@ -1790,19 +1371,15 @@
         await ensureJoined();
         unsub = dbOn(roomPath(), syncRoom);
 
-        if (!ended){
-          startGameLoop();
-        }
+        if (!ended) startGameLoop();
       }catch(err){
         console.error('[GJ Battle Mobile] boot failed', err);
-        showToast('โหลด Battle Mobile ไม่สำเร็จ: ' + (err?.message || err),3600);
+        showToast('โหลด Battle ไม่สำเร็จ: ' + (err?.message || err),3600);
       }
     }
 
     window.addEventListener('beforeunload', () => {
-      try{
-        writeSelf({lastSeenAt:now()}, true);
-      }catch(_){}
+      try{ writeSelf({lastSeenAt:now()}, true); }catch(_){}
     });
 
     boot();
