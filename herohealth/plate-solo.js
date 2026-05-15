@@ -1,29 +1,25 @@
 // === PATCH: /herohealth/plate-solo.js ===
-// v20260514-PLATE-SOLO-ZONEFIX2-DOMSYNC-MINIFAIR-PORTIONPATCH
-// ✅ แก้สมดุลด้านบนค้าง 0%
-// ✅ แก้ portion target ไม่ให้ทุกหมู่เต็มเร็วเท่ากัน
-// ✅ แก้ Mini Event ให้ยุติธรรมขึ้น ไม่ fail ง่ายเกิน
-// ✅ แก้ Cooldown ให้กลับ Nutrition Zone แน่นอน
-// ✅ กัน howBanner typo ถ้ามีหลุดมาจาก patch ก่อนหน้า
+// v20260515-PLATE-SOLO-SCOPEFIX3-PORTION-ZONE-COOLDOWN
+// ✅ ต้องวาง "ก่อน function init(){" และยังอยู่ใน (() => { ... }) เท่านั้น
+// ✅ ห้ามวางหลัง })();
+// ✅ แก้ balanceScore scope error
+// ✅ เป้าหมายแต่ละหมู่ไม่เท่ากัน
+// ✅ ปริมาณต่อชิ้นไม่เติม 1.0 เท่ากันทุกหมู่
+// ✅ Cooldown กลับ Nutrition Zone และ Nutrition Zone กลับ Hub ได้ถูก
 
-var howBanner = function(txt){
-  try {
-    if (typeof showBanner === 'function') showBanner(txt);
-  } catch(e) {}
-};
+(function installPlateSoloScopeFix3(){
+  if (WIN.__HHA_PLATE_SOLO_SCOPEFIX3__) return;
+  WIN.__HHA_PLATE_SOLO_SCOPEFIX3__ = true;
 
-(function installPlateSoloFinalPatch(){
-  'use strict';
+  VERSION = '20260515-PLATE-SOLO-SCOPEFIX3-PORTION-ZONE-COOLDOWN';
+  HHA.version = VERSION;
 
-  const PATCH_VERSION = '20260514-PLATE-SOLO-ZONEFIX2-DOMSYNC-MINIFAIR-PORTIONPATCH';
+  const HERO_BASE = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+  const HUB_URL = HERO_BASE + 'hub.html';
+  const NUTRITION_ZONE_URL = HERO_BASE + 'nutrition-zone.html';
+  const COOLDOWN_GATE_URL = HERO_BASE + 'warmup-gate.html';
 
-  try {
-    VERSION = PATCH_VERSION;
-    if (HHA) HHA.version = PATCH_VERSION;
-    console.info('[Plate Solo Patch]', PATCH_VERSION, 'installed');
-  } catch(e) {}
-
-  const PATCH_GROUP_TARGETS = {
+  const PORTION_TARGETS = {
     protein: 3.6,
     carb: 3.8,
     veg: 5.2,
@@ -31,58 +27,57 @@ var howBanner = function(txt){
     fat: 2.6
   };
 
-  const PATCH_GROUP_PORTION_SCALE = {
+  const PORTION_SCALE = {
     protein: .72,
-    carb: .72,
+    carb: .74,
     veg: .55,
     fruit: .62,
     fat: .48
   };
 
-  function targetOf(g){
-    try {
-      return Number(PATCH_GROUP_TARGETS[g] || CFG.target || 4);
-    } catch(e) {
-      return 4;
-    }
+  function n1(v){
+    const x = Number(v || 0);
+    return x.toFixed(1).replace(/\.0$/, '');
   }
 
-  function limitOf(g){
-    return targetOf(g) + .75;
+  function targetOf(groupId){
+    return Number(PORTION_TARGETS[groupId] || CFG.target || 4);
   }
 
-  function portionOf(g, v){
-    return Number(v || 0) * Number(PATCH_GROUP_PORTION_SCALE[g] || .65);
+  function scaleOf(groupId){
+    return Number(PORTION_SCALE[groupId] || .65);
   }
 
-  function setTextAll(selectors, value){
-    try {
-      selectors.forEach(sel => {
-        DOC.querySelectorAll(sel).forEach(el => {
-          if (el) el.textContent = value;
-        });
-      });
-    } catch(e) {}
+  function portionOf(groupId, value){
+    return Number(value || 0) * scaleOf(groupId);
   }
 
-  function setWidthAll(selectors, value){
-    try {
-      selectors.forEach(sel => {
-        DOC.querySelectorAll(sel).forEach(el => {
-          if (el && el.style) el.style.width = value;
-        });
-      });
-    } catch(e) {}
+  function limitOf(groupId){
+    return targetOf(groupId) + .55;
+  }
+
+  function isGroupMissing(groupId){
+    return (state.fill[groupId] || 0) < targetOf(groupId) * .82;
+  }
+
+  function clampAllGroups(){
+    GROUPS.forEach(g => {
+      state.fill[g.id] = clamp(
+        state.fill[g.id] || 0,
+        0,
+        limitOf(g.id)
+      );
+    });
   }
 
   balanceScore = function(){
     const vals = GROUPS.map(g => {
       const target = targetOf(g.id);
-      const f = state.fill[g.id] || 0;
+      const v = state.fill[g.id] || 0;
 
-      return f <= target
-        ? (f / target) * 100
-        : Math.max(0, 100 - (f - target) * 42);
+      return v <= target
+        ? (v / target) * 100
+        : Math.max(0, 100 - (v - target) * 48);
     });
 
     return Math.round(vals.reduce((a,b) => a + b, 0) / vals.length);
@@ -92,7 +87,7 @@ var howBanner = function(txt){
     return GROUPS
       .map(g => ({
         ...g,
-        need:targetOf(g.id) - (state.fill[g.id] || 0)
+        need: targetOf(g.id) - (state.fill[g.id] || 0)
       }))
       .sort((a,b) => b.need - a.need)[0] || GROUPS[0];
   };
@@ -101,7 +96,7 @@ var howBanner = function(txt){
     return GROUPS
       .map(g => ({
         ...g,
-        over:(state.fill[g.id] || 0) - targetOf(g.id)
+        over: (state.fill[g.id] || 0) - targetOf(g.id)
       }))
       .sort((a,b) => b.over - a.over)[0] || GROUPS[0];
   };
@@ -111,7 +106,7 @@ var howBanner = function(txt){
       food &&
       food.effects &&
       Object.entries(food.effects).some(([g,v]) =>
-        (state.fill[g] || 0) + portionOf(g,v) > targetOf(g) + .20
+        (state.fill[g] || 0) + portionOf(g,v) > targetOf(g) + .18
       )
     );
   };
@@ -143,33 +138,26 @@ var howBanner = function(txt){
         <div id="bar-${g.id}" class="meter-row food-meter" data-group="${g.id}">
           <div class="meter-head">
             <span class="meter-name">${g.icon} ${esc(g.label)}</span>
-            <span id="gmv-${g.id}" class="meter-value">0.0/${target.toFixed(1)}</span>
+            <span id="gmv-${g.id}" class="meter-value">0.0/${n1(target)}</span>
           </div>
           <div class="meter-track">
             <i id="bari-${g.id}" class="meter-fill"></i>
           </div>
           <div id="need-${g.id}" class="meter-need">
-            ยังขาด ${target.toFixed(1)}
+            ยังขาด ${n1(target)}
           </div>
         </div>
       `;
     }).join('');
 
-    setTextAll([
-      '#balance',
-      '#balanceText',
-      '.balanceText',
-      '.balanceValue',
-      '[data-stat="balance"]'
-    ], '0%');
+    if (els.balance) els.balance.textContent = '0%';
 
-    setWidthAll([
-      '#balanceFill',
-      '#balanceBar',
-      '.balanceFill',
-      '.balanceBar',
-      '[data-stat-fill="balance"]'
-    ], '0%');
+    const balanceFill =
+      byId('balanceFill') ||
+      byId('balanceBar') ||
+      DOC.querySelector('.progress-fill');
+
+    if (balanceFill) balanceFill.style.width = '0%';
   };
 
   updateMeters = function(){
@@ -187,13 +175,13 @@ var howBanner = function(txt){
 
       fill.style.width = Math.min(pct,100) + '%';
 
-      bar.classList.toggle('over', v > target + .20);
-      bar.classList.toggle('warn', v >= target * .82 && v <= target + .20);
+      bar.classList.toggle('over', v > target + .18);
+      bar.classList.toggle('warn', v >= target * .82 && v <= target + .18);
 
-      label.textContent = `${v.toFixed(1)}/${target.toFixed(1)}`;
+      label.textContent = `${v.toFixed(1)}/${n1(target)}`;
 
       need.textContent =
-        v > target + .20
+        v > target + .18
           ? 'ล้นแล้ว! อย่าเติมเพิ่ม'
           : (
               v >= target * .82
@@ -202,102 +190,49 @@ var howBanner = function(txt){
             );
     });
 
-    const bal = balanceScore();
+    const balanceFill =
+      byId('balanceFill') ||
+      byId('balanceBar') ||
+      DOC.querySelector('.progress-fill');
 
-    setTextAll([
-      '#balance',
-      '#balanceText',
-      '.balanceText',
-      '.balanceValue',
-      '[data-stat="balance"]'
-    ], bal + '%');
-
-    setWidthAll([
-      '#balanceFill',
-      '#balanceBar',
-      '.balanceFill',
-      '.balanceBar',
-      '[data-stat-fill="balance"]'
-    ], bal + '%');
+    if (balanceFill) {
+      balanceFill.style.width = balanceScore() + '%';
+    }
   };
-
-  function syncHudStats(){
-    const bal = balanceScore();
-    const left = state.practiceActive
-      ? Math.ceil(practiceLeftSec())
-      : Math.ceil(timeLeft());
-
-    setTextAll([
-      '#score',
-      '#scoreText',
-      '.scoreText',
-      '[data-stat="score"]'
-    ], Math.round(state.score));
-
-    setTextAll([
-      '#combo',
-      '#comboText',
-      '.comboText',
-      '[data-stat="combo"]'
-    ], state.combo);
-
-    setTextAll([
-      '#balance',
-      '#balanceText',
-      '.balanceText',
-      '.balanceValue',
-      '[data-stat="balance"]'
-    ], bal + '%');
-
-    setTextAll([
-      '#timeText',
-      '#timerText',
-      '.timeText',
-      '.timerText',
-      '[data-stat="time"]'
-    ], left);
-
-    setTextAll(['#miniScore'], Math.round(state.score));
-    setTextAll(['#miniCombo'], state.combo);
-    setTextAll(['#miniBalance'], bal + '%');
-    setTextAll(['#miniTime'], left + 's');
-
-    setWidthAll([
-      '#balanceFill',
-      '#balanceBar',
-      '.balanceFill',
-      '.balanceBar',
-      '[data-stat-fill="balance"]'
-    ], bal + '%');
-  }
 
   chooseFood = function(){
     if (state.practiceActive) return choosePracticeFood();
 
-    const m = mostMissingGroup();
+    const missing = mostMissingGroup();
+
+    if (state.lastSaveActive && state.lastSaveStats && chance(.72)) {
+      const g = state.lastSaveStats.needGroup;
+      const pool = FOODS.filter(f =>
+        !f.junk &&
+        f.effects &&
+        f.effects[g] &&
+        !wouldOverload(f)
+      );
+
+      if (pool.length) return { ...pick(pool) };
+    }
 
     if (state.mini && state.mini.type === 'healthyRain' && chance(.82)) {
       const pool = FOODS.filter(f =>
         !f.junk &&
         f.effects &&
         (
-          f.effects[m.id] ||
-          GROUPS.some(g =>
-            state.fill[g.id] < targetOf(g.id) * .82 &&
-            f.effects[g.id]
-          )
+          f.effects[missing.id] ||
+          GROUPS.some(g => isGroupMissing(g.id) && f.effects[g.id])
         ) &&
         !wouldOverload(f)
       );
 
-      if (pool.length) {
-        return { ...pick(pool) };
-      }
+      if (pool.length) return { ...pick(pool) };
     }
 
     if (state.mini && state.mini.type === 'missingAlert' && chance(.72)) {
-      const g = state.mini.group || m.id;
-
+      const g = state.mini.group || missing.id;
       const pool = FOODS.filter(f =>
         !f.junk &&
         f.effects &&
@@ -305,36 +240,33 @@ var howBanner = function(txt){
         !wouldOverload(f)
       );
 
-      if (pool.length) {
-        return { ...pick(pool) };
-      }
+      if (pool.length) return { ...pick(pool) };
     }
 
-    if (chance(.075) && !state.boss && !state.mini && !state.lastSaveActive) {
+    if (chance(.08) && !state.boss && !state.mini && !state.lastSaveActive) {
       return { ...pick(POWERS) };
     }
 
-    let jr =
+    let junkRate =
       CFG.junk +
-      (state.wave - 1) * .035 +
-      (state.rush ? .06 : 0) +
-      (state.boss ? .08 : 0) +
-      (state.directorLevel * .025 - state.assistLevel * .035);
+      (state.wave - 1) * .032 +
+      (state.rush ? .055 : 0) +
+      (state.boss ? .075 : 0) +
+      (state.directorLevel * .023 - state.assistLevel * .035);
 
-    if (state.mini && state.mini.type === 'junkInvasion') jr += .42;
-    if (state.lastSaveActive) jr += .12;
+    if (state.mini && state.mini.type === 'junkInvasion') junkRate += .40;
+    if (state.lastSaveActive) junkRate += .10;
 
-    if (chance(clamp(jr, .08, .72))) {
+    if (chance(clamp(junkRate, .08, .70))) {
       return { ...pick(FOODS.filter(f => f.junk)) };
     }
 
     const missingIds = GROUPS
-      .filter(g => state.fill[g.id] < targetOf(g.id) * .82)
+      .filter(g => isGroupMissing(g.id))
       .map(g => g.id);
 
-    if (missingIds.length && chance(.64)) {
+    if (missingIds.length && chance(.72)) {
       const g = pick(missingIds);
-
       const pool = FOODS.filter(f =>
         !f.junk &&
         f.effects &&
@@ -342,9 +274,7 @@ var howBanner = function(txt){
         !wouldOverload(f)
       );
 
-      if (pool.length) {
-        return { ...pick(pool) };
-      }
+      if (pool.length) return { ...pick(pool) };
     }
 
     const safeHealthy = FOODS.filter(f =>
@@ -353,11 +283,11 @@ var howBanner = function(txt){
       !wouldOverload(f)
     );
 
-    if (safeHealthy.length) {
+    if (safeHealthy.length && balanceScore() < 92) {
       return { ...pick(safeHealthy) };
     }
 
-    if (chance(.40)) {
+    if (chance(.44)) {
       return { ...pick(POWERS) };
     }
 
@@ -375,7 +305,7 @@ var howBanner = function(txt){
         icon:'🌧️',
         title:'Healthy Rain',
         text:'อาหารดีตกเร็วขึ้น! เลือกให้ถูก 3 ครั้ง',
-        sec:10,
+        sec:8,
         target:3
       },
       {
@@ -383,7 +313,7 @@ var howBanner = function(txt){
         icon:'🚨',
         title:'Junk Invasion',
         text:'ของหลอกบุก! รอดโดยไม่เลือก junk',
-        sec:8,
+        sec:7,
         target:0
       },
       {
@@ -391,7 +321,7 @@ var howBanner = function(txt){
         icon:'🔎',
         title:'Missing Group Alert',
         text:`รีบเติม ${m.icon} ${m.label} 2 ครั้ง`,
-        sec:10,
+        sec:8,
         target:2,
         group:m.id
       }
@@ -413,95 +343,28 @@ var howBanner = function(txt){
     showBanner(`${state.mini.icon} ${state.mini.title}!`);
     sfx('fever');
     logLine(`Mini Event: ${state.mini.title}`);
-
-    try {
-      if (state.mini.type === 'healthyRain') {
-        const safe = FOODS.filter(f =>
-          !f.junk &&
-          f.effects &&
-          !wouldOverload(f)
-        );
-
-        for (let i = 0; i < 2; i++) {
-          setTimeout(() => {
-            if (
-              state.running &&
-              !state.ended &&
-              state.mini &&
-              state.mini.type === 'healthyRain'
-            ) {
-              spawnFood({
-                ...pick(safe.length ? safe : FOODS.filter(f => !f.junk))
-              });
-            }
-          }, 180 + i * 420);
-        }
-      }
-
-      if (state.mini.type === 'missingAlert') {
-        const g = state.mini.group || mostMissingGroup().id;
-
-        const pool2 = FOODS.filter(f =>
-          !f.junk &&
-          f.effects &&
-          f.effects[g] &&
-          !wouldOverload(f)
-        );
-
-        for (let i = 0; i < 2; i++) {
-          setTimeout(() => {
-            if (
-              state.running &&
-              !state.ended &&
-              state.mini &&
-              state.mini.type === 'missingAlert'
-            ) {
-              spawnFood({
-                ...pick(pool2.length ? pool2 : FOODS.filter(f => !f.junk))
-              });
-            }
-          }, 180 + i * 480);
-        }
-      }
-    } catch(e) {}
   };
 
-  updatePracticeCoach = function(){
-    const left = practiceLeftSec();
+  updateMiniEvent = function(){
+    if (!state.mini) return;
 
-    let ph = 0;
+    const left = Math.max(0, state.miniExpire - now());
 
-    if (left <= PRACTICE_SEC * .66) ph = 1;
-    if (left <= PRACTICE_SEC * .33) ph = 2;
+    if (els.miniEventSec) els.miniEventSec.textContent = Math.ceil(left/1000) + 's';
+    if (els.miniEventFill) els.miniEventFill.style.width = clamp(left/(state.mini.sec*1000)*100,0,100) + '%';
 
-    state.practicePhase = ph;
+    if (left <= 0) {
+      let success = false;
 
-    const data = [
-      {
-        icon:'✅',
-        title:'Practice 1/3',
-        text:'เลือกอาหารที่มีป้าย “ควรเก็บ” เพื่อเติมหมู่ที่จานยังขาด'
-      },
-      {
-        icon:'⚠️',
-        title:'Practice 2/3',
-        text:'ถ้าเห็นป้าย “ล้น!” ให้ระวัง อาหารดีแต่หมู่นั้นเต็มแล้ว'
-      },
-      {
-        icon:'🚫',
-        title:'Practice 3/3',
-        text:'หลบ Junk เช่น ของทอด ของหวาน น้ำหวาน แล้วเก็บของดีให้ทัน'
+      if (state.mini.type === 'healthyRain') {
+        success = state.miniStats && state.miniStats.hits >= Math.max(2, state.mini.target - 1);
+      } else if (state.mini.type === 'missingAlert') {
+        success = state.miniStats && state.miniStats.groupHits >= Math.max(1, state.mini.target - 1);
+      } else if (state.mini.type === 'junkInvasion') {
+        success = state.miniStats && state.miniStats.junk === 0;
       }
-    ][ph];
 
-    if (els.practiceIcon) els.practiceIcon.textContent = data.icon;
-    if (els.practiceTitle) els.practiceTitle.textContent = data.title;
-    if (els.practiceText) els.practiceText.textContent = data.text;
-    if (els.practiceSec) els.practiceSec.textContent = Math.ceil(left) + 's';
-    if (els.practiceFill) els.practiceFill.style.width = clamp(left/PRACTICE_SEC*100,0,100) + '%';
-
-    if (ph === 1) {
-      state.fill.carb = Math.max(state.fill.carb, targetOf('carb'));
+      finishMiniEvent(success);
     }
   };
 
@@ -518,8 +381,8 @@ var howBanner = function(txt){
     const m = mostMissingGroup();
 
     state.fill[m.id] = Math.min(
-      targetOf(m.id) * .7,
-      (state.fill[m.id] || 0) + .55
+      targetOf(m.id) * .72,
+      (state.fill[m.id] || 0) + targetOf(m.id) * .16
     );
 
     addScore(30, 'Rescue +30', 'power');
@@ -532,70 +395,41 @@ var howBanner = function(txt){
     updateAll();
   };
 
-  updateAll = function(){
-    resolvePlateEls();
-
-    const left = state.practiceActive
-      ? Math.ceil(practiceLeftSec())
-      : Math.ceil(timeLeft());
-
-    const total = state.practiceActive ? PRACTICE_SEC : state.totalSec;
-
-    syncHudStats();
-
-    if (els.timerFill) {
-      setWidthSafe(els.timerFill, clamp(left / total * 100, 0, 100) + '%');
-      toggleSafe(els.timerFill, 'danger', left <= 15);
-    }
-
-    const phaseName = state.boss
-      ? (
-          state.bossDefeated
-            ? 'Boss defeated • รักษาจานให้จบสวย'
-            : 'Boss Plate • ทำถูกเพื่อลด HP'
-        )
-      : state.rush
-        ? 'Rush Window • คะแนน x2'
-        : `Wave ${state.wave || 1} • ${DIFF}`;
-
-    setTextSafe(
-      els.phaseText,
-      state.practiceActive
-        ? '🧑‍🍳 Practice Mode • ลองก่อน คะแนนยังไม่คิดจริง'
-        : isFever()
-          ? '🔥 FEVER MODE • คะแนน x2'
-          : phaseName
-    );
-
-    updateMeters();
-    renderPlate();
-    updatePowers();
-    updateBoss();
-    renderMissions();
-    updatePlateHealthUI();
+  const oldBossAttack = bossAttack;
+  bossAttack = function(){
+    oldBossAttack();
+    clampAllGroups();
+    updateAll();
   };
 
-  goCooldown = function(){
-    flushLogs(true);
+  function rootHubUrl(){
+    const raw = qs('hub','');
 
-    const gate = new URL(
-      'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html',
-      location.href
-    );
+    if (!raw) return HUB_URL;
 
-    const zoneUrl = new URL(
-      'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
-      location.href
-    );
+    try {
+      const u = new URL(raw, location.href);
 
-    preserveParams(zoneUrl, [
+      if (u.pathname.includes('/herohealth/nutrition-zone.html')) {
+        return u.searchParams.get('hub') || HUB_URL;
+      }
+
+      return u.toString();
+    } catch(e) {
+      return HUB_URL;
+    }
+  }
+
+  buildNutritionZoneUrl = function(fromTag){
+    const u = new URL(NUTRITION_ZONE_URL, location.href);
+
+    preserveParams(u, [
       'pid',
       'name',
       'nick',
       'diff',
       'time',
       'view',
-      'run',
       'seed',
       'studyId',
       'conditionGroup',
@@ -605,25 +439,32 @@ var howBanner = function(txt){
       'api'
     ]);
 
-    zoneUrl.searchParams.set('pid', qs('pid','anon'));
+    u.searchParams.set('pid', qs('pid','anon'));
 
     const nm = qs('name', qs('nick',''));
-    if (nm) zoneUrl.searchParams.set('name', nm);
+    if (nm) u.searchParams.set('name', nm);
 
-    zoneUrl.searchParams.set('diff', qs('diff','normal'));
-    zoneUrl.searchParams.set('time', qs('time','120'));
-    zoneUrl.searchParams.set('view', qs('view','mobile'));
-    zoneUrl.searchParams.set('run', qs('run','play'));
-    zoneUrl.searchParams.set('zone','nutrition');
-    zoneUrl.searchParams.set('from','plate-solo-cooldown');
+    u.searchParams.set('diff', qs('diff','normal'));
+    u.searchParams.set('time', qs('time','120'));
+    u.searchParams.set('view', qs('view','mobile'));
+    u.searchParams.set('run','play');
+    u.searchParams.set('zone','nutrition');
+    u.searchParams.set('from', fromTag || 'plate-solo');
+    u.searchParams.set('hub', rootHubUrl());
 
-    zoneUrl.searchParams.set(
-      'hub',
-      qs(
-        'rootHub',
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
-      )
-    );
+    return u;
+  };
+
+  goBack = function(){
+    flushLogs(true);
+    location.href = buildNutritionZoneUrl('plate-solo').toString();
+  };
+
+  goCooldown = function(){
+    flushLogs(true);
+
+    const gate = new URL(COOLDOWN_GATE_URL, location.href);
+    const zoneUrl = buildNutritionZoneUrl('plate-solo-cooldown-done');
 
     preserveParams(gate, [
       'pid',
@@ -632,7 +473,6 @@ var howBanner = function(txt){
       'diff',
       'time',
       'view',
-      'run',
       'seed',
       'studyId',
       'conditionGroup',
@@ -644,38 +484,30 @@ var howBanner = function(txt){
 
     gate.searchParams.set('pid', qs('pid','anon'));
 
+    const nm = qs('name', qs('nick',''));
     if (nm) gate.searchParams.set('name', nm);
 
     gate.searchParams.set('diff', qs('diff','normal'));
     gate.searchParams.set('time', qs('time','120'));
     gate.searchParams.set('view', qs('view','mobile'));
-    gate.searchParams.set('run', qs('run','play'));
+    gate.searchParams.set('run','play');
 
     gate.searchParams.set('phase','cooldown');
     gate.searchParams.set('zone','nutrition');
+    gate.searchParams.set('cat','nutrition');
     gate.searchParams.set('game','plate');
     gate.searchParams.set('gameId','plate');
     gate.searchParams.set('mode','solo');
     gate.searchParams.set('entry','plate-solo');
     gate.searchParams.set('from','plate-solo-summary');
 
-    // สำคัญ: หลัง cooldown จบ ต้องกลับ Nutrition Zone
     gate.searchParams.set('hub', zoneUrl.toString());
     gate.searchParams.set('next', zoneUrl.toString());
+    gate.searchParams.set('returnTo', zoneUrl.toString());
+    gate.searchParams.set('back', zoneUrl.toString());
 
     location.href = gate.toString();
   };
 
-  try {
-    if (els && els.btnCooldown) {
-      els.btnCooldown.__plateBound = false;
-    }
-
-    if (els && els.btnSummaryBack) {
-      els.btnSummaryBack.__plateBound = false;
-    }
-
-    if (typeof bind === 'function') bind();
-  } catch(e) {}
-
+  console.info('[Plate Solo Patch]', VERSION, 'installed inside scope');
 })();
