@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.1 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.1.1 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v21-run-rematch-attack-shield"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v211-rematch-consent-lock"></script>
 
   <style>
     :root{
@@ -132,6 +132,11 @@
       color:#123f5f;
     }
 
+    .btn.danger{
+      background:linear-gradient(180deg,#ffd1d1,#ff9a9a);
+      color:#681818;
+    }
+
     .btn:disabled{
       opacity:.48;
       cursor:not-allowed;
@@ -156,8 +161,23 @@
       font-weight:1000;
     }
 
-    .stat small{display:block;color:#7c610e;font-size:11px;line-height:1;text-transform:uppercase;font-weight:1000;}
-    .stat b{display:block;margin-top:3px;color:var(--text);font-size:20px;line-height:1;font-weight:1000;}
+    .stat small{
+      display:block;
+      color:#7c610e;
+      font-size:11px;
+      line-height:1;
+      text-transform:uppercase;
+      font-weight:1000;
+    }
+
+    .stat b{
+      display:block;
+      margin-top:3px;
+      color:var(--text);
+      font-size:20px;
+      line-height:1;
+      font-weight:1000;
+    }
 
     .rival{
       padding:9px 12px;
@@ -167,7 +187,12 @@
       align-items:center;
     }
 
-    .rivalName{font-size:18px;line-height:1.1;font-weight:1000;color:var(--text);}
+    .rivalName{
+      font-size:18px;
+      line-height:1.1;
+      font-weight:1000;
+      color:var(--text);
+    }
 
     .statePill{
       border:3px solid var(--line2);
@@ -182,6 +207,7 @@
 
     .statePill.play{border-color:#ccefbd;background:#f7fff0;color:#3d7c22;}
     .statePill.end{border-color:#ffd0d0;background:#fff1f1;color:#9c2f2f;}
+    .statePill.wait{border-color:#ffe08a;background:#fff8db;color:#7c4d00;}
 
     .rivalStats{
       grid-column:1/-1;
@@ -202,8 +228,19 @@
       font-weight:1000;
     }
 
-    .rivalCard small{color:#7c610e;font-size:10px;text-transform:uppercase;line-height:1;}
-    .rivalCard b{color:var(--text);font-size:18px;line-height:1;margin-top:3px;}
+    .rivalCard small{
+      color:#7c610e;
+      font-size:10px;
+      text-transform:uppercase;
+      line-height:1;
+    }
+
+    .rivalCard b{
+      color:var(--text);
+      font-size:18px;
+      line-height:1;
+      margin-top:3px;
+    }
 
     .arena{
       position:relative;
@@ -289,7 +326,11 @@
     }
 
     .toast.show{display:block;animation:toastIn .2s ease;}
-    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+
+    @keyframes toastIn{
+      from{opacity:0;transform:translateX(-50%) translateY(-8px);}
+      to{opacity:1;transform:translateX(-50%) translateY(0);}
+    }
 
     .bottom{
       min-height:58px;
@@ -309,7 +350,12 @@
       text-overflow:ellipsis;
     }
 
-    .miniStats{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+    .miniStats{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
 
     .pill{
       border:3px solid var(--line2);
@@ -340,16 +386,17 @@
       z-index:50;
       display:none;
       place-items:center;
-      padding:18px;
+      padding:calc(18px + var(--sat)) 18px calc(18px + var(--sab));
       background:rgba(98,55,30,.42);
       backdrop-filter:blur(6px);
+      overflow:auto;
     }
 
     .overlay.show{display:grid;}
 
     .modal{
       width:min(92vw,740px);
-      max-height:92dvh;
+      max-height:calc(100dvh - 36px - var(--sat) - var(--sab));
       overflow:auto;
       border:4px solid var(--line);
       background:#fffef9;
@@ -405,7 +452,12 @@
       color:var(--text);
     }
 
-    .resultCard b{display:block;font-size:32px;line-height:1.05;margin:4px 0;}
+    .resultCard b{
+      display:block;
+      font-size:32px;
+      line-height:1.05;
+      margin:4px 0;
+    }
 
     .resultActions{
       display:grid;
@@ -451,11 +503,31 @@
         gap:7px;
       }
 
-      .brandIcon{width:44px;height:44px;min-width:44px;border-radius:16px;font-size:25px;}
-      h1{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .brandIcon{
+        width:44px;
+        height:44px;
+        min-width:44px;
+        border-radius:16px;
+        font-size:25px;
+      }
+
+      h1{
+        font-size:20px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
+
       .meta{font-size:10px;line-height:1.2;}
       .topActions{gap:5px;}
-      .top .btn{min-height:34px;height:34px;padding:5px 9px;border-radius:13px;font-size:12px;}
+
+      .top .btn{
+        min-height:34px;
+        height:34px;
+        padding:5px 9px;
+        border-radius:13px;
+        font-size:12px;
+      }
 
       .stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
       .stat{min-height:44px;padding:5px 3px;border-radius:14px;}
@@ -465,6 +537,7 @@
       .rival{padding:7px 8px;border-radius:18px;gap:6px;}
       .rivalName{font-size:13px;}
       .statePill{min-height:30px;padding:5px 10px;font-size:12px;}
+
       .rivalStats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
       .rivalCard{min-height:38px;padding:4px 3px;border-radius:13px;}
       .rivalCard small{font-size:8px;}
@@ -481,22 +554,54 @@
       }
 
       .hint{font-size:11px;line-height:1.25;}
-      .miniStats,.skillBar{gap:5px;justify-content:center;}
-      .pill{min-height:30px;padding:4px 7px;border-radius:12px;font-size:10px;}
-      .bottom .btn{min-height:34px;padding:5px 8px;font-size:11px;border-radius:12px;}
 
-      .modal{padding:18px;border-radius:28px;}
+      .miniStats,.skillBar{
+        gap:5px;
+        justify-content:center;
+      }
+
+      .pill{
+        min-height:30px;
+        padding:4px 7px;
+        border-radius:12px;
+        font-size:10px;
+      }
+
+      .bottom .btn{
+        min-height:34px;
+        padding:5px 8px;
+        font-size:11px;
+        border-radius:12px;
+      }
+
+      .overlay{
+        align-items:flex-start;
+        padding-top:calc(58px + var(--sat));
+      }
+
+      .modal{
+        padding:18px;
+        border-radius:28px;
+        max-height:calc(100dvh - 76px - var(--sat) - var(--sab));
+      }
+
       .resultGrid{grid-template-columns:1fr;}
       .resultActions{grid-template-columns:1fr;}
     }
 
     @media(max-width:420px){
-      .app{grid-template-rows:auto auto auto minmax(56dvh,1fr) auto;gap:5px;}
+      .app{
+        grid-template-rows:auto auto auto minmax(56dvh,1fr) auto;
+        gap:5px;
+      }
+
       .top{grid-template-columns:auto 1fr;}
       .topActions{grid-column:1/-1;justify-content:stretch;}
       .topActions .btn{flex:1 1 0;}
+
       .stats{grid-template-columns:repeat(3,minmax(0,1fr));}
       .rivalStats{grid-template-columns:repeat(3,minmax(0,1fr));}
+
       .arena{min-height:56dvh;}
       .target{width:78px;height:78px;font-size:43px;}
     }
@@ -510,7 +615,7 @@
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2.1</h1>
+        <h1>GoodJunk Battle v2.1.1</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -529,7 +634,7 @@
 
     <section class="box rival">
       <div class="rivalName">คู่แข่ง: <span id="rivalName">รอคู่แข่ง</span></div>
-      <div id="statePill" class="statePill">WAIT</div>
+      <div id="statePill" class="statePill wait">WAIT</div>
 
       <div class="rivalStats">
         <div class="rivalCard"><small>Rival Score</small><b id="rivalScore">0</b></div>
@@ -578,10 +683,10 @@
       </div>
 
       <div id="rematchBox" class="rematchBox">
-        <div id="rematchText">มีผู้เล่นขอ Battle อีกครั้ง</div>
+        <div id="rematchText">รออีกฝ่าย...</div>
         <div class="rematchActions">
           <button id="btnAcceptRematch" class="btn attack" type="button">✅ ยอมรับ</button>
-          <button id="btnDeclineRematch" class="btn" type="button">❌ ปฏิเสธ</button>
+          <button id="btnDeclineRematch" class="btn danger" type="button">❌ ปฏิเสธ</button>
         </div>
       </div>
 
@@ -597,7 +702,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_V21_RUN = 'v20260515-v21-rematch-junkstorm-shield-targetsize';
+    window.HHA_GJ_BATTLE_V211_RUN = 'v20260515-v211-rematch-consent-lock-final';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const $ = id => document.getElementById(id);
@@ -617,6 +722,7 @@
     let toastTimer = null;
     let ended = false;
     let finishing = false;
+    let rematchStarting = false;
     let appliedAttackIds = new Set();
 
     const state = {
@@ -639,12 +745,16 @@
       roomData:null,
       rival:null,
       startedAt:0,
-      stormUntil:0
+      stormUntil:0,
+      finalWritten:false
     };
 
     function qs(k,d=''){return params.get(k) ?? d;}
     function now(){return Date.now();}
-    function safeKey(v){return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';}
+
+    function safeKey(v){
+      return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';
+    }
 
     function sanitizeRoom(v){
       let s=String(v || '').trim().toUpperCase();
@@ -699,8 +809,35 @@
       return Object.values(room?.players || {}).filter(Boolean).sort((a,b)=>Number(a.joinedAt||0)-Number(b.joinedAt||0));
     }
 
-    function getMe(room){return room?.players?.[safeKey(state.pid)] || null;}
-    function getRival(room){return playersArray(room).find(p => p.pid !== state.pid) || null;}
+    function getMe(room){
+      return room?.players?.[safeKey(state.pid)] || null;
+    }
+
+    function getRival(room){
+      return playersArray(room).find(p => p.pid !== state.pid) || null;
+    }
+
+    function getFinishedPlayers(room){
+      return playersArray(room).filter(p => p && p.finished === true);
+    }
+
+    function allPlayersFinished(room){
+      const players = playersArray(room);
+      if(players.length < 2) return false;
+      return players.every(p => p.finished === true);
+    }
+
+    function rematchVotesComplete(room){
+      const players = playersArray(room);
+      const votes = room?.rematch?.votes || {};
+      if(players.length < 2) return false;
+      return players.every(p => votes[safeKey(p.pid)] === true);
+    }
+
+    function isHostForRoom(room){
+      const me = getMe(room);
+      return !!room && !!me && (room.hostPid === state.pid || me.role === 'host' || state.role === 'host');
+    }
 
     function buildLobbyUrl(){
       const u=new URL('./goodjunk-battle-v2-lobby.html', location.href);
@@ -717,6 +854,23 @@
       u.searchParams.set('restart','1');
       u.searchParams.set('newRound','1');
       u.searchParams.set('fromEnded','1');
+      return u.toString();
+    }
+
+    function buildFreshRunUrl(newMatchId){
+      const u = new URL('./goodjunk-battle-v2-run.html', location.href);
+      u.searchParams.set('room',state.room);
+      u.searchParams.set('roomId',state.room);
+      u.searchParams.set('matchId',newMatchId || '');
+      u.searchParams.set('pid',state.pid);
+      u.searchParams.set('name',state.name);
+      u.searchParams.set('role',state.role);
+      u.searchParams.set('host',state.role === 'host' ? '1' : '0');
+      u.searchParams.set('time',String(state.timeTotal));
+      u.searchParams.set('hub',state.hub);
+      u.searchParams.set('mode','battle-v2');
+      u.searchParams.set('entry','battle-v2');
+      u.searchParams.set('v','20260515-v211-rematch-consent-lock');
       return u.toString();
     }
 
@@ -775,6 +929,9 @@
       if(ended){
         pill.textContent='END';
         pill.className='statePill end';
+      }else if(!state.rival){
+        pill.textContent='WAIT';
+        pill.className='statePill wait';
       }else{
         pill.textContent='PLAY';
         pill.className='statePill play';
@@ -785,11 +942,19 @@
       state.roomData=room || null;
       if(!room) return;
 
+      const previousMatch = state.matchId;
+      const roomMatch = room.matchId || room.activeMatchId || '';
+
+      if(room.status === 'started' && roomMatch && previousMatch && roomMatch !== previousMatch && ended){
+        location.href = buildFreshRunUrl(roomMatch);
+        return;
+      }
+
       const me=getMe(room);
       const rival=getRival(room);
       state.rival=rival || null;
 
-      if(me && !finishing){
+      if(me && !finishing && !ended){
         state.score=Number(me.score ?? state.score ?? 0);
         state.good=Number(me.good ?? state.good ?? 0);
         state.junk=Number(me.junk ?? state.junk ?? 0);
@@ -836,11 +1001,13 @@
       try{
         await dbUpdate(playerPath(), payload);
       }catch(err){
-        console.warn('[GJ Battle v2.1] writeSelf failed', err);
+        console.warn('[GJ Battle v2.1.1] writeSelf failed', err);
       }
     }
 
-    function rand(min,max){return min + Math.random() * (max - min);}
+    function rand(min,max){
+      return min + Math.random() * (max - min);
+    }
 
     function isStormActive(){
       return now() < Number(state.stormUntil || 0);
@@ -997,10 +1164,12 @@
 
     async function useAttack(){
       if(ended || finishing) return;
+
       if(Number(state.attack || 0) < 3){
         showToast('⚡ พลังโจมตียังไม่เต็ม ต้องมี 3/3');
         return;
       }
+
       if(!state.rival){
         showToast('ยังไม่มีคู่แข่ง');
         return;
@@ -1018,6 +1187,7 @@
         fromName:state.name,
         toPid:state.rival.pid,
         toName:state.rival.name || 'คู่แข่ง',
+        matchId:state.matchId || '',
         createdAt:now(),
         durationMs:5200,
         active:true
@@ -1029,6 +1199,7 @@
 
     async function useShield(){
       if(ended || finishing) return;
+
       if(Number(state.shield || 0) < 1){
         showToast('🛡️ ยังไม่มี Shield');
         return;
@@ -1040,10 +1211,13 @@
 
     function handleIncomingAttacks(room){
       const attacks = room?.attacks || {};
+
       Object.values(attacks).forEach(atk=>{
         if(!atk || !atk.id) return;
         if(atk.toPid !== state.pid) return;
         if(appliedAttackIds.has(atk.id)) return;
+
+        if(atk.matchId && state.matchId && atk.matchId !== state.matchId) return;
 
         appliedAttackIds.add(atk.id);
 
@@ -1066,15 +1240,49 @@
       });
     }
 
+    function showEndWaitingForRival(room){
+      $('rematchBox').classList.add('show');
+
+      const players = playersArray(room);
+      const finishedCount = getFinishedPlayers(room).length;
+
+      $('rematchText').textContent =
+        players.length >= 2
+          ? `คุณจบแล้ว รออีกฝ่ายเล่นให้จบ... (${finishedCount}/${players.length})`
+          : 'รอคู่แข่งเข้าห้องให้ครบก่อน...';
+
+      $('btnAcceptRematch').disabled = true;
+      $('btnDeclineRematch').disabled = true;
+      $('btnAgain').disabled = true;
+      $('btnAgain').textContent = '⏳ รออีกฝ่ายจบก่อน';
+    }
+
+    function showRematchReady(){
+      $('btnAgain').disabled = false;
+      $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
+    }
+
     async function requestRematch(){
       if(!db) return;
+
+      const room = await dbGet(roomPath()).catch(()=>null);
+      if(!room) return;
+
+      if(!allPlayersFinished(room)){
+        showToast('⏳ รออีกฝ่ายเล่นให้จบก่อน จึงขอ Battle อีกครั้งได้');
+        showEndWaitingForRival(room);
+        return;
+      }
+
       const voteKey = safeKey(state.pid);
+      const currentMatchId = room.matchId || room.activeMatchId || state.matchId || '';
 
       await dbUpdate(rematchPath(),{
         requestedBy:state.pid,
         requestedByName:state.name,
         requestedAt:now(),
         status:'pending',
+        matchId:currentMatchId,
         updatedAt:now()
       });
 
@@ -1087,20 +1295,46 @@
         updatedAt:now()
       });
 
-      showToast('🔁 ส่งคำขอ Battle อีกครั้งแล้ว');
       $('rematchBox').classList.add('show');
-      $('rematchText').textContent='รออีกฝ่ายกดยอมรับ Battle อีกครั้ง';
+      $('rematchText').textContent='คุณยอมรับแล้ว รออีกฝ่าย...';
+      $('btnAgain').disabled = true;
+      $('btnAgain').textContent = '✅ ขอ Battle แล้ว';
+      $('btnAcceptRematch').disabled = true;
+      $('btnDeclineRematch').disabled = false;
+
+      showToast('🔁 ส่งคำขอ Battle อีกครั้งแล้ว');
     }
 
     async function acceptRematch(){
+      const room = await dbGet(roomPath()).catch(()=>null);
+
+      if(!room?.rematch || room.rematch.status !== 'pending'){
+        showToast('ยังไม่มีคำขอ Battle อีกครั้ง');
+        return;
+      }
+
+      if(!allPlayersFinished(room)){
+        showToast('⏳ ต้องรอทั้ง 2 ฝั่งจบก่อน');
+        showEndWaitingForRival(room);
+        return;
+      }
+
       const voteKey = safeKey(state.pid);
 
       await dbUpdate(`${rematchPath()}/votes`,{
         [voteKey]:true
       });
 
-      showToast('✅ ยอมรับ Rematch แล้ว');
-      await checkRematchStart();
+      $('btnAcceptRematch').disabled = true;
+      $('btnDeclineRematch').disabled = false;
+      $('rematchText').textContent='คุณยอมรับแล้ว รอเริ่มรอบใหม่...';
+
+      showToast('✅ ยอมรับ Battle อีกครั้งแล้ว');
+
+      const fresh = await dbGet(roomPath()).catch(()=>null);
+      if(fresh && rematchVotesComplete(fresh) && isHostForRoom(fresh)){
+        await startRematchIfHost(fresh);
+      }
     }
 
     async function declineRematch(){
@@ -1112,84 +1346,123 @@
         updatedAt:now()
       });
 
+      $('btnAcceptRematch').disabled = true;
+      $('btnDeclineRematch').disabled = true;
+      $('btnAgain').disabled = false;
+      $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
+      $('rematchText').textContent='คุณปฏิเสธ Battle อีกครั้งแล้ว';
+
       showToast('❌ ปฏิเสธ Rematch แล้ว');
     }
 
-    async function checkRematchStart(){
-      const room=await dbGet(roomPath()).catch(()=>null);
+    async function startRematchIfHost(room){
+      if(rematchStarting) return;
       if(!room) return;
+      if(!isHostForRoom(room)) return;
+      if(!allPlayersFinished(room)) return;
+      if(!rematchVotesComplete(room)) return;
 
-      const players=playersArray(room);
-      const votes=room?.rematch?.votes || {};
-      const allYes=players.length >= 2 && players.every(p => votes[safeKey(p.pid)] === true);
+      rematchStarting = true;
 
-      if(!allYes) return;
+      try{
+        const players = playersArray(room);
+        const oldMatchId = room.matchId || room.activeMatchId || state.matchId || '';
+        const newMatchId = 'BT2-' + safeKey(state.room) + '-' + Date.now().toString(36).toUpperCase();
 
-      if(state.role !== 'host') return;
+        await Promise.all(players.map(pl=>{
+          return dbUpdate(playerPath(pl.pid),{
+            score:0,
+            good:0,
+            junk:0,
+            miss:0,
+            heart:3,
+            combo:0,
+            attack:0,
+            shield:0,
+            finished:false,
+            finishReason:null,
+            finishedAt:null,
+            updatedAt:now()
+          }).catch(()=>{});
+        }));
 
-      const matchId='BT2-' + safeKey(state.room) + '-' + Date.now().toString(36).toUpperCase();
-
-      await Promise.all(players.map(pl=>{
-        return dbUpdate(playerPath(pl.pid),{
-          score:0,
-          good:0,
-          junk:0,
-          miss:0,
-          heart:3,
-          combo:0,
-          attack:0,
-          shield:0,
-          finished:false,
-          finishReason:null,
-          finishedAt:null,
+        await dbUpdate(roomPath(),{
+          status:'started',
+          matchId:newMatchId,
+          activeMatchId:newMatchId,
+          previousMatchId:oldMatchId,
+          startedAt:now(),
+          endedAt:null,
+          endReason:null,
+          rematch:null,
+          attacks:null,
           updatedAt:now()
-        }).catch(()=>{});
-      }));
+        });
 
-      await dbUpdate(roomPath(),{
-        status:'started',
-        matchId,
-        activeMatchId:matchId,
-        startedAt:now(),
-        endedAt:null,
-        endReason:null,
-        rematch:null,
-        attacks:null,
-        updatedAt:now()
-      });
-
-      const u=new URL(location.href);
-      u.searchParams.set('matchId',matchId);
-      location.href=u.toString();
+        location.href = buildFreshRunUrl(newMatchId);
+      }catch(err){
+        console.warn('[GJ Battle v2.1.1] startRematchIfHost failed', err);
+        showToast('เริ่ม Rematch ไม่สำเร็จ: ' + (err?.message || err), 2600);
+      }finally{
+        rematchStarting = false;
+      }
     }
 
     function handleRematch(room){
-      if(!room?.rematch) return;
+      if(!ended) return;
 
-      const rm=room.rematch;
-      const votes=rm.votes || {};
-      const myVote=votes[safeKey(state.pid)] === true;
-      const requester = rm.requestedByName || 'คู่แข่ง';
-
-      if(rm.status === 'declined'){
-        $('rematchBox').classList.add('show');
-        $('rematchText').textContent='มีผู้เล่นปฏิเสธ Battle อีกครั้ง';
+      if(!allPlayersFinished(room)){
+        showEndWaitingForRival(room);
         return;
       }
 
-      if(rm.status === 'pending' && ended){
-        $('rematchBox').classList.add('show');
+      showRematchReady();
 
-        if(myVote){
-          $('rematchText').textContent='คุณยอมรับแล้ว รออีกฝ่าย...';
-        }else{
-          $('rematchText').textContent=`${requester} ขอ Battle อีกครั้ง`;
-          showToast(`🔁 ${requester} ขอ Battle อีกครั้ง`);
-        }
+      const rm = room?.rematch;
+      if(!rm){
+        $('rematchBox').classList.remove('show');
+        $('btnAcceptRematch').disabled = true;
+        $('btnDeclineRematch').disabled = true;
+        return;
+      }
+
+      const votes = rm.votes || {};
+      const myVote = votes[safeKey(state.pid)] === true;
+      const requester = rm.requestedByName || 'คู่แข่ง';
+      const requesterIsMe = rm.requestedBy === state.pid;
+
+      $('rematchBox').classList.add('show');
+
+      if(rm.status === 'declined'){
+        $('rematchText').textContent = 'มีผู้เล่นปฏิเสธ Battle อีกครั้ง';
+        $('btnAcceptRematch').disabled = true;
+        $('btnDeclineRematch').disabled = true;
+        $('btnAgain').disabled = false;
+        $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
+        return;
       }
 
       if(rm.status === 'pending'){
-        checkRematchStart().catch(()=>{});
+        if(myVote){
+          $('rematchText').textContent = requesterIsMe
+            ? 'คุณขอ Battle อีกครั้งแล้ว รออีกฝ่ายกดยอมรับ...'
+            : 'คุณยอมรับแล้ว รอเริ่มรอบใหม่...';
+
+          $('btnAcceptRematch').disabled = true;
+          $('btnDeclineRematch').disabled = false;
+          $('btnAgain').disabled = true;
+          $('btnAgain').textContent = '✅ รออีกฝ่าย';
+        }else{
+          $('rematchText').textContent = `${requester} ขอ Battle อีกครั้ง`;
+          $('btnAcceptRematch').disabled = false;
+          $('btnDeclineRematch').disabled = false;
+          $('btnAgain').disabled = false;
+          $('btnAgain').textContent = '🔁 ขอ Battle เอง';
+        }
+
+        if(rematchVotesComplete(room) && isHostForRoom(room)){
+          startRematchIfHost(room).catch(()=>{});
+        }
       }
     }
 
@@ -1262,6 +1535,7 @@
         updatedAt:now()
       };
 
+      state.finalWritten = true;
       await writeSelf(finalMe, true).catch(()=>{});
 
       const latestRoom=db ? await dbGet(roomPath()).catch(()=>state.roomData) : state.roomData;
@@ -1298,16 +1572,27 @@
 
       $('overlay').classList.add('show');
 
-      if(writeEnd && db && state.role === 'host'){
+      if(latestRoom && !allPlayersFinished(latestRoom)){
+        showEndWaitingForRival(latestRoom);
+      }else{
+        showRematchReady();
+      }
+
+      if(writeEnd && db){
         try{
-          await dbUpdate(roomPath(),{
-            status:'ended',
-            endedAt:now(),
-            endReason:reason,
-            updatedAt:now()
-          });
+          const roomAfterWrite = await dbGet(roomPath()).catch(()=>latestRoom);
+          const allFinished = allPlayersFinished(roomAfterWrite);
+
+          if(allFinished && isHostForRoom(roomAfterWrite)){
+            await dbUpdate(roomPath(),{
+              status:'ended',
+              endedAt:now(),
+              endReason:reason,
+              updatedAt:now()
+            });
+          }
         }catch(err){
-          console.warn('[GJ Battle v2.1] room end update failed', err);
+          console.warn('[GJ Battle v2.1.1] room end update failed', err);
         }
       }
 
@@ -1318,12 +1603,55 @@
       const room=await dbGet(roomPath()).catch(()=>null);
       if(!room) throw new Error('Room not found');
 
-      if(String(room.status).toLowerCase() === 'ended'){
-        throw new Error('Room already ended. Go back to Lobby and start a new round.');
+      if(String(room.status).toLowerCase() === 'ended' || String(room.status).toLowerCase() === 'rematch'){
+        const roomMatch = room.matchId || room.activeMatchId || '';
+        const myMatch = state.matchId || '';
+
+        if(room.status === 'ended' || room.status === 'rematch'){
+          state.roomData = room;
+          syncRoom(room);
+
+          const me = getMe(room);
+          if(me && me.finished === true){
+            state.score=Number(me.score || 0);
+            state.good=Number(me.good || 0);
+            state.junk=Number(me.junk || 0);
+            state.miss=Number(me.miss || 0);
+            state.heart=Number(me.heart || 0);
+            state.combo=Number(me.combo || 0);
+            state.attack=Number(me.attack || 0);
+            state.shield=Number(me.shield || 0);
+
+            ended = true;
+            $('overlay').classList.add('show');
+            $('modalTitle').textContent='จบ Battle!';
+            $('modalReason').textContent='เหตุผล: ' + (me.finishReason || room.endReason || 'ended');
+            $('resultMeName').textContent=state.name;
+            $('resultMeScore').textContent=String(state.score);
+            $('resultMeMeta').textContent=`Good: ${state.good} • Junk: ${state.junk} • Miss: ${state.miss}`;
+
+            const rival = getRival(room) || {};
+            $('resultRivalName').textContent=rival.name || 'คู่แข่ง';
+            $('resultRivalScore').textContent=String(rival.score || 0);
+            $('resultRivalMeta').textContent=`Good: ${rival.good || 0} • Junk: ${rival.junk || 0} • Miss: ${rival.miss || 0}`;
+
+            handleRematch(room);
+            updateHud();
+            return;
+          }
+        }
+
+        if(room.status === 'ended'){
+          throw new Error('Room already ended. Go back to Lobby and start a new round.');
+        }
+
+        if(room.status === 'rematch' && roomMatch === myMatch){
+          throw new Error('Room is waiting for rematch consent.');
+        }
       }
 
       state.roomData=room;
-      state.matchId=state.matchId || room.matchId || '';
+      state.matchId=state.matchId || room.matchId || room.activeMatchId || '';
 
       const me=getMe(room);
 
@@ -1365,6 +1693,9 @@
       $('btnAgain').addEventListener('click', requestRematch);
       $('btnAcceptRematch').addEventListener('click', acceptRematch);
       $('btnDeclineRematch').addEventListener('click', declineRematch);
+
+      $('btnAcceptRematch').disabled = true;
+      $('btnDeclineRematch').disabled = true;
     }
 
     async function boot(){
@@ -1381,10 +1712,13 @@
         await firebaseReady();
         await ensureJoined();
         unsub=dbOn(roomPath(), syncRoom);
-        startGameLoop();
+
+        if(!ended){
+          startGameLoop();
+        }
       }catch(err){
-        console.error('[GJ Battle v2.1] boot failed', err);
-        $('hint').textContent='โหลด Battle v2.1 ไม่สำเร็จ: ' + (err?.message || err);
+        console.error('[GJ Battle v2.1.1] boot failed', err);
+        $('hint').textContent='โหลด Battle v2.1.1 ไม่สำเร็จ: ' + (err?.message || err);
         $('statePill').textContent='ERROR';
         $('statePill').className='statePill end';
       }
