@@ -3,78 +3,510 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Lobby</title>
+  <title>HeroHealth • GoodJunk Race Lobby v2.2.5</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --bg1:#e9f8ff;--bg2:#fff7d8;--panel:#fffef9;--stroke:#9fe3ff;--stroke2:#c9efff;
-      --text:#174b68;--muted:#5c7b8d;--warn:#ffd75a;--good:#7ed957;--shadow:0 18px 44px rgba(50,120,160,.16);
-      --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);
+      --bg1:#e9f8ff;
+      --bg2:#fff7d8;
+      --panel:#fffef9;
+      --panel2:#f4fbff;
+      --stroke:#9fe3ff;
+      --stroke2:#c9efff;
+      --text:#174b68;
+      --muted:#5c7b8d;
+      --warn:#ffd75a;
+      --good:#7ed957;
+      --blue:#58b7f5;
+      --orange:#ffbd78;
+      --shadow:0 18px 44px rgba(50,120,160,.16);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--text);
-      background:radial-gradient(circle at 12% 8%,#fff,transparent 22%),linear-gradient(180deg,var(--bg1),var(--bg2));}
-    .app{width:min(96vw,980px);margin:0 auto;min-height:100dvh;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));display:grid;gap:14px;align-content:center}
-    .panel{border:4px solid var(--stroke);background:linear-gradient(180deg,#fffef9,#f4fbff);border-radius:34px;box-shadow:var(--shadow);padding:22px;display:grid;gap:16px;text-align:center}
-    .icon{width:92px;height:92px;border-radius:32px;border:4px solid var(--stroke2);background:linear-gradient(180deg,#fff,#c9efff);display:grid;place-items:center;font-size:52px;margin:0 auto}
-    h1{margin:0;font-size:clamp(36px,7vw,60px);line-height:1;font-weight:1000}
-    p{margin:0;color:var(--muted);font-size:16px;line-height:1.65;font-weight:900}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .card{border:3px solid var(--stroke2);background:#fff;border-radius:24px;padding:14px;font-weight:1000;line-height:1.5}
-    .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .btn{min-height:56px;border-radius:20px;border:3px solid var(--stroke2);background:#fff;color:var(--text);text-decoration:none;display:flex;align-items:center;justify-content:center;font-weight:1000;padding:10px;text-align:center}
-    .btn.good{background:linear-gradient(180deg,#a6f071,#7ed957);border-color:#b8f29a;color:#173b0b}
-    .btn.warn{background:linear-gradient(180deg,#ffe785,#ffd75a);border-color:#ffe08a;color:#553900}
-    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);border-color:#9fe3ff;color:#08374d}
-    @media(max-width:720px){.grid,.actions{grid-template-columns:1fr}.panel{padding:16px}}
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%,rgba(255,255,255,.95),transparent 22%),
+        radial-gradient(circle at 82% 10%,rgba(88,183,245,.18),transparent 24%),
+        radial-gradient(circle at 76% 94%,rgba(255,215,90,.26),transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    body{
+      overflow-x:hidden;
+    }
+
+    .app{
+      width:min(96vw,1040px);
+      margin:0 auto;
+      min-height:100dvh;
+      padding:
+        calc(16px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      display:grid;
+      gap:14px;
+      align-content:center;
+    }
+
+    .panel{
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border-radius:34px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      display:grid;
+      gap:16px;
+      text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .panel::before{
+      content:"";
+      position:absolute;
+      left:-80px;
+      top:-90px;
+      width:230px;
+      height:230px;
+      border-radius:999px;
+      background:rgba(159,227,255,.42);
+      filter:blur(5px);
+    }
+
+    .panel::after{
+      content:"";
+      position:absolute;
+      right:-80px;
+      bottom:-90px;
+      width:230px;
+      height:230px;
+      border-radius:999px;
+      background:rgba(255,215,90,.28);
+      filter:blur(5px);
+    }
+
+    .panel > *{
+      position:relative;
+      z-index:1;
+    }
+
+    .icon{
+      width:96px;
+      height:96px;
+      border-radius:34px;
+      border:4px solid var(--stroke2);
+      background:linear-gradient(180deg,#fff,#c9efff);
+      display:grid;
+      place-items:center;
+      font-size:54px;
+      margin:0 auto;
+      box-shadow:0 14px 30px rgba(50,120,160,.12);
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(38px,7vw,64px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-.03em;
+      color:var(--text);
+    }
+
+    p{
+      margin:0 auto;
+      max-width:760px;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .metaLine{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+      margin-top:-2px;
+    }
+
+    .pill{
+      min-height:34px;
+      border:3px solid var(--stroke2);
+      border-radius:999px;
+      background:#fff;
+      color:var(--text);
+      padding:6px 12px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:1000;
+      font-size:13px;
+      box-shadow:0 8px 18px rgba(50,120,160,.08);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .card{
+      border:3px solid var(--stroke2);
+      background:#fff;
+      border-radius:24px;
+      padding:14px;
+      font-weight:1000;
+      line-height:1.5;
+      min-height:90px;
+      display:grid;
+      place-items:center;
+      box-shadow:0 8px 18px rgba(50,120,160,.08);
+    }
+
+    .card b{
+      display:block;
+      font-size:18px;
+      color:var(--text);
+    }
+
+    .card span{
+      display:block;
+      margin-top:4px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .btn{
+      min-height:58px;
+      border-radius:22px;
+      border:3px solid var(--stroke2);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:1000;
+      padding:10px 12px;
+      text-align:center;
+      cursor:pointer;
+      box-shadow:0 12px 24px rgba(50,120,160,.10);
+      user-select:none;
+      font-size:15px;
+    }
+
+    .btn:hover{
+      filter:brightness(1.04);
+      transform:translateY(-1px);
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#a6f071,#7ed957);
+      border-color:#b8f29a;
+      color:#173b0b;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      border-color:#ffe08a;
+      color:#553900;
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
+      border-color:#9fe3ff;
+      color:#08374d;
+    }
+
+    .settings{
+      border:3px dashed var(--stroke2);
+      border-radius:26px;
+      background:rgba(255,255,255,.70);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .settingsTitle{
+      font-weight:1000;
+      font-size:18px;
+      color:var(--text);
+    }
+
+    .fields{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+      text-align:left;
+    }
+
+    .field label{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+      padding-left:4px;
+    }
+
+    .field input,
+    .field select{
+      min-height:46px;
+      border:3px solid var(--stroke2);
+      border-radius:18px;
+      background:#fff;
+      color:var(--text);
+      padding:8px 10px;
+      font-weight:1000;
+      text-align:center;
+      outline:none;
+      width:100%;
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:var(--blue);
+      outline:4px solid rgba(88,183,245,.18);
+    }
+
+    .notice{
+      border:3px solid rgba(255,189,120,.55);
+      background:#fffef9;
+      color:#7b684d;
+      border-radius:22px;
+      padding:12px 14px;
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    .notice b{
+      color:var(--text);
+    }
+
+    .footer{
+      text-align:center;
+      color:#5c7b8d;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    @media(max-width:820px){
+      .grid,
+      .actions,
+      .fields{
+        grid-template-columns:1fr;
+      }
+
+      .panel{
+        padding:16px;
+      }
+
+      .icon{
+        width:82px;
+        height:82px;
+        border-radius:30px;
+        font-size:48px;
+      }
+    }
   </style>
 </head>
+
 <body>
   <main class="app">
     <section class="panel">
       <div class="icon">🏁</div>
-      <h1>GoodJunk Race</h1>
-      <p>
-        Race Lobby พร้อมใช้งานเป็นทางเข้าโหมดแข่งความเร็ว ไม่เป็น dead link แล้ว
-        โหมดนี้จะต่อ gameplay เต็มภายหลัง: แข่งเก็บ Good ให้ถึงเส้นชัย / คะแนนเป้าหมายก่อน
-      </p>
+
+      <div>
+        <h1>GoodJunk Race</h1>
+        <p>
+          โหมด Race สำหรับแข่งความเร็ว เก็บอาหารดีให้ได้มากที่สุด ไปให้ถึงเป้าหมายก่อน
+          และหลบ Junk เพื่อไม่ให้เสียจังหวะ
+        </p>
+      </div>
+
+      <div class="metaLine">
+        <div class="pill">🏁 Race Mode</div>
+        <div class="pill">⚡ Speed Challenge</div>
+        <div class="pill">👥 Multiplayer Ready</div>
+        <div class="pill">🍎 GoodJunk</div>
+      </div>
+
+      <section class="settings">
+        <div class="settingsTitle">⚙️ ตั้งค่า Race</div>
+
+        <div class="fields">
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" autocomplete="off" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">ชื่อผู้เล่น</label>
+            <input id="name" autocomplete="nickname" placeholder="Hero" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ระดับ</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+              <option value="challenge">challenge</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="60">60s</option>
+              <option value="90" selected>90s</option>
+              <option value="120">120s</option>
+              <option value="150">150s</option>
+              <option value="180">180s</option>
+            </select>
+          </div>
+        </div>
+      </section>
 
       <div class="grid">
-        <div class="card">🎯 Goal: เก็บ Good ถึงเป้า</div>
-        <div class="card">⚡ Speed: แข่งความเร็ว</div>
-        <div class="card">👥 Multiplayer: หลายคน</div>
+        <div class="card">
+          <div>
+            <b>🎯 Goal</b>
+            <span>เก็บ Good ให้ถึงเป้าหมาย</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div>
+            <b>⚡ Speed</b>
+            <span>แข่งกับเวลาและคู่แข่ง</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div>
+            <b>🥇 Win</b>
+            <span>คะแนน/ความเร็วสูงสุดชนะ</span>
+          </div>
+        </div>
       </div>
 
       <div class="actions">
+        <a id="btnStartRace" class="btn good" href="./goodjunk-race-run.html">🏁 เริ่ม Race</a>
         <a id="btnModes" class="btn warn" href="./goodjunk-modes.html">🎮 โหมดทั้งหมด</a>
-        <a id="btnBattle" class="btn good" href="./goodjunk-battle-v2-lobby.html">⚔️ ไป Battle v2</a>
         <a id="btnZone" class="btn info" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
       </div>
+
+      <div class="notice">
+        <b>Race path:</b>
+        หน้านี้จะเข้าไฟล์ Race ของตัวเองเท่านั้น ไม่พาไป Battle v2 แล้ว
+      </div>
     </section>
+
+    <div class="footer">
+      HeroHealth • GoodJunk Race Lobby v2.2.5 • Start → goodjunk-race-run.html
+    </div>
   </main>
 
   <script>
   (() => {
     'use strict';
-    window.HHA_GJ_RACE_LOBBY = 'v20260515-race-lobby-skeleton';
+
+    window.HHA_GJ_RACE_LOBBY = 'v20260515-race-lobby-v225-start-race-not-battle';
 
     const p = new URLSearchParams(location.search);
     const $ = id => document.getElementById(id);
 
-    function qs(k,d=''){ return p.get(k) ?? d; }
+    function qs(k,d=''){
+      return p.get(k) ?? d;
+    }
 
-    function pass(path, extra={}){
-      const u = new URL(path, location.href);
-      const base = {
-        pid:qs('pid','anon'),
-        name:qs('name',qs('nick','Hero')),
-        nick:qs('nick',qs('name','Hero')),
-        diff:qs('diff','normal'),
-        time:qs('time','90'),
-        view:qs('view','mobile'),
-        device:qs('device',qs('view','mobile')),
-        hub:qs('hub','../nutrition-zone.html'),
+    function clean(v,d=''){
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
+
+    function detectView(){
+      const ua = navigator.userAgent || '';
+      return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
+    }
+
+    function normalizeView(v){
+      const s = String(v || '').toLowerCase().trim();
+      if (['pc','desktop','computer'].includes(s)) return 'pc';
+      if (['mobile','phone','touch'].includes(s)) return 'mobile';
+      if (['cardboard','cvr','vr'].includes(s)) return 'cardboard';
+      return detectView();
+    }
+
+    function makePid(){
+      const key = 'HHA_GJ_RACE_PID';
+      try{
+        let pid = localStorage.getItem(key);
+        if (!pid){
+          pid = 'gj-race-' + Math.random().toString(36).slice(2,8).toUpperCase();
+          localStorage.setItem(key,pid);
+        }
+        return pid;
+      }catch(_){
+        return 'gj-race-' + Math.random().toString(36).slice(2,8).toUpperCase();
+      }
+    }
+
+    function initFields(){
+      $('pid').value = clean(qs('pid',''), makePid());
+      $('name').value = clean(qs('name', qs('nick','Hero')), 'Hero');
+      $('diff').value = clean(qs('diff','normal'), 'normal');
+      $('time').value = clean(qs('time','90'), '90');
+
+      try{
+        const savedName = localStorage.getItem('HHA_GJ_RACE_NAME');
+        if (!qs('name','') && savedName) $('name').value = savedName;
+      }catch(_){}
+    }
+
+    function baseParams(extra={}){
+      const view = normalizeView(qs('view', qs('device', detectView())));
+      const hub = clean(
+        qs('hub',''),
+        new URL('../nutrition-zone.html', location.href).toString()
+      );
+
+      return {
+        pid: clean($('pid').value,'anon'),
+        name: clean($('name').value,'Hero'),
+        nick: clean($('name').value,'Hero'),
+        diff: clean($('diff').value,'normal'),
+        time: clean($('time').value,'90'),
+        view,
+        device:view,
+        run:'play',
         zone:'nutrition',
         cat:'nutrition',
         game:'goodjunk',
@@ -84,18 +516,62 @@
         entry:'race',
         recommendedMode:'race',
         multiplayer:'1',
-        v:'20260515-race-skeleton',
+        hub,
+        v:'20260515-race-lobby-v225',
         ...extra
       };
-      Object.entries(base).forEach(([k,v]) => {
-        if (v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k,String(v));
+    }
+
+    function pass(path, extra={}){
+      const u = new URL(path, location.href);
+      const obj = baseParams(extra);
+
+      Object.entries(obj).forEach(([k,v]) => {
+        if (v !== undefined && v !== null && String(v) !== '') {
+          u.searchParams.set(k,String(v));
+        }
       });
+
       return u.toString();
     }
 
-    $('btnModes').href = pass('./goodjunk-modes.html',{mode:'race'});
-    $('btnBattle').href = pass('./goodjunk-battle-v2-lobby.html',{mode:'battle-v2',entry:'battle-v2',recommendedMode:'battle-v2'});
-    $('btnZone').href = qs('hub','../nutrition-zone.html');
+    function updateLinks(){
+      $('btnStartRace').href = pass('./goodjunk-race-run.html',{
+        mode:'race',
+        entry:'race',
+        recommendedMode:'race',
+        run:'play'
+      });
+
+      $('btnModes').href = pass('./goodjunk-modes.html',{
+        mode:'race',
+        entry:'race',
+        recommendedMode:'race',
+        run:'menu'
+      });
+
+      $('btnZone').href = clean(
+        qs('hub',''),
+        new URL('../nutrition-zone.html', location.href).toString()
+      );
+    }
+
+    function bind(){
+      ['pid','name','diff','time'].forEach(id => {
+        $(id).addEventListener('input', updateLinks);
+        $(id).addEventListener('change', () => {
+          updateLinks();
+          try{
+            if (id === 'pid') localStorage.setItem('HHA_GJ_RACE_PID', $('pid').value);
+            if (id === 'name') localStorage.setItem('HHA_GJ_RACE_NAME', $('name').value);
+          }catch(_){}
+        });
+      });
+    }
+
+    initFields();
+    updateLinks();
+    bind();
   })();
   </script>
 </body>
