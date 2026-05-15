@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Lobby v2.3</title>
+  <title>HeroHealth • GoodJunk Race Lobby v2.3.1</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-race-lobby-v230-sprint-classroom"></script>
+  <script src="../firebase-config.js?v=20260515-gj-race-lobby-v231-guest-run-lock"></script>
 
   <style>
     :root{
@@ -52,7 +52,9 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    body{overflow-x:hidden;}
+    body{
+      overflow-x:hidden;
+    }
 
     .app{
       width:min(96vw,1160px);
@@ -105,7 +107,10 @@
       filter:blur(5px);
     }
 
-    .panel > *{position:relative;z-index:1;}
+    .panel > *{
+      position:relative;
+      z-index:1;
+    }
 
     .icon{
       width:96px;
@@ -317,7 +322,9 @@
       gap:14px;
     }
 
-    .roomBox.show{display:grid;}
+    .roomBox.show{
+      display:grid;
+    }
 
     .roomTop{
       display:grid;
@@ -434,10 +441,13 @@
       transform:translateY(-1px);
     }
 
-    .btn:disabled{
+    .btn:disabled,
+    .btn.disabled,
+    .btn[aria-disabled="true"]{
       opacity:.45;
       cursor:not-allowed;
-      filter:grayscale(.3);
+      pointer-events:none;
+      filter:grayscale(.25);
       transform:none;
     }
 
@@ -476,7 +486,9 @@
       font-weight:900;
     }
 
-    .notice b{color:var(--text);}
+    .notice b{
+      color:var(--text);
+    }
 
     .toast{
       position:fixed;
@@ -496,7 +508,9 @@
       text-align:center;
     }
 
-    .toast.show{display:block;}
+    .toast.show{
+      display:block;
+    }
 
     .footer{
       text-align:center;
@@ -507,10 +521,21 @@
     }
 
     @media(max-width:980px){
-      .fields{grid-template-columns:repeat(2,minmax(0,1fr));}
-      .wide{grid-column:span 2;}
-      .players{grid-template-columns:repeat(2,minmax(0,1fr));}
-      .actions{grid-template-columns:repeat(2,minmax(0,1fr));}
+      .fields{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .wide{
+        grid-column:span 2;
+      }
+
+      .players{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .actions{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
     }
 
     @media(max-width:640px){
@@ -524,12 +549,38 @@
         align-content:start;
       }
 
-      .panel{padding:16px;}
-      .icon{width:82px;height:82px;border-radius:30px;font-size:48px;}
-      .grid,.fields,.players,.actions,.raceTypeBox{grid-template-columns:1fr;}
-      .wide{grid-column:auto;}
-      .roomTop{grid-template-columns:1fr;text-align:center;}
-      .roomCode{min-width:0;width:100%;}
+      .panel{
+        padding:16px;
+      }
+
+      .icon{
+        width:82px;
+        height:82px;
+        border-radius:30px;
+        font-size:48px;
+      }
+
+      .grid,
+      .fields,
+      .players,
+      .actions,
+      .raceTypeBox{
+        grid-template-columns:1fr;
+      }
+
+      .wide{
+        grid-column:auto;
+      }
+
+      .roomTop{
+        grid-template-columns:1fr;
+        text-align:center;
+      }
+
+      .roomCode{
+        min-width:0;
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -542,7 +593,7 @@
       <div class="icon">🏁</div>
 
       <div>
-        <h1>GoodJunk Race v2.3</h1>
+        <h1>GoodJunk Race v2.3.1</h1>
         <p>
           เลือก Race Sprint สำหรับกลุ่มเล็ก หรือ Race Classroom สำหรับกิจกรรมห้องเรียน 5–10 คน
           กติกา Race ไม่มี Attack ใส่คู่แข่ง ใช้ Boost ช่วยตัวเองและแข่ง progress ไปถึงเส้นชัย
@@ -650,7 +701,7 @@
         <div class="card">
           <div>
             <b>3) Host เริ่ม Race</b>
-            <span>มีผู้เล่นอย่างน้อย 2 คนก็เริ่มได้</span>
+            <span>Host กดเริ่ม แล้วทุกเครื่องเข้า Run อัตโนมัติ</span>
           </div>
         </div>
       </div>
@@ -677,21 +728,21 @@
           <button id="btnStart" class="btn good" type="button" disabled>▶ เริ่ม Race</button>
           <button id="btnCopy" class="btn info" type="button">📋 คัดลอก Room</button>
           <button id="btnLeave" class="btn danger" type="button">ออกจากห้อง</button>
-          <a id="btnRunDirect" class="btn warn" href="./goodjunk-race-run.html">เข้า Run</a>
+          <a id="btnRunDirect" class="btn warn disabled" href="./goodjunk-race-run.html" aria-disabled="true">รอ Host เริ่มก่อน</a>
         </div>
 
         <div class="notice">
-          <b>Race Rule:</b> ไม่มี Attack ใส่คู่แข่ง • ใช้ Boost ช่วยตัวเอง • แสดง Top 3 + Your Rank • Host เริ่มได้เมื่อมีผู้เล่นอย่างน้อย 2 คน
+          <b>Race Rule:</b> ไม่มี Attack ใส่คู่แข่ง • ใช้ Boost ช่วยตัวเอง • แสดง Top 3 + Your Rank • Host กดเริ่ม แล้วทุกเครื่องเข้า Run อัตโนมัติ
         </div>
       </section>
 
       <div class="notice">
-        <b>v2.3:</b> Race มี option แล้ว — Sprint 2–4 คน และ Classroom 5–10 คน โดยยังใช้ห้องเดียวกันก่อนเข้าเกม
+        <b>v2.3.1:</b> ล็อกปุ่ม Run สำรองแล้ว — Guest/KK จะกดเข้า Run เองไม่ได้ตอนยังเป็น lobby ต้องรอ Host กดเริ่ม Race
       </div>
     </section>
 
     <div class="footer">
-      HeroHealth • GoodJunk Race Lobby v2.3 • Sprint/Classroom • capacity 2–10 • no attack
+      HeroHealth • GoodJunk Race Lobby v2.3.1 • Guest Run Lock • Auto Redirect • Sprint/Classroom • no attack
     </div>
   </main>
 
@@ -699,7 +750,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_RACE_LOBBY = 'v20260515-race-lobby-v230-sprint-classroom-capacity-2-10';
+    window.HHA_GJ_RACE_LOBBY = 'v20260515-race-lobby-v231-guest-run-lock-auto-redirect';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/raceRooms';
 
@@ -732,6 +783,7 @@
     let selectedRaceType = normalizeRaceType(qs('raceType', qs('type','sprint')));
     let toastTimer = null;
     let booted = false;
+    let redirecting = false;
 
     function qs(k,d=''){
       return p.get(k) ?? d;
@@ -946,7 +998,7 @@
         roomId:currentRoom,
         role:currentRole || 'guest',
         host:currentRole === 'host' ? '1' : '0',
-        v:'20260515-race-lobby-v230',
+        v:'20260515-race-lobby-v231',
         ...extra
       };
 
@@ -1045,25 +1097,48 @@
         .replaceAll("'","&#039;");
     }
 
+    function isActivePlayer(pl){
+      const last = Number(pl?.lastSeenAt || pl?.updatedAt || 0);
+      if (!last) return true;
+      return Date.now() - last <= 15000;
+    }
+
+    function activePlayersOnly(players){
+      return players.filter(isActivePlayer);
+    }
+
+    function setRunButtonEnabled(enabled, url=''){
+      const btn = $('btnRunDirect');
+
+      if (url) btn.href = url;
+
+      btn.classList.toggle('disabled', !enabled);
+      btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+      btn.textContent = enabled ? 'เข้า Run สำรอง' : 'รอ Host เริ่มก่อน';
+    }
+
     function renderRoom(roomData){
       if (!roomData){
         $('roomBox').classList.remove('show');
+        setRunButtonEnabled(false);
         return;
       }
 
       $('roomBox').classList.add('show');
       $('roomCode').textContent = roomData.roomId || currentRoom;
 
-      const count = playersArray(roomData).length;
+      const players = playersArray(roomData);
+      const active = activePlayersOnly(players);
+      const count = players.length;
+      const activeCount = active.length;
       const cap = Number(roomData.capacity || getCapacity());
       const status = roomData.status || 'lobby';
       const raceType = normalizeRaceType(roomData.raceType || roomData.type || getRaceType());
       const typeMeta = RACE_TYPES[raceType] || RACE_TYPES.sprint;
 
       $('roomSub').textContent =
-        `สถานะ: ${status} • ${typeMeta.icon} ${typeMeta.label} • ผู้เล่น ${count}/${cap} • เวลา ${roomData.timeSec || getTime()}s • ไม่มี Attack`;
+        `สถานะ: ${status} • ${typeMeta.icon} ${typeMeta.label} • ผู้เล่น ${count}/${cap} • ออนไลน์ ${activeCount}/${cap} • เวลา ${roomData.timeSec || getTime()}s • ไม่มี Attack`;
 
-      const players = playersArray(roomData);
       const wrap = $('players');
       wrap.innerHTML = '';
 
@@ -1075,8 +1150,9 @@
 
         if (pl){
           const isHost = pl.role === 'host';
+          const online = isActivePlayer(pl);
           div.innerHTML = `
-            <div class="slot">#${i+1} ${isHost ? '👑' : '👤'}</div>
+            <div class="slot">#${i+1} ${isHost ? '👑' : '👤'} ${online ? '🟢' : '🔴'}</div>
             <div class="name">${escapeHtml(pl.name || 'Player')}</div>
             <div class="role">${isHost ? 'host' : 'guest'} • ${pl.ready ? 'พร้อม' : 'รอ'} • ${escapeHtml(pl.view || '-')}</div>
           `;
@@ -1088,15 +1164,9 @@
       }
 
       const isHost = roomData.hostPid === getPid() || currentRole === 'host';
-      const canStart = isHost && count >= 2 && count <= cap && status !== 'started';
-
-      $('btnStart').disabled = !canStart;
-      $('btnStart').textContent = isHost
-        ? (count >= 2 ? `▶ เริ่ม Race (${count}/${cap})` : `⏳ ต้องมีอย่างน้อย 2 คน`)
-        : '⏳ รอ Host เริ่ม';
-
       const activeMatch = roomData.matchId || roomData.activeMatchId || '';
-      $('btnRunDirect').href = pass('./goodjunk-race-run.html',{
+
+      const runUrl = pass('./goodjunk-race-run.html',{
         matchId:activeMatch,
         run:'play',
         raceType,
@@ -1104,14 +1174,31 @@
         capacity:String(cap)
       });
 
-      if (status === 'started' && activeMatch){
-        location.href = pass('./goodjunk-race-run.html',{
-          matchId:activeMatch,
-          run:'play',
-          raceType,
-          type:raceType,
-          capacity:String(cap)
-        });
+      const canStart =
+        isHost &&
+        activeCount >= 2 &&
+        activeCount <= cap &&
+        status !== 'countdown' &&
+        status !== 'started' &&
+        status !== 'ended';
+
+      $('btnStart').disabled = !canStart;
+      $('btnStart').textContent = isHost
+        ? (activeCount >= 2 ? `▶ เริ่ม Race (${activeCount}/${cap})` : `⏳ ต้องมีอย่างน้อย 2 คน`)
+        : '⏳ รอ Host เริ่ม';
+
+      const canManualRun =
+        (status === 'countdown' || status === 'started') &&
+        !!activeMatch;
+
+      setRunButtonEnabled(canManualRun, runUrl);
+
+      if ((status === 'countdown' || status === 'started') && activeMatch && !redirecting){
+        redirecting = true;
+        showToast('🏁 Race เริ่มแล้ว กำลังเข้า Run...',900);
+        setTimeout(() => {
+          location.href = runUrl;
+        }, 250);
       }
     }
 
@@ -1150,6 +1237,13 @@
           teamMode:false,
           matchId:'',
           activeMatchId:'',
+          countdownAt:null,
+          startedAt:null,
+          endedAt:null,
+          endReason:null,
+          finalSummary:null,
+          raceEndLock:null,
+          finishWindow:false,
           createdAt,
           updatedAt:createdAt,
           players:{
@@ -1235,14 +1329,17 @@
         subscribe(room);
         updateLinks();
 
-        if (data.status === 'started' && (data.matchId || data.activeMatchId)){
-          location.href = pass('./goodjunk-race-run.html',{
+        if ((data.status === 'countdown' || data.status === 'started') && (data.matchId || data.activeMatchId)){
+          const runUrl = pass('./goodjunk-race-run.html',{
             matchId:data.matchId || data.activeMatchId,
             run:'play',
             raceType:selectedRaceType,
             type:selectedRaceType,
             capacity:String(dataCap)
           });
+
+          redirecting = true;
+          location.href = runUrl;
           return;
         }
 
@@ -1276,16 +1373,30 @@
           return;
         }
 
-        const players = playersArray(data);
-        const cap = Number(data.capacity || getCapacity());
-
-        if (players.length < 2){
-          showToast(`Race ต้องมีผู้เล่นอย่างน้อย 2 คน ตอนนี้ ${players.length}/${cap}`,2600);
+        if (data.status === 'countdown' || data.status === 'started'){
+          showToast('Race เริ่มแล้ว กำลังเข้า Run...');
+          const runUrl = pass('./goodjunk-race-run.html',{
+            matchId:data.matchId || data.activeMatchId || '',
+            run:'play',
+            raceType:data.raceType || data.type || getRaceType(),
+            type:data.raceType || data.type || getRaceType(),
+            capacity:String(data.capacity || getCapacity())
+          });
+          location.href = runUrl;
           return;
         }
 
-        if (players.length > cap){
-          showToast(`ผู้เล่นเกินจำนวนห้อง ${players.length}/${cap}`,2600);
+        const players = playersArray(data);
+        const active = activePlayersOnly(players);
+        const cap = Number(data.capacity || getCapacity());
+
+        if (active.length < 2){
+          showToast(`Race ต้องมีผู้เล่นออนไลน์อย่างน้อย 2 คน ตอนนี้ ${active.length}/${cap}`,2600);
+          return;
+        }
+
+        if (active.length > cap){
+          showToast(`ผู้เล่นเกินจำนวนห้อง ${active.length}/${cap}`,2600);
           return;
         }
 
@@ -1293,7 +1404,7 @@
         const matchId = 'RC-' + safeKey(currentRoom) + '-' + Date.now().toString(36).toUpperCase();
 
         const resetPlayers = {};
-        players.forEach((pl,idx) => {
+        active.forEach((pl,idx) => {
           resetPlayers[safeKey(pl.pid)] = {
             ...pl,
             rank:idx + 1,
@@ -1305,8 +1416,12 @@
             combo:0,
             shield:0,
             boost:0,
+            sprintUntil:0,
+            magnetUntil:0,
+            rushUntil:0,
             finished:false,
             finishAt:null,
+            finishReason:'',
             updatedAt:now(),
             lastSeenAt:now()
           };
@@ -1321,12 +1436,18 @@
           type:raceType,
           noAttack:true,
           capacity:cap,
-          activePlayers:players.length,
+          activePlayers:active.length,
           startedBy:getPid(),
           startedAt:null,
           endedAt:null,
           endReason:null,
           finalSummary:null,
+          raceEndLock:null,
+          finishWindow:false,
+          finishWindowStartedAt:null,
+          finishWindowUntil:null,
+          firstFinisherPid:'',
+          firstFinisherName:'',
           players:resetPlayers,
           updatedAt:now()
         });
@@ -1341,16 +1462,25 @@
                 updatedAt:now()
               });
             }
-          }catch(_){}
+          }catch(err){
+            console.warn('[GoodJunk Race Lobby] countdown->started failed', err);
+          }
         },3200);
 
-        location.href = pass('./goodjunk-race-run.html',{
+        const runUrl = pass('./goodjunk-race-run.html',{
           matchId,
           run:'play',
           raceType,
           type:raceType,
           capacity:String(cap)
         });
+
+        redirecting = true;
+        showToast('🏁 เริ่ม Race! กำลังเข้า Run...',900);
+        setTimeout(() => {
+          location.href = runUrl;
+        },250);
+
       }catch(err){
         console.error(err);
         showToast('เริ่ม Race ไม่สำเร็จ: ' + (err?.message || err),3200);
@@ -1363,6 +1493,7 @@
         currentRole = '';
         $('roomInput').value = '';
         $('roomBox').classList.remove('show');
+        setRunButtonEnabled(false);
         updateLinks();
         return;
       }
@@ -1398,6 +1529,7 @@
       }
 
       $('roomBox').classList.remove('show');
+      setRunButtonEnabled(false);
       updateLinks();
       showToast('ออกจากห้องแล้ว');
     }
@@ -1415,11 +1547,9 @@
       $('btnModes').href = pass('./goodjunk-modes.html',{run:'menu'});
       $('btnZone').href = getHub();
 
-      if (currentRoom){
-        $('btnRunDirect').href = pass('./goodjunk-race-run.html',{
-          run:'play'
-        });
-      }
+      setRunButtonEnabled(false, pass('./goodjunk-race-run.html',{
+        run:'play'
+      }));
     }
 
     async function copyRoom(){
@@ -1453,6 +1583,14 @@
       $('btnStart').addEventListener('click', startRace);
       $('btnCopy').addEventListener('click', copyRoom);
       $('btnLeave').addEventListener('click', leaveRoom);
+
+      $('btnRunDirect').addEventListener('click', ev => {
+        const disabled = $('btnRunDirect').getAttribute('aria-disabled') === 'true';
+        if (disabled){
+          ev.preventDefault();
+          showToast('ต้องรอ Host กดเริ่ม Race ก่อน');
+        }
+      });
 
       ['pid','name','diff','time','capacity','view','roomInput'].forEach(id => {
         $(id).addEventListener('input', updateLinks);
@@ -1511,10 +1649,34 @@
 
           subscribe(room);
           updateLinks();
+
+          if ((data.status === 'countdown' || data.status === 'started') && (data.matchId || data.activeMatchId)){
+            const runUrl = pass('./goodjunk-race-run.html',{
+              matchId:data.matchId || data.activeMatchId,
+              run:'play',
+              raceType:selectedRaceType,
+              type:selectedRaceType,
+              capacity:String(cap)
+            });
+
+            redirecting = true;
+            location.href = runUrl;
+          }
         }
       }catch(err){
         console.warn('[GoodJunk Race Lobby] auto join failed', err);
       }
+    }
+
+    async function heartbeat(){
+      if (!db || !currentRoom) return;
+
+      try{
+        await dbUpdate(playerPath(currentRoom),{
+          updatedAt:now(),
+          lastSeenAt:now()
+        });
+      }catch(_){}
     }
 
     async function boot(){
@@ -1528,6 +1690,8 @@
       try{
         await maybeAutoJoin();
       }catch(_){}
+
+      setInterval(heartbeat, 5000);
     }
 
     window.addEventListener('beforeunload', () => {
