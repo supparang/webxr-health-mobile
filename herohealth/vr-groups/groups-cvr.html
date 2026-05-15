@@ -566,7 +566,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.0-cvr-solo-crosshair-20260515';
+      const VERSION = 'v1.8b-cvr-core-direct-api-20260515';
 
       const GROUPS = [
         {id:1,key:'protein',label:'โปรตีน',short:'PROTEIN',icon:'🐟',color:'#ff8e82',foods:['🐟','🥚','🍗','🥩','🫘','🥛']},
@@ -758,6 +758,16 @@
         return u.toString();
       }
 
+      function roundedRect(ctx,x,y,w,h,r){
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+h,r);
+        ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r);
+        ctx.arcTo(x,y,x+w,y,r);
+        ctx.closePath();
+      }
+
       function makeCanvasTexture(lines, opts){
         opts = opts || {};
 
@@ -767,7 +777,6 @@
         canvas.height = size;
 
         const ctx = canvas.getContext('2d');
-
         ctx.clearRect(0,0,size,size);
 
         if(opts.round){
@@ -809,16 +818,6 @@
         texture.magFilter = THREE.LinearFilter;
 
         return texture;
-      }
-
-      function roundedRect(ctx,x,y,w,h,r){
-        ctx.beginPath();
-        ctx.moveTo(x+r,y);
-        ctx.arcTo(x+w,y,x+w,y+h,r);
-        ctx.arcTo(x+w,y+h,x,y+h,r);
-        ctx.arcTo(x,y+h,x,y,r);
-        ctx.arcTo(x,y,x+w,y,r);
-        ctx.closePath();
       }
 
       function setTexture(el, texture, transparent){
@@ -1014,6 +1013,7 @@
         els.fxRoot.innerHTML = '';
 
         unlockAudio();
+        buildGates();
         showScreen('game');
         newMission();
         updateHud();
@@ -1119,7 +1119,7 @@
       function loop(){
         if(state.ended || state.mode !== 'game') return;
 
-        if(state.current && state.itemEl && !state.spawnLock){
+        if(state.current && state.itemEl && state.itemEl.isConnected && !state.spawnLock){
           state.itemY -= itemFallSpeed() / 60;
           state.itemEl.setAttribute('position',`0 ${state.itemY.toFixed(3)} -2.65`);
 
@@ -1186,6 +1186,7 @@
         if(item.kind === 'decoy') el.dataset.kind = 'decoy';
         if(item.kind === 'power') el.dataset.kind = 'power';
         if(item.kind === 'golden') el.dataset.kind = 'golden';
+        if(item.kind === 'food') el.dataset.kind = 'food';
 
         el.addEventListener('click',()=>handleItemShot());
 
@@ -1266,7 +1267,7 @@
           return;
         }
 
-        toast('ยิงประตูหมู่ที่ถูก!');
+        toast('เล็งประตูหมู่ที่ถูก แล้วแตะจอเพื่อยิง');
         vibrate(18);
       }
 
@@ -1473,18 +1474,59 @@
         }
       }
 
+      function closestClickableFromObject(obj){
+        let cur = obj;
+
+        while(cur){
+          if(cur.el && cur.el.classList && cur.el.classList.contains('clickable')){
+            return cur.el;
+          }
+
+          if(cur.el && cur.el.parentElement){
+            let p = cur.el.parentElement;
+            while(p && p !== document.body){
+              if(p.classList && p.classList.contains('clickable')) return p;
+              p = p.parentElement;
+            }
+          }
+
+          cur = cur.parent;
+        }
+
+        return null;
+      }
+
+      function directShootTargetElement(target){
+        if(!target || state.ended || state.mode !== 'game' || state.spawnLock) return false;
+
+        const ds = target.dataset || {};
+        const role = ds.role || '';
+
+        if(role === 'gate'){
+          judgeGate(ds.group);
+          return true;
+        }
+
+        if(role === 'item'){
+          handleItemShot();
+          return true;
+        }
+
+        return false;
+      }
+
       function raycastShoot(){
-        if(state.mode !== 'game' || state.ended) return;
+        if(state.mode !== 'game' || state.ended || state.spawnLock) return false;
 
         const now = Date.now();
-        if(now - state.lastShotAt < 170) return;
+        if(now - state.lastShotAt < 170) return false;
         state.lastShotAt = now;
 
         unlockAudio();
 
         const camEl = els.camera;
         const cam = camEl && camEl.object3D;
-        if(!cam) return;
+        if(!cam) return false;
 
         const origin = new THREE.Vector3();
         const direction = new THREE.Vector3();
@@ -1492,38 +1534,35 @@
         cam.getWorldPosition(origin);
         cam.getWorldDirection(direction);
 
-        const raycaster = new THREE.Raycaster(origin,direction,0,12);
-
         const clickableEls = Array.from(document.querySelectorAll('.clickable'));
         const objects = clickableEls
-          .map(el=>el.getObject3D('mesh'))
+          .map(el=>el.object3D || el.getObject3D('mesh'))
           .filter(Boolean);
 
+        if(!objects.length){
+          toast('ยังไม่มีเป้าหมาย');
+          return false;
+        }
+
+        const raycaster = new THREE.Raycaster(origin,direction,0,18);
         const hits = raycaster.intersectObjects(objects,true);
 
         if(!hits.length){
           toast('เล็งเป้าหมายก่อน');
           vibrate(12);
-          return;
+          return false;
         }
 
-        let obj = hits[0].object;
-        let targetEl = obj.el;
+        const targetEl = closestClickableFromObject(hits[0].object);
+        const ok = directShootTargetElement(targetEl);
 
-        while(!targetEl && obj.parent){
-          obj = obj.parent;
-          targetEl = obj.el;
+        if(ok){
+          vibrate(18);
+          return true;
         }
 
-        if(!targetEl) return;
-
-        const role = targetEl.dataset.role;
-
-        if(role === 'gate'){
-          judgeGate(targetEl.dataset.group);
-        }else if(role === 'item'){
-          handleItemShot();
-        }
+        toast('ยังยิงไม่เข้าเป้า');
+        return false;
       }
 
       function rank(){
@@ -1636,6 +1675,37 @@
         location.href = zoneUrl();
       }
 
+      function recoverArena(){
+        if(state.ended || state.mode !== 'game') return false;
+
+        try{
+          if(document.querySelectorAll('.clickable[data-role="gate"]').length < 5){
+            buildGates();
+          }
+        }catch(e){}
+
+        try{
+          const hasItem = Boolean(state.current && state.itemEl && state.itemEl.isConnected);
+          if(!hasItem){
+            state.spawnLock = false;
+            spawnItem();
+          }
+        }catch(e){}
+
+        try{
+          updateHud();
+        }catch(e){}
+
+        return true;
+      }
+
+      function forceSpawn(){
+        if(state.ended || state.mode !== 'game') return false;
+        state.spawnLock = false;
+        spawnItem();
+        return true;
+      }
+
       function installEvents(){
         els.startBtn.addEventListener('click',()=>start(false));
         els.practiceBtn.addEventListener('click',()=>start(true));
@@ -1654,15 +1724,43 @@
         document.addEventListener('pointerdown',unlockAudio,{once:true,passive:true});
 
         window.HHA_GROUPS_CVR_V1 = {
-          version:VERSION,
-          shoot:raycastShoot,
-          getState:function(){
-            return Object.assign({},state,{
-              current:state.current
+          version: VERSION,
+
+          shoot: raycastShoot,
+
+          directGate: function(groupKey){
+            if(!groupKey || state.ended || state.mode !== 'game' || state.spawnLock) return false;
+            judgeGate(groupKey);
+            return true;
+          },
+
+          directItem: function(){
+            if(state.ended || state.mode !== 'game' || state.spawnLock) return false;
+            handleItemShot();
+            return true;
+          },
+
+          directShootTarget: function(target){
+            return directShootTargetElement(target);
+          },
+
+          recoverArena: recoverArena,
+
+          forceSpawn: forceSpawn,
+
+          rebuildGates: function(){
+            buildGates();
+            return true;
+          },
+
+          getState: function(){
+            return Object.assign({}, state, {
+              current: state.current
             });
           },
-          end:endGame,
-          returnToNutritionZone:goZone
+
+          end: endGame,
+          returnToNutritionZone: goZone
         };
       }
 
@@ -1679,6 +1777,8 @@
       }
     })();
   </script>
+
+  <!-- ไม่โหลด v11 และ v17 แล้ว เพื่อไม่ให้ระบบยิงชนกัน -->
   <script src="./groups-cvr-aim-assist-v12.js?v=20260515-groups-cvr-v12-aim-assist"></script>
   <script src="./groups-cvr-comfort-v13.js?v=20260515-groups-cvr-v13-comfort"></script>
   <script src="./groups-cvr-event-boss-v14.js?v=20260515-groups-cvr-v14-event-boss"></script>
