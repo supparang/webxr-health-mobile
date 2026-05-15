@@ -551,7 +551,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.8d-cvr-core-soft-retry-20260515';
+      const VERSION = 'v1.9b-cvr-core-decoy-pacing-20260515';
 
       const GROUPS = [
         {id:1,key:'protein',label:'โปรตีน',short:'PROTEIN',icon:'🐟',color:'#ff8e82',foods:['🐟','🥚','🍗','🥩','🫘','🥛']},
@@ -640,6 +640,9 @@
         missionClear:0,
         powerUsed:{shield:0,slow:0},
         groupHits:{protein:0,carb:0,veg:0,fruit:0,fat:0},
+        decoyStreak:0,
+        decoyCooldown:0,
+        lastKinds:[],
         mission:null,
         raf:0,
         timer:null,
@@ -986,6 +989,9 @@
         state.missionClear = 0;
         state.powerUsed = {shield:0,slow:0};
         state.groupHits = {protein:0,carb:0,veg:0,fruit:0,fat:0};
+        state.decoyStreak = 0;
+        state.decoyCooldown = 0;
+        state.lastKinds = [];
         state.spawnLock = false;
 
         els.itemRoot.innerHTML = '';
@@ -1111,38 +1117,97 @@
       }
 
       function chooseItem(){
-        let decoyRate = .12;
-        let goldenRate = .09;
-        let powerRate = .06;
+        let decoyRate = .08;
+        let goldenRate = .10;
+        let powerRate = .07;
 
-        if(state.diff === 'easy'){ decoyRate = .07; goldenRate = .12; }
-        if(state.diff === 'hard'){ decoyRate = .18; goldenRate = .08; }
-        if(state.diff === 'challenge'){ decoyRate = .24; goldenRate = .07; }
+        if(state.diff === 'easy'){
+          decoyRate = .05;
+          goldenRate = .13;
+          powerRate = .08;
+        }
 
-        if(state.phase === 'storm') decoyRate += .05;
-        if(state.phase === 'boss') decoyRate += .1;
-        if(state.feverActive) goldenRate += .04;
+        if(state.diff === 'hard'){
+          decoyRate = .12;
+          goldenRate = .09;
+          powerRate = .07;
+        }
+
+        if(state.diff === 'challenge'){
+          decoyRate = .16;
+          goldenRate = .08;
+          powerRate = .07;
+        }
+
+        if(state.phase === 'storm'){
+          decoyRate += .03;
+        }
+
+        if(state.phase === 'boss'){
+          decoyRate += .05;
+        }
+
+        if(state.feverActive){
+          goldenRate += .04;
+          decoyRate = Math.max(.04, decoyRate - .03);
+        }
+
+        const missionNeedsDecoy =
+          state.mission &&
+          state.mission.type === 'dodge' &&
+          Number(state.mission.got || 0) < Number(state.mission.need || 0);
+
+        if(missionNeedsDecoy){
+          decoyRate = Math.max(decoyRate, .14);
+        }
+
+        if(state.decoyCooldown > 0){
+          decoyRate = 0;
+        }
+
+        if(state.decoyStreak >= 1){
+          decoyRate = 0;
+        }
+
+        const recentDecoys = (state.lastKinds || []).filter(k => k === 'decoy').length;
+
+        if(recentDecoys >= 2){
+          decoyRate = 0;
+        }
+
+        decoyRate = clamp(decoyRate, 0, .18);
 
         const roll = rnd();
+        let item;
 
         if(roll < powerRate){
           const p = pick(POWERS);
-          return {kind:'power',icon:p.icon,power:p.type,label:p.label,group:null};
-        }
-
-        if(roll < powerRate + decoyRate){
+          item = {kind:'power',icon:p.icon,power:p.type,label:p.label,group:null};
+        }else if(roll < powerRate + decoyRate){
           const d = pick(DECOYS);
-          return {kind:'decoy',icon:d.icon,label:d.label,group:null};
+          item = {kind:'decoy',icon:d.icon,label:d.label,group:null};
+        }else{
+          const group = pick(GROUPS);
+          const icon = pick(group.foods);
+
+          if(roll < powerRate + decoyRate + goldenRate){
+            item = {kind:'golden',icon,group,label:group.label};
+          }else{
+            item = {kind:'food',icon,group,label:group.label};
+          }
         }
 
-        const group = pick(GROUPS);
-        const icon = pick(group.foods);
-
-        if(roll < powerRate + decoyRate + goldenRate){
-          return {kind:'golden',icon,group,label:group.label};
+        if(item.kind === 'decoy'){
+          state.decoyStreak = (state.decoyStreak || 0) + 1;
+          state.decoyCooldown = missionNeedsDecoy ? 1 : 3;
+        }else{
+          state.decoyStreak = 0;
+          state.decoyCooldown = Math.max(0, Number(state.decoyCooldown || 0) - 1);
         }
 
-        return {kind:'food',icon,group,label:group.label};
+        state.lastKinds = (state.lastKinds || []).concat(item.kind).slice(-5);
+
+        return item;
       }
 
       function spawnItem(){
