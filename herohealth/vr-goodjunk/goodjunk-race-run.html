@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Run v2.3.6</title>
+  <title>HeroHealth • GoodJunk Race Run v2.3.7</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-race-run-v236-balance"></script>
+  <script src="../firebase-config.js?v=20260515-gj-race-run-v237-fair-sprint"></script>
 
   <style>
     :root{
@@ -738,7 +738,7 @@
       <div class="brandIcon">🏁</div>
       <div>
         <h1>GoodJunk Race</h1>
-        <div id="meta" class="meta">Race v2.3.6 • loading…</div>
+        <div id="meta" class="meta">Race v2.3.7 • loading…</div>
       </div>
       <div class="topActions">
         <a id="btnLobby" class="btn" href="./goodjunk-race-lobby.html">Lobby</a>
@@ -793,7 +793,7 @@
     </section>
 
     <section class="box bottom">
-      <div>Race ไม่มี Attack • Boost ช่วยตัวเอง • Balance PC/Mobile • ถึง 100% เปิด Finish Window 5s</div>
+      <div>Race ไม่มี Attack • Fair Sprint • Balance PC/Mobile • Finish Window ตามโหมด</div>
       <div class="chip" id="goodChip">Good 0</div>
       <div class="chip" id="junkChip">Junk 0</div>
       <div class="chip" id="missChip">Miss 0</div>
@@ -835,11 +835,12 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_RACE_RUN = 'v20260515-race-run-v236-balance-pc-mobile';
+    window.HHA_GJ_RACE_RUN = 'v20260515-race-run-v237-fair-sprint-polish';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/raceRooms';
     const TOP_N = 3;
     const FINISH_WINDOW_MS = 5000;
+    const FINISH_WINDOW_SPRINT_DUEL_MS = 7000;
     const END_LOCK_KEY = 'raceEndLock';
 
     const RACE_BALANCE = {
@@ -858,7 +859,7 @@
         goodTtl:2300,
         badTtl:1750,
         boostTtl:1700,
-        missPenalty:0.15,
+        missPenalty:0.12,
         sprintMaxTargets:5,
         classroomMaxTargets:7,
         sizeMin:82,
@@ -1045,6 +1046,12 @@
       if (gap >= 45) return 2;
       if (gap >= 30) return 1;
       return 0;
+    }
+
+    function finishWindowMs(){
+      const players = playersArray(state.roomData);
+      const isDuelSprint = state.raceType === 'sprint' && players.length <= 2;
+      return isDuelSprint ? FINISH_WINDOW_SPRINT_DUEL_MS : FINISH_WINDOW_MS;
     }
 
     function currentMaxTargets(){
@@ -1573,7 +1580,12 @@
         const sprintMul = isSprint() ? 1.35 : 1;
 
         const scoreGain = Math.round((10 + Math.min(12,state.combo + 1)) * rushMul);
-        const progressGain = (2.2 + Math.min(1.8,state.combo * .08)) * sprintMul;
+
+        let progressGain = (2.2 + Math.min(1.8,state.combo * .08)) * sprintMul;
+        const catchup = getCatchupLevel();
+
+        if (catchup === 1) progressGain *= 1.06;
+        if (catchup === 2) progressGain *= 1.12;
 
         state.good++;
         state.combo++;
@@ -1654,19 +1666,21 @@
 
       finishWindowStarted = true;
 
-      const until = now() + FINISH_WINDOW_MS;
+      const fwMs = finishWindowMs();
+      const until = now() + fwMs;
 
       state.finishWindowUntil = until;
       state.firstFinisherPid = firstPid || state.pid;
       state.firstFinisherName = firstName || state.name;
 
-      showToast(`🏁 ${state.firstFinisherName} เข้าเส้นชัย! เหลือ 5 วินาทีแย่งอันดับ`,2600);
+      showToast(`🏁 ${state.firstFinisherName} เข้าเส้นชัย! เหลือ ${Math.round(fwMs/1000)} วินาทีแย่งอันดับ`,2600);
 
       try{
         await dbUpdate(roomPath(),{
           finishWindow:true,
           finishWindowStartedAt:now(),
           finishWindowUntil:until,
+          finishWindowMs:fwMs,
           firstFinisherPid:state.firstFinisherPid,
           firstFinisherName:state.firstFinisherName,
           updatedAt:now()
@@ -1680,7 +1694,7 @@
         if (!ended && !finishing && isEffectiveHost(state.roomData)){
           globalEnd('finish-window-ended').catch(err => console.warn(err));
         }
-      }, FINISH_WINDOW_MS + 250);
+      }, fwMs + 250);
     }
 
     async function finishSelf(reason='finish-line'){
@@ -1758,7 +1772,7 @@
         raceType:state.raceType,
         capacity:state.capacity,
         reason,
-        finishWindowMs:FINISH_WINDOW_MS,
+        finishWindowMs:Number(room?.finishWindowMs || finishWindowMs()),
         firstFinisherPid:state.firstFinisherPid || room?.firstFinisherPid || '',
         firstFinisherName:state.firstFinisherName || room?.firstFinisherName || '',
         endedAt:now(),
@@ -1807,7 +1821,7 @@
 
       const reasonText =
         summary.reason === 'finish-window-ended'
-          ? 'มีผู้เล่นเข้าเส้นชัย และจบหลัง Finish Window 5 วินาที'
+          ? `มีผู้เล่นเข้าเส้นชัย และจบหลัง Finish Window ${Math.round((summary.finishWindowMs || FINISH_WINDOW_MS)/1000)} วินาที`
           : summary.reason === 'time-up'
             ? 'หมดเวลา'
             : summary.reason || 'ended';
@@ -1838,8 +1852,22 @@
 
       if (me){
         const accuracy = calcAccuracy(me);
+        const myProgress = Math.round(me.progress || 0);
+
+        let cheer = '';
+        if (meRank === 1){
+          cheer = '🏆 เยี่ยมมาก! คุณเข้าเส้นชัยก่อน';
+        }else if (myProgress >= 70){
+          cheer = '🔥 ใกล้มาก! อีกนิดเดียวจะทันแล้ว';
+        }else if (myProgress >= 40){
+          cheer = '💪 ทำได้ดีขึ้นมาก! ยังมีลุ้นรอบหน้า';
+        }else{
+          cheer = '🌱 เริ่มดีแล้ว ลองเก็บ Good ต่อเนื่องมากขึ้น';
+        }
+
         $('yourRank').innerHTML = `
-          อันดับของคุณ: #${meRank} • ${Math.round(me.progress || 0)}% • ${Number(me.score || 0)} pts<br>
+          ${cheer}<br>
+          อันดับของคุณ: #${meRank} • ${myProgress}% • ${Number(me.score || 0)} pts<br>
           Good: ${me.good || 0} • Junk: ${me.junk || 0} • Miss: ${me.miss || 0} • Accuracy: ${accuracy}%
         `;
       }else{
