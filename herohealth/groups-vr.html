@@ -12,26 +12,19 @@
       --bg1:#e8f9ff;
       --bg2:#c9efff;
       --card:#fffefb;
-      --card2:#f4fbff;
       --text:#244e68;
       --muted:#6f91a6;
       --line:#d7edf7;
       --blue:#61bbff;
-      --blue2:#2f95ff;
       --green:#7ed957;
       --yellow:#ffd966;
       --orange:#ff9d3f;
-      --pink:#ff9fd0;
-      --violet:#bca7ff;
-      --red:#ff7d7d;
       --shadow:0 24px 70px rgba(35,81,107,.16);
       --safe-top:env(safe-area-inset-top,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
-    *{
-      box-sizing:border-box;
-    }
+    *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
@@ -522,7 +515,7 @@
       <div class="badge-row">
         <span class="badge">🥦 5 Food Groups</span>
         <span class="badge">📱 Mobile Ready</span>
-        <span class="badge">🎮 Solo / Team Modes</span>
+        <span class="badge">💻 PC Ready</span>
       </div>
     </header>
 
@@ -530,7 +523,7 @@
       <div class="section-head">
         <div>
           <h2 class="section-title">1) เลือกโหมดเกม</h2>
-          <p class="section-note">ตอนนี้ Mobile Solo เปิดเล่นจริงแล้ว ส่วนโหมดทีมเตรียมต่อยอดด้วย Room Code</p>
+          <p class="section-note">ตอนนี้เปิดจริงเฉพาะ Solo ก่อน ส่วนโหมดทีมเตรียมต่อยอดด้วย Room Code</p>
         </div>
         <div id="modeHint" class="auto-pill">แนะนำ: Solo</div>
       </div>
@@ -587,21 +580,23 @@
       <div class="section-head">
         <div>
           <h2 class="section-title">2) เลือกอุปกรณ์</h2>
-          <p class="section-note">ระบบจะเลือก Mobile ให้อัตโนมัติถ้าเปิดจากมือถือ</p>
+          <p class="section-note">Solo แยก PC / Mobile / Cardboard โดยตอนนี้ PC และ Mobile เปิดจริงแล้ว</p>
         </div>
         <div id="deviceHint" class="auto-pill">Auto Detect</div>
       </div>
 
       <div class="grid device-grid" id="deviceGrid">
         <button class="option" type="button" data-view="pc">
+          <span class="tag">พร้อมเล่น</span>
           <div class="emoji">💻</div>
           <div>
             <div class="title">PC / Notebook</div>
-            <div class="desc">เหมาะกับจอใหญ่ เมาส์ และห้องเรียนคอมพิวเตอร์</div>
+            <div class="desc">จอใหญ่ หลายเลน คลิกอาหาร + กดเลข 1–5 ได้</div>
           </div>
         </button>
 
         <button class="option selected" type="button" data-view="mobile">
+          <span class="tag">พร้อมเล่น</span>
           <div class="emoji">📱</div>
           <div>
             <div class="title">Mobile</div>
@@ -680,7 +675,7 @@
       </div>
 
       <div id="status" class="status">
-        <strong>พร้อมเล่น:</strong> Mobile Solo จะเปิดไปที่ <code>groups-mobile.html</code> เวอร์ชัน Ultimate Arcade v9.6
+        <strong>พร้อมเล่น:</strong> Mobile Solo จะเปิดไปที่ <code>groups-mobile.html</code>
       </div>
     </section>
   </div>
@@ -699,7 +694,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.1-groups-mode-launcher-mobile-first-20260514';
+      const VERSION = 'v1.2-groups-launcher-solo-pc-mobile-ready-20260514';
 
       const state = {
         mode:'solo',
@@ -708,7 +703,7 @@
         time:'90'
       };
 
-      const $ = (id) => document.getElementById(id);
+      const $ = id => document.getElementById(id);
 
       const els = {
         modeGrid:$('modeGrid'),
@@ -734,7 +729,7 @@
           emoji:'🌱',
           title:'Solo',
           ready:true,
-          note:'เล่นคนเดียว แข่งกับเวลา ใช้ Mobile Ultimate Arcade v9.6 ได้แล้ว'
+          note:'เล่นคนเดียว แข่งกับเวลา เปิดจริงแล้วทั้ง PC และ Mobile'
         },
         race:{
           emoji:'🏁',
@@ -766,16 +761,16 @@
         pc:{
           emoji:'💻',
           title:'PC / Notebook',
-          ready:false,
-          path:'/herohealth/vr-groups/groups.html',
-          note:'ใช้หน้าเดิมชั่วคราว ก่อนทำ PC Clean'
+          ready:true,
+          path:'/herohealth/vr-groups/groups-pc.html',
+          note:'ใช้ PC Clean Solo v1.0'
         },
         mobile:{
           emoji:'📱',
           title:'Mobile',
           ready:true,
           path:'/herohealth/vr-groups/groups-mobile.html',
-          note:'ใช้ Mobile Ultimate Arcade v9.6'
+          note:'ใช้ Mobile Ultimate Arcade'
         },
         cvr:{
           emoji:'🥽',
@@ -805,11 +800,9 @@
 
         state.view = VIEW_INFO[urlView] ? urlView : (autoMobile ? 'mobile' : 'pc');
 
-        /*
-          Mobile first:
-          ถ้าเข้าจากมือถือ ให้เลือก mobile เป็นค่าเริ่มต้นเสมอ
-        */
-        if(autoMobile) state.view = 'mobile';
+        if(autoMobile && !urlView){
+          state.view = 'mobile';
+        }
 
         state.diff = qs('diff','normal');
         state.time = qs('time','90');
@@ -838,7 +831,7 @@
         updateUI();
 
         if(!MODE_INFO[mode].ready){
-          toast(`${MODE_INFO[mode].emoji} ${MODE_INFO[mode].title} เตรียมทำต่อ: ตอนนี้เปิดให้เลือกเพื่อวางโครงหน้า Launcher แล้ว`);
+          toast(`${MODE_INFO[mode].emoji} ${MODE_INFO[mode].title} เตรียมทำต่อ: ตอนนี้เปิดจริงเฉพาะ Solo`);
         }
       }
 
@@ -849,7 +842,7 @@
         updateUI();
 
         if(!VIEW_INFO[view].ready){
-          toast(`${VIEW_INFO[view].emoji} ${VIEW_INFO[view].title} เตรียมทำต่อ: ตอนนี้แนะนำให้ใช้ Mobile ก่อน`);
+          toast(`${VIEW_INFO[view].emoji} ${VIEW_INFO[view].title} เตรียมทำต่อ: ตอนนี้เปิดจริงแล้วคือ PC และ Mobile`);
         }
       }
 
@@ -874,7 +867,7 @@
         const ready = isReadyToPlay();
 
         els.startBtn.textContent = ready
-          ? `เริ่มเล่น ${mode.title}`
+          ? `เริ่มเล่น ${mode.title} • ${view.title}`
           : `เตรียม ${mode.title}`;
 
         if(ready){
@@ -887,12 +880,17 @@
 
         if(state.mode === 'solo' && state.view === 'mobile'){
           els.status.innerHTML =
-            `<strong>พร้อมเล่น:</strong> Mobile Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-mobile.html</code> เวอร์ชัน Ultimate Arcade v9.6`;
+            `<strong>พร้อมเล่น:</strong> Mobile Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-mobile.html</code>`;
+        }
+
+        if(state.mode === 'solo' && state.view === 'pc'){
+          els.status.innerHTML =
+            `<strong>พร้อมเล่น:</strong> PC Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-pc.html</code>`;
         }
       }
 
       function isReadyToPlay(){
-        return state.mode === 'solo' && state.view === 'mobile';
+        return state.mode === 'solo' && (state.view === 'mobile' || state.view === 'pc');
       }
 
       function nutritionZoneUrl(){
@@ -952,6 +950,10 @@
 
         if(view === 'mobile' && mode === 'solo'){
           path = '/webxr-health-mobile/herohealth/vr-groups/groups-mobile.html';
+        }else if(view === 'pc' && mode === 'solo'){
+          path = '/webxr-health-mobile/herohealth/vr-groups/groups-pc.html';
+        }else if(view === 'cvr' && mode === 'solo'){
+          path = '/webxr-health-mobile/herohealth/vr-groups/groups-cvr.html';
         }else if(mode === 'race'){
           path = '/webxr-health-mobile/herohealth/vr-groups/groups-race.html';
         }else if(mode === 'battle'){
@@ -960,10 +962,6 @@
           path = '/webxr-health-mobile/herohealth/vr-groups/groups-duet.html';
         }else if(mode === 'coop'){
           path = '/webxr-health-mobile/herohealth/vr-groups/groups-coop.html';
-        }else if(view === 'pc'){
-          path = '/webxr-health-mobile/herohealth/vr-groups/groups.html';
-        }else if(view === 'cvr'){
-          path = '/webxr-health-mobile/herohealth/vr-groups/groups-cvr.html';
         }
 
         const u = new URL(path, location.origin);
@@ -1024,7 +1022,7 @@
           const mode = MODE_INFO[state.mode];
           const view = VIEW_INFO[state.view];
 
-          toast(`${mode.emoji} ${mode.title} + ${view.title} ยังเตรียมทำต่อ ตอนนี้เปิดจริงแล้วคือ Mobile Solo`);
+          toast(`${mode.emoji} ${mode.title} + ${view.title} ยังเตรียมทำต่อ ตอนนี้เปิดจริงแล้วคือ Solo PC และ Solo Mobile`);
           return;
         }
 
