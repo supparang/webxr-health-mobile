@@ -1,0 +1,1683 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>HeroHealth • Groups Solo Cardboard VR</title>
+  <meta name="theme-color" content="#dff7ff" />
+
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+  <script src="../vr/vr-ui.js?v=20260515-groups-cvr-vr-ui"></script>
+
+  <style>
+    :root{
+      --bg1:#e8f9ff;
+      --bg2:#bfeeff;
+      --card:#ffffff;
+      --text:#244e68;
+      --muted:#7193a8;
+      --line:#d7edf7;
+      --yellow:#ffd966;
+      --green:#7ed957;
+      --blue:#61bbff;
+      --orange:#ff9d3f;
+      --red:#ff7d7d;
+      --safe-top:env(safe-area-inset-top,0px);
+      --safe-bottom:env(safe-area-inset-bottom,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+    }
+
+    html,body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:linear-gradient(180deg,var(--bg1),var(--bg2));
+      user-select:none;
+      -webkit-user-select:none;
+      touch-action:none;
+    }
+
+    button{
+      font:inherit;
+      color:inherit;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    .screen{
+      position:fixed;
+      inset:0;
+      z-index:50;
+      display:none;
+      overflow:auto;
+      padding:calc(22px + var(--safe-top)) 14px calc(96px + var(--safe-bottom));
+      background:
+        radial-gradient(circle at 18% 10%,rgba(255,255,255,.96),rgba(255,255,255,0) 28%),
+        radial-gradient(circle at 86% 18%,rgba(255,244,177,.5),rgba(255,244,177,0) 26%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    .screen.active{
+      display:block;
+    }
+
+    .card{
+      width:min(820px,100%);
+      margin:0 auto;
+      border-radius:34px;
+      padding:22px 16px;
+      background:rgba(255,255,255,.94);
+      border:2px solid rgba(255,255,255,.92);
+      box-shadow:0 24px 70px rgba(35,81,107,.16);
+      text-align:center;
+    }
+
+    .hero-icon{
+      width:92px;
+      height:92px;
+      margin:0 auto 14px;
+      border-radius:30px;
+      display:grid;
+      place-items:center;
+      font-size:54px;
+      background:linear-gradient(145deg,#fff4b5,#ffd966);
+      box-shadow:0 16px 40px rgba(35,81,107,.14);
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(34px,8vw,60px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:-.045em;
+    }
+
+    .lead{
+      margin:12px auto 0;
+      max-width:680px;
+      color:var(--muted);
+      font-size:clamp(18px,5vw,30px);
+      line-height:1.28;
+      font-weight:900;
+    }
+
+    .howto{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:22px auto 10px;
+      max-width:680px;
+    }
+
+    .how{
+      min-height:128px;
+      border-radius:24px;
+      padding:13px 9px;
+      background:linear-gradient(180deg,#fff,#f3fbff);
+      border:2px solid var(--line);
+      box-shadow:0 10px 26px rgba(35,81,107,.08);
+    }
+
+    .how .emoji{
+      font-size:42px;
+      line-height:1;
+    }
+
+    .how h3{
+      margin:8px 0 4px;
+      font-size:18px;
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .how p{
+      margin:0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.25;
+      font-weight:850;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      justify-content:center;
+      margin-top:18px;
+    }
+
+    .btn{
+      border:0;
+      border-radius:999px;
+      padding:14px 21px;
+      background:#fff;
+      box-shadow:0 14px 34px rgba(35,81,107,.15);
+      font-size:18px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .btn.primary{
+      background:linear-gradient(135deg,#ffb347,#ff8f3d);
+      color:#fff;
+      text-shadow:0 2px 0 rgba(0,0,0,.08);
+    }
+
+    .btn.zone{
+      background:linear-gradient(135deg,#eaffda,#ffffff);
+    }
+
+    .hud{
+      position:fixed;
+      left:10px;
+      right:10px;
+      top:calc(8px + var(--safe-top));
+      z-index:20;
+      display:none;
+      grid-template-columns:1fr auto;
+      gap:8px;
+      pointer-events:none;
+    }
+
+    body.playing .hud{
+      display:grid;
+    }
+
+    .mission-card{
+      min-width:0;
+      border-radius:20px;
+      padding:9px 11px;
+      background:rgba(255,255,255,.9);
+      box-shadow:0 12px 30px rgba(35,81,107,.13);
+      backdrop-filter:blur(10px);
+    }
+
+    .mission-title{
+      font-size:clamp(15px,4vw,23px);
+      line-height:1.05;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .mission-sub{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.15;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .chips{
+      display:flex;
+      flex-direction:column;
+      align-items:flex-end;
+      gap:5px;
+    }
+
+    .chip{
+      border-radius:999px;
+      padding:7px 10px;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 10px 24px rgba(35,81,107,.12);
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .chip.yellow{
+      background:#fff5ca;
+      color:#806000;
+    }
+
+    .chip.heart{
+      background:#fff0f0;
+      color:#bc4949;
+    }
+
+    .bottom-hint{
+      position:fixed;
+      left:10px;
+      right:10px;
+      bottom:calc(10px + var(--safe-bottom));
+      z-index:22;
+      display:none;
+      border-radius:22px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.9);
+      box-shadow:0 14px 36px rgba(35,81,107,.14);
+      text-align:center;
+      font-size:clamp(15px,4vw,23px);
+      line-height:1.18;
+      font-weight:1000;
+      pointer-events:none;
+    }
+
+    body.playing .bottom-hint{
+      display:block;
+    }
+
+    .center-toast{
+      position:fixed;
+      left:50%;
+      top:48%;
+      transform:translate(-50%,-50%);
+      z-index:24;
+      width:min(440px,80vw);
+      border-radius:30px;
+      padding:16px 14px;
+      text-align:center;
+      background:rgba(255,255,255,.94);
+      box-shadow:0 24px 70px rgba(35,81,107,.2);
+      color:#244e68;
+      font-size:clamp(26px,8vw,54px);
+      line-height:1.05;
+      font-weight:1000;
+      pointer-events:none;
+      opacity:0;
+    }
+
+    .center-toast.show{
+      animation:toastPop .92s ease both;
+    }
+
+    @keyframes toastPop{
+      0%{ opacity:0; transform:translate(-50%,-38%) scale(.78); }
+      18%{ opacity:1; transform:translate(-50%,-50%) scale(1.08); }
+      74%{ opacity:1; transform:translate(-50%,-52%) scale(1); }
+      100%{ opacity:0; transform:translate(-50%,-66%) scale(.94); }
+    }
+
+    .countdown{
+      position:fixed;
+      inset:0;
+      z-index:60;
+      display:none;
+      place-items:center;
+      background:radial-gradient(circle at 50% 44%,rgba(255,255,255,.94),rgba(255,255,255,.2) 54%);
+    }
+
+    .countdown.active{
+      display:grid;
+    }
+
+    .count-card{
+      width:min(380px,86vw);
+      border-radius:36px;
+      padding:28px 18px;
+      text-align:center;
+      background:linear-gradient(145deg,#fff,#effbff);
+      border:3px solid rgba(255,255,255,.92);
+      box-shadow:0 30px 86px rgba(35,81,107,.22);
+    }
+
+    .count-main{
+      font-size:clamp(76px,20vw,136px);
+      line-height:.9;
+      font-weight:1000;
+      color:#5e9fc8;
+      text-shadow:0 6px 0 rgba(255,255,255,.9);
+    }
+
+    .count-title{
+      margin-top:14px;
+      font-size:clamp(22px,5vw,32px);
+      line-height:1.12;
+      font-weight:1000;
+    }
+
+    .count-tip{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:850;
+    }
+
+    .summary-stats{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin:18px 0 10px;
+    }
+
+    .stat{
+      border-radius:22px;
+      padding:14px 10px;
+      background:linear-gradient(180deg,#fff,#f3fbff);
+      border:2px solid var(--line);
+    }
+
+    .stat b{
+      display:block;
+      font-size:clamp(30px,8vw,48px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    .stat span{
+      display:block;
+      margin-top:5px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .summary-badges{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      justify-content:center;
+      margin:13px 0 2px;
+    }
+
+    .summary-badge{
+      border-radius:999px;
+      padding:8px 11px;
+      background:linear-gradient(135deg,#fff8d5,#ffffff);
+      border:2px solid #ffe480;
+      color:#6b4c00;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    a-scene{
+      position:fixed;
+      inset:0;
+      z-index:1;
+    }
+
+    body:not(.playing) a-scene{
+      filter:blur(4px) brightness(.92);
+    }
+
+    @media (max-width:480px){
+      .howto{
+        grid-template-columns:1fr;
+      }
+
+      .summary-stats{
+        grid-template-columns:1fr 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main id="intro" class="screen active">
+    <section class="card">
+      <div class="hero-icon">🥽</div>
+      <h1>Groups Solo cVR</h1>
+      <p class="lead">โหมด Cardboard VR: หันศีรษะเล็ง crosshair ไปที่ประตูหมู่อาหาร แล้วแตะจอเพื่อยิง</p>
+
+      <div class="howto">
+        <div class="how">
+          <div class="emoji">🎯</div>
+          <h3>เล็งด้วย Crosshair</h3>
+          <p>หันหน้าไปยังเป้าหมายด้านหน้า</p>
+        </div>
+
+        <div class="how">
+          <div class="emoji">👆</div>
+          <h3>แตะเพื่อยิง</h3>
+          <p>แตะจอ / กด trigger เพื่อเลือก</p>
+        </div>
+
+        <div class="how">
+          <div class="emoji">🚪</div>
+          <h3>ส่งเข้าหมู่</h3>
+          <p>อาหารปกติและ Golden ต้องยิงประตูที่ถูก</p>
+        </div>
+
+        <div class="how">
+          <div class="emoji">🚫</div>
+          <h3>ระวังตัวหลอก</h3>
+          <p>Decoy ห้ามยิง ปล่อยให้ผ่านไป</p>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="startBtn" class="btn primary" type="button">เริ่ม Cardboard VR</button>
+        <button id="practiceBtn" class="btn" type="button">โหมดซ้อม</button>
+        <button id="zoneIntroBtn" class="btn zone" type="button">กลับ Nutrition Zone</button>
+      </div>
+    </section>
+  </main>
+
+  <section id="summary" class="screen">
+    <section class="card">
+      <div id="summaryIcon" class="hero-icon">⭐</div>
+      <h1>สรุปผล cVR</h1>
+      <p id="rankText" class="lead">Food Rookie</p>
+
+      <div class="summary-stats">
+        <div class="stat"><b id="scoreText">0</b><span>คะแนน</span></div>
+        <div class="stat"><b id="accuracyText">0%</b><span>ความแม่นยำ</span></div>
+        <div class="stat"><b id="comboText">0</b><span>คอมโบสูงสุด</span></div>
+        <div class="stat"><b id="correctText">0</b><span>ตอบถูก</span></div>
+      </div>
+
+      <div id="summaryBadges" class="summary-badges"></div>
+
+      <div class="actions">
+        <button id="replayBtn" class="btn primary" type="button">เล่นอีกครั้ง</button>
+        <button id="zoneBtn" class="btn zone" type="button">กลับ Nutrition Zone</button>
+      </div>
+    </section>
+  </section>
+
+  <div class="hud">
+    <div class="mission-card">
+      <div id="missionTitle" class="mission-title">Groups cVR</div>
+      <div id="missionSub" class="mission-sub">เล็งประตูหมู่ที่ถูก แล้วแตะจอ</div>
+    </div>
+
+    <div class="chips">
+      <div id="scoreChip" class="chip yellow">Score 0</div>
+      <div id="timeChip" class="chip">90s</div>
+      <div id="heartChip" class="chip heart">❤️❤️❤️</div>
+    </div>
+  </div>
+
+  <div id="bottomHint" class="bottom-hint">เล็งประตูหมู่ที่ถูก แล้วแตะจอ</div>
+  <div id="toast" class="center-toast">Ready!</div>
+
+  <div id="countdown" class="countdown">
+    <div class="count-card">
+      <div id="countMain" class="count-main">3</div>
+      <div class="count-title">เตรียมเล็ง Crosshair!</div>
+      <div id="countTip" class="count-tip">หันหน้าไปที่ประตู แล้วแตะจอ</div>
+    </div>
+  </div>
+
+  <a-scene
+    id="scene"
+    renderer="antialias:true; colorManagement:true; physicallyCorrectLights:true"
+    background="color:#dff7ff"
+    vr-mode-ui="enabled:true"
+    embedded>
+
+    <a-assets></a-assets>
+
+    <a-entity environment="preset:forest; dressingAmount:18; groundColor:#bfeeff; groundColor2:#e8f9ff; skyColor:#dff7ff; horizonColor:#ffffff"></a-entity>
+
+    <a-entity id="rig" position="0 0 0">
+      <a-entity
+        id="camera"
+        camera
+        look-controls="pointerLockEnabled:false; reverseMouseDrag:false"
+        position="0 1.62 0">
+
+        <a-ring
+          id="crosshair"
+          position="0 0 -1.15"
+          radius-inner="0.012"
+          radius-outer="0.02"
+          color="#244e68"
+          material="shader:flat; opacity:.9">
+        </a-ring>
+
+        <a-ring
+          position="0 0 -1.151"
+          radius-inner="0.025"
+          radius-outer="0.027"
+          color="#ffffff"
+          material="shader:flat; opacity:.85">
+        </a-ring>
+      </a-entity>
+    </a-entity>
+
+    <a-entity light="type:hemisphere; intensity:1.25; color:#ffffff; groundColor:#bfeeff"></a-entity>
+    <a-entity light="type:directional; intensity:.75; color:#ffffff" position="0 5 4"></a-entity>
+
+    <a-entity id="arena" position="0 0 0">
+      <a-cylinder
+        position="0 .02 -3.2"
+        radius="3.8"
+        height=".035"
+        color="#ffffff"
+        material="opacity:.36; transparent:true">
+      </a-cylinder>
+
+      <a-torus
+        position="0 .08 -3.2"
+        radius="3.05"
+        radius-tubular=".012"
+        color="#7ed957"
+        material="opacity:.65; transparent:true">
+      </a-torus>
+
+      <a-entity id="gateRoot"></a-entity>
+      <a-entity id="itemRoot"></a-entity>
+      <a-entity id="fxRoot"></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const VERSION = 'v1.0-cvr-solo-crosshair-20260515';
+
+      const GROUPS = [
+        {id:1,key:'protein',label:'โปรตีน',short:'PROTEIN',icon:'🐟',color:'#ff8e82',foods:['🐟','🥚','🍗','🥩','🫘','🥛']},
+        {id:2,key:'carb',label:'ข้าว/แป้ง',short:'CARB',icon:'🍚',color:'#f7c948',foods:['🍚','🍞','🥔','🍠','🌽','🍜']},
+        {id:3,key:'veg',label:'ผัก',short:'VEG',icon:'🥦',color:'#72d957',foods:['🥦','🥬','🥕','🥒','🍅','🫛']},
+        {id:4,key:'fruit',label:'ผลไม้',short:'FRUIT',icon:'🍎',color:'#ff8fc8',foods:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍']},
+        {id:5,key:'fat',label:'ไขมัน',short:'FAT',icon:'🥑',color:'#a98cff',foods:['🥑','🥜','🧈','🫒','🥥']}
+      ];
+
+      const DECOYS = [
+        {icon:'🍩',label:'โดนัท'},
+        {icon:'🥤',label:'น้ำหวาน'},
+        {icon:'🍬',label:'ลูกอม'},
+        {icon:'🍟',label:'ของทอด'},
+        {icon:'🍰',label:'เค้ก'}
+      ];
+
+      const POWERS = [
+        {type:'shield',icon:'🛡️',label:'Shield'},
+        {type:'slow',icon:'⏱️',label:'Slow Time'}
+      ];
+
+      const $ = id => document.getElementById(id);
+
+      const els = {
+        intro:$('intro'),
+        summary:$('summary'),
+        startBtn:$('startBtn'),
+        practiceBtn:$('practiceBtn'),
+        zoneIntroBtn:$('zoneIntroBtn'),
+        replayBtn:$('replayBtn'),
+        zoneBtn:$('zoneBtn'),
+
+        scene:$('scene'),
+        camera:$('camera'),
+        gateRoot:$('gateRoot'),
+        itemRoot:$('itemRoot'),
+        fxRoot:$('fxRoot'),
+
+        countdown:$('countdown'),
+        countMain:$('countMain'),
+        countTip:$('countTip'),
+
+        missionTitle:$('missionTitle'),
+        missionSub:$('missionSub'),
+        scoreChip:$('scoreChip'),
+        timeChip:$('timeChip'),
+        heartChip:$('heartChip'),
+        bottomHint:$('bottomHint'),
+        toast:$('toast'),
+
+        summaryIcon:$('summaryIcon'),
+        rankText:$('rankText'),
+        scoreText:$('scoreText'),
+        accuracyText:$('accuracyText'),
+        comboText:$('comboText'),
+        correctText:$('correctText'),
+        summaryBadges:$('summaryBadges')
+      };
+
+      const state = {
+        mode:'intro',
+        diff:'normal',
+        duration:90,
+        practice:false,
+        startedAt:0,
+        ended:false,
+        rng:null,
+
+        current:null,
+        itemEl:null,
+        itemY:2.45,
+        itemSpeed:.32,
+
+        score:0,
+        correct:0,
+        miss:0,
+        combo:0,
+        bestCombo:0,
+        hearts:3,
+
+        fever:0,
+        feverActive:false,
+        feverUntil:0,
+        feverCount:0,
+
+        shield:0,
+        slowUntil:0,
+
+        wave:1,
+        phase:'calm',
+
+        decoyDodged:0,
+        goldenHit:0,
+        bossCorrect:0,
+        missionClear:0,
+        powerUsed:{shield:0,slow:0},
+        groupHits:{protein:0,carb:0,veg:0,fruit:0,fat:0},
+
+        mission:null,
+        raf:0,
+        timer:null,
+        spawnLock:false,
+        lastShotAt:0,
+        audio:null
+      };
+
+      function qs(name,fallback=''){
+        try{return new URL(location.href).searchParams.get(name) || fallback;}
+        catch(e){return fallback;}
+      }
+
+      function clamp(n,min,max){
+        n = Number(n);
+        if(!Number.isFinite(n)) n = min;
+        return Math.max(min,Math.min(max,n));
+      }
+
+      function xmur3(str){
+        let h = 1779033703 ^ str.length;
+        for(let i=0;i<str.length;i++){
+          h = Math.imul(h ^ str.charCodeAt(i),3432918353);
+          h = (h << 13) | (h >>> 19);
+        }
+        return function(){
+          h = Math.imul(h ^ (h >>> 16),2246822507);
+          h = Math.imul(h ^ (h >>> 13),3266489909);
+          h ^= h >>> 16;
+          return h >>> 0;
+        };
+      }
+
+      function sfc32(a,b,c,d){
+        return function(){
+          a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
+          let t = (a + b) | 0;
+          a = b ^ (b >>> 9);
+          b = (c + (c << 3)) | 0;
+          c = (c << 21) | (c >>> 11);
+          d = (d + 1) | 0;
+          t = (t + d) | 0;
+          c = (c + t) | 0;
+          return (t >>> 0) / 4294967296;
+        };
+      }
+
+      function makeRng(){
+        const seed = [qs('seed','groups-cvr'),qs('pid','anon'),qs('diff','normal'),VERSION].join('|');
+        const f = xmur3(seed);
+        return sfc32(f(),f(),f(),f());
+      }
+
+      function rnd(){
+        if(!state.rng) state.rng = makeRng();
+        return state.rng();
+      }
+
+      function pick(arr){
+        return arr[Math.floor(rnd()*arr.length) % arr.length];
+      }
+
+      function showScreen(name){
+        els.intro.classList.remove('active');
+        els.summary.classList.remove('active');
+
+        document.body.classList.toggle('playing',name === 'game');
+
+        if(name === 'intro') els.intro.classList.add('active');
+        if(name === 'summary') els.summary.classList.add('active');
+
+        state.mode = name;
+      }
+
+      function zoneUrl(){
+        const hub = qs('hub','');
+
+        if(hub && hub.includes('nutrition-zone.html')) return hub;
+
+        const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
+        ['pid','name','diff','time','view','seed','studyId','conditionGroup'].forEach(k=>{
+          const v = qs(k,'');
+          if(v) u.searchParams.set(k,v);
+        });
+
+        u.searchParams.set('zone','nutrition');
+        u.searchParams.set('from','groups-cvr');
+        u.searchParams.set('hub','https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+
+        return u.toString();
+      }
+
+      function makeCanvasTexture(lines, opts){
+        opts = opts || {};
+
+        const canvas = document.createElement('canvas');
+        const size = opts.size || 512;
+        canvas.width = size;
+        canvas.height = size;
+
+        const ctx = canvas.getContext('2d');
+
+        ctx.clearRect(0,0,size,size);
+
+        if(opts.round){
+          roundedRect(ctx, 18, 18, size-36, size-36, opts.radius || 58);
+          ctx.fillStyle = opts.bg || '#ffffff';
+          ctx.fill();
+        }else{
+          ctx.fillStyle = opts.bg || '#ffffff';
+          ctx.beginPath();
+          ctx.arc(size/2,size/2,size*.46,0,Math.PI*2);
+          ctx.fill();
+        }
+
+        if(opts.border){
+          ctx.lineWidth = opts.borderWidth || 14;
+          ctx.strokeStyle = opts.border;
+          if(opts.round){
+            roundedRect(ctx, 18, 18, size-36, size-36, opts.radius || 58);
+            ctx.stroke();
+          }else{
+            ctx.beginPath();
+            ctx.arc(size/2,size/2,size*.45,0,Math.PI*2);
+            ctx.stroke();
+          }
+        }
+
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        lines.forEach(line=>{
+          ctx.font = line.font;
+          ctx.fillStyle = line.color || '#244e68';
+          ctx.fillText(line.text, line.x || size/2, line.y);
+        });
+
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.needsUpdate = true;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+
+        return texture;
+      }
+
+      function roundedRect(ctx,x,y,w,h,r){
+        ctx.beginPath();
+        ctx.moveTo(x+r,y);
+        ctx.arcTo(x+w,y,x+w,y+h,r);
+        ctx.arcTo(x+w,y+h,x,y+h,r);
+        ctx.arcTo(x,y+h,x,y,r);
+        ctx.arcTo(x,y,x+w,y,r);
+        ctx.closePath();
+      }
+
+      function setTexture(el, texture, transparent){
+        const apply = ()=>{
+          const mesh = el.getObject3D('mesh');
+          if(!mesh) return;
+
+          mesh.material = new THREE.MeshBasicMaterial({
+            map:texture,
+            transparent:transparent !== false,
+            side:THREE.DoubleSide
+          });
+
+          mesh.material.needsUpdate = true;
+        };
+
+        if(el.getObject3D('mesh')) apply();
+        else el.addEventListener('loaded',apply,{once:true});
+      }
+
+      function gateTexture(group){
+        return makeCanvasTexture([
+          {text:String(group.id), y:142, font:'bold 90px system-ui', color:'#ffffff'},
+          {text:group.short, y:260, font:'bold 48px system-ui', color:'#244e68'},
+          {text:group.label, y:334, font:'bold 42px system-ui', color:'#244e68'}
+        ],{
+          round:true,
+          radius:58,
+          bg:group.color,
+          border:'#ffffff',
+          borderWidth:12
+        });
+      }
+
+      function itemTexture(item){
+        let border = '#7ed957';
+        let bg = '#ffffff';
+        let label = 'FOOD';
+
+        if(item.kind === 'decoy'){
+          border = '#ff7d7d';
+          bg = '#fff0f0';
+          label = 'DON’T SHOOT';
+        }else if(item.kind === 'golden'){
+          border = '#ffd966';
+          bg = '#fff8b8';
+          label = 'GOLDEN';
+        }else if(item.kind === 'power'){
+          border = '#61bbff';
+          bg = '#eaf8ff';
+          label = 'POWER';
+        }
+
+        return makeCanvasTexture([
+          {text:item.icon, y:210, font:'120px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif', color:'#244e68'},
+          {text:label, y:342, font:'bold 42px system-ui', color:'#244e68'}
+        ],{
+          round:false,
+          bg,
+          border,
+          borderWidth:15
+        });
+      }
+
+      function buildGates(){
+        els.gateRoot.innerHTML = '';
+
+        const positions = [
+          {x:-2.35,y:1.17,z:-3.65,rot:'0 20 0'},
+          {x:-1.15,y:1.17,z:-4.05,rot:'0 10 0'},
+          {x:0,y:1.17,z:-4.2,rot:'0 0 0'},
+          {x:1.15,y:1.17,z:-4.05,rot:'0 -10 0'},
+          {x:2.35,y:1.17,z:-3.65,rot:'0 -20 0'}
+        ];
+
+        GROUPS.forEach((g,i)=>{
+          const el = document.createElement('a-plane');
+          const p = positions[i];
+
+          el.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
+          el.setAttribute('rotation',p.rot);
+          el.setAttribute('width','0.95');
+          el.setAttribute('height','0.72');
+          el.setAttribute('class','clickable gateTarget');
+          el.dataset.role = 'gate';
+          el.dataset.group = g.key;
+          el.dataset.id = String(g.id);
+
+          el.addEventListener('click',()=>judgeGate(g.key));
+          el.addEventListener('mouseenter',()=>el.setAttribute('scale','1.08 1.08 1.08'));
+          el.addEventListener('mouseleave',()=>el.setAttribute('scale','1 1 1'));
+
+          els.gateRoot.appendChild(el);
+          setTexture(el, gateTexture(g), true);
+        });
+      }
+
+      function unlockAudio(){
+        try{
+          if(!state.audio){
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if(AC) state.audio = new AC();
+          }
+          if(state.audio && state.audio.state === 'suspended') state.audio.resume();
+        }catch(e){}
+      }
+
+      function beep(type){
+        try{
+          unlockAudio();
+
+          const ctx = state.audio;
+          if(!ctx) return;
+
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          let f = 650;
+          let d = .08;
+          let wave = 'sine';
+
+          if(type === 'correct'){ f = 780; d = .07; }
+          if(type === 'miss'){ f = 180; d = .13; wave = 'sawtooth'; }
+          if(type === 'golden'){ f = 980; d = .11; }
+          if(type === 'power'){ f = 860; d = .1; }
+          if(type === 'fever'){ f = 1220; d = .16; }
+          if(type === 'boss'){ f = 360; d = .16; wave = 'sawtooth'; }
+
+          osc.frequency.value = f;
+          osc.type = wave;
+
+          gain.gain.setValueAtTime(.001,ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(.05,ctx.currentTime+.012);
+          gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+d);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime+d+.02);
+        }catch(e){}
+      }
+
+      function vibrate(pattern){
+        try{
+          if(navigator.vibrate) navigator.vibrate(pattern);
+        }catch(e){}
+      }
+
+      function toast(text){
+        els.toast.textContent = text;
+        els.toast.classList.remove('show');
+        void els.toast.offsetWidth;
+        els.toast.classList.add('show');
+      }
+
+      function start(practice){
+        if(state.mode !== 'intro') return;
+
+        state.practice = Boolean(practice);
+        state.diff = qs('diff','normal');
+        state.duration = practice ? 45 : clamp(Number(qs('time','90')) || 90,45,240);
+        state.startedAt = Date.now();
+        state.ended = false;
+        state.rng = makeRng();
+
+        state.current = null;
+        state.itemEl = null;
+        state.itemY = 2.45;
+        state.score = 0;
+        state.correct = 0;
+        state.miss = 0;
+        state.combo = 0;
+        state.bestCombo = 0;
+        state.hearts = practice ? 5 : 3;
+        state.fever = 0;
+        state.feverActive = false;
+        state.feverUntil = 0;
+        state.feverCount = 0;
+        state.shield = 0;
+        state.slowUntil = 0;
+        state.wave = 1;
+        state.phase = 'calm';
+        state.decoyDodged = 0;
+        state.goldenHit = 0;
+        state.bossCorrect = 0;
+        state.missionClear = 0;
+        state.powerUsed = {shield:0,slow:0};
+        state.groupHits = {protein:0,carb:0,veg:0,fruit:0,fat:0};
+        state.spawnLock = false;
+
+        els.itemRoot.innerHTML = '';
+        els.fxRoot.innerHTML = '';
+
+        unlockAudio();
+        showScreen('game');
+        newMission();
+        updateHud();
+        runCountdown();
+      }
+
+      function runCountdown(){
+        els.countdown.classList.add('active');
+
+        const steps = [
+          {t:0,text:'3',tip:'หันหน้าไปที่ประตู'},
+          {t:760,text:'2',tip:'เล็ง crosshair ให้ตรง'},
+          {t:1520,text:'1',tip:'แตะจอเพื่อยิง'},
+          {t:2280,text:'เริ่ม!',tip:'ลุยเลย!'}
+        ];
+
+        steps.forEach(s=>{
+          setTimeout(()=>{
+            els.countMain.textContent = s.text;
+            els.countTip.textContent = s.tip;
+          },s.t);
+        });
+
+        setTimeout(()=>{
+          els.countdown.classList.remove('active');
+          spawnItem();
+          state.timer = setInterval(tick,250);
+          state.raf = requestAnimationFrame(loop);
+        },3000);
+      }
+
+      function elapsed(){
+        return Math.floor((Date.now()-state.startedAt)/1000);
+      }
+
+      function remain(){
+        return Math.max(0,state.duration-elapsed());
+      }
+
+      function updatePhase(){
+        const old = state.phase;
+        const e = elapsed();
+        const r = remain();
+
+        if(r <= Math.max(18,state.duration*.25)){
+          state.wave = 3;
+          state.phase = 'boss';
+        }else if(e >= Math.max(24,state.duration*.35)){
+          state.wave = 2;
+          state.phase = 'storm';
+        }else{
+          state.wave = 1;
+          state.phase = 'calm';
+        }
+
+        if(old !== state.phase){
+          if(state.phase === 'boss'){
+            toast('👑 Boss Rush!');
+            beep('boss');
+          }else if(state.phase === 'storm'){
+            toast('⚡ Speed Sort!');
+            beep('power');
+          }
+
+          newMission();
+        }
+      }
+
+      function tick(){
+        if(state.ended) return;
+
+        if(state.feverActive && Date.now() >= state.feverUntil){
+          state.feverActive = false;
+          state.fever = 0;
+          toast('Fever จบแล้ว');
+        }
+
+        updatePhase();
+        updateHud();
+
+        if(remain() <= 0 || state.hearts <= 0){
+          endGame('time-or-heart');
+        }
+      }
+
+      function itemFallSpeed(){
+        let base = .32;
+
+        if(state.diff === 'easy') base = .25;
+        if(state.diff === 'hard') base = .42;
+        if(state.diff === 'challenge') base = .50;
+
+        if(state.phase === 'storm') base *= 1.18;
+        if(state.phase === 'boss') base *= 1.38;
+        if(state.feverActive) base *= 1.1;
+        if(Date.now() < state.slowUntil) base *= .62;
+
+        base += Math.min(.14,state.combo * .006);
+
+        return base;
+      }
+
+      function loop(){
+        if(state.ended || state.mode !== 'game') return;
+
+        if(state.current && state.itemEl && !state.spawnLock){
+          state.itemY -= itemFallSpeed() / 60;
+          state.itemEl.setAttribute('position',`0 ${state.itemY.toFixed(3)} -2.65`);
+
+          if(state.itemY < .72){
+            onItemPassed();
+          }
+        }
+
+        state.raf = requestAnimationFrame(loop);
+      }
+
+      function chooseItem(){
+        let decoyRate = .12;
+        let goldenRate = .09;
+        let powerRate = .06;
+
+        if(state.diff === 'easy'){ decoyRate = .07; goldenRate = .12; }
+        if(state.diff === 'hard'){ decoyRate = .18; goldenRate = .08; }
+        if(state.diff === 'challenge'){ decoyRate = .24; goldenRate = .07; }
+
+        if(state.phase === 'storm') decoyRate += .05;
+        if(state.phase === 'boss') decoyRate += .1;
+        if(state.feverActive) goldenRate += .04;
+
+        const roll = rnd();
+
+        if(roll < powerRate){
+          const p = pick(POWERS);
+          return {kind:'power',icon:p.icon,power:p.type,label:p.label,group:null};
+        }
+
+        if(roll < powerRate + decoyRate){
+          const d = pick(DECOYS);
+          return {kind:'decoy',icon:d.icon,label:d.label,group:null};
+        }
+
+        const group = pick(GROUPS);
+        const icon = pick(group.foods);
+
+        if(roll < powerRate + decoyRate + goldenRate){
+          return {kind:'golden',icon,group,label:group.label};
+        }
+
+        return {kind:'food',icon,group,label:group.label};
+      }
+
+      function spawnItem(){
+        if(state.ended || state.mode !== 'game') return;
+
+        els.itemRoot.innerHTML = '';
+        state.spawnLock = false;
+
+        const item = chooseItem();
+        state.current = item;
+        state.itemY = 2.45;
+
+        const el = document.createElement('a-plane');
+        el.setAttribute('position','0 2.45 -2.65');
+        el.setAttribute('width','.82');
+        el.setAttribute('height','.82');
+        el.setAttribute('class','clickable itemTarget');
+        el.dataset.role = 'item';
+
+        if(item.kind === 'decoy') el.dataset.kind = 'decoy';
+        if(item.kind === 'power') el.dataset.kind = 'power';
+        if(item.kind === 'golden') el.dataset.kind = 'golden';
+
+        el.addEventListener('click',()=>handleItemShot());
+
+        els.itemRoot.appendChild(el);
+        setTexture(el,itemTexture(item),true);
+        state.itemEl = el;
+
+        updateItemHint();
+      }
+
+      function updateItemHint(){
+        const item = state.current;
+        if(!item) return;
+
+        if(item.kind === 'power'){
+          const text = item.power === 'shield'
+            ? '🛡️ เล็ง Shield แล้วแตะเพื่อเก็บ'
+            : '⏱️ เล็ง Slow Time แล้วแตะเพื่อเก็บ';
+          els.bottomHint.textContent = text;
+          els.missionSub.textContent = text;
+          return;
+        }
+
+        if(item.kind === 'decoy'){
+          els.bottomHint.textContent = `🚫 ${item.icon} ตัวหลอก ห้ามยิง ปล่อยให้ผ่านไป`;
+          els.missionSub.textContent = 'ตัวหลอก: ห้ามยิง';
+          return;
+        }
+
+        if(item.kind === 'golden'){
+          els.bottomHint.textContent = `⭐ Golden ${item.icon}: ยิงประตูหมู่ ${item.group.id} ${item.group.label}`;
+          els.missionSub.textContent = `Golden → หมู่ ${item.group.id}`;
+          return;
+        }
+
+        els.bottomHint.textContent = `${item.icon} ยิงประตูหมู่ ${item.group.id} ${item.group.label}`;
+        els.missionSub.textContent = `ยิงประตูหมู่ ${item.group.id} ${item.group.label}`;
+      }
+
+      function onItemPassed(){
+        if(!state.current || state.spawnLock) return;
+
+        const item = state.current;
+        state.spawnLock = true;
+
+        if(item.kind === 'decoy'){
+          state.decoyDodged += 1;
+          state.score += state.feverActive ? 12 : 6;
+          addFever(8);
+          missionProgress('dodge',item);
+          toast('🚫 หลบได้ +6');
+          beep('correct');
+          setTimeout(spawnItem,520);
+          return;
+        }
+
+        if(item.kind === 'power'){
+          toast('พลาด Power');
+          setTimeout(spawnItem,420);
+          return;
+        }
+
+        miss('ชนพื้น! -1 ❤️');
+      }
+
+      function handleItemShot(){
+        if(!state.current || state.ended || state.spawnLock) return;
+
+        const item = state.current;
+
+        if(item.kind === 'power'){
+          collectPower(item);
+          return;
+        }
+
+        if(item.kind === 'decoy'){
+          miss('ยิงตัวหลอก! -1 ❤️');
+          return;
+        }
+
+        toast('ยิงประตูหมู่ที่ถูก!');
+        vibrate(18);
+      }
+
+      function judgeGate(groupKey){
+        if(!state.current || state.ended || state.spawnLock) return;
+
+        const item = state.current;
+
+        if(item.kind === 'power'){
+          toast('เล็งที่ Power เพื่อเก็บ');
+          return;
+        }
+
+        if(item.kind === 'decoy'){
+          miss('ยิงตอนตัวหลอก! -1 ❤️');
+          return;
+        }
+
+        const ok = item.group && item.group.key === groupKey;
+
+        if(ok) correct();
+        else miss('ผิดหมู่! -1 ❤️');
+      }
+
+      function correct(){
+        const item = state.current;
+        if(!item || state.spawnLock) return;
+
+        state.spawnLock = true;
+        state.correct += 1;
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo,state.combo);
+
+        if(item.group){
+          state.groupHits[item.group.key] = (state.groupHits[item.group.key] || 0) + 1;
+        }
+
+        if(state.phase === 'boss') state.bossCorrect += 1;
+
+        let gain = 9 + Math.min(state.combo,14);
+
+        if(item.kind === 'golden'){
+          gain += 20;
+          state.goldenHit += 1;
+        }
+
+        if(state.phase === 'storm') gain += 4;
+        if(state.phase === 'boss') gain += 8;
+        if(state.feverActive) gain *= 2;
+
+        state.score += gain;
+        addFever(item.kind === 'golden' ? 30 : (state.phase === 'boss' ? 16 : 12));
+        missionProgress('correct',item);
+
+        toast(item.kind === 'golden' ? `⭐ Golden +${gain}` : `เยี่ยม! +${gain}`);
+        beep(item.kind === 'golden' ? 'golden' : 'correct');
+        vibrate([20,15,20]);
+
+        setTimeout(spawnItem,620);
+      }
+
+      function miss(label){
+        if(state.spawnLock) return;
+
+        state.spawnLock = true;
+
+        if(state.shield > 0){
+          state.shield -= 1;
+          state.combo = 0;
+          state.fever = Math.max(0,state.fever - 12);
+          toast('🛡️ Shield ช่วยไว้!');
+          beep('power');
+          vibrate([25,15,25]);
+          setTimeout(spawnItem,760);
+          return;
+        }
+
+        state.miss += 1;
+        state.combo = 0;
+        state.hearts -= 1;
+        state.fever = Math.max(0,state.fever - 24);
+
+        toast(label || 'พลาด! -1 ❤️');
+        beep('miss');
+        vibrate([35,25,35]);
+
+        if(state.hearts <= 0){
+          endGame('no-heart');
+        }else{
+          setTimeout(spawnItem,820);
+        }
+      }
+
+      function collectPower(item){
+        if(!item || state.spawnLock) return;
+
+        state.spawnLock = true;
+
+        if(item.power === 'shield'){
+          state.shield = clamp(state.shield + 1,0,2);
+          state.powerUsed.shield += 1;
+          toast('🛡️ Shield +1');
+        }else if(item.power === 'slow'){
+          state.slowUntil = Date.now() + 5600;
+          state.powerUsed.slow += 1;
+          toast('⏱️ Slow Time!');
+        }
+
+        state.score += 8;
+        addFever(10);
+        beep('power');
+        vibrate([24,15,24]);
+
+        setTimeout(spawnItem,600);
+      }
+
+      function addFever(amount){
+        if(state.feverActive) return;
+
+        state.fever = clamp(state.fever + amount,0,100);
+
+        if(state.fever >= 100){
+          state.feverActive = true;
+          state.feverUntil = Date.now() + 8200;
+          state.feverCount += 1;
+          toast('🔥 FEVER x2!');
+          beep('fever');
+          vibrate([35,20,35]);
+        }
+      }
+
+      function newMission(){
+        const pool = [];
+        const g = pick(GROUPS);
+
+        pool.push({type:'group',icon:g.icon,label:`หมู่ ${g.id} ${g.label}`,key:g.key,need:state.phase === 'boss' ? 3 : 2,got:0});
+        pool.push({type:'combo',icon:'🔥',label:`คอมโบ ${state.phase === 'boss' ? 5 : 4}`,need:state.phase === 'boss' ? 5 : 4,got:0});
+        pool.push({type:'dodge',icon:'🚫',label:'หลบตัวหลอก 2 ครั้ง',need:2,got:0});
+
+        if(state.phase !== 'calm'){
+          pool.push({type:'golden',icon:'⭐',label:'เก็บ Golden 1 ครั้ง',need:1,got:0});
+        }
+
+        if(state.phase === 'boss'){
+          pool.push({type:'boss',icon:'👑',label:'Boss: ตอบถูก 4 ครั้ง',need:4,got:0});
+        }
+
+        state.mission = pick(pool);
+        updateHud();
+      }
+
+      function missionProgress(type,item){
+        const m = state.mission;
+        if(!m) return;
+
+        let changed = false;
+
+        if(type === 'correct'){
+          if(m.type === 'group' && item.group && item.group.key === m.key){ m.got += 1; changed = true; }
+          if(m.type === 'combo'){ m.got = Math.max(m.got,Math.min(m.need,state.combo)); changed = true; }
+          if(m.type === 'golden' && item.kind === 'golden'){ m.got += 1; changed = true; }
+          if(m.type === 'boss' && state.phase === 'boss'){ m.got += 1; changed = true; }
+        }
+
+        if(type === 'dodge' && m.type === 'dodge'){
+          m.got += 1;
+          changed = true;
+        }
+
+        if(!changed) return;
+
+        m.got = clamp(m.got,0,m.need);
+
+        if(m.got >= m.need){
+          state.missionClear += 1;
+          state.score += 25;
+          addFever(20);
+          toast('⭐ Mission Clear +25');
+          beep('golden');
+
+          setTimeout(()=>{
+            if(!state.ended) newMission();
+          },520);
+        }
+      }
+
+      function updateHud(){
+        const m = state.mission;
+
+        els.scoreChip.textContent = 'Score ' + state.score;
+        els.timeChip.textContent = remain() + 's';
+        els.heartChip.textContent = '❤️'.repeat(Math.max(0,state.hearts));
+
+        if(m){
+          els.missionTitle.textContent = `${m.icon} Mission: ${m.label} ${m.got}/${m.need}`;
+        }
+
+        if(state.feverActive){
+          els.scoreChip.textContent = '🔥 Fever x2';
+        }
+
+        if(state.shield > 0){
+          els.heartChip.textContent += ` 🛡️${state.shield}`;
+        }
+      }
+
+      function raycastShoot(){
+        if(state.mode !== 'game' || state.ended) return;
+
+        const now = Date.now();
+        if(now - state.lastShotAt < 170) return;
+        state.lastShotAt = now;
+
+        unlockAudio();
+
+        const camEl = els.camera;
+        const cam = camEl && camEl.object3D;
+        if(!cam) return;
+
+        const origin = new THREE.Vector3();
+        const direction = new THREE.Vector3();
+
+        cam.getWorldPosition(origin);
+        cam.getWorldDirection(direction);
+
+        const raycaster = new THREE.Raycaster(origin,direction,0,12);
+
+        const clickableEls = Array.from(document.querySelectorAll('.clickable'));
+        const objects = clickableEls
+          .map(el=>el.getObject3D('mesh'))
+          .filter(Boolean);
+
+        const hits = raycaster.intersectObjects(objects,true);
+
+        if(!hits.length){
+          toast('เล็งเป้าหมายก่อน');
+          vibrate(12);
+          return;
+        }
+
+        let obj = hits[0].object;
+        let targetEl = obj.el;
+
+        while(!targetEl && obj.parent){
+          obj = obj.parent;
+          targetEl = obj.el;
+        }
+
+        if(!targetEl) return;
+
+        const role = targetEl.dataset.role;
+
+        if(role === 'gate'){
+          judgeGate(targetEl.dataset.group);
+        }else if(role === 'item'){
+          handleItemShot();
+        }
+      }
+
+      function rank(){
+        const total = Math.max(1,state.correct + state.miss);
+        const acc = Math.round((state.correct / total) * 100);
+
+        if(acc >= 90 && state.bestCombo >= 8 && state.correct >= 14){
+          return {name:'VR Food Hero',icon:'🏆'};
+        }
+
+        if(acc >= 78 && state.bestCombo >= 5){
+          return {name:'Smart VR Eater',icon:'⭐'};
+        }
+
+        if(acc >= 58){
+          return {name:'VR Food Explorer',icon:'🌱'};
+        }
+
+        return {name:'VR Food Rookie',icon:'💪'};
+      }
+
+      function badges(){
+        const out = [];
+
+        if(state.goldenHit >= 1) out.push('⭐ Golden Shooter');
+        if(state.decoyDodged >= 2) out.push('🚫 Decoy Dodger');
+        if(state.feverCount >= 1) out.push('🔥 Fever Finisher');
+        if(state.powerUsed.shield >= 1) out.push('🛡️ Shield Collector');
+        if(state.missionClear >= 2) out.push('🎯 Mission Clear');
+        if(state.bossCorrect >= 4) out.push('👑 Boss Breaker');
+
+        if(out.length === 0) out.push('🌱 Keep Growing');
+
+        return out.slice(0,6);
+      }
+
+      function endGame(reason){
+        if(state.ended) return;
+
+        state.ended = true;
+
+        clearInterval(state.timer);
+        cancelAnimationFrame(state.raf);
+
+        els.itemRoot.innerHTML = '';
+        els.fxRoot.innerHTML = '';
+
+        const total = Math.max(1,state.correct + state.miss);
+        const acc = Math.round((state.correct / total) * 100);
+        const r = rank();
+        const badgeList = badges();
+
+        els.summaryIcon.textContent = r.icon;
+        els.rankText.textContent = r.name;
+        els.scoreText.textContent = state.score;
+        els.accuracyText.textContent = acc + '%';
+        els.comboText.textContent = state.bestCombo;
+        els.correctText.textContent = state.correct;
+        els.summaryBadges.innerHTML = badgeList.map(b=>`<span class="summary-badge">${b}</span>`).join('');
+
+        const summary = {
+          ts:new Date().toISOString(),
+          game:'groups',
+          mode:'solo-cvr',
+          patch:VERSION,
+          reason,
+          pid:qs('pid','anon'),
+          name:qs('name','Hero'),
+          diff:state.diff,
+          duration:state.duration,
+          score:state.score,
+          correct:state.correct,
+          miss:state.miss,
+          accuracy:acc,
+          bestCombo:state.bestCombo,
+          decoyDodged:state.decoyDodged,
+          goldenHit:state.goldenHit,
+          bossCorrect:state.bossCorrect,
+          missionClear:state.missionClear,
+          feverCount:state.feverCount,
+          powerUsed:state.powerUsed,
+          badges:badgeList,
+          rank:r.name
+        };
+
+        try{
+          localStorage.setItem('HHA_GROUPS_CVR_SUMMARY',JSON.stringify(summary));
+          localStorage.setItem('HHA_LAST_SUMMARY',JSON.stringify({
+            ts:summary.ts,
+            game:'groups',
+            mode:'solo-cvr',
+            summary
+          }));
+
+          window.dispatchEvent(new CustomEvent('groups-cvr:end',{detail:summary}));
+          window.dispatchEvent(new CustomEvent('groups:end',{detail:summary}));
+          window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:summary}));
+        }catch(e){}
+
+        showScreen('summary');
+      }
+
+      function replay(){
+        const u = new URL(location.href);
+        u.searchParams.set('seed',String(Date.now()));
+        location.href = u.toString();
+      }
+
+      function goZone(){
+        location.href = zoneUrl();
+      }
+
+      function installEvents(){
+        els.startBtn.addEventListener('click',()=>start(false));
+        els.practiceBtn.addEventListener('click',()=>start(true));
+        els.zoneIntroBtn.addEventListener('click',goZone);
+        els.replayBtn.addEventListener('click',replay);
+        els.zoneBtn.addEventListener('click',goZone);
+
+        document.addEventListener('hha:shoot',raycastShoot);
+        window.addEventListener('hha:shoot',raycastShoot);
+
+        els.scene.addEventListener('click',ev=>{
+          if(ev.target && ev.target.classList && ev.target.classList.contains('clickable')) return;
+          raycastShoot();
+        });
+
+        document.addEventListener('pointerdown',unlockAudio,{once:true,passive:true});
+
+        window.HHA_GROUPS_CVR_V1 = {
+          version:VERSION,
+          shoot:raycastShoot,
+          getState:function(){
+            return Object.assign({},state,{
+              current:state.current
+            });
+          },
+          end:endGame,
+          returnToNutritionZone:goZone
+        };
+      }
+
+      function init(){
+        buildGates();
+        installEvents();
+        console.info('[Groups cVR Solo] installed',VERSION);
+      }
+
+      if(els.scene.hasLoaded){
+        init();
+      }else{
+        els.scene.addEventListener('loaded',init,{once:true});
+      }
+    })();
+  </script>
+</body>
+</html>
