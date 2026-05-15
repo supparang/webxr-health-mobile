@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.1.1 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.1.2 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v211-rematch-consent-lock"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v212-canonical-final-summary"></script>
 
   <style>
     :root{
@@ -32,7 +32,10 @@
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
 
     html,body{
       margin:0;
@@ -102,7 +105,12 @@
       text-overflow:ellipsis;
     }
 
-    .topActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+    .topActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
 
     .btn{
       min-height:42px;
@@ -325,7 +333,10 @@
       display:none;
     }
 
-    .toast.show{display:block;animation:toastIn .2s ease;}
+    .toast.show{
+      display:block;
+      animation:toastIn .2s ease;
+    }
 
     @keyframes toastIn{
       from{opacity:0;transform:translateX(-50%) translateY(-8px);}
@@ -392,7 +403,9 @@
       overflow:auto;
     }
 
-    .overlay.show{display:grid;}
+    .overlay.show{
+      display:grid;
+    }
 
     .modal{
       width:min(92vw,740px);
@@ -452,6 +465,11 @@
       color:var(--text);
     }
 
+    .resultCard.winner{
+      background:#fff8d8;
+      border-color:#ffd75a;
+    }
+
     .resultCard b{
       display:block;
       font-size:32px;
@@ -477,7 +495,9 @@
       font-weight:1000;
     }
 
-    .rematchBox.show{display:block;}
+    .rematchBox.show{
+      display:block;
+    }
 
     .rematchActions{
       display:flex;
@@ -488,7 +508,10 @@
     }
 
     @media(max-width:680px){
-      html,body{height:100%;overflow:hidden;}
+      html,body{
+        height:100%;
+        overflow:hidden;
+      }
 
       .app{
         padding:calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
@@ -518,8 +541,14 @@
         text-overflow:ellipsis;
       }
 
-      .meta{font-size:10px;line-height:1.2;}
-      .topActions{gap:5px;}
+      .meta{
+        font-size:10px;
+        line-height:1.2;
+      }
+
+      .topActions{
+        gap:5px;
+      }
 
       .top .btn{
         min-height:34px;
@@ -529,22 +558,72 @@
         font-size:12px;
       }
 
-      .stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
-      .stat{min-height:44px;padding:5px 3px;border-radius:14px;}
-      .stat small{font-size:9px;}
-      .stat b{font-size:15px;}
+      .stats{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:5px;
+      }
 
-      .rival{padding:7px 8px;border-radius:18px;gap:6px;}
-      .rivalName{font-size:13px;}
-      .statePill{min-height:30px;padding:5px 10px;font-size:12px;}
+      .stat{
+        min-height:44px;
+        padding:5px 3px;
+        border-radius:14px;
+      }
 
-      .rivalStats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
-      .rivalCard{min-height:38px;padding:4px 3px;border-radius:13px;}
-      .rivalCard small{font-size:8px;}
-      .rivalCard b{font-size:12px;}
+      .stat small{
+        font-size:9px;
+      }
 
-      .arena{min-height:52dvh;border-radius:20px;}
-      .target{width:76px;height:76px;border-radius:26px;font-size:42px;border-width:6px;}
+      .stat b{
+        font-size:15px;
+      }
+
+      .rival{
+        padding:7px 8px;
+        border-radius:18px;
+        gap:6px;
+      }
+
+      .rivalName{
+        font-size:13px;
+      }
+
+      .statePill{
+        min-height:30px;
+        padding:5px 10px;
+        font-size:12px;
+      }
+
+      .rivalStats{
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:5px;
+      }
+
+      .rivalCard{
+        min-height:38px;
+        padding:4px 3px;
+        border-radius:13px;
+      }
+
+      .rivalCard small{
+        font-size:8px;
+      }
+
+      .rivalCard b{
+        font-size:12px;
+      }
+
+      .arena{
+        min-height:52dvh;
+        border-radius:20px;
+      }
+
+      .target{
+        width:76px;
+        height:76px;
+        border-radius:26px;
+        font-size:42px;
+        border-width:6px;
+      }
 
       .bottom{
         min-height:48px;
@@ -553,7 +632,10 @@
         grid-template-columns:1fr;
       }
 
-      .hint{font-size:11px;line-height:1.25;}
+      .hint{
+        font-size:11px;
+        line-height:1.25;
+      }
 
       .miniStats,.skillBar{
         gap:5px;
@@ -585,8 +667,13 @@
         max-height:calc(100dvh - 76px - var(--sat) - var(--sab));
       }
 
-      .resultGrid{grid-template-columns:1fr;}
-      .resultActions{grid-template-columns:1fr;}
+      .resultGrid{
+        grid-template-columns:1fr;
+      }
+
+      .resultActions{
+        grid-template-columns:1fr;
+      }
     }
 
     @media(max-width:420px){
@@ -595,15 +682,36 @@
         gap:5px;
       }
 
-      .top{grid-template-columns:auto 1fr;}
-      .topActions{grid-column:1/-1;justify-content:stretch;}
-      .topActions .btn{flex:1 1 0;}
+      .top{
+        grid-template-columns:auto 1fr;
+      }
 
-      .stats{grid-template-columns:repeat(3,minmax(0,1fr));}
-      .rivalStats{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .topActions{
+        grid-column:1/-1;
+        justify-content:stretch;
+      }
 
-      .arena{min-height:56dvh;}
-      .target{width:78px;height:78px;font-size:43px;}
+      .topActions .btn{
+        flex:1 1 0;
+      }
+
+      .stats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .rivalStats{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+      }
+
+      .arena{
+        min-height:56dvh;
+      }
+
+      .target{
+        width:78px;
+        height:78px;
+        font-size:43px;
+      }
     }
   </style>
 </head>
@@ -615,7 +723,7 @@
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2.1.1</h1>
+        <h1>GoodJunk Battle v2.1.2</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -667,15 +775,15 @@
     <div class="modal">
       <div id="modalIcon" class="modalIcon">🏁</div>
       <h2 id="modalTitle">จบ Battle!</h2>
-      <div id="modalReason" class="reason">time-up</div>
+      <div id="modalReason" class="reason">กำลังสรุปผล...</div>
 
       <div class="resultGrid">
-        <div class="resultCard">
+        <div id="meResultCard" class="resultCard">
           <div>คุณ: <span id="resultMeName">-</span></div>
           <b id="resultMeScore">0</b>
           <div id="resultMeMeta">Good: 0 • Junk: 0 • Miss: 0</div>
         </div>
-        <div class="resultCard">
+        <div id="rivalResultCard" class="resultCard">
           <div>คู่แข่ง: <span id="resultRivalName">-</span></div>
           <b id="resultRivalScore">0</b>
           <div id="resultRivalMeta">Good: 0 • Junk: 0 • Miss: 0</div>
@@ -702,7 +810,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_V211_RUN = 'v20260515-v211-rematch-consent-lock-final';
+    window.HHA_GJ_BATTLE_V212_RUN = 'v20260515-v212-canonical-final-summary-sync';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const $ = id => document.getElementById(id);
@@ -714,7 +822,6 @@
     const SHIELD_ICON = '🛡️';
 
     let db = null;
-    let unsub = null;
     let tickTimer = null;
     let spawnTimer = null;
     let syncTimer = null;
@@ -746,11 +853,17 @@
       rival:null,
       startedAt:0,
       stormUntil:0,
-      finalWritten:false
+      finalWritten:false,
+      canonicalShown:false
     };
 
-    function qs(k,d=''){return params.get(k) ?? d;}
-    function now(){return Date.now();}
+    function qs(k,d=''){
+      return params.get(k) ?? d;
+    }
+
+    function now(){
+      return Date.now();
+    }
 
     function safeKey(v){
       return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';
@@ -768,10 +881,25 @@
       return s.slice(0,16);
     }
 
-    function roomPath(){return `${ROOM_ROOT}/${safeKey(state.room)}`;}
-    function playerPath(pid=state.pid){return `${roomPath()}/players/${safeKey(pid)}`;}
-    function attacksPath(){return `${roomPath()}/attacks`;}
-    function rematchPath(){return `${roomPath()}/rematch`;}
+    function roomPath(){
+      return `${ROOM_ROOT}/${safeKey(state.room)}`;
+    }
+
+    function playerPath(pid=state.pid){
+      return `${roomPath()}/players/${safeKey(pid)}`;
+    }
+
+    function attacksPath(){
+      return `${roomPath()}/attacks`;
+    }
+
+    function rematchPath(){
+      return `${roomPath()}/rematch`;
+    }
+
+    function finalSummaryPath(){
+      return `${roomPath()}/finalSummary`;
+    }
 
     async function firebaseReady(){
       if(!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
@@ -801,12 +929,14 @@
       const fn=snap => cb(snap && snap.val ? snap.val() : null);
       ref.on('value',fn);
       return () => {
-        try{ref.off('value',fn);}catch(_){}
+        try{ ref.off('value',fn); }catch(_){}
       };
     }
 
     function playersArray(room){
-      return Object.values(room?.players || {}).filter(Boolean).sort((a,b)=>Number(a.joinedAt||0)-Number(b.joinedAt||0));
+      return Object.values(room?.players || {})
+        .filter(Boolean)
+        .sort((a,b)=>Number(a.joinedAt||0)-Number(b.joinedAt||0));
     }
 
     function getMe(room){
@@ -837,6 +967,26 @@
     function isHostForRoom(room){
       const me = getMe(room);
       return !!room && !!me && (room.hostPid === state.pid || me.role === 'host' || state.role === 'host');
+    }
+
+    function normalizePlayer(p){
+      return {
+        pid:String(p?.pid || ''),
+        name:String(p?.name || 'Player'),
+        role:String(p?.role || ''),
+        score:Number(p?.score || 0),
+        good:Number(p?.good || 0),
+        junk:Number(p?.junk || 0),
+        miss:Number(p?.miss || 0),
+        heart:Number(p?.heart || 0),
+        combo:Number(p?.combo || 0),
+        attack:Number(p?.attack || 0),
+        shield:Number(p?.shield || 0),
+        finished:p?.finished === true,
+        finishReason:String(p?.finishReason || ''),
+        finishedAt:Number(p?.finishedAt || 0),
+        updatedAt:Number(p?.updatedAt || 0)
+      };
     }
 
     function buildLobbyUrl(){
@@ -870,7 +1020,7 @@
       u.searchParams.set('hub',state.hub);
       u.searchParams.set('mode','battle-v2');
       u.searchParams.set('entry','battle-v2');
-      u.searchParams.set('v','20260515-v211-rematch-consent-lock');
+      u.searchParams.set('v','20260515-v212-canonical-final-summary');
       return u.toString();
     }
 
@@ -938,7 +1088,18 @@
       }
     }
 
-    function syncRoom(room){
+    function stopGameLoop(){
+      clearInterval(tickTimer);
+      clearInterval(spawnTimer);
+      clearInterval(syncTimer);
+      tickTimer = null;
+      spawnTimer = null;
+      syncTimer = null;
+      clearTargets();
+      $('arena').classList.remove('storm');
+    }
+
+    async function syncRoom(room){
       state.roomData=room || null;
       if(!room) return;
 
@@ -947,6 +1108,11 @@
 
       if(room.status === 'started' && roomMatch && previousMatch && roomMatch !== previousMatch && ended){
         location.href = buildFreshRunUrl(roomMatch);
+        return;
+      }
+
+      if(room.finalSummary && room.finalSummary.matchId && (!state.matchId || room.finalSummary.matchId === state.matchId)){
+        await applyCanonicalSummary(room.finalSummary, room);
         return;
       }
 
@@ -966,11 +1132,14 @@
       }
 
       handleIncomingAttacks(room);
-      handleRematch(room);
 
       if(!ended && room.status === 'ended'){
-        finish('room-ended', false);
+        await finish('room-ended', false);
         return;
+      }
+
+      if(ended){
+        handleRematch(room);
       }
 
       updateHud();
@@ -1001,7 +1170,7 @@
       try{
         await dbUpdate(playerPath(), payload);
       }catch(err){
-        console.warn('[GJ Battle v2.1.1] writeSelf failed', err);
+        console.warn('[GJ Battle v2.1.2] writeSelf failed', err);
       }
     }
 
@@ -1240,26 +1409,220 @@
       });
     }
 
-    function showEndWaitingForRival(room){
+    function decideWinner(players, reason){
+      const arr = players.map(normalizePlayer);
+
+      if(reason === 'heart-zero'){
+        const alive = arr.filter(p => p.heart > 0);
+        const dead = arr.filter(p => p.heart <= 0);
+
+        if(alive.length === 1) return { winnerPid:alive[0].pid, loserPid:dead[0]?.pid || '', tie:false };
+        if(dead.length === 1) return { winnerPid:arr.find(p => p.pid !== dead[0].pid)?.pid || '', loserPid:dead[0].pid, tie:false };
+      }
+
+      const sorted = [...arr].sort((a,b)=>{
+        if(b.score !== a.score) return b.score - a.score;
+        if(b.good !== a.good) return b.good - a.good;
+        if(a.junk !== b.junk) return a.junk - b.junk;
+        if(a.miss !== b.miss) return a.miss - b.miss;
+        return 0;
+      });
+
+      if(sorted.length >= 2){
+        const a=sorted[0];
+        const b=sorted[1];
+        const tie =
+          a.score === b.score &&
+          a.good === b.good &&
+          a.junk === b.junk &&
+          a.miss === b.miss;
+
+        if(tie){
+          return { winnerPid:'', loserPid:'', tie:true };
+        }
+
+        return { winnerPid:a.pid, loserPid:b.pid, tie:false };
+      }
+
+      return { winnerPid:sorted[0]?.pid || '', loserPid:'', tie:false };
+    }
+
+    async function createCanonicalFinalSummary(reason, baseRoom){
+      const existingRoom = baseRoom || await dbGet(roomPath()).catch(()=>null);
+      if(!existingRoom) return null;
+
+      if(existingRoom.finalSummary && existingRoom.finalSummary.matchId){
+        return existingRoom.finalSummary;
+      }
+
+      const players = playersArray(existingRoom).map(normalizePlayer);
+
+      const selfIdx = players.findIndex(p => p.pid === state.pid);
+      if(selfIdx >= 0){
+        players[selfIdx] = normalizePlayer({
+          ...players[selfIdx],
+          score:state.score,
+          good:state.good,
+          junk:state.junk,
+          miss:state.miss,
+          heart:state.heart,
+          combo:state.combo,
+          attack:state.attack,
+          shield:state.shield,
+          finished:true,
+          finishReason:reason,
+          finishedAt:now(),
+          updatedAt:now()
+        });
+      }
+
+      const winner = decideWinner(players, reason);
+      const playerMap = {};
+
+      players.forEach(p=>{
+        playerMap[safeKey(p.pid)] = p;
+      });
+
+      const summary = {
+        schema:'goodjunk-battle-v2-final-summary',
+        version:'v2.1.2',
+        matchId: existingRoom.matchId || existingRoom.activeMatchId || state.matchId || '',
+        roomId: state.room,
+        reason: String(reason || 'ended'),
+        winnerPid: winner.winnerPid || '',
+        loserPid: winner.loserPid || '',
+        tie: !!winner.tie,
+        endedByPid: state.pid,
+        endedByName: state.name,
+        endedAt: now(),
+        players: playerMap
+      };
+
+      try{
+        await dbSet(finalSummaryPath(), summary);
+        await dbUpdate(roomPath(),{
+          status:'ended',
+          endedAt:summary.endedAt,
+          endReason:summary.reason,
+          winnerPid:summary.winnerPid || '',
+          loserPid:summary.loserPid || '',
+          updatedAt:now()
+        });
+      }catch(err){
+        console.warn('[GJ Battle v2.1.2] createCanonicalFinalSummary failed', err);
+      }
+
+      return summary;
+    }
+
+    async function waitForCanonicalSummary(reason){
+      for(let i=0;i<12;i++){
+        const room = await dbGet(roomPath()).catch(()=>null);
+        if(room?.finalSummary?.matchId){
+          return room.finalSummary;
+        }
+
+        if(i === 2){
+          await createCanonicalFinalSummary(reason, room).catch(()=>null);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+
+      const fallbackRoom = await dbGet(roomPath()).catch(()=>null);
+      return await createCanonicalFinalSummary(reason, fallbackRoom).catch(()=>null);
+    }
+
+    async function applyCanonicalSummary(summary, room){
+      if(!summary) return;
+
+      ended = true;
+      finishing = false;
+      state.canonicalShown = true;
+
+      stopGameLoop();
+
+      const playersObj = summary.players || {};
+      const me = playersObj[safeKey(state.pid)] || getMe(room) || {};
+      const rival = Object.values(playersObj).find(p => p && p.pid !== state.pid) || getRival(room) || {};
+
+      const meN = normalizePlayer(me);
+      const rvN = normalizePlayer(rival);
+
+      state.score = meN.score;
+      state.good = meN.good;
+      state.junk = meN.junk;
+      state.miss = meN.miss;
+      state.heart = meN.heart;
+      state.combo = meN.combo;
+      state.attack = meN.attack;
+      state.shield = meN.shield;
+      state.rival = rvN;
+
+      const iWin = summary.winnerPid && summary.winnerPid === state.pid;
+      const iLose = summary.loserPid && summary.loserPid === state.pid;
+      const tie = !!summary.tie;
+
+      let title = 'เสมอ Battle!';
+      let icon = '🏁';
+
+      if(iWin){
+        title = 'ชนะ Battle!';
+        icon = '🏆';
+      }else if(iLose){
+        title = 'แพ้ Battle';
+        icon = '💪';
+      }else if(!tie && summary.winnerPid){
+        title = 'แพ้ Battle';
+        icon = '💪';
+      }
+
+      $('modalIcon').textContent = icon;
+      $('modalTitle').textContent = title;
+      $('modalReason').textContent = 'เหตุผล: ' + (summary.reason || 'ended');
+
+      $('resultMeName').textContent = meN.name || state.name;
+      $('resultMeScore').textContent = String(meN.score || 0);
+      $('resultMeMeta').textContent = `Good: ${meN.good || 0} • Junk: ${meN.junk || 0} • Miss: ${meN.miss || 0}`;
+
+      $('resultRivalName').textContent = rvN.name || 'คู่แข่ง';
+      $('resultRivalScore').textContent = String(rvN.score || 0);
+      $('resultRivalMeta').textContent = `Good: ${rvN.good || 0} • Junk: ${rvN.junk || 0} • Miss: ${rvN.miss || 0}`;
+
+      $('meResultCard').classList.toggle('winner', iWin || tie);
+      $('rivalResultCard').classList.toggle('winner', (!iWin && !iLose && tie) || summary.winnerPid === rvN.pid);
+
+      $('overlay').classList.add('show');
+
+      showRematchReady();
+
+      if(room){
+        handleRematch(room);
+      }
+
+      updateHud();
+    }
+
+    function showEndWaitingForCanonical(){
+      $('overlay').classList.add('show');
+      $('modalTitle').textContent = 'กำลังสรุป Battle...';
+      $('modalReason').textContent = 'รอผลกลางจากห้อง';
+      $('btnAgain').disabled = true;
+      $('btnAgain').textContent = '⏳ รอสรุปผล';
       $('rematchBox').classList.add('show');
-
-      const players = playersArray(room);
-      const finishedCount = getFinishedPlayers(room).length;
-
-      $('rematchText').textContent =
-        players.length >= 2
-          ? `คุณจบแล้ว รออีกฝ่ายเล่นให้จบ... (${finishedCount}/${players.length})`
-          : 'รอคู่แข่งเข้าห้องให้ครบก่อน...';
-
+      $('rematchText').textContent = 'กำลังรวมคะแนนทั้งสองฝ่าย...';
       $('btnAcceptRematch').disabled = true;
       $('btnDeclineRematch').disabled = true;
-      $('btnAgain').disabled = true;
-      $('btnAgain').textContent = '⏳ รออีกฝ่ายจบก่อน';
     }
 
     function showRematchReady(){
       $('btnAgain').disabled = false;
       $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
+      $('btnAcceptRematch').disabled = true;
+      $('btnDeclineRematch').disabled = true;
+      if(!$('rematchBox').classList.contains('show')){
+        $('rematchBox').classList.remove('show');
+      }
     }
 
     async function requestRematch(){
@@ -1268,9 +1631,9 @@
       const room = await dbGet(roomPath()).catch(()=>null);
       if(!room) return;
 
-      if(!allPlayersFinished(room)){
-        showToast('⏳ รออีกฝ่ายเล่นให้จบก่อน จึงขอ Battle อีกครั้งได้');
-        showEndWaitingForRival(room);
+      if(!room.finalSummary || !room.finalSummary.matchId){
+        showToast('⏳ รอระบบสรุปผลกลางก่อน');
+        showEndWaitingForCanonical();
         return;
       }
 
@@ -1313,9 +1676,8 @@
         return;
       }
 
-      if(!allPlayersFinished(room)){
-        showToast('⏳ ต้องรอทั้ง 2 ฝั่งจบก่อน');
-        showEndWaitingForRival(room);
+      if(!room.finalSummary || !room.finalSummary.matchId){
+        showToast('⏳ รอสรุปผลกลางก่อน');
         return;
       }
 
@@ -1359,7 +1721,7 @@
       if(rematchStarting) return;
       if(!room) return;
       if(!isHostForRoom(room)) return;
-      if(!allPlayersFinished(room)) return;
+      if(!room.finalSummary || !room.finalSummary.matchId) return;
       if(!rematchVotesComplete(room)) return;
 
       rematchStarting = true;
@@ -1394,6 +1756,9 @@
           startedAt:now(),
           endedAt:null,
           endReason:null,
+          winnerPid:null,
+          loserPid:null,
+          finalSummary:null,
           rematch:null,
           attacks:null,
           updatedAt:now()
@@ -1401,7 +1766,7 @@
 
         location.href = buildFreshRunUrl(newMatchId);
       }catch(err){
-        console.warn('[GJ Battle v2.1.1] startRematchIfHost failed', err);
+        console.warn('[GJ Battle v2.1.2] startRematchIfHost failed', err);
         showToast('เริ่ม Rematch ไม่สำเร็จ: ' + (err?.message || err), 2600);
       }finally{
         rematchStarting = false;
@@ -1411,18 +1776,14 @@
     function handleRematch(room){
       if(!ended) return;
 
-      if(!allPlayersFinished(room)){
-        showEndWaitingForRival(room);
+      if(!room?.finalSummary?.matchId){
+        showEndWaitingForCanonical();
         return;
       }
 
-      showRematchReady();
-
       const rm = room?.rematch;
       if(!rm){
-        $('rematchBox').classList.remove('show');
-        $('btnAcceptRematch').disabled = true;
-        $('btnDeclineRematch').disabled = true;
+        showRematchReady();
         return;
       }
 
@@ -1510,12 +1871,7 @@
       if(ended || finishing) return;
 
       finishing=true;
-
-      clearInterval(tickTimer);
-      clearInterval(spawnTimer);
-      clearInterval(syncTimer);
-      clearTargets();
-      $('arena').classList.remove('storm');
+      stopGameLoop();
 
       const finalMe={
         pid:state.pid,
@@ -1538,62 +1894,34 @@
       state.finalWritten = true;
       await writeSelf(finalMe, true).catch(()=>{});
 
-      const latestRoom=db ? await dbGet(roomPath()).catch(()=>state.roomData) : state.roomData;
-      const latestRival=getRival(latestRoom) || state.rival || {};
-
       ended=true;
       finishing=false;
 
-      const myScore=Number(finalMe.score || 0);
-      const rivalScore=Number(latestRival.score || 0);
+      showEndWaitingForCanonical();
 
-      let title='เสมอ Battle!';
-      let icon='🏁';
+      let room = db ? await dbGet(roomPath()).catch(()=>state.roomData) : state.roomData;
 
-      if(myScore > rivalScore){
-        title='ชนะ Battle!';
-        icon='🏆';
-      }else if(myScore < rivalScore){
-        title='แพ้ Battle';
-        icon='💪';
+      if(writeEnd){
+        await createCanonicalFinalSummary(reason, room).catch(()=>null);
       }
 
-      $('modalIcon').textContent=icon;
-      $('modalTitle').textContent=title;
-      $('modalReason').textContent='เหตุผล: ' + reason;
+      const summary = await waitForCanonicalSummary(reason);
+      const latestRoom = await dbGet(roomPath()).catch(()=>room);
 
-      $('resultMeName').textContent=finalMe.name;
-      $('resultMeScore').textContent=String(myScore);
-      $('resultMeMeta').textContent=`Good: ${finalMe.good} • Junk: ${finalMe.junk} • Miss: ${finalMe.miss}`;
-
-      $('resultRivalName').textContent=latestRival.name || 'คู่แข่ง';
-      $('resultRivalScore').textContent=String(rivalScore || 0);
-      $('resultRivalMeta').textContent=`Good: ${latestRival.good || 0} • Junk: ${latestRival.junk || 0} • Miss: ${latestRival.miss || 0}`;
-
-      $('overlay').classList.add('show');
-
-      if(latestRoom && !allPlayersFinished(latestRoom)){
-        showEndWaitingForRival(latestRoom);
+      if(summary){
+        await applyCanonicalSummary(summary, latestRoom);
       }else{
+        $('modalTitle').textContent='จบ Battle!';
+        $('modalReason').textContent='เหตุผล: ' + reason;
+        $('resultMeName').textContent=state.name;
+        $('resultMeScore').textContent=String(state.score);
+        $('resultMeMeta').textContent=`Good: ${state.good} • Junk: ${state.junk} • Miss: ${state.miss}`;
+
+        const rival = getRival(latestRoom) || state.rival || {};
+        $('resultRivalName').textContent=rival.name || 'คู่แข่ง';
+        $('resultRivalScore').textContent=String(rival.score || 0);
+        $('resultRivalMeta').textContent=`Good: ${rival.good || 0} • Junk: ${rival.junk || 0} • Miss: ${rival.miss || 0}`;
         showRematchReady();
-      }
-
-      if(writeEnd && db){
-        try{
-          const roomAfterWrite = await dbGet(roomPath()).catch(()=>latestRoom);
-          const allFinished = allPlayersFinished(roomAfterWrite);
-
-          if(allFinished && isHostForRoom(roomAfterWrite)){
-            await dbUpdate(roomPath(),{
-              status:'ended',
-              endedAt:now(),
-              endReason:reason,
-              updatedAt:now()
-            });
-          }
-        }catch(err){
-          console.warn('[GJ Battle v2.1.1] room end update failed', err);
-        }
       }
 
       updateHud();
@@ -1603,40 +1931,32 @@
       const room=await dbGet(roomPath()).catch(()=>null);
       if(!room) throw new Error('Room not found');
 
+      if(room.finalSummary && room.finalSummary.matchId){
+        state.roomData = room;
+        state.matchId = state.matchId || room.matchId || room.activeMatchId || room.finalSummary.matchId || '';
+        await applyCanonicalSummary(room.finalSummary, room);
+        return;
+      }
+
       if(String(room.status).toLowerCase() === 'ended' || String(room.status).toLowerCase() === 'rematch'){
-        const roomMatch = room.matchId || room.activeMatchId || '';
-        const myMatch = state.matchId || '';
+        state.roomData = room;
+        state.matchId = state.matchId || room.matchId || room.activeMatchId || '';
 
-        if(room.status === 'ended' || room.status === 'rematch'){
-          state.roomData = room;
-          syncRoom(room);
+        if(room.finalSummary && room.finalSummary.matchId){
+          await applyCanonicalSummary(room.finalSummary, room);
+          return;
+        }
 
-          const me = getMe(room);
-          if(me && me.finished === true){
-            state.score=Number(me.score || 0);
-            state.good=Number(me.good || 0);
-            state.junk=Number(me.junk || 0);
-            state.miss=Number(me.miss || 0);
-            state.heart=Number(me.heart || 0);
-            state.combo=Number(me.combo || 0);
-            state.attack=Number(me.attack || 0);
-            state.shield=Number(me.shield || 0);
+        const me = getMe(room);
+        if(me && me.finished === true){
+          ended = true;
+          showEndWaitingForCanonical();
 
-            ended = true;
-            $('overlay').classList.add('show');
-            $('modalTitle').textContent='จบ Battle!';
-            $('modalReason').textContent='เหตุผล: ' + (me.finishReason || room.endReason || 'ended');
-            $('resultMeName').textContent=state.name;
-            $('resultMeScore').textContent=String(state.score);
-            $('resultMeMeta').textContent=`Good: ${state.good} • Junk: ${state.junk} • Miss: ${state.miss}`;
+          const summary = await waitForCanonicalSummary(me.finishReason || room.endReason || 'ended');
+          const latestRoom = await dbGet(roomPath()).catch(()=>room);
 
-            const rival = getRival(room) || {};
-            $('resultRivalName').textContent=rival.name || 'คู่แข่ง';
-            $('resultRivalScore').textContent=String(rival.score || 0);
-            $('resultRivalMeta').textContent=`Good: ${rival.good || 0} • Junk: ${rival.junk || 0} • Miss: ${rival.miss || 0}`;
-
-            handleRematch(room);
-            updateHud();
+          if(summary){
+            await applyCanonicalSummary(summary, latestRoom);
             return;
           }
         }
@@ -1645,7 +1965,7 @@
           throw new Error('Room already ended. Go back to Lobby and start a new round.');
         }
 
-        if(room.status === 'rematch' && roomMatch === myMatch){
+        if(room.status === 'rematch'){
           throw new Error('Room is waiting for rematch consent.');
         }
       }
@@ -1684,7 +2004,7 @@
       }
 
       const fresh=await dbGet(roomPath()).catch(()=>room);
-      syncRoom(fresh);
+      await syncRoom(fresh);
     }
 
     function initButtons(){
@@ -1711,21 +2031,23 @@
       try{
         await firebaseReady();
         await ensureJoined();
-        unsub=dbOn(roomPath(), syncRoom);
+        dbOn(roomPath(), syncRoom);
 
         if(!ended){
           startGameLoop();
         }
       }catch(err){
-        console.error('[GJ Battle v2.1.1] boot failed', err);
-        $('hint').textContent='โหลด Battle v2.1.1 ไม่สำเร็จ: ' + (err?.message || err);
+        console.error('[GJ Battle v2.1.2] boot failed', err);
+        $('hint').textContent='โหลด Battle v2.1.2 ไม่สำเร็จ: ' + (err?.message || err);
         $('statePill').textContent='ERROR';
         $('statePill').className='statePill end';
       }
     }
 
     window.addEventListener('beforeunload',()=>{
-      try{writeSelf({lastSeenAt:now()}, true);}catch(_){}
+      try{
+        writeSelf({lastSeenAt:now()}, true);
+      }catch(_){}
     });
 
     boot();
