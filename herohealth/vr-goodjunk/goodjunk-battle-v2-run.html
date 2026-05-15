@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.1 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v2-run-rematch-room-ended-fix"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v21-run-rematch-attack-shield"></script>
 
   <style>
     :root{
@@ -24,6 +24,7 @@
       --good:#69e782;
       --bad:#ff8494;
       --power:#b79cff;
+      --shield:#7ab7ff;
       --shadow:0 16px 34px rgba(130,80,20,.14);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
@@ -52,7 +53,7 @@
       width:100vw;
       padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
       display:grid;
-      grid-template-rows:auto auto auto minmax(260px,1fr) auto;
+      grid-template-rows:auto auto auto minmax(280px,1fr) auto;
       gap:10px;
       overflow:hidden;
     }
@@ -119,6 +120,22 @@
       justify-content:center;
       user-select:none;
       text-align:center;
+    }
+
+    .btn.attack{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      color:#5b3900;
+    }
+
+    .btn.shield{
+      background:linear-gradient(180deg,#bfe6ff,#7ab7ff);
+      color:#123f5f;
+    }
+
+    .btn:disabled{
+      opacity:.48;
+      cursor:not-allowed;
+      filter:grayscale(.2);
     }
 
     .stats{
@@ -193,7 +210,7 @@
       overflow:hidden;
       border:4px solid var(--line);
       border-radius:28px;
-      min-height:260px;
+      min-height:280px;
       height:100%;
       background:
         linear-gradient(rgba(255,255,255,.20) 1px, transparent 1px),
@@ -204,17 +221,26 @@
       box-shadow:var(--shadow);
     }
 
+    .arena.storm{
+      animation:stormPulse .5s ease infinite alternate;
+    }
+
+    @keyframes stormPulse{
+      from{filter:saturate(1) brightness(1);}
+      to{filter:saturate(1.18) brightness(.96);}
+    }
+
     .target{
       position:absolute;
-      width:72px;
-      height:72px;
-      border-radius:26px;
+      width:86px;
+      height:86px;
+      border-radius:30px;
       display:grid;
       place-items:center;
-      border:6px solid var(--good);
+      border:7px solid var(--good);
       background:linear-gradient(180deg,#ffffff,#fffdf4);
-      box-shadow:0 12px 26px rgba(80,120,70,.22);
-      font-size:40px;
+      box-shadow:0 14px 30px rgba(80,120,70,.24);
+      font-size:46px;
       cursor:pointer;
       user-select:none;
       touch-action:manipulation;
@@ -224,6 +250,7 @@
 
     .target.bad{border-color:var(--bad);}
     .target.power{border-color:var(--power);}
+    .target.shield{border-color:var(--shield);}
     .target:active{transform:scale(.90);filter:brightness(1.05);}
 
     .pop{
@@ -243,8 +270,29 @@
       to{opacity:0;transform:translate(-50%,-95%) scale(1.18);}
     }
 
+    .toast{
+      position:fixed;
+      left:50%;
+      top:calc(14px + var(--sat));
+      transform:translateX(-50%);
+      z-index:80;
+      max-width:min(92vw,640px);
+      border:4px solid var(--line);
+      background:#fffef9;
+      color:var(--text);
+      border-radius:22px;
+      padding:12px 16px;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 16px 36px rgba(60,35,15,.24);
+      display:none;
+    }
+
+    .toast.show{display:block;animation:toastIn .2s ease;}
+    @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-8px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}
+
     .bottom{
-      min-height:54px;
+      min-height:58px;
       padding:8px 12px;
       display:grid;
       grid-template-columns:1fr auto;
@@ -278,6 +326,14 @@
       white-space:nowrap;
     }
 
+    .skillBar{
+      display:flex;
+      gap:6px;
+      align-items:center;
+      justify-content:flex-end;
+      flex-wrap:wrap;
+    }
+
     .overlay{
       position:fixed;
       inset:0;
@@ -292,7 +348,7 @@
     .overlay.show{display:grid;}
 
     .modal{
-      width:min(92vw,720px);
+      width:min(92vw,740px);
       max-height:92dvh;
       overflow:auto;
       border:4px solid var(--line);
@@ -358,13 +414,34 @@
       margin-top:12px;
     }
 
+    .rematchBox{
+      display:none;
+      border:3px dashed var(--line2);
+      border-radius:22px;
+      padding:14px;
+      margin:12px 0;
+      background:#fff8db;
+      color:#7c4d00;
+      font-weight:1000;
+    }
+
+    .rematchBox.show{display:block;}
+
+    .rematchActions{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:10px;
+    }
+
     @media(max-width:680px){
       html,body{height:100%;overflow:hidden;}
 
       .app{
         padding:calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
         gap:6px;
-        grid-template-rows:auto auto auto minmax(310px,1fr) auto;
+        grid-template-rows:auto auto auto minmax(52dvh,1fr) auto;
       }
 
       .top{
@@ -393,13 +470,20 @@
       .rivalCard small{font-size:8px;}
       .rivalCard b{font-size:12px;}
 
-      .arena{min-height:310px;border-radius:20px;}
-      .target{width:62px;height:62px;border-radius:22px;font-size:34px;border-width:5px;}
+      .arena{min-height:52dvh;border-radius:20px;}
+      .target{width:76px;height:76px;border-radius:26px;font-size:42px;border-width:6px;}
 
-      .bottom{min-height:42px;padding:6px 8px;border-radius:18px;}
+      .bottom{
+        min-height:48px;
+        padding:6px 8px;
+        border-radius:18px;
+        grid-template-columns:1fr;
+      }
+
       .hint{font-size:11px;line-height:1.25;}
-      .miniStats{gap:5px;}
+      .miniStats,.skillBar{gap:5px;justify-content:center;}
       .pill{min-height:30px;padding:4px 7px;border-radius:12px;font-size:10px;}
+      .bottom .btn{min-height:34px;padding:5px 8px;font-size:11px;border-radius:12px;}
 
       .modal{padding:18px;border-radius:28px;}
       .resultGrid{grid-template-columns:1fr;}
@@ -407,24 +491,26 @@
     }
 
     @media(max-width:420px){
-      .app{grid-template-rows:auto auto auto minmax(330px,1fr) auto;gap:5px;}
+      .app{grid-template-rows:auto auto auto minmax(56dvh,1fr) auto;gap:5px;}
       .top{grid-template-columns:auto 1fr;}
       .topActions{grid-column:1/-1;justify-content:stretch;}
       .topActions .btn{flex:1 1 0;}
       .stats{grid-template-columns:repeat(3,minmax(0,1fr));}
       .rivalStats{grid-template-columns:repeat(3,minmax(0,1fr));}
-      .arena{min-height:330px;}
-      .target{width:66px;height:66px;font-size:36px;}
+      .arena{min-height:56dvh;}
+      .target{width:78px;height:78px;font-size:43px;}
     }
   </style>
 </head>
 
 <body>
+  <div id="toast" class="toast"></div>
+
   <div class="app">
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2</h1>
+        <h1>GoodJunk Battle v2.1</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -457,12 +543,17 @@
     <section id="arena" class="arena" aria-label="GoodJunk Battle Arena"></section>
 
     <section class="box bottom">
-      <div id="hint" class="hint">แตะอาหารดี เก็บคะแนน เลี่ยง Junk แข่งกับเพื่อน!</div>
+      <div id="hint" class="hint">แตะอาหารดี เก็บพลัง ใช้ Junk Storm หรือ Shield แข่งกับเพื่อน!</div>
       <div class="miniStats">
         <div class="pill">Good <span id="goodCount">0</span></div>
         <div class="pill">Junk <span id="junkCount">0</span></div>
         <div class="pill">Miss <span id="missCount">0</span></div>
         <div class="pill">Attack <span id="attackCount">0/3</span></div>
+        <div class="pill">Shield <span id="shieldCount">0</span></div>
+      </div>
+      <div class="skillBar">
+        <button id="btnAttack" class="btn attack" type="button" disabled>⚡ Junk Storm</button>
+        <button id="btnShield" class="btn shield" type="button" disabled>🛡️ Shield</button>
       </div>
     </section>
   </div>
@@ -486,8 +577,16 @@
         </div>
       </div>
 
+      <div id="rematchBox" class="rematchBox">
+        <div id="rematchText">มีผู้เล่นขอ Battle อีกครั้ง</div>
+        <div class="rematchActions">
+          <button id="btnAcceptRematch" class="btn attack" type="button">✅ ยอมรับ</button>
+          <button id="btnDeclineRematch" class="btn" type="button">❌ ปฏิเสธ</button>
+        </div>
+      </div>
+
       <div class="resultActions">
-        <a id="btnAgain" class="btn" href="./goodjunk-battle-v2-lobby.html">🔁 Battle อีกครั้ง</a>
+        <button id="btnAgain" class="btn" type="button">🔁 Battle อีกครั้ง</button>
         <a id="btnLobbyEnd" class="btn" href="./goodjunk-battle-v2-lobby.html">⚔️ กลับ Lobby</a>
         <a id="btnHubEnd" class="btn" href="../nutrition-zone.html">🏠 Hub</a>
       </div>
@@ -498,7 +597,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_V2_RUN = 'v20260515-clean-run-rematch-room-ended-final';
+    window.HHA_GJ_BATTLE_V21_RUN = 'v20260515-v21-rematch-junkstorm-shield-targetsize';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const $ = id => document.getElementById(id);
@@ -506,15 +605,19 @@
 
     const GOOD = ['🍎','🍌','🥦','🥬','🥕','🍊','🍇','🐟','🥚','🍚'];
     const BAD = ['🍟','🍔','🧁','🥤','🍭'];
-    const POWER = ['⚡','🛡️','💎'];
+    const POWER = ['⚡','💎'];
+    const SHIELD_ICON = '🛡️';
 
     let db = null;
     let unsub = null;
     let tickTimer = null;
     let spawnTimer = null;
     let syncTimer = null;
+    let stormTimer = null;
+    let toastTimer = null;
     let ended = false;
     let finishing = false;
+    let appliedAttackIds = new Set();
 
     const state = {
       room: sanitizeRoom(qs('room', qs('roomId',''))),
@@ -532,9 +635,11 @@
       heart:3,
       combo:0,
       attack:0,
+      shield:0,
       roomData:null,
       rival:null,
-      startedAt:0
+      startedAt:0,
+      stormUntil:0
     };
 
     function qs(k,d=''){return params.get(k) ?? d;}
@@ -554,7 +659,9 @@
     }
 
     function roomPath(){return `${ROOM_ROOT}/${safeKey(state.room)}`;}
-    function playerPath(){return `${roomPath()}/players/${safeKey(state.pid)}`;}
+    function playerPath(pid=state.pid){return `${roomPath()}/players/${safeKey(pid)}`;}
+    function attacksPath(){return `${roomPath()}/attacks`;}
+    function rematchPath(){return `${roomPath()}/rematch`;}
 
     async function firebaseReady(){
       if(!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
@@ -571,6 +678,11 @@
 
     async function dbUpdate(path,val){
       await db.ref(path).update(val);
+      return val;
+    }
+
+    async function dbSet(path,val){
+      await db.ref(path).set(val);
       return val;
     }
 
@@ -602,18 +714,15 @@
       u.searchParams.set('hub',state.hub);
       u.searchParams.set('mode','battle-v2');
       u.searchParams.set('entry','battle-v2');
-
       u.searchParams.set('restart','1');
       u.searchParams.set('newRound','1');
       u.searchParams.set('fromEnded','1');
-
       return u.toString();
     }
 
     function hydrateLinks(){
       $('btnLobby').href=buildLobbyUrl();
       $('btnLobbyEnd').href=buildLobbyUrl();
-      $('btnAgain').href=buildLobbyUrl();
       $('btnHub').href=state.hub;
       $('btnHubEnd').href=state.hub;
     }
@@ -621,6 +730,14 @@
     function hearts(n){
       const x=Math.max(0,Math.min(5,Number(n || 0)));
       return x > 0 ? '❤️'.repeat(x) : '💔';
+    }
+
+    function showToast(text,ms=1800){
+      const el=$('toast');
+      el.textContent=text;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer=setTimeout(()=>el.classList.remove('show'),ms);
     }
 
     function updateHud(){
@@ -635,6 +752,10 @@
       $('junkCount').textContent=String(Number(state.junk || 0));
       $('missCount').textContent=String(Number(state.miss || 0));
       $('attackCount').textContent=`${Math.min(3,Number(state.attack || 0))}/3`;
+      $('shieldCount').textContent=String(Number(state.shield || 0));
+
+      $('btnAttack').disabled = ended || Number(state.attack || 0) < 3 || !state.rival;
+      $('btnShield').disabled = ended || Number(state.shield || 0) < 1;
 
       if(state.rival){
         $('rivalName').textContent=state.rival.name || 'คู่แข่ง';
@@ -663,13 +784,12 @@
     function syncRoom(room){
       state.roomData=room || null;
       if(!room) return;
-      if(ended || finishing) return;
 
       const me=getMe(room);
       const rival=getRival(room);
       state.rival=rival || null;
 
-      if(me){
+      if(me && !finishing){
         state.score=Number(me.score ?? state.score ?? 0);
         state.good=Number(me.good ?? state.good ?? 0);
         state.junk=Number(me.junk ?? state.junk ?? 0);
@@ -677,9 +797,13 @@
         state.heart=Number(me.heart ?? state.heart ?? 3);
         state.combo=Number(me.combo ?? state.combo ?? 0);
         state.attack=Number(me.attack ?? state.attack ?? 0);
+        state.shield=Number(me.shield ?? state.shield ?? 0);
       }
 
-      if(room.status === 'ended'){
+      handleIncomingAttacks(room);
+      handleRematch(room);
+
+      if(!ended && room.status === 'ended'){
         finish('room-ended', false);
         return;
       }
@@ -704,6 +828,7 @@
         heart:Number(state.heart || 0),
         combo:Number(state.combo || 0),
         attack:Number(state.attack || 0),
+        shield:Number(state.shield || 0),
         updatedAt:t,
         ...extra
       };
@@ -711,43 +836,62 @@
       try{
         await dbUpdate(playerPath(), payload);
       }catch(err){
-        console.warn('[GJ Battle v2] writeSelf failed', err);
+        console.warn('[GJ Battle v2.1] writeSelf failed', err);
       }
     }
 
     function rand(min,max){return min + Math.random() * (max - min);}
 
+    function isStormActive(){
+      return now() < Number(state.stormUntil || 0);
+    }
+
     function pickType(){
+      if(isStormActive()){
+        const r=Math.random();
+        if(r < .58) return 'bad';
+        if(r < .82) return 'good';
+        if(r < .92) return 'power';
+        return 'shield';
+      }
+
       const r=Math.random();
-      if(r < .72) return 'good';
-      if(r < .90) return 'bad';
-      return 'power';
+      if(r < .68) return 'good';
+      if(r < .84) return 'bad';
+      if(r < .95) return 'power';
+      return 'shield';
     }
 
     function pickIcon(type){
+      if(type === 'shield') return SHIELD_ICON;
       const arr=type === 'good' ? GOOD : type === 'bad' ? BAD : POWER;
       return arr[Math.floor(Math.random()*arr.length)];
     }
 
-    function spawnTarget(){
+    function spawnTarget(forceType=''){
       if(ended || finishing) return;
 
       const arena=$('arena');
       const rect=arena.getBoundingClientRect();
       if(rect.width < 80 || rect.height < 80) return;
 
-      const type=pickType();
+      const type=forceType || pickType();
       const icon=pickIcon(type);
 
       const el=document.createElement('button');
       el.type='button';
-      el.className=`target ${type === 'bad' ? 'bad' : type === 'power' ? 'power' : ''}`;
+      el.className=`target ${type === 'bad' ? 'bad' : type === 'power' ? 'power' : type === 'shield' ? 'shield' : ''}`;
       el.textContent=icon;
       el.dataset.type=type;
 
-      const size=Math.min(72,Math.max(58,rect.width * .13));
+      const isMobile = window.innerWidth <= 680;
+      const size = isMobile
+        ? Math.min(82, Math.max(72, rect.width * .18))
+        : Math.min(92, Math.max(78, rect.width * .07));
+
+      const bottomSafe = isMobile ? 12 : 10;
       const x=rand(8,Math.max(8,rect.width - size - 8));
-      const y=rand(8,Math.max(8,rect.height - size - 8));
+      const y=rand(8,Math.max(8,rect.height - size - bottomSafe));
 
       el.style.width=`${size}px`;
       el.style.height=`${size}px`;
@@ -755,7 +899,7 @@
       el.style.top=`${y}px`;
 
       let alive=true;
-      const ttl=type === 'bad' ? 1350 : type === 'power' ? 1200 : 1500;
+      const ttl=type === 'bad' ? 1450 : type === 'power' ? 1250 : type === 'shield' ? 1300 : 1550;
 
       const timer=setTimeout(()=>{
         if(!alive || ended || finishing) return;
@@ -781,22 +925,39 @@
         el.remove();
 
         if(type === 'good'){
-          const plus=10 + Math.min(10,state.combo + 1);
+          const plus=10 + Math.min(12,state.combo + 1);
           state.good++;
           state.combo++;
           state.score += plus;
-          if(state.combo % 5 === 0) state.score += 20;
+
+          if(state.combo % 5 === 0){
+            state.attack=Math.min(3,state.attack + 1);
+            state.score += 15;
+            showToast('⚡ Combo 5! ชาร์จพลังโจมตี +1');
+          }
+
           pop(x + size/2, y + size/2, '+' + plus);
         }else if(type === 'bad'){
-          state.junk++;
-          state.combo=0;
-          state.heart=Math.max(0,state.heart - 1);
-          state.score=Math.max(0,state.score - 15);
-          pop(x + size/2, y + size/2, '-15');
-        }else{
+          if(state.shield > 0 && isStormActive()){
+            state.shield=Math.max(0,state.shield - 1);
+            state.combo=0;
+            pop(x + size/2, y + size/2, '🛡️ Block');
+            showToast('🛡️ Shield กัน Junk Storm แล้ว!');
+          }else{
+            state.junk++;
+            state.combo=0;
+            state.heart=Math.max(0,state.heart - 1);
+            state.score=Math.max(0,state.score - 15);
+            pop(x + size/2, y + size/2, '-15');
+          }
+        }else if(type === 'power'){
           state.attack=Math.min(3,state.attack + 1);
           state.score += 5;
           pop(x + size/2, y + size/2, '+⚡');
+        }else if(type === 'shield'){
+          state.shield=Math.min(2,state.shield + 1);
+          state.score += 5;
+          pop(x + size/2, y + size/2, '+🛡️');
         }
 
         writeSelf();
@@ -834,6 +995,204 @@
       });
     }
 
+    async function useAttack(){
+      if(ended || finishing) return;
+      if(Number(state.attack || 0) < 3){
+        showToast('⚡ พลังโจมตียังไม่เต็ม ต้องมี 3/3');
+        return;
+      }
+      if(!state.rival){
+        showToast('ยังไม่มีคู่แข่ง');
+        return;
+      }
+
+      state.attack = 0;
+      await writeSelf();
+
+      const attackId = 'ATK-' + state.pid + '-' + Date.now().toString(36).toUpperCase();
+
+      await dbUpdate(`${attacksPath()}/${safeKey(attackId)}`,{
+        id:attackId,
+        type:'junkStorm',
+        fromPid:state.pid,
+        fromName:state.name,
+        toPid:state.rival.pid,
+        toName:state.rival.name || 'คู่แข่ง',
+        createdAt:now(),
+        durationMs:5200,
+        active:true
+      });
+
+      showToast('⚡ ส่ง Junk Storm ใส่ ' + (state.rival.name || 'คู่แข่ง') + '!');
+      updateHud();
+    }
+
+    async function useShield(){
+      if(ended || finishing) return;
+      if(Number(state.shield || 0) < 1){
+        showToast('🛡️ ยังไม่มี Shield');
+        return;
+      }
+
+      showToast('🛡️ Shield พร้อมกัน Junk Storm 1 ครั้ง');
+      updateHud();
+    }
+
+    function handleIncomingAttacks(room){
+      const attacks = room?.attacks || {};
+      Object.values(attacks).forEach(atk=>{
+        if(!atk || !atk.id) return;
+        if(atk.toPid !== state.pid) return;
+        if(appliedAttackIds.has(atk.id)) return;
+
+        appliedAttackIds.add(atk.id);
+
+        if(atk.type === 'junkStorm'){
+          const duration = Number(atk.durationMs || 5200);
+          state.stormUntil = Math.max(state.stormUntil || 0, now() + duration);
+          $('arena').classList.add('storm');
+          showToast('⚠️ ' + (atk.fromName || 'คู่แข่ง') + ' ใช้ Junk Storm! ระวัง Junk');
+
+          clearTimeout(stormTimer);
+          stormTimer=setTimeout(()=>{
+            $('arena').classList.remove('storm');
+            showToast('✅ Junk Storm จบแล้ว');
+          },duration);
+
+          for(let i=0;i<7;i++){
+            setTimeout(()=>spawnTarget('bad'), i * 340);
+          }
+        }
+      });
+    }
+
+    async function requestRematch(){
+      if(!db) return;
+      const voteKey = safeKey(state.pid);
+
+      await dbUpdate(rematchPath(),{
+        requestedBy:state.pid,
+        requestedByName:state.name,
+        requestedAt:now(),
+        status:'pending',
+        updatedAt:now()
+      });
+
+      await dbUpdate(`${rematchPath()}/votes`,{
+        [voteKey]:true
+      });
+
+      await dbUpdate(roomPath(),{
+        status:'rematch',
+        updatedAt:now()
+      });
+
+      showToast('🔁 ส่งคำขอ Battle อีกครั้งแล้ว');
+      $('rematchBox').classList.add('show');
+      $('rematchText').textContent='รออีกฝ่ายกดยอมรับ Battle อีกครั้ง';
+    }
+
+    async function acceptRematch(){
+      const voteKey = safeKey(state.pid);
+
+      await dbUpdate(`${rematchPath()}/votes`,{
+        [voteKey]:true
+      });
+
+      showToast('✅ ยอมรับ Rematch แล้ว');
+      await checkRematchStart();
+    }
+
+    async function declineRematch(){
+      await dbUpdate(rematchPath(),{
+        status:'declined',
+        declinedBy:state.pid,
+        declinedByName:state.name,
+        declinedAt:now(),
+        updatedAt:now()
+      });
+
+      showToast('❌ ปฏิเสธ Rematch แล้ว');
+    }
+
+    async function checkRematchStart(){
+      const room=await dbGet(roomPath()).catch(()=>null);
+      if(!room) return;
+
+      const players=playersArray(room);
+      const votes=room?.rematch?.votes || {};
+      const allYes=players.length >= 2 && players.every(p => votes[safeKey(p.pid)] === true);
+
+      if(!allYes) return;
+
+      if(state.role !== 'host') return;
+
+      const matchId='BT2-' + safeKey(state.room) + '-' + Date.now().toString(36).toUpperCase();
+
+      await Promise.all(players.map(pl=>{
+        return dbUpdate(playerPath(pl.pid),{
+          score:0,
+          good:0,
+          junk:0,
+          miss:0,
+          heart:3,
+          combo:0,
+          attack:0,
+          shield:0,
+          finished:false,
+          finishReason:null,
+          finishedAt:null,
+          updatedAt:now()
+        }).catch(()=>{});
+      }));
+
+      await dbUpdate(roomPath(),{
+        status:'started',
+        matchId,
+        activeMatchId:matchId,
+        startedAt:now(),
+        endedAt:null,
+        endReason:null,
+        rematch:null,
+        attacks:null,
+        updatedAt:now()
+      });
+
+      const u=new URL(location.href);
+      u.searchParams.set('matchId',matchId);
+      location.href=u.toString();
+    }
+
+    function handleRematch(room){
+      if(!room?.rematch) return;
+
+      const rm=room.rematch;
+      const votes=rm.votes || {};
+      const myVote=votes[safeKey(state.pid)] === true;
+      const requester = rm.requestedByName || 'คู่แข่ง';
+
+      if(rm.status === 'declined'){
+        $('rematchBox').classList.add('show');
+        $('rematchText').textContent='มีผู้เล่นปฏิเสธ Battle อีกครั้ง';
+        return;
+      }
+
+      if(rm.status === 'pending' && ended){
+        $('rematchBox').classList.add('show');
+
+        if(myVote){
+          $('rematchText').textContent='คุณยอมรับแล้ว รออีกฝ่าย...';
+        }else{
+          $('rematchText').textContent=`${requester} ขอ Battle อีกครั้ง`;
+          showToast(`🔁 ${requester} ขอ Battle อีกครั้ง`);
+        }
+      }
+
+      if(rm.status === 'pending'){
+        checkRematchStart().catch(()=>{});
+      }
+    }
+
     function startGameLoop(){
       if(ended || finishing) return;
 
@@ -857,20 +1216,20 @@
         if(ended || finishing) return;
 
         const existing=document.querySelectorAll('.target').length;
-        const maxTargets=window.innerWidth <= 680 ? 7 : 10;
+        const maxTargets=window.innerWidth <= 680 ? 8 : 11;
 
         if(existing < maxTargets){
           spawnTarget();
-          if(Math.random() < .35) spawnTarget();
+          if(Math.random() < .42) spawnTarget();
         }
-      },520);
+      },500);
 
       syncTimer=setInterval(()=>{
         if(!ended && !finishing) writeSelf();
-      },1200);
+      },1100);
 
-      for(let i=0;i<5;i++){
-        setTimeout(spawnTarget, i * 160);
+      for(let i=0;i<6;i++){
+        setTimeout(spawnTarget, i * 140);
       }
     }
 
@@ -883,6 +1242,7 @@
       clearInterval(spawnTimer);
       clearInterval(syncTimer);
       clearTargets();
+      $('arena').classList.remove('storm');
 
       const finalMe={
         pid:state.pid,
@@ -895,6 +1255,7 @@
         heart:Number(state.heart || 0),
         combo:Number(state.combo || 0),
         attack:Number(state.attack || 0),
+        shield:Number(state.shield || 0),
         finished:true,
         finishReason:reason,
         finishedAt:now(),
@@ -946,7 +1307,7 @@
             updatedAt:now()
           });
         }catch(err){
-          console.warn('[GJ Battle v2] room end update failed', err);
+          console.warn('[GJ Battle v2.1] room end update failed', err);
         }
       }
 
@@ -978,6 +1339,7 @@
           heart:3,
           combo:0,
           attack:0,
+          shield:0,
           ready:true,
           finished:false,
           joinedAt:now(),
@@ -997,8 +1359,17 @@
       syncRoom(fresh);
     }
 
+    function initButtons(){
+      $('btnAttack').addEventListener('click', useAttack);
+      $('btnShield').addEventListener('click', useShield);
+      $('btnAgain').addEventListener('click', requestRematch);
+      $('btnAcceptRematch').addEventListener('click', acceptRematch);
+      $('btnDeclineRematch').addEventListener('click', declineRematch);
+    }
+
     async function boot(){
       hydrateLinks();
+      initButtons();
 
       $('meta').textContent=`${state.name} • ${state.role} • ${state.room}`;
       $('playerName').textContent=state.name;
@@ -1012,8 +1383,8 @@
         unsub=dbOn(roomPath(), syncRoom);
         startGameLoop();
       }catch(err){
-        console.error('[GJ Battle v2] boot failed', err);
-        $('hint').textContent='โหลด Battle v2 ไม่สำเร็จ: ' + (err?.message || err);
+        console.error('[GJ Battle v2.1] boot failed', err);
+        $('hint').textContent='โหลด Battle v2.1 ไม่สำเร็จ: ' + (err?.message || err);
         $('statePill').textContent='ERROR';
         $('statePill').className='statePill end';
       }
