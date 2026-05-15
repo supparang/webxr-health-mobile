@@ -3833,3 +3833,221 @@ body[data-debug="1"] .hha-hydration-qa-badge{
     line-height:1.1 !important;
   }
 }
+/* =========================================================
+   PATCH v20260514-hydration-summary-no-overflow-pack12
+   แก้ Summary ล้นแนวนอน / compact mobile final
+   ========================================================= */
+
+/* กันล้นแนวนอนทั้งหน้า */
+html,
+body,
+.hha-hydration-page,
+.hha-hydration-arena,
+.hha-hydration-app,
+.hha-hydration-stage,
+.hha-hydration-summary{
+  max-width:100vw !important;
+  overflow-x:hidden !important;
+}
+
+/* Summary root */
+.hha-hydration-summary{
+  width:100vw !important;
+  max-width:100vw !important;
+  left:0 !important;
+  right:0 !important;
+  margin:0 !important;
+  padding-left:0 !important;
+  padding-right:0 !important;
+  box-sizing:border-box !important;
+}
+
+/* ทุกอย่างใน Summary ห้ามดันกว้างเกิน */
+.hha-hydration-summary,
+.hha-hydration-summary *{
+  box-sizing:border-box !important;
+  max-width:100% !important;
+  word-spacing:normal !important;
+  letter-spacing:normal !important;
+}
+
+/* การ์ดหลัก */
+.hha-summary-card{
+  width:min(720px, 94vw) !important;
+  max-width:94vw !important;
+  margin:10px auto 18px !important;
+  padding:22px 16px 28px !important;
+  overflow:hidden !important;
+}
+
+/* badge New Personal Best */
+.hha-summary-kicker{
+  max-width:88vw !important;
+  padding:8px 16px !important;
+  font-size:16px !important;
+  line-height:1.15 !important;
+  white-space:normal !important;
+}
+
+/* Medal title */
+.hha-summary-title{
+  font-size:clamp(34px, 10vw, 52px) !important;
+  line-height:1.04 !important;
+  margin-top:16px !important;
+  margin-bottom:8px !important;
+}
+
+/* ดาว */
+.hha-stars{
+  font-size:clamp(34px, 9vw, 48px) !important;
+  margin:10px 0 16px !important;
+  letter-spacing:0 !important;
+}
+
+/* คะแนนรวม — ลดไม่ให้ชนขอบ */
+.hha-score-big{
+  width:100% !important;
+  padding:20px 12px 18px !important;
+  border-radius:28px !important;
+  overflow:hidden !important;
+}
+
+.hha-score-big b{
+  font-size:clamp(54px, 16vw, 78px) !important;
+  line-height:.95 !important;
+  letter-spacing:-2px !important;
+  word-spacing:0 !important;
+  white-space:nowrap !important;
+}
+
+/* grid สถิติ */
+.hha-summary-grid{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+}
+
+.hha-summary-grid > div{
+  min-width:0 !important;
+  padding:12px 8px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+
+.hha-summary-grid b{
+  font-size:clamp(25px, 8vw, 38px) !important;
+  line-height:1 !important;
+  white-space:normal !important;
+}
+
+.hha-summary-grid span{
+  font-size:12px !important;
+  line-height:1.15 !important;
+}
+
+/* Daily / Lesson / Next goal / Record cards */
+.hha-daily-result,
+.hha-summary-learning,
+.hha-summary-next,
+.hha-summary-record,
+.hha-summary-note{
+  width:100% !important;
+  max-width:100% !important;
+  padding:12px 14px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+  font-size:14px !important;
+  line-height:1.25 !important;
+}
+
+/* Badge section */
+.hha-summary-card h2,
+.hha-hydration-summary h2{
+  font-size:26px !important;
+  line-height:1.12 !important;
+  margin:14px 0 10px !important;
+}
+
+/* Badge grid */
+.hha-badge-list{
+  width:100% !important;
+  max-width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  overflow:hidden !important;
+}
+
+.hha-badge-card,
+.hha-badge-list > div{
+  min-width:0 !important;
+  padding:12px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+
+.hha-badge-card b,
+.hha-badge-list b{
+  font-size:20px !important;
+  line-height:1.05 !important;
+}
+
+.hha-badge-card span,
+.hha-badge-list span{
+  font-size:12px !important;
+  line-height:1.15 !important;
+}
+
+/* ปุ่มท้าย */
+.hha-summary-actions,
+.hha-result-actions,
+.hha-end-actions,
+.hha-hydration-final-actions{
+  width:100% !important;
+  max-width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  overflow:hidden !important;
+}
+
+.hha-summary-actions button,
+.hha-result-actions button,
+.hha-end-actions button,
+.hha-hydration-final-actions button{
+  min-width:0 !important;
+  min-height:54px !important;
+  padding:11px 10px !important;
+  border-radius:18px !important;
+  font-size:16px !important;
+  line-height:1.08 !important;
+  white-space:normal !important;
+  overflow:hidden !important;
+}
+
+/* มือถือแคบมาก */
+@media (max-width:390px){
+  .hha-summary-card{
+    width:95vw !important;
+    max-width:95vw !important;
+    padding-left:14px !important;
+    padding-right:14px !important;
+  }
+
+  .hha-score-big b{
+    font-size:clamp(48px, 15vw, 68px) !important;
+  }
+
+  .hha-badge-card b,
+  .hha-badge-list b{
+    font-size:18px !important;
+  }
+
+  .hha-summary-actions button,
+  .hha-result-actions button,
+  .hha-end-actions button,
+  .hha-hydration-final-actions button{
+    font-size:15px !important;
+  }
+}
