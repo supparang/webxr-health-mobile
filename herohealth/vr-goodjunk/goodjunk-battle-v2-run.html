@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v2-run-final-score-fix"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v2-run-rematch-room-ended-fix"></script>
 
   <style>
     :root{
@@ -31,10 +31,7 @@
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
     html,body{
       margin:0;
@@ -52,13 +49,8 @@
 
     .app{
       height:100dvh;
-      min-height:100dvh;
       width:100vw;
-      padding:
-        calc(10px + var(--sat))
-        calc(10px + var(--sar))
-        calc(10px + var(--sab))
-        calc(10px + var(--sal));
+      padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
       display:grid;
       grid-template-rows:auto auto auto minmax(260px,1fr) auto;
       gap:10px;
@@ -89,7 +81,6 @@
       font-size:32px;
       border:4px solid #ffe4ae;
       background:linear-gradient(180deg,#fff8dc,#ffd75a);
-      flex:0 0 auto;
     }
 
     h1{
@@ -110,12 +101,7 @@
       text-overflow:ellipsis;
     }
 
-    .topActions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
+    .topActions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
 
     .btn{
       min-height:42px;
@@ -133,11 +119,6 @@
       justify-content:center;
       user-select:none;
       text-align:center;
-    }
-
-    .btn:hover{
-      filter:brightness(1.03);
-      transform:translateY(-1px);
     }
 
     .stats{
@@ -158,23 +139,8 @@
       font-weight:1000;
     }
 
-    .stat small{
-      display:block;
-      color:#7c610e;
-      font-size:11px;
-      line-height:1;
-      text-transform:uppercase;
-      font-weight:1000;
-    }
-
-    .stat b{
-      display:block;
-      margin-top:3px;
-      color:var(--text);
-      font-size:20px;
-      line-height:1;
-      font-weight:1000;
-    }
+    .stat small{display:block;color:#7c610e;font-size:11px;line-height:1;text-transform:uppercase;font-weight:1000;}
+    .stat b{display:block;margin-top:3px;color:var(--text);font-size:20px;line-height:1;font-weight:1000;}
 
     .rival{
       padding:9px 12px;
@@ -184,12 +150,7 @@
       align-items:center;
     }
 
-    .rivalName{
-      font-size:18px;
-      line-height:1.1;
-      font-weight:1000;
-      color:var(--text);
-    }
+    .rivalName{font-size:18px;line-height:1.1;font-weight:1000;color:var(--text);}
 
     .statePill{
       border:3px solid var(--line2);
@@ -202,20 +163,11 @@
       color:#7c4d00;
     }
 
-    .statePill.play{
-      border-color:#ccefbd;
-      background:#f7fff0;
-      color:#3d7c22;
-    }
-
-    .statePill.end{
-      border-color:#ffd0d0;
-      background:#fff1f1;
-      color:#9c2f2f;
-    }
+    .statePill.play{border-color:#ccefbd;background:#f7fff0;color:#3d7c22;}
+    .statePill.end{border-color:#ffd0d0;background:#fff1f1;color:#9c2f2f;}
 
     .rivalStats{
-      grid-column:1 / -1;
+      grid-column:1/-1;
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
       gap:8px;
@@ -233,19 +185,8 @@
       font-weight:1000;
     }
 
-    .rivalCard small{
-      color:#7c610e;
-      font-size:10px;
-      text-transform:uppercase;
-      line-height:1;
-    }
-
-    .rivalCard b{
-      color:var(--text);
-      font-size:18px;
-      line-height:1;
-      margin-top:3px;
-    }
+    .rivalCard small{color:#7c610e;font-size:10px;text-transform:uppercase;line-height:1;}
+    .rivalCard b{color:var(--text);font-size:18px;line-height:1;margin-top:3px;}
 
     .arena{
       position:relative;
@@ -281,18 +222,9 @@
       z-index:3;
     }
 
-    .target.bad{
-      border-color:var(--bad);
-    }
-
-    .target.power{
-      border-color:var(--power);
-    }
-
-    .target:active{
-      transform:scale(.90);
-      filter:brightness(1.05);
-    }
+    .target.bad{border-color:var(--bad);}
+    .target.power{border-color:var(--power);}
+    .target:active{transform:scale(.90);filter:brightness(1.05);}
 
     .pop{
       position:absolute;
@@ -307,14 +239,8 @@
     }
 
     @keyframes pop{
-      from{
-        opacity:1;
-        transform:translate(-50%,-50%) scale(.9);
-      }
-      to{
-        opacity:0;
-        transform:translate(-50%,-95%) scale(1.18);
-      }
+      from{opacity:1;transform:translate(-50%,-50%) scale(.9);}
+      to{opacity:0;transform:translate(-50%,-95%) scale(1.18);}
     }
 
     .bottom{
@@ -335,12 +261,7 @@
       text-overflow:ellipsis;
     }
 
-    .miniStats{
-      display:flex;
-      gap:6px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
+    .miniStats{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
 
     .pill{
       border:3px solid var(--line2);
@@ -368,9 +289,7 @@
       backdrop-filter:blur(6px);
     }
 
-    .overlay.show{
-      display:grid;
-    }
+    .overlay.show{display:grid;}
 
     .modal{
       width:min(92vw,720px);
@@ -430,12 +349,7 @@
       color:var(--text);
     }
 
-    .resultCard b{
-      display:block;
-      font-size:32px;
-      line-height:1.05;
-      margin:4px 0;
-    }
+    .resultCard b{display:block;font-size:32px;line-height:1.05;margin:4px 0;}
 
     .resultActions{
       display:grid;
@@ -445,17 +359,10 @@
     }
 
     @media(max-width:680px){
-      html,body{
-        height:100%;
-        overflow:hidden;
-      }
+      html,body{height:100%;overflow:hidden;}
 
       .app{
-        padding:
-          calc(6px + var(--sat))
-          calc(6px + var(--sar))
-          calc(6px + var(--sab))
-          calc(6px + var(--sal));
+        padding:calc(6px + var(--sat)) calc(6px + var(--sar)) calc(6px + var(--sab)) calc(6px + var(--sal));
         gap:6px;
         grid-template-rows:auto auto auto minmax(310px,1fr) auto;
       }
@@ -467,177 +374,47 @@
         gap:7px;
       }
 
-      .brandIcon{
-        width:44px;
-        height:44px;
-        min-width:44px;
-        border-radius:16px;
-        font-size:25px;
-      }
+      .brandIcon{width:44px;height:44px;min-width:44px;border-radius:16px;font-size:25px;}
+      h1{font-size:20px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+      .meta{font-size:10px;line-height:1.2;}
+      .topActions{gap:5px;}
+      .top .btn{min-height:34px;height:34px;padding:5px 9px;border-radius:13px;font-size:12px;}
 
-      h1{
-        font-size:20px;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-      }
+      .stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
+      .stat{min-height:44px;padding:5px 3px;border-radius:14px;}
+      .stat small{font-size:9px;}
+      .stat b{font-size:15px;}
 
-      .meta{
-        font-size:10px;
-        line-height:1.2;
-      }
+      .rival{padding:7px 8px;border-radius:18px;gap:6px;}
+      .rivalName{font-size:13px;}
+      .statePill{min-height:30px;padding:5px 10px;font-size:12px;}
+      .rivalStats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;}
+      .rivalCard{min-height:38px;padding:4px 3px;border-radius:13px;}
+      .rivalCard small{font-size:8px;}
+      .rivalCard b{font-size:12px;}
 
-      .topActions{
-        gap:5px;
-      }
+      .arena{min-height:310px;border-radius:20px;}
+      .target{width:62px;height:62px;border-radius:22px;font-size:34px;border-width:5px;}
 
-      .top .btn{
-        min-height:34px;
-        height:34px;
-        padding:5px 9px;
-        border-radius:13px;
-        font-size:12px;
-      }
+      .bottom{min-height:42px;padding:6px 8px;border-radius:18px;}
+      .hint{font-size:11px;line-height:1.25;}
+      .miniStats{gap:5px;}
+      .pill{min-height:30px;padding:4px 7px;border-radius:12px;font-size:10px;}
 
-      .stats{
-        grid-template-columns:repeat(5,minmax(0,1fr));
-        gap:5px;
-      }
-
-      .stat{
-        min-height:44px;
-        padding:5px 3px;
-        border-radius:14px;
-      }
-
-      .stat small{
-        font-size:9px;
-      }
-
-      .stat b{
-        font-size:15px;
-      }
-
-      .rival{
-        padding:7px 8px;
-        border-radius:18px;
-        gap:6px;
-      }
-
-      .rivalName{
-        font-size:13px;
-      }
-
-      .statePill{
-        min-height:30px;
-        padding:5px 10px;
-        font-size:12px;
-      }
-
-      .rivalStats{
-        grid-template-columns:repeat(5,minmax(0,1fr));
-        gap:5px;
-      }
-
-      .rivalCard{
-        min-height:38px;
-        padding:4px 3px;
-        border-radius:13px;
-      }
-
-      .rivalCard small{
-        font-size:8px;
-      }
-
-      .rivalCard b{
-        font-size:12px;
-      }
-
-      .arena{
-        min-height:310px;
-        border-radius:20px;
-      }
-
-      .target{
-        width:62px;
-        height:62px;
-        border-radius:22px;
-        font-size:34px;
-        border-width:5px;
-      }
-
-      .bottom{
-        min-height:42px;
-        padding:6px 8px;
-        border-radius:18px;
-      }
-
-      .hint{
-        font-size:11px;
-        line-height:1.25;
-      }
-
-      .miniStats{
-        gap:5px;
-      }
-
-      .pill{
-        min-height:30px;
-        padding:4px 7px;
-        border-radius:12px;
-        font-size:10px;
-      }
-
-      .modal{
-        padding:18px;
-        border-radius:28px;
-      }
-
-      .resultGrid{
-        grid-template-columns:1fr;
-      }
-
-      .resultActions{
-        grid-template-columns:1fr;
-      }
+      .modal{padding:18px;border-radius:28px;}
+      .resultGrid{grid-template-columns:1fr;}
+      .resultActions{grid-template-columns:1fr;}
     }
 
     @media(max-width:420px){
-      .app{
-        grid-template-rows:auto auto auto minmax(330px,1fr) auto;
-        gap:5px;
-      }
-
-      .top{
-        grid-template-columns:auto 1fr;
-      }
-
-      .topActions{
-        grid-column:1 / -1;
-        justify-content:stretch;
-      }
-
-      .topActions .btn{
-        flex:1 1 0;
-      }
-
-      .stats{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .rivalStats{
-        grid-template-columns:repeat(3,minmax(0,1fr));
-      }
-
-      .arena{
-        min-height:330px;
-      }
-
-      .target{
-        width:66px;
-        height:66px;
-        font-size:36px;
-      }
+      .app{grid-template-rows:auto auto auto minmax(330px,1fr) auto;gap:5px;}
+      .top{grid-template-columns:auto 1fr;}
+      .topActions{grid-column:1/-1;justify-content:stretch;}
+      .topActions .btn{flex:1 1 0;}
+      .stats{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .rivalStats{grid-template-columns:repeat(3,minmax(0,1fr));}
+      .arena{min-height:330px;}
+      .target{width:66px;height:66px;font-size:36px;}
     }
   </style>
 </head>
@@ -721,7 +498,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_V2_RUN = 'v20260515-clean-run-final-score-fix';
+    window.HHA_GJ_BATTLE_V2_RUN = 'v20260515-clean-run-rematch-room-ended-final';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const $ = id => document.getElementById(id);
@@ -760,52 +537,35 @@
       startedAt:0
     };
 
-    function qs(k,d=''){
-      return params.get(k) ?? d;
-    }
-
-    function now(){
-      return Date.now();
-    }
-
-    function safeKey(v){
-      return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';
-    }
+    function qs(k,d=''){return params.get(k) ?? d;}
+    function now(){return Date.now();}
+    function safeKey(v){return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';}
 
     function sanitizeRoom(v){
-      let s = String(v || '').trim().toUpperCase();
-      s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
-      if (!s) return '';
+      let s=String(v || '').trim().toUpperCase();
+      s=s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
+      if(!s) return '';
 
-      if (!s.startsWith('GJ-BT-')) {
-        s = 'GJ-BT-' + s
-          .replace(/^GJ-BT/i,'')
-          .replace(/^GJBT/i,'')
-          .replace(/^BT/i,'')
-          .replace(/^-/, '');
+      if(!s.startsWith('GJ-BT-')){
+        s='GJ-BT-' + s.replace(/^GJ-BT/i,'').replace(/^GJBT/i,'').replace(/^BT/i,'').replace(/^-/, '');
       }
 
       return s.slice(0,16);
     }
 
-    function roomPath(){
-      return `${ROOM_ROOT}/${safeKey(state.room)}`;
-    }
-
-    function playerPath(){
-      return `${roomPath()}/players/${safeKey(state.pid)}`;
-    }
+    function roomPath(){return `${ROOM_ROOT}/${safeKey(state.room)}`;}
+    function playerPath(){return `${roomPath()}/players/${safeKey(state.pid)}`;}
 
     async function firebaseReady(){
-      if (!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
-      const fb = await window.HHA_FIREBASE_READY;
-      if (!fb || !fb.db) throw new Error('Firebase DB not ready');
-      db = fb.db;
+      if(!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
+      const fb=await window.HHA_FIREBASE_READY;
+      if(!fb || !fb.db) throw new Error('Firebase DB not ready');
+      db=fb.db;
       return fb;
     }
 
     async function dbGet(path){
-      const snap = await db.ref(path).get();
+      const snap=await db.ref(path).get();
       return snap && snap.val ? snap.val() : null;
     }
 
@@ -815,30 +575,23 @@
     }
 
     function dbOn(path,cb){
-      const ref = db.ref(path);
-      const fn = snap => cb(snap && snap.val ? snap.val() : null);
+      const ref=db.ref(path);
+      const fn=snap => cb(snap && snap.val ? snap.val() : null);
       ref.on('value',fn);
       return () => {
-        try{ ref.off('value',fn); }catch(_){}
+        try{ref.off('value',fn);}catch(_){}
       };
     }
 
     function playersArray(room){
-      return Object.values(room?.players || {})
-        .filter(Boolean)
-        .sort((a,b) => Number(a.joinedAt || 0) - Number(b.joinedAt || 0));
+      return Object.values(room?.players || {}).filter(Boolean).sort((a,b)=>Number(a.joinedAt||0)-Number(b.joinedAt||0));
     }
 
-    function getMe(room){
-      return room?.players?.[safeKey(state.pid)] || null;
-    }
-
-    function getRival(room){
-      return playersArray(room).find(p => p.pid !== state.pid) || null;
-    }
+    function getMe(room){return room?.players?.[safeKey(state.pid)] || null;}
+    function getRival(room){return playersArray(room).find(p => p.pid !== state.pid) || null;}
 
     function buildLobbyUrl(){
-      const u = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+      const u=new URL('./goodjunk-battle-v2-lobby.html', location.href);
       u.searchParams.set('room',state.room);
       u.searchParams.set('roomId',state.room);
       u.searchParams.set('name',state.name);
@@ -849,86 +602,84 @@
       u.searchParams.set('hub',state.hub);
       u.searchParams.set('mode','battle-v2');
       u.searchParams.set('entry','battle-v2');
+
+      u.searchParams.set('restart','1');
+      u.searchParams.set('newRound','1');
+      u.searchParams.set('fromEnded','1');
+
       return u.toString();
     }
 
     function hydrateLinks(){
-      $('btnLobby').href = buildLobbyUrl();
-      $('btnLobbyEnd').href = buildLobbyUrl();
-      $('btnAgain').href = buildLobbyUrl();
-      $('btnHub').href = state.hub;
-      $('btnHubEnd').href = state.hub;
+      $('btnLobby').href=buildLobbyUrl();
+      $('btnLobbyEnd').href=buildLobbyUrl();
+      $('btnAgain').href=buildLobbyUrl();
+      $('btnHub').href=state.hub;
+      $('btnHubEnd').href=state.hub;
     }
 
     function hearts(n){
-      const x = Math.max(0, Math.min(5, Number(n || 0)));
+      const x=Math.max(0,Math.min(5,Number(n || 0)));
       return x > 0 ? '❤️'.repeat(x) : '💔';
     }
 
     function updateHud(){
-      $('meta').textContent = `${state.name} • ${state.role} • ${state.room}`;
-      $('playerName').textContent = state.name;
-      $('score').textContent = String(Number(state.score || 0));
-      $('combo').textContent = String(Number(state.combo || 0));
-      $('heart').textContent = hearts(state.heart);
-      $('timeLeft').textContent = String(Math.max(0,Number(state.timeLeft || 0)));
-      $('roomCode').textContent = state.room || '-';
-      $('goodCount').textContent = String(Number(state.good || 0));
-      $('junkCount').textContent = String(Number(state.junk || 0));
-      $('missCount').textContent = String(Number(state.miss || 0));
-      $('attackCount').textContent = `${Math.min(3,Number(state.attack || 0))}/3`;
+      $('meta').textContent=`${state.name} • ${state.role} • ${state.room}`;
+      $('playerName').textContent=state.name;
+      $('score').textContent=String(Number(state.score || 0));
+      $('combo').textContent=String(Number(state.combo || 0));
+      $('heart').textContent=hearts(state.heart);
+      $('timeLeft').textContent=String(Math.max(0,Number(state.timeLeft || 0)));
+      $('roomCode').textContent=state.room || '-';
+      $('goodCount').textContent=String(Number(state.good || 0));
+      $('junkCount').textContent=String(Number(state.junk || 0));
+      $('missCount').textContent=String(Number(state.miss || 0));
+      $('attackCount').textContent=`${Math.min(3,Number(state.attack || 0))}/3`;
 
-      if (state.rival){
-        $('rivalName').textContent = state.rival.name || 'คู่แข่ง';
-        $('rivalScore').textContent = String(Number(state.rival.score || 0));
-        $('rivalHeart').textContent = hearts(state.rival.heart || 0);
-        $('rivalGood').textContent = String(Number(state.rival.good || 0));
-        $('rivalJunk').textContent = String(Number(state.rival.junk || 0));
+      if(state.rival){
+        $('rivalName').textContent=state.rival.name || 'คู่แข่ง';
+        $('rivalScore').textContent=String(Number(state.rival.score || 0));
+        $('rivalHeart').textContent=hearts(state.rival.heart || 0);
+        $('rivalGood').textContent=String(Number(state.rival.good || 0));
+        $('rivalJunk').textContent=String(Number(state.rival.junk || 0));
       }else{
-        $('rivalName').textContent = 'รอคู่แข่ง';
-        $('rivalScore').textContent = '0';
-        $('rivalHeart').textContent = '-';
-        $('rivalGood').textContent = '0';
-        $('rivalJunk').textContent = '0';
+        $('rivalName').textContent='รอคู่แข่ง';
+        $('rivalScore').textContent='0';
+        $('rivalHeart').textContent='-';
+        $('rivalGood').textContent='0';
+        $('rivalJunk').textContent='0';
       }
 
-      const pill = $('statePill');
-
-      if (ended){
-        pill.textContent = 'END';
-        pill.className = 'statePill end';
+      const pill=$('statePill');
+      if(ended){
+        pill.textContent='END';
+        pill.className='statePill end';
       }else{
-        pill.textContent = 'PLAY';
-        pill.className = 'statePill play';
+        pill.textContent='PLAY';
+        pill.className='statePill play';
       }
     }
 
     function syncRoom(room){
-      state.roomData = room || null;
-      if (!room) return;
+      state.roomData=room || null;
+      if(!room) return;
+      if(ended || finishing) return;
 
-      /*
-        PATCH v20260515:
-        หลังจบเกมแล้วห้าม Firebase sync ย้อน state กลับเป็นค่าเก่า
-        ไม่งั้นหน้าสรุปอาจกลายเป็น 0 หรือค่าก่อนหน้าได้
-      */
-      if (ended || finishing) return;
+      const me=getMe(room);
+      const rival=getRival(room);
+      state.rival=rival || null;
 
-      const me = getMe(room);
-      const rival = getRival(room);
-      state.rival = rival || null;
-
-      if (me){
-        state.score = Number(me.score ?? state.score ?? 0);
-        state.good = Number(me.good ?? state.good ?? 0);
-        state.junk = Number(me.junk ?? state.junk ?? 0);
-        state.miss = Number(me.miss ?? state.miss ?? 0);
-        state.heart = Number(me.heart ?? state.heart ?? 3);
-        state.combo = Number(me.combo ?? state.combo ?? 0);
-        state.attack = Number(me.attack ?? state.attack ?? 0);
+      if(me){
+        state.score=Number(me.score ?? state.score ?? 0);
+        state.good=Number(me.good ?? state.good ?? 0);
+        state.junk=Number(me.junk ?? state.junk ?? 0);
+        state.miss=Number(me.miss ?? state.miss ?? 0);
+        state.heart=Number(me.heart ?? state.heart ?? 3);
+        state.combo=Number(me.combo ?? state.combo ?? 0);
+        state.attack=Number(me.attack ?? state.attack ?? 0);
       }
 
-      if (room.status === 'ended'){
+      if(room.status === 'ended'){
         finish('room-ended', false);
         return;
       }
@@ -937,12 +688,12 @@
     }
 
     async function writeSelf(extra={}, force=false){
-      if (!db) return;
-      if (ended && !force) return;
+      if(!db) return;
+      if(ended && !force) return;
 
-      const t = now();
+      const t=now();
 
-      const payload = {
+      const payload={
         pid:state.pid,
         name:state.name,
         role:state.role,
@@ -964,60 +715,56 @@
       }
     }
 
-    function rand(min,max){
-      return min + Math.random() * (max - min);
-    }
+    function rand(min,max){return min + Math.random() * (max - min);}
 
     function pickType(){
-      const r = Math.random();
-      if (r < .72) return 'good';
-      if (r < .90) return 'bad';
+      const r=Math.random();
+      if(r < .72) return 'good';
+      if(r < .90) return 'bad';
       return 'power';
     }
 
     function pickIcon(type){
-      const arr = type === 'good' ? GOOD : type === 'bad' ? BAD : POWER;
+      const arr=type === 'good' ? GOOD : type === 'bad' ? BAD : POWER;
       return arr[Math.floor(Math.random()*arr.length)];
     }
 
     function spawnTarget(){
-      if (ended || finishing) return;
+      if(ended || finishing) return;
 
-      const arena = $('arena');
-      const rect = arena.getBoundingClientRect();
-      if (rect.width < 80 || rect.height < 80) return;
+      const arena=$('arena');
+      const rect=arena.getBoundingClientRect();
+      if(rect.width < 80 || rect.height < 80) return;
 
-      const type = pickType();
-      const icon = pickIcon(type);
+      const type=pickType();
+      const icon=pickIcon(type);
 
-      const el = document.createElement('button');
-      el.type = 'button';
-      el.className = `target ${type === 'bad' ? 'bad' : type === 'power' ? 'power' : ''}`;
-      el.textContent = icon;
-      el.dataset.type = type;
+      const el=document.createElement('button');
+      el.type='button';
+      el.className=`target ${type === 'bad' ? 'bad' : type === 'power' ? 'power' : ''}`;
+      el.textContent=icon;
+      el.dataset.type=type;
 
-      const size = Math.min(72, Math.max(58, rect.width * .13));
-      const x = rand(8, Math.max(8, rect.width - size - 8));
-      const y = rand(8, Math.max(8, rect.height - size - 8));
+      const size=Math.min(72,Math.max(58,rect.width * .13));
+      const x=rand(8,Math.max(8,rect.width - size - 8));
+      const y=rand(8,Math.max(8,rect.height - size - 8));
 
-      el.style.width = `${size}px`;
-      el.style.height = `${size}px`;
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
+      el.style.width=`${size}px`;
+      el.style.height=`${size}px`;
+      el.style.left=`${x}px`;
+      el.style.top=`${y}px`;
 
-      let alive = true;
+      let alive=true;
+      const ttl=type === 'bad' ? 1350 : type === 'power' ? 1200 : 1500;
 
-      const ttl = type === 'bad' ? 1350 : type === 'power' ? 1200 : 1500;
+      const timer=setTimeout(()=>{
+        if(!alive || ended || finishing) return;
+        alive=false;
+        if(el.parentNode) el.remove();
 
-      const timer = setTimeout(() => {
-        if (!alive || ended || finishing) return;
-        alive = false;
-
-        if (el.parentNode) el.remove();
-
-        if (type === 'good'){
+        if(type === 'good'){
           state.miss++;
-          state.combo = 0;
+          state.combo=0;
           writeSelf();
           updateHud();
         }
@@ -1027,128 +774,117 @@
         ev.preventDefault();
         ev.stopPropagation();
 
-        if (!alive || ended || finishing) return;
+        if(!alive || ended || finishing) return;
 
-        alive = false;
+        alive=false;
         clearTimeout(timer);
         el.remove();
 
-        if (type === 'good'){
-          const plus = 10 + Math.min(10,state.combo + 1);
-
+        if(type === 'good'){
+          const plus=10 + Math.min(10,state.combo + 1);
           state.good++;
           state.combo++;
           state.score += plus;
-
-          if (state.combo % 5 === 0){
-            state.score += 20;
-          }
-
+          if(state.combo % 5 === 0) state.score += 20;
           pop(x + size/2, y + size/2, '+' + plus);
-        }else if (type === 'bad'){
+        }else if(type === 'bad'){
           state.junk++;
-          state.combo = 0;
-          state.heart = Math.max(0, state.heart - 1);
-          state.score = Math.max(0, state.score - 15);
-
+          state.combo=0;
+          state.heart=Math.max(0,state.heart - 1);
+          state.score=Math.max(0,state.score - 15);
           pop(x + size/2, y + size/2, '-15');
         }else{
-          state.attack = Math.min(3, state.attack + 1);
+          state.attack=Math.min(3,state.attack + 1);
           state.score += 5;
-
           pop(x + size/2, y + size/2, '+⚡');
         }
 
         writeSelf();
         updateHud();
 
-        if (state.heart <= 0){
+        if(state.heart <= 0){
           finish('heart-zero', true);
         }
       }
 
-      el.addEventListener('click', hit, { passive:false });
-      el.addEventListener('pointerdown', hit, { passive:false });
-      el.addEventListener('touchstart', hit, { passive:false });
+      el.addEventListener('click', hit, {passive:false});
+      el.addEventListener('pointerdown', hit, {passive:false});
+      el.addEventListener('touchstart', hit, {passive:false});
 
       arena.appendChild(el);
     }
 
     function pop(x,y,text){
-      const arena = $('arena');
-      const el = document.createElement('div');
-
-      el.className = 'pop';
-      el.textContent = text;
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-
+      const arena=$('arena');
+      const el=document.createElement('div');
+      el.className='pop';
+      el.textContent=text;
+      el.style.left=`${x}px`;
+      el.style.top=`${y}px`;
       arena.appendChild(el);
 
-      setTimeout(() => {
-        try{ el.remove(); }catch(_){}
-      }, 700);
+      setTimeout(()=>{
+        try{el.remove();}catch(_){}
+      },700);
     }
 
     function clearTargets(){
-      document.querySelectorAll('.target,.pop').forEach(el => {
-        try{ el.remove(); }catch(_){}
+      document.querySelectorAll('.target,.pop').forEach(el=>{
+        try{el.remove();}catch(_){}
       });
     }
 
     function startGameLoop(){
-      if (ended || finishing) return;
+      if(ended || finishing) return;
 
-      const startedAt = state.roomData?.startedAt || now();
-      state.startedAt = Number(startedAt);
+      const startedAt=state.roomData?.startedAt || now();
+      state.startedAt=Number(startedAt);
 
-      tickTimer = setInterval(() => {
-        if (ended || finishing) return;
+      tickTimer=setInterval(()=>{
+        if(ended || finishing) return;
 
-        const elapsed = Math.floor((now() - state.startedAt) / 1000);
-        state.timeLeft = Math.max(0, state.timeTotal - elapsed);
+        const elapsed=Math.floor((now() - state.startedAt) / 1000);
+        state.timeLeft=Math.max(0,state.timeTotal - elapsed);
 
         updateHud();
 
-        if (state.timeLeft <= 0){
+        if(state.timeLeft <= 0){
           finish('time-up', true);
         }
-      }, 250);
+      },250);
 
-      spawnTimer = setInterval(() => {
-        if (ended || finishing) return;
+      spawnTimer=setInterval(()=>{
+        if(ended || finishing) return;
 
-        const existing = document.querySelectorAll('.target').length;
-        const maxTargets = window.innerWidth <= 680 ? 7 : 10;
+        const existing=document.querySelectorAll('.target').length;
+        const maxTargets=window.innerWidth <= 680 ? 7 : 10;
 
-        if (existing < maxTargets){
+        if(existing < maxTargets){
           spawnTarget();
-          if (Math.random() < .35) spawnTarget();
+          if(Math.random() < .35) spawnTarget();
         }
-      }, 520);
+      },520);
 
-      syncTimer = setInterval(() => {
-        if (!ended && !finishing){
-          writeSelf();
-        }
-      }, 1200);
+      syncTimer=setInterval(()=>{
+        if(!ended && !finishing) writeSelf();
+      },1200);
 
-      for (let i=0;i<5;i++){
+      for(let i=0;i<5;i++){
         setTimeout(spawnTarget, i * 160);
       }
     }
 
     async function finish(reason='time-up', writeEnd=true){
-      if (ended || finishing) return;
+      if(ended || finishing) return;
 
-      finishing = true;
+      finishing=true;
 
       clearInterval(tickTimer);
       clearInterval(spawnTimer);
       clearInterval(syncTimer);
       clearTargets();
 
-      const finalMe = {
+      const finalMe={
         pid:state.pid,
         name:state.name,
         role:state.role,
@@ -1165,50 +901,45 @@
         updatedAt:now()
       };
 
-      /*
-        PATCH v20260515:
-        บังคับเขียนคะแนนสุดท้ายก่อน ended=true
-        เพื่อไม่ให้ final score หายหรือกลายเป็น 0
-      */
-      await writeSelf(finalMe, true).catch(() => {});
+      await writeSelf(finalMe, true).catch(()=>{});
 
-      const latestRoom = db ? await dbGet(roomPath()).catch(() => state.roomData) : state.roomData;
-      const latestRival = getRival(latestRoom) || state.rival || {};
+      const latestRoom=db ? await dbGet(roomPath()).catch(()=>state.roomData) : state.roomData;
+      const latestRival=getRival(latestRoom) || state.rival || {};
 
-      ended = true;
-      finishing = false;
+      ended=true;
+      finishing=false;
 
-      const myScore = Number(finalMe.score || 0);
-      const rivalScore = Number(latestRival.score || 0);
+      const myScore=Number(finalMe.score || 0);
+      const rivalScore=Number(latestRival.score || 0);
 
-      let title = 'เสมอ Battle!';
-      let icon = '🏁';
+      let title='เสมอ Battle!';
+      let icon='🏁';
 
-      if (myScore > rivalScore){
-        title = 'ชนะ Battle!';
-        icon = '🏆';
-      }else if (myScore < rivalScore){
-        title = 'แพ้ Battle';
-        icon = '💪';
+      if(myScore > rivalScore){
+        title='ชนะ Battle!';
+        icon='🏆';
+      }else if(myScore < rivalScore){
+        title='แพ้ Battle';
+        icon='💪';
       }
 
-      $('modalIcon').textContent = icon;
-      $('modalTitle').textContent = title;
-      $('modalReason').textContent = 'เหตุผล: ' + reason;
+      $('modalIcon').textContent=icon;
+      $('modalTitle').textContent=title;
+      $('modalReason').textContent='เหตุผล: ' + reason;
 
-      $('resultMeName').textContent = finalMe.name;
-      $('resultMeScore').textContent = String(myScore);
-      $('resultMeMeta').textContent = `Good: ${finalMe.good} • Junk: ${finalMe.junk} • Miss: ${finalMe.miss}`;
+      $('resultMeName').textContent=finalMe.name;
+      $('resultMeScore').textContent=String(myScore);
+      $('resultMeMeta').textContent=`Good: ${finalMe.good} • Junk: ${finalMe.junk} • Miss: ${finalMe.miss}`;
 
-      $('resultRivalName').textContent = latestRival.name || 'คู่แข่ง';
-      $('resultRivalScore').textContent = String(rivalScore || 0);
-      $('resultRivalMeta').textContent = `Good: ${latestRival.good || 0} • Junk: ${latestRival.junk || 0} • Miss: ${latestRival.miss || 0}`;
+      $('resultRivalName').textContent=latestRival.name || 'คู่แข่ง';
+      $('resultRivalScore').textContent=String(rivalScore || 0);
+      $('resultRivalMeta').textContent=`Good: ${latestRival.good || 0} • Junk: ${latestRival.junk || 0} • Miss: ${latestRival.miss || 0}`;
 
       $('overlay').classList.add('show');
 
-      if (writeEnd && db && state.role === 'host'){
+      if(writeEnd && db && state.role === 'host'){
         try{
-          await dbUpdate(roomPath(), {
+          await dbUpdate(roomPath(),{
             status:'ended',
             endedAt:now(),
             endReason:reason,
@@ -1223,16 +954,20 @@
     }
 
     async function ensureJoined(){
-      const room = await dbGet(roomPath()).catch(() => null);
-      if (!room) throw new Error('Room not found');
+      const room=await dbGet(roomPath()).catch(()=>null);
+      if(!room) throw new Error('Room not found');
 
-      state.roomData = room;
-      state.matchId = state.matchId || room.matchId || '';
+      if(String(room.status).toLowerCase() === 'ended'){
+        throw new Error('Room already ended. Go back to Lobby and start a new round.');
+      }
 
-      const me = getMe(room);
+      state.roomData=room;
+      state.matchId=state.matchId || room.matchId || '';
 
-      if (!me){
-        await dbUpdate(playerPath(), {
+      const me=getMe(room);
+
+      if(!me){
+        await dbUpdate(playerPath(),{
           pid:state.pid,
           name:state.name,
           role:state.role === 'host' && room.hostPid === state.pid ? 'host' : 'guest',
@@ -1244,50 +979,48 @@
           combo:0,
           attack:0,
           ready:true,
+          finished:false,
           joinedAt:now(),
           updatedAt:now()
         });
       }
 
-      if (!room.startedAt){
-        await dbUpdate(roomPath(), {
+      if(!room.startedAt){
+        await dbUpdate(roomPath(),{
           startedAt:now(),
           status:'started',
           updatedAt:now()
-        }).catch(() => {});
+        }).catch(()=>{});
       }
 
-      const fresh = await dbGet(roomPath()).catch(() => room);
+      const fresh=await dbGet(roomPath()).catch(()=>room);
       syncRoom(fresh);
     }
 
     async function boot(){
       hydrateLinks();
 
-      $('meta').textContent = `${state.name} • ${state.role} • ${state.room}`;
-      $('playerName').textContent = state.name;
-      $('roomCode').textContent = state.room || '-';
+      $('meta').textContent=`${state.name} • ${state.role} • ${state.room}`;
+      $('playerName').textContent=state.name;
+      $('roomCode').textContent=state.room || '-';
 
       updateHud();
 
       try{
         await firebaseReady();
-
         await ensureJoined();
-
-        unsub = dbOn(roomPath(), syncRoom);
-
+        unsub=dbOn(roomPath(), syncRoom);
         startGameLoop();
       }catch(err){
         console.error('[GJ Battle v2] boot failed', err);
-        $('hint').textContent = 'โหลด Battle v2 ไม่สำเร็จ: ' + (err?.message || err);
+        $('hint').textContent='โหลด Battle v2 ไม่สำเร็จ: ' + (err?.message || err);
+        $('statePill').textContent='ERROR';
+        $('statePill').className='statePill end';
       }
     }
 
-    window.addEventListener('beforeunload', () => {
-      try{
-        writeSelf({ lastSeenAt:now() }, true);
-      }catch(_){}
+    window.addEventListener('beforeunload',()=>{
+      try{writeSelf({lastSeenAt:now()}, true);}catch(_){}
     });
 
     boot();
