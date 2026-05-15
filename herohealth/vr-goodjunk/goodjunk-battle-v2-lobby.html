@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v2-lobby-rematch-clean"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v21-lobby-rematch-attack"></script>
 
   <style>
     :root{
@@ -385,8 +385,8 @@
         <div class="brand">
           <div class="brandIcon">⚔️</div>
           <div>
-            <div class="brandTitle">GoodJunk Battle v2</div>
-            <div class="brandSub">Clean Build • Room Code • Host/Guest ชัดเจน • เริ่มรอบใหม่ไม่ติด room-ended</div>
+            <div class="brandTitle">GoodJunk Battle v2.1</div>
+            <div class="brandSub">Rematch • Junk Storm • Shield • Clean Build</div>
           </div>
         </div>
 
@@ -399,26 +399,26 @@
       <div class="steps">
         <div class="step"><div class="stepIcon">1️⃣</div><div class="stepText">Host สร้างห้อง</div></div>
         <div class="step"><div class="stepIcon">2️⃣</div><div class="stepText">บอก Room Code</div></div>
-        <div class="step"><div class="stepIcon">3️⃣</div><div class="stepText">Guest ใส่ Room</div></div>
-        <div class="step"><div class="stepIcon">4️⃣</div><div class="stepText">Host เริ่ม Battle v2</div></div>
+        <div class="step"><div class="stepIcon">3️⃣</div><div class="stepText">Guest เข้าห้อง</div></div>
+        <div class="step"><div class="stepIcon">4️⃣</div><div class="stepText">เริ่ม Battle v2.1</div></div>
       </div>
     </section>
 
     <section class="grid">
       <section class="panel card">
-        <div class="cardTitle">⚔️ เริ่ม Battle v2</div>
-        <div class="cardSub">ใช้ไฟล์ v2 เท่านั้น: <b>goodjunk-battle-v2-run.html</b></div>
+        <div class="cardTitle">⚔️ เริ่ม Battle v2.1</div>
+        <div class="cardSub">ไฟล์เล่นเกม: <b>goodjunk-battle-v2-run.html</b></div>
 
         <div class="box">
-          🍎 แตะ Good เพื่อเก็บคะแนน<br>
+          🍎 แตะ Good เพื่อเก็บคะแนนและชาร์จพลัง<br>
           🍟 เลี่ยง Junk<br>
-          🏆 แข่งคะแนนกับเพื่อนแบบสด ๆ
+          ⚡ Attack 3/3 = Junk Storm • 🛡️ Shield กันได้ 1 ครั้ง
         </div>
 
         <div class="roomCodeBox">
           <div class="roomCodeLabel">ROOM CODE ปัจจุบัน</div>
           <div class="roomCodeValue" id="roomCodeDisplay">-</div>
-          <div class="cardSub">ให้เพื่อนใส่ Room Code เดียวกัน แล้วกด “เข้าห้องเพื่อน”</div>
+          <div class="cardSub">เพื่อนใส่ Room Code เดียวกัน แล้วกด “เข้าห้องเพื่อน”</div>
         </div>
 
         <div class="fields">
@@ -465,14 +465,14 @@
         </div>
 
         <div id="noticeBox" class="box notice warn">
-          Host กด “สร้างห้อง v2” แล้วให้ Guest ใส่ Room Code เดียวกัน
+          Host กด “สร้างห้อง v2.1” แล้วให้ Guest ใส่ Room Code เดียวกัน
         </div>
 
         <div class="actions">
-          <button id="btnCreateRoom" class="btn good" type="button">⚔️ สร้างห้อง v2</button>
+          <button id="btnCreateRoom" class="btn good" type="button">⚔️ สร้างห้อง v2.1</button>
           <button id="btnJoinRoom" class="btn info" type="button">👥 เข้าห้องเพื่อน</button>
           <button id="btnCopyRoom" class="btn warn" type="button">📋 คัดลอก Room</button>
-          <button id="btnStartBattle" class="btn bad" type="button" disabled>🚀 เริ่ม Battle v2</button>
+          <button id="btnStartBattle" class="btn bad" type="button" disabled>🚀 เริ่ม Battle v2.1</button>
         </div>
       </section>
 
@@ -494,12 +494,12 @@
         </div>
 
         <div class="box">
-          ✅ v2 ใช้ path ใหม่<br>
-          ✅ rematch reset room-ended<br>
-          ✅ matchId ใหม่ทุกครั้ง
+          ✅ Rematch ต้องยอมรับทั้ง 2 ฝั่ง<br>
+          ✅ เริ่มรอบใหม่สร้าง matchId ใหม่<br>
+          ✅ ไม่ใช้ไฟล์ battle เก่า
         </div>
 
-        <div class="logBox" id="logBox">Battle v2 lobby booting…</div>
+        <div class="logBox" id="logBox">Battle v2.1 lobby booting…</div>
       </section>
     </section>
   </div>
@@ -508,7 +508,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_V2_LOBBY = 'v20260515-clean-lobby-rematch-final';
+    window.HHA_GJ_BATTLE_V21_LOBBY = 'v20260515-v21-rematch-attack-shield-lobby';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const RUN_PATH = './goodjunk-battle-v2-run.html';
@@ -517,7 +517,6 @@
 
     let db = null;
     let roomUnsub = null;
-    let lastRoom = null;
     let starting = false;
 
     function qs(k,d=''){return params.get(k) ?? d;}
@@ -699,7 +698,7 @@
         entry:'battle-v2',
         recommendedMode:'battle-v2',
         multiplayer:'1',
-        v:'20260515-clean-v2-rematch'
+        v:'20260515-v21-rematch-attack-shield'
       }).forEach(([k,v])=>{
         if(v!==undefined && v!==null && v!=='') u.searchParams.set(k,String(v));
       });
@@ -764,11 +763,12 @@
 
       wrap.innerHTML=players.map((p,i)=>{
         const role=p.pid===room.hostPid || p.role==='host' ? 'Host' : 'Guest';
+        const rm = room?.rematch?.votes?.[safeKey(p.pid)] ? ' • ขอ Battle อีกครั้งแล้ว' : '';
         return `
           <div class="playerRow">
             <div>
               <div class="playerName">${i+1}. ${esc(p.name || p.pid || 'Player')}</div>
-              <div class="playerMeta">${role === 'Host' ? 'คนเปิดห้อง' : 'ผู้ร่วม Battle'} • ${esc(String(p.pid || '').slice(0,22))}</div>
+              <div class="playerMeta">${role === 'Host' ? 'คนเปิดห้อง' : 'ผู้ร่วม Battle'}${rm} • ${esc(String(p.pid || '').slice(0,22))}</div>
             </div>
             <div class="tag">${role === 'Host' ? '⚔️ Host' : '🔥 Guest'}</div>
           </div>`;
@@ -776,7 +776,6 @@
     }
 
     function syncUi(room){
-      lastRoom=room || null;
       const p=ctx();
       const players=playersArray(room);
       const count=players.length;
@@ -809,23 +808,33 @@
         setNotice(host ? 'good' : 'warn',
           host
             ? `ห้องนี้จบแล้ว กด “เริ่มรอบใหม่” เพื่อสร้าง match ใหม่`
-            : `ห้องนี้จบแล้ว รอ Host เริ่มรอบใหม่`
+            : `ห้องนี้จบแล้ว รอ Host เริ่มรอบใหม่ หรือกด Battle อีกครั้งจากหน้าสรุป`
         );
+        return;
+      }
+
+      if(status === 'rematch'){
+        const votes = room?.rematch?.votes || {};
+        const voteCount = Object.values(votes).filter(Boolean).length;
+        setChip('info', `Rematch ${voteCount}/2`);
+        $('btnStartBattle').disabled=!host || voteCount < 2;
+        $('btnStartBattle').textContent='🚀 เริ่ม Rematch';
+        setNotice('warn',`มีคำขอ Battle อีกครั้ง รอผู้เล่นกดยอมรับ (${voteCount}/2)`);
         return;
       }
 
       setChip(count>=2 ? 'good' : 'info', `ผู้เล่น ${count}/2`);
       $('btnStartBattle').disabled=!host || count < 2;
-      $('btnStartBattle').textContent='🚀 เริ่ม Battle v2';
+      $('btnStartBattle').textContent='🚀 เริ่ม Battle v2.1';
 
       if(host){
         setNotice(count>=2 ? 'good' : 'warn',
           count>=2
-            ? `พร้อมเริ่ม Battle v2 แล้ว`
+            ? `พร้อมเริ่ม Battle v2.1 แล้ว`
             : `สร้างห้องแล้ว บอก Room Code <b>${esc(room.roomId || p.room)}</b> ให้เพื่อน`
         );
       }else if(me){
-        setNotice('good','เข้าห้องสำเร็จ รอ Host เริ่ม Battle v2');
+        setNotice('good','เข้าห้องสำเร็จ รอ Host เริ่ม Battle v2.1');
       }else{
         setNotice('warn','พบห้องนี้แล้ว กด “เข้าห้องเพื่อน” เพื่อร่วม Battle');
       }
@@ -833,18 +842,8 @@
       log(`Room ${room.roomId} • status=${status} • players=${count}/2 • host=${host}`);
     }
 
-    async function resetEndedRoomForNewRound(roomId){
+    async function resetRoomForNewRound(roomId){
       const path=roomPath(roomId);
-      await dbUpdate(path,{
-        status:'waiting',
-        matchId:'',
-        activeMatchId:'',
-        startedAt:null,
-        endedAt:null,
-        endReason:null,
-        updatedAt:now()
-      });
-
       const room=await dbGet(path).catch(()=>null);
       const players=playersArray(room);
 
@@ -857,12 +856,25 @@
           heart:3,
           combo:0,
           attack:0,
+          shield:0,
           finished:false,
           finishReason:null,
           finishedAt:null,
           updatedAt:now()
         }).catch(()=>{});
       }));
+
+      await dbUpdate(path,{
+        status:'waiting',
+        matchId:'',
+        activeMatchId:'',
+        startedAt:null,
+        endedAt:null,
+        endReason:null,
+        rematch:null,
+        attacks:null,
+        updatedAt:now()
+      });
     }
 
     async function createRoom(){
@@ -877,17 +889,14 @@
       const path=roomPath(p.room);
       const existing=await dbGet(path).catch(()=>null);
 
-      if(existing && existing.status && existing.status !== 'ended'){
+      if(existing && existing.status && existing.status !== 'ended' && existing.status !== 'rematch'){
         setNotice('warn',`มีห้อง <b>${esc(p.room)}</b> อยู่แล้ว ถ้าจะใช้ห้องนี้ให้กด “เข้าห้องเพื่อน”`);
         listenRoom(p.room);
         return;
       }
 
-      if(existing && existing.status === 'ended'){
-        await resetEndedRoomForNewRound(p.room);
-      }
-
       const t=now();
+
       const room={
         roomId:p.room,
         mode:'battle-v2',
@@ -901,6 +910,8 @@
         activeMatchId:'',
         createdAt: existing?.createdAt || t,
         updatedAt:t,
+        rematch:null,
+        attacks:null,
         players:{
           [safeKey(p.pid)]:{
             pid:p.pid,
@@ -915,6 +926,7 @@
             heart:3,
             combo:0,
             attack:0,
+            shield:0,
             finished:false,
             joinedAt:t,
             updatedAt:t
@@ -925,7 +937,7 @@
       await dbSet(path,room);
       listenRoom(p.room);
       writeUrlRoom(p.room);
-      setNotice('good',`สร้างห้อง v2 แล้ว Room Code คือ <b>${esc(p.room)}</b>`);
+      setNotice('good',`สร้างห้อง v2.1 แล้ว Room Code คือ <b>${esc(p.room)}</b>`);
     }
 
     async function joinRoom(){
@@ -969,6 +981,7 @@
         heart:3,
         combo:0,
         attack:0,
+        shield:0,
         finished:false,
         joinedAt: existing.players?.[myKey]?.joinedAt || now(),
         updatedAt:now()
@@ -979,7 +992,7 @@
       listenRoom(p.room);
       writeUrlRoom(p.room);
 
-      setNotice('good', role === 'host' ? 'กลับเข้าห้อง Host สำเร็จ' : 'เข้าห้อง v2 สำเร็จ รอ Host เริ่มเกม');
+      setNotice('good', role === 'host' ? 'กลับเข้าห้อง Host สำเร็จ' : 'เข้าห้อง v2.1 สำเร็จ รอ Host เริ่มเกม');
     }
 
     async function startBattle(){
@@ -992,7 +1005,7 @@
 
         let room=await dbGet(roomPath(p.room));
         if(!room){
-          setNotice('bad','ยังไม่พบห้อง Battle v2');
+          setNotice('bad','ยังไม่พบห้อง Battle v2.1');
           return;
         }
 
@@ -1008,11 +1021,6 @@
           return;
         }
 
-        if(String(room.status).toLowerCase()==='ended'){
-          await resetEndedRoomForNewRound(p.room);
-          room=await dbGet(roomPath(p.room));
-        }
-
         const matchId='BT2-' + safeKey(p.room) + '-' + Date.now().toString(36).toUpperCase();
 
         const players=playersArray(room);
@@ -1025,6 +1033,7 @@
             heart:3,
             combo:0,
             attack:0,
+            shield:0,
             finished:false,
             finishReason:null,
             finishedAt:null,
@@ -1039,6 +1048,8 @@
           startedAt:now(),
           endedAt:null,
           endReason:null,
+          rematch:null,
+          attacks:null,
           updatedAt:now()
         });
 
@@ -1046,7 +1057,7 @@
         location.href=buildRunUrl(fresh,'host');
       }catch(err){
         console.error(err);
-        setNotice('bad','เริ่ม Battle v2 ไม่สำเร็จ: ' + (err?.message || err));
+        setNotice('bad','เริ่ม Battle v2.1 ไม่สำเร็จ: ' + (err?.message || err));
       }finally{
         starting=false;
       }
@@ -1080,7 +1091,7 @@
         $('room').value=randomRoom();
         updateRoomCodeDisplay($('room').value);
         writeUrlRoom($('room').value);
-        setNotice('warn','สุ่ม Room Code ใหม่แล้ว กด “สร้างห้อง v2”');
+        setNotice('warn','สุ่ม Room Code ใหม่แล้ว กด “สร้างห้อง v2.1”');
       });
 
       $('btnCreateRoom').addEventListener('click', createRoom);
@@ -1123,7 +1134,7 @@
           setNotice('warn',`พบห้อง <b>${esc(code)}</b> แล้ว ถ้าเป็นเพื่อนให้กด “เข้าห้องเพื่อน”`);
         }else{
           syncUi(null);
-          setNotice('warn',`ยังไม่พบห้อง <b>${esc(code)}</b> ถ้าคุณเป็น Host ให้กด “สร้างห้อง v2”`);
+          setNotice('warn',`ยังไม่พบห้อง <b>${esc(code)}</b> ถ้าคุณเป็น Host ให้กด “สร้างห้อง v2.1”`);
         }
       }catch(err){
         console.warn(err);
@@ -1147,15 +1158,15 @@
           const restart = qs('restart','') === '1' || qs('newRound','') === '1' || qs('fromEnded','') === '1';
           const isHostLink = String(qs('role','')).toLowerCase()==='host' || String(qs('host',''))==='1';
 
-          if(restart && isHostLink && String(existing.status).toLowerCase()==='ended'){
-            await resetEndedRoomForNewRound(room);
+          if(restart && isHostLink && (String(existing.status).toLowerCase()==='ended' || String(existing.status).toLowerCase()==='rematch')){
+            await resetRoomForNewRound(room);
             setNotice('good',`รีเซ็ตห้อง <b>${esc(room)}</b> เพื่อเริ่มรอบใหม่แล้ว`);
           }else{
             setNotice('warn',`พบห้อง <b>${esc(room)}</b> แล้ว`);
           }
         }else{
           syncUi(null);
-          setNotice('warn','Host กด “สร้างห้อง v2” หรือ Guest ใส่ Room Code');
+          setNotice('warn','Host กด “สร้างห้อง v2.1” หรือ Guest ใส่ Room Code');
         }
       }catch(err){
         console.error(err);
