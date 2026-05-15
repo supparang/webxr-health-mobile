@@ -4051,3 +4051,186 @@ body,
     font-size:15px !important;
   }
 }
+/* =========================================================
+   PATCH v20260514-hydration-3view-lock-pack13
+   PC / Mobile / Cardboard cVR layout lock
+   ========================================================= */
+
+/* ---------- PC ---------- */
+body.hha-view-pc .hha-hydration-hud,
+body[data-view="pc"] .hha-hydration-hud{
+  left:18px !important;
+  right:92px !important;
+  top:14px !important;
+  gap:10px !important;
+  justify-content:center !important;
+}
+
+body.hha-view-pc .hha-hud-pill,
+body[data-view="pc"] .hha-hud-pill{
+  min-width:94px !important;
+  padding:8px 12px !important;
+}
+
+body.hha-view-pc .hha-timebar,
+body[data-view="pc"] .hha-timebar{
+  top:76px !important;
+  width:min(520px,56vw) !important;
+}
+
+body.hha-view-pc .hha-hydration-banner,
+body[data-view="pc"] .hha-hydration-banner{
+  top:112px !important;
+  max-width:520px !important;
+}
+
+body.hha-view-pc .hha-hydration-target,
+body[data-view="pc"] .hha-hydration-target{
+  width:74px !important;
+  height:88px !important;
+  border-radius:19px !important;
+}
+
+body.hha-view-pc .hha-target-icon,
+body[data-view="pc"] .hha-target-icon{
+  font-size:32px !important;
+}
+
+/* ---------- Mobile ---------- */
+body.hha-view-mobile .hha-hydration-target,
+body[data-view="mobile"] .hha-hydration-target{
+  width:68px !important;
+  height:82px !important;
+  border-radius:18px !important;
+}
+
+body.hha-view-mobile .hha-target-icon,
+body[data-view="mobile"] .hha-target-icon{
+  font-size:29px !important;
+}
+
+/* ---------- Cardboard VR / cVR ---------- */
+body.hha-view-cvr,
+body[data-view="cvr"]{
+  cursor:none;
+}
+
+body.hha-view-cvr .hha-hydration-hud,
+body[data-view="cvr"] .hha-hydration-hud{
+  left:10px !important;
+  right:96px !important;
+  top:8px !important;
+  gap:6px !important;
+  justify-content:flex-start !important;
+}
+
+body.hha-view-cvr .hha-hud-pill,
+body[data-view="cvr"] .hha-hud-pill{
+  min-width:70px !important;
+  padding:5px 7px !important;
+  border-radius:15px !important;
+}
+
+body.hha-view-cvr .hha-hud-pill b,
+body[data-view="cvr"] .hha-hud-pill b{
+  font-size:14px !important;
+}
+
+body.hha-view-cvr .hha-hud-pill span,
+body[data-view="cvr"] .hha-hud-pill span{
+  font-size:8.5px !important;
+}
+
+body.hha-view-cvr .hha-timebar,
+body[data-view="cvr"] .hha-timebar{
+  top:112px !important;
+  width:min(390px,74vw) !important;
+}
+
+body.hha-view-cvr .hha-hydration-banner,
+body[data-view="cvr"] .hha-hydration-banner{
+  top:158px !important;
+  max-width:72vw !important;
+  font-size:15px !important;
+  padding:10px 14px !important;
+}
+
+body.hha-view-cvr .hha-hydration-target,
+body[data-view="cvr"] .hha-hydration-target{
+  width:82px !important;
+  height:96px !important;
+  border-radius:23px !important;
+  outline-width:5px !important;
+}
+
+body.hha-view-cvr .hha-target-icon,
+body[data-view="cvr"] .hha-target-icon{
+  font-size:36px !important;
+}
+
+body.hha-view-cvr .hha-target-label,
+body[data-view="cvr"] .hha-target-label{
+  font-size:11px !important;
+}
+
+body.hha-view-cvr .hha-target-short,
+body[data-view="cvr"] .hha-target-short{
+  font-size:9px !important;
+}
+
+/* fallback crosshair ถ้า vr-ui.js ยังไม่วาดให้ */
+.hha-cvr-fallback-crosshair{
+  position:fixed;
+  left:50%;
+  top:50%;
+  z-index:16000;
+  width:34px;
+  height:34px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  display:none;
+}
+
+.hha-cvr-fallback-crosshair::before,
+.hha-cvr-fallback-crosshair::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  background:rgba(36,68,92,.72);
+  border-radius:999px;
+  transform:translate(-50%,-50%);
+}
+
+.hha-cvr-fallback-crosshair::before{
+  width:34px;
+  height:4px;
+}
+
+.hha-cvr-fallback-crosshair::after{
+  width:4px;
+  height:34px;
+}
+
+.hha-cvr-fallback-crosshair i{
+  position:absolute;
+  inset:8px;
+  border:3px solid rgba(67,199,255,.72);
+  border-radius:999px;
+}
+
+body.hha-view-cvr .hha-cvr-fallback-crosshair,
+body[data-view="cvr"] .hha-cvr-fallback-crosshair{
+  display:block;
+}
+
+/* cVR summary ไม่ให้ใหญ่ล้น */
+body.hha-view-cvr .hha-summary-card,
+body[data-view="cvr"] .hha-summary-card{
+  width:min(680px,94vw) !important;
+}
+
+body.hha-view-cvr .hha-score-big b,
+body[data-view="cvr"] .hha-score-big b{
+  font-size:clamp(48px, 14vw, 72px) !important;
+}
