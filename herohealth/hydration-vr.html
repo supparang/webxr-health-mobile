@@ -2,16 +2,35 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"
+  />
   <meta name="theme-color" content="#dff8ff" />
   <meta name="color-scheme" content="light" />
 
   <title>HeroHealth • Hydration VR</title>
 
   <link rel="icon" href="./favicon.ico" />
-  <!-- Link to the hydration VR stylesheet -->
-  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css?v=20260514-pack12" />
+  <link rel="stylesheet" href="./hydration-vr/hydration-vr.css?v=20260514-pack13" />
 
+  <!--
+    HeroHealth Hydration VR
+    File: /herohealth/hydration-vr.html
+    Version: v20260514-pack13-3view-lock
+
+    Required files:
+      /herohealth/hydration-vr.html
+      /herohealth/hydration-vr/hydration-vr.css
+      /herohealth/hydration-vr/hydration-vr.js
+      /herohealth/herohealth-logger.js
+      /herohealth/vr/vr-ui.js  เฉพาะ view=cvr
+
+    Supported views:
+      view=pc
+      view=mobile
+      view=cvr
+  -->
 </head>
 
 <body class="hha-hydration-page hha-hydration-arena">
@@ -26,14 +45,20 @@
         <div class="hha-bg-wave hha-bg-wave-2"></div>
       </div>
 
-      <!-- Playfield for hydration game -->
-      <div id="hha-hydration-playfield" class="hha-hydration-playfield" aria-label="พื้นที่เล่นเกม"></div>
+      <div
+        id="hha-hydration-playfield"
+        class="hha-hydration-playfield"
+        aria-label="พื้นที่เล่นเกม"
+      ></div>
 
-      <!-- Live region for screen reader announcements -->
-      <div id="hha-hydration-live-region" class="hha-sr-only" aria-live="polite" aria-atomic="true"></div>
+      <div
+        id="hha-hydration-live-region"
+        class="hha-sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      ></div>
     </section>
 
-    <!-- Fallback for users with JavaScript disabled -->
     <noscript>
       <div class="hha-noscript">
         <div class="hha-noscript-card">
@@ -44,7 +69,166 @@
     </noscript>
   </main>
 
-  <!-- Hydration VR game script -->
-  <script src="./hydration-vr/hydration-vr.js?v=20260514-pack12"></script>
+  <!-- Hydration VR 3-View Loader -->
+  <script>
+    window.HHA = window.HHA || {};
+    window.HHA.HYDRATION_HTML_VERSION = 'v20260514-pack13-3view-lock';
+    window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr.html';
+
+    (function(){
+      'use strict';
+
+      var u = new URL(location.href);
+      var view = u.searchParams.get('view') || 'mobile';
+
+      if(!['pc','mobile','cvr'].includes(view)){
+        view = 'mobile';
+      }
+
+      document.body.dataset.view = view;
+      document.body.classList.add('hha-view-' + view);
+
+      if(view === 'cvr'){
+        document.body.classList.add('hha-cardboard-ready');
+      }
+
+      window.HHA_LOAD_SCRIPT = function(src){
+        return new Promise(function(resolve, reject){
+          var s = document.createElement('script');
+          s.src = src;
+          s.defer = true;
+          s.onload = resolve;
+          s.onerror = function(){
+            reject(new Error('โหลดไฟล์ไม่สำเร็จ: ' + src));
+          };
+          document.body.appendChild(s);
+        });
+      };
+
+      window.HHA_HYDRATION_SHOW_BOOT_ERROR = function(msg){
+        var old = document.getElementById('hha-hydration-boot-error');
+        if(old) old.remove();
+
+        var box = document.createElement('div');
+        box.id = 'hha-hydration-boot-error';
+        box.style.cssText = [
+          'position:fixed',
+          'inset:18px',
+          'z-index:999999',
+          'display:grid',
+          'place-items:center',
+          'pointer-events:auto'
+        ].join(';');
+
+        box.innerHTML = `
+          <div style="
+            max-width:440px;
+            width:94vw;
+            border-radius:28px;
+            padding:22px;
+            background:#fff;
+            color:#24445c;
+            box-shadow:0 24px 70px rgba(20,54,88,.28);
+            text-align:center;
+            font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+          ">
+            <div style="font-size:48px">⚠️</div>
+
+            <h1 style="
+              margin:6px 0 8px;
+              font-size:24px;
+              line-height:1.15;
+            ">
+              Hydration ยังไม่เริ่มทำงาน
+            </h1>
+
+            <p style="
+              margin:0 0 12px;
+              font-weight:850;
+              color:#66879c;
+              line-height:1.35;
+            ">
+              ${msg || 'ตรวจสอบ hydration-vr.js / hydration-vr.css / vr-ui.js'}
+            </p>
+
+            <div style="
+              padding:10px 12px;
+              border-radius:16px;
+              background:#f1fbff;
+              font-size:12px;
+              font-weight:800;
+              text-align:left;
+              color:#42677d;
+              word-break:break-all;
+            ">
+              ต้องมีไฟล์:<br>
+              /herohealth/hydration-vr.html<br>
+              /herohealth/hydration-vr/hydration-vr.js<br>
+              /herohealth/hydration-vr/hydration-vr.css<br>
+              /herohealth/herohealth-logger.js<br>
+              /herohealth/vr/vr-ui.js เฉพาะ view=cvr
+            </div>
+
+            <button onclick="location.reload()" style="
+              margin-top:14px;
+              width:100%;
+              border:0;
+              border-radius:18px;
+              padding:13px 16px;
+              color:white;
+              background:linear-gradient(180deg,#43c7ff,#2388ff);
+              font-size:17px;
+              font-weight:1000;
+              cursor:pointer;
+            ">โหลดใหม่</button>
+          </div>
+        `;
+
+        document.body.appendChild(box);
+      };
+
+      HHA_LOAD_SCRIPT('./herohealth-logger.js?v=20260514-pack13')
+        .catch(function(){
+          /* logger โหลดไม่ได้ ไม่ให้เกมพัง */
+        })
+        .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-vr/hydration-vr.js?v=20260514-pack13');
+        })
+        .then(function(){
+          if(view === 'cvr'){
+            return HHA_LOAD_SCRIPT('./vr/vr-ui.js?v=20260514-pack13').catch(function(){});
+          }
+        })
+        .then(function(){
+          setTimeout(function(){
+            var hyd = window.HHA && window.HHA.Hydration;
+
+            var hasStart =
+              document.querySelector('.hha-hydration-start') ||
+              document.querySelector('.hha-start') ||
+              document.querySelector('[data-hha-hydration-start]');
+
+            var hasHud =
+              document.querySelector('.hha-hydration-hud') ||
+              document.querySelector('.hha-timebar');
+
+            var hasSummary =
+              document.querySelector('.hha-hydration-summary') ||
+              document.querySelector('#hha-hydration-summary') ||
+              document.querySelector('.hha-summary-card');
+
+            if(!hasStart && !hasHud && !hasSummary && !(hyd && hyd.booted)){
+              HHA_HYDRATION_SHOW_BOOT_ERROR('โหลดหน้าได้ แต่ Hydration engine ไม่ boot');
+            }
+          }, 1400);
+        })
+        .catch(function(err){
+          HHA_HYDRATION_SHOW_BOOT_ERROR(
+            (err && err.message) ||
+            'โหลด hydration-vr.js ไม่สำเร็จ อาจเป็น 404 หรือ path ผิด'
+          );
+        });
+    })();
+  </script>
 </body>
 </html>
