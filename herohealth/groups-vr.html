@@ -24,7 +24,9 @@
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{
+      box-sizing:border-box;
+    }
 
     html,body{
       margin:0;
@@ -516,6 +518,7 @@
         <span class="badge">🥦 5 Food Groups</span>
         <span class="badge">📱 Mobile Ready</span>
         <span class="badge">💻 PC Ready</span>
+        <span class="badge">🥽 Cardboard Ready</span>
       </div>
     </header>
 
@@ -580,7 +583,7 @@
       <div class="section-head">
         <div>
           <h2 class="section-title">2) เลือกอุปกรณ์</h2>
-          <p class="section-note">Solo แยก PC / Mobile / Cardboard โดยตอนนี้ PC และ Mobile เปิดจริงแล้ว</p>
+          <p class="section-note">Solo แยก PC / Mobile / Cardboard VR ครบแล้ว</p>
         </div>
         <div id="deviceHint" class="auto-pill">Auto Detect</div>
       </div>
@@ -604,12 +607,12 @@
           </div>
         </button>
 
-        <button class="option soon" type="button" data-view="cvr">
-          <span class="tag">ต่อไป</span>
+        <button class="option" type="button" data-view="cvr">
+          <span class="tag">พร้อมเล่น</span>
           <div class="emoji">🥽</div>
           <div>
             <div class="title">Cardboard VR</div>
-            <div class="desc">ใช้ crosshair / แตะยิง / VR UI สำหรับ cVR</div>
+            <div class="desc">เล็งด้วย crosshair แล้วแตะจอเพื่อยิงในโหมด cVR</div>
           </div>
         </button>
       </div>
@@ -675,7 +678,7 @@
       </div>
 
       <div id="status" class="status">
-        <strong>พร้อมเล่น:</strong> Mobile Solo จะเปิดไปที่ <code>groups-mobile.html</code>
+        <strong>พร้อมเล่น:</strong> Mobile Solo จะเปิดไปที่ <code>/herohealth/vr-groups/groups-mobile.html</code>
       </div>
     </section>
   </div>
@@ -694,7 +697,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.2-groups-launcher-solo-pc-mobile-ready-20260514';
+      const VERSION = 'v1.3-groups-launcher-solo-pc-mobile-cvr-ready-20260515';
 
       const state = {
         mode:'solo',
@@ -729,7 +732,7 @@
           emoji:'🌱',
           title:'Solo',
           ready:true,
-          note:'เล่นคนเดียว แข่งกับเวลา เปิดจริงแล้วทั้ง PC และ Mobile'
+          note:'เล่นคนเดียว แข่งกับเวลา เปิดจริงแล้วทั้ง PC / Mobile / Cardboard VR'
         },
         race:{
           emoji:'🏁',
@@ -763,21 +766,21 @@
           title:'PC / Notebook',
           ready:true,
           path:'/herohealth/vr-groups/groups-pc.html',
-          note:'ใช้ PC Clean Solo v1.0'
+          note:'ใช้ PC Clean Solo + Final Polish'
         },
         mobile:{
           emoji:'📱',
           title:'Mobile',
           ready:true,
           path:'/herohealth/vr-groups/groups-mobile.html',
-          note:'ใช้ Mobile Ultimate Arcade'
+          note:'ใช้ Mobile Ultimate Arcade + Final Polish'
         },
         cvr:{
           emoji:'🥽',
           title:'Cardboard VR',
-          ready:false,
+          ready:true,
           path:'/herohealth/vr-groups/groups-cvr.html',
-          note:'เตรียมทำ cVR ด้วย crosshair และ vr-ui.js'
+          note:'ใช้ Groups Solo Cardboard VR v1.0'
         }
       };
 
@@ -794,6 +797,7 @@
         if(!MODE_INFO[state.mode]) state.mode = 'solo';
 
         const urlView = qs('view','');
+
         const autoMobile =
           window.innerWidth <= 760 ||
           /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -840,10 +844,6 @@
 
         state.view = view;
         updateUI();
-
-        if(!VIEW_INFO[view].ready){
-          toast(`${VIEW_INFO[view].emoji} ${VIEW_INFO[view].title} เตรียมทำต่อ: ตอนนี้เปิดจริงแล้วคือ PC และ Mobile`);
-        }
       }
 
       function updateUI(){
@@ -887,10 +887,19 @@
           els.status.innerHTML =
             `<strong>พร้อมเล่น:</strong> PC Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-pc.html</code>`;
         }
+
+        if(state.mode === 'solo' && state.view === 'cvr'){
+          els.status.innerHTML =
+            `<strong>พร้อมเล่น:</strong> Cardboard VR Solo ใช้ไฟล์ <code>/herohealth/vr-groups/groups-cvr.html</code>`;
+        }
       }
 
       function isReadyToPlay(){
-        return state.mode === 'solo' && (state.view === 'mobile' || state.view === 'pc');
+        return state.mode === 'solo' && (
+          state.view === 'mobile' ||
+          state.view === 'pc' ||
+          state.view === 'cvr'
+        );
       }
 
       function nutritionZoneUrl(){
@@ -976,8 +985,11 @@
         u.searchParams.set('run', 'play');
         u.searchParams.set('zone', 'nutrition');
         u.searchParams.set('game', 'groups');
+        u.searchParams.set('gameId', 'groups');
         u.searchParams.set('mode', mode);
         u.searchParams.set('hub', nutritionZoneUrl());
+        u.searchParams.set('back', nutritionZoneUrl());
+        u.searchParams.set('return', nutritionZoneUrl());
 
         if(['race','battle','duet','coop'].includes(mode)){
           const room = clean(els.roomCode.value || makeRoomCode());
@@ -1022,7 +1034,7 @@
           const mode = MODE_INFO[state.mode];
           const view = VIEW_INFO[state.view];
 
-          toast(`${mode.emoji} ${mode.title} + ${view.title} ยังเตรียมทำต่อ ตอนนี้เปิดจริงแล้วคือ Solo PC และ Solo Mobile`);
+          toast(`${mode.emoji} ${mode.title} + ${view.title} ยังเตรียมทำต่อ ตอนนี้เปิดจริงแล้วคือ Solo PC / Mobile / Cardboard VR`);
           return;
         }
 
