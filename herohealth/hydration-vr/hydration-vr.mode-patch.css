@@ -1,0 +1,470 @@
+/* =========================================================
+   HeroHealth Hydration Mode Patch
+   File: /herohealth/hydration-vr/hydration-vr.mode-patch.css
+   Version: v20260515-pack14
+   Purpose:
+   - PC / Mobile / Cardboard VR view lock
+   - Solo / Multiplayer mode label
+   - Mobile target + HUD polish
+   - Summary no horizontal overflow
+   ========================================================= */
+
+html,
+body,
+.hha-hydration-page,
+.hha-hydration-arena,
+.hha-hydration-app,
+.hha-hydration-stage{
+  max-width:100vw !important;
+  overflow-x:hidden !important;
+}
+
+/* =========================================================
+   View badge / mode badge
+   ========================================================= */
+
+.hha-mode-badge{
+  position:fixed;
+  left:10px;
+  bottom:10px;
+  z-index:15000;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  max-width:80vw;
+  padding:8px 11px;
+  border-radius:999px;
+  background:rgba(255,255,255,.92);
+  color:#24607f;
+  font-size:11px;
+  font-weight:1000;
+  box-shadow:0 10px 24px rgba(30,75,115,.16);
+  pointer-events:none;
+}
+
+body.hha-mode-solo .hha-mode-badge{
+  display:none;
+}
+
+body.hha-mode-duet .hha-mode-badge,
+body.hha-mode-race .hha-mode-badge,
+body.hha-mode-battle .hha-mode-badge,
+body.hha-mode-coop .hha-mode-badge{
+  display:flex;
+}
+
+/* =========================================================
+   PC view
+   ========================================================= */
+
+body.hha-view-pc .hha-hydration-hud,
+body[data-view="pc"] .hha-hydration-hud{
+  left:18px !important;
+  right:92px !important;
+  top:14px !important;
+  gap:10px !important;
+  justify-content:center !important;
+}
+
+body.hha-view-pc .hha-hud-pill,
+body[data-view="pc"] .hha-hud-pill{
+  min-width:94px !important;
+  padding:8px 12px !important;
+}
+
+body.hha-view-pc .hha-timebar,
+body[data-view="pc"] .hha-timebar{
+  top:76px !important;
+  width:min(520px,56vw) !important;
+}
+
+body.hha-view-pc .hha-hydration-banner,
+body[data-view="pc"] .hha-hydration-banner{
+  top:112px !important;
+  max-width:520px !important;
+}
+
+body.hha-view-pc .hha-hydration-target,
+body[data-view="pc"] .hha-hydration-target{
+  width:74px !important;
+  height:88px !important;
+  border-radius:19px !important;
+}
+
+body.hha-view-pc .hha-target-icon,
+body[data-view="pc"] .hha-target-icon{
+  font-size:32px !important;
+}
+
+/* =========================================================
+   Mobile view
+   ========================================================= */
+
+body.hha-view-mobile .hha-hydration-hud,
+body[data-view="mobile"] .hha-hydration-hud{
+  left:7px !important;
+  right:104px !important;
+  top:7px !important;
+  gap:5px !important;
+  justify-content:flex-start !important;
+  align-items:flex-start !important;
+  flex-wrap:wrap !important;
+}
+
+body.hha-view-mobile .hha-hud-pill,
+body[data-view="mobile"] .hha-hud-pill{
+  min-width:68px !important;
+  padding:5px 7px !important;
+  border-radius:15px !important;
+}
+
+body.hha-view-mobile .hha-hud-pill b,
+body[data-view="mobile"] .hha-hud-pill b{
+  font-size:14px !important;
+}
+
+body.hha-view-mobile .hha-hud-pill span,
+body[data-view="mobile"] .hha-hud-pill span{
+  font-size:8.5px !important;
+}
+
+body.hha-view-mobile .hha-hydration-controls,
+body[data-view="mobile"] .hha-hydration-controls{
+  right:7px !important;
+  top:8px !important;
+  gap:6px !important;
+}
+
+body.hha-view-mobile .hha-control-btn,
+body[data-view="mobile"] .hha-control-btn{
+  width:42px !important;
+  height:42px !important;
+  border-radius:15px !important;
+  font-size:18px !important;
+}
+
+body.hha-view-mobile .hha-timebar,
+body[data-view="mobile"] .hha-timebar{
+  top:110px !important;
+  width:min(390px,74vw) !important;
+}
+
+body.hha-view-mobile .hha-hydration-banner,
+body[data-view="mobile"] .hha-hydration-banner{
+  top:154px !important;
+  max-width:72vw !important;
+  padding:10px 16px !important;
+  font-size:15.5px !important;
+  line-height:1.25 !important;
+  border-radius:30px !important;
+}
+
+body.hha-view-mobile .hha-hydration-target,
+body[data-view="mobile"] .hha-hydration-target{
+  width:68px !important;
+  height:82px !important;
+  border-radius:18px !important;
+  padding:5px !important;
+  gap:1px !important;
+}
+
+body.hha-view-mobile .hha-target-icon,
+body[data-view="mobile"] .hha-target-icon{
+  font-size:29px !important;
+}
+
+body.hha-view-mobile .hha-target-label,
+body[data-view="mobile"] .hha-target-label{
+  font-size:10px !important;
+}
+
+body.hha-view-mobile .hha-target-short,
+body[data-view="mobile"] .hha-target-short{
+  font-size:8px !important;
+}
+
+/* =========================================================
+   Cardboard VR / cVR view
+   ========================================================= */
+
+body.hha-view-cvr,
+body[data-view="cvr"]{
+  cursor:none;
+}
+
+body.hha-view-cvr .hha-hydration-hud,
+body[data-view="cvr"] .hha-hydration-hud{
+  left:10px !important;
+  right:96px !important;
+  top:8px !important;
+  gap:6px !important;
+  justify-content:flex-start !important;
+}
+
+body.hha-view-cvr .hha-hud-pill,
+body[data-view="cvr"] .hha-hud-pill{
+  min-width:70px !important;
+  padding:5px 7px !important;
+  border-radius:15px !important;
+}
+
+body.hha-view-cvr .hha-hud-pill b,
+body[data-view="cvr"] .hha-hud-pill b{
+  font-size:14px !important;
+}
+
+body.hha-view-cvr .hha-hud-pill span,
+body[data-view="cvr"] .hha-hud-pill span{
+  font-size:8.5px !important;
+}
+
+body.hha-view-cvr .hha-timebar,
+body[data-view="cvr"] .hha-timebar{
+  top:112px !important;
+  width:min(390px,74vw) !important;
+}
+
+body.hha-view-cvr .hha-hydration-banner,
+body[data-view="cvr"] .hha-hydration-banner{
+  top:158px !important;
+  max-width:72vw !important;
+  font-size:15px !important;
+  padding:10px 14px !important;
+}
+
+body.hha-view-cvr .hha-hydration-target,
+body[data-view="cvr"] .hha-hydration-target{
+  width:82px !important;
+  height:96px !important;
+  border-radius:23px !important;
+  outline-width:5px !important;
+}
+
+body.hha-view-cvr .hha-target-icon,
+body[data-view="cvr"] .hha-target-icon{
+  font-size:36px !important;
+}
+
+body.hha-view-cvr .hha-target-label,
+body[data-view="cvr"] .hha-target-label{
+  font-size:11px !important;
+}
+
+body.hha-view-cvr .hha-target-short,
+body[data-view="cvr"] .hha-target-short{
+  font-size:9px !important;
+}
+
+/* fallback crosshair */
+.hha-cvr-fallback-crosshair{
+  position:fixed;
+  left:50%;
+  top:50%;
+  z-index:16000;
+  width:34px;
+  height:34px;
+  transform:translate(-50%,-50%);
+  pointer-events:none;
+  display:none;
+}
+
+.hha-cvr-fallback-crosshair::before,
+.hha-cvr-fallback-crosshair::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  background:rgba(36,68,92,.72);
+  border-radius:999px;
+  transform:translate(-50%,-50%);
+}
+
+.hha-cvr-fallback-crosshair::before{
+  width:34px;
+  height:4px;
+}
+
+.hha-cvr-fallback-crosshair::after{
+  width:4px;
+  height:34px;
+}
+
+.hha-cvr-fallback-crosshair i{
+  position:absolute;
+  inset:8px;
+  border:3px solid rgba(67,199,255,.72);
+  border-radius:999px;
+}
+
+body.hha-view-cvr .hha-cvr-fallback-crosshair,
+body[data-view="cvr"] .hha-cvr-fallback-crosshair{
+  display:block;
+}
+
+/* =========================================================
+   Summary no overflow
+   ========================================================= */
+
+.hha-hydration-summary,
+#hha-hydration-summary,
+#hydration-summary,
+.hha-summary,
+.hha-summary-panel,
+.hha-summary-card{
+  box-sizing:border-box !important;
+  max-width:100vw !important;
+  overflow-x:hidden !important;
+}
+
+.hha-hydration-summary *,
+#hha-hydration-summary *,
+#hydration-summary *,
+.hha-summary *,
+.hha-summary-panel *,
+.hha-summary-card *{
+  box-sizing:border-box !important;
+  max-width:100% !important;
+  word-spacing:normal !important;
+  letter-spacing:normal !important;
+}
+
+.hha-summary-card{
+  width:min(720px,94vw) !important;
+  margin:10px auto 18px !important;
+  padding:22px 16px 28px !important;
+  overflow:hidden !important;
+}
+
+.hha-summary-kicker{
+  max-width:88vw !important;
+  padding:8px 16px !important;
+  font-size:16px !important;
+  line-height:1.15 !important;
+  white-space:normal !important;
+}
+
+.hha-summary-title{
+  font-size:clamp(34px,10vw,52px) !important;
+  line-height:1.04 !important;
+  margin-top:16px !important;
+  margin-bottom:8px !important;
+}
+
+.hha-stars{
+  font-size:clamp(34px,9vw,48px) !important;
+  margin:10px 0 16px !important;
+  letter-spacing:0 !important;
+}
+
+.hha-score-big{
+  width:100% !important;
+  padding:20px 12px 18px !important;
+  border-radius:28px !important;
+  overflow:hidden !important;
+}
+
+.hha-score-big b{
+  font-size:clamp(54px,16vw,78px) !important;
+  line-height:.95 !important;
+  letter-spacing:-2px !important;
+  word-spacing:0 !important;
+  white-space:nowrap !important;
+}
+
+.hha-summary-grid{
+  width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+}
+
+.hha-summary-grid > div{
+  min-width:0 !important;
+  padding:12px 8px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+
+.hha-summary-grid b{
+  font-size:clamp(25px,8vw,38px) !important;
+  line-height:1 !important;
+  white-space:normal !important;
+}
+
+.hha-summary-grid span{
+  font-size:12px !important;
+  line-height:1.15 !important;
+}
+
+.hha-badge-list{
+  width:100% !important;
+  max-width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  overflow:hidden !important;
+}
+
+.hha-badge-card,
+.hha-badge-list > div{
+  min-width:0 !important;
+  padding:12px !important;
+  border-radius:18px !important;
+  overflow:hidden !important;
+}
+
+.hha-badge-card b,
+.hha-badge-list b{
+  font-size:20px !important;
+  line-height:1.05 !important;
+}
+
+.hha-badge-card span,
+.hha-badge-list span{
+  font-size:12px !important;
+  line-height:1.15 !important;
+}
+
+.hha-summary-actions,
+.hha-result-actions,
+.hha-end-actions,
+.hha-hydration-final-actions{
+  width:100% !important;
+  max-width:100% !important;
+  display:grid !important;
+  grid-template-columns:1fr 1fr !important;
+  gap:10px !important;
+  overflow:hidden !important;
+}
+
+.hha-summary-actions button,
+.hha-result-actions button,
+.hha-end-actions button,
+.hha-hydration-final-actions button{
+  min-width:0 !important;
+  min-height:54px !important;
+  padding:11px 10px !important;
+  border-radius:18px !important;
+  font-size:16px !important;
+  line-height:1.08 !important;
+  white-space:normal !important;
+  overflow:hidden !important;
+}
+
+@media (max-width:390px){
+  .hha-score-big b{
+    font-size:clamp(48px,15vw,68px) !important;
+  }
+
+  .hha-badge-card b,
+  .hha-badge-list b{
+    font-size:18px !important;
+  }
+
+  .hha-summary-actions button,
+  .hha-result-actions button,
+  .hha-end-actions button,
+  .hha-hydration-final-actions button{
+    font-size:15px !important;
+  }
+}
