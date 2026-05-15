@@ -1,0 +1,1039 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • GoodJunk Modes v2.2.4</title>
+  <meta name="theme-color" content="#ffd75a" />
+  <link rel="icon" href="./favicon.ico" />
+
+  <style>
+    :root{
+      --bg1:#fff7d8;
+      --bg2:#e9f8ff;
+      --panel:#fffef9;
+      --panel2:#fff8e8;
+      --stroke:#ffbd78;
+      --stroke2:#ffdca8;
+      --text:#8b2f1d;
+      --muted:#755f48;
+      --good:#7ed957;
+      --bad:#ff8d8d;
+      --blue:#58b7f5;
+      --violet:#b79cff;
+      --orange:#ffd75a;
+      --shadow:0 18px 44px rgba(160,112,35,.16);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%,rgba(255,255,255,.92),transparent 22%),
+        radial-gradient(circle at 88% 6%,rgba(255,141,141,.22),transparent 24%),
+        radial-gradient(circle at 80% 94%,rgba(88,183,245,.28),transparent 28%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    body{
+      overflow-x:hidden;
+    }
+
+    .app{
+      width:min(96vw,1160px);
+      margin:0 auto;
+      min-height:100dvh;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      display:grid;
+      gap:14px;
+    }
+
+    .panel{
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border-radius:30px;
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:18px;
+      display:grid;
+      gap:14px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .hero::before{
+      content:"";
+      position:absolute;
+      left:-68px;
+      top:-78px;
+      width:210px;
+      height:210px;
+      border-radius:999px;
+      background:rgba(255,141,141,.17);
+      filter:blur(4px);
+    }
+
+    .hero::after{
+      content:"";
+      position:absolute;
+      right:-58px;
+      bottom:-72px;
+      width:190px;
+      height:190px;
+      border-radius:999px;
+      background:rgba(88,183,245,.20);
+      filter:blur(4px);
+    }
+
+    .hero > *{
+      position:relative;
+      z-index:1;
+    }
+
+    .heroTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width:0;
+    }
+
+    .brandIcon{
+      width:78px;
+      height:78px;
+      border-radius:28px;
+      border:4px solid var(--stroke2);
+      background:linear-gradient(180deg,#fff8dc,#ffd75a);
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      flex:0 0 auto;
+      box-shadow:0 14px 28px rgba(160,112,35,.14);
+    }
+
+    .title{
+      font-size:clamp(34px,5vw,54px);
+      line-height:1;
+      font-weight:1000;
+      color:var(--text);
+      letter-spacing:-.02em;
+    }
+
+    .subtitle{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.55;
+      font-weight:900;
+      max-width:760px;
+    }
+
+    .topActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:48px;
+      border-radius:18px;
+      border:3px solid var(--stroke2);
+      background:#fffef9;
+      color:var(--text);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      padding:10px 14px;
+      font-size:14px;
+      font-weight:1000;
+      cursor:pointer;
+      box-shadow:0 10px 22px rgba(160,112,35,.10);
+      user-select:none;
+      text-align:center;
+    }
+
+    .btn:hover{
+      filter:brightness(1.04);
+      transform:translateY(-1px);
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#a6f071,#7ed957);
+      border-color:#b8f29a;
+      color:#173b0b;
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
+      border-color:#9fe3ff;
+      color:#08374d;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      border-color:#ffe08a;
+      color:#553900;
+    }
+
+    .statusBar{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .statusItem{
+      border:3px solid var(--stroke2);
+      background:#fff;
+      border-radius:22px;
+      padding:12px;
+      text-align:center;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(160,112,35,.08);
+    }
+
+    .statusItem small{
+      display:block;
+      color:#8a6b30;
+      font-size:11px;
+      text-transform:uppercase;
+    }
+
+    .statusItem b{
+      display:block;
+      margin-top:4px;
+      color:var(--text);
+      font-size:15px;
+      line-height:1.2;
+    }
+
+    .controls{
+      padding:16px;
+      display:grid;
+      gap:14px;
+    }
+
+    .controlsTitle{
+      font-size:22px;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .fields{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .field{
+      display:grid;
+      gap:7px;
+    }
+
+    .field label{
+      color:#6b5c50;
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .field input,
+    .field select{
+      width:100%;
+      min-height:50px;
+      border-radius:18px;
+      border:3px solid var(--stroke2);
+      background:#fff;
+      color:#4d4034;
+      padding:9px 12px;
+      font-weight:1000;
+      text-align:center;
+      outline:none;
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:#ffd75a;
+      outline:4px solid rgba(255,215,90,.22);
+    }
+
+    .viewPicker{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .viewBtn{
+      border:3px solid var(--stroke2);
+      background:#fff;
+      color:var(--text);
+      border-radius:22px;
+      min-height:72px;
+      padding:12px;
+      cursor:pointer;
+      display:grid;
+      gap:5px;
+      place-items:center;
+      text-align:center;
+      font-weight:1000;
+      box-shadow:0 8px 18px rgba(160,112,35,.08);
+    }
+
+    .viewBtn .ico{
+      font-size:28px;
+      line-height:1;
+    }
+
+    .viewBtn .label{
+      font-size:15px;
+    }
+
+    .viewBtn .sub{
+      font-size:11px;
+      color:#7a6b5d;
+      line-height:1.25;
+    }
+
+    .viewBtn.active{
+      border-color:#7ed957;
+      background:linear-gradient(180deg,#f8fff0,#e8ffd8);
+      outline:4px solid rgba(126,217,87,.22);
+    }
+
+    .sectionHead{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:2px;
+    }
+
+    .sectionTitle{
+      font-size:28px;
+      line-height:1.1;
+      color:var(--text);
+      font-weight:1000;
+    }
+
+    .sectionSub{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .modeGrid{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:12px;
+    }
+
+    .modeCard{
+      min-height:300px;
+      padding:16px;
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,#fffef9,#fff8e8);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      display:grid;
+      grid-template-rows:auto auto 1fr auto;
+      gap:12px;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .modeCard::after{
+      content:"";
+      position:absolute;
+      right:-34px;
+      bottom:-42px;
+      width:110px;
+      height:110px;
+      border-radius:999px;
+      background:rgba(255,215,90,.22);
+      pointer-events:none;
+    }
+
+    .modeCard > *{
+      position:relative;
+      z-index:1;
+    }
+
+    .modeIcon{
+      width:72px;
+      height:72px;
+      border-radius:26px;
+      border:4px solid var(--stroke2);
+      background:#fff;
+      display:grid;
+      place-items:center;
+      font-size:40px;
+      box-shadow:0 10px 20px rgba(160,112,35,.10);
+    }
+
+    .modeTitle{
+      font-size:25px;
+      line-height:1;
+      font-weight:1000;
+      color:var(--text);
+    }
+
+    .modeDesc{
+      color:#6b5c50;
+      font-size:13px;
+      line-height:1.5;
+      font-weight:900;
+    }
+
+    .modeTags{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+    }
+
+    .tag{
+      min-height:28px;
+      border-radius:999px;
+      border:2px solid var(--stroke2);
+      background:#fff8db;
+      color:#7c4d00;
+      font-size:11px;
+      font-weight:1000;
+      padding:5px 8px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .tag.good{
+      border-color:#cfe9b8;
+      background:#f7fff0;
+      color:#4f842f;
+    }
+
+    .tag.info{
+      border-color:#bfe3f2;
+      background:#eaf8ff;
+      color:#4197bd;
+    }
+
+    .tag.violet{
+      border-color:#d7c7ff;
+      background:#f5f0ff;
+      color:#5a3b99;
+    }
+
+    .modeActions{
+      display:grid;
+      gap:8px;
+    }
+
+    .modeActions .btn{
+      width:100%;
+      min-height:50px;
+    }
+
+    .battle{
+      border-color:#ff9a9a;
+    }
+
+    .battle .modeIcon{
+      border-color:#ffd0d0;
+      background:linear-gradient(180deg,#fff,#fff1f1);
+    }
+
+    .solo{
+      border-color:#ffd75a;
+    }
+
+    .race{
+      border-color:#9fe3ff;
+    }
+
+    .duet{
+      border-color:#b79cff;
+    }
+
+    .coop{
+      border-color:#7ed957;
+    }
+
+    .notice{
+      border:3px dashed var(--stroke2);
+      background:#fffef9;
+      border-radius:24px;
+      padding:14px 16px;
+      color:#6b5c50;
+      font-size:13px;
+      line-height:1.6;
+      font-weight:900;
+      text-align:center;
+    }
+
+    .notice b{
+      color:var(--text);
+    }
+
+    .footer{
+      text-align:center;
+      color:#8a6b30;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.5;
+      padding:6px 0 2px;
+    }
+
+    @media(max-width:1120px){
+      .modeGrid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .modeCard{
+        min-height:260px;
+      }
+    }
+
+    @media(max-width:860px){
+      .fields{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .statusBar{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+    }
+
+    @media(max-width:640px){
+      .app{
+        width:min(98vw,720px);
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+      }
+
+      .hero,
+      .controls{
+        padding:14px;
+      }
+
+      .brandIcon{
+        width:60px;
+        height:60px;
+        border-radius:22px;
+        font-size:34px;
+      }
+
+      .topActions{
+        justify-content:flex-start;
+      }
+
+      .fields,
+      .viewPicker,
+      .modeGrid,
+      .statusBar{
+        grid-template-columns:1fr;
+      }
+
+      .modeCard{
+        min-height:auto;
+      }
+
+      .modeIcon{
+        width:62px;
+        height:62px;
+        border-radius:22px;
+        font-size:34px;
+      }
+
+      .modeTitle{
+        font-size:24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <section class="panel hero">
+      <div class="heroTop">
+        <div class="brand">
+          <div class="brandIcon">🍎</div>
+          <div>
+            <div class="title">GoodJunk Modes</div>
+            <div class="subtitle">
+              เลือกโหมดการเล่น GoodJunk: Solo, Battle, Race, Duet, Coop แล้วเลือกอุปกรณ์ PC / Mobile / Cardboard ให้เหมาะกับผู้เล่น
+            </div>
+          </div>
+        </div>
+
+        <div class="topActions">
+          <a id="btnZone" class="btn info" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
+          <a id="btnHub" class="btn" href="../hub-v2.html">🌟 Hub</a>
+        </div>
+      </div>
+
+      <div class="statusBar">
+        <div class="statusItem">
+          <small>Version</small>
+          <b>v2.2.4-ready</b>
+        </div>
+        <div class="statusItem">
+          <small>Mode System</small>
+          <b>Solo / Battle / Race / Duet / Coop</b>
+        </div>
+        <div class="statusItem">
+          <small>Device View</small>
+          <b id="statusView">Mobile</b>
+        </div>
+        <div class="statusItem">
+          <small>Backend</small>
+          <b>Shared Room</b>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel controls">
+      <div class="controlsTitle">⚙️ ตั้งค่าก่อนเข้าเล่น</div>
+
+      <div class="fields">
+        <div class="field">
+          <label for="pid">PID</label>
+          <input id="pid" autocomplete="off" placeholder="anon" />
+        </div>
+
+        <div class="field">
+          <label for="name">ชื่อผู้เล่น</label>
+          <input id="name" autocomplete="nickname" placeholder="Hero" />
+        </div>
+
+        <div class="field">
+          <label for="diff">ระดับ</label>
+          <select id="diff">
+            <option value="easy">easy</option>
+            <option value="normal" selected>normal</option>
+            <option value="hard">hard</option>
+            <option value="challenge">challenge</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label for="time">เวลา</label>
+          <select id="time">
+            <option value="60">60s</option>
+            <option value="90" selected>90s</option>
+            <option value="120">120s</option>
+            <option value="150">150s</option>
+            <option value="180">180s</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <div class="controlsTitle" style="font-size:18px;margin-bottom:10px;">🕹️ เลือกอุปกรณ์ / มุมมอง</div>
+        <div class="viewPicker">
+          <button class="viewBtn" type="button" data-view="pc">
+            <div class="ico">🖥️</div>
+            <div class="label">PC</div>
+            <div class="sub">สนามกว้าง ใช้เมาส์/คีย์บอร์ด</div>
+          </button>
+
+          <button class="viewBtn active" type="button" data-view="mobile">
+            <div class="ico">📱</div>
+            <div class="label">Mobile</div>
+            <div class="sub">ปุ่มใหญ่ Skill Dock ลอย เหมาะกับสัมผัส</div>
+          </button>
+
+          <button class="viewBtn" type="button" data-view="cardboard">
+            <div class="ico">🥽</div>
+            <div class="label">Cardboard</div>
+            <div class="sub">Crosshair / Tap-to-shoot / HUD น้อย</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="notice">
+        <b>หมายเหตุ:</b> Battle ใช้ระบบห้องเดียวกันทุกอุปกรณ์ เช่น Hero ใช้ PC และ KK ใช้ Mobile ได้ แต่ UI/การควบคุมจะแยกตาม view ที่เลือก
+      </div>
+    </section>
+
+    <section>
+      <div class="sectionHead">
+        <div>
+          <div class="sectionTitle">🎮 เลือกโหมด GoodJunk</div>
+          <div class="sectionSub">เริ่มจาก Battle แยก PC/Mobile/Cardboard แล้วค่อยต่อ Race/Duet/Coop gameplay เต็ม</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="modeGrid">
+      <article class="modeCard solo">
+        <div class="modeIcon">🍎</div>
+        <div>
+          <div class="modeTitle">Solo</div>
+          <div class="modeDesc">
+            เล่นคนเดียว เก็บอาหารดี เลี่ยง Junk สะสมคะแนน และเข้าสู่ Boss Phase สำหรับฝึกแยกแยะอาหาร
+          </div>
+        </div>
+        <div class="modeTags">
+          <span class="tag good">Single Player</span>
+          <span class="tag">Boss Phase</span>
+          <span class="tag info">Practice</span>
+        </div>
+        <div class="modeActions">
+          <button class="btn warn" type="button" data-mode="solo">🍎 เข้า Solo</button>
+        </div>
+      </article>
+
+      <article class="modeCard battle">
+        <div class="modeIcon">⚔️</div>
+        <div>
+          <div class="modeTitle">Battle</div>
+          <div class="modeDesc">
+            แข่ง 1v1 แบบ Real-time ใช้ Junk Storm, Shield, Freeze, Fog และระบบ Rematch ยอมรับทั้งสองฝ่าย
+          </div>
+        </div>
+        <div class="modeTags">
+          <span class="tag good">1v1</span>
+          <span class="tag">Attack</span>
+          <span class="tag violet">Rematch</span>
+          <span class="tag info">Firebase Room</span>
+        </div>
+        <div class="modeActions">
+          <button class="btn good" type="button" data-mode="battle">⚔️ เข้า Battle v2</button>
+        </div>
+      </article>
+
+      <article class="modeCard race">
+        <div class="modeIcon">🏁</div>
+        <div>
+          <div class="modeTitle">Race</div>
+          <div class="modeDesc">
+            แข่งหลายคน ใครเก็บ Good ครบเป้าหมายหรือทำคะแนนถึงเส้นชัยก่อนเป็นผู้ชนะ
+          </div>
+        </div>
+        <div class="modeTags">
+          <span class="tag info">Multiplayer</span>
+          <span class="tag">Speed</span>
+          <span class="tag">Coming Gameplay</span>
+        </div>
+        <div class="modeActions">
+          <button class="btn info" type="button" data-mode="race">🏁 เข้า Race</button>
+        </div>
+      </article>
+
+      <article class="modeCard duet">
+        <div class="modeIcon">🤝</div>
+        <div>
+          <div class="modeTitle">Duet</div>
+          <div class="modeDesc">
+            เล่น 2 คนช่วยกัน แบ่งหน้าที่ เช่น คนหนึ่งเก็บ Good อีกคนป้องกัน Junk หรือช่วยเติมพลัง
+          </div>
+        </div>
+        <div class="modeTags">
+          <span class="tag violet">2 Players</span>
+          <span class="tag good">Teamwork</span>
+          <span class="tag">Roles</span>
+        </div>
+        <div class="modeActions">
+          <button class="btn" type="button" data-mode="duet">🤝 เข้า Duet</button>
+        </div>
+      </article>
+
+      <article class="modeCard coop">
+        <div class="modeIcon">🌍</div>
+        <div>
+          <div class="modeTitle">Coop</div>
+          <div class="modeDesc">
+            เล่นเป็นทีม ช่วยกันทำเป้าหมายรวม เช่น เก็บ Good ให้ครบ ลด Junk รวม และรักษาหัวใจทีม
+          </div>
+        </div>
+        <div class="modeTags">
+          <span class="tag good">Team Goal</span>
+          <span class="tag info">Co-op</span>
+          <span class="tag">Shared Score</span>
+        </div>
+        <div class="modeActions">
+          <button class="btn good" type="button" data-mode="coop">🌍 เข้า Coop</button>
+        </div>
+      </article>
+    </section>
+
+    <div class="notice">
+      <b>GoodJunk v2.2.4 Plan:</b>
+      Battle แยกไฟล์ PC / Mobile / Cardboard, ใช้ room เดียวกัน, มี Global End + Canonical Summary + Multi Attack Lite/Expansion
+    </div>
+
+    <div class="footer">
+      HeroHealth • GoodJunk Modes v2.2.4-ready • ไม่เรียกไฟล์ battle เก่า goodjunk-vr-battle.html
+    </div>
+  </div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    window.HHA_GOODJUNK_MODES = 'v20260515-goodjunk-modes-v224-ready';
+
+    const $ = id => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
+
+    let selectedView = normalizeView(
+      params.get('view') ||
+      params.get('device') ||
+      detectView()
+    );
+
+    function qs(k,d=''){
+      return params.get(k) ?? d;
+    }
+
+    function clean(v,d=''){
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
+
+    function detectView(){
+      const ua = navigator.userAgent || '';
+      const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+      return isMobile ? 'mobile' : 'pc';
+    }
+
+    function normalizeView(v){
+      const s = String(v || '').toLowerCase().trim();
+      if (['pc','desktop','computer'].includes(s)) return 'pc';
+      if (['mobile','phone','touch'].includes(s)) return 'mobile';
+      if (['cardboard','cvr','vr'].includes(s)) return 'cardboard';
+      return 'mobile';
+    }
+
+    function makePid(){
+      const key = 'HHA_GJ_MODES_PID';
+      try{
+        let pid = localStorage.getItem(key);
+        if (!pid){
+          pid = 'gj-' + Math.random().toString(36).slice(2,8).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+          localStorage.setItem(key,pid);
+        }
+        return pid;
+      }catch(_){
+        return 'gj-' + Math.random().toString(36).slice(2,8).toUpperCase();
+      }
+    }
+
+    function initFields(){
+      $('pid').value = clean(qs('pid',''), makePid());
+      $('name').value = clean(qs('name', qs('nick','Hero')), 'Hero');
+      $('diff').value = clean(qs('diff','normal'), 'normal');
+      $('time').value = clean(qs('time','90'), '90');
+
+      const hub = clean(
+        qs('hub',''),
+        new URL('../nutrition-zone.html', location.href).toString()
+      );
+
+      $('btnZone').href = hub;
+      $('btnHub').href = clean(qs('mainHub',''), new URL('../hub-v2.html', location.href).toString());
+
+      updateViewButtons();
+    }
+
+    function updateViewButtons(){
+      document.querySelectorAll('.viewBtn').forEach(btn => {
+        const v = btn.dataset.view;
+        btn.classList.toggle('active', v === selectedView);
+      });
+
+      const label =
+        selectedView === 'pc'
+          ? 'PC'
+          : selectedView === 'cardboard'
+            ? 'Cardboard'
+            : 'Mobile';
+
+      $('statusView').textContent = label;
+    }
+
+    function baseParams(mode){
+      const hub = clean(
+        qs('hub',''),
+        new URL('../nutrition-zone.html', location.href).toString()
+      );
+
+      return {
+        pid: clean($('pid').value,'anon'),
+        name: clean($('name').value,'Hero'),
+        nick: clean($('name').value,'Hero'),
+        diff: clean($('diff').value,'normal'),
+        time: clean($('time').value,'90'),
+        view: selectedView,
+        device: selectedView,
+        zone: 'nutrition',
+        cat: 'nutrition',
+        game: 'goodjunk',
+        gameId: 'goodjunk',
+        theme: 'goodjunk',
+        mode,
+        entry: mode,
+        recommendedMode: mode,
+        hub,
+        v: '20260515-goodjunk-modes-v224'
+      };
+    }
+
+    function withParams(path, obj){
+      const u = new URL(path, location.href);
+
+      Object.entries(obj).forEach(([k,v]) => {
+        if (v !== undefined && v !== null && String(v) !== '') {
+          u.searchParams.set(k,String(v));
+        }
+      });
+
+      return u.toString();
+    }
+
+    function targetForMode(mode){
+      const p = baseParams(mode);
+
+      if (mode === 'solo'){
+        /*
+          ใช้ solo launcher เดิมก่อน
+          ถ้าภายหลังมี goodjunk-solo-run-pc/mobile/cardboard ค่อยเปลี่ยนที่นี่จุดเดียว
+        */
+        return withParams('./goodjunk-launcher.html', {
+          ...p,
+          mode:'solo',
+          entry:'solo',
+          recommendedMode:'solo',
+          multiplayer:'0',
+          phaseBoss:'1',
+          boss:'1',
+          soloBoss:'1'
+        });
+      }
+
+      if (mode === 'battle'){
+        /*
+          Battle ต้องเข้าล็อบบี้ v2 เท่านั้น
+          ห้ามเรียก goodjunk-vr-battle.html เก่า
+        */
+        return withParams('./goodjunk-battle-v2-lobby.html', {
+          ...p,
+          mode:'battle-v2',
+          entry:'battle-v2',
+          recommendedMode:'battle-v2',
+          multiplayer:'1',
+          phaseBoss:'0',
+          boss:'0',
+          soloBoss:'0'
+        });
+      }
+
+      if (mode === 'race'){
+        return withParams('./goodjunk-race-lobby.html', {
+          ...p,
+          mode:'race',
+          entry:'race',
+          recommendedMode:'race',
+          multiplayer:'1'
+        });
+      }
+
+      if (mode === 'duet'){
+        return withParams('./goodjunk-duet-lobby.html', {
+          ...p,
+          mode:'duet',
+          entry:'duet',
+          recommendedMode:'duet',
+          multiplayer:'1'
+        });
+      }
+
+      if (mode === 'coop'){
+        return withParams('./goodjunk-coop-lobby.html', {
+          ...p,
+          mode:'coop',
+          entry:'coop',
+          recommendedMode:'coop',
+          multiplayer:'1'
+        });
+      }
+
+      return withParams('./goodjunk-launcher.html', p);
+    }
+
+    function bindEvents(){
+      document.querySelectorAll('.viewBtn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          selectedView = normalizeView(btn.dataset.view);
+          updateViewButtons();
+
+          try{
+            localStorage.setItem('HHA_GJ_LAST_VIEW', selectedView);
+          }catch(_){}
+        });
+      });
+
+      document.querySelectorAll('[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mode = btn.dataset.mode;
+          location.href = targetForMode(mode);
+        });
+      });
+
+      ['pid','name','diff','time'].forEach(id => {
+        $(id).addEventListener('change', () => {
+          try{
+            if (id === 'pid') localStorage.setItem('HHA_GJ_MODES_PID', $('pid').value);
+            if (id === 'name') localStorage.setItem('HHA_GJ_MODES_NAME', $('name').value);
+          }catch(_){}
+        });
+      });
+    }
+
+    function restorePrefs(){
+      try{
+        const lastView = localStorage.getItem('HHA_GJ_LAST_VIEW');
+        if (!params.get('view') && lastView) selectedView = normalizeView(lastView);
+
+        const lastName = localStorage.getItem('HHA_GJ_MODES_NAME');
+        if (!params.get('name') && lastName) $('name').value = lastName;
+      }catch(_){}
+    }
+
+    initFields();
+    restorePrefs();
+    updateViewButtons();
+    bindEvents();
+  })();
+  </script>
+</body>
+</html>
