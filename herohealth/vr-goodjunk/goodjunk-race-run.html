@@ -3,2921 +3,1618 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Run</title>
-  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • GoodJunk Race Run v2.3</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
 
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260515-gj-race-run-v230"></script>
+
   <style>
     :root{
-      --sky1:#dff4ff;
-      --sky2:#bfe8ff;
-      --sky3:#fff7d8;
-      --panel:#fffdf8ee;
-      --panel2:#ffffffee;
-      --stroke:#bfe3f2;
-      --text:#4d4a42;
-      --muted:#6b7280;
-      --blue:#7fcfff;
-      --blue2:#58b7f5;
-      --green:#7ed957;
-      --green2:#58c33f;
-      --yellow:#ffd75a;
-      --yellow2:#ffbf3f;
-      --red:#ff8d8d;
-      --red2:#ff7070;
-      --gold:#f59e0b;
-      --shadow:0 18px 40px rgba(86,155,194,.16);
+      --bg1:#e9f8ff;
+      --bg2:#fff7d8;
+      --panel:#fffef9;
+      --panel2:#f4fbff;
+      --line:#9fe3ff;
+      --line2:#c9efff;
+      --text:#174b68;
+      --muted:#5c7b8d;
+      --good:#7ed957;
+      --bad:#ff8d8d;
+      --warn:#ffd75a;
+      --blue:#58b7f5;
+      --violet:#b79cff;
+      --orange:#ffbd78;
+      --shadow:0 18px 44px rgba(50,120,160,.16);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{
-      box-sizing:border-box;
-      -webkit-tap-highlight-color:transparent;
-      touch-action:manipulation;
-    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
     html,body{
       margin:0;
+      width:100%;
       min-height:100%;
-      font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 10% 0%, rgba(127,207,255,.50), transparent 24%),
-        radial-gradient(circle at 88% 0%, rgba(255,212,92,.28), transparent 26%),
-        linear-gradient(180deg,var(--sky1),var(--sky2) 58%,var(--sky3));
-      overflow:hidden;
+        radial-gradient(circle at 12% 8%,rgba(255,255,255,.94),transparent 22%),
+        radial-gradient(circle at 86% 6%,rgba(88,183,245,.20),transparent 25%),
+        radial-gradient(circle at 82% 94%,rgba(255,215,90,.28),transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    button,a{ font:inherit; }
+    body{overflow-x:hidden;}
 
-    .page{
-      width:100vw;
-      height:100dvh;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
+    .app{
+      min-height:100dvh;
       padding:
         calc(10px + var(--sat))
         calc(10px + var(--sar))
-        calc(10px + var(--sab))
+        calc(12px + var(--sab))
         calc(10px + var(--sal));
-      overflow:hidden;
+      display:grid;
+      grid-template-rows:auto auto minmax(480px,1fr) auto;
+      gap:10px;
     }
 
-    .topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      position:relative;
-      z-index:40;
-      flex:0 0 auto;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:20px;
-      border:3px solid var(--stroke);
-      background:var(--panel2);
+    .box{
+      border:4px solid var(--line);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
+      border-radius:26px;
       box-shadow:var(--shadow);
     }
 
-    .brand-icon{
-      width:48px;
-      height:48px;
-      border-radius:17px;
+    .top{
+      padding:12px;
       display:grid;
-      place-items:center;
-      border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fff8dc,#ffe8a3);
-      font-size:26px;
-    }
-
-    .brand-title{
-      font-size:18px;
-      font-weight:1000;
-      line-height:1.1;
-      color:#4197bd;
-    }
-
-    .brand-sub{
-      margin-top:3px;
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.4;
-      font-weight:900;
-    }
-
-    .top-actions{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
       align-items:center;
     }
 
-    .btn{
-      appearance:none;
-      min-height:44px;
-      border-radius:16px;
-      border:3px solid #d7edf7;
-      background:#fff;
-      color:#4d4a42;
-      padding:10px 13px;
-      font-size:14px;
+    .brandIcon{
+      width:64px;
+      height:64px;
+      border-radius:22px;
+      border:4px solid var(--line2);
+      background:linear-gradient(180deg,#fff,#c9efff);
+      display:grid;
+      place-items:center;
+      font-size:36px;
+      flex:0 0 auto;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(28px,6vw,44px);
+      line-height:1;
       font-weight:1000;
+      color:var(--text);
+    }
+
+    .meta{
+      margin-top:4px;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .topActions{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:44px;
+      border:3px solid var(--line2);
+      border-radius:18px;
+      background:#fff;
+      color:var(--text);
+      padding:8px 12px;
+      font-weight:1000;
+      font-size:13px;
+      cursor:pointer;
       text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      gap:7px;
-      cursor:pointer;
-      box-shadow:0 10px 22px rgba(86,155,194,.13);
+      text-align:center;
       user-select:none;
-      text-align:center;
+      box-shadow:0 8px 18px rgba(50,120,160,.08);
     }
 
-    .btn.primary{
-      background:linear-gradient(180deg,#8bdcff,#58b7f5);
-      border-color:#9fe3ff;
-      color:#08374d;
-    }
+    .btn:hover{filter:brightness(1.04);transform:translateY(-1px);}
+    .btn:disabled{opacity:.45;cursor:not-allowed;filter:grayscale(.25);transform:none;}
+    .btn.good{background:linear-gradient(180deg,#a6f071,#7ed957);border-color:#b8f29a;color:#173b0b;}
+    .btn.warn{background:linear-gradient(180deg,#ffe785,#ffd75a);border-color:#ffe08a;color:#553900;}
+    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);border-color:#9fe3ff;color:#08374d;}
+    .btn.violet{background:linear-gradient(180deg,#d7c7ff,#b79cff);border-color:#d7c7ff;color:#362066;}
+    .btn.danger{background:linear-gradient(180deg,#ffd1d1,#ff8d8d);border-color:#ffc7c7;color:#6d1e1e;}
 
-    .btn.good{
-      background:linear-gradient(180deg,#a6f071,#7ed957);
-      border-color:#b8f29a;
-      color:#173b0b;
-    }
-
-    .btn.warn{
-      background:linear-gradient(180deg,#ffe785,#ffd75a);
-      border-color:#ffe08a;
-      color:#553900;
-    }
-
-    .btn.bad{
-      background:linear-gradient(180deg,#ffb3b3,#ff8d8d);
-      border-color:#ffd0d0;
-      color:#5b1616;
-    }
-
-    .run-shell{
-      flex:1 1 auto;
-      min-height:0;
+    .hud{
+      padding:8px;
       display:grid;
-      grid-template-columns:minmax(290px,380px) 1fr;
-      gap:10px;
-      align-items:stretch;
-      overflow:hidden;
-    }
-
-    .race-hud{
-      border-radius:26px;
-      border:3px solid var(--stroke);
-      background:var(--panel);
-      box-shadow:var(--shadow);
-      padding:13px;
-      display:grid;
-      gap:11px;
-      min-height:0;
-      overflow:auto;
-    }
-
-    .coach-badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      min-height:36px;
-      padding:7px 12px;
-      border-radius:999px;
-      border:2px solid #ffe0a9;
-      background:#fff8e7;
-      color:#9a6500;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .race-top{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-    }
-
-    .race-pill{
-      min-height:34px;
-      padding:7px 11px;
-      border-radius:999px;
-      border:2px solid var(--stroke);
-      background:#ffffffd6;
-      color:#5b564f;
-      font-size:12px;
-      font-weight:1000;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-    }
-
-    .race-score{
-      border-radius:22px;
-      border:3px solid #d7edf7;
-      background:linear-gradient(180deg,#fffaf1,#fff);
-      padding:14px;
-      text-align:center;
-    }
-
-    .race-score-label{
-      font-size:12px;
-      font-weight:1000;
-      color:var(--muted);
-      letter-spacing:.08em;
-    }
-
-    .race-score-value{
-      margin-top:6px;
-      font-size:46px;
-      line-height:1;
-      font-weight:1000;
-      color:#9a6500;
-    }
-
-    .race-stats,
-    .race-mini-stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
+      grid-template-columns:repeat(6,minmax(0,1fr));
       gap:8px;
     }
 
-    .race-stat,
-    .race-mini{
-      border-radius:18px;
-      border:2px solid var(--stroke);
-      background:#ffffffd8;
-      padding:10px;
-      text-align:center;
-    }
-
-    .race-stat-k,
-    .race-mini-k{
-      font-size:11px;
-      line-height:1.25;
-      font-weight:1000;
-      color:var(--muted);
-    }
-
-    .race-stat-v,
-    .race-mini-v{
-      margin-top:6px;
-      font-size:22px;
-      line-height:1;
-      font-weight:1000;
-      color:#244f6d;
-    }
-
-    .race-panel{
-      border-radius:22px;
-      border:3px solid var(--stroke);
-      background:#ffffffc9;
-      padding:12px;
-      display:grid;
-      gap:12px;
-    }
-
-    .race-item{
-      display:flex;
-      gap:12px;
-      align-items:center;
-    }
-
-    .race-item-icon{
-      width:64px;
-      height:64px;
-      border-radius:20px;
-      border:3px solid var(--stroke);
+    .stat{
+      min-height:60px;
+      border:3px solid var(--line2);
       background:#fff;
+      border-radius:18px;
+      padding:7px 6px;
       display:grid;
       place-items:center;
-      overflow:hidden;
-      flex:0 0 auto;
-    }
-
-    .emoji{
-      font-size:34px;
-      line-height:1;
-    }
-
-    .race-item-title{
-      font-size:16px;
-      font-weight:1000;
-      color:#9a6500;
-    }
-
-    .race-item-sub{
-      margin-top:4px;
-      font-size:13px;
-      line-height:1.6;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .race-tip{
-      border-radius:18px;
-      border:2px dashed var(--stroke);
-      background:#fffaf1;
-      padding:11px 12px;
-      color:#9a6500;
-      font-size:13px;
-      line-height:1.55;
-      font-weight:1000;
-      min-height:46px;
       text-align:center;
-    }
-
-    .race-goal{
-      display:grid;
-      gap:8px;
-    }
-
-    .race-goal-head{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-    }
-
-    .race-goal-title{
-      font-size:12px;
       font-weight:1000;
-      color:var(--muted);
-      letter-spacing:.08em;
+      box-shadow:0 8px 18px rgba(50,120,160,.08);
     }
 
-    .race-goal-value{
-      font-size:18px;
-      line-height:1;
-      font-weight:1000;
-      color:#244f6d;
-    }
-
-    .race-bar,
-    .race-bar-sub{
-      height:12px;
-      border-radius:999px;
-      background:rgba(191,227,242,.5);
-      overflow:hidden;
-    }
-
-    .race-bar-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#ffd45c,#ffb547);
-      transition:width .16s linear;
-    }
-
-    .race-bar-sub-fill{
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,var(--blue),#b9ecff);
-      transition:width .16s linear;
-    }
-
-    .stage-wrap{
-      min-width:0;
-      min-height:0;
-      border-radius:26px;
-      border:3px solid var(--stroke);
-      background:#ffffffba;
-      box-shadow:var(--shadow);
-      display:flex;
-      flex-direction:column;
-      overflow:hidden;
-      position:relative;
-    }
-
-    .stage-head{
-      padding:12px 16px;
-      border-bottom:3px solid var(--stroke);
-      color:#9a6500;
-      font-size:14px;
-      font-weight:1000;
-      background:#fffaf1;
-      flex:0 0 auto;
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-
-    .stage-inner{
-      position:relative;
-      flex:1 1 auto;
-      min-height:0;
-      overflow:hidden;
-      background:
-        radial-gradient(circle at 20% 10%, rgba(255,255,255,.8), transparent 18%),
-        radial-gradient(circle at 80% 8%, rgba(255,255,255,.72), transparent 18%),
-        linear-gradient(180deg,#aee6ff 0%, #d9f5ff 54%, #fff5cf 100%);
-    }
-
-    #gameMount{
-      position:absolute;
-      inset:0;
-      overflow:hidden;
-      touch-action:none;
-    }
-
-    .stage-cloud{
-      position:absolute;
-      background:#fff;
-      border-radius:999px;
-      box-shadow:0 8px 18px rgba(0,0,0,.06);
-      opacity:.75;
-      pointer-events:none;
-      z-index:0;
-    }
-
-    .stage-cloud.c1{ width:130px;height:42px;left:4%;top:8%; }
-    .stage-cloud.c2{ width:95px;height:34px;left:72%;top:11%; }
-    .stage-cloud.c3{ width:110px;height:36px;left:38%;top:18%; }
-
-    .stage-ground{
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:0;
-      height:118px;
-      background:
-        radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
-        radial-gradient(circle at 72% 44%, rgba(126,217,87,.28), transparent 18%),
-        linear-gradient(180deg,#b3f28f,#88d96b);
-      border-top:1px solid rgba(88,195,63,.26);
-      pointer-events:none;
-      z-index:1;
-    }
-
-    .fall-item{
-      position:absolute;
-      width:80px;
-      height:80px;
-      border-radius:26px;
-      border:4px solid #d7edf7;
-      background:#fff;
-      box-shadow:0 12px 24px rgba(86,155,194,.18);
-      display:grid;
-      place-items:center;
-      cursor:pointer;
-      user-select:none;
-      z-index:8;
-      will-change:transform;
-      overflow:hidden;
-    }
-
-    .fall-item.good{
-      background:linear-gradient(180deg,#f7fff1,#ffffff);
-      border-color:#d9efcf;
-    }
-
-    .fall-item.junk{
-      background:linear-gradient(180deg,#fff2f2,#ffffff);
-      border-color:#ffd4d4;
-    }
-
-    .fall-item .e{
-      font-size:38px;
-      line-height:1;
-      pointer-events:none;
-    }
-
-    .fall-item .l{
-      position:absolute;
-      left:0;
-      right:0;
-      bottom:6px;
-      text-align:center;
+    .stat small{
+      color:#4d7891;
       font-size:10px;
-      font-weight:1000;
-      color:#615d56;
-      pointer-events:none;
-    }
-
-    .fall-item.hit{
-      animation:itemHit .2s ease forwards;
-    }
-
-    @keyframes itemHit{
-      to{
-        opacity:0;
-        transform:scale(1.28) rotate(9deg);
-      }
-    }
-
-    .fx{
-      position:absolute;
-      transform:translate(-50%,-50%);
-      z-index:20;
-      font-size:18px;
-      font-weight:1000;
-      pointer-events:none;
-      animation:fxUp .72s ease forwards;
-    }
-
-    @keyframes fxUp{
-      from{ opacity:1; transform:translate(-50%,-10%); }
-      to{ opacity:0; transform:translate(-50%,-150%); }
-    }
-
-    #raceCountdownOverlay{
-      position:fixed;
-      inset:0;
-      z-index:99997;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(245,252,255,.72);
-      backdrop-filter:blur(7px);
-    }
-
-    #raceCountdownOverlay.show{
-      display:flex;
-    }
-
-    .race-count-card{
-      width:min(520px,94vw);
-      border-radius:34px;
-      border:5px solid var(--stroke);
-      background:linear-gradient(180deg,#fffdf8,#f7fff4);
-      box-shadow:0 28px 80px rgba(86,155,194,.24);
-      padding:26px;
-      display:grid;
-      gap:14px;
-      text-align:center;
-      place-items:center;
-    }
-
-    .race-count-number{
-      width:160px;
-      height:160px;
-      border-radius:44px;
-      border:6px solid #d7edf7;
-      background:linear-gradient(180deg,#fff8dc,#ffe8a3);
-      display:grid;
-      place-items:center;
-      font-size:76px;
       line-height:1;
+      text-transform:uppercase;
       font-weight:1000;
-      color:#9a6500;
-      box-shadow:0 16px 34px rgba(86,155,194,.16);
-      animation:raceCountPop .72s ease both;
     }
 
-    @keyframes raceCountPop{
-      from{ transform:scale(.72); opacity:.35; }
-      55%{ transform:scale(1.08); opacity:1; }
-      to{ transform:scale(1); opacity:1; }
-    }
-
-    .race-count-title{
-      font-size:30px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#4197bd;
-    }
-
-    .race-count-sub{
-      color:#6b7280;
-      font-size:15px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    #raceWaitOverlay{
-      position:fixed;
-      inset:0;
-      z-index:99998;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(245,252,255,.78);
-      backdrop-filter:blur(8px);
-    }
-
-    #raceWaitOverlay.show{
-      display:flex;
-    }
-
-    .race-wait-card{
-      width:min(620px,96vw);
-      border-radius:30px;
-      border:4px solid var(--stroke);
-      background:linear-gradient(180deg,#fffdf8,#f7fff4);
-      box-shadow:0 28px 80px rgba(86,155,194,.25);
-      padding:22px;
-      display:grid;
-      gap:14px;
-      text-align:center;
-    }
-
-    .race-wait-icon{
-      width:110px;
-      height:110px;
-      margin:0 auto;
-      border-radius:34px;
-      border:5px solid #d7edf7;
-      background:linear-gradient(180deg,#fff8dc,#ffe8a3);
-      display:grid;
-      place-items:center;
-      font-size:56px;
-      animation:raceWaitPulse 1.35s ease-in-out infinite;
-    }
-
-    @keyframes raceWaitPulse{
-      0%,100%{ transform:scale(1); }
-      50%{ transform:scale(1.05); }
-    }
-
-    .race-wait-title{
-      font-size:30px;
-      line-height:1.08;
-      font-weight:1000;
-      color:#4197bd;
-    }
-
-    .race-wait-sub{
-      font-size:15px;
-      line-height:1.65;
-      color:#6b7280;
-      font-weight:900;
-    }
-
-    .race-wait-count{
-      width:min(240px,78vw);
-      margin:0 auto;
-      border-radius:999px;
-      border:3px solid #cde7f4;
-      background:#fff;
-      padding:12px 16px;
-      font-size:26px;
-      line-height:1;
-      font-weight:1000;
-      color:#9a6500;
-    }
-
-    .race-wait-actions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
+    .stat b{
+      display:block;
       margin-top:4px;
+      color:var(--text);
+      font-size:19px;
+      line-height:1;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
     }
 
-    .race-wait-actions .btn{
-      min-height:52px;
-    }
-
-    #raceResultMount{
-      position:fixed;
-      inset:0;
-      z-index:99999;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(245,252,255,.96);
-      overflow:auto;
-    }
-
-    #raceResultMount.show{
-      display:flex;
-    }
-
-    .race-result-card{
-      width:min(1100px,100%);
-      max-height:min(92vh,1020px);
-      overflow:auto;
-      border-radius:30px;
-      border:4px solid var(--stroke);
-      background:#fffdf8;
-      box-shadow:0 28px 80px rgba(86,155,194,.26);
-      padding:18px;
-      padding-bottom:26px;
+    .main{
+      min-height:0;
       display:grid;
-      gap:14px;
+      grid-template-columns:minmax(0,1fr) 300px;
+      gap:10px;
+    }
+
+    .arena{
+      position:relative;
+      overflow:hidden;
+      min-height:480px;
+      border:4px solid var(--line);
+      border-radius:28px;
+      background:
+        linear-gradient(rgba(255,255,255,.23) 1px, transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,.23) 1px, transparent 1px),
+        linear-gradient(180deg,#eaf8ff,#fff8c8);
+      background-size:48px 48px,48px 48px,auto;
+      touch-action:manipulation;
+      box-shadow:var(--shadow);
+    }
+
+    .arena.sprint{
+      animation:sprintPulse .35s ease infinite alternate;
+    }
+
+    .arena.magnet{
+      box-shadow:0 0 0 7px rgba(183,156,255,.18), var(--shadow);
+    }
+
+    @keyframes sprintPulse{
+      from{filter:saturate(1) brightness(1);}
+      to{filter:saturate(1.18) brightness(1.03);}
+    }
+
+    .target{
+      position:absolute;
+      width:82px;
+      height:82px;
+      border-radius:28px;
+      display:grid;
+      place-items:center;
+      border:6px solid var(--good);
+      background:linear-gradient(180deg,#ffffff,#fffdf4);
+      box-shadow:0 14px 30px rgba(80,120,70,.24);
+      font-size:44px;
+      cursor:pointer;
+      user-select:none;
+      touch-action:manipulation;
+      z-index:4;
+    }
+
+    .target.bad{border-color:var(--bad);}
+    .target.boost{border-color:var(--warn);}
+    .target.shield{border-color:var(--blue);}
+    .target.magnetItem{border-color:var(--violet);}
+    .target.clean{border-color:#8af0b2;}
+    .target.rush{border-color:#ffbd78;}
+
+    .target:hover{transform:scale(1.04);}
+    .target:active{transform:scale(.91);filter:brightness(1.05);}
+
+    .pop{
+      position:absolute;
+      z-index:7;
+      transform:translate(-50%,-50%);
+      color:var(--text);
+      font-weight:1000;
+      font-size:28px;
+      pointer-events:none;
+      animation:pop .65s ease forwards;
+      text-shadow:0 2px 0 #fff;
+    }
+
+    @keyframes pop{
+      from{opacity:1;transform:translate(-50%,-50%) scale(.9);}
+      to{opacity:0;transform:translate(-50%,-100%) scale(1.18);}
+    }
+
+    .side{
+      padding:10px;
+      display:grid;
+      grid-template-rows:auto auto minmax(0,1fr) auto;
+      gap:10px;
+      min-height:0;
+    }
+
+    .sideTitle{
+      font-size:20px;
+      line-height:1.15;
+      font-weight:1000;
+      text-align:left;
+      color:var(--text);
+    }
+
+    .progressBox{
+      border:3px solid var(--line2);
+      border-radius:22px;
+      background:#fff;
+      padding:12px;
+      display:grid;
+      gap:9px;
+    }
+
+    .barOuter{
+      height:24px;
+      border:3px solid var(--line2);
+      background:#f7fdff;
+      border-radius:999px;
+      overflow:hidden;
       position:relative;
     }
 
-    .race-summary-kicker{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:34px;
-      padding:7px 12px;
+    .barInner{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#7ed957,#ffd75a);
       border-radius:999px;
-      border:2px solid var(--stroke);
-      background:#f4fbff;
-      color:#658cb1;
-      font-size:12px;
-      font-weight:1000;
-      width:max-content;
-      max-width:100%;
-      white-space:normal;
+      transition:width .18s ease;
     }
 
-    .race-result-title{
-      font-size:30px;
-      line-height:1.12;
-      font-weight:1000;
-      color:#9a6500;
-    }
-
-    .race-result-sub{
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.65;
-      font-weight:900;
-    }
-
-    .race-top-grid{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .race-top-card,
-    .race-stat-card,
-    .race-standings-card{
-      border-radius:20px;
-      border:3px solid #cde7f4;
-      background:#fff;
-      padding:14px;
-    }
-
-    .race-top-k{
-      font-size:12px;
-      color:#79aeca;
-      font-weight:1000;
-      text-align:center;
-    }
-
-    .race-top-name{
-      margin-top:8px;
-      font-size:14px;
-      color:#6d6b63;
-      font-weight:1000;
-      text-align:center;
-      word-break:break-word;
-    }
-
-    .race-top-score{
-      margin-top:10px;
-      font-size:44px;
-      line-height:1;
-      color:#4d4a42;
-      font-weight:1000;
-      text-align:center;
-    }
-
-    .race-stats-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:12px;
-    }
-
-    .race-stat-card{
-      text-align:center;
-      border-width:2px;
-      background:#ffffffcc;
-    }
-
-    .race-stat-k{
-      font-size:12px;
-      color:#6b7280;
-      font-weight:1000;
-      margin-bottom:6px;
-    }
-
-    .race-stat-v{
-      font-size:26px;
-      line-height:1;
-      color:#244f6d;
-      font-weight:1000;
-    }
-
-    .race-standings-list{
-      display:grid;
-      gap:10px;
-    }
-
-    .race-standing-row{
+    .barLabel{
       display:flex;
       justify-content:space-between;
-      gap:12px;
-      align-items:center;
-      padding:12px;
-      border-radius:18px;
-      border:3px solid #cde7f4;
-      background:#fff;
-      flex-wrap:wrap;
+      gap:8px;
+      color:#4d7891;
+      font-size:12px;
+      font-weight:1000;
     }
 
-    .race-standing-left{
+    .leaderboard{
+      border:3px dashed var(--line2);
+      border-radius:22px;
+      background:#fffef9;
+      padding:10px;
       display:grid;
-      gap:4px;
-      min-width:0;
+      gap:8px;
+      min-height:0;
+      overflow:auto;
     }
 
-    .race-standing-name{
-      font-weight:1000;
-      color:#4d4a42;
-      word-break:break-word;
-    }
-
-    .race-standing-meta{
-      font-size:12px;
-      color:#79aeca;
-      font-weight:1000;
-      line-height:1.5;
-      word-break:break-word;
-    }
-
-    .race-standing-side{
-      font-size:20px;
-      color:#9a6500;
-      font-weight:1000;
-    }
-
-    .race-debug{
-      border-radius:16px;
+    .rankRow{
+      border:3px solid var(--line2);
       background:#fff;
-      border:2px dashed #bfe3f2;
-      padding:12px;
-      color:#6b7280;
-      font-size:12px;
-      line-height:1.6;
-      white-space:pre-wrap;
-      word-break:break-word;
-    }
-
-    .race-debug-details{
       border-radius:18px;
-      border:2px dashed #bfe3f2;
-      background:#fff;
-      overflow:hidden;
+      padding:9px 10px;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:8px;
+      align-items:center;
+      font-weight:1000;
+      color:var(--text);
     }
 
-    .race-debug-details summary{
-      min-height:46px;
-      cursor:pointer;
-      padding:12px 14px;
+    .rankRow.me{
+      border-color:#7ed957;
+      background:#f5fff0;
+    }
+
+    .rankName{
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .rankScore{
+      font-size:12px;
+      color:#4d7891;
+    }
+
+    .powerDock{
+      display:grid;
+      gap:8px;
+    }
+
+    .powerGrid{
+      display:grid;
+      grid-template-columns:repeat(2,1fr);
+      gap:8px;
+    }
+
+    .powerItem{
+      border:3px solid var(--line2);
+      background:#fff;
+      border-radius:18px;
+      padding:9px 10px;
+      font-weight:1000;
+      font-size:12px;
+      line-height:1.25;
+      display:grid;
+      gap:3px;
+      text-align:center;
+    }
+
+    .bottom{
+      padding:8px 10px;
+      display:grid;
+      grid-template-columns:1fr auto auto auto;
+      gap:8px;
+      align-items:center;
       font-size:13px;
       font-weight:1000;
-      color:#6b7280;
-      background:#f4fbff;
-      list-style:none;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
+      color:#4d7891;
     }
 
-    .race-debug-details summary::-webkit-details-marker{
+    .chip{
+      border:3px solid var(--line2);
+      background:#fff;
+      color:var(--text);
+      border-radius:999px;
+      padding:6px 10px;
+      font-weight:1000;
+      min-width:74px;
+      text-align:center;
+    }
+
+    .countdown{
+      position:fixed;
+      inset:0;
+      z-index:80;
+      display:none;
+      place-items:center;
+      background:rgba(32,80,110,.38);
+      backdrop-filter:blur(6px);
+      color:#fff;
+      text-align:center;
+      font-weight:1000;
+      text-shadow:0 4px 0 rgba(0,0,0,.18);
+    }
+
+    .countdown.show{
+      display:grid;
+    }
+
+    .countNum{
+      font-size:clamp(90px,20vw,190px);
+      line-height:1;
+      animation:countPop .45s ease;
+    }
+
+    .countSub{
+      margin-top:8px;
+      font-size:clamp(24px,5vw,44px);
+    }
+
+    @keyframes countPop{
+      from{transform:scale(.7);opacity:.25;}
+      to{transform:scale(1);opacity:1;}
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      top:calc(14px + var(--sat));
+      transform:translateX(-50%);
+      z-index:90;
+      max-width:min(92vw,760px);
+      border:4px solid var(--line);
+      background:#fffef9;
+      color:var(--text);
+      border-radius:22px;
+      padding:12px 16px;
+      font-weight:1000;
+      font-size:14px;
+      text-align:center;
+      box-shadow:0 16px 36px rgba(50,120,160,.24);
       display:none;
     }
 
-    .race-debug-details summary::after{
-      content:"เปิด";
-      min-height:28px;
-      padding:5px 10px;
-      border-radius:999px;
-      border:2px solid #d7edf7;
+    .toast.show{display:block;}
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:70;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:calc(18px + var(--sat)) 18px calc(18px + var(--sab));
+      background:rgba(32,80,110,.42);
+      backdrop-filter:blur(6px);
+      overflow:auto;
+    }
+
+    .overlay.show{display:flex;}
+
+    .modal{
+      width:min(94vw,820px);
+      max-height:calc(100dvh - 36px - var(--sat) - var(--sab));
+      overflow:auto;
+      border:4px solid var(--line);
+      background:#fffef9;
+      border-radius:32px;
+      box-shadow:0 20px 52px rgba(50,120,160,.24);
+      padding:22px;
+      text-align:center;
+    }
+
+    .modalIcon{
+      width:86px;
+      height:86px;
+      margin:0 auto 12px;
+      border:4px solid var(--line2);
+      border-radius:30px;
+      display:grid;
+      place-items:center;
+      font-size:44px;
+      background:linear-gradient(180deg,#fff,#c9efff);
+    }
+
+    .modal h2{
+      margin:0 0 10px;
+      font-size:clamp(42px,8vw,64px);
+      color:var(--text);
+      line-height:1.05;
+    }
+
+    .reason{
+      display:inline-block;
+      border:3px dashed var(--line2);
+      border-radius:18px;
+      padding:9px 14px;
+      color:#4d7891;
+      font-weight:1000;
+      margin-bottom:12px;
+    }
+
+    .podium{
+      display:grid;
+      gap:10px;
+      margin:12px 0;
+      text-align:left;
+    }
+
+    .podiumRow{
+      border:3px solid var(--line2);
+      border-radius:22px;
+      padding:13px 14px;
       background:#fff;
-      color:#4197bd;
-      font-size:11px;
+      display:grid;
+      grid-template-columns:auto 1fr auto;
+      gap:10px;
+      align-items:center;
       font-weight:1000;
     }
 
-    .race-debug-details[open] summary::after{
-      content:"ปิด";
+    .podiumRow.first{
+      border-color:#ffe08a;
+      background:#fff8db;
     }
 
-    .race-debug-details .race-debug{
-      border:0;
-      border-top:2px dashed #bfe3f2;
-      border-radius:0;
-      margin:0;
+    .podiumRow.me{
+      border-color:#7ed957;
+      background:#f5fff0;
     }
 
-    .race-result-actions{
-      display:flex;
+    .yourRank{
+      border:3px dashed var(--line2);
+      background:#fffef9;
+      border-radius:22px;
+      padding:13px;
+      color:var(--text);
+      font-weight:1000;
+      line-height:1.55;
+      margin-top:10px;
+    }
+
+    .badgeGrid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .badge{
+      border:3px solid var(--line2);
+      background:#fff;
+      border-radius:18px;
+      padding:10px;
+      font-weight:1000;
+      font-size:12px;
+      line-height:1.3;
+    }
+
+    .resultActions{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
       gap:10px;
-      flex-wrap:wrap;
-      position:relative;
-      padding-top:6px;
-      margin-top:4px;
-      background:transparent;
-      z-index:1;
+      margin-top:12px;
     }
 
-    .race-result-actions .btn{
-      flex:1 1 180px;
-      min-height:50px;
-    }
-
-    @media (max-width:980px){
-      html,body{ overflow:auto; }
-
-      .page{
-        height:auto;
-        min-height:100dvh;
-        overflow:visible;
+    @media(max-width:980px){
+      .app{
+        grid-template-rows:auto auto minmax(520px,1fr) auto;
       }
 
-      .run-shell{
+      .main{
         grid-template-columns:1fr;
-        overflow:visible;
       }
 
-      .race-hud{
-        max-height:none;
-        overflow:visible;
+      .side{
+        grid-template-rows:auto auto auto auto;
       }
 
-      .stage-wrap{
-        min-height:580px;
-      }
-    }
-
-    @media (max-width:760px){
-      .topbar{
-        align-items:flex-start;
-      }
-
-      .top-actions{
-        width:100%;
-      }
-
-      .top-actions .btn{
-        flex:1 1 160px;
-      }
-
-      .race-top-grid{
+      .hud{
         grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:8px;
       }
 
-      .race-top-card{
-        padding:9px 6px;
-        border-radius:16px;
+      .arena{
+        min-height:520px;
       }
 
-      .race-top-k{
-        font-size:10px;
+      .leaderboard{
+        max-height:260px;
       }
 
-      .race-top-score{
-        margin-top:6px;
-        font-size:28px;
-      }
-
-      .race-top-name{
-        margin-top:5px;
-        font-size:11px;
-        line-height:1.25;
-      }
-
-      .race-stats-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-        gap:8px;
-      }
-
-      .race-stat-card{
-        padding:10px 8px;
-        border-radius:16px;
-      }
-
-      .race-stat-v{
-        font-size:24px;
-      }
-
-      .race-result-card{
-        border-radius:22px;
-        padding:12px;
-        padding-bottom:20px;
-      }
-
-      .race-result-title{
-        font-size:24px;
-      }
-
-      .race-result-actions{
-        display:grid;
+      .resultActions,
+      .badgeGrid{
         grid-template-columns:1fr;
-      }
-
-      .race-result-actions .btn{
-        width:100%;
-      }
-
-      .race-wait-actions{
-        grid-template-columns:1fr;
-      }
-
-      .race-wait-title{
-        font-size:25px;
-      }
-
-      .race-count-title{
-        font-size:25px;
-      }
-
-      .race-count-number{
-        width:132px;
-        height:132px;
-        font-size:58px;
-        border-radius:36px;
       }
     }
-   /* =========================================================
-   GoodJunk Race Summary Mobile Polish
-   PATCH v20260513-GJ-RACE-RUN-SUMMARY-COMPACT-FINAL
-   ใช้ class จริงของ goodjunk-race-run.html
-   ========================================================= */
 
-#raceResultMount.show{
-  align-items:flex-start;
-  padding-top:max(10px, env(safe-area-inset-top));
-  padding-bottom:max(14px, env(safe-area-inset-bottom));
-}
+    @media(max-width:640px){
+      .top{
+        grid-template-columns:auto 1fr;
+      }
 
-.race-result-card{
-  scroll-behavior:smooth;
-}
+      .topActions{
+        grid-column:1 / -1;
+        display:grid;
+        grid-template-columns:repeat(3,1fr);
+      }
 
-.race-result-card .race-summary-kicker{
-  margin-inline:auto;
-}
+      .hud{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
 
-.race-result-card .race-result-title{
-  text-align:center;
-}
+      .bottom{
+        grid-template-columns:1fr 1fr;
+      }
 
-.race-result-card .race-result-sub{
-  text-align:center;
-}
+      .powerGrid{
+        grid-template-columns:1fr;
+      }
 
-.race-stat-card .race-stat-k{
-  line-height:1.25;
-}
+      .podiumRow{
+        grid-template-columns:auto 1fr;
+      }
 
-.race-standing-row{
-  overflow:hidden;
-}
-
-.race-standing-name,
-.race-standing-meta{
-  overflow-wrap:anywhere;
-}
-
-.race-result-actions .btn.good{
-  background:linear-gradient(180deg,#a6f071,#7ed957);
-  border-color:#b8f29a;
-  color:#173b0b;
-  box-shadow:0 12px 26px rgba(72,190,70,.28);
-}
-
-.race-result-actions .btn.primary{
-  background:linear-gradient(180deg,#8bdcff,#58b7f5);
-  border-color:#9fe3ff;
-  color:#08374d;
-  box-shadow:0 12px 26px rgba(48,165,230,.24);
-}
-
-@media (max-width:760px){
-  #raceResultMount{
-    padding:8px 7px 14px;
-  }
-
-  .race-result-card{
-    width:calc(100vw - 14px);
-    max-width:calc(100vw - 14px);
-    max-height:none;
-    overflow:visible;
-    border-radius:28px;
-    padding:14px;
-    gap:12px;
-  }
-
-  .race-summary-kicker{
-    width:100%;
-    min-height:34px;
-    font-size:12px;
-    padding:7px 10px;
-    text-align:center;
-    justify-content:center;
-    white-space:normal;
-  }
-
-  .race-result-card > div[style*="font-size:54px"],
-  .race-result-card > div[style*="font-size:62px"]{
-    font-size:44px !important;
-    margin-top:2px !important;
-    margin-bottom:2px !important;
-  }
-
-  .race-result-title{
-    font-size:clamp(28px,7.4vw,38px);
-    line-height:1.12;
-    margin:4px 0 2px;
-  }
-
-  .race-result-sub{
-    font-size:clamp(15px,4.2vw,18px);
-    line-height:1.42;
-    margin:0 auto 6px;
-    max-width:30ch;
-  }
-
-  .race-top-grid{
-    grid-template-columns:repeat(3,minmax(0,1fr));
-    gap:8px;
-  }
-
-  .race-top-card{
-    padding:10px 7px;
-    border-radius:18px;
-    min-height:96px;
-  }
-
-  .race-top-k{
-    font-size:10px;
-    line-height:1.2;
-  }
-
-  .race-top-score{
-    font-size:clamp(28px,8vw,38px);
-    margin-top:6px;
-  }
-
-  .race-top-name{
-    font-size:12px;
-    margin-top:5px;
-    line-height:1.25;
-  }
-
-  .race-stats-grid{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:8px;
-  }
-
-  .race-stat-card{
-    min-height:88px;
-    padding:11px 8px;
-    border-radius:18px;
-  }
-
-  .race-stat-k{
-    font-size:13px;
-  }
-
-  .race-stat-v{
-    font-size:clamp(28px,8vw,38px);
-  }
-
-  .race-standings-card{
-    padding:12px;
-    border-radius:22px;
-  }
-
-  .race-standings-card .race-result-title{
-    font-size:clamp(25px,7vw,34px) !important;
-    margin-bottom:10px !important;
-    text-align:left;
-  }
-
-  .race-standing-row{
-    display:grid;
-    grid-template-columns:1fr;
-    gap:8px;
-    padding:14px;
-    border-radius:20px;
-  }
-
-  .race-standing-name{
-    font-size:clamp(21px,6vw,30px);
-    line-height:1.15;
-  }
-
-  .race-standing-meta{
-    font-size:clamp(13px,3.7vw,17px);
-    line-height:1.35;
-  }
-
-  .race-standing-side{
-    font-size:clamp(25px,7vw,34px);
-    line-height:1;
-  }
-
-  .race-debug-details{
-    border-radius:22px;
-  }
-
-  .race-debug-details summary{
-    min-height:58px;
-    font-size:clamp(15px,4.2vw,18px);
-  }
-
-  .race-result-actions{
-    display:grid;
-    grid-template-columns:1fr;
-    gap:12px;
-    padding-bottom:max(10px, env(safe-area-inset-bottom));
-  }
-
-  .race-result-actions .btn{
-    width:100%;
-    min-height:62px;
-    border-radius:23px;
-    font-size:clamp(18px,5vw,23px);
-  }
-}
-
-@media (max-width:420px){
-  .race-result-card{
-    padding:12px;
-    border-radius:24px;
-  }
-
-  .race-top-grid{
-    gap:7px;
-  }
-
-  .race-top-card{
-    min-height:90px;
-    padding:9px 5px;
-  }
-
-  .race-result-title{
-    font-size:28px;
-  }
-
-  .race-stats-grid{
-    gap:7px;
-  }
-
-  .race-stat-card{
-    min-height:84px;
-  }
-}
-</style>
+      .podiumRow > div:last-child{
+        grid-column:1 / -1;
+      }
+    }
+  </style>
 </head>
 
 <body>
-  <div class="page">
-    <div class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🏁</div>
-        <div>
-          <div class="brand-title">GoodJunk • Race Run</div>
-          <div class="brand-sub">แข่งเก็บ Good • หลบ Junk • ไม่มี Boss</div>
-        </div>
-      </div>
+  <div id="toast" class="toast"></div>
 
-      <div class="top-actions">
-        <a class="btn" id="btnBackLobby" href="./goodjunk-race-lobby.html">← Lobby</a>
-        <a class="btn primary" id="btnGoHub" href="../nutrition-zone.html">🏠 Hub</a>
-        <button class="btn good" id="btnEndNow" type="button">✅ จบเกม</button>
-      </div>
+  <div id="countdown" class="countdown">
+    <div>
+      <div id="countNum" class="countNum">3</div>
+      <div id="countSub" class="countSub">เตรียมแข่ง!</div>
     </div>
+  </div>
 
-    <div class="run-shell">
-      <aside id="raceHudWrap" class="race-hud">
-        <div class="coach-badge" id="raceCoachBadge">🤖 Race Coach: เก็บ Good ให้ไว อย่าแตะ Junk</div>
+  <main class="app">
+    <section class="box top">
+      <div class="brandIcon">🏁</div>
+      <div>
+        <h1>GoodJunk Race</h1>
+        <div id="meta" class="meta">Race v2.3 • loading…</div>
+      </div>
+      <div class="topActions">
+        <a id="btnLobby" class="btn" href="./goodjunk-race-lobby.html">Lobby</a>
+        <a id="btnModes" class="btn" href="./goodjunk-modes.html">Modes</a>
+        <a id="btnHub" class="btn" href="../nutrition-zone.html">Hub</a>
+      </div>
+    </section>
 
-        <div class="race-top">
-          <div class="race-pill">RACE FINAL</div>
-          <div class="race-pill" id="raceRoomPill">ห้อง -</div>
-          <div class="race-pill" id="racePlayerPill">ผู้เล่น Hero</div>
-        </div>
+    <section class="box hud">
+      <div class="stat"><small>Player</small><b id="playerName">-</b></div>
+      <div class="stat"><small>Rank</small><b id="rankText">#-</b></div>
+      <div class="stat"><small>Progress</small><b id="progressText">0%</b></div>
+      <div class="stat"><small>Score</small><b id="scoreText">0</b></div>
+      <div class="stat"><small>Time</small><b id="timeText">90</b></div>
+      <div class="stat"><small>Players</small><b id="playersText">0/10</b></div>
+    </section>
 
-        <div class="race-score">
-          <div class="race-score-label">SCORE</div>
-          <div class="race-score-value" id="raceScoreValue">0</div>
-        </div>
+    <section class="main">
+      <section id="arena" class="arena" aria-label="GoodJunk Race Arena"></section>
 
-        <div class="race-stats">
-          <div class="race-stat">
-            <div class="race-stat-k">เวลา</div>
-            <div class="race-stat-v" id="raceTimeValue">0:00</div>
+      <aside class="box side">
+        <div class="sideTitle">🏆 Mini Leaderboard</div>
+
+        <section class="progressBox">
+          <div class="barLabel">
+            <span>My Progress</span>
+            <span id="myProgressSmall">0%</span>
           </div>
-          <div class="race-stat">
-            <div class="race-stat-k">Miss</div>
-            <div class="race-stat-v" id="raceMissValue">0</div>
+          <div class="barOuter">
+            <div id="progressBar" class="barInner"></div>
           </div>
-          <div class="race-stat">
-            <div class="race-stat-k">Best</div>
-            <div class="race-stat-v" id="raceStreakValue">0</div>
+          <div class="barLabel">
+            <span id="leaderText">ผู้นำ: -</span>
+            <span id="raceTypeText">Sprint</span>
           </div>
-        </div>
+        </section>
 
-        <div class="race-panel">
-          <div class="race-item">
-            <div class="race-item-icon">
-              <div class="emoji" id="raceItemEmoji">🍎</div>
-            </div>
-            <div>
-              <div class="race-item-title" id="raceItemTitle">เป้าหมายของรอบนี้</div>
-              <div class="race-item-sub" id="raceItemSub">เก็บอาหารดีให้ไว ทำคะแนนให้ชนะเพื่อน</div>
-            </div>
-          </div>
+        <section id="leaderboard" class="leaderboard"></section>
 
-          <div class="race-mini-stats">
-            <div class="race-mini">
-              <div class="race-mini-k">Good hit</div>
-              <div class="race-mini-v" id="raceGoodHitValue">0</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Junk hit</div>
-              <div class="race-mini-v" id="raceJunkHitValue">0</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Good miss</div>
-              <div class="race-mini-v" id="raceGoodMissValue">0</div>
-            </div>
+        <section class="powerDock">
+          <div class="sideTitle" style="font-size:16px;">⚡ Boost ช่วยตัวเอง</div>
+          <div class="powerGrid">
+            <div class="powerItem">⚡ Sprint<br><span id="boostSprint">0s</span></div>
+            <div class="powerItem">🛡 Shield<br><span id="boostShield">0</span></div>
+            <div class="powerItem">🧲 Magnet<br><span id="boostMagnet">0s</span></div>
+            <div class="powerItem">🔥 Rush<br><span id="boostRush">0s</span></div>
           </div>
-
-          <div class="race-tip" id="raceTipText">กำลังเตรียมห้อง Race...</div>
-
-          <div class="race-goal">
-            <div class="race-goal-head">
-              <div class="race-goal-title">RACE TARGET</div>
-              <div class="race-goal-value" id="raceGoalValue">360</div>
-            </div>
-            <div class="race-bar">
-              <div class="race-bar-fill" id="raceGoalFill"></div>
-            </div>
-            <div class="race-bar-sub">
-              <div class="race-bar-sub-fill" id="raceGoalSubFill"></div>
-            </div>
-          </div>
-
-          <div class="race-mini-stats">
-            <div class="race-mini">
-              <div class="race-mini-k">Rank</div>
-              <div class="race-mini-v" id="raceRankValue">-</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Leader</div>
-              <div class="race-mini-v" id="raceOpponentScoreValue">-</div>
-            </div>
-            <div class="race-mini">
-              <div class="race-mini-k">Gap</div>
-              <div class="race-mini-v" id="raceGapValue">-</div>
-            </div>
-          </div>
-        </div>
+        </section>
       </aside>
+    </section>
 
-      <section class="stage-wrap">
-        <div class="stage-head">
-          <span>RACE GAME STAGE</span>
-          <span id="stageStatus">Ready</span>
-        </div>
+    <section class="box bottom">
+      <div>Race ไม่มี Attack • เก็บ Good • ทำ Combo • ใช้ Boost ช่วยตัวเอง • ถึง 100% คือเข้าเส้นชัย</div>
+      <div class="chip" id="goodChip">Good 0</div>
+      <div class="chip" id="junkChip">Junk 0</div>
+      <div class="chip" id="missChip">Miss 0</div>
+    </section>
+  </main>
 
-        <div class="stage-inner">
-          <div class="stage-cloud c1"></div>
-          <div class="stage-cloud c2"></div>
-          <div class="stage-cloud c3"></div>
-          <div class="stage-ground"></div>
-          <div id="gameMount" aria-label="race game area"></div>
-        </div>
-      </section>
-    </div>
-  </div>
+  <div id="overlay" class="overlay">
+    <div class="modal">
+      <div class="modalIcon">🏁</div>
+      <h2>Race Finished!</h2>
+      <div id="finalReason" class="reason">ended</div>
 
-  <div id="raceCountdownOverlay" aria-live="polite">
-    <div class="race-count-card">
-      <div class="race-count-number" id="raceCountNumber">3</div>
-      <div class="race-count-title" id="raceCountTitle">เตรียมเริ่ม Race!</div>
-      <div class="race-count-sub">เก็บ Good ให้ไว • หลบ Junk • ทำคะแนนให้ดีที่สุด</div>
-    </div>
-  </div>
+      <div id="podium" class="podium"></div>
 
-  <div id="raceResultMount" aria-live="polite"></div>
+      <div id="yourRank" class="yourRank"></div>
 
-  <div id="raceWaitOverlay" aria-live="polite">
-    <div class="race-wait-card">
-      <div class="race-wait-icon">⏳</div>
-      <div class="race-wait-title">กำลังรวมอันดับ Race</div>
-      <div class="race-wait-sub" id="raceWaitText">
-        ส่งคะแนนของเราแล้ว รอผู้เล่นคนอื่นส่งคะแนนเข้ามา
-      </div>
-      <div class="race-wait-count" id="raceWaitCount">1/4</div>
-      <div class="race-wait-sub">
-        ถ้ารอนานเกินไป ระบบจะสรุปจากคะแนนที่ส่งเข้ามาก่อน
-      </div>
-      <div class="race-wait-actions">
-        <button class="btn warn" id="btnWaitPartial" type="button">🏁 สรุปเท่าที่มี</button>
-        <a class="btn primary" id="btnWaitLobby" href="./goodjunk-race-lobby.html">← กลับ Lobby</a>
+      <div class="badgeGrid" id="badgeGrid"></div>
+
+      <div class="resultActions">
+        <a id="btnAgain" class="btn good" href="./goodjunk-race-lobby.html">🔁 Race อีกครั้ง</a>
+        <a id="btnLobbyEnd" class="btn warn" href="./goodjunk-race-lobby.html">🏁 กลับ Lobby</a>
+        <a id="btnHubEnd" class="btn info" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
       </div>
     </div>
   </div>
 
   <script>
-  (function goodJunkRaceNoBossGuard(){
+  (() => {
     'use strict';
 
-    window.HHA_GOODJUNK_RACE_FINAL_LOCK = 'v1.0-final';
-    console.info('[GoodJunk Race] Final Lock v1.0 loaded');
+    window.HHA_GJ_RACE_RUN = 'v20260515-race-run-v230-progress-leaderboard-no-attack';
 
-    const url = new URL(location.href);
-    const sp = url.searchParams;
-    let changed = false;
+    const ROOM_ROOT = 'hha-battle/goodjunk/raceRooms';
+    const TOP_N = 3;
 
-    function set(k, v){
-      if (sp.get(k) !== v) {
-        sp.set(k, v);
-        changed = true;
-      }
-    }
+    const GOOD = ['🍎','🍌','🥦','🥬','🥕','🍊','🍇','🐟','🥚','🍚'];
+    const BAD = ['🍟','🍔','🧁','🥤','🍭'];
+    const BOOST = ['⚡','🛡️','🧲','🔥','🍀'];
 
-    set('mode', 'race');
-    set('entry', 'race');
-    set('recommendedMode', 'race');
-    set('phaseBoss', '0');
-    set('boss', '0');
-    set('soloBoss', '0');
-    set('bossMode', '0');
-    set('multiplayer', '1');
-    set('game', 'goodjunk');
-    set('gameId', 'goodjunk');
-    set('zone', 'nutrition');
-    set('cat', 'nutrition');
-    set('theme', 'goodjunk');
+    const $ = id => document.getElementById(id);
+    const params = new URLSearchParams(location.search);
 
-    sp.delete('phase');
-    sp.delete('bossPhase');
-    sp.delete('bossId');
-    sp.delete('bossName');
-
-    if (changed) {
-      history.replaceState(null, '', url.toString());
-    }
-
-    window.HHA_GJ_FORCE_MULTI_NO_BOSS = true;
-    window.HHA_GJ_MULTI_MODE = 'race';
-  })();
-  </script>
-
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260501-gjrace-run-v52-duplicate-name-fix"></script>
-
-  <script>
-  (function(){
-    'use strict';
-
-    const search = new URLSearchParams(location.search);
-
-    const GOOD = [
-      { e:'🍎', label:'good' },
-      { e:'🍌', label:'good' },
-      { e:'🍉', label:'good' },
-      { e:'🥕', label:'good' },
-      { e:'🥦', label:'good' },
-      { e:'🍇', label:'good' },
-      { e:'🍍', label:'good' },
-      { e:'🥛', label:'good' },
-      { e:'🐟', label:'good' }
-    ];
-
-    const JUNK = [
-      { e:'🍔', label:'junk' },
-      { e:'🍟', label:'junk' },
-      { e:'🍩', label:'junk' },
-      { e:'🍭', label:'junk' },
-      { e:'🥤', label:'junk' },
-      { e:'🍕', label:'junk' },
-      { e:'🧁', label:'junk' },
-      { e:'🍫', label:'junk' }
-    ];
-
-    const DIFF = {
-      easy:      { spawnMs: 950, speedMin: 78,  speedMax: 118, goodChance:.78, maxItems:8,  sizeMin:78, sizeMax:92, target:300 },
-      normal:    { spawnMs: 760, speedMin: 96,  speedMax: 150, goodChance:.70, maxItems:10, sizeMin:72, sizeMax:88, target:360 },
-      hard:      { spawnMs: 600, speedMin: 120, speedMax: 188, goodChance:.62, maxItems:12, sizeMin:68, sizeMax:84, target:440 },
-      challenge: { spawnMs: 500, speedMin: 140, speedMax: 215, goodChance:.58, maxItems:14, sizeMin:64, sizeMax:80, target:520 }
-    };
-
-    function makeRacePid(){
-      const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
-      const t = Date.now().toString(36).toUpperCase();
-      return `P-${rnd}-${t}`;
-    }
-
-    function resolveRacePid(){
-      const raw = String(qs('pid', '') || '').trim();
-
-      if (raw && raw !== 'anon' && raw !== 'anonymous') {
-        return raw;
-      }
-
-      const roomId = normalizeRoom(qs('roomId', qs('room', 'RC-DEMO')));
-      const key = 'HHA_GJ_RACE_RUN_PID__' + roomId;
-
-      try {
-        let pid = sessionStorage.getItem(key);
-        if (!pid) {
-          pid = makeRacePid();
-          sessionStorage.setItem(key, pid);
-        }
-        return pid;
-      } catch (_) {
-        return makeRacePid();
-      }
-    }
-
-    const ctx = {
-      pid: safeKey(resolveRacePid()),
-      name: qs('name', qs('nick', 'Hero')),
-      nick: qs('nick', qs('name', 'Hero')),
-      roomId: normalizeRoom(qs('roomId', qs('room', 'RC-DEMO'))),
-      matchId: qs('matchId', ''),
-      role: qs('role', qs('host') === '1' ? 'host' : 'guest'),
-      diff: qs('diff', 'normal').toLowerCase(),
-      timeSec: Math.max(30, Number(qs('time', '150')) || 150),
-      hub: qs('hub', '../nutrition-zone.html'),
-      run: qs('run', 'play'),
-      maxPlayers: Math.max(2, Math.min(10, Number(qs('maxPlayers', '4')) || 4))
-    };
-
-    (function syncResolvedPidToUrl(){
-      try {
-        const u = new URL(location.href);
-
-        if (u.searchParams.get('pid') !== ctx.pid) {
-          u.searchParams.set('pid', ctx.pid);
-          u.searchParams.set('name', ctx.name);
-          u.searchParams.set('nick', ctx.nick);
-          u.searchParams.set('roomId', ctx.roomId);
-          u.searchParams.set('room', ctx.roomId);
-          u.searchParams.set('mode', 'race');
-          u.searchParams.set('entry', 'race');
-          u.searchParams.set('recommendedMode', 'race');
-          u.searchParams.set('phaseBoss', '0');
-          u.searchParams.set('boss', '0');
-          u.searchParams.set('soloBoss', '0');
-          u.searchParams.set('bossMode', '0');
-          u.searchParams.set('multiplayer', '1');
-
-          history.replaceState(null, '', u.toString());
-        }
-      } catch (_) {}
-    })();
-
-    const cfg = DIFF[ctx.diff] || DIFF.normal;
-
-    const ui = {
-      btnBackLobby: el('btnBackLobby'),
-      btnGoHub: el('btnGoHub'),
-      btnEndNow: el('btnEndNow'),
-      gameMount: el('gameMount'),
-      stageStatus: el('stageStatus'),
-      raceRoomPill: el('raceRoomPill'),
-      racePlayerPill: el('racePlayerPill'),
-      raceScoreValue: el('raceScoreValue'),
-      raceTimeValue: el('raceTimeValue'),
-      raceMissValue: el('raceMissValue'),
-      raceStreakValue: el('raceStreakValue'),
-      raceGoodHitValue: el('raceGoodHitValue'),
-      raceJunkHitValue: el('raceJunkHitValue'),
-      raceGoodMissValue: el('raceGoodMissValue'),
-      raceTipText: el('raceTipText'),
-      raceGoalValue: el('raceGoalValue'),
-      raceGoalFill: el('raceGoalFill'),
-      raceGoalSubFill: el('raceGoalSubFill'),
-      raceRankValue: el('raceRankValue'),
-      raceOpponentScoreValue: el('raceOpponentScoreValue'),
-      raceGapValue: el('raceGapValue'),
-      raceResultMount: el('raceResultMount'),
-      raceWaitOverlay: el('raceWaitOverlay'),
-      raceWaitText: el('raceWaitText'),
-      raceWaitCount: el('raceWaitCount'),
-      btnWaitPartial: el('btnWaitPartial'),
-      btnWaitLobby: el('btnWaitLobby'),
-      raceCountdownOverlay: el('raceCountdownOverlay'),
-      raceCountNumber: el('raceCountNumber'),
-      raceCountTitle: el('raceCountTitle')
-    };
+    let db = null;
+    let unsub = null;
+    let tickTimer = null;
+    let spawnTimer = null;
+    let syncTimer = null;
+    let toastTimer = null;
+    let boostTimer = null;
+    let ended = false;
+    let finishing = false;
+    let countdownShownFor = '';
 
     const state = {
-      db:null,
-      running:false,
-      ended:false,
-      published:false,
-      finalizing:false,
-      summaryShown:false,
-      currentPartial:false,
-      raf:0,
-      lastTs:0,
-      spawnAcc:0,
-      seq:0,
-      items:new Map(),
-      timeLeftMs:ctx.timeSec * 1000,
+      room: normalizeRoom(qs('room', qs('roomId',''))),
+      matchId: qs('matchId',''),
+      pid: qs('pid','anon'),
+      name: qs('name', qs('nick','Hero')),
+      role: qs('role', qs('host','') === '1' ? 'host' : 'guest'),
+      view: qs('view', qs('device','mobile')),
+      diff: qs('diff','normal'),
+      timeTotal: Number(qs('time','90')) || 90,
+      timeLeft: Number(qs('time','90')) || 90,
+      hub: qs('hub','../nutrition-zone.html'),
+      raceType: normalizeRaceType(qs('raceType', qs('type','sprint'))),
+      capacity: Number(qs('capacity', qs('maxPlayers','4'))) || 4,
+
       score:0,
-      goodHit:0,
-      junkHit:0,
-      goodMiss:0,
+      progress:0,
+      good:0,
+      junk:0,
       miss:0,
-      streak:0,
-      bestStreak:0,
-      matchId:ctx.matchId,
-      resultUnsub:null,
-      finalUnsub:null,
-      waitSince:0,
-      standings:[],
-      expectedPlayers: ctx.maxPlayers,
-      liveUnsub:null,
-      lastLivePush:0,
-      livePushMs:2200,
-      countdownDone:false
+      combo:0,
+      shield:0,
+
+      sprintUntil:0,
+      magnetUntil:0,
+      rushUntil:0,
+
+      roomData:null,
+      startedAt:0,
+      rank:0,
+      finished:false
     };
 
-    function el(id){ return document.getElementById(id); }
-
-    function qs(k,d=''){
-      try { return new URL(location.href).searchParams.get(k) ?? d; }
-      catch { return d; }
-    }
-
-    function safeKey(raw){
-      return String(raw || '')
-        .trim()
-        .replace(/[.#$/\[\]]/g, '_')
-        .slice(0, 96) || 'anon';
-    }
-
-    function normalizeRoom(raw){
-      let v = String(raw || '').trim().toUpperCase();
-      v = v.replace(/\s+/g, '').replace(/[^A-Z0-9-]/g, '');
-      if (!v) return 'RC-DEMO';
-      if (!v.startsWith('RC-')) v = 'RC-' + v.replace(/^RC/, '').replace(/^-/, '');
-      return v.slice(0, 12);
-    }
-
-    function esc(s){
-      return String(s ?? '')
-        .replaceAll('&','&amp;')
-        .replaceAll('<','&lt;')
-        .replaceAll('>','&gt;')
-        .replaceAll('"','&quot;')
-        .replaceAll("'","&#39;");
-    }
-
-    function n(v,d=0){
-      v = Number(v);
-      return Number.isFinite(v) ? v : d;
-    }
-
+    function qs(k,d=''){ return params.get(k) ?? d; }
     function now(){ return Date.now(); }
-    function rand(min,max){ return min + Math.random() * (max - min); }
-    function pick(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
-    function delay(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
+    function safeKey(v){ return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room'; }
 
-    function fmtTime(ms){
-      const total = Math.max(0, Math.ceil(ms / 1000));
-      const m = Math.floor(total / 60);
-      const s = total % 60;
-      return `${m}:${String(s).padStart(2,'0')}`;
-    }
-
-    function roomPath(){
-      return `hha-battle/goodjunk/raceRooms/${safeKey(ctx.roomId)}`;
-    }
-
-    function matchPath(matchId = state.matchId){
-      return `${roomPath()}/matches/${safeKey(matchId)}`;
-    }
-
-    function playerPath(){
-      return `${roomPath()}/players/${safeKey(ctx.pid)}`;
-    }
-
-    function getActiveMatchIdFromRoom(room){
-      return String(
-        (room && room.activeMatchId) ||
-        (room && room.currentRun && room.currentRun.matchId) ||
-        ''
-      ).trim();
-    }
-
-    async function waitForRoomMatchId(maxTry = 8, gapMs = 350){
-      for (let i = 0; i < maxTry; i += 1) {
-        const room = await dbGet(roomPath()).catch(() => null);
-        const active = getActiveMatchIdFromRoom(room);
-        if (active) return active;
-        await delay(gapMs);
+    function normalizeRoom(v){
+      let s = String(v || '').trim().toUpperCase();
+      s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
+      if (!s) return '';
+      if (!s.startsWith('GJ-RC-')){
+        s = 'GJ-RC-' + s.replace(/^GJ-RC/i,'').replace(/^GJRC/i,'').replace(/^RC/i,'').replace(/^-/, '');
       }
-      return '';
+      return s.slice(0,15);
     }
 
-    function buildLobbyUrl(){
-      const u = new URL('./goodjunk-race-lobby.html', location.href);
-      ['pid','name','nick','room','roomId','hub','run','diff','time','view','studyId','conditionGroup'].forEach((k) => {
-        const v = search.get(k);
-        if (v != null && v !== '') u.searchParams.set(k, v);
-      });
-      u.searchParams.set('pid', ctx.pid);
-      u.searchParams.set('name', ctx.name);
-      u.searchParams.set('nick', ctx.nick);
-      u.searchParams.set('room', ctx.roomId);
-      u.searchParams.set('roomId', ctx.roomId);
-      u.searchParams.set('mode', 'race');
-      u.searchParams.set('entry', 'race');
-      u.searchParams.set('recommendedMode', 'race');
-      u.searchParams.set('phaseBoss', '0');
-      u.searchParams.set('boss', '0');
-      u.searchParams.set('soloBoss', '0');
-      u.searchParams.set('bossMode', '0');
-      u.searchParams.set('multiplayer', '1');
-      return u.toString();
+    function normalizeRaceType(v){
+      const s = String(v || '').toLowerCase().trim();
+      if (s === 'classroom' || s === 'class' || s === 'pro') return 'classroom';
+      return 'sprint';
     }
 
-    function setupLinks(){
-      ui.btnGoHub.href = ctx.hub || '../nutrition-zone.html';
-      ui.btnBackLobby.href = buildLobbyUrl();
-      if (ui.btnWaitLobby) ui.btnWaitLobby.href = buildLobbyUrl();
-
-      ui.btnEndNow.addEventListener('click', () => finishRace('manual_end'));
-
-      if (ui.btnWaitPartial) {
-        ui.btnWaitPartial.addEventListener('click', () => {
-          tryFinalizePartial().catch((err) => {
-            console.warn('[Race] manual partial failed', err);
-            showSummary(combineSummary({ [ctx.pid]: localResult('manual_partial') }, true));
-          });
-        });
-      }
-    }
-
-    function renderHud(){
-      ui.raceRoomPill.textContent = `ห้อง ${ctx.roomId}`;
-      ui.racePlayerPill.textContent = `ผู้เล่น ${ctx.name}`;
-      ui.raceScoreValue.textContent = String(state.score);
-      ui.raceTimeValue.textContent = fmtTime(state.timeLeftMs);
-      ui.raceMissValue.textContent = String(state.miss);
-      ui.raceStreakValue.textContent = String(state.bestStreak);
-      ui.raceGoodHitValue.textContent = String(state.goodHit);
-      ui.raceJunkHitValue.textContent = String(state.junkHit);
-      ui.raceGoodMissValue.textContent = String(state.goodMiss);
-      ui.raceGoalValue.textContent = String(cfg.target);
-
-      const pct = Math.max(0, Math.min(100, (state.score / cfg.target) * 100));
-      const timePct = Math.max(0, Math.min(100, (state.timeLeftMs / (ctx.timeSec * 1000)) * 100));
-      ui.raceGoalFill.style.width = pct + '%';
-      ui.raceGoalSubFill.style.width = timePct + '%';
-
-      updateMiniStandings();
-    }
-
-    function showTip(text){
-      ui.raceTipText.textContent = text;
-    }
-
-    function showWaitingResults(done, expected){
-      const d = Math.max(1, Number(done || 1));
-      const e = Math.max(2, Number(expected || state.expectedPlayers || ctx.maxPlayers || 2));
-
-      if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.add('show');
-      if (ui.raceWaitCount) ui.raceWaitCount.textContent = `${d}/${e}`;
-      if (ui.raceWaitText) {
-        ui.raceWaitText.textContent = d >= e
-          ? 'ได้คะแนนครบแล้ว กำลังจัดอันดับ...'
-          : 'ส่งคะแนนของเราแล้ว รอผู้เล่นคนอื่นส่งคะแนนเข้ามา';
-      }
-    }
-
-    function hideWaitingResults(){
-      if (ui.raceWaitOverlay) ui.raceWaitOverlay.classList.remove('show');
-    }
-
-    function showCountdownValue(value, title){
-      if (!ui.raceCountdownOverlay) return;
-
-      ui.raceCountdownOverlay.classList.add('show');
-
-      if (ui.raceCountNumber) {
-        ui.raceCountNumber.textContent = value;
-        ui.raceCountNumber.style.animation = 'none';
-        void ui.raceCountNumber.offsetHeight;
-        ui.raceCountNumber.style.animation = 'raceCountPop .72s ease both';
-      }
-
-      if (ui.raceCountTitle) {
-        ui.raceCountTitle.textContent = title || 'เตรียมเริ่ม Race!';
-      }
-    }
-
-    function hideCountdown(){
-      if (ui.raceCountdownOverlay) ui.raceCountdownOverlay.classList.remove('show');
-    }
-
-    async function runCountdown(){
-      if (state.countdownDone) return;
-
-      state.countdownDone = true;
-
-      showCountdownValue('3', 'เตรียมตัวให้พร้อม!');
-      await delay(850);
-      showCountdownValue('2', 'มองหา Good!');
-      await delay(850);
-      showCountdownValue('1', 'อย่าแตะ Junk!');
-      await delay(850);
-      showCountdownValue('GO!', 'เริ่มแข่ง!');
-      await delay(620);
-
-      hideCountdown();
-    }
-
-    async function getExpectedRacePlayers(){
-      const room = await dbGet(roomPath()).catch(() => null);
-      const roomPlayers = room && room.players && typeof room.players === 'object'
-        ? Object.keys(room.players).filter(Boolean).length
-        : 0;
-
-      const expected = Math.max(2, Math.min(ctx.maxPlayers, roomPlayers || ctx.maxPlayers || 2));
-      state.expectedPlayers = expected;
-      return expected;
-    }
-
-    function emitFx(x,y,text,color){
-      const fx = document.createElement('div');
-      fx.className = 'fx';
-      fx.textContent = text;
-      fx.style.left = x + 'px';
-      fx.style.top = y + 'px';
-      fx.style.color = color || '#333';
-      ui.gameMount.appendChild(fx);
-      setTimeout(() => {
-        try { fx.remove(); } catch(_){}
-      }, 760);
-    }
-
-    function createItem(kind){
-      if (!state.running || state.ended) return;
-
-      const rect = ui.gameMount.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-
-      const size = rand(cfg.sizeMin, cfg.sizeMax);
-      const x = rand(10, Math.max(12, rect.width - size - 10));
-      const y = -size - rand(0, 90);
-      const speed = rand(cfg.speedMin, cfg.speedMax);
-      const data = kind === 'good' ? pick(GOOD) : pick(JUNK);
-
-      const node = document.createElement('button');
-      node.type = 'button';
-      node.className = `fall-item ${kind}`;
-      node.style.width = size + 'px';
-      node.style.height = size + 'px';
-      node.innerHTML = `<div class="e">${data.e}</div><div class="l">${data.label}</div>`;
-
-      const item = {
-        id:'item-' + (++state.seq),
-        kind,
-        x,
-        y,
-        size,
-        speed,
-        dead:false,
-        node
-      };
-
-      node.addEventListener('pointerdown', (ev) => {
-        ev.preventDefault();
-        hitItem(item);
-      }, { passive:false });
-
-      ui.gameMount.appendChild(node);
-      state.items.set(item.id, item);
-      drawItem(item);
-    }
-
-    function drawItem(item){
-      if (!item || !item.node) return;
-      item.node.style.transform = `translate3d(${item.x}px,${item.y}px,0)`;
-    }
-
-    function removeItem(item){
-      if (!item || item.dead) return;
-      item.dead = true;
-      try { item.node.remove(); } catch(_){}
-      state.items.delete(item.id);
-    }
-
-    function hitItem(item){
-      if (!state.running || state.ended || !item || item.dead) return;
-
-      const cx = item.x + item.size / 2;
-      const cy = item.y + item.size / 2;
-      item.node.classList.add('hit');
-
-      if (item.kind === 'good') {
-        state.goodHit += 1;
-        state.streak += 1;
-        state.bestStreak = Math.max(state.bestStreak, state.streak);
-        const add = 10 + Math.min(25, state.streak);
-        state.score += add;
-        emitFx(cx, cy, '+' + add, '#4f842f');
-
-        if (state.streak > 0 && state.streak % 8 === 0) {
-          showTip(`คอมโบ ${state.streak}! เก่งมาก`);
-        }
-      } else {
-        state.junkHit += 1;
-        state.miss += 1;
-        state.streak = 0;
-        state.score = Math.max(0, state.score - 8);
-        emitFx(cx, cy, 'Junk!', '#8c2f2f');
-        showTip('ระวัง Junk นะ! แตะ Junk แล้วคะแนนลด');
-      }
-
-      renderHud();
-      setTimeout(() => removeItem(item), 150);
-    }
-
-    function updateItems(dt){
-      const rect = ui.gameMount.getBoundingClientRect();
-      const bottom = rect.height - Math.max(96, rect.height * .16);
-
-      state.items.forEach((item) => {
-        if (!item || item.dead) return;
-        item.y += item.speed * dt;
-
-        if (item.y > bottom) {
-          if (item.kind === 'good') {
-            state.goodMiss += 1;
-            state.miss += 1;
-            state.streak = 0;
-            showTip('พลาด Good ไปแล้ว ลองใหม่!');
-          }
-
-          removeItem(item);
-          renderHud();
-          return;
-        }
-
-        drawItem(item);
-      });
-    }
-
-    function loop(ts){
-      if (!state.running || state.ended) return;
-
-      if (!state.lastTs) state.lastTs = ts;
-      const dt = Math.min(.05, (ts - state.lastTs) / 1000);
-      state.lastTs = ts;
-
-      state.timeLeftMs = Math.max(0, state.timeLeftMs - dt * 1000);
-      state.spawnAcc += dt * 1000;
-
-      if (state.spawnAcc >= cfg.spawnMs && state.items.size < cfg.maxItems) {
-        state.spawnAcc = 0;
-        createItem(Math.random() < cfg.goodChance ? 'good' : 'junk');
-      }
-
-      updateItems(dt);
-      renderHud();
-      maybePushLiveScore();
-
-      if (state.timeLeftMs <= 0) {
-        finishRace('timeup');
-        return;
-      }
-
-      state.raf = requestAnimationFrame(loop);
-    }
-
-    function localResult(reason){
-      return {
-        pid: ctx.pid,
-        name: ctx.name,
-        nick: ctx.nick,
-        role: ctx.role,
-        mode: 'race',
-        reason: reason || 'end',
-        score: state.score,
-        goodHit: state.goodHit,
-        good: state.goodHit,
-        junkHit: state.junkHit,
-        junk: state.junkHit,
-        goodMiss: state.goodMiss,
-        miss: state.miss,
-        bestStreak: state.bestStreak,
-        streak: state.bestStreak,
-        durationSec: ctx.timeSec - Math.ceil(state.timeLeftMs / 1000),
-        submittedAt: now()
-      };
-    }
-
-    function liveScorePayload(reason){
-      return {
-        pid: ctx.pid,
-        name: ctx.name,
-        nick: ctx.nick,
-        role: ctx.role,
-        mode: 'race',
-        reason: reason || 'live',
-        score: state.score,
-        goodHit: state.goodHit,
-        good: state.goodHit,
-        junkHit: state.junkHit,
-        junk: state.junkHit,
-        goodMiss: state.goodMiss,
-        miss: state.miss,
-        bestStreak: state.bestStreak,
-        streak: state.bestStreak,
-        durationSec: ctx.timeSec - Math.ceil(state.timeLeftMs / 1000),
-        live:true,
-        updatedAt: now(),
-        submittedAt: now()
-      };
-    }
-
-    async function pushLiveScore(reason = 'live'){
-      if (!state.db || !state.matchId) return;
-      if (state.ended && reason !== 'final') return;
-
-      try {
-        await dbSet(`${matchPath()}/liveScores/${safeKey(ctx.pid)}`, liveScorePayload(reason));
-        await dbUpdate(matchPath(), { updatedAt: now() });
-      } catch (err) {
-        console.warn('[Race] live score push failed', err);
-      }
-    }
-
-    function listenLiveScores(){
-      if (state.liveUnsub || !state.db || !state.matchId) return;
-
-      state.liveUnsub = dbOn(`${matchPath()}/liveScores`, (scores) => {
-        if (!scores || typeof scores !== 'object') return;
-
-        const rows = sortStandings(
-          Object.keys(scores)
-            .map((k, i) => normalizeResult(scores[k], i))
-            .filter(Boolean)
-        );
-
-        state.standings = rows;
-        updateMiniStandings();
-      });
-    }
-
-    function maybePushLiveScore(){
-      if (!state.db || !state.matchId || state.ended) return;
-
-      const t = now();
-      if (t - state.lastLivePush < state.livePushMs) return;
-
-      state.lastLivePush = t;
-      pushLiveScore('live');
-    }
+    function roomPath(){ return `${ROOM_ROOT}/${safeKey(state.room)}`; }
+    function playerPath(pid=state.pid){ return `${roomPath()}/players/${safeKey(pid)}`; }
 
     async function firebaseReady(){
       if (!window.HHA_FIREBASE_READY) throw new Error('HHA_FIREBASE_READY not found');
       const fb = await window.HHA_FIREBASE_READY;
       if (!fb || !fb.db) throw new Error('Firebase DB not ready');
-      state.db = fb.db;
+      db = fb.db;
       return fb;
     }
 
-    function dbGet(path){
-      return state.db.ref(path).get().then((snap) => snap && snap.val ? snap.val() : null);
+    async function dbGet(path){
+      const snap = await db.ref(path).get();
+      return snap && snap.val ? snap.val() : null;
     }
 
-    function dbSet(path,value){
-      return state.db.ref(path).set(value).then(() => value);
-    }
-
-    function dbUpdate(path,value){
-      return state.db.ref(path).update(value).then(() => value);
+    async function dbUpdate(path,val){
+      await db.ref(path).update(val);
+      return val;
     }
 
     function dbOn(path,cb){
-      const ref = state.db.ref(path);
-      const handler = (snap) => cb(snap && snap.val ? snap.val() : null);
-      ref.on('value', handler);
-      return () => {
-        try { ref.off('value', handler); } catch(_){}
-      };
+      const ref = db.ref(path);
+      const fn = snap => cb(snap && snap.val ? snap.val() : null);
+      ref.on('value',fn);
+      return () => { try{ ref.off('value',fn); }catch(_){} };
     }
 
-    async function ensureRoom(){
-      const room = await dbGet(roomPath());
-
-      await dbUpdate(roomPath(), {
-        roomId: ctx.roomId,
-        mode: 'race',
-        game: 'goodjunk',
-        status: room && room.status
-          ? (room.status === 'ended' || room.status === 'closed' ? room.status : 'running')
-          : 'running',
-        updatedAt: now()
-      });
-
-      await dbUpdate(playerPath(), {
-        pid: ctx.pid,
-        name: ctx.name,
-        nick: ctx.nick,
-        role: ctx.role,
-        online: true,
-        inRuntime: true,
-        ready: true,
-        runtimeAt: now(),
-        lastSeen: now()
-      });
-
-      try {
-        state.db.ref(playerPath()).onDisconnect().update({
-          online: false,
-          inRuntime: false,
-          lastSeen: now()
+    function playersArray(room){
+      return Object.values(room?.players || {})
+        .filter(Boolean)
+        .sort((a,b) => {
+          const bp = Number(b.progress || 0);
+          const ap = Number(a.progress || 0);
+          if (bp !== ap) return bp - ap;
+          const bs = Number(b.score || 0);
+          const as = Number(a.score || 0);
+          if (bs !== as) return bs - as;
+          return Number(a.miss || 0) - Number(b.miss || 0);
         });
-      } catch(_){}
     }
 
-    async function ensureMatch(){
-      const fromUrl = String(ctx.matchId || '').trim();
-
-      if (state.matchId) {
-        await dbUpdate(matchPath(state.matchId), {
-          matchId: state.matchId,
-          roomId: ctx.roomId,
-          mode: 'race',
-          game: 'goodjunk',
-          updatedAt: now()
-        });
-        return state.matchId;
-      }
-
-      if (fromUrl) {
-        state.matchId = fromUrl;
-
-        await dbUpdate(roomPath(), {
-          activeMatchId: state.matchId,
-          currentRun: {
-            status: 'started',
-            matchId: state.matchId,
-            startedAt: now(),
-            by: ctx.pid
-          },
-          updatedAt: now()
-        }).catch(() => {});
-
-        await dbUpdate(matchPath(state.matchId), {
-          matchId: state.matchId,
-          roomId: ctx.roomId,
-          mode: 'race',
-          game: 'goodjunk',
-          updatedAt: now(),
-          createdAt: now()
-        });
-
-        return state.matchId;
-      }
-
-      const room = await dbGet(roomPath()).catch(() => null);
-      const active = getActiveMatchIdFromRoom(room);
-
-      if (active) {
-        state.matchId = active;
-
-        await dbUpdate(matchPath(state.matchId), {
-          matchId: state.matchId,
-          roomId: ctx.roomId,
-          mode: 'race',
-          game: 'goodjunk',
-          updatedAt: now(),
-          createdAt: now()
-        });
-
-        return state.matchId;
-      }
-
-      const waited = await waitForRoomMatchId(8, 350);
-
-      if (waited) {
-        state.matchId = waited;
-
-        await dbUpdate(matchPath(state.matchId), {
-          matchId: state.matchId,
-          roomId: ctx.roomId,
-          mode: 'race',
-          game: 'goodjunk',
-          updatedAt: now(),
-          createdAt: now()
-        });
-
-        return state.matchId;
-      }
-
-      const fallbackBase =
-        (room && room.currentRun && room.currentRun.startedAt) ||
-        (room && room.startedAt) ||
-        (room && room.createdAt) ||
-        String(new URLSearchParams(location.search).get('seed') || 'fallback');
-
-      state.matchId = 'MT-' + safeKey(ctx.roomId) + '-' + safeKey(fallbackBase);
-
-      await dbUpdate(roomPath(), {
-        activeMatchId: state.matchId,
-        currentRun: {
-          status:'started',
-          matchId: state.matchId,
-          startedAt: now(),
-          by: ctx.pid
-        },
-        updatedAt: now()
-      });
-
-      await dbUpdate(matchPath(state.matchId), {
-        matchId: state.matchId,
-        roomId: ctx.roomId,
-        mode: 'race',
-        game: 'goodjunk',
-        updatedAt: now(),
-        createdAt: now()
-      });
-
-      return state.matchId;
+    function getMe(room){
+      return room?.players?.[safeKey(state.pid)] || null;
     }
 
-    function normalizeResult(r,i){
-      const x = r && typeof r === 'object' ? r : {};
-      return {
-        pid:String(x.pid || `player-${i+1}`),
-        name:String(x.name || x.nick || x.pid || `Player ${i+1}`),
-        score:n(x.score,0),
-        goodHit:n(x.goodHit ?? x.good,0),
-        junkHit:n(x.junkHit ?? x.junk,0),
-        goodMiss:n(x.goodMiss,0),
-        miss:n(x.miss,0),
-        bestStreak:n(x.bestStreak ?? x.streak,0),
-        durationSec:n(x.durationSec,0),
-        submittedAt:n(x.submittedAt,0)
-      };
+    function isHostForRoom(room){
+      const me = getMe(room);
+      return !!room && !!me && (room.hostPid === state.pid || me.role === 'host' || state.role === 'host');
     }
 
-    function sortStandings(players){
-      return players.slice().sort((a,b) => {
-        if (b.score !== a.score) return b.score - a.score;
-        if (a.miss !== b.miss) return a.miss - b.miss;
-        if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
-        return a.submittedAt - b.submittedAt;
-      }).map((p,i) => Object.assign({}, p, { rank:i+1 }));
-    }
-
-    function combineSummary(results, partial){
-      const rows = Object.keys(results || {})
-        .map((k,i) => normalizeResult(results[k], i))
-        .filter((p) => p && p.pid);
-
-      const standings = sortStandings(rows);
-      const me = standings.find((p) => String(p.pid) === String(ctx.pid)) || null;
-      const leader = standings[0] || null;
-
-      const total = {
-        goodHit:0,
-        junkHit:0,
-        goodMiss:0,
-        miss:0
-      };
-
-      standings.forEach((p) => {
-        total.goodHit += p.goodHit;
-        total.junkHit += p.junkHit;
-        total.goodMiss += p.goodMiss;
-        total.miss += p.miss;
-      });
-
-      return {
-        final:true,
-        partial:!!partial,
-        mode:'RACE',
-        roomId:ctx.roomId,
+    function pass(path, extra={}){
+      const u = new URL(path, location.href);
+      const obj = {
+        room:state.room,
+        roomId:state.room,
         matchId:state.matchId,
-        expectedPlayers: state.expectedPlayers || ctx.maxPlayers,
-        finishedPlayers:standings.length,
-        standings,
-        me,
-        leader,
-        total,
-        score:me ? me.score : state.score,
-        rank:me ? me.rank : 0,
-        winner:leader ? leader.name : '',
-        ts:now()
+        pid:state.pid,
+        name:state.name,
+        role:state.role,
+        host:state.role === 'host' ? '1' : '0',
+        diff:state.diff,
+        time:String(state.timeTotal),
+        view:state.view,
+        device:state.view,
+        hub:state.hub,
+        zone:'nutrition',
+        cat:'nutrition',
+        game:'goodjunk',
+        gameId:'goodjunk',
+        mode:'race',
+        entry:'race',
+        raceType:state.raceType,
+        type:state.raceType,
+        capacity:String(state.capacity),
+        maxPlayers:String(state.capacity),
+        noAttack:'1',
+        ...extra
       };
-    }
 
-    async function writeFinalSummary(summary){
-      const existing = await dbGet(`${matchPath()}/finalSummary`);
-
-      if (existing && existing.final && !existing.partial) return existing;
-      if (existing && existing.final && existing.partial && summary.partial) return existing;
-
-      await dbSet(`${matchPath()}/finalSummary`, summary);
-      await dbUpdate(roomPath(), {
-        status:'ended',
-        updatedAt:now()
+      Object.entries(obj).forEach(([k,v]) => {
+        if (v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k,String(v));
       });
 
-      return summary;
+      return u.toString();
     }
 
-    function listenResults(){
-      if (state.resultUnsub || !state.db || !state.matchId) return;
-      state.resultUnsub = dbOn(`${matchPath()}/playerResults`, (results) => {
-        tryFinalizeFull(results || {}).catch((err) => console.warn('[Race] full finalize failed', err));
+    function hydrateLinks(){
+      $('btnLobby').href = pass('./goodjunk-race-lobby.html',{run:'menu'});
+      $('btnLobbyEnd').href = pass('./goodjunk-race-lobby.html',{run:'menu'});
+      $('btnAgain').href = pass('./goodjunk-race-lobby.html',{run:'menu'});
+      $('btnModes').href = pass('./goodjunk-modes.html',{run:'menu'});
+      $('btnHub').href = state.hub;
+      $('btnHubEnd').href = state.hub;
+    }
+
+    function showToast(text,ms=1800){
+      const el = $('toast');
+      el.textContent = text;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    function clamp(n,min,max){
+      return Math.max(min, Math.min(max, Number(n || 0)));
+    }
+
+    function isSprint(){ return now() < state.sprintUntil; }
+    function isMagnet(){ return now() < state.magnetUntil; }
+    function isRush(){ return now() < state.rushUntil; }
+
+    function updateHud(){
+      const room = state.roomData;
+      const players = playersArray(room);
+      const meIndex = players.findIndex(p => p.pid === state.pid);
+      state.rank = meIndex >= 0 ? meIndex + 1 : 0;
+
+      const leader = players[0];
+
+      $('meta').textContent =
+        `${state.name} • ${state.room} • ${state.raceType === 'classroom' ? 'Race Classroom' : 'Race Sprint'} • No Attack`;
+
+      $('playerName').textContent = state.name;
+      $('rankText').textContent = state.rank ? `#${state.rank}` : '#-';
+      $('progressText').textContent = `${Math.round(state.progress)}%`;
+      $('scoreText').textContent = String(Number(state.score || 0));
+      $('timeText').textContent = String(Math.max(0,Number(state.timeLeft || 0)));
+      $('playersText').textContent = `${players.length}/${state.capacity}`;
+
+      $('myProgressSmall').textContent = `${Math.round(state.progress)}%`;
+      $('progressBar').style.width = `${clamp(state.progress,0,100)}%`;
+      $('leaderText').textContent = leader ? `ผู้นำ: ${leader.name || 'Player'} • ${Math.round(leader.progress || 0)}%` : 'ผู้นำ: -';
+      $('raceTypeText').textContent = state.raceType === 'classroom' ? 'Classroom' : 'Sprint';
+
+      $('goodChip').textContent = `Good ${state.good}`;
+      $('junkChip').textContent = `Junk ${state.junk}`;
+      $('missChip').textContent = `Miss ${state.miss}`;
+
+      $('boostSprint').textContent = `${Math.max(0,Math.ceil((state.sprintUntil-now())/1000))}s`;
+      $('boostMagnet').textContent = `${Math.max(0,Math.ceil((state.magnetUntil-now())/1000))}s`;
+      $('boostRush').textContent = `${Math.max(0,Math.ceil((state.rushUntil-now())/1000))}s`;
+      $('boostShield').textContent = String(state.shield || 0);
+
+      document.getElementById('arena').classList.toggle('sprint', isSprint());
+      document.getElementById('arena').classList.toggle('magnet', isMagnet());
+
+      renderLeaderboard(players);
+    }
+
+    function renderLeaderboard(players){
+      const wrap = $('leaderboard');
+      wrap.innerHTML = '';
+
+      const top = players.slice(0,TOP_N);
+      const me = players.find(p => p.pid === state.pid);
+      const meRank = players.findIndex(p => p.pid === state.pid) + 1;
+
+      top.forEach((p,idx) => {
+        wrap.appendChild(rankRow(p, idx + 1, p.pid === state.pid));
       });
-    }
 
-    function listenFinalSummary(){
-      if (state.finalUnsub || !state.db || !state.matchId) return;
-      state.finalUnsub = dbOn(`${matchPath()}/finalSummary`, (summary) => {
-        if (summary && summary.final) showSummary(summary);
-      });
-    }
-
-    async function publishResult(reason){
-      if (state.published) return;
-      state.published = true;
-
-      await ensureMatch();
-      await pushLiveScore('final');
-
-      await dbSet(`${matchPath()}/playerResults/${safeKey(ctx.pid)}`, localResult(reason));
-      await dbUpdate(matchPath(), { updatedAt:now() });
-
-      state.waitSince = now();
-      showTip('ส่งผลของเราแล้ว กำลังรอผลผู้เล่นอื่น...');
-
-      const expectedNow = await getExpectedRacePlayers().catch(() => ctx.maxPlayers);
-      showWaitingResults(1, expectedNow);
-
-      listenResults();
-      listenFinalSummary();
-
-      setTimeout(() => {
-        tryFinalizePartial().catch((err) => {
-          console.warn('[Race] partial finalize failed', err);
-          showSummary(combineSummary({ [ctx.pid]: localResult(reason || 'end') }, true));
-        });
-      }, 12000);
-    }
-
-    async function tryFinalizeFull(results){
-      if (state.finalizing) return;
-      if (state.summaryShown && !state.currentPartial) return;
-
-      const count = Object.keys(results || {}).filter((k) => results[k]).length;
-      const expected = await getExpectedRacePlayers().catch(() => ctx.maxPlayers);
-
-      if (count < expected) {
-        updateMiniStandings(results);
-        showWaitingResults(count || 1, expected);
-        return;
+      if (me && meRank > TOP_N){
+        const sep = document.createElement('div');
+        sep.style.textAlign = 'center';
+        sep.style.fontWeight = '1000';
+        sep.style.color = '#5c7b8d';
+        sep.textContent = '...';
+        wrap.appendChild(sep);
+        wrap.appendChild(rankRow(me, meRank, true));
       }
 
-      showWaitingResults(expected, expected);
-
-      state.finalizing = true;
-      try {
-        const summary = combineSummary(results, false);
-        const saved = await writeFinalSummary(summary);
-        state.finalizing = false;
-        showSummary(saved);
-      } catch (err) {
-        state.finalizing = false;
-        throw err;
+      if (!players.length){
+        const empty = document.createElement('div');
+        empty.className = 'rankRow';
+        empty.textContent = 'รอข้อมูลผู้เล่น...';
+        wrap.appendChild(empty);
       }
     }
 
-    async function tryFinalizePartial(){
-      if (state.summaryShown && !state.currentPartial) return;
-      if (state.finalizing) return;
-
-      const finalSummary = await dbGet(`${matchPath()}/finalSummary`).catch(() => null);
-      if (finalSummary && finalSummary.final && !finalSummary.partial) {
-        showSummary(finalSummary);
-        return;
-      }
-
-      await getExpectedRacePlayers().catch(() => ctx.maxPlayers);
-
-      const results = await dbGet(`${matchPath()}/playerResults`).catch(() => null) || {};
-      if (!Object.keys(results).length) {
-        results[ctx.pid] = localResult('partial_local');
-      }
-
-      state.finalizing = true;
-      try {
-        const summary = combineSummary(results, true);
-        const saved = await writeFinalSummary(summary);
-        state.finalizing = false;
-        showSummary(saved);
-      } catch (err) {
-        state.finalizing = false;
-        throw err;
-      }
-    }
-
-    function updateMiniStandings(results){
-      let rows = state.standings || [];
-
-      if (results && typeof results === 'object') {
-        rows = sortStandings(Object.keys(results).map((k,i) => normalizeResult(results[k], i)));
-        state.standings = rows;
-      }
-
-      const me = rows.find((p) => String(p.pid) === String(ctx.pid));
-      const leader = rows[0];
-
-      if (me) ui.raceRankValue.textContent = '#' + me.rank;
-
-      if (leader) {
-        ui.raceOpponentScoreValue.textContent = String(leader.score);
-        const gap = me ? me.score - leader.score : state.score - leader.score;
-        ui.raceGapValue.textContent = gap >= 0 ? '+' + gap : String(gap);
-      }
-    }
-
-    function finishRace(reason){
-      if (state.ended) return;
-      state.ended = true;
-      state.running = false;
-
-      try { cancelAnimationFrame(state.raf); } catch(_){}
-      state.items.forEach(removeItem);
-      state.items.clear();
-
-      ui.stageStatus.textContent = 'Finished';
-      showTip('จบเกมแล้ว กำลังรวมอันดับ Race...');
-
-      if (state.db) {
-        publishResult(reason || 'end').catch((err) => {
-          console.warn('[Race] publish failed', err);
-          showSummary(combineSummary({ [ctx.pid]: localResult(reason || 'end') }, true));
-        });
-      } else {
-        showSummary(combineSummary({ [ctx.pid]: localResult(reason || 'end') }, true));
-      }
-    }
-
-    function medal(rank){
+    function rankIcon(rank){
       if (rank === 1) return '🏆';
       if (rank === 2) return '🥈';
       if (rank === 3) return '🥉';
-      return '⭐';
+      return `#${rank}`;
     }
 
-    function titleFor(summary){
-      if (summary.partial) return '🏁 Race Complete — สรุปบางส่วน';
-      if (summary.rank === 1) return '🏆 คุณชนะ Race!';
-      if (summary.rank > 0) return `🏁 Race Complete — อันดับ #${summary.rank}`;
-      return '🏁 Race Complete';
-    }
-
-    function buildDisplayNameMap(rows){
-      const counts = {};
-      const seen = {};
-      const map = {};
-
-      (rows || []).forEach((p) => {
-        const base = String(p && (p.name || p.nick || 'Player') || 'Player').trim() || 'Player';
-        counts[base] = (counts[base] || 0) + 1;
-      });
-
-      (rows || []).forEach((p) => {
-        const pid = String(p && p.pid || '');
-        const base = String(p && (p.name || p.nick || 'Player') || 'Player').trim() || 'Player';
-
-        if (!pid) return;
-
-        if (counts[base] > 1) {
-          seen[base] = (seen[base] || 0) + 1;
-          map[pid] = `${base} ${seen[base]}`;
-        } else {
-          map[pid] = base;
-        }
-      });
-
-      return map;
-    }
-
-    function displayNameFor(p, displayNames){
-      const pid = String(p && p.pid || '');
-      if (pid && displayNames && displayNames[pid]) return displayNames[pid];
-
-      return String(p && (p.name || p.nick || 'Player') || 'Player');
-    }
-
-    function renderStandings(rows, displayNames){
-      if (!rows || !rows.length) {
-        return `<div class="race-standing-row">
-          <div class="race-standing-left">
-            <div class="race-standing-name">ยังไม่มีข้อมูลอันดับ</div>
-            <div class="race-standing-meta">ระบบแสดงผลเฉพาะเครื่องนี้ก่อน</div>
-          </div>
-          <div class="race-standing-side">-</div>
-        </div>`;
-      }
-
-      return rows.map((p) => {
-        return `<div class="race-standing-row">
-          <div class="race-standing-left">
-            <div class="race-standing-name">${medal(p.rank)} #${p.rank} ${esc(displayNameFor(p, displayNames))}</div>
-            <div class="race-standing-meta">
-              Good ${n(p.goodHit,0)}
-              • Junk ${n(p.junkHit,0)}
-              • Miss ${n(p.miss,0)}
-              • Best ${n(p.bestStreak,0)}
-            </div>
-          </div>
-          <div class="race-standing-side">${n(p.score,0)} pts</div>
-        </div>`;
-      }).join('');
-    }
-
-    function saveRaceLastSummary(summary, rows, me, leader, rank, score){
-      try {
-        const displayNames = buildDisplayNameMap(rows);
-
-        const payload = {
-          gameId:'goodjunk',
-          game:'goodjunk',
-          mode:'race',
-          zone:'nutrition',
-          cat:'nutrition',
-          theme:'goodjunk',
-          title:'GoodJunk Race',
-          status: summary.partial ? 'partial' : 'complete',
-          score: Number(score || 0),
-          rank: Number(rank || 0),
-          winner: leader ? String(displayNameFor(leader, displayNames) || '') : '',
-          roomId: ctx.roomId,
-          matchId: summary.matchId || state.matchId || '',
-          pid: ctx.pid,
-          name: me ? displayNameFor(me, displayNames) : ctx.name,
-          rawName: ctx.name,
-          nick: ctx.nick,
-          goodHit: me ? Number(me.goodHit || 0) : Number(state.goodHit || 0),
-          junkHit: me ? Number(me.junkHit || 0) : Number(state.junkHit || 0),
-          miss: me ? Number(me.miss || 0) : Number(state.miss || 0),
-          bestStreak: me ? Number(me.bestStreak || 0) : Number(state.bestStreak || 0),
-          finishedPlayers: Number(summary.finishedPlayers || rows.length || 0),
-          expectedPlayers: Number(summary.expectedPlayers || state.expectedPlayers || ctx.maxPlayers || 0),
-          standings: rows.map((p) => ({
-            rank:Number(p.rank || 0),
-            pid:String(p.pid || ''),
-            name:String(displayNameFor(p, displayNames) || ''),
-            rawName:String(p.name || ''),
-            score:Number(p.score || 0),
-            goodHit:Number(p.goodHit || 0),
-            junkHit:Number(p.junkHit || 0),
-            miss:Number(p.miss || 0),
-            bestStreak:Number(p.bestStreak || 0)
-          })),
-          finishedAt: Date.now(),
-          ts: Date.now(),
-          pageUrl: location.href
-        };
-
-        localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(payload));
-        localStorage.setItem('HHA_LAST_SUMMARY_GOODJUNK_RACE', JSON.stringify(payload));
-        localStorage.setItem('HHA_GOODJUNK_LAST_SUMMARY', JSON.stringify(payload));
-
-        window.dispatchEvent(new CustomEvent('hha:last-summary-saved', { detail: payload }));
-      } catch (err) {
-        console.warn('[Race] save HHA_LAST_SUMMARY failed', err);
-      }
-    }
-
-    function showSummary(summary){
-      if (state.summaryShown && !(state.currentPartial && summary && !summary.partial)) return;
-
-      state.summaryShown = true;
-      state.currentPartial = !!summary.partial;
-      state.running = false;
-      state.ended = true;
-
-      try { cancelAnimationFrame(state.raf); } catch(_){}
-      hideWaitingResults();
-      hideCountdown();
-
-      const rows = Array.isArray(summary.standings) ? summary.standings : [];
-      const displayNames = buildDisplayNameMap(rows);
-
-      const me =
-        rows.find((p) => String(p.pid) === String(ctx.pid)) ||
-        summary.me ||
-        null;
-
-      const leader =
-        rows[0] ||
-        summary.leader ||
-        null;
-
-      const rank = me ? n(me.rank,0) : n(summary.rank,0);
-      const score = me ? n(me.score,0) : n(summary.score,state.score);
-
-      const meDisplayName = me ? displayNameFor(me, displayNames) : ctx.name;
-      const leaderDisplayName = leader ? displayNameFor(leader, displayNames) : 'รอข้อมูล';
-
-      saveRaceLastSummary(summary, rows, me, leader, rank, score);
-
-      const resultIcon =
-        rank === 1 ? '🏆' :
-        rank === 2 ? '🥈' :
-        rank === 3 ? '🥉' :
-        '⭐';
-
-      const resultMessage =
-        summary.partial
-          ? 'สรุปจากคะแนนที่ส่งเข้ามาก่อน'
-          : 'จัดอันดับครบจากคะแนนในห้องแล้ว';
-
-      ui.raceResultMount.innerHTML = `
-        <div class="race-result-card">
-          <div class="race-summary-kicker">GOODJUNK RACE • เก็บ Good / หลบ Junk</div>
-
-          <div style="text-align:center;display:grid;gap:10px;justify-items:center;">
-            <div style="
-              width:118px;
-              height:118px;
-              border-radius:34px;
-              border:5px solid #d7edf7;
-              background:linear-gradient(180deg,#fff8dc,#ffe8a3);
-              display:grid;
-              place-items:center;
-              font-size:62px;
-              box-shadow:0 16px 34px rgba(86,155,194,.16);
-            ">${resultIcon}</div>
-
-            <div class="race-result-title">${esc(titleFor(Object.assign({}, summary, { rank })))}</div>
-
-            <div class="race-result-sub">
-              ${esc(resultMessage)} • Race เป็นโหมดแข่งเก็บ Good และหลบ Junk เท่านั้น
-            </div>
-          </div>
-
-          <div class="race-top-grid">
-            <div class="race-top-card">
-              <div class="race-top-k">MY RANK</div>
-              <div class="race-top-score">${rank ? '#' + rank : '-'}</div>
-              <div class="race-top-name">${esc(meDisplayName)}</div>
-            </div>
-            <div class="race-top-card">
-              <div class="race-top-k">MY SCORE</div>
-              <div class="race-top-score">${score}</div>
-              <div class="race-top-name">คะแนนของฉัน</div>
-            </div>
-            <div class="race-top-card">
-              <div class="race-top-k">WINNER</div>
-              <div class="race-top-score">${leader ? medal(1) : '-'}</div>
-              <div class="race-top-name">${esc(leaderDisplayName)}</div>
-            </div>
-          </div>
-
-          <div class="race-stats-grid">
-            <div class="race-stat-card">
-              <div class="race-stat-k">Good ห้องรวม</div>
-              <div class="race-stat-v">${n(summary.total && summary.total.goodHit, state.goodHit)}</div>
-            </div>
-            <div class="race-stat-card">
-              <div class="race-stat-k">Junk ห้องรวม</div>
-              <div class="race-stat-v">${n(summary.total && summary.total.junkHit, state.junkHit)}</div>
-            </div>
-            <div class="race-stat-card">
-              <div class="race-stat-k">Miss ห้องรวม</div>
-              <div class="race-stat-v">${n(summary.total && summary.total.miss, state.miss)}</div>
-            </div>
-            <div class="race-stat-card">
-              <div class="race-stat-k">ผู้เล่นในห้อง</div>
-              <div class="race-stat-v">${n(summary.finishedPlayers, rows.length)}</div>
-            </div>
-          </div>
-
-          <div class="race-standings-card">
-            <div class="race-result-title" style="font-size:22px;margin-bottom:10px;">🏆 ตารางอันดับ Race</div>
-            <div class="race-standings-list">
-              ${renderStandings(rows, displayNames)}
-            </div>
-          </div>
-
-          <details class="race-debug-details">
-            <summary>🛠 ข้อมูลระบบสำหรับครู</summary>
-            <div class="race-debug">
-ห้อง: ${esc(ctx.roomId)}
-Match: ${esc(summary.matchId || state.matchId || '-')}
-PID: ${esc(ctx.pid)}
-ผู้เล่นที่ส่งผล: ${n(summary.finishedPlayers, rows.length)} / ${n(summary.expectedPlayers, state.expectedPlayers || ctx.maxPlayers)}
-สถานะ: ${summary.partial ? 'สรุปบางส่วน / รอผลบางเครื่องไม่ทัน' : 'สรุปครบตามผู้เล่นในห้อง'}
-            </div>
-          </details>
-
-          <div class="race-result-actions">
-            <a class="btn good" href="${esc(buildLobbyUrl())}">🔁 เล่น Race อีกครั้ง</a>
-            <a class="btn primary" href="${esc(ctx.hub || '../nutrition-zone.html')}">🏠 กลับโซนอาหาร</a>
-          </div>
-        </div>
+    function rankRow(p, rank, isMe){
+      const row = document.createElement('div');
+      row.className = 'rankRow' + (isMe ? ' me' : '');
+      row.innerHTML = `
+        <div>${rankIcon(rank)}</div>
+        <div class="rankName">${escapeHtml(p.name || 'Player')}</div>
+        <div class="rankScore">${Math.round(p.progress || 0)}% • ${Number(p.score || 0)}</div>
       `;
-
-      ui.raceResultMount.classList.add('show');
-
-      try {
-        window.dispatchEvent(new CustomEvent('hha:race-summary-ready', { detail: summary }));
-      } catch(_){}
+      return row;
     }
 
-    async function bootFirebase(){
-      try {
-        await firebaseReady();
-        await ensureRoom();
-        await ensureMatch();
-        listenFinalSummary();
-        listenLiveScores();
-        await pushLiveScore('ready');
-        showTip('เชื่อมต่อห้อง Race สำเร็จ แข่งได้เลย!');
-      } catch (err) {
-        console.warn('[Race] Firebase boot failed', err);
-        showTip('เชื่อมต่อห้องออนไลน์ไม่สำเร็จ เล่นแบบเครื่องนี้ก่อน');
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
+    }
+
+    async function writeSelf(extra={}, force=false){
+      if (!db) return;
+      if (ended && !force) return;
+
+      const payload = {
+        pid:state.pid,
+        name:state.name,
+        role:state.role,
+        view:state.view,
+        score:Number(state.score || 0),
+        progress:Number(clamp(state.progress,0,100)),
+        good:Number(state.good || 0),
+        junk:Number(state.junk || 0),
+        miss:Number(state.miss || 0),
+        combo:Number(state.combo || 0),
+        shield:Number(state.shield || 0),
+        sprintUntil:Number(state.sprintUntil || 0),
+        magnetUntil:Number(state.magnetUntil || 0),
+        rushUntil:Number(state.rushUntil || 0),
+        finished:!!state.finished,
+        updatedAt:now(),
+        lastSeenAt:now(),
+        ...extra
+      };
+
+      try{ await dbUpdate(playerPath(), payload); }
+      catch(err){ console.warn('[GJ Race] writeSelf failed', err); }
+    }
+
+    function syncRoom(room){
+      state.roomData = room || null;
+      if (!room) return;
+
+      state.raceType = normalizeRaceType(room.raceType || room.type || state.raceType);
+      state.capacity = Number(room.capacity || state.capacity || 4);
+      state.matchId = state.matchId || room.matchId || room.activeMatchId || '';
+
+      const finalSummary = room.finalSummary || null;
+      if (finalSummary && room.status === 'ended'){
+        renderFinalSummary(finalSummary);
+        return;
+      }
+
+      const me = getMe(room);
+      if (me && !finishing && !ended){
+        state.score = Number(me.score ?? state.score ?? 0);
+        state.progress = Number(me.progress ?? state.progress ?? 0);
+        state.good = Number(me.good ?? state.good ?? 0);
+        state.junk = Number(me.junk ?? state.junk ?? 0);
+        state.miss = Number(me.miss ?? state.miss ?? 0);
+        state.combo = Number(me.combo ?? state.combo ?? 0);
+        state.shield = Number(me.shield ?? state.shield ?? 0);
+        state.sprintUntil = Number(me.sprintUntil ?? state.sprintUntil ?? 0);
+        state.magnetUntil = Number(me.magnetUntil ?? state.magnetUntil ?? 0);
+        state.rushUntil = Number(me.rushUntil ?? state.rushUntil ?? 0);
+        state.finished = !!me.finished;
+      }
+
+      if (room.status === 'countdown' && countdownShownFor !== (room.activeMatchId || room.matchId || 'countdown')){
+        countdownShownFor = room.activeMatchId || room.matchId || 'countdown';
+        showCountdown(room.countdownAt || now());
+      }
+
+      updateHud();
+    }
+
+    function showCountdown(countdownAt){
+      const cd = $('countdown');
+      const num = $('countNum');
+      const sub = $('countSub');
+
+      cd.classList.add('show');
+
+      const start = Number(countdownAt || now());
+
+      function paint(){
+        const elapsed = Math.floor((now() - start) / 1000);
+        let val = 3 - elapsed;
+
+        if (val > 0){
+          num.textContent = String(val);
+          sub.textContent = 'เตรียมแข่ง!';
+          num.style.animation = 'none';
+          void num.offsetWidth;
+          num.style.animation = 'countPop .45s ease';
+          setTimeout(paint, 1000);
+        }else{
+          num.textContent = 'GO!';
+          sub.textContent = 'ไปเลย!';
+          num.style.animation = 'none';
+          void num.offsetWidth;
+          num.style.animation = 'countPop .45s ease';
+          setTimeout(() => cd.classList.remove('show'), 850);
+        }
+      }
+
+      paint();
+    }
+
+    function rand(min,max){ return min + Math.random() * (max - min); }
+
+    function pickType(){
+      const r = Math.random();
+
+      if (isMagnet()){
+        if (r < .82) return 'good';
+        if (r < .92) return 'boost';
+        return 'bad';
+      }
+
+      if (r < .68) return 'good';
+      if (r < .82) return 'bad';
+      return 'boost';
+    }
+
+    function pickBoostIcon(){
+      const r = Math.random();
+      if (r < .28) return '⚡';
+      if (r < .48) return '🛡️';
+      if (r < .68) return '🧲';
+      if (r < .86) return '🔥';
+      return '🍀';
+    }
+
+    function pickIcon(type){
+      if (type === 'good') return GOOD[Math.floor(Math.random()*GOOD.length)];
+      if (type === 'bad') return BAD[Math.floor(Math.random()*BAD.length)];
+      return pickBoostIcon();
+    }
+
+    function spawnTarget(forceType='', forcedIcon=''){
+      if (ended || finishing || state.finished) return;
+
+      const arena = $('arena');
+      const rect = arena.getBoundingClientRect();
+
+      if (rect.width < 80 || rect.height < 120) return;
+
+      const type = forceType || pickType();
+      const icon = forcedIcon || pickIcon(type);
+
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'target';
+      el.textContent = icon;
+      el.dataset.type = type;
+      el.dataset.icon = icon;
+
+      if (type === 'bad') el.classList.add('bad');
+      if (type === 'boost') {
+        el.classList.add('boost');
+        if (icon === '🛡️') el.classList.add('shield');
+        if (icon === '🧲') el.classList.add('magnetItem');
+        if (icon === '🍀') el.classList.add('clean');
+        if (icon === '🔥') el.classList.add('rush');
+      }
+
+      const mobile = /mobile|phone|android|iphone/i.test(state.view || navigator.userAgent);
+      const baseSize = mobile ? rect.width * .17 : rect.width * .07;
+      const size = Math.min(mobile ? 104 : 84, Math.max(mobile ? 76 : 58, baseSize));
+
+      const x = rand(8, Math.max(8, rect.width - size - 8));
+      const y = rand(8, Math.max(8, rect.height - size - 8));
+
+      el.style.width = `${size}px`;
+      el.style.height = `${size}px`;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.fontSize = `${Math.round(size * .54)}px`;
+      el.style.borderRadius = `${Math.round(size * .34)}px`;
+
+      let alive = true;
+      const ttl = type === 'bad' ? 1450 : type === 'boost' ? 1300 : 1650;
+
+      const timer = setTimeout(() => {
+        if (!alive || ended || finishing) return;
+        alive = false;
+        if (el.parentNode) el.remove();
+
+        if (type === 'good'){
+          state.miss++;
+          state.combo = 0;
+          state.progress = clamp(state.progress - .5, 0, 100);
+          writeSelf();
+          updateHud();
+        }
+      }, ttl);
+
+      function hit(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!alive || ended || finishing || state.finished) return;
+
+        alive = false;
+        clearTimeout(timer);
+        el.remove();
+
+        handleHit(type, icon, x + size/2, y + size/2);
+      }
+
+      el.addEventListener('pointerdown', hit, {passive:false});
+      arena.appendChild(el);
+    }
+
+    function handleHit(type, icon, x, y){
+      if (type === 'good'){
+        const rushMul = isRush() ? 1.5 : 1;
+        const sprintMul = isSprint() ? 1.35 : 1;
+
+        const scoreGain = Math.round((10 + Math.min(12,state.combo + 1)) * rushMul);
+        const progressGain = (2.2 + Math.min(1.8, state.combo * .08)) * sprintMul;
+
+        state.good++;
+        state.combo++;
+        state.score += scoreGain;
+        state.progress = clamp(state.progress + progressGain, 0, 100);
+
+        if (state.combo % 8 === 0){
+          state.score += 20;
+          state.progress = clamp(state.progress + 2, 0, 100);
+          showToast('🔥 Combo Bonus!');
+        }
+
+        pop(x,y,`+${scoreGain}`);
+      }else if (type === 'bad'){
+        if (state.shield > 0){
+          state.shield--;
+          pop(x,y,'🛡');
+          showToast('🛡 Shield กัน Junk!');
+        }else{
+          state.junk++;
+          state.combo = 0;
+          state.score = Math.max(0,state.score - 12);
+          state.progress = clamp(state.progress - 1.8, 0, 100);
+          pop(x,y,'-12');
+        }
+      }else if (type === 'boost'){
+        applyBoost(icon);
+        state.score += 5;
+        pop(x,y,icon);
+      }
+
+      if (state.progress >= 100 && !state.finished){
+        finishSelf('finish-line').catch(err => console.warn(err));
+      }else{
+        writeSelf();
+        updateHud();
       }
     }
 
-    async function startGame(){
-      state.running = false;
-      state.ended = false;
-      state.lastTs = 0;
-
-      ui.stageStatus.textContent = 'Countdown';
-      renderHud();
-
-      await runCountdown();
-
-      if (state.ended) return;
-
-      state.running = true;
-      state.lastTs = 0;
-      ui.stageStatus.textContent = 'Running';
-
-      await pushLiveScore('start');
-      state.raf = requestAnimationFrame(loop);
+    function applyBoost(icon){
+      if (icon === '⚡'){
+        state.sprintUntil = now() + 7000;
+        showToast('⚡ Sprint Boost!');
+      }else if (icon === '🛡️'){
+        state.shield = Math.min(3, state.shield + 1);
+        showToast('🛡 Safe Shield +1');
+      }else if (icon === '🧲'){
+        state.magnetUntil = now() + 6500;
+        showToast('🧲 Good Magnet!');
+      }else if (icon === '🔥'){
+        state.rushUntil = now() + 6500;
+        showToast('🔥 Combo Rush!');
+      }else if (icon === '🍀'){
+        state.miss = Math.max(0, state.miss - 1);
+        state.junk = Math.max(0, state.junk - 1);
+        state.progress = clamp(state.progress + 1.5, 0, 100);
+        showToast('🍀 Clean Run!');
+      }
     }
 
-    function boot(){
-      setupLinks();
-      ui.raceGoalValue.textContent = String(cfg.target);
-      renderHud();
-      showTip('พร้อมแข่ง! เก็บ Good ให้ไว อย่าแตะ Junk');
+    function pop(x,y,text){
+      const arena = $('arena');
+      const el = document.createElement('div');
+      el.className = 'pop';
+      el.textContent = text;
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      arena.appendChild(el);
+      setTimeout(() => { try{ el.remove(); }catch(_){} },700);
+    }
 
-      bootFirebase().finally(() => {
-        startGame().catch((err) => {
-          console.warn('[Race] startGame failed', err);
-          state.running = true;
-          state.lastTs = 0;
-          ui.stageStatus.textContent = 'Running';
-          state.raf = requestAnimationFrame(loop);
-        });
+    function clearTargets(){
+      document.querySelectorAll('.target,.pop').forEach(el => { try{ el.remove(); }catch(_){} });
+    }
+
+    async function finishSelf(reason='finish-line'){
+      if (state.finished || ended || finishing) return;
+
+      state.finished = true;
+      state.progress = 100;
+
+      await writeSelf({
+        finished:true,
+        finishReason:reason,
+        finishAt:now()
+      }, true);
+
+      showToast('🏁 เข้าเส้นชัยแล้ว! รอผลรวม...',2400);
+
+      if (isHostForRoom(state.roomData)){
+        setTimeout(() => maybeGlobalEnd(reason).catch(() => {}), 1200);
+      }
+    }
+
+    async function maybeGlobalEnd(reason='finish-line'){
+      if (ended || finishing) return;
+
+      const room = await dbGet(roomPath()).catch(() => state.roomData);
+      if (!room) return;
+
+      const players = playersArray(room);
+      const anyFinished = players.some(p => Number(p.progress || 0) >= 100 || p.finished);
+      const timeUp = state.timeLeft <= 0;
+
+      if (!anyFinished && !timeUp) return;
+
+      await globalEnd(anyFinished ? reason : 'time-up');
+    }
+
+    async function globalEnd(reason='time-up'){
+      if (ended || finishing) return;
+
+      finishing = true;
+
+      clearInterval(tickTimer);
+      clearInterval(spawnTimer);
+      clearInterval(syncTimer);
+      clearInterval(boostTimer);
+      clearTargets();
+
+      await writeSelf({
+        finished:state.finished || state.progress >= 100,
+        finishReason:state.progress >= 100 ? 'finish-line' : reason,
+        finishAt:state.progress >= 100 ? now() : null
+      }, true).catch(() => {});
+
+      const room = await dbGet(roomPath()).catch(() => state.roomData);
+      const players = playersArray(room || state.roomData);
+
+      const sorted = [...players].sort((a,b) => {
+        const bp = Number(b.progress || 0);
+        const ap = Number(a.progress || 0);
+        if (bp !== ap) return bp - ap;
+
+        const bf = Number(a.finishAt || 9999999999999);
+        const af = Number(b.finishAt || 9999999999999);
+        if (bf !== af) return bf - af;
+
+        const bs = Number(b.score || 0);
+        const as = Number(a.score || 0);
+        if (bs !== as) return bs - as;
+
+        return Number(a.miss || 0) - Number(b.miss || 0);
       });
 
-      window.addEventListener('beforeunload', () => {
-        try {
-          if (typeof state.liveUnsub === 'function') state.liveUnsub();
-        } catch (_) {}
+      const summary = {
+        matchId:state.matchId || room?.matchId || room?.activeMatchId || '',
+        roomId:state.room,
+        mode:'race',
+        raceType:state.raceType,
+        capacity:state.capacity,
+        reason,
+        endedAt:now(),
+        top3:sorted.slice(0,3),
+        players:Object.fromEntries(sorted.map((p,idx) => [safeKey(p.pid), {...p, finalRank:idx+1}]))
+      };
 
-        try {
-          if (state.db) {
-            state.db.ref(playerPath()).update({
-              online:false,
-              inRuntime:false,
-              lastSeen:now()
-            });
+      try{
+        const latest = await dbGet(roomPath()).catch(() => null);
+        if (!latest?.finalSummary){
+          await dbUpdate(roomPath(),{
+            status:'ended',
+            endedAt:now(),
+            endReason:reason,
+            finalSummary:summary,
+            updatedAt:now()
+          });
+        }
+      }catch(err){
+        console.warn('[GJ Race] globalEnd write failed', err);
+      }
+
+      finishing = false;
+      renderFinalSummary(summary);
+    }
+
+    function renderFinalSummary(summary){
+      if (!summary) return;
+      if (ended && $('overlay').classList.contains('show')) return;
+
+      ended = true;
+      finishing = false;
+
+      clearInterval(tickTimer);
+      clearInterval(spawnTimer);
+      clearInterval(syncTimer);
+      clearInterval(boostTimer);
+      clearTargets();
+
+      const players = Object.values(summary.players || {}).sort((a,b) => Number(a.finalRank || 999) - Number(b.finalRank || 999));
+      const top3 = players.slice(0,3);
+      const me = players.find(p => p.pid === state.pid);
+      const meRank = me ? Number(me.finalRank || 0) : 0;
+
+      $('finalReason').textContent = `เหตุผล: ${summary.reason || 'ended'} • ${summary.raceType || state.raceType}`;
+
+      const podium = $('podium');
+      podium.innerHTML = '';
+
+      top3.forEach((p,idx) => {
+        const rank = idx + 1;
+        const row = document.createElement('div');
+        row.className = 'podiumRow' + (rank === 1 ? ' first' : '') + (p.pid === state.pid ? ' me' : '');
+        row.innerHTML = `
+          <div>${rankIcon(rank)}</div>
+          <div>
+            <div>${escapeHtml(p.name || 'Player')}</div>
+            <div style="font-size:12px;color:#5c7b8d;margin-top:3px;">Good ${p.good || 0} • Junk ${p.junk || 0} • Miss ${p.miss || 0}</div>
+          </div>
+          <div>${Math.round(p.progress || 0)}% • ${Number(p.score || 0)} pts</div>
+        `;
+        podium.appendChild(row);
+      });
+
+      if (!top3.length){
+        podium.innerHTML = '<div class="podiumRow">ยังไม่มีข้อมูลอันดับ</div>';
+      }
+
+      const your = $('yourRank');
+      if (me){
+        const accuracy = calcAccuracy(me);
+        your.innerHTML = `
+          อันดับของคุณ: #${meRank} • ${Math.round(me.progress || 0)}% • ${Number(me.score || 0)} pts<br>
+          Good: ${me.good || 0} • Junk: ${me.junk || 0} • Miss: ${me.miss || 0} • Accuracy: ${accuracy}%
+        `;
+      }else{
+        your.textContent = 'ไม่พบข้อมูลอันดับของคุณ';
+      }
+
+      renderBadges(players, me);
+
+      $('overlay').classList.add('show');
+      hydrateLinks();
+    }
+
+    function calcAccuracy(p){
+      const good = Number(p.good || 0);
+      const junk = Number(p.junk || 0);
+      const miss = Number(p.miss || 0);
+      const total = good + junk + miss;
+      if (!total) return 0;
+      return Math.round((good / total) * 100);
+    }
+
+    function renderBadges(players, me){
+      const wrap = $('badgeGrid');
+      wrap.innerHTML = '';
+
+      if (!me) return;
+
+      const badges = [];
+
+      if (Number(me.finalRank || 99) === 1) badges.push(['🏆','Speed Hero','อันดับ 1']);
+      if (Number(me.junk || 0) === 0) badges.push(['🛡','Safe Runner','ไม่แตะ Junk']);
+      if (calcAccuracy(me) >= 85) badges.push(['🎯','Accuracy Star',`${calcAccuracy(me)}%`]);
+
+      const bestGood = Math.max(...players.map(p => Number(p.good || 0)), 0);
+      if (Number(me.good || 0) === bestGood && bestGood > 0) badges.push(['🍎','Clean Collector','Good มากสุด']);
+
+      if (badges.length === 0) badges.push(['💪','Keep Racing','ลองใหม่อีกครั้ง']);
+
+      badges.slice(0,6).forEach(([ico,title,sub]) => {
+        const div = document.createElement('div');
+        div.className = 'badge';
+        div.innerHTML = `<div style="font-size:24px;">${ico}</div><div>${title}</div><div style="color:#5c7b8d;margin-top:3px;">${sub}</div>`;
+        wrap.appendChild(div);
+      });
+    }
+
+    function startGameLoop(){
+      if (ended || finishing) return;
+
+      const room = state.roomData || {};
+      const startedAt = room.startedAt || now();
+      state.startedAt = Number(startedAt);
+
+      tickTimer = setInterval(() => {
+        if (ended || finishing) return;
+
+        const elapsed = Math.floor((now() - state.startedAt) / 1000);
+        state.timeLeft = Math.max(0,state.timeTotal - elapsed);
+
+        updateHud();
+
+        if (state.timeLeft <= 0){
+          if (isHostForRoom(state.roomData)) {
+            globalEnd('time-up').catch(err => console.warn(err));
+          }else{
+            writeSelf();
           }
-        } catch(_){}
-      });
+        }
+      },250);
+
+      spawnTimer = setInterval(() => {
+        if (ended || finishing || state.finished) return;
+
+        const existing = document.querySelectorAll('.target').length;
+        const maxTargets = state.raceType === 'classroom' ? 10 : 8;
+
+        if (existing < maxTargets){
+          spawnTarget();
+          if (Math.random() < (isMagnet() ? .70 : .45)) spawnTarget();
+        }
+      }, state.raceType === 'classroom' ? 500 : 470);
+
+      syncTimer = setInterval(() => {
+        if (!ended && !finishing) writeSelf();
+      },900);
+
+      boostTimer = setInterval(updateHud, 500);
+
+      for(let i=0;i<8;i++){
+        setTimeout(spawnTarget, i * 130);
+      }
     }
+
+    async function ensureJoined(){
+      const room = await dbGet(roomPath()).catch(() => null);
+      if (!room) throw new Error('Room not found');
+
+      state.roomData = room;
+      state.matchId = state.matchId || room.matchId || room.activeMatchId || '';
+      state.raceType = normalizeRaceType(room.raceType || room.type || state.raceType);
+      state.capacity = Number(room.capacity || state.capacity || 4);
+      state.timeTotal = Number(room.timeSec || state.timeTotal || 90);
+      state.timeLeft = state.timeTotal;
+
+      if (room.finalSummary){
+        renderFinalSummary(room.finalSummary);
+        return;
+      }
+
+      const me = getMe(room);
+
+      if (!me){
+        await dbUpdate(playerPath(),{
+          pid:state.pid,
+          name:state.name,
+          role:state.role,
+          view:state.view,
+          ready:true,
+          score:0,
+          progress:0,
+          good:0,
+          junk:0,
+          miss:0,
+          combo:0,
+          shield:0,
+          finished:false,
+          joinedAt:now(),
+          updatedAt:now(),
+          lastSeenAt:now()
+        });
+      }else{
+        await dbUpdate(playerPath(),{
+          view:state.view,
+          updatedAt:now(),
+          lastSeenAt:now()
+        }).catch(() => {});
+      }
+
+      const fresh = await dbGet(roomPath()).catch(() => room);
+      syncRoom(fresh);
+    }
+
+    async function boot(){
+      hydrateLinks();
+      updateHud();
+
+      try{
+        await firebaseReady();
+        await ensureJoined();
+        unsub = dbOn(roomPath(), syncRoom);
+
+        if (!ended) startGameLoop();
+      }catch(err){
+        console.error('[GJ Race] boot failed', err);
+        showToast('โหลด Race ไม่สำเร็จ: ' + (err?.message || err),3600);
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      try{ writeSelf({lastSeenAt:now()}, true); }catch(_){}
+    });
 
     boot();
-  })();
-  </script>
-
-  <script>
-  (function raceSummaryNoBossTextGuardSafe(){
-    'use strict';
-
-    const BAD_WORDS = [
-      ['Boss Adventure', 'Race Challenge'],
-      ['Junk King', 'Junk'],
-      ['Rage Finale', 'Race Finale'],
-      ['Phase A', 'รอบแข่ง'],
-      ['Phase B', 'รอบแข่ง'],
-      ['โค่น Junk King', 'เก็บ Good และหลบ Junk'],
-      ['ชนะ Rage Finale', 'แข่งจบแล้ว'],
-      ['ด่านสุดท้าย', 'รอบแข่ง']
-    ];
-
-    let busy = false;
-    let rafId = 0;
-
-    function cleanText(s){
-      let out = String(s || '');
-      BAD_WORDS.forEach(([bad, good]) => {
-        out = out.split(bad).join(good);
-      });
-      return out;
-    }
-
-    function cleanLeafTextNodes(root){
-      if (!root) return;
-
-      const walker = document.createTreeWalker(
-        root,
-        NodeFilter.SHOW_TEXT,
-        {
-          acceptNode(node){
-            const parent = node.parentElement;
-            if (!parent) return NodeFilter.FILTER_REJECT;
-
-            const tag = parent.tagName ? parent.tagName.toLowerCase() : '';
-            if (tag === 'script' || tag === 'style' || tag === 'textarea') {
-              return NodeFilter.FILTER_REJECT;
-            }
-
-            const text = node.nodeValue || '';
-            if (!text.trim()) return NodeFilter.FILTER_REJECT;
-
-            const hasBad = BAD_WORDS.some(([bad]) => text.includes(bad));
-            return hasBad ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
-          }
-        }
-      );
-
-      const nodes = [];
-      let node;
-      while ((node = walker.nextNode())) nodes.push(node);
-
-      nodes.forEach((textNode) => {
-        const next = cleanText(textNode.nodeValue || '');
-        if (textNode.nodeValue !== next) textNode.nodeValue = next;
-      });
-    }
-
-    function rewriteSummaryOnly(){
-      if (busy) return;
-      busy = true;
-
-      try {
-        const sp = new URLSearchParams(location.search);
-        if (sp.get('mode') !== 'race') return;
-
-        const mount = document.getElementById('raceResultMount');
-        if (!mount || !mount.classList.contains('show')) return;
-
-        cleanLeafTextNodes(mount);
-      } finally {
-        busy = false;
-      }
-    }
-
-    function scheduleRewrite(){
-      if (rafId) return;
-      rafId = requestAnimationFrame(() => {
-        rafId = 0;
-        rewriteSummaryOnly();
-      });
-    }
-
-    window.addEventListener('hha:race-summary-ready', scheduleRewrite);
-    window.addEventListener('hha:summary-ready', scheduleRewrite);
-
-    const mount = document.getElementById('raceResultMount');
-    if (mount) {
-      const obs = new MutationObserver(scheduleRewrite);
-      obs.observe(mount, {
-        childList:true,
-        subtree:true,
-        characterData:true
-      });
-    }
   })();
   </script>
 </body>
