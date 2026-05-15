@@ -4758,3 +4758,249 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260514-hydration-3view-cvr-shoot-pack13
+   PC / Mobile / Cardboard cVR view lock + hha:shoot support
+   Append at end of /herohealth/hydration-vr/hydration-vr.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260514-hydration-3view-cvr-shoot-pack13';
+
+  function getUrl(){
+    try{ return new URL(location.href); }
+    catch(e){ return new URL('./hydration-vr.html', location.origin); }
+  }
+
+  function getView(){
+    try{
+      var v = getUrl().searchParams.get('view') || document.body.dataset.view || 'mobile';
+      return ['pc','mobile','cvr'].includes(v) ? v : 'mobile';
+    }catch(e){
+      return 'mobile';
+    }
+  }
+
+  function q(sel, root){
+    try{ return (root || document).querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel, root){
+    try{ return Array.from((root || document).querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function setViewClass(){
+    var view = getView();
+    document.body.dataset.view = view;
+    document.body.classList.remove('hha-view-pc','hha-view-mobile','hha-view-cvr');
+    document.body.classList.add('hha-view-' + view);
+
+    if(view === 'cvr'){
+      document.body.classList.add('hha-cardboard-ready');
+    }
+  }
+
+  function ensureFallbackCrosshair(){
+    if(getView() !== 'cvr') return;
+
+    var old = document.getElementById('hha-cvr-fallback-crosshair');
+    if(old) return;
+
+    var c = document.createElement('div');
+    c.id = 'hha-cvr-fallback-crosshair';
+    c.className = 'hha-cvr-fallback-crosshair';
+    c.innerHTML = '<i></i>';
+    document.body.appendChild(c);
+  }
+
+  function centerPoint(){
+    return {
+      x: Math.round((window.innerWidth || document.documentElement.clientWidth || 0) / 2),
+      y: Math.round((window.innerHeight || document.documentElement.clientHeight || 0) / 2)
+    };
+  }
+
+  function rectCenterDistance(rect, x, y){
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var dx = cx - x;
+    var dy = cy - y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function findTargetAtCenter(){
+    var p = centerPoint();
+    var targets = qa('.hha-hydration-target')
+      .filter(function(t){
+        if(!t || !t.isConnected) return false;
+        var r = t.getBoundingClientRect();
+        if(r.width <= 0 || r.height <= 0) return false;
+
+        /*
+          cVR aim assist:
+          เล็งใกล้เป้าก็ยิงได้ เพื่อไม่ให้เด็กต้องเล็งเป๊ะเกินไป
+        */
+        var pad = 28;
+        var inside =
+          p.x >= r.left - pad &&
+          p.x <= r.right + pad &&
+          p.y >= r.top - pad &&
+          p.y <= r.bottom + pad;
+
+        return inside;
+      })
+      .sort(function(a,b){
+        return rectCenterDistance(a.getBoundingClientRect(), p.x, p.y) -
+               rectCenterDistance(b.getBoundingClientRect(), p.x, p.y);
+      });
+
+    return targets[0] || null;
+  }
+
+  function fireClick(target){
+    if(!target) return false;
+
+    try{
+      target.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles:true,
+        cancelable:true,
+        pointerType:'mouse'
+      }));
+    }catch(e){}
+
+    try{
+      target.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles:true,
+        cancelable:true
+      }));
+    }catch(e){}
+
+    try{
+      target.click();
+      return true;
+    }catch(e){
+      try{
+        target.dispatchEvent(new MouseEvent('click', {
+          bubbles:true,
+          cancelable:true
+        }));
+        return true;
+      }catch(_){}
+    }
+
+    return false;
+  }
+
+  function shootCenter(){
+    if(getView() !== 'cvr') return false;
+
+    var target = findTargetAtCenter();
+
+    if(target){
+      target.dataset.hhaCvrShot = PATCH;
+      return fireClick(target);
+    }
+
+    return false;
+  }
+
+  function onHhaShoot(ev){
+    try{
+      if(getView() !== 'cvr') return;
+
+      var ok = shootCenter();
+
+      if(!ok && ev && ev.detail && ev.detail.target){
+        fireClick(ev.detail.target);
+      }
+    }catch(e){}
+  }
+
+  function bindTapFallback(){
+    /*
+      ใช้เฉพาะ cVR: แตะจอ = ยิงจาก crosshair กลางจอ
+      ไม่ใช้ elementFromPoint เพราะเป้าบางครั้ง animate/transform
+    */
+    document.addEventListener('click', function(ev){
+      if(getView() !== 'cvr') return;
+
+      var t = ev.target;
+      if(t && t.closest && t.closest('button, a, input, select, textarea, .hha-control-btn')){
+        return;
+      }
+
+      var ok = shootCenter();
+      if(ok){
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    }, true);
+
+    document.addEventListener('touchend', function(ev){
+      if(getView() !== 'cvr') return;
+
+      var t = ev.target;
+      if(t && t.closest && t.closest('button, a, input, select, textarea, .hha-control-btn')){
+        return;
+      }
+
+      shootCenter();
+    }, { passive:true, capture:true });
+  }
+
+  function markCvrTargets(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    qa('.hha-hydration-target', playfield).forEach(function(t){
+      t.dataset.hhaViewReady = PATCH;
+    });
+
+    var mo = new MutationObserver(function(records){
+      records.forEach(function(record){
+        Array.from(record.addedNodes || []).forEach(function(node){
+          if(!node || node.nodeType !== 1) return;
+
+          if(node.classList && node.classList.contains('hha-hydration-target')){
+            node.dataset.hhaViewReady = PATCH;
+          }
+
+          if(node.querySelectorAll){
+            node.querySelectorAll('.hha-hydration-target').forEach(function(t){
+              t.dataset.hhaViewReady = PATCH;
+            });
+          }
+        });
+      });
+    });
+
+    mo.observe(playfield, { childList:true, subtree:true });
+  }
+
+  function boot(){
+    setViewClass();
+    ensureFallbackCrosshair();
+    bindTapFallback();
+    markCvrTargets();
+
+    window.addEventListener('hha:shoot', onHhaShoot);
+    document.addEventListener('hha:shoot', onHhaShoot);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationViewLock = {
+      version: PATCH,
+      view: getView,
+      shootCenter: shootCenter
+    };
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
