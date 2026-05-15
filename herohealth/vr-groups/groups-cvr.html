@@ -27,9 +27,7 @@
       --safe-bottom:env(safe-area-inset-bottom,0px);
     }
 
-    *{
-      box-sizing:border-box;
-    }
+    *{ box-sizing:border-box; }
 
     html,body{
       margin:0;
@@ -63,9 +61,7 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    .screen.active{
-      display:block;
-    }
+    .screen.active{ display:block; }
 
     .card{
       width:min(820px,100%);
@@ -185,9 +181,7 @@
       pointer-events:none;
     }
 
-    body.playing .hud{
-      display:grid;
-    }
+    body.playing .hud{ display:grid; }
 
     .mission-card{
       min-width:0;
@@ -263,9 +257,7 @@
       pointer-events:none;
     }
 
-    body.playing .bottom-hint{
-      display:block;
-    }
+    body.playing .bottom-hint{ display:block; }
 
     .center-toast{
       position:fixed;
@@ -307,9 +299,7 @@
       background:radial-gradient(circle at 50% 44%,rgba(255,255,255,.94),rgba(255,255,255,.2) 54%);
     }
 
-    .countdown.active{
-      display:grid;
-    }
+    .countdown.active{ display:grid; }
 
     .count-card{
       width:min(380px,86vw);
@@ -401,13 +391,8 @@
     }
 
     @media (max-width:480px){
-      .howto{
-        grid-template-columns:1fr;
-      }
-
-      .summary-stats{
-        grid-template-columns:1fr 1fr;
-      }
+      .howto{ grid-template-columns:1fr; }
+      .summary-stats{ grid-template-columns:1fr 1fr; }
     }
   </style>
 </head>
@@ -566,7 +551,7 @@
     (function(){
       'use strict';
 
-      const VERSION = 'v1.8b-cvr-core-direct-api-20260515';
+      const VERSION = 'v1.8c-cvr-core-direct-api-20260515';
 
       const GROUPS = [
         {id:1,key:'protein',label:'โปรตีน',short:'PROTEIN',icon:'🐟',color:'#ff8e82',foods:['🐟','🥚','🍗','🥩','🫘','🥛']},
@@ -599,17 +584,14 @@
         zoneIntroBtn:$('zoneIntroBtn'),
         replayBtn:$('replayBtn'),
         zoneBtn:$('zoneBtn'),
-
         scene:$('scene'),
         camera:$('camera'),
         gateRoot:$('gateRoot'),
         itemRoot:$('itemRoot'),
         fxRoot:$('fxRoot'),
-
         countdown:$('countdown'),
         countMain:$('countMain'),
         countTip:$('countTip'),
-
         missionTitle:$('missionTitle'),
         missionSub:$('missionSub'),
         scoreChip:$('scoreChip'),
@@ -617,7 +599,6 @@
         heartChip:$('heartChip'),
         bottomHint:$('bottomHint'),
         toast:$('toast'),
-
         summaryIcon:$('summaryIcon'),
         rankText:$('rankText'),
         scoreText:$('scoreText'),
@@ -635,37 +616,30 @@
         startedAt:0,
         ended:false,
         rng:null,
-
         current:null,
         itemEl:null,
         itemY:2.45,
         itemSpeed:.32,
-
         score:0,
         correct:0,
         miss:0,
         combo:0,
         bestCombo:0,
         hearts:3,
-
         fever:0,
         feverActive:false,
         feverUntil:0,
         feverCount:0,
-
         shield:0,
         slowUntil:0,
-
         wave:1,
         phase:'calm',
-
         decoyDodged:0,
         goldenHit:0,
         bossCorrect:0,
         missionClear:0,
         powerUsed:{shield:0,slow:0},
         groupHits:{protein:0,carb:0,veg:0,fruit:0,fat:0},
-
         mission:null,
         raf:0,
         timer:null,
@@ -746,6 +720,7 @@
         if(hub && hub.includes('nutrition-zone.html')) return hub;
 
         const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
+
         ['pid','name','diff','time','view','seed','studyId','conditionGroup'].forEach(k=>{
           const v = qs(k,'');
           if(v) u.searchParams.set(k,v);
@@ -906,7 +881,11 @@
           el.dataset.group = g.key;
           el.dataset.id = String(g.id);
 
-          el.addEventListener('click',()=>judgeGate(g.key));
+          el.addEventListener('click',ev=>{
+            ev.preventDefault();
+            ev.stopPropagation();
+          });
+
           el.addEventListener('mouseenter',()=>el.setAttribute('scale','1.08 1.08 1.08'));
           el.addEventListener('mouseleave',()=>el.setAttribute('scale','1 1 1'));
 
@@ -1188,7 +1167,10 @@
         if(item.kind === 'golden') el.dataset.kind = 'golden';
         if(item.kind === 'food') el.dataset.kind = 'food';
 
-        el.addEventListener('click',()=>handleItemShot());
+        el.addEventListener('click',ev=>{
+          ev.preventDefault();
+          ev.stopPropagation();
+        });
 
         els.itemRoot.appendChild(el);
         setTexture(el,itemTexture(item),true);
@@ -1474,28 +1456,6 @@
         }
       }
 
-      function closestClickableFromObject(obj){
-        let cur = obj;
-
-        while(cur){
-          if(cur.el && cur.el.classList && cur.el.classList.contains('clickable')){
-            return cur.el;
-          }
-
-          if(cur.el && cur.el.parentElement){
-            let p = cur.el.parentElement;
-            while(p && p !== document.body){
-              if(p.classList && p.classList.contains('clickable')) return p;
-              p = p.parentElement;
-            }
-          }
-
-          cur = cur.parent;
-        }
-
-        return null;
-      }
-
       function directShootTargetElement(target){
         if(!target || state.ended || state.mode !== 'game' || state.spawnLock) return false;
 
@@ -1516,52 +1476,6 @@
       }
 
       function raycastShoot(){
-        if(state.mode !== 'game' || state.ended || state.spawnLock) return false;
-
-        const now = Date.now();
-        if(now - state.lastShotAt < 170) return false;
-        state.lastShotAt = now;
-
-        unlockAudio();
-
-        const camEl = els.camera;
-        const cam = camEl && camEl.object3D;
-        if(!cam) return false;
-
-        const origin = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-
-        cam.getWorldPosition(origin);
-        cam.getWorldDirection(direction);
-
-        const clickableEls = Array.from(document.querySelectorAll('.clickable'));
-        const objects = clickableEls
-          .map(el=>el.object3D || el.getObject3D('mesh'))
-          .filter(Boolean);
-
-        if(!objects.length){
-          toast('ยังไม่มีเป้าหมาย');
-          return false;
-        }
-
-        const raycaster = new THREE.Raycaster(origin,direction,0,18);
-        const hits = raycaster.intersectObjects(objects,true);
-
-        if(!hits.length){
-          toast('เล็งเป้าหมายก่อน');
-          vibrate(12);
-          return false;
-        }
-
-        const targetEl = closestClickableFromObject(hits[0].object);
-        const ok = directShootTargetElement(targetEl);
-
-        if(ok){
-          vibrate(18);
-          return true;
-        }
-
-        toast('ยังยิงไม่เข้าเป้า');
         return false;
       }
 
@@ -1713,19 +1627,10 @@
         els.replayBtn.addEventListener('click',replay);
         els.zoneBtn.addEventListener('click',goZone);
 
-        document.addEventListener('hha:shoot',raycastShoot);
-        window.addEventListener('hha:shoot',raycastShoot);
-
-        els.scene.addEventListener('click',ev=>{
-          if(ev.target && ev.target.classList && ev.target.classList.contains('clickable')) return;
-          raycastShoot();
-        });
-
         document.addEventListener('pointerdown',unlockAudio,{once:true,passive:true});
 
         window.HHA_GROUPS_CVR_V1 = {
           version: VERSION,
-
           shoot: raycastShoot,
 
           directGate: function(groupKey){
@@ -1778,12 +1683,11 @@
     })();
   </script>
 
-  <!-- ไม่โหลด v11 และ v17 แล้ว เพื่อไม่ให้ระบบยิงชนกัน -->
   <script src="./groups-cvr-aim-assist-v12.js?v=20260515-groups-cvr-v12-aim-assist"></script>
   <script src="./groups-cvr-comfort-v13.js?v=20260515-groups-cvr-v13-comfort"></script>
   <script src="./groups-cvr-event-boss-v14.js?v=20260515-groups-cvr-v14-event-boss"></script>
   <script src="./groups-cvr-replay-metrics-v15.js?v=20260515-groups-cvr-v15-replay-metrics"></script>
   <script src="./groups-cvr-final-guard-v16.js?v=20260515-groups-cvr-v16-final-guard"></script>
-  <script src="./groups-cvr-direct-shoot-v18.js?v=20260515-groups-cvr-v18b-direct-shoot-stable"></script>
+  <script src="./groups-cvr-direct-shoot-v18.js?v=20260515-groups-cvr-v18c-direct-shoot-lock-target"></script>
 </body>
 </html>
