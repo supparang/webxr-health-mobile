@@ -450,13 +450,8 @@
     const needId = currentGroupId();
     const needLabel = currentGroupLabel();
 
-    if (!item) {
-      return 'รออาหารตัวถัดไป';
-    }
-
-    if (!target) {
-      return 'เล็งเป้าหมายก่อน';
-    }
+    if (!item) return 'รออาหารตัวถัดไป';
+    if (!target) return 'เล็งเป้าหมายก่อน';
 
     const ds = target.dataset || {};
 
@@ -486,10 +481,6 @@
     const ds = target.dataset || {};
     const kind = item.kind;
 
-    /*
-      สำคัญ: cVR จะไม่หักหัวใจจากการยิงผิดเป้า/ผิดหมู่
-      เพื่อกันจบเกมเร็วเพราะ crosshair มือถือ/หัวไม่นิ่ง
-    */
     if ((kind === 'food' || kind === 'golden') && ds.role === 'item') return true;
     if ((kind === 'food' || kind === 'golden') && ds.role === 'gate' && ds.group !== item.group.key) return true;
     if (kind === 'power' && ds.role !== 'item') return true;
