@@ -1,12 +1,12 @@
 /* =========================================================
    /vocab/vocab.ui.js
    TechPath Vocab Arena — UI Controller
-   FULL CLEAN PATCH: v20260504b
+   FULL CLEAN PATCH: v20260504a
 
-   Important:
-   - UI renders screens/HUD/questions/leaderboard only
+   Critical fix:
    - UI does NOT check answers
-   - UI does NOT bind global answer capture
+   - UI does NOT capture choice clicks
+   - UI only renders buttons
    - VocabGame is the only answer owner
 ========================================================= */
 
@@ -15,37 +15,24 @@
 
   const WIN = window;
   const DOC = document;
-  const VERSION = "vocab-ui-v20260504b";
+  const VERSION = "vocab-ui-v20260504a";
 
-  let UI_BOUND = false;
   let audioCtx = null;
-
-  /* =========================================================
-     HELPERS
-  ========================================================= */
 
   function $(id){
     return DOC.getElementById(id);
-  }
-
-  function qs(sel, root){
-    return (root || DOC).querySelector(sel);
   }
 
   function qsa(sel, root){
     return Array.from((root || DOC).querySelectorAll(sel));
   }
 
-  function log(){
-    try{
-      console.log.apply(console, ["[VOCAB UI]"].concat(Array.from(arguments)));
-    }catch(e){}
+  function qs(sel, root){
+    return (root || DOC).querySelector(sel);
   }
 
-  function warn(){
-    try{
-      console.warn.apply(console, ["[VOCAB UI]"].concat(Array.from(arguments)));
-    }catch(e){}
+  function clean(s){
+    return String(s ?? "").trim();
   }
 
   function esc(s){
@@ -57,16 +44,10 @@
       .replaceAll("'", "&#39;");
   }
 
-  function clean(s){
-    return String(s ?? "").trim();
-  }
-
   function pick(){
     for(let i = 0; i < arguments.length; i++){
       const v = arguments[i];
-      if(v !== undefined && v !== null && v !== ""){
-        return v;
-      }
+      if(v !== undefined && v !== null && v !== "") return v;
     }
     return "";
   }
@@ -76,60 +57,29 @@
     return Number.isFinite(n) ? n : Number(fallback || 0);
   }
 
-  function int(v, fallback){
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) ? n : Number(fallback || 0);
-  }
-
-  function readJson(key, fallback){
-    try{
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    }catch(e){
-      return fallback;
-    }
-  }
-
-  function writeJson(key, value){
-    try{
-      localStorage.setItem(key, JSON.stringify(value));
-      return true;
-    }catch(e){
-      return false;
-    }
-  }
-
-  function show(idOrEl){
-    const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-    if(el) el.hidden = false;
-  }
-
-  function hide(idOrEl){
-    const el = typeof idOrEl === "string" ? $(idOrEl) : idOrEl;
-    if(el) el.hidden = true;
-  }
-
-  function setText(id, value){
-    const el = $(id);
-    if(el) el.textContent = String(value ?? "");
-  }
-
-  function setHtml(id, value){
-    const el = $(id);
-    if(el) el.innerHTML = String(value ?? "");
-  }
-
-  function getParam(name, fallback){
-    try{
-      return new URLSearchParams(location.search).get(name) || fallback || "";
-    }catch(e){
-      return fallback || "";
-    }
+  function norm(s){
+    return clean(s).toLowerCase().replace(/\s+/g, " ");
   }
 
   function getApp(){
     WIN.VOCAB_APP = WIN.VOCAB_APP || {};
     return WIN.VOCAB_APP;
+  }
+
+  function getState(){
+    try{
+      if(WIN.VocabGame && typeof WIN.VocabGame.getState === "function"){
+        return WIN.VocabGame.getState() || {};
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.get === "function"){
+        return WIN.VocabState.get() || {};
+      }
+    }catch(e){}
+
+    return getApp();
   }
 
   function patchState(update){
@@ -146,60 +96,114 @@
     }catch(e){}
   }
 
-  function getState(){
-    let s = {};
-
-    try{
-      if(WIN.VocabState && typeof WIN.VocabState.get === "function"){
-        s = WIN.VocabState.get() || {};
-      }else if(WIN.VocabState && WIN.VocabState.state){
-        s = WIN.VocabState.state || {};
-      }
-    }catch(e){}
-
-    return Object.assign({}, getApp(), s);
-  }
-
-  function selectedBank(){
-    const active = qs("[data-vocab-bank].active");
-    return clean(pick(
-      active && active.dataset ? active.dataset.vocabBank : "",
-      getState().bank,
-      getParam("bank"),
-      "A"
-    )).toUpperCase();
-  }
-
-  function selectedDifficulty(){
-    const active = qs("[data-vocab-diff].active");
-    return clean(pick(
-      active && active.dataset ? active.dataset.vocabDiff : "",
-      getState().difficulty,
-      getState().diff,
-      getParam("diff"),
-      "easy"
-    )).toLowerCase();
-  }
-
-  function selectedMode(){
-    const active = qs("[data-vocab-mode].active");
-    return clean(pick(
-      active && active.dataset ? active.dataset.vocabMode : "",
-      getState().mode,
-      getParam("mode"),
-      "learn"
-    )).toLowerCase();
-  }
-
   /* =========================================================
-     CSS ALIAS / FX CSS
+     CSS / CLASS COMPAT
   ========================================================= */
+
+  function ensureCss(){
+    if($("vocabUiFinalCss")) return;
+
+    const style = DOC.createElement("style");
+    style.id = "vocabUiFinalCss";
+    style.textContent = `
+      .vocab-choice.correct,
+      .v6-choice.correct{
+        background:rgba(68,223,147,.32)!important;
+        border-color:rgba(68,223,147,.96)!important;
+        box-shadow:0 0 0 4px rgba(68,223,147,.18),0 18px 44px rgba(68,223,147,.20)!important;
+      }
+
+      .vocab-choice.wrong,
+      .v6-choice.wrong{
+        background:rgba(255,110,135,.30)!important;
+        border-color:rgba(255,110,135,.96)!important;
+        box-shadow:0 0 0 4px rgba(255,110,135,.15),0 18px 44px rgba(255,110,135,.18)!important;
+      }
+
+      .vocab-choice.locked,
+      .v6-choice.locked{
+        pointer-events:none!important;
+      }
+
+      .vocab-pop-final{
+        position:fixed;
+        z-index:999999;
+        left:50%;
+        top:42%;
+        transform:translate(-50%,-50%);
+        min-width:220px;
+        max-width:90vw;
+        padding:18px 28px;
+        border-radius:999px;
+        color:#fff;
+        text-align:center;
+        font-size:clamp(28px,6vw,56px);
+        font-weight:1000;
+        pointer-events:none;
+        text-shadow:0 8px 24px rgba(0,0,0,.35);
+        animation:vocabPopFinal .95s ease forwards;
+      }
+
+      .vocab-pop-final.good{
+        background:linear-gradient(135deg,#22c55e,#38bdf8);
+      }
+
+      .vocab-pop-final.bad{
+        background:linear-gradient(135deg,#ef4444,#fb7185);
+      }
+
+      .vocab-score-final{
+        position:fixed;
+        z-index:999999;
+        right:7vw;
+        top:25vh;
+        padding:12px 18px;
+        border-radius:999px;
+        background:rgba(255,209,102,.98);
+        color:#3b2500;
+        font-size:clamp(24px,5vw,44px);
+        font-weight:1000;
+        pointer-events:none;
+        box-shadow:0 22px 54px rgba(255,209,102,.35);
+        animation:vocabScoreFinal .95s ease forwards;
+      }
+
+      .vocab-combo-final{
+        position:fixed;
+        z-index:999999;
+        left:7vw;
+        top:25vh;
+        padding:10px 16px;
+        border-radius:999px;
+        background:rgba(139,92,246,.98);
+        color:#fff;
+        font-size:clamp(20px,4vw,36px);
+        font-weight:1000;
+        pointer-events:none;
+        box-shadow:0 22px 54px rgba(139,92,246,.35);
+        animation:vocabScoreFinal .95s ease forwards;
+      }
+
+      @keyframes vocabPopFinal{
+        0%{opacity:0;transform:translate(-50%,-28%) scale(.78);}
+        20%{opacity:1;transform:translate(-50%,-50%) scale(1.08);}
+        100%{opacity:0;transform:translate(-50%,-92%) scale(.96);}
+      }
+
+      @keyframes vocabScoreFinal{
+        0%{opacity:0;transform:translateY(18px) scale(.75);}
+        20%{opacity:1;transform:translateY(0) scale(1.08);}
+        100%{opacity:0;transform:translateY(-62px) scale(.94);}
+      }
+    `;
+
+    DOC.head.appendChild(style);
+  }
 
   function applyClassAliases(){
     const map = [
       ["vocab-app", "v6-app"],
       ["vocab-screen", "v6-screen"],
-      ["vocab-menu-screen", "v6-menu-screen"],
       ["vocab-battle-panel", "v6-battle-panel"],
       ["vocab-hero-card", "v6-hero-card"],
       ["vocab-logo", "v6-logo"],
@@ -261,157 +265,31 @@
     });
   }
 
-  function ensureFxCss(){
-    if($("vocabUiFxCss")) return;
+  /* =========================================================
+     MENU / SELECTION
+  ========================================================= */
 
-    const style = DOC.createElement("style");
-    style.id = "vocabUiFxCss";
-    style.textContent = `
-      .vocab-choice.correct,
-      .v6-choice.correct{
-        background:rgba(68,223,147,.32)!important;
-        border-color:rgba(68,223,147,.98)!important;
-        box-shadow:0 0 0 4px rgba(68,223,147,.18),0 18px 44px rgba(68,223,147,.22)!important;
-      }
-
-      .vocab-choice.wrong,
-      .v6-choice.wrong{
-        background:rgba(255,110,135,.30)!important;
-        border-color:rgba(255,110,135,.96)!important;
-        box-shadow:0 0 0 4px rgba(255,110,135,.15),0 18px 44px rgba(255,110,135,.18)!important;
-      }
-
-      .vocab-choice.locked,
-      .v6-choice.locked{
-        pointer-events:none!important;
-      }
-
-      .vocab-fx-pop{
-        position:fixed;
-        z-index:999999;
-        left:50%;
-        top:42%;
-        transform:translate(-50%,-50%);
-        padding:18px 28px;
-        border-radius:999px;
-        color:#fff;
-        font-size:clamp(28px,6vw,56px);
-        font-weight:1000;
-        pointer-events:none;
-        text-shadow:0 8px 24px rgba(0,0,0,.35);
-        animation:vocabFxPop .9s ease forwards;
-      }
-
-      .vocab-fx-pop.good{
-        background:linear-gradient(135deg,#22c55e,#38bdf8);
-      }
-
-      .vocab-fx-pop.bad{
-        background:linear-gradient(135deg,#ef4444,#fb7185);
-      }
-
-      .vocab-fx-score{
-        position:fixed;
-        z-index:999999;
-        right:7vw;
-        top:25vh;
-        padding:12px 18px;
-        border-radius:999px;
-        background:rgba(255,209,102,.98);
-        color:#3b2500;
-        font-size:clamp(24px,5vw,44px);
-        font-weight:1000;
-        pointer-events:none;
-        animation:vocabFxScore .95s ease forwards;
-      }
-
-      .vocab-lb-row{
-        display:grid;
-        grid-template-columns:52px 1fr 100px 90px 110px;
-        gap:10px;
-        align-items:center;
-        padding:12px 14px;
-        border-bottom:1px solid rgba(255,255,255,.10);
-      }
-
-      .vocab-rank{
-        width:36px;
-        height:36px;
-        display:grid;
-        place-items:center;
-        border-radius:14px;
-        background:rgba(255,255,255,.10);
-        font-weight:1000;
-      }
-
-      .vocab-lb-name b{display:block;}
-      .vocab-lb-name small{display:block;color:var(--muted,#a8bdd6);margin-top:3px;}
-      .vocab-lb-score{font-size:20px;font-weight:1000;text-align:right;}
-      .vocab-lb-chip{
-        display:inline-flex;
-        justify-content:center;
-        padding:6px 9px;
-        border-radius:999px;
-        background:rgba(255,255,255,.10);
-        border:1px solid rgba(255,255,255,.14);
-        color:var(--muted,#a8bdd6);
-        font-weight:900;
-        font-size:12px;
-      }
-
-      .vocab-lb-empty{
-        padding:16px;
-        color:var(--muted,#a8bdd6);
-        font-weight:900;
-        text-align:center;
-      }
-
-      .vocab-personal-best{
-        margin:12px;
-        padding:12px 14px;
-        border-radius:18px;
-        background:rgba(68,223,147,.12);
-        border:1px solid rgba(68,223,147,.35);
-        color:var(--text,#eef7ff);
-        font-weight:900;
-        line-height:1.45;
-      }
-
-      @keyframes vocabFxPop{
-        0%{opacity:0;transform:translate(-50%,-28%) scale(.78);}
-        20%{opacity:1;transform:translate(-50%,-50%) scale(1.08);}
-        100%{opacity:0;transform:translate(-50%,-92%) scale(.96);}
-      }
-
-      @keyframes vocabFxScore{
-        0%{opacity:0;transform:translateY(18px) scale(.75);}
-        20%{opacity:1;transform:translateY(0) scale(1.08);}
-        100%{opacity:0;transform:translateY(-62px) scale(.94);}
-      }
-
-      @media(max-width:720px){
-        .vocab-lb-row{
-          grid-template-columns:42px 1fr 80px;
-        }
-        .v68-hide-mobile{
-          display:none;
-        }
-      }
-    `;
-
-    DOC.head.appendChild(style);
+  function selectedBank(){
+    const active = qs("[data-vocab-bank].active");
+    return clean(pick(active && active.dataset.vocabBank, getState().bank, "A")).toUpperCase();
   }
 
-  /* =========================================================
-     MENU
-  ========================================================= */
+  function selectedDifficulty(){
+    const active = qs("[data-vocab-diff].active");
+    return clean(pick(active && active.dataset.vocabDiff, getState().difficulty, getState().diff, "easy")).toLowerCase();
+  }
+
+  function selectedMode(){
+    const active = qs("[data-vocab-mode].active");
+    return clean(pick(active && active.dataset.vocabMode, getState().mode, "learn")).toLowerCase();
+  }
 
   function diffPreviewText(diff){
     return {
       easy: "✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย",
       normal: "🚀 Normal: สมดุลระหว่างเวลาและความท้าทาย",
-      hard: "🔥 Hard: เวลาน้อยลง ศัตรูแรงขึ้น เหมาะกับฝึกจริงจัง",
-      challenge: "⚡ Challenge: ท้าทายสูงสุด คะแนนดีมีโอกาสติดอันดับ"
+      hard: "🔥 Hard: เวลาน้อยลง ตัวหลอกท้าทายขึ้น",
+      challenge: "⚡ Challenge: ท้าทายสูงสุด เหมาะกับผู้ที่พร้อมแข่ง"
     }[diff] || "✨ Easy: เวลาเยอะ เหมาะกับเริ่มจำความหมาย";
   }
 
@@ -420,33 +298,42 @@
       learn: "🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด",
       speed: "⚡ Speed Run: ตอบให้ไว ทำ Combo เข้า Fever ได้เร็วขึ้น",
       mission: "🎯 Debug Mission: ฝึกคำศัพท์ในสถานการณ์จริงของงาน CS/AI",
-      battle: "👾 Boss Battle: ต่อสู้กับบอส ใช้ Combo, Shield, Fever และ Laser ให้คุ้ม"
-    }[mode] || "🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป มี Hint และคำอธิบายชัด";
+      battle: "👾 Boss Battle: ต่อสู้กับบอส ใช้ Combo, Shield, Fever และ Laser"
+    }[mode] || "🤖 AI Training: เรียนรู้คำศัพท์แบบค่อยเป็นค่อยไป";
   }
 
-  function updateMenuPreview(){
-    setText("vocabDiffPreview", diffPreviewText(selectedDifficulty()));
-    setText("vocabModePreview", modePreviewText(selectedMode()));
+  function syncMenuState(){
+    const bank = selectedBank();
+    const difficulty = selectedDifficulty();
+    const mode = selectedMode();
 
     patchState({
-      bank: selectedBank(),
-      selectedBank: selectedBank(),
-      difficulty: selectedDifficulty(),
-      diff: selectedDifficulty(),
-      selectedDifficulty: selectedDifficulty(),
-      mode: selectedMode(),
-      selectedMode: selectedMode()
+      bank,
+      selectedBank: bank,
+      difficulty,
+      diff: difficulty,
+      selectedDifficulty: difficulty,
+      mode,
+      selectedMode: mode
     });
+
+    const diffBox = $("vocabDiffPreview");
+    if(diffBox) diffBox.textContent = diffPreviewText(difficulty);
+
+    const modeBox = $("vocabModePreview");
+    if(modeBox) modeBox.textContent = modePreviewText(mode);
+
+    return { bank, difficulty, diff: difficulty, mode };
   }
 
-  function bindMenuSelectors(){
+  function bindMenu(){
     qsa("[data-vocab-bank]").forEach(function(btn){
       if(btn.__vocabUiBankBound) return;
       btn.__vocabUiBankBound = true;
 
       btn.addEventListener("click", function(){
         qsa("[data-vocab-bank]").forEach(b => b.classList.toggle("active", b === btn));
-        updateMenuPreview();
+        syncMenuState();
       });
     });
 
@@ -456,7 +343,7 @@
 
       btn.addEventListener("click", function(){
         qsa("[data-vocab-diff]").forEach(b => b.classList.toggle("active", b === btn));
-        updateMenuPreview();
+        syncMenuState();
       });
     });
 
@@ -466,41 +353,148 @@
 
       btn.addEventListener("click", function(){
         qsa("[data-vocab-mode]").forEach(b => b.classList.toggle("active", b === btn));
-        updateMenuPreview();
+        syncMenuState();
         renderLeaderboard(btn.dataset.vocabMode || "learn");
       });
     });
+
+    qsa("[data-lb-mode]").forEach(function(btn){
+      if(btn.__vocabUiLbBound) return;
+      btn.__vocabUiLbBound = true;
+
+      btn.addEventListener("click", function(){
+        qsa("[data-lb-mode]").forEach(b => b.classList.toggle("active", b === btn));
+        renderLeaderboard(btn.dataset.lbMode || "learn");
+      });
+    });
+
+    const start = $("vocabStartBtn");
+    if(start && !start.__vocabUiStartBound){
+      start.__vocabUiStartBound = true;
+
+      start.addEventListener("click", function(ev){
+        ev.preventDefault();
+
+        const opts = buildStartOptions();
+
+        if(WIN.VocabGame && typeof WIN.VocabGame.start === "function"){
+          WIN.VocabGame.start(opts);
+        }
+      });
+    }
+
+    const hint = $("vocabHintBtn");
+    if(hint && !hint.__vocabUiHintBound){
+      hint.__vocabUiHintBound = true;
+
+      hint.addEventListener("click", function(ev){
+        ev.preventDefault();
+        if(WIN.VocabGame && typeof WIN.VocabGame.useHint === "function"){
+          WIN.VocabGame.useHint();
+        }
+      });
+    }
+
+    const ai = $("vocabAiHelpBtn");
+    if(ai && !ai.__vocabUiAiBound){
+      ai.__vocabUiAiBound = true;
+
+      ai.addEventListener("click", function(ev){
+        ev.preventDefault();
+        if(WIN.VocabGame && typeof WIN.VocabGame.useAiHelp === "function"){
+          WIN.VocabGame.useAiHelp();
+        }
+      });
+    }
   }
 
-  function hydrateStudentForm(){
+  function readInput(id){
+    const el = $(id);
+    return el ? clean(el.value) : "";
+  }
+
+  function getStudentProfile(){
     try{
-      if(WIN.VocabStorage && typeof WIN.VocabStorage.hydrateStudentForm === "function"){
-        WIN.VocabStorage.hydrateStudentForm();
+      if(WIN.VocabStorage && typeof WIN.VocabStorage.loadStudentProfile === "function"){
+        return WIN.VocabStorage.loadStudentProfile();
       }
     }catch(e){}
+
+    return {
+      display_name: pick(readInput("vocabDisplayName"), "Hero"),
+      student_id: pick(readInput("vocabStudentId"), "anon"),
+      section: readInput("vocabSection"),
+      session_code: readInput("vocabSessionCode")
+    };
+  }
+
+  function buildStartOptions(){
+    const menu = syncMenuState();
+    const p = getStudentProfile();
+
+    try{
+      if(WIN.VocabStorage && typeof WIN.VocabStorage.saveStudentProfile === "function"){
+        WIN.VocabStorage.saveStudentProfile(p);
+      }
+    }catch(e){}
+
+    return {
+      bank: menu.bank,
+      difficulty: menu.difficulty,
+      diff: menu.difficulty,
+      mode: menu.mode,
+
+      display_name: pick(p.display_name, p.displayName, "Hero"),
+      displayName: pick(p.display_name, p.displayName, "Hero"),
+
+      student_id: pick(p.student_id, p.studentId, "anon"),
+      studentId: pick(p.student_id, p.studentId, "anon"),
+
+      section: p.section || "",
+      session_code: pick(p.session_code, p.sessionCode, ""),
+      sessionCode: pick(p.session_code, p.sessionCode, ""),
+
+      seed: Date.now(),
+      source: "vocab.html",
+      schema: "vocab-split-v1",
+      version: VERSION
+    };
   }
 
   /* =========================================================
-     SCREENS
+     SCREEN
   ========================================================= */
 
   function showMenu(){
-    show("vocabMenuPanel");
-    hide("vocabBattlePanel");
-    hide("vocabRewardPanel");
+    const menu = $("vocabMenuPanel");
+    const battle = $("vocabBattlePanel");
+    const reward = $("vocabRewardPanel");
+
+    if(menu) menu.hidden = false;
+    if(battle) battle.hidden = true;
+    if(reward) reward.hidden = true;
+
     renderLeaderboard(selectedMode());
   }
 
   function showBattle(){
-    hide("vocabMenuPanel");
-    show("vocabBattlePanel");
-    hide("vocabRewardPanel");
+    const menu = $("vocabMenuPanel");
+    const battle = $("vocabBattlePanel");
+    const reward = $("vocabRewardPanel");
+
+    if(menu) menu.hidden = true;
+    if(battle) battle.hidden = false;
+    if(reward) reward.hidden = true;
   }
 
   function showReward(){
-    hide("vocabMenuPanel");
-    hide("vocabBattlePanel");
-    show("vocabRewardPanel");
+    const menu = $("vocabMenuPanel");
+    const battle = $("vocabBattlePanel");
+    const reward = $("vocabRewardPanel");
+
+    if(menu) menu.hidden = true;
+    if(battle) battle.hidden = true;
+    if(reward) reward.hidden = false;
   }
 
   /* =========================================================
@@ -508,8 +502,8 @@
   ========================================================= */
 
   function hearts(hp, maxHp){
-    hp = Math.max(0, int(hp, 5));
-    maxHp = Math.max(1, int(maxHp, 5));
+    hp = Math.max(0, Number(hp || 0));
+    maxHp = Math.max(1, Number(maxHp || 5));
 
     let out = "";
     for(let i = 0; i < maxHp; i++){
@@ -518,77 +512,70 @@
     return out;
   }
 
-  function modeHudLabel(mode){
+  function modeHud(mode){
     return {
       learn: "🤖 AI",
       speed: "⚡ Speed",
       mission: "🎯 Mission",
-      battle: "👾 Boss",
-      bossrush: "🐉 Boss"
+      battle: "👾 Boss"
     }[mode] || "🤖 AI";
   }
 
-  function updateHud(input){
-    const s = Object.assign({}, getState(), input || {});
+  function updateHud(state){
+    state = Object.assign({}, getState(), state || {});
 
-    const score = int(pick(s.score, 0), 0);
-    const combo = int(pick(s.combo, s.currentCombo, 0), 0);
-    const hp = int(pick(s.hp, s.lives, 5), 5);
-    const maxHp = int(pick(s.maxHp, 5), 5);
-    const timeLeft = int(pick(s.timeLeft, s.timer, s.questionTimeSec, 0), 0);
-    const qNo = int(pick(s.questionNo, s.question_no, 0), 0);
-    const qCount = int(pick(s.questionCount, s.question_count, 0), 0);
-    const mode = clean(pick(s.mode, selectedMode(), "learn"));
+    if($("vocabScore")) $("vocabScore").textContent = Number(pick(state.score, 0));
+    if($("vocabCombo")) $("vocabCombo").textContent = "x" + Number(pick(state.combo, state.currentCombo, 0));
+    if($("vocabHp")) $("vocabHp").textContent = hearts(pick(state.hp, state.lives, 5), pick(state.maxHp, 5));
+    if($("vocabTimer")) $("vocabTimer").textContent = Number(pick(state.timeLeft, state.timer, state.questionTimeSec, 0)) + "s";
 
-    setText("vocabScore", score);
-    setText("vocabCombo", "x" + combo);
-    setText("vocabHp", hearts(hp, maxHp));
-    setText("vocabTimer", timeLeft + "s");
-    setText("vocabQuestionNo", qNo + "/" + qCount);
-    setText("vocabModeHud", modeHudLabel(mode));
+    const qNo = Number(pick(state.questionNo, state.question_no, 0));
+    const qCount = Number(pick(state.questionCount, state.question_count, 0));
+    if($("vocabQuestionNo")) $("vocabQuestionNo").textContent = qNo + "/" + qCount;
 
-    setText("vocabFeverChip", s.fever || s.isFever ? "🔥 Fever: ON" : "🔥 Fever: OFF");
-    setText("vocabHintBtn", "💡 Hint x" + int(pick(s.hints, s.hintCount, 0), 0));
-    setText("vocabAiHelpBtn", "🤖 AI Help x" + int(pick(s.aiHelpLeft, s.ai_help_left, s.aiHelp, 0), 0));
-    setText("vocabShieldChip", "🛡️ Shield x" + int(pick(s.shields, s.shield, 0), 0));
-    setText("vocabLaserChip", s.laserReady || s.laser_ready ? "🔴 Laser: Ready" : "🔴 Laser: Not ready");
+    if($("vocabModeHud")) $("vocabModeHud").textContent = modeHud(pick(state.mode, "learn"));
 
-    setText("vocabStageChip", pick(s.stageName, s.stage_name, qNo ? "Question " + qNo : "Question"));
-    setText("vocabStageGoal", "Goal: " + pick(s.stageGoal, s.stage_goal, "ตอบให้ถูกและจำความหมาย"));
+    if($("vocabFeverChip")) $("vocabFeverChip").textContent = state.fever ? "🔥 Fever: ON" : "🔥 Fever: OFF";
+    if($("vocabHintBtn")) $("vocabHintBtn").textContent = "💡 Hint x" + Number(pick(state.hints, state.hintCount, 0));
+    if($("vocabAiHelpBtn")) $("vocabAiHelpBtn").textContent = "🤖 AI Help x" + Number(pick(state.aiHelpLeft, state.ai_help_left, state.aiHelp, 0));
+    if($("vocabShieldChip")) $("vocabShieldChip").textContent = "🛡️ Shield x" + Number(pick(state.shields, state.shield, 0));
+    if($("vocabLaserChip")) $("vocabLaserChip").textContent = state.laserReady ? "🔴 Laser: Ready" : "🔴 Laser: Not ready";
 
-    const bank = pick(s.bank, selectedBank(), "A");
+    if($("vocabStageChip")) $("vocabStageChip").textContent = pick(state.stageName, state.stage_name, "Question " + qNo);
+    if($("vocabStageGoal")) $("vocabStageGoal").textContent = "Goal: " + pick(state.stageGoal, state.stage_goal, "ตอบให้ถูกและจำความหมาย");
+
+    const bank = pick(state.bank, "A");
+    const mode = pick(state.mode, "learn");
     const modeText = {
       learn: "🤖 AI Training",
       speed: "⚡ Speed Run",
       mission: "🎯 Debug Mission",
-      battle: "👾 Boss Battle",
-      bossrush: "🐉 Boss Rush"
+      battle: "👾 Boss Battle"
     }[mode] || mode;
 
-    setText("vocabBankLabel", "Bank " + bank + " • " + modeText);
+    if($("vocabBankLabel")) $("vocabBankLabel").textContent = "Bank " + bank + " • " + modeText;
 
-    updateEnemy(s);
+    updateEnemy(state);
   }
 
-  function updateEnemy(input){
-    const s = input || getState();
+  function updateEnemy(state){
+    state = state || {};
 
-    setText("vocabEnemyAvatar", pick(s.enemyAvatar, s.enemy_avatar, "👾"));
-    setText("vocabEnemyName", pick(s.enemyName, s.enemy_name, "Bug Slime"));
-    setText("vocabEnemySkill", pick(s.enemySkill, s.enemy_skill, "Enemy skill"));
+    if($("vocabEnemyAvatar")) $("vocabEnemyAvatar").textContent = pick(state.enemyAvatar, state.enemy_avatar, "👾");
+    if($("vocabEnemyName")) $("vocabEnemyName").textContent = pick(state.enemyName, state.enemy_name, "Bug Slime");
+    if($("vocabEnemySkill")) $("vocabEnemySkill").textContent = pick(state.enemySkill, state.enemy_skill, "Enemy skill");
 
-    const hp = Math.max(0, num(pick(s.enemyHp, s.enemy_hp, 100), 100));
-    const max = Math.max(1, num(pick(s.enemyMaxHp, s.enemy_max_hp, 100), 100));
+    const hp = num(pick(state.enemyHp, state.enemy_hp, 100), 100);
+    const max = Math.max(1, num(pick(state.enemyMaxHp, state.enemy_max_hp, 100), 100));
     const pct = Math.max(0, Math.min(100, Math.round((hp / max) * 100)));
 
-    setText("vocabEnemyHpText", pct + "%");
-
-    const fill = $("vocabEnemyHpFill");
-    if(fill) fill.style.width = pct + "%";
+    if($("vocabEnemyHpText")) $("vocabEnemyHpText").textContent = pct + "%";
+    if($("vocabEnemyHpFill")) $("vocabEnemyHpFill").style.width = pct + "%";
   }
 
   /* =========================================================
      QUESTION RENDER
+     IMPORTANT: no click binding here
   ========================================================= */
 
   function normalizeChoice(c){
@@ -609,45 +596,29 @@
 
   function normalizeQuestion(q){
     q = q || {};
-    const rawChoices = q.choices || q.options || q.answers || [];
+    const choices = Array.isArray(q.choices || q.options)
+      ? (q.choices || q.options).map(normalizeChoice)
+      : [];
 
-    const choices = Array.isArray(rawChoices) ? rawChoices.map(normalizeChoice) : [];
+    const correct = clean(pick(q.correct, q.correct_answer, q.correctAnswer, q.answer, ""));
 
-    let correct = clean(pick(q.correct, q.correct_answer, q.correctAnswer, q.answer, ""));
-
-    if(!correct){
-      const flagged = choices.find(x => x.correct);
-      if(flagged) correct = flagged.value;
-    }
-
-    return Object.assign({}, q, {
-      term: clean(pick(q.term, q.word, q.vocab, "")),
-      prompt: clean(pick(q.prompt, q.question, q.question_text, q.questionText, q.text, "Question text")),
-      choices,
-      options: choices,
-      correct,
-      correct_answer: correct,
-      correctAnswer: correct,
+    return {
+      term: clean(pick(q.term, q.word, "")),
+      prompt: clean(pick(q.prompt, q.question, q.question_text, q.questionText, "Question text")),
       hint: clean(pick(q.hint, q.tip, "")),
-      explain: clean(pick(q.explain, q.explanation, q.feedback, ""))
-    });
+      explain: clean(pick(q.explain, q.explanation, "")),
+      correct,
+      choices
+    };
   }
 
-  function renderQuestion(question, inputState){
+  function renderQuestion(question, state){
     const q = normalizeQuestion(question);
-    const s = Object.assign({}, getState(), inputState || {});
+    state = state || getState();
 
-    patchState({
-      currentQuestion: q,
-      question: q,
-      activeQuestion: q,
-      questionNo: pick(s.questionNo, s.question_no, 1),
-      questionCount: pick(s.questionCount, s.question_count, 0)
-    });
-
-    const questionBox = $("vocabQuestionText");
-    if(questionBox){
-      questionBox.innerHTML = `
+    const qText = $("vocabQuestionText");
+    if(qText){
+      qText.innerHTML = `
         <span class="vocab-question-main v6-question-main">${esc(q.prompt)}</span>
         ${
           q.hint
@@ -659,26 +630,17 @@
 
     const choicesBox = $("vocabChoices");
     if(choicesBox){
-      const choices = q.choices.length ? q.choices : [
-        { text:"Option A", value:"Option A" },
-        { text:"Option B", value:"Option B" },
-        { text:"Option C", value:"Option C" },
-        { text:"Option D", value:"Option D" }
-      ];
-
-      choicesBox.innerHTML = choices.map(function(choice, index){
-        const value = clean(choice.value || choice.text);
-        const text = clean(choice.text || value);
-        const isCorrect = q.correct && value.toLowerCase() === q.correct.toLowerCase();
+      choicesBox.innerHTML = q.choices.map(function(choice, index){
+        const isCorrect = q.correct && norm(choice.value) === norm(q.correct);
 
         return `
           <button
             class="vocab-choice v6-choice"
             type="button"
             data-vocab-choice-index="${index}"
-            data-vocab-choice="${esc(value)}"
+            data-vocab-choice="${esc(choice.value)}"
             data-vocab-correct="${isCorrect ? "1" : "0"}">
-            ${esc(text)}
+            ${esc(choice.text)}
           </button>
         `;
       }).join("");
@@ -696,21 +658,16 @@
       aiBox.innerHTML = "";
     }
 
-    updateHud(s);
+    updateHud(state);
 
     /*
-      สำคัญ: UI ไม่ bind click เอง
-      ให้ VocabGame.syncChoiceButtons() เป็นเจ้าของปุ่มคำตอบ
+      ให้ Game เป็นคน bind คลิกปุ่มคำตอบ หลัง render เสร็จ
     */
     setTimeout(function(){
-      try{
-        if(WIN.VocabGame && typeof WIN.VocabGame.syncChoiceButtons === "function"){
-          WIN.VocabGame.syncChoiceButtons();
-        }
-      }catch(e){}
+      if(WIN.VocabGame && typeof WIN.VocabGame.bindChoiceButtons === "function"){
+        WIN.VocabGame.bindChoiceButtons();
+      }
     }, 0);
-
-    return q;
   }
 
   function markChoiceResult(selected, correct, isCorrect){
@@ -719,23 +676,21 @@
 
     qsa("[data-vocab-choice]").forEach(function(btn){
       const value = clean(btn.dataset.vocabChoice || btn.textContent);
-      const correctBtn = correct && value.toLowerCase() === correct.toLowerCase();
 
       btn.disabled = true;
       btn.classList.add("locked");
 
-      if(correctBtn){
+      if(correct && norm(value) === norm(correct)){
         btn.classList.add("correct");
-        btn.classList.remove("wrong");
       }
 
-      if(value.toLowerCase() === selected.toLowerCase() && !correctBtn){
+      if(norm(value) === norm(selected) && !isCorrect){
         btn.classList.add("wrong");
       }
     });
   }
 
-  function unlockChoiceButtons(){
+  function unlockChoices(){
     qsa("[data-vocab-choice]").forEach(function(btn){
       btn.disabled = false;
       btn.classList.remove("locked", "correct", "wrong");
@@ -745,6 +700,45 @@
   /* =========================================================
      FEEDBACK
   ========================================================= */
+
+  function pop(message, type){
+    ensureCss();
+
+    const el = DOC.createElement("div");
+    el.className = "vocab-pop-final " + (type || "");
+    el.textContent = message;
+    DOC.body.appendChild(el);
+
+    setTimeout(function(){
+      try{ el.remove(); }catch(e){}
+    }, 1000);
+  }
+
+  function scoreBurst(points, combo){
+    ensureCss();
+
+    if(points){
+      const el = DOC.createElement("div");
+      el.className = "vocab-score-final";
+      el.textContent = "+" + points;
+      DOC.body.appendChild(el);
+
+      setTimeout(function(){
+        try{ el.remove(); }catch(e){}
+      }, 1000);
+    }
+
+    if(combo && combo >= 2){
+      const c = DOC.createElement("div");
+      c.className = "vocab-combo-final";
+      c.textContent = "Combo x" + combo;
+      DOC.body.appendChild(c);
+
+      setTimeout(function(){
+        try{ c.remove(); }catch(e){}
+      }, 1000);
+    }
+  }
 
   function beep(type){
     try{
@@ -763,37 +757,10 @@
 
       o.connect(g);
       g.connect(ctx.destination);
+
       o.start();
       o.stop(ctx.currentTime + 0.2);
     }catch(e){}
-  }
-
-  function pop(message, type){
-    ensureFxCss();
-
-    const el = DOC.createElement("div");
-    el.className = "vocab-fx-pop " + (type || "");
-    el.textContent = message;
-    DOC.body.appendChild(el);
-
-    setTimeout(function(){
-      try{ el.remove(); }catch(e){}
-    }, 1000);
-  }
-
-  function scoreBurst(points){
-    if(!points) return;
-
-    ensureFxCss();
-
-    const el = DOC.createElement("div");
-    el.className = "vocab-fx-score";
-    el.textContent = "+" + points;
-    DOC.body.appendChild(el);
-
-    setTimeout(function(){
-      try{ el.remove(); }catch(e){}
-    }, 1000);
   }
 
   function showExplain(html){
@@ -801,7 +768,7 @@
     if(!box) return;
 
     box.hidden = false;
-    box.innerHTML = html;
+    box.innerHTML = String(html || "");
   }
 
   function showAiHelp(text){
@@ -809,7 +776,7 @@
     if(!box) return;
 
     box.hidden = false;
-    box.innerHTML = `<b>🤖 AI Help:</b> ${esc(text || "ลองดู keyword ในโจทย์ แล้วตัดตัวเลือกที่ไม่เกี่ยวข้องออกก่อน")}`;
+    box.innerHTML = `<b>🤖 AI Help:</b> ${esc(text || "ลองดู keyword ในโจทย์ก่อน")}`;
   }
 
   /* =========================================================
@@ -823,247 +790,83 @@
       }
     }catch(e){}
 
-    return readJson("VOCAB_SPLIT_LEADERBOARD", {
-      learn: [],
-      speed: [],
-      mission: [],
-      battle: [],
-      bossrush: []
-    });
-  }
-
-  function normalizeMode(mode){
-    mode = clean(mode || "learn").toLowerCase();
-
-    if(mode === "ai" || mode === "training") return "learn";
-    if(mode === "debug") return "mission";
-    if(mode === "boss") return "battle";
-
-    return mode || "learn";
+    try{
+      return JSON.parse(localStorage.getItem("VOCAB_SPLIT_LEADERBOARD") || "{}");
+    }catch(e){
+      return {};
+    }
   }
 
   function renderLeaderboard(mode){
-    mode = normalizeMode(mode || selectedMode());
+    mode = mode || selectedMode() || "learn";
 
     const box = $("vocabLeaderboardBox");
     if(!box) return;
 
-    qsa("[data-lb-mode]").forEach(function(tab){
-      tab.classList.toggle("active", normalizeMode(tab.dataset.lbMode) === mode);
-    });
-
     const board = readBoard();
     const rows = Array.isArray(board[mode]) ? board[mode] : [];
+
+    qsa("[data-lb-mode]").forEach(function(tab){
+      tab.classList.toggle("active", tab.dataset.lbMode === mode);
+    });
 
     if(!rows.length){
       box.innerHTML = `<div class="vocab-lb-empty v68-lb-empty">ยังไม่มีคะแนนในโหมดนี้</div>`;
       return;
     }
 
-    const sorted = rows.slice().sort(function(a, b){
-      const sa = num(pick(a.fair_score, a.fairScore, a.score, 0), 0);
-      const sb = num(pick(b.fair_score, b.fairScore, b.score, 0), 0);
-
-      if(sb !== sa) return sb - sa;
-
-      return num(b.accuracy,0) - num(a.accuracy,0);
+    const sorted = rows.slice().sort(function(a,b){
+      return Number(b.fair_score || b.fairScore || b.score || 0) -
+             Number(a.fair_score || a.fairScore || a.score || 0);
     });
 
-    box.innerHTML = sorted.slice(0, 5).map(function(row, idx){
-      const rank =
-        idx === 0 ? "🥇" :
-        idx === 1 ? "🥈" :
-        idx === 2 ? "🥉" :
-        "#" + (idx + 1);
-
-      const score = num(pick(row.fair_score, row.fairScore, row.score, 0), 0);
-      const acc = num(row.accuracy, 0);
-      const name = pick(row.display_name, row.displayName, row.name, "Hero");
-      const bank = pick(row.bank, "A");
-      const diff = pick(row.difficulty, row.diff, "easy");
-      const ai = num(pick(row.ai_help_used, row.aiHelpUsed, row.ai_assisted, 0), 0);
+    box.innerHTML = sorted.slice(0, 5).map(function(row, index){
+      const rank = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "#" + (index + 1);
+      const name = pick(row.display_name, row.displayName, "Hero");
+      const score = Number(pick(row.fair_score, row.fairScore, row.score, 0));
+      const acc = Number(pick(row.accuracy, 0));
+      const assisted = Number(pick(row.ai_help_used, row.aiHelpUsed, 0)) > 0;
 
       return `
         <div class="vocab-lb-row v68-lb-row">
           <div class="vocab-rank v68-rank">${rank}</div>
           <div class="vocab-lb-name v68-lb-name">
             <b>${esc(name)}</b>
-            <small>Bank ${esc(bank)} • ${esc(diff)}</small>
+            <small>Bank ${esc(row.bank || "A")} • ${esc(row.difficulty || row.diff || "easy")}</small>
           </div>
           <div class="vocab-lb-score v68-lb-score">${score}</div>
           <div class="v68-hide-mobile">
             <span class="vocab-lb-chip v68-lb-chip">${acc}%</span>
           </div>
           <div class="v68-hide-mobile">
-            <span class="vocab-lb-chip v68-lb-chip">${ai > 0 ? "🤖 Assisted" : "🏅 No Help"}</span>
+            <span class="vocab-lb-chip v68-lb-chip ${assisted ? "assisted" : ""}">
+              ${assisted ? "🤖 Assisted" : "🏅 No Help"}
+            </span>
           </div>
         </div>
       `;
     }).join("");
   }
 
-  function bindLeaderboardTabs(){
-    qsa("[data-lb-mode]").forEach(function(tab){
-      if(tab.__vocabUiLbBound) return;
-      tab.__vocabUiLbBound = true;
-
-      tab.addEventListener("click", function(){
-        renderLeaderboard(tab.dataset.lbMode || "learn");
-      });
-    });
-  }
-
-  /* =========================================================
-     POWER BUTTONS
-  ========================================================= */
-
-  function bindPowerButtons(){
-    const hint = $("vocabHintBtn");
-    if(hint && !hint.__vocabUiHintBound){
-      hint.__vocabUiHintBound = true;
-      hint.addEventListener("click", function(ev){
-        ev.preventDefault();
-        if(WIN.VocabGame && typeof WIN.VocabGame.useHint === "function"){
-          WIN.VocabGame.useHint();
-        }
-      });
-    }
-
-    const ai = $("vocabAiHelpBtn");
-    if(ai && !ai.__vocabUiAiBound){
-      ai.__vocabUiAiBound = true;
-      ai.addEventListener("click", function(ev){
-        ev.preventDefault();
-        if(WIN.VocabGame && typeof WIN.VocabGame.useAiHelp === "function"){
-          WIN.VocabGame.useAiHelp();
-        }
-      });
-    }
-
-    const laser = $("vocabLaserChip");
-    if(laser && !laser.__vocabUiLaserBound){
-      laser.__vocabUiLaserBound = true;
-      laser.addEventListener("click", function(ev){
-        ev.preventDefault();
-        if(WIN.VocabGame && typeof WIN.VocabGame.useLaser === "function"){
-          WIN.VocabGame.useLaser();
-        }
-      });
-    }
-  }
-
-  /* =========================================================
-     START BUTTON
-  ========================================================= */
-
-  function getStudentProfile(){
-    if(WIN.VocabStorage && typeof WIN.VocabStorage.loadStudentProfile === "function"){
-      try{
-        return WIN.VocabStorage.loadStudentProfile();
-      }catch(e){}
-    }
-
-    return {
-      display_name: clean(pick($("vocabDisplayName") && $("vocabDisplayName").value, "Hero")),
-      student_id: clean(pick($("vocabStudentId") && $("vocabStudentId").value, "anon")),
-      section: clean(pick($("vocabSection") && $("vocabSection").value, "")),
-      session_code: clean(pick($("vocabSessionCode") && $("vocabSessionCode").value, ""))
-    };
-  }
-
-  function buildStartOptions(){
-    const p = getStudentProfile();
-
-    return {
-      bank: selectedBank(),
-      difficulty: selectedDifficulty(),
-      diff: selectedDifficulty(),
-      mode: selectedMode(),
-
-      display_name: pick(p.display_name, p.displayName, "Hero"),
-      displayName: pick(p.display_name, p.displayName, "Hero"),
-      student_id: pick(p.student_id, p.studentId, "anon"),
-      studentId: pick(p.student_id, p.studentId, "anon"),
-      section: pick(p.section, ""),
-      session_code: pick(p.session_code, p.sessionCode, ""),
-      sessionCode: pick(p.session_code, p.sessionCode, ""),
-
-      seed: Number(getParam("seed", Date.now())) || Date.now()
-    };
-  }
-
-  function bindStartButton(){
-    const btn = $("vocabStartBtn");
-    if(!btn || btn.__vocabUiStartBound) return;
-
-    btn.__vocabUiStartBound = true;
-
-    btn.addEventListener("click", function(ev){
-      ev.preventDefault();
-
-      const options = buildStartOptions();
-
-      try{
-        if(WIN.VocabStorage && typeof WIN.VocabStorage.saveStudentProfile === "function"){
-          WIN.VocabStorage.saveStudentProfile({
-            display_name: options.display_name,
-            student_id: options.student_id,
-            section: options.section,
-            session_code: options.session_code
-          });
-        }
-      }catch(e){}
-
-      if(WIN.VocabGame && typeof WIN.VocabGame.start === "function"){
-        WIN.VocabGame.start(options);
-      }
-    });
-  }
-
-  /* =========================================================
-     DISABLED CHOICE CAPTURE
-  ========================================================= */
-
-  function bindChoiceCapture(){
-    /*
-      v20260504b:
-      Intentionally disabled.
-      UI must not capture/check answers.
-      VocabGame is the only answer owner.
-    */
-    return;
-  }
-
   /* =========================================================
      INIT
   ========================================================= */
 
-  function bindEvents(){
-    if(UI_BOUND) return;
-    UI_BOUND = true;
-
-    bindMenuSelectors();
-    bindLeaderboardTabs();
-    bindPowerButtons();
-    bindStartButton();
-    bindChoiceCapture();
-  }
-
   function init(){
-    ensureFxCss();
+    ensureCss();
     applyClassAliases();
-    hydrateStudentForm();
-    updateMenuPreview();
-    bindEvents();
-    updateHud(getState());
+
+    try{
+      if(WIN.VocabStorage && typeof WIN.VocabStorage.hydrateStudentForm === "function"){
+        WIN.VocabStorage.hydrateStudentForm();
+      }
+    }catch(e){}
+
+    syncMenuState();
+    bindMenu();
     renderLeaderboard(selectedMode());
 
-    setTimeout(function(){
-      applyClassAliases();
-      renderLeaderboard(selectedMode());
-    }, 300);
-
-    return true;
+    console.log("[VOCAB UI] loaded", VERSION);
   }
 
   const api = {
@@ -1071,11 +874,10 @@
 
     init,
     boot: init,
-    bind: bindEvents,
-    bindEvents,
 
     getState,
     patchState,
+    syncMenuState,
 
     selectedBank,
     selectedDifficulty,
@@ -1089,43 +891,35 @@
     updateHud,
     updateEnemy,
 
-    normalizeQuestion,
     renderQuestion,
     markChoiceResult,
-    unlockChoiceButtons,
+    unlockChoices,
 
-    showExplain,
-    showAiHelp,
     pop,
     scoreBurst,
     beep,
+    showExplain,
+    showAiHelp,
 
-    renderLeaderboard,
-
-    bindChoiceCapture
+    renderLeaderboard
   };
 
   WIN.VocabUI = api;
   WIN.VocabUi = api;
 
   WIN.VocabLeaderboard = {
-    version: "leaderboard-from-" + VERSION,
     render: renderLeaderboard
   };
 
   WIN.VocabModules = WIN.VocabModules || {};
   WIN.VocabModules.ui = true;
-  WIN.VocabModules.leaderboard = true;
 
   WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
   WIN.__VOCAB_MODULES__.ui = true;
-  WIN.__VOCAB_MODULES__.leaderboard = true;
 
   if(DOC.readyState === "loading"){
     DOC.addEventListener("DOMContentLoaded", init, { once:true });
   }else{
     init();
   }
-
-  log("loaded", VERSION);
 })();
