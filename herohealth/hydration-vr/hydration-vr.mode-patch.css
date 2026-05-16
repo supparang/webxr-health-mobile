@@ -468,3 +468,123 @@ body[data-view="cvr"] .hha-cvr-fallback-crosshair{
     font-size:15px !important;
   }
 }
+/* =========================================================
+   PATCH v20260516-hydration-cvr-movable-aim-real-pack17
+   cVR movable aim reticle: mouse / touch / keyboard / device tilt
+   ========================================================= */
+
+.hha-cvr-aim-reticle{
+  position:fixed;
+  left:var(--hha-cvr-aim-x, 50vw);
+  top:var(--hha-cvr-aim-y, 50vh);
+  z-index:999990;
+  width:46px;
+  height:46px;
+  transform:translate(-50%, -50%);
+  pointer-events:none;
+  display:none;
+  filter:drop-shadow(0 4px 10px rgba(20,60,90,.28));
+}
+
+.hha-cvr-aim-reticle::before,
+.hha-cvr-aim-reticle::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  background:rgba(36,68,92,.78);
+  border-radius:999px;
+  transform:translate(-50%, -50%);
+}
+
+.hha-cvr-aim-reticle::before{
+  width:46px;
+  height:4px;
+}
+
+.hha-cvr-aim-reticle::after{
+  width:4px;
+  height:46px;
+}
+
+.hha-cvr-aim-reticle i{
+  position:absolute;
+  inset:8px;
+  border:3px solid rgba(67,199,255,.9);
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+}
+
+.hha-cvr-aim-reticle.is-hit i{
+  border-color:rgba(98,230,143,.98);
+  box-shadow:
+    0 0 0 8px rgba(98,230,143,.18),
+    0 0 22px rgba(98,230,143,.35);
+}
+
+body.hha-view-cvr .hha-cvr-aim-reticle,
+body[data-view="cvr"] .hha-cvr-aim-reticle{
+  display:block;
+}
+
+/* ปิด crosshair เก่าที่ fix กลางจอ */
+body.hha-view-cvr .hha-cvr-fallback-crosshair,
+body[data-view="cvr"] .hha-cvr-fallback-crosshair,
+body.hha-view-cvr .hha-vr-crosshair,
+body.hha-view-cvr .hha-crosshair,
+body.hha-view-cvr #hha-vr-crosshair,
+body.hha-view-cvr #hha-crosshair,
+body[data-view="cvr"] .hha-vr-crosshair,
+body[data-view="cvr"] .hha-crosshair,
+body[data-view="cvr"] #hha-vr-crosshair,
+body[data-view="cvr"] #hha-crosshair{
+  display:none !important;
+  opacity:0 !important;
+}
+
+.hha-cvr-aim-hint{
+  position:fixed;
+  left:50%;
+  bottom:82px;
+  z-index:999991;
+  transform:translateX(-50%);
+  max-width:86vw;
+  padding:9px 13px;
+  border-radius:999px;
+  background:rgba(255,255,255,.94);
+  color:#24607f;
+  font-size:12px;
+  font-weight:1000;
+  box-shadow:0 10px 24px rgba(30,75,115,.18);
+  pointer-events:none;
+  opacity:0;
+  transition:.2s ease;
+  text-align:center;
+}
+
+.hha-cvr-aim-hint.show{
+  opacity:1;
+}
+
+.hha-cvr-motion-btn{
+  position:fixed;
+  left:50%;
+  bottom:128px;
+  z-index:999992;
+  transform:translateX(-50%);
+  max-width:86vw;
+  border:0;
+  border-radius:999px;
+  padding:11px 16px;
+  background:linear-gradient(180deg,#43c7ff,#2388ff);
+  color:white;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:0 12px 28px rgba(35,136,255,.25);
+  display:none;
+}
+
+body.hha-view-cvr .hha-cvr-motion-btn.show,
+body[data-view="cvr"] .hha-cvr-motion-btn.show{
+  display:block;
+}
