@@ -1,21 +1,14 @@
 /* =========================================================
    /vocab/vocab.data.js
    TechPath Vocab Arena — Vocabulary Data / Word Banks
-   Version: 20260502a
+   FULL CLEAN PATCH: v20260503t
 
-   ต้องโหลดหลัง:
-   - /vocab/vocab.config.js
-   - /vocab/vocab.utils.js
-   - /vocab/vocab.state.js
-
-   หน้าที่:
-   - เก็บ Word Bank A/B/C
-   - เก็บ extra terms สำหรับเพิ่มความหลากหลาย
-   - normalize term
-   - build deck ตาม bank/difficulty
-   - กันคำซ้ำ
-   - รองรับ weak-term override ในอนาคต
-   ========================================================= */
+   Update:
+   - ปรับความหมายคำกำกวมให้เฉลยชัดขึ้น
+   - interface / client / build / runtime
+   - feature / label / confidence / baseline / embedding
+   - ยัง compatible กับ vocab.question.js v20260503o+
+========================================================= */
 
 (function(){
   "use strict";
@@ -41,12 +34,12 @@
       { term:"function", meaning:"a reusable block of code that performs a task", category:"coding", level:"A2" },
       { term:"loop", meaning:"a command that repeats actions", category:"coding", level:"A2" },
       { term:"database", meaning:"a system for storing and managing data", category:"data", level:"A2" },
-      { term:"interface", meaning:"the part of a system users interact with", category:"ui", level:"A2" },
+      { term:"interface", meaning:"the screen, controls, or connection that users or systems interact with", category:"ui", level:"A2" },
       { term:"deploy", meaning:"to publish or release a system for users", category:"software", level:"B1" },
       { term:"input", meaning:"data entered into a system", category:"software", level:"A2" },
       { term:"output", meaning:"result produced by a system", category:"software", level:"A2" },
       { term:"server", meaning:"a computer or system that provides services or data", category:"software", level:"A2" },
-      { term:"client", meaning:"a program or user that requests a service", category:"software", level:"A2" },
+      { term:"client", meaning:"a user device or program that requests data or services from a server", category:"software", level:"A2" },
       { term:"code", meaning:"instructions written for a computer to run", category:"coding", level:"A2" },
       { term:"syntax", meaning:"rules for writing code correctly", category:"coding", level:"A2" },
       { term:"compile", meaning:"to convert code into a form a computer can run", category:"coding", level:"B1" }
@@ -64,8 +57,8 @@
       { term:"analytics", meaning:"the process of studying data to find insights", category:"data", level:"B1" },
       { term:"dashboard", meaning:"a screen that shows important information", category:"data", level:"A2" },
       { term:"insight", meaning:"a useful understanding found from data", category:"data", level:"B1" },
-      { term:"label", meaning:"a name or category assigned to data", category:"ai", level:"A2" },
-      { term:"feature", meaning:"an input or property used by a model", category:"ai", level:"B1" },
+      { term:"label", meaning:"the correct category or answer assigned to training data", category:"ai", level:"A2" },
+      { term:"feature", meaning:"a measurable input or property used by a model", category:"ai", level:"B1" },
       { term:"bias", meaning:"a pattern that can make results unfair or inaccurate", category:"ai", level:"B1" },
       { term:"evaluate", meaning:"to check how well a model or system works", category:"ai", level:"B1" }
     ],
@@ -91,7 +84,6 @@
 
   /* =========================================================
      EXPANDED WORD BANKS
-     ใช้เพิ่มความหลากหลาย ลดปัญหาคำถามซ้ำ
   ========================================================= */
 
   D.extraTerms = {
@@ -129,8 +121,8 @@
       ["module","a separate part of a program","software","B1"],
       ["package","a bundled set of code or software resources","software","B1"],
       ["dependency","software that another program needs to run","software","B1+"],
-      ["build","the process of preparing software to run or release","software","B1"],
-      ["runtime","the period or environment when a program is running","software","B1"]
+      ["build","a prepared version of software, or the process of preparing it to run","software","B1"],
+      ["runtime","the environment or time when a program is running","software","B1"]
     ],
 
     B: [
@@ -141,10 +133,10 @@
       ["testing set","data used to evaluate a model after training","ai","B1"],
       ["training set","data used to teach a model","ai","A2"],
       ["neural network","a model inspired by connected layers of artificial neurons","ai","B1"],
-      ["embedding","a numeric representation of text, image, or data meaning","ai","B1+"],
+      ["embedding","a numerical representation that captures the meaning of text, images, or data","ai","B1+"],
       ["token","a small unit of text processed by an AI model","ai","B1"],
       ["inference","using a trained model to produce an answer or prediction","ai","B1+"],
-      ["confidence","how sure a model is about its prediction","ai","B1"],
+      ["confidence","a score showing how sure a model is about its prediction","ai","B1"],
       ["recall","how many relevant items a model successfully finds","ai","B1+"],
       ["precision","how many selected items are actually correct","ai","B1+"],
       ["confusion matrix","a table showing correct and incorrect classification results","ai","B1+"],
@@ -155,7 +147,7 @@
       ["data pipeline","a process that moves and prepares data step by step","data","B1+"],
       ["visualization","showing data as charts or graphics","data","B1"],
       ["metric","a number used to measure performance","data","B1"],
-      ["baseline","a simple standard result used for comparison","ai","B1"],
+      ["baseline","a simple model or result used as a standard for comparison","ai","B1"],
       ["hyperparameter","a setting chosen before model training","ai","B1+"],
       ["label noise","incorrect or inconsistent labels in training data","ai","B1+"],
       ["annotation","adding labels or notes to data","ai","B1"],
@@ -211,7 +203,6 @@
 
   /* =========================================================
      DIFFICULTY FEEL
-     ใช้กำหนด deck / ตัวหลอก / cross-bank
   ========================================================= */
 
   D.difficultyFeel = {
@@ -390,7 +381,6 @@
 
   /* =========================================================
      WEAK TERM / AI PATH OVERRIDE
-     ใช้กับไฟล์ learning path ภายหลัง
   ========================================================= */
 
   D.weakKey = "VOCAB_WEAK_TERMS";
@@ -467,7 +457,6 @@
 
   /* =========================================================
      SITUATION PROMPTS
-     เก็บ mapping สถานการณ์พื้นฐานไว้ให้ question.js ใช้
   ========================================================= */
 
   D.situationCases = [
@@ -492,7 +481,7 @@
       text:"A system needs to store accounts, scores, and user records. Which word fits best?"
     },
     {
-      keys:["interface","ui","screen","buttons"],
+      keys:["interface","ui","screen","buttons","controls"],
       text:"Users click buttons, menus, and screens to use an app. Which word fits best?"
     },
     {
@@ -536,6 +525,26 @@
       text:"A screen shows scores, progress, and important information. Which word fits best?"
     },
     {
+      keys:["label","annotation"],
+      text:"A data worker adds the correct category or answer to training data. Which word fits best?"
+    },
+    {
+      keys:["feature engineering","feature"],
+      text:"A machine learning model uses measurable input properties to learn patterns. Which word fits best?"
+    },
+    {
+      keys:["confidence"],
+      text:"A model gives a score showing how sure it is about a prediction. Which word fits best?"
+    },
+    {
+      keys:["embedding"],
+      text:"Text or images are converted into numbers that capture their meaning. Which word fits best?"
+    },
+    {
+      keys:["baseline"],
+      text:"The team compares a new model with a simple standard model or result. Which word fits best?"
+    },
+    {
       keys:["requirement","client needs"],
       text:"A client tells the team what the system must do. Which word fits best?"
     },
@@ -574,6 +583,14 @@
     {
       keys:["compile"],
       text:"The code is converted into a form the computer can run. Which word fits best?"
+    },
+    {
+      keys:["build"],
+      text:"The team prepares a version of the software so it can run or be released. Which word fits best?"
+    },
+    {
+      keys:["runtime"],
+      text:"The program is already running inside an environment. Which word fits best?"
     },
     {
       keys:["schedule","timeline"],
@@ -688,6 +705,18 @@
       {
         keys:["dataset","label","annotation","data cleaning"],
         text:"Before training AI, the team prepares examples, fixes messy records, and adds categories to data. Which term best fits?"
+      },
+      {
+        keys:["feature","feature engineering","hyperparameter"],
+        text:"A machine learning team chooses useful measurable inputs before training a model. Which term best fits?"
+      },
+      {
+        keys:["embedding","token","natural language processing"],
+        text:"A language model changes words into smaller units or numerical representations to understand meaning. Which term best fits?"
+      },
+      {
+        keys:["baseline","metric","evaluate"],
+        text:"The team checks a model by comparing it with a simple standard result. Which term best fits?"
       }
     ];
 
@@ -705,7 +734,6 @@
 
   /* =========================================================
      TERM HISTORY
-     ลดคำซ้ำในรอบต่อ ๆ ไป
   ========================================================= */
 
   D.historyKey = function historyKey(bank, difficulty, mode){
@@ -765,9 +793,6 @@
     const ranked = clean.map(t => {
       const key = U.termKey(t.term);
 
-      /*
-        ยิ่งคะแนนน้อย ยิ่งควรถูกเลือก
-      */
       const penalty =
         Number(sessionUse[key] || 0) * 1000 +
         Number(history[key] || 0) * 6 +
@@ -839,9 +864,6 @@
 
   window.VocabData = D;
 
-  /*
-    compatibility กับ code เก่า
-  */
   window.VOCAB_BANKS = D.banks;
   window.VOCAB_EXTRA_TERMS_V71 = D.extraTerms;
   window.VOCAB_DIFFICULTY_FEEL_V71 = D.difficultyFeel;
@@ -861,7 +883,14 @@
     alert("ล้างประวัติคำศัพท์แล้ว รอบต่อไปจะสุ่ม deck ใหม่");
   };
 
+  window.VocabModules = window.VocabModules || {};
+  window.VocabModules.data = true;
+
+  window.__VOCAB_MODULES__ = window.__VOCAB_MODULES__ || {};
+  window.__VOCAB_MODULES__.data = true;
+
   console.log("[VOCAB] data loaded", {
+    version: "vocab-data-v20260503t",
     A: D.banks.A.length,
     B: D.banks.B.length,
     C: D.banks.C.length
