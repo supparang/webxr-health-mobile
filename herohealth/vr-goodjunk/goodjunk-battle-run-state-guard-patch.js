@@ -1,19 +1,20 @@
 /*
   HeroHealth • GoodJunk Battle Run State Guard Patch
-  v20260515-battle-run-v234-countdown-ended-state-guard
+  v20260515-battle-run-v235-overlay-unlock-no-double-start
 
-  Purpose:
-  - Prevent stale countdown overlay from staying forever
-  - If room is ended/finalSummary, hide countdown and show final summary
-  - If countdown is stuck > 4.5s, force local start
-  - Stop old ended match from looking like a new game
+  Fixes:
+  - Countdown overlay ค้างเลข 3 แล้วบังคลิก
+  - เป้า spawn แล้วแต่เล่นไม่ได้ เพราะ overlay/pointer-events ยังทับสนาม
+  - กัน force start ซ้ำจน spawn เป้าหลายชุด
+  - ถ้าเกมกำลังเล่นอยู่แล้ว ให้ซ่อน countdown ทันที
+  - ถ้าห้อง ended/finalSummary ค่อยแสดง summary ไม่ลากเข้า countdown ใหม่
 */
 
 (function(){
   'use strict';
 
   window.HHA_GJ_BATTLE_RUN_STATE_GUARD =
-    'v20260515-battle-run-v234-countdown-ended-state-guard';
+    'v20260515-battle-run-v235-overlay-unlock-no-double-start';
 
   const params = new URLSearchParams(location.search);
   const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
@@ -25,10 +26,13 @@
     name:'',
     matchId:'',
     installed:false,
-    countdownWatchTimer:null,
     roomListenerAttached:false,
-    forcedStart:false,
-    endedHandled:false
+    countdownWatchTimer:null,
+    pollTimer:null,
+    endedHandled:false,
+    startUnlocked:false,
+    lastRoomStatus:'',
+    lastActiveMatchId:''
   };
 
   function now(){
@@ -113,37 +117,175 @@
     throw new Error('Firebase database not ready');
   }
 
+  function q(sel){
+    return document.querySelector(sel);
+  }
+
   function countdownEl(){
     return document.getElementById('countdown') ||
       document.getElementById('countdownOverlay') ||
       document.querySelector('[data-countdown-overlay]') ||
+      document.querySelector('.countdownOverlay') ||
       document.querySelector('.countdown') ||
-      document.querySelector('.countdownOverlay');
+      document.querySelector('.countdown-modal') ||
+      document.querySelector('.start-countdown');
+  }
+
+  function looksLikeCountdownText(el){
+    if (!el) return false;
+    const t = String(el.textContent || '').trim();
+    return /Battle\s*พร้อม|กำลังเข้าเกม|^\s*3\s*$|^\s*2\s*$|^\s*1\s*$|GO/i.test(t);
+  }
+
+  function findCountdownByText(){
+    const nodes = Array.from(document.querySelectorAll('div,section,article,aside'));
+    return nodes.find(el => {
+      const st = getComputedStyle(el);
+      if (st.position !== 'fixed' && st.position !== 'absolute') return false;
+      if (st.display === 'none' || st.visibility === 'hidden') return false;
+      return looksLikeCountdownText(el);
+    }) || null;
   }
 
   function hideCountdown(){
-    const el = countdownEl();
-    if (!el) return;
+    const list = [
+      countdownEl(),
+      findCountdownByText()
+    ].filter(Boolean);
 
-    el.classList.remove('show');
-    el.classList.remove('active');
-    el.setAttribute('aria-hidden','true');
-    el.style.display = 'none';
-    el.style.pointerEvents = 'none';
+    list.forEach(el => {
+      el.classList.remove('show');
+      el.classList.remove('active');
+      el.classList.remove('open');
+      el.setAttribute('aria-hidden','true');
+      el.style.display = 'none';
+      el.style.visibility = 'hidden';
+      el.style.opacity = '0';
+      el.style.pointerEvents = 'none';
+      el.style.zIndex = '-1';
+    });
+
+    document.body.classList.add('battle-countdown-cleared');
   }
 
-  function showOverlay(){
-    const overlay =
-      document.getElementById('summaryOverlay') ||
-      document.getElementById('resultOverlay') ||
-      document.getElementById('overlay') ||
-      document.querySelector('[data-summary-overlay]') ||
-      document.querySelector('.overlay');
+  function unlockPointerLayers(){
+    const maybeBlockers = Array.from(document.querySelectorAll(
+      '.countdown,.countdownOverlay,.countdown-modal,.start-countdown,[data-countdown-overlay],.modal,.overlay'
+    ));
 
-    if (overlay){
-      overlay.classList.add('show');
-      overlay.style.display = overlay.style.display === 'none' ? 'flex' : overlay.style.display;
+    maybeBlockers.forEach(el => {
+      if (!el) return;
+      if (looksLikeCountdownText(el)){
+        el.style.pointerEvents = 'none';
+      }
+    });
+
+    const gameArea =
+      document.getElementById('arena') ||
+      document.getElementById('game') ||
+      document.getElementById('stage') ||
+      document.querySelector('[data-arena]') ||
+      document.querySelector('.arena') ||
+      document.querySelector('.game') ||
+      document.querySelector('.stage');
+
+    if (gameArea){
+      gameArea.style.pointerEvents = 'auto';
     }
+
+    document.body.style.pointerEvents = 'auto';
+  }
+
+  function hasTargetsOnScreen(){
+    const selectors = [
+      '.target',
+      '.food',
+      '.item',
+      '.spawn',
+      '.battle-target',
+      '[data-target]',
+      '[data-food]',
+      '[data-kind]'
+    ];
+
+    return selectors.some(sel => document.querySelectorAll(sel).length > 0);
+  }
+
+  function gameLooksRunning(){
+    const s = window.state || window.GJ_STATE || window.BATTLE_STATE || {};
+
+    if (s.gameStarted || s.started || s.running) return true;
+    if (Number(s.timeLeft || s.remaining || 0) > 0 && hasTargetsOnScreen()) return true;
+    if (hasTargetsOnScreen()) return true;
+
+    const text = document.body.innerText || '';
+    if (/เวลา\s*\d+s|Targets\s*\d+|Guest Touch Fix|Score|Combo|Heart|Attack/i.test(text) && hasTargetsOnScreen()){
+      return true;
+    }
+
+    return false;
+  }
+
+  function markLocalStarted(room){
+    const s = window.state || window.GJ_STATE || window.BATTLE_STATE || null;
+
+    if (s){
+      s.gameStarted = true;
+      s.waitingForStart = false;
+      s.started = true;
+      s.running = true;
+      s.startedAt = Number(room?.startedAt || now());
+    }
+
+    guard.startUnlocked = true;
+
+    document.body.classList.add('battle-started');
+    document.body.classList.add('battle-run-unlocked');
+
+    hideCountdown();
+    unlockPointerLayers();
+  }
+
+  function startOnlyIfNotRunning(room){
+    if (guard.endedHandled) return;
+
+    if (gameLooksRunning()){
+      markLocalStarted(room);
+      return;
+    }
+
+    if (guard.startUnlocked){
+      hideCountdown();
+      unlockPointerLayers();
+      return;
+    }
+
+    guard.startUnlocked = true;
+
+    hideCountdown();
+    unlockPointerLayers();
+
+    const startFns = [
+      'startBattleLocal',
+      'startGameLoop',
+      'startBattleLoop',
+      'start'
+    ];
+
+    for (const name of startFns){
+      if (typeof window[name] === 'function'){
+        try{
+          window[name](room || {});
+          markLocalStarted(room);
+          return;
+        }catch(err){
+          console.warn(`[GJ Battle Run Guard] ${name} failed`, err);
+        }
+      }
+    }
+
+    markLocalStarted(room);
+    console.warn('[GJ Battle Run Guard] no start function found, unlocked UI only');
   }
 
   function setText(selectors, text){
@@ -161,8 +303,24 @@
         return true;
       }
     }
-
     return false;
+  }
+
+  function showSummaryOverlay(){
+    const overlay =
+      document.getElementById('summaryOverlay') ||
+      document.getElementById('resultOverlay') ||
+      document.getElementById('overlay') ||
+      document.querySelector('[data-summary-overlay]');
+
+    if (overlay){
+      overlay.classList.add('show');
+      overlay.style.display = overlay.style.display === 'none' ? 'flex' : overlay.style.display;
+      overlay.style.visibility = 'visible';
+      overlay.style.opacity = '1';
+      overlay.style.pointerEvents = 'auto';
+      overlay.style.zIndex = '9999';
+    }
   }
 
   function heartText(hp){
@@ -173,11 +331,9 @@
 
   function safePlayerName(p, fallback='Player'){
     const n = String(p?.name || p?.nick || p?.displayName || '').trim();
-
     if (!n) return fallback;
     if (/^(sfx|sound|audio|เสียง)$/i.test(n)) return fallback;
     if (/🔊/.test(n)) return fallback;
-
     return n;
   }
 
@@ -188,8 +344,14 @@
 
     const myPid = guard.pid;
     const players = summary.players || {};
-    const me = players[safeKey(myPid)] || Object.values(players).find(p => p.pid === myPid) || null;
-    const rival = Object.values(players).find(p => p.pid !== myPid) || null;
+    const me =
+      players[safeKey(myPid)] ||
+      Object.values(players).find(p => p.pid === myPid) ||
+      null;
+
+    const rival =
+      Object.values(players).find(p => p.pid !== myPid) ||
+      null;
 
     const result =
       !summary.winnerPid
@@ -206,47 +368,19 @@
           : 'เสมอ Battle!';
 
     setText(['#summaryTitle','[data-summary-title]','.summary-title'], titleText);
+    setText(['#summaryReason','[data-summary-reason]','.summary-reason'], `รอบที่ ${Number(summary.roundNo || 1)} • ${summary.reason || 'สรุปผล'}`);
+    setText(['#summaryMyName','[data-summary-my-name]','.summary-my-name'], `คุณ: ${safePlayerName(me, guard.name || 'Hero')}`);
+    setText(['#summaryRivalName','[data-summary-rival-name]','.summary-rival-name'], `คู่แข่ง: ${safePlayerName(rival, 'คู่แข่ง')}`);
+    setText(['#summaryMyScore','[data-summary-my-score]','.summary-my-score'], String(Number(me?.score || 0)));
+    setText(['#summaryRivalScore','[data-summary-rival-score]','.summary-rival-score'], String(Number(rival?.score || 0)));
+    setText(['#summaryMyHeart','[data-summary-my-heart]','.summary-my-heart'], heartText(Number(me?.hp || 0)));
+    setText(['#summaryRivalHeart','[data-summary-rival-heart]','.summary-rival-heart'], heartText(Number(rival?.hp || 0)));
 
-    setText(
-      ['#summaryReason','[data-summary-reason]','.summary-reason'],
-      `รอบที่ ${Number(summary.roundNo || 1)} • ${summary.reason || 'สรุปผล'}`
-    );
-
-    setText(
-      ['#summaryMyName','[data-summary-my-name]','.summary-my-name'],
-      `คุณ: ${safePlayerName(me, guard.name || 'Hero')}`
-    );
-
-    setText(
-      ['#summaryRivalName','[data-summary-rival-name]','.summary-rival-name'],
-      `คู่แข่ง: ${safePlayerName(rival, 'คู่แข่ง')}`
-    );
-
-    setText(
-      ['#summaryMyScore','[data-summary-my-score]','.summary-my-score'],
-      String(Number(me?.score || 0))
-    );
-
-    setText(
-      ['#summaryRivalScore','[data-summary-rival-score]','.summary-rival-score'],
-      String(Number(rival?.score || 0))
-    );
-
-    setText(
-      ['#summaryMyHeart','[data-summary-my-heart]','.summary-my-heart'],
-      heartText(Number(me?.hp || 0))
-    );
-
-    setText(
-      ['#summaryRivalHeart','[data-summary-rival-heart]','.summary-rival-heart'],
-      heartText(Number(rival?.hp || 0))
-    );
-
-    showOverlay();
+    showSummaryOverlay();
   }
 
   function handleEndedRoom(room){
-    if (!room || guard.endedHandled) return;
+    if (!room) return;
 
     if (!room.finalSummary && room.status !== 'ended' && room.status !== 'aborted'){
       return;
@@ -255,18 +389,16 @@
     guard.endedHandled = true;
 
     hideCountdown();
+    unlockPointerLayers();
 
     try{
-      if (window.state){
-        window.state.ended = true;
-        window.state.gameStarted = false;
-        window.state.waitingForStart = false;
+      const s = window.state || window.GJ_STATE || window.BATTLE_STATE || null;
+      if (s){
+        s.ended = true;
+        s.gameStarted = false;
+        s.waitingForStart = false;
+        s.running = false;
       }
-    }catch(_){}
-
-    try{
-      clearInterval(window.playerSyncTimer);
-      clearInterval(window.countdownTimer);
     }catch(_){}
 
     if (room.finalSummary){
@@ -275,57 +407,12 @@
       }else{
         renderSummaryFallback(room.finalSummary);
       }
-    }else{
-      showOverlay();
-      setText(['#summaryTitle','[data-summary-title]','.summary-title'], 'Battle จบแล้ว');
-      setText(['#summaryReason','[data-summary-reason]','.summary-reason'], 'ห้องนี้เป็น match เก่าที่จบแล้ว');
-    }
-
-    console.warn('[GJ Battle Run Guard] ended room handled', {
-      room:guard.room,
-      status:room.status,
-      hasFinalSummary:!!room.finalSummary
-    });
-  }
-
-  function forceLocalStart(room){
-    if (guard.forcedStart || guard.endedHandled) return;
-
-    guard.forcedStart = true;
-
-    hideCountdown();
-
-    try{
-      if (window.state){
-        window.state.gameStarted = true;
-        window.state.waitingForStart = false;
-        window.state.startedAt = Number(room?.startedAt || Date.now());
-      }
-    }catch(_){}
-
-    if (typeof window.startBattleLocal === 'function'){
-      window.startBattleLocal(room || {});
       return;
     }
 
-    if (typeof window.startGameLoop === 'function'){
-      window.startGameLoop();
-      return;
-    }
-
-    if (typeof window.startBattleLoop === 'function'){
-      window.startBattleLoop();
-      return;
-    }
-
-    if (typeof window.start === 'function'){
-      window.start();
-      return;
-    }
-
-    document.body.classList.add('battle-started');
-
-    console.warn('[GJ Battle Run Guard] forced local start, no explicit start function found');
+    setText(['#summaryTitle','[data-summary-title]','.summary-title'], 'Battle จบแล้ว');
+    setText(['#summaryReason','[data-summary-reason]','.summary-reason'], 'ห้องนี้เป็น match เก่าที่จบแล้ว');
+    showSummaryOverlay();
   }
 
   function watchCountdownStuck(room){
@@ -334,18 +421,25 @@
     guard.countdownWatchTimer = setTimeout(() => {
       if (guard.endedHandled) return;
 
-      const el = countdownEl();
+      if (gameLooksRunning()){
+        console.warn('[GJ Battle Run Guard] countdown still visible while game running, hiding overlay');
+        markLocalStarted(room);
+        return;
+      }
+
+      const el = countdownEl() || findCountdownByText();
       if (!el) return;
 
+      const st = getComputedStyle(el);
       const visible =
         el.classList.contains('show') ||
         el.classList.contains('active') ||
-        getComputedStyle(el).display !== 'none';
+        st.display !== 'none';
 
       if (!visible) return;
 
-      console.warn('[GJ Battle Run Guard] countdown stuck > 4.5s, forcing start');
-      forceLocalStart(room || {});
+      console.warn('[GJ Battle Run Guard] countdown stuck > 4.5s, unlocking without duplicate spawn');
+      startOnlyIfNotRunning(room || {});
     }, 4500);
   }
 
@@ -358,17 +452,32 @@
       const room = await db.ref(roomPath()).get().then(s => s.val()).catch(() => null);
       if (!room) return;
 
+      guard.lastRoomStatus = room.status || '';
+      guard.lastActiveMatchId = room.activeMatchId || room.matchId || '';
+
       if (room.finalSummary || room.status === 'ended' || room.status === 'aborted'){
         handleEndedRoom(room);
         return;
       }
 
-      if (room.status === 'countdown'){
-        watchCountdownStuck(room);
+      if (room.status === 'started'){
+        startOnlyIfNotRunning(room);
+        return;
       }
 
-      if (room.status === 'started'){
-        hideCountdown();
+      if (room.status === 'countdown'){
+        if (gameLooksRunning()){
+          markLocalStarted(room);
+          return;
+        }
+
+        watchCountdownStuck(room);
+        return;
+      }
+
+      // ถ้าไม่มีสถานะเริ่ม แต่เกมดูเหมือนรันแล้ว ให้ปลด overlay
+      if (gameLooksRunning()){
+        markLocalStarted(room);
       }
 
     }catch(err){
@@ -399,12 +508,17 @@
           return;
         }
 
-        if (room.status === 'countdown'){
-          watchCountdownStuck(room);
+        if (room.status === 'started'){
+          startOnlyIfNotRunning(room);
+          return;
         }
 
-        if (room.status === 'started'){
-          hideCountdown();
+        if (room.status === 'countdown'){
+          if (gameLooksRunning()){
+            markLocalStarted(room);
+          }else{
+            watchCountdownStuck(room);
+          }
         }
       });
 
@@ -413,7 +527,7 @@
     }
   }
 
-  function patchLegacyCountdownFunctions(){
+  function patchCountdownFunctions(){
     if (window.__GJ_BT_RUN_COUNTDOWN_GUARD_INSTALLED__) return;
     window.__GJ_BT_RUN_COUNTDOWN_GUARD_INSTALLED__ = true;
 
@@ -430,10 +544,49 @@
 
       window[name] = function(room){
         const result = oldFn.apply(this, arguments);
-        watchCountdownStuck(room || window.state?.roomData || {});
+
+        setTimeout(() => {
+          if (gameLooksRunning()){
+            markLocalStarted(room || window.state?.roomData || {});
+          }else{
+            watchCountdownStuck(room || window.state?.roomData || {});
+          }
+        }, 50);
+
         return result;
       };
     });
+  }
+
+  function injectCssGuard(){
+    if (document.getElementById('gjBattleRunGuardCss')) return;
+
+    const style = document.createElement('style');
+    style.id = 'gjBattleRunGuardCss';
+    style.textContent = `
+      body.battle-run-unlocked .countdown,
+      body.battle-run-unlocked .countdownOverlay,
+      body.battle-run-unlocked .countdown-modal,
+      body.battle-run-unlocked .start-countdown,
+      body.battle-run-unlocked [data-countdown-overlay]{
+        display:none !important;
+        visibility:hidden !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+        z-index:-1 !important;
+      }
+
+      body.battle-run-unlocked .arena,
+      body.battle-run-unlocked .game,
+      body.battle-run-unlocked .stage,
+      body.battle-run-unlocked #arena,
+      body.battle-run-unlocked #game,
+      body.battle-run-unlocked #stage,
+      body.battle-run-unlocked [data-arena]{
+        pointer-events:auto !important;
+      }
+    `;
+    document.head.appendChild(style);
   }
 
   function install(){
@@ -441,15 +594,24 @@
     guard.installed = true;
 
     readContext();
-
-    patchLegacyCountdownFunctions();
+    injectCssGuard();
+    patchCountdownFunctions();
     attachRoomListener();
     inspectRoomOnce();
 
-    setInterval(inspectRoomOnce, 3000);
+    guard.pollTimer = setInterval(() => {
+      if (guard.endedHandled) return;
+
+      if (gameLooksRunning()){
+        markLocalStarted(window.state?.roomData || {});
+      }else{
+        inspectRoomOnce();
+      }
+    }, 1200);
 
     window.addEventListener('beforeunload', () => {
       clearTimeout(guard.countdownWatchTimer);
+      clearInterval(guard.pollTimer);
     });
 
     console.log('[GJ Battle Run Guard] installed', {
