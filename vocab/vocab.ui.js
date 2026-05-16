@@ -2801,3 +2801,164 @@
     allowNextBriefly
   };
 })();
+/* =========================================================
+   /vocab/vocab.ui.js — Question Time Tune
+   PATCH: v20260503u
+
+   ปรับเวลาแต่ละข้อให้นานขึ้นเล็กน้อย:
+   - learn: 60 / 50 / 45 / 40
+   - mission: 55 / 50 / 45 / 40
+   - speed: 35 / 30 / 25 / 22
+   - battle: 40 / 35 / 30 / 25
+========================================================= */
+(function(){
+  "use strict";
+
+  const WIN = window;
+  const VERSION = "vocab-question-time-tune-v20260503u";
+
+  const TUNED_SETTINGS = {
+    learn: {
+      easy: 60,
+      normal: 50,
+      hard: 45,
+      challenge: 40,
+      autoSkip: false
+    },
+    mission: {
+      easy: 55,
+      normal: 50,
+      hard: 45,
+      challenge: 40,
+      autoSkip: false
+    },
+    speed: {
+      easy: 35,
+      normal: 30,
+      hard: 25,
+      challenge: 22,
+      autoSkip: true
+    },
+    battle: {
+      easy: 40,
+      normal: 35,
+      hard: 30,
+      challenge: 25,
+      autoSkip: true
+    }
+  };
+
+  function pick(){
+    for(let i = 0; i < arguments.length; i++){
+      const v = arguments[i];
+      if(v !== undefined && v !== null && v !== "") return v;
+    }
+    return "";
+  }
+
+  function getState(){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.getState === "function"){
+        return WIN.VocabUI.getState() || {};
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.get === "function"){
+        return WIN.VocabState.get() || {};
+      }
+    }catch(e){}
+
+    return WIN.VOCAB_APP || {};
+  }
+
+  function setState(update){
+    update = update || {};
+
+    WIN.VOCAB_APP = WIN.VOCAB_APP || {};
+    Object.assign(WIN.VOCAB_APP, update);
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.set === "function"){
+        WIN.VocabState.set(update);
+      }else if(WIN.VocabState && WIN.VocabState.state){
+        Object.assign(WIN.VocabState.state, update);
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.patchState === "function"){
+        WIN.VocabUI.patchState(update);
+      }
+    }catch(e){}
+  }
+
+  function currentMode(){
+    const s = getState();
+    return String(pick(s.mode, s.selectedMode, "learn")).toLowerCase();
+  }
+
+  function currentDifficulty(){
+    const s = getState();
+    return String(pick(s.difficulty, s.diff, s.selectedDifficulty, "easy")).toLowerCase();
+  }
+
+  function getTunedRule(){
+    const mode = currentMode();
+    const diff = currentDifficulty();
+
+    const group = TUNED_SETTINGS[mode] || TUNED_SETTINGS.learn;
+
+    return {
+      seconds: Number(group[diff] || group.easy || 60),
+      autoSkip: !!group.autoSkip,
+      mode: mode,
+      difficulty: diff
+    };
+  }
+
+  /*
+    Override VocabTimeGuard rule ถ้ามีอยู่แล้ว
+  */
+  function installTune(){
+    const rule = getTunedRule();
+
+    setState({
+      questionTimeSec: rule.seconds,
+      perQuestionTime: rule.seconds,
+      autoSkipQuestion: rule.autoSkip,
+      noAutoNextBeforeAnswer: true
+    });
+
+    if(WIN.VocabTimeGuard){
+      WIN.VocabTimeGuard.getRule = getTunedRule;
+
+      /*
+        ถ้ากำลังอยู่ในข้อ ให้เริ่ม timer ใหม่ด้วยเวลาใหม่
+        แต่ไม่บังคับเปลี่ยนข้อ
+      */
+      if(typeof WIN.VocabTimeGuard.stopTimer === "function"){
+        WIN.VocabTimeGuard.stopTimer();
+      }
+
+      if(typeof WIN.VocabTimeGuard.startTimerForQuestion === "function"){
+        WIN.VocabTimeGuard.startTimerForQuestion();
+      }
+    }
+
+    console.log("[VOCAB TIME TUNE] loaded", VERSION, getTunedRule());
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", installTune, { once:true });
+  }else{
+    installTune();
+  }
+
+  WIN.VocabTimeTune = {
+    version: VERSION,
+    settings: TUNED_SETTINGS,
+    getRule: getTunedRule,
+    install: installTune
+  };
+})();
