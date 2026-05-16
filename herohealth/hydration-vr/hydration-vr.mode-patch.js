@@ -1847,3 +1847,190 @@
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260516-hydration-start-rescue-pack20
+   Fix: หน้า Start Overlay ขึ้น แต่กด "เริ่มภารกิจ" แล้วไม่เข้าเกม
+   - bind ปุ่ม Start แบบ capture
+   - กัน summary-scroll patch เข้าใจผิดว่า start screen คือ summary
+   - clear summary-open class ก่อนเริ่มเกม
+   Append at end of /herohealth/hydration-vr/hydration-vr.mode-patch.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  if(window.HHA_HYDRATION_START_RESCUE_PACK20_LOADED) return;
+  window.HHA_HYDRATION_START_RESCUE_PACK20_LOADED = true;
+
+  var PATCH = 'v20260516-hydration-start-rescue-pack20';
+
+  function q(sel, root){
+    try{ return (root || document).querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel, root){
+    try{ return Array.from((root || document).querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function isStartScreenOpen(){
+    return !!(
+      q('.hha-hydration-start') ||
+      q('.hha-start') ||
+      q('[data-hha-hydration-start]') ||
+      q('.hha-start-btn')
+    );
+  }
+
+  function clearSummaryMode(){
+    document.body.classList.remove('hha-hydration-summary-open');
+    document.documentElement.classList.remove('hha-hydration-summary-open-html');
+
+    document.documentElement.style.overflowY = '';
+    document.documentElement.style.height = '';
+    document.documentElement.style.minHeight = '';
+
+    document.body.style.overflowY = '';
+    document.body.style.height = '';
+    document.body.style.minHeight = '';
+    document.body.style.touchAction = '';
+  }
+
+  function forceStartHydration(){
+    if(!isStartScreenOpen()) return false;
+
+    clearSummaryMode();
+
+    try{
+      if(window.HHA && window.HHA.Hydration){
+        window.HHA.Hydration.started = false;
+        window.HHA.Hydration.destroyed = false;
+      }
+    }catch(e){}
+
+    if(typeof window.beginHydrationFromOverlay === 'function'){
+      try{
+        window.beginHydrationFromOverlay();
+        return true;
+      }catch(err){
+        console.warn('[Hydration Start Rescue] beginHydrationFromOverlay failed:', err);
+      }
+    }
+
+    /*
+      fallback: ถ้า global function หายจริง ๆ ให้กด onclick เดิมของปุ่มอีกครั้ง
+    */
+    var btn = q('.hha-start-btn');
+    if(btn && typeof btn.onclick === 'function'){
+      try{
+        btn.onclick();
+        return true;
+      }catch(e){}
+    }
+
+    return false;
+  }
+
+  function bindStartButtons(){
+    qa('.hha-start-btn, [data-hha-start], [data-hha-hydration-start-btn]').forEach(function(btn){
+      if(btn.dataset.hhaStartRescue === PATCH) return;
+      btn.dataset.hhaStartRescue = PATCH;
+
+      btn.addEventListener('click', function(ev){
+        var ok = forceStartHydration();
+
+        if(ok){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        }
+      }, true);
+
+      btn.addEventListener('pointerdown', function(){
+        clearSummaryMode();
+      }, true);
+
+      btn.addEventListener('touchstart', function(){
+        clearSummaryMode();
+      }, { passive:true, capture:true });
+    });
+  }
+
+  function preventFalseSummaryUnlock(){
+    /*
+      ถ้ายังอยู่หน้า start screen ห้าม body ค้าง class summary-open
+      เพราะ Pack19 อาจ detect ผิดจากข้อความ Hydration/Combo/Mission บน start card
+    */
+    if(!isStartScreenOpen()) return;
+
+    clearSummaryMode();
+
+    var app = q('#hha-hydration-app');
+    var stage = q('#hha-hydration-stage');
+    var playfield = q('#hha-hydration-playfield');
+
+    [app, stage, playfield].forEach(function(el){
+      if(!el) return;
+      el.style.overflow = '';
+      el.style.height = '';
+      el.style.minHeight = '';
+      el.style.maxHeight = '';
+      el.style.position = '';
+    });
+  }
+
+  function boot(){
+    bindStartButtons();
+    preventFalseSummaryUnlock();
+
+    /*
+      global capture เผื่อ onclick inline โดน block หรือปุ่มถูก mount ใหม่
+    */
+    document.addEventListener('click', function(ev){
+      var t = ev.target;
+      if(!t || !t.closest) return;
+
+      var btn = t.closest('.hha-start-btn, [data-hha-start], [data-hha-hydration-start-btn]');
+      if(!btn) return;
+
+      var ok = forceStartHydration();
+
+      if(ok){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      }
+    }, true);
+
+    var mo = new MutationObserver(function(){
+      bindStartButtons();
+      preventFalseSummaryUnlock();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['class','style']
+    });
+
+    setInterval(function(){
+      bindStartButtons();
+      preventFalseSummaryUnlock();
+    }, 500);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationStartRescue = {
+      version: PATCH,
+      start: forceStartHydration,
+      clearSummaryMode: clearSummaryMode
+    };
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
