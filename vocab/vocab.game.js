@@ -1,1273 +1,1767 @@
 /* =========================================================
    /vocab/vocab.game.js
-   TechPath Vocab Arena — Core Game Engine
-   Version: 20260503a
-   Depends on:
-   - vocab.config.js
-   - vocab.utils.js
-   - vocab.data.js
-   - vocab.state.js
-   - vocab.storage.js
-   - vocab.logger.js
-   - vocab.question.js
-   - vocab.ui.js
+   TechPath Vocab Arena — Game Engine
+   FULL CLEAN PATCH: v20260503x
+
+   Responsibilities:
+   - start()
+   - answer()
+   - nextQuestion()
+   - finish()
+   - useHint()
+   - useAiHelp()
+   - updateState()
+   - no auto-skip in learn/mission
+   - guarded timer support for speed/battle
+   - reward/logger/storage integration
 ========================================================= */
+
 (function(){
   "use strict";
 
   const WIN = window;
+  const DOC = document;
 
-  const Config = WIN.VocabConfig || WIN.VOCAB_APP || {};
-  const U = WIN.VocabUtils || {};
-  const Data = WIN.VocabData || {};
-  const State = WIN.VocabState || {};
-  const Storage = WIN.VocabStorage || {};
-  const Logger = WIN.VocabLogger || {};
-  const Question = WIN.VocabQuestion || {};
-  const UI = WIN.VocabUI || {};
+  const VERSION = "vocab-game-v20260503x";
 
-  const game = State.game || WIN.vocabGame || {};
+  const MODE_RULES = {
+    learn: {
+      label: "AI Training",
+      enemy: "Coach Bot",
+      avatar: "🤖",
+      skill: "สอนคำศัพท์พร้อมคำอธิบาย",
+      baseHp: 5,
+      hints: 2,
+      aiHelp: 3,
+      shields: 1,
+      autoSkip: false
+    },
 
-  const VERSION = "vocab-game-20260503a";
+    speed: {
+      label: "Speed Run",
+      enemy: "Time Bug",
+      avatar: "⚡",
+      skill: "ตอบไว ทำ Combo ให้ต่อเนื่อง",
+      baseHp: 4,
+      hints: 1,
+      aiHelp: 2,
+      shields: 1,
+      autoSkip: true
+    },
 
-  function now(){
-    return Date.now();
-  }
+    mission: {
+      label: "Debug Mission",
+      enemy: "Case Hacker",
+      avatar: "🎯",
+      skill: "อ่านสถานการณ์และเลือกคำศัพท์ให้ตรงบริบท",
+      baseHp: 5,
+      hints: 2,
+      aiHelp: 2,
+      shields: 1,
+      autoSkip: false
+    },
 
-  function uid(prefix){
-    if(U.uid) return U.uid(prefix || "vocab");
-    return `${prefix || "vocab"}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
-  }
+    battle: {
+      label: "Boss Battle",
+      enemy: "Vocab Virus",
+      avatar: "👾",
+      skill: "ใช้ Combo และความแม่นยำโจมตีบอส",
+      baseHp: 4,
+      hints: 1,
+      aiHelp: 1,
+      shields: 1,
+      autoSkip: true
+    },
 
-  function log(type, data){
-    if(Logger.log){
-      Logger.log(type, data || {});
-      return;
+    bossrush: {
+      label: "Boss Rush",
+      enemy: "Final Syntax Dragon",
+      avatar: "🐉",
+      skill: "โหมดท้าทายสูงสุด",
+      baseHp: 3,
+      hints: 1,
+      aiHelp: 1,
+      shields: 0,
+      autoSkip: true
     }
+  };
 
-    if(typeof WIN.logVocabEventV6 === "function"){
-      WIN.logVocabEventV6(type, data || {});
+  const DIFF_RULES = {
+    easy: {
+      label: "Easy",
+      scoreBase: 100,
+      enemyHp: 600,
+      damage: 100,
+      wrongDamage: 1
+    },
+
+    normal: {
+      label: "Normal",
+      scoreBase: 120,
+      enemyHp: 800,
+      damage: 110,
+      wrongDamage: 1
+    },
+
+    hard: {
+      label: "Hard",
+      scoreBase: 140,
+      enemyHp: 1000,
+      damage: 125,
+      wrongDamage: 1
+    },
+
+    challenge: {
+      label: "Challenge",
+      scoreBase: 160,
+      enemyHp: 1200,
+      damage: 140,
+      wrongDamage: 1
     }
-  }
+  };
 
-  function playSfx(type){
+  const state = {
+    running: false,
+    ended: false,
+    locked: false,
+
+    bank: "A",
+    mode: "learn",
+    difficulty: "easy",
+    diff: "easy",
+    seed: "",
+
+    display_name: "Hero",
+    student_id: "anon",
+    section: "",
+    session_code: "",
+
+    session_id: "",
+    started_at_ms: 0,
+    started_at: "",
+
+    questions: [],
+    questionList: [],
+    currentQuestion: null,
+    questionIndex: 0,
+    index: 0,
+    questionNo: 0,
+    questionCount: 0,
+
+    score: 0,
+    raw_score: 0,
+    fair_score: 0,
+
+    combo: 0,
+    currentCombo: 0,
+    comboMax: 0,
+    combo_max: 0,
+
+    hp: 5,
+    lives: 5,
+    maxHp: 5,
+
+    enemyHp: 100,
+    enemy_hp: 100,
+    enemyMaxHp: 100,
+    enemy_max_hp: 100,
+
+    correctCount: 0,
+    correct_count: 0,
+    wrongCount: 0,
+    wrong_count: 0,
+    mistakes: 0,
+
+    answeredCount: 0,
+    answered_count: 0,
+
+    hints: 0,
+    hintCount: 0,
+    hint_used: 0,
+    hintUsed: 0,
+
+    aiHelp: 0,
+    aiHelpLeft: 0,
+    ai_help_left: 0,
+    ai_help_used: 0,
+    aiHelpUsed: 0,
+
+    shields: 0,
+    shield: 0,
+    shield_used: 0,
+
+    laserReady: false,
+    laser_ready: false,
+    laser_used: 0,
+
+    fever: false,
+    isFever: false,
+
+    weak_terms: [],
+    weakTerms: [],
+    weakest_term: "",
+    weakestTerm: "",
+
+    timeLeft: 0,
+    timer: 0,
+    questionTimeSec: 0,
+    autoSkipQuestion: false,
+
+    stageId: "",
+    stage_id: "",
+    stageName: "",
+    stage_name: "",
+    stageGoal: "",
+    stage_goal: "",
+
+    enemyName: "Bug Slime",
+    enemy_name: "Bug Slime",
+    enemyAvatar: "👾",
+    enemy_avatar: "👾",
+    enemySkill: "Enemy skill",
+    enemy_skill: "Enemy skill"
+  };
+
+  let answerLock = false;
+  let timerId = null;
+  let lastAnswerAt = 0;
+
+  /* =========================================================
+     BASIC HELPERS
+  ========================================================= */
+
+  function log(){
     try{
-      const AudioCtx = WIN.AudioContext || WIN.webkitAudioContext;
-      if(!AudioCtx) return;
-
-      if(!WIN.__VOCAB_AUDIO_CTX__){
-        WIN.__VOCAB_AUDIO_CTX__ = new AudioCtx();
-      }
-
-      const ctx = WIN.__VOCAB_AUDIO_CTX__;
-
-      if(ctx.state === "suspended"){
-        ctx.resume().catch(() => {});
-      }
-
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      let freq = 440;
-      let duration = 0.08;
-
-      if(type === "correct"){
-        freq = 740;
-        duration = 0.09;
-      }else if(type === "wrong"){
-        freq = 180;
-        duration = 0.14;
-      }else if(type === "start"){
-        freq = 520;
-        duration = 0.12;
-      }else if(type === "stage"){
-        freq = 620;
-        duration = 0.10;
-      }else if(type === "tick"){
-        freq = 320;
-        duration = 0.04;
-      }else if(type === "laser"){
-        freq = 920;
-        duration = 0.16;
-      }else if(type === "fever"){
-        freq = 680;
-        duration = 0.18;
-      }
-
-      osc.frequency.value = freq;
-      osc.type = "sine";
-
-      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      osc.start();
-      osc.stop(ctx.currentTime + duration + 0.03);
+      console.log.apply(console, ["[VOCAB GAME]"].concat(Array.from(arguments)));
     }catch(e){}
   }
 
-  function getDifficulty(diff){
-    const table =
-      Config.DIFFICULTY ||
-      Config.difficulty ||
-      WIN.VOCAB_DIFFICULTY ||
-      {};
+  function warn(){
+    try{
+      console.warn.apply(console, ["[VOCAB GAME]"].concat(Array.from(arguments)));
+    }catch(e){}
+  }
 
-    return table[diff] || table.easy || {
-      label: "Easy",
-      totalQuestions: 8,
-      timePerQuestion: 18,
-      playerHp: 5,
-      bossMultiplier: 0.8
+  function pick(){
+    for(let i = 0; i < arguments.length; i++){
+      const v = arguments[i];
+      if(v !== undefined && v !== null && v !== ""){
+        return v;
+      }
+    }
+    return "";
+  }
+
+  function clean(s){
+    return String(s ?? "").trim();
+  }
+
+  function norm(s){
+    return clean(s).toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function num(v, fallback){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : Number(fallback || 0);
+  }
+
+  function int(v, fallback){
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) ? n : Number(fallback || 0);
+  }
+
+  function nowMs(){
+    return Date.now();
+  }
+
+  function bangkokIsoNow(){
+    const bangkokMs = Date.now() + (7 * 60 * 60 * 1000);
+    return new Date(bangkokMs).toISOString().replace("Z", "+07:00");
+  }
+
+  function getParam(name, fallback){
+    try{
+      const p = new URLSearchParams(location.search);
+      return p.get(name) || fallback || "";
+    }catch(e){
+      return fallback || "";
+    }
+  }
+
+  function normalizeMode(mode){
+    mode = norm(mode || "learn");
+
+    if(mode === "ai" || mode === "training" || mode === "ai_training"){
+      return "learn";
+    }
+
+    if(mode === "debug" || mode === "debug_mission"){
+      return "mission";
+    }
+
+    if(mode === "boss" || mode === "boss_battle"){
+      return "battle";
+    }
+
+    if(["learn", "speed", "mission", "battle", "bossrush"].includes(mode)){
+      return mode;
+    }
+
+    return "learn";
+  }
+
+  function normalizeDifficulty(diff){
+    diff = norm(diff || "easy");
+
+    if(["easy", "normal", "hard", "challenge"].includes(diff)){
+      return diff;
+    }
+
+    return "easy";
+  }
+
+  function getModeRule(mode){
+    return MODE_RULES[normalizeMode(mode)] || MODE_RULES.learn;
+  }
+
+  function getDiffRule(diff){
+    return DIFF_RULES[normalizeDifficulty(diff)] || DIFF_RULES.easy;
+  }
+
+  function getQuestionRule(){
+    if(WIN.VocabTimeTune && typeof WIN.VocabTimeTune.getRule === "function"){
+      try{
+        return WIN.VocabTimeTune.getRule();
+      }catch(e){}
+    }
+
+    if(WIN.VocabTimeGuard && typeof WIN.VocabTimeGuard.getRule === "function"){
+      try{
+        return WIN.VocabTimeGuard.getRule();
+      }catch(e){}
+    }
+
+    const mode = normalizeMode(state.mode);
+    const diff = normalizeDifficulty(state.difficulty);
+
+    const fallback = {
+      learn: { easy:60, normal:50, hard:45, challenge:40, autoSkip:false },
+      mission: { easy:55, normal:50, hard:45, challenge:40, autoSkip:false },
+      speed: { easy:35, normal:30, hard:25, challenge:22, autoSkip:true },
+      battle: { easy:40, normal:35, hard:30, challenge:25, autoSkip:true },
+      bossrush: { easy:40, normal:35, hard:30, challenge:25, autoSkip:true }
+    };
+
+    const group = fallback[mode] || fallback.learn;
+
+    return {
+      seconds: Number(group[diff] || group.easy || 60),
+      autoSkip: !!group.autoSkip,
+      mode: mode,
+      difficulty: diff
     };
   }
 
-  function getMode(mode){
-    const table =
-      Config.MODES ||
-      Config.modes ||
-      WIN.VOCAB_PLAY_MODES ||
-      {};
-
-    return table[mode] || table.learn || {
-      id: "learn",
-      label: "AI Training",
-      shortLabel: "AI",
-      icon: "🤖",
-      totalQuestionBonus: 0,
-      timeBonus: 5,
-      startHints: 3,
-      startShield: 2,
-      feverComboNeed: 5,
-      laserComboNeed: 8,
-      scoreMultiplier: 0.9,
-      stageOrder: ["warmup", "warmup", "trap", "mission"]
-    };
-  }
-
-  function getEnemy(bank){
-    const table =
-      Config.ENEMIES ||
-      Config.enemies ||
-      WIN.VOCAB_ENEMIES ||
-      {};
-
-    return Object.assign({}, table[bank] || table.A || {
-      name: "Bug Slime",
-      title: "Basic Code Bug",
-      avatar: "🟢",
-      skill: "Speed pressure: ตอบช้าเสีย combo ง่าย",
-      hp: 100
+  function cloneState(){
+    return Object.assign({}, state, {
+      questions: state.questions,
+      questionList: state.questionList,
+      currentQuestion: state.currentQuestion
     });
   }
 
-  function getStages(){
-    return (
-      Config.STAGES ||
-      Config.stages ||
-      WIN.VOCAB_STAGES ||
-      [
-        { id:"warmup", name:"Warm-up Round", icon:"✨", goal:"เก็บความมั่นใจ ตอบให้ถูก" },
-        { id:"speed", name:"Speed Round", icon:"⚡", goal:"ตอบไวเพื่อเพิ่ม Combo" },
-        { id:"trap", name:"Trap Round", icon:"🧠", goal:"ระวังคำที่ความหมายใกล้กัน" },
-        { id:"mission", name:"Mini Mission", icon:"🎯", goal:"ใช้คำศัพท์กับสถานการณ์จริง" },
-        { id:"boss", name:"Boss Battle", icon:"👾", goal:"โจมตีบอสให้ HP หมด" }
-      ]
-    );
+  /* =========================================================
+     EXTERNAL MODULE HELPERS
+  ========================================================= */
+
+  function patchExternalState(update){
+    update = update || {};
+
+    Object.assign(state, update);
+
+    WIN.VOCAB_APP = WIN.VOCAB_APP || {};
+    Object.assign(WIN.VOCAB_APP, update);
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.set === "function"){
+        WIN.VocabState.set(update);
+      }else if(WIN.VocabState && WIN.VocabState.state){
+        Object.assign(WIN.VocabState.state, update);
+      }
+    }catch(e){}
   }
 
-  function getTerms(bank, difficulty){
-    if(Question.buildTermDeck){
-      return Question.buildTermDeck(bank, difficulty);
-    }
-
-    if(Data.buildTermDeck){
-      return Data.buildTermDeck(bank, difficulty);
-    }
-
-    if(Data.getTerms){
-      return Data.getTerms(bank);
-    }
-
-    const banks = WIN.VOCAB_BANKS || {};
-    return banks[bank] || banks.A || [];
+  function renderHud(){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.updateHud === "function"){
+        WIN.VocabUI.updateHud(cloneState());
+      }
+    }catch(e){}
   }
 
-  function normalizeTerm(t){
-    if(U.normalizeTerm) return U.normalizeTerm(t);
+  function renderQuestion(){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.renderQuestion === "function"){
+        WIN.VocabUI.renderQuestion(state.currentQuestion, cloneState());
+      }
+    }catch(e){
+      warn("renderQuestion failed", e);
+    }
+  }
+
+  function showExplain(html){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.showExplain === "function"){
+        WIN.VocabUI.showExplain(html);
+      }
+    }catch(e){}
+  }
+
+  function showAiHelp(text){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.showAiHelp === "function"){
+        WIN.VocabUI.showAiHelp(text);
+      }
+    }catch(e){}
+  }
+
+  function uiPop(text, type){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.pop === "function"){
+        WIN.VocabUI.pop(text, type);
+        return;
+      }
+
+      if(WIN.VocabUI && typeof WIN.VocabUI.floatText === "function"){
+        WIN.VocabUI.floatText(text, type);
+      }
+    }catch(e){}
+  }
+
+  function uiScoreBurst(points, combo){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.scoreBurst === "function"){
+        WIN.VocabUI.scoreBurst(points, combo);
+      }
+    }catch(e){}
+  }
+
+  function uiBeep(type){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.beep === "function"){
+        WIN.VocabUI.beep(type);
+      }
+    }catch(e){}
+  }
+
+  function showBattleScreen(){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.showBattle === "function"){
+        WIN.VocabUI.showBattle();
+      }
+    }catch(e){}
+  }
+
+  function showReward(summary){
+    try{
+      if(WIN.VocabReward && typeof WIN.VocabReward.show === "function"){
+        WIN.VocabReward.show(summary);
+        return;
+      }
+
+      if(WIN.VocabUI && typeof WIN.VocabUI.finishGame === "function"){
+        WIN.VocabUI.finishGame(summary);
+      }
+    }catch(e){
+      warn("reward failed", e);
+    }
+  }
+
+  function logSessionStart(payload){
+    try{
+      if(WIN.VocabLogger && typeof WIN.VocabLogger.sessionStart === "function"){
+        WIN.VocabLogger.sessionStart(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabSessionStartV6 === "function"){
+        WIN.logVocabSessionStartV6(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabEventV6 === "function"){
+        WIN.logVocabEventV6("session_start", payload);
+      }
+    }catch(e){}
+  }
+
+  function logAnswer(payload){
+    try{
+      if(WIN.VocabLogger && typeof WIN.VocabLogger.answer === "function"){
+        WIN.VocabLogger.answer(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabAnswerV6 === "function"){
+        WIN.logVocabAnswerV6(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabEventV6 === "function"){
+        WIN.logVocabEventV6("answer", payload);
+      }
+    }catch(e){}
+  }
+
+  function logSessionEnd(payload){
+    try{
+      if(WIN.VocabLogger && typeof WIN.VocabLogger.sessionEnd === "function"){
+        WIN.VocabLogger.sessionEnd(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabSessionEndV6 === "function"){
+        WIN.logVocabSessionEndV6(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabEventV6 === "function"){
+        WIN.logVocabEventV6("session_end", payload);
+      }
+    }catch(e){}
+  }
+
+  /* =========================================================
+     QUESTION HELPERS
+  ========================================================= */
+
+  function normalizeChoice(choice){
+    if(choice && typeof choice === "object"){
+      return {
+        text: clean(pick(choice.text, choice.label, choice.value, choice.answer, "")),
+        value: clean(pick(choice.value, choice.text, choice.label, choice.answer, "")),
+        correct:
+          choice.correct === true ||
+          choice.isCorrect === true ||
+          choice.is_correct === true
+      };
+    }
 
     return {
-      term: String(t.term || t.word || "").trim(),
-      meaning: String(t.meaning || t.definition || "").trim(),
-      category: String(t.category || "").trim()
+      text: clean(choice),
+      value: clean(choice),
+      correct: false
     };
   }
 
-  function shuffle(arr){
-    if(U.shuffle) return U.shuffle(arr);
-    return [...arr].sort(() => Math.random() - 0.5);
-  }
+  function normalizeQuestion(q){
+    q = q || {};
 
-  function buildStagePlan(totalQuestions, stageOrder){
-    const stages = getStages();
-    const order = Array.isArray(stageOrder) && stageOrder.length
-      ? stageOrder
-      : stages.map(s => s.id);
+    const rawChoices = q.choices || q.options || q.answers || [];
+    const choices = Array.isArray(rawChoices) ? rawChoices.map(normalizeChoice) : [];
 
-    const picked = order
-      .map(id => stages.find(s => s.id === id))
-      .filter(Boolean);
+    let correct = clean(
+      pick(
+        q.correct,
+        q.correct_answer,
+        q.correctAnswer,
+        q.answer,
+        q.key,
+        ""
+      )
+    );
 
-    if(!picked.length){
-      return [{ id:"warmup", name:"Warm-up Round", icon:"✨", goal:"เก็บความมั่นใจ", count:totalQuestions }];
+    if(!correct){
+      const flagged = choices.find(c => c.correct);
+      if(flagged) correct = flagged.value;
     }
 
-    const each = Math.floor(totalQuestions / picked.length);
-    let remain = totalQuestions;
+    return Object.assign({}, q, {
+      id: clean(pick(q.id, q.qid, q.question_id, "")),
+      term: clean(pick(q.term, q.word, q.vocab, q.keyword, "")),
+      prompt: clean(pick(q.prompt, q.question, q.question_text, q.questionText, q.text, "")),
+      choices: choices,
+      options: choices,
+      correct: correct,
+      correct_answer: correct,
+      correctAnswer: correct,
+      explain: clean(pick(q.explain, q.explanation, q.feedback, "")),
+      hint: clean(pick(q.hint, q.tip, ""))
+    });
+  }
 
-    return picked.map((stage, index) => {
-      let count = each;
+  function getQuestions(options){
+    options = options || {};
 
-      if(index < totalQuestions % picked.length){
-        count += 1;
+    const bank = clean(options.bank || state.bank || "A").toUpperCase();
+    const difficulty = normalizeDifficulty(options.difficulty || options.diff || state.difficulty);
+    const mode = normalizeMode(options.mode || state.mode);
+    const seed = pick(options.seed, state.seed, Date.now());
+
+    const engine = WIN.VocabQuestion || WIN.VocabQuestions || WIN.VocabQuestionEngine;
+
+    if(engine && typeof engine.getQuestions === "function"){
+      const questions = engine.getQuestions({
+        bank: bank,
+        difficulty: difficulty,
+        diff: difficulty,
+        mode: mode,
+        seed: seed
+      });
+
+      if(Array.isArray(questions) && questions.length){
+        return questions.map(normalizeQuestion);
+      }
+    }
+
+    if(engine && typeof engine.buildQuestions === "function"){
+      const questions = engine.buildQuestions(bank, difficulty, mode);
+
+      if(Array.isArray(questions) && questions.length){
+        return questions.map(normalizeQuestion);
+      }
+    }
+
+    warn("No questions generated");
+    return [];
+  }
+
+  function setCurrentQuestion(index){
+    index = Math.max(0, Math.min(index, state.questions.length - 1));
+
+    state.questionIndex = index;
+    state.index = index;
+    state.currentIndex = index;
+
+    state.currentQuestion = normalizeQuestion(state.questions[index]);
+
+    state.questionNo = index + 1;
+    state.questionCount = state.questions.length;
+
+    state.stageId = "stage-" + state.questionNo;
+    state.stage_id = state.stageId;
+
+    state.stageName = "Question " + state.questionNo;
+    state.stage_name = state.stageName;
+
+    state.stageGoal = "ตอบให้ถูกและจำความหมาย";
+    state.stage_goal = state.stageGoal;
+
+    patchExternalState({
+      currentQuestion: state.currentQuestion,
+      question: state.currentQuestion,
+      activeQuestion: state.currentQuestion,
+
+      questionIndex: state.questionIndex,
+      index: state.index,
+      currentIndex: state.currentIndex,
+
+      questionNo: state.questionNo,
+      question_count: state.questionCount,
+      questionCount: state.questionCount,
+
+      stageId: state.stageId,
+      stage_id: state.stage_id,
+      stageName: state.stageName,
+      stage_name: state.stage_name,
+      stageGoal: state.stageGoal,
+      stage_goal: state.stage_goal
+    });
+
+    renderQuestion();
+    startQuestionTimer();
+  }
+
+  /* =========================================================
+     TIMER
+  ========================================================= */
+
+  function stopTimer(){
+    if(timerId){
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+
+  function startQuestionTimer(){
+    stopTimer();
+
+    const rule = getQuestionRule();
+
+    state.questionTimeSec = Number(rule.seconds || 60);
+    state.timeLeft = Number(rule.seconds || 60);
+    state.timer = state.timeLeft;
+    state.autoSkipQuestion = !!rule.autoSkip;
+
+    patchExternalState({
+      questionTimeSec: state.questionTimeSec,
+      perQuestionTime: state.questionTimeSec,
+      timeLeft: state.timeLeft,
+      timer: state.timer,
+      autoSkipQuestion: state.autoSkipQuestion
+    });
+
+    renderHud();
+
+    /*
+      ให้ VocabTimeGuard เป็นตัวหลักถ้ามีอยู่แล้ว
+      เพื่อกัน auto-next ซ้อนกัน
+    */
+    if(WIN.VocabTimeGuard && typeof WIN.VocabTimeGuard.startTimerForQuestion === "function"){
+      try{
+        WIN.VocabTimeGuard.startTimerForQuestion();
+        return;
+      }catch(e){}
+    }
+
+    timerId = setInterval(function(){
+      if(!state.running || state.ended || state.locked){
+        return;
       }
 
-      if(index === picked.length - 1){
-        count = remain;
+      state.timeLeft -= 1;
+      state.timer = state.timeLeft;
+
+      patchExternalState({
+        timeLeft: state.timeLeft,
+        timer: state.timer
+      });
+
+      renderHud();
+
+      if(state.timeLeft <= 0){
+        stopTimer();
+
+        if(state.autoSkipQuestion){
+          timeoutQuestion();
+        }else{
+          showExplain(
+            "⏳ <b>ใช้เวลานานแล้ว</b><br>ข้อนี้จะยังไม่เปลี่ยนเอง ลองเลือกคำตอบที่คิดว่าใกล้เคียงที่สุด"
+          );
+        }
+      }
+    }, 1000);
+  }
+
+  function timeoutQuestion(){
+    if(state.locked || state.ended) return;
+
+    state.locked = true;
+
+    state.wrongCount += 1;
+    state.wrong_count = state.wrongCount;
+    state.mistakes += 1;
+    state.answeredCount += 1;
+    state.answered_count = state.answeredCount;
+    state.combo = 0;
+    state.currentCombo = 0;
+
+    state.hp = Math.max(0, state.hp - getDiffRule(state.difficulty).wrongDamage);
+    state.lives = state.hp;
+
+    const q = normalizeQuestion(state.currentQuestion);
+
+    pushWeakTerm(q);
+
+    uiBeep("bad");
+    uiPop("⏰ Time!", "bad");
+
+    showExplain(
+      "⏰ <b>หมดเวลา</b><br>" +
+      (q.correct ? "คำตอบที่ถูกคือ: <b>" + escapeHtml(q.correct) + "</b><br>" : "") +
+      "ไปข้อถัดไปกันเลย"
+    );
+
+    logAnswer(buildAnswerPayload({
+      selected: "",
+      correct: false,
+      timeout: true,
+      q: q
+    }));
+
+    renderHud();
+
+    setTimeout(function(){
+      state.locked = false;
+      nextQuestion({ force:true });
+    }, 900);
+  }
+
+  /* =========================================================
+     ANSWER FLOW
+  ========================================================= */
+
+  function escapeHtml(s){
+    return String(s ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
+
+  function pushWeakTerm(q){
+    q = normalizeQuestion(q);
+
+    if(!q.term) return;
+
+    const existing = state.weak_terms.find(x => norm(x.term) === norm(q.term));
+
+    if(existing){
+      existing.count = int(existing.count, 1) + 1;
+    }else{
+      state.weak_terms.push({
+        term: q.term,
+        meaning: q.correct,
+        count: 1
+      });
+    }
+
+    state.weakTerms = state.weak_terms;
+    state.weakest_term = state.weak_terms[0] ? state.weak_terms[0].term : "";
+    state.weakestTerm = state.weakest_term;
+
+    patchExternalState({
+      weak_terms: state.weak_terms,
+      weakTerms: state.weakTerms,
+      weakest_term: state.weakest_term,
+      weakestTerm: state.weakestTerm
+    });
+  }
+
+  function computePoints(isCorrect){
+    if(!isCorrect) return 0;
+
+    const diffRule = getDiffRule(state.difficulty);
+    const comboBonus = Math.max(0, state.combo) * 10;
+    const speedBonus = state.timeLeft > 0 ? Math.min(40, state.timeLeft) : 0;
+
+    return diffRule.scoreBase + comboBonus + speedBonus;
+  }
+
+  function damageEnemy(isCorrect){
+    if(!isCorrect) return 0;
+
+    const diffRule = getDiffRule(state.difficulty);
+
+    const damage =
+      diffRule.damage +
+      Math.max(0, state.combo) * 8 +
+      (state.fever ? 35 : 0);
+
+    state.enemyHp = Math.max(0, state.enemyHp - damage);
+    state.enemy_hp = state.enemyHp;
+
+    return damage;
+  }
+
+  function updateFeverAndLaser(){
+    state.fever = state.combo >= 4;
+    state.isFever = state.fever;
+
+    state.laserReady = state.combo >= 6;
+    state.laser_ready = state.laserReady;
+  }
+
+  function answer(selectedValue, btn){
+    if(!state.running || state.ended) return false;
+
+    const now = Date.now();
+    if(now - lastAnswerAt < 250) return false;
+    lastAnswerAt = now;
+
+    if(answerLock || state.locked) return false;
+
+    answerLock = true;
+    state.locked = true;
+
+    stopTimer();
+
+    const q = normalizeQuestion(state.currentQuestion);
+
+    const selected = clean(
+      typeof selectedValue === "object" && selectedValue
+        ? pick(selectedValue.value, selectedValue.text, selectedValue.label, "")
+        : selectedValue
+    );
+
+    const correct = clean(q.correct);
+    const isCorrect = !!correct && norm(selected) === norm(correct);
+
+    state.answeredCount += 1;
+    state.answered_count = state.answeredCount;
+
+    if(isCorrect){
+      state.correctCount += 1;
+      state.correct_count = state.correctCount;
+
+      const points = computePoints(true);
+      state.score += points;
+      state.raw_score = state.score;
+
+      state.combo += 1;
+      state.currentCombo = state.combo;
+      state.comboMax = Math.max(state.comboMax, state.combo);
+      state.combo_max = state.comboMax;
+
+      const damage = damageEnemy(true);
+
+      updateFeverAndLaser();
+
+      patchExternalState(scoreStatePatch());
+
+      markChoiceResult(selected, correct, true, q);
+
+      uiBeep("good");
+      uiPop("✅ Correct!", "good");
+      uiScoreBurst(points, state.combo);
+
+      showExplain(
+        q.explain
+          ? "✅ <b>ถูกต้อง!</b><br>" + escapeHtml(q.explain)
+          : "✅ <b>ถูกต้อง!</b><br>โจมตีบอส -" + damage
+      );
+    }else{
+      state.wrongCount += 1;
+      state.wrong_count = state.wrongCount;
+      state.mistakes += 1;
+
+      state.combo = 0;
+      state.currentCombo = 0;
+
+      state.hp = Math.max(0, state.hp - getDiffRule(state.difficulty).wrongDamage);
+      state.lives = state.hp;
+
+      updateFeverAndLaser();
+      pushWeakTerm(q);
+
+      patchExternalState(scoreStatePatch());
+
+      markChoiceResult(selected, correct, false, q);
+
+      uiBeep("bad");
+      uiPop("❌ Try again", "bad");
+
+      showExplain(
+        "❌ <b>ยังไม่ถูก</b><br>" +
+        (correct ? "คำตอบที่ถูกคือ: <b>" + escapeHtml(correct) + "</b><br>" : "") +
+        (q.explain ? escapeHtml(q.explain) : "ลองดู keyword ในโจทย์ แล้วจำความหมายของคำนี้ไว้")
+      );
+    }
+
+    logAnswer(buildAnswerPayload({
+      selected: selected,
+      correct: isCorrect,
+      timeout: false,
+      q: q
+    }));
+
+    renderHud();
+
+    setTimeout(function(){
+      answerLock = false;
+      state.locked = false;
+
+      if(state.hp <= 0){
+        finish({ reason:"hp_zero" });
+        return;
       }
 
-      remain -= count;
+      if(state.enemyHp <= 0 && state.mode === "battle"){
+        /*
+          battle จบเมื่อชนะบอส
+        */
+        finish({ reason:"boss_defeated" });
+        return;
+      }
 
-      return Object.assign({}, stage, { count });
-    }).filter(s => s.count > 0);
+      nextQuestion({ force:true });
+    }, 950);
+
+    return true;
   }
 
-  function getTotalQuestions(){
-    if(Array.isArray(game.stagePlan)){
-      return game.stagePlan.reduce((sum, s) => sum + Number(s.count || 0), 0);
+  function scoreStatePatch(){
+    return {
+      score: state.score,
+      raw_score: state.raw_score,
+
+      combo: state.combo,
+      currentCombo: state.currentCombo,
+      comboMax: state.comboMax,
+      combo_max: state.combo_max,
+
+      hp: state.hp,
+      lives: state.lives,
+
+      enemyHp: state.enemyHp,
+      enemy_hp: state.enemy_hp,
+      enemyMaxHp: state.enemyMaxHp,
+      enemy_max_hp: state.enemy_max_hp,
+
+      correctCount: state.correctCount,
+      correct_count: state.correct_count,
+
+      wrongCount: state.wrongCount,
+      wrong_count: state.wrong_count,
+
+      mistakes: state.mistakes,
+
+      answeredCount: state.answeredCount,
+      answered_count: state.answered_count,
+
+      fever: state.fever,
+      isFever: state.isFever,
+
+      laserReady: state.laserReady,
+      laser_ready: state.laser_ready
+    };
+  }
+
+  function markChoiceResult(selected, correct, isCorrect, q){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.markChoiceResult === "function"){
+        WIN.VocabUI.markChoiceResult(
+          selected,
+          correct,
+          isCorrect
+            ? "✅ ถูกต้อง!"
+            : "❌ ยังไม่ถูก"
+        );
+        return;
+      }
+    }catch(e){}
+
+    try{
+      DOC.querySelectorAll("[data-vocab-choice]").forEach(function(btn){
+        const value = clean(btn.dataset.vocabChoice || btn.textContent);
+
+        btn.disabled = true;
+        btn.classList.add("locked");
+
+        if(norm(value) === norm(correct)){
+          btn.classList.add("correct");
+        }
+
+        if(norm(value) === norm(selected) && !isCorrect){
+          btn.classList.add("wrong");
+        }
+      });
+    }catch(e){}
+  }
+
+  function buildAnswerPayload(data){
+    data = data || {};
+    const q = normalizeQuestion(data.q || state.currentQuestion);
+
+    return {
+      session_id: state.session_id,
+      sessionId: state.session_id,
+
+      bank: state.bank,
+      mode: state.mode,
+      difficulty: state.difficulty,
+      diff: state.difficulty,
+
+      display_name: state.display_name,
+      displayName: state.display_name,
+      student_id: state.student_id,
+      studentId: state.student_id,
+      section: state.section,
+      session_code: state.session_code,
+      sessionCode: state.session_code,
+
+      term: q.term,
+      word: q.term,
+      prompt: q.prompt,
+      question_text: q.prompt,
+      questionText: q.prompt,
+
+      answer: data.selected || "",
+      selected_answer: data.selected || "",
+      selectedAnswer: data.selected || "",
+
+      correct_answer: q.correct,
+      correctAnswer: q.correct,
+      correct: data.correct ? 1 : 0,
+      is_correct: data.correct ? 1 : 0,
+      isCorrect: data.correct ? 1 : 0,
+
+      timeout: data.timeout ? 1 : 0,
+
+      score: state.score,
+      raw_score: state.raw_score,
+      combo: state.combo,
+      combo_max: state.comboMax,
+      comboMax: state.comboMax,
+      hp: state.hp,
+
+      enemy_hp: state.enemyHp,
+      enemyHp: state.enemyHp,
+
+      question_no: state.questionNo,
+      questionNo: state.questionNo,
+      question_count: state.questionCount,
+      questionCount: state.questionCount,
+
+      correct_count: state.correctCount,
+      correctCount: state.correctCount,
+      wrong_count: state.wrongCount,
+      wrongCount: state.wrongCount,
+      mistakes: state.mistakes,
+
+      accuracy: accuracy(),
+
+      ai_help_used: state.ai_help_used,
+      aiHelpUsed: state.aiHelpUsed,
+      ai_assisted: state.ai_help_used > 0 ? 1 : 0,
+      aiAssisted: state.ai_help_used > 0 ? 1 : 0,
+
+      stage_id: state.stage_id,
+      stageId: state.stageId,
+      stage_name: state.stage_name,
+      stageName: state.stageName
+    };
+  }
+
+  /* =========================================================
+     NEXT / FINISH
+  ========================================================= */
+
+  function nextQuestion(options){
+    options = options || {};
+
+    if(!state.running || state.ended) return false;
+
+    if(state.locked && !options.force){
+      return false;
     }
 
-    return 0;
-  }
+    const nextIndex = state.questionIndex + 1;
 
-  function resetPower(modeCfg){
-    game.fever = false;
-    game.feverUntil = 0;
-
-    if(game.feverTimerId){
-      clearTimeout(game.feverTimerId);
-      game.feverTimerId = null;
+    if(nextIndex >= state.questions.length){
+      finish({ reason:"completed" });
+      return true;
     }
 
-    game.shield = modeCfg.startShield ?? 1;
-    game.hints = modeCfg.startHints ?? 1;
-    game.laserReady = false;
+    setCurrentQuestion(nextIndex);
+    return true;
+  }
 
-    game.aiHelpLeft = calculateAiHelpStart(game.mode, game.difficulty);
-    game.aiHelpUsed = 0;
-    game.aiHelpPenalty = 0;
-    game.currentAiHelpUsed = false;
+  function accuracy(){
+    const total = state.correctCount + state.wrongCount;
+    if(total <= 0) return 0;
+    return Math.round((state.correctCount / total) * 100);
+  }
 
-    game.powerStats = {
-      feverCount: 0,
-      shieldUsed: 0,
-      hintUsed: 0,
-      laserUsed: 0,
-      bossAttackCount: 0,
-      aiHelpUsed: 0
+  function durationSec(){
+    if(!state.started_at_ms) return 0;
+    return Math.max(0, Math.round((Date.now() - state.started_at_ms) / 1000));
+  }
+
+  function buildSummary(extra){
+    extra = extra || {};
+
+    const duration = durationSec();
+    const acc = accuracy();
+    const fairScore =
+      state.ai_help_used > 0
+        ? Math.round(state.score * 0.95)
+        : state.score;
+
+    return {
+      api: "vocab",
+      source: "vocab.html",
+      schema: "vocab-split-v1",
+      version: VERSION,
+
+      action: "session_end",
+      event_type: "session_end",
+      eventType: "session_end",
+
+      session_id: state.session_id,
+      sessionId: state.session_id,
+
+      client_ts: bangkokIsoNow(),
+      clientTs: bangkokIsoNow(),
+
+      display_name: state.display_name,
+      displayName: state.display_name,
+      student_id: state.student_id,
+      studentId: state.student_id,
+      section: state.section,
+      session_code: state.session_code,
+      sessionCode: state.session_code,
+
+      bank: state.bank,
+      mode: state.mode,
+      difficulty: state.difficulty,
+      diff: state.difficulty,
+
+      score: state.score,
+      raw_score: state.score,
+      rawScore: state.score,
+
+      fair_score: fairScore,
+      fairScore: fairScore,
+
+      accuracy: acc,
+
+      correct_count: state.correctCount,
+      correctCount: state.correctCount,
+      wrong_count: state.wrongCount,
+      wrongCount: state.wrongCount,
+      mistakes: state.mistakes,
+
+      combo_max: state.comboMax,
+      comboMax: state.comboMax,
+
+      question_count: state.questionCount,
+      questionCount: state.questionCount,
+      answered_count: state.answeredCount,
+      answeredCount: state.answeredCount,
+
+      duration_sec: duration,
+      durationSec: duration,
+      active_time_sec: duration,
+      activeTimeSec: duration,
+
+      ai_help_used: state.ai_help_used,
+      aiHelpUsed: state.aiHelpUsed,
+      ai_assisted: state.ai_help_used > 0 ? 1 : 0,
+      aiAssisted: state.ai_help_used > 0 ? 1 : 0,
+
+      hint_used: state.hint_used,
+      hintUsed: state.hintUsed,
+
+      shield_used: state.shield_used,
+      laser_used: state.laser_used,
+
+      weak_terms: state.weak_terms,
+      weakTerms: state.weakTerms,
+      weakest_term: state.weakest_term,
+      weakestTerm: state.weakestTerm,
+
+      completed: extra.reason === "completed" || state.questionIndex >= state.questions.length - 1 ? 1 : 0,
+      boss_defeated: state.enemyHp <= 0 ? 1 : 0,
+      bossDefeated: state.enemyHp <= 0 ? 1 : 0,
+
+      end_reason: extra.reason || "completed",
+      endReason: extra.reason || "completed"
     };
   }
 
-  function calculateAiHelpStart(mode, difficulty){
-    const base = {
-      learn: 3,
-      speed: 1,
-      mission: 2,
-      battle: 1,
-      bossrush: 0
-    };
+  function finish(extra){
+    if(state.ended) return false;
 
-    const bonus = {
-      easy: 1,
-      normal: 0,
-      hard: -1,
-      challenge: -1
-    };
+    stopTimer();
 
-    return Math.max(0, (base[mode] ?? 1) + (bonus[difficulty] ?? 0));
+    state.running = false;
+    state.ended = true;
+    state.locked = true;
+
+    const summary = buildSummary(extra || {});
+
+    state.fair_score = summary.fair_score;
+
+    patchExternalState({
+      running: false,
+      ended: true,
+      fair_score: summary.fair_score,
+      fairScore: summary.fair_score,
+      accuracy: summary.accuracy,
+      completed: summary.completed,
+      boss_defeated: summary.boss_defeated,
+      bossDefeated: summary.bossDefeated
+    });
+
+    try{
+      if(WIN.VocabStorage && typeof WIN.VocabStorage.saveLastSummary === "function"){
+        WIN.VocabStorage.saveLastSummary(summary);
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabStorage && typeof WIN.VocabStorage.updateLeaderboard === "function"){
+        WIN.VocabStorage.updateLeaderboard(summary);
+      }
+    }catch(e){}
+
+    logSessionEnd(summary);
+
+    showReward(summary);
+
+    log("finish", summary);
+
+    return summary;
+  }
+
+  /* =========================================================
+     HINT / AI HELP / LASER
+  ========================================================= */
+
+  function useHint(){
+    if(!state.running || state.ended) return false;
+
+    if(state.hints <= 0){
+      showExplain("💡 Hint หมดแล้ว ลองใช้ความจำจากคำอธิบายก่อนหน้า");
+      return false;
+    }
+
+    state.hints -= 1;
+    state.hintCount = state.hints;
+    state.hint_used += 1;
+    state.hintUsed = state.hint_used;
+
+    const q = normalizeQuestion(state.currentQuestion);
+
+    patchExternalState({
+      hints: state.hints,
+      hintCount: state.hintCount,
+      hint_used: state.hint_used,
+      hintUsed: state.hintUsed
+    });
+
+    showExplain(
+      "💡 <b>Hint:</b> " +
+      escapeHtml(q.hint || "ลองดู keyword ในโจทย์ แล้วตัดตัวเลือกที่ไม่เกี่ยวข้องออกก่อน")
+    );
+
+    renderHud();
+
+    return true;
+  }
+
+  function useAiHelp(){
+    if(!state.running || state.ended) return false;
+
+    if(state.aiHelpLeft <= 0){
+      showAiHelp("AI Help หมดแล้ว ลองตอบด้วยตัวเองเพื่อวัดความจำจริง");
+      return false;
+    }
+
+    state.aiHelpLeft -= 1;
+    state.ai_help_left = state.aiHelpLeft;
+
+    state.ai_help_used += 1;
+    state.aiHelpUsed = state.ai_help_used;
+
+    const q = normalizeQuestion(state.currentQuestion);
+
+    patchExternalState({
+      aiHelpLeft: state.aiHelpLeft,
+      ai_help_left: state.ai_help_left,
+      ai_help_used: state.ai_help_used,
+      aiHelpUsed: state.aiHelpUsed,
+      ai_assisted: 1,
+      aiAssisted: 1
+    });
+
+    let msg = "มองหาความหมายที่ตรงกับคำว่า “" + q.term + "” มากที่สุด";
+
+    if(q.correct){
+      msg += " คำตอบจะเกี่ยวข้องกับ: " + q.correct;
+    }
+
+    showAiHelp(msg);
+
+    try{
+      if(WIN.VocabLogger && typeof WIN.VocabLogger.logAiHelp === "function"){
+        WIN.VocabLogger.logAiHelp({
+          session_id: state.session_id,
+          bank: state.bank,
+          mode: state.mode,
+          difficulty: state.difficulty,
+          question_no: state.questionNo,
+          question_count: state.questionCount,
+          term: q.term,
+          ai_help_used: state.ai_help_used
+        });
+      }
+    }catch(e){}
+
+    renderHud();
+
+    return true;
+  }
+
+  function useLaser(){
+    if(!state.running || state.ended) return false;
+
+    if(!state.laserReady){
+      showExplain("🔴 Laser ยังไม่พร้อม ทำ Combo ให้ถึง x6 ก่อน");
+      return false;
+    }
+
+    state.laserReady = false;
+    state.laser_ready = false;
+    state.laser_used += 1;
+
+    const damage = 250;
+    state.enemyHp = Math.max(0, state.enemyHp - damage);
+    state.enemy_hp = state.enemyHp;
+
+    patchExternalState({
+      laserReady: false,
+      laser_ready: false,
+      laser_used: state.laser_used,
+      enemyHp: state.enemyHp,
+      enemy_hp: state.enemyHp
+    });
+
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.laserFx === "function"){
+        WIN.VocabUI.laserFx();
+      }
+    }catch(e){}
+
+    showExplain("🔴 <b>Laser Attack!</b><br>โจมตีบอส -" + damage);
+
+    renderHud();
+
+    if(state.enemyHp <= 0 && state.mode === "battle"){
+      setTimeout(function(){
+        finish({ reason:"boss_defeated" });
+      }, 650);
+    }
+
+    return true;
+  }
+
+  /* =========================================================
+     START / RESET
+  ========================================================= */
+
+  function newSessionId(){
+    return "vocab_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8);
+  }
+
+  function readStudentFromOptions(options){
+    options = options || {};
+
+    let profile = {};
+
+    try{
+      if(WIN.VocabStorage && typeof WIN.VocabStorage.loadStudentProfile === "function"){
+        profile = WIN.VocabStorage.loadStudentProfile() || {};
+      }
+    }catch(e){}
+
+    return {
+      display_name: clean(pick(options.display_name, options.displayName, profile.display_name, profile.displayName, getParam("name"), getParam("nick"), "Hero")),
+      student_id: clean(pick(options.student_id, options.studentId, profile.student_id, profile.studentId, getParam("student_id"), getParam("sid"), getParam("pid"), "anon")),
+      section: clean(pick(options.section, profile.section, getParam("section"), "")),
+      session_code: clean(pick(options.session_code, options.sessionCode, profile.session_code, profile.sessionCode, getParam("session_code"), getParam("studyId"), ""))
+    };
+  }
+
+  function resetState(options){
+    options = options || {};
+
+    const mode = normalizeMode(pick(options.mode, getParam("mode"), "learn"));
+    const diff = normalizeDifficulty(pick(options.difficulty, options.diff, getParam("diff"), "easy"));
+    const bank = clean(pick(options.bank, getParam("bank"), "A")).toUpperCase();
+
+    const modeRule = getModeRule(mode);
+    const diffRule = getDiffRule(diff);
+    const student = readStudentFromOptions(options);
+
+    state.running = false;
+    state.ended = false;
+    state.locked = false;
+
+    state.bank = bank;
+    state.mode = mode;
+    state.difficulty = diff;
+    state.diff = diff;
+    state.seed = pick(options.seed, getParam("seed"), Date.now());
+
+    state.display_name = student.display_name;
+    state.student_id = student.student_id;
+    state.section = student.section;
+    state.session_code = student.session_code;
+
+    state.session_id = newSessionId();
+    state.started_at_ms = Date.now();
+    state.started_at = bangkokIsoNow();
+
+    state.questions = [];
+    state.questionList = [];
+    state.currentQuestion = null;
+    state.questionIndex = 0;
+    state.index = 0;
+    state.currentIndex = 0;
+    state.questionNo = 0;
+    state.questionCount = 0;
+
+    state.score = 0;
+    state.raw_score = 0;
+    state.fair_score = 0;
+
+    state.combo = 0;
+    state.currentCombo = 0;
+    state.comboMax = 0;
+    state.combo_max = 0;
+
+    state.maxHp = modeRule.baseHp;
+    state.hp = modeRule.baseHp;
+    state.lives = state.hp;
+
+    state.enemyMaxHp = diffRule.enemyHp;
+    state.enemy_max_hp = diffRule.enemyHp;
+    state.enemyHp = diffRule.enemyHp;
+    state.enemy_hp = diffRule.enemyHp;
+
+    state.correctCount = 0;
+    state.correct_count = 0;
+    state.wrongCount = 0;
+    state.wrong_count = 0;
+    state.mistakes = 0;
+
+    state.answeredCount = 0;
+    state.answered_count = 0;
+
+    state.hints = modeRule.hints;
+    state.hintCount = modeRule.hints;
+    state.hint_used = 0;
+    state.hintUsed = 0;
+
+    state.aiHelp = modeRule.aiHelp;
+    state.aiHelpLeft = modeRule.aiHelp;
+    state.ai_help_left = modeRule.aiHelp;
+    state.ai_help_used = 0;
+    state.aiHelpUsed = 0;
+
+    state.shields = modeRule.shields;
+    state.shield = modeRule.shields;
+    state.shield_used = 0;
+
+    state.laserReady = false;
+    state.laser_ready = false;
+    state.laser_used = 0;
+
+    state.fever = false;
+    state.isFever = false;
+
+    state.weak_terms = [];
+    state.weakTerms = [];
+    state.weakest_term = "";
+    state.weakestTerm = "";
+
+    state.timeLeft = 0;
+    state.timer = 0;
+
+    state.enemyName = modeRule.enemy;
+    state.enemy_name = modeRule.enemy;
+    state.enemyAvatar = modeRule.avatar;
+    state.enemy_avatar = modeRule.avatar;
+    state.enemySkill = modeRule.skill;
+    state.enemy_skill = modeRule.skill;
+
+    state.stageId = "";
+    state.stage_id = "";
+    state.stageName = "";
+    state.stage_name = "";
+    state.stageGoal = "";
+    state.stage_goal = "";
+
+    answerLock = false;
+    lastAnswerAt = 0;
+
+    stopTimer();
+
+    patchExternalState(cloneState());
+
+    renderHud();
   }
 
   function start(options){
     options = options || {};
 
-    const bank = options.bank || Config.selectedBank || "A";
-    const difficulty = options.difficulty || Config.selectedDifficulty || "easy";
-    const mode = options.mode || Config.selectedMode || "learn";
+    resetState(options);
 
-    const diffCfg = getDifficulty(difficulty);
-    const modeCfg = getMode(mode);
-    const enemy = getEnemy(bank);
-
-    const terms = getTerms(bank, difficulty)
-      .map(normalizeTerm)
-      .filter(t => t.term && t.meaning);
-
-    if(terms.length < 4){
-      alert("ยังไม่มีคำศัพท์เพียงพอสำหรับ Bank นี้");
-      return;
-    }
-
-    if(Storage.saveStudentContext){
-      Storage.saveStudentContext();
-    }else if(UI.saveStudentContext){
-      UI.saveStudentContext();
-    }
-
-    game.sessionId = uid("vocab");
-    game.active = true;
-
-    game.bank = bank;
-    game.difficulty = difficulty;
-    game.mode = mode;
-    game.modeConfig = modeCfg;
-
-    game.terms = shuffle(terms);
-
-    const totalQuestions = Number(diffCfg.totalQuestions || 8) + Number(modeCfg.totalQuestionBonus || 0);
-    game.stagePlan = buildStagePlan(totalQuestions, modeCfg.stageOrder);
-
-    game.stageIndex = 0;
-    game.questionIndexInStage = 0;
-    game.globalQuestionIndex = 0;
-
-    game.currentStage = null;
-    game.currentQuestion = null;
-    game.questionStartedAt = 0;
-
-    game.score = 0;
-    game.combo = 0;
-    game.comboMax = 0;
-    game.correct = 0;
-    game.wrong = 0;
-    game.playerHp = Number(diffCfg.playerHp || 5);
-
-    game.enemy = enemy;
-    game.enemyHpMax = Math.round(Number(enemy.hp || 100) * Number(diffCfg.bossMultiplier || 1));
-    game.enemyHp = game.enemyHpMax;
-
-    game.mistakes = [];
-    game.stageStats = {};
-
-    getStages().forEach(stage => {
-      game.stageStats[stage.id] = {
-        correct: 0,
-        wrong: 0,
-        responseMsTotal: 0,
-        count: 0
-      };
+    const questions = getQuestions({
+      bank: state.bank,
+      difficulty: state.difficulty,
+      diff: state.difficulty,
+      mode: state.mode,
+      seed: state.seed
     });
 
-    game.startedAt = now();
-    game.endedAt = 0;
+    if(!questions.length){
+      state.running = false;
+      state.ended = true;
 
-    resetPower(modeCfg);
+      showBattleScreen();
 
-    if(UI.showBattleScreen) UI.showBattleScreen();
-    if(UI.updateHud) UI.updateHud();
-    if(UI.updatePowerHud) UI.updatePowerHud();
+      showExplain("ยังไม่พบคลังคำถามสำหรับ Bank " + state.bank);
+      warn("start failed: no questions", options);
 
-    log("session_start", {
-      session_id: game.sessionId,
-      bank,
-      difficulty,
-      mode,
-      mode_label: modeCfg.label || mode,
-      total_questions: getTotalQuestions(),
-      enemy_name: enemy.name,
-      enemy_hp_max: game.enemyHpMax,
-      player_hp_start: game.playerHp,
-      started_at: new Date(game.startedAt).toISOString()
+      return false;
+    }
+
+    state.questions = questions;
+    state.questionList = questions;
+    state.questionCount = questions.length;
+
+    state.running = true;
+    state.ended = false;
+    state.locked = false;
+
+    patchExternalState({
+      running: true,
+      ended: false,
+      questions: questions,
+      questionList: questions,
+      questionCount: questions.length,
+      question_count: questions.length
     });
 
-    playSfx("start");
-    nextQuestion();
-  }
-
-  function buildQuestion(stage){
-    if(Question.buildQuestion){
-      return Question.buildQuestion(stage, game);
-    }
-
-    if(Question.create){
-      return Question.create(stage, game);
-    }
-
-    const term = game.terms[game.globalQuestionIndex % game.terms.length];
-    const wrongs = shuffle(game.terms.filter(t => t.term !== term.term)).slice(0, 3);
-
-    return {
-      id: uid("q"),
-      stageId: stage.id,
-      mode: "meaning",
-      answerMode: "meaning",
-      prompt: `What does "${term.term}" mean?`,
-      correctTerm: term,
-      choices: shuffle([
-        { text: term.meaning, correct: true, term: term.term, meaning: term.meaning },
-        ...wrongs.map(t => ({ text: t.meaning, correct: false, term: t.term, meaning: t.meaning }))
-      ]),
-      explain: `"${term.term}" means "${term.meaning}".`
-    };
-  }
-
-  function nextQuestion(){
-    clearTimer();
-
-    if(!game.active) return;
-
-    const stage = game.stagePlan[game.stageIndex];
-
-    if(!stage){
-      end("completed");
-      return;
-    }
-
-    game.currentStage = stage;
-
-    if(game.questionIndexInStage >= stage.count){
-      game.stageIndex += 1;
-      game.questionIndexInStage = 0;
-
-      const nextStage = game.stagePlan[game.stageIndex];
-
-      if(!nextStage){
-        end("completed");
-        return;
-      }
-
-      if(UI.showStageIntro) UI.showStageIntro(nextStage);
-
-      setTimeout(nextQuestion, 650);
-      return;
-    }
-
-    const question = buildQuestion(stage);
-
-    game.currentQuestion = question;
-    game.questionStartedAt = now();
-
-    game.questionIndexInStage += 1;
-    game.globalQuestionIndex += 1;
-    game.currentAiHelpUsed = false;
-
-    if(UI.renderQuestion){
-      UI.renderQuestion(question, stage);
-    }
-
-    startTimer();
-
-    log("question_show", {
-      stage_id: stage.id,
-      stage_name: stage.name,
-      question_no: game.globalQuestionIndex,
-      total_questions: getTotalQuestions(),
-      term: question.correctTerm && question.correctTerm.term,
-      answer_mode: question.answerMode || "",
-      question_mode: question.mode || ""
-    });
-  }
-
-  function getQuestionTime(){
-    const diffCfg = getDifficulty(game.difficulty);
-    const modeCfg = getMode(game.mode);
-
-    let time = Number(diffCfg.timePerQuestion || 12) + Number(modeCfg.timeBonus || 0);
-
-    if(game.currentStage && game.currentStage.id === "speed"){
-      time -= 3;
-    }
-
-    if(game.currentStage && game.currentStage.id === "boss"){
-      time -= 2;
-    }
-
-    if(game.difficulty === "challenge"){
-      time -= 1;
-    }
-
-    return Math.max(4, time);
-  }
-
-  function startTimer(){
-    clearTimer();
-
-    game.timeLeft = getQuestionTime();
-
-    if(UI.renderTimer) UI.renderTimer();
-
-    game.timerId = setInterval(() => {
-      game.timeLeft -= 1;
-
-      if(UI.renderTimer) UI.renderTimer();
-
-      if(game.timeLeft <= 3 && game.timeLeft > 0){
-        playSfx("tick");
-      }
-
-      if(game.timeLeft <= 0){
-        clearTimer();
-        timeout();
-      }
-    }, 1000);
-  }
-
-  function clearTimer(){
-    if(game.timerId){
-      clearInterval(game.timerId);
-      clearTimeout(game.timerId);
-      game.timerId = null;
-    }
-  }
-
-  function answerQuestion(choice, buttonEl){
-    if(!game.active || !game.currentQuestion || !choice) return;
-
-    const question = game.currentQuestion;
-    const stage = game.currentStage || { id:"unknown", name:"Unknown" };
-    const responseMs = now() - game.questionStartedAt;
-    const isCorrect = !!choice.correct;
-
-    clearTimer();
-
-    if(UI.lockChoices) UI.lockChoices();
-
-    const stat = game.stageStats[stage.id] || {
-      correct: 0,
-      wrong: 0,
-      responseMsTotal: 0,
-      count: 0
-    };
-
-    game.stageStats[stage.id] = stat;
-    stat.count += 1;
-    stat.responseMsTotal += responseMs;
-
-    if(isCorrect){
-      handleCorrect(choice, buttonEl, question, stage, responseMs, stat);
-    }else{
-      handleWrong(choice, buttonEl, question, stage, responseMs, stat);
-    }
-
-    if(UI.updateHud) UI.updateHud();
-    if(UI.renderExplain) UI.renderExplain(isCorrect, question);
-
-    logAnswer(choice, question, stage, responseMs, isCorrect);
-
-    if(game.playerHp <= 0){
-      setTimeout(() => end("player_defeated"), 900);
-      return;
-    }
-
-    if(game.enemyHp <= 0){
-      setTimeout(() => end("boss_defeated"), 900);
-      return;
-    }
-
-    setTimeout(nextQuestion, isCorrect ? 700 : 1200);
-  }
-
-  function handleCorrect(choice, buttonEl, question, stage, responseMs, stat){
-    game.correct += 1;
-    game.combo += 1;
-    game.comboMax = Math.max(Number(game.comboMax || 0), Number(game.combo || 0));
-    stat.correct += 1;
-
-    let damage = calculateDamage(responseMs, stage.id);
-
-    if(game.fever){
-      damage = Math.round(damage * 1.6);
-    }
-
-    damage += maybeUseLaser();
-
-    game.enemyHp = Math.max(0, Number(game.enemyHp || 0) - damage);
-
-    const speedBonus = responseMs < 2500 ? 30 : responseMs < 5000 ? 15 : 5;
-    const comboBonus = Number(game.combo || 0) * 5;
-    const modeCfg = getMode(game.mode);
-
-    let gained = 50 + speedBonus + comboBonus + damage;
-    gained = Math.round(gained * Number(modeCfg.scoreMultiplier || 1));
-
-    if(game.fever){
-      gained = Math.round(gained * 1.5);
-    }
-
-    if(game.currentAiHelpUsed){
-      gained = Math.round(gained * 0.9);
-    }
-
-    game.score += gained;
-
-    if(buttonEl) buttonEl.classList.add("correct");
-
-    if(UI.addEnemyHitFx) UI.addEnemyHitFx();
-    if(UI.floatingText) UI.floatingText(`+${damage} HIT!`, "good");
-
-    playSfx("correct");
-
-    rewardPowerByCombo();
-    checkFeverAndLaser();
-  }
-
-  function handleWrong(choice, buttonEl, question, stage, responseMs, stat){
-    game.wrong += 1;
-    game.combo = 0;
-    stat.wrong += 1;
-
-    if(game.fever){
-      stopFever();
-    }
-
-    const attack = applyShield(calculateEnemyAttack(stage.id));
-
-    game.playerHp = Math.max(0, Number(game.playerHp || 0) - attack);
-
-    game.mistakes.push({
-      term: question.correctTerm && question.correctTerm.term,
-      meaning: question.correctTerm && question.correctTerm.meaning,
-      selected: choice.text,
-      stageId: stage.id
+    showBattleScreen();
+
+    logSessionStart({
+      session_id: state.session_id,
+      sessionId: state.session_id,
+
+      display_name: state.display_name,
+      displayName: state.display_name,
+      student_id: state.student_id,
+      studentId: state.student_id,
+      section: state.section,
+      session_code: state.session_code,
+      sessionCode: state.session_code,
+
+      bank: state.bank,
+      mode: state.mode,
+      difficulty: state.difficulty,
+      diff: state.difficulty,
+      seed: state.seed,
+
+      question_count: questions.length,
+      questionCount: questions.length,
+
+      started_at: state.started_at,
+      startedAt: state.started_at
     });
 
-    if(buttonEl) buttonEl.classList.add("wrong");
-    if(UI.revealCorrectChoice) UI.revealCorrectChoice(question);
+    setCurrentQuestion(0);
 
-    if(attack > 0){
-      if(UI.addBossAttackFx) UI.addBossAttackFx();
-      if(UI.floatingText) UI.floatingText(`-${attack} HP`, "bad");
-    }else{
-      if(UI.floatingText) UI.floatingText("🛡️ BLOCKED!", "stage");
-    }
-
-    playSfx("wrong");
-  }
-
-  function timeout(){
-    if(!game.active || !game.currentQuestion) return;
-
-    const question = game.currentQuestion;
-    const stage = game.currentStage || { id:"unknown", name:"Unknown" };
-
-    if(UI.lockChoices) UI.lockChoices();
-
-    game.wrong += 1;
-    game.combo = 0;
-
-    if(game.fever){
-      stopFever();
-    }
-
-    const stat = game.stageStats[stage.id];
-
-    if(stat){
-      stat.wrong += 1;
-      stat.count += 1;
-      stat.responseMsTotal += 99999;
-    }
-
-    const attack = applyShield(calculateEnemyAttack(stage.id));
-    game.playerHp = Math.max(0, Number(game.playerHp || 0) - attack);
-
-    game.mistakes.push({
-      term: question.correctTerm && question.correctTerm.term,
-      meaning: question.correctTerm && question.correctTerm.meaning,
-      selected: "TIMEOUT",
-      stageId: stage.id
+    log("start", {
+      bank: state.bank,
+      mode: state.mode,
+      difficulty: state.difficulty,
+      questions: questions.length
     });
 
-    if(UI.revealCorrectChoice) UI.revealCorrectChoice(question);
-    if(UI.updateHud) UI.updateHud();
-
-    if(attack > 0 && UI.addBossAttackFx){
-      UI.addBossAttackFx();
-    }
-
-    playSfx("wrong");
-
-    if(UI.floatingText){
-      UI.floatingText(attack > 0 ? "TIME OUT!" : "🛡️ BLOCKED!", attack > 0 ? "bad" : "stage");
-    }
-
-    if(UI.renderExplain){
-      UI.renderExplain(false, question);
-    }
-
-    logAnswer({ text:"TIMEOUT", correct:false }, question, stage, 99999, false);
-
-    if(game.playerHp <= 0){
-      setTimeout(() => end("player_defeated"), 900);
-      return;
-    }
-
-    setTimeout(nextQuestion, 1200);
+    return true;
   }
 
-  function calculateDamage(responseMs, stageId){
-    const diffCfg = getDifficulty(game.difficulty);
-
-    let damage = 10;
-
-    if(responseMs < 2200) damage += 10;
-    else if(responseMs < 4000) damage += 6;
-    else if(responseMs < 7000) damage += 3;
-
-    if(game.combo >= 3) damage += 5;
-    if(game.combo >= 5) damage += 8;
-    if(game.combo >= 8) damage += 14;
-
-    if(stageId === "boss") damage += 5;
-    if(stageId === "speed") damage += 3;
-
-    damage = Math.round(damage / Number(diffCfg.bossMultiplier || 1));
-
-    return Math.max(5, damage);
-  }
-
-  function calculateEnemyAttack(stageId){
-    let attack = 1;
-
-    if(stageId === "trap") attack += 1;
-    if(stageId === "boss") attack += 1;
-    if(game.difficulty === "hard") attack += 1;
-    if(game.difficulty === "challenge") attack += 2;
-    if(game.bank === "C" && stageId === "boss") attack += 1;
-
-    return attack;
-  }
-
-  function applyShield(baseAttack){
-    const attack = Number(baseAttack || 0);
-
-    if(attack <= 0) return 0;
-
-    if(Number(game.shield || 0) > 0){
-      game.shield -= 1;
-
-      if(game.powerStats){
-        game.powerStats.shieldUsed += 1;
-      }
-
-      log("shield_block", {
-        shield_left: game.shield,
-        blocked_damage: attack
-      });
-
-      return 0;
-    }
-
-    if(game.powerStats){
-      game.powerStats.bossAttackCount += 1;
-    }
-
-    return attack;
-  }
-
-  function rewardPowerByCombo(){
-    const combo = Number(game.combo || 0);
-    const modeCfg = getMode(game.mode);
-    const laserNeed = Number(modeCfg.laserComboNeed || 7);
-
-    if(combo === 3){
-      game.hints = Math.min(4, Number(game.hints || 0) + 1);
-      if(UI.floatingText) UI.floatingText("💡 Hint +1", "stage");
-    }
-
-    if(combo === 4){
-      game.shield = Math.min(3, Number(game.shield || 0) + 1);
-      if(UI.floatingText) UI.floatingText("🛡️ Shield +1", "stage");
-    }
-
-    if(combo === laserNeed){
-      game.laserReady = true;
-      if(UI.floatingText) UI.floatingText("🔴 LASER READY!", "stage");
-    }
-
-    if(UI.updatePowerHud) UI.updatePowerHud();
-  }
-
-  function checkFeverAndLaser(){
-    const modeCfg = getMode(game.mode);
-    const feverNeed = Number(modeCfg.feverComboNeed || 5);
-
-    if(Number(game.combo || 0) >= feverNeed && !game.fever){
-      startFever();
-    }
-  }
-
-  function startFever(){
-    game.fever = true;
-    game.feverUntil = now() + 8500;
-
-    if(game.powerStats){
-      game.powerStats.feverCount += 1;
-    }
-
-    if(UI.floatingText) UI.floatingText("🔥 FEVER MODE!", "stage");
-    if(UI.createBurst) UI.createBurst();
-
-    playSfx("fever");
-
-    if(game.feverTimerId){
-      clearTimeout(game.feverTimerId);
-    }
-
-    game.feverTimerId = setTimeout(stopFever, 8500);
-
-    if(UI.updatePowerHud) UI.updatePowerHud();
-
-    log("fever_start", {
-      combo: game.combo,
-      duration_ms: 8500
-    });
-  }
-
-  function stopFever(){
-    game.fever = false;
-    game.feverUntil = 0;
-
-    if(game.feverTimerId){
-      clearTimeout(game.feverTimerId);
-      game.feverTimerId = null;
-    }
-
-    if(UI.updatePowerHud) UI.updatePowerHud();
-
-    if(game.active){
-      log("fever_end", {
-        score: game.score,
-        combo: game.combo
-      });
-    }
-  }
-
-  function maybeUseLaser(){
-    if(!game.laserReady) return 0;
-
-    game.laserReady = false;
-
-    if(game.powerStats){
-      game.powerStats.laserUsed += 1;
-    }
-
-    const damage = game.fever ? 38 : 26;
-
-    if(UI.createLaser) UI.createLaser();
-    if(UI.createBurst) UI.createBurst();
-    if(UI.floatingText) UI.floatingText(`🔴 LASER +${damage}`, "good");
-
-    playSfx("laser");
-
-    log("laser_used", {
-      damage,
-      fever: game.fever ? 1 : 0
+  function init(){
+    patchExternalState({
+      gameVersion: VERSION
     });
 
-    return damage;
+    return true;
   }
 
-  function useHint(){
-    if(!game.active) return;
-    if(Number(game.hints || 0) <= 0) return;
-
-    const question = game.currentQuestion;
-    if(!question) return;
-
-    const correctText =
-      Question.getCorrectChoiceText
-        ? Question.getCorrectChoiceText(question)
-        : question.answerMode === "meaning"
-          ? question.correctTerm.meaning
-          : question.correctTerm.term;
-
-    const buttons = Array.from(document.querySelectorAll(".vocab-choice:not(:disabled), .v6-choice:not(:disabled)"));
-    const wrongButtons = buttons.filter(btn => !String(btn.textContent || "").includes(correctText));
-
-    if(!wrongButtons.length) return;
-
-    const target = wrongButtons[Math.floor(Math.random() * wrongButtons.length)];
-    target.disabled = true;
-    target.classList.add("vocab-eliminated", "v6-eliminated");
-
-    game.hints = Math.max(0, Number(game.hints || 0) - 1);
-
-    if(game.powerStats){
-      game.powerStats.hintUsed += 1;
-    }
-
-    if(UI.floatingText) UI.floatingText("💡 Hint!", "stage");
-    if(UI.updatePowerHud) UI.updatePowerHud();
-
-    log("hint_used", {
-      hints_left: game.hints,
-      stage_id: game.currentStage && game.currentStage.id
-    });
-  }
-
-  function useAiHelp(){
-    if(!game.active || !game.currentQuestion) return;
-    if(Number(game.aiHelpLeft || 0) <= 0) return;
-
-    game.aiHelpLeft = Math.max(0, Number(game.aiHelpLeft || 0) - 1);
-    game.aiHelpUsed += 1;
-    game.currentAiHelpUsed = true;
-    game.aiHelpPenalty = Math.min(0.30, Number(game.aiHelpUsed || 0) * 0.10);
-
-    if(game.powerStats){
-      game.powerStats.aiHelpUsed = game.aiHelpUsed;
-    }
-
-    const html = buildAiHelpText(game.currentQuestion, game.currentStage);
-
-    if(UI.renderAiHelp){
-     UI.renderAiHelp(html);
-   }
-
-   if(WIN.VocabVoice && typeof WIN.VocabVoice.speakAiHelp === "function"){
-     WIN.VocabVoice.speakAiHelp(html);
-   }
-
-    if(UI.updatePowerHud) UI.updatePowerHud();
-
-    log("ai_help_used", {
-      ai_help_left: game.aiHelpLeft,
-      ai_help_used: game.aiHelpUsed,
-      ai_help_penalty: game.aiHelpPenalty,
-      stage_id: game.currentStage && game.currentStage.id,
-      term: game.currentQuestion.correctTerm && game.currentQuestion.correctTerm.term
-    });
-  }
-
-  function buildAiHelpText(question, stage){
-    const term = question.correctTerm || {};
-    const mode = question.answerMode || "meaning";
-    const stageId = stage && stage.id;
-
-    const lines = [];
-
-    lines.push("<b>AI Help</b> ช่วยคิด ไม่เฉลยตรง ๆ");
-
-    if(mode === "term"){
-      lines.push("โจทย์นี้ให้ดูสถานการณ์ แล้วเลือกคำศัพท์ที่เหมาะที่สุด");
-    }else{
-      lines.push("โจทย์นี้ถามความหมายที่ถูกต้องของคำศัพท์");
-    }
-
-    if(stageId === "trap"){
-      lines.push("ระวังตัวเลือกที่ความหมายใกล้กัน ให้ดูคำหลักในนิยาม");
-    }
-
-    if(stageId === "mission" || stageId === "boss"){
-      lines.push("ลองถามตัวเองว่าในสถานการณ์นี้ คนกำลังทำอะไรกับระบบ/ข้อมูล/โปรเจกต์");
-    }
-
-    lines.push(`แนวคิดหลักเกี่ยวกับคำนี้: <b>${escapeHtml(term.meaning || "")}</b>`);
-    lines.push("ใช้ AI Help แล้วคะแนนข้อนี้จะลดลงเล็กน้อยเพื่อความยุติธรรม");
-
-    return lines.join("<br>");
-  }
-
-  function escapeHtml(s){
-    if(U.escapeHtml) return U.escapeHtml(s);
-
-    return String(s ?? "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#39;");
-  }
-
-  function logAnswer(choice, question, stage, responseMs, isCorrect){
-    const term = question.correctTerm || {};
-
-    log("term_answer", {
-      term_id: term.term || "",
-      term: term.term || "",
-      meaning: term.meaning || "",
-      category: term.category || "",
-
-      variant_type: question.mode || "",
-      answer_mode: question.answerMode || "",
-
-      stage_id: stage.id,
-      stage_name: stage.name || "",
-
-      prompt: question.prompt || "",
-      selected: choice.text || "",
-      is_correct: isCorrect ? 1 : 0,
-      response_ms: responseMs,
-
-      score: game.score,
-      combo: game.combo,
-      combo_max: game.comboMax,
-      player_hp: game.playerHp,
-      enemy_hp: game.enemyHp,
-
-      fever: game.fever ? 1 : 0,
-      shield_left: game.shield || 0,
-      hints_left: game.hints || 0,
-      laser_ready: game.laserReady ? 1 : 0,
-      ai_help_used_on_question: game.currentAiHelpUsed ? 1 : 0,
-      ai_help_left: game.aiHelpLeft || 0,
-      ai_help_used_total: game.aiHelpUsed || 0,
-      ai_help_penalty: game.aiHelpPenalty || 0
-    });
-  }
-
-  function buildWeakestTerms(){
-    const map = new Map();
-
-    (game.mistakes || []).forEach(m => {
-      if(!m.term) return;
-
-      if(!map.has(m.term)){
-        map.set(m.term, {
-          term: m.term,
-          meaning: m.meaning || "",
-          count: 0,
-          stages: new Set()
-        });
-      }
-
-      const item = map.get(m.term);
-      item.count += 1;
-
-      if(m.stageId){
-        item.stages.add(m.stageId);
-      }
-    });
-
-    return Array.from(map.values())
-      .map(x => ({
-        term: x.term,
-        meaning: x.meaning,
-        count: x.count,
-        stages: Array.from(x.stages)
-      }))
-      .sort((a,b) => Number(b.count || 0) - Number(a.count || 0));
-  }
-
-  function end(reason){
-    clearTimer();
-    stopFever();
-
-    game.active = false;
-    game.endedAt = now();
-
-    const total = Number(game.correct || 0) + Number(game.wrong || 0);
-    const accuracy = total > 0 ? Math.round(Number(game.correct || 0) / total * 100) : 0;
-    const durationSec = Math.round((Number(game.endedAt || now()) - Number(game.startedAt || now())) / 1000);
-    const bossDefeated = Number(game.enemyHp || 0) <= 0 || reason === "boss_defeated";
-
-    const modeCfg = getMode(game.mode);
-
-    const result = {
-      version: VERSION,
-      reason,
-      bank: game.bank,
-      difficulty: game.difficulty,
-      mode: game.mode,
-      modeLabel: modeCfg.label || game.mode,
-      score: Number(game.score || 0),
-      correct: Number(game.correct || 0),
-      wrong: Number(game.wrong || 0),
-      accuracy,
-      comboMax: Number(game.comboMax || 0),
-      durationSec,
-      bossDefeated,
-      enemyName: game.enemy && game.enemy.name,
-      weakestTerms: buildWeakestTerms(),
-      stageStats: game.stageStats || {},
-      powerStats: game.powerStats || {},
-      feverCount: game.powerStats ? Number(game.powerStats.feverCount || 0) : 0,
-      shieldUsed: game.powerStats ? Number(game.powerStats.shieldUsed || 0) : 0,
-      hintUsed: game.powerStats ? Number(game.powerStats.hintUsed || 0) : 0,
-      laserUsed: game.powerStats ? Number(game.powerStats.laserUsed || 0) : 0,
-      aiHelpUsed: Number(game.aiHelpUsed || 0),
-      aiHelpLeft: Number(game.aiHelpLeft || 0),
-      aiHelpPenalty: Number(game.aiHelpPenalty || 0),
-      aiAssisted: Number(game.aiHelpUsed || 0) > 0
-    };
-
-    const reward = buildReward(result);
-    const coach = buildCoach(result);
-
-    if(Storage.saveSummary){
-      Storage.saveSummary(result, reward, coach);
-    }
-
-    if(Storage.updateLeaderboard){
-      const lb = Storage.updateLeaderboard(result, reward);
-      Object.assign(result, lb || {});
-    }
-
-    log("session_end", {
-      ended_at: new Date(game.endedAt).toISOString(),
-      duration_sec: result.durationSec,
-      reason: result.reason,
-      score: result.score,
-      correct: result.correct,
-      wrong: result.wrong,
-      accuracy: result.accuracy,
-      combo_max: result.comboMax,
-      boss_defeated: result.bossDefeated ? 1 : 0,
-      enemy_name: result.enemyName,
-      stars: reward.stars,
-      badge: reward.badge,
-      coins: reward.coins,
-      ai_headline: coach.headline,
-      ai_next_mode: coach.nextMode,
-      weakest_terms_json: JSON.stringify(result.weakestTerms || []),
-      stage_stats_json: JSON.stringify(result.stageStats || {}),
-      power_stats_json: JSON.stringify(result.powerStats || {}),
-      ai_help_used: result.aiHelpUsed,
-      ai_assisted: result.aiAssisted ? 1 : 0
-    });
-
-    if(WIN.VocabReward && WIN.VocabReward.render){
-      WIN.VocabReward.render(result, reward, coach);
-      return;
-    }
-
-    if(typeof WIN.renderRewardScreenV6 === "function"){
-      WIN.renderRewardScreenV6(result, reward, coach);
-      return;
-    }
-
-    alert(`จบเกม! Score: ${result.score}, Accuracy: ${result.accuracy}%`);
-  }
-
-  function buildReward(result){
-    let stars = 1;
-
-    if(result.accuracy >= 70) stars = 2;
-    if(result.accuracy >= 85 && result.bossDefeated) stars = 3;
-
-    let badge = "Vocabulary Starter";
-
-    if(stars === 2) badge = "Word Fighter";
-    if(stars === 3) badge = "Boss Breaker";
-    if(stars === 3 && result.comboMax >= 5) badge = "Combo Hero";
-    if(stars === 3 && result.accuracy >= 95) badge = "Vocabulary Master";
-
-    const coins =
-      Math.round(Number(result.score || 0) / 10) +
-      stars * 20 +
-      (result.bossDefeated ? 50 : 0);
-
-    return {
-      stars,
-      badge,
-      coins,
-      message: result.bossDefeated
-        ? "คุณปราบบอสคำศัพท์ได้สำเร็จ!"
-        : "จบภารกิจแล้ว ลองเพิ่มความแม่นและ Combo ในรอบต่อไป!"
-    };
-  }
-
-  function buildCoach(result){
-    let headline = "";
-    let nextMode = "";
-    let reason = "";
-
-    if(result.mode === "learn" && result.accuracy >= 75){
-      nextMode = "Debug Mission";
-      headline = "พื้นฐานเริ่มดีแล้ว ลองใช้คำศัพท์ในสถานการณ์จริงต่อ";
-      reason = "คุณทำ AI Training ได้ดีพอสำหรับการฝึก context";
-    }else if(result.mode === "mission" && result.accuracy >= 75){
-      nextMode = "Boss Battle";
-      headline = "คุณเริ่มใช้คำศัพท์ในบริบทได้ดี พร้อมลองโหมดต่อสู้";
-      reason = "ผลใน Debug Mission แสดงว่าคุณเข้าใจคำในสถานการณ์จริง";
-    }else if(result.accuracy >= 90){
-      headline = "ยอดเยี่ยมมาก! คุณพร้อมเพิ่มระดับความท้าทายแล้ว";
-      nextMode = result.difficulty === "challenge" ? "Challenge Boss Battle" : "Hard / Challenge Mode";
-      reason = "คุณตอบแม่น คุมเวลาได้ดี และ combo สูง";
-    }else if(result.accuracy >= 70){
-      headline = "ทำได้ดีแล้ว เหลือแค่ฝึกคำที่ยังสับสน";
-      nextMode = "AI Training + Debug Mission";
-      reason = "คุณเข้าใจคำส่วนใหญ่ แต่ยังพลาดคำที่ความหมายใกล้กัน";
-    }else{
-      headline = "ควรเก็บพื้นฐานอีกนิด แล้วจะชนะบอสง่ายขึ้น";
-      nextMode = "AI Training / Easy Review";
-      reason = "ระบบพบว่ายังสับสนคำหลักหลายคำ";
-    }
-
-    let powerTip = "";
-
-    if(result.feverCount >= 1){
-      powerTip = "คุณทำ Combo จนเข้า Fever ได้แล้ว รอบหน้าลองรักษา Combo ให้ยาวขึ้น";
-    }else if(result.comboMax >= 3){
-      powerTip = "คุณเริ่มทำ Combo ได้ดีแล้ว พยายามต่อเนื่องถึง x5 เพื่อเปิด Fever Mode";
-    }else{
-      powerTip = "รอบหน้าลองตอบคำง่ายให้ต่อเนื่องก่อน เพื่อสะสม Hint, Shield และเปิด Fever";
-    }
-
-    const aiHelpTip = result.aiHelpUsed > 0
-      ? "คุณใช้ AI Help ได้เหมาะสม รอบหน้าลองลดจำนวนครั้งลงเพื่อเพิ่มคะแนน"
-      : "รอบนี้ไม่ใช้ AI Help เลย เยี่ยมมาก สามารถเพิ่มระดับความยากได้";
-
-    return {
-      headline,
-      nextMode,
-      reason,
-      powerTip,
-      aiHelpTip,
-      weakestTerms: result.weakestTerms || []
-    };
-  }
-
-  const API = {
+  /* =========================================================
+     PUBLIC API
+  ========================================================= */
+
+  const api = {
     version: VERSION,
-    start,
-    nextQuestion,
-    answerQuestion,
-    timeout,
-    clearTimer,
-    startTimer,
-    end,
 
-    useHint,
-    useAiHelp,
+    state: state,
+    getState: cloneState,
+    patchState: patchExternalState,
 
-    startFever,
-    stopFever,
-    playSfx,
+    init: init,
+    boot: init,
 
-    buildWeakestTerms,
-    buildReward,
-    buildCoach
+    start: start,
+    startGame: start,
+
+    answer: answer,
+    choose: answer,
+    submitAnswer: answer,
+    selectAnswer: answer,
+    handleAnswer: answer,
+    answerQuestion: answer,
+    onAnswer: answer,
+    checkAnswer: answer,
+
+    nextQuestion: nextQuestion,
+    next: nextQuestion,
+    advance: nextQuestion,
+    renderNext: nextQuestion,
+    showNextQuestion: nextQuestion,
+    continueGame: nextQuestion,
+
+    finish: finish,
+    end: finish,
+
+    useHint: useHint,
+    useAiHelp: useAiHelp,
+    useLaser: useLaser,
+
+    stopTimer: stopTimer,
+    startQuestionTimer: startQuestionTimer,
+
+    buildSummary: buildSummary,
+    accuracy: accuracy,
+
+    currentQuestion: null,
+    questions: []
   };
 
-  WIN.VocabGame = API;
-  WIN.VOCAB_GAME = API;
+  Object.defineProperty(api, "currentQuestion", {
+    get: function(){
+      return state.currentQuestion;
+    }
+  });
 
-  WIN.startVocabBattleV6 = start;
-  WIN.nextQuestionV6 = nextQuestion;
-  WIN.answerQuestionV6 = answerQuestion;
-  WIN.handleTimeoutV6 = timeout;
-  WIN.clearTimerV6 = clearTimer;
-  WIN.startTimerV6 = startTimer;
-  WIN.endVocabBattleV6 = end;
-  WIN.useHintV62 = useHint;
-  WIN.useAiHelpV67 = useAiHelp;
-  WIN.stopFeverV62 = stopFever;
-  WIN.startFeverV62 = startFever;
-  WIN.playSfxV6 = playSfx;
-  WIN.buildWeakestTermsV6 = buildWeakestTerms;
+  Object.defineProperty(api, "questions", {
+    get: function(){
+      return state.questions;
+    }
+  });
 
-  console.log("[VOCAB GAME] module ready", VERSION);
+  Object.defineProperty(api, "index", {
+    get: function(){
+      return state.index;
+    },
+    set: function(v){
+      state.index = int(v, 0);
+      state.questionIndex = state.index;
+    }
+  });
+
+  Object.defineProperty(api, "currentIndex", {
+    get: function(){
+      return state.currentIndex;
+    },
+    set: function(v){
+      state.currentIndex = int(v, 0);
+      state.index = state.currentIndex;
+      state.questionIndex = state.currentIndex;
+    }
+  });
+
+  WIN.VocabGame = api;
+  WIN.vocabGame = api;
+  WIN.VOCAB_GAME = api;
+
+  WIN.VocabModules = WIN.VocabModules || {};
+  WIN.VocabModules.game = true;
+
+  WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+  WIN.__VOCAB_MODULES__.game = true;
+
+  if(DOC.readyState === "loading"){
+    DOC.addEventListener("DOMContentLoaded", init, { once:true });
+  }else{
+    init();
+  }
+
+  log("loaded", VERSION);
 })();
