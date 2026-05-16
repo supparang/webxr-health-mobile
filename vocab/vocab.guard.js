@@ -1,463 +1,530 @@
 /* =========================================================
    /vocab/vocab.guard.js
-   TechPath Vocab Arena
-   Source Guard / Copy Protection / Classroom Protection
-   ========================================================= */
+   TechPath Vocab Arena — Classroom Source Guard
+   FULL CLEAN PATCH: v20260503y
+
+   Purpose:
+   - classroom-level copy/source protection
+   - block common shortcuts: Ctrl+U, Ctrl+S, Ctrl+Shift+I, F12
+   - block right click / copy / cut / drag
+   - do NOT block gameplay buttons, choices, form inputs
+   - do NOT break mobile tapping
+   - bypass with ?guard=0 or ?debug=1
+
+   Note:
+   Frontend source cannot be protected 100%.
+   This is classroom deterrence only.
+========================================================= */
+
 (function(){
   "use strict";
 
-  const VOCAB_GUARD = {
-    version: "vocab-guard-20260501",
-    logKey: "VOCAB_GUARD_LOG",
-    maxLog: 160,
-    toastId: "vocabGuardToast",
-    watermarkId: "vocabGuardWatermark",
-    cssId: "vocabGuardCss"
+  const WIN = window;
+  const DOC = document;
+
+  const VERSION = "vocab-guard-v20260503y";
+
+  const CONFIG = {
+    enabled: true,
+    blockContextMenu: true,
+    blockCopy: true,
+    blockCut: true,
+    blockDrag: true,
+    blockSelect: true,
+    blockPrint: true,
+    blockSave: true,
+    blockViewSource: true,
+    blockDevtoolsKeys: true,
+    showToast: true,
+    toastMs: 1800
   };
 
-  function qs(sel, root){
-    return (root || document).querySelector(sel);
-  }
+  let toastTimer = null;
+  let lastToastAt = 0;
 
-  function qsa(sel, root){
-    return Array.from((root || document).querySelectorAll(sel));
-  }
+  /* =========================================================
+     HELPERS
+  ========================================================= */
 
-  function byId(id){
-    return document.getElementById(id);
-  }
-
-  function esc(s){
-    return String(s ?? "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#39;");
-  }
-
-  function nowIso(){
-    return new Date().toISOString();
-  }
-
-  function readJson(key, fallback){
+  function log(){
     try{
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
-    }catch(e){
-      return fallback;
-    }
-  }
-
-  function writeJson(key, value){
-    try{
-      localStorage.setItem(key, JSON.stringify(value));
+      console.log.apply(console, ["[VOCAB GUARD]"].concat(Array.from(arguments)));
     }catch(e){}
   }
 
-  function getParam(name, fallback){
+  function warn(){
     try{
-      const p = new URLSearchParams(location.search);
-      return p.get(name) || fallback || "";
+      console.warn.apply(console, ["[VOCAB GUARD]"].concat(Array.from(arguments)));
+    }catch(e){}
+  }
+
+  function getParam(name){
+    try{
+      return new URLSearchParams(location.search).get(name) || "";
     }catch(e){
-      return fallback || "";
+      return "";
     }
   }
 
-  function isTeacherOrQaMode(){
-    const keys = ["teacher", "admin", "qa", "debug", "guard"];
-    for(const k of keys){
-      const v = String(getParam(k, "")).toLowerCase();
-      if(v === "1" || v === "true" || v === "yes" || v === "on"){
-        return true;
-      }
+  function isBypassed(){
+    const guard = String(getParam("guard") || "").toLowerCase();
+    const debug = String(getParam("debug") || "").toLowerCase();
+    const dev = String(getParam("dev") || "").toLowerCase();
+
+    return (
+      guard === "0" ||
+      guard === "off" ||
+      debug === "1" ||
+      debug === "true" ||
+      dev === "1" ||
+      dev === "true"
+    );
+  }
+
+  function closest(el, selector){
+    try{
+      return el && el.closest ? el.closest(selector) : null;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function isEditableTarget(target){
+    if(!target) return false;
+
+    const tag = String(target.tagName || "").toLowerCase();
+
+    if(["input", "textarea", "select", "option"].includes(tag)){
+      return true;
+    }
+
+    if(target.isContentEditable){
+      return true;
+    }
+
+    if(closest(target, "[contenteditable='true']")){
+      return true;
+    }
+
+    if(closest(target, ".vocab-input")){
+      return true;
     }
 
     return false;
   }
 
-  function guardDisabled(){
-    const v1 = String(getParam("guard", "")).toLowerCase();
-    const v2 = String(getParam("source_guard", "")).toLowerCase();
+  function isGameplayTarget(target){
+    if(!target) return false;
 
-    return (
-      window.VOCAB_SOURCE_GUARD_DISABLE === true ||
-      v1 === "off" ||
-      v1 === "0" ||
-      v2 === "off" ||
-      v2 === "0"
+    /*
+      อย่าบล็อกปุ่มเล่นเกม ตัวเลือก คำตอบ ปุ่มเริ่ม ปุ่ม reward
+    */
+    return !!closest(
+      target,
+      [
+        "button",
+        "a",
+        "[role='button']",
+        "[data-vocab-choice]",
+        "[data-vocab-bank]",
+        "[data-vocab-diff]",
+        "[data-vocab-mode]",
+        "[data-lb-mode]",
+        "#vocabStartBtn",
+        "#vocabHintBtn",
+        "#vocabAiHelpBtn",
+        "#vocabPlayAgainBtn",
+        "#vocabBackMenuBtn",
+        ".vocab-choice",
+        ".vocab-pill",
+        ".vocab-select-card",
+        ".vocab-mode-card",
+        ".vocab-start-btn",
+        ".vocab-power-btn",
+        ".vocab-reward-btn",
+        ".vocab-lb-tab"
+      ].join(",")
     );
   }
 
-  function isEditableTarget(el){
-    if(!el) return false;
+  function shouldAllowEvent(ev){
+    const target = ev && ev.target;
 
-    const tag = String(el.tagName || "").toLowerCase();
+    if(isEditableTarget(target)) return true;
+    if(isGameplayTarget(target)) return true;
 
-    return Boolean(
-      el.isContentEditable ||
-      tag === "input" ||
-      tag === "textarea" ||
-      tag === "select" ||
-      el.closest("[data-vocab-allow-copy='1']") ||
-      el.closest("[data-v78-allow-copy='1']")
-    );
+    return false;
   }
 
-  function logGuard(action, extra){
-    const payload = Object.assign({
-      timestamp: nowIso(),
-      action,
-      page_url: location.href,
-      user_agent: navigator.userAgent || "",
-      guard_version: VOCAB_GUARD.version,
-      guard_enabled: guardDisabled() ? 0 : 1
-    }, extra || {});
+  function prevent(ev, message){
+    if(!ev) return false;
 
     try{
-      const list = readJson(VOCAB_GUARD.logKey, []);
-      list.push(payload);
-      writeJson(VOCAB_GUARD.logKey, list.slice(-VOCAB_GUARD.maxLog));
-    }catch(e){}
+      ev.preventDefault();
+      ev.stopPropagation();
 
-    try{
-      if(typeof window.logVocabEventV6 === "function"){
-        window.logVocabEventV6("source_guard", payload);
+      if(typeof ev.stopImmediatePropagation === "function"){
+        ev.stopImmediatePropagation();
       }
     }catch(e){}
 
-    return payload;
+    showToast(message || "โหมดห้องเรียน: ไม่อนุญาตให้คัดลอกเนื้อหา");
+
+    return false;
   }
 
-  function injectCss(){
-    if(byId(VOCAB_GUARD.cssId)) return;
+  /* =========================================================
+     TOAST
+  ========================================================= */
 
-    const css = document.createElement("style");
-    css.id = VOCAB_GUARD.cssId;
-    css.textContent = `
-      body.vocab-guard-on,
-      body.vocab-guard-on .v6-app,
-      body.vocab-guard-on .v6-card,
-      body.vocab-guard-on .v6-question-card,
-      body.vocab-guard-on .vocab-reward-shell,
-      body.vocab-guard-on button,
-      body.vocab-guard-on .v6-choice{
-        -webkit-user-select:none !important;
-        user-select:none !important;
-        -webkit-touch-callout:none !important;
-      }
+  function ensureToastCss(){
+    if(DOC.getElementById("vocabGuardCss")) return;
 
-      body.vocab-guard-on input,
-      body.vocab-guard-on textarea,
-      body.vocab-guard-on select,
-      body.vocab-guard-on [contenteditable="true"],
-      body.vocab-guard-on [data-vocab-allow-copy="1"],
-      body.vocab-guard-on [data-v78-allow-copy="1"]{
-        -webkit-user-select:text !important;
-        user-select:text !important;
-        -webkit-touch-callout:default !important;
-      }
-
+    const style = DOC.createElement("style");
+    style.id = "vocabGuardCss";
+    style.textContent = `
       .vocab-guard-toast{
         position:fixed;
-        right:14px;
-        bottom:14px;
-        z-index:2147483647;
-        width:min(420px, calc(100vw - 28px));
-        padding:14px 16px;
-        border-radius:22px;
-        border:1px solid rgba(255,255,255,.20);
-        background:
-          radial-gradient(circle at top left, rgba(89,208,255,.22), transparent 36%),
-          rgba(4,10,20,.94);
-        color:#eef7ff;
-        font-weight:950;
-        line-height:1.45;
-        box-shadow:0 18px 54px rgba(0,0,0,.38);
-        backdrop-filter:blur(16px);
-        animation:vocabGuardToastIn .22s ease both;
-        pointer-events:none;
-      }
-
-      .vocab-guard-toast b{
-        color:#ffd166;
-      }
-
-      .vocab-guard-watermark{
-        position:fixed;
-        right:14px;
-        top:14px;
-        z-index:99997;
-        pointer-events:none;
-        opacity:.34;
-        padding:7px 10px;
+        left:50%;
+        bottom:calc(18px + env(safe-area-inset-bottom,0px));
+        z-index:9999999;
+        transform:translateX(-50%) translateY(18px);
+        max-width:min(92vw,560px);
+        padding:12px 16px;
         border-radius:999px;
-        border:1px solid rgba(255,255,255,.14);
-        background:rgba(4,10,20,.34);
+        background:rgba(7,17,31,.94);
+        border:1px solid rgba(255,255,255,.18);
         color:#eef7ff;
-        font-size:11px;
-        font-weight:1000;
-        letter-spacing:.04em;
-        text-transform:uppercase;
-        backdrop-filter:blur(8px);
+        font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        font-size:14px;
+        font-weight:900;
+        line-height:1.35;
+        text-align:center;
+        box-shadow:0 18px 54px rgba(0,0,0,.35);
+        opacity:0;
+        pointer-events:none;
+        transition:opacity .18s ease, transform .18s ease;
+        backdrop-filter:blur(14px);
       }
 
-      body.vocab-devtools-warning .vocab-guard-watermark{
-        opacity:.9;
-        color:#fff3bf;
-        border-color:rgba(255,209,102,.36);
-        background:rgba(255,209,102,.13);
+      .vocab-guard-toast.show{
+        opacity:1;
+        transform:translateX(-50%) translateY(0);
       }
 
-      @keyframes vocabGuardToastIn{
-        from{ opacity:0; transform:translateY(14px) scale(.97); }
-        to{ opacity:1; transform:translateY(0) scale(1); }
+      body.vocab-guard-noselect,
+      body.vocab-guard-noselect *:not(input):not(textarea):not(select):not(option){
+        -webkit-user-select:none;
+        user-select:none;
+        -webkit-touch-callout:none;
       }
 
-      @media print{
-        body.vocab-print-guard *{
-          visibility:hidden !important;
-        }
-
-        body.vocab-print-guard::before{
-          content:"Protected classroom build — printing is disabled.";
-          visibility:visible !important;
-          display:block;
-          padding:32px;
-          color:#111827;
-          font:700 22px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-        }
+      body.vocab-guard-noselect input,
+      body.vocab-guard-noselect textarea{
+        -webkit-user-select:text;
+        user-select:text;
       }
 
       @media(max-width:560px){
-        .vocab-guard-watermark{
-          top:auto;
-          bottom:62px;
-          right:8px;
-          font-size:10px;
-        }
-
         .vocab-guard-toast{
-          right:8px;
-          bottom:8px;
-          width:calc(100vw - 16px);
+          border-radius:22px;
           font-size:13px;
+          padding:11px 14px;
         }
       }
     `;
 
-    document.head.appendChild(css);
+    DOC.head.appendChild(style);
   }
 
-  function showToast(message, kind){
-    let box = byId(VOCAB_GUARD.toastId);
+  function showToast(message){
+    if(!CONFIG.showToast) return;
 
-    if(!box){
-      box = document.createElement("div");
-      box.id = VOCAB_GUARD.toastId;
-      box.className = "vocab-guard-toast";
-      document.body.appendChild(box);
+    const now = Date.now();
+
+    /*
+      กัน toast เด้งถี่เกิน
+    */
+    if(now - lastToastAt < 500) return;
+    lastToastAt = now;
+
+    ensureToastCss();
+
+    let toast = DOC.getElementById("vocabGuardToast");
+
+    if(!toast){
+      toast = DOC.createElement("div");
+      toast.id = "vocabGuardToast";
+      toast.className = "vocab-guard-toast";
+      DOC.body.appendChild(toast);
     }
 
-    const icon = kind === "warn" ? "⚠️" : kind === "ok" ? "✅" : "🔒";
+    toast.textContent = message || "โหมดห้องเรียน: ไม่อนุญาตให้คัดลอกเนื้อหา";
+    toast.classList.add("show");
 
-    box.innerHTML = `${icon} <b>Protected Mode</b><br>${esc(message)}`;
-    box.hidden = false;
+    clearTimeout(toastTimer);
 
-    clearTimeout(showToast._timer);
-    showToast._timer = setTimeout(() => {
-      if(box) box.hidden = true;
-    }, 2600);
+    toastTimer = setTimeout(function(){
+      toast.classList.remove("show");
+    }, CONFIG.toastMs);
   }
 
-  function addWatermark(){
-    if(byId(VOCAB_GUARD.watermarkId)) return;
+  /* =========================================================
+     EVENT BLOCKERS
+  ========================================================= */
 
-    const mark = document.createElement("div");
-    mark.id = VOCAB_GUARD.watermarkId;
-    mark.className = "vocab-guard-watermark";
-    mark.textContent = "Protected Classroom";
-    document.body.appendChild(mark);
+  function onContextMenu(ev){
+    if(!CONFIG.blockContextMenu) return true;
+    if(shouldAllowEvent(ev)) return true;
+
+    return prevent(ev, "โหมดห้องเรียน: ปิดเมนูคลิกขวาระหว่างทำกิจกรรม");
   }
 
-  function blockEvent(e, action, message){
-    if(isEditableTarget(e.target)) return true;
+  function onCopy(ev){
+    if(!CONFIG.blockCopy) return true;
+    if(shouldAllowEvent(ev)) return true;
 
-    try{
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-    }catch(err){}
-
-    logGuard(action, {
-      key: e.key || "",
-      ctrl: e.ctrlKey ? 1 : 0,
-      meta: e.metaKey ? 1 : 0,
-      shift: e.shiftKey ? 1 : 0,
-      alt: e.altKey ? 1 : 0
-    });
-
-    showToast(message || "ปิดการคัดลอกเนื้อหาและ source code ในโหมดใช้งานจริง", "lock");
-
-    return false;
+    return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้คัดลอกโจทย์/คำตอบ");
   }
 
-  function installCopyProtection(){
-    document.body.classList.add("vocab-guard-on");
+  function onCut(ev){
+    if(!CONFIG.blockCut) return true;
+    if(shouldAllowEvent(ev)) return true;
 
-    window.addEventListener("contextmenu", function(e){
-      return blockEvent(e, "contextmenu_blocked", "ปิดคลิกขวาเพื่อป้องกันการคัดลอก source code");
-    }, true);
+    return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้ตัด/คัดลอกเนื้อหา");
+  }
 
-    window.addEventListener("dragstart", function(e){
-      return blockEvent(e, "drag_blocked", "ปิดการลากคัดลอกเนื้อหาเกม");
-    }, true);
+  function onDragStart(ev){
+    if(!CONFIG.blockDrag) return true;
+    if(shouldAllowEvent(ev)) return true;
 
-    window.addEventListener("selectstart", function(e){
-      if(isEditableTarget(e.target)) return true;
-      return blockEvent(e, "select_blocked", "ปิดการลากเลือกข้อความในหน้าเกม");
-    }, true);
+    return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้ลากเนื้อหาออกจากหน้าเกม");
+  }
 
-    window.addEventListener("copy", function(e){
-      if(isEditableTarget(e.target)) return true;
+  function onSelectStart(ev){
+    if(!CONFIG.blockSelect) return true;
+    if(shouldAllowEvent(ev)) return true;
 
-      try{
-        e.clipboardData.setData("text/plain", "Protected classroom build: copying is disabled.");
-      }catch(err){}
+    /*
+      มือถือ/desktop: กันลาก select ที่โจทย์ แต่ไม่กันปุ่ม
+    */
+    return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้เลือกคัดลอกข้อความ");
+  }
 
-      return blockEvent(e, "copy_blocked", "ปิดการคัดลอกเนื้อหาในหน้าเกม");
-    }, true);
+  function isMac(){
+    return /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent || "");
+  }
 
-    window.addEventListener("cut", function(e){
-      if(isEditableTarget(e.target)) return true;
-      return blockEvent(e, "cut_blocked", "ปิดการตัด/คัดลอกเนื้อหาในหน้าเกม");
-    }, true);
+  function shortcutPressed(ev, key){
+    key = String(key || "").toLowerCase();
+    const k = String(ev.key || "").toLowerCase();
 
-    window.addEventListener("paste", function(e){
+    return k === key;
+  }
+
+  function hasCtrlOrMeta(ev){
+    return isMac() ? ev.metaKey : ev.ctrlKey;
+  }
+
+  function onKeyDown(ev){
+    if(!ev) return true;
+
+    if(isEditableTarget(ev.target)){
       /*
-        อนุญาต paste เฉพาะ input ที่นักศึกษาต้องกรอก เช่น ชื่อ / รหัส / session code
+        ให้กรอกข้อมูลนักศึกษาได้ปกติ
+        แต่ยังกัน Ctrl+U/F12 แม้อยู่ใน input
       */
-      if(isEditableTarget(e.target)) return true;
+      const k = String(ev.key || "").toLowerCase();
 
-      return blockEvent(e, "paste_blocked", "ปิดการวางข้อความลงหน้าเกม");
-    }, true);
+      if(k !== "f12" && !(hasCtrlOrMeta(ev) && ["u", "s", "p"].includes(k)) && !(hasCtrlOrMeta(ev) && ev.shiftKey && ["i", "j", "c"].includes(k))){
+        return true;
+      }
+    }
+
+    const key = String(ev.key || "").toLowerCase();
+
+    /*
+      F12
+    */
+    if(CONFIG.blockDevtoolsKeys && key === "f12"){
+      return prevent(ev, "โหมดห้องเรียน: ปิดเครื่องมือสำหรับดู source ระหว่างทำกิจกรรม");
+    }
+
+    /*
+      Ctrl/Cmd + U = view source
+    */
+    if(CONFIG.blockViewSource && hasCtrlOrMeta(ev) && shortcutPressed(ev, "u")){
+      return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้เปิด source code");
+    }
+
+    /*
+      Ctrl/Cmd + S = save page
+    */
+    if(CONFIG.blockSave && hasCtrlOrMeta(ev) && shortcutPressed(ev, "s")){
+      return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้บันทึกหน้าเว็บ");
+    }
+
+    /*
+      Ctrl/Cmd + P = print
+    */
+    if(CONFIG.blockPrint && hasCtrlOrMeta(ev) && shortcutPressed(ev, "p")){
+      return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้พิมพ์/บันทึกเนื้อหา");
+    }
+
+    /*
+      Ctrl/Cmd + Shift + I/J/C = DevTools
+    */
+    if(
+      CONFIG.blockDevtoolsKeys &&
+      hasCtrlOrMeta(ev) &&
+      ev.shiftKey &&
+      ["i", "j", "c"].includes(key)
+    ){
+      return prevent(ev, "โหมดห้องเรียน: ปิดเครื่องมือสำหรับดู source ระหว่างทำกิจกรรม");
+    }
+
+    /*
+      Ctrl/Cmd + C/X/A เฉพาะนอก input/gameplay
+    */
+    if(
+      hasCtrlOrMeta(ev) &&
+      ["c", "x", "a"].includes(key) &&
+      !shouldAllowEvent(ev)
+    ){
+      return prevent(ev, "โหมดห้องเรียน: ไม่อนุญาตให้คัดลอกหรือเลือกข้อความทั้งหมด");
+    }
+
+    return true;
   }
 
-  function installShortcutProtection(){
-    window.addEventListener("keydown", function(e){
-      const key = String(e.key || "").toLowerCase();
-      const ctrl = e.ctrlKey || e.metaKey;
-      const shift = e.shiftKey;
+  /* =========================================================
+     LIGHT DEVTOOLS DETECTION
+     ไม่ล็อกเกม ไม่ redirect แค่เตือน
+  ========================================================= */
 
-      const devToolsKeys =
-        key === "f12" ||
-        (ctrl && shift && ["i", "j", "c", "k"].includes(key));
+  let devtoolsWarned = false;
 
-      const sourceKeys =
-        ctrl && ["u", "s", "p"].includes(key);
-
-      const pageCopyKeys =
-        ctrl && ["a", "c", "x"].includes(key) && !isEditableTarget(e.target);
-
-      if(devToolsKeys){
-        return blockEvent(e, "devtools_shortcut_blocked", "ปิด DevTools shortcut ในโหมดใช้งานจริง");
-      }
-
-      if(sourceKeys){
-        return blockEvent(e, "source_shortcut_blocked", "ปิด View Source / Save / Print เพื่อป้องกันการคัดลอกไฟล์");
-      }
-
-      if(pageCopyKeys){
-        return blockEvent(e, "page_copy_shortcut_blocked", "ปิด shortcut คัดลอกเนื้อหาในหน้าเกม");
-      }
-
-      return true;
-    }, true);
-  }
-
-  function installPrintGuard(){
-    window.addEventListener("beforeprint", function(){
-      document.body.classList.add("vocab-print-guard");
-
-      logGuard("print_blocked", {});
-      showToast("ปิดการพิมพ์หน้าเกมใน Protected Mode", "lock");
-
-      setTimeout(() => {
-        document.body.classList.remove("vocab-print-guard");
-      }, 1400);
-    });
-  }
-
-  function installDevtoolsSoftWarning(){
-    let lastState = false;
-
+  function startLightDevtoolsWatch(){
+    /*
+      ใช้แบบเบา ๆ เพื่อไม่ทำให้เกมค้างหรือกิน CPU
+    */
     setInterval(function(){
-      if(guardDisabled()) return;
+      try{
+        const threshold = 170;
+        const widthDiff = Math.abs(WIN.outerWidth - WIN.innerWidth);
+        const heightDiff = Math.abs(WIN.outerHeight - WIN.innerHeight);
 
-      const threshold = 180;
+        if((widthDiff > threshold || heightDiff > threshold) && !devtoolsWarned){
+          devtoolsWarned = true;
+          showToast("โหมดห้องเรียน: โปรดปิด DevTools ระหว่างทำกิจกรรม");
+        }
 
-      const maybeOpen =
-        Math.abs((window.outerWidth || 0) - (window.innerWidth || 0)) > threshold ||
-        Math.abs((window.outerHeight || 0) - (window.innerHeight || 0)) > threshold;
-
-      if(maybeOpen && !lastState){
-        lastState = true;
-        document.body.classList.add("vocab-devtools-warning");
-        logGuard("devtools_soft_warning", {});
-        showToast("ตรวจพบลักษณะการเปิดเครื่องมือนักพัฒนา ระบบบันทึกเหตุการณ์ไว้แล้ว", "warn");
-      }else if(!maybeOpen && lastState){
-        lastState = false;
-        document.body.classList.remove("vocab-devtools-warning");
-      }
-    }, 1500);
+        if(widthDiff <= threshold && heightDiff <= threshold){
+          devtoolsWarned = false;
+        }
+      }catch(e){}
+    }, 2500);
   }
 
-  function exposeGuardTools(){
-    window.vocabGuardLog = function(){
-      return readJson(VOCAB_GUARD.logKey, []);
-    };
+  /* =========================================================
+     PUBLIC CONFIG
+  ========================================================= */
 
-    window.resetVocabGuardLog = function(){
-      localStorage.removeItem(VOCAB_GUARD.logKey);
-      alert("Reset vocab guard log แล้ว");
-    };
+  function setEnabled(value){
+    CONFIG.enabled = !!value;
 
-    window.vocabGuardTest = function(){
-      logGuard("manual_test", {});
-      showToast("Protected Mode ทำงานแล้ว", "ok");
-      return true;
-    };
+    if(CONFIG.enabled){
+      DOC.body.classList.add("vocab-guard-noselect");
+    }else{
+      DOC.body.classList.remove("vocab-guard-noselect");
+    }
+
+    return CONFIG.enabled;
   }
 
-  function boot(){
-    injectCss();
+  function updateConfig(next){
+    Object.assign(CONFIG, next || {});
+    setEnabled(CONFIG.enabled);
+    return Object.assign({}, CONFIG);
+  }
 
-    if(guardDisabled()){
-      logGuard("guard_disabled", {
-        reason: "URL guard=off/source_guard=off or global flag"
-      });
-      console.log("[VOCAB GUARD] disabled by URL/global flag");
+  function getConfig(){
+    return Object.assign({}, CONFIG);
+  }
+
+  /* =========================================================
+     INSTALL
+  ========================================================= */
+
+  function install(){
+    if(isBypassed()){
+      WIN.VocabGuard = {
+        version: VERSION,
+        enabled: false,
+        bypassed: true,
+        setEnabled,
+        updateConfig,
+        getConfig
+      };
+
+      WIN.VocabModules = WIN.VocabModules || {};
+      WIN.VocabModules.guard = true;
+
+      WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+      WIN.__VOCAB_MODULES__.guard = true;
+
+      log("bypassed by query param", VERSION);
       return;
     }
 
-    addWatermark();
-    installCopyProtection();
-    installShortcutProtection();
-    installPrintGuard();
-    installDevtoolsSoftWarning();
-    exposeGuardTools();
+    if(WIN.__VOCAB_GUARD_INSTALLED__){
+      log("already installed");
+      return;
+    }
 
-    logGuard("guard_enabled", {
-      teacher_or_qa_mode: isTeacherOrQaMode() ? 1 : 0
-    });
+    WIN.__VOCAB_GUARD_INSTALLED__ = true;
 
-    console.log("[VOCAB GUARD] enabled", VOCAB_GUARD.version);
+    ensureToastCss();
+
+    DOC.body.classList.add("vocab-guard-noselect");
+
+    /*
+      ใช้ capture=true เพื่อกัน browser action ให้ทัน
+      แต่ shouldAllowEvent จะปล่อย input/gameplay
+    */
+    DOC.addEventListener("contextmenu", onContextMenu, true);
+    DOC.addEventListener("copy", onCopy, true);
+    DOC.addEventListener("cut", onCut, true);
+    DOC.addEventListener("dragstart", onDragStart, true);
+    DOC.addEventListener("selectstart", onSelectStart, true);
+    WIN.addEventListener("keydown", onKeyDown, true);
+
+    startLightDevtoolsWatch();
+
+    WIN.VocabGuard = {
+      version: VERSION,
+      enabled: true,
+      bypassed: false,
+      setEnabled,
+      updateConfig,
+      getConfig,
+      showToast
+    };
+
+    WIN.vocabGuard = WIN.VocabGuard;
+
+    WIN.VocabModules = WIN.VocabModules || {};
+    WIN.VocabModules.guard = true;
+
+    WIN.__VOCAB_MODULES__ = WIN.__VOCAB_MODULES__ || {};
+    WIN.__VOCAB_MODULES__.guard = true;
+
+    log("loaded", VERSION);
   }
 
-  if(document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", boot, { once:true });
+  if(DOC.readyState === "loading"){
+    DOC.addEventListener("DOMContentLoaded", install, { once:true });
   }else{
-    boot();
+    install();
   }
-
 })();
