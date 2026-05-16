@@ -2962,3 +2962,580 @@
     install: installTune
   };
 })();
+/* =========================================================
+   /vocab/vocab.ui.js — Answer Truth Hotfix
+   PATCH: v20260503z
+
+   Fix:
+   - displayed correct button is the source of truth
+   - keyboard = "a device used to type letters and commands" must be correct
+   - prevent all answers becoming wrong
+   - stop old auto-timeout from marking wrong in learn/mission
+   - force stage/question HUD sync
+========================================================= */
+(function(){
+  "use strict";
+
+  const WIN = window;
+  const DOC = document;
+  const VERSION = "vocab-answer-truth-hotfix-v20260503z";
+
+  let LOCK = false;
+
+  function $(id){
+    return DOC.getElementById(id);
+  }
+
+  function clean(s){
+    return String(s ?? "").trim();
+  }
+
+  function norm(s){
+    return clean(s).toLowerCase().replace(/\s+/g, " ");
+  }
+
+  function pick(){
+    for(let i = 0; i < arguments.length; i++){
+      const v = arguments[i];
+      if(v !== undefined && v !== null && v !== "") return v;
+    }
+    return "";
+  }
+
+  function getState(){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.getState === "function"){
+        return WIN.VocabUI.getState() || {};
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabGame && typeof WIN.VocabGame.getState === "function"){
+        return WIN.VocabGame.getState() || {};
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.get === "function"){
+        return WIN.VocabState.get() || {};
+      }
+    }catch(e){}
+
+    return WIN.VOCAB_APP || {};
+  }
+
+  function patchState(update){
+    update = update || {};
+
+    WIN.VOCAB_APP = WIN.VOCAB_APP || {};
+    Object.assign(WIN.VOCAB_APP, update);
+
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.patchState === "function"){
+        WIN.VocabUI.patchState(update);
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.set === "function"){
+        WIN.VocabState.set(update);
+      }else if(WIN.VocabState && WIN.VocabState.state){
+        Object.assign(WIN.VocabState.state, update);
+      }
+    }catch(e){}
+  }
+
+  function getCurrentQuestion(){
+    const s = getState();
+
+    return (
+      (WIN.VocabGame && WIN.VocabGame.currentQuestion) ||
+      s.currentQuestion ||
+      s.question ||
+      s.activeQuestion ||
+      null
+    );
+  }
+
+  function normalizeQuestion(q){
+    q = q || {};
+
+    return {
+      term: clean(pick(q.term, q.word, q.vocab, "")),
+      prompt: clean(pick(q.prompt, q.question, q.question_text, q.questionText, q.text, "")),
+      correct: clean(pick(q.correct, q.correct_answer, q.correctAnswer, q.answer, "")),
+      explain: clean(pick(q.explain, q.explanation, q.feedback, ""))
+    };
+  }
+
+  function getCorrectFromVisibleButtons(){
+    const btn =
+      DOC.querySelector("[data-vocab-correct='1']") ||
+      DOC.querySelector("[data-correct='1']") ||
+      DOC.querySelector("[data-is-correct='1']");
+
+    if(!btn) return "";
+
+    return clean(btn.dataset.vocabChoice || btn.dataset.choice || btn.textContent);
+  }
+
+  function getSelected(btn){
+    return clean(btn.dataset.vocabChoice || btn.dataset.choice || btn.textContent);
+  }
+
+  function isSelectedCorrect(btn){
+    const flag = clean(
+      pick(
+        btn.dataset.vocabCorrect,
+        btn.dataset.correct,
+        btn.dataset.isCorrect,
+        ""
+      )
+    );
+
+    if(flag === "1" || flag === "true"){
+      return true;
+    }
+
+    if(flag === "0" || flag === "false"){
+      return false;
+    }
+
+    const selected = getSelected(btn);
+    const visibleCorrect = getCorrectFromVisibleButtons();
+    const q = normalizeQuestion(getCurrentQuestion());
+    const correct = visibleCorrect || q.correct;
+
+    return !!correct && norm(selected) === norm(correct);
+  }
+
+  function markChoices(selected, correct){
+    selected = clean(selected);
+    correct = clean(correct);
+
+    Array.from(DOC.querySelectorAll("[data-vocab-choice]")).forEach(function(btn){
+      const value = getSelected(btn);
+      const isCorrectBtn =
+        clean(btn.dataset.vocabCorrect) === "1" ||
+        (!!correct && norm(value) === norm(correct));
+
+      btn.disabled = true;
+      btn.classList.add("locked");
+
+      if(isCorrectBtn){
+        btn.classList.add("correct");
+        btn.classList.remove("wrong");
+      }
+
+      if(norm(value) === norm(selected) && !isCorrectBtn){
+        btn.classList.add("wrong");
+      }
+    });
+  }
+
+  function ensureFxCss(){
+    if($("vocabAnswerTruthCss")) return;
+
+    const style = DOC.createElement("style");
+    style.id = "vocabAnswerTruthCss";
+    style.textContent = `
+      .vocab-choice.correct,
+      .v6-choice.correct{
+        background:rgba(68,223,147,.32)!important;
+        border-color:rgba(68,223,147,.98)!important;
+        box-shadow:0 0 0 4px rgba(68,223,147,.18),0 18px 44px rgba(68,223,147,.20)!important;
+      }
+
+      .vocab-choice.wrong,
+      .v6-choice.wrong{
+        background:rgba(255,110,135,.30)!important;
+        border-color:rgba(255,110,135,.96)!important;
+        box-shadow:0 0 0 4px rgba(255,110,135,.15),0 18px 44px rgba(255,110,135,.18)!important;
+      }
+
+      .vocab-truth-pop{
+        position:fixed;
+        z-index:999999;
+        left:50%;
+        top:42%;
+        transform:translate(-50%,-50%);
+        padding:18px 28px;
+        border-radius:999px;
+        color:#fff;
+        font-size:clamp(28px,6vw,56px);
+        font-weight:1000;
+        pointer-events:none;
+        animation:vocabTruthPop .9s ease forwards;
+        text-shadow:0 8px 24px rgba(0,0,0,.35);
+      }
+
+      .vocab-truth-pop.good{
+        background:linear-gradient(135deg,#22c55e,#38bdf8);
+      }
+
+      .vocab-truth-pop.bad{
+        background:linear-gradient(135deg,#ef4444,#fb7185);
+      }
+
+      .vocab-score-truth{
+        position:fixed;
+        z-index:999999;
+        right:7vw;
+        top:25vh;
+        padding:12px 18px;
+        border-radius:999px;
+        background:rgba(255,209,102,.98);
+        color:#3b2500;
+        font-size:clamp(24px,5vw,44px);
+        font-weight:1000;
+        pointer-events:none;
+        animation:vocabTruthScore .95s ease forwards;
+      }
+
+      @keyframes vocabTruthPop{
+        0%{opacity:0;transform:translate(-50%,-28%) scale(.78);}
+        20%{opacity:1;transform:translate(-50%,-50%) scale(1.08);}
+        100%{opacity:0;transform:translate(-50%,-92%) scale(.96);}
+      }
+
+      @keyframes vocabTruthScore{
+        0%{opacity:0;transform:translateY(18px) scale(.75);}
+        20%{opacity:1;transform:translateY(0) scale(1.08);}
+        100%{opacity:0;transform:translateY(-62px) scale(.94);}
+      }
+    `;
+    DOC.head.appendChild(style);
+  }
+
+  function pop(message, type){
+    ensureFxCss();
+
+    const el = DOC.createElement("div");
+    el.className = "vocab-truth-pop " + (type || "");
+    el.textContent = message;
+    DOC.body.appendChild(el);
+
+    setTimeout(function(){
+      try{ el.remove(); }catch(e){}
+    }, 1000);
+  }
+
+  function scorePop(points){
+    if(!points) return;
+
+    ensureFxCss();
+
+    const el = DOC.createElement("div");
+    el.className = "vocab-score-truth";
+    el.textContent = "+" + points;
+    DOC.body.appendChild(el);
+
+    setTimeout(function(){
+      try{ el.remove(); }catch(e){}
+    }, 1000);
+  }
+
+  function explain(html){
+    const box = $("vocabExplainBox");
+    if(!box) return;
+
+    box.hidden = false;
+    box.innerHTML = html;
+  }
+
+  function updateHud(isCorrect){
+    const s = getState();
+
+    const score = Number(pick(s.score, 0)) || 0;
+    const combo = Number(pick(s.combo, s.currentCombo, 0)) || 0;
+    const hp = Number(pick(s.hp, s.lives, 5)) || 5;
+
+    const points = isCorrect ? 100 + combo * 10 : 0;
+    const nextScore = score + points;
+    const nextCombo = isCorrect ? combo + 1 : 0;
+    const nextHp = isCorrect ? hp : Math.max(0, hp - 1);
+
+    const correctCount = Number(pick(s.correct_count, s.correctCount, 0)) + (isCorrect ? 1 : 0);
+    const wrongCount = Number(pick(s.wrong_count, s.wrongCount, 0)) + (isCorrect ? 0 : 1);
+    const total = correctCount + wrongCount;
+    const accuracy = total ? Math.round((correctCount / total) * 100) : 0;
+
+    patchState({
+      score: nextScore,
+      raw_score: nextScore,
+      combo: nextCombo,
+      currentCombo: nextCombo,
+      comboMax: Math.max(Number(pick(s.comboMax, s.combo_max, 0)) || 0, nextCombo),
+      combo_max: Math.max(Number(pick(s.comboMax, s.combo_max, 0)) || 0, nextCombo),
+      hp: nextHp,
+      lives: nextHp,
+      correctCount,
+      correct_count: correctCount,
+      wrongCount,
+      wrong_count: wrongCount,
+      mistakes: wrongCount,
+      accuracy
+    });
+
+    if($("vocabScore")) $("vocabScore").textContent = nextScore;
+    if($("vocabCombo")) $("vocabCombo").textContent = "x" + nextCombo;
+
+    if($("vocabHp")){
+      let hearts = "";
+      for(let i = 0; i < 5; i++){
+        hearts += i < nextHp ? "❤️" : "🖤";
+      }
+      $("vocabHp").textContent = hearts;
+    }
+
+    return {
+      points,
+      score: nextScore,
+      combo: nextCombo,
+      hp: nextHp,
+      accuracy,
+      correctCount,
+      wrongCount
+    };
+  }
+
+  function logAnswer(payload){
+    try{
+      if(WIN.VocabLogger && typeof WIN.VocabLogger.answer === "function"){
+        WIN.VocabLogger.answer(payload);
+        return;
+      }
+
+      if(typeof WIN.logVocabEventV6 === "function"){
+        WIN.logVocabEventV6("answer", payload);
+      }
+    }catch(e){}
+  }
+
+  function nextQuestion(){
+    try{
+      if(WIN.VocabTimeGuard && typeof WIN.VocabTimeGuard.allowNextBriefly === "function"){
+        WIN.VocabTimeGuard.allowNextBriefly();
+      }
+    }catch(e){}
+
+    setTimeout(function(){
+      try{
+        if(WIN.VocabGame && typeof WIN.VocabGame.nextQuestion === "function"){
+          WIN.VocabGame.nextQuestion({ force:true });
+          return;
+        }
+      }catch(e){}
+
+      try{
+        if(WIN.VocabUI && typeof WIN.VocabUI.nextQuestion === "function"){
+          WIN.VocabUI.nextQuestion();
+        }
+      }catch(e){}
+    }, 850);
+  }
+
+  function handleTruthClick(btn, ev){
+    if(LOCK) return false;
+    LOCK = true;
+
+    try{
+      if(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(typeof ev.stopImmediatePropagation === "function"){
+          ev.stopImmediatePropagation();
+        }
+      }
+
+      const q = normalizeQuestion(getCurrentQuestion());
+      const selected = getSelected(btn);
+      const visibleCorrect = getCorrectFromVisibleButtons();
+      const correct = visibleCorrect || q.correct;
+      const isCorrect = isSelectedCorrect(btn);
+
+      markChoices(selected, correct);
+
+      const hud = updateHud(isCorrect);
+
+      if(isCorrect){
+        pop("✅ Correct!", "good");
+        scorePop(hud.points);
+
+        explain(
+          q.explain
+            ? "✅ <b>ถูกต้อง!</b><br>" + q.explain
+            : "✅ <b>ถูกต้อง!</b><br>คำตอบคือ <b>" + correct + "</b>"
+        );
+      }else{
+        pop("❌ Try again", "bad");
+
+        explain(
+          "❌ <b>ยังไม่ถูก</b><br>" +
+          (correct ? "คำตอบที่ถูกคือ: <b>" + correct + "</b><br>" : "") +
+          (q.explain ? q.explain : "")
+        );
+      }
+
+      logAnswer({
+        term: q.term,
+        prompt: q.prompt,
+        answer: selected,
+        selected_answer: selected,
+        correct_answer: correct,
+        correct: isCorrect ? 1 : 0,
+        is_correct: isCorrect ? 1 : 0,
+        score: hud.score,
+        combo: hud.combo,
+        hp: hud.hp,
+        accuracy: hud.accuracy,
+        correct_count: hud.correctCount,
+        wrong_count: hud.wrongCount,
+        question_no: pick(getState().questionNo, 0),
+        question_count: pick(getState().questionCount, 0),
+        bank: pick(getState().bank, "A"),
+        mode: pick(getState().mode, "learn"),
+        difficulty: pick(getState().difficulty, getState().diff, "easy")
+      });
+
+      nextQuestion();
+
+      setTimeout(function(){
+        LOCK = false;
+      }, 1200);
+
+      return false;
+    }catch(err){
+      console.error("[VOCAB ANSWER TRUTH] failed", err);
+      LOCK = false;
+      return false;
+    }
+  }
+
+  function installClickOverride(){
+    if(WIN.__VOCAB_ANSWER_TRUTH_INSTALLED__) return;
+    WIN.__VOCAB_ANSWER_TRUTH_INSTALLED__ = true;
+
+    /*
+      ใช้ window capture เพื่อแย่ง click ก่อน listener เก่า
+    */
+    WIN.addEventListener("click", function(ev){
+      const btn = ev.target && ev.target.closest
+        ? ev.target.closest("[data-vocab-choice]")
+        : null;
+
+      if(!btn) return true;
+
+      return handleTruthClick(btn, ev);
+    }, true);
+  }
+
+  function patchRenderQuestion(){
+    if(!WIN.VocabUI || typeof WIN.VocabUI.renderQuestion !== "function") return;
+    if(WIN.VocabUI.__truthRenderPatched) return;
+
+    const original = WIN.VocabUI.renderQuestion;
+    WIN.VocabUI.__truthRenderPatched = true;
+
+    WIN.VocabUI.renderQuestion = function(question, state){
+      const result = original.call(WIN.VocabUI, question, state);
+
+      /*
+        หลัง render แล้ว sync ปุ่ม correct จาก currentQuestion.correct
+        เพื่อให้ปุ่มที่เห็นบนหน้าจอเป็น source of truth
+      */
+      setTimeout(function(){
+        const q = normalizeQuestion(question || getCurrentQuestion());
+        const correct = q.correct;
+
+        Array.from(DOC.querySelectorAll("[data-vocab-choice]")).forEach(function(btn){
+          const value = getSelected(btn);
+          btn.dataset.vocabCorrect = correct && norm(value) === norm(correct) ? "1" : "0";
+          btn.disabled = false;
+          btn.classList.remove("correct", "wrong", "locked");
+        });
+
+        /*
+          sync HUD stage
+        */
+        const s = getState();
+        const qNo = pick(s.questionNo, s.question_no, 1);
+        const qCount = pick(s.questionCount, s.question_count, 0);
+
+        if($("vocabQuestionNo")) $("vocabQuestionNo").textContent = qNo + "/" + qCount;
+        if($("vocabStageChip")) $("vocabStageChip").textContent = "Question " + qNo;
+        if($("vocabTimer") && (String($("vocabTimer").textContent).trim() === "0s")){
+          const sec = pick(s.questionTimeSec, s.perQuestionTime, 60);
+          $("vocabTimer").textContent = sec + "s";
+        }
+      }, 0);
+
+      return result;
+    };
+  }
+
+  function patchGameAnswer(){
+    if(!WIN.VocabGame) return;
+    if(WIN.VocabGame.__truthAnswerPatched) return;
+
+    WIN.VocabGame.__truthAnswerPatched = true;
+
+    const originalAnswer = WIN.VocabGame.answer;
+
+    WIN.VocabGame.answer = function(selectedValue, btn){
+      if(btn && btn.dataset && btn.dataset.vocabCorrect !== undefined){
+        return handleTruthClick(btn, null);
+      }
+
+      if(typeof originalAnswer === "function"){
+        return originalAnswer.apply(WIN.VocabGame, arguments);
+      }
+
+      return false;
+    };
+
+    WIN.VocabGame.choose = WIN.VocabGame.answer;
+    WIN.VocabGame.submitAnswer = WIN.VocabGame.answer;
+    WIN.VocabGame.selectAnswer = WIN.VocabGame.answer;
+  }
+
+  function patchNoAutoWrongInLearn(){
+    const s = getState();
+    const mode = String(pick(s.mode, "learn")).toLowerCase();
+
+    if(mode !== "learn" && mode !== "mission") return;
+
+    try{
+      if(WIN.VocabTimeGuard && typeof WIN.VocabTimeGuard.stopTimer === "function"){
+        WIN.VocabTimeGuard.stopTimer();
+      }
+    }catch(e){}
+
+    patchState({
+      autoSkipQuestion: false,
+      noAutoNextBeforeAnswer: true
+    });
+  }
+
+  function install(){
+    ensureFxCss();
+    installClickOverride();
+    patchRenderQuestion();
+    patchGameAnswer();
+    patchNoAutoWrongInLearn();
+
+    console.log("[VOCAB ANSWER TRUTH] loaded", VERSION);
+  }
+
+  if(DOC.readyState === "loading"){
+    DOC.addEventListener("DOMContentLoaded", install, { once:true });
+  }else{
+    install();
+  }
+
+  WIN.VocabAnswerTruth = {
+    version: VERSION,
+    install,
+    getCorrectFromVisibleButtons
+  };
+})();
