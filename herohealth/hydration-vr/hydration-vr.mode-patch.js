@@ -1686,3 +1686,164 @@
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260516-hydration-summary-scroll-unlock-pack19
+   Detect final summary and unlock page scroll
+   Append at end of /herohealth/hydration-vr/hydration-vr.mode-patch.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  if(window.HHA_HYDRATION_SUMMARY_SCROLL_PACK19_LOADED) return;
+  window.HHA_HYDRATION_SUMMARY_SCROLL_PACK19_LOADED = true;
+
+  var PATCH = 'v20260516-hydration-summary-scroll-unlock-pack19';
+
+  function q(sel, root){
+    try{ return (root || document).querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel, root){
+    try{ return Array.from((root || document).querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function isVisible(el){
+    if(!el || !el.isConnected) return false;
+
+    var r = el.getBoundingClientRect();
+    var style = window.getComputedStyle(el);
+
+    return (
+      r.width > 0 &&
+      r.height > 0 &&
+      style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      Number(style.opacity || 1) !== 0
+    );
+  }
+
+  function findSummary(){
+    var selectors = [
+      '#hha-hydration-summary',
+      '.hha-hydration-summary',
+      '#hydration-summary',
+      '.hha-summary-panel',
+      '.hha-summary',
+      '.hha-summary-card',
+      '[data-hha-summary]'
+    ];
+
+    for(var i=0; i<selectors.length; i++){
+      var el = q(selectors[i]);
+      if(el && isVisible(el)) return el;
+    }
+
+    /*
+      fallback:
+      ถ้าหน้ามีคำว่า คะแนนรวม / Badge / Mission / Heat Boss
+      และไม่มี target แล้ว ให้ถือว่าเป็น Summary
+    */
+    var bodyText = String(document.body.textContent || '');
+    var hasSummaryText =
+      /คะแนนรวม|Badge|Mission|Heat Boss|Hydration|Combo|ภารกิจเติมน้ำสำเร็จ|ยังไม่ชนะ/i.test(bodyText);
+
+    var hasTarget = q('.hha-hydration-target');
+
+    if(hasSummaryText && !hasTarget){
+      return document.body;
+    }
+
+    return null;
+  }
+
+  function unlockScroll(summary){
+    if(!summary) return;
+
+    document.body.classList.add('hha-hydration-summary-open');
+    document.documentElement.classList.add('hha-hydration-summary-open-html');
+
+    /*
+      บังคับเปิด scroll เพราะบาง CSS เดิมล็อก body/html ไว้สำหรับ gameplay
+    */
+    document.documentElement.style.height = 'auto';
+    document.documentElement.style.minHeight = '100svh';
+    document.documentElement.style.overflowY = 'auto';
+    document.documentElement.style.overflowX = 'hidden';
+
+    document.body.style.height = 'auto';
+    document.body.style.minHeight = '100svh';
+    document.body.style.overflowY = 'auto';
+    document.body.style.overflowX = 'hidden';
+    document.body.style.touchAction = 'auto';
+
+    var app = q('#hha-hydration-app');
+    var stage = q('#hha-hydration-stage');
+    var playfield = q('#hha-hydration-playfield');
+
+    [app, stage, playfield].forEach(function(el){
+      if(!el) return;
+
+      el.style.height = 'auto';
+      el.style.minHeight = '100svh';
+      el.style.maxHeight = 'none';
+      el.style.overflow = 'visible';
+      el.style.position = 'relative';
+    });
+
+    if(summary !== document.body){
+      summary.style.maxHeight = 'none';
+      summary.style.height = 'auto';
+      summary.style.overflow = 'visible';
+      summary.style.paddingBottom = '140px';
+      summary.dataset.hhaScrollUnlock = PATCH;
+    }
+  }
+
+  function lockGameplayIfNoSummary(){
+    var summary = findSummary();
+
+    if(summary){
+      unlockScroll(summary);
+      return;
+    }
+
+    /*
+      อย่าล็อกกลับระหว่างเกม เพราะ engine เดิมคุมอยู่แล้ว
+      แค่ไม่ทำอะไรถ้ายังไม่มี summary
+    */
+  }
+
+  function boot(){
+    lockGameplayIfNoSummary();
+
+    var mo = new MutationObserver(function(){
+      lockGameplayIfNoSummary();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['class','style']
+    });
+
+    setInterval(lockGameplayIfNoSummary, 700);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationSummaryScrollUnlock = {
+      version: PATCH,
+      unlock: function(){
+        unlockScroll(findSummary() || document.body);
+      }
+    };
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
