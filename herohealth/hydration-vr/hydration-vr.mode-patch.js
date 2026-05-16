@@ -1129,3 +1129,560 @@
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260516-hydration-cvr-world-pan-pack18
+   cVR real behavior:
+   - crosshair fixed at center
+   - playfield/world moves with mouse / touch drag / keyboard / device tilt
+   - tap/click shoots target at center
+   Append at end of /herohealth/hydration-vr/hydration-vr.mode-patch.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  if(window.HHA_HYDRATION_CVR_WORLD_PAN_PACK18_LOADED) return;
+  window.HHA_HYDRATION_CVR_WORLD_PAN_PACK18_LOADED = true;
+
+  var PATCH = 'v20260516-hydration-cvr-world-pan-pack18';
+
+  var pan = {
+    x:0,
+    y:0,
+    maxX:210,
+    maxY:140,
+    drag:false,
+    dragStartX:0,
+    dragStartY:0,
+    startPanX:0,
+    startPanY:0,
+    orientationBase:null,
+    motionEnabled:false,
+    firing:false
+  };
+
+  function getUrl(){
+    try{ return new URL(location.href); }
+    catch(e){ return new URL('./run.html', location.origin); }
+  }
+
+  function getView(){
+    try{
+      return getUrl().searchParams.get('view') || document.body.dataset.view || 'mobile';
+    }catch(e){
+      return document.body.dataset.view || 'mobile';
+    }
+  }
+
+  function isCvr(){
+    return getView() === 'cvr' || document.body.classList.contains('hha-view-cvr');
+  }
+
+  function clamp(n, min, max){
+    n = Number(n);
+    if(!Number.isFinite(n)) n = 0;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function q(sel, root){
+    try{ return (root || document).querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel, root){
+    try{ return Array.from((root || document).querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function viewport(){
+    return {
+      w: window.innerWidth || document.documentElement.clientWidth || 390,
+      h: window.innerHeight || document.documentElement.clientHeight || 800
+    };
+  }
+
+  function refreshLimits(){
+    var v = viewport();
+    pan.maxX = Math.max(120, Math.min(260, v.w * 0.18));
+    pan.maxY = Math.max(90, Math.min(180, v.h * 0.16));
+  }
+
+  function setPan(x, y){
+    refreshLimits();
+
+    pan.x = clamp(x, -pan.maxX, pan.maxX);
+    pan.y = clamp(y, -pan.maxY, pan.maxY);
+
+    renderPan();
+  }
+
+  function renderPan(){
+    if(!isCvr()) return;
+
+    document.body.classList.add('hha-cvr-world-pan');
+
+    document.documentElement.style.setProperty('--hha-cvr-pan-x', Math.round(pan.x) + 'px');
+    document.documentElement.style.setProperty('--hha-cvr-pan-y', Math.round(pan.y) + 'px');
+
+    document.documentElement.style.setProperty('--hha-cvr-bg-pan-x', Math.round(pan.x * 0.18) + 'px');
+    document.documentElement.style.setProperty('--hha-cvr-bg-pan-y', Math.round(pan.y * 0.14) + 'px');
+
+    var reticle = ensureReticle();
+    var target = findTargetAtCenter();
+
+    if(reticle){
+      reticle.classList.toggle('is-hit', !!target);
+    }
+  }
+
+  function ensureReticle(){
+    if(!isCvr()) return null;
+
+    var el = document.getElementById('hha-cvr-center-reticle');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-cvr-center-reticle';
+    el.className = 'hha-cvr-center-reticle';
+    el.innerHTML = '<i></i>';
+    document.body.appendChild(el);
+
+    return el;
+  }
+
+  function ensureHint(){
+    var el = document.getElementById('hha-cvr-world-hint');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-cvr-world-hint';
+    el.className = 'hha-cvr-world-hint';
+    el.textContent = '🥽 crosshair อยู่กลางจอ • ขยับฉากเพื่อเล็ง';
+    document.body.appendChild(el);
+
+    return el;
+  }
+
+  function showHint(text){
+    if(!isCvr()) return;
+
+    var el = ensureHint();
+    el.textContent = text || '🥽 crosshair อยู่กลางจอ • ขยับฉากเพื่อเล็ง';
+    el.classList.add('show');
+
+    clearTimeout(el._hhaT);
+    el._hhaT = setTimeout(function(){
+      el.classList.remove('show');
+    }, 1800);
+  }
+
+  function ensureMotionButton(){
+    if(!isCvr()) return null;
+
+    var btn = document.getElementById('hha-cvr-motion-btn');
+    if(btn) return btn;
+
+    btn = document.createElement('button');
+    btn.id = 'hha-cvr-motion-btn';
+    btn.className = 'hha-cvr-motion-btn';
+    btn.type = 'button';
+    btn.textContent = '📱 เปิดการเอียงเครื่องเพื่อเล็ง';
+
+    btn.addEventListener('click', requestMotionPermission);
+    document.body.appendChild(btn);
+
+    if(window.DeviceOrientationEvent &&
+       typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+      btn.classList.add('show');
+    }
+
+    return btn;
+  }
+
+  function centerPoint(){
+    var v = viewport();
+
+    return {
+      x: Math.round(v.w / 2),
+      y: Math.round(v.h / 2)
+    };
+  }
+
+  function rectCenterDistance(rect, x, y){
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var dx = cx - x;
+    var dy = cy - y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function findTargetAtCenter(){
+    if(!isCvr()) return null;
+
+    var p = centerPoint();
+
+    var targets = qa('.hha-hydration-target')
+      .filter(function(t){
+        if(!t || !t.isConnected) return false;
+
+        var r = t.getBoundingClientRect();
+        if(r.width <= 0 || r.height <= 0) return false;
+
+        var pad = 34;
+
+        return (
+          p.x >= r.left - pad &&
+          p.x <= r.right + pad &&
+          p.y >= r.top - pad &&
+          p.y <= r.bottom + pad
+        );
+      })
+      .sort(function(a,b){
+        return rectCenterDistance(a.getBoundingClientRect(), p.x, p.y) -
+               rectCenterDistance(b.getBoundingClientRect(), p.x, p.y);
+      });
+
+    return targets[0] || null;
+  }
+
+  function fireClick(target){
+    if(!target) return false;
+
+    var p = centerPoint();
+    pan.firing = true;
+
+    try{
+      target.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles:true,
+        cancelable:true,
+        pointerType:'mouse',
+        clientX:p.x,
+        clientY:p.y
+      }));
+    }catch(e){}
+
+    try{
+      target.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles:true,
+        cancelable:true,
+        clientX:p.x,
+        clientY:p.y
+      }));
+    }catch(e){}
+
+    try{
+      target.click();
+    }catch(e){
+      try{
+        target.dispatchEvent(new MouseEvent('click', {
+          bubbles:true,
+          cancelable:true,
+          clientX:p.x,
+          clientY:p.y
+        }));
+      }catch(_){}
+    }
+
+    setTimeout(function(){
+      pan.firing = false;
+    }, 0);
+
+    return true;
+  }
+
+  function shootCenter(){
+    if(!isCvr()) return false;
+
+    var target = findTargetAtCenter();
+
+    if(target){
+      target.dataset.hhaCvrWorldShot = PATCH;
+      return fireClick(target);
+    }
+
+    showHint('ยังไม่มีเป้าอยู่กลางจอ • ขยับฉากให้เป้ามาอยู่ตรง crosshair');
+    return false;
+  }
+
+  function shouldIgnoreControl(target){
+    return !!(
+      target &&
+      target.closest &&
+      target.closest('button, a, input, select, textarea, .hha-control-btn, #hha-cvr-motion-btn, #hha-cvr-world-hint')
+    );
+  }
+
+  function bindMouseWorldPan(){
+    document.addEventListener('mousemove', function(ev){
+      if(!isCvr()) return;
+
+      var v = viewport();
+      var dx = ev.clientX - v.w / 2;
+      var dy = ev.clientY - v.h / 2;
+
+      /*
+        mouse ไปขวา = เหมือนหันขวา
+        ฉากต้องเลื่อนไปซ้าย
+      */
+      setPan(-dx * 0.42, -dy * 0.34);
+    }, { passive:true });
+  }
+
+  function bindTouchWorldPan(){
+    document.addEventListener('touchstart', function(ev){
+      if(!isCvr()) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      var t = ev.touches && ev.touches[0];
+      if(!t) return;
+
+      pan.drag = true;
+      pan.dragStartX = t.clientX;
+      pan.dragStartY = t.clientY;
+      pan.startPanX = pan.x;
+      pan.startPanY = pan.y;
+    }, { passive:true, capture:true });
+
+    document.addEventListener('touchmove', function(ev){
+      if(!isCvr()) return;
+      if(!pan.drag) return;
+
+      var t = ev.touches && ev.touches[0];
+      if(!t) return;
+
+      var dx = t.clientX - pan.dragStartX;
+      var dy = t.clientY - pan.dragStartY;
+
+      /*
+        ลากซ้าย/ขวา = ดันฉากตามนิ้ว
+        ใช้สำหรับทดสอบบนมือถือ
+      */
+      setPan(pan.startPanX + dx, pan.startPanY + dy);
+    }, { passive:true, capture:true });
+
+    document.addEventListener('touchend', function(ev){
+      if(!isCvr()) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      pan.drag = false;
+
+      shootCenter();
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      }catch(e){}
+    }, { passive:false, capture:true });
+  }
+
+  function bindKeyboardWorldPan(){
+    document.addEventListener('keydown', function(ev){
+      if(!isCvr()) return;
+
+      var key = String(ev.key || '').toLowerCase();
+      var step = ev.shiftKey ? 46 : 24;
+      var x = pan.x;
+      var y = pan.y;
+      var used = true;
+
+      if(key === 'arrowleft' || key === 'a') x += step;
+      else if(key === 'arrowright' || key === 'd') x -= step;
+      else if(key === 'arrowup' || key === 'w') y += step;
+      else if(key === 'arrowdown' || key === 's') y -= step;
+      else if(key === ' ' || key === 'enter') shootCenter();
+      else used = false;
+
+      if(used){
+        setPan(x, y);
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    }, true);
+  }
+
+  async function requestMotionPermission(){
+    try{
+      if(window.DeviceOrientationEvent &&
+         typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+
+        var res = await window.DeviceOrientationEvent.requestPermission();
+
+        if(res !== 'granted'){
+          showHint('ยังไม่ได้อนุญาตการเอียงเครื่อง ใช้ลากนิ้ว/เมาส์แทนได้');
+          return;
+        }
+      }
+
+      pan.motionEnabled = true;
+      pan.orientationBase = null;
+
+      var btn = document.getElementById('hha-cvr-motion-btn');
+      if(btn) btn.classList.remove('show');
+
+      showHint('เปิดการเอียงเครื่องแล้ว • crosshair อยู่กลางจอ');
+    }catch(e){
+      showHint('เปิด motion ไม่สำเร็จ ใช้ลากนิ้ว/เมาส์แทนได้');
+    }
+  }
+
+  function bindOrientationWorldPan(){
+    window.addEventListener('deviceorientation', function(ev){
+      if(!isCvr()) return;
+
+      if(window.DeviceOrientationEvent &&
+         typeof window.DeviceOrientationEvent.requestPermission === 'function' &&
+         !pan.motionEnabled){
+        return;
+      }
+
+      var gamma = Number(ev.gamma || 0);
+      var beta = Number(ev.beta || 0);
+
+      if(!Number.isFinite(gamma) || !Number.isFinite(beta)) return;
+
+      if(!pan.orientationBase){
+        pan.orientationBase = { gamma:gamma, beta:beta };
+      }
+
+      var dx = gamma - pan.orientationBase.gamma;
+      var dy = beta - pan.orientationBase.beta;
+
+      /*
+        หันขวา = ฉากเลื่อนซ้าย
+        ก้ม/เงย = ฉากเลื่อนขึ้น/ลง
+      */
+      setPan(-dx * 18, -dy * 12);
+    }, { passive:true });
+  }
+
+  function bindShootAtWindowLevel(){
+    /*
+      สำคัญ:
+      ใช้ window capture เพื่อกัน listener เก่าของ Pack17 ที่ยิงจาก aim-reticle
+      เพราะ window capture จะมาก่อน document capture
+    */
+    window.addEventListener('click', function(ev){
+      if(!isCvr()) return;
+      if(pan.firing) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      shootCenter();
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    }, true);
+
+    window.addEventListener('touchend', function(ev){
+      if(!isCvr()) return;
+      if(pan.firing) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      shootCenter();
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    }, { passive:false, capture:true });
+
+    window.addEventListener('hha:shoot', function(ev){
+      if(!isCvr()) return;
+
+      shootCenter();
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      }catch(e){}
+    }, true);
+  }
+
+  function bindRecenter(){
+    document.addEventListener('click', function(ev){
+      if(!isCvr()) return;
+
+      var t = ev.target;
+      if(!t) return;
+
+      var text = String(t.textContent || '').toLowerCase();
+      var isRecenter =
+        (t.closest && t.closest('[data-hha-recenter], .hha-recenter, #hha-recenter, #hha-vr-recenter')) ||
+        text.indexOf('recenter') !== -1 ||
+        text.indexOf('จัดกลาง') !== -1;
+
+      if(!isRecenter) return;
+
+      pan.orientationBase = null;
+      setPan(0, 0);
+      showHint('จัดมุมมองกลับกึ่งกลางแล้ว');
+    }, true);
+  }
+
+  function observeTargets(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    var mo = new MutationObserver(function(){
+      renderPan();
+    });
+
+    mo.observe(playfield, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['style','class']
+    });
+  }
+
+  function boot(){
+    if(!isCvr()) return;
+
+    document.body.classList.add('hha-view-cvr');
+    document.body.classList.add('hha-cvr-world-pan');
+    document.body.dataset.view = 'cvr';
+
+    refreshLimits();
+    ensureReticle();
+    ensureHint();
+    ensureMotionButton();
+
+    setPan(0, 0);
+
+    bindMouseWorldPan();
+    bindTouchWorldPan();
+    bindKeyboardWorldPan();
+    bindOrientationWorldPan();
+    bindShootAtWindowLevel();
+    bindRecenter();
+    observeTargets();
+
+    showHint('🥽 โหมด Cardboard: crosshair คงที่กลางจอ • ฉากจะขยับแทน');
+
+    window.addEventListener('resize', function(){
+      refreshLimits();
+      setPan(0, 0);
+    }, { passive:true });
+
+    setInterval(renderPan, 180);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationCvrWorldPan = {
+      version: PATCH,
+      setPan: setPan,
+      shootCenter: shootCenter,
+      findTargetAtCenter: findTargetAtCenter,
+      recenter: function(){
+        pan.orientationBase = null;
+        setPan(0, 0);
+      }
+    };
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
