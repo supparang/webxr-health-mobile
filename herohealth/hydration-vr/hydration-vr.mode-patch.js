@@ -650,3 +650,482 @@
     boot();
   }
 })();
+/* =========================================================
+   PATCH v20260516-hydration-cvr-movable-aim-real-pack17
+   Fix cVR aim ขยับไม่ได้:
+   - mouse move / pointer move
+   - touch move / touch end
+   - keyboard arrow / WASD
+   - deviceorientation for Cardboard phone
+   - override old fixed-center hha:shoot
+   Append at end of /herohealth/hydration-vr/hydration-vr.mode-patch.js
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  if(window.HHA_HYDRATION_CVR_AIM_PACK17_LOADED) return;
+  window.HHA_HYDRATION_CVR_AIM_PACK17_LOADED = true;
+
+  var PATCH = 'v20260516-hydration-cvr-movable-aim-real-pack17';
+
+  var aim = {
+    x: 0,
+    y: 0,
+    ready: false,
+    firing: false,
+    orientationBase: null,
+    motionEnabled: false
+  };
+
+  function getUrl(){
+    try{ return new URL(location.href); }
+    catch(e){ return new URL('./run.html', location.origin); }
+  }
+
+  function getView(){
+    try{
+      return getUrl().searchParams.get('view') || document.body.dataset.view || 'mobile';
+    }catch(e){
+      return document.body.dataset.view || 'mobile';
+    }
+  }
+
+  function isCvr(){
+    return getView() === 'cvr' || document.body.classList.contains('hha-view-cvr');
+  }
+
+  function clamp(n, min, max){
+    n = Number(n);
+    if(!Number.isFinite(n)) n = min;
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function q(sel, root){
+    try{ return (root || document).querySelector(sel); }
+    catch(e){ return null; }
+  }
+
+  function qa(sel, root){
+    try{ return Array.from((root || document).querySelectorAll(sel)); }
+    catch(e){ return []; }
+  }
+
+  function viewport(){
+    return {
+      w: window.innerWidth || document.documentElement.clientWidth || 390,
+      h: window.innerHeight || document.documentElement.clientHeight || 800
+    };
+  }
+
+  function ensureReticle(){
+    if(!isCvr()) return null;
+
+    var el = document.getElementById('hha-cvr-aim-reticle');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-cvr-aim-reticle';
+    el.className = 'hha-cvr-aim-reticle';
+    el.innerHTML = '<i></i>';
+    document.body.appendChild(el);
+
+    return el;
+  }
+
+  function ensureHint(){
+    var el = document.getElementById('hha-cvr-aim-hint');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-cvr-aim-hint';
+    el.className = 'hha-cvr-aim-hint';
+    el.textContent = '🥽 ขยับเมาส์/เอียงเครื่องเพื่อเล็ง • แตะเพื่อยิง';
+    document.body.appendChild(el);
+
+    return el;
+  }
+
+  function showHint(text){
+    if(!isCvr()) return;
+
+    var el = ensureHint();
+    el.textContent = text || '🥽 ขยับเมาส์/เอียงเครื่องเพื่อเล็ง • แตะเพื่อยิง';
+    el.classList.add('show');
+
+    clearTimeout(el._hhaT);
+    el._hhaT = setTimeout(function(){
+      el.classList.remove('show');
+    }, 1800);
+  }
+
+  function ensureMotionButton(){
+    if(!isCvr()) return null;
+
+    var btn = document.getElementById('hha-cvr-motion-btn');
+    if(btn) return btn;
+
+    btn = document.createElement('button');
+    btn.id = 'hha-cvr-motion-btn';
+    btn.className = 'hha-cvr-motion-btn';
+    btn.type = 'button';
+    btn.textContent = '📱 เปิดการเอียงเครื่องเพื่อเล็ง';
+
+    btn.addEventListener('click', requestMotionPermission);
+
+    document.body.appendChild(btn);
+
+    /*
+      iOS ต้องขอ permission ส่วน Android/PC ไม่จำเป็น
+    */
+    if(window.DeviceOrientationEvent &&
+       typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+      btn.classList.add('show');
+    }
+
+    return btn;
+  }
+
+  function initAim(){
+    var v = viewport();
+
+    aim.x = Math.round(v.w / 2);
+    aim.y = Math.round(v.h / 2);
+    aim.ready = true;
+
+    renderAim();
+  }
+
+  function setAim(x, y){
+    var v = viewport();
+    var pad = 22;
+
+    aim.x = clamp(x, pad, v.w - pad);
+    aim.y = clamp(y, pad, v.h - pad);
+
+    renderAim();
+  }
+
+  function renderAim(){
+    if(!isCvr()) return;
+
+    ensureReticle();
+
+    document.documentElement.style.setProperty('--hha-cvr-aim-x', Math.round(aim.x) + 'px');
+    document.documentElement.style.setProperty('--hha-cvr-aim-y', Math.round(aim.y) + 'px');
+
+    var reticle = document.getElementById('hha-cvr-aim-reticle');
+    var target = findTargetAtAim();
+
+    if(reticle){
+      reticle.classList.toggle('is-hit', !!target);
+    }
+  }
+
+  function rectCenterDistance(rect, x, y){
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var dx = cx - x;
+    var dy = cy - y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function findTargetAtAim(){
+    if(!isCvr()) return null;
+
+    var targets = qa('.hha-hydration-target')
+      .filter(function(t){
+        if(!t || !t.isConnected) return false;
+
+        var r = t.getBoundingClientRect();
+        if(r.width <= 0 || r.height <= 0) return false;
+
+        var pad = 36;
+
+        return (
+          aim.x >= r.left - pad &&
+          aim.x <= r.right + pad &&
+          aim.y >= r.top - pad &&
+          aim.y <= r.bottom + pad
+        );
+      })
+      .sort(function(a,b){
+        return rectCenterDistance(a.getBoundingClientRect(), aim.x, aim.y) -
+               rectCenterDistance(b.getBoundingClientRect(), aim.x, aim.y);
+      });
+
+    return targets[0] || null;
+  }
+
+  function fireClick(target){
+    if(!target) return false;
+
+    aim.firing = true;
+
+    try{
+      target.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles:true,
+        cancelable:true,
+        pointerType:'mouse',
+        clientX:aim.x,
+        clientY:aim.y
+      }));
+    }catch(e){}
+
+    try{
+      target.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles:true,
+        cancelable:true,
+        clientX:aim.x,
+        clientY:aim.y
+      }));
+    }catch(e){}
+
+    try{
+      target.click();
+    }catch(e){
+      try{
+        target.dispatchEvent(new MouseEvent('click', {
+          bubbles:true,
+          cancelable:true,
+          clientX:aim.x,
+          clientY:aim.y
+        }));
+      }catch(_){}
+    }
+
+    setTimeout(function(){
+      aim.firing = false;
+    }, 0);
+
+    return true;
+  }
+
+  function shootAim(){
+    if(!isCvr()) return false;
+
+    var target = findTargetAtAim();
+
+    if(target){
+      target.dataset.hhaCvrAimShot = PATCH;
+      return fireClick(target);
+    }
+
+    showHint('ยังไม่ตรงเป้า • ขยับ crosshair ไปหาเป้าก่อน');
+    return false;
+  }
+
+  function shouldIgnoreControl(target){
+    return !!(
+      target &&
+      target.closest &&
+      target.closest('button, a, input, select, textarea, .hha-control-btn, #hha-cvr-motion-btn')
+    );
+  }
+
+  function bindPointerAim(){
+    document.addEventListener('mousemove', function(ev){
+      if(!isCvr()) return;
+      setAim(ev.clientX, ev.clientY);
+    }, { passive:true });
+
+    document.addEventListener('pointermove', function(ev){
+      if(!isCvr()) return;
+      setAim(ev.clientX, ev.clientY);
+    }, { passive:true });
+
+    document.addEventListener('touchmove', function(ev){
+      if(!isCvr()) return;
+      var t = ev.touches && ev.touches[0];
+      if(!t) return;
+      setAim(t.clientX, t.clientY);
+    }, { passive:true });
+  }
+
+  function bindKeyboardAim(){
+    document.addEventListener('keydown', function(ev){
+      if(!isCvr()) return;
+
+      var key = String(ev.key || '').toLowerCase();
+      var step = ev.shiftKey ? 42 : 22;
+      var x = aim.x;
+      var y = aim.y;
+      var used = true;
+
+      if(key === 'arrowleft' || key === 'a') x -= step;
+      else if(key === 'arrowright' || key === 'd') x += step;
+      else if(key === 'arrowup' || key === 'w') y -= step;
+      else if(key === 'arrowdown' || key === 's') y += step;
+      else if(key === ' ' || key === 'enter') shootAim();
+      else used = false;
+
+      if(used){
+        setAim(x, y);
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    }, true);
+  }
+
+  async function requestMotionPermission(){
+    try{
+      if(window.DeviceOrientationEvent &&
+         typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+
+        var res = await window.DeviceOrientationEvent.requestPermission();
+
+        if(res !== 'granted'){
+          showHint('ยังไม่ได้อนุญาตการเอียงเครื่อง ใช้แตะ/เมาส์เล็งแทนได้');
+          return;
+        }
+      }
+
+      aim.motionEnabled = true;
+      aim.orientationBase = null;
+
+      var btn = document.getElementById('hha-cvr-motion-btn');
+      if(btn) btn.classList.remove('show');
+
+      showHint('เปิดการเอียงเครื่องแล้ว • เอียงเพื่อเล็ง');
+    }catch(e){
+      showHint('เปิด motion ไม่สำเร็จ ใช้เมาส์/แตะลากเพื่อเล็งแทน');
+    }
+  }
+
+  function bindOrientationAim(){
+    window.addEventListener('deviceorientation', function(ev){
+      if(!isCvr()) return;
+
+      /*
+        Android มักใช้ได้ทันที
+        iOS ต้องกดปุ่ม permission ก่อน
+      */
+      if(window.DeviceOrientationEvent &&
+         typeof window.DeviceOrientationEvent.requestPermission === 'function' &&
+         !aim.motionEnabled){
+        return;
+      }
+
+      var gamma = Number(ev.gamma || 0); // left/right
+      var beta = Number(ev.beta || 0);   // up/down
+
+      if(!Number.isFinite(gamma) || !Number.isFinite(beta)) return;
+
+      if(!aim.orientationBase){
+        aim.orientationBase = { gamma:gamma, beta:beta };
+      }
+
+      var dx = gamma - aim.orientationBase.gamma;
+      var dy = beta - aim.orientationBase.beta;
+
+      var v = viewport();
+
+      var x = (v.w / 2) + clamp(dx * 16, -v.w * .44, v.w * .44);
+      var y = (v.h / 2) + clamp(dy * 11, -v.h * .38, v.h * .38);
+
+      setAim(x, y);
+    }, { passive:true });
+  }
+
+  function bindShootOverride(){
+    function onShoot(ev){
+      if(!isCvr()) return;
+
+      var ok = shootAim();
+
+      try{
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      }catch(e){}
+
+      return ok;
+    }
+
+    window.addEventListener('hha:shoot', onShoot, true);
+    document.addEventListener('hha:shoot', onShoot, true);
+
+    document.addEventListener('click', function(ev){
+      if(!isCvr()) return;
+      if(aim.firing) return;
+
+      if(shouldIgnoreControl(ev.target)) return;
+
+      shootAim();
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+    }, true);
+
+    document.addEventListener('touchend', function(ev){
+      if(!isCvr()) return;
+      if(aim.firing) return;
+
+      if(shouldIgnoreControl(ev.target)) return;
+
+      var t = ev.changedTouches && ev.changedTouches[0];
+      if(t){
+        setAim(t.clientX, t.clientY);
+      }
+
+      shootAim();
+    }, { passive:false, capture:true });
+  }
+
+  function observeTargets(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    var mo = new MutationObserver(function(){
+      renderAim();
+    });
+
+    mo.observe(playfield, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['style','class']
+    });
+  }
+
+  function boot(){
+    if(!isCvr()) return;
+
+    document.body.classList.add('hha-view-cvr');
+    document.body.dataset.view = 'cvr';
+
+    initAim();
+    ensureReticle();
+    ensureHint();
+    ensureMotionButton();
+
+    bindPointerAim();
+    bindKeyboardAim();
+    bindOrientationAim();
+    bindShootOverride();
+    observeTargets();
+
+    showHint('🥽 cVR พร้อมแล้ว: ขยับเมาส์/เอียงเครื่องเพื่อเล็ง');
+
+    window.addEventListener('resize', function(){
+      initAim();
+    }, { passive:true });
+
+    setInterval(renderAim, 160);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationCvrAim = {
+      version: PATCH,
+      setAim: setAim,
+      shootAim: shootAim,
+      findTargetAtAim: findTargetAtAim
+    };
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
