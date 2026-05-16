@@ -2397,3 +2397,407 @@
 
   log("loaded", VERSION);
 })();
+/* =========================================================
+   /vocab/vocab.ui.js — Question Time Guard
+   PATCH: v20260503r
+
+   Fix:
+   - เวลาแต่ละข้อสั้นเกินไป
+   - คำถามเปลี่ยนเองระหว่างกำลังทำ
+   - allow next only after answer feedback
+   - learn/mission = no auto-skip
+   - speed/battle = longer timer, but guarded
+========================================================= */
+(function(){
+  "use strict";
+
+  const WIN = window;
+  const DOC = document;
+  const VERSION = "vocab-question-time-guard-v20260503r";
+
+  const SETTINGS = {
+    learn: {
+      easy: 45,
+      normal: 40,
+      hard: 35,
+      challenge: 30,
+      autoSkip: false
+    },
+    mission: {
+      easy: 45,
+      normal: 40,
+      hard: 35,
+      challenge: 30,
+      autoSkip: false
+    },
+    speed: {
+      easy: 30,
+      normal: 25,
+      hard: 22,
+      challenge: 18,
+      autoSkip: true
+    },
+    battle: {
+      easy: 35,
+      normal: 30,
+      hard: 25,
+      challenge: 22,
+      autoSkip: true
+    }
+  };
+
+  let currentKey = "";
+  let currentQuestion = null;
+  let questionStartedAt = 0;
+  let answered = false;
+  let forceNextUntil = 0;
+  let timerId = null;
+  let remaining = 0;
+
+  function $(id){
+    return DOC.getElementById(id);
+  }
+
+  function pick(){
+    for(let i = 0; i < arguments.length; i++){
+      const v = arguments[i];
+      if(v !== undefined && v !== null && v !== "") return v;
+    }
+    return "";
+  }
+
+  function getState(){
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.getState === "function"){
+        return WIN.VocabUI.getState() || {};
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.get === "function"){
+        return WIN.VocabState.get() || {};
+      }
+    }catch(e){}
+
+    return WIN.VOCAB_APP || {};
+  }
+
+  function setState(update){
+    update = update || {};
+
+    WIN.VOCAB_APP = WIN.VOCAB_APP || {};
+    Object.assign(WIN.VOCAB_APP, update);
+
+    try{
+      if(WIN.VocabState && typeof WIN.VocabState.set === "function"){
+        WIN.VocabState.set(update);
+      }else if(WIN.VocabState && WIN.VocabState.state){
+        Object.assign(WIN.VocabState.state, update);
+      }
+    }catch(e){}
+
+    try{
+      if(WIN.VocabUI && typeof WIN.VocabUI.patchState === "function"){
+        WIN.VocabUI.patchState(update);
+      }
+    }catch(e){}
+  }
+
+  function mode(){
+    const s = getState();
+    return String(pick(s.mode, s.selectedMode, "learn")).toLowerCase();
+  }
+
+  function difficulty(){
+    const s = getState();
+    return String(pick(s.difficulty, s.diff, s.selectedDifficulty, "easy")).toLowerCase();
+  }
+
+  function getRule(){
+    const m = mode();
+    const d = difficulty();
+
+    const group = SETTINGS[m] || SETTINGS.learn;
+
+    return {
+      seconds: Number(group[d] || group.easy || 40),
+      autoSkip: !!group.autoSkip
+    };
+  }
+
+  function questionKey(q){
+    q = q || {};
+
+    return String(
+      pick(
+        q.id,
+        q.qid,
+        q.term,
+        q.word,
+        q.prompt,
+        q.question,
+        q.question_text,
+        q.questionText,
+        JSON.stringify(q).slice(0, 120)
+      )
+    );
+  }
+
+  function updateTimerDisplay(sec){
+    const el = $("vocabTimer");
+    if(el){
+      el.textContent = Math.max(0, Math.ceil(sec)) + "s";
+    }
+
+    setState({
+      timeLeft: Math.max(0, Math.ceil(sec)),
+      timer: Math.max(0, Math.ceil(sec))
+    });
+  }
+
+  function stopTimer(){
+    if(timerId){
+      clearInterval(timerId);
+      timerId = null;
+    }
+  }
+
+  function startTimerForQuestion(){
+    stopTimer();
+
+    const rule = getRule();
+    remaining = rule.seconds;
+
+    updateTimerDisplay(remaining);
+
+    timerId = setInterval(function(){
+      if(answered){
+        stopTimer();
+        return;
+      }
+
+      remaining -= 1;
+      updateTimerDisplay(remaining);
+
+      if(remaining <= 0){
+        stopTimer();
+
+        if(rule.autoSkip){
+          handleTimeout();
+        }else{
+          /*
+            learn / mission ไม่เปลี่ยนข้อเอง
+            ค้างไว้ให้ผู้เรียนตอบ แต่แจ้งเตือนว่าใช้เวลานานแล้ว
+          */
+          updateTimerDisplay(0);
+          showSoftTimeoutMessage();
+        }
+      }
+    }, 1000);
+  }
+
+  function showSoftTimeoutMessage(){
+    const box = $("vocabExplainBox");
+    if(!box) return;
+
+    box.hidden = false;
+    box.innerHTML = `
+      ⏳ <b>ใช้เวลานานแล้ว</b><br>
+      ข้อนี้จะยังไม่เปลี่ยนเอง ลองเลือกคำตอบที่คิดว่าใกล้เคียงที่สุด
+    `;
+  }
+
+  function handleTimeout(){
+    if(answered) return;
+
+    answered = true;
+
+    const box = $("vocabExplainBox");
+    if(box){
+      box.hidden = false;
+      box.innerHTML = `
+        ⏰ <b>หมดเวลา</b><br>
+        ระบบจะไปข้อถัดไป แต่ไม่ตัดคะแนนแรง เพื่อให้ฝึกต่อได้
+      `;
+    }
+
+    setTimeout(function(){
+      allowNextBriefly();
+
+      if(WIN.VocabUI && typeof WIN.VocabUI.nextQuestion === "function"){
+        WIN.VocabUI.nextQuestion();
+      }
+    }, 850);
+  }
+
+  function allowNextBriefly(){
+    forceNextUntil = Date.now() + 1600;
+  }
+
+  function isForcedNext(){
+    return Date.now() < forceNextUntil;
+  }
+
+  function onNewQuestion(q){
+    currentQuestion = q || null;
+    currentKey = questionKey(q);
+    questionStartedAt = Date.now();
+    answered = false;
+
+    startTimerForQuestion();
+  }
+
+  function shouldBlockRender(q){
+    if(!currentQuestion) return false;
+    if(answered) return false;
+    if(isForcedNext()) return false;
+
+    const nextKey = questionKey(q);
+
+    if(!nextKey || nextKey === currentKey){
+      return false;
+    }
+
+    /*
+      ถ้ายังไม่ได้ตอบ ห้าม render คำถามใหม่ทับ
+      กันกรณี timer/old game loop แอบ next เอง
+    */
+    return true;
+  }
+
+  function installRenderGuard(){
+    if(!WIN.VocabUI || WIN.VocabUI.__timeGuardRenderInstalled) return;
+
+    const originalRender = WIN.VocabUI.renderQuestion;
+
+    if(typeof originalRender !== "function") return;
+
+    WIN.VocabUI.__timeGuardRenderInstalled = true;
+
+    WIN.VocabUI.renderQuestion = function(question, state){
+      if(shouldBlockRender(question)){
+        console.warn("[VOCAB TIME GUARD] blocked unexpected auto-question change");
+
+        return originalRender.call(WIN.VocabUI, currentQuestion, getState());
+      }
+
+      const result = originalRender.call(WIN.VocabUI, question, state);
+
+      onNewQuestion(question);
+
+      return result;
+    };
+  }
+
+  function installChoiceGuard(){
+    if(!WIN.VocabUI || WIN.VocabUI.__timeGuardChoiceInstalled) return;
+
+    const originalHandle = WIN.VocabUI.handleChoice;
+
+    if(typeof originalHandle !== "function") return;
+
+    WIN.VocabUI.__timeGuardChoiceInstalled = true;
+
+    WIN.VocabUI.handleChoice = function(btn){
+      answered = true;
+      stopTimer();
+      allowNextBriefly();
+
+      return originalHandle.call(WIN.VocabUI, btn);
+    };
+  }
+
+  function installNextGuard(){
+    if(!WIN.VocabUI || WIN.VocabUI.__timeGuardNextInstalled) return;
+
+    const originalNext = WIN.VocabUI.nextQuestion;
+
+    if(typeof originalNext !== "function") return;
+
+    WIN.VocabUI.__timeGuardNextInstalled = true;
+
+    WIN.VocabUI.nextQuestion = function(){
+      /*
+        ถ้าไม่ได้ตอบ และไม่ได้ timeout ที่อนุญาต ห้ามไปข้อถัดไปเอง
+      */
+      if(!answered && !isForcedNext()){
+        console.warn("[VOCAB TIME GUARD] blocked nextQuestion before answer");
+        return false;
+      }
+
+      allowNextBriefly();
+      return originalNext.call(WIN.VocabUI);
+    };
+  }
+
+  function installGameGuard(){
+    const game = WIN.VocabGame || WIN.vocabGame || WIN.VOCAB_GAME;
+
+    if(!game || game.__vocabTimeGuardInstalled) return;
+
+    game.__vocabTimeGuardInstalled = true;
+
+    [
+      "nextQuestion",
+      "next",
+      "advance",
+      "renderNext",
+      "showNextQuestion",
+      "continueGame"
+    ].forEach(function(name){
+      if(typeof game[name] !== "function") return;
+
+      const original = game[name];
+
+      game[name] = function(){
+        if(!answered && !isForcedNext()){
+          console.warn("[VOCAB TIME GUARD] blocked game auto-next:", name);
+          return false;
+        }
+
+        allowNextBriefly();
+        return original.apply(game, arguments);
+      };
+    });
+  }
+
+  function patchSettingsToApp(){
+    const rule = getRule();
+
+    setState({
+      questionTimeSec: rule.seconds,
+      perQuestionTime: rule.seconds,
+      autoSkipQuestion: rule.autoSkip,
+      noAutoNextBeforeAnswer: true
+    });
+  }
+
+  function install(){
+    if(!WIN.VocabUI){
+      setTimeout(install, 120);
+      return;
+    }
+
+    patchSettingsToApp();
+    installRenderGuard();
+    installChoiceGuard();
+    installNextGuard();
+    installGameGuard();
+
+    console.log("[VOCAB TIME GUARD] loaded", VERSION, getRule());
+  }
+
+  if(DOC.readyState === "loading"){
+    DOC.addEventListener("DOMContentLoaded", install, { once:true });
+  }else{
+    install();
+  }
+
+  WIN.VocabTimeGuard = {
+    version: VERSION,
+    getRule,
+    stopTimer,
+    startTimerForQuestion,
+    allowNextBriefly
+  };
+})();
