@@ -15,15 +15,24 @@
   <!--
     HeroHealth Hydration
     File: /herohealth/hydration-vr.html
-    Version: v20260515-hydration-mode-hub-pack14
+    Version: v20260515-hydration-mode-hub-pack16
 
     Purpose:
       หน้ารวมโหมด Hydration
       - Solo: PC / Mobile / Cardboard VR
       - Multiplayer: Duet / Race / Battle / Coop
+      - Multiplayer ต้องเข้า Lobby ก่อน run.html
 
-    Shared run:
+    Related files:
       /herohealth/hydration-vr/run.html
+      /herohealth/hydration-vr/lobby.html
+      /herohealth/hydration-vr/hydration-vr.css
+      /herohealth/hydration-vr/hydration-vr.js
+      /herohealth/hydration-vr/hydration-vr.mode-patch.css
+      /herohealth/hydration-vr/hydration-vr.mode-patch.js
+      /herohealth/room-engine.js
+      /herohealth/firebase-config.js
+      /herohealth/firebase-init.js
   -->
 
   <style>
@@ -336,6 +345,12 @@
       transition:.15s ease;
     }
 
+    .choice:disabled{
+      opacity:.45;
+      filter:grayscale(.25);
+      cursor:not-allowed;
+    }
+
     .choice .ico{
       display:block;
       font-size:30px;
@@ -399,6 +414,56 @@
       font-weight:1000;
     }
 
+    .capacity-box{
+      display:grid;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .capacity-title{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      color:#66879c;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    .capacity-title b{
+      color:#24445c;
+      font-size:14px;
+      font-weight:1000;
+    }
+
+    .capacity-grid{
+      display:grid;
+      grid-template-columns:repeat(9,1fr);
+      gap:8px;
+    }
+
+    .capacity-grid .cap{
+      border:3px solid rgba(204,238,251,.9);
+      border-radius:16px;
+      min-height:44px;
+      background:#fff;
+      color:#24445c;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .capacity-grid .cap.is-active{
+      border-color:rgba(98,210,143,.9);
+      background:linear-gradient(180deg,#ffffff,#f4fff8);
+      box-shadow:0 0 0 4px rgba(98,230,143,.14);
+    }
+
+    .capacity-grid .cap:disabled{
+      opacity:.35;
+      cursor:not-allowed;
+      filter:grayscale(.25);
+    }
+
     .ready-box{
       margin-top:18px;
       border-radius:26px;
@@ -434,6 +499,10 @@
       box-shadow:0 16px 36px rgba(35,136,255,.25);
       font-size:24px;
       font-weight:1000;
+    }
+
+    .start.multiplayer{
+      background:linear-gradient(180deg,var(--green),var(--green2));
     }
 
     .sub-actions{
@@ -545,6 +614,18 @@
         border-radius:20px;
       }
 
+      .room-row{
+        grid-template-columns:1fr;
+      }
+
+      .capacity-title{
+        display:grid;
+      }
+
+      .capacity-grid{
+        grid-template-columns:repeat(3,1fr);
+      }
+
       .sub-actions{
         grid-template-columns:1fr;
       }
@@ -569,7 +650,9 @@
     <section class="layout">
       <article class="card intro">
         <span class="intro-kicker">HeroHealth • Nutrition Zone</span>
+
         <h2 class="intro-title">Aqua Rush</h2>
+
         <p class="intro-sub">
           เก็บน้ำเปล่าและอาหารฉ่ำน้ำ หลบน้ำหวาน/ของเค็ม แล้วสู้ Heat Monster ให้ชนะ!
         </p>
@@ -709,12 +792,31 @@
         <div class="step mp-panel" id="mpPanel">
           <div class="step-head">
             <strong>5) ห้อง Multiplayer</strong>
-            <span>ใช้ room code สำหรับเล่นพร้อมกัน</span>
+            <span>ต้องรอคนครบก่อนเริ่ม</span>
           </div>
 
           <div class="room-row">
-            <input id="roomCode" maxlength="12" placeholder="ROOM CODE" />
+            <input id="roomCode" maxlength="16" placeholder="ROOM CODE" />
             <button type="button" id="genRoom">สร้าง</button>
+          </div>
+
+          <div class="capacity-box">
+            <div class="capacity-title">
+              <b>จำนวนผู้เล่นที่ต้องครบก่อนเริ่ม</b>
+              <span id="capacityHint">Duet = 2 คน / Race Battle Coop = 2–10 คน</span>
+            </div>
+
+            <div class="capacity-grid" id="capacityChoices">
+              <button type="button" data-capacity="2" class="cap is-active">2</button>
+              <button type="button" data-capacity="3" class="cap">3</button>
+              <button type="button" data-capacity="4" class="cap">4</button>
+              <button type="button" data-capacity="5" class="cap">5</button>
+              <button type="button" data-capacity="6" class="cap">6</button>
+              <button type="button" data-capacity="7" class="cap">7</button>
+              <button type="button" data-capacity="8" class="cap">8</button>
+              <button type="button" data-capacity="9" class="cap">9</button>
+              <button type="button" data-capacity="10" class="cap">10</button>
+            </div>
           </div>
 
           <div class="note" id="mpNote">
@@ -737,8 +839,8 @@
         </div>
 
         <p class="note">
-          หน้านี้เป็น Mode Hub รวมทุกโหมด แต่เกมจริงใช้ shared engine ที่
-          /herohealth/hydration-vr/run.html
+          Solo จะเข้า Warmup/Run ได้ทันที ส่วน Multiplayer จะเข้า Lobby ก่อน
+          และต้องรอผู้เล่นครบตามจำนวนเหมือน GoodJunk / Groups
         </p>
       </article>
     </section>
@@ -748,14 +850,15 @@
     (function(){
       'use strict';
 
-      var STORAGE_KEY = 'HHA_HYDRATION_MODE_HUB_CHOICES_V1';
+      var STORAGE_KEY = 'HHA_HYDRATION_MODE_HUB_CHOICES_V2';
 
       var state = {
         mode:'solo',
         view:'mobile',
         diff:'normal',
         time:'90',
-        room:''
+        room:'',
+        capacity:2
       };
 
       var MODE_HINT = {
@@ -789,6 +892,23 @@
           .replaceAll("'","&#39;");
       }
 
+      function normalizeRoom(v){
+        v = String(v || '').trim().toUpperCase();
+        v = v.replace(/[^A-Z0-9-]/g, '');
+        return v;
+      }
+
+      function capacityForMode(mode, raw){
+        var n = Number(raw || 2);
+
+        if(mode === 'duet') return 2;
+
+        if(!Number.isFinite(n) || n < 2) n = 2;
+        if(n > 10) n = 10;
+
+        return n;
+      }
+
       function save(){
         try{
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -810,12 +930,36 @@
         state.view = u.searchParams.get('view') || state.view || 'mobile';
         state.diff = u.searchParams.get('diff') || state.diff || 'normal';
         state.time = u.searchParams.get('time') || state.time || '90';
-        state.room = u.searchParams.get('room') || state.room || '';
+        state.room = normalizeRoom(u.searchParams.get('room') || state.room || '');
+        state.capacity = capacityForMode(
+          state.mode,
+          u.searchParams.get('capacity') ||
+          u.searchParams.get('players') ||
+          state.capacity ||
+          2
+        );
 
-        if(!['solo','duet','race','battle','coop'].includes(state.mode)) state.mode = 'solo';
-        if(!['pc','mobile','cvr'].includes(state.view)) state.view = 'mobile';
-        if(!['easy','normal','hard','challenge'].includes(state.diff)) state.diff = 'normal';
-        if(!['90','120','150','180'].includes(String(state.time))) state.time = '90';
+        if(!['solo','duet','race','battle','coop'].includes(state.mode)){
+          state.mode = 'solo';
+        }
+
+        if(!['pc','mobile','cvr'].includes(state.view)){
+          state.view = 'mobile';
+        }
+
+        if(!['easy','normal','hard','challenge'].includes(state.diff)){
+          state.diff = 'normal';
+        }
+
+        if(!['90','120','150','180'].includes(String(state.time))){
+          state.time = '90';
+        }
+
+        state.capacity = capacityForMode(state.mode, state.capacity);
+
+        if(state.mode === 'solo'){
+          state.room = '';
+        }
       }
 
       function nutritionZoneUrl(){
@@ -831,7 +975,7 @@
         return new URL('./nutrition-zone.html', location.href).toString();
       }
 
-      function copyCommonParams(toUrl){
+      function copyIdentityParams(toUrl){
         var current = getUrl();
 
         [
@@ -858,13 +1002,6 @@
         toUrl.searchParams.set('view', state.view);
         toUrl.searchParams.set('diff', state.diff);
         toUrl.searchParams.set('time', state.time);
-        toUrl.searchParams.set('seed', String(Date.now()));
-        toUrl.searchParams.set('run', 'play');
-
-        if(state.mode !== 'solo'){
-          toUrl.searchParams.set('mp', '1');
-          toUrl.searchParams.set('room', state.room || makeRoomCode());
-        }
 
         var hub = current.searchParams.get('hub') || nutritionZoneUrl();
         toUrl.searchParams.set('hub', hub);
@@ -874,17 +1011,52 @@
 
       function buildRunUrl(){
         var run = new URL('./hydration-vr/run.html', location.href);
-        copyCommonParams(run);
+
+        copyIdentityParams(run);
+
+        run.searchParams.set('run', 'play');
+        run.searchParams.set('seed', String(Date.now()));
+
+        if(state.mode !== 'solo'){
+          run.searchParams.set('mp', '1');
+          run.searchParams.set('mpReady', '1');
+          run.searchParams.set('room', state.room || makeRoomCode());
+          run.searchParams.set('roomId', state.room);
+          run.searchParams.set('capacity', String(state.capacity));
+          run.searchParams.set('players', String(state.capacity));
+        }
+
         return run.toString();
+      }
+
+      function buildLobbyUrl(){
+        var lobby = new URL('./hydration-vr/lobby.html', location.href);
+
+        copyIdentityParams(lobby);
+
+        lobby.searchParams.set('mode', state.mode);
+        lobby.searchParams.set('view', state.view);
+        lobby.searchParams.set('diff', state.diff);
+        lobby.searchParams.set('time', state.time);
+        lobby.searchParams.set('capacity', String(state.capacity));
+        lobby.searchParams.set('players', String(state.capacity));
+
+        if(state.room){
+          lobby.searchParams.set('room', state.room);
+        }
+
+        return lobby.toString();
       }
 
       function buildWarmupUrl(){
         var next = buildRunUrl();
         var gate = new URL('./warmup-gate.html', location.href);
 
-        copyCommonParams(gate);
+        copyIdentityParams(gate);
+
         gate.searchParams.set('phase','warmup');
         gate.searchParams.set('studyPhase','warmup');
+        gate.searchParams.set('run','gate');
         gate.searchParams.set('next', next);
         gate.searchParams.set('hub', nutritionZoneUrl());
 
@@ -894,9 +1066,11 @@
       function makeRoomCode(){
         var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         var out = 'HYD-';
+
         for(var i=0; i<4; i++){
           out += chars[Math.floor(Math.random() * chars.length)];
         }
+
         state.room = out;
         return out;
       }
@@ -910,7 +1084,38 @@
         });
       }
 
+      function renderCapacity(){
+        state.capacity = capacityForMode(state.mode, state.capacity);
+
+        document.querySelectorAll('#capacityChoices .cap').forEach(function(btn){
+          var n = Number(btn.dataset.capacity || 2);
+          var disabled = state.mode === 'duet' && n !== 2;
+
+          btn.disabled = disabled;
+          btn.classList.toggle('is-active', n === state.capacity);
+        });
+
+        var capacityHint = $('capacityHint');
+
+        if(capacityHint){
+          capacityHint.textContent =
+            state.mode === 'duet'
+              ? 'Duet ต้องครบ 2 คนเท่านั้น'
+              : 'โหมดนี้เลือกได้ 2–10 คน ต้องครบก่อนเริ่ม';
+        }
+      }
+
       function render(){
+        if(state.mode === 'duet'){
+          state.capacity = 2;
+        }
+
+        if(state.mode === 'solo'){
+          state.room = '';
+        }
+
+        state.capacity = capacityForMode(state.mode, state.capacity);
+
         setActive('modeChoices', 'mode', state.mode);
         setActive('deviceChoices', 'view', state.view);
         setActive('diffChoices', 'diff', state.diff);
@@ -927,7 +1132,10 @@
           room.value = state.room || '';
         }
 
+        renderCapacity();
+
         var readyText = $('readyText');
+
         if(readyText){
           var bits = [
             state.mode,
@@ -937,10 +1145,31 @@
           ];
 
           if(state.mode !== 'solo'){
-            bits.push(state.room || 'no room');
+            bits.push('ต้องครบ ' + state.capacity + ' คน');
+            bits.push(state.room || 'ยังไม่มีห้อง');
           }
 
           readyText.textContent = bits.join(' • ');
+        }
+
+        var startWarmup = $('startWarmup');
+
+        if(startWarmup){
+          startWarmup.classList.toggle('multiplayer', state.mode !== 'solo');
+
+          startWarmup.textContent =
+            state.mode === 'solo'
+              ? 'เริ่มผ่าน Warmup 💧'
+              : 'เข้า Lobby รอผู้เล่นครบ 🤝';
+        }
+
+        var directRun = $('directRun');
+
+        if(directRun){
+          directRun.textContent =
+            state.mode === 'solo'
+              ? 'ทดสอบเกมตรง'
+              : 'เข้าห้อง Multiplayer';
         }
 
         save();
@@ -954,8 +1183,28 @@
           btn.addEventListener('click', function(){
             state[attr] = btn.dataset[attr];
 
-            if(attr === 'mode' && state.mode !== 'solo' && !state.room){
-              makeRoomCode();
+            if(attr === 'mode'){
+              if(state.mode !== 'solo' && !state.room){
+                makeRoomCode();
+              }
+
+              state.capacity = capacityForMode(state.mode, state.capacity);
+            }
+
+            render();
+          });
+        });
+      }
+
+      function bindCapacity(){
+        document.querySelectorAll('#capacityChoices .cap').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var n = Number(btn.dataset.capacity || 2);
+
+            if(state.mode === 'duet'){
+              state.capacity = 2;
+            }else{
+              state.capacity = capacityForMode(state.mode, n);
             }
 
             render();
@@ -968,16 +1217,19 @@
         bindChoices('deviceChoices', 'view');
         bindChoices('diffChoices', 'diff');
         bindChoices('timeChoices', 'time');
+        bindCapacity();
 
         var room = $('roomCode');
+
         if(room){
           room.addEventListener('input', function(){
-            state.room = String(room.value || '').trim().toUpperCase();
+            state.room = normalizeRoom(room.value || '');
             render();
           });
         }
 
         var genRoom = $('genRoom');
+
         if(genRoom){
           genRoom.addEventListener('click', function(){
             makeRoomCode();
@@ -986,20 +1238,43 @@
         }
 
         var startWarmup = $('startWarmup');
+
         if(startWarmup){
           startWarmup.addEventListener('click', function(){
+            if(state.mode !== 'solo'){
+              if(!state.room){
+                makeRoomCode();
+                render();
+              }
+
+              location.href = buildLobbyUrl();
+              return;
+            }
+
             location.href = buildWarmupUrl();
           });
         }
 
         var directRun = $('directRun');
+
         if(directRun){
           directRun.addEventListener('click', function(){
+            if(state.mode !== 'solo'){
+              if(!state.room){
+                makeRoomCode();
+                render();
+              }
+
+              location.href = buildLobbyUrl();
+              return;
+            }
+
             location.href = buildRunUrl();
           });
         }
 
         var reset = $('resetChoices');
+
         if(reset){
           reset.addEventListener('click', function(){
             state = {
@@ -1007,14 +1282,17 @@
               view:'mobile',
               diff:'normal',
               time:'90',
-              room:''
+              room:'',
+              capacity:2
             };
+
             save();
             render();
           });
         }
 
         var back = $('backZone');
+
         if(back){
           back.addEventListener('click', function(){
             location.href = nutritionZoneUrl();
@@ -1034,6 +1312,21 @@
           state.view = u.searchParams.get('view') || state.view || 'mobile';
           state.diff = u.searchParams.get('diff') || state.diff || 'normal';
           state.time = u.searchParams.get('time') || state.time || '90';
+          state.room = normalizeRoom(u.searchParams.get('room') || state.room || '');
+          state.capacity = capacityForMode(
+            state.mode,
+            u.searchParams.get('capacity') ||
+            u.searchParams.get('players') ||
+            state.capacity ||
+            2
+          );
+
+          if(state.mode !== 'solo'){
+            if(!state.room) makeRoomCode();
+            location.replace(buildLobbyUrl());
+            return;
+          }
+
           location.replace(buildRunUrl());
         }
       }
