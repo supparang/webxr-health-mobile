@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle Lobby v2.2.8</title>
+  <title>HeroHealth • GoodJunk Battle Lobby v2.2.10</title>
   <meta name="theme-color" content="#ffe8a8" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-lobby-v228-lock-1v1"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-lobby-v2210-safe-start-redirect"></script>
 
   <style>
     :root{
@@ -592,7 +592,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_LOBBY = 'v20260515-battle-lobby-v228-lock-1v1-capacity';
+    window.HHA_GJ_BATTLE_LOBBY = 'v20260515-battle-lobby-v2210-safe-start-redirect';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const BATTLE_CAPACITY = 2;
@@ -602,6 +602,8 @@
 
     let db = null;
     let unsub = null;
+    let heartbeatTimer = null;
+    let redirectingToRun = false;
     let currentRoom = normalizeRoom(params.get('room') || params.get('roomId') || '');
     let currentRole = params.get('role') || '';
     let toastTimer = null;
@@ -696,6 +698,30 @@
       };
     }
 
+    function startHeartbeat(){
+      clearInterval(heartbeatTimer);
+
+      function beat(){
+        try{
+          if (!db || !currentRoom || !getPid()) return;
+
+          db.ref(`${roomPath(currentRoom)}/players/${safeKey(getPid())}`).update({
+            name:getName(),
+            role:currentRole || 'guest',
+            view:getView(),
+            ready:true,
+            updatedAt:now(),
+            lastSeenAt:now()
+          });
+        }catch(err){
+          console.warn('[GoodJunk Battle Lobby] heartbeat failed', err);
+        }
+      }
+
+      beat();
+      heartbeatTimer = setInterval(beat,5000);
+    }
+
     function playersArray(room){
       return Object.values(room?.players || {})
         .filter(Boolean)
@@ -714,7 +740,7 @@
     function isOffline(p){
       const last = Number(p?.lastSeenAt || p?.updatedAt || 0);
       if (!last) return false;
-      return now() - last > 15000;
+      return now() - last > 45000;
     }
 
     function escapeHtml(s){
@@ -828,7 +854,7 @@
         capacity:'2',
         maxPlayers:'2',
         hub:getHub(),
-        v:'20260515-battle-lobby-v228'
+        v:'20260515-battle-lobby-v2210'
       };
 
       Object.entries(obj).forEach(([k,v]) => {
@@ -865,6 +891,7 @@
       const room = updateRoomCodeFromInput() || makeRoomCode();
       currentRoom = room;
       currentRole = 'host';
+      redirectingToRun = false;
 
       const pid = getPid();
       const name = getName();
@@ -913,6 +940,7 @@
 
       await dbUpdate(roomPath(room), payload);
       listenRoom(room);
+      startHeartbeat();
       showToast('⚔️ สร้างห้อง Battle 1v1 แล้ว');
     }
 
@@ -949,6 +977,7 @@
 
       currentRoom = room;
       currentRole = roomData.hostPid === pid ? 'host' : 'guest';
+      redirectingToRun = false;
 
       await dbUpdate(`${roomPath(room)}/players/${safeKey(pid)}`,{
         pid,
@@ -970,6 +999,7 @@
       });
 
       listenRoom(room);
+      startHeartbeat();
       showToast(currentRole === 'host' ? 'กลับเข้าห้อง Host แล้ว' : '👥 เข้าห้อง Battle แล้ว');
     }
 
@@ -1060,15 +1090,13 @@
         updatedAt:now()
       });
 
-      showToast('⚔️ เริ่ม Battle 1v1 แล้ว');
-      setTimeout(() => {
-        location.href = buildRunUrl({
-          room:currentRoom,
-          matchId,
-          role:currentRole || 'host',
-          timeSec:room.timeSec || getTime()
-        });
-      },350);
+      showToast('⚔️ เริ่ม Battle 1v1 แล้ว รอเข้าเกมพร้อมกัน...',1200);
+
+      /*
+        v2.2.10:
+        ไม่ redirect Host ตรงนี้ทันที
+        ให้ renderRoom() เห็น status=countdown แล้วพา Host + Guest เข้า run พร้อมกัน
+      */
     }
 
     function listenRoom(room){
@@ -1169,8 +1197,20 @@
         $('btnStart').textContent = '⏳ รอ Host เริ่ม';
       }
 
-      if ((status === 'countdown' || status === 'started') && room.activeMatchId && me){
+      if (activeCount === 2 && status === 'lobby'){
+        $('btnStart').title = 'พร้อมเริ่ม Battle 1v1';
+      }
+
+      if (
+        !redirectingToRun &&
+        (status === 'countdown' || status === 'started') &&
+        room.activeMatchId &&
+        me
+      ){
+        redirectingToRun = true;
+
         showToast('⚔️ Battle เริ่มแล้ว กำลังเข้าเกม...',1200);
+
         setTimeout(() => {
           location.href = buildRunUrl({
             room:currentRoom,
@@ -1243,6 +1283,7 @@
 
         if (currentRoom){
           listenRoom(currentRoom);
+          startHeartbeat();
         }
       }catch(err){
         console.error('[GoodJunk Battle Lobby] boot failed',err);
@@ -1252,6 +1293,8 @@
 
     window.addEventListener('beforeunload',() => {
       try{
+        clearInterval(heartbeatTimer);
+
         if (db && currentRoom && getPid()){
           db.ref(`${roomPath(currentRoom)}/players/${safeKey(getPid())}`).update({
             updatedAt:now(),
