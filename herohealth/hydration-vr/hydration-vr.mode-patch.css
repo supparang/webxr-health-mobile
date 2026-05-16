@@ -588,3 +588,157 @@ body.hha-view-cvr .hha-cvr-motion-btn.show,
 body[data-view="cvr"] .hha-cvr-motion-btn.show{
   display:block;
 }
+/* =========================================================
+   PATCH v20260516-hydration-cvr-world-pan-pack18
+   Cardboard/cVR: crosshair fixed center + world/playfield moves
+   ========================================================= */
+
+/* ปิด reticle แบบเลื่อนเองจาก Pack17 */
+body.hha-view-cvr .hha-cvr-aim-reticle,
+body[data-view="cvr"] .hha-cvr-aim-reticle{
+  display:none !important;
+  opacity:0 !important;
+}
+
+/* เปิด crosshair กลางจอแบบ Cardboard จริง */
+.hha-cvr-center-reticle{
+  position:fixed;
+  left:50%;
+  top:50%;
+  z-index:999995;
+  width:46px;
+  height:46px;
+  transform:translate(-50%, -50%);
+  pointer-events:none;
+  display:none;
+  filter:drop-shadow(0 4px 10px rgba(20,60,90,.28));
+}
+
+.hha-cvr-center-reticle::before,
+.hha-cvr-center-reticle::after{
+  content:'';
+  position:absolute;
+  left:50%;
+  top:50%;
+  background:rgba(36,68,92,.78);
+  border-radius:999px;
+  transform:translate(-50%, -50%);
+}
+
+.hha-cvr-center-reticle::before{
+  width:46px;
+  height:4px;
+}
+
+.hha-cvr-center-reticle::after{
+  width:4px;
+  height:46px;
+}
+
+.hha-cvr-center-reticle i{
+  position:absolute;
+  inset:8px;
+  border:3px solid rgba(67,199,255,.9);
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+}
+
+.hha-cvr-center-reticle.is-hit i{
+  border-color:rgba(98,230,143,.98);
+  box-shadow:
+    0 0 0 8px rgba(98,230,143,.18),
+    0 0 22px rgba(98,230,143,.35);
+}
+
+body.hha-view-cvr .hha-cvr-center-reticle,
+body[data-view="cvr"] .hha-cvr-center-reticle{
+  display:block;
+}
+
+/* ฉาก/เป้าขยับแทน crosshair */
+body.hha-view-cvr.hha-cvr-world-pan #hha-hydration-playfield,
+body[data-view="cvr"].hha-cvr-world-pan #hha-hydration-playfield{
+  transform:
+    translate3d(
+      var(--hha-cvr-pan-x, 0px),
+      var(--hha-cvr-pan-y, 0px),
+      0
+    ) !important;
+  transform-origin:center center !important;
+  will-change:transform !important;
+}
+
+/* background ขยับนิดเดียวให้รู้สึกเป็นฉาก */
+body.hha-view-cvr.hha-cvr-world-pan #hha-hydration-bg,
+body[data-view="cvr"].hha-cvr-world-pan #hha-hydration-bg{
+  transform:
+    translate3d(
+      var(--hha-cvr-bg-pan-x, 0px),
+      var(--hha-cvr-bg-pan-y, 0px),
+      0
+    ) !important;
+  will-change:transform !important;
+}
+
+/* ปิด crosshair ซ้ำจาก vr-ui/fallback เก่า */
+body.hha-view-cvr .hha-cvr-fallback-crosshair,
+body[data-view="cvr"] .hha-cvr-fallback-crosshair,
+body.hha-view-cvr .hha-vr-crosshair,
+body.hha-view-cvr .hha-crosshair,
+body.hha-view-cvr #hha-vr-crosshair,
+body.hha-view-cvr #hha-crosshair,
+body[data-view="cvr"] .hha-vr-crosshair,
+body[data-view="cvr"] .hha-crosshair,
+body[data-view="cvr"] #hha-vr-crosshair,
+body[data-view="cvr"] #hha-crosshair{
+  display:none !important;
+  opacity:0 !important;
+}
+
+/* hint */
+.hha-cvr-world-hint{
+  position:fixed;
+  left:50%;
+  bottom:84px;
+  z-index:999996;
+  transform:translateX(-50%);
+  max-width:86vw;
+  padding:9px 13px;
+  border-radius:999px;
+  background:rgba(255,255,255,.94);
+  color:#24607f;
+  font-size:12px;
+  font-weight:1000;
+  box-shadow:0 10px 24px rgba(30,75,115,.18);
+  pointer-events:none;
+  opacity:0;
+  transition:.2s ease;
+  text-align:center;
+}
+
+.hha-cvr-world-hint.show{
+  opacity:1;
+}
+
+.hha-cvr-motion-btn{
+  position:fixed;
+  left:50%;
+  bottom:128px;
+  z-index:999997;
+  transform:translateX(-50%);
+  max-width:86vw;
+  border:0;
+  border-radius:999px;
+  padding:11px 16px;
+  background:linear-gradient(180deg,#43c7ff,#2388ff);
+  color:white;
+  font-size:13px;
+  font-weight:1000;
+  box-shadow:0 12px 28px rgba(35,136,255,.25);
+  display:none;
+}
+
+body.hha-view-cvr .hha-cvr-motion-btn.show,
+body[data-view="cvr"] .hha-cvr-motion-btn.show{
+  display:block;
+}
