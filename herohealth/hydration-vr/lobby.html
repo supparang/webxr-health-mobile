@@ -23,6 +23,12 @@
       - ทุกคนต้องกด Ready
       - Host เท่านั้นกด Start Match
       - เมื่อ match เริ่ม ทุกเครื่อง redirect ไป run.html?mpReady=1
+
+    Required:
+      /herohealth/firebase-config.js
+      /herohealth/firebase-init.js
+      /herohealth/room-engine.js
+      /herohealth/hydration-vr/run.html
   -->
 
   <style>
@@ -184,6 +190,7 @@
       user-select:text;
       -webkit-user-select:text;
       text-align:center;
+      word-break:break-word;
     }
 
     .room-meta{
@@ -307,6 +314,12 @@
     .player.ready .ready-dot{
       background:#e7fff0;
       color:#168245;
+    }
+
+    .player.host{
+      box-shadow:
+        0 8px 18px rgba(30,75,115,.08),
+        inset 0 0 0 3px rgba(255,210,90,.22);
     }
 
     .empty-slot{
@@ -507,7 +520,7 @@
     <section class="card">
       <div class="room-head">
         <div>
-          <div class="room-code" id="roomCodeText">HYD-----</div>
+          <div class="room-code" id="roomCodeText">HYD----</div>
           <div class="room-meta" id="roomMeta"></div>
         </div>
 
@@ -578,7 +591,8 @@
         base:'',
         unwatch:null,
         room:null,
-        lastRedirectKey:''
+        lastRedirectKey:'',
+        booted:false
       };
 
       function $(id){
@@ -601,6 +615,15 @@
 
         el.className = 'msg' + (kind ? ' ' + kind : '');
         el.textContent = text || '';
+      }
+
+      function escapeHtml(s){
+        return String(s || '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'","&#39;");
       }
 
       function normalizeRoom(v){
@@ -642,11 +665,13 @@
 
       function loadCtx(){
         state.mode = getParam('mode','duet');
+
         if(!['duet','race','battle','coop'].includes(state.mode)){
           state.mode = 'duet';
         }
 
         state.view = getParam('view','mobile');
+
         if(!['pc','mobile','cvr'].includes(state.view)){
           state.view = 'mobile';
         }
@@ -658,6 +683,7 @@
         state.capacity = capacityForMode(state.mode, getParam('capacity', getParam('players','2')));
 
         state.roomId = normalizeRoom(getParam('room',''));
+
         if(!state.roomId){
           state.roomId = makeRoomCode();
           history.replaceState(null, '', withRoomUrl(state.roomId));
@@ -666,6 +692,7 @@
 
       function withRoomUrl(roomId){
         var u = getUrl();
+
         u.searchParams.set('room', normalizeRoom(roomId || state.roomId));
         u.searchParams.set('mode', state.mode);
         u.searchParams.set('view', state.view);
@@ -764,10 +791,6 @@
       }
 
       async function loadDeps(){
-        /*
-          firebase-config.js และ firebase-init.js มีอยู่ในโปรเจกต์ HeroHealth แล้ว
-          จึงโหลดก่อน room-engine.js
-        */
         await loadScript('../firebase-config.js?v=20260515-pack16').catch(function(){});
         await loadScript('../firebase-init.js?v=20260515-pack16').catch(function(){});
         await loadScript('../room-engine.js?v=20260515-pack16');
@@ -781,16 +804,42 @@
         state.uid = window.HHA_ROOM.uid();
       }
 
-      async function roomExists(){
+      async function getExistingRoom(){
         var base = window.HHA_ROOM.roomBase(GAME, state.mode, state.roomId);
-        var snap = await window.HHA_ROOM.ref(base + '/meta').once('value');
-        return snap.exists();
+        var snap = await window.HHA_ROOM.ref(base).once('value');
+        return snap.exists() ? (snap.val() || null) : null;
       }
 
       async function createOrJoin(){
-        var exists = await roomExists();
+        var existing = await getExistingRoom();
 
-        if(exists){
+        if(existing && existing.meta){
+          var players = existing.players || {};
+          var meta = existing.meta || {};
+          var alreadyInRoom = !!players[state.uid];
+
+          if(alreadyInRoom){
+            state.isHost = String(meta.hostUid || '') === String(state.uid);
+            setMsg(
+              state.isHost
+                ? 'กลับเข้าห้องเดิมในฐานะ Host'
+                : 'กลับเข้าห้องเดิมแล้ว',
+              'ok'
+            );
+
+            await window.HHA_ROOM.attachPresence({
+              pid: state.pid,
+              name: state.name,
+              game: GAME,
+              mode: state.mode,
+              roomId: state.roomId,
+              state: 'lobby'
+            });
+
+            watch();
+            return;
+          }
+
           await window.HHA_ROOM.joinRoom({
             game: GAME,
             zone: ZONE,
@@ -802,25 +851,26 @@
 
           state.isHost = false;
           setMsg('เข้าห้องสำเร็จ รอผู้เล่นครบและกดพร้อม', 'ok');
-        }else{
-          await window.HHA_ROOM.createRoom({
-            game: GAME,
-            zone: ZONE,
-            mode: state.mode,
-            roomId: state.roomId,
-            pid: state.pid,
-            name: state.name,
-            diff: state.diff,
-            timeSec: Number(state.time || 90),
-            seed: getParam('seed', String(Date.now())),
-            capacity: state.capacity,
-            teamMode: state.mode === 'duet' || state.mode === 'coop'
-          });
-
-          state.isHost = true;
-          setMsg('สร้างห้องแล้ว ส่ง Room Code ให้เพื่อนเข้ามาให้ครบก่อนเริ่ม', 'ok');
+          watch();
+          return;
         }
 
+        await window.HHA_ROOM.createRoom({
+          game: GAME,
+          zone: ZONE,
+          mode: state.mode,
+          roomId: state.roomId,
+          pid: state.pid,
+          name: state.name,
+          diff: state.diff,
+          timeSec: Number(state.time || 90),
+          seed: getParam('seed', String(Date.now())),
+          capacity: state.capacity,
+          teamMode: state.mode === 'duet' || state.mode === 'coop'
+        });
+
+        state.isHost = true;
+        setMsg('สร้างห้องแล้ว ส่ง Room Code ให้เพื่อนเข้ามาให้ครบก่อนเริ่ม', 'ok');
         watch();
       }
 
@@ -852,6 +902,7 @@
 
       function playerRows(room){
         var players = room && room.players ? room.players : {};
+
         return Object.keys(players).map(function(uid){
           var p = players[uid] || {};
           p.uid = uid;
@@ -884,13 +935,15 @@
         var isFull = count >= capacity;
         var readyAll = allReady(rows);
         var canStart = state.isHost && isFull && readyAll;
+        var roomState = String(meta.state || 'lobby');
 
         $('roomMeta').innerHTML = [
           '<span class="pill">' + modeLabel(state.mode) + '</span>',
-          '<span class="pill">' + state.view + '</span>',
-          '<span class="pill">' + state.diff + '</span>',
-          '<span class="pill">' + state.time + 's</span>',
-          '<span class="pill">ต้องครบ ' + capacity + ' คน</span>'
+          '<span class="pill">' + escapeHtml(state.view) + '</span>',
+          '<span class="pill">' + escapeHtml(state.diff) + '</span>',
+          '<span class="pill">' + escapeHtml(state.time) + 's</span>',
+          '<span class="pill">ต้องครบ ' + capacity + ' คน</span>',
+          '<span class="pill">พร้อม ' + readyCount + '/' + capacity + '</span>'
         ].join('');
 
         $('countText').textContent = count + ' / ' + capacity;
@@ -909,12 +962,12 @@
           sub = state.isHost ? 'ทุกคนพร้อมแล้ว กดเริ่มเกมได้เลย' : 'ทุกคนพร้อมแล้ว รอเจ้าของห้องเริ่ม';
         }
 
-        if(String(meta.state || '') === 'countdown'){
+        if(roomState === 'countdown'){
           title = 'กำลังนับถอยหลัง';
           sub = 'ทุกเครื่องจะเข้าเกมพร้อมกัน';
         }
 
-        if(String(meta.state || '') === 'running'){
+        if(roomState === 'running'){
           title = 'เกมเริ่มแล้ว';
           sub = 'กำลังพาเข้าเกม';
         }
@@ -941,11 +994,13 @@
           var p = rows[i];
 
           if(p){
+            var isHost = String(meta.hostUid || '') === String(p.uid || '');
+
             html += [
-              '<div class="player ' + (p.ready ? 'ready' : '') + '">',
+              '<div class="player ' + (p.ready ? 'ready ' : '') + (isHost ? 'host' : '') + '">',
                 '<div class="player-name">',
                   '<b>' + escapeHtml(p.name || p.pid || ('Player ' + (i + 1))) + '</b>',
-                  '<span>' + escapeHtml(p.role || 'guest') + ' • lane ' + escapeHtml(p.lane || (i + 1)) + '</span>',
+                  '<span>' + (isHost ? 'host' : escapeHtml(p.role || 'guest')) + ' • lane ' + escapeHtml(p.lane || (i + 1)) + '</span>',
                 '</div>',
                 '<span class="ready-dot">' + (p.ready ? 'พร้อม' : 'ยังไม่พร้อม') + '</span>',
               '</div>'
@@ -964,15 +1019,6 @@
         }
 
         $('playersList').innerHTML = html;
-      }
-
-      function escapeHtml(s){
-        return String(s || '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;')
-          .replaceAll("'","&#39;");
       }
 
       async function toggleReady(){
@@ -1052,7 +1098,7 @@
           }
 
           left = Math.max(0, left);
-          num.textContent = String(left || 'GO!');
+          num.textContent = left > 0 ? String(left) : 'GO!';
 
           if(left <= 0){
             location.href = runUrl(room);
@@ -1085,11 +1131,15 @@
         $('copyRoom').addEventListener('click', function(){
           var link = withRoomUrl(state.roomId);
 
-          navigator.clipboard && navigator.clipboard.writeText(link).then(function(){
-            setMsg('คัดลอกลิงก์ห้องแล้ว ส่งให้เพื่อนเข้าได้เลย', 'ok');
-          }).catch(function(){
+          if(navigator.clipboard && navigator.clipboard.writeText){
+            navigator.clipboard.writeText(link).then(function(){
+              setMsg('คัดลอกลิงก์ห้องแล้ว ส่งให้เพื่อนเข้าได้เลย', 'ok');
+            }).catch(function(){
+              setMsg('Room Code: ' + state.roomId, 'ok');
+            });
+          }else{
             setMsg('Room Code: ' + state.roomId, 'ok');
-          });
+          }
         });
 
         $('joinRoomBtn').addEventListener('click', function(){
@@ -1119,6 +1169,7 @@
           setMsg('กำลังเชื่อมต่อห้อง...', '');
           await loadDeps();
           await createOrJoin();
+          state.booted = true;
         }catch(err){
           setMsg(
             'Lobby ยังเชื่อมต่อไม่ได้: ' + (err && err.message ? err.message : err) +
