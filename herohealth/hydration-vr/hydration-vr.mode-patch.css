@@ -742,3 +742,83 @@ body.hha-view-cvr .hha-cvr-motion-btn.show,
 body[data-view="cvr"] .hha-cvr-motion-btn.show{
   display:block;
 }
+/* =========================================================
+   PATCH v20260516-hydration-summary-scroll-unlock-pack19
+   Unlock scroll when final summary is shown
+   ========================================================= */
+
+body.hha-hydration-summary-open{
+  height:auto !important;
+  min-height:100svh !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  touch-action:auto !important;
+  overscroll-behavior:auto !important;
+}
+
+body.hha-hydration-summary-open .hha-hydration-app,
+body.hha-hydration-summary-open .hha-hydration-stage{
+  height:auto !important;
+  min-height:100svh !important;
+  max-height:none !important;
+  overflow:visible !important;
+  position:relative !important;
+}
+
+body.hha-hydration-summary-open #hha-hydration-playfield{
+  height:auto !important;
+  min-height:100svh !important;
+  max-height:none !important;
+  overflow:visible !important;
+  position:relative !important;
+}
+
+/* Summary ต้องเลื่อนได้และไม่โดนตัด */
+body.hha-hydration-summary-open .hha-hydration-summary,
+body.hha-hydration-summary-open #hha-hydration-summary,
+body.hha-hydration-summary-open #hydration-summary,
+body.hha-hydration-summary-open .hha-summary,
+body.hha-hydration-summary-open .hha-summary-panel,
+body.hha-hydration-summary-open .hha-summary-card{
+  position:relative !important;
+  inset:auto !important;
+  left:auto !important;
+  right:auto !important;
+  top:auto !important;
+  bottom:auto !important;
+  transform:none !important;
+
+  height:auto !important;
+  min-height:auto !important;
+  max-height:none !important;
+
+  overflow:visible !important;
+  overflow-y:visible !important;
+  overflow-x:hidden !important;
+
+  margin-left:auto !important;
+  margin-right:auto !important;
+  padding-bottom:140px !important;
+}
+
+/* PC summary ให้ไม่ใหญ่จนกินจอเกิน */
+@media (min-width:821px){
+  body.hha-hydration-summary-open .hha-summary-card,
+  body.hha-hydration-summary-open .hha-hydration-summary,
+  body.hha-hydration-summary-open #hha-hydration-summary,
+  body.hha-hydration-summary-open #hydration-summary{
+    width:min(760px,94vw) !important;
+  }
+
+  body.hha-hydration-summary-open .hha-score-big b{
+    font-size:clamp(58px,9vw,92px) !important;
+  }
+}
+
+/* ปุ่มท้าย Summary ต้องมีพื้นที่ให้เห็น */
+body.hha-hydration-summary-open .hha-summary-actions,
+body.hha-hydration-summary-open .hha-result-actions,
+body.hha-hydration-summary-open .hha-end-actions,
+body.hha-hydration-summary-open .hha-hydration-final-actions{
+  margin-bottom:120px !important;
+}
