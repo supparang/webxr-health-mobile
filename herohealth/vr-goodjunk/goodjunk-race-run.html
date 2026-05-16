@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Race Run v2.3.9</title>
+  <title>HeroHealth • GoodJunk Race Run v2.3.10</title>
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-race-run-v239-rematch-ready-pool"></script>
+  <script src="../firebase-config.js?v=20260515-gj-race-run-v2310-rematch-start-lock"></script>
 
   <style>
     :root{
@@ -555,7 +555,7 @@
       <div class="brandIcon">🏁</div>
       <div>
         <h1>GoodJunk Race</h1>
-        <div id="meta" class="meta">Race v2.3.9 • loading…</div>
+        <div id="meta" class="meta">Race v2.3.10 • loading…</div>
       </div>
       <div class="topActions">
         <a id="btnLobby" class="btn" href="./goodjunk-race-lobby.html">Lobby</a>
@@ -610,7 +610,7 @@
     </section>
 
     <section class="box bottom">
-      <div>Race ไม่มี Attack • Rematch Ready Pool • คนไม่พร้อมไม่ถูกลากเข้าเกม</div>
+      <div>Race ไม่มี Attack • Rematch Start Lock • พร้อมครบ 2 คน เริ่มรอบใหม่ได้</div>
       <div class="chip" id="goodChip">Good 0</div>
       <div class="chip" id="junkChip">Junk 0</div>
       <div class="chip" id="missChip">Miss 0</div>
@@ -659,7 +659,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_RACE_RUN = 'v20260515-race-run-v239-rematch-ready-pool';
+    window.HHA_GJ_RACE_RUN = 'v20260515-race-run-v2310-rematch-start-lock';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/raceRooms';
     const TOP_N = 3;
@@ -960,6 +960,29 @@
         return result && result.committed;
       }catch(err){
         console.warn('[GJ Race] acquireEndLock failed', err);
+        return false;
+      }
+    }
+
+    async function acquireRematchStartLock(){
+      if (!db || !state.room) return false;
+
+      const ref = db.ref(`${roomPath()}/rematchStartLock`);
+
+      try{
+        const result = await ref.transaction(current => {
+          if (current && current.locked) return;
+          return {
+            locked:true,
+            byPid:state.pid,
+            byName:state.name,
+            at:now()
+          };
+        });
+
+        return result && result.committed;
+      }catch(err){
+        console.warn('[GJ Race] acquireRematchStartLock failed', err);
         return false;
       }
     }
@@ -1269,6 +1292,15 @@
       if (ended && room.rematch){
         updateRematchUi(room);
 
+        if (
+          (room.status === 'ended' || room.rematch?.status === 'collecting') &&
+          rematchReadyCount(room) >= 2
+        ){
+          maybeStartRematch().catch(err =>
+            console.warn('[GJ Race] auto rematch start failed', err)
+          );
+        }
+
         const isInNextRound =
           !!room?.players?.[safeKey(state.pid)] &&
           (room.status === 'countdown' || room.status === 'started') &&
@@ -1292,7 +1324,7 @@
           u.searchParams.set('capacity', String(room.capacity || state.capacity));
           u.searchParams.set('hub', state.hub);
           u.searchParams.set('noAttack', '1');
-          u.searchParams.set('v', '20260515-race-rematch-v239');
+          u.searchParams.set('v', '20260515-race-rematch-v2310');
 
           setTimeout(() => {
             location.href = u.toString();
@@ -1875,7 +1907,7 @@
       const more = ready.length > 5 ? ` +${ready.length - 5}` : '';
 
       status.innerHTML = `
-        พร้อมแล้ว ${readyCount} คน ${readyCount >= 2 ? '• เริ่มรอบใหม่ได้' : '• ต้องมีอย่างน้อย 2 คน'}<br>
+        พร้อมแล้ว ${readyCount} คน ${readyCount >= 2 ? '• กำลังเริ่มรอบใหม่...' : '• ต้องมีอย่างน้อย 2 คน'}<br>
         <span style="font-size:12px;color:#5c7b8d;">
           ${names ? `ผู้เล่นพร้อม: ${escapeHtml(names)}${more}` : 'ยังไม่มีผู้เล่นกดพร้อม'}
         </span>
@@ -1891,9 +1923,11 @@
       const ready = rematchPlayersArray(room);
       if (ready.length < 2) return;
 
-      const starterPid = effectiveHostPid(room) || ready[0]?.pid;
+      const meIsReady = ready.some(p => p.pid === state.pid);
+      if (!meIsReady) return;
 
-      if (starterPid !== state.pid && ready[0]?.pid !== state.pid) return;
+      const locked = await acquireRematchStartLock();
+      if (!locked) return;
 
       state.rematchStarting = true;
 
@@ -1951,6 +1985,7 @@
           endReason:null,
           finalSummary:null,
           raceEndLock:null,
+          rematchStartLock:null,
           finishWindow:false,
           finishWindowStartedAt:null,
           finishWindowUntil:null,
@@ -1967,7 +2002,7 @@
           updatedAt:now()
         });
 
-        showToast('🏁 เริ่มรอบใหม่แล้ว!',1200);
+        showToast(`🏁 เริ่มรอบใหม่แล้ว! ผู้เล่นพร้อม ${ready.length} คน`,1400);
       }catch(err){
         state.rematchStarting = false;
         console.warn('[GJ Race] maybeStartRematch failed',err);
