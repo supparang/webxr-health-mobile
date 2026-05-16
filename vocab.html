@@ -276,7 +276,7 @@
 
  <!-- =========================
      VOCAB FINAL MODULES
-     PATCH SET: v20260503z
+     PATCH SET: v20260504a
      Order is important
 ========================= -->
 
@@ -289,13 +289,17 @@
 <script src="./vocab/vocab.logger.js?v=20260503z"></script>
 
 <script src="./vocab/vocab.question.js?v=20260503w"></script>
-<script src="./vocab/vocab.ui.js?v=20260503z"></script>
-<script src="./vocab/vocab.game.js?v=20260503z"></script>
+
+<!-- สำคัญ: ใช้ UI/Game ชุดใหม่ที่แก้ answer owner แล้ว -->
+<script src="./vocab/vocab.ui.js?v=20260504a"></script>
+<script src="./vocab/vocab.game.js?v=20260504a"></script>
+
 <script src="./vocab/vocab.reward.js?v=20260503v"></script>
 
 <script src="./vocab/vocab.guard.js?v=20260503y"></script>
 <script src="./vocab/vocab.endpoint-test.js?v=20260503z"></script>
 
-<script src="./vocab/vocab.boot.js?v=20260503z"></script>
+<!-- Boot ใช้ 20260504a เพื่อไม่ bind choice ซ้ำ -->
+<script src="./vocab/vocab.boot.js?v=20260504a"></script>
 </body>
 </html>
