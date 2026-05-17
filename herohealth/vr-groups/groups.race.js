@@ -2,7 +2,8 @@
 // HeroHealth • Food Groups Race Adapter
 // Uses shared Food-to-Gate Sorting Core
 // Requires: ./groups-core.js
-// PATCH v20260517-GROUPS-RACE-ADAPTER-CORE-V2
+// For: /herohealth/vr-groups/groups-race.html
+// PATCH v20260517-GROUPS-RACE-ADAPTER-CORE-V3-ROOM-SYNC-LOCK
 
 import {
   createGroupsCore,
@@ -110,11 +111,11 @@ async function ensureFirebase() {
       return;
     }
 
-    if (window.firebase && window.firebase.apps && window.firebase.apps.length) {
+    if (window.firebase && window.firebase.apps && window.firebase.apps.length && window.firebase.database) {
       resolve({
         ready: true,
         auth: window.firebase.auth ? window.firebase.auth() : null,
-        db: window.firebase.database ? window.firebase.database() : null
+        db: window.firebase.database()
       });
       return;
     }
@@ -171,6 +172,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   const startAt = Number(qs('startAt') || 0);
   const urlSeed = qs('seed', '');
   const hub = qs('hub', 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+  const isLocalTest = roomId === 'LOCAL';
 
   const raceSeed = [
     'groups-race',
@@ -197,7 +199,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   });
 
   const state = {
-    version: 'v20260517-groups-race-adapter-core-v2',
+    version: 'v20260517-groups-race-adapter-core-v3-room-sync-lock',
     coreVersion: GROUPS_CORE_VERSION,
 
     mounted: false,
@@ -213,6 +215,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     startAt,
     seed: raceSeed,
     hub,
+    isLocalTest,
 
     uid: '',
     firebase: null,
@@ -257,14 +260,6 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
   function coreSummary() {
     return core.getSummary();
-  }
-
-  function currentTimeLeft() {
-    return coreState().remainingSec;
-  }
-
-  function accuracy() {
-    return coreState().accuracy;
   }
 
   function rankName() {
@@ -610,6 +605,22 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     }
   }
 
+  function setSyncStatus(text) {
+    setText('#syncStatus', text);
+
+    const el = $('#syncStatus');
+    if (!el) return;
+
+    el.classList.remove('online', 'offline', 'local', 'connecting');
+
+    const t = String(text || '').toLowerCase();
+
+    if (t.includes('online')) el.classList.add('online');
+    else if (t.includes('local')) el.classList.add('local');
+    else if (t.includes('connect')) el.classList.add('connecting');
+    else el.classList.add('offline');
+  }
+
   function renderLeaderboard() {
     const box = $('#leaderboard');
     if (!box) return;
@@ -761,6 +772,28 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   }
 
   async function connectFirebase() {
+    if (state.isLocalTest) {
+      state.firebaseReady = false;
+      state.firebaseError = 'LOCAL test mode';
+      state.uid = makeLocalUid();
+
+      setSyncStatus('Local Test');
+
+      state.leaderboard = [{
+        uid: state.uid,
+        name: state.name,
+        score: 0,
+        accuracy: 0,
+        correct: 0,
+        bestCombo: 0,
+        done: false,
+        updatedAt: now()
+      }];
+
+      renderLeaderboard();
+      return;
+    }
+
     try {
       setSyncStatus('Connecting');
 
@@ -772,7 +805,9 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       if (fb.auth && !fb.auth.currentUser && typeof fb.auth.signInAnonymously === 'function') {
         try {
           await fb.auth.signInAnonymously();
-        } catch (_) {}
+        } catch (e) {
+          console.warn('[Groups Race] Anonymous auth failed, continue with local uid', e);
+        }
       }
 
       state.uid =
@@ -790,6 +825,8 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         connected: true,
         running: false,
         done: false,
+        inGame: true,
+        page: 'groups-race',
         score: 0,
         accuracy: 0,
         bestCombo: 0,
@@ -801,7 +838,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       try {
         state.roomRef.child(`players/${state.uid}/connected`).onDisconnect().set(false);
         state.roomRef.child(`players/${state.uid}/updatedAt`).onDisconnect().set(now());
-      } catch (_) {}
+      } catch (e) {}
 
       state.playersOff = state.playersRef.on('value', (snap) => {
         const obj = snap.val() || {};
@@ -810,21 +847,40 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
       state.roomOff = state.roomRef.on('value', (snap) => {
         const room = snap.val() || {};
+
         if (room.startAt && !state.startAt) state.startAt = Number(room.startAt) || 0;
+        if (room.seed && !urlSeed) state.seed = [
+          'groups-race',
+          state.roomId,
+          room.startAt || state.startAt || '',
+          room.seed || '',
+          state.diff,
+          state.duration
+        ].join('|');
       });
 
       state.firebaseReady = true;
       setSyncStatus('Online');
     } catch (err) {
       console.warn('[Groups Race] Firebase offline fallback:', err);
+
       state.firebaseError = err?.message || String(err);
       state.uid = makeLocalUid();
       setSyncStatus('Offline');
-    }
-  }
 
-  function setSyncStatus(text) {
-    setText('#syncStatus', text);
+      state.leaderboard = [{
+        uid: state.uid,
+        name: state.name,
+        score: 0,
+        accuracy: 0,
+        correct: 0,
+        bestCombo: 0,
+        done: false,
+        updatedAt: now()
+      }];
+
+      renderLeaderboard();
+    }
   }
 
   function updateLeaderboard(playersObj) {
@@ -857,9 +913,31 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   }
 
   async function syncPlayer(status = 'playing') {
-    if (!state.roomRef || !state.uid) return;
-
     const s = coreState();
+
+    if (state.isLocalTest || !state.roomRef || !state.uid) {
+      const existing = state.leaderboard.find((p) => p.uid === state.uid) || {};
+      state.leaderboard = [{
+        ...existing,
+        uid: state.uid,
+        name: state.name,
+        score: s.score,
+        correct: s.correct,
+        miss: s.miss,
+        accuracy: s.accuracy,
+        bestCombo: s.bestCombo,
+        combo: s.combo,
+        hearts: s.hearts,
+        skippedDecoy: s.skippedDecoy,
+        missionClear: s.missionClear,
+        done: status === 'done',
+        updatedAt: now()
+      }];
+
+      state.localRank = '1';
+      renderLeaderboard();
+      return;
+    }
 
     const payload = {
       uid: state.uid,
@@ -868,6 +946,8 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       connected: true,
       running: status === 'running' || status === 'playing',
       done: status === 'done',
+      inGame: status !== 'done',
+      page: 'groups-race',
       score: s.score,
       correct: s.correct,
       miss: s.miss,
@@ -954,7 +1034,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         summary: result
       }));
 
-      if (state.roomRef && state.uid) {
+      if (state.roomRef && state.uid && !state.isLocalTest) {
         await state.roomRef.child(`results/${state.uid}`).set(result);
       }
     } catch (_) {}
@@ -965,14 +1045,20 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
   function replay() {
     const u = new URL(location.href);
+
     u.searchParams.set('seed', String(Date.now()));
+
+    if (state.isLocalTest) {
+      u.searchParams.set('startAt', String(now() + 1200));
+    }
+
     location.href = u.toString();
   }
 
   function goLobby() {
     const u = new URL('./groups-race-lobby.html', location.href);
 
-    ['hub', 'zone', 'game', 'view', 'studyId', 'pid'].forEach((k) => {
+    ['hub', 'zone', 'game', 'view', 'studyId', 'pid', 'conditionGroup'].forEach((k) => {
       const v = qs(k);
       if (v) u.searchParams.set(k, v);
     });
@@ -980,6 +1066,9 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     u.searchParams.set('room', state.roomId);
     u.searchParams.set('roomId', state.roomId);
     u.searchParams.set('name', state.name);
+    u.searchParams.set('diff', state.diff);
+    u.searchParams.set('time', String(state.duration));
+    u.searchParams.set('timeSec', String(state.duration));
 
     location.href = u.toString();
   }
@@ -1395,6 +1484,26 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         font-weight:1000;
       }
 
+      #syncStatus.online{
+        background:rgba(99,217,155,.16);
+        color:#bfffd8;
+      }
+
+      #syncStatus.offline{
+        background:rgba(255,138,138,.14);
+        color:#ffc5c5;
+      }
+
+      #syncStatus.local{
+        background:rgba(240,193,109,.16);
+        color:#ffe29b;
+      }
+
+      #syncStatus.connecting{
+        background:rgba(118,199,255,.14);
+        color:#c9ecff;
+      }
+
       .leaderboard{
         display:grid;
         gap:8px;
@@ -1678,7 +1787,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     await connectFirebase();
 
     if (!state.startAt) {
-      const fallbackDelay = state.roomId === 'LOCAL' ? 1800 : 2500;
+      const fallbackDelay = state.isLocalTest ? 1800 : 2500;
       state.startAt = now() + fallbackDelay;
     }
 
@@ -1728,6 +1837,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         roomId: state.roomId,
         name: state.name,
         mode: state.mode,
+        isLocalTest: state.isLocalTest,
         coreState: s,
         score: s.score,
         correct: s.correct,
