@@ -1,20 +1,21 @@
 /*
   HeroHealth • GoodJunk Battle Run State Guard Patch
-  v20260515-battle-run-v235-overlay-unlock-no-double-start
+  v20260515-battle-run-v236-matchid-guard
 
   Fixes:
   - Countdown overlay ค้างเลข 3 แล้วบังคลิก
   - เป้า spawn แล้วแต่เล่นไม่ได้ เพราะ overlay/pointer-events ยังทับสนาม
   - กัน force start ซ้ำจน spawn เป้าหลายชุด
   - ถ้าเกมกำลังเล่นอยู่แล้ว ให้ซ่อน countdown ทันที
-  - ถ้าห้อง ended/finalSummary ค่อยแสดง summary ไม่ลากเข้า countdown ใหม่
+  - ถ้าห้อง ended/finalSummary ค่อยแสดง summary
+  - ถ้า URL matchId ใหม่ แต่ room finalSummary เป็นของ match เก่า ให้ ignore finalSummary เก่า
 */
 
 (function(){
   'use strict';
 
   window.HHA_GJ_BATTLE_RUN_STATE_GUARD =
-    'v20260515-battle-run-v235-overlay-unlock-no-double-start';
+    'v20260515-battle-run-v236-matchid-guard';
 
   const params = new URLSearchParams(location.search);
   const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
@@ -57,7 +58,7 @@
         .replace(/^BT/i,'')
         .replace(/^-/, '');
     }
-    return s.slice(0,15);
+    return s.slice(0,24);
   }
 
   function readContext(){
@@ -115,10 +116,6 @@
     }
 
     throw new Error('Firebase database not ready');
-  }
-
-  function q(sel){
-    return document.querySelector(sel);
   }
 
   function countdownEl(){
@@ -315,6 +312,7 @@
 
     if (overlay){
       overlay.classList.add('show');
+      overlay.classList.add('active');
       overlay.style.display = overlay.style.display === 'none' ? 'flex' : overlay.style.display;
       overlay.style.visibility = 'visible';
       overlay.style.opacity = '1';
@@ -379,8 +377,46 @@
     showSummaryOverlay();
   }
 
+  function finalSummaryBelongsToCurrentMatch(room){
+    const urlMatchId = params.get('matchId') || guard.matchId || '';
+    const roomMatchId = room?.activeMatchId || room?.matchId || '';
+    const finalMatchId = room?.finalSummary?.matchId || '';
+
+    if (!room?.finalSummary) return false;
+
+    if (urlMatchId && finalMatchId && urlMatchId !== finalMatchId){
+      return false;
+    }
+
+    if (urlMatchId && roomMatchId && urlMatchId !== roomMatchId){
+      return false;
+    }
+
+    return true;
+  }
+
   function handleEndedRoom(room){
     if (!room) return;
+
+    const urlMatchId = params.get('matchId') || '';
+    const roomMatchId = room?.activeMatchId || room?.matchId || '';
+    const finalMatchId = room?.finalSummary?.matchId || '';
+
+    if (
+      room?.finalSummary &&
+      urlMatchId &&
+      (
+        (roomMatchId && urlMatchId !== roomMatchId) ||
+        (finalMatchId && urlMatchId !== finalMatchId)
+      )
+    ){
+      console.warn('[GJ Battle Run Guard] ignore old finalSummary because matchId changed', {
+        urlMatchId,
+        roomMatchId,
+        finalMatchId
+      });
+      return;
+    }
 
     if (!room.finalSummary && room.status !== 'ended' && room.status !== 'aborted'){
       return;
@@ -401,7 +437,7 @@
       }
     }catch(_){}
 
-    if (room.finalSummary){
+    if (room.finalSummary && finalSummaryBelongsToCurrentMatch(room)){
       if (typeof window.renderBattleSummaryFromFinal === 'function'){
         window.renderBattleSummaryFromFinal(room.finalSummary);
       }else{
@@ -410,9 +446,11 @@
       return;
     }
 
-    setText(['#summaryTitle','[data-summary-title]','.summary-title'], 'Battle จบแล้ว');
-    setText(['#summaryReason','[data-summary-reason]','.summary-reason'], 'ห้องนี้เป็น match เก่าที่จบแล้ว');
-    showSummaryOverlay();
+    if (room.status === 'ended' || room.status === 'aborted'){
+      setText(['#summaryTitle','[data-summary-title]','.summary-title'], 'Battle จบแล้ว');
+      setText(['#summaryReason','[data-summary-reason]','.summary-reason'], 'ห้องนี้เป็น match เก่าที่จบแล้ว');
+      showSummaryOverlay();
+    }
   }
 
   function watchCountdownStuck(room){
@@ -475,7 +513,6 @@
         return;
       }
 
-      // ถ้าไม่มีสถานะเริ่ม แต่เกมดูเหมือนรันแล้ว ให้ปลด overlay
       if (gameLooksRunning()){
         markLocalStarted(room);
       }
