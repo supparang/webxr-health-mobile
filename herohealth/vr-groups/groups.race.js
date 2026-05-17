@@ -1,72 +1,16 @@
 // === /herohealth/vr-groups/groups.race.js ===
 // HeroHealth • Food Groups Race Adapter
-// For /herohealth/vr-groups/groups-race.html
-// Works with nutrition-shell adapterFactory: createGroupsRaceAdapter
-// PATCH v20260517-GROUPS-RACE-ADAPTER-V1
+// Uses shared Food-to-Gate Sorting Core
+// Requires: ./groups-core.js
+// PATCH v20260517-GROUPS-RACE-ADAPTER-CORE-V2
+
+import {
+  createGroupsCore,
+  FOOD_GROUPS,
+  GROUPS_CORE_VERSION
+} from './groups-core.js?v=20260517-groups-core-v1';
 
 const ROOM_ROOT = 'hha-battle/groups/raceRooms';
-
-const GROUPS = [
-  {
-    id: 1,
-    key: 'protein',
-    label: 'โปรตีน',
-    short: 'PROTEIN',
-    icon: '🐟',
-    color: '#ff8e82',
-    foods: ['🐟', '🥚', '🍗', '🥩', '🫘', '🥛']
-  },
-  {
-    id: 2,
-    key: 'carb',
-    label: 'ข้าว/แป้ง',
-    short: 'CARB',
-    icon: '🍚',
-    color: '#f7c948',
-    foods: ['🍚', '🍞', '🥔', '🍠', '🌽', '🍜']
-  },
-  {
-    id: 3,
-    key: 'veg',
-    label: 'ผัก',
-    short: 'VEG',
-    icon: '🥦',
-    color: '#72d957',
-    foods: ['🥦', '🥬', '🥕', '🥒', '🍅', '🫛']
-  },
-  {
-    id: 4,
-    key: 'fruit',
-    label: 'ผลไม้',
-    short: 'FRUIT',
-    icon: '🍎',
-    color: '#ff8fc8',
-    foods: ['🍎', '🍌', '🍊', '🍇', '🍉', '🍓', '🥭', '🍍']
-  },
-  {
-    id: 5,
-    key: 'fat',
-    label: 'ไขมัน',
-    short: 'FAT',
-    icon: '🥑',
-    color: '#a98cff',
-    foods: ['🥑', '🥜', '🧈', '🫒', '🥥']
-  }
-];
-
-const DECOYS = [
-  { icon: '🍩', label: 'โดนัท' },
-  { icon: '🥤', label: 'น้ำหวาน' },
-  { icon: '🍬', label: 'ลูกอม' },
-  { icon: '🍟', label: 'ของทอด' },
-  { icon: '🍰', label: 'เค้ก' }
-];
-
-const POWERS = [
-  { type: 'shield', icon: '🛡️', label: 'Shield' },
-  { type: 'slow', icon: '⏱️', label: 'Slow Time' },
-  { type: 'boost', icon: '⚡', label: 'Boost' }
-];
 
 function qs(name, fallback = '') {
   try {
@@ -76,14 +20,14 @@ function qs(name, fallback = '') {
   }
 }
 
+function now() {
+  return Date.now();
+}
+
 function clamp(n, min, max) {
   n = Number(n);
   if (!Number.isFinite(n)) n = min;
   return Math.max(min, Math.min(max, n));
-}
-
-function now() {
-  return Date.now();
 }
 
 function escapeHtml(s) {
@@ -112,44 +56,16 @@ function cleanRoom(v) {
     .slice(0, 16);
 }
 
-function xmur3(str) {
-  let h = 1779033703 ^ str.length;
+function makeLocalUid() {
+  const key = 'HHA_GROUPS_RACE_LOCAL_UID';
+  let uid = localStorage.getItem(key);
 
-  for (let i = 0; i < str.length; i += 1) {
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
+  if (!uid) {
+    uid = `local-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+    localStorage.setItem(key, uid);
   }
 
-  return function () {
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    h ^= h >>> 16;
-    return h >>> 0;
-  };
-}
-
-function sfc32(a, b, c, d) {
-  return function () {
-    a >>>= 0;
-    b >>>= 0;
-    c >>>= 0;
-    d >>>= 0;
-
-    let t = (a + b) | 0;
-    a = b ^ (b >>> 9);
-    b = (c + (c << 3)) | 0;
-    c = (c << 21) | (c >>> 11);
-    d = (d + 1) | 0;
-    t = (t + d) | 0;
-    c = (c + t) | 0;
-
-    return (t >>> 0) / 4294967296;
-  };
-}
-
-function makeRng(seedText) {
-  const f = xmur3(seedText);
-  return sfc32(f(), f(), f(), f());
+  return uid;
 }
 
 function loadScript(src) {
@@ -167,10 +83,8 @@ function loadScript(src) {
     const s = document.createElement('script');
     s.src = src;
     s.async = false;
-
     s.onload = () => resolve();
     s.onerror = () => reject(new Error(`Cannot load ${src}`));
-
     document.head.appendChild(s);
   });
 }
@@ -239,18 +153,6 @@ async function ensureFirebase() {
   });
 }
 
-function makeLocalUid() {
-  const key = 'HHA_GROUPS_RACE_LOCAL_UID';
-  let uid = localStorage.getItem(key);
-
-  if (!uid) {
-    uid = `local-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
-    localStorage.setItem(key, uid);
-  }
-
-  return uid;
-}
-
 export function createGroupsRaceAdapter(shellContext = {}) {
   const mountSelector =
     shellContext.mountSelector ||
@@ -262,23 +164,56 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     shellContext.el ||
     null;
 
+  const roomId = cleanRoom(qs('roomId') || qs('room') || 'LOCAL');
+  const playerName = cleanName(qs('name') || qs('nick') || localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || 'Hero');
+  const diff = qs('diff', 'normal');
+  const duration = clamp(Number(qs('timeSec') || qs('time') || 90), 45, 240);
+  const startAt = Number(qs('startAt') || 0);
+  const urlSeed = qs('seed', '');
+  const hub = qs('hub', 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+
+  const raceSeed = [
+    'groups-race',
+    roomId,
+    startAt || '',
+    urlSeed || '',
+    diff,
+    duration
+  ].join('|');
+
+  const core = createGroupsCore({
+    mode: 'race',
+    diff,
+    durationSec: duration,
+    seed: raceSeed,
+    hearts: 3,
+    autoSpawn: true,
+    decoyHardCap: true,
+    allowPower: true,
+    allowGolden: true,
+    allowDecoy: true,
+    missionEnabled: true,
+    onEvent: handleCoreEvent
+  });
+
   const state = {
-    version: 'v20260517-groups-race-adapter-v1',
+    version: 'v20260517-groups-race-adapter-core-v2',
+    coreVersion: GROUPS_CORE_VERSION,
+
     mounted: false,
     destroyed: false,
 
     mountEl: null,
     root: null,
 
-    roomId: cleanRoom(qs('roomId') || qs('room') || 'LOCAL'),
-    name: cleanName(qs('name') || qs('nick') || localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || 'Hero'),
-    diff: qs('diff', 'normal'),
-    duration: clamp(Number(qs('timeSec') || qs('time') || 90), 45, 240),
-    startAt: Number(qs('startAt') || 0),
-    seed: qs('seed', ''),
-    hub: qs('hub', 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'),
+    roomId,
+    name: playerName,
+    diff,
+    duration,
+    startAt,
+    seed: raceSeed,
+    hub,
 
-    rng: null,
     uid: '',
     firebase: null,
     roomRef: null,
@@ -289,48 +224,16 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     firebaseError: '',
 
     mode: 'waiting',
-    startedAt: 0,
-    endedAt: 0,
-    remaining: 0,
-
-    current: null,
-    itemDeadline: 0,
-    itemDuration: 3200,
-    itemIndex: 0,
-
-    score: 0,
-    correct: 0,
-    miss: 0,
-    skippedDecoy: 0,
-    combo: 0,
-    bestCombo: 0,
-    hearts: 3,
-
-    shield: 0,
-    slowUntil: 0,
-    boostUntil: 0,
-
-    mission: null,
-    missionClear: 0,
-    groupHits: {
-      protein: 0,
-      carb: 0,
-      veg: 0,
-      fruit: 0,
-      fat: 0
-    },
-
-    decoyTotal: 0,
-    decoyCooldown: 0,
-    lastKinds: [],
-
     leaderboard: [],
     localRank: '-',
 
     raf: 0,
     tickTimer: 0,
     syncTimer: 0,
-    renderedSummary: false
+    startedOnce: false,
+    endedOnce: false,
+    lastToastAt: 0,
+    lastCoreMode: 'idle'
   };
 
   function $(sel) {
@@ -348,256 +251,107 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     if (el) el.textContent = String(text);
   }
 
-  function pick(arr) {
-    return arr[Math.floor(state.rng() * arr.length) % arr.length];
+  function coreState() {
+    return core.getState();
+  }
+
+  function coreSummary() {
+    return core.getSummary();
   }
 
   function currentTimeLeft() {
-    if (state.mode !== 'playing') return state.duration;
-    return Math.max(0, state.duration - Math.floor((now() - state.startedAt) / 1000));
-  }
-
-  function itemProgress() {
-    if (!state.current || state.mode !== 'playing') return 0;
-
-    const total = Math.max(1, state.itemDuration);
-    const left = Math.max(0, state.itemDeadline - now());
-
-    return clamp(left / total, 0, 1);
+    return coreState().remainingSec;
   }
 
   function accuracy() {
-    const total = Math.max(1, state.correct + state.miss);
-    return Math.round((state.correct / total) * 100);
-  }
-
-  function hitRateText() {
-    const total = Math.max(1, state.correct + state.miss + state.skippedDecoy);
-    return Math.round(((state.correct + state.skippedDecoy) / total) * 100) + '%';
+    return coreState().accuracy;
   }
 
   function rankName() {
-    const acc = accuracy();
+    const s = coreState();
 
-    if (state.correct >= 24 && acc >= 88 && state.bestCombo >= 8) return 'Race Food Hero';
-    if (state.correct >= 16 && acc >= 78) return 'Smart Racer';
-    if (state.correct >= 8 && acc >= 62) return 'Food Racer';
+    if (s.correct >= 24 && s.accuracy >= 88 && s.bestCombo >= 8) return 'Race Food Hero';
+    if (s.correct >= 16 && s.accuracy >= 78) return 'Smart Racer';
+    if (s.correct >= 8 && s.accuracy >= 62) return 'Food Racer';
     return 'Rookie Racer';
   }
 
-  function makeSeed() {
-    return [
-      'groups-race',
-      state.roomId,
-      state.startAt || qs('startAt', ''),
-      state.seed || '',
-      state.diff,
-      state.duration
-    ].join('|');
-  }
+  function handleCoreEvent(event) {
+    if (!event || !event.type) return;
 
-  function itemTimeMs() {
-    let base = 3600;
-
-    if (state.diff === 'easy') base = 4200;
-    if (state.diff === 'normal') base = 3600;
-    if (state.diff === 'hard') base = 3000;
-    if (state.diff === 'challenge') base = 2600;
-
-    const elapsed = state.duration - currentTimeLeft();
-
-    if (elapsed > state.duration * 0.65) base *= 0.86;
-    else if (elapsed > state.duration * 0.35) base *= 0.94;
-
-    if (now() < state.slowUntil) base *= 1.32;
-
-    return Math.round(base);
-  }
-
-  function chooseItem() {
-    let decoyRate = 0.05;
-    let goldenRate = 0.11;
-    let powerRate = 0.08;
-
-    if (state.diff === 'easy') {
-      decoyRate = 0.03;
-      goldenRate = 0.13;
-      powerRate = 0.09;
+    if (event.type === 'judge:correct') {
+      const gain = event.detail?.gain || 0;
+      toast(`ถูกต้อง +${gain}`, 'good');
+      vibrate([18, 12, 18]);
+      syncPlayer('playing');
     }
 
-    if (state.diff === 'hard') {
-      decoyRate = 0.07;
-      goldenRate = 0.10;
-      powerRate = 0.08;
+    if (event.type === 'judge:miss') {
+      const reason = event.detail?.reason || 'miss';
+      const msg =
+        reason === 'wrong-group' ? 'ผิดหมู่! -1 ❤️' :
+        reason === 'timeout' ? 'หมดเวลา! -1 ❤️' :
+        reason === 'hit-decoy' ? 'ยิงตัวหลอก! -1 ❤️' :
+        'พลาด! -1 ❤️';
+
+      toast(msg, 'bad');
+      vibrate([28, 18, 28]);
+      syncPlayer('playing');
     }
 
-    if (state.diff === 'challenge') {
-      decoyRate = 0.09;
-      goldenRate = 0.09;
-      powerRate = 0.08;
+    if (event.type === 'judge:shield') {
+      toast('🛡️ Shield ช่วยไว้', 'power');
+      vibrate([22, 12, 22]);
+      syncPlayer('playing');
     }
 
-    const maxDecoys =
-      state.duration <= 90 ? 3 :
-      state.duration <= 120 ? 4 :
-      5;
-
-    if (state.decoyTotal >= maxDecoys) decoyRate = 0;
-    if (state.decoyCooldown > 0) decoyRate = 0;
-
-    const recentDecoys = state.lastKinds.filter((k) => k === 'decoy').length;
-    if (recentDecoys >= 1) decoyRate = 0;
-
-    if (currentTimeLeft() <= 20) decoyRate = 0;
-
-    decoyRate = clamp(decoyRate, 0, 0.10);
-
-    const roll = state.rng();
-    let item;
-
-    if (roll < powerRate) {
-      const p = pick(POWERS);
-      item = {
-        kind: 'power',
-        icon: p.icon,
-        label: p.label,
-        power: p.type,
-        group: null
-      };
-    } else if (roll < powerRate + decoyRate) {
-      const d = pick(DECOYS);
-      item = {
-        kind: 'decoy',
-        icon: d.icon,
-        label: d.label,
-        group: null
-      };
-    } else {
-      const group = pick(GROUPS);
-      const icon = pick(group.foods);
-
-      if (roll < powerRate + decoyRate + goldenRate) {
-        item = {
-          kind: 'golden',
-          icon,
-          label: group.label,
-          group
-        };
-      } else {
-        item = {
-          kind: 'food',
-          icon,
-          label: group.label,
-          group
-        };
-      }
+    if (event.type === 'judge:block') {
+      toast('Power ต้องกดที่การ์ดพลัง', 'warn');
     }
 
-    if (item.kind === 'decoy') {
-      state.decoyTotal += 1;
-      state.decoyCooldown = 4;
-    } else {
-      state.decoyCooldown = Math.max(0, state.decoyCooldown - 1);
+    if (event.type === 'power:collect') {
+      const power = event.detail?.power || '';
+      const msg =
+        power === 'shield' ? '🛡️ Shield +1' :
+        power === 'slow' ? '⏱️ Slow Time' :
+        power === 'boost' ? '⚡ Boost Score' :
+        '⚡ Power';
+
+      toast(msg, 'power');
+      vibrate([18, 12, 18]);
+      syncPlayer('playing');
     }
 
-    state.lastKinds = state.lastKinds.concat(item.kind).slice(-6);
-
-    return item;
-  }
-
-  function newMission() {
-    const group = pick(GROUPS);
-    const pool = [
-      {
-        type: 'combo',
-        icon: '🔥',
-        label: 'ทำคอมโบ 4 ครั้ง',
-        need: 4,
-        got: 0
-      },
-      {
-        type: 'group',
-        icon: group.icon,
-        label: `ยิงหมู่ ${group.id} ${group.label} 2 ครั้ง`,
-        groupKey: group.key,
-        need: 2,
-        got: 0
-      },
-      {
-        type: 'speed',
-        icon: '⚡',
-        label: 'ตอบถูก 5 ครั้ง',
-        need: 5,
-        got: 0
-      }
-    ];
-
-    if (state.duration >= 90) {
-      pool.push({
-        type: 'golden',
-        icon: '⭐',
-        label: 'เก็บ Golden 1 ครั้ง',
-        need: 1,
-        got: 0
-      });
+    if (event.type === 'power:miss') {
+      toast('พลาด Power', 'warn');
     }
 
-    state.mission = pick(pool);
-  }
-
-  function missionProgress(type, item) {
-    const m = state.mission;
-    if (!m) return;
-
-    let changed = false;
-
-    if (type === 'correct') {
-      if (m.type === 'combo') {
-        m.got = Math.max(m.got, Math.min(m.need, state.combo));
-        changed = true;
-      }
-
-      if (m.type === 'speed') {
-        m.got += 1;
-        changed = true;
-      }
-
-      if (m.type === 'group' && item.group && item.group.key === m.groupKey) {
-        m.got += 1;
-        changed = true;
-      }
-
-      if (m.type === 'golden' && item.kind === 'golden') {
-        m.got += 1;
-        changed = true;
-      }
+    if (event.type === 'decoy:pass') {
+      toast('🚫 หลบตัวหลอก +8', 'good');
+      vibrate(14);
+      syncPlayer('playing');
     }
 
-    if (!changed) return;
-
-    m.got = clamp(m.got, 0, m.need);
-
-    if (m.got >= m.need) {
-      state.missionClear += 1;
-      state.score += 35;
+    if (event.type === 'mission:clear') {
       toast('⭐ Mission Clear +35', 'good');
-      newMission();
     }
-  }
 
-  function spawnItem() {
-    if (state.mode !== 'playing') return;
+    if (event.type === 'item:spawn') {
+      renderItem();
+      renderHud();
+    }
 
-    state.current = chooseItem();
-    state.itemDuration = itemTimeMs();
-    state.itemDeadline = now() + state.itemDuration;
-    state.itemIndex += 1;
-
-    renderItem();
-    renderHud();
+    if (event.type === 'game:end') {
+      endRace(event.detail?.reason || 'time');
+    }
   }
 
   function toast(text, kind = '') {
+    const t = now();
+
+    if (t - state.lastToastAt < 120 && kind !== 'bad') return;
+    state.lastToastAt = t;
+
     const el = $('#raceToast');
     if (!el) return;
 
@@ -615,137 +369,6 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     } catch (_) {}
   }
 
-  function judgeGroup(groupKey) {
-    if (state.mode !== 'playing' || !state.current) return;
-
-    const item = state.current;
-
-    if (item.kind === 'power') {
-      toast('Power ต้องกดที่การ์ดพลัง', 'warn');
-      return;
-    }
-
-    if (item.kind === 'decoy') {
-      onMiss('ยิงตัวหลอก!');
-      return;
-    }
-
-    const ok = item.group && item.group.key === groupKey;
-
-    if (ok) onCorrect(item);
-    else onMiss('ผิดหมู่!');
-  }
-
-  function onCorrect(item) {
-    state.correct += 1;
-    state.combo += 1;
-    state.bestCombo = Math.max(state.bestCombo, state.combo);
-
-    if (item.group) {
-      state.groupHits[item.group.key] = (state.groupHits[item.group.key] || 0) + 1;
-    }
-
-    let gain = 12 + Math.min(state.combo, 12) * 2;
-
-    if (item.kind === 'golden') gain += 28;
-    if (now() < state.boostUntil) gain = Math.round(gain * 1.35);
-
-    state.score += gain;
-
-    missionProgress('correct', item);
-
-    toast(item.kind === 'golden' ? `⭐ Golden +${gain}` : `ถูกต้อง +${gain}`, 'good');
-    vibrate([18, 12, 18]);
-
-    syncPlayer('playing');
-
-    spawnItem();
-  }
-
-  function onMiss(reason) {
-    if (state.shield > 0) {
-      state.shield -= 1;
-      state.combo = 0;
-      toast('🛡️ Shield ช่วยไว้', 'power');
-      vibrate([22, 12, 22]);
-      syncPlayer('playing');
-      spawnItem();
-      return;
-    }
-
-    state.miss += 1;
-    state.combo = 0;
-    state.hearts -= 1;
-
-    toast(`${reason} -1 ❤️`, 'bad');
-    vibrate([28, 18, 28]);
-
-    syncPlayer('playing');
-
-    if (state.hearts <= 0) {
-      endRace('no-heart');
-      return;
-    }
-
-    spawnItem();
-  }
-
-  function collectPower() {
-    if (state.mode !== 'playing' || !state.current || state.current.kind !== 'power') return;
-
-    const p = state.current.power;
-
-    if (p === 'shield') {
-      state.shield = clamp(state.shield + 1, 0, 2);
-      state.score += 8;
-      toast('🛡️ Shield +1', 'power');
-    } else if (p === 'slow') {
-      state.slowUntil = now() + 5200;
-      state.score += 8;
-      toast('⏱️ Slow Time', 'power');
-    } else {
-      state.boostUntil = now() + 5800;
-      state.score += 8;
-      toast('⚡ Boost Score', 'power');
-    }
-
-    vibrate([18, 12, 18]);
-    syncPlayer('playing');
-    spawnItem();
-  }
-
-  function passDecoy() {
-    if (state.mode !== 'playing' || !state.current || state.current.kind !== 'decoy') return;
-
-    state.skippedDecoy += 1;
-    state.score += 8;
-
-    toast('🚫 หลบตัวหลอก +8', 'good');
-    vibrate(14);
-
-    syncPlayer('playing');
-    spawnItem();
-  }
-
-  function onItemTimeout() {
-    if (state.mode !== 'playing' || !state.current) return;
-
-    const item = state.current;
-
-    if (item.kind === 'decoy') {
-      passDecoy();
-      return;
-    }
-
-    if (item.kind === 'power') {
-      toast('พลาด Power', 'warn');
-      spawnItem();
-      return;
-    }
-
-    onMiss('หมดเวลา');
-  }
-
   function renderShell() {
     state.root.innerHTML = `
       <section class="race-page">
@@ -754,7 +377,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
             <div class="race-mark">🏁</div>
             <div>
               <h1>Food Groups Race</h1>
-              <p>แข่งแยกอาหารเข้าหมู่ให้เร็วและแม่นที่สุด</p>
+              <p>แข่งแยกอาหารเข้าประตูหมู่ 1–5 ให้เร็วและแม่นที่สุด</p>
             </div>
           </div>
 
@@ -770,6 +393,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
               <div class="race-chip">Room <b id="roomText">${escapeHtml(state.roomId)}</b></div>
               <div class="race-chip">Player <b id="nameText">${escapeHtml(state.name)}</b></div>
               <div class="race-chip">Diff <b id="diffText">${escapeHtml(state.diff)}</b></div>
+              <div class="race-chip">Core <b>Food-to-Gate</b></div>
             </div>
 
             <div id="raceWaiting" class="race-waiting">
@@ -810,12 +434,12 @@ export function createGroupsRaceAdapter(shellContext = {}) {
                 <button id="itemCard" class="item-card" type="button">
                   <div id="itemIcon" class="item-icon">🍎</div>
                   <div id="itemKind" class="item-kind">FOOD</div>
-                  <div id="itemHint" class="item-hint">เลือกหมู่ที่ถูก</div>
+                  <div id="itemHint" class="item-hint">เลือกประตูหมู่ที่ถูก</div>
                 </button>
               </section>
 
               <section class="group-grid" id="groupGrid">
-                ${GROUPS.map((g) => `
+                ${FOOD_GROUPS.map((g) => `
                   <button class="group-btn" type="button" data-group="${g.key}" style="--group-color:${g.color}">
                     <span class="group-id">${g.id}</span>
                     <span class="group-icon">${g.icon}</span>
@@ -856,7 +480,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
             </div>
 
             <div class="race-help">
-              <div>🎯 อาหารปกติ/Golden: กดหมู่ที่ถูก</div>
+              <div>🎯 อาหารปกติ/Golden: กดประตูหมู่ที่ถูก</div>
               <div>⚡ Power: กดการ์ดพลังกลางจอ</div>
               <div>🚫 ตัวหลอก: อย่ากด รอให้ผ่านไป</div>
               <div>🏆 คะแนน + ความแม่นยำ + คอมโบ ใช้จัดอันดับ</div>
@@ -880,15 +504,33 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     $('#btnPlayAgain')?.addEventListener('click', replay);
 
     $all('.group-btn').forEach((btn) => {
-      btn.addEventListener('click', () => judgeGroup(btn.dataset.group));
+      btn.addEventListener('click', () => {
+        core.judgeGate(btn.dataset.group, {
+          source: 'race-ui',
+          input: 'group-button'
+        });
+      });
     });
 
     $('#itemCard')?.addEventListener('click', () => {
-      if (!state.current) return;
+      const s = coreState();
+      const item = s.current;
 
-      if (state.current.kind === 'power') collectPower();
-      else if (state.current.kind === 'decoy') onMiss('ยิงตัวหลอก');
-      else toast('อาหารต้องเลือกปุ่มหมู่ด้านล่าง', 'warn');
+      if (!item) return;
+
+      if (item.kind === 'power') {
+        core.collectPower({
+          source: 'race-ui',
+          input: 'item-card'
+        });
+      } else if (item.kind === 'decoy') {
+        core.judgeGate('__decoy_hit__', {
+          source: 'race-ui',
+          input: 'item-card-decoy'
+        });
+      } else {
+        toast('อาหารต้องเลือกประตูหมู่ด้านล่าง', 'warn');
+      }
     });
 
     document.addEventListener('keydown', onKeyDown);
@@ -900,34 +542,47 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     const n = Number(ev.key);
 
     if (n >= 1 && n <= 5) {
-      const g = GROUPS[n - 1];
-      if (g) judgeGroup(g.key);
+      const g = FOOD_GROUPS[n - 1];
+      if (g) {
+        core.judgeGate(g.key, {
+          source: 'keyboard',
+          key: ev.key
+        });
+      }
     }
 
     if (ev.key === ' ' || ev.key === 'Enter') {
-      if (state.current && state.current.kind === 'power') collectPower();
+      const item = coreState().current;
+      if (item && item.kind === 'power') {
+        core.collectPower({
+          source: 'keyboard',
+          key: ev.key
+        });
+      }
     }
   }
 
   function renderHud() {
-    setText('#scoreText', state.score);
-    setText('#timeText', currentTimeLeft() + 's');
-    setText('#comboText', state.combo);
-    setText('#heartText', '❤️'.repeat(Math.max(0, state.hearts)) + (state.shield ? ` 🛡️${state.shield}` : ''));
+    const s = coreState();
 
-    if (state.mission) {
-      setText('#missionText', `${state.mission.icon} ${state.mission.label} ${state.mission.got}/${state.mission.need}`);
-      const pct = clamp(state.mission.got / Math.max(1, state.mission.need), 0, 1) * 100;
+    setText('#scoreText', s.score);
+    setText('#timeText', s.remainingSec + 's');
+    setText('#comboText', s.combo);
+    setText('#heartText', '❤️'.repeat(Math.max(0, s.hearts)) + (s.shield ? ` 🛡️${s.shield}` : ''));
+
+    if (s.mission) {
+      setText('#missionText', `${s.mission.icon} ${s.mission.label} ${s.mission.got}/${s.mission.need}`);
+      const pct = clamp(s.mission.got / Math.max(1, s.mission.need), 0, 1) * 100;
       const bar = $('#missionBar');
       if (bar) bar.style.width = `${pct}%`;
     }
 
     const itemBar = $('#itemTimeBar');
-    if (itemBar) itemBar.style.width = `${Math.round(itemProgress() * 100)}%`;
+    if (itemBar) itemBar.style.width = `${Math.round(s.itemProgress * 100)}%`;
   }
 
   function renderItem() {
-    const item = state.current;
+    const item = coreState().current;
     if (!item) return;
 
     const card = $('#itemCard');
@@ -938,17 +593,16 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     if (!card || !icon || !kind || !hint) return;
 
     card.className = `item-card ${item.kind}`;
-
     icon.textContent = item.icon;
 
     if (item.kind === 'food') {
       kind.textContent = 'FOOD';
-      hint.textContent = `เลือกหมู่ ${item.group.id} ${item.group.label}`;
+      hint.textContent = `เลือกประตูหมู่ ${item.group.id} ${item.group.label}`;
     } else if (item.kind === 'golden') {
       kind.textContent = 'GOLDEN + BONUS';
-      hint.textContent = `เลือกหมู่ ${item.group.id} ${item.group.label}`;
+      hint.textContent = `เลือกประตูหมู่ ${item.group.id} ${item.group.label}`;
     } else if (item.kind === 'power') {
-      kind.textContent = item.label.toUpperCase();
+      kind.textContent = String(item.label || 'POWER').toUpperCase();
       hint.textContent = 'กดการ์ดนี้เพื่อเก็บพลัง';
     } else {
       kind.textContent = 'DON’T TAP';
@@ -1023,6 +677,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     if (summary) summary.hidden = true;
 
     renderHud();
+    renderItem();
   }
 
   function renderSummary() {
@@ -1034,29 +689,33 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     if (game) game.hidden = true;
     if (summary) summary.hidden = false;
 
+    const s = coreSummary();
+
     setText('#summaryRank', rankName());
-    setText('#summarySub', `อันดับของคุณ: ${state.localRank || '-'} • Hit Rate ${hitRateText()}`);
-    setText('#sumScore', state.score);
-    setText('#sumAccuracy', accuracy() + '%');
-    setText('#sumCombo', state.bestCombo);
-    setText('#sumCorrect', state.correct);
+    setText('#summarySub', `อันดับของคุณ: ${state.localRank || '-'} • Hit Rate ${s.hitRate || 0}%`);
+    setText('#sumScore', s.score);
+    setText('#sumAccuracy', s.accuracy + '%');
+    setText('#sumCombo', s.bestCombo);
+    setText('#sumCorrect', s.correct);
   }
 
   function startRace() {
-    if (state.mode === 'playing' || state.destroyed) return;
+    if (state.mode === 'playing' || state.destroyed || state.startedOnce) return;
 
     state.mode = 'playing';
-    state.startedAt = now();
-    state.remaining = state.duration;
-    state.renderedSummary = false;
+    state.startedOnce = true;
+    state.endedOnce = false;
 
-    state.rng = makeRng(makeSeed());
-
-    if (!state.mission) newMission();
+    core.start({
+      seed: state.seed,
+      durationSec: state.duration,
+      diff: state.diff,
+      hearts: 3,
+      startedAt: now()
+    });
 
     syncPlayer('running');
     renderPlaying();
-    spawnItem();
 
     clearInterval(state.tickTimer);
     state.tickTimer = setInterval(tick, 150);
@@ -1068,13 +727,14 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   function tick() {
     if (state.mode !== 'playing') return;
 
-    if (currentTimeLeft() <= 0) {
-      endRace('time');
-      return;
-    }
+    core.tick({
+      source: 'race-timer'
+    });
 
-    if (state.current && now() >= state.itemDeadline) {
-      onItemTimeout();
+    const s = coreState();
+
+    if (s.mode === 'ended') {
+      endRace(s.reason || 'time');
       return;
     }
 
@@ -1129,9 +789,12 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         ready: true,
         connected: true,
         running: false,
+        done: false,
         score: 0,
         accuracy: 0,
         bestCombo: 0,
+        core: 'food-to-gate-sorting',
+        coreVersion: GROUPS_CORE_VERSION,
         updatedAt: now()
       });
 
@@ -1196,6 +859,8 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   async function syncPlayer(status = 'playing') {
     if (!state.roomRef || !state.uid) return;
 
+    const s = coreState();
+
     const payload = {
       uid: state.uid,
       name: state.name,
@@ -1203,29 +868,34 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       connected: true,
       running: status === 'running' || status === 'playing',
       done: status === 'done',
-      score: state.score,
-      correct: state.correct,
-      miss: state.miss,
-      accuracy: accuracy(),
-      bestCombo: state.bestCombo,
-      combo: state.combo,
-      hearts: state.hearts,
-      skippedDecoy: state.skippedDecoy,
-      missionClear: state.missionClear,
+      score: s.score,
+      correct: s.correct,
+      miss: s.miss,
+      accuracy: s.accuracy,
+      bestCombo: s.bestCombo,
+      combo: s.combo,
+      hearts: s.hearts,
+      skippedDecoy: s.skippedDecoy,
+      missionClear: s.missionClear,
+      core: 'food-to-gate-sorting',
+      coreVersion: GROUPS_CORE_VERSION,
       updatedAt: now(),
       race: {
         mode: 'race',
         status,
-        score: state.score,
-        correct: state.correct,
-        miss: state.miss,
-        accuracy: accuracy(),
-        bestCombo: state.bestCombo,
-        combo: state.combo,
-        hearts: state.hearts,
-        skippedDecoy: state.skippedDecoy,
-        missionClear: state.missionClear,
+        score: s.score,
+        correct: s.correct,
+        miss: s.miss,
+        accuracy: s.accuracy,
+        hitRate: s.hitRate,
+        bestCombo: s.bestCombo,
+        combo: s.combo,
+        hearts: s.hearts,
+        skippedDecoy: s.skippedDecoy,
+        missionClear: s.missionClear,
         done: status === 'done',
+        core: 'food-to-gate-sorting',
+        coreVersion: GROUPS_CORE_VERSION,
         updatedAt: now()
       }
     };
@@ -1238,19 +908,25 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   }
 
   async function endRace(reason = 'time') {
-    if (state.mode === 'ended') return;
+    if (state.mode === 'ended' || state.endedOnce) return;
 
     state.mode = 'ended';
-    state.endedAt = now();
+    state.endedOnce = true;
 
     clearInterval(state.tickTimer);
     cancelAnimationFrame(state.raf);
+
+    const s = coreState().mode === 'ended'
+      ? coreSummary()
+      : core.stop(reason);
 
     await syncPlayer('done');
 
     const result = {
       ts: new Date().toISOString(),
       game: 'groups',
+      core: 'food-to-gate-sorting',
+      coreVersion: GROUPS_CORE_VERSION,
       mode: 'race',
       roomId: state.roomId,
       uid: state.uid,
@@ -1258,13 +934,14 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       reason,
       diff: state.diff,
       duration: state.duration,
-      score: state.score,
-      correct: state.correct,
-      miss: state.miss,
-      accuracy: accuracy(),
-      bestCombo: state.bestCombo,
-      skippedDecoy: state.skippedDecoy,
-      missionClear: state.missionClear,
+      score: s.score,
+      correct: s.correct,
+      miss: s.miss,
+      accuracy: s.accuracy,
+      hitRate: s.hitRate,
+      bestCombo: s.bestCombo,
+      skippedDecoy: s.skippedDecoy,
+      missionClear: s.missionClear,
       rank: rankName()
     };
 
@@ -1282,7 +959,6 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       }
     } catch (_) {}
 
-    state.renderedSummary = true;
     renderSummary();
     renderLeaderboard();
   }
@@ -1994,8 +1670,6 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
     localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', state.name);
 
-    state.rng = makeRng(makeSeed());
-
     injectStyle();
     renderShell();
 
@@ -2032,6 +1706,10 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       if (state.playersRef && state.playersOff) state.playersRef.off('value', state.playersOff);
       if (state.roomRef && state.roomOff) state.roomRef.off('value', state.roomOff);
     } catch (_) {}
+
+    try {
+      core.destroy();
+    } catch (_) {}
   }
 
   const adapter = {
@@ -2042,17 +1720,21 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     destroy,
     unmount: destroy,
     getState() {
+      const s = coreState();
+
       return {
         version: state.version,
+        coreVersion: GROUPS_CORE_VERSION,
         roomId: state.roomId,
         name: state.name,
         mode: state.mode,
-        score: state.score,
-        correct: state.correct,
-        miss: state.miss,
-        accuracy: accuracy(),
-        combo: state.combo,
-        bestCombo: state.bestCombo,
+        coreState: s,
+        score: s.score,
+        correct: s.correct,
+        miss: s.miss,
+        accuracy: s.accuracy,
+        combo: s.combo,
+        bestCombo: s.bestCombo,
         leaderboard: state.leaderboard,
         firebaseReady: state.firebaseReady,
         firebaseError: state.firebaseError
