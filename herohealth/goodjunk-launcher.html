@@ -48,13 +48,8 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    body{
-      overflow-x:hidden;
-    }
-
-    a{
-      color:inherit;
-    }
+    body{overflow-x:hidden;}
+    a{color:inherit;}
 
     .app{
       width:min(96vw,1180px);
@@ -247,7 +242,7 @@
 
     .soloGrid{
       display:grid;
-      grid-template-columns:1fr;
+      grid-template-columns:repeat(2,minmax(0,1fr));
       gap:14px;
     }
 
@@ -423,6 +418,7 @@
         grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
+      .soloGrid,
       .multiGrid{
         grid-template-columns:1fr;
       }
@@ -493,7 +489,7 @@
       <div>
         <h1>GoodJunk Launcher</h1>
         <p class="subtitle">
-          เลือกโหมดเกม GoodJunk: Solo Boss สำหรับเล่นคนเดียว และ Multiplayer สำหรับเล่นกับเพื่อน
+          เลือกโหมดเกม GoodJunk: Solo Boss 2D, Solo Boss Cardboard VR และ Multiplayer
           โดยส่งค่า PID / ชื่อ / ระดับ / เวลา / มุมมอง ต่อไปยังทุกโหมดอัตโนมัติ
         </p>
       </div>
@@ -551,7 +547,7 @@
 
     <section class="sectionTitle">
       <h2>Solo Mode</h2>
-      <p>เล่นคนเดียวแบบ phase boss ใช้สำหรับฝึกแยกอาหารดีและอาหาร junk</p>
+      <p>แยกทางเข้า Solo ให้ชัด: 2D สำหรับ PC/Mobile และ Cardboard VR สำหรับโหมด VR Flow</p>
     </section>
 
     <section class="soloGrid">
@@ -559,22 +555,46 @@
         <div class="cardIcon">👑</div>
 
         <div class="cardBody">
-          <h3>Solo Boss</h3>
+          <h3>Solo Boss 2D</h3>
           <p>
-            โหมดเล่นคนเดียว มีภารกิจ เก็บคะแนน หลบ junk และสู้กับ phase boss
-            เหมาะสำหรับการเล่นจบเป็นรอบเดียว
+            เล่นคนเดียวแบบ 2D บน PC/Mobile มีภารกิจ เก็บ Good หลบ Junk และสู้ Phase Boss
+            เหมาะสำหรับการเล่นมาตรฐานใน Nutrition Zone
           </p>
 
           <div class="tags">
             <span class="tag">Solo</span>
+            <span class="tag">2D</span>
+            <span class="tag">PC / Mobile</span>
             <span class="tag">Phase Boss</span>
-            <span class="tag">Summary</span>
-            <span class="tag">Warmup / Cooldown</span>
           </div>
 
           <div class="cardActions">
-            <a id="btnSolo" class="btn green" href="./vr-goodjunk/goodjunk-solo-boss-v8.html">▶ เข้า Solo Boss</a>
-            <a id="btnSoloTest" class="btn" href="./vr-goodjunk/goodjunk-solo-boss-v8.html">⚡ ทดสอบ Solo</a>
+            <a id="btnSolo2D" class="btn green" href="./vr-goodjunk/goodjunk-solo-boss.html">▶ เล่น Solo Boss 2D</a>
+            <a id="btnSolo2DTest" class="btn" href="./vr-goodjunk/goodjunk-solo-boss.html">⚡ ทดสอบ 2D</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="cardIcon">🥽</div>
+
+        <div class="cardBody">
+          <h3>Solo Boss Cardboard VR</h3>
+          <p>
+            เข้า Solo Boss แบบ VR Flow สำหรับ Cardboard/cVR ใช้ทางเข้าเฉพาะ VR
+            เพื่อไม่ให้ชนกับโหมด 2D
+          </p>
+
+          <div class="tags">
+            <span class="tag">Solo</span>
+            <span class="tag">Cardboard VR</span>
+            <span class="tag">cVR</span>
+            <span class="tag">VR Flow</span>
+          </div>
+
+          <div class="cardActions">
+            <a id="btnSoloVR" class="btn purple" href="./vr-goodjunk/goodjunk-solo-boss-vr-flow.html">🥽 เข้า Cardboard VR</a>
+            <a id="btnSoloVRTest" class="btn" href="./vr-goodjunk/goodjunk-solo-boss-vr-flow.html">⚡ ทดสอบ VR</a>
           </div>
         </div>
       </article>
@@ -681,15 +701,17 @@
 
     <section class="note">
       <b>Path มาตรฐาน GoodJunk:</b>
+      Solo Boss 2D ใช้ <code>vr-goodjunk/goodjunk-solo-boss.html</code>,
+      Solo Boss Cardboard VR ใช้ <code>vr-goodjunk/goodjunk-solo-boss-vr-flow.html</code>,
       Race ใช้ <code>vr-goodjunk/goodjunk-race-lobby.html</code>,
       Battle ใช้ <code>vr-goodjunk/goodjunk-battle-v2-lobby.html</code>,
       Duet ใช้ <code>vr-goodjunk/goodjunk-duet-lobby.html</code>,
       Co-op ใช้ <code>vr-goodjunk/goodjunk-coop-lobby.html</code>.
-      Battle ไม่ใช้ <code>goodjunk-battle-lobby.html</code> ตัวเก่าแล้ว
+      ไม่ใช้ <code>goodjunk-solo-boss-v8.html</code> เป็นทางเข้าหลักแล้ว
     </section>
 
     <div class="footer">
-      HeroHealth • GoodJunk Launcher v20260515 • Solo / Race / Battle / Duet / Co-op
+      HeroHealth • GoodJunk Launcher v20260515b • Solo 2D / Solo Cardboard VR / Race / Battle / Duet / Co-op
     </div>
   </main>
 
@@ -698,7 +720,7 @@
     'use strict';
 
     window.HHA_GOODJUNK_LAUNCHER =
-      'v20260515-goodjunk-launcher-all-modes-canonical-paths';
+      'v20260515b-goodjunk-launcher-solo-2d-cardboard-vr-canonical-paths';
 
     const params = new URLSearchParams(location.search);
     const $ = id => document.getElementById(id);
@@ -720,6 +742,12 @@
       if (['cardboard','cvr','vr'].includes(s)) return 'cardboard';
 
       return detectView();
+    }
+
+    function normalize2DView(v){
+      const s = normalizeView(v);
+      if (s === 'cardboard') return detectView() === 'pc' ? 'pc' : 'mobile';
+      return s;
     }
 
     function makePid(){
@@ -790,7 +818,7 @@
         recommendedMode:mode,
         multiplayer:mode === 'solo' ? '0' : '1',
         hub:getHub(),
-        v:'20260515-goodjunk-launcher'
+        v:'20260515b-goodjunk-launcher'
       };
     }
 
@@ -812,17 +840,52 @@
 
     function updateLinks(){
       const hub = getHub();
+      const selectedView = getView();
+      const view2d = normalize2DView(selectedView);
 
       $('btnZoneTop').href = './nutrition-zone.html';
       $('btnHubTop').href = hub;
 
-      $('btnSolo').href = withParams('./vr-goodjunk/goodjunk-solo-boss-v8.html','solo',{
-        run:'menu'
+      $('btnSolo2D').href = withParams('./vr-goodjunk/goodjunk-solo-boss.html','solo',{
+        run:'play',
+        entry:'solo-2d',
+        recommendedMode:'solo-2d',
+        variant:'2d',
+        view:view2d,
+        device:view2d,
+        multiplayer:'0'
       });
 
-      $('btnSoloTest').href = withParams('./vr-goodjunk/goodjunk-solo-boss-v8.html','solo',{
+      $('btnSolo2DTest').href = withParams('./vr-goodjunk/goodjunk-solo-boss.html','solo',{
         run:'play',
-        test:'1'
+        test:'1',
+        entry:'solo-2d',
+        recommendedMode:'solo-2d',
+        variant:'2d',
+        view:view2d,
+        device:view2d,
+        multiplayer:'0'
+      });
+
+      $('btnSoloVR').href = withParams('./vr-goodjunk/goodjunk-solo-boss-vr-flow.html','solo',{
+        run:'menu',
+        entry:'solo-vr',
+        recommendedMode:'solo-vr',
+        variant:'cardboard-vr',
+        view:'cardboard',
+        device:'cardboard',
+        multiplayer:'0'
+      });
+
+      $('btnSoloVRTest').href = withParams('./vr-goodjunk/goodjunk-solo-boss-vr-flow.html','solo',{
+        run:'play',
+        test:'1',
+        entry:'solo-vr',
+        recommendedMode:'solo-vr',
+        variant:'cardboard-vr',
+        view:'cardboard',
+        device:'cardboard',
+        multiplayer:'0'
       });
 
       $('btnRace').href = withParams('./vr-goodjunk/goodjunk-race-lobby.html','race',{
