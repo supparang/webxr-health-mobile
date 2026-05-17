@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Run Redirect v2.1.2</title>
+  <title>HeroHealth • GoodJunk Duet Run Redirect v2.1.3</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="./favicon.ico" />
 
@@ -11,11 +11,10 @@
     (function () {
       'use strict';
 
-      window.HHA_GJ_DUET_RUN = 'v20260515-duet-run-v212-runtime-bridge';
+      window.HHA_GJ_DUET_RUN = 'v20260517-duet-run-v213-uri-too-long-fix';
 
       var PLAY_PATH = './goodjunk-duet-play.html';
       var LOBBY_PATH = './goodjunk-duet-lobby.html';
-      var LAUNCHER_PATH = '../goodjunk-launcher.html';
       var ZONE_PATH = '../nutrition-zone.html';
 
       function clean(v, d) {
@@ -69,18 +68,24 @@
         return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
       }
 
-      function copyParams(src, target) {
-        src.searchParams.forEach(function (v, k) {
-          if (v !== undefined && v !== null && String(v) !== '') {
-            target.searchParams.set(k, v);
-          }
-        });
-        return target;
-      }
+      function compactHub(v) {
+        var fallback = new URL(ZONE_PATH, location.href).toString();
+        var s = clean(v, '');
 
-      function setIfMissing(url, key, value) {
-        if (!url.searchParams.get(key) && value !== undefined && value !== null && String(value) !== '') {
-          url.searchParams.set(key, String(value));
+        if (!s) return fallback;
+
+        /*
+          กัน URL ซ้อน URL จนยาวเกิน:
+          เช่น hub=...goodjunk-launcher.html?...hub=... หรือ backModes=...
+        */
+        if (s.length > 420) return fallback;
+        if (/%252F|backModes=|launcherUrl=|backLobby=|nextAfterCooldown=|cdnext=/.test(s)) return fallback;
+
+        try {
+          var u = new URL(s, location.href);
+          return u.toString();
+        } catch (_) {
+          return fallback;
         }
       }
 
@@ -121,66 +126,39 @@
         url.searchParams.set('role', ctx.role);
         url.searchParams.set('roleKey', ctx.role);
 
+        if (ctx.seed) {
+          url.searchParams.set('seed', ctx.seed);
+        }
+
+        if (ctx.studyId) {
+          url.searchParams.set('studyId', ctx.studyId);
+        }
+
         return url;
       }
 
-      function buildLauncherUrl(ctx) {
-        var u = new URL(LAUNCHER_PATH, location.href);
-
-        u.searchParams.set('pid', ctx.pid);
-        u.searchParams.set('name', ctx.name);
-        u.searchParams.set('nick', ctx.nick);
-        u.searchParams.set('diff', ctx.diff);
-        u.searchParams.set('time', ctx.time);
-        u.searchParams.set('view', ctx.view);
-        u.searchParams.set('device', ctx.device);
-
-        u.searchParams.set('zone', 'nutrition');
-        u.searchParams.set('cat', 'nutrition');
-        u.searchParams.set('game', 'goodjunk');
-        u.searchParams.set('gameId', 'goodjunk');
-        u.searchParams.set('theme', 'goodjunk');
-
-        u.searchParams.set('mode', 'menu');
-        u.searchParams.set('entry', 'goodjunk-launcher');
-        u.searchParams.set('run', 'menu');
-        u.searchParams.set('hub', ctx.hub);
-
-        u.searchParams.set('v', '20260515-goodjunk-duet-run-v212-back-launcher');
-
-        return u.toString();
-      }
-
-      function buildLobbyUrl(src, ctx) {
-        var u = copyParams(src, new URL(LOBBY_PATH, location.href));
-
+      function buildLobbyUrl(ctx) {
+        var u = new URL(LOBBY_PATH, location.href);
         setCommon(u, ctx);
-
         u.searchParams.set('run', 'menu');
-        u.searchParams.set('v', '20260515-duet-run-v212-lobby');
-
+        u.searchParams.set('v', '20260517-duet-run-v213-lobby-compact');
         return u.toString();
       }
 
-      function buildPlayUrl(src, ctx) {
-        var u = copyParams(src, new URL(PLAY_PATH, location.href));
-
+      function buildPlayUrl(ctx) {
+        var u = new URL(PLAY_PATH, location.href);
         setCommon(u, ctx);
 
         u.searchParams.set('run', 'play');
 
-        var launcherUrl = buildLauncherUrl(ctx);
-        var lobbyUrl = buildLobbyUrl(src, ctx);
-
-        u.searchParams.set('launcherUrl', launcherUrl);
-        u.searchParams.set('backModes', launcherUrl);
-        u.searchParams.set('backLauncher', launcherUrl);
-
-        u.searchParams.set('backLobby', lobbyUrl);
-        u.searchParams.set('nextAfterCooldown', lobbyUrl);
-        u.searchParams.set('cdnext', lobbyUrl);
-
-        u.searchParams.set('v', '20260515-duet-run-v212-play-bridge');
+        /*
+          สำคัญมาก:
+          ไม่ส่ง launcherUrl/backModes/backLobby แบบ full URL แล้ว
+          เพราะทำให้ URL ซ้อนกันจน GitHub Pages ขึ้น URI Too Long
+        */
+        u.searchParams.set('back', 'launcher');
+        u.searchParams.set('returnTo', 'goodjunk-launcher');
+        u.searchParams.set('v', '20260517-duet-run-v213-play-compact');
 
         return u.toString();
       }
@@ -188,7 +166,6 @@
       try {
         var src = new URL(location.href);
         var q = src.searchParams;
-
         var deviceFallback = detectDevice();
 
         var ctx = {
@@ -202,33 +179,20 @@
           room: normalizeRoom(first(q.get('room'), q.get('roomId'), q.get('roomCode'))),
           matchId: clean(q.get('matchId'), ''),
           role: normalizeRole(first(q.get('role'), q.get('roleKey'), q.get('host') === '1' ? 'collector' : 'guardian')),
-          hub: clean(q.get('hub'), new URL(ZONE_PATH, location.href).toString())
+          seed: clean(q.get('seed'), ''),
+          studyId: clean(q.get('studyId'), ''),
+          hub: compactHub(q.get('hub'))
         };
 
         if (!ctx.room) {
-          var lobby = buildLobbyUrl(src, ctx);
-          if (src.hash) {
-            var lobbyObj = new URL(lobby);
-            lobbyObj.hash = src.hash;
-            lobby = lobbyObj.toString();
-          }
-          location.replace(lobby);
+          location.replace(buildLobbyUrl(ctx));
           return;
         }
 
-        var playUrl = buildPlayUrl(src, ctx);
-
-        if (src.hash) {
-          var playObj = new URL(playUrl);
-          playObj.hash = src.hash;
-          playUrl = playObj.toString();
-        }
-
-        location.replace(playUrl);
+        location.replace(buildPlayUrl(ctx));
       } catch (e) {
         var fallback = new URL(LOBBY_PATH, location.href);
-        fallback.search = location.search;
-        fallback.hash = location.hash;
+        fallback.searchParams.set('v', '20260517-duet-run-v213-fallback');
         location.replace(fallback.toString());
       }
     })();
@@ -316,11 +280,10 @@
     <div class="icon">🤝</div>
     <h1>กำลังพาไปหน้าเล่นคู่...</h1>
     <p>
-      Duet Run จะส่งต่อไปยัง <b>goodjunk-duet-play.html</b>
-      พร้อม Room, Role, MatchId และลิงก์กลับ GoodJunk Launcher
+      Duet Run จะส่งต่อแบบ URL สั้น ไม่ซ้อน launcherUrl/backModes แล้ว
     </p>
     <p>
-      หากไม่มี Room ระบบจะกลับไปที่ <b>Duet Lobby</b> เพื่อสร้างหรือเข้าห้องก่อน
+      หากไม่มี Room ระบบจะกลับไปที่ <b>Duet Lobby</b>
     </p>
     <p>
       หากไม่เปลี่ยนหน้าอัตโนมัติ ให้กด
