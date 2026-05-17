@@ -1,18 +1,20 @@
-/* 
+/*
   HeroHealth • GoodJunk Battle Final Summary Patch
-  v20260515-battle-v233-end-hook-bridge
+  v20260515-battle-v236-rematch-new-match
 
   Purpose:
   - Fix rival identity: never use SFX / DOM text as rival name
   - Sync local player score/hp/power to Firebase
   - Create one shared finalSummary for both players
-  - Force all legacy end/showSummary paths to use Firebase finalSummary
+  - Force legacy end/showSummary paths to use Firebase finalSummary
+  - Fix “Battle อีกครั้ง” so it creates a NEW match, clears finalSummary, resets players
 */
 
 (function(){
   'use strict';
 
-  window.HHA_GJ_BATTLE_FINAL_PATCH = 'v20260515-battle-v233-end-hook-bridge';
+  window.HHA_GJ_BATTLE_FINAL_PATCH =
+    'v20260515-battle-v236-rematch-new-match';
 
   const params = new URLSearchParams(location.search);
   const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
@@ -28,7 +30,8 @@
     playerSyncTimer:null,
     finalSummaryRendered:false,
     battleEnding:false,
-    patched:false
+    patched:false,
+    roomListenerAttached:false
   };
 
   function now(){
@@ -42,42 +45,62 @@
       .slice(0,96) || 'anon';
   }
 
+  function normalizeRoom(v){
+    let s = String(v || '').trim().toUpperCase();
+    s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
+    if (!s) return '';
+    if (!s.startsWith('GJ-BT-')){
+      s = 'GJ-BT-' + s
+        .replace(/^GJ-BT/i,'')
+        .replace(/^GJBT/i,'')
+        .replace(/^BT/i,'')
+        .replace(/^-/, '');
+    }
+    return s.slice(0,24);
+  }
+
   function readGlobalState(){
     const s = window.state || window.GJ_STATE || window.BATTLE_STATE || {};
 
-    patchState.room =
+    patchState.room = normalizeRoom(
       s.room ||
       s.roomId ||
       params.get('room') ||
       params.get('roomId') ||
-      '';
+      ''
+    );
 
-    patchState.pid =
+    patchState.pid = String(
       s.pid ||
       params.get('pid') ||
-      'anon';
+      'anon'
+    );
 
-    patchState.name =
+    patchState.name = String(
       s.name ||
       params.get('name') ||
       params.get('nick') ||
-      'Hero';
+      'Hero'
+    );
 
-    patchState.role =
+    patchState.role = String(
       s.role ||
       params.get('role') ||
-      '';
+      ''
+    );
 
-    patchState.view =
+    patchState.view = String(
       s.view ||
       params.get('view') ||
       params.get('device') ||
-      'mobile';
+      'mobile'
+    );
 
-    patchState.matchId =
+    patchState.matchId = String(
       s.matchId ||
       params.get('matchId') ||
-      '';
+      ''
+    );
 
     return s;
   }
@@ -104,6 +127,13 @@
     }
 
     throw new Error('Firebase database not ready');
+  }
+
+  function getTextNumber(id){
+    const el = document.getElementById(id);
+    if (!el) return 0;
+    const n = Number(String(el.textContent || '').replace(/[^\d.-]/g,''));
+    return Number.isFinite(n) ? n : 0;
   }
 
   function getScore(){
@@ -141,13 +171,6 @@
     );
   }
 
-  function getTextNumber(id){
-    const el = document.getElementById(id);
-    if (!el) return 0;
-    const n = Number(String(el.textContent || '').replace(/[^\d.-]/g,''));
-    return Number.isFinite(n) ? n : 0;
-  }
-
   function getMetric(name, fallback=0){
     const s = readGlobalState();
     const v = s[name] ?? window[name] ?? fallback;
@@ -168,6 +191,7 @@
 
   function getMePlayer(room){
     readGlobalState();
+
     return room?.players?.[safeKey(patchState.pid)] ||
       battlePlayersArray(room).find(p => p.pid === patchState.pid) ||
       null;
@@ -219,11 +243,17 @@
       document.getElementById('resultOverlay') ||
       document.getElementById('overlay') ||
       document.querySelector('[data-summary-overlay]') ||
-      document.querySelector('.overlay');
+      document.querySelector('.resultOverlay') ||
+      document.querySelector('.summaryOverlay');
 
     if (overlay){
       overlay.classList.add('show');
+      overlay.classList.add('active');
       overlay.style.display = overlay.style.display === 'none' ? 'flex' : overlay.style.display;
+      overlay.style.visibility = 'visible';
+      overlay.style.opacity = '1';
+      overlay.style.pointerEvents = 'auto';
+      overlay.style.zIndex = '9999';
     }
   }
 
@@ -307,7 +337,7 @@
   function makeBattleFinalSummary(room, reason='time-up'){
     readGlobalState();
 
-    const players = battlePlayersArray(room);
+    const players = battlePlayersArray(room).slice(0,2);
     const pA = players[0] || null;
     const pB = players[1] || null;
 
@@ -373,6 +403,28 @@
     };
   }
 
+  function bindBattleAgainButton(){
+    setTimeout(() => {
+      const buttons = Array.from(document.querySelectorAll('button,a'));
+
+      const againBtn = buttons.find(btn =>
+        /Battle\s*อีกครั้ง|เล่นอีกครั้ง|อีกครั้ง/i.test(btn.textContent || '')
+      );
+
+      if (againBtn){
+        againBtn.removeAttribute('href');
+        againBtn.dataset.rematchPatched = '1';
+
+        againBtn.onclick = function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          startBattleAgainFromSummary();
+          return false;
+        };
+      }
+    }, 80);
+  }
+
   function renderBattleSummaryFromFinal(summary){
     if (!summary || patchState.finalSummaryRendered) return;
 
@@ -382,8 +434,14 @@
     readGlobalState();
 
     const myPid = patchState.pid;
-    const me = summary.players?.[safeKey(myPid)] || null;
-    const rival = Object.values(summary.players || {}).find(p => p.pid !== myPid) || null;
+    const me =
+      summary.players?.[safeKey(myPid)] ||
+      Object.values(summary.players || {}).find(p => p.pid === myPid) ||
+      null;
+
+    const rival =
+      Object.values(summary.players || {}).find(p => p.pid !== myPid) ||
+      null;
 
     const result =
       !summary.winnerPid
@@ -437,8 +495,10 @@
     );
 
     showOverlay();
+    bindBattleAgainButton();
 
     console.log('[GJ Battle Patch] FinalSummary rendered', {
+      version:window.HHA_GJ_BATTLE_FINAL_PATCH,
       myPid,
       winnerPid:summary.winnerPid,
       winnerName:summary.winnerName,
@@ -530,6 +590,132 @@
     setText(['#rivalShield','[data-rival-shield]'], rivalShield > 0 ? `🛡 ${rivalShield}` : '—');
   }
 
+  async function startBattleAgainFromSummary(){
+    try{
+      const db = await ensureDb();
+      readGlobalState();
+
+      const latest = await db.ref(roomPath()).get().then(s => s.val()).catch(() => null);
+      if (!latest){
+        alert('ไม่พบข้อมูลห้อง Battle');
+        return;
+      }
+
+      const players = battlePlayersArray(latest).slice(0, 2);
+
+      if (players.length < 2){
+        alert('ต้องมีผู้เล่น 2 คนก่อนเริ่ม Battle อีกครั้ง');
+        return;
+      }
+
+      const matchId =
+        'BT2-' + safeKey(patchState.room) + '-' + Date.now().toString(36).toUpperCase();
+
+      const resetPlayers = {};
+
+      players.forEach((p, idx) => {
+        resetPlayers[safeKey(p.pid)] = {
+          pid: p.pid,
+          name: safePlayerName(p, idx === 0 ? 'Hero' : 'Player'),
+          role: idx === 0 ? 'host' : 'guest',
+          view: p.view || patchState.view || 'mobile',
+          ready: true,
+          rank: idx + 1,
+
+          hp: 100,
+          maxHp: 100,
+          score: 0,
+          power: 0,
+          shield: 0,
+
+          attackUsed: 0,
+          shieldUsed: 0,
+          damageDealt: 0,
+          damageTaken: 0,
+
+          good: 0,
+          junk: 0,
+          miss: 0,
+          combo: 0,
+
+          finished: false,
+          finishAt: null,
+          finishReason: '',
+
+          joinedAt: p.joinedAt || Date.now(),
+          updatedAt: Date.now(),
+          lastSeenAt: Date.now()
+        };
+      });
+
+      await db.ref(roomPath()).update({
+        status: 'countdown',
+        countdownAt: Date.now(),
+
+        matchId,
+        activeMatchId: matchId,
+
+        mode: 'battle',
+        battleType: 'duel',
+        type: 'duel',
+
+        capacity: 2,
+        maxPlayers: 2,
+        activePlayers: 2,
+
+        startedAt: null,
+        endedAt: null,
+        endReason: null,
+
+        finalSummary: null,
+        summary: null,
+
+        battleEndLock: null,
+        rematchStartLock: null,
+
+        players: resetPlayers,
+        updatedAt: Date.now()
+      });
+
+      patchState.finalSummaryRendered = false;
+      patchState.battleEnding = false;
+
+      const runFile = location.pathname.includes('goodjunk-battle-v2-run-pc.html')
+        ? './goodjunk-battle-v2-run-pc.html'
+        : './goodjunk-vr-battle.html';
+
+      const u = new URL(runFile, location.href);
+
+      u.searchParams.set('room', patchState.room);
+      u.searchParams.set('roomId', patchState.room);
+      u.searchParams.set('matchId', matchId);
+
+      u.searchParams.set('pid', patchState.pid);
+      u.searchParams.set('name', patchState.name);
+      u.searchParams.set('nick', patchState.name);
+
+      u.searchParams.set('diff', params.get('diff') || 'normal');
+      u.searchParams.set('time', params.get('time') || '90');
+      u.searchParams.set('view', params.get('view') || patchState.view || 'pc');
+      u.searchParams.set('device', params.get('device') || params.get('view') || patchState.view || 'pc');
+
+      u.searchParams.set('mode', 'battle');
+      u.searchParams.set('battleType', 'duel');
+      u.searchParams.set('type', 'duel');
+      u.searchParams.set('capacity', '2');
+      u.searchParams.set('maxPlayers', '2');
+      u.searchParams.set('run', 'play');
+
+      u.searchParams.set('v', '20260515-battle-rematch-v236-new-match');
+
+      location.href = u.toString();
+
+    }catch(err){
+      console.warn('[GJ Battle Patch] startBattleAgainFromSummary failed', err);
+      alert('เริ่ม Battle อีกครั้งไม่สำเร็จ: ' + (err?.message || err));
+    }
+  }
+
   function patchLegacyFunctions(){
     const legacyNames = [
       'showSummary',
@@ -559,9 +745,13 @@
     window.renderBattleSummaryFromFinal = renderBattleSummaryFromFinal;
     window.writeBattleSelf = writeBattleSelf;
     window.startPlayerSyncLoop = startPlayerSyncLoop;
+    window.startBattleAgainFromSummary = startBattleAgainFromSummary;
   }
 
   async function attachRoomListener(){
+    if (patchState.roomListenerAttached) return;
+    patchState.roomListenerAttached = true;
+
     try{
       const db = await ensureDb();
 
@@ -643,7 +833,8 @@
       version:window.HHA_GJ_BATTLE_FINAL_PATCH,
       room:patchState.room,
       pid:patchState.pid,
-      name:patchState.name
+      name:patchState.name,
+      matchId:patchState.matchId
     });
   }
 
