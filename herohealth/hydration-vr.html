@@ -15,24 +15,24 @@
   <!--
     HeroHealth Hydration
     File: /herohealth/hydration-vr.html
-    Version: v20260515-hydration-mode-hub-pack16
+    Version: v20260517-hydration-mode-hub-pack22-router-fix
 
     Purpose:
       หน้ารวมโหมด Hydration
       - Solo: PC / Mobile / Cardboard VR
       - Multiplayer: Duet / Race / Battle / Coop
-      - Multiplayer ต้องเข้า Lobby ก่อน run.html
+      - Solo ต้องไป run.html โดยตรง/ผ่าน warmup
+      - Multiplayer ต้องเข้า lobby.html ก่อน run.html
 
-    Related files:
-      /herohealth/hydration-vr/run.html
-      /herohealth/hydration-vr/lobby.html
-      /herohealth/hydration-vr/hydration-vr.css
-      /herohealth/hydration-vr/hydration-vr.js
-      /herohealth/hydration-vr/hydration-vr.mode-patch.css
-      /herohealth/hydration-vr/hydration-vr.mode-patch.js
-      /herohealth/room-engine.js
-      /herohealth/firebase-config.js
-      /herohealth/firebase-init.js
+    Important routing rule:
+      mode = solo / duet / race / battle / coop
+      view = pc / mobile / cvr
+
+    Fix Pack22:
+      - กันลิงก์เก่าที่ส่ง mode=pc/mobile/cvr
+      - ย้าย pc/mobile/cvr ไปเป็น view
+      - บังคับ mode=solo สำหรับ Solo views
+      - Multiplayer เท่านั้นที่เข้า lobby.html
   -->
 
   <style>
@@ -850,7 +850,7 @@
     (function(){
       'use strict';
 
-      var STORAGE_KEY = 'HHA_HYDRATION_MODE_HUB_CHOICES_V2';
+      var STORAGE_KEY = 'HHA_HYDRATION_MODE_HUB_CHOICES_V3_PACK22';
 
       var state = {
         mode:'solo',
@@ -883,22 +883,54 @@
         catch(e){ return d; }
       }
 
-      function escapeHtml(s){
-        return String(s || '')
-          .replaceAll('&','&amp;')
-          .replaceAll('<','&lt;')
-          .replaceAll('>','&gt;')
-          .replaceAll('"','&quot;')
-          .replaceAll("'","&#39;");
-      }
-
       function normalizeRoom(v){
         v = String(v || '').trim().toUpperCase();
         v = v.replace(/[^A-Z0-9-]/g, '');
         return v;
       }
 
+      function normalizeMode(v){
+        v = String(v || '').toLowerCase();
+
+        if(['solo','duet','race','battle','coop'].includes(v)){
+          return v;
+        }
+
+        /*
+          กันลิงก์เก่าที่ส่ง mode=pc/mobile/cvr
+          pc/mobile/cvr คือ view ไม่ใช่ mode
+        */
+        if(['pc','mobile','cvr'].includes(v)){
+          return 'solo';
+        }
+
+        return 'solo';
+      }
+
+      function normalizeView(v){
+        v = String(v || '').toLowerCase();
+
+        if(['pc','mobile','cvr'].includes(v)){
+          return v;
+        }
+
+        /*
+          กันลิงก์เก่าที่ส่ง view=solo/duet/race...
+        */
+        if(['solo','duet','race','battle','coop'].includes(v)){
+          return 'mobile';
+        }
+
+        return 'mobile';
+      }
+
+      function isMultiplayerMode(mode){
+        return ['duet','race','battle','coop'].includes(normalizeMode(mode));
+      }
+
       function capacityForMode(mode, raw){
+        mode = normalizeMode(mode);
+
         var n = Number(raw || 2);
 
         if(mode === 'duet') return 2;
@@ -926,26 +958,23 @@
 
         var u = getUrl();
 
-        state.mode = u.searchParams.get('mode') || state.mode || 'solo';
-        state.view = u.searchParams.get('view') || state.view || 'mobile';
+        var rawMode = u.searchParams.get('mode') || state.mode || 'solo';
+        var rawView = u.searchParams.get('view') || state.view || 'mobile';
+
+        /*
+          Pack22:
+          ถ้า URL เก่าส่ง mode=pc/mobile/cvr ให้ย้ายไปเป็น view
+        */
+        if(['pc','mobile','cvr'].includes(String(rawMode).toLowerCase())){
+          rawView = rawMode;
+          rawMode = 'solo';
+        }
+
+        state.mode = normalizeMode(rawMode);
+        state.view = normalizeView(rawView);
         state.diff = u.searchParams.get('diff') || state.diff || 'normal';
         state.time = u.searchParams.get('time') || state.time || '90';
         state.room = normalizeRoom(u.searchParams.get('room') || state.room || '');
-        state.capacity = capacityForMode(
-          state.mode,
-          u.searchParams.get('capacity') ||
-          u.searchParams.get('players') ||
-          state.capacity ||
-          2
-        );
-
-        if(!['solo','duet','race','battle','coop'].includes(state.mode)){
-          state.mode = 'solo';
-        }
-
-        if(!['pc','mobile','cvr'].includes(state.view)){
-          state.view = 'mobile';
-        }
 
         if(!['easy','normal','hard','challenge'].includes(state.diff)){
           state.diff = 'normal';
@@ -955,7 +984,13 @@
           state.time = '90';
         }
 
-        state.capacity = capacityForMode(state.mode, state.capacity);
+        state.capacity = capacityForMode(
+          state.mode,
+          u.searchParams.get('capacity') ||
+          u.searchParams.get('players') ||
+          state.capacity ||
+          2
+        );
 
         if(state.mode === 'solo'){
           state.room = '';
@@ -993,8 +1028,16 @@
           }
         });
 
-        if(!toUrl.searchParams.get('pid')) toUrl.searchParams.set('pid', 'anon');
-        if(!toUrl.searchParams.get('name')) toUrl.searchParams.set('name', getParam('nick','Hero'));
+        if(!toUrl.searchParams.get('pid')){
+          toUrl.searchParams.set('pid', 'anon');
+        }
+
+        if(!toUrl.searchParams.get('name')){
+          toUrl.searchParams.set('name', getParam('nick','Hero'));
+        }
+
+        state.mode = normalizeMode(state.mode);
+        state.view = normalizeView(state.view);
 
         toUrl.searchParams.set('zone', 'nutrition');
         toUrl.searchParams.set('game', 'hydration');
@@ -1010,26 +1053,47 @@
       }
 
       function buildRunUrl(){
+        state.mode = normalizeMode(state.mode);
+        state.view = normalizeView(state.view);
+
+        /*
+          run.html ใช้สำหรับ Solo โดยตรง
+          Multiplayer ปกติจะไป lobby.html ก่อน
+        */
         var run = new URL('./hydration-vr/run.html', location.href);
 
         copyIdentityParams(run);
 
+        run.searchParams.set('mode', state.mode);
+        run.searchParams.set('view', state.view);
         run.searchParams.set('run', 'play');
         run.searchParams.set('seed', String(Date.now()));
 
-        if(state.mode !== 'solo'){
+        if(isMultiplayerMode(state.mode)){
           run.searchParams.set('mp', '1');
-          run.searchParams.set('mpReady', '1');
           run.searchParams.set('room', state.room || makeRoomCode());
           run.searchParams.set('roomId', state.room);
           run.searchParams.set('capacity', String(state.capacity));
           run.searchParams.set('players', String(state.capacity));
+
+          /*
+            ไม่ set mpReady ที่นี่โดยทั่วไป
+            เพราะ Multiplayer ต้องผ่าน lobby ก่อน
+          */
+        }else{
+          run.searchParams.delete('mp');
+          run.searchParams.delete('mpReady');
+          run.searchParams.delete('room');
+          run.searchParams.delete('roomId');
         }
 
         return run.toString();
       }
 
       function buildLobbyUrl(){
+        state.mode = normalizeMode(state.mode);
+        state.view = normalizeView(state.view);
+
         var lobby = new URL('./hydration-vr/lobby.html', location.href);
 
         copyIdentityParams(lobby);
@@ -1049,6 +1113,9 @@
       }
 
       function buildWarmupUrl(){
+        state.mode = normalizeMode(state.mode);
+        state.view = normalizeView(state.view);
+
         var next = buildRunUrl();
         var gate = new URL('./warmup-gate.html', location.href);
 
@@ -1085,6 +1152,7 @@
       }
 
       function renderCapacity(){
+        state.mode = normalizeMode(state.mode);
         state.capacity = capacityForMode(state.mode, state.capacity);
 
         document.querySelectorAll('#capacityChoices .cap').forEach(function(btn){
@@ -1106,6 +1174,9 @@
       }
 
       function render(){
+        state.mode = normalizeMode(state.mode);
+        state.view = normalizeView(state.view);
+
         if(state.mode === 'duet'){
           state.capacity = 2;
         }
@@ -1122,10 +1193,14 @@
         setActive('timeChoices', 'time', state.time);
 
         var modeHint = $('modeHint');
-        if(modeHint) modeHint.textContent = MODE_HINT[state.mode] || '';
+        if(modeHint){
+          modeHint.textContent = MODE_HINT[state.mode] || '';
+        }
 
         var mpPanel = $('mpPanel');
-        if(mpPanel) mpPanel.classList.toggle('show', state.mode !== 'solo');
+        if(mpPanel){
+          mpPanel.classList.toggle('show', isMultiplayerMode(state.mode));
+        }
 
         var room = $('roomCode');
         if(room && document.activeElement !== room){
@@ -1144,7 +1219,7 @@
             state.view === 'cvr' ? 'Cardboard' : state.view
           ];
 
-          if(state.mode !== 'solo'){
+          if(isMultiplayerMode(state.mode)){
             bits.push('ต้องครบ ' + state.capacity + ' คน');
             bits.push(state.room || 'ยังไม่มีห้อง');
           }
@@ -1155,21 +1230,21 @@
         var startWarmup = $('startWarmup');
 
         if(startWarmup){
-          startWarmup.classList.toggle('multiplayer', state.mode !== 'solo');
+          startWarmup.classList.toggle('multiplayer', isMultiplayerMode(state.mode));
 
           startWarmup.textContent =
-            state.mode === 'solo'
-              ? 'เริ่มผ่าน Warmup 💧'
-              : 'เข้า Lobby รอผู้เล่นครบ 🤝';
+            isMultiplayerMode(state.mode)
+              ? 'เข้า Lobby รอผู้เล่นครบ 🤝'
+              : 'เริ่มผ่าน Warmup 💧';
         }
 
         var directRun = $('directRun');
 
         if(directRun){
           directRun.textContent =
-            state.mode === 'solo'
-              ? 'ทดสอบเกมตรง'
-              : 'เข้าห้อง Multiplayer';
+            isMultiplayerMode(state.mode)
+              ? 'เข้าห้อง Multiplayer'
+              : 'ทดสอบเกมตรง';
         }
 
         save();
@@ -1181,11 +1256,29 @@
 
         group.querySelectorAll('.choice').forEach(function(btn){
           btn.addEventListener('click', function(){
-            state[attr] = btn.dataset[attr];
+            if(attr === 'mode'){
+              state.mode = normalizeMode(btn.dataset.mode);
+            }
+
+            if(attr === 'view'){
+              state.view = normalizeView(btn.dataset.view);
+            }
+
+            if(attr === 'diff'){
+              state.diff = btn.dataset.diff || 'normal';
+            }
+
+            if(attr === 'time'){
+              state.time = btn.dataset.time || '90';
+            }
 
             if(attr === 'mode'){
-              if(state.mode !== 'solo' && !state.room){
+              if(isMultiplayerMode(state.mode) && !state.room){
                 makeRoomCode();
+              }
+
+              if(state.mode === 'solo'){
+                state.room = '';
               }
 
               state.capacity = capacityForMode(state.mode, state.capacity);
@@ -1241,7 +1334,10 @@
 
         if(startWarmup){
           startWarmup.addEventListener('click', function(){
-            if(state.mode !== 'solo'){
+            state.mode = normalizeMode(state.mode);
+            state.view = normalizeView(state.view);
+
+            if(isMultiplayerMode(state.mode)){
               if(!state.room){
                 makeRoomCode();
                 render();
@@ -1259,7 +1355,10 @@
 
         if(directRun){
           directRun.addEventListener('click', function(){
-            if(state.mode !== 'solo'){
+            state.mode = normalizeMode(state.mode);
+            state.view = normalizeView(state.view);
+
+            if(isMultiplayerMode(state.mode)){
               if(!state.room){
                 makeRoomCode();
                 render();
@@ -1308,8 +1407,21 @@
         if(launcher) return;
 
         if(run === 'play'){
-          state.mode = u.searchParams.get('mode') || state.mode || 'solo';
-          state.view = u.searchParams.get('view') || state.view || 'mobile';
+          var rawMode = u.searchParams.get('mode') || state.mode || 'solo';
+          var rawView = u.searchParams.get('view') || state.view || 'mobile';
+
+          /*
+            Pack22:
+            แก้ลิงก์เก่า mode=pc/mobile/cvr
+            ให้กลายเป็น mode=solo + view=pc/mobile/cvr
+          */
+          if(['pc','mobile','cvr'].includes(String(rawMode).toLowerCase())){
+            rawView = rawMode;
+            rawMode = 'solo';
+          }
+
+          state.mode = normalizeMode(rawMode);
+          state.view = normalizeView(rawView);
           state.diff = u.searchParams.get('diff') || state.diff || 'normal';
           state.time = u.searchParams.get('time') || state.time || '90';
           state.room = normalizeRoom(u.searchParams.get('room') || state.room || '');
@@ -1321,7 +1433,7 @@
             2
           );
 
-          if(state.mode !== 'solo'){
+          if(isMultiplayerMode(state.mode)){
             if(!state.room) makeRoomCode();
             location.replace(buildLobbyUrl());
             return;
