@@ -15,20 +15,23 @@
   <!--
     HeroHealth Hydration Multiplayer Lobby
     File: /herohealth/hydration-vr/lobby.html
-    Version: v20260515-hydration-mp-lobby-gate-pack16
+    Version: v20260517-hydration-lobby-pack22-router-firebase-fix
 
     Purpose:
-      - Duet / Race / Battle / Coop waiting room
+      - Lobby สำหรับ Duet / Race / Battle / Coop เท่านั้น
       - ต้องรอผู้เล่นครบตามจำนวนก่อนเริ่ม
       - ทุกคนต้องกด Ready
       - Host เท่านั้นกด Start Match
       - เมื่อ match เริ่ม ทุกเครื่อง redirect ไป run.html?mpReady=1
 
-    Required:
-      /herohealth/firebase-config.js
-      /herohealth/firebase-init.js
-      /herohealth/room-engine.js
-      /herohealth/hydration-vr/run.html
+    Important routing rule:
+      mode = solo / duet / race / battle / coop
+      view = pc / mobile / cvr
+
+    Pack22 fixes:
+      - ถ้า mode=pc/mobile/cvr ให้ถือว่าเป็น solo view และ redirect ไป run.html
+      - ถ้า mode=solo หลุดมาที่ lobby ให้ redirect ไป run.html
+      - โหลด Firebase compat SDK ก่อน firebase-config.js / firebase-init.js / room-engine.js
   -->
 
   <style>
@@ -574,7 +577,7 @@
 
       var GAME = 'hydration';
       var ZONE = 'nutrition';
-      var VERSION = 'v20260515-hydration-mp-lobby-gate-pack16';
+      var VERSION = 'v20260517-hydration-lobby-pack22-router-firebase-fix';
 
       var state = {
         uid:'',
@@ -588,7 +591,6 @@
         name:'Hero',
         isHost:false,
         ready:false,
-        base:'',
         unwatch:null,
         room:null,
         lastRedirectKey:'',
@@ -632,6 +634,34 @@
         return v;
       }
 
+      function normalizeMode(v){
+        v = String(v || '').toLowerCase();
+
+        if(['solo','duet','race','battle','coop'].includes(v)){
+          return v;
+        }
+
+        if(['pc','mobile','cvr'].includes(v)){
+          return 'solo';
+        }
+
+        return 'solo';
+      }
+
+      function normalizeView(v){
+        v = String(v || '').toLowerCase();
+
+        if(['pc','mobile','cvr'].includes(v)){
+          return v;
+        }
+
+        return 'mobile';
+      }
+
+      function isMultiplayerMode(mode){
+        return ['duet','race','battle','coop'].includes(normalizeMode(mode));
+      }
+
       function makeRoomCode(){
         var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         var out = 'HYD-';
@@ -644,6 +674,8 @@
       }
 
       function capacityForMode(mode, raw){
+        mode = normalizeMode(mode);
+
         var n = Number(raw || 0);
 
         if(mode === 'duet') return 2;
@@ -663,31 +695,85 @@
         }[mode] || mode;
       }
 
-      function loadCtx(){
-        state.mode = getParam('mode','duet');
+      function redirectSoloToRun(mode, view){
+        var run = new URL('./run.html', location.href);
+        var current = getUrl();
 
-        if(!['duet','race','battle','coop'].includes(state.mode)){
+        current.searchParams.forEach(function(value, key){
+          run.searchParams.set(key, value);
+        });
+
+        run.searchParams.set('mode','solo');
+        run.searchParams.set('view', normalizeView(view || 'mobile'));
+        run.searchParams.set('run','play');
+        run.searchParams.set('zone', ZONE);
+        run.searchParams.set('game', GAME);
+
+        run.searchParams.delete('mp');
+        run.searchParams.delete('mpReady');
+        run.searchParams.delete('room');
+        run.searchParams.delete('roomId');
+        run.searchParams.delete('capacity');
+        run.searchParams.delete('players');
+
+        location.replace(run.toString());
+      }
+
+      function loadCtx(){
+        var rawMode = String(getParam('mode','duet') || '').toLowerCase();
+        var rawView = String(getParam('view','mobile') || '').toLowerCase();
+
+        /*
+          Pack22:
+          กันลิงก์ผิด/ลิงก์เก่า:
+          mode=pc/mobile/cvr คือ solo view ไม่ใช่ multiplayer
+        */
+        if(['pc','mobile','cvr'].includes(rawMode)){
+          rawView = rawMode;
+          rawMode = 'solo';
+        }
+
+        rawMode = normalizeMode(rawMode);
+        rawView = normalizeView(rawView);
+
+        /*
+          Lobby ใช้เฉพาะ Multiplayer
+          ถ้า mode=solo หลุดมาที่นี่ ต้องกลับไป run.html
+        */
+        if(rawMode === 'solo'){
+          redirectSoloToRun(rawMode, rawView);
+          return false;
+        }
+
+        state.mode = rawMode;
+
+        if(!isMultiplayerMode(state.mode)){
           state.mode = 'duet';
         }
 
-        state.view = getParam('view','mobile');
-
-        if(!['pc','mobile','cvr'].includes(state.view)){
-          state.view = 'mobile';
-        }
-
+        state.view = rawView;
         state.diff = getParam('diff','normal');
         state.time = getParam('time','90');
         state.pid = getParam('pid','anon');
         state.name = getParam('name', getParam('nick','Hero'));
         state.capacity = capacityForMode(state.mode, getParam('capacity', getParam('players','2')));
 
-        state.roomId = normalizeRoom(getParam('room',''));
+        if(!['easy','normal','hard','challenge'].includes(state.diff)){
+          state.diff = 'normal';
+        }
+
+        if(!['90','120','150','180'].includes(String(state.time))){
+          state.time = '90';
+        }
+
+        state.roomId = normalizeRoom(getParam('room', getParam('roomId','')));
 
         if(!state.roomId){
           state.roomId = makeRoomCode();
           history.replaceState(null, '', withRoomUrl(state.roomId));
         }
+
+        return true;
       }
 
       function withRoomUrl(roomId){
@@ -730,7 +816,10 @@
           if(v !== null && v !== '') u.searchParams.set(k, v);
         });
 
+        u.searchParams.set('mode', state.mode);
+        u.searchParams.set('view', state.view);
         u.searchParams.set('launcher','1');
+
         return u.toString();
       }
 
@@ -790,10 +879,88 @@
         });
       }
 
+      function loadScriptOnce(src, testFn){
+        return new Promise(function(resolve, reject){
+          try{
+            if(typeof testFn === 'function' && testFn()){
+              resolve();
+              return;
+            }
+          }catch(e){}
+
+          var scripts = Array.from(document.querySelectorAll('script'));
+          var existing = scripts.find(function(s){
+            return String(s.src || '').indexOf(src) !== -1 || String(s.getAttribute('src') || '') === src;
+          });
+
+          if(existing){
+            existing.addEventListener('load', function(){ resolve(); }, { once:true });
+            existing.addEventListener('error', function(){
+              reject(new Error('โหลดไฟล์ไม่สำเร็จ: ' + src));
+            }, { once:true });
+            return;
+          }
+
+          var s = document.createElement('script');
+          s.src = src;
+          s.defer = true;
+          s.onload = resolve;
+          s.onerror = function(){
+            reject(new Error('โหลดไฟล์ไม่สำเร็จ: ' + src));
+          };
+          document.body.appendChild(s);
+        });
+      }
+
+      async function loadFirebaseCompatSdk(){
+        setMsg('กำลังโหลด Firebase SDK...', '');
+
+        await loadScriptOnce(
+          'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
+          function(){
+            return !!(window.firebase && window.firebase.initializeApp);
+          }
+        );
+
+        await loadScriptOnce(
+          'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
+          function(){
+            return !!(window.firebase && window.firebase.auth);
+          }
+        );
+
+        await loadScriptOnce(
+          'https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js',
+          function(){
+            return !!(window.firebase && window.firebase.database);
+          }
+        );
+      }
+
       async function loadDeps(){
-        await loadScript('../firebase-config.js?v=20260515-pack16').catch(function(){});
-        await loadScript('../firebase-init.js?v=20260515-pack16').catch(function(){});
-        await loadScript('../room-engine.js?v=20260515-pack16');
+        await loadFirebaseCompatSdk();
+
+        if(!window.firebase){
+          throw new Error('Firebase compat SDK not loaded');
+        }
+
+        setMsg('กำลังโหลด Firebase config...', '');
+
+        await loadScript('../firebase-config.js?v=20260517-pack22');
+
+        setMsg('กำลังเริ่ม Firebase...', '');
+
+        await loadScript('../firebase-init.js?v=20260517-pack22');
+
+        if(window.HHA_FIREBASE_READY && typeof window.HHA_FIREBASE_READY.then === 'function'){
+          await window.HHA_FIREBASE_READY.catch(function(err){
+            throw err || new Error('Firebase init failed');
+          });
+        }
+
+        setMsg('กำลังโหลด Room Engine...', '');
+
+        await loadScript('../room-engine.js?v=20260517-pack22');
 
         if(!window.HHA_ROOM){
           throw new Error('HHA_ROOM not found');
@@ -802,6 +969,10 @@
         await window.HHA_ROOM.init();
 
         state.uid = window.HHA_ROOM.uid();
+
+        if(!state.uid){
+          throw new Error('Anonymous auth failed: no uid');
+        }
       }
 
       async function getExistingRoom(){
@@ -820,6 +991,7 @@
 
           if(alreadyInRoom){
             state.isHost = String(meta.hostUid || '') === String(state.uid);
+
             setMsg(
               state.isHost
                 ? 'กลับเข้าห้องเดิมในฐานะ Host'
@@ -827,14 +999,16 @@
               'ok'
             );
 
-            await window.HHA_ROOM.attachPresence({
-              pid: state.pid,
-              name: state.name,
-              game: GAME,
-              mode: state.mode,
-              roomId: state.roomId,
-              state: 'lobby'
-            });
+            if(window.HHA_ROOM.attachPresence){
+              await window.HHA_ROOM.attachPresence({
+                pid: state.pid,
+                name: state.name,
+                game: GAME,
+                mode: state.mode,
+                roomId: state.roomId,
+                state: 'lobby'
+              });
+            }
 
             watch();
             return;
@@ -1161,7 +1335,12 @@
       }
 
       async function boot(){
-        loadCtx();
+        var shouldContinue = loadCtx();
+
+        if(!shouldContinue){
+          return;
+        }
+
         bind();
         render();
 
@@ -1173,7 +1352,7 @@
         }catch(err){
           setMsg(
             'Lobby ยังเชื่อมต่อไม่ได้: ' + (err && err.message ? err.message : err) +
-            ' — ตรวจ firebase-config.js / firebase-init.js / room-engine.js',
+            ' — ตรวจ Firebase SDK / firebase-config.js / firebase-init.js / room-engine.js',
             'error'
           );
         }
