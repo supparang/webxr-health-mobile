@@ -1,202 +1,92 @@
+// === /herohealth/vr-groups/groups-race-run.js ===
+// HeroHealth • Groups Race Waiting Room / Countdown
+// Flow:
+// groups-race-lobby.html -> groups-race-run.html -> groups-race.html
+// PATCH v20260517-GROUPS-RACE-RUN-V2-ROOM-SYNC-LOCK
+
 (function () {
   'use strict';
 
+  const VERSION = 'v20260517-groups-race-run-v2-room-sync-lock';
+
   const ROOM_ROOT = 'hha-battle/groups/raceRooms';
+  const ACTUAL_GAME_PAGE = './groups-race.html';
+  const LOBBY_PAGE = './groups-race-lobby.html';
+  const HUB_PAGE = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
-  // ถ้าเกมจริงของคุณไม่ใช่ groups.html ให้แก้บรรทัดนี้บรรทัดเดียว
-  const ACTUAL_GAME_PAGE = './groups.html';
-
-  const q = new URLSearchParams(location.search);
+  const DOC = document;
+  const WIN = window;
 
   const state = {
+    version: VERSION,
+
     roomId: '',
     name: '',
     uid: '',
+    diff: '',
+    timeSec: 90,
+    startAt: 0,
+    seed: '',
+
+    hub: '',
+    view: '',
+    pid: '',
+    studyId: '',
+    conditionGroup: '',
+
+    firebase: null,
+    db: null,
+    auth: null,
     roomRef: null,
+    playersRef: null,
     roomOff: null,
-    countdownTimer: null,
-    redirecting: false,
+    playersOff: null,
+
+    connected: false,
+    localOnly: false,
+    redirected: false,
+    countdownTimer: 0,
+    heartbeatTimer: 0,
     lastRoom: null,
-    startAt: 0
+    players: {}
   };
 
-  function $(sel) {
-    try { return document.querySelector(sel); }
-    catch (_) { return null; }
+  function $(id) {
+    return DOC.getElementById(id);
   }
 
-  const el = {
-    metaRoom: $('#metaRoom'),
-    metaName: $('#metaName'),
-    countdown: $('#countdown'),
-    status: $('#statusMsg'),
-    roomState: $('#roomState'),
-    players: $('#playersList'),
-    btnBackLobby: $('#btnBackLobby'),
-    btnBackHub: $('#btnBackHub')
-  };
+  function qs(name, fallback = '') {
+    try {
+      return new URL(location.href).searchParams.get(name) || fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
 
   function now() {
     return Date.now();
   }
 
-  function num(v, d = 0) {
-    v = Number(v);
-    return Number.isFinite(v) ? v : d;
-  }
-
   function cleanRoom(v) {
-    return String(v || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
+    return String(v || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9-]/g, '')
+      .slice(0, 16);
   }
 
-  function cleanName(v, fallback = 'ผู้เล่น') {
-    const s = String(v || '').replace(/[^\wก-๙ _-]/g, '').trim().slice(0, 24);
+  function cleanName(v, fallback = 'Hero') {
+    const s = String(v || '')
+      .replace(/[^\wก-๙ _-]/g, '')
+      .trim()
+      .slice(0, 24);
+
     return s || fallback;
   }
 
-  function setText(node, text) {
-    if (node) node.textContent = text;
-  }
-
-  function setStatus(text) {
-    console.log('[Groups Race Run]', text);
-    setText(el.status, text);
-  }
-
-  function setRoomState(text) {
-    setText(el.roomState, text);
-  }
-
-  function waitFirebaseReady(timeoutMs = 10000) {
-    return new Promise((resolve, reject) => {
-      const fb = window.HHA_FIREBASE;
-      if (fb && fb.ready && fb.auth && fb.db) {
-        resolve(fb);
-        return;
-      }
-
-      let done = false;
-      const timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error(window.HHA_FIREBASE?.error || 'Firebase not initialized'));
-      }, timeoutMs);
-
-      function onReady() {
-        if (done) return;
-        done = true;
-        cleanup();
-        resolve(window.HHA_FIREBASE);
-      }
-
-      function onError(e) {
-        if (done) return;
-        done = true;
-        cleanup();
-        reject(new Error(e?.detail?.message || window.HHA_FIREBASE?.error || 'Firebase init failed'));
-      }
-
-      function cleanup() {
-        clearTimeout(timer);
-        window.removeEventListener('hha:firebase-ready', onReady);
-        window.removeEventListener('hha:firebase-error', onError);
-      }
-
-      window.addEventListener('hha:firebase-ready', onReady, { once: true });
-      window.addEventListener('hha:firebase-error', onError, { once: true });
-    });
-  }
-
-  function buildHubUrl() {
-    return q.get('hub') || 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
-  }
-
-  function buildLobbyUrl() {
-    const u = new URL('./groups-race-lobby.html', location.href);
-    const keep = [
-      'hub', 'zone', 'game', 'run', 'view', 'seed', 'studyId', 'pid', 'entry'
-    ];
-    keep.forEach((k) => {
-      const v = q.get(k);
-      if (v) u.searchParams.set(k, v);
-    });
-    return u.toString();
-  }
-
-  function buildGameUrl(roomData) {
-    const u = new URL(ACTUAL_GAME_PAGE, location.href);
-
-    const keep = [
-      'hub', 'zone', 'game', 'run', 'view', 'seed', 'studyId', 'pid'
-    ];
-    keep.forEach((k) => {
-      const v = q.get(k);
-      if (v) u.searchParams.set(k, v);
-    });
-
-    const roomId = state.roomId;
-    const name = state.name;
-    const diff = roomData?.diff || q.get('diff') || 'normal';
-    const timeSec = num(roomData?.timeSec, num(q.get('timeSec'), num(q.get('time'), 60)));
-    const startAt = num(roomData?.startAt, state.startAt || now());
-
-    u.searchParams.set('mode', 'race');
-    u.searchParams.set('entry', 'race');
-    u.searchParams.set('roomId', roomId);
-    u.searchParams.set('room', roomId);
-    u.searchParams.set('name', name);
-    u.searchParams.set('nick', name);
-    u.searchParams.set('diff', diff);
-    u.searchParams.set('time', String(timeSec));
-    u.searchParams.set('timeSec', String(timeSec));
-    u.searchParams.set('startAt', String(startAt));
-
-    return u.toString();
-  }
-
-  function renderPlayers(playersObj) {
-    const players = Object.values(playersObj || {});
-    players.sort((a, b) => num(a.joinedAt) - num(b.joinedAt));
-
-    if (!el.players) return;
-
-    if (!players.length) {
-      el.players.innerHTML = `
-        <div class="player">
-          <div class="left">
-            <div class="avatar">👀</div>
-            <div>
-              <div class="name">ยังไม่มีผู้เล่น</div>
-              <div class="tag">รอข้อมูลจากห้องแข่ง</div>
-            </div>
-          </div>
-          <div class="right wait">รอ...</div>
-        </div>
-      `;
-      return;
-    }
-
-    el.players.innerHTML = players.map((p) => {
-      const isMe = p.uid && p.uid === state.uid;
-      const host = p.isHost ? ' • เจ้าของห้อง' : '';
-      const readyText = p.ready ? 'พร้อม' : 'รอ';
-      const readyClass = p.ready ? 'ok' : 'wait';
-      const avatar = isMe ? '🧑' : (p.isHost ? '👑' : '🎮');
-
-      return `
-        <div class="player">
-          <div class="left">
-            <div class="avatar">${avatar}</div>
-            <div>
-              <div class="name">${escapeHtml(p.name || 'Player')}${isMe ? ' (คุณ)' : ''}</div>
-              <div class="tag">${p.uid ? 'เชื่อมต่อแล้ว' : 'ไม่มี uid'}${host}</div>
-            </div>
-          </div>
-          <div class="right ${readyClass}">${readyText}</div>
-        </div>
-      `;
-    }).join('');
+  function n(v, fallback) {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : fallback;
   }
 
   function escapeHtml(s) {
@@ -208,195 +98,501 @@
       .replaceAll("'", '&#39;');
   }
 
-  function updateCountdown(msLeft) {
-    if (!el.countdown) return;
-
-    if (msLeft <= 0) {
-      el.countdown.textContent = 'GO!';
-      el.countdown.className = 'count go';
-      return;
-    }
-
-    const sec = Math.ceil(msLeft / 1000);
-
-    if (sec <= 3) {
-      el.countdown.textContent = String(sec);
-      el.countdown.className = 'count ready';
-    } else {
-      el.countdown.textContent = String(sec);
-      el.countdown.className = 'count wait';
-    }
+  function setText(id, text) {
+    const el = $(id);
+    if (el) el.textContent = String(text);
   }
 
-  function clearCountdownTimer() {
-    if (state.countdownTimer) {
-      clearInterval(state.countdownTimer);
-      state.countdownTimer = null;
-    }
+  function setStatus(text, kind = 'warn') {
+    const el = $('statusMsg');
+    if (!el) return;
+
+    el.textContent = String(text || '');
+    el.classList.remove('ok', 'warn', 'err');
+    el.classList.add(kind);
   }
 
-  function startCountdown(targetTime, roomData) {
-    state.startAt = num(targetTime, 0);
-    clearCountdownTimer();
+  function parseParams() {
+    state.roomId = cleanRoom(qs('roomId') || qs('room') || '');
+    state.name = cleanName(qs('name') || qs('nick') || localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || 'Hero');
+    state.diff = qs('diff', 'normal');
+    state.timeSec = n(qs('timeSec') || qs('time'), 90);
+    state.startAt = n(qs('startAt'), 0);
+    state.seed = qs('seed', '');
+    state.hub = qs('hub', HUB_PAGE);
+    state.view = qs('view', 'pc');
+    state.pid = qs('pid', 'anon');
+    state.studyId = qs('studyId', '');
+    state.conditionGroup = qs('conditionGroup', '');
 
-    if (!state.startAt) {
-      updateCountdown(999999);
-      setStatus('รอเจ้าของห้องเริ่มเกม...');
-      return;
+    if (state.name) {
+      localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', state.name);
     }
 
-    state.countdownTimer = setInterval(() => {
-      const left = state.startAt - now();
-      updateCountdown(left);
+    if (!state.roomId) {
+      goLobby('missing-room');
+      return false;
+    }
 
-      if (left > 0) {
-        setStatus(`กำลังจะเริ่มแข่งใน ${Math.ceil(left / 1000)} วินาที`);
-        return;
+    setText('metaRoom', state.roomId);
+    setText('metaName', state.name);
+
+    return true;
+  }
+
+  function makeLocalUid() {
+    const key = 'HHA_GROUPS_RACE_LOCAL_UID';
+    let uid = localStorage.getItem(key);
+
+    if (!uid) {
+      uid = `local-${Math.random().toString(36).slice(2, 10)}-${Date.now().toString(36)}`;
+      localStorage.setItem(key, uid);
+    }
+
+    return uid;
+  }
+
+  async function waitFirebaseReady(timeoutMs = 9000) {
+    if (WIN.HHA_FIREBASE && WIN.HHA_FIREBASE.ready && WIN.HHA_FIREBASE.db) {
+      return WIN.HHA_FIREBASE;
+    }
+
+    if (WIN.firebase && WIN.firebase.apps && WIN.firebase.apps.length && WIN.firebase.database) {
+      return {
+        ready: true,
+        auth: WIN.firebase.auth ? WIN.firebase.auth() : null,
+        db: WIN.firebase.database()
+      };
+    }
+
+    return new Promise((resolve, reject) => {
+      let done = false;
+
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error(WIN.HHA_FIREBASE?.error || 'Firebase not ready'));
+      }, timeoutMs);
+
+      function cleanup() {
+        clearTimeout(timer);
+        WIN.removeEventListener('hha:firebase-ready', onReady);
+        WIN.removeEventListener('hha:firebase-error', onError);
       }
 
-      clearCountdownTimer();
-      redirectToGame(roomData);
-    }, 100);
+      function onReady() {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(WIN.HHA_FIREBASE);
+      }
+
+      function onError(e) {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error(e?.detail?.message || WIN.HHA_FIREBASE?.error || 'Firebase init failed'));
+      }
+
+      WIN.addEventListener('hha:firebase-ready', onReady, { once: true });
+      WIN.addEventListener('hha:firebase-error', onError, { once: true });
+
+      if (WIN.HHA_FIREBASE && WIN.HHA_FIREBASE.ready && WIN.HHA_FIREBASE.db) {
+        onReady();
+      }
+    });
   }
 
-  function redirectToGame(roomData) {
-    if (state.redirecting) return;
-    state.redirecting = true;
+  async function connectFirebase() {
+    if (state.roomId === 'LOCAL') {
+      state.localOnly = true;
+      state.uid = makeLocalUid();
+      state.connected = false;
 
-    setStatus('กำลังเข้าเกม...');
-    updateCountdown(0);
+      setStatus('โหมดทดสอบ LOCAL: จะเข้าเกมคนเดียว ไม่ใช่ Race multiplayer จริง', 'warn');
 
-    const url = buildGameUrl(roomData);
-    setTimeout(() => {
-      location.href = url;
-    }, 180);
-  }
+      state.players = {
+        [state.uid]: {
+          uid: state.uid,
+          name: state.name,
+          ready: true,
+          connected: true,
+          host: true,
+          local: true,
+          updatedAt: now()
+        }
+      };
 
-  async function markPresence(roomId) {
+      renderPlayers();
+      renderRoomState({
+        status: 'local-test',
+        startAt: state.startAt || now() + 1500
+      });
+
+      if (!state.startAt) state.startAt = now() + 1500;
+
+      return;
+    }
+
     try {
+      setStatus('กำลังเชื่อมต่อ Firebase...', 'warn');
+
       const fb = await waitFirebaseReady();
-      const uid = fb.auth.currentUser?.uid || window.HHA_FIREBASE?.uid || '';
-      if (!uid) return;
 
-      const name = state.name;
-      const playerRef = fb.db.ref(`${ROOM_ROOT}/${roomId}/players/${uid}`);
+      state.firebase = fb;
+      state.db = fb.db;
+      state.auth = fb.auth || null;
 
-      await playerRef.update({
-        uid,
-        name,
+      if (!state.db) throw new Error('Firebase database unavailable');
+
+      if (state.auth && !state.auth.currentUser && typeof state.auth.signInAnonymously === 'function') {
+        try {
+          await state.auth.signInAnonymously();
+        } catch (e) {
+          console.warn('[Groups Race Run] Anonymous auth failed, continue with local uid', e);
+        }
+      }
+
+      state.uid =
+        state.auth?.currentUser?.uid ||
+        WIN.HHA_FIREBASE?.uid ||
+        makeLocalUid();
+
+      state.roomRef = state.db.ref(`${ROOM_ROOT}/${state.roomId}`);
+      state.playersRef = state.db.ref(`${ROOM_ROOT}/${state.roomId}/players`);
+
+      await state.roomRef.child(`players/${state.uid}`).update({
+        uid: state.uid,
+        name: state.name,
         ready: true,
+        connected: true,
+        inRun: true,
+        page: 'groups-race-run',
         updatedAt: now()
       });
 
       try {
-        playerRef.child('connected').onDisconnect().set(false);
-        playerRef.child('updatedAt').onDisconnect().set(now());
-      } catch (_) {}
+        state.roomRef.child(`players/${state.uid}/connected`).onDisconnect().set(false);
+        state.roomRef.child(`players/${state.uid}/updatedAt`).onDisconnect().set(now());
+      } catch (e) {}
 
-      await playerRef.child('connected').set(true);
+      state.roomOff = state.roomRef.on('value', snap => {
+        const room = snap.val() || {};
+        state.lastRoom = room;
+
+        if (room.startAt) state.startAt = Number(room.startAt) || state.startAt;
+        if (room.seed && !state.seed) state.seed = room.seed;
+        if (room.diff && !qs('diff')) state.diff = room.diff;
+        if (room.timeSec && !qs('timeSec') && !qs('time')) state.timeSec = Number(room.timeSec) || state.timeSec;
+
+        renderRoomState(room);
+      });
+
+      state.playersOff = state.playersRef.on('value', snap => {
+        state.players = snap.val() || {};
+        renderPlayers();
+      });
+
+      state.connected = true;
+      setStatus('เชื่อมต่อแล้ว • รอเจ้าของห้องเริ่มแข่ง', 'ok');
     } catch (err) {
-      console.warn('[Groups Race Run] markPresence failed', err);
+      console.warn('[Groups Race Run] Firebase connection failed:', err);
+
+      state.connected = false;
+      state.uid = makeLocalUid();
+
+      setStatus('เชื่อมต่อห้องไม่สำเร็จ กรุณากลับ Lobby แล้วเข้าใหม่', 'err');
+
+      state.players = {
+        [state.uid]: {
+          uid: state.uid,
+          name: state.name,
+          ready: true,
+          connected: false,
+          error: true,
+          updatedAt: now()
+        }
+      };
+
+      renderPlayers();
     }
   }
 
-  async function attachRoom(roomId) {
-    const fb = await waitFirebaseReady();
-    const ref = fb.db.ref(`${ROOM_ROOT}/${roomId}`);
-    state.roomRef = ref;
+  function renderRoomState(room) {
+    const players = Object.values(state.players || {});
+    const connectedPlayers = players.filter(p => p && p.connected !== false);
+    const readyPlayers = connectedPlayers.filter(p => p.ready !== false);
+    const count = connectedPlayers.length;
 
-    state.roomOff = (snap) => {
-      const room = snap.val();
-      state.lastRoom = room || null;
+    const roomStatus = room && room.status ? room.status : 'waiting';
 
-      if (!room) {
-        setRoomState('ไม่พบห้อง');
-        setStatus('ไม่พบข้อมูลห้องนี้');
-        return;
-      }
+    let text = '';
 
-      renderPlayers(room.players || {});
-      setText(el.metaRoom, room.roomId || roomId);
+    if (state.roomId === 'LOCAL') {
+      text = 'LOCAL Test Mode: เล่นทดสอบคนเดียว ระบบจะเข้าเกมอัตโนมัติ';
+    } else if (!state.connected) {
+      text = 'ยังไม่เชื่อมต่อห้อง Race';
+    } else if (state.startAt) {
+      text = `เริ่มแข่งพร้อมกันแล้ว • ผู้เล่น ${count} คน`;
+    } else if (count < 2) {
+      text = `รอผู้เล่นอย่างน้อย 2 คน • ตอนนี้มี ${count} คน`;
+    } else {
+      text = `พร้อมแข่ง • ผู้เล่น ${count} คน • รอเจ้าของห้องกดเริ่ม`;
+    }
 
-      const players = Object.values(room.players || {});
-      const readyCount = players.filter(p => p.ready).length;
-      const started = room.status === 'starting' || room.status === 'started' || room.status === 'running';
+    if (roomStatus === 'started' && !state.startAt) {
+      state.startAt = now() + 1200;
+    }
 
-      if (room.status === 'lobby') {
-        setRoomState(`รอเริ่ม • ${players.length} คน • พร้อม ${readyCount}`);
-        setStatus('รอเจ้าของห้องกดเริ่มแข่ง...');
-        updateCountdown(999999);
-        return;
-      }
-
-      if (started) {
-        const startAt = num(room.startAt, num(q.get('startAt'), 0));
-        setRoomState(`กำลังเริ่ม • ${players.length} คน`);
-        startCountdown(startAt, room);
-        return;
-      }
-
-      if (room.status === 'ended') {
-        setRoomState('แข่งจบแล้ว');
-        setStatus('ห้องนี้จบการแข่งขันแล้ว');
-        updateCountdown(999999);
-        return;
-      }
-
-      setRoomState(room.status || 'ไม่ทราบสถานะ');
-      setStatus('กำลังติดตามสถานะห้อง...');
-    };
-
-    ref.on('value', state.roomOff);
+    setText('roomState', text);
   }
 
-  function bindButtons() {
-    if (el.btnBackHub) {
-      el.btnBackHub.addEventListener('click', () => {
-        location.href = buildHubUrl();
+  function renderPlayers() {
+    const box = $('playersList');
+    if (!box) return;
+
+    const players = Object.values(state.players || {})
+      .filter(Boolean)
+      .sort((a, b) => {
+        if (a.host && !b.host) return -1;
+        if (!a.host && b.host) return 1;
+        return String(a.name || '').localeCompare(String(b.name || ''));
       });
-    }
 
-    if (el.btnBackLobby) {
-      el.btnBackLobby.addEventListener('click', () => {
-        location.href = buildLobbyUrl();
-      });
-    }
-  }
-
-  async function boot() {
-    bindButtons();
-
-    state.roomId = cleanRoom(q.get('roomId') || q.get('room'));
-    state.name = cleanName(q.get('name') || q.get('nick') || localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || 'ผู้เล่น');
-    setText(el.metaRoom, state.roomId || '-');
-    setText(el.metaName, state.name || '-');
-
-    if (!state.roomId) {
-      setRoomState('ไม่มี room');
-      setStatus('ไม่พบรหัสห้อง');
-      setText(el.countdown, 'ERR');
+    if (!players.length) {
+      box.innerHTML = `
+        <div class="player">
+          <div class="left">
+            <div class="avatar">👀</div>
+            <div>
+              <div class="name">ยังไม่มีผู้เล่น</div>
+              <div class="tag">รอข้อมูลจากห้อง</div>
+            </div>
+          </div>
+          <div class="right wait">รอ...</div>
+        </div>
+      `;
       return;
     }
 
-    try {
-      setStatus('กำลังเชื่อมต่อ Firebase...');
-      const fb = await waitFirebaseReady();
-      state.uid = fb.auth.currentUser?.uid || window.HHA_FIREBASE?.uid || '';
-      await markPresence(state.roomId);
-      await attachRoom(state.roomId);
-      setStatus('เชื่อมต่อสำเร็จ กำลังรอสถานะห้อง...');
-    } catch (err) {
-      console.error(err);
-      setRoomState('เชื่อมต่อไม่สำเร็จ');
-      setStatus(`เชื่อมต่อไม่สำเร็จ: ${err?.message || err}`);
-      setText(el.countdown, 'ERR');
-    }
+    box.innerHTML = players.map((p, index) => {
+      const isMe = p.uid === state.uid;
+      const name = escapeHtml(p.name || `Player ${index + 1}`);
+      const host = p.host ? ' • Host' : '';
+      const me = isMe ? ' • คุณ' : '';
+      const connected = p.connected !== false;
+
+      return `
+        <div class="player">
+          <div class="left">
+            <div class="avatar">${p.host ? '👑' : connected ? '🏃' : '💤'}</div>
+            <div>
+              <div class="name">${name}</div>
+              <div class="tag">${connected ? 'พร้อมในห้อง' : 'หลุดการเชื่อมต่อ'}${host}${me}</div>
+            </div>
+          </div>
+          <div class="right ${connected ? 'ok' : 'wait'}">${connected ? 'Ready' : 'Offline'}</div>
+        </div>
+      `;
+    }).join('');
   }
 
-  boot();
+  function updateCountdown() {
+    if (state.redirected) return;
 
-  window.GROUPS_RACE_RUN = {
-    buildGameUrl,
-    boot
-  };
+    const el = $('countdown');
+
+    if (!state.startAt) {
+      if (el) {
+        el.textContent = '...';
+        el.className = 'count wait';
+      }
+      return;
+    }
+
+    const msLeft = state.startAt - now();
+    const secLeft = Math.ceil(msLeft / 1000);
+
+    if (msLeft > 0) {
+      if (el) {
+        el.textContent = String(secLeft);
+        el.className = secLeft <= 3 ? 'count ready' : 'count wait';
+      }
+
+      setStatus(
+        state.roomId === 'LOCAL'
+          ? 'LOCAL Test: กำลังนับถอยหลังเข้าเกม'
+          : 'Race พร้อมแล้ว • กำลังนับถอยหลังเข้าเกมพร้อมกัน',
+        'ok'
+      );
+
+      return;
+    }
+
+    if (el) {
+      el.textContent = 'GO!';
+      el.className = 'count go';
+    }
+
+    redirectToGame();
+  }
+
+  function buildGameUrl() {
+    const u = new URL(ACTUAL_GAME_PAGE, location.href);
+
+    const roomId = state.roomId || qs('roomId') || qs('room') || '';
+    const name = state.name || qs('name') || qs('nick') || 'Hero';
+
+    u.searchParams.set('from', 'race-run');
+    u.searchParams.set('mode', 'race');
+    u.searchParams.set('roomId', roomId);
+    u.searchParams.set('room', roomId);
+    u.searchParams.set('name', name);
+
+    u.searchParams.set('diff', state.diff || qs('diff', 'normal'));
+    u.searchParams.set('time', String(state.timeSec || qs('time', qs('timeSec', '90'))));
+    u.searchParams.set('timeSec', String(state.timeSec || qs('timeSec', qs('time', '90'))));
+
+    u.searchParams.set('startAt', String(state.startAt || now() + 1200));
+    u.searchParams.set('seed', state.seed || qs('seed', roomId + '-' + Date.now()));
+
+    ['pid', 'view', 'hub', 'zone', 'game', 'studyId', 'conditionGroup'].forEach(k => {
+      const v = state[k] || qs(k, '');
+      if (v) u.searchParams.set(k, v);
+    });
+
+    return u.toString();
+  }
+
+  function redirectToGame() {
+    if (state.redirected) return;
+
+    state.redirected = true;
+    setStatus('GO! กำลังเข้าเกม Race...', 'ok');
+
+    try {
+      if (state.roomRef && state.uid) {
+        state.roomRef.child(`players/${state.uid}`).update({
+          inRun: false,
+          inGame: true,
+          page: 'groups-race',
+          updatedAt: now()
+        });
+      }
+    } catch (e) {}
+
+    setTimeout(() => {
+      location.href = buildGameUrl();
+    }, 350);
+  }
+
+  function goLobby(reason = '') {
+    const u = new URL(LOBBY_PAGE, location.href);
+
+    ['pid', 'name', 'diff', 'time', 'timeSec', 'view', 'hub', 'zone', 'game', 'studyId', 'conditionGroup'].forEach(k => {
+      const v = qs(k, '');
+      if (v) u.searchParams.set(k, v);
+    });
+
+    if (state.roomId) {
+      u.searchParams.set('room', state.roomId);
+      u.searchParams.set('roomId', state.roomId);
+    }
+
+    if (state.name) u.searchParams.set('name', state.name);
+    if (reason) u.searchParams.set('reason', reason);
+
+    location.href = u.toString();
+  }
+
+  function goHub() {
+    location.href = state.hub || qs('hub', HUB_PAGE);
+  }
+
+  function bindButtons() {
+    $('btnBackLobby')?.addEventListener('click', () => goLobby('back-from-run'));
+    $('btnBackHub')?.addEventListener('click', goHub);
+  }
+
+  function heartbeat() {
+    if (!state.roomRef || !state.uid || state.localOnly) return;
+
+    try {
+      state.roomRef.child(`players/${state.uid}`).update({
+        connected: true,
+        inRun: true,
+        page: 'groups-race-run',
+        updatedAt: now()
+      });
+    } catch (e) {}
+  }
+
+  function startTimers() {
+    clearInterval(state.countdownTimer);
+    state.countdownTimer = setInterval(updateCountdown, 250);
+
+    clearInterval(state.heartbeatTimer);
+    state.heartbeatTimer = setInterval(heartbeat, 5000);
+
+    updateCountdown();
+  }
+
+  function cleanup() {
+    clearInterval(state.countdownTimer);
+    clearInterval(state.heartbeatTimer);
+
+    try {
+      if (state.playersRef && state.playersOff) {
+        state.playersRef.off('value', state.playersOff);
+      }
+
+      if (state.roomRef && state.roomOff) {
+        state.roomRef.off('value', state.roomOff);
+      }
+    } catch (e) {}
+  }
+
+  async function init() {
+    console.info('[Groups Race Run] installed', VERSION);
+
+    if (!parseParams()) return;
+
+    bindButtons();
+
+    setText('metaRoom', state.roomId);
+    setText('metaName', state.name);
+    setText('countdown', '...');
+
+    setStatus('กำลังเตรียมห้อง Race...', 'warn');
+
+    await connectFirebase();
+
+    startTimers();
+
+    WIN.HHA_GROUPS_RACE_RUN = {
+      version: VERSION,
+      buildGameUrl,
+      redirectToGame,
+      getState: () => ({
+        version: VERSION,
+        roomId: state.roomId,
+        name: state.name,
+        uid: state.uid,
+        connected: state.connected,
+        localOnly: state.localOnly,
+        startAt: state.startAt,
+        players: state.players,
+        gameUrl: buildGameUrl()
+      })
+    };
+  }
+
+  WIN.addEventListener('beforeunload', cleanup);
+
+  if (DOC.readyState === 'loading') {
+    DOC.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
