@@ -6,7 +6,7 @@
   - Prevent Lobby from auto-entering old/ended Battle matches
   - Prevent redirect to run when room has finalSummary or status ended
   - Clear stale countdown/started state when the match is already ended
-  - Keep Battle 1v1 room stable after summary/rematch/return lobby
+  - Keep Battle 1v1 room stable after summary/return lobby
 */
 
 (function(){
@@ -52,7 +52,7 @@
         .replace(/^BT/i,'')
         .replace(/^-/, '');
     }
-    return s.slice(0,15);
+    return s.slice(0,24);
   }
 
   function readContext(){
@@ -166,12 +166,6 @@
       });
   }
 
-  function isMeInRoom(room){
-    readContext();
-    return !!room?.players?.[safeKey(guard.pid)] ||
-      playersArray(room).some(p => p.pid === guard.pid);
-  }
-
   function isEndedRoom(room){
     return !!room?.finalSummary ||
       room?.status === 'ended' ||
@@ -189,7 +183,6 @@
     const updatedAt = Number(room.updatedAt || room.startedAt || room.countdownAt || 0);
     if (!updatedAt) return false;
 
-    // ถ้า countdown/started ค้างนานเกิน 12 นาที ให้ถือว่า stale
     return now() - updatedAt > 12 * 60 * 1000;
   }
 
@@ -214,56 +207,6 @@
     if (el) el.textContent = text;
   }
 
-  function blockOldRedirectFunctions(){
-    /*
-      สำคัญ:
-      เราไม่รู้ชื่อ function redirect ของไฟล์หลักทั้งหมด
-      จึงกันผ่าน wrapper ของ location.assign/replace เฉพาะเคสไป battle run จาก ended/finalSummary
-    */
-    if (window.__GJ_BT_LOCATION_GUARD_INSTALLED__) return;
-    window.__GJ_BT_LOCATION_GUARD_INSTALLED__ = true;
-
-    const rawAssign = window.location.assign.bind(window.location);
-    const rawReplace = window.location.replace.bind(window.location);
-
-    function shouldBlockUrl(url){
-      try{
-        const u = new URL(url, location.href);
-        const path = u.pathname || '';
-
-        if (!/goodjunk-vr-battle\.html|goodjunk-battle-run\.html/i.test(path)){
-          return false;
-        }
-
-        return guard.redirectLocked;
-      }catch(_){
-        return false;
-      }
-    }
-
-    try{
-      window.location.assign = function(url){
-        if (shouldBlockUrl(url)){
-          console.warn('[GJ Battle Lobby Guard] blocked stale redirect:', url);
-          showGuardToast('ห้องนี้จบแล้ว ไม่เข้าเกมเก่าอัตโนมัติ');
-          return;
-        }
-        return rawAssign(url);
-      };
-    }catch(_){}
-
-    try{
-      window.location.replace = function(url){
-        if (shouldBlockUrl(url)){
-          console.warn('[GJ Battle Lobby Guard] blocked stale replace:', url);
-          showGuardToast('ห้องนี้จบแล้ว ไม่เข้าเกมเก่าอัตโนมัติ');
-          return;
-        }
-        return rawReplace(url);
-      };
-    }catch(_){}
-  }
-
   async function repairEndedRoomIfNeeded(room){
     if (!room || !guard.room) return;
 
@@ -283,7 +226,6 @@
     try{
       const db = await ensureDb();
 
-      // เคลียร์เฉพาะสถานะที่จะลากเข้า run เอง ห้ามลบ players
       const patch = {
         updatedAt: now()
       };
@@ -318,7 +260,6 @@
         return;
       }
 
-      // ถ้าเป็นห้องใหม่ปกติให้ปลด redirect lock
       guard.redirectLocked = false;
 
     }catch(err){
@@ -355,7 +296,6 @@
       document.querySelector('[data-note]');
 
     if (!note) return;
-
     if (document.getElementById('battleStateGuardHint')) return;
 
     const div = document.createElement('div');
@@ -373,7 +313,6 @@
     guard.installed = true;
 
     readContext();
-    blockOldRedirectFunctions();
     addCreateNewRoomHint();
 
     inspectRoomOnce();
