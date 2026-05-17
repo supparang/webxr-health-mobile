@@ -12,13 +12,13 @@
   <title>HeroHealth • Hydration Run</title>
 
   <link rel="icon" href="../favicon.ico" />
-  <link rel="stylesheet" href="./hydration-vr.css?v=20260515-pack16" />
-  <link rel="stylesheet" href="./hydration-vr.mode-patch.css?v=20260516-pack21" />
+  <link rel="stylesheet" href="./hydration-vr.css?v=20260517-pack22" />
+  <link rel="stylesheet" href="./hydration-vr.mode-patch.css?v=20260517-pack22" />
 
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260515-hydration-shared-run-pack16
+    Version: v20260517-hydration-run-pack22-router-fix
 
     Purpose:
       Shared run engine for Hydration
@@ -27,18 +27,11 @@
       mode = solo / duet / race / battle / coop
       view = pc / mobile / cvr
 
-    Multiplayer rule:
-      mode != solo ต้องผ่าน lobby.html ก่อน
-      ต้องมี mpReady=1 จึงเข้าเกมได้
-
-    Required:
-      /herohealth/hydration-vr/run.html
-      /herohealth/hydration-vr/hydration-vr.css
-      /herohealth/hydration-vr/hydration-vr.js
-      /herohealth/hydration-vr/hydration-vr.mode-patch.css
-      /herohealth/hydration-vr/hydration-vr.mode-patch.js
-      /herohealth/herohealth-logger.js
-      /herohealth/vr/vr-ui.js เฉพาะ view=cvr
+    Important:
+      - Solo เข้า run.html ได้เลย
+      - Multiplayer ต้องผ่าน lobby.html ก่อน
+      - Multiplayer ต้องมี mpReady=1 จึงเข้าเกมได้
+      - ถ้า mode=pc/mobile/cvr หลุดมา จะถูก normalize เป็น mode=solo + view=...
   -->
 </head>
 
@@ -80,33 +73,89 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260515-hydration-shared-run-pack16';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260517-hydration-run-pack22-router-fix';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
+      var VERSION = 'v20260517-hydration-run-pack22-router-fix';
+
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
 
       var u = new URL(location.href);
-      var view = u.searchParams.get('view') || 'mobile';
-      var mode = u.searchParams.get('mode') || 'solo';
 
-      if(!ALLOWED_VIEWS.includes(view)){
-        view = 'mobile';
+      function normalizeMode(v){
+        v = String(v || '').toLowerCase();
+
+        if(ALLOWED_MODES.includes(v)){
+          return v;
+        }
+
+        /*
+          กันลิงก์เก่า:
+          mode=pc/mobile/cvr คือ view ไม่ใช่ mode
+        */
+        if(ALLOWED_VIEWS.includes(v)){
+          return 'solo';
+        }
+
+        return 'solo';
       }
 
-      if(!ALLOWED_MODES.includes(mode)){
-        mode = 'solo';
+      function normalizeView(v){
+        v = String(v || '').toLowerCase();
+
+        if(ALLOWED_VIEWS.includes(v)){
+          return v;
+        }
+
+        /*
+          กันลิงก์เก่าที่ส่ง view=solo/duet/...
+        */
+        if(ALLOWED_MODES.includes(v)){
+          return 'mobile';
+        }
+
+        return 'mobile';
       }
+
+      function isMultiplayerMode(mode){
+        return ['duet','race','battle','coop'].includes(normalizeMode(mode));
+      }
+
+      var rawMode = u.searchParams.get('mode') || 'solo';
+      var rawView = u.searchParams.get('view') || 'mobile';
+
+      /*
+        Pack22:
+        ถ้า URL เก่าส่ง mode=pc/mobile/cvr
+        ให้ย้ายไปเป็น view และบังคับ mode=solo
+      */
+      if(ALLOWED_VIEWS.includes(String(rawMode).toLowerCase())){
+        rawView = rawMode;
+        rawMode = 'solo';
+      }
+
+      var mode = normalizeMode(rawMode);
+      var view = normalizeView(rawView);
+
+      /*
+        เขียนค่าที่ normalize แล้วกลับลง URL object เพื่อให้ context ต่อไปสะอาด
+      */
+      u.searchParams.set('mode', mode);
+      u.searchParams.set('view', view);
+      u.searchParams.set('zone', 'nutrition');
+      u.searchParams.set('game', 'hydration');
+      u.searchParams.set('run', u.searchParams.get('run') || 'play');
 
       /*
         Multiplayer safety gate:
         ถ้า mode ไม่ใช่ solo แต่ยังไม่มี mpReady=1
         ห้ามเข้า run ตรง ให้ย้อนกลับไป lobby.html
       */
-      if(mode !== 'solo' && u.searchParams.get('mpReady') !== '1'){
+      if(isMultiplayerMode(mode) && u.searchParams.get('mpReady') !== '1'){
         var lobby = new URL('./lobby.html', location.href);
 
         u.searchParams.forEach(function(value, key){
@@ -126,13 +175,27 @@
         return;
       }
 
+      /*
+        Solo ห้ามมีค่า multiplayer ค้าง
+      */
+      if(mode === 'solo'){
+        u.searchParams.delete('mp');
+        u.searchParams.delete('mpReady');
+        u.searchParams.delete('room');
+        u.searchParams.delete('roomId');
+        u.searchParams.delete('capacity');
+        u.searchParams.delete('players');
+        u.searchParams.delete('matchId');
+      }
+
       document.body.dataset.view = view;
       document.body.dataset.mode = mode;
+      document.body.dataset.hhaView = view;
 
       document.body.classList.add('hha-view-' + view);
       document.body.classList.add('hha-mode-' + mode);
 
-      if(mode !== 'solo'){
+      if(isMultiplayerMode(mode)){
         document.body.classList.add('hha-multiplayer');
       }
 
@@ -141,7 +204,7 @@
       }
 
       window.HHA_HYDRATION_RUN_CONTEXT = {
-        version: 'v20260515-hydration-shared-run-pack16',
+        version: VERSION,
         mode: mode,
         view: view,
         zone: 'nutrition',
@@ -154,7 +217,8 @@
         pid: u.searchParams.get('pid') || 'anon',
         name: u.searchParams.get('name') || u.searchParams.get('nick') || 'Hero',
         diff: u.searchParams.get('diff') || 'normal',
-        time: u.searchParams.get('time') || '90'
+        time: u.searchParams.get('time') || '90',
+        seed: u.searchParams.get('seed') || String(Date.now())
       };
 
       window.HHA_LOAD_SCRIPT = function(src){
@@ -172,7 +236,9 @@
 
       window.HHA_HYDRATION_SHOW_BOOT_ERROR = function(msg){
         var old = document.getElementById('hha-hydration-boot-error');
-        if(old) old.remove();
+        if(old){
+          try{ old.remove(); }catch(e){}
+        }
 
         var box = document.createElement('div');
         box.id = 'hha-hydration-boot-error';
@@ -297,7 +363,10 @@
           }
         });
 
+        hub.searchParams.set('mode', mode);
+        hub.searchParams.set('view', view);
         hub.searchParams.set('launcher','1');
+
         return hub.toString();
       };
 
@@ -307,7 +376,8 @@
         var hasStart =
           document.querySelector('.hha-hydration-start') ||
           document.querySelector('.hha-start') ||
-          document.querySelector('[data-hha-hydration-start]');
+          document.querySelector('[data-hha-hydration-start]') ||
+          document.querySelector('.hha-start-btn');
 
         var hasHud =
           document.querySelector('.hha-hydration-hud') ||
@@ -316,7 +386,8 @@
         var hasSummary =
           document.querySelector('.hha-hydration-summary') ||
           document.querySelector('#hha-hydration-summary') ||
-          document.querySelector('.hha-summary-card');
+          document.querySelector('.hha-summary-card') ||
+          document.querySelector('[data-hha-summary]');
 
         var hasTarget =
           document.querySelector('.hha-hydration-target');
@@ -326,22 +397,28 @@
         }
       }
 
-      HHA_LOAD_SCRIPT('../herohealth-logger.js?v=20260515-pack16')
+      HHA_LOAD_SCRIPT('../herohealth-logger.js?v=20260517-pack22')
         .catch(function(){
           /*
             logger โหลดไม่ได้ ไม่ให้เกมพัง
-            เพราะบางรอบทดสอบ local/preview อาจไม่มี logger
           */
         })
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260515-pack16');
+          return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260517-pack22');
         })
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260516-pack21');
+          return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260517-pack22');
+        })
+        .then(function(){
+          /*
+            hydration-modes.js เป็น optional layer สำหรับ multiplayer rule/sync
+            ไม่มีไฟล์นี้ก็ไม่ควรทำให้ solo พัง
+          */
+          return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22').catch(function(){});
         })
         .then(function(){
           if(view === 'cvr'){
-            return HHA_LOAD_SCRIPT('../vr/vr-ui.js?v=20260515-pack16').catch(function(){});
+            return HHA_LOAD_SCRIPT('../vr/vr-ui.js?v=20260517-pack22').catch(function(){});
           }
         })
         .then(function(){
