@@ -4,13 +4,107 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>HeroHealth • Groups Race</title>
+  <meta name="theme-color" content="#071a52" />
+
+  <script>
+    (function(){
+      'use strict';
+
+      const p = new URL(location.href).searchParams;
+      const roomId = (p.get('roomId') || p.get('room') || '').trim().toUpperCase();
+      const fromRun = p.get('from') === 'race-run' || p.get('startAt');
+
+      /*
+        Race multiplayer จริงไม่ควรเข้าเกมตรง ๆ โดยไม่มี roomId
+        ยกเว้นกรณีทดสอบที่ตั้ง roomId=LOCAL เอง
+      */
+      if(!roomId){
+        const u = new URL('./groups-race-lobby.html', location.href);
+
+        ['pid','name','diff','time','timeSec','view','hub','zone','game','studyId'].forEach(k=>{
+          const v = p.get(k);
+          if(v) u.searchParams.set(k,v);
+        });
+
+        u.searchParams.set('reason','missing-room');
+        location.replace(u.toString());
+        return;
+      }
+
+      window.HHA_GROUPS_RACE_BOOT = {
+        roomId,
+        isLocalTest: roomId === 'LOCAL',
+        fromRun,
+        bootAt: Date.now()
+      };
+    })();
+  </script>
+
+  <style>
+    html,body{
+      margin:0;
+      min-height:100%;
+      background:#071a52;
+    }
+
+    #gameMount{
+      min-height:100vh;
+    }
+
+    .race-boot-warning{
+      position:fixed;
+      left:50%;
+      top:12px;
+      transform:translateX(-50%);
+      z-index:2147483000;
+      width:min(720px,calc(100vw - 24px));
+      border-radius:999px;
+      padding:10px 16px;
+      background:rgba(255,245,202,.96);
+      color:#806000;
+      font:900 14px/1.25 system-ui,-apple-system,"Segoe UI",sans-serif;
+      text-align:center;
+      box-shadow:0 18px 48px rgba(0,0,0,.22);
+      pointer-events:none;
+    }
+
+    .race-boot-warning.ok{
+      background:rgba(245,255,241,.96);
+      color:#31724b;
+    }
+  </style>
 </head>
+
 <body>
   <div id="gameMount"></div>
 
+  <div id="raceBootWarning" class="race-boot-warning" hidden>
+    กำลังตรวจสอบ Race Room...
+  </div>
+
   <script type="module">
     import { bootNutritionShell } from '../shared/nutrition/nutrition-shell.js';
-    import { createGroupsRaceAdapter } from './groups.race.js?v=20260517-race-adapter-v1';
+    import { createGroupsRaceAdapter } from './groups.race.js?v=20260517-race-core-v2';
+
+    const boot = window.HHA_GROUPS_RACE_BOOT || {};
+    const warn = document.getElementById('raceBootWarning');
+
+    function showWarn(text, ok){
+      if(!warn) return;
+      warn.hidden = false;
+      warn.textContent = text;
+      warn.classList.toggle('ok', Boolean(ok));
+
+      if(ok){
+        setTimeout(()=>{ warn.hidden = true; }, 2800);
+      }
+    }
+
+    if(boot.isLocalTest){
+      showWarn('โหมดทดสอบ LOCAL: เล่นได้คนเดียว ยังไม่ใช่ Race multiplayer จริง', false);
+    }else{
+      showWarn('Race Room: ' + boot.roomId + ' • กำลังเชื่อมต่อผู้เล่นหลายคน...', true);
+    }
 
     bootNutritionShell({
       gameId: 'groups',
