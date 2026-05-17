@@ -3,9 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>Redirecting…</title>
+  <title>HeroHealth • GoodJunk Duet Run Redirect v2.0.1</title>
+  <meta name="theme-color" content="#b79cff" />
+  <link rel="icon" href="./favicon.ico" />
+
   <script>
     (function () {
+      'use strict';
+
       try {
         var src = new URL(location.href);
         var target = new URL('./goodjunk-duet-play.html', location.href);
@@ -14,7 +19,6 @@
           target.searchParams.set(k, v);
         });
 
-        // normalize common params
         var room =
           src.searchParams.get('room') ||
           src.searchParams.get('roomCode') ||
@@ -27,15 +31,112 @@
           target.searchParams.set('roomId', room);
         }
 
+        if (!target.searchParams.get('pid')) {
+          target.searchParams.set('pid', 'anon');
+        }
+
+        if (!target.searchParams.get('name')) {
+          target.searchParams.set('name', target.searchParams.get('nick') || 'Hero');
+        }
+
+        if (!target.searchParams.get('nick')) {
+          target.searchParams.set('nick', target.searchParams.get('name') || 'Hero');
+        }
+
+        if (!target.searchParams.get('diff')) {
+          target.searchParams.set('diff', 'normal');
+        }
+
+        if (!target.searchParams.get('time')) {
+          target.searchParams.set('time', '90');
+        }
+
+        if (!target.searchParams.get('view')) {
+          target.searchParams.set('view', target.searchParams.get('device') || 'mobile');
+        }
+
+        if (!target.searchParams.get('device')) {
+          target.searchParams.set('device', target.searchParams.get('view') || 'mobile');
+        }
+
         if (!target.searchParams.get('mode')) {
           target.searchParams.set('mode', 'duet');
         }
+
+        if (!target.searchParams.get('entry')) {
+          target.searchParams.set('entry', 'duet');
+        }
+
+        if (!target.searchParams.get('recommendedMode')) {
+          target.searchParams.set('recommendedMode', 'duet');
+        }
+
         if (!target.searchParams.get('game')) {
           target.searchParams.set('game', 'goodjunk');
         }
+
         if (!target.searchParams.get('gameId')) {
           target.searchParams.set('gameId', 'goodjunk');
         }
+
+        if (!target.searchParams.get('theme')) {
+          target.searchParams.set('theme', 'goodjunk');
+        }
+
+        if (!target.searchParams.get('zone')) {
+          target.searchParams.set('zone', 'nutrition');
+        }
+
+        if (!target.searchParams.get('cat')) {
+          target.searchParams.set('cat', 'nutrition');
+        }
+
+        if (!target.searchParams.get('multiplayer')) {
+          target.searchParams.set('multiplayer', '1');
+        }
+
+        if (!target.searchParams.get('capacity')) {
+          target.searchParams.set('capacity', '2');
+        }
+
+        if (!target.searchParams.get('maxPlayers')) {
+          target.searchParams.set('maxPlayers', '2');
+        }
+
+        if (!target.searchParams.get('hub')) {
+          target.searchParams.set('hub', '../nutrition-zone.html');
+        }
+
+        /*
+          Canonical back-to-mode page:
+          /herohealth/goodjunk-launcher.html
+
+          หน้า play ที่รับ param นี้ควรใช้ backModes / launcherUrl
+          เพื่อกลับไปหน้าเลือกทุกโหมด ไม่กลับ goodjunk-modes.html
+        */
+        var launcher = new URL('../goodjunk-launcher.html', location.href);
+
+        launcher.searchParams.set('pid', target.searchParams.get('pid') || 'anon');
+        launcher.searchParams.set('name', target.searchParams.get('name') || 'Hero');
+        launcher.searchParams.set('nick', target.searchParams.get('nick') || 'Hero');
+        launcher.searchParams.set('diff', target.searchParams.get('diff') || 'normal');
+        launcher.searchParams.set('time', target.searchParams.get('time') || '90');
+        launcher.searchParams.set('view', target.searchParams.get('view') || 'mobile');
+        launcher.searchParams.set('device', target.searchParams.get('device') || 'mobile');
+        launcher.searchParams.set('zone', 'nutrition');
+        launcher.searchParams.set('cat', 'nutrition');
+        launcher.searchParams.set('game', 'goodjunk');
+        launcher.searchParams.set('gameId', 'goodjunk');
+        launcher.searchParams.set('theme', 'goodjunk');
+        launcher.searchParams.set('mode', 'menu');
+        launcher.searchParams.set('entry', 'goodjunk-launcher');
+        launcher.searchParams.set('run', 'menu');
+        launcher.searchParams.set('hub', target.searchParams.get('hub') || '../nutrition-zone.html');
+        launcher.searchParams.set('v', '20260515-goodjunk-duet-run-back-to-launcher');
+
+        target.searchParams.set('backModes', launcher.toString());
+        target.searchParams.set('launcherUrl', launcher.toString());
+        target.searchParams.set('v', '20260515-duet-run-v201-back-launcher');
 
         if (src.hash) {
           target.hash = src.hash;
@@ -47,28 +148,92 @@
       }
     })();
   </script>
+
   <style>
+    :root{
+      --bg1:#f5f0ff;
+      --bg2:#fff7d8;
+      --panel:#fffef8;
+      --stroke:#b79cff;
+      --stroke2:#d7c7ff;
+      --text:#4a2c79;
+      --muted:#74648a;
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
     html,body{
       margin:0;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       display:grid;
       place-items:center;
-      background:linear-gradient(180deg,#dff4ff,#fff7d8);
-      color:#4d4a42;
+      background:
+        radial-gradient(circle at 12% 8%,#fff,transparent 22%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      color:var(--text);
     }
+
     .box{
-      padding:20px 24px;
-      border-radius:18px;
-      border:2px solid #bfe3f2;
-      background:#fffef8;
-      font-weight:900;
-      box-shadow:0 12px 30px rgba(86,155,194,.14);
+      width:min(92vw,520px);
+      padding:22px 24px;
+      border-radius:24px;
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,#fffef9,#fbf7ff);
+      font-weight:1000;
+      box-shadow:0 18px 44px rgba(90,60,150,.16);
       text-align:center;
+      display:grid;
+      gap:10px;
+    }
+
+    .icon{
+      width:76px;
+      height:76px;
+      border-radius:28px;
+      border:4px solid var(--stroke2);
+      display:grid;
+      place-items:center;
+      font-size:42px;
+      margin:0 auto;
+      background:#fff;
+    }
+
+    h1{
+      margin:0;
+      font-size:28px;
+      line-height:1.1;
+    }
+
+    p{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.55;
+    }
+
+    a{
+      color:inherit;
+      font-weight:1000;
     }
   </style>
 </head>
+
 <body>
-  <div class="box">กำลังพาไปหน้าเล่นคู่เวอร์ชันใหม่…</div>
+  <div class="box">
+    <div class="icon">🤝</div>
+    <h1>กำลังพาไปหน้าเล่นคู่...</h1>
+    <p>
+      Duet Run จะส่งต่อไปยัง <b>goodjunk-duet-play.html</b>
+      พร้อมค่า PID / ชื่อ / ห้อง / โหมด / ลิงก์กลับ GoodJunk Launcher
+    </p>
+    <p>
+      หากไม่เปลี่ยนหน้าอัตโนมัติ ให้กด
+      <a href="./goodjunk-duet-play.html">ไปหน้า Duet Play</a>
+    </p>
+  </div>
 </body>
 </html>
