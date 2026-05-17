@@ -3,15 +3,21 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Lobby v2.0.1</title>
+  <title>HeroHealth • GoodJunk Duet Lobby v2.1.0</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="./favicon.ico" />
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js?v=20260515-gj-duet-lobby-v210-real-room"></script>
 
   <style>
     :root{
       --bg1:#f5f0ff;
       --bg2:#fff7d8;
       --panel:#fffef9;
+      --panel2:#fbf7ff;
       --stroke:#b79cff;
       --stroke2:#d7c7ff;
       --text:#4a2c79;
@@ -19,6 +25,7 @@
       --warn:#ffd75a;
       --good:#7ed957;
       --blue:#58b7f5;
+      --red:#ff8d8d;
       --shadow:0 18px 44px rgba(90,60,150,.16);
       --sat:env(safe-area-inset-top,0px);
       --sar:env(safe-area-inset-right,0px);
@@ -43,8 +50,12 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
+    body{
+      overflow-x:hidden;
+    }
+
     .app{
-      width:min(96vw,980px);
+      width:min(96vw,1080px);
       margin:0 auto;
       min-height:100dvh;
       padding:
@@ -59,66 +70,196 @@
 
     .panel{
       border:4px solid var(--stroke);
-      background:linear-gradient(180deg,#fffef9,#fbf7ff);
+      background:linear-gradient(180deg,var(--panel),var(--panel2));
       border-radius:34px;
       box-shadow:var(--shadow);
       padding:22px;
       display:grid;
       gap:16px;
       text-align:center;
+      position:relative;
+      overflow:hidden;
+    }
+
+    .panel::before{
+      content:"";
+      position:absolute;
+      left:-90px;
+      top:-100px;
+      width:250px;
+      height:250px;
+      border-radius:999px;
+      background:rgba(183,156,255,.22);
+      filter:blur(6px);
+    }
+
+    .panel::after{
+      content:"";
+      position:absolute;
+      right:-90px;
+      bottom:-100px;
+      width:250px;
+      height:250px;
+      border-radius:999px;
+      background:rgba(255,215,90,.24);
+      filter:blur(6px);
+    }
+
+    .panel > *{
+      position:relative;
+      z-index:1;
     }
 
     .icon{
-      width:92px;
-      height:92px;
-      border-radius:32px;
+      width:96px;
+      height:96px;
+      border-radius:34px;
       border:4px solid var(--stroke2);
       background:linear-gradient(180deg,#fff,#e7ddff);
       display:grid;
       place-items:center;
-      font-size:52px;
+      font-size:54px;
       margin:0 auto;
+      box-shadow:0 14px 30px rgba(90,60,150,.12);
     }
 
     h1{
       margin:0;
-      font-size:clamp(36px,7vw,60px);
+      font-size:clamp(38px,7vw,64px);
       line-height:1;
       font-weight:1000;
+      letter-spacing:-.035em;
     }
 
     p{
-      margin:0;
+      margin:0 auto;
+      max-width:820px;
       color:var(--muted);
       font-size:16px;
       line-height:1.65;
       font-weight:900;
     }
 
-    .grid{
+    .metaLine{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:center;
+      gap:8px;
+    }
+
+    .pill{
+      min-height:34px;
+      border:3px solid var(--stroke2);
+      border-radius:999px;
+      background:#fff;
+      color:var(--text);
+      padding:6px 12px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:1000;
+      font-size:13px;
+      box-shadow:0 8px 18px rgba(90,60,150,.08);
+    }
+
+    .settings{
+      border:3px dashed var(--stroke2);
+      border-radius:26px;
+      background:rgba(255,255,255,.74);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .settingsTitle{
+      font-weight:1000;
+      font-size:18px;
+      color:var(--text);
+    }
+
+    .fields{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .fields.roomOnly{
+      grid-template-columns:1fr auto;
+      align-items:end;
+    }
+
+    .field{
+      display:grid;
+      gap:6px;
+      text-align:left;
+    }
+
+    .field label{
+      color:var(--muted);
+      font-size:12px;
+      font-weight:1000;
+      padding-left:4px;
+    }
+
+    .field input,
+    .field select{
+      min-height:46px;
+      border:3px solid var(--stroke2);
+      border-radius:18px;
+      background:#fff;
+      color:var(--text);
+      padding:8px 10px;
+      font-weight:1000;
+      text-align:center;
+      outline:none;
+      width:100%;
+    }
+
+    .field input:focus,
+    .field select:focus{
+      border-color:var(--stroke);
+      outline:4px solid rgba(183,156,255,.20);
+    }
+
+    .roleGrid{
       display:grid;
       grid-template-columns:repeat(3,1fr);
       gap:10px;
     }
 
-    .card{
+    .roleCard{
       border:3px solid var(--stroke2);
       background:#fff;
       border-radius:24px;
       padding:14px;
       font-weight:1000;
       line-height:1.5;
+      display:grid;
+      gap:5px;
+      min-height:100px;
+      place-items:center;
+      box-shadow:0 8px 18px rgba(90,60,150,.08);
+    }
+
+    .roleCard b{
+      font-size:18px;
+      color:var(--text);
+    }
+
+    .roleCard span{
+      color:var(--muted);
+      font-size:13px;
     }
 
     .actions{
       display:grid;
-      grid-template-columns:repeat(3,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:10px;
     }
 
     .btn{
-      min-height:56px;
-      border-radius:20px;
+      min-height:58px;
+      border-radius:22px;
       border:3px solid var(--stroke2);
       background:#fff;
       color:var(--text);
@@ -127,8 +268,28 @@
       align-items:center;
       justify-content:center;
       font-weight:1000;
-      padding:10px;
+      padding:10px 12px;
       text-align:center;
+      cursor:pointer;
+      box-shadow:0 12px 24px rgba(90,60,150,.10);
+      user-select:none;
+      font-size:15px;
+      font-family:inherit;
+    }
+
+    .btn:hover{
+      filter:brightness(1.04);
+      transform:translateY(-1px);
+    }
+
+    .btn:disabled,
+    .btn.disabled,
+    .btn[aria-disabled="true"]{
+      opacity:.45;
+      cursor:not-allowed;
+      pointer-events:none;
+      filter:grayscale(.25);
+      transform:none;
     }
 
     .btn.good{
@@ -137,97 +298,612 @@
       color:#173b0b;
     }
 
-    .btn.warn{
-      background:linear-gradient(180deg,#ffe785,#ffd75a);
-      border-color:#ffe08a;
-      color:#553900;
-    }
-
     .btn.info{
       background:linear-gradient(180deg,#9fe3ff,#58b7f5);
       border-color:#9fe3ff;
       color:#08374d;
     }
 
-    .notice{
-      border:3px dashed var(--stroke2);
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      border-color:#ffe08a;
+      color:#553900;
+    }
+
+    .btn.danger{
+      background:linear-gradient(180deg,#ffd1d1,#ff8d8d);
+      border-color:#ffc7c7;
+      color:#6d1e1e;
+    }
+
+    .roomBox{
+      display:none;
+      border:4px solid var(--stroke);
       background:#fff;
-      border-radius:24px;
-      padding:12px 14px;
+      border-radius:30px;
+      padding:16px;
+      box-shadow:0 12px 28px rgba(90,60,150,.10);
+      gap:14px;
+    }
+
+    .roomBox.show{
+      display:grid;
+    }
+
+    .roomTop{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:10px;
+      align-items:center;
+      text-align:left;
+    }
+
+    .roomTitle{
+      font-size:24px;
+      font-weight:1000;
+      color:var(--text);
+      line-height:1.15;
+    }
+
+    .roomSub{
       color:var(--muted);
+      font-weight:900;
+      font-size:13px;
+      line-height:1.45;
+      margin-top:4px;
+    }
+
+    .roomCode{
+      border:4px solid var(--stroke2);
+      border-radius:22px;
+      background:linear-gradient(180deg,#fff,#fbf7ff);
+      padding:10px 16px;
+      font-size:24px;
+      font-weight:1000;
+      color:var(--text);
+      letter-spacing:.02em;
+      text-align:center;
+      min-width:180px;
+    }
+
+    .players{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .player{
+      border:3px solid var(--stroke2);
+      border-radius:22px;
+      background:#fffef9;
+      padding:14px;
+      text-align:left;
+      font-weight:1000;
+      min-height:116px;
+      display:grid;
+      gap:8px;
+      align-content:start;
+    }
+
+    .player.offline{
+      opacity:.48;
+      filter:grayscale(.4);
+      border-style:dashed;
+    }
+
+    .player.empty{
+      opacity:.55;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      color:var(--muted);
+      background:#fff;
+    }
+
+    .player .name{
+      font-size:22px;
+      color:var(--text);
+      line-height:1.15;
+      word-break:break-word;
+    }
+
+    .player .role{
+      color:#6a4d9c;
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    .player .mini{
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    .notice{
+      border:3px solid rgba(183,156,255,.35);
+      background:#fffef9;
+      color:#6d5b82;
+      border-radius:22px;
+      padding:12px 14px;
       font-size:13px;
       line-height:1.55;
       font-weight:900;
     }
 
-    @media(max-width:720px){
-      .grid,
-      .actions{
+    .notice b{
+      color:var(--text);
+    }
+
+    .toast{
+      position:fixed;
+      top:calc(14px + var(--sat));
+      left:50%;
+      transform:translateX(-50%);
+      z-index:90;
+      display:none;
+      max-width:min(92vw,760px);
+      border:4px solid var(--stroke);
+      background:#fffef9;
+      color:var(--text);
+      border-radius:22px;
+      padding:12px 16px;
+      font-weight:1000;
+      box-shadow:0 18px 40px rgba(90,60,150,.18);
+      text-align:center;
+    }
+
+    .toast.show{
+      display:block;
+    }
+
+    .footer{
+      text-align:center;
+      color:#74648a;
+      font-size:12px;
+      font-weight:900;
+      line-height:1.5;
+    }
+
+    @media(max-width:900px){
+      .fields{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .fields.roomOnly{
         grid-template-columns:1fr;
+      }
+
+      .actions{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+      }
+
+      .roleGrid{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(max-width:640px){
+      .app{
+        width:min(98vw,720px);
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(14px + var(--sab))
+          calc(10px + var(--sal));
+        align-content:start;
       }
 
       .panel{
         padding:16px;
+      }
+
+      .icon{
+        width:82px;
+        height:82px;
+        border-radius:30px;
+        font-size:48px;
+      }
+
+      .fields,
+      .actions,
+      .players{
+        grid-template-columns:1fr;
+      }
+
+      .roomTop{
+        grid-template-columns:1fr;
+        text-align:center;
+      }
+
+      .roomCode{
+        min-width:0;
+        width:100%;
       }
     }
   </style>
 </head>
 
 <body>
+  <div id="toast" class="toast"></div>
+
   <main class="app">
     <section class="panel">
       <div class="icon">🤝</div>
 
-      <h1>GoodJunk Duet</h1>
-
-      <p>
-        Duet Lobby เป็นโครงทางเข้าโหมด 2 คนช่วยกัน ไม่เป็น dead link แล้ว
-        Gameplay เต็มจะต่อภายหลัง โดยเน้นแบ่งหน้าที่อัตโนมัติระหว่างผู้เล่น 2 คน
-      </p>
-
-      <div class="grid">
-        <div class="card">🍎 Player A: เก็บ Good</div>
-        <div class="card">🛡 Player B: กัน Junk</div>
-        <div class="card">🤝 Goal: คะแนนรวมทีม</div>
+      <div>
+        <h1>GoodJunk Duet v2.1.0</h1>
+        <p>
+          Duet เป็นโหมดเล่นคู่ 2 คน: ระบบแบ่งบทบาทอัตโนมัติเป็น Collector และ Guardian
+          ครบ 2 คนออนไลน์จริงแล้ว Host จึงเริ่มเกมได้
+        </p>
       </div>
+
+      <div class="metaLine">
+        <div class="pill">🤝 Duet 2 Players</div>
+        <div class="pill">🍎 Collector</div>
+        <div class="pill">🛡 Guardian</div>
+        <div class="pill">🎯 Team Score</div>
+      </div>
+
+      <section class="settings">
+        <div class="settingsTitle">⚙️ ตั้งค่าห้อง Duet</div>
+
+        <div class="fields">
+          <div class="field">
+            <label for="pid">PID</label>
+            <input id="pid" autocomplete="off" placeholder="anon" />
+          </div>
+
+          <div class="field">
+            <label for="name">ชื่อผู้เล่น</label>
+            <input id="name" autocomplete="nickname" placeholder="Hero" />
+          </div>
+
+          <div class="field">
+            <label for="diff">ระดับ</label>
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+              <option value="challenge">challenge</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="time">เวลา</label>
+            <select id="time">
+              <option value="60">60s</option>
+              <option value="90" selected>90s</option>
+              <option value="120">120s</option>
+              <option value="150">150s</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="view">มุมมอง</label>
+            <select id="view">
+              <option value="mobile">mobile</option>
+              <option value="pc">pc</option>
+              <option value="cardboard">cardboard</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="fields roomOnly">
+          <div class="field">
+            <label for="roomInput">Room Code</label>
+            <input id="roomInput" autocomplete="off" placeholder="GJ-DT-XXXXXX" />
+          </div>
+
+          <button id="btnRandomRoom" class="btn warn" type="button">🎲 สุ่ม Room</button>
+        </div>
+      </section>
+
+      <section class="roleGrid">
+        <div class="roleCard">
+          <b>🍎 Collector</b>
+          <span>เน้นเก็บ Good ให้ทีม</span>
+        </div>
+        <div class="roleCard">
+          <b>🛡 Guardian</b>
+          <span>ช่วยกัน junk / ลด miss</span>
+        </div>
+        <div class="roleCard">
+          <b>🤝 Team Goal</b>
+          <span>คะแนนและผลสรุปรวมเป็นทีม</span>
+        </div>
+      </section>
 
       <div class="actions">
+        <button id="btnCreate" class="btn good" type="button">🤝 สร้างห้อง Duet</button>
+        <button id="btnJoin" class="btn info" type="button">🔑 เข้าห้องเพื่อน</button>
         <a id="btnModes" class="btn warn" href="../goodjunk-launcher.html">🎮 โหมดทั้งหมด</a>
-        <a id="btnBattle" class="btn good" href="./goodjunk-battle-v2-lobby.html">⚔️ ไป Battle v2</a>
-        <a id="btnZone" class="btn info" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
+        <a id="btnZone" class="btn" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
       </div>
 
+      <section id="roomBox" class="roomBox">
+        <div class="roomTop">
+          <div>
+            <div class="roomTitle">🤝 ห้อง Duet พร้อมแล้ว</div>
+            <div id="roomSub" class="roomSub">สถานะ: lobby • ผู้เล่นออนไลน์ 0/2</div>
+          </div>
+          <div id="roomCode" class="roomCode">GJ-DT-----</div>
+        </div>
+
+        <div id="players" class="players"></div>
+
+        <div class="actions">
+          <button id="btnStart" class="btn good" type="button" disabled>▶ เริ่ม Duet</button>
+          <button id="btnCopy" class="btn info" type="button">📋 คัดลอก Room</button>
+          <button id="btnLeave" class="btn danger" type="button">ออกจากห้อง</button>
+          <a id="btnRunDirect" class="btn warn disabled" href="./goodjunk-duet-run.html" aria-disabled="true">รอ Host เริ่มก่อน</a>
+        </div>
+
+        <div class="notice">
+          <b>Duet Rule:</b> จำกัด 2 คน • คนแรกเป็น Collector • คนที่สองเป็น Guardian • Host กดเริ่มแล้วทั้ง 2 เครื่องเข้าเกมพร้อมกัน
+        </div>
+      </section>
+
       <div class="notice">
-        <b>v2.0.1:</b> ปุ่ม “โหมดทั้งหมด” กลับไป GoodJunk Launcher แล้ว ไม่ไป goodjunk-modes.html แล้ว
+        <b>v2.1.0:</b> ทำ Duet Lobby เป็นห้องจริงแล้ว • create/join room • assign role อัตโนมัติ • start พร้อมกัน • กลับ launcher ถูก
       </div>
     </section>
+
+    <div class="footer">
+      HeroHealth • GoodJunk Duet Lobby v2.1.0 • duetRooms • 2 players • Collector / Guardian
+    </div>
   </main>
 
   <script>
   (() => {
     'use strict';
 
-    window.HHA_GJ_DUET_LOBBY = 'v20260515-duet-lobby-v201-back-to-launcher';
+    window.HHA_GJ_DUET_LOBBY = 'v20260515-duet-lobby-v210-real-room';
+
+    const ROOM_ROOT = 'hha-battle/goodjunk/duetRooms';
+    const CAPACITY = 2;
+    const STALE_MS = 60000;
 
     const p = new URLSearchParams(location.search);
     const $ = id => document.getElementById(id);
+
+    let db = null;
+    let unsub = null;
+    let heartbeatTimer = null;
+    let currentRoom = '';
+    let currentRole = '';
+    let toastTimer = null;
+    let redirectingToRun = false;
 
     function qs(k,d=''){
       return p.get(k) ?? d;
     }
 
+    function now(){
+      return Date.now();
+    }
+
+    function clean(v,d=''){
+      const s = String(v ?? '').trim();
+      return s || d;
+    }
+
+    function safeKey(v){
+      return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'room';
+    }
+
+    function detectView(){
+      const ua = navigator.userAgent || '';
+      return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
+    }
+
+    function normalizeView(v){
+      const s = String(v || '').toLowerCase().trim();
+      if (['pc','desktop','computer'].includes(s)) return 'pc';
+      if (['mobile','phone','touch'].includes(s)) return 'mobile';
+      if (['cardboard','cvr','vr'].includes(s)) return 'cardboard';
+      return detectView();
+    }
+
+    function makePid(){
+      const key = 'HHA_GJ_DUET_PID';
+      try{
+        let pid = localStorage.getItem(key);
+        if (!pid){
+          pid = 'gj-dt-' + Math.random().toString(36).slice(2,8).toUpperCase();
+          localStorage.setItem(key,pid);
+        }
+        return pid;
+      }catch(_){
+        return 'gj-dt-' + Math.random().toString(36).slice(2,8).toUpperCase();
+      }
+    }
+
+    function makeRoom(){
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let out = 'GJ-DT-';
+      for (let i=0;i<6;i++){
+        out += chars[Math.floor(Math.random()*chars.length)];
+      }
+      return out;
+    }
+
+    function normalizeRoom(v){
+      let s = String(v || '').trim().toUpperCase();
+      s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
+      if (!s) return '';
+      if (!s.startsWith('GJ-DT-')){
+        s = 'GJ-DT-' + s
+          .replace(/^GJ-DT/i,'')
+          .replace(/^GJDT/i,'')
+          .replace(/^DT/i,'')
+          .replace(/^-/, '');
+      }
+      return s.slice(0,15);
+    }
+
+    function getPid(){
+      return clean($('pid').value,'anon');
+    }
+
+    function getName(){
+      return clean($('name').value,'Hero');
+    }
+
+    function getDiff(){
+      return clean($('diff').value,'normal');
+    }
+
+    function getTime(){
+      return Number(clean($('time').value,'90')) || 90;
+    }
+
+    function getView(){
+      return normalizeView($('view').value || qs('view', qs('device', detectView())));
+    }
+
+    function getHub(){
+      return clean(qs('hub',''), new URL('../nutrition-zone.html', location.href).toString());
+    }
+
+    function showToast(text,ms=1800){
+      const el = $('toast');
+      el.textContent = text;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    async function firebaseReady(){
+      if (window.HHA_FIREBASE_READY){
+        const fb = await window.HHA_FIREBASE_READY;
+        if (fb && fb.db){
+          db = fb.db;
+          return fb;
+        }
+      }
+
+      if (window.firebase && firebase.apps && firebase.apps.length){
+        try{
+          if (firebase.auth && !firebase.auth().currentUser){
+            await firebase.auth().signInAnonymously().catch(() => {});
+          }
+        }catch(_){}
+
+        db = firebase.database();
+        return { db };
+      }
+
+      throw new Error('Firebase DB not ready');
+    }
+
+    async function ensureFirebase(){
+      if (db) return;
+      await firebaseReady();
+    }
+
+    function roomPath(room=currentRoom){
+      return `${ROOM_ROOT}/${safeKey(room)}`;
+    }
+
+    function playerPath(room=currentRoom,pid=getPid()){
+      return `${roomPath(room)}/players/${safeKey(pid)}`;
+    }
+
+    async function dbGet(path){
+      const snap = await db.ref(path).get();
+      return snap && snap.val ? snap.val() : null;
+    }
+
+    async function dbSet(path,val){
+      await db.ref(path).set(val);
+      return val;
+    }
+
+    async function dbUpdate(path,val){
+      await db.ref(path).update(val);
+      return val;
+    }
+
+    function dbOn(path,cb){
+      const ref = db.ref(path);
+      const fn = snap => cb(snap && snap.val ? snap.val() : null);
+      ref.on('value',fn);
+      return () => {
+        try{ ref.off('value',fn); }catch(_){}
+      };
+    }
+
+    function playersArray(roomData){
+      return Object.values(roomData?.players || {})
+        .filter(Boolean)
+        .sort((a,b) => {
+          const sa = Number(a.seat || 99);
+          const sb = Number(b.seat || 99);
+          if (sa !== sb) return sa - sb;
+          return Number(a.joinedAt || 0) - Number(b.joinedAt || 0);
+        });
+    }
+
+    function isStale(pl){
+      const last = Number(pl?.lastSeenAt || pl?.updatedAt || 0);
+      if (!last) return false;
+      return now() - last > STALE_MS || !!pl.offline;
+    }
+
+    function activePlayersArray(roomData){
+      return playersArray(roomData).filter(pl => !isStale(pl));
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
+    }
+
+    function roleLabel(role){
+      if (role === 'collector') return '🍎 Collector';
+      if (role === 'guardian') return '🛡 Guardian';
+      if (role === 'host') return '👑 Host';
+      return '🤝 Partner';
+    }
+
+    function assignRole(roomData, pid){
+      const players = playersArray(roomData);
+      const existing = players.find(p => p.pid === pid);
+      if (existing && existing.role) return existing.role;
+
+      const hasCollector = players.some(p => p.role === 'collector');
+      const hasGuardian = players.some(p => p.role === 'guardian');
+
+      if (!hasCollector) return 'collector';
+      if (!hasGuardian) return 'guardian';
+      return 'guardian';
+    }
+
+    function seatForRole(role){
+      return role === 'collector' ? 1 : 2;
+    }
+
+    function runFile(){
+      return './goodjunk-duet-run.html';
+    }
+
     function pass(path, extra={}){
       const u = new URL(path, location.href);
 
-      const base = {
-        pid:qs('pid','anon'),
-        name:qs('name',qs('nick','Hero')),
-        nick:qs('nick',qs('name','Hero')),
-        diff:qs('diff','normal'),
-        time:qs('time','90'),
-        view:qs('view','mobile'),
-        device:qs('device',qs('view','mobile')),
-        hub:qs('hub','../nutrition-zone.html'),
+      const obj = {
+        pid:getPid(),
+        name:getName(),
+        nick:getName(),
+        diff:getDiff(),
+        time:String(getTime()),
+        view:getView(),
+        device:getView(),
+        run:'play',
         zone:'nutrition',
         cat:'nutrition',
         game:'goodjunk',
@@ -237,13 +913,19 @@
         entry:'duet',
         recommendedMode:'duet',
         multiplayer:'1',
-        capacity:'2',
-        maxPlayers:'2',
-        v:'20260515-duet-back-launcher',
+        capacity:String(CAPACITY),
+        maxPlayers:String(CAPACITY),
+        hub:getHub(),
+        room:currentRoom,
+        roomCode:currentRoom,
+        roomId:currentRoom,
+        role:currentRole || 'partner',
+        roleKey:currentRole || 'partner',
+        v:'20260515-duet-v210-real-room',
         ...extra
       };
 
-      Object.entries(base).forEach(([k,v]) => {
+      Object.entries(obj).forEach(([k,v]) => {
         if (v !== undefined && v !== null && String(v) !== ''){
           u.searchParams.set(k,String(v));
         }
@@ -255,13 +937,13 @@
     function buildLauncherUrl(){
       const u = new URL('../goodjunk-launcher.html', location.href);
 
-      u.searchParams.set('pid', qs('pid','anon'));
-      u.searchParams.set('name', qs('name',qs('nick','Hero')));
-      u.searchParams.set('nick', qs('nick',qs('name','Hero')));
-      u.searchParams.set('diff', qs('diff','normal'));
-      u.searchParams.set('time', qs('time','90'));
-      u.searchParams.set('view', qs('view','mobile'));
-      u.searchParams.set('device', qs('device',qs('view','mobile')));
+      u.searchParams.set('pid', getPid());
+      u.searchParams.set('name', getName());
+      u.searchParams.set('nick', getName());
+      u.searchParams.set('diff', getDiff());
+      u.searchParams.set('time', String(getTime()));
+      u.searchParams.set('view', getView());
+      u.searchParams.set('device', getView());
 
       u.searchParams.set('zone','nutrition');
       u.searchParams.set('cat','nutrition');
@@ -272,26 +954,594 @@
       u.searchParams.set('mode','menu');
       u.searchParams.set('entry','goodjunk-launcher');
       u.searchParams.set('run','menu');
-      u.searchParams.set('hub', qs('hub','../nutrition-zone.html'));
+      u.searchParams.set('hub', getHub());
 
       u.searchParams.set('v','20260515-goodjunk-duet-back-to-launcher');
 
       return u.toString();
     }
 
-    $('btnModes').href = buildLauncherUrl();
+    function updateLinks(){
+      $('btnZone').href = getHub();
+      $('btnModes').href = buildLauncherUrl();
 
-    $('btnBattle').href = pass('./goodjunk-battle-v2-lobby.html',{
-      mode:'battle',
-      entry:'battle',
-      recommendedMode:'battle',
-      battleType:'duel',
-      type:'duel',
-      capacity:'2',
-      maxPlayers:'2'
+      const direct = $('btnRunDirect');
+      direct.href = pass(runFile(),{run:'play'});
+    }
+
+    function initFields(){
+      $('pid').value = clean(qs('pid',''), makePid());
+      $('name').value = clean(qs('name', qs('nick','Hero')), 'Hero');
+      $('diff').value = clean(qs('diff','normal'), 'normal');
+      $('time').value = clean(qs('time','90'), '90');
+      $('view').value = normalizeView(qs('view', qs('device', detectView())));
+      $('roomInput').value = normalizeRoom(qs('room', qs('roomId', qs('roomCode',''))));
+
+      try{
+        const savedName = localStorage.getItem('HHA_GJ_DUET_NAME');
+        if (!qs('name','') && savedName){
+          $('name').value = savedName;
+        }
+      }catch(_){}
+
+      updateLinks();
+    }
+
+    async function startHeartbeat(){
+      clearInterval(heartbeatTimer);
+
+      async function beat(){
+        try{
+          if (!db || !currentRoom || redirectingToRun) return;
+
+          await db.ref(playerPath(currentRoom)).update({
+            pid:getPid(),
+            name:getName(),
+            role:currentRole || 'partner',
+            seat:seatForRole(currentRole || 'guardian'),
+            view:getView(),
+            ready:true,
+            offline:false,
+            updatedAt:now(),
+            lastSeenAt:now()
+          });
+
+          try{
+            db.ref(playerPath(currentRoom)).onDisconnect().update({
+              ready:false,
+              offline:true,
+              updatedAt:now(),
+              lastSeenAt:now()
+            });
+          }catch(_){}
+        }catch(err){
+          console.warn('[GoodJunk Duet Lobby] heartbeat failed', err);
+        }
+      }
+
+      await beat();
+      heartbeatTimer = setInterval(beat,5000);
+    }
+
+    function renderRoom(roomData){
+      if (!roomData){
+        $('roomBox').classList.remove('show');
+        return;
+      }
+
+      $('roomBox').classList.add('show');
+      $('roomCode').textContent = roomData.roomId || currentRoom;
+
+      const allPlayers = playersArray(roomData);
+      const activePlayers = activePlayersArray(roomData);
+      const count = activePlayers.length;
+      const status = roomData.status || 'lobby';
+      const activeMatch = roomData.activeMatchId || roomData.matchId || '';
+
+      $('roomSub').textContent =
+        `สถานะ: ${status} • ออนไลน์ ${count}/${CAPACITY} • ทั้งหมด ${allPlayers.length}/2 • เวลา ${roomData.timeSec || getTime()}s`;
+
+      const wrap = $('players');
+      wrap.innerHTML = '';
+
+      const bySeat = {
+        1: allPlayers.find(p => Number(p.seat) === 1 || p.role === 'collector') || null,
+        2: allPlayers.find(p => Number(p.seat) === 2 || p.role === 'guardian') || null
+      };
+
+      [1,2].forEach(seat => {
+        const pl = bySeat[seat];
+        const div = document.createElement('div');
+
+        if (!pl){
+          div.className = 'player empty';
+          div.textContent = seat === 1 ? 'รอ Collector' : 'รอ Guardian';
+          wrap.appendChild(div);
+          return;
+        }
+
+        const stale = isStale(pl);
+        div.className = 'player' + (stale ? ' offline' : '');
+
+        div.innerHTML = `
+          <div class="name">${escapeHtml(pl.name || 'Player')}</div>
+          <div class="role">${roleLabel(pl.role)} • ${stale ? 'offline/stale' : 'online'}</div>
+          <div class="mini">PID: ${escapeHtml(pl.pid || '-')} • ${escapeHtml(pl.view || '-')}</div>
+        `;
+
+        wrap.appendChild(div);
+      });
+
+      const isHost = roomData.hostPid === getPid() || currentRole === 'collector';
+      const canStart =
+        isHost &&
+        count === CAPACITY &&
+        status !== 'started' &&
+        status !== 'countdown' &&
+        status !== 'ended' &&
+        !roomData.finalSummary;
+
+      $('btnStart').disabled = !canStart;
+
+      if (roomData.finalSummary || status === 'ended'){
+        $('btnStart').textContent = 'จบแล้ว • สร้างห้องใหม่';
+      }else if (isHost){
+        $('btnStart').textContent = count === CAPACITY ? '▶ เริ่ม Duet' : `⏳ รอคู่เล่น ${count}/${CAPACITY}`;
+      }else{
+        $('btnStart').textContent = '⏳ รอ Host เริ่ม';
+      }
+
+      const runDirect = $('btnRunDirect');
+
+      if ((status === 'started' || status === 'countdown') && activeMatch && !roomData.finalSummary){
+        runDirect.classList.remove('disabled');
+        runDirect.removeAttribute('aria-disabled');
+        runDirect.textContent = 'เข้า Run';
+        runDirect.href = pass(runFile(),{
+          matchId:activeMatch,
+          run:'play'
+        });
+
+        if (!redirectingToRun){
+          redirectingToRun = true;
+          location.href = runDirect.href;
+        }
+      }else{
+        runDirect.classList.add('disabled');
+        runDirect.setAttribute('aria-disabled','true');
+        runDirect.textContent = 'รอ Host เริ่มก่อน';
+      }
+    }
+
+    function subscribe(room){
+      if (unsub){
+        try{ unsub(); }catch(_){}
+        unsub = null;
+      }
+
+      unsub = dbOn(roomPath(room), renderRoom);
+    }
+
+    async function createRoom(){
+      try{
+        await ensureFirebase();
+
+        const room = normalizeRoom($('roomInput').value) || makeRoom();
+        const createdAt = now();
+
+        currentRoom = room;
+        currentRole = 'collector';
+        redirectingToRun = false;
+        $('roomInput').value = room;
+
+        const data = {
+          roomId:room,
+          mode:'duet',
+          game:'goodjunk',
+          zone:'nutrition',
+          status:'lobby',
+          hostPid:getPid(),
+          hostName:getName(),
+          diff:getDiff(),
+          timeSec:getTime(),
+          capacity:CAPACITY,
+          maxPlayers:CAPACITY,
+          teamMode:true,
+          matchId:'',
+          activeMatchId:'',
+          finalSummary:null,
+          summary:null,
+          rematch:null,
+          createdAt,
+          updatedAt:createdAt,
+          players:{
+            [safeKey(getPid())]:{
+              pid:getPid(),
+              name:getName(),
+              role:'collector',
+              roleKey:'collector',
+              seat:1,
+              view:getView(),
+              ready:true,
+              offline:false,
+              joinedAt:createdAt,
+              updatedAt:createdAt,
+              lastSeenAt:createdAt,
+              score:0,
+              good:0,
+              junk:0,
+              miss:0,
+              combo:0,
+              bestStreak:0,
+              finished:false
+            }
+          }
+        };
+
+        await dbSet(roomPath(room),data);
+
+        subscribe(room);
+        await startHeartbeat();
+        updateLinks();
+
+        showToast(`🤝 สร้างห้อง Duet แล้ว: ${room}`,2200);
+      }catch(err){
+        console.error(err);
+        showToast('สร้างห้องไม่สำเร็จ: ' + (err?.message || err),3200);
+      }
+    }
+
+    async function joinRoom(){
+      try{
+        await ensureFirebase();
+
+        const room = normalizeRoom($('roomInput').value);
+
+        if (!room){
+          showToast('กรุณาใส่ Room Code');
+          return;
+        }
+
+        const data = await dbGet(roomPath(room));
+
+        if (!data){
+          showToast('ไม่พบห้องนี้ ตรวจ Room Code อีกครั้ง',2400);
+          return;
+        }
+
+        if (data.finalSummary || data.status === 'ended'){
+          showToast('ห้องนี้จบแล้ว กรุณาสร้างห้องใหม่',2600);
+          return;
+        }
+
+        const already = data.players && data.players[safeKey(getPid())];
+        const active = activePlayersArray(data);
+
+        if (!already && active.length >= CAPACITY){
+          showToast('ห้อง Duet เต็มแล้ว: รับได้ 2 คนเท่านั้น',2600);
+          return;
+        }
+
+        currentRoom = room;
+        currentRole = data.hostPid === getPid()
+          ? 'collector'
+          : assignRole(data,getPid());
+
+        redirectingToRun = false;
+        $('roomInput').value = room;
+
+        await dbUpdate(playerPath(room),{
+          pid:getPid(),
+          name:getName(),
+          role:currentRole,
+          roleKey:currentRole,
+          seat:seatForRole(currentRole),
+          view:getView(),
+          ready:true,
+          offline:false,
+          joinedAt:already?.joinedAt || now(),
+          updatedAt:now(),
+          lastSeenAt:now(),
+          score:already?.score || 0,
+          good:already?.good || 0,
+          junk:already?.junk || 0,
+          miss:already?.miss || 0,
+          combo:already?.combo || 0,
+          bestStreak:already?.bestStreak || 0,
+          finished:false
+        });
+
+        await dbUpdate(roomPath(room),{
+          updatedAt:now()
+        });
+
+        subscribe(room);
+        await startHeartbeat();
+        updateLinks();
+
+        showToast(`🔑 เข้าห้อง Duet แล้ว: ${room}`,1800);
+      }catch(err){
+        console.error(err);
+        showToast('เข้าห้องไม่สำเร็จ: ' + (err?.message || err),3200);
+      }
+    }
+
+    async function startDuet(){
+      try{
+        await ensureFirebase();
+
+        if (!currentRoom){
+          showToast('ยังไม่มีห้อง Duet');
+          return;
+        }
+
+        const data = await dbGet(roomPath(currentRoom));
+
+        if (!data){
+          showToast('ไม่พบห้อง Duet');
+          return;
+        }
+
+        const isHost = data.hostPid === getPid() || currentRole === 'collector';
+
+        if (!isHost){
+          showToast('เฉพาะ Host/Collector เท่านั้นที่เริ่ม Duet ได้');
+          return;
+        }
+
+        if (data.finalSummary || data.status === 'ended'){
+          showToast('ห้องนี้จบแล้ว กรุณาสร้างห้องใหม่');
+          return;
+        }
+
+        const active = activePlayersArray(data);
+
+        if (active.length !== CAPACITY){
+          showToast(`Duet ต้องมีผู้เล่นออนไลน์ 2 คนพอดี ตอนนี้ ${active.length}/2`,2600);
+          return;
+        }
+
+        const ordered = [...active].sort((a,b) => {
+          const sa = Number(a.seat || 99);
+          const sb = Number(b.seat || 99);
+          if (sa !== sb) return sa - sb;
+          return Number(a.joinedAt || 0) - Number(b.joinedAt || 0);
+        });
+
+        const matchId = 'DT-' + safeKey(currentRoom) + '-' + Date.now().toString(36).toUpperCase();
+
+        const resetPlayers = {};
+        const roles = ['collector','guardian'];
+
+        ordered.slice(0,2).forEach((pl,idx) => {
+          const role = roles[idx];
+
+          resetPlayers[safeKey(pl.pid)] = {
+            pid:pl.pid,
+            name:pl.name || (idx === 0 ? 'Collector' : 'Guardian'),
+            role,
+            roleKey:role,
+            seat:idx + 1,
+            view:pl.view || getView(),
+            ready:true,
+            offline:false,
+            joinedAt:pl.joinedAt || now(),
+            updatedAt:now(),
+            lastSeenAt:now(),
+
+            score:0,
+            good:0,
+            junk:0,
+            miss:0,
+            combo:0,
+            bestStreak:0,
+            finished:false,
+            finishReason:'',
+            finishedAt:null
+          };
+        });
+
+        await dbUpdate(roomPath(currentRoom),{
+          status:'started',
+          matchId,
+          activeMatchId:matchId,
+          startedAt:now(),
+          endedAt:null,
+          endReason:null,
+          finalSummary:null,
+          summary:null,
+          rematch:null,
+          players:resetPlayers,
+          updatedAt:now()
+        });
+
+        currentRole = resetPlayers[safeKey(getPid())]?.role || currentRole;
+        redirectingToRun = true;
+
+        location.href = pass(runFile(),{
+          matchId,
+          role:currentRole,
+          roleKey:currentRole,
+          run:'play'
+        });
+      }catch(err){
+        console.error(err);
+        showToast('เริ่ม Duet ไม่สำเร็จ: ' + (err?.message || err),3200);
+      }
+    }
+
+    async function leaveRoom(){
+      if (!db || !currentRoom){
+        currentRoom = '';
+        currentRole = '';
+        $('roomInput').value = '';
+        $('roomBox').classList.remove('show');
+        updateLinks();
+        return;
+      }
+
+      const room = currentRoom;
+      const pid = getPid();
+
+      try{
+        await db.ref(playerPath(room,pid)).update({
+          ready:false,
+          offline:true,
+          updatedAt:now(),
+          lastSeenAt:now()
+        });
+
+        const data = await dbGet(roomPath(room));
+        const active = activePlayersArray(data);
+
+        if (active.length === 0 && data?.status === 'lobby'){
+          await db.ref(roomPath(room)).remove();
+        }
+      }catch(_){}
+
+      currentRoom = '';
+      currentRole = '';
+      redirectingToRun = false;
+
+      clearInterval(heartbeatTimer);
+
+      if (unsub){
+        try{ unsub(); }catch(_){}
+        unsub = null;
+      }
+
+      $('roomInput').value = '';
+      $('roomBox').classList.remove('show');
+      updateLinks();
+
+      showToast('ออกจากห้องแล้ว');
+    }
+
+    async function copyRoom(){
+      if (!currentRoom){
+        showToast('ยังไม่มี Room Code');
+        return;
+      }
+
+      try{
+        await navigator.clipboard.writeText(currentRoom);
+        showToast('📋 คัดลอก Room Code แล้ว: ' + currentRoom);
+      }catch(_){
+        showToast('Room Code: ' + currentRoom,2600);
+      }
+    }
+
+    function randomRoom(){
+      const room = makeRoom();
+      $('roomInput').value = room;
+      showToast('🎲 สุ่ม Room แล้ว: ' + room);
+      updateLinks();
+    }
+
+    function bind(){
+      $('btnRandomRoom').addEventListener('click', randomRoom);
+      $('btnCreate').addEventListener('click', createRoom);
+      $('btnJoin').addEventListener('click', joinRoom);
+      $('btnStart').addEventListener('click', startDuet);
+      $('btnCopy').addEventListener('click', copyRoom);
+      $('btnLeave').addEventListener('click', leaveRoom);
+
+      ['pid','name','diff','time','view','roomInput'].forEach(id => {
+        $(id).addEventListener('input', updateLinks);
+        $(id).addEventListener('change', () => {
+          updateLinks();
+
+          try{
+            if (id === 'pid') localStorage.setItem('HHA_GJ_DUET_PID', $('pid').value);
+            if (id === 'name') localStorage.setItem('HHA_GJ_DUET_NAME', $('name').value);
+          }catch(_){}
+        });
+      });
+    }
+
+    async function maybeAutoJoin(){
+      const room = normalizeRoom(qs('room', qs('roomId', qs('roomCode',''))));
+
+      if (!room) return;
+
+      $('roomInput').value = room;
+
+      try{
+        await ensureFirebase();
+
+        const data = await dbGet(roomPath(room));
+
+        if (!data) return;
+
+        if (data.finalSummary || data.status === 'ended'){
+          showToast('ห้องนี้จบแล้ว กรุณาสร้างห้องใหม่',2600);
+          return;
+        }
+
+        currentRoom = room;
+        currentRole = data.hostPid === getPid()
+          ? 'collector'
+          : assignRole(data,getPid());
+
+        const already = data.players && data.players[safeKey(getPid())];
+        const active = activePlayersArray(data);
+
+        if (!already && active.length >= CAPACITY){
+          showToast('ห้อง Duet เต็มแล้ว: รับได้ 2 คนเท่านั้น',2600);
+          return;
+        }
+
+        await dbUpdate(playerPath(room),{
+          pid:getPid(),
+          name:getName(),
+          role:currentRole,
+          roleKey:currentRole,
+          seat:seatForRole(currentRole),
+          view:getView(),
+          ready:true,
+          offline:false,
+          joinedAt:already?.joinedAt || now(),
+          updatedAt:now(),
+          lastSeenAt:now()
+        });
+
+        subscribe(room);
+        await startHeartbeat();
+        updateLinks();
+      }catch(err){
+        console.warn('[GoodJunk Duet Lobby] auto join failed',err);
+      }
+    }
+
+    async function boot(){
+      initFields();
+      bind();
+      updateLinks();
+
+      try{
+        await firebaseReady();
+        await maybeAutoJoin();
+      }catch(err){
+        console.warn('[GoodJunk Duet Lobby] boot firebase failed',err);
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      try{
+        clearInterval(heartbeatTimer);
+
+        if (db && currentRoom && !redirectingToRun){
+          db.ref(playerPath(currentRoom)).update({
+            ready:false,
+            offline:true,
+            updatedAt:now(),
+            lastSeenAt:now()
+          });
+        }
+      }catch(_){}
     });
 
-    $('btnZone').href = qs('hub','../nutrition-zone.html');
+    boot();
   })();
   </script>
 </body>
