@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.4.0 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.4.1 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v240-run-merged"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v241-run-back-launcher"></script>
 
   <style>
     :root{
@@ -130,6 +130,7 @@
     .btn.attack{background:linear-gradient(180deg,#ffe785,#ffd75a);color:#5b3900;}
     .btn.shield{background:linear-gradient(180deg,#bfe6ff,#7ab7ff);color:#123f5f;}
     .btn.danger{background:linear-gradient(180deg,#ffd1d1,#ff9a9a);color:#681818;}
+    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);color:#08374d;}
     .btn:disabled{opacity:.48;cursor:not-allowed;filter:grayscale(.2);}
 
     .stats{
@@ -382,7 +383,7 @@
     .overlay.show{display:grid;}
 
     .modal{
-      width:min(92vw,740px);
+      width:min(92vw,760px);
       max-height:calc(100dvh - 36px - var(--sat) - var(--sab));
       overflow:auto;
       border:4px solid var(--line);
@@ -448,7 +449,7 @@
 
     .resultActions{
       display:grid;
-      grid-template-columns:repeat(3,1fr);
+      grid-template-columns:repeat(4,1fr);
       gap:10px;
       margin-top:12px;
     }
@@ -544,7 +545,7 @@
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2.4.0</h1>
+        <h1>GoodJunk Battle v2.4.1</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -612,8 +613,9 @@
       </div>
 
       <div class="resultActions">
-        <button id="btnAgain" class="btn" type="button">🔁 Battle อีกครั้ง</button>
+        <button id="btnAgain" class="btn attack" type="button">🔁 Battle อีกครั้ง</button>
         <a id="btnLobbyEnd" class="btn" href="./goodjunk-battle-v2-lobby.html">⚔️ กลับ Lobby</a>
+        <a id="btnModesEnd" class="btn info" href="../goodjunk-launcher.html">🎮 โหมดทั้งหมด</a>
         <a id="btnHubEnd" class="btn" href="../nutrition-zone.html">🏠 Hub</a>
       </div>
     </div>
@@ -623,7 +625,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_RUN = 'v20260515-battle-v240-run-merged-final';
+    window.HHA_GJ_BATTLE_RUN = 'v20260515-battle-v241-run-back-to-launcher';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const CAPACITY = 2;
@@ -744,16 +746,12 @@
       return playersArray(room).find(p => p.pid !== state.pid) || null;
     }
 
-    function isHostForRoom(room){
-      const me = getMe(room);
-      return !!room && !!me && (room.hostPid === state.pid || me.role === 'host' || state.role === 'host');
-    }
-
     function buildLobbyUrl(){
       const u = new URL('./goodjunk-battle-v2-lobby.html', location.href);
       u.searchParams.set('room',state.room);
       u.searchParams.set('roomId',state.room);
       u.searchParams.set('name',state.name);
+      u.searchParams.set('nick',state.name);
       u.searchParams.set('pid',state.pid);
       u.searchParams.set('role',state.role);
       u.searchParams.set('host',state.role === 'host' ? '1' : '0');
@@ -761,6 +759,34 @@
       u.searchParams.set('hub',state.hub);
       u.searchParams.set('mode','battle');
       u.searchParams.set('entry','battle');
+      u.searchParams.set('v','20260515-battle-v241-back-lobby');
+      return u.toString();
+    }
+
+    function buildLauncherUrl(){
+      const u = new URL('../goodjunk-launcher.html', location.href);
+
+      u.searchParams.set('pid', state.pid);
+      u.searchParams.set('name', state.name);
+      u.searchParams.set('nick', state.name);
+      u.searchParams.set('diff', params.get('diff') || 'normal');
+      u.searchParams.set('time', String(state.timeTotal));
+      u.searchParams.set('view', params.get('view') || params.get('device') || 'mobile');
+      u.searchParams.set('device', params.get('device') || params.get('view') || 'mobile');
+
+      u.searchParams.set('zone', 'nutrition');
+      u.searchParams.set('cat', 'nutrition');
+      u.searchParams.set('game', 'goodjunk');
+      u.searchParams.set('gameId', 'goodjunk');
+      u.searchParams.set('theme', 'goodjunk');
+
+      u.searchParams.set('mode', 'menu');
+      u.searchParams.set('entry', 'goodjunk-launcher');
+      u.searchParams.set('run', 'menu');
+      u.searchParams.set('hub', state.hub);
+
+      u.searchParams.set('v', '20260515-goodjunk-back-to-launcher');
+
       return u.toString();
     }
 
@@ -781,13 +807,14 @@
       u.searchParams.set('battleType','duel');
       u.searchParams.set('capacity','2');
       u.searchParams.set('maxPlayers','2');
-      u.searchParams.set('v','20260515-battle-v240-rematch');
+      u.searchParams.set('v','20260515-battle-v241-rematch');
       return u.toString();
     }
 
     function hydrateLinks(){
       $('btnLobby').href = buildLobbyUrl();
       $('btnLobbyEnd').href = buildLobbyUrl();
+      $('btnModesEnd').href = buildLauncherUrl();
       $('btnHub').href = state.hub;
       $('btnHubEnd').href = state.hub;
     }
@@ -878,7 +905,7 @@
       try{
         await dbUpdate(playerPath(), payload);
       }catch(err){
-        console.warn('[GJ Battle v2.4.0] writeSelf failed', err);
+        console.warn('[GJ Battle v2.4.1] writeSelf failed', err);
       }
     }
 
@@ -1334,6 +1361,7 @@
       $('resultRivalScore').textContent = String(Number(rival?.score || 0));
       $('resultRivalMeta').textContent = `Good: ${rival?.good || 0} • Junk: ${rival?.junk || 0} • Miss: ${rival?.miss || 0}`;
 
+      hydrateLinks();
       $('overlay').classList.add('show');
       updateHud();
     }
@@ -1397,7 +1425,7 @@
             },700);
           }
         }catch(err){
-          console.warn('[GJ Battle v2.4.0] final summary failed', err);
+          console.warn('[GJ Battle v2.4.1] final summary failed', err);
         }
       }
 
@@ -1559,7 +1587,7 @@
           startGameLoop();
         }
       }catch(err){
-        console.error('[GJ Battle v2.4.0] boot failed', err);
+        console.error('[GJ Battle v2.4.1] boot failed', err);
         $('hint').textContent = 'โหลด Battle ไม่สำเร็จ: ' + (err?.message || err);
         $('statePill').textContent = 'ERROR';
         $('statePill').className = 'statePill end';
