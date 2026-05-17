@@ -3,38 +3,182 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Coop Lobby</title>
+  <title>HeroHealth • GoodJunk Coop Lobby v2.0.1</title>
   <meta name="theme-color" content="#7ed957" />
   <link rel="icon" href="./favicon.ico" />
+
   <style>
     :root{
-      --bg1:#f0ffe9;--bg2:#fff7d8;--panel:#fffef9;--stroke:#7ed957;--stroke2:#b8f29a;
-      --text:#24591a;--muted:#5f7b58;--warn:#ffd75a;--blue:#58b7f5;--shadow:0 18px 44px rgba(80,150,60,.16);
-      --sat:env(safe-area-inset-top,0px);--sar:env(safe-area-inset-right,0px);--sab:env(safe-area-inset-bottom,0px);--sal:env(safe-area-inset-left,0px);
+      --bg1:#f0ffe9;
+      --bg2:#fff7d8;
+      --panel:#fffef9;
+      --stroke:#7ed957;
+      --stroke2:#b8f29a;
+      --text:#24591a;
+      --muted:#5f7b58;
+      --warn:#ffd75a;
+      --blue:#58b7f5;
+      --shadow:0 18px 44px rgba(80,150,60,.16);
+      --sat:env(safe-area-inset-top,0px);
+      --sar:env(safe-area-inset-right,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
     }
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;color:var(--text);
-      background:radial-gradient(circle at 12% 8%,#fff,transparent 22%),linear-gradient(180deg,var(--bg1),var(--bg2));}
-    .app{width:min(96vw,980px);margin:0 auto;min-height:100dvh;padding:calc(16px + var(--sat)) calc(14px + var(--sar)) calc(18px + var(--sab)) calc(14px + var(--sal));display:grid;gap:14px;align-content:center}
-    .panel{border:4px solid var(--stroke);background:linear-gradient(180deg,#fffef9,#f7fff0);border-radius:34px;box-shadow:var(--shadow);padding:22px;display:grid;gap:16px;text-align:center}
-    .icon{width:92px;height:92px;border-radius:32px;border:4px solid var(--stroke2);background:linear-gradient(180deg,#fff,#e8ffd8);display:grid;place-items:center;font-size:52px;margin:0 auto}
-    h1{margin:0;font-size:clamp(36px,7vw,60px);line-height:1;font-weight:1000}
-    p{margin:0;color:var(--muted);font-size:16px;line-height:1.65;font-weight:900}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .card{border:3px solid var(--stroke2);background:#fff;border-radius:24px;padding:14px;font-weight:1000;line-height:1.5}
-    .actions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-    .btn{min-height:56px;border-radius:20px;border:3px solid var(--stroke2);background:#fff;color:var(--text);text-decoration:none;display:flex;align-items:center;justify-content:center;font-weight:1000;padding:10px;text-align:center}
-    .btn.good{background:linear-gradient(180deg,#a6f071,#7ed957);border-color:#b8f29a;color:#173b0b}
-    .btn.warn{background:linear-gradient(180deg,#ffe785,#ffd75a);border-color:#ffe08a;color:#553900}
-    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);border-color:#9fe3ff;color:#08374d}
-    @media(max-width:720px){.grid,.actions{grid-template-columns:1fr}.panel{padding:16px}}
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%,#fff,transparent 22%),
+        radial-gradient(circle at 82% 8%,rgba(126,217,87,.20),transparent 24%),
+        radial-gradient(circle at 80% 92%,rgba(255,215,90,.24),transparent 30%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    .app{
+      width:min(96vw,980px);
+      margin:0 auto;
+      min-height:100dvh;
+      padding:
+        calc(16px + var(--sat))
+        calc(14px + var(--sar))
+        calc(18px + var(--sab))
+        calc(14px + var(--sal));
+      display:grid;
+      gap:14px;
+      align-content:center;
+    }
+
+    .panel{
+      border:4px solid var(--stroke);
+      background:linear-gradient(180deg,#fffef9,#f7fff0);
+      border-radius:34px;
+      box-shadow:var(--shadow);
+      padding:22px;
+      display:grid;
+      gap:16px;
+      text-align:center;
+    }
+
+    .icon{
+      width:92px;
+      height:92px;
+      border-radius:32px;
+      border:4px solid var(--stroke2);
+      background:linear-gradient(180deg,#fff,#e8ffd8);
+      display:grid;
+      place-items:center;
+      font-size:52px;
+      margin:0 auto;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(36px,7vw,60px);
+      line-height:1;
+      font-weight:1000;
+    }
+
+    p{
+      margin:0;
+      color:var(--muted);
+      font-size:16px;
+      line-height:1.65;
+      font-weight:900;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .card{
+      border:3px solid var(--stroke2);
+      background:#fff;
+      border-radius:24px;
+      padding:14px;
+      font-weight:1000;
+      line-height:1.5;
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+    }
+
+    .btn{
+      min-height:56px;
+      border-radius:20px;
+      border:3px solid var(--stroke2);
+      background:#fff;
+      color:var(--text);
+      text-decoration:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:1000;
+      padding:10px;
+      text-align:center;
+    }
+
+    .btn.good{
+      background:linear-gradient(180deg,#a6f071,#7ed957);
+      border-color:#b8f29a;
+      color:#173b0b;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      border-color:#ffe08a;
+      color:#553900;
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
+      border-color:#9fe3ff;
+      color:#08374d;
+    }
+
+    .notice{
+      border:3px dashed var(--stroke2);
+      background:#fff;
+      border-radius:24px;
+      padding:12px 14px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.55;
+      font-weight:900;
+    }
+
+    @media(max-width:720px){
+      .grid,
+      .actions{
+        grid-template-columns:1fr;
+      }
+
+      .panel{
+        padding:16px;
+      }
+    }
   </style>
 </head>
+
 <body>
   <main class="app">
     <section class="panel">
       <div class="icon">🌍</div>
+
       <h1>GoodJunk Coop</h1>
+
       <p>
         Coop Lobby เป็นโครงทางเข้าโหมดทีม ไม่เป็น dead link แล้ว
         Gameplay เต็มจะต่อภายหลัง โดยเน้นเป้าหมายรวมของทีมและหัวใจทีม
@@ -47,9 +191,13 @@
       </div>
 
       <div class="actions">
-        <a id="btnModes" class="btn warn" href="./goodjunk-modes.html">🎮 โหมดทั้งหมด</a>
+        <a id="btnModes" class="btn warn" href="../goodjunk-launcher.html">🎮 โหมดทั้งหมด</a>
         <a id="btnBattle" class="btn good" href="./goodjunk-battle-v2-lobby.html">⚔️ ไป Battle v2</a>
         <a id="btnZone" class="btn info" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
+      </div>
+
+      <div class="notice">
+        <b>v2.0.1:</b> ปุ่ม “โหมดทั้งหมด” กลับไป GoodJunk Launcher แล้ว ไม่ไป goodjunk-modes.html แล้ว
       </div>
     </section>
   </main>
@@ -57,15 +205,19 @@
   <script>
   (() => {
     'use strict';
-    window.HHA_GJ_COOP_LOBBY = 'v20260515-coop-lobby-skeleton';
+
+    window.HHA_GJ_COOP_LOBBY = 'v20260515-coop-lobby-v201-back-to-launcher';
 
     const p = new URLSearchParams(location.search);
     const $ = id => document.getElementById(id);
 
-    function qs(k,d=''){ return p.get(k) ?? d; }
+    function qs(k,d=''){
+      return p.get(k) ?? d;
+    }
 
     function pass(path, extra={}){
       const u = new URL(path, location.href);
+
       const base = {
         pid:qs('pid','anon'),
         name:qs('name',qs('nick','Hero')),
@@ -84,17 +236,61 @@
         entry:'coop',
         recommendedMode:'coop',
         multiplayer:'1',
-        v:'20260515-coop-skeleton',
+        teamMode:'1',
+        capacity:qs('capacity','4'),
+        maxPlayers:qs('maxPlayers','10'),
+        v:'20260515-coop-back-launcher',
         ...extra
       };
+
       Object.entries(base).forEach(([k,v]) => {
-        if (v !== undefined && v !== null && String(v) !== '') u.searchParams.set(k,String(v));
+        if (v !== undefined && v !== null && String(v) !== ''){
+          u.searchParams.set(k,String(v));
+        }
       });
+
       return u.toString();
     }
 
-    $('btnModes').href = pass('./goodjunk-modes.html',{mode:'coop'});
-    $('btnBattle').href = pass('./goodjunk-battle-v2-lobby.html',{mode:'battle-v2',entry:'battle-v2',recommendedMode:'battle-v2'});
+    function buildLauncherUrl(){
+      const u = new URL('../goodjunk-launcher.html', location.href);
+
+      u.searchParams.set('pid', qs('pid','anon'));
+      u.searchParams.set('name', qs('name',qs('nick','Hero')));
+      u.searchParams.set('nick', qs('nick',qs('name','Hero')));
+      u.searchParams.set('diff', qs('diff','normal'));
+      u.searchParams.set('time', qs('time','90'));
+      u.searchParams.set('view', qs('view','mobile'));
+      u.searchParams.set('device', qs('device',qs('view','mobile')));
+
+      u.searchParams.set('zone','nutrition');
+      u.searchParams.set('cat','nutrition');
+      u.searchParams.set('game','goodjunk');
+      u.searchParams.set('gameId','goodjunk');
+      u.searchParams.set('theme','goodjunk');
+
+      u.searchParams.set('mode','menu');
+      u.searchParams.set('entry','goodjunk-launcher');
+      u.searchParams.set('run','menu');
+      u.searchParams.set('hub', qs('hub','../nutrition-zone.html'));
+
+      u.searchParams.set('v','20260515-goodjunk-coop-back-to-launcher');
+
+      return u.toString();
+    }
+
+    $('btnModes').href = buildLauncherUrl();
+
+    $('btnBattle').href = pass('./goodjunk-battle-v2-lobby.html',{
+      mode:'battle',
+      entry:'battle',
+      recommendedMode:'battle',
+      battleType:'duel',
+      type:'duel',
+      capacity:'2',
+      maxPlayers:'2'
+    });
+
     $('btnZone').href = qs('hub','../nutrition-zone.html');
   })();
   </script>
