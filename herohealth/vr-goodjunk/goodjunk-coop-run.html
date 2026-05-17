@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Coop Run</title>
+  <title>HeroHealth • GoodJunk Coop Run v2.0.1</title>
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#9fe3ff" />
   <link rel="icon" href="../favicon.ico" />
@@ -38,6 +38,7 @@
     }
 
     *{ box-sizing:border-box; }
+
     html,body{
       margin:0;
       min-height:100%;
@@ -247,7 +248,8 @@
       gap:10px;
     }
 
-    .coop-stat,.coop-mini{
+    .coop-stat,
+    .coop-mini{
       border-radius:18px;
       border:1px solid var(--stroke);
       background:#ffffffcc;
@@ -255,7 +257,8 @@
       text-align:center;
     }
 
-    .coop-stat-k,.coop-mini-k{
+    .coop-stat-k,
+    .coop-mini-k{
       font-size:12px;
       font-weight:1000;
       color:var(--muted);
@@ -366,7 +369,8 @@
       color:#244f6d;
     }
 
-    .coop-bar,.coop-bar-sub{
+    .coop-bar,
+    .coop-bar-sub{
       height:12px;
       border-radius:999px;
       background:rgba(191,227,242,.5);
@@ -445,7 +449,9 @@
 
     .stage-ground{
       position:absolute;
-      left:0; right:0; bottom:0;
+      left:0;
+      right:0;
+      bottom:0;
       height:120px;
       background:
         radial-gradient(circle at 20% 40%, rgba(126,217,87,.34), transparent 18%),
@@ -652,27 +658,33 @@
 
     @media (max-width:760px){
       body{ overflow:auto; }
+
       .coop-result-mount{
         padding:10px;
         align-items:flex-end;
       }
+
       .coop-result-card{
         border-radius:22px;
         padding:12px;
       }
+
       .coop-result-title{ font-size:22px; }
       .coop-result-sub{ font-size:12px; }
+
       .coop-result-actions{
         display:grid;
         grid-template-columns:1fr;
         gap:10px;
       }
+
       .coop-result-actions .btn{
         width:100%;
       }
     }
   </style>
 </head>
+
 <body>
   <div class="page">
     <div class="topbar">
@@ -685,8 +697,8 @@
       </div>
 
       <div class="top-actions">
-        <a class="btn ghost" id="btnBackLauncher" href="./goodjunk-multi.html">← Launcher</a>
-        <a class="btn primary" id="btnGoHub" href="../hub.html">🏠 Hub</a>
+        <a class="btn ghost" id="btnBackLauncher" href="../goodjunk-launcher.html">← โหมดทั้งหมด</a>
+        <a class="btn primary" id="btnGoHub" href="../nutrition-zone.html">🏠 Hub</a>
       </div>
     </div>
 
@@ -797,23 +809,49 @@
 
   <script>
     (function coopRunShellBoot(){
-      const qs = new URLSearchParams(location.search);
-      const hub = qs.get('hub') || '../hub.html';
+      'use strict';
+
+      window.HHA_GJ_COOP_RUN = 'v20260515-coop-run-v201-back-to-launcher';
+
+      const src = new URL(location.href);
+      const qs = src.searchParams;
+
+      const hub = qs.get('hub') || '../nutrition-zone.html';
 
       const btnGoHub = document.getElementById('btnGoHub');
       const btnBackLauncher = document.getElementById('btnBackLauncher');
 
-      if (btnGoHub) btnGoHub.href = hub;
+      function buildLauncherUrl(){
+        const u = new URL('../goodjunk-launcher.html', location.href);
 
-      if (btnBackLauncher) {
-        const u = new URL('./goodjunk-multi.html', location.href);
-        ['pid','hub','run','diff','time','studyId','phase','conditionGroup','view','api','log','debug','ai','room','roomId','roomKind']
-          .forEach((k) => {
-            const v = qs.get(k);
-            if (v != null && v !== '') u.searchParams.set(k, v);
-          });
-        btnBackLauncher.href = u.toString();
+        u.searchParams.set('pid', qs.get('pid') || 'anon');
+        u.searchParams.set('name', qs.get('name') || qs.get('nick') || 'Hero');
+        u.searchParams.set('nick', qs.get('nick') || qs.get('name') || 'Hero');
+        u.searchParams.set('diff', qs.get('diff') || 'normal');
+        u.searchParams.set('time', qs.get('time') || '90');
+        u.searchParams.set('view', qs.get('view') || qs.get('device') || 'mobile');
+        u.searchParams.set('device', qs.get('device') || qs.get('view') || 'mobile');
+
+        u.searchParams.set('zone', 'nutrition');
+        u.searchParams.set('cat', 'nutrition');
+        u.searchParams.set('game', 'goodjunk');
+        u.searchParams.set('gameId', 'goodjunk');
+        u.searchParams.set('theme', 'goodjunk');
+
+        u.searchParams.set('mode', 'menu');
+        u.searchParams.set('entry', 'goodjunk-launcher');
+        u.searchParams.set('run', 'menu');
+        u.searchParams.set('hub', hub);
+
+        u.searchParams.set('v', '20260515-goodjunk-coop-run-back-to-launcher');
+
+        return u.toString();
       }
+
+      if (btnGoHub) btnGoHub.href = hub;
+      if (btnBackLauncher) btnBackLauncher.href = buildLauncherUrl();
+
+      window.HHA_GJ_COOP_BUILD_LAUNCHER_URL = buildLauncherUrl;
     })();
   </script>
 
@@ -824,18 +862,23 @@
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 
-  <script src="../firebase-config.js?v=20260406-coop-run-full"></script>
+  <script src="../firebase-config.js?v=20260515-coop-run-back-launcher"></script>
   <script src="./goodjunk.safe.coop.js?v=20260406-coop-core-runtime-full"></script>
   <script src="./goodjunk-coop.js?v=20260406-coop-controller-runtime-full"></script>
 
   <script>
     (function(){
+      'use strict';
+
+      const W = window;
+
       const hud = document.getElementById('coopHudWrap');
       const hudToggle = document.getElementById('coopHudToggle');
 
       if (hudToggle && hud) {
         hudToggle.addEventListener('click', () => {
           hud.classList.toggle('collapsed');
+
           if (hud.classList.contains('collapsed')) {
             hud.style.maxHeight = '76px';
             hud.style.overflow = 'hidden';
@@ -855,9 +898,10 @@
 
       const runCtx = {
         pid: qs('pid', 'anon'),
+        name: qs('name', qs('nick','Hero')),
         roomId: qs('roomId', qs('room', '')),
         roomKind: qs('roomKind', ''),
-        hub: qs('hub', '../hub.html')
+        hub: qs('hub', '../nutrition-zone.html')
       };
 
       let lastSummaryHash = '';
@@ -873,6 +917,66 @@
       function n(v, d=0){
         v = Number(v);
         return Number.isFinite(v) ? v : d;
+      }
+
+      function buildLauncherUrl(){
+        if (typeof W.HHA_GJ_COOP_BUILD_LAUNCHER_URL === 'function'){
+          return W.HHA_GJ_COOP_BUILD_LAUNCHER_URL();
+        }
+
+        const src = new URL(location.href);
+        const u = new URL('../goodjunk-launcher.html', location.href);
+
+        u.searchParams.set('pid', src.searchParams.get('pid') || 'anon');
+        u.searchParams.set('name', src.searchParams.get('name') || src.searchParams.get('nick') || 'Hero');
+        u.searchParams.set('nick', src.searchParams.get('nick') || src.searchParams.get('name') || 'Hero');
+        u.searchParams.set('diff', src.searchParams.get('diff') || 'normal');
+        u.searchParams.set('time', src.searchParams.get('time') || '90');
+        u.searchParams.set('view', src.searchParams.get('view') || src.searchParams.get('device') || 'mobile');
+        u.searchParams.set('device', src.searchParams.get('device') || src.searchParams.get('view') || 'mobile');
+
+        u.searchParams.set('zone','nutrition');
+        u.searchParams.set('cat','nutrition');
+        u.searchParams.set('game','goodjunk');
+        u.searchParams.set('gameId','goodjunk');
+        u.searchParams.set('theme','goodjunk');
+
+        u.searchParams.set('mode','menu');
+        u.searchParams.set('entry','goodjunk-launcher');
+        u.searchParams.set('run','menu');
+        u.searchParams.set('hub', runCtx.hub || '../nutrition-zone.html');
+
+        u.searchParams.set('v','20260515-goodjunk-coop-summary-back-to-launcher');
+
+        return u.toString();
+      }
+
+      function buildLobbyUrl(extra={}){
+        const src = new URL(location.href);
+        const u = new URL('./goodjunk-coop-lobby.html', location.href);
+
+        src.searchParams.forEach((value, key) => {
+          if (key === 'autostart') return;
+          u.searchParams.set(key, value);
+        });
+
+        if (runCtx.roomId) {
+          u.searchParams.set('roomId', runCtx.roomId);
+          u.searchParams.set('room', runCtx.roomId);
+        }
+
+        u.searchParams.set('mode', 'coop');
+        u.searchParams.set('entry', 'coop');
+        u.searchParams.set('recommendedMode', 'coop');
+        u.searchParams.set('hub', runCtx.hub || '../nutrition-zone.html');
+
+        Object.entries(extra).forEach(([k,v]) => {
+          if (v !== undefined && v !== null && String(v) !== ''){
+            u.searchParams.set(k,String(v));
+          }
+        });
+
+        return u.toString();
       }
 
       function normalizeStanding(r, i){
@@ -894,7 +998,11 @@
           if (b.bestStreak !== a.bestStreak) return b.bestStreak - a.bestStreak;
           return String(a.pid || '').localeCompare(String(b.pid || ''));
         });
-        rows.forEach((r, i) => { r.rank = i + 1; });
+
+        rows.forEach((r, i) => {
+          r.rank = i + 1;
+        });
+
         return rows;
       }
 
@@ -952,6 +1060,7 @@
 
       function standingsHtml(summary){
         const list = Array.isArray(summary.standings) ? summary.standings : [];
+
         if (!list.length) {
           return `
             <div class="coop-standing-row">
@@ -966,11 +1075,14 @@
 
         return list.map((item, i) => {
           const side = String(item.pid || '') === String(runCtx.pid || '') ? 'YOU' : 'TEAM';
+
           return `
             <div class="coop-standing-row" data-coop-standing-row="${i}">
               <div class="coop-standing-left">
                 <div class="coop-standing-name" data-coop-standing-name="${i}">#${i + 1} ${esc(item.nick || item.pid || 'player')}</div>
-                <div class="coop-standing-meta" data-coop-standing-meta="${i}">Score ${n(item.score,0)} • Miss ${n(item.miss,0)} • Streak ${n(item.bestStreak,0)} • Contrib ${n(item.contribution,0)}%</div>
+                <div class="coop-standing-meta" data-coop-standing-meta="${i}">
+                  Score ${n(item.score,0)} • Miss ${n(item.miss,0)} • Streak ${n(item.bestStreak,0)} • Contrib ${n(item.contribution,0)}%
+                </div>
               </div>
               <div class="coop-standing-side" data-coop-standing-side="${i}">${side}</div>
             </div>
@@ -981,7 +1093,17 @@
       function renderSummary(summary){
         if (!resultMount) return;
 
+        const me = summary.standings.find(s => String(s.pid || '') === String(runCtx.pid || '')) || null;
+        const launcherUrl = buildLauncherUrl();
+        const lobbyUrl = buildLobbyUrl({
+          roomId: runCtx.roomId || '',
+          room: runCtx.roomId || '',
+          roomKind: summary.roomKind || runCtx.roomKind || '',
+          autojoin: '1'
+        });
+
         resultMount.hidden = false;
+
         resultMount.innerHTML = `
           <div class="coop-result-card" data-coop-summary-card="1">
             <div style="display:grid;gap:8px;">
@@ -993,7 +1115,7 @@
             <div class="coop-top-grid">
               <div class="coop-top-card" data-coop-top-card="me">
                 <div class="coop-top-k">เรา</div>
-                <div class="coop-top-name" data-coop-top-name="me">${esc((summary.standings.find(s => String(s.pid||'') === String(runCtx.pid||'')) || {}).nick || 'เรา')}</div>
+                <div class="coop-top-name" data-coop-top-name="me">${esc(me?.nick || runCtx.name || 'เรา')}</div>
                 <div class="coop-top-score" data-coop-top-score="me">${n(summary.score,0)}</div>
               </div>
 
@@ -1041,35 +1163,27 @@ roomKind=${esc(summary.roomKind || '-')}
 reason=${esc(summary.reason || '-')}</div>
 
             <div class="coop-result-actions">
-              <a class="btn ghost" id="coopBackLobbyBtn" href="./goodjunk-coop-lobby.html?roomId=${encodeURIComponent(runCtx.roomId || '')}&room=${encodeURIComponent(runCtx.roomId || '')}&roomKind=${encodeURIComponent(summary.roomKind || runCtx.roomKind || '')}&autojoin=1&hub=${encodeURIComponent(runCtx.hub || '../hub.html')}">← กลับ Lobby</a>
-              <a class="btn primary" id="coopBackHubBtn" href="${esc(runCtx.hub || '../hub.html')}">🏠 กลับ Hub</a>
+              <a class="btn ghost" id="coopBackLobbyBtn" href="${esc(lobbyUrl)}">← กลับ Lobby</a>
+              <a class="btn ghost" id="coopBackModesBtn" href="${esc(launcherUrl)}">🎮 โหมดทั้งหมด</a>
+              <a class="btn primary" id="coopBackHubBtn" href="${esc(runCtx.hub || '../nutrition-zone.html')}">🏠 กลับ Hub</a>
               <button class="btn good" id="coopRematchBtn" type="button">🔁 เล่นอีกครั้ง</button>
             </div>
           </div>
         `;
 
         const rematchBtn = document.getElementById('coopRematchBtn');
+
         if (rematchBtn) {
           rematchBtn.onclick = () => {
-            const url = new URL('./goodjunk-coop-lobby.html', location.href);
-            const src = new URL(location.href);
-
-            src.searchParams.forEach((value, key) => {
-              if (key === 'autostart') return;
-              url.searchParams.set(key, value);
+            const url = buildLobbyUrl({
+              roomId: runCtx.roomId || '',
+              room: runCtx.roomId || '',
+              roomKind: summary.roomKind || runCtx.roomKind || '',
+              autojoin: '1',
+              rematch: '1'
             });
 
-            if (runCtx.roomId) {
-              url.searchParams.set('roomId', runCtx.roomId);
-              url.searchParams.set('room', runCtx.roomId);
-            }
-            if (summary.roomKind || runCtx.roomKind) {
-              url.searchParams.set('roomKind', summary.roomKind || runCtx.roomKind);
-            }
-            url.searchParams.set('autojoin', '1');
-            url.searchParams.set('rematch', '1');
-
-            location.href = url.toString();
+            location.href = url;
           };
         }
 
@@ -1082,6 +1196,7 @@ reason=${esc(summary.reason || '-')}</div>
 
         const oldCount = (oldSummary.standings && oldSummary.standings.length) || 0;
         const nextCount = (nextSummary.standings && nextSummary.standings.length) || 0;
+
         if (nextCount > oldCount) return true;
 
         return false;
@@ -1089,6 +1204,7 @@ reason=${esc(summary.reason || '-')}</div>
 
       function onSummary(detail){
         if (!detail || typeof detail !== 'object') return;
+
         const nextSummary = normalize(detail);
         const prevSummary = W.__COOP_RUN_LAST_SUMMARY__ || null;
         const nextHash = summaryHash(nextSummary);
