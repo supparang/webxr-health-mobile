@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Play v2.1.1</title>
+  <title>HeroHealth • GoodJunk Duet Play v2.1.3</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="../favicon.ico" />
 
@@ -215,7 +215,7 @@
     </div>
 
     <div class="note">
-      Duet Play เป็นตัวกลางก่อนเข้า runtime • ถ้ามี Room จะเข้าเกม • ถ้าไม่มี Room จะกลับ Lobby
+      v2.1.3 แก้ URI Too Long แล้ว • ไม่ส่ง full URL ซ้อนใน runtime query
     </div>
   </div>
 
@@ -223,32 +223,33 @@
     (function(){
       'use strict';
 
-      window.HHA_GJ_DUET_PLAY = 'v20260515-duet-play-v211-back-launcher-runtime-bridge';
+      window.HHA_GJ_DUET_PLAY = 'v20260517-duet-play-v213-uri-too-long-fix';
 
-      const q = new URLSearchParams(location.search);
+      var q = new URLSearchParams(location.search);
 
-      const statusText = document.getElementById('statusText');
-      const chipMode = document.getElementById('chipMode');
-      const chipRoom = document.getElementById('chipRoom');
-      const chipRole = document.getElementById('chipRole');
-      const btnLobby = document.getElementById('btnLobby');
-      const btnModes = document.getElementById('btnModes');
-      const btnHub = document.getElementById('btnHub');
-      const btnRetry = document.getElementById('btnRetry');
+      var statusText = document.getElementById('statusText');
+      var chipMode = document.getElementById('chipMode');
+      var chipRoom = document.getElementById('chipRoom');
+      var chipRole = document.getElementById('chipRole');
+      var btnLobby = document.getElementById('btnLobby');
+      var btnModes = document.getElementById('btnModes');
+      var btnHub = document.getElementById('btnHub');
+      var btnRetry = document.getElementById('btnRetry');
 
-      const LOBBY_PATH = './goodjunk-duet-lobby.html';
-      const RUNTIME_PATH = './goodjunk-duet-runtime.html';
-      const LAUNCHER_PATH = '../goodjunk-launcher.html';
+      var LOBBY_PATH = './goodjunk-duet-lobby.html';
+      var RUNTIME_PATH = './goodjunk-duet-runtime.html';
+      var LAUNCHER_PATH = '../goodjunk-launcher.html';
+      var ZONE_PATH = '../nutrition-zone.html';
 
-      function clean(v, fallback=''){
-        const s = String(v || '').trim();
-        return s || fallback;
+      function clean(v, fallback){
+        var s = String(v == null ? '' : v).trim();
+        return s || (fallback || '');
       }
 
       function first(){
-        for (let i = 0; i < arguments.length; i++){
-          const v = arguments[i];
-          if (String(v || '').trim()) return String(v).trim();
+        for (var i = 0; i < arguments.length; i++){
+          var v = clean(arguments[i], '');
+          if (v) return v;
         }
         return '';
       }
@@ -257,63 +258,80 @@
         if (statusText) statusText.textContent = text;
       }
 
-      function passTo(url){
-        q.forEach((v, k) => {
-          if (v !== undefined && v !== null && String(v) !== ''){
-            url.searchParams.set(k, v);
-          }
-        });
-        return url;
+      function detectDevice(){
+        var ua = navigator.userAgent || '';
+        return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
       }
 
-      function removeParams(url, names){
-        names.forEach((name) => {
-          try{ url.searchParams.delete(name); }catch(_){}
-        });
-        return url;
+      function normalizeRoom(v){
+        var s = String(v || '').trim().toUpperCase();
+        s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
+
+        if (!s) return '';
+
+        if (!s.startsWith('GJ-DT-')){
+          s = 'GJ-DT-' + s
+            .replace(/^GJ-DT/i,'')
+            .replace(/^GJDT/i,'')
+            .replace(/^DT/i,'')
+            .replace(/^DU-/i,'')
+            .replace(/^DU/i,'')
+            .replace(/^-/, '');
+        }
+
+        return s.slice(0,20);
       }
 
-      function go(url, delayMs){
-        setTimeout(function(){
-          location.replace(url);
-        }, delayMs);
+      function normalizeRole(v){
+        var s = String(v || '').toLowerCase().trim();
+
+        if (s === 'collector' || s === 'host' || s === 'a' || s === 'p1') return 'collector';
+        if (s === 'guardian' || s === 'guest' || s === 'b' || s === 'p2' || s === 'partner') return 'guardian';
+
+        return 'guardian';
       }
 
-      const pid = clean(q.get('pid'),'anon');
-      const name = clean(first(q.get('name'),q.get('nick')),'Hero');
-      const nick = clean(first(q.get('nick'),q.get('name')),'Hero');
-      const diff = clean(q.get('diff'),'normal');
-      const time = clean(q.get('time'),'90');
-      const view = clean(first(q.get('view'),q.get('device')),'mobile');
-      const device = clean(first(q.get('device'),q.get('view')),'mobile');
+      function compactHub(v){
+        var fallback = new URL(ZONE_PATH, location.href).toString();
+        var s = clean(v, '');
 
-      const roomId = clean(first(
-        q.get('roomId'),
-        q.get('room'),
-        q.get('roomCode')
-      ),'');
+        if (!s) return fallback;
+        if (s.length > 420) return fallback;
+        if (/%252F|backModes=|launcherUrl=|backLobby=|nextAfterCooldown=|cdnext=/.test(s)) return fallback;
 
-      const role = clean(first(
-        q.get('role'),
-        q.get('roleKey'),
-        'player'
-      ),'player');
+        try{
+          return new URL(s, location.href).toString();
+        }catch(_){
+          return fallback;
+        }
+      }
 
-      const hub = clean(
-        q.get('hub'),
-        new URL('../nutrition-zone.html', location.href).toString()
-      );
+      var deviceFallback = detectDevice();
 
-      function normalizeGoodJunkParams(url){
-        removeParams(url, ['phaseBoss','boss']);
+      var ctx = {
+        pid: clean(q.get('pid'),'anon'),
+        name: clean(first(q.get('name'),q.get('nick')),'Hero'),
+        nick: clean(first(q.get('nick'),q.get('name')),'Hero'),
+        diff: clean(q.get('diff'),'normal'),
+        time: clean(q.get('time'),'90'),
+        view: clean(first(q.get('view'),q.get('device')),deviceFallback),
+        device: clean(first(q.get('device'),q.get('view')),deviceFallback),
+        room: normalizeRoom(first(q.get('roomId'),q.get('room'),q.get('roomCode'))),
+        matchId: clean(q.get('matchId'),''),
+        role: normalizeRole(first(q.get('role'),q.get('roleKey'))),
+        seed: clean(q.get('seed'), String(Date.now())),
+        studyId: clean(q.get('studyId'),''),
+        hub: compactHub(q.get('hub'))
+      };
 
-        url.searchParams.set('pid', pid);
-        url.searchParams.set('name', name);
-        url.searchParams.set('nick', nick);
-        url.searchParams.set('diff', diff);
-        url.searchParams.set('time', time);
-        url.searchParams.set('view', view);
-        url.searchParams.set('device', device);
+      function setCommon(url){
+        url.searchParams.set('pid', ctx.pid);
+        url.searchParams.set('name', ctx.name);
+        url.searchParams.set('nick', ctx.nick);
+        url.searchParams.set('diff', ctx.diff);
+        url.searchParams.set('time', ctx.time);
+        url.searchParams.set('view', ctx.view);
+        url.searchParams.set('device', ctx.device);
 
         url.searchParams.set('mode', 'duet');
         url.searchParams.set('entry', 'duet');
@@ -326,21 +344,37 @@
         url.searchParams.set('multiplayer', '1');
         url.searchParams.set('capacity', '2');
         url.searchParams.set('maxPlayers', '2');
-        url.searchParams.set('hub', hub);
+        url.searchParams.set('hub', ctx.hub);
+
+        if (ctx.room){
+          url.searchParams.set('roomId', ctx.room);
+          url.searchParams.set('room', ctx.room);
+          url.searchParams.set('roomCode', ctx.room);
+        }
+
+        if (ctx.matchId){
+          url.searchParams.set('matchId', ctx.matchId);
+        }
+
+        url.searchParams.set('role', ctx.role);
+        url.searchParams.set('roleKey', ctx.role);
+
+        if (ctx.seed) url.searchParams.set('seed', ctx.seed);
+        if (ctx.studyId) url.searchParams.set('studyId', ctx.studyId);
 
         return url;
       }
 
       function buildLauncherUrl(){
-        const url = new URL(LAUNCHER_PATH, location.href);
+        var url = new URL(LAUNCHER_PATH, location.href);
 
-        url.searchParams.set('pid', pid);
-        url.searchParams.set('name', name);
-        url.searchParams.set('nick', nick);
-        url.searchParams.set('diff', diff);
-        url.searchParams.set('time', time);
-        url.searchParams.set('view', view);
-        url.searchParams.set('device', device);
+        url.searchParams.set('pid', ctx.pid);
+        url.searchParams.set('name', ctx.name);
+        url.searchParams.set('nick', ctx.nick);
+        url.searchParams.set('diff', ctx.diff);
+        url.searchParams.set('time', ctx.time);
+        url.searchParams.set('view', ctx.view);
+        url.searchParams.set('device', ctx.device);
 
         url.searchParams.set('zone','nutrition');
         url.searchParams.set('cat','nutrition');
@@ -351,63 +385,45 @@
         url.searchParams.set('mode','menu');
         url.searchParams.set('entry','goodjunk-launcher');
         url.searchParams.set('run','menu');
-        url.searchParams.set('hub', hub);
+        url.searchParams.set('hub', ctx.hub);
 
-        url.searchParams.set('v','20260515-goodjunk-duet-play-back-to-launcher');
+        url.searchParams.set('v','20260517-goodjunk-duet-play-v213-back-launcher');
 
         return url.toString();
       }
 
       function buildLobbyUrl(){
-        const url = passTo(new URL(LOBBY_PATH, location.href));
-
-        normalizeGoodJunkParams(url);
-
-        if (roomId){
-          url.searchParams.set('roomId', roomId);
-          url.searchParams.set('room', roomId);
-          url.searchParams.set('roomCode', roomId);
-        }
-
+        var url = new URL(LOBBY_PATH, location.href);
+        setCommon(url);
         url.searchParams.set('run','menu');
-        url.searchParams.set('v','20260515-duet-play-lobby');
-
+        url.searchParams.set('v','20260517-duet-play-v213-lobby');
         return url.toString();
       }
 
       function buildRuntimeUrl(){
-        const url = passTo(new URL(RUNTIME_PATH, location.href));
+        var url = new URL(RUNTIME_PATH, location.href);
 
-        normalizeGoodJunkParams(url);
+        /*
+          สำคัญ:
+          ไม่ copy query เดิมทั้งก้อน
+          เพราะอาจมี launcherUrl/backModes/backLobby ซ้อนมาแล้ว
+        */
+        setCommon(url);
 
-        url.searchParams.set('roomId', roomId);
-        url.searchParams.set('room', roomId);
-        url.searchParams.set('roomCode', roomId);
-        url.searchParams.set('role', role);
-        url.searchParams.set('roleKey', role);
         url.searchParams.set('run','play');
-
-        const launcherUrl = buildLauncherUrl();
-        const lobbyUrl = buildLobbyUrl();
-
-        url.searchParams.set('backModes', launcherUrl);
-        url.searchParams.set('launcherUrl', launcherUrl);
-        url.searchParams.set('backLauncher', launcherUrl);
-        url.searchParams.set('backLobby', lobbyUrl);
-        url.searchParams.set('nextAfterCooldown', lobbyUrl);
-        url.searchParams.set('cdnext', lobbyUrl);
-
-        url.searchParams.set('v','20260515-duet-play-runtime-bridge');
+        url.searchParams.set('back','launcher');
+        url.searchParams.set('returnTo','goodjunk-launcher');
+        url.searchParams.set('v','20260517-duet-play-v213-runtime-compact');
 
         return url.toString();
       }
 
-      const launcherUrl = buildLauncherUrl();
-      const lobbyUrl = buildLobbyUrl();
+      var launcherUrl = buildLauncherUrl();
+      var lobbyUrl = buildLobbyUrl();
 
       if (btnLobby) btnLobby.href = lobbyUrl;
       if (btnModes) btnModes.href = launcherUrl;
-      if (btnHub) btnHub.href = hub;
+      if (btnHub) btnHub.href = ctx.hub;
 
       if (btnRetry){
         btnRetry.addEventListener('click', function(){
@@ -416,36 +432,32 @@
       }
 
       if (chipMode) chipMode.textContent = 'MODE • duet';
-      if (chipRoom) chipRoom.textContent = `ROOM • ${roomId || '-'}`;
-      if (chipRole) chipRole.textContent = `ROLE • ${role}`;
+      if (chipRoom) chipRoom.textContent = 'ROOM • ' + (ctx.room || '-');
+      if (chipRole) chipRole.textContent = 'ROLE • ' + ctx.role;
 
       window.__GJ_RUN_CTX__ = {
-        pid,
-        name,
-        nick,
-        studyId: clean(q.get('studyId'),''),
-        roomId,
-        room: roomId,
-        roomCode: roomId,
-        role,
-        roleKey: role,
+        pid:ctx.pid,
+        name:ctx.name,
+        nick:ctx.nick,
+        studyId:ctx.studyId,
+        roomId:ctx.room,
+        room:ctx.room,
+        roomCode:ctx.room,
+        role:ctx.role,
+        roleKey:ctx.role,
         mode:'duet',
         entry:'duet',
         recommendedMode:'duet',
-        diff,
-        time,
-        seed: clean(q.get('seed'), String(Date.now())),
+        diff:ctx.diff,
+        time:ctx.time,
+        seed:ctx.seed,
         startAt:0,
-        hub,
-        backModes:launcherUrl,
-        launcherUrl,
-        backLauncher:launcherUrl,
-        backLobby:lobbyUrl,
-        nextAfterCooldown:lobbyUrl,
-        cdnext:lobbyUrl,
-        view,
-        device,
-        run: clean(q.get('run'),'play'),
+        hub:ctx.hub,
+        back:'launcher',
+        returnTo:'goodjunk-launcher',
+        view:ctx.view,
+        device:ctx.device,
+        run:'play',
         gameId:'goodjunk',
         game:'goodjunk',
         theme:'goodjunk',
@@ -456,16 +468,19 @@
         maxPlayers:'2'
       };
 
-      if (!roomId){
+      if (!ctx.room){
         setText('ยังไม่พบ Room ของ Duet — จะพากลับไปหน้า Lobby เพื่อสร้างหรือเข้าห้อง');
-        go(lobbyUrl, 180);
+        setTimeout(function(){
+          location.replace(lobbyUrl);
+        },180);
         return;
       }
 
-      const runtimeUrl = buildRuntimeUrl();
+      setText('ตรวจพบห้อง Duet แล้ว — กำลังพาไปหน้าเล่นคู่ด้วย URL แบบสั้น');
 
-      setText('ตรวจพบห้อง Duet แล้ว — กำลังพาไปหน้าเล่นคู่');
-      go(runtimeUrl, 120);
+      setTimeout(function(){
+        location.replace(buildRuntimeUrl());
+      },120);
     })();
   </script>
 </body>
