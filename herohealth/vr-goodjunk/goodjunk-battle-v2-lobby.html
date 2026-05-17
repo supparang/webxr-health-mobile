@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.4.0 Lobby</title>
+  <title>HeroHealth • GoodJunk Battle v2.4.1 Lobby</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v240-lobby-merged"></script>
+  <script src="../firebase-config.js?v=20260515-gj-battle-v241-lobby-back-launcher"></script>
 
   <style>
     :root{
@@ -461,7 +461,7 @@
       <div class="icon">⚔️</div>
 
       <div>
-        <h1>GoodJunk Battle v2.4.0</h1>
+        <h1>GoodJunk Battle v2.4.1</h1>
         <p>
           Battle เป็นโหมดแข่งกันแบบ 1 ต่อ 1 เท่านั้น: Host 1 คน + Guest 1 คน
           ครบ 2 คนออนไลน์จริงแล้ว Host จึงเริ่ม Battle ได้
@@ -560,7 +560,7 @@
       <div class="actions">
         <button id="btnCreate" class="btn good" type="button">⚔️ สร้างห้อง Battle</button>
         <button id="btnJoin" class="btn info" type="button">👥 เข้าห้องเพื่อน</button>
-        <a id="btnModes" class="btn warn" href="./goodjunk-modes.html">🎮 โหมดทั้งหมด</a>
+        <a id="btnModes" class="btn warn" href="../goodjunk-launcher.html">🎮 โหมดทั้งหมด</a>
         <a id="btnZone" class="btn" href="../nutrition-zone.html">🏠 Nutrition Zone</a>
       </div>
 
@@ -588,12 +588,12 @@
       </section>
 
       <div class="notice">
-        <b>v2.4.0:</b> รวมระบบ heartbeat / stale cleaner / no old match auto-run / finalSummary reset แล้ว
+        <b>v2.4.1:</b> ปุ่ม “โหมดทั้งหมด” กลับไป GoodJunk Launcher แล้ว • รวม heartbeat / stale cleaner / no old match auto-run
       </div>
     </section>
 
     <div class="footer">
-      HeroHealth • GoodJunk Battle Lobby v2.4.0 • battleV2Rooms • capacity = 2 fixed
+      HeroHealth • GoodJunk Battle Lobby v2.4.1 • battleV2Rooms • capacity = 2 fixed • back to launcher
     </div>
   </main>
 
@@ -601,7 +601,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_LOBBY = 'v20260515-battle-v240-lobby-merged-stale-safe';
+    window.HHA_GJ_BATTLE_LOBBY = 'v20260515-battle-v241-lobby-back-to-launcher';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const CAPACITY = 2;
@@ -687,7 +687,10 @@
     function getDiff(){ return clean($('diff').value,'normal'); }
     function getTime(){ return Number(clean($('time').value,'90')) || 90; }
     function getView(){ return normalizeView($('view').value || qs('view', qs('device', detectView()))); }
-    function getHub(){ return clean(qs('hub',''), new URL('../nutrition-zone.html', location.href).toString()); }
+
+    function getHub(){
+      return clean(qs('hub',''), new URL('../nutrition-zone.html', location.href).toString());
+    }
 
     function showToast(text,ms=1800){
       const el = $('toast');
@@ -805,7 +808,7 @@
         roomId:currentRoom,
         role:currentRole || 'guest',
         host:currentRole === 'host' ? '1' : '0',
-        v:'20260515-battle-v240',
+        v:'20260515-battle-v241',
         ...extra
       };
 
@@ -814,6 +817,33 @@
           u.searchParams.set(k,String(v));
         }
       });
+
+      return u.toString();
+    }
+
+    function buildLauncherUrl(){
+      const u = new URL('../goodjunk-launcher.html', location.href);
+
+      u.searchParams.set('pid', getPid());
+      u.searchParams.set('name', getName());
+      u.searchParams.set('nick', getName());
+      u.searchParams.set('diff', getDiff());
+      u.searchParams.set('time', String(getTime()));
+      u.searchParams.set('view', getView());
+      u.searchParams.set('device', getView());
+
+      u.searchParams.set('zone', 'nutrition');
+      u.searchParams.set('cat', 'nutrition');
+      u.searchParams.set('game', 'goodjunk');
+      u.searchParams.set('gameId', 'goodjunk');
+      u.searchParams.set('theme', 'goodjunk');
+
+      u.searchParams.set('mode', 'menu');
+      u.searchParams.set('entry', 'goodjunk-launcher');
+      u.searchParams.set('run', 'menu');
+      u.searchParams.set('hub', getHub());
+
+      u.searchParams.set('v', '20260515-goodjunk-back-to-launcher');
 
       return u.toString();
     }
@@ -836,7 +866,7 @@
 
     function updateLinks(){
       $('btnZone').href = getHub();
-      $('btnModes').href = pass('./goodjunk-modes.html',{run:'menu'});
+      $('btnModes').href = buildLauncherUrl();
       $('btnRunDirect').href = pass(runFileForView(),{run:'play'});
     }
 
