@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Run Redirect v2.1.3</title>
+  <title>HeroHealth • GoodJunk Duet Run Redirect v2.1.4</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="./favicon.ico" />
 
@@ -11,7 +11,7 @@
     (function () {
       'use strict';
 
-      window.HHA_GJ_DUET_RUN = 'v20260517-duet-run-v213-uri-too-long-fix';
+      window.HHA_GJ_DUET_RUN = 'v20260518-duet-run-v214-uri-too-long-safe';
 
       var PLAY_PATH = './goodjunk-duet-play.html';
       var LOBBY_PATH = './goodjunk-duet-lobby.html';
@@ -136,7 +136,7 @@
         var u = new URL(LOBBY_PATH, location.href);
         setCommon(u, ctx);
         u.searchParams.set('run', 'menu');
-        u.searchParams.set('v', '20260517-duet-run-v213-lobby-compact');
+        u.searchParams.set('v', '20260518-duet-run-v214-lobby-compact');
         return u.toString();
       }
 
@@ -147,7 +147,7 @@
         u.searchParams.set('run', 'play');
         u.searchParams.set('back', 'launcher');
         u.searchParams.set('returnTo', 'goodjunk-launcher');
-        u.searchParams.set('v', '20260517-duet-run-v213-play-compact');
+        u.searchParams.set('v', '20260518-duet-run-v214-play-compact');
 
         return u.toString();
       }
@@ -181,7 +181,7 @@
         location.replace(buildPlayUrl(ctx));
       } catch (e) {
         var fallback = new URL(LOBBY_PATH, location.href);
-        fallback.searchParams.set('v', '20260517-duet-run-v213-fallback');
+        fallback.searchParams.set('v', '20260518-duet-run-v214-fallback');
         location.replace(fallback.toString());
       }
     })();
@@ -268,12 +268,8 @@
   <div class="box">
     <div class="icon">🤝</div>
     <h1>กำลังพาไปหน้าเล่นคู่...</h1>
-    <p>
-      Duet Run จะส่งต่อแบบ URL สั้น ไม่ซ้อน launcherUrl/backModes แล้ว
-    </p>
-    <p>
-      หากไม่มี Room ระบบจะกลับไปที่ <b>Duet Lobby</b>
-    </p>
+    <p>Duet Run จะส่งต่อแบบ URL สั้น ไม่ซ้อน launcherUrl/backModes แล้ว</p>
+    <p>หากไม่มี Room ระบบจะกลับไปที่ <b>Duet Lobby</b></p>
     <p>
       หากไม่เปลี่ยนหน้าอัตโนมัติ ให้กด
       <a href="./goodjunk-duet-lobby.html">ไปหน้า Duet Lobby</a>
