@@ -3,15 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.4.1 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.4.2 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260515-gj-battle-v241-run-back-launcher"></script>
-
+  <script src="../firebase-config.js?v=20260518-gj-battle-v242-mobile-edge-fix"></script>
   <style>
     :root{
       --bg1:#fff7d8;
@@ -30,6 +29,8 @@
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
+      --game-vh:100dvh;
+      --game-vw:100vw;
     }
 
     *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
@@ -49,15 +50,23 @@
     }
 
     .app{
-      height:100dvh;
-      width:100vw;
-      padding:calc(10px + var(--sat)) calc(10px + var(--sar)) calc(10px + var(--sab)) calc(10px + var(--sal));
+      position:fixed;
+      left:0;
+      top:0;
+      width:var(--game-vw,100vw);
+      max-width:var(--game-vw,100vw);
+      height:var(--game-vh,100dvh);
+      max-height:var(--game-vh,100dvh);
+      padding:
+        calc(6px + var(--sat))
+        calc(6px + var(--sar))
+        calc(6px + var(--sab))
+        calc(6px + var(--sal));
       display:grid;
-      grid-template-rows:auto auto auto minmax(280px,1fr) auto;
-      gap:10px;
+      grid-template-rows:auto auto auto minmax(0,1fr) auto;
+      gap:6px;
       overflow:hidden;
     }
-
     .box{
       border:4px solid var(--line);
       background:linear-gradient(180deg,#fffef9,#fff8e8);
@@ -455,86 +464,274 @@
     }
 
     @media(max-width:680px){
-      html,body{height:100%;overflow:hidden;}
+  html,body{
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
 
-      .app{
-        padding:calc(5px + var(--sat)) calc(5px + var(--sar)) calc(5px + var(--sab)) calc(5px + var(--sal));
-        gap:5px;
-        grid-template-rows:auto auto auto minmax(60dvh,1fr) auto;
-      }
+  .app{
+    position:fixed;
+    left:0;
+    top:0;
+    width:var(--game-vw,100vw);
+    max-width:var(--game-vw,100vw);
+    height:var(--game-vh,100dvh);
+    max-height:var(--game-vh,100dvh);
+    padding:
+      calc(2px + var(--sat))
+      calc(2px + var(--sar))
+      calc(2px + var(--sab))
+      calc(2px + var(--sal));
+    gap:3px;
+    grid-template-rows:auto auto auto minmax(0,1fr) auto;
+    overflow:hidden;
+  }
 
-      .top{
-        padding:5px 7px;
-        border-radius:16px;
-        grid-template-columns:auto 1fr auto;
-        gap:6px;
-        border-width:3px;
-      }
+  .top{
+    min-width:0;
+    min-height:0;
+    padding:4px 5px;
+    border-radius:14px;
+    border-width:2px;
+    grid-template-columns:32px minmax(0,1fr) auto;
+    gap:4px;
+    overflow:hidden;
+  }
 
-      .brandIcon{
-        width:38px;
-        height:38px;
-        min-width:38px;
-        border-radius:14px;
-        font-size:22px;
-        border-width:3px;
-      }
+  .brandIcon{
+    width:32px;
+    height:32px;
+    min-width:32px;
+    border-radius:11px;
+    font-size:19px;
+    border-width:2px;
+  }
 
-      h1{
-        font-size:18px;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
-      }
+  h1{
+    font-size:15px;
+    line-height:1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
 
-      .meta{font-size:9px;line-height:1.1;}
-      .topActions{gap:5px;}
-      .top .btn{min-height:30px;height:30px;padding:4px 8px;border-radius:11px;font-size:11px;border-width:2px;}
+  .meta{
+    font-size:8px;
+    line-height:1;
+    max-width:100%;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
 
-      .stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;}
-      .stat{min-height:38px;padding:4px 2px;border-radius:12px;border-width:2px;}
-      .stat small{font-size:8px;line-height:1;}
-      .stat b{font-size:13px;line-height:1;margin-top:2px;}
+  .topActions{
+    display:flex;
+    gap:3px;
+    justify-content:flex-end;
+    flex-wrap:nowrap;
+    min-width:0;
+  }
 
-      .rival{padding:5px 7px;border-radius:16px;gap:4px;grid-template-columns:1fr auto;border-width:3px;}
-      .rivalName{font-size:12px;line-height:1.05;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-      .statePill{min-height:26px;padding:3px 8px;font-size:10px;border-width:2px;}
-      .rivalStats{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;}
-      .rivalCard{min-height:32px;padding:3px 2px;border-radius:11px;border-width:2px;}
-      .rivalCard small{font-size:7px;line-height:1;}
-      .rivalCard b{font-size:11px;margin-top:1px;}
+  .topActions .btn{
+    min-height:28px;
+    padding:3px 7px;
+    font-size:10px;
+    border-radius:10px;
+    border-width:2px;
+    white-space:nowrap;
+  }
 
-      .arena{min-height:60dvh;border-radius:18px;border-width:3px;}
-      .target{width:72px;height:72px;border-radius:24px;font-size:40px;border-width:6px;}
+  .stats{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:3px;
+    overflow:hidden;
+  }
 
-      .bottom{
-        min-height:40px;
-        padding:4px 6px;
-        border-radius:16px;
-        border-width:3px;
-        grid-template-columns:1fr;
-        gap:4px;
-      }
+  .stats .stat:nth-child(3){
+    display:none;
+  }
 
-      .hint{font-size:10px;line-height:1.15;}
-      .miniStats,.skillBar{gap:5px;justify-content:center;}
-      .pill{min-height:24px;padding:2px 6px;border-radius:10px;font-size:9px;border-width:2px;}
-      .bottom .btn{min-height:28px;padding:3px 7px;font-size:10px;border-radius:10px;border-width:2px;}
+  .stat{
+    min-width:0;
+    min-height:34px;
+    padding:2px 1px;
+    border-radius:10px;
+    border-width:2px;
+    overflow:hidden;
+  }
 
-      .overlay{
-        align-items:flex-start;
-        padding-top:calc(58px + var(--sat));
-      }
+  .stat small{
+    font-size:6.5px;
+    line-height:1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
 
-      .modal{
-        padding:18px;
-        border-radius:28px;
-        max-height:calc(100dvh - 76px - var(--sat) - var(--sab));
-      }
+  .stat b{
+    font-size:11px;
+    line-height:1;
+    margin-top:1px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
 
-      .resultGrid{grid-template-columns:1fr;}
-      .resultActions{grid-template-columns:1fr;}
-    }
+  .rival{
+    padding:4px 5px;
+    border-radius:13px;
+    gap:3px;
+    grid-template-columns:minmax(0,1fr) auto;
+    border-width:2px;
+    overflow:hidden;
+  }
+
+  .rivalName{
+    font-size:11px;
+    line-height:1.05;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .statePill{
+    min-height:24px;
+    padding:2px 7px;
+    font-size:9px;
+    border-width:2px;
+  }
+
+  .rivalStats{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:3px;
+    overflow:hidden;
+  }
+
+  .rivalStats .rivalCard:nth-child(4),
+  .rivalStats .rivalCard:nth-child(5){
+    display:none;
+  }
+
+  .rivalCard{
+    min-height:30px;
+    padding:2px 1px;
+    border-radius:10px;
+    border-width:2px;
+    overflow:hidden;
+  }
+
+  .rivalCard small{
+    font-size:6.5px;
+    line-height:1;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .rivalCard b{
+    font-size:11px;
+    margin-top:1px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .arena{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    height:100%;
+    min-height:0;
+    border-radius:14px;
+    border-width:2px;
+    overflow:hidden;
+    contain:layout paint size;
+  }
+
+  .target{
+    width:58px;
+    height:58px;
+    border-radius:18px;
+    font-size:31px;
+    border-width:5px;
+  }
+
+  .bottom{
+    width:100%;
+    max-width:100%;
+    min-width:0;
+    min-height:34px;
+    padding:3px 5px;
+    border-radius:13px;
+    border-width:2px;
+    grid-template-columns:minmax(0,1fr) auto;
+    gap:3px;
+    overflow:hidden;
+  }
+
+  .hint{
+    font-size:9px;
+    line-height:1.12;
+    min-width:0;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  .miniStats{
+    justify-content:flex-end;
+    gap:3px;
+    max-width:100%;
+    min-width:0;
+    overflow:hidden;
+    flex-wrap:nowrap;
+  }
+
+  .miniStats .pill:nth-child(2),
+  .miniStats .pill:nth-child(3),
+  .miniStats .pill:nth-child(5){
+    display:none;
+  }
+
+  .pill{
+    min-height:20px;
+    padding:1px 4px;
+    font-size:7.5px;
+    border-width:2px;
+    white-space:nowrap;
+  }
+
+  .skillBar{
+    display:none;
+  }
+
+  .overlay{
+    align-items:flex-start;
+    padding:
+      calc(8px + var(--sat))
+      calc(8px + var(--sar))
+      calc(8px + var(--sab))
+      calc(8px + var(--sal));
+  }
+
+  .modal{
+    width:min(96vw,760px);
+    max-height:calc(var(--game-vh,100dvh) - 16px - var(--sat) - var(--sab));
+    padding:14px;
+    border-radius:24px;
+  }
+
+  .resultGrid,
+  .resultActions{
+    grid-template-columns:1fr;
+  }
+}
   </style>
 </head>
 
@@ -545,7 +742,7 @@
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2.4.1</h1>
+        <h1>GoodJunk Battle v2.4.2</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -625,13 +822,33 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_RUN = 'v20260515-battle-v241-run-back-to-launcher';
+    window.HHA_GJ_BATTLE_RUN = 'v20260518-battle-v242-mobile-edge-fix';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const CAPACITY = 2;
 
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(location.search);
+    function lockGameViewport(){
+    const vv = window.visualViewport;
+    const w = Math.max(280, Math.floor(vv ? vv.width : window.innerWidth));
+    const h = Math.max(320, Math.floor(vv ? vv.height : window.innerHeight));
+
+    document.documentElement.style.setProperty('--game-vw', w + 'px');
+    document.documentElement.style.setProperty('--game-vh', h + 'px');
+    }
+
+    lockGameViewport();
+
+    window.addEventListener('resize', lockGameViewport, { passive:true });
+    window.addEventListener('orientationchange', () => {
+      setTimeout(lockGameViewport, 120);
+    }, { passive:true });
+
+    if (window.visualViewport){
+      window.visualViewport.addEventListener('resize', lockGameViewport, { passive:true });
+      window.visualViewport.addEventListener('scroll', lockGameViewport, { passive:true });
+    }
 
     const GOOD = ['🍎','🍌','🥦','🥬','🥕','🍊','🍇','🐟','🥚','🍚'];
     const BAD = ['🍟','🍔','🧁','🥤','🍭'];
@@ -1002,13 +1219,21 @@
         : Math.min(92, Math.max(78, rect.width * .07));
 
       const bottomSafe = isMobile ? 8 : 10;
-      const x = rand(8,Math.max(8,rect.width - size - 8));
-      const y = rand(8,Math.max(8,rect.height - size - bottomSafe));
+      const pad = window.innerWidth <= 680 ? 10 : 12;
+      const maxX = Math.max(pad, rect.width - size - pad);
+      const maxY = Math.max(pad, rect.height - size - pad);
+
+      const x = rand(pad, maxX);
+      const y = rand(pad, maxY);
 
       el.style.width = `${size}px`;
       el.style.height = `${size}px`;
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
+      el.style.fontSize = `${Math.round(size * .54)}px`;
+      el.style.borderRadius = `${Math.round(size * .34)}px`;
+      el.style.maxWidth = 'calc(100% - 8px)';
+      el.style.maxHeight = 'calc(100% - 8px)';
 
       let alive = true;
       const ttl = type === 'bad' ? 1450 : type === 'power' ? 1250 : type === 'shield' ? 1300 : 1550;
