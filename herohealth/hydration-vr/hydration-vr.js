@@ -5024,3 +5024,14 @@ HYD.VERSION = 'v20260517-pack23-start-handler-export';
     boot();
   }
 })();
+/* =========================================================
+   Boot
+   ========================================================= */
+
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', bootHydrationGame, { once:true });
+} else {
+  bootHydrationGame();
+}
+
+})();
