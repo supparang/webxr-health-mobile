@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Runtime v2.1.4</title>
+  <title>HeroHealth • GoodJunk Duet Runtime v2.1.4b</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260517d-gj-duet-runtime-syntax-fix"></script>
+  <script src="../firebase-config.js?v=20260518b-gj-duet-runtime-mobile-edge-fix"></script>
 
   <style>
     :root{
@@ -32,6 +32,8 @@
       --sar:env(safe-area-inset-right,0px);
       --sab:env(safe-area-inset-bottom,0px);
       --sal:env(safe-area-inset-left,0px);
+      --game-vh:100dvh;
+      --game-vw:100vw;
     }
 
     *{
@@ -44,6 +46,8 @@
       width:100%;
       height:100%;
       overflow:hidden;
+      overscroll-behavior:none;
+      touch-action:manipulation;
       font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
@@ -55,9 +59,10 @@
 
     .app{
       position:fixed;
-      inset:0;
-      width:100vw;
-      max-width:100vw;
+      left:0;
+      top:0;
+      width:var(--game-vw,100vw);
+      max-width:var(--game-vw,100vw);
       height:var(--game-vh,100dvh);
       max-height:var(--game-vh,100dvh);
       padding:
@@ -81,14 +86,16 @@
     .top{
       padding:10px 12px;
       display:grid;
-      grid-template-columns:auto 1fr auto;
+      grid-template-columns:auto minmax(0,1fr) auto;
       gap:10px;
       align-items:center;
+      overflow:hidden;
     }
 
     .brandIcon{
       width:56px;
       height:56px;
+      min-width:56px;
       border-radius:20px;
       border:4px solid var(--stroke2);
       background:linear-gradient(180deg,#fff,#e7ddff);
@@ -104,6 +111,9 @@
       font-weight:1000;
       letter-spacing:-.03em;
       color:var(--text);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .meta{
@@ -122,6 +132,7 @@
       gap:8px;
       flex-wrap:wrap;
       justify-content:flex-end;
+      min-width:0;
     }
 
     .btn{
@@ -142,6 +153,7 @@
       cursor:pointer;
       user-select:none;
       box-shadow:0 8px 18px rgba(90,60,150,.08);
+      white-space:nowrap;
     }
 
     .btn:disabled{
@@ -150,43 +162,23 @@
       filter:grayscale(.25);
     }
 
-    .btn.good{
-      background:linear-gradient(180deg,#a6f071,#7ed957);
-      border-color:#b8f29a;
-      color:#173b0b;
-    }
-
-    .btn.info{
-      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
-      border-color:#9fe3ff;
-      color:#08374d;
-    }
-
-    .btn.warn{
-      background:linear-gradient(180deg,#ffe785,#ffd75a);
-      border-color:#ffe08a;
-      color:#553900;
-    }
-
-    .btn.danger{
-      background:linear-gradient(180deg,#ffd1d1,#ff8d8d);
-      border-color:#ffc7c7;
-      color:#6d1e1e;
-    }
-
-    .btn.purple{
-      background:linear-gradient(180deg,#d7c7ff,#b79cff);
-      border-color:#d7c7ff;
-      color:#3c236a;
-    }
+    .btn.good{background:linear-gradient(180deg,#a6f071,#7ed957);border-color:#b8f29a;color:#173b0b;}
+    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);border-color:#9fe3ff;color:#08374d;}
+    .btn.warn{background:linear-gradient(180deg,#ffe785,#ffd75a);border-color:#ffe08a;color:#553900;}
+    .btn.danger{background:linear-gradient(180deg,#ffd1d1,#ff8d8d);border-color:#ffc7c7;color:#6d1e1e;}
+    .btn.purple{background:linear-gradient(180deg,#d7c7ff,#b79cff);border-color:#d7c7ff;color:#3c236a;}
 
     .hud{
+      width:100%;
+      max-width:100%;
       display:grid;
       grid-template-columns:repeat(6,minmax(0,1fr));
       gap:8px;
+      overflow:hidden;
     }
 
     .stat{
+      min-width:0;
       min-height:58px;
       border:3px solid var(--stroke2);
       background:#fff;
@@ -197,6 +189,7 @@
       text-align:center;
       font-weight:1000;
       box-shadow:0 8px 18px rgba(90,60,150,.08);
+      overflow:hidden;
     }
 
     .stat small{
@@ -205,6 +198,9 @@
       line-height:1;
       text-transform:uppercase;
       font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .stat b{
@@ -221,8 +217,13 @@
 
     .arena{
       position:relative;
+      width:100%;
+      max-width:100%;
+      min-width:0;
+      height:100%;
+      min-height:0;
       overflow:hidden;
-      min-height:280px;
+      contain:layout paint size;
       border:4px solid var(--stroke);
       border-radius:28px;
       background:
@@ -339,12 +340,16 @@
     }
 
     .bottom{
+      width:100%;
+      max-width:100%;
+      min-width:0;
       min-height:58px;
       padding:8px 10px;
       display:grid;
-      grid-template-columns:1fr auto auto;
+      grid-template-columns:minmax(0,1fr) auto auto;
       gap:8px;
       align-items:center;
+      overflow:hidden;
     }
 
     .status{
@@ -355,6 +360,7 @@
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
+      min-width:0;
     }
 
     .missionLine{
@@ -362,6 +368,8 @@
       flex-wrap:wrap;
       gap:6px;
       justify-content:flex-start;
+      min-width:0;
+      overflow:hidden;
     }
 
     .pill{
@@ -379,17 +387,8 @@
       white-space:nowrap;
     }
 
-    .pill.ok{
-      border-color:#b8f29a;
-      background:#f4fff0;
-      color:#23620d;
-    }
-
-    .pill.bad{
-      border-color:#ffc7c7;
-      background:#fff1f1;
-      color:#7d1d1d;
-    }
+    .pill.ok{border-color:#b8f29a;background:#f4fff0;color:#23620d;}
+    .pill.bad{border-color:#ffc7c7;background:#fff1f1;color:#7d1d1d;}
 
     .overlay{
       position:fixed;
@@ -409,7 +408,7 @@
 
     .modal{
       width:min(94vw,880px);
-      max-height:calc(100dvh - 36px - var(--sat) - var(--sab));
+      max-height:calc(var(--game-vh,100dvh) - 36px - var(--sat) - var(--sab));
       overflow:auto;
       border:4px solid var(--stroke);
       background:#fffef9;
@@ -565,195 +564,239 @@
     }
 
     @media(max-width:760px){
-  html,body{
-    width:100%;
-    height:100%;
-    overflow:hidden;
-    overscroll-behavior:none;
-  }
+      html,body{
+        width:100%;
+        height:100%;
+        overflow:hidden;
+        overscroll-behavior:none;
+      }
 
-  .app{
-    position:fixed;
-    inset:0;
-    width:100vw;
-    max-width:100vw;
-    height:var(--game-vh,100dvh);
-    max-height:var(--game-vh,100dvh);
-    padding:
-      calc(2px + var(--sat))
-      calc(2px + var(--sar))
-      calc(2px + var(--sab))
-      calc(2px + var(--sal));
-    gap:3px;
-    grid-template-rows:auto auto minmax(0,1fr) auto;
-    overflow:hidden;
-  }
+      .app{
+        position:fixed;
+        left:0;
+        top:0;
+        width:var(--game-vw,100vw);
+        max-width:var(--game-vw,100vw);
+        height:var(--game-vh,100dvh);
+        max-height:var(--game-vh,100dvh);
+        padding:
+          calc(2px + var(--sat))
+          calc(2px + var(--sar))
+          calc(2px + var(--sab))
+          calc(2px + var(--sal));
+        gap:3px;
+        grid-template-rows:auto auto minmax(0,1fr) auto;
+        overflow:hidden;
+      }
 
-  .top{
-    min-height:0;
-    padding:4px 5px;
-    border-radius:14px;
-    border-width:2px;
-    grid-template-columns:auto 1fr auto;
-    gap:4px;
-  }
+      .top{
+        min-width:0;
+        min-height:0;
+        padding:4px 5px;
+        border-radius:14px;
+        border-width:2px;
+        grid-template-columns:32px minmax(0,1fr) auto;
+        gap:4px;
+        overflow:hidden;
+      }
 
-  .brandIcon{
-    width:32px;
-    height:32px;
-    border-radius:11px;
-    font-size:19px;
-    border-width:2px;
-  }
+      .brandIcon{
+        width:32px;
+        height:32px;
+        min-width:32px;
+        border-radius:11px;
+        font-size:19px;
+        border-width:2px;
+      }
 
-  h1{
-    font-size:15px;
-    line-height:1;
-    white-space:nowrap;
-    overflow:hidden;
-    text-overflow:ellipsis;
-  }
+      h1{
+        font-size:15px;
+        line-height:1;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
 
-  .meta{
-    font-size:8px;
-    line-height:1;
-    max-width:100%;
-  }
+      .meta{
+        font-size:8px;
+        line-height:1;
+        max-width:100%;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
 
-  .topActions{
-    grid-column:auto;
-    display:flex;
-    gap:3px;
-    justify-content:flex-end;
-    flex-wrap:nowrap;
-  }
+      .topActions{
+        display:flex;
+        gap:3px;
+        justify-content:flex-end;
+        flex-wrap:nowrap;
+        min-width:0;
+      }
 
-  .topActions .btn{
-    min-height:26px;
-    padding:3px 6px;
-    font-size:9px;
-    border-radius:9px;
-    border-width:2px;
-  }
+      .topActions #btnModes,
+      .topActions #btnHub{
+        display:none;
+      }
 
-  .hud{
-    grid-template-columns:repeat(6,minmax(0,1fr));
-    gap:3px;
-    min-height:0;
-  }
+      .topActions .btn{
+        min-height:28px;
+        padding:3px 7px;
+        font-size:10px;
+        border-radius:10px;
+        border-width:2px;
+        white-space:nowrap;
+      }
 
-  .stat{
-    min-height:31px;
-    padding:2px 1px;
-    border-radius:10px;
-    border-width:2px;
-  }
+      .hud{
+        width:100%;
+        max-width:100%;
+        min-width:0;
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:3px;
+        overflow:hidden;
+      }
 
-  .stat small{
-    font-size:6.5px;
-    line-height:1;
-  }
+      .hud .stat:nth-child(4),
+      .hud .stat:nth-child(5){
+        display:none;
+      }
 
-  .stat b{
-    font-size:11px;
-    line-height:1;
-    margin-top:1px;
-  }
+      .stat{
+        min-width:0;
+        min-height:34px;
+        padding:2px 1px;
+        border-radius:10px;
+        border-width:2px;
+        overflow:hidden;
+      }
 
-  .arena{
-    width:100%;
-    max-width:100%;
-    height:100%;
-    min-height:0;
-    border-radius:14px;
-    border-width:2px;
-    overflow:hidden;
-    contain:layout paint;
-  }
+      .stat small{
+        font-size:6.5px;
+        line-height:1;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
 
-  .guide{
-    width:min(94%,520px);
-    padding:12px;
-    border-radius:20px;
-    border-width:3px;
-  }
+      .stat b{
+        font-size:11px;
+        line-height:1;
+        margin-top:1px;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
 
-  .guide h2{
-    font-size:clamp(24px,7vw,38px);
-  }
+      .arena{
+        width:100%;
+        max-width:100%;
+        min-width:0;
+        height:100%;
+        min-height:0;
+        border-radius:14px;
+        border-width:2px;
+        overflow:hidden;
+        contain:layout paint size;
+      }
 
-  .guide p{
-    font-size:12px;
-    line-height:1.4;
-  }
+      .guide{
+        width:min(92%,520px);
+        padding:12px;
+        border-radius:20px;
+        border-width:3px;
+      }
 
-  .target{
-    width:58px;
-    height:58px;
-    border-radius:18px;
-    font-size:31px;
-    border-width:5px;
-  }
+      .guide h2{
+        font-size:clamp(24px,7vw,38px);
+      }
 
-  .bottom{
-    min-height:34px;
-    padding:3px 5px;
-    border-radius:13px;
-    border-width:2px;
-    grid-template-columns:1fr auto;
-    gap:3px;
-    overflow:hidden;
-  }
+      .guide p{
+        font-size:12px;
+        line-height:1.4;
+      }
 
-  .status{
-    font-size:9px;
-    line-height:1.12;
-    min-width:0;
-  }
+      .target{
+        width:58px;
+        height:58px;
+        border-radius:18px;
+        font-size:31px;
+        border-width:5px;
+      }
 
-  .missionLine{
-    justify-content:flex-end;
-    gap:3px;
-    max-width:100%;
-    overflow:hidden;
-  }
+      .bottom{
+        width:100%;
+        max-width:100%;
+        min-width:0;
+        min-height:34px;
+        padding:3px 5px;
+        border-radius:13px;
+        border-width:2px;
+        grid-template-columns:minmax(0,1fr) auto;
+        gap:3px;
+        overflow:hidden;
+      }
 
-  .pill{
-    min-height:20px;
-    padding:1px 4px;
-    font-size:7.5px;
-    border-width:2px;
-  }
+      .status{
+        font-size:9px;
+        line-height:1.12;
+        min-width:0;
+        white-space:nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+      }
 
-  .bottom .btn{
-    min-height:26px;
-    padding:3px 7px;
-    font-size:9px;
-    border-radius:9px;
-    border-width:2px;
-  }
+      .missionLine{
+        justify-content:flex-end;
+        gap:3px;
+        max-width:100%;
+        min-width:0;
+        overflow:hidden;
+        flex-wrap:nowrap;
+      }
 
-  .overlay{
-    padding:
-      calc(8px + var(--sat))
-      calc(8px + var(--sar))
-      calc(8px + var(--sab))
-      calc(8px + var(--sal));
-  }
+      #missionMiss{
+        display:none;
+      }
 
-  .modal{
-    width:min(96vw,760px);
-    max-height:calc(var(--game-vh,100dvh) - 16px - var(--sat) - var(--sab));
-    padding:14px;
-    border-radius:24px;
-  }
+      .pill{
+        min-height:20px;
+        padding:1px 4px;
+        font-size:7.5px;
+        border-width:2px;
+        white-space:nowrap;
+      }
 
-  .summaryGrid,
-  .players,
-  .modalActions{
-    grid-template-columns:1fr;
-  }
-}
+      .bottom .btn{
+        min-height:26px;
+        padding:3px 7px;
+        font-size:9px;
+        border-radius:9px;
+        border-width:2px;
+      }
+
+      .overlay{
+        padding:
+          calc(8px + var(--sat))
+          calc(8px + var(--sar))
+          calc(8px + var(--sab))
+          calc(8px + var(--sal));
+      }
+
+      .modal{
+        width:min(96vw,760px);
+        max-height:calc(var(--game-vh,100dvh) - 16px - var(--sat) - var(--sab));
+        padding:14px;
+        border-radius:24px;
+      }
+
+      .summaryGrid,
+      .players,
+      .modalActions{
+        grid-template-columns:1fr;
+      }
+    }
   </style>
 </head>
 
@@ -762,7 +805,7 @@
     <section class="box top">
       <div class="brandIcon">🤝</div>
       <div>
-        <h1>GoodJunk Duet v2.1.4</h1>
+        <h1>GoodJunk Duet v2.1.4b</h1>
         <div id="meta" class="meta">loading...</div>
       </div>
       <div class="topActions">
@@ -834,7 +877,7 @@
   (function(){
     'use strict';
 
-    window.HHA_GJ_DUET_BOOT_GUARD = 'v20260517d-runtime-boot-guard';
+    window.HHA_GJ_DUET_BOOT_GUARD = 'v20260518b-runtime-boot-guard';
 
     function $(id){
       return document.getElementById(id);
@@ -846,12 +889,10 @@
     }
 
     function safeText(s){
-      return String(s || '')
-        .replace(/[<>&]/g, '')
-        .slice(0, 300);
+      return String(s || '').replace(/[<>&]/g,'').slice(0,300);
     }
 
-    function showGuide(title, msg){
+    function showGuide(title,msg){
       var guide = $('guide');
       var h2 = guide ? guide.querySelector('h2') : null;
       var p = $('guideText');
@@ -861,9 +902,9 @@
       if (p) p.innerHTML = msg || '';
     }
 
-    window.addEventListener('error', function(ev){
+    window.addEventListener('error',function(ev){
       var msg = ev && ev.message ? ev.message : 'Unknown script error';
-      console.error('[GJ Duet Runtime BootGuard] JS error:', ev);
+      console.error('[GJ Duet Runtime BootGuard] JS error:',ev);
 
       setStatus('JavaScript error: ' + msg);
       showGuide(
@@ -872,9 +913,9 @@
       );
     });
 
-    window.addEventListener('unhandledrejection', function(ev){
+    window.addEventListener('unhandledrejection',function(ev){
       var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : 'Promise rejected';
-      console.error('[GJ Duet Runtime BootGuard] Promise error:', ev);
+      console.error('[GJ Duet Runtime BootGuard] Promise error:',ev);
 
       setStatus('Promise error: ' + reason);
       showGuide(
@@ -885,8 +926,6 @@
 
     setTimeout(function(){
       if (window.HHA_GJ_DUET_BOOT_OK) return;
-
-      console.warn('[GJ Duet Runtime BootGuard] boot did not start');
 
       setStatus('BootGuard: runtime ยังไม่เริ่ม boot — กำลังกลับ Lobby');
 
@@ -901,14 +940,14 @@
           var room = q.get('room') || q.get('roomId') || q.get('roomCode') || '';
           var hub = q.get('hub') || '../nutrition-zone.html';
 
-          var u = new URL('./goodjunk-duet-lobby.html', location.href);
-          u.searchParams.set('pid', q.get('pid') || 'anon');
-          u.searchParams.set('name', q.get('name') || q.get('nick') || 'Hero');
-          u.searchParams.set('nick', q.get('nick') || q.get('name') || 'Hero');
-          u.searchParams.set('diff', q.get('diff') || 'normal');
-          u.searchParams.set('time', q.get('time') || '90');
-          u.searchParams.set('view', q.get('view') || q.get('device') || 'mobile');
-          u.searchParams.set('device', q.get('device') || q.get('view') || 'mobile');
+          var u = new URL('./goodjunk-duet-lobby.html',location.href);
+          u.searchParams.set('pid',q.get('pid') || 'anon');
+          u.searchParams.set('name',q.get('name') || q.get('nick') || 'Hero');
+          u.searchParams.set('nick',q.get('nick') || q.get('name') || 'Hero');
+          u.searchParams.set('diff',q.get('diff') || 'normal');
+          u.searchParams.set('time',q.get('time') || '90');
+          u.searchParams.set('view',q.get('view') || q.get('device') || 'mobile');
+          u.searchParams.set('device',q.get('device') || q.get('view') || 'mobile');
           u.searchParams.set('mode','duet');
           u.searchParams.set('entry','duet');
           u.searchParams.set('game','goodjunk');
@@ -918,21 +957,21 @@
           u.searchParams.set('cat','nutrition');
           u.searchParams.set('run','menu');
           u.searchParams.set('recover','boot-guard');
-          u.searchParams.set('t', String(Date.now()));
-          u.searchParams.set('hub', hub);
+          u.searchParams.set('t',String(Date.now()));
+          u.searchParams.set('hub',hub);
 
           if (room){
-            u.searchParams.set('room', room);
-            u.searchParams.set('roomId', room);
-            u.searchParams.set('roomCode', room);
+            u.searchParams.set('room',room);
+            u.searchParams.set('roomId',room);
+            u.searchParams.set('roomCode',room);
           }
 
           location.href = u.toString();
         }catch(_){
           location.href = './goodjunk-duet-lobby.html?recover=boot-guard';
         }
-      }, 2200);
-    }, 4500);
+      },2200);
+    },4500);
   })();
   </script>
 
@@ -941,7 +980,7 @@
     'use strict';
 
     window.HHA_GJ_DUET_BOOT_OK = true;
-    window.HHA_GJ_DUET_RUNTIME = 'v20260518a-duet-runtime-v214-rematch-ui-mobile-full';
+    window.HHA_GJ_DUET_RUNTIME = 'v20260518b-duet-runtime-v214-rematch-mobile-edge-fix';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/duetRooms';
 
@@ -951,21 +990,27 @@
 
     const $ = id => document.getElementById(id);
     const params = new URLSearchParams(location.search);
+
     function lockGameViewport(){
-  const vv = window.visualViewport;
-  const h = Math.max(320, Math.floor(vv ? vv.height : window.innerHeight));
-  document.documentElement.style.setProperty('--game-vh', h + 'px');
-}
+      const vv = window.visualViewport;
+      const w = Math.max(280,Math.floor(vv ? vv.width : window.innerWidth));
+      const h = Math.max(320,Math.floor(vv ? vv.height : window.innerHeight));
 
-lockGameViewport();
+      document.documentElement.style.setProperty('--game-vw',w + 'px');
+      document.documentElement.style.setProperty('--game-vh',h + 'px');
+    }
 
-window.addEventListener('resize', lockGameViewport, { passive:true });
+    lockGameViewport();
 
-if (window.visualViewport){
-  window.visualViewport.addEventListener('resize', lockGameViewport, { passive:true });
-  window.visualViewport.addEventListener('scroll', lockGameViewport, { passive:true });
-}
-    
+    window.addEventListener('resize',lockGameViewport,{passive:true});
+    window.addEventListener('orientationchange',() => {
+      setTimeout(lockGameViewport,120);
+    },{passive:true});
+
+    if (window.visualViewport){
+      window.visualViewport.addEventListener('resize',lockGameViewport,{passive:true});
+      window.visualViewport.addEventListener('scroll',lockGameViewport,{passive:true});
+    }
 
     let db = null;
     let unsub = null;
@@ -985,16 +1030,16 @@ if (window.visualViewport){
       '';
 
     const state = {
-      room: normalizeRoom(initialRoom),
-      matchId: qs('matchId',''),
-      pid: qs('pid','anon'),
-      name: qs('name', qs('nick','Hero')),
-      role: normalizeRole(qs('role', qs('roleKey','partner'))),
-      diff: qs('diff','normal'),
-      view: qs('view', qs('device','mobile')),
-      timeTotal: Number(qs('time','90')) || 90,
-      timeLeft: Number(qs('time','90')) || 90,
-      hub: compactHub(qs('hub','')),
+      room:normalizeRoom(initialRoom),
+      matchId:qs('matchId',''),
+      pid:qs('pid','anon'),
+      name:qs('name',qs('nick','Hero')),
+      role:normalizeRole(qs('role',qs('roleKey','partner'))),
+      diff:qs('diff','normal'),
+      view:qs('view',qs('device','mobile')),
+      timeTotal:Number(qs('time','90')) || 90,
+      timeLeft:Number(qs('time','90')) || 90,
+      hub:compactHub(qs('hub','')),
 
       score:0,
       good:0,
@@ -1020,8 +1065,6 @@ if (window.visualViewport){
     setTimeout(() => {
       if (bootPassed || ended) return;
 
-      console.warn('[GJ Duet Runtime] boot watchdog fired');
-
       try{
         setStatus('ระบบยังค้างที่ขั้นเชื่อมห้อง — กำลังกลับ Lobby เพื่อเริ่มใหม่');
         $('guide').classList.remove('hide');
@@ -1039,7 +1082,7 @@ if (window.visualViewport){
           });
         },1600);
       }catch(err){
-        console.error('[GJ Duet Runtime] watchdog failed', err);
+        console.error('[GJ Duet Runtime] watchdog failed',err);
       }
     },6500);
 
@@ -1056,7 +1099,7 @@ if (window.visualViewport){
     }
 
     function compactHub(v){
-      const fallback = new URL('../nutrition-zone.html', location.href).toString();
+      const fallback = new URL('../nutrition-zone.html',location.href).toString();
       const s = String(v || '').trim();
 
       if (!s) return fallback;
@@ -1064,7 +1107,7 @@ if (window.visualViewport){
       if (/%252F|backModes=|launcherUrl=|backLobby=|nextAfterCooldown=|cdnext=/.test(s)) return fallback;
 
       try{
-        return new URL(s, location.href).toString();
+        return new URL(s,location.href).toString();
       }catch(_){
         return fallback;
       }
@@ -1120,8 +1163,8 @@ if (window.visualViewport){
     }
 
     async function firebaseReady(){
-      const timeout = (ms, label) => new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(label || 'Firebase timeout')), ms);
+      const timeout = (ms,label) => new Promise((_,reject) => {
+        setTimeout(() => reject(new Error(label || 'Firebase timeout')),ms);
       });
 
       async function fallbackCompat(){
@@ -1162,7 +1205,7 @@ if (window.visualViewport){
             return fb;
           }
         }catch(err){
-          console.warn('[GJ Duet Runtime] HHA_FIREBASE_READY timeout/fail, fallback compat', err);
+          console.warn('[GJ Duet Runtime] HHA_FIREBASE_READY timeout/fail, fallback compat',err);
         }
       }
 
@@ -1213,8 +1256,8 @@ if (window.visualViewport){
       return ps.length >= 2 && ps.every(p => p.finished === true);
     }
 
-    function hrefWith(path, extra={}){
-      const u = new URL(path, location.href);
+    function hrefWith(path,extra={}){
+      const u = new URL(path,location.href);
 
       const base = {
         pid:state.pid,
@@ -1243,7 +1286,7 @@ if (window.visualViewport){
         matchId:state.matchId,
         role:state.role,
         roleKey:state.role,
-        v:'20260517d-duet-runtime-v213',
+        v:'20260518b-duet-runtime-v214',
         ...extra
       };
 
@@ -1257,15 +1300,15 @@ if (window.visualViewport){
     }
 
     function buildLauncherUrl(){
-      const u = new URL('../goodjunk-launcher.html', location.href);
+      const u = new URL('../goodjunk-launcher.html',location.href);
 
-      u.searchParams.set('pid', state.pid);
-      u.searchParams.set('name', state.name);
-      u.searchParams.set('nick', state.name);
-      u.searchParams.set('diff', state.diff);
-      u.searchParams.set('time', String(state.timeTotal));
-      u.searchParams.set('view', state.view);
-      u.searchParams.set('device', state.view);
+      u.searchParams.set('pid',state.pid);
+      u.searchParams.set('name',state.name);
+      u.searchParams.set('nick',state.name);
+      u.searchParams.set('diff',state.diff);
+      u.searchParams.set('time',String(state.timeTotal));
+      u.searchParams.set('view',state.view);
+      u.searchParams.set('device',state.view);
 
       u.searchParams.set('zone','nutrition');
       u.searchParams.set('cat','nutrition');
@@ -1276,8 +1319,8 @@ if (window.visualViewport){
       u.searchParams.set('mode','menu');
       u.searchParams.set('entry','goodjunk-launcher');
       u.searchParams.set('run','menu');
-      u.searchParams.set('hub', state.hub);
-      u.searchParams.set('v','20260517d-goodjunk-duet-runtime-back-to-launcher');
+      u.searchParams.set('hub',state.hub);
+      u.searchParams.set('v','20260518b-goodjunk-duet-runtime-back-to-launcher');
 
       return u.toString();
     }
@@ -1336,7 +1379,7 @@ if (window.visualViewport){
       state.teamMiss = players.reduce((sum,p) => sum + Number(p.miss || 0),0);
     }
 
-    async function writeSelf(extra={}, force=false){
+    async function writeSelf(extra={},force=false){
       if (!db) return;
       if (ended && !force) return;
 
@@ -1367,7 +1410,7 @@ if (window.visualViewport){
       };
 
       try{
-        await dbUpdate(playerPath(), payload);
+        await dbUpdate(playerPath(),payload);
       }catch(err){
         console.warn('[GJ Duet Runtime] writeSelf failed',err);
       }
@@ -1390,15 +1433,8 @@ if (window.visualViewport){
 
       if (room.finalSummary){
         showSummary(room.finalSummary);
-
-  /*
-    PATCH v2.1.4:
-    แม้เกมจบแล้วและมี finalSummary แล้ว
-    ต้องยัง sync rematch/votes ต่อ เพื่อให้อีกฝ่ายเห็นข้อความขอ rematch
-  */
         updateRematchUi(room);
         updateHud();
-
         return;
       }
 
@@ -1426,8 +1462,8 @@ if (window.visualViewport){
     }
 
     function updateRoleVisual(){
-      $('arena').classList.toggle('collector', state.role === 'collector');
-      $('arena').classList.toggle('guardian', state.role === 'guardian');
+      $('arena').classList.toggle('collector',state.role === 'collector');
+      $('arena').classList.toggle('guardian',state.role === 'guardian');
 
       $('guideText').innerHTML =
         state.role === 'collector'
@@ -1438,11 +1474,11 @@ if (window.visualViewport){
     function difficulty(){
       const d = String(state.diff || 'normal').toLowerCase();
 
-      if (d === 'easy') return { spawnMs:760, ttlGood:1800, ttlJunk:1700, max:7, junkRate: state.role === 'guardian' ? .56 : .28 };
-      if (d === 'hard') return { spawnMs:520, ttlGood:1350, ttlJunk:1250, max:10, junkRate: state.role === 'guardian' ? .66 : .36 };
-      if (d === 'challenge') return { spawnMs:440, ttlGood:1180, ttlJunk:1120, max:11, junkRate: state.role === 'guardian' ? .72 : .42 };
+      if (d === 'easy') return { spawnMs:760, ttlGood:1800, ttlJunk:1700, max:7, junkRate:state.role === 'guardian' ? .56 : .28 };
+      if (d === 'hard') return { spawnMs:520, ttlGood:1350, ttlJunk:1250, max:10, junkRate:state.role === 'guardian' ? .66 : .36 };
+      if (d === 'challenge') return { spawnMs:440, ttlGood:1180, ttlJunk:1120, max:11, junkRate:state.role === 'guardian' ? .72 : .42 };
 
-      return { spawnMs:620, ttlGood:1550, ttlJunk:1450, max:9, junkRate: state.role === 'guardian' ? .62 : .32 };
+      return { spawnMs:620, ttlGood:1550, ttlJunk:1450, max:9, junkRate:state.role === 'guardian' ? .62 : .32 };
     }
 
     function rand(min,max){
@@ -1487,26 +1523,25 @@ if (window.visualViewport){
 
       const isMobile = window.innerWidth <= 760;
       const size = isMobile
-        ? Math.min(78,Math.max(68,rect.width * .16))
+        ? Math.min(58,Math.max(48,rect.width * .145))
         : Math.min(92,Math.max(76,rect.width * .07));
 
-      const pad = window.innerWidth <= 760 ? 8 : 12;
-      const safeW = Math.max(size + pad * 2, rect.width);
-      const safeH = Math.max(size + pad * 2, rect.height);
+      const pad = isMobile ? 10 : 12;
+      const maxX = Math.max(pad,rect.width - size - pad);
+      const maxY = Math.max(pad,rect.height - size - pad);
 
-      const x = rand(pad + size/2, Math.max(pad + size/2, safeW - size/2 - pad));
-      const y = rand(pad + size/2, Math.max(pad + size/2, safeH - size/2 - pad));
+      const left = rand(pad,maxX);
+      const top = rand(pad,maxY);
 
       el.style.width = `${size}px`;
       el.style.height = `${size}px`;
-      el.style.left = `${x - size/2}px`;
-      el.style.top = `${y - size/2}px`;
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
       el.style.fontSize = `${Math.round(size * .54)}px`;
       el.style.borderRadius = `${Math.round(size * .34)}px`;
-
       el.style.maxWidth = 'calc(100% - 8px)';
       el.style.maxHeight = 'calc(100% - 8px)';
-      
+
       let alive = true;
       const ttl = type === 'good' ? cfg.ttlGood : cfg.ttlJunk;
 
@@ -1519,14 +1554,14 @@ if (window.visualViewport){
         if (type === 'good' && state.role === 'collector'){
           state.miss++;
           state.combo = 0;
-          pop(x,y,'MISS','bad');
+          pop(left + size/2,top + size/2,'MISS','bad');
           writeSelf();
         }
 
         if (type === 'junk' && state.role === 'guardian'){
           state.miss++;
           state.combo = 0;
-          pop(x,y,'JUNK!','bad');
+          pop(left + size/2,top + size/2,'JUNK!','bad');
           writeSelf();
         }
 
@@ -1542,10 +1577,10 @@ if (window.visualViewport){
         alive = false;
         clearTimeout(timer);
         fadeRemove(el);
-        judgeHit(type,x,y);
+        judgeHit(type,left + size/2,top + size/2);
       }
 
-      el.addEventListener('pointerdown', hit, {passive:false});
+      el.addEventListener('pointerdown',hit,{passive:false});
       arena.appendChild(el);
     }
 
@@ -1657,7 +1692,7 @@ if (window.visualViewport){
         if (Math.random() < .35){
           setTimeout(() => spawnTarget(),180);
         }
-      }, difficulty().spawnMs);
+      },difficulty().spawnMs);
 
       syncTimer = setInterval(() => {
         if (!ended) writeSelf();
@@ -1711,7 +1746,7 @@ if (window.visualViewport){
     async function tryFinalize(reason='time-up'){
       if (!db || state.finalSummary) return;
 
-      const room = await dbGet(roomPath()).catch(()=>state.roomData);
+      const room = await dbGet(roomPath()).catch(() => state.roomData);
       if (!room) return;
 
       if (room.finalSummary){
@@ -1750,13 +1785,13 @@ if (window.visualViewport){
 
       if (!locked){
         setTimeout(async () => {
-          const latest = await dbGet(roomPath()).catch(()=>null);
+          const latest = await dbGet(roomPath()).catch(() => null);
           if (latest?.finalSummary) showSummary(latest.finalSummary);
         },900);
         return;
       }
 
-      const latest = await dbGet(roomPath()).catch(()=>room);
+      const latest = await dbGet(roomPath()).catch(() => room);
       const summary = buildSummary(latest,reason);
 
       await dbUpdate(roomPath(),{
@@ -1788,7 +1823,7 @@ if (window.visualViewport){
         sums.block += Number(p.block || 0);
         sums.junk += Number(p.junk || 0);
         sums.miss += Number(p.miss || 0);
-        sums.bestCombo = Math.max(sums.bestCombo, Number(p.bestCombo || p.combo || 0));
+        sums.bestCombo = Math.max(sums.bestCombo,Number(p.bestCombo || p.combo || 0));
       });
 
       const missionGood = sums.good >= 30;
@@ -1808,7 +1843,7 @@ if (window.visualViewport){
         matchId:state.matchId,
         reason,
         grade,
-        title: grade === 'S' ? 'Duet สุดยอด!' : grade === 'A' ? 'ทีมเวิร์กดีมาก!' : grade === 'B' ? 'ดีมาก!' : 'ลองอีกครั้งได้!',
+        title:grade === 'S' ? 'Duet สุดยอด!' : grade === 'A' ? 'ทีมเวิร์กดีมาก!' : grade === 'B' ? 'ดีมาก!' : 'ลองอีกครั้งได้!',
         score:sums.score,
         good:sums.good,
         block:sums.block,
@@ -1888,6 +1923,7 @@ if (window.visualViewport){
       $('rematchBox').classList.add('show');
       $('rematchText').textContent = 'คุณพร้อมรอบใหม่แล้ว รออีกฝ่าย...';
       setStatus('✅ ส่งคำขอ Rematch แล้ว — รออีกฝ่ายกดพร้อมรอบใหม่');
+
       $('btnRematch').disabled = true;
       $('btnRematch').textContent = '✅ พร้อมแล้ว';
 
@@ -1918,20 +1954,19 @@ if (window.visualViewport){
       if (votes.length > 0){
         $('rematchBox').classList.add('show');
 
-      const requester = votes[0]?.name || 'คู่เล่น';
-      const meReady = !!room?.rematch?.votes?.[safeKey(state.pid)]?.ready;
+        const requester = votes[0]?.name || 'คู่เล่น';
 
-      if (votes.length >= 2){
-        $('rematchText').textContent = 'พร้อมครบ 2/2 แล้ว • กำลังเริ่มรอบใหม่';
-        setStatus('🔁 พร้อมครบ 2 คน กำลังเริ่ม Duet รอบใหม่...');
-      }else if (meReady){
-        $('rematchText').textContent = 'คุณพร้อมรอบใหม่แล้ว • รออีกฝ่ายกดพร้อม';
-        setStatus('✅ คุณพร้อมแล้ว — รออีกฝ่ายตอบรับ Rematch');
-      }else{
-        $('rematchText').textContent = `${requester} ขอเล่นรอบใหม่ • กดพร้อมรอบใหม่เพื่อเริ่ม`;
-        setStatus(`🔁 ${requester} ขอ Rematch — กดปุ่มพร้อมรอบใหม่`);
+        if (votes.length >= 2){
+          $('rematchText').textContent = 'พร้อมครบ 2/2 แล้ว • กำลังเริ่มรอบใหม่';
+          setStatus('🔁 พร้อมครบ 2 คน กำลังเริ่ม Duet รอบใหม่...');
+        }else if (meReady){
+          $('rematchText').textContent = 'คุณพร้อมรอบใหม่แล้ว • รออีกฝ่ายกดพร้อม';
+          setStatus('✅ คุณพร้อมแล้ว — รออีกฝ่ายตอบรับ Rematch');
+        }else{
+          $('rematchText').textContent = `${requester} ขอเล่นรอบใหม่ • กดพร้อมรอบใหม่เพื่อเริ่ม`;
+          setStatus(`🔁 ${requester} ขอ Rematch — กดปุ่มพร้อมรอบใหม่`);
+        }
       }
-    }
 
       if (meReady){
         $('btnRematch').disabled = true;
@@ -1939,14 +1974,14 @@ if (window.visualViewport){
       }
 
       if (votes.length >= 2){
-        maybeStartRematch().catch(()=>{});
+        maybeStartRematch().catch(() => {});
       }
     }
 
     async function maybeStartRematch(){
       if (rematchStarting || !db) return;
 
-      const room = await dbGet(roomPath()).catch(()=>null);
+      const room = await dbGet(roomPath()).catch(() => null);
       if (!room) return;
 
       const votes = Object.values(room?.rematch?.votes || {}).filter(v => v && v.ready);
@@ -2140,11 +2175,11 @@ if (window.visualViewport){
           writeSelf({
             inRuntime:true,
             lastSeenAt:now()
-          }).catch(()=>{});
+          }).catch(() => {});
         }
       },5000);
 
-      syncRoom(await dbGet(roomPath()).catch(()=>room));
+      syncRoom(await dbGet(roomPath()).catch(() => room));
 
       setStatus(roleMission());
       updateLinks();
