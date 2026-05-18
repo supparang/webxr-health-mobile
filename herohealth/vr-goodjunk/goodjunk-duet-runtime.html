@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Runtime v2.1.3c</title>
+  <title>HeroHealth • GoodJunk Duet Runtime v2.1.3d</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260517c-gj-duet-runtime-bootguard"></script>
+  <script src="../firebase-config.js?v=20260517d-gj-duet-runtime-syntax-fix"></script>
 
   <style>
     :root{
@@ -34,7 +34,10 @@
       --sal:env(safe-area-inset-left,0px);
     }
 
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
 
     html,body{
       margin:0;
@@ -142,11 +145,35 @@
       filter:grayscale(.25);
     }
 
-    .btn.good{background:linear-gradient(180deg,#a6f071,#7ed957);border-color:#b8f29a;color:#173b0b;}
-    .btn.info{background:linear-gradient(180deg,#9fe3ff,#58b7f5);border-color:#9fe3ff;color:#08374d;}
-    .btn.warn{background:linear-gradient(180deg,#ffe785,#ffd75a);border-color:#ffe08a;color:#553900;}
-    .btn.danger{background:linear-gradient(180deg,#ffd1d1,#ff8d8d);border-color:#ffc7c7;color:#6d1e1e;}
-    .btn.purple{background:linear-gradient(180deg,#d7c7ff,#b79cff);border-color:#d7c7ff;color:#3c236a;}
+    .btn.good{
+      background:linear-gradient(180deg,#a6f071,#7ed957);
+      border-color:#b8f29a;
+      color:#173b0b;
+    }
+
+    .btn.info{
+      background:linear-gradient(180deg,#9fe3ff,#58b7f5);
+      border-color:#9fe3ff;
+      color:#08374d;
+    }
+
+    .btn.warn{
+      background:linear-gradient(180deg,#ffe785,#ffd75a);
+      border-color:#ffe08a;
+      color:#553900;
+    }
+
+    .btn.danger{
+      background:linear-gradient(180deg,#ffd1d1,#ff8d8d);
+      border-color:#ffc7c7;
+      color:#6d1e1e;
+    }
+
+    .btn.purple{
+      background:linear-gradient(180deg,#d7c7ff,#b79cff);
+      border-color:#d7c7ff;
+      color:#3c236a;
+    }
 
     .hud{
       display:grid;
@@ -347,8 +374,17 @@
       white-space:nowrap;
     }
 
-    .pill.ok{border-color:#b8f29a;background:#f4fff0;color:#23620d;}
-    .pill.bad{border-color:#ffc7c7;background:#fff1f1;color:#7d1d1d;}
+    .pill.ok{
+      border-color:#b8f29a;
+      background:#f4fff0;
+      color:#23620d;
+    }
+
+    .pill.bad{
+      border-color:#ffc7c7;
+      background:#fff1f1;
+      color:#7d1d1d;
+    }
 
     .overlay{
       position:fixed;
@@ -658,7 +694,7 @@
     <section class="box top">
       <div class="brandIcon">🤝</div>
       <div>
-        <h1>GoodJunk Duet v2.1.3c</h1>
+        <h1>GoodJunk Duet v2.1.3d</h1>
         <div id="meta" class="meta">loading...</div>
       </div>
       <div class="topActions">
@@ -730,7 +766,7 @@
   (function(){
     'use strict';
 
-    window.HHA_GJ_DUET_BOOT_GUARD = 'v20260517c-runtime-boot-guard';
+    window.HHA_GJ_DUET_BOOT_GUARD = 'v20260517d-runtime-boot-guard';
 
     function $(id){
       return document.getElementById(id);
@@ -837,7 +873,7 @@
     'use strict';
 
     window.HHA_GJ_DUET_BOOT_OK = true;
-    window.HHA_GJ_DUET_RUNTIME = 'v20260517c-duet-runtime-v213-bootguard-no-hang';
+    window.HHA_GJ_DUET_RUNTIME = 'v20260517d-duet-runtime-v213-syntax-fix';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/duetRooms';
 
@@ -857,11 +893,16 @@
     let ending = false;
     let ended = false;
     let rematchStarting = false;
-
     let bootPassed = false;
 
+    const initialRoom =
+      params.get('room') ||
+      params.get('roomId') ||
+      params.get('roomCode') ||
+      '';
+
     const state = {
-      room: normalizeRoom(qs('room', qs('roomId', qs('roomCode',''))),
+      room: normalizeRoom(initialRoom),
       matchId: qs('matchId',''),
       pid: qs('pid','anon'),
       name: qs('name', qs('nick','Hero')),
@@ -929,11 +970,6 @@
 
     function safeKey(v){
       return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'key';
-    }
-
-    function clean(v,d=''){
-      const s = String(v ?? '').trim();
-      return s || d;
     }
 
     function compactHub(v){
@@ -1124,7 +1160,7 @@
         matchId:state.matchId,
         role:state.role,
         roleKey:state.role,
-        v:'20260517c-duet-runtime-v213',
+        v:'20260517d-duet-runtime-v213',
         ...extra
       };
 
@@ -1158,7 +1194,7 @@
       u.searchParams.set('entry','goodjunk-launcher');
       u.searchParams.set('run','menu');
       u.searchParams.set('hub', state.hub);
-      u.searchParams.set('v','20260517c-goodjunk-duet-runtime-back-to-launcher');
+      u.searchParams.set('v','20260517d-goodjunk-duet-runtime-back-to-launcher');
 
       return u.toString();
     }
