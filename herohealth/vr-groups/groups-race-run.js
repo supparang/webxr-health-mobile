@@ -2,12 +2,12 @@
 // HeroHealth • Groups Race Waiting Room / Countdown
 // Flow:
 // groups-race-lobby.html -> groups-race-run.html -> groups-race.html
-// PATCH v20260517-GROUPS-RACE-RUN-V2-ROOM-SYNC-LOCK
+// PATCH v20260518-GROUPS-RACE-RUN-V34-START-CONTROL
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260517-groups-race-run-v2-room-sync-lock';
+  const VERSION = 'v20260518-groups-race-run-v34-start-control';
 
   const ROOM_ROOT = 'hha-battle/groups/raceRooms';
   const ACTUAL_GAME_PAGE = './groups-race.html';
@@ -27,6 +27,8 @@
     timeSec: 90,
     startAt: 0,
     seed: '',
+    hostUid: '',
+    isHost: false,
 
     hub: '',
     view: '',
@@ -209,8 +211,9 @@
       state.localOnly = true;
       state.uid = makeLocalUid();
       state.connected = false;
+      state.isHost = true;
 
-      setStatus('โหมดทดสอบ LOCAL: จะเข้าเกมคนเดียว ไม่ใช่ Race multiplayer จริง', 'warn');
+      setStatus('โหมดทดสอบ LOCAL: กดเริ่มแข่งเพื่อเข้าเกมคนเดียว', 'warn');
 
       state.players = {
         [state.uid]: {
@@ -227,10 +230,10 @@
       renderPlayers();
       renderRoomState({
         status: 'local-test',
-        startAt: state.startAt || now() + 1500
+        startAt: state.startAt || 0
       });
 
-      if (!state.startAt) state.startAt = now() + 1500;
+      updateStartButton();
 
       return;
     }
@@ -281,21 +284,27 @@
         const room = snap.val() || {};
         state.lastRoom = room;
 
+        state.hostUid = room.hostUid || state.hostUid || '';
+        state.isHost = Boolean(state.hostUid && state.hostUid === state.uid);
+
         if (room.startAt) state.startAt = Number(room.startAt) || state.startAt;
         if (room.seed && !state.seed) state.seed = room.seed;
-        if (room.diff && !qs('diff')) state.diff = room.diff;
-        if (room.timeSec && !qs('timeSec') && !qs('time')) state.timeSec = Number(room.timeSec) || state.timeSec;
+        if (room.diff) state.diff = room.diff;
+        if (room.timeSec) state.timeSec = Number(room.timeSec) || state.timeSec;
 
         renderRoomState(room);
+        updateStartButton();
       });
 
       state.playersOff = state.playersRef.on('value', snap => {
         state.players = snap.val() || {};
         renderPlayers();
+        renderRoomState(state.lastRoom || {});
+        updateStartButton();
       });
 
       state.connected = true;
-      setStatus('เชื่อมต่อแล้ว • รอเจ้าของห้องเริ่มแข่ง', 'ok');
+      setStatus('เชื่อมต่อแล้ว • รอผู้เล่นพร้อม หรือให้ Host กดเริ่มแข่ง', 'ok');
     } catch (err) {
       console.warn('[Groups Race Run] Firebase connection failed:', err);
 
@@ -316,29 +325,69 @@
       };
 
       renderPlayers();
+      updateStartButton();
+    }
+  }
+
+  function playerList() {
+    return Object.values(state.players || {}).filter(Boolean);
+  }
+
+  function connectedPlayers() {
+    return playerList().filter(p => p.connected !== false);
+  }
+
+  function canStartRace() {
+    if (state.roomId === 'LOCAL') return true;
+    if (!state.connected) return false;
+    if (!state.isHost) return false;
+    return connectedPlayers().length >= 2;
+  }
+
+  function updateStartButton() {
+    const btn = $('btnStartRace');
+    if (!btn) return;
+
+    const count = connectedPlayers().length;
+
+    if (state.roomId === 'LOCAL') {
+      btn.hidden = false;
+      btn.disabled = false;
+      btn.textContent = '🚀 เริ่ม LOCAL Test';
+      return;
+    }
+
+    btn.hidden = false;
+
+    if (state.isHost) {
+      btn.disabled = count < 2;
+      btn.textContent = count < 2 ? 'รอผู้เล่น 2 คน' : '🚀 เริ่มแข่ง';
+    } else {
+      btn.disabled = true;
+      btn.textContent = 'รอ Host เริ่ม';
     }
   }
 
   function renderRoomState(room) {
-    const players = Object.values(state.players || {});
-    const connectedPlayers = players.filter(p => p && p.connected !== false);
-    const readyPlayers = connectedPlayers.filter(p => p.ready !== false);
-    const count = connectedPlayers.length;
-
+    const count = connectedPlayers().length;
     const roomStatus = room && room.status ? room.status : 'waiting';
 
     let text = '';
 
     if (state.roomId === 'LOCAL') {
-      text = 'LOCAL Test Mode: เล่นทดสอบคนเดียว ระบบจะเข้าเกมอัตโนมัติ';
+      text = state.startAt
+        ? 'LOCAL Test: กำลังนับถอยหลังเข้าเกม'
+        : 'LOCAL Test Mode: กด “เริ่ม LOCAL Test” เพื่อเข้าเกม';
     } else if (!state.connected) {
       text = 'ยังไม่เชื่อมต่อห้อง Race';
     } else if (state.startAt) {
       text = `เริ่มแข่งพร้อมกันแล้ว • ผู้เล่น ${count} คน`;
     } else if (count < 2) {
       text = `รอผู้เล่นอย่างน้อย 2 คน • ตอนนี้มี ${count} คน`;
+    } else if (state.isHost) {
+      text = `พร้อมแข่ง • ผู้เล่น ${count} คน • กดเริ่มแข่งได้เลย`;
     } else {
-      text = `พร้อมแข่ง • ผู้เล่น ${count} คน • รอเจ้าของห้องกดเริ่ม`;
+      text = `พร้อมแข่ง • ผู้เล่น ${count} คน • รอ Host กดเริ่ม`;
     }
 
     if (roomStatus === 'started' && !state.startAt) {
@@ -352,13 +401,11 @@
     const box = $('playersList');
     if (!box) return;
 
-    const players = Object.values(state.players || {})
-      .filter(Boolean)
-      .sort((a, b) => {
-        if (a.host && !b.host) return -1;
-        if (!a.host && b.host) return 1;
-        return String(a.name || '').localeCompare(String(b.name || ''));
-      });
+    const players = playerList().sort((a, b) => {
+      if (a.host && !b.host) return -1;
+      if (!a.host && b.host) return 1;
+      return String(a.name || '').localeCompare(String(b.name || ''));
+    });
 
     if (!players.length) {
       box.innerHTML = `
@@ -396,6 +443,47 @@
         </div>
       `;
     }).join('');
+  }
+
+  async function startRaceNow() {
+    if (state.redirected) return;
+
+    if (!canStartRace()) {
+      if (state.roomId !== 'LOCAL' && !state.isHost) {
+        setStatus('เฉพาะ Host เท่านั้นที่เริ่มแข่งได้', 'err');
+      } else if (state.roomId !== 'LOCAL') {
+        setStatus('ต้องมีผู้เล่นอย่างน้อย 2 คนก่อนเริ่ม Race จริง', 'err');
+      }
+      return;
+    }
+
+    const startAt = now() + 3500;
+    const seed = state.seed || `${state.roomId}-${now()}`;
+
+    state.startAt = startAt;
+    state.seed = seed;
+
+    if (state.roomId === 'LOCAL') {
+      setStatus('LOCAL Test: กำลังนับถอยหลังเข้าเกม', 'ok');
+      updateCountdown();
+      return;
+    }
+
+    try {
+      await state.roomRef.update({
+        status: 'started',
+        startAt,
+        seed,
+        diff: state.diff,
+        timeSec: state.timeSec,
+        updatedAt: now()
+      });
+
+      setStatus('เริ่มแข่งแล้ว • ทุกคนจะเข้าเกมพร้อมกัน', 'ok');
+    } catch (err) {
+      console.error('[Groups Race Run] startRaceNow failed:', err);
+      setStatus('เริ่มแข่งไม่สำเร็จ: ' + (err?.message || err), 'err');
+    }
   }
 
   function updateCountdown() {
@@ -511,6 +599,7 @@
   }
 
   function bindButtons() {
+    $('btnStartRace')?.addEventListener('click', startRaceNow);
     $('btnBackLobby')?.addEventListener('click', () => goLobby('back-from-run'));
     $('btnBackHub')?.addEventListener('click', goHub);
   }
@@ -569,16 +658,19 @@
     await connectFirebase();
 
     startTimers();
+    updateStartButton();
 
     WIN.HHA_GROUPS_RACE_RUN = {
       version: VERSION,
       buildGameUrl,
       redirectToGame,
+      startRaceNow,
       getState: () => ({
         version: VERSION,
         roomId: state.roomId,
         name: state.name,
         uid: state.uid,
+        isHost: state.isHost,
         connected: state.connected,
         localOnly: state.localOnly,
         startAt: state.startAt,
