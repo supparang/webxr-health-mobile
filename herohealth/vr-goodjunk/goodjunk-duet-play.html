@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Play v2.1.3</title>
+  <title>HeroHealth • GoodJunk Duet Play v2.1.4</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="../favicon.ico" />
 
@@ -197,9 +197,7 @@
 
     <h1>กำลังเข้า GoodJunk Duet</h1>
 
-    <p id="statusText">
-      ระบบกำลังตรวจสอบห้อง บทบาท และพาไปหน้าเล่นคู่ที่ถูกต้อง
-    </p>
+    <p id="statusText">ระบบกำลังตรวจสอบห้อง บทบาท และพาไปหน้าเล่นคู่ที่ถูกต้อง</p>
 
     <div class="chips">
       <div class="chip" id="chipMode">MODE • duet</div>
@@ -214,16 +212,14 @@
       <button id="btnRetry" class="btn retry" type="button">🔄 ลองใหม่</button>
     </div>
 
-    <div class="note">
-      v2.1.3 แก้ URI Too Long แล้ว • ไม่ส่ง full URL ซ้อนใน runtime query
-    </div>
+    <div class="note">v2.1.4 แก้ URI Too Long แล้ว • ไม่ส่ง full URL ซ้อนใน runtime query</div>
   </div>
 
   <script>
     (function(){
       'use strict';
 
-      window.HHA_GJ_DUET_PLAY = 'v20260517-duet-play-v213-uri-too-long-fix';
+      window.HHA_GJ_DUET_PLAY = 'v20260518-duet-play-v214-uri-too-long-safe';
 
       var q = new URLSearchParams(location.search);
 
@@ -387,7 +383,7 @@
         url.searchParams.set('run','menu');
         url.searchParams.set('hub', ctx.hub);
 
-        url.searchParams.set('v','20260517-goodjunk-duet-play-v213-back-launcher');
+        url.searchParams.set('v','20260518-goodjunk-duet-play-v214-back-launcher');
 
         return url.toString();
       }
@@ -396,7 +392,7 @@
         var url = new URL(LOBBY_PATH, location.href);
         setCommon(url);
         url.searchParams.set('run','menu');
-        url.searchParams.set('v','20260517-duet-play-v213-lobby');
+        url.searchParams.set('v','20260518-duet-play-v214-lobby');
         return url.toString();
       }
 
@@ -408,7 +404,7 @@
         url.searchParams.set('run','play');
         url.searchParams.set('back','launcher');
         url.searchParams.set('returnTo','goodjunk-launcher');
-        url.searchParams.set('v','20260517-duet-play-v213-runtime-compact');
+        url.searchParams.set('v','20260518-duet-play-v214-runtime-compact');
 
         return url.toString();
       }
