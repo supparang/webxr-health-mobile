@@ -417,6 +417,9 @@
           return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22').catch(function(){});
         })
         .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack24');
+        })
+        .then(function(){
           if(view === 'cvr'){
             return HHA_LOAD_SCRIPT('../vr/vr-ui.js?v=20260517-pack22').catch(function(){});
           }
