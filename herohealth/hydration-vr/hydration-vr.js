@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.js
-   Version: v20260517-pack23-start-handler-export
+   Version: v20260518-pack27-syntax-boot-fix
    Purpose:
    - Aqua Rush hydration game
    - PC / Mobile / Cardboard cVR
@@ -21,7 +21,7 @@
   window.HHA = window.HHA || {};
   window.HHA = window.HHA || {};
 window.HHA.Hydration = window.HHA.Hydration || {
-  VERSION: 'v20260517-pack23-start-handler-export',
+  VERSION: 'v20260518-pack27-syntax-boot-fix',
   booted: false,
   started: false,
   destroyed: false,
@@ -32,7 +32,7 @@ window.HHA.Hydration = window.HHA.Hydration || {
 };
 
 const HYD = window.HHA.Hydration;
-HYD.VERSION = 'v20260517-pack23-start-handler-export';
+HYD.VERSION = 'v20260518-pack27-syntax-boot-fix';
 
   /* PATCH v20260517-pack23: export handlers for inline/backward-compatible calls */
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
@@ -5024,14 +5024,4 @@ HYD.VERSION = 'v20260517-pack23-start-handler-export';
     boot();
   }
 })();
-/* =========================================================
-   Boot
-   ========================================================= */
 
-if(document.readyState === 'loading'){
-  document.addEventListener('DOMContentLoaded', bootHydrationGame, { once:true });
-} else {
-  bootHydrationGame();
-}
-
-})();
