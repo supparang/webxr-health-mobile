@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.js
-   Version: v20260518-pack27-syntax-boot-fix
+   Version: v20260518-pack29-export-start-final
    Purpose:
    - Aqua Rush hydration game
    - PC / Mobile / Cardboard cVR
@@ -21,7 +21,7 @@
   window.HHA = window.HHA || {};
   window.HHA = window.HHA || {};
 window.HHA.Hydration = window.HHA.Hydration || {
-  VERSION: 'v20260518-pack27-syntax-boot-fix',
+  VERSION: 'v20260518-pack29-export-start-final',
   booted: false,
   started: false,
   destroyed: false,
@@ -32,7 +32,7 @@ window.HHA.Hydration = window.HHA.Hydration || {
 };
 
 const HYD = window.HHA.Hydration;
-HYD.VERSION = 'v20260518-pack27-syntax-boot-fix';
+HYD.VERSION = 'v20260518-pack29-export-start-final';
 
   /* PATCH v20260517-pack23: export handlers for inline/backward-compatible calls */
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
@@ -3543,6 +3543,41 @@ HYD.VERSION = 'v20260518-pack27-syntax-boot-fix';
   }
 
   /* =========================================================
+     PATCH v20260518-pack29-HYDRATION-EXPORT-START-HANDLERS-FINAL
+     Required by hydration-start-hard-safe.patch.js / mode-patch.js
+     ========================================================= */
+
+  window.beginHydrationFromOverlay = beginHydrationFromOverlay;
+  window.toggleHydrationPause = toggleHydrationPause;
+  window.resumeHydrationGame = resumeHydrationGame;
+  window.goHydrationBackHub = goHydrationBackHub;
+  window.goHydrationCooldownThenHub = goHydrationCooldownThenHub;
+  window.restartHydrationSameChallenge = restartHydrationSameChallenge;
+  window.restartHydrationNewSeed = restartHydrationNewSeed;
+  window.answerHydrationQuickCheck = answerHydrationQuickCheck;
+
+  /*
+    Emergency start for cases where HYD.started ค้างเป็น true
+    แต่หน้า Start Overlay ยังแสดงอยู่
+  */
+  window.HHA_HYDRATION_FORCE_START = function(){
+    try{
+      const overlay = hhaHydrationQS('.hha-hydration-start');
+
+      if(overlay && HYD.started){
+        HYD.started = false;
+        HYD.destroyed = false;
+      }
+
+      beginHydrationFromOverlay();
+      return true;
+    }catch(err){
+      console.error('[Hydration Pack29] force start failed:', err);
+      return false;
+    }
+  };
+
+  /* =========================================================
      Boot
      ========================================================= */
 
@@ -5024,4 +5059,3 @@ HYD.VERSION = 'v20260518-pack27-syntax-boot-fix';
     boot();
   }
 })();
-
