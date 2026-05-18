@@ -2215,7 +2215,147 @@
       } catch(e) {}
     })();
   </script>
+  <!-- PATCH: Plate Solo Mobile Touch / Practice Overlay Fix -->
+<!-- v20260518-PLATE-SOLO-PRACTICE-TOUCH-FIX -->
+<style>
+  /*
+    แก้ปัญหา Practice Coach บังสนาม:
+    - กล่องคำสอนยังเห็นอยู่
+    - แต่ไม่กิน touch/click บนอาหารด้านหลัง
+    - ปุ่ม "ข้าม Practice" ยังคลิกได้
+  */
 
+  #practiceCoach,
+  .practiceCoach,
+  .practice-coach,
+  .coachBox,
+  .coach-box {
+    pointer-events: none !important;
+    z-index: 45 !important;
+  }
+
+  #practiceCoach button,
+  #practiceCoach a,
+  .practiceCoach button,
+  .practiceCoach a,
+  .practice-coach button,
+  .practice-coach a,
+  #btnSkipPractice,
+  .btnSkipPractice,
+  [data-action="skip-practice"] {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 80 !important;
+  }
+
+  #spawnLayer,
+  #playField,
+  #arena,
+  #gameStage {
+    touch-action: manipulation !important;
+  }
+
+  .foodCard {
+    pointer-events: auto !important;
+    touch-action: manipulation !important;
+    z-index: 70 !important;
+  }
+
+  .foodCard.aimLock,
+  .foodCard.goodNow,
+  .foodCard.bossWanted {
+    z-index: 75 !important;
+  }
+
+  /*
+    มือถือ: ยกกล่อง Practice ลงล่างนิดหนึ่ง
+    เพื่อไม่ทับเป้าหมายกลางจอมากเกินไป
+  */
+  @media (max-width: 760px) {
+    #practiceCoach,
+    .practiceCoach,
+    .practice-coach {
+      left: 50% !important;
+      top: auto !important;
+      bottom: 18px !important;
+      transform: translateX(-50%) !important;
+      max-width: min(92vw, 560px) !important;
+    }
+
+    .foodCard {
+      z-index: 90 !important;
+    }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  const VERSION = 'v20260518-PLATE-SOLO-PRACTICE-TOUCH-FIX';
+  console.info('[Plate Solo TouchFix]', VERSION, 'loaded');
+
+  function allowFoodTouch(){
+    document.querySelectorAll('.foodCard').forEach(card => {
+      card.style.pointerEvents = 'auto';
+      card.style.touchAction = 'manipulation';
+      card.style.zIndex = '90';
+    });
+  }
+
+  function makePracticeCoachTransparent(){
+    const selectors = [
+      '#practiceCoach',
+      '.practiceCoach',
+      '.practice-coach',
+      '.coachBox',
+      '.coach-box'
+    ];
+
+    selectors.forEach(sel => {
+      document.querySelectorAll(sel).forEach(box => {
+        box.style.pointerEvents = 'none';
+        box.style.zIndex = '45';
+      });
+    });
+
+    const buttons = [
+      '#btnSkipPractice',
+      '#practiceCoach button',
+      '.practiceCoach button',
+      '.practice-coach button',
+      '[data-action="skip-practice"]'
+    ];
+
+    buttons.forEach(sel => {
+      document.querySelectorAll(sel).forEach(btn => {
+        btn.style.pointerEvents = 'auto';
+        btn.style.zIndex = '100';
+        btn.style.position = btn.style.position || 'relative';
+      });
+    });
+  }
+
+  function patch(){
+    makePracticeCoachTransparent();
+    allowFoodTouch();
+  }
+
+  patch();
+
+  const mo = new MutationObserver(patch);
+  mo.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'style']
+  });
+
+  window.addEventListener('load', patch);
+  window.addEventListener('pageshow', patch);
+  window.addEventListener('resize', patch, { passive:true });
+})();
+</script>
   <script src="./plate-solo.js?v=20260514-plate-solo-main"></script>
   <script src="./plate-solo-final-lock.js?v=20260514-cooldown-nutrition-zone"></script>
 </body>
