@@ -403,11 +403,6 @@
       function buildRuntimeUrl(){
         var url = new URL(RUNTIME_PATH, location.href);
 
-        /*
-          สำคัญ:
-          ไม่ copy query เดิมทั้งก้อน
-          เพราะอาจมี launcherUrl/backModes/backLobby ซ้อนมาแล้ว
-        */
         setCommon(url);
 
         url.searchParams.set('run','play');
