@@ -10,7 +10,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260517-gj-duet-runtime-v213-no-hang"></script>
+  <script src="../firebase-config.js?v=20260517b-gj-duet-runtime-v213-watchdog"></script>
 
   <style>
     :root{
@@ -659,7 +659,7 @@
       <div class="brandIcon">🤝</div>
       <div>
         <h1>GoodJunk Duet v2.1.3</h1>
-        <div id="meta" class="meta">loading…</div>
+        <div id="meta" class="meta">loading...</div>
       </div>
       <div class="topActions">
         <a id="btnLobby" class="btn" href="./goodjunk-duet-lobby.html">Lobby</a>
@@ -688,7 +688,7 @@
     </section>
 
     <section class="box bottom">
-      <div id="statusText" class="status">กำลังเชื่อมห้อง Duet…</div>
+      <div id="statusText" class="status">เตรียมเชื่อมห้อง Duet...</div>
       <div class="missionLine">
         <span id="missionGood" class="pill">Good 0/30</span>
         <span id="missionBlock" class="pill">Block 0/12</span>
@@ -702,7 +702,7 @@
     <div class="modal">
       <div id="modalIcon" class="modalIcon">🤝</div>
       <h2 id="modalTitle">สรุป Duet</h2>
-      <div id="modalReason" class="reason">กำลังรวมคะแนนทีม…</div>
+      <div id="modalReason" class="reason">กำลังรวมคะแนนทีม...</div>
 
       <div class="summaryGrid">
         <div class="summaryCard"><small>Team Score</small><b id="sumTeam">0</b></div>
@@ -730,7 +730,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_DUET_RUNTIME = 'v20260517-duet-runtime-v213-firebase-timeout-no-hang';
+    window.HHA_GJ_DUET_RUNTIME = 'v20260517b-duet-runtime-v213-watchdog-no-hang';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/duetRooms';
     const CAPACITY = 2;
@@ -753,6 +753,9 @@
     let ended = false;
     let rematchStarting = false;
 
+    let bootStartedAt = Date.now();
+    let bootPassed = false;
+
     const state = {
       room: normalizeRoom(qs('room', qs('roomId', qs('roomCode',''))),
       matchId: qs('matchId',''),
@@ -763,7 +766,7 @@
       view: qs('view', qs('device','mobile')),
       timeTotal: Number(qs('time','90')) || 90,
       timeLeft: Number(qs('time','90')) || 90,
-      hub: qs('hub','../nutrition-zone.html'),
+      hub: compactHub(qs('hub','')),
 
       score:0,
       good:0,
@@ -786,8 +789,39 @@
       finished:false
     };
 
-    function qs(k,d=''){ return params.get(k) ?? d; }
-    function now(){ return Date.now(); }
+    setTimeout(() => {
+      if (bootPassed || ended) return;
+
+      console.warn('[GJ Duet Runtime] boot watchdog fired');
+
+      try{
+        setStatus('ระบบยังค้างที่ขั้นเชื่อมห้อง — กำลังกลับ Lobby เพื่อเริ่มใหม่');
+        $('guide').classList.remove('hide');
+        $('guideText').innerHTML =
+          'Runtime ยังเชื่อมห้องไม่สำเร็จ<br>กรุณากลับ Lobby แล้วกดเริ่ม Duet ใหม่';
+
+        $('btnStartLocal').disabled = true;
+        $('btnStartLocal').textContent = 'กำลังกลับ Lobby';
+
+        setTimeout(() => {
+          location.href = hrefWith('./goodjunk-duet-lobby.html',{
+            run:'menu',
+            recover:'runtime-watchdog',
+            t:String(Date.now())
+          });
+        },1600);
+      }catch(err){
+        console.error('[GJ Duet Runtime] watchdog failed', err);
+      }
+    },6500);
+
+    function qs(k,d=''){
+      return params.get(k) ?? d;
+    }
+
+    function now(){
+      return Date.now();
+    }
 
     function safeKey(v){
       return String(v || '').trim().replace(/[.#$/\[\]]/g,'_').slice(0,96) || 'key';
@@ -798,10 +832,26 @@
       return s || d;
     }
 
+    function compactHub(v){
+      const fallback = new URL('../nutrition-zone.html', location.href).toString();
+      const s = String(v || '').trim();
+
+      if (!s) return fallback;
+      if (s.length > 420) return fallback;
+      if (/%252F|backModes=|launcherUrl=|backLobby=|nextAfterCooldown=|cdnext=/.test(s)) return fallback;
+
+      try{
+        return new URL(s, location.href).toString();
+      }catch(_){
+        return fallback;
+      }
+    }
+
     function normalizeRoom(v){
       let s = String(v || '').trim().toUpperCase();
       s = s.replace(/\s+/g,'').replace(/[^A-Z0-9-]/g,'');
       if (!s) return '';
+
       if (!s.startsWith('GJ-DT-')){
         s = 'GJ-DT-' + s
           .replace(/^GJ-DT/i,'')
@@ -811,13 +861,16 @@
           .replace(/^DU/i,'')
           .replace(/^-/, '');
       }
+
       return s.slice(0,20);
     }
 
     function normalizeRole(v){
       const s = String(v || '').toLowerCase().trim();
+
       if (['collector','host','a','p1'].includes(s)) return 'collector';
       if (['guardian','guest','b','p2','partner'].includes(s)) return 'guardian';
+
       return 'guardian';
     }
 
@@ -832,57 +885,66 @@
     function roleMission(role=state.role){
       return role === 'collector'
         ? 'Collector: เก็บ Good ให้ทีมมากที่สุด'
-        : 'Guardian: แตะ Junk เพื่อ Block และช่วยลด Miss';
+        : 'Guardian: แตะ Junk เพื่อ Block และช่วยทีมลด Miss';
     }
 
-    function roomPath(){ return `${ROOM_ROOT}/${safeKey(state.room)}`; }
-    function playerPath(pid=state.pid){ return `${roomPath()}/players/${safeKey(pid)}`; }
+    function roomPath(){
+      return `${ROOM_ROOT}/${safeKey(state.room)}`;
+    }
+
+    function playerPath(pid=state.pid){
+      return `${roomPath()}/players/${safeKey(pid)}`;
+    }
 
     async function firebaseReady(){
-  const timeout = (ms, label) => new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(label || 'Firebase timeout')), ms);
-  });
+      const timeout = (ms, label) => new Promise((_, reject) => {
+        setTimeout(() => reject(new Error(label || 'Firebase timeout')), ms);
+      });
 
-  async function fallbackCompat(){
-    if (window.firebase && firebase.apps && firebase.apps.length){
-      try{
-        if (firebase.auth && !firebase.auth().currentUser && typeof firebase.auth().signInAnonymously === 'function'){
-          await Promise.race([
-            firebase.auth().signInAnonymously().catch(() => null),
-            new Promise(resolve => setTimeout(resolve, 1800))
-          ]);
+      async function fallbackCompat(){
+        if (window.firebase && firebase.apps && firebase.apps.length){
+          try{
+            if (
+              firebase.auth &&
+              !firebase.auth().currentUser &&
+              typeof firebase.auth().signInAnonymously === 'function'
+            ){
+              await Promise.race([
+                firebase.auth().signInAnonymously().catch(() => null),
+                new Promise(resolve => setTimeout(resolve,1800))
+              ]);
+            }
+          }catch(_){}
+
+          if (firebase.database && typeof firebase.database === 'function'){
+            db = firebase.database();
+            return { db };
+          }
         }
-      }catch(_){}
 
-      if (firebase.database && typeof firebase.database === 'function'){
-        db = firebase.database();
-        return { db };
+        throw new Error('Firebase compat database not ready');
       }
-    }
 
-    throw new Error('Firebase compat database not ready');
-  }
+      if (db) return { db };
 
-  if (db) return { db };
+      if (window.HHA_FIREBASE_READY){
+        try{
+          const fb = await Promise.race([
+            window.HHA_FIREBASE_READY,
+            timeout(2600,'HHA_FIREBASE_READY timeout')
+          ]);
 
-  if (window.HHA_FIREBASE_READY){
-    try{
-      const fb = await Promise.race([
-        window.HHA_FIREBASE_READY,
-        timeout(2600, 'HHA_FIREBASE_READY timeout')
-      ]);
-
-      if (fb && fb.db){
-        db = fb.db;
-        return fb;
+          if (fb && fb.db){
+            db = fb.db;
+            return fb;
+          }
+        }catch(err){
+          console.warn('[GJ Duet Runtime] HHA_FIREBASE_READY timeout/fail, fallback compat', err);
+        }
       }
-    }catch(err){
-      console.warn('[GJ Duet Runtime] HHA_FIREBASE_READY timeout/fail, fallback compat', err);
-    }
-  }
 
-  return fallbackCompat();
-}
+      return fallbackCompat();
+    }
 
     async function dbGet(path){
       const snap = await db.ref(path).get();
@@ -898,6 +960,7 @@
       const ref = db.ref(path);
       const fn = snap => cb(snap && snap.val ? snap.val() : null);
       ref.on('value',fn);
+
       return () => {
         try{ ref.off('value',fn); }catch(_){}
       };
@@ -916,10 +979,6 @@
 
     function getMe(room){
       return room?.players?.[safeKey(state.pid)] || playersArray(room).find(p => p.pid === state.pid) || null;
-    }
-
-    function getPartner(room){
-      return playersArray(room).find(p => p.pid !== state.pid) || null;
     }
 
     function activePlayers(room){
@@ -961,7 +1020,7 @@
         matchId:state.matchId,
         role:state.role,
         roleKey:state.role,
-        v:'20260515-duet-runtime-v212',
+        v:'20260517b-duet-runtime-v213',
         ...extra
       };
 
@@ -995,7 +1054,7 @@
       u.searchParams.set('entry','goodjunk-launcher');
       u.searchParams.set('run','menu');
       u.searchParams.set('hub', state.hub);
-      u.searchParams.set('v','20260515-goodjunk-duet-runtime-back-to-launcher');
+      u.searchParams.set('v','20260517b-goodjunk-duet-runtime-back-to-launcher');
 
       return u.toString();
     }
@@ -1014,7 +1073,7 @@
 
     function updateHud(){
       $('meta').textContent =
-        `${state.room} • ${state.name} • ${roleLabel()} • ${state.matchId || 'no-match'}`;
+        `${state.room || 'no-room'} • ${state.name} • ${roleLabel()} • ${state.matchId || 'no-match'}`;
 
       $('roleText').textContent = roleIcon() + ' ' + roleLabel();
       $('teamScoreText').textContent = String(Number(state.teamScore || 0));
@@ -1047,10 +1106,11 @@
 
     function recalcTeam(room){
       const players = playersArray(room);
-      state.teamScore = players.reduce((sum,p) => sum + Number(p.score || 0), 0);
-      state.teamGood = players.reduce((sum,p) => sum + Number(p.good || 0), 0);
-      state.teamBlock = players.reduce((sum,p) => sum + Number(p.block || 0), 0);
-      state.teamMiss = players.reduce((sum,p) => sum + Number(p.miss || 0), 0);
+
+      state.teamScore = players.reduce((sum,p) => sum + Number(p.score || 0),0);
+      state.teamGood = players.reduce((sum,p) => sum + Number(p.good || 0),0);
+      state.teamBlock = players.reduce((sum,p) => sum + Number(p.block || 0),0);
+      state.teamMiss = players.reduce((sum,p) => sum + Number(p.miss || 0),0);
     }
 
     async function writeSelf(extra={}, force=false){
@@ -1096,11 +1156,13 @@
       state.roomData = room;
 
       const me = getMe(room);
+
       if (me){
         state.role = normalizeRole(me.role || state.role);
       }
 
       state.matchId = state.matchId || room.activeMatchId || room.matchId || '';
+
       recalcTeam(room);
 
       if (room.finalSummary){
@@ -1109,6 +1171,7 @@
       }
 
       const roomMatch = room.activeMatchId || room.matchId || '';
+
       if (
         ended &&
         room.status === 'started' &&
@@ -1133,6 +1196,7 @@
     function updateRoleVisual(){
       $('arena').classList.toggle('collector', state.role === 'collector');
       $('arena').classList.toggle('guardian', state.role === 'guardian');
+
       $('guideText').innerHTML =
         state.role === 'collector'
           ? 'คุณคือ <b>Collector 🍎</b><br>แตะอาหารดีให้เร็วที่สุด และหลบ Junk'
@@ -1191,8 +1255,8 @@
 
       const isMobile = window.innerWidth <= 760;
       const size = isMobile
-        ? Math.min(78, Math.max(68, rect.width * .16))
-        : Math.min(92, Math.max(76, rect.width * .07));
+        ? Math.min(78,Math.max(68,rect.width * .16))
+        : Math.min(92,Math.max(76,rect.width * .07));
 
       const x = rand(12 + size/2, Math.max(12 + size/2, rect.width - size/2 - 12));
       const y = rand(12 + size/2, Math.max(12 + size/2, rect.height - size/2 - 12));
@@ -1228,7 +1292,7 @@
         }
 
         updateHud();
-      }, ttl);
+      },ttl);
 
       function hit(ev){
         ev.preventDefault();
@@ -1249,7 +1313,7 @@
     function fadeRemove(el){
       try{
         el.classList.add('fade');
-        setTimeout(() => el.remove(), 140);
+        setTimeout(() => el.remove(),140);
       }catch(_){}
     }
 
@@ -1259,7 +1323,9 @@
       el.textContent = text;
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
+
       $('arena').appendChild(el);
+
       setTimeout(() => {
         try{ el.remove(); }catch(_){}
       },760);
@@ -1349,8 +1415,8 @@
 
         spawnTarget();
 
-        if (Math.random() < .35) {
-          setTimeout(() => spawnTarget(), 180);
+        if (Math.random() < .35){
+          setTimeout(() => spawnTarget(),180);
         }
       }, difficulty().spawnMs);
 
@@ -1359,7 +1425,7 @@
       },850);
 
       for (let i=0;i<5;i++){
-        setTimeout(() => spawnTarget(), i * 150);
+        setTimeout(() => spawnTarget(),i * 150);
       }
 
       writeSelf({
@@ -1395,12 +1461,12 @@
         finished:true,
         finishReason:reason,
         finishedAt:now()
-      }, true).catch(()=>{});
+      },true).catch(()=>{});
 
-      setStatus('ส่งผลแล้ว กำลังรอรวมคะแนนกับคู่เล่น…');
+      setStatus('ส่งผลแล้ว กำลังรอรวมคะแนนกับคู่เล่น...');
 
-      setTimeout(() => tryFinalize(reason), 900);
-      setTimeout(() => tryFinalize(reason), 4500);
+      setTimeout(() => tryFinalize(reason),900);
+      setTimeout(() => tryFinalize(reason),4500);
     }
 
     async function tryFinalize(reason='time-up'){
@@ -1452,7 +1518,7 @@
       }
 
       const latest = await dbGet(roomPath()).catch(()=>room);
-      const summary = buildSummary(latest, reason);
+      const summary = buildSummary(latest,reason);
 
       await dbUpdate(roomPath(),{
         status:'ended',
@@ -1465,7 +1531,7 @@
       showSummary(summary);
     }
 
-    function buildSummary(room, reason){
+    function buildSummary(room,reason){
       const players = playersArray(room).slice(0,2);
 
       const sums = {
@@ -1557,6 +1623,7 @@
 
       $('summaryPlayers').innerHTML = players.map(p => {
         const role = normalizeRole(p.role);
+
         return `
           <div class="playerCard">
             <h3>${roleIcon(role)} ${escapeHtml(p.name || 'Player')}</h3>
@@ -1580,7 +1647,7 @@
       if (!db || !state.room) return;
 
       $('rematchBox').classList.add('show');
-      $('rematchText').textContent = 'คุณพร้อมรอบใหม่แล้ว รออีกฝ่าย…';
+      $('rematchText').textContent = 'คุณพร้อมรอบใหม่แล้ว รออีกฝ่าย...';
       $('btnRematch').disabled = true;
       $('btnRematch').textContent = '✅ พร้อมแล้ว';
 
@@ -1599,7 +1666,7 @@
         requestedAt:now()
       });
 
-      setTimeout(() => maybeStartRematch(), 400);
+      setTimeout(() => maybeStartRematch(),400);
     }
 
     function updateRematchUi(room){
@@ -1650,6 +1717,7 @@
             at:now()
           };
         });
+
         locked = !!(tx && tx.committed);
       }catch(_){
         locked = false;
@@ -1723,57 +1791,63 @@
     async function bootRoom(){
       if (!state.room){
         setStatus('ไม่พบ Room — กลับ Lobby เพื่อสร้างห้อง Duet');
+
         setTimeout(() => {
           location.href = hrefWith('./goodjunk-duet-lobby.html',{run:'menu'});
         },1200);
+
         return;
       }
 
       try{
-  setStatus('กำลังเชื่อม Firebase สำหรับห้อง Duet…');
-  await firebaseReady();
-}catch(err){
-  console.error('[GJ Duet Runtime] firebaseReady failed', err);
+        setStatus('กำลังเชื่อม Firebase สำหรับห้อง Duet...');
+        await firebaseReady();
+      }catch(err){
+        console.error('[GJ Duet Runtime] firebaseReady failed',err);
 
-  setStatus('เชื่อม Firebase ไม่สำเร็จ: ' + (err?.message || err));
+        setStatus('เชื่อม Firebase ไม่สำเร็จ: ' + (err?.message || err));
 
-  $('guide').classList.remove('hide');
-  $('guideText').innerHTML =
-    'ยังเชื่อม Firebase ไม่สำเร็จ<br>ตรวจ Anonymous Auth / Database URL / firebase-config.js';
+        $('guide').classList.remove('hide');
+        $('guideText').innerHTML =
+          'ยังเชื่อม Firebase ไม่สำเร็จ<br>ตรวจ Anonymous Auth / Database URL / firebase-config.js';
 
-  $('btnStartLocal').disabled = true;
-  $('btnStartLocal').textContent = 'Firebase ไม่พร้อม';
-  return;
-}
+        $('btnStartLocal').disabled = true;
+        $('btnStartLocal').textContent = 'Firebase ไม่พร้อม';
 
-setStatus('กำลังโหลดข้อมูลห้อง Duet…');
+        return;
+      }
 
-const room = await Promise.race([
-  dbGet(roomPath()).catch((err) => {
-    console.error('[GJ Duet Runtime] room load failed', err);
-    return null;
-  }),
-  new Promise(resolve => setTimeout(() => resolve(null), 3500))
-]);
+      setStatus('กำลังโหลดข้อมูลห้อง Duet...');
+
+      const room = await Promise.race([
+        dbGet(roomPath()).catch((err) => {
+          console.error('[GJ Duet Runtime] room load failed',err);
+          return null;
+        }),
+        new Promise(resolve => setTimeout(() => resolve(null),3500))
+      ]);
 
       if (!room){
-  setStatus('ไม่พบข้อมูลห้อง Duet หรือโหลดห้องไม่ทัน — กำลังกลับ Lobby');
+        setStatus('ไม่พบข้อมูลห้อง Duet หรือโหลดห้องไม่ทัน — กำลังกลับ Lobby');
 
-  $('guide').classList.remove('hide');
-  $('guideText').innerHTML =
-    'ไม่พบห้อง Duet ใน Firebase<br>กรุณากลับ Lobby แล้วสร้าง/เข้าห้องใหม่';
+        $('guide').classList.remove('hide');
+        $('guideText').innerHTML =
+          'ไม่พบห้อง Duet ใน Firebase<br>กรุณากลับ Lobby แล้วสร้าง/เข้าห้องใหม่';
 
-  setTimeout(() => {
-    location.href = hrefWith('./goodjunk-duet-lobby.html',{run:'menu'});
-  },1800);
+        setTimeout(() => {
+          location.href = hrefWith('./goodjunk-duet-lobby.html',{run:'menu'});
+        },1800);
 
-  return;
-}
+        return;
+      }
+
+      bootPassed = true;
 
       state.roomData = room;
       state.matchId = state.matchId || room.activeMatchId || room.matchId || '';
 
       const me = getMe(room);
+
       if (me){
         state.role = normalizeRole(me.role || state.role);
         state.name = me.name || state.name;
@@ -1781,9 +1855,11 @@ const room = await Promise.race([
 
       if (!state.matchId){
         setStatus('ยังไม่มี matchId — กลับ Lobby แล้วกดเริ่ม Duet');
+
         setTimeout(() => {
           location.href = hrefWith('./goodjunk-duet-lobby.html',{run:'menu'});
         },1400);
+
         return;
       }
 
@@ -1794,7 +1870,7 @@ const room = await Promise.race([
         finished:false,
         matchId:state.matchId,
         runtimeAt:now()
-      }, true);
+      },true);
 
       try{
         db.ref(playerPath()).onDisconnect().update({
@@ -1805,7 +1881,7 @@ const room = await Promise.race([
         });
       }catch(_){}
 
-      unsub = dbOn(roomPath(), syncRoom);
+      unsub = dbOn(roomPath(),syncRoom);
 
       heartbeatTimer = setInterval(() => {
         if (!ended){
@@ -1829,10 +1905,10 @@ const room = await Promise.race([
       },900);
     }
 
-    $('btnStartLocal').addEventListener('click', startGame);
-    $('btnRematch').addEventListener('click', markRematchReady);
+    $('btnStartLocal').addEventListener('click',startGame);
+    $('btnRematch').addEventListener('click',markRematchReady);
 
-    window.addEventListener('beforeunload', () => {
+    window.addEventListener('beforeunload',() => {
       try{
         if (unsub) unsub();
 
@@ -1852,6 +1928,10 @@ const room = await Promise.race([
     bootRoom().catch(err => {
       console.error('[GJ Duet Runtime] boot failed',err);
       setStatus('โหลด Duet ไม่สำเร็จ: ' + (err?.message || err));
+
+      $('guide').classList.remove('hide');
+      $('guideText').innerHTML =
+        'โหลด Duet ไม่สำเร็จ<br>' + escapeHtml(err?.message || err);
     });
   })();
   </script>
