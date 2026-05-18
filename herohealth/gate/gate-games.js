@@ -164,20 +164,25 @@ function inferLooseMeta(id = ''){
 
 export const GAME_REGISTRY = {
   hydration: makeMeta('hydration', {
-    title: 'Hydration Hero',
-    label: 'Hydration Hero',
-    emoji: '💧',
-    zone: 'nutrition',
-    cat: 'nutrition',
-    theme: 'hydration',
-    runFile: '../hydration-vr/hydration-vr.html',
-    runCandidates: [
-      '../hydration-vr/hydration-vr.html',
-      '../hydration-v2.html',
-      '../vr-hydration-v2/index.html'
-    ],
-    summaryPath: '../nutrition-zone.html'
-  }),
+  title: 'Hydration Hero',
+  label: 'Hydration Hero',
+  emoji: '💧',
+  zone: 'nutrition',
+  cat: 'nutrition',
+  theme: 'hydration',
+
+  warmupFile: './games/hydration/warmup.js?v=20260518-pack26',
+  cooldownFile: './games/hydration/cooldown.js?v=20260518-pack26',
+  styleFile: './games/hydration/style.css?v=20260518-pack26',
+
+  runFile: '../hydration-vr/hydration-vr.html',
+  runCandidates: [
+    '../hydration-vr/hydration-vr.html',
+    '../hydration-v2.html',
+    '../vr-hydration-v2/index.html'
+  ],
+  summaryPath: '../nutrition-zone.html'
+}),
 
   goodjunk: makeMeta('goodjunk', {
     title: 'GoodJunk Solo Boss',
