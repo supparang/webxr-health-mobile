@@ -1,26 +1,32 @@
 /* =========================================================
    HeroHealth Hydration Start Hard-Safe Patch
    File: /herohealth/hydration-vr/hydration-start-hard-safe.patch.js
-   Version: v20260518-pack24-start-hard-safe
+   Version: v20260518-pack28-start-hard-safe-no-block-fallback
 
    Purpose:
    - แก้หน้า Start Overlay ค้าง
    - บังคับให้ปุ่ม "เริ่มภารกิจ 💧" รับ click / pointer / touch
    - กัน layer / summary-open / pointer-events ไปบังปุ่ม
-   - ใช้ window.beginHydrationFromOverlay() ที่ export จาก hydration-vr.js pack23
+   - ถ้า window.beginHydrationFromOverlay พร้อม จะเรียกผ่าน global function
+   - ถ้า window.beginHydrationFromOverlay ยังไม่พร้อม จะไม่ stop event
+     เพื่อปล่อยให้ listener เดิมใน hydration-vr.js ทำงานต่อ
    - ไม่ยุ่งกับ gameplay ถ้าเกมเริ่มแล้ว
+
+   PACK28 FIX:
+   - แก้ปัญหา Pack24 ดักปุ่มแล้ว safeStop ก่อน
+     ทำให้ปุ่มเดิมของ hydration-vr.js ไม่มีโอกาสเริ่มเกม
    ========================================================= */
 
 (function(){
   'use strict';
 
-  var PATCH = 'v20260518-pack24-start-hard-safe';
+  var PATCH = 'v20260518-pack28-start-hard-safe-no-block-fallback';
 
-  if(window.HHA_HYDRATION_START_HARD_SAFE_PACK24_LOADED){
+  if(window.HHA_HYDRATION_START_HARD_SAFE_PACK28_LOADED){
     return;
   }
 
-  window.HHA_HYDRATION_START_HARD_SAFE_PACK24_LOADED = true;
+  window.HHA_HYDRATION_START_HARD_SAFE_PACK28_LOADED = true;
 
   var lastStartAt = 0;
   var observer = null;
@@ -265,8 +271,14 @@
 
   function callStartFunction(){
     if(typeof window.beginHydrationFromOverlay !== 'function'){
-      console.warn('[Hydration Pack24] window.beginHydrationFromOverlay is not available');
-      showStartPatchToast('ยังเริ่มไม่ได้: beginHydrationFromOverlay ไม่พร้อม');
+      /*
+        PACK28:
+        ไม่ throw / ไม่ block event ตรงนี้
+        เพราะ hydration-vr.js มี listener เดิมแบบ closure-safe อยู่แล้ว
+      */
+      try{
+        console.warn('[Hydration Pack28] window.beginHydrationFromOverlay is not available; allow original button listener to continue.');
+      }catch(e){}
       return false;
     }
 
@@ -277,7 +289,7 @@
       window.beginHydrationFromOverlay();
       return true;
     }catch(err){
-      console.error('[Hydration Pack24] beginHydrationFromOverlay failed:', err);
+      console.error('[Hydration Pack28] beginHydrationFromOverlay failed:', err);
       showStartPatchToast('เริ่มเกมไม่สำเร็จ ดู error ใน Console');
       return false;
     }
@@ -293,6 +305,18 @@
     }
 
     if(!isStartOpen()){
+      return false;
+    }
+
+    /*
+      PACK28 FIX:
+      ถ้า hydration-vr.js ยังไม่ได้ export window.beginHydrationFromOverlay
+      ห้าม stop event เพราะปุ่มเดิมใน hydration-vr.js มี listener แบบ closure อยู่แล้ว
+      ต้องปล่อยให้ listener เดิมทำงานต่อ
+    */
+    if(typeof window.beginHydrationFromOverlay !== 'function'){
+      clearSummaryMode();
+      unlockStartOverlay();
       return false;
     }
 
@@ -331,15 +355,23 @@
     if(!isHydrationRunPage()) return false;
     if(!isStartOpen()) return false;
 
+    /*
+      ถ้า goHydrationBackHub ยังไม่ถูก export
+      ไม่ควร block listener เดิมของปุ่มกลับ
+    */
+    if(typeof window.goHydrationBackHub !== 'function'){
+      clearSummaryMode();
+      unlockStartOverlay();
+      return false;
+    }
+
     safeStop(ev);
 
-    if(typeof window.goHydrationBackHub === 'function'){
-      try{
-        window.goHydrationBackHub();
-        return true;
-      }catch(err){
-        console.error('[Hydration Pack24] goHydrationBackHub failed:', err);
-      }
+    try{
+      window.goHydrationBackHub();
+      return true;
+    }catch(err){
+      console.error('[Hydration Pack28] goHydrationBackHub failed:', err);
     }
 
     try{
@@ -361,10 +393,12 @@
 
     btn.dataset.hhaStartHardSafeBound = PATCH;
 
-    btn.onclick = function(ev){
-      return hardStart(ev);
-    };
-
+    /*
+      PACK28:
+      ไม่ตั้ง btn.onclick ทับแบบบังคับ
+      เพราะถ้า global function ยังไม่พร้อม จะทำให้ on-event เดิมเสียโอกาส
+      ใช้ addEventListener แบบ fallback แทน
+    */
     btn.addEventListener('click', hardStart, true);
     btn.addEventListener('pointerup', hardStart, true);
     btn.addEventListener('mouseup', hardStart, true);
@@ -388,10 +422,10 @@
 
     btn.dataset.hhaBackHardSafeBound = PATCH;
 
-    btn.onclick = function(ev){
-      return hardBack(ev);
-    };
-
+    /*
+      PACK28:
+      ไม่ตั้ง btn.onclick ทับ เพื่อปล่อย listener เดิมทำงานได้ด้วย
+    */
     btn.addEventListener('click', hardBack, true);
     btn.addEventListener('pointerup', hardBack, true);
     btn.addEventListener('mouseup', hardBack, true);
@@ -410,11 +444,11 @@
   }
 
   function bindGlobalCapture(){
-    if(window.HHA_HYDRATION_START_HARD_SAFE_GLOBAL_BOUND){
+    if(window.HHA_HYDRATION_START_HARD_SAFE_GLOBAL_BOUND_PACK28){
       return;
     }
 
-    window.HHA_HYDRATION_START_HARD_SAFE_GLOBAL_BOUND = true;
+    window.HHA_HYDRATION_START_HARD_SAFE_GLOBAL_BOUND_PACK28 = true;
 
     function onAnyStartEvent(ev){
       if(!isHydrationRunPage()) return;
@@ -433,7 +467,7 @@
 
     /*
       ใช้ทั้ง window และ document แบบ capture
-      เพื่อรับ event ก่อน listener อื่นหรือ overlay อื่น
+      แต่ Pack28 จะไม่ block event ถ้า global function ยังไม่พร้อม
     */
     window.addEventListener('click', onAnyStartEvent, true);
     window.addEventListener('pointerup', onAnyStartEvent, true);
@@ -493,16 +527,27 @@
     window.HHA.HydrationStartHardSafe = {
       version: PATCH,
       start: function(){
-        return hardStart();
+        if(typeof window.beginHydrationFromOverlay === 'function'){
+          return callStartFunction();
+        }
+
+        showStartPatchToast('ยังไม่มี global start แต่ปุ่มเดิมจะทำงานเมื่อกดจากหน้าเกม');
+        return false;
       },
       back: function(){
-        return hardBack();
+        if(typeof window.goHydrationBackHub === 'function'){
+          return hardBack();
+        }
+
+        location.href = '../nutrition-zone.html';
+        return true;
       },
       unlock: unlockStartOverlay,
-      clearSummaryMode: clearSummaryMode
+      clearSummaryMode: clearSummaryMode,
+      isStartOpen: isStartOpen
     };
 
-    console.info('[Hydration Pack24] Start hard-safe patch loaded');
+    console.info('[Hydration Pack28] Start hard-safe no-block fallback loaded');
   }
 
   if(document.readyState === 'loading'){
