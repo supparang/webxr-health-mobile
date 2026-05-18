@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Duet Runtime v2.1.3</title>
+  <title>HeroHealth • GoodJunk Duet Runtime v2.1.3c</title>
   <meta name="theme-color" content="#b79cff" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260517b-gj-duet-runtime-v213-watchdog"></script>
+  <script src="../firebase-config.js?v=20260517c-gj-duet-runtime-bootguard"></script>
 
   <style>
     :root{
@@ -658,7 +658,7 @@
     <section class="box top">
       <div class="brandIcon">🤝</div>
       <div>
-        <h1>GoodJunk Duet v2.1.3</h1>
+        <h1>GoodJunk Duet v2.1.3c</h1>
         <div id="meta" class="meta">loading...</div>
       </div>
       <div class="topActions">
@@ -727,13 +727,119 @@
   </section>
 
   <script>
+  (function(){
+    'use strict';
+
+    window.HHA_GJ_DUET_BOOT_GUARD = 'v20260517c-runtime-boot-guard';
+
+    function $(id){
+      return document.getElementById(id);
+    }
+
+    function setStatus(msg){
+      var el = $('statusText');
+      if (el) el.textContent = msg;
+    }
+
+    function safeText(s){
+      return String(s || '')
+        .replace(/[<>&]/g, '')
+        .slice(0, 300);
+    }
+
+    function showGuide(title, msg){
+      var guide = $('guide');
+      var h2 = guide ? guide.querySelector('h2') : null;
+      var p = $('guideText');
+
+      if (guide) guide.classList.remove('hide');
+      if (h2) h2.textContent = title || 'Duet Runtime';
+      if (p) p.innerHTML = msg || '';
+    }
+
+    window.addEventListener('error', function(ev){
+      var msg = ev && ev.message ? ev.message : 'Unknown script error';
+      console.error('[GJ Duet Runtime BootGuard] JS error:', ev);
+
+      setStatus('JavaScript error: ' + msg);
+      showGuide(
+        'Runtime Error',
+        'สคริปต์ Duet พังก่อนเริ่มเกม<br><b>' + safeText(msg) + '</b>'
+      );
+    });
+
+    window.addEventListener('unhandledrejection', function(ev){
+      var reason = ev && ev.reason ? (ev.reason.message || ev.reason) : 'Promise rejected';
+      console.error('[GJ Duet Runtime BootGuard] Promise error:', ev);
+
+      setStatus('Promise error: ' + reason);
+      showGuide(
+        'Runtime Promise Error',
+        'โหลด Duet ไม่สำเร็จ<br><b>' + safeText(reason) + '</b>'
+      );
+    });
+
+    setTimeout(function(){
+      if (window.HHA_GJ_DUET_BOOT_OK) return;
+
+      console.warn('[GJ Duet Runtime BootGuard] boot did not start');
+
+      setStatus('BootGuard: runtime ยังไม่เริ่ม boot — กำลังกลับ Lobby');
+
+      showGuide(
+        'Runtime ยังไม่เริ่ม',
+        'สคริปต์หลักยังไม่เริ่มทำงาน<br>กำลังกลับ Lobby เพื่อเริ่มใหม่'
+      );
+
+      setTimeout(function(){
+        try{
+          var q = new URLSearchParams(location.search);
+          var room = q.get('room') || q.get('roomId') || q.get('roomCode') || '';
+          var hub = q.get('hub') || '../nutrition-zone.html';
+
+          var u = new URL('./goodjunk-duet-lobby.html', location.href);
+          u.searchParams.set('pid', q.get('pid') || 'anon');
+          u.searchParams.set('name', q.get('name') || q.get('nick') || 'Hero');
+          u.searchParams.set('nick', q.get('nick') || q.get('name') || 'Hero');
+          u.searchParams.set('diff', q.get('diff') || 'normal');
+          u.searchParams.set('time', q.get('time') || '90');
+          u.searchParams.set('view', q.get('view') || q.get('device') || 'mobile');
+          u.searchParams.set('device', q.get('device') || q.get('view') || 'mobile');
+          u.searchParams.set('mode','duet');
+          u.searchParams.set('entry','duet');
+          u.searchParams.set('game','goodjunk');
+          u.searchParams.set('gameId','goodjunk');
+          u.searchParams.set('theme','goodjunk');
+          u.searchParams.set('zone','nutrition');
+          u.searchParams.set('cat','nutrition');
+          u.searchParams.set('run','menu');
+          u.searchParams.set('recover','boot-guard');
+          u.searchParams.set('t', String(Date.now()));
+          u.searchParams.set('hub', hub);
+
+          if (room){
+            u.searchParams.set('room', room);
+            u.searchParams.set('roomId', room);
+            u.searchParams.set('roomCode', room);
+          }
+
+          location.href = u.toString();
+        }catch(_){
+          location.href = './goodjunk-duet-lobby.html?recover=boot-guard';
+        }
+      }, 2200);
+    }, 4500);
+  })();
+  </script>
+
+  <script>
   (() => {
     'use strict';
 
-    window.HHA_GJ_DUET_RUNTIME = 'v20260517b-duet-runtime-v213-watchdog-no-hang';
+    window.HHA_GJ_DUET_BOOT_OK = true;
+    window.HHA_GJ_DUET_RUNTIME = 'v20260517c-duet-runtime-v213-bootguard-no-hang';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/duetRooms';
-    const CAPACITY = 2;
 
     const GOOD = ['🍎','🍌','🥦','🥬','🥕','🍊','🍇','🐟','🥚','🍚'];
     const JUNK = ['🍟','🍔','🧁','🥤','🍭','🍩'];
@@ -748,12 +854,10 @@
     let tickTimer = null;
     let spawnTimer = null;
     let syncTimer = null;
-    let toastTimer = null;
     let ending = false;
     let ended = false;
     let rematchStarting = false;
 
-    let bootStartedAt = Date.now();
     let bootPassed = false;
 
     const state = {
@@ -1020,7 +1124,7 @@
         matchId:state.matchId,
         role:state.role,
         roleKey:state.role,
-        v:'20260517b-duet-runtime-v213',
+        v:'20260517c-duet-runtime-v213',
         ...extra
       };
 
@@ -1054,7 +1158,7 @@
       u.searchParams.set('entry','goodjunk-launcher');
       u.searchParams.set('run','menu');
       u.searchParams.set('hub', state.hub);
-      u.searchParams.set('v','20260517b-goodjunk-duet-runtime-back-to-launcher');
+      u.searchParams.set('v','20260517c-goodjunk-duet-runtime-back-to-launcher');
 
       return u.toString();
     }
