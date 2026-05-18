@@ -1002,26 +1002,26 @@
   </script>
      <script src="./warmup-gate-cooldown-once-force-patch.js?v=20260506i"></script>
   <script type="module">
-    import bootGate from './gate/gate-core.js?v=20260503n-gate-core-goodjunk-flow';
+  import bootGate from './gate/gate-core.js?v=20260518-pack26';
 
-    const root = document.getElementById('gate-app');
-    const status = document.getElementById('gateBootStatusText');
+  const root = document.getElementById('gate-app');
+  const status = document.getElementById('gateBootStatusText');
 
-    try{
-      if(status) status.textContent = 'Starting gate-core...';
+  try{
+    if(status) status.textContent = 'Starting gate-core...';
 
-      await bootGate(root);
+    await bootGate(root);
 
-      if(window.HHA_GATE_HIDE_BOOT){
-        window.HHA_GATE_HIDE_BOOT();
-      }
-    }catch(err){
-      console.error('[warmup-gate] boot failed', err);
-
-      if(window.HHA_GATE_SHOW_ERROR){
-        window.HHA_GATE_SHOW_ERROR(err);
-      }
+    if(window.HHA_GATE_HIDE_BOOT){
+      window.HHA_GATE_HIDE_BOOT();
     }
-  </script>
+  }catch(err){
+    console.error('[warmup-gate] boot failed', err);
+
+    if(window.HHA_GATE_SHOW_ERROR){
+      window.HHA_GATE_SHOW_ERROR(err);
+    }
+  }
+</script>
 </body>
 </html>
