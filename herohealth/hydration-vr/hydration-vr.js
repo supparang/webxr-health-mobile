@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.js
-   Version: v10.1.2-cooldown-nutrition-return
+   Version: v20260517-pack23-start-handler-export
    Purpose:
    - Aqua Rush hydration game
    - PC / Mobile / Cardboard cVR
@@ -21,7 +21,7 @@
   window.HHA = window.HHA || {};
   window.HHA = window.HHA || {};
 window.HHA.Hydration = window.HHA.Hydration || {
-  VERSION: 'v10.1.2-cooldown-nutrition-return',
+  VERSION: 'v20260517-pack23-start-handler-export',
   booted: false,
   started: false,
   destroyed: false,
@@ -32,8 +32,9 @@ window.HHA.Hydration = window.HHA.Hydration || {
 };
 
 const HYD = window.HHA.Hydration;
-HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
+HYD.VERSION = 'v20260517-pack23-start-handler-export';
 
+  /* PATCH v20260517-pack23: export handlers for inline/backward-compatible calls */
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
   window.toggleHydrationPause = toggleHydrationPause;
   window.resumeHydrationGame = resumeHydrationGame;
@@ -774,15 +775,34 @@ HYD.VERSION = 'v10.1.2-cooldown-nutrition-return';
           <span>โหมด: <b>${esc(ctx.view)}</b></span>
         </div>
 
-        <button class="hha-start-btn" type="button" onclick="beginHydrationFromOverlay()">
+        <button class="hha-start-btn" type="button" data-hha-hydration-start-btn="1">
           เริ่มภารกิจ 💧
         </button>
 
-        <button class="hha-start-back" type="button" onclick="goHydrationBackHub()">
+        <button class="hha-start-back" type="button" data-hha-hydration-back-btn="1">
           กลับ Nutrition Zone
         </button>
       </div>
     `;
+
+    /* PATCH v20260517-pack23: bind buttons with closure-safe listeners */
+    const startBtn = overlay.querySelector('[data-hha-hydration-start-btn]');
+    if(startBtn){
+      startBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        beginHydrationFromOverlay();
+      }, true);
+    }
+
+    const backBtn = overlay.querySelector('[data-hha-hydration-back-btn]');
+    if(backBtn){
+      backBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        goHydrationBackHub();
+      }, true);
+    }
   }
 
   function beginHydrationFromOverlay(){
