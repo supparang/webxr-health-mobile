@@ -6,7 +6,7 @@
 // ✅ cooldown gate → กลับ nutrition-zone.html
 // ✅ ปิด special finish-hook override สำหรับ GoodJunk solo-boss เพื่อไม่ให้ flow เพี้ยน
 
-import * as GateGames from './gate-games.js?v=20260503-GATE-GAMES-GOODJUNK-SOLO-BOSS-CANONICAL';
+import * as GateGames from './gate-games.js?v=20260518-pack26';
 
 const PATCH = 'v20260503-GATE-CORE-GOODJUNK-SOLO-BOSS-COOLDOWN-HUB-FIX';
 const STORAGE_NS = 'HHA_GATE_DONE_V1';
