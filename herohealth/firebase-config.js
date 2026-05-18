@@ -1,6 +1,6 @@
 /* /herohealth/firebase-config.js
    Firebase compat bootstrap - FINAL MATCHED
-   PATCH v20260411a-GJ-DUET-AUTH-HARDFAIL
+   PATCH v20260517a-GJ-DUET-AUTH-HARDFAIL-NO-SILENT-HANG
 */
 (function () {
   'use strict';
