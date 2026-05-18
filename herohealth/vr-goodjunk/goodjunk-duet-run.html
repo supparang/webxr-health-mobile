@@ -73,11 +73,6 @@
         var s = clean(v, '');
 
         if (!s) return fallback;
-
-        /*
-          กัน URL ซ้อน URL จนยาวเกิน:
-          เช่น hub=...goodjunk-launcher.html?...hub=... หรือ backModes=...
-        */
         if (s.length > 420) return fallback;
         if (/%252F|backModes=|launcherUrl=|backLobby=|nextAfterCooldown=|cdnext=/.test(s)) return fallback;
 
@@ -150,12 +145,6 @@
         setCommon(u, ctx);
 
         u.searchParams.set('run', 'play');
-
-        /*
-          สำคัญมาก:
-          ไม่ส่ง launcherUrl/backModes/backLobby แบบ full URL แล้ว
-          เพราะทำให้ URL ซ้อนกันจน GitHub Pages ขึ้น URI Too Long
-        */
         u.searchParams.set('back', 'launcher');
         u.searchParams.set('returnTo', 'goodjunk-launcher');
         u.searchParams.set('v', '20260517-duet-run-v213-play-compact');
