@@ -1,208 +1,148 @@
 // === /herohealth/plate-solo-final-lock.js ===
-// HeroHealth Plate Solo — FINAL LOCK PATCH
-// v20260514-PLATE-SOLO-FINAL-LOCK-NO-INTERNAL-SCOPE
-// ✅ ไม่เรียก balanceScore/state ภายใน plate-solo.js
-// ✅ แก้ปุ่ม Cooldown ให้เข้า warmup-gate phase=cooldown
-// ✅ หลัง Cooldown กลับ Nutrition Zone ตาม URL ที่ต้องการ
-// ✅ ปุ่มกลับ Zone กลับ nutrition-zone.html แน่นอน
-// ✅ ปุ่มเล่นอีกครั้ง reload กลับ plate-solo.html พร้อม params เดิม
-// ✅ ใช้เป็น external patch หลัง plate-solo.js ได้ปลอดภัย
+// HeroHealth Plate Solo — Final Lock Patch
+// v20260514-PLATE-SOLO-FINAL-LOCK-COOLDOWN-NUTRITION-ZONE
+// ✅ Patch เสริมหลัง plate-solo.js
+// ✅ ล็อกปุ่ม Cooldown ให้เข้า warmup-gate.html?phase=cooldown
+// ✅ หลัง cooldown กลับ Nutrition Zone ถูกที่
+// ✅ ปุ่มกลับ Zone กลับ Nutrition Zone ถูกที่
+// ✅ ใส่ next/hub/back/return/done/redirect ครบ เผื่อ warmup-gate อ่าน key คนละชื่อ
+// ✅ DOM-safe / ไม่พังถ้าปุ่มบางตัวไม่มี
 
 (function(){
   'use strict';
 
-  var VERSION = '20260514-PLATE-SOLO-FINAL-LOCK-NO-INTERNAL-SCOPE';
+  var VERSION = '20260514-PLATE-SOLO-FINAL-LOCK-COOLDOWN-NUTRITION-ZONE';
+  var DOC = window.document;
   var WIN = window;
-  var DOC = document;
 
-  function log(){
-    try {
-      console.info.apply(console, ['[Plate Solo Final Lock]', VERSION].concat([].slice.call(arguments)));
-    } catch(e) {}
-  }
+  try {
+    console.info('[Plate Solo Final Lock]', VERSION, 'loaded');
+  } catch(e) {}
 
-  function warn(){
-    try {
-      console.warn.apply(console, ['[Plate Solo Final Lock]', VERSION].concat([].slice.call(arguments)));
-    } catch(e) {}
-  }
-
-  var Q = new URL(WIN.location.href).searchParams;
+  var Q = new URL(location.href).searchParams;
 
   function qs(k, d){
     var v = Q.get(k);
-    return v == null || v === '' ? (d || '') : v;
+    if (v === null || v === undefined || String(v).trim() === '') return d || '';
+    return v;
   }
 
   function $(id){
     return DOC.getElementById(id);
   }
 
-  function textOf(el){
-    return String(el && (el.textContent || el.innerText) || '').trim();
-  }
-
-  function hasText(el, words){
-    var t = textOf(el).toLowerCase();
-    return words.some(function(w){
-      return t.indexOf(String(w).toLowerCase()) >= 0;
-    });
-  }
-
-  function allButtons(){
-    return Array.from(DOC.querySelectorAll('button, a, [role="button"], .btn'));
-  }
-
-  function findByIds(ids){
-    for (var i = 0; i < ids.length; i++) {
-      var el = $(ids[i]);
-      if (el) return el;
-    }
-    return null;
-  }
-
-  function findButtonByText(words){
-    return allButtons().find(function(el){
-      return hasText(el, words);
-    }) || null;
-  }
-
-  function safeUrl(base){
+  function safeUrl(raw, fallback){
     try {
-      return new URL(base, WIN.location.href);
+      return new URL(raw, location.href);
     } catch(e) {
-      return new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
+      return new URL(fallback, location.href);
     }
   }
 
-  function preserveParams(url, keys){
-    keys.forEach(function(k){
-      var v = qs(k, '');
-      if (v !== '') url.searchParams.set(k, v);
-    });
-    return url;
+  var BASE = 'https://supparang.github.io/webxr-health-mobile';
+  var HERO = BASE + '/herohealth';
+
+  var HUB_URL = HERO + '/hub.html';
+  var NUTRITION_ZONE_URL = HERO + '/nutrition-zone.html';
+  var WARMUP_GATE_URL = HERO + '/warmup-gate.html';
+  var PLATE_SOLO_URL = HERO + '/plate-solo.html';
+
+  function setIfExists(url, key, value){
+    if (value !== null && value !== undefined && String(value).trim() !== '') {
+      url.searchParams.set(key, value);
+    }
   }
 
-  function nutritionZoneUrl(fromTag){
-    var u = safeUrl('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
-
-    preserveParams(u, [
-      'pid',
-      'name',
-      'nick',
-      'diff',
-      'time',
-      'view',
-      'run',
+  function copyOptionalParams(url){
+    [
       'seed',
       'studyId',
       'conditionGroup',
       'section',
       'session_code',
       'log',
-      'api'
-    ]);
+      'api',
+      'cat',
+      'theme',
+      'variant'
+    ].forEach(function(k){
+      setIfExists(url, k, qs(k, ''));
+    });
+  }
+
+  function hardNutritionZoneUrl(fromTag){
+    var u = safeUrl(NUTRITION_ZONE_URL, NUTRITION_ZONE_URL);
 
     u.searchParams.set('pid', qs('pid', 'anon'));
+    setIfExists(u, 'name', qs('name', qs('nick', 'Hero')));
+    setIfExists(u, 'nick', qs('nick', qs('name', 'Hero')));
+
     u.searchParams.set('diff', qs('diff', 'normal'));
     u.searchParams.set('time', qs('time', '120'));
     u.searchParams.set('view', qs('view', 'mobile'));
     u.searchParams.set('run', 'play');
+
     u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('cat', 'nutrition');
     u.searchParams.set('game', 'plate');
     u.searchParams.set('gameId', 'plate');
     u.searchParams.set('mode', 'solo');
     u.searchParams.set('entry', 'plate-solo');
     u.searchParams.set('from', fromTag || 'plate-solo');
 
-    var hub = qs('hub', '');
-    if (hub) {
-      u.searchParams.set('hub', hub);
-    } else {
-      u.searchParams.set(
-        'hub',
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
-      );
-    }
+    // สำคัญ: หน้า Nutrition Zone ควรมี hub เป็น hub.html ไม่ใช่ plate หรือ warmup-gate
+    u.searchParams.set('hub', HUB_URL);
+
+    copyOptionalParams(u);
 
     return u;
   }
 
-  function plateSoloUrl(){
-    var u = safeUrl('https://supparang.github.io/webxr-health-mobile/herohealth/plate-solo.html');
-
-    preserveParams(u, [
-      'pid',
-      'name',
-      'nick',
-      'diff',
-      'time',
-      'view',
-      'seed',
-      'studyId',
-      'conditionGroup',
-      'section',
-      'session_code',
-      'log',
-      'api'
-    ]);
+  function plateSoloUrl(fromTag){
+    var u = safeUrl(PLATE_SOLO_URL, PLATE_SOLO_URL);
 
     u.searchParams.set('pid', qs('pid', 'anon'));
-    u.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+    setIfExists(u, 'name', qs('name', qs('nick', 'Hero')));
+    setIfExists(u, 'nick', qs('nick', qs('name', 'Hero')));
+
     u.searchParams.set('diff', qs('diff', 'normal'));
     u.searchParams.set('time', qs('time', '120'));
     u.searchParams.set('view', qs('view', 'mobile'));
     u.searchParams.set('run', 'play');
+
     u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('cat', 'nutrition');
     u.searchParams.set('game', 'plate');
     u.searchParams.set('gameId', 'plate');
     u.searchParams.set('mode', 'solo');
     u.searchParams.set('entry', 'plate-solo');
+    u.searchParams.set('from', fromTag || 'plate-solo-replay');
 
-    var hub = qs('hub', '');
-    if (hub) {
-      u.searchParams.set('hub', hub);
-    } else {
-      u.searchParams.set(
-        'hub',
-        nutritionZoneUrl('plate-solo-replay').toString()
-      );
-    }
+    u.searchParams.set('hub', NUTRITION_ZONE_URL);
 
-    u.searchParams.set('v', Date.now().toString());
+    copyOptionalParams(u);
 
     return u;
   }
 
   function cooldownGateUrl(){
-    var zone = nutritionZoneUrl('plate-solo-cooldown-done');
+    var doneZone = hardNutritionZoneUrl('plate-solo-cooldown-done');
 
-    var gate = safeUrl('https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html');
-
-    preserveParams(gate, [
-      'pid',
-      'name',
-      'nick',
-      'diff',
-      'time',
-      'view',
-      'seed',
-      'studyId',
-      'conditionGroup',
-      'section',
-      'session_code',
-      'log',
-      'api'
-    ]);
+    var gate = safeUrl(WARMUP_GATE_URL, WARMUP_GATE_URL);
 
     gate.searchParams.set('pid', qs('pid', 'anon'));
     gate.searchParams.set('name', qs('name', qs('nick', 'Hero')));
+    setIfExists(gate, 'nick', qs('nick', qs('name', 'Hero')));
+
     gate.searchParams.set('diff', qs('diff', 'normal'));
     gate.searchParams.set('time', qs('time', '120'));
     gate.searchParams.set('view', qs('view', 'mobile'));
     gate.searchParams.set('run', 'play');
 
     gate.searchParams.set('phase', 'cooldown');
+    gate.searchParams.set('gate', 'cooldown');
+    gate.searchParams.set('cooldown', '1');
+
     gate.searchParams.set('zone', 'nutrition');
     gate.searchParams.set('cat', 'nutrition');
     gate.searchParams.set('game', 'plate');
@@ -211,199 +151,412 @@
     gate.searchParams.set('entry', 'plate-solo');
     gate.searchParams.set('from', 'plate-solo-summary');
 
-    // สำคัญมาก: หลัง cooldown ให้กลับ Nutrition Zone
-    gate.searchParams.set('next', zone.toString());
-    gate.searchParams.set('hub', zone.toString());
-    gate.searchParams.set('back', zone.toString());
+    // HARD LOCK: warmup-gate แต่ละเวอร์ชันอาจอ่านคนละ key
+    // จึงส่งกลับ Nutrition Zone ครบทุกชื่อที่เป็นไปได้
+    gate.searchParams.set('next', doneZone.toString());
+    gate.searchParams.set('hub', doneZone.toString());
+    gate.searchParams.set('back', doneZone.toString());
+    gate.searchParams.set('return', doneZone.toString());
+    gate.searchParams.set('returnUrl', doneZone.toString());
+    gate.searchParams.set('done', doneZone.toString());
+    gate.searchParams.set('doneUrl', doneZone.toString());
+    gate.searchParams.set('redirect', doneZone.toString());
+    gate.searchParams.set('redirectUrl', doneZone.toString());
+    gate.searchParams.set('after', doneZone.toString());
+    gate.searchParams.set('afterUrl', doneZone.toString());
 
-    gate.searchParams.set('v', Date.now().toString());
+    copyOptionalParams(gate);
+
+    // กัน cache / กัน gate ใช้ค่าเก่า
+    gate.searchParams.set('v', VERSION + '-' + Date.now());
 
     return gate;
   }
 
-  function go(url){
+  function goNutritionZone(fromTag){
     try {
-      WIN.location.href = url.toString();
-    } catch(e) {
-      WIN.location.assign(String(url));
-    }
+      if (WIN.HHA_PLATE_FLUSH_LOGS && typeof WIN.HHA_PLATE_FLUSH_LOGS === 'function') {
+        WIN.HHA_PLATE_FLUSH_LOGS(true);
+      }
+    } catch(e) {}
+
+    location.href = hardNutritionZoneUrl(fromTag || 'plate-solo-back').toString();
   }
 
-  function bindHard(el, handler, label){
-    if (!el || el.__plateFinalLockBound) return false;
+  function goCooldown(){
+    try {
+      if (WIN.HHA_PLATE_FLUSH_LOGS && typeof WIN.HHA_PLATE_FLUSH_LOGS === 'function') {
+        WIN.HHA_PLATE_FLUSH_LOGS(true);
+      }
+    } catch(e) {}
 
-    el.__plateFinalLockBound = true;
+    location.href = cooldownGateUrl().toString();
+  }
 
-    el.addEventListener('click', function(ev){
+  function goReplay(){
+    location.href = plateSoloUrl('plate-solo-replay').toString();
+  }
+
+  function isCooldownButton(el){
+    if (!el) return false;
+
+    var id = String(el.id || '').toLowerCase();
+    var txt = String(el.textContent || '').toLowerCase();
+    var aria = String(el.getAttribute('aria-label') || '').toLowerCase();
+    var data = String(el.getAttribute('data-action') || '').toLowerCase();
+
+    return (
+      id === 'btncooldown' ||
+      id === 'cooldownbtn' ||
+      id === 'cooldownbutton' ||
+      id.indexOf('cooldown') >= 0 ||
+      data === 'cooldown' ||
+      txt.indexOf('cooldown') >= 0 ||
+      txt.indexOf('คูลดาวน์') >= 0 ||
+      txt.indexOf('ผ่อนคลาย') >= 0 ||
+      aria.indexOf('cooldown') >= 0
+    );
+  }
+
+  function isZoneButton(el){
+    if (!el) return false;
+
+    var id = String(el.id || '').toLowerCase();
+    var txt = String(el.textContent || '').toLowerCase();
+    var aria = String(el.getAttribute('aria-label') || '').toLowerCase();
+    var data = String(el.getAttribute('data-action') || '').toLowerCase();
+
+    return (
+      id === 'btnsummaryback' ||
+      id === 'nutritionsonebtn' ||
+      id === 'nutritionzonebtn' ||
+      id === 'btnzone' ||
+      id === 'backbtn' ||
+      id === 'btnback' ||
+      data === 'zone' ||
+      data === 'nutrition-zone' ||
+      txt.indexOf('กลับ zone') >= 0 ||
+      txt.indexOf('กลับโซน') >= 0 ||
+      txt.indexOf('nutrition zone') >= 0 ||
+      txt.indexOf('โภชนาการ') >= 0 ||
+      aria.indexOf('nutrition') >= 0
+    );
+  }
+
+  function isReplayButton(el){
+    if (!el) return false;
+
+    var id = String(el.id || '').toLowerCase();
+    var txt = String(el.textContent || '').toLowerCase();
+    var data = String(el.getAttribute('data-action') || '').toLowerCase();
+
+    return (
+      id === 'btnreplay' ||
+      id === 'replaybtn' ||
+      data === 'replay' ||
+      txt.indexOf('เล่นอีกครั้ง') >= 0 ||
+      txt.indexOf('replay') >= 0
+    );
+  }
+
+  function hardBindButton(btn, actionName, handler){
+    if (!btn || btn.__plateFinalLockBound) return;
+
+    btn.__plateFinalLockBound = true;
+    btn.setAttribute('data-plate-final-lock', actionName);
+
+    btn.addEventListener('click', function(ev){
       ev.preventDefault();
       ev.stopPropagation();
-      ev.stopImmediatePropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
       handler();
       return false;
     }, true);
+  }
 
-    el.addEventListener('pointerdown', function(ev){
-      // ไม่ redirect ตอน pointerdown เพื่อกัน mobile double-fire
-      ev.stopPropagation();
+  function normalizeButtonText(btn, actionName){
+    if (!btn) return;
+
+    if (actionName === 'cooldown') {
+      if (!String(btn.textContent || '').trim()) {
+        btn.textContent = '🧘 ทำ Cooldown';
+      }
+      btn.setAttribute('title', 'ทำ Cooldown แล้วกลับ Nutrition Zone');
+    }
+
+    if (actionName === 'zone') {
+      if (!String(btn.textContent || '').trim()) {
+        btn.textContent = '🥗 กลับ Nutrition Zone';
+      }
+      btn.setAttribute('title', 'กลับ Nutrition Zone');
+    }
+
+    if (actionName === 'replay') {
+      if (!String(btn.textContent || '').trim()) {
+        btn.textContent = '🔁 เล่นอีกครั้ง';
+      }
+      btn.setAttribute('title', 'เล่น Plate Solo อีกครั้ง');
+    }
+  }
+
+  function bindKnownButtons(){
+    [
+      'btnCooldown',
+      'cooldownBtn',
+      'cooldownButton',
+      'summaryCooldownBtn'
+    ].forEach(function(id){
+      var el = $(id);
+      if (el) {
+        normalizeButtonText(el, 'cooldown');
+        hardBindButton(el, 'cooldown', goCooldown);
+      }
+    });
+
+    [
+      'btnSummaryBack',
+      'nutritionZoneBtn',
+      'btnZone',
+      'btnBack',
+      'backBtn',
+      'zoneBtn'
+    ].forEach(function(id){
+      var el = $(id);
+      if (el) {
+        normalizeButtonText(el, 'zone');
+        hardBindButton(el, 'zone', function(){
+          goNutritionZone('plate-solo-back');
+        });
+      }
+    });
+
+    [
+      'btnReplay',
+      'replayBtn'
+    ].forEach(function(id){
+      var el = $(id);
+      if (el) {
+        normalizeButtonText(el, 'replay');
+        hardBindButton(el, 'replay', goReplay);
+      }
+    });
+  }
+
+  function bindDynamicButtons(){
+    var nodes = DOC.querySelectorAll('button, a, [role="button"]');
+
+    Array.prototype.forEach.call(nodes, function(el){
+      if (isCooldownButton(el)) {
+        normalizeButtonText(el, 'cooldown');
+        hardBindButton(el, 'cooldown', goCooldown);
+        return;
+      }
+
+      if (isZoneButton(el)) {
+        normalizeButtonText(el, 'zone');
+        hardBindButton(el, 'zone', function(){
+          goNutritionZone('plate-solo-back');
+        });
+        return;
+      }
+
+      if (isReplayButton(el)) {
+        normalizeButtonText(el, 'replay');
+        hardBindButton(el, 'replay', goReplay);
+      }
+    });
+  }
+
+  function ensureSummaryButtons(){
+    var overlay =
+      $('summaryOverlay') ||
+      $('summaryModal') ||
+      $('resultModal');
+
+    if (!overlay) return;
+
+    var footer =
+      overlay.querySelector('.summaryActions') ||
+      overlay.querySelector('.summary-actions') ||
+      overlay.querySelector('.modal-actions') ||
+      overlay.querySelector('.actions');
+
+    if (!footer) {
+      footer = DOC.createElement('div');
+      footer.className = 'summaryActions plateFinalLockActions';
+      overlay.appendChild(footer);
+    }
+
+    if (!$('btnCooldown') && !footer.querySelector('[data-plate-final-lock="cooldown"]')) {
+      var cooldown = DOC.createElement('button');
+      cooldown.id = 'btnCooldown';
+      cooldown.className = 'btn primary';
+      cooldown.type = 'button';
+      cooldown.textContent = '🧘 ทำ Cooldown';
+      footer.appendChild(cooldown);
+    }
+
+    if (!$('btnSummaryBack') && !footer.querySelector('[data-plate-final-lock="zone"]')) {
+      var zone = DOC.createElement('button');
+      zone.id = 'btnSummaryBack';
+      zone.className = 'btn secondary';
+      zone.type = 'button';
+      zone.textContent = '🥗 กลับ Nutrition Zone';
+      footer.appendChild(zone);
+    }
+
+    if (!$('btnReplay') && !footer.querySelector('[data-plate-final-lock="replay"]')) {
+      var replay = DOC.createElement('button');
+      replay.id = 'btnReplay';
+      replay.className = 'btn ghost';
+      replay.type = 'button';
+      replay.textContent = '🔁 เล่นอีกครั้ง';
+      footer.appendChild(replay);
+    }
+  }
+
+  function installCaptureInterceptor(){
+    if (DOC.__plateFinalLockCaptureInstalled) return;
+    DOC.__plateFinalLockCaptureInstalled = true;
+
+    DOC.addEventListener('click', function(ev){
+      var target = ev.target;
+      if (!target || !target.closest) return;
+
+      var el = target.closest('button, a, [role="button"]');
+      if (!el) return;
+
+      if (isCooldownButton(el)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        goCooldown();
+        return false;
+      }
+
+      if (isZoneButton(el)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        goNutritionZone('plate-solo-back');
+        return false;
+      }
+
+      if (isReplayButton(el)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        goReplay();
+        return false;
+      }
     }, true);
-
-    try {
-      el.dataset.plateFinalLock = label || 'bound';
-    } catch(e) {}
-
-    return true;
   }
 
-  function bindCooldown(){
-    var btn =
-      findByIds([
-        'btnCooldown',
-        'cooldownBtn',
-        'summaryCooldownBtn',
-        'btnSummaryCooldown',
-        'cooldownButton'
-      ]) ||
-      findButtonByText([
-        'cooldown',
-        'ทำ cooldown',
-        'คูลดาวน์',
-        'ทำคูลดาวน์'
-      ]);
-
-    if (!btn) {
-      warn('Cooldown button not found yet');
-      return false;
-    }
-
-    return bindHard(btn, function(){
-      var url = cooldownGateUrl();
-      log('go cooldown', url.toString());
-      go(url);
-    }, 'cooldown');
-  }
-
-  function bindBackZone(){
-    var btn =
-      findByIds([
-        'btnSummaryBack',
-        'nutritionZoneBtn',
-        'btnZone',
-        'zoneBtn',
-        'backZoneBtn',
-        'btnBackZone'
-      ]) ||
-      findButtonByText([
-        'nutrition zone',
-        'กลับ nutrition',
-        'กลับ zone',
-        'กลับโซน',
-        'กลับหน้า zone'
-      ]);
-
-    if (!btn) {
-      warn('Back Zone button not found yet');
-      return false;
-    }
-
-    return bindHard(btn, function(){
-      var url = nutritionZoneUrl('plate-solo-summary-back');
-      log('go zone', url.toString());
-      go(url);
-    }, 'zone');
-  }
-
-  function bindReplay(){
-    var btn =
-      findByIds([
-        'btnReplay',
-        'replayBtn',
-        'playAgainBtn',
-        'btnPlayAgain',
-        'summaryReplayBtn'
-      ]) ||
-      findButtonByText([
-        'เล่นอีกครั้ง',
-        'play again',
-        'replay'
-      ]);
-
-    if (!btn) {
-      warn('Replay button not found yet');
-      return false;
-    }
-
-    return bindHard(btn, function(){
-      var url = plateSoloUrl();
-      log('go replay', url.toString());
-      go(url);
-    }, 'replay');
-  }
-
-  function installCss(){
-    if ($('plateSoloFinalLockCss')) return;
+  function installStyles(){
+    if ($('plateSoloFinalLockStyles')) return;
 
     var st = DOC.createElement('style');
-    st.id = 'plateSoloFinalLockCss';
+    st.id = 'plateSoloFinalLockStyles';
     st.textContent = `
+      .plateFinalLockActions,
+      .summaryActions{
+        display:flex;
+        flex-wrap:wrap;
+        gap:10px;
+        justify-content:center;
+        align-items:center;
+        margin-top:14px;
+      }
+
+      [data-plate-final-lock]{
+        cursor:pointer;
+      }
+
       [data-plate-final-lock="cooldown"]{
-        background:linear-gradient(135deg,#6ee7b7,#34d399)!important;
-        color:#073b2a!important;
-        font-weight:1000!important;
-      }
-
-      [data-plate-final-lock="zone"]{
-        font-weight:1000!important;
-      }
-
-      [data-plate-final-lock="replay"]{
-        font-weight:1000!important;
+        font-weight:900;
       }
     `;
 
     DOC.head.appendChild(st);
   }
 
-  function install(){
-    installCss();
-
-    var ok1 = bindCooldown();
-    var ok2 = bindBackZone();
-    var ok3 = bindReplay();
-
-    WIN.HHA_PLATE_FINAL_LOCK = {
-      version: VERSION,
-      cooldownUrl: cooldownGateUrl().toString(),
-      zoneUrl: nutritionZoneUrl('debug').toString(),
-      soloUrl: plateSoloUrl().toString(),
-      bound: {
-        cooldown: !!ok1,
-        zone: !!ok2,
-        replay: !!ok3
-      }
-    };
-
-    log('installed', WIN.HHA_PLATE_FINAL_LOCK);
+  function refresh(){
+    ensureSummaryButtons();
+    bindKnownButtons();
+    bindDynamicButtons();
   }
 
-  function boot(){
-    install();
+  function installObserver(){
+    if (DOC.__plateFinalLockObserverInstalled) return;
+    DOC.__plateFinalLockObserverInstalled = true;
 
-    // summary overlay อาจถูกสร้าง/เปิดหลังจบเกม จึงต้อง bind ซ้ำแบบเบา ๆ
-    var tries = 0;
-    var timer = WIN.setInterval(function(){
-      tries++;
-      install();
+    try {
+      var mo = new MutationObserver(function(){
+        refresh();
+      });
 
-      if (tries >= 20) {
-        WIN.clearInterval(timer);
-      }
-    }, 700);
+      mo.observe(DOC.body || DOC.documentElement, {
+        childList:true,
+        subtree:true
+      });
+    } catch(e) {}
+  }
+
+  function exposeGlobals(){
+    WIN.HHA_PLATE_SOLO_FINAL_LOCK = {
+      version: VERSION,
+      nutritionZoneUrl: function(){
+        return hardNutritionZoneUrl('plate-solo-back').toString();
+      },
+      cooldownGateUrl: function(){
+        return cooldownGateUrl().toString();
+      },
+      plateSoloUrl: function(){
+        return plateSoloUrl('plate-solo-replay').toString();
+      },
+      goNutritionZone: goNutritionZone,
+      goCooldown: goCooldown,
+      goReplay: goReplay,
+      refresh: refresh
+    };
+
+    // เผื่อ HTML มี onclick เดิมเรียกชื่อพวกนี้
+    WIN.goCooldown = goCooldown;
+    WIN.goBack = function(){
+      goNutritionZone('plate-solo-back');
+    };
+    WIN.goNutritionZone = function(){
+      goNutritionZone('plate-solo-back');
+    };
+    WIN.nutritionZoneUrl = function(){
+      return hardNutritionZoneUrl('plate-solo-back');
+    };
+    WIN.cooldownGateUrl = cooldownGateUrl;
+  }
+
+  function init(){
+    installStyles();
+    installCaptureInterceptor();
+    exposeGlobals();
+    refresh();
+    installObserver();
+
+    // กัน DOM สร้างปุ่ม summary หลังจบเกม
+    setTimeout(refresh, 250);
+    setTimeout(refresh, 800);
+    setTimeout(refresh, 1600);
+    setInterval(refresh, 2500);
+
+    try {
+      console.info('[Plate Solo Final Lock] cooldown URL:', cooldownGateUrl().toString());
+      console.info('[Plate Solo Final Lock] zone URL:', hardNutritionZoneUrl('debug').toString());
+    } catch(e) {}
   }
 
   if (DOC.readyState === 'loading') {
-    DOC.addEventListener('DOMContentLoaded', boot, { once:true });
+    DOC.addEventListener('DOMContentLoaded', init);
   } else {
-    boot();
+    init();
   }
 
-})();ข
+})();
