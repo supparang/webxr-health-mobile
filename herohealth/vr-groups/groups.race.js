@@ -1063,18 +1063,50 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     renderLeaderboard();
   }
 
-  function replay() {
+  fasync function replay() {
+  const ok = confirm(
+    'ต้องการเล่นอีกครั้งหรือไม่?\n\n' +
+    'ถ้าเป็น Race multiplayer ระบบจะพากลับไปห้องรอ เพื่อให้ผู้เล่นเริ่มพร้อมกันใหม่'
+  );
+
+  if (!ok) return;
+
+  /*
+    LOCAL Test:
+    เล่นคนเดียวได้ จึง reload รอบใหม่ได้เลย
+  */
+  if (state.isLocalTest) {
     const u = new URL(location.href);
-
     u.searchParams.set('seed', String(now()));
-
-    if (state.isLocalTest) {
-      u.searchParams.set('startAt', String(now() + 1200));
-      u.searchParams.set('local', '1');
-    }
-
+    u.searchParams.set('startAt', String(now() + 1200));
+    u.searchParams.set('local', '1');
     location.href = u.toString();
+    return;
   }
+
+  /*
+    Race จริง:
+    ห้าม reload เข้าเกมทันที เพราะจะทำให้เริ่มไม่พร้อมกัน
+    ให้กลับ Race Lobby พร้อม room/name เดิมก่อน
+  */
+  try {
+    if (state.roomRef && state.playerKey) {
+      await state.roomRef.child(`players/${state.playerKey}`).update({
+        done: false,
+        running: false,
+        inGame: false,
+        inRun: false,
+        inLobby: true,
+        page: 'groups-race-summary-replay',
+        updatedAt: now()
+      });
+    }
+  } catch (err) {
+    console.warn('[Groups Race] replay reset player failed', err);
+  }
+
+  goLobby();
+}
 
   function goLobby() {
     const u = new URL('./groups-race-lobby.html', location.href);
