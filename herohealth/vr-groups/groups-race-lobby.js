@@ -1,12 +1,17 @@
 // === /herohealth/vr-groups/groups-race-lobby.js ===
 // HeroHealth • Groups Race Lobby
 // Stable lobby for create/join room before groups-race-run.html
-// PATCH v20260517-GROUPS-RACE-LOBBY-V33-STABLE
+// HARD LOCK:
+//   - LOCAL is only allowed via "ทดสอบ LOCAL คนเดียว"
+//   - Real Race requires non-LOCAL Room Code + Firebase Online + auth != null
+// Flow:
+//   groups-race-lobby.html -> groups-race-run.html -> groups-race.html
+// PATCH v20260519-GROUPS-RACE-LOBBY-V35-HARD-LOCK
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260517-groups-race-lobby-v33-stable';
+  const VERSION = 'v20260519-groups-race-lobby-v35-hard-lock';
 
   const ROOM_ROOT = 'hha-battle/groups/raceRooms';
   const RUN_PAGE = './groups-race-run.html';
@@ -18,11 +23,13 @@
 
   const state = {
     version: VERSION,
+
     firebaseReady: false,
     firebaseError: '',
     db: null,
     auth: null,
     uid: '',
+
     lastRoom: '',
     busy: false
   };
@@ -34,7 +41,7 @@
   function qs(name, fallback = '') {
     try {
       return new URL(location.href).searchParams.get(name) || fallback;
-    } catch (e) {
+    } catch (_) {
       return fallback;
     }
   }
@@ -70,8 +77,11 @@
   }
 
   function setPreview(room, sub) {
-    $('roomPreview').textContent = room || '----';
-    $('roomPreviewSub').textContent = sub || (room ? 'พร้อมใช้งาน' : 'ยังไม่ได้สร้างห้อง');
+    const roomEl = $('roomPreview');
+    const subEl = $('roomPreviewSub');
+
+    if (roomEl) roomEl.textContent = room || '----';
+    if (subEl) subEl.textContent = sub || (room ? 'พร้อมใช้งาน' : 'ยังไม่ได้สร้างห้อง');
   }
 
   function randomRoom() {
@@ -97,7 +107,7 @@
     return uid;
   }
 
-  async function waitFirebaseReady(timeoutMs = 7000) {
+  async function waitFirebaseReady(timeoutMs = 8000) {
     if (WIN.HHA_FIREBASE && WIN.HHA_FIREBASE.ready && WIN.HHA_FIREBASE.db) {
       return WIN.HHA_FIREBASE;
     }
@@ -158,39 +168,65 @@
       state.db = fb.db;
       state.auth = fb.auth || null;
 
-      if (!state.db) throw new Error('Firebase database unavailable');
-
-      if (state.auth && !state.auth.currentUser && typeof state.auth.signInAnonymously === 'function') {
-        try {
-          await state.auth.signInAnonymously();
-        } catch (e) {
-          console.warn('[Groups Race Lobby] Anonymous auth failed', e);
-        }
+      if (!state.db) {
+        throw new Error('Firebase database unavailable');
       }
 
-      state.uid =
-        state.auth?.currentUser?.uid ||
-        WIN.HHA_FIREBASE?.uid ||
-        makeLocalUid();
+      if (!state.auth && WIN.firebase && WIN.firebase.auth) {
+        state.auth = WIN.firebase.auth();
+      }
 
+      if (!state.auth) {
+        throw new Error('Firebase Auth unavailable');
+      }
+
+      if (!state.auth.currentUser && typeof state.auth.signInAnonymously === 'function') {
+        await state.auth.signInAnonymously();
+      }
+
+      if (!state.auth.currentUser || !state.auth.currentUser.uid) {
+        throw new Error('Anonymous Auth not active');
+      }
+
+      state.uid = state.auth.currentUser.uid;
       state.firebaseReady = true;
-      setStatus('Firebase พร้อมแล้ว • สร้างหรือเข้าห้อง Race ได้', 'ok');
+      state.firebaseError = '';
+
+      setStatus('Firebase พร้อมแล้ว • สร้างหรือเข้าห้อง Race จริงได้', 'ok');
     } catch (err) {
-      console.warn('[Groups Race Lobby] Firebase unavailable, lobby still usable:', err);
+      console.warn('[Groups Race Lobby] Firebase unavailable:', err);
 
       state.firebaseReady = false;
       state.firebaseError = err?.message || String(err);
       state.uid = makeLocalUid();
 
-      setStatus('Firebase ยังไม่พร้อม แต่ยังตั้งค่าห้องได้ • หากเล่นหลายคนจริงต้องให้ Firebase Online', 'warn');
+      setStatus(
+        'Firebase ยังไม่พร้อมสำหรับ Race multiplayer จริง • ใช้ปุ่ม LOCAL ได้เฉพาะทดสอบคนเดียว',
+        'warn'
+      );
     }
   }
 
   function readForm() {
-    const name = cleanName($('playerName').value || qs('name') || qs('nick') || 'Hero');
-    const room = cleanRoom($('roomInput').value || state.lastRoom || qs('roomId') || qs('room') || '');
-    const diff = $('diffSelect').value || qs('diff', 'normal');
-    const timeSec = Number($('timeSelect').value || qs('timeSec') || qs('time') || 90);
+    const name = cleanName(
+      $('playerName')?.value ||
+      qs('name') ||
+      qs('nick') ||
+      'Hero'
+    );
+
+    const room = cleanRoom(
+      $('roomInput')?.value ||
+      state.lastRoom ||
+      qs('roomId') ||
+      qs('room') ||
+      ''
+    );
+
+    const diff = $('diffSelect')?.value || qs('diff', 'normal');
+
+    const rawTime = $('timeSelect')?.value || qs('timeSec') || qs('time') || 90;
+    const timeSec = Number(rawTime);
 
     return {
       name,
@@ -225,7 +261,7 @@
       u.searchParams.set('seed', options.seed);
     }
 
-    ['pid', 'view', 'hub', 'zone', 'game', 'studyId', 'conditionGroup'].forEach(k => {
+    ['pid', 'view', 'hub', 'zone', 'game', 'studyId', 'conditionGroup'].forEach((k) => {
       const v = qs(k, '');
       if (v) u.searchParams.set(k, v);
     });
@@ -237,15 +273,49 @@
     return u.toString();
   }
 
+  function requireFirebaseForRealRace() {
+    if (!state.firebaseReady || !state.db || !state.auth || !state.auth.currentUser) {
+      setStatus(
+        'ยังสร้าง/เข้าห้อง Race จริงไม่ได้ เพราะ Firebase หรือ Anonymous Auth ยังไม่พร้อม',
+        'err'
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   async function createRoom() {
     if (state.busy) return;
 
     state.busy = true;
 
     const form = readForm();
-    const room = cleanRoom(form.room || randomRoom());
+    let room = cleanRoom(form.room || randomRoom());
 
-    $('roomInput').value = room;
+    if (room === 'LOCAL') {
+      room = randomRoom();
+
+      if ($('roomInput')) $('roomInput').value = room;
+      setPreview(room, 'สร้าง Room Code ใหม่สำหรับ Race จริง');
+
+      setStatus(
+        'LOCAL ใช้เฉพาะปุ่ม “ทดสอบ LOCAL คนเดียว” เท่านั้น • สร้าง Room Code ใหม่ให้แล้ว',
+        'warn'
+      );
+    }
+
+    if (!room) {
+      room = randomRoom();
+    }
+
+    if (!requireFirebaseForRealRace()) {
+      state.busy = false;
+      return;
+    }
+
+    if ($('roomInput')) $('roomInput').value = room;
+
     state.lastRoom = room;
     setPreview(room, 'กำลังสร้างห้อง...');
 
@@ -253,51 +323,53 @@
     localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', room);
 
     const seed = `${room}-${now()}`;
-    const startAt = now() + 4500;
 
     try {
-      if (state.firebaseReady && state.db) {
-        const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
+      const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
 
-        await roomRef.update({
-          roomId: room,
-          mode: 'race',
-          game: 'groups',
-          status: 'waiting',
-          hostUid: state.uid,
-          hostName: form.name,
-          diff: form.diff,
-          timeSec: form.timeSec,
-          seed,
-          createdAt: now(),
-          updatedAt: now()
-        });
+      await roomRef.update({
+        roomId: room,
+        mode: 'race',
+        raceType: 'groups-race',
+        game: 'groups',
+        zone: 'nutrition',
+        status: 'waiting',
+        hostUid: state.uid,
+        hostName: form.name,
+        diff: form.diff,
+        timeSec: form.timeSec,
+        seed,
+        capacity: 10,
+        createdAt: now(),
+        updatedAt: now()
+      });
 
-        await roomRef.child(`players/${state.uid}`).update({
-          uid: state.uid,
-          name: form.name,
-          host: true,
-          ready: true,
-          connected: true,
-          page: 'groups-race-lobby',
-          updatedAt: now()
-        });
+      await roomRef.child(`players/${state.uid}`).update({
+        uid: state.uid,
+        pid: qs('pid', 'anon'),
+        name: form.name,
+        host: true,
+        ready: true,
+        connected: true,
+        inLobby: true,
+        inRun: false,
+        inGame: false,
+        page: 'groups-race-lobby',
+        joinedAt: now(),
+        updatedAt: now()
+      });
 
-        setStatus(`สร้างห้อง ${room} แล้ว • กำลังไป Waiting Room`, 'ok');
-      } else {
-        setStatus(`สร้างรหัสห้อง ${room} แบบ Offline แล้ว • หากต้องการหลายคนจริง Firebase ต้อง Online`, 'warn');
-      }
-
+      setStatus(`สร้างห้อง ${room} แล้ว • กำลังไป Waiting Room`, 'ok');
       setPreview(room, 'สร้างห้องแล้ว');
 
       setTimeout(() => {
         location.href = buildRunUrl(room, form.name, form.diff, form.timeSec, {
-          seed,
-          startAt
+          seed
         });
       }, 350);
     } catch (err) {
       console.error('[Groups Race Lobby] createRoom failed:', err);
+
       setStatus('สร้างห้องไม่สำเร็จ: ' + (err?.message || err), 'err');
       state.busy = false;
     }
@@ -317,6 +389,20 @@
       return;
     }
 
+    if (room === 'LOCAL') {
+      setStatus(
+        'LOCAL ใช้เฉพาะปุ่ม “ทดสอบ LOCAL คนเดียว” เท่านั้น ถ้าจะ Race จริงต้องใช้ Room Code อื่น',
+        'err'
+      );
+      state.busy = false;
+      return;
+    }
+
+    if (!requireFirebaseForRealRace()) {
+      state.busy = false;
+      return;
+    }
+
     state.lastRoom = room;
     setPreview(room, 'กำลังเข้าห้อง...');
 
@@ -324,35 +410,42 @@
     localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', room);
 
     try {
-      let diff = form.diff;
-      let timeSec = form.timeSec;
-      let seed = `${room}-${now()}`;
-      let startAt = 0;
+      const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
+      const snap = await roomRef.once('value');
+      const data = snap.val() || {};
 
-      if (state.firebaseReady && state.db) {
-        const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
-        const snap = await roomRef.once('value');
-        const data = snap.val() || {};
-
-        diff = data.diff || diff;
-        timeSec = Number(data.timeSec || timeSec);
-        seed = data.seed || seed;
-        startAt = Number(data.startAt || 0);
-
-        await roomRef.child(`players/${state.uid}`).update({
-          uid: state.uid,
-          name: form.name,
-          host: false,
-          ready: true,
-          connected: true,
-          page: 'groups-race-lobby',
-          updatedAt: now()
-        });
-
-        setStatus(`เข้าห้อง ${room} แล้ว • กำลังไป Waiting Room`, 'ok');
-      } else {
-        setStatus(`เข้า Room Code ${room} แบบ Offline • หากต้องการหลายคนจริง Firebase ต้อง Online`, 'warn');
+      if (!data.roomId && !data.createdAt) {
+        setStatus(`ไม่พบห้อง ${room} • ให้ Host สร้างห้องก่อน`, 'err');
+        state.busy = false;
+        return;
       }
+
+      let diff = data.diff || form.diff;
+      let timeSec = Number(data.timeSec || form.timeSec);
+      let seed = data.seed || `${room}-${now()}`;
+      let startAt = Number(data.startAt || 0);
+
+      await roomRef.child(`players/${state.uid}`).update({
+        uid: state.uid,
+        pid: qs('pid', 'anon'),
+        name: form.name,
+        host: false,
+        ready: true,
+        connected: true,
+        inLobby: true,
+        inRun: false,
+        inGame: false,
+        page: 'groups-race-lobby',
+        joinedAt: now(),
+        updatedAt: now()
+      });
+
+      await roomRef.update({
+        updatedAt: now()
+      });
+
+      setStatus(`เข้าห้อง ${room} แล้ว • กำลังไป Waiting Room`, 'ok');
+      setPreview(room, 'เข้าห้องแล้ว');
 
       setTimeout(() => {
         location.href = buildRunUrl(room, form.name, diff, timeSec, {
@@ -362,17 +455,29 @@
       }, 350);
     } catch (err) {
       console.error('[Groups Race Lobby] joinRoom failed:', err);
+
       setStatus('เข้าห้องไม่สำเร็จ: ' + (err?.message || err), 'err');
       state.busy = false;
     }
   }
 
   function localTest() {
+    if (state.busy) return;
+
+    state.busy = true;
+
     const form = readForm();
     const room = 'LOCAL';
 
     localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', form.name);
-    localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', room);
+
+    /*
+      Do NOT save LOCAL as last real room.
+      This prevents the Room Code input from being prefilled with LOCAL later.
+    */
+    localStorage.removeItem('HHA_GROUPS_RACE_LAST_ROOM');
+
+    if ($('roomInput')) $('roomInput').value = '';
 
     setPreview(room, 'โหมดทดสอบคนเดียว');
     setStatus('กำลังเข้า LOCAL Test • ไม่ใช่ Race multiplayer จริง', 'warn');
@@ -386,17 +491,22 @@
   }
 
   async function copyRoom() {
-    const room = cleanRoom($('roomInput').value || state.lastRoom || '');
+    const room = cleanRoom($('roomInput')?.value || state.lastRoom || '');
 
     if (!room) {
       setStatus('ยังไม่มี Room Code ให้ Copy', 'warn');
       return;
     }
 
+    if (room === 'LOCAL') {
+      setStatus('LOCAL ไม่ใช่ Room Code สำหรับ Race จริง', 'err');
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(room);
       setStatus(`Copy Room Code แล้ว: ${room}`, 'ok');
-    } catch (e) {
+    } catch (_) {
       setStatus(`Room Code: ${room}`, 'ok');
     }
   }
@@ -404,7 +514,7 @@
   function goMode() {
     const u = new URL(MODE_PAGE, location.href);
 
-    ['pid', 'name', 'diff', 'time', 'view', 'hub', 'zone', 'game', 'studyId'].forEach(k => {
+    ['pid', 'name', 'diff', 'time', 'view', 'hub', 'zone', 'game', 'studyId'].forEach((k) => {
       const v = qs(k, '');
       if (v) u.searchParams.set(k, v);
     });
@@ -417,29 +527,42 @@
   }
 
   function bind() {
-    $('btnCreate').addEventListener('click', createRoom);
-    $('btnJoin').addEventListener('click', joinRoom);
-    $('btnLocal').addEventListener('click', localTest);
-    $('btnCopy').addEventListener('click', copyRoom);
-    $('btnMode').addEventListener('click', goMode);
-    $('btnHub').addEventListener('click', goHub);
+    $('btnCreate')?.addEventListener('click', createRoom);
+    $('btnJoin')?.addEventListener('click', joinRoom);
+    $('btnLocal')?.addEventListener('click', localTest);
+    $('btnCopy')?.addEventListener('click', copyRoom);
+    $('btnMode')?.addEventListener('click', goMode);
+    $('btnHub')?.addEventListener('click', goHub);
 
-    $('roomInput').addEventListener('input', () => {
-      const room = cleanRoom($('roomInput').value);
+    $('roomInput')?.addEventListener('input', () => {
+      let room = cleanRoom($('roomInput').value);
+
+      if (room === 'LOCAL') {
+        setStatus('LOCAL ใช้เฉพาะปุ่ม “ทดสอบ LOCAL คนเดียว” เท่านั้น', 'err');
+      }
+
       $('roomInput').value = room;
       state.lastRoom = room;
+
       setPreview(room, room ? 'พร้อมเข้าห้อง' : 'ยังไม่ได้สร้างห้อง');
     });
 
-    $('playerName').addEventListener('input', () => {
-      localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', cleanName($('playerName').value));
+    $('playerName')?.addEventListener('input', () => {
+      localStorage.setItem(
+        'HHA_GROUPS_RACE_LAST_NAME',
+        cleanName($('playerName').value)
+      );
     });
 
     DOC.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
-        const room = cleanRoom($('roomInput').value);
-        if (room) joinRoom();
-        else createRoom();
+        const room = cleanRoom($('roomInput')?.value || '');
+
+        if (room && room !== 'LOCAL') {
+          joinRoom();
+        } else {
+          createRoom();
+        }
       }
     });
   }
@@ -448,23 +571,49 @@
     const lastName = localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || '';
     const lastRoom = localStorage.getItem('HHA_GROUPS_RACE_LAST_ROOM') || '';
 
-    $('playerName').value = cleanName(qs('name') || qs('nick') || lastName || 'Hero');
+    const name = cleanName(qs('name') || qs('nick') || lastName || 'Hero');
+    if ($('playerName')) $('playerName').value = name;
 
-    const room = cleanRoom(qs('roomId') || qs('room') || lastRoom || '');
-    $('roomInput').value = room;
+    let room = cleanRoom(qs('roomId') || qs('room') || lastRoom || '');
+
+    /*
+      HARD LOCK:
+      Never prefill LOCAL into the Room Code input.
+      LOCAL is test-only and must be triggered from the LOCAL button.
+    */
+    if (room === 'LOCAL') {
+      room = '';
+      localStorage.removeItem('HHA_GROUPS_RACE_LAST_ROOM');
+    }
+
+    if ($('roomInput')) $('roomInput').value = room;
     state.lastRoom = room;
 
     const diff = qs('diff', '');
-    if (diff && $('diffSelect').querySelector(`option[value="${diff}"]`)) {
+    if (diff && $('diffSelect')?.querySelector(`option[value="${diff}"]`)) {
       $('diffSelect').value = diff;
     }
 
     const time = qs('timeSec') || qs('time') || '';
-    if (time && $('timeSelect').querySelector(`option[value="${time}"]`)) {
+    if (time && $('timeSelect')?.querySelector(`option[value="${time}"]`)) {
       $('timeSelect').value = time;
     }
 
     setPreview(room, room ? 'พร้อมเข้าห้อง' : 'ยังไม่ได้สร้างห้อง');
+  }
+
+  function showReasonFromUrl() {
+    const reason = qs('reason', '');
+
+    if (!reason) return;
+
+    if (reason === 'missing-room') {
+      setStatus('ต้องสร้างหรือเข้าห้อง Race ก่อนเริ่มเกม', 'warn');
+    } else if (reason === 'local-not-race') {
+      setStatus('LOCAL ไม่ใช่ Race multiplayer จริง กรุณาสร้าง Room Code ใหม่ หรือกดปุ่ม LOCAL Test', 'err');
+    } else if (reason === 'back-from-run') {
+      setStatus('กลับมาจาก Waiting Room แล้ว สามารถสร้าง/เข้าห้องใหม่ได้', 'warn');
+    }
   }
 
   async function init() {
@@ -472,6 +621,7 @@
 
     hydrateForm();
     bind();
+    showReasonFromUrl();
 
     WIN.HHA_GROUPS_RACE_LOBBY = {
       version: VERSION,
@@ -484,7 +634,9 @@
         firebaseReady: state.firebaseReady,
         firebaseError: state.firebaseError,
         uid: state.uid,
-        lastRoom: state.lastRoom
+        lastRoom: state.lastRoom,
+        busy: state.busy,
+        path: ROOM_ROOT
       })
     };
 
