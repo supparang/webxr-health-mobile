@@ -3,119 +3,300 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • Groups Race</title>
+  <title>HeroHealth • Food Groups Race</title>
   <meta name="theme-color" content="#071a52" />
-
-  <script>
-    (function(){
-      'use strict';
-
-      const p = new URL(location.href).searchParams;
-      const roomId = (p.get('roomId') || p.get('room') || '').trim().toUpperCase();
-      const fromRun = p.get('from') === 'race-run' || p.get('startAt');
-
-      /*
-        Race multiplayer จริงไม่ควรเข้าเกมตรง ๆ โดยไม่มี roomId
-        ยกเว้นกรณีทดสอบที่ตั้ง roomId=LOCAL เอง
-      */
-      if(!roomId){
-        const u = new URL('./groups-race-lobby.html', location.href);
-
-        ['pid','name','diff','time','timeSec','view','hub','zone','game','studyId'].forEach(k=>{
-          const v = p.get(k);
-          if(v) u.searchParams.set(k,v);
-        });
-
-        u.searchParams.set('reason','missing-room');
-        location.replace(u.toString());
-        return;
-      }
-
-      window.HHA_GROUPS_RACE_BOOT = {
-        roomId,
-        isLocalTest: roomId === 'LOCAL',
-        fromRun,
-        bootAt: Date.now()
-      };
-    })();
-  </script>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ctext y='50' font-size='50'%3E%F0%9F%8F%81%3C/text%3E%3C/svg%3E" />
 
   <style>
+    *{box-sizing:border-box}
+
     html,body{
       margin:0;
       min-height:100%;
-      background:#071a52;
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(60,100,255,.30), transparent 56%),
+        radial-gradient(520px 280px at 10% 10%, rgba(0,201,255,.12), transparent 60%),
+        linear-gradient(180deg,#030b26,#071a52 52%,#0c2d84);
+      color:#f8fbff;
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
+      overflow-x:hidden;
     }
 
     #gameMount{
       min-height:100vh;
     }
 
-    .race-boot-warning{
-      position:fixed;
-      left:50%;
-      top:12px;
-      transform:translateX(-50%);
-      z-index:2147483000;
-      width:min(720px,calc(100vw - 24px));
-      border-radius:999px;
-      padding:10px 16px;
-      background:rgba(255,245,202,.96);
-      color:#806000;
-      font:900 14px/1.25 system-ui,-apple-system,"Segoe UI",sans-serif;
+    .boot-screen{
+      min-height:100vh;
+      display:grid;
+      place-items:center;
+      padding:24px;
       text-align:center;
-      box-shadow:0 18px 48px rgba(0,0,0,.22);
-      pointer-events:none;
     }
 
-    .race-boot-warning.ok{
-      background:rgba(245,255,241,.96);
-      color:#31724b;
+    .boot-card{
+      width:min(720px,92vw);
+      border-radius:32px;
+      padding:34px 24px;
+      background:linear-gradient(180deg,rgba(10,22,66,.94),rgba(6,16,52,.97));
+      border:1px solid rgba(132,168,255,.20);
+      box-shadow:0 22px 70px rgba(0,0,0,.28);
+    }
+
+    .boot-icon{
+      width:96px;
+      height:96px;
+      margin:0 auto 18px;
+      display:grid;
+      place-items:center;
+      border-radius:30px;
+      font-size:52px;
+      background:linear-gradient(180deg,#fff2b9,#f4d36d);
+      color:#3f2f00;
+    }
+
+    .boot-card h1{
+      margin:0;
+      font-size:clamp(34px,7vw,66px);
+      line-height:1.02;
+      font-weight:1000;
+      letter-spacing:-.04em;
+    }
+
+    .boot-card p{
+      margin:12px 0 0;
+      color:#c8d7ff;
+      font-size:18px;
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .boot-pill{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:38px;
+      margin-top:18px;
+      border-radius:999px;
+      padding:0 14px;
+      color:#ffe29b;
+      background:rgba(240,193,109,.14);
+      border:1px solid rgba(240,193,109,.24);
+      font-size:13px;
+      font-weight:1000;
+    }
+
+    .boot-error{
+      margin-top:18px;
+      padding:14px;
+      border-radius:18px;
+      color:#ffc5c5;
+      background:rgba(255,138,138,.14);
+      border:1px solid rgba(255,138,138,.24);
+      font-size:13px;
+      font-weight:900;
+      white-space:pre-wrap;
+      text-align:left;
+    }
+
+    .boot-actions{
+      margin-top:18px;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+    }
+
+    .boot-btn{
+      min-height:48px;
+      border:0;
+      border-radius:18px;
+      padding:0 18px;
+      font:inherit;
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      color:#fff;
+      background:linear-gradient(180deg,#76c7ff,#4bb0ff);
+      box-shadow:0 12px 28px rgba(0,0,0,.22);
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+    }
+
+    .boot-btn.gold{
+      background:linear-gradient(180deg,#f0c16d,#d89a57);
+      color:#251600;
     }
   </style>
 </head>
 
 <body>
-  <div id="gameMount"></div>
-
-  <div id="raceBootWarning" class="race-boot-warning" hidden>
-    กำลังตรวจสอบ Race Room...
+  <div id="gameMount">
+    <section class="boot-screen">
+      <div class="boot-card">
+        <div class="boot-icon">🏁</div>
+        <h1>Food Groups Race</h1>
+        <p id="bootMsg">กำลังเปิดเกม Race...</p>
+        <div class="boot-pill">Direct Boot v3.9</div>
+      </div>
+    </section>
   </div>
 
-  <script type="module">
-    import { bootNutritionShell } from '../shared/nutrition/nutrition-shell.js';
-    import { createGroupsRaceAdapter } from './groups.race.js?v=20260519-v38-syntax-fix';
+  <script>
+    window.HHA_GROUPS_RACE_HTML_VERSION = 'v20260519-groups-race-html-v39-direct-boot';
+
+    (function entryGuard(){
+      const p = new URL(location.href).searchParams;
+
+      const roomId = String(p.get('roomId') || p.get('room') || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '')
+        .slice(0, 16);
+
+      const isLocalTest = p.get('local') === '1';
+
+      function goLobby(reason){
+        const u = new URL('./groups-race-lobby.html', location.href);
+
+        [
+          'pid',
+          'name',
+          'diff',
+          'time',
+          'timeSec',
+          'view',
+          'hub',
+          'zone',
+          'game',
+          'studyId',
+          'conditionGroup'
+        ].forEach((k) => {
+          const v = p.get(k);
+          if (v) u.searchParams.set(k, v);
+        });
+
+        if (roomId && roomId !== 'LOCAL') {
+          u.searchParams.set('roomId', roomId);
+          u.searchParams.set('room', roomId);
+        }
+
+        u.searchParams.set('reason', reason);
+        location.replace(u.toString());
+      }
+
+      if (!roomId) {
+        goLobby('missing-room');
+        return;
+      }
+
+      if (roomId === 'LOCAL' && !isLocalTest) {
+        goLobby('local-not-race');
+        return;
+      }
+    })();
+
+    window.addEventListener('error', function(ev){
+      const msg = String(ev && ev.message || '');
+
+      if (!msg || msg.includes('favicon')) return;
+
+      console.error('[Groups Race HTML] runtime error:', ev.error || ev.message);
+    });
+
+    window.addEventListener('unhandledrejection', function(ev){
+      const msg = String(ev && ev.reason && (ev.reason.message || ev.reason) || '');
+
+      /*
+        Chrome extension noise:
+        A listener indicated an asynchronous response...
+      */
+      if (msg.includes('message channel closed')) return;
+
+      console.error('[Groups Race HTML] promise rejection:', ev.reason);
+    });
   </script>
 
-    const boot = window.HHA_GROUPS_RACE_BOOT || {};
-    const warn = document.getElementById('raceBootWarning');
+  <script type="module">
+    const BOOT_VERSION = '20260519-v39-direct-boot-groups-race';
 
-    function showWarn(text, ok){
-      if(!warn) return;
-      warn.hidden = false;
-      warn.textContent = text;
-      warn.classList.toggle('ok', Boolean(ok));
+    const mount = document.getElementById('gameMount');
 
-      if(ok){
-        setTimeout(()=>{ warn.hidden = true; }, 2800);
+    function escapeHtml(s) {
+      return String(s || '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function showFatal(title, detail) {
+      console.error('[Groups Race Direct Boot]', title, detail);
+
+      mount.innerHTML = `
+        <section class="boot-screen">
+          <div class="boot-card">
+            <div class="boot-icon">⚠️</div>
+            <h1>${escapeHtml(title)}</h1>
+            <p>เปิดเกม Race ไม่สำเร็จ</p>
+            <div class="boot-error">${escapeHtml(detail || '')}</div>
+            <div class="boot-actions">
+              <a class="boot-btn" href="./groups-race-lobby.html">กลับ Race Lobby</a>
+              <a class="boot-btn gold" href="../hub.html">กลับ HUB</a>
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
+    async function bootRace() {
+      try {
+        window.HHA_GROUPS_RACE_DIRECT_BOOT = {
+          version: BOOT_VERSION,
+          bootAt: Date.now()
+        };
+
+        const mod = await import(`./groups.race.js?v=${BOOT_VERSION}`);
+
+        if (!mod || typeof mod.createGroupsRaceAdapter !== 'function') {
+          throw new Error('createGroupsRaceAdapter not found in groups.race.js');
+        }
+
+        const adapter = mod.createGroupsRaceAdapter({
+          mountSelector: '#gameMount',
+          mountEl: mount
+        });
+
+        window.HHA_GROUPS_RACE_HTML_ADAPTER = adapter;
+
+        if (adapter && typeof adapter.mount === 'function') {
+          await adapter.mount();
+        }
+
+        setTimeout(() => {
+          const hasRacePage = Boolean(mount.querySelector('.race-page'));
+
+          if (!hasRacePage) {
+            showFatal(
+              'Race ยังไม่ถูก Mount',
+              'groups.race.js โหลดแล้ว แต่ยังไม่มี .race-page ใน #gameMount\nให้ตรวจ groups-core.js และ console error เพิ่มเติม'
+            );
+          }
+        }, 3000);
+      } catch (err) {
+        showFatal(
+          'Race Boot Error',
+          err && (err.stack || err.message) ? (err.stack || err.message) : String(err)
+        );
       }
     }
 
-    if(boot.isLocalTest){
-      showWarn('โหมดทดสอบ LOCAL: เล่นได้คนเดียว ยังไม่ใช่ Race multiplayer จริง', false);
-    }else{
-      showWarn('Race Room: ' + boot.roomId + ' • กำลังเชื่อมต่อผู้เล่นหลายคน...', true);
-    }
-
-    bootNutritionShell({
-      gameId: 'groups',
-      gameTitle: 'Food Groups',
-      mode: 'race',
-      mountSelector: '#gameMount',
-      adapterFactory: createGroupsRaceAdapter
-    });
+    bootRace();
   </script>
+
   <script src="./groups-race-ui-fix-v31.js?v=20260517-race-v31-summary-local-fix"></script>
-<script src="./groups-race-summary-lock-v32.js?v=20260517-race-v32-summary-mode-lock"></script>
+  <script src="./groups-race-summary-lock-v32.js?v=20260517-race-v32-summary-mode-lock"></script>
 </body>
 </html>
