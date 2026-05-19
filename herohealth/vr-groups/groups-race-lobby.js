@@ -1,17 +1,16 @@
 // === /herohealth/vr-groups/groups-race-lobby.js ===
 // HeroHealth • Groups Race Lobby
-// Stable lobby for create/join room before groups-race-run.html
-// HARD LOCK:
-//   - LOCAL is only allowed via "ทดสอบ LOCAL คนเดียว"
-//   - Real Race requires non-LOCAL Room Code + Firebase Online + auth != null
-// Flow:
-//   groups-race-lobby.html -> groups-race-run.html -> groups-race.html
-// PATCH v20260519-GROUPS-RACE-LOBBY-V35-HARD-LOCK
+// PATCH v20260519-GROUPS-RACE-LOBBY-V36-DEDUP-PLAYER-LOCK
+// Hard Lock:
+// - LOCAL ใช้เฉพาะปุ่มทดสอบคนเดียว
+// - Race จริงต้องใช้ Room Code ที่ไม่ใช่ LOCAL
+// - 1 ชื่อผู้เล่น = 1 player slot ต่อ 1 ห้อง
+// - ถ้า refresh / เข้าใหม่ด้วยชื่อเดิม จะ update slot เดิม ไม่เพิ่มแถวซ้ำ
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260519-groups-race-lobby-v35-hard-lock';
+  const VERSION = 'v20260519-groups-race-lobby-v36-dedup-player-lock';
 
   const ROOM_ROOT = 'hha-battle/groups/raceRooms';
   const RUN_PAGE = './groups-race-run.html';
@@ -23,13 +22,11 @@
 
   const state = {
     version: VERSION,
-
     firebaseReady: false,
     firebaseError: '',
     db: null,
     auth: null,
     uid: '',
-
     lastRoom: '',
     busy: false
   };
@@ -65,6 +62,39 @@
       .toUpperCase()
       .replace(/[^A-Z0-9-]/g, '')
       .slice(0, 16);
+  }
+
+  function playerKeyFromName(name) {
+    return String(name || 'Hero')
+      .trim()
+      .toLowerCase()
+      .replace(/[^\wก-๙]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 32) || 'hero';
+  }
+
+  async function removeDuplicateNamePlayers(roomRef, name, keepKey) {
+    try {
+      const snap = await roomRef.child('players').once('value');
+      const players = snap.val() || {};
+      const target = playerKeyFromName(name);
+      const updates = {};
+
+      Object.keys(players).forEach((key) => {
+        const p = players[key] || {};
+        const sameName = playerKeyFromName(p.name || '') === target;
+
+        if (sameName && key !== keepKey) {
+          updates[`players/${key}`] = null;
+        }
+      });
+
+      if (Object.keys(updates).length) {
+        await roomRef.update(updates);
+      }
+    } catch (err) {
+      console.warn('[Groups Race Lobby] removeDuplicateNamePlayers failed', err);
+    }
   }
 
   function setStatus(text, kind = 'warn') {
@@ -168,17 +198,13 @@
       state.db = fb.db;
       state.auth = fb.auth || null;
 
-      if (!state.db) {
-        throw new Error('Firebase database unavailable');
-      }
+      if (!state.db) throw new Error('Firebase database unavailable');
 
       if (!state.auth && WIN.firebase && WIN.firebase.auth) {
         state.auth = WIN.firebase.auth();
       }
 
-      if (!state.auth) {
-        throw new Error('Firebase Auth unavailable');
-      }
+      if (!state.auth) throw new Error('Firebase Auth unavailable');
 
       if (!state.auth.currentUser && typeof state.auth.signInAnonymously === 'function') {
         await state.auth.signInAnonymously();
@@ -224,12 +250,12 @@
     );
 
     const diff = $('diffSelect')?.value || qs('diff', 'normal');
-
     const rawTime = $('timeSelect')?.value || qs('timeSec') || qs('time') || 90;
     const timeSec = Number(rawTime);
 
     return {
       name,
+      playerKey: playerKeyFromName(name),
       room,
       diff,
       timeSec: Number.isFinite(timeSec) ? timeSec : 90
@@ -305,9 +331,7 @@
       );
     }
 
-    if (!room) {
-      room = randomRoom();
-    }
+    if (!room) room = randomRoom();
 
     if (!requireFirebaseForRealRace()) {
       state.busy = false;
@@ -323,9 +347,11 @@
     localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', room);
 
     const seed = `${room}-${now()}`;
+    const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
+    const playerKey = form.playerKey;
 
     try {
-      const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
+      await removeDuplicateNamePlayers(roomRef, form.name, playerKey);
 
       await roomRef.update({
         roomId: room,
@@ -335,6 +361,7 @@
         zone: 'nutrition',
         status: 'waiting',
         hostUid: state.uid,
+        hostPlayerKey: playerKey,
         hostName: form.name,
         diff: form.diff,
         timeSec: form.timeSec,
@@ -344,8 +371,9 @@
         updatedAt: now()
       });
 
-      await roomRef.child(`players/${state.uid}`).update({
+      await roomRef.child(`players/${playerKey}`).update({
         uid: state.uid,
+        playerKey,
         pid: qs('pid', 'anon'),
         name: form.name,
         host: true,
@@ -369,7 +397,6 @@
       }, 350);
     } catch (err) {
       console.error('[Groups Race Lobby] createRoom failed:', err);
-
       setStatus('สร้างห้องไม่สำเร็จ: ' + (err?.message || err), 'err');
       state.busy = false;
     }
@@ -409,8 +436,10 @@
     localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', form.name);
     localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', room);
 
+    const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
+    const playerKey = form.playerKey;
+
     try {
-      const roomRef = state.db.ref(`${ROOM_ROOT}/${room}`);
       const snap = await roomRef.once('value');
       const data = snap.val() || {};
 
@@ -420,13 +449,16 @@
         return;
       }
 
-      let diff = data.diff || form.diff;
-      let timeSec = Number(data.timeSec || form.timeSec);
-      let seed = data.seed || `${room}-${now()}`;
-      let startAt = Number(data.startAt || 0);
+      const diff = data.diff || form.diff;
+      const timeSec = Number(data.timeSec || form.timeSec);
+      const seed = data.seed || `${room}-${now()}`;
+      const startAt = Number(data.startAt || 0);
 
-      await roomRef.child(`players/${state.uid}`).update({
+      await removeDuplicateNamePlayers(roomRef, form.name, playerKey);
+
+      await roomRef.child(`players/${playerKey}`).update({
         uid: state.uid,
+        playerKey,
         pid: qs('pid', 'anon'),
         name: form.name,
         host: false,
@@ -455,7 +487,6 @@
       }, 350);
     } catch (err) {
       console.error('[Groups Race Lobby] joinRoom failed:', err);
-
       setStatus('เข้าห้องไม่สำเร็จ: ' + (err?.message || err), 'err');
       state.busy = false;
     }
@@ -470,11 +501,6 @@
     const room = 'LOCAL';
 
     localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', form.name);
-
-    /*
-      Do NOT save LOCAL as last real room.
-      This prevents the Room Code input from being prefilled with LOCAL later.
-    */
     localStorage.removeItem('HHA_GROUPS_RACE_LAST_ROOM');
 
     if ($('roomInput')) $('roomInput').value = '';
@@ -558,11 +584,8 @@
       if (ev.key === 'Enter') {
         const room = cleanRoom($('roomInput')?.value || '');
 
-        if (room && room !== 'LOCAL') {
-          joinRoom();
-        } else {
-          createRoom();
-        }
+        if (room && room !== 'LOCAL') joinRoom();
+        else createRoom();
       }
     });
   }
@@ -576,11 +599,6 @@
 
     let room = cleanRoom(qs('roomId') || qs('room') || lastRoom || '');
 
-    /*
-      HARD LOCK:
-      Never prefill LOCAL into the Room Code input.
-      LOCAL is test-only and must be triggered from the LOCAL button.
-    */
     if (room === 'LOCAL') {
       room = '';
       localStorage.removeItem('HHA_GROUPS_RACE_LAST_ROOM');
@@ -604,7 +622,6 @@
 
   function showReasonFromUrl() {
     const reason = qs('reason', '');
-
     if (!reason) return;
 
     if (reason === 'missing-room') {
@@ -629,6 +646,7 @@
       joinRoom,
       localTest,
       buildRunUrl,
+      playerKeyFromName,
       getState: () => ({
         version: VERSION,
         firebaseReady: state.firebaseReady,
