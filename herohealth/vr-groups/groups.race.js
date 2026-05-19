@@ -1075,11 +1075,24 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   }
 
   function replay() {
-    const ok = window.confirm(
-      'ต้องการเล่นอีกครั้งหรือไม่?\n\n' +
-      'ถ้าเป็น Race multiplayer ระบบจะพากลับไปห้องรอ เพื่อให้ผู้เล่นเริ่มพร้อมกันใหม่'
-    );
+  const ask = window.HHA_GROUPS_MP_CONFIRM?.open
+    ? window.HHA_GROUPS_MP_CONFIRM.open({
+        icon: state.isLocalTest ? '🔁' : '🏁',
+        title: state.isLocalTest
+          ? 'เล่นรอบใหม่ไหม?'
+          : 'เล่นอีกครั้งในห้องเดิมไหม?',
+        message: state.isLocalTest
+          ? 'ระบบจะเริ่มรอบใหม่ทันทีในโหมดทดสอบคนเดียว'
+          : 'ระบบจะพากลับไปห้องรอ Room เดิม\nเพื่อให้ผู้เล่นทุกคนเริ่มพร้อมกันใหม่',
+        okText: state.isLocalTest ? 'เริ่มใหม่' : 'กลับห้องรอ',
+        cancelText: 'ยังไม่เล่น',
+        hint: state.isLocalTest
+          ? 'LOCAL Test'
+          : `Room ${state.roomId}`
+      })
+    : Promise.resolve(window.confirm('ต้องการเล่นอีกครั้งหรือไม่?'));
 
+  ask.then((ok) => {
     if (!ok) return;
 
     if (state.isLocalTest) {
@@ -1101,17 +1114,31 @@ export function createGroupsRaceAdapter(shellContext = {}) {
               inGame: false,
               inRun: false,
               inLobby: true,
-              page: 'groups-race-summary-replay',
+              page: 'groups-race-rematch-request',
               updatedAt: now()
             });
           }
+
+          if (state.roomRef) {
+            await state.roomRef.update({
+              status: 'waiting',
+              state: 'lobby',
+              startAt: 0,
+              updatedAt: now(),
+              rematch: {
+                status: 'requested',
+                updatedAt: now()
+              }
+            });
+          }
         } catch (err) {
-          console.warn('[Groups Race] replay reset player failed', err);
+          console.warn('[Groups Race] replay reset room failed', err);
         }
 
         goLobby();
       });
-  }
+  });
+}
 
   function goLobby() {
     const u = new URL('./groups-race-lobby.html', location.href);
