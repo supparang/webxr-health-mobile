@@ -1,16 +1,17 @@
 // === /herohealth/vr-groups/groups-race-lobby.js ===
 // HeroHealth • Groups Race Lobby
-// PATCH v20260519-GROUPS-RACE-LOBBY-V36-DEDUP-PLAYER-LOCK
-// Hard Lock:
-// - LOCAL ใช้เฉพาะปุ่มทดสอบคนเดียว
-// - Race จริงต้องใช้ Room Code ที่ไม่ใช่ LOCAL
-// - 1 ชื่อผู้เล่น = 1 player slot ต่อ 1 ห้อง
-// - ถ้า refresh / เข้าใหม่ด้วยชื่อเดิม จะ update slot เดิม ไม่เพิ่มแถวซ้ำ
+// PATCH v20260519-GROUPS-RACE-LOBBY-V37-ROOM-FORMAT-LOCK
+// Fix:
+// - Create Room always generates a NEW room code.
+// - Join Room uses the input room code only.
+// - LOCAL is test-only.
+// - Standard room payload closer to Race/Battle room format.
+// - 1 player name = 1 player slot per room.
 
 (function () {
   'use strict';
 
-  const VERSION = 'v20260519-groups-race-lobby-v36-dedup-player-lock';
+  const VERSION = 'v20260519-groups-race-lobby-v37-room-format-lock';
 
   const ROOM_ROOT = 'hha-battle/groups/raceRooms';
   const RUN_PAGE = './groups-race-run.html';
@@ -71,30 +72,6 @@
       .replace(/[^\wก-๙]+/g, '-')
       .replace(/^-+|-+$/g, '')
       .slice(0, 32) || 'hero';
-  }
-
-  async function removeDuplicateNamePlayers(roomRef, name, keepKey) {
-    try {
-      const snap = await roomRef.child('players').once('value');
-      const players = snap.val() || {};
-      const target = playerKeyFromName(name);
-      const updates = {};
-
-      Object.keys(players).forEach((key) => {
-        const p = players[key] || {};
-        const sameName = playerKeyFromName(p.name || '') === target;
-
-        if (sameName && key !== keepKey) {
-          updates[`players/${key}`] = null;
-        }
-      });
-
-      if (Object.keys(updates).length) {
-        await roomRef.update(updates);
-      }
-    } catch (err) {
-      console.warn('[Groups Race Lobby] removeDuplicateNamePlayers failed', err);
-    }
   }
 
   function setStatus(text, kind = 'warn') {
@@ -243,9 +220,6 @@
 
     const room = cleanRoom(
       $('roomInput')?.value ||
-      state.lastRoom ||
-      qs('roomId') ||
-      qs('room') ||
       ''
     );
 
@@ -311,37 +285,79 @@
     return true;
   }
 
+  async function removeDuplicateNamePlayers(roomRef, name, keepKey) {
+    try {
+      const snap = await roomRef.child('players').once('value');
+      const players = snap.val() || {};
+      const target = playerKeyFromName(name);
+      const updates = {};
+
+      Object.keys(players).forEach((key) => {
+        const p = players[key] || {};
+        const sameName = playerKeyFromName(p.name || '') === target;
+
+        if (sameName && key !== keepKey) {
+          updates[`players/${key}`] = null;
+        }
+      });
+
+      if (Object.keys(updates).length) {
+        await roomRef.update(updates);
+      }
+    } catch (err) {
+      console.warn('[Groups Race Lobby] removeDuplicateNamePlayers failed', err);
+    }
+  }
+
+  async function makeUniqueRoomCode(maxTry = 8) {
+    for (let i = 0; i < maxTry; i += 1) {
+      const room = randomRoom();
+
+      try {
+        const snap = await state.db.ref(`${ROOM_ROOT}/${room}`).once('value');
+        if (!snap.exists()) return room;
+      } catch (_) {
+        return room;
+      }
+    }
+
+    return randomRoom();
+  }
+
+  async function countPlayers(roomRef) {
+    try {
+      const snap = await roomRef.child('players').once('value');
+      const obj = snap.val() || {};
+      return Object.keys(obj).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
   async function createRoom() {
     if (state.busy) return;
 
     state.busy = true;
 
     const form = readForm();
-    let room = cleanRoom(form.room || randomRoom());
-
-    if (room === 'LOCAL') {
-      room = randomRoom();
-
-      if ($('roomInput')) $('roomInput').value = room;
-      setPreview(room, 'สร้าง Room Code ใหม่สำหรับ Race จริง');
-
-      setStatus(
-        'LOCAL ใช้เฉพาะปุ่ม “ทดสอบ LOCAL คนเดียว” เท่านั้น • สร้าง Room Code ใหม่ให้แล้ว',
-        'warn'
-      );
-    }
-
-    if (!room) room = randomRoom();
 
     if (!requireFirebaseForRealRace()) {
       state.busy = false;
       return;
     }
 
+    /*
+      CREATE ROOM FORMAT LOCK:
+      สร้างห้อง = สุ่ม Room Code ใหม่เสมอ
+      ไม่อ่านค่าจากช่อง Room Code เพราะช่องนั้นใช้สำหรับ Join
+    */
+    let room = await makeUniqueRoomCode();
+
     if ($('roomInput')) $('roomInput').value = room;
 
     state.lastRoom = room;
-    setPreview(room, 'กำลังสร้างห้อง...');
+    setPreview(room, 'กำลังสร้างห้องใหม่...');
+    setStatus('กำลังสร้างห้อง Race ใหม่...', 'warn');
 
     localStorage.setItem('HHA_GROUPS_RACE_LAST_NAME', form.name);
     localStorage.setItem('HHA_GROUPS_RACE_LAST_ROOM', room);
@@ -351,44 +367,68 @@
     const playerKey = form.playerKey;
 
     try {
-      await removeDuplicateNamePlayers(roomRef, form.name, playerKey);
-
-      await roomRef.update({
+      await roomRef.set({
         roomId: room,
-        mode: 'race',
-        raceType: 'groups-race',
+
         game: 'groups',
         zone: 'nutrition',
+        mode: 'race',
+        type: 'race',
+        raceType: 'groups-race',
+        core: 'food-to-gate-sorting',
+
         status: 'waiting',
+        state: 'lobby',
+
+        capacity: 10,
+        playerCount: 1,
+
         hostUid: state.uid,
         hostPlayerKey: playerKey,
         hostName: form.name,
+
         diff: form.diff,
         timeSec: form.timeSec,
         seed,
-        capacity: 10,
-        createdAt: now(),
-        updatedAt: now()
-      });
 
-      await roomRef.child(`players/${playerKey}`).update({
-        uid: state.uid,
-        playerKey,
-        pid: qs('pid', 'anon'),
-        name: form.name,
-        host: true,
-        ready: true,
-        connected: true,
-        inLobby: true,
-        inRun: false,
-        inGame: false,
-        page: 'groups-race-lobby',
-        joinedAt: now(),
-        updatedAt: now()
+        startAt: 0,
+        activeMatchId: '',
+        matchId: '',
+
+        createdAt: now(),
+        updatedAt: now(),
+
+        rematch: {
+          status: 'idle',
+          updatedAt: now()
+        },
+
+        series: {
+          roundNo: 1,
+          updatedAt: now()
+        },
+
+        players: {
+          [playerKey]: {
+            uid: state.uid,
+            playerKey,
+            pid: qs('pid', 'anon'),
+            name: form.name,
+            host: true,
+            ready: true,
+            connected: true,
+            inLobby: true,
+            inRun: false,
+            inGame: false,
+            page: 'groups-race-lobby',
+            joinedAt: now(),
+            updatedAt: now()
+          }
+        }
       });
 
       setStatus(`สร้างห้อง ${room} แล้ว • กำลังไป Waiting Room`, 'ok');
-      setPreview(room, 'สร้างห้องแล้ว');
+      setPreview(room, 'สร้างห้องใหม่แล้ว');
 
       setTimeout(() => {
         location.href = buildRunUrl(room, form.name, form.diff, form.timeSec, {
@@ -449,6 +489,12 @@
         return;
       }
 
+      if (data.status === 'started' || data.state === 'running') {
+        setStatus(`ห้อง ${room} เริ่มแข่งแล้ว กรุณาให้ Host สร้างห้องใหม่`, 'err');
+        state.busy = false;
+        return;
+      }
+
       const diff = data.diff || form.diff;
       const timeSec = Number(data.timeSec || form.timeSec);
       const seed = data.seed || `${room}-${now()}`;
@@ -472,7 +518,10 @@
         updatedAt: now()
       });
 
+      const playerCount = await countPlayers(roomRef);
+
       await roomRef.update({
+        playerCount,
         updatedAt: now()
       });
 
@@ -561,7 +610,7 @@
     $('btnHub')?.addEventListener('click', goHub);
 
     $('roomInput')?.addEventListener('input', () => {
-      let room = cleanRoom($('roomInput').value);
+      const room = cleanRoom($('roomInput').value);
 
       if (room === 'LOCAL') {
         setStatus('LOCAL ใช้เฉพาะปุ่ม “ทดสอบ LOCAL คนเดียว” เท่านั้น', 'err');
@@ -592,12 +641,17 @@
 
   function hydrateForm() {
     const lastName = localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || '';
-    const lastRoom = localStorage.getItem('HHA_GROUPS_RACE_LAST_ROOM') || '';
 
     const name = cleanName(qs('name') || qs('nick') || lastName || 'Hero');
     if ($('playerName')) $('playerName').value = name;
 
-    let room = cleanRoom(qs('roomId') || qs('room') || lastRoom || '');
+    /*
+      ROOM FORMAT LOCK:
+      Default ไม่ auto-fill lastRoom
+      เพื่อกันเอาห้องเก่ามาสร้าง/เข้าซ้ำโดยไม่ตั้งใจ
+      จะเติมเฉพาะถ้า URL ส่ง roomId/room มาจริง ๆ
+    */
+    let room = cleanRoom(qs('roomId') || qs('room') || '');
 
     if (room === 'LOCAL') {
       room = '';
