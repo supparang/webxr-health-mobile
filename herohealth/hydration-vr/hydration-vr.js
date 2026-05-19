@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration VR
    File: /herohealth/hydration-vr/hydration-vr.js
-   Version: v20260518-pack29-export-start-final
+   Version: v20260519-pack32-core-stable-final
    Purpose:
    - Aqua Rush hydration game
    - PC / Mobile / Cardboard cVR
@@ -21,7 +21,7 @@
   window.HHA = window.HHA || {};
   window.HHA = window.HHA || {};
 window.HHA.Hydration = window.HHA.Hydration || {
-  VERSION: 'v20260518-pack29-export-start-final',
+  VERSION: 'v20260519-pack32-core-stable-final',
   booted: false,
   started: false,
   destroyed: false,
@@ -32,7 +32,7 @@ window.HHA.Hydration = window.HHA.Hydration || {
 };
 
 const HYD = window.HHA.Hydration;
-HYD.VERSION = 'v20260518-pack29-export-start-final';
+HYD.VERSION = 'v20260519-pack32-core-stable-final';
 
   /* PATCH v20260517-pack23: export handlers for inline/backward-compatible calls */
   window.beginHydrationFromOverlay = beginHydrationFromOverlay;
@@ -306,11 +306,43 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
     try{
       const decoded = decodeURIComponent(rawHub || '');
       if(decoded && decoded.includes('nutrition-zone.html')){
-        return rawHub;
+        return decoded;
       }
     }catch(e){}
 
-    return './nutrition-zone.html';
+    /*
+      PATCH v20260519-pack32:
+      run.html อยู่ใน /herohealth/hydration-vr/
+      ดังนั้น fallback ต้องออกไป ../nutrition-zone.html
+      ไม่ใช่ ./nutrition-zone.html
+    */
+    try{
+      const u = new URL('../nutrition-zone.html', location.href);
+
+      [
+        'pid',
+        'name',
+        'nick',
+        'diff',
+        'time',
+        'view',
+        'log',
+        'api',
+        'studyId',
+        'conditionGroup'
+      ].forEach(function(k){
+        const v = ctx && ctx[k];
+        if(v !== undefined && v !== null && String(v) !== ''){
+          u.searchParams.set(k, String(v));
+        }
+      });
+
+      u.searchParams.set('hub', new URL('../hub.html', location.href).toString());
+
+      return u.toString();
+    }catch(e){
+      return '../nutrition-zone.html';
+    }
   }
 
   /* =========================================================
@@ -785,30 +817,62 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
       </div>
     `;
 
-    /* PATCH v20260517-pack23: bind buttons with closure-safe listeners */
+    /* PATCH v20260519-pack32: bind buttons inside core only, no external start patch */
     const startBtn = overlay.querySelector('[data-hha-hydration-start-btn]');
     if(startBtn){
-      startBtn.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
+      function startNow(ev){
+        if(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        }
+
         beginHydrationFromOverlay();
-      }, true);
+        return false;
+      }
+
+      startBtn.onclick = startNow;
+      startBtn.addEventListener('click', startNow, true);
+      startBtn.addEventListener('pointerup', startNow, true);
+      startBtn.addEventListener('mouseup', startNow, true);
+      startBtn.addEventListener('touchend', startNow, { passive:false, capture:true });
     }
 
     const backBtn = overlay.querySelector('[data-hha-hydration-back-btn]');
     if(backBtn){
-      backBtn.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
+      function backNow(ev){
+        if(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        }
+
         goHydrationBackHub();
-      }, true);
+        return false;
+      }
+
+      backBtn.onclick = backNow;
+      backBtn.addEventListener('click', backNow, true);
+      backBtn.addEventListener('pointerup', backNow, true);
+      backBtn.addEventListener('touchend', backNow, { passive:false, capture:true });
     }
   }
 
   function beginHydrationFromOverlay(){
+    const overlay = hhaHydrationQS('.hha-hydration-start');
+
+    /*
+      PATCH v20260519-pack32:
+      ถ้ามี flag started ค้าง แต่หน้า Start Overlay ยังอยู่
+      ให้ถือว่ายังไม่ได้เข้าเกมจริง และเริ่มใหม่ได้
+    */
+    if(HYD.started && overlay){
+      HYD.started = false;
+      HYD.destroyed = false;
+    }
+
     if(HYD.started) return;
 
-    const overlay = hhaHydrationQS('.hha-hydration-start');
     if(overlay) overlay.remove();
 
     const ctx = HHA_HYDRATION_FLOW.ctx || getHydrationCtx();
@@ -988,6 +1052,7 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
     hhaHydrationClearTimers();
 
     [
+      '.hha-hydration-summary',
       '.hha-hydration-target',
       '.hha-hit-pop',
       '.hha-learn-pop',
@@ -1017,8 +1082,35 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
       'hha-dehydration-danger',
       'hha-shake',
       'hha-hydration-final-tension',
-      'hha-hydration-boss-drama'
+      'hha-hydration-boss-drama',
+      'hha-hydration-summary-open'
     );
+
+    document.documentElement.classList.remove('hha-hydration-summary-open-html');
+
+    document.documentElement.style.overflowY = '';
+    document.documentElement.style.overflowX = '';
+    document.documentElement.style.height = '';
+    document.documentElement.style.minHeight = '';
+
+    document.body.style.overflowY = '';
+    document.body.style.overflowX = '';
+    document.body.style.height = '';
+    document.body.style.minHeight = '';
+    document.body.style.touchAction = '';
+
+    [
+      hhaHydrationQS('#hha-hydration-app'),
+      hhaHydrationQS('#hha-hydration-stage'),
+      hhaHydrationQS('#hha-hydration-playfield')
+    ].forEach(function(el){
+      if(!el) return;
+      el.style.overflow = '';
+      el.style.height = '';
+      el.style.minHeight = '';
+      el.style.maxHeight = '';
+      el.style.position = '';
+    });
 
     document.body.removeAttribute('data-heat-attack');
   }
@@ -3133,7 +3225,45 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
 
     const box = document.createElement('div');
     box.className = 'hha-hydration-summary';
+    box.setAttribute('data-hha-summary', 'hydration');
     document.body.appendChild(box);
+
+    /*
+      PATCH v20260519-pack32:
+      Summary scroll unlock อยู่ใน core โดยตรง
+      ไม่ใช้ external MutationObserver patch แล้ว
+    */
+    document.documentElement.classList.add('hha-hydration-summary-open-html');
+    document.body.classList.add('hha-hydration-summary-open');
+
+    document.documentElement.style.height = 'auto';
+    document.documentElement.style.minHeight = '100svh';
+    document.documentElement.style.overflowY = 'auto';
+    document.documentElement.style.overflowX = 'hidden';
+
+    document.body.style.height = 'auto';
+    document.body.style.minHeight = '100svh';
+    document.body.style.overflowY = 'auto';
+    document.body.style.overflowX = 'hidden';
+    document.body.style.touchAction = 'auto';
+
+    [
+      hhaHydrationQS('#hha-hydration-app'),
+      hhaHydrationQS('#hha-hydration-stage'),
+      hhaHydrationQS('#hha-hydration-playfield')
+    ].forEach(function(el){
+      if(!el) return;
+      el.style.height = 'auto';
+      el.style.minHeight = '100svh';
+      el.style.maxHeight = 'none';
+      el.style.overflow = 'visible';
+      el.style.position = 'relative';
+    });
+
+    box.style.height = 'auto';
+    box.style.maxHeight = 'none';
+    box.style.overflow = 'visible';
+    box.style.paddingBottom = '180px';
 
     const dbg = document.getElementById('hha-hydration-debug');
     if(dbg){
@@ -3329,7 +3459,7 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
 
     const ctx = HHA_HYDRATION_FLOW.ctx || getHydrationCtx();
     const hubBack = getHydrationNutritionReturnUrl(ctx);
-    const cooldown = new URL('./warmup-gate.html', location.href);
+    const cooldown = new URL('../warmup-gate.html', location.href);
 
     cooldown.searchParams.set('phase', 'cooldown');
     cooldown.searchParams.set('game', 'hydration');
@@ -3346,6 +3476,13 @@ HYD.VERSION = 'v20260518-pack29-export-start-final';
 
     cooldown.searchParams.set('hub', hubBack);
     cooldown.searchParams.set('next', hubBack);
+    cooldown.searchParams.set('cdnext', hubBack);
+    cooldown.searchParams.set('return', hubBack);
+    cooldown.searchParams.set('back', hubBack);
+    cooldown.searchParams.set('cat', 'nutrition');
+    cooldown.searchParams.set('theme', 'hydration');
+    cooldown.searchParams.set('gatePhase', 'cooldown');
+    cooldown.searchParams.set('forceReturn', 'nutrition-zone');
 
     if(ctx.log) cooldown.searchParams.set('log', ctx.log);
     if(ctx.api) cooldown.searchParams.set('api', ctx.api);
