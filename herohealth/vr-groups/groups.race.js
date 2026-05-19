@@ -1,9 +1,11 @@
 // === /herohealth/vr-groups/groups.race.js ===
 // HeroHealth • Food Groups Race Adapter
 // Uses shared Food-to-Gate Sorting Core
-// Requires: ./groups-core.js
-// For: /herohealth/vr-groups/groups-race.html
-// PATCH v20260517-GROUPS-RACE-ADAPTER-CORE-V3-ROOM-SYNC-LOCK
+// PATCH v20260519-GROUPS-RACE-ADAPTER-V36-DEDUP-LEADERBOARD
+// - ใช้ players/{playerKey}
+// - Leaderboard dedupe ตาม playerKey/name
+// - LOCAL ยังใช้ได้เฉพาะ local=1
+// - Online race แสดงผู้เล่นซ้ำไม่ได้
 
 import {
   createGroupsCore,
@@ -55,6 +57,15 @@ function cleanRoom(v) {
     .toUpperCase()
     .replace(/[^A-Z0-9-]/g, '')
     .slice(0, 16);
+}
+
+function playerKeyFromName(name) {
+  return String(name || 'Hero')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\wก-๙]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 32) || 'hero';
 }
 
 function makeLocalUid() {
@@ -155,24 +166,19 @@ async function ensureFirebase() {
 }
 
 export function createGroupsRaceAdapter(shellContext = {}) {
-  const mountSelector =
-    shellContext.mountSelector ||
-    shellContext.mount ||
-    '#gameMount';
-
-  const ctxMountEl =
-    shellContext.mountEl ||
-    shellContext.el ||
-    null;
+  const mountSelector = shellContext.mountSelector || shellContext.mount || '#gameMount';
+  const ctxMountEl = shellContext.mountEl || shellContext.el || null;
 
   const roomId = cleanRoom(qs('roomId') || qs('room') || 'LOCAL');
   const playerName = cleanName(qs('name') || qs('nick') || localStorage.getItem('HHA_GROUPS_RACE_LAST_NAME') || 'Hero');
+  const playerKey = playerKeyFromName(playerName);
+
   const diff = qs('diff', 'normal');
   const duration = clamp(Number(qs('timeSec') || qs('time') || 90), 45, 240);
   const startAt = Number(qs('startAt') || 0);
   const urlSeed = qs('seed', '');
   const hub = qs('hub', 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
-  const isLocalTest = roomId === 'LOCAL';
+  const isLocalTest = roomId === 'LOCAL' && qs('local') === '1';
 
   const raceSeed = [
     'groups-race',
@@ -199,7 +205,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   });
 
   const state = {
-    version: 'v20260517-groups-race-adapter-core-v3-room-sync-lock',
+    version: 'v20260519-groups-race-adapter-v36-dedup-leaderboard',
     coreVersion: GROUPS_CORE_VERSION,
 
     mounted: false,
@@ -210,6 +216,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
     roomId,
     name: playerName,
+    playerKey,
     diff,
     duration,
     startAt,
@@ -235,8 +242,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     syncTimer: 0,
     startedOnce: false,
     endedOnce: false,
-    lastToastAt: 0,
-    lastCoreMode: 'idle'
+    lastToastAt: 0
   };
 
   function $(sel) {
@@ -385,9 +391,9 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         <section class="race-layout">
           <main class="race-main-card">
             <div class="race-status-row">
-              <div class="race-chip">Room <b id="roomText">${escapeHtml(state.roomId)}</b></div>
-              <div class="race-chip">Player <b id="nameText">${escapeHtml(state.name)}</b></div>
-              <div class="race-chip">Diff <b id="diffText">${escapeHtml(state.diff)}</b></div>
+              <div class="race-chip">Room <b>${escapeHtml(state.roomId)}</b></div>
+              <div class="race-chip">Player <b>${escapeHtml(state.name)}</b></div>
+              <div class="race-chip">Diff <b>${escapeHtml(state.diff)}</b></div>
               <div class="race-chip">Core <b>Food-to-Gate</b></div>
             </div>
 
@@ -400,22 +406,10 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
             <div id="raceGame" class="race-game" hidden>
               <div class="race-hud">
-                <div class="hud-card">
-                  <span>คะแนน</span>
-                  <b id="scoreText">0</b>
-                </div>
-                <div class="hud-card">
-                  <span>เวลา</span>
-                  <b id="timeText">0</b>
-                </div>
-                <div class="hud-card">
-                  <span>คอมโบ</span>
-                  <b id="comboText">0</b>
-                </div>
-                <div class="hud-card heart">
-                  <span>หัวใจ</span>
-                  <b id="heartText">❤️❤️❤️</b>
-                </div>
+                <div class="hud-card"><span>คะแนน</span><b id="scoreText">0</b></div>
+                <div class="hud-card"><span>เวลา</span><b id="timeText">0</b></div>
+                <div class="hud-card"><span>คอมโบ</span><b id="comboText">0</b></div>
+                <div class="hud-card heart"><span>หัวใจ</span><b id="heartText">❤️❤️❤️</b></div>
               </div>
 
               <div class="mission-box">
@@ -508,21 +502,13 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     });
 
     $('#itemCard')?.addEventListener('click', () => {
-      const s = coreState();
-      const item = s.current;
-
+      const item = coreState().current;
       if (!item) return;
 
       if (item.kind === 'power') {
-        core.collectPower({
-          source: 'race-ui',
-          input: 'item-card'
-        });
+        core.collectPower({ source: 'race-ui', input: 'item-card' });
       } else if (item.kind === 'decoy') {
-        core.judgeGate('__decoy_hit__', {
-          source: 'race-ui',
-          input: 'item-card-decoy'
-        });
+        core.judgeGate('__decoy_hit__', { source: 'race-ui', input: 'item-card-decoy' });
       } else {
         toast('อาหารต้องเลือกประตูหมู่ด้านล่าง', 'warn');
       }
@@ -621,6 +607,62 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     else el.classList.add('offline');
   }
 
+  function dedupePlayers(playersObj) {
+    const rawPlayers = Object.values(playersObj || {}).filter(Boolean);
+    const dedupe = new Map();
+
+    rawPlayers.forEach((p) => {
+      const key = p.playerKey || playerKeyFromName(p.name || p.uid || 'Player');
+      const old = dedupe.get(key);
+
+      if (!old) {
+        dedupe.set(key, p);
+        return;
+      }
+
+      const oldScore = Number(old.score || old.race?.score || 0);
+      const newScore = Number(p.score || p.race?.score || 0);
+      const oldTime = Number(old.updatedAt || old.joinedAt || 0);
+      const newTime = Number(p.updatedAt || p.joinedAt || 0);
+
+      if (newScore > oldScore || (newScore === oldScore && newTime >= oldTime)) {
+        dedupe.set(key, p);
+      }
+    });
+
+    return Array.from(dedupe.values());
+  }
+
+  function updateLeaderboard(playersObj) {
+    const players = dedupePlayers(playersObj).map((p) => ({
+      uid: p.uid || '',
+      playerKey: p.playerKey || playerKeyFromName(p.name || p.uid || 'Player'),
+      name: p.name || 'Player',
+      score: Number(p.score || p.race?.score || 0),
+      accuracy: Number(p.accuracy || p.race?.accuracy || 0),
+      correct: Number(p.correct || p.race?.correct || 0),
+      bestCombo: Number(p.bestCombo || p.race?.bestCombo || 0),
+      done: Boolean(p.done || p.race?.done),
+      updatedAt: Number(p.updatedAt || 0)
+    }));
+
+    players.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
+      if (b.bestCombo !== a.bestCombo) return b.bestCombo - a.bestCombo;
+      return b.correct - a.correct;
+    });
+
+    state.leaderboard = players;
+
+    const idx = players.findIndex((p) => p.playerKey === state.playerKey || p.uid === state.uid);
+    state.localRank = idx >= 0 ? String(idx + 1) : '-';
+
+    renderLeaderboard();
+
+    if (state.mode === 'ended') renderSummary();
+  }
+
   function renderLeaderboard() {
     const box = $('#leaderboard');
     if (!box) return;
@@ -633,7 +675,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     }
 
     box.innerHTML = rows.map((p, i) => {
-      const isMe = p.uid === state.uid;
+      const isMe = p.playerKey === state.playerKey || p.uid === state.uid;
       const place = i + 1;
       const crown = place === 1 ? '👑' : place === 2 ? '🥈' : place === 3 ? '🥉' : place;
 
@@ -708,6 +750,8 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     setText('#sumAccuracy', s.accuracy + '%');
     setText('#sumCombo', s.bestCombo);
     setText('#sumCorrect', s.correct);
+
+    renderLeaderboard();
   }
 
   function startRace() {
@@ -738,9 +782,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   function tick() {
     if (state.mode !== 'playing') return;
 
-    core.tick({
-      source: 'race-timer'
-    });
+    core.tick({ source: 'race-timer' });
 
     const s = coreState();
 
@@ -781,6 +823,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
       state.leaderboard = [{
         uid: state.uid,
+        playerKey: state.playerKey,
         name: state.name,
         score: 0,
         accuracy: 0,
@@ -803,11 +846,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       if (!fb.db) throw new Error('Firebase database unavailable');
 
       if (fb.auth && !fb.auth.currentUser && typeof fb.auth.signInAnonymously === 'function') {
-        try {
-          await fb.auth.signInAnonymously();
-        } catch (e) {
-          console.warn('[Groups Race] Anonymous auth failed, continue with local uid', e);
-        }
+        await fb.auth.signInAnonymously();
       }
 
       state.uid =
@@ -818,8 +857,9 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       state.roomRef = fb.db.ref(`${ROOM_ROOT}/${state.roomId}`);
       state.playersRef = fb.db.ref(`${ROOM_ROOT}/${state.roomId}/players`);
 
-      await state.roomRef.child(`players/${state.uid}`).update({
+      await state.roomRef.child(`players/${state.playerKey}`).update({
         uid: state.uid,
+        playerKey: state.playerKey,
         name: state.name,
         ready: true,
         connected: true,
@@ -836,27 +876,29 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       });
 
       try {
-        state.roomRef.child(`players/${state.uid}/connected`).onDisconnect().set(false);
-        state.roomRef.child(`players/${state.uid}/updatedAt`).onDisconnect().set(now());
-      } catch (e) {}
+        state.roomRef.child(`players/${state.playerKey}/connected`).onDisconnect().set(false);
+        state.roomRef.child(`players/${state.playerKey}/updatedAt`).onDisconnect().set(now());
+      } catch (_) {}
 
       state.playersOff = state.playersRef.on('value', (snap) => {
-        const obj = snap.val() || {};
-        updateLeaderboard(obj);
+        updateLeaderboard(snap.val() || {});
       });
 
       state.roomOff = state.roomRef.on('value', (snap) => {
         const room = snap.val() || {};
 
         if (room.startAt && !state.startAt) state.startAt = Number(room.startAt) || 0;
-        if (room.seed && !urlSeed) state.seed = [
-          'groups-race',
-          state.roomId,
-          room.startAt || state.startAt || '',
-          room.seed || '',
-          state.diff,
-          state.duration
-        ].join('|');
+
+        if (room.seed && !urlSeed) {
+          state.seed = [
+            'groups-race',
+            state.roomId,
+            room.startAt || state.startAt || '',
+            room.seed || '',
+            state.diff,
+            state.duration
+          ].join('|');
+        }
       });
 
       state.firebaseReady = true;
@@ -870,6 +912,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
       state.leaderboard = [{
         uid: state.uid,
+        playerKey: state.playerKey,
         name: state.name,
         score: 0,
         accuracy: 0,
@@ -883,43 +926,16 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     }
   }
 
-  function updateLeaderboard(playersObj) {
-    const players = Object.values(playersObj || {}).map((p) => ({
-      uid: p.uid || '',
-      name: p.name || 'Player',
-      score: Number(p.score || p.race?.score || 0),
-      accuracy: Number(p.accuracy || p.race?.accuracy || 0),
-      correct: Number(p.correct || p.race?.correct || 0),
-      bestCombo: Number(p.bestCombo || p.race?.bestCombo || 0),
-      done: Boolean(p.done || p.race?.done),
-      updatedAt: Number(p.updatedAt || 0)
-    }));
-
-    players.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score;
-      if (b.accuracy !== a.accuracy) return b.accuracy - a.accuracy;
-      if (b.bestCombo !== a.bestCombo) return b.bestCombo - a.bestCombo;
-      return b.correct - a.correct;
-    });
-
-    state.leaderboard = players;
-
-    const idx = players.findIndex((p) => p.uid === state.uid);
-    state.localRank = idx >= 0 ? String(idx + 1) : '-';
-
-    renderLeaderboard();
-
-    if (state.mode === 'ended') renderSummary();
-  }
-
   async function syncPlayer(status = 'playing') {
     const s = coreState();
 
-    if (state.isLocalTest || !state.roomRef || !state.uid) {
-      const existing = state.leaderboard.find((p) => p.uid === state.uid) || {};
+    if (state.isLocalTest || !state.roomRef || !state.playerKey) {
+      const existing = state.leaderboard.find((p) => p.playerKey === state.playerKey) || {};
+
       state.leaderboard = [{
         ...existing,
         uid: state.uid,
+        playerKey: state.playerKey,
         name: state.name,
         score: s.score,
         correct: s.correct,
@@ -931,16 +947,19 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         skippedDecoy: s.skippedDecoy,
         missionClear: s.missionClear,
         done: status === 'done',
+        local: true,
         updatedAt: now()
       }];
 
       state.localRank = '1';
+      setSyncStatus('Local Test');
       renderLeaderboard();
       return;
     }
 
     const payload = {
       uid: state.uid,
+      playerKey: state.playerKey,
       name: state.name,
       ready: true,
       connected: true,
@@ -981,7 +1000,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     };
 
     try {
-      await state.roomRef.child(`players/${state.uid}`).update(payload);
+      await state.roomRef.child(`players/${state.playerKey}`).update(payload);
     } catch (err) {
       console.warn('[Groups Race] syncPlayer failed', err);
     }
@@ -1010,6 +1029,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       mode: 'race',
       roomId: state.roomId,
       uid: state.uid,
+      playerKey: state.playerKey,
       name: state.name,
       reason,
       diff: state.diff,
@@ -1034,8 +1054,8 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         summary: result
       }));
 
-      if (state.roomRef && state.uid && !state.isLocalTest) {
-        await state.roomRef.child(`results/${state.uid}`).set(result);
+      if (state.roomRef && state.playerKey && !state.isLocalTest) {
+        await state.roomRef.child(`results/${state.playerKey}`).set(result);
       }
     } catch (_) {}
 
@@ -1046,10 +1066,11 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   function replay() {
     const u = new URL(location.href);
 
-    u.searchParams.set('seed', String(Date.now()));
+    u.searchParams.set('seed', String(now()));
 
     if (state.isLocalTest) {
       u.searchParams.set('startAt', String(now() + 1200));
+      u.searchParams.set('local', '1');
     }
 
     location.href = u.toString();
@@ -1063,8 +1084,11 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       if (v) u.searchParams.set(k, v);
     });
 
-    u.searchParams.set('room', state.roomId);
-    u.searchParams.set('roomId', state.roomId);
+    if (state.roomId && state.roomId !== 'LOCAL') {
+      u.searchParams.set('room', state.roomId);
+      u.searchParams.set('roomId', state.roomId);
+    }
+
     u.searchParams.set('name', state.name);
     u.searchParams.set('diff', state.diff);
     u.searchParams.set('time', String(state.duration));
@@ -1087,10 +1111,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         min-height:100vh;
         padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(20px + env(safe-area-inset-bottom,0px));
         color:#f8fbff;
-        background:
-          radial-gradient(900px 500px at 50% -10%, rgba(60,100,255,.30), transparent 56%),
-          radial-gradient(520px 280px at 10% 10%, rgba(0,201,255,.12), transparent 60%),
-          linear-gradient(180deg,#030b26,#071a52 52%,#0c2d84);
+        background:radial-gradient(900px 500px at 50% -10%, rgba(60,100,255,.30), transparent 56%),radial-gradient(520px 280px at 10% 10%, rgba(0,201,255,.12), transparent 60%),linear-gradient(180deg,#030b26,#071a52 52%,#0c2d84);
         font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
       }
 
@@ -1143,8 +1164,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         font-weight:900;
       }
 
-      .race-actions,
-      .summary-actions{
+      .race-actions,.summary-actions{
         display:flex;
         gap:10px;
         flex-wrap:wrap;
@@ -1165,18 +1185,9 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         box-shadow:0 12px 28px rgba(0,0,0,.22);
       }
 
-      .race-btn.primary{
-        background:linear-gradient(180deg,#76c7ff,#4bb0ff);
-      }
-
-      .race-btn.gold{
-        background:linear-gradient(180deg,#f0c16d,#d89a57);
-        color:#251600;
-      }
-
-      .race-btn.ghost{
-        color:#c8d7ff;
-      }
+      .race-btn.primary{background:linear-gradient(180deg,#76c7ff,#4bb0ff);}
+      .race-btn.gold{background:linear-gradient(180deg,#f0c16d,#d89a57);color:#251600;}
+      .race-btn.ghost{color:#c8d7ff;}
 
       .race-layout{
         width:min(1180px,100%);
@@ -1186,8 +1197,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         gap:12px;
       }
 
-      .race-main-card,
-      .race-side-card{
+      .race-main-card,.race-side-card{
         border-radius:30px;
         background:linear-gradient(180deg,rgba(10,22,66,.92),rgba(6,16,52,.96));
         border:1px solid rgba(132,168,255,.18);
@@ -1216,9 +1226,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         font-weight:900;
       }
 
-      .race-chip b{
-        color:#fff;
-      }
+      .race-chip b{color:#fff;}
 
       .race-waiting{
         min-height:520px;
@@ -1328,9 +1336,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         place-items:center;
         min-height:330px;
         border-radius:30px;
-        background:
-          radial-gradient(circle at 50% 10%,rgba(255,255,255,.08),transparent 42%),
-          rgba(255,255,255,.035);
+        background:radial-gradient(circle at 50% 10%,rgba(255,255,255,.08),transparent 42%),rgba(255,255,255,.035);
         border:1px solid rgba(255,255,255,.07);
         margin-bottom:12px;
         overflow:hidden;
@@ -1371,39 +1377,13 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         text-align:center;
       }
 
-      .item-card.golden{
-        background:linear-gradient(180deg,#fff8c8,#ffd966);
-        color:#4c3500;
-      }
+      .item-card.golden{background:linear-gradient(180deg,#fff8c8,#ffd966);color:#4c3500;}
+      .item-card.power{background:linear-gradient(180deg,#eaf8ff,#bcecff);color:#155276;}
+      .item-card.decoy{background:linear-gradient(180deg,#fff0f0,#ffd1d1);color:#9b3d3d;}
 
-      .item-card.power{
-        background:linear-gradient(180deg,#eaf8ff,#bcecff);
-        color:#155276;
-      }
-
-      .item-card.decoy{
-        background:linear-gradient(180deg,#fff0f0,#ffd1d1);
-        color:#9b3d3d;
-      }
-
-      .item-icon{
-        font-size:clamp(72px,15vw,128px);
-        line-height:1;
-      }
-
-      .item-kind{
-        margin-top:8px;
-        font-size:18px;
-        font-weight:1000;
-        letter-spacing:.06em;
-      }
-
-      .item-hint{
-        margin-top:8px;
-        font-size:15px;
-        font-weight:950;
-        color:rgba(36,78,104,.78);
-      }
+      .item-icon{font-size:clamp(72px,15vw,128px);line-height:1;}
+      .item-kind{margin-top:8px;font-size:18px;font-weight:1000;letter-spacing:.06em;}
+      .item-hint{margin-top:8px;font-size:15px;font-weight:950;color:rgba(36,78,104,.78);}
 
       .group-grid{
         display:grid;
@@ -1424,39 +1404,11 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         font-weight:1000;
       }
 
-      .group-btn:active{
-        transform:scale(.97);
-      }
-
-      .group-id{
-        display:inline-grid;
-        place-items:center;
-        width:30px;
-        height:30px;
-        border-radius:50%;
-        background:rgba(255,255,255,.72);
-        font-size:14px;
-        margin-bottom:4px;
-      }
-
-      .group-icon{
-        display:block;
-        font-size:30px;
-        line-height:1;
-      }
-
-      .group-btn b{
-        display:block;
-        margin-top:5px;
-        font-size:16px;
-      }
-
-      .group-btn small{
-        display:block;
-        margin-top:4px;
-        font-size:10px;
-        color:rgba(32,52,75,.70);
-      }
+      .group-btn:active{transform:scale(.97);}
+      .group-id{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.72);font-size:14px;margin-bottom:4px;}
+      .group-icon{display:block;font-size:30px;line-height:1;}
+      .group-btn b{display:block;margin-top:5px;font-size:16px;}
+      .group-btn small{display:block;margin-top:4px;font-size:10px;color:rgba(32,52,75,.70);}
 
       .side-title{
         display:flex;
@@ -1484,38 +1436,13 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         font-weight:1000;
       }
 
-      #syncStatus.online{
-        background:rgba(99,217,155,.16);
-        color:#bfffd8;
-      }
+      #syncStatus.online{background:rgba(99,217,155,.16);color:#bfffd8;}
+      #syncStatus.offline{background:rgba(255,138,138,.14);color:#ffc5c5;}
+      #syncStatus.local{background:rgba(240,193,109,.16);color:#ffe29b;}
+      #syncStatus.connecting{background:rgba(118,199,255,.14);color:#c9ecff;}
 
-      #syncStatus.offline{
-        background:rgba(255,138,138,.14);
-        color:#ffc5c5;
-      }
-
-      #syncStatus.local{
-        background:rgba(240,193,109,.16);
-        color:#ffe29b;
-      }
-
-      #syncStatus.connecting{
-        background:rgba(118,199,255,.14);
-        color:#c9ecff;
-      }
-
-      .leaderboard{
-        display:grid;
-        gap:8px;
-      }
-
-      .board-empty{
-        padding:16px;
-        border-radius:18px;
-        background:rgba(255,255,255,.05);
-        color:#c8d7ff;
-        font-weight:900;
-      }
+      .leaderboard{display:grid;gap:8px;}
+      .board-empty{padding:16px;border-radius:18px;background:rgba(255,255,255,.05);color:#c8d7ff;font-weight:900;}
 
       .board-row{
         display:flex;
@@ -1559,8 +1486,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         text-overflow:ellipsis;
       }
 
-      .board-left small,
-      .board-score small{
+      .board-left small,.board-score small{
         display:block;
         margin-top:3px;
         color:#95a7d6;
@@ -1568,15 +1494,8 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         font-weight:850;
       }
 
-      .board-score{
-        text-align:right;
-        flex:0 0 auto;
-      }
-
-      .board-score b{
-        font-size:20px;
-        line-height:1;
-      }
+      .board-score{text-align:right;flex:0 0 auto;}
+      .board-score b{font-size:20px;line-height:1;}
 
       .race-help{
         margin-top:14px;
@@ -1670,14 +1589,11 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         opacity:0;
       }
 
-      .race-toast.show{
-        animation:raceToast .82s ease both;
-      }
-
-      .race-toast.good{ background:#f5fff1; color:#31724b; }
-      .race-toast.bad{ background:#fff0f0; color:#9b3d3d; }
-      .race-toast.warn{ background:#fff5ca; color:#806000; }
-      .race-toast.power{ background:#eaf8ff; color:#155276; }
+      .race-toast.show{animation:raceToast .82s ease both;}
+      .race-toast.good{background:#f5fff1;color:#31724b;}
+      .race-toast.bad{background:#fff0f0;color:#9b3d3d;}
+      .race-toast.warn{background:#fff5ca;color:#806000;}
+      .race-toast.power{background:#eaf8ff;color:#155276;}
 
       @keyframes raceToast{
         0%{opacity:0; transform:translate(-50%,-38%) scale(.86);}
@@ -1687,79 +1603,24 @@ export function createGroupsRaceAdapter(shellContext = {}) {
       }
 
       @media (max-width:980px){
-        .race-layout{
-          grid-template-columns:1fr;
-        }
-
-        .race-side-card{
-          order:2;
-        }
-
-        .race-hud{
-          grid-template-columns:repeat(2,minmax(0,1fr));
-        }
-
-        .group-grid{
-          grid-template-columns:repeat(2,minmax(0,1fr));
-        }
-
-        .summary-grid{
-          grid-template-columns:repeat(2,minmax(0,1fr));
-        }
+        .race-layout{grid-template-columns:1fr;}
+        .race-side-card{order:2;}
+        .race-hud{grid-template-columns:repeat(2,minmax(0,1fr));}
+        .group-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+        .summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
       }
 
       @media (max-width:680px){
-        .race-page{
-          padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(16px + env(safe-area-inset-bottom,0px));
-        }
-
-        .race-top{
-          flex-direction:column;
-          align-items:stretch;
-        }
-
-        .race-actions{
-          display:grid;
-          grid-template-columns:1fr 1fr;
-        }
-
-        .race-brand{
-          border-radius:22px;
-          padding:12px;
-        }
-
-        .race-mark{
-          width:50px;
-          height:50px;
-          border-radius:16px;
-          font-size:26px;
-        }
-
-        .race-main-card,
-        .race-side-card{
-          border-radius:24px;
-          padding:12px;
-        }
-
-        .item-stage{
-          min-height:280px;
-          border-radius:24px;
-        }
-
-        .item-card{
-          width:min(260px,78vw);
-          border-radius:34px;
-        }
-
-        .group-btn{
-          min-height:96px;
-          border-radius:20px;
-        }
-
-        .race-waiting,
-        .race-summary{
-          min-height:480px;
-        }
+        .race-page{padding:calc(8px + env(safe-area-inset-top,0px)) 8px calc(16px + env(safe-area-inset-bottom,0px));}
+        .race-top{flex-direction:column;align-items:stretch;}
+        .race-actions{display:grid;grid-template-columns:1fr 1fr;}
+        .race-brand{border-radius:22px;padding:12px;}
+        .race-mark{width:50px;height:50px;border-radius:16px;font-size:26px;}
+        .race-main-card,.race-side-card{border-radius:24px;padding:12px;}
+        .item-stage{min-height:280px;border-radius:24px;}
+        .item-card{width:min(260px,78vw);border-radius:34px;}
+        .group-btn{min-height:96px;border-radius:20px;}
+        .race-waiting,.race-summary{min-height:480px;}
       }
     `;
 
@@ -1786,7 +1647,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
 
     await connectFirebase();
 
-    if (!state.startAt) {
+    if (!state.startAt || state.startAt <= now() - 3000) {
       const fallbackDelay = state.isLocalTest ? 1800 : 2500;
       state.startAt = now() + fallbackDelay;
     }
@@ -1836,6 +1697,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
         coreVersion: GROUPS_CORE_VERSION,
         roomId: state.roomId,
         name: state.name,
+        playerKey: state.playerKey,
         mode: state.mode,
         isLocalTest: state.isLocalTest,
         coreState: s,
