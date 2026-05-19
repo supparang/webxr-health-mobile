@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.4.3 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.4.4 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260518-gj-battle-v243-mobile-skillbar-return"></script>
+  <script src="../firebase-config.js?v=20260518-gj-battle-v244-rematch-consent-score-rule"></script>
   <style>
     :root{
       --bg1:#fff7d8;
@@ -431,7 +431,12 @@
       font-weight:1000;
       margin-bottom:14px;
     }
-
+      #rematchBox{
+      width:100%;
+      background:#fff8db;
+      border-style:dashed;
+      text-align:center;
+    }
     .resultGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
@@ -808,7 +813,7 @@
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2.4.3</h1>
+        <h1>GoodJunk Battle v2.4.4</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -874,7 +879,9 @@
           <div id="resultRivalMeta">Good: 0 • Junk: 0 • Miss: 0</div>
         </div>
       </div>
-
+      <div id="rematchBox" class="reason" style="display:none;margin-top:10px;">
+      <span id="rematchText">กด Battle อีกครั้ง ถ้าต้องการเล่นต่อ</span>
+      </div>
       <div class="resultActions">
         <button id="btnAgain" class="btn attack" type="button">🔁 Battle อีกครั้ง</button>
         <a id="btnLobbyEnd" class="btn" href="./goodjunk-battle-v2-lobby.html">⚔️ กลับ Lobby</a>
@@ -888,7 +895,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_RUN = 'v20260518-battle-v243-mobile-skillbar-return';
+    window.HHA_GJ_BATTLE_RUN = 'v20260518-battle-v244-rematch-consent-score-rule';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const CAPACITY = 2;
@@ -1101,7 +1108,30 @@
       $('btnHub').href = state.hub;
       $('btnHubEnd').href = state.hub;
     }
+    function rematchPath(){
+      return `${roomPath()}/rematch`;
+    }
 
+    function rematchVotes(room){
+      return Object.values(room?.rematch?.votes || {}).filter(v => v && v.ready);
+    }
+
+    function myRematchReady(room){
+      return !!room?.rematch?.votes?.[safeKey(state.pid)]?.ready;
+    }
+
+    function rematchReadyComplete(room){
+      return rematchVotes(room).length >= CAPACITY;
+    }
+  
+    function setRematchMessage(text){
+      const box = $('rematchBox');
+      const msg = $('rematchText');
+      if (!box || !msg) return;
+
+    box.style.display = 'block';
+    msg.textContent = text;
+    }
     function hearts(n){
       const x = Math.max(0,Math.min(5,Number(n || 0)));
       return x > 0 ? '❤️'.repeat(x) : '💔';
@@ -1200,6 +1230,7 @@
 
       if (room.finalSummary){
         renderFinalSummary(room.finalSummary);
+        updateRematchUi(room);
         return;
       }
 
@@ -1536,17 +1567,31 @@
       const a = players[0] || null;
       const b = players[1] || null;
 
-      if (a && b){
-        if (hpOf(a) > hpOf(b)){
-          winner = a; loser = b;
-        }else if (hpOf(a) < hpOf(b)){
-          winner = b; loser = a;
-        }else if (scoreOf(a) > scoreOf(b)){
-          winner = a; loser = b;
-        }else if (scoreOf(a) < scoreOf(b)){
-          winner = b; loser = a;
-        }
-      }
+      iif (a && b){
+  const reasonText = String(reason || '').toLowerCase();
+
+  if (reasonText === 'time-up'){
+    if (scoreOf(a) > scoreOf(b)){
+      winner = a; loser = b;
+    }else if (scoreOf(a) < scoreOf(b)){
+      winner = b; loser = a;
+    }else if (hpOf(a) > hpOf(b)){
+      winner = a; loser = b;
+    }else if (hpOf(a) < hpOf(b)){
+      winner = b; loser = a;
+    }
+  }else{
+    if (hpOf(a) > hpOf(b)){
+      winner = a; loser = b;
+    }else if (hpOf(a) < hpOf(b)){
+      winner = b; loser = a;
+    }else if (scoreOf(a) > scoreOf(b)){
+      winner = a; loser = b;
+    }else if (scoreOf(a) < scoreOf(b)){
+      winner = b; loser = a;
+    }
+  }
+}
 
       return {
         roomId:state.room,
@@ -1654,8 +1699,15 @@
 
       hydrateLinks();
       $('overlay').classList.add('show');
-      updateHud();
-    }
+      $('btnAgain').disabled = false;
+      $('btnAgain').textContent = '🔁 Battle อีกครั้ง';
+
+      const latestRoom = state.roomData;
+      if (latestRoom){
+        updateRematchUi(latestRoom);
+      }
+        updateHud();
+      }
 
     async function finish(reason='time-up', writeEnd=true){
       if (ended || finishing) return;
@@ -1723,6 +1775,106 @@
       finishing = false;
     }
 
+    async function requestRematch(){
+  if (!db || !state.room) return;
+
+  try{
+    const room = await dbGet(roomPath()).catch(()=>null);
+    if (!room){
+      showToast('ไม่พบห้อง Battle');
+      return;
+    }
+
+    await dbUpdate(`${rematchPath()}/votes/${safeKey(state.pid)}`,{
+      pid:state.pid,
+      name:state.name,
+      role:state.role,
+      ready:true,
+      readyAt:now()
+    });
+
+    await dbUpdate(rematchPath(),{
+      status:'collecting',
+      requestedBy:state.pid,
+      requestedByName:state.name,
+      requestedAt:now(),
+      updatedAt:now()
+    });
+
+    setRematchMessage('คุณขอ Battle อีกครั้งแล้ว • รออีกฝ่ายกดพร้อม');
+    $('btnAgain').disabled = true;
+    $('btnAgain').textContent = '✅ รออีกฝ่าย';
+
+    showToast('🔁 ส่งคำขอ Battle อีกครั้งแล้ว');
+
+    setTimeout(checkRematchStart,400);
+  }catch(err){
+    showToast('ขอ Battle อีกครั้งไม่สำเร็จ: ' + (err?.message || err),3000);
+  }
+}
+
+function updateRematchUi(room){
+  if (!ended || !room) return;
+
+  const votes = rematchVotes(room);
+  const meReady = myRematchReady(room);
+
+  if (votes.length <= 0) return;
+
+  const requester = votes[0]?.name || 'คู่แข่ง';
+
+  if (votes.length >= CAPACITY){
+    setRematchMessage('พร้อมครบ 2/2 แล้ว • กำลังเริ่ม Battle รอบใหม่');
+    $('btnAgain').disabled = true;
+    $('btnAgain').textContent = '🔁 กำลังเริ่ม';
+    checkRematchStart().catch(()=>{});
+    return;
+  }
+
+  if (meReady){
+    setRematchMessage('คุณพร้อมแล้ว • รออีกฝ่ายกด Battle อีกครั้ง');
+    $('btnAgain').disabled = true;
+    $('btnAgain').textContent = '✅ รออีกฝ่าย';
+  }else{
+    setRematchMessage(`${requester} ขอ Battle อีกครั้ง • กด Battle อีกครั้งเพื่อเริ่มรอบใหม่`);
+    $('btnAgain').disabled = false;
+    $('btnAgain').textContent = '✅ พร้อม Battle';
+  }
+}
+
+async function checkRematchStart(){
+  if (rematchStarting || !db) return;
+
+  const room = await dbGet(roomPath()).catch(()=>null);
+  if (!room) return;
+
+  if (!rematchReadyComplete(room)) return;
+
+  const ref = db.ref(`${roomPath()}/rematchStartLock`);
+
+  let locked = false;
+
+  try{
+    const tx = await ref.transaction(current => {
+      if (current && current.locked) return;
+      return {
+        locked:true,
+        byPid:state.pid,
+        byName:state.name,
+        at:now()
+      };
+    });
+
+    locked = !!(tx && tx.committed);
+  }catch(_){
+    locked = false;
+  }
+
+  if (!locked) return;
+
+  await startAgain();
+}
+    
     async function startAgain(){
       if (rematchStarting) return;
       rematchStarting = true;
@@ -1855,7 +2007,7 @@
     function initButtons(){
       $('btnAttack').addEventListener('click', useAttack);
       $('btnShield').addEventListener('click', useShield);
-      $('btnAgain').addEventListener('click', startAgain);
+      $('btnAgain').addEventListener('click', requestRematch);
     }
 
     async function boot(){
