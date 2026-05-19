@@ -3,14 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Battle v2.4.2 Run</title>
+  <title>HeroHealth • GoodJunk Battle v2.4.3 Run</title>
   <meta name="theme-color" content="#ffd75a" />
   <link rel="icon" href="./favicon.ico" />
 
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
-  <script src="../firebase-config.js?v=20260518-gj-battle-v242-mobile-edge-fix"></script>
+  <script src="../firebase-config.js?v=20260518-gj-battle-v243-mobile-skillbar-return"></script>
   <style>
     :root{
       --bg1:#fff7d8;
@@ -693,22 +693,12 @@
     flex-wrap:nowrap;
   }
 
-  .miniStats .pill:nth-child(2),
-  .miniStats .pill:nth-child(3),
-  .miniStats .pill:nth-child(5){
-    display:none;
-  }
-
   .pill{
     min-height:20px;
     padding:1px 4px;
     font-size:7.5px;
     border-width:2px;
     white-space:nowrap;
-  }
-
-  .skillBar{
-    display:none;
   }
 
   .overlay{
@@ -731,6 +721,82 @@
   .resultActions{
     grid-template-columns:1fr;
   }
+  .bottom{
+  width:100%;
+  max-width:100%;
+  min-width:0;
+  min-height:72px;
+  padding:4px 5px;
+  border-radius:13px;
+  border-width:2px;
+  display:grid;
+  grid-template-columns:1fr;
+  grid-template-areas:
+    "hint"
+    "mini"
+    "skill";
+  gap:4px;
+  overflow:hidden;
+}
+
+.hint{
+  grid-area:hint;
+  font-size:9px;
+  line-height:1.12;
+  min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.miniStats{
+  grid-area:mini;
+  display:flex;
+  justify-content:flex-start;
+  gap:3px;
+  max-width:100%;
+  min-width:0;
+  overflow-x:auto;
+  overflow-y:hidden;
+  flex-wrap:nowrap;
+  padding-bottom:1px;
+  scrollbar-width:none;
+}
+
+.miniStats::-webkit-scrollbar{
+  display:none;
+}
+
+.pill{
+  min-height:20px;
+  padding:1px 5px;
+  font-size:7.5px;
+  border-width:2px;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+
+.skillBar{
+  grid-area:skill;
+  display:flex;
+  justify-content:stretch;
+  align-items:center;
+  gap:4px;
+  flex-wrap:nowrap;
+  width:100%;
+  min-width:0;
+}
+
+.skillBar .btn{
+  flex:1 1 0;
+  min-width:0;
+  min-height:28px;
+  padding:3px 7px;
+  font-size:10px;
+  border-radius:10px;
+  border-width:2px;
+  white-space:nowrap;
+}
 }
   </style>
 </head>
@@ -742,7 +808,7 @@
     <section class="box top">
       <div class="brandIcon">⚔️</div>
       <div>
-        <h1>GoodJunk Battle v2.4.2</h1>
+        <h1>GoodJunk Battle v2.4.3</h1>
         <div id="meta" class="meta">loading…</div>
       </div>
       <div class="topActions">
@@ -822,7 +888,7 @@
   (() => {
     'use strict';
 
-    window.HHA_GJ_BATTLE_RUN = 'v20260518-battle-v242-mobile-edge-fix';
+    window.HHA_GJ_BATTLE_RUN = 'v20260518-battle-v243-mobile-skillbar-return';
 
     const ROOM_ROOT = 'hha-battle/goodjunk/battleV2Rooms';
     const CAPACITY = 2;
@@ -1215,7 +1281,7 @@
 
       const isMobile = window.innerWidth <= 680;
       const size = isMobile
-        ? Math.min(76, Math.max(68, rect.width * .16))
+        ? Math.min(58, Math.max(48, rect.width * .145))
         : Math.min(92, Math.max(78, rect.width * .07));
 
       const bottomSafe = isMobile ? 8 : 10;
