@@ -413,6 +413,9 @@
           return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack28');
         })
         .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack25');
+        })
+        .then(function(){
           return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22').catch(function(){});
         })
         .then(function(){
