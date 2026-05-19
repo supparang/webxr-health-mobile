@@ -1,11 +1,16 @@
 // === /herohealth/vr-groups/groups.race.js ===
 // HeroHealth • Food Groups Race Adapter
 // Uses shared Food-to-Gate Sorting Core
-// PATCH v20260519-GROUPS-RACE-ADAPTER-V36-DEDUP-LEADERBOARD
-// - ใช้ players/{playerKey}
-// - Leaderboard dedupe ตาม playerKey/name
-// - LOCAL ยังใช้ได้เฉพาะ local=1
-// - Online race แสดงผู้เล่นซ้ำไม่ได้
+// Requires: ./groups-core.js
+// PATCH v20260519-GROUPS-RACE-ADAPTER-V38-SYNTAX-FIX-REPLAY-CONFIRM
+//
+// Fixes:
+// - SyntaxError: Unexpected token 'function'
+// - Replay button asks before replay
+// - Real Race replay returns to Lobby instead of restarting alone
+// - LOCAL replay still works after confirm
+// - Dedupe leaderboard by playerKey/name
+// - Online Race writes players/{playerKey}
 
 import {
   createGroupsCore,
@@ -178,6 +183,12 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   const startAt = Number(qs('startAt') || 0);
   const urlSeed = qs('seed', '');
   const hub = qs('hub', 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
+
+  /*
+    LOCAL is allowed only when local=1.
+    Direct roomId=LOCAL without local=1 should be stopped by groups-race.html / run page,
+    but this adapter still treats it as non-local fallback safety.
+  */
   const isLocalTest = roomId === 'LOCAL' && qs('local') === '1';
 
   const raceSeed = [
@@ -205,7 +216,7 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   });
 
   const state = {
-    version: 'v20260519-groups-race-adapter-v36-dedup-leaderboard',
+    version: 'v20260519-groups-race-adapter-v38-syntax-fix-replay-confirm',
     coreVersion: GROUPS_CORE_VERSION,
 
     mounted: false,
@@ -546,20 +557,20 @@ export function createGroupsRaceAdapter(shellContext = {}) {
   function renderHud() {
     const s = coreState();
 
-    setText('#scoreText', s.score);
-    setText('#timeText', s.remainingSec + 's');
-    setText('#comboText', s.combo);
-    setText('#heartText', '❤️'.repeat(Math.max(0, s.hearts)) + (s.shield ? ` 🛡️${s.shield}` : ''));
+    setText('#scoreText', s.score || 0);
+    setText('#timeText', (s.remainingSec || 0) + 's');
+    setText('#comboText', s.combo || 0);
+    setText('#heartText', '❤️'.repeat(Math.max(0, Number(s.hearts || 0))) + (s.shield ? ` 🛡️${s.shield}` : ''));
 
     if (s.mission) {
       setText('#missionText', `${s.mission.icon} ${s.mission.label} ${s.mission.got}/${s.mission.need}`);
-      const pct = clamp(s.mission.got / Math.max(1, s.mission.need), 0, 1) * 100;
+      const pct = clamp((s.mission.got || 0) / Math.max(1, s.mission.need || 1), 0, 1) * 100;
       const bar = $('#missionBar');
       if (bar) bar.style.width = `${pct}%`;
     }
 
     const itemBar = $('#itemTimeBar');
-    if (itemBar) itemBar.style.width = `${Math.round(s.itemProgress * 100)}%`;
+    if (itemBar) itemBar.style.width = `${Math.round((s.itemProgress || 0) * 100)}%`;
   }
 
   function renderItem() {
@@ -1063,50 +1074,44 @@ export function createGroupsRaceAdapter(shellContext = {}) {
     renderLeaderboard();
   }
 
-  fasync function replay() {
-  const ok = confirm(
-    'ต้องการเล่นอีกครั้งหรือไม่?\n\n' +
-    'ถ้าเป็น Race multiplayer ระบบจะพากลับไปห้องรอ เพื่อให้ผู้เล่นเริ่มพร้อมกันใหม่'
-  );
+  function replay() {
+    const ok = window.confirm(
+      'ต้องการเล่นอีกครั้งหรือไม่?\n\n' +
+      'ถ้าเป็น Race multiplayer ระบบจะพากลับไปห้องรอ เพื่อให้ผู้เล่นเริ่มพร้อมกันใหม่'
+    );
 
-  if (!ok) return;
+    if (!ok) return;
 
-  /*
-    LOCAL Test:
-    เล่นคนเดียวได้ จึง reload รอบใหม่ได้เลย
-  */
-  if (state.isLocalTest) {
-    const u = new URL(location.href);
-    u.searchParams.set('seed', String(now()));
-    u.searchParams.set('startAt', String(now() + 1200));
-    u.searchParams.set('local', '1');
-    location.href = u.toString();
-    return;
-  }
-
-  /*
-    Race จริง:
-    ห้าม reload เข้าเกมทันที เพราะจะทำให้เริ่มไม่พร้อมกัน
-    ให้กลับ Race Lobby พร้อม room/name เดิมก่อน
-  */
-  try {
-    if (state.roomRef && state.playerKey) {
-      await state.roomRef.child(`players/${state.playerKey}`).update({
-        done: false,
-        running: false,
-        inGame: false,
-        inRun: false,
-        inLobby: true,
-        page: 'groups-race-summary-replay',
-        updatedAt: now()
-      });
+    if (state.isLocalTest) {
+      const u = new URL(location.href);
+      u.searchParams.set('seed', String(now()));
+      u.searchParams.set('startAt', String(now() + 1200));
+      u.searchParams.set('local', '1');
+      location.href = u.toString();
+      return;
     }
-  } catch (err) {
-    console.warn('[Groups Race] replay reset player failed', err);
-  }
 
-  goLobby();
-}
+    Promise.resolve()
+      .then(async () => {
+        try {
+          if (state.roomRef && state.playerKey) {
+            await state.roomRef.child(`players/${state.playerKey}`).update({
+              done: false,
+              running: false,
+              inGame: false,
+              inRun: false,
+              inLobby: true,
+              page: 'groups-race-summary-replay',
+              updatedAt: now()
+            });
+          }
+        } catch (err) {
+          console.warn('[Groups Race] replay reset player failed', err);
+        }
+
+        goLobby();
+      });
+  }
 
   function goLobby() {
     const u = new URL('./groups-race-lobby.html', location.href);
