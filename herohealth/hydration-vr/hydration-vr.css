@@ -4234,3 +4234,32 @@ body.hha-view-cvr .hha-score-big b,
 body[data-view="cvr"] .hha-score-big b{
   font-size:clamp(48px, 14vw, 72px) !important;
 }
+/* PATCH v20260519-pack31b-summary-scroll-css-only */
+
+html,
+body{
+  overflow-x:hidden;
+}
+
+body.hha-hydration-summary-open,
+body.hha-hydration-summary-open #hha-hydration-app,
+body.hha-hydration-summary-open #hha-hydration-stage,
+body.hha-hydration-summary-open #hha-hydration-playfield{
+  height:auto !important;
+  min-height:100svh !important;
+  max-height:none !important;
+  overflow:visible !important;
+}
+
+body.hha-hydration-summary-open{
+  overflow-y:auto !important;
+  touch-action:auto !important;
+}
+
+.hha-summary-card,
+.hha-hydration-summary,
+#hha-hydration-summary,
+#hydration-summary,
+[data-hha-summary]{
+  max-height:none !important;
+}
