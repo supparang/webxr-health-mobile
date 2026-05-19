@@ -407,15 +407,15 @@
           return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260518-pack29');
         })
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260517-pack23');
+          return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260518-pack29');
         })
         .then(function(){
           return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack28');
         })
-        .then(function(){
+      .then(function(){
           return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack25');
         })
-        .then(function(){
+      .then(function(){
           return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22').catch(function(){});
         })
         .then(function(){
