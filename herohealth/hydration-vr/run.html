@@ -404,12 +404,6 @@
     return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260518-pack30-core');
   })
   .then(function(){
-    return HHA_LOAD_SCRIPT('./hydration-summary-scroll-only.patch.js?v=20260519-pack31')
-      .catch(function(err){
-        console.warn('[Hydration Run] summary scroll patch optional load failed:', err);
-      });
-  })
-  .then(function(){
     setTimeout(bootCheck, 1600);
   })
   .catch(function(err){
