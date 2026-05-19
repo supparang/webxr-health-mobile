@@ -401,12 +401,6 @@
     console.warn('[Hydration Run] logger optional load failed:', err);
   })
   .then(function(){
-    /*
-      CORE ONLY:
-      โหลดเฉพาะ engine หลักก่อน
-      ห้ามโหลด mode-patch / start-hard-safe / cooldown-return ตอนนี้
-      เพื่อกัน patch ดักปุ่ม Start ซ้อนกัน
-    */
     return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260518-pack30-core');
   })
   .then(function(){
