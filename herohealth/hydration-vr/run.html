@@ -398,40 +398,61 @@
       }
 
       HHA_LOAD_SCRIPT('../herohealth-logger.js?v=20260517-pack22')
-        .catch(function(){
-          /*
-            logger โหลดไม่ได้ ไม่ให้เกมพัง
-          */
-        })
-        .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260518-pack29');
-        })
-        .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260518-pack29');
-        })
-        .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack28');
-        })
-      .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack25');
-        })
-      .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22').catch(function(){});
-        })
-        .then(function(){
-          if(view === 'cvr'){
-            return HHA_LOAD_SCRIPT('../vr/vr-ui.js?v=20260517-pack22').catch(function(){});
-          }
-        })
-        .then(function(){
-          setTimeout(bootCheck, 1600);
-        })
+  .catch(function(err){
+    console.warn('[Hydration Run] logger optional load failed:', err);
+  })
+  .then(function(){
+    /*
+      ตัว engine หลักต้องโหลดสำเร็จ
+    */
+    return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260518-pack29');
+  })
+  .then(function(){
+    /*
+      patch เป็น optional: ถ้า 404/พัง ห้ามทำจอขาว
+    */
+    return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260518-pack29')
+      .catch(function(err){
+        console.warn('[Hydration Run] mode patch optional load failed:', err);
+      });
+  })
+  .then(function(){
+    return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack28')
+      .catch(function(err){
+        console.warn('[Hydration Run] start hard-safe optional load failed:', err);
+      });
+  })
+  .then(function(){
+    return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack25')
+      .catch(function(err){
+        console.warn('[Hydration Run] cooldown return optional load failed:', err);
+      });
+  })
+  .then(function(){
+    return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22')
+      .catch(function(err){
+        console.warn('[Hydration Run] modes optional load failed:', err);
+      });
+  })
+  .then(function(){
+    if(view === 'cvr'){
+      return HHA_LOAD_SCRIPT('../vr/vr-ui.js?v=20260517-pack22')
         .catch(function(err){
-          window.HHA_HYDRATION_SHOW_BOOT_ERROR(
-            (err && err.message) ||
-            'โหลด hydration-vr.js หรือ patch ไม่สำเร็จ อาจเป็น 404 หรือ path ผิด'
-          );
+          console.warn('[Hydration Run] vr-ui optional load failed:', err);
         });
+    }
+  })
+  .then(function(){
+    setTimeout(bootCheck, 1600);
+  })
+  .catch(function(err){
+    console.error('[Hydration Run] critical boot failed:', err);
+
+    window.HHA_HYDRATION_SHOW_BOOT_ERROR(
+      (err && err.message) ||
+      'โหลด hydration-vr.js ไม่สำเร็จ อาจเป็น syntax error / 404 / path ผิด'
+    );
+  });
     })();
   </script>
 </body>
