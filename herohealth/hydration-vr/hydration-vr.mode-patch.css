@@ -1,10 +1,11 @@
 /* =========================================================
    HeroHealth Hydration Mode Patch CSS
    File: /herohealth/hydration-vr/hydration-vr.mode-patch.css
-   Version: v20260518-pack29-clean-full
+   Version: v20260518-pack30-final-target-compact
 
    Purpose:
    - PC / Mobile / Cardboard view tuning
+   - Mobile target compact: ลดขนาดเป้าบนมือถือให้สนามโล่งขึ้น
    - Multiplayer mode badge
    - Cardboard/cVR:
        fixed center crosshair + world/playfield pan
@@ -75,68 +76,91 @@ body.hha-mode-solo .hha-mode-badge{
 
 /* =========================================================
    Target sizing by view
+   PATCH v20260518-pack30-mobile-target-compact
    ========================================================= */
 
 body.hha-view-pc .hha-hydration-target,
 body[data-view="pc"] .hha-hydration-target{
-  width:74px;
-  min-width:74px;
-  height:88px;
-  min-height:88px;
-  border-radius:24px;
+  width:68px !important;
+  min-width:68px !important;
+  max-width:68px !important;
+  height:82px !important;
+  min-height:82px !important;
+  max-height:82px !important;
+  border-radius:22px !important;
 }
 
 body.hha-view-mobile .hha-hydration-target,
 body[data-view="mobile"] .hha-hydration-target{
-  width:76px;
-  min-width:76px;
-  height:90px;
-  min-height:90px;
-  border-radius:24px;
+  width:62px !important;
+  min-width:62px !important;
+  max-width:62px !important;
+  height:76px !important;
+  min-height:76px !important;
+  max-height:76px !important;
+  border-radius:20px !important;
+  padding:7px 5px !important;
 }
 
 body.hha-view-cvr .hha-hydration-target,
 body[data-view="cvr"] .hha-hydration-target{
-  width:92px;
-  min-width:92px;
-  height:108px;
-  min-height:108px;
-  border-radius:28px;
+  width:84px !important;
+  min-width:84px !important;
+  max-width:84px !important;
+  height:100px !important;
+  min-height:100px !important;
+  max-height:100px !important;
+  border-radius:26px !important;
 }
 
 body.hha-view-pc .hha-target-icon,
 body[data-view="pc"] .hha-target-icon{
-  font-size:27px;
+  font-size:25px !important;
+  line-height:1 !important;
 }
 
 body.hha-view-mobile .hha-target-icon,
 body[data-view="mobile"] .hha-target-icon{
-  font-size:29px;
+  font-size:24px !important;
+  line-height:1 !important;
+  margin-bottom:3px !important;
 }
 
 body.hha-view-cvr .hha-target-icon,
 body[data-view="cvr"] .hha-target-icon{
-  font-size:34px;
+  font-size:32px !important;
+  line-height:1 !important;
 }
 
 body.hha-view-pc .hha-target-label,
 body[data-view="pc"] .hha-target-label{
-  font-size:11px;
+  font-size:10px !important;
+  line-height:1.05 !important;
 }
 
 body.hha-view-mobile .hha-target-label,
 body[data-view="mobile"] .hha-target-label{
-  font-size:11px;
+  font-size:9px !important;
+  line-height:1.05 !important;
+  max-width:54px !important;
 }
 
 body.hha-view-cvr .hha-target-label,
 body[data-view="cvr"] .hha-target-label{
-  font-size:12px;
+  font-size:11px !important;
+  line-height:1.08 !important;
+}
+
+body.hha-view-mobile .hha-target-short,
+body[data-view="mobile"] .hha-target-short{
+  font-size:8px !important;
+  line-height:1.05 !important;
 }
 
 body.hha-view-cvr .hha-target-short,
 body[data-view="cvr"] .hha-target-short{
-  font-size:10px;
+  font-size:10px !important;
+  line-height:1.08 !important;
 }
 
 
