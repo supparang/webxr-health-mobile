@@ -1,19 +1,24 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle-v2-firebase-bridge.js
  * GoodJunk Battle v2 Firebase Bridge
- * VERSION: v2.4.21-firebase-bridge-db-ready-guard
+ * VERSION: v2.4.26-firebase-bridge-final
+ *
+ * ใช้ก่อน:
+ * - goodjunk-battle-v2-core.js
+ * - script หลักใน goodjunk-battle-v2-lobby.html
  *
  * หน้าที่:
- * - ตรวจว่าโปรเจกต์มี Firebase Realtime Database พร้อมใช้หรือยัง
+ * - ตรวจว่า Firebase Realtime Database พร้อมใช้หรือยัง
  * - map window.db / window.database / window.firebaseDb → window.GJ_DB
- * - รองรับ Firebase compat แบบ firebase.database()
- * - ถ้าไม่มี DB จะไม่ทำให้เกมพัง แต่ขึ้นสถานะ local/offline
+ * - รองรับ Firebase compat: firebase.database()
+ * - ถ้าไม่มี DB จะไม่ทำให้เกมพัง แต่บอกชัดว่า offline/local
+ * - สร้าง helper getRoomRef(roomCode)
  * ========================================================= */
 
 (function GoodJunkBattleFirebaseBridge(){
   'use strict';
 
-  const VERSION = 'v2.4.21-firebase-bridge-db-ready-guard';
+  const VERSION = 'v2.4.26-firebase-bridge-final';
 
   function now(){
     return Date.now();
@@ -25,13 +30,19 @@
 
   function log(){
     try{
-      console.info.apply(console, ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments)));
+      console.info.apply(
+        console,
+        ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments))
+      );
     }catch(e){}
   }
 
   function warn(){
     try{
-      console.warn.apply(console, ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments)));
+      console.warn.apply(
+        console,
+        ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments))
+      );
     }catch(e){}
   }
 
@@ -43,7 +54,7 @@
     /*
       1) ถ้ามี GJ_DB อยู่แล้ว ใช้ตัวนี้ก่อน
     */
-    if (hasRefApi(window.GJ_DB)) {
+    if (hasRefApi(window.GJ_DB)){
       return {
         db: window.GJ_DB,
         source: 'window.GJ_DB'
@@ -53,7 +64,7 @@
     /*
       2) โปรเจกต์เดิมอาจใช้ window.db
     */
-    if (hasRefApi(window.db)) {
+    if (hasRefApi(window.db)){
       return {
         db: window.db,
         source: 'window.db'
@@ -61,16 +72,16 @@
     }
 
     /*
-      3) บางไฟล์อาจตั้งชื่อเป็น database/firebaseDb
+      3) บางไฟล์อาจใช้ window.database หรือ window.firebaseDb
     */
-    if (hasRefApi(window.database)) {
+    if (hasRefApi(window.database)){
       return {
         db: window.database,
         source: 'window.database'
       };
     }
 
-    if (hasRefApi(window.firebaseDb)) {
+    if (hasRefApi(window.firebaseDb)){
       return {
         db: window.firebaseDb,
         source: 'window.firebaseDb'
@@ -78,7 +89,8 @@
     }
 
     /*
-      4) Firebase compat SDK: firebase.database()
+      4) Firebase compat SDK
+         เช่น firebase-app-compat.js + firebase-database-compat.js
     */
     try{
       if (
@@ -123,22 +135,36 @@
 
     window.GJ_BATTLE_FIREBASE_BRIDGE = {
       version: VERSION,
+
       ready: ready,
       source: result.source || 'none',
       db: ready ? result.db : null,
       checkedAt: now(),
+
       detect: refresh,
+
       getDb: function(){
         const r = detectDb();
+
         if (hasRefApi(r.db)){
           setBridgeState(r);
         }
+
         return window.GJ_DB || null;
       },
+
       getRoomRef: function(roomCode){
         const db = window.GJ_DB || this.getDb();
-        if (!db || !roomCode || typeof db.ref !== 'function') return null;
-        return db.ref('goodjunk_battle_rooms/' + roomCode);
+
+        if (!db || !roomCode || typeof db.ref !== 'function'){
+          return null;
+        }
+
+        return db.ref('goodjunk_battle_rooms/' + String(roomCode).trim().toUpperCase());
+      },
+
+      isReady: function(){
+        return !!window.GJ_BATTLE_DB_READY;
       }
     };
 
@@ -149,7 +175,8 @@
       detail: {
         ready: ready,
         source: result.source || 'none',
-        version: VERSION
+        version: VERSION,
+        checkedAt: now()
       }
     }));
 
@@ -184,6 +211,7 @@
       : 'DB offline/local';
 
     badge.title = 'GoodJunk Battle DB: ' + source;
+
     badge.classList.toggle('ready', ready);
     badge.classList.toggle('offline', !ready);
   }
@@ -199,11 +227,13 @@
         left: 8px !important;
         top: max(8px, env(safe-area-inset-top)) !important;
         z-index: 100004 !important;
+
         padding: 5px 9px !important;
         border-radius: 999px !important;
         border: 1px solid rgba(255, 200, 110, .86) !important;
         background: rgba(255, 255, 255, .78) !important;
         color: #7b421e !important;
+
         font-size: 10px !important;
         font-weight: 1000 !important;
         pointer-events: none !important;
@@ -238,7 +268,7 @@
 
     /*
       บางหน้าโหลด Firebase ช้ากว่า bridge
-      จึงเช็กซ้ำอีกหลายจังหวะ
+      จึงเช็กซ้ำหลายจังหวะ
     */
     setTimeout(function(){
       refresh();
@@ -259,6 +289,8 @@
       refresh();
       showDbBadge();
     }, 5000);
+
+    console.info('[GJ Battle Firebase Bridge]', VERSION, 'loaded');
   }
 
   if (document.readyState === 'loading'){
