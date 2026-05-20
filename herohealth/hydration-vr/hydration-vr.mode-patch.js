@@ -1,647 +1,1456 @@
 /* =========================================================
-   HeroHealth Hydration Mode Patch CSS
-   File: /herohealth/hydration-vr/hydration-vr.mode-patch.css
-   Version: v20260518-pack30-final-target-compact
+   HeroHealth Hydration Mode Patch
+   File: /herohealth/hydration-vr/hydration-vr.mode-patch.js
+   Version: v20260518-pack30-mode-patch-final
 
    Purpose:
-   - PC / Mobile / Cardboard view tuning
-   - Mobile target compact: ลดขนาดเป้าบนมือถือให้สนามโล่งขึ้น
-   - Multiplayer mode badge
-   - Cardboard/cVR:
-       fixed center crosshair + world/playfield pan
-   - Summary scroll unlock
-   - Final action buttons
-   - Mobile/PC safe layout fixes
+   - view class: pc / mobile / cvr
+   - mode class: solo / duet / race / battle / coop
+   - target safe zone / spacing
+   - summary action dedupe
+   - latest summary save
+   - cVR Cardboard behavior:
+       crosshair fixed center + world/playfield moves
+   - unlock scroll when final summary is shown
+   - rescue start button without blocking original listeners
+   - use Pack25 cooldown return as source of truth when available
 
-   Important:
-   - Pack17 movable crosshair is intentionally disabled.
-   - Cardboard VR should keep crosshair fixed at screen center.
+   IMPORTANT:
+   - Pack17 movable aim is intentionally removed.
+   - Cardboard VR should NOT move the crosshair.
+   - Cardboard VR should keep crosshair fixed and move the world/targets.
+   - Start rescue must NOT block original hydration-vr.js listener if global start is missing.
    ========================================================= */
 
+(function(){
+  'use strict';
 
-/* =========================================================
-   Base safety
-   ========================================================= */
+  var PATCH = 'v20260518-pack30-mode-patch-final';
 
-html,
-body{
-  overscroll-behavior:none;
-}
-
-body.hha-view-pc,
-body[data-view="pc"]{
-  cursor:default;
-}
-
-body.hha-view-mobile,
-body[data-view="mobile"],
-body.hha-view-cvr,
-body[data-view="cvr"]{
-  touch-action:manipulation;
-  -webkit-user-select:none;
-  user-select:none;
-}
-
-
-/* =========================================================
-   Multiplayer mode badge
-   ========================================================= */
-
-.hha-mode-badge{
-  position:fixed;
-  left:50%;
-  top:12px;
-  z-index:15000;
-  transform:translateX(-50%);
-  max-width:88vw;
-  padding:9px 14px;
-  border-radius:999px;
-  background:rgba(255,255,255,.94);
-  color:#24607f;
-  font-size:13px;
-  font-weight:1000;
-  box-shadow:0 10px 24px rgba(30,75,115,.16);
-  border:2px solid rgba(204,238,251,.85);
-  pointer-events:none;
-  text-align:center;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-}
-
-body.hha-mode-solo .hha-mode-badge{
-  display:none !important;
-}
-
-
-/* =========================================================
-   Target sizing by view
-   PATCH v20260518-pack30-mobile-target-compact
-   ========================================================= */
-
-body.hha-view-pc .hha-hydration-target,
-body[data-view="pc"] .hha-hydration-target{
-  width:68px !important;
-  min-width:68px !important;
-  max-width:68px !important;
-  height:82px !important;
-  min-height:82px !important;
-  max-height:82px !important;
-  border-radius:22px !important;
-}
-
-body.hha-view-mobile .hha-hydration-target,
-body[data-view="mobile"] .hha-hydration-target{
-  width:62px !important;
-  min-width:62px !important;
-  max-width:62px !important;
-  height:76px !important;
-  min-height:76px !important;
-  max-height:76px !important;
-  border-radius:20px !important;
-  padding:7px 5px !important;
-}
-
-body.hha-view-cvr .hha-hydration-target,
-body[data-view="cvr"] .hha-hydration-target{
-  width:84px !important;
-  min-width:84px !important;
-  max-width:84px !important;
-  height:100px !important;
-  min-height:100px !important;
-  max-height:100px !important;
-  border-radius:26px !important;
-}
-
-body.hha-view-pc .hha-target-icon,
-body[data-view="pc"] .hha-target-icon{
-  font-size:25px !important;
-  line-height:1 !important;
-}
-
-body.hha-view-mobile .hha-target-icon,
-body[data-view="mobile"] .hha-target-icon{
-  font-size:24px !important;
-  line-height:1 !important;
-  margin-bottom:3px !important;
-}
-
-body.hha-view-cvr .hha-target-icon,
-body[data-view="cvr"] .hha-target-icon{
-  font-size:32px !important;
-  line-height:1 !important;
-}
-
-body.hha-view-pc .hha-target-label,
-body[data-view="pc"] .hha-target-label{
-  font-size:10px !important;
-  line-height:1.05 !important;
-}
-
-body.hha-view-mobile .hha-target-label,
-body[data-view="mobile"] .hha-target-label{
-  font-size:9px !important;
-  line-height:1.05 !important;
-  max-width:54px !important;
-}
-
-body.hha-view-cvr .hha-target-label,
-body[data-view="cvr"] .hha-target-label{
-  font-size:11px !important;
-  line-height:1.08 !important;
-}
-
-body.hha-view-mobile .hha-target-short,
-body[data-view="mobile"] .hha-target-short{
-  font-size:8px !important;
-  line-height:1.05 !important;
-}
-
-body.hha-view-cvr .hha-target-short,
-body[data-view="cvr"] .hha-target-short{
-  font-size:10px !important;
-  line-height:1.08 !important;
-}
-
-
-/* =========================================================
-   PC layout tuning
-   ========================================================= */
-
-body.hha-view-pc .hha-hydration-hud,
-body[data-view="pc"] .hha-hydration-hud{
-  transform:scale(.92);
-  transform-origin:top left;
-}
-
-body.hha-view-pc .hha-timebar,
-body[data-view="pc"] .hha-timebar{
-  top:86px;
-}
-
-body.hha-view-pc .hha-mission-box,
-body[data-view="pc"] .hha-mission-box{
-  top:108px;
-  max-width:520px;
-}
-
-body.hha-view-pc .hha-banner,
-body[data-view="pc"] .hha-banner{
-  top:146px;
-}
-
-
-/* =========================================================
-   Mobile safe HUD
-   ========================================================= */
-
-@media (max-width:520px){
-  body.hha-view-mobile .hha-hydration-hud,
-  body[data-view="mobile"] .hha-hydration-hud{
-    transform:scale(.92);
-    transform-origin:top left;
+  if(window.HHA_HYDRATION_MODE_PATCH_PACK30_LOADED){
+    return;
   }
 
-  body.hha-view-mobile .hha-timebar,
-  body[data-view="mobile"] .hha-timebar{
-    top:148px !important;
-    width:min(54vw,260px) !important;
+  window.HHA_HYDRATION_MODE_PATCH_PACK30_LOADED = true;
+
+  /* =========================================================
+     Basic helpers
+     ========================================================= */
+
+  function getUrl(){
+    try{
+      return new URL(location.href);
+    }catch(e){
+      return new URL('./run.html', location.origin);
+    }
   }
 
-  body.hha-view-mobile .hha-mission-box,
-  body[data-view="mobile"] .hha-mission-box{
-    top:184px !important;
-    width:min(88vw,380px) !important;
+  function getParam(k, d){
+    try{
+      return getUrl().searchParams.get(k) || d;
+    }catch(e){
+      return d;
+    }
   }
 
-  body.hha-view-mobile .hha-banner,
-  body[data-view="mobile"] .hha-banner{
-    top:228px !important;
-    width:min(86vw,360px) !important;
-  }
-}
-
-
-/* =========================================================
-   Cardboard/cVR: fixed center crosshair + world pan
-   ========================================================= */
-
-/* ปิด reticle แบบเลื่อนเองจาก Pack17 ถ้ายังค้างจาก cache */
-body.hha-view-cvr .hha-cvr-aim-reticle,
-body[data-view="cvr"] .hha-cvr-aim-reticle{
-  display:none !important;
-  opacity:0 !important;
-  visibility:hidden !important;
-}
-
-/* ปิด crosshair ซ้ำจาก vr-ui/fallback เก่า */
-body.hha-view-cvr .hha-cvr-fallback-crosshair,
-body[data-view="cvr"] .hha-cvr-fallback-crosshair,
-body.hha-view-cvr .hha-vr-crosshair,
-body.hha-view-cvr .hha-crosshair,
-body.hha-view-cvr #hha-vr-crosshair,
-body.hha-view-cvr #hha-crosshair,
-body[data-view="cvr"] .hha-vr-crosshair,
-body[data-view="cvr"] .hha-crosshair,
-body[data-view="cvr"] #hha-vr-crosshair,
-body[data-view="cvr"] #hha-crosshair{
-  display:none !important;
-  opacity:0 !important;
-  visibility:hidden !important;
-}
-
-/* crosshair กลางจอแบบ Cardboard จริง */
-.hha-cvr-center-reticle{
-  position:fixed;
-  left:50%;
-  top:50%;
-  z-index:999995;
-  width:46px;
-  height:46px;
-  transform:translate(-50%, -50%);
-  pointer-events:none;
-  display:none;
-  filter:drop-shadow(0 4px 10px rgba(20,60,90,.28));
-}
-
-.hha-cvr-center-reticle::before,
-.hha-cvr-center-reticle::after{
-  content:'';
-  position:absolute;
-  left:50%;
-  top:50%;
-  background:rgba(36,68,92,.78);
-  border-radius:999px;
-  transform:translate(-50%, -50%);
-}
-
-.hha-cvr-center-reticle::before{
-  width:46px;
-  height:4px;
-}
-
-.hha-cvr-center-reticle::after{
-  width:4px;
-  height:46px;
-}
-
-.hha-cvr-center-reticle i{
-  position:absolute;
-  inset:8px;
-  border:3px solid rgba(67,199,255,.9);
-  border-radius:999px;
-  background:rgba(255,255,255,.12);
-}
-
-.hha-cvr-center-reticle.is-hit i{
-  border-color:rgba(98,230,143,.98);
-  box-shadow:
-    0 0 0 8px rgba(98,230,143,.18),
-    0 0 22px rgba(98,230,143,.35);
-}
-
-body.hha-view-cvr .hha-cvr-center-reticle,
-body[data-view="cvr"] .hha-cvr-center-reticle{
-  display:block;
-}
-
-/* world/playfield moves instead of crosshair */
-body.hha-view-cvr.hha-cvr-world-pan #hha-hydration-playfield,
-body[data-view="cvr"].hha-cvr-world-pan #hha-hydration-playfield{
-  transform:
-    translate3d(
-      var(--hha-cvr-pan-x, 0px),
-      var(--hha-cvr-pan-y, 0px),
-      0
-    ) !important;
-  transform-origin:center center !important;
-  will-change:transform !important;
-}
-
-body.hha-view-cvr.hha-cvr-world-pan #hha-hydration-bg,
-body[data-view="cvr"].hha-cvr-world-pan #hha-hydration-bg{
-  transform:
-    translate3d(
-      var(--hha-cvr-bg-pan-x, 0px),
-      var(--hha-cvr-bg-pan-y, 0px),
-      0
-    ) !important;
-  will-change:transform !important;
-}
-
-.hha-cvr-world-hint{
-  position:fixed;
-  left:50%;
-  bottom:84px;
-  z-index:999996;
-  transform:translateX(-50%);
-  max-width:86vw;
-  padding:9px 13px;
-  border-radius:999px;
-  background:rgba(255,255,255,.94);
-  color:#24607f;
-  font-size:12px;
-  font-weight:1000;
-  box-shadow:0 10px 24px rgba(30,75,115,.18);
-  pointer-events:none;
-  opacity:0;
-  transition:.2s ease;
-  text-align:center;
-}
-
-.hha-cvr-world-hint.show{
-  opacity:1;
-}
-
-.hha-cvr-motion-btn{
-  position:fixed;
-  left:50%;
-  bottom:128px;
-  z-index:999997;
-  transform:translateX(-50%);
-  max-width:86vw;
-  border:0;
-  border-radius:999px;
-  padding:11px 16px;
-  background:linear-gradient(180deg,#43c7ff,#2388ff);
-  color:white;
-  font-size:13px;
-  font-weight:1000;
-  box-shadow:0 12px 28px rgba(35,136,255,.25);
-  display:none;
-}
-
-body.hha-view-cvr .hha-cvr-motion-btn.show,
-body[data-view="cvr"] .hha-cvr-motion-btn.show{
-  display:block;
-}
-
-
-/* =========================================================
-   cVR HUD adjustments
-   ========================================================= */
-
-body.hha-view-cvr .hha-hydration-hud,
-body[data-view="cvr"] .hha-hydration-hud{
-  transform:scale(.78);
-  transform-origin:top left;
-  z-index:9000;
-}
-
-body.hha-view-cvr .hha-timebar,
-body[data-view="cvr"] .hha-timebar{
-  top:92px !important;
-  width:min(360px,36vw) !important;
-  z-index:9000;
-}
-
-body.hha-view-cvr .hha-mission-box,
-body[data-view="cvr"] .hha-mission-box{
-  top:112px !important;
-  width:min(520px,52vw) !important;
-  z-index:9000;
-}
-
-body.hha-view-cvr .hha-banner,
-body[data-view="cvr"] .hha-banner{
-  top:148px !important;
-  z-index:9000;
-}
-
-body.hha-view-cvr .hha-control-buttons,
-body[data-view="cvr"] .hha-control-buttons,
-body.hha-view-cvr .hha-controls,
-body[data-view="cvr"] .hha-controls{
-  z-index:999990;
-}
-
-
-/* =========================================================
-   Start overlay safety
-   ========================================================= */
-
-.hha-hydration-start{
-  z-index:20000;
-}
-
-.hha-hydration-start .hha-start-card{
-  pointer-events:auto;
-}
-
-.hha-start-btn,
-.hha-start-back{
-  position:relative;
-  z-index:2;
-  pointer-events:auto;
-}
-
-body.hha-hydration-summary-open .hha-hydration-start{
-  position:fixed !important;
-  inset:0 !important;
-  overflow:auto !important;
-}
-
-
-/* =========================================================
-   Summary scroll unlock
-   ========================================================= */
-
-html.hha-hydration-summary-open-html{
-  height:auto !important;
-  min-height:100svh !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-}
-
-body.hha-hydration-summary-open{
-  height:auto !important;
-  min-height:100svh !important;
-  overflow-y:auto !important;
-  overflow-x:hidden !important;
-  touch-action:auto !important;
-  overscroll-behavior:auto !important;
-}
-
-body.hha-hydration-summary-open .hha-hydration-app,
-body.hha-hydration-summary-open .hha-hydration-stage{
-  height:auto !important;
-  min-height:100svh !important;
-  max-height:none !important;
-  overflow:visible !important;
-  position:relative !important;
-}
-
-body.hha-hydration-summary-open #hha-hydration-playfield{
-  height:auto !important;
-  min-height:100svh !important;
-  max-height:none !important;
-  overflow:visible !important;
-  position:relative !important;
-}
-
-/* Summary ต้องเลื่อนได้และไม่โดนตัด */
-body.hha-hydration-summary-open .hha-hydration-summary,
-body.hha-hydration-summary-open #hha-hydration-summary,
-body.hha-hydration-summary-open #hydration-summary,
-body.hha-hydration-summary-open .hha-summary,
-body.hha-hydration-summary-open .hha-summary-panel,
-body.hha-hydration-summary-open .hha-summary-card,
-body.hha-hydration-summary-open [data-hha-summary]{
-  position:relative !important;
-  inset:auto !important;
-  left:auto !important;
-  right:auto !important;
-  top:auto !important;
-  bottom:auto !important;
-  transform:none !important;
-
-  height:auto !important;
-  min-height:auto !important;
-  max-height:none !important;
-
-  overflow:visible !important;
-  overflow-y:visible !important;
-  overflow-x:hidden !important;
-
-  margin-left:auto !important;
-  margin-right:auto !important;
-  padding-bottom:150px !important;
-}
-
-/* PC summary ให้ไม่ใหญ่จนกินจอเกิน */
-@media (min-width:821px){
-  body.hha-hydration-summary-open .hha-summary-card,
-  body.hha-hydration-summary-open .hha-hydration-summary,
-  body.hha-hydration-summary-open #hha-hydration-summary,
-  body.hha-hydration-summary-open #hydration-summary,
-  body.hha-hydration-summary-open [data-hha-summary]{
-    width:min(780px,94vw) !important;
+  function q(sel, root){
+    try{
+      return (root || document).querySelector(sel);
+    }catch(e){
+      return null;
+    }
   }
 
-  body.hha-hydration-summary-open .hha-score-big b,
-  body.hha-hydration-summary-open .hha-score-total,
-  body.hha-hydration-summary-open .hha-total-score{
-    font-size:clamp(58px,9vw,92px) !important;
-  }
-}
-
-/* ปุ่มท้าย Summary ต้องมีพื้นที่ให้เห็น */
-body.hha-hydration-summary-open .hha-summary-actions,
-body.hha-hydration-summary-open .hha-result-actions,
-body.hha-hydration-summary-open .hha-end-actions,
-body.hha-hydration-summary-open .hha-hydration-final-actions{
-  margin-bottom:120px !important;
-}
-
-
-/* =========================================================
-   Injected final actions
-   ========================================================= */
-
-.hha-hydration-final-actions{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:12px;
-  width:min(760px,94vw);
-  margin:18px auto 140px;
-  padding:0 4px;
-}
-
-.hha-hydration-final-actions button{
-  border:0;
-  border-radius:22px;
-  min-height:62px;
-  padding:14px 16px;
-  font-size:18px;
-  font-weight:1000;
-  color:white;
-  box-shadow:0 14px 30px rgba(30,75,115,.14);
-  cursor:pointer;
-}
-
-.hha-hydration-final-actions .hha-final-cooldown{
-  background:linear-gradient(180deg,#62e68f,#35c76d);
-}
-
-.hha-hydration-final-actions .hha-final-zone{
-  background:linear-gradient(180deg,#43c7ff,#2388ff);
-}
-
-.hha-hydration-final-actions .hha-final-replay{
-  grid-column:1 / -1;
-  background:linear-gradient(180deg,#ffffff,#f7fcff);
-  color:#24607f;
-  border:3px solid rgba(204,238,251,.9);
-}
-
-@media (max-width:620px){
-  .hha-hydration-final-actions{
-    grid-template-columns:1fr;
-  }
-}
-
-
-/* =========================================================
-   Summary card cleanup
-   ========================================================= */
-
-body.hha-hydration-summary-open .hha-summary-card{
-  box-shadow:0 18px 54px rgba(30,75,115,.12) !important;
-}
-
-body.hha-hydration-summary-open .hha-badge-grid,
-body.hha-hydration-summary-open .hha-badges,
-body.hha-hydration-summary-open .hha-summary-badges{
-  overflow:visible !important;
-}
-
-
-/* =========================================================
-   No horizontal scroll
-   ========================================================= */
-
-body.hha-hydration-summary-open,
-body.hha-hydration-summary-open *{
-  max-width:100%;
-}
-
-body.hha-hydration-summary-open{
-  width:100%;
-}
-
-
-/* =========================================================
-   Debug / boot error safety
-   ========================================================= */
-
-#hha-hydration-boot-error{
-  font-family:
-    ui-rounded,
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-}
-
-
-/* =========================================================
-   Reduce motion
-   ========================================================= */
-
-@media (prefers-reduced-motion: reduce){
-  .hha-cvr-world-hint,
-  .hha-cvr-motion-btn,
-  .hha-cvr-center-reticle,
-  .hha-mode-badge{
-    transition:none !important;
-    animation:none !important;
+  function qa(sel, root){
+    try{
+      return Array.from((root || document).querySelectorAll(sel));
+    }catch(e){
+      return [];
+    }
   }
 
-  body.hha-view-cvr.hha-cvr-world-pan #hha-hydration-playfield,
-  body[data-view="cvr"].hha-cvr-world-pan #hha-hydration-playfield,
-  body.hha-view-cvr.hha-cvr-world-pan #hha-hydration-bg,
-  body[data-view="cvr"].hha-cvr-world-pan #hha-hydration-bg{
-    transition:none !important;
+  function clamp(n, min, max){
+    n = Number(n);
+    if(!Number.isFinite(n)) return min;
+    return Math.max(min, Math.min(max, n));
   }
-}
+
+  function viewport(){
+    return {
+      w: window.innerWidth || document.documentElement.clientWidth || 390,
+      h: window.innerHeight || document.documentElement.clientHeight || 800
+    };
+  }
+
+  function safeDecode(v){
+    try{
+      return decodeURIComponent(String(v || ''));
+    }catch(e){
+      return String(v || '');
+    }
+  }
+
+  function getView(){
+    var v = getParam('view', document.body.dataset.view || document.body.dataset.hhaView || 'mobile');
+    v = String(v || '').toLowerCase();
+
+    return ['pc','mobile','cvr'].includes(v) ? v : 'mobile';
+  }
+
+  function getMode(){
+    var m = getParam('mode', document.body.dataset.mode || 'solo');
+    m = String(m || '').toLowerCase();
+
+    return ['solo','duet','race','battle','coop'].includes(m) ? m : 'solo';
+  }
+
+  function isCvr(){
+    return getView() === 'cvr' || document.body.classList.contains('hha-view-cvr');
+  }
+
+  function isStartScreenOpen(){
+    return !!(
+      q('.hha-hydration-start') ||
+      q('.hha-start') ||
+      q('[data-hha-hydration-start]') ||
+      q('.hha-start-btn')
+    );
+  }
+
+  function isGameRunning(){
+    try{
+      return !!(
+        window.HHA &&
+        window.HHA.Hydration &&
+        window.HHA.Hydration.started &&
+        !window.HHA.Hydration.destroyed
+      );
+    }catch(e){
+      return false;
+    }
+  }
+
+  function safeStop(ev){
+    if(!ev) return;
+
+    try{ ev.preventDefault(); }catch(e){}
+    try{ ev.stopPropagation(); }catch(e){}
+
+    try{
+      if(ev.stopImmediatePropagation){
+        ev.stopImmediatePropagation();
+      }
+    }catch(e){}
+  }
+
+  /* =========================================================
+     View / Mode classes
+     ========================================================= */
+
+  function setViewModeClass(){
+    var view = getView();
+    var mode = getMode();
+
+    document.body.dataset.view = view;
+    document.body.dataset.mode = mode;
+    document.body.dataset.hhaView = view;
+
+    document.body.classList.remove(
+      'hha-view-pc',
+      'hha-view-mobile',
+      'hha-view-cvr'
+    );
+
+    document.body.classList.remove(
+      'hha-mode-solo',
+      'hha-mode-duet',
+      'hha-mode-race',
+      'hha-mode-battle',
+      'hha-mode-coop'
+    );
+
+    document.body.classList.add('hha-view-' + view);
+    document.body.classList.add('hha-mode-' + mode);
+
+    document.body.classList.toggle('hha-multiplayer', mode !== 'solo');
+
+    if(view === 'cvr'){
+      document.body.classList.add('hha-cardboard-ready');
+    }
+  }
+
+  function ensureModeBadge(){
+    var mode = getMode();
+
+    if(mode === 'solo'){
+      var oldSolo = document.getElementById('hha-mode-badge');
+      if(oldSolo){
+        try{ oldSolo.remove(); }catch(e){}
+      }
+      return;
+    }
+
+    var old = document.getElementById('hha-mode-badge');
+    if(old) return;
+
+    var room = getParam('room', getParam('roomId',''));
+
+    var label = {
+      duet:'🤝 Duet',
+      race:'🏁 Race',
+      battle:'⚔️ Battle',
+      coop:'🌈 Coop'
+    }[mode] || mode;
+
+    var badge = document.createElement('div');
+    badge.id = 'hha-mode-badge';
+    badge.className = 'hha-mode-badge';
+    badge.textContent = label + (room ? ' • ' + room : ' • multiplayer');
+
+    document.body.appendChild(badge);
+  }
+
+  /* =========================================================
+     Target safe zone + spacing
+     ========================================================= */
+
+  function safeTopPx(){
+    var view = getView();
+    var v = viewport();
+
+    if(view === 'cvr') return 190;
+
+    /*
+      Mobile HUD ใช้พื้นที่ด้านบนเยอะ
+      อย่าให้เป้าโผล่ใต้ HUD / timer / banner
+    */
+    if(v.w <= 520 && v.h >= 760) return 238;
+    if(v.w <= 520) return 218;
+    if(v.w <= 820) return 178;
+
+    return 135;
+  }
+
+  function safeBottomPad(){
+    var v = viewport();
+
+    if(v.w <= 520) return 88;
+    return 48;
+  }
+
+  function minDistance(){
+    var view = getView();
+    var v = viewport();
+
+    if(view === 'cvr') return 98;
+
+    /*
+      Pack30 ลดเป้า mobile แล้ว จึงลดระยะห่างลงได้เล็กน้อย
+      เพื่อให้เป้า spawn กระจายดีขึ้น ไม่อัดมุม
+    */
+    if(v.w <= 520) return 72;
+    if(v.w <= 820) return 84;
+
+    return 86;
+  }
+
+  function getCenter(el){
+    var left = parseFloat(el.style.left || '0');
+    var top = parseFloat(el.style.top || '0');
+    var w = el.offsetWidth || 62;
+    var h = el.offsetHeight || 76;
+
+    return {
+      x:left + w / 2,
+      y:top + h / 2
+    };
+  }
+
+  function tooClose(a, b, dist){
+    var ca = getCenter(a);
+    var cb = getCenter(b);
+    var dx = ca.x - cb.x;
+    var dy = ca.y - cb.y;
+
+    return Math.sqrt(dx * dx + dy * dy) < dist;
+  }
+
+  function randomPlace(target, playfield){
+    var rect = playfield.getBoundingClientRect();
+    var tw = target.offsetWidth || 62;
+    var th = target.offsetHeight || 76;
+
+    var padX = 12;
+    var topMin = safeTopPx();
+    var topMax = Math.max(topMin + 20, rect.height - th - safeBottomPad());
+
+    var leftMin = padX;
+    var leftMax = Math.max(leftMin, rect.width - tw - padX);
+
+    return {
+      left:leftMin + Math.random() * Math.max(1, leftMax - leftMin),
+      top:topMin + Math.random() * Math.max(1, topMax - topMin)
+    };
+  }
+
+  function fixTarget(target){
+    if(!target || !target.isConnected) return;
+
+    requestAnimationFrame(function(){
+      try{
+        var playfield = document.getElementById('hha-hydration-playfield');
+        if(!playfield || !target.isConnected) return;
+
+        var rect = playfield.getBoundingClientRect();
+        var tw = target.offsetWidth || 62;
+        var th = target.offsetHeight || 76;
+
+        var padX = 12;
+        var topMin = safeTopPx();
+        var topMax = Math.max(topMin + 20, rect.height - th - safeBottomPad());
+
+        var leftMin = padX;
+        var leftMax = Math.max(leftMin, rect.width - tw - padX);
+
+        var left = parseFloat(target.style.left || '0');
+        var top = parseFloat(target.style.top || '0');
+
+        if(!Number.isFinite(left)){
+          left = leftMin + Math.random() * Math.max(1, leftMax - leftMin);
+        }
+
+        if(!Number.isFinite(top) || top < topMin || top > topMax){
+          top = topMin + Math.random() * Math.max(1, topMax - topMin);
+        }
+
+        target.style.left = Math.round(clamp(left, leftMin, leftMax)) + 'px';
+        target.style.top = Math.round(clamp(top, topMin, topMax)) + 'px';
+
+        var all = qa('.hha-hydration-target', playfield).filter(function(t){
+          return t !== target && t.isConnected;
+        });
+
+        if(all.length){
+          var dist = minDistance();
+
+          var overlaps = all.some(function(other){
+            return tooClose(target, other, dist);
+          });
+
+          if(overlaps){
+            var tries = 0;
+            var ok = false;
+            var pos;
+
+            while(tries < 14 && !ok){
+              tries++;
+              pos = randomPlace(target, playfield);
+
+              target.style.left = Math.round(pos.left) + 'px';
+              target.style.top = Math.round(pos.top) + 'px';
+
+              ok = !all.some(function(other){
+                return tooClose(target, other, dist);
+              });
+            }
+          }
+        }
+
+        target.dataset.hhaModePatch = PATCH;
+      }catch(e){}
+    });
+  }
+
+  function observeTargets(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    qa('.hha-hydration-target', playfield).forEach(fixTarget);
+
+    var mo = new MutationObserver(function(records){
+      records.forEach(function(record){
+        Array.from(record.addedNodes || []).forEach(function(node){
+          if(!node || node.nodeType !== 1) return;
+
+          if(node.classList && node.classList.contains('hha-hydration-target')){
+            fixTarget(node);
+          }
+
+          if(node.querySelectorAll){
+            node.querySelectorAll('.hha-hydration-target').forEach(fixTarget);
+          }
+        });
+      });
+    });
+
+    mo.observe(playfield, {
+      childList:true,
+      subtree:true
+    });
+
+    window.addEventListener('resize', function(){
+      qa('.hha-hydration-target', playfield).forEach(fixTarget);
+    }, { passive:true });
+  }
+
+  /* =========================================================
+     Summary actions + latest summary
+     ========================================================= */
+
+  function heroBase(){
+    try{
+      var marker = '/herohealth/';
+      var idx = location.pathname.indexOf(marker);
+
+      if(idx >= 0){
+        return location.origin + location.pathname.slice(0, idx + marker.length);
+      }
+
+      return new URL('../', location.href).toString();
+    }catch(e){
+      return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+    }
+  }
+
+  function nutritionZoneUrl(){
+    var rawHub = getParam('hub', '');
+
+    try{
+      var decoded = safeDecode(rawHub || '');
+      if(decoded && decoded.indexOf('nutrition-zone.html') !== -1){
+        return decoded;
+      }
+    }catch(e){}
+
+    var u = new URL('nutrition-zone.html', heroBase());
+    var current = getUrl();
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'diff',
+      'time',
+      'view',
+      'log',
+      'api',
+      'studyId',
+      'conditionGroup'
+    ].forEach(function(k){
+      var v = current.searchParams.get(k);
+      if(v !== null && v !== ''){
+        u.searchParams.set(k, v);
+      }
+    });
+
+    u.searchParams.set('hub', new URL('hub.html', heroBase()).toString());
+
+    return u.toString();
+  }
+
+  function cooldownUrl(){
+    /*
+      ถ้า Pack25 loaded แล้ว ใช้ตัวนั้นเป็น source of truth
+    */
+    try{
+      if(window.HHA &&
+         window.HHA.HydrationCooldownReturnFix &&
+         typeof window.HHA.HydrationCooldownReturnFix.buildCooldownGateUrl === 'function'){
+        return window.HHA.HydrationCooldownReturnFix.buildCooldownGateUrl();
+      }
+    }catch(e){}
+
+    var returnUrl = nutritionZoneUrl();
+    var url = new URL('warmup-gate.html', heroBase());
+    var current = getUrl();
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'diff',
+      'time',
+      'view',
+      'mode',
+      'room',
+      'roomId',
+      'log',
+      'api',
+      'studyId',
+      'conditionGroup'
+    ].forEach(function(k){
+      var v = current.searchParams.get(k);
+      if(v !== null && v !== ''){
+        url.searchParams.set(k, v);
+      }
+    });
+
+    url.searchParams.set('zone','nutrition');
+    url.searchParams.set('cat','nutrition');
+    url.searchParams.set('game','hydration');
+    url.searchParams.set('gameId','hydration');
+    url.searchParams.set('theme','hydration');
+
+    url.searchParams.set('phase','cooldown');
+    url.searchParams.set('gatePhase','cooldown');
+    url.searchParams.set('studyPhase','cooldown');
+    url.searchParams.set('run','gate');
+
+    url.searchParams.set('next', returnUrl);
+    url.searchParams.set('cdnext', returnUrl);
+    url.searchParams.set('return', returnUrl);
+    url.searchParams.set('back', returnUrl);
+    url.searchParams.set('hub', returnUrl);
+
+    url.searchParams.set('forceReturn','nutrition-zone');
+    url.searchParams.set('fromGame','hydration');
+    url.searchParams.set('cooldownReturnFix', PATCH);
+
+    return url.toString();
+  }
+
+  function saveLastSummary(summaryEl){
+    try{
+      var text = summaryEl ? String(summaryEl.textContent || '') : '';
+
+      var data = {
+        game:'hydration',
+        zone:'nutrition',
+        mode:getMode(),
+        view:getView(),
+        savedAt:new Date().toISOString(),
+        pid:getParam('pid','anon'),
+        name:getParam('name', getParam('nick','Hero')),
+        diff:getParam('diff','normal'),
+        time:getParam('time','150'),
+        room:getParam('room', getParam('roomId','')),
+        text:text.slice(0,1600),
+        url:location.href
+      };
+
+      localStorage.setItem('HHA_LAST_SUMMARY_HYDRATION', JSON.stringify(data));
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(data));
+    }catch(e){}
+  }
+
+  function textHasAction(text, key){
+    text = String(text || '').toLowerCase();
+
+    if(key === 'cooldown'){
+      return (
+        text.indexOf('cooldown') !== -1 ||
+        text.indexOf('คูลดาวน์') !== -1 ||
+        text.indexOf('ทำ cooldown') !== -1
+      );
+    }
+
+    if(key === 'zone'){
+      return (
+        text.indexOf('nutrition') !== -1 ||
+        text.indexOf('zone') !== -1 ||
+        text.indexOf('กลับ') !== -1
+      );
+    }
+
+    if(key === 'replay'){
+      return (
+        text.indexOf('เล่นใหม่') !== -1 ||
+        text.indexOf('เล่นอีกครั้ง') !== -1 ||
+        text.indexOf('replay') !== -1
+      );
+    }
+
+    return false;
+  }
+
+  function isVisible(el){
+    if(!el || !el.isConnected) return false;
+
+    var r = el.getBoundingClientRect();
+    var style = window.getComputedStyle(el);
+
+    return (
+      r.width > 0 &&
+      r.height > 0 &&
+      style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      Number(style.opacity || 1) !== 0
+    );
+  }
+
+  function findSummary(){
+    /*
+      ถ้ายังเป็นหน้า Start Overlay ห้าม detect เป็น Summary
+    */
+    if(isStartScreenOpen()){
+      return null;
+    }
+
+    var selectors = [
+      '#hha-hydration-summary',
+      '.hha-hydration-summary',
+      '#hydration-summary',
+      '.hha-summary-panel',
+      '.hha-summary',
+      '.hha-summary-card',
+      '[data-hha-summary]'
+    ];
+
+    for(var i=0; i<selectors.length; i++){
+      var el = q(selectors[i]);
+      if(el && isVisible(el)) return el;
+    }
+
+    var bodyText = String(document.body.textContent || '');
+
+    var hasSummaryText =
+      /คะแนนรวม|Badge|Mission|Heat Boss|Hydration|Combo|ภารกิจเติมน้ำสำเร็จ|ยังไม่ชนะ|Gold|Silver|Bronze/i.test(bodyText);
+
+    var hasTarget = q('.hha-hydration-target');
+    var hasStart = isStartScreenOpen();
+
+    if(hasSummaryText && !hasTarget && !hasStart && !isGameRunning()){
+      return document.body;
+    }
+
+    return null;
+  }
+
+  function injectSummaryActions(summary){
+    if(!summary || !summary.isConnected) return;
+
+    saveLastSummary(summary);
+
+    var buttons = qa('button, a', summary);
+
+    var hasCooldown = buttons.some(function(b){
+      return textHasAction(b.textContent, 'cooldown');
+    });
+
+    var hasZone = buttons.some(function(b){
+      return textHasAction(b.textContent, 'zone');
+    });
+
+    var hasReplay = buttons.some(function(b){
+      return textHasAction(b.textContent, 'replay');
+    });
+
+    var existing = qa('.hha-hydration-final-actions', summary);
+
+    if(hasCooldown && hasZone && hasReplay && existing.length){
+      existing.forEach(function(box){
+        try{ box.remove(); }catch(e){}
+      });
+      return;
+    }
+
+    if(existing.length > 1){
+      existing.slice(1).forEach(function(box){
+        try{ box.remove(); }catch(e){}
+      });
+    }
+
+    if(hasCooldown && hasZone && hasReplay) return;
+
+    var actions = existing[0];
+
+    if(!actions){
+      actions = document.createElement('div');
+      actions.className = 'hha-hydration-final-actions';
+      summary.appendChild(actions);
+    }
+
+    actions.innerHTML = [
+      '<button type="button" class="hha-final-cooldown" data-hha-hydration-cooldown="1">🧘 ทำ Cooldown</button>',
+      '<button type="button" class="hha-final-zone">🥗 กลับ Nutrition Zone</button>',
+      '<button type="button" class="hha-final-replay">🔁 เล่นใหม่</button>'
+    ].join('');
+
+    var c = q('.hha-final-cooldown', actions);
+    var z = q('.hha-final-zone', actions);
+    var r = q('.hha-final-replay', actions);
+
+    if(c){
+      c.addEventListener('click', function(ev){
+        safeStop(ev);
+
+        try{
+          if(typeof window.goHydrationCooldownThenHub === 'function'){
+            window.goHydrationCooldownThenHub(ev);
+            return;
+          }
+        }catch(e){}
+
+        location.href = cooldownUrl();
+      }, true);
+    }
+
+    if(z){
+      z.addEventListener('click', function(){
+        location.href = nutritionZoneUrl();
+      });
+    }
+
+    if(r){
+      r.addEventListener('click', function(){
+        try{
+          if(typeof window.restartHydrationSameChallenge === 'function'){
+            window.restartHydrationSameChallenge();
+            return;
+          }
+        }catch(e){}
+
+        var u = getUrl();
+        u.searchParams.set('seed', String(Date.now()));
+        u.searchParams.set('run','play');
+        location.href = u.toString();
+      });
+    }
+  }
+
+  function scanSummary(){
+    var summary = findSummary();
+
+    if(summary){
+      injectSummaryActions(summary);
+      unlockSummaryScroll(summary);
+    }
+  }
+
+  /* =========================================================
+     Pack18/30: cVR World Pan
+     - crosshair fixed center
+     - world/playfield moves
+     ========================================================= */
+
+  var pan = {
+    x:0,
+    y:0,
+    maxX:210,
+    maxY:140,
+    drag:false,
+    dragStartX:0,
+    dragStartY:0,
+    startPanX:0,
+    startPanY:0,
+    orientationBase:null,
+    motionEnabled:false,
+    firing:false
+  };
+
+  function refreshPanLimits(){
+    var v = viewport();
+
+    pan.maxX = Math.max(120, Math.min(260, v.w * 0.18));
+    pan.maxY = Math.max(90, Math.min(180, v.h * 0.16));
+  }
+
+  function setPan(x, y){
+    refreshPanLimits();
+
+    pan.x = clamp(x, -pan.maxX, pan.maxX);
+    pan.y = clamp(y, -pan.maxY, pan.maxY);
+
+    renderPan();
+  }
+
+  function ensureCenterReticle(){
+    if(!isCvr()) return null;
+
+    var el = document.getElementById('hha-cvr-center-reticle');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-cvr-center-reticle';
+    el.className = 'hha-cvr-center-reticle';
+    el.innerHTML = '<i></i>';
+
+    document.body.appendChild(el);
+
+    return el;
+  }
+
+  function ensureWorldHint(){
+    var el = document.getElementById('hha-cvr-world-hint');
+    if(el) return el;
+
+    el = document.createElement('div');
+    el.id = 'hha-cvr-world-hint';
+    el.className = 'hha-cvr-world-hint';
+    el.textContent = '🥽 crosshair อยู่กลางจอ • ขยับฉากเพื่อเล็ง';
+
+    document.body.appendChild(el);
+
+    return el;
+  }
+
+  function showWorldHint(text){
+    if(!isCvr()) return;
+
+    var el = ensureWorldHint();
+
+    el.textContent = text || '🥽 crosshair อยู่กลางจอ • ขยับฉากเพื่อเล็ง';
+    el.classList.add('show');
+
+    clearTimeout(el._hhaT);
+    el._hhaT = setTimeout(function(){
+      el.classList.remove('show');
+    }, 1800);
+  }
+
+  function ensureMotionButton(){
+    if(!isCvr()) return null;
+
+    var btn = document.getElementById('hha-cvr-motion-btn');
+    if(btn) return btn;
+
+    btn = document.createElement('button');
+    btn.id = 'hha-cvr-motion-btn';
+    btn.className = 'hha-cvr-motion-btn';
+    btn.type = 'button';
+    btn.textContent = '📱 เปิดการเอียงเครื่องเพื่อเล็ง';
+
+    btn.addEventListener('click', requestMotionPermission);
+
+    document.body.appendChild(btn);
+
+    if(window.DeviceOrientationEvent &&
+       typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+      btn.classList.add('show');
+    }
+
+    return btn;
+  }
+
+  function centerPoint(){
+    var v = viewport();
+
+    return {
+      x:Math.round(v.w / 2),
+      y:Math.round(v.h / 2)
+    };
+  }
+
+  function rectCenterDistance(rect, x, y){
+    var cx = rect.left + rect.width / 2;
+    var cy = rect.top + rect.height / 2;
+    var dx = cx - x;
+    var dy = cy - y;
+
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function findTargetAtCenter(){
+    if(!isCvr()) return null;
+
+    var p = centerPoint();
+
+    var targets = qa('.hha-hydration-target')
+      .filter(function(t){
+        if(!t || !t.isConnected) return false;
+
+        var r = t.getBoundingClientRect();
+        if(r.width <= 0 || r.height <= 0) return false;
+
+        var pad = 34;
+
+        return (
+          p.x >= r.left - pad &&
+          p.x <= r.right + pad &&
+          p.y >= r.top - pad &&
+          p.y <= r.bottom + pad
+        );
+      })
+      .sort(function(a,b){
+        return rectCenterDistance(a.getBoundingClientRect(), p.x, p.y) -
+               rectCenterDistance(b.getBoundingClientRect(), p.x, p.y);
+      });
+
+    return targets[0] || null;
+  }
+
+  function renderPan(){
+    if(!isCvr()) return;
+
+    document.body.classList.add('hha-cvr-world-pan');
+
+    document.documentElement.style.setProperty('--hha-cvr-pan-x', Math.round(pan.x) + 'px');
+    document.documentElement.style.setProperty('--hha-cvr-pan-y', Math.round(pan.y) + 'px');
+
+    document.documentElement.style.setProperty('--hha-cvr-bg-pan-x', Math.round(pan.x * 0.18) + 'px');
+    document.documentElement.style.setProperty('--hha-cvr-bg-pan-y', Math.round(pan.y * 0.14) + 'px');
+
+    var reticle = ensureCenterReticle();
+    var target = findTargetAtCenter();
+
+    if(reticle){
+      reticle.classList.toggle('is-hit', !!target);
+    }
+  }
+
+  function fireClick(target){
+    if(!target) return false;
+
+    var p = centerPoint();
+    pan.firing = true;
+
+    try{
+      target.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles:true,
+        cancelable:true,
+        pointerType:'mouse',
+        clientX:p.x,
+        clientY:p.y
+      }));
+    }catch(e){}
+
+    try{
+      target.dispatchEvent(new MouseEvent('mousedown', {
+        bubbles:true,
+        cancelable:true,
+        clientX:p.x,
+        clientY:p.y
+      }));
+    }catch(e){}
+
+    try{
+      target.click();
+    }catch(e){
+      try{
+        target.dispatchEvent(new MouseEvent('click', {
+          bubbles:true,
+          cancelable:true,
+          clientX:p.x,
+          clientY:p.y
+        }));
+      }catch(_){}
+    }
+
+    setTimeout(function(){
+      pan.firing = false;
+    }, 0);
+
+    return true;
+  }
+
+  function shootCenter(){
+    if(!isCvr()) return false;
+
+    var target = findTargetAtCenter();
+
+    if(target){
+      target.dataset.hhaCvrWorldShot = PATCH;
+      return fireClick(target);
+    }
+
+    showWorldHint('ยังไม่มีเป้าอยู่กลางจอ • ขยับฉากให้เป้ามาอยู่ตรง crosshair');
+    return false;
+  }
+
+  function shouldIgnoreControl(target){
+    return !!(
+      target &&
+      target.closest &&
+      target.closest(
+        'button, a, input, select, textarea, .hha-control-btn, #hha-cvr-motion-btn, #hha-cvr-world-hint'
+      )
+    );
+  }
+
+  function bindMouseWorldPan(){
+    document.addEventListener('mousemove', function(ev){
+      if(!isCvr()) return;
+
+      var v = viewport();
+      var dx = ev.clientX - v.w / 2;
+      var dy = ev.clientY - v.h / 2;
+
+      setPan(-dx * 0.42, -dy * 0.34);
+    }, { passive:true });
+  }
+
+  function bindTouchWorldPan(){
+    document.addEventListener('touchstart', function(ev){
+      if(!isCvr()) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      var t = ev.touches && ev.touches[0];
+      if(!t) return;
+
+      pan.drag = true;
+      pan.dragStartX = t.clientX;
+      pan.dragStartY = t.clientY;
+      pan.startPanX = pan.x;
+      pan.startPanY = pan.y;
+    }, { passive:true, capture:true });
+
+    document.addEventListener('touchmove', function(ev){
+      if(!isCvr()) return;
+      if(!pan.drag) return;
+
+      var t = ev.touches && ev.touches[0];
+      if(!t) return;
+
+      var dx = t.clientX - pan.dragStartX;
+      var dy = t.clientY - pan.dragStartY;
+
+      setPan(pan.startPanX + dx, pan.startPanY + dy);
+    }, { passive:true, capture:true });
+
+    document.addEventListener('touchend', function(ev){
+      if(!isCvr()) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      pan.drag = false;
+
+      shootCenter();
+
+      safeStop(ev);
+    }, { passive:false, capture:true });
+  }
+
+  function bindKeyboardWorldPan(){
+    document.addEventListener('keydown', function(ev){
+      if(!isCvr()) return;
+
+      var key = String(ev.key || '').toLowerCase();
+      var step = ev.shiftKey ? 46 : 24;
+      var x = pan.x;
+      var y = pan.y;
+      var used = true;
+
+      if(key === 'arrowleft' || key === 'a') x += step;
+      else if(key === 'arrowright' || key === 'd') x -= step;
+      else if(key === 'arrowup' || key === 'w') y += step;
+      else if(key === 'arrowdown' || key === 's') y -= step;
+      else if(key === ' ' || key === 'enter') shootCenter();
+      else used = false;
+
+      if(used){
+        setPan(x, y);
+        safeStop(ev);
+      }
+    }, true);
+  }
+
+  async function requestMotionPermission(){
+    try{
+      if(window.DeviceOrientationEvent &&
+         typeof window.DeviceOrientationEvent.requestPermission === 'function'){
+
+        var res = await window.DeviceOrientationEvent.requestPermission();
+
+        if(res !== 'granted'){
+          showWorldHint('ยังไม่ได้อนุญาตการเอียงเครื่อง ใช้ลากนิ้ว/เมาส์แทนได้');
+          return;
+        }
+      }
+
+      pan.motionEnabled = true;
+      pan.orientationBase = null;
+
+      var btn = document.getElementById('hha-cvr-motion-btn');
+      if(btn) btn.classList.remove('show');
+
+      showWorldHint('เปิดการเอียงเครื่องแล้ว • crosshair อยู่กลางจอ');
+    }catch(e){
+      showWorldHint('เปิด motion ไม่สำเร็จ ใช้ลากนิ้ว/เมาส์แทนได้');
+    }
+  }
+
+  function bindOrientationWorldPan(){
+    window.addEventListener('deviceorientation', function(ev){
+      if(!isCvr()) return;
+
+      if(window.DeviceOrientationEvent &&
+         typeof window.DeviceOrientationEvent.requestPermission === 'function' &&
+         !pan.motionEnabled){
+        return;
+      }
+
+      var gamma = Number(ev.gamma || 0);
+      var beta = Number(ev.beta || 0);
+
+      if(!Number.isFinite(gamma) || !Number.isFinite(beta)) return;
+
+      if(!pan.orientationBase){
+        pan.orientationBase = {
+          gamma:gamma,
+          beta:beta
+        };
+      }
+
+      var dx = gamma - pan.orientationBase.gamma;
+      var dy = beta - pan.orientationBase.beta;
+
+      setPan(-dx * 18, -dy * 12);
+    }, { passive:true });
+  }
+
+  function bindShootAtWindowLevel(){
+    window.addEventListener('click', function(ev){
+      if(!isCvr()) return;
+      if(pan.firing) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      shootCenter();
+
+      safeStop(ev);
+    }, true);
+
+    window.addEventListener('touchend', function(ev){
+      if(!isCvr()) return;
+      if(pan.firing) return;
+      if(shouldIgnoreControl(ev.target)) return;
+
+      shootCenter();
+
+      safeStop(ev);
+    }, { passive:false, capture:true });
+
+    window.addEventListener('hha:shoot', function(ev){
+      if(!isCvr()) return;
+
+      shootCenter();
+
+      safeStop(ev);
+    }, true);
+  }
+
+  function bindRecenter(){
+    document.addEventListener('click', function(ev){
+      if(!isCvr()) return;
+
+      var t = ev.target;
+      if(!t) return;
+
+      var text = String(t.textContent || '').toLowerCase();
+
+      var isRecenter =
+        (t.closest && t.closest('[data-hha-recenter], .hha-recenter, #hha-recenter, #hha-vr-recenter')) ||
+        text.indexOf('recenter') !== -1 ||
+        text.indexOf('จัดกลาง') !== -1;
+
+      if(!isRecenter) return;
+
+      pan.orientationBase = null;
+      setPan(0, 0);
+      showWorldHint('จัดมุมมองกลับกึ่งกลางแล้ว');
+    }, true);
+  }
+
+  function observeTargetsForPan(){
+    var playfield = document.getElementById('hha-hydration-playfield');
+    if(!playfield) return;
+
+    var mo = new MutationObserver(function(){
+      renderPan();
+    });
+
+    mo.observe(playfield, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['style','class']
+    });
+  }
+
+  function bootCvrWorldPan(){
+    if(!isCvr()) return;
+
+    document.body.classList.add('hha-view-cvr');
+    document.body.classList.add('hha-cvr-world-pan');
+    document.body.dataset.view = 'cvr';
+    document.body.dataset.hhaView = 'cvr';
+
+    var oldAim = document.getElementById('hha-cvr-aim-reticle');
+    if(oldAim){
+      try{ oldAim.remove(); }catch(e){}
+    }
+
+    refreshPanLimits();
+    ensureCenterReticle();
+    ensureWorldHint();
+    ensureMotionButton();
+
+    setPan(0, 0);
+
+    bindMouseWorldPan();
+    bindTouchWorldPan();
+    bindKeyboardWorldPan();
+    bindOrientationWorldPan();
+    bindShootAtWindowLevel();
+    bindRecenter();
+    observeTargetsForPan();
+
+    showWorldHint('🥽 Cardboard: crosshair คงที่กลางจอ • ฉากขยับแทน');
+
+    window.addEventListener('resize', function(){
+      refreshPanLimits();
+      setPan(0, 0);
+    }, { passive:true });
+
+    setInterval(renderPan, 180);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationCvrWorldPan = {
+      version:PATCH,
+      setPan:setPan,
+      shootCenter:shootCenter,
+      findTargetAtCenter:findTargetAtCenter,
+      recenter:function(){
+        pan.orientationBase = null;
+        setPan(0, 0);
+      }
+    };
+  }
+
+  /* =========================================================
+     Summary Scroll Unlock
+     ========================================================= */
+
+  function unlockSummaryScroll(summary){
+    if(!summary) return;
+    if(isStartScreenOpen()) return;
+
+    document.body.classList.add('hha-hydration-summary-open');
+    document.documentElement.classList.add('hha-hydration-summary-open-html');
+
+    document.documentElement.style.height = 'auto';
+    document.documentElement.style.minHeight = '100svh';
+    document.documentElement.style.overflowY = 'auto';
+    document.documentElement.style.overflowX = 'hidden';
+
+    document.body.style.height = 'auto';
+    document.body.style.minHeight = '100svh';
+    document.body.style.overflowY = 'auto';
+    document.body.style.overflowX = 'hidden';
+    document.body.style.touchAction = 'auto';
+
+    var app = q('#hha-hydration-app');
+    var stage = q('#hha-hydration-stage');
+    var playfield = q('#hha-hydration-playfield');
+
+    [app, stage, playfield].forEach(function(el){
+      if(!el) return;
+
+      el.style.height = 'auto';
+      el.style.minHeight = '100svh';
+      el.style.maxHeight = 'none';
+      el.style.overflow = 'visible';
+      el.style.position = 'relative';
+    });
+
+    if(summary !== document.body){
+      summary.style.maxHeight = 'none';
+      summary.style.height = 'auto';
+      summary.style.overflow = 'visible';
+      summary.style.paddingBottom = '140px';
+      summary.dataset.hhaScrollUnlock = PATCH;
+    }
+  }
+
+  function clearSummaryMode(){
+    document.body.classList.remove('hha-hydration-summary-open');
+    document.documentElement.classList.remove('hha-hydration-summary-open-html');
+
+    document.documentElement.style.overflowY = '';
+    document.documentElement.style.overflowX = '';
+    document.documentElement.style.height = '';
+    document.documentElement.style.minHeight = '';
+
+    document.body.style.overflowY = '';
+    document.body.style.overflowX = '';
+    document.body.style.height = '';
+    document.body.style.minHeight = '';
+    document.body.style.touchAction = '';
+
+    var app = q('#hha-hydration-app');
+    var stage = q('#hha-hydration-stage');
+    var playfield = q('#hha-hydration-playfield');
+
+    [app, stage, playfield].forEach(function(el){
+      if(!el) return;
+
+      el.style.overflow = '';
+      el.style.height = '';
+      el.style.minHeight = '';
+      el.style.maxHeight = '';
+      el.style.position = '';
+    });
+  }
+
+  function checkSummaryScroll(){
+    if(isStartScreenOpen()){
+      clearSummaryMode();
+      return;
+    }
+
+    var summary = findSummary();
+    if(summary){
+      unlockSummaryScroll(summary);
+    }
+  }
+
+  /* =========================================================
+     Start Button Rescue no-block
+     ========================================================= */
+
+  function forceStartHydration(){
+    if(!isStartScreenOpen()) return false;
+
+    clearSummaryMode();
+
+    try{
+      if(window.HHA && window.HHA.Hydration){
+        window.HHA.Hydration.started = false;
+        window.HHA.Hydration.destroyed = false;
+      }
+    }catch(e){}
+
+    if(typeof window.HHA_HYDRATION_FORCE_START === 'function'){
+      try{
+        return !!window.HHA_HYDRATION_FORCE_START();
+      }catch(err){
+        try{
+          console.warn('[Hydration Start Rescue] HHA_HYDRATION_FORCE_START failed:', err);
+        }catch(e){}
+      }
+    }
+
+    if(typeof window.beginHydrationFromOverlay === 'function'){
+      try{
+        window.beginHydrationFromOverlay();
+        return true;
+      }catch(err2){
+        try{
+          console.warn('[Hydration Start Rescue] beginHydrationFromOverlay failed:', err2);
+        }catch(e){}
+      }
+    }
+
+    /*
+      สำคัญ:
+      ถ้า global function ยังไม่พร้อม ห้าม stop event
+      ให้ปุ่มเดิมใน hydration-vr.js ทำงานเอง
+    */
+    return false;
+  }
+
+  function bindStartButtons(){
+    qa('.hha-start-btn, [data-hha-start], [data-hha-hydration-start-btn]').forEach(function(btn){
+      if(btn.dataset.hhaStartRescue === PATCH) return;
+
+      btn.dataset.hhaStartRescue = PATCH;
+
+      btn.addEventListener('pointerdown', function(){
+        clearSummaryMode();
+      }, true);
+
+      btn.addEventListener('touchstart', function(){
+        clearSummaryMode();
+      }, { passive:true, capture:true });
+
+      btn.addEventListener('click', function(ev){
+        var ok = forceStartHydration();
+
+        if(ok){
+          safeStop(ev);
+        }
+      }, true);
+    });
+  }
+
+  function bindGlobalStartRescue(){
+    if(window.HHA_HYDRATION_MODE_PATCH_START_RESCUE_BOUND_PACK30) return;
+    window.HHA_HYDRATION_MODE_PATCH_START_RESCUE_BOUND_PACK30 = true;
+
+    document.addEventListener('click', function(ev){
+      var t = ev.target;
+      if(!t || !t.closest) return;
+
+      var btn = t.closest('.hha-start-btn, [data-hha-start], [data-hha-hydration-start-btn]');
+      if(!btn) return;
+
+      var ok = forceStartHydration();
+
+      if(ok){
+        safeStop(ev);
+      }
+    }, true);
+  }
+
+  function preventFalseSummaryUnlock(){
+    if(!isStartScreenOpen()) return;
+
+    clearSummaryMode();
+  }
+
+  /* =========================================================
+     Boot
+     ========================================================= */
+
+  function boot(){
+    setViewModeClass();
+    ensureModeBadge();
+
+    observeTargets();
+
+    bootCvrWorldPan();
+
+    bindStartButtons();
+    bindGlobalStartRescue();
+
+    scanSummary();
+    checkSummaryScroll();
+    preventFalseSummaryUnlock();
+
+    var mo = new MutationObserver(function(){
+      setViewModeClass();
+      bindStartButtons();
+      scanSummary();
+      checkSummaryScroll();
+      preventFalseSummaryUnlock();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['class','style']
+    });
+
+    setInterval(function(){
+      setViewModeClass();
+      bindStartButtons();
+      scanSummary();
+      checkSummaryScroll();
+      preventFalseSummaryUnlock();
+    }, 700);
+
+    window.HHA = window.HHA || {};
+    window.HHA.HydrationModePatch = {
+      version:PATCH,
+      getView:getView,
+      getMode:getMode,
+      nutritionZoneUrl:nutritionZoneUrl,
+      cooldownUrl:cooldownUrl,
+      summaryUnlock:function(){
+        unlockSummaryScroll(findSummary() || document.body);
+      },
+      clearSummaryMode:clearSummaryMode,
+      start:function(){
+        return forceStartHydration();
+      },
+      cvrWorldPan:window.HHA.HydrationCvrWorldPan || null
+    };
+
+    console.info('[Hydration Mode Patch Pack30] loaded');
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
