@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration Cooldown Return Force Patch
    File: /herohealth/hydration-vr/hydration-cooldown-return.patch.js
-   Version: v20260518-pack25-hydration-cooldown-return-force
+   Version: v20260518-pack30-hydration-cooldown-return-force
 
    Purpose:
    - บังคับ Hydration Cooldown ให้กลับ Nutrition Zone เสมอ
@@ -9,18 +9,19 @@
    - override goHydrationCooldownThenHub()
    - capture ปุ่ม Cooldown ใน Summary
    - ใส่ next / cdnext / return / back / hub ให้ warmup-gate ทุกแบบอ่านได้
+   - กัน hub ที่ชี้กลับไป cooldown gate เอง
    ========================================================= */
 
 (function(){
   'use strict';
 
-  var PATCH = 'v20260518-pack25-hydration-cooldown-return-force';
+  var PATCH = 'v20260518-pack30-hydration-cooldown-return-force';
 
-  if(window.HHA_HYDRATION_COOLDOWN_RETURN_PACK25_LOADED){
+  if(window.HHA_HYDRATION_COOLDOWN_RETURN_PACK30_LOADED){
     return;
   }
 
-  window.HHA_HYDRATION_COOLDOWN_RETURN_PACK25_LOADED = true;
+  window.HHA_HYDRATION_COOLDOWN_RETURN_PACK30_LOADED = true;
 
   function getUrl(){
     try{
@@ -53,32 +54,27 @@
     }
   }
 
-  function normalizeNutritionUrl(raw){
-    var base = heroBase();
+  function isBadHub(raw){
+    var h = safeDecode(raw || '').toLowerCase();
 
-    try{
-      var decoded = safeDecode(raw || '');
+    if(!h) return true;
 
-      if(decoded && decoded.indexOf('nutrition-zone.html') !== -1){
-        return decoded;
-      }
-    }catch(e){}
-
-    return new URL('nutrition-zone.html', base).toString();
+    return (
+      h.indexOf('warmup-gate.html') !== -1 ||
+      h.indexOf('phase=cooldown') !== -1 ||
+      h.indexOf('gatephase=cooldown') !== -1 ||
+      h.indexOf('studyphase=cooldown') !== -1 ||
+      h.indexOf('hydration-vr/run.html') !== -1 ||
+      h.indexOf('hydration-vr/lobby.html') !== -1 ||
+      h.indexOf('lobby.html') !== -1
+    );
   }
 
   function nutritionZoneUrl(){
     var base = heroBase();
     var current = getUrl();
 
-    /*
-      ถ้า hub เดิมเป็น nutrition-zone อยู่แล้ว ใช้ได้
-      ถ้า hub เดิมเป็น hub.html ให้สร้าง nutrition-zone ใหม่
-    */
-    var hubRaw = current.searchParams.get('hub') || '';
-    var zone = normalizeNutritionUrl(hubRaw);
-
-    var u = new URL(zone, base);
+    var u = new URL('nutrition-zone.html', base);
 
     [
       'pid',
@@ -99,12 +95,10 @@
     });
 
     /*
-      หน้า Nutrition Zone เองควรมี hub หลักเป็น hub.html
-      แต่ปลายทางหลัง cooldown คือ nutrition-zone.html
+      หน้า Nutrition Zone ควรมี hub หลักเป็น hub.html
+      ห้ามเอา cooldown gate มาเป็น hub
     */
-    if(!u.searchParams.get('hub')){
-      u.searchParams.set('hub', new URL('hub.html', base).toString());
-    }
+    u.searchParams.set('hub', new URL('hub.html', base).toString());
 
     return u.toString();
   }
@@ -180,12 +174,22 @@
   }
 
   function flushBeforeCooldown(){
+    /*
+      เปิดโอกาสให้ logger/flush handlers ทำงานก่อนออกหน้า
+      ไม่ throw ถ้า browser ไม่รองรับ
+    */
     try{
       window.dispatchEvent(new Event('pagehide'));
     }catch(e){}
 
     try{
       document.dispatchEvent(new Event('visibilitychange'));
+    }catch(e){}
+
+    try{
+      if(window.HHA && window.HHA.Hydration && typeof window.HHA.Hydration.flush === 'function'){
+        window.HHA.Hydration.flush();
+      }
     }catch(e){}
   }
 
@@ -211,20 +215,21 @@
       text.indexOf('cooldown') !== -1 ||
       text.indexOf('คูลดาวน์') !== -1 ||
       text.indexOf('ทำ cooldown') !== -1 ||
-      text.indexOf('cooldown แล้วกลับ') !== -1 ||
+      text.indexOf('ทำคูลดาวน์') !== -1 ||
+      text.indexOf('cool down') !== -1 ||
       btn.classList.contains('hha-final-cooldown') ||
-      btn.classList.contains('hha-summary-btn') && text.indexOf('cooldown') !== -1 ||
+      btn.classList.contains('hha-hydration-cooldown') ||
       btn.dataset.hhaCooldown === '1' ||
       btn.dataset.hhaHydrationCooldown === '1'
     );
   }
 
   function bindGlobalCooldownCapture(){
-    if(window.HHA_HYDRATION_COOLDOWN_RETURN_GLOBAL_BOUND_PACK25){
+    if(window.HHA_HYDRATION_COOLDOWN_RETURN_GLOBAL_BOUND_PACK30){
       return;
     }
 
-    window.HHA_HYDRATION_COOLDOWN_RETURN_GLOBAL_BOUND_PACK25 = true;
+    window.HHA_HYDRATION_COOLDOWN_RETURN_GLOBAL_BOUND_PACK30 = true;
 
     function handler(ev){
       if(isCooldownButton(ev.target)){
@@ -247,10 +252,10 @@
     var buttons = Array.from(document.querySelectorAll('button, a, [role="button"]'));
 
     buttons.forEach(function(btn){
-      if(btn.dataset.hhaHydrationCooldownReturnPack25 === PATCH) return;
+      if(btn.dataset.hhaHydrationCooldownReturnPack30 === PATCH) return;
 
       if(isCooldownButton(btn)){
-        btn.dataset.hhaHydrationCooldownReturnPack25 = PATCH;
+        btn.dataset.hhaHydrationCooldownReturnPack30 = PATCH;
         btn.dataset.hhaHydrationCooldown = '1';
 
         /*
@@ -277,7 +282,21 @@
     bindExistingButtons();
   }
 
+  function sanitizeCurrentHubInUrl(){
+    try{
+      var u = getUrl();
+      var hub = u.searchParams.get('hub') || '';
+
+      if(isBadHub(hub)){
+        u.searchParams.set('hub', nutritionZoneUrl());
+        history.replaceState(null, '', u.toString());
+      }
+    }catch(e){}
+  }
+
   function boot(){
+    sanitizeCurrentHubInUrl();
+
     /*
       override function เดิมทั้งหมด
     */
@@ -310,10 +329,11 @@
       version: PATCH,
       nutritionZoneUrl: nutritionZoneUrl,
       buildCooldownGateUrl: buildCooldownGateUrl,
-      go: goCooldown
+      go: goCooldown,
+      sanitizeCurrentHubInUrl: sanitizeCurrentHubInUrl
     };
 
-    console.info('[Hydration Pack25] cooldown return force loaded');
+    console.info('[Hydration Pack30] cooldown return force loaded');
   }
 
   if(document.readyState === 'loading'){
