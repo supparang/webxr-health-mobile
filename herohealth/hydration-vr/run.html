@@ -13,11 +13,12 @@
 
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./hydration-vr.css?v=20260517-pack22" />
+  <link rel="stylesheet" href="./hydration-summary-compact.css?v=20260520-pack33" />
 
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260517-hydration-run-pack22-router-fix
+    Version: v20260520-pack33-core-only-summary-css
 
     Purpose:
       Shared run engine for Hydration
@@ -27,6 +28,9 @@
       view = pc / mobile / cvr
 
     Important:
+      - Core-only stable
+      - ห้ามโหลด JS patch ที่ดัก Start
+      - Summary compact ใช้ CSS-only patch เท่านั้น
       - Solo เข้า run.html ได้เลย
       - Multiplayer ต้องผ่าน lobby.html ก่อน
       - Multiplayer ต้องมี mpReady=1 จึงเข้าเกมได้
@@ -72,13 +76,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260517-hydration-run-pack22-router-fix';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260520-pack33-core-only-summary-css';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260517-hydration-run-pack22-router-fix';
+      var VERSION = 'v20260520-pack33-core-only-summary-css';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -128,7 +132,6 @@
       var rawView = u.searchParams.get('view') || 'mobile';
 
       /*
-        Pack22:
         ถ้า URL เก่าส่ง mode=pc/mobile/cvr
         ให้ย้ายไปเป็น view และบังคับ mode=solo
       */
@@ -278,7 +281,7 @@
               'color:#66879c;',
               'line-height:1.35;',
             '">',
-              String(msg || 'ตรวจสอบ hydration-vr.js / hydration-vr.css / patch / vr-ui.js'),
+              String(msg || 'ตรวจสอบ hydration-vr.js / hydration-vr.css'),
             '</p>',
 
             '<div style="',
@@ -295,10 +298,8 @@
               '/herohealth/hydration-vr/run.html<br>',
               '/herohealth/hydration-vr/hydration-vr.js<br>',
               '/herohealth/hydration-vr/hydration-vr.css<br>',
-              '/herohealth/hydration-vr/hydration-vr.mode-patch.js<br>',
-              '/herohealth/hydration-vr/hydration-vr.mode-patch.css<br>',
-              '/herohealth/herohealth-logger.js<br>',
-              '/herohealth/vr/vr-ui.js เฉพาะ view=cvr',
+              '/herohealth/hydration-vr/hydration-summary-compact.css<br>',
+              '/herohealth/herohealth-logger.js',
             '</div>',
 
             '<button onclick="location.reload()" style="',
@@ -397,22 +398,23 @@
       }
 
       HHA_LOAD_SCRIPT('../herohealth-logger.js?v=20260517-pack22')
-  .catch(function(err){
-    console.warn('[Hydration Run] logger optional load failed:', err);
-  })
-  .then(function(){
-    return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260519-pack32');
-  })
-  .then(function(){
-    setTimeout(bootCheck, 1600);
-  })
-  .catch(function(err){
-    console.error('[Hydration Run] critical boot failed:', err);
-    window.HHA_HYDRATION_SHOW_BOOT_ERROR(
-      (err && err.message) ||
-      'โหลด hydration-vr.js ไม่สำเร็จ อาจเป็น syntax error / 404 / path ผิด'
-    );
-  });
+        .catch(function(err){
+          console.warn('[Hydration Run] logger optional load failed:', err);
+        })
+        .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260519-pack32');
+        })
+        .then(function(){
+          setTimeout(bootCheck, 1600);
+        })
+        .catch(function(err){
+          console.error('[Hydration Run] critical boot failed:', err);
+
+          window.HHA_HYDRATION_SHOW_BOOT_ERROR(
+            (err && err.message) ||
+            'โหลด hydration-vr.js ไม่สำเร็จ อาจเป็น syntax error / 404 / path ผิด'
+          );
+        });
     })();
   </script>
 </body>
