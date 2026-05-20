@@ -1,27 +1,27 @@
 /* =========================================================
  * /herohealth/vr-goodjunk/goodjunk-battle-v2-core.js
  * GoodJunk Battle v2 Core
- * VERSION: v2.4.20-core-final
+ * VERSION: v2.4.26-core-final
  *
  * ใช้ร่วมกันใน:
  * - goodjunk-battle-v2-run-mobile.html
  * - goodjunk-battle-v2-run-pc.html
  * - goodjunk-battle-v2-run-cardboard.html
  *
+ * ต้องโหลดหลัง:
+ * - goodjunk-battle-v2-firebase-bridge.js
+ *
  * รวม:
- * - 4 Skills UI: Junk Storm / Shield / Freeze / Heal
- * - Mobile Action Dock
- * - Skill Logic + Balance + Anti-spam
- * - Freeze/Storm Gameplay Bridge
- * - Opponent Combat Feedback
- * - Match State Sync Hardening
- * - Final QA Guard
+ * - v2.4.22 Room Schema Compatibility Guard
+ * - v2.4.20 Battle Core / Skill / Mobile Dock
+ * - v2.4.25 Runtime Realtime Score Sync
+ * - v2.4.26 Final Manifest + QA Checklist
  * ========================================================= */
 
 (function GoodJunkBattleV2Core(){
   'use strict';
 
-  const CORE_VERSION = 'v2.4.20-core-final';
+  const CORE_VERSION = 'v2.4.26-core-final';
 
   const $ = (sel, root=document) => root.querySelector(sel);
   const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -29,13 +29,16 @@
   const url = new URL(location.href);
   const params = url.searchParams;
 
-  const VIEW = String(params.get('view') || 'pc').toLowerCase();
-  const IS_MOBILE = VIEW === 'mobile' || (
-    VIEW !== 'pc' &&
-    window.matchMedia &&
-    window.matchMedia('(max-width:760px)').matches
-  );
+  const VIEW = String(params.get('view') || params.get('device') || 'pc').toLowerCase();
   const IS_CARDBOARD = ['cardboard','cvr','vr'].includes(VIEW);
+  const IS_MOBILE = !IS_CARDBOARD && (
+    VIEW === 'mobile' ||
+    (
+      VIEW !== 'pc' &&
+      window.matchMedia &&
+      window.matchMedia('(max-width:760px)').matches
+    )
+  );
 
   const PLAYER_ID = String(
     window.GJ_PLAYER_ID ||
@@ -60,8 +63,9 @@
     params.get('room') ||
     params.get('roomCode') ||
     params.get('code') ||
+    params.get('lastRoom') ||
     ''
-  );
+  ).trim().toUpperCase();
 
   const CFG = {
     maxPower: 5,
@@ -93,7 +97,10 @@
     heartbeatMs: 3500,
     offlineAfterMs: 12000,
     staleEffectAfterMs: 30000,
-    rematchReadyExpireMs: 45000
+    rematchReadyExpireMs: 45000,
+
+    realtimeSyncThrottleMs: 450,
+    realtimeForceSyncMs: 1800
   };
 
   const SKILLS = [
@@ -135,7 +142,7 @@
 
   const state = {
     phase: 'play',
-    matchId: '',
+    matchId: String(params.get('matchId') || params.get('roundId') || ''),
     score: 0,
     good: 0,
     junk: 0,
@@ -169,11 +176,40 @@
     heartbeatTimer: null,
     roomListenerAttached: false,
     opponentLeftHandled: false,
-    qaOpen: false
+    qaOpen: false,
+
+    lastEventGate: Object.create(null),
+
+    realtime: {
+      lastSyncAt: 0,
+      lastForceSyncAt: 0,
+      pendingSync: false,
+      syncTimer: null,
+      lastScoreHash: '',
+      opponent: null,
+      roomListenerAttached: false
+    }
   };
 
   function now(){
     return Date.now();
+  }
+
+  function safeObj(v){
+    return v && typeof v === 'object' ? v : {};
+  }
+
+  function firstDefined(){
+    for (let i = 0; i < arguments.length; i++){
+      const v = arguments[i];
+      if (v !== undefined && v !== null && v !== '') return v;
+    }
+    return '';
+  }
+
+  function toNumber(v, fallback){
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
   }
 
   function clamp(n, a, b){
@@ -195,6 +231,552 @@
     window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
     document.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
   }
+
+  function eventGate(key, ms){
+    ms = Number(ms || 140);
+    const t = now();
+    const last = state.lastEventGate[key] || 0;
+    state.lastEventGate[key] = t;
+    return t - last > ms;
+  }
+
+  /* =========================================================
+   * v2.4.22 Schema Guard
+   * ========================================================= */
+
+  function schemaReadRoomCode(room, urlParams){
+    room = safeObj(room);
+    urlParams = urlParams || new URLSearchParams(location.search);
+
+    return String(firstDefined(
+      room.code,
+      room.room,
+      room.roomCode,
+      room.room_id,
+      room.roomId,
+      urlParams.get('room'),
+      urlParams.get('roomCode'),
+      urlParams.get('code'),
+      urlParams.get('lastRoom')
+    ) || '').toUpperCase();
+  }
+
+  function schemaReadPhase(room){
+    room = safeObj(room);
+
+    return String(firstDefined(
+      room.phase,
+      room.status,
+      room.state,
+      room.gamePhase,
+      room.matchPhase,
+      'lobby'
+    )).toLowerCase();
+  }
+
+  function schemaReadMatchId(room){
+    room = safeObj(room);
+
+    return String(firstDefined(
+      room.matchId,
+      room.roundId,
+      room.runId,
+      room.sessionId,
+      room.currentMatchId,
+      ''
+    ));
+  }
+
+  function schemaReadPlayersMap(room){
+    room = safeObj(room);
+
+    return safeObj(firstDefined(
+      room.players,
+      room.members,
+      room.participants,
+      room.users,
+      {}
+    ));
+  }
+
+  function schemaReadEffectsMap(room){
+    room = safeObj(room);
+
+    return safeObj(firstDefined(
+      room.effects,
+      room.attacks,
+      room.skills,
+      room.eventsEffects,
+      {}
+    ));
+  }
+
+  function normalizePlayer(id, raw){
+    raw = safeObj(raw);
+
+    const name = String(firstDefined(
+      raw.name,
+      raw.playerName,
+      raw.displayName,
+      raw.nick,
+      raw.nickname,
+      id,
+      'Hero'
+    ));
+
+    const view = String(firstDefined(
+      raw.view,
+      raw.device,
+      raw.modeView,
+      'pc'
+    )).toLowerCase();
+
+    const status = String(firstDefined(
+      raw.status,
+      raw.state,
+      raw.presence,
+      raw.onlineState,
+      'online'
+    )).toLowerCase();
+
+    const lastSeen = toNumber(firstDefined(
+      raw.lastSeen,
+      raw.heartbeatAt,
+      raw.updatedAt,
+      raw.ts,
+      raw.lastActiveAt,
+      0
+    ), 0);
+
+    const score = toNumber(firstDefined(
+      raw.score,
+      raw.points,
+      raw.totalScore,
+      raw.myScore,
+      0
+    ), 0);
+
+    const hearts = toNumber(firstDefined(
+      raw.hearts,
+      raw.hp,
+      raw.life,
+      raw.lives,
+      3
+    ), 3);
+
+    const good = toNumber(firstDefined(
+      raw.good,
+      raw.goodCount,
+      raw.goodHits,
+      raw.correct,
+      0
+    ), 0);
+
+    const junk = toNumber(firstDefined(
+      raw.junk,
+      raw.junkCount,
+      raw.badHits,
+      raw.wrong,
+      0
+    ), 0);
+
+    const miss = toNumber(firstDefined(
+      raw.miss,
+      raw.misses,
+      raw.missCount,
+      raw.errors,
+      0
+    ), 0);
+
+    const power = toNumber(firstDefined(
+      raw.power,
+      raw.attackPower,
+      raw.energy,
+      raw.skillPower,
+      0
+    ), 0);
+
+    const rematchReady = !!(
+      raw.rematchReady === true ||
+      raw.readyRematch === true ||
+      raw.nextReady === true ||
+      raw.status === 'rematch-ready' ||
+      raw.state === 'rematch-ready'
+    );
+
+    const left = !!(
+      raw.left === true ||
+      raw.quit === true ||
+      raw.disconnected === true ||
+      status === 'left' ||
+      status === 'offline'
+    );
+
+    const finished = !!(
+      raw.finished === true ||
+      raw.done === true ||
+      raw.completed === true ||
+      status === 'finished'
+    );
+
+    return {
+      id: String(id),
+      raw,
+
+      name,
+      playerName: name,
+      displayName: name,
+
+      view,
+      status,
+
+      lastSeen,
+      heartbeatAt: toNumber(raw.heartbeatAt, lastSeen),
+      updatedAt: toNumber(raw.updatedAt, lastSeen || now()),
+
+      score,
+      points: score,
+
+      hearts,
+      hp: hearts,
+      lives: hearts,
+
+      good,
+      goodCount: good,
+
+      junk,
+      junkCount: junk,
+
+      miss,
+      missCount: miss,
+
+      power,
+      attackPower: power,
+      energy: power,
+
+      rematchReady,
+      readyRematch: rematchReady,
+      nextReady: rematchReady,
+      rematchReadyAt: toNumber(firstDefined(raw.rematchReadyAt, raw.readyAt, raw.updatedAt, 0), 0),
+
+      left,
+      quit: left,
+      disconnected: left,
+
+      finished,
+      done: finished,
+
+      host: !!raw.host,
+      result: firstDefined(raw.result, raw.outcome, null)
+    };
+  }
+
+  function normalizePlayers(room){
+    const map = schemaReadPlayersMap(room);
+
+    return Object.entries(map).map(function(pair){
+      return normalizePlayer(pair[0], pair[1]);
+    });
+  }
+
+  function normalizeEffect(key, raw){
+    raw = safeObj(raw);
+
+    const type = String(firstDefined(
+      raw.type,
+      raw.skill,
+      raw.action,
+      raw.effectType,
+      ''
+    ));
+
+    const from = String(firstDefined(
+      raw.from,
+      raw.fromPlayer,
+      raw.sender,
+      raw.playerId,
+      ''
+    ));
+
+    const id = String(firstDefined(
+      raw.id,
+      raw.effectId,
+      key,
+      from + '_' + type + '_' + firstDefined(raw.ts, now())
+    ));
+
+    return Object.assign({}, raw, {
+      key,
+      id,
+      type,
+      skill: type,
+      from,
+      fromPlayer: from,
+      ts: toNumber(firstDefined(raw.ts, raw.createdAt, raw.updatedAt, now()), now()),
+      durationMs: toNumber(firstDefined(raw.durationMs, raw.duration, 0), 0),
+      count: toNumber(firstDefined(raw.count, raw.amount, raw.junkCount, 0), 0),
+      consumed: !!raw.consumed,
+      consumedBy: firstDefined(raw.consumedBy, raw.usedBy, '')
+    });
+  }
+
+  function normalizeEffects(room){
+    const map = schemaReadEffectsMap(room);
+    const out = {};
+
+    Object.entries(map).forEach(function(pair){
+      out[pair[0]] = normalizeEffect(pair[0], pair[1]);
+    });
+
+    return out;
+  }
+
+  function normalizeRoom(room, urlParams){
+    room = safeObj(room);
+
+    const code = schemaReadRoomCode(room, urlParams);
+    const phase = schemaReadPhase(room);
+    const matchId = schemaReadMatchId(room);
+    const players = normalizePlayers(room);
+    const effects = normalizeEffects(room);
+
+    return {
+      raw: room,
+
+      code,
+      room: code,
+      roomCode: code,
+
+      phase,
+      status: phase,
+      state: phase,
+
+      matchId,
+      roundId: matchId,
+      runId: matchId,
+
+      players,
+      playersMap: schemaReadPlayersMap(room),
+      effects,
+      effectsMap: schemaReadEffectsMap(room),
+
+      createdAt: toNumber(room.createdAt, 0),
+      updatedAt: toNumber(room.updatedAt, 0),
+      startedAt: toNumber(room.startedAt, 0),
+      endedAt: toNumber(room.endedAt, 0),
+
+      winner: firstDefined(room.winner, room.winnerId, ''),
+      reason: firstDefined(room.reason, room.endReason, '')
+    };
+  }
+
+  function isOnlinePlayer(player, offlineAfterMs){
+    offlineAfterMs = Number(offlineAfterMs || CFG.offlineAfterMs);
+
+    if (!player) return false;
+    if (player.left || player.quit || player.disconnected) return false;
+
+    const status = String(player.status || '').toLowerCase();
+    if (status === 'left' || status === 'offline') return false;
+
+    const lastSeen = Number(player.lastSeen || player.heartbeatAt || player.updatedAt || 0);
+    if (lastSeen && now() - lastSeen > offlineAfterMs) return false;
+
+    return true;
+  }
+
+  function getMeAndOpponent(room, myId, offlineAfterMs){
+    const nr = normalizeRoom(room);
+    const id = String(myId || '');
+
+    const me = nr.players.find(function(p){
+      return String(p.id) === id;
+    });
+
+    const opponent = nr.players.find(function(p){
+      return String(p.id) !== id && isOnlinePlayer(p, offlineAfterMs);
+    });
+
+    const opponentAny = nr.players.find(function(p){
+      return String(p.id) !== id;
+    });
+
+    return {
+      room: nr,
+      players: nr.players,
+      onlinePlayers: nr.players.filter(function(p){
+        return isOnlinePlayer(p, offlineAfterMs);
+      }),
+      me,
+      opponent,
+      opponentAny
+    };
+  }
+
+  function buildCanonicalPlayerPatch(playerPatch){
+    playerPatch = safeObj(playerPatch);
+
+    const name = firstDefined(
+      playerPatch.name,
+      playerPatch.playerName,
+      playerPatch.displayName,
+      playerPatch.nick,
+      'Hero'
+    );
+
+    const score = toNumber(firstDefined(
+      playerPatch.score,
+      playerPatch.points,
+      playerPatch.totalScore,
+      0
+    ), 0);
+
+    const hearts = toNumber(firstDefined(
+      playerPatch.hearts,
+      playerPatch.hp,
+      playerPatch.lives,
+      3
+    ), 3);
+
+    const power = toNumber(firstDefined(
+      playerPatch.power,
+      playerPatch.attackPower,
+      playerPatch.energy,
+      0
+    ), 0);
+
+    const rematchReady = !!(
+      playerPatch.rematchReady ||
+      playerPatch.readyRematch ||
+      playerPatch.nextReady
+    );
+
+    const left = !!(
+      playerPatch.left ||
+      playerPatch.quit ||
+      playerPatch.disconnected ||
+      playerPatch.status === 'left'
+    );
+
+    const status = firstDefined(
+      playerPatch.status,
+      left ? 'left' : rematchReady ? 'rematch-ready' : 'online'
+    );
+
+    const good = toNumber(firstDefined(playerPatch.good, playerPatch.goodCount, 0), 0);
+    const junk = toNumber(firstDefined(playerPatch.junk, playerPatch.junkCount, 0), 0);
+    const miss = toNumber(firstDefined(playerPatch.miss, playerPatch.missCount, 0), 0);
+
+    return Object.assign({}, playerPatch, {
+      name,
+      playerName: name,
+      displayName: name,
+
+      score,
+      points: score,
+      myScore: score,
+
+      hearts,
+      hp: hearts,
+      lives: hearts,
+
+      good,
+      goodCount: good,
+
+      junk,
+      junkCount: junk,
+
+      miss,
+      missCount: miss,
+
+      power,
+      attackPower: power,
+      energy: power,
+
+      rematchReady,
+      readyRematch: rematchReady,
+      nextReady: rematchReady,
+
+      left,
+      quit: left,
+      disconnected: left,
+
+      status,
+
+      updatedAt: now(),
+      lastSeen: now(),
+      heartbeatAt: now()
+    });
+  }
+
+  function buildCanonicalRoomPatch(roomPatch){
+    roomPatch = safeObj(roomPatch);
+
+    const phase = String(firstDefined(
+      roomPatch.phase,
+      roomPatch.status,
+      roomPatch.state,
+      'lobby'
+    )).toLowerCase();
+
+    const matchId = String(firstDefined(
+      roomPatch.matchId,
+      roomPatch.roundId,
+      roomPatch.runId,
+      ''
+    ));
+
+    const out = Object.assign({}, roomPatch, {
+      phase,
+      status: phase,
+      state: phase,
+      updatedAt: now()
+    });
+
+    if (matchId){
+      out.matchId = matchId;
+      out.roundId = matchId;
+      out.runId = matchId;
+    }
+
+    return out;
+  }
+
+  function exposeSchema(){
+    window.GJ_BATTLE_SCHEMA = {
+      version: 'v2.4.26-schema-final',
+
+      safeObj,
+      firstDefined,
+      toNumber,
+
+      readRoomCode: schemaReadRoomCode,
+      readPhase: schemaReadPhase,
+      readMatchId: schemaReadMatchId,
+      readPlayersMap: schemaReadPlayersMap,
+      readEffectsMap: schemaReadEffectsMap,
+
+      normalizePlayer,
+      normalizePlayers,
+      normalizeEffect,
+      normalizeEffects,
+      normalizeRoom,
+
+      isOnlinePlayer,
+      getMeAndOpponent,
+
+      buildCanonicalPlayerPatch,
+      buildCanonicalRoomPatch
+    };
+
+    emit('gj:battle-schema-ready', {
+      version: window.GJ_BATTLE_SCHEMA.version
+    });
+  }
+
+  /* =========================================================
+   * Core helpers
+   * ========================================================= */
 
   function toast(msg){
     if (typeof window.showToast === 'function'){
@@ -229,6 +811,10 @@
   }
 
   function getDb(){
+    if (window.GJ_BATTLE_FIREBASE_BRIDGE && typeof window.GJ_BATTLE_FIREBASE_BRIDGE.getDb === 'function'){
+      return window.GJ_BATTLE_FIREBASE_BRIDGE.getDb();
+    }
+
     return (
       window.GJ_DB ||
       window.db ||
@@ -243,35 +829,18 @@
     if (window.roomRef) return window.roomRef;
     if (window.ROOM_REF) return window.ROOM_REF;
 
+    if (window.GJ_BATTLE_FIREBASE_BRIDGE && typeof window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef === 'function'){
+      const ref = window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef(ROOM_CODE);
+      if (ref) return ref;
+    }
+
     const db = getDb();
+
     if (db && ROOM_CODE && typeof db.ref === 'function'){
       return db.ref('goodjunk_battle_rooms/' + ROOM_CODE);
     }
 
     return null;
-  }
-
-  function safeObj(v){
-    return v && typeof v === 'object' ? v : {};
-  }
-
-  function playerOnline(p){
-    if (!p) return false;
-
-    if (
-      p.left === true ||
-      p.quit === true ||
-      p.disconnected === true ||
-      p.status === 'left' ||
-      p.status === 'offline'
-    ){
-      return false;
-    }
-
-    const lastSeen = Number(p.lastSeen || p.heartbeatAt || p.updatedAt || p.ts || 0);
-    if (lastSeen && now() - lastSeen > CFG.offlineAfterMs) return false;
-
-    return true;
   }
 
   function updateGlobalState(){
@@ -306,22 +875,37 @@
     emit('gj:battle-state-updated', window.GJ_BATTLE_STATE);
   }
 
+  function isShieldActive(){
+    return now() < state.shieldUntil;
+  }
+
+  function isFreezeActive(){
+    return now() < state.freezeUntil;
+  }
+
+  function isStormActive(){
+    return now() < state.stormUntil;
+  }
+
   function addPower(amount){
     state.power = clamp(state.power + Number(amount || 1), 0, state.maxPower);
     syncHud();
     updateGlobalState();
+    scheduleRealtimeSync('add-power');
   }
 
   function spendPower(amount){
     state.power = clamp(state.power - Number(amount || 1), 0, state.maxPower);
     syncHud();
     updateGlobalState();
+    scheduleRealtimeSync('spend-power');
   }
 
   function damage(amount){
     if (isShieldActive()){
       toast('🛡️ Shield กันความเสียหาย!');
       addFeed('🛡️ Shield กันความเสียหายได้', 'shield');
+      scheduleRealtimeSync('shield-block');
       return;
     }
 
@@ -332,6 +916,7 @@
 
     syncHud();
     updateGlobalState();
+    scheduleRealtimeSync('damage');
 
     if (state.hearts <= 0){
       endBattle('lose', 'heart-zero');
@@ -344,19 +929,12 @@
     state.stormUntil = 0;
     syncHud();
     updateGlobalState();
+    scheduleRealtimeSync('heal');
   }
 
-  function isShieldActive(){
-    return now() < state.shieldUntil;
-  }
-
-  function isFreezeActive(){
-    return now() < state.freezeUntil;
-  }
-
-  function isStormActive(){
-    return now() < state.stormUntil;
-  }
+  /* =========================================================
+   * Skill UI
+   * ========================================================= */
 
   function ensureActionsBar(){
     let bar =
@@ -437,7 +1015,10 @@
     const t = now();
 
     SKILLS.forEach(skill => {
-      const btn = $('[data-skill="' + skill.key + '"]');
+      const btn =
+        $('[data-skill="' + skill.key + '"]') ||
+        $('[data-action="' + skill.key + '"]');
+
       if (!btn) return;
 
       let enabled = state.power >= skill.cost;
@@ -526,7 +1107,12 @@
 
   function registerSkill(key){
     const t = now();
-    state.skillLog.push({ skill: key, ts: t });
+
+    state.skillLog.push({
+      skill: key,
+      ts: t
+    });
+
     state.skillLog = state.skillLog.filter(x => t - x.ts < 60000);
 
     if (key === 'junk-storm'){
@@ -549,7 +1135,10 @@
       state.locks[key] = t + 9000;
     }
 
-    emit('gj:battle-skill-balanced-used', { skill: key, ts: t });
+    emit('gj:battle-skill-balanced-used', {
+      skill: key,
+      ts: t
+    });
   }
 
   async function useSkill(key){
@@ -566,15 +1155,19 @@
         count: CFG.stormJunkCount,
         durationMs: CFG.stormDurationMs
       });
+
       toast('⚡ ส่ง Junk Storm ไปแล้ว!');
       addFeed('⚡ ส่ง Junk Storm ไปแล้ว!', 'storm');
+
       emit('gj:battle-skill-local', { skill: key });
     }
 
     if (key === 'shield'){
       state.shieldUntil = now() + CFG.shieldDurationMs;
+
       toast('🛡️ เปิด Shield แล้ว!');
       addFeed('🛡️ เปิด Shield แล้ว!', 'shield');
+
       emit('gj:battle-skill-local', { skill: key });
     }
 
@@ -582,21 +1175,26 @@
       await pushEffect('freeze', {
         durationMs: CFG.freezeDurationMs
       });
+
       toast('❄️ ส่ง Freeze ไปแล้ว!');
       addFeed('❄️ ส่ง Freeze ไปแล้ว!', 'freeze');
+
       emit('gj:battle-skill-local', { skill: key });
     }
 
     if (key === 'heal'){
       heal();
+
       toast('💚 Heal/Cleanse สำเร็จ!');
       addFeed('💚 Heal/Cleanse สำเร็จ!', 'heal');
+
       emit('gj:battle-skill-local', { skill: key });
     }
 
     syncHud();
     refreshSkillButtons();
     updateGlobalState();
+    scheduleRealtimeSync('use-skill-' + key);
 
     return true;
   }
@@ -612,6 +1210,7 @@
     const effect = Object.assign({
       id: PLAYER_ID + '_' + type + '_' + now(),
       type,
+      skill: type,
       from: PLAYER_ID,
       fromName: PLAYER_NAME,
       ts: now(),
@@ -630,37 +1229,45 @@
   function applyEffect(effect, key){
     if (!effect) return;
 
-    const id = effect.id || key;
+    const normalized = normalizeEffect(key, effect);
+    const id = normalized.id || key;
+
     if (state.appliedEffects[id]) return;
     state.appliedEffects[id] = true;
 
-    if (String(effect.from || '') === PLAYER_ID) return;
+    if (String(normalized.from || '') === PLAYER_ID) return;
 
-    if (effect.type === 'junk-storm'){
+    if (normalized.type === 'junk-storm'){
       if (isShieldActive()){
         toast('🛡️ Shield กัน Junk Storm ได้!');
         addFeed('🛡️ Shield กัน Junk Storm ได้!', 'shield');
-        emit('gj:battle-skill-received', { skill: 'blocked-junk-storm', effect });
+        emit('gj:battle-skill-received', { skill: 'blocked-junk-storm', effect: normalized });
       }else{
-        state.stormUntil = now() + Number(effect.durationMs || CFG.stormDurationMs);
-        startStorm(Number(effect.count || CFG.stormJunkCount), Number(effect.durationMs || CFG.stormDurationMs), effect);
+        state.stormUntil = now() + Number(normalized.durationMs || CFG.stormDurationMs);
+        startStorm(
+          Number(normalized.count || CFG.stormJunkCount),
+          Number(normalized.durationMs || CFG.stormDurationMs),
+          normalized
+        );
+
         toast('⚡ คู่แข่งส่ง Junk Storm มา!');
         addFeed('⚡ โดน Junk Storm!', 'storm');
-        emit('gj:battle-skill-received', { skill: 'junk-storm', effect });
+        emit('gj:battle-skill-received', { skill: 'junk-storm', effect: normalized });
       }
     }
 
-    if (effect.type === 'freeze'){
+    if (normalized.type === 'freeze'){
       if (isShieldActive()){
         toast('🛡️ Shield กัน Freeze ได้!');
         addFeed('🛡️ Shield กัน Freeze ได้!', 'shield');
-        emit('gj:battle-skill-received', { skill: 'blocked-freeze', effect });
+        emit('gj:battle-skill-received', { skill: 'blocked-freeze', effect: normalized });
       }else{
-        state.freezeUntil = now() + Number(effect.durationMs || CFG.freezeDurationMs);
-        startFreeze(Number(effect.durationMs || CFG.freezeDurationMs));
+        state.freezeUntil = now() + Number(normalized.durationMs || CFG.freezeDurationMs);
+        startFreeze(Number(normalized.durationMs || CFG.freezeDurationMs));
+
         toast('❄️ โดน Freeze!');
         addFeed('❄️ โดน Freeze!', 'freeze');
-        emit('gj:battle-skill-received', { skill: 'freeze', effect });
+        emit('gj:battle-skill-received', { skill: 'freeze', effect: normalized });
       }
     }
 
@@ -668,6 +1275,7 @@
     syncHud();
     refreshSkillButtons();
     updateGlobalState();
+    scheduleRealtimeSync('effect-received');
   }
 
   async function markEffectConsumed(key){
@@ -703,6 +1311,7 @@
         $$('.gj-freeze-slow-target').forEach(el => el.classList.remove('gj-freeze-slow-target'));
         return;
       }
+
       apply();
     }, 250);
 
@@ -822,10 +1431,15 @@
     }, 4200);
   }
 
+  /* =========================================================
+   * HUD / Mobile Dock
+   * ========================================================= */
+
   function ensureHud(){
     if (!IS_MOBILE && !IS_CARDBOARD) return;
 
     let hud = $('#gjBattleCompactHud');
+
     if (!hud){
       hud = document.createElement('div');
       hud.id = 'gjBattleCompactHud';
@@ -859,6 +1473,15 @@
   }
 
   function syncHud(){
+    const scoreSource = readRuntimeScore();
+    if (scoreSource.score || scoreSource.good || scoreSource.junk || scoreSource.miss){
+      state.score = scoreSource.score;
+      state.good = scoreSource.good;
+      state.junk = scoreSource.junk;
+      state.miss = scoreSource.miss;
+      state.hearts = scoreSource.hearts;
+    }
+
     const heartText = '❤'.repeat(state.hearts) + '♡'.repeat(Math.max(0, state.maxHearts - state.hearts));
 
     const scoreEl = $('#gjChudScore');
@@ -870,31 +1493,38 @@
     if (heartsEl) heartsEl.textContent = heartText;
     if (powerEl) powerEl.textContent = state.power + '/' + state.maxPower;
 
+    if (timeEl && scoreSource.timeLeft !== undefined){
+      timeEl.textContent = String(scoreSource.timeLeft);
+    }
+
     const oldScore = $('#score') || $('#myScore') || $('[data-score]');
     const oldHearts = $('#hearts') || $('#battleHearts') || $('[data-hearts]');
     const oldPower = $('#battlePower') || $('#skillPower') || $('[data-battle-power]');
 
     if (oldScore) oldScore.textContent = String(state.score);
     if (oldHearts) oldHearts.textContent = heartText;
-    if (oldPower) oldPower.textContent = 'พลัง ' + state.power + '/' + state.maxPower;
+    if (oldPower) oldPower.textContent = IS_CARDBOARD
+      ? state.power + '/' + state.maxPower
+      : 'พลัง ' + state.power + '/' + state.maxPower;
 
     let badge = $('#gjBattlePowerBadge');
-    if (!badge){
+
+    if (!badge && !IS_CARDBOARD){
       badge = document.createElement('div');
       badge.id = 'gjBattlePowerBadge';
       badge.className = 'gj-battle-power-badge';
       const bar = $('#battleActions') || $('.battle-actions');
       if (bar && bar.parentNode) bar.parentNode.insertBefore(badge, bar);
     }
-    if (badge) badge.textContent = '⚔️ พลัง ' + state.power + '/' + state.maxPower;
 
-    refreshSkillButtons();
+    if (badge) badge.textContent = '⚔️ พลัง ' + state.power + '/' + state.maxPower;
   }
 
   function ensureMobileDock(){
     if (!IS_MOBILE || IS_CARDBOARD) return null;
 
     let dock = $('#gjBattleMobileActionDock');
+
     if (!dock){
       dock = document.createElement('div');
       dock.id = 'gjBattleMobileActionDock';
@@ -923,10 +1553,14 @@
     if (!grid) return;
 
     SKILLS.forEach(skill => {
-      const original = $('[data-skill="' + skill.key + '"]');
+      const original =
+        $('[data-skill="' + skill.key + '"]') ||
+        $('[data-action="' + skill.key + '"]');
+
       if (!original) return;
 
       let clone = $('#dock_' + skill.key.replaceAll('-','_'), grid);
+
       if (!clone){
         clone = document.createElement('button');
         clone.id = 'dock_' + skill.key.replaceAll('-','_');
@@ -953,6 +1587,7 @@
 
   function addFeed(text, cls){
     let feed = $('#gjBattleCombatFeed');
+
     if (!feed){
       feed = document.createElement('div');
       feed.id = 'gjBattleCombatFeed';
@@ -990,6 +1625,7 @@
 
   function bigFx(text, cls){
     let fx = $('#gjBattleBigCombatFx');
+
     if (!fx){
       fx = document.createElement('div');
       fx.id = 'gjBattleBigCombatFx';
@@ -1006,18 +1642,28 @@
     }, 1100);
   }
 
+  /* =========================================================
+   * Firebase room/player sync
+   * ========================================================= */
+
   async function updateMyPlayer(patch){
     const roomRef = getRoomRef();
     if (!roomRef) return false;
 
+    const canonical = buildCanonicalPlayerPatch(Object.assign({
+      name: PLAYER_NAME,
+      playerName: PLAYER_NAME,
+      displayName: PLAYER_NAME,
+      pid: PLAYER_ID,
+      view: VIEW,
+      device: VIEW,
+      matchId: state.matchId || window.GJ_MATCH_ID || '',
+      roundId: state.matchId || window.GJ_MATCH_ID || '',
+      clientPatch: CORE_VERSION
+    }, patch || {}));
+
     try{
-      await roomRef.child('players').child(PLAYER_ID).update(Object.assign({
-        name: PLAYER_NAME,
-        lastSeen: now(),
-        heartbeatAt: now(),
-        updatedAt: now(),
-        clientPatch: CORE_VERSION
-      }, patch || {}));
+      await roomRef.child('players').child(PLAYER_ID).update(canonical);
       return true;
     }catch(err){
       console.warn('[GoodJunk Battle Core] updateMyPlayer failed', err);
@@ -1029,10 +1675,10 @@
     const roomRef = getRoomRef();
     if (!roomRef) return false;
 
+    const canonical = buildCanonicalRoomPatch(patch || {});
+
     try{
-      await roomRef.update(Object.assign({
-        updatedAt: now()
-      }, patch || {}));
+      await roomRef.update(canonical);
       return true;
     }catch(err){
       console.warn('[GoodJunk Battle Core] updateRoom failed', err);
@@ -1047,7 +1693,8 @@
       left: false,
       quit: false,
       disconnected: false,
-      status: 'online'
+      status: 'playing',
+      currentUrl: location.href
     });
 
     state.heartbeatTimer = setInterval(() => {
@@ -1055,7 +1702,7 @@
         left: false,
         quit: false,
         disconnected: false,
-        status: 'online',
+        status: 'playing',
         currentUrl: location.href
       });
     }, CFG.heartbeatMs);
@@ -1069,7 +1716,8 @@
       const roomRef = getRoomRef();
       if (!roomRef) return;
 
-      roomRef.child('players').child(PLAYER_ID).update({
+      roomRef.child('players').child(PLAYER_ID).update(buildCanonicalPlayerPatch({
+        name: PLAYER_NAME,
         left: true,
         quit: true,
         disconnected: true,
@@ -1080,7 +1728,7 @@
         lastSeen: now(),
         heartbeatAt: now(),
         updatedAt: now()
-      });
+      }));
     }catch(e){}
   }
 
@@ -1098,22 +1746,12 @@
     location.href = urlToGo;
   }
 
-  function getPlayers(room){
-    return Object.entries(safeObj(room.players)).map(([id, data]) => Object.assign({ id }, safeObj(data)));
-  }
-
-  function getMeOpponent(room){
-    const players = getPlayers(room);
-
-    const me = players.find(p => String(p.id) === PLAYER_ID);
-    const opponent = players.find(p => String(p.id) !== PLAYER_ID && playerOnline(p));
-    const opponentAny = players.find(p => String(p.id) !== PLAYER_ID);
-
-    return { players, me, opponent, opponentAny };
-  }
-
   async function handleOpponentLeft(room){
-    const { me, opponent, opponentAny } = getMeOpponent(room);
+    const data = getMeAndOpponent(room, PLAYER_ID, CFG.offlineAfterMs);
+    const me = data.me;
+    const opponent = data.opponent;
+    const opponentAny = data.opponentAny;
+
     if (!me || !opponentAny) return false;
     if (opponent) return false;
 
@@ -1123,24 +1761,28 @@
       me.nextReady === true ||
       me.status === 'rematch-ready';
 
-    const phase = String(room.phase || room.status || state.phase || '').toLowerCase();
+    const phase = data.room.phase;
 
     if (waitingRematch || ['summary','result','ended','finished','gameover','rematch','opponent-left'].includes(phase)){
       if (!state.opponentLeftHandled){
         state.opponentLeftHandled = true;
+
         await updateMyPlayer({
           rematchReady: false,
           readyRematch: false,
           nextReady: false,
           status: 'online'
         });
+
         showOpponentLeftRematch();
       }
+
       return true;
     }
 
     if (['play','playing','running','battle','active'].includes(phase)){
       showOpponentLeftPlaying();
+
       await updateRoom({
         phase: 'opponent-left',
         status: 'opponent-left',
@@ -1148,6 +1790,7 @@
         winner: PLAYER_ID,
         reason: 'opponent-left'
       });
+
       return true;
     }
 
@@ -1179,6 +1822,7 @@
     }
 
     const btn = $('#btnRematch') || $('[data-rematch-btn]') || $('.btn-rematch');
+
     if (btn){
       btn.disabled = false;
       btn.classList.remove('is-waiting');
@@ -1200,10 +1844,12 @@
     const roomRef = getRoomRef();
     if (!roomRef) return false;
 
-    const phase = String(room.phase || room.status || '').toLowerCase();
+    const nr = normalizeRoom(room);
+    const phase = nr.phase;
+
     if (!['summary','result','ended','finished','gameover','rematch'].includes(phase)) return false;
 
-    const players = getPlayers(room).filter(playerOnline);
+    const players = nr.players.filter(p => isOnlinePlayer(p, CFG.offlineAfterMs));
     if (players.length < 2) return false;
 
     const ready = players.filter(p => {
@@ -1222,7 +1868,8 @@
     if (ready.length < 2) return false;
 
     const newMatchId = 'm_' + now() + '_' + Math.random().toString(16).slice(2,8);
-    const updates = {
+
+    const updates = buildCanonicalRoomPatch({
       phase: 'play',
       status: 'play',
       matchId: newMatchId,
@@ -1232,31 +1879,33 @@
       winner: null,
       reason: null,
       effects: null
-    };
+    });
 
     players.forEach(p => {
       const base = 'players/' + p.id + '/';
-      updates[base + 'score'] = 0;
-      updates[base + 'hearts'] = CFG.maxHearts;
-      updates[base + 'hp'] = CFG.maxHearts;
-      updates[base + 'lives'] = CFG.maxHearts;
-      updates[base + 'miss'] = 0;
-      updates[base + 'good'] = 0;
-      updates[base + 'junk'] = 0;
-      updates[base + 'power'] = 0;
-      updates[base + 'attackPower'] = 0;
-      updates[base + 'result'] = null;
-      updates[base + 'finished'] = false;
-      updates[base + 'done'] = false;
-      updates[base + 'rematchReady'] = false;
-      updates[base + 'readyRematch'] = false;
-      updates[base + 'nextReady'] = false;
-      updates[base + 'rematchReadyAt'] = null;
-      updates[base + 'status'] = 'online';
-      updates[base + 'left'] = false;
-      updates[base + 'quit'] = false;
-      updates[base + 'disconnected'] = false;
-      updates[base + 'updatedAt'] = now();
+      const patch = buildCanonicalPlayerPatch({
+        score: 0,
+        good: 0,
+        junk: 0,
+        miss: 0,
+        hearts: CFG.maxHearts,
+        power: 0,
+        result: null,
+        finished: false,
+        done: false,
+        rematchReady: false,
+        readyRematch: false,
+        nextReady: false,
+        rematchReadyAt: null,
+        status: 'online',
+        left: false,
+        quit: false,
+        disconnected: false
+      });
+
+      Object.entries(patch).forEach(([k,v]) => {
+        updates[base + k] = v;
+      });
     });
 
     try{
@@ -1303,6 +1952,7 @@
 
     syncHud();
     updateGlobalState();
+    forceRealtimeSync('reset-local-round');
   }
 
   async function onRoomValue(room){
@@ -1311,20 +1961,29 @@
     window.GJ_CURRENT_ROOM = room;
     window.currentRoom = room;
 
-    state.phase = String(room.phase || room.status || state.phase || 'play');
-    state.matchId = String(room.matchId || room.roundId || state.matchId || '');
+    const nr = normalizeRoom(room);
+
+    state.phase = nr.phase || state.phase || 'play';
+    state.matchId = nr.matchId || state.matchId || '';
     window.GJ_BATTLE_PHASE = state.phase;
     window.GJ_MATCH_ID = state.matchId;
 
     await handleOpponentLeft(room);
     await handleRematchReady(room);
 
-    const effects = safeObj(room.effects);
-    Object.entries(effects).forEach(([key, eff]) => {
+    Object.entries(nr.effects || {}).forEach(([key, eff]) => {
       if (!eff) return;
       if (eff.consumed === true && eff.consumedBy === PLAYER_ID) return;
       applyEffect(eff, key);
     });
+
+    const opponent =
+      nr.players.find(p => String(p.id) !== PLAYER_ID && isOnlinePlayer(p, CFG.offlineAfterMs)) ||
+      nr.players.find(p => String(p.id) !== PLAYER_ID);
+
+    if (opponent){
+      applyOpponentToUI(opponent);
+    }
 
     cleanStaleEffects(room);
   }
@@ -1333,11 +1992,11 @@
     const roomRef = getRoomRef();
     if (!roomRef) return;
 
-    const effects = safeObj(room.effects);
+    const nr = normalizeRoom(room);
     const updates = {};
     const cutoff = now() - CFG.staleEffectAfterMs;
 
-    Object.entries(effects).forEach(([key, eff]) => {
+    Object.entries(nr.effects || {}).forEach(([key, eff]) => {
       const ts = Number(eff && eff.ts || 0);
       if (ts && ts < cutoff) updates['effects/' + key] = null;
       if (eff && eff.consumed === true) updates['effects/' + key] = null;
@@ -1352,6 +2011,7 @@
 
   function attachRoomListener(){
     const roomRef = getRoomRef();
+
     if (!roomRef || typeof roomRef.on !== 'function') return;
     if (state.roomListenerAttached) return;
 
@@ -1363,21 +2023,438 @@
     });
   }
 
-  function buildLobbyUrl(){
-    return buildUrl('./goodjunk-battle-v2-lobby.html');
+  /* =========================================================
+   * Realtime Score Sync v2.4.25
+   * ========================================================= */
+
+  function readRuntimeScore(){
+    const rt = window.GJ_BATTLE_RUNTIME;
+    const rs = rt && rt.state ? rt.state : {};
+    const bs = window.GJ_BATTLE_STATE || {};
+
+    const score = Number(
+      rs.score ??
+      bs.score ??
+      bs.myScore ??
+      state.score ??
+      readNumber('#score', 0)
+    );
+
+    const good = Number(
+      rs.good ??
+      bs.good ??
+      state.good ??
+      readNumber('#goodCount', 0)
+    );
+
+    const junk = Number(
+      rs.junk ??
+      bs.junk ??
+      state.junk ??
+      readNumber('#junkCount', 0)
+    );
+
+    const miss = Number(
+      rs.miss ??
+      bs.miss ??
+      state.miss ??
+      readNumber('#missCount', 0)
+    );
+
+    const hearts = Number(
+      rs.hearts ??
+      bs.hearts ??
+      bs.hp ??
+      state.hearts ??
+      readHeartCount()
+    );
+
+    const power = Number(
+      bs.power ??
+      bs.attackPower ??
+      state.power ??
+      readPowerCount()
+    );
+
+    const timeLeft = Number(
+      rs.timeLeft ??
+      bs.timeLeft ??
+      bs.remaining ??
+      readNumber('#timer', 0)
+    );
+
+    return {
+      score: Number.isFinite(score) ? score : 0,
+      good: Number.isFinite(good) ? good : 0,
+      junk: Number.isFinite(junk) ? junk : 0,
+      miss: Number.isFinite(miss) ? miss : 0,
+      hearts: Number.isFinite(hearts) ? hearts : 3,
+      power: Number.isFinite(power) ? power : 0,
+      timeLeft: Number.isFinite(timeLeft) ? timeLeft : 0
+    };
   }
 
-  function buildModesUrl(){
-    return buildUrl('../goodjunk-launcher.html');
+  function readNumber(sel, fallback){
+    const el = $(sel);
+    if (!el) return fallback;
+
+    const txt = String(el.textContent || el.value || '');
+    const m = txt.match(/-?\d+/);
+
+    if (!m) return fallback;
+
+    const n = Number(m[0]);
+    return Number.isFinite(n) ? n : fallback;
   }
 
-  function buildHubUrl(){
-    const hub = params.get('hub');
-    if (hub){
-      try{ return new URL(hub, location.href).toString(); }catch(e){}
+  function readHeartCount(){
+    const el =
+      $('#hearts') ||
+      $('#battleHearts') ||
+      $('[data-hearts]');
+
+    if (!el) return 3;
+
+    const txt = String(el.textContent || '');
+
+    const full = (txt.match(/❤/g) || []).length;
+    if (full > 0) return full;
+
+    const m = txt.match(/\d+/);
+    if (m) return Number(m[0]);
+
+    return 3;
+  }
+
+  function readPowerCount(){
+    const el =
+      $('#battlePower') ||
+      $('#skillPower') ||
+      $('[data-battle-power]') ||
+      $('#gjBattlePowerBadge');
+
+    if (!el) return 0;
+
+    const txt = String(el.textContent || '');
+    const m = txt.match(/\d+/);
+
+    if (!m) return 0;
+
+    return Number(m[0]) || 0;
+  }
+
+  function scoreHash(score){
+    return [
+      score.score,
+      score.good,
+      score.junk,
+      score.miss,
+      score.hearts,
+      score.power,
+      score.timeLeft,
+      state.matchId || window.GJ_MATCH_ID || ''
+    ].join('|');
+  }
+
+  function buildRealtimePlayerPatch(extra){
+    const score = readRuntimeScore();
+
+    state.score = score.score;
+    state.good = score.good;
+    state.junk = score.junk;
+    state.miss = score.miss;
+    state.hearts = score.hearts;
+    state.power = score.power;
+
+    return buildCanonicalPlayerPatch(Object.assign({
+      name: PLAYER_NAME,
+      playerName: PLAYER_NAME,
+      displayName: PLAYER_NAME,
+
+      pid: PLAYER_ID,
+      view: VIEW,
+      device: VIEW,
+
+      score: score.score,
+      points: score.score,
+      myScore: score.score,
+
+      good: score.good,
+      goodCount: score.good,
+
+      junk: score.junk,
+      junkCount: score.junk,
+
+      miss: score.miss,
+      missCount: score.miss,
+
+      hearts: score.hearts,
+      hp: score.hearts,
+      lives: score.hearts,
+
+      power: score.power,
+      attackPower: score.power,
+      energy: score.power,
+
+      timeLeft: score.timeLeft,
+      remaining: score.timeLeft,
+
+      matchId: state.matchId || window.GJ_MATCH_ID || '',
+      roundId: state.matchId || window.GJ_MATCH_ID || '',
+
+      status: 'playing',
+      currentPage: 'run',
+      phase: 'play',
+
+      left: false,
+      quit: false,
+      disconnected: false,
+
+      realtimeSyncVersion: 'v2.4.26-realtime-final'
+    }, extra || {}));
+  }
+
+  async function syncRealtimeNow(reason, force){
+    const roomRef = getRoomRef();
+
+    if (!roomRef){
+      return false;
     }
-    return buildUrl('../nutrition-zone.html');
+
+    const t = now();
+    const score = readRuntimeScore();
+    const hash = scoreHash(score);
+
+    if (!force && hash === state.realtime.lastScoreHash && t - state.realtime.lastForceSyncAt < CFG.realtimeForceSyncMs){
+      return false;
+    }
+
+    if (!force && t - state.realtime.lastSyncAt < CFG.realtimeSyncThrottleMs){
+      scheduleRealtimeSync(reason || 'throttle');
+      return false;
+    }
+
+    state.realtime.lastSyncAt = t;
+    if (force) state.realtime.lastForceSyncAt = t;
+    state.realtime.lastScoreHash = hash;
+    state.realtime.pendingSync = false;
+
+    const patch = buildRealtimePlayerPatch({
+      lastSyncReason: reason || 'runtime',
+      lastSyncAt: t
+    });
+
+    try{
+      await roomRef.child('players').child(PLAYER_ID).update(patch);
+
+      emit('gj:battle-score-synced', {
+        reason: reason || 'runtime',
+        patch,
+        version: 'v2.4.26-realtime-final'
+      });
+
+      return true;
+    }catch(err){
+      console.warn('[GoodJunk Battle Realtime Sync] sync failed', err);
+
+      emit('gj:battle-score-sync-failed', {
+        reason: reason || 'runtime',
+        error: String(err && err.message || err),
+        version: 'v2.4.26-realtime-final'
+      });
+
+      return false;
+    }
   }
+
+  function scheduleRealtimeSync(reason){
+    state.realtime.pendingSync = true;
+
+    clearTimeout(state.realtime.syncTimer);
+
+    state.realtime.syncTimer = setTimeout(function(){
+      syncRealtimeNow(reason || 'scheduled', false);
+    }, CFG.realtimeSyncThrottleMs);
+  }
+
+  function forceRealtimeSync(reason){
+    return syncRealtimeNow(reason || 'force', true);
+  }
+
+  function applyOpponentToUI(opponent){
+    if (!opponent) return;
+
+    const p = normalizePlayer(opponent.id || opponent.pid || 'opponent', opponent);
+    state.realtime.opponent = p;
+
+    const name = p.name || 'Hero';
+
+    const nameEl =
+      $('#opponentName') ||
+      $('[data-opponent-name]') ||
+      $('.opponent-name');
+
+    if (nameEl){
+      if (nameEl.id === 'opponentName' && String(nameEl.textContent || '').includes('คู่แข่ง')){
+        nameEl.textContent = 'คู่แข่ง: ' + name;
+      }else{
+        nameEl.textContent = name;
+      }
+    }
+
+    const statusEl =
+      $('#opponentStatus') ||
+      $('[data-opponent-status]') ||
+      $('.opponent-status');
+
+    if (statusEl){
+      if (isOnlinePlayer(p, CFG.offlineAfterMs)){
+        statusEl.textContent = 'PLAY';
+        statusEl.classList.remove('off');
+      }else{
+        statusEl.textContent = 'LEFT';
+        statusEl.classList.add('off');
+      }
+    }
+
+    const scoreEl = $('#opponentScore') || $('[data-opponent-score]');
+    if (scoreEl) scoreEl.textContent = String(p.score);
+
+    window.GJ_BATTLE_OPPONENT = {
+      id: p.id,
+      name: p.name,
+      score: p.score,
+      good: p.good,
+      junk: p.junk,
+      miss: p.miss,
+      hearts: p.hearts,
+      power: p.power,
+      status: p.status,
+      updatedAt: p.updatedAt || p.lastSeen || 0
+    };
+
+    emit('gj:battle-opponent-updated', window.GJ_BATTLE_OPPONENT);
+  }
+
+  function patchRuntimeOpponentSnapshot(){
+    const rt = window.GJ_BATTLE_RUNTIME;
+    if (!rt) return;
+
+    if (rt.__gjRealtimeOpponentPatched) return;
+    rt.__gjRealtimeOpponentPatched = true;
+
+    rt.getRealtimeOpponent = function(){
+      return window.GJ_BATTLE_OPPONENT || state.realtime.opponent || null;
+    };
+
+    const oldUpdate = rt.updateOpponentUI;
+
+    if (typeof oldUpdate === 'function'){
+      rt.updateOpponentUI = function(){
+        oldUpdate.apply(this, arguments);
+        if (window.GJ_BATTLE_OPPONENT){
+          applyOpponentToUI(window.GJ_BATTLE_OPPONENT);
+        }
+      };
+    }
+  }
+
+  function bindGameEvents(){
+    window.addEventListener('gj:good-collected', ev => {
+      const d = ev.detail || {};
+
+      if (eventGate('good', 120)){
+        state.good += 1;
+        state.score += Number(d.score || 10);
+        addPower(Number(d.power || 1));
+      }
+
+      scheduleRealtimeSync('gj:good-collected');
+    });
+
+    window.addEventListener('goodjunk:good', () => {
+      if (eventGate('good', 120)){
+        state.good += 1;
+        state.score += 10;
+        addPower(1);
+      }
+
+      scheduleRealtimeSync('goodjunk:good');
+    });
+
+    window.addEventListener('hha:score', ev => {
+      const d = ev.detail || {};
+      const type = String(d.type || d.kind || '').toLowerCase();
+
+      if (eventGate('score', 120)){
+        if (!type || type.includes('good') || type.includes('score')){
+          if (!window.GJ_BATTLE_RUNTIME){
+            state.score += Number(d.score || d.points || 10);
+            state.good += type.includes('good') ? 1 : 0;
+            addPower(1);
+          }
+        }
+      }
+
+      scheduleRealtimeSync('hha:score');
+    });
+
+    window.addEventListener('gj:junk-hit', () => {
+      if (eventGate('junk', 120)){
+        if (!window.GJ_BATTLE_RUNTIME){
+          damage(1);
+        }
+      }
+
+      scheduleRealtimeSync('gj:junk-hit');
+    });
+
+    window.addEventListener('goodjunk:junk', () => {
+      if (eventGate('junk', 120)){
+        if (!window.GJ_BATTLE_RUNTIME){
+          damage(1);
+        }
+      }
+
+      scheduleRealtimeSync('goodjunk:junk');
+    });
+
+    window.addEventListener('hha:miss', ev => {
+      const d = ev.detail || {};
+      const type = String(d.type || d.kind || '').toLowerCase();
+
+      if (eventGate('miss', 120)){
+        if (!type || type.includes('junk') || type.includes('miss')){
+          if (!window.GJ_BATTLE_RUNTIME){
+            damage(1);
+          }
+        }
+      }
+
+      scheduleRealtimeSync('hha:miss');
+    });
+
+    [
+      'gj:battle-state-updated',
+      'gj:battle-skill-local',
+      'gj:battle-skill-received',
+      'gj:battle-skill-balanced-used',
+      'gj:battle-power-balanced-gain',
+      'gj:heal-player',
+      'gj:freeze-player',
+      'gj:spawn-junk-storm'
+    ].forEach(evName => {
+      window.addEventListener(evName, () => scheduleRealtimeSync(evName));
+    });
+
+    window.addEventListener('gj:battle-ended', () => forceRealtimeSync('battle-ended'));
+    window.addEventListener('pagehide', () => forceRealtimeSync('pagehide'));
+    window.addEventListener('beforeunload', () => forceRealtimeSync('beforeunload'));
+  }
+
+  /* =========================================================
+   * Navigation / Rematch / End
+   * ========================================================= */
 
   function buildUrl(path){
     const out = new URL(path, location.href);
@@ -1394,6 +2471,22 @@
     if (ROOM_CODE) out.searchParams.set('lastRoom', ROOM_CODE);
 
     return out.toString();
+  }
+
+  function buildLobbyUrl(){
+    return buildUrl('./goodjunk-battle-v2-lobby.html');
+  }
+
+  function buildModesUrl(){
+    return buildUrl('../goodjunk-launcher.html');
+  }
+
+  function buildHubUrl(){
+    const hub = params.get('hub');
+    if (hub){
+      try{ return new URL(hub, location.href).toString(); }catch(e){}
+    }
+    return buildUrl('../nutrition-zone.html');
   }
 
   function patchNavigation(){
@@ -1501,6 +2594,7 @@
       good: state.good,
       junk: state.junk,
       miss: state.miss,
+      power: state.power,
       result,
       finished: true,
       done: true,
@@ -1514,50 +2608,14 @@
       reason: reason || result
     });
 
+    forceRealtimeSync('end-battle');
+
     emit('gj:battle-ended', { result, reason });
-  }
-
-  function bindGameEvents(){
-    window.addEventListener('gj:good-collected', ev => {
-      const d = ev.detail || {};
-      state.good += 1;
-      state.score += Number(d.score || 10);
-      addPower(Number(d.power || 1));
-      syncHud();
-      updateGlobalState();
-    });
-
-    window.addEventListener('goodjunk:good', () => {
-      state.good += 1;
-      state.score += 10;
-      addPower(1);
-    });
-
-    window.addEventListener('hha:score', ev => {
-      const d = ev.detail || {};
-      const type = String(d.type || d.kind || '').toLowerCase();
-
-      if (!type || type.includes('good') || type.includes('score')){
-        state.score += Number(d.score || d.points || 10);
-        state.good += type.includes('good') ? 1 : 0;
-        addPower(1);
-      }
-
-      syncHud();
-      updateGlobalState();
-    });
-
-    window.addEventListener('gj:junk-hit', () => damage(1));
-    window.addEventListener('goodjunk:junk', () => damage(1));
-    window.addEventListener('hha:miss', ev => {
-      const d = ev.detail || {};
-      const type = String(d.type || d.kind || '').toLowerCase();
-      if (!type || type.includes('junk') || type.includes('miss')) damage(1);
-    });
   }
 
   function shouldHideDock(){
     const phase = String(state.phase || '').toLowerCase();
+
     if (['summary','result','ended','finished','gameover','rematch','opponent-left'].includes(phase)) return true;
 
     return [
@@ -1595,6 +2653,154 @@
     patchNavigation();
     patchRematch();
     refreshSkillButtons();
+  }
+
+  /* =========================================================
+   * QA + Final Manifest
+   * ========================================================= */
+
+  const MANIFEST = {
+    version: 'v2.4.26-final-manifest-qa-checklist',
+    files: {
+      launcher: '/herohealth/goodjunk-launcher.html',
+      lobby: '/herohealth/vr-goodjunk/goodjunk-battle-v2-lobby.html',
+      router: '/herohealth/vr-goodjunk/goodjunk-battle-v2-run.html',
+      core: '/herohealth/vr-goodjunk/goodjunk-battle-v2-core.js',
+      bridge: '/herohealth/vr-goodjunk/goodjunk-battle-v2-firebase-bridge.js',
+      mobile: '/herohealth/vr-goodjunk/goodjunk-battle-v2-run-mobile.html',
+      pc: '/herohealth/vr-goodjunk/goodjunk-battle-v2-run-pc.html',
+      cardboard: '/herohealth/vr-goodjunk/goodjunk-battle-v2-run-cardboard.html'
+    },
+    skills: ['junk-storm','shield','freeze','heal']
+  };
+
+  function detectPageRole(){
+    const p = location.pathname;
+
+    if (p.includes('goodjunk-launcher.html')) return 'launcher';
+    if (p.includes('goodjunk-battle-v2-lobby.html')) return 'lobby';
+    if (p.includes('goodjunk-battle-v2-run.html')) return 'router';
+    if (p.includes('goodjunk-battle-v2-run-mobile.html')) return 'mobile-runtime';
+    if (p.includes('goodjunk-battle-v2-run-pc.html')) return 'pc-runtime';
+    if (p.includes('goodjunk-battle-v2-run-cardboard.html')) return 'cardboard-runtime';
+
+    return 'unknown';
+  }
+
+  function checkFirebase(){
+    const ready = !!window.GJ_BATTLE_DB_READY;
+    const db = window.GJ_DB || window.db || window.database || window.firebaseDb || null;
+
+    return {
+      ok: ready && !!(db && typeof db.ref === 'function'),
+      ready,
+      source: window.GJ_BATTLE_DB_SOURCE || 'none',
+      hasDbRef: !!(db && typeof db.ref === 'function')
+    };
+  }
+
+  function checkSkills(){
+    const missing = [];
+    const present = [];
+
+    MANIFEST.skills.forEach(function(skill){
+      const el =
+        $('[data-skill="' + skill + '"]') ||
+        $('[data-action="' + skill + '"]');
+
+      if (el) present.push(skill);
+      else missing.push(skill);
+    });
+
+    return {
+      ok: missing.length === 0,
+      present,
+      missing
+    };
+  }
+
+  function qaSnapshot(){
+    const role = detectPageRole();
+
+    const checks = {
+      role,
+      firebase: checkFirebase(),
+      bridge: {
+        ok: !!window.GJ_BATTLE_FIREBASE_BRIDGE,
+        version: window.GJ_BATTLE_FIREBASE_BRIDGE && window.GJ_BATTLE_FIREBASE_BRIDGE.version
+      },
+      schema: {
+        ok: !!window.GJ_BATTLE_SCHEMA,
+        version: window.GJ_BATTLE_SCHEMA && window.GJ_BATTLE_SCHEMA.version
+      },
+      core: {
+        ok: !!window.GJ_BATTLE_CORE,
+        version: window.GJ_BATTLE_CORE && window.GJ_BATTLE_CORE.version
+      },
+      runtime: {
+        ok: !!window.GJ_BATTLE_RUNTIME,
+        version: window.GJ_BATTLE_RUNTIME && window.GJ_BATTLE_RUNTIME.version
+      },
+      realtimeSync: {
+        ok: !!window.GJ_BATTLE_REALTIME_SYNC,
+        version: window.GJ_BATTLE_REALTIME_SYNC && window.GJ_BATTLE_REALTIME_SYNC.version
+      },
+      room: {
+        ok: !!ROOM_CODE,
+        room: ROOM_CODE,
+        matchId: state.matchId || window.GJ_MATCH_ID || ''
+      },
+      player: {
+        ok: !!PLAYER_ID && !!PLAYER_NAME,
+        pid: PLAYER_ID,
+        name: PLAYER_NAME
+      },
+      view: {
+        ok: ['mobile','pc','cardboard','cvr','vr'].includes(VIEW),
+        view: VIEW
+      },
+      skills: checkSkills()
+    };
+
+    const critical = [];
+
+    if (['mobile-runtime','pc-runtime','cardboard-runtime'].includes(role)){
+      ['bridge','schema','core','runtime','room','player','view','skills'].forEach(function(k){
+        if (!checks[k] || checks[k].ok === false) critical.push(k);
+      });
+    }
+
+    return {
+      version: 'v2.4.26-final-manifest-qa-checklist',
+      manifest: MANIFEST,
+      url: location.href,
+      path: location.pathname,
+      timestamp: now(),
+      checks,
+      ok: critical.length === 0,
+      critical
+    };
+  }
+
+  function renderFinalBadge(){
+    let badge = $('#gjBattleFinalManifestBadge');
+
+    if (!badge){
+      badge = document.createElement('div');
+      badge.id = 'gjBattleFinalManifestBadge';
+      badge.className = 'gj-final-manifest-badge';
+      document.body.appendChild(badge);
+    }
+
+    const snap = qaSnapshot();
+
+    badge.textContent = snap.ok
+      ? 'Battle QA OK'
+      : 'Battle QA: ' + snap.critical.join(', ');
+
+    badge.classList.toggle('ok', snap.ok);
+    badge.classList.toggle('bad', !snap.ok);
+    badge.title = snap.version;
   }
 
   function ensureQA(){
@@ -1651,7 +2857,7 @@
     const body = $('#gjBattleQABody');
     if (!body) return;
 
-    const skillsOK = SKILLS.every(s => !!$('[data-skill="' + s.key + '"]'));
+    const snap = qaSnapshot();
 
     body.innerHTML = `
       <div class="gj-qa-grid">
@@ -1665,10 +2871,15 @@
         <span>score</span><b>${state.score}</b>
         <span>heart</span><b>${state.hearts}</b>
         <span>power</span><b>${state.power}/${state.maxPower}</b>
-        <span>skills</span><b>${skillsOK ? 'OK' : 'MISSING'}</b>
+        <span>skills</span><b>${snap.checks.skills.ok ? 'OK' : 'MISSING: ' + snap.checks.skills.missing.join(', ')}</b>
+        <span>db</span><b>${snap.checks.firebase.ok ? 'READY' : 'OFFLINE'}</b>
       </div>
     `;
   }
+
+  /* =========================================================
+   * CSS
+   * ========================================================= */
 
   function injectCSS(){
     if ($('#gjBattleCoreCSS')) return;
@@ -1704,23 +2915,9 @@
         touch-action:manipulation!important;
       }
 
-      .gj-skill-btn .gj-skill-icon{
-        display:block!important;
-        font-size:24px!important;
-      }
-
-      .gj-skill-btn .gj-skill-main{
-        display:block!important;
-        font-size:15px!important;
-        font-weight:1000!important;
-      }
-
-      .gj-skill-btn .gj-skill-sub{
-        display:block!important;
-        font-size:11px!important;
-        opacity:.78!important;
-      }
-
+      .gj-skill-btn .gj-skill-icon{display:block!important;font-size:24px!important;}
+      .gj-skill-btn .gj-skill-main{display:block!important;font-size:15px!important;font-weight:1000!important;}
+      .gj-skill-btn .gj-skill-sub{display:block!important;font-size:11px!important;opacity:.78!important;}
       .gj-skill-btn .gj-skill-cost{
         display:inline-block!important;
         margin-top:5px!important;
@@ -1731,23 +2928,9 @@
         font-weight:900!important;
       }
 
-      .gj-skill-shield{
-        background:linear-gradient(180deg,#ecf8ff,#aee0ff)!important;
-        border-color:rgba(120,198,255,.96)!important;
-        color:#13527a!important;
-      }
-
-      .gj-skill-freeze{
-        background:linear-gradient(180deg,#f0fbff,#bdf1ff)!important;
-        border-color:rgba(107,220,255,.96)!important;
-        color:#146075!important;
-      }
-
-      .gj-skill-heal{
-        background:linear-gradient(180deg,#edfff3,#aaf0bf)!important;
-        border-color:rgba(95,220,135,.96)!important;
-        color:#236b35!important;
-      }
+      .gj-skill-shield{background:linear-gradient(180deg,#ecf8ff,#aee0ff)!important;border-color:rgba(120,198,255,.96)!important;color:#13527a!important;}
+      .gj-skill-freeze{background:linear-gradient(180deg,#f0fbff,#bdf1ff)!important;border-color:rgba(107,220,255,.96)!important;color:#146075!important;}
+      .gj-skill-heal{background:linear-gradient(180deg,#edfff3,#aaf0bf)!important;border-color:rgba(95,220,135,.96)!important;color:#236b35!important;}
 
       .gj-skill-btn[disabled],
       .gj-skill-btn.is-disabled{
@@ -1806,15 +2989,8 @@
         animation:gjStormJunkPop .32s ease both, gjStormJunkWiggle .75s ease-in-out infinite alternate!important;
       }
 
-      .gj-storm-junk-hit{
-        animation:gjStormJunkHit .22s ease both!important;
-      }
-
-      .gj-storm-junk-timeout{
-        opacity:0!important;
-        transform:scale(.72)!important;
-        transition:opacity .22s ease,transform .22s ease!important;
-      }
+      .gj-storm-junk-hit{animation:gjStormJunkHit .22s ease both!important;}
+      .gj-storm-junk-timeout{opacity:0!important;transform:scale(.72)!important;transition:opacity .22s ease,transform .22s ease!important;}
 
       @keyframes gjStormJunkPop{
         from{opacity:0;transform:scale(.45) rotate(-10deg);}
@@ -1904,6 +3080,33 @@
         color:#653018!important;
       }
 
+      .opponent-status.off,
+      #opponentStatus.off{
+        border-color:rgba(255,123,105,.75)!important;
+        background:rgba(255,239,236,.82)!important;
+        color:#8d2b1f!important;
+      }
+
+      .gj-final-manifest-badge{
+        position:fixed!important;
+        left:8px!important;
+        bottom:calc(8px + env(safe-area-inset-bottom))!important;
+        z-index:100006!important;
+        padding:5px 9px!important;
+        border-radius:999px!important;
+        border:1px solid rgba(255,200,110,.86)!important;
+        background:rgba(255,255,255,.78)!important;
+        color:#7b421e!important;
+        font-size:10px!important;
+        font-weight:1000!important;
+        pointer-events:none!important;
+        opacity:.62!important;
+        box-shadow:0 6px 16px rgba(70,35,12,.12)!important;
+      }
+
+      .gj-final-manifest-badge.ok{border-color:rgba(90,210,120,.85)!important;color:#246a35!important;}
+      .gj-final-manifest-badge.bad{border-color:rgba(255,120,90,.9)!important;color:#8d2918!important;opacity:.9!important;}
+
       @media(max-width:760px){
         html.gj-battle-mobile body{
           padding-bottom:calc(136px + env(safe-area-inset-bottom))!important;
@@ -1932,9 +3135,7 @@
           font-size:clamp(14px,4vw,17px)!important;
         }
 
-        .gj-skill-btn .gj-skill-sub{
-          display:none!important;
-        }
+        .gj-skill-btn .gj-skill-sub{display:none!important;}
 
         .gj-skill-btn .gj-skill-cost{
           display:block!important;
@@ -1942,9 +3143,7 @@
           margin:4px auto 0!important;
         }
 
-        .gj-original-actions-hidden-mobile{
-          display:none!important;
-        }
+        .gj-original-actions-hidden-mobile{display:none!important;}
 
         .gj-mobile-action-dock{
           position:fixed!important;
@@ -2047,7 +3246,9 @@
           overflow:hidden!important;
         }
 
-        .gj-final-hide-dock{
+        .gj-final-hide-dock{display:none!important;}
+
+        .gj-final-manifest-badge{
           display:none!important;
         }
       }
@@ -2113,36 +3314,73 @@
     document.head.appendChild(css);
   }
 
-  function expose(){
+  /* =========================================================
+   * Expose + Boot
+   * ========================================================= */
+
+  function exposeCore(){
     window.GJ_BATTLE_CORE = {
       version: CORE_VERSION,
       state,
       config: CFG,
       skills: SKILLS,
+
       useSkill,
       addPower,
+      spendPower,
       damage,
       heal,
+
       resetLocalRound,
       updateMyPlayer,
       updateRoom,
       getRoomRef,
+
       buildLobbyUrl,
       buildModesUrl,
       buildHubUrl,
+
       endBattle,
+
       syncHud,
-      refreshSkillButtons
+      refreshSkillButtons,
+
+      readRuntimeScore,
+      syncRealtimeNow,
+      scheduleRealtimeSync,
+      forceRealtimeSync,
+
+      qaSnapshot
     };
 
     window.GJ_BATTLE_SKILL_LOGIC = window.GJ_BATTLE_CORE;
     window.GJ_BATTLE_SYNC = window.GJ_BATTLE_CORE;
     window.GJ_BATTLE_BALANCE = window.GJ_BATTLE_CORE;
+
+    window.GJ_BATTLE_REALTIME_SYNC = {
+      version: 'v2.4.26-realtime-final',
+      readRuntimeScore,
+      syncNow: syncRealtimeNow,
+      scheduleSync: scheduleRealtimeSync,
+      forceSync: forceRealtimeSync,
+      applyOpponentToUI,
+      state: state.realtime
+    };
+
+    window.GJ_BATTLE_FINAL_MANIFEST = {
+      version: 'v2.4.26-final-manifest-qa-checklist',
+      manifest: MANIFEST,
+      detectPageRole,
+      checkFirebase,
+      checkSkills,
+      qaSnapshot
+    };
   }
 
   function boot(){
+    exposeSchema();
     injectCSS();
-    expose();
+    exposeCore();
 
     ensureHud();
     ensureSkillButtons();
@@ -2159,12 +3397,33 @@
 
     layoutTick();
 
+    setTimeout(function(){
+      attachRoomListener();
+      forceRealtimeSync('boot');
+      patchRuntimeOpponentSnapshot();
+      renderFinalBadge();
+    }, 250);
+
+    setTimeout(function(){
+      attachRoomListener();
+      forceRealtimeSync('boot-late');
+      patchRuntimeOpponentSnapshot();
+      renderFinalBadge();
+    }, 1200);
+
     setInterval(() => {
       layoutTick();
       syncHud();
       refreshSkillButtons();
       ensureQA();
-    }, 700);
+      patchRuntimeOpponentSnapshot();
+
+      if (state.realtime.pendingSync || now() - state.realtime.lastForceSyncAt > CFG.realtimeForceSyncMs){
+        forceRealtimeSync('interval-force');
+      }
+
+      renderFinalBadge();
+    }, 900);
 
     window.addEventListener('resize', () => {
       setTimeout(layoutTick, 80);
