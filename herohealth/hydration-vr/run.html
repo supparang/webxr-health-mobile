@@ -13,12 +13,12 @@
 
   <link rel="icon" href="../favicon.ico" />
   <link rel="stylesheet" href="./hydration-vr.css?v=20260517-pack22" />
-  <link rel="stylesheet" href="./hydration-summary-compact.css?v=20260520-pack33" />
+  <link rel="stylesheet" href="./hydration-vr.mode-patch.css?v=20260518-pack30" />
 
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260520-pack33-core-only-summary-css
+    Version: v20260518-pack30-run-final-safe-loader
 
     Purpose:
       Shared run engine for Hydration
@@ -27,14 +27,12 @@
       mode = solo / duet / race / battle / coop
       view = pc / mobile / cvr
 
-    Important:
-      - Core-only stable
-      - ห้ามโหลด JS patch ที่ดัก Start
-      - Summary compact ใช้ CSS-only patch เท่านั้น
-      - Solo เข้า run.html ได้เลย
-      - Multiplayer ต้องผ่าน lobby.html ก่อน
-      - Multiplayer ต้องมี mpReady=1 จึงเข้าเกมได้
-      - ถ้า mode=pc/mobile/cvr หลุดมา จะถูก normalize เป็น mode=solo + view=...
+    Pack30:
+      - Critical file: hydration-vr.js only
+      - Optional patches must never white-screen the game
+      - Sanitizes bad hub links that point to cooldown/warmup gate
+      - Solo route never goes to lobby
+      - Multiplayer route still requires mpReady=1
   -->
 </head>
 
@@ -76,18 +74,91 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260520-pack33-core-only-summary-css';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260518-pack30-run-final-safe-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260520-pack33-core-only-summary-css';
+      var VERSION = 'v20260518-pack30-run-final-safe-loader';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
 
       var u = new URL(location.href);
+
+      function heroBase(){
+        try{
+          var marker = '/herohealth/';
+          var idx = location.pathname.indexOf(marker);
+
+          if(idx >= 0){
+            return location.origin + location.pathname.slice(0, idx + marker.length);
+          }
+
+          return new URL('../', location.href).toString();
+        }catch(e){
+          return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+        }
+      }
+
+      function safeDecode(v){
+        try{
+          return decodeURIComponent(String(v || ''));
+        }catch(e){
+          return String(v || '');
+        }
+      }
+
+      function nutritionZoneUrl(){
+        var base = heroBase();
+        var zone = new URL('nutrition-zone.html', base);
+
+        [
+          'pid',
+          'name',
+          'nick',
+          'diff',
+          'time',
+          'view',
+          'log',
+          'api',
+          'studyId',
+          'conditionGroup'
+        ].forEach(function(k){
+          var v = u.searchParams.get(k);
+          if(v !== null && v !== ''){
+            zone.searchParams.set(k, v);
+          }
+        });
+
+        zone.searchParams.set('hub', new URL('hub.html', base).toString());
+
+        return zone.toString();
+      }
+
+      function isBadHub(raw){
+        var h = safeDecode(raw || '').toLowerCase();
+
+        if(!h) return true;
+
+        return (
+          h.indexOf('warmup-gate.html') !== -1 ||
+          h.indexOf('phase=cooldown') !== -1 ||
+          h.indexOf('gatephase=cooldown') !== -1 ||
+          h.indexOf('studyphase=cooldown') !== -1 ||
+          h.indexOf('hydration-vr/run.html') !== -1 ||
+          h.indexOf('lobby.html') !== -1
+        );
+      }
+
+      function sanitizeHub(){
+        var hub = u.searchParams.get('hub') || '';
+
+        if(isBadHub(hub)){
+          u.searchParams.set('hub', nutritionZoneUrl());
+        }
+      }
 
       function normalizeMode(v){
         v = String(v || '').toLowerCase();
@@ -152,6 +223,8 @@
       u.searchParams.set('game', 'hydration');
       u.searchParams.set('run', u.searchParams.get('run') || 'play');
 
+      sanitizeHub();
+
       /*
         Multiplayer safety gate:
         ถ้า mode ไม่ใช่ solo แต่ยังไม่มี mpReady=1
@@ -190,6 +263,16 @@
         u.searchParams.delete('matchId');
       }
 
+      /*
+        URL ที่ส่งมาจาก cooldown บางรอบยาวและ hub ผิด
+        replace ให้สะอาด แต่ไม่ reload
+      */
+      try{
+        if(location.href !== u.toString()){
+          history.replaceState(null, '', u.toString());
+        }
+      }catch(e){}
+
       document.body.dataset.view = view;
       document.body.dataset.mode = mode;
       document.body.dataset.hhaView = view;
@@ -220,7 +303,9 @@
         name: u.searchParams.get('name') || u.searchParams.get('nick') || 'Hero',
         diff: u.searchParams.get('diff') || 'normal',
         time: u.searchParams.get('time') || '90',
-        seed: u.searchParams.get('seed') || String(Date.now())
+        seed: u.searchParams.get('seed') || String(Date.now()),
+        hub: u.searchParams.get('hub') || nutritionZoneUrl(),
+        nutritionZone: nutritionZoneUrl()
       };
 
       window.HHA_LOAD_SCRIPT = function(src){
@@ -228,10 +313,15 @@
           var s = document.createElement('script');
           s.src = src;
           s.defer = true;
-          s.onload = resolve;
+
+          s.onload = function(){
+            resolve(src);
+          };
+
           s.onerror = function(){
             reject(new Error('โหลดไฟล์ไม่สำเร็จ: ' + src));
           };
+
           document.body.appendChild(s);
         });
       };
@@ -255,7 +345,7 @@
 
         box.innerHTML = [
           '<div style="',
-            'max-width:460px;',
+            'max-width:480px;',
             'width:94vw;',
             'border-radius:28px;',
             'padding:22px;',
@@ -281,7 +371,7 @@
               'color:#66879c;',
               'line-height:1.35;',
             '">',
-              String(msg || 'ตรวจสอบ hydration-vr.js / hydration-vr.css'),
+              String(msg || 'ตรวจสอบ hydration-vr.js / hydration-vr.css / patch / vr-ui.js'),
             '</p>',
 
             '<div style="',
@@ -294,12 +384,14 @@
               'color:#42677d;',
               'word-break:break-all;',
             '">',
-              'ต้องมีไฟล์:<br>',
-              '/herohealth/hydration-vr/run.html<br>',
-              '/herohealth/hydration-vr/hydration-vr.js<br>',
-              '/herohealth/hydration-vr/hydration-vr.css<br>',
-              '/herohealth/hydration-vr/hydration-summary-compact.css<br>',
-              '/herohealth/herohealth-logger.js',
+              'Critical file:<br>',
+              '/herohealth/hydration-vr/hydration-vr.js<br><br>',
+              'Optional patch files:<br>',
+              '/herohealth/hydration-vr/hydration-vr.mode-patch.js<br>',
+              '/herohealth/hydration-vr/hydration-start-hard-safe.patch.js<br>',
+              '/herohealth/hydration-vr/hydration-cooldown-return.patch.js<br>',
+              '/herohealth/hydration-vr/hydration-modes.js<br>',
+              '/herohealth/vr/vr-ui.js เฉพาะ view=cvr',
             '</div>',
 
             '<button onclick="location.reload()" style="',
@@ -354,8 +446,7 @@
           'log',
           'api',
           'studyId',
-          'conditionGroup',
-          'hub'
+          'conditionGroup'
         ].forEach(function(k){
           var v = u.searchParams.get(k);
           if(v !== null && v !== ''){
@@ -366,9 +457,12 @@
         hub.searchParams.set('mode', mode);
         hub.searchParams.set('view', view);
         hub.searchParams.set('launcher','1');
+        hub.searchParams.set('hub', nutritionZoneUrl());
 
         return hub.toString();
       };
+
+      window.HHA_HYDRATION_BUILD_NUTRITION_ZONE_URL = nutritionZoneUrl;
 
       function bootCheck(){
         var hyd = window.HHA && window.HHA.Hydration;
@@ -397,12 +491,50 @@
         }
       }
 
+      /*
+        Pack30 Loader Policy:
+        - hydration-vr.js = critical
+        - every other patch = optional
+        - optional patch must never white-screen the game
+      */
       HHA_LOAD_SCRIPT('../herohealth-logger.js?v=20260517-pack22')
         .catch(function(err){
           console.warn('[Hydration Run] logger optional load failed:', err);
         })
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260519-pack32');
+          return HHA_LOAD_SCRIPT('./hydration-vr.js?v=20260518-pack29');
+        })
+        .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-vr.mode-patch.js?v=20260518-pack30')
+            .catch(function(err){
+              console.warn('[Hydration Run] mode patch optional load failed:', err);
+            });
+        })
+        .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack28')
+            .catch(function(err){
+              console.warn('[Hydration Run] start hard-safe optional load failed:', err);
+            });
+        })
+        .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack25')
+            .catch(function(err){
+              console.warn('[Hydration Run] cooldown return optional load failed:', err);
+            });
+        })
+        .then(function(){
+          return HHA_LOAD_SCRIPT('./hydration-modes.js?v=20260517-pack22')
+            .catch(function(err){
+              console.warn('[Hydration Run] modes optional load failed:', err);
+            });
+        })
+        .then(function(){
+          if(view === 'cvr'){
+            return HHA_LOAD_SCRIPT('../vr/vr-ui.js?v=20260517-pack22')
+              .catch(function(err){
+                console.warn('[Hydration Run] vr-ui optional load failed:', err);
+              });
+          }
         })
         .then(function(){
           setTimeout(bootCheck, 1600);
