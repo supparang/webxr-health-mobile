@@ -1,0 +1,395 @@
+/* =========================================================
+   HeroHealth Hydration Summary Compact CSS
+   File: /herohealth/hydration-vr/hydration-summary-compact.css
+   Version: v20260520-pack33-summary-compact-pc-mobile
+
+   Purpose:
+   - ลดขนาด Summary ทั้ง PC และ Mobile
+   - ปลด scroll เฉพาะตอน Summary
+   - CSS-only patch: ไม่แตะปุ่ม Start / gameplay / event
+   ========================================================= */
+
+
+/* =========================================================
+   Scroll unlock when summary is open
+   ========================================================= */
+
+html.hha-hydration-summary-open,
+body.hha-hydration-summary-open{
+  height:auto !important;
+  min-height:100svh !important;
+  overflow-y:auto !important;
+  overflow-x:hidden !important;
+  touch-action:auto !important;
+}
+
+body.hha-hydration-summary-open #hha-hydration-app,
+body.hha-hydration-summary-open #hha-hydration-stage,
+body.hha-hydration-summary-open #hha-hydration-playfield{
+  height:auto !important;
+  min-height:100svh !important;
+  max-height:none !important;
+  overflow:visible !important;
+  position:relative !important;
+}
+
+/*
+  Fallback:
+  ถ้า summary มี class/selector เหล่านี้ ให้ไม่ถูกตัด
+*/
+.hha-summary-card,
+.hha-hydration-summary,
+#hha-hydration-summary,
+#hydration-summary,
+[data-hha-summary]{
+  max-height:none !important;
+  overflow:visible !important;
+  box-sizing:border-box !important;
+}
+
+
+/* =========================================================
+   General summary compact
+   ========================================================= */
+
+body.hha-hydration-summary-open .hha-summary-card,
+body.hha-hydration-summary-open .hha-hydration-summary,
+body.hha-hydration-summary-open #hha-hydration-summary,
+body.hha-hydration-summary-open #hydration-summary,
+body.hha-hydration-summary-open [data-hha-summary]{
+  box-sizing:border-box !important;
+  margin-left:auto !important;
+  margin-right:auto !important;
+}
+
+body.hha-hydration-summary-open .hha-summary-card *,
+body.hha-hydration-summary-open .hha-hydration-summary *,
+body.hha-hydration-summary-open #hha-hydration-summary *,
+body.hha-hydration-summary-open #hydration-summary *,
+body.hha-hydration-summary-open [data-hha-summary] *{
+  box-sizing:border-box !important;
+}
+
+
+/* =========================================================
+   PC / Desktop compact summary
+   ========================================================= */
+
+@media (min-width:701px){
+  body.hha-hydration-summary-open .hha-summary-card,
+  body.hha-hydration-summary-open .hha-hydration-summary,
+  body.hha-hydration-summary-open #hha-hydration-summary,
+  body.hha-hydration-summary-open #hydration-summary,
+  body.hha-hydration-summary-open [data-hha-summary]{
+    width:min(760px, 88vw) !important;
+    max-width:760px !important;
+    margin:0 auto !important;
+    padding:22px 22px 130px !important;
+    border-radius:28px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-title,
+  body.hha-hydration-summary-open .hha-rank-title,
+  body.hha-hydration-summary-open .hha-result-rank,
+  body.hha-hydration-summary-open h1{
+    font-size:clamp(42px, 5.2vw, 62px) !important;
+    line-height:1.05 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-subtitle,
+  body.hha-hydration-summary-open .hha-result-subtitle,
+  body.hha-hydration-summary-open .hha-summary-note{
+    font-size:15px !important;
+    line-height:1.35 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-score-big,
+  body.hha-hydration-summary-open .hha-score-total,
+  body.hha-hydration-summary-open .hha-total-score{
+    font-size:clamp(58px, 7.2vw, 82px) !important;
+    line-height:1 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-grid,
+  body.hha-hydration-summary-open .hha-summary-stats,
+  body.hha-hydration-summary-open .hha-result-stats{
+    gap:14px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-card,
+  body.hha-hydration-summary-open .hha-summary-stat,
+  body.hha-hydration-summary-open .hha-result-stat{
+    min-height:96px !important;
+    padding:14px 16px !important;
+    border-radius:20px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-card b,
+  body.hha-hydration-summary-open .hha-summary-stat b,
+  body.hha-hydration-summary-open .hha-result-stat b{
+    font-size:clamp(34px, 4.2vw, 48px) !important;
+    line-height:1 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-card span,
+  body.hha-hydration-summary-open .hha-summary-stat span,
+  body.hha-hydration-summary-open .hha-result-stat span{
+    font-size:14px !important;
+    line-height:1.25 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-title,
+  body.hha-hydration-summary-open .hha-section-title,
+  body.hha-hydration-summary-open h2{
+    font-size:28px !important;
+    line-height:1.1 !important;
+    margin:16px 0 10px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-grid,
+  body.hha-hydration-summary-open .hha-badges,
+  body.hha-hydration-summary-open .hha-summary-badges{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:14px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-card,
+  body.hha-hydration-summary-open .hha-badge-item{
+    min-height:112px !important;
+    padding:14px 16px !important;
+    border-radius:20px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-card h3,
+  body.hha-hydration-summary-open .hha-badge-item h3{
+    font-size:24px !important;
+    line-height:1.08 !important;
+    margin:4px 0 6px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-card p,
+  body.hha-hydration-summary-open .hha-badge-item p{
+    font-size:14px !important;
+    line-height:1.28 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-lesson-card,
+  body.hha-hydration-summary-open .hha-challenge-card,
+  body.hha-hydration-summary-open .hha-next-goal-card{
+    padding:14px 16px !important;
+    border-radius:20px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-actions,
+  body.hha-hydration-summary-open .hha-result-actions,
+  body.hha-hydration-summary-open .hha-end-actions{
+    gap:12px !important;
+    margin-top:16px !important;
+    padding-bottom:120px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-actions button,
+  body.hha-hydration-summary-open .hha-result-actions button,
+  body.hha-hydration-summary-open .hha-end-actions button{
+    min-height:54px !important;
+    padding:12px 16px !important;
+    border-radius:18px !important;
+    font-size:17px !important;
+  }
+}
+
+
+/* =========================================================
+   Mobile compact summary
+   ========================================================= */
+
+@media (max-width:700px){
+  body.hha-hydration-summary-open .hha-summary-card,
+  body.hha-hydration-summary-open .hha-hydration-summary,
+  body.hha-hydration-summary-open #hha-hydration-summary,
+  body.hha-hydration-summary-open #hydration-summary,
+  body.hha-hydration-summary-open [data-hha-summary]{
+    width:94vw !important;
+    max-width:94vw !important;
+    margin:0 auto !important;
+    padding:18px 14px 130px !important;
+    border-radius:24px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-title,
+  body.hha-hydration-summary-open .hha-rank-title,
+  body.hha-hydration-summary-open .hha-result-rank,
+  body.hha-hydration-summary-open h1{
+    font-size:clamp(34px, 10vw, 46px) !important;
+    line-height:1.05 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-subtitle,
+  body.hha-hydration-summary-open .hha-result-subtitle,
+  body.hha-hydration-summary-open .hha-summary-note{
+    font-size:13px !important;
+    line-height:1.32 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-score-big,
+  body.hha-hydration-summary-open .hha-score-total,
+  body.hha-hydration-summary-open .hha-total-score{
+    font-size:clamp(48px, 16vw, 68px) !important;
+    line-height:1 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-grid,
+  body.hha-hydration-summary-open .hha-summary-stats,
+  body.hha-hydration-summary-open .hha-result-stats{
+    gap:10px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-card,
+  body.hha-hydration-summary-open .hha-summary-stat,
+  body.hha-hydration-summary-open .hha-result-stat{
+    min-height:84px !important;
+    padding:12px !important;
+    border-radius:18px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-card b,
+  body.hha-hydration-summary-open .hha-summary-stat b,
+  body.hha-hydration-summary-open .hha-result-stat b{
+    font-size:clamp(28px, 9vw, 40px) !important;
+    line-height:1 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-stat-card span,
+  body.hha-hydration-summary-open .hha-summary-stat span,
+  body.hha-hydration-summary-open .hha-result-stat span{
+    font-size:12px !important;
+    line-height:1.22 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-title,
+  body.hha-hydration-summary-open .hha-section-title,
+  body.hha-hydration-summary-open h2{
+    font-size:22px !important;
+    line-height:1.12 !important;
+    margin:14px 0 8px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-grid,
+  body.hha-hydration-summary-open .hha-badges,
+  body.hha-hydration-summary-open .hha-summary-badges{
+    display:grid !important;
+    grid-template-columns:1fr 1fr !important;
+    gap:10px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-card,
+  body.hha-hydration-summary-open .hha-badge-item{
+    min-height:96px !important;
+    padding:12px !important;
+    border-radius:18px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-card h3,
+  body.hha-hydration-summary-open .hha-badge-item h3{
+    font-size:18px !important;
+    line-height:1.1 !important;
+    margin:3px 0 4px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-badge-card p,
+  body.hha-hydration-summary-open .hha-badge-item p{
+    font-size:12px !important;
+    line-height:1.25 !important;
+  }
+
+  body.hha-hydration-summary-open .hha-lesson-card,
+  body.hha-hydration-summary-open .hha-challenge-card,
+  body.hha-hydration-summary-open .hha-next-goal-card{
+    padding:12px !important;
+    border-radius:18px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-actions,
+  body.hha-hydration-summary-open .hha-result-actions,
+  body.hha-hydration-summary-open .hha-end-actions{
+    gap:10px !important;
+    margin-top:14px !important;
+    padding-bottom:120px !important;
+  }
+
+  body.hha-hydration-summary-open .hha-summary-actions button,
+  body.hha-hydration-summary-open .hha-result-actions button,
+  body.hha-hydration-summary-open .hha-end-actions button{
+    min-height:50px !important;
+    padding:11px 14px !important;
+    border-radius:16px !important;
+    font-size:15px !important;
+  }
+}
+
+
+/* =========================================================
+   Very small mobile
+   ========================================================= */
+
+@media (max-width:420px){
+  body.hha-hydration-summary-open .hha-badge-grid,
+  body.hha-hydration-summary-open .hha-badges,
+  body.hha-hydration-summary-open .hha-summary-badges{
+    grid-template-columns:1fr !important;
+  }
+
+  body.hha-hydration-summary-open .hha-score-big,
+  body.hha-hydration-summary-open .hha-score-total,
+  body.hha-hydration-summary-open .hha-total-score{
+    font-size:clamp(44px, 15vw, 60px) !important;
+  }
+}
+
+
+/* =========================================================
+   Safety: old injected final actions if they still exist
+   ========================================================= */
+
+.hha-hydration-final-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+  width:min(720px,94vw);
+  margin:16px auto 130px;
+  padding:0 4px;
+}
+
+.hha-hydration-final-actions button{
+  border:0;
+  border-radius:18px;
+  min-height:54px;
+  padding:12px 16px;
+  font-size:16px;
+  font-weight:1000;
+  color:white;
+  box-shadow:0 14px 30px rgba(30,75,115,.14);
+  cursor:pointer;
+}
+
+.hha-hydration-final-actions .hha-final-cooldown{
+  background:linear-gradient(180deg,#62e68f,#35c76d);
+}
+
+.hha-hydration-final-actions .hha-final-zone{
+  background:linear-gradient(180deg,#43c7ff,#2388ff);
+}
+
+.hha-hydration-final-actions .hha-final-replay{
+  grid-column:1 / -1;
+  background:linear-gradient(180deg,#ffffff,#f7fcff);
+  color:#24607f;
+  border:3px solid rgba(204,238,251,.9);
+}
+
+@media (max-width:620px){
+  .hha-hydration-final-actions{
+    grid-template-columns:1fr;
+  }
+}
