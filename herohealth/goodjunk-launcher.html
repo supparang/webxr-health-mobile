@@ -48,8 +48,13 @@
         linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    body{overflow-x:hidden;}
-    a{color:inherit;}
+    body{
+      overflow-x:hidden;
+    }
+
+    a{
+      color:inherit;
+    }
 
     .app{
       width:min(96vw,1180px);
@@ -240,12 +245,7 @@
       line-height:1.5;
     }
 
-    .soloGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-    }
-
+    .soloGrid,
     .multiGrid{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
@@ -635,14 +635,15 @@
         <div class="cardBody">
           <h3>Battle</h3>
           <p>
-            โหมด 1v1 เก็บ Good เพื่อทำคะแนนและสะสมพลัง ใช้ Attack / Shield
-            แข่งกับคู่ต่อสู้แบบตัวต่อตัว
+            โหมด 1v1 เก็บ Good เพื่อทำคะแนนและสะสมพลัง Battle
+            ใช้ Junk Storm / Shield / Freeze / Heal แข่งกับคู่ต่อสู้แบบตัวต่อตัว
           </p>
 
           <div class="tags">
             <span class="tag">1v1 only</span>
-            <span class="tag">Attack Skill</span>
+            <span class="tag">4 Battle Skills</span>
             <span class="tag">Good vs Junk</span>
+            <span class="tag">v2.4.26</span>
           </div>
 
           <div class="cardActions">
@@ -707,11 +708,12 @@
       Battle ใช้ <code>vr-goodjunk/goodjunk-battle-v2-lobby.html</code>,
       Duet ใช้ <code>vr-goodjunk/goodjunk-duet-lobby.html</code>,
       Co-op ใช้ <code>vr-goodjunk/goodjunk-coop-lobby.html</code>.
-      ไม่ใช้ <code>goodjunk-solo-boss-v8.html</code> เป็นทางเข้าหลักแล้ว
+      Battle Runtime ใช้ router กลาง <code>vr-goodjunk/goodjunk-battle-v2-run.html</code>
+      เพื่อเลือก mobile / pc / cardboard อัตโนมัติ
     </section>
 
     <div class="footer">
-      HeroHealth • GoodJunk Launcher v20260515b • Solo 2D / Solo Cardboard VR / Race / Battle / Duet / Co-op
+      HeroHealth • GoodJunk Launcher v20260519-battle-v2426 • Solo 2D / Solo Cardboard VR / Race / Battle / Duet / Co-op
     </div>
   </main>
 
@@ -720,7 +722,7 @@
     'use strict';
 
     window.HHA_GOODJUNK_LAUNCHER =
-      'v20260515b-goodjunk-launcher-solo-2d-cardboard-vr-canonical-paths';
+      'v20260519-goodjunk-launcher-battle-v2426-router-ready';
 
     const params = new URLSearchParams(location.search);
     const $ = id => document.getElementById(id);
@@ -818,7 +820,7 @@
         recommendedMode:mode,
         multiplayer:mode === 'solo' ? '0' : '1',
         hub:getHub(),
-        v:'20260515b-goodjunk-launcher'
+        v:'20260519-battle-v2426'
       };
     }
 
@@ -903,7 +905,10 @@
         battleType:'duel',
         type:'duel',
         capacity:'2',
-        maxPlayers:'2'
+        maxPlayers:'2',
+        variant:'battle-v2',
+        entry:'battle',
+        recommendedMode:'battle'
       });
 
       $('btnBattleTest').href = withParams('./vr-goodjunk/goodjunk-battle-v2-lobby.html','battle',{
@@ -911,7 +916,10 @@
         battleType:'duel',
         type:'duel',
         capacity:'2',
-        maxPlayers:'2'
+        maxPlayers:'2',
+        variant:'battle-v2',
+        entry:'battle',
+        recommendedMode:'battle'
       });
 
       $('btnCoop').href = withParams('./vr-goodjunk/goodjunk-coop-lobby.html','coop',{
@@ -980,6 +988,8 @@
       initFields();
       bind();
       updateLinks();
+
+      console.info('[GoodJunk Launcher]', window.HHA_GOODJUNK_LAUNCHER, 'loaded');
     }
 
     boot();
