@@ -14,6 +14,11 @@
   3) Plate cooldown
      - Auto/return = nutrition-zone.html
      - Nutrition Zone hub param = hub.html
+
+  4) Hydration cooldown
+     - Auto/return = nutrition-zone.html
+     - Nutrition Zone hub param = hub.html
+     - Pack30 hydration gate return force is embedded before gate-core
 -->
 
 <!doctype html>
@@ -1415,6 +1420,251 @@
   </script>
 
   <script src="./warmup-gate-cooldown-once-force-patch.js?v=20260518-plate-return-final"></script>
+
+  <script>
+/* =========================================================
+   HeroHealth Gate Patch
+   File: /herohealth/warmup-gate.html
+   Version: v20260518-pack30-hydration-gate-return-force
+
+   Purpose:
+   - บังคับ Hydration cooldown gate ให้กลับ Nutrition Zone เท่านั้น
+   - กันกลับ hub.html / run.html / hydration launcher
+   - ทำงานเฉพาะ game=hydration + phase=cooldown
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260518-pack30-hydration-gate-return-force';
+
+  if(window.HHA_HYDRATION_GATE_RETURN_FIX_PACK30_LOADED){
+    return;
+  }
+  window.HHA_HYDRATION_GATE_RETURN_FIX_PACK30_LOADED = true;
+
+  var q = new URLSearchParams(location.search || '');
+
+  var game = String(
+    q.get('game') ||
+    q.get('gameId') ||
+    q.get('theme') ||
+    q.get('fromGame') ||
+    ''
+  ).toLowerCase();
+
+  var phase = String(
+    q.get('phase') ||
+    q.get('gatePhase') ||
+    q.get('studyPhase') ||
+    ''
+  ).toLowerCase();
+
+  var forceReturn = String(q.get('forceReturn') || '').toLowerCase();
+
+  var isHydrationCooldown =
+    game === 'hydration' &&
+    phase === 'cooldown';
+
+  if(!isHydrationCooldown && forceReturn !== 'nutrition-zone'){
+    return;
+  }
+
+  function heroBase(){
+    try{
+      var marker = '/herohealth/';
+      var idx = location.pathname.indexOf(marker);
+
+      if(idx >= 0){
+        return location.origin + location.pathname.slice(0, idx + marker.length);
+      }
+
+      return new URL('./', location.href).toString();
+    }catch(e){
+      return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+    }
+  }
+
+  function nutritionZoneUrl(){
+    var u = new URL('nutrition-zone.html', heroBase());
+
+    [
+      'pid',
+      'name',
+      'nick',
+      'diff',
+      'time',
+      'view',
+      'log',
+      'api',
+      'studyId',
+      'conditionGroup'
+    ].forEach(function(k){
+      var v = q.get(k);
+      if(v){
+        u.searchParams.set(k, v);
+      }
+    });
+
+    /*
+      หน้า Nutrition Zone ให้ hub หลักเป็น hub.html
+      ไม่เอา cooldown gate เป็น hub อีก
+    */
+    u.searchParams.set('hub', new URL('hub.html', heroBase()).toString());
+
+    return u.toString();
+  }
+
+  var target = nutritionZoneUrl();
+
+  /*
+    ใส่ global force ไว้ให้ gate-core / gate modules ใช้ได้
+  */
+  window.HH_GATE_FORCE_NEXT = target;
+  window.HH_GATE_FORCE_BACK = target;
+  window.HH_GATE_FORCE_HUB = target;
+
+  window.HHA_GATE_BOOT = window.HHA_GATE_BOOT || {};
+  window.HHA_GATE_BOOT.nextHref = target;
+  window.HHA_GATE_BOOT.backHref = target;
+  window.HHA_GATE_BOOT.hubHref = target;
+  window.HHA_GATE_BOOT.hydrationCooldownReturnFix = PATCH;
+
+  function markLinks(){
+    try{
+      document.querySelectorAll('a[href], button, [role="button"]').forEach(function(el){
+        var text = String(el.textContent || '').toLowerCase();
+        var href = String(el.getAttribute && el.getAttribute('href') || '').toLowerCase();
+
+        var looksReturn =
+          text.indexOf('ไปต่อ') !== -1 ||
+          text.indexOf('กลับ') !== -1 ||
+          text.indexOf('continue') !== -1 ||
+          text.indexOf('next') !== -1 ||
+          text.indexOf('zone') !== -1 ||
+          text.indexOf('nutrition') !== -1 ||
+          text.indexOf('เสร็จ') !== -1 ||
+          text.indexOf('จบ') !== -1 ||
+          href.indexOf('hub.html') !== -1 ||
+          href.indexOf('nutrition-zone.html') !== -1 ||
+          href.indexOf('run.html') !== -1;
+
+        if(!looksReturn) return;
+
+        el.dataset.hhaHydrationGateReturnForce = PATCH;
+
+        if(el.tagName === 'A'){
+          el.setAttribute('href', target);
+        }
+      });
+    }catch(e){}
+  }
+
+  function isReturnButton(el){
+    if(!el || !el.closest) return false;
+
+    var btn = el.closest('button, a, [role="button"]');
+    if(!btn) return false;
+
+    var text = String(btn.textContent || '').toLowerCase();
+    var href = String(btn.getAttribute && btn.getAttribute('href') || '').toLowerCase();
+
+    return (
+      btn.dataset.hhaHydrationGateReturnForce === PATCH ||
+      text.indexOf('ไปต่อ') !== -1 ||
+      text.indexOf('กลับ') !== -1 ||
+      text.indexOf('continue') !== -1 ||
+      text.indexOf('next') !== -1 ||
+      text.indexOf('zone') !== -1 ||
+      text.indexOf('nutrition') !== -1 ||
+      text.indexOf('เสร็จ') !== -1 ||
+      text.indexOf('จบ') !== -1 ||
+      href.indexOf('hub.html') !== -1 ||
+      href.indexOf('nutrition-zone.html') !== -1 ||
+      href.indexOf('run.html') !== -1
+    );
+  }
+
+  function goTarget(ev){
+    if(ev){
+      try{ ev.preventDefault(); }catch(e){}
+      try{ ev.stopPropagation(); }catch(e){}
+
+      try{
+        if(ev.stopImmediatePropagation){
+          ev.stopImmediatePropagation();
+        }
+      }catch(e){}
+    }
+
+    location.href = target;
+
+    return false;
+  }
+
+  window.addEventListener('click', function(ev){
+    if(isReturnButton(ev.target)){
+      return goTarget(ev);
+    }
+  }, true);
+
+  window.addEventListener('pointerup', function(ev){
+    if(isReturnButton(ev.target)){
+      return goTarget(ev);
+    }
+  }, true);
+
+  window.addEventListener('touchend', function(ev){
+    if(isReturnButton(ev.target)){
+      return goTarget(ev);
+    }
+  }, { passive:false, capture:true });
+
+  document.addEventListener('click', function(ev){
+    if(isReturnButton(ev.target)){
+      return goTarget(ev);
+    }
+  }, true);
+
+  var mo = new MutationObserver(function(){
+    markLinks();
+  });
+
+  if(document.body){
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['href','class','style']
+    });
+  }else{
+    document.addEventListener('DOMContentLoaded', function(){
+      try{
+        mo.observe(document.body, {
+          childList:true,
+          subtree:true,
+          attributes:true,
+          attributeFilter:['href','class','style']
+        });
+      }catch(e){}
+      markLinks();
+    }, { once:true });
+  }
+
+  markLinks();
+  setInterval(markLinks, 900);
+
+  window.HHA_HYDRATION_GATE_RETURN_TARGET = target;
+  window.HHA_HYDRATION_GATE_RETURN_FIX = {
+    version: PATCH,
+    target: target,
+    go: goTarget,
+    markLinks: markLinks
+  };
+
+  console.info('[Hydration Gate Pack30] force return to:', target);
+})();
+</script>
 
   <script type="module">
     import bootGate from './gate/gate-core.js?v=20260503n-gate-core-goodjunk-flow';
