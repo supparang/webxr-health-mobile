@@ -18,7 +18,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_V20260521_PATHFIX__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_V20260521_PATHFIX__ = true;
 
-  const VERSION = '20260521-pathfix02';
+  const VERSION = '20260521-startfix07';
 
   const files = [
     '01-groups-solo-3view-stabilizer.js',
