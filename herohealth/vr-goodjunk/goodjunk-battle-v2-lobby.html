@@ -1534,66 +1534,78 @@ async function createRoom(){
       }
 
       function buildRunUrl(roomOverride){
-        saveFields();
+  saveFields();
 
-        const nr = normalizeRoom(roomOverride || state.room || {});
-        const run = new URL('./goodjunk-battle-v2-run.html', location.href);
+  const nr = normalizeRoom(roomOverride || state.room || {});
+  const view = String(viewSelect.value || params.get('view') || 'pc').toLowerCase();
 
-        params.forEach(function(v, k){
-          if (v !== null && v !== '') run.searchParams.set(k, v);
-        });
+  let runFile = './goodjunk-battle-v2-run-pc.html';
 
-        run.searchParams.set('pid', state.playerId);
-        run.searchParams.set('name', state.playerName);
-        run.searchParams.set('view', viewSelect.value);
-        run.searchParams.set('device', viewSelect.value);
-        run.searchParams.set('diff', diffSelect.value);
-        run.searchParams.set('time', timeSelect.value);
-        run.searchParams.set('mode', 'battle');
-        run.searchParams.set('game', 'goodjunk');
-        run.searchParams.set('gameId', 'goodjunk');
-        run.searchParams.set('entry', 'battle');
-        run.searchParams.set('variant', 'battle-v2');
-        run.searchParams.set('zone', params.get('zone') || 'nutrition');
-        run.searchParams.set('cat', params.get('cat') || 'nutrition');
-        run.searchParams.set('theme', params.get('theme') || 'goodjunk');
-        run.searchParams.set('run', 'play');
-        run.searchParams.set('phase', 'play');
-        run.searchParams.set('seed', params.get('seed') || String(now()));
+  if (view === 'mobile'){
+    runFile = './goodjunk-battle-v2-run-mobile.html';
+  }else if (view === 'cardboard' || view === 'cvr' || view === 'vr'){
+    runFile = './goodjunk-battle-v2-run-cardboard.html';
+  }
 
-        const room =
-          nr.code ||
-          state.roomCode ||
-          normalizeBattleRoomCode(roomCodeInput.value) ||
-          params.get('room') ||
-          params.get('roomCode') ||
-          params.get('code') ||
-          params.get('lastRoom') ||
-          '';
+  const run = new URL(runFile, location.href);
 
-        if (room){
-          const fixedRoom = normalizeBattleRoomCode(room);
-          run.searchParams.set('room', fixedRoom);
-          run.searchParams.set('roomCode', fixedRoom);
-        }
+  params.forEach(function(v, k){
+    if (v !== null && v !== '') run.searchParams.set(k, v);
+  });
 
-        const matchId = nr.matchId || params.get('matchId') || params.get('roundId') || '';
+  run.searchParams.set('pid', state.playerId);
+  run.searchParams.set('name', state.playerName);
+  run.searchParams.set('nick', state.playerName);
+  run.searchParams.set('view', view);
+  run.searchParams.set('device', view);
+  run.searchParams.set('diff', diffSelect.value);
+  run.searchParams.set('time', timeSelect.value);
+  run.searchParams.set('mode', 'battle');
+  run.searchParams.set('game', 'goodjunk');
+  run.searchParams.set('gameId', 'goodjunk');
+  run.searchParams.set('entry', 'battle');
+  run.searchParams.set('variant', 'battle-v2');
+  run.searchParams.set('zone', params.get('zone') || 'nutrition');
+  run.searchParams.set('cat', params.get('cat') || 'nutrition');
+  run.searchParams.set('theme', params.get('theme') || 'goodjunk');
+  run.searchParams.set('run', 'play');
+  run.searchParams.set('phase', 'play');
+  run.searchParams.set('seed', params.get('seed') || String(now()));
 
-        if (matchId){
-          run.searchParams.set('matchId', matchId);
-          run.searchParams.set('roundId', matchId);
-        }
+  const room =
+    nr.code ||
+    state.roomCode ||
+    normalizeBattleRoomCode(roomCodeInput.value) ||
+    params.get('room') ||
+    params.get('roomCode') ||
+    params.get('code') ||
+    params.get('lastRoom') ||
+    '';
 
-        const hub = params.get('hub');
+  if (room){
+    const fixedRoom = normalizeBattleRoomCode(room);
+    run.searchParams.set('room', fixedRoom);
+    run.searchParams.set('roomCode', fixedRoom);
+    run.searchParams.set('code', fixedRoom);
+  }
 
-        if (hub){
-          run.searchParams.set('hub', hub);
-        }else{
-          run.searchParams.set('hub', new URL('../nutrition-zone.html', location.href).toString());
-        }
+  const matchId = nr.matchId || params.get('matchId') || params.get('roundId') || '';
 
-        return run.toString();
-      }
+  if (matchId){
+    run.searchParams.set('matchId', matchId);
+    run.searchParams.set('roundId', matchId);
+  }
+
+  const hub = params.get('hub');
+
+  if (hub){
+    run.searchParams.set('hub', hub);
+  }else{
+    run.searchParams.set('hub', new URL('../nutrition-zone.html', location.href).toString());
+  }
+
+  return run.toString();
+}
 
       async function startBattle(){
         saveFields();
@@ -1616,7 +1628,7 @@ async function createRoom(){
 
         if (!dbOk && !TEST_MODE){
           const msg = explainDbNotReady();
-          setStatus('DB offline/local • ' + msg, 'bad');
+          setStatus('DB ยังไม่พร้อม • Battle จริงยังเริ่มไม่ได้', 'warn');
           toast('DB/Auth ยังไม่พร้อม เริ่ม Battle จริงไม่ได้');
           return false;
         }
