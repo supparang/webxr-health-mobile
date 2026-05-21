@@ -628,13 +628,92 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2427"></script>
+    <!-- =========================================================
+       GoodJunk Battle v2.4.28 Firebase SDK Loader Hotfix
+       ต้องมาก่อน goodjunk-battle-v2-firebase-bridge.js
+  ========================================================== -->
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    /*
+     * GoodJunk Battle Firebase Init Guard
+     * ถ้าโปรเจกต์มี firebase.initializeApp แล้ว จะไม่ init ซ้ำ
+     * ถ้ายังไม่มี config ตรงนี้ ให้ใส่ config Firebase จริงของ HeroHealth ลงใน HHA_FIREBASE_CONFIG
+     */
+    (function GoodJunkBattleFirebaseInitGuard(){
+      'use strict';
+
+      window.GJ_BATTLE_FIREBASE_INIT_GUARD =
+        'v2.4.28-firebase-sdk-loader-init-guard';
+
+      /*
+       * ใช้ config กลาง ถ้ามีในโปรเจกต์
+       * รองรับหลายชื่อเพื่อไม่ชนกับไฟล์อื่น
+       */
+      const cfg =
+        window.HHA_FIREBASE_CONFIG ||
+        window.HEROHEALTH_FIREBASE_CONFIG ||
+        window.firebaseConfig ||
+        window.FIREBASE_CONFIG ||
+        null;
+
+      function hasFirebaseApp(){
+        try{
+          return !!(
+            window.firebase &&
+            typeof firebase.apps !== 'undefined' &&
+            firebase.apps &&
+            firebase.apps.length
+          );
+        }catch(_){
+          return false;
+        }
+      }
+
+      function init(){
+        if (!window.firebase || typeof firebase.initializeApp !== 'function'){
+          console.warn('[GJ Battle Firebase Init] firebase-app-compat not loaded');
+          return false;
+        }
+
+        if (hasFirebaseApp()){
+          console.info('[GJ Battle Firebase Init] Firebase app already exists');
+          return true;
+        }
+
+        if (!cfg){
+          console.warn(
+            '[GJ Battle Firebase Init] No Firebase config found. ' +
+            'Set window.HHA_FIREBASE_CONFIG before this script or load your shared firebase init file.'
+          );
+          return false;
+        }
+
+        try{
+          firebase.initializeApp(cfg);
+          console.info('[GJ Battle Firebase Init] Firebase initialized');
+          return true;
+        }catch(err){
+          console.warn('[GJ Battle Firebase Init] initializeApp failed', err);
+          return false;
+        }
+      }
+
+      window.GJ_BATTLE_FIREBASE_INIT_OK = init();
+    })();
+  </script>
+
+  <script src="../herohealth-firebase-init.js?v=2428"></script>
+  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2428"></script>
 
   <script>
     (function GoodJunkBattleV2Lobby(){
       'use strict';
 
-      const LOBBY_VERSION = 'v2.4.27-lobby-firebase-auth-path-hotfix';
+      const LOBBY_VERSION = 'v2.4.28-lobby-firebase-sdk-loader-hotfix';
 
       const url = new URL(location.href);
       const params = url.searchParams;
