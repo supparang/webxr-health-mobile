@@ -662,7 +662,7 @@
         apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
         authDomain: "herohealth-d7f8c.firebaseapp.com",
         databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "ใherohealth-d7f8c",
+        projectId: "herohealth-d7f8c",
         storageBucket: "herohealth-d7f8c.firebasestorage.app",
         messagingSenderId: "680817376848",
         appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
@@ -714,7 +714,6 @@
     })();
   </script>
 
-  <script src="../herohealth-firebase-init.js?v=2428"></script>
   <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2428"></script>
 
   <script>
@@ -1170,7 +1169,65 @@
         updateStartButton(room);
       }
 
-      async function getRoomSnapshot(roomCode){
+      afunction makeLocalRoomSnapshot(roomCode, extra){
+  const code = normalizeBattleRoomCode(roomCode || state.roomCode || roomCodeInput.value);
+  const playerId = state.playerId || playerIdEl.value || 'anon';
+
+  return Object.assign({
+    code,
+    room: code,
+    roomCode: code,
+    phase: 'lobby',
+    status: 'lobby',
+    state: 'lobby',
+    hostPid: playerId,
+    hostName: state.playerName || playerNameEl.value || 'Hero',
+    battleType: 'duel',
+    type: 'duel',
+    capacity: MAX_PLAYERS,
+    players: {
+      [playerId]: playerPatch({
+        role: 'host',
+        host: true,
+        joinedAt: now()
+      })
+    },
+    updatedAt: now()
+  }, extra || {});
+}
+
+function syncLocalRoomUI(room){
+  state.room = room || makeLocalRoomSnapshot(state.roomCode);
+  renderRoom(state.room);
+  updateLobbyStatusByRoom(state.room);
+}
+
+async function getRoomSnapshot(roomCode){
+  const roomRef = getRoomRef(roomCode);
+
+  if (!roomRef || typeof roomRef.once !== 'function'){
+    return { roomRef, room:null, ready:false };
+  }
+
+  try{
+    const snap = await roomRef.once('value');
+    return {
+      roomRef,
+      room: snap && typeof snap.val === 'function' ? snap.val() || {} : {},
+      ready:true
+    };
+  }catch(err){
+    console.warn('[Battle Lobby] getRoomSnapshot failed', err);
+    return { roomRef, room:null, ready:false, error:err };
+  }
+}
+
+function syncLocalRoomUI(room){
+  state.room = room || makeLocalRoomSnapshot(state.roomCode);
+
+  renderRoom(state.room);
+  updateLobbyStatusByRoom(state.room);
+}
         const roomRef = getRoomRef(roomCode);
 
         if (!roomRef || typeof roomRef.once !== 'function'){
@@ -1192,17 +1249,74 @@
 
       
       async function createRoom(){
-        saveFields();
+  saveFields();
 
-        const dbOk = await waitForDbReady();
+  const dbOk = await waitForDbReady();
 
-        if (!dbOk && !TEST_MODE){
-          const msg = explainDbNotReady();
-          setStatus('DB offline/local • ' + msg, 'bad');
-          toast('Firebase DB/Auth ยังไม่พร้อม');
-          return false;
-        }
+  if (!dbOk && !TEST_MODE){
+    const msg = explainDbNotReady();
+    setStatus('DB offline/local • ' + msg, 'bad');
+    toast('Firebase DB/Auth ยังไม่พร้อม');
+    return false;
+  }
 
+  const roomCode = normalizeBattleRoomCode(randomCode());
+  state.roomCode = roomCode;
+  roomCodeInput.value = roomCode;
+  roomCodeText.textContent = roomCode;
+  localStorage.setItem('GJ_BATTLE_LAST_ROOM', roomCode);
+
+  const roomRef = getRoomRef(roomCode);
+  state.roomRef = roomRef;
+
+  if (!roomRef){
+    setStatus('ไม่มี Firebase DB • ใช้โหมด local/test ได้ แต่ sync จริงยังไม่ได้', 'warn');
+    renderPlayersLocal();
+    updateStartButton({});
+    return false;
+  }
+
+  try{
+    await roomRef.update({
+      code: roomCode,
+      room: roomCode,
+      roomCode: roomCode,
+      phase: 'lobby',
+      status: 'lobby',
+      state: 'lobby',
+      hostPid: state.playerId,
+      hostName: state.playerName,
+      battleType: 'duel',
+      type: 'duel',
+      capacity: MAX_PLAYERS,
+      createdAt: now(),
+      updatedAt: now(),
+      lobbyVersion: LOBBY_VERSION,
+      bridgeVersion: window.GJ_BATTLE_FIREBASE_BRIDGE && window.GJ_BATTLE_FIREBASE_BRIDGE.version || '',
+      roomPath: window.GJ_BATTLE_ROOM_PATH || 'herohealth/goodjunk/battleV2Rooms'
+    });
+
+    await roomRef.child('players').child(state.playerId).update(playerPatch({
+      role: 'host',
+      host: true,
+      joinedAt: now()
+    }));
+
+    state.room = makeLocalRoomSnapshot(roomCode);
+    syncLocalRoomUI(state.room);
+
+    attachRoomListener(roomCode);
+    startHeartbeat();
+
+    setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
+    toast('สร้างห้องแล้ว: ' + roomCode);
+    return true;
+  }catch(err){
+    console.warn('[Battle Lobby] create room failed', err);
+    setStatus('สร้างห้องไม่สำเร็จ: ' + err.message, 'bad');
+    return false;
+  }
+}
         const roomCode = normalizeBattleRoomCode(randomCode());
         state.roomCode = roomCode;
         roomCodeInput.value = roomCode;
@@ -1244,6 +1358,16 @@
   host: true,
   joinedAt: now()
 }));
+
+state.room = makeLocalRoomSnapshot(roomCode);
+syncLocalRoomUI(state.room);
+
+attachRoomListener(roomCode);
+startHeartbeat();
+
+setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
+toast('สร้างห้องแล้ว: ' + roomCode);
+return true;
 
 state.room = makeLocalRoomSnapshot(roomCode);
 syncLocalRoomUI(state.room);
@@ -1988,18 +2112,8 @@ return true;
         console.info('[GoodJunk Battle Lobby]', LOBBY_VERSION, 'loaded');
       }
 
-      boot();
+        boot();
     })();
   </script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-  <script>
-  // Init Guard ที่มี config จริง หรืออ่าน config จากไฟล์จริงของโปรเจกต์
-  </script>
-
-  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2428"></script>
-  <script src="./goodjunk-battle-v2-core.js?v=2428"></script>
 </body>
 </html>
