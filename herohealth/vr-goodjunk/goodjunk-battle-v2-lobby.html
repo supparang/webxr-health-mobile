@@ -1092,84 +1092,82 @@
       }
 
       function canStartBattle(room){
-        const online = getOnlinePlayers(room);
-        const host = amIHost(room);
+  const online = getOnlinePlayers(room);
+  const host = amIHost(room);
 
-        if (TEST_MODE){
-          return { ok:true, reason:'test-mode', onlineCount:online.length, host };
-        }
+  if (TEST_MODE){
+    return { ok:true, reason:'test-mode', onlineCount:online.length, host };
+  }
 
-        if (!getDbReady()){
-  setStatus('DB ยังไม่พร้อม • รอ Firebase Auth/Database สักครู่', 'warn');
+  if (!getDbReady()){
+    return { ok:false, reason:'db-offline', onlineCount:online.length, host };
+  }
+
+  if (!host){
+    return { ok:false, reason:'not-host', onlineCount:online.length, host };
+  }
+
+  if (online.length < 2){
+    return { ok:false, reason:'need-two-players', onlineCount:online.length, host };
+  }
+
+  if (online.length > MAX_PLAYERS){
+    return { ok:false, reason:'too-many-players', onlineCount:online.length, host };
+  }
+
+  return { ok:true, reason:'ready', onlineCount:online.length, host };
+}
+
+function updateStartButton(room){
+  const verdict = canStartBattle(room || state.room || {});
+
+  btnStartBattle.disabled = !verdict.ok;
+  btnStartBattle.classList.toggle('is-disabled', !verdict.ok);
+  btnStartBattle.classList.toggle('is-ready', verdict.ok);
+
+  if (verdict.ok){
+    btnStartBattle.textContent = TEST_MODE && verdict.onlineCount < 2
+      ? '⚔️ เริ่ม Battle แบบทดสอบ'
+      : '⚔️ Host เริ่ม Battle';
+  }else if (verdict.reason === 'not-host'){
+    btnStartBattle.textContent = '⏳ รอ Host เริ่ม Battle';
+  }else if (verdict.reason === 'need-two-players'){
+    btnStartBattle.textContent = '⏳ รอผู้เล่นอีก 1 คน';
+  }else if (verdict.reason === 'db-offline'){
+    btnStartBattle.textContent = '⚠️ DB ยังไม่พร้อม';
+  }else{
+    btnStartBattle.textContent = '⏳ ยังไม่พร้อมเริ่ม';
+  }
+}
+
+function updateLobbyStatusByRoom(room){
+  const nr = normalizeRoom(room || {});
+  const online = nr.players.filter(isOnlinePlayer);
+
+  if (!getDbReady()){
+    setStatus('DB ยังไม่พร้อม • รอ Firebase Auth/Database สักครู่', 'warn');
+    updateStartButton(room);
+    return;
+  }
+
+  if (!nr.code){
+    setStatus('DB พร้อมแล้ว • สร้างห้องหรือเข้าห้องได้', 'good');
+    updateStartButton(room);
+    return;
+  }
+
+  if (online.length >= 2){
+    setStatus('พร้อมแล้ว • มีผู้เล่นออนไลน์ ' + online.length + ' คน • Host เริ่ม Battle ได้', 'good');
+  }else if (online.length === 1){
+    setStatus('อยู่ในห้องแล้ว • รอคู่แข่งอีก 1 คน', 'warn');
+  }else{
+    setStatus('กำลัง sync ผู้เล่นในห้อง...', 'warn');
+  }
+
   updateStartButton(room);
-  return;
 }
 
-        if (!host){
-          return { ok:false, reason:'not-host', onlineCount:online.length, host };
-        }
-
-        if (online.length < 2){
-          return { ok:false, reason:'need-two-players', onlineCount:online.length, host };
-        }
-
-        if (online.length > MAX_PLAYERS){
-          return { ok:false, reason:'too-many-players', onlineCount:online.length, host };
-        }
-
-        return { ok:true, reason:'ready', onlineCount:online.length, host };
-      }
-
-      function updateStartButton(room){
-        const verdict = canStartBattle(room || state.room || {});
-
-        btnStartBattle.disabled = !verdict.ok;
-        btnStartBattle.classList.toggle('is-disabled', !verdict.ok);
-        btnStartBattle.classList.toggle('is-ready', verdict.ok);
-
-        if (verdict.ok){
-          btnStartBattle.textContent = TEST_MODE && verdict.onlineCount < 2
-            ? '⚔️ เริ่ม Battle แบบทดสอบ'
-            : '⚔️ Host เริ่ม Battle';
-        }else if (verdict.reason === 'not-host'){
-          btnStartBattle.textContent = '⏳ รอ Host เริ่ม Battle';
-        }else if (verdict.reason === 'need-two-players'){
-          btnStartBattle.textContent = '⏳ รอผู้เล่นอีก 1 คน';
-        }else if (verdict.reason === 'db-offline'){
-          btnStartBattle.textContent = '⚠️ DB offline: เริ่ม Battle จริงไม่ได้';
-        }else{
-          btnStartBattle.textContent = '⏳ ยังไม่พร้อมเริ่ม';
-        }
-      }
-
-      function updateLobbyStatusByRoom(room){
-        const nr = normalizeRoom(room || {});
-        const online = nr.players.filter(isOnlinePlayer);
-
-        if (!getDbReady()){
-          setStatus('DB offline/local • หน้านี้แสดง UI ได้ แต่ยังไม่ใช่ Multiplayer sync จริง', 'bad');
-          updateStartButton(room);
-          return;
-        }
-
-        if (!nr.code){
-          setStatus('DB พร้อมแล้ว • สร้างห้องหรือเข้าห้องได้', 'good');
-          updateStartButton(room);
-          return;
-        }
-
-        if (online.length >= 2){
-          setStatus('พร้อมแล้ว • มีผู้เล่นออนไลน์ ' + online.length + ' คน • Host เริ่ม Battle ได้', 'good');
-        }else if (online.length === 1){
-          setStatus('อยู่ในห้องแล้ว • รอคู่แข่งอีก 1 คน', 'warn');
-        }else{
-  setStatus('กำลัง sync ผู้เล่นในห้อง...', 'warn');
-}
-
-        updateStartButton(room);
-      }
-
-      afunction makeLocalRoomSnapshot(roomCode, extra){
+function makeLocalRoomSnapshot(roomCode, extra){
   const code = normalizeBattleRoomCode(roomCode || state.roomCode || roomCodeInput.value);
   const playerId = state.playerId || playerIdEl.value || 'anon';
 
@@ -1222,33 +1220,7 @@ async function getRoomSnapshot(roomCode){
   }
 }
 
-function syncLocalRoomUI(room){
-  state.room = room || makeLocalRoomSnapshot(state.roomCode);
-
-  renderRoom(state.room);
-  updateLobbyStatusByRoom(state.room);
-}
-        const roomRef = getRoomRef(roomCode);
-
-        if (!roomRef || typeof roomRef.once !== 'function'){
-          return { roomRef, room:null, ready:false };
-        }
-
-        try{
-          const snap = await roomRef.once('value');
-          return {
-            roomRef,
-            room: snap && typeof snap.val === 'function' ? snap.val() || {} : {},
-            ready:true
-          };
-        }catch(err){
-          console.warn('[Battle Lobby] getRoomSnapshot failed', err);
-          return { roomRef, room:null, ready:false, error:err };
-        }
-      }
-
-      
-      async function createRoom(){
+async function createRoom(){
   saveFields();
 
   const dbOk = await waitForDbReady();
@@ -1317,82 +1289,6 @@ function syncLocalRoomUI(room){
     return false;
   }
 }
-        const roomCode = normalizeBattleRoomCode(randomCode());
-        state.roomCode = roomCode;
-        roomCodeInput.value = roomCode;
-        roomCodeText.textContent = roomCode;
-        localStorage.setItem('GJ_BATTLE_LAST_ROOM', roomCode);
-
-        const roomRef = getRoomRef(roomCode);
-        state.roomRef = roomRef;
-
-        if (!roomRef){
-          setStatus('ไม่มี Firebase DB • ใช้โหมด local/test ได้ แต่ sync จริงยังไม่ได้', 'warn');
-          renderPlayersLocal();
-          updateStartButton({});
-          return false;
-        }
-
-        try{
-          await roomRef.update({
-            code: roomCode,
-            room: roomCode,
-            roomCode: roomCode,
-            phase: 'lobby',
-            status: 'lobby',
-            state: 'lobby',
-            hostPid: state.playerId,
-            hostName: state.playerName,
-            battleType: 'duel',
-            type: 'duel',
-            capacity: MAX_PLAYERS,
-            createdAt: now(),
-            updatedAt: now(),
-            lobbyVersion: LOBBY_VERSION,
-            bridgeVersion: window.GJ_BATTLE_FIREBASE_BRIDGE && window.GJ_BATTLE_FIREBASE_BRIDGE.version || '',
-            roomPath: window.GJ_BATTLE_ROOM_PATH || 'herohealth/goodjunk/battleV2Rooms'
-          });
-
-          await roomRef.child('players').child(state.playerId).update(playerPatch({
-  role: 'host',
-  host: true,
-  joinedAt: now()
-}));
-
-state.room = makeLocalRoomSnapshot(roomCode);
-syncLocalRoomUI(state.room);
-
-attachRoomListener(roomCode);
-startHeartbeat();
-
-setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
-toast('สร้างห้องแล้ว: ' + roomCode);
-return true;
-
-state.room = makeLocalRoomSnapshot(roomCode);
-syncLocalRoomUI(state.room);
-
-attachRoomListener(roomCode);
-startHeartbeat();
-
-setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
-toast('สร้างห้องแล้ว: ' + roomCode);
-return true;
-          }));
-
-          attachRoomListener(roomCode);
-          startHeartbeat();
-
-          setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
-          toast('สร้างห้องแล้ว: ' + roomCode);
-          return true;
-        }catch(err){
-          console.warn('[Battle Lobby] create room failed', err);
-          setStatus('สร้างห้องไม่สำเร็จ: ' + err.message, 'bad');
-          return false;
-        }
-      }
-
       async function joinRoom(){
         saveFields();
 
