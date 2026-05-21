@@ -283,6 +283,14 @@
       text-overflow:ellipsis;
     }
 
+    .opponent-score{
+      margin-top:6px;
+      font-size:42px;
+      line-height:1;
+      font-weight:1000;
+      color:#713018;
+    }
+
     .opponent-status{
       width:fit-content;
       margin-top:9px;
@@ -473,8 +481,7 @@
       margin-top:14px;
     }
 
-    .result-actions button,
-    .result-actions a{
+    .result-actions button{
       min-height:54px;
       padding:10px 12px;
       border-radius:18px;
@@ -483,7 +490,6 @@
       color:var(--text);
       font-size:15px;
       font-weight:1000;
-      text-decoration:none;
       display:flex;
       align-items:center;
       justify-content:center;
@@ -528,7 +534,7 @@
       <div class="game-icon">⚔️</div>
 
       <div class="title-wrap">
-        <h1 class="title">GoodJunk Battle v2.4.20</h1>
+        <h1 class="title">GoodJunk Battle v2.4.26</h1>
         <div class="subtitle" id="roomLine">Battle • PC</div>
       </div>
 
@@ -578,6 +584,7 @@
         <section class="opponent-card">
           <div class="opponent-label">คู่แข่ง</div>
           <div class="opponent-name" id="opponentName">รอคู่แข่ง...</div>
+          <div class="opponent-score" id="opponentScore" data-opponent-score>0</div>
           <div class="opponent-status" id="opponentStatus">PLAY</div>
         </section>
 
@@ -657,7 +664,7 @@
     (function GoodJunkBattlePCRuntime(){
       'use strict';
 
-      const RUNTIME_VERSION = 'v2.4.20-pc-runtime';
+      const RUNTIME_VERSION = 'v2.4.26-pc-runtime-final';
 
       const url = new URL(location.href);
       const params = url.searchParams;
@@ -671,6 +678,12 @@
         params.get('lastRoom') ||
         '';
 
+      const MATCH_ID =
+        params.get('matchId') ||
+        params.get('roundId') ||
+        params.get('runId') ||
+        '';
+
       const TIME_LIMIT = Math.max(30, Number(params.get('time') || 60));
       const DIFF = params.get('diff') || 'normal';
 
@@ -681,6 +694,7 @@
       const playerNameEl = document.getElementById('playerName');
       const roomLine = document.getElementById('roomLine');
       const opponentNameEl = document.getElementById('opponentName');
+      const opponentScoreEl = document.getElementById('opponentScore');
       const opponentStatusEl = document.getElementById('opponentStatus');
 
       const goodCountEl = document.getElementById('goodCount');
@@ -703,12 +717,13 @@
         miss: 0,
         hearts: 3,
         timeLeft: TIME_LIMIT,
-        spawnEvery: DIFF === 'hard' ? 620 : DIFF === 'easy' ? 980 : 780,
-        targetLife: DIFF === 'hard' ? 1900 : DIFF === 'easy' ? 3100 : 2500,
+        spawnEvery: DIFF === 'hard' || DIFF === 'challenge' ? 620 : DIFF === 'easy' ? 980 : 780,
+        targetLife: DIFF === 'hard' || DIFF === 'challenge' ? 1900 : DIFF === 'easy' ? 3100 : 2500,
         spawnTimer: null,
         clockTimer: null,
         playerId: PLAYER_ID,
-        roomCode: ROOM_CODE
+        roomCode: ROOM_CODE,
+        matchId: MATCH_ID
       };
 
       window.GJ_PLAYER_ID = PLAYER_ID;
@@ -717,6 +732,7 @@
       window.MY_PLAYER_NAME = PLAYER_NAME;
       window.GJ_ROOM_CODE = ROOM_CODE;
       window.ROOM_CODE = ROOM_CODE;
+      window.GJ_MATCH_ID = MATCH_ID;
       window.GJ_BATTLE_PHASE = 'play';
 
       function emit(name, detail){
@@ -886,6 +902,19 @@
       }
 
       function getOpponentSnapshot(){
+        const live = window.GJ_BATTLE_OPPONENT;
+
+        if (live){
+          return {
+            name: live.name || 'Hero',
+            score: Number(live.score || 0),
+            good: Number(live.good || 0),
+            junk: Number(live.junk || 0),
+            miss: Number(live.miss || 0),
+            status: live.status || ''
+          };
+        }
+
         const room = window.GJ_CURRENT_ROOM || {};
         const players = room.players || {};
         const entries = Object.entries(players);
@@ -907,10 +936,10 @@
 
         return {
           name: data.name || data.playerName || data.displayName || 'Hero',
-          score: Number(data.score || 0),
-          good: Number(data.good || 0),
-          junk: Number(data.junk || 0),
-          miss: Number(data.miss || 0),
+          score: Number(data.score || data.points || 0),
+          good: Number(data.good || data.goodCount || 0),
+          junk: Number(data.junk || data.junkCount || 0),
+          miss: Number(data.miss || data.missCount || 0),
           status: data.status || ''
         };
       }
@@ -919,11 +948,14 @@
         const op = getOpponentSnapshot();
 
         opponentNameEl.textContent = op.name || 'Hero';
+        if (opponentScoreEl) opponentScoreEl.textContent = String(op.score || 0);
 
         if (op.status === 'left' || op.status === 'offline'){
           opponentStatusEl.textContent = 'LEFT';
+          opponentStatusEl.classList.add('off');
         }else{
           opponentStatusEl.textContent = 'PLAY';
+          opponentStatusEl.classList.remove('off');
         }
       }
 
@@ -975,6 +1007,7 @@
         if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateMyPlayer === 'function'){
           window.GJ_BATTLE_CORE.updateMyPlayer({
             score: state.score,
+            points: state.score,
             good: state.good,
             junk: state.junk,
             miss: state.miss,
@@ -994,6 +1027,10 @@
             endedAt: Date.now(),
             reason: reason
           });
+        }
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+          window.GJ_BATTLE_CORE.forceRealtimeSync('runtime-end');
         }
 
         emit('gj:battle-ended', {
@@ -1021,7 +1058,8 @@
         spawnTarget,
         endGame,
         syncBasicUI,
-        updateOpponentUI
+        updateOpponentUI,
+        getOpponentSnapshot
       };
 
       document.getElementById('btnFullscreen').addEventListener('click', async function(){
@@ -1039,6 +1077,7 @@
         location.reload();
       });
       window.addEventListener('gj:battle-opponent-left', updateOpponentUI);
+      window.addEventListener('gj:battle-opponent-updated', updateOpponentUI);
 
       setInterval(updateOpponentUI, 1000);
 
@@ -1052,6 +1091,7 @@
     })();
   </script>
 
-  <script src="./goodjunk-battle-v2-core.js?v=2420"></script>
+  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2426"></script>
+  <script src="./goodjunk-battle-v2-core.js?v=2426"></script>
 </body>
 </html>
