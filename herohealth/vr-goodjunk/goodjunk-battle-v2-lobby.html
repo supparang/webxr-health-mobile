@@ -721,7 +721,7 @@
     (function GoodJunkBattleV2Lobby(){
       'use strict';
 
-      const LOBBY_VERSION = 'v2.4.28-lobby-firebase-sdk-loader-hotfix';
+      const LOBBY_VERSION = 'v2.4.29-lobby-ready-state-hardening';
 
       const url = new URL(location.href);
       const params = url.searchParams;
@@ -816,49 +816,42 @@
       }
 
       async function waitForDbReady(timeoutMs){
-        timeoutMs = Number(timeoutMs || 4500);
+  timeoutMs = Number(timeoutMs || 4500);
 
-        if (
-          window.GJ_BATTLE_FIREBASE_BRIDGE &&
-          typeof window.GJ_BATTLE_FIREBASE_BRIDGE.refresh === 'function'
-        ){
-          try{
-            await window.GJ_BATTLE_FIREBASE_BRIDGE.refresh();
-          }catch(_){}
-        }
+  const start = Date.now();
 
-        if (getDbReady()) return true;
+  return await new Promise(resolve => {
+    const tick = async () => {
+      const bridge = window.GJ_BATTLE_FIREBASE_BRIDGE;
 
-        const start = Date.now();
+      if (bridge){
+        try{
+          if (typeof bridge.ensureAuth === 'function'){
+            await bridge.ensureAuth();
+          }
 
-        return await new Promise(resolve => {
-          const tick = async () => {
-            if (
-              window.GJ_BATTLE_FIREBASE_BRIDGE &&
-              typeof window.GJ_BATTLE_FIREBASE_BRIDGE.refresh === 'function'
-            ){
-              try{
-                await window.GJ_BATTLE_FIREBASE_BRIDGE.refresh();
-              }catch(_){}
-            }
-
-            if (getDbReady()){
-              resolve(true);
-              return;
-            }
-
-            if (Date.now() - start >= timeoutMs){
-              resolve(false);
-              return;
-            }
-
-            setTimeout(tick, 180);
-          };
-
-          tick();
-        });
+          if (typeof bridge.refresh === 'function'){
+            await bridge.refresh();
+          }
+        }catch(_){}
       }
 
+      if (getDbReady()){
+        resolve(true);
+        return;
+      }
+
+      if (Date.now() - start >= timeoutMs){
+        resolve(false);
+        return;
+      }
+
+      setTimeout(tick, 160);
+    };
+
+    tick();
+  });
+}
       function explainDbNotReady(){
         const authReady = !!window.GJ_BATTLE_AUTH_READY;
         const dbSource = window.GJ_BATTLE_DB_SOURCE || 'none';
@@ -952,8 +945,19 @@
       }
 
       function getDbReady(){
-        return !!window.GJ_BATTLE_DB_READY;
+        const bridge = window.GJ_BATTLE_FIREBASE_BRIDGE;
+
+        if (bridge && typeof bridge.isReady === 'function'){
+        return !!bridge.isReady();
       }
+
+      return !!(
+        window.GJ_BATTLE_DB_READY &&
+        window.GJ_BATTLE_AUTH_READY &&
+        window.GJ_DB &&
+      typeof window.GJ_DB.ref === 'function'
+      );
+    }
 
       function getRoomRef(roomCode){
         const code = normalizeBattleRoomCode(roomCode);
@@ -1097,8 +1101,10 @@
         }
 
         if (!getDbReady()){
-          return { ok:false, reason:'db-offline', onlineCount:online.length, host };
-        }
+  setStatus('DB ยังไม่พร้อม • รอ Firebase Auth/Database สักครู่', 'warn');
+  updateStartButton(room);
+  return;
+}
 
         if (!host){
           return { ok:false, reason:'not-host', onlineCount:online.length, host };
@@ -1158,8 +1164,8 @@
         }else if (online.length === 1){
           setStatus('อยู่ในห้องแล้ว • รอคู่แข่งอีก 1 คน', 'warn');
         }else{
-          setStatus('ยังไม่มีผู้เล่นออนไลน์ในห้อง', 'warn');
-        }
+  setStatus('กำลัง sync ผู้เล่นในห้อง...', 'warn');
+}
 
         updateStartButton(room);
       }
@@ -1184,6 +1190,7 @@
         }
       }
 
+      
       async function createRoom(){
         saveFields();
 
@@ -1233,9 +1240,20 @@
           });
 
           await roomRef.child('players').child(state.playerId).update(playerPatch({
-            role: 'host',
-            host: true,
-            joinedAt: now()
+  role: 'host',
+  host: true,
+  joinedAt: now()
+}));
+
+state.room = makeLocalRoomSnapshot(roomCode);
+syncLocalRoomUI(state.room);
+
+attachRoomListener(roomCode);
+startHeartbeat();
+
+setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
+toast('สร้างห้องแล้ว: ' + roomCode);
+return true;
           }));
 
           attachRoomListener(roomCode);
@@ -1915,10 +1933,24 @@
         }
 
         setTimeout(async function(){
-          await waitForDbReady(2500);
-          if (state.roomCode) attachRoomListener(state.roomCode);
-          updateLobbyStatusByRoom(state.room || {});
-        }, 250);
+  const dbOk = await waitForDbReady(3500);
+
+  if (dbOk && state.roomCode){
+    attachRoomListener(state.roomCode);
+
+    try{
+      const snap = await getRoomSnapshot(state.roomCode);
+      if (snap && snap.room && Object.keys(snap.room).length){
+        state.room = snap.room;
+        renderRoom(snap.room);
+      }else if (state.playerId && state.roomCode){
+        syncLocalRoomUI(makeLocalRoomSnapshot(state.roomCode));
+      }
+    }catch(_){}
+  }
+
+  updateLobbyStatusByRoom(state.room || {});
+}, 250);
 
         setInterval(function(){
           updateLobbyStatusByRoom(state.room || {});
