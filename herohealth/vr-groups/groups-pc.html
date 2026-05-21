@@ -164,14 +164,14 @@
     </div>
 
     <div class="note">
-      Redirect patch: v20260521-groups-pc-to-canonical-redirect-01
+      Redirect patch: v20260521-groups-pc-to-canonical-redirect-02
     </div>
   </main>
 
   <script>
   /* =========================================================
      HeroHealth Groups PC Bridge
-     PATCH: v20260521-groups-pc-to-canonical-redirect-01
+     PATCH: v20260521-groups-pc-to-canonical-redirect-02
      File: /herohealth/vr-groups/groups-pc.html
 
      Purpose:
@@ -179,12 +179,19 @@
      - Redirect safely to canonical Groups Solo:
        /herohealth/vr-groups/groups.html
      - Preserve params and force view=pc, mode=solo, game=groups
+     - Keep qa=1 working by passing it to canonical groups.html
   ========================================================= */
   (function(){
     'use strict';
 
-    const PATCH_ID = 'v20260521-groups-pc-to-canonical-redirect-01';
+    const PATCH_ID = 'v20260521-groups-pc-to-canonical-redirect-02';
     const qs = new URLSearchParams(location.search);
+
+    window.__HHA_GROUPS_PC_BRIDGE__ = {
+      patch: PATCH_ID,
+      from: location.href,
+      startedAt: new Date().toISOString()
+    };
 
     function repoBase(){
       const path = location.pathname;
@@ -209,6 +216,39 @@
       return v === null || v === '' ? fallback : v;
     }
 
+    function buildZoneUrl(){
+      const out = new URL(ZONE);
+
+      [
+        'pid',
+        'name',
+        'studentId',
+        'studentName',
+        'classSection',
+        'diff',
+        'time',
+        'view',
+        'studyId',
+        'conditionGroup',
+        'api',
+        'log'
+      ].forEach(function(k){
+        const v = qs.get(k);
+        if (v !== null && v !== '') out.searchParams.set(k, v);
+      });
+
+      out.searchParams.set('pid', getParam('pid', 'anon'));
+      out.searchParams.set('name', getParam('name', 'Hero'));
+      out.searchParams.set('diff', getParam('diff', 'normal'));
+      out.searchParams.set('time', getParam('time', '90'));
+      out.searchParams.set('view', 'pc');
+      out.searchParams.set('zone', 'nutrition');
+      out.searchParams.set('cat', 'nutrition');
+      out.searchParams.set('game', 'groups');
+
+      return out.toString();
+    }
+
     function buildCanonicalUrl(){
       const out = new URL(CANONICAL);
 
@@ -228,7 +268,10 @@
         'hub',
         'back',
         'return',
-        'returnTo'
+        'returnTo',
+        'qa',
+        'debug',
+        'teacher'
       ].forEach(function(k){
         const v = qs.get(k);
         if (v !== null && v !== '') out.searchParams.set(k, v);
@@ -267,33 +310,9 @@
         out.searchParams.set('return', zoneUrl);
       }
 
-      return out.toString();
-    }
-
-    function buildZoneUrl(){
-      const out = new URL(ZONE);
-
-      [
-        'pid',
-        'name',
-        'studentId',
-        'studentName',
-        'classSection',
-        'diff',
-        'time',
-        'view',
-        'studyId',
-        'conditionGroup',
-        'api',
-        'log'
-      ].forEach(function(k){
-        const v = qs.get(k);
-        if (v !== null && v !== '') out.searchParams.set(k, v);
-      });
-
-      out.searchParams.set('zone', 'nutrition');
-      out.searchParams.set('cat', 'nutrition');
-      out.searchParams.set('game', 'groups');
+      if (!out.searchParams.get('returnTo')) {
+        out.searchParams.set('returnTo', zoneUrl);
+      }
 
       return out.toString();
     }
@@ -311,8 +330,7 @@
     function redirect(target){
       const noRedirect =
         qs.get('noredirect') === '1' ||
-        qs.get('debug') === '1' ||
-        qs.get('qa') === '1';
+        qs.get('hold') === '1';
 
       if (noRedirect) {
         console.info('[Groups PC Bridge]', PATCH_ID, 'redirect paused by query', {
@@ -332,11 +350,16 @@
 
     function boot(){
       const target = buildCanonicalUrl();
+
+      window.__HHA_GROUPS_PC_BRIDGE__.target = target;
+      window.__HHA_GROUPS_PC_BRIDGE__.zone = buildZoneUrl();
+
       setUi(target);
 
       console.info('[Groups PC Bridge]', PATCH_ID, {
         from: location.href,
-        target: target
+        target: target,
+        base: BASE
       });
 
       redirect(target);
