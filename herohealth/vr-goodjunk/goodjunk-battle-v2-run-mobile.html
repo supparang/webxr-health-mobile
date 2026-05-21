@@ -22,7 +22,7 @@
       --bad:#ff7b69;
       --blue:#71ccff;
       --yellow:#ffe17a;
-      --shadow:0 14px 32px rgba(112,60,20,.14);
+      --shadow:0 10px 24px rgba(112,60,20,.13);
     }
 
     *{
@@ -33,20 +33,20 @@
     html,
     body{
       width:100%;
-      min-height:100%;
+      height:100%;
       margin:0;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 15% 10%, rgba(255,225,122,.50), transparent 28%),
-        radial-gradient(circle at 90% 8%, rgba(113,204,255,.36), transparent 32%),
+        radial-gradient(circle at 15% 10%, rgba(255,225,122,.48), transparent 28%),
+        radial-gradient(circle at 90% 8%, rgba(113,204,255,.34), transparent 32%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
-      overflow-x:hidden;
+      overflow:hidden;
     }
 
     body{
       min-height:100dvh;
-      padding:6px 6px calc(136px + env(safe-area-inset-bottom));
+      padding:5px 5px calc(92px + env(safe-area-inset-bottom));
     }
 
     button,
@@ -59,33 +59,44 @@
       touch-action:manipulation;
     }
 
+    button:disabled{
+      opacity:.5;
+      filter:grayscale(.25);
+      cursor:not-allowed;
+    }
+
     .app{
       width:100%;
       max-width:760px;
+      height:calc(100dvh - 100px - env(safe-area-inset-bottom));
+      min-height:520px;
       margin:0 auto;
+      display:grid;
+      grid-template-rows:auto auto auto minmax(0,1fr);
+      gap:5px;
     }
 
     .topbar{
       display:grid;
       grid-template-columns:auto minmax(0,1fr) auto;
       align-items:center;
-      gap:8px;
-      padding:8px;
-      border-radius:22px;
+      gap:7px;
+      padding:6px;
+      border-radius:20px;
       border:3px solid rgba(255,199,125,.9);
       background:rgba(255,254,248,.94);
       box-shadow:var(--shadow);
     }
 
     .game-icon{
-      width:52px;
-      height:52px;
+      width:46px;
+      height:46px;
       display:grid;
       place-items:center;
-      border-radius:18px;
+      border-radius:16px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:2px solid rgba(255,199,125,.84);
-      font-size:30px;
+      font-size:27px;
       flex:0 0 auto;
     }
 
@@ -95,7 +106,7 @@
 
     .title{
       margin:0;
-      font-size:clamp(22px,6vw,30px);
+      font-size:clamp(20px,5.4vw,28px);
       line-height:1.05;
       font-weight:1000;
       color:var(--text);
@@ -105,8 +116,8 @@
     }
 
     .subtitle{
-      margin-top:3px;
-      font-size:12px;
+      margin-top:2px;
+      font-size:11px;
       font-weight:900;
       color:var(--muted);
       white-space:nowrap;
@@ -116,18 +127,18 @@
 
     .top-actions{
       display:flex;
-      gap:5px;
+      gap:4px;
       align-items:center;
     }
 
     .top-btn{
-      min-height:38px;
-      padding:6px 9px;
-      border-radius:14px;
+      min-height:34px;
+      padding:5px 8px;
+      border-radius:13px;
       border:2px solid rgba(255,199,125,.9);
       background:#fffef8;
       color:var(--text);
-      font-size:13px;
+      font-size:12px;
       font-weight:1000;
       text-decoration:none;
       display:inline-flex;
@@ -136,32 +147,31 @@
     }
 
     .top-btn.icon-only{
-      width:38px;
-      padding:6px;
-      font-size:18px;
+      width:36px;
+      padding:5px;
+      font-size:17px;
     }
 
     .hud-grid{
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:6px;
-      margin:7px 0;
+      gap:5px;
     }
 
     .hud-card{
       min-width:0;
-      min-height:58px;
-      padding:6px 4px;
-      border-radius:16px;
-      border:3px solid rgba(255,220,168,.95);
+      min-height:48px;
+      padding:5px 3px;
+      border-radius:15px;
+      border:2px solid rgba(255,220,168,.95);
       background:rgba(255,254,248,.92);
       text-align:center;
-      box-shadow:0 7px 18px rgba(112,60,20,.10);
+      box-shadow:0 6px 15px rgba(112,60,20,.09);
     }
 
     .hud-card .label{
       display:block;
-      font-size:10px;
+      font-size:9px;
       line-height:1;
       font-weight:1000;
       color:#8c6a28;
@@ -170,8 +180,8 @@
 
     .hud-card .value{
       display:block;
-      margin-top:5px;
-      font-size:clamp(18px,5vw,24px);
+      margin-top:4px;
+      font-size:clamp(16px,4.6vw,22px);
       line-height:1.05;
       font-weight:1000;
       color:var(--text);
@@ -184,19 +194,18 @@
       display:grid;
       grid-template-columns:minmax(0,1fr) auto;
       align-items:center;
-      gap:8px;
-      min-height:50px;
-      padding:8px 12px;
-      margin:7px 0;
-      border-radius:18px;
-      border:3px solid rgba(255,199,125,.9);
+      gap:6px;
+      min-height:42px;
+      padding:6px 10px;
+      border-radius:16px;
+      border:2px solid rgba(255,199,125,.9);
       background:rgba(255,254,248,.92);
-      box-shadow:0 8px 20px rgba(112,60,20,.10);
+      box-shadow:0 7px 18px rgba(112,60,20,.09);
     }
 
     .opponent-name{
       min-width:0;
-      font-size:18px;
+      font-size:15px;
       font-weight:1000;
       white-space:nowrap;
       overflow:hidden;
@@ -207,25 +216,36 @@
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-width:64px;
-      min-height:34px;
-      padding:6px 10px;
+      min-width:58px;
+      min-height:30px;
+      padding:5px 8px;
       border-radius:999px;
-      border:3px solid rgba(130,220,130,.62);
+      border:2px solid rgba(130,220,130,.62);
       background:#efffeb;
       color:#4f9b39;
-      font-size:13px;
+      font-size:12px;
       font-weight:1000;
+    }
+
+    .opponent-status.off{
+      border-color:rgba(255,123,105,.68);
+      background:#fff0ed;
+      color:#a23828;
+    }
+
+    .arena-wrap{
+      min-height:0;
+      display:grid;
+      grid-template-rows:minmax(0,1fr) auto;
+      gap:5px;
     }
 
     .arena{
       position:relative;
       width:100%;
-      height:clamp(300px,48dvh,430px);
-      min-height:300px;
-      max-height:48dvh;
-      margin:6px 0;
-      border-radius:24px;
+      min-height:0;
+      height:100%;
+      border-radius:22px;
       border:4px solid rgba(255,199,125,.9);
       overflow:hidden;
       box-shadow:var(--shadow);
@@ -233,7 +253,7 @@
         linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px),
         linear-gradient(180deg, rgba(255,255,255,.18) 1px, transparent 1px),
         linear-gradient(180deg,#e9fbff 0%,#fff9cf 100%);
-      background-size:72px 72px,72px 72px,100% 100%;
+      background-size:64px 64px,64px 64px,100% 100%;
     }
 
     .arena::before{
@@ -242,22 +262,22 @@
       inset:0;
       pointer-events:none;
       background:
-        radial-gradient(circle at 50% 60%, rgba(255,225,122,.30), transparent 30%),
-        radial-gradient(circle at 25% 80%, rgba(85,217,120,.14), transparent 26%),
-        radial-gradient(circle at 80% 35%, rgba(113,204,255,.14), transparent 30%);
+        radial-gradient(circle at 50% 60%, rgba(255,225,122,.28), transparent 30%),
+        radial-gradient(circle at 25% 80%, rgba(85,217,120,.13), transparent 26%),
+        radial-gradient(circle at 80% 35%, rgba(113,204,255,.13), transparent 30%);
     }
 
     .target{
       position:absolute;
       display:grid;
       place-items:center;
-      width:58px;
-      height:58px;
-      border-radius:18px;
-      border:6px solid var(--good);
+      width:52px;
+      height:52px;
+      border-radius:17px;
+      border:5px solid var(--good);
       background:rgba(255,255,255,.94);
-      box-shadow:0 10px 20px rgba(80,50,10,.14);
-      font-size:30px;
+      box-shadow:0 9px 18px rgba(80,50,10,.14);
+      font-size:28px;
       font-weight:1000;
       user-select:none;
       touch-action:manipulation;
@@ -282,51 +302,72 @@
 
     .mini-stats{
       position:absolute;
-      left:8px;
-      right:8px;
-      bottom:8px;
+      left:7px;
+      right:7px;
+      bottom:7px;
       z-index:12;
       display:flex;
       justify-content:center;
       flex-wrap:wrap;
-      gap:5px;
+      gap:4px;
       pointer-events:none;
     }
 
     .mini-pill{
-      padding:5px 8px;
+      padding:4px 7px;
       border-radius:999px;
       border:2px solid rgba(255,210,156,.95);
       background:rgba(255,253,245,.86);
       color:var(--text);
-      font-size:11px;
+      font-size:10px;
       font-weight:1000;
-      box-shadow:0 5px 14px rgba(100,55,12,.10);
+      box-shadow:0 5px 12px rgba(100,55,12,.10);
+    }
+
+    .battle-power{
+      height:30px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 8px;
+      border-radius:999px;
+      border:2px solid rgba(255,203,122,.92);
+      background:rgba(255,252,238,.96);
+      color:#87331f;
+      font-size:13px;
+      font-weight:1000;
+      box-shadow:0 6px 15px rgba(112,60,20,.08);
     }
 
     .battle-actions{
+      position:fixed;
+      left:5px;
+      right:5px;
+      bottom:calc(5px + env(safe-area-inset-bottom));
+      z-index:500;
+      width:min(760px,calc(100vw - 10px));
+      margin:0 auto;
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:8px;
-      margin:8px 0 10px;
-      padding:8px;
-      border-radius:22px;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:6px;
+      padding:6px;
+      border-radius:20px;
       border:3px solid rgba(255,190,105,.75);
       background:rgba(255,252,238,.96);
       box-shadow:var(--shadow);
     }
 
     .skill-btn{
-      min-height:58px;
-      padding:8px 6px;
-      border-radius:18px;
+      min-height:66px;
+      padding:7px 4px;
+      border-radius:17px;
       border:3px solid rgba(255,203,122,.92);
       background:linear-gradient(180deg,#fff8d9,#ffe27a);
       color:#87331f;
-      font-size:clamp(14px,4vw,17px);
+      font-size:clamp(12px,3.5vw,15px);
       font-weight:1000;
-      line-height:1.1;
-      box-shadow:0 7px 0 rgba(194,125,38,.22);
+      line-height:1.08;
+      box-shadow:0 6px 0 rgba(194,125,38,.22);
     }
 
     .skill-btn:active{
@@ -347,7 +388,7 @@
       display:none;
       align-items:center;
       justify-content:center;
-      padding:14px;
+      padding:12px;
       background:rgba(40,28,18,.36);
       backdrop-filter:blur(9px);
     }
@@ -360,7 +401,7 @@
       width:min(94vw,560px);
       max-height:calc(100dvh - 18px);
       overflow:auto;
-      padding:22px 16px 18px;
+      padding:20px 15px 16px;
       border-radius:30px;
       border:5px solid rgba(255,187,105,.96);
       background:rgba(255,254,248,.97);
@@ -369,20 +410,20 @@
     }
 
     .result-icon{
-      width:80px;
-      height:80px;
+      width:76px;
+      height:76px;
       display:grid;
       place-items:center;
       margin:0 auto 10px;
       border-radius:25px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:3px solid rgba(255,199,125,.84);
-      font-size:42px;
+      font-size:40px;
     }
 
     .result-title{
       margin:0;
-      font-size:clamp(34px,11vw,56px);
+      font-size:clamp(32px,10vw,54px);
       line-height:1.05;
       font-weight:1000;
       color:var(--text);
@@ -391,12 +432,12 @@
     .result-note{
       width:fit-content;
       max-width:100%;
-      margin:12px auto;
-      padding:8px 13px;
+      margin:11px auto;
+      padding:7px 12px;
       border-radius:999px;
       border:3px dashed rgba(255,208,140,.92);
       background:rgba(255,248,225,.88);
-      font-size:18px;
+      font-size:16px;
       font-weight:1000;
       color:#8a5a20;
     }
@@ -404,13 +445,13 @@
     .result-score-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin:14px 0;
+      gap:9px;
+      margin:13px 0;
     }
 
     .score-box{
       min-width:0;
-      padding:13px 10px;
+      padding:12px 9px;
       border-radius:22px;
       border:3px solid rgba(255,220,168,.95);
       background:rgba(255,253,245,.92);
@@ -418,13 +459,16 @@
     }
 
     .score-box .who{
-      font-size:14px;
+      font-size:13px;
       font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
     .score-box .big{
       margin-top:3px;
-      font-size:44px;
+      font-size:42px;
       line-height:1;
       font-weight:1000;
       color:var(--text);
@@ -432,7 +476,7 @@
 
     .score-box .small{
       margin-top:6px;
-      font-size:13px;
+      font-size:12px;
       font-weight:900;
       color:var(--text);
       white-space:nowrap;
@@ -442,11 +486,11 @@
 
     .rematch-status{
       margin:10px 0;
-      padding:9px 10px;
+      padding:8px 10px;
       border-radius:18px;
       border:3px dashed rgba(255,208,140,.92);
       background:rgba(255,248,225,.7);
-      font-size:16px;
+      font-size:15px;
       font-weight:1000;
       color:#86601d;
     }
@@ -454,18 +498,18 @@
     .result-actions{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:10px;
+      gap:9px;
       margin-top:12px;
     }
 
     .result-actions button{
-      min-height:52px;
-      padding:10px 12px;
+      min-height:50px;
+      padding:9px 11px;
       border-radius:18px;
       border:3px solid rgba(255,199,125,.9);
       background:#fffef8;
       color:var(--text);
-      font-size:16px;
+      font-size:15px;
       font-weight:1000;
       display:flex;
       align-items:center;
@@ -481,7 +525,37 @@
       border-color:rgba(110,203,255,.9);
     }
 
-    @media (max-width:390px){
+    .db-badge{
+      position:fixed;
+      left:6px;
+      top:6px;
+      z-index:1000;
+      padding:4px 8px;
+      border-radius:999px;
+      border:2px solid rgba(130,220,130,.55);
+      background:rgba(238,255,235,.92);
+      color:#3a8b3f;
+      font-size:11px;
+      font-weight:1000;
+      pointer-events:none;
+    }
+
+    .db-badge.off{
+      border-color:rgba(255,123,105,.62);
+      background:rgba(255,239,236,.92);
+      color:#a23828;
+    }
+
+    @media (max-width:420px){
+      body{
+        padding-bottom:calc(88px + env(safe-area-inset-bottom));
+      }
+
+      .app{
+        height:calc(100dvh - 94px - env(safe-area-inset-bottom));
+        min-height:500px;
+      }
+
       .topbar{
         grid-template-columns:auto minmax(0,1fr);
       }
@@ -496,33 +570,96 @@
       }
 
       .hud-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+        grid-template-columns:repeat(4,minmax(0,1fr));
       }
 
-      .arena{
-        height:clamp(280px,44dvh,380px);
-        min-height:280px;
-        max-height:44dvh;
+      .hud-card{
+        min-height:44px;
       }
 
-      .result-actions{
-        grid-template-columns:1fr;
+      .target{
+        width:48px;
+        height:48px;
+        border-width:5px;
+        font-size:26px;
       }
 
+      .battle-actions{
+        grid-template-columns:repeat(4,minmax(0,1fr));
+      }
+
+      .skill-btn{
+        min-height:62px;
+        font-size:12px;
+      }
+
+      .result-actions,
       .result-score-grid{
         grid-template-columns:1fr;
+      }
+    }
+
+    @media (max-height:680px){
+      .game-icon{
+        width:40px;
+        height:40px;
+        font-size:24px;
+      }
+
+      .topbar{
+        padding:5px;
+      }
+
+      .title{
+        font-size:20px;
+      }
+
+      .subtitle{
+        font-size:10px;
+      }
+
+      .hud-card{
+        min-height:40px;
+        padding:4px 3px;
+      }
+
+      .hud-card .value{
+        font-size:16px;
+      }
+
+      .opponent-row{
+        min-height:38px;
+        padding:5px 8px;
+      }
+
+      .battle-power{
+        height:26px;
+      }
+
+      .skill-btn{
+        min-height:56px;
+      }
+
+      body{
+        padding-bottom:calc(80px + env(safe-area-inset-bottom));
+      }
+
+      .app{
+        height:calc(100dvh - 86px - env(safe-area-inset-bottom));
       }
     }
   </style>
 </head>
 
 <body>
+  <div id="dbBadge" class="db-badge off">DB checking...</div>
+
   <div class="app" id="app">
     <header class="topbar">
       <div class="game-icon">⚔️</div>
 
       <div class="title-wrap">
-        <h1 class="title">GoodJunk Battle v2.4.26</h1>
+        <h1 class="title">GoodJunk Battle</h1>
         <div class="subtitle" id="roomLine">Battle • Mobile</div>
       </div>
 
@@ -557,39 +694,41 @@
 
     <section class="opponent-row">
       <div class="opponent-name" id="opponentName">คู่แข่ง: รอคู่แข่ง...</div>
-      <div class="opponent-status" id="opponentStatus">PLAY</div>
+      <div class="opponent-status" id="opponentStatus">SYNC</div>
     </section>
 
-    <main class="arena" id="arena" aria-label="GoodJunk Battle arena">
-      <div class="mini-stats">
-        <span class="mini-pill" id="goodCount">Good0</span>
-        <span class="mini-pill" id="junkCount">Junk0</span>
-        <span class="mini-pill" id="missCount">Miss0</span>
-        <span class="mini-pill" id="attackCount">Attack0/5</span>
-        <span class="mini-pill" id="shieldCount">Shield0</span>
-      </div>
-    </main>
+    <section class="arena-wrap">
+      <main class="arena" id="arena" aria-label="GoodJunk Battle arena">
+        <div class="mini-stats">
+          <span class="mini-pill" id="goodCount">Good0</span>
+          <span class="mini-pill" id="junkCount">Junk0</span>
+          <span class="mini-pill" id="missCount">Miss0</span>
+          <span class="mini-pill" id="attackCount">Attack0/5</span>
+          <span class="mini-pill" id="shieldCount">Shield0</span>
+        </div>
+      </main>
 
-    <div id="battlePower" data-battle-power>พลัง 0/5</div>
-
-    <section id="battleActions" class="battle-actions action-bar" aria-label="Battle skills">
-      <button id="btnJunkStorm" class="skill-btn" type="button" data-skill="junk-storm" data-action="junk-storm">
-        ⚡ Junk Storm
-      </button>
-
-      <button id="btnShield" class="skill-btn" type="button" data-skill="shield" data-action="shield">
-        🛡️ Shield
-      </button>
-
-      <button id="btnFreeze" class="skill-btn" type="button" data-skill="freeze" data-action="freeze">
-        ❄️ Freeze
-      </button>
-
-      <button id="btnHeal" class="skill-btn" type="button" data-skill="heal" data-action="heal">
-        💚 Heal
-      </button>
+      <div id="battlePower" class="battle-power" data-battle-power>พลัง 0/5</div>
     </section>
   </div>
+
+  <section id="battleActions" class="battle-actions action-bar" aria-label="Battle skills">
+    <button id="btnJunkStorm" class="skill-btn" type="button" data-skill="junk-storm" data-action="junk-storm">
+      ⚡<br>Storm
+    </button>
+
+    <button id="btnShield" class="skill-btn" type="button" data-skill="shield" data-action="shield">
+      🛡️<br>Shield
+    </button>
+
+    <button id="btnFreeze" class="skill-btn" type="button" data-skill="freeze" data-action="freeze">
+      ❄️<br>Freeze
+    </button>
+
+    <button id="btnHeal" class="skill-btn" type="button" data-skill="heal" data-action="heal">
+      💚<br>Heal
+    </button>
+  </section>
 
   <section id="resultOverlay" class="result-overlay" aria-live="polite">
     <div class="result-card battle-result">
@@ -635,23 +774,106 @@
     </div>
   </section>
 
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    (function GoodJunkBattleFirebaseInitGuard(){
+      'use strict';
+
+      window.GJ_BATTLE_FIREBASE_INIT_GUARD =
+        'v2.4.31-mobile-firebase-init-guard';
+
+      const cfg =
+        window.HHA_FIREBASE_CONFIG ||
+        window.HEROHEALTH_FIREBASE_CONFIG ||
+        window.firebaseConfig ||
+        window.FIREBASE_CONFIG ||
+        {
+          apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
+          authDomain: "herohealth-d7f8c.firebaseapp.com",
+          databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "herohealth-d7f8c",
+          storageBucket: "herohealth-d7f8c.firebasestorage.app",
+          messagingSenderId: "680817376848",
+          appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
+        };
+
+      function hasFirebaseApp(){
+        try{
+          return !!(
+            window.firebase &&
+            typeof firebase.apps !== 'undefined' &&
+            firebase.apps &&
+            firebase.apps.length
+          );
+        }catch(_){
+          return false;
+        }
+      }
+
+      try{
+        if (window.firebase && typeof firebase.initializeApp === 'function'){
+          if (!hasFirebaseApp()){
+            firebase.initializeApp(cfg);
+          }
+
+          if (firebase.database && typeof firebase.database === 'function'){
+            window.GJ_DB = window.GJ_DB || firebase.database();
+            window.GJ_BATTLE_DB_READY = true;
+            window.GJ_BATTLE_DB_SOURCE = window.GJ_BATTLE_DB_SOURCE || 'firebase.database';
+          }
+
+          if (firebase.auth && typeof firebase.auth === 'function'){
+            firebase.auth().signInAnonymously()
+              .then(function(cred){
+                window.GJ_BATTLE_AUTH_READY = true;
+                window.GJ_BATTLE_AUTH_SOURCE = 'anonymous';
+                window.GJ_BATTLE_AUTH_UID =
+                  cred && cred.user && cred.user.uid ? cred.user.uid : '';
+                window.dispatchEvent(new CustomEvent('gj:battle-auth-ready', {
+                  detail:{ uid: window.GJ_BATTLE_AUTH_UID }
+                }));
+              })
+              .catch(function(err){
+                console.warn('[GJ Battle Mobile Firebase Auth] failed', err);
+                window.GJ_BATTLE_AUTH_READY = false;
+              });
+          }
+
+          window.GJ_BATTLE_FIREBASE_INIT_OK = true;
+        }else{
+          window.GJ_BATTLE_FIREBASE_INIT_OK = false;
+        }
+      }catch(err){
+        console.warn('[GJ Battle Mobile Firebase Init] failed', err);
+        window.GJ_BATTLE_FIREBASE_INIT_OK = false;
+      }
+    })();
+  </script>
+
+  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2431"></script>
+  <script src="./goodjunk-battle-v2-core.js?v=2431"></script>
+
   <script>
     (function GoodJunkBattleMobileRuntime(){
       'use strict';
 
-      const RUNTIME_VERSION = 'v2.4.28-mobile-runtime-firebase-sdk-loader-hotfix';
-
+      const RUNTIME_VERSION = 'v2.4.31-mobile-layout-sync-fix';
       const url = new URL(location.href);
       const params = url.searchParams;
 
       const PLAYER_ID = params.get('pid') || 'anon';
-      const PLAYER_NAME = params.get('name') || 'Hero';
-      const ROOM_CODE =
+      const PLAYER_NAME = params.get('name') || params.get('nick') || 'Hero';
+
+      const ROOM_CODE = normalizeCode(
         params.get('room') ||
         params.get('roomCode') ||
         params.get('code') ||
         params.get('lastRoom') ||
-        '';
+        ''
+      );
 
       const MATCH_ID =
         params.get('matchId') ||
@@ -661,6 +883,7 @@
 
       const TIME_LIMIT = Math.max(30, Number(params.get('time') || 60));
       const DIFF = params.get('diff') || 'normal';
+      const VIEW = 'mobile';
 
       const arena = document.getElementById('arena');
       const timerEl = document.getElementById('timer');
@@ -670,12 +893,14 @@
       const roomLine = document.getElementById('roomLine');
       const opponentNameEl = document.getElementById('opponentName');
       const opponentStatusEl = document.getElementById('opponentStatus');
+      const dbBadge = document.getElementById('dbBadge');
 
       const goodCountEl = document.getElementById('goodCount');
       const junkCountEl = document.getElementById('junkCount');
       const missCountEl = document.getElementById('missCount');
       const attackCountEl = document.getElementById('attackCount');
       const shieldCountEl = document.getElementById('shieldCount');
+      const battlePowerEl = document.getElementById('battlePower');
 
       const resultOverlay = document.getElementById('resultOverlay');
 
@@ -691,13 +916,20 @@
         miss: 0,
         hearts: 3,
         timeLeft: TIME_LIMIT,
-        spawnEvery: DIFF === 'hard' || DIFF === 'challenge' ? 720 : DIFF === 'easy' ? 1100 : 900,
-        targetLife: DIFF === 'hard' || DIFF === 'challenge' ? 2100 : DIFF === 'easy' ? 3300 : 2700,
+        power: 0,
+        maxPower: 5,
+        shieldActive: false,
+        freezeActive: false,
+        spawnEvery: DIFF === 'hard' || DIFF === 'challenge' ? 680 : DIFF === 'easy' ? 1050 : 860,
+        targetLife: DIFF === 'hard' || DIFF === 'challenge' ? 2000 : DIFF === 'easy' ? 3200 : 2600,
         spawnTimer: null,
         clockTimer: null,
+        syncTimer: null,
         playerId: PLAYER_ID,
+        playerName: PLAYER_NAME,
         roomCode: ROOM_CODE,
-        matchId: MATCH_ID
+        matchId: MATCH_ID,
+        lastOpponent: null
       };
 
       window.GJ_PLAYER_ID = PLAYER_ID;
@@ -708,6 +940,20 @@
       window.ROOM_CODE = ROOM_CODE;
       window.GJ_MATCH_ID = MATCH_ID;
       window.GJ_BATTLE_PHASE = 'play';
+      window.GJ_BATTLE_VIEW = VIEW;
+
+      function normalizeCode(raw){
+        return String(raw || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .replace(/[^A-Z0-9_-]/g, '')
+          .slice(0, 32);
+      }
+
+      function now(){
+        return Date.now();
+      }
 
       function emit(name, detail){
         window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
@@ -721,6 +967,192 @@
         return arr[Math.floor(Math.random() * arr.length)];
       }
 
+      function safeObj(v){
+        return v && typeof v === 'object' ? v : {};
+      }
+
+      function getDbReady(){
+        const bridge = window.GJ_BATTLE_FIREBASE_BRIDGE;
+
+        if (bridge && typeof bridge.isReady === 'function'){
+          return !!bridge.isReady();
+        }
+
+        return !!(
+          window.GJ_BATTLE_DB_READY &&
+          window.GJ_DB &&
+          typeof window.GJ_DB.ref === 'function'
+        );
+      }
+
+      function updateDbBadge(){
+        const ok = getDbReady();
+
+        dbBadge.textContent = ok ? 'DB ready' : 'DB offline/local';
+        dbBadge.classList.toggle('off', !ok);
+      }
+
+      function getRoomRef(){
+        if (!ROOM_CODE) return null;
+
+        if (
+          window.GJ_BATTLE_FIREBASE_BRIDGE &&
+          typeof window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef === 'function'
+        ){
+          return window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef(ROOM_CODE);
+        }
+
+        const db = window.GJ_DB || null;
+        if (db && typeof db.ref === 'function'){
+          return db.ref('herohealth/goodjunk/battleV2Rooms/' + ROOM_CODE);
+        }
+
+        return null;
+      }
+
+      function getLiveRoom(){
+        const coreRoom =
+          window.GJ_BATTLE_CORE &&
+          typeof window.GJ_BATTLE_CORE.getRoom === 'function'
+            ? window.GJ_BATTLE_CORE.getRoom()
+            : null;
+
+        return (
+          coreRoom ||
+          window.GJ_CURRENT_ROOM ||
+          window.GJ_BATTLE_ROOM ||
+          window.GJ_BATTLE_ROOM_DATA ||
+          {}
+        );
+      }
+
+      function updateMyPlayer(patch){
+        patch = Object.assign({
+          pid: PLAYER_ID,
+          name: PLAYER_NAME,
+          playerName: PLAYER_NAME,
+          displayName: PLAYER_NAME,
+          view: VIEW,
+          device: VIEW,
+          score: state.score,
+          points: state.score,
+          good: state.good,
+          junk: state.junk,
+          miss: state.miss,
+          hearts: state.hearts,
+          hp: state.hearts,
+          power: state.power,
+          attackPower: state.power,
+          phase: state.ended ? 'summary' : 'play',
+          status: state.ended ? 'finished' : 'playing',
+          updatedAt: now(),
+          lastSeen: now()
+        }, patch || {});
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateMyPlayer === 'function'){
+          try{
+            window.GJ_BATTLE_CORE.updateMyPlayer(patch);
+          }catch(err){
+            console.warn('[GJ Battle Mobile] core updateMyPlayer failed', err);
+          }
+        }
+
+        const roomRef = getRoomRef();
+        if (roomRef && typeof roomRef.child === 'function'){
+          try{
+            roomRef.child('players').child(PLAYER_ID).update(patch);
+          }catch(err){}
+        }
+      }
+
+      function updateRoom(patch){
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          try{
+            window.GJ_BATTLE_CORE.updateRoom(patch);
+          }catch(err){}
+        }
+
+        const roomRef = getRoomRef();
+        if (roomRef && typeof roomRef.update === 'function'){
+          try{
+            roomRef.update(Object.assign({ updatedAt:now() }, patch || {}));
+          }catch(err){}
+        }
+      }
+
+      function attachRoomListener(){
+        const roomRef = getRoomRef();
+        if (!roomRef || typeof roomRef.on !== 'function') return;
+
+        try{
+          roomRef.on('value', function(snapshot){
+            const room = snapshot && typeof snapshot.val === 'function'
+              ? snapshot.val() || {}
+              : {};
+
+            window.GJ_CURRENT_ROOM = room;
+            updateOpponentUI();
+          });
+        }catch(err){
+          console.warn('[GJ Battle Mobile] room listener failed', err);
+        }
+      }
+
+      function getOpponentSnapshot(){
+        const live = window.GJ_BATTLE_OPPONENT;
+
+        if (live && (live.name || live.playerName || live.displayName || live.score || live.good || live.miss)){
+          return {
+            id: live.pid || live.id || '',
+            name: live.name || live.playerName || live.displayName || 'คู่แข่ง',
+            score: Number(live.score || live.points || 0),
+            good: Number(live.good || live.goodCount || 0),
+            junk: Number(live.junk || live.junkCount || 0),
+            miss: Number(live.miss || live.missCount || 0),
+            status: live.status || ''
+          };
+        }
+
+        const room = getLiveRoom();
+        const players = safeObj(room.players);
+        const entries = Object.entries(players);
+
+        const op = entries.find(function(pair){
+          const key = String(pair[0]);
+          const data = safeObj(pair[1]);
+          const pid = String(data.pid || data.playerId || '');
+          return key !== String(PLAYER_ID) && pid !== String(PLAYER_ID);
+        });
+
+        if (!op){
+          return state.lastOpponent || {
+            id: '',
+            name: 'รอคู่แข่ง...',
+            score: 0,
+            good: 0,
+            junk: 0,
+            miss: 0,
+            status: 'waiting'
+          };
+        }
+
+        const data = safeObj(op[1]);
+
+        const out = {
+          id: op[0],
+          name: data.name || data.playerName || data.displayName || data.nick || op[0] || 'คู่แข่ง',
+          score: Number(data.score || data.points || 0),
+          good: Number(data.good || data.goodCount || 0),
+          junk: Number(data.junk || data.junkCount || 0),
+          miss: Number(data.miss || data.missCount || 0),
+          status: data.status || data.phase || '',
+          lastSeen: Number(data.lastSeen || data.heartbeatAt || data.updatedAt || 0)
+        };
+
+        state.lastOpponent = out;
+        return out;
+      }
+
       function syncBasicUI(){
         playerNameEl.textContent = PLAYER_NAME;
         scoreEl.textContent = String(state.score);
@@ -730,14 +1162,9 @@
         goodCountEl.textContent = 'Good' + state.good;
         junkCountEl.textContent = 'Junk' + state.junk;
         missCountEl.textContent = 'Miss' + state.miss;
-
-        const battleState = window.GJ_BATTLE_STATE || {};
-        const power = Number(battleState.power ?? battleState.attackPower ?? 0);
-        const maxPower = Number(battleState.maxPower ?? 5);
-        const shield = battleState.shieldActive ? 1 : 0;
-
-        attackCountEl.textContent = 'Attack' + power + '/' + maxPower;
-        shieldCountEl.textContent = 'Shield' + shield;
+        attackCountEl.textContent = 'Attack' + state.power + '/' + state.maxPower;
+        shieldCountEl.textContent = 'Shield' + (state.shieldActive ? 1 : 0);
+        battlePowerEl.textContent = 'พลัง ' + state.power + '/' + state.maxPower;
 
         roomLine.textContent = [
           PLAYER_NAME,
@@ -754,11 +1181,36 @@
           hearts: state.hearts,
           hp: state.hearts,
           maxHearts: 3,
+          power: state.power,
+          attackPower: state.power,
+          maxPower: state.maxPower,
+          shieldActive: state.shieldActive,
+          freezeActive: state.freezeActive,
           timeLeft: state.timeLeft,
           remaining: state.timeLeft
         });
 
         emit('gj:battle-state-updated', window.GJ_BATTLE_STATE);
+      }
+
+      function updateOpponentUI(){
+        const op = getOpponentSnapshot();
+
+        opponentNameEl.textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
+
+        const offline = op.status === 'left' || op.status === 'offline';
+        const waiting = !op.id && op.status === 'waiting';
+
+        if (offline){
+          opponentStatusEl.textContent = 'LEFT';
+          opponentStatusEl.classList.add('off');
+        }else if (waiting){
+          opponentStatusEl.textContent = 'WAIT';
+          opponentStatusEl.classList.add('off');
+        }else{
+          opponentStatusEl.textContent = 'PLAY';
+          opponentStatusEl.classList.remove('off');
+        }
       }
 
       function spawnTarget(forcedKind){
@@ -773,8 +1225,8 @@
         item.dataset.type = kind;
         item.textContent = kind === 'good' ? pick(foodGood) : pick(foodJunk);
 
-        item.style.left = rand(12, 88) + '%';
-        item.style.top = rand(18, 74) + '%';
+        item.style.left = rand(10, 90) + '%';
+        item.style.top = rand(14, 78) + '%';
 
         item.addEventListener('click', function(ev){
           ev.preventDefault();
@@ -787,6 +1239,7 @@
           if (kind === 'good'){
             state.good += 1;
             state.score += 10;
+            state.power = Math.min(state.maxPower, state.power + 1);
 
             emit('gj:good-collected', {
               score: 10,
@@ -802,16 +1255,20 @@
           }else{
             state.junk += 1;
             state.miss += 1;
-            state.hearts = Math.max(0, state.hearts - 1);
+
+            if (!state.shieldActive){
+              state.hearts = Math.max(0, state.hearts - 1);
+            }
 
             emit('gj:junk-hit', {
-              damage: 1,
+              damage: state.shieldActive ? 0 : 1,
+              shieldBlocked: state.shieldActive,
               kind: 'junk'
             });
 
             emit('hha:miss', {
               type: 'junk',
-              damage: 1
+              damage: state.shieldActive ? 0 : 1
             });
 
             if (state.hearts <= 0){
@@ -822,6 +1279,7 @@
           }
 
           syncBasicUI();
+          updateMyPlayer();
 
           setTimeout(function(){
             item.remove();
@@ -845,11 +1303,99 @@
 
           item.remove();
           syncBasicUI();
+          updateMyPlayer();
         }, state.targetLife);
+      }
+
+      function useSkill(skill){
+        if (state.ended) return;
+
+        if (skill === 'shield'){
+          if (state.power < 2) return;
+          state.power -= 2;
+          state.shieldActive = true;
+          setTimeout(function(){
+            state.shieldActive = false;
+            syncBasicUI();
+            updateMyPlayer();
+          }, 5500);
+        }
+
+        if (skill === 'heal'){
+          if (state.power < 3) return;
+          state.power -= 3;
+          state.hearts = Math.min(3, state.hearts + 1);
+        }
+
+        if (skill === 'freeze'){
+          if (state.power < 4) return;
+          state.power -= 4;
+          emit('gj:battle-skill', { skill:'freeze', from:PLAYER_ID, room:ROOM_CODE });
+          updateRoom({
+            effects:{
+              type:'freeze',
+              from:PLAYER_ID,
+              at:now()
+            }
+          });
+        }
+
+        if (skill === 'junk-storm'){
+          if (state.power < 5) return;
+          state.power -= 5;
+          emit('gj:battle-skill', { skill:'junk-storm', from:PLAYER_ID, room:ROOM_CODE });
+          updateRoom({
+            effects:{
+              type:'junk-storm',
+              from:PLAYER_ID,
+              at:now()
+            }
+          });
+        }
+
+        syncBasicUI();
+        updateMyPlayer();
+      }
+
+      function bindSkills(){
+        document.getElementById('btnJunkStorm').addEventListener('click', function(){
+          useSkill('junk-storm');
+        });
+
+        document.getElementById('btnShield').addEventListener('click', function(){
+          useSkill('shield');
+        });
+
+        document.getElementById('btnFreeze').addEventListener('click', function(){
+          useSkill('freeze');
+        });
+
+        document.getElementById('btnHeal').addEventListener('click', function(){
+          useSkill('heal');
+        });
+      }
+
+      function clearTargets(){
+        arena.querySelectorAll('.target').forEach(function(el){
+          el.remove();
+        });
       }
 
       function startGame(){
         syncBasicUI();
+        updateDbBadge();
+        updateOpponentUI();
+
+        updateMyPlayer({
+          finished:false,
+          done:false,
+          status:'playing',
+          phase:'play',
+          matchId:MATCH_ID,
+          currentPage:'run-mobile'
+        });
+
+        attachRoomListener();
 
         state.spawnTimer = setInterval(function(){
           spawnTarget();
@@ -866,69 +1412,19 @@
           }
 
           syncBasicUI();
+          updateMyPlayer();
         }, 1000);
 
-        for (let i = 0; i < 4; i++){
+        state.syncTimer = setInterval(function(){
+          updateDbBadge();
+          updateOpponentUI();
+          updateMyPlayer();
+        }, 1800);
+
+        for (let i = 0; i < 5; i++){
           setTimeout(function(){
             spawnTarget();
-          }, i * 420);
-        }
-      }
-
-      function getOpponentSnapshot(){
-        const live = window.GJ_BATTLE_OPPONENT;
-
-        if (live){
-          return {
-            name: live.name || 'Hero',
-            score: Number(live.score || 0),
-            good: Number(live.good || 0),
-            junk: Number(live.junk || 0),
-            miss: Number(live.miss || 0),
-            status: live.status || ''
-          };
-        }
-
-        const room = window.GJ_CURRENT_ROOM || {};
-        const players = room.players || {};
-        const entries = Object.entries(players);
-        const op = entries.find(function(pair){
-          return String(pair[0]) !== String(PLAYER_ID);
-        });
-
-        if (!op){
-          return {
-            name: 'Hero',
-            score: 0,
-            good: 0,
-            junk: 0,
-            miss: 0
-          };
-        }
-
-        const data = op[1] || {};
-
-        return {
-          name: data.name || data.playerName || data.displayName || 'Hero',
-          score: Number(data.score || data.points || 0),
-          good: Number(data.good || data.goodCount || 0),
-          junk: Number(data.junk || data.junkCount || 0),
-          miss: Number(data.miss || data.missCount || 0),
-          status: data.status || ''
-        };
-      }
-
-      function updateOpponentUI(){
-        const op = getOpponentSnapshot();
-
-        opponentNameEl.textContent = 'คู่แข่ง: ' + (op.name || 'Hero');
-
-        if (op.status === 'left' || op.status === 'offline'){
-          opponentStatusEl.textContent = 'LEFT';
-          opponentStatusEl.classList.add('off');
-        }else{
-          opponentStatusEl.textContent = 'PLAY';
-          opponentStatusEl.classList.remove('off');
+          }, i * 340);
         }
       }
 
@@ -941,11 +1437,13 @@
 
         clearInterval(state.spawnTimer);
         clearInterval(state.clockTimer);
+        clearInterval(state.syncTimer);
+        clearTargets();
 
         const op = getOpponentSnapshot();
 
-        const myScore = state.score;
-        const opScore = op.score || 0;
+        const myScore = Number(state.score || 0);
+        const opScore = Number(op.score || 0);
 
         let title = 'จบ Battle!';
         let icon = '💪';
@@ -970,40 +1468,40 @@
         document.getElementById('resultMyMeta').textContent =
           'Good: ' + state.good + ' • Junk: ' + state.junk + ' • Miss: ' + state.miss;
 
-        document.getElementById('resultOpName').textContent = 'คู่แข่ง: ' + (op.name || 'Hero');
+        document.getElementById('resultOpName').textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
         document.getElementById('resultOpScore').textContent = String(opScore);
         document.getElementById('resultOpMeta').textContent =
           'Good: ' + op.good + ' • Junk: ' + op.junk + ' • Miss: ' + op.miss;
 
         resultOverlay.classList.add('show');
 
-        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateMyPlayer === 'function'){
-          window.GJ_BATTLE_CORE.updateMyPlayer({
-            score: state.score,
-            points: state.score,
-            good: state.good,
-            junk: state.junk,
-            miss: state.miss,
-            hearts: state.hearts,
-            hp: state.hearts,
-            result: title,
-            finished: true,
-            done: true,
-            status: 'finished'
-          });
-        }
+        updateMyPlayer({
+          score: state.score,
+          points: state.score,
+          good: state.good,
+          junk: state.junk,
+          miss: state.miss,
+          hearts: state.hearts,
+          hp: state.hearts,
+          result: title,
+          finished: true,
+          done: true,
+          status: 'finished',
+          phase:'summary',
+          endedAt: now()
+        });
 
-        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
-          window.GJ_BATTLE_CORE.updateRoom({
-            phase: 'summary',
-            status: 'summary',
-            endedAt: Date.now(),
-            reason: reason
-          });
-        }
+        updateRoom({
+          phase: 'summary',
+          status: 'summary',
+          endedAt: now(),
+          reason: reason
+        });
 
         if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
-          window.GJ_BATTLE_CORE.forceRealtimeSync('runtime-end');
+          try{
+            window.GJ_BATTLE_CORE.forceRealtimeSync('runtime-mobile-end');
+          }catch(err){}
         }
 
         emit('gj:battle-ended', {
@@ -1013,12 +1511,102 @@
         });
       }
 
+      function buildLobbyUrl(){
+        const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+
+        ['pid','name','nick','diff','time','view','hub','zone','cat','studyId','conditionGroup','api','log'].forEach(function(k){
+          const v =
+            k === 'pid' ? PLAYER_ID :
+            k === 'name' ? PLAYER_NAME :
+            k === 'nick' ? PLAYER_NAME :
+            k === 'view' ? VIEW :
+            params.get(k);
+
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        if (ROOM_CODE){
+          out.searchParams.set('room', ROOM_CODE);
+          out.searchParams.set('roomCode', ROOM_CODE);
+          out.searchParams.set('code', ROOM_CODE);
+        }
+
+        return out.toString();
+      }
+
+      function buildModesUrl(){
+        const out = new URL('../goodjunk-launcher.html', location.href);
+
+        ['pid','name','nick','diff','time','view','hub','zone','cat','studyId','conditionGroup','api','log'].forEach(function(k){
+          const v =
+            k === 'pid' ? PLAYER_ID :
+            k === 'name' ? PLAYER_NAME :
+            k === 'nick' ? PLAYER_NAME :
+            k === 'view' ? VIEW :
+            params.get(k);
+
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        return out.toString();
+      }
+
+      function buildHubUrl(){
+        const hub = params.get('hub');
+
+        if (hub){
+          try{
+            return new URL(hub, location.href).toString();
+          }catch(e){}
+        }
+
+        return new URL('../nutrition-zone.html', location.href).toString();
+      }
+
+      function bindNav(){
+        document.querySelectorAll('[data-back-lobby]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildLobbyUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-all-modes]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildModesUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-back-hub]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildHubUrl();
+          });
+        });
+
+        document.getElementById('btnRematch').addEventListener('click', function(){
+          const out = new URL(location.href);
+          out.searchParams.set('seed', String(now()));
+          out.searchParams.set('run', 'play');
+          out.searchParams.set('phase', 'play');
+          location.href = out.toString();
+        });
+
+        document.getElementById('btnFullscreen').addEventListener('click', async function(){
+          try{
+            if (!document.fullscreenElement){
+              await document.documentElement.requestFullscreen();
+            }else{
+              await document.exitFullscreen();
+            }
+          }catch(e){}
+        });
+      }
+
       window.spawnJunkStorm = function(count){
         count = Number(count || 5);
         for (let i = 0; i < count; i++){
           setTimeout(function(){
             spawnTarget('junk');
-          }, i * 260);
+          }, i * 230);
         }
       };
 
@@ -1032,27 +1620,30 @@
         endGame,
         syncBasicUI,
         updateOpponentUI,
-        getOpponentSnapshot
+        getOpponentSnapshot,
+        getLiveRoom,
+        updateMyPlayer,
+        updateRoom
       };
 
-      document.getElementById('btnFullscreen').addEventListener('click', async function(){
-        try{
-          if (!document.fullscreenElement){
-            await document.documentElement.requestFullscreen();
-          }else{
-            await document.exitFullscreen();
-          }
-        }catch(e){}
+      window.addEventListener('gj:battle-state-updated', function(){
+        syncBasicUI();
       });
 
-      window.addEventListener('gj:battle-state-updated', syncBasicUI);
       window.addEventListener('gj:battle-rematch-start', function(){
         location.reload();
       });
+
       window.addEventListener('gj:battle-opponent-left', updateOpponentUI);
       window.addEventListener('gj:battle-opponent-updated', updateOpponentUI);
 
-      setInterval(updateOpponentUI, 1000);
+      window.addEventListener('gj:battle-db-ready', function(){
+        updateDbBadge();
+        attachRoomListener();
+      });
+
+      bindNav();
+      bindSkills();
 
       if (document.readyState === 'loading'){
         document.addEventListener('DOMContentLoaded', startGame, { once:true });
@@ -1063,77 +1654,5 @@
       console.info('[GoodJunk Battle Mobile Runtime]', RUNTIME_VERSION, 'loaded');
     })();
   </script>
-
-    <!-- =========================================================
-       GoodJunk Battle v2.4.28 Firebase SDK Loader Hotfix
-       ต้องมาก่อน goodjunk-battle-v2-firebase-bridge.js
-  ========================================================== -->
-
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-
-  <script>
-    (function GoodJunkBattleFirebaseInitGuard(){
-      'use strict';
-
-      window.GJ_BATTLE_FIREBASE_INIT_GUARD =
-        'v2.4.28-firebase-sdk-loader-init-guard';
-
-      const cfg =
-        window.HHA_FIREBASE_CONFIG ||
-        window.HEROHEALTH_FIREBASE_CONFIG ||
-        window.firebaseConfig ||
-        window.FIREBASE_CONFIG ||
-        null;
-
-      function hasFirebaseApp(){
-        try{
-          return !!(
-            window.firebase &&
-            typeof firebase.apps !== 'undefined' &&
-            firebase.apps &&
-            firebase.apps.length
-          );
-        }catch(_){
-          return false;
-        }
-      }
-
-      function init(){
-        if (!window.firebase || typeof firebase.initializeApp !== 'function'){
-          console.warn('[GJ Battle Firebase Init] firebase-app-compat not loaded');
-          return false;
-        }
-
-        if (hasFirebaseApp()){
-          console.info('[GJ Battle Firebase Init] Firebase app already exists');
-          return true;
-        }
-
-        if (!cfg){
-          console.warn(
-            '[GJ Battle Firebase Init] No Firebase config found. ' +
-            'Set window.HHA_FIREBASE_CONFIG before this script or load your shared firebase init file.'
-          );
-          return false;
-        }
-
-        try{
-          firebase.initializeApp(cfg);
-          console.info('[GJ Battle Firebase Init] Firebase initialized');
-          return true;
-        }catch(err){
-          console.warn('[GJ Battle Firebase Init] initializeApp failed', err);
-          return false;
-        }
-      }
-
-      window.GJ_BATTLE_FIREBASE_INIT_OK = init();
-    })();
-  </script>
-
-  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2428"></script>
-  <script src="./goodjunk-battle-v2-core.js?v=2428"></script>
 </body>
 </html>
