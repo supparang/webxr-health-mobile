@@ -654,11 +654,19 @@
        * รองรับหลายชื่อเพื่อไม่ชนกับไฟล์อื่น
        */
       const cfg =
-        window.HHA_FIREBASE_CONFIG ||
-        window.HEROHEALTH_FIREBASE_CONFIG ||
-        window.firebaseConfig ||
-        window.FIREBASE_CONFIG ||
-        null;
+      window.HHA_FIREBASE_CONFIG ||
+      window.HEROHEALTH_FIREBASE_CONFIG ||
+      window.firebaseConfig ||
+      window.FIREBASE_CONFIG ||
+      {
+        apiKey: "ใส่ของจริง",
+        authDomain: "ใส่ของจริง",
+        databaseURL: "ใส่ของจริง",
+        projectId: "ใส่ของจริง",
+        storageBucket: "ใส่ของจริง",
+        messagingSenderId: "ใส่ของจริง",
+        appId: "ใส่ของจริง"
+      };
 
       function hasFirebaseApp(){
         try{
