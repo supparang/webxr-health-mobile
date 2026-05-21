@@ -27,6 +27,7 @@
     '04-groups-solo-cooldown-flow-final.js',
     '05-groups-solo-save-log-final.js',
     '06-groups-solo-final-qa-gate.js'
+    '07-groups-solo-start-button-fix.js'
   ];
 
   function currentBase(){
