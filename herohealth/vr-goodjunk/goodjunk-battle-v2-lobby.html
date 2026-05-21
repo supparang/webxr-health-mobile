@@ -571,7 +571,7 @@
         <div class="form">
           <label>
             Room Code
-            <input id="roomCodeInput" type="text" placeholder="เช่น AB12CD" inputmode="latin" />
+            <input id="roomCodeInput" type="text" placeholder="เช่น AB12CD" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" />
           </label>
         </div>
 
@@ -628,13 +628,13 @@
 
   <div id="toast" class="toast"></div>
 
-  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2426"></script>
+  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2427"></script>
 
   <script>
     (function GoodJunkBattleV2Lobby(){
       'use strict';
 
-      const LOBBY_VERSION = 'v2.4.26-lobby-final';
+      const LOBBY_VERSION = 'v2.4.27-lobby-firebase-auth-path-hotfix';
 
       const url = new URL(location.href);
       const params = url.searchParams;
@@ -670,6 +670,7 @@
         roomRef: null,
         room: null,
         listenerAttached: false,
+        attachedRoomCode: '',
         heartbeatTimer: null,
         redirecting: false,
         lastRoomKey: ''
@@ -694,6 +695,102 @@
       function safeText(v, fallback){
         v = String(v || '').trim();
         return v || fallback || '';
+      }
+
+      function normalizeBattleRoomCode(raw){
+        return String(raw || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .replace(/[^A-Z0-9_-]/g, '')
+          .slice(0, 32);
+      }
+
+      function bindRoomCodeInput(){
+        if (!roomCodeInput || roomCodeInput.dataset.gjBattleCodeBound === '1') return;
+
+        roomCodeInput.dataset.gjBattleCodeBound = '1';
+        roomCodeInput.setAttribute('autocomplete', 'off');
+        roomCodeInput.setAttribute('autocapitalize', 'characters');
+        roomCodeInput.setAttribute('spellcheck', 'false');
+        roomCodeInput.setAttribute('inputmode', 'latin');
+
+        roomCodeInput.addEventListener('input', function(){
+          roomCodeInput.value = normalizeBattleRoomCode(roomCodeInput.value);
+
+          try{
+            roomCodeInput.setSelectionRange(roomCodeInput.value.length, roomCodeInput.value.length);
+          }catch(_){}
+        });
+
+        roomCodeInput.addEventListener('blur', function(){
+          roomCodeInput.value = normalizeBattleRoomCode(roomCodeInput.value);
+        });
+      }
+
+      async function waitForDbReady(timeoutMs){
+        timeoutMs = Number(timeoutMs || 4500);
+
+        if (
+          window.GJ_BATTLE_FIREBASE_BRIDGE &&
+          typeof window.GJ_BATTLE_FIREBASE_BRIDGE.refresh === 'function'
+        ){
+          try{
+            await window.GJ_BATTLE_FIREBASE_BRIDGE.refresh();
+          }catch(_){}
+        }
+
+        if (getDbReady()) return true;
+
+        const start = Date.now();
+
+        return await new Promise(resolve => {
+          const tick = async () => {
+            if (
+              window.GJ_BATTLE_FIREBASE_BRIDGE &&
+              typeof window.GJ_BATTLE_FIREBASE_BRIDGE.refresh === 'function'
+            ){
+              try{
+                await window.GJ_BATTLE_FIREBASE_BRIDGE.refresh();
+              }catch(_){}
+            }
+
+            if (getDbReady()){
+              resolve(true);
+              return;
+            }
+
+            if (Date.now() - start >= timeoutMs){
+              resolve(false);
+              return;
+            }
+
+            setTimeout(tick, 180);
+          };
+
+          tick();
+        });
+      }
+
+      function explainDbNotReady(){
+        const authReady = !!window.GJ_BATTLE_AUTH_READY;
+        const dbSource = window.GJ_BATTLE_DB_SOURCE || 'none';
+        const authSource = window.GJ_BATTLE_AUTH_SOURCE || 'none';
+        const err =
+          window.GJ_BATTLE_FIREBASE_BRIDGE &&
+          window.GJ_BATTLE_FIREBASE_BRIDGE.lastError
+            ? window.GJ_BATTLE_FIREBASE_BRIDGE.lastError
+            : '';
+
+        if (!authReady){
+          return 'Firebase Auth ยังไม่พร้อม • ต้องโหลด firebase-auth-compat.js และ signInAnonymously';
+        }
+
+        if (dbSource === 'none'){
+          return 'Firebase Database ยังไม่พร้อม • ต้องโหลด firebase-database-compat.js และ initializeApp';
+        }
+
+        return 'DB ยังไม่พร้อม: ' + (err || authSource || dbSource);
       }
 
       function randomCode(){
@@ -750,9 +847,10 @@
           '';
 
         if (existingRoom){
-          roomCodeInput.value = existingRoom.toUpperCase();
-          roomCodeText.textContent = existingRoom.toUpperCase();
-          state.roomCode = existingRoom.toUpperCase();
+          const fixedRoom = normalizeBattleRoomCode(existingRoom);
+          roomCodeInput.value = fixedRoom;
+          roomCodeText.textContent = fixedRoom;
+          state.roomCode = fixedRoom;
         }
       }
 
@@ -771,17 +869,19 @@
       }
 
       function getRoomRef(roomCode){
+        const code = normalizeBattleRoomCode(roomCode);
+
         if (
           window.GJ_BATTLE_FIREBASE_BRIDGE &&
           typeof window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef === 'function'
         ){
-          return window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef(roomCode);
+          return window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef(code);
         }
 
         const db = window.GJ_DB || window.db || window.database || window.firebaseDb || null;
         if (!db || typeof db.ref !== 'function') return null;
 
-        return db.ref('goodjunk_battle_rooms/' + String(roomCode || '').toUpperCase());
+        return db.ref('herohealth/goodjunk/battleV2Rooms/' + code);
       }
 
       function setStatus(msg, cls){
@@ -808,7 +908,8 @@
           lastSeen: now(),
           heartbeatAt: now(),
           updatedAt: now(),
-          lobbyVersion: LOBBY_VERSION
+          lobbyVersion: LOBBY_VERSION,
+          authUid: window.GJ_BATTLE_AUTH_UID || ''
         }, extra || {});
       }
 
@@ -836,19 +937,21 @@
             lastSeen: Number(raw.lastSeen || raw.heartbeatAt || raw.updatedAt || 0),
             left,
             host: !!raw.host,
+            role: raw.role || '',
             rematchReady: !!(raw.rematchReady || raw.readyRematch || raw.nextReady)
           };
         });
 
         return {
           raw: room,
-          code: String(room.code || room.room || room.roomCode || state.roomCode || roomCodeInput.value || '').toUpperCase(),
+          code: normalizeBattleRoomCode(room.code || room.room || room.roomCode || state.roomCode || roomCodeInput.value || ''),
           phase: String(room.phase || room.status || room.state || 'lobby').toLowerCase(),
           matchId: String(room.matchId || room.roundId || room.runId || ''),
           players,
           playersMap,
           startedAt: Number(room.startedAt || 0),
-          updatedAt: Number(room.updatedAt || 0)
+          updatedAt: Number(room.updatedAt || 0),
+          hostPid: String(room.hostPid || '')
         };
       }
 
@@ -886,26 +989,43 @@
         return { ok:true, reason:'slot-available', onlineCount:online.length };
       }
 
+      function amIHost(room){
+        const nr = normalizeRoom(room || state.room || {});
+        const pid = String(state.playerId || playerIdEl.value || '');
+
+        if (nr.hostPid && nr.hostPid === pid) return true;
+
+        const me = nr.players.find(p => String(p.id) === pid || String(p.raw && p.raw.pid || '') === pid);
+        if (me && (me.host === true || me.role === 'host')) return true;
+
+        return false;
+      }
+
       function canStartBattle(room){
         const online = getOnlinePlayers(room);
+        const host = amIHost(room);
 
         if (TEST_MODE){
-          return { ok:true, reason:'test-mode', onlineCount:online.length };
+          return { ok:true, reason:'test-mode', onlineCount:online.length, host };
         }
 
         if (!getDbReady()){
-          return { ok:false, reason:'db-offline', onlineCount:online.length };
+          return { ok:false, reason:'db-offline', onlineCount:online.length, host };
+        }
+
+        if (!host){
+          return { ok:false, reason:'not-host', onlineCount:online.length, host };
         }
 
         if (online.length < 2){
-          return { ok:false, reason:'need-two-players', onlineCount:online.length };
+          return { ok:false, reason:'need-two-players', onlineCount:online.length, host };
         }
 
         if (online.length > MAX_PLAYERS){
-          return { ok:false, reason:'too-many-players', onlineCount:online.length };
+          return { ok:false, reason:'too-many-players', onlineCount:online.length, host };
         }
 
-        return { ok:true, reason:'ready', onlineCount:online.length };
+        return { ok:true, reason:'ready', onlineCount:online.length, host };
       }
 
       function updateStartButton(room){
@@ -918,7 +1038,9 @@
         if (verdict.ok){
           btnStartBattle.textContent = TEST_MODE && verdict.onlineCount < 2
             ? '⚔️ เริ่ม Battle แบบทดสอบ'
-            : '⚔️ เริ่ม Battle';
+            : '⚔️ Host เริ่ม Battle';
+        }else if (verdict.reason === 'not-host'){
+          btnStartBattle.textContent = '⏳ รอ Host เริ่ม Battle';
         }else if (verdict.reason === 'need-two-players'){
           btnStartBattle.textContent = '⏳ รอผู้เล่นอีก 1 คน';
         }else if (verdict.reason === 'db-offline'){
@@ -939,13 +1061,13 @@
         }
 
         if (!nr.code){
-          setStatus('ยังไม่ได้สร้างหรือเข้าห้อง', 'warn');
+          setStatus('DB พร้อมแล้ว • สร้างห้องหรือเข้าห้องได้', 'good');
           updateStartButton(room);
           return;
         }
 
         if (online.length >= 2){
-          setStatus('พร้อมแล้ว • มีผู้เล่นออนไลน์ ' + online.length + ' คน • เริ่ม Battle ได้', 'good');
+          setStatus('พร้อมแล้ว • มีผู้เล่นออนไลน์ ' + online.length + ' คน • Host เริ่ม Battle ได้', 'good');
         }else if (online.length === 1){
           setStatus('อยู่ในห้องแล้ว • รอคู่แข่งอีก 1 คน', 'warn');
         }else{
@@ -978,13 +1100,16 @@
       async function createRoom(){
         saveFields();
 
-        if (!getDbReady() && !TEST_MODE){
-          setStatus('DB offline/local • สร้างห้อง sync จริงไม่ได้', 'bad');
-          toast('Firebase DB ยังไม่พร้อม');
+        const dbOk = await waitForDbReady();
+
+        if (!dbOk && !TEST_MODE){
+          const msg = explainDbNotReady();
+          setStatus('DB offline/local • ' + msg, 'bad');
+          toast('Firebase DB/Auth ยังไม่พร้อม');
           return false;
         }
 
-        const roomCode = randomCode();
+        const roomCode = normalizeBattleRoomCode(randomCode());
         state.roomCode = roomCode;
         roomCodeInput.value = roomCode;
         roomCodeText.textContent = roomCode;
@@ -1008,12 +1133,20 @@
             phase: 'lobby',
             status: 'lobby',
             state: 'lobby',
+            hostPid: state.playerId,
+            hostName: state.playerName,
+            battleType: 'duel',
+            type: 'duel',
+            capacity: MAX_PLAYERS,
             createdAt: now(),
             updatedAt: now(),
-            lobbyVersion: LOBBY_VERSION
+            lobbyVersion: LOBBY_VERSION,
+            bridgeVersion: window.GJ_BATTLE_FIREBASE_BRIDGE && window.GJ_BATTLE_FIREBASE_BRIDGE.version || '',
+            roomPath: window.GJ_BATTLE_ROOM_PATH || 'herohealth/goodjunk/battleV2Rooms'
           });
 
           await roomRef.child('players').child(state.playerId).update(playerPatch({
+            role: 'host',
             host: true,
             joinedAt: now()
           }));
@@ -1034,16 +1167,20 @@
       async function joinRoom(){
         saveFields();
 
-        const roomCode = safeText(roomCodeInput.value, '').toUpperCase();
+        const roomCode = normalizeBattleRoomCode(roomCodeInput.value);
+        roomCodeInput.value = roomCode;
 
         if (!roomCode){
           toast('ใส่ Room Code ก่อน');
           return false;
         }
 
-        if (!getDbReady() && !TEST_MODE){
-          setStatus('DB offline/local • ยังเข้าห้องแบบ sync จริงไม่ได้', 'bad');
-          toast('Firebase DB ยังไม่พร้อม');
+        const dbOk = await waitForDbReady();
+
+        if (!dbOk && !TEST_MODE){
+          const msg = explainDbNotReady();
+          setStatus('DB offline/local • ' + msg, 'bad');
+          toast('Firebase DB/Auth ยังไม่พร้อม');
           return false;
         }
 
@@ -1062,6 +1199,13 @@
 
         try{
           const snap = await getRoomSnapshot(roomCode);
+
+          if (!snap.room || !Object.keys(snap.room).length){
+            setStatus('ไม่พบห้องนี้ • ตรวจ Room Code อีกครั้ง', 'bad');
+            toast('ไม่พบห้อง: ' + roomCode);
+            return false;
+          }
+
           const verdict = canJoinRoom(snap.room || {}, state.playerId);
 
           if (!verdict.ok){
@@ -1080,13 +1224,15 @@
           });
 
           await roomRef.child('players').child(state.playerId).update(playerPatch({
+            role: 'player',
+            host: false,
             joinedAt: now()
           }));
 
           attachRoomListener(roomCode);
           startHeartbeat();
 
-          setStatus('เข้าห้องแล้ว • รอผู้เล่นอีกคนหรือกดเริ่ม Battle', 'good');
+          setStatus('เข้าห้องแล้ว • รอ Host เริ่ม Battle', 'good');
           toast('เข้าห้องแล้ว: ' + roomCode);
           return true;
         }catch(err){
@@ -1118,6 +1264,8 @@
         state.roomCode = '';
         state.room = null;
         state.roomRef = null;
+        state.listenerAttached = false;
+        state.attachedRoomCode = '';
         roomCodeText.textContent = '----';
         setStatus('ออกจากห้องแล้ว', 'warn');
         renderPlayers([]);
@@ -1164,13 +1312,17 @@
       }
 
       function attachRoomListener(roomCode){
-        const roomRef = getRoomRef(roomCode);
+        const fixedCode = normalizeBattleRoomCode(roomCode);
+        const roomRef = getRoomRef(fixedCode);
+
         if (!roomRef || typeof roomRef.on !== 'function') return;
 
         state.roomRef = roomRef;
 
-        if (state.listenerAttached) return;
+        if (state.listenerAttached && state.attachedRoomCode === fixedCode) return;
+
         state.listenerAttached = true;
+        state.attachedRoomCode = fixedCode;
 
         roomRef.on('value', function(snapshot){
           const room = snapshot && typeof snapshot.val === 'function'
@@ -1216,13 +1368,13 @@
           const name = p.name || p.playerName || p.displayName || p.id || 'Hero';
           const meta = [
             p.view || '-',
-            p.host ? 'host' : 'player',
+            p.host ? 'host' : (p.role || 'player'),
             online ? 'online' : 'left'
           ].join(' • ');
 
           return `
             <div class="player">
-              <div class="avatar">${idx === 0 ? '🦸' : '⚔️'}</div>
+              <div class="avatar">${p.host ? '🦸' : '⚔️'}</div>
               <div>
                 <div class="p-name">${escapeHtml(name)}</div>
                 <div class="p-meta">${escapeHtml(meta)}</div>
@@ -1239,6 +1391,7 @@
             id: state.playerId || 'anon',
             name: state.playerName || 'Hero',
             view: viewSelect.value,
+            role: 'host',
             host: true,
             status: 'online',
             lastSeen: now()
@@ -1268,6 +1421,7 @@
         run.searchParams.set('pid', state.playerId);
         run.searchParams.set('name', state.playerName);
         run.searchParams.set('view', viewSelect.value);
+        run.searchParams.set('device', viewSelect.value);
         run.searchParams.set('diff', diffSelect.value);
         run.searchParams.set('time', timeSelect.value);
         run.searchParams.set('mode', 'battle');
@@ -1285,7 +1439,7 @@
         const room =
           nr.code ||
           state.roomCode ||
-          safeText(roomCodeInput.value, '').toUpperCase() ||
+          normalizeBattleRoomCode(roomCodeInput.value) ||
           params.get('room') ||
           params.get('roomCode') ||
           params.get('code') ||
@@ -1293,8 +1447,9 @@
           '';
 
         if (room){
-          run.searchParams.set('room', room);
-          run.searchParams.set('roomCode', room);
+          const fixedRoom = normalizeBattleRoomCode(room);
+          run.searchParams.set('room', fixedRoom);
+          run.searchParams.set('roomCode', fixedRoom);
         }
 
         const matchId = nr.matchId || params.get('matchId') || params.get('roundId') || '';
@@ -1318,9 +1473,9 @@
       async function startBattle(){
         saveFields();
 
-        const room =
-          state.roomCode ||
-          safeText(roomCodeInput.value, '').toUpperCase();
+        const room = normalizeBattleRoomCode(
+          state.roomCode || safeText(roomCodeInput.value, '')
+        );
 
         if (!room){
           toast('สร้างห้องหรือใส่ Room Code ก่อน');
@@ -1328,11 +1483,16 @@
         }
 
         state.roomCode = room;
+        roomCodeInput.value = room;
+        roomCodeText.textContent = room;
         localStorage.setItem('GJ_BATTLE_LAST_ROOM', room);
 
-        if (!getDbReady() && !TEST_MODE){
-          setStatus('DB offline/local • Battle จริงต้องใช้ Firebase sync', 'bad');
-          toast('DB ยังไม่พร้อม เริ่ม Battle จริงไม่ได้');
+        const dbOk = await waitForDbReady();
+
+        if (!dbOk && !TEST_MODE){
+          const msg = explainDbNotReady();
+          setStatus('DB offline/local • ' + msg, 'bad');
+          toast('DB/Auth ยังไม่พร้อม เริ่ม Battle จริงไม่ได้');
           return false;
         }
 
@@ -1341,6 +1501,13 @@
           const verdict = canStartBattle(snap.room || {});
 
           if (!verdict.ok){
+            if (verdict.reason === 'not-host'){
+              setStatus('เฉพาะ Host เท่านั้นที่เริ่ม Battle ได้', 'warn');
+              toast('รอ Host เริ่ม Battle');
+              updateStartButton(snap.room);
+              return false;
+            }
+
             if (verdict.reason === 'need-two-players'){
               setStatus('Battle ต้องมีผู้เล่นออนไลน์ 2 คนก่อนเริ่ม', 'warn');
               toast('รอคู่แข่งอีก 1 คน');
@@ -1364,6 +1531,7 @@
               matchId: matchId,
               roundId: matchId,
               runId: matchId,
+              activeMatchId: matchId,
               startedAt: now(),
               updatedAt: now(),
               effects: null,
@@ -1401,6 +1569,7 @@
               status: 'play',
               matchId: matchId,
               roundId: matchId,
+              activeMatchId: matchId,
               startedAt: now()
             });
 
@@ -1638,6 +1807,7 @@
       function boot(){
         initFields();
         saveFields();
+        bindRoomCodeInput();
 
         const autoRoom =
           params.get('room') ||
@@ -1647,7 +1817,7 @@
           '';
 
         if (autoRoom){
-          state.roomCode = autoRoom.toUpperCase();
+          state.roomCode = normalizeBattleRoomCode(autoRoom);
           roomCodeInput.value = state.roomCode;
           roomCodeText.textContent = state.roomCode;
           setStatus('พบ Room Code จากลิงก์ • กดเข้าห้องหรือเริ่ม Battle', 'warn');
@@ -1656,6 +1826,12 @@
             attachRoomListener(state.roomCode);
           }
         }
+
+        setTimeout(async function(){
+          await waitForDbReady(2500);
+          if (state.roomCode) attachRoomListener(state.roomCode);
+          updateLobbyStatusByRoom(state.room || {});
+        }, 250);
 
         setInterval(function(){
           updateLobbyStatusByRoom(state.room || {});
@@ -1685,7 +1861,9 @@
           canJoinRoom,
           canStartBattle,
           redirectToRun,
-          checkRoomForStart
+          checkRoomForStart,
+          normalizeBattleRoomCode,
+          waitForDbReady
         };
 
         console.info('[GoodJunk Battle Lobby]', LOBBY_VERSION, 'loaded');
