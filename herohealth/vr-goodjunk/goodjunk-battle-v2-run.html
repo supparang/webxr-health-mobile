@@ -6,18 +6,15 @@
   <meta name="theme-color" content="#fff3d7" />
   <meta name="color-scheme" content="light" />
 
-  <title>GoodJunk Battle v2 • Runtime Router</title>
+  <title>GoodJunk Battle v2 • Router</title>
 
   <style>
     :root{
       --bg1:#fff8e8;
       --bg2:#eaf8ff;
-      --card:#fffef8;
-      --line:#ffc77d;
       --text:#753119;
       --muted:#9a6a42;
-      --blue:#71ccff;
-      --yellow:#ffe17a;
+      --line:#ffc77d;
       --shadow:0 18px 42px rgba(112,60,20,.15);
     }
 
@@ -31,28 +28,27 @@
       width:100%;
       min-height:100%;
       margin:0;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
       color:var(--text);
       background:
         radial-gradient(circle at 15% 10%, rgba(255,225,122,.55), transparent 28%),
         radial-gradient(circle at 90% 8%, rgba(113,204,255,.38), transparent 32%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
-      overflow:hidden;
     }
 
     body{
       min-height:100dvh;
       display:grid;
       place-items:center;
-      padding:18px;
+      padding:16px;
     }
 
     .card{
-      width:min(92vw,560px);
-      padding:24px 20px;
+      width:min(94vw,560px);
+      padding:24px;
       border-radius:34px;
       border:5px solid rgba(255,199,125,.92);
-      background:rgba(255,254,248,.96);
+      background:rgba(255,254,248,.95);
       box-shadow:var(--shadow);
       text-align:center;
     }
@@ -60,43 +56,52 @@
     .icon{
       width:92px;
       height:92px;
-      margin:0 auto 14px;
       display:grid;
       place-items:center;
+      margin:0 auto 14px;
       border-radius:30px;
-      background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:4px solid rgba(255,199,125,.86);
+      background:linear-gradient(180deg,#fff8d7,#ffe18a);
       font-size:52px;
-      box-shadow:0 10px 22px rgba(112,60,20,.12);
     }
 
     h1{
       margin:0;
-      font-size:clamp(30px,8vw,54px);
-      line-height:1.05;
+      font-size:clamp(34px,8vw,58px);
+      line-height:1;
       font-weight:1000;
-      color:var(--text);
-      letter-spacing:-.8px;
+      letter-spacing:-.04em;
     }
 
-    .msg{
-      margin:12px auto 0;
+    p{
+      margin:12px 0 0;
       color:var(--muted);
-      font-size:clamp(15px,4vw,18px);
+      font-size:16px;
       font-weight:900;
-      line-height:1.45;
+      line-height:1.55;
     }
 
-    .route{
-      margin:16px auto 0;
-      padding:12px 14px;
-      border-radius:20px;
-      border:3px dashed rgba(255,199,125,.92);
-      background:rgba(255,248,225,.78);
-      color:#8a5a20;
-      font-size:15px;
-      font-weight:1000;
-      word-break:break-word;
+    .loader{
+      width:100%;
+      height:16px;
+      margin:18px 0 4px;
+      border-radius:999px;
+      border:3px solid rgba(255,199,125,.86);
+      background:rgba(255,248,225,.82);
+      overflow:hidden;
+    }
+
+    .bar{
+      height:100%;
+      width:42%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#55d978,#71ccff,#ffe17a);
+      animation:move 1.1s ease-in-out infinite alternate;
+    }
+
+    @keyframes move{
+      from{transform:translateX(-12%);}
+      to{transform:translateX(150%);}
     }
 
     .actions{
@@ -106,12 +111,12 @@
       margin-top:18px;
     }
 
-    button,
-    a{
+    .btn{
       min-height:52px;
+      padding:10px 12px;
       border-radius:18px;
-      border:3px solid rgba(255,199,125,.92);
-      background:linear-gradient(180deg,#fff8da,#ffe17a);
+      border:3px solid rgba(255,199,125,.9);
+      background:#fffef8;
       color:var(--text);
       font-size:16px;
       font-weight:1000;
@@ -120,22 +125,15 @@
       align-items:center;
       justify-content:center;
       cursor:pointer;
-      font-family:inherit;
     }
 
-    a.blue,
-    button.blue{
-      background:linear-gradient(180deg,#eef9ff,#bfe8ff);
-      border-color:rgba(110,203,255,.9);
+    .btn.primary{
+      background:linear-gradient(180deg,#fff8da,#ffe17a);
     }
 
-    @media(max-width:520px){
+    @media(max-width:420px){
       .actions{
         grid-template-columns:1fr;
-      }
-
-      .card{
-        padding:22px 16px;
       }
     }
   </style>
@@ -145,75 +143,45 @@
   <main class="card">
     <div class="icon">⚔️</div>
     <h1>GoodJunk Battle</h1>
-    <div class="msg" id="message">
-      กำลังเลือกหน้าจอเล่นให้เหมาะกับอุปกรณ์...
-    </div>
-    <div class="route" id="routeText">
-      preparing route...
+    <p id="message">กำลังเลือกหน้าเล่นให้เหมาะกับอุปกรณ์...</p>
+
+    <div class="loader" aria-label="loading">
+      <div class="bar"></div>
     </div>
 
     <div class="actions">
-      <button id="btnGoNow" type="button">เข้าเกมทันที</button>
-      <a id="btnLobby" class="blue" href="./goodjunk-battle-v2-lobby.html">กลับ Lobby</a>
+      <button id="btnGoNow" class="btn primary" type="button">เข้าเกมทันที</button>
+      <button id="btnLobby" class="btn" type="button">กลับ Lobby</button>
     </div>
   </main>
 
   <script>
-    (function GoodJunkBattleRuntimeRouter(){
+    (function GoodJunkBattleRunRouter(){
       'use strict';
 
-      const ROUTER_VERSION = 'v2.4.31-runtime-router-opponent-score-identity-fix';
+      const ROUTER_VERSION = 'v2.4.31-clean-final-run-router';
 
       const url = new URL(location.href);
       const params = url.searchParams;
 
-      const messageEl = document.getElementById('message');
-      const routeTextEl = document.getElementById('routeText');
-      const btnGoNow = document.getElementById('btnGoNow');
-      const btnLobby = document.getElementById('btnLobby');
-
-      function safeText(v, fallback){
-        v = String(v || '').trim();
-        return v || fallback || '';
-      }
+      window.GJ_BATTLE_RUN_ROUTER_VERSION = ROUTER_VERSION;
 
       function detectView(){
-        const qv = String(params.get('view') || params.get('device') || '').toLowerCase();
-
-        if (qv === 'mobile') return 'mobile';
-        if (qv === 'pc' || qv === 'desktop') return 'pc';
-        if (qv === 'cardboard' || qv === 'cvr' || qv === 'vr') return 'cardboard';
-
-        const ua = navigator.userAgent || '';
         const isMobile =
-          /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
-          (window.matchMedia && window.matchMedia('(max-width:760px)').matches);
+          (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
+          /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
 
         return isMobile ? 'mobile' : 'pc';
       }
 
       function normalizeView(v){
-        v = String(v || '').toLowerCase();
+        const s = String(v || '').trim().toLowerCase();
 
-        if (v === 'mobile') return 'mobile';
-        if (v === 'cardboard' || v === 'cvr' || v === 'vr') return 'cardboard';
-        if (v === 'pc' || v === 'desktop') return 'pc';
+        if (s === 'pc' || s === 'desktop' || s === 'computer') return 'pc';
+        if (s === 'mobile' || s === 'phone' || s === 'touch') return 'mobile';
+        if (s === 'cardboard' || s === 'cvr' || s === 'vr') return 'cardboard';
 
         return detectView();
-      }
-
-      function getRunFileByView(view){
-        const v = normalizeView(view);
-
-        if (v === 'mobile'){
-          return './goodjunk-battle-v2-run-mobile.html';
-        }
-
-        if (v === 'cardboard'){
-          return './goodjunk-battle-v2-run-cardboard.html';
-        }
-
-        return './goodjunk-battle-v2-run-pc.html';
       }
 
       function normalizeRoomCode(raw){
@@ -225,85 +193,83 @@
           .slice(0, 32);
       }
 
-      function buildTargetUrl(){
-        const view = normalizeView(params.get('view') || params.get('device') || detectView());
-        const run = new URL(getRunFileByView(view), location.href);
+      function getView(){
+        return normalizeView(
+          params.get('view') ||
+          params.get('device') ||
+          params.get('targetView') ||
+          ''
+        );
+      }
 
-        params.forEach(function(value, key){
-          if (value !== null && value !== ''){
-            run.searchParams.set(key, value);
+      function getRunFileByView(view){
+        if (view === 'mobile'){
+          return './goodjunk-battle-v2-run-mobile.html';
+        }
+
+        if (view === 'cardboard'){
+          return './goodjunk-battle-v2-run-cardboard.html';
+        }
+
+        return './goodjunk-battle-v2-run-pc.html';
+      }
+
+      function buildTargetUrl(){
+        const view = getView();
+        const file = getRunFileByView(view);
+        const target = new URL(file, location.href);
+
+        params.forEach(function(v, k){
+          if (v !== null && v !== ''){
+            target.searchParams.set(k, v);
           }
         });
 
-        const pid = safeText(params.get('pid'), 'anon');
-        const name = safeText(params.get('name') || params.get('nick'), 'Hero');
-        const diff = safeText(params.get('diff'), 'normal');
-        const time = safeText(params.get('time'), '60');
-
         const room =
-          normalizeRoomCode(params.get('room')) ||
-          normalizeRoomCode(params.get('roomCode')) ||
-          normalizeRoomCode(params.get('code')) ||
-          normalizeRoomCode(params.get('lastRoom')) ||
-          normalizeRoomCode(localStorage.getItem('GJ_BATTLE_LAST_ROOM'));
-
-        const matchId =
-          safeText(params.get('matchId'), '') ||
-          safeText(params.get('roundId'), '') ||
-          safeText(params.get('runId'), '');
-
-        run.searchParams.set('pid', pid);
-        run.searchParams.set('name', name);
-        run.searchParams.set('nick', name);
-        run.searchParams.set('diff', diff);
-        run.searchParams.set('time', time);
-        run.searchParams.set('view', view);
-        run.searchParams.set('device', view);
-
-        run.searchParams.set('mode', 'battle');
-        run.searchParams.set('game', 'goodjunk');
-        run.searchParams.set('gameId', 'goodjunk');
-        run.searchParams.set('entry', 'battle');
-        run.searchParams.set('variant', 'battle-v2');
-        run.searchParams.set('zone', params.get('zone') || 'nutrition');
-        run.searchParams.set('cat', params.get('cat') || 'nutrition');
-        run.searchParams.set('theme', params.get('theme') || 'goodjunk');
-        run.searchParams.set('run', 'play');
-        run.searchParams.set('phase', 'play');
-
-        if (!run.searchParams.get('seed')){
-          run.searchParams.set('seed', String(Date.now()));
-        }
+          normalizeRoomCode(
+            params.get('room') ||
+            params.get('roomCode') ||
+            params.get('code') ||
+            params.get('lastRoom') ||
+            ''
+          );
 
         if (room){
-          run.searchParams.set('room', room);
-          run.searchParams.set('roomCode', room);
-          run.searchParams.set('code', room);
-          localStorage.setItem('GJ_BATTLE_LAST_ROOM', room);
+          target.searchParams.set('room', room);
+          target.searchParams.set('roomCode', room);
+          target.searchParams.set('code', room);
         }
 
-        if (matchId){
-          run.searchParams.set('matchId', matchId);
-          run.searchParams.set('roundId', matchId);
+        target.searchParams.set('view', view);
+        target.searchParams.set('device', view);
+        target.searchParams.set('mode', 'battle');
+        target.searchParams.set('game', 'goodjunk');
+        target.searchParams.set('gameId', 'goodjunk');
+        target.searchParams.set('entry', 'battle');
+        target.searchParams.set('variant', 'battle-v2');
+        target.searchParams.set('zone', params.get('zone') || 'nutrition');
+        target.searchParams.set('cat', params.get('cat') || 'nutrition');
+        target.searchParams.set('theme', params.get('theme') || 'goodjunk');
+        target.searchParams.set('run', 'play');
+        target.searchParams.set('phase', 'play');
+        target.searchParams.set('router', ROUTER_VERSION);
+
+        if (!target.searchParams.get('seed')){
+          target.searchParams.set('seed', String(Date.now()));
         }
 
-        if (!run.searchParams.get('hub')){
-          run.searchParams.set(
+        if (!target.searchParams.get('hub')){
+          target.searchParams.set(
             'hub',
             new URL('../nutrition-zone.html', location.href).toString()
           );
         }
 
-        return {
-          view,
-          href: run.toString(),
-          file: getRunFileByView(view),
-          room
-        };
+        return target.toString();
       }
 
       function buildLobbyUrl(){
-        const lobby = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+        const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
 
         [
           'pid',
@@ -313,9 +279,6 @@
           'time',
           'view',
           'device',
-          'room',
-          'roomCode',
-          'code',
           'hub',
           'zone',
           'cat',
@@ -323,59 +286,74 @@
           'conditionGroup',
           'api',
           'log'
-        ].forEach(function(key){
-          const value = params.get(key);
-
-          if (value !== null && value !== ''){
-            lobby.searchParams.set(key, value);
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== ''){
+            out.searchParams.set(k, v);
           }
         });
 
-        if (!lobby.searchParams.get('zone')){
-          lobby.searchParams.set('zone', 'nutrition');
+        const room =
+          normalizeRoomCode(
+            params.get('room') ||
+            params.get('roomCode') ||
+            params.get('code') ||
+            params.get('lastRoom') ||
+            ''
+          );
+
+        if (room){
+          out.searchParams.set('room', room);
+          out.searchParams.set('roomCode', room);
+          out.searchParams.set('lastRoom', room);
         }
 
-        if (!lobby.searchParams.get('cat')){
-          lobby.searchParams.set('cat', 'nutrition');
-        }
-
-        return lobby.toString();
+        return out.toString();
       }
 
-      const target = buildTargetUrl();
+      const targetUrl = buildTargetUrl();
 
-      messageEl.textContent =
-        target.view === 'mobile'
-          ? 'เลือกโหมด Mobile แล้ว กำลังเข้าเกม...'
-          : target.view === 'cardboard'
-            ? 'เลือกโหมด Cardboard / cVR แล้ว กำลังเข้าเกม...'
-            : 'เลือกโหมด PC แล้ว กำลังเข้าเกม...';
+      function go(){
+        location.replace(targetUrl);
+      }
 
-      routeTextEl.textContent =
-        'route: ' + target.file.replace('./', '') +
-        (target.room ? ' • room ' + target.room : '');
+      function init(){
+        const view = getView();
+        const msg = document.getElementById('message');
 
-      btnGoNow.addEventListener('click', function(){
-        location.replace(target.href);
-      });
+        msg.textContent =
+          view === 'mobile'
+            ? 'กำลังเข้า Battle Mobile...'
+            : view === 'cardboard'
+              ? 'กำลังเข้า Battle Cardboard/cVR...'
+              : 'กำลังเข้า Battle PC...';
 
-      btnLobby.href = buildLobbyUrl();
+        document.getElementById('btnGoNow').addEventListener('click', go);
 
-      window.GJ_BATTLE_RUNTIME_ROUTER = {
-        version: ROUTER_VERSION,
-        target,
-        buildTargetUrl,
-        buildLobbyUrl,
-        getRunFileByView,
-        normalizeView,
-        detectView
-      };
+        document.getElementById('btnLobby').addEventListener('click', function(){
+          location.href = buildLobbyUrl();
+        });
 
-      console.info('[GoodJunk Battle Runtime Router]', ROUTER_VERSION, target);
+        window.GJ_BATTLE_RUN_ROUTER = {
+          version: ROUTER_VERSION,
+          view,
+          targetUrl,
+          go,
+          buildTargetUrl,
+          buildLobbyUrl,
+          normalizeView,
+          normalizeRoomCode
+        };
 
-      setTimeout(function(){
-        location.replace(target.href);
-      }, 520);
+        setTimeout(go, 450);
+
+        console.info('[GoodJunk Battle Run Router]', ROUTER_VERSION, {
+          view,
+          targetUrl
+        });
+      }
+
+      init();
     })();
   </script>
 </body>
