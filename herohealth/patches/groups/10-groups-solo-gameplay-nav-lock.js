@@ -1,22 +1,22 @@
 /* =========================================================
    HeroHealth Groups Solo
-   PATCH: v20260522-groups-solo-gameplay-nav-lock-10b
+   PATCH: v20260522-groups-solo-gameplay-nav-lock-10c
    File: /herohealth/patches/groups/10-groups-solo-gameplay-nav-lock.js
 
    Purpose:
-   - During gameplay: hide ALL mode/zone/hub navigation
-   - Do NOT show floating nav while player is playing
-   - Summary/end screen will handle Replay / Back Nutrition Zone itself
-   - Fix old "group-v1.html" links to canonical groups-vr.html
-   - Optional emergency nav only when ?debug=1 or ?teacher=1 or ?navdebug=1
+   - Fix nav row still appearing during gameplay
+   - Do NOT treat "Groups Solo Arena" title as intro
+   - During gameplay: hide all โหมดเกม / Nutrition Zone / HUB controls
+   - Summary/end screen remains normal
+   - Correct mode page remains /herohealth/groups-vr.html
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = '20260522-navlock10b';
+  const PATCH_ID = 'v20260522-groups-solo-gameplay-nav-lock-10c';
 
-  if (window.__HHA_GROUPS_SOLO_GAMEPLAY_NAV_LOCK_10B__) return;
-  window.__HHA_GROUPS_SOLO_GAMEPLAY_NAV_LOCK_10B__ = true;
+  if (window.__HHA_GROUPS_SOLO_GAMEPLAY_NAV_LOCK_10C__) return;
+  window.__HHA_GROUPS_SOLO_GAMEPLAY_NAV_LOCK_10C__ = true;
 
   const qs = new URLSearchParams(location.search);
 
@@ -29,9 +29,7 @@
     const path = location.pathname;
     const marker = '/herohealth/';
     const idx = path.indexOf(marker);
-
     if (idx >= 0) return location.origin + path.slice(0, idx);
-
     return location.origin + '/webxr-health-mobile';
   }
 
@@ -48,7 +46,7 @@
     patch: PATCH_ID,
     view: normalizeView(),
     hiddenCount: 0,
-    mode: 'unknown',
+    screen: 'unknown',
     emergencyNav: ALLOW_EMERGENCY_NAV,
     startedAt: Date.now()
   };
@@ -150,30 +148,68 @@
       t.includes('สรุปผลการฝึก') ||
       t.includes('Food Hero') ||
       t.includes('Practice Hero') ||
-      t.includes('เล่นอีกครั้ง') ||
       t.includes('Best Score') ||
       t.includes('Badge Collection') ||
+      t.includes('เล่นอีกครั้ง') ||
       (
         t.includes('กลับ Nutrition Zone') &&
         (
           t.includes('คะแนน') ||
           t.includes('ความแม่นยำ') ||
-          t.includes('ตอบถูก')
+          t.includes('ตอบถูก') ||
+          t.includes('คอมโบสูงสุด')
         )
       )
     );
   }
 
-  function isIntroVisible(){
-    const t = pageText();
+  function hasStartButtonVisible(){
+    const candidates = Array.from(document.querySelectorAll('button,a,[role="button"],.btn,div,span,input'))
+      .filter(function(el){
+        const t = textOf(el);
+        if (!t) return false;
 
+        const r = el.getBoundingClientRect();
+        if (r.width < 20 || r.height < 20) return false;
+
+        const start =
+          t.includes('เริ่มเล่น') ||
+          t.includes('เริ่มเกม') ||
+          t.includes('Start') ||
+          t.includes('Play');
+
+        const replay =
+          t.includes('เล่นอีกครั้ง') ||
+          t.includes('Replay') ||
+          t.includes('Play Again');
+
+        const back =
+          t.includes('กลับ') ||
+          t.includes('Nutrition Zone') ||
+          t.includes('HUB') ||
+          t.includes('Zone');
+
+        return start && !replay && !back;
+      });
+
+    return candidates.length > 0;
+  }
+
+  function isIntroVisible(){
     if (isSummaryVisible()) return false;
 
+    const t = pageText();
+
+    // สำคัญ: ห้ามใช้แค่ "Groups Solo Arena" เป็นตัวบอก intro
+    // เพราะ gameplay ก็มี title นี้อยู่ด้านบน
     return (
-      t.includes('Groups Solo Arena') ||
-      t.includes('Groups Practice Arena') ||
-      t.includes('แตะหรือ') ||
-      t.includes('เริ่มเล่น')
+      hasStartButtonVisible() &&
+      (
+        t.includes('แตะหรือ') ||
+        t.includes('เริ่มเล่น') ||
+        t.includes('โหมดซ้อม') ||
+        t.includes('ส่งเข้าประตูหมู่ 1–5')
+      )
     );
   }
 
@@ -186,8 +222,8 @@
   }
 
   function isGameplayActive(){
-    if (isIntroVisible()) return false;
     if (isSummaryVisible()) return false;
+    if (isIntroVisible()) return false;
 
     const t = pageText();
 
@@ -223,28 +259,35 @@
     const classStarted =
       document.body.classList.contains('hha-groups-started') ||
       document.body.classList.contains('hha-groups-starting') ||
-      document.body.classList.contains('hha-groups-gameplay-active');
+      document.body.classList.contains('hha-groups-gameplay-active') ||
+      document.documentElement.classList.contains('hha-groups-gameplay-active');
 
     return !!(hasHud || hasGameObjects || classStarted || hasStartIntent());
   }
 
   function addStyle(){
-    if (document.getElementById('hha-groups-gameplay-nav-lock-10b-style')) return;
+    if (document.getElementById('hha-groups-gameplay-nav-lock-10c-style')) return;
 
     const style = document.createElement('style');
-    style.id = 'hha-groups-gameplay-nav-lock-10b-style';
+    style.id = 'hha-groups-gameplay-nav-lock-10c-style';
     style.textContent = `
       body.hha-groups-gameplay-nav-locked .hha-old-nav-dock-hidden,
       body.hha-groups-gameplay-nav-locked .hha-game-nav-compact,
-      body.hha-groups-gameplay-nav-locked .hha-safe-game-nav{
+      body.hha-groups-gameplay-nav-locked .hha-safe-game-nav,
+      body.hha-groups-gameplay-nav-locked [data-hha-game-nav-compact],
+      body.hha-groups-gameplay-nav-locked [data-hha-old-nav-hidden],
+      body.hha-groups-gameplay-nav-locked [data-hha-bg-blocked],
+      body.hha-groups-gameplay-nav-locked [data-hha-mode-target]{
         display:none !important;
         visibility:hidden !important;
         opacity:0 !important;
         pointer-events:none !important;
       }
 
-      body.hha-groups-gameplay-nav-locked [data-hha-game-nav-compact],
-      body.hha-groups-gameplay-nav-locked [data-hha-old-nav-hidden]{
+      body.hha-groups-gameplay-nav-locked a[href*="group-v1.html"],
+      body.hha-groups-gameplay-nav-locked a[href*="groups-vr.html"],
+      body.hha-groups-gameplay-nav-locked a[href*="nutrition-zone.html"],
+      body.hha-groups-gameplay-nav-locked a[href*="hub.html"]{
         display:none !important;
         visibility:hidden !important;
         opacity:0 !important;
@@ -289,20 +332,6 @@
       body.hha-groups-intro-lock .hha-emergency-game-nav{
         display:none !important;
       }
-
-      @media (max-width:760px){
-        .hha-emergency-game-nav{
-          right:6px;
-          bottom:calc(6px + env(safe-area-inset-bottom,0px));
-          opacity:.30;
-        }
-
-        .hha-emergency-game-nav a{
-          min-height:24px;
-          padding:4px 6px;
-          font-size:9px;
-        }
-      }
     `;
 
     document.head.appendChild(style);
@@ -316,7 +345,8 @@
       t.includes('HUB') ||
       t.includes('กลับ HUB') ||
       t.includes('กลับ Hub') ||
-      t.includes('Zone')
+      t === 'Zone' ||
+      t.includes('กลับ Zone')
     );
   }
 
@@ -342,93 +372,45 @@
     return isNavText(t) || isNavHref(el);
   }
 
-  function scoreNavDock(el){
+  function shouldHideThisNavElement(el){
+    if (!isNavElement(el)) return false;
+
     const t = textOf(el);
-    let score = 0;
-
-    if (t.includes('โหมดเกม')) score += 4;
-    if (t.includes('Nutrition Zone')) score += 4;
-    if (t.includes('HUB')) score += 3;
-    if (t.includes('กลับ Nutrition')) score += 3;
-    if (t.includes('Zone')) score += 2;
-
-    const links = el.querySelectorAll ? el.querySelectorAll('a,button,[role="button"],.btn').length : 0;
-    score += Math.min(links, 6);
-
     const r = el.getBoundingClientRect();
 
-    if (r.width > 120 && r.height < 220) score += 2;
-    if (r.top > window.innerHeight * 0.12 && r.top < window.innerHeight * 0.92) score += 2;
+    if (r.width < 20 || r.height < 16) return false;
 
-    return score;
+    // ซ่อนเฉพาะ control/nav ไม่ซ่อนทั้งคำสั่งเกมยาว ๆ
+    if (t.length <= 40) return true;
+    if (isNavHref(el)) return true;
+
+    return (
+      t.includes('โหมดเกม') &&
+      t.includes('Nutrition Zone')
+    ) || (
+      t.includes('Nutrition Zone') &&
+      t.includes('HUB')
+    );
   }
 
-  function findOldNavDocks(){
-    const nodes = Array.from(document.querySelectorAll('a,button,[role="button"],.btn,div,section,nav,span'));
-
-    const directNavs = nodes.filter(isNavElement);
-
-    const parents = new Set();
-
-    directNavs.forEach(function(el){
-      let cur = el;
-
-      for (let depth = 0; depth < 5 && cur && cur !== document.body; depth++) {
-        if (cur.classList && cur.classList.contains('hha-emergency-game-nav')) break;
-
-        const txt = textOf(cur);
-
-        if (
-          isNavText(txt) ||
-          txt.includes('โหมดเกม') && txt.includes('Nutrition Zone') ||
-          txt.includes('Nutrition Zone') && txt.includes('HUB') ||
-          txt.includes('โหมดเกม') && txt.includes('HUB')
-        ) {
-          parents.add(cur);
-        }
-
-        cur = cur.parentElement;
-      }
-    });
-
-    return Array.from(parents)
-      .map(function(el){
-        return {
-          el: el,
-          score: scoreNavDock(el)
-        };
-      })
-      .filter(function(x){
-        if (!x.el || x.el === document.body) return false;
-
-        const r = x.el.getBoundingClientRect();
-
-        if (r.width < 24 || r.height < 16) return false;
-
-        return x.score >= 3;
-      })
-      .sort(function(a,b){
-        return b.score - a.score;
-      })
-      .map(function(x){
-        return x.el;
-      });
-  }
-
-  function hideAllGameplayNav(){
+  function hideNavElements(){
     if (!isGameplayActive()) return;
 
     document.body.classList.add('hha-groups-gameplay-nav-locked');
     document.body.classList.add('hha-groups-gameplay-active');
 
-    const docks = findOldNavDocks();
+    const all = Array.from(document.querySelectorAll('a,button,[role="button"],.btn,div,span,nav,section'));
 
-    docks.forEach(function(el){
-      if (el.classList.contains('hha-emergency-game-nav')) return;
-      if (el.closest && el.closest('.hha-emergency-game-nav')) return;
+    all.forEach(function(el){
+      if (!shouldHideThisNavElement(el)) return;
 
       el.classList.add('hha-old-nav-dock-hidden');
       el.setAttribute('data-hha-old-nav-hidden', PATCH_ID);
+      el.style.display = 'none';
+      el.style.visibility = 'hidden';
+      el.style.opacity = '0';
+      el.style.pointerEvents = 'none';
+
       state.hiddenCount += 1;
     });
 
@@ -509,13 +491,13 @@
     fixOldGroupV1Href();
 
     if (isGameplayActive()) {
-      state.mode = 'gameplay';
-      hideAllGameplayNav();
+      state.screen = 'gameplay';
+      hideNavElements();
       ensureEmergencyNav();
       return;
     }
 
-    state.mode = isSummaryVisible() ? 'summary' : isIntroVisible() ? 'intro' : 'unknown';
+    state.screen = isSummaryVisible() ? 'summary' : isIntroVisible() ? 'intro' : 'unknown';
     restoreWhenNotGameplay();
   }
 
@@ -524,16 +506,17 @@
 
     scan();
 
-    setTimeout(scan, 180);
-    setTimeout(scan, 500);
+    setTimeout(scan, 100);
+    setTimeout(scan, 250);
+    setTimeout(scan, 600);
     setTimeout(scan, 1000);
     setTimeout(scan, 1600);
     setTimeout(scan, 2600);
     setTimeout(scan, 4000);
 
     const mo = new MutationObserver(function(){
-      clearTimeout(window.__HHA_GROUPS_NAV_LOCK_10B_SCAN_TIMER__);
-      window.__HHA_GROUPS_NAV_LOCK_10B_SCAN_TIMER__ = setTimeout(scan, 70);
+      clearTimeout(window.__HHA_GROUPS_NAV_LOCK_10C_SCAN_TIMER__);
+      window.__HHA_GROUPS_NAV_LOCK_10C_SCAN_TIMER__ = setTimeout(scan, 50);
     });
 
     mo.observe(document.body, {
@@ -545,7 +528,7 @@
     });
 
     window.addEventListener('resize', function(){
-      setTimeout(scan, 120);
+      setTimeout(scan, 100);
     }, { passive:true });
 
     console.info('[HeroHealth Groups Solo]', PATCH_ID, 'ready', {
