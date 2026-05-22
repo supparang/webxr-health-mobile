@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#fff3d7" />
   <meta name="color-scheme" content="light" />
 
@@ -21,7 +21,6 @@
       --blue:#71ccff;
       --yellow:#ffe17a;
       --shadow:0 10px 24px rgba(112,60,20,.13);
-      --bottomBarH:92px;
     }
 
     *{
@@ -33,7 +32,6 @@
     body{
       width:100%;
       height:100%;
-      min-height:100%;
       margin:0;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
@@ -42,37 +40,38 @@
         radial-gradient(circle at 90% 8%, rgba(113,204,255,.32), transparent 32%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
       overflow:hidden;
+      overscroll-behavior:none;
     }
 
     body{
-      height:100dvh;
-      padding:4px 4px calc(var(--bottomBarH) + env(safe-area-inset-bottom));
+      min-height:100dvh;
     }
 
     button,
     a{
       font-family:inherit;
+      touch-action:manipulation;
     }
 
     button{
       cursor:pointer;
-      touch-action:manipulation;
     }
 
     button:disabled{
-      opacity:.55;
-      filter:grayscale(.25);
+      opacity:.48;
       cursor:not-allowed;
+      filter:grayscale(.25);
+      box-shadow:none !important;
     }
 
     .app{
       width:100%;
-      height:100%;
-      max-width:760px;
-      margin:0 auto;
+      height:100dvh;
       display:grid;
-      grid-template-rows:auto auto auto minmax(0,1fr);
-      gap:4px;
+      grid-template-rows:auto auto minmax(0,1fr) auto;
+      gap:5px;
+      padding:5px;
+      overflow:hidden;
     }
 
     .topbar{
@@ -80,22 +79,23 @@
       grid-template-columns:auto minmax(0,1fr) auto;
       align-items:center;
       gap:6px;
-      padding:5px;
+      padding:5px 6px;
       border-radius:18px;
-      border:3px solid rgba(255,199,125,.9);
+      border:2px solid rgba(255,199,125,.9);
       background:rgba(255,254,248,.94);
       box-shadow:var(--shadow);
+      min-height:52px;
     }
 
     .game-icon{
-      width:42px;
-      height:42px;
+      width:40px;
+      height:40px;
       display:grid;
       place-items:center;
-      border-radius:15px;
+      border-radius:14px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:2px solid rgba(255,199,125,.84);
-      font-size:25px;
+      font-size:24px;
       flex:0 0 auto;
     }
 
@@ -105,7 +105,7 @@
 
     .title{
       margin:0;
-      font-size:clamp(19px,5vw,25px);
+      font-size:18px;
       line-height:1.05;
       font-weight:1000;
       color:var(--text);
@@ -116,7 +116,7 @@
 
     .subtitle{
       margin-top:2px;
-      font-size:11px;
+      font-size:10px;
       font-weight:900;
       color:var(--muted);
       white-space:nowrap;
@@ -131,41 +131,42 @@
     }
 
     .top-btn{
-      min-height:34px;
-      padding:5px 8px;
-      border-radius:13px;
+      min-height:32px;
+      padding:5px 7px;
+      border-radius:12px;
       border:2px solid rgba(255,199,125,.9);
       background:#fffef8;
       color:var(--text);
-      font-size:12px;
+      font-size:11px;
       font-weight:1000;
       text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
+      white-space:nowrap;
     }
 
     .top-btn.icon-only{
-      width:34px;
+      width:32px;
       padding:5px;
-      font-size:16px;
+      font-size:15px;
     }
 
-    .hud-grid{
+    .hud-strip{
       display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:4px;
+      grid-template-columns:1.05fr .8fr .8fr .72fr;
+      gap:5px;
+      min-height:50px;
     }
 
     .hud-card{
       min-width:0;
-      min-height:43px;
-      padding:4px 3px;
+      padding:5px 3px;
       border-radius:14px;
       border:2px solid rgba(255,220,168,.95);
       background:rgba(255,254,248,.92);
       text-align:center;
-      box-shadow:0 5px 13px rgba(112,60,20,.09);
+      box-shadow:0 5px 12px rgba(112,60,20,.09);
     }
 
     .hud-card .label{
@@ -180,8 +181,8 @@
     .hud-card .value{
       display:block;
       margin-top:4px;
-      font-size:clamp(16px,4.7vw,22px);
-      line-height:1;
+      font-size:clamp(15px,4.8vw,22px);
+      line-height:1.05;
       font-weight:1000;
       color:var(--text);
       white-space:nowrap;
@@ -189,40 +190,48 @@
       text-overflow:ellipsis;
     }
 
-    .opponent-row{
+    .opponent-mini{
       display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
+      grid-template-columns:minmax(0,1fr) auto auto;
       align-items:center;
-      gap:6px;
+      gap:5px;
       min-height:38px;
-      padding:5px 8px;
+      padding:5px 7px;
       border-radius:15px;
       border:2px solid rgba(255,199,125,.9);
       background:rgba(255,254,248,.92);
-      box-shadow:0 5px 13px rgba(112,60,20,.09);
+      box-shadow:0 6px 14px rgba(112,60,20,.09);
     }
 
     .opponent-name{
       min-width:0;
-      font-size:14px;
+      font-size:13px;
       font-weight:1000;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
+    .rival-score{
+      min-width:42px;
+      text-align:center;
+      font-size:18px;
+      font-weight:1000;
+      color:#713018;
+    }
+
     .opponent-status{
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      min-width:56px;
-      min-height:28px;
-      padding:4px 8px;
+      min-width:44px;
+      min-height:26px;
+      padding:4px 7px;
       border-radius:999px;
       border:2px solid rgba(130,220,130,.62);
       background:#efffeb;
       color:#4f9b39;
-      font-size:11px;
+      font-size:10px;
       font-weight:1000;
     }
 
@@ -232,21 +241,26 @@
       color:#a23828;
     }
 
-    .arena{
-      position:relative;
-      width:100%;
+    .arena-wrap{
       min-height:0;
-      height:100%;
-      border-radius:20px;
-      border:4px solid rgba(255,199,125,.9);
+      position:relative;
+      border-radius:21px;
+      border:3px solid rgba(255,199,125,.92);
       overflow:hidden;
       box-shadow:var(--shadow);
+      background:#fffef8;
+    }
+
+    .arena{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
       background:
         linear-gradient(90deg, rgba(255,255,255,.18) 1px, transparent 1px),
         linear-gradient(180deg, rgba(255,255,255,.18) 1px, transparent 1px),
         linear-gradient(180deg,#e9fbff 0%,#fff9cf 100%);
-      background-size:64px 64px,64px 64px,100% 100%;
-      touch-action:manipulation;
+      background-size:58px 58px,58px 58px,100% 100%;
+      touch-action:none;
     }
 
     .arena::before{
@@ -255,9 +269,48 @@
       inset:0;
       pointer-events:none;
       background:
-        radial-gradient(circle at 50% 60%, rgba(255,225,122,.26), transparent 30%),
-        radial-gradient(circle at 25% 80%, rgba(85,217,120,.13), transparent 26%),
-        radial-gradient(circle at 80% 35%, rgba(113,204,255,.13), transparent 30%);
+        radial-gradient(circle at 50% 60%, rgba(255,225,122,.30), transparent 30%),
+        radial-gradient(circle at 25% 80%, rgba(85,217,120,.14), transparent 26%),
+        radial-gradient(circle at 80% 35%, rgba(113,204,255,.14), transparent 30%);
+    }
+
+    .arena-title{
+      position:absolute;
+      left:8px;
+      top:7px;
+      z-index:20;
+      padding:5px 8px;
+      border-radius:999px;
+      border:2px solid rgba(255,210,156,.94);
+      background:rgba(255,253,245,.85);
+      font-size:10px;
+      font-weight:1000;
+      box-shadow:0 5px 13px rgba(80,40,10,.10);
+      pointer-events:none;
+    }
+
+    .mini-stats{
+      position:absolute;
+      left:7px;
+      right:7px;
+      bottom:7px;
+      z-index:20;
+      display:flex;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:4px;
+      pointer-events:none;
+    }
+
+    .mini-pill{
+      padding:4px 6px;
+      border-radius:999px;
+      border:1.5px solid rgba(255,210,156,.95);
+      background:rgba(255,253,245,.84);
+      color:var(--text);
+      font-size:10px;
+      font-weight:1000;
+      box-shadow:0 4px 10px rgba(100,55,12,.08);
     }
 
     .target{
@@ -269,24 +322,19 @@
       border-radius:17px;
       border:5px solid var(--good);
       background:rgba(255,255,255,.95);
-      box-shadow:0 10px 20px rgba(80,50,10,.14);
+      box-shadow:0 9px 18px rgba(80,50,10,.15);
       font-size:29px;
       font-weight:1000;
       user-select:none;
       touch-action:manipulation;
       transform:translate(-50%,-50%);
-      transition:transform .12s ease, opacity .12s ease;
-      z-index:5;
+      transition:transform .10s ease, opacity .10s ease;
+      z-index:10;
     }
 
     .target.bad,
     .target.junk{
       border-color:#ff7990;
-    }
-
-    .target.bonus{
-      border-color:#71ccff;
-      background:#f2fbff;
     }
 
     .target:active{
@@ -295,142 +343,96 @@
 
     .target.hit{
       opacity:0;
-      transform:translate(-50%,-50%) scale(1.25);
+      transform:translate(-50%,-50%) scale(1.20);
     }
 
-    .float-text{
+    .floating-text{
       position:absolute;
-      z-index:15;
-      left:50%;
-      top:50%;
+      z-index:40;
       transform:translate(-50%,-50%);
-      padding:5px 8px;
-      border-radius:999px;
-      background:rgba(255,255,255,.9);
-      border:2px solid rgba(255,210,156,.9);
-      color:#753119;
-      font-size:13px;
       font-weight:1000;
+      font-size:19px;
       pointer-events:none;
-      animation:floatUp .72s ease forwards;
+      animation:floatUp .65s ease-out forwards;
+      text-shadow:0 2px 0 rgba(255,255,255,.8);
     }
 
     @keyframes floatUp{
-      from{opacity:1; transform:translate(-50%,-50%) scale(.95);}
-      to{opacity:0; transform:translate(-50%,-120%) scale(1.06);}
+      from{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+      }
+      to{
+        opacity:0;
+        transform:translate(-50%,-105%) scale(1.18);
+      }
     }
 
-    .mini-stats{
-      position:absolute;
-      left:6px;
-      right:6px;
-      bottom:6px;
-      z-index:12;
-      display:flex;
-      justify-content:center;
-      flex-wrap:wrap;
-      gap:4px;
-      pointer-events:none;
+    .bottom-zone{
+      display:grid;
+      grid-template-rows:auto auto;
+      gap:5px;
     }
 
-    .mini-pill{
+    .power-row{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:6px;
+      min-height:28px;
       padding:4px 7px;
-      border-radius:999px;
-      border:2px solid rgba(255,210,156,.95);
-      background:rgba(255,253,245,.88);
-      color:var(--text);
-      font-size:10px;
+      border-radius:14px;
+      border:2px solid rgba(255,199,125,.82);
+      background:rgba(255,254,248,.93);
+      box-shadow:0 6px 12px rgba(112,60,20,.08);
+      font-size:11px;
       font-weight:1000;
-      box-shadow:0 5px 12px rgba(100,55,12,.10);
     }
 
-    #battlePower{
-      position:fixed;
-      left:8px;
-      bottom:calc(var(--bottomBarH) + env(safe-area-inset-bottom) + 4px);
-      z-index:60;
-      padding:6px 10px;
+    .power-bar{
+      width:100%;
+      height:11px;
+      overflow:hidden;
       border-radius:999px;
-      border:2px solid rgba(255,199,125,.9);
-      background:rgba(255,254,248,.94);
-      color:var(--text);
-      font-size:12px;
-      font-weight:1000;
-      box-shadow:var(--shadow);
-      pointer-events:none;
+      border:1.5px solid rgba(255,203,122,.92);
+      background:rgba(255,255,255,.9);
+    }
+
+    .power-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#ffe17a,#ffb650);
+      border-radius:999px;
+      transition:width .18s ease;
     }
 
     .battle-actions{
-      position:fixed;
-      left:0;
-      right:0;
-      bottom:0;
-      z-index:50;
-      min-height:var(--bottomBarH);
-      padding:7px 7px calc(7px + env(safe-area-inset-bottom));
       display:grid;
       grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:6px;
-      border-top:3px solid rgba(255,190,105,.82);
-      background:rgba(255,252,238,.98);
-      box-shadow:0 -8px 24px rgba(112,60,20,.12);
+      gap:5px;
+      padding:5px;
+      border-radius:17px;
+      border:2px solid rgba(255,190,105,.75);
+      background:rgba(255,252,238,.96);
+      box-shadow:var(--shadow);
     }
 
     .skill-btn{
-      min-height:62px;
-      padding:7px 4px;
-      border-radius:17px;
-      border:3px solid rgba(255,203,122,.92);
+      min-height:42px;
+      padding:5px 3px;
+      border-radius:13px;
+      border:2px solid rgba(255,203,122,.92);
       background:linear-gradient(180deg,#fff8d9,#ffe27a);
       color:#87331f;
-      font-size:clamp(11px,3.4vw,15px);
+      font-size:clamp(10px,3.2vw,13px);
       font-weight:1000;
-      line-height:1.08;
-      box-shadow:0 6px 0 rgba(194,125,38,.22);
+      line-height:1.05;
+      box-shadow:0 5px 0 rgba(194,125,38,.20);
     }
 
-    .skill-btn small{
-      display:block;
-      margin-top:2px;
-      font-size:9px;
-      color:#9a6a42;
-      font-weight:1000;
-    }
-
-    .skill-btn:active{
+    .skill-btn:active:not(:disabled){
       transform:translateY(2px);
-      box-shadow:0 4px 0 rgba(194,125,38,.18);
-    }
-
-    .skill-btn[disabled]{
-      opacity:.5;
-      filter:grayscale(.25);
-      box-shadow:none;
-    }
-
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom:calc(var(--bottomBarH) + 42px + env(safe-area-inset-bottom));
-      transform:translateX(-50%) translateY(16px);
-      z-index:99999;
-      width:max-content;
-      max-width:92vw;
-      padding:10px 14px;
-      border-radius:999px;
-      background:rgba(60,34,16,.92);
-      color:#fff;
-      font-size:13px;
-      font-weight:950;
-      text-align:center;
-      opacity:0;
-      pointer-events:none;
-      transition:opacity .18s ease, transform .18s ease;
-    }
-
-    .toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
+      box-shadow:0 3px 0 rgba(194,125,38,.16);
     }
 
     .result-overlay{
@@ -451,31 +453,31 @@
 
     .result-card{
       width:min(94vw,560px);
-      max-height:calc(100dvh - 18px);
+      max-height:calc(100dvh - 16px);
       overflow:auto;
-      padding:18px 14px 16px;
+      padding:18px 13px 14px;
       border-radius:28px;
-      border:5px solid rgba(255,187,105,.96);
-      background:rgba(255,254,248,.97);
+      border:4px solid rgba(255,187,105,.96);
+      background:rgba(255,254,248,.98);
       box-shadow:0 22px 50px rgba(70,34,10,.24);
       text-align:center;
     }
 
     .result-icon{
-      width:70px;
-      height:70px;
+      width:68px;
+      height:68px;
       display:grid;
       place-items:center;
       margin:0 auto 8px;
-      border-radius:23px;
+      border-radius:22px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:3px solid rgba(255,199,125,.84);
-      font-size:38px;
+      font-size:36px;
     }
 
     .result-title{
       margin:0;
-      font-size:clamp(31px,10vw,50px);
+      font-size:clamp(30px,10vw,50px);
       line-height:1.05;
       font-weight:1000;
       color:var(--text);
@@ -485,9 +487,9 @@
       width:fit-content;
       max-width:100%;
       margin:10px auto;
-      padding:7px 12px;
+      padding:7px 11px;
       border-radius:999px;
-      border:3px dashed rgba(255,208,140,.92);
+      border:2px dashed rgba(255,208,140,.92);
       background:rgba(255,248,225,.88);
       font-size:15px;
       font-weight:1000;
@@ -503,15 +505,15 @@
 
     .score-box{
       min-width:0;
-      padding:11px 9px;
+      padding:10px 8px;
       border-radius:20px;
-      border:3px solid rgba(255,220,168,.95);
+      border:2px solid rgba(255,220,168,.95);
       background:rgba(255,253,245,.92);
       text-align:left;
     }
 
     .score-box .who{
-      font-size:13px;
+      font-size:12px;
       font-weight:1000;
       white-space:nowrap;
       overflow:hidden;
@@ -519,7 +521,7 @@
     }
 
     .score-box .big{
-      margin-top:3px;
+      margin-top:4px;
       font-size:38px;
       line-height:1;
       font-weight:1000;
@@ -528,7 +530,7 @@
 
     .score-box .small{
       margin-top:6px;
-      font-size:12px;
+      font-size:11px;
       font-weight:900;
       color:var(--text);
       white-space:nowrap;
@@ -537,12 +539,12 @@
     }
 
     .rematch-status{
-      margin:9px 0;
-      padding:8px 10px;
-      border-radius:17px;
-      border:3px dashed rgba(255,208,140,.92);
+      margin:8px 0;
+      padding:8px;
+      border-radius:16px;
+      border:2px dashed rgba(255,208,140,.92);
       background:rgba(255,248,225,.7);
-      font-size:14px;
+      font-size:13px;
       font-weight:1000;
       color:#86601d;
     }
@@ -555,13 +557,13 @@
     }
 
     .result-actions button{
-      min-height:48px;
-      padding:9px 10px;
-      border-radius:17px;
-      border:3px solid rgba(255,199,125,.9);
+      min-height:46px;
+      padding:8px 9px;
+      border-radius:16px;
+      border:2px solid rgba(255,199,125,.9);
       background:#fffef8;
       color:var(--text);
-      font-size:14px;
+      font-size:13px;
       font-weight:1000;
       display:flex;
       align-items:center;
@@ -577,30 +579,49 @@
       border-color:rgba(110,203,255,.9);
     }
 
-    @media (max-width:390px){
-      :root{
-        --bottomBarH:88px;
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(74px + env(safe-area-inset-bottom));
+      transform:translateX(-50%) translateY(16px);
+      z-index:99999;
+      width:max-content;
+      max-width:92vw;
+      padding:10px 13px;
+      border-radius:999px;
+      background:rgba(60,34,16,.92);
+      color:#fff;
+      font-size:13px;
+      font-weight:950;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    @media(max-width:370px){
+      .app{
+        gap:4px;
+        padding:4px;
       }
 
-      .topbar{
-        grid-template-columns:auto minmax(0,1fr);
-      }
-
-      .top-actions{
-        grid-column:1 / -1;
-        justify-content:space-between;
+      .title{
+        font-size:16px;
       }
 
       .top-btn{
-        flex:1;
+        font-size:10px;
+        padding:4px 5px;
       }
 
-      .hud-grid{
-        grid-template-columns:repeat(4,minmax(0,1fr));
-      }
-
-      .hud-card{
-        min-height:40px;
+      .hud-strip{
+        grid-template-columns:1fr 1fr 1fr 1fr;
+        min-height:46px;
       }
 
       .hud-card .label{
@@ -612,47 +633,60 @@
       }
 
       .battle-actions{
-        gap:4px;
-        padding-left:5px;
-        padding-right:5px;
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
       .skill-btn{
-        min-height:58px;
-        font-size:10.5px;
+        min-height:38px;
       }
 
-      .result-actions,
-      .result-score-grid{
+      .result-score-grid,
+      .result-actions{
         grid-template-columns:1fr;
+      }
+
+      .target{
+        width:50px;
+        height:50px;
+        font-size:27px;
       }
     }
 
-    @media (orientation:landscape) and (max-height:520px){
-      :root{
-        --bottomBarH:74px;
-      }
-
+    @media(orientation:landscape) and (max-height:520px){
       .app{
-        grid-template-rows:auto auto minmax(0,1fr);
+        grid-template-rows:auto minmax(0,1fr) auto;
+        grid-template-columns:210px minmax(0,1fr);
+        gap:5px;
       }
 
-      .opponent-row{
-        display:none;
+      .topbar{
+        grid-column:1 / -1;
       }
 
-      .hud-card{
-        min-height:36px;
-        padding:3px;
+      .hud-strip{
+        grid-column:1;
+        grid-row:2;
+        display:grid;
+        grid-template-columns:1fr 1fr;
+        align-content:start;
       }
 
-      .hud-card .value{
-        margin-top:2px;
-        font-size:15px;
+      .opponent-mini{
+        grid-column:1;
+        grid-row:3;
       }
 
-      .skill-btn{
-        min-height:48px;
+      .arena-wrap{
+        grid-column:2;
+        grid-row:2 / 4;
+      }
+
+      .bottom-zone{
+        grid-column:1 / -1;
+      }
+
+      .battle-actions{
+        grid-template-columns:repeat(4,minmax(0,1fr));
       }
     }
   </style>
@@ -664,7 +698,7 @@
       <div class="game-icon">⚔️</div>
 
       <div class="title-wrap">
-        <h1 class="title">GoodJunk Battle v2.4.32</h1>
+        <h1 class="title">GoodJunk Battle v2.4.33</h1>
         <div class="subtitle" id="roomLine">Battle • Mobile</div>
       </div>
 
@@ -675,7 +709,7 @@
       </nav>
     </header>
 
-    <section class="hud-grid" aria-label="battle status">
+    <section class="hud-strip" aria-label="battle status">
       <div class="hud-card">
         <span class="label">PLAYER</span>
         <span class="value" id="playerName">Hero</span>
@@ -697,45 +731,53 @@
       </div>
     </section>
 
-    <section class="opponent-row">
-      <div class="opponent-name" id="opponentName">คู่แข่ง: รอคู่แข่ง...</div>
-      <div class="opponent-status" id="opponentStatus">PLAY</div>
+    <section class="opponent-mini">
+      <div class="opponent-name" id="opponentName" data-opponent-name>คู่แข่ง: รอคู่แข่ง...</div>
+      <div class="rival-score" id="rivalScore" data-rival-score>0</div>
+      <div class="opponent-status" id="opponentStatus" data-opponent-status>WAIT</div>
     </section>
 
-    <main class="arena" id="arena" aria-label="GoodJunk Battle arena">
-      <div class="mini-stats">
-        <span class="mini-pill" id="goodCount">Good 0</span>
-        <span class="mini-pill" id="junkCount">Junk 0</span>
-        <span class="mini-pill" id="missCount">Miss 0</span>
-        <span class="mini-pill" id="attackCount">Attack 0/5</span>
-        <span class="mini-pill" id="shieldCount">Shield 0</span>
+    <section class="arena-wrap">
+      <main class="arena" id="arena" aria-label="GoodJunk Battle arena">
+        <div class="arena-title" id="arenaTitle">แตะอาหารดี • ระวัง Junk</div>
+
+        <div class="mini-stats">
+          <span class="mini-pill" id="goodCount">Good 0</span>
+          <span class="mini-pill" id="junkCount">Junk 0</span>
+          <span class="mini-pill" id="missCount">Miss 0</span>
+          <span class="mini-pill" id="attackCount">Power 0/5</span>
+          <span class="mini-pill" id="shieldCount">Shield 0</span>
+        </div>
+      </main>
+    </section>
+
+    <section class="bottom-zone">
+      <div class="power-row">
+        <div id="battlePower" data-battle-power>พลัง 0/5</div>
+        <div class="power-bar" aria-hidden="true">
+          <div class="power-fill" id="powerFill"></div>
+        </div>
       </div>
-    </main>
 
-    <div id="battlePower" data-battle-power>พลัง 0/5</div>
+      <section id="battleActions" class="battle-actions action-bar" aria-label="Battle skills">
+        <button id="btnJunkStorm" class="skill-btn" type="button" data-skill="junk-storm" data-action="junk-storm">
+          ⚡ Storm
+        </button>
+
+        <button id="btnShield" class="skill-btn" type="button" data-skill="shield" data-action="shield">
+          🛡️ Shield
+        </button>
+
+        <button id="btnFreeze" class="skill-btn" type="button" data-skill="freeze" data-action="freeze">
+          ❄️ Freeze
+        </button>
+
+        <button id="btnHeal" class="skill-btn" type="button" data-skill="heal" data-action="heal">
+          💚 Heal
+        </button>
+      </section>
+    </section>
   </div>
-
-  <section id="battleActions" class="battle-actions action-bar" aria-label="Battle skills">
-    <button id="btnJunkStorm" class="skill-btn" type="button" data-skill="junk-storm" data-action="junk-storm">
-      ⚡ Storm
-      <small>พลัง 5</small>
-    </button>
-
-    <button id="btnShield" class="skill-btn" type="button" data-skill="shield" data-action="shield">
-      🛡️ Shield
-      <small>พลัง 3</small>
-    </button>
-
-    <button id="btnFreeze" class="skill-btn" type="button" data-skill="freeze" data-action="freeze">
-      ❄️ Freeze
-      <small>พลัง 4</small>
-    </button>
-
-    <button id="btnHeal" class="skill-btn" type="button" data-skill="heal" data-action="heal">
-      💚 Heal
-      <small>พลัง 3</small>
-    </button>
-  </section>
 
   <section id="resultOverlay" class="result-overlay" aria-live="polite">
     <div class="result-card battle-result">
@@ -774,6 +816,10 @@
           🎮 โหมดทั้งหมด
         </button>
 
+        <button id="btnNutritionZone" type="button" data-nutrition-zone>
+          🥗 Nutrition Zone
+        </button>
+
         <button id="btnResultHub" type="button" data-back-hub>
           🏠 Hub
         </button>
@@ -791,9 +837,6 @@
     (function GoodJunkBattleFirebaseInitGuard(){
       'use strict';
 
-      window.GJ_BATTLE_FIREBASE_INIT_GUARD =
-        'v2.4.32-mobile-firebase-init';
-
       const cfg =
         window.HHA_FIREBASE_CONFIG ||
         window.HEROHEALTH_FIREBASE_CONFIG ||
@@ -809,72 +852,37 @@
           appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
         };
 
-      function hasFirebaseApp(){
-        try{
-          return !!(
-            window.firebase &&
-            typeof firebase.apps !== 'undefined' &&
-            firebase.apps &&
-            firebase.apps.length
-          );
-        }catch(_){
-          return false;
+      try{
+        if (window.firebase && typeof firebase.initializeApp === 'function'){
+          if (!firebase.apps || !firebase.apps.length){
+            firebase.initializeApp(cfg);
+          }
+          window.GJ_BATTLE_FIREBASE_INIT_OK = true;
         }
+      }catch(err){
+        console.warn('[GJ Battle Mobile Firebase Init] failed', err);
+        window.GJ_BATTLE_FIREBASE_INIT_OK = false;
       }
-
-      function init(){
-        if (!window.firebase || typeof firebase.initializeApp !== 'function'){
-          console.warn('[GJ Battle Firebase Init] firebase-app-compat not loaded');
-          return false;
-        }
-
-        if (hasFirebaseApp()){
-          console.info('[GJ Battle Firebase Init] Firebase app already exists');
-          return true;
-        }
-
-        try{
-          firebase.initializeApp(cfg);
-          console.info('[GJ Battle Firebase Init] Firebase initialized');
-          return true;
-        }catch(err){
-          console.warn('[GJ Battle Firebase Init] initializeApp failed', err);
-          return false;
-        }
-      }
-
-      window.GJ_BATTLE_FIREBASE_INIT_OK = init();
     })();
   </script>
-
-  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2434"></script>
-  <script src="./goodjunk-battle-v2-core.js?v=2433"></script>
 
   <script>
     (function GoodJunkBattleMobileRuntime(){
       'use strict';
 
-      const RUNTIME_VERSION = 'v2.4.32-mobile-compact-gameplay-sync-final';
+      const RUNTIME_VERSION = 'v2.4.33-mobile-runtime-max-gameplay-opponent-sync';
 
       const url = new URL(location.href);
       const params = url.searchParams;
 
-      const PLAYER_ID =
-        params.get('pid') ||
-        params.get('playerId') ||
-        localStorage.getItem('GJ_BATTLE_PID') ||
-        'anon';
-
-      const PLAYER_NAME =
-        params.get('name') ||
-        params.get('playerName') ||
-        localStorage.getItem('GJ_BATTLE_NAME') ||
-        'Hero';
+      const PLAYER_ID = params.get('pid') || 'anon';
+      const PLAYER_NAME = params.get('name') || 'Hero';
 
       const ROOM_CODE =
         params.get('room') ||
         params.get('roomCode') ||
         params.get('code') ||
+        params.get('lastRoom') ||
         '';
 
       const MATCH_ID =
@@ -892,8 +900,10 @@
       const heartsEl = document.getElementById('hearts');
       const playerNameEl = document.getElementById('playerName');
       const roomLine = document.getElementById('roomLine');
+
       const opponentNameEl = document.getElementById('opponentName');
       const opponentStatusEl = document.getElementById('opponentStatus');
+      const rivalScoreEl = document.getElementById('rivalScore');
 
       const goodCountEl = document.getElementById('goodCount');
       const junkCountEl = document.getElementById('junkCount');
@@ -901,38 +911,32 @@
       const attackCountEl = document.getElementById('attackCount');
       const shieldCountEl = document.getElementById('shieldCount');
       const battlePowerEl = document.getElementById('battlePower');
+      const powerFill = document.getElementById('powerFill');
 
       const resultOverlay = document.getElementById('resultOverlay');
-      const toastEl = document.getElementById('toast');
 
-      const foodGood = ['🍎','🥦','🥚','🍚','🐟','🥕','🍌','🥛','🍊','🥬'];
-      const foodJunk = ['🍩','🍟','🍔','🥤','🍰','🍭','🍬','🧁','🍕','🍫'];
-      const foodBonus = ['⭐','💎','⚡'];
+      const foodGood = ['🍎','🥦','🥚','🍚','🐟','🥕','🍌','🥛','🍊','🌽'];
+      const foodJunk = ['🍩','🍟','🍔','🥤','🍰','🍭','🍬','🧁','🍕','🍪'];
 
       const state = {
-        running: true,
-        ended: false,
-        score: 0,
-        good: 0,
-        junk: 0,
-        miss: 0,
-        hearts: 3,
-        timeLeft: TIME_LIMIT,
-        power: 0,
-        shieldActive: false,
-        shieldUntil: 0,
-        freezeUntil: 0,
-        combo: 0,
-        bestStreak: 0,
-        spawnEvery: DIFF === 'hard' || DIFF === 'challenge' ? 640 : DIFF === 'easy' ? 980 : 790,
-        targetLife: DIFF === 'hard' || DIFF === 'challenge' ? 1900 : DIFF === 'easy' ? 3000 : 2350,
-        spawnTimer: null,
-        clockTimer: null,
-        syncTimer: null,
-        playerId: PLAYER_ID,
-        playerName: PLAYER_NAME,
-        roomCode: ROOM_CODE,
-        matchId: MATCH_ID
+        running:true,
+        ended:false,
+        score:0,
+        good:0,
+        junk:0,
+        miss:0,
+        hearts:3,
+        timeLeft:TIME_LIMIT,
+        power:0,
+        shieldActive:false,
+        freezeActive:false,
+        spawnEvery: DIFF === 'hard' || DIFF === 'challenge' ? 600 : DIFF === 'easy' ? 980 : 760,
+        targetLife: DIFF === 'hard' || DIFF === 'challenge' ? 1700 : DIFF === 'easy' ? 3000 : 2300,
+        spawnTimer:null,
+        clockTimer:null,
+        playerId:PLAYER_ID,
+        roomCode:ROOM_CODE,
+        matchId:MATCH_ID
       };
 
       window.GJ_PLAYER_ID = PLAYER_ID;
@@ -944,12 +948,18 @@
       window.GJ_MATCH_ID = MATCH_ID;
       window.GJ_BATTLE_PHASE = 'play';
 
-      function now(){
-        return Date.now();
-      }
-
       function emit(name, detail){
         window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+      }
+
+      function toast(msg){
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function(){
+          el.classList.remove('show');
+        }, 1350);
       }
 
       function rand(min, max){
@@ -960,55 +970,9 @@
         return arr[Math.floor(Math.random() * arr.length)];
       }
 
-      function clamp(n, min, max){
-        return Math.max(min, Math.min(max, n));
-      }
-
-      function toast(msg){
-        toastEl.textContent = msg;
-        toastEl.classList.add('show');
-        clearTimeout(toast._t);
-        toast._t = setTimeout(function(){
-          toastEl.classList.remove('show');
-        }, 1400);
-      }
-
-      function getCore(){
-        return window.GJ_BATTLE_CORE || null;
-      }
-
-      function pushStateToCore(reason){
-        const battleState = {
-          score: state.score,
-          myScore: state.score,
-          points: state.score,
-          good: state.good,
-          junk: state.junk,
-          miss: state.miss,
-          hearts: state.hearts,
-          hp: state.hearts,
-          lives: state.hearts,
-          power: state.power,
-          attackPower: state.power,
-          bestStreak: state.bestStreak,
-          streak: state.combo,
-          finished: state.ended,
-          done: state.ended,
-          timeLeft: state.timeLeft,
-          remaining: state.timeLeft,
-          syncReason: reason || 'mobile-runtime'
-        };
-
-        window.GJ_BATTLE_STATE = Object.assign({}, window.GJ_BATTLE_STATE || {}, battleState);
-
-        const core = getCore();
-        if (core && typeof core.updateMyPlayer === 'function'){
-          core.updateMyPlayer(battleState, {
-            force: reason === 'end' || reason === 'skill' || reason === 'hit'
-          });
-        }
-
-        emit('gj:battle-state-updated', battleState);
+      function safeNum(v, fallback){
+        const n = Number(v);
+        return Number.isFinite(n) ? n : Number(fallback || 0);
       }
 
       function getOpponentSnapshot(){
@@ -1016,34 +980,56 @@
 
         if (live){
           return {
-            name: live.name || live.displayName || 'Hero',
-            score: Number(live.score || live.points || 0),
-            good: Number(live.good || 0),
-            junk: Number(live.junk || 0),
-            miss: Number(live.miss || 0),
-            hearts: Number(live.hearts || live.hp || live.lives || 3),
+            name: live.name || live.playerName || live.displayName || 'รอคู่แข่ง...',
+            score: safeNum(live.score || live.points || 0, 0),
+            good: safeNum(live.good || live.goodCount || 0, 0),
+            junk: safeNum(live.junk || live.junkCount || 0, 0),
+            miss: safeNum(live.miss || live.missCount || 0, 0),
             status: live.status || '',
+            online: !!live.online,
             left: !!live.left,
             finished: !!live.finished
           };
         }
 
+        const room = window.GJ_CURRENT_ROOM || {};
+        const players = room.players || {};
+        const entries = Object.entries(players);
+        const op = entries.find(function(pair){
+          const id = pair[0];
+          const raw = pair[1] || {};
+          return String(id) !== String(PLAYER_ID) && String(raw.pid || '') !== String(PLAYER_ID);
+        });
+
+        if (!op){
+          return {
+            name:'รอคู่แข่ง...',
+            score:0,
+            good:0,
+            junk:0,
+            miss:0,
+            status:'waiting',
+            online:false,
+            left:false
+          };
+        }
+
+        const data = op[1] || {};
+
         return {
-          name: 'รอคู่แข่ง...',
-          score: 0,
-          good: 0,
-          junk: 0,
-          miss: 0,
-          hearts: 3,
-          status: '',
-          left: false,
-          finished: false
+          name:data.name || data.playerName || data.displayName || 'Hero',
+          score:safeNum(data.score || data.points || 0, 0),
+          good:safeNum(data.good || data.goodCount || 0, 0),
+          junk:safeNum(data.junk || data.junkCount || 0, 0),
+          miss:safeNum(data.miss || data.missCount || 0, 0),
+          status:data.status || '',
+          online:!(data.left || data.quit || data.disconnected),
+          left:!!(data.left || data.quit || data.disconnected),
+          finished:!!(data.finished || data.done)
         };
       }
 
       function syncBasicUI(){
-        const shieldOn = state.shieldActive && now() < state.shieldUntil;
-
         playerNameEl.textContent = PLAYER_NAME;
         scoreEl.textContent = String(state.score);
         heartsEl.textContent = '❤'.repeat(state.hearts) + '♡'.repeat(Math.max(0, 3 - state.hearts));
@@ -1052,29 +1038,50 @@
         goodCountEl.textContent = 'Good ' + state.good;
         junkCountEl.textContent = 'Junk ' + state.junk;
         missCountEl.textContent = 'Miss ' + state.miss;
-        attackCountEl.textContent = 'Attack ' + state.power + '/5';
-        shieldCountEl.textContent = 'Shield ' + (shieldOn ? 'ON' : '0');
-        battlePowerEl.textContent = 'พลัง ' + state.power + '/5' + (shieldOn ? ' • Shield' : '');
+        attackCountEl.textContent = 'Power ' + state.power + '/5';
+        shieldCountEl.textContent = 'Shield ' + (state.shieldActive ? 'ON' : '0');
+
+        battlePowerEl.textContent =
+          'พลัง ' + state.power + '/5' +
+          (state.shieldActive ? ' • Shield ON' : '') +
+          (state.freezeActive ? ' • Freeze' : '');
+
+        powerFill.style.width = Math.min(100, (state.power / 5) * 100) + '%';
 
         roomLine.textContent = [
           PLAYER_NAME,
           ROOM_CODE ? ('room ' + ROOM_CODE) : 'guest',
-          'mobile'
+          'Mobile'
         ].join(' • ');
 
-        document.getElementById('btnJunkStorm').disabled = state.power < 5;
-        document.getElementById('btnShield').disabled = state.power < 3 || shieldOn;
-        document.getElementById('btnFreeze').disabled = state.power < 4;
-        document.getElementById('btnHeal').disabled = state.power < 3 || state.hearts >= 3;
+        window.GJ_BATTLE_STATE = Object.assign({}, window.GJ_BATTLE_STATE || {}, {
+          score:state.score,
+          myScore:state.score,
+          points:state.score,
+          good:state.good,
+          junk:state.junk,
+          miss:state.miss,
+          hearts:state.hearts,
+          hp:state.hearts,
+          lives:state.hearts,
+          maxHearts:3,
+          power:state.power,
+          attackPower:state.power,
+          shieldActive:state.shieldActive,
+          freezeActive:state.freezeActive,
+          timeLeft:state.timeLeft,
+          remaining:state.timeLeft,
+          ended:state.ended
+        });
 
-        updateOpponentUI();
+        emit('gj:battle-state-updated', window.GJ_BATTLE_STATE);
       }
 
       function updateOpponentUI(){
         const op = getOpponentSnapshot();
 
-        opponentNameEl.textContent =
-          'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...') + ' • ' + Number(op.score || 0);
+        opponentNameEl.textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
+        rivalScoreEl.textContent = String(safeNum(op.score, 0));
 
         if (op.left || op.status === 'left' || op.status === 'offline'){
           opponentStatusEl.textContent = 'LEFT';
@@ -1082,116 +1089,96 @@
         }else if (op.finished){
           opponentStatusEl.textContent = 'DONE';
           opponentStatusEl.classList.remove('off');
-        }else{
+        }else if (op.name && op.name !== 'รอคู่แข่ง...'){
           opponentStatusEl.textContent = 'PLAY';
           opponentStatusEl.classList.remove('off');
+        }else{
+          opponentStatusEl.textContent = 'WAIT';
+          opponentStatusEl.classList.add('off');
         }
       }
 
-      function floatText(text, x, y){
+      function floatingText(text, x, y, good){
         const el = document.createElement('div');
-        el.className = 'float-text';
+        el.className = 'floating-text';
         el.textContent = text;
         el.style.left = x + '%';
         el.style.top = y + '%';
+        el.style.color = good ? '#247a39' : '#9b2c22';
         arena.appendChild(el);
         setTimeout(function(){
           el.remove();
-        }, 760);
+        }, 720);
       }
 
       function spawnTarget(forcedKind){
         if (!state.running || state.ended) return;
 
-        const r = Math.random();
-        let kind = forcedKind || (r < 0.66 ? 'good' : (r < 0.92 ? 'junk' : 'bonus'));
-
+        const kind = forcedKind || (Math.random() < 0.68 ? 'good' : 'junk');
         const item = document.createElement('button');
-        item.type = 'button';
-        item.className =
-          'target ' +
-          (kind === 'junk' ? 'bad junk' : kind === 'bonus' ? 'bonus' : 'good');
-
-        item.dataset.kind = kind;
-        item.dataset.type = kind;
-        item.textContent =
-          kind === 'good' ? pick(foodGood) :
-          kind === 'junk' ? pick(foodJunk) :
-          pick(foodBonus);
 
         const x = rand(12, 88);
-        const y = rand(15, 76);
+        const y = rand(14, 82);
+
+        item.type = 'button';
+        item.className = 'target ' + (kind === 'junk' ? 'bad junk' : 'good');
+        item.dataset.kind = kind;
+        item.dataset.type = kind;
+        item.textContent = kind === 'good' ? pick(foodGood) : pick(foodJunk);
 
         item.style.left = x + '%';
         item.style.top = y + '%';
 
-        item.addEventListener('click', function(ev){
+        item.addEventListener('pointerdown', function(ev){
           ev.preventDefault();
           ev.stopPropagation();
 
-          if (state.ended) return;
+          if (state.ended || item.classList.contains('hit')) return;
 
           item.classList.add('hit');
 
           if (kind === 'good'){
+            const comboBonus = state.power >= 4 ? 4 : 0;
+            const gain = 10 + comboBonus;
+
             state.good += 1;
-            state.combo += 1;
-            state.bestStreak = Math.max(state.bestStreak, state.combo);
-
-            const bonus = Math.min(10, Math.floor(state.combo / 4) * 2);
-            const gain = 10 + bonus;
-
             state.score += gain;
-            state.power = clamp(state.power + 1, 0, 5);
+            state.power = Math.min(5, state.power + 1);
 
-            floatText('+' + gain, x, y);
+            floatingText('+' + gain, x, y, true);
 
             emit('gj:good-collected', {
-              score: gain,
-              points: gain,
-              power: 1,
-              kind: 'good'
+              score:gain,
+              power:1,
+              kind:'good'
             });
 
             emit('hha:score', {
-              type: 'good',
-              score: gain,
-              points: gain
-            });
-          }else if (kind === 'bonus'){
-            state.score += 15;
-            state.power = clamp(state.power + 2, 0, 5);
-            state.combo += 1;
-            state.bestStreak = Math.max(state.bestStreak, state.combo);
-
-            floatText('+15 ⚡', x, y);
-
-            emit('hha:score', {
-              type: 'bonus',
-              score: 15,
-              points: 15
+              type:'good',
+              score:gain,
+              points:gain
             });
           }else{
-            const shieldOn = state.shieldActive && now() < state.shieldUntil;
-
-            state.junk += 1;
-            state.combo = 0;
-
-            if (shieldOn){
-              floatText('🛡️ Block', x, y);
+            if (state.shieldActive){
+              state.junk += 1;
+              floatingText('BLOCK', x, y, true);
+              emit('gj:junk-blocked', { kind:'junk' });
             }else{
+              state.junk += 1;
               state.miss += 1;
               state.hearts = Math.max(0, state.hearts - 1);
-              floatText('-❤', x, y);
+              state.score = Math.max(0, state.score - 4);
+
+              floatingText('-❤', x, y, false);
 
               emit('gj:junk-hit', {
-                damage: 1,
-                kind: 'junk'
+                damage:1,
+                kind:'junk'
               });
 
               emit('hha:miss', {
-                type: 'junk',
-                damage: 1
+                type:'junk',
+                damage:1
               });
 
               if (state.hearts <= 0){
@@ -1203,18 +1190,19 @@
           }
 
           syncBasicUI();
-          pushStateToCore('hit');
+
+          if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+            setTimeout(function(){
+              window.GJ_BATTLE_CORE.forceRealtimeSync('target-pointerdown');
+            }, 40);
+          }
 
           setTimeout(function(){
             item.remove();
-          }, 120);
-        });
+          }, 110);
+        }, { passive:false });
 
         arena.appendChild(item);
-
-        const life = state.freezeUntil > now()
-          ? state.targetLife + 650
-          : state.targetLife;
 
         setTimeout(function(){
           if (!item.parentNode || state.ended) return;
@@ -1223,24 +1211,25 @@
 
           if (k === 'good'){
             state.miss += 1;
-            state.combo = 0;
-            floatText('Miss', x, y);
-
+            floatingText('MISS', x, y, false);
             emit('hha:miss', {
-              type: 'miss-good',
-              damage: 0
+              type:'miss-good',
+              damage:0
             });
           }
 
           item.remove();
           syncBasicUI();
-          pushStateToCore('target-timeout');
-        }, life);
+
+          if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+            window.GJ_BATTLE_CORE.forceRealtimeSync('target-timeout');
+          }
+        }, state.targetLife);
       }
 
       function startGame(){
         syncBasicUI();
-        pushStateToCore('start');
+        updateOpponentUI();
 
         state.spawnTimer = setInterval(function(){
           spawnTarget();
@@ -1257,16 +1246,8 @@
           }
 
           syncBasicUI();
-
-          if (state.timeLeft % 3 === 0){
-            pushStateToCore('clock');
-          }
-        }, 1000);
-
-        state.syncTimer = setInterval(function(){
-          pushStateToCore('interval');
           updateOpponentUI();
-        }, 1500);
+        }, 1000);
 
         for (let i = 0; i < 6; i++){
           setTimeout(function(){
@@ -1275,44 +1256,286 @@
         }
       }
 
-      function useSkill(skill){
+      function usePower(cost){
+        if (state.power < cost){
+          toast('พลังยังไม่พอ');
+          return false;
+        }
+
+        state.power = Math.max(0, state.power - cost);
+        syncBasicUI();
+        return true;
+      }
+
+      function useJunkStorm(){
+        if (!usePower(5)) return;
+
+        toast('ส่ง Junk Storm!');
+        emit('gj:battle-skill', {
+          skill:'junk-storm',
+          from:PLAYER_ID,
+          room:ROOM_CODE
+        });
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          window.GJ_BATTLE_CORE.updateRoom({
+            effects:{
+              type:'junk-storm',
+              from:PLAYER_ID,
+              at:Date.now()
+            }
+          });
+        }
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+          window.GJ_BATTLE_CORE.forceRealtimeSync('skill-junk-storm');
+        }
+      }
+
+      function useShield(){
+        if (!usePower(3)) return;
+
+        state.shieldActive = true;
+        toast('Shield ON!');
+        syncBasicUI();
+
+        clearTimeout(useShield._t);
+        useShield._t = setTimeout(function(){
+          state.shieldActive = false;
+          syncBasicUI();
+          toast('Shield หมดเวลา');
+        }, 6000);
+
+        emit('gj:battle-skill', {
+          skill:'shield',
+          from:PLAYER_ID
+        });
+      }
+
+      function useFreeze(){
+        if (!usePower(4)) return;
+
+        state.freezeActive = true;
+        toast('Freeze!');
+        syncBasicUI();
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          window.GJ_BATTLE_CORE.updateRoom({
+            effects:{
+              type:'freeze',
+              from:PLAYER_ID,
+              at:Date.now()
+            }
+          });
+        }
+
+        clearTimeout(useFreeze._t);
+        useFreeze._t = setTimeout(function(){
+          state.freezeActive = false;
+          syncBasicUI();
+        }, 5000);
+
+        emit('gj:battle-skill', {
+          skill:'freeze',
+          from:PLAYER_ID
+        });
+      }
+
+      function useHeal(){
+        if (!usePower(3)) return;
+
+        if (state.hearts >= 3){
+          toast('หัวใจเต็มแล้ว');
+          state.power = Math.min(5, state.power + 3);
+          syncBasicUI();
+          return;
+        }
+
+        state.hearts = Math.min(3, state.hearts + 1);
+        toast('Heal +1 ❤');
+        syncBasicUI();
+
+        emit('gj:battle-skill', {
+          skill:'heal',
+          from:PLAYER_ID
+        });
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+          window.GJ_BATTLE_CORE.forceRealtimeSync('skill-heal');
+        }
+      }
+
+      function endGame(result, reason){
         if (state.ended) return;
 
-        if (skill === 'junk-storm'){
-          if (state.power < 5) return;
-          state.power = 0;
-          toast('⚡ ส่ง Junk Storm!');
-          spawnJunkStorm(6);
-          emit('gj:battle-skill', { skill:'junk-storm', power:5 });
+        state.ended = true;
+        state.running = false;
+        window.GJ_BATTLE_PHASE = 'summary';
+
+        clearInterval(state.spawnTimer);
+        clearInterval(state.clockTimer);
+
+        const op = getOpponentSnapshot();
+
+        const myScore = state.score;
+        const opScore = safeNum(op.score, 0);
+
+        let title = 'จบ Battle!';
+        let icon = '💪';
+
+        if (result === 'lose' || myScore < opScore){
+          title = 'แพ้ Battle!';
+          icon = '💪';
+        }else if (myScore > opScore){
+          title = 'ชนะ Battle!';
+          icon = '🏆';
+        }else{
+          title = 'เสมอ Battle!';
+          icon = '🤝';
         }
 
-        if (skill === 'shield'){
-          if (state.power < 3) return;
-          state.power = clamp(state.power - 3, 0, 5);
-          state.shieldActive = true;
-          state.shieldUntil = now() + 6000;
-          toast('🛡️ Shield 6 วิ');
-          emit('gj:battle-skill', { skill:'shield', power:3 });
-        }
+        document.getElementById('resultIcon').textContent = icon;
+        document.getElementById('resultTitle').textContent = title;
+        document.getElementById('resultReason').textContent = 'เหตุผล: ' + reason;
 
-        if (skill === 'freeze'){
-          if (state.power < 4) return;
-          state.power = clamp(state.power - 4, 0, 5);
-          state.freezeUntil = now() + 5000;
-          toast('❄️ Freeze!');
-          emit('gj:battle-skill', { skill:'freeze', power:4 });
-        }
+        document.getElementById('resultMeName').textContent = 'คุณ: ' + PLAYER_NAME;
+        document.getElementById('resultMyScore').textContent = String(myScore);
+        document.getElementById('resultMyMeta').textContent =
+          'Good: ' + state.good + ' • Junk: ' + state.junk + ' • Miss: ' + state.miss;
 
-        if (skill === 'heal'){
-          if (state.power < 3 || state.hearts >= 3) return;
-          state.power = clamp(state.power - 3, 0, 5);
-          state.hearts = clamp(state.hearts + 1, 0, 3);
-          toast('💚 Heal +1');
-          emit('gj:battle-skill', { skill:'heal', power:3 });
-        }
+        document.getElementById('resultOpName').textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
+        document.getElementById('resultOpScore').textContent = String(opScore);
+        document.getElementById('resultOpMeta').textContent =
+          'Good: ' + safeNum(op.good, 0) +
+          ' • Junk: ' + safeNum(op.junk, 0) +
+          ' • Miss: ' + safeNum(op.miss, 0);
+
+        resultOverlay.classList.add('show');
 
         syncBasicUI();
-        pushStateToCore('skill');
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateMyPlayer === 'function'){
+          window.GJ_BATTLE_CORE.updateMyPlayer({
+            score:state.score,
+            points:state.score,
+            good:state.good,
+            junk:state.junk,
+            miss:state.miss,
+            hearts:state.hearts,
+            hp:state.hearts,
+            result:title,
+            finished:true,
+            done:true,
+            status:'finished',
+            phase:'summary'
+          });
+        }
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          window.GJ_BATTLE_CORE.updateRoom({
+            phase:'summary',
+            status:'summary',
+            state:'summary',
+            endedAt:Date.now(),
+            reason:reason
+          });
+        }
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+          window.GJ_BATTLE_CORE.forceRealtimeSync('runtime-end');
+        }
+
+        emit('gj:battle-ended', {
+          result,
+          reason,
+          score:state.score
+        });
+      }
+
+      function buildLobbyUrl(){
+        const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+
+        [
+          'pid','name','room','roomCode','diff','time','view','hub',
+          'zone','cat','studyId','conditionGroup','api','log'
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        out.searchParams.set('view', 'mobile');
+
+        return out.toString();
+      }
+
+      function buildAllModesUrl(){
+        const out = new URL('../goodjunk-launcher.html', location.href);
+
+        [
+          'pid','name','diff','time','view','hub','zone','cat',
+          'studyId','conditionGroup','api','log'
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        out.searchParams.set('view', 'mobile');
+
+        return out.toString();
+      }
+
+      function buildNutritionZoneUrl(){
+        const out = new URL('../nutrition-zone.html', location.href);
+
+        [
+          'pid','name','diff','time','view','hub','studyId',
+          'conditionGroup','api','log'
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        out.searchParams.set('view', 'mobile');
+
+        return out.toString();
+      }
+
+      function buildHubUrl(){
+        const hub = params.get('hub');
+
+        if (hub){
+          try{
+            return new URL(hub, location.href).toString();
+          }catch(_){}
+        }
+
+        return new URL('../hub.html', location.href).toString();
+      }
+
+      function bindNavigation(){
+        document.querySelectorAll('[data-back-lobby]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildLobbyUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-all-modes]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildAllModesUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-nutrition-zone]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildNutritionZoneUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-back-hub]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildHubUrl();
+          });
+        });
       }
 
       window.spawnJunkStorm = function(count){
@@ -1327,153 +1550,19 @@
       window.spawnBadItems = window.spawnJunkStorm;
       window.spawnJunkWave = window.spawnJunkStorm;
 
-      function resolveResultTitle(myScore, opScore){
-        if (myScore > opScore){
-          return { title:'ชนะ Battle!', icon:'🏆', code:'win' };
-        }
-
-        if (myScore < opScore){
-          return { title:'แพ้ Battle!', icon:'💪', code:'lose' };
-        }
-
-        return { title:'เสมอ Battle!', icon:'🤝', code:'draw' };
-      }
-
-      function showResult(reason){
-        const op = getOpponentSnapshot();
-        const myScore = state.score;
-        const opScore = Number(op.score || 0);
-        const verdict = resolveResultTitle(myScore, opScore);
-
-        document.getElementById('resultIcon').textContent = verdict.icon;
-        document.getElementById('resultTitle').textContent = verdict.title;
-        document.getElementById('resultReason').textContent = 'เหตุผล: ' + (reason || 'จบเวลา');
-
-        document.getElementById('resultMeName').textContent = 'คุณ: ' + PLAYER_NAME;
-        document.getElementById('resultMyScore').textContent = String(myScore);
-        document.getElementById('resultMyMeta').textContent =
-          'Good: ' + state.good + ' • Junk: ' + state.junk + ' • Miss: ' + state.miss;
-
-        document.getElementById('resultOpName').textContent = 'คู่แข่ง: ' + (op.name || 'Hero');
-        document.getElementById('resultOpScore').textContent = String(opScore);
-        document.getElementById('resultOpMeta').textContent =
-          'Good: ' + Number(op.good || 0) +
-          ' • Junk: ' + Number(op.junk || 0) +
-          ' • Miss: ' + Number(op.miss || 0);
-
-        resultOverlay.classList.add('show');
-      }
-
-      function endGame(result, reason){
-        if (state.ended) return;
-
-        state.ended = true;
-        state.running = false;
-        window.GJ_BATTLE_PHASE = 'summary';
-
-        clearInterval(state.spawnTimer);
-        clearInterval(state.clockTimer);
-        clearInterval(state.syncTimer);
-
-        showResult(reason || result || 'ended');
-
-        const op = getOpponentSnapshot();
-        const verdict = resolveResultTitle(state.score, Number(op.score || 0));
-
-        window.GJ_BATTLE_STATE = Object.assign({}, window.GJ_BATTLE_STATE || {}, {
-          score: state.score,
-          myScore: state.score,
-          points: state.score,
-          good: state.good,
-          junk: state.junk,
-          miss: state.miss,
-          hearts: state.hearts,
-          hp: state.hearts,
-          lives: state.hearts,
-          power: state.power,
-          attackPower: state.power,
-          bestStreak: state.bestStreak,
-          streak: state.combo,
-          result: verdict.title,
-          resultCode: verdict.code,
-          finished: true,
-          done: true
-        });
-
-        const core = getCore();
-
-        if (core && typeof core.updateMyPlayer === 'function'){
-          core.updateMyPlayer({
-            score: state.score,
-            points: state.score,
-            good: state.good,
-            junk: state.junk,
-            miss: state.miss,
-            hearts: state.hearts,
-            hp: state.hearts,
-            lives: state.hearts,
-            power: state.power,
-            attackPower: state.power,
-            bestStreak: state.bestStreak,
-            streak: state.combo,
-            result: verdict.title,
-            resultCode: verdict.code,
-            finished: true,
-            done: true,
-            status: 'finished',
-            phase: 'summary'
-          }, { force:true });
-        }
-
-        emit('gj:battle-ended', {
-          result: verdict.code,
-          reason: reason || result || 'ended',
-          score: state.score,
-          title: verdict.title
-        });
-      }
-
-      function resetForLocalRematch(){
-        state.running = true;
-        state.ended = false;
-        state.score = 0;
-        state.good = 0;
-        state.junk = 0;
-        state.miss = 0;
-        state.hearts = 3;
-        state.timeLeft = TIME_LIMIT;
-        state.power = 0;
-        state.shieldActive = false;
-        state.shieldUntil = 0;
-        state.freezeUntil = 0;
-        state.combo = 0;
-        state.bestStreak = 0;
-
-        Array.from(arena.querySelectorAll('.target,.float-text')).forEach(el => el.remove());
-        resultOverlay.classList.remove('show');
-
-        clearInterval(state.spawnTimer);
-        clearInterval(state.clockTimer);
-        clearInterval(state.syncTimer);
-
-        startGame();
-      }
-
-      document.getElementById('btnJunkStorm').addEventListener('click', function(){
-        useSkill('junk-storm');
-      });
-
-      document.getElementById('btnShield').addEventListener('click', function(){
-        useSkill('shield');
-      });
-
-      document.getElementById('btnFreeze').addEventListener('click', function(){
-        useSkill('freeze');
-      });
-
-      document.getElementById('btnHeal').addEventListener('click', function(){
-        useSkill('heal');
-      });
+      window.GJ_BATTLE_RUNTIME = {
+        version:RUNTIME_VERSION,
+        state,
+        spawnTarget,
+        endGame,
+        syncBasicUI,
+        updateOpponentUI,
+        getOpponentSnapshot,
+        useJunkStorm,
+        useShield,
+        useFreeze,
+        useHeal
+      };
 
       document.getElementById('btnFullscreen').addEventListener('click', async function(){
         try{
@@ -1482,43 +1571,29 @@
           }else{
             await document.exitFullscreen();
           }
-        }catch(e){}
+        }catch(_){}
       });
 
-      window.addEventListener('gj:battle-room-updated', function(){
+      document.getElementById('btnJunkStorm').addEventListener('click', useJunkStorm);
+      document.getElementById('btnShield').addEventListener('click', useShield);
+      document.getElementById('btnFreeze').addEventListener('click', useFreeze);
+      document.getElementById('btnHeal').addEventListener('click', useHeal);
+
+      window.addEventListener('gj:battle-state-updated', function(){
+        syncBasicUI();
         updateOpponentUI();
       });
 
-      window.addEventListener('gj:battle-opponent-updated', function(){
-        updateOpponentUI();
+      window.addEventListener('gj:battle-opponent-updated', updateOpponentUI);
+      window.addEventListener('gj:battle-room-updated', updateOpponentUI);
+
+      window.addEventListener('gj:battle-rematch-start', function(){
+        location.reload();
       });
 
-      window.addEventListener('gj:battle-summary-updated', function(){
-        if (state.ended){
-          showResult('summary-sync');
-        }
-      });
+      setInterval(updateOpponentUI, 850);
 
-      window.addEventListener('gj:battle-rematch-start', function(ev){
-        const d = ev.detail || {};
-        if (d.matchId){
-          state.matchId = d.matchId;
-          window.GJ_MATCH_ID = d.matchId;
-        }
-        resetForLocalRematch();
-      });
-
-      window.GJ_BATTLE_RUNTIME = {
-        version: RUNTIME_VERSION,
-        state,
-        spawnTarget,
-        endGame,
-        syncBasicUI,
-        updateOpponentUI,
-        getOpponentSnapshot,
-        useSkill,
-        resetForLocalRematch
-      };
+      bindNavigation();
 
       if (document.readyState === 'loading'){
         document.addEventListener('DOMContentLoaded', startGame, { once:true });
@@ -1529,5 +1604,8 @@
       console.info('[GoodJunk Battle Mobile Runtime]', RUNTIME_VERSION, 'loaded');
     })();
   </script>
+
+  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2433"></script>
+  <script src="./goodjunk-battle-v2-core.js?v=2433"></script>
 </body>
 </html>
