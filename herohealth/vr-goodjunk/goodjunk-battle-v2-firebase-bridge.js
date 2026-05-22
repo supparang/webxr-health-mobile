@@ -1,108 +1,69 @@
-/* =========================================================
-   /herohealth/vr-goodjunk/goodjunk-battle-v2-firebase-bridge.js
-   GoodJunk Battle v2 Firebase Bridge
-   PATCH: v2.4.33-bridge-auth-db-roompath-stable
-   ========================================================= */
-
 (function GoodJunkBattleV2FirebaseBridge(){
   'use strict';
 
-  const VERSION = 'v2.4.33-bridge-auth-db-roompath-stable';
+  const BRIDGE_VERSION = 'v2.4.33-firebase-bridge-stable-auth-db-roomref';
 
-  const DEFAULT_ROOM_PATH = 'herohealth/goodjunk/battleV2Rooms';
-  const AUTH_WAIT_MS = 6500;
+  const ROOT_PATH = 'herohealth/goodjunk/battleV2Rooms';
+
+  window.GJ_BATTLE_FIREBASE_BRIDGE_VERSION = BRIDGE_VERSION;
+  window.GJ_BATTLE_ROOM_PATH = ROOT_PATH;
+
+  window.GJ_BATTLE_AUTH_READY = false;
+  window.GJ_BATTLE_DB_READY = false;
+  window.GJ_BATTLE_AUTH_UID = '';
+  window.GJ_BATTLE_AUTH_SOURCE = 'init';
+  window.GJ_BATTLE_DB_SOURCE = 'init';
+  window.GJ_BATTLE_LAST_FIREBASE_ERROR = '';
 
   const state = {
-    version: VERSION,
-    db: null,
+    version: BRIDGE_VERSION,
+    rootPath: ROOT_PATH,
+    app: null,
     auth: null,
-    authUid: '',
+    db: null,
+    uid: '',
+    ready: false,
     authReady: false,
     dbReady: false,
-    source: 'none',
-    authSource: 'none',
     lastError: '',
-    roomPath: DEFAULT_ROOM_PATH,
-    initStartedAt: Date.now(),
-    initFinishedAt: 0
+    initStarted: false,
+    initDone: false,
+    initPromise: null
   };
 
-  function log(){
+  function emit(name, detail){
     try{
-      console.info.apply(console, ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments)));
-    }catch(_){}
-  }
-
-  function warn(){
-    try{
-      console.warn.apply(console, ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments)));
-    }catch(_){}
-  }
-
-  function now(){
-    return Date.now();
-  }
-
-  function safeString(v, fallback){
-    v = String(v == null ? '' : v).trim();
-    return v || fallback || '';
-  }
-
-  function normalizeRoomCode(raw){
-    return String(raw || '')
-      .trim()
-      .toUpperCase()
-      .replace(/\s+/g, '')
-      .replace(/[^A-Z0-9_-]/g, '')
-      .slice(0, 32);
-  }
-
-  function normalizeRoomPath(path){
-    path = String(path || '').trim();
-    path = path.replace(/^\/+/, '').replace(/\/+$/, '');
-    return path || DEFAULT_ROOM_PATH;
-  }
-
-  function setGlobals(){
-    window.GJ_BATTLE_FIREBASE_BRIDGE_VERSION = VERSION;
-
-    window.GJ_BATTLE_DB_READY = !!state.dbReady;
-    window.GJ_BATTLE_AUTH_READY = !!state.authReady;
-    window.GJ_BATTLE_AUTH_UID = state.authUid || '';
-
-    window.GJ_BATTLE_DB_SOURCE = state.source || 'none';
-    window.GJ_BATTLE_AUTH_SOURCE = state.authSource || 'none';
-    window.GJ_BATTLE_ROOM_PATH = state.roomPath || DEFAULT_ROOM_PATH;
-
-    if (state.db){
-      window.GJ_DB = state.db;
-      window.GJ_BATTLE_DB = state.db;
-    }
-
-    if (state.auth){
-      window.GJ_AUTH = state.auth;
-      window.GJ_BATTLE_AUTH = state.auth;
-    }
-  }
-
-  function dispatchReady(){
-    try{
-      window.dispatchEvent(new CustomEvent('gj:battle-db-ready', {
-        detail:{
-          version:VERSION,
-          dbReady:state.dbReady,
-          authReady:state.authReady,
-          uid:state.authUid || '',
-          source:state.source || 'none',
-          authSource:state.authSource || 'none',
-          roomPath:state.roomPath || DEFAULT_ROOM_PATH
-        }
+      window.dispatchEvent(new CustomEvent(name, {
+        detail: Object.assign({
+          version: BRIDGE_VERSION,
+          at: Date.now()
+        }, detail || {})
       }));
     }catch(_){}
   }
 
+  function setError(err, source){
+    const msg = err && err.message ? err.message : String(err || 'unknown-error');
+
+    state.lastError = msg;
+    window.GJ_BATTLE_LAST_FIREBASE_ERROR = msg;
+    window.GJ_BATTLE_AUTH_SOURCE = source || window.GJ_BATTLE_AUTH_SOURCE || 'error';
+
+    console.warn('[GJ Battle Firebase Bridge]', source || 'error', err);
+
+    emit('gj:battle-db-error', {
+      source: source || 'bridge',
+      error: msg
+    });
+  }
+
   function getFirebase(){
-    return window.firebase || null;
+    if (!window.firebase){
+      setError('Firebase compat SDK not loaded', 'firebase-missing');
+      return null;
+    }
+
+    return window.firebase;
   }
 
   function getConfig(){
@@ -125,306 +86,236 @@
 
   function hasFirebaseApp(firebase){
     try{
-      return !!(
-        firebase &&
-        firebase.apps &&
-        firebase.apps.length
-      );
+      return !!(firebase && firebase.apps && firebase.apps.length);
     }catch(_){
       return false;
     }
   }
 
-  function ensureFirebaseApp(){
+  function ensureApp(){
     const firebase = getFirebase();
-
-    if (!firebase || typeof firebase.initializeApp !== 'function'){
-      state.lastError = 'firebase-app-compat-not-loaded';
-      return false;
-    }
+    if (!firebase) return null;
 
     try{
       if (hasFirebaseApp(firebase)){
-        return true;
+        state.app = firebase.app();
+        window.GJ_BATTLE_AUTH_SOURCE = 'existing-app';
+        return state.app;
+      }
+
+      if (typeof firebase.initializeApp !== 'function'){
+        setError('firebase.initializeApp is not available', 'initializeApp-missing');
+        return null;
       }
 
       const cfg = getConfig();
 
-      if (!cfg){
-        state.lastError = 'no-firebase-config';
-        return false;
+      if (!cfg || !cfg.apiKey || !cfg.databaseURL){
+        setError('Firebase config is incomplete', 'config-missing');
+        return null;
       }
 
-      firebase.initializeApp(cfg);
-      return true;
+      state.app = firebase.initializeApp(cfg);
+      window.GJ_BATTLE_AUTH_SOURCE = 'bridge-initializeApp';
+
+      console.info('[GJ Battle Firebase Bridge] Firebase app initialized', BRIDGE_VERSION);
+      return state.app;
     }catch(err){
-      state.lastError = err && err.message ? err.message : String(err);
-      warn('initializeApp failed', err);
-      return false;
-    }
-  }
-
-  function detectDatabase(){
-    const firebase = getFirebase();
-
-    if (window.GJ_DB && typeof window.GJ_DB.ref === 'function'){
-      state.db = window.GJ_DB;
-      state.dbReady = true;
-      state.source = 'window.GJ_DB';
-      setGlobals();
-      return state.db;
-    }
-
-    if (window.GJ_BATTLE_DB && typeof window.GJ_BATTLE_DB.ref === 'function'){
-      state.db = window.GJ_BATTLE_DB;
-      state.dbReady = true;
-      state.source = 'window.GJ_BATTLE_DB';
-      setGlobals();
-      return state.db;
-    }
-
-    if (window.db && typeof window.db.ref === 'function'){
-      state.db = window.db;
-      state.dbReady = true;
-      state.source = 'window.db';
-      setGlobals();
-      return state.db;
-    }
-
-    if (window.database && typeof window.database.ref === 'function'){
-      state.db = window.database;
-      state.dbReady = true;
-      state.source = 'window.database';
-      setGlobals();
-      return state.db;
-    }
-
-    if (window.firebaseDb && typeof window.firebaseDb.ref === 'function'){
-      state.db = window.firebaseDb;
-      state.dbReady = true;
-      state.source = 'window.firebaseDb';
-      setGlobals();
-      return state.db;
-    }
-
-    if (
-      firebase &&
-      typeof firebase.database === 'function'
-    ){
+      /*
+       * ถ้า app ถูก init จากไฟล์อื่นไปแล้วระหว่างทาง ให้ใช้ app เดิมแทน
+       */
       try{
-        state.db = firebase.database();
-        state.dbReady = !!(state.db && typeof state.db.ref === 'function');
-        state.source = state.dbReady ? 'firebase.database()' : 'firebase.database-invalid';
-        setGlobals();
-        return state.dbReady ? state.db : null;
-      }catch(err){
-        state.lastError = err && err.message ? err.message : String(err);
-        state.dbReady = false;
-        state.source = 'firebase.database-error';
-        warn('database detect failed', err);
-        setGlobals();
-        return null;
-      }
+        if (hasFirebaseApp(firebase)){
+          state.app = firebase.app();
+          window.GJ_BATTLE_AUTH_SOURCE = 'existing-app-after-catch';
+          return state.app;
+        }
+      }catch(_){}
+
+      setError(err, 'ensure-app-failed');
+      return null;
     }
-
-    state.db = null;
-    state.dbReady = false;
-    state.source = 'none';
-    setGlobals();
-    return null;
-  }
-
-  function detectAuth(){
-    const firebase = getFirebase();
-
-    if (window.GJ_AUTH){
-      state.auth = window.GJ_AUTH;
-      state.authSource = 'window.GJ_AUTH';
-      setGlobals();
-      return state.auth;
-    }
-
-    if (window.GJ_BATTLE_AUTH){
-      state.auth = window.GJ_BATTLE_AUTH;
-      state.authSource = 'window.GJ_BATTLE_AUTH';
-      setGlobals();
-      return state.auth;
-    }
-
-    if (
-      firebase &&
-      typeof firebase.auth === 'function'
-    ){
-      try{
-        state.auth = firebase.auth();
-        state.authSource = 'firebase.auth()';
-        setGlobals();
-        return state.auth;
-      }catch(err){
-        state.lastError = err && err.message ? err.message : String(err);
-        state.authSource = 'firebase.auth-error';
-        warn('auth detect failed', err);
-        setGlobals();
-        return null;
-      }
-    }
-
-    state.auth = null;
-    state.authSource = 'none';
-    setGlobals();
-    return null;
   }
 
   async function ensureAuth(){
-    ensureFirebaseApp();
+    const firebase = getFirebase();
+    if (!firebase) return false;
 
-    const auth = detectAuth();
-
-    if (!auth){
-      state.authReady = false;
-      state.authUid = '';
-      state.lastError = state.lastError || 'auth-not-loaded';
-      setGlobals();
-      return false;
-    }
+    ensureApp();
 
     try{
-      if (auth.currentUser && auth.currentUser.uid){
-        state.authReady = true;
-        state.authUid = auth.currentUser.uid;
-        setGlobals();
-        return true;
-      }
-
-      if (typeof auth.signInAnonymously !== 'function'){
-        state.authReady = false;
-        state.authUid = '';
-        state.lastError = 'signInAnonymously-not-available';
-        setGlobals();
+      if (typeof firebase.auth !== 'function'){
+        setError('firebase.auth is not available. Load firebase-auth-compat.js first.', 'auth-missing');
         return false;
       }
 
-      const result = await auth.signInAnonymously();
+      state.auth = firebase.auth();
 
-      const user =
-        result && result.user
-          ? result.user
-          : auth.currentUser || null;
+      const currentUser = state.auth.currentUser;
 
-      state.authReady = !!(user && user.uid);
-      state.authUid = user && user.uid ? user.uid : '';
-      state.lastError = state.authReady ? '' : 'anonymous-auth-no-user';
+      if (currentUser && currentUser.uid){
+        state.uid = currentUser.uid;
+        state.authReady = true;
+        window.GJ_BATTLE_AUTH_READY = true;
+        window.GJ_BATTLE_AUTH_UID = currentUser.uid;
+        window.GJ_BATTLE_AUTH_SOURCE = 'current-user';
 
-      setGlobals();
-      return state.authReady;
+        emit('gj:battle-auth-ready', {
+          uid: currentUser.uid,
+          source: 'current-user'
+        });
+
+        return true;
+      }
+
+      if (typeof state.auth.signInAnonymously !== 'function'){
+        setError('signInAnonymously is not available', 'anonymous-auth-missing');
+        return false;
+      }
+
+      const cred = await state.auth.signInAnonymously();
+      const user = cred && cred.user ? cred.user : state.auth.currentUser;
+
+      if (!user || !user.uid){
+        setError('Anonymous auth returned no user', 'anonymous-auth-empty');
+        return false;
+      }
+
+      state.uid = user.uid;
+      state.authReady = true;
+      window.GJ_BATTLE_AUTH_READY = true;
+      window.GJ_BATTLE_AUTH_UID = user.uid;
+      window.GJ_BATTLE_AUTH_SOURCE = 'anonymous-auth';
+
+      emit('gj:battle-auth-ready', {
+        uid: user.uid,
+        source: 'anonymous-auth'
+      });
+
+      return true;
     }catch(err){
-      state.authReady = false;
-      state.authUid = '';
-      state.lastError = err && err.message ? err.message : String(err);
-      warn('anonymous auth failed', err);
-      setGlobals();
+      setError(err, 'ensure-auth-failed');
+      window.GJ_BATTLE_AUTH_READY = false;
+      return false;
+    }
+  }
+
+  function ensureDb(){
+    const firebase = getFirebase();
+    if (!firebase) return false;
+
+    ensureApp();
+
+    try{
+      if (typeof firebase.database !== 'function'){
+        setError('firebase.database is not available. Load firebase-database-compat.js first.', 'database-missing');
+        return false;
+      }
+
+      state.db = firebase.database();
+
+      if (!state.db || typeof state.db.ref !== 'function'){
+        setError('firebase.database() has no ref()', 'database-ref-missing');
+        return false;
+      }
+
+      state.dbReady = true;
+      window.GJ_DB = state.db;
+      window.GJ_BATTLE_DB = state.db;
+      window.GJ_BATTLE_DB_READY = true;
+      window.GJ_BATTLE_DB_SOURCE = 'firebase.database';
+
+      emit('gj:battle-db-ready', {
+        source: 'firebase.database',
+        rootPath: ROOT_PATH
+      });
+
+      return true;
+    }catch(err){
+      setError(err, 'ensure-db-failed');
+      window.GJ_BATTLE_DB_READY = false;
       return false;
     }
   }
 
   async function refresh(){
-    state.roomPath = normalizeRoomPath(
-      window.GJ_BATTLE_ROOM_PATH ||
-      window.HHA_GJ_BATTLE_ROOM_PATH ||
-      DEFAULT_ROOM_PATH
-    );
+    const appOk = !!ensureApp();
+    const authOk = await ensureAuth();
+    const dbOk = ensureDb();
 
-    const appOk = ensureFirebaseApp();
+    state.ready = !!(appOk && authOk && dbOk);
+    state.initDone = true;
 
-    if (!appOk){
-      state.dbReady = false;
-      state.authReady = false;
-      setGlobals();
-      return false;
+    if (state.ready){
+      window.GJ_BATTLE_AUTH_READY = true;
+      window.GJ_BATTLE_DB_READY = true;
+
+      emit('gj:battle-firebase-ready', {
+        uid: state.uid,
+        rootPath: ROOT_PATH
+      });
+
+      console.info('[GJ Battle Firebase Bridge] ready', {
+        version: BRIDGE_VERSION,
+        uid: state.uid,
+        rootPath: ROOT_PATH
+      });
     }
 
-    detectDatabase();
-    await ensureAuth();
-    detectDatabase();
-
-    state.initFinishedAt = now();
-
-    setGlobals();
-
-    if (state.dbReady && state.authReady){
-      dispatchReady();
-      return true;
-    }
-
-    return false;
+    return state.ready;
   }
 
-  async function waitForReady(timeoutMs){
-    timeoutMs = Number(timeoutMs || AUTH_WAIT_MS);
-    const start = now();
-
-    while (now() - start < timeoutMs){
-      const ok = await refresh();
-      if (ok) return true;
-
-      await new Promise(resolve => setTimeout(resolve, 180));
-    }
-
-    await refresh();
-    return isReady();
-  }
-
-  function isReady(){
-    return !!(
-      state.dbReady &&
-      state.authReady &&
-      state.db &&
-      typeof state.db.ref === 'function'
-    );
-  }
-
-  function getRoomPath(){
-    state.roomPath = normalizeRoomPath(
-      window.GJ_BATTLE_ROOM_PATH ||
-      window.HHA_GJ_BATTLE_ROOM_PATH ||
-      state.roomPath ||
-      DEFAULT_ROOM_PATH
-    );
-
-    setGlobals();
-    return state.roomPath;
+  function normalizeRoomCode(raw){
+    return String(raw || '')
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 32);
   }
 
   function getRoomRef(roomCode){
     const code = normalizeRoomCode(roomCode);
 
     if (!code){
-      state.lastError = 'missing-room-code';
-      setGlobals();
+      setError('Missing room code', 'get-room-ref-missing-code');
       return null;
     }
 
-    const db = detectDatabase();
+    const db = state.db || window.GJ_DB || null;
 
     if (!db || typeof db.ref !== 'function'){
-      state.lastError = 'database-not-ready';
-      state.dbReady = false;
-      setGlobals();
+      ensureDb();
+    }
+
+    const finalDb = state.db || window.GJ_DB || null;
+
+    if (!finalDb || typeof finalDb.ref !== 'function'){
+      setError('Database is not ready', 'get-room-ref-db-not-ready');
       return null;
     }
 
-    const path = getRoomPath() + '/' + code;
-
-    try{
-      return db.ref(path);
-    }catch(err){
-      state.lastError = err && err.message ? err.message : String(err);
-      warn('getRoomRef failed', err);
-      return null;
-    }
+    return finalDb.ref(ROOT_PATH + '/' + code);
   }
 
-  async function getRoom(roomCode){
+  function getRootRef(){
+    const db = state.db || window.GJ_DB || null;
+
+    if (!db || typeof db.ref !== 'function'){
+      ensureDb();
+    }
+
+    const finalDb = state.db || window.GJ_DB || null;
+
+    if (!finalDb || typeof finalDb.ref !== 'function'){
+      setError('Database is not ready', 'get-root-ref-db-not-ready');
+      return null;
+    }
+
+    return finalDb.ref(ROOT_PATH);
+  }
+
+  async function getRoomSnapshot(roomCode){
     const ref = getRoomRef(roomCode);
 
     if (!ref || typeof ref.once !== 'function'){
@@ -433,12 +324,9 @@
 
     try{
       const snap = await ref.once('value');
-      return snap && typeof snap.val === 'function'
-        ? snap.val() || null
-        : null;
+      return snap && typeof snap.val === 'function' ? snap.val() : null;
     }catch(err){
-      state.lastError = err && err.message ? err.message : String(err);
-      warn('getRoom failed', err);
+      setError(err, 'get-room-snapshot-failed');
       return null;
     }
   }
@@ -451,156 +339,135 @@
     }
 
     try{
-      await ref.update(Object.assign({}, patch || {}, {
-        updatedAt: now()
-      }));
+      await ref.update(Object.assign({
+        updatedAt: Date.now(),
+        bridgeVersion: BRIDGE_VERSION
+      }, patch || {}));
+
       return true;
     }catch(err){
-      state.lastError = err && err.message ? err.message : String(err);
-      warn('updateRoom failed', err);
+      setError(err, 'update-room-failed');
       return false;
     }
   }
 
   async function updatePlayer(roomCode, playerId, patch){
-    const ref = getRoomRef(roomCode);
+    const code = normalizeRoomCode(roomCode);
+    const pid = String(playerId || '').trim();
 
-    playerId = safeString(playerId, '');
+    if (!code || !pid){
+      setError('Missing room code or player id', 'update-player-missing-args');
+      return false;
+    }
 
-    if (!ref || !playerId || typeof ref.child !== 'function'){
+    const ref = getRoomRef(code);
+
+    if (!ref || typeof ref.child !== 'function'){
       return false;
     }
 
     try{
-      await ref.child('players').child(playerId).update(Object.assign({}, patch || {}, {
-        pid: playerId,
-        updatedAt: now(),
-        lastSeen: now(),
-        heartbeatAt: now(),
-        authUid: state.authUid || window.GJ_BATTLE_AUTH_UID || ''
-      }));
+      await ref.child('players').child(pid).update(Object.assign({
+        updatedAt: Date.now(),
+        heartbeatAt: Date.now(),
+        bridgeVersion: BRIDGE_VERSION,
+        authUid: state.uid || window.GJ_BATTLE_AUTH_UID || ''
+      }, patch || {}));
+
       return true;
     }catch(err){
-      state.lastError = err && err.message ? err.message : String(err);
-      warn('updatePlayer failed', err);
+      setError(err, 'update-player-failed');
       return false;
     }
   }
 
-  async function markPlayerLeft(roomCode, playerId){
-    return updatePlayer(roomCode, playerId, {
+  async function markPlayerOnline(roomCode, playerId, patch){
+    return updatePlayer(roomCode, playerId, Object.assign({
+      status: 'online',
+      left: false,
+      quit: false,
+      disconnected: false,
+      lastSeen: Date.now(),
+      heartbeatAt: Date.now()
+    }, patch || {}));
+  }
+
+  async function markPlayerLeft(roomCode, playerId, patch){
+    return updatePlayer(roomCode, playerId, Object.assign({
       status: 'left',
       left: true,
       quit: true,
       disconnected: true,
-      phase: 'left',
-      currentPage: 'left',
-      rematchReady: false,
-      readyRematch: false,
-      nextReady: false
+      lastSeen: Date.now(),
+      heartbeatAt: Date.now()
+    }, patch || {}));
+  }
+
+  function isReady(){
+    return !!(
+      state.ready &&
+      state.authReady &&
+      state.dbReady &&
+      window.GJ_BATTLE_AUTH_READY &&
+      window.GJ_BATTLE_DB_READY &&
+      (state.db || window.GJ_DB)
+    );
+  }
+
+  function init(){
+    if (state.initPromise) return state.initPromise;
+
+    state.initStarted = true;
+
+    state.initPromise = refresh().catch(function(err){
+      setError(err, 'init-failed');
+      return false;
     });
+
+    return state.initPromise;
   }
 
-  function makePlayerPatch(base, extra){
-    base = base || {};
-
-    const playerId =
-      safeString(base.pid || base.playerId || window.GJ_PLAYER_ID || window.MY_PLAYER_ID, 'anon');
-
-    const name =
-      safeString(base.name || base.playerName || base.displayName || window.GJ_PLAYER_NAME || window.MY_PLAYER_NAME, 'Hero');
-
-    return Object.assign({
-      pid: playerId,
-      name: name,
-      playerName: name,
-      displayName: name,
-      view: base.view || base.device || 'pc',
-      device: base.device || base.view || 'pc',
-      status: 'online',
-      phase: 'lobby',
-      left: false,
-      quit: false,
-      disconnected: false,
-      score: 0,
-      points: 0,
-      good: 0,
-      junk: 0,
-      miss: 0,
-      hearts: 3,
-      hp: 3,
-      lives: 3,
-      power: 0,
-      attackPower: 0,
-      finished: false,
-      done: false,
-      rematchReady: false,
-      readyRematch: false,
-      nextReady: false,
-      joinedAt: now(),
-      updatedAt: now(),
-      lastSeen: now(),
-      heartbeatAt: now(),
-      authUid: state.authUid || window.GJ_BATTLE_AUTH_UID || ''
-    }, extra || {});
-  }
-
-  function getStatus(){
-    return {
-      version: VERSION,
-      dbReady: !!state.dbReady,
-      authReady: !!state.authReady,
-      uid: state.authUid || '',
-      source: state.source || 'none',
-      authSource: state.authSource || 'none',
-      lastError: state.lastError || '',
-      roomPath: getRoomPath(),
-      isReady: isReady()
-    };
-  }
-
-  const api = {
-    version: VERSION,
+  window.GJ_BATTLE_FIREBASE_BRIDGE = {
+    version: BRIDGE_VERSION,
+    rootPath: ROOT_PATH,
     state,
+    init,
     refresh,
-    waitForReady,
+    ensureApp,
     ensureAuth,
-    detectDatabase,
-    detectAuth,
+    ensureDb,
     isReady,
-    getStatus,
-    getRoomPath,
+    normalizeRoomCode,
+    getRootRef,
     getRoomRef,
-    getRoom,
+    getRoomSnapshot,
     updateRoom,
     updatePlayer,
+    markPlayerOnline,
     markPlayerLeft,
-    makePlayerPatch,
-    normalizeRoomCode
+    get lastError(){
+      return state.lastError || window.GJ_BATTLE_LAST_FIREBASE_ERROR || '';
+    },
+    get db(){
+      return state.db || window.GJ_DB || null;
+    },
+    get uid(){
+      return state.uid || window.GJ_BATTLE_AUTH_UID || '';
+    }
   };
 
-  window.GJ_BATTLE_FIREBASE_BRIDGE = api;
-
-  setGlobals();
-
-  refresh().then(function(ok){
-    setGlobals();
-
-    if (ok){
-      log('ready', getStatus());
-      dispatchReady();
-    }else{
-      warn('not ready', getStatus());
-    }
-  });
+  /*
+   * Auto init แต่ไม่ block หน้าเกม
+   */
+  init();
 
   window.addEventListener('load', function(){
     setTimeout(function(){
-      refresh().then(function(ok){
-        if (ok) dispatchReady();
-      });
-    }, 120);
+      if (!isReady()){
+        refresh();
+      }
+    }, 300);
   });
 
-  console.info('[GJ Battle Firebase Bridge]', VERSION, 'loaded');
+  console.info('[GJ Battle Firebase Bridge]', BRIDGE_VERSION, 'loaded');
 })();
