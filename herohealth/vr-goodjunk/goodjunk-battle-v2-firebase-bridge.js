@@ -1,592 +1,466 @@
 /* =========================================================
- * /herohealth/vr-goodjunk/goodjunk-battle-v2-firebase-bridge.js
- * GoodJunk Battle v2 Firebase Bridge
- * VERSION: v2.4.27-firebase-bridge-hotfix-auth-path
- *
- * HOTFIX v2.4.27
- * - Fix DB path ให้ตรงกับ Firebase Rules:
- *   primary:  herohealth/goodjunk/battleV2Rooms/{roomId}
- *   fallback: hha-battle/goodjunk/battleV2Rooms/{roomId}
- *
- * - Ensure Firebase Anonymous Auth ก่อน read/write
- *   เพราะ rules ใช้ auth != null
- *
- * ต้องโหลดก่อน:
- * - goodjunk-battle-v2-core.js
- * - script หลักใน goodjunk-battle-v2-lobby.html
- *
- * ต้องมี Firebase compat scripts ก่อน bridge ถ้าโปรเจกต์ยังไม่ได้โหลด:
- * - firebase-app-compat.js
- * - firebase-auth-compat.js
- * - firebase-database-compat.js
- * - firebase.initializeApp(...)
- * ========================================================= */
+   /herohealth/vr-goodjunk/goodjunk-battle-v2-firebase-bridge.js
+   GoodJunk Battle v2 Firebase Bridge
+   Version: v2.4.31-clean-final
+   Purpose:
+   - One shared Firebase bridge for Battle Lobby + all run files
+   - Anonymous Auth
+   - RTDB room path: herohealth/goodjunk/battleV2Rooms/<ROOM>
+   - Expose stable globals:
+     GJ_BATTLE_FIREBASE_BRIDGE
+     GJ_BATTLE_DB_READY
+     GJ_BATTLE_AUTH_READY
+     GJ_BATTLE_AUTH_UID
+     GJ_DB
+     GJ_BATTLE_ROOM_PATH
+========================================================= */
 
-(function GoodJunkBattleFirebaseBridge(){
+(function GoodJunkBattleV2FirebaseBridge(){
   'use strict';
 
-  const VERSION = 'v2.4.27-firebase-bridge-hotfix-auth-path';
+  const VERSION = 'v2.4.31-clean-final-firebase-bridge';
+  const ROOM_PATH = 'herohealth/goodjunk/battleV2Rooms';
 
-  /*
-   * Path ที่ตรงกับ Firebase Rules ของคุณ
-   */
-  const PRIMARY_ROOM_PATH = 'herohealth/goodjunk/battleV2Rooms';
-  const FALLBACK_ROOM_PATH = 'hha-battle/goodjunk/battleV2Rooms';
-
-  const state = {
-    ready: false,
+  const STATE = {
+    version: VERSION,
+    roomPath: ROOM_PATH,
+    firebaseReady: false,
     authReady: false,
     dbReady: false,
-    source: 'none',
-    authSource: 'none',
     uid: '',
     db: null,
-    checkedAt: 0,
+    auth: null,
     lastError: '',
-    roomPath: PRIMARY_ROOM_PATH
+    lastRefreshAt: 0,
+    initStarted: false,
+    initDone: false
   };
+
+  window.GJ_BATTLE_ROOM_PATH = ROOM_PATH;
+  window.GJ_BATTLE_FIREBASE_BRIDGE_VERSION = VERSION;
 
   function now(){
     return Date.now();
   }
 
-  function qs(sel, root){
-    return (root || document).querySelector(sel);
-  }
-
   function log(){
     try{
-      console.info.apply(
-        console,
-        ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments))
-      );
-    }catch(e){}
+      console.info.apply(console, ['[GJ Battle Firebase Bridge]'].concat([].slice.call(arguments)));
+    }catch(_){}
   }
 
   function warn(){
     try{
-      console.warn.apply(
-        console,
-        ['[GJ Battle Firebase Bridge]'].concat(Array.from(arguments))
-      );
-    }catch(e){}
+      console.warn.apply(console, ['[GJ Battle Firebase Bridge]'].concat([].slice.call(arguments)));
+    }catch(_){}
   }
 
-  function hasRefApi(db){
-    return !!(db && typeof db.ref === 'function');
+  function setError(err){
+    const msg = err && err.message ? err.message : String(err || '');
+    STATE.lastError = msg;
+    window.GJ_BATTLE_FIREBASE_LAST_ERROR = msg;
+    if (msg) warn(msg);
   }
 
-  function hasAuthApi(){
-    return !!(
-      window.firebase &&
-      typeof window.firebase.auth === 'function'
-    );
-  }
-
-  function normalizeRoomCode(roomCode){
-    return String(roomCode || '')
+  function normalizeRoomCode(raw){
+    return String(raw || '')
       .trim()
       .toUpperCase()
       .replace(/\s+/g, '')
-      .replace(/[^A-Z0-9_-]/g, '');
+      .replace(/[^A-Z0-9_-]/g, '')
+      .slice(0, 32);
   }
 
-  function detectDb(){
-    /*
-      1) ถ้ามี GJ_DB อยู่แล้ว ใช้ตัวนี้ก่อน
-    */
-    if (hasRefApi(window.GJ_DB)){
-      return {
-        db: window.GJ_DB,
-        source: 'window.GJ_DB'
-      };
-    }
+  function hasFirebase(){
+    return !!(window.firebase && typeof window.firebase === 'object');
+  }
 
-    /*
-      2) โปรเจกต์เดิมอาจใช้ window.db
-    */
-    if (hasRefApi(window.db)){
-      return {
-        db: window.db,
-        source: 'window.db'
-      };
-    }
-
-    /*
-      3) บางไฟล์อาจใช้ window.database หรือ window.firebaseDb
-    */
-    if (hasRefApi(window.database)){
-      return {
-        db: window.database,
-        source: 'window.database'
-      };
-    }
-
-    if (hasRefApi(window.firebaseDb)){
-      return {
-        db: window.firebaseDb,
-        source: 'window.firebaseDb'
-      };
-    }
-
-    /*
-      4) Firebase compat SDK
-         เช่น firebase-app-compat.js + firebase-database-compat.js
-    */
+  function hasFirebaseApp(){
     try{
-      if (
+      return !!(
         window.firebase &&
-        typeof window.firebase.database === 'function'
-      ){
-        const db = window.firebase.database();
-
-        if (hasRefApi(db)){
-          return {
-            db: db,
-            source: 'firebase.database()'
-          };
-        }
-      }
-    }catch(err){
-      warn('firebase.database() detect failed', err);
-      state.lastError = String(err && err.message || err);
+        firebase.apps &&
+        firebase.apps.length
+      );
+    }catch(_){
+      return false;
     }
-
-    return {
-      db: null,
-      source: 'none'
-    };
   }
 
-  async function ensureAuth(){
-    /*
-     * Firebase Rules ของคุณใช้ auth != null
-     * ดังนั้น Battle ต้อง login อย่างน้อย anonymous ก่อนใช้ RTDB
-     */
-    if (!hasAuthApi()){
-      state.authReady = false;
-      state.authSource = 'no-firebase-auth';
-      state.uid = '';
-      state.lastError = 'Firebase Auth compat is not loaded. Need firebase-auth-compat.js';
-      warn(state.lastError);
+  function getConfig(){
+    return (
+      window.HHA_FIREBASE_CONFIG ||
+      window.HEROHEALTH_FIREBASE_CONFIG ||
+      window.firebaseConfig ||
+      window.FIREBASE_CONFIG ||
+      {
+        apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
+        authDomain: "herohealth-d7f8c.firebaseapp.com",
+        databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "herohealth-d7f8c",
+        storageBucket: "herohealth-d7f8c.firebasestorage.app",
+        messagingSenderId: "680817376848",
+        appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
+      }
+    );
+  }
+
+  function initFirebaseApp(){
+    if (!hasFirebase()){
+      setError('firebase SDK is not loaded. Load firebase-app-compat.js before bridge.');
+      return false;
+    }
+
+    if (hasFirebaseApp()){
+      STATE.firebaseReady = true;
+      window.GJ_BATTLE_FIREBASE_APP_READY = true;
+      return true;
+    }
+
+    if (typeof firebase.initializeApp !== 'function'){
+      setError('firebase.initializeApp is not available.');
+      return false;
+    }
+
+    const cfg = getConfig();
+
+    if (!cfg || !cfg.apiKey || !cfg.databaseURL){
+      setError('Firebase config is missing apiKey or databaseURL.');
       return false;
     }
 
     try{
-      const auth = window.firebase.auth();
+      firebase.initializeApp(cfg);
+      STATE.firebaseReady = true;
+      window.GJ_BATTLE_FIREBASE_APP_READY = true;
+      log('Firebase app initialized');
+      return true;
+    }catch(err){
+      const already = String(err && err.message || '').includes('already exists');
 
-      if (auth.currentUser){
-        state.authReady = true;
-        state.authSource = 'existing-user';
-        state.uid = auth.currentUser.uid || '';
+      if (already && hasFirebaseApp()){
+        STATE.firebaseReady = true;
+        window.GJ_BATTLE_FIREBASE_APP_READY = true;
         return true;
       }
 
-      const credential = await auth.signInAnonymously();
-
-      const user =
-        credential && credential.user
-          ? credential.user
-          : auth.currentUser;
-
-      state.authReady = !!user;
-      state.authSource = state.authReady ? 'anonymous' : 'anonymous-failed';
-      state.uid = user && user.uid ? user.uid : '';
-
-      if (state.authReady){
-        log('Auth ready uid=', state.uid);
-      }else{
-        warn('Anonymous auth returned no user.');
-      }
-
-      return state.authReady;
-    }catch(err){
-      state.authReady = false;
-      state.authSource = 'anonymous-error';
-      state.uid = '';
-      state.lastError = String(err && err.message || err);
-
-      warn('anonymous auth failed', err);
+      setError(err);
       return false;
     }
   }
 
-  function setBridgeState(result){
-    const dbReady = hasRefApi(result.db);
-    const ready = dbReady && !!state.authReady;
+  async function ensureAuth(){
+    if (!initFirebaseApp()) return false;
 
-    state.db = dbReady ? result.db : null;
-    state.dbReady = dbReady;
-    state.ready = ready;
-    state.source = result.source || 'none';
-    state.checkedAt = now();
-
-    window.GJ_DB = dbReady ? result.db : null;
-
-    /*
-      alias ให้โค้ดหลายรุ่นใช้ร่วมกันได้
-    */
-    if (dbReady){
-      window.db = window.db || result.db;
-      window.database = window.database || result.db;
-      window.firebaseDb = window.firebaseDb || result.db;
+    if (!firebase.auth || typeof firebase.auth !== 'function'){
+      setError('firebase-auth-compat.js is not loaded.');
+      STATE.authReady = false;
+      window.GJ_BATTLE_AUTH_READY = false;
+      return false;
     }
 
-    window.GJ_BATTLE_DB_READY = ready;
-    window.GJ_BATTLE_DB_SOURCE = state.source;
-    window.GJ_BATTLE_AUTH_READY = !!state.authReady;
-    window.GJ_BATTLE_AUTH_SOURCE = state.authSource;
-    window.GJ_BATTLE_AUTH_UID = state.uid || '';
+    try{
+      STATE.auth = firebase.auth();
 
-    window.GJ_BATTLE_ROOM_PATH = state.roomPath;
-    window.GJ_BATTLE_ROOM_PATH_PRIMARY = PRIMARY_ROOM_PATH;
-    window.GJ_BATTLE_ROOM_PATH_FALLBACK = FALLBACK_ROOM_PATH;
+      if (STATE.auth.currentUser){
+        STATE.uid = STATE.auth.currentUser.uid;
+        STATE.authReady = true;
 
-    window.GJ_BATTLE_FIREBASE_BRIDGE = {
-      version: VERSION,
+        window.GJ_BATTLE_AUTH_READY = true;
+        window.GJ_BATTLE_AUTH_UID = STATE.uid;
+        window.GJ_AUTH_UID = STATE.uid;
 
-      ready: ready,
-      authReady: !!state.authReady,
-      dbReady: dbReady,
-
-      source: state.source,
-      authSource: state.authSource,
-      uid: state.uid || '',
-
-      db: dbReady ? result.db : null,
-      checkedAt: state.checkedAt,
-      lastError: state.lastError || '',
-
-      roomPath: state.roomPath,
-      primaryRoomPath: PRIMARY_ROOM_PATH,
-      fallbackRoomPath: FALLBACK_ROOM_PATH,
-
-      detect: refresh,
-      refresh: refresh,
-      ensureAuth: ensureAuth,
-
-      getDb: function(){
-        const r = detectDb();
-
-        if (hasRefApi(r.db)){
-          setBridgeState(r);
-        }
-
-        return window.GJ_DB || null;
-      },
-
-      isReady: function(){
-        return !!window.GJ_BATTLE_DB_READY;
-      },
-
-      isAuthReady: function(){
-        return !!window.GJ_BATTLE_AUTH_READY;
-      },
-
-      getUid: function(){
-        return window.GJ_BATTLE_AUTH_UID || '';
-      },
-
-      setRoomPath: function(path){
-        const p = String(path || '').trim().replace(/^\/+|\/+$/g, '');
-
-        if (p){
-          state.roomPath = p;
-          window.GJ_BATTLE_ROOM_PATH = p;
-          log('roomPath set to', p);
-        }
-
-        return state.roomPath;
-      },
-
-      getRoomPath: function(){
-        return state.roomPath || PRIMARY_ROOM_PATH;
-      },
-
-      getRoomRef: function(roomCode){
-        const db = window.GJ_DB || this.getDb();
-        const code = normalizeRoomCode(roomCode);
-
-        if (!db || !code || typeof db.ref !== 'function'){
-          return null;
-        }
-
-        return db.ref((state.roomPath || PRIMARY_ROOM_PATH) + '/' + code);
-      },
-
-      getPrimaryRoomRef: function(roomCode){
-        const db = window.GJ_DB || this.getDb();
-        const code = normalizeRoomCode(roomCode);
-
-        if (!db || !code || typeof db.ref !== 'function'){
-          return null;
-        }
-
-        return db.ref(PRIMARY_ROOM_PATH + '/' + code);
-      },
-
-      getFallbackRoomRef: function(roomCode){
-        const db = window.GJ_DB || this.getDb();
-        const code = normalizeRoomCode(roomCode);
-
-        if (!db || !code || typeof db.ref !== 'function'){
-          return null;
-        }
-
-        return db.ref(FALLBACK_ROOM_PATH + '/' + code);
-      },
-
-      /*
-       * ใช้สำหรับ debug ว่า path อ่านได้ไหม
-       */
-      testRoomRead: async function(roomCode){
-        const ref = this.getRoomRef(roomCode);
-
-        if (!ref || typeof ref.once !== 'function'){
-          return {
-            ok: false,
-            reason: 'no-room-ref',
-            path: state.roomPath,
-            roomCode: normalizeRoomCode(roomCode)
-          };
-        }
-
-        try{
-          const snap = await ref.once('value');
-
-          return {
-            ok: true,
-            exists: snap.exists ? snap.exists() : !!snap.val(),
-            value: snap.val ? snap.val() : null,
-            path: state.roomPath,
-            roomCode: normalizeRoomCode(roomCode)
-          };
-        }catch(err){
-          return {
-            ok: false,
-            reason: String(err && err.message || err),
-            path: state.roomPath,
-            roomCode: normalizeRoomCode(roomCode)
-          };
-        }
+        return true;
       }
-    };
 
-    document.documentElement.classList.toggle('gj-db-ready', ready);
-    document.documentElement.classList.toggle('gj-db-offline', !ready);
-    document.documentElement.classList.toggle('gj-auth-ready', !!state.authReady);
-    document.documentElement.classList.toggle('gj-auth-offline', !state.authReady);
+      const cred = await STATE.auth.signInAnonymously();
+      const user = cred && cred.user ? cred.user : STATE.auth.currentUser;
 
-    window.dispatchEvent(new CustomEvent('gj:battle-db-ready', {
-      detail: {
-        ready: ready,
-        dbReady: dbReady,
-        authReady: !!state.authReady,
-        source: state.source,
-        authSource: state.authSource,
-        uid: state.uid || '',
-        roomPath: state.roomPath,
+      if (!user || !user.uid){
+        setError('Anonymous auth returned no uid.');
+        STATE.authReady = false;
+        window.GJ_BATTLE_AUTH_READY = false;
+        return false;
+      }
+
+      STATE.uid = user.uid;
+      STATE.authReady = true;
+
+      window.GJ_BATTLE_AUTH_READY = true;
+      window.GJ_BATTLE_AUTH_UID = STATE.uid;
+      window.GJ_AUTH_UID = STATE.uid;
+
+      log('Anonymous auth ready', STATE.uid);
+      return true;
+    }catch(err){
+      STATE.authReady = false;
+      window.GJ_BATTLE_AUTH_READY = false;
+      setError(err);
+      return false;
+    }
+  }
+
+  function ensureDatabase(){
+    if (!initFirebaseApp()) return false;
+
+    if (!firebase.database || typeof firebase.database !== 'function'){
+      setError('firebase-database-compat.js is not loaded.');
+      STATE.dbReady = false;
+      window.GJ_BATTLE_DB_READY = false;
+      return false;
+    }
+
+    try{
+      STATE.db = firebase.database();
+
+      if (!STATE.db || typeof STATE.db.ref !== 'function'){
+        setError('firebase.database().ref is not available.');
+        STATE.dbReady = false;
+        window.GJ_BATTLE_DB_READY = false;
+        return false;
+      }
+
+      STATE.dbReady = true;
+
+      window.GJ_DB = STATE.db;
+      window.GJ_DATABASE = STATE.db;
+      window.GJ_BATTLE_DB_READY = true;
+      window.GJ_BATTLE_DB_SOURCE = 'firebase.database';
+      window.GJ_BATTLE_ROOM_PATH = ROOM_PATH;
+
+      return true;
+    }catch(err){
+      STATE.dbReady = false;
+      window.GJ_BATTLE_DB_READY = false;
+      setError(err);
+      return false;
+    }
+  }
+
+  async function refresh(){
+    STATE.lastRefreshAt = now();
+
+    const appOk = initFirebaseApp();
+    const dbOk = ensureDatabase();
+    const authOk = await ensureAuth();
+
+    STATE.initDone = !!(appOk && dbOk && authOk);
+    window.GJ_BATTLE_DB_READY = !!(dbOk && authOk);
+    window.GJ_BATTLE_AUTH_READY = !!authOk;
+    window.GJ_BATTLE_AUTH_UID = STATE.uid || '';
+
+    if (STATE.initDone){
+      window.dispatchEvent(new CustomEvent('gj:battle-db-ready', {
+        detail: {
+          version: VERSION,
+          uid: STATE.uid,
+          roomPath: ROOM_PATH,
+          at: STATE.lastRefreshAt
+        }
+      }));
+    }
+
+    return STATE.initDone;
+  }
+
+  async function init(){
+    if (STATE.initStarted && STATE.initDone) return true;
+
+    STATE.initStarted = true;
+
+    const ok = await refresh();
+
+    if (ok){
+      log('ready', {
         version: VERSION,
-        checkedAt: state.checkedAt,
-        lastError: state.lastError || ''
-      }
-    }));
+        uid: STATE.uid,
+        roomPath: ROOM_PATH
+      });
+    }
 
-    if (ready){
-      log('DB ready from', state.source, 'auth=', state.authSource, 'path=', state.roomPath);
-    }else{
-      warn(
-        'DB not ready.',
-        'dbReady=', dbReady,
-        'authReady=', state.authReady,
-        'source=', state.source,
-        'auth=', state.authSource,
-        'error=', state.lastError
-      );
+    return ok;
+  }
+
+  function isReady(){
+    return !!(
+      STATE.dbReady &&
+      STATE.authReady &&
+      STATE.db &&
+      typeof STATE.db.ref === 'function' &&
+      STATE.uid
+    );
+  }
+
+  function getRoomRef(roomCode){
+    const code = normalizeRoomCode(roomCode);
+
+    if (!code){
+      setError('getRoomRef requires roomCode.');
+      return null;
+    }
+
+    if (!ensureDatabase()){
+      return null;
+    }
+
+    try{
+      return STATE.db.ref(ROOM_PATH + '/' + code);
+    }catch(err){
+      setError(err);
+      return null;
     }
   }
 
-  function refresh(){
-    const result = detectDb();
-    setBridgeState(result);
-    return result;
+  function getPlayerRef(roomCode, pid){
+    const roomRef = getRoomRef(roomCode);
+    const id = String(pid || '').trim();
+
+    if (!roomRef || !id) return null;
+
+    return roomRef.child('players').child(id);
   }
 
-  async function refreshAsync(){
-    await ensureAuth();
-    return refresh();
-  }
+  async function getRoom(roomCode){
+    const ref = getRoomRef(roomCode);
 
-  function showDbBadge(){
-    let badge = qs('#gjBattleDbBadge');
-
-    if (!badge){
-      badge = document.createElement('div');
-      badge.id = 'gjBattleDbBadge';
-      badge.className = 'gj-battle-db-badge';
-      document.body.appendChild(badge);
+    if (!ref || typeof ref.once !== 'function'){
+      return null;
     }
 
-    const ready = !!window.GJ_BATTLE_DB_READY;
-    const authReady = !!window.GJ_BATTLE_AUTH_READY;
-    const dbReady = !!state.dbReady;
-    const source = window.GJ_BATTLE_DB_SOURCE || 'none';
-    const authSource = window.GJ_BATTLE_AUTH_SOURCE || 'none';
+    const snap = await ref.once('value');
+    return snap && typeof snap.val === 'function' ? snap.val() || null : null;
+  }
 
-    if (ready){
-      badge.textContent = 'DB ready';
-    }else if (!authReady && dbReady){
-      badge.textContent = 'Auth needed';
-    }else if (authReady && !dbReady){
-      badge.textContent = 'DB missing';
-    }else{
-      badge.textContent = 'DB offline/local';
+  async function updateRoom(roomCode, patch){
+    const ref = getRoomRef(roomCode);
+
+    if (!ref || typeof ref.update !== 'function'){
+      throw new Error('Room ref is not ready.');
     }
 
-    badge.title =
-      'GoodJunk Battle DB\n' +
-      'ready: ' + ready + '\n' +
-      'dbReady: ' + dbReady + '\n' +
-      'authReady: ' + authReady + '\n' +
-      'db source: ' + source + '\n' +
-      'auth source: ' + authSource + '\n' +
-      'uid: ' + (state.uid || '-') + '\n' +
-      'path: ' + (state.roomPath || '-') + '\n' +
-      'error: ' + (state.lastError || '-');
+    const data = Object.assign({}, patch || {}, {
+      updatedAt: now()
+    });
 
-    badge.classList.toggle('ready', ready);
-    badge.classList.toggle('offline', !ready);
+    await ref.update(data);
+    return data;
   }
 
-  function injectCSS(){
-    if (qs('#gjBattleFirebaseBridgeCSS')) return;
+  async function updatePlayer(roomCode, pid, patch){
+    const ref = getPlayerRef(roomCode, pid);
 
-    const css = document.createElement('style');
-    css.id = 'gjBattleFirebaseBridgeCSS';
-    css.textContent = `
-      .gj-battle-db-badge {
-        position: fixed !important;
-        left: 8px !important;
-        top: max(8px, env(safe-area-inset-top)) !important;
-        z-index: 100004 !important;
+    if (!ref || typeof ref.update !== 'function'){
+      throw new Error('Player ref is not ready.');
+    }
 
-        padding: 5px 9px !important;
-        border-radius: 999px !important;
-        border: 1px solid rgba(255, 200, 110, .86) !important;
-        background: rgba(255, 255, 255, .78) !important;
-        color: #7b421e !important;
+    const data = Object.assign({}, patch || {}, {
+      updatedAt: now(),
+      lastSeen: now(),
+      heartbeatAt: now()
+    });
 
-        font-size: 10px !important;
-        font-weight: 1000 !important;
-        pointer-events: none !important;
-        opacity: .68 !important;
-        box-shadow: 0 6px 16px rgba(70, 35, 12, .12) !important;
-      }
-
-      .gj-battle-db-badge.ready {
-        border-color: rgba(90, 210, 120, .85) !important;
-        color: #246a35 !important;
-      }
-
-      .gj-battle-db-badge.offline {
-        border-color: rgba(255, 120, 90, .9) !important;
-        color: #8d2918 !important;
-      }
-
-      @media (max-width: 760px) {
-        .gj-battle-db-badge {
-          display: none !important;
-        }
-      }
-    `;
-
-    document.head.appendChild(css);
+    await ref.update(data);
+    return data;
   }
 
-  function exposeEarly(){
-    /*
-     * เผื่อ script อื่นเรียกก่อน boot เสร็จ
-     */
-    window.GJ_BATTLE_FIREBASE_BRIDGE = {
-      version: VERSION,
-      ready: false,
-      authReady: false,
-      dbReady: false,
-      source: 'booting',
-      authSource: 'booting',
-      uid: '',
-      roomPath: PRIMARY_ROOM_PATH,
-      primaryRoomPath: PRIMARY_ROOM_PATH,
-      fallbackRoomPath: FALLBACK_ROOM_PATH,
-      ensureAuth: ensureAuth,
-      detect: refresh,
-      refresh: refresh,
-      getDb: function(){
-        const r = detectDb();
-        if (hasRefApi(r.db)){
-          setBridgeState(r);
-        }
-        return window.GJ_DB || null;
-      },
-      isReady: function(){
-        return !!window.GJ_BATTLE_DB_READY;
-      },
-      getRoomRef: function(roomCode){
-        const db = window.GJ_DB || this.getDb();
-        const code = normalizeRoomCode(roomCode);
-        if (!db || !code || typeof db.ref !== 'function') return null;
-        return db.ref((state.roomPath || PRIMARY_ROOM_PATH) + '/' + code);
-      }
-    };
-  }
-
-  async function boot(){
-    injectCSS();
-    exposeEarly();
-
-    /*
-     * สำคัญ:
-     * ต้อง auth ก่อน เพราะ rules ใช้ auth != null
-     */
-    await refreshAsync();
-    showDbBadge();
-
-    /*
-      บางหน้าโหลด Firebase ช้ากว่า bridge
-      จึงเช็กซ้ำหลายจังหวะ
-    */
-    setTimeout(async function(){
-      await refreshAsync();
-      showDbBadge();
-    }, 300);
-
-    setTimeout(async function(){
-      await refreshAsync();
-      showDbBadge();
-    }, 1000);
-
-    setTimeout(async function(){
-      await refreshAsync();
-      showDbBadge();
-    }, 2500);
-
-    setInterval(async function(){
-      await refreshAsync();
-      showDbBadge();
-    }, 5000);
-
-    console.info('[GJ Battle Firebase Bridge]', VERSION, 'loaded', {
-      primaryRoomPath: PRIMARY_ROOM_PATH,
-      fallbackRoomPath: FALLBACK_ROOM_PATH,
-      ready: window.GJ_BATTLE_DB_READY,
-      authReady: window.GJ_BATTLE_AUTH_READY,
-      uid: window.GJ_BATTLE_AUTH_UID || ''
+  async function setPlayerLeft(roomCode, pid){
+    return updatePlayer(roomCode, pid, {
+      status: 'left',
+      left: true,
+      quit: true,
+      disconnected: true
     });
   }
 
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  }else{
-    boot();
+  function onRoom(roomCode, cb){
+    const ref = getRoomRef(roomCode);
+
+    if (!ref || typeof ref.on !== 'function'){
+      return function noop(){};
+    }
+
+    const handler = function(snapshot){
+      const room = snapshot && typeof snapshot.val === 'function'
+        ? snapshot.val() || {}
+        : {};
+
+      cb(room, snapshot);
+    };
+
+    ref.on('value', handler);
+
+    return function off(){
+      try{
+        ref.off('value', handler);
+      }catch(_){}
+    };
   }
+
+  function makeMatchId(prefix){
+    return String(prefix || 'm') + '_' + now() + '_' + Math.random().toString(16).slice(2, 8);
+  }
+
+  function getDebugState(){
+    return {
+      version: VERSION,
+      roomPath: ROOM_PATH,
+      firebaseReady: STATE.firebaseReady,
+      authReady: STATE.authReady,
+      dbReady: STATE.dbReady,
+      uid: STATE.uid,
+      lastError: STATE.lastError,
+      lastRefreshAt: STATE.lastRefreshAt,
+      hasFirebase: hasFirebase(),
+      hasApp: hasFirebaseApp(),
+      hasDb: !!(STATE.db && typeof STATE.db.ref === 'function')
+    };
+  }
+
+  const api = {
+    version: VERSION,
+    roomPath: ROOM_PATH,
+    state: STATE,
+
+    init,
+    refresh,
+    ensureAuth,
+    ensureDatabase,
+    isReady,
+
+    normalizeRoomCode,
+    getRoomRef,
+    getPlayerRef,
+    getRoom,
+    updateRoom,
+    updatePlayer,
+    setPlayerLeft,
+    onRoom,
+    makeMatchId,
+    getDebugState,
+
+    get lastError(){
+      return STATE.lastError;
+    },
+
+    get uid(){
+      return STATE.uid;
+    },
+
+    get db(){
+      return STATE.db;
+    }
+  };
+
+  window.GJ_BATTLE_FIREBASE_BRIDGE = api;
+
+  window.GJ_BATTLE_DB_READY = false;
+  window.GJ_BATTLE_AUTH_READY = false;
+  window.GJ_BATTLE_DB_SOURCE = 'initializing';
+  window.GJ_BATTLE_AUTH_SOURCE = 'initializing';
+
+  setTimeout(function(){
+    init();
+  }, 0);
+
+  console.info('[GJ Battle Firebase Bridge]', VERSION, 'loaded');
 })();
