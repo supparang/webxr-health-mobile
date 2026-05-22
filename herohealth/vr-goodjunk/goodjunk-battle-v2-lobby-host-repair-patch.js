@@ -565,6 +565,7 @@
 
   function renderCleanLobby(room){
     const nr = normalizeRoom(room);
+    state.lastRoom = room;
     const list = $('#playersList');
 
     if (!list) return;
