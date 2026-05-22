@@ -1,0 +1,357 @@
+(function GoodJunkBattleV2NavSafetyPatch(){
+  'use strict';
+
+  const PATCH_VERSION = 'v2.4.34-nav-safety-goodjunk-battle';
+
+  const url = new URL(location.href);
+  const params = url.searchParams;
+
+  const path = location.pathname || '';
+
+  const isGoodJunkBattle =
+    /goodjunk-battle-v2/i.test(path) ||
+    !!window.GJ_BATTLE_RUNTIME ||
+    !!window.GJ_BATTLE_CORE ||
+    !!window.GJ_BATTLE_LOBBY;
+
+  if (!isGoodJunkBattle) return;
+
+  function $(sel, root){
+    return (root || document).querySelector(sel);
+  }
+
+  function $all(sel, root){
+    return Array.from((root || document).querySelectorAll(sel));
+  }
+
+  function normalizeView(v){
+    v = String(v || '').toLowerCase().trim();
+
+    if (v === 'cvr' || v === 'vr' || v === 'cardboard-vr'){
+      return 'cardboard';
+    }
+
+    if (v === 'cardboard') return 'cardboard';
+    if (v === 'mobile' || v === 'phone' || v === 'touch') return 'mobile';
+
+    return v || 'pc';
+  }
+
+  function getValue(key, fallback){
+    const fromParams = params.get(key);
+    if (fromParams !== null && fromParams !== '') return fromParams;
+
+    if (key === 'pid'){
+      return (
+        window.GJ_PLAYER_ID ||
+        window.MY_PLAYER_ID ||
+        localStorage.getItem('GJ_BATTLE_PID') ||
+        localStorage.getItem('HHA_GJ_PID') ||
+        fallback ||
+        'anon'
+      );
+    }
+
+    if (key === 'name'){
+      return (
+        window.GJ_PLAYER_NAME ||
+        window.MY_PLAYER_NAME ||
+        localStorage.getItem('GJ_BATTLE_NAME') ||
+        localStorage.getItem('HHA_GJ_NAME') ||
+        fallback ||
+        'Hero'
+      );
+    }
+
+    if (key === 'room' || key === 'roomCode'){
+      return (
+        params.get('room') ||
+        params.get('roomCode') ||
+        params.get('code') ||
+        params.get('lastRoom') ||
+        window.GJ_ROOM_CODE ||
+        window.ROOM_CODE ||
+        localStorage.getItem('GJ_BATTLE_LAST_ROOM') ||
+        fallback ||
+        ''
+      );
+    }
+
+    if (key === 'view'){
+      return normalizeView(
+        params.get('view') ||
+        params.get('device') ||
+        window.GJ_VIEW ||
+        fallback ||
+        detectView()
+      );
+    }
+
+    return fallback || '';
+  }
+
+  function detectView(){
+    const qv = String(params.get('view') || params.get('device') || '').toLowerCase();
+
+    if (qv) return normalizeView(qv);
+
+    const mobile =
+      window.matchMedia && window.matchMedia('(max-width:760px)').matches ||
+      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+    return mobile ? 'mobile' : 'pc';
+  }
+
+  function nutritionZoneUrl(){
+    return new URL('../nutrition-zone.html', location.href);
+  }
+
+  function hubUrl(){
+    const hub = params.get('hub');
+
+    if (hub){
+      try{
+        return new URL(hub, location.href);
+      }catch(_){}
+    }
+
+    return new URL('../hub.html', location.href);
+  }
+
+  function goodjunkLauncherUrl(){
+    return new URL('../goodjunk-launcher.html', location.href);
+  }
+
+  function lobbyUrl(){
+    return new URL('./goodjunk-battle-v2-lobby.html', location.href);
+  }
+
+  function runUrlByView(view){
+    view = normalizeView(view);
+
+    if (view === 'mobile'){
+      return new URL('./goodjunk-battle-v2-run-mobile.html', location.href);
+    }
+
+    if (view === 'cardboard'){
+      return new URL('./goodjunk-battle-v2-run-cardboard.html', location.href);
+    }
+
+    return new URL('./goodjunk-battle-v2-run-pc.html', location.href);
+  }
+
+  function addCommonParams(out, options){
+    options = options || {};
+
+    const pid = getValue('pid', 'anon');
+    const name = getValue('name', 'Hero');
+    const view = normalizeView(options.view || getValue('view', detectView()));
+    const room = getValue('room', '');
+
+    out.searchParams.set('pid', pid);
+    out.searchParams.set('name', name);
+    out.searchParams.set('view', view);
+
+    const diff = params.get('diff') || 'normal';
+    const time = params.get('time') || '90';
+
+    out.searchParams.set('diff', diff);
+    out.searchParams.set('time', time);
+
+    out.searchParams.set('zone', params.get('zone') || 'nutrition');
+    out.searchParams.set('cat', params.get('cat') || 'nutrition');
+    out.searchParams.set('game', 'goodjunk');
+    out.searchParams.set('gameId', 'goodjunk');
+    out.searchParams.set('mode', 'battle');
+    out.searchParams.set('entry', 'battle');
+    out.searchParams.set('variant', 'battle-v2');
+    out.searchParams.set('theme', params.get('theme') || 'goodjunk');
+
+    if (room){
+      out.searchParams.set('room', room);
+      out.searchParams.set('roomCode', room);
+    }
+
+    [
+      'studyId',
+      'conditionGroup',
+      'api',
+      'log',
+      'seed',
+      'matchId',
+      'roundId',
+      'runId'
+    ].forEach(function(k){
+      const v = params.get(k);
+      if (v !== null && v !== ''){
+        out.searchParams.set(k, v);
+      }
+    });
+
+    const hub = params.get('hub');
+
+    if (hub){
+      out.searchParams.set('hub', hub);
+    }else{
+      out.searchParams.set('hub', hubUrl().toString());
+    }
+
+    return out;
+  }
+
+  function buildUrl(kind, options){
+    options = options || {};
+
+    let out;
+
+    if (kind === 'nutrition-zone' || kind === 'zone'){
+      out = nutritionZoneUrl();
+      addCommonParams(out, options);
+      out.searchParams.delete('room');
+      out.searchParams.delete('roomCode');
+      out.searchParams.delete('matchId');
+      out.searchParams.delete('roundId');
+      out.searchParams.delete('runId');
+      out.searchParams.delete('run');
+      out.searchParams.delete('phase');
+      return out.toString();
+    }
+
+    if (kind === 'hub'){
+      out = hubUrl();
+
+      /*
+       * ถ้า hub มาจาก query เดิม อาจมี params อยู่แล้ว
+       * เติมเฉพาะตัวหลักพอ ไม่ยัด room กลับ hub
+       */
+      const pid = getValue('pid', 'anon');
+      const name = getValue('name', 'Hero');
+      const view = normalizeView(getValue('view', detectView()));
+
+      if (!out.searchParams.get('pid')) out.searchParams.set('pid', pid);
+      if (!out.searchParams.get('name')) out.searchParams.set('name', name);
+      if (!out.searchParams.get('view')) out.searchParams.set('view', view);
+
+      return out.toString();
+    }
+
+    if (kind === 'all-modes' || kind === 'modes' || kind === 'launcher'){
+      out = goodjunkLauncherUrl();
+      addCommonParams(out, options);
+      out.searchParams.delete('room');
+      out.searchParams.delete('roomCode');
+      out.searchParams.delete('matchId');
+      out.searchParams.delete('roundId');
+      out.searchParams.delete('runId');
+      out.searchParams.delete('run');
+      out.searchParams.delete('phase');
+      return out.toString();
+    }
+
+    if (kind === 'lobby'){
+      out = lobbyUrl();
+      addCommonParams(out, options);
+      out.searchParams.delete('run');
+      out.searchParams.delete('phase');
+      return out.toString();
+    }
+
+    if (kind === 'run'){
+      out = runUrlByView(options.view || getValue('view', detectView()));
+      addCommonParams(out, options);
+      out.searchParams.set('run', 'play');
+      out.searchParams.set('phase', 'play');
+      return out.toString();
+    }
+
+    out = goodjunkLauncherUrl();
+    addCommonParams(out, options);
+
+    return out.toString();
+  }
+
+  function go(kind, options){
+    const target = buildUrl(kind, options);
+    location.href = target;
+  }
+
+  function bind(selector, kind){
+    $all(selector).forEach(function(el){
+      if (!el || el.dataset.gjNavSafetyBound === '1') return;
+
+      el.dataset.gjNavSafetyBound = '1';
+
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        go(kind);
+      }, true);
+    });
+  }
+
+  function bindKnownButtons(){
+    bind('[data-back-lobby], #btnBackLobby, #btnResultLobby', 'lobby');
+    bind('[data-all-modes], #btnAllModes, #btnAllModesTop, #btnModes, #btnGameModes', 'all-modes');
+    bind('[data-nutrition-zone], #btnNutritionZone, #btnBackZone, #btnZone', 'nutrition-zone');
+    bind('[data-back-hub], #btnHub, #btnResultHub, #btnBackHub', 'hub');
+  }
+
+  function patchExistingGlobalBuilders(){
+    window.GJ_BATTLE_NAV_SAFETY = {
+      version: PATCH_VERSION,
+      buildUrl,
+      go,
+      lobbyUrl: function(){ return buildUrl('lobby'); },
+      allModesUrl: function(){ return buildUrl('all-modes'); },
+      nutritionZoneUrl: function(){ return buildUrl('nutrition-zone'); },
+      hubUrl: function(){ return buildUrl('hub'); },
+      runUrl: function(view){ return buildUrl('run', { view:view }); }
+    };
+
+    window.GJ_BATTLE_BUILD_SAFE_URL = function(kindOrPath, options){
+      const known = [
+        'lobby',
+        'all-modes',
+        'modes',
+        'launcher',
+        'nutrition-zone',
+        'zone',
+        'hub',
+        'run'
+      ];
+
+      if (known.includes(String(kindOrPath || ''))){
+        return buildUrl(kindOrPath, options || {});
+      }
+
+      const out = new URL(kindOrPath, location.href);
+      addCommonParams(out, options || {});
+      return out.toString();
+    };
+  }
+
+  function addDebugMark(){
+    try{
+      document.documentElement.dataset.gjBattleNavPatch = PATCH_VERSION;
+    }catch(_){}
+  }
+
+  function boot(){
+    addDebugMark();
+    patchExistingGlobalBuilders();
+    bindKnownButtons();
+
+    /*
+     * เผื่อ result overlay ถูกสร้าง/โชว์หลังจบเกม แล้วปุ่มเพิ่งโผล่
+     */
+    setInterval(bindKnownButtons, 900);
+
+    console.info('[GoodJunk Battle Nav Safety Patch]', PATCH_VERSION, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
