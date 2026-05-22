@@ -1,106 +1,2035 @@
-function getRunFileByView(view){
-  const v = String(view || '').toLowerCase().trim();
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#fff3d7" />
+  <meta name="color-scheme" content="light" />
 
-  if (v === 'mobile' || v === 'phone' || v === 'touch'){
-    return './goodjunk-battle-v2-run-mobile.html';
-  }
+  <title>GoodJunk Battle v2 • Lobby</title>
 
-  if (v === 'cardboard' || v === 'cvr' || v === 'vr'){
-    return './goodjunk-battle-v2-run-cardboard.html';
-  }
-
-  return './goodjunk-battle-v2-run-pc.html';
-}
-
-function buildRunUrl(roomOverride){
-  saveFields();
-
-  const nr = normalizeRoom(roomOverride || state.room || {});
-  const selectedView = normalizeView(viewSelect.value || detectView());
-  const runFile = getRunFileByView(selectedView);
-  const run = new URL(runFile, location.href);
-
-  params.forEach(function(v, k){
-    if (v !== null && v !== ''){
-      run.searchParams.set(k, v);
+  <style>
+    :root{
+      --bg1:#fff8e8;
+      --bg2:#eaf8ff;
+      --card:#fffef8;
+      --line:#ffc77d;
+      --text:#753119;
+      --muted:#9a6a42;
+      --green:#55d978;
+      --red:#ff7b69;
+      --blue:#71ccff;
+      --yellow:#ffe17a;
+      --shadow:0 18px 42px rgba(112,60,20,.15);
     }
-  });
 
-  run.searchParams.set('pid', state.playerId);
-  run.searchParams.set('name', state.playerName);
-  run.searchParams.set('nick', state.playerName);
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 
-  run.searchParams.set('view', selectedView);
-  run.searchParams.set('device', selectedView);
+    html,body{
+      width:100%;
+      min-height:100%;
+      margin:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 15% 10%,rgba(255,225,122,.55),transparent 28%),
+        radial-gradient(circle at 90% 8%,rgba(113,204,255,.38),transparent 32%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+      overflow-x:hidden;
+    }
 
-  run.searchParams.set('diff', diffSelect.value || params.get('diff') || 'normal');
-  run.searchParams.set('time', timeSelect.value || params.get('time') || '90');
+    body{min-height:100dvh;padding:16px;}
+    button,input,select,a{font-family:inherit;}
+    button,a{touch-action:manipulation;}
 
-  run.searchParams.set('mode', 'battle');
-  run.searchParams.set('game', 'goodjunk');
-  run.searchParams.set('gameId', 'goodjunk');
-  run.searchParams.set('entry', 'battle');
-  run.searchParams.set('variant', 'battle-v2');
+    button:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:grayscale(.25);
+      box-shadow:none!important;
+    }
 
-  run.searchParams.set('zone', params.get('zone') || 'nutrition');
-  run.searchParams.set('cat', params.get('cat') || 'nutrition');
-  run.searchParams.set('theme', params.get('theme') || 'goodjunk');
+    .app{width:min(100%,960px);margin:0 auto;}
 
-  run.searchParams.set('run', 'play');
-  run.searchParams.set('phase', 'play');
+    .hero{
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr);
+      gap:14px;
+      align-items:center;
+      padding:18px;
+      border-radius:34px;
+      border:5px solid rgba(255,199,125,.92);
+      background:rgba(255,254,248,.95);
+      box-shadow:var(--shadow);
+    }
 
-  const room =
-    nr.code ||
-    state.roomCode ||
-    normalizeBattleRoomCode(roomCodeInput.value) ||
-    params.get('room') ||
-    params.get('roomCode') ||
-    params.get('code') ||
-    params.get('lastRoom') ||
-    '';
+    .hero-icon{
+      width:86px;
+      height:86px;
+      display:grid;
+      place-items:center;
+      border-radius:28px;
+      background:linear-gradient(180deg,#fff8d7,#ffe18a);
+      border:4px solid rgba(255,199,125,.86);
+      font-size:50px;
+      box-shadow:0 10px 22px rgba(112,60,20,.12);
+    }
 
-  if (room){
-    const fixedRoom = normalizeBattleRoomCode(room);
-    run.searchParams.set('room', fixedRoom);
-    run.searchParams.set('roomCode', fixedRoom);
-    run.searchParams.set('code', fixedRoom);
-    run.searchParams.set('lastRoom', fixedRoom);
-  }
+    h1{
+      margin:0;
+      font-size:clamp(34px,7vw,64px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-1px;
+    }
 
-  const matchId =
-    nr.matchId ||
-    nr.raw && (nr.raw.matchId || nr.raw.roundId || nr.raw.runId || nr.raw.activeMatchId) ||
-    params.get('matchId') ||
-    params.get('roundId') ||
-    params.get('runId') ||
-    '';
+    .subtitle{
+      margin-top:8px;
+      color:var(--muted);
+      font-size:clamp(14px,3.4vw,18px);
+      font-weight:900;
+      line-height:1.35;
+    }
 
-  if (matchId){
-    run.searchParams.set('matchId', matchId);
-    run.searchParams.set('roundId', matchId);
-    run.searchParams.set('runId', matchId);
-  }
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+      margin-top:14px;
+    }
 
-  const seed =
-    params.get('seed') ||
-    nr.raw && nr.raw.seed ||
-    String(Date.now());
+    .card{
+      padding:18px;
+      border-radius:30px;
+      border:4px solid rgba(255,199,125,.9);
+      background:rgba(255,254,248,.94);
+      box-shadow:var(--shadow);
+    }
 
-  run.searchParams.set('seed', seed);
+    .card h2{
+      margin:0 0 10px;
+      font-size:clamp(22px,4vw,32px);
+      line-height:1.08;
+      font-weight:1000;
+    }
 
-  const hub = params.get('hub');
+    .hint{
+      margin:0 0 14px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+      font-weight:850;
+    }
 
-  if (hub){
-    run.searchParams.set('hub', hub);
-  }else{
-    run.searchParams.set(
-      'hub',
-      new URL('../nutrition-zone.html', location.href).toString()
-    );
-  }
+    .form{display:grid;gap:10px;}
 
-  run.searchParams.set('routerBypass', '1');
-  run.searchParams.set('fromLobby', LOBBY_VERSION);
+    label{
+      display:grid;
+      gap:6px;
+      font-size:13px;
+      font-weight:1000;
+      color:#8a5a2b;
+    }
 
-  return run.toString();
-}
+    input,select{
+      width:100%;
+      min-height:50px;
+      padding:10px 13px;
+      border-radius:18px;
+      border:3px solid rgba(255,210,156,.95);
+      background:rgba(255,255,255,.92);
+      color:var(--text);
+      font-size:17px;
+      font-weight:900;
+      outline:none;
+    }
+
+    input:focus,select:focus{
+      border-color:rgba(113,204,255,.95);
+      box-shadow:0 0 0 4px rgba(113,204,255,.22);
+    }
+
+    .btn{
+      min-height:54px;
+      padding:11px 14px;
+      border-radius:20px;
+      border:3px solid rgba(255,199,125,.92);
+      background:linear-gradient(180deg,#fff8da,#ffe17a);
+      color:var(--text);
+      font-size:17px;
+      font-weight:1000;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:7px;
+      cursor:pointer;
+      box-shadow:0 8px 0 rgba(180,105,25,.16);
+    }
+
+    .btn:active:not(:disabled){
+      transform:translateY(2px);
+      box-shadow:0 5px 0 rgba(180,105,25,.12);
+    }
+
+    .btn.blue{background:linear-gradient(180deg,#eef9ff,#bfe8ff);border-color:rgba(110,203,255,.9);}
+    .btn.green{background:linear-gradient(180deg,#efffec,#b9f3c6);border-color:rgba(85,217,120,.86);color:#266c35;}
+    .btn.red{background:linear-gradient(180deg,#fff0ed,#ffc6bd);border-color:rgba(255,123,105,.86);color:#8d2b1f;}
+    .btn.white{background:rgba(255,255,255,.84);}
+
+    .actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:10px;
+    }
+
+    .room-box{
+      margin-top:12px;
+      padding:14px;
+      border-radius:24px;
+      border:3px dashed rgba(255,185,105,.9);
+      background:rgba(255,248,225,.68);
+    }
+
+    .room-code{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:3px solid rgba(255,210,156,.85);
+      background:rgba(255,255,255,.80);
+    }
+
+    .room-code b{
+      font-size:clamp(28px,7vw,44px);
+      letter-spacing:2px;
+      font-weight:1000;
+      color:#713018;
+    }
+
+    .status{
+      margin-top:12px;
+      padding:11px 13px;
+      border-radius:18px;
+      border:3px solid rgba(255,210,156,.8);
+      background:rgba(255,253,245,.75);
+      color:#7a4d20;
+      font-size:15px;
+      line-height:1.4;
+      font-weight:950;
+    }
+
+    .status.good{border-color:rgba(85,217,120,.75);background:rgba(238,255,235,.8);color:#2d723b;}
+    .status.warn{border-color:rgba(255,190,90,.85);background:rgba(255,248,225,.82);color:#8a5a20;}
+    .status.bad{border-color:rgba(255,123,105,.75);background:rgba(255,239,236,.82);color:#8d2b1f;}
+
+    .players{
+      display:grid;
+      gap:9px;
+      margin-top:12px;
+    }
+
+    .player{
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr) auto;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:20px;
+      border:3px solid rgba(255,220,168,.95);
+      background:rgba(255,253,245,.86);
+    }
+
+    .avatar{
+      width:42px;
+      height:42px;
+      display:grid;
+      place-items:center;
+      border-radius:15px;
+      background:linear-gradient(180deg,#fff8d7,#ffe18a);
+      border:2px solid rgba(255,199,125,.80);
+      font-size:24px;
+    }
+
+    .p-name{
+      min-width:0;
+      font-size:17px;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .p-meta{
+      margin-top:2px;
+      color:var(--muted);
+      font-size:12px;
+      font-weight:850;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .pill{
+      min-height:30px;
+      padding:5px 9px;
+      border-radius:999px;
+      border:2px solid rgba(130,220,130,.62);
+      background:#efffeb;
+      color:#4f9b39;
+      font-size:12px;
+      font-weight:1000;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    .pill.off{border-color:rgba(255,123,105,.62);background:#fff0ed;color:#a23828;}
+
+    .rules{
+      margin-top:14px;
+      padding:16px;
+      border-radius:28px;
+      border:4px solid rgba(255,199,125,.88);
+      background:rgba(255,254,248,.90);
+      box-shadow:var(--shadow);
+    }
+
+    .rules h2{margin:0 0 10px;font-size:26px;font-weight:1000;}
+
+    .rule-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .rule{
+      padding:12px 10px;
+      border-radius:20px;
+      border:3px solid rgba(255,220,168,.95);
+      background:rgba(255,253,245,.84);
+      text-align:center;
+      font-weight:950;
+      color:#75401d;
+      line-height:1.25;
+    }
+
+    .rule .emoji{display:block;font-size:28px;margin-bottom:5px;}
+
+    .footer-actions{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + env(safe-area-inset-bottom));
+      transform:translateX(-50%) translateY(16px);
+      z-index:99999;
+      width:max-content;
+      max-width:92vw;
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(60,34,16,.92);
+      color:#fff;
+      font-weight:950;
+      text-align:center;
+      opacity:0;
+      pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    #btnStartBattle.is-ready{
+      animation:gjLobbyReadyPulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes gjLobbyReadyPulse{
+      0%,100%{transform:translateY(0);}
+      50%{transform:translateY(-2px);}
+    }
+
+    html.gj-start-redirecting body::after{
+      content:'⚔️ Battle เริ่มแล้ว กำลังเข้าเกม...';
+      position:fixed;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      z-index:100005;
+      width:min(92vw,460px);
+      padding:18px 20px;
+      border-radius:28px;
+      border:4px solid rgba(255,199,125,.95);
+      background:rgba(255,254,248,.96);
+      color:#753119;
+      font-size:22px;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 22px 50px rgba(70,34,10,.24);
+    }
+
+    html.gj-start-redirecting body::before{
+      content:'';
+      position:fixed;
+      inset:0;
+      z-index:100004;
+      background:rgba(40,28,18,.30);
+      backdrop-filter:blur(7px);
+    }
+
+    @media(max-width:760px){
+      body{padding:10px;}
+      .hero{grid-template-columns:1fr;text-align:center;padding:16px;}
+      .hero-icon{margin:0 auto;}
+      .grid{grid-template-columns:1fr;}
+      .actions,.footer-actions{grid-template-columns:1fr;}
+      .rule-grid{grid-template-columns:1fr 1fr;}
+      .card{padding:15px;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="hero">
+      <div class="hero-icon">⚔️</div>
+      <div>
+        <h1>GoodJunk Battle</h1>
+        <div class="subtitle">
+          สร้างห้อง / เข้าห้อง / แข่งเก็บอาหารดี พร้อมสกิล Junk Storm, Shield, Freeze และ Heal
+        </div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <h2>1) ตั้งค่าผู้เล่น</h2>
+        <p class="hint">ใส่ชื่อ เลือกอุปกรณ์ แล้วสร้างห้องหรือเข้าห้องด้วยรหัส</p>
+
+        <div class="form">
+          <label>
+            ชื่อผู้เล่น
+            <input id="playerName" type="text" autocomplete="nickname" placeholder="Hero" />
+          </label>
+
+          <label>
+            Player ID
+            <input id="playerId" type="text" placeholder="anon" />
+          </label>
+
+          <label>
+            อุปกรณ์ / View
+            <select id="viewSelect">
+              <option value="mobile">Mobile</option>
+              <option value="pc">PC / Desktop</option>
+              <option value="cardboard">Cardboard / cVR</option>
+            </select>
+          </label>
+
+          <label>
+            ความยาก
+            <select id="diffSelect">
+              <option value="easy">Easy</option>
+              <option value="normal" selected>Normal</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+
+          <label>
+            เวลาเล่น
+            <select id="timeSelect">
+              <option value="60">60 วินาที</option>
+              <option value="90" selected>90 วินาที</option>
+              <option value="120">120 วินาที</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="btnCreateRoom" class="btn green" type="button">➕ สร้างห้อง</button>
+          <button id="btnCopyRoom" class="btn white" type="button">📋 Copy Code</button>
+        </div>
+
+        <div class="room-box">
+          <div class="room-code">
+            <span>Room</span>
+            <b id="roomCodeText">----</b>
+          </div>
+          <div id="lobbyStatus" class="status warn">
+            ยังไม่ได้สร้างหรือเข้าห้อง
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>2) เข้าห้อง / เริ่ม Battle</h2>
+        <p class="hint">ให้อีกคนใช้รหัสห้องเดียวกัน เมื่อพร้อมแล้ว Host กดเริ่ม Battle</p>
+
+        <div class="form">
+          <label>
+            Room Code
+            <input id="roomCodeInput" type="text" placeholder="เช่น AB12CD" inputmode="latin" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="btnJoinRoom" class="btn blue" type="button">🔑 เข้าห้อง</button>
+          <button id="btnLeaveRoom" class="btn red" type="button">ออกจากห้อง</button>
+        </div>
+
+        <div class="players" id="playersList">
+          <div class="player">
+            <div class="avatar">👤</div>
+            <div>
+              <div class="p-name">ยังไม่มีผู้เล่นในห้อง</div>
+              <div class="p-meta">สร้างห้องหรือเข้าห้องก่อน</div>
+            </div>
+            <span class="pill off">WAIT</span>
+          </div>
+        </div>
+
+        <button id="btnStartBattle" class="btn green" type="button" style="width:100%;margin-top:12px;" disabled>
+          ⏳ รอผู้เล่นอีก 1 คน
+        </button>
+      </article>
+    </section>
+
+    <section class="rules">
+      <h2>กติกา Battle</h2>
+      <div class="rule-grid">
+        <div class="rule"><span class="emoji">🥦</span>เก็บ Good เพื่อสะสมคะแนนและพลัง</div>
+        <div class="rule"><span class="emoji">⚡</span>Junk Storm ส่ง junk ไปกวนคู่แข่ง</div>
+        <div class="rule"><span class="emoji">🛡️</span>Shield กันการโจมตี</div>
+        <div class="rule"><span class="emoji">❄️</span>Freeze ทำให้คู่แข่งช้าลง</div>
+      </div>
+    </section>
+
+    <section class="footer-actions">
+      <button id="btnAllModes" class="btn blue" type="button">🎮 โหมดทั้งหมด</button>
+      <button id="btnNutritionZone" class="btn white" type="button">🥗 Nutrition Zone</button>
+      <button id="btnHub" class="btn white" type="button">🏠 Hub</button>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    (function GoodJunkBattleFirebaseInitGuard(){
+      'use strict';
+
+      window.GJ_BATTLE_FIREBASE_INIT_GUARD = 'v2.4.32-clean-final-init-guard';
+
+      const cfg =
+        window.HHA_FIREBASE_CONFIG ||
+        window.HEROHEALTH_FIREBASE_CONFIG ||
+        window.firebaseConfig ||
+        window.FIREBASE_CONFIG ||
+        {
+          apiKey: "AIzaSyB5WmSR9uMYX2bwDh2iFYZwGglXGIq5Ijo",
+          authDomain: "herohealth-d7f8c.firebaseapp.com",
+          databaseURL: "https://herohealth-d7f8c-default-rtdb.asia-southeast1.firebasedatabase.app",
+          projectId: "herohealth-d7f8c",
+          storageBucket: "herohealth-d7f8c.firebasestorage.app",
+          messagingSenderId: "680817376848",
+          appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
+        };
+
+      function hasFirebaseApp(){
+        try{
+          return !!(window.firebase && firebase.apps && firebase.apps.length);
+        }catch(_){
+          return false;
+        }
+      }
+
+      function init(){
+        if (!window.firebase || typeof firebase.initializeApp !== 'function'){
+          console.warn('[GJ Battle Firebase Init] firebase-app-compat not loaded');
+          return false;
+        }
+
+        if (hasFirebaseApp()){
+          console.info('[GJ Battle Firebase Init] Firebase app already exists');
+          return true;
+        }
+
+        try{
+          firebase.initializeApp(cfg);
+          console.info('[GJ Battle Firebase Init] Firebase initialized');
+          return true;
+        }catch(err){
+          console.warn('[GJ Battle Firebase Init] initializeApp failed', err);
+          return false;
+        }
+      }
+
+      window.GJ_BATTLE_FIREBASE_INIT_OK = init();
+    })();
+  </script>
+
+  <script src="./goodjunk-battle-v2-firebase-bridge.js?v=2432"></script>
+
+  <script>
+    (function GoodJunkBattleV2Lobby(){
+      'use strict';
+
+      const LOBBY_VERSION = 'v2.4.32-clean-final-lobby';
+
+      const url = new URL(location.href);
+      const params = url.searchParams;
+
+      const MAX_PLAYERS = Number(params.get('maxPlayers') || params.get('capacity') || 2);
+      const TEST_MODE = params.get('test') === '1' || params.get('debug') === '1' || params.get('qa') === '1';
+
+      const PLAY_PHASES = ['play','playing','running','battle','active'];
+      const START_FRESH_MS = 1000 * 60 * 3;
+
+      const $ = (sel, root=document) => root.querySelector(sel);
+
+      const playerNameEl = $('#playerName');
+      const playerIdEl = $('#playerId');
+      const viewSelect = $('#viewSelect');
+      const diffSelect = $('#diffSelect');
+      const timeSelect = $('#timeSelect');
+      const roomCodeInput = $('#roomCodeInput');
+      const roomCodeText = $('#roomCodeText');
+      const lobbyStatus = $('#lobbyStatus');
+      const playersList = $('#playersList');
+
+      const btnCreateRoom = $('#btnCreateRoom');
+      const btnCopyRoom = $('#btnCopyRoom');
+      const btnJoinRoom = $('#btnJoinRoom');
+      const btnLeaveRoom = $('#btnLeaveRoom');
+      const btnStartBattle = $('#btnStartBattle');
+
+      const state = {
+        roomCode: '',
+        playerId: '',
+        playerName: '',
+        roomRef: null,
+        room: null,
+        listenerAttached: false,
+        attachedRoomCode: '',
+        heartbeatTimer: null,
+        redirecting: false,
+        lastRoomKey: ''
+      };
+
+      function now(){ return Date.now(); }
+
+      function safeObj(v){ return v && typeof v === 'object' ? v : {}; }
+
+      function safeText(v, fallback){
+        v = String(v || '').trim();
+        return v || fallback || '';
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'",'&#039;');
+      }
+
+      function toast(msg){
+        const el = $('#toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => el.classList.remove('show'), 1700);
+      }
+
+      function setStatus(msg, cls){
+        lobbyStatus.textContent = msg;
+        lobbyStatus.className = 'status ' + (cls || 'warn');
+      }
+
+      function normalizeBattleRoomCode(raw){
+        return String(raw || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .replace(/[^A-Z0-9_-]/g, '')
+          .slice(0, 32);
+      }
+
+      function normalizeView(v){
+        const s = String(v || '').toLowerCase().trim();
+
+        if (s === 'mobile' || s === 'phone' || s === 'touch') return 'mobile';
+        if (s === 'cardboard' || s === 'cvr' || s === 'vr') return 'cardboard';
+        if (s === 'pc' || s === 'desktop' || s === 'computer') return 'pc';
+
+        return detectView();
+      }
+
+      function detectView(){
+        const qv = String(params.get('view') || '').toLowerCase();
+
+        if (['pc','mobile','cardboard','cvr','vr'].includes(qv)){
+          return normalizeView(qv);
+        }
+
+        const isMobile =
+          (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
+          /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+        return isMobile ? 'mobile' : 'pc';
+      }
+
+      function getMySelectedView(){
+        return normalizeView(
+          viewSelect.value ||
+          params.get('view') ||
+          params.get('device') ||
+          detectView()
+        );
+      }
+
+      function getRunFileByView(view){
+        const v = normalizeView(view);
+
+        if (v === 'mobile'){
+          return './goodjunk-battle-v2-run-mobile.html';
+        }
+
+        if (v === 'cardboard'){
+          return './goodjunk-battle-v2-run-cardboard.html';
+        }
+
+        return './goodjunk-battle-v2-run-pc.html';
+      }
+
+      function randomCode(){
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let out = '';
+        for (let i = 0; i < 6; i++){
+          out += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return out;
+      }
+
+      function bindRoomCodeInput(){
+        if (!roomCodeInput || roomCodeInput.dataset.gjBattleCodeBound === '1') return;
+
+        roomCodeInput.dataset.gjBattleCodeBound = '1';
+        roomCodeInput.setAttribute('autocomplete','off');
+        roomCodeInput.setAttribute('autocapitalize','characters');
+        roomCodeInput.setAttribute('spellcheck','false');
+        roomCodeInput.setAttribute('inputmode','latin');
+
+        roomCodeInput.addEventListener('input', function(){
+          roomCodeInput.value = normalizeBattleRoomCode(roomCodeInput.value);
+          try{
+            roomCodeInput.setSelectionRange(roomCodeInput.value.length, roomCodeInput.value.length);
+          }catch(_){}
+        });
+
+        roomCodeInput.addEventListener('blur', function(){
+          roomCodeInput.value = normalizeBattleRoomCode(roomCodeInput.value);
+        });
+      }
+
+      function initFields(){
+        const name =
+          params.get('name') ||
+          localStorage.getItem('GJ_BATTLE_NAME') ||
+          localStorage.getItem('HHA_GJ_NAME') ||
+          'Hero';
+
+        const pid =
+          params.get('pid') ||
+          localStorage.getItem('GJ_BATTLE_PID') ||
+          localStorage.getItem('HHA_GJ_PID') ||
+          ('p_' + Math.random().toString(16).slice(2, 8));
+
+        const view = detectView();
+
+        playerNameEl.value = name;
+        playerIdEl.value = pid;
+        viewSelect.value = view;
+        diffSelect.value = params.get('diff') || 'normal';
+        timeSelect.value = params.get('time') || '90';
+
+        const existingRoom =
+          params.get('room') ||
+          params.get('roomCode') ||
+          params.get('code') ||
+          params.get('lastRoom') ||
+          localStorage.getItem('GJ_BATTLE_LAST_ROOM') ||
+          '';
+
+        if (existingRoom){
+          const fixedRoom = normalizeBattleRoomCode(existingRoom);
+          roomCodeInput.value = fixedRoom;
+          roomCodeText.textContent = fixedRoom;
+          state.roomCode = fixedRoom;
+        }
+      }
+
+      function saveFields(){
+        state.playerName = safeText(playerNameEl.value, 'Hero');
+        state.playerId = safeText(playerIdEl.value, 'anon');
+
+        localStorage.setItem('GJ_BATTLE_NAME', state.playerName);
+        localStorage.setItem('GJ_BATTLE_PID', state.playerId);
+        localStorage.setItem('HHA_GJ_NAME', state.playerName);
+        localStorage.setItem('HHA_GJ_PID', state.playerId);
+      }
+
+      function getDbReady(){
+        const bridge = window.GJ_BATTLE_FIREBASE_BRIDGE;
+
+        if (bridge && typeof bridge.isReady === 'function'){
+          return !!bridge.isReady();
+        }
+
+        return !!(
+          window.GJ_BATTLE_DB_READY &&
+          window.GJ_BATTLE_AUTH_READY &&
+          window.GJ_DB &&
+          typeof window.GJ_DB.ref === 'function'
+        );
+      }
+
+      async function waitForDbReady(timeoutMs){
+        timeoutMs = Number(timeoutMs || 5000);
+        const start = Date.now();
+
+        return await new Promise(resolve => {
+          const tick = async () => {
+            const bridge = window.GJ_BATTLE_FIREBASE_BRIDGE;
+
+            if (bridge){
+              try{
+                if (typeof bridge.ensureAuth === 'function'){
+                  await bridge.ensureAuth();
+                }
+
+                if (typeof bridge.refresh === 'function'){
+                  await bridge.refresh();
+                }
+              }catch(_){}
+            }
+
+            if (getDbReady()){
+              resolve(true);
+              return;
+            }
+
+            if (Date.now() - start >= timeoutMs){
+              resolve(false);
+              return;
+            }
+
+            setTimeout(tick, 160);
+          };
+
+          tick();
+        });
+      }
+
+      function explainDbNotReady(){
+        const authReady = !!window.GJ_BATTLE_AUTH_READY;
+        const dbSource = window.GJ_BATTLE_DB_SOURCE || 'none';
+        const authSource = window.GJ_BATTLE_AUTH_SOURCE || 'none';
+        const bridge = window.GJ_BATTLE_FIREBASE_BRIDGE;
+        const err = bridge && bridge.lastError ? bridge.lastError : '';
+
+        if (!authReady){
+          return 'Firebase Auth ยังไม่พร้อม • ตรวจ firebase-auth-compat.js / anonymous auth';
+        }
+
+        if (dbSource === 'none'){
+          return 'Firebase Database ยังไม่พร้อม • ตรวจ databaseURL / firebase-database-compat.js';
+        }
+
+        return 'DB ยังไม่พร้อม: ' + (err || authSource || dbSource);
+      }
+
+      function getRoomRef(roomCode){
+        const code = normalizeBattleRoomCode(roomCode);
+
+        if (!code) return null;
+
+        if (
+          window.GJ_BATTLE_FIREBASE_BRIDGE &&
+          typeof window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef === 'function'
+        ){
+          return window.GJ_BATTLE_FIREBASE_BRIDGE.getRoomRef(code);
+        }
+
+        const db = window.GJ_DB || window.db || window.database || window.firebaseDb || null;
+        if (!db || typeof db.ref !== 'function') return null;
+
+        return db.ref('herohealth/goodjunk/battleV2Rooms/' + code);
+      }
+
+      function playerPatch(extra){
+        saveFields();
+
+        return Object.assign({
+          name: state.playerName,
+          playerName: state.playerName,
+          displayName: state.playerName,
+          pid: state.playerId,
+          view: getMySelectedView(),
+          device: getMySelectedView(),
+          diff: diffSelect.value,
+          time: Number(timeSelect.value || 90),
+          status: 'online',
+          left: false,
+          quit: false,
+          disconnected: false,
+          lastSeen: now(),
+          heartbeatAt: now(),
+          updatedAt: now(),
+          lobbyVersion: LOBBY_VERSION,
+          authUid: window.GJ_BATTLE_AUTH_UID || ''
+        }, extra || {});
+      }
+
+      function normalizeRoom(room){
+        room = safeObj(room);
+        const playersMap = safeObj(room.players);
+
+        const players = Object.entries(playersMap).map(([id, raw]) => {
+          raw = safeObj(raw);
+
+          const status = String(raw.status || 'online').toLowerCase();
+
+          const left = !!(
+            raw.left === true ||
+            raw.quit === true ||
+            raw.disconnected === true ||
+            status === 'left' ||
+            status === 'offline'
+          );
+
+          return {
+            id,
+            raw,
+            name: raw.name || raw.playerName || raw.displayName || raw.pid || id,
+            pid: raw.pid || id,
+            view: raw.view || raw.device || 'pc',
+            status,
+            lastSeen: Number(raw.lastSeen || raw.heartbeatAt || raw.updatedAt || 0),
+            updatedAt: Number(raw.updatedAt || 0),
+            left,
+            host: !!raw.host,
+            role: raw.role || '',
+            rematchReady: !!(raw.rematchReady || raw.readyRematch || raw.nextReady)
+          };
+        });
+
+        return {
+          raw: room,
+          code: normalizeBattleRoomCode(room.code || room.room || room.roomCode || state.roomCode || roomCodeInput.value || ''),
+          phase: String(room.phase || room.status || room.state || 'lobby').toLowerCase(),
+          matchId: String(room.matchId || room.roundId || room.runId || room.activeMatchId || ''),
+          players,
+          playersMap,
+          startedAt: Number(room.startedAt || 0),
+          updatedAt: Number(room.updatedAt || 0),
+          hostPid: String(room.hostPid || '')
+        };
+      }
+
+      function isOnlinePlayer(p){
+        if (!p) return false;
+        if (p.left) return false;
+
+        const status = String(p.status || '').toLowerCase();
+        if (status === 'left' || status === 'offline') return false;
+
+        const lastSeen = Number(p.lastSeen || p.heartbeatAt || p.updatedAt || 0);
+        if (lastSeen && now() - lastSeen > 12000) return false;
+
+        return true;
+      }
+
+      function getOnlinePlayers(room){
+        return normalizeRoom(room).players.filter(isOnlinePlayer);
+      }
+
+      function canJoinRoom(room, currentPid){
+        const nr = normalizeRoom(room);
+        const alreadyInRoom = nr.players.some(p =>
+          String(p.id) === String(currentPid) ||
+          String(p.pid) === String(currentPid)
+        );
+
+        if (alreadyInRoom){
+          return { ok:true, reason:'same-player-update' };
+        }
+
+        const online = nr.players.filter(isOnlinePlayer);
+
+        if (online.length >= MAX_PLAYERS){
+          return { ok:false, reason:'room-full', onlineCount:online.length };
+        }
+
+        return { ok:true, reason:'slot-available', onlineCount:online.length };
+      }
+
+      function amIHost(room){
+        const nr = normalizeRoom(room || state.room || {});
+        const pid = String(state.playerId || playerIdEl.value || '');
+
+        if (nr.hostPid && nr.hostPid === pid) return true;
+
+        const me = nr.players.find(p =>
+          String(p.id) === pid ||
+          String(p.pid) === pid ||
+          String(p.raw && p.raw.pid || '') === pid
+        );
+
+        if (me && (me.host === true || me.role === 'host')) return true;
+
+        return false;
+      }
+
+      function canStartBattle(room){
+        const online = getOnlinePlayers(room);
+        const host = amIHost(room);
+
+        if (TEST_MODE){
+          return { ok:true, reason:'test-mode', onlineCount:online.length, host };
+        }
+
+        if (!getDbReady()){
+          return { ok:false, reason:'db-offline', onlineCount:online.length, host };
+        }
+
+        if (!host){
+          return { ok:false, reason:'not-host', onlineCount:online.length, host };
+        }
+
+        if (online.length < 2){
+          return { ok:false, reason:'need-two-players', onlineCount:online.length, host };
+        }
+
+        if (online.length > MAX_PLAYERS){
+          return { ok:false, reason:'too-many-players', onlineCount:online.length, host };
+        }
+
+        return { ok:true, reason:'ready', onlineCount:online.length, host };
+      }
+
+      function updateStartButton(room){
+        const verdict = canStartBattle(room || state.room || {});
+
+        btnStartBattle.disabled = !verdict.ok;
+        btnStartBattle.classList.toggle('is-disabled', !verdict.ok);
+        btnStartBattle.classList.toggle('is-ready', verdict.ok);
+
+        if (verdict.ok){
+          btnStartBattle.textContent = TEST_MODE && verdict.onlineCount < 2
+            ? '⚔️ เริ่ม Battle แบบทดสอบ'
+            : '⚔️ Host เริ่ม Battle';
+        }else if (verdict.reason === 'not-host'){
+          btnStartBattle.textContent = '⏳ รอ Host เริ่ม Battle';
+        }else if (verdict.reason === 'need-two-players'){
+          btnStartBattle.textContent = '⏳ รอผู้เล่นอีก 1 คน';
+        }else if (verdict.reason === 'db-offline'){
+          btnStartBattle.textContent = '⚠️ DB ยังไม่พร้อม';
+        }else{
+          btnStartBattle.textContent = '⏳ ยังไม่พร้อมเริ่ม';
+        }
+      }
+
+      function updateLobbyStatusByRoom(room){
+        const nr = normalizeRoom(room || {});
+        const online = nr.players.filter(isOnlinePlayer);
+
+        if (!getDbReady()){
+          setStatus('DB ยังไม่พร้อม • รอ Firebase Auth/Database สักครู่', 'warn');
+          updateStartButton(room);
+          return;
+        }
+
+        if (!nr.code){
+          setStatus('DB พร้อมแล้ว • สร้างห้องหรือเข้าห้องได้', 'good');
+          updateStartButton(room);
+          return;
+        }
+
+        if (online.length >= 2){
+          setStatus('พร้อมแล้ว • มีผู้เล่นออนไลน์ ' + online.length + ' คน • Host เริ่ม Battle ได้', 'good');
+        }else if (online.length === 1){
+          setStatus('อยู่ในห้องแล้ว • รอคู่แข่งอีก 1 คน', 'warn');
+        }else{
+          setStatus('กำลัง sync ผู้เล่นในห้อง...', 'warn');
+        }
+
+        updateStartButton(room);
+      }
+
+      function renderPlayers(players){
+        if (!players || !players.length){
+          playersList.innerHTML = `
+            <div class="player">
+              <div class="avatar">👤</div>
+              <div>
+                <div class="p-name">ยังไม่มีผู้เล่นในห้อง</div>
+                <div class="p-meta">สร้างห้องหรือเข้าห้องก่อน</div>
+              </div>
+              <span class="pill off">WAIT</span>
+            </div>
+          `;
+          return;
+        }
+
+        playersList.innerHTML = players.map(function(p){
+          const online = isOnlinePlayer(p);
+          const name = p.name || p.playerName || p.displayName || p.pid || p.id || 'Hero';
+
+          const meta = [
+            p.view || '-',
+            p.host ? 'host' : (p.role || 'player'),
+            online ? 'online' : 'left'
+          ].join(' • ');
+
+          return `
+            <div class="player">
+              <div class="avatar">${p.host ? '🦸' : '⚔️'}</div>
+              <div>
+                <div class="p-name">${escapeHtml(name)}</div>
+                <div class="p-meta">${escapeHtml(meta)}</div>
+              </div>
+              <span class="pill ${online ? '' : 'off'}">${online ? 'READY' : 'LEFT'}</span>
+            </div>
+          `;
+        }).join('');
+      }
+
+      function renderPlayersLocal(){
+        renderPlayers([{
+          id: state.playerId || 'anon',
+          pid: state.playerId || 'anon',
+          name: state.playerName || 'Hero',
+          view: getMySelectedView(),
+          role: 'host',
+          host: true,
+          status: 'online',
+          lastSeen: now()
+        }]);
+      }
+
+      function renderRoom(room){
+        const nr = normalizeRoom(room);
+        renderPlayers(nr.players);
+
+        if (!state.roomCode && nr.code){
+          state.roomCode = nr.code;
+          roomCodeText.textContent = nr.code;
+          roomCodeInput.value = nr.code;
+        }
+
+        updateLobbyStatusByRoom(room);
+      }
+
+      function makeLocalRoomSnapshot(roomCode, extra){
+        const code = normalizeBattleRoomCode(roomCode || state.roomCode || roomCodeInput.value);
+        const playerId = state.playerId || playerIdEl.value || 'anon';
+
+        return Object.assign({
+          code,
+          room: code,
+          roomCode: code,
+          phase: 'lobby',
+          status: 'lobby',
+          state: 'lobby',
+          hostPid: playerId,
+          hostName: state.playerName || playerNameEl.value || 'Hero',
+          battleType: 'duel',
+          type: 'duel',
+          capacity: MAX_PLAYERS,
+          players: {
+            [playerId]: playerPatch({
+              role: 'host',
+              host: true,
+              joinedAt: now()
+            })
+          },
+          updatedAt: now()
+        }, extra || {});
+      }
+
+      function syncLocalRoomUI(room){
+        state.room = room || makeLocalRoomSnapshot(state.roomCode);
+        renderRoom(state.room);
+        updateLobbyStatusByRoom(state.room);
+      }
+
+      async function getRoomSnapshot(roomCode){
+        const roomRef = getRoomRef(roomCode);
+
+        if (!roomRef || typeof roomRef.once !== 'function'){
+          return { roomRef, room:null, ready:false };
+        }
+
+        try{
+          const snap = await roomRef.once('value');
+          return {
+            roomRef,
+            room: snap && typeof snap.val === 'function' ? snap.val() || {} : {},
+            ready:true
+          };
+        }catch(err){
+          console.warn('[Battle Lobby] getRoomSnapshot failed', err);
+          return { roomRef, room:null, ready:false, error:err };
+        }
+      }
+
+      async function createRoom(){
+        saveFields();
+
+        const dbOk = await waitForDbReady();
+
+        if (!dbOk && !TEST_MODE){
+          const msg = explainDbNotReady();
+          setStatus('DB offline/local • ' + msg, 'bad');
+          toast('Firebase DB/Auth ยังไม่พร้อม');
+          return false;
+        }
+
+        const roomCode = normalizeBattleRoomCode(randomCode());
+        state.roomCode = roomCode;
+        roomCodeInput.value = roomCode;
+        roomCodeText.textContent = roomCode;
+        localStorage.setItem('GJ_BATTLE_LAST_ROOM', roomCode);
+
+        const roomRef = getRoomRef(roomCode);
+        state.roomRef = roomRef;
+
+        if (!roomRef){
+          setStatus('ไม่มี Firebase DB • ใช้โหมด local/test ได้ แต่ sync จริงยังไม่ได้', 'warn');
+          renderPlayersLocal();
+          updateStartButton({});
+          return false;
+        }
+
+        try{
+          await roomRef.set({
+            code: roomCode,
+            room: roomCode,
+            roomCode: roomCode,
+            phase: 'lobby',
+            status: 'lobby',
+            state: 'lobby',
+            hostPid: state.playerId,
+            hostName: state.playerName,
+            battleType: 'duel',
+            type: 'duel',
+            capacity: MAX_PLAYERS,
+            diff: diffSelect.value || 'normal',
+            timeSec: Number(timeSelect.value || 90),
+            seed: params.get('seed') || String(now()),
+            createdAt: now(),
+            updatedAt: now(),
+            lobbyVersion: LOBBY_VERSION,
+            bridgeVersion: window.GJ_BATTLE_FIREBASE_BRIDGE && window.GJ_BATTLE_FIREBASE_BRIDGE.version || '',
+            roomPath: window.GJ_BATTLE_ROOM_PATH || 'herohealth/goodjunk/battleV2Rooms',
+            players: {}
+          });
+
+          await roomRef.child('players').child(state.playerId).update(playerPatch({
+            role: 'host',
+            host: true,
+            joinedAt: now()
+          }));
+
+          state.room = makeLocalRoomSnapshot(roomCode);
+          syncLocalRoomUI(state.room);
+
+          attachRoomListener(roomCode);
+          startHeartbeat();
+
+          setStatus('สร้างห้องแล้ว • ส่งรหัสให้อีกคนเข้าห้อง', 'good');
+          toast('สร้างห้องแล้ว: ' + roomCode);
+          return true;
+        }catch(err){
+          console.warn('[Battle Lobby] create room failed', err);
+          setStatus('สร้างห้องไม่สำเร็จ: ' + err.message, 'bad');
+          return false;
+        }
+      }
+
+      async function joinRoom(){
+        saveFields();
+
+        const roomCode = normalizeBattleRoomCode(roomCodeInput.value);
+        roomCodeInput.value = roomCode;
+
+        if (!roomCode){
+          toast('ใส่ Room Code ก่อน');
+          return false;
+        }
+
+        const dbOk = await waitForDbReady();
+
+        if (!dbOk && !TEST_MODE){
+          const msg = explainDbNotReady();
+          setStatus('DB offline/local • ' + msg, 'bad');
+          toast('Firebase DB/Auth ยังไม่พร้อม');
+          return false;
+        }
+
+        state.roomCode = roomCode;
+        roomCodeText.textContent = roomCode;
+        localStorage.setItem('GJ_BATTLE_LAST_ROOM', roomCode);
+
+        const roomRef = getRoomRef(roomCode);
+        state.roomRef = roomRef;
+
+        if (!roomRef){
+          setStatus('ไม่มี Firebase DB • ใช้โหมด local/test ได้ แต่ sync จริงยังไม่ได้', 'warn');
+          renderPlayersLocal();
+          return false;
+        }
+
+        try{
+          const snap = await getRoomSnapshot(roomCode);
+
+          if (!snap.room || !Object.keys(snap.room).length){
+            setStatus('ไม่พบห้องนี้ • ตรวจ Room Code อีกครั้ง', 'bad');
+            toast('ไม่พบห้อง: ' + roomCode);
+            return false;
+          }
+
+          const verdict = canJoinRoom(snap.room || {}, state.playerId);
+
+          if (!verdict.ok && verdict.reason === 'room-full'){
+            setStatus('ห้องเต็มแล้ว • Battle รับได้ 2 คนเท่านั้น', 'bad');
+            toast('ห้องเต็มแล้ว');
+            return false;
+          }
+
+          await roomRef.update({
+            code: roomCode,
+            room: roomCode,
+            roomCode: roomCode,
+            updatedAt: now()
+          });
+
+          await roomRef.child('players').child(state.playerId).update(playerPatch({
+            role: 'player',
+            host: false,
+            joinedAt: now()
+          }));
+
+          attachRoomListener(roomCode);
+          startHeartbeat();
+
+          setStatus('เข้าห้องแล้ว • รอ Host เริ่ม Battle', 'good');
+          toast('เข้าห้องแล้ว: ' + roomCode);
+
+          const latest = await getRoomSnapshot(roomCode);
+          if (latest.room){
+            state.room = latest.room;
+            renderRoom(latest.room);
+            checkRoomForStart(latest.room, 'join-after-snapshot');
+          }
+
+          return true;
+        }catch(err){
+          console.warn('[Battle Lobby] join room failed', err);
+          setStatus('เข้าห้องไม่สำเร็จ: ' + err.message, 'bad');
+          return false;
+        }
+      }
+
+      async function leaveRoom(){
+        saveFields();
+
+        if (state.roomRef && state.playerId){
+          try{
+            await state.roomRef.child('players').child(state.playerId).update({
+              left: true,
+              quit: true,
+              disconnected: true,
+              status: 'left',
+              rematchReady: false,
+              readyRematch: false,
+              nextReady: false,
+              updatedAt: now(),
+              lastSeen: now()
+            });
+          }catch(_){}
+        }
+
+        state.roomCode = '';
+        state.room = null;
+        state.roomRef = null;
+        state.listenerAttached = false;
+        state.attachedRoomCode = '';
+        roomCodeText.textContent = '----';
+        setStatus('ออกจากห้องแล้ว', 'warn');
+        renderPlayers([]);
+        updateStartButton({});
+        toast('ออกจากห้องแล้ว');
+      }
+
+      function startHeartbeat(){
+        if (state.heartbeatTimer) return;
+
+        state.heartbeatTimer = setInterval(async function(){
+          if (!state.roomRef || !state.playerId) return;
+
+          try{
+            await state.roomRef.child('players').child(state.playerId).update({
+              status: 'online',
+              left: false,
+              quit: false,
+              disconnected: false,
+              lastSeen: now(),
+              heartbeatAt: now(),
+              updatedAt: now()
+            });
+          }catch(_){}
+        }, 3500);
+
+        window.addEventListener('beforeunload', markLeftSync);
+        window.addEventListener('pagehide', markLeftSync);
+      }
+
+      function markLeftSync(){
+        try{
+          if (!state.roomRef || !state.playerId) return;
+
+          state.roomRef.child('players').child(state.playerId).update({
+            left: true,
+            quit: true,
+            disconnected: true,
+            status: 'left',
+            updatedAt: now(),
+            lastSeen: now()
+          });
+        }catch(_){}
+      }
+
+      function attachRoomListener(roomCode){
+        const fixedCode = normalizeBattleRoomCode(roomCode);
+        const roomRef = getRoomRef(fixedCode);
+
+        if (!roomRef || typeof roomRef.on !== 'function') return;
+
+        state.roomRef = roomRef;
+
+        if (state.listenerAttached && state.attachedRoomCode === fixedCode) return;
+
+        state.listenerAttached = true;
+        state.attachedRoomCode = fixedCode;
+
+        roomRef.on('value', function(snapshot){
+          const room = snapshot && typeof snapshot.val === 'function'
+            ? snapshot.val() || {}
+            : {};
+
+          state.room = room;
+          renderRoom(room);
+          checkRoomForStart(room, 'room-listener');
+        });
+      }
+
+      function buildRunUrl(roomOverride){
+        saveFields();
+
+        const nr = normalizeRoom(roomOverride || state.room || {});
+        const selectedView = getMySelectedView();
+        const runFile = getRunFileByView(selectedView);
+        const run = new URL(runFile, location.href);
+
+        params.forEach(function(v, k){
+          if (v !== null && v !== ''){
+            run.searchParams.set(k, v);
+          }
+        });
+
+        run.searchParams.set('pid', state.playerId);
+        run.searchParams.set('name', state.playerName);
+        run.searchParams.set('nick', state.playerName);
+        run.searchParams.set('view', selectedView);
+        run.searchParams.set('device', selectedView);
+        run.searchParams.set('diff', diffSelect.value || params.get('diff') || 'normal');
+        run.searchParams.set('time', timeSelect.value || params.get('time') || '90');
+        run.searchParams.set('mode', 'battle');
+        run.searchParams.set('game', 'goodjunk');
+        run.searchParams.set('gameId', 'goodjunk');
+        run.searchParams.set('entry', 'battle');
+        run.searchParams.set('variant', 'battle-v2');
+        run.searchParams.set('zone', params.get('zone') || 'nutrition');
+        run.searchParams.set('cat', params.get('cat') || 'nutrition');
+        run.searchParams.set('theme', params.get('theme') || 'goodjunk');
+        run.searchParams.set('run', 'play');
+        run.searchParams.set('phase', 'play');
+
+        const raw = nr.raw || {};
+
+        const room =
+          nr.code ||
+          state.roomCode ||
+          normalizeBattleRoomCode(roomCodeInput.value) ||
+          params.get('room') ||
+          params.get('roomCode') ||
+          params.get('code') ||
+          params.get('lastRoom') ||
+          '';
+
+        if (room){
+          const fixedRoom = normalizeBattleRoomCode(room);
+          run.searchParams.set('room', fixedRoom);
+          run.searchParams.set('roomCode', fixedRoom);
+          run.searchParams.set('code', fixedRoom);
+          run.searchParams.set('lastRoom', fixedRoom);
+        }
+
+        const matchId =
+          nr.matchId ||
+          raw.matchId ||
+          raw.roundId ||
+          raw.runId ||
+          raw.activeMatchId ||
+          params.get('matchId') ||
+          params.get('roundId') ||
+          params.get('runId') ||
+          '';
+
+        if (matchId){
+          run.searchParams.set('matchId', matchId);
+          run.searchParams.set('roundId', matchId);
+          run.searchParams.set('runId', matchId);
+        }
+
+        const seed = params.get('seed') || raw.seed || String(Date.now());
+        run.searchParams.set('seed', seed);
+
+        const hub = params.get('hub');
+
+        if (hub){
+          run.searchParams.set('hub', hub);
+        }else{
+          run.searchParams.set('hub', new URL('../nutrition-zone.html', location.href).toString());
+        }
+
+        run.searchParams.set('routerBypass', '1');
+        run.searchParams.set('fromLobby', LOBBY_VERSION);
+
+        return run.toString();
+      }
+
+      async function startBattle(){
+        saveFields();
+
+        const room = normalizeBattleRoomCode(
+          state.roomCode || safeText(roomCodeInput.value, '')
+        );
+
+        if (!room){
+          toast('สร้างห้องหรือใส่ Room Code ก่อน');
+          return false;
+        }
+
+        state.roomCode = room;
+        roomCodeInput.value = room;
+        roomCodeText.textContent = room;
+        localStorage.setItem('GJ_BATTLE_LAST_ROOM', room);
+
+        const dbOk = await waitForDbReady();
+
+        if (!dbOk && !TEST_MODE){
+          const msg = explainDbNotReady();
+          setStatus('DB offline/local • ' + msg, 'bad');
+          toast('DB/Auth ยังไม่พร้อม เริ่ม Battle จริงไม่ได้');
+          return false;
+        }
+
+        const roomRef = state.roomRef || getRoomRef(room);
+        state.roomRef = roomRef;
+
+        if (!roomRef && !TEST_MODE){
+          setStatus('ไม่พบ roomRef • เริ่ม Battle ไม่ได้', 'bad');
+          return false;
+        }
+
+        if (roomRef){
+          const snap = await getRoomSnapshot(room);
+          const verdict = canStartBattle(snap.room || {});
+
+          if (!verdict.ok){
+            if (verdict.reason === 'not-host'){
+              setStatus('เฉพาะ Host เท่านั้นที่เริ่ม Battle ได้', 'warn');
+              toast('รอ Host เริ่ม Battle');
+              updateStartButton(snap.room);
+              return false;
+            }
+
+            if (verdict.reason === 'need-two-players'){
+              setStatus('Battle ต้องมีผู้เล่นออนไลน์ 2 คนก่อนเริ่ม', 'warn');
+              toast('รอคู่แข่งอีก 1 คน');
+              updateStartButton(snap.room);
+              return false;
+            }
+
+            if (verdict.reason === 'db-offline'){
+              setStatus('DB offline/local • Battle จริงยังเริ่มไม่ได้', 'bad');
+              return false;
+            }
+          }
+
+          try{
+            const matchId = 'm_' + now() + '_' + Math.random().toString(16).slice(2, 8);
+            const selectedView = getMySelectedView();
+            const selectedRunFile = getRunFileByView(selectedView);
+
+            await roomRef.update({
+              phase: 'play',
+              status: 'play',
+              state: 'play',
+              matchId,
+              roundId: matchId,
+              runId: matchId,
+              activeMatchId: matchId,
+              view: selectedView,
+              device: selectedView,
+              runFile: selectedRunFile,
+              startedAt: now(),
+              updatedAt: now(),
+              effects: null,
+              winner: null,
+              reason: null
+            });
+
+            await roomRef.child('players').child(state.playerId).update(playerPatch({
+              score: 0,
+              points: 0,
+              good: 0,
+              junk: 0,
+              miss: 0,
+              hearts: 3,
+              hp: 3,
+              lives: 3,
+              power: 0,
+              attackPower: 0,
+              result: null,
+              finished: false,
+              done: false,
+              rematchReady: false,
+              readyRematch: false,
+              nextReady: false,
+              status: 'in-game',
+              phase: 'play',
+              matchId,
+              roundId: matchId,
+              currentPage: 'run'
+            }));
+
+            state.room = Object.assign({}, snap.room || {}, {
+              code: room,
+              room,
+              roomCode: room,
+              phase: 'play',
+              status: 'play',
+              state: 'play',
+              matchId,
+              roundId: matchId,
+              runId: matchId,
+              activeMatchId: matchId,
+              startedAt: now()
+            });
+
+            return redirectToRun(state.room, 'host-start');
+          }catch(err){
+            console.warn('[Battle Lobby] start battle sync failed', err);
+            setStatus('เริ่ม Battle ไม่สำเร็จ: ' + err.message, 'bad');
+            return false;
+          }
+        }
+
+        if (TEST_MODE){
+          return redirectToRun({
+            code: room,
+            room,
+            roomCode: room,
+            phase: 'play',
+            status: 'play',
+            state: 'play',
+            matchId: 'test_' + now(),
+            roundId: 'test_' + now(),
+            startedAt: now()
+          }, 'test-mode');
+        }
+
+        return false;
+      }
+
+      function isPlayPhase(phase){
+        return PLAY_PHASES.includes(String(phase || '').toLowerCase());
+      }
+
+      function isFreshStart(room){
+        const nr = normalizeRoom(room);
+        const t = nr.startedAt || nr.updatedAt || 0;
+        if (!t) return true;
+        return now() - t <= START_FRESH_MS;
+      }
+
+      function roomRedirectKey(room){
+        const nr = normalizeRoom(room);
+        const code = nr.code || state.roomCode || 'no-room';
+        const matchId = nr.matchId || 'no-match';
+        return 'GJ_BATTLE_REDIRECT_' + code + '_' + matchId + '_' + state.playerId;
+      }
+
+      function hasRedirected(room){
+        try{
+          return sessionStorage.getItem(roomRedirectKey(room)) === '1';
+        }catch(_){
+          return false;
+        }
+      }
+
+      function markRedirected(room){
+        try{
+          sessionStorage.setItem(roomRedirectKey(room), '1');
+        }catch(_){}
+      }
+
+      function shouldRedirectToRun(room){
+        const nr = normalizeRoom(room);
+
+        if (!nr.code) return { ok:false, reason:'no-room' };
+        if (!isPlayPhase(nr.phase)) return { ok:false, reason:'not-play-phase' };
+        if (!isFreshStart(nr)) return { ok:false, reason:'stale-play-phase' };
+        if (hasRedirected(nr)) return { ok:false, reason:'already-redirected' };
+        if (state.redirecting) return { ok:false, reason:'redirecting' };
+
+        return { ok:true, reason:'play-phase' };
+      }
+
+      async function updateMyTransitionStatus(room){
+        const nr = normalizeRoom(room);
+        const roomRef = getRoomRef(nr.code || state.roomCode);
+
+        if (!roomRef) return false;
+
+        try{
+          await roomRef.child('players').child(state.playerId).update(playerPatch({
+            status: 'in-game',
+            phase: 'play',
+            currentPage: 'run',
+            currentUrl: buildRunUrl(nr),
+            left: false,
+            quit: false,
+            disconnected: false,
+            matchId: nr.matchId || '',
+            roundId: nr.matchId || ''
+          }));
+
+          return true;
+        }catch(err){
+          console.warn('[Battle Lobby] updateMyTransitionStatus failed', err);
+          return false;
+        }
+      }
+
+      async function redirectToRun(room, source){
+        const verdict = shouldRedirectToRun(room);
+
+        if (!verdict.ok){
+          return false;
+        }
+
+        state.redirecting = true;
+
+        const nr = normalizeRoom(room);
+        const selectedView = getMySelectedView();
+        const target = buildRunUrl(nr);
+
+        markRedirected(nr);
+
+        setStatus('Battle เริ่มแล้ว • กำลังพาเข้าเกม...', 'good');
+        toast('Battle เริ่มแล้ว!');
+        document.documentElement.classList.add('gj-start-redirecting');
+
+        await updateMyTransitionStatus(nr);
+
+        window.dispatchEvent(new CustomEvent('gj:battle-lobby-redirect-run', {
+          detail: {
+            source: source || 'room-phase-play',
+            room: nr.code,
+            matchId: nr.matchId,
+            view: selectedView,
+            target,
+            version: LOBBY_VERSION
+          }
+        }));
+
+        setTimeout(function(){
+          location.href = target;
+        }, 380);
+
+        return true;
+      }
+
+      function checkRoomForStart(room, source){
+        const nr = normalizeRoom(room || {});
+        const raw = nr.raw || {};
+
+        const phase =
+          nr.phase ||
+          raw.phase ||
+          raw.status ||
+          raw.state ||
+          '';
+
+        const matchId =
+          nr.matchId ||
+          raw.matchId ||
+          raw.roundId ||
+          raw.runId ||
+          raw.activeMatchId ||
+          '';
+
+        const startedAt =
+          nr.startedAt ||
+          raw.startedAt ||
+          raw.updatedAt ||
+          0;
+
+        const key = [
+          nr.code || state.roomCode || '',
+          phase,
+          matchId,
+          startedAt,
+          state.playerId
+        ].join('|');
+
+        if (key === state.lastRoomKey){
+          return;
+        }
+
+        state.lastRoomKey = key;
+
+        if (isPlayPhase(phase)){
+          redirectToRun(
+            Object.assign({}, raw, {
+              code: nr.code || state.roomCode,
+              room: nr.code || state.roomCode,
+              roomCode: nr.code || state.roomCode,
+              phase: 'play',
+              status: 'play',
+              state: 'play',
+              matchId,
+              roundId: matchId,
+              runId: matchId,
+              activeMatchId: matchId,
+              startedAt: startedAt || now()
+            }),
+            source || 'checkRoomForStart'
+          );
+        }
+      }
+
+      function buildModesUrl(){
+        const out = new URL('../goodjunk-launcher.html', location.href);
+
+        ['pid','name','diff','time','view','hub','zone','cat','studyId','conditionGroup','api','log'].forEach(function(k){
+          const v =
+            k === 'pid' ? playerIdEl.value :
+            k === 'name' ? playerNameEl.value :
+            k === 'diff' ? diffSelect.value :
+            k === 'time' ? timeSelect.value :
+            k === 'view' ? viewSelect.value :
+            params.get(k);
+
+          if (v !== null && v !== ''){
+            out.searchParams.set(k, v);
+          }
+        });
+
+        return out.toString();
+      }
+
+      function buildNutritionZoneUrl(){
+        const out = new URL('../nutrition-zone.html', location.href);
+
+        ['pid','name','diff','time','view','hub','studyId','conditionGroup','api','log'].forEach(function(k){
+          const v =
+            k === 'pid' ? playerIdEl.value :
+            k === 'name' ? playerNameEl.value :
+            k === 'diff' ? diffSelect.value :
+            k === 'time' ? timeSelect.value :
+            k === 'view' ? viewSelect.value :
+            params.get(k);
+
+          if (v !== null && v !== ''){
+            out.searchParams.set(k, v);
+          }
+        });
+
+        return out.toString();
+      }
+
+      function buildHubUrl(){
+        const hub = params.get('hub');
+
+        if (hub){
+          try{
+            return new URL(hub, location.href).toString();
+          }catch(_){}
+        }
+
+        return new URL('../hub.html', location.href).toString();
+      }
+
+      async function copyRoom(){
+        const room = normalizeBattleRoomCode(state.roomCode || roomCodeInput.value || roomCodeText.textContent);
+
+        if (!room || room === '----'){
+          toast('ยังไม่มี Room Code');
+          return;
+        }
+
+        try{
+          await navigator.clipboard.writeText(room);
+          toast('Copy Room Code แล้ว: ' + room);
+        }catch(_){
+          toast('Room Code: ' + room);
+        }
+      }
+
+      btnCreateRoom.addEventListener('click', createRoom);
+      btnJoinRoom.addEventListener('click', joinRoom);
+      btnLeaveRoom.addEventListener('click', leaveRoom);
+      btnCopyRoom.addEventListener('click', copyRoom);
+      btnStartBattle.addEventListener('click', startBattle);
+
+      $('#btnAllModes').addEventListener('click', function(){
+        location.href = buildModesUrl();
+      });
+
+      $('#btnNutritionZone').addEventListener('click', function(){
+        location.href = buildNutritionZoneUrl();
+      });
+
+      $('#btnHub').addEventListener('click', function(){
+        location.href = buildHubUrl();
+      });
+
+      [playerNameEl, playerIdEl, viewSelect, diffSelect, timeSelect].forEach(function(el){
+        el.addEventListener('change', function(){
+          saveFields();
+          updateStartButton(state.room || {});
+        });
+
+        el.addEventListener('input', function(){
+          saveFields();
+          updateStartButton(state.room || {});
+        });
+      });
+
+      function boot(){
+        initFields();
+        saveFields();
+        bindRoomCodeInput();
+
+        const autoRoom =
+          params.get('room') ||
+          params.get('roomCode') ||
+          params.get('code') ||
+          params.get('lastRoom') ||
+          '';
+
+        if (autoRoom){
+          state.roomCode = normalizeBattleRoomCode(autoRoom);
+          roomCodeInput.value = state.roomCode;
+          roomCodeText.textContent = state.roomCode;
+          setStatus('พบ Room Code จากลิงก์ • กดเข้าห้องหรือรอ Host เริ่ม Battle', 'warn');
+
+          if (getDbReady()){
+            attachRoomListener(state.roomCode);
+          }
+        }
+
+        setTimeout(async function(){
+          const dbOk = await waitForDbReady(4200);
+
+          if (dbOk && state.roomCode){
+            attachRoomListener(state.roomCode);
+
+            try{
+              const snap = await getRoomSnapshot(state.roomCode);
+              if (snap && snap.room && Object.keys(snap.room).length){
+                state.room = snap.room;
+                renderRoom(snap.room);
+                checkRoomForStart(snap.room, 'boot-snapshot');
+              }else if (state.playerId && state.roomCode){
+                syncLocalRoomUI(makeLocalRoomSnapshot(state.roomCode));
+              }
+            }catch(_){}
+          }
+
+          updateLobbyStatusByRoom(state.room || {});
+        }, 250);
+
+        setInterval(function(){
+          updateLobbyStatusByRoom(state.room || {});
+          if (state.room) checkRoomForStart(state.room, 'interval-room-watch');
+        }, 900);
+
+        window.addEventListener('gj:battle-db-ready', function(){
+          setTimeout(function(){
+            if (state.roomCode) attachRoomListener(state.roomCode);
+            updateLobbyStatusByRoom(state.room || {});
+          }, 100);
+        });
+
+        updateLobbyStatusByRoom(state.room || {});
+
+        window.GJ_BATTLE_LOBBY = {
+          version: LOBBY_VERSION,
+          state,
+          createRoom,
+          joinRoom,
+          leaveRoom,
+          startBattle,
+          buildRunUrl,
+          buildModesUrl,
+          buildNutritionZoneUrl,
+          buildHubUrl,
+          canJoinRoom,
+          canStartBattle,
+          redirectToRun,
+          checkRoomForStart,
+          normalizeBattleRoomCode,
+          normalizeView,
+          getRunFileByView,
+          waitForDbReady
+        };
+
+        console.info('[GoodJunk Battle Lobby]', LOBBY_VERSION, 'loaded');
+      }
+
+      boot();
+    })();
+  </script>
+</body>
+</html>
