@@ -1,35 +1,24 @@
-/* =========================================================
-   /herohealth/vr-goodjunk/goodjunk-battle-v2-core.js
-   GoodJunk Battle v2 Core Sync
-   PATCH: v2.4.33-core-opponent-score-rematch-stable
-   Requires:
-   - goodjunk-battle-v2-firebase-bridge.js
-   ========================================================= */
-
 (function GoodJunkBattleV2Core(){
   'use strict';
 
-  const VERSION = 'v2.4.33-core-opponent-score-rematch-stable';
-  const ROOM_PATH = 'herohealth/goodjunk/battleV2Rooms';
-  const STALE_MS = 14000;
-  const SYNC_MS = 1800;
+  const CORE_VERSION = 'v2.4.33-core-opponent-score-rematch-skill-sync';
+  const ROOM_PATH = window.GJ_BATTLE_ROOM_PATH || 'herohealth/goodjunk/battleV2Rooms';
 
   const url = new URL(location.href);
   const params = url.searchParams;
 
   const PLAYER_ID =
     params.get('pid') ||
-    params.get('playerId') ||
     window.GJ_PLAYER_ID ||
     window.MY_PLAYER_ID ||
+    localStorage.getItem('GJ_BATTLE_PID') ||
     'anon';
 
   const PLAYER_NAME =
     params.get('name') ||
-    params.get('nick') ||
-    params.get('playerName') ||
     window.GJ_PLAYER_NAME ||
     window.MY_PLAYER_NAME ||
+    localStorage.getItem('GJ_BATTLE_NAME') ||
     'Hero';
 
   const ROOM_CODE = normalizeRoomCode(
@@ -39,6 +28,7 @@
     params.get('lastRoom') ||
     window.GJ_ROOM_CODE ||
     window.ROOM_CODE ||
+    localStorage.getItem('GJ_BATTLE_LAST_ROOM') ||
     ''
   );
 
@@ -57,57 +47,59 @@
       'pc'
     );
 
-  const MODE =
-    params.get('mode') ||
-    'battle';
-
   const state = {
-    version: VERSION,
-    playerId: PLAYER_ID,
-    playerName: PLAYER_NAME,
+    version: CORE_VERSION,
+    roomPath: ROOM_PATH,
+    playerId: String(PLAYER_ID || 'anon'),
+    playerName: String(PLAYER_NAME || 'Hero'),
     roomCode: ROOM_CODE,
     matchId: MATCH_ID,
     view: VIEW,
-    mode: MODE,
-    room: null,
-    players: {},
-    me: null,
-    opponent: null,
     roomRef: null,
-    listenerAttached: false,
-    syncTimer: null,
+    playerRef: null,
+    room: null,
+    opponent: null,
+    attached: false,
     heartbeatTimer: null,
-    lastLocalState: {},
-    lastRoomAt: 0,
-    startedAt: Date.now(),
+    syncTimer: null,
+    lastSyncAt: 0,
+    lastRoomUpdatedAt: 0,
+    ready: false,
+    ended: false,
     rematchReady: false,
-    destroyed: false,
-    dbReady: false
+    lastError: ''
   };
 
-  window.GJ_PLAYER_ID = PLAYER_ID;
-  window.MY_PLAYER_ID = PLAYER_ID;
-  window.GJ_PLAYER_NAME = PLAYER_NAME;
-  window.MY_PLAYER_NAME = PLAYER_NAME;
-  window.GJ_ROOM_CODE = ROOM_CODE;
-  window.ROOM_CODE = ROOM_CODE;
-  window.GJ_MATCH_ID = MATCH_ID;
-  window.GJ_BATTLE_CORE_VERSION = VERSION;
+  window.GJ_BATTLE_CORE_VERSION = CORE_VERSION;
+  window.GJ_BATTLE_CORE_STATE = state;
 
   function now(){
     return Date.now();
   }
 
-  function log(){
+  function emit(name, detail){
     try{
-      console.info.apply(console, ['[GJ Battle Core]'].concat(Array.from(arguments)));
+      window.dispatchEvent(new CustomEvent(name, {
+        detail: Object.assign({
+          version: CORE_VERSION,
+          room: state.roomCode,
+          playerId: state.playerId,
+          at: now()
+        }, detail || {})
+      }));
     }catch(_){}
   }
 
-  function warn(){
-    try{
-      console.warn.apply(console, ['[GJ Battle Core]'].concat(Array.from(arguments)));
-    }catch(_){}
+  function setError(err, source){
+    const msg = err && err.message ? err.message : String(err || 'unknown-error');
+    state.lastError = msg;
+
+    console.warn('[GJ Battle Core]', source || 'error', err);
+
+    emit('gj:battle-core-error', {
+      source: source || 'core',
+      error: msg
+    });
   }
 
   function normalizeRoomCode(raw){
@@ -120,10 +112,20 @@
   }
 
   function normalizeView(v){
-    v = String(v || '').toLowerCase().trim();
-    if (v === 'cvr' || v === 'vr') return 'cardboard';
-    if (v === 'mobile') return 'mobile';
-    if (v === 'cardboard') return 'cardboard';
+    v = String(v || '').trim().toLowerCase();
+
+    if (v === 'cvr' || v === 'vr' || v === 'cardboard-vr'){
+      return 'cardboard';
+    }
+
+    if (v === 'cardboard'){
+      return 'cardboard';
+    }
+
+    if (v === 'mobile' || v === 'phone' || v === 'touch'){
+      return 'mobile';
+    }
+
     return 'pc';
   }
 
@@ -136,82 +138,215 @@
     return Number.isFinite(n) ? n : Number(fallback || 0);
   }
 
-  function safeString(v, fallback){
-    v = String(v == null ? '' : v).trim();
-    return v || fallback || '';
-  }
-
   function getBridge(){
     return window.GJ_BATTLE_FIREBASE_BRIDGE || null;
   }
 
   async function waitForBridgeReady(timeoutMs){
-    timeoutMs = Number(timeoutMs || 6500);
+    timeoutMs = Number(timeoutMs || 5000);
     const start = now();
 
-    while (now() - start < timeoutMs){
-      const bridge = getBridge();
+    return await new Promise(resolve => {
+      const tick = async () => {
+        const bridge = getBridge();
 
-      if (bridge){
-        try{
-          if (typeof bridge.waitForReady === 'function'){
-            const ok = await bridge.waitForReady(900);
-            if (ok) return true;
-          }else if (typeof bridge.refresh === 'function'){
-            const ok = await bridge.refresh();
-            if (ok) return true;
-          }else if (typeof bridge.isReady === 'function' && bridge.isReady()){
-            return true;
+        if (bridge){
+          try{
+            if (typeof bridge.refresh === 'function'){
+              await bridge.refresh();
+            }else if (typeof bridge.init === 'function'){
+              await bridge.init();
+            }
+          }catch(_){}
+
+          if (typeof bridge.isReady === 'function' && bridge.isReady()){
+            resolve(true);
+            return;
           }
-        }catch(_){}
-      }
+        }
 
-      await new Promise(resolve => setTimeout(resolve, 180));
-    }
+        if (
+          window.GJ_BATTLE_DB_READY &&
+          window.GJ_BATTLE_AUTH_READY &&
+          window.GJ_DB &&
+          typeof window.GJ_DB.ref === 'function'
+        ){
+          resolve(true);
+          return;
+        }
 
-    const bridge = getBridge();
-    return !!(bridge && typeof bridge.isReady === 'function' && bridge.isReady());
-  }
+        if (now() - start >= timeoutMs){
+          resolve(false);
+          return;
+        }
 
-  function isDbReady(){
-    const bridge = getBridge();
+        setTimeout(tick, 180);
+      };
 
-    if (bridge && typeof bridge.isReady === 'function'){
-      return !!bridge.isReady();
-    }
-
-    return !!(
-      window.GJ_BATTLE_DB_READY &&
-      window.GJ_BATTLE_AUTH_READY &&
-      window.GJ_DB &&
-      typeof window.GJ_DB.ref === 'function'
-    );
+      tick();
+    });
   }
 
   function getRoomRef(){
-    if (!ROOM_CODE) return null;
+    if (!state.roomCode){
+      setError('Missing room code', 'get-room-ref-no-room');
+      return null;
+    }
 
     const bridge = getBridge();
 
     if (bridge && typeof bridge.getRoomRef === 'function'){
-      return bridge.getRoomRef(ROOM_CODE);
+      const ref = bridge.getRoomRef(state.roomCode);
+      if (ref){
+        state.roomRef = ref;
+        return ref;
+      }
     }
 
-    if (window.GJ_DB && typeof window.GJ_DB.ref === 'function'){
-      return window.GJ_DB.ref(ROOM_PATH + '/' + ROOM_CODE);
+    const db = window.GJ_DB || window.GJ_BATTLE_DB || null;
+
+    if (!db || typeof db.ref !== 'function'){
+      return null;
     }
 
-    return null;
+    state.roomRef = db.ref(ROOM_PATH + '/' + state.roomCode);
+    return state.roomRef;
+  }
+
+  function getPlayerRef(){
+    const roomRef = state.roomRef || getRoomRef();
+
+    if (!roomRef || typeof roomRef.child !== 'function'){
+      return null;
+    }
+
+    state.playerRef = roomRef.child('players').child(state.playerId);
+    return state.playerRef;
+  }
+
+  function readRuntimeState(){
+    const rs =
+      window.GJ_BATTLE_RUNTIME && window.GJ_BATTLE_RUNTIME.state
+        ? window.GJ_BATTLE_RUNTIME.state
+        : {};
+
+    const bs = window.GJ_BATTLE_STATE || {};
+
+    return {
+      score: safeNum(rs.score ?? bs.score ?? bs.myScore ?? bs.points, 0),
+      points: safeNum(rs.score ?? bs.score ?? bs.myScore ?? bs.points, 0),
+      good: safeNum(rs.good ?? bs.good ?? bs.goodCount, 0),
+      junk: safeNum(rs.junk ?? bs.junk ?? bs.junkCount, 0),
+      miss: safeNum(rs.miss ?? bs.miss ?? bs.missCount, 0),
+      hearts: safeNum(rs.hearts ?? bs.hearts ?? bs.hp ?? bs.lives, 3),
+      hp: safeNum(rs.hearts ?? bs.hearts ?? bs.hp ?? bs.lives, 3),
+      lives: safeNum(rs.hearts ?? bs.hearts ?? bs.hp ?? bs.lives, 3),
+      power: safeNum(rs.power ?? bs.power ?? bs.attackPower, 0),
+      attackPower: safeNum(rs.power ?? bs.power ?? bs.attackPower, 0),
+      shieldActive: !!(rs.shieldActive ?? bs.shieldActive),
+      freezeActive: !!(rs.freezeActive ?? bs.freezeActive),
+      timeLeft: safeNum(rs.timeLeft ?? bs.timeLeft ?? bs.remaining, 0),
+      remaining: safeNum(rs.timeLeft ?? bs.timeLeft ?? bs.remaining, 0),
+      ended: !!(rs.ended ?? bs.ended),
+      running: rs.running !== false
+    };
+  }
+
+  function playerPatch(extra){
+    const runtime = readRuntimeState();
+
+    return Object.assign({
+      pid: state.playerId,
+      name: state.playerName,
+      playerName: state.playerName,
+      displayName: state.playerName,
+      view: state.view,
+      device: state.view,
+      room: state.roomCode,
+      roomCode: state.roomCode,
+      matchId: state.matchId,
+      roundId: state.matchId,
+      status: runtime.ended ? 'finished' : 'in-game',
+      phase: runtime.ended ? 'summary' : 'play',
+      currentPage: runtime.ended ? 'summary' : 'run',
+      currentUrl: location.href,
+      left: false,
+      quit: false,
+      disconnected: false,
+      lastSeen: now(),
+      heartbeatAt: now(),
+      updatedAt: now(),
+      coreVersion: CORE_VERSION
+    }, runtime, extra || {});
+  }
+
+  async function updateMyPlayer(patch){
+    const ref = getPlayerRef();
+
+    if (!ref || typeof ref.update !== 'function'){
+      return false;
+    }
+
+    try{
+      await ref.update(playerPatch(patch));
+      state.lastSyncAt = now();
+
+      return true;
+    }catch(err){
+      setError(err, 'update-my-player-failed');
+      return false;
+    }
+  }
+
+  async function updateRoom(patch){
+    const ref = state.roomRef || getRoomRef();
+
+    if (!ref || typeof ref.update !== 'function'){
+      return false;
+    }
+
+    try{
+      await ref.update(Object.assign({
+        code: state.roomCode,
+        room: state.roomCode,
+        roomCode: state.roomCode,
+        updatedAt: now(),
+        coreVersion: CORE_VERSION
+      }, patch || {}));
+
+      return true;
+    }catch(err){
+      setError(err, 'update-room-failed');
+      return false;
+    }
+  }
+
+  async function forceRealtimeSync(reason){
+    if (!state.roomCode || state.ended) return false;
+
+    const runtime = readRuntimeState();
+
+    if (runtime.ended){
+      state.ended = true;
+    }
+
+    const ok = await updateMyPlayer({
+      syncReason: reason || 'manual-sync'
+    });
+
+    emit('gj:battle-core-sync', {
+      reason: reason || 'manual-sync',
+      ok,
+      runtime
+    });
+
+    return ok;
   }
 
   function normalizePlayer(id, raw){
     raw = safeObj(raw);
 
-    const pid = safeString(raw.pid || raw.playerId || id, id || '');
-    const name = safeString(raw.name || raw.playerName || raw.displayName || pid, 'Hero');
-
-    const status = String(raw.status || 'online').toLowerCase();
-
+    const status = String(raw.status || '').toLowerCase();
     const left = !!(
       raw.left === true ||
       raw.quit === true ||
@@ -220,576 +355,259 @@
       status === 'offline'
     );
 
-    const lastSeen = safeNum(raw.lastSeen || raw.heartbeatAt || raw.updatedAt || 0, 0);
+    const lastSeen = safeNum(raw.lastSeen || raw.heartbeatAt || raw.updatedAt, 0);
+    const online = !left && (!lastSeen || now() - lastSeen <= 16000);
 
     return {
-      id: id || pid,
-      pid,
-      raw,
-      name,
-      playerName: name,
-      displayName: name,
-      view: normalizeView(raw.view || raw.device || 'pc'),
-      device: normalizeView(raw.device || raw.view || 'pc'),
-      role: raw.role || '',
-      host: !!raw.host,
-      status,
-      left,
-      lastSeen,
-      online: !left && (!lastSeen || now() - lastSeen <= STALE_MS),
-
-      score: safeNum(raw.score || raw.points || raw.myScore || 0, 0),
-      points: safeNum(raw.points || raw.score || raw.myScore || 0, 0),
-      good: safeNum(raw.good || raw.goodCount || 0, 0),
-      junk: safeNum(raw.junk || raw.junkCount || 0, 0),
-      miss: safeNum(raw.miss || raw.missCount || 0, 0),
-
-      hearts: safeNum(raw.hearts || raw.hp || raw.lives || 0, 0),
-      hp: safeNum(raw.hp || raw.hearts || raw.lives || 0, 0),
-      lives: safeNum(raw.lives || raw.hearts || raw.hp || 0, 0),
-
-      power: safeNum(raw.power || raw.attackPower || 0, 0),
-      attackPower: safeNum(raw.attackPower || raw.power || 0, 0),
-
-      finished: !!(raw.finished || raw.done),
+      id: String(id || raw.pid || ''),
+      pid: String(raw.pid || id || ''),
+      name: raw.name || raw.playerName || raw.displayName || id || 'Hero',
+      playerName: raw.playerName || raw.name || raw.displayName || id || 'Hero',
+      displayName: raw.displayName || raw.name || raw.playerName || id || 'Hero',
+      view: raw.view || raw.device || 'pc',
+      score: safeNum(raw.score || raw.points, 0),
+      points: safeNum(raw.points || raw.score, 0),
+      good: safeNum(raw.good || raw.goodCount, 0),
+      junk: safeNum(raw.junk || raw.junkCount, 0),
+      miss: safeNum(raw.miss || raw.missCount, 0),
+      hearts: safeNum(raw.hearts || raw.hp || raw.lives, 3),
+      hp: safeNum(raw.hp || raw.hearts || raw.lives, 3),
+      lives: safeNum(raw.lives || raw.hearts || raw.hp, 3),
+      power: safeNum(raw.power || raw.attackPower, 0),
+      attackPower: safeNum(raw.attackPower || raw.power, 0),
+      status: raw.status || (online ? 'online' : 'offline'),
+      phase: raw.phase || '',
+      matchId: raw.matchId || raw.roundId || '',
+      finished: !!(raw.finished || raw.done || raw.phase === 'summary' || raw.status === 'finished'),
       done: !!(raw.done || raw.finished),
-      result: raw.result || '',
-
       rematchReady: !!(raw.rematchReady || raw.readyRematch || raw.nextReady),
       readyRematch: !!(raw.readyRematch || raw.rematchReady || raw.nextReady),
       nextReady: !!(raw.nextReady || raw.rematchReady || raw.readyRematch),
-
-      phase: raw.phase || '',
-      currentPage: raw.currentPage || '',
-      matchId: raw.matchId || raw.roundId || ''
+      online,
+      left,
+      raw
     };
   }
 
   function normalizeRoom(room){
     room = safeObj(room);
-
     const playersMap = safeObj(room.players);
-    const players = {};
 
-    Object.entries(playersMap).forEach(function(pair){
-      const id = pair[0];
-      players[id] = normalizePlayer(id, pair[1]);
-    });
+    const players = Object.entries(playersMap).map(([id, raw]) => normalizePlayer(id, raw));
 
-    const code = normalizeRoomCode(
-      room.code ||
-      room.room ||
-      room.roomCode ||
-      ROOM_CODE
-    );
+    const me = players.find(p =>
+      String(p.id) === String(state.playerId) ||
+      String(p.pid) === String(state.playerId)
+    ) || null;
+
+    const opponent = players.find(p =>
+      String(p.id) !== String(state.playerId) &&
+      String(p.pid) !== String(state.playerId)
+    ) || null;
 
     return {
       raw: room,
-      code,
-      room: code,
-      roomCode: code,
-      phase: String(room.phase || room.status || room.state || 'lobby').toLowerCase(),
-      status: String(room.status || room.phase || room.state || 'lobby').toLowerCase(),
-      state: String(room.state || room.phase || room.status || 'lobby').toLowerCase(),
-      matchId: String(room.matchId || room.roundId || room.runId || MATCH_ID || ''),
-      roundId: String(room.roundId || room.matchId || room.runId || MATCH_ID || ''),
-      runId: String(room.runId || room.matchId || room.roundId || MATCH_ID || ''),
-      hostPid: String(room.hostPid || ''),
-      startedAt: safeNum(room.startedAt || 0, 0),
-      endedAt: safeNum(room.endedAt || 0, 0),
-      updatedAt: safeNum(room.updatedAt || 0, 0),
-      winner: room.winner || '',
-      reason: room.reason || '',
+      code: normalizeRoomCode(room.code || room.room || room.roomCode || state.roomCode),
+      phase: String(room.phase || room.status || room.state || 'play').toLowerCase(),
+      status: String(room.status || room.phase || room.state || 'play').toLowerCase(),
+      state: String(room.state || room.phase || room.status || 'play').toLowerCase(),
+      matchId: String(room.matchId || room.roundId || room.runId || state.matchId || ''),
+      activeMatchId: String(room.activeMatchId || room.matchId || room.roundId || ''),
+      startedAt: safeNum(room.startedAt, 0),
+      endedAt: safeNum(room.endedAt, 0),
+      updatedAt: safeNum(room.updatedAt, 0),
       effects: safeObj(room.effects),
-      players
+      players,
+      playersMap,
+      me,
+      opponent
     };
   }
 
-  function findMe(players){
-    players = players || state.players || {};
+  function applyOpponent(opponent){
+    if (!opponent){
+      window.GJ_BATTLE_OPPONENT = null;
+      state.opponent = null;
 
-    let me =
-      players[PLAYER_ID] ||
-      Object.values(players).find(function(p){
-        return String(p.pid || '') === String(PLAYER_ID);
+      emit('gj:battle-opponent-updated', {
+        opponent: null
       });
 
-    if (!me){
-      me = normalizePlayer(PLAYER_ID, makeLocalPatch());
-    }
-
-    return me;
-  }
-
-  function findOpponent(players){
-    players = players || state.players || {};
-
-    const list = Object.values(players);
-
-    const onlineOpponents = list.filter(function(p){
-      return (
-        String(p.id) !== String(PLAYER_ID) &&
-        String(p.pid) !== String(PLAYER_ID) &&
-        !p.left &&
-        p.online
-      );
-    });
-
-    if (onlineOpponents.length){
-      onlineOpponents.sort(function(a, b){
-        return safeNum(b.score, 0) - safeNum(a.score, 0);
-      });
-      return onlineOpponents[0];
-    }
-
-    const anyOpponent = list.find(function(p){
-      return (
-        String(p.id) !== String(PLAYER_ID) &&
-        String(p.pid) !== String(PLAYER_ID)
-      );
-    });
-
-    if (anyOpponent) return anyOpponent;
-
-    return {
-      id: '',
-      pid: '',
-      name: 'รอคู่แข่ง...',
-      playerName: 'รอคู่แข่ง...',
-      displayName: 'รอคู่แข่ง...',
-      score: 0,
-      points: 0,
-      good: 0,
-      junk: 0,
-      miss: 0,
-      hearts: 0,
-      hp: 0,
-      status: 'waiting',
-      online: false,
-      left: false,
-      rematchReady: false,
-      finished: false
-    };
-  }
-
-  function updateGlobals(){
-    window.GJ_CURRENT_ROOM = state.room ? state.room.raw || state.room : null;
-    window.GJ_BATTLE_ROOM = state.room;
-    window.GJ_BATTLE_PLAYERS = state.players || {};
-    window.GJ_BATTLE_ME = state.me || null;
-    window.GJ_BATTLE_OPPONENT = state.opponent || null;
-
-    if (state.opponent){
-      window.GJ_OPPONENT_NAME = state.opponent.name;
-      window.GJ_OPPONENT_SCORE = safeNum(state.opponent.score, 0);
-    }
-
-    window.GJ_BATTLE_DB_READY = isDbReady();
-  }
-
-  function emit(name, detail){
-    try{
-      window.dispatchEvent(new CustomEvent(name, {
-        detail: Object.assign({
-          version: VERSION,
-          room: ROOM_CODE,
-          playerId: PLAYER_ID,
-          matchId: MATCH_ID
-        }, detail || {})
-      }));
-    }catch(_){}
-  }
-
-  function applyRoomSnapshot(rawRoom, source){
-    const room = normalizeRoom(rawRoom || {});
-    state.room = room;
-    state.players = room.players;
-    state.me = findMe(room.players);
-    state.opponent = findOpponent(room.players);
-    state.lastRoomAt = now();
-
-    updateGlobals();
-
-    emit('gj:battle-room-updated', {
-      source: source || 'room-listener',
-      room: room,
-      me: state.me,
-      opponent: state.opponent
-    });
-
-    emit('gj:battle-opponent-updated', state.opponent);
-
-    syncUIFromCore();
-
-    return room;
-  }
-
-  function readRuntimeState(){
-    const runtime = window.GJ_BATTLE_RUNTIME;
-    const runtimeState = runtime && runtime.state ? runtime.state : {};
-
-    const battleState = window.GJ_BATTLE_STATE || {};
-
-    const score =
-      firstNumber(runtimeState.score, battleState.score, battleState.myScore, battleState.points, 0);
-
-    const good =
-      firstNumber(runtimeState.good, battleState.good, battleState.goodCount, 0);
-
-    const junk =
-      firstNumber(runtimeState.junk, battleState.junk, battleState.junkCount, 0);
-
-    const miss =
-      firstNumber(runtimeState.miss, battleState.miss, battleState.missCount, 0);
-
-    const hearts =
-      firstNumber(runtimeState.hearts, runtimeState.hp, battleState.hearts, battleState.hp, battleState.lives, 3);
-
-    const power =
-      firstNumber(runtimeState.power, runtimeState.attackPower, battleState.power, battleState.attackPower, 0);
-
-    const timeLeft =
-      firstNumber(runtimeState.timeLeft, battleState.timeLeft, battleState.remaining, 0);
-
-    const ended =
-      !!(runtimeState.ended || battleState.ended || window.GJ_BATTLE_PHASE === 'summary');
-
-    return {
-      score,
-      points: score,
-      good,
-      junk,
-      miss,
-      hearts,
-      hp: hearts,
-      lives: hearts,
-      power,
-      attackPower: power,
-      timeLeft,
-      remaining: timeLeft,
-      ended,
-      finished: ended,
-      done: ended
-    };
-  }
-
-  function firstNumber(){
-    for (let i = 0; i < arguments.length; i++){
-      const n = Number(arguments[i]);
-      if (Number.isFinite(n)) return n;
-    }
-    return 0;
-  }
-
-  function makeLocalPatch(extra){
-    const local = readRuntimeState();
-
-    return Object.assign({
-      pid: PLAYER_ID,
-      name: PLAYER_NAME,
-      playerName: PLAYER_NAME,
-      displayName: PLAYER_NAME,
-      view: VIEW,
-      device: VIEW,
-      mode: MODE,
-      matchId: MATCH_ID,
-      roundId: MATCH_ID,
-      status: local.ended ? 'finished' : 'in-game',
-      phase: local.ended ? 'summary' : 'play',
-      currentPage: local.ended ? 'summary' : 'run',
-      left: false,
-      quit: false,
-      disconnected: false,
-      rematchReady: state.rematchReady,
-      readyRematch: state.rematchReady,
-      nextReady: state.rematchReady,
-      updatedAt: now(),
-      lastSeen: now(),
-      heartbeatAt: now()
-    }, local, extra || {});
-  }
-
-  async function updateMyPlayer(extra){
-    const patch = makeLocalPatch(extra);
-
-    state.lastLocalState = Object.assign({}, state.lastLocalState, patch);
-
-    const bridge = getBridge();
-
-    if (bridge && typeof bridge.updatePlayer === 'function'){
-      return await bridge.updatePlayer(ROOM_CODE, PLAYER_ID, patch);
-    }
-
-    const ref = state.roomRef || getRoomRef();
-
-    if (!ref || typeof ref.child !== 'function'){
-      return false;
-    }
-
-    try{
-      await ref.child('players').child(PLAYER_ID).update(patch);
-      return true;
-    }catch(err){
-      warn('updateMyPlayer failed', err);
-      return false;
-    }
-  }
-
-  async function updateRoom(patch){
-    patch = Object.assign({}, patch || {}, {
-      updatedAt: now()
-    });
-
-    const bridge = getBridge();
-
-    if (bridge && typeof bridge.updateRoom === 'function'){
-      return await bridge.updateRoom(ROOM_CODE, patch);
-    }
-
-    const ref = state.roomRef || getRoomRef();
-
-    if (!ref || typeof ref.update !== 'function'){
-      return false;
-    }
-
-    try{
-      await ref.update(patch);
-      return true;
-    }catch(err){
-      warn('updateRoom failed', err);
-      return false;
-    }
-  }
-
-  async function getRoomOnce(){
-    const bridge = getBridge();
-
-    if (bridge && typeof bridge.getRoom === 'function'){
-      const room = await bridge.getRoom(ROOM_CODE);
-      if (room) applyRoomSnapshot(room, 'getRoomOnce-bridge');
-      return room;
-    }
-
-    const ref = state.roomRef || getRoomRef();
-
-    if (!ref || typeof ref.once !== 'function'){
-      return null;
-    }
-
-    try{
-      const snap = await ref.once('value');
-      const room = snap && typeof snap.val === 'function' ? snap.val() || null : null;
-      if (room) applyRoomSnapshot(room, 'getRoomOnce-ref');
-      return room;
-    }catch(err){
-      warn('getRoomOnce failed', err);
-      return null;
-    }
-  }
-
-  function attachRoomListener(){
-    if (!ROOM_CODE) return false;
-
-    const ref = getRoomRef();
-
-    if (!ref || typeof ref.on !== 'function'){
-      return false;
-    }
-
-    if (state.listenerAttached) return true;
-
-    state.roomRef = ref;
-    state.listenerAttached = true;
-
-    try{
-      ref.on('value', function(snapshot){
-        const room = snapshot && typeof snapshot.val === 'function'
-          ? snapshot.val() || {}
-          : {};
-
-        applyRoomSnapshot(room, 'firebase-value');
-      });
-
-      return true;
-    }catch(err){
-      warn('attachRoomListener failed', err);
-      state.listenerAttached = false;
-      return false;
-    }
-  }
-
-  function startSyncLoop(){
-    if (state.syncTimer) return;
-
-    state.syncTimer = setInterval(function(){
-      if (state.destroyed) return;
-      forceRealtimeSync('interval');
-    }, SYNC_MS);
-
-    state.heartbeatTimer = setInterval(function(){
-      if (state.destroyed) return;
-      updateMyPlayer({
-        status: window.GJ_BATTLE_PHASE === 'summary' ? 'finished' : 'in-game',
-        phase: window.GJ_BATTLE_PHASE === 'summary' ? 'summary' : 'play'
-      });
-    }, 4200);
-  }
-
-  async function forceRealtimeSync(source){
-    if (!ROOM_CODE) return false;
-
-    if (!isDbReady()){
-      state.dbReady = false;
-      updateGlobals();
-      return false;
-    }
-
-    state.dbReady = true;
-
-    const ok = await updateMyPlayer({
-      syncSource: source || 'forceRealtimeSync'
-    });
-
-    updateGlobals();
-
-    return ok;
-  }
-
-  function syncUIFromCore(){
-    const op = state.opponent || findOpponent(state.players);
-    const me = state.me || findMe(state.players);
-
-    const rivalScoreEl =
-      document.getElementById('rivalScore') ||
-      document.querySelector('[data-rival-score]') ||
-      document.querySelector('#opponentScore');
-
-    if (rivalScoreEl){
-      rivalScoreEl.textContent = String(safeNum(op.score, 0));
-    }
-
-    const opponentNameEl =
-      document.getElementById('opponentName') ||
-      document.querySelector('[data-opponent-name]');
-
-    if (opponentNameEl){
-      opponentNameEl.textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
-    }
-
-    const opponentStatusEl =
-      document.getElementById('opponentStatus') ||
-      document.querySelector('[data-opponent-status]');
-
-    if (opponentStatusEl){
-      if (op.left || !op.online){
-        opponentStatusEl.textContent = op.name && op.name !== 'รอคู่แข่ง...' ? 'LEFT' : 'WAIT';
-        opponentStatusEl.classList.add('off');
-      }else{
-        opponentStatusEl.textContent = op.finished ? 'DONE' : 'PLAY';
-        opponentStatusEl.classList.remove('off');
-      }
-    }
-
-    const battlePower =
-      document.getElementById('battlePower') ||
-      document.querySelector('[data-battle-power]');
-
-    if (battlePower){
-      const power = firstNumber(me.power, me.attackPower, 0);
-      battlePower.textContent =
-        'พลัง ' + power + '/5 • คู่แข่ง: ' +
-        (op.name || 'รอคู่แข่ง...') + ' • ' +
-        safeNum(op.score, 0);
-    }
-
-    updateResultOverlayFromCore();
-  }
-
-  function updateResultOverlayFromCore(){
-    const overlay = document.getElementById('resultOverlay');
-
-    if (!overlay || !overlay.classList.contains('show')){
       return;
     }
 
-    const op = state.opponent || findOpponent(state.players);
-    const me = state.me || findMe(state.players);
+    state.opponent = opponent;
 
-    const resultOpName = document.getElementById('resultOpName');
-    const resultOpScore = document.getElementById('resultOpScore');
-    const resultOpMeta = document.getElementById('resultOpMeta');
+    window.GJ_BATTLE_OPPONENT = {
+      id: opponent.id,
+      pid: opponent.pid,
+      name: opponent.name,
+      playerName: opponent.playerName,
+      displayName: opponent.displayName,
+      view: opponent.view,
+      score: opponent.score,
+      points: opponent.points,
+      good: opponent.good,
+      junk: opponent.junk,
+      miss: opponent.miss,
+      hearts: opponent.hearts,
+      hp: opponent.hp,
+      lives: opponent.lives,
+      power: opponent.power,
+      attackPower: opponent.attackPower,
+      status: opponent.status,
+      phase: opponent.phase,
+      finished: opponent.finished,
+      done: opponent.done,
+      online: opponent.online,
+      left: opponent.left,
+      rematchReady: opponent.rematchReady,
+      readyRematch: opponent.readyRematch,
+      nextReady: opponent.nextReady,
+      raw: opponent.raw
+    };
 
-    if (resultOpName){
-      resultOpName.textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
-    }
+    emit('gj:battle-opponent-updated', {
+      opponent: window.GJ_BATTLE_OPPONENT
+    });
+  }
 
-    if (resultOpScore){
-      resultOpScore.textContent = String(safeNum(op.score, 0));
-    }
+  function applyRoom(room){
+    const nr = normalizeRoom(room);
 
-    if (resultOpMeta){
-      resultOpMeta.textContent =
-        'Good: ' + safeNum(op.good, 0) +
-        ' • Junk: ' + safeNum(op.junk, 0) +
-        ' • Miss: ' + safeNum(op.miss, 0);
-    }
+    state.room = nr;
+    state.matchId = state.matchId || nr.matchId || nr.activeMatchId || '';
+    state.lastRoomUpdatedAt = nr.updatedAt || now();
 
-    const resultMeName = document.getElementById('resultMeName');
-    const resultMyScore = document.getElementById('resultMyScore');
-    const resultMyMeta = document.getElementById('resultMyMeta');
+    window.GJ_CURRENT_ROOM = room || {};
+    window.GJ_BATTLE_ROOM = nr;
+    window.GJ_BATTLE_ROOM_NORMALIZED = nr;
 
-    if (resultMeName){
-      resultMeName.textContent = 'คุณ: ' + PLAYER_NAME;
-    }
+    applyOpponent(nr.opponent);
 
-    if (resultMyScore){
-      const local = readRuntimeState();
-      resultMyScore.textContent = String(local.score || safeNum(me.score, 0));
-    }
+    emit('gj:battle-room-updated', {
+      room: nr,
+      opponent: nr.opponent
+    });
 
-    if (resultMyMeta){
-      const local = readRuntimeState();
-      resultMyMeta.textContent =
-        'Good: ' + safeNum(local.good || me.good, 0) +
-        ' • Junk: ' + safeNum(local.junk || me.junk, 0) +
-        ' • Miss: ' + safeNum(local.miss || me.miss, 0);
-    }
+    handleRoomEffects(nr);
+    handleRoomSummary(nr);
+    handleRematchState(nr);
+  }
 
-    const rematchStatus = document.getElementById('rematchStatus');
+  function handleRoomEffects(nr){
+    const effect = nr.effects || {};
+    const type = String(effect.type || '').toLowerCase();
+    const from = String(effect.from || '');
 
-    if (rematchStatus){
-      const readyCount = Object.values(state.players || {}).filter(function(p){
-        return p.rematchReady;
-      }).length;
+    if (!type || !from || from === String(state.playerId)) return;
 
-      if (state.rematchReady){
-        rematchStatus.textContent =
-          'พร้อมเล่นต่อแล้ว • รอผู้เล่นอีกคน (' + readyCount + '/2)';
-      }else{
-        rematchStatus.textContent =
-          'กด Battle อีกครั้ง เมื่อต้องการเล่นต่อ';
+    const effectKey = [
+      'GJ_EFFECT',
+      state.roomCode,
+      nr.matchId || state.matchId || 'match',
+      type,
+      from,
+      effect.at || effect.createdAt || ''
+    ].join('_');
+
+    try{
+      if (sessionStorage.getItem(effectKey) === '1') return;
+      sessionStorage.setItem(effectKey, '1');
+    }catch(_){}
+
+    if (type === 'junk-storm'){
+      emit('gj:battle-skill-received', {
+        skill: 'junk-storm',
+        from
+      });
+
+      if (typeof window.spawnJunkStorm === 'function'){
+        window.spawnJunkStorm(6);
+      }else if (typeof window.spawnBadItems === 'function'){
+        window.spawnBadItems(6);
+      }else if (window.GJ_BATTLE_RUNTIME && typeof window.GJ_BATTLE_RUNTIME.spawnTarget === 'function'){
+        for (let i = 0; i < 6; i++){
+          setTimeout(() => window.GJ_BATTLE_RUNTIME.spawnTarget('junk'), i * 220);
+        }
       }
+    }
+
+    if (type === 'freeze'){
+      emit('gj:battle-skill-received', {
+        skill: 'freeze',
+        from
+      });
+
+      try{
+        document.documentElement.classList.add('gj-freeze-received');
+        setTimeout(() => document.documentElement.classList.remove('gj-freeze-received'), 3500);
+      }catch(_){}
     }
   }
 
-  async function requestRematch(){
+  function handleRoomSummary(nr){
+    const phase = String(nr.phase || nr.status || '').toLowerCase();
+
+    if (phase !== 'summary' && phase !== 'ended' && phase !== 'finished'){
+      return;
+    }
+
+    emit('gj:battle-room-summary', {
+      room: nr
+    });
+  }
+
+  function handleRematchState(nr){
+    const players = nr.players || [];
+    if (!players.length) return;
+
+    const onlinePlayers = players.filter(p => !p.left);
+    const readyPlayers = onlinePlayers.filter(p => p.rematchReady || p.readyRematch || p.nextReady);
+
+    emit('gj:battle-rematch-status', {
+      total: onlinePlayers.length,
+      ready: readyPlayers.length,
+      readyPlayers
+    });
+
+    const meReady = !!(nr.me && (nr.me.rematchReady || nr.me.readyRematch || nr.me.nextReady));
+    const opponentReady = !!(nr.opponent && (nr.opponent.rematchReady || nr.opponent.readyRematch || nr.opponent.nextReady));
+
+    if (meReady && opponentReady && onlinePlayers.length >= 2){
+      startRematchFromRoom(nr);
+    }
+  }
+
+  async function startRematchFromRoom(nr){
+    const key = 'GJ_REMATCH_START_' + state.roomCode + '_' + (nr.matchId || state.matchId || 'match');
+
+    try{
+      if (sessionStorage.getItem(key) === '1') return;
+      sessionStorage.setItem(key, '1');
+    }catch(_){}
+
+    emit('gj:battle-rematch-start', {
+      room: nr,
+      reason: 'both-ready'
+    });
+  }
+
+  async function setRematchReady(){
     state.rematchReady = true;
 
     await updateMyPlayer({
       rematchReady: true,
       readyRematch: true,
       nextReady: true,
-      status: 'rematch-ready',
-      phase: 'summary'
+      status: 'ready-rematch',
+      phase: 'summary',
+      updatedAt: now()
     });
 
-    const room = await getRoomOnce();
-    const nr = normalizeRoom(room || state.room || {});
-    const readyPlayers = Object.values(nr.players || {}).filter(function(p){
-      return p.rematchReady || p.readyRematch || p.nextReady;
-    });
+    const nr = state.room;
 
-    if (readyPlayers.length >= 2){
+    if (nr && nr.opponent && (nr.opponent.rematchReady || nr.opponent.readyRematch || nr.opponent.nextReady)){
       const newMatchId = 'm_' + now() + '_' + Math.random().toString(16).slice(2, 8);
 
       await updateRoom({
@@ -802,35 +620,30 @@
         activeMatchId: newMatchId,
         startedAt: now(),
         endedAt: null,
-        reason: null,
-        winner: null
+        effects: null,
+        winner: null,
+        reason: null
       });
 
-      await resetMyForRematch(newMatchId);
+      await resetPlayerForRematch(newMatchId);
 
       emit('gj:battle-rematch-start', {
-        matchId: newMatchId
+        matchId: newMatchId,
+        reason: 'local-start'
       });
-
-      const out = new URL(location.href);
-      out.searchParams.set('matchId', newMatchId);
-      out.searchParams.set('roundId', newMatchId);
-      out.searchParams.set('seed', String(now()));
-      out.searchParams.set('run', 'play');
-      out.searchParams.set('phase', 'play');
-
-      setTimeout(function(){
-        location.href = out.toString();
-      }, 280);
     }else{
-      syncUIFromCore();
+      emit('gj:battle-rematch-ready', {
+        playerId: state.playerId
+      });
     }
   }
 
-  async function resetMyForRematch(newMatchId){
+  async function resetPlayerForRematch(matchId){
+    state.ended = false;
     state.rematchReady = false;
+    state.matchId = matchId || state.matchId;
 
-    return updateMyPlayer({
+    await updateMyPlayer({
       score: 0,
       points: 0,
       good: 0,
@@ -841,219 +654,303 @@
       lives: 3,
       power: 0,
       attackPower: 0,
+      result: null,
       finished: false,
       done: false,
-      result: null,
-      status: 'in-game',
-      phase: 'play',
-      currentPage: 'run',
-      matchId: newMatchId,
-      roundId: newMatchId,
       rematchReady: false,
       readyRematch: false,
-      nextReady: false
+      nextReady: false,
+      status: 'in-game',
+      phase: 'play',
+      matchId: state.matchId,
+      roundId: state.matchId,
+      currentPage: 'run',
+      currentUrl: location.href
     });
   }
 
   async function markLeft(){
-    const bridge = getBridge();
+    const ref = getPlayerRef();
 
-    if (bridge && typeof bridge.markPlayerLeft === 'function'){
-      return bridge.markPlayerLeft(ROOM_CODE, PLAYER_ID);
-    }
-
-    return updateMyPlayer({
-      status: 'left',
-      left: true,
-      quit: true,
-      disconnected: true,
-      phase: 'left',
-      currentPage: 'left'
-    });
-  }
-
-  function hookButtons(){
-    document.querySelectorAll('[data-rematch-btn], .btn-rematch, #btnRematch').forEach(function(btn){
-      if (btn.dataset.gjCoreRematchBound === '1') return;
-      btn.dataset.gjCoreRematchBound = '1';
-
-      btn.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        requestRematch();
-      }, true);
-    });
-
-    document.querySelectorAll('[data-back-lobby], #btnBackLobby, #btnResultLobby').forEach(function(btn){
-      if (btn.dataset.gjCoreLobbyBound === '1') return;
-      btn.dataset.gjCoreLobbyBound = '1';
-
-      btn.addEventListener('click', function(){
-        markLeft();
-      }, true);
-    });
-
-    document.querySelectorAll('[data-back-hub], #btnHub, #btnResultHub').forEach(function(btn){
-      if (btn.dataset.gjCoreHubBound === '1') return;
-      btn.dataset.gjCoreHubBound = '1';
-
-      btn.addEventListener('click', function(){
-        markLeft();
-      }, true);
-    });
-  }
-
-  function hookRuntimeEvents(){
-    window.addEventListener('gj:good-collected', function(){
-      setTimeout(function(){
-        forceRealtimeSync('good-collected');
-      }, 40);
-    });
-
-    window.addEventListener('gj:junk-hit', function(){
-      setTimeout(function(){
-        forceRealtimeSync('junk-hit');
-      }, 40);
-    });
-
-    window.addEventListener('hha:score', function(){
-      setTimeout(function(){
-        forceRealtimeSync('hha-score');
-      }, 40);
-    });
-
-    window.addEventListener('hha:miss', function(){
-      setTimeout(function(){
-        forceRealtimeSync('hha-miss');
-      }, 40);
-    });
-
-    window.addEventListener('gj:battle-ended', async function(ev){
-      const detail = ev && ev.detail ? ev.detail : {};
-
-      await updateMyPlayer({
-        finished: true,
-        done: true,
-        status: 'finished',
-        phase: 'summary',
-        currentPage: 'summary',
-        result: detail.result || '',
-        reason: detail.reason || ''
-      });
-
-      await updateRoom({
-        phase: 'summary',
-        status: 'summary',
-        state: 'summary',
-        endedAt: now(),
-        reason: detail.reason || ''
-      });
-
-      setTimeout(function(){
-        getRoomOnce();
-      }, 300);
-    });
-
-    window.addEventListener('beforeunload', function(){
-      markLeft();
-    });
-
-    window.addEventListener('pagehide', function(){
-      markLeft();
-    });
-  }
-
-  async function boot(){
-    hookButtons();
-    hookRuntimeEvents();
-
-    if (!ROOM_CODE){
-      warn('No room code. Core runs in local mode.');
-      updateGlobals();
+    if (!ref || typeof ref.update !== 'function'){
       return false;
     }
 
-    const ready = await waitForBridgeReady(6500);
-    state.dbReady = ready;
-
-    if (!ready){
-      warn('DB/Auth not ready. Core fallback local.', {
-        room: ROOM_CODE,
-        playerId: PLAYER_ID
+    try{
+      await ref.update({
+        status: 'left',
+        left: true,
+        quit: true,
+        disconnected: true,
+        lastSeen: now(),
+        heartbeatAt: now(),
+        updatedAt: now(),
+        coreVersion: CORE_VERSION
       });
-      updateGlobals();
+
+      return true;
+    }catch(_){
+      return false;
+    }
+  }
+
+  function attachRoomListener(){
+    if (state.attached) return true;
+
+    const ref = state.roomRef || getRoomRef();
+
+    if (!ref || typeof ref.on !== 'function'){
       return false;
     }
 
-    state.roomRef = getRoomRef();
+    state.attached = true;
 
-    attachRoomListener();
+    ref.on('value', function(snapshot){
+      const room = snapshot && typeof snapshot.val === 'function'
+        ? snapshot.val() || {}
+        : {};
 
-    await updateMyPlayer({
-      status: 'in-game',
-      phase: 'play',
-      currentPage: 'run',
-      joinedRunAt: now()
-    });
-
-    await getRoomOnce();
-
-    startSyncLoop();
-
-    emit('gj:battle-core-ready', {
-      ready: true,
-      roomCode: ROOM_CODE,
-      playerId: PLAYER_ID,
-      view: VIEW
-    });
-
-    log(VERSION, 'ready', {
-      room: ROOM_CODE,
-      playerId: PLAYER_ID,
-      view: VIEW
+      applyRoom(room);
+    }, function(err){
+      setError(err, 'room-listener-error');
     });
 
     return true;
   }
 
-  function destroy(){
-    state.destroyed = true;
-    clearInterval(state.syncTimer);
-    clearInterval(state.heartbeatTimer);
-    markLeft();
+  function startHeartbeat(){
+    if (state.heartbeatTimer) return;
+
+    state.heartbeatTimer = setInterval(function(){
+      forceRealtimeSync('heartbeat');
+    }, 2500);
+
+    state.syncTimer = setInterval(function(){
+      const runtime = readRuntimeState();
+
+      if (runtime.ended && !state.ended){
+        state.ended = true;
+        forceRealtimeSync('runtime-ended-detected');
+        return;
+      }
+
+      if (!runtime.ended){
+        forceRealtimeSync('periodic');
+      }
+    }, 900);
+
+    window.addEventListener('beforeunload', markLeft);
+    window.addEventListener('pagehide', markLeft);
   }
 
-  const api = {
-    version: VERSION,
+  function bindRuntimeEvents(){
+    window.addEventListener('gj:good-collected', function(){
+      forceRealtimeSync('good-collected');
+    });
+
+    window.addEventListener('gj:junk-hit', function(){
+      forceRealtimeSync('junk-hit');
+    });
+
+    window.addEventListener('gj:junk-blocked', function(){
+      forceRealtimeSync('junk-blocked');
+    });
+
+    window.addEventListener('hha:score', function(){
+      forceRealtimeSync('hha-score');
+    });
+
+    window.addEventListener('hha:miss', function(){
+      forceRealtimeSync('hha-miss');
+    });
+
+    window.addEventListener('gj:battle-ended', function(ev){
+      const d = ev && ev.detail ? ev.detail : {};
+      state.ended = true;
+
+      updateMyPlayer({
+        finished: true,
+        done: true,
+        status: 'finished',
+        phase: 'summary',
+        result: d.result || '',
+        endReason: d.reason || '',
+        endedAt: now()
+      });
+
+      updateRoom({
+        phase: 'summary',
+        status: 'summary',
+        state: 'summary',
+        endedAt: now(),
+        reason: d.reason || 'battle-ended'
+      });
+    });
+
+    window.addEventListener('gj:battle-skill', function(ev){
+      const d = ev && ev.detail ? ev.detail : {};
+      const skill = String(d.skill || d.type || '').toLowerCase();
+
+      if (!skill) return;
+
+      if (skill === 'junk-storm' || skill === 'freeze'){
+        updateRoom({
+          effects: {
+            type: skill,
+            from: state.playerId,
+            name: state.playerName,
+            at: now()
+          }
+        });
+      }
+
+      forceRealtimeSync('skill-' + skill);
+    });
+  }
+
+  function bindRematchButtons(){
+    const buttons = Array.from(document.querySelectorAll('[data-rematch-btn], .btn-rematch, #btnRematch'));
+
+    buttons.forEach(function(btn){
+      if (btn.dataset.gjRematchBound === '1') return;
+
+      btn.dataset.gjRematchBound = '1';
+
+      btn.addEventListener('click', async function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        btn.disabled = true;
+        const old = btn.textContent;
+        btn.textContent = '⏳ รอคู่แข่ง...';
+
+        try{
+          await setRematchReady();
+        }catch(err){
+          setError(err, 'rematch-click-failed');
+          btn.disabled = false;
+          btn.textContent = old || '🔁 Battle อีกครั้ง';
+        }
+      });
+    });
+  }
+
+  function updateRematchStatusText(detail){
+    const el = document.querySelector('[data-rematch-status], #rematchStatus');
+    if (!el) return;
+
+    const total = safeNum(detail && detail.total, 0);
+    const ready = safeNum(detail && detail.ready, 0);
+
+    if (total >= 2){
+      el.textContent = 'พร้อมเล่นต่อ ' + ready + '/' + total + ' คน';
+    }else{
+      el.textContent = 'กด Battle อีกครั้ง เมื่อต้องการเล่นต่อ';
+    }
+  }
+
+  async function init(){
+    if (!state.roomCode){
+      setError('No room code. Core will run local only.', 'init-no-room');
+      return false;
+    }
+
+    const ok = await waitForBridgeReady(5500);
+
+    if (!ok){
+      setError('Firebase bridge/db/auth not ready. Core will retry.', 'bridge-not-ready');
+    }
+
+    const ref = getRoomRef();
+
+    if (!ref){
+      setError('Cannot get room ref', 'init-no-room-ref');
+      return false;
+    }
+
+    getPlayerRef();
+
+    await updateMyPlayer({
+      joinedRunAt: now(),
+      status: 'in-game',
+      phase: 'play',
+      currentPage: 'run',
+      currentUrl: location.href,
+      matchId: state.matchId,
+      roundId: state.matchId
+    });
+
+    await updateRoom({
+      code: state.roomCode,
+      room: state.roomCode,
+      roomCode: state.roomCode,
+      phase: 'play',
+      status: 'play',
+      state: 'play',
+      matchId: state.matchId || undefined,
+      roundId: state.matchId || undefined
+    });
+
+    attachRoomListener();
+    startHeartbeat();
+    bindRuntimeEvents();
+    bindRematchButtons();
+
+    window.addEventListener('gj:battle-rematch-status', function(ev){
+      updateRematchStatusText(ev && ev.detail ? ev.detail : {});
+    });
+
+    state.ready = true;
+
+    emit('gj:battle-core-ready', {
+      roomCode: state.roomCode,
+      matchId: state.matchId,
+      view: state.view
+    });
+
+    console.info('[GoodJunk Battle Core]', CORE_VERSION, 'ready', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      view: state.view
+    });
+
+    return true;
+  }
+
+  window.GJ_BATTLE_CORE = {
+    version: CORE_VERSION,
     state,
-    boot,
-    destroy,
-    getRoomOnce,
+    init,
+    readRuntimeState,
+    forceRealtimeSync,
     updateMyPlayer,
     updateRoom,
-    forceRealtimeSync,
-    requestRematch,
-    resetMyForRematch,
+    applyRoom,
+    getOpponentSnapshot: function(){
+      return state.opponent || window.GJ_BATTLE_OPPONENT || null;
+    },
+    setRematchReady,
+    resetPlayerForRematch,
     markLeft,
     normalizeRoom,
     normalizePlayer,
-    findOpponent,
-    findMe,
-    readRuntimeState,
-    syncUIFromCore
+    getRoomRef,
+    getPlayerRef
   };
-
-  window.GJ_BATTLE_CORE = api;
 
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', function(){
-      setTimeout(boot, 80);
+      init();
     }, { once:true });
   }else{
-    setTimeout(boot, 80);
+    init();
   }
 
-  setInterval(hookButtons, 1200);
+  window.addEventListener('gj:battle-firebase-ready', function(){
+    if (!state.ready){
+      init();
+    }
+  });
 
-  console.info('[GJ Battle Core]', VERSION, 'loaded');
+  console.info('[GoodJunk Battle Core]', CORE_VERSION, 'loaded');
 })();
