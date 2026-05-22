@@ -12,7 +12,7 @@
 (function(){
   'use strict';
 
-  const VERSION = '20260522-startfix07d-practice08';
+  const VERSION = '20260522-startfix07e-practice08';
 
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__ = true;
