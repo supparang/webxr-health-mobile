@@ -3,26 +3,23 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#fff3d7" />
-  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#050819" />
+  <meta name="color-scheme" content="dark" />
 
   <title>GoodJunk Battle v2 • Cardboard</title>
 
   <style>
     :root{
-      --bg1:#fff8e8;
-      --bg2:#eaf8ff;
-      --card:#fffef8;
-      --card2:#fff9e8;
-      --line:#ffc77d;
-      --line2:#ffdca8;
-      --text:#753119;
-      --muted:#9a6a42;
+      --bg:#050819;
+      --panel:rgba(255,254,248,.92);
+      --text:#fff6dc;
+      --darkText:#753119;
+      --muted:#ffdca8;
       --good:#55d978;
       --bad:#ff7b69;
       --blue:#71ccff;
       --yellow:#ffe17a;
-      --shadow:0 14px 32px rgba(112,60,20,.14);
+      --shadow:0 14px 34px rgba(0,0,0,.28);
     }
 
     *{
@@ -34,71 +31,71 @@
     body{
       width:100%;
       height:100%;
-      min-height:100%;
       margin:0;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 15% 10%, rgba(255,225,122,.50), transparent 28%),
-        radial-gradient(circle at 90% 8%, rgba(113,204,255,.36), transparent 32%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
+        radial-gradient(circle at 50% 35%, rgba(113,204,255,.28), transparent 32%),
+        radial-gradient(circle at 20% 85%, rgba(85,217,120,.18), transparent 28%),
+        radial-gradient(circle at 82% 75%, rgba(255,225,122,.16), transparent 28%),
+        linear-gradient(180deg,#050819,#121c36 55%,#182b33);
       overflow:hidden;
       overscroll-behavior:none;
-      touch-action:none;
     }
 
     body{
-      height:100dvh;
       min-height:100dvh;
-      padding:4px;
-      overflow:hidden;
-      position:fixed;
-      inset:0;
-    }
-
-    button,
-    a{
-      font-family:inherit;
+      touch-action:none;
     }
 
     button{
+      font-family:inherit;
       cursor:pointer;
       touch-action:manipulation;
     }
 
+    button:disabled{
+      opacity:.48;
+      cursor:not-allowed;
+      filter:grayscale(.25);
+    }
+
     .app{
-      width:100%;
-      height:100dvh;
-      max-width:none;
-      margin:0 auto;
-      display:grid;
-      grid-template-rows:auto auto minmax(0,1fr) auto;
-      gap:4px;
+      position:fixed;
+      inset:0;
       overflow:hidden;
+      display:grid;
+      grid-template-rows:auto minmax(0,1fr) auto;
+      gap:6px;
+      padding:6px;
     }
 
     .topbar{
+      position:relative;
+      z-index:50;
       display:grid;
       grid-template-columns:auto minmax(0,1fr) auto;
       align-items:center;
-      gap:8px;
-      padding:6px 8px;
+      gap:6px;
+      min-height:48px;
+      padding:5px 6px;
       border-radius:18px;
-      border:3px solid rgba(255,199,125,.9);
-      background:rgba(255,254,248,.94);
+      border:2px solid rgba(255,220,168,.56);
+      background:rgba(12,18,35,.72);
       box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
     }
 
     .game-icon{
-      width:44px;
-      height:44px;
+      width:38px;
+      height:38px;
       display:grid;
       place-items:center;
-      border-radius:15px;
+      border-radius:14px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
+      color:#753119;
       border:2px solid rgba(255,199,125,.84);
-      font-size:25px;
-      flex:0 0 auto;
+      font-size:23px;
     }
 
     .title-wrap{
@@ -107,10 +104,10 @@
 
     .title{
       margin:0;
-      font-size:clamp(20px,4vw,30px);
+      font-size:17px;
       line-height:1.05;
       font-weight:1000;
-      color:var(--text);
+      color:#fff6dc;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -118,9 +115,9 @@
 
     .subtitle{
       margin-top:2px;
-      font-size:11px;
+      font-size:10px;
       font-weight:900;
-      color:var(--muted);
+      color:#ffdca8;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -128,49 +125,52 @@
 
     .top-actions{
       display:flex;
-      gap:5px;
+      gap:4px;
       align-items:center;
     }
 
     .top-btn{
-      min-height:34px;
-      padding:5px 8px;
-      border-radius:13px;
-      border:2px solid rgba(255,199,125,.9);
-      background:#fffef8;
-      color:var(--text);
-      font-size:12px;
+      min-height:31px;
+      padding:5px 7px;
+      border-radius:12px;
+      border:2px solid rgba(255,220,168,.58);
+      background:rgba(255,254,248,.12);
+      color:#fff6dc;
+      font-size:11px;
       font-weight:1000;
-      text-decoration:none;
       display:inline-flex;
       align-items:center;
       justify-content:center;
-      position:relative;
-      z-index:10001;
+      white-space:nowrap;
     }
 
     .top-btn.icon-only{
-      width:34px;
+      width:31px;
       padding:5px;
-      font-size:16px;
+      font-size:14px;
     }
 
-    .hud-grid{
+    .hud-strip{
+      position:absolute;
+      left:8px;
+      right:8px;
+      top:60px;
+      z-index:45;
       display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:4px;
-      margin:0;
+      grid-template-columns:1.1fr .72fr .72fr .72fr;
+      gap:5px;
+      pointer-events:none;
     }
 
     .hud-card{
       min-width:0;
-      min-height:40px;
-      padding:4px 3px;
+      padding:5px 3px;
       border-radius:13px;
-      border:2px solid rgba(255,220,168,.95);
-      background:rgba(255,254,248,.92);
+      border:2px solid rgba(255,220,168,.52);
+      background:rgba(8,13,27,.62);
       text-align:center;
-      box-shadow:0 5px 12px rgba(112,60,20,.08);
+      box-shadow:0 7px 18px rgba(0,0,0,.18);
+      backdrop-filter:blur(9px);
     }
 
     .hud-card .label{
@@ -178,119 +178,44 @@
       font-size:8px;
       line-height:1;
       font-weight:1000;
-      color:#8c6a28;
+      color:#ffdca8;
       text-transform:uppercase;
     }
 
     .hud-card .value{
       display:block;
-      margin-top:3px;
-      font-size:clamp(14px,2.6vw,20px);
+      margin-top:4px;
+      font-size:clamp(14px,4vw,20px);
       line-height:1.05;
       font-weight:1000;
-      color:var(--text);
+      color:#fff6dc;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .arena{
-      position:relative;
-      width:100%;
-      height:auto;
-      min-height:0;
-      max-height:none;
-      margin:0;
-      border-radius:22px;
-      border:4px solid rgba(255,199,125,.9);
-      overflow:hidden;
-      box-shadow:var(--shadow);
-      background:
-        radial-gradient(circle at 50% 60%, rgba(255,225,122,.30), transparent 30%),
-        radial-gradient(circle at 25% 80%, rgba(85,217,120,.14), transparent 26%),
-        radial-gradient(circle at 80% 35%, rgba(113,204,255,.14), transparent 30%),
-        linear-gradient(180deg,#e9fbff 0%,#fff9cf 100%);
-      touch-action:none;
-      user-select:none;
-      cursor:crosshair;
-    }
-
-    .target{
-      position:absolute;
-      display:grid;
-      place-items:center;
-      width:54px;
-      height:54px;
-      border-radius:17px;
-      border:5px solid var(--good);
-      background:rgba(255,255,255,.94);
-      box-shadow:0 10px 20px rgba(80,50,10,.14);
-      font-size:28px;
-      font-weight:1000;
-      user-select:none;
-      touch-action:none;
-      pointer-events:none;
-      transform:translate(-50%,-50%);
-      transition:transform .12s ease, opacity .12s ease;
-      z-index:5;
-    }
-
-    .target.bad,
-    .target.junk{
-      border-color:#ff7990;
-    }
-
-    .target.hit{
-      opacity:0;
-      transform:translate(-50%,-50%) scale(1.25);
-    }
-
-    .mini-stats{
+    .opponent-mini{
       position:absolute;
       left:8px;
       right:8px;
-      bottom:8px;
-      z-index:12;
-      display:flex;
-      justify-content:center;
-      flex-wrap:wrap;
+      top:116px;
+      z-index:45;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto auto;
+      align-items:center;
       gap:5px;
+      min-height:34px;
+      padding:4px 7px;
+      border-radius:14px;
+      border:2px solid rgba(255,220,168,.52);
+      background:rgba(8,13,27,.62);
+      box-shadow:0 7px 18px rgba(0,0,0,.18);
+      backdrop-filter:blur(9px);
       pointer-events:none;
     }
 
-    .mini-pill{
-      padding:4px 8px;
-      border-radius:999px;
-      border:2px solid rgba(255,210,156,.95);
-      background:rgba(255,253,245,.86);
-      color:var(--text);
-      font-size:10px;
-      font-weight:1000;
-      box-shadow:0 5px 14px rgba(100,55,12,.10);
-    }
-
-    .battle-footer{
-      display:grid;
-      grid-template-columns:minmax(0,1fr) auto auto auto auto;
-      gap:5px;
-      align-items:center;
-      min-height:42px;
-      padding:4px;
-      border-radius:16px;
-      border:3px solid rgba(255,190,105,.75);
-      background:rgba(255,252,238,.96);
-      box-shadow:var(--shadow);
-      position:relative;
-      z-index:10001;
-    }
-
-    #battlePower{
+    .opponent-name{
       min-width:0;
-      padding:6px 9px;
-      border-radius:13px;
-      border:2px solid rgba(255,210,156,.95);
-      background:rgba(255,254,248,.90);
-      color:var(--text);
       font-size:12px;
       font-weight:1000;
       white-space:nowrap;
@@ -298,97 +223,301 @@
       text-overflow:ellipsis;
     }
 
-    .skill-btn{
-      min-height:36px;
-      min-width:54px;
-      padding:5px 7px;
-      border-radius:13px;
-      border:2px solid rgba(255,203,122,.92);
-      background:linear-gradient(180deg,#fff8d9,#ffe27a);
-      color:#87331f;
-      font-size:11px;
+    .rival-score{
+      min-width:40px;
+      text-align:center;
+      font-size:17px;
       font-weight:1000;
-      line-height:1.05;
-      box-shadow:0 4px 0 rgba(194,125,38,.18);
+      color:#ffe17a;
     }
 
-    .skill-btn:active{
-      transform:translateY(2px);
-      box-shadow:0 2px 0 rgba(194,125,38,.16);
+    .opponent-status{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:42px;
+      min-height:24px;
+      padding:3px 6px;
+      border-radius:999px;
+      border:2px solid rgba(130,220,130,.62);
+      background:rgba(239,255,235,.18);
+      color:#9dffb0;
+      font-size:9px;
+      font-weight:1000;
     }
 
-    .skill-btn[disabled]{
-      opacity:.5;
-      filter:grayscale(.25);
-      box-shadow:none;
+    .opponent-status.off{
+      border-color:rgba(255,123,105,.62);
+      background:rgba(255,240,237,.15);
+      color:#ffc2ba;
     }
 
-    .cvr-crosshair{
-      position:fixed;
+    .arena-wrap{
+      position:relative;
+      min-height:0;
+      border-radius:24px;
+      border:3px solid rgba(255,220,168,.42);
+      overflow:hidden;
+      box-shadow:var(--shadow);
+      background:#0a1024;
+    }
+
+    .arena{
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255,225,122,.18), transparent 26%),
+        radial-gradient(circle at 20% 75%, rgba(85,217,120,.16), transparent 24%),
+        radial-gradient(circle at 82% 28%, rgba(113,204,255,.16), transparent 28%),
+        linear-gradient(180deg,#0b1836 0%,#13264a 52%,#102c31 100%);
+      touch-action:none;
+    }
+
+    .arena::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      pointer-events:none;
+      background:
+        linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(255,255,255,.06) 1px, transparent 1px);
+      background-size:64px 64px;
+      opacity:.7;
+    }
+
+    .arena-title{
+      position:absolute;
       left:50%;
       top:50%;
-      width:46px;
-      height:46px;
       transform:translate(-50%,-50%);
-      z-index:9999;
+      z-index:5;
+      width:min(82vw,380px);
+      padding:10px 12px;
+      border-radius:22px;
+      border:2px solid rgba(255,220,168,.42);
+      background:rgba(8,13,27,.38);
+      color:rgba(255,246,220,.75);
+      text-align:center;
+      font-size:14px;
+      font-weight:1000;
       pointer-events:none;
+      backdrop-filter:blur(5px);
     }
 
-    .cvr-crosshair::before,
-    .cvr-crosshair::after{
+    .target{
+      position:absolute;
+      display:grid;
+      place-items:center;
+      width:50px;
+      height:50px;
+      border-radius:16px;
+      border:5px solid var(--good);
+      background:rgba(255,255,255,.96);
+      box-shadow:0 9px 20px rgba(0,0,0,.26);
+      font-size:27px;
+      font-weight:1000;
+      user-select:none;
+      touch-action:none;
+      transform:translate(-50%,-50%);
+      transition:transform .10s ease, opacity .10s ease, box-shadow .10s ease;
+      z-index:15;
+    }
+
+    .target.bad,
+    .target.junk{
+      border-color:#ff7990;
+    }
+
+    .target.locked{
+      box-shadow:
+        0 0 0 5px rgba(255,225,122,.28),
+        0 0 28px rgba(255,225,122,.48),
+        0 9px 20px rgba(0,0,0,.26);
+      transform:translate(-50%,-50%) scale(1.08);
+    }
+
+    .target.hit{
+      opacity:0;
+      transform:translate(-50%,-50%) scale(1.22);
+    }
+
+    .crosshair{
+      position:absolute;
+      left:50%;
+      top:50%;
+      z-index:60;
+      width:42px;
+      height:42px;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      border-radius:50%;
+      border:3px solid rgba(255,246,220,.92);
+      box-shadow:
+        0 0 0 2px rgba(0,0,0,.22),
+        0 0 24px rgba(255,225,122,.38);
+    }
+
+    .crosshair::before,
+    .crosshair::after{
       content:"";
       position:absolute;
       left:50%;
       top:50%;
-      background:#8a3d24;
-      opacity:.78;
-      border-radius:999px;
+      background:rgba(255,246,220,.95);
       transform:translate(-50%,-50%);
+      border-radius:999px;
     }
 
-    .cvr-crosshair::before{
-      width:46px;
+    .crosshair::before{
+      width:22px;
       height:3px;
     }
 
-    .cvr-crosshair::after{
+    .crosshair::after{
       width:3px;
-      height:46px;
+      height:22px;
     }
 
-    .cvr-crosshair-ring{
+    .crosshair.ready{
+      border-color:#ffe17a;
+      box-shadow:
+        0 0 0 2px rgba(0,0,0,.22),
+        0 0 32px rgba(255,225,122,.72);
+    }
+
+    .floating-text{
       position:absolute;
-      inset:7px;
-      border:3px solid rgba(138,61,36,.68);
-      border-radius:999px;
-    }
-
-    .cvr-aim-ready .cvr-crosshair-ring{
-      border-color:#38c96a;
-      box-shadow:0 0 0 7px rgba(56,201,106,.14);
-    }
-
-    .cvr-toast{
-      position:fixed;
-      left:50%;
-      top:calc(50% + 54px);
-      transform:translateX(-50%);
-      z-index:10000;
-      padding:7px 12px;
-      border-radius:999px;
-      border:2px solid rgba(255,199,125,.92);
-      background:rgba(255,254,248,.94);
-      color:#753119;
-      font-size:13px;
+      z-index:70;
+      transform:translate(-50%,-50%);
       font-weight:1000;
+      font-size:20px;
       pointer-events:none;
-      opacity:0;
-      transition:opacity .12s ease, transform .12s ease;
+      animation:floatUp .68s ease-out forwards;
+      text-shadow:0 3px 0 rgba(0,0,0,.28);
     }
 
-    .cvr-toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(-4px);
+    @keyframes floatUp{
+      from{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+      }
+      to{
+        opacity:0;
+        transform:translate(-50%,-112%) scale(1.18);
+      }
+    }
+
+    .mini-stats{
+      position:absolute;
+      left:7px;
+      right:7px;
+      bottom:76px;
+      z-index:45;
+      display:flex;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:4px;
+      pointer-events:none;
+    }
+
+    .mini-pill{
+      padding:4px 6px;
+      border-radius:999px;
+      border:1.5px solid rgba(255,220,168,.52);
+      background:rgba(8,13,27,.55);
+      color:#fff6dc;
+      font-size:10px;
+      font-weight:1000;
+      box-shadow:0 4px 10px rgba(0,0,0,.16);
+      backdrop-filter:blur(7px);
+    }
+
+    .bottom-zone{
+      position:relative;
+      z-index:50;
+      display:grid;
+      grid-template-rows:auto auto;
+      gap:5px;
+    }
+
+    .power-row{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:6px;
+      min-height:28px;
+      padding:4px 7px;
+      border-radius:14px;
+      border:2px solid rgba(255,220,168,.52);
+      background:rgba(8,13,27,.62);
+      box-shadow:0 7px 18px rgba(0,0,0,.18);
+      color:#fff6dc;
+      font-size:11px;
+      font-weight:1000;
+      backdrop-filter:blur(9px);
+    }
+
+    .power-bar{
+      width:120px;
+      height:11px;
+      overflow:hidden;
+      border-radius:999px;
+      border:1.5px solid rgba(255,203,122,.92);
+      background:rgba(255,255,255,.16);
+    }
+
+    .power-fill{
+      height:100%;
+      width:0%;
+      background:linear-gradient(90deg,#ffe17a,#ffb650);
+      border-radius:999px;
+      transition:width .18s ease;
+    }
+
+    .battle-actions{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:5px;
+      padding:5px;
+      border-radius:17px;
+      border:2px solid rgba(255,220,168,.42);
+      background:rgba(8,13,27,.66);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(9px);
+    }
+
+    .skill-btn{
+      min-height:42px;
+      padding:5px 3px;
+      border-radius:13px;
+      border:2px solid rgba(255,203,122,.92);
+      background:linear-gradient(180deg,#fff8d9,#ffe27a);
+      color:#87331f;
+      font-size:clamp(10px,3.2vw,13px);
+      font-weight:1000;
+      line-height:1.05;
+      box-shadow:0 5px 0 rgba(194,125,38,.20);
+    }
+
+    .skill-btn:active:not(:disabled){
+      transform:translateY(2px);
+      box-shadow:0 3px 0 rgba(194,125,38,.16);
+    }
+
+    .tap-zone{
+      position:absolute;
+      inset:0;
+      z-index:55;
+      background:transparent;
+      border:0;
+      padding:0;
+      margin:0;
+      cursor:pointer;
+    }
+
+    .tap-zone:active ~ .crosshair{
+      transform:translate(-50%,-50%) scale(.94);
     }
 
     .result-overlay{
@@ -398,9 +527,9 @@
       display:none;
       align-items:center;
       justify-content:center;
-      padding:14px;
-      background:rgba(40,28,18,.36);
-      backdrop-filter:blur(9px);
+      padding:10px;
+      background:rgba(0,0,0,.52);
+      backdrop-filter:blur(10px);
     }
 
     .result-overlay.show{
@@ -409,45 +538,46 @@
 
     .result-card{
       width:min(94vw,560px);
-      max-height:calc(100dvh - 18px);
+      max-height:calc(100dvh - 16px);
       overflow:auto;
-      padding:22px 16px 18px;
-      border-radius:30px;
-      border:5px solid rgba(255,187,105,.96);
-      background:rgba(255,254,248,.97);
-      box-shadow:0 22px 50px rgba(70,34,10,.24);
+      padding:18px 13px 14px;
+      border-radius:28px;
+      border:4px solid rgba(255,187,105,.96);
+      background:rgba(255,254,248,.98);
+      box-shadow:0 22px 50px rgba(0,0,0,.34);
+      color:var(--darkText);
       text-align:center;
     }
 
     .result-icon{
-      width:74px;
-      height:74px;
+      width:68px;
+      height:68px;
       display:grid;
       place-items:center;
-      margin:0 auto 10px;
-      border-radius:24px;
+      margin:0 auto 8px;
+      border-radius:22px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:3px solid rgba(255,199,125,.84);
-      font-size:40px;
+      font-size:36px;
     }
 
     .result-title{
       margin:0;
-      font-size:clamp(34px,8vw,56px);
+      font-size:clamp(30px,10vw,50px);
       line-height:1.05;
       font-weight:1000;
-      color:var(--text);
+      color:var(--darkText);
     }
 
     .result-note{
       width:fit-content;
       max-width:100%;
-      margin:12px auto;
-      padding:8px 13px;
+      margin:10px auto;
+      padding:7px 11px;
       border-radius:999px;
-      border:3px dashed rgba(255,208,140,.92);
+      border:2px dashed rgba(255,208,140,.92);
       background:rgba(255,248,225,.88);
-      font-size:17px;
+      font-size:15px;
       font-weight:1000;
       color:#8a5a20;
     }
@@ -455,21 +585,21 @@
     .result-score-grid{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin:14px 0;
+      gap:8px;
+      margin:12px 0;
     }
 
     .score-box{
       min-width:0;
-      padding:13px 10px;
-      border-radius:22px;
-      border:3px solid rgba(255,220,168,.95);
+      padding:10px 8px;
+      border-radius:20px;
+      border:2px solid rgba(255,220,168,.95);
       background:rgba(255,253,245,.92);
       text-align:left;
     }
 
     .score-box .who{
-      font-size:14px;
+      font-size:12px;
       font-weight:1000;
       white-space:nowrap;
       overflow:hidden;
@@ -477,30 +607,30 @@
     }
 
     .score-box .big{
-      margin-top:3px;
-      font-size:42px;
+      margin-top:4px;
+      font-size:38px;
       line-height:1;
       font-weight:1000;
-      color:var(--text);
+      color:var(--darkText);
     }
 
     .score-box .small{
       margin-top:6px;
-      font-size:13px;
+      font-size:11px;
       font-weight:900;
-      color:var(--text);
+      color:var(--darkText);
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
     .rematch-status{
-      margin:10px 0;
-      padding:9px 10px;
-      border-radius:18px;
-      border:3px dashed rgba(255,208,140,.92);
+      margin:8px 0;
+      padding:8px;
+      border-radius:16px;
+      border:2px dashed rgba(255,208,140,.92);
       background:rgba(255,248,225,.7);
-      font-size:15px;
+      font-size:13px;
       font-weight:1000;
       color:#86601d;
     }
@@ -508,18 +638,18 @@
     .result-actions{
       display:grid;
       grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:12px;
+      gap:8px;
+      margin-top:10px;
     }
 
     .result-actions button{
-      min-height:50px;
-      padding:10px 12px;
-      border-radius:18px;
-      border:3px solid rgba(255,199,125,.9);
+      min-height:46px;
+      padding:8px 9px;
+      border-radius:16px;
+      border:2px solid rgba(255,199,125,.9);
       background:#fffef8;
-      color:var(--text);
-      font-size:15px;
+      color:var(--darkText);
+      font-size:13px;
       font-weight:1000;
       display:flex;
       align-items:center;
@@ -535,72 +665,115 @@
       border-color:rgba(110,203,255,.9);
     }
 
-    .qa-badge{
+    .toast{
       position:fixed;
-      left:6px;
-      bottom:6px;
-      z-index:10002;
-      padding:5px 9px;
+      left:50%;
+      bottom:calc(80px + env(safe-area-inset-bottom));
+      transform:translateX(-50%) translateY(16px);
+      z-index:99999;
+      width:max-content;
+      max-width:92vw;
+      padding:10px 13px;
       border-radius:999px;
-      border:2px solid rgba(85,217,120,.60);
-      background:rgba(238,255,235,.86);
-      color:#2d723b;
-      font-size:11px;
-      font-weight:1000;
+      background:rgba(0,0,0,.78);
+      color:#fff;
+      font-size:13px;
+      font-weight:950;
+      text-align:center;
+      opacity:0;
       pointer-events:none;
+      transition:opacity .18s ease, transform .18s ease;
     }
 
-    .db-badge{
-      position:fixed;
-      left:6px;
-      top:6px;
-      z-index:10002;
-      padding:5px 9px;
-      border-radius:999px;
-      border:2px solid rgba(255,199,125,.72);
-      background:rgba(255,254,248,.86);
-      color:#753119;
-      font-size:11px;
-      font-weight:1000;
-      pointer-events:none;
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
     }
 
-    @media(max-width:760px){
-      .title{
-        font-size:20px;
+    @media(max-width:370px){
+      .hud-strip{
+        grid-template-columns:1fr 1fr;
       }
 
-      .hud-grid{
-        grid-template-columns:repeat(5,minmax(0,1fr));
+      .opponent-mini{
+        top:168px;
       }
 
-      .battle-footer{
-        grid-template-columns:minmax(0,1fr) repeat(4,auto);
+      .battle-actions{
+        grid-template-columns:repeat(2,minmax(0,1fr));
       }
 
       .skill-btn{
-        min-width:48px;
-        font-size:10px;
+        min-height:38px;
+      }
+
+      .target{
+        width:47px;
+        height:47px;
+        font-size:25px;
+      }
+
+      .result-score-grid,
+      .result-actions{
+        grid-template-columns:1fr;
+      }
+    }
+
+    @media(orientation:landscape) and (max-height:520px){
+      .app{
+        grid-template-rows:minmax(0,1fr) auto;
+      }
+
+      .topbar{
+        position:absolute;
+        left:6px;
+        top:6px;
+        width:min(52vw,390px);
+      }
+
+      .hud-strip{
+        top:60px;
+        left:8px;
+        right:auto;
+        width:min(52vw,390px);
+        grid-template-columns:1fr 1fr;
+      }
+
+      .opponent-mini{
+        top:auto;
+        bottom:62px;
+        left:8px;
+        right:auto;
+        width:min(52vw,390px);
+      }
+
+      .arena-wrap{
+        grid-row:1;
+      }
+
+      .bottom-zone{
+        grid-row:2;
+      }
+
+      .mini-stats{
+        bottom:62px;
+        left:auto;
+        right:8px;
+        width:min(44vw,330px);
+        justify-content:flex-end;
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="db-badge" id="dbBadge">DB loading</div>
-
-  <div class="cvr-crosshair" aria-hidden="true">
-    <div class="cvr-crosshair-ring"></div>
-  </div>
-  <div id="cvrToast" class="cvr-toast">เล็งแล้วแตะเพื่อเก็บ</div>
-
   <div class="app" id="app">
     <header class="topbar">
-      <div class="game-icon">🥽</div>
+      <div class="game-icon">⚔️</div>
 
       <div class="title-wrap">
         <h1 class="title">GoodJunk Battle v2.4.33</h1>
-        <div class="subtitle" id="roomLine">Battle • Cardboard</div>
+        <div class="subtitle" id="roomLine">Battle • Cardboard/cVR</div>
       </div>
 
       <nav class="top-actions" aria-label="navigation">
@@ -610,7 +783,7 @@
       </nav>
     </header>
 
-    <section class="hud-grid" aria-label="battle status">
+    <section class="hud-strip" aria-label="battle status">
       <div class="hud-card">
         <span class="label">PLAYER</span>
         <span class="value" id="playerName">Hero</span>
@@ -628,43 +801,60 @@
 
       <div class="hud-card">
         <span class="label">TIME</span>
-        <span class="value" id="timer" data-time>90</span>
-      </div>
-
-      <div class="hud-card">
-        <span class="label">RIVAL</span>
-        <span class="value" id="rivalScore">0</span>
+        <span class="value" id="timer" data-time>60</span>
       </div>
     </section>
 
-    <main class="arena" id="arena" aria-label="GoodJunk Battle Cardboard arena">
-      <div class="mini-stats">
-        <span class="mini-pill" id="goodCount">Good 0</span>
-        <span class="mini-pill" id="junkCount">Junk 0</span>
-        <span class="mini-pill" id="missCount">Miss 0</span>
-        <span class="mini-pill" id="attackCount">Attack 0/5</span>
-        <span class="mini-pill" id="shieldCount">Shield 0</span>
+    <section class="opponent-mini">
+      <div class="opponent-name" id="opponentName" data-opponent-name>คู่แข่ง: รอคู่แข่ง...</div>
+      <div class="rival-score" id="rivalScore" data-rival-score>0</div>
+      <div class="opponent-status" id="opponentStatus" data-opponent-status>WAIT</div>
+    </section>
+
+    <section class="arena-wrap">
+      <main class="arena" id="arena" aria-label="GoodJunk Battle arena">
+        <div class="arena-title" id="arenaTitle">
+          เล็งเป้ากลางจอ แล้วแตะหน้าจอเพื่อยิง
+        </div>
+
+        <button id="tapZone" class="tap-zone" type="button" aria-label="tap to shoot"></button>
+        <div id="crosshair" class="crosshair" aria-hidden="true"></div>
+
+        <div class="mini-stats">
+          <span class="mini-pill" id="goodCount">Good 0</span>
+          <span class="mini-pill" id="junkCount">Junk 0</span>
+          <span class="mini-pill" id="missCount">Miss 0</span>
+          <span class="mini-pill" id="attackCount">Power 0/5</span>
+          <span class="mini-pill" id="shieldCount">Shield 0</span>
+        </div>
+      </main>
+    </section>
+
+    <section class="bottom-zone">
+      <div class="power-row">
+        <div id="battlePower" data-battle-power>พลัง 0/5</div>
+        <div class="power-bar" aria-hidden="true">
+          <div class="power-fill" id="powerFill"></div>
+        </div>
       </div>
-    </main>
 
-    <section class="battle-footer" aria-label="Battle skills">
-      <div id="battlePower" data-battle-power>พลัง 0/5 • คู่แข่ง: รอคู่แข่ง...</div>
+      <section id="battleActions" class="battle-actions action-bar" aria-label="Battle skills">
+        <button id="btnJunkStorm" class="skill-btn" type="button" data-skill="junk-storm" data-action="junk-storm">
+          ⚡ Storm
+        </button>
 
-      <button id="btnJunkStorm" class="skill-btn" type="button" data-skill="junk-storm" data-action="junk-storm">
-        ⚡ Storm
-      </button>
+        <button id="btnShield" class="skill-btn" type="button" data-skill="shield" data-action="shield">
+          🛡️ Shield
+        </button>
 
-      <button id="btnShield" class="skill-btn" type="button" data-skill="shield" data-action="shield">
-        🛡️ Shield
-      </button>
+        <button id="btnFreeze" class="skill-btn" type="button" data-skill="freeze" data-action="freeze">
+          ❄️ Freeze
+        </button>
 
-      <button id="btnFreeze" class="skill-btn" type="button" data-skill="freeze" data-action="freeze">
-        ❄️ Freeze
-      </button>
-
-      <button id="btnHeal" class="skill-btn" type="button" data-skill="heal" data-action="heal">
-        💚 Heal
-      </button>
+        <button id="btnHeal" class="skill-btn" type="button" data-skill="heal" data-action="heal">
+          💚 Heal
+        </button>
+      </section>
     </section>
   </div>
 
@@ -705,6 +895,10 @@
           🎮 โหมดทั้งหมด
         </button>
 
+        <button id="btnNutritionZone" type="button" data-nutrition-zone>
+          🥗 Nutrition Zone
+        </button>
+
         <button id="btnResultHub" type="button" data-back-hub>
           🏠 Hub
         </button>
@@ -712,7 +906,7 @@
     </div>
   </section>
 
-  <div class="qa-badge">Battle cVR QA OK</div>
+  <div id="toast" class="toast"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -721,9 +915,6 @@
   <script>
     (function GoodJunkBattleFirebaseInitGuard(){
       'use strict';
-
-      window.GJ_BATTLE_FIREBASE_INIT_GUARD =
-        'v2.4.33-cardboard-firebase-init-guard';
 
       const cfg =
         window.HHA_FIREBASE_CONFIG ||
@@ -740,30 +931,15 @@
           appId: "1:680817376848:web:eed21b522b0703f6bd9b55"
         };
 
-      function hasFirebaseApp(){
-        try{
-          return !!(
-            window.firebase &&
-            typeof firebase.apps !== 'undefined' &&
-            firebase.apps &&
-            firebase.apps.length
-          );
-        }catch(_){
-          return false;
-        }
-      }
-
       try{
         if (window.firebase && typeof firebase.initializeApp === 'function'){
-          if (!hasFirebaseApp()){
+          if (!firebase.apps || !firebase.apps.length){
             firebase.initializeApp(cfg);
           }
           window.GJ_BATTLE_FIREBASE_INIT_OK = true;
-        }else{
-          window.GJ_BATTLE_FIREBASE_INIT_OK = false;
         }
       }catch(err){
-        console.warn('[GJ Battle Firebase Init] failed', err);
+        console.warn('[GJ Battle Cardboard Firebase Init] failed', err);
         window.GJ_BATTLE_FIREBASE_INIT_OK = false;
       }
     })();
@@ -773,13 +949,13 @@
     (function GoodJunkBattleCardboardRuntime(){
       'use strict';
 
-      const RUNTIME_VERSION = 'v2.4.33-cardboard-cvr-crosshair-shoot-fix';
+      const RUNTIME_VERSION = 'v2.4.33-cardboard-runtime-crosshair-sync';
 
       const url = new URL(location.href);
       const params = url.searchParams;
 
       const PLAYER_ID = params.get('pid') || 'anon';
-      const PLAYER_NAME = params.get('name') || params.get('nick') || 'Hero';
+      const PLAYER_NAME = params.get('name') || 'Hero';
 
       const ROOM_CODE =
         params.get('room') ||
@@ -798,25 +974,30 @@
       const DIFF = params.get('diff') || 'normal';
 
       const arena = document.getElementById('arena');
+      const tapZone = document.getElementById('tapZone');
+      const crosshair = document.getElementById('crosshair');
       const timerEl = document.getElementById('timer');
       const scoreEl = document.getElementById('score');
       const heartsEl = document.getElementById('hearts');
       const playerNameEl = document.getElementById('playerName');
       const roomLine = document.getElementById('roomLine');
+
+      const opponentNameEl = document.getElementById('opponentName');
+      const opponentStatusEl = document.getElementById('opponentStatus');
       const rivalScoreEl = document.getElementById('rivalScore');
-      const battlePowerEl = document.getElementById('battlePower');
-      const dbBadge = document.getElementById('dbBadge');
 
       const goodCountEl = document.getElementById('goodCount');
       const junkCountEl = document.getElementById('junkCount');
       const missCountEl = document.getElementById('missCount');
       const attackCountEl = document.getElementById('attackCount');
       const shieldCountEl = document.getElementById('shieldCount');
+      const battlePowerEl = document.getElementById('battlePower');
+      const powerFill = document.getElementById('powerFill');
 
       const resultOverlay = document.getElementById('resultOverlay');
 
-      const foodGood = ['🍎','🥦','🥚','🍚','🐟','🥕','🍌','🥛'];
-      const foodJunk = ['🍩','🍟','🍔','🥤','🍰','🍭','🍬','🧁'];
+      const foodGood = ['🍎','🥦','🥚','🍚','🐟','🥕','🍌','🥛','🍊','🌽'];
+      const foodJunk = ['🍩','🍟','🍔','🥤','🍰','🍭','🍬','🧁','🍕','🍪'];
 
       const state = {
         running:true,
@@ -827,19 +1008,18 @@
         miss:0,
         hearts:3,
         timeLeft:TIME_LIMIT,
-        spawnEvery:DIFF === 'hard' || DIFF === 'challenge' ? 700 : DIFF === 'easy' ? 1050 : 850,
-        targetLife:DIFF === 'hard' || DIFF === 'challenge' ? 2100 : DIFF === 'easy' ? 3300 : 2650,
+        power:0,
+        shieldActive:false,
+        freezeActive:false,
+        spawnEvery: DIFF === 'hard' || DIFF === 'challenge' ? 620 : DIFF === 'easy' ? 1030 : 800,
+        targetLife: DIFF === 'hard' || DIFF === 'challenge' ? 1900 : DIFF === 'easy' ? 3300 : 2500,
         spawnTimer:null,
         clockTimer:null,
-        syncTimer:null,
+        aimTimer:null,
         playerId:PLAYER_ID,
         roomCode:ROOM_CODE,
         matchId:MATCH_ID,
-        power:0,
-        maxPower:5,
-        shieldActive:false,
-        shieldCount:0,
-        frozen:false
+        lockedTarget:null
       };
 
       window.GJ_PLAYER_ID = PLAYER_ID;
@@ -850,17 +1030,19 @@
       window.ROOM_CODE = ROOM_CODE;
       window.GJ_MATCH_ID = MATCH_ID;
       window.GJ_BATTLE_PHASE = 'play';
-      window.GJ_VIEW = 'cardboard';
-      window.HHA_VIEW = window.HHA_VIEW || {};
-      window.HHA_VIEW.mode = 'cardboard';
-      window.HHA_VIEW.layers = window.HHA_VIEW.layers || {};
-
-      function now(){
-        return Date.now();
-      }
 
       function emit(name, detail){
         window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }));
+      }
+
+      function toast(msg){
+        const el = document.getElementById('toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function(){
+          el.classList.remove('show');
+        }, 1350);
       }
 
       function rand(min, max){
@@ -871,51 +1053,9 @@
         return arr[Math.floor(Math.random() * arr.length)];
       }
 
-      function clamp(n, min, max){
-        return Math.max(min, Math.min(max, n));
-      }
-
-      function getBridge(){
-        return window.GJ_BATTLE_FIREBASE_BRIDGE || null;
-      }
-
-      function isDbReady(){
-        const bridge = getBridge();
-        if (bridge && typeof bridge.isReady === 'function'){
-          return !!bridge.isReady();
-        }
-        return !!(
-          window.GJ_BATTLE_DB_READY &&
-          window.GJ_BATTLE_AUTH_READY &&
-          window.GJ_DB &&
-          typeof window.GJ_DB.ref === 'function'
-        );
-      }
-
-      function getRoomRef(){
-        const bridge = getBridge();
-        if (
-          bridge &&
-          typeof bridge.getRoomRef === 'function' &&
-          ROOM_CODE
-        ){
-          return bridge.getRoomRef(ROOM_CODE);
-        }
-
-        if (
-          window.GJ_DB &&
-          typeof window.GJ_DB.ref === 'function' &&
-          ROOM_CODE
-        ){
-          return window.GJ_DB.ref('herohealth/goodjunk/battleV2Rooms/' + ROOM_CODE);
-        }
-
-        return null;
-      }
-
-      function updateDbBadge(){
-        if (!dbBadge) return;
-        dbBadge.textContent = isDbReady() ? 'DB ready' : 'DB offline/local';
+      function safeNum(v, fallback){
+        const n = Number(v);
+        return Number.isFinite(n) ? n : Number(fallback || 0);
       }
 
       function getOpponentSnapshot(){
@@ -923,78 +1063,79 @@
 
         if (live){
           return {
-            id:live.id || live.pid || '',
-            name:live.name || live.playerName || live.displayName || 'คู่แข่ง',
-            score:Number(live.score || live.points || 0),
-            good:Number(live.good || live.goodCount || 0),
-            junk:Number(live.junk || live.junkCount || 0),
-            miss:Number(live.miss || live.missCount || 0),
-            status:live.status || ''
+            name: live.name || live.playerName || live.displayName || 'รอคู่แข่ง...',
+            score: safeNum(live.score || live.points || 0, 0),
+            good: safeNum(live.good || live.goodCount || 0, 0),
+            junk: safeNum(live.junk || live.junkCount || 0, 0),
+            miss: safeNum(live.miss || live.missCount || 0, 0),
+            status: live.status || '',
+            online: !!live.online,
+            left: !!live.left,
+            finished: !!live.finished
           };
         }
 
         const room = window.GJ_CURRENT_ROOM || {};
         const players = room.players || {};
         const entries = Object.entries(players);
-
         const op = entries.find(function(pair){
+          const id = pair[0];
           const raw = pair[1] || {};
-          return (
-            String(pair[0]) !== String(PLAYER_ID) &&
-            String(raw.pid || '') !== String(PLAYER_ID)
-          );
+          return String(id) !== String(PLAYER_ID) && String(raw.pid || '') !== String(PLAYER_ID);
         });
 
         if (!op){
           return {
-            id:'',
             name:'รอคู่แข่ง...',
             score:0,
             good:0,
             junk:0,
             miss:0,
-            status:'waiting'
+            status:'waiting',
+            online:false,
+            left:false
           };
         }
 
         const data = op[1] || {};
 
         return {
-          id:op[0],
-          name:data.name || data.playerName || data.displayName || data.pid || 'คู่แข่ง',
-          score:Number(data.score || data.points || 0),
-          good:Number(data.good || data.goodCount || 0),
-          junk:Number(data.junk || data.junkCount || 0),
-          miss:Number(data.miss || data.missCount || 0),
-          status:data.status || ''
+          name:data.name || data.playerName || data.displayName || 'Hero',
+          score:safeNum(data.score || data.points || 0, 0),
+          good:safeNum(data.good || data.goodCount || 0, 0),
+          junk:safeNum(data.junk || data.junkCount || 0, 0),
+          miss:safeNum(data.miss || data.missCount || 0, 0),
+          status:data.status || '',
+          online:!(data.left || data.quit || data.disconnected),
+          left:!!(data.left || data.quit || data.disconnected),
+          finished:!!(data.finished || data.done)
         };
       }
 
       function syncBasicUI(){
-        const op = getOpponentSnapshot();
-
         playerNameEl.textContent = PLAYER_NAME;
         scoreEl.textContent = String(state.score);
         heartsEl.textContent = '❤'.repeat(state.hearts) + '♡'.repeat(Math.max(0, 3 - state.hearts));
         timerEl.textContent = String(Math.max(0, state.timeLeft));
-        rivalScoreEl.textContent = String(op.score || 0);
 
         goodCountEl.textContent = 'Good ' + state.good;
         junkCountEl.textContent = 'Junk ' + state.junk;
         missCountEl.textContent = 'Miss ' + state.miss;
-        attackCountEl.textContent = 'Attack ' + state.power + '/' + state.maxPower;
-        shieldCountEl.textContent = 'Shield ' + state.shieldCount;
+        attackCountEl.textContent = 'Power ' + state.power + '/5';
+        shieldCountEl.textContent = 'Shield ' + (state.shieldActive ? 'ON' : '0');
+
+        battlePowerEl.textContent =
+          'พลัง ' + state.power + '/5' +
+          (state.shieldActive ? ' • Shield ON' : '') +
+          (state.freezeActive ? ' • Freeze' : '');
+
+        powerFill.style.width = Math.min(100, (state.power / 5) * 100) + '%';
 
         roomLine.textContent = [
           PLAYER_NAME,
           ROOM_CODE ? ('room ' + ROOM_CODE) : 'guest',
-          'cardboard'
+          'cVR'
         ].join(' • ');
-
-        battlePowerEl.textContent =
-          'พลัง ' + state.power + '/' + state.maxPower +
-          ' • คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...') +
-          ' • ' + (op.score || 0);
 
         window.GJ_BATTLE_STATE = Object.assign({}, window.GJ_BATTLE_STATE || {}, {
           score:state.score,
@@ -1005,137 +1146,140 @@
           miss:state.miss,
           hearts:state.hearts,
           hp:state.hearts,
+          lives:state.hearts,
           maxHearts:3,
-          timeLeft:state.timeLeft,
-          remaining:state.timeLeft,
           power:state.power,
           attackPower:state.power,
-          maxPower:state.maxPower,
-          shieldActive:state.shieldActive
+          shieldActive:state.shieldActive,
+          freezeActive:state.freezeActive,
+          timeLeft:state.timeLeft,
+          remaining:state.timeLeft,
+          ended:state.ended
         });
 
-        updateDbBadge();
         emit('gj:battle-state-updated', window.GJ_BATTLE_STATE);
       }
 
-      async function pushMyState(status){
-        const patch = {
-          pid:PLAYER_ID,
-          name:PLAYER_NAME,
-          playerName:PLAYER_NAME,
-          displayName:PLAYER_NAME,
-          view:'cardboard',
-          device:'cardboard',
-          score:state.score,
-          points:state.score,
-          good:state.good,
-          junk:state.junk,
-          miss:state.miss,
-          hearts:state.hearts,
-          hp:state.hearts,
-          power:state.power,
-          attackPower:state.power,
-          finished:!!state.ended,
-          done:!!state.ended,
-          status:status || (state.ended ? 'finished' : 'in-game'),
-          phase:state.ended ? 'summary' : 'play',
-          matchId:MATCH_ID,
-          roundId:MATCH_ID,
-          updatedAt:now(),
-          lastSeen:now(),
-          heartbeatAt:now()
+      function updateOpponentUI(){
+        const op = getOpponentSnapshot();
+
+        opponentNameEl.textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
+        rivalScoreEl.textContent = String(safeNum(op.score, 0));
+
+        if (op.left || op.status === 'left' || op.status === 'offline'){
+          opponentStatusEl.textContent = 'LEFT';
+          opponentStatusEl.classList.add('off');
+        }else if (op.finished){
+          opponentStatusEl.textContent = 'DONE';
+          opponentStatusEl.classList.remove('off');
+        }else if (op.name && op.name !== 'รอคู่แข่ง...'){
+          opponentStatusEl.textContent = 'PLAY';
+          opponentStatusEl.classList.remove('off');
+        }else{
+          opponentStatusEl.textContent = 'WAIT';
+          opponentStatusEl.classList.add('off');
+        }
+      }
+
+      function floatingText(text, x, y, good){
+        const el = document.createElement('div');
+        el.className = 'floating-text';
+        el.textContent = text;
+        el.style.left = x + '%';
+        el.style.top = y + '%';
+        el.style.color = good ? '#9dffb0' : '#ffc2ba';
+        arena.appendChild(el);
+        setTimeout(function(){
+          el.remove();
+        }, 720);
+      }
+
+      function getCenterPoint(){
+        const rect = arena.getBoundingClientRect();
+        return {
+          x:rect.left + rect.width / 2,
+          y:rect.top + rect.height / 2,
+          rect
         };
+      }
 
-        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateMyPlayer === 'function'){
-          try{
-            await window.GJ_BATTLE_CORE.updateMyPlayer(patch);
-            return true;
-          }catch(_){}
-        }
+      function updateAimLock(){
+        const center = getCenterPoint();
+        const targets = Array.from(arena.querySelectorAll('.target:not(.hit)'));
 
-        const ref = getRoomRef();
-        if (!ref || !PLAYER_ID) return false;
+        let best = null;
+        let bestDist = Infinity;
 
-        try{
-          await ref.child('players').child(PLAYER_ID).update(patch);
-          return true;
-        }catch(err){
-          console.warn('[Battle cVR] pushMyState failed', err);
-          return false;
+        targets.forEach(function(t){
+          const r = t.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const d = Math.hypot(cx - center.x, cy - center.y);
+
+          if (d < bestDist){
+            bestDist = d;
+            best = t;
+          }
+        });
+
+        targets.forEach(function(t){
+          t.classList.remove('locked');
+        });
+
+        const lockPx = Math.min(54, Math.max(40, center.rect.width * 0.09));
+
+        if (best && bestDist <= lockPx){
+          best.classList.add('locked');
+          state.lockedTarget = best;
+          crosshair.classList.add('ready');
+        }else{
+          state.lockedTarget = null;
+          crosshair.classList.remove('ready');
         }
       }
 
-      function attachRoomListener(){
-        const ref = getRoomRef();
-        if (!ref || typeof ref.on !== 'function') return;
+      function applyHit(item){
+        if (!item || state.ended || item.classList.contains('hit')) return false;
 
-        try{
-          ref.on('value', function(snapshot){
-            const room = snapshot && typeof snapshot.val === 'function'
-              ? snapshot.val() || {}
-              : {};
+        const kind = item.dataset.kind || item.dataset.type || 'good';
+        const x = Number(item.dataset.x || 50);
+        const y = Number(item.dataset.y || 50);
 
-            window.GJ_CURRENT_ROOM = room;
+        item.classList.add('hit');
 
-            const op = getOpponentSnapshot();
-            window.GJ_BATTLE_OPPONENT = op;
-            syncBasicUI();
+        if (kind === 'good'){
+          const comboBonus = state.power >= 4 ? 4 : 0;
+          const gain = 10 + comboBonus;
 
-            emit('gj:battle-opponent-updated', op);
+          state.good += 1;
+          state.score += gain;
+          state.power = Math.min(5, state.power + 1);
+
+          floatingText('+' + gain, x, y, true);
+
+          emit('gj:good-collected', {
+            score:gain,
+            power:1,
+            kind:'good'
           });
-        }catch(err){
-          console.warn('[Battle cVR] room listener failed', err);
-        }
-      }
 
-      function spawnTarget(forcedKind){
-        if (!state.running || state.ended) return;
-
-        const kind = forcedKind || (Math.random() < 0.66 ? 'good' : 'junk');
-        const item = document.createElement('button');
-
-        item.type = 'button';
-        item.className = 'target ' + (kind === 'junk' ? 'bad junk' : 'good');
-        item.dataset.kind = kind;
-        item.dataset.type = kind;
-        item.textContent = kind === 'good' ? pick(foodGood) : pick(foodJunk);
-
-        item.style.left = rand(10, 90) + '%';
-        item.style.top = rand(18, 76) + '%';
-
-        item.addEventListener('click', function(ev){
-          ev.preventDefault();
-          ev.stopPropagation();
-
-          if (state.ended) return;
-
-          item.classList.add('hit');
-
-          if (kind === 'good'){
-            state.good += 1;
-            state.score += 10;
-            state.power = clamp(state.power + 1, 0, state.maxPower);
-
-            emit('gj:good-collected', {
-              score:10,
-              power:1,
-              kind:'good'
-            });
-
-            emit('hha:score', {
-              type:'good',
-              score:10,
-              points:10
-            });
+          emit('hha:score', {
+            type:'good',
+            score:gain,
+            points:gain
+          });
+        }else{
+          if (state.shieldActive){
+            state.junk += 1;
+            floatingText('BLOCK', x, y, true);
+            emit('gj:junk-blocked', { kind:'junk' });
           }else{
             state.junk += 1;
             state.miss += 1;
+            state.hearts = Math.max(0, state.hearts - 1);
+            state.score = Math.max(0, state.score - 4);
 
-            if (state.shieldActive){
-              state.shieldActive = false;
-            }else{
-              state.hearts = Math.max(0, state.hearts - 1);
-            }
+            floatingText('-❤', x, y, false);
 
             emit('gj:junk-hit', {
               damage:1,
@@ -1153,16 +1297,63 @@
               }, 120);
             }
           }
+        }
 
-          syncBasicUI();
-          pushMyState('in-game');
+        syncBasicUI();
 
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
           setTimeout(function(){
-            item.remove();
-          }, 120);
-        });
+            window.GJ_BATTLE_CORE.forceRealtimeSync('crosshair-hit');
+          }, 40);
+        }
+
+        setTimeout(function(){
+          item.remove();
+          updateAimLock();
+        }, 110);
+
+        return true;
+      }
+
+      function shootCrosshair(){
+        updateAimLock();
+
+        if (!state.lockedTarget){
+          toast('เล็งให้ตรงเป้าก่อน');
+          return;
+        }
+
+        applyHit(state.lockedTarget);
+      }
+
+      function spawnTarget(forcedKind){
+        if (!state.running || state.ended) return;
+
+        const kind = forcedKind || (Math.random() < 0.68 ? 'good' : 'junk');
+        const item = document.createElement('button');
+
+        const x = rand(12, 88);
+        const y = rand(18, 76);
+
+        item.type = 'button';
+        item.className = 'target ' + (kind === 'junk' ? 'bad junk' : 'good');
+        item.dataset.kind = kind;
+        item.dataset.type = kind;
+        item.dataset.x = String(x);
+        item.dataset.y = String(y);
+        item.textContent = kind === 'good' ? pick(foodGood) : pick(foodJunk);
+
+        item.style.left = x + '%';
+        item.style.top = y + '%';
+
+        item.addEventListener('pointerdown', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          applyHit(item);
+        }, { passive:false });
 
         arena.appendChild(item);
+        updateAimLock();
 
         setTimeout(function(){
           if (!item.parentNode || state.ended) return;
@@ -1171,6 +1362,7 @@
 
           if (k === 'good'){
             state.miss += 1;
+            floatingText('MISS', x, y, false);
             emit('hha:miss', {
               type:'miss-good',
               damage:0
@@ -1178,51 +1370,18 @@
           }
 
           item.remove();
+          updateAimLock();
           syncBasicUI();
-          pushMyState('in-game');
+
+          if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+            window.GJ_BATTLE_CORE.forceRealtimeSync('target-timeout');
+          }
         }, state.targetLife);
-      }
-
-      function useSkill(skill){
-        if (state.ended) return;
-
-        if (skill === 'junk-storm'){
-          if (state.power < state.maxPower) return;
-          state.power = 0;
-          window.spawnJunkStorm(5);
-          emit('gj:skill', { skill:'junk-storm' });
-        }
-
-        if (skill === 'shield'){
-          state.shieldActive = true;
-          state.shieldCount += 1;
-          emit('gj:skill', { skill:'shield' });
-        }
-
-        if (skill === 'freeze'){
-          state.frozen = true;
-          state.score += 5;
-          setTimeout(function(){
-            state.frozen = false;
-          }, 2600);
-          emit('gj:skill', { skill:'freeze' });
-        }
-
-        if (skill === 'heal'){
-          if (state.power < 2) return;
-          state.power = Math.max(0, state.power - 2);
-          state.hearts = clamp(state.hearts + 1, 0, 3);
-          emit('gj:skill', { skill:'heal' });
-        }
-
-        syncBasicUI();
-        pushMyState('in-game');
       }
 
       function startGame(){
         syncBasicUI();
-        attachRoomListener();
-        pushMyState('in-game');
+        updateOpponentUI();
 
         state.spawnTimer = setInterval(function(){
           spawnTarget();
@@ -1239,17 +1398,124 @@
           }
 
           syncBasicUI();
-          pushMyState('in-game');
+          updateOpponentUI();
         }, 1000);
 
-        state.syncTimer = setInterval(function(){
-          if (!state.ended) pushMyState('in-game');
-        }, 2500);
+        state.aimTimer = setInterval(updateAimLock, 120);
 
-        for (let i = 0; i < 5; i++){
+        for (let i = 0; i < 6; i++){
           setTimeout(function(){
             spawnTarget();
-          }, i * 380);
+          }, i * 340);
+        }
+      }
+
+      function usePower(cost){
+        if (state.power < cost){
+          toast('พลังยังไม่พอ');
+          return false;
+        }
+
+        state.power = Math.max(0, state.power - cost);
+        syncBasicUI();
+        return true;
+      }
+
+      function useJunkStorm(){
+        if (!usePower(5)) return;
+
+        toast('ส่ง Junk Storm!');
+        emit('gj:battle-skill', {
+          skill:'junk-storm',
+          from:PLAYER_ID,
+          room:ROOM_CODE
+        });
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          window.GJ_BATTLE_CORE.updateRoom({
+            effects:{
+              type:'junk-storm',
+              from:PLAYER_ID,
+              at:Date.now()
+            }
+          });
+        }
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+          window.GJ_BATTLE_CORE.forceRealtimeSync('skill-junk-storm');
+        }
+      }
+
+      function useShield(){
+        if (!usePower(3)) return;
+
+        state.shieldActive = true;
+        toast('Shield ON!');
+        syncBasicUI();
+
+        clearTimeout(useShield._t);
+        useShield._t = setTimeout(function(){
+          state.shieldActive = false;
+          syncBasicUI();
+          toast('Shield หมดเวลา');
+        }, 6000);
+
+        emit('gj:battle-skill', {
+          skill:'shield',
+          from:PLAYER_ID
+        });
+      }
+
+      function useFreeze(){
+        if (!usePower(4)) return;
+
+        state.freezeActive = true;
+        toast('Freeze!');
+        syncBasicUI();
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          window.GJ_BATTLE_CORE.updateRoom({
+            effects:{
+              type:'freeze',
+              from:PLAYER_ID,
+              at:Date.now()
+            }
+          });
+        }
+
+        clearTimeout(useFreeze._t);
+        useFreeze._t = setTimeout(function(){
+          state.freezeActive = false;
+          syncBasicUI();
+        }, 5000);
+
+        emit('gj:battle-skill', {
+          skill:'freeze',
+          from:PLAYER_ID
+        });
+      }
+
+      function useHeal(){
+        if (!usePower(3)) return;
+
+        if (state.hearts >= 3){
+          toast('หัวใจเต็มแล้ว');
+          state.power = Math.min(5, state.power + 3);
+          syncBasicUI();
+          return;
+        }
+
+        state.hearts = Math.min(3, state.hearts + 1);
+        toast('Heal +1 ❤');
+        syncBasicUI();
+
+        emit('gj:battle-skill', {
+          skill:'heal',
+          from:PLAYER_ID
+        });
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
+          window.GJ_BATTLE_CORE.forceRealtimeSync('skill-heal');
         }
       }
 
@@ -1262,12 +1528,12 @@
 
         clearInterval(state.spawnTimer);
         clearInterval(state.clockTimer);
-        clearInterval(state.syncTimer);
+        clearInterval(state.aimTimer);
 
         const op = getOpponentSnapshot();
 
         const myScore = state.score;
-        const opScore = op.score || 0;
+        const opScore = safeNum(op.score, 0);
 
         let title = 'จบ Battle!';
         let icon = '💪';
@@ -1295,24 +1561,39 @@
         document.getElementById('resultOpName').textContent = 'คู่แข่ง: ' + (op.name || 'รอคู่แข่ง...');
         document.getElementById('resultOpScore').textContent = String(opScore);
         document.getElementById('resultOpMeta').textContent =
-          'Good: ' + op.good + ' • Junk: ' + op.junk + ' • Miss: ' + op.miss;
+          'Good: ' + safeNum(op.good, 0) +
+          ' • Junk: ' + safeNum(op.junk, 0) +
+          ' • Miss: ' + safeNum(op.miss, 0);
 
         resultOverlay.classList.add('show');
 
-        pushMyState('finished');
+        syncBasicUI();
 
-        const ref = getRoomRef();
-        if (ref){
-          try{
-            ref.update({
-              phase:'summary',
-              status:'summary',
-              state:'summary',
-              endedAt:now(),
-              updatedAt:now(),
-              reason:reason
-            });
-          }catch(_){}
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateMyPlayer === 'function'){
+          window.GJ_BATTLE_CORE.updateMyPlayer({
+            score:state.score,
+            points:state.score,
+            good:state.good,
+            junk:state.junk,
+            miss:state.miss,
+            hearts:state.hearts,
+            hp:state.hearts,
+            result:title,
+            finished:true,
+            done:true,
+            status:'finished',
+            phase:'summary'
+          });
+        }
+
+        if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.updateRoom === 'function'){
+          window.GJ_BATTLE_CORE.updateRoom({
+            phase:'summary',
+            status:'summary',
+            state:'summary',
+            endedAt:Date.now(),
+            reason:reason
+          });
         }
 
         if (window.GJ_BATTLE_CORE && typeof window.GJ_BATTLE_CORE.forceRealtimeSync === 'function'){
@@ -1326,12 +1607,98 @@
         });
       }
 
+      function buildLobbyUrl(){
+        const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+
+        [
+          'pid','name','room','roomCode','diff','time','view','hub',
+          'zone','cat','studyId','conditionGroup','api','log'
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        out.searchParams.set('view', 'cardboard');
+
+        return out.toString();
+      }
+
+      function buildAllModesUrl(){
+        const out = new URL('../goodjunk-launcher.html', location.href);
+
+        [
+          'pid','name','diff','time','view','hub','zone','cat',
+          'studyId','conditionGroup','api','log'
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        out.searchParams.set('view', 'cardboard');
+
+        return out.toString();
+      }
+
+      function buildNutritionZoneUrl(){
+        const out = new URL('../nutrition-zone.html', location.href);
+
+        [
+          'pid','name','diff','time','view','hub','studyId',
+          'conditionGroup','api','log'
+        ].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== '') out.searchParams.set(k, v);
+        });
+
+        out.searchParams.set('view', 'cardboard');
+
+        return out.toString();
+      }
+
+      function buildHubUrl(){
+        const hub = params.get('hub');
+
+        if (hub){
+          try{
+            return new URL(hub, location.href).toString();
+          }catch(_){}
+        }
+
+        return new URL('../hub.html', location.href).toString();
+      }
+
+      function bindNavigation(){
+        document.querySelectorAll('[data-back-lobby]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildLobbyUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-all-modes]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildAllModesUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-nutrition-zone]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildNutritionZoneUrl();
+          });
+        });
+
+        document.querySelectorAll('[data-back-hub]').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            location.href = buildHubUrl();
+          });
+        });
+      }
+
       window.spawnJunkStorm = function(count){
         count = Number(count || 5);
         for (let i = 0; i < count; i++){
           setTimeout(function(){
             spawnTarget('junk');
-          }, i * 260);
+          }, i * 220);
         }
       };
 
@@ -1344,9 +1711,14 @@
         spawnTarget,
         endGame,
         syncBasicUI,
+        updateOpponentUI,
         getOpponentSnapshot,
-        pushMyState,
-        useSkill
+        updateAimLock,
+        shootCrosshair,
+        useJunkStorm,
+        useShield,
+        useFreeze,
+        useHeal
       };
 
       document.getElementById('btnFullscreen').addEventListener('click', async function(){
@@ -1356,88 +1728,39 @@
           }else{
             await document.exitFullscreen();
           }
-        }catch(e){}
+        }catch(_){}
       });
 
-      document.querySelectorAll('[data-skill]').forEach(function(btn){
-        btn.addEventListener('click', function(ev){
-          ev.preventDefault();
-          ev.stopPropagation();
-          useSkill(btn.dataset.skill || btn.dataset.action || '');
-        });
+      tapZone.addEventListener('pointerdown', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        shootCrosshair();
+      }, { passive:false });
+
+      document.getElementById('btnJunkStorm').addEventListener('click', useJunkStorm);
+      document.getElementById('btnShield').addEventListener('click', useShield);
+      document.getElementById('btnFreeze').addEventListener('click', useFreeze);
+      document.getElementById('btnHeal').addEventListener('click', useHeal);
+
+      window.addEventListener('gj:battle-state-updated', function(){
+        syncBasicUI();
+        updateOpponentUI();
       });
 
-      function buildLobbyUrl(){
-        const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
-        params.forEach(function(v, k){
-          if (v !== null && v !== '') out.searchParams.set(k, v);
-        });
-        out.searchParams.set('pid', PLAYER_ID);
-        out.searchParams.set('name', PLAYER_NAME);
-        out.searchParams.set('view', 'cardboard');
-        out.searchParams.set('device', 'cardboard');
-        if (ROOM_CODE){
-          out.searchParams.set('room', ROOM_CODE);
-          out.searchParams.set('roomCode', ROOM_CODE);
-        }
-        return out.toString();
-      }
+      window.addEventListener('gj:battle-opponent-updated', updateOpponentUI);
+      window.addEventListener('gj:battle-room-updated', updateOpponentUI);
 
-      function buildModesUrl(){
-        const out = new URL('../goodjunk-launcher.html', location.href);
-        params.forEach(function(v, k){
-          if (v !== null && v !== '') out.searchParams.set(k, v);
-        });
-        out.searchParams.set('pid', PLAYER_ID);
-        out.searchParams.set('name', PLAYER_NAME);
-        out.searchParams.set('view', 'cardboard');
-        return out.toString();
-      }
-
-      function buildHubUrl(){
-        const hub = params.get('hub');
-        if (hub){
-          try{
-            return new URL(hub, location.href).toString();
-          }catch(_){}
-        }
-        return new URL('../nutrition-zone.html', location.href).toString();
-      }
-
-      document.querySelectorAll('[data-back-lobby]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          location.href = buildLobbyUrl();
-        });
-      });
-
-      document.querySelectorAll('[data-all-modes]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          location.href = buildModesUrl();
-        });
-      });
-
-      document.querySelectorAll('[data-back-hub]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          location.href = buildHubUrl();
-        });
-      });
-
-      document.querySelectorAll('[data-rematch-btn]').forEach(function(btn){
-        btn.addEventListener('click', function(){
-          const out = new URL(location.href);
-          out.searchParams.set('seed', String(Date.now()));
-          out.searchParams.set('run', 'play');
-          out.searchParams.set('phase', 'play');
-          location.href = out.toString();
-        });
-      });
-
-      window.addEventListener('gj:battle-state-updated', syncBasicUI);
       window.addEventListener('gj:battle-rematch-start', function(){
         location.reload();
       });
-      window.addEventListener('gj:battle-opponent-left', syncBasicUI);
-      window.addEventListener('gj:battle-opponent-updated', syncBasicUI);
+
+      window.addEventListener('resize', function(){
+        setTimeout(updateAimLock, 150);
+      });
+
+      setInterval(updateOpponentUI, 850);
+
+      bindNavigation();
 
       if (document.readyState === 'loading'){
         document.addEventListener('DOMContentLoaded', startGame, { once:true });
@@ -1446,170 +1769,6 @@
       }
 
       console.info('[GoodJunk Battle Cardboard Runtime]', RUNTIME_VERSION, 'loaded');
-    })();
-  </script>
-
-  <script>
-    (function installCVRCrosshairShoot(){
-      'use strict';
-
-      const CVR_LOCK_PX = 82;
-      const CVR_SOFT_PX = 135;
-      const cvrToast = document.getElementById('cvrToast');
-
-      function showCVRToast(msg){
-        if (!cvrToast) return;
-        cvrToast.textContent = msg;
-        cvrToast.classList.add('show');
-        clearTimeout(showCVRToast._t);
-        showCVRToast._t = setTimeout(function(){
-          cvrToast.classList.remove('show');
-        }, 650);
-      }
-
-      function centerPoint(){
-        return {
-          x:window.innerWidth / 2,
-          y:window.innerHeight / 2
-        };
-      }
-
-      function getTargetCenter(el){
-        const r = el.getBoundingClientRect();
-        return {
-          x:r.left + r.width / 2,
-          y:r.top + r.height / 2,
-          rect:r
-        };
-      }
-
-      function getAimTarget(){
-        const c = centerPoint();
-        const targets = Array.from(document.querySelectorAll('.target:not(.hit)'));
-
-        let best = null;
-
-        targets.forEach(function(el){
-          const p = getTargetCenter(el);
-          const dx = p.x - c.x;
-          const dy = p.y - c.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-
-          if (!best || dist < best.dist){
-            best = {
-              el,
-              dist,
-              x:p.x,
-              y:p.y
-            };
-          }
-        });
-
-        if (!best) return null;
-        if (best.dist <= CVR_SOFT_PX) return best;
-        return null;
-      }
-
-      function updateAimReady(){
-        const target = getAimTarget();
-        document.documentElement.classList.toggle(
-          'cvr-aim-ready',
-          !!target && target.dist <= CVR_LOCK_PX
-        );
-      }
-
-      function shootCenter(source){
-        const runtime = window.GJ_BATTLE_RUNTIME;
-        const state = runtime && runtime.state;
-
-        if (!state || state.ended || !state.running) return false;
-
-        const target = getAimTarget();
-
-        if (!target){
-          showCVRToast('เล็งเป้าให้อยู่ใกล้กากบาท');
-          return false;
-        }
-
-        if (target.dist > CVR_LOCK_PX){
-          showCVRToast('เข้าใกล้เป้าอีกนิด');
-          return false;
-        }
-
-        target.el.click();
-
-        window.dispatchEvent(new CustomEvent('hha:shoot', {
-          detail:{
-            source:source || 'cvr-crosshair',
-            lockPx:CVR_LOCK_PX,
-            dist:target.dist
-          }
-        }));
-
-        showCVRToast('โดนเป้า!');
-        return true;
-      }
-
-      function shouldIgnoreTap(ev){
-        const target = ev.target;
-        const tag = String(target && target.tagName || '').toLowerCase();
-
-        if (!target) return false;
-
-        if (target.closest && target.closest('.result-overlay')){
-          return true;
-        }
-
-        if (
-          tag === 'button' &&
-          !target.classList.contains('target') &&
-          !target.closest('.arena')
-        ){
-          return true;
-        }
-
-        return false;
-      }
-
-      function onTap(ev){
-        if (shouldIgnoreTap(ev)) return;
-
-        ev.preventDefault();
-        ev.stopPropagation();
-        shootCenter('tap');
-      }
-
-      document.addEventListener('touchstart', onTap, {
-        passive:false,
-        capture:true
-      });
-
-      document.addEventListener('click', function(ev){
-        if (shouldIgnoreTap(ev)) return;
-
-        ev.preventDefault();
-        ev.stopPropagation();
-        shootCenter('click');
-      }, true);
-
-      window.addEventListener('keydown', function(ev){
-        if (ev.code === 'Space' || ev.code === 'Enter'){
-          ev.preventDefault();
-          shootCenter('keyboard');
-        }
-      });
-
-      setInterval(updateAimReady, 90);
-
-      window.GJ_BATTLE_CVR_SHOOT = {
-        version:'v2.4.33-cvr-crosshair-shoot-fix',
-        shootCenter,
-        getAimTarget,
-        lockPx:CVR_LOCK_PX,
-        softPx:CVR_SOFT_PX
-      };
-
-      console.info('[GoodJunk Battle cVR Shoot]', 'v2.4.33-cvr-crosshair-shoot-fix loaded');
     })();
   </script>
 
