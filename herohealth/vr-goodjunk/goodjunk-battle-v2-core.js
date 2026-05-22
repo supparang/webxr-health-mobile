@@ -1,131 +1,130 @@
 /* =========================================================
    /herohealth/vr-goodjunk/goodjunk-battle-v2-core.js
-   GoodJunk Battle v2 Core Sync
-   Version: v2.4.31-clean-final
+   GoodJunk Battle v2 Core
+   Version: v2.4.32-core-sync-result-rematch-final
    Purpose:
-   - ใช้ร่วมกับ run-pc / run-mobile / run-cardboard
-   - sync คะแนนตัวเองขึ้น Firebase
-   - ฟังคะแนนคู่แข่งแบบ realtime
-   - แก้ชื่อคู่แข่งไม่ขึ้น เช่น KK ไม่ขึ้น แต่คะแนนมา
-   - แก้ผลสรุป PC/Mobile ไม่ตรงกัน
-   - รองรับ rematch / กลับ lobby / กลับ launcher / hub
+   - Shared Firebase sync core for PC / Mobile / Cardboard
+   - Normalize player identity by pid/authUid/playerId
+   - Fix opponent name/score mismatch
+   - Fix result summary winner mismatch across devices
+   - Support host-controlled rematch / next round
 ========================================================= */
 
 (function GoodJunkBattleV2Core(){
   'use strict';
 
-  const VERSION = 'v2.4.31-clean-final-core-sync';
+  const CORE_VERSION = 'v2.4.32-core-sync-result-rematch-final';
 
   const url = new URL(location.href);
   const params = url.searchParams;
+
+  const ROOM_PATH =
+    window.GJ_BATTLE_ROOM_PATH ||
+    'herohealth/goodjunk/battleV2Rooms';
+
+  const PLAYER_ID =
+    params.get('pid') ||
+    params.get('playerId') ||
+    params.get('studentId') ||
+    localStorage.getItem('GJ_BATTLE_PID') ||
+    localStorage.getItem('HHA_GJ_PID') ||
+    'anon';
+
+  const PLAYER_NAME =
+    params.get('name') ||
+    params.get('nick') ||
+    params.get('playerName') ||
+    localStorage.getItem('GJ_BATTLE_NAME') ||
+    localStorage.getItem('HHA_GJ_NAME') ||
+    'Hero';
 
   const ROOM_CODE = normalizeRoomCode(
     params.get('room') ||
     params.get('roomCode') ||
     params.get('code') ||
     params.get('lastRoom') ||
-    window.GJ_ROOM_CODE ||
-    window.ROOM_CODE ||
+    localStorage.getItem('GJ_BATTLE_LAST_ROOM') ||
     ''
   );
 
-  const PLAYER_ID = String(
-    params.get('pid') ||
-    window.GJ_PLAYER_ID ||
-    window.MY_PLAYER_ID ||
-    localStorage.getItem('GJ_BATTLE_PID') ||
-    localStorage.getItem('HHA_GJ_PID') ||
-    'anon'
-  ).trim() || 'anon';
-
-  const PLAYER_NAME = String(
-    params.get('name') ||
-    params.get('nick') ||
-    window.GJ_PLAYER_NAME ||
-    window.MY_PLAYER_NAME ||
-    localStorage.getItem('GJ_BATTLE_NAME') ||
-    localStorage.getItem('HHA_GJ_NAME') ||
-    'Hero'
-  ).trim() || 'Hero';
-
-  const VIEW = normalizeView(
-    params.get('view') ||
-    params.get('device') ||
-    window.GJ_VIEW ||
-    detectView()
-  );
-
-  const MATCH_ID = String(
+  const INITIAL_MATCH_ID =
     params.get('matchId') ||
     params.get('roundId') ||
     params.get('runId') ||
-    window.GJ_MATCH_ID ||
-    ''
-  ).trim();
+    '';
 
-  const MODE = 'battle';
-  const GAME = 'goodjunk';
+  const VIEW =
+    normalizeView(
+      params.get('view') ||
+      params.get('device') ||
+      detectView()
+    );
 
-  const HEARTBEAT_MS = 2500;
-  const SYNC_MS = 900;
-  const OPPONENT_TIMEOUT_MS = 15000;
+  const DIFF = params.get('diff') || 'normal';
+  const TIME_SEC = Number(params.get('time') || params.get('timeSec') || 90);
 
   const state = {
-    version: VERSION,
-    roomCode: ROOM_CODE,
-    playerId: PLAYER_ID,
-    playerName: PLAYER_NAME,
-    view: VIEW,
-    matchId: MATCH_ID,
+    version: CORE_VERSION,
 
-    bridgeReady: false,
+    roomCode: ROOM_CODE,
     roomRef: null,
     room: null,
-    players: {},
-    me: null,
+
+    playerId: PLAYER_ID,
+    playerName: PLAYER_NAME,
+    authUid: '',
+
+    matchId: INITIAL_MATCH_ID,
+    view: VIEW,
+
+    isHost: false,
+    isReady: false,
+    listenerAttached: false,
+
+    local: {
+      score: 0,
+      points: 0,
+      good: 0,
+      junk: 0,
+      miss: 0,
+      hearts: 3,
+      hp: 3,
+      lives: 3,
+      power: 0,
+      attackPower: 0,
+      bestStreak: 0,
+      streak: 0,
+      finished: false,
+      done: false,
+      result: '',
+      resultCode: '',
+      updatedAt: Date.now()
+    },
+
     opponent: null,
 
+    finalSummary: null,
+
     heartbeatTimer: null,
-    syncTimer: null,
-    offRoom: null,
+    publishTimer: null,
+    lastPublishAt: 0,
+    lastLocalHash: '',
 
-    latestLocal: {},
-    ended: false,
-    rematchReady: false,
-    lastSyncAt: 0,
-    lastOpponentAt: 0
+    rematchWanted: false,
+    rematchRound: 0
   };
-
-  window.GJ_BATTLE_CORE_VERSION = VERSION;
-  window.GJ_PLAYER_ID = PLAYER_ID;
-  window.MY_PLAYER_ID = PLAYER_ID;
-  window.GJ_PLAYER_NAME = PLAYER_NAME;
-  window.MY_PLAYER_NAME = PLAYER_NAME;
-  window.GJ_ROOM_CODE = ROOM_CODE;
-  window.ROOM_CODE = ROOM_CODE;
-  window.GJ_MATCH_ID = MATCH_ID;
-  window.GJ_BATTLE_MODE = MODE;
 
   function now(){
     return Date.now();
   }
 
-  function log(){
-    try{
-      console.info.apply(console, ['[GJ Battle Core]'].concat([].slice.call(arguments)));
-    }catch(_){}
+  function safeObj(v){
+    return v && typeof v === 'object' ? v : {};
   }
 
-  function warn(){
-    try{
-      console.warn.apply(console, ['[GJ Battle Core]'].concat([].slice.call(arguments)));
-    }catch(_){}
-  }
-
-  function emit(name, detail){
-    window.dispatchEvent(new CustomEvent(name, {
-      detail: detail || {}
-    }));
+  function safeText(v, fallback){
+    v = String(v || '').trim();
+    return v || fallback || '';
   }
 
   function normalizeRoomCode(raw){
@@ -140,11 +139,11 @@
   function normalizeView(v){
     const s = String(v || '').toLowerCase().trim();
 
-    if (s === 'pc' || s === 'desktop') return 'pc';
+    if (s === 'mobile' || s === 'phone' || s === 'touch') return 'mobile';
     if (s === 'cardboard' || s === 'cvr' || s === 'vr') return 'cardboard';
-    if (s === 'mobile' || s === 'phone') return 'mobile';
+    if (s === 'pc' || s === 'desktop' || s === 'computer') return 'pc';
 
-    return detectView();
+    return 'pc';
   }
 
   function detectView(){
@@ -155,48 +154,118 @@
     return isMobile ? 'mobile' : 'pc';
   }
 
-  function safeObj(v){
-    return v && typeof v === 'object' ? v : {};
+  function emit(name, detail){
+    try{
+      window.dispatchEvent(new CustomEvent(name, {
+        detail: detail || {}
+      }));
+    }catch(_){}
   }
 
-  function num(v, d){
+  function num(v, fallback){
     const n = Number(v);
-    return Number.isFinite(n) ? n : Number(d || 0);
+    return Number.isFinite(n) ? n : Number(fallback || 0);
   }
 
   function bool(v){
     return v === true || v === 'true' || v === 1 || v === '1';
   }
 
+  function clamp(n, min, max){
+    return Math.max(min, Math.min(max, n));
+  }
+
+  function makeHash(obj){
+    try{
+      return JSON.stringify(obj);
+    }catch(_){
+      return String(Date.now());
+    }
+  }
+
   function getBridge(){
     return window.GJ_BATTLE_FIREBASE_BRIDGE || null;
   }
 
-  async function waitForBridge(timeoutMs){
-    timeoutMs = Number(timeoutMs || 5000);
+  function getDb(){
+    const bridge = getBridge();
 
-    const started = now();
+    if (bridge && typeof bridge.getDb === 'function'){
+      try{
+        return bridge.getDb();
+      }catch(_){}
+    }
 
-    return new Promise(resolve => {
+    return (
+      window.GJ_DB ||
+      window.db ||
+      window.database ||
+      window.firebaseDb ||
+      (
+        window.firebase &&
+        typeof firebase.database === 'function'
+          ? firebase.database()
+          : null
+      )
+    );
+  }
+
+  function isBridgeReady(){
+    const bridge = getBridge();
+
+    if (bridge && typeof bridge.isReady === 'function'){
+      return !!bridge.isReady();
+    }
+
+    return !!(
+      window.GJ_BATTLE_DB_READY &&
+      window.GJ_BATTLE_AUTH_READY &&
+      getDb() &&
+      typeof getDb().ref === 'function'
+    );
+  }
+
+  async function waitForReady(timeoutMs){
+    timeoutMs = Number(timeoutMs || 5200);
+    const start = Date.now();
+
+    return await new Promise(resolve => {
       const tick = async () => {
         const bridge = getBridge();
 
         if (bridge){
           try{
-            if (typeof bridge.init === 'function'){
-              await bridge.init();
-            }else if (typeof bridge.refresh === 'function'){
+            if (typeof bridge.ensureAuth === 'function'){
+              await bridge.ensureAuth();
+            }
+
+            if (typeof bridge.refresh === 'function'){
               await bridge.refresh();
             }
           }catch(_){}
-
-          if (typeof bridge.isReady === 'function' && bridge.isReady()){
-            resolve(true);
-            return;
-          }
         }
 
-        if (now() - started >= timeoutMs){
+        const authUid =
+          window.GJ_BATTLE_AUTH_UID ||
+          (
+            window.firebase &&
+            firebase.auth &&
+            firebase.auth().currentUser
+              ? firebase.auth().currentUser.uid
+              : ''
+          );
+
+        if (authUid){
+          state.authUid = authUid;
+        }
+
+        if (isBridgeReady()){
+          state.isReady = true;
+          resolve(true);
+          return;
+        }
+
+        if (Date.now() - start >= timeoutMs){
           resolve(false);
           return;
         }
@@ -208,724 +277,1226 @@
     });
   }
 
-  function getRoomRef(){
+  function getRoomRef(roomCode){
+    const code = normalizeRoomCode(roomCode || state.roomCode);
+    if (!code) return null;
+
     const bridge = getBridge();
 
-    if (!ROOM_CODE || !bridge || typeof bridge.getRoomRef !== 'function'){
+    if (bridge && typeof bridge.getRoomRef === 'function'){
+      try{
+        return bridge.getRoomRef(code);
+      }catch(_){}
+    }
+
+    const db = getDb();
+
+    if (!db || typeof db.ref !== 'function'){
       return null;
     }
 
-    return bridge.getRoomRef(ROOM_CODE);
+    return db.ref(ROOM_PATH + '/' + code);
   }
 
-  function currentRuntimeState(){
-    const runtime = window.GJ_BATTLE_RUNTIME && window.GJ_BATTLE_RUNTIME.state
-      ? window.GJ_BATTLE_RUNTIME.state
-      : {};
+  function playerKeyCandidates(raw){
+    raw = safeObj(raw);
 
-    const battleState = window.GJ_BATTLE_STATE || {};
+    const keys = [
+      raw.id,
+      raw.uid,
+      raw.pid,
+      raw.playerId,
+      raw.authUid,
+      raw.key,
+      raw.name,
+      raw.displayName
+    ]
+      .map(v => String(v || '').trim())
+      .filter(Boolean);
 
-    return Object.assign({}, battleState, runtime);
+    return Array.from(new Set(keys));
   }
 
-  function makePlayerPatch(extra){
-    const rs = currentRuntimeState();
+  function isMePlayer(id, raw){
+    raw = safeObj(raw);
 
-    return Object.assign({
-      pid: PLAYER_ID,
-      name: PLAYER_NAME,
-      playerName: PLAYER_NAME,
-      displayName: PLAYER_NAME,
+    const me = [
+      state.playerId,
+      state.authUid,
+      PLAYER_ID,
+      window.GJ_BATTLE_AUTH_UID,
+      window.GJ_PLAYER_ID,
+      window.MY_PLAYER_ID,
+      params.get('pid'),
+      params.get('playerId')
+    ]
+      .map(v => String(v || '').trim())
+      .filter(Boolean);
 
-      view: VIEW,
-      device: VIEW,
-      mode: MODE,
-      game: GAME,
+    const cand = [
+      id,
+      raw.id,
+      raw.uid,
+      raw.pid,
+      raw.playerId,
+      raw.authUid,
+      raw.key
+    ]
+      .map(v => String(v || '').trim())
+      .filter(Boolean);
 
-      status: state.ended ? 'finished' : 'in-game',
-      phase: state.ended ? 'summary' : 'play',
-      currentPage: 'run',
-
-      score: num(rs.score ?? rs.myScore ?? rs.points, 0),
-      points: num(rs.points ?? rs.score ?? rs.myScore, 0),
-      good: num(rs.good ?? rs.goodCount, 0),
-      junk: num(rs.junk ?? rs.junkCount, 0),
-      miss: num(rs.miss ?? rs.missCount, 0),
-      bestStreak: num(rs.bestStreak ?? rs.streakMax ?? rs.comboMax, 0),
-
-      hearts: num(rs.hearts ?? rs.hp, 3),
-      hp: num(rs.hp ?? rs.hearts, 3),
-      lives: num(rs.lives ?? rs.hearts ?? rs.hp, 3),
-
-      power: num(rs.power ?? rs.attackPower, 0),
-      attackPower: num(rs.attackPower ?? rs.power, 0),
-
-      finished: !!state.ended || bool(rs.finished),
-      done: !!state.ended || bool(rs.done),
-
-      left: false,
-      quit: false,
-      disconnected: false,
-
-      roomCode: ROOM_CODE,
-      room: ROOM_CODE,
-      matchId: state.matchId || MATCH_ID || '',
-      roundId: state.matchId || MATCH_ID || '',
-
-      lastSeen: now(),
-      heartbeatAt: now(),
-      updatedAt: now(),
-      coreVersion: VERSION
-    }, extra || {});
+    return cand.some(c => me.includes(c));
   }
 
   function normalizePlayer(id, raw){
     raw = safeObj(raw);
 
+    const name =
+      raw.name ||
+      raw.playerName ||
+      raw.displayName ||
+      raw.nick ||
+      raw.nickname ||
+      raw.pid ||
+      raw.playerId ||
+      id ||
+      'Hero';
+
+    const pid =
+      raw.pid ||
+      raw.playerId ||
+      raw.id ||
+      id ||
+      name ||
+      'anon';
+
+    const score = num(
+      raw.score ??
+      raw.points ??
+      raw.myScore ??
+      raw.totalScore ??
+      raw.finalScore,
+      0
+    );
+
+    const good = num(
+      raw.good ??
+      raw.goodCount ??
+      raw.goodHit ??
+      raw.goodHits,
+      0
+    );
+
+    const junk = num(
+      raw.junk ??
+      raw.junkCount ??
+      raw.junkHit ??
+      raw.junkHits,
+      0
+    );
+
+    const miss = num(
+      raw.miss ??
+      raw.missCount ??
+      raw.misses ??
+      raw.bad ??
+      raw.error,
+      0
+    );
+
+    const hearts = num(
+      raw.hearts ??
+      raw.hp ??
+      raw.lives,
+      3
+    );
+
+    const finished = !!(
+      raw.finished === true ||
+      raw.done === true ||
+      raw.status === 'finished' ||
+      raw.phase === 'summary' ||
+      raw.result
+    );
+
+    const status = String(raw.status || 'online').toLowerCase();
+
+    const left = !!(
+      raw.left === true ||
+      raw.quit === true ||
+      raw.disconnected === true ||
+      status === 'left' ||
+      status === 'offline'
+    );
+
     return {
+      key: id,
       id,
-      raw,
-
-      pid: String(raw.pid || id || ''),
-      name: String(
-        raw.name ||
-        raw.playerName ||
-        raw.displayName ||
-        raw.nick ||
-        raw.pid ||
-        id ||
-        'Hero'
-      ),
-
-      view: raw.view || raw.device || 'pc',
-      status: String(raw.status || 'online').toLowerCase(),
-      phase: String(raw.phase || '').toLowerCase(),
-
-      score: num(raw.score ?? raw.points, 0),
-      points: num(raw.points ?? raw.score, 0),
-      good: num(raw.good ?? raw.goodCount, 0),
-      junk: num(raw.junk ?? raw.junkCount, 0),
-      miss: num(raw.miss ?? raw.missCount, 0),
-      bestStreak: num(raw.bestStreak ?? raw.streakMax, 0),
-
-      hearts: num(raw.hearts ?? raw.hp, 0),
-      hp: num(raw.hp ?? raw.hearts, 0),
-
-      finished: bool(raw.finished) || bool(raw.done),
-      done: bool(raw.done) || bool(raw.finished),
-
-      host: bool(raw.host),
+      uid: raw.uid || raw.authUid || '',
+      authUid: raw.authUid || raw.uid || '',
+      pid,
+      name: String(name),
+      displayName: String(name),
+      view: normalizeView(raw.view || raw.device || 'pc'),
       role: raw.role || '',
-      left: bool(raw.left) || bool(raw.quit) || bool(raw.disconnected),
+      host: !!raw.host,
+      status,
+      left,
+      score,
+      points: score,
+      good,
+      junk,
+      miss,
+      hearts,
+      hp: hearts,
+      lives: hearts,
+      power: num(raw.power ?? raw.attackPower, 0),
+      attackPower: num(raw.attackPower ?? raw.power, 0),
+      bestStreak: num(raw.bestStreak ?? raw.streakMax, 0),
+      streak: num(raw.streak, 0),
+      finished,
+      done: finished,
+      result: raw.result || '',
+      resultCode: raw.resultCode || '',
+      matchId: raw.matchId || raw.roundId || '',
       lastSeen: num(raw.lastSeen ?? raw.heartbeatAt ?? raw.updatedAt, 0),
       updatedAt: num(raw.updatedAt, 0),
-      matchId: raw.matchId || raw.roundId || ''
+      rematchReady: !!(raw.rematchReady || raw.readyRematch || raw.nextReady),
+      raw
     };
-  }
-
-  function isOnline(p){
-    if (!p) return false;
-    if (p.left) return false;
-    if (p.status === 'left' || p.status === 'offline') return false;
-
-    if (p.lastSeen && now() - p.lastSeen > OPPONENT_TIMEOUT_MS){
-      return false;
-    }
-
-    return true;
   }
 
   function normalizeRoom(room){
     room = safeObj(room);
 
     const playersMap = safeObj(room.players);
-    const players = Object.entries(playersMap).map(([id, raw]) => normalizePlayer(id, raw));
 
-    const me = players.find(p =>
-      String(p.id) === String(PLAYER_ID) ||
-      String(p.pid) === String(PLAYER_ID)
-    ) || null;
+    const players = Object.entries(playersMap).map(([id, raw]) => {
+      return normalizePlayer(id, raw);
+    });
 
-    const onlineOpponents = players
-      .filter(p => !(
-        String(p.id) === String(PLAYER_ID) ||
-        String(p.pid) === String(PLAYER_ID)
-      ))
-      .filter(isOnline)
-      .sort((a, b) => (b.updatedAt || b.lastSeen || 0) - (a.updatedAt || a.lastSeen || 0));
+    const code = normalizeRoomCode(
+      room.code ||
+      room.room ||
+      room.roomCode ||
+      state.roomCode ||
+      ROOM_CODE
+    );
 
-    const anyOpponent = players.find(p => !(
-      String(p.id) === String(PLAYER_ID) ||
-      String(p.pid) === String(PLAYER_ID)
-    )) || null;
+    const phase = String(
+      room.phase ||
+      room.status ||
+      room.state ||
+      'lobby'
+    ).toLowerCase();
 
-    const opponent = onlineOpponents[0] || anyOpponent || null;
+    const matchId =
+      room.matchId ||
+      room.roundId ||
+      room.runId ||
+      room.activeMatchId ||
+      state.matchId ||
+      INITIAL_MATCH_ID ||
+      '';
+
+    const hostPid = String(room.hostPid || room.hostId || room.hostUid || '');
+
+    const me = players.find(p => isMePlayer(p.key, p.raw)) || null;
+    const opponent = players.find(p => !isMePlayer(p.key, p.raw) && !p.left) || null;
 
     return {
       raw: room,
-      code: normalizeRoomCode(room.code || room.roomCode || room.room || ROOM_CODE),
-      phase: String(room.phase || room.status || room.state || 'play').toLowerCase(),
-      status: String(room.status || room.phase || room.state || 'play').toLowerCase(),
-      matchId: String(room.matchId || room.roundId || room.runId || room.activeMatchId || state.matchId || MATCH_ID || ''),
+      code,
+      phase,
+      status: phase,
+      state: phase,
+      matchId,
+      activeMatchId: room.activeMatchId || matchId,
+      roundId: room.roundId || matchId,
+      runId: room.runId || matchId,
+      hostPid,
+      hostName: room.hostName || '',
       startedAt: num(room.startedAt, 0),
       endedAt: num(room.endedAt, 0),
       updatedAt: num(room.updatedAt, 0),
-      playersMap,
+      createdAt: num(room.createdAt, 0),
       players,
+      playersMap,
       me,
-      opponent
+      opponent,
+      summary: safeObj(room.summary),
+      finalSummary: safeObj(room.finalSummary),
+      rematch: safeObj(room.rematch)
     };
   }
 
+  function isHost(room){
+    const nr = normalizeRoom(room || state.room || {});
+    const me = nr.me;
+
+    if (me && (me.host || me.role === 'host')){
+      return true;
+    }
+
+    const ids = [
+      state.playerId,
+      state.authUid,
+      PLAYER_ID,
+      window.GJ_BATTLE_AUTH_UID
+    ]
+      .map(v => String(v || '').trim())
+      .filter(Boolean);
+
+    if (nr.hostPid && ids.includes(String(nr.hostPid))){
+      return true;
+    }
+
+    return false;
+  }
+
+  function getMyPlayer(room){
+    const nr = normalizeRoom(room || state.room || {});
+    return nr.me || normalizePlayer(state.playerId, makePlayerPatch({}));
+  }
+
+  function getOpponent(room){
+    const nr = normalizeRoom(room || state.room || {});
+    return nr.opponent || null;
+  }
+
+  function makePlayerPatch(extra){
+    const local = state.local || {};
+
+    return Object.assign({
+      pid: state.playerId,
+      playerId: state.playerId,
+      name: state.playerName,
+      playerName: state.playerName,
+      displayName: state.playerName,
+      view: state.view,
+      device: state.view,
+      authUid: state.authUid || window.GJ_BATTLE_AUTH_UID || '',
+      matchId: state.matchId || INITIAL_MATCH_ID || '',
+      roundId: state.matchId || INITIAL_MATCH_ID || '',
+      score: num(local.score ?? local.points, 0),
+      points: num(local.points ?? local.score, 0),
+      good: num(local.good, 0),
+      junk: num(local.junk, 0),
+      miss: num(local.miss, 0),
+      hearts: num(local.hearts ?? local.hp ?? local.lives, 3),
+      hp: num(local.hp ?? local.hearts ?? local.lives, 3),
+      lives: num(local.lives ?? local.hearts ?? local.hp, 3),
+      power: num(local.power ?? local.attackPower, 0),
+      attackPower: num(local.attackPower ?? local.power, 0),
+      bestStreak: num(local.bestStreak, 0),
+      streak: num(local.streak, 0),
+      finished: !!local.finished,
+      done: !!local.done,
+      result: local.result || '',
+      resultCode: local.resultCode || '',
+      status: local.finished ? 'finished' : 'in-game',
+      phase: local.finished ? 'summary' : 'play',
+      currentPage: local.finished ? 'summary' : 'run',
+      left: false,
+      quit: false,
+      disconnected: false,
+      updatedAt: now(),
+      lastSeen: now(),
+      heartbeatAt: now(),
+      coreVersion: CORE_VERSION
+    }, extra || {});
+  }
+
+  async function updateMyPlayer(patch, options){
+    options = options || {};
+
+    const merged = Object.assign({}, state.local, patch || {});
+    state.local = merged;
+
+    syncWindowState();
+
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
+    if (!state.roomRef){
+      return false;
+    }
+
+    const fullPatch = makePlayerPatch(patch || {});
+    const hash = makeHash(fullPatch);
+
+    if (!options.force && hash === state.lastLocalHash && now() - state.lastPublishAt < 550){
+      return true;
+    }
+
+    state.lastLocalHash = hash;
+    state.lastPublishAt = now();
+
+    try{
+      await state.roomRef.child('players').child(state.playerId).update(fullPatch);
+      return true;
+    }catch(err){
+      console.warn('[GJ Battle Core] updateMyPlayer failed', err);
+      return false;
+    }
+  }
+
   async function updateRoom(patch){
-    if (!state.roomRef) return false;
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
+    if (!state.roomRef){
+      return false;
+    }
 
     try{
       await state.roomRef.update(Object.assign({}, patch || {}, {
         updatedAt: now()
       }));
-
       return true;
     }catch(err){
-      warn('updateRoom failed', err);
+      console.warn('[GJ Battle Core] updateRoom failed', err);
       return false;
     }
   }
 
-  async function updateMyPlayer(extra){
+  async function heartbeat(){
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
     if (!state.roomRef) return false;
 
     try{
-      await state.roomRef.child('players').child(PLAYER_ID).update(makePlayerPatch(extra));
-      state.lastSyncAt = now();
+      await state.roomRef.child('players').child(state.playerId).update({
+        pid: state.playerId,
+        playerId: state.playerId,
+        name: state.playerName,
+        playerName: state.playerName,
+        displayName: state.playerName,
+        view: state.view,
+        device: state.view,
+        authUid: state.authUid || window.GJ_BATTLE_AUTH_UID || '',
+        left: false,
+        quit: false,
+        disconnected: false,
+        status: state.local.finished ? 'finished' : 'in-game',
+        phase: state.local.finished ? 'summary' : 'play',
+        lastSeen: now(),
+        heartbeatAt: now(),
+        updatedAt: now(),
+        coreVersion: CORE_VERSION
+      });
+
       return true;
-    }catch(err){
-      warn('updateMyPlayer failed', err);
+    }catch(_){
       return false;
     }
   }
 
-  async function forceRealtimeSync(source){
-    await updateMyPlayer({
-      syncSource: source || 'force',
-      forceSyncAt: now()
-    });
-  }
-
-  function applyOpponentToWindow(opponent){
-    if (!opponent) return;
-
-    const op = {
-      id: opponent.id,
-      pid: opponent.pid,
-      name: opponent.name || 'Hero',
-      score: opponent.score,
-      points: opponent.points,
-      good: opponent.good,
-      junk: opponent.junk,
-      miss: opponent.miss,
-      bestStreak: opponent.bestStreak,
-      hearts: opponent.hearts,
-      hp: opponent.hp,
-      status: opponent.status,
-      phase: opponent.phase,
-      finished: opponent.finished,
-      done: opponent.done,
-      updatedAt: opponent.updatedAt,
-      lastSeen: opponent.lastSeen
-    };
-
-    window.GJ_BATTLE_OPPONENT = op;
-    window.GJ_OPPONENT = op;
-
-    state.opponent = op;
-    state.lastOpponentAt = now();
-
-    emit('gj:battle-opponent-updated', op);
-
-    if (op.status === 'left' || op.status === 'offline'){
-      emit('gj:battle-opponent-left', op);
-    }
-  }
-
-  function applyRoomToWindow(room){
-    const nr = normalizeRoom(room);
-
-    state.room = nr.raw;
-    state.players = nr.playersMap;
-    state.me = nr.me;
-
-    if (nr.matchId && !state.matchId){
-      state.matchId = nr.matchId;
-      window.GJ_MATCH_ID = nr.matchId;
-    }
-
-    window.GJ_CURRENT_ROOM = nr.raw;
-    window.GJ_BATTLE_ROOM = nr.raw;
-    window.GJ_BATTLE_ROOM_NORMALIZED = nr;
-
-    if (nr.opponent){
-      applyOpponentToWindow(nr.opponent);
-    }
-
-    emit('gj:battle-room-updated', nr);
-
-    maybeEndFromRoom(nr);
-    return nr;
-  }
-
-  function maybeEndFromRoom(nr){
-    if (!nr || state.ended) return;
-
-    const me = nr.me;
-    const op = nr.opponent;
-
-    const roomEnded =
-      nr.phase === 'summary' ||
-      nr.phase === 'ended' ||
-      nr.status === 'summary' ||
-      nr.status === 'ended';
-
-    if (!roomEnded) return;
-
-    if (window.GJ_BATTLE_RUNTIME && typeof window.GJ_BATTLE_RUNTIME.endGame === 'function'){
-      if (!state.ended){
-        state.ended = true;
-
-        const myScore = me ? me.score : num(currentRuntimeState().score, 0);
-        const opScore = op ? op.score : 0;
-
-        let result = 'timeup';
-        if (myScore > opScore) result = 'win';
-        else if (myScore < opScore) result = 'lose';
-        else result = 'draw';
-
-        window.GJ_BATTLE_RUNTIME.endGame(result, 'room-summary');
-      }
-    }
-  }
-
-  function attachRoomListener(){
-    if (!state.roomRef || typeof state.roomRef.on !== 'function') return false;
-
-    if (state.offRoom){
-      try{ state.offRoom(); }catch(_){}
-      state.offRoom = null;
-    }
-
-    const handler = function(snapshot){
-      const room = snapshot && typeof snapshot.val === 'function'
-        ? snapshot.val() || {}
-        : {};
-
-      applyRoomToWindow(room);
-    };
-
-    state.roomRef.on('value', handler);
-
-    state.offRoom = function(){
-      try{
-        state.roomRef.off('value', handler);
-      }catch(_){}
-    };
-
-    return true;
-  }
-
-  function startHeartbeat(){
-    if (state.heartbeatTimer) return;
-
-    state.heartbeatTimer = setInterval(function(){
-      updateMyPlayer({
-        status: state.ended ? 'finished' : 'in-game',
-        phase: state.ended ? 'summary' : 'play'
-      });
-    }, HEARTBEAT_MS);
-
-    window.addEventListener('beforeunload', markLeftSync);
-    window.addEventListener('pagehide', markLeftSync);
-  }
-
-  function startPeriodicSync(){
-    if (state.syncTimer) return;
-
-    state.syncTimer = setInterval(function(){
-      if (state.ended) return;
-
-      updateMyPlayer({
-        status: 'in-game',
-        phase: 'play'
-      });
-    }, SYNC_MS);
-  }
-
-  function stopTimers(){
-    clearInterval(state.heartbeatTimer);
-    clearInterval(state.syncTimer);
-
-    state.heartbeatTimer = null;
-    state.syncTimer = null;
-  }
-
-  function markLeftSync(){
+  function markLeft(){
     try{
-      if (!state.roomRef) return;
+      if (!state.roomRef || !state.playerId) return;
 
-      state.roomRef.child('players').child(PLAYER_ID).update({
-        status: state.ended ? 'finished' : 'left',
-        left: !state.ended,
-        quit: !state.ended,
-        disconnected: !state.ended,
+      state.roomRef.child('players').child(state.playerId).update({
+        left: true,
+        quit: true,
+        disconnected: true,
+        status: 'left',
         updatedAt: now(),
         lastSeen: now()
       });
     }catch(_){}
   }
 
-  async function markFinished(extra){
-    state.ended = true;
+  function syncWindowState(){
+    window.GJ_BATTLE_STATE = Object.assign({}, window.GJ_BATTLE_STATE || {}, {
+      coreVersion: CORE_VERSION,
+      roomCode: state.roomCode,
+      matchId: state.matchId,
+      playerId: state.playerId,
+      playerName: state.playerName,
+      name: state.playerName,
+      view: state.view,
 
-    await updateMyPlayer(Object.assign({
-      status: 'finished',
-      phase: 'summary',
-      finished: true,
-      done: true,
-      endedAt: now()
-    }, extra || {}));
-
-    await updateRoom({
-      phase: 'summary',
-      status: 'summary',
-      state: 'summary',
-      endedAt: now()
+      score: num(state.local.score ?? state.local.points, 0),
+      myScore: num(state.local.score ?? state.local.points, 0),
+      points: num(state.local.points ?? state.local.score, 0),
+      good: num(state.local.good, 0),
+      junk: num(state.local.junk, 0),
+      miss: num(state.local.miss, 0),
+      hearts: num(state.local.hearts ?? state.local.hp ?? state.local.lives, 3),
+      hp: num(state.local.hp ?? state.local.hearts ?? state.local.lives, 3),
+      lives: num(state.local.lives ?? state.local.hearts ?? state.local.hp, 3),
+      power: num(state.local.power ?? state.local.attackPower, 0),
+      attackPower: num(state.local.attackPower ?? state.local.power, 0),
+      bestStreak: num(state.local.bestStreak, 0),
+      streak: num(state.local.streak, 0),
+      finished: !!state.local.finished,
+      done: !!state.local.done,
+      result: state.local.result || '',
+      resultCode: state.local.resultCode || ''
     });
 
-    stopTimers();
+    window.GJ_BATTLE_OPPONENT = state.opponent || null;
+    window.GJ_CURRENT_ROOM = state.room || null;
+    window.GJ_BATTLE_FINAL_SUMMARY = state.finalSummary || null;
+
+    emit('gj:battle-state-updated', window.GJ_BATTLE_STATE);
   }
 
-  async function rematch(){
-    if (!state.roomRef) return false;
+  function applyExternalLocalState(source){
+    source = safeObj(source || window.GJ_BATTLE_STATE || {});
 
-    state.rematchReady = true;
+    const patch = {};
 
-    const patch = {
-      rematchReady: true,
-      readyRematch: true,
-      nextReady: true,
-      status: 'rematch-ready',
-      phase: 'summary',
-      updatedAt: now()
-    };
+    if (source.score != null || source.myScore != null || source.points != null){
+      patch.score = num(source.score ?? source.myScore ?? source.points, state.local.score);
+      patch.points = patch.score;
+    }
 
-    try{
-      await state.roomRef.child('players').child(PLAYER_ID).update(patch);
+    if (source.good != null) patch.good = num(source.good, state.local.good);
+    if (source.junk != null) patch.junk = num(source.junk, state.local.junk);
+    if (source.miss != null) patch.miss = num(source.miss, state.local.miss);
 
-      const snap = await state.roomRef.once('value');
-      const room = snap && typeof snap.val === 'function' ? snap.val() || {} : {};
-      const nr = normalizeRoom(room);
+    if (source.hearts != null || source.hp != null || source.lives != null){
+      const h = num(source.hearts ?? source.hp ?? source.lives, state.local.hearts);
+      patch.hearts = h;
+      patch.hp = h;
+      patch.lives = h;
+    }
 
-      const online = nr.players.filter(isOnline);
-      const ready = online.filter(p =>
-        p.raw &&
-        (
-          p.raw.rematchReady === true ||
-          p.raw.readyRematch === true ||
-          p.raw.nextReady === true
-        )
-      );
+    if (source.power != null || source.attackPower != null){
+      const p = num(source.power ?? source.attackPower, state.local.power);
+      patch.power = p;
+      patch.attackPower = p;
+    }
 
-      emit('gj:battle-rematch-ready', {
-        ready: ready.length,
-        total: online.length
+    if (source.bestStreak != null) patch.bestStreak = num(source.bestStreak, state.local.bestStreak);
+    if (source.streak != null) patch.streak = num(source.streak, state.local.streak);
+
+    if (source.finished != null || source.done != null){
+      patch.finished = bool(source.finished ?? source.done);
+      patch.done = patch.finished;
+    }
+
+    if (source.result) patch.result = source.result;
+    if (source.resultCode) patch.resultCode = source.resultCode;
+
+    if (Object.keys(patch).length){
+      state.local = Object.assign({}, state.local, patch, {
+        updatedAt: now()
       });
 
-      if (online.length >= 2 && ready.length >= 2){
-        const matchId = makeMatchId();
+      syncWindowState();
+    }
 
-        await state.roomRef.update({
-          phase: 'play',
-          status: 'play',
-          state: 'play',
-          matchId,
-          roundId: matchId,
-          runId: matchId,
-          activeMatchId: matchId,
-          startedAt: now(),
-          updatedAt: now(),
-          endedAt: null,
-          winner: null,
-          reason: null
-        });
+    return patch;
+  }
 
-        for (const p of online){
-          await state.roomRef.child('players').child(p.id).update({
-            score: 0,
-            points: 0,
-            good: 0,
-            junk: 0,
-            miss: 0,
-            bestStreak: 0,
-            hearts: 3,
-            hp: 3,
-            lives: 3,
-            power: 0,
-            attackPower: 0,
-            finished: false,
-            done: false,
-            rematchReady: false,
-            readyRematch: false,
-            nextReady: false,
-            status: 'in-game',
-            phase: 'play',
-            matchId,
-            roundId: matchId,
-            updatedAt: now(),
-            lastSeen: now()
-          });
-        }
+  function publishCurrentLocal(reason){
+    const patch = applyExternalLocalState(window.GJ_BATTLE_STATE || {});
+    return updateMyPlayer(Object.assign({}, patch, {
+      syncReason: reason || 'publish-current-local'
+    }), {
+      force: reason === 'runtime-end' || reason === 'force'
+    });
+  }
 
-        emit('gj:battle-rematch-start', {
-          matchId,
-          room: ROOM_CODE
-        });
+  function determineWinner(room){
+    const nr = normalizeRoom(room || state.room || {});
+    const players = nr.players.filter(p => !p.left);
 
-        setTimeout(function(){
-          const target = buildSelfRunUrl({
-            matchId,
-            roundId: matchId,
-            seed: String(now()),
-            rematch: '1'
-          });
+    if (!players.length){
+      return {
+        winner: '',
+        winnerName: '',
+        resultCode: 'no-player',
+        reason: 'no-player',
+        players: []
+      };
+    }
 
-          location.href = target;
-        }, 280);
+    const sorted = players.slice().sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.good !== a.good) return b.good - a.good;
+      if (a.miss !== b.miss) return a.miss - b.miss;
+      return String(a.name).localeCompare(String(b.name));
+    });
 
-        return true;
+    const top = sorted[0];
+    const second = sorted[1] || null;
+
+    let resultCode = 'winner-score';
+    let reason = 'คะแนนสูงกว่า';
+
+    if (second && top.score === second.score){
+      if (top.good !== second.good){
+        resultCode = 'winner-good';
+        reason = 'คะแนนเท่ากัน แต่เก็บ Good มากกว่า';
+      }else if (top.miss !== second.miss){
+        resultCode = 'winner-miss';
+        reason = 'คะแนนเท่ากัน แต่ Miss น้อยกว่า';
+      }else{
+        resultCode = 'draw';
+        reason = 'คะแนนเท่ากัน';
       }
+    }
 
-      updateRematchStatus(ready.length, online.length);
+    if (resultCode === 'draw'){
+      return {
+        winner: '',
+        winnerName: '',
+        resultCode,
+        reason,
+        players: sorted
+      };
+    }
+
+    return {
+      winner: top.pid || top.id || top.key,
+      winnerKey: top.key,
+      winnerName: top.name,
+      resultCode,
+      reason,
+      players: sorted
+    };
+  }
+
+  function buildSummary(room){
+    const nr = normalizeRoom(room || state.room || {});
+    const verdict = determineWinner(nr.raw);
+
+    const players = verdict.players.map(p => ({
+      key: p.key,
+      pid: p.pid,
+      name: p.name,
+      displayName: p.name,
+      score: p.score,
+      points: p.score,
+      good: p.good,
+      junk: p.junk,
+      miss: p.miss,
+      hearts: p.hearts,
+      hp: p.hp,
+      lives: p.lives,
+      finished: p.finished,
+      result: p.result || '',
+      view: p.view,
+      role: p.role,
+      host: p.host,
+      updatedAt: p.updatedAt
+    }));
+
+    const me = players.find(p => String(p.pid) === String(state.playerId) || String(p.key) === String(state.playerId));
+    const opponent = players.find(p => !(String(p.pid) === String(state.playerId) || String(p.key) === String(state.playerId)));
+
+    return {
+      roomCode: nr.code,
+      matchId: nr.matchId,
+      winner: verdict.winner,
+      winnerKey: verdict.winnerKey || '',
+      winnerName: verdict.winnerName || '',
+      resultCode: verdict.resultCode,
+      reason: verdict.reason,
+      players,
+      me: me || null,
+      opponent: opponent || null,
+      endedAt: now(),
+      updatedAt: now(),
+      coreVersion: CORE_VERSION
+    };
+  }
+
+  async function publishFinalSummary(reason){
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
+    if (!state.roomRef) return null;
+
+    await publishCurrentLocal('before-summary');
+
+    const snap = await readRoomOnce();
+    const room = snap || state.room || {};
+    const summary = buildSummary(room);
+
+    state.finalSummary = summary;
+
+    try{
+      await state.roomRef.update({
+        phase: 'summary',
+        status: 'summary',
+        state: 'summary',
+        endedAt: now(),
+        updatedAt: now(),
+        winner: summary.winner,
+        winnerName: summary.winnerName,
+        resultCode: summary.resultCode,
+        reason: reason || summary.reason,
+        summary,
+        finalSummary: summary
+      });
+    }catch(err){
+      console.warn('[GJ Battle Core] publishFinalSummary failed', err);
+    }
+
+    syncWindowState();
+
+    emit('gj:battle-final-summary', summary);
+
+    return summary;
+  }
+
+  async function readRoomOnce(){
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
+    if (!state.roomRef || typeof state.roomRef.once !== 'function'){
+      return null;
+    }
+
+    try{
+      const snap = await state.roomRef.once('value');
+      return snap && typeof snap.val === 'function' ? snap.val() || {} : {};
+    }catch(err){
+      console.warn('[GJ Battle Core] readRoomOnce failed', err);
+      return null;
+    }
+  }
+
+  function applyRoom(room){
+    const nr = normalizeRoom(room);
+    state.room = nr.raw;
+    state.matchId = nr.matchId || state.matchId;
+    state.isHost = isHost(nr.raw);
+
+    const me = nr.me;
+    const opponent = nr.opponent;
+
+    if (me){
+      state.local = Object.assign({}, state.local, {
+        score: me.score,
+        points: me.score,
+        good: me.good,
+        junk: me.junk,
+        miss: me.miss,
+        hearts: me.hearts,
+        hp: me.hp,
+        lives: me.lives,
+        power: me.power,
+        attackPower: me.attackPower,
+        bestStreak: me.bestStreak,
+        streak: me.streak,
+        finished: me.finished,
+        done: me.finished,
+        result: me.result,
+        resultCode: me.resultCode,
+        updatedAt: me.updatedAt || now()
+      });
+    }
+
+    state.opponent = opponent ? {
+      key: opponent.key,
+      id: opponent.id,
+      pid: opponent.pid,
+      name: opponent.name,
+      displayName: opponent.name,
+      score: opponent.score,
+      points: opponent.score,
+      good: opponent.good,
+      junk: opponent.junk,
+      miss: opponent.miss,
+      hearts: opponent.hearts,
+      hp: opponent.hp,
+      lives: opponent.lives,
+      status: opponent.status,
+      left: opponent.left,
+      finished: opponent.finished,
+      result: opponent.result,
+      view: opponent.view,
+      updatedAt: opponent.updatedAt
+    } : null;
+
+    state.finalSummary =
+      safeObj(nr.finalSummary) && Object.keys(nr.finalSummary).length
+        ? nr.finalSummary
+        : (
+          safeObj(nr.summary) && Object.keys(nr.summary).length
+            ? nr.summary
+            : state.finalSummary
+        );
+
+    syncWindowState();
+
+    emit('gj:battle-room-updated', {
+      room: nr.raw,
+      normalized: nr,
+      me: me,
+      opponent: state.opponent,
+      summary: state.finalSummary,
+      coreVersion: CORE_VERSION
+    });
+
+    if (state.opponent){
+      emit('gj:battle-opponent-updated', state.opponent);
+    }
+
+    if (nr.phase === 'summary' || nr.phase === 'ended'){
+      emit('gj:battle-summary-updated', {
+        room: nr.raw,
+        summary: state.finalSummary,
+        coreVersion: CORE_VERSION
+      });
+    }
+
+    if (
+      nr.rematch &&
+      nr.rematch.status === 'starting' &&
+      nr.rematch.matchId &&
+      nr.rematch.matchId !== state.matchId
+    ){
+      emit('gj:battle-rematch-start', {
+        roomCode: nr.code,
+        matchId: nr.rematch.matchId,
+        rematch: nr.rematch,
+        coreVersion: CORE_VERSION
+      });
+    }
+  }
+
+  function attachRoomListener(){
+    if (!state.roomCode){
+      console.warn('[GJ Battle Core] No room code; listener skipped');
+      return false;
+    }
+
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
+    if (!state.roomRef || typeof state.roomRef.on !== 'function'){
+      console.warn('[GJ Battle Core] No roomRef/on; listener skipped');
+      return false;
+    }
+
+    if (state.listenerAttached){
+      return true;
+    }
+
+    state.listenerAttached = true;
+
+    state.roomRef.on('value', function(snapshot){
+      const room = snapshot && typeof snapshot.val === 'function'
+        ? snapshot.val() || {}
+        : {};
+
+      applyRoom(room);
+    });
+
+    return true;
+  }
+
+  async function resetForRematchAsHost(){
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
+    }
+
+    if (!state.roomRef) return false;
+
+    const host = isHost(state.room || {});
+    if (!host){
+      await voteRematch();
+      return false;
+    }
+
+    const nextMatchId = 'm_' + now() + '_' + Math.random().toString(16).slice(2, 8);
+
+    try{
+      const snap = await readRoomOnce();
+      const nr = normalizeRoom(snap || state.room || {});
+      const players = nr.players || {};
+
+      const updates = {};
+
+      players.forEach(p => {
+        updates['players/' + p.key + '/score'] = 0;
+        updates['players/' + p.key + '/points'] = 0;
+        updates['players/' + p.key + '/good'] = 0;
+        updates['players/' + p.key + '/junk'] = 0;
+        updates['players/' + p.key + '/miss'] = 0;
+        updates['players/' + p.key + '/hearts'] = 3;
+        updates['players/' + p.key + '/hp'] = 3;
+        updates['players/' + p.key + '/lives'] = 3;
+        updates['players/' + p.key + '/power'] = 0;
+        updates['players/' + p.key + '/attackPower'] = 0;
+        updates['players/' + p.key + '/finished'] = false;
+        updates['players/' + p.key + '/done'] = false;
+        updates['players/' + p.key + '/result'] = '';
+        updates['players/' + p.key + '/resultCode'] = '';
+        updates['players/' + p.key + '/status'] = 'in-game';
+        updates['players/' + p.key + '/phase'] = 'play';
+        updates['players/' + p.key + '/matchId'] = nextMatchId;
+        updates['players/' + p.key + '/roundId'] = nextMatchId;
+        updates['players/' + p.key + '/rematchReady'] = false;
+        updates['players/' + p.key + '/readyRematch'] = false;
+        updates['players/' + p.key + '/nextReady'] = false;
+        updates['players/' + p.key + '/updatedAt'] = now();
+      });
+
+      updates.phase = 'play';
+      updates.status = 'play';
+      updates.state = 'play';
+      updates.matchId = nextMatchId;
+      updates.roundId = nextMatchId;
+      updates.runId = nextMatchId;
+      updates.activeMatchId = nextMatchId;
+      updates.startedAt = now();
+      updates.endedAt = null;
+      updates.winner = null;
+      updates.winnerName = null;
+      updates.resultCode = null;
+      updates.reason = null;
+      updates.summary = null;
+      updates.finalSummary = null;
+      updates.effects = null;
+      updates.updatedAt = now();
+      updates.rematch = {
+        status: 'starting',
+        matchId: nextMatchId,
+        startedAt: now(),
+        updatedAt: now(),
+        hostPid: state.playerId,
+        coreVersion: CORE_VERSION
+      };
+
+      await state.roomRef.update(updates);
+
+      state.matchId = nextMatchId;
+      state.local = Object.assign({}, state.local, {
+        score: 0,
+        points: 0,
+        good: 0,
+        junk: 0,
+        miss: 0,
+        hearts: 3,
+        hp: 3,
+        lives: 3,
+        power: 0,
+        attackPower: 0,
+        bestStreak: 0,
+        streak: 0,
+        finished: false,
+        done: false,
+        result: '',
+        resultCode: '',
+        updatedAt: now()
+      });
+
+      syncWindowState();
+
+      emit('gj:battle-rematch-start', {
+        roomCode: state.roomCode,
+        matchId: nextMatchId,
+        host: true,
+        coreVersion: CORE_VERSION
+      });
+
       return true;
     }catch(err){
-      warn('rematch failed', err);
+      console.warn('[GJ Battle Core] resetForRematchAsHost failed', err);
       return false;
     }
   }
 
-  function updateRematchStatus(ready, total){
-    const el =
-      document.querySelector('[data-rematch-status]') ||
-      document.getElementById('rematchStatus');
-
-    if (!el) return;
-
-    el.textContent = 'พร้อมเล่นอีกครั้ง ' + ready + '/' + total + ' คน';
-  }
-
-  function makeMatchId(){
-    const bridge = getBridge();
-
-    if (bridge && typeof bridge.makeMatchId === 'function'){
-      return bridge.makeMatchId('m');
+  async function voteRematch(){
+    if (!state.roomRef){
+      state.roomRef = getRoomRef(state.roomCode);
     }
 
-    return 'm_' + now() + '_' + Math.random().toString(16).slice(2, 8);
-  }
+    if (!state.roomRef) return false;
 
-  function buildSelfRunUrl(extra){
-    const view = normalizeView(extra && extra.view ? extra.view : VIEW);
-    const file =
-      view === 'mobile'
-        ? './goodjunk-battle-v2-run-mobile.html'
-        : view === 'cardboard'
-          ? './goodjunk-battle-v2-run-cardboard.html'
-          : './goodjunk-battle-v2-run-pc.html';
+    try{
+      await state.roomRef.child('rematch').child('players').child(state.playerId).update({
+        pid: state.playerId,
+        name: state.playerName,
+        ready: true,
+        updatedAt: now()
+      });
 
-    const out = new URL(file, location.href);
+      await state.roomRef.child('players').child(state.playerId).update({
+        rematchReady: true,
+        readyRematch: true,
+        nextReady: true,
+        updatedAt: now()
+      });
 
-    params.forEach(function(v, k){
-      if (v !== null && v !== '') out.searchParams.set(k, v);
-    });
+      state.rematchWanted = true;
 
-    out.searchParams.set('pid', PLAYER_ID);
-    out.searchParams.set('name', PLAYER_NAME);
-    out.searchParams.set('view', view);
-    out.searchParams.set('device', view);
-    out.searchParams.set('room', ROOM_CODE);
-    out.searchParams.set('roomCode', ROOM_CODE);
-    out.searchParams.set('mode', MODE);
-    out.searchParams.set('game', GAME);
-    out.searchParams.set('gameId', GAME);
-    out.searchParams.set('zone', params.get('zone') || 'nutrition');
-    out.searchParams.set('cat', params.get('cat') || 'nutrition');
-    out.searchParams.set('entry', 'battle');
-    out.searchParams.set('variant', 'battle-v2');
-    out.searchParams.set('run', 'play');
-    out.searchParams.set('phase', 'play');
+      emit('gj:battle-rematch-voted', {
+        pid: state.playerId,
+        name: state.playerName,
+        coreVersion: CORE_VERSION
+      });
 
-    Object.entries(extra || {}).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && String(v) !== ''){
-        out.searchParams.set(k, String(v));
-      }
-    });
-
-    return out.toString();
-  }
-
-  function buildLobbyUrl(){
-    const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
-
-    ['pid','name','diff','time','view','hub','zone','cat','studyId','conditionGroup','api','log'].forEach(function(k){
-      const v =
-        k === 'pid' ? PLAYER_ID :
-        k === 'name' ? PLAYER_NAME :
-        k === 'view' ? VIEW :
-        params.get(k);
-
-      if (v !== null && v !== '') out.searchParams.set(k, v);
-    });
-
-    if (ROOM_CODE){
-      out.searchParams.set('room', ROOM_CODE);
-      out.searchParams.set('roomCode', ROOM_CODE);
-      out.searchParams.set('lastRoom', ROOM_CODE);
+      return true;
+    }catch(err){
+      console.warn('[GJ Battle Core] voteRematch failed', err);
+      return false;
     }
-
-    return out.toString();
-  }
-
-  function buildModesUrl(){
-    const out = new URL('../goodjunk-launcher.html', location.href);
-
-    ['pid','name','diff','time','view','hub','zone','cat','studyId','conditionGroup','api','log'].forEach(function(k){
-      const v =
-        k === 'pid' ? PLAYER_ID :
-        k === 'name' ? PLAYER_NAME :
-        k === 'view' ? VIEW :
-        params.get(k);
-
-      if (v !== null && v !== '') out.searchParams.set(k, v);
-    });
-
-    return out.toString();
-  }
-
-  function buildHubUrl(){
-    const hub = params.get('hub');
-
-    if (hub){
-      try{
-        return new URL(hub, location.href).toString();
-      }catch(_){}
-    }
-
-    return new URL('../nutrition-zone.html', location.href).toString();
-  }
-
-  function bindButtons(){
-    document.querySelectorAll('[data-back-lobby], #btnBackLobby, #btnResultLobby').forEach(btn => {
-      if (btn.dataset.gjCoreBound === '1') return;
-      btn.dataset.gjCoreBound = '1';
-
-      btn.addEventListener('click', function(){
-        location.href = buildLobbyUrl();
-      });
-    });
-
-    document.querySelectorAll('[data-all-modes], #btnAllModes').forEach(btn => {
-      if (btn.dataset.gjCoreBound === '1') return;
-      btn.dataset.gjCoreBound = '1';
-
-      btn.addEventListener('click', function(){
-        location.href = buildModesUrl();
-      });
-    });
-
-    document.querySelectorAll('[data-back-hub], #btnHub, #btnResultHub').forEach(btn => {
-      if (btn.dataset.gjCoreBound === '1') return;
-      btn.dataset.gjCoreBound = '1';
-
-      btn.addEventListener('click', function(){
-        location.href = buildHubUrl();
-      });
-    });
-
-    document.querySelectorAll('[data-rematch-btn], #btnRematch').forEach(btn => {
-      if (btn.dataset.gjCoreBound === '1') return;
-      btn.dataset.gjCoreBound = '1';
-
-      btn.addEventListener('click', function(){
-        rematch();
-      });
-    });
   }
 
   function bindRuntimeEvents(){
-    window.addEventListener('gj:battle-state-updated', function(ev){
-      state.latestLocal = Object.assign({}, state.latestLocal, ev.detail || {});
+    window.addEventListener('gj:good-collected', function(ev){
+      const d = safeObj(ev.detail);
+
+      const scoreAdd = num(d.score ?? d.points, 10);
+      const powerAdd = num(d.power, 1);
+
       updateMyPlayer({
-        status: state.ended ? 'finished' : 'in-game',
-        phase: state.ended ? 'summary' : 'play'
+        score: num(state.local.score, 0) + scoreAdd,
+        points: num(state.local.score, 0) + scoreAdd,
+        good: num(state.local.good, 0) + 1,
+        power: clamp(num(state.local.power, 0) + powerAdd, 0, 5),
+        attackPower: clamp(num(state.local.attackPower, 0) + powerAdd, 0, 5),
+        streak: num(state.local.streak, 0) + 1,
+        bestStreak: Math.max(num(state.local.bestStreak, 0), num(state.local.streak, 0) + 1)
+      });
+    });
+
+    window.addEventListener('gj:junk-hit', function(){
+      const nextHearts = clamp(num(state.local.hearts, 3) - 1, 0, 3);
+
+      updateMyPlayer({
+        junk: num(state.local.junk, 0) + 1,
+        miss: num(state.local.miss, 0) + 1,
+        hearts: nextHearts,
+        hp: nextHearts,
+        lives: nextHearts,
+        streak: 0
       });
     });
 
     window.addEventListener('hha:score', function(ev){
-      state.latestLocal = Object.assign({}, state.latestLocal, ev.detail || {});
-      updateMyPlayer({
-        lastEvent: 'score'
-      });
+      const d = safeObj(ev.detail);
+      const type = String(d.type || '').toLowerCase();
+
+      if (type === 'good'){
+        return;
+      }
+
+      const scoreAdd = num(d.score ?? d.points, 0);
+
+      if (scoreAdd){
+        updateMyPlayer({
+          score: num(state.local.score, 0) + scoreAdd,
+          points: num(state.local.score, 0) + scoreAdd
+        });
+      }
     });
 
     window.addEventListener('hha:miss', function(ev){
-      state.latestLocal = Object.assign({}, state.latestLocal, ev.detail || {});
+      const d = safeObj(ev.detail);
+      const type = String(d.type || '').toLowerCase();
+
+      if (type === 'junk'){
+        return;
+      }
+
       updateMyPlayer({
-        lastEvent: 'miss'
+        miss: num(state.local.miss, 0) + 1,
+        streak: 0
       });
     });
 
-    window.addEventListener('gj:good-collected', function(ev){
-      state.latestLocal = Object.assign({}, state.latestLocal, ev.detail || {});
-      updateMyPlayer({
-        lastEvent: 'good'
-      });
+    window.addEventListener('gj:battle-ended', async function(ev){
+      const d = safeObj(ev.detail);
+
+      await updateMyPlayer({
+        score: num(d.score ?? state.local.score, state.local.score),
+        points: num(d.score ?? state.local.score, state.local.score),
+        finished: true,
+        done: true,
+        result: d.result || state.local.result || 'finished',
+        resultCode: d.reason || state.local.resultCode || 'ended',
+        status: 'finished',
+        phase: 'summary'
+      }, { force:true });
+
+      setTimeout(function(){
+        if (isHost(state.room || {})){
+          publishFinalSummary(d.reason || 'runtime-ended');
+        }
+      }, 600);
     });
 
-    window.addEventListener('gj:junk-hit', function(ev){
-      state.latestLocal = Object.assign({}, state.latestLocal, ev.detail || {});
-      updateMyPlayer({
-        lastEvent: 'junk'
-      });
+    window.addEventListener('gj:battle-state-updated', function(ev){
+      const d = safeObj(ev.detail);
+
+      applyExternalLocalState(d);
+
+      if (!state.local.finished){
+        updateMyPlayer({}, { force:false });
+      }
     });
 
-    window.addEventListener('gj:battle-ended', function(ev){
-      markFinished({
-        endReason: ev.detail && ev.detail.reason || 'ended',
-        result: ev.detail && ev.detail.result || ''
-      });
+    document.addEventListener('visibilitychange', function(){
+      if (document.visibilityState === 'hidden'){
+        publishCurrentLocal('visibility-hidden');
+      }else{
+        publishCurrentLocal('visibility-visible');
+      }
+    });
+
+    window.addEventListener('beforeunload', function(){
+      publishCurrentLocal('beforeunload');
+      markLeft();
+    });
+
+    window.addEventListener('pagehide', function(){
+      publishCurrentLocal('pagehide');
+      markLeft();
     });
   }
 
+  function bindButtons(){
+    document.addEventListener('click', function(ev){
+      const btn = ev.target && ev.target.closest
+        ? ev.target.closest('[data-rematch-btn], .btn-rematch, #btnRematch')
+        : null;
+
+      if (btn){
+        ev.preventDefault();
+        ev.stopPropagation();
+
+        if (isHost(state.room || {})){
+          resetForRematchAsHost();
+        }else{
+          voteRematch();
+        }
+      }
+    }, true);
+
+    document.addEventListener('click', function(ev){
+      const lobbyBtn = ev.target && ev.target.closest
+        ? ev.target.closest('[data-back-lobby], #btnBackLobby, #btnResultLobby')
+        : null;
+
+      if (!lobbyBtn) return;
+
+      ev.preventDefault();
+
+      const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+      out.searchParams.set('pid', state.playerId);
+      out.searchParams.set('name', state.playerName);
+      out.searchParams.set('view', state.view);
+      out.searchParams.set('diff', DIFF);
+      out.searchParams.set('time', String(TIME_SEC));
+
+      if (state.roomCode){
+        out.searchParams.set('room', state.roomCode);
+        out.searchParams.set('roomCode', state.roomCode);
+      }
+
+      const hub = params.get('hub');
+      if (hub) out.searchParams.set('hub', hub);
+
+      location.href = out.toString();
+    }, true);
+
+    document.addEventListener('click', function(ev){
+      const modesBtn = ev.target && ev.target.closest
+        ? ev.target.closest('[data-all-modes], #btnAllModes')
+        : null;
+
+      if (!modesBtn) return;
+
+      ev.preventDefault();
+
+      const out = new URL('../goodjunk-launcher.html', location.href);
+      out.searchParams.set('pid', state.playerId);
+      out.searchParams.set('name', state.playerName);
+      out.searchParams.set('view', state.view);
+      out.searchParams.set('diff', DIFF);
+      out.searchParams.set('time', String(TIME_SEC));
+
+      const hub = params.get('hub');
+      if (hub) out.searchParams.set('hub', hub);
+
+      location.href = out.toString();
+    }, true);
+
+    document.addEventListener('click', function(ev){
+      const hubBtn = ev.target && ev.target.closest
+        ? ev.target.closest('[data-back-hub], #btnHub, #btnResultHub')
+        : null;
+
+      if (!hubBtn) return;
+
+      ev.preventDefault();
+
+      const hub = params.get('hub');
+
+      if (hub){
+        location.href = hub;
+        return;
+      }
+
+      const out = new URL('../nutrition-zone.html', location.href);
+      out.searchParams.set('pid', state.playerId);
+      out.searchParams.set('name', state.playerName);
+      out.searchParams.set('view', state.view);
+      out.searchParams.set('diff', DIFF);
+      out.searchParams.set('time', String(TIME_SEC));
+
+      location.href = out.toString();
+    }, true);
+  }
+
   async function boot(){
-    bindButtons();
+    localStorage.setItem('GJ_BATTLE_PID', state.playerId);
+    localStorage.setItem('GJ_BATTLE_NAME', state.playerName);
+    localStorage.setItem('HHA_GJ_PID', state.playerId);
+    localStorage.setItem('HHA_GJ_NAME', state.playerName);
+
+    window.GJ_PLAYER_ID = state.playerId;
+    window.MY_PLAYER_ID = state.playerId;
+    window.GJ_PLAYER_NAME = state.playerName;
+    window.MY_PLAYER_NAME = state.playerName;
+    window.GJ_ROOM_CODE = state.roomCode;
+    window.ROOM_CODE = state.roomCode;
+    window.GJ_MATCH_ID = state.matchId;
+    window.GJ_BATTLE_PHASE = 'play';
+
+    syncWindowState();
     bindRuntimeEvents();
+    bindButtons();
 
-    if (!ROOM_CODE){
-      warn('No ROOM_CODE in URL. Core will run local only.');
-      return false;
+    const ready = await waitForReady(5200);
+
+    if (!ready){
+      console.warn('[GJ Battle Core] Firebase not ready; running with local state only');
+      emit('gj:battle-core-ready', {
+        ready: false,
+        localOnly: true,
+        coreVersion: CORE_VERSION
+      });
+      return;
     }
 
-    const ok = await waitForBridge(6000);
-    state.bridgeReady = ok;
-
-    if (!ok){
-      warn('Firebase bridge is not ready. Core will run local only.');
-      return false;
-    }
-
-    state.roomRef = getRoomRef();
+    state.roomRef = getRoomRef(state.roomCode);
 
     if (!state.roomRef){
-      warn('Room ref not ready.');
-      return false;
+      console.warn('[GJ Battle Core] No roomRef after ready');
+      emit('gj:battle-core-ready', {
+        ready: false,
+        noRoomRef: true,
+        coreVersion: CORE_VERSION
+      });
+      return;
     }
 
     attachRoomListener();
@@ -934,54 +1505,70 @@
       status: 'in-game',
       phase: 'play',
       currentPage: 'run',
-      currentUrl: location.href
-    });
+      matchId: state.matchId,
+      roundId: state.matchId
+    }, { force:true });
 
-    startHeartbeat();
-    startPeriodicSync();
+    if (!state.heartbeatTimer){
+      state.heartbeatTimer = setInterval(heartbeat, 3500);
+    }
+
+    if (!state.publishTimer){
+      state.publishTimer = setInterval(function(){
+        publishCurrentLocal('interval');
+      }, 1500);
+    }
 
     emit('gj:battle-core-ready', {
-      version: VERSION,
-      room: ROOM_CODE,
-      playerId: PLAYER_ID,
-      playerName: PLAYER_NAME,
-      view: VIEW
+      ready: true,
+      roomCode: state.roomCode,
+      matchId: state.matchId,
+      playerId: state.playerId,
+      playerName: state.playerName,
+      view: state.view,
+      coreVersion: CORE_VERSION
     });
 
-    log('ready', {
-      room: ROOM_CODE,
-      playerId: PLAYER_ID,
-      playerName: PLAYER_NAME,
-      view: VIEW
+    console.info('[GoodJunk Battle Core]', CORE_VERSION, 'loaded', {
+      roomCode: state.roomCode,
+      playerId: state.playerId,
+      playerName: state.playerName,
+      view: state.view
     });
-
-    return true;
   }
 
   window.GJ_BATTLE_CORE = {
-    version: VERSION,
+    version: CORE_VERSION,
     state,
 
-    boot,
-    updateRoom,
-    updateMyPlayer,
-    forceRealtimeSync,
-    markFinished,
-    rematch,
-
-    buildSelfRunUrl,
-    buildLobbyUrl,
-    buildModesUrl,
-    buildHubUrl,
-
-    normalizeRoom,
+    normalizeRoomCode,
+    normalizeView,
     normalizePlayer,
-    getOpponent: function(){
-      return state.opponent || window.GJ_BATTLE_OPPONENT || null;
-    },
-    getRoom: function(){
-      return state.room || null;
-    }
+    normalizeRoom,
+
+    waitForReady,
+    isBridgeReady,
+    getDb,
+    getRoomRef,
+
+    getMyPlayer,
+    getOpponent,
+    isHost,
+
+    updateMyPlayer,
+    updateRoom,
+    publishCurrentLocal,
+    publishFinalSummary,
+    buildSummary,
+    determineWinner,
+
+    voteRematch,
+    resetForRematchAsHost,
+
+    forceRealtimeSync: publishCurrentLocal,
+    readRoomOnce,
+
+    boot
   };
 
   if (document.readyState === 'loading'){
@@ -989,6 +1576,4 @@
   }else{
     boot();
   }
-
-  console.info('[GoodJunk Battle Core]', VERSION, 'loaded');
 })();
