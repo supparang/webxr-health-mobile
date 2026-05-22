@@ -17,7 +17,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__ = true;
 
-  const VERSION = '20260522-skipintro11';
+  const VERSION = '20260522-navlock10c';
 
   const files = [
   '01-groups-solo-3view-stabilizer.js',
