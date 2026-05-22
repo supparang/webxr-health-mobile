@@ -1,47 +1,50 @@
 /* =========================================================
    HeroHealth Groups Solo Patch Loader
-   PATCH SET: v20260521-startfix07b
+   PATCH SET: v20260522-loader-clean-11
    File: /herohealth/patches/groups/groups-solo-patch-loader.js
 
    Purpose:
-   - Load Groups Solo patches from the same folder as this loader
+   - Clean loader with no duplicated VERSION declaration
+   - Load Groups Solo patches 01–11 in strict order
    - GitHub Pages safe path under /webxr-health-mobile/
-   - Load patch 01–07 in strict order
-   - Fix syntax issue when adding patch 07
 ========================================================= */
 (function(){
   'use strict';
 
-  const VERSION = '20260522-startfix07e-practice08-modefix09';
+  var LOADER_PATCH_ID = 'v20260522-groups-solo-patch-loader-clean-11';
 
-  if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__) return;
-  window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__ = true;
+  if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_CLEAN_11__) return;
+  window.__HHA_GROUPS_SOLO_PATCH_LOADER_CLEAN_11__ = true;
 
-  const VERSION = '20260522-navlock10c';
+  var LOADER_VERSION = '20260522-loader-clean-11';
 
-  const files = [
-  '01-groups-solo-3view-stabilizer.js',
-  '02-groups-solo-summary-mobile-final.js',
-  '03-groups-solo-gameplay-mobile-cvr-final.js',
-  '04-groups-solo-cooldown-flow-final.js',
-  '05-groups-solo-save-log-final.js',
-  '06-groups-solo-final-qa-gate.js',
-  '07-groups-solo-start-button-fix.js',
-  '08-groups-solo-practice-mode.js',
-  '09-groups-solo-mode-link-fix.js',
-  '10-groups-solo-gameplay-nav-lock.js',
-  '11-groups-solo-skip-intro-autostart.js'
-];
+  var PATCH_FILES = [
+    '01-groups-solo-3view-stabilizer.js',
+    '02-groups-solo-summary-mobile-final.js',
+    '03-groups-solo-gameplay-mobile-cvr-final.js',
+    '04-groups-solo-cooldown-flow-final.js',
+    '05-groups-solo-save-log-final.js',
+    '06-groups-solo-final-qa-gate.js',
+    '07-groups-solo-start-button-fix.js',
+    '08-groups-solo-practice-mode.js',
+    '09-groups-solo-mode-link-fix.js',
+    '10-groups-solo-gameplay-nav-lock.js',
+    '11-groups-solo-skip-intro-autostart.js'
+  ];
 
   function currentBase(){
-    const current =
-      document.currentScript && document.currentScript.src ||
-      Array.from(document.scripts)
-        .map(function(s){ return s.src || ''; })
-        .find(function(src){
-          return src.includes('groups-solo-patch-loader.js');
-        }) ||
-      '';
+    var current = '';
+
+    try {
+      current =
+        document.currentScript && document.currentScript.src ||
+        Array.prototype.slice.call(document.scripts)
+          .map(function(s){ return s.src || ''; })
+          .find(function(src){
+            return src.indexOf('groups-solo-patch-loader.js') >= 0;
+          }) ||
+        '';
+    } catch(e) {}
 
     if (current) {
       return new URL('.', current).href;
@@ -50,11 +53,11 @@
     return 'https://supparang.github.io/webxr-health-mobile/herohealth/patches/groups/';
   }
 
-  const BASE = currentBase();
+  var BASE = currentBase();
 
   function loadScript(src){
     return new Promise(function(resolve){
-      const s = document.createElement('script');
+      var s = document.createElement('script');
       s.src = src;
       s.async = false;
 
@@ -82,43 +85,43 @@
     if (window.__HHA_GROUPS_PATCH_LOADER_TOAST_READY__) return;
     window.__HHA_GROUPS_PATCH_LOADER_TOAST_READY__ = true;
 
-    const style = document.createElement('style');
+    var style = document.createElement('style');
     style.id = 'hha-groups-patch-loader-toast-style';
-    style.textContent = `
-      .hha-groups-patch-loader-toast{
-        position:fixed;
-        left:50%;
-        bottom:calc(18px + env(safe-area-inset-bottom, 0px));
-        transform:translateX(-50%) translateY(12px);
-        z-index:999999;
-        width:min(92vw, 520px);
-        padding:11px 15px;
-        border-radius:18px;
-        background:rgba(21,48,74,.93);
-        color:#fff;
-        text-align:center;
-        font:900 13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-        box-shadow:0 16px 36px rgba(0,0,0,.24);
-        opacity:0;
-        pointer-events:none;
-        transition:.18s ease;
-      }
+    style.textContent = [
+      '.hha-groups-patch-loader-toast{',
+      'position:fixed;',
+      'left:50%;',
+      'bottom:calc(18px + env(safe-area-inset-bottom,0px));',
+      'transform:translateX(-50%) translateY(12px);',
+      'z-index:999999;',
+      'width:min(92vw,520px);',
+      'padding:11px 15px;',
+      'border-radius:18px;',
+      'background:rgba(21,48,74,.93);',
+      'color:#fff;',
+      'text-align:center;',
+      'font:900 13px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;',
+      'box-shadow:0 16px 36px rgba(0,0,0,.24);',
+      'opacity:0;',
+      'pointer-events:none;',
+      'transition:.18s ease;',
+      '}',
+      '.hha-groups-patch-loader-toast.show{',
+      'opacity:1;',
+      'transform:translateX(-50%) translateY(0);',
+      '}'
+    ].join('');
 
-      .hha-groups-patch-loader-toast.show{
-        opacity:1;
-        transform:translateX(-50%) translateY(0);
-      }
-    `;
     document.head.appendChild(style);
 
-    const box = document.createElement('div');
+    var box = document.createElement('div');
     box.className = 'hha-groups-patch-loader-toast';
     document.body.appendChild(box);
 
-    let timer = null;
+    var timer = null;
 
     window.addEventListener('hha:toast', function(ev){
-      const msg =
+      var msg =
         ev.detail && (ev.detail.message || ev.detail.text) ||
         '';
 
@@ -167,20 +170,28 @@
     } catch(e) {}
   }
 
+  function addLoadedClasses(){
+    try {
+      document.documentElement.classList.add('hha-groups-solo-patches-loaded');
+      document.body.classList.add('hha-groups-solo-patches-loaded');
+    } catch(e) {}
+  }
+
   async function boot(){
     installFallbackToast();
 
-    console.info('[Groups Solo Patch Loader]', PATCH_ID, {
+    console.info('[Groups Solo Patch Loader]', LOADER_PATCH_ID, {
       base: BASE,
-      version: VERSION,
-      files: files
+      version: LOADER_VERSION,
+      files: PATCH_FILES
     });
 
-    const results = [];
+    var results = [];
 
-    for (const f of files) {
-      const url = BASE + f + '?v=' + VERSION;
-      const result = await loadScript(url);
+    for (var i = 0; i < PATCH_FILES.length; i++) {
+      var f = PATCH_FILES[i];
+      var url = BASE + f + '?v=' + LOADER_VERSION;
+      var result = await loadScript(url);
 
       results.push({
         file: f,
@@ -189,14 +200,14 @@
       });
     }
 
-    const failed = results.filter(function(x){
+    var failed = results.filter(function(x){
       return !x.ok;
     });
 
-    const report = {
-      patch: PATCH_ID,
+    var report = {
+      patch: LOADER_PATCH_ID,
       base: BASE,
-      version: VERSION,
+      version: LOADER_VERSION,
       results: results,
       failed: failed,
       ok: failed.length === 0,
@@ -218,10 +229,9 @@
       return;
     }
 
-    console.info('[Groups Solo Patch Loader] all patches loaded', report);
+    addLoadedClasses();
 
-    document.documentElement.classList.add('hha-groups-solo-patches-loaded');
-    document.body.classList.add('hha-groups-solo-patches-loaded');
+    console.info('[Groups Solo Patch Loader] all patches loaded', report);
 
     toast('Groups Solo patches loaded', 'ok');
 
