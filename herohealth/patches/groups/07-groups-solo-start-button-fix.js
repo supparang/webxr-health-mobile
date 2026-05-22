@@ -1,22 +1,22 @@
 /* =========================================================
    HeroHealth Groups Solo
-   PATCH: v20260522-groups-solo-start-button-fix-07d
+   PATCH: v20260522-groups-solo-start-button-fix-07e
    File: /herohealth/patches/groups/07-groups-solo-start-button-fix.js
 
    Purpose:
-   - Fix "เริ่มเล่น" not entering game
-   - Catch start button even if it is div/span/custom element
-   - Prevent background Nutrition Zone / HUB click-through
-   - Hide intro card and dispatch game start events
+   - One-tap start: กดเริ่มเล่นครั้งเดียวแล้วเข้าเกม
+   - Do not break native game start handlers
+   - Prevent Nutrition Zone / HUB click-through while intro is open
+   - Compact gameplay navigation buttons so they do not appear in the middle
    - Works with Arena / Practice / PC / Mobile / cVR
 ========================================================= */
 (function(){
   'use strict';
 
-  const PATCH_ID = 'v20260522-groups-solo-start-button-fix-07d';
+  const PATCH_ID = 'v20260522-groups-solo-start-button-fix-07e';
 
-  if (window.__HHA_GROUPS_SOLO_START_BUTTON_FIX_07D__) return;
-  window.__HHA_GROUPS_SOLO_START_BUTTON_FIX_07D__ = true;
+  if (window.__HHA_GROUPS_SOLO_START_BUTTON_FIX_07E__) return;
+  window.__HHA_GROUPS_SOLO_START_BUTTON_FIX_07E__ = true;
 
   const qs = new URLSearchParams(location.search);
 
@@ -25,6 +25,7 @@
     view: normalizeView(),
     variant: String(qs.get('variant') || 'arena').toLowerCase(),
     started: false,
+    starting: false,
     startCount: 0,
     lastStartAt: 0
   };
@@ -49,7 +50,7 @@
     return String(el && (
       el.innerText ||
       el.textContent ||
-      el.getAttribute && el.getAttribute('aria-label') ||
+      (el.getAttribute && el.getAttribute('aria-label')) ||
       el.value ||
       ''
     ) || '')
@@ -88,6 +89,25 @@
     );
   }
 
+  function isGameplayActive(){
+    if (isIntroVisible() || isSummaryVisible()) return false;
+
+    const t = pageText();
+
+    const hasHud =
+      t.includes('คะแนน') ||
+      t.includes('เวลา') ||
+      t.includes('หัวใจ') ||
+      t.includes('คอมโบ') ||
+      t.includes('ถูกต้อง');
+
+    const hasTargets = !!document.querySelector(
+      '[data-food],[data-target],[data-group],[data-gate],.food,.food-card,.foodItem,.target,.orb,.item,.gate,.group,.bucket,.answer,.choice'
+    );
+
+    return hasHud || hasTargets || state.started;
+  }
+
   function isStartText(text){
     const t = String(text || '').trim();
 
@@ -122,33 +142,17 @@
     if (!el) return false;
 
     const text = textOf(el);
-    const href = String(el.getAttribute && el.getAttribute('href') || '');
-
-    if (isStartText(text)) return true;
-
-    if (
-      href &&
-      (
-        href.includes('/nutrition-zone.html') ||
-        href.includes('/hub.html') ||
-        href === '#' ||
-        href === ''
-      ) &&
-      text.includes('เริ่ม')
-    ) {
-      return true;
-    }
-
-    return false;
+    return isStartText(text);
   }
 
-  function isZoneOrHubElement(el){
+  function isNavElement(el){
     if (!el) return false;
 
     const text = textOf(el);
     const href = String(el.getAttribute && el.getAttribute('href') || '');
 
     return (
+      text.includes('โหมดเกม') ||
       text.includes('Nutrition Zone') ||
       text.includes('กลับ Nutrition') ||
       text.includes('กลับ Zone') ||
@@ -157,7 +161,8 @@
       text.includes('กลับ Hub') ||
       text === 'HUB' ||
       href.includes('/nutrition-zone.html') ||
-      href.includes('/hub.html')
+      href.includes('/hub.html') ||
+      href.includes('/groups-vr.html')
     );
   }
 
@@ -195,26 +200,12 @@
   function findStartElement(root){
     const scope = root || document;
 
-    const direct = Array.from(scope.querySelectorAll(
+    const candidates = Array.from(scope.querySelectorAll(
       'button,a,[role="button"],input[type="button"],input[type="submit"],.btn,div,span'
-    )).find(function(el){
-      const t = textOf(el);
-
-      if (!isStartText(t)) return false;
-
-      const r = el.getBoundingClientRect();
-
-      return r.width > 20 && r.height > 20;
-    });
-
-    if (direct) return direct;
-
-    const all = Array.from(scope.querySelectorAll('*'))
+    ))
       .filter(function(el){
-        const t = textOf(el);
         const r = el.getBoundingClientRect();
-
-        return isStartText(t) && r.width > 20 && r.height > 20;
+        return isStartElement(el) && r.width > 20 && r.height > 20;
       })
       .sort(function(a,b){
         const ar = a.getBoundingClientRect();
@@ -223,14 +214,14 @@
         return (ar.width * ar.height) - (br.width * br.height);
       });
 
-    return all[0] || null;
+    return candidates[0] || null;
   }
 
   function addStyle(){
-    if (document.getElementById('hha-groups-start-fix-07d-style')) return;
+    if (document.getElementById('hha-groups-start-fix-07e-style')) return;
 
     const style = document.createElement('style');
-    style.id = 'hha-groups-start-fix-07d-style';
+    style.id = 'hha-groups-start-fix-07e-style';
     style.textContent = `
       body.hha-groups-intro-lock{
         overflow-x:hidden !important;
@@ -259,28 +250,60 @@
         border-radius:inherit;
         pointer-events:none;
         box-shadow:0 0 0 5px rgba(126,217,87,.25);
-        animation:hhaStartPulse07d 1.1s ease-in-out infinite;
+        animation:hhaStartPulse07e 1.05s ease-in-out infinite;
       }
 
-      @keyframes hhaStartPulse07d{
+      @keyframes hhaStartPulse07e{
         0%,100%{ opacity:.42; transform:scale(1); }
         50%{ opacity:1; transform:scale(1.04); }
       }
 
-      .hha-bg-zone-blocked{
+      body.hha-groups-intro-lock .hha-bg-zone-blocked{
         pointer-events:none !important;
-        opacity:.20 !important;
-        filter:grayscale(.25) blur(.5px) !important;
+        opacity:.12 !important;
+        filter:grayscale(.25) blur(.6px) !important;
       }
 
       body.hha-groups-started .hha-start-intro-root{
         opacity:0 !important;
         transform:scale(.985) !important;
         pointer-events:none !important;
-        transition:opacity .2s ease, transform .2s ease !important;
+        transition:opacity .18s ease, transform .18s ease !important;
       }
 
-      .hha-start-toast-07d{
+      .hha-game-nav-compact{
+        position:fixed !important;
+        z-index:99990 !important;
+        width:auto !important;
+        min-width:0 !important;
+        max-width:170px !important;
+        min-height:34px !important;
+        height:auto !important;
+        padding:7px 10px !important;
+        border-radius:999px !important;
+        font-size:13px !important;
+        line-height:1.1 !important;
+        transform:none !important;
+        opacity:.78 !important;
+        box-shadow:0 10px 22px rgba(0,0,0,.13) !important;
+        white-space:nowrap !important;
+      }
+
+      .hha-game-nav-compact:hover{
+        opacity:1 !important;
+      }
+
+      body.hha-practice-view-mobile .hha-game-nav-compact,
+      body.hha-practice-view-cvr .hha-game-nav-compact,
+      body.hha-view-mobile .hha-game-nav-compact,
+      body.hha-view-cvr .hha-game-nav-compact{
+        max-width:128px !important;
+        padding:6px 8px !important;
+        font-size:11px !important;
+        opacity:.58 !important;
+      }
+
+      .hha-start-toast-07e{
         position:fixed;
         left:50%;
         bottom:calc(18px + env(safe-area-inset-bottom,0px));
@@ -299,7 +322,7 @@
         transition:.18s ease;
       }
 
-      .hha-start-toast-07d.show{
+      .hha-start-toast-07e.show{
         opacity:1;
         transform:translateX(-50%) translateY(0);
       }
@@ -316,7 +339,7 @@
 
     if (!toastBox) {
       toastBox = document.createElement('div');
-      toastBox.className = 'hha-start-toast-07d';
+      toastBox.className = 'hha-start-toast-07e';
       document.body.appendChild(toastBox);
     }
 
@@ -326,21 +349,12 @@
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function(){
       toastBox.classList.remove('show');
-    }, 1700);
-
-    try {
-      window.dispatchEvent(new CustomEvent('hha:toast', {
-        detail:{
-          type:'info',
-          message:String(message || '')
-        }
-      }));
-    } catch(e) {}
+    }, 1500);
   }
 
   function dispatchStartEvents(){
     const detail = {
-      source:'groups-start-button-fix-07d',
+      source:'groups-start-button-fix-07e',
       patch:PATCH_ID,
       run:'play',
       mode:'solo',
@@ -393,7 +407,7 @@
 
         if (typeof fn === 'function') {
           fn({
-            source:'groups-start-button-fix-07d',
+            source:'groups-start-button-fix-07e',
             patch:PATCH_ID,
             run:'play',
             mode:'solo',
@@ -402,7 +416,7 @@
           });
 
           ok = true;
-          console.info('[Groups Start Fix 07d] called:', name);
+          console.info('[Groups Start Fix 07e] called:', name);
         }
       } catch(e) {}
     });
@@ -466,7 +480,7 @@
         el.classList.remove('hha-bg-zone-blocked');
         el.removeAttribute('data-hha-bg-blocked');
       });
-    }, 220);
+    }, 200);
 
     return true;
   }
@@ -483,33 +497,35 @@
     } catch(e) {}
   }
 
-  function forceStart(reason){
-    if (state.started && Date.now() - state.lastStartAt < 400) return false;
+  function startNow(reason){
+    if (state.starting && Date.now() - state.lastStartAt < 400) return;
 
+    state.starting = true;
     state.started = true;
     state.startCount += 1;
     state.lastStartAt = Date.now();
 
     saveStartIntent();
 
-    document.body.classList.add('hha-groups-started');
     document.body.classList.add('hha-groups-starting');
+    document.body.classList.add('hha-groups-started');
 
     toast(state.variant === 'practice' ? 'เริ่ม Groups Practice' : 'เริ่ม Groups Solo');
 
     dispatchStartEvents();
     callPossibleStartFunctions();
     revealGameplay();
+    hideIntro();
 
-    const hidden = hideIntro();
+    setTimeout(function(){
+      document.body.classList.add('hha-groups-gameplay-active');
+      compactGameplayNav();
+    }, 260);
 
-    console.info('[HeroHealth Groups Solo]', PATCH_ID, 'forceStart', {
+    console.info('[HeroHealth Groups Solo]', PATCH_ID, 'startNow', {
       reason:reason || 'start',
-      hiddenIntro:hidden,
       state:Object.assign({}, state)
     });
-
-    return false;
   }
 
   function patchIntroLayer(){
@@ -527,16 +543,15 @@
     if (startEl) {
       startEl.classList.add('hha-start-btn-fixed');
       startEl.setAttribute('data-hha-start-fixed', PATCH_ID);
+      startEl.setAttribute('role', 'button');
+      startEl.setAttribute('tabindex', '0');
 
       if (startEl.tagName === 'A') {
         startEl.setAttribute('href', '#start-groups-solo');
       }
 
-      startEl.setAttribute('role', 'button');
-      startEl.setAttribute('tabindex', '0');
-
-      if (!startEl.__hhaStartFix07dBound) {
-        startEl.__hhaStartFix07dBound = true;
+      if (!startEl.__hhaStartFix07eBound) {
+        startEl.__hhaStartFix07eBound = true;
 
         startEl.addEventListener('click', function(ev){
           ev.preventDefault();
@@ -546,16 +561,9 @@
             ev.stopImmediatePropagation();
           }
 
-          return forceStart('direct-start-element-click');
+          startNow('direct-start-click');
+          return false;
         }, true);
-
-        startEl.addEventListener('pointerdown', function(ev){
-          ev.stopPropagation();
-        }, true);
-
-        startEl.addEventListener('touchstart', function(ev){
-          ev.stopPropagation();
-        }, { passive:true, capture:true });
 
         startEl.addEventListener('keydown', function(ev){
           if (ev.key !== 'Enter' && ev.key !== ' ') return;
@@ -567,7 +575,8 @@
             ev.stopImmediatePropagation();
           }
 
-          return forceStart('direct-start-element-key');
+          startNow('direct-start-key');
+          return false;
         }, true);
       }
     }
@@ -575,7 +584,7 @@
     Array.from(document.querySelectorAll('a,button,[role="button"],.btn,div,span')).forEach(function(el){
       if (root && root.contains(el)) return;
 
-      if (isZoneOrHubElement(el)) {
+      if (isNavElement(el)) {
         el.classList.add('hha-bg-zone-blocked');
         el.setAttribute('data-hha-bg-blocked', PATCH_ID);
       }
@@ -598,50 +607,80 @@
   }
 
   function bindGlobalGuards(){
-    if (document.__hhaGroupsStartFix07dGlobalBound) return;
-    document.__hhaGroupsStartFix07dGlobalBound = true;
+    if (document.__hhaGroupsStartFix07eGlobalBound) return;
+    document.__hhaGroupsStartFix07eGlobalBound = true;
 
-    ['pointerdown','mousedown','touchstart','click'].forEach(function(evtName){
-      document.addEventListener(evtName, function(ev){
-        if (!isIntroVisible() || state.started) return;
+    document.addEventListener('click', function(ev){
+      if (!isIntroVisible() || state.started) return;
 
-        const path = eventPath(ev).filter(function(x){
-          return x && x.nodeType === 1;
-        });
+      const path = eventPath(ev).filter(function(x){
+        return x && x.nodeType === 1;
+      });
 
-        const startHit = path.find(isStartElement);
-        const zoneHit = path.find(isZoneOrHubElement);
+      const startHit = path.find(isStartElement);
+      const navHit = path.find(isNavElement);
 
-        if (startHit) {
-          ev.preventDefault();
-          ev.stopPropagation();
+      if (startHit) {
+        ev.preventDefault();
+        ev.stopPropagation();
 
-          if (typeof ev.stopImmediatePropagation === 'function') {
-            ev.stopImmediatePropagation();
-          }
-
-          if (evtName === 'click') {
-            return forceStart('global-' + evtName);
-          }
-
-          return false;
+        if (typeof ev.stopImmediatePropagation === 'function') {
+          ev.stopImmediatePropagation();
         }
 
-        if (zoneHit) {
-          ev.preventDefault();
-          ev.stopPropagation();
+        startNow('global-start-click');
+        return false;
+      }
 
-          if (typeof ev.stopImmediatePropagation === 'function') {
-            ev.stopImmediatePropagation();
-          }
+      if (navHit) {
+        ev.preventDefault();
+        ev.stopPropagation();
 
-          if (evtName === 'click') {
-            toast('กดเริ่มเล่นก่อน ยังไม่ออกไป Zone ตอนนี้');
-          }
-
-          return false;
+        if (typeof ev.stopImmediatePropagation === 'function') {
+          ev.stopImmediatePropagation();
         }
-      }, true);
+
+        toast('กดเริ่มเล่นก่อน ยังไม่ออกไป Zone ตอนนี้');
+        return false;
+      }
+    }, true);
+  }
+
+  function compactGameplayNav(){
+    if (!isGameplayActive()) return;
+
+    document.body.classList.add('hha-groups-gameplay-active');
+
+    const navs = Array.from(document.querySelectorAll('a,button,[role="button"],.btn,div,span'))
+      .filter(function(el){
+        if (!isNavElement(el)) return false;
+
+        const t = textOf(el);
+        if (t.length > 40) return false;
+
+        const r = el.getBoundingClientRect();
+        if (r.width < 20 || r.height < 20) return false;
+
+        return true;
+      })
+      .slice(0, 4);
+
+    navs.forEach(function(el, i){
+      el.classList.add('hha-game-nav-compact');
+      el.setAttribute('data-hha-game-nav-compact', PATCH_ID);
+
+      const isSmall =
+        state.view === 'mobile' ||
+        state.view === 'cvr' ||
+        window.innerWidth < 760;
+
+      if (isSmall) {
+        el.style.right = '8px';
+        el.style.bottom = (8 + i * 42) + 'px';
+      } else {
+        el.style.bottom = '12px';
+        el.style.right = (12 + i * 150) + 'px';
+      }
     });
   }
 
@@ -653,7 +692,14 @@
       return;
     }
 
-    patchIntroLayer();
+    if (isIntroVisible() && !state.started) {
+      patchIntroLayer();
+      return;
+    }
+
+    if (isGameplayActive()) {
+      compactGameplayNav();
+    }
   }
 
   function boot(){
@@ -668,8 +714,8 @@
     setTimeout(scan, 2600);
 
     const mo = new MutationObserver(function(){
-      clearTimeout(window.__HHA_GROUPS_START_FIX_07D_SCAN_TIMER__);
-      window.__HHA_GROUPS_START_FIX_07D_SCAN_TIMER__ = setTimeout(scan, 100);
+      clearTimeout(window.__HHA_GROUPS_START_FIX_07E_SCAN_TIMER__);
+      window.__HHA_GROUPS_START_FIX_07E_SCAN_TIMER__ = setTimeout(scan, 110);
     });
 
     mo.observe(document.body, {
@@ -679,6 +725,10 @@
       attributes:true,
       attributeFilter:['href','class','style','aria-label','value','role']
     });
+
+    window.addEventListener('resize', function(){
+      setTimeout(compactGameplayNav, 150);
+    }, { passive:true });
 
     console.info('[HeroHealth Groups Solo]', PATCH_ID, 'ready', {
       view:state.view,
