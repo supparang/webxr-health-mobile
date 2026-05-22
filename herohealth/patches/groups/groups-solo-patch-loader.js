@@ -16,7 +16,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_CLEAN_11__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_CLEAN_11__ = true;
 
-  var LOADER_VERSION = '20260522-loader-clean-11';
+  var LOADER_VERSION = '20260522-loader-clean-11b';
 
   var PATCH_FILES = [
     '01-groups-solo-3view-stabilizer.js',
