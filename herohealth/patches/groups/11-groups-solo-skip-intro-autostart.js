@@ -1,29 +1,30 @@
 /* =========================================================
    HeroHealth Groups Solo
-   PATCH: v20260522-groups-solo-skip-intro-autostart-11
+   PATCH: v20260522-groups-solo-skip-intro-autostart-11b
    File: /herohealth/patches/groups/11-groups-solo-skip-intro-autostart.js
 
    Purpose:
-   - If player comes from groups-vr.html launcher with run=play,
-     skip the intro screen completely
-   - Solo Arena / Practice should enter gameplay directly
-   - Intro screen is only for direct/manual debug links
-   - Use ?intro=1 or ?holdIntro=1 to force showing intro
+   - Coming from groups-vr.html must enter gameplay directly
+   - Keep scanning until intro is actually removed
+   - Do NOT mark started too early before intro appears
+   - Hide duplicated "เริ่มเล่น / โหมดซ้อม" intro screen
 ========================================================= */
 (function(){
   'use strict';
 
-  const PATCH_ID = 'v20260522-groups-solo-skip-intro-autostart-11';
+  var PATCH_ID = 'v20260522-groups-solo-skip-intro-autostart-11b';
 
-  if (window.__HHA_GROUPS_SOLO_SKIP_INTRO_AUTOSTART_11__) return;
-  window.__HHA_GROUPS_SOLO_SKIP_INTRO_AUTOSTART_11__ = true;
+  if (window.__HHA_GROUPS_SOLO_SKIP_INTRO_AUTOSTART_11B__) return;
+  window.__HHA_GROUPS_SOLO_SKIP_INTRO_AUTOSTART_11B__ = true;
 
-  const qs = new URLSearchParams(location.search);
+  var qs = new URLSearchParams(location.search);
 
-  const state = {
+  var state = {
     patch: PATCH_ID,
     started: false,
-    tried: 0,
+    introHidden: false,
+    tries: 0,
+    maxTries: 80,
     variant: String(qs.get('variant') || 'arena').toLowerCase(),
     view: String(qs.get('view') || 'pc').toLowerCase()
   };
@@ -31,32 +32,33 @@
   window.HHA_GROUPS_SOLO_SKIP_INTRO = state;
 
   function shouldSkipIntro(){
-    const forcedIntro =
+    if (
       qs.get('intro') === '1' ||
       qs.get('holdIntro') === '1' ||
-      qs.get('nointro') === '0';
+      qs.get('nointro') === '0'
+    ) {
+      return false;
+    }
 
-    if (forcedIntro) return false;
+    var mode = String(qs.get('mode') || 'solo').toLowerCase();
+    var run = String(qs.get('run') || '').toLowerCase();
+    var entry = String(qs.get('entry') || '').toLowerCase();
+    var from = String(qs.get('from') || '').toLowerCase();
 
-    const mode = String(qs.get('mode') || 'solo').toLowerCase();
-    const run = String(qs.get('run') || '').toLowerCase();
-    const entry = String(qs.get('entry') || '').toLowerCase();
+    var isSolo = mode === 'solo';
+    var isPlay = run === 'play' || run === 'start' || run === '';
+    var variantOk = state.variant === 'arena' || state.variant === 'practice';
 
-    const isSolo = mode === 'solo';
-    const isPlay = run === 'play' || run === 'start' || run === '';
-    const fromLauncher =
-      entry.includes('groups-vr') ||
-      entry.includes('launcher') ||
+    var fromLauncher =
+      entry.indexOf('groups-vr') >= 0 ||
+      entry.indexOf('launcher') >= 0 ||
+      from.indexOf('groups-vr') >= 0 ||
       qs.get('autostart') === '1' ||
       qs.get('skipIntro') === '1' ||
-      qs.get('nointro') === '1';
+      qs.get('nointro') === '1' ||
+      qs.has('variant');
 
-    const variantOk =
-      state.variant === 'arena' ||
-      state.variant === 'practice';
-
-    // ถ้ามาจาก launcher หรือ URL มี run=play ชัดเจน ให้เข้าเกมเลย
-    return isSolo && isPlay && variantOk && (fromLauncher || qs.has('variant'));
+    return isSolo && isPlay && variantOk && fromLauncher;
   }
 
   function textOf(el){
@@ -76,53 +78,43 @@
   }
 
   function isSummaryVisible(){
-    const t = pageText();
+    var t = pageText();
 
     return (
-      t.includes('สรุปผลการเล่น') ||
-      t.includes('สรุปผลการฝึก') ||
-      t.includes('Food Hero') ||
-      t.includes('Practice Hero') ||
-      t.includes('เล่นอีกครั้ง') ||
-      t.includes('Best Score')
-    );
-  }
-
-  function isIntroVisible(){
-    if (isSummaryVisible()) return false;
-
-    const t = pageText();
-
-    return (
-      t.includes('Groups Solo Arena') ||
-      t.includes('Groups Practice Arena') ||
-      t.includes('แตะหรือ') ||
-      t.includes('เริ่มเล่น') ||
-      t.includes('โหมดซ้อม')
+      t.indexOf('สรุปผลการเล่น') >= 0 ||
+      t.indexOf('สรุปผลการฝึก') >= 0 ||
+      t.indexOf('Food Hero') >= 0 ||
+      t.indexOf('Practice Hero') >= 0 ||
+      t.indexOf('เล่นอีกครั้ง') >= 0 ||
+      t.indexOf('Best Score') >= 0
     );
   }
 
   function findIntroRoot(){
-    const candidates = Array.from(document.querySelectorAll('main,section,article,div'))
+    var candidates = Array.prototype.slice.call(document.querySelectorAll('main,section,article,div'))
       .map(function(el){
-        const t = textOf(el);
-        const r = el.getBoundingClientRect();
+        var txt = textOf(el);
+        var r = el.getBoundingClientRect();
 
         return {
           el: el,
-          text: t,
+          text: txt,
           area: r.width * r.height
         };
       })
       .filter(function(x){
-        if (x.area < 18000) return false;
+        if (x.area < 12000) return false;
 
         return (
-          x.text.includes('Groups Solo Arena') ||
-          x.text.includes('Groups Practice Arena') ||
+          x.text.indexOf('Groups Solo Arena') >= 0 ||
+          x.text.indexOf('Groups Practice Arena') >= 0 ||
           (
-            x.text.includes('เริ่มเล่น') &&
-            x.text.includes('ประตูหมู่')
+            x.text.indexOf('เริ่มเล่น') >= 0 &&
+            x.text.indexOf('โหมดซ้อม') >= 0
+          ) ||
+          (
+            x.text.indexOf('แตะหรือ') >= 0 &&
+            x.text.indexOf('ประตูหมู่') >= 0
           )
         );
       })
@@ -133,9 +125,15 @@
     return candidates.length ? candidates[0].el : null;
   }
 
+  function isIntroVisible(){
+    if (isSummaryVisible()) return false;
+
+    return !!findIntroRoot();
+  }
+
   function dispatchStartEvents(){
-    const detail = {
-      source: 'groups-skip-intro-autostart-11',
+    var detail = {
+      source: 'groups-skip-intro-autostart-11b',
       patch: PATCH_ID,
       run: 'play',
       mode: 'solo',
@@ -166,7 +164,7 @@
   }
 
   function callStartFunctions(){
-    const candidates = [
+    var candidates = [
       'start',
       'startGame',
       'beginGame',
@@ -180,15 +178,15 @@
       'HHA_GROUPS_SOLO_START'
     ];
 
-    let called = false;
+    var called = false;
 
     candidates.forEach(function(name){
       try {
-        const fn = window[name];
+        var fn = window[name];
 
         if (typeof fn === 'function') {
           fn({
-            source: 'groups-skip-intro-autostart-11',
+            source: 'groups-skip-intro-autostart-11b',
             patch: PATCH_ID,
             run: 'play',
             mode: 'solo',
@@ -197,7 +195,7 @@
           });
 
           called = true;
-          console.info('[Groups Skip Intro 11] called:', name);
+          console.info('[Groups Skip Intro 11b] called:', name);
         }
       } catch(e) {}
     });
@@ -205,7 +203,7 @@
     return called;
   }
 
-  function revealGameplay(){
+  function markGameplay(){
     document.body.dataset.hhaRun = 'play';
     document.body.dataset.hhaMode = 'solo';
     document.body.dataset.hhaVariant = state.variant;
@@ -217,7 +215,20 @@
     document.body.classList.add('hha-groups-gameplay-active');
     document.documentElement.classList.add('hha-groups-gameplay-active');
 
-    const selectors = [
+    try {
+      sessionStorage.setItem('HHA_GROUPS_SOLO_START_INTENT', JSON.stringify({
+        patch: PATCH_ID,
+        at: new Date().toISOString(),
+        url: location.href,
+        variant: state.variant,
+        view: state.view,
+        skippedIntro: true
+      }));
+    } catch(e) {}
+  }
+
+  function revealGameplay(){
+    var selectors = [
       '#game',
       '#gameRoot',
       '#gameArea',
@@ -250,7 +261,7 @@
   }
 
   function hideIntro(){
-    const root = findIntroRoot();
+    var root = findIntroRoot();
 
     if (!root) return false;
 
@@ -260,43 +271,36 @@
     root.style.opacity = '0';
     root.style.pointerEvents = 'none';
 
+    state.introHidden = true;
+
     return true;
   }
 
-  function saveIntent(){
-    try {
-      sessionStorage.setItem('HHA_GROUPS_SOLO_START_INTENT', JSON.stringify({
-        patch: PATCH_ID,
-        at: new Date().toISOString(),
-        url: location.href,
-        variant: state.variant,
-        view: state.view,
-        skippedIntro: true
-      }));
-    } catch(e) {}
-  }
-
   function autoStart(reason){
-    if (state.started) return;
     if (!shouldSkipIntro()) return;
     if (isSummaryVisible()) return;
+    if (state.tries > state.maxTries) return;
 
-    state.started = true;
-    state.tried += 1;
+    state.tries += 1;
 
-    saveIntent();
+    markGameplay();
     revealGameplay();
     dispatchStartEvents();
     callStartFunctions();
 
-    const hidden = hideIntro();
+    var hidden = hideIntro();
+
+    if (hidden) {
+      state.started = true;
+    }
 
     console.info('[HeroHealth Groups Solo]', PATCH_ID, 'autoStart', {
-      reason: reason || 'auto',
+      reason: reason || 'scan',
+      tryNo: state.tries,
       hiddenIntro: hidden,
+      started: state.started,
       variant: state.variant,
-      view: state.view,
-      url: location.href
+      view: state.view
     });
   }
 
@@ -304,8 +308,10 @@
     if (!shouldSkipIntro()) return;
     if (isSummaryVisible()) return;
 
-    if (isIntroVisible() || state.tried < 3) {
-      autoStart('scan');
+    autoStart('scan');
+
+    if (isIntroVisible()) {
+      hideIntro();
     }
   }
 
@@ -319,15 +325,13 @@
 
     scan();
 
-    setTimeout(scan, 80);
-    setTimeout(scan, 220);
-    setTimeout(scan, 500);
-    setTimeout(scan, 900);
-    setTimeout(scan, 1400);
+    [60,120,220,360,520,750,1000,1350,1700,2200,3000,4200].forEach(function(ms){
+      setTimeout(scan, ms);
+    });
 
-    const mo = new MutationObserver(function(){
-      clearTimeout(window.__HHA_GROUPS_SKIP_INTRO_SCAN_TIMER__);
-      window.__HHA_GROUPS_SKIP_INTRO_SCAN_TIMER__ = setTimeout(scan, 60);
+    var mo = new MutationObserver(function(){
+      clearTimeout(window.__HHA_GROUPS_SKIP_INTRO_11B_TIMER__);
+      window.__HHA_GROUPS_SKIP_INTRO_11B_TIMER__ = setTimeout(scan, 40);
     });
 
     mo.observe(document.body, {
