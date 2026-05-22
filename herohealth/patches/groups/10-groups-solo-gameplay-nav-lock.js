@@ -13,7 +13,7 @@
 (function(){
   'use strict';
 
-  const PATCH_ID = 'v20260522-groups-solo-gameplay-nav-lock-10b';
+  const VERSION = '20260522-navlock10b';
 
   if (window.__HHA_GROUPS_SOLO_GAMEPLAY_NAV_LOCK_10B__) return;
   window.__HHA_GROUPS_SOLO_GAMEPLAY_NAV_LOCK_10B__ = true;
