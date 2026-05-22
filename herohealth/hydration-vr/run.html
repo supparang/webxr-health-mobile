@@ -464,6 +464,242 @@
 
       window.HHA_HYDRATION_BUILD_NUTRITION_ZONE_URL = nutritionZoneUrl;
 
+/* =========================================================
+   PATCH v20260519-pack31-HYDRATION-START-BRIDGE
+   Final emergency bridge for Start button
+   - อยู่ใน run.html โดยตรง
+   - ไม่พึ่ง external patch
+   - ถ้า Start card แสดงอยู่ แล้วกดปุ่ม จะเรียก engine start ทันที
+   ========================================================= */
+
+(function(){
+  'use strict';
+
+  var PATCH = 'v20260519-pack31-start-bridge-inline';
+  var lastAt = 0;
+
+  if(window.HHA_HYDRATION_START_BRIDGE_PACK31){
+    return;
+  }
+
+  window.HHA_HYDRATION_START_BRIDGE_PACK31 = true;
+
+  function q(sel, root){
+    try{
+      return (root || document).querySelector(sel);
+    }catch(e){
+      return null;
+    }
+  }
+
+  function qa(sel, root){
+    try{
+      return Array.from((root || document).querySelectorAll(sel));
+    }catch(e){
+      return [];
+    }
+  }
+
+  function safeStop(ev){
+    if(!ev) return;
+
+    try{ ev.preventDefault(); }catch(e){}
+    try{ ev.stopPropagation(); }catch(e){}
+
+    try{
+      if(ev.stopImmediatePropagation){
+        ev.stopImmediatePropagation();
+      }
+    }catch(e){}
+  }
+
+  function isStartOpen(){
+    return !!(
+      q('.hha-hydration-start') ||
+      q('.hha-start-btn') ||
+      q('[data-hha-hydration-start-btn]')
+    );
+  }
+
+  function isStartTrigger(target){
+    if(!target || !target.closest) return false;
+
+    var btn = target.closest(
+      '[data-hha-hydration-start-btn], .hha-start-btn, button'
+    );
+
+    if(!btn) return false;
+
+    var text = String(btn.textContent || '').toLowerCase();
+
+    return (
+      btn.matches('[data-hha-hydration-start-btn], .hha-start-btn') ||
+      text.indexOf('เริ่มภารกิจ') !== -1 ||
+      text.indexOf('start') !== -1
+    );
+  }
+
+  function unlockStartUi(){
+    try{
+      document.body.classList.remove('hha-hydration-summary-open');
+      document.documentElement.classList.remove('hha-hydration-summary-open-html');
+
+      document.body.style.pointerEvents = '';
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+
+      var overlay = q('.hha-hydration-start');
+      if(overlay){
+        overlay.style.pointerEvents = 'auto';
+        overlay.style.zIndex = '999990';
+      }
+
+      var card = q('.hha-hydration-start .hha-start-card');
+      if(card){
+        card.style.pointerEvents = 'auto';
+        card.style.zIndex = '999991';
+        card.style.position = card.style.position || 'relative';
+      }
+
+      qa('[data-hha-hydration-start-btn], .hha-start-btn').forEach(function(btn){
+        btn.style.pointerEvents = 'auto';
+        btn.style.zIndex = '999992';
+        btn.style.position = btn.style.position || 'relative';
+        btn.style.touchAction = 'manipulation';
+        btn.dataset.hhaStartBridgePack31 = PATCH;
+      });
+    }catch(e){}
+  }
+
+  function startNow(reason){
+    if(!isStartOpen()) return false;
+
+    unlockStartUi();
+
+    /*
+      รีเซ็ต state เฉพาะตอน Start card ยังอยู่
+      กัน started=true ค้างจากรอบก่อน
+    */
+    try{
+      if(window.HHA && window.HHA.Hydration){
+        window.HHA.Hydration.started = false;
+        window.HHA.Hydration.destroyed = false;
+      }
+    }catch(e){}
+
+    try{
+      if(typeof window.HHA_HYDRATION_FORCE_START === 'function'){
+        console.info('[Hydration Pack31] force start via HHA_HYDRATION_FORCE_START:', reason || '');
+        return !!window.HHA_HYDRATION_FORCE_START();
+      }
+    }catch(err0){
+      console.error('[Hydration Pack31] HHA_HYDRATION_FORCE_START failed:', err0);
+    }
+
+    try{
+      if(typeof window.beginHydrationFromOverlay === 'function'){
+        console.info('[Hydration Pack31] force start via beginHydrationFromOverlay:', reason || '');
+        window.beginHydrationFromOverlay();
+        return true;
+      }
+    }catch(err1){
+      console.error('[Hydration Pack31] beginHydrationFromOverlay failed:', err1);
+    }
+
+    return false;
+  }
+
+  function bindButton(btn){
+    if(!btn || btn.dataset.hhaStartBridgePack31Bound === PATCH) return;
+
+    btn.dataset.hhaStartBridgePack31Bound = PATCH;
+
+    btn.onclick = function(ev){
+      var ok = startNow('onclick');
+
+      if(ok){
+        safeStop(ev);
+        return false;
+      }
+
+      return true;
+    };
+
+    ['click','pointerup','mouseup','touchend'].forEach(function(type){
+      btn.addEventListener(type, function(ev){
+        var t = Date.now();
+
+        if(t - lastAt < 320){
+          safeStop(ev);
+          return false;
+        }
+
+        var ok = startNow(type);
+
+        if(ok){
+          lastAt = t;
+          safeStop(ev);
+          return false;
+        }
+
+        return true;
+      }, { capture:true, passive:false });
+    });
+
+    btn.addEventListener('pointerdown', unlockStartUi, true);
+    btn.addEventListener('touchstart', unlockStartUi, { capture:true, passive:true });
+  }
+
+  function bindAll(){
+    unlockStartUi();
+
+    qa('[data-hha-hydration-start-btn], .hha-start-btn').forEach(bindButton);
+  }
+
+  function globalHandler(ev){
+    if(!isStartTrigger(ev.target)) return;
+
+    var t = Date.now();
+
+    if(t - lastAt < 320){
+      safeStop(ev);
+      return false;
+    }
+
+    var ok = startNow('global-' + ev.type);
+
+    if(ok){
+      lastAt = t;
+      safeStop(ev);
+      return false;
+    }
+
+    return true;
+  }
+
+  ['click','pointerup','mouseup','touchend'].forEach(function(type){
+    window.addEventListener(type, globalHandler, { capture:true, passive:false });
+    document.addEventListener(type, globalHandler, { capture:true, passive:false });
+  });
+
+  var mo = new MutationObserver(bindAll);
+
+  if(document.body){
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['class','style']
+    });
+  }
+
+  setInterval(bindAll, 450);
+
+  window.HHA_HYDRATION_START_BRIDGE_START = startNow;
+
+  console.info('[Hydration Pack31] inline start bridge loaded');
+})();
+
       function bootCheck(){
         var hyd = window.HHA && window.HHA.Hydration;
 
@@ -511,13 +747,13 @@
             });
         })
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack28')
+          return HHA_LOAD_SCRIPT('./hydration-start-hard-safe.patch.js?v=20260518-pack30')
             .catch(function(err){
               console.warn('[Hydration Run] start hard-safe optional load failed:', err);
             });
         })
         .then(function(){
-          return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack25')
+          return HHA_LOAD_SCRIPT('./hydration-cooldown-return.patch.js?v=20260518-pack30')
             .catch(function(err){
               console.warn('[Hydration Run] cooldown return optional load failed:', err);
             });
