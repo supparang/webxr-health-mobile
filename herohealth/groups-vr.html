@@ -1223,5 +1223,320 @@
   })();
   </script>
   <script src="https://supparang.github.io/webxr-health-mobile/herohealth/patches/groups/groups-vr-hard-start-override.js?v=20260522-hardstart02"></script>
+  <script>
+/* =========================================================
+   GroupsVR Launcher INLINE HARD START
+   PATCH: v20260522-inline-hard-start-final
+   Put this as the LAST script before </body> in:
+   /herohealth/groups-vr.html
+========================================================= */
+(function(){
+  'use strict';
+
+  var PATCH_ID = 'v20260522-inline-hard-start-final';
+
+  if (window.__HHA_GROUPS_VR_INLINE_HARD_START_FINAL__) return;
+  window.__HHA_GROUPS_VR_INLINE_HARD_START_FINAL__ = true;
+
+  function repoBase(){
+    var path = location.pathname;
+    var marker = '/herohealth/';
+    var idx = path.indexOf(marker);
+    if (idx >= 0) return location.origin + path.slice(0, idx);
+    return location.origin + '/webxr-health-mobile';
+  }
+
+  var BASE = repoBase();
+  var HERO = BASE + '/herohealth';
+  var RUN = HERO + '/vr-groups/groups.html';
+  var ZONE = HERO + '/nutrition-zone.html';
+
+  function qs(){
+    return new URLSearchParams(location.search);
+  }
+
+  function getParam(name, fallback){
+    var q = qs();
+    var v = q.get(name);
+    return v === null || v === '' ? fallback : v;
+  }
+
+  function textOf(el){
+    return String(el && (
+      el.innerText ||
+      el.textContent ||
+      (el.getAttribute && el.getAttribute('aria-label')) ||
+      el.value ||
+      ''
+    ) || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isMobileUA(){
+    return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent || '');
+  }
+
+  function normalizeView(v){
+    v = String(v || '').toLowerCase();
+
+    if (['pc','desktop','notebook','laptop'].indexOf(v) >= 0) return 'pc';
+    if (['mobile','phone','touch','tablet'].indexOf(v) >= 0) return 'mobile';
+    if (['cvr','cardboard','cardboard-vr','vr','webxr'].indexOf(v) >= 0) return 'cvr';
+
+    return isMobileUA() ? 'mobile' : 'pc';
+  }
+
+  function activeAttr(selector, attr, fallback){
+    var active = document.querySelector(selector + '.active');
+    var v = active && active.getAttribute(attr);
+    return v || fallback;
+  }
+
+  function getState(){
+    var s = window.HHA_GROUPS_LAUNCHER && window.HHA_GROUPS_LAUNCHER.state || {};
+
+    return {
+      mode: String(s.mode || activeAttr('[data-mode]', 'data-mode', 'solo') || 'solo').toLowerCase(),
+      view: normalizeView(s.view || activeAttr('[data-view]', 'data-view', getParam('view', 'pc'))),
+      variant: String(s.variant || activeAttr('[data-variant]', 'data-variant', 'arena') || 'arena').toLowerCase()
+    };
+  }
+
+  function buildZoneUrl(view){
+    var out = new URL(ZONE);
+    var q = qs();
+
+    [
+      'pid','name','studentId','studentName','classSection',
+      'studyId','conditionGroup','api','log','qa','debug','teacher'
+    ].forEach(function(k){
+      var v = q.get(k);
+      if (v !== null && v !== '') out.searchParams.set(k, v);
+    });
+
+    out.searchParams.set('pid', getParam('pid', 'anon'));
+    out.searchParams.set('name', getParam('name', 'Hero'));
+    out.searchParams.set('diff', getParam('diff', 'normal'));
+    out.searchParams.set('time', getParam('time', '90'));
+    out.searchParams.set('view', view || 'pc');
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('game', 'groups');
+    out.searchParams.set('gameId', 'groups');
+
+    return out.toString();
+  }
+
+  function buildRunUrl(){
+    var st = getState();
+    var out = new URL(RUN);
+    var q = qs();
+    var zoneUrl = buildZoneUrl(st.view);
+
+    [
+      'pid','name','studentId','studentName','classSection',
+      'studyId','conditionGroup','api','log','qa','debug','teacher'
+    ].forEach(function(k){
+      var v = q.get(k);
+      if (v !== null && v !== '') out.searchParams.set(k, v);
+    });
+
+    out.searchParams.set('pid', getParam('pid', 'anon'));
+    out.searchParams.set('name', getParam('name', 'Hero'));
+
+    out.searchParams.set('mode', 'solo');
+    out.searchParams.set('variant', st.variant);
+    out.searchParams.set('view', st.view);
+    out.searchParams.set('run', 'play');
+
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('game', 'groups');
+    out.searchParams.set('gameId', 'groups');
+    out.searchParams.set('entry', 'groups-vr-inline-hard-start');
+    out.searchParams.set('from', 'groups-vr');
+    out.searchParams.set('theme', 'food-groups');
+
+    /* สำคัญ: ห้ามกลับมาหน้า intro ซ้ำ */
+    out.searchParams.set('skipIntro', '1');
+    out.searchParams.set('nointro', '1');
+    out.searchParams.set('autostart', '1');
+    out.searchParams.set('direct', '1');
+    out.searchParams.set('intro', '0');
+
+    out.searchParams.set('hub', getParam('hub', zoneUrl));
+    out.searchParams.set('back', getParam('back', zoneUrl));
+    out.searchParams.set('return', getParam('return', zoneUrl));
+    out.searchParams.set('returnTo', getParam('returnTo', zoneUrl));
+
+    if (st.variant === 'practice') {
+      out.searchParams.set('diff', 'easy');
+      out.searchParams.set('time', getParam('time', '120'));
+      out.searchParams.set('assist', '1');
+      out.searchParams.set('practice', '1');
+    } else {
+      out.searchParams.set('diff', getParam('diff', 'normal'));
+      out.searchParams.set('time', getParam('time', '90'));
+    }
+
+    out.searchParams.set('seed', String(Date.now()));
+    out.searchParams.set('t', String(Date.now()));
+
+    return out.toString();
+  }
+
+  function findStartButton(){
+    var byId = document.getElementById('startBtn');
+    if (byId) return byId;
+
+    var all = Array.prototype.slice.call(
+      document.querySelectorAll('button,a,[role="button"],.btn,div,span')
+    );
+
+    return all.find(function(el){
+      var t = textOf(el);
+      var r = el.getBoundingClientRect();
+
+      return (
+        r.width > 40 &&
+        r.height > 25 &&
+        (
+          t === 'เริ่มเล่น' ||
+          t.indexOf('เริ่มเล่น') >= 0 ||
+          t.indexOf('Start') >= 0 ||
+          t.indexOf('Play') >= 0
+        )
+      );
+    }) || null;
+  }
+
+  function forceButton(){
+    var btn = findStartButton();
+    if (!btn) return;
+
+    btn.setAttribute('data-hha-inline-hard-start', PATCH_ID);
+    btn.setAttribute('role', 'button');
+    btn.setAttribute('tabindex', '0');
+
+    if (btn.tagName === 'A') {
+      btn.setAttribute('href', '#start-groups-direct');
+    }
+
+    btn.disabled = false;
+    btn.style.pointerEvents = 'auto';
+    btn.style.cursor = 'pointer';
+
+    if (!btn.__hhaInlineHardStartBound) {
+      btn.__hhaInlineHardStartBound = true;
+
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        startDirect('button-click');
+        return false;
+      }, true);
+
+      btn.addEventListener('keydown', function(ev){
+        if (ev.key !== 'Enter' && ev.key !== ' ') return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        startDirect('button-key');
+        return false;
+      }, true);
+    }
+  }
+
+  function startDirect(reason){
+    var st = getState();
+
+    if (st.mode !== 'solo') {
+      alert('โหมด Multiplayer ยังเป็น TEST ตอนนี้ให้ปิด Solo ก่อน');
+      return;
+    }
+
+    if (st.variant !== 'arena' && st.variant !== 'practice') {
+      alert('โหมดนี้เตรียมทำต่อ');
+      return;
+    }
+
+    var url = buildRunUrl();
+
+    try {
+      sessionStorage.setItem('HHA_GROUPS_DIRECT_START_URL', url);
+      sessionStorage.setItem('HHA_GROUPS_DIRECT_START_REASON', reason || 'start');
+    } catch(e) {}
+
+    console.info('[GroupsVR INLINE HARD START]', PATCH_ID, {
+      reason: reason,
+      state: st,
+      url: url
+    });
+
+    location.replace(url);
+  }
+
+  function bindGlobalClick(){
+    if (document.__hhaInlineHardStartGlobalBound) return;
+    document.__hhaInlineHardStartGlobalBound = true;
+
+    document.addEventListener('click', function(ev){
+      var hit = ev.target && ev.target.closest &&
+        ev.target.closest('#startBtn,button,a,[role="button"],.btn,div,span');
+
+      if (!hit) return;
+
+      var t = textOf(hit);
+
+      if (
+        t === 'เริ่มเล่น' ||
+        t.indexOf('เริ่มเล่น') >= 0 ||
+        t.indexOf('Start') >= 0 ||
+        t.indexOf('Play') >= 0
+      ) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        startDirect('global-click');
+        return false;
+      }
+    }, true);
+  }
+
+  function boot(){
+    bindGlobalClick();
+    forceButton();
+
+    setTimeout(forceButton, 100);
+    setTimeout(forceButton, 400);
+    setTimeout(forceButton, 900);
+    setTimeout(forceButton, 1600);
+
+    var mo = new MutationObserver(function(){
+      clearTimeout(window.__HHA_INLINE_HARD_START_SCAN__);
+      window.__HHA_INLINE_HARD_START_SCAN__ = setTimeout(forceButton, 50);
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      characterData:true,
+      attributes:true,
+      attributeFilter:['class','disabled','href','style']
+    });
+
+    console.info('[GroupsVR INLINE HARD START]', PATCH_ID, 'ready', {
+      run: RUN
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  } else {
+    boot();
+  }
+
+})();
+</script>
 </body>
 </html>
