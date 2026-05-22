@@ -17,17 +17,18 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__ = true;
 
-  const VERSION = '20260521-startfix07b';
+  const VERSION = '20260522-practice08';
 
   const files = [
-    '01-groups-solo-3view-stabilizer.js',
-    '02-groups-solo-summary-mobile-final.js',
-    '03-groups-solo-gameplay-mobile-cvr-final.js',
-    '04-groups-solo-cooldown-flow-final.js',
-    '05-groups-solo-save-log-final.js',
-    '06-groups-solo-final-qa-gate.js',
-    '07-groups-solo-start-button-fix.js'
-  ];
+  '01-groups-solo-3view-stabilizer.js',
+  '02-groups-solo-summary-mobile-final.js',
+  '03-groups-solo-gameplay-mobile-cvr-final.js',
+  '04-groups-solo-cooldown-flow-final.js',
+  '05-groups-solo-save-log-final.js',
+  '06-groups-solo-final-qa-gate.js',
+  '07-groups-solo-start-button-fix.js',
+  '08-groups-solo-practice-mode.js'
+];
 
   function currentBase(){
     const current =
