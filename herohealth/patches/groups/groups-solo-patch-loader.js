@@ -27,7 +27,8 @@
   '05-groups-solo-save-log-final.js',
   '06-groups-solo-final-qa-gate.js',
   '07-groups-solo-start-button-fix.js',
-  '08-groups-solo-practice-mode.js'
+  '08-groups-solo-practice-mode.js',
+  '09-groups-solo-mode-link-fix.js'
 ];
 
   function currentBase(){
