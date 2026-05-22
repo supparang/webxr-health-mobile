@@ -1,24 +1,23 @@
 /* =========================================================
    HeroHealth Groups Solo Patch Loader
-   PATCH SET: v20260521-pathfix02
+   PATCH SET: v20260521-startfix07b
    File: /herohealth/patches/groups/groups-solo-patch-loader.js
 
    Purpose:
    - Load Groups Solo patches from the same folder as this loader
-   - GitHub Pages safe path
-   - Works under /webxr-health-mobile/
-   - Avoid wrong root path such as /herohealth/...
-   - Store loader report to window.HHA_GROUPS_SOLO_PATCH_LOADER_REPORT
+   - GitHub Pages safe path under /webxr-health-mobile/
+   - Load patch 01–07 in strict order
+   - Fix syntax issue when adding patch 07
 ========================================================= */
 (function(){
   'use strict';
 
-  const PATCH_ID = 'v20260521-groups-solo-patch-loader-pathfix02';
+  const PATCH_ID = 'v20260521-groups-solo-patch-loader-startfix07b';
 
-  if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_V20260521_PATHFIX__) return;
-  window.__HHA_GROUPS_SOLO_PATCH_LOADER_V20260521_PATHFIX__ = true;
+  if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__) return;
+  window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__ = true;
 
-  const VERSION = '20260521-startfix07';
+  const VERSION = '20260521-startfix07b';
 
   const files = [
     '01-groups-solo-3view-stabilizer.js',
@@ -26,7 +25,7 @@
     '03-groups-solo-gameplay-mobile-cvr-final.js',
     '04-groups-solo-cooldown-flow-final.js',
     '05-groups-solo-save-log-final.js',
-    '06-groups-solo-final-qa-gate.js'
+    '06-groups-solo-final-qa-gate.js',
     '07-groups-solo-start-button-fix.js'
   ];
 
@@ -73,21 +72,6 @@
 
       document.head.appendChild(s);
     });
-  }
-
-  function toast(message, type){
-    try {
-      window.dispatchEvent(new CustomEvent('hha:toast', {
-        detail: {
-          type: type || 'info',
-          message: String(message || '')
-        }
-      }));
-    } catch(e) {
-      try {
-        console.info('[Groups Solo Patch Loader]', message);
-      } catch(err) {}
-    }
   }
 
   function installFallbackToast(){
@@ -146,6 +130,21 @@
     });
   }
 
+  function toast(message, type){
+    try {
+      window.dispatchEvent(new CustomEvent('hha:toast', {
+        detail: {
+          type: type || 'info',
+          message: String(message || '')
+        }
+      }));
+    } catch(e) {
+      try {
+        console.info('[Groups Solo Patch Loader]', message);
+      } catch(err) {}
+    }
+  }
+
   function saveReport(report){
     window.HHA_GROUPS_SOLO_PATCH_LOADER_REPORT = report;
 
@@ -169,7 +168,8 @@
 
     console.info('[Groups Solo Patch Loader]', PATCH_ID, {
       base: BASE,
-      version: VERSION
+      version: VERSION,
+      files: files
     });
 
     const results = [];
