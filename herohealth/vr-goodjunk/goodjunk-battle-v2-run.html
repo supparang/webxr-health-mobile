@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#fff3d7" />
   <meta name="color-scheme" content="light" />
 
-  <title>GoodJunk Battle v2 • Run Router</title>
+  <title>GoodJunk Battle v2 • Runtime Router</title>
 
   <style>
     :root{
@@ -16,15 +16,9 @@
       --line:#ffc77d;
       --text:#753119;
       --muted:#9a6a42;
-      --green:#55d978;
       --blue:#71ccff;
-      --red:#ff7b69;
       --yellow:#ffe17a;
       --shadow:0 18px 42px rgba(112,60,20,.15);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
     }
 
     *{
@@ -37,196 +31,111 @@
       width:100%;
       min-height:100%;
       margin:0;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans Thai",sans-serif;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
       background:
         radial-gradient(circle at 15% 10%, rgba(255,225,122,.55), transparent 28%),
         radial-gradient(circle at 90% 8%, rgba(113,204,255,.38), transparent 32%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
-      overflow-x:hidden;
+      overflow:hidden;
     }
 
     body{
       min-height:100dvh;
-      padding:
-        calc(16px + var(--sat))
-        calc(14px + var(--sar))
-        calc(20px + var(--sab))
-        calc(14px + var(--sal));
       display:grid;
       place-items:center;
-    }
-
-    button,
-    a{
-      font-family:inherit;
-      touch-action:manipulation;
+      padding:18px;
     }
 
     .card{
-      width:min(94vw,720px);
-      padding:22px;
+      width:min(92vw,560px);
+      padding:24px 20px;
       border-radius:34px;
       border:5px solid rgba(255,199,125,.92);
       background:rgba(255,254,248,.96);
       box-shadow:var(--shadow);
       text-align:center;
-      display:grid;
-      gap:14px;
     }
 
     .icon{
-      width:94px;
-      height:94px;
-      margin:0 auto;
+      width:92px;
+      height:92px;
+      margin:0 auto 14px;
       display:grid;
       place-items:center;
       border-radius:30px;
       background:linear-gradient(180deg,#fff8d7,#ffe18a);
       border:4px solid rgba(255,199,125,.86);
-      font-size:54px;
+      font-size:52px;
       box-shadow:0 10px 22px rgba(112,60,20,.12);
     }
 
     h1{
       margin:0;
-      font-size:clamp(34px,8vw,58px);
-      line-height:1;
+      font-size:clamp(30px,8vw,54px);
+      line-height:1.05;
       font-weight:1000;
-      letter-spacing:-1px;
       color:var(--text);
+      letter-spacing:-.8px;
     }
 
-    .subtitle{
-      margin:0;
+    .msg{
+      margin:12px auto 0;
       color:var(--muted);
-      font-size:15px;
-      line-height:1.55;
+      font-size:clamp(15px,4vw,18px);
       font-weight:900;
-    }
-
-    .status{
-      padding:13px 14px;
-      border-radius:22px;
-      border:3px dashed rgba(255,190,105,.9);
-      background:rgba(255,248,225,.78);
-      color:#7d4b18;
-      font-size:16px;
-      font-weight:1000;
       line-height:1.45;
-      word-break:break-word;
     }
 
-    .status.good{
-      border-color:rgba(85,217,120,.75);
-      background:rgba(238,255,235,.82);
-      color:#2d723b;
-    }
-
-    .status.bad{
-      border-color:rgba(255,123,105,.75);
-      background:rgba(255,239,236,.82);
-      color:#8d2b1f;
-    }
-
-    .route-box{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      text-align:left;
-    }
-
-    .pill{
-      padding:12px;
+    .route{
+      margin:16px auto 0;
+      padding:12px 14px;
       border-radius:20px;
-      border:3px solid rgba(255,220,168,.95);
-      background:rgba(255,253,245,.88);
-      font-weight:950;
-      color:#75401d;
-      line-height:1.35;
-      min-width:0;
-    }
-
-    .pill b{
-      display:block;
-      font-size:13px;
-      color:#9a6a42;
-      margin-bottom:4px;
+      border:3px dashed rgba(255,199,125,.92);
+      background:rgba(255,248,225,.78);
+      color:#8a5a20;
+      font-size:15px;
+      font-weight:1000;
+      word-break:break-word;
     }
 
     .actions{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
-      margin-top:4px;
+      margin-top:18px;
     }
 
-    .btn{
-      min-height:54px;
-      padding:11px 14px;
-      border-radius:20px;
+    button,
+    a{
+      min-height:52px;
+      border-radius:18px;
       border:3px solid rgba(255,199,125,.92);
       background:linear-gradient(180deg,#fff8da,#ffe17a);
       color:var(--text);
       font-size:16px;
       font-weight:1000;
       text-decoration:none;
-      display:inline-flex;
+      display:flex;
       align-items:center;
       justify-content:center;
-      gap:7px;
       cursor:pointer;
-      box-shadow:0 8px 0 rgba(180,105,25,.16);
+      font-family:inherit;
     }
 
-    .btn:active{
-      transform:translateY(2px);
-      box-shadow:0 5px 0 rgba(180,105,25,.12);
-    }
-
-    .btn.blue{
+    a.blue,
+    button.blue{
       background:linear-gradient(180deg,#eef9ff,#bfe8ff);
       border-color:rgba(110,203,255,.9);
     }
 
-    .btn.red{
-      background:linear-gradient(180deg,#fff0ed,#ffc6bd);
-      border-color:rgba(255,123,105,.86);
-      color:#8d2b1f;
-    }
-
-    .small{
-      color:#8f6b45;
-      font-size:12px;
-      line-height:1.5;
-      font-weight:850;
-    }
-
-    @media(max-width:560px){
-      body{
-        padding:
-          calc(10px + var(--sat))
-          calc(8px + var(--sar))
-          calc(14px + var(--sab))
-          calc(8px + var(--sal));
-      }
-
-      .card{
-        width:100%;
-        padding:17px;
-        border-radius:28px;
-      }
-
-      .route-box,
+    @media(max-width:520px){
       .actions{
         grid-template-columns:1fr;
       }
 
-      .icon{
-        width:78px;
-        height:78px;
-        border-radius:26px;
-        font-size:46px;
+      .card{
+        padding:22px 16px;
       }
     }
   </style>
@@ -235,101 +144,62 @@
 <body>
   <main class="card">
     <div class="icon">⚔️</div>
-
     <h1>GoodJunk Battle</h1>
-
-    <p class="subtitle">
-      กำลังเลือกไฟล์ Run ให้ตรงกับอุปกรณ์ของผู้เล่น
-      เพื่อแยก PC / Mobile / Cardboard VR ให้ชัดเจน
-    </p>
-
-    <div id="status" class="status">
-      กำลังตรวจสอบ view...
+    <div class="msg" id="message">
+      กำลังเลือกหน้าจอเล่นให้เหมาะกับอุปกรณ์...
+    </div>
+    <div class="route" id="routeText">
+      preparing route...
     </div>
 
-    <section class="route-box" aria-label="route detail">
-      <div class="pill">
-        <b>View</b>
-        <span id="viewText">-</span>
-      </div>
-
-      <div class="pill">
-        <b>Target file</b>
-        <span id="targetText">-</span>
-      </div>
-
-      <div class="pill">
-        <b>Room</b>
-        <span id="roomText">-</span>
-      </div>
-
-      <div class="pill">
-        <b>Player</b>
-        <span id="playerText">-</span>
-      </div>
-    </section>
-
-    <section class="actions">
-      <button id="btnGoNow" class="btn" type="button">▶ เข้าเกมทันที</button>
-      <button id="btnLobby" class="btn blue" type="button">⚔️ กลับ Lobby</button>
-      <button id="btnModes" class="btn blue" type="button">🎮 โหมดทั้งหมด</button>
-      <button id="btnZone" class="btn red" type="button">🥗 Nutrition Zone</button>
-    </section>
-
-    <div class="small">
-      Router version: v2.4.30 • canonical run router for GoodJunk Battle v2
+    <div class="actions">
+      <button id="btnGoNow" type="button">เข้าเกมทันที</button>
+      <a id="btnLobby" class="blue" href="./goodjunk-battle-v2-lobby.html">กลับ Lobby</a>
     </div>
   </main>
 
   <script>
-    (function GoodJunkBattleRunRouter(){
+    (function GoodJunkBattleRuntimeRouter(){
       'use strict';
 
-      const ROUTER_VERSION = 'v2.4.30-goodjunk-battle-run-router-device-split';
-
-      window.GJ_BATTLE_RUN_ROUTER_VERSION = ROUTER_VERSION;
+      const ROUTER_VERSION = 'v2.4.31-runtime-router-opponent-score-identity-fix';
 
       const url = new URL(location.href);
       const params = url.searchParams;
 
-      const $ = id => document.getElementById(id);
+      const messageEl = document.getElementById('message');
+      const routeTextEl = document.getElementById('routeText');
+      const btnGoNow = document.getElementById('btnGoNow');
+      const btnLobby = document.getElementById('btnLobby');
 
-      const statusEl = $('status');
-      const viewText = $('viewText');
-      const targetText = $('targetText');
-      const roomText = $('roomText');
-      const playerText = $('playerText');
-
-      const btnGoNow = $('btnGoNow');
-      const btnLobby = $('btnLobby');
-      const btnModes = $('btnModes');
-      const btnZone = $('btnZone');
-
-      function clean(v, fallback){
-        const s = String(v ?? '').trim();
-        return s || fallback || '';
+      function safeText(v, fallback){
+        v = String(v || '').trim();
+        return v || fallback || '';
       }
 
-      function detectDeviceView(){
+      function detectView(){
+        const qv = String(params.get('view') || params.get('device') || '').toLowerCase();
+
+        if (qv === 'mobile') return 'mobile';
+        if (qv === 'pc' || qv === 'desktop') return 'pc';
+        if (qv === 'cardboard' || qv === 'cvr' || qv === 'vr') return 'cardboard';
+
         const ua = navigator.userAgent || '';
         const isMobile =
           /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
-          (
-            window.matchMedia &&
-            window.matchMedia('(max-width:760px)').matches
-          );
+          (window.matchMedia && window.matchMedia('(max-width:760px)').matches);
 
         return isMobile ? 'mobile' : 'pc';
       }
 
-      function normalizeView(raw){
-        const s = String(raw || '').toLowerCase().trim();
+      function normalizeView(v){
+        v = String(v || '').toLowerCase();
 
-        if (['pc','desktop','computer','laptop'].includes(s)) return 'pc';
-        if (['mobile','phone','touch'].includes(s)) return 'mobile';
-        if (['cardboard','cvr','vr','webxr','xr'].includes(s)) return 'cardboard';
+        if (v === 'mobile') return 'mobile';
+        if (v === 'cardboard' || v === 'cvr' || v === 'vr') return 'cardboard';
+        if (v === 'pc' || v === 'desktop') return 'pc';
 
-        return detectDeviceView();
+        return detectView();
       }
 
       function getRunFileByView(view){
@@ -346,74 +216,79 @@
         return './goodjunk-battle-v2-run-pc.html';
       }
 
-      function getCanonicalView(){
-        const raw =
-          params.get('view') ||
-          params.get('device') ||
-          params.get('platform') ||
-          '';
-
-        return normalizeView(raw);
+      function normalizeRoomCode(raw){
+        return String(raw || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .replace(/[^A-Z0-9_-]/g, '')
+          .slice(0, 32);
       }
 
       function buildTargetUrl(){
-        const view = getCanonicalView();
-        const file = getRunFileByView(view);
-        const target = new URL(file, location.href);
+        const view = normalizeView(params.get('view') || params.get('device') || detectView());
+        const run = new URL(getRunFileByView(view), location.href);
 
         params.forEach(function(value, key){
-          if (value !== null && String(value) !== ''){
-            target.searchParams.set(key, value);
+          if (value !== null && value !== ''){
+            run.searchParams.set(key, value);
           }
         });
 
-        target.searchParams.set('view', view);
-        target.searchParams.set('device', view);
-        target.searchParams.set('mode', 'battle');
-        target.searchParams.set('game', 'goodjunk');
-        target.searchParams.set('gameId', 'goodjunk');
-        target.searchParams.set('entry', 'battle');
-        target.searchParams.set('variant', 'battle-v2');
-        target.searchParams.set('zone', params.get('zone') || 'nutrition');
-        target.searchParams.set('cat', params.get('cat') || 'nutrition');
-        target.searchParams.set('theme', params.get('theme') || 'goodjunk');
-        target.searchParams.set('run', 'play');
-        target.searchParams.set('phase', 'play');
+        const pid = safeText(params.get('pid'), 'anon');
+        const name = safeText(params.get('name') || params.get('nick'), 'Hero');
+        const diff = safeText(params.get('diff'), 'normal');
+        const time = safeText(params.get('time'), '60');
 
         const room =
-          params.get('room') ||
-          params.get('roomCode') ||
-          params.get('code') ||
-          params.get('lastRoom') ||
-          '';
+          normalizeRoomCode(params.get('room')) ||
+          normalizeRoomCode(params.get('roomCode')) ||
+          normalizeRoomCode(params.get('code')) ||
+          normalizeRoomCode(params.get('lastRoom')) ||
+          normalizeRoomCode(localStorage.getItem('GJ_BATTLE_LAST_ROOM'));
+
+        const matchId =
+          safeText(params.get('matchId'), '') ||
+          safeText(params.get('roundId'), '') ||
+          safeText(params.get('runId'), '');
+
+        run.searchParams.set('pid', pid);
+        run.searchParams.set('name', name);
+        run.searchParams.set('nick', name);
+        run.searchParams.set('diff', diff);
+        run.searchParams.set('time', time);
+        run.searchParams.set('view', view);
+        run.searchParams.set('device', view);
+
+        run.searchParams.set('mode', 'battle');
+        run.searchParams.set('game', 'goodjunk');
+        run.searchParams.set('gameId', 'goodjunk');
+        run.searchParams.set('entry', 'battle');
+        run.searchParams.set('variant', 'battle-v2');
+        run.searchParams.set('zone', params.get('zone') || 'nutrition');
+        run.searchParams.set('cat', params.get('cat') || 'nutrition');
+        run.searchParams.set('theme', params.get('theme') || 'goodjunk');
+        run.searchParams.set('run', 'play');
+        run.searchParams.set('phase', 'play');
+
+        if (!run.searchParams.get('seed')){
+          run.searchParams.set('seed', String(Date.now()));
+        }
 
         if (room){
-          target.searchParams.set('room', room);
-          target.searchParams.set('roomCode', room);
+          run.searchParams.set('room', room);
+          run.searchParams.set('roomCode', room);
+          run.searchParams.set('code', room);
+          localStorage.setItem('GJ_BATTLE_LAST_ROOM', room);
         }
 
-        if (!target.searchParams.get('pid')){
-          target.searchParams.set('pid', 'anon');
+        if (matchId){
+          run.searchParams.set('matchId', matchId);
+          run.searchParams.set('roundId', matchId);
         }
 
-        if (!target.searchParams.get('name')){
-          target.searchParams.set('name', 'Hero');
-        }
-
-        if (!target.searchParams.get('diff')){
-          target.searchParams.set('diff', 'normal');
-        }
-
-        if (!target.searchParams.get('time')){
-          target.searchParams.set('time', '90');
-        }
-
-        if (!target.searchParams.get('seed')){
-          target.searchParams.set('seed', String(Date.now()));
-        }
-
-        if (!target.searchParams.get('hub')){
-          target.searchParams.set(
+        if (!run.searchParams.get('hub')){
+          run.searchParams.set(
             'hub',
             new URL('../nutrition-zone.html', location.href).toString()
           );
@@ -421,38 +296,26 @@
 
         return {
           view,
-          file,
-          target
+          href: run.toString(),
+          file: getRunFileByView(view),
+          room
         };
       }
 
       function buildLobbyUrl(){
         const lobby = new URL('./goodjunk-battle-v2-lobby.html', location.href);
 
-        params.forEach(function(value, key){
-          if (value !== null && String(value) !== ''){
-            lobby.searchParams.set(key, value);
-          }
-        });
-
-        lobby.searchParams.set('view', getCanonicalView());
-        lobby.searchParams.set('mode', 'battle');
-        lobby.searchParams.set('game', 'goodjunk');
-        lobby.searchParams.set('gameId', 'goodjunk');
-        lobby.searchParams.set('zone', params.get('zone') || 'nutrition');
-
-        return lobby.toString();
-      }
-
-      function buildModesUrl(){
-        const modes = new URL('../goodjunk-launcher.html', location.href);
-
         [
           'pid',
           'name',
+          'nick',
           'diff',
           'time',
           'view',
+          'device',
+          'room',
+          'roomCode',
+          'code',
           'hub',
           'zone',
           'cat',
@@ -463,126 +326,56 @@
         ].forEach(function(key){
           const value = params.get(key);
 
-          if (value !== null && String(value) !== ''){
-            modes.searchParams.set(key, value);
+          if (value !== null && value !== ''){
+            lobby.searchParams.set(key, value);
           }
         });
 
-        modes.searchParams.set('mode', 'battle');
-
-        return modes.toString();
-      }
-
-      function buildZoneUrl(){
-        const zone = new URL('../nutrition-zone.html', location.href);
-
-        [
-          'pid',
-          'name',
-          'diff',
-          'time',
-          'view',
-          'hub',
-          'studyId',
-          'conditionGroup',
-          'api',
-          'log'
-        ].forEach(function(key){
-          const value = params.get(key);
-
-          if (value !== null && String(value) !== ''){
-            zone.searchParams.set(key, value);
-          }
-        });
-
-        return zone.toString();
-      }
-
-      function setStatus(msg, cls){
-        statusEl.textContent = msg;
-        statusEl.className = 'status ' + (cls || '');
-      }
-
-      function render(){
-        const info = buildTargetUrl();
-
-        const player =
-          clean(params.get('name'), '') ||
-          clean(params.get('nick'), '') ||
-          'Hero';
-
-        const pid = clean(params.get('pid'), 'anon');
-
-        const room =
-          params.get('room') ||
-          params.get('roomCode') ||
-          params.get('code') ||
-          params.get('lastRoom') ||
-          '-';
-
-        viewText.textContent = info.view;
-        targetText.textContent = info.file.replace('./','');
-        roomText.textContent = room;
-        playerText.textContent = player + ' / ' + pid;
-
-        setStatus(
-          'เลือกไฟล์ ' + info.file.replace('./','') + ' สำหรับ view=' + info.view,
-          'good'
-        );
-
-        btnGoNow.onclick = function(){
-          location.replace(info.target.toString());
-        };
-
-        btnLobby.onclick = function(){
-          location.href = buildLobbyUrl();
-        };
-
-        btnModes.onclick = function(){
-          location.href = buildModesUrl();
-        };
-
-        btnZone.onclick = function(){
-          location.href = buildZoneUrl();
-        };
-
-        window.GJ_BATTLE_RUN_ROUTER = {
-          version: ROUTER_VERSION,
-          view: info.view,
-          file: info.file,
-          target: info.target.toString(),
-          buildTargetUrl,
-          buildLobbyUrl,
-          buildModesUrl,
-          buildZoneUrl,
-          getRunFileByView,
-          normalizeView
-        };
-
-        console.info('[GoodJunk Battle Run Router]', ROUTER_VERSION, {
-          view: info.view,
-          file: info.file,
-          target: info.target.toString()
-        });
-
-        const noAuto =
-          params.get('noauto') === '1' ||
-          params.get('debug') === '1' ||
-          params.get('stay') === '1';
-
-        if (!noAuto){
-          setTimeout(function(){
-            location.replace(info.target.toString());
-          }, 380);
+        if (!lobby.searchParams.get('zone')){
+          lobby.searchParams.set('zone', 'nutrition');
         }
+
+        if (!lobby.searchParams.get('cat')){
+          lobby.searchParams.set('cat', 'nutrition');
+        }
+
+        return lobby.toString();
       }
 
-      try{
-        render();
-      }catch(err){
-        console.error('[GoodJunk Battle Run Router] failed', err);
-        setStatus('Router error: ' + (err && err.message ? err.message : err), 'bad');
-      }
+      const target = buildTargetUrl();
+
+      messageEl.textContent =
+        target.view === 'mobile'
+          ? 'เลือกโหมด Mobile แล้ว กำลังเข้าเกม...'
+          : target.view === 'cardboard'
+            ? 'เลือกโหมด Cardboard / cVR แล้ว กำลังเข้าเกม...'
+            : 'เลือกโหมด PC แล้ว กำลังเข้าเกม...';
+
+      routeTextEl.textContent =
+        'route: ' + target.file.replace('./', '') +
+        (target.room ? ' • room ' + target.room : '');
+
+      btnGoNow.addEventListener('click', function(){
+        location.replace(target.href);
+      });
+
+      btnLobby.href = buildLobbyUrl();
+
+      window.GJ_BATTLE_RUNTIME_ROUTER = {
+        version: ROUTER_VERSION,
+        target,
+        buildTargetUrl,
+        buildLobbyUrl,
+        getRunFileByView,
+        normalizeView,
+        detectView
+      };
+
+      console.info('[GoodJunk Battle Runtime Router]', ROUTER_VERSION, target);
+
+      setTimeout(function(){
+        location.replace(target.href);
+      }, 520);
     })();
   </script>
 </body>
