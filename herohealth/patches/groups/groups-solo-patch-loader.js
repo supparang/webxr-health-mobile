@@ -28,7 +28,8 @@
   '06-groups-solo-final-qa-gate.js',
   '07-groups-solo-start-button-fix.js',
   '08-groups-solo-practice-mode.js',
-  '09-groups-solo-mode-link-fix.js'
+  '09-groups-solo-mode-link-fix.js',
+  '10-groups-solo-gameplay-nav-lock.js'
 ];
 
   function currentBase(){
