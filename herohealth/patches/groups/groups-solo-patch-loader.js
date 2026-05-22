@@ -17,7 +17,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_STARTFIX07B__ = true;
 
-  const VERSION = '20260522-navlock10';
+  const VERSION = '20260522-skipintro11';
 
   const files = [
   '01-groups-solo-3view-stabilizer.js',
@@ -29,7 +29,8 @@
   '07-groups-solo-start-button-fix.js',
   '08-groups-solo-practice-mode.js',
   '09-groups-solo-mode-link-fix.js',
-  '10-groups-solo-gameplay-nav-lock.js'
+  '10-groups-solo-gameplay-nav-lock.js',
+  '11-groups-solo-skip-intro-autostart.js'
 ];
 
   function currentBase(){
