@@ -782,6 +782,68 @@ const profile=DIFF[cfg.diff]||DIFF.normal,STORAGE={lastMetrics:'HHA_GROUPS_LAST_
 const els={scoreTxt:$('scoreTxt'),timeTxt:$('timeTxt'),lifeTxt:$('lifeTxt'),comboTxt:$('comboTxt'),accTxt:$('accTxt'),stage:$('stage'),waveTitle:$('waveTitle'),waveSub:$('waveSub'),waveChip:$('waveChip'),phaseChip:$('phaseChip'),feverChip:$('feverChip'),playfield:$('playfield'),actorLayer:$('actorLayer'),floorLine:$('floorLine'),gates:$('gates'),feedback:$('feedback'),bossBox:$('bossBox'),bossFace:$('bossFace'),bossPhase:$('bossPhase'),bossHpFill:$('bossHpFill'),bossSkill:$('bossSkill'),objectiveIcon:$('objectiveIcon'),objectiveTitle:$('objectiveTitle'),objectiveSub:$('objectiveSub'),objectiveFill:$('objectiveFill'),phaseIcon:$('phaseIcon'),phaseTitle:$('phaseTitle'),phaseSub:$('phaseSub'),phaseFill:$('phaseFill'),startOverlay:$('startOverlay'),summaryOverlay:$('summaryOverlay'),summaryIcon:$('summaryIcon'),summaryTitle:$('summaryTitle'),summaryText:$('summaryText'),summaryGrid:$('summaryGrid'),btnStart:$('btnStart'),btnPractice:$('btnPractice'),btnReplay:$('btnReplay'),btnSummaryLauncher:$('btnSummaryLauncher'),btnSummaryZone:$('btnSummaryZone'),btnLauncher:$('btnLauncher'),btnZone:$('btnZone'),btnHub:$('btnHub'),btnTeacher:$('btnTeacher'),btnHowto:$('btnHowto'),btnPowerSort:$('btnPowerSort'),powerSortTitle:$('powerSortTitle'),powerSortHint:$('powerSortHint'),sessionTxt:$('sessionTxt'),eventsTxt:$('eventsTxt'),actorsTxt:$('actorsTxt'),bossHpTxt:$('bossHpTxt'),cloudStatusTxt:$('cloudStatusTxt'),cloudQueueTxt:$('cloudQueueTxt'),versionTxt:$('versionTxt'),btnCopyJson:$('btnCopyJson'),btnCopyCsv:$('btnCopyCsv'),btnDownloadJson:$('btnDownloadJson'),btnDownloadCsv:$('btnDownloadCsv'),toast:$('toast'),cvrHint:$('cvrHint')};
 const state={active:false,ended:false,practice:false,sessionId:'',score:0,timeLeft:cfg.time,totalTime:cfg.time,lives:3,combo:0,maxCombo:0,attempts:0,correct:0,miss:0,crashes:0,actors:[],selectedId:null,nextActorId:1,lastTs:0,raf:0,spawnTimer:0,totalTimer:0,wave:1,phase:'calm',phaseChanges:0,feverUntil:0,powerCharge:0,powerThreshold:6,lastPowerTier:0,powerActive:false,assistShield:0,missStreak:0,bossHp:120,bossMaxHp:120,bossActive:false,bossRage:false,bossOrder:null,bossOrderSerial:0,bossOrderRaf:0,bossOrderCooldownUntil:0,bossOrdersCleared:0,bossOrdersFailed:0,bossAnswerCount:0,objective:null,events:[],audioReady:false,lastDangerToneAt:0,lastComboSplashAt:0,lastSpawnToneAt:0,firstSelectDone:false,firstSortDone:false,firstDangerCueDone:false,firstBossCueDone:false,firstDragCueDone:false,drag:{active:false,actorId:null,pointerId:null,startX:0,startY:0,lastX:0,lastY:0,moved:false,offsetX:0,offsetY:0,hoverGroup:0,guide:null},cvr:{enabled:false,aimType:'',aimId:null,aimGroup:0,lastAimKey:'',lastHintAt:0,lastShootAt:0},research:{startedAt:'',endedAt:'',groupStats:{},waveStats:{},inputStats:{},bossOrderStats:{started:0,cleared:0,failed:0},rtTotal:0,rtCount:0,rtBest:0,rtWorst:0,crashByWave:{},answerEvents:[],summary:null},cloud:{enabled:false,api:'',queue:[],sending:false,sent:0,fail:0,disabledUntil:0,lastStatus:'off'},lastInputMode:'tap',finalWin:false,finalReason:'',summaryShown:false,endLock:false,lastRuntimeError:'',recoveries:0,emptyArenaTicks:0};
 init();
+bootDirectAutoStart();
+
+function shouldDirectAutoStart(){
+  const mode = clean(q.get('mode') || 'solo');
+  const run = clean(q.get('run') || '');
+  const entry = clean(q.get('entry') || '');
+  const from = clean(q.get('from') || '');
+
+  const directFlag =
+    q.get('skipIntro') === '1' ||
+    q.get('nointro') === '1' ||
+    q.get('autostart') === '1' ||
+    q.get('direct') === '1' ||
+    q.get('startFix') === '1' ||
+    entry.indexOf('groups-pc') >= 0 ||
+    entry.indexOf('groups-vr') >= 0 ||
+    from.indexOf('groups-pc') >= 0 ||
+    from.indexOf('groups-vr') >= 0;
+
+  const playIntent =
+    run === 'play' ||
+    run === 'start' ||
+    run === '';
+
+  return mode === 'solo' && playIntent && directFlag;
+}
+
+function shouldStartPractice(){
+  const variant = clean(q.get('variant') || 'arena');
+
+  return (
+    variant === 'practice' ||
+    q.get('practice') === '1' ||
+    q.get('assist') === '1'
+  );
+}
+
+function bootDirectAutoStart(){
+  if (!shouldDirectAutoStart()) return;
+  if (window.__HHA_GROUPS_CORE_DIRECT_STARTED__) return;
+
+  window.__HHA_GROUPS_CORE_DIRECT_STARTED__ = true;
+
+  document.documentElement.classList.add('hha-core-direct-autostart');
+
+  setTimeout(()=>{
+    if (state.active || state.ended) return;
+
+    const practice = shouldStartPractice();
+
+    console.info('[Groups Core Direct Start] start()', {
+      practice,
+      view: cfg.view,
+      variant: q.get('variant') || 'arena',
+      entry: q.get('entry') || '',
+      from: q.get('from') || ''
+    });
+
+    start(practice);
+  }, 120);
+}
+
 function init(){document.body.dataset.version=APP_VERSION;if(typeof installRuntimeGuards==='function')installRuntimeGuards();runBootSelfCheck();renderGates();bind();initResearchShell();initCloudLogger();initCvrMode();setPhase('calm','เริ่มเกมแบบพื้นฐาน',true);setObjective(makeObjective(1));updateHud();updateTeacher()}
 function bind(){on(els.btnStart,'click',()=>start(false));on(els.btnPractice,'click',()=>start(true));on(els.btnReplay,'click',()=>start(state.practice));on(els.btnSummaryZone,'click',goZone);on(els.btnSummaryLauncher,'click',goLauncher);on(els.btnZone,'click',goZone);on(els.btnHub,'click',goHub);on(els.btnLauncher,'click',goLauncher);on(els.btnTeacher,'click',()=>{document.body.classList.toggle('teacherOpen');els.btnTeacher.textContent=document.body.classList.contains('teacherOpen')?'✕ ปิด Teacher':'🧪 Teacher'});on(els.btnHowto,'click',()=>els.startOverlay.classList.remove('hidden'));on(els.btnPowerSort,'click',usePowerSort);on(els.btnCopyJson,'click',()=>copyText(JSON.stringify(exportData(),null,2)).then(()=>toast('Copy JSON แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnCopyCsv,'click',()=>copyText(buildCsv()).then(()=>toast('Copy CSV แล้ว')).catch(()=>toast('Clipboard ไม่พร้อม')));on(els.btnDownloadJson,'click',()=>downloadText('groups-v9.0.2-session.json',JSON.stringify(exportData(),null,2),'application/json'));on(els.btnDownloadCsv,'click',()=>downloadText('groups-v9.0.2-session.csv',buildCsv(),'text/csv'));document.addEventListener('keydown',ev=>{if(!state.active)return;if(['1','2','3','4','5'].includes(ev.key)){state.lastInputMode=state.cvr.enabled?'cvr_keyboard_gate':'keyboard_gate';sortSelected(Number(ev.key))}if(ev.key===' '||ev.key==='Enter'){ev.preventDefault();state.cvr.enabled?handleCvrShoot('keyboard'):selectNearestActor()}if(ev.key.toLowerCase()==='p')usePowerSort()});['pointerdown','touchstart','keydown'].forEach(t=>document.addEventListener(t,unlockAudioOnce,{passive:true}));document.addEventListener('hha:shoot',()=>handleCvrShoot('hha:shoot'));document.addEventListener('click',ev=>{if(!state.cvr.enabled||!state.active||state.ended)return;const t=ev.target;if(t&&(t.closest('.food')||t.closest('.gate')||t.closest('.floatBtn')||t.closest('.navBtn')||t.closest('.bigBtn')))return;handleCvrShoot('screen-tap')},true);window.addEventListener('pagehide',()=>{if(state.active&&!state.ended){queueCloudEvent('session_partial',makeCloudPayload('session_partial'),{immediate:true,keepalive:true});flushCloudQueue(false,true)}})}
 function on(el,type,fn){if(!el){console.warn('[Groups bind skipped]',type);return}el.addEventListener(type,fn)}
