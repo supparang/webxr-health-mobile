@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#fff3d7" />
+  <title>GoodJunk Battle v2.5 • QA Helper</title>
+
+  <style>
+    :root{
+      --bg1:#fff8e8;
+      --bg2:#eaf8ff;
+      --card:#fffef8;
+      --line:#ffc77d;
+      --text:#753119;
+      --muted:#9a6a42;
+      --green:#55d978;
+      --red:#ff7b69;
+      --blue:#71ccff;
+      --shadow:0 18px 42px rgba(112,60,20,.15);
+    }
+
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+
+    body{
+      margin:0;
+      min-height:100dvh;
+      padding:14px;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(255,225,122,.55), transparent 30%),
+        radial-gradient(circle at 88% 8%, rgba(113,204,255,.38), transparent 32%),
+        linear-gradient(180deg,var(--bg1),var(--bg2));
+    }
+
+    .app{
+      width:min(100%,980px);
+      margin:0 auto;
+    }
+
+    .hero,
+    .card{
+      border:4px solid rgba(255,199,125,.9);
+      background:rgba(255,254,248,.94);
+      box-shadow:var(--shadow);
+    }
+
+    .hero{
+      padding:18px;
+      border-radius:34px;
+      display:grid;
+      grid-template-columns:auto minmax(0,1fr);
+      gap:14px;
+      align-items:center;
+    }
+
+    .icon{
+      width:82px;
+      height:82px;
+      display:grid;
+      place-items:center;
+      border-radius:28px;
+      border:4px solid rgba(255,199,125,.84);
+      background:linear-gradient(180deg,#fff8d7,#ffe18a);
+      font-size:48px;
+    }
+
+    h1{
+      margin:0;
+      font-size:clamp(32px,7vw,58px);
+      line-height:1;
+      font-weight:1000;
+      letter-spacing:-1px;
+    }
+
+    .sub{
+      margin-top:8px;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+
+    .card{
+      padding:16px;
+      border-radius:28px;
+    }
+
+    .card h2{
+      margin:0 0 10px;
+      font-size:24px;
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .form{
+      display:grid;
+      gap:9px;
+    }
+
+    label{
+      display:grid;
+      gap:5px;
+      font-size:13px;
+      font-weight:1000;
+      color:#8a5a2b;
+    }
+
+    input,
+    select{
+      width:100%;
+      min-height:48px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:3px solid rgba(255,210,156,.95);
+      background:rgba(255,255,255,.92);
+      color:var(--text);
+      font-size:16px;
+      font-weight:900;
+      outline:none;
+    }
+
+    .actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:10px;
+    }
+
+    .btn{
+      min-height:50px;
+      padding:10px 12px;
+      border-radius:18px;
+      border:3px solid rgba(255,199,125,.92);
+      background:linear-gradient(180deg,#fff8da,#ffe17a);
+      color:var(--text);
+      font-size:15px;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      text-align:center;
+    }
+
+    .btn.blue{
+      background:linear-gradient(180deg,#eef9ff,#bfe8ff);
+      border-color:rgba(110,203,255,.9);
+      color:#1e688d;
+    }
+
+    .btn.green{
+      background:linear-gradient(180deg,#efffec,#b9f3c6);
+      border-color:rgba(85,217,120,.86);
+      color:#266c35;
+    }
+
+    .btn.red{
+      background:linear-gradient(180deg,#fff0ed,#ffc6bd);
+      border-color:rgba(255,123,105,.86);
+      color:#8d2b1f;
+    }
+
+    .output{
+      margin-top:12px;
+      padding:12px;
+      border-radius:20px;
+      border:3px solid rgba(255,220,168,.92);
+      background:rgba(255,248,225,.72);
+      color:#75401d;
+      font-size:12px;
+      font-weight:850;
+      line-height:1.45;
+      word-break:break-all;
+      white-space:pre-wrap;
+      min-height:70px;
+    }
+
+    .checklist{
+      display:grid;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    .check{
+      padding:10px 12px;
+      border-radius:18px;
+      border:2px solid rgba(255,220,168,.92);
+      background:rgba(255,253,245,.82);
+      font-size:14px;
+      font-weight:900;
+      line-height:1.35;
+    }
+
+    .check b{
+      color:#266c35;
+    }
+
+    .warn{
+      color:#8d2b1f;
+      font-weight:1000;
+    }
+
+    @media(max-width:760px){
+      body{padding:10px;}
+      .hero{grid-template-columns:1fr;text-align:center;}
+      .icon{margin:0 auto;}
+      .grid{grid-template-columns:1fr;}
+      .actions{grid-template-columns:1fr;}
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header class="hero">
+      <div class="icon">🧪</div>
+      <div>
+        <h1>Battle v2.5 QA</h1>
+        <div class="sub">
+          หน้า helper สำหรับเตรียมทดสอบ GoodJunk Battle v2.5 • ไม่แตะ gameplay • ใช้สร้างลิงก์และล้าง state ค้าง
+        </div>
+      </div>
+    </header>
+
+    <section class="grid">
+      <article class="card">
+        <h2>1) ตั้งค่า Test</h2>
+
+        <div class="form">
+          <label>
+            Player ID
+            <input id="pid" value="anon" />
+          </label>
+
+          <label>
+            Name
+            <input id="name" value="Hero" />
+          </label>
+
+          <label>
+            View
+            <select id="view">
+              <option value="pc">PC</option>
+              <option value="mobile" selected>Mobile</option>
+              <option value="cardboard">Cardboard / cVR</option>
+            </select>
+          </label>
+
+          <label>
+            Difficulty
+            <select id="diff">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
+
+          <label>
+            Time
+            <select id="time">
+              <option value="60">60</option>
+              <option value="90" selected>90</option>
+              <option value="120">120</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="btnBuildLobby" class="btn green" type="button">สร้างลิงก์ Lobby</button>
+          <button id="btnOpenLobby" class="btn blue" type="button">เปิด Lobby</button>
+          <button id="btnOpenLauncher" class="btn" type="button">เปิด Launcher</button>
+          <button id="btnOpenZone" class="btn" type="button">เปิด Nutrition Zone</button>
+        </div>
+
+        <div id="output" class="output">กด “สร้างลิงก์ Lobby” เพื่อดู URL</div>
+      </article>
+
+      <article class="card">
+        <h2>2) ล้าง State ค้าง</h2>
+        <div class="checklist">
+          <div class="check">
+            ใช้เมื่อล็อบบี้เคยมี Hero/KK ค้าง หรือมี room เก่าติดมาเอง
+          </div>
+          <div class="check">
+            ปุ่มนี้จะล้างเฉพาะ key ที่เกี่ยวกับ GoodJunk Battle / HHA GJ
+          </div>
+          <div class="check warn">
+            ไม่ลบข้อมูลเกมอื่น
+          </div>
+        </div>
+
+        <div class="actions">
+          <button id="btnClearBattle" class="btn red" type="button">ล้าง Battle State</button>
+          <button id="btnShowStorage" class="btn blue" type="button">ดู Storage Keys</button>
+        </div>
+
+        <div id="storageOutput" class="output">ยังไม่ได้ตรวจ storage</div>
+      </article>
+
+      <article class="card">
+        <h2>3) Test Links หลังสร้างห้อง</h2>
+        <div class="form">
+          <label>
+            Room Code
+            <input id="room" placeholder="เช่น AB12CD" />
+          </label>
+
+          <label>
+            Match ID
+            <input id="matchId" placeholder="หลัง Host กด Start จะมี matchId" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button id="btnRouterPc" class="btn blue" type="button">Router PC</button>
+          <button id="btnRouterMobile" class="btn blue" type="button">Router Mobile</button>
+          <button id="btnRouterCardboard" class="btn blue" type="button">Router Cardboard</button>
+          <button id="btnBuildRun" class="btn green" type="button">สร้าง Run URLs</button>
+        </div>
+
+        <div id="runOutput" class="output">ใช้หลังมี room + matchId แล้วเท่านั้น</div>
+      </article>
+
+      <article class="card">
+        <h2>4) Checklist ที่ต้องผ่าน</h2>
+        <div class="checklist">
+          <div class="check"><b>Fresh Lobby:</b> เปิดใหม่ต้องเป็น Room ---- ไม่มี Hero/KK ค้าง</div>
+          <div class="check"><b>Create:</b> Host สร้างห้องแล้วเห็น Host 1 คน</div>
+          <div class="check"><b>Join:</b> เครื่องที่ 2 ใส่ Room แล้วกดเข้าห้อง ถึงเห็น 2 คน</div>
+          <div class="check"><b>Start:</b> Host กดเริ่ม ทั้งคู่ต้องเข้า run</div>
+          <div class="check"><b>PC:</b> คลิกเป้าได้ timer/score เดิน</div>
+          <div class="check"><b>Mobile:</b> แตะเป้าได้ เป้าไม่แน่น</div>
+          <div class="check"><b>Cardboard:</b> crosshair กลางจอ + แตะยิงได้</div>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <script>
+    (function GoodJunkBattleV250QA(){
+      'use strict';
+
+      const QA_VERSION = 'v1.0.0-battle-v250-qa-helper';
+
+      const $ = (sel, root=document) => root.querySelector(sel);
+
+      const pidEl = $('#pid');
+      const nameEl = $('#name');
+      const viewEl = $('#view');
+      const diffEl = $('#diff');
+      const timeEl = $('#time');
+      const roomEl = $('#room');
+      const matchEl = $('#matchId');
+
+      const output = $('#output');
+      const storageOutput = $('#storageOutput');
+      const runOutput = $('#runOutput');
+
+      function now(){
+        return Date.now();
+      }
+
+      function clean(v, fallback){
+        v = String(v || '').trim();
+        return v || fallback || '';
+      }
+
+      function normalizeRoomCode(raw){
+        const out = String(raw || '')
+          .trim()
+          .toUpperCase()
+          .replace(/\s+/g, '')
+          .replace(/[^A-Z0-9_-]/g, '')
+          .slice(0, 32);
+
+        if (!out || /^-+$/.test(out) || /^_+$/.test(out)){
+          return '';
+        }
+
+        return out;
+      }
+
+      function commonParams(out, viewOverride){
+        const view = viewOverride || clean(viewEl.value, 'mobile');
+
+        out.searchParams.set('pid', clean(pidEl.value, 'anon'));
+        out.searchParams.set('name', clean(nameEl.value, 'Hero'));
+        out.searchParams.set('view', view);
+        out.searchParams.set('device', view);
+        out.searchParams.set('diff', clean(diffEl.value, 'normal'));
+        out.searchParams.set('time', clean(timeEl.value, '90'));
+        out.searchParams.set('mode', 'battle');
+        out.searchParams.set('game', 'goodjunk');
+        out.searchParams.set('gameId', 'goodjunk');
+        out.searchParams.set('zone', 'nutrition');
+        out.searchParams.set('cat', 'nutrition');
+        out.searchParams.set('variant', 'battle-v2.5');
+        out.searchParams.set('qa', QA_VERSION);
+        out.searchParams.set('t', String(now()));
+
+        return out;
+      }
+
+      function buildLobbyUrl(){
+        const out = new URL('./goodjunk-battle-v2-lobby.html', location.href);
+        commonParams(out);
+
+        /*
+         * Fresh lobby ต้องไม่มี room/matchId
+         */
+        [
+          'room','roomCode','code','lastRoom',
+          'matchId','roundId','runId','activeMatchId',
+          'phase','run'
+        ].forEach(k => out.searchParams.delete(k));
+
+        return out.toString();
+      }
+
+      function buildLauncherUrl(){
+        const out = new URL('../goodjunk-launcher.html', location.href);
+        commonParams(out);
+        out.searchParams.set('from', 'battle-v250-qa');
+        return out.toString();
+      }
+
+      function buildZoneUrl(){
+        const out = new URL('../nutrition-zone.html', location.href);
+        commonParams(out);
+        out.searchParams.set('from', 'battle-v250-qa');
+        return out.toString();
+      }
+
+      function runFile(view){
+        if (view === 'pc') return './goodjunk-battle-v2-run-pc.html';
+        if (view === 'cardboard') return './goodjunk-battle-v2-run-cardboard.html';
+        return './goodjunk-battle-v2-run-mobile.html';
+      }
+
+      function buildRouterUrl(view){
+        const room = normalizeRoomCode(roomEl.value);
+        const matchId = clean(matchEl.value, '');
+
+        const out = new URL('./goodjunk-battle-v2-run.html', location.href);
+        commonParams(out, view);
+
+        out.searchParams.set('targetRun', runFile(view));
+        out.searchParams.set('run', 'play');
+        out.searchParams.set('phase', 'play');
+
+        if (room){
+          out.searchParams.set('room', room);
+          out.searchParams.set('roomCode', room);
+        }
+
+        if (matchId){
+          out.searchParams.set('matchId', matchId);
+          out.searchParams.set('roundId', matchId);
+          out.searchParams.set('runId', matchId);
+        }
+
+        return out.toString();
+      }
+
+      function showLobbyUrl(){
+        const u = buildLobbyUrl();
+        output.textContent = u;
+        return u;
+      }
+
+      function storageKeys(){
+        const keys = [];
+
+        for (let i = 0; i < localStorage.length; i++){
+          const k = localStorage.key(i);
+          if (/GJ_|GOODJUNK|HHA_GJ|BATTLE/i.test(k || '')){
+            keys.push('localStorage: ' + k + ' = ' + localStorage.getItem(k));
+          }
+        }
+
+        for (let i = 0; i < sessionStorage.length; i++){
+          const k = sessionStorage.key(i);
+          if (/GJ_|GOODJUNK|HHA_GJ|BATTLE/i.test(k || '')){
+            keys.push('sessionStorage: ' + k + ' = ' + sessionStorage.getItem(k));
+          }
+        }
+
+        return keys;
+      }
+
+      function clearBattleState(){
+        const patterns = [
+          /^GJ_/i,
+          /^GOODJUNK/i,
+          /^HHA_GJ/i,
+          /BATTLE/i
+        ];
+
+        [localStorage, sessionStorage].forEach(function(store){
+          const remove = [];
+
+          for (let i = 0; i < store.length; i++){
+            const k = store.key(i);
+            if (patterns.some(p => p.test(k || ''))){
+              remove.push(k);
+            }
+          }
+
+          remove.forEach(k => store.removeItem(k));
+        });
+
+        storageOutput.textContent = 'ล้าง Battle state แล้ว\n' + new Date().toLocaleString();
+      }
+
+      function showStorage(){
+        const keys = storageKeys();
+        storageOutput.textContent = keys.length
+          ? keys.join('\n')
+          : 'ไม่พบ key ที่เกี่ยวกับ GoodJunk/Battle';
+      }
+
+      function buildRunUrls(){
+        const pc = buildRouterUrl('pc');
+        const mobile = buildRouterUrl('mobile');
+        const cardboard = buildRouterUrl('cardboard');
+
+        runOutput.textContent =
+          'PC:\n' + pc +
+          '\n\nMobile:\n' + mobile +
+          '\n\nCardboard:\n' + cardboard;
+      }
+
+      $('#btnBuildLobby').addEventListener('click', showLobbyUrl);
+
+      $('#btnOpenLobby').addEventListener('click', function(){
+        location.href = buildLobbyUrl();
+      });
+
+      $('#btnOpenLauncher').addEventListener('click', function(){
+        location.href = buildLauncherUrl();
+      });
+
+      $('#btnOpenZone').addEventListener('click', function(){
+        location.href = buildZoneUrl();
+      });
+
+      $('#btnClearBattle').addEventListener('click', clearBattleState);
+      $('#btnShowStorage').addEventListener('click', showStorage);
+
+      $('#btnRouterPc').addEventListener('click', function(){
+        location.href = buildRouterUrl('pc');
+      });
+
+      $('#btnRouterMobile').addEventListener('click', function(){
+        location.href = buildRouterUrl('mobile');
+      });
+
+      $('#btnRouterCardboard').addEventListener('click', function(){
+        location.href = buildRouterUrl('cardboard');
+      });
+
+      $('#btnBuildRun').addEventListener('click', buildRunUrls);
+
+      window.GJ_BATTLE_V250_QA = {
+        version: QA_VERSION,
+        buildLobbyUrl,
+        buildLauncherUrl,
+        buildZoneUrl,
+        buildRouterUrl,
+        clearBattleState,
+        storageKeys
+      };
+
+      showLobbyUrl();
+
+      console.info('[GoodJunk Battle v2.5 QA Helper]', QA_VERSION, 'loaded');
+    })();
+  </script>
+</body>
+</html>
