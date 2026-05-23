@@ -18,7 +18,7 @@
 
   var LOADER_VERSION = '20260523-pc-spacious-14';
 
-  var PATCH_FILES = [
+  vvar PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
   '02-groups-solo-summary-mobile-final.js',
   '03-groups-solo-gameplay-mobile-cvr-final.js',
@@ -32,7 +32,7 @@
   '11-groups-solo-skip-intro-autostart.js',
   '12-groups-solo-direct-play-firewall.js',
   '13-groups-solo-direct-intro-kill-switch.js',
-  '14-groups-solo-pc-spacious-layout.js'
+  '15-groups-solo-pc-unblock-playfield.js'
 ];
 
   function currentBase(){
