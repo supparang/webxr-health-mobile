@@ -16,7 +16,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__ = true;
 
-  var LOADER_VERSION = '20260523-cvr-pc-shell-18';
+  var LOADER_VERSION = '20260523-cvr-arcade-19';
 
   var PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
