@@ -33,7 +33,7 @@
   '12-groups-solo-direct-play-firewall.js',
   '13-groups-solo-direct-intro-kill-switch.js',
   '15-groups-solo-pc-unblock-playfield.js',
-  '18-groups-solo-cvr-pc-shell.js'
+  '19-groups-solo-cvr-arcade-compact.js'
 ];
 
   function currentBase(){
