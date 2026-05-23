@@ -125,6 +125,13 @@
     out.searchParams.set('variant', st.variant);
     out.searchParams.set('view', st.view);
     out.searchParams.set('run', 'play');
+    if (st.view === 'cvr') {
+     out.searchParams.set('cvr', '1');
+     out.searchParams.set('vr', '1');
+     out.searchParams.set('device', 'cvr');
+     out.searchParams.set('cvrShell', '1');
+     out.searchParams.set('input', 'gaze');
+      }
 
     out.searchParams.set('zone', 'nutrition');
     out.searchParams.set('cat', 'nutrition');
