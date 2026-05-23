@@ -18,7 +18,7 @@
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260519-pack35-run-core-probe-final
+    Version: v20260523-pack36-run-inline-core-loader-final
 
     Purpose:
       Shared run engine for Hydration
@@ -27,14 +27,14 @@
       mode = solo / duet / race / battle / coop
       view = pc / mobile / cvr
 
-    Pack35:
-      - Probe and load hydration-vr.js via Pack35 loader
-      - Show clear error if hydration-vr.js probe/load fails
-      - Keep Pack31 inline start bridge
-      - Keep mode/view normalization
-      - Solo route never goes to lobby
-      - Multiplayer route requires mpReady=1 before entering run
-      - Optional patches load after core via probe loader
+    Pack36:
+      - Inline core loader อยู่ใน script block แรก
+      - ไม่พึ่ง script block ถัดไป
+      - โหลด hydration-vr.js เป็น core ก่อน patch ทุกตัว
+      - patch ทุกตัวเป็น optional
+      - คง Pack31 inline start bridge
+      - Solo route ไม่เข้า lobby
+      - Multiplayer ต้องมี mpReady=1 ก่อนเข้า run
   -->
 </head>
 
@@ -76,13 +76,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260519-pack35-run-core-probe-final';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260523-pack36-run-inline-core-loader-final';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260519-pack35-run-core-probe-final';
+      var VERSION = 'v20260523-pack36-run-inline-core-loader-final';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -217,9 +217,6 @@
       var mode = normalizeMode(rawMode);
       var view = normalizeView(rawView);
 
-      /*
-        เขียนค่าที่ normalize แล้วกลับลง URL object เพื่อให้ context ต่อไปสะอาด
-      */
       u.searchParams.set('mode', mode);
       u.searchParams.set('view', view);
       u.searchParams.set('zone', 'nutrition');
@@ -315,7 +312,7 @@
         return new Promise(function(resolve, reject){
           var s = document.createElement('script');
           s.src = src;
-          s.defer = true;
+          s.async = true;
 
           s.onload = function(){
             resolve(src);
@@ -732,158 +729,126 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack35] run context ready; core probe will load next');
+      console.info('[Hydration Pack36] run context ready; inline core loader starts now');
+
+      /* =========================================================
+         Pack36 Inline Core Loader
+         - อยู่ใน script block แรกเลย
+         - ไม่รอ script block ถัดไป
+         - ถ้า core ไม่โหลด ต้องเห็น error ชัด
+      ========================================================= */
+
+      (function(){
+        console.info('[Hydration Pack36] inline core loader start');
+
+        function loadScript(src, label, timeoutMs){
+          timeoutMs = timeoutMs || 7000;
+
+          return new Promise(function(resolve, reject){
+            var done = false;
+            var s = document.createElement('script');
+
+            function finish(ok, value){
+              if(done) return;
+              done = true;
+              clearTimeout(timer);
+
+              if(ok) resolve(value || src);
+              else reject(value || new Error(label + ' load failed: ' + src));
+            }
+
+            var timer = setTimeout(function(){
+              finish(false, new Error(label + ' timeout: ' + src));
+            }, timeoutMs);
+
+            s.src = src;
+            s.async = true;
+
+            s.onload = function(){
+              console.info('[Hydration Pack36] loaded:', label);
+              finish(true, src);
+            };
+
+            s.onerror = function(){
+              finish(false, new Error(label + ' error: ' + src));
+            };
+
+            document.body.appendChild(s);
+          });
+        }
+
+        function showError(msg){
+          if(typeof window.HHA_HYDRATION_SHOW_BOOT_ERROR === 'function'){
+            window.HHA_HYDRATION_SHOW_BOOT_ERROR(msg);
+            return;
+          }
+
+          document.body.innerHTML =
+            '<pre style="padding:24px;font:16px monospace;color:#b00020;background:#fff">' +
+            String(msg || 'Hydration boot failed') +
+            '</pre>';
+        }
+
+        loadScript('./hydration-vr.js?v=20260523-pack36-core-inline', 'hydration core', 9000)
+          .then(function(){
+            console.info(
+              '[Hydration Pack36] core checkpoint:',
+              'HHA=', !!window.HHA,
+              'Hydration=', !!(window.HHA && window.HHA.Hydration),
+              'start=', typeof window.beginHydrationFromOverlay,
+              'force=', typeof window.HHA_HYDRATION_FORCE_START
+            );
+
+            return loadScript('./hydration-vr.mode-patch.js?v=20260518-pack30', 'mode patch', 4000)
+              .catch(function(err){
+                console.warn('[Hydration Pack36] mode patch optional failed:', err);
+              });
+          })
+          .then(function(){
+            return loadScript('./hydration-start-hard-safe.patch.js?v=20260518-pack30', 'start patch', 4000)
+              .catch(function(err){
+                console.warn('[Hydration Pack36] start patch optional failed:', err);
+              });
+          })
+          .then(function(){
+            return loadScript('./hydration-cooldown-return.patch.js?v=20260518-pack30', 'cooldown patch', 4000)
+              .catch(function(err){
+                console.warn('[Hydration Pack36] cooldown patch optional failed:', err);
+              });
+          })
+          .then(function(){
+            return loadScript('./hydration-modes.js?v=20260517-pack22', 'modes patch', 3000)
+              .catch(function(err){
+                console.warn('[Hydration Pack36] modes optional failed:', err);
+              });
+          })
+          .then(function(){
+            var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
+            var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
+
+            if(cvrView === 'cvr'){
+              return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
+                .catch(function(err){
+                  console.warn('[Hydration Pack36] vr-ui optional failed:', err);
+                });
+            }
+          })
+          .then(function(){
+            console.info('[Hydration Pack36] loader finished');
+
+            setTimeout(function(){
+              if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
+                window.HHA_HYDRATION_BOOT_CHECK();
+              }
+            }, 1200);
+          })
+          .catch(function(err){
+            console.error('[Hydration Pack36] critical core failed:', err);
+            showError((err && err.message) || 'โหลด hydration-vr.js ไม่สำเร็จ');
+          });
+      })();
+
     })();
   </script>
-
-  <script>
-(function(){
-  'use strict';
-
-  console.info('[Hydration Pack35] core probe loader start');
-
-  function loadScript(src, label, timeoutMs){
-    timeoutMs = timeoutMs || 7000;
-
-    return new Promise(function(resolve, reject){
-      var done = false;
-      var s = document.createElement('script');
-
-      function finish(ok, value){
-        if(done) return;
-        done = true;
-        clearTimeout(timer);
-
-        if(ok) resolve(value || src);
-        else reject(value || new Error(label + ' load failed: ' + src));
-      }
-
-      var timer = setTimeout(function(){
-        finish(false, new Error(label + ' timeout: ' + src));
-      }, timeoutMs);
-
-      s.src = src;
-      s.async = true;
-
-      s.onload = function(){
-        console.info('[Hydration Pack35] loaded:', label);
-        finish(true, src);
-      };
-
-      s.onerror = function(){
-        finish(false, new Error(label + ' error: ' + src));
-      };
-
-      document.body.appendChild(s);
-    });
-  }
-
-  function showError(msg){
-    if(typeof window.HHA_HYDRATION_SHOW_BOOT_ERROR === 'function'){
-      window.HHA_HYDRATION_SHOW_BOOT_ERROR(msg);
-      return;
-    }
-
-    document.body.innerHTML =
-      '<pre style="padding:24px;font:16px monospace;color:#b00020;background:#fff">' +
-      String(msg || 'Hydration boot failed') +
-      '</pre>';
-  }
-
-  function probeCore(){
-    var src = './hydration-vr.js?v=20260519-pack35-core-probe';
-
-    if(!window.fetch || !window.AbortController){
-      console.warn('[Hydration Pack35] fetch probe unavailable; direct load core');
-      return loadScript(src, 'hydration core', 9000);
-    }
-
-    var controller = new AbortController();
-    var timer = setTimeout(function(){
-      try{ controller.abort(); }catch(e){}
-    }, 5000);
-
-    console.info('[Hydration Pack35] probing core:', src);
-
-    return fetch(src, {
-      cache:'no-store',
-      signal:controller.signal
-    })
-      .then(function(res){
-        clearTimeout(timer);
-
-        console.info('[Hydration Pack35] core probe status:', res.status, res.type);
-
-        if(!res.ok){
-          throw new Error('hydration-vr.js HTTP ' + res.status);
-        }
-
-        return loadScript(src, 'hydration core', 9000);
-      })
-      .catch(function(err){
-        clearTimeout(timer);
-        throw err;
-      });
-  }
-
-  probeCore()
-    .then(function(){
-      console.info(
-        '[Hydration Pack35] core checkpoint:',
-        'HHA=', !!window.HHA,
-        'Hydration=', !!(window.HHA && window.HHA.Hydration),
-        'start=', typeof window.beginHydrationFromOverlay,
-        'force=', typeof window.HHA_HYDRATION_FORCE_START
-      );
-
-      return loadScript('./hydration-vr.mode-patch.js?v=20260518-pack30', 'mode patch', 4000)
-        .catch(function(err){
-          console.warn('[Hydration Pack35] mode patch optional failed:', err);
-        });
-    })
-    .then(function(){
-      return loadScript('./hydration-start-hard-safe.patch.js?v=20260518-pack30', 'start patch', 4000)
-        .catch(function(err){
-          console.warn('[Hydration Pack35] start patch optional failed:', err);
-        });
-    })
-    .then(function(){
-      return loadScript('./hydration-cooldown-return.patch.js?v=20260518-pack30', 'cooldown patch', 4000)
-        .catch(function(err){
-          console.warn('[Hydration Pack35] cooldown patch optional failed:', err);
-        });
-    })
-    .then(function(){
-      return loadScript('./hydration-modes.js?v=20260517-pack22', 'modes patch', 3000)
-        .catch(function(err){
-          console.warn('[Hydration Pack35] modes optional failed:', err);
-        });
-    })
-    .then(function(){
-      var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
-      var view = String(ctx.view || document.body.dataset.view || '').toLowerCase();
-
-      if(view === 'cvr'){
-        return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
-          .catch(function(err){
-            console.warn('[Hydration Pack35] vr-ui optional failed:', err);
-          });
-      }
-    })
-    .then(function(){
-      console.info('[Hydration Pack35] loader finished');
-
-      setTimeout(function(){
-        if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
-          window.HHA_HYDRATION_BOOT_CHECK();
-        }
-      }, 1200);
-    })
-    .catch(function(err){
-      console.error('[Hydration Pack35] critical core failed:', err);
-      showError((err && err.message) || 'โหลด hydration-vr.js ไม่สำเร็จ');
-    });
-})();
-</script>
 </body>
 </html>
