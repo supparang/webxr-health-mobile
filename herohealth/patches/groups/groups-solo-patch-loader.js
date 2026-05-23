@@ -16,7 +16,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__ = true;
 
-  var LOADER_VERSION = '20260523-cvr-playable-16';
+  var LOADER_VERSION = '20260523-cvr-clear-17';
 
   var PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
@@ -33,7 +33,7 @@
   '12-groups-solo-direct-play-firewall.js',
   '13-groups-solo-direct-intro-kill-switch.js',
   '15-groups-solo-pc-unblock-playfield.js',
-  '16-groups-solo-cvr-playable-layout.js'
+  '17-groups-solo-cvr-clear-stage.js'
 ];
 
   function currentBase(){
