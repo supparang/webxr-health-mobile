@@ -16,9 +16,9 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__ = true;
 
-  var LOADER_VERSION = '20260523-pc-unblock-15';
+  var LOADER_VERSION = '20260523-cvr-playable-16';
 
-  vvar PATCH_FILES = [
+  var PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
   '02-groups-solo-summary-mobile-final.js',
   '03-groups-solo-gameplay-mobile-cvr-final.js',
@@ -32,7 +32,8 @@
   '11-groups-solo-skip-intro-autostart.js',
   '12-groups-solo-direct-play-firewall.js',
   '13-groups-solo-direct-intro-kill-switch.js',
-  '15-groups-solo-pc-unblock-playfield.js'
+  '15-groups-solo-pc-unblock-playfield.js',
+  '16-groups-solo-cvr-playable-layout.js'
 ];
 
   function currentBase(){
