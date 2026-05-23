@@ -27,17 +27,15 @@
   }
 
   function getDisplayedRoom(){
-    const input = $('#roomCodeInput');
-    const text = $('#roomCodeText');
+  const text = $('#roomCodeText');
+  const fromText = normalizeRoomCode(text && text.textContent);
 
-    const fromInput = normalizeRoomCode(input && input.value);
-    const fromText = normalizeRoomCode(text && text.textContent);
-
-    if (fromInput) return fromInput;
-    if (fromText && fromText !== '----') return fromText;
-
-    return '';
+  if (fromText && fromText !== '----'){
+    return fromText;
   }
+
+  return '';
+}
 
   function isEmptyLobby(){
     return !hasExplicitRoomInUrl() && !getDisplayedRoom();
