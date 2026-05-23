@@ -1,7 +1,7 @@
 (function GoodJunkSoloBossMobileTargetCompactPatch(){
   'use strict';
 
-  const PATCH_VERSION = 'v8.47.0-solo-boss-mobile-target-compact';
+  const PATCH_VERSION = 'v8.47.1-solo-boss-mobile-target-smaller';
 
   const path = location.pathname || '';
   const qs = new URL(location.href).searchParams;
@@ -36,6 +36,7 @@
 
     const style = document.createElement('style');
     style.id = 'gjSoloBossMobileTargetCompactStyle';
+
     style.textContent = `
       @media (max-width: 760px){
         html.gj-solo-target-compact .target,
@@ -44,18 +45,18 @@
         html.gj-solo-target-compact .food-card,
         html.gj-solo-target-compact [data-food-target],
         html.gj-solo-target-compact .spawn-item{
-          width: clamp(66px, 17.5vw, 82px) !important;
-          min-width: clamp(66px, 17.5vw, 82px) !important;
-          max-width: 82px !important;
+          width: clamp(58px, 15.5vw, 74px) !important;
+          min-width: clamp(58px, 15.5vw, 74px) !important;
+          max-width: 74px !important;
 
-          height: clamp(76px, 20vw, 94px) !important;
-          min-height: clamp(76px, 20vw, 94px) !important;
-          max-height: 94px !important;
+          height: clamp(68px, 18vw, 86px) !important;
+          min-height: clamp(68px, 18vw, 86px) !important;
+          max-height: 86px !important;
 
-          padding: 7px 6px !important;
-          border-radius: 18px !important;
+          padding: 6px 5px !important;
+          border-radius: 16px !important;
           border-width: 4px !important;
-          box-shadow: 0 8px 18px rgba(45, 60, 90, .13) !important;
+          box-shadow: 0 7px 16px rgba(45, 60, 90, .12) !important;
         }
 
         html.gj-solo-target-compact .target img,
@@ -64,12 +65,12 @@
         html.gj-solo-target-compact .food-card img,
         html.gj-solo-target-compact [data-food-target] img,
         html.gj-solo-target-compact .spawn-item img{
-          width: clamp(36px, 9.6vw, 48px) !important;
-          height: clamp(36px, 9.6vw, 48px) !important;
-          max-width: 48px !important;
-          max-height: 48px !important;
+          width: clamp(32px, 8.4vw, 42px) !important;
+          height: clamp(32px, 8.4vw, 42px) !important;
+          max-width: 42px !important;
+          max-height: 42px !important;
           object-fit: contain !important;
-          margin: 0 auto 3px !important;
+          margin: 0 auto 2px !important;
         }
 
         html.gj-solo-target-compact .target .label,
@@ -80,18 +81,23 @@
         html.gj-solo-target-compact .spawn-item .label,
         html.gj-solo-target-compact .target-name,
         html.gj-solo-target-compact .food-name{
-          font-size: clamp(10.5px, 2.85vw, 12.5px) !important;
-          line-height: 1.12 !important;
-          max-height: 2.3em !important;
+          font-size: clamp(9.8px, 2.6vw, 11.5px) !important;
+          line-height: 1.08 !important;
+          max-height: 2.2em !important;
           overflow: hidden !important;
         }
 
-        html.gj-solo-target-compact .target{
+        html.gj-solo-target-compact .target,
+        html.gj-solo-target-compact .food-target,
+        html.gj-solo-target-compact .gj-target,
+        html.gj-solo-target-compact .food-card,
+        html.gj-solo-target-compact [data-food-target],
+        html.gj-solo-target-compact .spawn-item{
           touch-action: manipulation !important;
         }
 
         /*
-         * กันเป้าหลุดขอบจอ/เข้าใต้ overlay
+         * กันเป้าหลุดขอบจอ / เข้าใต้ overlay
          */
         html.gj-solo-target-compact .gj-compact-clamped{
           transition: left .12s ease, top .12s ease, transform .12s ease !important;
@@ -137,14 +143,14 @@
 
     /*
      * mobile safe area:
-     * x ไม่ให้ชิดขวาเกินไป
-     * y กัน mission/toast ด้านบน และ boss/fair director/skill ด้านล่าง
+     * เป้าเล็กลงแล้ว จึงขยายพื้นที่ spawn ได้เล็กน้อย
+     * แต่ยังกันไม่ให้ไปชน toast/mission ด้านบน และ boss/fair director/skill ด้านล่าง
      */
     const SAFE = {
-      minX: 14,
-      maxX: 76,
+      minX: 13,
+      maxX: 80,
       minY: 22,
-      maxY: 60
+      maxY: 62
     };
 
     const left = el.style.left;
@@ -203,22 +209,21 @@
 
   function patchRandomSpawnHelpers(){
     /*
-     * ถ้าไฟล์หลักมี helper randomPercent / spawn config บางชื่อ
-     * ให้ตั้งค่า safe area กลาง ๆ ไว้เป็น global เผื่อโค้ดหลักอ่านได้
+     * เผื่อไฟล์หลักอ่านค่า global นี้ในอนาคต
      */
     window.GJ_SOLO_BOSS_MOBILE_TARGET_COMPACT = {
       version: PATCH_VERSION,
       safeSpawnMobile: {
-        minX: 14,
-        maxX: 76,
+        minX: 13,
+        maxX: 80,
         minY: 22,
-        maxY: 60
+        maxY: 62
       },
       targetSizeMobile: {
-        minW: 66,
-        maxW: 82,
-        minH: 76,
-        maxH: 94
+        minW: 58,
+        maxW: 74,
+        minH: 68,
+        maxH: 86
       },
       compactExistingTargets,
       clampTarget
@@ -233,6 +238,9 @@
       compactExistingTargets();
       observeTargets();
 
+      /*
+       * กันกรณีเกมสร้างเป้าแบบ innerHTML / animation ภายหลัง
+       */
       setInterval(compactExistingTargets, 900);
     }
 
