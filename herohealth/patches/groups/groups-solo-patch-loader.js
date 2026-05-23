@@ -16,7 +16,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__ = true;
 
-  var LOADER_VERSION = '20260523-intro-kill-13';
+  var LOADER_VERSION = '20260523-pc-spacious-14';
 
   var PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
@@ -31,7 +31,8 @@
   '10-groups-solo-gameplay-nav-lock.js',
   '11-groups-solo-skip-intro-autostart.js',
   '12-groups-solo-direct-play-firewall.js',
-  '13-groups-solo-direct-intro-kill-switch.js'
+  '13-groups-solo-direct-intro-kill-switch.js',
+  '14-groups-solo-pc-spacious-layout.js'
 ];
 
   function currentBase(){
