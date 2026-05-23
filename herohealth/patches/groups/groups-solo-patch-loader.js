@@ -16,7 +16,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__ = true;
 
-  var LOADER_VERSION = '20260523-pc-spacious-14';
+  var LOADER_VERSION = '20260523-pc-unblock-15';
 
   vvar PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
