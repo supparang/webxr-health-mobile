@@ -16,7 +16,7 @@
   if (window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__) return;
   window.__HHA_GROUPS_SOLO_PATCH_LOADER_PC_DIRECT_FINAL_01__ = true;
 
-  var LOADER_VERSION = '20260523-direct-firewall-12';
+  var LOADER_VERSION = '20260523-intro-kill-13';
 
   var PATCH_FILES = [
   '01-groups-solo-3view-stabilizer.js',
@@ -30,7 +30,8 @@
   '09-groups-solo-mode-link-fix.js',
   '10-groups-solo-gameplay-nav-lock.js',
   '11-groups-solo-skip-intro-autostart.js',
-  '12-groups-solo-direct-play-firewall.js'
+  '12-groups-solo-direct-play-firewall.js',
+  '13-groups-solo-direct-intro-kill-switch.js'
 ];
 
   function currentBase(){
