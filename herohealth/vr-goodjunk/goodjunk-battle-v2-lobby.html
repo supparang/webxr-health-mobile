@@ -1985,12 +1985,17 @@
         setInterval(function(){
   updateDbBadge();
 
-  const hasRoom =
-    normalizeBattleRoomCode(
-      state.roomCode ||
-      roomCodeInput.value ||
-      (roomCodeText.textContent !== '----' ? roomCodeText.textContent : '')
-    );
+  const activeRoomText =
+  roomCodeText.textContent && roomCodeText.textContent.trim() !== '----'
+    ? roomCodeText.textContent
+    : '';
+
+const hasRoom =
+  normalizeBattleRoomCode(
+    state.roomCode ||
+    activeRoomText ||
+    ''
+  );
 
   if (!hasRoom){
     state.room = null;
