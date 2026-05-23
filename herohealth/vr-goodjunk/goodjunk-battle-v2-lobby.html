@@ -874,8 +874,18 @@
       }
 
       function detectView(){
-        const qv = normalizeView(params.get('view') || params.get('device') || '');
-        if (qv) return qv;
+  const raw = String(params.get('view') || params.get('device') || '').toLowerCase().trim();
+
+  if (raw){
+    return normalizeView(raw);
+  }
+
+  const isMobile =
+    (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
+    /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+  return isMobile ? 'mobile' : 'pc';
+}
 
         const isMobile =
           (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
@@ -908,7 +918,6 @@
           params.get('roomCode') ||
           params.get('code') ||
           params.get('lastRoom') ||
-          localStorage.getItem('GJ_BATTLE_LAST_ROOM') ||
           '';
 
         if (existingRoom){
@@ -1422,16 +1431,22 @@
         }
 
         state.roomCode = '';
-        state.room = null;
-        state.roomRef = null;
-        state.listenerAttached = false;
-        state.attachedRoomCode = '';
-        roomCodeText.textContent = '----';
-        setStatus('ออกจากห้องแล้ว', 'warn');
-        renderPlayers([]);
-        updateStartButton({});
-        toast('ออกจากห้องแล้ว');
-      }
+state.room = null;
+state.roomRef = null;
+state.listenerAttached = false;
+state.attachedRoomCode = '';
+
+try{
+  localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+  sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+}catch(_){}
+
+roomCodeInput.value = '';
+roomCodeText.textContent = '----';
+setStatus('ออกจากห้องแล้ว', 'warn');
+renderPlayers([]);
+updateStartButton({});
+toast('ออกจากห้องแล้ว');
 
       function startHeartbeat(){
         if (state.heartbeatTimer) return;
@@ -1904,9 +1919,40 @@
       });
 
       async function boot(){
-        initFields();
-        saveFields();
-        bindRoomCodeInput();
+  initFields();
+  saveFields();
+  bindRoomCodeInput();
+
+  const hasExplicitRoom =
+    normalizeBattleRoomCode(
+      params.get('room') ||
+      params.get('roomCode') ||
+      params.get('code') ||
+      params.get('lastRoom') ||
+      ''
+    );
+
+  if (!hasExplicitRoom){
+    try{
+      localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+      sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+    }catch(_){}
+
+    state.roomCode = '';
+    state.room = null;
+    state.roomRef = null;
+    state.listenerAttached = false;
+    state.attachedRoomCode = '';
+    state.redirecting = false;
+    state.lastRoomKey = '';
+
+    roomCodeInput.value = '';
+    roomCodeText.textContent = '----';
+
+    renderPlayers([]);
+    setStatus('ยังไม่ได้สร้างหรือเข้าห้อง', 'warn');
+    updateStartButton({});
+  }
         updateDbBadge();
 
         const autoRoom =
@@ -1943,10 +1989,33 @@
         }
 
         setInterval(function(){
-          updateDbBadge();
-          updateLobbyStatusByRoom(state.room || {});
-          if (state.room) checkRoomForStart(state.room, 'interval-room-watch');
-        }, 1000);
+  updateDbBadge();
+
+  const hasRoom =
+    normalizeBattleRoomCode(
+      state.roomCode ||
+      roomCodeInput.value ||
+      (roomCodeText.textContent !== '----' ? roomCodeText.textContent : '')
+    );
+
+  if (!hasRoom){
+    state.room = null;
+    state.roomRef = null;
+    state.listenerAttached = false;
+    state.attachedRoomCode = '';
+
+    renderPlayers([]);
+    setStatus(getDbReady() ? 'DB พร้อมแล้ว • สร้างห้องหรือเข้าห้องได้' : 'DB ยังไม่พร้อม • รอ Firebase Auth/Database สักครู่', getDbReady() ? 'good' : 'warn');
+    updateStartButton({});
+    return;
+  }
+
+  updateLobbyStatusByRoom(state.room || {});
+
+  if (state.room){
+    checkRoomForStart(state.room, 'interval-room-watch');
+  }
+}, 1000);
 
         window.addEventListener('gj:battle-db-ready', function(){
           setTimeout(function(){
