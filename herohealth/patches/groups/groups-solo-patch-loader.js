@@ -32,8 +32,7 @@
   '11-groups-solo-skip-intro-autostart.js',
   '12-groups-solo-direct-play-firewall.js',
   '13-groups-solo-direct-intro-kill-switch.js',
-  '15-groups-solo-pc-unblock-playfield.js',
-  '17-groups-solo-cvr-clear-stage.js'
+  '15-groups-solo-pc-unblock-playfield.js'
 ];
 
   function currentBase(){
