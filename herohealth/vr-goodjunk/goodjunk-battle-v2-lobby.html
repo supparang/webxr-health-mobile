@@ -887,13 +887,6 @@
   return isMobile ? 'mobile' : 'pc';
 }
 
-        const isMobile =
-          (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
-          /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-
-        return isMobile ? 'mobile' : 'pc';
-      }
-
       function initFields(){
         const name =
           params.get('name') ||
@@ -1411,66 +1404,67 @@
       }
 
       async function leaveRoom(){
-        saveFields();
+  saveFields();
 
-        if (state.roomRef && state.playerId){
-          try{
-            await state.roomRef.child('players').child(state.playerId).update({
-              left:true,
-              quit:true,
-              disconnected:true,
-              status:'left',
-              phase:'left',
-              rematchReady:false,
-              readyRematch:false,
-              nextReady:false,
-              updatedAt:now(),
-              lastSeen:now()
-            });
-          }catch(_){}
-        }
+  if (state.roomRef && state.playerId){
+    try{
+      await state.roomRef.child('players').child(state.playerId).update({
+        left:true,
+        quit:true,
+        disconnected:true,
+        status:'left',
+        phase:'left',
+        rematchReady:false,
+        readyRematch:false,
+        nextReady:false,
+        updatedAt:now(),
+        lastSeen:now()
+      });
+    }catch(_){}
+  }
 
-        state.roomCode = '';
-state.room = null;
-state.roomRef = null;
-state.listenerAttached = false;
-state.attachedRoomCode = '';
+  state.roomCode = '';
+  state.room = null;
+  state.roomRef = null;
+  state.listenerAttached = false;
+  state.attachedRoomCode = '';
 
-try{
-  localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
-  sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
-}catch(_){}
+  try{
+    localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+    sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+  }catch(_){}
 
-roomCodeInput.value = '';
-roomCodeText.textContent = '----';
-setStatus('ออกจากห้องแล้ว', 'warn');
-renderPlayers([]);
-updateStartButton({});
-toast('ออกจากห้องแล้ว');
+  roomCodeInput.value = '';
+  roomCodeText.textContent = '----';
+  setStatus('ออกจากห้องแล้ว', 'warn');
+  renderPlayers([]);
+  updateStartButton({});
+  toast('ออกจากห้องแล้ว');
+}
 
       function startHeartbeat(){
-        if (state.heartbeatTimer) return;
+  if (state.heartbeatTimer) return;
 
-        state.heartbeatTimer = setInterval(async function(){
-          if (!state.roomRef || !state.playerId) return;
+  state.heartbeatTimer = setInterval(async function(){
+    if (!state.roomRef || !state.playerId) return;
 
-          try{
-            await state.roomRef.child('players').child(state.playerId).update({
-              status:'online',
-              phase:'lobby',
-              left:false,
-              quit:false,
-              disconnected:false,
-              lastSeen:now(),
-              heartbeatAt:now(),
-              updatedAt:now()
-            });
-          }catch(_){}
-        }, 3500);
+    try{
+      await state.roomRef.child('players').child(state.playerId).update({
+        status:'online',
+        phase:'lobby',
+        left:false,
+        quit:false,
+        disconnected:false,
+        lastSeen:now(),
+        heartbeatAt:now(),
+        updatedAt:now()
+      });
+    }catch(_){}
+  }, 3500);
 
-        window.addEventListener('beforeunload', markLeftSync);
-        window.addEventListener('pagehide', markLeftSync);
-      }
+  window.addEventListener('beforeunload', markLeftSync);
+  window.addEventListener('pagehide', markLeftSync);
+}
 
       function markLeftSync(){
         try{
