@@ -1,7 +1,7 @@
 (function GoodJunkBattleV2LobbyFreshRoomPatch(){
   'use strict';
 
-  const PATCH_VERSION = 'v2.4.40-lobby-fresh-room-no-auto-lastroom';
+  const PATCH_VERSION = 'v2.4.42-lobby-fresh-room-active-room-only';
 
   const url = new URL(location.href);
   const params = url.searchParams;
@@ -34,6 +34,42 @@
       .slice(0, 32);
   }
 
+  function getActiveRoomFromText(){
+    const text = $('#roomCodeText');
+    const value = text && text.textContent && text.textContent.trim() !== '----'
+      ? text.textContent
+      : '';
+
+    return normalizeRoomCode(value);
+  }
+
+  function getActiveRoomFromLobbyState(){
+    const lobby = window.GJ_BATTLE_LOBBY;
+    return normalizeRoomCode(
+      lobby &&
+      lobby.state &&
+      lobby.state.roomCode
+        ? lobby.state.roomCode
+        : ''
+    );
+  }
+
+  function getActiveRoom(){
+    return normalizeRoomCode(
+      params.get('room') ||
+      params.get('roomCode') ||
+      params.get('code') ||
+      params.get('lastRoom') ||
+      getActiveRoomFromLobbyState() ||
+      getActiveRoomFromText() ||
+      ''
+    );
+  }
+
+  function hasActiveRoom(){
+    return !!getActiveRoom();
+  }
+
   function setStatus(text, cls){
     const el = $('#lobbyStatus');
     if (!el) return;
@@ -62,17 +98,15 @@
 
   function clearRoomUI(){
     const roomCodeText = $('#roomCodeText');
-    const roomCodeInput = $('#roomCodeInput');
     const btnStartBattle = $('#btnStartBattle');
 
     if (roomCodeText) roomCodeText.textContent = '----';
 
     /*
-     * ถ้าไม่มี room จาก URL ชัดเจน ให้เคลียร์ช่อง room input ด้วย
+     * สำคัญ:
+     * ไม่ล้าง roomCodeInput แล้ว เพราะช่องนี้เป็น “ช่องกรอกรหัส”
+     * ไม่ใช่ active room
      */
-    if (!state.hasExplicitRoom && roomCodeInput){
-      roomCodeInput.value = '';
-    }
 
     if (btnStartBattle){
       btnStartBattle.disabled = true;
@@ -98,9 +132,6 @@
       lobby.state.lastRoomKey = '';
     }
 
-    /*
-     * สำคัญ: ไม่ลบชื่อ/ pid แต่ลบ last room เพื่อไม่ auto join
-     */
     if (!state.hasExplicitRoom){
       try{
         localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
@@ -114,20 +145,14 @@
   function patchInitFields(){
     const lobby = window.GJ_BATTLE_LOBBY;
 
-    /*
-     * ถ้า lobby object ยังไม่พร้อม ให้ patch ผ่าน UI ก่อน
-     */
-    if (!state.hasExplicitRoom){
+    if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
       hardResetLobbyState();
     }
 
-    if (!lobby || lobby.__freshRoomPatched) return;
+    if (!lobby || lobby.__freshRoomPatchedV2442) return;
 
-    lobby.__freshRoomPatched = true;
+    lobby.__freshRoomPatchedV2442 = true;
 
-    /*
-     * ครอบ createRoom / joinRoom เพื่อปลดล็อกเฉพาะเมื่อผู้ใช้กดจริง
-     */
     if (typeof lobby.createRoom === 'function'){
       const originalCreate = lobby.createRoom;
 
@@ -135,9 +160,6 @@
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
 
-        /*
-         * ก่อนสร้างห้องใหม่ ล้างห้องเก่าออกจาก state
-         */
         if (lobby.state){
           lobby.state.roomCode = '';
           lobby.state.room = null;
@@ -171,6 +193,7 @@
 
         try{
           localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+          sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
         }catch(_){}
 
         const result = await originalLeave.apply(lobby, arguments);
@@ -186,24 +209,24 @@
     const leaveBtn = $('#btnLeaveRoom');
     const input = $('#roomCodeInput');
 
-    if (createBtn && createBtn.dataset.gjFreshRoomBound !== '1'){
-      createBtn.dataset.gjFreshRoomBound = '1';
+    if (createBtn && createBtn.dataset.gjFreshRoomBoundV2442 !== '1'){
+      createBtn.dataset.gjFreshRoomBoundV2442 = '1';
       createBtn.addEventListener('click', function(){
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
       }, true);
     }
 
-    if (joinBtn && joinBtn.dataset.gjFreshRoomBound !== '1'){
-      joinBtn.dataset.gjFreshRoomBound = '1';
+    if (joinBtn && joinBtn.dataset.gjFreshRoomBoundV2442 !== '1'){
+      joinBtn.dataset.gjFreshRoomBoundV2442 = '1';
       joinBtn.addEventListener('click', function(){
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
       }, true);
     }
 
-    if (leaveBtn && leaveBtn.dataset.gjFreshRoomBound !== '1'){
-      leaveBtn.dataset.gjFreshRoomBound = '1';
+    if (leaveBtn && leaveBtn.dataset.gjFreshRoomBoundV2442 !== '1'){
+      leaveBtn.dataset.gjFreshRoomBoundV2442 = '1';
       leaveBtn.addEventListener('click', function(){
         state.userTouchedRoom = false;
         state.createdOrJoined = false;
@@ -211,8 +234,13 @@
       }, true);
     }
 
-    if (input && input.dataset.gjFreshRoomInputBound !== '1'){
-      input.dataset.gjFreshRoomInputBound = '1';
+    if (input && input.dataset.gjFreshRoomInputBoundV2442 !== '1'){
+      input.dataset.gjFreshRoomInputBoundV2442 = '1';
+
+      /*
+       * พิมพ์ roomCodeInput ไม่ถือว่าเข้าห้องแล้ว
+       * แค่ userTouchedRoom เพื่อกัน auto-clear ช่องกรอกเท่านั้น
+       */
       input.addEventListener('input', function(){
         state.userTouchedRoom = true;
       });
@@ -221,41 +249,33 @@
 
   function blockOldRoomRender(){
     /*
-     * ถ้ายังไม่ได้กดสร้าง/เข้าห้อง และไม่มี room ใน URL
-     * ให้บังคับ UI กลับเป็นว่าง กัน patch อื่น render ห้องเก่า
+     * ถ้ายังไม่ได้สร้าง/เข้าห้องสำเร็จ และไม่มี active room จริง
+     * ให้บังคับ UI กลับเป็นว่าง
      */
     if (state.hasExplicitRoom) return;
-    if (state.createdOrJoined) return;
+    if (state.createdOrJoined && hasActiveRoom()) return;
 
-    const roomText = $('#roomCodeText');
     const list = $('#playersList');
-
-    const hasOldRoom =
-      roomText &&
-      roomText.textContent &&
-      normalizeRoomCode(roomText.textContent) &&
-      roomText.textContent.trim() !== '----';
-
     const hasPlayer =
       list &&
-      /READY|host|online|score/i.test(list.textContent || '');
+      /READY|LEFT|host|online|score/i.test(list.textContent || '');
 
-    if (hasOldRoom || hasPlayer){
+    if (!hasActiveRoom() && hasPlayer){
       hardResetLobbyState();
     }
   }
 
   function patchHostRepairGuard(){
     const repair = window.GJ_BATTLE_LOBBY_HOST_REPAIR;
-    if (!repair || repair.__freshRoomGuardPatched) return;
+    if (!repair || repair.__freshRoomGuardPatchedV2442) return;
 
-    repair.__freshRoomGuardPatched = true;
+    repair.__freshRoomGuardPatchedV2442 = true;
 
     if (typeof repair.repairCurrentRoom === 'function'){
       const originalRepairCurrent = repair.repairCurrentRoom;
 
       repair.repairCurrentRoom = async function(source){
-        if (!state.hasExplicitRoom && !state.createdOrJoined){
+        if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
           clearRoomUI();
           return false;
         }
@@ -268,7 +288,7 @@
       const originalAttach = repair.attachRoomListener;
 
       repair.attachRoomListener = function(roomCode){
-        if (!state.hasExplicitRoom && !state.createdOrJoined){
+        if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
           clearRoomUI();
           return false;
         }
@@ -280,17 +300,17 @@
 
   function patchStatusStabilizerGuard(){
     const stabilizer = window.GJ_BATTLE_LOBBY_STATUS_STABILIZER;
-    if (!stabilizer || stabilizer.__freshRoomGuardPatched) return;
+    if (!stabilizer || stabilizer.__freshRoomGuardPatchedV2442) return;
 
-    stabilizer.__freshRoomGuardPatched = true;
+    stabilizer.__freshRoomGuardPatchedV2442 = true;
 
     if (typeof stabilizer.decideStableStatus === 'function'){
       const originalDecide = stabilizer.decideStableStatus;
 
       stabilizer.decideStableStatus = function(){
-        if (!state.hasExplicitRoom && !state.createdOrJoined){
+        if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
           return {
-            key:'fresh-no-room',
+            key:'fresh-no-active-room',
             cls:'warn',
             text:'ยังไม่ได้สร้างหรือเข้าห้อง',
             btnText:'⏳ รอผู้เล่นอีก 1 คน',
@@ -309,13 +329,12 @@
       version: PATCH_VERSION,
       state,
       hardResetLobbyState,
-      clearRoomUI
+      clearRoomUI,
+      getActiveRoom,
+      hasActiveRoom
     };
 
-    /*
-     * ถ้าไม่ได้เปิดมาด้วย room ใน URL ให้เริ่มหน้าเปล่าเสมอ
-     */
-    if (!state.hasExplicitRoom){
+    if (!state.hasExplicitRoom && !hasActiveRoom()){
       hardResetLobbyState();
     }else{
       state.createdOrJoined = true;
@@ -323,7 +342,7 @@
 
     patchButtons();
 
-    const t = setInterval(function(){
+    setInterval(function(){
       patchInitFields();
       patchButtons();
       patchHostRepairGuard();
@@ -336,7 +355,8 @@
     }, 1600);
 
     console.info('[GoodJunk Battle Fresh Room Patch]', PATCH_VERSION, 'loaded', {
-      explicitRoom: state.hasExplicitRoom
+      explicitRoom: state.hasExplicitRoom,
+      activeRoom: getActiveRoom()
     });
   }
 
