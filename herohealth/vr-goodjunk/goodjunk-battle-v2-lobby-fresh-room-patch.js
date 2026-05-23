@@ -1,7 +1,7 @@
 (function GoodJunkBattleV2LobbyFreshRoomPatch(){
   'use strict';
 
-  const PATCH_VERSION = 'v2.4.42-lobby-fresh-room-active-room-only';
+  const PATCH_VERSION = 'v2.4.44-lobby-fresh-room-active-room-only';
 
   const url = new URL(location.href);
   const params = url.searchParams;
@@ -21,17 +21,17 @@
     bootLocked: true
   };
 
-  function $(sel, root){
-    return (root || document).querySelector(sel);
-  }
+  function $(sel, root){ return (root || document).querySelector(sel); }
 
   function normalizeRoomCode(raw){
-    return String(raw || '')
+    const out = String(raw || '')
       .trim()
       .toUpperCase()
       .replace(/\s+/g, '')
       .replace(/[^A-Z0-9_-]/g, '')
       .slice(0, 32);
+    if (!out || /^-+$/.test(out) || /^_+$/.test(out)) return '';
+    return out;
   }
 
   function getActiveRoomFromText(){
@@ -39,19 +39,12 @@
     const value = text && text.textContent && text.textContent.trim() !== '----'
       ? text.textContent
       : '';
-
     return normalizeRoomCode(value);
   }
 
   function getActiveRoomFromLobbyState(){
     const lobby = window.GJ_BATTLE_LOBBY;
-    return normalizeRoomCode(
-      lobby &&
-      lobby.state &&
-      lobby.state.roomCode
-        ? lobby.state.roomCode
-        : ''
-    );
+    return normalizeRoomCode(lobby && lobby.state && lobby.state.roomCode ? lobby.state.roomCode : '');
   }
 
   function getActiveRoom(){
@@ -66,14 +59,11 @@
     );
   }
 
-  function hasActiveRoom(){
-    return !!getActiveRoom();
-  }
+  function hasActiveRoom(){ return !!getActiveRoom(); }
 
   function setStatus(text, cls){
     const el = $('#lobbyStatus');
     if (!el) return;
-
     el.className = 'status ' + (cls || 'warn');
     el.textContent = text;
     el.setAttribute('data-gj-stable-text', text);
@@ -83,7 +73,6 @@
   function renderEmptyPlayers(){
     const list = $('#playersList');
     if (!list) return;
-
     list.innerHTML = `
       <div class="player">
         <div class="avatar">👤</div>
@@ -98,15 +87,11 @@
 
   function clearRoomUI(){
     const roomCodeText = $('#roomCodeText');
+    const roomCodeInput = $('#roomCodeInput');
     const btnStartBattle = $('#btnStartBattle');
 
     if (roomCodeText) roomCodeText.textContent = '----';
-
-    /*
-     * สำคัญ:
-     * ไม่ล้าง roomCodeInput แล้ว เพราะช่องนี้เป็น “ช่องกรอกรหัส”
-     * ไม่ใช่ active room
-     */
+    if (roomCodeInput && normalizeRoomCode(roomCodeInput.value) === '') roomCodeInput.value = '';
 
     if (btnStartBattle){
       btnStartBattle.disabled = true;
@@ -149,13 +134,11 @@
       hardResetLobbyState();
     }
 
-    if (!lobby || lobby.__freshRoomPatchedV2442) return;
-
-    lobby.__freshRoomPatchedV2442 = true;
+    if (!lobby || lobby.__freshRoomPatchedV2444) return;
+    lobby.__freshRoomPatchedV2444 = true;
 
     if (typeof lobby.createRoom === 'function'){
       const originalCreate = lobby.createRoom;
-
       lobby.createRoom = async function(){
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
@@ -176,7 +159,6 @@
 
     if (typeof lobby.joinRoom === 'function'){
       const originalJoin = lobby.joinRoom;
-
       lobby.joinRoom = async function(){
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
@@ -186,7 +168,6 @@
 
     if (typeof lobby.leaveRoom === 'function'){
       const originalLeave = lobby.leaveRoom;
-
       lobby.leaveRoom = async function(){
         state.userTouchedRoom = false;
         state.createdOrJoined = false;
@@ -209,24 +190,24 @@
     const leaveBtn = $('#btnLeaveRoom');
     const input = $('#roomCodeInput');
 
-    if (createBtn && createBtn.dataset.gjFreshRoomBoundV2442 !== '1'){
-      createBtn.dataset.gjFreshRoomBoundV2442 = '1';
+    if (createBtn && createBtn.dataset.gjFreshRoomBoundV2444 !== '1'){
+      createBtn.dataset.gjFreshRoomBoundV2444 = '1';
       createBtn.addEventListener('click', function(){
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
       }, true);
     }
 
-    if (joinBtn && joinBtn.dataset.gjFreshRoomBoundV2442 !== '1'){
-      joinBtn.dataset.gjFreshRoomBoundV2442 = '1';
+    if (joinBtn && joinBtn.dataset.gjFreshRoomBoundV2444 !== '1'){
+      joinBtn.dataset.gjFreshRoomBoundV2444 = '1';
       joinBtn.addEventListener('click', function(){
         state.userTouchedRoom = true;
         state.createdOrJoined = true;
       }, true);
     }
 
-    if (leaveBtn && leaveBtn.dataset.gjFreshRoomBoundV2442 !== '1'){
-      leaveBtn.dataset.gjFreshRoomBoundV2442 = '1';
+    if (leaveBtn && leaveBtn.dataset.gjFreshRoomBoundV2444 !== '1'){
+      leaveBtn.dataset.gjFreshRoomBoundV2444 = '1';
       leaveBtn.addEventListener('click', function(){
         state.userTouchedRoom = false;
         state.createdOrJoined = false;
@@ -234,13 +215,8 @@
       }, true);
     }
 
-    if (input && input.dataset.gjFreshRoomInputBoundV2442 !== '1'){
-      input.dataset.gjFreshRoomInputBoundV2442 = '1';
-
-      /*
-       * พิมพ์ roomCodeInput ไม่ถือว่าเข้าห้องแล้ว
-       * แค่ userTouchedRoom เพื่อกัน auto-clear ช่องกรอกเท่านั้น
-       */
+    if (input && input.dataset.gjFreshRoomInputBoundV2444 !== '1'){
+      input.dataset.gjFreshRoomInputBoundV2444 = '1';
       input.addEventListener('input', function(){
         state.userTouchedRoom = true;
       });
@@ -248,17 +224,11 @@
   }
 
   function blockOldRoomRender(){
-    /*
-     * ถ้ายังไม่ได้สร้าง/เข้าห้องสำเร็จ และไม่มี active room จริง
-     * ให้บังคับ UI กลับเป็นว่าง
-     */
     if (state.hasExplicitRoom) return;
     if (state.createdOrJoined && hasActiveRoom()) return;
 
     const list = $('#playersList');
-    const hasPlayer =
-      list &&
-      /READY|LEFT|host|online|score/i.test(list.textContent || '');
+    const hasPlayer = list && /READY|LEFT|host|online|score/i.test(list.textContent || '');
 
     if (!hasActiveRoom() && hasPlayer){
       hardResetLobbyState();
@@ -267,32 +237,27 @@
 
   function patchHostRepairGuard(){
     const repair = window.GJ_BATTLE_LOBBY_HOST_REPAIR;
-    if (!repair || repair.__freshRoomGuardPatchedV2442) return;
-
-    repair.__freshRoomGuardPatchedV2442 = true;
+    if (!repair || repair.__freshRoomGuardPatchedV2444) return;
+    repair.__freshRoomGuardPatchedV2444 = true;
 
     if (typeof repair.repairCurrentRoom === 'function'){
       const originalRepairCurrent = repair.repairCurrentRoom;
-
       repair.repairCurrentRoom = async function(source){
         if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
           clearRoomUI();
           return false;
         }
-
         return await originalRepairCurrent.apply(repair, arguments);
       };
     }
 
     if (typeof repair.attachRoomListener === 'function'){
       const originalAttach = repair.attachRoomListener;
-
       repair.attachRoomListener = function(roomCode){
         if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
           clearRoomUI();
           return false;
         }
-
         return originalAttach.apply(repair, arguments);
       };
     }
@@ -300,13 +265,11 @@
 
   function patchStatusStabilizerGuard(){
     const stabilizer = window.GJ_BATTLE_LOBBY_STATUS_STABILIZER;
-    if (!stabilizer || stabilizer.__freshRoomGuardPatchedV2442) return;
-
-    stabilizer.__freshRoomGuardPatchedV2442 = true;
+    if (!stabilizer || stabilizer.__freshRoomGuardPatchedV2444) return;
+    stabilizer.__freshRoomGuardPatchedV2444 = true;
 
     if (typeof stabilizer.decideStableStatus === 'function'){
       const originalDecide = stabilizer.decideStableStatus;
-
       stabilizer.decideStableStatus = function(){
         if (!state.hasExplicitRoom && !state.createdOrJoined && !hasActiveRoom()){
           return {
@@ -318,7 +281,6 @@
             ready:false
           };
         }
-
         return originalDecide.apply(stabilizer, arguments);
       };
     }
@@ -334,11 +296,8 @@
       hasActiveRoom
     };
 
-    if (!state.hasExplicitRoom && !hasActiveRoom()){
-      hardResetLobbyState();
-    }else{
-      state.createdOrJoined = true;
-    }
+    if (!state.hasExplicitRoom && !hasActiveRoom()) hardResetLobbyState();
+    else state.createdOrJoined = true;
 
     patchButtons();
 
@@ -350,9 +309,7 @@
       blockOldRoomRender();
     }, 250);
 
-    setTimeout(function(){
-      state.bootLocked = false;
-    }, 1600);
+    setTimeout(function(){ state.bootLocked = false; }, 1600);
 
     console.info('[GoodJunk Battle Fresh Room Patch]', PATCH_VERSION, 'loaded', {
       explicitRoom: state.hasExplicitRoom,
@@ -360,9 +317,6 @@
     });
   }
 
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
-  }else{
-    boot();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true});
+  else boot();
 })();

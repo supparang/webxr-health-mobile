@@ -1,19 +1,19 @@
 (function GoodJunkBattleV2LobbyEmptyGuardPatch(){
   'use strict';
 
-  const PATCH_VERSION = 'v2.4.42-lobby-empty-guard-active-room-only';
+  const PATCH_VERSION = 'v2.4.44-lobby-empty-guard-active-room-only';
 
-  function $(sel, root){
-    return (root || document).querySelector(sel);
-  }
+  function $(sel, root){ return (root || document).querySelector(sel); }
 
   function normalizeRoomCode(raw){
-    return String(raw || '')
+    const out = String(raw || '')
       .trim()
       .toUpperCase()
       .replace(/\s+/g, '')
       .replace(/[^A-Z0-9_-]/g, '')
       .slice(0, 32);
+    if (!out || /^-+$/.test(out) || /^_+$/.test(out)) return '';
+    return out;
   }
 
   function hasExplicitRoomInUrl(){
@@ -28,37 +28,17 @@
 
   function getActiveRoomFromText(){
     const text = $('#roomCodeText');
-    const fromText =
-      text && text.textContent && text.textContent.trim() !== '----'
-        ? text.textContent
-        : '';
-
+    const fromText = text && text.textContent && text.textContent.trim() !== '----' ? text.textContent : '';
     return normalizeRoomCode(fromText);
   }
 
   function getActiveRoomFromLobbyState(){
     const lobby = window.GJ_BATTLE_LOBBY;
-
-    return normalizeRoomCode(
-      lobby &&
-      lobby.state &&
-      lobby.state.roomCode
-        ? lobby.state.roomCode
-        : ''
-    );
+    return normalizeRoomCode(lobby && lobby.state && lobby.state.roomCode ? lobby.state.roomCode : '');
   }
 
   function getDisplayedRoom(){
-    /*
-     * สำคัญ:
-     * ไม่อ่าน #roomCodeInput แล้ว
-     * เพราะ input เป็นช่องกรอกรหัส ไม่ใช่ active room
-     */
-    return normalizeRoomCode(
-      getActiveRoomFromLobbyState() ||
-      getActiveRoomFromText() ||
-      ''
-    );
+    return normalizeRoomCode(getActiveRoomFromLobbyState() || getActiveRoomFromText() || '');
   }
 
   function isEmptyLobby(){
@@ -83,7 +63,6 @@
 
   function clearStatus(){
     const status = $('#lobbyStatus');
-
     if (status){
       status.className = 'status warn';
       status.textContent = 'ยังไม่ได้สร้างหรือเข้าห้อง';
@@ -92,7 +71,6 @@
     }
 
     const btn = $('#btnStartBattle');
-
     if (btn){
       btn.disabled = true;
       btn.textContent = '⏳ รอผู้เล่นอีก 1 คน';
@@ -103,19 +81,12 @@
 
   function clearLobbyState(){
     const roomText = $('#roomCodeText');
+    const input = $('#roomCodeInput');
 
-    if (roomText){
-      roomText.textContent = '----';
-    }
-
-    /*
-     * ไม่ล้าง #roomCodeInput
-     * เพื่อให้ผู้ใช้พิมพ์/คัดลอก room code ค้างไว้ได้
-     * แต่ยังไม่ถือว่าเข้าห้องจนกว่าจะกด “เข้าห้อง”
-     */
+    if (roomText) roomText.textContent = '----';
+    if (input && normalizeRoomCode(input.value) === '') input.value = '';
 
     const lobby = window.GJ_BATTLE_LOBBY;
-
     if (lobby && lobby.state){
       lobby.state.roomCode = '';
       lobby.state.room = null;
@@ -127,7 +98,6 @@
     }
 
     const repair = window.GJ_BATTLE_LOBBY_HOST_REPAIR;
-
     if (repair && repair.state){
       repair.state.roomCode = '';
       repair.state.roomRef = null;
@@ -147,32 +117,27 @@
 
   function patchHostRepairRender(){
     const repair = window.GJ_BATTLE_LOBBY_HOST_REPAIR;
-    if (!repair || repair.__emptyGuardPatchedV2442) return;
-
-    repair.__emptyGuardPatchedV2442 = true;
+    if (!repair || repair.__emptyGuardPatchedV2444) return;
+    repair.__emptyGuardPatchedV2444 = true;
 
     if (typeof repair.repairCurrentRoom === 'function'){
       const originalRepairCurrentRoom = repair.repairCurrentRoom;
-
       repair.repairCurrentRoom = async function(){
         if (isEmptyLobby()){
           clearLobbyState();
           return false;
         }
-
         return await originalRepairCurrentRoom.apply(repair, arguments);
       };
     }
 
     if (typeof repair.attachRoomListener === 'function'){
       const originalAttachRoomListener = repair.attachRoomListener;
-
       repair.attachRoomListener = function(roomCode){
         if (isEmptyLobby()){
           clearLobbyState();
           return false;
         }
-
         return originalAttachRoomListener.apply(repair, arguments);
       };
     }
@@ -180,49 +145,37 @@
 
   function patchLobbyRender(){
     const lobby = window.GJ_BATTLE_LOBBY;
-    if (!lobby || lobby.__emptyGuardPatchedV2442) return;
-
-    lobby.__emptyGuardPatchedV2442 = true;
+    if (!lobby || lobby.__emptyGuardPatchedV2444) return;
+    lobby.__emptyGuardPatchedV2444 = true;
 
     if (typeof lobby.checkRoomForStart === 'function'){
       const originalCheckRoomForStart = lobby.checkRoomForStart;
-
       lobby.checkRoomForStart = function(){
         if (isEmptyLobby()){
           clearLobbyState();
           return false;
         }
-
         return originalCheckRoomForStart.apply(lobby, arguments);
       };
     }
 
     if (typeof lobby.canStartBattle === 'function'){
       const originalCanStartBattle = lobby.canStartBattle;
-
       lobby.canStartBattle = function(){
         if (isEmptyLobby()){
-          return {
-            ok:false,
-            reason:'empty-lobby',
-            onlineCount:0,
-            host:false
-          };
+          return { ok:false, reason:'empty-lobby', onlineCount:0, host:false };
         }
-
         return originalCanStartBattle.apply(lobby, arguments);
       };
     }
 
     if (typeof lobby.redirectToRun === 'function'){
       const originalRedirectToRun = lobby.redirectToRun;
-
       lobby.redirectToRun = function(){
         if (isEmptyLobby()){
           clearLobbyState();
           return false;
         }
-
         return originalRedirectToRun.apply(lobby, arguments);
       };
     }
@@ -231,25 +184,18 @@
   function observePlayersList(){
     const list = $('#playersList');
     if (!list || !window.MutationObserver) return;
-
-    if (list.dataset.gjEmptyGuardObservedV2442 === '1') return;
-    list.dataset.gjEmptyGuardObservedV2442 = '1';
+    if (list.dataset.gjEmptyGuardObservedV2444 === '1') return;
+    list.dataset.gjEmptyGuardObservedV2444 = '1';
 
     const mo = new MutationObserver(function(){
       if (!isEmptyLobby()) return;
-
       const txt = list.textContent || '';
-
       if (/READY|LEFT|host|online|score/i.test(txt)){
         requestAnimationFrame(clearLobbyState);
       }
     });
 
-    mo.observe(list, {
-      childList:true,
-      subtree:true,
-      characterData:true
-    });
+    mo.observe(list, { childList:true, subtree:true, characterData:true });
   }
 
   function bindButtons(){
@@ -257,25 +203,22 @@
     const joinBtn = $('#btnJoinRoom');
     const leaveBtn = $('#btnLeaveRoom');
 
-    if (createBtn && createBtn.dataset.gjEmptyGuardCreateV2442 !== '1'){
-      createBtn.dataset.gjEmptyGuardCreateV2442 = '1';
-
+    if (createBtn && createBtn.dataset.gjEmptyGuardCreateV2444 !== '1'){
+      createBtn.dataset.gjEmptyGuardCreateV2444 = '1';
       createBtn.addEventListener('click', function(){
         document.documentElement.dataset.gjBattleUserEnteredRoom = '1';
       }, true);
     }
 
-    if (joinBtn && joinBtn.dataset.gjEmptyGuardJoinV2442 !== '1'){
-      joinBtn.dataset.gjEmptyGuardJoinV2442 = '1';
-
+    if (joinBtn && joinBtn.dataset.gjEmptyGuardJoinV2444 !== '1'){
+      joinBtn.dataset.gjEmptyGuardJoinV2444 = '1';
       joinBtn.addEventListener('click', function(){
         document.documentElement.dataset.gjBattleUserEnteredRoom = '1';
       }, true);
     }
 
-    if (leaveBtn && leaveBtn.dataset.gjEmptyGuardLeaveV2442 !== '1'){
-      leaveBtn.dataset.gjEmptyGuardLeaveV2442 = '1';
-
+    if (leaveBtn && leaveBtn.dataset.gjEmptyGuardLeaveV2444 !== '1'){
+      leaveBtn.dataset.gjEmptyGuardLeaveV2444 = '1';
       leaveBtn.addEventListener('click', function(){
         document.documentElement.dataset.gjBattleUserEnteredRoom = '';
         setTimeout(clearLobbyState, 120);
@@ -289,17 +232,11 @@
     observePlayersList();
     bindButtons();
 
-    const userEntered =
-      document.documentElement.dataset.gjBattleUserEnteredRoom === '1';
+    const userEntered = document.documentElement.dataset.gjBattleUserEnteredRoom === '1';
 
-    /*
-     * ถ้ายังไม่มี active room จริง แม้ input จะมีรหัสอยู่
-     * ก็ต้องห้าม render ผู้เล่นค้าง
-     */
     if (isEmptyLobby() && !userEntered){
       const list = $('#playersList');
       const txt = list ? list.textContent || '' : '';
-
       if (/READY|LEFT|host|online|score/i.test(txt)){
         clearLobbyState();
       }
@@ -317,9 +254,7 @@
       getActiveRoomFromLobbyState
     };
 
-    if (isEmptyLobby()){
-      clearLobbyState();
-    }
+    if (isEmptyLobby()) clearLobbyState();
 
     setInterval(hardGuardLoop, 250);
 
@@ -329,9 +264,6 @@
     });
   }
 
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
-  }else{
-    boot();
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, {once:true});
+  else boot();
 })();
