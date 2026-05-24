@@ -2501,5 +2501,217 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
   }
 })();
 </script>
+<!-- =========================================================
+  GOODJUNK SOLO BOSS CVR CLEANUP PATCH
+  Remove duplicate VR buttons on Summary + hide cVR overlay after game end
+  PATCH: v20260524-GOODJUNK-SOLO-CVR-DUPLICATE-VR-CONTROLS-CLEANUP
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: after previous cVR runtime patch, before </body>
+========================================================= -->
+
+<style id="gj-solo-cvr-summary-cleanup-css">
+  body.gj-cvr-summary-mode #gj-cvr-controls,
+  body.gj-cvr-summary-mode .gj-cvr-controls,
+  body.gj-cvr-summary-mode #gj-cvr-crosshair,
+  body.gj-cvr-summary-mode .gj-cvr-crosshair,
+  body.gj-cvr-summary-mode #gj-cvr-aim-flash,
+  body.gj-cvr-summary-mode .gj-cvr-aim-flash{
+    display:none !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body.gj-cvr-summary-mode [data-gj-hide-vr-control="1"]{
+    display:none !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body.gj-cvr-summary-mode .summary,
+  body.gj-cvr-summary-mode #summary,
+  body.gj-cvr-summary-mode .end-screen,
+  body.gj-cvr-summary-mode .result-panel,
+  body.gj-cvr-summary-mode .modal,
+  body.gj-cvr-summary-mode .panel{
+    padding-bottom:28px !important;
+  }
+
+  body.gj-cvr-runtime #gj-cvr-controls.gj-cvr-controls-disabled,
+  body.gj-cvr-runtime .gj-cvr-controls.gj-cvr-controls-disabled{
+    display:none !important;
+  }
+</style>
+
+<script id="gj-solo-cvr-summary-cleanup-js">
+(function(){
+  'use strict';
+
+  const PATCH_VERSION = 'v20260524-GOODJUNK-SOLO-CVR-DUPLICATE-VR-CONTROLS-CLEANUP';
+
+  if (window.__GOODJUNK_SOLO_CVR_SUMMARY_CLEANUP__) return;
+  window.__GOODJUNK_SOLO_CVR_SUMMARY_CLEANUP__ = true;
+
+  const qs = new URLSearchParams(location.search);
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    entry === 'cardboard';
+
+  if (!isCvr) return;
+
+  function textOf(el){
+    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function isVisible(el){
+    if (!el) return false;
+    const st = getComputedStyle(el);
+    if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 8 && r.height > 8;
+  }
+
+  function isSummaryNow(){
+    const bodyText = textOf(document.body);
+
+    if (
+      /ชนะ\s*Junk\s*Boss/i.test(bodyText) ||
+      /SCORE/i.test(bodyText) && /RANK/i.test(bodyText) && /GOOD\s*FOOD/i.test(bodyText) ||
+      /WATCH\s*OUT/i.test(bodyText) && /GOOD\s*FOOD/i.test(bodyText)
+    ){
+      return true;
+    }
+
+    const summarySelectors = [
+      '.summary',
+      '#summary',
+      '.end-screen',
+      '.result-panel',
+      '.result',
+      '.final-panel',
+      '.score-panel',
+      '.win-panel',
+      '.game-over',
+      '[data-summary]',
+      '[data-result]'
+    ];
+
+    return summarySelectors.some(function(sel){
+      return Array.from(document.querySelectorAll(sel)).some(isVisible);
+    });
+  }
+
+  function markExistingVrButtons(){
+    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
+
+    nodes.forEach(function(el){
+      const t = textOf(el).toUpperCase();
+
+      const isVrControl =
+        t === 'ENTER VR' ||
+        t === 'EXIT VR' ||
+        t === 'RECENTER' ||
+        t.includes('ENTER VR') ||
+        t.includes('EXIT VR') ||
+        t.includes('RECENTER');
+
+      if (!isVrControl) return;
+
+      const isOurYellow =
+        el.closest('#gj-cvr-controls') ||
+        el.closest('.gj-cvr-controls');
+
+      /*
+        Mark both our yellow cVR controls and the existing Universal VR UI controls.
+        On Summary, all VR overlay controls should disappear so they do not cover results.
+      */
+      el.setAttribute('data-gj-hide-vr-control', '1');
+
+      const parent = el.parentElement;
+      if (parent && parent.children.length <= 4){
+        const parentText = textOf(parent).toUpperCase();
+        if (
+          parentText.includes('ENTER VR') ||
+          parentText.includes('EXIT VR') ||
+          parentText.includes('RECENTER')
+        ){
+          parent.setAttribute('data-gj-hide-vr-control', '1');
+        }
+      }
+
+      if (isOurYellow){
+        el.setAttribute('data-gj-cvr-yellow-control', '1');
+      }
+    });
+  }
+
+  function hasUniversalVrUi(){
+    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
+    return nodes.some(function(el){
+      if (el.closest('#gj-cvr-controls') || el.closest('.gj-cvr-controls')) return false;
+
+      const t = textOf(el).toUpperCase();
+      return t.includes('EXIT VR') || t.includes('RECENTER') || t.includes('ENTER VR');
+    });
+  }
+
+  function disableDuplicateYellowControls(){
+    const yellow = document.getElementById('gj-cvr-controls') || document.querySelector('.gj-cvr-controls');
+
+    if (!yellow) return;
+
+    /*
+      If the original / universal VR UI already exists,
+      keep that system and disable our extra yellow controls.
+    */
+    if (hasUniversalVrUi()){
+      yellow.classList.add('gj-cvr-controls-disabled');
+      yellow.setAttribute('aria-hidden', 'true');
+    }
+  }
+
+  function applySummaryMode(){
+    markExistingVrButtons();
+    disableDuplicateYellowControls();
+
+    if (isSummaryNow()){
+      document.body.classList.add('gj-cvr-summary-mode');
+      document.body.setAttribute('data-gj-cvr-summary-cleanup', PATCH_VERSION);
+    }else{
+      document.body.classList.remove('gj-cvr-summary-mode');
+    }
+  }
+
+  function boot(){
+    applySummaryMode();
+
+    const mo = new MutationObserver(function(){
+      applySummaryMode();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true,
+      characterData:true,
+      attributes:true,
+      attributeFilter:['class','style','hidden']
+    });
+
+    window.addEventListener('resize', applySummaryMode, {passive:true});
+    window.addEventListener('orientationchange', function(){
+      setTimeout(applySummaryMode, 250);
+    }, {passive:true});
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
