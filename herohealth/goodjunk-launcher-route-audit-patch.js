@@ -1,0 +1,323 @@
+(function GoodJunkLauncherRouteAuditPatch(){
+  'use strict';
+
+  const AUDIT_VERSION = 'v1.0.0-goodjunk-launcher-route-audit';
+  const url = new URL(location.href);
+  const params = url.searchParams;
+  const path = location.pathname || '';
+
+  if (!/goodjunk-launcher\.html$/i.test(path)) return;
+
+  /*
+   * เปิดเฉพาะตอน debug:
+   * goodjunk-launcher.html?routeAudit=1
+   */
+  if (params.get('routeAudit') !== '1' && params.get('qa') !== 'route') return;
+
+  const EXPECTED = {
+    solo: '/herohealth/vr-goodjunk/goodjunk-solo-boss.html',
+    battle: '/herohealth/vr-goodjunk/goodjunk-battle-v2-lobby.html',
+    race: '/herohealth/vr-goodjunk/goodjunk-race-lobby.html',
+    duet: '/herohealth/vr-goodjunk/goodjunk-duet-lobby.html',
+    coop: '/herohealth/vr-goodjunk/goodjunk-coop-lobby.html'
+  };
+
+  const OLD_PATCHES = [
+    'goodjunk-launcher-battle-v250-route-patch.js',
+    'goodjunk-modes.html',
+    'goodjunk-battle-v2-lobby-fresh-room-patch',
+    'goodjunk-battle-v2-lobby-empty-guard-patch',
+    'goodjunk-battle-v2-lobby-start-watchdog-patch'
+  ];
+
+  function $(sel, root){
+    return (root || document).querySelector(sel);
+  }
+
+  function $all(sel, root){
+    return Array.from((root || document).querySelectorAll(sel));
+  }
+
+  function cleanText(s){
+    return String(s || '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function getHref(el){
+    if (!el) return '';
+
+    if (el.tagName && el.tagName.toLowerCase() === 'a'){
+      return el.getAttribute('href') || '';
+    }
+
+    const link = el.querySelector && el.querySelector('a[href]');
+    return link ? (link.getAttribute('href') || '') : '';
+  }
+
+  function inferMode(el){
+    const text = cleanText(el.textContent).toLowerCase();
+    const id = String(el.id || '').toLowerCase();
+    const cls = String(el.className || '').toLowerCase();
+    const href = String(getHref(el) || '').toLowerCase();
+    const data = JSON.stringify(el.dataset || {}).toLowerCase();
+    const all = [text, id, cls, href, data].join(' ');
+
+    if (/solo|boss|บอส|เดี่ยว|single/i.test(all)) return 'solo';
+    if (/race|แข่ง|วิ่ง|speed/i.test(all)) return 'race';
+    if (/duet|คู่|สองคน|pair/i.test(all)) return 'duet';
+    if (/coop|co-op|cooperative|ร่วมมือ|ทีม/i.test(all)) return 'coop';
+    if (/battle|ต่อสู้|ดวล|pvp/i.test(all)) return 'battle';
+
+    return '';
+  }
+
+  function normalizePath(href){
+    try{
+      const u = new URL(href, location.href);
+      return u.pathname;
+    }catch(_){
+      return String(href || '');
+    }
+  }
+
+  function hasOldPatch(){
+    return $all('script[src]').filter(function(s){
+      const src = s.getAttribute('src') || '';
+      return OLD_PATCHES.some(function(name){
+        return src.indexOf(name) !== -1;
+      });
+    }).map(function(s){
+      return s.getAttribute('src') || '';
+    });
+  }
+
+  function collectRoutes(){
+    const rows = [];
+    const seen = new Set();
+
+    $all('a[href],button,[role="button"],.mode-card,.game-card,.card').forEach(function(el){
+      const mode = inferMode(el);
+      if (!mode) return;
+
+      const key = mode + '|' + cleanText(el.textContent).slice(0, 60);
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const href =
+        el.dataset.gjTarget ||
+        getHref(el) ||
+        '';
+
+      const actualPath = normalizePath(href);
+      const expectedPath = EXPECTED[mode] || '';
+      const ok = expectedPath ? actualPath.endsWith(expectedPath) || actualPath === expectedPath : false;
+
+      rows.push({
+        mode,
+        label: cleanText(el.textContent).slice(0, 80) || '(no text)',
+        expected: expectedPath,
+        actual: actualPath || '(no href/data target)',
+        ok,
+        href
+      });
+    });
+
+    return rows;
+  }
+
+  function injectStyle(){
+    if ($('#gjLauncherRouteAuditStyle')) return;
+
+    const style = document.createElement('style');
+    style.id = 'gjLauncherRouteAuditStyle';
+    style.textContent = `
+      .gj-route-audit{
+        position:fixed;
+        left:10px;
+        right:10px;
+        bottom:calc(10px + env(safe-area-inset-bottom));
+        z-index:100000;
+        max-height:46dvh;
+        overflow:auto;
+        padding:12px;
+        border-radius:22px;
+        border:3px solid rgba(255,199,125,.88);
+        background:rgba(255,254,248,.96);
+        color:#753119;
+        box-shadow:0 18px 44px rgba(80,40,10,.22);
+        font:850 12px system-ui,sans-serif;
+      }
+
+      .gj-route-audit h3{
+        margin:0 0 8px;
+        font-size:16px;
+        font-weight:1000;
+      }
+
+      .gj-route-audit table{
+        width:100%;
+        border-collapse:collapse;
+      }
+
+      .gj-route-audit th,
+      .gj-route-audit td{
+        padding:6px 5px;
+        border-bottom:1px solid rgba(255,199,125,.45);
+        text-align:left;
+        vertical-align:top;
+        word-break:break-word;
+      }
+
+      .gj-route-audit th{
+        font-weight:1000;
+        color:#8a5a2b;
+      }
+
+      .gj-route-audit .ok{
+        color:#2d723b;
+        font-weight:1000;
+      }
+
+      .gj-route-audit .bad{
+        color:#8d2b1f;
+        font-weight:1000;
+      }
+
+      .gj-route-audit .warn{
+        margin:8px 0;
+        padding:8px 10px;
+        border-radius:14px;
+        background:#fff0ed;
+        color:#8d2b1f;
+        font-weight:1000;
+      }
+
+      .gj-route-audit .topline{
+        display:flex;
+        justify-content:space-between;
+        gap:8px;
+        align-items:center;
+      }
+
+      .gj-route-audit button{
+        min-height:30px;
+        padding:5px 9px;
+        border-radius:999px;
+        border:2px solid rgba(255,199,125,.75);
+        background:#fff8da;
+        color:#753119;
+        font:1000 12px system-ui,sans-serif;
+        cursor:pointer;
+      }
+    `;
+
+    document.head.appendChild(style);
+  }
+
+  function render(){
+    injectStyle();
+
+    const rows = collectRoutes();
+    const oldScripts = hasOldPatch();
+
+    let panel = $('#gjLauncherRouteAudit');
+
+    if (!panel){
+      panel = document.createElement('div');
+      panel.id = 'gjLauncherRouteAudit';
+      panel.className = 'gj-route-audit';
+      document.body.appendChild(panel);
+    }
+
+    const allOk = rows.length >= 5 && rows.every(r => r.ok) && oldScripts.length === 0;
+
+    panel.innerHTML = `
+      <div class="topline">
+        <h3>GoodJunk Launcher Route Audit ${allOk ? '✅' : '⚠️'}</h3>
+        <button id="gjRouteAuditClose" type="button">ปิด</button>
+      </div>
+
+      ${oldScripts.length ? `
+        <div class="warn">
+          ยังมี script/route เก่าค้าง:<br>
+          ${oldScripts.map(s => escapeHtml(s)).join('<br>')}
+        </div>
+      ` : ''}
+
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Expected</th>
+            <th>Actual</th>
+            <th>OK</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(function(r){
+            return `
+              <tr>
+                <td>${escapeHtml(r.mode)}</td>
+                <td>${escapeHtml(r.expected)}</td>
+                <td>${escapeHtml(r.actual)}</td>
+                <td class="${r.ok ? 'ok' : 'bad'}">${r.ok ? 'OK' : 'CHECK'}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+
+    const close = $('#gjRouteAuditClose', panel);
+    if (close){
+      close.addEventListener('click', function(){
+        panel.remove();
+      });
+    }
+
+    try{
+      console.group('[GoodJunk Launcher Route Audit] ' + (allOk ? 'OK' : 'CHECK'));
+      console.table(rows);
+      if (oldScripts.length) console.warn('Old scripts/routes found:', oldScripts);
+      console.groupEnd();
+    }catch(_){}
+
+    window.GJ_LAUNCHER_ROUTE_AUDIT = {
+      version: AUDIT_VERSION,
+      ok: allOk,
+      rows,
+      oldScripts
+    };
+  }
+
+  function escapeHtml(s){
+    return String(s ?? '')
+      .replace(/&/g,'&amp;')
+      .replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;')
+      .replace(/'/g,'&#039;');
+  }
+
+  function boot(){
+    render();
+
+    const mo = new MutationObserver(function(){
+      render();
+    });
+
+    mo.observe(document.body, {
+      childList:true,
+      subtree:true
+    });
+
+    console.info('[GoodJunk Launcher Route Audit]', AUDIT_VERSION, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+})();
