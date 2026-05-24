@@ -1,18 +1,13 @@
 (function GoodJunkLauncherRouteAuditPatch(){
   'use strict';
 
-  const AUDIT_VERSION = 'v1.1.0-goodjunk-launcher-route-audit-safe-dedupe';
+  const AUDIT_VERSION = 'v1.2.0-goodjunk-launcher-route-audit-route-final-api';
 
   const url = new URL(location.href);
   const params = url.searchParams;
   const path = location.pathname || '';
 
   if (!/goodjunk-launcher\.html$/i.test(path)) return;
-
-  /*
-   * เปิดเฉพาะตอน debug:
-   * goodjunk-launcher.html?routeAudit=1
-   */
   if (params.get('routeAudit') !== '1' && params.get('qa') !== 'route') return;
 
   const EXPECTED = {
@@ -41,10 +36,6 @@
     return Array.from((root || document).querySelectorAll(sel));
   }
 
-  function cleanText(s){
-    return String(s || '').replace(/\s+/g, ' ').trim();
-  }
-
   function escapeHtml(s){
     return String(s ?? '')
       .replace(/&/g,'&amp;')
@@ -54,123 +45,17 @@
       .replace(/'/g,'&#039;');
   }
 
-  function directHref(el){
-    if (!el) return '';
-
-    if (el.tagName && el.tagName.toLowerCase() === 'a'){
-      return el.getAttribute('href') || '';
-    }
-
-    return '';
-  }
-
   function normalizePath(href){
     try{
-      const u = new URL(href, location.href);
-      return u.pathname;
+      return new URL(href, location.href).pathname;
     }catch(_){
       return String(href || '');
     }
   }
 
-  function isHubOrZone(el){
-    if (!el) return false;
-
-    const text = cleanText(el.textContent).toLowerCase();
-    const id = String(el.id || '').toLowerCase();
-    const cls = String(el.className || '').toLowerCase();
-    const href = String(directHref(el) || '').toLowerCase();
-    const data = JSON.stringify(el.dataset || {}).toLowerCase();
-
-    const all = [text, id, cls, href, data].join(' ');
-
-    return /hub|หน้าหลัก|home|nutrition zone|nutrition-zone|โซนโภชนาการ|กลับโซน/i.test(all);
-  }
-
-  function inferMode(el){
-    if (!el) return '';
-
-    /*
-     * สำคัญ: Audit ห้ามเอา Hub / Zone มาเป็น mode
-     */
-    if (isHubOrZone(el)) return '';
-
-    const text = cleanText(el.textContent).toLowerCase();
-    const id = String(el.id || '').toLowerCase();
-    const cls = String(el.className || '').toLowerCase();
-    const href = String(directHref(el) || '').toLowerCase();
-    const data = JSON.stringify(el.dataset || {}).toLowerCase();
-
-    const all = [text, id, cls, href, data].join(' ');
-
-    const explicit =
-      el.dataset.mode ||
-      el.dataset.gjMode ||
-      el.dataset.routeMode ||
-      el.dataset.gameMode ||
-      '';
-
-    const raw = String(explicit || '').toLowerCase().trim();
-
-    if (['solo', 'solo-boss', 'boss'].includes(raw)) return 'solo';
-    if (raw === 'battle') return 'battle';
-    if (raw === 'race') return 'race';
-    if (raw === 'duet') return 'duet';
-    if (raw === 'coop' || raw === 'co-op') return 'coop';
-
-    if (/solo|solo-boss|boss|บอส|เดี่ยว|single/i.test(all)) return 'solo';
-    if (/race|แข่ง|วิ่ง|speed/i.test(all)) return 'race';
-    if (/duet|คู่|สองคน|pair/i.test(all)) return 'duet';
-    if (/coop|co-op|cooperative|ร่วมมือ|ทีม/i.test(all)) return 'coop';
-    if (/battle|ต่อสู้|ดวล|pvp/i.test(all)) return 'battle';
-
-    return '';
-  }
-
-  function getBestHref(el){
-    if (!el) return '';
-
-    /*
-     * route-final-patch จะใส่ data-gj-target ไว้ นี่คือแหล่งจริงที่สุด
-     */
-    if (el.dataset && el.dataset.gjTarget){
-      return el.dataset.gjTarget;
-    }
-
-    const href = directHref(el);
-    if (href) return href;
-
-    /*
-     * ใช้ child ที่มี data-gj-target เท่านั้น
-     * ห้ามใช้ child href ทั่วไป เพราะมันอาจเป็น Hub / Nutrition Zone
-     */
-    const targetChild = el.querySelector && el.querySelector('[data-gj-target]');
-    if (targetChild && targetChild.dataset && targetChild.dataset.gjTarget){
-      return targetChild.dataset.gjTarget;
-    }
-
-    return '';
-  }
-
-  function isGoodModeCandidate(el){
-    if (!el) return false;
-    if (isHubOrZone(el)) return false;
-
-    const href = getBestHref(el);
-    const mode = inferMode(el);
-
-    if (!mode) return false;
-
-    /*
-     * ถ้ามี href แล้วเป็น nutrition-zone/hub ให้ตัดออกทันที
-     */
-    const path = normalizePath(href).toLowerCase();
-
-    if (/nutrition-zone\.html|hub\.html/i.test(path)){
-      return false;
-    }
-
-    return true;
+  function expectedOk(mode, actualPath){
+    const expected = EXPECTED[mode] || '';
+    return !!expected && (actualPath === expected || actualPath.endsWith(expected));
   }
 
   function hasOldPatch(){
@@ -184,73 +69,36 @@
     });
   }
 
+  function routeFromFinalApi(mode){
+    const api = window.GJ_LAUNCHER_ROUTE_FINAL;
+
+    if (!api || typeof api.buildModeUrl !== 'function'){
+      return '';
+    }
+
+    try{
+      return api.buildModeUrl(mode);
+    }catch(_){
+      return '';
+    }
+  }
+
   function collectRoutes(){
-    const found = {};
-
-    /*
-     * อ่านจาก element ที่ route-final patch bind แล้วก่อน
-     */
-    $all('[data-gj-target][data-gj-mode]').forEach(function(el){
-      if (!isGoodModeCandidate(el)) return;
-
-      const mode = String(el.dataset.gjMode || inferMode(el) || '').toLowerCase().trim();
-      if (!MODE_ORDER.includes(mode)) return;
-
-      const href = getBestHref(el);
-      const actualPath = normalizePath(href);
-      const expectedPath = EXPECTED[mode] || '';
-      const ok = expectedPath ? actualPath.endsWith(expectedPath) || actualPath === expectedPath : false;
-
-      /*
-       * เก็บอันแรกที่ OK ก่อน ถ้าเจอ OK แล้วไม่ต้องแทนด้วย candidate แย่กว่า
-       */
-      if (!found[mode] || (!found[mode].ok && ok)){
-        found[mode] = {
-          mode,
-          label: cleanText(el.textContent).slice(0, 80) || '(no text)',
-          expected: expectedPath,
-          actual: actualPath || '(no href/data target)',
-          ok,
-          href
-        };
-      }
-    });
-
-    /*
-     * fallback สำหรับปุ่มที่ยังไม่มี data-gj-target
-     */
-    $all('a[href],button,[role="button"],.mode-card,.game-card,.card').forEach(function(el){
-      if (!isGoodModeCandidate(el)) return;
-
-      const mode = inferMode(el);
-      if (!MODE_ORDER.includes(mode)) return;
-      if (found[mode] && found[mode].ok) return;
-
-      const href = getBestHref(el);
-      const actualPath = normalizePath(href);
-      const expectedPath = EXPECTED[mode] || '';
-      const ok = expectedPath ? actualPath.endsWith(expectedPath) || actualPath === expectedPath : false;
-
-      if (!found[mode] || (!found[mode].ok && ok)){
-        found[mode] = {
-          mode,
-          label: cleanText(el.textContent).slice(0, 80) || '(no text)',
-          expected: expectedPath,
-          actual: actualPath || '(no href/data target)',
-          ok,
-          href
-        };
-      }
-    });
-
     return MODE_ORDER.map(function(mode){
-      return found[mode] || {
+      /*
+       * ใช้ API ของ route-final เป็นแหล่งจริง
+       * เพราะตัว route-final เป็นคน redirect ปุ่มจริง
+       */
+      const href = routeFromFinalApi(mode);
+      const actual = normalizePath(href);
+      const expected = EXPECTED[mode];
+
+      return {
         mode,
-        label: '(not found)',
-        expected: EXPECTED[mode],
-        actual: '(not found)',
-        ok: false,
-        href: ''
+        expected,
+        actual: actual || '(route final API not ready)',
+        ok: expectedOk(mode, actual),
+        href: href || ''
       };
     });
   }
@@ -322,6 +170,15 @@
         font-weight:1000;
       }
 
+      .gj-route-audit .note{
+        margin:8px 0;
+        padding:8px 10px;
+        border-radius:14px;
+        background:#eef9ff;
+        color:#1e688d;
+        font-weight:950;
+      }
+
       .gj-route-audit .topline{
         display:flex;
         justify-content:space-between;
@@ -349,7 +206,8 @@
 
     const rows = collectRoutes();
     const oldScripts = hasOldPatch();
-    const allOk = rows.length === 5 && rows.every(r => r.ok) && oldScripts.length === 0;
+    const routeFinalReady = !!(window.GJ_LAUNCHER_ROUTE_FINAL && typeof window.GJ_LAUNCHER_ROUTE_FINAL.buildModeUrl === 'function');
+    const allOk = routeFinalReady && rows.every(r => r.ok) && oldScripts.length === 0;
 
     let panel = $('#gjLauncherRouteAudit');
 
@@ -365,6 +223,16 @@
         <h3>GoodJunk Launcher Route Audit ${allOk ? '✅' : '⚠️'}</h3>
         <button id="gjRouteAuditClose" type="button">ปิด</button>
       </div>
+
+      ${!routeFinalReady ? `
+        <div class="warn">
+          Route Final API ยังไม่พร้อม หรือ goodjunk-launcher-route-final-patch.js ยังไม่โหลด
+        </div>
+      ` : `
+        <div class="note">
+          ตรวจจาก Route Final API โดยตรง ไม่จับ Hub/Nutrition Zone ผิดเป็นโหมดเกมแล้ว
+        </div>
+      `}
 
       ${oldScripts.length ? `
         <div class="warn">
@@ -406,6 +274,8 @@
 
     try{
       console.group('[GoodJunk Launcher Route Audit] ' + (allOk ? 'OK' : 'CHECK'));
+      console.log('auditVersion:', AUDIT_VERSION);
+      console.log('routeFinalReady:', routeFinalReady);
       console.table(rows);
       if (oldScripts.length) console.warn('Old scripts/routes found:', oldScripts);
       console.groupEnd();
@@ -414,6 +284,7 @@
     window.GJ_LAUNCHER_ROUTE_AUDIT = {
       version: AUDIT_VERSION,
       ok: allOk,
+      routeFinalReady,
       rows,
       oldScripts
     };
@@ -422,14 +293,12 @@
   function boot(){
     render();
 
-    const mo = new MutationObserver(function(){
-      render();
-    });
-
-    mo.observe(document.body, {
-      childList:true,
-      subtree:true
-    });
+    /*
+     * route-final อาจโหลด/ผูกปุ่มหลัง audit นิดหนึ่ง
+     */
+    setTimeout(render, 300);
+    setTimeout(render, 900);
+    setTimeout(render, 1600);
 
     console.info('[GoodJunk Launcher Route Audit]', AUDIT_VERSION, 'loaded');
   }
