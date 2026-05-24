@@ -745,5 +745,214 @@
       }
     })();
   </script>
+<!-- =========================================================
+  GOODJUNK LAUNCHER PATCH
+  Add Solo Boss Cardboard VR / cVR Entry
+  PATCH: v20260524-GOODJUNK-LAUNCHER-CVR-SOLO-BOSS-ENTRY
+========================================================= -->
+<style>
+  .gj-cvr-entry-wrap{
+    width:min(980px, calc(100% - 28px));
+    margin:18px auto;
+    padding:14px;
+    border-radius:24px;
+    background:linear-gradient(135deg, rgba(15,23,42,.94), rgba(22,101,52,.92));
+    color:#fff;
+    box-shadow:0 18px 45px rgba(15,23,42,.22);
+    border:1px solid rgba(255,255,255,.18);
+  }
+
+  .gj-cvr-entry-card{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:14px;
+    align-items:center;
+  }
+
+  .gj-cvr-entry-title{
+    font-weight:900;
+    font-size:clamp(18px, 4.8vw, 28px);
+    margin:0 0 6px;
+    letter-spacing:.2px;
+  }
+
+  .gj-cvr-entry-sub{
+    margin:0;
+    opacity:.92;
+    font-size:clamp(13px, 3.6vw, 16px);
+    line-height:1.55;
+  }
+
+  .gj-cvr-entry-badges{
+    display:flex;
+    flex-wrap:wrap;
+    gap:7px;
+    margin-top:10px;
+  }
+
+  .gj-cvr-entry-badges span{
+    font-size:12px;
+    font-weight:800;
+    padding:6px 9px;
+    border-radius:999px;
+    background:rgba(255,255,255,.14);
+    border:1px solid rgba(255,255,255,.18);
+    white-space:nowrap;
+  }
+
+  .gj-cvr-entry-btn{
+    appearance:none;
+    border:0;
+    border-radius:20px;
+    padding:14px 18px;
+    min-width:156px;
+    font-weight:1000;
+    font-size:16px;
+    color:#064e3b;
+    background:linear-gradient(135deg, #bbf7d0, #fef08a);
+    box-shadow:0 12px 28px rgba(0,0,0,.24);
+    cursor:pointer;
+    touch-action:manipulation;
+  }
+
+  .gj-cvr-entry-btn:active{
+    transform:scale(.98);
+  }
+
+  @media (max-width:680px){
+    .gj-cvr-entry-card{
+      grid-template-columns:1fr;
+    }
+
+    .gj-cvr-entry-btn{
+      width:100%;
+      min-height:54px;
+      font-size:17px;
+    }
+  }
+</style>
+
+<script>
+(function(){
+  'use strict';
+
+  const PATCH_ID = 'gj-cvr-solo-boss-entry-v20260524';
+
+  if (document.getElementById(PATCH_ID)) return;
+
+  function getParam(name, fallback){
+    try{
+      const q = new URLSearchParams(location.search);
+      const v = q.get(name);
+      return v == null || v === '' ? fallback : v;
+    }catch(e){
+      return fallback;
+    }
+  }
+
+  function buildCvrSoloBossUrl(){
+    const target = new URL('./vr-goodjunk/goodjunk-solo-boss-vr-flow.html', location.href);
+    const launcher = new URL('./goodjunk-launcher.html', location.href);
+
+    const passKeys = [
+      'pid',
+      'name',
+      'studentId',
+      'studentName',
+      'classSection',
+      'studyId',
+      'conditionGroup',
+      'api',
+      'log'
+    ];
+
+    passKeys.forEach(function(k){
+      const v = getParam(k, '');
+      if (v !== '') target.searchParams.set(k, v);
+    });
+
+    target.searchParams.set('pid', getParam('pid', 'anon'));
+    target.searchParams.set('name', getParam('name', 'Hero'));
+    target.searchParams.set('diff', getParam('diff', 'normal'));
+    target.searchParams.set('time', getParam('time', '120'));
+    target.searchParams.set('seed', getParam('seed', String(Date.now())));
+
+    target.searchParams.set('run', 'play');
+    target.searchParams.set('view', 'cvr');
+    target.searchParams.set('zone', 'nutrition');
+    target.searchParams.set('cat', 'nutrition');
+    target.searchParams.set('game', 'goodjunk');
+    target.searchParams.set('gameId', 'goodjunk');
+    target.searchParams.set('mode', 'solo');
+    target.searchParams.set('variant', 'solo-boss-vr');
+    target.searchParams.set('entry', 'cardboard');
+    target.searchParams.set('theme', 'goodjunk');
+
+    target.searchParams.set('hub', launcher.href);
+
+    return target.href;
+  }
+
+  function makeEntry(){
+    const wrap = document.createElement('section');
+    wrap.id = PATCH_ID;
+    wrap.className = 'gj-cvr-entry-wrap';
+    wrap.setAttribute('aria-label', 'GoodJunk Solo Boss Cardboard VR');
+
+    wrap.innerHTML = `
+      <div class="gj-cvr-entry-card">
+        <div>
+          <h2 class="gj-cvr-entry-title">🥽 Solo Boss Cardboard VR</h2>
+          <p class="gj-cvr-entry-sub">
+            เล่น GoodJunk Solo Boss แบบ Cardboard/cVR ใช้ crosshair กลางจอ จ้อง/แตะเพื่อยิง เก็บอาหารดี หลบอาหารขยะ และสู้บอสในฉาก VR
+          </p>
+          <div class="gj-cvr-entry-badges">
+            <span>Cardboard VR</span>
+            <span>Crosshair Shoot</span>
+            <span>Solo Boss</span>
+            <span>Mobile Ready</span>
+          </div>
+        </div>
+        <button class="gj-cvr-entry-btn" type="button">
+          เข้าเล่น VR
+        </button>
+      </div>
+    `;
+
+    const btn = wrap.querySelector('.gj-cvr-entry-btn');
+    btn.addEventListener('click', function(){
+      location.href = buildCvrSoloBossUrl();
+    });
+
+    return wrap;
+  }
+
+  function mount(){
+    if (document.getElementById(PATCH_ID)) return;
+
+    const entry = makeEntry();
+
+    const preferred =
+      document.querySelector('[data-goodjunk-modes]') ||
+      document.querySelector('.mode-grid') ||
+      document.querySelector('.modes-grid') ||
+      document.querySelector('.game-grid') ||
+      document.querySelector('main') ||
+      document.body;
+
+    if (preferred === document.body || preferred.tagName === 'MAIN'){
+      preferred.appendChild(entry);
+    }else{
+      preferred.parentNode.insertBefore(entry, preferred.nextSibling);
+    }
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', mount);
+  }else{
+    mount();
+  }
+})();
+</script>
 </body>
 </html>
