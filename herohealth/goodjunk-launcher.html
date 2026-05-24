@@ -3,32 +3,25 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>HeroHealth • GoodJunk Launcher</title>
-  <meta name="theme-color" content="#fff7d8" />
-  <link rel="icon" href="./favicon.ico" />
+  <meta name="theme-color" content="#fff3d7" />
+  <meta name="color-scheme" content="light" />
+
+  <title>GoodJunk Launcher</title>
 
   <style>
     :root{
-      --bg1:#fff7d8;
+      --bg1:#fff8e8;
       --bg2:#eaf8ff;
-      --panel:#fffef9;
-      --panel2:#fff8e8;
-      --stroke:#ffbd78;
-      --stroke2:#ffdca8;
-      --text:#15304a;
-      --brown:#8b2f1d;
-      --muted:#5d7185;
-      --good:#22c777;
-      --blue:#2d8cff;
-      --red:#ff4f47;
-      --orange:#ff8b3d;
-      --yellow:#ffd75a;
-      --purple:#8c52ff;
-      --shadow:0 20px 50px rgba(60,80,120,.14);
-      --sat:env(safe-area-inset-top,0px);
-      --sar:env(safe-area-inset-right,0px);
-      --sab:env(safe-area-inset-bottom,0px);
-      --sal:env(safe-area-inset-left,0px);
+      --card:#fffef8;
+      --line:#ffc77d;
+      --text:#14304a;
+      --brown:#753119;
+      --muted:#66798b;
+      --green:#21c965;
+      --blue:#2f7df6;
+      --red:#ff6b5b;
+      --yellow:#ffe17a;
+      --shadow:0 18px 46px rgba(70,40,10,.14);
     }
 
     *{
@@ -36,446 +29,327 @@
       -webkit-tap-highlight-color:transparent;
     }
 
-    html,body{
-      margin:0;
+    html,
+    body{
+      width:100%;
       min-height:100%;
-      font-family:system-ui,-apple-system,"Segoe UI","Noto Sans Thai",sans-serif;
+      margin:0;
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
       background:
-        radial-gradient(circle at 12% 8%,rgba(255,255,255,.95),transparent 23%),
-        radial-gradient(circle at 84% 4%,rgba(255,215,90,.32),transparent 24%),
-        radial-gradient(circle at 78% 88%,rgba(45,140,255,.20),transparent 30%),
+        radial-gradient(circle at 12% 8%, rgba(255,225,122,.58), transparent 30%),
+        radial-gradient(circle at 88% 7%, rgba(113,204,255,.38), transparent 32%),
         linear-gradient(180deg,var(--bg1),var(--bg2));
-    }
-
-    body{
       overflow-x:hidden;
     }
 
-    a{
-      color:inherit;
+    body{
+      min-height:100dvh;
+      padding:14px;
+      padding-bottom:calc(18px + env(safe-area-inset-bottom));
+    }
+
+    button,
+    input,
+    select{
+      font-family:inherit;
+    }
+
+    button{
+      cursor:pointer;
+      touch-action:manipulation;
     }
 
     .app{
-      width:min(96vw,1180px);
+      width:min(100%,980px);
       margin:0 auto;
-      min-height:100dvh;
-      padding:
-        calc(18px + var(--sat))
-        calc(14px + var(--sar))
-        calc(28px + var(--sab))
-        calc(14px + var(--sal));
-      display:grid;
-      gap:18px;
+    }
+
+    .hero,
+    .panel,
+    .mode-card{
+      border:4px solid rgba(255,199,125,.88);
+      background:rgba(255,254,248,.94);
+      box-shadow:var(--shadow);
     }
 
     .hero{
-      border:4px solid rgba(255,255,255,.8);
-      background:
-        radial-gradient(circle at 18% 18%,rgba(255,255,255,.92),transparent 26%),
-        linear-gradient(135deg,#fffef9,#eaf8ff 60%,#fff5c7);
-      border-radius:38px;
-      box-shadow:var(--shadow);
-      padding:22px;
       display:grid;
-      grid-template-columns:auto 1fr auto;
-      gap:18px;
+      grid-template-columns:auto minmax(0,1fr);
+      gap:16px;
       align-items:center;
-      position:relative;
-      overflow:hidden;
+      padding:20px;
+      border-radius:36px;
+      text-align:left;
     }
 
-    .hero::before{
-      content:"";
-      position:absolute;
-      width:260px;
-      height:260px;
-      border-radius:999px;
-      background:rgba(255,215,90,.28);
-      left:-110px;
-      top:-120px;
-      filter:blur(4px);
-    }
-
-    .hero::after{
-      content:"";
-      position:absolute;
-      width:260px;
-      height:260px;
-      border-radius:999px;
-      background:rgba(45,140,255,.20);
-      right:-120px;
-      bottom:-130px;
-      filter:blur(4px);
-    }
-
-    .hero > *{
-      position:relative;
-      z-index:1;
-    }
-
-    .logo{
-      width:94px;
-      height:94px;
-      border-radius:32px;
-      border:4px solid #ffffff;
-      background:linear-gradient(180deg,#dff9ff,#fff6c6);
+    .hero-icon{
+      width:92px;
+      height:92px;
+      border-radius:30px;
       display:grid;
       place-items:center;
-      font-size:54px;
-      box-shadow:0 14px 32px rgba(80,120,160,.14);
+      border:5px solid rgba(255,255,255,.85);
+      background:linear-gradient(180deg,#fff8d7,#dff7ff);
+      font-size:58px;
+      box-shadow:0 12px 28px rgba(70,40,10,.12);
     }
 
     h1{
       margin:0;
-      font-size:clamp(38px,6vw,72px);
+      font-size:clamp(42px,9vw,74px);
       line-height:.95;
-      letter-spacing:-.045em;
+      font-weight:1000;
+      letter-spacing:-2px;
+    }
+
+    .subtitle{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:clamp(16px,4vw,24px);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    .quick-nav{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .nav-btn{
+      min-height:58px;
+      border-radius:22px;
+      border:0;
+      color:white;
+      font-size:20px;
+      font-weight:1000;
+      background:linear-gradient(135deg,#20bf75,#2f7df6);
+      box-shadow:0 12px 26px rgba(50,100,180,.20);
+    }
+
+    .nav-btn.secondary{
+      background:linear-gradient(135deg,#ffb84d,#ff7a59);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1.25fr;
+      gap:14px;
+      margin-top:14px;
+      align-items:start;
+    }
+
+    .panel{
+      padding:18px;
+      border-radius:32px;
+    }
+
+    .panel h2{
+      margin:0 0 14px;
+      font-size:clamp(26px,5vw,36px);
+      line-height:1.08;
       font-weight:1000;
       color:var(--text);
     }
 
-    .subtitle{
-      margin:8px 0 0;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.55;
-      font-size:15px;
-    }
-
-    .heroActions{
-      display:grid;
-      gap:10px;
-      min-width:220px;
-    }
-
-    .topBtn{
-      min-height:50px;
-      border:3px solid #bfe1ff;
-      background:#fff;
-      border-radius:18px;
-      padding:10px 14px;
-      font-weight:1000;
-      text-decoration:none;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      box-shadow:0 10px 20px rgba(60,80,120,.10);
-    }
-
-    .topBtn.primary{
-      background:linear-gradient(135deg,#24c777,#2778ff);
-      color:#fff;
-      border-color:rgba(255,255,255,.8);
-    }
-
-    .config{
-      border:4px solid rgba(255,255,255,.78);
-      background:rgba(255,255,255,.70);
-      border-radius:32px;
-      padding:16px;
-      box-shadow:var(--shadow);
+    .form{
       display:grid;
       gap:12px;
     }
 
-    .configTitle{
+    label{
+      display:grid;
+      gap:7px;
+      color:var(--muted);
+      font-size:15px;
+      font-weight:1000;
+    }
+
+    input,
+    select{
+      width:100%;
+      min-height:56px;
+      padding:12px 16px;
+      border-radius:22px;
+      border:4px solid rgba(188,225,255,.95);
+      background:rgba(255,255,255,.92);
+      color:var(--text);
       font-size:20px;
       font-weight:1000;
-      color:var(--text);
-    }
-
-    .fields{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:10px;
-    }
-
-    .field{
-      display:grid;
-      gap:6px;
-    }
-
-    .field label{
-      padding-left:4px;
-      font-size:12px;
-      font-weight:1000;
-      color:var(--muted);
-    }
-
-    .field input,
-    .field select{
-      width:100%;
-      min-height:46px;
-      border:3px solid #bfe1ff;
-      border-radius:18px;
-      background:#fff;
-      color:var(--text);
       text-align:center;
-      padding:8px 10px;
-      font-weight:1000;
       outline:none;
-      box-shadow:0 8px 16px rgba(60,80,120,.06);
     }
 
-    .field input:focus,
-    .field select:focus{
-      border-color:#58b7f5;
-      outline:4px solid rgba(88,183,245,.18);
+    input:focus,
+    select:focus{
+      border-color:rgba(47,125,246,.75);
+      box-shadow:0 0 0 4px rgba(47,125,246,.14);
     }
 
-    .sectionTitle{
-      margin-top:10px;
+    .mode-grid{
       display:grid;
-      gap:4px;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
     }
 
-    .sectionTitle h2{
-      margin:0;
-      font-size:clamp(28px,4vw,42px);
-      line-height:1.05;
-      letter-spacing:-.03em;
-      color:var(--text);
-    }
-
-    .sectionTitle p{
-      margin:0;
-      color:var(--muted);
-      font-weight:900;
-      line-height:1.5;
-    }
-
-    .soloGrid,
-    .multiGrid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-    }
-
-    .card{
-      border:4px solid rgba(255,255,255,.86);
-      background:rgba(255,255,255,.78);
-      border-radius:34px;
-      padding:18px;
-      box-shadow:var(--shadow);
-      display:grid;
-      grid-template-columns:auto 1fr;
-      gap:16px;
-      align-items:start;
+    .mode-card{
       position:relative;
+      min-height:178px;
+      padding:16px;
+      border-radius:32px;
+      text-align:left;
+      transition:transform .12s ease, box-shadow .12s ease;
       overflow:hidden;
     }
 
-    .card::before{
-      content:"";
+    .mode-card:active{
+      transform:translateY(2px) scale(.99);
+      box-shadow:0 10px 24px rgba(70,40,10,.12);
+    }
+
+    .mode-card::after{
+      content:'';
       position:absolute;
-      inset:0;
-      background:
-        radial-gradient(circle at 12% 12%,rgba(255,255,255,.84),transparent 28%),
-        radial-gradient(circle at 84% 84%,rgba(255,215,90,.12),transparent 28%);
+      inset:auto -30px -40px auto;
+      width:130px;
+      height:130px;
+      border-radius:999px;
+      background:rgba(255,225,122,.28);
       pointer-events:none;
     }
 
-    .card > *{
-      position:relative;
-      z-index:1;
-    }
-
-    .cardIcon{
-      width:76px;
-      height:76px;
-      border-radius:26px;
-      border:4px solid #d6ecff;
-      background:linear-gradient(180deg,#eaffff,#cce5ff);
+    .mode-icon{
+      width:58px;
+      height:58px;
       display:grid;
       place-items:center;
-      font-size:42px;
-      box-shadow:0 12px 24px rgba(60,80,120,.10);
+      border-radius:22px;
+      border:4px solid rgba(255,255,255,.78);
+      background:linear-gradient(180deg,#fff8d7,#eaf8ff);
+      font-size:34px;
+      margin-bottom:10px;
     }
 
-    .cardBody{
-      display:grid;
-      gap:8px;
+    .mode-title{
+      font-size:24px;
+      font-weight:1000;
+      color:var(--brown);
+      line-height:1.05;
+      margin-bottom:8px;
     }
 
-    .card h3{
-      margin:0;
-      font-size:clamp(28px,3.2vw,42px);
-      line-height:1;
-      letter-spacing:-.035em;
-      color:var(--text);
-    }
-
-    .card p{
-      margin:0;
+    .mode-desc{
       color:var(--muted);
       font-size:14px;
-      line-height:1.5;
-      font-weight:900;
+      font-weight:850;
+      line-height:1.4;
+      margin-bottom:12px;
     }
 
-    .tags{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-    }
-
-    .tag{
-      min-height:26px;
-      border-radius:999px;
-      background:#edf6ff;
-      color:#425c76;
-      padding:4px 10px;
-      font-size:12px;
-      font-weight:1000;
-    }
-
-    .cardActions{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:10px;
-      margin-top:4px;
-    }
-
-    .btn{
-      min-height:54px;
-      border:3px solid #bfe1ff;
+    .mode-go{
+      width:100%;
+      min-height:48px;
       border-radius:18px;
-      background:#fff;
-      color:var(--text);
-      padding:10px 14px;
-      font-size:15px;
+      border:3px solid rgba(255,199,125,.85);
+      background:linear-gradient(180deg,#fff8da,#ffe17a);
+      color:var(--brown);
+      font-size:16px;
       font-weight:1000;
-      cursor:pointer;
-      text-decoration:none;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      text-align:center;
-      box-shadow:0 10px 20px rgba(60,80,120,.08);
     }
 
-    .btn:hover{
-      filter:brightness(1.04);
-      transform:translateY(-1px);
+    .mode-go.blue{
+      border-color:rgba(113,204,255,.85);
+      background:linear-gradient(180deg,#eff9ff,#bfe8ff);
+      color:#1e688d;
     }
 
-    .btn.green{
-      color:#fff;
-      background:linear-gradient(135deg,#22c777,#2778ff);
-      border-color:rgba(255,255,255,.8);
+    .mode-go.green{
+      border-color:rgba(85,217,120,.85);
+      background:linear-gradient(180deg,#efffec,#b9f3c6);
+      color:#266c35;
     }
 
-    .btn.orange{
-      color:#fff;
-      background:linear-gradient(135deg,#ff8b3d,#ff4f47);
-      border-color:rgba(255,255,255,.8);
+    .mode-go.red{
+      border-color:rgba(255,123,105,.85);
+      background:linear-gradient(180deg,#fff0ed,#ffc6bd);
+      color:#8d2b1f;
     }
 
-    .btn.purple{
-      color:#fff;
-      background:linear-gradient(135deg,#8c52ff,#2778ff);
-      border-color:rgba(255,255,255,.8);
+    .mode-go.purple{
+      border-color:rgba(170,140,255,.85);
+      background:linear-gradient(180deg,#f6f1ff,#d9ccff);
+      color:#5538a5;
     }
 
-    .btn.yellow{
-      color:#5d3900;
-      background:linear-gradient(135deg,#fff1a8,#ffd75a);
-      border-color:#ffe899;
-    }
-
-    .note{
-      border:3px dashed #bfe1ff;
-      background:rgba(255,255,255,.62);
-      border-radius:28px;
-      padding:14px 16px;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.6;
+    .status{
+      margin-top:14px;
+      padding:12px 14px;
+      border-radius:22px;
+      border:3px solid rgba(188,225,255,.90);
+      background:rgba(238,249,255,.72);
+      color:#1e688d;
+      font-size:14px;
       font-weight:900;
+      line-height:1.45;
+      word-break:break-all;
     }
 
     .footer{
+      margin-top:14px;
+      padding:12px;
       text-align:center;
-      color:#6f8499;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .badge{
+      position:fixed;
+      right:10px;
+      bottom:calc(10px + env(safe-area-inset-bottom));
+      z-index:9999;
+      padding:7px 11px;
+      border-radius:999px;
+      border:2px solid rgba(255,199,125,.72);
+      background:rgba(255,254,248,.90);
+      color:var(--brown);
       font-size:12px;
-      font-weight:900;
-      line-height:1.6;
-      padding-bottom:8px;
+      font-weight:1000;
+      pointer-events:none;
+      box-shadow:0 10px 22px rgba(70,40,10,.12);
     }
 
-    @media(max-width:860px){
-      .hero{
-        grid-template-columns:auto 1fr;
-      }
-
-      .heroActions{
-        grid-column:1/-1;
-        grid-template-columns:1fr 1fr;
-      }
-
-      .fields{
-        grid-template-columns:repeat(2,minmax(0,1fr));
-      }
-
-      .soloGrid,
-      .multiGrid{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media(max-width:560px){
-      .app{
-        width:min(98vw,720px);
-        padding:
-          calc(10px + var(--sat))
-          calc(8px + var(--sar))
-          calc(18px + var(--sab))
-          calc(8px + var(--sal));
-        gap:12px;
+    @media(max-width:820px){
+      body{
+        padding:10px;
       }
 
       .hero{
-        border-radius:28px;
-        padding:16px;
         grid-template-columns:1fr;
         text-align:center;
+        padding:18px;
       }
 
-      .logo{
-        margin:0 auto;
-        width:78px;
-        height:78px;
-        border-radius:28px;
-        font-size:46px;
-      }
-
-      .heroActions{
-        grid-template-columns:1fr;
-        min-width:0;
-      }
-
-      .fields{
-        grid-template-columns:1fr;
-      }
-
-      .card{
-        grid-template-columns:1fr;
-        text-align:center;
-        border-radius:28px;
-        padding:16px;
-      }
-
-      .cardIcon{
+      .hero-icon{
         margin:0 auto;
       }
 
-      .tags{
-        justify-content:center;
+      .grid{
+        grid-template-columns:1fr;
       }
 
-      .cardActions{
+      .mode-grid{
         grid-template-columns:1fr;
+      }
+
+      .quick-nav{
+        grid-template-columns:1fr;
+      }
+
+      .mode-card{
+        min-height:160px;
       }
     }
   </style>
@@ -483,519 +357,393 @@
 
 <body>
   <main class="app">
-    <section class="hero">
-      <div class="logo">🍎</div>
-
+    <header class="hero">
+      <div class="hero-icon">🍎</div>
       <div>
-        <h1>GoodJunk Launcher</h1>
-        <p class="subtitle">
-          เลือกโหมดเกม GoodJunk: Solo Boss 2D, Solo Boss Cardboard VR และ Multiplayer
-          โดยส่งค่า PID / ชื่อ / ระดับ / เวลา / มุมมอง ต่อไปยังทุกโหมดอัตโนมัติ
-        </p>
-      </div>
-
-      <div class="heroActions">
-        <a id="btnZoneTop" class="topBtn" href="./nutrition-zone.html">🏠 Nutrition Zone</a>
-        <a id="btnHubTop" class="topBtn primary" href="./hub.html">🌈 Hub</a>
-      </div>
-    </section>
-
-    <section class="config">
-      <div class="configTitle">⚙️ ตั้งค่าก่อนเข้าเล่น</div>
-
-      <div class="fields">
-        <div class="field">
-          <label for="pid">PID</label>
-          <input id="pid" autocomplete="off" placeholder="anon" />
+        <h1>GoodJunk<br>Launcher</h1>
+        <div class="subtitle">
+          เลือกโหมดเกม GoodJunk: Solo Boss, Battle, Race, Duet และ Coop โดยส่งค่า PID / ชื่อ / ระดับ / เวลา / มุมมอง ต่อไปยังทุกโหมด
         </div>
 
-        <div class="field">
-          <label for="name">ชื่อผู้เล่น</label>
-          <input id="name" autocomplete="nickname" placeholder="Hero" />
-        </div>
-
-        <div class="field">
-          <label for="diff">ระดับ</label>
-          <select id="diff">
-            <option value="easy">easy</option>
-            <option value="normal" selected>normal</option>
-            <option value="hard">hard</option>
-            <option value="challenge">challenge</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="time">เวลา</label>
-          <select id="time">
-            <option value="60">60s</option>
-            <option value="90">90s</option>
-            <option value="120">120s</option>
-            <option value="150" selected>150s</option>
-          </select>
-        </div>
-
-        <div class="field">
-          <label for="view">มุมมอง</label>
-          <select id="view">
-            <option value="mobile">mobile</option>
-            <option value="pc">pc</option>
-            <option value="cardboard">cardboard</option>
-          </select>
+        <div class="quick-nav">
+          <button id="btnZoneTop" class="nav-btn" type="button">🥗 Nutrition Zone</button>
+          <button id="btnHubTop" class="nav-btn secondary" type="button">🌈 Hub</button>
         </div>
       </div>
-    </section>
+    </header>
 
-    <section class="sectionTitle">
-      <h2>Solo Mode</h2>
-      <p>แยกทางเข้า Solo ให้ชัด: 2D สำหรับ PC/Mobile และ Cardboard VR สำหรับโหมด VR Flow</p>
-    </section>
+    <section class="grid">
+      <aside class="panel">
+        <h2>⚙️ ตั้งค่าก่อนเข้าเล่น</h2>
 
-    <section class="soloGrid">
-      <article class="card">
-        <div class="cardIcon">👑</div>
+        <div class="form">
+          <label>
+            PID
+            <input id="pidInput" value="anon" autocomplete="off" />
+          </label>
 
-        <div class="cardBody">
-          <h3>Solo Boss 2D</h3>
-          <p>
-            เล่นคนเดียวแบบ 2D บน PC/Mobile มีภารกิจ เก็บ Good หลบ Junk และสู้ Phase Boss
-            เหมาะสำหรับการเล่นมาตรฐานใน Nutrition Zone
-          </p>
+          <label>
+            ชื่อผู้เล่น
+            <input id="nameInput" value="Hero" autocomplete="nickname" />
+          </label>
 
-          <div class="tags">
-            <span class="tag">Solo</span>
-            <span class="tag">2D</span>
-            <span class="tag">PC / Mobile</span>
-            <span class="tag">Phase Boss</span>
-          </div>
+          <label>
+            ระดับ
+            <select id="diffSelect">
+              <option value="easy">easy</option>
+              <option value="normal" selected>normal</option>
+              <option value="hard">hard</option>
+            </select>
+          </label>
 
-          <div class="cardActions">
-            <a id="btnSolo2D" class="btn green" href="./vr-goodjunk/goodjunk-solo-boss.html">▶ เล่น Solo Boss 2D</a>
-            <a id="btnSolo2DTest" class="btn" href="./vr-goodjunk/goodjunk-solo-boss.html">⚡ ทดสอบ 2D</a>
-          </div>
+          <label>
+            เวลา
+            <select id="timeSelect">
+              <option value="60">60s</option>
+              <option value="90" selected>90s</option>
+              <option value="120">120s</option>
+              <option value="150">150s</option>
+              <option value="180">180s</option>
+            </select>
+          </label>
+
+          <label>
+            มุมมอง
+            <select id="viewSelect">
+              <option value="mobile" selected>Mobile</option>
+              <option value="pc">PC</option>
+              <option value="cardboard">Cardboard / cVR</option>
+            </select>
+          </label>
         </div>
-      </article>
 
-      <article class="card">
-        <div class="cardIcon">🥽</div>
-
-        <div class="cardBody">
-          <h3>Solo Boss Cardboard VR</h3>
-          <p>
-            เข้า Solo Boss แบบ VR Flow สำหรับ Cardboard/cVR ใช้ทางเข้าเฉพาะ VR
-            เพื่อไม่ให้ชนกับโหมด 2D
-          </p>
-
-          <div class="tags">
-            <span class="tag">Solo</span>
-            <span class="tag">Cardboard VR</span>
-            <span class="tag">cVR</span>
-            <span class="tag">VR Flow</span>
-          </div>
-
-          <div class="cardActions">
-            <a id="btnSoloVR" class="btn purple" href="./vr-goodjunk/goodjunk-solo-boss-vr-flow.html">🥽 เข้า Cardboard VR</a>
-            <a id="btnSoloVRTest" class="btn" href="./vr-goodjunk/goodjunk-solo-boss-vr-flow.html">⚡ ทดสอบ VR</a>
-          </div>
+        <div id="statusBox" class="status">
+          พร้อมเลือกโหมดเกม
         </div>
-      </article>
-    </section>
+      </aside>
 
-    <section class="sectionTitle">
-      <h2>Multiplayer Modes</h2>
-      <p>โหมดหลายคนเน้นการเก็บอาหารดี vs junk ไม่ใช้ phase boss</p>
-    </section>
+      <section class="panel">
+        <h2>🎮 เลือกโหมดเกม</h2>
 
-    <section class="multiGrid">
-      <article class="card">
-        <div class="cardIcon">🏁</div>
+        <div class="mode-grid">
+          <article class="mode-card" data-mode="solo">
+            <div class="mode-icon">🏆</div>
+            <div class="mode-title">Solo Boss</div>
+            <div class="mode-desc">เล่นเดี่ยว เก็บอาหารดี หลบ junk และสู้กับบอส เหมาะกับการเล่นหลัก</div>
+            <button class="mode-go green" type="button" data-mode="solo">เริ่ม Solo Boss</button>
+          </article>
 
-        <div class="cardBody">
-          <h3>Race</h3>
-          <p>
-            แข่งเก็บอาหารดีให้เร็วและแม่นที่สุด เหมาะกับผู้เล่น 2–10 คน
-            มีอันดับและคะแนนรวม
-          </p>
+          <article class="mode-card" data-mode="battle">
+            <div class="mode-icon">⚔️</div>
+            <div class="mode-title">Battle</div>
+            <div class="mode-desc">สร้างห้อง / เข้าห้อง / ดวล 1v1 พร้อมสกิล Storm, Shield, Freeze และ Heal</div>
+            <button class="mode-go red" type="button" data-mode="battle">เข้า Battle Lobby</button>
+          </article>
 
-          <div class="tags">
-            <span class="tag">2–10 players</span>
-            <span class="tag">Speed</span>
-            <span class="tag">Leaderboard</span>
-          </div>
+          <article class="mode-card" data-mode="race">
+            <div class="mode-icon">🏁</div>
+            <div class="mode-title">Race</div>
+            <div class="mode-desc">แข่งทำคะแนนและความเร็วกับผู้เล่นอีกคนในโหมดแข่งขัน</div>
+            <button class="mode-go blue" type="button" data-mode="race">เข้า Race Lobby</button>
+          </article>
 
-          <div class="cardActions">
-            <a id="btnRace" class="btn orange" href="./vr-goodjunk/goodjunk-race-lobby.html">เข้า Race Lobby</a>
-            <a id="btnRaceTest" class="btn" href="./vr-goodjunk/goodjunk-race-lobby.html">ทดสอบ Race</a>
-          </div>
+          <article class="mode-card" data-mode="duet">
+            <div class="mode-icon">👥</div>
+            <div class="mode-title">Duet</div>
+            <div class="mode-desc">เล่นคู่ ช่วยกันเก็บอาหารดีและจัดการโจทย์ร่วมกัน</div>
+            <button class="mode-go purple" type="button" data-mode="duet">เข้า Duet Lobby</button>
+          </article>
+
+          <article class="mode-card" data-mode="coop">
+            <div class="mode-icon">🤝</div>
+            <div class="mode-title">Coop</div>
+            <div class="mode-desc">เล่นร่วมมือเป็นทีม เน้นช่วยกันทำภารกิจและสะสมคะแนนร่วมกัน</div>
+            <button class="mode-go" type="button" data-mode="coop">เข้า Coop Lobby</button>
+          </article>
         </div>
-      </article>
-
-      <article class="card">
-        <div class="cardIcon">⚔️</div>
-
-        <div class="cardBody">
-          <h3>Battle</h3>
-          <p>
-            โหมด 1v1 เก็บ Good เพื่อทำคะแนนและสะสมพลัง Battle
-            ใช้ Junk Storm / Shield / Freeze / Heal แข่งกับคู่ต่อสู้แบบตัวต่อตัว
-          </p>
-
-          <div class="tags">
-            <span class="tag">1v1 only</span>
-            <span class="tag">4 Battle Skills</span>
-            <span class="tag">Good vs Junk</span>
-            <span class="tag">v2.4.26</span>
-          </div>
-
-          <div class="cardActions">
-            <a id="btnBattle" class="btn orange" href="./vr-goodjunk/goodjunk-battle-v2-lobby.html">เข้า Battle Lobby</a>
-            <a id="btnBattleTest" class="btn" href="./vr-goodjunk/goodjunk-battle-v2-lobby.html">ทดสอบ Battle</a>
-          </div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="cardIcon">🤝</div>
-
-        <div class="cardBody">
-          <h3>Co-op</h3>
-          <p>
-            ช่วยกันเก็บอาหารดี ทำคะแนนทีม และรักษาความแม่นยำร่วมกัน
-            เหมาะกับกิจกรรมกลุ่ม
-          </p>
-
-          <div class="tags">
-            <span class="tag">Team</span>
-            <span class="tag">Cooperate</span>
-            <span class="tag">Shared Score</span>
-          </div>
-
-          <div class="cardActions">
-            <a id="btnCoop" class="btn green" href="./vr-goodjunk/goodjunk-coop-lobby.html">เข้า Co-op Lobby</a>
-            <a id="btnCoopTest" class="btn" href="./vr-goodjunk/goodjunk-coop-lobby.html">ทดสอบ Co-op</a>
-          </div>
-        </div>
-      </article>
-
-      <article class="card">
-        <div class="cardIcon">👥</div>
-
-        <div class="cardBody">
-          <h3>Duet</h3>
-          <p>
-            เล่นคู่แบบมีหน้าที่อัตโนมัติ เช่น คนหนึ่งเก็บ good อีกคนกัน junk
-            เหมาะกับการฝึกบทบาทร่วมกัน
-          </p>
-
-          <div class="tags">
-            <span class="tag">2 players</span>
-            <span class="tag">Auto Roles</span>
-            <span class="tag">Pair Mission</span>
-          </div>
-
-          <div class="cardActions">
-            <a id="btnDuet" class="btn green" href="./vr-goodjunk/goodjunk-duet-lobby.html">เข้า Duet Lobby</a>
-            <a id="btnDuetTest" class="btn" href="./vr-goodjunk/goodjunk-duet-lobby.html">ทดสอบ Duet</a>
-          </div>
-        </div>
-      </article>
-    </section>
-
-    <section class="note">
-      <b>Path มาตรฐาน GoodJunk:</b>
-      Solo Boss 2D ใช้ <code>vr-goodjunk/goodjunk-solo-boss.html</code>,
-      Solo Boss Cardboard VR ใช้ <code>vr-goodjunk/goodjunk-solo-boss-vr-flow.html</code>,
-      Race ใช้ <code>vr-goodjunk/goodjunk-race-lobby.html</code>,
-      Battle ใช้ <code>vr-goodjunk/goodjunk-battle-v2-lobby.html</code>,
-      Duet ใช้ <code>vr-goodjunk/goodjunk-duet-lobby.html</code>,
-      Co-op ใช้ <code>vr-goodjunk/goodjunk-coop-lobby.html</code>.
-      Battle Runtime ใช้ router กลาง <code>vr-goodjunk/goodjunk-battle-v2-run.html</code>
-      เพื่อเลือก mobile / pc / cardboard อัตโนมัติ
+      </section>
     </section>
 
     <div class="footer">
-      HeroHealth • GoodJunk Launcher v20260519-battle-v2426 • Solo 2D / Solo Cardboard VR / Race / Battle / Duet / Co-op
+      GoodJunk Launcher Clean v2.0 • no route patch • no audit overlay • no global nav intercept
     </div>
   </main>
 
+  <div class="badge">Launcher clean v2.0</div>
+
   <script>
-  (() => {
-    'use strict';
+    (function GoodJunkLauncherCleanV20(){
+      'use strict';
 
-    window.HHA_GOODJUNK_LAUNCHER =
-      'v20260519-goodjunk-launcher-battle-v2426-router-ready';
+      const VERSION = 'v2.0.0-goodjunk-launcher-clean-no-patch';
 
-    const params = new URLSearchParams(location.search);
-    const $ = id => document.getElementById(id);
+      const ROUTES = {
+        solo: './vr-goodjunk/goodjunk-solo-boss.html',
+        battle: './vr-goodjunk/goodjunk-battle-v2-lobby.html',
+        race: './vr-goodjunk/goodjunk-race-lobby.html',
+        duet: './vr-goodjunk/goodjunk-duet-lobby.html',
+        coop: './vr-goodjunk/goodjunk-coop-lobby.html',
+        zone: './nutrition-zone.html',
+        hub: './hub.html'
+      };
 
-    function qs(k,d=''){
-      return params.get(k) ?? d;
-    }
+      const ROOM_PARAMS = [
+        'room',
+        'roomCode',
+        'code',
+        'lastRoom',
+        'matchId',
+        'roundId',
+        'runId',
+        'activeMatchId',
+        'phase',
+        'run',
+        'targetRun'
+      ];
 
-    function detectView(){
-      const ua = navigator.userAgent || '';
-      return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ? 'mobile' : 'pc';
-    }
+      const url = new URL(location.href);
+      const params = url.searchParams;
 
-    function normalizeView(v){
-      const s = String(v || '').toLowerCase().trim();
+      const $ = (sel, root=document) => root.querySelector(sel);
+      const $all = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
-      if (['pc','desktop','computer'].includes(s)) return 'pc';
-      if (['mobile','phone','touch'].includes(s)) return 'mobile';
-      if (['cardboard','cvr','vr'].includes(s)) return 'cardboard';
+      const pidInput = $('#pidInput');
+      const nameInput = $('#nameInput');
+      const diffSelect = $('#diffSelect');
+      const timeSelect = $('#timeSelect');
+      const viewSelect = $('#viewSelect');
+      const statusBox = $('#statusBox');
 
-      return detectView();
-    }
-
-    function normalize2DView(v){
-      const s = normalizeView(v);
-      if (s === 'cardboard') return detectView() === 'pc' ? 'pc' : 'mobile';
-      return s;
-    }
-
-    function makePid(){
-      const key = 'HHA_GJ_PID';
-
-      try{
-        let pid = localStorage.getItem(key);
-
-        if (!pid){
-          pid = 'anon';
-          localStorage.setItem(key,pid);
-        }
-
-        return pid;
-      }catch(_){
-        return 'anon';
+      function now(){
+        return Date.now();
       }
-    }
 
-    function clean(v,d=''){
-      const s = String(v ?? '').trim();
-      return s || d;
-    }
+      function clean(v, fallback){
+        v = String(v || '').trim();
+        return v || fallback || '';
+      }
 
-    function getPid(){
-      return clean($('pid').value,'anon');
-    }
+      function normalizeView(v){
+        v = String(v || '').toLowerCase().trim();
 
-    function getName(){
-      return clean($('name').value,'Hero');
-    }
+        if (v === 'cvr' || v === 'vr' || v === 'cardboard-vr') return 'cardboard';
+        if (v === 'cardboard') return 'cardboard';
+        if (v === 'mobile' || v === 'phone' || v === 'touch') return 'mobile';
+        if (v === 'pc' || v === 'desktop') return 'pc';
 
-    function getDiff(){
-      return clean($('diff').value,'normal');
-    }
+        const mobile =
+          (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
+          /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
 
-    function getTime(){
-      return clean($('time').value,'150');
-    }
+        return mobile ? 'mobile' : 'pc';
+      }
 
-    function getView(){
-      return normalizeView($('view').value || detectView());
-    }
+      function initFields(){
+        pidInput.value =
+          params.get('pid') ||
+          localStorage.getItem('HHA_GJ_PID') ||
+          localStorage.getItem('GJ_BATTLE_PID') ||
+          'anon';
 
-    function getHub(){
-      return clean(
-        qs('hub',''),
-        new URL('./nutrition-zone.html', location.href).toString()
-      );
-    }
+        nameInput.value =
+          params.get('name') ||
+          localStorage.getItem('HHA_GJ_NAME') ||
+          localStorage.getItem('GJ_BATTLE_NAME') ||
+          'Hero';
 
-    function baseParams(mode){
-      return {
-        pid:getPid(),
-        name:getName(),
-        nick:getName(),
-        diff:getDiff(),
-        time:getTime(),
-        view:getView(),
-        device:getView(),
-        zone:'nutrition',
-        cat:'nutrition',
-        game:'goodjunk',
-        gameId:'goodjunk',
-        theme:'goodjunk',
-        mode,
-        entry:mode,
-        recommendedMode:mode,
-        multiplayer:mode === 'solo' ? '0' : '1',
-        hub:getHub(),
-        v:'20260519-battle-v2426'
-      };
-    }
+        diffSelect.value = params.get('diff') || 'normal';
+        timeSelect.value = params.get('time') || '90';
+        viewSelect.value = normalizeView(params.get('view') || params.get('device') || '');
+      }
 
-    function withParams(path, mode, extra={}){
-      const u = new URL(path, location.href);
-      const data = {
-        ...baseParams(mode),
-        ...extra
-      };
+      function saveFields(){
+        localStorage.setItem('HHA_GJ_PID', clean(pidInput.value, 'anon'));
+        localStorage.setItem('HHA_GJ_NAME', clean(nameInput.value, 'Hero'));
+        localStorage.setItem('GJ_BATTLE_PID', clean(pidInput.value, 'anon'));
+        localStorage.setItem('GJ_BATTLE_NAME', clean(nameInput.value, 'Hero'));
+      }
 
-      Object.entries(data).forEach(([k,v]) => {
-        if (v !== undefined && v !== null && String(v) !== ''){
-          u.searchParams.set(k,String(v));
+      function addCommonParams(out, mode){
+        out.searchParams.set('pid', clean(pidInput.value, 'anon'));
+        out.searchParams.set('name', clean(nameInput.value, 'Hero'));
+        out.searchParams.set('diff', clean(diffSelect.value, 'normal'));
+        out.searchParams.set('time', clean(timeSelect.value, '90'));
+        out.searchParams.set('view', normalizeView(viewSelect.value));
+        out.searchParams.set('device', normalizeView(viewSelect.value));
+
+        out.searchParams.set('game', 'goodjunk');
+        out.searchParams.set('gameId', 'goodjunk');
+        out.searchParams.set('zone', 'nutrition');
+        out.searchParams.set('cat', 'nutrition');
+
+        if (mode){
+          out.searchParams.set('mode', mode);
         }
-      });
 
-      return u.toString();
-    }
-
-    function updateLinks(){
-      const hub = getHub();
-      const selectedView = getView();
-      const view2d = normalize2DView(selectedView);
-
-      $('btnZoneTop').href = './nutrition-zone.html';
-      $('btnHubTop').href = hub;
-
-      $('btnSolo2D').href = withParams('./vr-goodjunk/goodjunk-solo-boss.html','solo',{
-        run:'play',
-        entry:'solo-2d',
-        recommendedMode:'solo-2d',
-        variant:'2d',
-        view:view2d,
-        device:view2d,
-        multiplayer:'0'
-      });
-
-      $('btnSolo2DTest').href = withParams('./vr-goodjunk/goodjunk-solo-boss.html','solo',{
-        run:'play',
-        test:'1',
-        entry:'solo-2d',
-        recommendedMode:'solo-2d',
-        variant:'2d',
-        view:view2d,
-        device:view2d,
-        multiplayer:'0'
-      });
-
-      $('btnSoloVR').href = withParams('./vr-goodjunk/goodjunk-solo-boss-vr-flow.html','solo',{
-        run:'menu',
-        entry:'solo-vr',
-        recommendedMode:'solo-vr',
-        variant:'cardboard-vr',
-        view:'cardboard',
-        device:'cardboard',
-        multiplayer:'0'
-      });
-
-      $('btnSoloVRTest').href = withParams('./vr-goodjunk/goodjunk-solo-boss-vr-flow.html','solo',{
-        run:'play',
-        test:'1',
-        entry:'solo-vr',
-        recommendedMode:'solo-vr',
-        variant:'cardboard-vr',
-        view:'cardboard',
-        device:'cardboard',
-        multiplayer:'0'
-      });
-
-      $('btnRace').href = withParams('./vr-goodjunk/goodjunk-race-lobby.html','race',{
-        capacity:'4',
-        maxPlayers:'10'
-      });
-
-      $('btnRaceTest').href = withParams('./vr-goodjunk/goodjunk-race-lobby.html','race',{
-        test:'1',
-        capacity:'4',
-        maxPlayers:'10'
-      });
-
-      $('btnBattle').href = withParams('./vr-goodjunk/goodjunk-battle-v2-lobby.html','battle',{
-        battleType:'duel',
-        type:'duel',
-        capacity:'2',
-        maxPlayers:'2',
-        variant:'battle-v2',
-        entry:'battle',
-        recommendedMode:'battle'
-      });
-
-      $('btnBattleTest').href = withParams('./vr-goodjunk/goodjunk-battle-v2-lobby.html','battle',{
-        test:'1',
-        battleType:'duel',
-        type:'duel',
-        capacity:'2',
-        maxPlayers:'2',
-        variant:'battle-v2',
-        entry:'battle',
-        recommendedMode:'battle'
-      });
-
-      $('btnCoop').href = withParams('./vr-goodjunk/goodjunk-coop-lobby.html','coop',{
-        capacity:'4',
-        maxPlayers:'10',
-        teamMode:'1'
-      });
-
-      $('btnCoopTest').href = withParams('./vr-goodjunk/goodjunk-coop-lobby.html','coop',{
-        test:'1',
-        capacity:'4',
-        maxPlayers:'10',
-        teamMode:'1'
-      });
-
-      $('btnDuet').href = withParams('./vr-goodjunk/goodjunk-duet-lobby.html','duet',{
-        capacity:'2',
-        maxPlayers:'2'
-      });
-
-      $('btnDuetTest').href = withParams('./vr-goodjunk/goodjunk-duet-lobby.html','duet',{
-        test:'1',
-        capacity:'2',
-        maxPlayers:'2'
-      });
-    }
-
-    function initFields(){
-      $('pid').value = clean(qs('pid',''), makePid());
-      $('name').value = clean(qs('name', qs('nick','Hero')), 'Hero');
-      $('diff').value = clean(qs('diff','normal'), 'normal');
-      $('time').value = clean(qs('time','150'), '150');
-      $('view').value = normalizeView(qs('view', qs('device', detectView())));
-
-      try{
-        const savedName = localStorage.getItem('HHA_GJ_NAME');
-        if (!qs('name','') && savedName){
-          $('name').value = savedName;
-        }
-      }catch(_){}
-
-      updateLinks();
-    }
-
-    function bind(){
-      ['pid','name','diff','time','view'].forEach(id => {
-        $(id).addEventListener('input', () => {
-          updateLinks();
-
-          try{
-            if (id === 'pid'){
-              localStorage.setItem('HHA_GJ_PID', $('pid').value);
-            }
-
-            if (id === 'name'){
-              localStorage.setItem('HHA_GJ_NAME', $('name').value);
-            }
-          }catch(_){}
+        ['hub','studyId','conditionGroup','api','log'].forEach(function(k){
+          const v = params.get(k);
+          if (v !== null && v !== ''){
+            out.searchParams.set(k, v);
+          }
         });
 
-        $(id).addEventListener('change', updateLinks);
-      });
-    }
+        out.searchParams.set('from', 'goodjunk-launcher-clean');
+        out.searchParams.set('launcher', VERSION);
+        out.searchParams.set('t', String(now()));
 
-    function boot(){
-      initFields();
-      bind();
-      updateLinks();
+        ROOM_PARAMS.forEach(function(k){
+          out.searchParams.delete(k);
+        });
 
-      console.info('[GoodJunk Launcher]', window.HHA_GOODJUNK_LAUNCHER, 'loaded');
-    }
+        return out;
+      }
 
-    boot();
-  })();
+      function buildModeUrl(mode){
+        const route = ROUTES[mode];
+
+        if (!route){
+          throw new Error('Unknown GoodJunk mode: ' + mode);
+        }
+
+        const out = new URL(route, location.href);
+
+        if (mode === 'solo'){
+          addCommonParams(out, 'solo-boss');
+          out.searchParams.set('entry', 'solo-boss');
+          out.searchParams.set('variant', 'solo-boss-final');
+        }
+
+        if (mode === 'battle'){
+          addCommonParams(out, 'battle');
+          out.searchParams.set('entry', 'launcher');
+          out.searchParams.set('variant', 'battle-v2.5');
+
+          try{
+            localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+            sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
+          }catch(_){}
+        }
+
+        if (mode === 'race'){
+          addCommonParams(out, 'race');
+          out.searchParams.set('entry', 'race');
+          out.searchParams.set('variant', 'race');
+        }
+
+        if (mode === 'duet'){
+          addCommonParams(out, 'duet');
+          out.searchParams.set('entry', 'duet');
+          out.searchParams.set('variant', 'duet');
+        }
+
+        if (mode === 'coop'){
+          addCommonParams(out, 'coop');
+          out.searchParams.set('entry', 'coop');
+          out.searchParams.set('variant', 'coop');
+        }
+
+        return out.toString();
+      }
+
+      function buildZoneUrl(){
+        const out = new URL(ROUTES.zone, location.href);
+        addCommonParams(out, '');
+        out.searchParams.set('from', 'goodjunk-launcher-clean');
+        return out.toString();
+      }
+
+      function buildHubUrl(){
+        const hub = params.get('hub');
+
+        if (hub){
+          try{
+            const out = new URL(hub, location.href);
+            if (!out.searchParams.get('pid')) out.searchParams.set('pid', clean(pidInput.value, 'anon'));
+            if (!out.searchParams.get('name')) out.searchParams.set('name', clean(nameInput.value, 'Hero'));
+            if (!out.searchParams.get('view')) out.searchParams.set('view', normalizeView(viewSelect.value));
+            return out.toString();
+          }catch(_){}
+        }
+
+        const out = new URL(ROUTES.hub, location.href);
+        addCommonParams(out, '');
+        out.searchParams.set('from', 'goodjunk-launcher-clean');
+        return out.toString();
+      }
+
+      function setStatus(text){
+        statusBox.textContent = text;
+      }
+
+      function goMode(mode){
+        saveFields();
+
+        const target = buildModeUrl(mode);
+
+        setStatus('กำลังเข้าโหมด ' + mode + ' → ' + target);
+
+        location.href = target;
+      }
+
+      function bind(){
+        $all('[data-mode]').forEach(function(el){
+          const mode = el.dataset.mode;
+
+          el.addEventListener('click', function(ev){
+            ev.preventDefault();
+            ev.stopPropagation();
+
+            goMode(mode);
+          }, true);
+        });
+
+        $('#btnZoneTop').addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          saveFields();
+          location.href = buildZoneUrl();
+        }, true);
+
+        $('#btnHubTop').addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+
+          saveFields();
+          location.href = buildHubUrl();
+        }, true);
+
+        [pidInput, nameInput, diffSelect, timeSelect, viewSelect].forEach(function(el){
+          el.addEventListener('input', saveFields);
+          el.addEventListener('change', saveFields);
+        });
+      }
+
+      function boot(){
+        initFields();
+        saveFields();
+        bind();
+
+        window.GJ_LAUNCHER_CLEAN = {
+          version: VERSION,
+          routes: ROUTES,
+          buildModeUrl,
+          buildZoneUrl,
+          buildHubUrl,
+          goMode
+        };
+
+        setStatus('พร้อมเลือกโหมดเกม • Launcher clean v2.0');
+
+        console.info('[GoodJunk Launcher Clean]', VERSION, 'loaded');
+      }
+
+      if (document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', boot, { once:true });
+      }else{
+        boot();
+      }
+    })();
   </script>
-<script src="./goodjunk-launcher-route-final-patch.js?v=1300"></script>
-<script src="./goodjunk-launcher-route-audit-patch.js?v=1200"></script>
 </body>
 </html>
