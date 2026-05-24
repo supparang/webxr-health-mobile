@@ -3,210 +3,203 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Groups Solo Cardboard VR</title>
   <meta name="theme-color" content="#dff7ff" />
-
-  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-  <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
-  <script src="../vr/vr-ui.js?v=20260515-groups-cvr-vr-ui"></script>
+  <meta name="color-scheme" content="light" />
+  <title>HeroHealth • Food Groups cVR</title>
+  <link rel="icon" href="data:," />
 
   <style>
     :root{
-      --bg1:#e8f9ff;
-      --bg2:#bfeeff;
-      --card:#ffffff;
-      --text:#244e68;
-      --muted:#7193a8;
-      --line:#d7edf7;
-      --yellow:#ffd966;
+      --bg1:#eaffff;
+      --bg2:#fff8dd;
+      --card:rgba(255,255,255,.90);
+      --line:#cfeefa;
+      --text:#214f64;
+      --muted:#6f8fa1;
+      --blue:#42a5ff;
       --green:#7ed957;
-      --blue:#61bbff;
-      --orange:#ff9d3f;
-      --red:#ff7d7d;
-      --safe-top:env(safe-area-inset-top,0px);
-      --safe-bottom:env(safe-area-inset-bottom,0px);
+      --yellow:#ffd966;
+      --orange:#ff9f43;
+      --red:#ff6b6b;
+      --shadow:0 16px 45px rgba(31,92,120,.18);
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeRight:env(safe-area-inset-right,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
+      --safeLeft:env(safe-area-inset-left,0px);
     }
 
-    *{ box-sizing:border-box; }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 
     html,body{
       margin:0;
       width:100%;
       height:100%;
       overflow:hidden;
+      touch-action:none;
+      overscroll-behavior:none;
+      user-select:none;
       font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
-      background:linear-gradient(180deg,var(--bg1),var(--bg2));
-      user-select:none;
-      -webkit-user-select:none;
-      touch-action:none;
+      background:
+        radial-gradient(circle at 18% 12%,rgba(126,217,87,.22),transparent 28%),
+        radial-gradient(circle at 86% 10%,rgba(97,187,255,.24),transparent 30%),
+        linear-gradient(135deg,var(--bg1),var(--bg2));
     }
 
-    button{
-      font:inherit;
-      color:inherit;
-      -webkit-tap-highlight-color:transparent;
-    }
-
-    .screen{
+    body{
       position:fixed;
       inset:0;
-      z-index:50;
-      display:none;
-      overflow:auto;
-      padding:calc(22px + var(--safe-top)) 14px calc(96px + var(--safe-bottom));
-      background:
-        radial-gradient(circle at 18% 10%,rgba(255,255,255,.96),rgba(255,255,255,0) 28%),
-        radial-gradient(circle at 86% 18%,rgba(255,244,177,.5),rgba(255,244,177,0) 26%),
-        linear-gradient(180deg,var(--bg1),var(--bg2));
     }
 
-    .screen.active{ display:block; }
-
-    .card{
-      width:min(820px,100%);
-      margin:0 auto;
-      border-radius:34px;
-      padding:22px 16px;
-      background:rgba(255,255,255,.94);
-      border:2px solid rgba(255,255,255,.92);
-      box-shadow:0 24px 70px rgba(35,81,107,.16);
-      text-align:center;
-    }
-
-    .hero-icon{
-      width:92px;
-      height:92px;
-      margin:0 auto 14px;
-      border-radius:30px;
-      display:grid;
-      place-items:center;
-      font-size:54px;
-      background:linear-gradient(145deg,#fff4b5,#ffd966);
-      box-shadow:0 16px 40px rgba(35,81,107,.14);
-    }
-
-    h1{
-      margin:0;
-      font-size:clamp(34px,8vw,60px);
-      line-height:1.02;
-      font-weight:1000;
-      letter-spacing:-.045em;
-    }
-
-    .lead{
-      margin:12px auto 0;
-      max-width:680px;
-      color:var(--muted);
-      font-size:clamp(18px,5vw,30px);
-      line-height:1.28;
-      font-weight:900;
-    }
-
-    .howto{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:10px;
-      margin:22px auto 10px;
-      max-width:680px;
-    }
-
-    .how{
-      min-height:128px;
-      border-radius:24px;
-      padding:13px 9px;
-      background:linear-gradient(180deg,#fff,#f3fbff);
-      border:2px solid var(--line);
-      box-shadow:0 10px 26px rgba(35,81,107,.08);
-    }
-
-    .how .emoji{
-      font-size:42px;
-      line-height:1;
-    }
-
-    .how h3{
-      margin:8px 0 4px;
-      font-size:18px;
-      line-height:1.1;
-      font-weight:1000;
-    }
-
-    .how p{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.25;
-      font-weight:850;
-    }
-
-    .actions{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      justify-content:center;
-      margin-top:18px;
-    }
-
-    .btn{
-      border:0;
-      border-radius:999px;
-      padding:14px 21px;
-      background:#fff;
-      box-shadow:0 14px 34px rgba(35,81,107,.15);
-      font-size:18px;
-      font-weight:1000;
-      cursor:pointer;
-    }
-
-    .btn.primary{
-      background:linear-gradient(135deg,#ffb347,#ff8f3d);
-      color:#fff;
-      text-shadow:0 2px 0 rgba(0,0,0,.08);
-    }
-
-    .btn.zone{
-      background:linear-gradient(135deg,#eaffda,#ffffff);
-    }
-
-    .hud{
+    .game{
       position:fixed;
-      left:10px;
-      right:10px;
-      top:calc(8px + var(--safe-top));
+      inset:0;
+      width:100vw;
+      height:100dvh;
+      overflow:hidden;
+      padding:
+        calc(6px + var(--safeTop))
+        calc(8px + var(--safeRight))
+        calc(8px + var(--safeBottom))
+        calc(8px + var(--safeLeft));
+      display:grid;
+      grid-template-rows:54px minmax(0,1fr) 72px;
+      gap:6px;
+    }
+
+    .top{
+      display:grid;
+      grid-template-columns:minmax(180px,1fr) auto;
+      gap:6px;
+      min-width:0;
       z-index:20;
-      display:none;
-      grid-template-columns:1fr auto;
-      gap:8px;
       pointer-events:none;
     }
 
-    body.playing .hud{ display:grid; }
-
-    .mission-card{
+    .brand{
       min-width:0;
-      border-radius:20px;
-      padding:9px 11px;
-      background:rgba(255,255,255,.9);
-      box-shadow:0 12px 30px rgba(35,81,107,.13);
-      backdrop-filter:blur(10px);
+      height:54px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:18px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      box-shadow:0 10px 24px rgba(50,130,160,.10);
+      overflow:hidden;
     }
 
-    .mission-title{
-      font-size:clamp(15px,4vw,23px);
-      line-height:1.05;
-      font-weight:1000;
+    .brandIcon{
+      flex:0 0 auto;
+      width:40px;
+      height:40px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fff7b5,#ffd966);
+      font-size:24px;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(1rem,2vw,1.45rem);
+      line-height:1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      letter-spacing:-.5px;
+    }
+
+    .brand p{
+      margin:3px 0 0;
+      color:var(--muted);
+      font-size:.62rem;
+      font-weight:900;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
     }
 
-    .mission-sub{
-      margin-top:4px;
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(5,54px);
+      gap:5px;
+    }
+
+    .stat{
+      height:54px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:15px;
+      display:grid;
+      place-items:center;
+      padding:4px 2px;
+      box-shadow:0 10px 24px rgba(50,130,160,.10);
+      overflow:hidden;
+    }
+
+    .stat small{
       color:var(--muted);
-      font-size:12px;
-      line-height:1.15;
-      font-weight:850;
+      font-size:.48rem;
+      font-weight:950;
+      line-height:1;
+    }
+
+    .stat b{
+      color:var(--text);
+      font-size:.82rem;
+      font-weight:1000;
+      line-height:1;
+    }
+
+    .arena{
+      position:relative;
+      min-height:0;
+      overflow:hidden;
+      border-radius:22px;
+      background:
+        linear-gradient(rgba(255,255,255,.28),rgba(255,255,255,.14)),
+        repeating-linear-gradient(90deg,rgba(47,149,255,.055) 0 2px,transparent 2px 92px),
+        repeating-linear-gradient(0deg,rgba(255,217,102,.070) 0 2px,transparent 2px 92px);
+      border:1px solid rgba(207,238,250,.85);
+      box-shadow:inset 0 0 80px rgba(255,255,255,.22);
+    }
+
+    .wave{
+      position:absolute;
+      top:8px;
+      left:8px;
+      right:8px;
+      min-height:38px;
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+      pointer-events:none;
+      z-index:8;
+    }
+
+    .waveText{
+      min-width:0;
+      max-width:62%;
+    }
+
+    .waveText b{
+      display:block;
+      font-size:clamp(.84rem,1.7vw,1.05rem);
+      line-height:1.05;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .waveText span{
+      display:block;
+      margin-top:2px;
+      color:var(--muted);
+      font-size:.60rem;
+      font-weight:900;
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -214,1572 +207,1166 @@
 
     .chips{
       display:flex;
-      flex-direction:column;
-      align-items:flex-end;
-      gap:5px;
+      gap:4px;
+      align-items:center;
+      flex-wrap:nowrap;
     }
 
     .chip{
+      min-height:20px;
+      padding:3px 7px;
       border-radius:999px;
-      padding:7px 10px;
-      background:rgba(255,255,255,.92);
-      box-shadow:0 10px 24px rgba(35,81,107,.12);
-      font-size:12px;
+      background:rgba(255,255,255,.86);
+      border:1px solid var(--line);
+      color:#397b9c;
+      font-size:.52rem;
       font-weight:1000;
       white-space:nowrap;
+      box-shadow:0 8px 18px rgba(50,130,160,.10);
     }
 
-    .chip.yellow{
-      background:#fff5ca;
-      color:#806000;
-    }
-
-    .chip.heart{
-      background:#fff0f0;
-      color:#bc4949;
-    }
-
-    .bottom-hint{
-      position:fixed;
-      left:10px;
-      right:10px;
-      bottom:calc(10px + var(--safe-bottom));
-      z-index:22;
-      display:none;
-      border-radius:22px;
-      padding:10px 12px;
-      background:rgba(255,255,255,.9);
-      box-shadow:0 14px 36px rgba(35,81,107,.14);
-      text-align:center;
-      font-size:clamp(15px,4vw,23px);
-      line-height:1.18;
-      font-weight:1000;
+    .targetPanel{
+      position:absolute;
+      left:8px;
+      top:60px;
+      z-index:8;
+      width:min(220px,32vw);
+      padding:8px 10px;
+      border-radius:16px;
+      background:rgba(255,255,255,.82);
+      border:1px solid var(--line);
+      box-shadow:0 10px 26px rgba(50,130,160,.10);
       pointer-events:none;
     }
 
-    body.playing .bottom-hint{ display:block; }
+    .targetPanel b{
+      display:block;
+      font-size:.75rem;
+      line-height:1.1;
+    }
 
-    .center-toast{
+    .targetPanel span{
+      display:block;
+      margin-top:4px;
+      color:var(--muted);
+      font-size:.52rem;
+      font-weight:900;
+      line-height:1.1;
+    }
+
+    .playZone{
+      position:absolute;
+      inset:48px 0 0;
+      overflow:hidden;
+    }
+
+    .foodToken{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:86px;
+      height:86px;
+      margin-left:-43px;
+      margin-top:-43px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:rgba(255,255,255,.92);
+      border:4px solid var(--yellow);
+      box-shadow:0 18px 40px rgba(255,190,60,.22);
+      transform:translate3d(0,0,0);
+      z-index:12;
+      transition:box-shadow .12s ease, border-color .12s ease;
+    }
+
+    .foodToken.aim{
+      border-color:var(--blue);
+      box-shadow:
+        0 0 0 8px rgba(66,165,255,.16),
+        0 20px 44px rgba(66,165,255,.24);
+    }
+
+    .foodEmoji{
+      font-size:40px;
+      line-height:1;
+      transform:translateY(-5px);
+    }
+
+    .foodName{
+      position:absolute;
+      left:50%;
+      bottom:6px;
+      transform:translateX(-50%);
+      max-width:78px;
+      padding:2px 6px;
+      border-radius:999px;
+      background:rgba(255,255,255,.86);
+      color:#537184;
+      font-size:.54rem;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      border:1px solid rgba(207,238,250,.9);
+    }
+
+    .scanPanel{
+      position:absolute;
+      left:50%;
+      bottom:12px;
+      transform:translateX(-50%);
+      width:min(520px,78vw);
+      min-height:48px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:9;
+      pointer-events:none;
+    }
+
+    .selectedFood{
+      padding:7px 12px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      color:#397b9c;
+      font-weight:1000;
+      font-size:.70rem;
+      text-align:center;
+      box-shadow:0 10px 26px rgba(50,130,160,.10);
+      max-width:100%;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .crosshair{
       position:fixed;
       left:50%;
-      top:48%;
+      top:50%;
+      width:42px;
+      height:42px;
       transform:translate(-50%,-50%);
-      z-index:24;
-      width:min(440px,80vw);
-      border-radius:30px;
-      padding:16px 14px;
+      border-radius:999px;
+      border:2px solid rgba(33,79,100,.55);
+      z-index:80;
+      pointer-events:none;
+      box-shadow:0 0 0 4px rgba(255,255,255,.45);
+    }
+
+    .crosshair::before,
+    .crosshair::after{
+      content:"";
+      position:absolute;
+      left:50%;
+      top:50%;
+      transform:translate(-50%,-50%);
+      background:rgba(33,79,100,.65);
+      border-radius:999px;
+    }
+
+    .crosshair::before{width:28px;height:3px}
+    .crosshair::after{width:3px;height:28px}
+
+    .crossDot{
+      position:absolute;
+      left:50%;
+      top:50%;
+      width:8px;
+      height:8px;
+      transform:translate(-50%,-50%);
+      border-radius:999px;
+      background:rgba(66,165,255,.95);
+      box-shadow:0 0 0 4px rgba(66,165,255,.16);
+    }
+
+    .hint{
+      position:fixed;
+      left:50%;
+      top:calc(50% + 36px);
+      transform:translateX(-50%);
+      z-index:81;
+      width:min(480px,74vw);
+      padding:6px 10px;
+      border-radius:999px;
+      background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+      color:#397b9c;
       text-align:center;
-      background:rgba(255,255,255,.94);
-      box-shadow:0 24px 70px rgba(35,81,107,.2);
-      color:#244e68;
-      font-size:clamp(26px,8vw,54px);
-      line-height:1.05;
+      font-size:.62rem;
       font-weight:1000;
       pointer-events:none;
+      box-shadow:0 12px 28px rgba(50,130,160,.12);
+    }
+
+    .gates{
+      position:relative;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:5px;
+      z-index:30;
+    }
+
+    .gate{
+      min-width:0;
+      height:72px;
+      border-radius:18px;
+      border:2px solid var(--line);
+      background:rgba(255,255,255,.86);
+      box-shadow:0 10px 24px rgba(50,130,160,.10);
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      transition:transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+      pointer-events:none;
+    }
+
+    .gate.active{
+      transform:translateY(-5px) scale(1.02);
+      border-color:var(--orange);
+      background:linear-gradient(135deg,#fff7c9,#fff);
+      box-shadow:
+        0 0 0 5px rgba(255,217,102,.22),
+        0 18px 34px rgba(255,159,67,.16);
+    }
+
+    .gate.correctFlash{
+      border-color:var(--green);
+      background:linear-gradient(135deg,#efffe9,#fff);
+    }
+
+    .gate.wrongFlash{
+      border-color:var(--red);
+      background:linear-gradient(135deg,#fff0f0,#fff);
+    }
+
+    .gateNum{
+      width:24px;
+      height:24px;
+      border-radius:9px;
+      display:grid;
+      place-items:center;
+      background:#e9f8ff;
+      color:#257297;
+      font-size:.72rem;
+      font-weight:1000;
+    }
+
+    .gateLabel{
+      margin-top:4px;
+      max-width:100%;
+      padding:0 4px;
+      color:#123d51;
+      font-size:.58rem;
+      font-weight:1000;
+      line-height:1.02;
+      text-align:center;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      top:calc(10px + var(--safeTop));
+      transform:translateX(-50%) translateY(-10px) scale(.88);
+      z-index:100;
+      max-width:min(520px,78vw);
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(33,79,100,.94);
+      color:white;
+      font-size:.70rem;
+      font-weight:1000;
+      text-align:center;
+      box-shadow:0 18px 42px rgba(0,0,0,.18);
       opacity:0;
+      transition:.15s ease;
+      pointer-events:none;
     }
 
-    .center-toast.show{
-      animation:toastPop .92s ease both;
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0) scale(.88);
     }
 
-    @keyframes toastPop{
-      0%{ opacity:0; transform:translate(-50%,-38%) scale(.78); }
-      18%{ opacity:1; transform:translate(-50%,-50%) scale(1.08); }
-      74%{ opacity:1; transform:translate(-50%,-52%) scale(1); }
-      100%{ opacity:0; transform:translate(-50%,-66%) scale(.94); }
-    }
-
-    .countdown{
+    .summary{
       position:fixed;
       inset:0;
-      z-index:60;
+      z-index:200;
+      background:rgba(223,247,255,.74);
+      backdrop-filter:blur(10px);
       display:none;
-      place-items:center;
-      background:radial-gradient(circle at 50% 44%,rgba(255,255,255,.94),rgba(255,255,255,.2) 54%);
+      overflow-y:auto;
+      padding:
+        calc(18px + var(--safeTop))
+        calc(16px + var(--safeRight))
+        calc(20px + var(--safeBottom))
+        calc(16px + var(--safeLeft));
+      touch-action:pan-y;
     }
 
-    .countdown.active{ display:grid; }
+    .summary.show{
+      display:block;
+    }
 
-    .count-card{
-      width:min(380px,86vw);
-      border-radius:36px;
-      padding:28px 18px;
+    .summaryCard{
+      width:min(760px,94vw);
+      margin:0 auto;
+      border-radius:28px;
+      background:rgba(255,255,255,.94);
+      border:2px solid var(--line);
+      box-shadow:var(--shadow);
+      padding:22px;
       text-align:center;
-      background:linear-gradient(145deg,#fff,#effbff);
-      border:3px solid rgba(255,255,255,.92);
-      box-shadow:0 30px 86px rgba(35,81,107,.22);
     }
 
-    .count-main{
-      font-size:clamp(76px,20vw,136px);
-      line-height:.9;
-      font-weight:1000;
-      color:#5e9fc8;
-      text-shadow:0 6px 0 rgba(255,255,255,.9);
+    .summaryIcon{
+      width:78px;
+      height:78px;
+      margin:0 auto 10px;
+      border-radius:24px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fff7b5,#ffd966);
+      font-size:42px;
     }
 
-    .count-title{
-      margin-top:14px;
-      font-size:clamp(22px,5vw,32px);
-      line-height:1.12;
-      font-weight:1000;
+    .summary h2{
+      margin:0;
+      font-size:clamp(1.6rem,5vw,2.4rem);
+      line-height:1.08;
     }
 
-    .count-tip{
-      margin-top:8px;
+    .rank{
+      margin:6px 0 14px;
       color:var(--muted);
-      font-size:15px;
-      font-weight:850;
+      font-size:clamp(1.1rem,3vw,1.6rem);
+      font-weight:1000;
     }
 
-    .summary-stats{
+    .summaryStats{
       display:grid;
       grid-template-columns:repeat(2,minmax(0,1fr));
       gap:10px;
-      margin:18px 0 10px;
+      margin:14px 0;
     }
 
-    .stat{
-      border-radius:22px;
-      padding:14px 10px;
-      background:linear-gradient(180deg,#fff,#f3fbff);
-      border:2px solid var(--line);
+    .summaryStat{
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:#fbfeff;
+      padding:12px 10px;
     }
 
-    .stat b{
+    .summaryStat b{
       display:block;
-      font-size:clamp(30px,8vw,48px);
+      font-size:clamp(1.6rem,5vw,2.3rem);
       line-height:1;
-      font-weight:1000;
     }
 
-    .stat span{
+    .summaryStat span{
       display:block;
       margin-top:5px;
       color:var(--muted);
-      font-size:13px;
-      font-weight:850;
+      font-weight:1000;
+      font-size:.82rem;
     }
 
-    .summary-badges{
+    .badges{
       display:flex;
+      justify-content:center;
       flex-wrap:wrap;
       gap:8px;
-      justify-content:center;
-      margin:13px 0 2px;
+      margin:14px 0;
     }
 
-    .summary-badge{
+    .badge{
+      padding:7px 12px;
       border-radius:999px;
-      padding:8px 11px;
-      background:linear-gradient(135deg,#fff8d5,#ffffff);
-      border:2px solid #ffe480;
-      color:#6b4c00;
-      font-size:13px;
+      border:2px solid #ffe58a;
+      background:#fffdf1;
+      color:#5e4b00;
       font-weight:1000;
+      font-size:.82rem;
     }
 
-    a-scene{
+    .summaryActions{
+      display:flex;
+      justify-content:center;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:18px;
+    }
+
+    .btn{
+      min-height:48px;
+      padding:12px 18px;
+      border:0;
+      border-radius:999px;
+      font-family:inherit;
+      font-size:1rem;
+      font-weight:1000;
+      cursor:pointer;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      box-shadow:0 12px 26px rgba(0,0,0,.10);
+    }
+
+    .btnPrimary{
+      color:white;
+      background:linear-gradient(135deg,#ffbd59,#ff8f3d);
+    }
+
+    .btnSoft{
+      color:var(--text);
+      background:#effaff;
+      border:1px solid var(--line);
+    }
+
+    .btnGreen{
+      color:#164a34;
+      background:linear-gradient(135deg,#edffe8,#ffffff);
+      border:1px solid #c7f3bf;
+    }
+
+    .orientation{
       position:fixed;
       inset:0;
-      z-index:1;
+      z-index:300;
+      display:none;
+      place-items:center;
+      padding:20px;
+      background:linear-gradient(135deg,#eaffff,#fff8dd);
+      text-align:center;
     }
 
-    body:not(.playing) a-scene{
-      filter:blur(4px) brightness(.92);
+    .orientationCard{
+      width:min(420px,92vw);
+      border-radius:26px;
+      background:white;
+      border:2px solid var(--line);
+      padding:22px;
+      box-shadow:var(--shadow);
     }
 
-    @media (max-width:480px){
-      .howto{ grid-template-columns:1fr; }
-      .summary-stats{ grid-template-columns:1fr 1fr; }
+    .orientationCard b{
+      display:block;
+      font-size:1.7rem;
+      margin-bottom:8px;
+    }
+
+    .orientationCard p{
+      margin:0;
+      color:var(--muted);
+      font-weight:900;
+      line-height:1.45;
+    }
+
+    @media (orientation:portrait) and (max-width:900px){
+      .orientation{display:grid}
+    }
+
+    @media (max-height:620px){
+      .game{
+        grid-template-rows:46px minmax(0,1fr) 58px;
+        gap:4px;
+        padding:
+          calc(4px + var(--safeTop))
+          calc(6px + var(--safeRight))
+          calc(4px + var(--safeBottom))
+          calc(6px + var(--safeLeft));
+      }
+
+      .brand{height:46px;border-radius:15px;padding:4px 7px}
+      .brandIcon{width:32px;height:32px;font-size:19px}
+      .brand h1{font-size:.92rem}
+      .brand p{font-size:.48rem}
+
+      .stats{grid-template-columns:repeat(5,43px);gap:3px}
+      .stat{width:43px;height:46px;border-radius:12px}
+      .stat small{font-size:.42rem}
+      .stat b{font-size:.66rem}
+
+      .wave{top:6px;left:6px;right:6px}
+      .waveText b{font-size:.76rem}
+      .waveText span{font-size:.46rem}
+      .chip{font-size:.42rem;min-height:17px;padding:2px 5px}
+
+      .targetPanel{
+        top:50px;
+        width:min(190px,30vw);
+        padding:6px 8px;
+      }
+
+      .targetPanel b{font-size:.64rem}
+      .targetPanel span{font-size:.46rem}
+
+      .playZone{inset:40px 0 0}
+
+      .foodToken{
+        width:66px;
+        height:66px;
+        margin-left:-33px;
+        margin-top:-33px;
+      }
+
+      .foodEmoji{font-size:32px}
+      .foodName{font-size:.46rem;max-width:62px}
+
+      .gate{height:58px;min-height:58px;border-radius:14px}
+      .gateNum{width:20px;height:20px;font-size:.58rem}
+      .gateLabel{font-size:.46rem}
+
+      .crosshair{width:38px;height:38px}
+      .hint{font-size:.52rem;padding:4px 8px;top:calc(50% + 31px)}
+      .selectedFood{font-size:.56rem;padding:5px 9px}
+
+      .summaryCard{padding:16px}
+      .summaryIcon{width:62px;height:62px;font-size:34px}
     }
   </style>
 </head>
 
 <body>
-  <main id="intro" class="screen active">
-    <section class="card">
-      <div class="hero-icon">🥽</div>
-      <h1>Groups Solo cVR</h1>
-      <p class="lead">โหมด Cardboard VR: หันศีรษะเล็ง crosshair ไปที่ประตูหมู่อาหาร แล้วแตะจอเพื่อยิง</p>
-
-      <div class="howto">
-        <div class="how">
-          <div class="emoji">🎯</div>
-          <h3>เล็งด้วย Crosshair</h3>
-          <p>หันหน้าไปยังเป้าหมายด้านหน้า</p>
+  <div class="game" id="game">
+    <header class="top">
+      <section class="brand">
+        <div class="brandIcon">🥦</div>
+        <div>
+          <h1>Groups Solo cVR</h1>
+          <p>Cardboard Arcade • แตะเพื่อเลือกอาหารและส่งเข้าหมู่ 1–5</p>
         </div>
+      </section>
 
-        <div class="how">
-          <div class="emoji">👆</div>
-          <h3>แตะเพื่อยิง</h3>
-          <p>แตะจอ / กด trigger เพื่อเลือก</p>
+      <section class="stats">
+        <div class="stat"><small>คะแนน</small><b id="score">0</b></div>
+        <div class="stat"><small>เวลา</small><b id="timeLeft">90</b></div>
+        <div class="stat"><small>หัวใจ</small><b id="lives">💕💕💕</b></div>
+        <div class="stat"><small>คอมโบ</small><b id="combo">0</b></div>
+        <div class="stat"><small>ถูกต้อง</small><b id="accuracy">0%</b></div>
+      </section>
+    </header>
+
+    <main class="arena" id="arena">
+      <div class="wave">
+        <div class="waveText">
+          <b id="waveTitle">Wave 1: Rookie Sort</b>
+          <span id="waveSub">อาหารชิ้นเดียว เริ่มจับจังหวะให้แม่น</span>
         </div>
-
-        <div class="how">
-          <div class="emoji">🚪</div>
-          <h3>ส่งเข้าหมู่</h3>
-          <p>อาหารปกติและ Golden ต้องยิงประตูที่ถูก</p>
-        </div>
-
-        <div class="how">
-          <div class="emoji">🚫</div>
-          <h3>ระวังตัวหลอก</h3>
-          <p>Decoy ห้ามยิง ปล่อยให้ผ่านไป</p>
+        <div class="chips">
+          <span class="chip" id="phaseChip">Calm Phase</span>
+          <span class="chip" id="goalChip">Goal 0/5</span>
         </div>
       </div>
 
-      <div class="actions">
-        <button id="startBtn" class="btn primary" type="button">เริ่ม Cardboard VR</button>
-        <button id="practiceBtn" class="btn" type="button">โหมดซ้อม</button>
-        <button id="zoneIntroBtn" class="btn zone" type="button">กลับ Nutrition Zone</button>
-      </div>
-    </section>
-  </main>
-
-  <section id="summary" class="screen">
-    <section class="card">
-      <div id="summaryIcon" class="hero-icon">⭐</div>
-      <h1>สรุปผล cVR</h1>
-      <p id="rankText" class="lead">Food Rookie</p>
-
-      <div class="summary-stats">
-        <div class="stat"><b id="scoreText">0</b><span>คะแนน</span></div>
-        <div class="stat"><b id="accuracyText">0%</b><span>ความแม่นยำ</span></div>
-        <div class="stat"><b id="comboText">0</b><span>คอมโบสูงสุด</span></div>
-        <div class="stat"><b id="correctText">0</b><span>ตอบถูก</span></div>
+      <div class="targetPanel">
+        <b>🎯 Target Group</b>
+        <span id="targetText">แตะอาหาร แล้วแตะตอนประตูหมู่ที่ถูกไฮไลต์</span>
       </div>
 
-      <div id="summaryBadges" class="summary-badges"></div>
+      <div class="playZone" id="playZone">
+        <div class="foodToken" id="foodToken">
+          <div class="foodEmoji" id="foodEmoji">🥚</div>
+          <div class="foodName" id="foodName">ไข่</div>
+        </div>
 
-      <div class="actions">
-        <button id="replayBtn" class="btn primary" type="button">เล่นอีกครั้ง</button>
-        <button id="zoneBtn" class="btn zone" type="button">กลับ Nutrition Zone</button>
+        <div class="scanPanel">
+          <div class="selectedFood" id="selectedFood">เล็งอาหารที่กลางจอ แล้วแตะ 1 ครั้ง</div>
+        </div>
       </div>
-    </section>
+    </main>
+
+    <section class="gates" id="gates"></section>
+  </div>
+
+  <div class="crosshair">
+    <div class="crossDot"></div>
+  </div>
+
+  <div class="hint" id="hint">
+    cVR: แตะจอ = เลือก / ส่งเข้าประตูที่กำลังไฮไลต์
+  </div>
+
+  <div class="toast" id="toast">พร้อมเล่น</div>
+
+  <section class="summary" id="summary">
+    <div class="summaryCard">
+      <div class="summaryIcon">🏆</div>
+      <h2>สรุปผลการเล่น</h2>
+      <div class="rank" id="rankText">Food Learner</div>
+
+      <div class="summaryStats">
+        <div class="summaryStat"><b id="sumScore">0</b><span>คะแนน</span></div>
+        <div class="summaryStat"><b id="sumAcc">0%</b><span>ความแม่นยำ</span></div>
+        <div class="summaryStat"><b id="sumCombo">0</b><span>คอมโบสูงสุด</span></div>
+        <div class="summaryStat"><b id="sumCorrect">0</b><span>ตอบถูก</span></div>
+      </div>
+
+      <div class="badges" id="badges"></div>
+
+      <div class="summaryActions">
+        <button class="btn btnPrimary" id="btnReplay" type="button">เล่นอีกครั้ง</button>
+        <a class="btn btnSoft" id="btnMode" href="#">กลับโหมดเกม</a>
+        <a class="btn btnGreen" id="btnZone" href="#">กลับ Nutrition Zone</a>
+      </div>
+    </div>
   </section>
 
-  <div class="hud">
-    <div class="mission-card">
-      <div id="missionTitle" class="mission-title">Groups cVR</div>
-      <div id="missionSub" class="mission-sub">เล็งประตูหมู่ที่ถูก แล้วแตะจอ</div>
+  <section class="orientation">
+    <div class="orientationCard">
+      <b>📱 หมุนเป็นแนวนอน</b>
+      <p>Cardboard/cVR เล่นดีที่สุดในแนวนอน แล้วแตะจอเพื่อเลือกอาหารและประตู</p>
     </div>
-
-    <div class="chips">
-      <div id="scoreChip" class="chip yellow">Score 0</div>
-      <div id="timeChip" class="chip">90s</div>
-      <div id="heartChip" class="chip heart">❤️❤️❤️</div>
-    </div>
-  </div>
-
-  <div id="bottomHint" class="bottom-hint">เล็งประตูหมู่ที่ถูก แล้วแตะจอ</div>
-  <div id="toast" class="center-toast">Ready!</div>
-
-  <div id="countdown" class="countdown">
-    <div class="count-card">
-      <div id="countMain" class="count-main">3</div>
-      <div class="count-title">เตรียมเล็ง Crosshair!</div>
-      <div id="countTip" class="count-tip">หันหน้าไปที่ประตู แล้วแตะจอ</div>
-    </div>
-  </div>
-
-  <a-scene
-    id="scene"
-    renderer="antialias:true; colorManagement:true; physicallyCorrectLights:true"
-    background="color:#dff7ff"
-    vr-mode-ui="enabled:true"
-    embedded>
-
-    <a-assets></a-assets>
-
-    <a-entity environment="preset:forest; dressingAmount:18; groundColor:#bfeeff; groundColor2:#e8f9ff; skyColor:#dff7ff; horizonColor:#ffffff"></a-entity>
-
-    <a-entity id="rig" position="0 0 0">
-      <a-entity
-        id="camera"
-        camera
-        look-controls="pointerLockEnabled:false; reverseMouseDrag:false"
-        position="0 1.62 0">
-
-        <a-ring
-          id="crosshair"
-          position="0 0 -1.15"
-          radius-inner="0.012"
-          radius-outer="0.02"
-          color="#244e68"
-          material="shader:flat; opacity:.9">
-        </a-ring>
-
-        <a-ring
-          position="0 0 -1.151"
-          radius-inner="0.025"
-          radius-outer="0.027"
-          color="#ffffff"
-          material="shader:flat; opacity:.85">
-        </a-ring>
-      </a-entity>
-    </a-entity>
-
-    <a-entity light="type:hemisphere; intensity:1.25; color:#ffffff; groundColor:#bfeeff"></a-entity>
-    <a-entity light="type:directional; intensity:.75; color:#ffffff" position="0 5 4"></a-entity>
-
-    <a-entity id="arena" position="0 0 0">
-      <a-cylinder
-        position="0 .02 -3.2"
-        radius="3.8"
-        height=".035"
-        color="#ffffff"
-        material="opacity:.36; transparent:true">
-      </a-cylinder>
-
-      <a-torus
-        position="0 .08 -3.2"
-        radius="3.05"
-        radius-tubular=".012"
-        color="#7ed957"
-        material="opacity:.65; transparent:true">
-      </a-torus>
-
-      <a-entity id="gateRoot"></a-entity>
-      <a-entity id="itemRoot"></a-entity>
-      <a-entity id="fxRoot"></a-entity>
-    </a-entity>
-  </a-scene>
+  </section>
 
   <script>
-    (function(){
-      'use strict';
+  (function(){
+    'use strict';
 
-      const VERSION = 'v1.9b-cvr-core-decoy-pacing-20260515';
+    const APP_VERSION = 'v20260523-groups-cvr-standalone-01';
+    const qs = new URLSearchParams(location.search);
 
-      const GROUPS = [
-        {id:1,key:'protein',label:'โปรตีน',short:'PROTEIN',icon:'🐟',color:'#ff8e82',foods:['🐟','🥚','🍗','🥩','🫘','🥛']},
-        {id:2,key:'carb',label:'ข้าว/แป้ง',short:'CARB',icon:'🍚',color:'#f7c948',foods:['🍚','🍞','🥔','🍠','🌽','🍜']},
-        {id:3,key:'veg',label:'ผัก',short:'VEG',icon:'🥦',color:'#72d957',foods:['🥦','🥬','🥕','🥒','🍅','🫛']},
-        {id:4,key:'fruit',label:'ผลไม้',short:'FRUIT',icon:'🍎',color:'#ff8fc8',foods:['🍎','🍌','🍊','🍇','🍉','🍓','🥭','🍍']},
-        {id:5,key:'fat',label:'ไขมัน',short:'FAT',icon:'🥑',color:'#a98cff',foods:['🥑','🥜','🧈','🫒','🥥']}
-      ];
+    const $ = (id)=>document.getElementById(id);
 
-      const DECOYS = [
-        {icon:'🍩',label:'โดนัท'},
-        {icon:'🥤',label:'น้ำหวาน'},
-        {icon:'🍬',label:'ลูกอม'},
-        {icon:'🍟',label:'ของทอด'},
-        {icon:'🍰',label:'เค้ก'}
-      ];
+    const els = {
+      score:$('score'),
+      timeLeft:$('timeLeft'),
+      lives:$('lives'),
+      combo:$('combo'),
+      accuracy:$('accuracy'),
+      waveTitle:$('waveTitle'),
+      waveSub:$('waveSub'),
+      phaseChip:$('phaseChip'),
+      goalChip:$('goalChip'),
+      targetText:$('targetText'),
+      gates:$('gates'),
+      foodToken:$('foodToken'),
+      foodEmoji:$('foodEmoji'),
+      foodName:$('foodName'),
+      selectedFood:$('selectedFood'),
+      toast:$('toast'),
+      summary:$('summary'),
+      rankText:$('rankText'),
+      sumScore:$('sumScore'),
+      sumAcc:$('sumAcc'),
+      sumCombo:$('sumCombo'),
+      sumCorrect:$('sumCorrect'),
+      badges:$('badges'),
+      btnReplay:$('btnReplay'),
+      btnMode:$('btnMode'),
+      btnZone:$('btnZone')
+    };
 
-      const POWERS = [
-        {type:'shield',icon:'🛡️',label:'Shield'},
-        {type:'slow',icon:'⏱️',label:'Slow Time'}
-      ];
+    function repoBase(){
+      const path = location.pathname;
+      const marker = '/herohealth/';
+      const idx = path.indexOf(marker);
+      if(idx >= 0) return location.origin + path.slice(0, idx);
+      return location.origin + '/webxr-health-mobile';
+    }
 
-      const $ = id => document.getElementById(id);
+    const BASE = repoBase();
+    const HERO = BASE + '/herohealth';
+    const MODE_URL = HERO + '/groups-vr.html';
+    const ZONE_URL = HERO + '/nutrition-zone.html';
 
-      const els = {
-        intro:$('intro'),
-        summary:$('summary'),
-        startBtn:$('startBtn'),
-        practiceBtn:$('practiceBtn'),
-        zoneIntroBtn:$('zoneIntroBtn'),
-        replayBtn:$('replayBtn'),
-        zoneBtn:$('zoneBtn'),
-        scene:$('scene'),
-        camera:$('camera'),
-        gateRoot:$('gateRoot'),
-        itemRoot:$('itemRoot'),
-        fxRoot:$('fxRoot'),
-        countdown:$('countdown'),
-        countMain:$('countMain'),
-        countTip:$('countTip'),
-        missionTitle:$('missionTitle'),
-        missionSub:$('missionSub'),
-        scoreChip:$('scoreChip'),
-        timeChip:$('timeChip'),
-        heartChip:$('heartChip'),
-        bottomHint:$('bottomHint'),
-        toast:$('toast'),
-        summaryIcon:$('summaryIcon'),
-        rankText:$('rankText'),
-        scoreText:$('scoreText'),
-        accuracyText:$('accuracyText'),
-        comboText:$('comboText'),
-        correctText:$('correctText'),
-        summaryBadges:$('summaryBadges')
-      };
+    function getParam(name,fallback){
+      const v = qs.get(name);
+      return v === null || v === '' ? fallback : v;
+    }
 
-      const state = {
-        mode:'intro',
-        diff:'normal',
-        duration:90,
-        practice:false,
-        startedAt:0,
-        ended:false,
-        rng:null,
-        current:null,
-        itemEl:null,
-        itemY:2.45,
-        itemSpeed:.32,
-        score:0,
-        correct:0,
-        miss:0,
-        combo:0,
-        bestCombo:0,
-        hearts:3,
-        fever:0,
-        feverActive:false,
-        feverUntil:0,
-        feverCount:0,
-        shield:0,
-        slowUntil:0,
-        wave:1,
-        phase:'calm',
-        decoyDodged:0,
-        goldenHit:0,
-        bossCorrect:0,
-        missionClear:0,
-        powerUsed:{shield:0,slow:0},
-        groupHits:{protein:0,carb:0,veg:0,fruit:0,fat:0},
-        decoyStreak:0,
-        decoyCooldown:0,
-        lastKinds:[],
-        mission:null,
-        raf:0,
-        timer:null,
-        spawnLock:false,
-        lastShotAt:0,
-        audio:null
-      };
+    function buildReturnUrl(base){
+      const out = new URL(base);
+      [
+        'pid','name','studentId','studentName','classSection',
+        'studyId','conditionGroup','api','log','qa','debug','teacher'
+      ].forEach(k=>{
+        const v = qs.get(k);
+        if(v !== null && v !== '') out.searchParams.set(k,v);
+      });
 
-      function qs(name,fallback=''){
-        try{return new URL(location.href).searchParams.get(name) || fallback;}
-        catch(e){return fallback;}
+      out.searchParams.set('pid',getParam('pid','anon'));
+      out.searchParams.set('name',getParam('name','Hero'));
+      out.searchParams.set('diff',getParam('diff','normal'));
+      out.searchParams.set('time',getParam('time','90'));
+      out.searchParams.set('view','cvr');
+      out.searchParams.set('zone','nutrition');
+      out.searchParams.set('cat','nutrition');
+      out.searchParams.set('game','groups');
+      out.searchParams.set('gameId','groups');
+      return out.toString();
+    }
+
+    function replayUrl(){
+      const out = new URL(location.href);
+      out.searchParams.set('seed',String(Date.now()));
+      out.searchParams.set('run','play');
+      out.searchParams.set('view','cvr');
+      out.searchParams.set('device','cvr');
+      out.searchParams.set('cvr','1');
+      out.searchParams.set('vr','1');
+      return out.toString();
+    }
+
+    function hashSeed(str){
+      let h = 2166136261 >>> 0;
+      for(let i=0;i<str.length;i++){
+        h ^= str.charCodeAt(i);
+        h = Math.imul(h,16777619);
+      }
+      return h >>> 0;
+    }
+
+    let seed = hashSeed(String(getParam('seed',Date.now())));
+    function rand(){
+      seed += 0x6D2B79F5;
+      let t = seed;
+      t = Math.imul(t ^ t >>> 15, t | 1);
+      t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+
+    function pick(arr){
+      return arr[Math.floor(rand()*arr.length)];
+    }
+
+    const groups = [
+      {id:1,label:'หมู่ 1 โปรตีน',short:'โปรตีน',emoji:'🥚'},
+      {id:2,label:'หมู่ 2 ข้าว/แป้ง',short:'ข้าว/แป้ง',emoji:'🍚'},
+      {id:3,label:'หมู่ 3 ผัก',short:'ผัก',emoji:'🥦'},
+      {id:4,label:'หมู่ 4 ผลไม้',short:'ผลไม้',emoji:'🍌'},
+      {id:5,label:'หมู่ 5 ไขมัน',short:'ไขมัน',emoji:'🛢️'}
+    ];
+
+    const foods = [
+      {name:'ไข่',emoji:'🥚',g:1},{name:'ปลา',emoji:'🐟',g:1},{name:'ไก่',emoji:'🍗',g:1},{name:'นม',emoji:'🥛',g:1},{name:'ถั่ว',emoji:'🫘',g:1},
+      {name:'ข้าว',emoji:'🍚',g:2},{name:'ขนมปัง',emoji:'🍞',g:2},{name:'มันเทศ',emoji:'🍠',g:2},{name:'เส้นก๋วยเตี๋ยว',emoji:'🍜',g:2},{name:'ข้าวโพด',emoji:'🌽',g:2},
+      {name:'บรอกโคลี',emoji:'🥦',g:3},{name:'แครอท',emoji:'🥕',g:3},{name:'ผักใบเขียว',emoji:'🥬',g:3},{name:'มะเขือเทศ',emoji:'🍅',g:3},{name:'แตงกวา',emoji:'🥒',g:3},
+      {name:'กล้วย',emoji:'🍌',g:4},{name:'ส้ม',emoji:'🍊',g:4},{name:'แอปเปิล',emoji:'🍎',g:4},{name:'องุ่น',emoji:'🍇',g:4},{name:'มะม่วง',emoji:'🥭',g:4},
+      {name:'น้ำมัน',emoji:'🛢️',g:5},{name:'เนย',emoji:'🧈',g:5},{name:'กะทิ',emoji:'🥥',g:5},{name:'อะโวคาโด',emoji:'🥑',g:5},{name:'ถั่วเปลือกแข็ง',emoji:'🥜',g:5}
+    ];
+
+    const diff = String(getParam('diff','normal')).toLowerCase();
+    const cfg = {
+      easy:{scanMs:1050,moveSpeed:.55,life:4},
+      normal:{scanMs:850,moveSpeed:.72,life:3},
+      hard:{scanMs:680,moveSpeed:.92,life:3},
+      challenge:{scanMs:560,moveSpeed:1.08,life:2}
+    }[diff] || {scanMs:850,moveSpeed:.72,life:3};
+
+    const state = {
+      active:false,
+      ended:false,
+      time:Number(getParam('time','90')) || 90,
+      score:0,
+      correct:0,
+      total:0,
+      combo:0,
+      bestCombo:0,
+      lives:cfg.life,
+      itemsSeen:0,
+      current:null,
+      selected:null,
+      activeGate:1,
+      goal:5,
+      goalHit:0,
+      foodX:0,
+      foodY:0,
+      dx:0,
+      dy:0,
+      lastTs:0,
+      scanTimer:null,
+      tickTimer:null,
+      raf:0
+    };
+
+    function setupLinks(){
+      els.btnMode.href = buildReturnUrl(MODE_URL);
+      els.btnZone.href = buildReturnUrl(ZONE_URL);
+
+      els.btnReplay.addEventListener('click',()=>{
+        location.replace(replayUrl());
+      });
+    }
+
+    function renderGates(){
+      els.gates.innerHTML = '';
+      groups.forEach(g=>{
+        const el = document.createElement('div');
+        el.className = 'gate';
+        el.dataset.gate = String(g.id);
+        el.innerHTML = `
+          <div class="gateNum">${g.id}</div>
+          <div class="gateLabel">${g.label}</div>
+        `;
+        els.gates.appendChild(el);
+      });
+    }
+
+    function updateHud(){
+      els.score.textContent = String(state.score);
+      els.timeLeft.textContent = String(Math.max(0,Math.ceil(state.time)));
+      els.combo.textContent = String(state.combo);
+      els.lives.textContent = '💕'.repeat(Math.max(0,state.lives));
+      const acc = state.total ? Math.round(state.correct/state.total*100) : 0;
+      els.accuracy.textContent = acc + '%';
+      els.goalChip.textContent = 'Goal ' + state.goalHit + '/' + state.goal;
+    }
+
+    function setWave(){
+      if(state.correct >= 15){
+        els.waveTitle.textContent = 'Wave 4: Food Hero';
+        els.waveSub.textContent = 'จังหวะไวขึ้น แต่หมู่ต้องแม่น';
+        els.phaseChip.textContent = 'Hero Phase';
+      }else if(state.correct >= 10){
+        els.waveTitle.textContent = 'Wave 3: Combo Rush';
+        els.waveSub.textContent = 'คอมโบต่อเนื่องเพื่อปลด Badge';
+        els.phaseChip.textContent = 'Rush Phase';
+      }else if(state.correct >= 5){
+        els.waveTitle.textContent = 'Wave 2: Gate Focus';
+        els.waveSub.textContent = 'ดูหมู่ให้แม่นก่อนแตะ';
+        els.phaseChip.textContent = 'Focus Phase';
+      }else{
+        els.waveTitle.textContent = 'Wave 1: Rookie Sort';
+        els.waveSub.textContent = 'อาหารชิ้นเดียว เริ่มจับจังหวะให้แม่น';
+        els.phaseChip.textContent = 'Calm Phase';
+      }
+    }
+
+    function toast(msg){
+      els.toast.textContent = msg;
+      els.toast.classList.add('show');
+      clearTimeout(toast._t);
+      toast._t = setTimeout(()=>els.toast.classList.remove('show'),950);
+    }
+
+    function spawnFood(){
+      state.current = pick(foods);
+      state.selected = null;
+      state.itemsSeen += 1;
+
+      const arena = els.arena.getBoundingClientRect();
+      const marginX = Math.max(70, arena.width * .12);
+      const marginY = Math.max(60, arena.height * .18);
+
+      state.foodX = marginX + rand() * Math.max(40, arena.width - marginX*2);
+      state.foodY = marginY + rand() * Math.max(40, arena.height - marginY*2);
+
+      const angle = rand() * Math.PI * 2;
+      const sp = cfg.moveSpeed * (1 + Math.min(.45,state.correct*.018));
+      state.dx = Math.cos(angle) * sp;
+      state.dy = Math.sin(angle) * sp;
+
+      els.foodEmoji.textContent = state.current.emoji;
+      els.foodName.textContent = state.current.name;
+      els.selectedFood.textContent = 'เล็งอาหารที่กลางจอ แล้วแตะ 1 ครั้ง';
+      els.targetText.textContent = 'เลือกอาหารก่อน แล้วส่งเข้าหมู่ที่ถูก';
+      els.foodToken.classList.remove('aim');
+
+      setWave();
+      updateFoodPosition();
+    }
+
+    function updateFoodPosition(){
+      els.foodToken.style.left = state.foodX + 'px';
+      els.foodToken.style.top = state.foodY + 'px';
+
+      const rect = els.foodToken.getBoundingClientRect();
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const fx = rect.left + rect.width/2;
+      const fy = rect.top + rect.height/2;
+      const dist = Math.hypot(cx-fx,cy-fy);
+
+      els.foodToken.classList.toggle('aim', dist < 115);
+    }
+
+    function moveFood(ts){
+      if(!state.active || state.ended) return;
+
+      if(!state.lastTs) state.lastTs = ts;
+      const dt = Math.min(34, ts - state.lastTs);
+      state.lastTs = ts;
+
+      if(!state.selected){
+        const arena = els.arena.getBoundingClientRect();
+        state.foodX += state.dx * dt;
+        state.foodY += state.dy * dt;
+
+        const minX = 48;
+        const maxX = arena.width - 48;
+        const minY = 62;
+        const maxY = arena.height - 44;
+
+        if(state.foodX < minX){state.foodX = minX; state.dx *= -1}
+        if(state.foodX > maxX){state.foodX = maxX; state.dx *= -1}
+        if(state.foodY < minY){state.foodY = minY; state.dy *= -1}
+        if(state.foodY > maxY){state.foodY = maxY; state.dy *= -1}
+
+        updateFoodPosition();
       }
 
-      function clamp(n,min,max){
-        n = Number(n);
-        if(!Number.isFinite(n)) n = min;
-        return Math.max(min,Math.min(max,n));
-      }
-
-      function xmur3(str){
-        let h = 1779033703 ^ str.length;
-        for(let i=0;i<str.length;i++){
-          h = Math.imul(h ^ str.charCodeAt(i),3432918353);
-          h = (h << 13) | (h >>> 19);
-        }
-        return function(){
-          h = Math.imul(h ^ (h >>> 16),2246822507);
-          h = Math.imul(h ^ (h >>> 13),3266489909);
-          h ^= h >>> 16;
-          return h >>> 0;
-        };
-      }
-
-      function sfc32(a,b,c,d){
-        return function(){
-          a >>>= 0; b >>>= 0; c >>>= 0; d >>>= 0;
-          let t = (a + b) | 0;
-          a = b ^ (b >>> 9);
-          b = (c + (c << 3)) | 0;
-          c = (c << 21) | (c >>> 11);
-          d = (d + 1) | 0;
-          t = (t + d) | 0;
-          c = (c + t) | 0;
-          return (t >>> 0) / 4294967296;
-        };
-      }
-
-      function makeRng(){
-        const seed = [qs('seed','groups-cvr'),qs('pid','anon'),qs('diff','normal'),VERSION].join('|');
-        const f = xmur3(seed);
-        return sfc32(f(),f(),f(),f());
-      }
-
-      function rnd(){
-        if(!state.rng) state.rng = makeRng();
-        return state.rng();
-      }
-
-      function pick(arr){
-        return arr[Math.floor(rnd()*arr.length) % arr.length];
-      }
-
-      function showScreen(name){
-        els.intro.classList.remove('active');
-        els.summary.classList.remove('active');
-
-        document.body.classList.toggle('playing',name === 'game');
-
-        if(name === 'intro') els.intro.classList.add('active');
-        if(name === 'summary') els.summary.classList.add('active');
-
-        state.mode = name;
-      }
-
-      function zoneUrl(){
-        const hub = qs('hub','');
-
-        if(hub && hub.includes('nutrition-zone.html')) return hub;
-
-        const u = new URL('https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html');
-
-        ['pid','name','diff','time','view','seed','studyId','conditionGroup'].forEach(k=>{
-          const v = qs(k,'');
-          if(v) u.searchParams.set(k,v);
-        });
-
-        u.searchParams.set('zone','nutrition');
-        u.searchParams.set('from','groups-cvr');
-        u.searchParams.set('hub','https://supparang.github.io/webxr-health-mobile/herohealth/hub.html');
-
-        return u.toString();
-      }
-
-      function roundedRect(ctx,x,y,w,h,r){
-        ctx.beginPath();
-        ctx.moveTo(x+r,y);
-        ctx.arcTo(x+w,y,x+w,y+h,r);
-        ctx.arcTo(x+w,y+h,x,y+h,r);
-        ctx.arcTo(x,y+h,x,y,r);
-        ctx.arcTo(x,y,x+w,y,r);
-        ctx.closePath();
-      }
-
-      function makeCanvasTexture(lines, opts){
-        opts = opts || {};
-
-        const canvas = document.createElement('canvas');
-        const size = opts.size || 512;
-        canvas.width = size;
-        canvas.height = size;
-
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0,0,size,size);
-
-        if(opts.round){
-          roundedRect(ctx, 18, 18, size-36, size-36, opts.radius || 58);
-          ctx.fillStyle = opts.bg || '#ffffff';
-          ctx.fill();
-        }else{
-          ctx.fillStyle = opts.bg || '#ffffff';
-          ctx.beginPath();
-          ctx.arc(size/2,size/2,size*.46,0,Math.PI*2);
-          ctx.fill();
-        }
-
-        if(opts.border){
-          ctx.lineWidth = opts.borderWidth || 14;
-          ctx.strokeStyle = opts.border;
-          if(opts.round){
-            roundedRect(ctx, 18, 18, size-36, size-36, opts.radius || 58);
-            ctx.stroke();
-          }else{
-            ctx.beginPath();
-            ctx.arc(size/2,size/2,size*.45,0,Math.PI*2);
-            ctx.stroke();
-          }
-        }
-
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
-        lines.forEach(line=>{
-          ctx.font = line.font;
-          ctx.fillStyle = line.color || '#244e68';
-          ctx.fillText(line.text, line.x || size/2, line.y);
-        });
-
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.needsUpdate = true;
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-
-        return texture;
-      }
-
-      function setTexture(el, texture, transparent){
-        const apply = ()=>{
-          const mesh = el.getObject3D('mesh');
-          if(!mesh) return;
-
-          mesh.material = new THREE.MeshBasicMaterial({
-            map:texture,
-            transparent:transparent !== false,
-            side:THREE.DoubleSide
-          });
-
-          mesh.material.needsUpdate = true;
-        };
-
-        if(el.getObject3D('mesh')) apply();
-        else el.addEventListener('loaded',apply,{once:true});
-      }
-
-      function gateTexture(group){
-        return makeCanvasTexture([
-          {text:String(group.id), y:142, font:'bold 90px system-ui', color:'#ffffff'},
-          {text:group.short, y:260, font:'bold 48px system-ui', color:'#244e68'},
-          {text:group.label, y:334, font:'bold 42px system-ui', color:'#244e68'}
-        ],{
-          round:true,
-          radius:58,
-          bg:group.color,
-          border:'#ffffff',
-          borderWidth:12
-        });
-      }
-
-      function itemTexture(item){
-        let border = '#7ed957';
-        let bg = '#ffffff';
-        let label = 'FOOD';
-
-        if(item.kind === 'decoy'){
-          border = '#ff7d7d';
-          bg = '#fff0f0';
-          label = 'DON’T SHOOT';
-        }else if(item.kind === 'golden'){
-          border = '#ffd966';
-          bg = '#fff8b8';
-          label = 'GOLDEN';
-        }else if(item.kind === 'power'){
-          border = '#61bbff';
-          bg = '#eaf8ff';
-          label = 'POWER';
-        }
-
-        return makeCanvasTexture([
-          {text:item.icon, y:210, font:'120px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif', color:'#244e68'},
-          {text:label, y:342, font:'bold 42px system-ui', color:'#244e68'}
-        ],{
-          round:false,
-          bg,
-          border,
-          borderWidth:15
-        });
-      }
-
-      function buildGates(){
-        els.gateRoot.innerHTML = '';
-
-        const positions = [
-          {x:-2.35,y:1.17,z:-3.65,rot:'0 20 0'},
-          {x:-1.15,y:1.17,z:-4.05,rot:'0 10 0'},
-          {x:0,y:1.17,z:-4.2,rot:'0 0 0'},
-          {x:1.15,y:1.17,z:-4.05,rot:'0 -10 0'},
-          {x:2.35,y:1.17,z:-3.65,rot:'0 -20 0'}
-        ];
-
-        GROUPS.forEach((g,i)=>{
-          const el = document.createElement('a-plane');
-          const p = positions[i];
-
-          el.setAttribute('position',`${p.x} ${p.y} ${p.z}`);
-          el.setAttribute('rotation',p.rot);
-          el.setAttribute('width','0.95');
-          el.setAttribute('height','0.72');
-          el.setAttribute('class','clickable gateTarget');
-          el.dataset.role = 'gate';
-          el.dataset.group = g.key;
-          el.dataset.id = String(g.id);
-
-          el.addEventListener('click',ev=>{
-            ev.preventDefault();
-            ev.stopPropagation();
-          });
-
-          el.addEventListener('mouseenter',()=>el.setAttribute('scale','1.08 1.08 1.08'));
-          el.addEventListener('mouseleave',()=>el.setAttribute('scale','1 1 1'));
-
-          els.gateRoot.appendChild(el);
-          setTexture(el, gateTexture(g), true);
-        });
-      }
-
-      function unlockAudio(){
-        try{
-          if(!state.audio){
-            const AC = window.AudioContext || window.webkitAudioContext;
-            if(AC) state.audio = new AC();
-          }
-          if(state.audio && state.audio.state === 'suspended') state.audio.resume();
-        }catch(e){}
-      }
-
-      function beep(type){
-        try{
-          unlockAudio();
-
-          const ctx = state.audio;
-          if(!ctx) return;
-
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-
-          let f = 650;
-          let d = .08;
-          let wave = 'sine';
-
-          if(type === 'correct'){ f = 780; d = .07; }
-          if(type === 'miss'){ f = 180; d = .13; wave = 'sawtooth'; }
-          if(type === 'golden'){ f = 980; d = .11; }
-          if(type === 'power'){ f = 860; d = .1; }
-          if(type === 'fever'){ f = 1220; d = .16; }
-          if(type === 'boss'){ f = 360; d = .16; wave = 'sawtooth'; }
-
-          osc.frequency.value = f;
-          osc.type = wave;
-
-          gain.gain.setValueAtTime(.001,ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(.05,ctx.currentTime+.012);
-          gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+d);
-
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-
-          osc.start();
-          osc.stop(ctx.currentTime+d+.02);
-        }catch(e){}
-      }
-
-      function vibrate(pattern){
-        try{
-          if(navigator.vibrate) navigator.vibrate(pattern);
-        }catch(e){}
-      }
-
-      function toast(text){
-        els.toast.textContent = text;
-        els.toast.classList.remove('show');
-        void els.toast.offsetWidth;
-        els.toast.classList.add('show');
-      }
-
-      function start(practice){
-        if(state.mode !== 'intro') return;
-
-        state.practice = Boolean(practice);
-        state.diff = qs('diff','normal');
-        state.duration = practice ? 45 : clamp(Number(qs('time','90')) || 90,45,240);
-        state.startedAt = Date.now();
-        state.ended = false;
-        state.rng = makeRng();
-
-        state.current = null;
-        state.itemEl = null;
-        state.itemY = 2.45;
-        state.score = 0;
-        state.correct = 0;
-        state.miss = 0;
-        state.combo = 0;
-        state.bestCombo = 0;
-        state.hearts = practice ? 5 : 3;
-        state.fever = 0;
-        state.feverActive = false;
-        state.feverUntil = 0;
-        state.feverCount = 0;
-        state.shield = 0;
-        state.slowUntil = 0;
-        state.wave = 1;
-        state.phase = 'calm';
-        state.decoyDodged = 0;
-        state.goldenHit = 0;
-        state.bossCorrect = 0;
-        state.missionClear = 0;
-        state.powerUsed = {shield:0,slow:0};
-        state.groupHits = {protein:0,carb:0,veg:0,fruit:0,fat:0};
-        state.decoyStreak = 0;
-        state.decoyCooldown = 0;
-        state.lastKinds = [];
-        state.spawnLock = false;
-
-        els.itemRoot.innerHTML = '';
-        els.fxRoot.innerHTML = '';
-
-        unlockAudio();
-        buildGates();
-        showScreen('game');
-        newMission();
-        updateHud();
-        runCountdown();
-      }
-
-      function runCountdown(){
-        els.countdown.classList.add('active');
-
-        const steps = [
-          {t:0,text:'3',tip:'หันหน้าไปที่ประตู'},
-          {t:760,text:'2',tip:'เล็ง crosshair ให้ตรง'},
-          {t:1520,text:'1',tip:'แตะจอเพื่อยิง'},
-          {t:2280,text:'เริ่ม!',tip:'ลุยเลย!'}
-        ];
-
-        steps.forEach(s=>{
-          setTimeout(()=>{
-            els.countMain.textContent = s.text;
-            els.countTip.textContent = s.tip;
-          },s.t);
-        });
-
-        setTimeout(()=>{
-          els.countdown.classList.remove('active');
-          spawnItem();
-          state.timer = setInterval(tick,250);
-          state.raf = requestAnimationFrame(loop);
-        },3000);
-      }
-
-      function elapsed(){
-        return Math.floor((Date.now()-state.startedAt)/1000);
-      }
-
-      function remain(){
-        return Math.max(0,state.duration-elapsed());
-      }
-
-      function updatePhase(){
-        const old = state.phase;
-        const e = elapsed();
-        const r = remain();
-
-        if(r <= Math.max(18,state.duration*.25)){
-          state.wave = 3;
-          state.phase = 'boss';
-        }else if(e >= Math.max(24,state.duration*.35)){
-          state.wave = 2;
-          state.phase = 'storm';
-        }else{
-          state.wave = 1;
-          state.phase = 'calm';
-        }
-
-        if(old !== state.phase){
-          if(state.phase === 'boss'){
-            toast('👑 Boss Rush!');
-            beep('boss');
-          }else if(state.phase === 'storm'){
-            toast('⚡ Speed Sort!');
-            beep('power');
-          }
-
-          newMission();
-        }
-      }
-
-      function tick(){
-        if(state.ended) return;
-
-        if(state.feverActive && Date.now() >= state.feverUntil){
-          state.feverActive = false;
-          state.fever = 0;
-          toast('Fever จบแล้ว');
-        }
-
-        updatePhase();
-        updateHud();
-
-        if(remain() <= 0 || state.hearts <= 0){
-          endGame('time-or-heart');
-        }
-      }
-
-      function itemFallSpeed(){
-        let base = .32;
-
-        if(state.diff === 'easy') base = .25;
-        if(state.diff === 'hard') base = .42;
-        if(state.diff === 'challenge') base = .50;
-
-        if(state.phase === 'storm') base *= 1.18;
-        if(state.phase === 'boss') base *= 1.38;
-        if(state.feverActive) base *= 1.1;
-        if(Date.now() < state.slowUntil) base *= .62;
-
-        base += Math.min(.14,state.combo * .006);
-
-        return base;
-      }
-
-      function loop(){
-        if(state.ended || state.mode !== 'game') return;
-
-        if(state.current && state.itemEl && state.itemEl.isConnected && !state.spawnLock){
-          state.itemY -= itemFallSpeed() / 60;
-          state.itemEl.setAttribute('position',`0 ${state.itemY.toFixed(3)} -2.65`);
-
-          if(state.itemY < .72){
-            onItemPassed();
-          }
-        }
-
-        state.raf = requestAnimationFrame(loop);
-      }
-
-      function chooseItem(){
-        let decoyRate = .08;
-        let goldenRate = .10;
-        let powerRate = .07;
-
-        if(state.diff === 'easy'){
-          decoyRate = .05;
-          goldenRate = .13;
-          powerRate = .08;
-        }
-
-        if(state.diff === 'hard'){
-          decoyRate = .12;
-          goldenRate = .09;
-          powerRate = .07;
-        }
-
-        if(state.diff === 'challenge'){
-          decoyRate = .16;
-          goldenRate = .08;
-          powerRate = .07;
-        }
-
-        if(state.phase === 'storm'){
-          decoyRate += .03;
-        }
-
-        if(state.phase === 'boss'){
-          decoyRate += .05;
-        }
-
-        if(state.feverActive){
-          goldenRate += .04;
-          decoyRate = Math.max(.04, decoyRate - .03);
-        }
-
-        const missionNeedsDecoy =
-          state.mission &&
-          state.mission.type === 'dodge' &&
-          Number(state.mission.got || 0) < Number(state.mission.need || 0);
-
-        if(missionNeedsDecoy){
-          decoyRate = Math.max(decoyRate, .14);
-        }
-
-        if(state.decoyCooldown > 0){
-          decoyRate = 0;
-        }
-
-        if(state.decoyStreak >= 1){
-          decoyRate = 0;
-        }
-
-        const recentDecoys = (state.lastKinds || []).filter(k => k === 'decoy').length;
-
-        if(recentDecoys >= 2){
-          decoyRate = 0;
-        }
-
-        decoyRate = clamp(decoyRate, 0, .18);
-
-        const roll = rnd();
-        let item;
-
-        if(roll < powerRate){
-          const p = pick(POWERS);
-          item = {kind:'power',icon:p.icon,power:p.type,label:p.label,group:null};
-        }else if(roll < powerRate + decoyRate){
-          const d = pick(DECOYS);
-          item = {kind:'decoy',icon:d.icon,label:d.label,group:null};
-        }else{
-          const group = pick(GROUPS);
-          const icon = pick(group.foods);
-
-          if(roll < powerRate + decoyRate + goldenRate){
-            item = {kind:'golden',icon,group,label:group.label};
-          }else{
-            item = {kind:'food',icon,group,label:group.label};
-          }
-        }
-
-        if(item.kind === 'decoy'){
-          state.decoyStreak = (state.decoyStreak || 0) + 1;
-          state.decoyCooldown = missionNeedsDecoy ? 1 : 3;
-        }else{
-          state.decoyStreak = 0;
-          state.decoyCooldown = Math.max(0, Number(state.decoyCooldown || 0) - 1);
-        }
-
-        state.lastKinds = (state.lastKinds || []).concat(item.kind).slice(-5);
-
-        return item;
-      }
-
-      function spawnItem(){
-        if(state.ended || state.mode !== 'game') return;
-
-        els.itemRoot.innerHTML = '';
-        state.spawnLock = false;
-
-        const item = chooseItem();
-        state.current = item;
-        state.itemY = 2.45;
-
-        const el = document.createElement('a-plane');
-        el.setAttribute('position','0 2.45 -2.65');
-        el.setAttribute('width','.82');
-        el.setAttribute('height','.82');
-        el.setAttribute('class','clickable itemTarget');
-        el.dataset.role = 'item';
-
-        if(item.kind === 'decoy') el.dataset.kind = 'decoy';
-        if(item.kind === 'power') el.dataset.kind = 'power';
-        if(item.kind === 'golden') el.dataset.kind = 'golden';
-        if(item.kind === 'food') el.dataset.kind = 'food';
-
-        el.addEventListener('click',ev=>{
-          ev.preventDefault();
-          ev.stopPropagation();
-        });
-
-        els.itemRoot.appendChild(el);
-        setTexture(el,itemTexture(item),true);
-        state.itemEl = el;
-
-        updateItemHint();
-      }
-
-      function updateItemHint(){
-        const item = state.current;
-        if(!item) return;
-
-        if(item.kind === 'power'){
-          const text = item.power === 'shield'
-            ? '🛡️ เล็ง Shield แล้วแตะเพื่อเก็บ'
-            : '⏱️ เล็ง Slow Time แล้วแตะเพื่อเก็บ';
-          els.bottomHint.textContent = text;
-          els.missionSub.textContent = text;
-          return;
-        }
-
-        if(item.kind === 'decoy'){
-          els.bottomHint.textContent = `🚫 ${item.icon} ตัวหลอก ห้ามยิง ปล่อยให้ผ่านไป`;
-          els.missionSub.textContent = 'ตัวหลอก: ห้ามยิง';
-          return;
-        }
-
-        if(item.kind === 'golden'){
-          els.bottomHint.textContent = `⭐ Golden ${item.icon}: ยิงประตูหมู่ ${item.group.id} ${item.group.label}`;
-          els.missionSub.textContent = `Golden → หมู่ ${item.group.id}`;
-          return;
-        }
-
-        els.bottomHint.textContent = `${item.icon} ยิงประตูหมู่ ${item.group.id} ${item.group.label}`;
-        els.missionSub.textContent = `ยิงประตูหมู่ ${item.group.id} ${item.group.label}`;
-      }
-
-      function onItemPassed(){
-        if(!state.current || state.spawnLock) return;
-
-        const item = state.current;
-        state.spawnLock = true;
-
-        if(item.kind === 'decoy'){
-          state.decoyDodged += 1;
-          state.score += state.feverActive ? 12 : 6;
-          addFever(8);
-          missionProgress('dodge',item);
-          toast('🚫 หลบได้ +6');
-          beep('correct');
-          setTimeout(spawnItem,520);
-          return;
-        }
-
-        if(item.kind === 'power'){
-          toast('พลาด Power');
-          setTimeout(spawnItem,420);
-          return;
-        }
-
-        miss('ชนพื้น! -1 ❤️');
-      }
-
-      function handleItemShot(){
-        if(!state.current || state.ended || state.spawnLock) return;
-
-        const item = state.current;
-
-        if(item.kind === 'power'){
-          collectPower(item);
-          return;
-        }
-
-        if(item.kind === 'decoy'){
-          miss('ยิงตัวหลอก! -1 ❤️');
-          return;
-        }
-
-        toast('เล็งประตูหมู่ที่ถูก แล้วแตะจอเพื่อยิง');
-        vibrate(18);
-      }
-
-      function judgeGate(groupKey){
-        if(!state.current || state.ended || state.spawnLock) return;
-
-        const item = state.current;
-
-        if(item.kind === 'power'){
-          toast('เล็งที่ Power เพื่อเก็บ');
-          return;
-        }
-
-        if(item.kind === 'decoy'){
-          miss('ยิงตอนตัวหลอก! -1 ❤️');
-          return;
-        }
-
-        const ok = item.group && item.group.key === groupKey;
-
-        if(ok) correct();
-        else miss('ผิดหมู่! -1 ❤️');
-      }
-
-      function correct(){
-        const item = state.current;
-        if(!item || state.spawnLock) return;
-
-        state.spawnLock = true;
+      state.raf = requestAnimationFrame(moveFood);
+    }
+
+    function startGateScan(){
+      clearInterval(state.scanTimer);
+      state.activeGate = 1;
+      updateGateActive();
+
+      state.scanTimer = setInterval(()=>{
+        state.activeGate += 1;
+        if(state.activeGate > 5) state.activeGate = 1;
+        updateGateActive();
+      }, cfg.scanMs);
+    }
+
+    function updateGateActive(){
+      document.querySelectorAll('.gate').forEach(g=>{
+        g.classList.toggle('active', Number(g.dataset.gate) === state.activeGate);
+      });
+    }
+
+    function selectFood(){
+      if(!state.current) return;
+
+      state.selected = state.current;
+      els.selectedFood.textContent =
+        'เลือกแล้ว: ' + state.selected.emoji + ' ' + state.selected.name +
+        ' • แตะตอนประตูหมู่ที่ถูกไฮไลต์';
+      els.targetText.textContent =
+        state.selected.name + ' อยู่หมู่ไหน? แตะตอนประตูถูกไฮไลต์';
+      els.foodToken.classList.add('aim');
+
+      toast('เลือก ' + state.selected.name + ' แล้ว • รอประตูที่ถูก');
+      startGateScan();
+    }
+
+    function flashGate(gate, cls){
+      const el = document.querySelector('.gate[data-gate="'+gate+'"]');
+      if(!el) return;
+      el.classList.add(cls);
+      setTimeout(()=>el.classList.remove(cls),420);
+    }
+
+    function judge(){
+      if(!state.selected) return selectFood();
+
+      const correctGate = state.selected.g;
+      const chosen = state.activeGate;
+      state.total += 1;
+
+      if(chosen === correctGate){
         state.correct += 1;
         state.combo += 1;
         state.bestCombo = Math.max(state.bestCombo,state.combo);
-
-        if(item.group){
-          state.groupHits[item.group.key] = (state.groupHits[item.group.key] || 0) + 1;
-        }
-
-        if(state.phase === 'boss') state.bossCorrect += 1;
-
-        let gain = 9 + Math.min(state.combo,14);
-
-        if(item.kind === 'golden'){
-          gain += 20;
-          state.goldenHit += 1;
-        }
-
-        if(state.phase === 'storm') gain += 4;
-        if(state.phase === 'boss') gain += 8;
-        if(state.feverActive) gain *= 2;
-
-        state.score += gain;
-        addFever(item.kind === 'golden' ? 30 : (state.phase === 'boss' ? 16 : 12));
-        missionProgress('correct',item);
-
-        toast(item.kind === 'golden' ? `⭐ Golden +${gain}` : `เยี่ยม! +${gain}`);
-        beep(item.kind === 'golden' ? 'golden' : 'correct');
-        vibrate([20,15,20]);
-
-        setTimeout(spawnItem,620);
-      }
-
-      function miss(label){
-        if(state.spawnLock) return;
-
-        state.spawnLock = true;
-
-        if(state.shield > 0){
-          state.shield -= 1;
-          state.combo = 0;
-          state.fever = Math.max(0,state.fever - 12);
-          toast('🛡️ Shield ช่วยไว้!');
-          beep('power');
-          vibrate([25,15,25]);
-          setTimeout(spawnItem,760);
-          return;
-        }
-
-        state.miss += 1;
-        state.combo = 0;
-        state.hearts -= 1;
-        state.fever = Math.max(0,state.fever - 24);
-
-        toast(label || 'พลาด! -1 ❤️');
-        beep('miss');
-        vibrate([35,25,35]);
-
-        if(state.hearts <= 0){
-          endGame('no-heart');
-        }else{
-          setTimeout(spawnItem,820);
-        }
-      }
-
-      function collectPower(item){
-        if(!item || state.spawnLock) return;
-
-        state.spawnLock = true;
-
-        if(item.power === 'shield'){
-          state.shield = clamp(state.shield + 1,0,2);
-          state.powerUsed.shield += 1;
-          toast('🛡️ Shield +1');
-        }else if(item.power === 'slow'){
-          state.slowUntil = Date.now() + 5600;
-          state.powerUsed.slow += 1;
-          toast('⏱️ Slow Time!');
-        }
-
-        state.score += 8;
-        addFever(10);
-        beep('power');
-        vibrate([24,15,24]);
-
-        setTimeout(spawnItem,600);
-      }
-
-      function addFever(amount){
-        if(state.feverActive) return;
-
-        state.fever = clamp(state.fever + amount,0,100);
-
-        if(state.fever >= 100){
-          state.feverActive = true;
-          state.feverUntil = Date.now() + 8200;
-          state.feverCount += 1;
-          toast('🔥 FEVER x2!');
-          beep('fever');
-          vibrate([35,20,35]);
-        }
-      }
-
-      function newMission(){
-        const pool = [];
-        const g = pick(GROUPS);
-
-        pool.push({type:'group',icon:g.icon,label:`หมู่ ${g.id} ${g.label}`,key:g.key,need:state.phase === 'boss' ? 3 : 2,got:0});
-        pool.push({type:'combo',icon:'🔥',label:`คอมโบ ${state.phase === 'boss' ? 5 : 4}`,need:state.phase === 'boss' ? 5 : 4,got:0});
-        pool.push({type:'dodge',icon:'🚫',label:'หลบตัวหลอก 2 ครั้ง',need:2,got:0});
-
-        if(state.phase !== 'calm'){
-          pool.push({type:'golden',icon:'⭐',label:'เก็บ Golden 1 ครั้ง',need:1,got:0});
-        }
-
-        if(state.phase === 'boss'){
-          pool.push({type:'boss',icon:'👑',label:'Boss: ตอบถูก 4 ครั้ง',need:4,got:0});
-        }
-
-        state.mission = pick(pool);
-        updateHud();
-      }
-
-      function missionProgress(type,item){
-        const m = state.mission;
-        if(!m) return;
-
-        let changed = false;
-
-        if(type === 'correct'){
-          if(m.type === 'group' && item.group && item.group.key === m.key){ m.got += 1; changed = true; }
-          if(m.type === 'combo'){ m.got = Math.max(m.got,Math.min(m.need,state.combo)); changed = true; }
-          if(m.type === 'golden' && item.kind === 'golden'){ m.got += 1; changed = true; }
-          if(m.type === 'boss' && state.phase === 'boss'){ m.got += 1; changed = true; }
-        }
-
-        if(type === 'dodge' && m.type === 'dodge'){
-          m.got += 1;
-          changed = true;
-        }
-
-        if(!changed) return;
-
-        m.got = clamp(m.got,0,m.need);
-
-        if(m.got >= m.need){
-          state.missionClear += 1;
-          state.score += 25;
-          addFever(20);
-          toast('⭐ Mission Clear +25');
-          beep('golden');
-
-          setTimeout(()=>{
-            if(!state.ended) newMission();
-          },520);
-        }
-      }
-
-      function updateHud(){
-        const m = state.mission;
-
-        els.scoreChip.textContent = 'Score ' + state.score;
-        els.timeChip.textContent = remain() + 's';
-        els.heartChip.textContent = '❤️'.repeat(Math.max(0,state.hearts));
-
-        if(m){
-          els.missionTitle.textContent = `${m.icon} Mission: ${m.label} ${m.got}/${m.need}`;
-        }
-
-        if(state.feverActive){
-          els.scoreChip.textContent = '🔥 Fever x2';
-        }
-
-        if(state.shield > 0){
-          els.heartChip.textContent += ` 🛡️${state.shield}`;
-        }
-      }
-
-      function directShootTargetElement(target){
-        if(!target || state.ended || state.mode !== 'game' || state.spawnLock) return false;
-
-        const ds = target.dataset || {};
-        const role = ds.role || '';
-
-        if(role === 'gate'){
-          judgeGate(ds.group);
-          return true;
-        }
-
-        if(role === 'item'){
-          handleItemShot();
-          return true;
-        }
-
-        return false;
-      }
-
-      function raycastShoot(){
-        return false;
-      }
-
-      function rank(){
-        const total = Math.max(1,state.correct + state.miss);
-        const acc = Math.round((state.correct / total) * 100);
-
-        if(acc >= 90 && state.bestCombo >= 8 && state.correct >= 14){
-          return {name:'VR Food Hero',icon:'🏆'};
-        }
-
-        if(acc >= 78 && state.bestCombo >= 5){
-          return {name:'Smart VR Eater',icon:'⭐'};
-        }
-
-        if(acc >= 58){
-          return {name:'VR Food Explorer',icon:'🌱'};
-        }
-
-        return {name:'VR Food Rookie',icon:'💪'};
-      }
-
-      function badges(){
-        const out = [];
-
-        if(state.goldenHit >= 1) out.push('⭐ Golden Shooter');
-        if(state.decoyDodged >= 2) out.push('🚫 Decoy Dodger');
-        if(state.feverCount >= 1) out.push('🔥 Fever Finisher');
-        if(state.powerUsed.shield >= 1) out.push('🛡️ Shield Collector');
-        if(state.missionClear >= 2) out.push('🎯 Mission Clear');
-        if(state.bossCorrect >= 4) out.push('👑 Boss Breaker');
-
-        if(out.length === 0) out.push('🌱 Keep Growing');
-
-        return out.slice(0,6);
-      }
-
-      function endGame(reason){
-        if(state.ended) return;
-
-        state.ended = true;
-
-        clearInterval(state.timer);
-        cancelAnimationFrame(state.raf);
-
-        els.itemRoot.innerHTML = '';
-        els.fxRoot.innerHTML = '';
-
-        const total = Math.max(1,state.correct + state.miss);
-        const acc = Math.round((state.correct / total) * 100);
-        const r = rank();
-        const badgeList = badges();
-
-        els.summaryIcon.textContent = r.icon;
-        els.rankText.textContent = r.name;
-        els.scoreText.textContent = state.score;
-        els.accuracyText.textContent = acc + '%';
-        els.comboText.textContent = state.bestCombo;
-        els.correctText.textContent = state.correct;
-        els.summaryBadges.innerHTML = badgeList.map(b=>`<span class="summary-badge">${b}</span>`).join('');
-
-        const summary = {
-          ts:new Date().toISOString(),
-          game:'groups',
-          mode:'solo-cvr',
-          patch:VERSION,
-          reason,
-          pid:qs('pid','anon'),
-          name:qs('name','Hero'),
-          diff:state.diff,
-          duration:state.duration,
-          score:state.score,
-          correct:state.correct,
-          miss:state.miss,
-          accuracy:acc,
-          bestCombo:state.bestCombo,
-          decoyDodged:state.decoyDodged,
-          goldenHit:state.goldenHit,
-          bossCorrect:state.bossCorrect,
-          missionClear:state.missionClear,
-          feverCount:state.feverCount,
-          powerUsed:state.powerUsed,
-          badges:badgeList,
-          rank:r.name
-        };
-
-        try{
-          localStorage.setItem('HHA_GROUPS_CVR_SUMMARY',JSON.stringify(summary));
-          localStorage.setItem('HHA_LAST_SUMMARY',JSON.stringify({
-            ts:summary.ts,
-            game:'groups',
-            mode:'solo-cvr',
-            summary
-          }));
-
-          window.dispatchEvent(new CustomEvent('groups-cvr:end',{detail:summary}));
-          window.dispatchEvent(new CustomEvent('groups:end',{detail:summary}));
-          window.dispatchEvent(new CustomEvent('hha:summary-enriched',{detail:summary}));
-        }catch(e){}
-
-        showScreen('summary');
-      }
-
-      function replay(){
-        const u = new URL(location.href);
-        u.searchParams.set('seed',String(Date.now()));
-        location.href = u.toString();
-      }
-
-      function goZone(){
-        location.href = zoneUrl();
-      }
-
-      function recoverArena(){
-        if(state.ended || state.mode !== 'game') return false;
-
-        try{
-          if(document.querySelectorAll('.clickable[data-role="gate"]').length < 5){
-            buildGates();
-          }
-        }catch(e){}
-
-        try{
-          const hasItem = Boolean(state.current && state.itemEl && state.itemEl.isConnected);
-          if(!hasItem){
-            state.spawnLock = false;
-            spawnItem();
-          }
-        }catch(e){}
-
-        try{
-          updateHud();
-        }catch(e){}
-
-        return true;
-      }
-
-      function softRetry(reason){
-        if(state.ended || state.mode !== 'game') return false;
-
-        state.spawnLock = false;
-
-        try{
-          if(state.current && state.itemEl && state.itemEl.isConnected){
-            state.itemY = Math.max(state.itemY, 1.75);
-            state.itemEl.setAttribute('position', `0 ${state.itemY.toFixed(3)} -2.65`);
-          }
-        }catch(e){}
-
-        try{ updateItemHint(); }catch(e){}
-        try{ updateHud(); }catch(e){}
-
-        return true;
-      }
-
-      function forceSpawn(){
-        if(state.ended || state.mode !== 'game') return false;
-        state.spawnLock = false;
-        spawnItem();
-        return true;
-      }
-
-      function installEvents(){
-        els.startBtn.addEventListener('click',()=>start(false));
-        els.practiceBtn.addEventListener('click',()=>start(true));
-        els.zoneIntroBtn.addEventListener('click',goZone);
-        els.replayBtn.addEventListener('click',replay);
-        els.zoneBtn.addEventListener('click',goZone);
-
-        document.addEventListener('pointerdown',unlockAudio,{once:true,passive:true});
-
-        window.HHA_GROUPS_CVR_V1 = {
-          version: VERSION,
-          shoot: raycastShoot,
-
-          directGate: function(groupKey){
-            if(!groupKey || state.ended || state.mode !== 'game' || state.spawnLock) return false;
-            judgeGate(groupKey);
-            return true;
-          },
-
-          directItem: function(){
-            if(state.ended || state.mode !== 'game' || state.spawnLock) return false;
-            handleItemShot();
-            return true;
-          },
-
-          directShootTarget: function(target){
-            return directShootTargetElement(target);
-          },
-
-          recoverArena: recoverArena,
-          softRetry: softRetry,
-          forceSpawn: forceSpawn,
-
-          rebuildGates: function(){
-            buildGates();
-            return true;
-          },
-
-          getState: function(){
-            return Object.assign({}, state, {
-              current: state.current
-            });
-          },
-
-          end: endGame,
-          returnToNutritionZone: goZone
-        };
-      }
-
-      function init(){
-        buildGates();
-        installEvents();
-        console.info('[Groups cVR Solo] installed',VERSION);
-      }
-
-      if(els.scene.hasLoaded){
-        init();
+        state.goalHit += 1;
+        const bonus = state.combo >= 5 ? 25 : 0;
+        state.score += 100 + bonus + Math.min(60,state.combo*4);
+        flashGate(chosen,'correctFlash');
+        toast('ถูกต้อง! ' + state.selected.name + ' → หมู่ ' + correctGate + ' +' + (100+bonus));
       }else{
-        els.scene.addEventListener('loaded',init,{once:true});
+        state.combo = 0;
+        state.lives -= 1;
+        state.score = Math.max(0,state.score - 20);
+        flashGate(chosen,'wrongFlash');
+        flashGate(correctGate,'correctFlash');
+        toast('ยังไม่ใช่ • ' + state.selected.name + ' ต้องเข้าหมู่ ' + correctGate);
       }
-    })();
+
+      clearInterval(state.scanTimer);
+      state.selected = null;
+      updateHud();
+
+      if(state.lives <= 0){
+        endGame('หัวใจหมดแล้ว');
+        return;
+      }
+
+      if(state.goalHit >= state.goal){
+        state.goal += 5;
+        toast('🎯 Mission Clear! เป้าหมายใหม่ ' + state.goal);
+      }
+
+      spawnFood();
+    }
+
+    function handleTap(ev){
+      if(!state.active || state.ended) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      if(!state.selected) selectFood();
+      else judge();
+    }
+
+    function handleKey(ev){
+      if(!state.active || state.ended) return;
+
+      if(ev.key === ' ' || ev.key === 'Enter'){
+        ev.preventDefault();
+        if(!state.selected) selectFood();
+        else judge();
+      }
+
+      if(/^[1-5]$/.test(ev.key)){
+        ev.preventDefault();
+        if(!state.selected) selectFood();
+        state.activeGate = Number(ev.key);
+        updateGateActive();
+        judge();
+      }
+    }
+
+    function start(){
+      state.active = true;
+      state.ended = false;
+      document.body.classList.add('isPlaying');
+      updateHud();
+      renderGates();
+      spawnFood();
+      startGateScan();
+
+      clearInterval(state.tickTimer);
+      state.tickTimer = setInterval(()=>{
+        state.time -= 1;
+        updateHud();
+        if(state.time <= 0) endGame('หมดเวลา');
+      },1000);
+
+      cancelAnimationFrame(state.raf);
+      state.lastTs = 0;
+      state.raf = requestAnimationFrame(moveFood);
+
+      toast('เริ่ม cVR • แตะอาหาร แล้วแตะตอนประตูถูก');
+    }
+
+    function rank(){
+      const acc = state.total ? Math.round(state.correct/state.total*100) : 0;
+
+      if(acc >= 92 && state.score >= 1500) return 'Food Hero';
+      if(acc >= 80) return 'Food Learner';
+      if(acc >= 60) return 'Smart Eater';
+      return 'Keep Growing';
+    }
+
+    function collectBadges(){
+      const out = [];
+      const acc = state.total ? Math.round(state.correct/state.total*100) : 0;
+
+      if(state.score >= 1000) out.push('⭐ Golden Hunter');
+      if(acc >= 85) out.push('🎯 Accuracy Star');
+      if(state.bestCombo >= 8) out.push('🔥 Combo Keeper');
+      if(state.correct >= 10) out.push('🥦 Veg Master');
+      if(state.lives > 0) out.push('🛡️ Comeback Shield');
+      if(!out.length) out.push('🌱 Keep Growing');
+
+      return out;
+    }
+
+    function saveSummary(reason){
+      const acc = state.total ? Math.round(state.correct/state.total*100) : 0;
+      const data = {
+        game:'groups',
+        mode:'solo',
+        view:'cvr',
+        variant:'standalone-cvr',
+        reason,
+        score:state.score,
+        accuracy:acc,
+        correct:state.correct,
+        total:state.total,
+        bestCombo:state.bestCombo,
+        itemsSeen:state.itemsSeen,
+        rank:rank(),
+        badges:collectBadges(),
+        endedAt:new Date().toISOString(),
+        pid:getParam('pid','anon'),
+        name:getParam('name','Hero')
+      };
+
+      try {
+        localStorage.setItem('HHA_GROUPS_CVR_LAST_SUMMARY',JSON.stringify(data));
+        localStorage.setItem('HHA_LAST_SUMMARY',JSON.stringify(data));
+      } catch(e) {}
+
+      return data;
+    }
+
+    function endGame(reason){
+      if(state.ended) return;
+
+      state.ended = true;
+      state.active = false;
+      document.body.classList.remove('isPlaying');
+      document.body.classList.add('summaryOpen');
+
+      clearInterval(state.tickTimer);
+      clearInterval(state.scanTimer);
+      cancelAnimationFrame(state.raf);
+
+      const data = saveSummary(reason);
+      const acc = data.accuracy;
+
+      els.rankText.textContent = reason + ' • ' + data.rank + ' • ' + '⭐'.repeat(Math.max(1,Math.min(5,Math.round(acc/20))));
+      els.sumScore.textContent = String(data.score);
+      els.sumAcc.textContent = acc + '%';
+      els.sumCombo.textContent = String(data.bestCombo);
+      els.sumCorrect.textContent = String(data.correct);
+
+      els.badges.innerHTML = '';
+      data.badges.forEach(b=>{
+        const el = document.createElement('span');
+        el.className = 'badge';
+        el.textContent = b;
+        els.badges.appendChild(el);
+      });
+
+      els.summary.classList.add('show');
+    }
+
+    function preventScroll(){
+      ['touchmove','gesturestart','gesturechange','gestureend'].forEach(evt=>{
+        document.addEventListener(evt,function(e){
+          if(!document.body.classList.contains('summaryOpen')) e.preventDefault();
+        },{passive:false});
+      });
+    }
+
+    function boot(){
+      document.body.dataset.version = APP_VERSION;
+      document.body.classList.add('view-cvr');
+
+      setupLinks();
+      renderGates();
+      updateHud();
+      preventScroll();
+
+      document.addEventListener('click',handleTap,true);
+      document.addEventListener('keydown',handleKey,true);
+
+      window.addEventListener('pagehide',()=>{
+        if(state.active && !state.ended) saveSummary('ออกจากหน้า');
+      });
+
+      console.info('[HeroHealth Groups cVR]',APP_VERSION,{
+        pid:getParam('pid','anon'),
+        diff,
+        time:state.time
+      });
+
+      setTimeout(start,180);
+    }
+
+    boot();
+  })();
   </script>
-
-  <script src="./groups-cvr-aim-assist-v12.js?v=20260515-groups-cvr-v12-aim-assist"></script>
-  <script src="./groups-cvr-comfort-v13.js?v=20260515-groups-cvr-v13-comfort"></script>
-  <script src="./groups-cvr-event-boss-v14.js?v=20260515-groups-cvr-v14-event-boss"></script>
-  <script src="./groups-cvr-replay-metrics-v15.js?v=20260515-groups-cvr-v15-replay-metrics"></script>
-  <script src="./groups-cvr-final-guard-v16.js?v=20260515-groups-cvr-v16-final-guard"></script>
-
-  <script src="./groups-cvr-direct-shoot-v18.js?v=20260515-groups-cvr-v18d-wrong-gate-soft-retry"></script>
-  <script src="./groups-cvr-qa-balance-v19.js?v=20260515-groups-cvr-v19-qa-balance-guard"></script>
-  <script src="./groups-cvr-game-feel-v20.js?v=20260515-groups-cvr-v20-game-feel-polish"></script>
-  <script src="./groups-cvr-decoy-guard-v19d.js?v=20260515-groups-cvr-v19d-decoy-runtime-guard"></script>
-  <script src="./groups-cvr-summary-lock-v21.js?v=20260516-groups-cvr-v21-summary-production-lock"></script>
-  <script src="./groups-cvr-summary-metrics-v22.js?v=20260517-groups-cvr-v22-summary-metrics-clean"></script>
-  <script src="./groups-cvr-score-balance-v23.js?v=20260517-groups-cvr-v23-score-balance-fairness"></script>
-  <script src="./groups-cvr-summary-fit-v23b.js?v=20260517-groups-cvr-v23b-summary-top-fit-score-note"></script>
-  <script src="./groups-cvr-final-manifest-v24.js?v=20260517-groups-cvr-v24-final-production-lock"></script>
 </body>
 </html>
