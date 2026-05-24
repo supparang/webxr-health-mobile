@@ -1,7 +1,7 @@
 (function GoodJunkLauncherRouteFinalPatch(){
   'use strict';
 
-  const PATCH_VERSION = 'v1.2.0-goodjunk-launcher-route-final-safe-cards';
+  const PATCH_VERSION = 'v1.3.0-goodjunk-launcher-route-final-click-priority';
 
   const url = new URL(location.href);
   const params = url.searchParams;
@@ -42,6 +42,10 @@
     return v || fallback || '';
   }
 
+  function textOf(el){
+    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
   function normalizeView(v){
     v = String(v || '').toLowerCase().trim();
 
@@ -58,11 +62,21 @@
   }
 
   function getPid(){
-    return params.get('pid') || localStorage.getItem('GJ_BATTLE_PID') || localStorage.getItem('HHA_GJ_PID') || 'anon';
+    return (
+      params.get('pid') ||
+      localStorage.getItem('GJ_BATTLE_PID') ||
+      localStorage.getItem('HHA_GJ_PID') ||
+      'anon'
+    );
   }
 
   function getName(){
-    return params.get('name') || localStorage.getItem('GJ_BATTLE_NAME') || localStorage.getItem('HHA_GJ_NAME') || 'Hero';
+    return (
+      params.get('name') ||
+      localStorage.getItem('GJ_BATTLE_NAME') ||
+      localStorage.getItem('HHA_GJ_NAME') ||
+      'Hero'
+    );
   }
 
   function getView(){
@@ -70,7 +84,9 @@
   }
 
   function stripRoomParams(out){
-    ROOM_PARAMS.forEach(k => out.searchParams.delete(k));
+    ROOM_PARAMS.forEach(function(k){
+      out.searchParams.delete(k);
+    });
     return out;
   }
 
@@ -87,11 +103,15 @@
     out.searchParams.set('zone', 'nutrition');
     out.searchParams.set('cat', 'nutrition');
 
-    if (mode) out.searchParams.set('mode', mode);
+    if (mode){
+      out.searchParams.set('mode', mode);
+    }
 
     ['hub','studyId','conditionGroup','api','log'].forEach(function(k){
       const v = params.get(k);
-      if (v !== null && v !== '') out.searchParams.set(k, v);
+      if (v !== null && v !== ''){
+        out.searchParams.set(k, v);
+      }
     });
 
     out.searchParams.set('from', 'goodjunk-launcher');
@@ -101,95 +121,26 @@
     return out;
   }
 
-  function elementText(el){
-    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function directHref(el){
-    if (!el) return '';
-
-    if (el.tagName && el.tagName.toLowerCase() === 'a'){
-      return el.getAttribute('href') || '';
-    }
-
-    return '';
-  }
-
-  function hasHubOrZoneMeaning(el){
-    const text = elementText(el).toLowerCase();
-    const href = directHref(el).toLowerCase();
-    const id = String(el.id || '').toLowerCase();
-    const cls = String(el.className || '').toLowerCase();
-    const data = JSON.stringify(el.dataset || {}).toLowerCase();
-    const all = [text, href, id, cls, data].join(' ');
-
-    return /hub|หน้าหลัก|home|nutrition zone|nutrition-zone|โซนโภชนาการ|กลับโซน/i.test(all);
-  }
-
-  function inferModeFromDirectElement(el){
-    if (!el) return '';
-
-    const text = elementText(el).toLowerCase();
-    const href = directHref(el).toLowerCase();
-    const id = String(el.id || '').toLowerCase();
-    const cls = String(el.className || '').toLowerCase();
-    const data = JSON.stringify(el.dataset || {}).toLowerCase();
-    const all = [text, href, id, cls, data].join(' ');
-
-    if (hasHubOrZoneMeaning(el)) return '';
-
-    if (/solo|solo-boss|boss|บอส|เดี่ยว|single/i.test(all)) return 'solo';
-    if (/race|แข่ง|วิ่ง|speed/i.test(all)) return 'race';
-    if (/duet|คู่|สองคน|pair/i.test(all)) return 'duet';
-    if (/coop|co-op|cooperative|ร่วมมือ|ทีม/i.test(all)) return 'coop';
-    if (/battle|ต่อสู้|ดวล|pvp/i.test(all)) return 'battle';
-
-    return '';
-  }
-
-  function inferModeFromCard(el){
-    if (!el) return '';
-
-    /*
-     * สำคัญ:
-     * ห้ามใช้ href ของปุ่มลูก เช่น Hub/Zone มาเป็น route ของ card
-     * อ่านเฉพาะ text/card dataset เท่านั้น
-     */
-    const text = elementText(el).toLowerCase();
-    const id = String(el.id || '').toLowerCase();
-    const cls = String(el.className || '').toLowerCase();
-    const data = JSON.stringify(el.dataset || {}).toLowerCase();
-    const all = [text, id, cls, data].join(' ');
-
-    if (/solo|solo-boss|boss|บอส|เดี่ยว|single/i.test(all)) return 'solo';
-    if (/race|แข่ง|วิ่ง|speed/i.test(all)) return 'race';
-    if (/duet|คู่|สองคน|pair/i.test(all)) return 'duet';
-    if (/coop|co-op|cooperative|ร่วมมือ|ทีม/i.test(all)) return 'coop';
-    if (/battle|ต่อสู้|ดวล|pvp/i.test(all)) return 'battle';
-
-    return '';
-  }
-
   function buildModeUrl(mode){
-    const route = ROUTES[mode];
+    const route = ROUTES[mode] || ROUTES.solo;
     const out = new URL(route, location.href);
 
     addCommonParams(out, mode === 'solo' ? 'solo-boss' : mode);
     stripRoomParams(out);
 
+    if (mode === 'solo'){
+      out.searchParams.set('entry', 'solo-boss');
+      out.searchParams.set('variant', 'solo-boss-final');
+    }
+
     if (mode === 'battle'){
-      out.searchParams.set('variant', 'battle-v2.5');
       out.searchParams.set('entry', 'launcher');
+      out.searchParams.set('variant', 'battle-v2.5');
 
       try{
         localStorage.removeItem('GJ_BATTLE_LAST_ROOM');
         sessionStorage.removeItem('GJ_BATTLE_LAST_ROOM');
       }catch(_){}
-    }
-
-    if (mode === 'solo'){
-      out.searchParams.set('entry', 'solo-boss');
-      out.searchParams.set('variant', 'solo-boss-final');
     }
 
     if (mode === 'race'){
@@ -238,119 +189,180 @@
     return out.toString();
   }
 
-  function bindModeElement(el, mode){
-    if (!el || !mode) return;
-    if (el.dataset.gjLauncherRouteFinalBound === '1') return;
-
-    const target = buildModeUrl(mode);
-
-    el.dataset.gjLauncherRouteFinalBound = '1';
-    el.dataset.gjMode = mode;
-    el.dataset.gjTarget = target;
+  function explicitHref(el){
+    if (!el) return '';
 
     if (el.tagName && el.tagName.toLowerCase() === 'a'){
-      el.setAttribute('href', target);
+      return el.getAttribute('href') || '';
     }
 
-    el.addEventListener('click', function(ev){
-      /*
-       * ถ้าคลิกปุ่ม Hub/Zone ที่อยู่ใน card เดียวกัน อย่าให้ card mode แย่งคลิก
-       */
-      const nav = ev.target && ev.target.closest
-        ? ev.target.closest('[data-gj-nav="hub"],[data-gj-nav="zone"],.hub,.zone,[href*="hub.html"],[href*="nutrition-zone.html"]')
-        : null;
+    return '';
+  }
 
-      if (nav) return;
+  function inferMode(el){
+    if (!el) return '';
 
+    const explicit =
+      el.dataset.mode ||
+      el.dataset.gjMode ||
+      el.dataset.routeMode ||
+      el.dataset.gameMode ||
+      '';
+
+    const raw = String(explicit || '').toLowerCase().trim();
+
+    if (['solo','solo-boss','boss'].includes(raw)) return 'solo';
+    if (raw === 'battle') return 'battle';
+    if (raw === 'race') return 'race';
+    if (raw === 'duet') return 'duet';
+    if (raw === 'coop' || raw === 'co-op') return 'coop';
+
+    const all = [
+      textOf(el),
+      String(el.id || ''),
+      String(el.className || ''),
+      explicitHref(el),
+      JSON.stringify(el.dataset || {})
+    ].join(' ').toLowerCase();
+
+    if (/solo|solo-boss|boss|บอส|เดี่ยว|single/i.test(all)) return 'solo';
+    if (/race|แข่ง|วิ่ง|speed/i.test(all)) return 'race';
+    if (/duet|คู่|สองคน|pair/i.test(all)) return 'duet';
+    if (/coop|co-op|cooperative|ร่วมมือ|ทีม/i.test(all)) return 'coop';
+    if (/battle|ต่อสู้|ดวล|pvp/i.test(all)) return 'battle';
+
+    return '';
+  }
+
+  function getDirectNavTarget(el){
+    if (!el) return '';
+
+    const href = explicitHref(el).toLowerCase();
+    const text = textOf(el).toLowerCase();
+    const id = String(el.id || '').toLowerCase();
+    const cls = String(el.className || '').toLowerCase();
+    const data = JSON.stringify(el.dataset || {}).toLowerCase();
+    const all = [href, text, id, cls, data].join(' ');
+
+    if (/nutrition-zone\.html|nutrition zone|โซนโภชนาการ|กลับโซน/i.test(all)){
+      return 'zone';
+    }
+
+    if (/hub\.html|hub|หน้าหลัก|home/i.test(all)){
+      return 'hub';
+    }
+
+    return '';
+  }
+
+  function getModeClickElement(target){
+    if (!target || !target.closest) return null;
+
+    /*
+     * จับจาก element เฉพาะก่อน แล้วค่อย card
+     * ไม่ใช้ .card อย่างเดียวกว้าง ๆ ถ้าไม่มี keyword mode
+     */
+    const el = target.closest(
+      '[data-mode],[data-gj-mode],[data-route-mode],[data-game-mode],' +
+      'a[href],button,[role="button"],.mode-card,.game-card,.card'
+    );
+
+    if (!el) return null;
+
+    const mode = inferMode(el);
+
+    if (!mode) return null;
+
+    return el;
+  }
+
+  function bindHrefTargets(){
+    $all('[data-mode],[data-gj-mode],[data-route-mode],[data-game-mode],a[href],button,[role="button"],.mode-card,.game-card,.card')
+      .forEach(function(el){
+        const mode = inferMode(el);
+        if (!mode) return;
+
+        const target = buildModeUrl(mode);
+
+        el.dataset.gjMode = mode;
+        el.dataset.gjTarget = target;
+        el.dataset.gjLauncherRouteFinalBound = '1';
+
+        if (el.tagName && el.tagName.toLowerCase() === 'a'){
+          el.setAttribute('href', target);
+        }
+
+        const a = el.querySelector && el.querySelector('a[href]');
+        if (a && inferMode(a)){
+          a.dataset.gjMode = mode;
+          a.dataset.gjTarget = target;
+          a.setAttribute('href', target);
+        }
+      });
+
+    $all('a[href],button,[role="button"]').forEach(function(el){
+      const nav = getDirectNavTarget(el);
+
+      if (nav === 'zone'){
+        el.dataset.gjNav = 'zone';
+        if (el.tagName && el.tagName.toLowerCase() === 'a'){
+          el.setAttribute('href', buildZoneUrl());
+        }
+      }
+
+      if (nav === 'hub'){
+        el.dataset.gjNav = 'hub';
+        if (el.tagName && el.tagName.toLowerCase() === 'a'){
+          el.setAttribute('href', buildHubUrl());
+        }
+      }
+    });
+  }
+
+  function handleClick(ev){
+    const target = ev.target;
+
+    /*
+     * 1) ถ้ากดปุ่ม Hub/Zone โดยตรง ให้ไป Hub/Zone
+     * แต่ต้องเป็น direct button/link เท่านั้น
+     */
+    const directButton = target && target.closest
+      ? target.closest('a[href],button,[role="button"]')
+      : null;
+
+    const nav = getDirectNavTarget(directButton);
+
+    if (nav === 'zone'){
       ev.preventDefault();
       ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      location.href = buildZoneUrl();
+      return;
+    }
+
+    if (nav === 'hub'){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      location.href = buildHubUrl();
+      return;
+    }
+
+    /*
+     * 2) ถ้าไม่ใช่ Hub/Zone โดยตรง ให้ mode มี priority สูงสุด
+     * กัน script อื่นแย่งส่งไป Nutrition Zone
+     */
+    const modeEl = getModeClickElement(target);
+    const mode = inferMode(modeEl);
+
+    if (mode){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
       location.href = buildModeUrl(mode);
-    }, true);
-  }
-
-  function bindModeRoutes(){
-    /*
-     * 1) bind ปุ่ม/ลิงก์ที่เป็น mode โดยตรงก่อน
-     */
-    $all('a[href],button,[role="button"]').forEach(function(el){
-      const mode = inferModeFromDirectElement(el);
-      if (!mode) return;
-      bindModeElement(el, mode);
-    });
-
-    /*
-     * 2) bind card เฉพาะเมื่อ card ยังไม่มีปุ่ม mode ลูก
-     * และต้องไม่จับ card ที่เป็น navigation/card hub
-     */
-    $all('[data-mode],[data-gj-mode],[data-route-mode],[data-game-mode],.mode-card,.game-card,.card').forEach(function(el){
-      if (el.dataset.gjLauncherRouteFinalBound === '1') return;
-
-      const explicit =
-        el.dataset.mode ||
-        el.dataset.gjMode ||
-        el.dataset.routeMode ||
-        el.dataset.gameMode ||
-        '';
-
-      let mode = '';
-
-      if (explicit){
-        const raw = String(explicit).toLowerCase().trim();
-
-        if (['solo','solo-boss','boss'].includes(raw)) mode = 'solo';
-        else if (raw === 'battle') mode = 'battle';
-        else if (raw === 'race') mode = 'race';
-        else if (raw === 'duet') mode = 'duet';
-        else if (raw === 'coop' || raw === 'co-op') mode = 'coop';
-      }else{
-        mode = inferModeFromCard(el);
-      }
-
-      if (!mode) return;
-
-      const hasDirectModeChild = el.querySelector('[data-gj-launcher-route-final-bound="1"]');
-      if (hasDirectModeChild) return;
-
-      bindModeElement(el, mode);
-    });
-  }
-
-  function bindZoneHubButtons(){
-    $all('a[href],button,[role="button"]').forEach(function(el){
-      if (el.dataset.gjLauncherZoneHubBound === '1') return;
-
-      const text = elementText(el).toLowerCase();
-      const href = directHref(el).toLowerCase();
-      const id = String(el.id || '').toLowerCase();
-      const cls = String(el.className || '').toLowerCase();
-      const data = JSON.stringify(el.dataset || {}).toLowerCase();
-      const all = [text, href, id, cls, data].join(' ');
-
-      let target = '';
-
-      if (/nutrition zone|nutrition-zone|โซนโภชนาการ|กลับโซน/i.test(all)){
-        target = buildZoneUrl();
-        el.dataset.gjNav = 'zone';
-      }else if (/hub|หน้าหลัก|home/i.test(all)){
-        target = buildHubUrl();
-        el.dataset.gjNav = 'hub';
-      }
-
-      if (!target) return;
-
-      el.dataset.gjLauncherZoneHubBound = '1';
-
-      if (el.tagName && el.tagName.toLowerCase() === 'a'){
-        el.setAttribute('href', target);
-      }
-
-      el.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        location.href = target;
-      }, true);
-    });
+      return;
+    }
   }
 
   function injectBadge(){
@@ -358,7 +370,7 @@
 
     const badge = document.createElement('div');
     badge.id = 'gjLauncherRouteFinalBadge';
-    badge.textContent = 'GoodJunk routes locked v1.2';
+    badge.textContent = 'GoodJunk routes locked v1.3';
 
     badge.style.cssText = [
       'position:fixed',
@@ -378,24 +390,23 @@
   }
 
   function boot(){
-    bindZoneHubButtons();
-    bindModeRoutes();
+    bindHrefTargets();
     injectBadge();
 
+    document.addEventListener('click', handleClick, true);
+
     const mo = new MutationObserver(function(){
-      bindZoneHubButtons();
-      bindModeRoutes();
+      bindHrefTargets();
     });
 
     mo.observe(document.body, {
       childList:true,
-      subtree:true
+      subtree:true,
+      attributes:true,
+      attributeFilter:['href','class','data-mode','data-gj-mode','data-route-mode','data-game-mode']
     });
 
-    setInterval(function(){
-      bindZoneHubButtons();
-      bindModeRoutes();
-    }, 1200);
+    setInterval(bindHrefTargets, 1200);
 
     window.GJ_LAUNCHER_ROUTE_FINAL = {
       version: PATCH_VERSION,
@@ -403,8 +414,8 @@
       buildModeUrl,
       buildZoneUrl,
       buildHubUrl,
-      bindModeRoutes,
-      bindZoneHubButtons
+      inferMode,
+      bindHrefTargets
     };
 
     console.info('[GoodJunk Launcher Route Final]', PATCH_VERSION, 'loaded');
