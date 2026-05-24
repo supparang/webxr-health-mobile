@@ -18,23 +18,24 @@
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260523-pack36-run-inline-core-loader-final
+    Version: v20260523-pack38-solo-clean-loader-final
 
     Purpose:
-      Shared run engine for Hydration
+      Shared run entry for Hydration
 
-    Supports:
-      mode = solo / duet / race / battle / coop
-      view = pc / mobile / cvr
+    Current priority:
+      Close Solo first:
+        - Solo PC
+        - Solo Mobile
+        - Solo Cardboard/cVR
 
-    Pack36:
-      - Inline core loader อยู่ใน script block แรก
-      - ไม่พึ่ง script block ถัดไป
-      - โหลด hydration-vr.js เป็น core ก่อน patch ทุกตัว
-      - patch ทุกตัวเป็น optional
-      - คง Pack31 inline start bridge
-      - Solo route ไม่เข้า lobby
-      - Multiplayer ต้องมี mpReady=1 ก่อนเข้า run
+    Pack38:
+      - mode=solo loads ONLY hydration-solo-core.js
+      - Does NOT load old hydration-vr.js
+      - Does NOT load old patch files for solo
+      - Prevents old patches from colliding with clean solo core
+      - cVR optionally loads /herohealth/vr/vr-ui.js
+      - Multiplayer modes still redirect to lobby unless mpReady=1
   -->
 </head>
 
@@ -76,13 +77,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260523-pack36-run-inline-core-loader-final';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260523-pack38-solo-clean-loader-final';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260523-pack36-run-inline-core-loader-final';
+      var VERSION = 'v20260523-pack38-solo-clean-loader-final';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -301,6 +302,7 @@
         capacity: u.searchParams.get('capacity') || u.searchParams.get('players') || '',
         pid: u.searchParams.get('pid') || 'anon',
         name: u.searchParams.get('name') || u.searchParams.get('nick') || 'Hero',
+        nick: u.searchParams.get('nick') || u.searchParams.get('name') || 'Hero',
         diff: u.searchParams.get('diff') || 'normal',
         time: u.searchParams.get('time') || '90',
         seed: u.searchParams.get('seed') || String(Date.now()),
@@ -345,7 +347,7 @@
 
         box.innerHTML = [
           '<div style="',
-            'max-width:480px;',
+            'max-width:520px;',
             'width:94vw;',
             'border-radius:28px;',
             'padding:22px;',
@@ -371,7 +373,7 @@
               'color:#66879c;',
               'line-height:1.35;',
             '">',
-              String(msg || 'ตรวจสอบ hydration-vr.js / hydration-vr.css / patch / vr-ui.js'),
+              String(msg || 'ตรวจสอบ hydration-solo-core.js / hydration-vr.css / path'),
             '</p>',
 
             '<div style="',
@@ -384,14 +386,12 @@
               'color:#42677d;',
               'word-break:break-all;',
             '">',
-              'Critical file:<br>',
-              '/herohealth/hydration-vr/hydration-vr.js<br><br>',
-              'Optional patch files:<br>',
-              '/herohealth/hydration-vr/hydration-vr.mode-patch.js<br>',
-              '/herohealth/hydration-vr/hydration-start-hard-safe.patch.js<br>',
-              '/herohealth/hydration-vr/hydration-cooldown-return.patch.js<br>',
-              '/herohealth/hydration-vr/hydration-modes.js<br>',
-              '/herohealth/vr/vr-ui.js เฉพาะ view=cvr',
+              'Solo clean core:<br>',
+              '/herohealth/hydration-vr/hydration-solo-core.js<br><br>',
+              'Entry:<br>',
+              '/herohealth/hydration-vr/run.html<br><br>',
+              'Mode:<br>',
+              'mode=solo / view=pc|mobile|cvr',
             '</div>',
 
             '<button onclick="location.reload()" style="',
@@ -464,242 +464,6 @@
 
       window.HHA_HYDRATION_BUILD_NUTRITION_ZONE_URL = nutritionZoneUrl;
 
-      /* =========================================================
-         PATCH v20260519-pack31-HYDRATION-START-BRIDGE
-         Final emergency bridge for Start button
-         - อยู่ใน run.html โดยตรง
-         - ไม่พึ่ง external patch
-         - ถ้า Start card แสดงอยู่ แล้วกดปุ่ม จะเรียก engine start ทันที
-         ========================================================= */
-
-      (function(){
-        'use strict';
-
-        var PATCH = 'v20260519-pack31-start-bridge-inline';
-        var lastAt = 0;
-
-        if(window.HHA_HYDRATION_START_BRIDGE_PACK31){
-          return;
-        }
-
-        window.HHA_HYDRATION_START_BRIDGE_PACK31 = true;
-
-        function q(sel, root){
-          try{
-            return (root || document).querySelector(sel);
-          }catch(e){
-            return null;
-          }
-        }
-
-        function qa(sel, root){
-          try{
-            return Array.from((root || document).querySelectorAll(sel));
-          }catch(e){
-            return [];
-          }
-        }
-
-        function safeStop(ev){
-          if(!ev) return;
-
-          try{ ev.preventDefault(); }catch(e){}
-          try{ ev.stopPropagation(); }catch(e){}
-
-          try{
-            if(ev.stopImmediatePropagation){
-              ev.stopImmediatePropagation();
-            }
-          }catch(e){}
-        }
-
-        function isStartOpen(){
-          return !!(
-            q('.hha-hydration-start') ||
-            q('.hha-start-btn') ||
-            q('[data-hha-hydration-start-btn]')
-          );
-        }
-
-        function isStartTrigger(target){
-          if(!target || !target.closest) return false;
-
-          var btn = target.closest(
-            '[data-hha-hydration-start-btn], .hha-start-btn, button'
-          );
-
-          if(!btn) return false;
-
-          var text = String(btn.textContent || '').toLowerCase();
-
-          return (
-            btn.matches('[data-hha-hydration-start-btn], .hha-start-btn') ||
-            text.indexOf('เริ่มภารกิจ') !== -1 ||
-            text.indexOf('start') !== -1
-          );
-        }
-
-        function unlockStartUi(){
-          try{
-            document.body.classList.remove('hha-hydration-summary-open');
-            document.documentElement.classList.remove('hha-hydration-summary-open-html');
-
-            document.body.style.pointerEvents = '';
-            document.body.style.overflow = '';
-            document.body.style.touchAction = '';
-
-            var overlay = q('.hha-hydration-start');
-            if(overlay){
-              overlay.style.pointerEvents = 'auto';
-              overlay.style.zIndex = '999990';
-            }
-
-            var card = q('.hha-hydration-start .hha-start-card');
-            if(card){
-              card.style.pointerEvents = 'auto';
-              card.style.zIndex = '999991';
-              card.style.position = card.style.position || 'relative';
-            }
-
-            qa('[data-hha-hydration-start-btn], .hha-start-btn').forEach(function(btn){
-              btn.style.pointerEvents = 'auto';
-              btn.style.zIndex = '999992';
-              btn.style.position = btn.style.position || 'relative';
-              btn.style.touchAction = 'manipulation';
-              btn.dataset.hhaStartBridgePack31 = PATCH;
-            });
-          }catch(e){}
-        }
-
-        function startNow(reason){
-          if(!isStartOpen()) return false;
-
-          unlockStartUi();
-
-          /*
-            รีเซ็ต state เฉพาะตอน Start card ยังอยู่
-            กัน started=true ค้างจากรอบก่อน
-          */
-          try{
-            if(window.HHA && window.HHA.Hydration){
-              window.HHA.Hydration.started = false;
-              window.HHA.Hydration.destroyed = false;
-            }
-          }catch(e){}
-
-          try{
-            if(typeof window.HHA_HYDRATION_FORCE_START === 'function'){
-              console.info('[Hydration Pack31] force start via HHA_HYDRATION_FORCE_START:', reason || '');
-              return !!window.HHA_HYDRATION_FORCE_START();
-            }
-          }catch(err0){
-            console.error('[Hydration Pack31] HHA_HYDRATION_FORCE_START failed:', err0);
-          }
-
-          try{
-            if(typeof window.beginHydrationFromOverlay === 'function'){
-              console.info('[Hydration Pack31] force start via beginHydrationFromOverlay:', reason || '');
-              window.beginHydrationFromOverlay();
-              return true;
-            }
-          }catch(err1){
-            console.error('[Hydration Pack31] beginHydrationFromOverlay failed:', err1);
-          }
-
-          return false;
-        }
-
-        function bindButton(btn){
-          if(!btn || btn.dataset.hhaStartBridgePack31Bound === PATCH) return;
-
-          btn.dataset.hhaStartBridgePack31Bound = PATCH;
-
-          btn.onclick = function(ev){
-            var ok = startNow('onclick');
-
-            if(ok){
-              safeStop(ev);
-              return false;
-            }
-
-            return true;
-          };
-
-          ['click','pointerup','mouseup','touchend'].forEach(function(type){
-            btn.addEventListener(type, function(ev){
-              var t = Date.now();
-
-              if(t - lastAt < 320){
-                safeStop(ev);
-                return false;
-              }
-
-              var ok = startNow(type);
-
-              if(ok){
-                lastAt = t;
-                safeStop(ev);
-                return false;
-              }
-
-              return true;
-            }, { capture:true, passive:false });
-          });
-
-          btn.addEventListener('pointerdown', unlockStartUi, true);
-          btn.addEventListener('touchstart', unlockStartUi, { capture:true, passive:true });
-        }
-
-        function bindAll(){
-          unlockStartUi();
-
-          qa('[data-hha-hydration-start-btn], .hha-start-btn').forEach(bindButton);
-        }
-
-        function globalHandler(ev){
-          if(!isStartTrigger(ev.target)) return;
-
-          var t = Date.now();
-
-          if(t - lastAt < 320){
-            safeStop(ev);
-            return false;
-          }
-
-          var ok = startNow('global-' + ev.type);
-
-          if(ok){
-            lastAt = t;
-            safeStop(ev);
-            return false;
-          }
-
-          return true;
-        }
-
-        ['click','pointerup','mouseup','touchend'].forEach(function(type){
-          window.addEventListener(type, globalHandler, { capture:true, passive:false });
-          document.addEventListener(type, globalHandler, { capture:true, passive:false });
-        });
-
-        var mo = new MutationObserver(bindAll);
-
-        if(document.body){
-          mo.observe(document.body, {
-            childList:true,
-            subtree:true,
-            attributes:true,
-            attributeFilter:['class','style']
-          });
-        }
-
-        setInterval(bindAll, 450);
-
-        window.HHA_HYDRATION_START_BRIDGE_START = startNow;
-
-        console.info('[Hydration Pack31] inline start bridge loaded');
-      })();
-
       function bootCheck(){
         var hyd = window.HHA && window.HHA.Hydration;
 
@@ -707,149 +471,135 @@
           document.querySelector('.hha-hydration-start') ||
           document.querySelector('.hha-start') ||
           document.querySelector('[data-hha-hydration-start]') ||
-          document.querySelector('.hha-start-btn');
+          document.querySelector('.hha-start-btn') ||
+          document.querySelector('.hha-solo-start');
 
         var hasHud =
           document.querySelector('.hha-hydration-hud') ||
-          document.querySelector('.hha-timebar');
+          document.querySelector('.hha-timebar') ||
+          document.querySelector('.hha-solo-hud');
 
         var hasSummary =
           document.querySelector('.hha-hydration-summary') ||
           document.querySelector('#hha-hydration-summary') ||
           document.querySelector('.hha-summary-card') ||
-          document.querySelector('[data-hha-summary]');
+          document.querySelector('[data-hha-summary]') ||
+          document.querySelector('.hha-solo-summary');
 
         var hasTarget =
-          document.querySelector('.hha-hydration-target');
+          document.querySelector('.hha-hydration-target') ||
+          document.querySelector('.hha-solo-target');
 
         if(!hasStart && !hasHud && !hasSummary && !hasTarget && !(hyd && hyd.booted)){
-          window.HHA_HYDRATION_SHOW_BOOT_ERROR('โหลดหน้าได้ แต่ Hydration engine ไม่ boot');
+          window.HHA_HYDRATION_SHOW_BOOT_ERROR('โหลดหน้าได้ แต่ Hydration Solo Clean Core ไม่ boot');
         }
       }
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack36] run context ready; inline core loader starts now');
+      console.info('[Hydration Pack38] run context ready; solo clean loader starts now');
 
-      /* =========================================================
-         Pack36 Inline Core Loader
-         - อยู่ใน script block แรกเลย
-         - ไม่รอ script block ถัดไป
-         - ถ้า core ไม่โหลด ต้องเห็น error ชัด
-      ========================================================= */
+      function loadScript(src, label, timeoutMs){
+        timeoutMs = timeoutMs || 7000;
 
-      (function(){
-        console.info('[Hydration Pack36] inline core loader start');
+        return new Promise(function(resolve, reject){
+          var done = false;
+          var s = document.createElement('script');
 
-        function loadScript(src, label, timeoutMs){
-          timeoutMs = timeoutMs || 7000;
+          function finish(ok, value){
+            if(done) return;
 
-          return new Promise(function(resolve, reject){
-            var done = false;
-            var s = document.createElement('script');
+            done = true;
+            clearTimeout(timer);
 
-            function finish(ok, value){
-              if(done) return;
-              done = true;
-              clearTimeout(timer);
-
-              if(ok) resolve(value || src);
-              else reject(value || new Error(label + ' load failed: ' + src));
+            if(ok){
+              resolve(value || src);
+            }else{
+              reject(value || new Error(label + ' load failed: ' + src));
             }
-
-            var timer = setTimeout(function(){
-              finish(false, new Error(label + ' timeout: ' + src));
-            }, timeoutMs);
-
-            s.src = src;
-            s.async = true;
-
-            s.onload = function(){
-              console.info('[Hydration Pack36] loaded:', label);
-              finish(true, src);
-            };
-
-            s.onerror = function(){
-              finish(false, new Error(label + ' error: ' + src));
-            };
-
-            document.body.appendChild(s);
-          });
-        }
-
-        function showError(msg){
-          if(typeof window.HHA_HYDRATION_SHOW_BOOT_ERROR === 'function'){
-            window.HHA_HYDRATION_SHOW_BOOT_ERROR(msg);
-            return;
           }
 
-          document.body.innerHTML =
-            '<pre style="padding:24px;font:16px monospace;color:#b00020;background:#fff">' +
-            String(msg || 'Hydration boot failed') +
-            '</pre>';
-        }
+          var timer = setTimeout(function(){
+            finish(false, new Error(label + ' timeout: ' + src));
+          }, timeoutMs);
 
-        loadScript('./hydration-solo-core.js?v=20260523-pack37-solo-clean-core', 'hydration core', 9000)
-          .then(function(){
-            console.info(
-              '[Hydration Pack36] core checkpoint:',
-              'HHA=', !!window.HHA,
-              'Hydration=', !!(window.HHA && window.HHA.Hydration),
-              'start=', typeof window.beginHydrationFromOverlay,
-              'force=', typeof window.HHA_HYDRATION_FORCE_START
-            );
+          s.src = src;
+          s.async = true;
 
-            return loadScript('./hydration-vr.mode-patch.js?v=20260518-pack30', 'mode patch', 4000)
-              .catch(function(err){
-                console.warn('[Hydration Pack36] mode patch optional failed:', err);
-              });
-          })
-          .then(function(){
-            return loadScript('./hydration-start-hard-safe.patch.js?v=20260518-pack30', 'start patch', 4000)
-              .catch(function(err){
-                console.warn('[Hydration Pack36] start patch optional failed:', err);
-              });
-          })
-          .then(function(){
-            return loadScript('./hydration-cooldown-return.patch.js?v=20260518-pack30', 'cooldown patch', 4000)
-              .catch(function(err){
-                console.warn('[Hydration Pack36] cooldown patch optional failed:', err);
-              });
-          })
-          .then(function(){
-            return loadScript('./hydration-modes.js?v=20260517-pack22', 'modes patch', 3000)
-              .catch(function(err){
-                console.warn('[Hydration Pack36] modes optional failed:', err);
-              });
-          })
-          .then(function(){
-            var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
-            var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
+          s.onload = function(){
+            console.info('[Hydration Pack38] loaded:', label);
+            finish(true, src);
+          };
 
-            if(cvrView === 'cvr'){
-              return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
-                .catch(function(err){
-                  console.warn('[Hydration Pack36] vr-ui optional failed:', err);
-                });
+          s.onerror = function(){
+            finish(false, new Error(label + ' error: ' + src));
+          };
+
+          document.body.appendChild(s);
+        });
+      }
+
+      /* =========================================================
+         Pack38 Solo Clean Loader
+         - mode=solo โหลดเฉพาะ hydration-solo-core.js
+         - ไม่โหลด patch เก่า / modes เก่า ที่ชนกับ clean core
+         - cVR ค่อยโหลด vr-ui เพิ่มเฉพาะ view=cvr
+      ========================================================= */
+
+      var coreFile = './hydration-solo-core.js?v=20260523-pack38-solo-clean-only';
+
+      console.info('[Hydration Pack38] solo clean loader start:', coreFile);
+
+      loadScript(coreFile, 'hydration solo clean core', 9000)
+        .then(function(){
+          console.info(
+            '[Hydration Pack38] solo core loaded:',
+            'HHA=', !!window.HHA,
+            'Hydration=', !!(window.HHA && window.HHA.Hydration),
+            'start=', typeof window.beginHydrationFromOverlay,
+            'force=', typeof window.HHA_HYDRATION_FORCE_START
+          );
+
+          /*
+            สำคัญ:
+            Solo clean core ห้ามโหลด patch เก่า:
+            - hydration-vr.js
+            - hydration-vr.mode-patch.js
+            - hydration-start-hard-safe.patch.js
+            - hydration-cooldown-return.patch.js
+            - hydration-modes.js
+
+            เพราะไฟล์เหล่านั้นออกแบบมาผูกกับ core เดิม และทำให้ค้าง/ชน state
+          */
+
+          var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
+          var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
+
+          if(cvrView === 'cvr'){
+            return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
+              .catch(function(err){
+                console.warn('[Hydration Pack38] vr-ui optional failed:', err);
+              });
+          }
+        })
+        .then(function(){
+          console.info('[Hydration Pack38] solo loader finished');
+
+          setTimeout(function(){
+            if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
+              window.HHA_HYDRATION_BOOT_CHECK();
             }
-          })
-          .then(function(){
-            console.info('[Hydration Pack36] loader finished');
-
-            setTimeout(function(){
-              if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
-                window.HHA_HYDRATION_BOOT_CHECK();
-              }
-            }, 1200);
-          })
-          .catch(function(err){
-            console.error('[Hydration Pack36] critical core failed:', err);
-            showError((err && err.message) || 'โหลด hydration-vr.js ไม่สำเร็จ');
-          });
-      })();
+          }, 1200);
+        })
+        .catch(function(err){
+          console.error('[Hydration Pack38] solo core failed:', err);
+          window.HHA_HYDRATION_SHOW_BOOT_ERROR(
+            (err && err.message) ||
+            'โหลด hydration-solo-core.js ไม่สำเร็จ'
+          );
+        });
 
     })();
   </script>
-
 </body>
 </html>
