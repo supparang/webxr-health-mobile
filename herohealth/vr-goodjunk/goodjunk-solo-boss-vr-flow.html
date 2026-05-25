@@ -2267,5 +2267,218 @@ body.view-cvr.cooldown-mode .bossBar{
   console.info('[GoodJunk CVR Final Return Hard Lock]', PATCH, 'loaded');
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK IMAGE FALLBACK / CLEAR TARGET VISUAL PATCH
+  PATCH: v8.46.9l-GOODJUNK-TARGET-IMAGE-FALLBACK-FINAL
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: before </body>
+========================================================= -->
+<script id="gj-target-image-fallback-final-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_TARGET_IMAGE_FALLBACK_FINAL__) return;
+  window.__GJ_TARGET_IMAGE_FALLBACK_FINAL__ = true;
+
+  const PATCH = 'v8.46.9l-GOODJUNK-TARGET-IMAGE-FALLBACK-FINAL';
+
+  const EMOJI = {
+    broccoli: '🥦',
+    apple: '🍎',
+    egg: '🥚',
+    water: '💧',
+    fries: '🍟',
+    soda: '🥤',
+    donut: '🍩',
+    candy: '🍬',
+    'juice-box': '🧃',
+    shield: '🛡️',
+    fever: '⚡',
+    heart: '💚'
+  };
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function getKind(root){
+    return String(
+      root &&
+      root.dataset &&
+      root.dataset.kind ||
+      root &&
+      root.getAttribute &&
+      root.getAttribute('data-kind') ||
+      ''
+    );
+  }
+
+  function getData(root){
+    try{
+      return root.__data || {};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function emojiFor(root){
+    const data = getData(root);
+    const id = String(data.id || '').toLowerCase();
+    const file = String(data.file || '').toLowerCase().replace('.png','');
+    const label = String(data.label || '').toLowerCase();
+
+    return (
+      EMOJI[id] ||
+      EMOJI[file] ||
+      EMOJI[label] ||
+      fallbackByKind(getKind(root))
+    );
+  }
+
+  function fallbackByKind(kind){
+    if (kind === 'good' || kind === 'warm-good') return '🥦';
+    if (kind === 'junk' || kind === 'warm-junk') return '🍟';
+    if (kind === 'fake') return '🧃';
+    if (kind === 'power' || kind === 'warm-power') return '🛡️';
+    if (kind === 'breath') return '💧';
+    return '🎯';
+  }
+
+  function labelFor(root){
+    const data = getData(root);
+    const kind = getKind(root);
+
+    if (kind === 'good' || kind === 'warm-good') return 'GOOD';
+    if (kind === 'junk' || kind === 'warm-junk') return 'JUNK';
+    if (kind === 'fake') return 'CHECK';
+    if (kind === 'power' || kind === 'warm-power') return String(data.label || 'POWER');
+    if (kind === 'breath') return String(data.label || 'CALM');
+    return String(data.label || 'TARGET');
+  }
+
+  function colorFor(root){
+    const kind = getKind(root);
+
+    if (kind === 'good' || kind === 'warm-good') return '#14532d';
+    if (kind === 'junk' || kind === 'warm-junk') return '#7f1d1d';
+    if (kind === 'fake') return '#78350f';
+    if (kind === 'power' || kind === 'warm-power') return '#172554';
+    if (kind === 'breath') return '#075985';
+    return '#0f172a';
+  }
+
+  function badgeColorFor(root){
+    const kind = getKind(root);
+
+    if (kind === 'good' || kind === 'warm-good') return '#bbf7d0';
+    if (kind === 'junk' || kind === 'warm-junk') return '#fecaca';
+    if (kind === 'fake') return '#fde68a';
+    if (kind === 'power' || kind === 'warm-power') return '#bfdbfe';
+    if (kind === 'breath') return '#bae6fd';
+    return '#e2e8f0';
+  }
+
+  function addFallback(root){
+    if (!root || root.__gjFallbackDone) return;
+    if (!root.classList || !root.classList.contains('gj-target-root')) return;
+
+    const kind = getKind(root);
+    if (!kind || kind === 'vr-start') return;
+
+    root.__gjFallbackDone = true;
+
+    const bg = document.createElement('a-circle');
+    bg.classList.add('gj-fallback-bg');
+    safeSet(bg, 'radius', '0.43');
+    safeSet(bg, 'position', '0 0.08 0.91');
+    safeSet(bg, 'color', badgeColorFor(root));
+    safeSet(bg, 'material', 'side:double; transparent:true; opacity:0.94; shader:flat; depthTest:false; depthWrite:false');
+
+    const emoji = document.createElement('a-text');
+    emoji.classList.add('gj-fallback-emoji');
+    safeSet(emoji, 'value', emojiFor(root));
+    safeSet(emoji, 'align', 'center');
+    safeSet(emoji, 'width', '3.6');
+    safeSet(emoji, 'position', '0 -0.08 0.98');
+    safeSet(emoji, 'material', 'shader:flat; depthTest:false; depthWrite:false');
+
+    const label = document.createElement('a-text');
+    label.classList.add('gj-fallback-label');
+    safeSet(label, 'value', labelFor(root));
+    safeSet(label, 'align', 'center');
+    safeSet(label, 'width', '2.4');
+    safeSet(label, 'color', colorFor(root));
+    safeSet(label, 'position', '0 -0.62 1.02');
+    safeSet(label, 'material', 'shader:flat; depthTest:false; depthWrite:false');
+
+    try{
+      root.appendChild(bg);
+      root.appendChild(emoji);
+      root.appendChild(label);
+
+      [bg, emoji, label].forEach(function(n){
+        try{
+          n.object3D.renderOrder = 999;
+          n.object3D.traverse(function(o){
+            o.renderOrder = 999;
+            if (o.material){
+              o.material.depthTest = false;
+              o.material.depthWrite = false;
+              o.material.needsUpdate = true;
+            }
+          });
+        }catch(_){}
+      });
+    }catch(_){}
+  }
+
+  function scan(){
+    document.querySelectorAll('.gj-target-root').forEach(addFallback);
+  }
+
+  const observer = new MutationObserver(function(){
+    scan();
+  });
+
+  function boot(){
+    scan();
+
+    const targetRoot = document.getElementById('targetRoot') || document.body;
+
+    observer.observe(targetRoot, {
+      childList: true,
+      subtree: true
+    });
+
+    window.GJ_TARGET_IMAGE_FALLBACK_CHECK = function(){
+      const roots = Array.from(document.querySelectorAll('.gj-target-root'));
+      const snap = {
+        patch: PATCH,
+        targetCount: roots.length,
+        fallbackCount: document.querySelectorAll('.gj-fallback-emoji').length,
+        kinds: roots.map(function(r){
+          return {
+            kind: getKind(r),
+            label: labelFor(r),
+            emoji: emojiFor(r)
+          };
+        })
+      };
+      console.log('[GJ_TARGET_IMAGE_FALLBACK_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Target Image Fallback]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
