@@ -4136,5 +4136,278 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK CVR BOSS TARGET SIDE LANES + AIM EASIER
+  PATCH: v8.46.9x-GOODJUNK-CVR-BOSS-SIDE-TARGET-AIM-EASY
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+========================================================= -->
+
+<style id="gj-cvr-boss-side-target-aim-easy-css">
+  body[data-gj-cvr-boss-side-target-aim-easy="1"] .gj-target-root[data-kind="good"],
+  body[data-gj-cvr-boss-side-target-aim-easy="1"] .gj-target-root[data-kind="junk"],
+  body[data-gj-cvr-boss-side-target-aim-easy="1"] .gj-target-root[data-kind="fake"],
+  body[data-gj-cvr-boss-side-target-aim-easy="1"] .gj-target-root[data-kind="power"]{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  body[data-gj-cvr-boss-side-target-aim-easy="1"] .mission{
+    max-width:min(520px, calc(100vw - 42px)) !important;
+  }
+</style>
+
+<script id="gj-cvr-boss-side-target-aim-easy-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_BOSS_SIDE_TARGET_AIM_EASY__) return;
+  window.__GJ_CVR_BOSS_SIDE_TARGET_AIM_EASY__ = true;
+
+  const PATCH = 'v8.46.9x-GOODJUNK-CVR-BOSS-SIDE-TARGET-AIM-EASY';
+  const qs = new URLSearchParams(location.search || '');
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+  const device = String(qs.get('device') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard' ||
+    device === 'cardboard';
+
+  if (!isCvr) return;
+
+  let lastStage = '';
+  let laneTick = 0;
+
+  const SIDE_LANES = [
+    { x:-1.55, y:1.38, z:-2.75 },
+    { x: 1.55, y:1.38, z:-2.75 },
+    { x:-1.18, y:1.86, z:-3.05 },
+    { x: 1.18, y:1.86, z:-3.05 },
+    { x: 0.00, y:0.82, z:-2.55 }
+  ];
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function api(){
+    return window.GoodJunkFull3DVRFlow || window.GJF3D || null;
+  }
+
+  function state(){
+    try{
+      const a = api();
+      return a && typeof a.getState === 'function' ? a.getState() : {};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function stage(){
+    return String(state().stage || '');
+  }
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function isBossPhase(){
+    return stage() === 'main';
+  }
+
+  function isDynamicTarget(root){
+    if (!root || !root.dataset) return false;
+    return /^(good|junk|fake|power)$/.test(String(root.dataset.kind || ''));
+  }
+
+  function targetList(){
+    return Array.from(document.querySelectorAll('.gj-target-root')).filter(isDynamicTarget);
+  }
+
+  function setMission(text){
+    const m = $('missionText');
+    if (m) m.textContent = text;
+  }
+
+  function makeTargetEasier(root){
+    if (!root || root.__gjCvrAimEasyDone) return;
+
+    root.__gjCvrAimEasyDone = true;
+    root.setAttribute('data-gj-cvr-side-target','1');
+
+    try{
+      const currentScale = root.getAttribute('scale');
+      let sx = 1, sy = 1, sz = 1;
+
+      if (currentScale && typeof currentScale === 'object'){
+        sx = Number(currentScale.x || 1);
+        sy = Number(currentScale.y || 1);
+        sz = Number(currentScale.z || 1);
+      }
+
+      const next = Math.max(1.12, Math.min(1.32, sx * 1.18));
+      safeSet(root, 'scale', next + ' ' + next + ' ' + next);
+    }catch(_){
+      safeSet(root, 'scale', '1.22 1.22 1.22');
+    }
+
+    root.querySelectorAll('.gj-hitbox').forEach(function(hit){
+      safeSet(hit, 'width', '2.45');
+      safeSet(hit, 'height', '2.45');
+      safeSet(hit, 'depth', '1.10');
+      safeSet(hit, 'position', '0 0 .24');
+      safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false; depthTest:false');
+    });
+
+    try{
+      root.object3D.renderOrder = 14000;
+      root.object3D.traverse(function(o){
+        o.renderOrder = 14000;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function moveTargetsToSideLanes(){
+    if (!isBossPhase()) return;
+
+    const targets = targetList();
+
+    targets.forEach(function(root, index){
+      makeTargetEasier(root);
+
+      if (root.__gjCvrLaneLocked) return;
+
+      const lane = SIDE_LANES[(laneTick + index) % SIDE_LANES.length];
+
+      /*
+        สำคัญ:
+        - ไม่วางตรงกลางระดับหน้า boss
+        - ใช้ซ้าย/ขวา/ล่าง ใกล้ player กว่าเดิม
+        - z ประมาณ -2.5 ถึง -3.05 เพื่อยิงง่ายกว่าเดิม
+      */
+      safeSet(root, 'position', lane.x + ' ' + lane.y + ' ' + lane.z);
+      safeSet(root, 'animation__fly', {
+        property: 'position',
+        to: (lane.x * 0.42) + ' ' + lane.y + ' -0.95',
+        dur: 5200,
+        easing: 'linear'
+      });
+
+      root.__gjCvrLaneLocked = true;
+    });
+  }
+
+  function bossComfortPosition(){
+    const boss = $('bossRoot');
+    if (!boss) return;
+
+    /*
+      ให้บอสอยู่กลางแต่ถอยหลังนิดหนึ่ง ไม่กินพื้นที่เป้า
+      ไม่บังคับ player หมุนหา เพราะเป้าอยู่หน้าผู้เล่น
+    */
+    safeSet(boss, 'position', '0 2.00 -6.80');
+    safeSet(boss, 'scale', '.92 .92 .92');
+    safeSet(boss, 'visible', 'true');
+
+    boss.style.display = '';
+    boss.style.visibility = '';
+    boss.style.opacity = '';
+  }
+
+  function unlockOldLaneFlags(){
+    targetList().forEach(function(root){
+      root.__gjCvrLaneLocked = false;
+      root.__gjCvrAimEasyDone = false;
+    });
+  }
+
+  function tick(){
+    const s = stage();
+
+    if (s !== lastStage){
+      lastStage = s;
+      laneTick++;
+
+      if (s === 'main'){
+        document.body.setAttribute('data-gj-cvr-boss-side-target-aim-easy','1');
+        bossComfortPosition();
+        setMission('Boss: เป้าจะออกซ้าย/ขวา ยิง GOOD หลบ JUNK');
+        unlockOldLaneFlags();
+      }else{
+        document.body.removeAttribute('data-gj-cvr-boss-side-target-aim-easy');
+      }
+    }
+
+    if (s === 'main'){
+      bossComfortPosition();
+      moveTargetsToSideLanes();
+    }
+  }
+
+  function boot(){
+    const timer = setInterval(function(){
+      tick();
+
+      const s = stage();
+      if (s === 'done'){
+        clearInterval(timer);
+      }
+    }, 180);
+
+    window.GJ_CVR_BOSS_SIDE_TARGET_AIM_EASY_CHECK = function(){
+      const targets = targetList();
+
+      const snap = {
+        patch: PATCH,
+        stage: stage(),
+        active: document.body.getAttribute('data-gj-cvr-boss-side-target-aim-easy') === '1',
+        targetCount: targets.length,
+        targets: targets.map(function(t){
+          return {
+            kind: t.dataset && t.dataset.kind,
+            pos: t.getAttribute('position'),
+            scale: t.getAttribute('scale'),
+            laneLocked: !!t.__gjCvrLaneLocked,
+            aimEasy: !!t.__gjCvrAimEasyDone
+          };
+        }),
+        boss: (function(){
+          const b = $('bossRoot');
+          return b ? {
+            pos: b.getAttribute('position'),
+            scale: b.getAttribute('scale'),
+            visible: b.getAttribute('visible')
+          } : null;
+        })()
+      };
+
+      console.log('[GJ_CVR_BOSS_SIDE_TARGET_AIM_EASY_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk CVR Boss Side Target Aim Easy]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
