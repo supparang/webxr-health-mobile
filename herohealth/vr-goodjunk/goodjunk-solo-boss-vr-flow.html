@@ -1762,92 +1762,60 @@ function boot(){try{applyViewClass();setVersionStamp();loadBestScore();const tes
 if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหลด หรือโหลดไม่สำเร็จ\nตรวจ internet / CDN / cache แล้วลองโหลดใหม่');if(DOC.readyState==='loading')DOC.addEventListener('DOMContentLoaded',boot);else boot();
 })();
   </script>
-<!-- =========================================================
-  GOODJUNK SOLO BOSS VR FLOW PATCH
-  Cardboard/cVR Runtime + Crosshair Shoot + Return Fix
-  PATCH: v20260524-GOODJUNK-SOLO-BOSS-CVR-RUNTIME-FINAL
+  <!-- =========================================================
+  GOODJUNK SOLO BOSS CVR SAFE PATCH
+  Lightweight Cardboard/cVR support without heavy MutationObserver
+  PATCH: v20260524-GOODJUNK-SOLO-CVR-SAFE-NO-HANG
   FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
   PLACE: before </body>
+
+  IMPORTANT:
+  - Remove older heavy patches first:
+    1) v20260524-GOODJUNK-SOLO-BOSS-CVR-RUNTIME-FINAL
+    2) v20260524-GOODJUNK-SOLO-CVR-DUPLICATE-VR-CONTROLS-CLEANUP
 ========================================================= -->
 
-<style id="gj-solo-cvr-runtime-css">
-  html.gj-cvr-runtime,
-  body.gj-cvr-runtime{
-    overscroll-behavior:none !important;
-    touch-action:manipulation !important;
-  }
-
-  body.gj-cvr-runtime{
-    --gj-cvr-safe-top: env(safe-area-inset-top, 0px);
-    --gj-cvr-safe-bottom: env(safe-area-inset-bottom, 0px);
-  }
-
-  .gj-cvr-runtime .gj-cvr-controls{
-    position:fixed;
-    left:calc(10px + env(safe-area-inset-left,0px));
-    right:calc(10px + env(safe-area-inset-right,0px));
-    bottom:calc(10px + env(safe-area-inset-bottom,0px));
-    z-index:999999;
-    display:flex;
-    justify-content:center;
-    gap:8px;
-    pointer-events:none;
-  }
-
-  .gj-cvr-runtime .gj-cvr-btn{
-    pointer-events:auto;
-    border:0;
-    border-radius:999px;
-    padding:10px 13px;
-    min-height:42px;
-    font-size:13px;
-    font-weight:1000;
-    color:#7c2d12;
-    background:linear-gradient(180deg,#fff7ad 0%,#fde68a 52%,#facc15 100%);
-    border:3px solid #fed08a;
-    box-shadow:0 10px 24px rgba(15,23,42,.18);
+<style id="gj-solo-cvr-safe-css">
+  body.gj-cvr-safe{
+    overscroll-behavior:none;
     touch-action:manipulation;
   }
 
-  .gj-cvr-runtime .gj-cvr-btn:active{
-    transform:scale(.96);
-  }
-
-  .gj-cvr-runtime .gj-cvr-crosshair{
+  .gj-cvr-safe-crosshair{
     position:fixed;
     left:50%;
     top:50%;
-    width:42px;
-    height:42px;
+    width:40px;
+    height:40px;
     transform:translate(-50%,-50%);
-    z-index:999998;
+    z-index:99990;
     pointer-events:none;
     border-radius:999px;
-    filter:drop-shadow(0 4px 10px rgba(0,0,0,.35));
+    filter:drop-shadow(0 4px 10px rgba(0,0,0,.32));
   }
 
-  .gj-cvr-runtime .gj-cvr-crosshair::before,
-  .gj-cvr-runtime .gj-cvr-crosshair::after{
+  .gj-cvr-safe-crosshair::before,
+  .gj-cvr-safe-crosshair::after{
     content:"";
     position:absolute;
     left:50%;
     top:50%;
-    background:rgba(255,255,255,.94);
+    background:rgba(255,255,255,.95);
     border-radius:999px;
     transform:translate(-50%,-50%);
   }
 
-  .gj-cvr-runtime .gj-cvr-crosshair::before{
+  .gj-cvr-safe-crosshair::before{
     width:34px;
     height:4px;
   }
 
-  .gj-cvr-runtime .gj-cvr-crosshair::after{
+  .gj-cvr-safe-crosshair::after{
     width:4px;
     height:34px;
   }
 
-  .gj-cvr-runtime .gj-cvr-crosshair span{
+  .gj-cvr-safe-crosshair span{
     position:absolute;
     left:50%;
     top:50%;
@@ -1856,412 +1824,335 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
     transform:translate(-50%,-50%);
     border-radius:999px;
     border:3px solid #facc15;
-    background:rgba(124,45,18,.82);
-    box-shadow:0 0 0 3px rgba(255,255,255,.7);
+    background:rgba(124,45,18,.86);
+    box-shadow:0 0 0 3px rgba(255,255,255,.72);
   }
 
-  .gj-cvr-runtime .gj-cvr-toast{
+  .gj-cvr-safe-controls{
     position:fixed;
     left:50%;
-    top:calc(12px + env(safe-area-inset-top,0px));
+    bottom:calc(12px + env(safe-area-inset-bottom,0px));
     transform:translateX(-50%);
-    z-index:999999;
-    max-width:calc(100vw - 28px);
+    z-index:99991;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    justify-content:center;
+    pointer-events:none;
+  }
+
+  .gj-cvr-safe-btn{
+    pointer-events:auto;
+    border-radius:999px;
+    border:3px solid #fed08a;
+    min-height:42px;
     padding:9px 13px;
-    border-radius:999px;
-    background:rgba(15,23,42,.82);
-    color:#fff;
+    background:linear-gradient(180deg,#fff7ad,#facc15);
+    color:#7c2d12;
     font-size:13px;
-    font-weight:900;
-    text-align:center;
-    box-shadow:0 12px 30px rgba(0,0,0,.22);
-    opacity:0;
-    pointer-events:none;
-    transition:opacity .18s ease, transform .18s ease;
+    font-weight:1000;
+    box-shadow:0 10px 22px rgba(15,23,42,.20);
   }
 
-  .gj-cvr-runtime .gj-cvr-toast.show{
-    opacity:1;
-    transform:translateX(-50%) translateY(2px);
+  .gj-cvr-safe-btn:active{
+    transform:scale(.96);
   }
 
-  .gj-cvr-runtime .gj-cvr-aim-flash{
-    position:fixed;
-    left:50%;
-    top:50%;
-    width:78px;
-    height:78px;
-    transform:translate(-50%,-50%) scale(.65);
-    z-index:999997;
-    pointer-events:none;
-    border-radius:999px;
-    border:4px solid rgba(250,204,21,.92);
-    opacity:0;
+  body.gj-cvr-summary .gj-cvr-safe-controls,
+  body.gj-cvr-summary .gj-cvr-safe-crosshair{
+    display:none !important;
+    opacity:0 !important;
+    pointer-events:none !important;
   }
 
-  .gj-cvr-runtime .gj-cvr-aim-flash.on{
-    animation:gjCvrFlash .22s ease-out;
+  body.gj-cvr-summary [data-gj-vr-ui-hide-on-summary="1"]{
+    display:none !important;
+    opacity:0 !important;
+    pointer-events:none !important;
   }
 
-  @keyframes gjCvrFlash{
-    0%{opacity:.95; transform:translate(-50%,-50%) scale(.55);}
-    100%{opacity:0; transform:translate(-50%,-50%) scale(1.28);}
-  }
-
-  /* Compact HUD for mobile/Cardboard */
-  .gj-cvr-runtime .hud,
-  .gj-cvr-runtime #hud,
-  .gj-cvr-runtime .game-hud,
-  .gj-cvr-runtime .top-hud,
-  .gj-cvr-runtime .scoreboard,
-  .gj-cvr-runtime .statusbar,
-  .gj-cvr-runtime .topbar{
-    max-width:calc(100vw - 18px) !important;
-    transform-origin:top center !important;
-    font-size:clamp(11px, 3.1vw, 14px) !important;
-  }
-
-  .gj-cvr-runtime .hud *,
-  .gj-cvr-runtime #hud *,
-  .gj-cvr-runtime .game-hud *,
-  .gj-cvr-runtime .top-hud *,
-  .gj-cvr-runtime .scoreboard *,
-  .gj-cvr-runtime .statusbar *,
-  .gj-cvr-runtime .topbar *{
-    font-size:inherit !important;
-  }
-
-  .gj-cvr-runtime .summary,
-  .gj-cvr-runtime #summary,
-  .gj-cvr-runtime .end-screen,
-  .gj-cvr-runtime .result-panel,
-  .gj-cvr-runtime .modal,
-  .gj-cvr-runtime .panel{
-    max-width:calc(100vw - 22px) !important;
-  }
-
-  @media (max-width:720px){
-    .gj-cvr-runtime .gj-cvr-controls{
-      gap:7px;
-      bottom:calc(8px + env(safe-area-inset-bottom,0px));
-    }
-
-    .gj-cvr-runtime .gj-cvr-btn{
-      padding:9px 10px;
-      min-height:40px;
+  @media(max-width:720px){
+    .gj-cvr-safe-btn{
       font-size:12px;
+      padding:8px 10px;
+      min-height:38px;
     }
 
-    .gj-cvr-runtime .gj-cvr-crosshair{
-      width:38px;
-      height:38px;
-    }
-  }
-
-  @media (display-mode:fullscreen){
-    .gj-cvr-runtime .gj-cvr-controls{
-      bottom:calc(8px + env(safe-area-inset-bottom,0px));
+    .gj-cvr-safe-crosshair{
+      width:36px;
+      height:36px;
     }
   }
 </style>
 
-<script id="gj-solo-cvr-runtime-js">
+<script id="gj-solo-cvr-safe-js">
 (function(){
   'use strict';
 
-  const PATCH_VERSION = 'v20260524-GOODJUNK-SOLO-BOSS-CVR-RUNTIME-FINAL';
-  const CONTROL_ID = 'gj-cvr-controls';
-  const CROSSHAIR_ID = 'gj-cvr-crosshair';
-  const TOAST_ID = 'gj-cvr-toast';
-  const FLASH_ID = 'gj-cvr-aim-flash';
+  if (window.__GJ_SOLO_CVR_SAFE_NO_HANG__) return;
+  window.__GJ_SOLO_CVR_SAFE_NO_HANG__ = true;
 
-  if (window.__GOODJUNK_SOLO_CVR_RUNTIME_FINAL__) return;
-  window.__GOODJUNK_SOLO_CVR_RUNTIME_FINAL__ = true;
+  const PATCH = 'v20260524-GOODJUNK-SOLO-CVR-SAFE-NO-HANG';
+  const qs = new URLSearchParams(location.search);
 
-  const url = new URL(location.href);
-  const qs = url.searchParams;
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
 
-  function isCvrMode(){
-    const view = String(qs.get('view') || '').toLowerCase();
-    const entry = String(qs.get('entry') || '').toLowerCase();
-    return view === 'cvr' || view === 'cardboard' || entry === 'cardboard';
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard';
+
+  if (!isCvr) return;
+
+  function $(sel){
+    return document.querySelector(sel);
   }
 
-  if (!isCvrMode()) return;
-
-  function $(sel, root){
-    return (root || document).querySelector(sel);
+  function textOf(el){
+    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
-  function $all(sel, root){
-    return Array.from((root || document).querySelectorAll(sel));
+  function hasUniversalVrUi(){
+    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
+    return nodes.some(function(el){
+      const t = textOf(el).toUpperCase();
+      return t.includes('ENTER VR') || t.includes('EXIT VR') || t.includes('RECENTER');
+    });
   }
 
-  function toast(msg){
-    let el = document.getElementById(TOAST_ID);
-    if (!el){
-      el = document.createElement('div');
-      el.id = TOAST_ID;
-      el.className = 'gj-cvr-toast';
-      document.body.appendChild(el);
-    }
-    el.textContent = msg;
-    el.classList.add('show');
-    clearTimeout(el.__t);
-    el.__t = setTimeout(function(){
-      el.classList.remove('show');
-    }, 1450);
+  function markUniversalVrUi(){
+    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
+
+    nodes.forEach(function(el){
+      const t = textOf(el).toUpperCase();
+
+      const isVr =
+        t.includes('ENTER VR') ||
+        t.includes('EXIT VR') ||
+        t.includes('RECENTER');
+
+      if (!isVr) return;
+
+      el.setAttribute('data-gj-vr-ui-hide-on-summary', '1');
+
+      const parent = el.parentElement;
+      if (parent){
+        const pt = textOf(parent).toUpperCase();
+        if (
+          pt.includes('ENTER VR') ||
+          pt.includes('EXIT VR') ||
+          pt.includes('RECENTER')
+        ){
+          parent.setAttribute('data-gj-vr-ui-hide-on-summary', '1');
+        }
+      }
+    });
   }
 
-  function getLauncherUrl(){
-    const fromParam =
-      qs.get('launcher') ||
+  function launcherUrl(){
+    const from =
       qs.get('back') ||
+      qs.get('launcher') ||
       qs.get('hub');
 
-    if (fromParam && /goodjunk-launcher\.html/i.test(fromParam)){
-      return fromParam;
+    if (from && /goodjunk-launcher\.html/i.test(from)){
+      return from;
     }
 
     return new URL('../goodjunk-launcher.html', location.href).href;
   }
 
-  function getReplayUrl(){
-    const replay = new URL(location.href);
-    replay.searchParams.set('run', 'play');
-    replay.searchParams.set('view', 'cvr');
-    replay.searchParams.set('entry', 'cardboard');
-    replay.searchParams.set('mode', 'solo');
-    replay.searchParams.set('game', 'goodjunk');
-    replay.searchParams.set('zone', 'nutrition');
-    replay.searchParams.set('seed', String(Date.now()));
-    replay.searchParams.set('hub', getLauncherUrl());
-    replay.searchParams.set('launcher', getLauncherUrl());
-    replay.searchParams.set('back', getLauncherUrl());
-    return replay.href;
-  }
-
-  function ensureParams(){
+  function fixUrlParams(){
     let changed = false;
 
-    function setMissing(k, v){
+    function setMissing(k,v){
       if (!qs.get(k)){
-        qs.set(k, v);
+        qs.set(k,v);
         changed = true;
       }
     }
 
-    setMissing('run', 'play');
-    setMissing('view', 'cvr');
-    setMissing('entry', 'cardboard');
-    setMissing('mode', 'solo');
-    setMissing('game', 'goodjunk');
-    setMissing('gameId', 'goodjunk');
-    setMissing('zone', 'nutrition');
-    setMissing('cat', 'nutrition');
-    setMissing('variant', 'solo-boss-vr');
-    setMissing('hub', getLauncherUrl());
-    setMissing('launcher', getLauncherUrl());
-    setMissing('back', getLauncherUrl());
+    setMissing('run','play');
+    setMissing('view','cvr');
+    setMissing('entry','cardboard');
+    setMissing('mode','solo');
+    setMissing('game','goodjunk');
+    setMissing('gameId','goodjunk');
+    setMissing('zone','nutrition');
+    setMissing('cat','nutrition');
+    setMissing('variant','solo-boss-vr');
+
+    const back = launcherUrl();
+    qs.set('hub', back);
+    qs.set('launcher', back);
+    qs.set('back', back);
 
     if (changed){
-      history.replaceState(null, '', url.pathname + '?' + qs.toString() + url.hash);
+      history.replaceState(null, '', location.pathname + '?' + qs.toString() + location.hash);
     }
   }
 
-  function findScene(){
-    return $('a-scene') || $('[scene]');
-  }
-
-  function findCameraEl(){
-    return (
-      $('[camera][active="true"]') ||
-      $('a-camera') ||
-      $('[camera]') ||
-      $('#camera') ||
-      $('.camera')
-    );
-  }
-
-  function requestFullscreen(){
+  function enterFullscreen(){
     const el = document.documentElement;
-    const fn =
-      el.requestFullscreen ||
-      el.webkitRequestFullscreen ||
-      el.msRequestFullscreen;
 
-    if (fn){
-      try{
+    try{
+      const fn =
+        el.requestFullscreen ||
+        el.webkitRequestFullscreen ||
+        el.msRequestFullscreen;
+
+      if (fn){
         const p = fn.call(el);
         if (p && p.catch) p.catch(function(){});
-      }catch(e){}
-    }
+      }
+    }catch(_){}
 
     try{
       if (screen.orientation && screen.orientation.lock){
         screen.orientation.lock('landscape').catch(function(){});
       }
-    }catch(e){}
+    }catch(_){}
   }
 
   function enterVR(){
-    requestFullscreen();
+    enterFullscreen();
 
-    const scene = findScene();
-    if (scene && typeof scene.enterVR === 'function'){
-      try{
+    const scene = $('a-scene');
+
+    try{
+      if (scene && typeof scene.enterVR === 'function'){
         if (scene.hasLoaded){
           scene.enterVR();
         }else{
           scene.addEventListener('loaded', function(){
-            try{ scene.enterVR(); }catch(e){}
+            try{ scene.enterVR(); }catch(_){}
           }, {once:true});
         }
-      }catch(e){}
-    }
+      }
+    }catch(_){}
+  }
 
-    document.body.classList.add('gj-cvr-entered');
-    toast('พร้อมเล่น Cardboard VR แล้ว');
+  function recenter(){
+    try{
+      const cam =
+        document.querySelector('[camera][active="true"]') ||
+        document.querySelector('a-camera') ||
+        document.querySelector('[camera]');
+
+      if (cam && cam.object3D){
+        cam.object3D.rotation.x = 0;
+        cam.object3D.rotation.z = 0;
+      }
+    }catch(_){}
+
+    try{
+      window.dispatchEvent(new CustomEvent('hha:recenter', {
+        detail:{ game:'goodjunk', mode:'solo', view:'cvr', patch:PATCH }
+      }));
+
+      document.dispatchEvent(new CustomEvent('hha:recenter', {
+        detail:{ game:'goodjunk', mode:'solo', view:'cvr', patch:PATCH }
+      }));
+    }catch(_){}
   }
 
   function exitVR(){
-    const scene = findScene();
-    if (scene && typeof scene.exitVR === 'function'){
-      try{ scene.exitVR(); }catch(e){}
-    }
+    const scene = $('a-scene');
+
+    try{
+      if (scene && typeof scene.exitVR === 'function'){
+        scene.exitVR();
+      }
+    }catch(_){}
 
     try{
       if (document.fullscreenElement && document.exitFullscreen){
         document.exitFullscreen().catch(function(){});
       }
-    }catch(e){}
-
-    document.body.classList.remove('gj-cvr-entered');
-    toast('ออกจาก VR แล้ว');
+    }catch(_){}
   }
 
-  function recenter(){
-    const cam = findCameraEl();
+  function makeCrosshair(){
+    if ($('#gj-cvr-safe-crosshair')) return;
 
-    try{
-      if (cam && cam.object3D){
-        cam.object3D.rotation.x = 0;
-        cam.object3D.rotation.z = 0;
-      }
-    }catch(e){}
-
-    window.dispatchEvent(new CustomEvent('hha:recenter', {
-      detail:{
-        game:'goodjunk',
-        mode:'solo',
-        view:'cvr',
-        patch:PATCH_VERSION
-      }
-    }));
-
-    document.dispatchEvent(new CustomEvent('hha:recenter', {
-      detail:{
-        game:'goodjunk',
-        mode:'solo',
-        view:'cvr',
-        patch:PATCH_VERSION
-      }
-    }));
-
-    toast('ปรับจุดมองใหม่แล้ว');
+    const el = document.createElement('div');
+    el.id = 'gj-cvr-safe-crosshair';
+    el.className = 'gj-cvr-safe-crosshair';
+    el.innerHTML = '<span></span>';
+    document.body.appendChild(el);
   }
 
-  function ensureControls(){
-    if (document.getElementById(CONTROL_ID)) return;
+  function makeControls(){
+    if ($('#gj-cvr-safe-controls')) return;
 
-    const controls = document.createElement('div');
-    controls.id = CONTROL_ID;
-    controls.className = 'gj-cvr-controls';
-    controls.innerHTML = `
-      <button class="gj-cvr-btn" type="button" data-gj-cvr-action="enter">🥽 ENTER VR</button>
-      <button class="gj-cvr-btn" type="button" data-gj-cvr-action="recenter">🎯 RECENTER</button>
-      <button class="gj-cvr-btn" type="button" data-gj-cvr-action="exit">↩ EXIT</button>
-    `;
+    /*
+      If Universal VR UI already exists, do not create duplicate buttons.
+      Keep only crosshair from this patch.
+    */
+    if (hasUniversalVrUi()) return;
 
-    controls.addEventListener('click', function(ev){
-      const btn = ev.target.closest('[data-gj-cvr-action]');
+    const box = document.createElement('div');
+    box.id = 'gj-cvr-safe-controls';
+    box.className = 'gj-cvr-safe-controls';
+
+    box.innerHTML = [
+      '<button class="gj-cvr-safe-btn" type="button" data-act="enter">🥽 ENTER VR</button>',
+      '<button class="gj-cvr-safe-btn" type="button" data-act="recenter">🎯 RECENTER</button>',
+      '<button class="gj-cvr-safe-btn" type="button" data-act="exit">↩ EXIT</button>'
+    ].join('');
+
+    box.addEventListener('click', function(ev){
+      const btn = ev.target.closest('[data-act]');
       if (!btn) return;
 
       ev.preventDefault();
       ev.stopPropagation();
 
-      const action = btn.getAttribute('data-gj-cvr-action');
-      if (action === 'enter') enterVR();
-      if (action === 'exit') exitVR();
-      if (action === 'recenter') recenter();
+      const act = btn.getAttribute('data-act');
+
+      if (act === 'enter') enterVR();
+      if (act === 'recenter') recenter();
+      if (act === 'exit') exitVR();
     }, true);
 
-    document.body.appendChild(controls);
-
-    const cross = document.createElement('div');
-    cross.id = CROSSHAIR_ID;
-    cross.className = 'gj-cvr-crosshair';
-    cross.innerHTML = '<span></span>';
-    document.body.appendChild(cross);
-
-    const flash = document.createElement('div');
-    flash.id = FLASH_ID;
-    flash.className = 'gj-cvr-aim-flash';
-    document.body.appendChild(flash);
+    document.body.appendChild(box);
   }
 
-  function flashAim(){
-    const el = document.getElementById(FLASH_ID);
-    if (!el) return;
-    el.classList.remove('on');
-    void el.offsetWidth;
-    el.classList.add('on');
-  }
-
-  function looksLikeTarget(el){
-    if (!el) return false;
-
-    const txt = [
-      el.id || '',
-      el.className || '',
-      el.getAttribute && el.getAttribute('data-type') || '',
-      el.getAttribute && el.getAttribute('data-kind') || '',
-      el.getAttribute && el.getAttribute('data-target') || '',
-      el.getAttribute && el.getAttribute('data-food') || '',
-      el.getAttribute && el.getAttribute('data-junk') || '',
-      el.getAttribute && el.getAttribute('data-role') || '',
-      el.getAttribute && el.getAttribute('gltf-model') || '',
-      el.getAttribute && el.getAttribute('geometry') || ''
-    ].join(' ').toLowerCase();
-
-    return /target|food|good|junk|bad|item|boss|enemy|collect|fruit|drink|snack|gj/i.test(txt);
-  }
-
-  function ownerEl(obj){
-    let cur = obj;
-    while (cur){
-      if (cur.el) return cur.el;
-      cur = cur.parent;
-    }
-    return null;
-  }
-
-  function clickTarget(el){
-    if (!el) return false;
-
+  function dispatchShoot(){
     const detail = {
       source:'cvr-crosshair',
       view:'cvr',
       game:'goodjunk',
       mode:'solo',
-      patch:PATCH_VERSION,
+      patch:PATCH,
       clientX:window.innerWidth / 2,
-      clientY:window.innerHeight / 2
+      clientY:window.innerHeight / 2,
+      ts:Date.now()
     };
 
     try{
-      el.dispatchEvent(new CustomEvent('hha:shoot', {bubbles:true, detail}));
-      el.dispatchEvent(new CustomEvent('gj:shoot', {bubbles:true, detail}));
+      document.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
+      window.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
+      document.dispatchEvent(new CustomEvent('gj:shoot', {detail}));
+      window.dispatchEvent(new CustomEvent('gj:shoot', {detail}));
+    }catch(_){}
+
+    return detail;
+  }
+
+  function clickCenterElement(detail){
+    const el = document.elementFromPoint(
+      Math.floor(window.innerWidth / 2),
+      Math.floor(window.innerHeight / 2)
+    );
+
+    if (!el) return;
+
+    if (el.closest && el.closest('#gj-cvr-safe-controls')) return;
+
+    try{
       el.dispatchEvent(new MouseEvent('click', {
         bubbles:true,
         cancelable:true,
@@ -2269,445 +2160,181 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
         clientY:detail.clientY,
         view:window
       }));
-    }catch(e){}
-
-    try{
-      document.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
-      window.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
-    }catch(e){}
-
-    return true;
+    }catch(_){}
   }
 
-  function shootByDomCenter(){
-    const x = Math.floor(window.innerWidth / 2);
-    const y = Math.floor(window.innerHeight / 2);
-    const el = document.elementFromPoint(x, y);
+  let lastShoot = 0;
 
-    if (el && !el.closest('.gj-cvr-controls')){
-      const target = el.closest('[data-target], [data-type], [data-kind], .target, .food, .good, .junk, .bad, .boss, a-entity, a-image, a-box, a-sphere, a-gltf-model') || el;
-      return clickTarget(target);
-    }
-
-    return false;
-  }
-
-  function shootByAframeRay(){
-    const scene = findScene();
-    const cameraEl = findCameraEl();
-
-    if (!scene || !scene.object3D || !cameraEl || !cameraEl.object3D || !window.THREE){
-      return false;
-    }
-
-    try{
-      scene.object3D.updateMatrixWorld(true);
-      cameraEl.object3D.updateMatrixWorld(true);
-
-      const origin = new THREE.Vector3();
-      const direction = new THREE.Vector3(0, 0, -1);
-
-      cameraEl.object3D.getWorldPosition(origin);
-      direction.applyQuaternion(cameraEl.object3D.getWorldQuaternion(new THREE.Quaternion()));
-      direction.normalize();
-
-      const raycaster = new THREE.Raycaster(origin, direction);
-      raycaster.far = 120;
-
-      const objects = [];
-      scene.object3D.traverse(function(obj){
-        if (!obj || !obj.visible) return;
-
-        const el = ownerEl(obj);
-        if (!el) return;
-
-        if (looksLikeTarget(el)){
-          objects.push(obj);
-        }
-      });
-
-      const hits = raycaster.intersectObjects(objects, true);
-      if (!hits || !hits.length) return false;
-
-      for (let i = 0; i < hits.length; i++){
-        const el = ownerEl(hits[i].object);
-        if (el && looksLikeTarget(el)){
-          return clickTarget(el);
-        }
-      }
-    }catch(e){
-      return false;
-    }
-
-    return false;
-  }
-
-  let lastShootAt = 0;
-
-  function shootFromCenter(ev){
-    if (ev){
-      const t = ev.target;
-      if (t && t.closest && t.closest('.gj-cvr-controls')) return;
-    }
-
+  function shoot(){
     const now = Date.now();
-    if (now - lastShootAt < 220) return;
-    lastShootAt = now;
+    if (now - lastShoot < 220) return;
+    lastShoot = now;
 
-    flashAim();
-
-    const ok = shootByAframeRay() || shootByDomCenter();
-
-    if (!ok){
-      const detail = {
-        source:'cvr-crosshair-empty',
-        view:'cvr',
-        game:'goodjunk',
-        mode:'solo',
-        patch:PATCH_VERSION,
-        clientX:window.innerWidth / 2,
-        clientY:window.innerHeight / 2
-      };
-
-      try{
-        document.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
-        window.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
-      }catch(e){}
-    }
+    const detail = dispatchShoot();
+    clickCenterElement(detail);
   }
 
   function bindShoot(){
-    window.addEventListener('pointerdown', shootFromCenter, true);
-    window.addEventListener('touchstart', shootFromCenter, {capture:true, passive:true});
+    window.addEventListener('pointerdown', function(ev){
+      if (ev.target && ev.target.closest && ev.target.closest('#gj-cvr-safe-controls')) return;
+      shoot();
+    }, true);
 
     window.addEventListener('keydown', function(ev){
       if (ev.code === 'Space' || ev.code === 'Enter'){
-        shootFromCenter(ev);
+        shoot();
       }
     }, true);
   }
 
-  function isReplayText(text){
-    return /เล่นอีกครั้ง|เล่นซ้ำ|retry|replay|play again|restart/i.test(text);
+  function replayUrl(){
+    const replay = new URL(location.href);
+    replay.searchParams.set('run','play');
+    replay.searchParams.set('view','cvr');
+    replay.searchParams.set('entry','cardboard');
+    replay.searchParams.set('mode','solo');
+    replay.searchParams.set('game','goodjunk');
+    replay.searchParams.set('zone','nutrition');
+    replay.searchParams.set('seed', String(Date.now()));
+    replay.searchParams.set('hub', launcherUrl());
+    replay.searchParams.set('back', launcherUrl());
+    replay.searchParams.set('launcher', launcherUrl());
+    return replay.href;
   }
 
-  function isLauncherText(text){
-    return /กลับโหมด|เลือกโหมด|launcher|mode|modes|กลับหน้าโหมด|goodjunk/i.test(text);
-  }
+  function cooldownUrl(existingHref){
+    let out;
 
-  function isCooldownText(text){
-    return /cooldown|คูลดาวน์|ผ่อนคลาย|ยืดเหยียด/i.test(text);
-  }
+    try{
+      out = existingHref ? new URL(existingHref, location.href) : new URL('../warmup-gate.html', location.href);
+    }catch(_){
+      out = new URL('../warmup-gate.html', location.href);
+    }
 
-  function patchSummaryButtons(){
-    const launcherUrl = getLauncherUrl();
-    const replayUrl = getReplayUrl();
+    const back = launcherUrl();
 
-    const nodes = $all('a, button, [role="button"], .btn');
+    out.searchParams.set('phase', 'cooldown');
+    out.searchParams.set('game', 'goodjunk');
+    out.searchParams.set('gameId', 'goodjunk');
+    out.searchParams.set('mode', 'solo');
+    out.searchParams.set('view', 'cvr');
+    out.searchParams.set('entry', 'cardboard');
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('hub', back);
+    out.searchParams.set('back', back);
+    out.searchParams.set('launcher', back);
+    out.searchParams.set('next', back);
 
-    nodes.forEach(function(el){
-      if (el.__gjCvrReturnPatched) return;
-
-      const text = (el.textContent || '').trim();
-
-      if (isReplayText(text)){
-        el.__gjCvrReturnPatched = true;
-        if (el.tagName === 'A'){
-          el.setAttribute('href', replayUrl);
-        }
-        el.addEventListener('click', function(ev){
-          ev.preventDefault();
-          location.href = replayUrl;
-        }, true);
-      }
-
-      if (isLauncherText(text)){
-        el.__gjCvrReturnPatched = true;
-        if (el.tagName === 'A'){
-          el.setAttribute('href', launcherUrl);
-        }
-        el.addEventListener('click', function(ev){
-          ev.preventDefault();
-          location.href = launcherUrl;
-        }, true);
-      }
-
-      if (isCooldownText(text)){
-        el.__gjCvrReturnPatched = true;
-        el.addEventListener('click', function(ev){
-          const currentHref = el.getAttribute && el.getAttribute('href');
-
-          if (!currentHref) return;
-
-          try{
-            const cool = new URL(currentHref, location.href);
-            cool.searchParams.set('phase', 'cooldown');
-            cool.searchParams.set('game', 'goodjunk');
-            cool.searchParams.set('mode', 'solo');
-            cool.searchParams.set('view', 'cvr');
-            cool.searchParams.set('hub', launcherUrl);
-            cool.searchParams.set('back', launcherUrl);
-            cool.searchParams.set('next', launcherUrl);
-            el.setAttribute('href', cool.href);
-          }catch(e){}
-        }, true);
-      }
-    });
-  }
-
-  function observeSummary(){
-    patchSummaryButtons();
-
-    const mo = new MutationObserver(function(){
-      patchSummaryButtons();
-    });
-
-    mo.observe(document.body, {
-      childList:true,
-      subtree:true,
-      characterData:true
-    });
-  }
-
-  function applyRuntimeClass(){
-    document.documentElement.classList.add('gj-cvr-runtime');
-    document.body.classList.add('gj-cvr-runtime');
-    document.body.setAttribute('data-gj-cvr-patch', PATCH_VERSION);
-  }
-
-  function boot(){
-    ensureParams();
-    applyRuntimeClass();
-    ensureControls();
-    bindShoot();
-    observeSummary();
-
-    window.dispatchEvent(new CustomEvent('hha:cvr-ready', {
-      detail:{
-        game:'goodjunk',
-        mode:'solo',
-        view:'cvr',
-        patch:PATCH_VERSION
-      }
-    }));
-
-    toast('GoodJunk Cardboard VR พร้อมแล้ว');
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot);
-  }else{
-    boot();
-  }
-})();
-</script>
-<!-- =========================================================
-  GOODJUNK SOLO BOSS CVR CLEANUP PATCH
-  Remove duplicate VR buttons on Summary + hide cVR overlay after game end
-  PATCH: v20260524-GOODJUNK-SOLO-CVR-DUPLICATE-VR-CONTROLS-CLEANUP
-  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
-  PLACE: after previous cVR runtime patch, before </body>
-========================================================= -->
-
-<style id="gj-solo-cvr-summary-cleanup-css">
-  body.gj-cvr-summary-mode #gj-cvr-controls,
-  body.gj-cvr-summary-mode .gj-cvr-controls,
-  body.gj-cvr-summary-mode #gj-cvr-crosshair,
-  body.gj-cvr-summary-mode .gj-cvr-crosshair,
-  body.gj-cvr-summary-mode #gj-cvr-aim-flash,
-  body.gj-cvr-summary-mode .gj-cvr-aim-flash{
-    display:none !important;
-    opacity:0 !important;
-    pointer-events:none !important;
-  }
-
-  body.gj-cvr-summary-mode [data-gj-hide-vr-control="1"]{
-    display:none !important;
-    opacity:0 !important;
-    pointer-events:none !important;
-  }
-
-  body.gj-cvr-summary-mode .summary,
-  body.gj-cvr-summary-mode #summary,
-  body.gj-cvr-summary-mode .end-screen,
-  body.gj-cvr-summary-mode .result-panel,
-  body.gj-cvr-summary-mode .modal,
-  body.gj-cvr-summary-mode .panel{
-    padding-bottom:28px !important;
-  }
-
-  body.gj-cvr-runtime #gj-cvr-controls.gj-cvr-controls-disabled,
-  body.gj-cvr-runtime .gj-cvr-controls.gj-cvr-controls-disabled{
-    display:none !important;
-  }
-</style>
-
-<script id="gj-solo-cvr-summary-cleanup-js">
-(function(){
-  'use strict';
-
-  const PATCH_VERSION = 'v20260524-GOODJUNK-SOLO-CVR-DUPLICATE-VR-CONTROLS-CLEANUP';
-
-  if (window.__GOODJUNK_SOLO_CVR_SUMMARY_CLEANUP__) return;
-  window.__GOODJUNK_SOLO_CVR_SUMMARY_CLEANUP__ = true;
-
-  const qs = new URLSearchParams(location.search);
-  const view = String(qs.get('view') || '').toLowerCase();
-  const entry = String(qs.get('entry') || '').toLowerCase();
-
-  const isCvr =
-    view === 'cvr' ||
-    view === 'cardboard' ||
-    entry === 'cardboard';
-
-  if (!isCvr) return;
-
-  function textOf(el){
-    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function isVisible(el){
-    if (!el) return false;
-    const st = getComputedStyle(el);
-    if (st.display === 'none' || st.visibility === 'hidden' || Number(st.opacity) === 0) return false;
-    const r = el.getBoundingClientRect();
-    return r.width > 8 && r.height > 8;
+    return out.href;
   }
 
   function isSummaryNow(){
-    const bodyText = textOf(document.body);
+    const text = String(document.body.textContent || '');
 
-    if (
-      /ชนะ\s*Junk\s*Boss/i.test(bodyText) ||
-      /SCORE/i.test(bodyText) && /RANK/i.test(bodyText) && /GOOD\s*FOOD/i.test(bodyText) ||
-      /WATCH\s*OUT/i.test(bodyText) && /GOOD\s*FOOD/i.test(bodyText)
-    ){
-      return true;
-    }
-
-    const summarySelectors = [
-      '.summary',
-      '#summary',
-      '.end-screen',
-      '.result-panel',
-      '.result',
-      '.final-panel',
-      '.score-panel',
-      '.win-panel',
-      '.game-over',
-      '[data-summary]',
-      '[data-result]'
-    ];
-
-    return summarySelectors.some(function(sel){
-      return Array.from(document.querySelectorAll(sel)).some(isVisible);
-    });
+    return (
+      text.includes('ชนะ Junk Boss') ||
+      text.includes('แพ้ Junk Boss') ||
+      text.includes('Junk Boss') && text.includes('SCORE') && text.includes('RANK') ||
+      text.includes('GOOD FOOD') && text.includes('WATCH OUT') ||
+      text.includes('คะแนน') && text.includes('เล่นอีกครั้ง')
+    );
   }
 
-  function markExistingVrButtons(){
-    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
+  function patchSummaryOnce(){
+    markUniversalVrUi();
 
-    nodes.forEach(function(el){
-      const t = textOf(el).toUpperCase();
+    const summary = isSummaryNow();
+    document.body.classList.toggle('gj-cvr-summary', summary);
 
-      const isVrControl =
-        t === 'ENTER VR' ||
-        t === 'EXIT VR' ||
-        t === 'RECENTER' ||
-        t.includes('ENTER VR') ||
-        t.includes('EXIT VR') ||
-        t.includes('RECENTER');
+    if (!summary) return;
 
-      if (!isVrControl) return;
+    const back = launcherUrl();
+    const replay = replayUrl();
 
-      const isOurYellow =
-        el.closest('#gj-cvr-controls') ||
-        el.closest('.gj-cvr-controls');
+    document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
+      if (el.__gjCvrSafeSummaryPatched) return;
 
-      /*
-        Mark both our yellow cVR controls and the existing Universal VR UI controls.
-        On Summary, all VR overlay controls should disappear so they do not cover results.
-      */
-      el.setAttribute('data-gj-hide-vr-control', '1');
+      const t = textOf(el);
 
-      const parent = el.parentElement;
-      if (parent && parent.children.length <= 4){
-        const parentText = textOf(parent).toUpperCase();
-        if (
-          parentText.includes('ENTER VR') ||
-          parentText.includes('EXIT VR') ||
-          parentText.includes('RECENTER')
-        ){
-          parent.setAttribute('data-gj-hide-vr-control', '1');
+      if (/เล่นอีกครั้ง|เล่นซ้ำ|replay|retry|play again|restart/i.test(t)){
+        el.__gjCvrSafeSummaryPatched = true;
+
+        if (el.tagName === 'A'){
+          el.setAttribute('href', replay);
         }
+
+        el.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          location.href = replay;
+        }, true);
       }
 
-      if (isOurYellow){
-        el.setAttribute('data-gj-cvr-yellow-control', '1');
+      if (/กลับโหมด|เลือกโหมด|launcher|mode|modes|goodjunk/i.test(t)){
+        el.__gjCvrSafeSummaryPatched = true;
+
+        if (el.tagName === 'A'){
+          el.setAttribute('href', back);
+        }
+
+        el.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          location.href = back;
+        }, true);
+      }
+
+      if (/cooldown|คูลดาวน์|ผ่อนคลาย|ยืดเหยียด/i.test(t)){
+        el.__gjCvrSafeSummaryPatched = true;
+
+        const href = el.getAttribute && el.getAttribute('href');
+        const cool = cooldownUrl(href);
+
+        if (el.tagName === 'A'){
+          el.setAttribute('href', cool);
+        }
+
+        el.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          location.href = cool;
+        }, true);
       }
     });
-  }
-
-  function hasUniversalVrUi(){
-    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
-    return nodes.some(function(el){
-      if (el.closest('#gj-cvr-controls') || el.closest('.gj-cvr-controls')) return false;
-
-      const t = textOf(el).toUpperCase();
-      return t.includes('EXIT VR') || t.includes('RECENTER') || t.includes('ENTER VR');
-    });
-  }
-
-  function disableDuplicateYellowControls(){
-    const yellow = document.getElementById('gj-cvr-controls') || document.querySelector('.gj-cvr-controls');
-
-    if (!yellow) return;
-
-    /*
-      If the original / universal VR UI already exists,
-      keep that system and disable our extra yellow controls.
-    */
-    if (hasUniversalVrUi()){
-      yellow.classList.add('gj-cvr-controls-disabled');
-      yellow.setAttribute('aria-hidden', 'true');
-    }
-  }
-
-  function applySummaryMode(){
-    markExistingVrButtons();
-    disableDuplicateYellowControls();
-
-    if (isSummaryNow()){
-      document.body.classList.add('gj-cvr-summary-mode');
-      document.body.setAttribute('data-gj-cvr-summary-cleanup', PATCH_VERSION);
-    }else{
-      document.body.classList.remove('gj-cvr-summary-mode');
-    }
   }
 
   function boot(){
-    applySummaryMode();
+    document.body.classList.add('gj-cvr-safe');
+    document.body.setAttribute('data-gj-cvr-safe', PATCH);
 
-    const mo = new MutationObserver(function(){
-      applySummaryMode();
-    });
+    fixUrlParams();
+    markUniversalVrUi();
+    makeCrosshair();
+    makeControls();
+    bindShoot();
 
-    mo.observe(document.body, {
-      childList:true,
-      subtree:true,
-      characterData:true,
-      attributes:true,
-      attributeFilter:['class','style','hidden']
-    });
+    /*
+      Lightweight summary watcher:
+      - no MutationObserver
+      - checks only 90 times max
+      - stops early after summary is detected
+    */
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+      patchSummaryOnce();
 
-    window.addEventListener('resize', applySummaryMode, {passive:true});
-    window.addEventListener('orientationchange', function(){
-      setTimeout(applySummaryMode, 250);
-    }, {passive:true});
+      if (count > 90 || document.body.classList.contains('gj-cvr-summary')){
+        clearInterval(timer);
+      }
+    }, 500);
+
+    console.info('[GoodJunk Solo CVR Safe]', PATCH, 'loaded');
   }
 
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot);
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
   }else{
     boot();
   }
