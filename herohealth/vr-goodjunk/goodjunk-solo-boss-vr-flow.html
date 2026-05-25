@@ -1763,136 +1763,78 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
 })();
   </script>
   <!-- =========================================================
-  GOODJUNK SOLO BOSS CVR SAFE PATCH
-  Lightweight Cardboard/cVR support without heavy MutationObserver
-  PATCH: v20260524-GOODJUNK-SOLO-CVR-SAFE-NO-HANG
+  GOODJUNK SOLO BOSS CVR INTERNAL FLOW SAFE PATCH
+  Keep original internal 3D Cooldown inside this file
+  PATCH: v8.46.9j-GOODJUNK-CVR-INTERNAL-COOLDOWN-RESTORE
   FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
   PLACE: before </body>
-
-  IMPORTANT:
-  - Remove older heavy patches first:
-    1) v20260524-GOODJUNK-SOLO-BOSS-CVR-RUNTIME-FINAL
-    2) v20260524-GOODJUNK-SOLO-CVR-DUPLICATE-VR-CONTROLS-CLEANUP
 ========================================================= -->
 
-<style id="gj-solo-cvr-safe-css">
-  body.gj-cvr-safe{
-    overscroll-behavior:none;
-    touch-action:manipulation;
-  }
-
-  .gj-cvr-safe-crosshair{
-    position:fixed;
-    left:50%;
-    top:50%;
-    width:40px;
-    height:40px;
-    transform:translate(-50%,-50%);
-    z-index:99990;
-    pointer-events:none;
-    border-radius:999px;
-    filter:drop-shadow(0 4px 10px rgba(0,0,0,.32));
-  }
-
-  .gj-cvr-safe-crosshair::before,
-  .gj-cvr-safe-crosshair::after{
-    content:"";
-    position:absolute;
-    left:50%;
-    top:50%;
-    background:rgba(255,255,255,.95);
-    border-radius:999px;
-    transform:translate(-50%,-50%);
-  }
-
-  .gj-cvr-safe-crosshair::before{
-    width:34px;
-    height:4px;
-  }
-
-  .gj-cvr-safe-crosshair::after{
-    width:4px;
-    height:34px;
-  }
-
-  .gj-cvr-safe-crosshair span{
-    position:absolute;
-    left:50%;
-    top:50%;
-    width:13px;
-    height:13px;
-    transform:translate(-50%,-50%);
-    border-radius:999px;
-    border:3px solid #facc15;
-    background:rgba(124,45,18,.86);
-    box-shadow:0 0 0 3px rgba(255,255,255,.72);
-  }
-
-  .gj-cvr-safe-controls{
-    position:fixed;
-    left:50%;
-    bottom:calc(12px + env(safe-area-inset-bottom,0px));
-    transform:translateX(-50%);
-    z-index:99991;
-    display:flex;
-    gap:8px;
-    align-items:center;
-    justify-content:center;
-    pointer-events:none;
-  }
-
-  .gj-cvr-safe-btn{
-    pointer-events:auto;
-    border-radius:999px;
-    border:3px solid #fed08a;
-    min-height:42px;
-    padding:9px 13px;
-    background:linear-gradient(180deg,#fff7ad,#facc15);
-    color:#7c2d12;
-    font-size:13px;
-    font-weight:1000;
-    box-shadow:0 10px 22px rgba(15,23,42,.20);
-  }
-
-  .gj-cvr-safe-btn:active{
-    transform:scale(.96);
-  }
-
-  body.gj-cvr-summary .gj-cvr-safe-controls,
-  body.gj-cvr-summary .gj-cvr-safe-crosshair{
+<style id="gj-cvr-internal-cooldown-safe-css">
+  body.view-cvr.summary-open .a-enter-vr,
+  body.view-cvr.summary-open .a-enter-ar,
+  body.view-cvr.summary-open .a-orientation-modal{
     display:none !important;
+    visibility:hidden !important;
     opacity:0 !important;
     pointer-events:none !important;
   }
 
-  body.gj-cvr-summary [data-gj-vr-ui-hide-on-summary="1"]{
+  body.view-cvr.summary-open [data-gj-vr-ui-hide-on-summary="1"]{
     display:none !important;
+    visibility:hidden !important;
     opacity:0 !important;
     pointer-events:none !important;
   }
 
-  @media(max-width:720px){
-    .gj-cvr-safe-btn{
-      font-size:12px;
-      padding:8px 10px;
-      min-height:38px;
-    }
+  body.view-cvr.cooldown-mode .crosshair{
+    display:block !important;
+    visibility:visible !important;
+    opacity:.86 !important;
+  }
 
-    .gj-cvr-safe-crosshair{
-      width:36px;
-      height:36px;
-    }
+  body.view-cvr.cooldown-mode .shoot,
+  body.view-cvr.cooldown-mode .back,
+  body.view-cvr.cooldown-mode .mission,
+  body.view-cvr.cooldown-mode .bossBar,
+  body.view-cvr.cooldown-mode .hud{
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  body.view-cvr.cooldown-mode .shoot,
+  body.view-cvr.cooldown-mode .back{
+    display:block !important;
+  }
+
+  body.view-cvr.cooldown-mode .mission,
+  body.view-cvr.cooldown-mode .bossBar,
+  body.view-cvr.cooldown-mode .hud{
+    display:grid !important;
+  }
+
+  body.view-cvr.cooldown-mode a-scene,
+  body.view-cvr.cooldown-mode canvas{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  body.view-cvr #cooldownBtn{
+    background:linear-gradient(135deg,#22c55e,#2563eb) !important;
+    color:#fff !important;
   }
 </style>
 
-<script id="gj-solo-cvr-safe-js">
+<script id="gj-cvr-internal-cooldown-safe-js">
 (function(){
   'use strict';
 
-  if (window.__GJ_SOLO_CVR_SAFE_NO_HANG__) return;
-  window.__GJ_SOLO_CVR_SAFE_NO_HANG__ = true;
+  if (window.__GJ_CVR_INTERNAL_COOLDOWN_RESTORE__) return;
+  window.__GJ_CVR_INTERNAL_COOLDOWN_RESTORE__ = true;
 
-  const PATCH = 'v20260524-GOODJUNK-SOLO-CVR-SAFE-NO-HANG';
+  const PATCH = 'v8.46.9j-GOODJUNK-CVR-INTERNAL-COOLDOWN-RESTORE';
   const qs = new URLSearchParams(location.search);
 
   const view = String(qs.get('view') || '').toLowerCase();
@@ -1906,34 +1848,77 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
 
   if (!isCvr) return;
 
-  function $(sel){
-    return document.querySelector(sel);
-  }
-
   function textOf(el){
     return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
-  function hasUniversalVrUi(){
-    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
-    return nodes.some(function(el){
-      const t = textOf(el).toUpperCase();
-      return t.includes('ENTER VR') || t.includes('EXIT VR') || t.includes('RECENTER');
-    });
+  function launcherUrl(){
+    const from =
+      qs.get('back') ||
+      qs.get('launcher') ||
+      qs.get('hub');
+
+    if (from && /goodjunk-launcher\.html/i.test(from)){
+      return from;
+    }
+
+    return new URL('../goodjunk-launcher.html', location.href).href;
   }
 
-  function markUniversalVrUi(){
-    const nodes = Array.from(document.querySelectorAll('button, a, [role="button"], .btn'));
+  function normalizeUrlParams(){
+    let changed = false;
 
-    nodes.forEach(function(el){
+    function setMissing(k, v){
+      if (!qs.get(k)){
+        qs.set(k, v);
+        changed = true;
+      }
+    }
+
+    setMissing('run', 'play');
+    setMissing('view', 'cvr');
+    setMissing('device', 'cardboard');
+    setMissing('entry', 'cardboard');
+    setMissing('variant', 'solo-boss-vr');
+    setMissing('mode', 'solo');
+    setMissing('game', 'goodjunk');
+    setMissing('gameId', 'goodjunk');
+    setMissing('zone', 'nutrition');
+    setMissing('cat', 'nutrition');
+    setMissing('theme', 'goodjunk');
+
+    const back = launcherUrl();
+
+    if (!qs.get('hub') || /goodjunk-solo-boss-vr-flow\.html/i.test(qs.get('hub'))){
+      qs.set('hub', back);
+      changed = true;
+    }
+
+    if (!qs.get('launcher')){
+      qs.set('launcher', back);
+      changed = true;
+    }
+
+    if (!qs.get('back')){
+      qs.set('back', back);
+      changed = true;
+    }
+
+    if (changed){
+      history.replaceState(null, '', location.pathname + '?' + qs.toString() + location.hash);
+    }
+  }
+
+  function markVrUiForSummary(){
+    document.querySelectorAll('button, a, [role="button"], .btn').forEach(function(el){
       const t = textOf(el).toUpperCase();
 
-      const isVr =
+      const isVrControl =
         t.includes('ENTER VR') ||
         t.includes('EXIT VR') ||
         t.includes('RECENTER');
 
-      if (!isVr) return;
+      if (!isVrControl) return;
 
       el.setAttribute('data-gj-vr-ui-hide-on-summary', '1');
 
@@ -1951,328 +1936,111 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
     });
   }
 
-  function launcherUrl(){
-    const from =
-      qs.get('back') ||
-      qs.get('launcher') ||
-      qs.get('hub');
+  function showSceneForInternalCooldown(){
+    document.body.classList.remove('summary-open');
+    document.body.classList.add('cooldown-mode');
 
-    if (from && /goodjunk-launcher\.html/i.test(from)){
-      return from;
+    const scene = document.querySelector('a-scene');
+    if (scene){
+      scene.style.display = '';
+      scene.style.visibility = 'visible';
+      scene.style.opacity = '1';
+      scene.style.pointerEvents = 'auto';
     }
 
-    return new URL('../goodjunk-launcher.html', location.href).href;
-  }
+    document.querySelectorAll('canvas').forEach(function(canvas){
+      canvas.style.display = '';
+      canvas.style.visibility = 'visible';
+      canvas.style.opacity = '1';
+      canvas.style.pointerEvents = 'auto';
+    });
 
-  function fixUrlParams(){
-    let changed = false;
+    const aimRay = document.getElementById('aimRay');
+    if (aimRay){
+      try{
+        aimRay.setAttribute('visible', 'true');
+        aimRay.setAttribute('position', '0 0 -1');
 
-    function setMissing(k,v){
-      if (!qs.get(k)){
-        qs.set(k,v);
-        changed = true;
-      }
-    }
-
-    setMissing('run','play');
-    setMissing('view','cvr');
-    setMissing('entry','cardboard');
-    setMissing('mode','solo');
-    setMissing('game','goodjunk');
-    setMissing('gameId','goodjunk');
-    setMissing('zone','nutrition');
-    setMissing('cat','nutrition');
-    setMissing('variant','solo-boss-vr');
-
-    const back = launcherUrl();
-    qs.set('hub', back);
-    qs.set('launcher', back);
-    qs.set('back', back);
-
-    if (changed){
-      history.replaceState(null, '', location.pathname + '?' + qs.toString() + location.hash);
-    }
-  }
-
-  function enterFullscreen(){
-    const el = document.documentElement;
-
-    try{
-      const fn =
-        el.requestFullscreen ||
-        el.webkitRequestFullscreen ||
-        el.msRequestFullscreen;
-
-      if (fn){
-        const p = fn.call(el);
-        if (p && p.catch) p.catch(function(){});
-      }
-    }catch(_){}
-
-    try{
-      if (screen.orientation && screen.orientation.lock){
-        screen.orientation.lock('landscape').catch(function(){});
-      }
-    }catch(_){}
-  }
-
-  function enterVR(){
-    enterFullscreen();
-
-    const scene = $('a-scene');
-
-    try{
-      if (scene && typeof scene.enterVR === 'function'){
-        if (scene.hasLoaded){
-          scene.enterVR();
-        }else{
-          scene.addEventListener('loaded', function(){
-            try{ scene.enterVR(); }catch(_){}
-          }, {once:true});
+        if (!aimRay.getAttribute('geometry')){
+          aimRay.setAttribute('geometry', 'primitive:ring; radiusInner:0.012; radiusOuter:0.018');
         }
+
+        if (!aimRay.getAttribute('material')){
+          aimRay.setAttribute('material', 'color:#ffffff; shader:flat; opacity:0.9');
+        }
+
+        if (aimRay.object3D) aimRay.object3D.visible = true;
+      }catch(_){}
+    }
+
+    ['summaryCenterBadge','summaryTinyCenterDotMask','summaryCenterMask'].forEach(function(id){
+      const node = document.getElementById(id);
+      if (node){
+        node.style.display = 'none';
+        node.style.visibility = 'hidden';
+        node.style.opacity = '0';
       }
-    }catch(_){}
+    });
+
+    const backdrop = document.getElementById('summaryPureBackdrop');
+    if (backdrop){
+      backdrop.style.display = 'none';
+    }
   }
 
-  function recenter(){
-    try{
-      const cam =
-        document.querySelector('[camera][active="true"]') ||
-        document.querySelector('a-camera') ||
-        document.querySelector('[camera]');
+  function callInternalCooldown(){
+    showSceneForInternalCooldown();
 
-      if (cam && cam.object3D){
-        cam.object3D.rotation.x = 0;
-        cam.object3D.rotation.z = 0;
+    const api = window.GoodJunkFull3DVRFlow || window.GJF3D;
+
+    if (api && typeof api.startCooldown === 'function'){
+      api.startCooldown();
+      return true;
+    }
+
+    console.warn('[GoodJunk CVR] internal startCooldown not found');
+    return false;
+  }
+
+  function patchCooldownButtonToInternal(){
+    const btn = document.getElementById('cooldownBtn');
+    if (!btn) return;
+
+    btn.textContent = '🧘 ทำ 3D Cooldown';
+    btn.setAttribute('data-gj-internal-cooldown', PATCH);
+
+    btn.onclick = function(ev){
+      if (ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
       }
-    }catch(_){}
 
-    try{
-      window.dispatchEvent(new CustomEvent('hha:recenter', {
-        detail:{ game:'goodjunk', mode:'solo', view:'cvr', patch:PATCH }
-      }));
-
-      document.dispatchEvent(new CustomEvent('hha:recenter', {
-        detail:{ game:'goodjunk', mode:'solo', view:'cvr', patch:PATCH }
-      }));
-    }catch(_){}
-  }
-
-  function exitVR(){
-    const scene = $('a-scene');
-
-    try{
-      if (scene && typeof scene.exitVR === 'function'){
-        scene.exitVR();
-      }
-    }catch(_){}
-
-    try{
-      if (document.fullscreenElement && document.exitFullscreen){
-        document.exitFullscreen().catch(function(){});
-      }
-    }catch(_){}
-  }
-
-  function makeCrosshair(){
-    if ($('#gj-cvr-safe-crosshair')) return;
-
-    const el = document.createElement('div');
-    el.id = 'gj-cvr-safe-crosshair';
-    el.className = 'gj-cvr-safe-crosshair';
-    el.innerHTML = '<span></span>';
-    document.body.appendChild(el);
-  }
-
-  function makeControls(){
-    if ($('#gj-cvr-safe-controls')) return;
-
-    /*
-      If Universal VR UI already exists, do not create duplicate buttons.
-      Keep only crosshair from this patch.
-    */
-    if (hasUniversalVrUi()) return;
-
-    const box = document.createElement('div');
-    box.id = 'gj-cvr-safe-controls';
-    box.className = 'gj-cvr-safe-controls';
-
-    box.innerHTML = [
-      '<button class="gj-cvr-safe-btn" type="button" data-act="enter">🥽 ENTER VR</button>',
-      '<button class="gj-cvr-safe-btn" type="button" data-act="recenter">🎯 RECENTER</button>',
-      '<button class="gj-cvr-safe-btn" type="button" data-act="exit">↩ EXIT</button>'
-    ].join('');
-
-    box.addEventListener('click', function(ev){
-      const btn = ev.target.closest('[data-act]');
-      if (!btn) return;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-
-      const act = btn.getAttribute('data-act');
-
-      if (act === 'enter') enterVR();
-      if (act === 'recenter') recenter();
-      if (act === 'exit') exitVR();
-    }, true);
-
-    document.body.appendChild(box);
-  }
-
-  function dispatchShoot(){
-    const detail = {
-      source:'cvr-crosshair',
-      view:'cvr',
-      game:'goodjunk',
-      mode:'solo',
-      patch:PATCH,
-      clientX:window.innerWidth / 2,
-      clientY:window.innerHeight / 2,
-      ts:Date.now()
+      callInternalCooldown();
+      return false;
     };
 
-    try{
-      document.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
-      window.dispatchEvent(new CustomEvent('hha:shoot', {detail}));
-      document.dispatchEvent(new CustomEvent('gj:shoot', {detail}));
-      window.dispatchEvent(new CustomEvent('gj:shoot', {detail}));
-    }catch(_){}
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
-    return detail;
-  }
-
-  function clickCenterElement(detail){
-    const el = document.elementFromPoint(
-      Math.floor(window.innerWidth / 2),
-      Math.floor(window.innerHeight / 2)
-    );
-
-    if (!el) return;
-
-    if (el.closest && el.closest('#gj-cvr-safe-controls')) return;
-
-    try{
-      el.dispatchEvent(new MouseEvent('click', {
-        bubbles:true,
-        cancelable:true,
-        clientX:detail.clientX,
-        clientY:detail.clientY,
-        view:window
-      }));
-    }catch(_){}
-  }
-
-  let lastShoot = 0;
-
-  function shoot(){
-    const now = Date.now();
-    if (now - lastShoot < 220) return;
-    lastShoot = now;
-
-    const detail = dispatchShoot();
-    clickCenterElement(detail);
-  }
-
-  function bindShoot(){
-    window.addEventListener('pointerdown', function(ev){
-      if (ev.target && ev.target.closest && ev.target.closest('#gj-cvr-safe-controls')) return;
-      shoot();
-    }, true);
-
-    window.addEventListener('keydown', function(ev){
-      if (ev.code === 'Space' || ev.code === 'Enter'){
-        shoot();
-      }
+      callInternalCooldown();
+      return false;
     }, true);
   }
 
-  function replayUrl(){
-    const replay = new URL(location.href);
-    replay.searchParams.set('run','play');
-    replay.searchParams.set('view','cvr');
-    replay.searchParams.set('entry','cardboard');
-    replay.searchParams.set('mode','solo');
-    replay.searchParams.set('game','goodjunk');
-    replay.searchParams.set('zone','nutrition');
-    replay.searchParams.set('seed', String(Date.now()));
-    replay.searchParams.set('hub', launcherUrl());
-    replay.searchParams.set('back', launcherUrl());
-    replay.searchParams.set('launcher', launcherUrl());
-    return replay.href;
-  }
-
-  function cooldownUrl(existingHref){
-    let out;
-
-    try{
-      out = existingHref ? new URL(existingHref, location.href) : new URL('../warmup-gate.html', location.href);
-    }catch(_){
-      out = new URL('../warmup-gate.html', location.href);
-    }
-
+  function patchSummaryButtons(){
     const back = launcherUrl();
-
-    out.searchParams.set('phase', 'cooldown');
-    out.searchParams.set('game', 'goodjunk');
-    out.searchParams.set('gameId', 'goodjunk');
-    out.searchParams.set('mode', 'solo');
-    out.searchParams.set('view', 'cvr');
-    out.searchParams.set('entry', 'cardboard');
-    out.searchParams.set('zone', 'nutrition');
-    out.searchParams.set('cat', 'nutrition');
-    out.searchParams.set('hub', back);
-    out.searchParams.set('back', back);
-    out.searchParams.set('launcher', back);
-    out.searchParams.set('next', back);
-
-    return out.href;
-  }
-
-  function isSummaryNow(){
-    const text = String(document.body.textContent || '');
-
-    return (
-      text.includes('ชนะ Junk Boss') ||
-      text.includes('แพ้ Junk Boss') ||
-      text.includes('Junk Boss') && text.includes('SCORE') && text.includes('RANK') ||
-      text.includes('GOOD FOOD') && text.includes('WATCH OUT') ||
-      text.includes('คะแนน') && text.includes('เล่นอีกครั้ง')
-    );
-  }
-
-  function patchSummaryOnce(){
-    markUniversalVrUi();
-
-    const summary = isSummaryNow();
-    document.body.classList.toggle('gj-cvr-summary', summary);
-
-    if (!summary) return;
-
-    const back = launcherUrl();
-    const replay = replayUrl();
 
     document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
-      if (el.__gjCvrSafeSummaryPatched) return;
+      if (el.id === 'cooldownBtn') return;
 
       const t = textOf(el);
 
-      if (/เล่นอีกครั้ง|เล่นซ้ำ|replay|retry|play again|restart/i.test(t)){
-        el.__gjCvrSafeSummaryPatched = true;
-
-        if (el.tagName === 'A'){
-          el.setAttribute('href', replay);
-        }
-
-        el.addEventListener('click', function(ev){
-          ev.preventDefault();
-          ev.stopPropagation();
-          location.href = replay;
-        }, true);
-      }
-
       if (/กลับโหมด|เลือกโหมด|launcher|mode|modes|goodjunk/i.test(t)){
-        el.__gjCvrSafeSummaryPatched = true;
+        if (el.__gjInternalBackPatched) return;
+        el.__gjInternalBackPatched = true;
 
         if (el.tagName === 'A'){
           el.setAttribute('href', back);
@@ -2285,622 +2053,88 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
         }, true);
       }
 
-      if (/cooldown|คูลดาวน์|ผ่อนคลาย|ยืดเหยียด/i.test(t)){
-        el.__gjCvrSafeSummaryPatched = true;
-
-        const href = el.getAttribute && el.getAttribute('href');
-        const cool = cooldownUrl(href);
-
-        if (el.tagName === 'A'){
-          el.setAttribute('href', cool);
-        }
+      if (/เล่นอีกครั้ง|เล่นซ้ำ|replay|retry|play again|restart/i.test(t)){
+        if (el.__gjInternalReplayPatched) return;
+        el.__gjInternalReplayPatched = true;
 
         el.addEventListener('click', function(ev){
           ev.preventDefault();
           ev.stopPropagation();
-          location.href = cool;
+
+          try{
+            const replay = new URL(location.href);
+            replay.searchParams.set('run', 'play');
+            replay.searchParams.set('view', 'cvr');
+            replay.searchParams.set('device', 'cardboard');
+            replay.searchParams.set('entry', 'cardboard');
+            replay.searchParams.set('variant', 'solo-boss-vr');
+            replay.searchParams.set('seed', String(Date.now()));
+            replay.searchParams.set('hub', back);
+            replay.searchParams.set('back', back);
+            replay.searchParams.set('launcher', back);
+            location.href = replay.href;
+          }catch(_){
+            location.reload();
+          }
         }, true);
       }
     });
   }
 
-  function boot(){
-    document.body.classList.add('gj-cvr-safe');
-    document.body.setAttribute('data-gj-cvr-safe', PATCH);
+  let lastTapShoot = 0;
 
-    fixUrlParams();
-    markUniversalVrUi();
-    makeCrosshair();
-    makeControls();
-    bindShoot();
+  function cvrTapShoot(ev){
+    if (document.body.classList.contains('summary-open')) return;
 
-    /*
-      Lightweight summary watcher:
-      - no MutationObserver
-      - checks only 90 times max
-      - stops early after summary is detected
-    */
-    let count = 0;
-    const timer = setInterval(function(){
-      count++;
-      patchSummaryOnce();
+    const target = ev && ev.target;
 
-      if (count > 90 || document.body.classList.contains('gj-cvr-summary')){
-        clearInterval(timer);
-      }
-    }, 500);
-
-    console.info('[GoodJunk Solo CVR Safe]', PATCH, 'loaded');
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, {once:true});
-  }else{
-    boot();
-  }
-})();
-</script>
-  <!-- =========================================================
-  GOODJUNK SOLO BOSS CVR COOLDOWN RESTORE PATCH
-  Restore Cardboard VR cooldown button/link after Solo Boss summary
-  PATCH: v20260524-GOODJUNK-SOLO-CVR-COOLDOWN-RESTORE-FIX
-  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
-  PLACE: after SAFE-NO-HANG patch, before </body>
-========================================================= -->
-
-<style id="gj-solo-cvr-cooldown-restore-css">
-  .gj-cvr-cooldown-restore-wrap{
-    display:flex;
-    justify-content:center;
-    width:100%;
-    margin:14px auto 8px;
-    padding:0 12px;
-  }
-
-  .gj-cvr-cooldown-restore-btn{
-    appearance:none;
-    border:4px solid #fed08a;
-    border-radius:24px;
-    min-height:58px;
-    padding:12px 18px;
-    width:min(420px, 100%);
-    background:linear-gradient(180deg,#fff7ad 0%,#fde68a 50%,#facc15 100%);
-    color:#7c2d12;
-    font-size:clamp(17px, 4.6vw, 24px);
-    font-weight:1000;
-    box-shadow:
-      0 12px 26px rgba(124,45,18,.18),
-      inset 0 2px 0 rgba(255,255,255,.85);
-    cursor:pointer;
-    touch-action:manipulation;
-  }
-
-  .gj-cvr-cooldown-restore-btn:active{
-    transform:scale(.98);
-  }
-
-  body:not(.gj-cvr-summary) .gj-cvr-cooldown-restore-wrap{
-    display:none !important;
-  }
-</style>
-
-<script id="gj-solo-cvr-cooldown-restore-js">
-(function(){
-  'use strict';
-
-  if (window.__GJ_SOLO_CVR_COOLDOWN_RESTORE_FIX__) return;
-  window.__GJ_SOLO_CVR_COOLDOWN_RESTORE_FIX__ = true;
-
-  const PATCH = 'v20260524-GOODJUNK-SOLO-CVR-COOLDOWN-RESTORE-FIX';
-  const BTN_ID = 'gj-cvr-cooldown-restore-btn';
-  const WRAP_ID = 'gj-cvr-cooldown-restore-wrap';
-
-  const qs = new URLSearchParams(location.search);
-  const view = String(qs.get('view') || '').toLowerCase();
-  const entry = String(qs.get('entry') || '').toLowerCase();
-
-  const isCvr =
-    view === 'cvr' ||
-    view === 'cardboard' ||
-    view === 'vr' ||
-    entry === 'cardboard';
-
-  if (!isCvr) return;
-
-  function textOf(el){
-    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function launcherUrl(){
-    const from =
-      qs.get('back') ||
-      qs.get('launcher') ||
-      qs.get('hub');
-
-    if (from && /goodjunk-launcher\.html/i.test(from)){
-      return from;
+    if (
+      target &&
+      target.closest &&
+      target.closest('button,a,input,select,textarea,.overlay,.a-enter-vr,.a-enter-ar,.a-orientation-modal')
+    ){
+      return;
     }
 
-    return new URL('../goodjunk-launcher.html', location.href).href;
-  }
+    const now = Date.now();
+    if (now - lastTapShoot < 230) return;
+    lastTapShoot = now;
 
-  function cooldownUrl(){
-    /*
-      GoodJunk Cardboard VR cooldown should go through warmup-gate.html
-      with phase=cooldown and return to goodjunk-launcher.html.
-    */
-    const out = new URL('../warmup-gate.html', location.href);
-    const back = launcherUrl();
+    const api = window.GoodJunkFull3DVRFlow || window.GJF3D;
 
-    const passKeys = [
-      'pid',
-      'name',
-      'studentId',
-      'studentName',
-      'classSection',
-      'studyId',
-      'conditionGroup',
-      'api',
-      'log',
-      'diff',
-      'time',
-      'seed'
-    ];
-
-    passKeys.forEach(function(k){
-      const v = qs.get(k);
-      if (v !== null && v !== ''){
-        out.searchParams.set(k, v);
-      }
-    });
-
-    out.searchParams.set('phase', 'cooldown');
-    out.searchParams.set('run', 'cooldown');
-
-    out.searchParams.set('game', 'goodjunk');
-    out.searchParams.set('gameId', 'goodjunk');
-    out.searchParams.set('mode', 'solo');
-    out.searchParams.set('variant', 'solo-boss-vr');
-    out.searchParams.set('entry', 'cardboard');
-
-    out.searchParams.set('view', 'cvr');
-    out.searchParams.set('device', 'cardboard');
-
-    out.searchParams.set('zone', 'nutrition');
-    out.searchParams.set('cat', 'nutrition');
-    out.searchParams.set('theme', 'goodjunk');
-
-    /*
-      After cooldown, return to GoodJunk launcher,
-      not hub and not wrong zone.
-    */
-    out.searchParams.set('hub', back);
-    out.searchParams.set('back', back);
-    out.searchParams.set('launcher', back);
-    out.searchParams.set('next', back);
-
-    out.searchParams.set('from', 'goodjunk-solo-boss-cvr-summary');
-    out.searchParams.set('patch', PATCH);
-    out.searchParams.set('t', String(Date.now()));
-
-    return out.href;
-  }
-
-  function isSummaryNow(){
-    const text = String(document.body.textContent || '');
-
-    return (
-      text.includes('ชนะ Junk Boss') ||
-      text.includes('แพ้ Junk Boss') ||
-      (text.includes('Junk Boss') && text.includes('SCORE') && text.includes('RANK')) ||
-      (text.includes('GOOD FOOD') && text.includes('WATCH OUT')) ||
-      (text.includes('คะแนน') && text.includes('เล่นอีกครั้ง'))
-    );
-  }
-
-  function findSummaryContainer(){
-    const candidates = [
-      '.summary',
-      '#summary',
-      '.end-screen',
-      '.result-panel',
-      '.result',
-      '.final-panel',
-      '.score-panel',
-      '.win-panel',
-      '.game-over',
-      '[data-summary]',
-      '[data-result]',
-      '.panel',
-      'main',
-      'body'
-    ];
-
-    for (const sel of candidates){
-      const nodes = Array.from(document.querySelectorAll(sel));
-      for (const el of nodes){
-        const t = textOf(el);
-        if (
-          t.includes('Junk Boss') ||
-          t.includes('SCORE') ||
-          t.includes('RANK') ||
-          t.includes('GOOD FOOD') ||
-          t.includes('WATCH OUT') ||
-          t.includes('เล่นอีกครั้ง')
-        ){
-          return el;
-        }
-      }
+    if (api && typeof api.shoot === 'function'){
+      api.shoot();
     }
-
-    return document.body;
   }
 
-  function patchExistingCooldownButtons(){
-    const cool = cooldownUrl();
-
-    document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
-      const t = textOf(el);
-
-      const isCooldown =
-        /cooldown|คูลดาวน์|ผ่อนคลาย|ยืดเหยียด|พักร่างกาย|ยืดตัว/i.test(t);
-
-      if (!isCooldown) return;
-
-      el.setAttribute('data-gj-cvr-cooldown-restored', PATCH);
-
-      if (el.tagName === 'A'){
-        el.setAttribute('href', cool);
-      }
-
-      el.onclick = function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        location.href = cool;
-      };
-    });
-  }
-
-  function ensureCooldownButton(){
-    if (!isSummaryNow()) return;
-
-    document.body.classList.add('gj-cvr-summary');
-
-    patchExistingCooldownButtons();
-
-    if (document.getElementById(BTN_ID)) return;
-
-    const wrap = document.createElement('div');
-    wrap.id = WRAP_ID;
-    wrap.className = 'gj-cvr-cooldown-restore-wrap';
-    wrap.setAttribute('data-patch', PATCH);
-
-    const btn = document.createElement('button');
-    btn.id = BTN_ID;
-    btn.className = 'gj-cvr-cooldown-restore-btn';
-    btn.type = 'button';
-    btn.textContent = '🧘 ทำ Cooldown Cardboard VR';
-
-    btn.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      location.href = cooldownUrl();
-    }, true);
-
-    wrap.appendChild(btn);
-
-    const container = findSummaryContainer();
-
-    /*
-      Prefer putting cooldown after existing summary action buttons,
-      but if not found, append to summary container.
-    */
-    const existingActions = Array.from(container.querySelectorAll('a,button,[role="button"],.btn'));
-    const lastAction = existingActions[existingActions.length - 1];
-
-    if (lastAction && lastAction.parentNode){
-      lastAction.parentNode.insertBefore(wrap, lastAction.nextSibling);
-    }else{
-      container.appendChild(wrap);
-    }
-
-    console.info('[GoodJunk CVR Cooldown Restore]', PATCH, cooldownUrl());
+  function bindTapShoot(){
+    window.addEventListener('pointerdown', cvrTapShoot, true);
   }
 
   function boot(){
-    /*
-      Lightweight: check for summary for a short time only.
-      This restores cooldown even if summary renders late.
-    */
+    document.body.classList.add('view-cvr');
+    document.body.setAttribute('data-gj-cvr-internal-cooldown', PATCH);
+
+    normalizeUrlParams();
+    markVrUiForSummary();
+    patchCooldownButtonToInternal();
+    patchSummaryButtons();
+    bindTapShoot();
+
     let count = 0;
     const timer = setInterval(function(){
       count++;
-      ensureCooldownButton();
 
-      if (count > 120 || document.getElementById(BTN_ID)){
+      markVrUiForSummary();
+      patchCooldownButtonToInternal();
+      patchSummaryButtons();
+
+      if (count > 100){
         clearInterval(timer);
       }
     }, 400);
 
-    window.addEventListener('hha:game-end', ensureCooldownButton, {passive:true});
-    window.addEventListener('gj:game-end', ensureCooldownButton, {passive:true});
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, {once:true});
-  }else{
-    boot();
-  }
-})();
-</script>
-  <!-- =========================================================
-  GOODJUNK SOLO BOSS CVR COOLDOWN HARD ROUTE FIX
-  Force Summary cooldown button to warmup-gate.html?phase=cooldown
-  PATCH: v20260525-GOODJUNK-SOLO-CVR-COOLDOWN-HARD-ROUTE-FIX
-  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
-  PLACE: LAST patch before </body>
-========================================================= -->
-
-<style id="gj-cvr-cooldown-hard-route-css">
-  body.gj-cvr-summary .gj-cvr-hard-cooldown-ready{
-    border-color:#22c55e !important;
-    background:linear-gradient(135deg,#22c55e,#2f7df6) !important;
-    color:#fff !important;
-    font-weight:1000 !important;
-  }
-</style>
-
-<script id="gj-cvr-cooldown-hard-route-js">
-(function(){
-  'use strict';
-
-  if (window.__GJ_CVR_COOLDOWN_HARD_ROUTE_FIX__) return;
-  window.__GJ_CVR_COOLDOWN_HARD_ROUTE_FIX__ = true;
-
-  const PATCH = 'v20260525-GOODJUNK-SOLO-CVR-COOLDOWN-HARD-ROUTE-FIX';
-  const qs = new URLSearchParams(location.search);
-
-  const view = String(qs.get('view') || '').toLowerCase();
-  const entry = String(qs.get('entry') || '').toLowerCase();
-
-  const isCvr =
-    view === 'cvr' ||
-    view === 'cardboard' ||
-    view === 'vr' ||
-    entry === 'cardboard';
-
-  if (!isCvr) return;
-
-  function textOf(el){
-    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function getLauncherUrl(){
-    const from =
-      qs.get('back') ||
-      qs.get('launcher') ||
-      qs.get('hub');
-
-    if (from && /goodjunk-launcher\.html/i.test(from)){
-      return from;
-    }
-
-    return new URL('../goodjunk-launcher.html', location.href).href;
-  }
-
-  function buildCooldownUrl(){
-    const out = new URL('../warmup-gate.html', location.href);
-    const back = getLauncherUrl();
-
-    [
-      'pid',
-      'name',
-      'studentId',
-      'studentName',
-      'classSection',
-      'studyId',
-      'conditionGroup',
-      'api',
-      'log',
-      'diff',
-      'time',
-      'seed'
-    ].forEach(function(k){
-      const v = qs.get(k);
-      if (v !== null && v !== ''){
-        out.searchParams.set(k, v);
-      }
-    });
-
-    out.searchParams.set('phase', 'cooldown');
-    out.searchParams.set('run', 'cooldown');
-
-    out.searchParams.set('game', 'goodjunk');
-    out.searchParams.set('gameId', 'goodjunk');
-    out.searchParams.set('mode', 'solo');
-    out.searchParams.set('variant', 'solo-boss-vr');
-    out.searchParams.set('entry', 'cardboard');
-
-    out.searchParams.set('view', 'cvr');
-    out.searchParams.set('device', 'cardboard');
-
-    out.searchParams.set('zone', 'nutrition');
-    out.searchParams.set('cat', 'nutrition');
-    out.searchParams.set('theme', 'goodjunk');
-
-    /*
-      หลัง cooldown ต้องกลับ launcher ของ GoodJunk
-    */
-    out.searchParams.set('hub', back);
-    out.searchParams.set('back', back);
-    out.searchParams.set('launcher', back);
-    out.searchParams.set('next', back);
-
-    out.searchParams.set('from', 'goodjunk-solo-boss-cvr-summary');
-    out.searchParams.set('patch', PATCH);
-    out.searchParams.set('t', String(Date.now()));
-
-    return out.href;
-  }
-
-  function isSummaryScreen(){
-    const text = String(document.body.textContent || '');
-
-    return (
-      text.includes('ชนะ Junk Boss') ||
-      text.includes('แพ้ Junk Boss') ||
-      text.includes('Junk Boss') && text.includes('SCORE') && text.includes('RANK') ||
-      text.includes('GOOD FOOD') && text.includes('WATCH OUT') ||
-      text.includes('เล่นอีกครั้ง') && text.includes('โหมดเกม')
-    );
-  }
-
-  function isCooldownButton(el){
-    const t = textOf(el).toLowerCase();
-
-    return (
-      t.includes('cooldown') ||
-      t.includes('3d cooldown') ||
-      t.includes('ทำ 3d') ||
-      t.includes('คูลดาวน์') ||
-      t.includes('ผ่อนคลาย') ||
-      t.includes('ยืดเหยียด') ||
-      t.includes('พักร่างกาย')
-    );
-  }
-
-  function hardPatchCooldownButtons(){
-    if (!isSummaryScreen()) return false;
-
-    document.body.classList.add('gj-cvr-summary');
-
-    const cooldown = buildCooldownUrl();
-    let found = false;
-
-    document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
-      if (!isCooldownButton(el)) return;
-
-      found = true;
-
-      el.classList.add('gj-cvr-hard-cooldown-ready');
-      el.setAttribute('data-gj-cvr-cooldown-hard-route', PATCH);
-
-      if (el.tagName === 'A'){
-        el.setAttribute('href', cooldown);
-        el.setAttribute('target', '_self');
-      }
-
-      /*
-        ใช้ onclick โดยตรง + addEventListener capture เพื่อชนะ event เดิม
-      */
-      el.onclick = function(ev){
-        if (ev){
-          ev.preventDefault();
-          ev.stopPropagation();
-          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-        }
-
-        location.href = cooldown;
-        return false;
-      };
-
-      el.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-
-        location.href = cooldown;
-        return false;
-      }, true);
-
-      /*
-        เปลี่ยนข้อความให้ชัดว่าเป็น Cardboard VR
-      */
-      if (!/cardboard|cvr/i.test(textOf(el))){
-        el.textContent = '🧘 ทำ Cooldown Cardboard VR';
-      }
-    });
-
-    /*
-      ถ้าไม่เจอปุ่ม cooldown เดิม ให้สร้างปุ่มใหม่ใต้ summary
-    */
-    if (!found && !document.getElementById('gj-cvr-hard-cooldown-btn')){
-      const btn = document.createElement('button');
-      btn.id = 'gj-cvr-hard-cooldown-btn';
-      btn.className = 'gj-cvr-hard-cooldown-ready';
-      btn.type = 'button';
-      btn.textContent = '🧘 ทำ Cooldown Cardboard VR';
-      btn.style.cssText = [
-        'display:block',
-        'width:min(420px,calc(100% - 24px))',
-        'min-height:58px',
-        'margin:14px auto 8px',
-        'border-radius:24px',
-        'border:0',
-        'font-size:clamp(16px,4.2vw,22px)',
-        'box-shadow:0 12px 26px rgba(15,23,42,.18)',
-        'cursor:pointer'
-      ].join(';');
-
-      btn.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-
-        location.href = cooldown;
-        return false;
-      }, true);
-
-      const target =
-        document.querySelector('.summary') ||
-        document.querySelector('#summary') ||
-        document.querySelector('.result-panel') ||
-        document.querySelector('.end-screen') ||
-        document.querySelector('.panel') ||
-        document.querySelector('main') ||
-        document.body;
-
-      target.appendChild(btn);
-      found = true;
-    }
-
-    return found;
-  }
-
-  function boot(){
-    let count = 0;
-
-    /*
-      จับซ้ำช่วงสั้น ๆ เพราะปุ่ม summary อาจ render ช้ากว่า script
-    */
-    const timer = setInterval(function(){
-      count++;
-
-      const ok = hardPatchCooldownButtons();
-
-      if (ok || count > 150){
-        clearInterval(timer);
-      }
-    }, 250);
-
-    window.addEventListener('click', function(ev){
-      const el = ev.target && ev.target.closest
-        ? ev.target.closest('a,button,[role="button"],.btn')
-        : null;
-
-      if (!el) return;
-      if (!isSummaryScreen()) return;
-      if (!isCooldownButton(el)) return;
-
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-
-      location.href = buildCooldownUrl();
-      return false;
-    }, true);
-
-    console.info('[GoodJunk CVR Cooldown Hard Route]', PATCH, buildCooldownUrl());
+    console.info('[GoodJunk CVR Internal Cooldown Restore]', PATCH, 'loaded');
   }
 
   if (document.readyState === 'loading'){
