@@ -18,7 +18,7 @@
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260523-pack38-solo-clean-loader-final
+    Version: v20260525-pack42-boss-fever-mission-loader
 
     Purpose:
       Shared run entry for Hydration
@@ -77,7 +77,8 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260523-pack38-solo-clean-loader-final';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260525-pack42-boss-fever-mission-loader';
+    var VERSION = 'v20260525-pack42-boss-fever-mission-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
@@ -573,9 +574,15 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
     */
 
     return loadScript(effectFile, 'hydration solo effects pack41', 5000)
+  .catch(function(err){
+    console.warn('[Hydration Pack41] effects optional failed:', err);
+  })
+  .then(function(){
+    return loadScript('./hydration-solo-boss-pack42.patch.js?v=20260525-pack42-boss-fever-mission', 'hydration solo boss pack42', 5000)
       .catch(function(err){
-        console.warn('[Hydration Pack41] effects optional failed:', err);
+        console.warn('[Hydration Pack42] boss patch optional failed:', err);
       });
+  });
   })
   .then(function(){
     var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
