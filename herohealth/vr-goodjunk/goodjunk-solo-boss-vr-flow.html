@@ -3503,5 +3503,278 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK CVR WARMUP TARGET RESCUE
+  PATCH: v8.46.9v-GOODJUNK-CVR-WARMUP-TARGET-RESCUE
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+========================================================= -->
+
+<style id="gj-cvr-warmup-target-rescue-css">
+  body.view-cvr[data-gj-cvr-warmup-rescue="1"] #bossRoot{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body.view-cvr[data-gj-cvr-warmup-rescue="1"] .gj-cvr-warmup-rescue-target{
+    pointer-events:auto !important;
+  }
+
+  body.view-cvr[data-gj-cvr-warmup-rescue="1"] .gj-cvr-warmup-rescue-target [data-gj-rescue-visual="1"]{
+    pointer-events:none !important;
+  }
+</style>
+
+<script id="gj-cvr-warmup-target-rescue-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_WARMUP_TARGET_RESCUE__) return;
+  window.__GJ_CVR_WARMUP_TARGET_RESCUE__ = true;
+
+  const PATCH = 'v8.46.9v-GOODJUNK-CVR-WARMUP-TARGET-RESCUE';
+  const qs = new URLSearchParams(location.search || '');
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+  const device = String(qs.get('device') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard' ||
+    device === 'cardboard';
+
+  if (!isCvr) return;
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function api(){
+    return window.GoodJunkFull3DVRFlow || window.GJF3D || null;
+  }
+
+  function getStage(){
+    try{
+      const a = api();
+      const s = a && typeof a.getState === 'function' ? a.getState() : null;
+      return String(s && s.stage || '');
+    }catch(_){
+      return '';
+    }
+  }
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function toast(msg){
+    try{
+      const t = $('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function(){
+        t.classList.remove('show');
+      }, 1300);
+    }catch(_){}
+  }
+
+  function clearRescueTargets(){
+    document.querySelectorAll('.gj-cvr-warmup-rescue-target').forEach(function(n){
+      try{
+        if (n.parentNode) n.parentNode.removeChild(n);
+      }catch(_){}
+    });
+  }
+
+  function makeRescueTarget(kind, emoji, label, x, y, z, color){
+    const root = document.createElement('a-entity');
+    root.classList.add('gj-target-root');
+    root.classList.add('gj-cvr-warmup-rescue-target');
+    root.setAttribute('data-gj-target-root','1');
+    root.setAttribute('data-kind', kind);
+    root.dataset.kind = kind;
+    root.dataset.consumed = '0';
+
+    root.__data = {
+      id: kind === 'warm-power' ? 'shield' : 'broccoli',
+      label: label,
+      file: kind === 'warm-power' ? 'shield.png' : 'broccoli.png',
+      color: color
+    };
+
+    safeSet(root, 'position', x + ' ' + y + ' ' + z);
+    safeSet(root, 'scale', '1.25 1.25 1.25');
+
+    const hit = document.createElement('a-box');
+    hit.classList.add('gj-hitbox');
+    safeSet(hit, 'width', '1.75');
+    safeSet(hit, 'height', '1.75');
+    safeSet(hit, 'depth', '.55');
+    safeSet(hit, 'position', '0 0 0.04');
+    safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false');
+    root.appendChild(hit);
+
+    const outer = document.createElement('a-circle');
+    outer.setAttribute('data-gj-rescue-visual','1');
+    safeSet(outer, 'radius', '.72');
+    safeSet(outer, 'color', color);
+    safeSet(outer, 'position', '0 0 1.05');
+    safeSet(outer, 'material', 'shader:flat; side:double; transparent:true; opacity:.95; depthTest:false; depthWrite:false');
+    root.appendChild(outer);
+
+    const inner = document.createElement('a-circle');
+    inner.setAttribute('data-gj-rescue-visual','1');
+    safeSet(inner, 'radius', '.57');
+    safeSet(inner, 'color', kind === 'warm-power' ? '#dbeafe' : '#dcfce7');
+    safeSet(inner, 'position', '0 0 1.08');
+    safeSet(inner, 'material', 'shader:flat; side:double; transparent:true; opacity:.98; depthTest:false; depthWrite:false');
+    root.appendChild(inner);
+
+    const text = document.createElement('a-text');
+    text.setAttribute('data-gj-rescue-visual','1');
+    safeSet(text, 'value', emoji);
+    safeSet(text, 'align', 'center');
+    safeSet(text, 'width', '3.4');
+    safeSet(text, 'color', '#0f172a');
+    safeSet(text, 'position', '0 -0.16 1.42');
+    safeSet(text, 'material', 'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false');
+    root.appendChild(text);
+
+    const tag = document.createElement('a-text');
+    tag.setAttribute('data-gj-rescue-visual','1');
+    safeSet(tag, 'value', label);
+    safeSet(tag, 'align', 'center');
+    safeSet(tag, 'width', '2.1');
+    safeSet(tag, 'color', kind === 'warm-power' ? '#172554' : '#14532d');
+    safeSet(tag, 'position', '0 -0.78 1.44');
+    safeSet(tag, 'material', 'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false');
+    root.appendChild(tag);
+
+    try{
+      root.object3D.renderOrder = 9000;
+      root.object3D.traverse(function(o){
+        o.renderOrder = 9000;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+
+    root.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      const a = api();
+      if (a && typeof a.shoot === 'function'){
+        a.shoot();
+      }
+    }, true);
+
+    return root;
+  }
+
+  function spawnRescueWarmup(){
+    const stage = getStage();
+    if (stage !== 'warmup') return;
+
+    const targetRoot = $('targetRoot');
+    if (!targetRoot) return;
+
+    const existing = document.querySelectorAll('.gj-target-root[data-kind="warm-good"], .gj-target-root[data-kind="warm-power"]');
+
+    if (existing.length >= 3){
+      document.body.setAttribute('data-gj-cvr-warmup-rescue','1');
+      return;
+    }
+
+    clearRescueTargets();
+
+    const t1 = makeRescueTarget('warm-good', '🥦', 'GOOD', -1.05, 1.50, -2.85, '#22c55e');
+    const t2 = makeRescueTarget('warm-good', '🍎', 'GOOD',  1.05, 1.50, -2.85, '#22c55e');
+    const t3 = makeRescueTarget('warm-power', '🛡️', 'SHIELD', 0, .82, -2.55, '#38bdf8');
+
+    targetRoot.appendChild(t1);
+    targetRoot.appendChild(t2);
+    targetRoot.appendChild(t3);
+
+    document.body.setAttribute('data-gj-cvr-warmup-rescue','1');
+    toast('Warmup: ยิง GOOD 2 ชิ้น แล้ว SHIELD');
+
+    const mission = $('missionText');
+    if (mission){
+      mission.textContent = 'Warmup: ยิง GOOD 2 ชิ้น แล้ว SHIELD';
+    }
+  }
+
+  function showBossWhenMain(){
+    const stage = getStage();
+
+    if (stage === 'main' || stage === 'summary' || stage === 'cooldown' || stage === 'done'){
+      document.body.removeAttribute('data-gj-cvr-warmup-rescue');
+
+      const boss = $('bossRoot');
+      if (boss){
+        boss.style.display = '';
+        boss.style.visibility = '';
+        boss.style.opacity = '';
+        boss.style.pointerEvents = '';
+        try{ boss.setAttribute('visible','true'); }catch(_){}
+      }
+
+      clearRescueTargets();
+    }
+  }
+
+  function boot(){
+    document.body.classList.add('view-cvr');
+
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+
+      spawnRescueWarmup();
+      showBossWhenMain();
+
+      if (count > 1600){
+        clearInterval(timer);
+      }
+    }, 200);
+
+    window.GJ_CVR_WARMUP_TARGET_RESCUE_CHECK = function(){
+      const snap = {
+        patch: PATCH,
+        stage: getStage(),
+        rescueMode: document.body.getAttribute('data-gj-cvr-warmup-rescue') === '1',
+        warmGoodCount: document.querySelectorAll('.gj-target-root[data-kind="warm-good"]').length,
+        warmPowerCount: document.querySelectorAll('.gj-target-root[data-kind="warm-power"]').length,
+        rescueTargets: document.querySelectorAll('.gj-cvr-warmup-rescue-target').length
+      };
+
+      console.log('[GJ_CVR_WARMUP_TARGET_RESCUE_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk CVR Warmup Target Rescue]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
