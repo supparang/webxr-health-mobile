@@ -546,58 +546,64 @@
          - cVR ค่อยโหลด vr-ui เพิ่มเฉพาะ view=cvr
       ========================================================= */
 
-      var coreFile = './hydration-solo-core.js?v=20260523-pack38-solo-clean-only';
+      var coreFile = './hydration-solo-core.js?v=20260523-pack41-effects-feedback';
+var effectFile = './hydration-solo-effects-pack41.patch.js?v=20260523-pack41-effects-feedback';
 
-      console.info('[Hydration Pack38] solo clean loader start:', coreFile);
+console.info('[Hydration Pack41] solo clean loader start:', coreFile);
 
-      loadScript(coreFile, 'hydration solo clean core', 9000)
-        .then(function(){
-          console.info(
-            '[Hydration Pack38] solo core loaded:',
-            'HHA=', !!window.HHA,
-            'Hydration=', !!(window.HHA && window.HHA.Hydration),
-            'start=', typeof window.beginHydrationFromOverlay,
-            'force=', typeof window.HHA_HYDRATION_FORCE_START
-          );
+loadScript(coreFile, 'hydration solo clean core', 9000)
+  .then(function(){
+    console.info(
+      '[Hydration Pack41] solo core loaded:',
+      'HHA=', !!window.HHA,
+      'Hydration=', !!(window.HHA && window.HHA.Hydration),
+      'start=', typeof window.beginHydrationFromOverlay,
+      'force=', typeof window.HHA_HYDRATION_FORCE_START
+    );
 
-          /*
-            สำคัญ:
-            Solo clean core ห้ามโหลด patch เก่า:
-            - hydration-vr.js
-            - hydration-vr.mode-patch.js
-            - hydration-start-hard-safe.patch.js
-            - hydration-cooldown-return.patch.js
-            - hydration-modes.js
+    /*
+      Pack41:
+      โหลดเฉพาะ effect patch ใหม่ที่ออกแบบมาเพื่อ Solo Clean Core
+      ห้ามโหลด patch เก่า:
+      - hydration-vr.js
+      - hydration-vr.mode-patch.js
+      - hydration-start-hard-safe.patch.js
+      - hydration-cooldown-return.patch.js
+      - hydration-modes.js
+    */
 
-            เพราะไฟล์เหล่านั้นออกแบบมาผูกกับ core เดิม และทำให้ค้าง/ชน state
-          */
+    return loadScript(effectFile, 'hydration solo effects pack41', 5000)
+      .catch(function(err){
+        console.warn('[Hydration Pack41] effects optional failed:', err);
+      });
+  })
+  .then(function(){
+    var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
+    var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
 
-          var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
-          var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
-
-          if(cvrView === 'cvr'){
-            return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
-              .catch(function(err){
-                console.warn('[Hydration Pack38] vr-ui optional failed:', err);
-              });
-          }
-        })
-        .then(function(){
-          console.info('[Hydration Pack38] solo loader finished');
-
-          setTimeout(function(){
-            if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
-              window.HHA_HYDRATION_BOOT_CHECK();
-            }
-          }, 1200);
-        })
+    if(cvrView === 'cvr'){
+      return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
         .catch(function(err){
-          console.error('[Hydration Pack38] solo core failed:', err);
-          window.HHA_HYDRATION_SHOW_BOOT_ERROR(
-            (err && err.message) ||
-            'โหลด hydration-solo-core.js ไม่สำเร็จ'
-          );
+          console.warn('[Hydration Pack41] vr-ui optional failed:', err);
         });
+    }
+  })
+  .then(function(){
+    console.info('[Hydration Pack41] solo loader finished');
+
+    setTimeout(function(){
+      if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
+        window.HHA_HYDRATION_BOOT_CHECK();
+      }
+    }, 1200);
+  })
+  .catch(function(err){
+    console.error('[Hydration Pack41] solo core failed:', err);
+    window.HHA_HYDRATION_SHOW_BOOT_ERROR(
+      (err && err.message) ||
+      'โหลด hydration-solo-core.js ไม่สำเร็จ'
+    );
+  });
 
     })();
   </script>
