@@ -2144,5 +2144,117 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
   }
 })();
 </script>
+  <script id="gj-cvr-final-return-hard-lock-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_FINAL_RETURN_HARD_LOCK__) return;
+  window.__GJ_CVR_FINAL_RETURN_HARD_LOCK__ = true;
+
+  const PATCH = 'v8.46.9k-GOODJUNK-CVR-FINAL-RETURN-HARD-LOCK';
+  const qs = new URLSearchParams(location.search);
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard';
+
+  if (!isCvr) return;
+
+  function launcherUrl(){
+    const candidates = [
+      qs.get('back'),
+      qs.get('launcher'),
+      qs.get('hub')
+    ].filter(Boolean);
+
+    for (const raw of candidates){
+      try{
+        const u = new URL(raw, location.href);
+        if (/goodjunk-launcher\.html/i.test(u.pathname)){
+          return u.href;
+        }
+      }catch(_){}
+    }
+
+    return new URL('../goodjunk-launcher.html', location.href).href;
+  }
+
+  function hardReturn(){
+    location.href = launcherUrl();
+  }
+
+  function patchFinalButtons(){
+    const back = launcherUrl();
+
+    ['finalLauncherBtn','launcherBtn','backBtn'].forEach(function(id){
+      const btn = document.getElementById(id);
+      if (!btn || btn.__gjFinalReturnHardLock) return;
+
+      btn.__gjFinalReturnHardLock = true;
+
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        location.href = back;
+      }, true);
+    });
+  }
+
+  function watchFinal(){
+    patchFinalButtons();
+
+    const finalOverlay = document.getElementById('finalOverlay');
+    const isDone =
+      document.body.classList.contains('summary-open') &&
+      finalOverlay &&
+      !finalOverlay.classList.contains('hidden');
+
+    if (isDone){
+      try{
+        localStorage.setItem('GJ_CVR_FINAL_RETURN_HARD_LOCK_LAST', JSON.stringify({
+          patch:PATCH,
+          returnUrl:launcherUrl(),
+          savedAt:new Date().toISOString()
+        }));
+      }catch(_){}
+
+      setTimeout(hardReturn, 1800);
+      return true;
+    }
+
+    return false;
+  }
+
+  let count = 0;
+  const timer = setInterval(function(){
+    count++;
+    if (watchFinal() || count > 240){
+      clearInterval(timer);
+    }
+  }, 250);
+
+  window.GJ_CVR_FINAL_RETURN_HARD_LOCK_CHECK = function(){
+    const snap = {
+      patch:PATCH,
+      isCvr:isCvr,
+      returnUrl:launcherUrl(),
+      finalVisible:!!(
+        document.getElementById('finalOverlay') &&
+        !document.getElementById('finalOverlay').classList.contains('hidden')
+      )
+    };
+    console.log('[GJ_CVR_FINAL_RETURN_HARD_LOCK_CHECK]', snap);
+    return snap;
+  };
+
+  console.info('[GoodJunk CVR Final Return Hard Lock]', PATCH, 'loaded');
+})();
+</script>
 </body>
 </html>
