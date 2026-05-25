@@ -3193,5 +3193,315 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK CVR START OVERLAY UNBLOCK
+  PATCH: v8.46.9u-GOODJUNK-CVR-START-OVERLAY-UNBLOCK
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+  PURPOSE:
+    - แก้ cVR/VR เข้าแล้วหน้าเริ่มยังบังฉาก
+    - กดปุ่ม 🎯 / แตะฉาก / ปุ่มเริ่ม แล้ว startWarmupFromVr ทันที
+    - ไม่ให้ overlay บังตอน Cardboard
+========================================================= -->
+
+<style id="gj-cvr-start-overlay-unblock-css">
+  body.view-cvr[data-gj-cvr-force-play="1"] #startOverlay{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body.view-cvr[data-gj-cvr-force-play="1"] a-scene,
+  body.view-cvr[data-gj-cvr-force-play="1"] canvas{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  body.view-cvr #gjCvrStartNowBtn{
+    position:fixed;
+    left:50%;
+    bottom:calc(66px + var(--sab));
+    transform:translateX(-50%);
+    z-index:2147482000;
+    min-height:46px;
+    padding:9px 16px;
+    border-radius:999px;
+    border:2px solid rgba(255,255,255,.9);
+    background:linear-gradient(135deg,#22c55e,#2563eb);
+    color:#fff;
+    font-size:13px;
+    font-weight:1000;
+    box-shadow:0 14px 32px rgba(15,23,42,.28);
+  }
+
+  body.view-cvr[data-gj-cvr-force-play="1"] #gjCvrStartNowBtn,
+  body.summary-open #gjCvrStartNowBtn{
+    display:none !important;
+  }
+</style>
+
+<script id="gj-cvr-start-overlay-unblock-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_START_OVERLAY_UNBLOCK__) return;
+  window.__GJ_CVR_START_OVERLAY_UNBLOCK__ = true;
+
+  const PATCH = 'v8.46.9u-GOODJUNK-CVR-START-OVERLAY-UNBLOCK';
+  const qs = new URLSearchParams(location.search || '');
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+  const device = String(qs.get('device') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard' ||
+    device === 'cardboard';
+
+  if (!isCvr) return;
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function api(){
+    return window.GoodJunkFull3DVRFlow || window.GJF3D || null;
+  }
+
+  function getStage(){
+    try{
+      const a = api();
+      const st = a && typeof a.getState === 'function' ? a.getState() : null;
+      return String(st && st.stage || '');
+    }catch(_){
+      return '';
+    }
+  }
+
+  function toast(msg){
+    try{
+      const t = $('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function(){
+        t.classList.remove('show');
+      }, 1300);
+    }catch(_){}
+  }
+
+  function showScene(){
+    const scene = $('scene') || document.querySelector('a-scene');
+
+    if (scene){
+      scene.style.display = '';
+      scene.style.visibility = 'visible';
+      scene.style.opacity = '1';
+      scene.style.pointerEvents = 'auto';
+    }
+
+    document.querySelectorAll('canvas').forEach(function(c){
+      c.style.display = '';
+      c.style.visibility = 'visible';
+      c.style.opacity = '1';
+      c.style.pointerEvents = 'auto';
+    });
+
+    const aim = $('aimRay');
+    if (aim){
+      try{
+        aim.setAttribute('visible','true');
+        aim.setAttribute('position','0 0 -1');
+        if (!aim.getAttribute('geometry')){
+          aim.setAttribute('geometry','primitive:ring; radiusInner:0.012; radiusOuter:0.018');
+        }
+        if (!aim.getAttribute('material')){
+          aim.setAttribute('material','color:#ffffff; shader:flat; opacity:0.9');
+        }
+        if (aim.object3D) aim.object3D.visible = true;
+      }catch(_){}
+    }
+  }
+
+  function hideStartOverlay(){
+    const ov = $('startOverlay');
+    if (ov){
+      ov.classList.add('hidden');
+      ov.style.display = 'none';
+      ov.style.visibility = 'hidden';
+      ov.style.opacity = '0';
+      ov.style.pointerEvents = 'none';
+    }
+
+    document.body.setAttribute('data-gj-cvr-force-play','1');
+    showScene();
+  }
+
+  function forceStart(reason){
+    if (document.body.classList.contains('summary-open')) return;
+
+    const stage = getStage();
+
+    if (stage && stage !== 'intro' && stage !== 'ready'){
+      hideStartOverlay();
+      return;
+    }
+
+    hideStartOverlay();
+
+    const a = api();
+
+    if (a && typeof a.startWarmupFromVr === 'function'){
+      toast(reason || 'เริ่มเกมแล้ว');
+      a.startWarmupFromVr();
+
+      setTimeout(hideStartOverlay, 120);
+      setTimeout(hideStartOverlay, 500);
+
+      if (typeof window.GJ_CVR_FINAL_COMFORT_LOCK_CHECK === 'function'){
+        setTimeout(function(){
+          try{ window.GJ_CVR_FINAL_COMFORT_LOCK_CHECK(); }catch(_){}
+        }, 900);
+      }
+
+      return;
+    }
+
+    if (a && typeof a.startWarmup === 'function'){
+      toast(reason || 'เริ่ม Warmup แล้ว');
+      a.startWarmup();
+      setTimeout(hideStartOverlay, 120);
+      setTimeout(hideStartOverlay, 500);
+      return;
+    }
+
+    toast('กำลังรอระบบเกมโหลด...');
+  }
+
+  function makeStartNowButton(){
+    if ($('gjCvrStartNowBtn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'gjCvrStartNowBtn';
+    btn.type = 'button';
+    btn.textContent = '🎯 เริ่มเล่นเลย';
+
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      forceStart('เริ่มเล่นเลย');
+      return false;
+    }, true);
+
+    document.body.appendChild(btn);
+  }
+
+  function patchButtons(){
+    ['startBtn','shootBtn','vrHintBtn'].forEach(function(id){
+      const btn = $(id);
+      if (!btn || btn.__gjCvrStartUnblockPatched) return;
+
+      btn.__gjCvrStartUnblockPatched = true;
+
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        forceStart('เริ่ม Full 3D Flow');
+        return false;
+      }, true);
+    });
+  }
+
+  function patchTapToStart(){
+    if (window.__GJ_CVR_START_TAP_TO_START__) return;
+    window.__GJ_CVR_START_TAP_TO_START__ = true;
+
+    window.addEventListener('pointerdown', function(ev){
+      if (document.body.classList.contains('summary-open')) return;
+
+      const stage = getStage();
+      if (stage && stage !== 'intro' && stage !== 'ready') return;
+
+      const target = ev && ev.target;
+
+      if (
+        target &&
+        target.closest &&
+        target.closest('#gjCvrStartNowBtn,.a-enter-vr,.a-enter-ar,.a-orientation-modal')
+      ){
+        return;
+      }
+
+      forceStart('แตะเพื่อเริ่มแล้ว');
+    }, true);
+  }
+
+  function boot(){
+    document.body.classList.add('view-cvr');
+
+    makeStartNowButton();
+    patchButtons();
+    patchTapToStart();
+    showScene();
+
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+
+      patchButtons();
+      makeStartNowButton();
+
+      const stage = getStage();
+
+      if (stage && stage !== 'intro' && stage !== 'ready'){
+        hideStartOverlay();
+      }
+
+      if (count > 160){
+        clearInterval(timer);
+      }
+    }, 250);
+
+    window.GJ_CVR_START_OVERLAY_UNBLOCK_CHECK = function(){
+      const ov = $('startOverlay');
+      const snap = {
+        patch: PATCH,
+        isCvr: isCvr,
+        stage: getStage(),
+        startOverlayHidden: !!(
+          ov &&
+          (
+            ov.classList.contains('hidden') ||
+            ov.style.display === 'none' ||
+            document.body.getAttribute('data-gj-cvr-force-play') === '1'
+          )
+        ),
+        startNowButton: !!$('gjCvrStartNowBtn'),
+        forcePlay: document.body.getAttribute('data-gj-cvr-force-play') === '1'
+      };
+
+      console.log('[GJ_CVR_START_OVERLAY_UNBLOCK_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk CVR Start Overlay Unblock]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
