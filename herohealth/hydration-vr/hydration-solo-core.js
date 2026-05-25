@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration Solo Clean Core
    File: /herohealth/hydration-vr/hydration-solo-core.js
-   Version: v20260523-pack37-solo-clean-core-final
+   Version: v20260523-pack39-mobile-polish
 
    Purpose:
    - Clean Solo core only
@@ -13,7 +13,7 @@
 (function(){
   'use strict';
 
-  var VERSION = 'v20260523-pack37-solo-clean-core-final';
+  var VERSION = 'v20260523-pack39-mobile-polish';
 
   if(window.HHA_HYDRATION_SOLO_CORE_PACK37_LOADED){
     console.warn('[Hydration Solo Pack37] already loaded');
@@ -757,45 +757,82 @@
 
       @media (max-width:520px){
         .hha-solo-hud{
-          top:calc(8px + env(safe-area-inset-top,0px));
-          gap:7px;
-        }
+         top:calc(6px + env(safe-area-inset-top,0px));
+         left:8px;
+         right:8px;
+         gap:6px;
+         max-width:310px;
+      }
+      .hha-solo-pill{
+        min-width:76px;
+        padding:7px 8px;
+        border-radius:16px;
+      }
 
-        .hha-solo-pill{
-          min-width:84px;
-          padding:8px 10px;
-          border-radius:18px;
-        }
+      .hha-solo-pill b{
+         font-size:20px;
+      }
 
-        .hha-solo-pill b{
-          font-size:22px;
-        }
+      .hha-solo-pill small{
+        font-size:10px;
+      }
 
-        .hha-solo-topbar{
-          top:calc(118px + env(safe-area-inset-top,0px));
-          width:min(330px,72vw);
-        }
+      .hha-solo-controls{
+        top:calc(10px + env(safe-area-inset-top,0px));
+        right:8px;
+        gap:7px;
+      }
 
-        .hha-solo-banner{
-          top:calc(160px + env(safe-area-inset-top,0px));
-          width:82vw;
-          border-radius:26px;
-        }
+      .hha-solo-controls button{
+        width:48px;
+        height:48px;
+        border-radius:16px;
+        font-size:22px;
+      }
 
-        .hha-solo-target{
-          width:70px;
-          min-height:82px;
-          border-radius:22px;
-          border-width:4px;
-        }
+      .hha-solo-topbar{
+        top:calc(126px + env(safe-area-inset-top,0px));
+        width:min(290px,62vw);
+      }
 
-        .hha-solo-target .icon{
-          font-size:30px;
-        }
+      .hha-solo-time{
+        min-width:48px;
+        padding:7px 9px;
+      }
 
-        .hha-solo-target .title{
-          font-size:12px;
-        }
+      .hha-solo-banner{
+        top:calc(168px + env(safe-area-inset-top,0px));
+        width:74vw;
+        max-width:310px;
+        padding:9px 13px;
+        border-radius:24px;
+        font-size:16px;
+        line-height:1.2;
+      }
+
+      .hha-solo-target{
+        width:58px;
+        min-height:70px;
+        border-radius:18px;
+        border-width:3px;
+        padding:6px;
+        box-shadow:0 10px 26px rgba(30,75,115,.18);
+      }
+
+      .hha-solo-target .icon{
+        font-size:26px;
+      }
+
+      .hha-solo-target .title{
+        font-size:10.5px;
+        line-height:1.05;
+      }
+
+      .hha-solo-target .sub{
+        font-size:9px;
+        line-height:1.05;
+        margin-top:1px;
+      }
 
         .hha-solo-grid{
           grid-template-columns:1fr 1fr;
@@ -1008,10 +1045,16 @@
   }
 
   function targetSize(){
-    if(STATE.ctx.view === 'mobile') return { w:70, h:84 };
-    if(STATE.ctx.view === 'cvr') return { w:76, h:90 };
-    return { w:88, h:102 };
-  }
+  /*
+    Pack39 Mobile Polish
+    - Mobile ลดเป้าให้ไม่บังพื้นที่เล่น
+    - cVR ยังใหญ่กว่า Mobile เพราะต้องเล็งด้วย crosshair
+    - PC คงใหญ่พอสำหรับคลิกเมาส์
+  */
+     if(STATE.ctx.view === 'mobile') return { w:58, h:70 };
+     if(STATE.ctx.view === 'cvr') return { w:74, h:88 };
+     return { w:88, h:102 };
+   }
 
   function safeArea(){
     var pf = playfield().getBoundingClientRect();
@@ -1019,10 +1062,14 @@
     var vw = window.innerWidth || pf.width || 390;
     var vh = window.innerHeight || pf.height || 800;
 
-    var top = view === 'mobile' ? 220 : view === 'cvr' ? 190 : 150;
-    var bottom = view === 'mobile' ? 92 : 58;
-    var left = 18;
-    var right = 18;
+    /*
+  Pack39: mobile มี HUD สูง + browser bar
+  ให้พื้นที่เกิดเป้าเริ่มต่ำลงเล็กน้อย และเว้นขอบซ้ายขวา
+*/
+   var top = view === 'mobile' ? 250 : view === 'cvr' ? 190 : 150;
+   var bottom = view === 'mobile' ? 110 : 58;
+   var left = view === 'mobile' ? 24 : 18;
+   var right = view === 'mobile' ? 24 : 18;
 
     return {
       width: pf.width || vw,
