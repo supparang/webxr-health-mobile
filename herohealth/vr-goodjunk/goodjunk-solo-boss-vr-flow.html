@@ -2664,6 +2664,534 @@ body.view-cvr.cooldown-mode .bossBar{
   console.info('[GoodJunk Boss Face Lock]', PATCH, 'loaded');
 })();
 </script>
+<!-- =========================================================
+  GOODJUNK SOLO BOSS CVR FINAL COMFORT LOCK
+  PATCH: v8.46.9t-GOODJUNK-CVR-FINAL-COMFORT-LOCK
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+  PURPOSE:
+    - Cardboard/cVR ไม่ต้องหมุนหาหน้าบอส
+    - บอสอยู่หน้ากล้องเสมอเมื่อเริ่ม Boss / Cooldown
+    - เป้าเกิดในมุมเล่นด้านหน้า ไม่กระจายรอบตัว
+    - มีปุ่ม “🎯 หาบอส” สำหรับ recenter ฉุกเฉิน
+    - ไม่แตะ scoring / rank / summary / return flow
+========================================================= -->
 
+<style id="gj-cvr-final-comfort-lock-css">
+  body.view-cvr #gjCvrFindBossBtn{
+    position:fixed;
+    left:50%;
+    bottom:calc(14px + var(--sab));
+    transform:translateX(-50%);
+    z-index:36;
+    min-height:42px;
+    max-width:148px;
+    padding:8px 12px;
+    border-radius:999px;
+    border:2px solid rgba(255,255,255,.86);
+    background:linear-gradient(135deg,rgba(15,23,42,.82),rgba(37,99,235,.78));
+    color:#fff;
+    font-size:12px;
+    font-weight:1000;
+    box-shadow:0 12px 28px rgba(15,23,42,.22);
+    backdrop-filter:blur(8px);
+    white-space:nowrap;
+  }
+
+  body.view-cvr.summary-open #gjCvrFindBossBtn{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body.view-cvr .mission{
+    max-width:min(390px, calc(100vw - 72px)) !important;
+  }
+
+  body.view-cvr .bigFx{
+    top:56% !important;
+  }
+
+  body.view-cvr[data-gj-cvr-comfort-lock="1"] .crosshair{
+    opacity:.92 !important;
+    box-shadow:
+      0 0 0 3px rgba(15,23,42,.24),
+      0 0 18px rgba(34,197,94,.55),
+      inset 0 0 0 2px rgba(34,197,94,.24) !important;
+  }
+</style>
+
+<script id="gj-cvr-final-comfort-lock-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_FINAL_COMFORT_LOCK__) return;
+  window.__GJ_CVR_FINAL_COMFORT_LOCK__ = true;
+
+  const PATCH = 'v8.46.9t-GOODJUNK-CVR-FINAL-COMFORT-LOCK';
+  const qs = new URLSearchParams(location.search || '');
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+  const device = String(qs.get('device') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard' ||
+    device === 'cardboard';
+
+  if (!isCvr) return;
+
+  const THREE = window.THREE;
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function api(){
+    return window.GoodJunkFull3DVRFlow || window.GJF3D || null;
+  }
+
+  function scene(){
+    return $('scene') || document.querySelector('a-scene');
+  }
+
+  function camera(){
+    return $('camera') || document.querySelector('a-camera');
+  }
+
+  function cameraRig(){
+    return $('cameraRig');
+  }
+
+  function bossRoot(){
+    return $('bossRoot');
+  }
+
+  function targetRoot(){
+    return $('targetRoot');
+  }
+
+  function toast(msg){
+    try{
+      const t = $('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(function(){
+        t.classList.remove('show');
+      }, 1300);
+    }catch(_){}
+  }
+
+  function mission(msg){
+    try{
+      const m = $('missionText');
+      if (m) m.textContent = msg;
+    }catch(_){}
+  }
+
+  function isSummaryOpen(){
+    return document.body.classList.contains('summary-open');
+  }
+
+  function getStage(){
+    try{
+      const a = api();
+      const st = a && typeof a.getState === 'function' ? a.getState() : null;
+      return String(st && st.stage || '');
+    }catch(_){
+      return '';
+    }
+  }
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function safeObjectVisible(el, visible){
+    try{
+      if (el && el.object3D) el.object3D.visible = !!visible;
+    }catch(_){}
+  }
+
+  function resetRigForward(){
+    const rig = cameraRig();
+    const cam = camera();
+
+    safeSet(rig, 'position', '0 1.6 0');
+    safeSet(rig, 'rotation', '0 0 0');
+
+    safeSet(cam, 'position', '0 0 0');
+    safeSet(cam, 'rotation', '0 0 0');
+
+    try{
+      if (cam && cam.components && cam.components['look-controls']){
+        const lc = cam.components['look-controls'];
+        if (lc.pitchObject) lc.pitchObject.rotation.x = 0;
+        if (lc.yawObject) lc.yawObject.rotation.y = 0;
+      }
+    }catch(_){}
+
+    try{
+      if (cam && cam.object3D){
+        cam.object3D.rotation.set(0, 0, 0);
+        cam.object3D.updateMatrixWorld(true);
+      }
+    }catch(_){}
+  }
+
+  function faceBossToCamera(){
+    const boss = bossRoot();
+    const cam = camera();
+
+    if (!boss || !cam || !THREE) return;
+
+    try{
+      const camPos = new THREE.Vector3();
+      cam.object3D.getWorldPosition(camPos);
+      boss.object3D.lookAt(camPos);
+      boss.object3D.rotation.x = 0;
+      boss.object3D.rotation.z = 0;
+    }catch(_){}
+  }
+
+  function lockBossInFront(distance, y){
+    const boss = bossRoot();
+    if (!boss) return;
+
+    resetRigForward();
+
+    const z = -Math.abs(Number(distance || 5.8));
+    const yy = Number(y || 1.95);
+
+    safeSet(boss, 'visible', 'true');
+    safeSet(boss, 'position', '0 ' + yy + ' ' + z);
+    safeSet(boss, 'rotation', '0 0 0');
+
+    try{
+      boss.object3D.visible = true;
+      boss.object3D.position.set(0, yy, z);
+      boss.object3D.rotation.set(0, 0, 0);
+      boss.object3D.updateMatrixWorld(true);
+    }catch(_){}
+
+    setTimeout(faceBossToCamera, 80);
+    setTimeout(faceBossToCamera, 260);
+  }
+
+  function cleanFarSideTargets(){
+    try{
+      document.querySelectorAll('.gj-target-root').forEach(function(root){
+        if (!root || !root.getAttribute) return;
+
+        const kind = String(
+          root.dataset && root.dataset.kind ||
+          root.getAttribute('data-kind') ||
+          ''
+        );
+
+        if (kind === 'vr-start') return;
+
+        const p = root.getAttribute('position');
+        if (!p) return;
+
+        const x = Number(p.x || 0);
+        const y = Number(p.y || 1.6);
+        const z = Number(p.z || -4);
+
+        const tooWide = Math.abs(x) > 1.55;
+        const behind = z > -1.25;
+        const tooFar = z < -7.2;
+        const tooHigh = y > 2.35;
+        const tooLow = y < .85;
+
+        if (tooWide || behind || tooFar || tooHigh || tooLow){
+          root.parentNode && root.parentNode.removeChild(root);
+        }
+      });
+    }catch(_){}
+  }
+
+  function clampTargetsToFrontCone(){
+    try{
+      document.querySelectorAll('.gj-target-root').forEach(function(root){
+        if (!root || !root.getAttribute) return;
+
+        const kind = String(
+          root.dataset && root.dataset.kind ||
+          root.getAttribute('data-kind') ||
+          ''
+        );
+
+        if (!kind || kind === 'vr-start') return;
+
+        const p = root.getAttribute('position') || {x:0,y:1.55,z:-4};
+
+        let x = Number(p.x || 0);
+        let y = Number(p.y || 1.55);
+        let z = Number(p.z || -4.6);
+
+        x = Math.max(-1.35, Math.min(1.35, x));
+        y = Math.max(1.05, Math.min(2.12, y));
+
+        if (z > -1.45) z = -2.85;
+        if (z < -6.6) z = -5.55;
+
+        safeSet(root, 'position', x + ' ' + y + ' ' + z);
+
+        try{
+          root.object3D.position.set(x, y, z);
+          root.object3D.updateMatrixWorld(true);
+        }catch(_){}
+      });
+    }catch(_){}
+  }
+
+  function ensureAimRay(){
+    const aim = $('aimRay');
+    if (!aim) return;
+
+    safeSet(aim, 'visible', 'true');
+    safeSet(aim, 'position', '0 0 -1');
+
+    if (!aim.getAttribute('geometry')){
+      safeSet(aim, 'geometry', 'primitive:ring; radiusInner:0.012; radiusOuter:0.018');
+    }
+
+    if (!aim.getAttribute('material')){
+      safeSet(aim, 'material', 'color:#ffffff; shader:flat; opacity:0.9');
+    }
+
+    safeObjectVisible(aim, true);
+  }
+
+  function ensureSceneVisible(){
+    const sc = scene();
+    if (!sc) return;
+
+    sc.style.display = '';
+    sc.style.visibility = 'visible';
+    sc.style.opacity = '1';
+    sc.style.pointerEvents = 'auto';
+
+    document.querySelectorAll('canvas').forEach(function(c){
+      c.style.display = '';
+      c.style.visibility = 'visible';
+      c.style.opacity = '1';
+      c.style.pointerEvents = 'auto';
+    });
+  }
+
+  function comfortRecenter(reason){
+    if (isSummaryOpen()) return;
+
+    const stage = getStage();
+
+    ensureSceneVisible();
+    ensureAimRay();
+
+    if (stage === 'main' || stage === 'warmup' || stage === 'cooldown' || !stage){
+      lockBossInFront(stage === 'cooldown' ? 6.4 : 5.85, stage === 'cooldown' ? 1.82 : 1.98);
+      cleanFarSideTargets();
+      clampTargetsToFrontCone();
+
+      if (stage === 'main'){
+        mission('Boss อยู่ตรงหน้าแล้ว: ยิง GOOD!');
+      }else if (stage === 'cooldown'){
+        mission('Cooldown: ยิง WATER / HEART / GOOD');
+      }else if (stage === 'warmup'){
+        mission('Warmup: ยิง GOOD 2 ชิ้น แล้ว SHIELD');
+      }
+
+      toast(reason || '🎯 หันหน้ากลับมาที่บอสแล้ว');
+    }
+  }
+
+  function makeFindBossButton(){
+    if ($('gjCvrFindBossBtn')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'gjCvrFindBossBtn';
+    btn.type = 'button';
+    btn.textContent = '🎯 หาบอส';
+
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      comfortRecenter('🎯 บอสอยู่ด้านหน้าแล้ว');
+      return false;
+    }, true);
+
+    document.body.appendChild(btn);
+  }
+
+  function patchApiMethodsWhenReady(){
+    const a = api();
+    if (!a || a.__gjCvrComfortLockPatched) return false;
+
+    a.__gjCvrComfortLockPatched = true;
+
+    const originalStartWarmup = a.startWarmup;
+    const originalStartWarmupFromVr = a.startWarmupFromVr;
+    const originalStartMain = a.startMain;
+    const originalStartCooldown = a.startCooldown;
+    const originalShoot = a.shoot;
+
+    if (typeof originalStartWarmup === 'function'){
+      a.startWarmup = function(){
+        const r = originalStartWarmup.apply(this, arguments);
+        setTimeout(function(){ comfortRecenter('Warmup อยู่ตรงหน้าแล้ว'); }, 120);
+        setTimeout(function(){ comfortRecenter('Warmup พร้อมเล่น'); }, 520);
+        return r;
+      };
+    }
+
+    if (typeof originalStartWarmupFromVr === 'function'){
+      a.startWarmupFromVr = function(){
+        const r = originalStartWarmupFromVr.apply(this, arguments);
+        setTimeout(function(){ comfortRecenter('เริ่มแล้ว เป้าอยู่ตรงหน้า'); }, 160);
+        setTimeout(function(){ comfortRecenter('พร้อมยิง GOOD'); }, 620);
+        return r;
+      };
+    }
+
+    if (typeof originalStartMain === 'function'){
+      a.startMain = function(){
+        const r = originalStartMain.apply(this, arguments);
+        setTimeout(function(){ comfortRecenter('Boss อยู่ตรงหน้าแล้ว'); }, 180);
+        setTimeout(function(){ comfortRecenter('ยิง GOOD เพื่อลด HP บอส'); }, 700);
+        setTimeout(function(){ comfortRecenter('ล็อกหน้าบอสเรียบร้อย'); }, 1400);
+        return r;
+      };
+    }
+
+    if (typeof originalStartCooldown === 'function'){
+      a.startCooldown = function(){
+        const r = originalStartCooldown.apply(this, arguments);
+        setTimeout(function(){ comfortRecenter('Cooldown อยู่ตรงหน้าแล้ว'); }, 160);
+        setTimeout(function(){ comfortRecenter('ยิงให้ครบ 3 เป้า'); }, 620);
+        return r;
+      };
+    }
+
+    if (typeof originalShoot === 'function'){
+      a.shoot = function(){
+        if (!isSummaryOpen()){
+          ensureSceneVisible();
+          ensureAimRay();
+        }
+        return originalShoot.apply(this, arguments);
+      };
+    }
+
+    window.GJF3D = a;
+    window.GoodJunkFull3DVRFlow = a;
+
+    return true;
+  }
+
+  function hardPatchGlobalStartButtons(){
+    ['startBtn','shootBtn','debugWarmupBtn','debugBossBtn','debugCooldownBtn','cooldownBtn'].forEach(function(id){
+      const btn = $(id);
+      if (!btn || btn.__gjCvrComfortBtnPatched) return;
+
+      btn.__gjCvrComfortBtnPatched = true;
+
+      btn.addEventListener('click', function(){
+        setTimeout(function(){ comfortRecenter('จัดมุมมองให้แล้ว'); }, 260);
+        setTimeout(function(){ comfortRecenter('เป้าอยู่ด้านหน้า'); }, 780);
+      }, true);
+    });
+  }
+
+  function watchLoop(){
+    if (isSummaryOpen()) return;
+
+    const stage = getStage();
+
+    if (stage === 'main'){
+      lockBossInFront(5.85, 1.98);
+      clampTargetsToFrontCone();
+    }else if (stage === 'cooldown'){
+      ensureSceneVisible();
+      ensureAimRay();
+      lockBossInFront(6.35, 1.82);
+      clampTargetsToFrontCone();
+    }else if (stage === 'warmup'){
+      ensureSceneVisible();
+      ensureAimRay();
+      clampTargetsToFrontCone();
+    }
+  }
+
+  function boot(){
+    document.body.classList.add('view-cvr');
+    document.body.setAttribute('data-gj-cvr-comfort-lock', '1');
+
+    makeFindBossButton();
+    hardPatchGlobalStartButtons();
+
+    let tries = 0;
+    const patchTimer = setInterval(function(){
+      tries++;
+      hardPatchGlobalStartButtons();
+
+      if (patchApiMethodsWhenReady() || tries > 80){
+        clearInterval(patchTimer);
+      }
+    }, 250);
+
+    setTimeout(function(){
+      comfortRecenter('Cardboard พร้อมเล่น');
+    }, 900);
+
+    let loopCount = 0;
+    const loop = setInterval(function(){
+      loopCount++;
+      watchLoop();
+
+      if (loopCount > 7200){
+        clearInterval(loop);
+      }
+    }, 500);
+
+    window.GJ_CVR_FINAL_COMFORT_LOCK_CHECK = function(){
+      const st = getStage();
+      const boss = bossRoot();
+      const p = boss && boss.getAttribute && boss.getAttribute('position');
+
+      const snap = {
+        patch: PATCH,
+        isCvr: isCvr,
+        stage: st,
+        bossPosition: p ? {x:p.x, y:p.y, z:p.z} : null,
+        targetCount: document.querySelectorAll('.gj-target-root').length,
+        summaryOpen: isSummaryOpen(),
+        comfortButton: !!$('gjCvrFindBossBtn'),
+        apiPatched: !!(api() && api().__gjCvrComfortLockPatched)
+      };
+
+      console.log('[GJ_CVR_FINAL_COMFORT_LOCK_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk CVR Final Comfort Lock]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
