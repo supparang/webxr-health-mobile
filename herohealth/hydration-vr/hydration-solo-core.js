@@ -1,7 +1,7 @@
 /* =========================================================
    HeroHealth Hydration Solo Clean Core
    File: /herohealth/hydration-vr/hydration-solo-core.js
-   Version: v20260523-pack39-mobile-polish
+   Version: v20260523-pack40-pc-view-balance
 
    Purpose:
    - Clean Solo core only
@@ -13,7 +13,7 @@
 (function(){
   'use strict';
 
-  var VERSION = 'v20260523-pack39-mobile-polish';
+  var VERSION = 'v20260523-pack40-pc-view-balance';
 
   if(window.HHA_HYDRATION_SOLO_CORE_PACK37_LOADED){
     console.warn('[Hydration Solo Pack37] already loaded');
@@ -1046,14 +1046,14 @@
 
   function targetSize(){
   /*
-    Pack39 Mobile Polish
-    - Mobile ลดเป้าให้ไม่บังพื้นที่เล่น
-    - cVR ยังใหญ่กว่า Mobile เพราะต้องเล็งด้วย crosshair
-    - PC คงใหญ่พอสำหรับคลิกเมาส์
+    Pack40 View Balance
+    - Mobile เล็กพอดีแล้ว
+    - PC เพิ่มขนาดนิดให้ไม่โล่งเกินไป
+    - cVR ใหญ่กว่ามือถือเพื่อเล็งด้วย crosshair ง่ายขึ้น
   */
-     if(STATE.ctx.view === 'mobile') return { w:58, h:70 };
-     if(STATE.ctx.view === 'cvr') return { w:74, h:88 };
-     return { w:88, h:102 };
+   if(STATE.ctx.view === 'mobile') return { w:58, h:70 };
+   if(STATE.ctx.view === 'cvr') return { w:78, h:92 };
+   return { w:104, h:118 };
    }
 
   function safeArea(){
@@ -1062,14 +1062,17 @@
     var vw = window.innerWidth || pf.width || 390;
     var vh = window.innerHeight || pf.height || 800;
 
-    /*
-  Pack39: mobile มี HUD สูง + browser bar
-  ให้พื้นที่เกิดเป้าเริ่มต่ำลงเล็กน้อย และเว้นขอบซ้ายขวา
+
+  /*
+  Pack40:
+  - Mobile เว้นจาก HUD แล้ว
+  - PC ลดพื้นที่ขอบซ้าย/ขวาแบบ “สนามเล่นกลางจอ” ให้ไม่โล่งเกินไป
+  - cVR ยังเว้นกลางจอสำหรับ crosshair
 */
-   var top = view === 'mobile' ? 250 : view === 'cvr' ? 190 : 150;
-   var bottom = view === 'mobile' ? 110 : 58;
-   var left = view === 'mobile' ? 24 : 18;
-   var right = view === 'mobile' ? 24 : 18;
+      var top = view === 'mobile' ? 250 : view === 'cvr' ? 190 : 170;
+      var bottom = view === 'mobile' ? 110 : view === 'cvr' ? 80 : 90;
+      var left = view === 'mobile' ? 24 : view === 'cvr' ? 40 : 90;
+      var right = view === 'mobile' ? 24 : view === 'cvr' ? 40 : 90;
 
     return {
       width: pf.width || vw,
