@@ -2633,5 +2633,282 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK SOLO BOSS CVR COOLDOWN HARD ROUTE FIX
+  Force Summary cooldown button to warmup-gate.html?phase=cooldown
+  PATCH: v20260525-GOODJUNK-SOLO-CVR-COOLDOWN-HARD-ROUTE-FIX
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: LAST patch before </body>
+========================================================= -->
+
+<style id="gj-cvr-cooldown-hard-route-css">
+  body.gj-cvr-summary .gj-cvr-hard-cooldown-ready{
+    border-color:#22c55e !important;
+    background:linear-gradient(135deg,#22c55e,#2f7df6) !important;
+    color:#fff !important;
+    font-weight:1000 !important;
+  }
+</style>
+
+<script id="gj-cvr-cooldown-hard-route-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_COOLDOWN_HARD_ROUTE_FIX__) return;
+  window.__GJ_CVR_COOLDOWN_HARD_ROUTE_FIX__ = true;
+
+  const PATCH = 'v20260525-GOODJUNK-SOLO-CVR-COOLDOWN-HARD-ROUTE-FIX';
+  const qs = new URLSearchParams(location.search);
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard';
+
+  if (!isCvr) return;
+
+  function textOf(el){
+    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function getLauncherUrl(){
+    const from =
+      qs.get('back') ||
+      qs.get('launcher') ||
+      qs.get('hub');
+
+    if (from && /goodjunk-launcher\.html/i.test(from)){
+      return from;
+    }
+
+    return new URL('../goodjunk-launcher.html', location.href).href;
+  }
+
+  function buildCooldownUrl(){
+    const out = new URL('../warmup-gate.html', location.href);
+    const back = getLauncherUrl();
+
+    [
+      'pid',
+      'name',
+      'studentId',
+      'studentName',
+      'classSection',
+      'studyId',
+      'conditionGroup',
+      'api',
+      'log',
+      'diff',
+      'time',
+      'seed'
+    ].forEach(function(k){
+      const v = qs.get(k);
+      if (v !== null && v !== ''){
+        out.searchParams.set(k, v);
+      }
+    });
+
+    out.searchParams.set('phase', 'cooldown');
+    out.searchParams.set('run', 'cooldown');
+
+    out.searchParams.set('game', 'goodjunk');
+    out.searchParams.set('gameId', 'goodjunk');
+    out.searchParams.set('mode', 'solo');
+    out.searchParams.set('variant', 'solo-boss-vr');
+    out.searchParams.set('entry', 'cardboard');
+
+    out.searchParams.set('view', 'cvr');
+    out.searchParams.set('device', 'cardboard');
+
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('theme', 'goodjunk');
+
+    /*
+      หลัง cooldown ต้องกลับ launcher ของ GoodJunk
+    */
+    out.searchParams.set('hub', back);
+    out.searchParams.set('back', back);
+    out.searchParams.set('launcher', back);
+    out.searchParams.set('next', back);
+
+    out.searchParams.set('from', 'goodjunk-solo-boss-cvr-summary');
+    out.searchParams.set('patch', PATCH);
+    out.searchParams.set('t', String(Date.now()));
+
+    return out.href;
+  }
+
+  function isSummaryScreen(){
+    const text = String(document.body.textContent || '');
+
+    return (
+      text.includes('ชนะ Junk Boss') ||
+      text.includes('แพ้ Junk Boss') ||
+      text.includes('Junk Boss') && text.includes('SCORE') && text.includes('RANK') ||
+      text.includes('GOOD FOOD') && text.includes('WATCH OUT') ||
+      text.includes('เล่นอีกครั้ง') && text.includes('โหมดเกม')
+    );
+  }
+
+  function isCooldownButton(el){
+    const t = textOf(el).toLowerCase();
+
+    return (
+      t.includes('cooldown') ||
+      t.includes('3d cooldown') ||
+      t.includes('ทำ 3d') ||
+      t.includes('คูลดาวน์') ||
+      t.includes('ผ่อนคลาย') ||
+      t.includes('ยืดเหยียด') ||
+      t.includes('พักร่างกาย')
+    );
+  }
+
+  function hardPatchCooldownButtons(){
+    if (!isSummaryScreen()) return false;
+
+    document.body.classList.add('gj-cvr-summary');
+
+    const cooldown = buildCooldownUrl();
+    let found = false;
+
+    document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
+      if (!isCooldownButton(el)) return;
+
+      found = true;
+
+      el.classList.add('gj-cvr-hard-cooldown-ready');
+      el.setAttribute('data-gj-cvr-cooldown-hard-route', PATCH);
+
+      if (el.tagName === 'A'){
+        el.setAttribute('href', cooldown);
+        el.setAttribute('target', '_self');
+      }
+
+      /*
+        ใช้ onclick โดยตรง + addEventListener capture เพื่อชนะ event เดิม
+      */
+      el.onclick = function(ev){
+        if (ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        }
+
+        location.href = cooldown;
+        return false;
+      };
+
+      el.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+        location.href = cooldown;
+        return false;
+      }, true);
+
+      /*
+        เปลี่ยนข้อความให้ชัดว่าเป็น Cardboard VR
+      */
+      if (!/cardboard|cvr/i.test(textOf(el))){
+        el.textContent = '🧘 ทำ Cooldown Cardboard VR';
+      }
+    });
+
+    /*
+      ถ้าไม่เจอปุ่ม cooldown เดิม ให้สร้างปุ่มใหม่ใต้ summary
+    */
+    if (!found && !document.getElementById('gj-cvr-hard-cooldown-btn')){
+      const btn = document.createElement('button');
+      btn.id = 'gj-cvr-hard-cooldown-btn';
+      btn.className = 'gj-cvr-hard-cooldown-ready';
+      btn.type = 'button';
+      btn.textContent = '🧘 ทำ Cooldown Cardboard VR';
+      btn.style.cssText = [
+        'display:block',
+        'width:min(420px,calc(100% - 24px))',
+        'min-height:58px',
+        'margin:14px auto 8px',
+        'border-radius:24px',
+        'border:0',
+        'font-size:clamp(16px,4.2vw,22px)',
+        'box-shadow:0 12px 26px rgba(15,23,42,.18)',
+        'cursor:pointer'
+      ].join(';');
+
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+        location.href = cooldown;
+        return false;
+      }, true);
+
+      const target =
+        document.querySelector('.summary') ||
+        document.querySelector('#summary') ||
+        document.querySelector('.result-panel') ||
+        document.querySelector('.end-screen') ||
+        document.querySelector('.panel') ||
+        document.querySelector('main') ||
+        document.body;
+
+      target.appendChild(btn);
+      found = true;
+    }
+
+    return found;
+  }
+
+  function boot(){
+    let count = 0;
+
+    /*
+      จับซ้ำช่วงสั้น ๆ เพราะปุ่ม summary อาจ render ช้ากว่า script
+    */
+    const timer = setInterval(function(){
+      count++;
+
+      const ok = hardPatchCooldownButtons();
+
+      if (ok || count > 150){
+        clearInterval(timer);
+      }
+    }, 250);
+
+    window.addEventListener('click', function(ev){
+      const el = ev.target && ev.target.closest
+        ? ev.target.closest('a,button,[role="button"],.btn')
+        : null;
+
+      if (!el) return;
+      if (!isSummaryScreen()) return;
+      if (!isCooldownButton(el)) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+      location.href = buildCooldownUrl();
+      return false;
+    }, true);
+
+    console.info('[GoodJunk CVR Cooldown Hard Route]', PATCH, buildCooldownUrl());
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
