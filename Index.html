@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CSAI2102: AI Quest Prototype v1</title>
+  <meta name="theme-color" content="#0f172a" />
+  <style>
+    :root{
+      --bg:#08111f;
+      --panel:#0f172a;
+      --panel2:#111c32;
+      --card:#17233d;
+      --card2:#1e2d4a;
+      --text:#f8fafc;
+      --muted:#a8b3c7;
+      --line:rgba(255,255,255,.12);
+      --brand:#38bdf8;
+      --brand2:#a78bfa;
+      --good:#34d399;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --lock:#64748b;
+      --shadow:0 18px 44px rgba(0,0,0,.32);
+      --radius:22px;
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      color:var(--text);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(circle at 20% 5%, rgba(56,189,248,.28), transparent 32%),
+        radial-gradient(circle at 90% 10%, rgba(167,139,250,.25), transparent 34%),
+        radial-gradient(circle at 50% 90%, rgba(52,211,153,.12), transparent 40%),
+        var(--bg);
+      overflow-x:hidden;
+    }
+    button,input,textarea,select{font:inherit}
+    button{cursor:pointer}
+    .app{
+      width:min(1220px,100%);
+      margin:0 auto;
+      padding:calc(18px + var(--safeTop)) 16px calc(28px + var(--safeBottom));
+    }
+    .topbar{
+      display:flex;
+      gap:14px;
+      justify-content:space-between;
+      align-items:center;
+      padding:16px;
+      border:1px solid var(--line);
+      border-radius:28px;
+      background:rgba(15,23,42,.76);
+      backdrop-filter:blur(14px);
+      box-shadow:var(--shadow);
+      position:sticky;
+      top:10px;
+      z-index:30;
+    }
+    .brandWrap{display:flex;align-items:center;gap:12px;min-width:0}
+    .logo{
+      width:54px;height:54px;border-radius:18px;
+      display:grid;place-items:center;
+      background:linear-gradient(135deg,var(--brand),var(--brand2));
+      box-shadow:0 12px 32px rgba(56,189,248,.22);
+      font-size:28px;
+      flex:0 0 auto;
+    }
+    h1{font-size:clamp(20px,3.2vw,34px);line-height:1.05;margin:0}
+    .subtitle{margin-top:4px;color:var(--muted);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .topActions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .pill{
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.06);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:999px;
+      font-weight:800;
+      font-size:13px;
+      white-space:nowrap;
+    }
+    .btn{
+      border:0;
+      color:var(--text);
+      background:linear-gradient(135deg,#2563eb,#7c3aed);
+      padding:12px 16px;
+      border-radius:16px;
+      font-weight:900;
+      box-shadow:0 12px 24px rgba(37,99,235,.22);
+      transition:.18s transform,.18s filter,.18s opacity;
+    }
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.08)}
+    .btn:active{transform:translateY(0)}
+    .btn.secondary{background:rgba(255,255,255,.08);border:1px solid var(--line);box-shadow:none}
+    .btn.good{background:linear-gradient(135deg,#059669,#22c55e)}
+    .btn.warn{background:linear-gradient(135deg,#d97706,#f59e0b)}
+    .btn.bad{background:linear-gradient(135deg,#e11d48,#fb7185)}
+    .btn.small{padding:9px 11px;border-radius:13px;font-size:13px}
+    .btn:disabled{opacity:.45;cursor:not-allowed;transform:none;filter:none}
+
+    .hero{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:1.2fr .8fr;
+      gap:16px;
+    }
+    .panel{
+      background:rgba(15,23,42,.80);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+    .panel h2{margin:0 0 8px;font-size:22px}
+    .panel p{margin:8px 0;color:var(--muted);line-height:1.65}
+    .stats{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      margin-top:14px;
+    }
+    .stat{
+      padding:14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.065);
+      border:1px solid var(--line);
+    }
+    .stat .num{font-size:24px;font-weight:1000;letter-spacing:-.03em}
+    .stat .label{color:var(--muted);font-size:12px;font-weight:700;margin-top:2px}
+    .progressBar{
+      height:12px;background:rgba(255,255,255,.09);
+      border-radius:999px;overflow:hidden;margin-top:14px;border:1px solid var(--line)
+    }
+    .progressFill{height:100%;width:0;background:linear-gradient(90deg,var(--good),var(--brand),var(--brand2));transition:.35s width}
+    .badgeRack{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .badge{
+      display:inline-flex;align-items:center;gap:7px;
+      padding:8px 10px;border-radius:999px;
+      background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.28);
+      color:#fde68a;font-weight:900;font-size:12px;
+    }
+    .badge.empty{color:var(--muted);background:rgba(255,255,255,.05);border-color:var(--line)}
+
+    .layout{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:1fr 360px;
+      gap:16px;
+      align-items:start;
+    }
+    .divisionTitle{
+      margin:18px 0 10px;
+      display:flex;align-items:center;gap:10px;
+      color:#dbeafe;font-weight:1000;letter-spacing:.01em;
+    }
+    .divisionTitle:first-child{margin-top:0}
+    .divisionDot{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,var(--brand),var(--brand2));box-shadow:0 0 0 6px rgba(56,189,248,.08)}
+    .missionGrid{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:10px;
+    }
+    .missionCard{
+      min-height:132px;
+      padding:13px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:linear-gradient(180deg,rgba(30,45,74,.95),rgba(17,28,50,.92));
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      transition:.18s transform,.18s border-color,.18s filter;
+      position:relative;
+      overflow:hidden;
+    }
+    .missionCard::after{
+      content:"";position:absolute;inset:auto -30px -50px auto;width:100px;height:100px;border-radius:50%;
+      background:rgba(56,189,248,.09);
+    }
+    .missionCard:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.55);filter:brightness(1.05)}
+    .missionCard.locked{opacity:.52;filter:grayscale(.25);cursor:not-allowed}
+    .missionCard.completed{border-color:rgba(52,211,153,.45);background:linear-gradient(180deg,rgba(19,78,74,.80),rgba(17,28,50,.92))}
+    .missionCard.mastered{border-color:rgba(251,191,36,.72);box-shadow:0 0 0 1px rgba(251,191,36,.15), 0 20px 40px rgba(0,0,0,.25)}
+    .missionCard.boss{background:linear-gradient(180deg,rgba(88,28,135,.72),rgba(17,28,50,.94));border-color:rgba(167,139,250,.34)}
+    .missionTop{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;position:relative;z-index:1}
+    .missionNo{font-weight:1000;color:#bae6fd;font-size:13px}
+    .statusTag{font-size:11px;font-weight:1000;border-radius:999px;padding:5px 7px;border:1px solid var(--line);background:rgba(255,255,255,.08);white-space:nowrap}
+    .missionTitle{font-weight:1000;font-size:15px;line-height:1.15;position:relative;z-index:1}
+    .missionTopic{font-size:12px;line-height:1.35;color:var(--muted);position:relative;z-index:1}
+    .stars{letter-spacing:1px;font-size:13px;color:#fbbf24;position:relative;z-index:1;margin-top:auto}
+    .sidePanel{position:sticky;top:112px}
+    .selectedBox h3{margin:0 0 8px;font-size:22px}
+    .tagline{color:#bae6fd;font-weight:900;font-size:13px;margin-bottom:10px}
+    .objectiveList{padding-left:18px;color:var(--muted);line-height:1.6;margin:10px 0}
+    .screen{display:none}
+    .screen.active{display:block}
+    .gameHeader{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:16px 0}
+    .gameTitle h2{margin:0;font-size:clamp(22px,4vw,34px)}
+    .gameTitle p{margin:6px 0 0;color:var(--muted);line-height:1.55}
+    .gameArea{
+      background:rgba(15,23,42,.86);
+      border:1px solid var(--line);
+      border-radius:28px;
+      padding:18px;
+      box-shadow:var(--shadow);
+    }
+    .choicesGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+    .choiceBtn{
+      min-height:92px;
+      border-radius:20px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.07);
+      color:var(--text);
+      padding:14px;
+      font-weight:1000;
+      text-align:center;
+      transition:.16s transform,.16s border-color,.16s background;
+    }
+    .choiceBtn:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.55);background:rgba(56,189,248,.10)}
+    .bigCard{
+      border-radius:24px;
+      border:1px solid rgba(56,189,248,.24);
+      background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(167,139,250,.10));
+      padding:18px;
+      margin-top:12px;
+    }
+    .promptCard{
+      display:grid;place-items:center;text-align:center;
+      min-height:150px;
+      font-size:clamp(24px,6vw,42px);
+      font-weight:1000;
+      line-height:1.1;
+    }
+    .feedback{
+      margin-top:12px;
+      padding:14px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.055);
+      color:#dbeafe;
+      line-height:1.6;
+      min-height:56px;
+    }
+    .feedback.good{border-color:rgba(52,211,153,.42);background:rgba(52,211,153,.10);color:#d1fae5}
+    .feedback.bad{border-color:rgba(251,113,133,.42);background:rgba(251,113,133,.10);color:#ffe4e6}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .scoreLine{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+    .scoreChip{padding:9px 11px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid var(--line);font-weight:900;color:#e0f2fe}
+    .matchGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+    .matchItem,.matchDrop{
+      padding:13px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.06);
+    }
+    .matchItem{font-weight:900;color:#e0f2fe}
+    .matchDrop select{width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:#0f172a;color:var(--text)}
+    .mazeWrap{display:grid;grid-template-columns:minmax(260px,420px) 1fr;gap:16px;align-items:start;margin-top:12px}
+    .mazeGrid{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:6px;
+      padding:10px;
+      background:rgba(255,255,255,.05);
+      border:1px solid var(--line);
+      border-radius:20px;
+    }
+    .cell{
+      aspect-ratio:1/1;
+      display:grid;place-items:center;
+      border-radius:14px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.09);
+      font-weight:1000;
+      min-width:0;
+      transition:.15s background,.15s transform;
+    }
+    .cell.wall{background:#1f2937;color:#64748b}
+    .cell.start{background:rgba(52,211,153,.25);border-color:rgba(52,211,153,.55)}
+    .cell.goal{background:rgba(251,191,36,.25);border-color:rgba(251,191,36,.55)}
+    .cell.open{background:rgba(56,189,248,.25);border-color:rgba(56,189,248,.55);transform:scale(.97)}
+    .cell.path{background:rgba(167,139,250,.30);border-color:rgba(167,139,250,.66)}
+    .mazeLog{max-height:310px;overflow:auto;padding:12px;border-radius:16px;background:rgba(0,0,0,.18);border:1px solid var(--line);color:var(--muted);line-height:1.5;font-size:13px}
+    .bossWrap{display:grid;gap:12px;margin-top:12px}
+    .hpBox{display:grid;grid-template-columns:1fr;gap:8px}
+    .hpLabel{display:flex;justify-content:space-between;font-weight:1000;font-size:13px;color:#dbeafe}
+    .hpBar{height:14px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);overflow:hidden}
+    .hpFill{height:100%;transition:.25s width;background:linear-gradient(90deg,#fb7185,#f97316)}
+    .playerHp .hpFill{background:linear-gradient(90deg,#22c55e,#38bdf8)}
+    .resultBox{text-align:center;max-width:760px;margin:18px auto 0}
+    .resultScore{font-size:56px;font-weight:1000;line-height:1;color:#e0f2fe;margin:8px 0}
+    .resultStars{font-size:34px;color:#fbbf24;margin:8px 0 14px}
+    .reflection{
+      margin-top:14px;text-align:left;
+      display:grid;gap:10px;
+    }
+    .reflection label{font-weight:900;color:#dbeafe;font-size:14px}
+    .reflection textarea{
+      width:100%;min-height:72px;resize:vertical;
+      background:rgba(255,255,255,.06);color:var(--text);
+      border:1px solid var(--line);border-radius:16px;padding:12px;
+    }
+    .toast{
+      position:fixed;left:50%;bottom:calc(18px + var(--safeBottom));transform:translateX(-50%) translateY(20px);
+      background:#0f172a;color:var(--text);border:1px solid var(--line);border-radius:999px;
+      padding:12px 16px;box-shadow:var(--shadow);z-index:99;opacity:0;pointer-events:none;transition:.22s opacity,.22s transform;
+      font-weight:900;font-size:13px;max-width:min(92vw,680px);text-align:center;
+    }
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+    .modalBack{
+      position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:60;display:none;align-items:center;justify-content:center;padding:16px;
+    }
+    .modalBack.show{display:flex}
+    .modal{width:min(680px,100%);background:#0f172a;border:1px solid var(--line);border-radius:26px;padding:20px;box-shadow:var(--shadow)}
+    .modal h3{margin:0 0 8px;font-size:24px}
+    .modal p{color:var(--muted);line-height:1.65}
+
+    @media (max-width: 980px){
+      .hero,.layout{grid-template-columns:1fr}
+      .sidePanel{position:static}
+      .missionGrid{grid-template-columns:repeat(3,1fr)}
+      .stats{grid-template-columns:repeat(2,1fr)}
+      .mazeWrap{grid-template-columns:1fr}
+    }
+    @media (max-width: 680px){
+      .app{padding-left:10px;padding-right:10px}
+      .topbar{align-items:flex-start;border-radius:22px;position:static;flex-direction:column}
+      .topActions{width:100%;justify-content:flex-start}
+      .pill{font-size:12px;padding:8px 10px}
+      .hero{margin-top:10px}
+      .panel{padding:14px;border-radius:20px}
+      .missionGrid{grid-template-columns:1fr}
+      .missionCard{min-height:auto}
+      .choicesGrid{grid-template-columns:1fr}
+      .matchGrid{grid-template-columns:1fr}
+      .gameHeader{flex-direction:column}
+      .row .btn{flex:1 1 auto}
+      .logo{width:48px;height:48px;border-radius:16px}
+      .subtitle{white-space:normal}
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brandWrap">
+        <div class="logo">🧠</div>
+        <div>
+          <h1>CSAI2102: AI Quest</h1>
+          <div class="subtitle">ภารกิจสร้างสมองกล • Web Game Prototype v1 สำหรับ PC / Mobile</div>
+        </div>
+      </div>
+      <div class="topActions">
+        <span class="pill" id="topProgress">Progress 0/20</span>
+        <span class="pill" id="topStars">⭐ 0/60</span>
+        <button class="btn secondary small" id="btnMenu">Mission Map</button>
+        <button class="btn secondary small" id="btnReset">Reset</button>
+      </div>
+    </header>
+
+    <main id="menuScreen" class="screen active">
+      <section class="hero">
+        <div class="panel">
+          <h2>AI Learning Studio: 15 Missions + 5 Boss Stages</h2>
+          <p>เกมนี้ใช้เสริมการเรียน ไม่ใช่แทนการสอนทั้งหมด นักศึกษาจะเล่นภารกิจ เห็นหลักการ AI ทำงาน แล้วทำใบงาน/Reflection เพื่ออธิบายเหตุผลด้วยตนเอง</p>
+          <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
+          <div class="stats">
+            <div class="stat"><div class="num" id="statCompleted">0</div><div class="label">Completed</div></div>
+            <div class="stat"><div class="num" id="statStars">0</div><div class="label">Stars</div></div>
+            <div class="stat"><div class="num" id="statBadges">0</div><div class="label">Badges</div></div>
+            <div class="stat"><div class="num" id="statLevel">Rookie</div><div class="label">AI Level</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Badges</h2>
+          <p>ผ่านด่านเพื่อปลดล็อก Badge และเล่นซ้ำเพื่อเก็บ 3 ดาว</p>
+          <div class="badgeRack" id="badgeRack"></div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="panel" id="missionMap"></div>
+        <aside class="panel sidePanel selectedBox" id="detailPanel">
+          <div class="tagline">เลือกด่านจาก Mission Map</div>
+          <h3>เริ่มจาก Mission 1</h3>
+          <p>Prototype v1 เปิดให้เล่นจริง Mission 1–3 และ Boss 1 ส่วนด่านอื่นจะแสดงเป็น Coming Soon เพื่อวางโครงครบ 20 ด่านก่อน</p>
+        </aside>
+      </section>
+    </main>
+
+    <main id="gameScreen" class="screen">
+      <section class="gameHeader">
+        <div class="gameTitle">
+          <h2 id="gameHeading">Mission</h2>
+          <p id="gameSubheading">Mission brief</p>
+        </div>
+        <div class="row">
+          <button class="btn secondary" id="btnBackInGame">← กลับเมนู</button>
+        </div>
+      </section>
+      <section class="gameArea" id="gameArea"></section>
+    </main>
+
+    <main id="resultScreen" class="screen">
+      <section class="gameHeader">
+        <div class="gameTitle">
+          <h2 id="resultHeading">Mission Result</h2>
+          <p id="resultSubheading">สรุปผลการเล่นและ Reflection</p>
+        </div>
+      </section>
+      <section class="panel resultBox">
+        <div class="tagline" id="resultBadge">Badge</div>
+        <div class="resultScore" id="resultScore">0</div>
+        <div class="resultStars" id="resultStars">☆☆☆</div>
+        <p id="resultFeedback">Feedback</p>
+        <div class="reflection">
+          <label>1) เกมนี้เกี่ยวกับหลักการ AI เรื่องใด?</label>
+          <textarea id="ref1" placeholder="เช่น Intelligent Agent, BFS/DFS, AI Overview..."></textarea>
+          <label>2) AI ใช้ข้อมูลอะไรในการตัดสินใจ?</label>
+          <textarea id="ref2" placeholder="อธิบายข้อมูลนำเข้า เงื่อนไข หรือ state ที่ใช้"></textarea>
+          <label>3) หลักการนี้นำไปใช้กับปัญหาจริงหรือ Mini Project ได้อย่างไร?</label>
+          <textarea id="ref3" placeholder="เชื่อมกับตัวอย่างจริงหรือแนวคิด Mini Project"></textarea>
+        </div>
+        <div class="row" style="justify-content:center;margin-top:16px">
+          <button class="btn good" id="btnSaveResult">บันทึกผลและกลับเมนู</button>
+          <button class="btn secondary" id="btnReplay">เล่นซ้ำ</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="modalBack" id="confirmModal">
+    <div class="modal">
+      <h3>รีเซ็ตความก้าวหน้าทั้งหมด?</h3>
+      <p>ระบบจะลบ Progress, Stars และ Badges ที่บันทึกในเครื่องนี้ การกระทำนี้ย้อนกลับไม่ได้</p>
+      <div class="row" style="justify-content:flex-end">
+        <button class="btn secondary" id="btnCancelReset">ยกเลิก</button>
+        <button class="btn bad" id="btnConfirmReset">รีเซ็ต</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    'use strict';
+
+    const STORAGE_KEY = 'CSAI2102_AIQUEST_PROGRESS_V1';
+
+    const STAGES = [
+      {id:'m1', no:'1', type:'main', division:'Division 1: AI Rookie Base', title:'AI Awakening', topic:'Introduction to AI', badge:'AI Observer', playable:true, objectives:['แยก AI / Maybe AI / Not AI','อธิบาย Input และ Output ของระบบ','เข้าใจว่า AI ไม่ใช่แค่ ChatGPT']},
+      {id:'m2', no:'2', type:'main', division:'Division 1: AI Rookie Base', title:'Agent Builder', topic:'Intelligent Agent', badge:'Agent Designer', playable:true, objectives:['ระบุ Agent, Environment, Percept, Action, Goal','เข้าใจระบบรับรู้ → ตัดสินใจ → กระทำ','วิเคราะห์ความเสี่ยงเมื่อ Agent ตัดสินใจผิด']},
+      {id:'b1', no:'B1', type:'boss', division:'Division 1: AI Rookie Base', title:'Rookie AI Boss', topic:'AI Overview + Agent', badge:'Rookie Challenger', playable:true, objectives:['ทบทวน AI และ Agent','ตอบสถานการณ์แบบเร็ว','เตรียมเข้าสู่ Search Arena']},
+      {id:'m3', no:'3', type:'main', division:'Division 2: Search Arena', title:'Maze Escape', topic:'BFS / DFS', badge:'Maze Solver', playable:true, objectives:['เห็นลำดับการเปิด node','เปรียบเทียบ BFS และ DFS','เข้าใจ State Space Search']},
+      {id:'m4', no:'4', type:'main', division:'Division 2: Search Arena', title:'Route Cost Challenge', topic:'UCS / Cost Search', badge:'Cost Pathfinder', playable:false, objectives:['เข้าใจ path cost','เปรียบเทียบ BFS/DFS/UCS']},
+      {id:'m5', no:'5', type:'main', division:'Division 2: Search Arena', title:'A* Rescue Mission', topic:'Heuristic / A*', badge:'A* Navigator', playable:false, objectives:['คำนวณ g(n), h(n), f(n)','เลือก node จากค่า f(n)']},
+      {id:'m6', no:'6', type:'main', division:'Division 2: Search Arena', title:'Minimax Battle', topic:'Game AI / Minimax', badge:'Game Strategist', playable:false, objectives:['เข้าใจ MAX/MIN','คำนวณ Minimax จาก Game Tree']},
+      {id:'b2', no:'B2', type:'boss', division:'Division 2: Search Arena', title:'Search Arena Boss', topic:'Search + A* + Minimax', badge:'Search Champion', playable:false, objectives:['เลือก algorithm ให้เหมาะกับสถานการณ์']},
+      {id:'m7', no:'7', type:'main', division:'Division 3: Reasoning Lab', title:'AI Detective', topic:'Bayes / Fuzzy', badge:'Uncertainty Detective', playable:false, objectives:['แยกปัญหาแบบ probability กับ fuzzy level']},
+      {id:'m8', no:'8', type:'main', division:'Division 3: Reasoning Lab', title:'Midterm Review Mission', topic:'Classical AI Review', badge:'Midterm Challenger', playable:false, objectives:['ทบทวน Week 1–7']},
+      {id:'m9', no:'9', type:'main', division:'Division 3: Reasoning Lab', title:'Rule Master', topic:'Expert System', badge:'Rule Engineer', playable:false, objectives:['สร้างกฎ If-Then','เข้าใจ Knowledge Base']},
+      {id:'b3', no:'B3', type:'boss', division:'Division 3: Reasoning Lab', title:'Reasoning Lab Boss', topic:'Bayes + Fuzzy + Expert System', badge:'Reasoning Master', playable:false, objectives:['เลือก reasoning ที่เหมาะสม']},
+      {id:'m10', no:'10', type:'main', division:'Division 4: Data League', title:'Data Trainer', topic:'ML Fundamentals', badge:'Data Explorer', playable:false, objectives:['เลือก feature/label','เข้าใจ dataset และ bias']},
+      {id:'m11', no:'11', type:'main', division:'Division 4: Data League', title:'Classifier Arena', topic:'Supervised Learning', badge:'Classifier Builder', playable:false, objectives:['ออกแบบ classification task']},
+      {id:'m12', no:'12', type:'main', division:'Division 4: Data League', title:'Cluster & Reward Quest', topic:'Unsupervised / RL', badge:'Pattern Hunter', playable:false, objectives:['แยก clustering กับ reward learning']},
+      {id:'m13', no:'13', type:'main', division:'Division 4: Data League', title:'Neural Forge', topic:'Neural Networks / Deep Learning', badge:'Neural Apprentice', playable:false, objectives:['เห็น input → hidden layer → output']},
+      {id:'b4', no:'B4', type:'boss', division:'Division 4: Data League', title:'Data League Boss', topic:'ML + DL', badge:'Data League Champion', playable:false, objectives:['เลือกข้อมูลและวิธีเรียนรู้ให้เหมาะ']},
+      {id:'m14', no:'14', type:'main', division:'Division 5: Future AI Arena', title:'Prompt Guardian', topic:'NLP / GenAI / Ethics', badge:'Responsible Prompter', playable:false, objectives:['ตรวจ hallucination, bias, privacy']},
+      {id:'m15', no:'15', type:'main', division:'Division 5: Future AI Arena', title:'AI Final Expo', topic:'Mini Project Integration', badge:'AI Innovator', playable:false, objectives:['อธิบาย project ด้วยหลักการ AI']},
+      {id:'b5', no:'B5', type:'boss', division:'Division 5: Future AI Arena', title:'Grand AI Master Boss', topic:'Course Integration', badge:'Grand AI Master', playable:false, objectives:['บูรณาการทั้งรายวิชา']}
+    ];
+
+    const playableOrder = ['m1','m2','b1','m3'];
+
+    const state = loadState();
+    let selectedStageId = 'm1';
+    let currentMission = null;
+    let currentScore = 0;
+    let currentFeedback = '';
+
+    const el = (id)=>document.getElementById(id);
+
+    function defaultState(){
+      return {completed:{}, stars:{}, badges:[], totalScore:0, lastMission:'m1', reflections:{}};
+    }
+    function loadState(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if(!raw) return defaultState();
+        return Object.assign(defaultState(), JSON.parse(raw));
+      }catch(e){
+        return defaultState();
+      }
+    }
+    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function showToast(msg){
+      const t = el('toast'); t.textContent = msg; t.classList.add('show');
+      clearTimeout(showToast._timer); showToast._timer = setTimeout(()=>t.classList.remove('show'), 2200);
+    }
+    function stageById(id){ return STAGES.find(s=>s.id===id); }
+    function isUnlocked(stage){
+      if(!stage.playable) return false;
+      if(stage.id === 'm1') return true;
+      const idx = playableOrder.indexOf(stage.id);
+      if(idx < 0) return false;
+      const prev = playableOrder[idx-1];
+      return !!state.completed[prev];
+    }
+    function starText(n){ return '★'.repeat(n || 0) + '☆'.repeat(3-(n || 0)); }
+    function calcStars(score){ return score >= 85 ? 3 : score >= 70 ? 2 : score >= 50 ? 1 : 0; }
+    function completedCount(){ return Object.keys(state.completed).length; }
+    function totalStars(){ return Object.values(state.stars).reduce((a,b)=>a+Number(b||0),0); }
+    function aiLevel(){
+      const c = completedCount();
+      if(c >= 16) return 'Master';
+      if(c >= 10) return 'Designer';
+      if(c >= 5) return 'Builder';
+      if(c >= 2) return 'Explorer';
+      return 'Rookie';
+    }
+    function renderAll(){ renderStats(); renderMissionMap(); renderDetail(selectedStageId); }
+    function renderStats(){
+      const c = completedCount(), stars = totalStars();
+      el('topProgress').textContent = `Progress ${c}/20`;
+      el('topStars').textContent = `⭐ ${stars}/60`;
+      el('statCompleted').textContent = c;
+      el('statStars').textContent = stars;
+      el('statBadges').textContent = state.badges.length;
+      el('statLevel').textContent = aiLevel();
+      el('progressFill').style.width = `${Math.round((c/20)*100)}%`;
+      const rack = el('badgeRack');
+      rack.innerHTML = '';
+      if(state.badges.length === 0){
+        rack.innerHTML = '<span class="badge empty">ยังไม่มี Badge — เริ่ม Mission 1 ได้เลย</span>';
+      }else{
+        state.badges.forEach(b=>{
+          const span = document.createElement('span'); span.className='badge'; span.textContent = `🏅 ${b}`; rack.appendChild(span);
+        });
+      }
+    }
+    function renderMissionMap(){
+      const map = el('missionMap'); map.innerHTML = '';
+      let currentDivision = '';
+      STAGES.forEach(stage=>{
+        if(stage.division !== currentDivision){
+          currentDivision = stage.division;
+          const title = document.createElement('div');
+          title.className = 'divisionTitle';
+          title.innerHTML = `<span class="divisionDot"></span><span>${currentDivision}</span>`;
+          map.appendChild(title);
+          const grid = document.createElement('div');
+          grid.className = 'missionGrid';
+          grid.dataset.division = currentDivision;
+          map.appendChild(grid);
+        }
+        const grid = [...map.querySelectorAll('.missionGrid')].at(-1);
+        const unlocked = isUnlocked(stage);
+        const completed = !!state.completed[stage.id];
+        const stars = state.stars[stage.id] || 0;
+        const card = document.createElement('button');
+        card.className = `missionCard ${stage.type==='boss'?'boss':''} ${!unlocked&&!completed?'locked':''} ${completed?'completed':''} ${stars===3?'mastered':''}`;
+        card.type = 'button';
+        const status = completed ? (stars===3?'Mastered':'Completed') : (!stage.playable?'Coming Soon': unlocked?'Available':'Locked');
+        card.innerHTML = `
+          <div class="missionTop">
+            <div class="missionNo">${stage.type==='boss'?'👾 ':''}${stage.no}</div>
+            <div class="statusTag">${status}</div>
+          </div>
+          <div class="missionTitle">${stage.title}</div>
+          <div class="missionTopic">${stage.topic}</div>
+          <div class="stars">${starText(stars)}</div>
+        `;
+        card.addEventListener('click',()=>{
+          selectedStageId = stage.id;
+          renderDetail(stage.id);
+          if(!stage.playable) showToast('ด่านนี้วางโครงไว้แล้ว แต่ยังเป็น Coming Soon ใน Prototype v1');
+          else if(!unlocked && !completed) showToast('ต้องผ่านด่านก่อนหน้าก่อน');
+        });
+        grid.appendChild(card);
+      });
+    }
+    function renderDetail(id){
+      const stage = stageById(id);
+      const unlocked = isUnlocked(stage);
+      const completed = !!state.completed[id];
+      const panel = el('detailPanel');
+      const statusText = completed ? 'Completed' : (!stage.playable ? 'Coming Soon' : unlocked ? 'Available' : 'Locked');
+      panel.innerHTML = `
+        <div class="tagline">${stage.division}</div>
+        <h3>${stage.no}: ${stage.title}</h3>
+        <p><b>หัวข้อ:</b> ${stage.topic}</p>
+        <p><b>สถานะ:</b> ${statusText}</p>
+        <ul class="objectiveList">${stage.objectives.map(o=>`<li>${o}</li>`).join('')}</ul>
+        <p><b>Badge:</b> 🏅 ${stage.badge}</p>
+        <div class="row" style="margin-top:14px">
+          <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed))?'disabled':''}>เริ่มภารกิจ</button>
+          <button class="btn secondary" id="reviewSelected">ดูสถานะ</button>
+        </div>
+      `;
+      el('startSelected').addEventListener('click',()=>startMission(stage.id));
+      el('reviewSelected').addEventListener('click',()=>{
+        const best = state.completed[id] ? `คะแนนดีที่สุด ${state.completed[id]} / ดาว ${state.stars[id]||0}` : 'ยังไม่ผ่านด่านนี้';
+        showToast(best);
+      });
+    }
+    function switchScreen(id){
+      ['menuScreen','gameScreen','resultScreen'].forEach(s=>el(s).classList.remove('active'));
+      el(id).classList.add('active');
+      window.scrollTo({top:0,behavior:'smooth'});
+    }
+    function startMission(id){
+      const stage = stageById(id);
+      if(!stage || !stage.playable || !isUnlocked(stage) && !state.completed[id]) return;
+      currentMission = stage;
+      currentScore = 0;
+      currentFeedback = '';
+      el('gameHeading').textContent = `${stage.no}: ${stage.title}`;
+      el('gameSubheading').textContent = `${stage.topic} — ${stage.objectives[0]}`;
+      switchScreen('gameScreen');
+      if(id==='m1') renderMission1();
+      if(id==='m2') renderMission2();
+      if(id==='m3') renderMission3();
+      if(id==='b1') renderBoss1();
+    }
+    function finishMission(score, feedback){
+      currentScore = Math.max(0, Math.min(100, Math.round(score)));
+      currentFeedback = feedback || '';
+      const stars = calcStars(currentScore);
+      el('resultHeading').textContent = `${currentMission.no}: ${currentMission.title}`;
+      el('resultSubheading').textContent = `หัวข้อ: ${currentMission.topic}`;
+      el('resultBadge').textContent = stars > 0 ? `ปลดล็อก/อัปเดต Badge: ${currentMission.badge}` : 'ยังไม่ผ่าน ลองเล่นซ้ำเพื่อเก็บดาว';
+      el('resultScore').textContent = currentScore;
+      el('resultStars').textContent = starText(stars);
+      el('resultFeedback').textContent = currentFeedback;
+      const refs = state.reflections[currentMission.id] || {};
+      el('ref1').value = refs.ref1 || '';
+      el('ref2').value = refs.ref2 || '';
+      el('ref3').value = refs.ref3 || '';
+      switchScreen('resultScreen');
+    }
+    function saveResult(){
+      if(!currentMission) return;
+      const stars = calcStars(currentScore);
+      const oldScore = state.completed[currentMission.id] || 0;
+      const oldStars = state.stars[currentMission.id] || 0;
+      if(currentScore > oldScore) state.completed[currentMission.id] = currentScore;
+      if(stars > oldStars) state.stars[currentMission.id] = stars;
+      if(stars > 0 && !state.badges.includes(currentMission.badge)) state.badges.push(currentMission.badge);
+      state.lastMission = currentMission.id;
+      state.reflections[currentMission.id] = {ref1:el('ref1').value.trim(), ref2:el('ref2').value.trim(), ref3:el('ref3').value.trim()};
+      saveState();
+      renderAll();
+      switchScreen('menuScreen');
+      showToast('บันทึกผลเรียบร้อยแล้ว');
+    }
+
+    function renderMission1(){
+      const cards = [
+        {name:'ChatGPT', answer:'AI', why:'เป็น AI เพราะใช้โมเดลภาษาเพื่อสร้างคำตอบจากข้อมูล'},
+        {name:'Google Maps', answer:'AI', why:'มักใช้ AI/ML ช่วยคาดการณ์เส้นทางและสภาพจราจร'},
+        {name:'เครื่องคิดเลข', answer:'Not AI', why:'คำนวณตามสูตรตายตัว ไม่ได้เรียนรู้หรือตัดสินใจแบบ AI'},
+        {name:'Face ID', answer:'AI', why:'ใช้การรู้จำรูปแบบใบหน้าและโมเดลจำแนก'},
+        {name:'ตู้ขายน้ำอัตโนมัติ', answer:'Not AI', why:'โดยทั่วไปทำตามเงื่อนไขคงที่ ไม่ได้เรียนรู้จากข้อมูล'},
+        {name:'ระบบเปิดไฟอัตโนมัติ', answer:'Maybe AI', why:'ถ้าใช้ sensor ธรรมดาอาจไม่ใช่ AI แต่ถ้าเรียนรู้พฤติกรรมผู้ใช้อาจเป็น AI'},
+        {name:'TikTok Recommendation', answer:'AI', why:'ใช้ข้อมูลพฤติกรรมเพื่อแนะนำเนื้อหา'},
+        {name:'ระบบแปลภาษา', answer:'AI', why:'ใช้ NLP/ML เพื่อแปลข้อความหรือเสียง'}
+      ].sort(()=>Math.random()-.5).slice(0,6);
+      let index=0, correct=0;
+      const area = el('gameArea');
+      function draw(){
+        const c = cards[index];
+        area.innerHTML = `
+          <div class="scoreLine">
+            <span class="scoreChip">ข้อ ${index+1}/${cards.length}</span>
+            <span class="scoreChip">ถูก ${correct}</span>
+          </div>
+          <div class="bigCard promptCard">${c.name}</div>
+          <p style="color:var(--muted);line-height:1.6">จัดกลุ่มระบบนี้ว่าเป็น AI, อาจเป็น AI หรือไม่ใช่ AI</p>
+          <div class="choicesGrid">
+            <button class="choiceBtn" data-a="AI">🤖 เป็น AI</button>
+            <button class="choiceBtn" data-a="Maybe AI">🧩 อาจเป็น AI</button>
+            <button class="choiceBtn" data-a="Not AI">🧮 ไม่ใช่ AI</button>
+          </div>
+          <div class="feedback" id="m1feedback">เลือกคำตอบเพื่อดู Feedback</div>
+        `;
+        area.querySelectorAll('.choiceBtn').forEach(btn=>btn.addEventListener('click',()=>answer(btn.dataset.a)));
+      }
+      function answer(ans){
+        const c = cards[index];
+        const ok = ans === c.answer;
+        if(ok) correct++;
+        const fb = el('m1feedback');
+        fb.className = `feedback ${ok?'good':'bad'}`;
+        fb.textContent = `${ok?'ถูกต้อง':'ยังไม่ถูก'} — ${c.why}`;
+        area.querySelectorAll('.choiceBtn').forEach(b=>b.disabled=true);
+        setTimeout(()=>{
+          index++;
+          if(index>=cards.length){
+            const score = 40 + (correct/cards.length)*60;
+            finishMission(score, `Mission 1 สรุป: คุณตอบถูก ${correct}/${cards.length} ข้อ เกมนี้ช่วยให้แยก AI / Maybe AI / Not AI และอธิบายเหตุผลได้`);
+          }else draw();
+        }, 1100);
+      }
+      draw();
+    }
+
+    function renderMission2(){
+      const scenarios = [
+        {
+          name:'ระบบแนะนำรายวิชา',
+          comps:{Agent:'ระบบแนะนำรายวิชา', Environment:'หลักสูตร รายวิชา และข้อมูลนักศึกษา', Percept:'เกรด ความสนใจ และวิชาที่เรียนแล้ว', Action:'แนะนำรายวิชาที่ควรลง', Goal:'ช่วยให้เรียนเหมาะกับเป้าหมาย', Performance:'ลงทะเบียนสำเร็จและเรียนครบแผน'}
+        },
+        {
+          name:'หุ่นยนต์ดูดฝุ่น',
+          comps:{Agent:'หุ่นยนต์ดูดฝุ่น', Environment:'ห้อง พื้น ฝุ่น และสิ่งกีดขวาง', Percept:'ฝุ่น กำแพง ระยะห่าง และแบตเตอรี่', Action:'เดินหน้า เลี้ยว ดูดฝุ่น กลับแท่นชาร์จ', Goal:'ทำความสะอาดพื้นที่ให้มากที่สุด', Performance:'พื้นสะอาด ใช้เวลาน้อย และไม่ชนสิ่งของ'}
+        }
+      ];
+      const scenario = scenarios[Math.floor(Math.random()*scenarios.length)];
+      const labels = Object.keys(scenario.comps);
+      const options = Object.values(scenario.comps).sort(()=>Math.random()-.5);
+      const area = el('gameArea');
+      area.innerHTML = `
+        <div class="bigCard">
+          <h3 style="margin:0 0 8px">สถานการณ์: ${scenario.name}</h3>
+          <p style="color:var(--muted);line-height:1.6">เลือกคำตอบให้ตรงกับองค์ประกอบของ Intelligent Agent</p>
+        </div>
+        <div class="matchGrid" id="matchGrid">
+          ${labels.map(l=>`
+            <div class="matchDrop">
+              <div class="matchItem">${l}</div>
+              <select data-label="${l}">
+                <option value="">-- เลือกคำตอบ --</option>
+                ${options.map(o=>`<option value="${escapeHtml(o)}">${o}</option>`).join('')}
+              </select>
+            </div>
+          `).join('')}
+        </div>
+        <div class="feedback" id="m2feedback">จับคู่องค์ประกอบให้ครบ แล้วกดตรวจคำตอบ</div>
+        <div class="row" style="margin-top:14px">
+          <button class="btn good" id="checkM2">ตรวจคำตอบ</button>
+        </div>
+      `;
+      el('checkM2').addEventListener('click',()=>{
+        let correct=0, answered=0;
+        area.querySelectorAll('select').forEach(sel=>{
+          const label = sel.dataset.label;
+          if(sel.value) answered++;
+          if(sel.value === scenario.comps[label]) correct++;
+        });
+        const fb = el('m2feedback');
+        const ok = correct === labels.length;
+        fb.className = `feedback ${ok?'good':'bad'}`;
+        fb.textContent = `ตอบถูก ${correct}/${labels.length} องค์ประกอบ — Agent ต้องมี Environment, Percept, Action, Goal และ Performance Measure ที่สัมพันธ์กัน`;
+        const score = Math.round((correct/labels.length)*85 + (answered===labels.length?15:0));
+        setTimeout(()=>finishMission(score, `Mission 2 สรุป: คุณจับคู่องค์ประกอบ Agent ถูก ${correct}/${labels.length} ส่วน จุดสำคัญคือ Percept คือข้อมูลที่รับรู้ ส่วน Action คือสิ่งที่ระบบกระทำ`), 1200);
+      });
+    }
+
+    function renderMission3(){
+      const maze = [
+        ['S','.','.','X','.'],
+        ['X','X','.','X','.'],
+        ['.','.','.','.','.'],
+        ['.','X','X','X','.'],
+        ['.','.','.','X','G']
+      ];
+      const rows=5, cols=5;
+      const start=[0,0], goal=[4,4];
+      let algorithm = 'BFS';
+      let searchResult = null;
+      let stepIndex = 0;
+      const area = el('gameArea');
+      area.innerHTML = `
+        <div class="scoreLine">
+          <span class="scoreChip">เลือก Algorithm</span>
+          <button class="btn small" id="algBFS">BFS</button>
+          <button class="btn secondary small" id="algDFS">DFS</button>
+          <button class="btn good small" id="runStep">Step</button>
+          <button class="btn warn small" id="runAuto">Auto</button>
+          <button class="btn secondary small" id="resetMaze">Reset</button>
+          <button class="btn good small" id="finishMaze">สรุปผล</button>
+        </div>
+        <div class="mazeWrap">
+          <div class="mazeGrid" id="mazeGrid"></div>
+          <div>
+            <div class="feedback" id="mazeFeedback">เลือก BFS หรือ DFS แล้วกด Step เพื่อดู AI เปิด node ทีละช่อง</div>
+            <div class="mazeLog" id="mazeLog"></div>
+          </div>
+        </div>
+      `;
+      function neighbors(r,c){
+        const dirs = [[0,1,'ขวา'],[1,0,'ลง'],[0,-1,'ซ้าย'],[-1,0,'ขึ้น']];
+        return dirs.map(([dr,dc,name])=>[r+dr,c+dc,name]).filter(([nr,nc])=>nr>=0&&nr<rows&&nc>=0&&nc<cols&&maze[nr][nc] !== 'X');
+      }
+      function runSearch(mode){
+        const frontier = [{pos:start, path:[start]}];
+        const visited = new Set();
+        const opened = [];
+        while(frontier.length){
+          const item = mode==='BFS' ? frontier.shift() : frontier.pop();
+          const [r,c]=item.pos;
+          const key=`${r},${c}`;
+          if(visited.has(key)) continue;
+          visited.add(key); opened.push(item.pos);
+          if(r===goal[0] && c===goal[1]) return {opened,path:item.path};
+          for(const [nr,nc] of neighbors(r,c)){
+            if(!visited.has(`${nr},${nc}`)) frontier.push({pos:[nr,nc], path:[...item.path,[nr,nc]]});
+          }
+        }
+        return {opened,path:[]};
+      }
+      function drawMaze(){
+        if(!searchResult) searchResult = runSearch(algorithm);
+        const openedSet = new Set(searchResult.opened.slice(0,stepIndex).map(p=>p.join(',')));
+        const done = stepIndex >= searchResult.opened.length;
+        const pathSet = done ? new Set(searchResult.path.map(p=>p.join(','))) : new Set();
+        const grid = el('mazeGrid'); grid.innerHTML='';
+        for(let r=0;r<rows;r++){
+          for(let c=0;c<cols;c++){
+            const cell = document.createElement('div');
+            const val = maze[r][c];
+            let cls='cell';
+            if(val==='X') cls+=' wall';
+            if(val==='S') cls+=' start';
+            if(val==='G') cls+=' goal';
+            if(openedSet.has(`${r},${c}`) && val==='.') cls+=' open';
+            if(pathSet.has(`${r},${c}`) && val==='.') cls+=' path';
+            cell.className=cls; cell.textContent = val==='.' ? (openedSet.has(`${r},${c}`)?'•':'') : val;
+            grid.appendChild(cell);
+          }
+        }
+        el('mazeFeedback').textContent = `${algorithm}: เปิดแล้ว ${Math.min(stepIndex, searchResult.opened.length)} node / เส้นทางสุดท้าย ${searchResult.path.length} ช่อง`;
+        el('mazeLog').innerHTML = searchResult.opened.slice(0,stepIndex).map((p,i)=>`${i+1}. เปิด node (${p[0]},${p[1]})`).join('<br>') || 'ยังไม่ได้เริ่มเปิด node';
+      }
+      function reset(){ searchResult = runSearch(algorithm); stepIndex=0; drawMaze(); }
+      el('algBFS').addEventListener('click',()=>{algorithm='BFS'; el('algBFS').className='btn small'; el('algDFS').className='btn secondary small'; reset();});
+      el('algDFS').addEventListener('click',()=>{algorithm='DFS'; el('algDFS').className='btn small'; el('algBFS').className='btn secondary small'; reset();});
+      el('runStep').addEventListener('click',()=>{ if(stepIndex < searchResult.opened.length) stepIndex++; drawMaze(); });
+      el('runAuto').addEventListener('click',()=>{
+        const timer = setInterval(()=>{
+          if(stepIndex >= searchResult.opened.length){ clearInterval(timer); return; }
+          stepIndex++; drawMaze();
+        }, 280);
+      });
+      el('resetMaze').addEventListener('click',reset);
+      el('finishMaze').addEventListener('click',()=>{
+        const opened = searchResult.opened.length;
+        const pathLen = searchResult.path.length;
+        const score = Math.max(55, 100 - opened*3 + (algorithm==='BFS'?8:0));
+        finishMission(score, `${algorithm} เปิด node ${opened} จุด และพบเส้นทาง ${pathLen} ช่อง เกมนี้ทำให้เห็นว่า BFS ค้นหากว้างก่อน ส่วน DFS ค้นหาลึกก่อน`);
+      });
+      reset();
+    }
+
+    function renderBoss1(){
+      const questions = [
+        {q:'ระบบใดเป็น AI ชัดเจนที่สุด?', choices:['เครื่องคิดเลข','ChatGPT','ตู้ขายน้ำ'], a:'ChatGPT', why:'ChatGPT ใช้โมเดลภาษาเพื่อสร้างคำตอบจากข้อมูล'},
+        {q:'Percept หมายถึงอะไร?', choices:['ข้อมูลที่ Agent รับรู้','สิ่งที่ Agent ทำ','คะแนนสุดท้าย'], a:'ข้อมูลที่ Agent รับรู้', why:'Percept คือข้อมูลนำเข้าจาก environment'},
+        {q:'Action ของหุ่นยนต์ดูดฝุ่นคือข้อใด?', choices:['ฝุ่นบนพื้น','เดินหน้าและดูดฝุ่น','ห้องนั่งเล่น'], a:'เดินหน้าและดูดฝุ่น', why:'Action คือสิ่งที่ Agent กระทำ'},
+        {q:'Goal ของระบบแนะนำรายวิชาคือข้อใด?', choices:['แนะนำวิชาให้เหมาะกับนักศึกษา','เก็บสีเสื้อ','เปิดไฟ'], a:'แนะนำวิชาให้เหมาะกับนักศึกษา', why:'Goal คือเป้าหมายของ Agent'},
+        {q:'ระบบเปิดไฟจาก sensor ธรรมดาควรจัดเป็นอะไร?', choices:['AI เสมอ','อาจไม่ใช่ AI','Deep Learning'], a:'อาจไม่ใช่ AI', why:'ถ้าเป็นกฎ sensor ธรรมดาอาจไม่ใช่ AI แต่ถ้าเรียนรู้พฤติกรรมผู้ใช้อาจเป็น AI'},
+        {q:'Performance Measure ใช้ทำอะไร?', choices:['วัดความสำเร็จของ Agent','ลบข้อมูลทั้งหมด','แทนชื่อผู้ใช้'], a:'วัดความสำเร็จของ Agent', why:'Performance Measure ใช้ประเมินว่า Agent ทำงานดีหรือไม่'}
+      ].sort(()=>Math.random()-.5);
+      let idx=0, bossHp=100, playerHp=100, combo=0, correct=0;
+      const area = el('gameArea');
+      function draw(){
+        const qq = questions[idx];
+        area.innerHTML = `
+          <div class="bossWrap">
+            <div class="hpBox">
+              <div class="hpLabel"><span>👾 Rookie AI Boss</span><span>${bossHp}/100</span></div>
+              <div class="hpBar"><div class="hpFill" style="width:${bossHp}%"></div></div>
+            </div>
+            <div class="hpBox playerHp">
+              <div class="hpLabel"><span>🧑‍🎓 Player</span><span>${playerHp}/100</span></div>
+              <div class="hpBar"><div class="hpFill" style="width:${playerHp}%"></div></div>
+            </div>
+            <div class="scoreLine"><span class="scoreChip">ข้อ ${idx+1}/${questions.length}</span><span class="scoreChip">Combo ${combo}</span><span class="scoreChip">ถูก ${correct}</span></div>
+            <div class="bigCard promptCard" style="font-size:clamp(20px,4vw,34px)">${qq.q}</div>
+            <div class="choicesGrid">
+              ${qq.choices.map(c=>`<button class="choiceBtn" data-choice="${escapeHtml(c)}">${c}</button>`).join('')}
+            </div>
+            <div class="feedback" id="bossFeedback">เลือกคำตอบเพื่อโจมตี Boss</div>
+          </div>
+        `;
+        area.querySelectorAll('.choiceBtn').forEach(btn=>btn.addEventListener('click',()=>answer(btn.dataset.choice)));
+      }
+      function answer(choice){
+        const qq = questions[idx];
+        const ok = choice === qq.a;
+        const fb = el('bossFeedback');
+        if(ok){
+          correct++; combo++; bossHp = Math.max(0, bossHp - (18 + Math.min(combo,3)*4));
+          fb.className='feedback good'; fb.textContent = `โจมตีสำเร็จ! ${qq.why}`;
+        }else{
+          combo=0; playerHp = Math.max(0, playerHp - 18);
+          fb.className='feedback bad'; fb.textContent = `Boss โต้กลับ! คำตอบที่ถูกคือ “${qq.a}” — ${qq.why}`;
+        }
+        area.querySelectorAll('.choiceBtn').forEach(b=>b.disabled=true);
+        setTimeout(()=>{
+          idx++;
+          if(idx>=questions.length || bossHp<=0 || playerHp<=0){
+            const score = Math.max(0, Math.min(100, Math.round((correct/questions.length)*70 + (bossHp<=0?20:0) + (playerHp/100)*10)));
+            finishMission(score, `Boss 1 สรุป: ตอบถูก ${correct}/${questions.length} ข้อ เหลือพลังผู้เล่น ${playerHp} เกมนี้ทบทวน AI Overview และ Intelligent Agent`);
+          }else draw();
+        }, 1200);
+      }
+      draw();
+    }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>"]/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+
+    el('btnMenu').addEventListener('click',()=>{renderAll(); switchScreen('menuScreen');});
+    el('btnBackInGame').addEventListener('click',()=>{renderAll(); switchScreen('menuScreen');});
+    el('btnSaveResult').addEventListener('click',saveResult);
+    el('btnReplay').addEventListener('click',()=> currentMission && startMission(currentMission.id));
+    el('btnReset').addEventListener('click',()=>el('confirmModal').classList.add('show'));
+    el('btnCancelReset').addEventListener('click',()=>el('confirmModal').classList.remove('show'));
+    el('btnConfirmReset').addEventListener('click',()=>{
+      localStorage.removeItem(STORAGE_KEY);
+      Object.assign(state, defaultState());
+      el('confirmModal').classList.remove('show');
+      selectedStageId='m1';
+      renderAll();
+      switchScreen('menuScreen');
+      showToast('รีเซ็ตเรียบร้อย');
+    });
+
+    renderAll();
+  </script>
+</body>
+</html>
