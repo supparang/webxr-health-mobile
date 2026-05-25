@@ -3776,5 +3776,365 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK CVR WARMUP STABLE LOCK
+  PATCH: v8.46.9w-GOODJUNK-CVR-WARMUP-STABLE-LOCK
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+========================================================= -->
+
+<style id="gj-cvr-warmup-stable-lock-css">
+  body[data-gj-cvr-warmup-stable-lock="1"] #bossRoot{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-cvr-warmup-stable-lock="1"] .gj-target-root:not(.gj-cvr-warmup-stable-target){
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-cvr-warmup-stable-lock="1"] .gj-cvr-warmup-stable-target{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  body[data-gj-cvr-warmup-stable-lock="1"] .gj-cvr-warmup-stable-target [data-gj-warmup-stable-visual="1"]{
+    pointer-events:none !important;
+  }
+</style>
+
+<script id="gj-cvr-warmup-stable-lock-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CVR_WARMUP_STABLE_LOCK__) return;
+  window.__GJ_CVR_WARMUP_STABLE_LOCK__ = true;
+
+  const PATCH = 'v8.46.9w-GOODJUNK-CVR-WARMUP-STABLE-LOCK';
+  const qs = new URLSearchParams(location.search || '');
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+  const device = String(qs.get('device') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard' ||
+    device === 'cardboard';
+
+  if (!isCvr) return;
+
+  let built = false;
+  let lastStage = '';
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function api(){
+    return window.GoodJunkFull3DVRFlow || window.GJF3D || null;
+  }
+
+  function state(){
+    try{
+      const a = api();
+      return a && typeof a.getState === 'function' ? a.getState() : {};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function stage(){
+    return String(state().stage || '');
+  }
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function setMission(text){
+    const m = $('missionText');
+    if (m) m.textContent = text;
+  }
+
+  function toast(text){
+    const t = $('toast');
+    if (!t) return;
+
+    t.textContent = text;
+    t.classList.add('show');
+
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(function(){
+      t.classList.remove('show');
+    }, 1200);
+  }
+
+  function clearStableTargets(){
+    document.querySelectorAll('.gj-cvr-warmup-stable-target').forEach(function(n){
+      try{
+        if (n.parentNode) n.parentNode.removeChild(n);
+      }catch(_){}
+    });
+  }
+
+  function makeTarget(kind, id, emoji, label, x, y, z, rim, bg, textColor){
+    const root = document.createElement('a-entity');
+
+    root.classList.add('gj-target-root');
+    root.classList.add('gj-cvr-warmup-stable-target');
+
+    root.setAttribute('data-gj-target-root', '1');
+    root.setAttribute('data-kind', kind);
+
+    root.dataset.kind = kind;
+    root.dataset.consumed = '0';
+
+    root.__data = {
+      id: id,
+      label: label,
+      file: id + '.png',
+      color: rim
+    };
+
+    safeSet(root, 'position', x + ' ' + y + ' ' + z);
+    safeSet(root, 'scale', '1.35 1.35 1.35');
+
+    const hit = document.createElement('a-box');
+    hit.classList.add('gj-hitbox');
+    safeSet(hit, 'width', '1.85');
+    safeSet(hit, 'height', '1.85');
+    safeSet(hit, 'depth', '.70');
+    safeSet(hit, 'position', '0 0 .10');
+    safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false');
+    root.appendChild(hit);
+
+    const outer = document.createElement('a-circle');
+    outer.setAttribute('data-gj-warmup-stable-visual','1');
+    safeSet(outer, 'radius', '.72');
+    safeSet(outer, 'color', rim);
+    safeSet(outer, 'position', '0 0 1.04');
+    safeSet(outer, 'material', 'shader:flat; side:double; transparent:true; opacity:.96; depthTest:false; depthWrite:false');
+    root.appendChild(outer);
+
+    const inner = document.createElement('a-circle');
+    inner.setAttribute('data-gj-warmup-stable-visual','1');
+    safeSet(inner, 'radius', '.56');
+    safeSet(inner, 'color', bg);
+    safeSet(inner, 'position', '0 0 1.08');
+    safeSet(inner, 'material', 'shader:flat; side:double; transparent:true; opacity:.99; depthTest:false; depthWrite:false');
+    root.appendChild(inner);
+
+    const e = document.createElement('a-text');
+    e.setAttribute('data-gj-warmup-stable-visual','1');
+    safeSet(e, 'value', emoji);
+    safeSet(e, 'align', 'center');
+    safeSet(e, 'width', '3.5');
+    safeSet(e, 'color', textColor);
+    safeSet(e, 'position', '0 -0.16 1.44');
+    safeSet(e, 'material', 'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false');
+    root.appendChild(e);
+
+    const tag = document.createElement('a-text');
+    tag.setAttribute('data-gj-warmup-stable-visual','1');
+    safeSet(tag, 'value', label);
+    safeSet(tag, 'align', 'center');
+    safeSet(tag, 'width', '2.15');
+    safeSet(tag, 'color', textColor);
+    safeSet(tag, 'position', '0 -0.78 1.46');
+    safeSet(tag, 'material', 'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false');
+    root.appendChild(tag);
+
+    try{
+      root.object3D.renderOrder = 12000;
+      root.object3D.traverse(function(o){
+        o.renderOrder = 12000;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+
+    root.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+      const a = api();
+      if (a && typeof a.shoot === 'function'){
+        a.shoot();
+      }
+    }, true);
+
+    return root;
+  }
+
+  function enterWarmupLock(){
+    if (built) return;
+
+    const targetRoot = $('targetRoot');
+    if (!targetRoot) return;
+
+    built = true;
+
+    clearStableTargets();
+
+    document.body.classList.add('view-cvr');
+    document.body.setAttribute('data-gj-cvr-warmup-stable-lock','1');
+
+    const boss = $('bossRoot');
+    if (boss){
+      boss.style.display = 'none';
+      boss.style.visibility = 'hidden';
+      boss.style.opacity = '0';
+      boss.style.pointerEvents = 'none';
+      try{ boss.setAttribute('visible','false'); }catch(_){}
+    }
+
+    const good1 = makeTarget(
+      'warm-good',
+      'broccoli',
+      '🥦',
+      'GOOD',
+      -1.18,
+      1.48,
+      -2.60,
+      '#22c55e',
+      '#dcfce7',
+      '#14532d'
+    );
+
+    const good2 = makeTarget(
+      'warm-good',
+      'apple',
+      '🍎',
+      'GOOD',
+      1.18,
+      1.48,
+      -2.60,
+      '#22c55e',
+      '#dcfce7',
+      '#14532d'
+    );
+
+    const shield = makeTarget(
+      'warm-power',
+      'shield',
+      '🛡️',
+      'SHIELD',
+      0,
+      .72,
+      -2.42,
+      '#38bdf8',
+      '#dbeafe',
+      '#172554'
+    );
+
+    targetRoot.appendChild(good1);
+    targetRoot.appendChild(good2);
+    targetRoot.appendChild(shield);
+
+    setMission('Warmup: ยิง GOOD ซ้าย/ขวา 2 ชิ้น แล้ว SHIELD');
+    toast('เห็นเป้าแล้ว: ยิง GOOD 2 ชิ้น แล้ว SHIELD');
+  }
+
+  function leaveWarmupLock(){
+    if (!built) return;
+
+    built = false;
+
+    document.body.removeAttribute('data-gj-cvr-warmup-stable-lock');
+
+    clearStableTargets();
+
+    const boss = $('bossRoot');
+    if (boss){
+      boss.style.display = '';
+      boss.style.visibility = '';
+      boss.style.opacity = '';
+      boss.style.pointerEvents = '';
+      try{ boss.setAttribute('visible','true'); }catch(_){}
+    }
+  }
+
+  function tick(){
+    const s = stage();
+
+    if (s !== lastStage){
+      lastStage = s;
+
+      if (s === 'warmup'){
+        enterWarmupLock();
+      }else if (s === 'main' || s === 'summary' || s === 'cooldown' || s === 'done'){
+        leaveWarmupLock();
+      }
+    }
+
+    if (s === 'warmup' && !built){
+      enterWarmupLock();
+    }
+  }
+
+  function boot(){
+    tick();
+
+    const timer = setInterval(function(){
+      tick();
+
+      const s = stage();
+      if (s === 'done'){
+        clearInterval(timer);
+      }
+    }, 350);
+
+    window.GJ_CVR_WARMUP_STABLE_LOCK_CHECK = function(){
+      const snap = {
+        patch: PATCH,
+        stage: stage(),
+        built: built,
+        lock: document.body.getAttribute('data-gj-cvr-warmup-stable-lock') === '1',
+        stableTargets: document.querySelectorAll('.gj-cvr-warmup-stable-target').length,
+        warmGood: document.querySelectorAll('.gj-cvr-warmup-stable-target[data-kind="warm-good"]').length,
+        warmPower: document.querySelectorAll('.gj-cvr-warmup-stable-target[data-kind="warm-power"]').length,
+        bossVisible: (function(){
+          const b = $('bossRoot');
+          if (!b) return null;
+          return {
+            visibleAttr: b.getAttribute('visible'),
+            display: b.style.display,
+            visibility: b.style.visibility,
+            opacity: b.style.opacity
+          };
+        })()
+      };
+
+      console.log('[GJ_CVR_WARMUP_STABLE_LOCK_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk CVR Warmup Stable Lock]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
