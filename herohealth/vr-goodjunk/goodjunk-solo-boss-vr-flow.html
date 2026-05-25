@@ -2122,8 +2122,19 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
     bindTapShoot();
 
     let count = 0;
-    const timer = setInterval(function(){
+      const timer = setInterval(function(){
       count++;
+
+  if (watchFinal()){
+    clearInterval(timer);
+    return;
+  }
+
+  /* keep watching long enough for full gameplay + cooldown */
+  if (count > 7200){
+    clearInterval(timer);
+  }
+}, 250);
 
       markVrUiForSummary();
       patchCooldownButtonToInternal();
@@ -2166,23 +2177,25 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
   if (!isCvr) return;
 
   function launcherUrl(){
-    const candidates = [
-      qs.get('back'),
-      qs.get('launcher'),
-      qs.get('hub')
-    ].filter(Boolean);
+  const liveQs = new URLSearchParams(location.search);
 
-    for (const raw of candidates){
-      try{
-        const u = new URL(raw, location.href);
-        if (/goodjunk-launcher\.html/i.test(u.pathname)){
-          return u.href;
-        }
-      }catch(_){}
-    }
+  const candidates = [
+    liveQs.get('back'),
+    liveQs.get('launcher'),
+    liveQs.get('hub')
+  ].filter(Boolean);
 
-    return new URL('../goodjunk-launcher.html', location.href).href;
+  for (const raw of candidates){
+    try{
+      const u = new URL(raw, location.href);
+      if (/goodjunk-launcher\.html/i.test(u.pathname)){
+        return u.href;
+      }
+    }catch(_){}
   }
+
+  return new URL('../goodjunk-launcher.html', location.href).href;
+}
 
   function hardReturn(){
     location.href = launcherUrl();
