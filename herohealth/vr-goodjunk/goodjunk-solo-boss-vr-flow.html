@@ -2891,5 +2891,488 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK CLEAN PNG + TARGET POLISH FINAL
+  PATCH: v8.46.9n-GOODJUNK-CLEAN-PNG-TARGET-POLISH-FINAL
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: before </body>
+========================================================= -->
+
+<style id="gj-clean-png-target-polish-css">
+  body[data-gj-clean-png-target-polish="1"] .gj-target-root a-text{
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ซ่อน text label เดิมที่ซ้ำใต้เป้า เช่น GOOD GOOD / HEART HEART */
+  body[data-gj-clean-png-target-polish="1"] .gj-target-root > a-text{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+  }
+
+  /* ให้ layer ใหม่อยู่หน้าสุดแบบสะอาด */
+  body[data-gj-clean-png-target-polish="1"] .gj-clean-badge,
+  body[data-gj-clean-png-target-polish="1"] .gj-clean-emoji,
+  body[data-gj-clean-png-target-polish="1"] .gj-clean-label{
+    pointer-events:none !important;
+  }
+</style>
+
+<script id="gj-clean-png-target-polish-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CLEAN_PNG_TARGET_POLISH_FINAL__) return;
+  window.__GJ_CLEAN_PNG_TARGET_POLISH_FINAL__ = true;
+
+  const PATCH = 'v8.46.9n-GOODJUNK-CLEAN-PNG-TARGET-POLISH-FINAL';
+  const cache = new Map();
+
+  const qs = new URLSearchParams(location.search || '');
+  const view = String(qs.get('view') || '').toLowerCase();
+
+  const EMOJI = {
+    broccoli:'🥦',
+    apple:'🍎',
+    egg:'🥚',
+    water:'💧',
+    fries:'🍟',
+    soda:'🥤',
+    donut:'🍩',
+    candy:'🍬',
+    'juice-box':'🧃',
+    shield:'🛡️',
+    fever:'⚡',
+    heart:'💚'
+  };
+
+  const STYLE = {
+    good:{rim:'#22c55e', bg:'#dcfce7', text:'#14532d', label:'GOOD'},
+    'warm-good':{rim:'#22c55e', bg:'#dcfce7', text:'#14532d', label:'GOOD'},
+    junk:{rim:'#ef4444', bg:'#fee2e2', text:'#7f1d1d', label:'JUNK'},
+    'warm-junk':{rim:'#ef4444', bg:'#fee2e2', text:'#7f1d1d', label:'JUNK'},
+    fake:{rim:'#f59e0b', bg:'#fef3c7', text:'#78350f', label:'CHECK'},
+    power:{rim:'#38bdf8', bg:'#dbeafe', text:'#172554', label:'POWER'},
+    'warm-power':{rim:'#38bdf8', bg:'#dbeafe', text:'#172554', label:'POWER'},
+    breath:{rim:'#0ea5e9', bg:'#e0f2fe', text:'#075985', label:'CALM'}
+  };
+
+  function heroBase(){
+    try{
+      const m = '/herohealth/';
+      const i = location.pathname.indexOf(m);
+      if (i >= 0) return location.origin + location.pathname.slice(0, i + m.length);
+    }catch(_){}
+    return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+  }
+
+  function assetUrl(file){
+    try{
+      const api = window.GoodJunkFull3DVRFlow || window.GJF3D;
+      if (api && typeof api.assetUrl === 'function') return api.assetUrl(file);
+    }catch(_){}
+    return heroBase() + 'assets/goodjunk/' + String(file || 'broccoli.png') + '?v=8469n';
+  }
+
+  function kindOf(root){
+    return String(root && root.dataset && root.dataset.kind || root && root.getAttribute && root.getAttribute('data-kind') || '');
+  }
+
+  function dataOf(root){
+    try{ return root.__data || {}; }catch(_){ return {}; }
+  }
+
+  function fileKey(file){
+    return String(file || '').toLowerCase().replace(/\?.*$/,'').replace(/\.png$/,'');
+  }
+
+  function emojiOf(root){
+    const d = dataOf(root);
+    const id = String(d.id || '').toLowerCase();
+    const f = fileKey(d.file || '');
+    const kind = kindOf(root);
+
+    return EMOJI[id] || EMOJI[f] ||
+      (kind === 'junk' || kind === 'warm-junk' ? '🍟' :
+       kind === 'fake' ? '🧃' :
+       kind === 'power' || kind === 'warm-power' ? '🛡️' :
+       kind === 'breath' ? '💧' : '🥦');
+  }
+
+  function styleOf(root){
+    return STYLE[kindOf(root)] || {rim:'#94a3b8', bg:'#f8fafc', text:'#0f172a', label:'TARGET'};
+  }
+
+  function labelOf(root){
+    const d = dataOf(root);
+    const kind = kindOf(root);
+    const st = styleOf(root);
+
+    if (kind === 'power' || kind === 'warm-power' || kind === 'breath'){
+      return String(d.label || st.label);
+    }
+
+    return st.label;
+  }
+
+  function safeSet(el, name, value){
+    try{ if (el) el.setAttribute(name, value); }catch(_){}
+  }
+
+  function front(el, order){
+    try{
+      el.object3D.renderOrder = order;
+      el.object3D.traverse(function(o){
+        o.renderOrder = order;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function isCheckerBg(r,g,b,a){
+    if (a < 12) return true;
+
+    const max = Math.max(r,g,b);
+    const min = Math.min(r,g,b);
+    const sat = max - min;
+
+    /* ขาว/เทาอ่อน/ลาย checkerboard */
+    if (r > 235 && g > 235 && b > 235) return true;
+    if (max > 215 && sat < 42) return true;
+    if (max > 185 && sat < 30) return true;
+    if (max > 155 && sat < 22) return true;
+
+    return false;
+  }
+
+  function cleanPngUrl(file){
+    const raw = assetUrl(file);
+    const key = raw + '#clean-v8469n';
+
+    if (cache.has(key)) return cache.get(key);
+
+    const promise = new Promise(function(resolve){
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+
+      img.onload = function(){
+        try{
+          const w = img.naturalWidth || img.width || 1;
+          const h = img.naturalHeight || img.height || 1;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+
+          const ctx = canvas.getContext('2d', {willReadFrequently:true});
+          ctx.drawImage(img, 0, 0, w, h);
+
+          const imageData = ctx.getImageData(0, 0, w, h);
+          const data = imageData.data;
+
+          /* Pass 1: ลบ background กลุ่มขาว/เทา/checkerboard ทั่วภาพ */
+          for (let p = 0; p < w * h; p++){
+            const i = p * 4;
+            const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+
+            if (isCheckerBg(r,g,b,a)){
+              data[i+3] = 0;
+            }
+          }
+
+          /* Pass 2: ล้างขอบที่ยังเหลือเป็นเศษตาราง */
+          for (let pass = 0; pass < 3; pass++){
+            const clear = [];
+
+            for (let y = 1; y < h - 1; y++){
+              for (let x = 1; x < w - 1; x++){
+                const i = (y * w + x) * 4;
+                if (data[i+3] === 0) continue;
+
+                const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+                if (!isCheckerBg(r,g,b,a)) continue;
+
+                const n1 = ((y-1) * w + x) * 4;
+                const n2 = ((y+1) * w + x) * 4;
+                const n3 = (y * w + x - 1) * 4;
+                const n4 = (y * w + x + 1) * 4;
+
+                if (
+                  data[n1+3] === 0 ||
+                  data[n2+3] === 0 ||
+                  data[n3+3] === 0 ||
+                  data[n4+3] === 0
+                ){
+                  clear.push(i);
+                }
+              }
+            }
+
+            clear.forEach(function(i){
+              data[i+3] = 0;
+            });
+          }
+
+          /* Pass 3: feather ขอบให้เนียนขึ้น */
+          for (let y = 1; y < h - 1; y++){
+            for (let x = 1; x < w - 1; x++){
+              const i = (y * w + x) * 4;
+              if (data[i+3] === 0) continue;
+
+              const n1 = ((y-1) * w + x) * 4;
+              const n2 = ((y+1) * w + x) * 4;
+              const n3 = (y * w + x - 1) * 4;
+              const n4 = (y * w + x + 1) * 4;
+
+              let transparentNeighbors = 0;
+              if (data[n1+3] === 0) transparentNeighbors++;
+              if (data[n2+3] === 0) transparentNeighbors++;
+              if (data[n3+3] === 0) transparentNeighbors++;
+              if (data[n4+3] === 0) transparentNeighbors++;
+
+              if (transparentNeighbors >= 2){
+                data[i+3] = Math.min(data[i+3], 180);
+              }
+            }
+          }
+
+          ctx.putImageData(imageData, 0, 0);
+
+          const cleaned = canvas.toDataURL('image/png');
+
+          /* ตรวจว่าหลังลบแล้วยังเหลือตัวภาพพอไหม */
+          let visible = 0;
+          for (let p = 0; p < w * h; p++){
+            if (data[p*4 + 3] > 40) visible++;
+          }
+
+          const visibleRatio = visible / Math.max(1, w * h);
+
+          if (visibleRatio < 0.015){
+            resolve({ok:false, url:raw, reason:'too-transparent'});
+          }else{
+            resolve({ok:true, url:cleaned, reason:'cleaned'});
+          }
+
+        }catch(e){
+          resolve({ok:false, url:raw, reason:'canvas-error'});
+        }
+      };
+
+      img.onerror = function(){
+        resolve({ok:false, url:raw, reason:'load-error'});
+      };
+
+      img.src = raw;
+    });
+
+    cache.set(key, promise);
+    return promise;
+  }
+
+  function findImage(root){
+    try{
+      const imgs = Array.from(root.querySelectorAll('a-image'));
+      return imgs.find(function(img){
+        const p = img.getAttribute('position');
+        return p && Number(p.z || 0) > 0.5;
+      }) || imgs[0] || null;
+    }catch(_){
+      return null;
+    }
+  }
+
+  function makeCircle(radius, color, opacity, z){
+    const c = document.createElement('a-circle');
+    c.classList.add('gj-clean-badge');
+    safeSet(c, 'radius', String(radius));
+    safeSet(c, 'color', color);
+    safeSet(c, 'position', '0 0.08 ' + z);
+    safeSet(c, 'material', 'shader:flat; side:double; transparent:true; opacity:' + opacity + '; depthTest:false; depthWrite:false');
+    return c;
+  }
+
+  function makeText(value, width, color, pos, cls){
+    const t = document.createElement('a-text');
+    t.classList.add(cls);
+    safeSet(t, 'value', value);
+    safeSet(t, 'align', 'center');
+    safeSet(t, 'width', String(width));
+    safeSet(t, 'color', color);
+    safeSet(t, 'position', pos);
+    safeSet(t, 'material', 'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false');
+    return t;
+  }
+
+  function removePatchLayer(root){
+    try{
+      root.querySelectorAll('[data-gj-clean-polish-layer="1"]').forEach(function(n){
+        n.parentNode && n.parentNode.removeChild(n);
+      });
+    }catch(_){}
+  }
+
+  function hideOldDuplicatedText(root){
+    try{
+      Array.from(root.children || []).forEach(function(child){
+        const tag = String(child.tagName || '').toLowerCase();
+        if (tag === 'a-text'){
+          safeSet(child, 'visible', 'false');
+          safeSet(child, 'opacity', '0');
+        }
+      });
+    }catch(_){}
+  }
+
+  function polishTarget(root){
+    if (!root || root.__gjCleanPolishDone) return;
+    if (!root.classList || !root.classList.contains('gj-target-root')) return;
+
+    const kind = kindOf(root);
+    if (!kind || kind === 'vr-start') return;
+
+    root.__gjCleanPolishDone = true;
+
+    hideOldDuplicatedText(root);
+    removePatchLayer(root);
+
+    const st = styleOf(root);
+    const layer = document.createElement('a-entity');
+    layer.setAttribute('data-gj-clean-polish-layer', '1');
+
+    const outer = makeCircle(0.70, st.rim, '0.82', '0.78');
+    const inner = makeCircle(0.58, st.bg, '0.84', '0.82');
+
+    const emoji = makeText(
+      emojiOf(root),
+      view === 'cvr' ? 2.9 : 3.25,
+      st.text,
+      '0 -0.08 1.18',
+      'gj-clean-emoji'
+    );
+
+    const label = makeText(
+      labelOf(root),
+      view === 'cvr' ? 2.0 : 2.25,
+      st.text,
+      '0 -0.66 1.20',
+      'gj-clean-label'
+    );
+
+    layer.appendChild(outer);
+    layer.appendChild(inner);
+    layer.appendChild(emoji);
+    layer.appendChild(label);
+
+    try{
+      root.insertBefore(layer, root.firstChild);
+    }catch(_){
+      root.appendChild(layer);
+    }
+
+    [layer, outer, inner, emoji, label].forEach(function(n){
+      front(n, 1500);
+    });
+
+    const img = findImage(root);
+    const d = dataOf(root);
+    const file = d.file || 'broccoli.png';
+
+    if (!img){
+      safeSet(emoji, 'visible', 'true');
+      return;
+    }
+
+    /* เริ่มจาก fallback สะอาดก่อน เพื่อไม่ให้เห็นพื้นหลังขาวระหว่างโหลด */
+    safeSet(emoji, 'visible', 'true');
+    safeSet(img, 'visible', 'false');
+    safeSet(img, 'opacity', '0');
+
+    cleanPngUrl(file).then(function(result){
+      if (!root.parentNode || !img.parentNode) return;
+
+      if (!result || !result.ok){
+        safeSet(img, 'visible', 'false');
+        safeSet(img, 'opacity', '0');
+        safeSet(emoji, 'visible', 'true');
+        safeSet(inner, 'material', 'shader:flat; side:double; transparent:true; opacity:0.96; depthTest:false; depthWrite:false');
+        return;
+      }
+
+      safeSet(img, 'src', result.url);
+      safeSet(img, 'width', kind === 'junk' || kind === 'warm-junk' ? '0.96' : '1.02');
+      safeSet(img, 'height', kind === 'junk' || kind === 'warm-junk' ? '0.96' : '1.02');
+      safeSet(img, 'position', '0 0.10 1.12');
+      safeSet(img, 'visible', 'true');
+      safeSet(img, 'opacity', '1');
+      safeSet(img, 'material',
+        'src:' + result.url +
+        '; color:#ffffff; shader:flat; transparent:true; opacity:1; alphaTest:0.04; side:double; depthTest:false; depthWrite:false'
+      );
+
+      safeSet(emoji, 'visible', 'false');
+      safeSet(emoji, 'opacity', '0');
+      safeSet(inner, 'material', 'shader:flat; side:double; transparent:true; opacity:0.72; depthTest:false; depthWrite:false');
+
+      front(img, 1800);
+    });
+  }
+
+  function scan(){
+    document.querySelectorAll('.gj-target-root').forEach(polishTarget);
+  }
+
+  function boot(){
+    document.body.setAttribute('data-gj-clean-png-target-polish', '1');
+
+    scan();
+
+    const root = document.getElementById('targetRoot') || document.body;
+    const mo = new MutationObserver(scan);
+    mo.observe(root, {childList:true, subtree:true});
+
+    window.GJ_CLEAN_PNG_TARGET_POLISH_CHECK = function(){
+      const targets = Array.from(document.querySelectorAll('.gj-target-root'));
+      const snap = {
+        patch: PATCH,
+        view: view || 'unknown',
+        targetCount: targets.length,
+        polishedCount: targets.filter(function(t){ return !!t.__gjCleanPolishDone; }).length,
+        imageVisibleCount: Array.from(document.querySelectorAll('.gj-target-root a-image')).filter(function(img){
+          return String(img.getAttribute('visible')) !== 'false';
+        }).length,
+        emojiVisibleCount: Array.from(document.querySelectorAll('.gj-clean-emoji')).filter(function(t){
+          return String(t.getAttribute('visible')) !== 'false';
+        }).length,
+        items: targets.map(function(t){
+          const d = dataOf(t);
+          return {
+            kind: kindOf(t),
+            id: d.id || '',
+            file: d.file || '',
+            label: labelOf(t),
+            emoji: emojiOf(t)
+          };
+        })
+      };
+      console.log('[GJ_CLEAN_PNG_TARGET_POLISH_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Clean PNG Target Polish]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
