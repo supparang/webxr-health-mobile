@@ -2340,5 +2340,298 @@ if(typeof AFRAME==='undefined')showBootSafe('A-Frame ยังไม่โหล
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK SOLO BOSS CVR COOLDOWN RESTORE PATCH
+  Restore Cardboard VR cooldown button/link after Solo Boss summary
+  PATCH: v20260524-GOODJUNK-SOLO-CVR-COOLDOWN-RESTORE-FIX
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: after SAFE-NO-HANG patch, before </body>
+========================================================= -->
+
+<style id="gj-solo-cvr-cooldown-restore-css">
+  .gj-cvr-cooldown-restore-wrap{
+    display:flex;
+    justify-content:center;
+    width:100%;
+    margin:14px auto 8px;
+    padding:0 12px;
+  }
+
+  .gj-cvr-cooldown-restore-btn{
+    appearance:none;
+    border:4px solid #fed08a;
+    border-radius:24px;
+    min-height:58px;
+    padding:12px 18px;
+    width:min(420px, 100%);
+    background:linear-gradient(180deg,#fff7ad 0%,#fde68a 50%,#facc15 100%);
+    color:#7c2d12;
+    font-size:clamp(17px, 4.6vw, 24px);
+    font-weight:1000;
+    box-shadow:
+      0 12px 26px rgba(124,45,18,.18),
+      inset 0 2px 0 rgba(255,255,255,.85);
+    cursor:pointer;
+    touch-action:manipulation;
+  }
+
+  .gj-cvr-cooldown-restore-btn:active{
+    transform:scale(.98);
+  }
+
+  body:not(.gj-cvr-summary) .gj-cvr-cooldown-restore-wrap{
+    display:none !important;
+  }
+</style>
+
+<script id="gj-solo-cvr-cooldown-restore-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_SOLO_CVR_COOLDOWN_RESTORE_FIX__) return;
+  window.__GJ_SOLO_CVR_COOLDOWN_RESTORE_FIX__ = true;
+
+  const PATCH = 'v20260524-GOODJUNK-SOLO-CVR-COOLDOWN-RESTORE-FIX';
+  const BTN_ID = 'gj-cvr-cooldown-restore-btn';
+  const WRAP_ID = 'gj-cvr-cooldown-restore-wrap';
+
+  const qs = new URLSearchParams(location.search);
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard';
+
+  if (!isCvr) return;
+
+  function textOf(el){
+    return String(el && el.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function launcherUrl(){
+    const from =
+      qs.get('back') ||
+      qs.get('launcher') ||
+      qs.get('hub');
+
+    if (from && /goodjunk-launcher\.html/i.test(from)){
+      return from;
+    }
+
+    return new URL('../goodjunk-launcher.html', location.href).href;
+  }
+
+  function cooldownUrl(){
+    /*
+      GoodJunk Cardboard VR cooldown should go through warmup-gate.html
+      with phase=cooldown and return to goodjunk-launcher.html.
+    */
+    const out = new URL('../warmup-gate.html', location.href);
+    const back = launcherUrl();
+
+    const passKeys = [
+      'pid',
+      'name',
+      'studentId',
+      'studentName',
+      'classSection',
+      'studyId',
+      'conditionGroup',
+      'api',
+      'log',
+      'diff',
+      'time',
+      'seed'
+    ];
+
+    passKeys.forEach(function(k){
+      const v = qs.get(k);
+      if (v !== null && v !== ''){
+        out.searchParams.set(k, v);
+      }
+    });
+
+    out.searchParams.set('phase', 'cooldown');
+    out.searchParams.set('run', 'cooldown');
+
+    out.searchParams.set('game', 'goodjunk');
+    out.searchParams.set('gameId', 'goodjunk');
+    out.searchParams.set('mode', 'solo');
+    out.searchParams.set('variant', 'solo-boss-vr');
+    out.searchParams.set('entry', 'cardboard');
+
+    out.searchParams.set('view', 'cvr');
+    out.searchParams.set('device', 'cardboard');
+
+    out.searchParams.set('zone', 'nutrition');
+    out.searchParams.set('cat', 'nutrition');
+    out.searchParams.set('theme', 'goodjunk');
+
+    /*
+      After cooldown, return to GoodJunk launcher,
+      not hub and not wrong zone.
+    */
+    out.searchParams.set('hub', back);
+    out.searchParams.set('back', back);
+    out.searchParams.set('launcher', back);
+    out.searchParams.set('next', back);
+
+    out.searchParams.set('from', 'goodjunk-solo-boss-cvr-summary');
+    out.searchParams.set('patch', PATCH);
+    out.searchParams.set('t', String(Date.now()));
+
+    return out.href;
+  }
+
+  function isSummaryNow(){
+    const text = String(document.body.textContent || '');
+
+    return (
+      text.includes('ชนะ Junk Boss') ||
+      text.includes('แพ้ Junk Boss') ||
+      (text.includes('Junk Boss') && text.includes('SCORE') && text.includes('RANK')) ||
+      (text.includes('GOOD FOOD') && text.includes('WATCH OUT')) ||
+      (text.includes('คะแนน') && text.includes('เล่นอีกครั้ง'))
+    );
+  }
+
+  function findSummaryContainer(){
+    const candidates = [
+      '.summary',
+      '#summary',
+      '.end-screen',
+      '.result-panel',
+      '.result',
+      '.final-panel',
+      '.score-panel',
+      '.win-panel',
+      '.game-over',
+      '[data-summary]',
+      '[data-result]',
+      '.panel',
+      'main',
+      'body'
+    ];
+
+    for (const sel of candidates){
+      const nodes = Array.from(document.querySelectorAll(sel));
+      for (const el of nodes){
+        const t = textOf(el);
+        if (
+          t.includes('Junk Boss') ||
+          t.includes('SCORE') ||
+          t.includes('RANK') ||
+          t.includes('GOOD FOOD') ||
+          t.includes('WATCH OUT') ||
+          t.includes('เล่นอีกครั้ง')
+        ){
+          return el;
+        }
+      }
+    }
+
+    return document.body;
+  }
+
+  function patchExistingCooldownButtons(){
+    const cool = cooldownUrl();
+
+    document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
+      const t = textOf(el);
+
+      const isCooldown =
+        /cooldown|คูลดาวน์|ผ่อนคลาย|ยืดเหยียด|พักร่างกาย|ยืดตัว/i.test(t);
+
+      if (!isCooldown) return;
+
+      el.setAttribute('data-gj-cvr-cooldown-restored', PATCH);
+
+      if (el.tagName === 'A'){
+        el.setAttribute('href', cool);
+      }
+
+      el.onclick = function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        location.href = cool;
+      };
+    });
+  }
+
+  function ensureCooldownButton(){
+    if (!isSummaryNow()) return;
+
+    document.body.classList.add('gj-cvr-summary');
+
+    patchExistingCooldownButtons();
+
+    if (document.getElementById(BTN_ID)) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = WRAP_ID;
+    wrap.className = 'gj-cvr-cooldown-restore-wrap';
+    wrap.setAttribute('data-patch', PATCH);
+
+    const btn = document.createElement('button');
+    btn.id = BTN_ID;
+    btn.className = 'gj-cvr-cooldown-restore-btn';
+    btn.type = 'button';
+    btn.textContent = '🧘 ทำ Cooldown Cardboard VR';
+
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      location.href = cooldownUrl();
+    }, true);
+
+    wrap.appendChild(btn);
+
+    const container = findSummaryContainer();
+
+    /*
+      Prefer putting cooldown after existing summary action buttons,
+      but if not found, append to summary container.
+    */
+    const existingActions = Array.from(container.querySelectorAll('a,button,[role="button"],.btn'));
+    const lastAction = existingActions[existingActions.length - 1];
+
+    if (lastAction && lastAction.parentNode){
+      lastAction.parentNode.insertBefore(wrap, lastAction.nextSibling);
+    }else{
+      container.appendChild(wrap);
+    }
+
+    console.info('[GoodJunk CVR Cooldown Restore]', PATCH, cooldownUrl());
+  }
+
+  function boot(){
+    /*
+      Lightweight: check for summary for a short time only.
+      This restores cooldown even if summary renders late.
+    */
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+      ensureCooldownButton();
+
+      if (count > 120 || document.getElementById(BTN_ID)){
+        clearInterval(timer);
+      }
+    }, 400);
+
+    window.addEventListener('hha:game-end', ensureCooldownButton, {passive:true});
+    window.addEventListener('gj:game-end', ensureCooldownButton, {passive:true});
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
