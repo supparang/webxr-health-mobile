@@ -353,7 +353,8 @@
 /* The game code below is compressed to fit safely in one transferable file. */
 (function(){
 'use strict';
-const PATCH = 'v8.46.9q-GOODJUNK-TARGET-VISUAL-SAFE-LITE-FINAL';,ASSET_VERSION='v8469k';
+const PATCH = 'v8.46.9q-GOODJUNK-CVR-SAFE-LITE-VISUAL-FINAL';
+const ASSET_VERSION = 'v8469q';
 const WIN=window,DOC=document,QS=new URLSearchParams(location.search||''),CLEAN_IMG_CACHE=new Map();
 const ROUTES={launcher:'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',hub:'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'};
 function q(k,d){const v=QS.get(k);return v===null||v===''?d:v} function id(x){return DOC.getElementById(x)} function rand(a,b){return a+Math.random()*(b-a)} function pick(a){return a[Math.floor(Math.random()*a.length)]} function clamp(v,a,b){return Math.max(a,Math.min(b,v))} function now(){return Date.now()}
@@ -1837,7 +1838,7 @@ body.view-cvr.cooldown-mode .bossBar{
   if (window.__GJ_CVR_INTERNAL_COOLDOWN_RESTORE__) return;
   window.__GJ_CVR_INTERNAL_COOLDOWN_RESTORE__ = true;
 
-  const PATCH = 'v8.46.9q-GOODJUNK-TARGET-VISUAL-SAFE-LITE-FINAL';
+  const PATCH = 'v8.46.9j-GOODJUNK-CVR-INTERNAL-COOLDOWN-RESTORE';
   const qs = new URLSearchParams(location.search);
 
   const view = String(qs.get('view') || '').toLowerCase();
@@ -2281,14 +2282,14 @@ body.view-cvr.cooldown-mode .bossBar{
 ========================================================= -->
 
 <style id="gj-target-visual-safe-lite-css">
-  body[data-gj-target-visual-safe-lite="1"] .gj-target-root > a-image{
+  body[data-gj-target-visual-safe-lite="1"] .gj-target-root:not([data-kind="vr-start"]) > a-image{
     display:none !important;
     visibility:hidden !important;
     opacity:0 !important;
     pointer-events:none !important;
   }
 
-  body[data-gj-target-visual-safe-lite="1"] .gj-target-root > a-text{
+  body[data-gj-target-visual-safe-lite="1"] .gj-target-root:not([data-kind="vr-start"]) > a-text{
     display:none !important;
     visibility:hidden !important;
     opacity:0 !important;
@@ -2307,7 +2308,7 @@ body.view-cvr.cooldown-mode .bossBar{
   if (window.__GJ_TARGET_VISUAL_SAFE_LITE_FINAL__) return;
   window.__GJ_TARGET_VISUAL_SAFE_LITE_FINAL__ = true;
 
-  const PATCH='v8.46.9k-GOODJUNK-CVR-INTERNAL-COOLDOWN-FINAL-RETURN';
+  const PATCH = 'v8.46.9q-GOODJUNK-TARGET-VISUAL-SAFE-LITE-FINAL';
   const qs = new URLSearchParams(location.search || '');
   const view = String(qs.get('view') || '').toLowerCase();
 
@@ -2521,25 +2522,35 @@ body.view-cvr.cooldown-mode .bossBar{
     root.__gjSafeLiteDone = true;
   }
 
-  let frameCount = 0;
+  let scanCount = 0;
   let active = true;
+  let scanTimer = 0;
 
-  function scanLoop(){
-    if (!active) return;
+function scanOnce(){
+  if (!active) return;
 
-    try{
-      document.querySelectorAll('.gj-target-root').forEach(buildVisual);
-    }catch(_){}
+  try{
+    document.querySelectorAll('.gj-target-root').forEach(buildVisual);
+  }catch(_){}
 
-    frameCount++;
+  scanCount++;
 
-    if (frameCount < 900){
-      requestAnimationFrame(scanLoop);
-    }else{
-      active = false;
-    }
+  // อยู่ได้ยาวพอสำหรับ gameplay + cooldown แต่ไม่ใช้ MutationObserver
+  if (scanCount > 3600){
+    active = false;
+    if (scanTimer) clearInterval(scanTimer);
+    scanTimer = 0;
   }
+}
 
+function startScanLoop(){
+  scanOnce();
+
+  if (scanTimer) clearInterval(scanTimer);
+
+  scanTimer = setInterval(scanOnce, 180);
+}
+  
   function manualScan(){
     try{
       document.querySelectorAll('.gj-target-root').forEach(function(root){
@@ -2554,8 +2565,8 @@ body.view-cvr.cooldown-mode .bossBar{
   function boot(){
     document.body.setAttribute('data-gj-target-visual-safe-lite', '1');
 
-    requestAnimationFrame(scanLoop);
-
+    startScanLoop();
+    
     window.GJ_TARGET_VISUAL_SAFE_LITE_CHECK = function(){
       const targets = Array.from(document.querySelectorAll('.gj-target-root'));
 
@@ -2568,7 +2579,7 @@ body.view-cvr.cooldown-mode .bossBar{
           return String(n.getAttribute('visible')) !== 'false' && n.style.display !== 'none';
         }).length,
         loopActive: active,
-        frameCount: frameCount,
+        scanCount: scanCount,
         items: targets.map(function(t){
           const d = dataOf(t);
           return {
