@@ -3374,5 +3374,339 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK TARGET VISUAL MASTER CLEAN FINAL
+  PATCH: v8.46.9o-GOODJUNK-TARGET-VISUAL-MASTER-CLEAN-FINAL
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+  PURPOSE:
+    - Force clean target visuals
+    - Hide old PNG checkerboard backgrounds
+    - Hide duplicated GOOD/HEART labels
+    - Use emoji/icon badge as guaranteed clean fallback
+    - Does not touch gameplay/hitbox/scoring
+========================================================= -->
+
+<style id="gj-target-visual-master-clean-css">
+  body[data-gj-target-visual-master-clean="1"] .gj-target-root > a-image,
+  body[data-gj-target-visual-master-clean="1"] .gj-target-root .gj-smart-real-image{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+  }
+
+  body[data-gj-target-visual-master-clean="1"] .gj-target-root > a-text,
+  body[data-gj-target-visual-master-clean="1"] .gj-target-root .gj-fallback-label,
+  body[data-gj-target-visual-master-clean="1"] .gj-target-root .gj-smart-label,
+  body[data-gj-target-visual-master-clean="1"] .gj-target-root .gj-clean-label{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+  }
+
+  body[data-gj-target-visual-master-clean="1"] .gj-fallback-bg,
+  body[data-gj-target-visual-master-clean="1"] .gj-fallback-emoji,
+  body[data-gj-target-visual-master-clean="1"] .gj-smart-visual-layer,
+  body[data-gj-target-visual-master-clean="1"] .gj-smart-fallback-emoji,
+  body[data-gj-target-visual-master-clean="1"] .gj-clean-badge,
+  body[data-gj-target-visual-master-clean="1"] .gj-clean-emoji,
+  body[data-gj-target-visual-master-clean="1"] .gj-clean-label{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+  }
+</style>
+
+<script id="gj-target-visual-master-clean-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_TARGET_VISUAL_MASTER_CLEAN_FINAL__) return;
+  window.__GJ_TARGET_VISUAL_MASTER_CLEAN_FINAL__ = true;
+
+  const PATCH = 'v8.46.9o-GOODJUNK-TARGET-VISUAL-MASTER-CLEAN-FINAL';
+  const qs = new URLSearchParams(location.search || '');
+  const view = String(qs.get('view') || '').toLowerCase();
+
+  const EMOJI = {
+    broccoli:'🥦',
+    apple:'🍎',
+    egg:'🥚',
+    water:'💧',
+    fries:'🍟',
+    soda:'🥤',
+    donut:'🍩',
+    candy:'🍬',
+    'juice-box':'🧃',
+    shield:'🛡️',
+    fever:'⚡',
+    heart:'💚'
+  };
+
+  const STYLE = {
+    good:       {rim:'#22c55e', bg:'#dcfce7', text:'#14532d', tag:'GOOD'},
+    'warm-good':{rim:'#22c55e', bg:'#dcfce7', text:'#14532d', tag:'GOOD'},
+    junk:       {rim:'#ef4444', bg:'#fee2e2', text:'#7f1d1d', tag:'JUNK'},
+    'warm-junk':{rim:'#ef4444', bg:'#fee2e2', text:'#7f1d1d', tag:'JUNK'},
+    fake:       {rim:'#f59e0b', bg:'#fef3c7', text:'#78350f', tag:'CHECK'},
+    power:      {rim:'#38bdf8', bg:'#dbeafe', text:'#172554', tag:'POWER'},
+    'warm-power':{rim:'#38bdf8', bg:'#dbeafe', text:'#172554', tag:'POWER'},
+    breath:     {rim:'#0ea5e9', bg:'#e0f2fe', text:'#075985', tag:'CALM'}
+  };
+
+  function safeSet(el, name, value){
+    try{ if (el) el.setAttribute(name, value); }catch(_){}
+  }
+
+  function kindOf(root){
+    return String(
+      root &&
+      root.dataset &&
+      root.dataset.kind ||
+      root &&
+      root.getAttribute &&
+      root.getAttribute('data-kind') ||
+      ''
+    );
+  }
+
+  function dataOf(root){
+    try{ return root.__data || {}; }catch(_){ return {}; }
+  }
+
+  function fileKey(file){
+    return String(file || '').toLowerCase().replace(/\?.*$/,'').replace(/\.png$/,'');
+  }
+
+  function emojiOf(root){
+    const d = dataOf(root);
+    const kind = kindOf(root);
+    const id = String(d.id || '').toLowerCase();
+    const f = fileKey(d.file || '');
+    const label = String(d.label || '').toLowerCase();
+
+    return EMOJI[id] || EMOJI[f] || EMOJI[label] ||
+      (kind === 'junk' || kind === 'warm-junk' ? '🍟' :
+       kind === 'fake' ? '🧃' :
+       kind === 'power' || kind === 'warm-power' ? '🛡️' :
+       kind === 'breath' ? '💧' : '🥦');
+  }
+
+  function styleOf(root){
+    return STYLE[kindOf(root)] || {rim:'#94a3b8', bg:'#f8fafc', text:'#0f172a', tag:'TARGET'};
+  }
+
+  function tagOf(root){
+    const d = dataOf(root);
+    const kind = kindOf(root);
+    const st = styleOf(root);
+
+    if (kind === 'power' || kind === 'warm-power' || kind === 'breath'){
+      return String(d.label || st.tag).toUpperCase();
+    }
+
+    return st.tag;
+  }
+
+  function front(node, order){
+    try{
+      node.object3D.renderOrder = order;
+      node.object3D.traverse(function(o){
+        o.renderOrder = order;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function removeOldMaster(root){
+    try{
+      root.querySelectorAll('[data-gj-master-clean-layer="1"]').forEach(function(n){
+        try{ n.parentNode && n.parentNode.removeChild(n); }catch(_){}
+      });
+    }catch(_){}
+  }
+
+  function hideOldVisuals(root){
+    try{
+      root.querySelectorAll('a-image').forEach(function(n){
+        safeSet(n, 'visible', 'false');
+        safeSet(n, 'opacity', '0');
+      });
+
+      root.querySelectorAll('a-text').forEach(function(n){
+        const v = String(n.getAttribute('value') || '').toUpperCase();
+        if (
+          v === 'GOOD' ||
+          v === 'JUNK' ||
+          v === 'NO!' ||
+          v === 'CHECK' ||
+          v === 'POWER' ||
+          v === 'CALM' ||
+          v === 'HEART' ||
+          v === 'WATER' ||
+          v === 'BROCCOLI' ||
+          v === 'APPLE' ||
+          v === 'EGG' ||
+          v === 'FRIES' ||
+          v === 'SODA' ||
+          v === 'DONUT' ||
+          v === 'CANDY' ||
+          v === 'SUGAR JUICE'
+        ){
+          safeSet(n, 'visible', 'false');
+          safeSet(n, 'opacity', '0');
+        }
+      });
+
+      root.querySelectorAll(
+        '.gj-fallback-bg,.gj-fallback-emoji,.gj-fallback-label,' +
+        '.gj-smart-visual-layer,.gj-smart-fallback-emoji,.gj-smart-label,' +
+        '.gj-clean-badge,.gj-clean-emoji,.gj-clean-label'
+      ).forEach(function(n){
+        safeSet(n, 'visible', 'false');
+        safeSet(n, 'opacity', '0');
+      });
+    }catch(_){}
+  }
+
+  function makeCircle(radius, color, opacity, z){
+    const c = document.createElement('a-circle');
+    c.setAttribute('data-gj-master-clean-layer', '1');
+    safeSet(c, 'radius', String(radius));
+    safeSet(c, 'color', color);
+    safeSet(c, 'position', '0 0.08 ' + z);
+    safeSet(c, 'material',
+      'shader:flat; side:double; transparent:true; opacity:' + opacity +
+      '; depthTest:false; depthWrite:false'
+    );
+    return c;
+  }
+
+  function makeText(value, width, color, pos){
+    const t = document.createElement('a-text');
+    t.setAttribute('data-gj-master-clean-layer', '1');
+    safeSet(t, 'value', value);
+    safeSet(t, 'align', 'center');
+    safeSet(t, 'width', String(width));
+    safeSet(t, 'color', color);
+    safeSet(t, 'position', pos);
+    safeSet(t, 'material',
+      'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false'
+    );
+    return t;
+  }
+
+  function buildMasterLayer(root){
+    if (!root || !root.classList || !root.classList.contains('gj-target-root')) return;
+
+    const kind = kindOf(root);
+    if (!kind || kind === 'vr-start') return;
+
+    hideOldVisuals(root);
+    removeOldMaster(root);
+
+    const st = styleOf(root);
+    const layer = document.createElement('a-entity');
+    layer.setAttribute('data-gj-master-clean-layer', '1');
+
+    const outer = makeCircle(0.72, st.rim, '0.88', '1.06');
+    const inner = makeCircle(0.59, st.bg, '0.96', '1.10');
+
+    const emoji = makeText(
+      emojiOf(root),
+      view === 'cvr' ? 3.0 : 3.45,
+      st.text,
+      '0 -0.08 1.45'
+    );
+
+    const tag = makeText(
+      tagOf(root),
+      view === 'cvr' ? 1.85 : 2.05,
+      st.text,
+      '0 -0.72 1.46'
+    );
+
+    const shine = makeCircle(0.19, '#ffffff', '0.34', '1.50');
+    safeSet(shine, 'position', '-0.22 0.33 1.50');
+
+    layer.appendChild(outer);
+    layer.appendChild(inner);
+    layer.appendChild(shine);
+    layer.appendChild(emoji);
+    layer.appendChild(tag);
+
+    try{
+      root.appendChild(layer);
+    }catch(_){}
+
+    [layer, outer, inner, shine, emoji, tag].forEach(function(n){
+      front(n, 5000);
+    });
+
+    root.__gjMasterCleanDone = true;
+  }
+
+  function scan(){
+    document.querySelectorAll('.gj-target-root').forEach(buildMasterLayer);
+  }
+
+  function boot(){
+    document.body.setAttribute('data-gj-target-visual-master-clean', '1');
+
+    scan();
+
+    const root = document.getElementById('targetRoot') || document.body;
+    const mo = new MutationObserver(function(){
+      scan();
+    });
+
+    mo.observe(root, {
+      childList:true,
+      subtree:true,
+      attributes:true,
+      attributeFilter:['visible','opacity','src','material']
+    });
+
+    window.GJ_TARGET_VISUAL_MASTER_CLEAN_CHECK = function(){
+      const targets = Array.from(document.querySelectorAll('.gj-target-root'));
+      const snap = {
+        patch: PATCH,
+        view: view || 'unknown',
+        targetCount: targets.length,
+        masterLayerCount: document.querySelectorAll('[data-gj-master-clean-layer="1"]').length,
+        pngImageVisibleCount: Array.from(document.querySelectorAll('.gj-target-root a-image')).filter(function(n){
+          return String(n.getAttribute('visible')) !== 'false' && n.style.display !== 'none';
+        }).length,
+        items: targets.map(function(t){
+          const d = dataOf(t);
+          return {
+            kind: kindOf(t),
+            id: d.id || '',
+            file: d.file || '',
+            emoji: emojiOf(t),
+            tag: tagOf(t)
+          };
+        })
+      };
+
+      console.log('[GJ_TARGET_VISUAL_MASTER_CLEAN_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Target Visual Master Clean]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
