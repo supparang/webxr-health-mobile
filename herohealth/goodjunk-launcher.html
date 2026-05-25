@@ -21,6 +21,7 @@
       --blue:#2f7df6;
       --red:#ff6b5b;
       --yellow:#ffe17a;
+      --purple:#8b5cf6;
       --shadow:0 18px 46px rgba(70,40,10,.14);
     }
 
@@ -135,7 +136,7 @@
 
     .grid{
       display:grid;
-      grid-template-columns:1fr 1.25fr;
+      grid-template-columns:1fr 1.45fr;
       gap:14px;
       margin-top:14px;
       align-items:start;
@@ -188,10 +189,67 @@
       box-shadow:0 0 0 4px rgba(47,125,246,.14);
     }
 
+    .mode-section{
+      margin-top:14px;
+      padding:14px;
+      border-radius:28px;
+      border:3px solid rgba(255,199,125,.72);
+      background:
+        radial-gradient(circle at 90% 18%, rgba(255,225,122,.32), transparent 34%),
+        rgba(255,255,255,.42);
+    }
+
+    .mode-section:first-of-type{
+      margin-top:0;
+    }
+
+    .mode-section-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .mode-section-title{
+      margin:0;
+      color:var(--brown);
+      font-size:clamp(23px,4.6vw,34px);
+      font-weight:1000;
+      line-height:1.05;
+    }
+
+    .mode-section-desc{
+      margin:5px 0 0;
+      color:var(--muted);
+      font-size:14px;
+      font-weight:850;
+      line-height:1.4;
+    }
+
+    .mode-chip{
+      flex:0 0 auto;
+      padding:8px 11px;
+      border-radius:999px;
+      border:2px solid rgba(255,199,125,.85);
+      background:#fff8da;
+      color:var(--brown);
+      font-size:12px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
     .mode-grid{
       display:grid;
-      grid-template-columns:1fr 1fr;
       gap:12px;
+    }
+
+    .mode-grid.solo-grid{
+      grid-template-columns:1fr 1fr;
+    }
+
+    .mode-grid.multi-grid{
+      grid-template-columns:1fr 1fr;
     }
 
     .mode-card{
@@ -202,6 +260,8 @@
       text-align:left;
       transition:transform .12s ease, box-shadow .12s ease;
       overflow:hidden;
+      display:flex;
+      flex-direction:column;
     }
 
     .mode-card:active{
@@ -230,9 +290,13 @@
       background:linear-gradient(180deg,#fff8d7,#eaf8ff);
       font-size:34px;
       margin-bottom:10px;
+      position:relative;
+      z-index:1;
     }
 
     .mode-title{
+      position:relative;
+      z-index:1;
       font-size:24px;
       font-weight:1000;
       color:var(--brown);
@@ -241,14 +305,19 @@
     }
 
     .mode-desc{
+      position:relative;
+      z-index:1;
       color:var(--muted);
       font-size:14px;
       font-weight:850;
       line-height:1.4;
       margin-bottom:12px;
+      flex:1 1 auto;
     }
 
     .mode-go{
+      position:relative;
+      z-index:1;
       width:100%;
       min-height:48px;
       border-radius:18px;
@@ -281,6 +350,12 @@
       border-color:rgba(170,140,255,.85);
       background:linear-gradient(180deg,#f6f1ff,#d9ccff);
       color:#5538a5;
+    }
+
+    .mode-go.vr{
+      border-color:rgba(255,199,125,.95);
+      background:linear-gradient(180deg,#fff5b8 0%,#fde68a 52%,#facc15 100%);
+      color:var(--brown);
     }
 
     .status{
@@ -321,6 +396,12 @@
       box-shadow:0 10px 22px rgba(70,40,10,.12);
     }
 
+    @media(max-width:900px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+    }
+
     @media(max-width:820px){
       body{
         padding:10px;
@@ -336,20 +417,23 @@
         margin:0 auto;
       }
 
-      .grid{
-        grid-template-columns:1fr;
-      }
-
-      .mode-grid{
-        grid-template-columns:1fr;
-      }
-
       .quick-nav{
         grid-template-columns:1fr;
       }
 
       .mode-card{
         min-height:160px;
+      }
+    }
+
+    @media(max-width:620px){
+      .mode-section-head{
+        flex-direction:column;
+      }
+
+      .mode-grid.solo-grid,
+      .mode-grid.multi-grid{
+        grid-template-columns:1fr;
       }
     }
   </style>
@@ -362,7 +446,7 @@
       <div>
         <h1>GoodJunk<br>Launcher</h1>
         <div class="subtitle">
-          เลือกโหมดเกม GoodJunk: Solo Boss, Battle, Race, Duet และ Coop โดยส่งค่า PID / ชื่อ / ระดับ / เวลา / มุมมอง ต่อไปยังทุกโหมด
+          เลือกโหมดเกม GoodJunk แยกชัดเจนเป็น Solo Play และ Multiplayer พร้อมส่งค่า PID / ชื่อ / ระดับ / เวลา / มุมมอง ต่อไปยังทุกโหมด
         </div>
 
         <div class="quick-nav">
@@ -425,60 +509,90 @@
       <section class="panel">
         <h2>🎮 เลือกโหมดเกม</h2>
 
-        <div class="mode-grid">
-          <article class="mode-card" data-mode="solo">
-            <div class="mode-icon">🏆</div>
-            <div class="mode-title">Solo Boss</div>
-            <div class="mode-desc">เล่นเดี่ยว เก็บอาหารดี หลบ junk และสู้กับบอส เหมาะกับการเล่นหลัก</div>
-            <button class="mode-go green" type="button" data-mode="solo">เริ่ม Solo Boss</button>
-          </article>
+        <section class="mode-section" aria-label="Solo Play">
+          <div class="mode-section-head">
+            <div>
+              <h3 class="mode-section-title">🎮 Solo Play</h3>
+              <p class="mode-section-desc">เล่นคนเดียว เลือกแบบจอปกติหรือ Cardboard VR</p>
+            </div>
+            <div class="mode-chip">2 modes</div>
+          </div>
 
-          <article class="mode-card" data-mode="battle">
-            <div class="mode-icon">⚔️</div>
-            <div class="mode-title">Battle</div>
-            <div class="mode-desc">สร้างห้อง / เข้าห้อง / ดวล 1v1 พร้อมสกิล Storm, Shield, Freeze และ Heal</div>
-            <button class="mode-go red" type="button" data-mode="battle">เข้า Battle Lobby</button>
-          </article>
+          <div class="mode-grid solo-grid">
+            <article class="mode-card" data-card="solo">
+              <div class="mode-icon">🏆</div>
+              <div class="mode-title">Solo Boss</div>
+              <div class="mode-desc">เล่นเดี่ยว เก็บอาหารดี หลบ junk และสู้กับบอส เหมาะกับการเล่นหลัก</div>
+              <button class="mode-go green" type="button" data-mode="solo">เริ่ม Solo Boss</button>
+            </article>
 
-          <article class="mode-card" data-mode="race">
-            <div class="mode-icon">🏁</div>
-            <div class="mode-title">Race</div>
-            <div class="mode-desc">แข่งทำคะแนนและความเร็วกับผู้เล่นอีกคนในโหมดแข่งขัน</div>
-            <button class="mode-go blue" type="button" data-mode="race">เข้า Race Lobby</button>
-          </article>
+            <article class="mode-card" data-card="soloVr">
+              <div class="mode-icon">🥽</div>
+              <div class="mode-title">Solo Boss VR</div>
+              <div class="mode-desc">เล่นแบบ Cardboard/cVR ใช้จุดเล็งกลางจอ เก็บอาหารดี หลบอาหารขยะ และสู้บอส</div>
+              <button class="mode-go vr" type="button" data-mode="soloVr">เข้า Solo Boss VR</button>
+            </article>
+          </div>
+        </section>
 
-          <article class="mode-card" data-mode="duet">
-            <div class="mode-icon">👥</div>
-            <div class="mode-title">Duet</div>
-            <div class="mode-desc">เล่นคู่ ช่วยกันเก็บอาหารดีและจัดการโจทย์ร่วมกัน</div>
-            <button class="mode-go purple" type="button" data-mode="duet">เข้า Duet Lobby</button>
-          </article>
+        <section class="mode-section" aria-label="Multiplayer">
+          <div class="mode-section-head">
+            <div>
+              <h3 class="mode-section-title">🌐 Multiplayer</h3>
+              <p class="mode-section-desc">เล่นกับเพื่อน แข่ง ดวล จับคู่ หรือร่วมมือกันทำภารกิจ</p>
+            </div>
+            <div class="mode-chip">4 modes</div>
+          </div>
 
-          <article class="mode-card" data-mode="coop">
-            <div class="mode-icon">🤝</div>
-            <div class="mode-title">Coop</div>
-            <div class="mode-desc">เล่นร่วมมือเป็นทีม เน้นช่วยกันทำภารกิจและสะสมคะแนนร่วมกัน</div>
-            <button class="mode-go" type="button" data-mode="coop">เข้า Coop Lobby</button>
-          </article>
-        </div>
+          <div class="mode-grid multi-grid">
+            <article class="mode-card" data-card="battle">
+              <div class="mode-icon">⚔️</div>
+              <div class="mode-title">Battle</div>
+              <div class="mode-desc">สร้างห้อง / เข้าห้อง / ดวล 1v1 พร้อมสกิล Storm, Shield, Freeze และ Heal</div>
+              <button class="mode-go red" type="button" data-mode="battle">เข้า Battle Lobby</button>
+            </article>
+
+            <article class="mode-card" data-card="race">
+              <div class="mode-icon">🏁</div>
+              <div class="mode-title">Race</div>
+              <div class="mode-desc">แข่งทำคะแนนและความเร็วกับผู้เล่นอีกคนในโหมดแข่งขัน</div>
+              <button class="mode-go blue" type="button" data-mode="race">เข้า Race Lobby</button>
+            </article>
+
+            <article class="mode-card" data-card="duet">
+              <div class="mode-icon">👥</div>
+              <div class="mode-title">Duet</div>
+              <div class="mode-desc">เล่นคู่ ช่วยกันเก็บอาหารดีและจัดการโจทย์ร่วมกัน</div>
+              <button class="mode-go purple" type="button" data-mode="duet">เข้า Duet Lobby</button>
+            </article>
+
+            <article class="mode-card" data-card="coop">
+              <div class="mode-icon">🤝</div>
+              <div class="mode-title">Coop</div>
+              <div class="mode-desc">เล่นร่วมมือเป็นทีม เน้นช่วยกันทำภารกิจและสะสมคะแนนร่วมกัน</div>
+              <button class="mode-go" type="button" data-mode="coop">เข้า Coop Lobby</button>
+            </article>
+          </div>
+        </section>
       </section>
     </section>
 
     <div class="footer">
-      GoodJunk Launcher Clean v2.0 • no route patch • no audit overlay • no global nav intercept
+      GoodJunk Launcher Clean v2.1 • grouped Solo / Multiplayer • built-in Solo Boss VR entry
     </div>
   </main>
 
-  <div class="badge">Launcher clean v2.0</div>
+  <div class="badge">Launcher clean v2.1</div>
 
   <script>
-    (function GoodJunkLauncherCleanV20(){
+    (function GoodJunkLauncherCleanV21(){
       'use strict';
 
-      const VERSION = 'v2.0.0-goodjunk-launcher-clean-no-patch';
+      const VERSION = 'v2.1.0-goodjunk-launcher-grouped-solo-multi-cvr';
 
       const ROUTES = {
         solo: './vr-goodjunk/goodjunk-solo-boss.html',
+        soloVr: './vr-goodjunk/goodjunk-solo-boss-vr-flow.html',
         battle: './vr-goodjunk/goodjunk-battle-v2-lobby.html',
         race: './vr-goodjunk/goodjunk-race-lobby.html',
         duet: './vr-goodjunk/goodjunk-duet-lobby.html',
@@ -538,6 +652,20 @@
         return mobile ? 'mobile' : 'pc';
       }
 
+      function toGameViewForMode(mode){
+        const chosen = normalizeView(viewSelect.value);
+
+        if (mode === 'soloVr'){
+          return 'cvr';
+        }
+
+        if (chosen === 'cardboard'){
+          return 'cvr';
+        }
+
+        return chosen;
+      }
+
       function initFields(){
         pidInput.value =
           params.get('pid') ||
@@ -563,13 +691,15 @@
         localStorage.setItem('GJ_BATTLE_NAME', clean(nameInput.value, 'Hero'));
       }
 
-      function addCommonParams(out, mode){
+      function addCommonParams(out, mode, viewOverride){
+        const view = viewOverride || normalizeView(viewSelect.value);
+
         out.searchParams.set('pid', clean(pidInput.value, 'anon'));
         out.searchParams.set('name', clean(nameInput.value, 'Hero'));
         out.searchParams.set('diff', clean(diffSelect.value, 'normal'));
         out.searchParams.set('time', clean(timeSelect.value, '90'));
-        out.searchParams.set('view', normalizeView(viewSelect.value));
-        out.searchParams.set('device', normalizeView(viewSelect.value));
+        out.searchParams.set('view', view);
+        out.searchParams.set('device', view === 'cvr' ? 'cardboard' : view);
 
         out.searchParams.set('game', 'goodjunk');
         out.searchParams.set('gameId', 'goodjunk');
@@ -580,7 +710,7 @@
           out.searchParams.set('mode', mode);
         }
 
-        ['hub','studyId','conditionGroup','api','log'].forEach(function(k){
+        ['studyId','conditionGroup','api','log'].forEach(function(k){
           const v = params.get(k);
           if (v !== null && v !== ''){
             out.searchParams.set(k, v);
@@ -588,7 +718,9 @@
         });
 
         out.searchParams.set('from', 'goodjunk-launcher-clean');
-        out.searchParams.set('launcher', VERSION);
+        out.searchParams.set('launcher', location.href.split('#')[0]);
+        out.searchParams.set('hub', location.href.split('#')[0]);
+        out.searchParams.set('back', location.href.split('#')[0]);
         out.searchParams.set('t', String(now()));
 
         ROOM_PARAMS.forEach(function(k){
@@ -606,15 +738,26 @@
         }
 
         const out = new URL(route, location.href);
+        const gameView = toGameViewForMode(mode);
 
         if (mode === 'solo'){
-          addCommonParams(out, 'solo-boss');
+          addCommonParams(out, 'solo-boss', gameView);
+          out.searchParams.set('run', 'play');
           out.searchParams.set('entry', 'solo-boss');
           out.searchParams.set('variant', 'solo-boss-final');
         }
 
+        if (mode === 'soloVr'){
+          addCommonParams(out, 'solo', 'cvr');
+          out.searchParams.set('run', 'play');
+          out.searchParams.set('entry', 'cardboard');
+          out.searchParams.set('variant', 'solo-boss-vr');
+          out.searchParams.set('theme', 'goodjunk');
+          out.searchParams.set('seed', String(now()));
+        }
+
         if (mode === 'battle'){
-          addCommonParams(out, 'battle');
+          addCommonParams(out, 'battle', gameView);
           out.searchParams.set('entry', 'launcher');
           out.searchParams.set('variant', 'battle-v2.5');
 
@@ -625,19 +768,19 @@
         }
 
         if (mode === 'race'){
-          addCommonParams(out, 'race');
+          addCommonParams(out, 'race', gameView);
           out.searchParams.set('entry', 'race');
           out.searchParams.set('variant', 'race');
         }
 
         if (mode === 'duet'){
-          addCommonParams(out, 'duet');
+          addCommonParams(out, 'duet', gameView);
           out.searchParams.set('entry', 'duet');
           out.searchParams.set('variant', 'duet');
         }
 
         if (mode === 'coop'){
-          addCommonParams(out, 'coop');
+          addCommonParams(out, 'coop', gameView);
           out.searchParams.set('entry', 'coop');
           out.searchParams.set('variant', 'coop');
         }
@@ -647,7 +790,7 @@
 
       function buildZoneUrl(){
         const out = new URL(ROUTES.zone, location.href);
-        addCommonParams(out, '');
+        addCommonParams(out, '', normalizeView(viewSelect.value));
         out.searchParams.set('from', 'goodjunk-launcher-clean');
         return out.toString();
       }
@@ -655,7 +798,7 @@
       function buildHubUrl(){
         const hub = params.get('hub');
 
-        if (hub){
+        if (hub && !/goodjunk-launcher\.html/i.test(hub)){
           try{
             const out = new URL(hub, location.href);
             if (!out.searchParams.get('pid')) out.searchParams.set('pid', clean(pidInput.value, 'anon'));
@@ -666,7 +809,7 @@
         }
 
         const out = new URL(ROUTES.hub, location.href);
-        addCommonParams(out, '');
+        addCommonParams(out, '', normalizeView(viewSelect.value));
         out.searchParams.set('from', 'goodjunk-launcher-clean');
         return out.toString();
       }
@@ -733,7 +876,7 @@
           goMode
         };
 
-        setStatus('พร้อมเลือกโหมดเกม • Launcher clean v2.0');
+        setStatus('พร้อมเลือกโหมดเกม • Solo Play / Multiplayer จัดกลุ่มแล้ว');
 
         console.info('[GoodJunk Launcher Clean]', VERSION, 'loaded');
       }
@@ -745,355 +888,5 @@
       }
     })();
   </script>
-<!-- =========================================================
-  GOODJUNK LAUNCHER PATCH
-  Solo Boss Cardboard VR Entry + Original Launcher Theme
-  PATCH: v20260524-GOODJUNK-LAUNCHER-CVR-SOLO-BOSS-ORIGINAL-THEME-FINAL
-  FILE: /herohealth/goodjunk-launcher.html
-  PLACE: before </body>
-========================================================= -->
-
-<style id="gj-cvr-solo-boss-original-theme-css">
-  /* =========================================================
-    GoodJunk Solo Boss Cardboard VR card
-    Match launcher clean v2.0 / original cream-orange theme
-  ========================================================= */
-
-  #gj-cvr-solo-boss-entry,
-  .gj-cvr-entry-wrap{
-    width:min(560px, calc(100% - 32px)) !important;
-    margin:18px auto 30px !important;
-    padding:32px 26px !important;
-    border-radius:42px !important;
-    background:
-      radial-gradient(circle at 86% 72%, rgba(254,240,138,.48), transparent 34%),
-      linear-gradient(180deg, #fffdf6 0%, #fff8e8 100%) !important;
-    border:6px solid #fed08a !important;
-    box-shadow:
-      0 18px 42px rgba(124,45,18,.14),
-      inset 0 0 0 2px rgba(255,255,255,.78) !important;
-    color:#7c2d12 !important;
-    overflow:hidden !important;
-    position:relative !important;
-  }
-
-  #gj-cvr-solo-boss-entry::after,
-  .gj-cvr-entry-wrap::after{
-    content:"" !important;
-    position:absolute !important;
-    right:-46px !important;
-    bottom:-54px !important;
-    width:190px !important;
-    height:190px !important;
-    border-radius:999px !important;
-    background:rgba(254,240,138,.42) !important;
-    pointer-events:none !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-card,
-  .gj-cvr-entry-card{
-    position:relative !important;
-    z-index:1 !important;
-    display:block !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-icon{
-    width:92px !important;
-    height:92px !important;
-    display:flex !important;
-    align-items:center !important;
-    justify-content:center !important;
-    border-radius:26px !important;
-    margin:0 0 22px !important;
-    font-size:48px !important;
-    background:
-      radial-gradient(circle at 45% 35%, #ffffff 0%, #fff7cc 42%, #fde68a 100%) !important;
-    box-shadow:0 10px 24px rgba(124,45,18,.12) !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-title,
-  .gj-cvr-entry-title{
-    margin:0 0 18px !important;
-    color:#7c2d12 !important;
-    font-size:clamp(34px, 9vw, 52px) !important;
-    font-weight:1000 !important;
-    line-height:1.05 !important;
-    letter-spacing:-1px !important;
-    text-shadow:none !important;
-    opacity:1 !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-sub,
-  .gj-cvr-entry-sub{
-    margin:0 0 24px !important;
-    color:#64748b !important;
-    font-size:clamp(19px, 5vw, 27px) !important;
-    font-weight:800 !important;
-    line-height:1.55 !important;
-    opacity:1 !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-badges,
-  .gj-cvr-entry-badges{
-    display:none !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-btn,
-  .gj-cvr-entry-btn{
-    appearance:none !important;
-    width:100% !important;
-    min-height:76px !important;
-    margin-top:8px !important;
-    border-radius:28px !important;
-    border:5px solid #fed08a !important;
-    background:linear-gradient(180deg, #fff5b8 0%, #fde68a 52%, #facc15 100%) !important;
-    color:#7c2d12 !important;
-    font-size:clamp(24px, 6vw, 34px) !important;
-    font-weight:1000 !important;
-    box-shadow:
-      0 12px 24px rgba(124,45,18,.18),
-      inset 0 2px 0 rgba(255,255,255,.9) !important;
-    cursor:pointer !important;
-    touch-action:manipulation !important;
-    text-align:center !important;
-  }
-
-  #gj-cvr-solo-boss-entry .gj-cvr-entry-btn:active,
-  .gj-cvr-entry-btn:active{
-    transform:scale(.98) !important;
-  }
-
-  @media (max-width:680px){
-    #gj-cvr-solo-boss-entry,
-    .gj-cvr-entry-wrap{
-      width:calc(100% - 32px) !important;
-      margin:16px auto 30px !important;
-      padding:30px 22px !important;
-      border-radius:40px !important;
-      border-width:6px !important;
-    }
-
-    #gj-cvr-solo-boss-entry .gj-cvr-entry-icon{
-      width:88px !important;
-      height:88px !important;
-      font-size:46px !important;
-      margin-bottom:22px !important;
-    }
-
-    #gj-cvr-solo-boss-entry .gj-cvr-entry-title,
-    .gj-cvr-entry-title{
-      font-size:40px !important;
-    }
-
-    #gj-cvr-solo-boss-entry .gj-cvr-entry-sub,
-    .gj-cvr-entry-sub{
-      font-size:23px !important;
-      line-height:1.55 !important;
-    }
-
-    #gj-cvr-solo-boss-entry .gj-cvr-entry-btn,
-    .gj-cvr-entry-btn{
-      min-height:74px !important;
-      font-size:28px !important;
-    }
-  }
-</style>
-
-<script id="gj-cvr-solo-boss-original-theme-js">
-(function(){
-  'use strict';
-
-  const PATCH_VERSION = 'v20260524-GOODJUNK-LAUNCHER-CVR-SOLO-BOSS-ORIGINAL-THEME-FINAL';
-  const ENTRY_ID = 'gj-cvr-solo-boss-entry';
-  const OLD_ENTRY_ID = 'gj-cvr-solo-boss-entry-v20260524';
-
-  function getParam(name, fallback){
-    try{
-      const q = new URLSearchParams(location.search);
-      const v = q.get(name);
-      return v == null || v === '' ? fallback : v;
-    }catch(e){
-      return fallback;
-    }
-  }
-
-  function safeSet(url, key, value){
-    if (value !== undefined && value !== null && String(value) !== ''){
-      url.searchParams.set(key, String(value));
-    }
-  }
-
-  function buildCvrSoloBossUrl(){
-    const target = new URL('./vr-goodjunk/goodjunk-solo-boss-vr-flow.html', location.href);
-    const launcher = new URL('./goodjunk-launcher.html', location.href);
-
-    const passKeys = [
-      'pid',
-      'name',
-      'studentId',
-      'studentName',
-      'classSection',
-      'studyId',
-      'conditionGroup',
-      'api',
-      'log'
-    ];
-
-    passKeys.forEach(function(k){
-      const v = getParam(k, '');
-      if (v !== '') target.searchParams.set(k, v);
-    });
-
-    safeSet(target, 'pid', getParam('pid', 'anon'));
-    safeSet(target, 'name', getParam('name', 'Hero'));
-    safeSet(target, 'diff', getParam('diff', 'normal'));
-    safeSet(target, 'time', getParam('time', '120'));
-    safeSet(target, 'seed', getParam('seed', String(Date.now())));
-
-    target.searchParams.set('run', 'play');
-    target.searchParams.set('view', 'cvr');
-
-    target.searchParams.set('zone', 'nutrition');
-    target.searchParams.set('cat', 'nutrition');
-    target.searchParams.set('game', 'goodjunk');
-    target.searchParams.set('gameId', 'goodjunk');
-    target.searchParams.set('mode', 'solo');
-    target.searchParams.set('variant', 'solo-boss-vr');
-    target.searchParams.set('entry', 'cardboard');
-    target.searchParams.set('theme', 'goodjunk');
-
-    /*
-      For GoodJunk mode return:
-      Summary / Back to mode should come back to goodjunk-launcher.html
-    */
-    target.searchParams.set('hub', launcher.href);
-    target.searchParams.set('launcher', launcher.href);
-    target.searchParams.set('back', launcher.href);
-
-    return target.href;
-  }
-
-  function removeDuplicateOldCards(){
-    const all = Array.from(document.querySelectorAll('.gj-cvr-entry-wrap, #' + OLD_ENTRY_ID));
-    const keep = document.getElementById(ENTRY_ID);
-
-    all.forEach(function(el){
-      if (keep && el === keep) return;
-      if (el.id === ENTRY_ID) return;
-
-      const text = (el.textContent || '').toLowerCase();
-      const isCvrCard =
-        text.includes('cardboard') ||
-        text.includes('solo boss vr') ||
-        text.includes('solo boss cardboard') ||
-        text.includes('เข้าเล่น vr') ||
-        text.includes('เข้า solo boss vr');
-
-      if (isCvrCard && el.parentNode){
-        el.parentNode.removeChild(el);
-      }
-    });
-  }
-
-  function createCard(){
-    const wrap = document.createElement('section');
-    wrap.id = ENTRY_ID;
-    wrap.className = 'gj-cvr-entry-wrap';
-    wrap.setAttribute('data-gj-cvr-card', '1');
-    wrap.setAttribute('data-patch', PATCH_VERSION);
-    wrap.setAttribute('aria-label', 'GoodJunk Solo Boss Cardboard VR');
-
-    wrap.innerHTML = `
-      <div class="gj-cvr-entry-card">
-        <div class="gj-cvr-entry-icon" aria-hidden="true">🥽</div>
-
-        <h2 class="gj-cvr-entry-title">Solo Boss VR</h2>
-
-        <p class="gj-cvr-entry-sub">
-          เล่นแบบ Cardboard VR ใช้จุดเล็งกลางจอ เก็บอาหารดี หลบอาหารขยะ และสู้บอสแบบสนุกท้าทาย
-        </p>
-
-        <div class="gj-cvr-entry-badges" aria-hidden="true">
-          <span>Cardboard VR</span>
-          <span>Crosshair Shoot</span>
-          <span>Solo Boss</span>
-          <span>Mobile Ready</span>
-        </div>
-
-        <button class="gj-cvr-entry-btn" type="button">
-          เข้า Solo Boss VR
-        </button>
-      </div>
-    `;
-
-    const btn = wrap.querySelector('.gj-cvr-entry-btn');
-    if (btn){
-      btn.addEventListener('click', function(){
-        location.href = buildCvrSoloBossUrl();
-      });
-    }
-
-    return wrap;
-  }
-
-  function findMountPoint(){
-    /*
-      Prefer main content area. This keeps the card in the same vertical flow
-      as Solo / Race / Battle / Coop cards.
-    */
-    return (
-      document.querySelector('main') ||
-      document.querySelector('.launcher-main') ||
-      document.querySelector('.gj-launcher') ||
-      document.querySelector('.mode-list') ||
-      document.querySelector('.mode-grid') ||
-      document.querySelector('.modes-grid') ||
-      document.querySelector('.game-grid') ||
-      document.body
-    );
-  }
-
-  function mountCard(){
-    removeDuplicateOldCards();
-
-    let card = document.getElementById(ENTRY_ID);
-
-    if (!card){
-      const old = document.getElementById(OLD_ENTRY_ID);
-      if (old){
-        old.id = ENTRY_ID;
-        old.className = 'gj-cvr-entry-wrap';
-        old.setAttribute('data-gj-cvr-card', '1');
-        card = old;
-      }
-    }
-
-    if (!card){
-      card = createCard();
-      const mount = findMountPoint();
-      mount.appendChild(card);
-    }else{
-      card.className = 'gj-cvr-entry-wrap';
-      card.setAttribute('data-gj-cvr-card', '1');
-      card.setAttribute('data-patch', PATCH_VERSION);
-
-      card.innerHTML = createCard().innerHTML;
-
-      const btn = card.querySelector('.gj-cvr-entry-btn');
-      if (btn){
-        btn.addEventListener('click', function(){
-          location.href = buildCvrSoloBossUrl();
-        });
-      }
-    }
-  }
-
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', mountCard);
-  }else{
-    mountCard();
-  }
-})();
-</script>
 </body>
 </html>
