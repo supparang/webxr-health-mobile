@@ -579,9 +579,15 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
   })
   .then(function(){
     return loadScript('./hydration-solo-boss-pack42.patch.js?v=20260525-pack42-boss-fever-mission', 'hydration solo boss pack42', 5000)
+  .catch(function(err){
+    console.warn('[Hydration Pack42] boss patch optional failed:', err);
+  })
+  .then(function(){
+    return loadScript('./hydration-solo-balance-pack43.patch.js?v=20260526-pack43-adaptive-balance', 'hydration solo balance pack43', 5000)
       .catch(function(err){
-        console.warn('[Hydration Pack42] boss patch optional failed:', err);
+        console.warn('[Hydration Pack43] balance patch optional failed:', err);
       });
+  });
   });
   })
   .then(function(){
