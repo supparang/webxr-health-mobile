@@ -1555,33 +1555,18 @@ async function saveStudentProfile(){
     }
 
     function phaseHTML(active, done=[]){
-      const phases = ['Card Rush','Trick Cards','Explain Strike','Mini Boss'];
-      logEvent({
-  eventType: 'boss_answer',
-  phase: 'Mini Boss',
-  itemId: claim.id || '',
-  prompt: claim.claim,
-  yourAnswer: selected,
-  correctAnswer: claim.counter,
-  isCorrect: ok,
-  combo: metrics.combo,
-  helpLeft: metrics.helpLeft,
-  extraJson: {
-    misconceptionKey: claim.key || '',
-    why: claim.why || ''
-  }
-});
+  const phases = ['Card Rush','Trick Cards','Explain Strike','Mini Boss'];
 
-      return `
-        <div class="phaseStrip">
-          ${phases.map(phase => `
-            <span class="phasePill ${phase === active ? 'active' : ''} ${done.includes(phase) ? 'done' : ''}">
-              ${phase}
-            </span>
-          `).join('')}
-        </div>
-      `;
-    }
+  return `
+    <div class="phaseStrip">
+      ${phases.map(phase => `
+        <span class="phasePill ${phase === active ? 'active' : ''} ${done.includes(phase) ? 'done' : ''}">
+          ${phase}
+        </span>
+      `).join('')}
+    </div>
+  `;
+}
 
     function updateCombo(combo){
       const comboText = document.querySelector('#comboText');
