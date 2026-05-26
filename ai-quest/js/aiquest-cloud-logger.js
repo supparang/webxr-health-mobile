@@ -2,7 +2,7 @@
   'use strict';
 
   // วาง Apps Script Web App URL ตรงนี้ หรือส่งผ่าน ?api=...
-  const DEFAULT_API_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwVkL4eyQM_dq83Asjw6PfkgjG2WxVGgJQ_lCaAtoGhwBcylguZkWZvu7UUwrNR4Np9/exec';
 
   function storage(){ return window.AIQuestStorage; }
 
@@ -113,16 +113,26 @@
   }
 
   async function healthCheck(){
-    const api = getApiUrl();
-    if(!isCloudReady()) return {ok:false, reason:'cloud_not_configured'};
+  const api = getApiUrl();
 
-    try{
-      const res = await fetch(api + (api.includes('?') ? '&' : '?') + 'action=health', {method:'GET'});
-      return await res.json();
-    }catch(error){
-      return {ok:false, error:String(error && error.message || error)};
-    }
+  if(!isCloudReady()){
+    return { ok:false, reason:'cloud_not_configured' };
   }
+
+  try{
+    await fetch(api + (api.includes('?') ? '&' : '?') + 'action=health', {
+      method:'GET',
+      mode:'no-cors'
+    });
+
+    return { ok:true, opaque:true, message:'Cloud endpoint reachable' };
+  }catch(error){
+    return {
+      ok:false,
+      error:String(error && error.message || error)
+    };
+  }
+}
 
   window.AIQuestCloudLogger = {
     getApiUrl,
