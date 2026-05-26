@@ -1583,27 +1583,32 @@ async function saveStudentProfile(){
     }
 
     function startMission(id){
-      const stage = stageById(id);
-      if(!stage || !isUnlocked(stage)) return;
+  const stage = stageById(id);
+  if(!stage || !isUnlocked(stage)) return;
 
-      ensureAudio();
-      stopTimer();
+  if(window.AIQuestStorage && !AIQuestStorage.isProfileReady()){
+    showToast('กรุณากรอก Student Profile ก่อนเริ่มเล่น');
+    switchScreen('menuScreen');
+    return;
+  }
 
-      gameLocked = false;
-      currentMission = stage;
-      currentScore = 0;
-      currentMeta = {
-        difficulty:state.difficulty,
-        usedTime:0
-      };
+  ensureAudio();
+  stopTimer();
 
-      el('gameHeading').textContent = `${stage.no}: ${stage.title}`;
-      el('gameSubheading').textContent = `${stage.topic} — ${stage.objectives[0]}`;
+  gameLocked = false;
+  currentMission = stage;
+  currentScore = 0;
+  currentMeta = {
+    difficulty:state.difficulty,
+    usedTime:0
+  };
 
-      switchScreen('gameScreen');
-      renderMission1Coach();
-    }
+  el('gameHeading').textContent = `${stage.no}: ${stage.title}`;
+  el('gameSubheading').textContent = `${stage.topic} — ${stage.objectives[0]}`;
 
+  switchScreen('gameScreen');
+  renderMission1Coach();
+}
     function finishMission(score, feedback, meta={}){
       if(gameLocked) return;
 
