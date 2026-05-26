@@ -1,0 +1,61 @@
+<!doctype html>
+      totalAttempts.textContent = attempts.length;
+      bestScore.textContent = best;
+      latestScore.textContent = latest.score || 0;
+      masteryStatus.textContent = mastered ? 'YES' : 'Not yet';
+      masteryStatus.className = mastered ? 'num ok' : 'num warn';
+      pendingCount.textContent = pending.length;
+      progressBar.style.width = Math.min(100,best) + '%';
+      progressText.textContent = `Best score ${best}/100 • Attempts ${attempts.length}`;
+
+      renderAttempts(attempts.slice(-10).reverse());
+      renderMis(attempts);
+    }
+
+    function renderAttempts(rows){
+      if(!rows.length){ attemptTable.innerHTML = '<p>ยังไม่มีข้อมูล attempt</p>'; return; }
+      attemptTable.innerHTML = `<table><thead><tr><th>Time</th><th>Score</th><th>Stars</th><th>Difficulty</th><th>Accuracy</th><th>Help</th><th>Combo</th><th>Mastery</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${shortTime(a.clientTs)}</td><td><b>${a.score||0}</b></td><td>${'★'.repeat(a.stars||0)}${'☆'.repeat(3-(a.stars||0))}</td><td>${a.difficulty||'-'}</td><td>${a.accuracy||0}%</td><td>${a.helpUsed||0}</td><td>${a.maxCombo||0}</td><td>${a.mastered?'<span class="pill ok">YES</span>':'<span class="pill warn">Not yet</span>'}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function renderMis(attempts){
+      const total = {};
+      attempts.forEach(a=>{
+        const mis = a.misconceptions || {};
+        Object.keys(mis).forEach(k=> total[k]=(total[k]||0)+Number(mis[k]||0));
+      });
+      const entries = Object.entries(total).sort((a,b)=>b[1]-a[1]);
+      if(!entries.length){ misBox.innerHTML = '<p>ยังไม่มี misconception ที่บันทึก</p>'; return; }
+      misBox.innerHTML = entries.map(([k,v])=>`<p><b>${escapeHtml(k)}</b>: ${v}</p>`).join('');
+    }
+
+    function download(name, text, type='text/plain'){
+      const blob = new Blob([text], {type});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function shortTime(ts){
+      if(!ts) return '-';
+      try{return new Date(ts).toLocaleString();}catch(e){return ts;}
+    }
+
+    function escapeHtml(v){
+      return String(v == null ? '' : v).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+    }
+
+    btnBack.onclick = () => location.href = './index.html';
+    btnExportJson.onclick = () => download('aiquest-attempts.json', S.exportAttemptsJson(), 'application/json');
+    btnExportCsv.onclick = () => download('aiquest-attempts.csv', S.attemptsToCsv(), 'text/csv');
+    btnFlush.onclick = async () => { await C.flushPending(50); render(); alert('Sync pending complete'); };
+    btnClear.onclick = () => { if(confirm('ล้าง local attempts ในเครื่องนี้?')){ S.clearAttempts(); render(); } };
+
+    render();
+  </script>
+</body>
+</html>
