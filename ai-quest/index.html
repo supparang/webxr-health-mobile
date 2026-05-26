@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v1.4 Mission 1 Ultimate</title>
+  <title>CSAI2102: AI Quest v1.5 Session 1 Final Polish</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -597,9 +597,22 @@
       background:rgba(56,189,248,.08);
       color:#e0f2fe;
       line-height:1.6;
+      text-align:left;
     }
 
     .coachBox b{color:#bae6fd}
+
+    .wrongReviewItem{
+      margin-top:10px;
+      padding:12px;
+      border-radius:16px;
+      background:rgba(255,255,255,.055);
+      border:1px solid var(--line);
+    }
+
+    .wrongReviewItem strong{
+      color:#fecaca;
+    }
 
     .row{
       display:flex;
@@ -664,7 +677,7 @@
 
     .resultBox{
       text-align:center;
-      max-width:820px;
+      max-width:860px;
       margin:18px auto 0;
     }
 
@@ -796,40 +809,79 @@
         position:static;
         flex-direction:column;
       }
+
       .topActions{
         width:100%;
         justify-content:flex-start;
       }
+
       .pill{
         font-size:12px;
         padding:8px 10px;
       }
+
       .hero{margin-top:10px}
+
       .panel{
         padding:14px;
         border-radius:20px;
       }
+
       .missionGrid{grid-template-columns:1fr}
       .missionCard{min-height:auto}
-      .choicesGrid{grid-template-columns:1fr}
+      .choicesGrid{
+        grid-template-columns:1fr;
+        gap:10px;
+      }
+
+      .choiceBtn{
+        min-height:74px;
+        padding:12px;
+        font-size:15px;
+      }
+
       .gameHeader{flex-direction:column}
       .row .btn{flex:1 1 auto}
+
       .logo{
         width:48px;
         height:48px;
         border-radius:16px;
       }
+
       .subtitle{white-space:normal}
+
       .gameArea{
         padding:14px;
         border-radius:22px;
       }
+
       .hudChip{
         font-size:12px;
         padding:8px 10px;
       }
+
       .promptCard{min-height:124px}
       .phasePill{font-size:11px}
+
+      .coachBox,
+      .feedback{
+        font-size:14px;
+        line-height:1.55;
+      }
+
+      .resultScore{
+        font-size:44px;
+      }
+
+      .scoreLine{
+        flex-direction:column;
+      }
+
+      .scoreChip{
+        width:100%;
+        text-align:center;
+      }
     }
   </style>
 
@@ -843,7 +895,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v1.4 • Mission 1 Ultimate + 120 Question Bank + No-repeat Smart Randomizer</div>
+          <div class="subtitle">v1.5 • Session 1 Final Polish • Review + Export + Balance + Mobile QA</div>
         </div>
       </div>
 
@@ -865,11 +917,11 @@
     <main id="menuScreen" class="screen active">
       <section class="hero">
         <div class="panel">
-          <h2>Mission 1: AI Awakening</h2>
+          <h2>Session 1: AI Awakening</h2>
           <p>
-            เวอร์ชันนี้ใช้คลังคำถาม 120 รายการ พร้อมระบบ No-repeat Smart Randomizer
-            เพื่อให้เล่นซ้ำแล้วไม่ออกซ้ำง่าย มี AI Help, AI Coach, Trick Cards,
-            Explain Strike และ Misconception Mini Boss
+            Final Polish v1.5 เพิ่ม Review Wrong Items, Teacher Export,
+            ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
+            เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
           </p>
 
           <div class="progressBar">
@@ -897,11 +949,10 @@
         </div>
 
         <div class="panel">
-          <h2>AI Coach Summary</h2>
+          <h2>Pilot-ready Checklist</h2>
           <p>
-            หลังเล่นจบ ระบบจะสรุปว่าเด็กยังสับสนเรื่องใด เช่น
-            Automation vs AI, Sensor vs AI, Rule-based vs Learning-based,
-            Data vs AI หรือ AI Trust
+            หลังจบเกมจะมี Coach Summary + Review ข้อที่ตอบผิด + Export Summary
+            เพื่อให้อาจารย์เห็นว่าเด็กสับสนเรื่องใดจริง
           </p>
           <div class="badgeRack" id="badgeRack"></div>
         </div>
@@ -945,10 +996,16 @@
           สรุปคำแนะนำจะแสดงที่นี่
         </div>
 
+        <div class="coachBox" id="wrongReview">
+          <b>Review Wrong Items</b><br />
+          ถ้าไม่มีข้อผิดพลาด ระบบจะแสดงข้อความชมเชย
+        </div>
+
         <div class="scoreLine" style="justify-content:center">
           <span class="scoreChip" id="resultBestScore">Best Score: -</span>
           <span class="scoreChip" id="resultBestTime">Best Time: -</span>
           <span class="scoreChip" id="resultDiff">Difficulty: Normal</span>
+          <span class="scoreChip" id="resultMastery">Mastery: -</span>
         </div>
 
         <div class="reflection">
@@ -965,6 +1022,7 @@
         <div class="row" style="justify-content:center;margin-top:16px">
           <button class="btn good" id="btnSaveResult">บันทึกผลและกลับเมนู</button>
           <button class="btn secondary" id="btnReplay">เล่นซ้ำเพื่อ Mastery</button>
+          <button class="btn secondary" id="btnExportSummary">Export Summary</button>
         </div>
       </section>
     </main>
@@ -986,11 +1044,39 @@
   <script>
     'use strict';
 
-    const STORAGE_KEY = 'CSAI2102_AIQUEST_V14_M1_ULTIMATE';
+    const STORAGE_KEY = 'CSAI2102_AIQUEST_V15_M1_FINAL_POLISH';
+
     const DIFF = {
-      easy: { label:'Easy', timeMul:1.25, hint:true, bonus:0 },
-      normal: { label:'Normal', timeMul:1, hint:true, bonus:5 },
-      challenge: { label:'Challenge', timeMul:.78, hint:false, bonus:12 }
+      easy: {
+        label:'Easy',
+        time:160,
+        rush:6,
+        trick:2,
+        explain:2,
+        boss:3,
+        help:3,
+        bonus:0
+      },
+      normal: {
+        label:'Normal',
+        time:138,
+        rush:8,
+        trick:3,
+        explain:3,
+        boss:4,
+        help:3,
+        bonus:5
+      },
+      challenge: {
+        label:'Challenge',
+        time:120,
+        rush:9,
+        trick:4,
+        explain:4,
+        boss:5,
+        help:2,
+        bonus:12
+      }
     };
 
     const STAGES = [
@@ -1003,13 +1089,14 @@
         topic:'Introduction to AI',
         badge:'AI Observer Master',
         playable:true,
-        mastery:'ตอบถูก ≥85%, Explain ≥2, ชนะ Mini Boss, Max Combo x5 และใช้ AI Help อย่างมีกลยุทธ์',
+        mastery:'Score ≥85, Max Combo x5, Explain ≥2, Trick ≥2, Boss Win, AI Help ≤2',
         objectives:[
-          'คลังคำถาม 120 รายการ',
+          'Question Bank 120 รายการ',
           'No-repeat Smart Randomizer',
-          'AI Help 3 ครั้ง',
-          'AI Coach + Misconception Tracking',
-          'Card Rush + Trick Cards + Explain Strike + Mini Boss'
+          'AI Help + AI Coach',
+          'Review Wrong Items',
+          'Teacher Export Summary',
+          'Mobile One-hand Mode'
         ]
       },
       {
@@ -1021,7 +1108,7 @@
         topic:'Intelligent Agent',
         badge:'Agent Designer',
         playable:false,
-        mastery:'Coming in full merge',
+        mastery:'Coming in Session 2',
         objectives:['Coming Soon']
       },
       {
@@ -1033,7 +1120,7 @@
         topic:'AI Overview + Agent',
         badge:'Rookie Challenger',
         playable:false,
-        mastery:'Coming in full merge',
+        mastery:'Coming Soon',
         objectives:['Coming Soon']
       },
       {
@@ -1041,11 +1128,11 @@
         no:'3',
         type:'main',
         division:'Division 2: Search Arena',
-        title:'Maze Escape',
+        title:'Search Maze',
         topic:'BFS / DFS',
         badge:'Maze Solver',
         playable:false,
-        mastery:'Coming in full merge',
+        mastery:'Coming in Session 3',
         objectives:['Coming Soon']
       },
       {
@@ -1057,8 +1144,8 @@
         topic:'UCS / Cost Search',
         badge:'Cost Pathfinder',
         playable:false,
-        mastery:'Coming Soon',
-        objectives:['เข้าใจ path cost']
+        mastery:'Coming in Session 4',
+        objectives:['Coming Soon']
       },
       {
         id:'m5',
@@ -1069,176 +1156,8 @@
         topic:'Heuristic / A*',
         badge:'A* Navigator',
         playable:false,
-        mastery:'Coming Soon',
-        objectives:['คำนวณ g(n), h(n), f(n)']
-      },
-      {
-        id:'m6',
-        no:'6',
-        type:'main',
-        division:'Division 2: Search Arena',
-        title:'Minimax Battle',
-        topic:'Game AI / Minimax',
-        badge:'Game Strategist',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['เข้าใจ MAX/MIN']
-      },
-      {
-        id:'b2',
-        no:'B2',
-        type:'boss',
-        division:'Division 2: Search Arena',
-        title:'Search Arena Boss',
-        topic:'Search + A* + Minimax',
-        badge:'Search Champion',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['เลือก algorithm ให้เหมาะกับสถานการณ์']
-      },
-      {
-        id:'m7',
-        no:'7',
-        type:'main',
-        division:'Division 3: Reasoning Lab',
-        title:'AI Detective',
-        topic:'Bayes / Fuzzy',
-        badge:'Uncertainty Detective',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['แยก probability กับ fuzzy level']
-      },
-      {
-        id:'m8',
-        no:'8',
-        type:'main',
-        division:'Division 3: Reasoning Lab',
-        title:'Midterm Review Mission',
-        topic:'Classical AI Review',
-        badge:'Midterm Challenger',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['ทบทวน Week 1–7']
-      },
-      {
-        id:'m9',
-        no:'9',
-        type:'main',
-        division:'Division 3: Reasoning Lab',
-        title:'Rule Master',
-        topic:'Expert System',
-        badge:'Rule Engineer',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['สร้างกฎ If-Then']
-      },
-      {
-        id:'b3',
-        no:'B3',
-        type:'boss',
-        division:'Division 3: Reasoning Lab',
-        title:'Reasoning Lab Boss',
-        topic:'Bayes + Fuzzy + Expert System',
-        badge:'Reasoning Master',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['เลือก reasoning ที่เหมาะสม']
-      },
-      {
-        id:'m10',
-        no:'10',
-        type:'main',
-        division:'Division 4: Data League',
-        title:'Data Trainer',
-        topic:'ML Fundamentals',
-        badge:'Data Explorer',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['เลือก feature/label']
-      },
-      {
-        id:'m11',
-        no:'11',
-        type:'main',
-        division:'Division 4: Data League',
-        title:'Classifier Arena',
-        topic:'Supervised Learning',
-        badge:'Classifier Builder',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['ออกแบบ classification task']
-      },
-      {
-        id:'m12',
-        no:'12',
-        type:'main',
-        division:'Division 4: Data League',
-        title:'Cluster & Reward Quest',
-        topic:'Unsupervised / RL',
-        badge:'Pattern Hunter',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['แยก clustering กับ reward learning']
-      },
-      {
-        id:'m13',
-        no:'13',
-        type:'main',
-        division:'Division 4: Data League',
-        title:'Neural Forge',
-        topic:'Neural Networks / Deep Learning',
-        badge:'Neural Apprentice',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['เห็น input → hidden layer → output']
-      },
-      {
-        id:'b4',
-        no:'B4',
-        type:'boss',
-        division:'Division 4: Data League',
-        title:'Data League Boss',
-        topic:'ML + DL',
-        badge:'Data League Champion',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['เลือกข้อมูลและวิธีเรียนรู้ให้เหมาะ']
-      },
-      {
-        id:'m14',
-        no:'14',
-        type:'main',
-        division:'Division 5: Future AI Arena',
-        title:'Prompt Guardian',
-        topic:'NLP / GenAI / Ethics',
-        badge:'Responsible Prompter',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['ตรวจ hallucination, bias, privacy']
-      },
-      {
-        id:'m15',
-        no:'15',
-        type:'main',
-        division:'Division 5: Future AI Arena',
-        title:'AI Final Expo',
-        topic:'Mini Project Integration',
-        badge:'AI Innovator',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['อธิบาย project ด้วยหลักการ AI']
-      },
-      {
-        id:'b5',
-        no:'B5',
-        type:'boss',
-        division:'Division 5: Future AI Arena',
-        title:'Grand AI Master Boss',
-        topic:'Course Integration',
-        badge:'Grand AI Master',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['บูรณาการทั้งรายวิชา']
+        mastery:'Coming in Session 5',
+        objectives:['Coming Soon']
       }
     ];
 
@@ -1255,11 +1174,13 @@
     let timeMax = 0;
     let gameLocked = false;
     let audioCtx = null;
+    let lastSummary = null;
 
     function defaultState(){
       return {
         completed:{},
         stars:{},
+        mastered:{},
         badges:[],
         bestScore:{},
         bestTime:{},
@@ -1283,10 +1204,6 @@
 
     function difficulty(){
       return DIFF[state.difficulty] || DIFF.normal;
-    }
-
-    function baseTime(sec){
-      return Math.max(20, Math.round(sec * difficulty().timeMul));
     }
 
     function isUnlocked(stage){
@@ -1328,7 +1245,8 @@
         star:980,
         tick:520,
         explain:880,
-        coach:660
+        coach:660,
+        export:420
       }[type] || 520;
 
       osc.frequency.setValueAtTime(freq, now);
@@ -1383,7 +1301,7 @@
       el('statCompleted').textContent = completed;
       el('statStars').textContent = stars;
       el('statBadges').textContent = state.badges.length;
-      el('statLevel').textContent = completed >= 1 ? 'Observer' : 'Rookie';
+      el('statLevel').textContent = state.mastered.m1 ? 'Master' : completed >= 1 ? 'Observer' : 'Rookie';
       el('progressFill').style.width = `${Math.round(completed / 20 * 100)}%`;
       el('difficultySelect').value = state.difficulty;
 
@@ -1391,7 +1309,7 @@
       if(state.badges.length){
         rack.innerHTML = state.badges.map(badge => `<span class="badge">🏅 ${badge}</span>`).join('');
       }else{
-        rack.innerHTML = '<span class="badge empty">ยังไม่มี Badge — เริ่ม Mission 1 ได้เลย</span>';
+        rack.innerHTML = '<span class="badge empty">ยังไม่มี Badge — เริ่ม Session 1 ได้เลย</span>';
       }
     }
 
@@ -1417,9 +1335,13 @@
         const unlocked = isUnlocked(stage);
         const completed = !!state.completed[stage.id];
         const stars = state.stars[stage.id] || 0;
-        const status = completed
-          ? (stars === 3 ? 'Mastered' : 'Completed')
-          : (!stage.playable ? 'Coming Soon' : unlocked ? 'Available' : 'Locked');
+        const mastered = !!state.mastered[stage.id];
+
+        const status = mastered
+          ? 'Mastered'
+          : completed
+            ? 'Completed'
+            : (!stage.playable ? 'Coming Soon' : unlocked ? 'Available' : 'Locked');
 
         const best = state.bestScore[stage.id] ? `Best ${state.bestScore[stage.id]}` : 'No score';
 
@@ -1430,7 +1352,7 @@
           ${stage.type === 'boss' ? 'boss' : ''}
           ${!unlocked && !completed ? 'locked' : ''}
           ${completed ? 'completed' : ''}
-          ${stars === 3 ? 'mastered' : ''}
+          ${mastered ? 'mastered' : ''}
         `;
 
         card.innerHTML = `
@@ -1463,12 +1385,15 @@
       const stage = stageById(id);
       const unlocked = isUnlocked(stage);
       const completed = !!state.completed[id];
+      const mastered = !!state.mastered[id];
       const best = state.bestScore[id] || '-';
       const bestTime = state.bestTime[id] ? state.bestTime[id] + 's' : '-';
 
-      const status = completed
-        ? 'Completed'
-        : (!stage.playable ? 'Coming Soon' : unlocked ? 'Available' : 'Locked');
+      const status = mastered
+        ? 'Mastered'
+        : completed
+          ? 'Completed'
+          : (!stage.playable ? 'Coming Soon' : unlocked ? 'Available' : 'Locked');
 
       el('detailPanel').innerHTML = `
         <div class="tagline">${stage.division}</div>
@@ -1491,7 +1416,7 @@
 
         <div class="row" style="margin-top:14px">
           <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed)) ? 'disabled' : ''}>
-            เริ่มภารกิจ
+            เริ่ม Session
           </button>
           <button class="btn secondary" id="reviewSelected">ดูสถานะ</button>
         </div>
@@ -1499,7 +1424,7 @@
 
       el('startSelected').onclick = () => startMission(stage.id);
       el('reviewSelected').onclick = () => {
-        showToast(completed ? `คะแนนดีที่สุด ${best} / ดาว ${state.stars[id] || 0}` : 'ยังไม่ผ่านด่านนี้');
+        showToast(completed ? `คะแนนดีที่สุด ${best} / ดาว ${state.stars[id] || 0}` : 'ยังไม่ผ่าน Session นี้');
       };
     }
 
@@ -1544,6 +1469,7 @@
         const pct = Math.max(0, (timeLeft / timeMax) * 100);
         fill.style.width = pct + '%';
         fill.classList.toggle('low', pct < 25);
+
         if(area){
           area.classList.toggle('dangerFlash', pct < 18 && timeLeft > 0);
         }
@@ -1638,20 +1564,28 @@
 
       el('resultHeading').textContent = `${currentMission.no}: ${currentMission.title}`;
       el('resultSubheading').textContent = `หัวข้อ: ${currentMission.topic}`;
-      el('resultBadge').textContent = stars > 0 ? `Badge: ${currentMission.badge}` : 'ยังไม่ผ่าน ลองเล่นซ้ำเพื่อเก็บดาว';
+      el('resultBadge').textContent = currentMeta.mastered
+        ? `MASTERED: ${currentMission.badge}`
+        : stars > 0
+          ? `Badge: ${currentMission.badge}`
+          : 'ยังไม่ผ่าน ลองเล่นซ้ำเพื่อเก็บดาว';
+
       el('resultScore').textContent = currentScore;
       el('resultStars').textContent = starText(stars);
       el('resultFeedback').textContent = currentFeedback;
       el('coachSummary').innerHTML = currentMeta.coachSummary || '<b>AI Coach Summary</b><br>ไม่มีข้อมูลสรุป';
+      el('wrongReview').innerHTML = currentMeta.wrongReview || '<b>Review Wrong Items</b><br>ไม่มีข้อมูลข้อผิดพลาด';
       el('resultBestScore').textContent = `Best Score: ${Math.max(currentScore, state.bestScore[currentMission.id] || 0)}`;
       el('resultBestTime').textContent = `Best Time: ${bestTimePreview(currentMission.id, currentMeta.usedTime)}`;
       el('resultDiff').textContent = `Difficulty: ${difficulty().label}`;
+      el('resultMastery').textContent = `Mastery: ${currentMeta.mastered ? 'YES' : 'Not yet'}`;
 
       const refs = state.reflections[currentMission.id] || {};
       el('ref1').value = refs.ref1 || '';
       el('ref2').value = refs.ref2 || '';
       el('ref3').value = refs.ref3 || '';
 
+      lastSummary = currentMeta.summary || null;
       switchScreen('resultScreen');
     }
 
@@ -1675,8 +1609,9 @@
         return;
       }
 
+      const diff = difficulty();
       const startTs = Date.now();
-      const totalTime = baseTime(state.difficulty === 'challenge' ? 120 : 138);
+      const totalTime = diff.time;
       const round = buildMission1Round(state.difficulty);
 
       const metrics = {
@@ -1688,22 +1623,23 @@
         trickCorrect:0,
         bossWin:false,
         wrong:0,
-        helpLeft:3,
+        helpLeft:diff.help,
+        wrongItems:[],
         mis:{}
       };
 
       const area = el('gameArea');
 
-      let rush = round.rush;
+      let rush = round.rush.slice(0, diff.rush);
       let rushIdx = 0;
 
-      let tricks = round.tricks;
+      let tricks = round.tricks.slice(0, diff.trick);
       let trickIdx = 0;
 
-      let explains = round.explains;
+      let explains = round.explains.slice(0, diff.explain);
       let expIdx = 0;
 
-      let bossClaims = round.boss;
+      let bossClaims = round.boss.slice(0, diff.boss);
       let bossIdx = 0;
 
       let bossHp = 100;
@@ -1724,6 +1660,17 @@
           `)}
           ${phaseHTML(active, done)}
         `;
+      }
+
+      function addWrongItem(item){
+        metrics.wrongItems.push({
+          phase:item.phase || '',
+          prompt:item.prompt || '',
+          yourAnswer:item.yourAnswer || '',
+          correctAnswer:item.correctAnswer || '',
+          explanation:item.explanation || '',
+          coach:item.coach || ''
+        });
       }
 
       function coachTip(type){
@@ -1815,7 +1762,7 @@
           <div class="feedback" id="fb">เลือกคำตอบเพื่อเก็บ Combo</div>
 
           <div class="coachBox" id="coachBox">
-            <b>AI Coach:</b> กด AI Help ได้ 3 ครั้ง ระบบจะให้คำใบ้โดยไม่เฉลย
+            <b>AI Coach:</b> กด AI Help ได้ ${diff.help} ครั้ง ระบบจะให้คำใบ้โดยไม่เฉลย
           </div>
         `;
 
@@ -1827,7 +1774,8 @@
 
         area.querySelectorAll('.choiceBtn').forEach(btn => {
           btn.onclick = () => {
-            const ok = btn.dataset.a === card.answer;
+            const selected = btn.dataset.a;
+            const ok = selected === card.answer;
 
             area.querySelectorAll('.choiceBtn').forEach(b => {
               b.disabled = true;
@@ -1838,6 +1786,15 @@
 
             if(!ok){
               btn.classList.add('wrong');
+
+              addWrongItem({
+                phase:'Card Rush',
+                prompt:card.label,
+                yourAnswer:selected,
+                correctAnswer:card.answer,
+                explanation:card.why,
+                coach:card.coach || coachTip(card.misconception)
+              });
             }
 
             effect(
@@ -1897,7 +1854,8 @@
 
         area.querySelectorAll('.choiceBtn').forEach(btn => {
           btn.onclick = () => {
-            const ok = btn.dataset.a === card.answer;
+            const selected = btn.dataset.a;
+            const ok = selected === card.answer;
 
             if(ok){
               metrics.trickCorrect++;
@@ -1912,6 +1870,15 @@
 
             if(!ok){
               btn.classList.add('wrong');
+
+              addWrongItem({
+                phase:'Trick Cards',
+                prompt:card.label,
+                yourAnswer:selected,
+                correctAnswer:card.answer,
+                explanation:card.why,
+                coach:card.coach || coachTip(card.misconception)
+              });
             }
 
             effect(
@@ -1972,12 +1939,22 @@
 
         area.querySelectorAll('.choiceBtn').forEach(btn => {
           btn.onclick = () => {
-            const ok = btn.dataset.r === correctReason;
+            const selected = btn.dataset.r;
+            const ok = selected === correctReason;
 
             if(ok){
               metrics.explainCorrect++;
             }else{
               metrics.mis.automation = (metrics.mis.automation || 0) + 1;
+
+              addWrongItem({
+                phase:'Explain Strike',
+                prompt:item.stem,
+                yourAnswer:selected,
+                correctAnswer:correctReason,
+                explanation:`Concept: ${item.concept || 'AI Criteria'}`,
+                coach:item.coach || coachTip('automation')
+              });
             }
 
             area.querySelectorAll('.choiceBtn').forEach(b => {
@@ -2085,7 +2062,8 @@
 
         area.querySelectorAll('.choiceBtn').forEach(btn => {
           btn.onclick = () => {
-            const ok = btn.dataset.c === claim.counter;
+            const selected = btn.dataset.c;
+            const ok = selected === claim.counter;
 
             area.querySelectorAll('.choiceBtn').forEach(b => {
               b.disabled = true;
@@ -2118,6 +2096,15 @@
               timeLeft = Math.max(0, timeLeft - 5);
               beep('bad');
 
+              addWrongItem({
+                phase:'Mini Boss',
+                prompt:claim.claim,
+                yourAnswer:selected,
+                correctAnswer:claim.counter,
+                explanation:claim.why,
+                coach:claim.coach || coachTip(claim.key)
+              });
+
               el('fb').className = 'feedback bad';
               el('fb').textContent = `Boss โจมตี! ${claim.why} — คำตอบที่ดีคือ: ${claim.counter}`;
 
@@ -2137,23 +2124,13 @@
 
               if(bossIdx >= bossClaims.length || bossHp <= 0 || playerHp <= 0){
                 metrics.bossWin = bossHp <= 0 || (playerHp > 0 && bossIdx >= bossClaims.length);
-                end(metrics.bossWin, 'จบ Mission 1 Ultimate + AI Coach');
+                end(metrics.bossWin, 'จบ Session 1 Final Polish');
               }else{
                 showMiniBoss();
               }
             }, 1250);
           };
         });
-      }
-
-      function coachTip(type){
-        if(typeof getCoachSummaryFromMistakes === 'function'){
-          const obj = {};
-          obj[type || 'general'] = 1;
-          return getCoachSummaryFromMistakes(obj)[0] || 'AI Coach: ลองดูว่าระบบเรียนรู้ ทำนาย จำแนก แนะนำ หรือสร้างผลลัพธ์จากข้อมูลหรือไม่';
-        }
-
-        return 'AI Coach: ลองดูว่าระบบเรียนรู้ ทำนาย จำแนก แนะนำ หรือสร้างผลลัพธ์จากข้อมูลหรือไม่';
       }
 
       function coachSummary(){
@@ -2180,28 +2157,102 @@
         `;
       }
 
+      function wrongReviewHTML(){
+        const wrongs = metrics.wrongItems || [];
+
+        if(!wrongs.length){
+          return `
+            <b>Review Wrong Items</b><br>
+            เยี่ยมมาก! รอบนี้ไม่มีข้อผิดพลาดที่ต้องทบทวน
+          `;
+        }
+
+        const shown = wrongs.slice(0, 5);
+
+        return `
+          <b>Review Wrong Items</b><br>
+          ทบทวนข้อที่ตอบผิด ${shown.length}/${wrongs.length} ข้อแรก
+          ${shown.map((item, index) => `
+            <div class="wrongReviewItem">
+              <strong>${index + 1}. ${escapeHtml(item.phase)}:</strong>
+              ${escapeHtml(item.prompt)}
+              <br>
+              <b>คุณตอบ:</b> ${escapeHtml(item.yourAnswer)}
+              <br>
+              <b>คำตอบที่เหมาะกว่า:</b> ${escapeHtml(item.correctAnswer)}
+              <br>
+              <b>เหตุผล:</b> ${escapeHtml(item.explanation)}
+              <br>
+              <b>AI Coach:</b> ${escapeHtml(item.coach)}
+            </div>
+          `).join('')}
+        `;
+      }
+
       function end(win, message){
         const used = Math.round((Date.now() - startTs) / 1000);
         const accuracy = metrics.total ? metrics.correct / metrics.total : 0;
         const timeBonus = Math.max(0, Math.round(timeLeft / timeMax * 12));
+        const helpUsed = diff.help - metrics.helpLeft;
+        const helpPenalty = helpUsed * 1;
+        const wrongPenalty = Math.min(metrics.wrong * 2, 12);
 
         const score =
-          accuracy * 48 +
+          accuracy * 46 +
           metrics.maxCombo * 4 +
           metrics.explainCorrect * 7 +
           metrics.trickCorrect * 5 +
           (metrics.bossWin ? 14 : 0) +
-          (3 - metrics.helpLeft) * -1 +
           timeBonus +
-          difficulty().bonus -
-          Math.min(metrics.wrong * 2, 12);
+          diff.bonus -
+          helpPenalty -
+          wrongPenalty;
+
+        const finalScore = Math.max(0, Math.min(100, Math.round(score)));
+
+        const mastered =
+          finalScore >= 85 &&
+          metrics.maxCombo >= 5 &&
+          metrics.explainCorrect >= 2 &&
+          metrics.trickCorrect >= 2 &&
+          metrics.bossWin &&
+          helpUsed <= 2;
+
+        const summary = {
+          missionId:'m1',
+          missionTitle:'AI Awakening',
+          version:'v1.5-session1-final-polish',
+          score:finalScore,
+          stars:calcStars(finalScore),
+          mastered,
+          difficulty:state.difficulty,
+          usedTimeSec:used,
+          timeLeftSec:timeLeft,
+          accuracy:Math.round(accuracy * 100),
+          correct:metrics.correct,
+          total:metrics.total,
+          wrong:metrics.wrong,
+          maxCombo:metrics.maxCombo,
+          helpUsed,
+          trickCorrect:metrics.trickCorrect,
+          trickTotal:tricks.length,
+          explainCorrect:metrics.explainCorrect,
+          explainTotal:explains.length,
+          bossWin:metrics.bossWin,
+          misconceptions:metrics.mis,
+          wrongItems:metrics.wrongItems,
+          timestamp:new Date().toISOString()
+        };
 
         finishMission(
-          score,
-          `${message}: Accuracy ${Math.round(accuracy * 100)}%, Max Combo x${metrics.maxCombo}, Trick ${metrics.trickCorrect}/${tricks.length}, Explain ${metrics.explainCorrect}/${explains.length}, AI Help ใช้ ${3 - metrics.helpLeft}/3, Boss ${metrics.bossWin ? 'ชนะ' : 'ยังไม่ชนะ'}`,
+          finalScore,
+          `${message}: Accuracy ${summary.accuracy}%, Max Combo x${metrics.maxCombo}, Trick ${metrics.trickCorrect}/${tricks.length}, Explain ${metrics.explainCorrect}/${explains.length}, AI Help ใช้ ${helpUsed}/${diff.help}, Boss ${metrics.bossWin ? 'ชนะ' : 'ยังไม่ชนะ'}, Mastery ${mastered ? 'YES' : 'Not yet'}`,
           {
             usedTime:used,
-            coachSummary:coachSummary()
+            mastered,
+            coachSummary:coachSummary(),
+            wrongReview:wrongReviewHTML(),
+            summary
           }
         );
       }
@@ -2218,6 +2269,10 @@
 
       if(stars > (state.stars[id] || 0)){
         state.stars[id] = stars;
+      }
+
+      if(currentMeta.mastered){
+        state.mastered[id] = true;
       }
 
       if(currentScore > (state.bestScore[id] || 0)){
@@ -2244,8 +2299,35 @@
       showToast('บันทึกผลเรียบร้อย — เล่นซ้ำเพื่อ Mastery ได้');
     }
 
+    async function exportSummary(){
+      if(!lastSummary){
+        showToast('ยังไม่มี Summary ให้ Export');
+        return;
+      }
+
+      const payload = JSON.stringify(lastSummary, null, 2);
+
+      try{
+        await navigator.clipboard.writeText(payload);
+        beep('export');
+        showToast('Copy Summary JSON แล้ว');
+      }catch(error){
+        const blob = new Blob([payload], {type:'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `aiquest-session1-summary-${Date.now()}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        beep('export');
+        showToast('Download Summary JSON แล้ว');
+      }
+    }
+
     function escapeHtml(text){
-      return String(text).replace(/[&<>"]/g, ch => ({
+      return String(text ?? '').replace(/[&<>"]/g, ch => ({
         '&':'&amp;',
         '<':'&lt;',
         '>':'&gt;',
@@ -2284,6 +2366,8 @@
       }
     });
 
+    el('btnExportSummary').addEventListener('click', exportSummary);
+
     el('btnReset').addEventListener('click', () => {
       el('confirmModal').classList.add('show');
     });
@@ -2299,6 +2383,7 @@
       state = defaultState();
       el('confirmModal').classList.remove('show');
       selectedStageId = 'm1';
+      lastSummary = null;
 
       renderAll();
       switchScreen('menuScreen');
@@ -2307,6 +2392,5 @@
 
     renderAll();
   </script>
-  <script src="./js/session1-final-polish.js?v=2026-SESSION1-FINAL-POLISH"></script>
 </body>
 </html>
