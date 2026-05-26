@@ -1556,6 +1556,21 @@ async function saveStudentProfile(){
 
     function phaseHTML(active, done=[]){
       const phases = ['Card Rush','Trick Cards','Explain Strike','Mini Boss'];
+      logEvent({
+  eventType: 'boss_answer',
+  phase: 'Mini Boss',
+  itemId: claim.id || '',
+  prompt: claim.claim,
+  yourAnswer: selected,
+  correctAnswer: claim.counter,
+  isCorrect: ok,
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft,
+  extraJson: {
+    misconceptionKey: claim.key || '',
+    why: claim.why || ''
+  }
+});
 
       return `
         <div class="phaseStrip">
@@ -1689,6 +1704,29 @@ async function saveStudentProfile(){
         mis:{}
       };
 
+      const attemptId = window.AIQuestStorage
+  ? AIQuestStorage.uid('att')
+  : 'att_' + Date.now();
+
+const eventLog = [];
+
+function logEvent(data){
+  const profile = window.AIQuestStorage ? AIQuestStorage.getProfile() : {};
+
+  eventLog.push({
+    eventId: window.AIQuestStorage ? AIQuestStorage.uid('evt') : 'evt_' + Date.now() + '_' + Math.random(),
+    attemptId,
+    studentId: profile.studentId || '',
+    section: profile.section || '',
+    sessionId: 's1',
+    missionId: 'm1',
+    clientTs: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    pageUrl: location.href,
+    ...data
+  });
+}
+
       const area = el('gameArea');
 
       let rush = round.rush.slice(0, diff.rush);
@@ -1709,6 +1747,21 @@ async function saveStudentProfile(){
       startTimer(totalTime, () => {
         end(false, 'หมดเวลา! AI Coach แนะนำให้เล่นซ้ำโดยเน้น Trick Cards และ Explain Strike');
       });
+
+      logEvent({
+  eventType: 'answer_submit',
+  phase: 'Explain Strike',
+  itemId: item.id || '',
+  prompt: item.stem,
+  yourAnswer: selected,
+  correctAnswer: correctReason,
+  isCorrect: ok,
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft,
+  extraJson: {
+    concept: item.concept || ''
+  }
+});
 
       showRush();
 
@@ -1751,6 +1804,17 @@ async function saveStudentProfile(){
         }
 
         metrics.helpLeft--;
+        logEvent({
+  eventType: 'ai_help_used',
+  phase: 'AI Help',
+  itemId: '',
+  prompt: text || '',
+  yourAnswer: '',
+  correctAnswer: '',
+  isCorrect: '',
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft
+});
         beep('coach');
         updateHelp(metrics.helpLeft);
 
@@ -1949,6 +2013,22 @@ async function saveStudentProfile(){
               `โดนหลอกแล้ว — ${card.why}`,
               card.misconception
             );
+
+            logEvent({
+  eventType: 'answer_submit',
+  phase: 'Card Rush',
+  itemId: card.id || '',
+  prompt: card.label,
+  yourAnswer: selected,
+  correctAnswer: card.answer,
+  isCorrect: ok,
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft,
+  extraJson: {
+    misconception: card.misconception || '',
+    group: card.group || ''
+  }
+});
 
             setTimeout(() => {
               trickIdx++;
@@ -2218,6 +2298,22 @@ async function saveStudentProfile(){
         `;
       }
 
+      logEvent({
+  eventType: 'answer_submit',
+  phase: 'Trick Cards',
+  itemId: card.id || '',
+  prompt: card.label,
+  yourAnswer: selected,
+  correctAnswer: card.answer,
+  isCorrect: ok,
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft,
+  extraJson: {
+    misconception: card.misconception || '',
+    group: card.group || ''
+  }
+});
+
       function wrongReviewHTML(){
         const wrongs = metrics.wrongItems || [];
 
@@ -2318,6 +2414,47 @@ async function saveStudentProfile(){
         );
       }
     }
+
+    summary.attemptId = attemptId;
+    summary.attemptId = attemptId;
+summary.events = eventLog;
+
+logEvent({
+  eventType: 'session_end',
+  phase: 'end',
+  itemId: '',
+  prompt: 'Session 1 ended',
+  yourAnswer: '',
+  correctAnswer: '',
+  isCorrect: '',
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft,
+  extraJson: {
+    score: finalScore,
+    mastered,
+    bossWin: metrics.bossWin,
+    accuracy: Math.round(accuracy * 100)
+  }
+});
+summary.events = eventLog;
+
+logEvent({
+  eventType: 'session_end',
+  phase: 'end',
+  itemId: '',
+  prompt: 'Session 1 ended',
+  yourAnswer: '',
+  correctAnswer: '',
+  isCorrect: '',
+  combo: metrics.combo,
+  helpLeft: metrics.helpLeft,
+  extraJson: {
+    score: finalScore,
+    mastered,
+    bossWin: metrics.bossWin,
+    accuracy: Math.round(accuracy * 100)
+  }
+});
 
     function saveResult(){
       const id = currentMission.id;
