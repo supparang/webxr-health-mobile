@@ -829,7 +829,7 @@
   (function(){
     'use strict';
 
-    const APP_VERSION = 'v20260525-groups-cvr-standalone-02-arena-fix';
+    const APP_VERSION = 'v20260525-groups-cvr-standalone-03-food-safe-fix';
     const qs = new URLSearchParams(location.search);
 
     const $ = (id)=>document.getElementById(id);
@@ -939,6 +939,28 @@
     function pick(arr){
       return arr[Math.floor(rand()*arr.length)];
     }
+    
+    function safePickFood(){
+  if (!Array.isArray(foods) || foods.length === 0) {
+    return { name:'ไข่', emoji:'🥚', g:1 };
+  }
+
+  const item = pick(foods);
+
+  if (!item || !item.name || !item.emoji || !item.g) {
+    return foods[0] || { name:'ไข่', emoji:'🥚', g:1 };
+  }
+
+  return item;
+}
+
+function ensureCurrentFood(){
+  if (!state.current || !state.current.name || !state.current.emoji || !state.current.g) {
+    state.current = safePickFood();
+  }
+
+  return state.current;
+}
 
     const groups = [
       {id:1,label:'หมู่ 1 โปรตีน',short:'โปรตีน',emoji:'🥚'},
@@ -1066,7 +1088,7 @@
     }
 
     function spawnFood(){
-      state.current = pick(foods);
+      state.current = safePickFood();
       state.selected = null;
       state.itemsSeen += 1;
 
@@ -1082,8 +1104,10 @@
       state.dx = Math.cos(angle) * sp;
       state.dy = Math.sin(angle) * sp;
 
-      els.foodEmoji.textContent = state.current.emoji;
-      els.foodName.textContent = state.current.name;
+      const food = ensureCurrentFood();
+
+      els.foodEmoji.textContent = food.emoji;
+      els.foodName.textContent = food.name;
       els.selectedFood.textContent = 'LOCK แล้ว: ' + state.selected.emoji + ' ' + state.selected.name + ' • รอ Portal หมู่ ' + state.selected.g + ' สว่าง แล้วแตะอีกครั้ง';
       els.targetText.textContent = 'อาหารนี้อยู่หมู่ ' + state.selected.g + ' • รอประตูตรง แล้วกดส่ง';
       els.foodToken.classList.remove('aim');
@@ -1153,6 +1177,7 @@
     }
 
     function selectFood(){
+      ensureCurrentFood();
       if(!state.current) return;
 
       state.selected = state.current;
@@ -1175,7 +1200,10 @@
     }
 
     function judge(){
-      if(!state.selected) return selectFood();
+      if(!state.selected) {
+      ensureCurrentFood();
+      return selectFood();
+    }
 
       const correctGate = state.selected.g;
       const chosen = state.activeGate;
