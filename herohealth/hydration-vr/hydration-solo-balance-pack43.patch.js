@@ -474,9 +474,10 @@
     var rank = 'Bronze';
     var stars = 1;
 
-    if(balanced >= 8200 && hydration >= 75 && combo >= 22 && missions >= 4 && bad <= 4 && bossWin){
+    if(balanced >= 8200 && hydration >= 72 && combo >= 22 && missions >= 4 && bad <= 4 && bossWin){
       rank = 'Diamond';
       stars = 3;
+    }
     }else if(balanced >= 5600 && hydration >= 58 && combo >= 12){
       rank = 'Gold';
       stars = 2;
