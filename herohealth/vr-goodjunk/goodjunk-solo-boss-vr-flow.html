@@ -137,5 +137,310 @@ function boot(){applyView();bind();updateHud();WIN.GoodJunkFull3DVRFlow=WIN.GJF3
 if(typeof AFRAME==='undefined'){DOC.body.innerHTML='<div style="padding:24px;font-family:system-ui"><h1>A-Frame โหลดไม่สำเร็จ</h1><p>ตรวจ Internet/CDN แล้วโหลดใหม่</p></div>';return}if(DOC.readyState==='loading')DOC.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK TARGET ICON CANVAS RESTORE
+  PATCH: v8.47.7a-GOODJUNK-TARGET-ICON-CANVAS-RESTORE
+  PLACE: very last before </body>
+  FIX:
+    - เป้าออกแล้วแต่รูป/emoji ไม่ขึ้น
+    - ใช้ canvas dataURL เป็น a-image แทน a-text emoji
+    - ไม่แตะ score / hitbox / summary / cooldown / return
+========================================================= -->
+
+<style id="gj-target-icon-canvas-restore-css">
+  body[data-gj-target-icon-canvas-restore="1"] .gj-target-root[data-kind]{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  body[data-gj-target-icon-canvas-restore="1"] .gj-target-root[data-kind] .gj-target-icon-canvas-layer{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-target-icon-canvas-restore="1"] .gj-target-root[data-kind] a-image{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+</style>
+
+<script id="gj-target-icon-canvas-restore-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_TARGET_ICON_CANVAS_RESTORE__) return;
+  window.__GJ_TARGET_ICON_CANVAS_RESTORE__ = true;
+
+  const PATCH = 'v8.47.7a-GOODJUNK-TARGET-ICON-CANVAS-RESTORE';
+
+  const EMOJI = {
+    broccoli:'🥦',
+    apple:'🍎',
+    egg:'🥚',
+    water:'💧',
+    fries:'🍟',
+    soda:'🥤',
+    donut:'🍩',
+    candy:'🍬',
+    'juice-box':'🧃',
+    shield:'🛡️',
+    fever:'⚡',
+    heart:'💚'
+  };
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function kindOf(root){
+    return String(
+      root &&
+      (
+        root.dataset && root.dataset.kind ||
+        root.getAttribute && root.getAttribute('data-kind')
+      ) || ''
+    );
+  }
+
+  function dataOf(root){
+    try{
+      return root.__data || {};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function fileKey(file){
+    return String(file || '')
+      .toLowerCase()
+      .replace(/\?.*$/,'')
+      .replace(/\.png$/,'');
+  }
+
+  function inferEmoji(root){
+    const kind = kindOf(root);
+    const d = dataOf(root);
+
+    const id = String(d.id || '').toLowerCase();
+    const file = fileKey(d.file || '');
+    const label = String(d.label || '').toLowerCase();
+
+    if (EMOJI[id]) return EMOJI[id];
+    if (EMOJI[file]) return EMOJI[file];
+    if (EMOJI[label]) return EMOJI[label];
+
+    if (kind === 'warm-power' || kind === 'power') return '🛡️';
+    if (kind === 'breath') return '💧';
+    if (kind === 'junk' || kind === 'warm-junk') return '🍟';
+    if (kind === 'fake') return '🧃';
+    if (kind === 'good' || kind === 'warm-good') return '🥦';
+
+    return '🥦';
+  }
+
+  function colorOf(root){
+    const kind = kindOf(root);
+
+    if (kind === 'junk' || kind === 'warm-junk'){
+      return {
+        bg:'#fee2e2',
+        rim:'#ef4444',
+        text:'#7f1d1d'
+      };
+    }
+
+    if (kind === 'fake'){
+      return {
+        bg:'#fef3c7',
+        rim:'#f59e0b',
+        text:'#78350f'
+      };
+    }
+
+    if (kind === 'power' || kind === 'warm-power'){
+      return {
+        bg:'#dbeafe',
+        rim:'#38bdf8',
+        text:'#172554'
+      };
+    }
+
+    if (kind === 'breath'){
+      return {
+        bg:'#e0f2fe',
+        rim:'#0ea5e9',
+        text:'#075985'
+      };
+    }
+
+    return {
+      bg:'#dcfce7',
+      rim:'#22c55e',
+      text:'#14532d'
+    };
+  }
+
+  function makeEmojiCanvasUrl(emoji, style){
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+
+    const ctx = canvas.getContext('2d');
+
+    ctx.clearRect(0, 0, 512, 512);
+
+    ctx.beginPath();
+    ctx.arc(256, 256, 238, 0, Math.PI * 2);
+    ctx.fillStyle = style.bg;
+    ctx.fill();
+
+    ctx.lineWidth = 26;
+    ctx.strokeStyle = style.rim;
+    ctx.stroke();
+
+    ctx.font =
+      '250px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, 256, 248);
+
+    return canvas.toDataURL('image/png');
+  }
+
+  function forceFront(node, order){
+    try{
+      node.object3D.renderOrder = order;
+      node.object3D.traverse(function(o){
+        o.renderOrder = order;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function ensureIcon(root){
+    if (!root || !root.classList || !root.classList.contains('gj-target-root')) return;
+
+    const kind = kindOf(root);
+    if (!kind || kind === 'vr-start') return;
+
+    const emoji = inferEmoji(root);
+    const st = colorOf(root);
+
+    let icon = root.querySelector('.gj-target-icon-canvas-layer');
+
+    if (!icon){
+      icon = document.createElement('a-image');
+      icon.classList.add('gj-target-icon-canvas-layer');
+      icon.setAttribute('data-gj-target-icon-canvas-layer', '1');
+      root.appendChild(icon);
+    }
+
+    const url = makeEmojiCanvasUrl(emoji, st);
+
+    safeSet(icon, 'src', url);
+    safeSet(icon, 'width', '0.96');
+    safeSet(icon, 'height', '0.96');
+    safeSet(icon, 'position', '0 0.08 1.86');
+    safeSet(icon, 'material', {
+      src: url,
+      shader: 'flat',
+      transparent: true,
+      opacity: 1,
+      alphaTest: 0.01,
+      side: 'double',
+      depthTest: false,
+      depthWrite: false
+    });
+
+    safeSet(icon, 'visible', 'true');
+
+    try{
+      icon.style.display = '';
+      icon.style.visibility = '';
+      icon.style.opacity = '';
+    }catch(_){}
+
+    forceFront(icon, 30000);
+
+    root.querySelectorAll('.gj-hitbox').forEach(function(hit){
+      safeSet(hit, 'width', '2.65');
+      safeSet(hit, 'height', '2.65');
+      safeSet(hit, 'depth', '1.25');
+      safeSet(hit, 'position', '0 0 .28');
+      safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false; depthTest:false');
+    });
+
+    forceFront(root, 29000);
+  }
+
+  function scan(){
+    document.body.setAttribute('data-gj-target-icon-canvas-restore', '1');
+
+    document.querySelectorAll('.gj-target-root').forEach(function(root){
+      ensureIcon(root);
+    });
+
+    const badge = document.getElementById('versionStamp');
+    if (badge){
+      badge.textContent = '8.47.7a FINAL';
+      badge.title = PATCH;
+    }
+  }
+
+  function boot(){
+    scan();
+
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+      scan();
+
+      if (count > 2400){
+        clearInterval(timer);
+      }
+    }, 200);
+
+    window.GJ_TARGET_ICON_CANVAS_RESTORE_CHECK = function(){
+      const targets = Array.from(document.querySelectorAll('.gj-target-root'));
+
+      const snap = {
+        patch: PATCH,
+        targetCount: targets.length,
+        iconCount: document.querySelectorAll('.gj-target-icon-canvas-layer').length,
+        targets: targets.map(function(root){
+          return {
+            kind: kindOf(root),
+            pos: root.getAttribute('position'),
+            scale: root.getAttribute('scale'),
+            icon: !!root.querySelector('.gj-target-icon-canvas-layer')
+          };
+        })
+      };
+
+      console.log('[GJ_TARGET_ICON_CANVAS_RESTORE_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Target Icon Canvas Restore]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
