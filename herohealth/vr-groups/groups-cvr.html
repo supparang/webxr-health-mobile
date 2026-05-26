@@ -829,39 +829,43 @@
   (function(){
     'use strict';
 
-    const APP_VERSION = 'v20260523-groups-cvr-standalone-01';
+    const APP_VERSION = 'v20260525-groups-cvr-standalone-02-arena-fix';
     const qs = new URLSearchParams(location.search);
 
     const $ = (id)=>document.getElementById(id);
 
     const els = {
-      score:$('score'),
-      timeLeft:$('timeLeft'),
-      lives:$('lives'),
-      combo:$('combo'),
-      accuracy:$('accuracy'),
-      waveTitle:$('waveTitle'),
-      waveSub:$('waveSub'),
-      phaseChip:$('phaseChip'),
-      goalChip:$('goalChip'),
-      targetText:$('targetText'),
-      gates:$('gates'),
-      foodToken:$('foodToken'),
-      foodEmoji:$('foodEmoji'),
-      foodName:$('foodName'),
-      selectedFood:$('selectedFood'),
-      toast:$('toast'),
-      summary:$('summary'),
-      rankText:$('rankText'),
-      sumScore:$('sumScore'),
-      sumAcc:$('sumAcc'),
-      sumCombo:$('sumCombo'),
-      sumCorrect:$('sumCorrect'),
-      badges:$('badges'),
-      btnReplay:$('btnReplay'),
-      btnMode:$('btnMode'),
-      btnZone:$('btnZone')
-    };
+  game:$('game'),
+  arena:$('arena'),
+  playZone:$('playZone'),
+
+  score:$('score'),
+  timeLeft:$('timeLeft'),
+  lives:$('lives'),
+  combo:$('combo'),
+  accuracy:$('accuracy'),
+  waveTitle:$('waveTitle'),
+  waveSub:$('waveSub'),
+  phaseChip:$('phaseChip'),
+  goalChip:$('goalChip'),
+  targetText:$('targetText'),
+  gates:$('gates'),
+  foodToken:$('foodToken'),
+  foodEmoji:$('foodEmoji'),
+  foodName:$('foodName'),
+  selectedFood:$('selectedFood'),
+  toast:$('toast'),
+  summary:$('summary'),
+  rankText:$('rankText'),
+  sumScore:$('sumScore'),
+  sumAcc:$('sumAcc'),
+  sumCombo:$('sumCombo'),
+  sumCorrect:$('sumCorrect'),
+  badges:$('badges'),
+  btnReplay:$('btnReplay'),
+  btnMode:$('btnMode'),
+  btnZone:$('btnZone')
+};
 
     function repoBase(){
       const path = location.pathname;
@@ -1045,13 +1049,28 @@
       clearTimeout(toast._t);
       toast._t = setTimeout(()=>els.toast.classList.remove('show'),950);
     }
+    function getPlayRect(){
+      const el =
+        els.playZone ||
+        $('playZone') ||
+        els.arena ||
+        $('arena') ||
+        document.body;
+
+      const r = el.getBoundingClientRect();
+
+      return {
+        width: Math.max(320, r.width || window.innerWidth),
+        height: Math.max(220, r.height || window.innerHeight)
+      };
+    }
 
     function spawnFood(){
       state.current = pick(foods);
       state.selected = null;
       state.itemsSeen += 1;
 
-      const arena = els.arena.getBoundingClientRect();
+      const arena = getPlayRect();
       const marginX = Math.max(70, arena.width * .12);
       const marginY = Math.max(60, arena.height * .18);
 
@@ -1095,7 +1114,7 @@
       state.lastTs = ts;
 
       if(!state.selected){
-        const arena = els.arena.getBoundingClientRect();
+        const arena = getPlayRect();
         state.foodX += state.dx * dt;
         state.foodY += state.dy * dt;
 
