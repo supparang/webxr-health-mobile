@@ -767,7 +767,7 @@
 
       <div class="targetPanel">
         <b>🎯 Target Group</b>
-        <span id="targetText">แตะอาหาร แล้วแตะตอนประตูหมู่ที่ถูกไฮไลต์</span>
+        <span id="targetText">แตะเพื่อ LOCK อาหาร → รอประตูตรง → แตะส่ง</span>
       </div>
 
       <div class="playZone" id="playZone">
@@ -777,7 +777,7 @@
         </div>
 
         <div class="scanPanel">
-          <div class="selectedFood" id="selectedFood">เล็งอาหารที่กลางจอ แล้วแตะ 1 ครั้ง</div>
+          <div class="selectedFood" id="selectedFood">เล็งอาหาร แล้วแตะเพื่อ LOCK</div>
         </div>
       </div>
     </main>
@@ -1084,8 +1084,8 @@
 
       els.foodEmoji.textContent = state.current.emoji;
       els.foodName.textContent = state.current.name;
-      els.selectedFood.textContent = 'เล็งอาหารที่กลางจอ แล้วแตะ 1 ครั้ง';
-      els.targetText.textContent = 'เลือกอาหารก่อน แล้วส่งเข้าหมู่ที่ถูก';
+      els.selectedFood.textContent = 'LOCK แล้ว: ' + state.selected.emoji + ' ' + state.selected.name + ' • รอ Portal หมู่ ' + state.selected.g + ' สว่าง แล้วแตะอีกครั้ง';
+      els.targetText.textContent = 'อาหารนี้อยู่หมู่ ' + state.selected.g + ' • รอประตูตรง แล้วกดส่ง';
       els.foodToken.classList.remove('aim');
 
       setWave();
@@ -1163,7 +1163,7 @@
         state.selected.name + ' อยู่หมู่ไหน? แตะตอนประตูถูกไฮไลต์';
       els.foodToken.classList.add('aim');
 
-      toast('เลือก ' + state.selected.name + ' แล้ว • รอประตูที่ถูก');
+      toast('LOCK ' + state.selected.name + ' แล้ว • รอ Portal หมู่ ' + state.selected.g);
       startGateScan();
     }
 
@@ -1264,7 +1264,7 @@
       state.lastTs = 0;
       state.raf = requestAnimationFrame(moveFood);
 
-      toast('เริ่ม cVR • แตะอาหาร แล้วแตะตอนประตูถูก');
+      toast('เริ่ม cVR • แตะเพื่อ LOCK → รอประตูตรง → แตะส่ง');
     }
 
     function rank(){
