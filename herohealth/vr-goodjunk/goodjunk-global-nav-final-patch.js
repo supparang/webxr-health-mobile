@@ -1,296 +1,420 @@
-(function GoodJunkGlobalNavFinalPatch(){
+/* =========================================================
+  GOODJUNK GLOBAL NAV FINAL PATCH
+  PATCH: v20260526-GOODJUNK-GLOBAL-NAV-FINAL-HTML-LOCK
+  FILE: /herohealth/vr-goodjunk/goodjunk-global-nav-final-patch.js
+
+  PURPOSE:
+    - Lock GoodJunk mode/launcher return to:
+      /herohealth/goodjunk-launcher.html
+    - Fix wrong .htm return
+    - Fix mobile cooldown return
+    - Fix buttons: กลับเลือกโหมด / โหมดเกม / launcher / summary / final
+    - Preserve pid/name/diff/time/view/hub context
+========================================================= */
+
+(function(){
   'use strict';
 
-  const PATCH_VERSION = 'v1.0.0-goodjunk-global-nav-final';
+  if (window.__GOODJUNK_GLOBAL_NAV_FINAL_PATCH__) return;
+  window.__GOODJUNK_GLOBAL_NAV_FINAL_PATCH__ = true;
 
-  const url = new URL(location.href);
-  const params = url.searchParams;
-  const path = location.pathname || '';
+  const PATCH = 'v20260526-GOODJUNK-GLOBAL-NAV-FINAL-HTML-LOCK';
 
-  const isGoodJunkPage =
-    /goodjunk/i.test(path) ||
-    params.get('game') === 'goodjunk' ||
-    params.get('gameId') === 'goodjunk';
+  const CANONICAL = {
+    goodjunkLauncher: 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
+    nutritionZone: 'https://supparang.github.io/webxr-health-mobile/herohealth/nutrition-zone.html',
+    hub: 'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html',
+    warmupGate: 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html'
+  };
 
-  if (!isGoodJunkPage) return;
-
-  function $(sel, root){
-    return (root || document).querySelector(sel);
+  function qs(){
+    return new URLSearchParams(location.search || '');
   }
 
-  function $all(sel, root){
-    return Array.from((root || document).querySelectorAll(sel));
+  function q(name, fallback){
+    const v = qs().get(name);
+    return v === null || v === '' ? fallback : v;
   }
 
-  function now(){
-    return Date.now();
+  function playerName(){
+    return q('name', q('nick', 'Hero'));
   }
 
-  function normalizeView(v){
-    v = String(v || '').toLowerCase().trim();
+  function normalizeGoodJunkUrl(raw){
+    let url = raw || CANONICAL.goodjunkLauncher;
 
-    if (v === 'cvr' || v === 'vr' || v === 'cardboard-vr') return 'cardboard';
-    if (v === 'cardboard') return 'cardboard';
-    if (v === 'mobile' || v === 'phone' || v === 'touch') return 'mobile';
-    if (v === 'pc' || v === 'desktop') return 'pc';
+    try{
+      const u = new URL(url, location.href);
 
-    const mobile =
-      (window.matchMedia && window.matchMedia('(max-width:760px)').matches) ||
-      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+      if (/goodjunk-launcher\.htm$/i.test(u.pathname)){
+        u.pathname = u.pathname.replace(/goodjunk-launcher\.htm$/i, 'goodjunk-launcher.html');
+      }
 
-    return mobile ? 'mobile' : 'pc';
+      if (/goodjunk-launcher\.html$/i.test(u.pathname)){
+        return u.href;
+      }
+
+      return CANONICAL.goodjunkLauncher;
+    }catch(_){
+      return CANONICAL.goodjunkLauncher;
+    }
   }
 
-  function getPid(){
-    return (
-      params.get('pid') ||
-      localStorage.getItem('GJ_BATTLE_PID') ||
-      localStorage.getItem('HHA_GJ_PID') ||
-      'anon'
-    );
-  }
+  function buildGoodJunkLauncherUrl(){
+    const u = new URL(CANONICAL.goodjunkLauncher);
 
-  function getName(){
-    return (
-      params.get('name') ||
-      localStorage.getItem('GJ_BATTLE_NAME') ||
-      localStorage.getItem('HHA_GJ_NAME') ||
-      'Hero'
-    );
-  }
-
-  function getView(){
-    return normalizeView(
-      params.get('view') ||
-      params.get('device') ||
-      ''
-    );
-  }
-
-  function copyCommonParams(out){
-    const common = [
+    const keep = [
       'pid',
       'name',
+      'nick',
       'diff',
       'time',
       'view',
-      'device',
-      'hub',
       'studyId',
       'conditionGroup',
-      'api',
-      'log'
-    ];
-
-    common.forEach(function(k){
-      if (out.searchParams.get(k)) return;
-
-      let v = params.get(k);
-
-      if (k === 'pid') v = getPid();
-      if (k === 'name') v = getName();
-      if (k === 'view' || k === 'device') v = getView();
-
-      if (v !== null && v !== ''){
-        out.searchParams.set(k, v);
-      }
-    });
-
-    out.searchParams.set('zone', 'nutrition');
-    out.searchParams.set('cat', 'nutrition');
-    out.searchParams.set('game', 'goodjunk');
-    out.searchParams.set('gameId', 'goodjunk');
-
-    return out;
-  }
-
-  function stripRoomParams(out){
-    [
-      'room',
-      'roomCode',
-      'code',
-      'lastRoom',
-      'matchId',
-      'roundId',
-      'runId',
-      'activeMatchId',
       'phase',
       'run'
-    ].forEach(function(k){
-      out.searchParams.delete(k);
+    ];
+
+    keep.forEach(function(k){
+      const v = q(k, '');
+      if (v) u.searchParams.set(k, v);
     });
 
-    return out;
-  }
+    u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('cat', 'nutrition');
+    u.searchParams.set('game', 'goodjunk');
+    u.searchParams.set('gameId', 'goodjunk');
 
-  function buildLauncherUrl(){
-    const out = new URL('../goodjunk-launcher.html', location.href);
-    copyCommonParams(out);
-    stripRoomParams(out);
-    out.searchParams.set('from', 'goodjunk-global-nav');
-    out.searchParams.set('t', String(now()));
-    return out.toString();
-  }
+    if (!u.searchParams.get('pid')) u.searchParams.set('pid', 'anon');
+    if (!u.searchParams.get('name')) u.searchParams.set('name', playerName());
+    if (!u.searchParams.get('diff')) u.searchParams.set('diff', 'normal');
+    if (!u.searchParams.get('time')) u.searchParams.set('time', '120');
+    if (!u.searchParams.get('view')) u.searchParams.set('view', q('view', 'mobile'));
 
-  function buildModesUrl(){
-    /*
-     * ใช้ goodjunk-launcher.html เป็น canonical modes page
-     * ไม่กลับไป goodjunk-modes.html แล้ว
-     */
-    return buildLauncherUrl();
+    u.searchParams.set('hub', CANONICAL.hub);
+    u.searchParams.set('v', 'goodjunk-nav-final-html');
+
+    return u.href;
   }
 
   function buildNutritionZoneUrl(){
-    const out = new URL('../nutrition-zone.html', location.href);
-    copyCommonParams(out);
-    stripRoomParams(out);
-    out.searchParams.set('from', 'goodjunk-global-nav');
-    out.searchParams.set('t', String(now()));
-    return out.toString();
+    const u = new URL(CANONICAL.nutritionZone);
+
+    u.searchParams.set('pid', q('pid', 'anon'));
+    u.searchParams.set('name', playerName());
+    u.searchParams.set('diff', q('diff', 'normal'));
+    u.searchParams.set('time', q('time', '120'));
+    u.searchParams.set('view', q('view', 'mobile'));
+    u.searchParams.set('hub', CANONICAL.hub);
+
+    return u.href;
   }
 
-  function buildHubUrl(){
-    const hub = params.get('hub');
+  function buildCooldownUrl(extra){
+    extra = extra || {};
 
-    if (hub){
-      try{
-        const out = new URL(hub, location.href);
-        if (!out.searchParams.get('pid')) out.searchParams.set('pid', getPid());
-        if (!out.searchParams.get('name')) out.searchParams.set('name', getName());
-        if (!out.searchParams.get('view')) out.searchParams.set('view', getView());
-        return out.toString();
-      }catch(_){}
-    }
+    const launcherUrl = buildGoodJunkLauncherUrl();
+    const u = new URL(CANONICAL.warmupGate);
 
-    const out = new URL('../hub.html', location.href);
-    copyCommonParams(out);
-    stripRoomParams(out);
-    return out.toString();
-  }
+    u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('cat', 'nutrition');
+    u.searchParams.set('gameId', 'goodjunk');
+    u.searchParams.set('game', 'goodjunk');
+    u.searchParams.set('mode', q('mode', 'solo_boss'));
+    u.searchParams.set('phase', 'cooldown');
 
-  function buildSoloBossUrl(){
+    u.searchParams.set('pid', q('pid', 'anon'));
+    u.searchParams.set('name', playerName());
+    u.searchParams.set('diff', q('diff', 'normal'));
+    u.searchParams.set('time', q('time', '120'));
+    u.searchParams.set('view', q('view', 'mobile'));
+
+    u.searchParams.set('hub', CANONICAL.hub);
+
     /*
-     * ใช้ current path ถ้าอยู่ solo อยู่แล้ว
-     * ไม่บังคับเดาชื่อไฟล์ใหม่ เพื่อกัน path หลุด
-     */
-    const out = new URL(location.href);
+      สำคัญที่สุด:
+      หลัง cooldown ต้องกลับหน้าเลือกโหมด GoodJunk .html เท่านั้น
+    */
+    u.searchParams.set('next', launcherUrl);
+    u.searchParams.set('back', launcherUrl);
+    u.searchParams.set('launcher', launcherUrl);
+    u.searchParams.set('return', launcherUrl);
 
-    copyCommonParams(out);
-    stripRoomParams(out);
+    if (extra.reason) u.searchParams.set('reason', String(extra.reason));
+    if (extra.score !== undefined) u.searchParams.set('score', String(extra.score));
+    if (extra.stars !== undefined) u.searchParams.set('stars', String(extra.stars));
+    if (extra.rank !== undefined) u.searchParams.set('rank', String(extra.rank));
 
-    out.searchParams.set('mode', 'solo-boss');
-    out.searchParams.set('run', 'play');
-    out.searchParams.set('phase', 'play');
-    out.searchParams.set('seed', String(now()));
-    out.searchParams.set('t', String(now()));
+    u.searchParams.set('v', 'goodjunk-cooldown-return-html');
 
-    return out.toString();
+    return u.href;
   }
 
-  function go(target){
-    location.href = target;
+  function goGoodJunkLauncher(){
+    location.href = buildGoodJunkLauncherUrl();
   }
 
-  function buttonText(el){
+  function goNutritionZone(){
+    location.href = buildNutritionZoneUrl();
+  }
+
+  function goCooldown(extra){
+    location.href = buildCooldownUrl(extra || {});
+  }
+
+  function textOf(el){
     return String(el && el.textContent || '')
       .replace(/\s+/g, ' ')
       .trim();
   }
 
-  function bindOnce(el, key, handler){
-    if (!el || el.dataset[key] === '1') return;
+  function looksLikeGoodJunkModeButton(el){
+    const id = String(el.id || '').toLowerCase();
+    const href = String(el.getAttribute && el.getAttribute('href') || '').toLowerCase();
+    const txt = textOf(el).toLowerCase();
 
-    el.dataset[key] = '1';
-    el.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      handler(ev, el);
-    }, true);
+    return (
+      id.includes('launcher') ||
+      id.includes('backbtn') ||
+      id.includes('finallauncher') ||
+      id.includes('mode') ||
+      href.includes('goodjunk-launcher.htm') ||
+      href.includes('goodjunk-launcher.html') ||
+      txt.includes('เลือกโหมด') ||
+      txt.includes('โหมดเกม') ||
+      txt.includes('กลับโหมด') ||
+      txt.includes('goodjunk') ||
+      txt.includes('mode')
+    );
   }
 
-  function bindKnownButtons(){
-    const buttons = $all('button,a');
+  function looksLikeNutritionZoneButton(el){
+    const id = String(el.id || '').toLowerCase();
+    const href = String(el.getAttribute && el.getAttribute('href') || '').toLowerCase();
+    const txt = textOf(el).toLowerCase();
 
-    buttons.forEach(function(btn){
-      const text = buttonText(btn);
-      const id = String(btn.id || '');
-      const cls = String(btn.className || '');
-      const data = JSON.stringify(btn.dataset || {});
-      const all = [text, id, cls, data].join(' ');
+    return (
+      id.includes('zone') ||
+      href.includes('nutrition-zone.html') ||
+      txt.includes('nutrition zone') ||
+      txt.includes('โซนโภชนาการ') ||
+      txt.includes('กลับ zone') ||
+      txt.includes('กลับโซน')
+    );
+  }
 
-      /*
-       * โหมดทั้งหมด / กลับเลือกโหมด / launcher
-       */
-      if (
-        /โหมดทั้งหมด|เลือกโหมด|กลับเลือกโหมด|Mode|Modes|Launcher/i.test(all) ||
-        /btnAllModes|btnModes|btnGameModes|backMode|backLobby|launcher/i.test(all)
-      ){
-        bindOnce(btn, 'gjGlobalNavModesBound', function(){
-          go(buildModesUrl());
-        });
+  function looksLikeCooldownButton(el){
+    const id = String(el.id || '').toLowerCase();
+    const txt = textOf(el).toLowerCase();
+    const data = String(el.dataset && (el.dataset.goCooldown || el.dataset.cooldown) || '').toLowerCase();
+
+    return (
+      id.includes('cooldown') ||
+      data === '1' ||
+      txt.includes('cooldown') ||
+      txt.includes('คูลดาวน์') ||
+      txt.includes('ผ่อนคลาย') ||
+      txt.includes('ทำ 3d cooldown')
+    );
+  }
+
+  function patchAnchorHref(el, url){
+    if (!el || !el.tagName) return;
+
+    if (String(el.tagName).toUpperCase() === 'A'){
+      el.setAttribute('href', url);
+    }
+  }
+
+  function patchButtons(){
+    const launcherUrl = buildGoodJunkLauncherUrl();
+    const zoneUrl = buildNutritionZoneUrl();
+
+    document.querySelectorAll('a,button,[role="button"],.btn').forEach(function(el){
+      if (!el || el.__gjGlobalNavFinalPatched) return;
+
+      if (looksLikeCooldownButton(el)){
+        el.__gjGlobalNavFinalPatched = true;
+        el.dataset.goCooldown = '1';
+
+        el.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+          goCooldown({
+            reason: 'patched-cooldown-button'
+          });
+
+          return false;
+        }, true);
+
         return;
       }
 
-      /*
-       * Nutrition Zone
-       */
-      if (
-        /Nutrition Zone|โซนโภชนาการ|กลับ Zone|กลับโซน|Nutrition/i.test(all) ||
-        /nutrition|backZone|btnZone|btnNutritionZone/i.test(all)
-      ){
-        bindOnce(btn, 'gjGlobalNavZoneBound', function(){
-          go(buildNutritionZoneUrl());
-        });
+      if (looksLikeGoodJunkModeButton(el)){
+        el.__gjGlobalNavFinalPatched = true;
+        patchAnchorHref(el, launcherUrl);
+
+        el.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+          location.href = launcherUrl;
+          return false;
+        }, true);
+
         return;
       }
 
-      /*
-       * Hub
-       */
-      if (
-        /^Hub$|HUB|หน้าหลัก|🏠/i.test(text) ||
-        /btnHub|backHub|data-back-hub/i.test(all)
-      ){
-        bindOnce(btn, 'gjGlobalNavHubBound', function(){
-          go(buildHubUrl());
-        });
-        return;
+      if (looksLikeNutritionZoneButton(el)){
+        el.__gjGlobalNavFinalPatched = true;
+        patchAnchorHref(el, zoneUrl);
+
+        el.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+          location.href = zoneUrl;
+          return false;
+        }, true);
       }
     });
   }
 
-  function exposeApi(){
-    window.GJ_GLOBAL_NAV_FINAL = {
-      version: PATCH_VERSION,
-      buildLauncherUrl,
-      buildModesUrl,
-      buildNutritionZoneUrl,
-      buildHubUrl,
-      buildSoloBossUrl,
-      bindKnownButtons
+  function patchKnownIds(){
+    const launcherUrl = buildGoodJunkLauncherUrl();
+
+    [
+      'shellBackBtn',
+      'backBtn',
+      'launcherBtn',
+      'finalLauncherBtn',
+      'gjrModeBtn',
+      'gjrLauncherBtn'
+    ].forEach(function(id){
+      const btn = document.getElementById(id);
+      if (!btn || btn.__gjKnownLauncherPatched) return;
+
+      btn.__gjKnownLauncherPatched = true;
+
+      if (btn.tagName && String(btn.tagName).toUpperCase() === 'A'){
+        btn.setAttribute('href', launcherUrl);
+      }
+
+      btn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+        location.href = launcherUrl;
+        return false;
+      }, true);
+    });
+
+    const rewardZoneBtn = document.getElementById('gjrZoneBtn');
+    if (rewardZoneBtn && !rewardZoneBtn.__gjRewardCooldownPatched){
+      rewardZoneBtn.__gjRewardCooldownPatched = true;
+      rewardZoneBtn.dataset.goCooldown = '1';
+      rewardZoneBtn.innerHTML = '🧘 Cooldown แล้วกลับเลือกโหมด';
+
+      rewardZoneBtn.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+        goCooldown({
+          reason: 'reward-zone-button'
+        });
+
+        return false;
+      }, true);
+    }
+  }
+
+  function patchWindowApis(){
+    window.GOODJUNK_CANONICAL_NAV = {
+      patch: PATCH,
+      canonical: CANONICAL,
+      normalizeGoodJunkUrl: normalizeGoodJunkUrl,
+      buildGoodJunkLauncherUrl: buildGoodJunkLauncherUrl,
+      buildNutritionZoneUrl: buildNutritionZoneUrl,
+      buildCooldownUrl: buildCooldownUrl,
+      goGoodJunkLauncher: goGoodJunkLauncher,
+      goNutritionZone: goNutritionZone,
+      goCooldown: goCooldown
     };
+
+    if (window.GJ_SOLO_BOSS_SHELL){
+      try{
+        window.GJ_SOLO_BOSS_SHELL.version = PATCH;
+        window.GJ_SOLO_BOSS_SHELL.buildGoodJunkLauncherUrl = buildGoodJunkLauncherUrl;
+        window.GJ_SOLO_BOSS_SHELL.buildNutritionZoneUrl = buildNutritionZoneUrl;
+        window.GJ_SOLO_BOSS_SHELL.buildCooldownUrl = buildCooldownUrl;
+        window.GJ_SOLO_BOSS_SHELL.goGoodJunkLauncher = goGoodJunkLauncher;
+        window.GJ_SOLO_BOSS_SHELL.goNutritionZone = goNutritionZone;
+        window.GJ_SOLO_BOSS_SHELL.goCooldown = goCooldown;
+      }catch(_){}
+    }
+  }
+
+  function saveCheck(){
+    try{
+      localStorage.setItem('GOODJUNK_GLOBAL_NAV_FINAL_LAST', JSON.stringify({
+        patch: PATCH,
+        href: location.href,
+        launcherUrl: buildGoodJunkLauncherUrl(),
+        cooldownUrl: buildCooldownUrl({reason:'check'}),
+        nutritionZoneUrl: buildNutritionZoneUrl(),
+        savedAt: new Date().toISOString()
+      }));
+    }catch(_){}
   }
 
   function boot(){
-    exposeApi();
-    bindKnownButtons();
+    patchWindowApis();
+    patchButtons();
+    patchKnownIds();
+    saveCheck();
 
-    const mo = new MutationObserver(function(){
-      bindKnownButtons();
-    });
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
 
-    mo.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
+      patchWindowApis();
+      patchButtons();
+      patchKnownIds();
 
-    setInterval(bindKnownButtons, 1000);
+      if (count > 1200){
+        clearInterval(timer);
+      }
+    }, 300);
 
-    console.info('[GoodJunk Global Nav Final Patch]', PATCH_VERSION, 'loaded');
+    window.GOODJUNK_GLOBAL_NAV_FINAL_CHECK = function(){
+      const snap = {
+        patch: PATCH,
+        href: location.href,
+        launcherUrl: buildGoodJunkLauncherUrl(),
+        cooldownUrl: buildCooldownUrl({reason:'manual-check'}),
+        nutritionZoneUrl: buildNutritionZoneUrl(),
+        patchedButtons: document.querySelectorAll('[data-go-cooldown="1"]').length,
+        wrongHtmLinks: Array.from(document.querySelectorAll('a[href*="goodjunk-launcher.htm"]')).map(function(a){
+          return a.getAttribute('href');
+        })
+      };
+
+      console.log('[GOODJUNK_GLOBAL_NAV_FINAL_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Global Nav Final Patch]', PATCH, 'loaded');
   }
 
   if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
   }else{
     boot();
   }
