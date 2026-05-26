@@ -442,5 +442,261 @@ if(typeof AFRAME==='undefined'){DOC.body.innerHTML='<div style="padding:24px;fon
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK TARGET SINGLE RING CLEANUP
+  PATCH: v8.47.7b-GOODJUNK-TARGET-SINGLE-RING-CLEANUP
+  PLACE: very last before </body>
+  FIX:
+    - ซ่อนวงเล็ก/วงซ้อนเก่าข้างใน target
+    - คงไว้แค่วงหลักเดียว + icon canvas
+    - ไม่แตะ scoring / hitbox / boss / summary / cooldown
+========================================================= -->
+
+<style id="gj-target-single-ring-cleanup-css">
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) > a-ring,
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) > a-circle,
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) [data-gj-visual-fallback-layer="1"],
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) [data-gj-cvr-target-content-layer="1"],
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) [data-gj-rescue-visual="1"],
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) [data-gj-warmup-stable-visual="1"]{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) .gj-target-icon-canvas-layer,
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) .gj-target-main-ring-clean{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-target-single-ring-cleanup="1"] .gj-target-root[data-kind]:not([data-kind="vr-start"]) a-text{
+    pointer-events:none !important;
+  }
+</style>
+
+<script id="gj-target-single-ring-cleanup-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_TARGET_SINGLE_RING_CLEANUP__) return;
+  window.__GJ_TARGET_SINGLE_RING_CLEANUP__ = true;
+
+  const PATCH = 'v8.47.7b-GOODJUNK-TARGET-SINGLE-RING-CLEANUP';
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function kindOf(root){
+    return String(
+      root &&
+      (
+        root.dataset && root.dataset.kind ||
+        root.getAttribute && root.getAttribute('data-kind')
+      ) || ''
+    );
+  }
+
+  function styleOf(kind){
+    if (kind === 'junk' || kind === 'warm-junk'){
+      return {
+        rim:'#ef4444',
+        glow:'rgba(239,68,68,.30)'
+      };
+    }
+
+    if (kind === 'fake'){
+      return {
+        rim:'#f59e0b',
+        glow:'rgba(245,158,11,.28)'
+      };
+    }
+
+    if (kind === 'power' || kind === 'warm-power' || kind === 'breath'){
+      return {
+        rim:'#38bdf8',
+        glow:'rgba(56,189,248,.28)'
+      };
+    }
+
+    return {
+      rim:'#22c55e',
+      glow:'rgba(34,197,94,.28)'
+    };
+  }
+
+  function forceFront(node, order){
+    try{
+      node.object3D.renderOrder = order;
+      node.object3D.traverse(function(o){
+        o.renderOrder = order;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function removeExtraFallbacks(root){
+    try{
+      root.querySelectorAll('[data-gj-visual-fallback-root="1"], [data-gj-cvr-content-fallback="1"]').forEach(function(n){
+        if (n && n.parentNode) n.parentNode.removeChild(n);
+      });
+    }catch(_){}
+  }
+
+  function hideOldVisualChildren(root){
+    try{
+      Array.from(root.children || []).forEach(function(child){
+        const tag = String(child.tagName || '').toLowerCase();
+
+        if (
+          tag === 'a-ring' ||
+          tag === 'a-circle' ||
+          child.getAttribute('data-gj-visual-fallback-layer') === '1' ||
+          child.getAttribute('data-gj-cvr-target-content-layer') === '1' ||
+          child.getAttribute('data-gj-rescue-visual') === '1' ||
+          child.getAttribute('data-gj-warmup-stable-visual') === '1'
+        ){
+          child.style.display = 'none';
+          child.style.visibility = 'hidden';
+          child.style.opacity = '0';
+          child.style.pointerEvents = 'none';
+
+          safeSet(child, 'visible', 'false');
+          safeSet(child, 'opacity', '0');
+        }
+      });
+    }catch(_){}
+  }
+
+  function ensureCleanRing(root){
+    const kind = kindOf(root);
+    const st = styleOf(kind);
+
+    let ring = root.querySelector('.gj-target-main-ring-clean');
+
+    if (!ring){
+      ring = document.createElement('a-ring');
+      ring.classList.add('gj-target-main-ring-clean');
+      ring.setAttribute('data-gj-target-main-ring-clean', '1');
+      root.insertBefore(ring, root.firstChild || null);
+    }
+
+    safeSet(ring, 'radius-inner', '0.57');
+    safeSet(ring, 'radius-outer', '0.69');
+    safeSet(ring, 'color', st.rim);
+    safeSet(ring, 'position', '0 0.08 1.72');
+    safeSet(ring, 'material', {
+      shader:'flat',
+      side:'double',
+      transparent:true,
+      opacity:0.95,
+      depthTest:false,
+      depthWrite:false
+    });
+    safeSet(ring, 'visible', 'true');
+
+    forceFront(ring, 28500);
+  }
+
+  function cleanTarget(root){
+    if (!root || !root.classList || !root.classList.contains('gj-target-root')) return;
+
+    const kind = kindOf(root);
+    if (!kind || kind === 'vr-start') return;
+
+    removeExtraFallbacks(root);
+    hideOldVisualChildren(root);
+    ensureCleanRing(root);
+
+    const icon = root.querySelector('.gj-target-icon-canvas-layer');
+    if (icon){
+      safeSet(icon, 'position', '0 0.08 1.86');
+      safeSet(icon, 'width', '0.88');
+      safeSet(icon, 'height', '0.88');
+      safeSet(icon, 'visible', 'true');
+      forceFront(icon, 30000);
+    }
+
+    root.querySelectorAll('.gj-hitbox').forEach(function(hit){
+      safeSet(hit, 'width', '2.65');
+      safeSet(hit, 'height', '2.65');
+      safeSet(hit, 'depth', '1.25');
+      safeSet(hit, 'position', '0 0 .28');
+      safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false; depthTest:false');
+    });
+  }
+
+  function scan(){
+    document.body.setAttribute('data-gj-target-single-ring-cleanup', '1');
+
+    document.querySelectorAll('.gj-target-root').forEach(function(root){
+      cleanTarget(root);
+    });
+
+    const badge = document.getElementById('versionStamp');
+    if (badge){
+      badge.textContent = '8.47.7b FINAL';
+      badge.title = PATCH;
+    }
+  }
+
+  function boot(){
+    scan();
+
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+      scan();
+
+      if (count > 2400){
+        clearInterval(timer);
+      }
+    }, 200);
+
+    window.GJ_TARGET_SINGLE_RING_CLEANUP_CHECK = function(){
+      const targets = Array.from(document.querySelectorAll('.gj-target-root'));
+
+      const snap = {
+        patch: PATCH,
+        targetCount: targets.length,
+        cleanRingCount: document.querySelectorAll('.gj-target-main-ring-clean').length,
+        iconCount: document.querySelectorAll('.gj-target-icon-canvas-layer').length,
+        targets: targets.map(function(root){
+          return {
+            kind: kindOf(root),
+            pos: root.getAttribute('position'),
+            cleanRing: !!root.querySelector('.gj-target-main-ring-clean'),
+            icon: !!root.querySelector('.gj-target-icon-canvas-layer'),
+            oldRingCount: root.querySelectorAll('a-ring:not(.gj-target-main-ring-clean)').length,
+            oldCircleCount: root.querySelectorAll('a-circle').length
+          };
+        })
+      };
+
+      console.log('[GJ_TARGET_SINGLE_RING_CLEANUP_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Target Single Ring Cleanup]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
