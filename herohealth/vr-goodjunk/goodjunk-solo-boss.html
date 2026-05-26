@@ -689,8 +689,24 @@
       }
 
       function buildGoodJunkLauncherUrl(){
-        return CANONICAL.goodjunkLauncher;
-      }
+  const u = new URL(CANONICAL.goodjunkLauncher);
+
+  u.searchParams.set('pid', q('pid', 'anon'));
+  u.searchParams.set('name', playerName());
+  u.searchParams.set('diff', q('diff', 'normal'));
+  u.searchParams.set('time', q('time', '120'));
+  u.searchParams.set('view', q('view', 'mobile'));
+
+  u.searchParams.set('zone', 'nutrition');
+  u.searchParams.set('cat', 'nutrition');
+  u.searchParams.set('game', 'goodjunk');
+  u.searchParams.set('gameId', 'goodjunk');
+  u.searchParams.set('mode', 'solo');
+  u.searchParams.set('entry', 'mobile-solo-boss');
+  u.searchParams.set('theme', 'goodjunk');
+
+  return u.href;
+}
 
       function buildWarmupUrl(extra){
         extra = extra || {};
@@ -908,9 +924,8 @@
 
   <script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
   <script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
-<script src="./goodjunk-solo-boss-mobile-target-compact-patch.js?v=8470"></script>
-<script src="./goodjunk-solo-boss-mobile-target-compact-patch.js?v=8472"></script>
-<script src="./goodjunk-solo-boss-final-polish-patch.js?v=8473"></script>
-<script src="./goodjunk-global-nav-final-patch.js?v=1000"></script>
+  <script src="./goodjunk-solo-boss-mobile-target-compact-patch.js?v=8472"></script>
+  <script src="./goodjunk-solo-boss-final-polish-patch.js?v=8473"></script>
+  <script src="./goodjunk-global-nav-final-patch.js?v=1000"></script>
 </body>
 </html>
