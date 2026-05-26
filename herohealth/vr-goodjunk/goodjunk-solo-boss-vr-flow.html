@@ -6041,5 +6041,1029 @@ body.view-cvr.cooldown-mode .bossBar{
   }
 })();
 </script>
+  <!-- =========================================================
+  GOODJUNK SOLO BOSS CLEAN FINAL OVERRIDE
+  PATCH: v8.47.0-GOODJUNK-CLEAN-TARGET-CONTENT-CVR-FINAL
+  FILE: /herohealth/vr-goodjunk/goodjunk-solo-boss-vr-flow.html
+  PLACE: very last before </body>
+
+  FIX:
+    1) Start overlay ไม่บังค้างใน cVR/Cardboard
+    2) Warmup มี GOOD / GOOD / SHIELD ชัดเจนและอยู่ตรงหน้า
+    3) Target ทุกชนิดต้องมี emoji + label fallback เสมอ
+    4) เป้าไม่เป็นวงกลมเปล่า
+    5) หยุดผลกระทบจาก patch เก่า warmup rescue / stable / comfort ที่ซ้อนกัน
+    6) ไม่แตะ scoring/rank/summary หลัก
+========================================================= -->
+
+<style id="gj-clean-final-8470-css">
+  body[data-gj-clean-final-8470="1"] .gj-target-root{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="warm-good"],
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="warm-power"],
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="good"],
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="junk"],
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="fake"],
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="power"],
+  body[data-gj-clean-final-8470="1"] .gj-target-root[data-kind="breath"]{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
+
+  body[data-gj-clean-final-8470="1"] .gj-target-root a-image,
+  body[data-gj-clean-final-8470="1"] [data-gj-8470-layer="1"]{
+    display:block !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-clean-final-8470="1"] .gj-hitbox{
+    pointer-events:auto !important;
+  }
+
+  body[data-gj-clean-final-8470="1"][data-gj-stage-8470="warmup"] #bossRoot{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-clean-final-8470="1"] .gj-cvr-warmup-stable-target,
+  body[data-gj-clean-final-8470="1"] .gj-cvr-warmup-rescue-target,
+  body[data-gj-clean-final-8470="1"] .gj-cvr-warmup-visible-target{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body.view-cvr[data-gj-clean-final-8470="1"] .mission{
+    max-width:min(560px, calc(100vw - 38px)) !important;
+  }
+
+  body.view-cvr[data-gj-clean-final-8470="1"] .crosshair{
+    width:38px !important;
+    height:38px !important;
+    margin-left:-19px !important;
+    margin-top:-19px !important;
+    opacity:.96 !important;
+    border-width:3px !important;
+    box-shadow:
+      0 0 0 4px rgba(15,23,42,.26),
+      0 0 22px rgba(34,197,94,.68),
+      inset 0 0 0 2px rgba(34,197,94,.28) !important;
+  }
+
+  body.view-cvr[data-gj-clean-final-8470="1"] #gjCvrFindBossBtn,
+  body.view-cvr[data-gj-clean-final-8470="1"] #gjBossFaceBtn{
+    display:none !important;
+  }
+
+  body.view-cvr[data-gj-clean-final-8470="1"] #gj8470StartNow{
+    position:fixed;
+    left:50%;
+    bottom:calc(66px + env(safe-area-inset-bottom,0px));
+    transform:translateX(-50%);
+    z-index:2147483001;
+    min-height:46px;
+    padding:9px 16px;
+    border:2px solid rgba(255,255,255,.92);
+    border-radius:999px;
+    background:linear-gradient(135deg,#22c55e,#2563eb);
+    color:#fff;
+    font-size:13px;
+    font-weight:1000;
+    box-shadow:0 14px 34px rgba(15,23,42,.30);
+  }
+
+  body.view-cvr[data-gj-clean-final-8470="1"][data-gj-force-play-8470="1"] #gj8470StartNow,
+  body.summary-open #gj8470StartNow{
+    display:none !important;
+  }
+
+  body.view-cvr[data-gj-clean-final-8470="1"][data-gj-force-play-8470="1"] #startOverlay{
+    display:none !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+
+  body[data-gj-clean-final-8470="1"] a-scene,
+  body[data-gj-clean-final-8470="1"] canvas{
+    visibility:visible;
+  }
+</style>
+
+<script id="gj-clean-final-8470-js">
+(function(){
+  'use strict';
+
+  if (window.__GJ_CLEAN_FINAL_8470__) return;
+  window.__GJ_CLEAN_FINAL_8470__ = true;
+
+  const PATCH = 'v8.47.0-GOODJUNK-CLEAN-TARGET-CONTENT-CVR-FINAL';
+  const qs = new URLSearchParams(location.search || '');
+
+  const view = String(qs.get('view') || '').toLowerCase();
+  const entry = String(qs.get('entry') || '').toLowerCase();
+  const device = String(qs.get('device') || '').toLowerCase();
+
+  const isCvr =
+    view === 'cvr' ||
+    view === 'cardboard' ||
+    view === 'vr' ||
+    entry === 'cardboard' ||
+    device === 'cardboard';
+
+  const EMOJI = {
+    broccoli:'🥦',
+    apple:'🍎',
+    egg:'🥚',
+    water:'💧',
+    fries:'🍟',
+    soda:'🥤',
+    donut:'🍩',
+    candy:'🍬',
+    'juice-box':'🧃',
+    shield:'🛡️',
+    fever:'⚡',
+    heart:'💚'
+  };
+
+  const STYLE = {
+    good:{rim:'#22c55e', bg:'#dcfce7', text:'#14532d', tag:'GOOD'},
+    'warm-good':{rim:'#22c55e', bg:'#dcfce7', text:'#14532d', tag:'GOOD'},
+    junk:{rim:'#ef4444', bg:'#fee2e2', text:'#7f1d1d', tag:'JUNK'},
+    'warm-junk':{rim:'#ef4444', bg:'#fee2e2', text:'#7f1d1d', tag:'JUNK'},
+    fake:{rim:'#f59e0b', bg:'#fef3c7', text:'#78350f', tag:'CHECK'},
+    power:{rim:'#38bdf8', bg:'#dbeafe', text:'#172554', tag:'POWER'},
+    'warm-power':{rim:'#38bdf8', bg:'#dbeafe', text:'#172554', tag:'SHIELD'},
+    breath:{rim:'#0ea5e9', bg:'#e0f2fe', text:'#075985', tag:'CALM'}
+  };
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function api(){
+    return window.GoodJunkFull3DVRFlow || window.GJF3D || null;
+  }
+
+  function getState(){
+    try{
+      const a = api();
+      return a && typeof a.getState === 'function' ? a.getState() : {};
+    }catch(_){
+      return {};
+    }
+  }
+
+  function stage(){
+    return String(getState().stage || '');
+  }
+
+  function safeSet(el, name, value){
+    try{
+      if (el) el.setAttribute(name, value);
+    }catch(_){}
+  }
+
+  function toast(msg){
+    try{
+      const t = $('toast');
+      if (!t) return;
+      t.textContent = msg;
+      t.classList.add('show');
+      clearTimeout(toast._t8470);
+      toast._t8470 = setTimeout(function(){
+        t.classList.remove('show');
+      }, 1300);
+    }catch(_){}
+  }
+
+  function mission(msg){
+    try{
+      const m = $('missionText');
+      if (m) m.textContent = msg;
+    }catch(_){}
+  }
+
+  function heroBase(){
+    try{
+      const marker = '/herohealth/';
+      const i = location.pathname.indexOf(marker);
+      if (i >= 0) return location.origin + location.pathname.slice(0, i + marker.length);
+    }catch(_){}
+    return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+  }
+
+  function assetUrl(file){
+    return heroBase() + 'assets/goodjunk/' + String(file || 'broccoli.png') + '?v=8470';
+  }
+
+  function kindOf(root){
+    return String(
+      root &&
+      (
+        root.dataset && root.dataset.kind ||
+        root.getAttribute && root.getAttribute('data-kind')
+      ) || ''
+    );
+  }
+
+  function dataOf(root){
+    try{ return root.__data || {}; }
+    catch(_){ return {}; }
+  }
+
+  function fileKey(file){
+    return String(file || '')
+      .toLowerCase()
+      .replace(/\?.*$/,'')
+      .replace(/\.png$/,'');
+  }
+
+  function styleOf(root){
+    return STYLE[kindOf(root)] || {
+      rim:'#94a3b8',
+      bg:'#f8fafc',
+      text:'#0f172a',
+      tag:'TARGET'
+    };
+  }
+
+  function emojiOf(root){
+    const d = dataOf(root);
+    const k = kindOf(root);
+    const id = String(d.id || '').toLowerCase();
+    const f = fileKey(d.file || '');
+    const label = String(d.label || '').toLowerCase();
+
+    return EMOJI[id] || EMOJI[f] || EMOJI[label] ||
+      (
+        k === 'junk' || k === 'warm-junk' ? '🍟' :
+        k === 'fake' ? '🧃' :
+        k === 'power' || k === 'warm-power' ? '🛡️' :
+        k === 'breath' ? '💧' :
+        '🥦'
+      );
+  }
+
+  function tagOf(root){
+    const d = dataOf(root);
+    const k = kindOf(root);
+    const st = styleOf(root);
+
+    if (k === 'power' || k === 'warm-power' || k === 'breath'){
+      return String(d.label || st.tag).toUpperCase();
+    }
+
+    return st.tag;
+  }
+
+  function front(node, order){
+    try{
+      if (!node || !node.object3D) return;
+      node.object3D.renderOrder = order;
+      node.object3D.traverse(function(o){
+        o.renderOrder = order;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function makeCircle(radius, color, opacity, z){
+    const c = document.createElement('a-circle');
+    c.setAttribute('data-gj-8470-layer','1');
+    safeSet(c, 'radius', String(radius));
+    safeSet(c, 'color', color);
+    safeSet(c, 'position', '0 0.08 ' + z);
+    safeSet(c, 'material',
+      'shader:flat; side:double; transparent:true; opacity:' + opacity + '; depthTest:false; depthWrite:false'
+    );
+    return c;
+  }
+
+  function makeText(value, width, color, pos){
+    const t = document.createElement('a-text');
+    t.setAttribute('data-gj-8470-layer','1');
+    safeSet(t, 'value', value);
+    safeSet(t, 'align', 'center');
+    safeSet(t, 'width', String(width));
+    safeSet(t, 'color', color);
+    safeSet(t, 'position', pos);
+    safeSet(t, 'material', 'shader:flat; transparent:true; opacity:1; depthTest:false; depthWrite:false');
+    return t;
+  }
+
+  function forceImage(root){
+    const d = dataOf(root);
+
+    try{
+      root.querySelectorAll('a-image').forEach(function(img){
+        img.style.display = '';
+        img.style.visibility = '';
+        img.style.opacity = '';
+
+        safeSet(img, 'visible', 'true');
+        safeSet(img, 'opacity', '1');
+        safeSet(img, 'position', '0 0.08 1.20');
+        safeSet(img, 'width', isCvr ? '1.02' : '0.98');
+        safeSet(img, 'height', isCvr ? '1.02' : '0.98');
+
+        if (d.file && !img.getAttribute('src')){
+          safeSet(img, 'src', assetUrl(d.file));
+        }
+
+        safeSet(img, 'material',
+          'transparent:true; opacity:1; alphaTest:0.01; side:double; shader:flat; depthTest:false; depthWrite:false'
+        );
+
+        front(img, 18000);
+      });
+    }catch(_){}
+  }
+
+  function ensureFallbackContent(root){
+    if (!root || !root.classList || !root.classList.contains('gj-target-root')) return;
+
+    const k = kindOf(root);
+    if (!k || k === 'vr-start') return;
+
+    forceImage(root);
+
+    let layer = root.querySelector('[data-gj-8470-content="1"]');
+    const st = styleOf(root);
+
+    if (!layer){
+      layer = document.createElement('a-entity');
+      layer.setAttribute('data-gj-8470-content','1');
+      layer.setAttribute('data-gj-8470-layer','1');
+
+      const outer = makeCircle(0.72, st.rim, '0.94', '1.30');
+      const inner = makeCircle(0.56, st.bg, '0.98', '1.34');
+      const emoji = makeText(emojiOf(root), isCvr ? 3.8 : 3.4, st.text, '0 -0.16 1.72');
+      const label = makeText(tagOf(root), isCvr ? 2.35 : 2.1, st.text, '0 -0.78 1.74');
+
+      layer.appendChild(outer);
+      layer.appendChild(inner);
+      layer.appendChild(emoji);
+      layer.appendChild(label);
+
+      root.appendChild(layer);
+    }else{
+      const texts = layer.querySelectorAll('a-text');
+      if (texts[0]) safeSet(texts[0], 'value', emojiOf(root));
+      if (texts[1]) safeSet(texts[1], 'value', tagOf(root));
+    }
+
+    front(layer, 19000);
+    layer.querySelectorAll('[data-gj-8470-layer="1"]').forEach(function(n){
+      front(n, 19000);
+    });
+
+    root.querySelectorAll('.gj-hitbox').forEach(function(hit){
+      const isWarm = k === 'warm-good' || k === 'warm-power';
+      const isMain = /^(good|junk|fake|power)$/.test(k);
+      const isBreath = k === 'breath';
+
+      if (isWarm || isMain || isBreath){
+        safeSet(hit, 'width', isWarm ? '3.35' : '3.15');
+        safeSet(hit, 'height', isWarm ? '3.35' : '3.15');
+        safeSet(hit, 'depth', '1.35');
+        safeSet(hit, 'position', '0 0 .28');
+        safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false; depthTest:false');
+      }
+    });
+
+    try{
+      root.object3D && root.object3D.traverse(function(o){
+        o.renderOrder = 17000;
+        if (o.material){
+          o.material.transparent = true;
+          o.material.depthTest = false;
+          o.material.depthWrite = false;
+          o.material.needsUpdate = true;
+        }
+      });
+    }catch(_){}
+  }
+
+  function showScene(){
+    const sc = $('scene') || document.querySelector('a-scene');
+
+    if (sc){
+      sc.style.display = '';
+      sc.style.visibility = 'visible';
+      sc.style.opacity = '1';
+      sc.style.pointerEvents = 'auto';
+    }
+
+    document.querySelectorAll('canvas').forEach(function(c){
+      c.style.display = '';
+      c.style.visibility = 'visible';
+      c.style.opacity = '1';
+      c.style.pointerEvents = 'auto';
+    });
+
+    const aim = $('aimRay');
+    if (aim){
+      safeSet(aim, 'visible', 'true');
+      safeSet(aim, 'position', '0 0 -1');
+
+      if (!aim.getAttribute('geometry')){
+        safeSet(aim, 'geometry', 'primitive:ring; radiusInner:0.012; radiusOuter:0.018');
+      }
+
+      if (!aim.getAttribute('material')){
+        safeSet(aim, 'material', 'color:#ffffff; shader:flat; opacity:0.9');
+      }
+
+      try{
+        if (aim.object3D) aim.object3D.visible = true;
+      }catch(_){}
+    }
+  }
+
+  function clearOldArtifacts(){
+    document.body.removeAttribute('data-gj-cvr-warmup-stable-lock');
+    document.body.removeAttribute('data-gj-cvr-warmup-rescue');
+    document.body.removeAttribute('data-gj-cvr-warmup-active');
+
+    document.querySelectorAll(
+      '.gj-cvr-warmup-stable-target,' +
+      '.gj-cvr-warmup-rescue-target,' +
+      '.gj-cvr-warmup-visible-target'
+    ).forEach(function(n){
+      try{
+        if (n.parentNode) n.parentNode.removeChild(n);
+      }catch(_){}
+    });
+  }
+
+  function makeSyntheticTarget(kind, id, emoji, label, x, y, z, rim, bg, textColor){
+    const root = document.createElement('a-entity');
+
+    root.classList.add('gj-target-root');
+    root.classList.add('gj-8470-synthetic-target');
+
+    root.setAttribute('data-gj-target-root','1');
+    root.setAttribute('data-kind', kind);
+
+    root.dataset.kind = kind;
+    root.dataset.consumed = '0';
+
+    root.__data = {
+      id: id,
+      label: label,
+      file: id + '.png',
+      color: rim
+    };
+
+    safeSet(root, 'position', x + ' ' + y + ' ' + z);
+    safeSet(root, 'scale', '1.36 1.36 1.36');
+
+    const hit = document.createElement('a-box');
+    hit.classList.add('gj-hitbox');
+    safeSet(hit, 'width', '3.35');
+    safeSet(hit, 'height', '3.35');
+    safeSet(hit, 'depth', '1.35');
+    safeSet(hit, 'position', '0 0 .28');
+    safeSet(hit, 'material', 'transparent:true; opacity:0.001; depthWrite:false; depthTest:false');
+    root.appendChild(hit);
+
+    const outer = makeCircle(0.74, rim, '0.95', '1.30');
+    const inner = makeCircle(0.58, bg, '0.99', '1.34');
+    const e = makeText(emoji, 3.8, textColor, '0 -0.15 1.72');
+    const tag = makeText(label, 2.35, textColor, '0 -0.78 1.74');
+
+    root.appendChild(outer);
+    root.appendChild(inner);
+    root.appendChild(e);
+    root.appendChild(tag);
+
+    root.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+      const a = api();
+      if (a && typeof a.shoot === 'function'){
+        a.shoot();
+      }
+    }, true);
+
+    front(root, 20000);
+
+    return root;
+  }
+
+  function usefulWarmupTargets(){
+    return Array.from(document.querySelectorAll('.gj-target-root')).filter(function(root){
+      const k = kindOf(root);
+      return k === 'warm-good' || k === 'warm-power';
+    });
+  }
+
+  function ensureWarmup(){
+    if (stage() !== 'warmup') return;
+
+    document.body.setAttribute('data-gj-stage-8470','warmup');
+    showScene();
+    clearOldArtifacts();
+
+    const boss = $('bossRoot');
+    if (boss){
+      boss.style.display = 'none';
+      boss.style.visibility = 'hidden';
+      boss.style.opacity = '0';
+      boss.style.pointerEvents = 'none';
+      safeSet(boss, 'visible', 'false');
+    }
+
+    const targetRoot = $('targetRoot');
+    if (!targetRoot) return;
+
+    let targets = usefulWarmupTargets();
+
+    if (targets.length < 3 && !document.querySelector('.gj-8470-synthetic-target')){
+      const good1 = makeSyntheticTarget(
+        'warm-good',
+        'broccoli',
+        '🥦',
+        'GOOD',
+        -1.05,
+        1.42,
+        -2.55,
+        '#22c55e',
+        '#dcfce7',
+        '#14532d'
+      );
+
+      const good2 = makeSyntheticTarget(
+        'warm-good',
+        'apple',
+        '🍎',
+        'GOOD',
+        1.05,
+        1.42,
+        -2.55,
+        '#22c55e',
+        '#dcfce7',
+        '#14532d'
+      );
+
+      const shield = makeSyntheticTarget(
+        'warm-power',
+        'shield',
+        '🛡️',
+        'SHIELD',
+        0,
+        0.78,
+        -2.38,
+        '#38bdf8',
+        '#dbeafe',
+        '#172554'
+      );
+
+      targetRoot.appendChild(good1);
+      targetRoot.appendChild(good2);
+      targetRoot.appendChild(shield);
+
+      targets = usefulWarmupTargets();
+    }
+
+    targets.forEach(function(root, i){
+      const pos =
+        i === 0 ? '-1.05 1.42 -2.55' :
+        i === 1 ? '1.05 1.42 -2.55' :
+        '0 0.78 -2.38';
+
+      safeSet(root, 'position', pos);
+      safeSet(root, 'scale', '1.35 1.35 1.35');
+      ensureFallbackContent(root);
+    });
+
+    mission('Warmup: ยิง GOOD ซ้าย/ขวา 2 ชิ้น แล้ว SHIELD');
+  }
+
+  function ensureBossMain(){
+    if (stage() !== 'main') return;
+
+    document.body.setAttribute('data-gj-stage-8470','main');
+    showScene();
+
+    document.querySelectorAll('.gj-8470-synthetic-target').forEach(function(n){
+      try{
+        if (n.parentNode) n.parentNode.removeChild(n);
+      }catch(_){}
+    });
+
+    const boss = $('bossRoot');
+    if (boss){
+      boss.style.display = '';
+      boss.style.visibility = '';
+      boss.style.opacity = '';
+      boss.style.pointerEvents = 'none';
+      safeSet(boss, 'visible', 'true');
+      safeSet(boss, 'position', isCvr ? '0 2.02 -7.35' : '0 2.05 -8');
+      safeSet(boss, 'scale', isCvr ? '.82 .82 .82' : '1 1 1');
+    }
+
+    const lanes = [
+      {x:-1.28, y:1.34, z:-2.55},
+      {x: 1.28, y:1.34, z:-2.55},
+      {x:-1.05, y:1.78, z:-2.85},
+      {x: 1.05, y:1.78, z:-2.85},
+      {x: 0.00, y:0.92, z:-2.42}
+    ];
+
+    let i = 0;
+
+    document.querySelectorAll('.gj-target-root').forEach(function(root){
+      const k = kindOf(root);
+      if (!/^(good|junk|fake|power)$/.test(k)) return;
+
+      ensureFallbackContent(root);
+
+      if (isCvr && !root.__gj8470LaneLocked){
+        const lane = lanes[i % lanes.length];
+        i++;
+
+        safeSet(root, 'position', lane.x + ' ' + lane.y + ' ' + lane.z);
+        safeSet(root, 'scale', '1.24 1.24 1.24');
+        safeSet(root, 'animation__fly', {
+          property:'position',
+          to:(lane.x * 0.34) + ' ' + lane.y + ' -1.05',
+          dur:6800,
+          easing:'linear'
+        });
+
+        root.__gj8470LaneLocked = true;
+      }else if (!isCvr){
+        safeSet(root, 'scale', '1.04 1.04 1.04');
+      }
+    });
+
+    mission(isCvr ? 'Boss: เป้าออกซ้าย/ขวา ยิง GOOD หลบ JUNK' : 'Boss: ยิง GOOD เพื่อลด HP บอส');
+  }
+
+  function ensureCooldown(){
+    if (stage() !== 'cooldown') return;
+
+    document.body.setAttribute('data-gj-stage-8470','cooldown');
+    showScene();
+
+    const boss = $('bossRoot');
+    if (boss && isCvr){
+      boss.style.display = '';
+      boss.style.visibility = '';
+      boss.style.opacity = '';
+      boss.style.pointerEvents = 'none';
+      safeSet(boss, 'visible', 'true');
+      safeSet(boss, 'position', '0 1.9 -7.0');
+      safeSet(boss, 'scale', '.72 .72 .72');
+    }
+
+    document.querySelectorAll('.gj-target-root').forEach(function(root){
+      const k = kindOf(root);
+      if (k !== 'breath') return;
+
+      safeSet(root, 'scale', isCvr ? '1.25 1.25 1.25' : '1.05 1.05 1.05');
+      ensureFallbackContent(root);
+    });
+
+    mission('Cooldown: ยิง WATER / HEART / GOOD ให้ครบ');
+  }
+
+  function hideStartOverlay(){
+    const ov = $('startOverlay');
+    if (ov){
+      ov.classList.add('hidden');
+      ov.style.display = 'none';
+      ov.style.visibility = 'hidden';
+      ov.style.opacity = '0';
+      ov.style.pointerEvents = 'none';
+    }
+
+    document.body.setAttribute('data-gj-force-play-8470','1');
+    showScene();
+  }
+
+  function forceStart(reason){
+    if (document.body.classList.contains('summary-open')) return;
+
+    const s = stage();
+
+    if (s && s !== 'intro' && s !== 'ready'){
+      hideStartOverlay();
+      return;
+    }
+
+    hideStartOverlay();
+
+    const a = api();
+
+    if (a && typeof a.startWarmupFromVr === 'function'){
+      toast(reason || 'เริ่ม Warmup แล้ว');
+      a.startWarmupFromVr();
+      setTimeout(ensureWarmup, 140);
+      setTimeout(ensureWarmup, 520);
+      setTimeout(ensureWarmup, 1000);
+      return;
+    }
+
+    if (a && typeof a.startWarmup === 'function'){
+      toast(reason || 'เริ่ม Warmup แล้ว');
+      a.startWarmup();
+      setTimeout(ensureWarmup, 140);
+      setTimeout(ensureWarmup, 520);
+      setTimeout(ensureWarmup, 1000);
+      return;
+    }
+
+    toast('กำลังรอระบบเกมโหลด...');
+  }
+
+  function makeStartButton(){
+    if (!isCvr) return;
+    if ($('gj8470StartNow')) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'gj8470StartNow';
+    btn.type = 'button';
+    btn.textContent = '🎯 เริ่มเล่นเลย';
+
+    btn.addEventListener('click', function(ev){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      forceStart('เริ่มเล่นเลย');
+      return false;
+    }, true);
+
+    document.body.appendChild(btn);
+  }
+
+  function patchStartButtons(){
+    ['startBtn','shootBtn','vrHintBtn'].forEach(function(id){
+      const btn = $(id);
+      if (!btn || btn.__gj8470StartPatched) return;
+
+      btn.__gj8470StartPatched = true;
+
+      btn.addEventListener('click', function(ev){
+        const s = stage();
+
+        if (isCvr && (!s || s === 'intro' || s === 'ready')){
+          ev.preventDefault();
+          ev.stopPropagation();
+          if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          forceStart('เริ่ม Full 3D Flow');
+          return false;
+        }
+      }, true);
+    });
+  }
+
+  function patchApi(){
+    const a = api();
+    if (!a || a.__gj8470CleanPatched) return;
+
+    a.__gj8470CleanPatched = true;
+
+    if (typeof a.startWarmupFromVr === 'function'){
+      const old = a.startWarmupFromVr;
+      a.startWarmupFromVr = function(){
+        const r = old.apply(this, arguments);
+        hideStartOverlay();
+        setTimeout(ensureWarmup, 100);
+        setTimeout(ensureWarmup, 450);
+        setTimeout(ensureWarmup, 900);
+        return r;
+      };
+    }
+
+    if (typeof a.startWarmup === 'function'){
+      const old = a.startWarmup;
+      a.startWarmup = function(){
+        const r = old.apply(this, arguments);
+        hideStartOverlay();
+        setTimeout(ensureWarmup, 100);
+        setTimeout(ensureWarmup, 450);
+        setTimeout(ensureWarmup, 900);
+        return r;
+      };
+    }
+
+    if (typeof a.startMain === 'function'){
+      const old = a.startMain;
+      a.startMain = function(){
+        const r = old.apply(this, arguments);
+        setTimeout(function(){
+          ensureBossMain();
+          if (isCvr) toast('เห็นเป้าแล้ว: ยิง GOOD ข้างซ้าย/ขวา');
+        }, 220);
+        setTimeout(ensureBossMain, 700);
+        setTimeout(ensureBossMain, 1300);
+        return r;
+      };
+    }
+
+    if (typeof a.startCooldown === 'function'){
+      const old = a.startCooldown;
+      a.startCooldown = function(){
+        const r = old.apply(this, arguments);
+        setTimeout(ensureCooldown, 180);
+        setTimeout(ensureCooldown, 620);
+        setTimeout(ensureCooldown, 1200);
+        return r;
+      };
+    }
+
+    window.GJF3D = a;
+    window.GoodJunkFull3DVRFlow = a;
+  }
+
+  function patchVersion(){
+    const v = $('versionStamp');
+    if (v){
+      v.textContent = '8.47.0 CLEAN';
+      v.title = PATCH;
+    }
+  }
+
+  function patchTapShootForCvr(){
+    if (!isCvr) return;
+    if (window.__GJ_8470_TAP_SHOOT__) return;
+    window.__GJ_8470_TAP_SHOOT__ = true;
+
+    window.addEventListener('pointerdown', function(ev){
+      if (document.body.classList.contains('summary-open')) return;
+
+      const s = stage();
+
+      if (!s || s === 'intro' || s === 'ready'){
+        const target = ev && ev.target;
+        if (
+          target &&
+          target.closest &&
+          target.closest('button,a,input,select,textarea,.overlay,.a-enter-vr,.a-enter-ar,.a-orientation-modal,#gj8470StartNow')
+        ){
+          return;
+        }
+
+        forceStart('แตะเพื่อเริ่ม');
+        return;
+      }
+
+      if (!/^(warmup|main|cooldown)$/.test(s)) return;
+
+      const target = ev && ev.target;
+
+      if (
+        target &&
+        target.closest &&
+        target.closest('button,a,input,select,textarea,.overlay,.a-enter-vr,.a-enter-ar,.a-orientation-modal')
+      ){
+        return;
+      }
+
+      const a = api();
+
+      if (a && typeof a.shoot === 'function'){
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+        a.shoot();
+      }
+    }, true);
+  }
+
+  function tick(){
+    document.body.setAttribute('data-gj-clean-final-8470','1');
+
+    if (isCvr){
+      document.body.classList.add('view-cvr');
+    }
+
+    patchApi();
+    patchVersion();
+    patchStartButtons();
+    makeStartButton();
+    patchTapShootForCvr();
+
+    const s = stage();
+
+    document.body.setAttribute('data-gj-stage-8470', s || 'intro');
+
+    document.querySelectorAll('.gj-target-root').forEach(ensureFallbackContent);
+
+    if (s === 'warmup') ensureWarmup();
+    else if (s === 'main') ensureBossMain();
+    else if (s === 'cooldown') ensureCooldown();
+    else if (s === 'summary' || s === 'done'){
+      document.body.removeAttribute('data-gj-force-play-8470');
+    }else{
+      showScene();
+    }
+  }
+
+  function boot(){
+    tick();
+
+    let count = 0;
+    const timer = setInterval(function(){
+      count++;
+      tick();
+
+      const s = stage();
+
+      if (s === 'done' || count > 7200){
+        clearInterval(timer);
+      }
+    }, 220);
+
+    window.GJ_CLEAN_FINAL_8470_CHECK = function(){
+      const targets = Array.from(document.querySelectorAll('.gj-target-root')).map(function(root){
+        return {
+          kind: kindOf(root),
+          pos: root.getAttribute('position'),
+          scale: root.getAttribute('scale'),
+          visible: root.getAttribute('visible'),
+          display: root.style.display,
+          imageCount: root.querySelectorAll('a-image').length,
+          fallback: !!root.querySelector('[data-gj-8470-content="1"]'),
+          consumed: root.dataset && root.dataset.consumed
+        };
+      });
+
+      const snap = {
+        patch: PATCH,
+        isCvr: isCvr,
+        stage: stage(),
+        cleanFinal: document.body.getAttribute('data-gj-clean-final-8470') === '1',
+        forcePlay: document.body.getAttribute('data-gj-force-play-8470') === '1',
+        startOverlayHidden: (function(){
+          const ov = $('startOverlay');
+          return !!(
+            ov &&
+            (
+              ov.classList.contains('hidden') ||
+              ov.style.display === 'none' ||
+              ov.style.visibility === 'hidden'
+            )
+          );
+        })(),
+        targetCount: targets.length,
+        fallbackCount: document.querySelectorAll('[data-gj-8470-content="1"]').length,
+        warmGood: document.querySelectorAll('.gj-target-root[data-kind="warm-good"]').length,
+        warmPower: document.querySelectorAll('.gj-target-root[data-kind="warm-power"]').length,
+        mainTargets: document.querySelectorAll(
+          '.gj-target-root[data-kind="good"],' +
+          '.gj-target-root[data-kind="junk"],' +
+          '.gj-target-root[data-kind="fake"],' +
+          '.gj-target-root[data-kind="power"]'
+        ).length,
+        targets: targets,
+        boss: (function(){
+          const b = $('bossRoot');
+          return b ? {
+            visible: b.getAttribute('visible'),
+            display: b.style.display,
+            visibility: b.style.visibility,
+            opacity: b.style.opacity,
+            pos: b.getAttribute('position'),
+            scale: b.getAttribute('scale')
+          } : null;
+        })()
+      };
+
+      console.log('[GJ_CLEAN_FINAL_8470_CHECK]', snap);
+      return snap;
+    };
+
+    console.info('[GoodJunk Clean Final 8.47.0]', PATCH, 'loaded');
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
