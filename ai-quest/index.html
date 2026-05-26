@@ -886,6 +886,8 @@
   </style>
 
   <script src="./js/mission1-bank.js"></script>
+  <script src="./js/aiquest-storage.js"></script>
+  <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
 
 <body>
@@ -1211,6 +1213,47 @@
       }
     }
 
+    function loadProfileToForm(){
+  if(!window.AIQuestStorage) return;
+
+  const p = AIQuestStorage.getProfile();
+
+  if(el('studentIdInput')) el('studentIdInput').value = p.studentId || '';
+  if(el('studentNameInput')) el('studentNameInput').value = p.studentName || '';
+  if(el('sectionInput')) el('sectionInput').value = p.section || '';
+
+  updateProfileStatus();
+}
+
+function updateProfileStatus(){
+  if(!window.AIQuestStorage || !el('profileStatus')) return;
+
+  const p = AIQuestStorage.getProfile();
+  const ready = AIQuestStorage.isProfileReady(p);
+  const cloud = window.AIQuestCloudLogger && AIQuestCloudLogger.isCloudReady();
+
+  el('profileStatus').textContent = ready
+    ? `Profile ready: ${p.studentId} • ${p.studentName} • ${p.section} • Cloud: ${cloud ? 'Ready' : 'Not configured'}`
+    : 'กรุณากรอก Student ID, Name และ Section ก่อนเล่น';
+}
+
+async function saveStudentProfile(){
+  if(!window.AIQuestStorage) return;
+
+  const profile = AIQuestStorage.saveProfile({
+    studentId: el('studentIdInput').value,
+    studentName: el('studentNameInput').value,
+    section: el('sectionInput').value
+  });
+
+  updateProfileStatus();
+  showToast('บันทึก Profile แล้ว');
+
+  if(window.AIQuestCloudLogger){
+    await AIQuestCloudLogger.sendProfile(profile);
+    await AIQuestCloudLogger.flushPending();
+  }
+}
     function saveState(){
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     }
@@ -2305,7 +2348,34 @@
         ref2:el('ref2').value.trim(),
         ref3:el('ref3').value.trim()
       };
+      if(lastSummary && window.AIQuestStorage){
+  const profile = AIQuestStorage.getProfile();
 
+  const attempt = {
+    ...lastSummary,
+    attemptId: lastSummary.attemptId || AIQuestStorage.uid('att'),
+    studentId: profile.studentId || '',
+    studentName: profile.studentName || '',
+    section: profile.section || '',
+    sessionId: 's1',
+    reflection1: el('ref1').value.trim(),
+    reflection2: el('ref2').value.trim(),
+    reflection3: el('ref3').value.trim(),
+    clientTs: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    pageUrl: location.href
+  };
+
+  lastSummary = attempt;
+  AIQuestStorage.saveAttempt(attempt);
+
+  if(window.AIQuestCloudLogger){
+    AIQuestCloudLogger
+      .sendAttempt(attempt, [])
+      .then(() => AIQuestCloudLogger.flushPending())
+      .catch(() => {});
+  }
+}
       saveState();
       renderAll();
       switchScreen('menuScreen');
@@ -2404,8 +2474,29 @@
     });
 
     renderAll();
+    if(el('btnResults')){
+  el('btnResults').addEventListener('click', () => {
+    location.href = './results.html';
+  });
+}
+
+if(el('btnSaveProfile')){
+  el('btnSaveProfile').addEventListener('click', saveStudentProfile);
+}
+
+if(el('btnTestCloud')){
+  el('btnTestCloud').addEventListener('click', async () => {
+    if(!window.AIQuestCloudLogger){
+      showToast('Cloud Logger not loaded');
+      return;
+    }
+
+    const res = await AIQuestCloudLogger.healthCheck();
+    showToast(res && res.ok ? 'Cloud Logger พร้อมใช้งาน' : 'Cloud Logger ยังไม่พร้อม');
+  });
+}
+
+loadProfileToForm();
   </script>
-  <script src="./js/aiquest-storage.js"></script>
-  <script src="./js/aiquest-cloud-logger.js"></script>
 </body>
 </html>
