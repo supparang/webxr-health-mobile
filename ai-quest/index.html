@@ -910,6 +910,7 @@
         </select>
 
         <button class="btn secondary small" id="btnMenu">Mission Map</button>
+        <button class="btn secondary small" id="btnResults">ดูผล</button>
         <button class="btn secondary small" id="btnReset">Reset</button>
       </div>
     </header>
@@ -958,6 +959,18 @@
         </div>
       </section>
 
+      <section class="panel" style="margin-top:16px" id="profilePanel">
+  <h2>Student Profile</h2>
+  <p>กรอกข้อมูลก่อนเล่น เพื่อบันทึกผลลง Google Sheets</p>
+  <div class="row">
+    <input id="studentIdInput" placeholder="Student ID" style="flex:1;min-width:160px;padding:12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text)">
+    <input id="studentNameInput" placeholder="Name / Nickname" style="flex:1;min-width:160px;padding:12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text)">
+    <input id="sectionInput" placeholder="Section" style="flex:1;min-width:120px;padding:12px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--text)">
+    <button class="btn good" id="btnSaveProfile">Save Profile</button>
+    <button class="btn secondary" id="btnTestCloud">Test Cloud</button>
+  </div>
+  <p id="profileStatus" class="small"></p>
+</section>
       <section class="layout">
         <div class="panel" id="missionMap"></div>
         <aside class="panel sidePanel selectedBox" id="detailPanel"></aside>
@@ -2392,5 +2405,7 @@
 
     renderAll();
   </script>
+  <script src="./js/aiquest-storage.js"></script>
+  <script src="./js/aiquest-cloud-logger.js"></script>
 </body>
 </html>
