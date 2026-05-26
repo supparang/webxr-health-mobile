@@ -1088,33 +1088,79 @@ function ensureCurrentFood(){
     }
 
     function spawnFood(){
-      state.current = safePickFood();
-      state.selected = null;
-      state.itemsSeen += 1;
+  const fallbackFood = { name:'ไข่', emoji:'🥚', g:1 };
 
-      const arena = getPlayRect();
-      const marginX = Math.max(70, arena.width * .12);
-      const marginY = Math.max(60, arena.height * .18);
+  function getSafeFood(){
+    let item = null;
 
-      state.foodX = marginX + rand() * Math.max(40, arena.width - marginX*2);
-      state.foodY = marginY + rand() * Math.max(40, arena.height - marginY*2);
-
-      const angle = rand() * Math.PI * 2;
-      const sp = cfg.moveSpeed * (1 + Math.min(.45,state.correct*.018));
-      state.dx = Math.cos(angle) * sp;
-      state.dy = Math.sin(angle) * sp;
-
-      const food = ensureCurrentFood();
-
-      els.foodEmoji.textContent = food.emoji;
-      els.foodName.textContent = food.name;
-      els.selectedFood.textContent = 'LOCK แล้ว: ' + state.selected.emoji + ' ' + state.selected.name + ' • รอ Portal หมู่ ' + state.selected.g + ' สว่าง แล้วแตะอีกครั้ง';
-      els.targetText.textContent = 'อาหารนี้อยู่หมู่ ' + state.selected.g + ' • รอประตูตรง แล้วกดส่ง';
-      els.foodToken.classList.remove('aim');
-
-      setWave();
-      updateFoodPosition();
+    try {
+      if (Array.isArray(foods) && foods.length > 0) {
+        item = pick(foods);
+      }
+    } catch(e) {
+      item = null;
     }
+
+    if (!item || !item.name || !item.emoji || !item.g) {
+      item = Array.isArray(foods) && foods[0] ? foods[0] : fallbackFood;
+    }
+
+    if (!item || !item.name || !item.emoji || !item.g) {
+      item = fallbackFood;
+    }
+
+    return {
+      name: item.name || fallbackFood.name,
+      emoji: item.emoji || fallbackFood.emoji,
+      g: Number(item.g || fallbackFood.g)
+    };
+  }
+
+  state.current = getSafeFood();
+  state.selected = null;
+  state.itemsSeen += 1;
+
+  const arena = typeof getPlayRect === 'function'
+    ? getPlayRect()
+    : {
+        width: Math.max(320, window.innerWidth || 800),
+        height: Math.max(220, window.innerHeight || 480)
+      };
+
+  const marginX = Math.max(70, arena.width * .12);
+  const marginY = Math.max(60, arena.height * .18);
+
+  state.foodX = marginX + rand() * Math.max(40, arena.width - marginX * 2);
+  state.foodY = marginY + rand() * Math.max(40, arena.height - marginY * 2);
+
+  const angle = rand() * Math.PI * 2;
+  const sp = cfg.moveSpeed * (1 + Math.min(.45, state.correct * .018));
+
+  state.dx = Math.cos(angle) * sp;
+  state.dy = Math.sin(angle) * sp;
+
+  const food = state.current || fallbackFood;
+
+  if (els.foodEmoji) els.foodEmoji.textContent = food.emoji;
+  if (els.foodName) els.foodName.textContent = food.name;
+
+  if (els.selectedFood) {
+    els.selectedFood.textContent = 'เล็งอาหาร แล้วแตะเพื่อ LOCK';
+  }
+
+  if (els.targetText) {
+    els.targetText.textContent = 'แตะเพื่อ LOCK อาหาร → รอประตูตรง → แตะส่ง';
+  }
+
+  if (els.foodToken) {
+    els.foodToken.classList.remove('aim');
+  }
+
+  setWave();
+  updateFoodPosition();
+
+  console.info('[Groups cVR] spawnFood safe', food);
+}
 
     function updateFoodPosition(){
       els.foodToken.style.left = state.foodX + 'px';
@@ -1177,20 +1223,35 @@ function ensureCurrentFood(){
     }
 
     function selectFood(){
-      ensureCurrentFood();
-      if(!state.current) return;
+  const fallbackFood = { name:'ไข่', emoji:'🥚', g:1 };
 
-      state.selected = state.current;
-      els.selectedFood.textContent =
-        'เลือกแล้ว: ' + state.selected.emoji + ' ' + state.selected.name +
-        ' • แตะตอนประตูหมู่ที่ถูกไฮไลต์';
-      els.targetText.textContent =
-        state.selected.name + ' อยู่หมู่ไหน? แตะตอนประตูถูกไฮไลต์';
-      els.foodToken.classList.add('aim');
+  if (!state.current || !state.current.name || !state.current.emoji || !state.current.g) {
+    state.current = fallbackFood;
+  }
 
-      toast('LOCK ' + state.selected.name + ' แล้ว • รอ Portal หมู่ ' + state.selected.g);
-      startGateScan();
-    }
+  const food = state.current;
+
+  state.selected = food;
+
+  if (els.selectedFood) {
+    els.selectedFood.textContent =
+      'LOCK แล้ว: ' + food.emoji + ' ' + food.name +
+      ' • รอ Portal หมู่ ' + food.g + ' สว่าง แล้วแตะอีกครั้ง';
+  }
+
+  if (els.targetText) {
+    els.targetText.textContent =
+      'อาหารนี้อยู่หมู่ ' + food.g + ' • รอประตูตรง แล้วกดส่ง';
+  }
+
+  if (els.foodToken) {
+    els.foodToken.classList.add('aim');
+  }
+
+  toast('LOCK ' + food.name + ' แล้ว • รอ Portal หมู่ ' + food.g);
+
+  startGateScan();
+}
 
     function flashGate(gate, cls){
       const el = document.querySelector('.gate[data-gate="'+gate+'"]');
