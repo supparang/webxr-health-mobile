@@ -1,57 +1,69 @@
 /* =========================================================
    /herohealth/vr-goodjunk/goodjunk-mobile-loading-unlock-final.js
-   PATCH v20260527e-GOODJUNK-MOBILE-LOADING-HARD-UNLOCK-FINAL
+   PATCH v20260527f-GOODJUNK-MOBILE-LOADING-CARD-BYPASS-FINAL
 
-   PURPOSE:
-   - แก้ค้างหน้า Loading Card บน Mobile
-   - ใช้หลังสุดของ goodjunk-solo-boss.html
-   - ไม่แตะ scoring / target / powerups / cooldown
-   - ลบ overlay/card ที่มีข้อความ GoodJunk Solo Boss + กำลังเตรียม
+   FIX:
+   - Mobile ค้างที่การ์ด "GoodJunk Solo Boss กำลังเตรียม..."
+   - v20260527e โหลดแล้วแต่ยังไม่ลบ card
+   - ตัวนี้ลบ card กลางจอโดยตรง + ปลด interaction + กดเริ่มเกมให้อัตโนมัติเมื่อพร้อม
+   - ไม่แตะ score / target / powerups / cooldown logic
 ========================================================= */
 
 (function(){
   'use strict';
 
-  const VERSION = 'v20260527e-GOODJUNK-MOBILE-LOADING-HARD-UNLOCK-FINAL';
-  window.__GJ_MOBILE_LOADING_HARD_UNLOCK_FINAL__ = VERSION;
+  const VERSION = 'v20260527f-GOODJUNK-MOBILE-LOADING-CARD-BYPASS-FINAL';
+  window.__GJ_MOBILE_LOADING_CARD_BYPASS_FINAL__ = VERSION;
 
-  function q(sel, root){
+  function $(sel, root){
     try{ return (root || document).querySelector(sel); }catch(e){ return null; }
   }
 
-  function qa(sel, root){
+  function $all(sel, root){
     try{ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
     catch(e){ return []; }
   }
 
-  function isVisible(el){
-    if (!el) return false;
+  function txt(el){
     try{
-      const r = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
-      return (
-        r.width > 40 &&
-        r.height > 30 &&
-        cs.display !== 'none' &&
-        cs.visibility !== 'hidden' &&
-        Number(cs.opacity || 1) > 0
-      );
+      return (el.innerText || el.textContent || '').replace(/\s+/g,' ').trim();
     }catch(e){
-      return true;
+      return '';
     }
+  }
+
+  function rect(el){
+    try{ return el.getBoundingClientRect(); }catch(e){ return null; }
+  }
+
+  function css(el){
+    try{ return getComputedStyle(el); }catch(e){ return null; }
+  }
+
+  function visible(el){
+    const r = rect(el);
+    const s = css(el);
+    if (!r || !s) return false;
+    return (
+      r.width > 20 &&
+      r.height > 20 &&
+      s.display !== 'none' &&
+      s.visibility !== 'hidden' &&
+      Number(s.opacity || 1) > 0.01
+    );
   }
 
   function kill(el){
     if (!el) return;
 
     try{
-      el.setAttribute('data-gj-killed-loading', VERSION);
+      el.setAttribute('data-gj-loading-killed', VERSION);
       el.style.setProperty('display','none','important');
       el.style.setProperty('visibility','hidden','important');
       el.style.setProperty('opacity','0','important');
       el.style.setProperty('pointer-events','none','important');
       el.style.setProperty('z-index','-999999','important');
-      el.style.setProperty('transform','translateY(-9999px)','important');
+      el.style.setProperty('transform','translateY(-99999px) scale(0.01)','important');
     }catch(e){}
 
     try{
@@ -59,59 +71,17 @@
     }catch(e){}
   }
 
-  function textOf(el){
-    try{ return (el.innerText || el.textContent || '').replace(/\s+/g,' ').trim(); }
-    catch(e){ return ''; }
-  }
-
-  function findLoadingRootFromText(){
-    const all = qa('body *');
-    const hits = [];
-
-    all.forEach(function(el){
-      if (!isVisible(el)) return;
-
-      const txt = textOf(el);
-      if (!txt) return;
-
-      const isGoodJunkLoading =
-        txt.includes('GoodJunk Solo Boss') &&
-        (
-          txt.includes('กำลังเตรียม') ||
-          txt.includes('อาหารดี') ||
-          txt.includes('อาหารขยะ') ||
-          txt.includes('ภารกิจโภชนาการ')
-        );
-
-      if (!isGoodJunkLoading) return;
-
-      let cur = el;
-      let best = el;
-
-      for (let i = 0; i < 8 && cur && cur !== document.body; i++){
-        try{
-          const cs = getComputedStyle(cur);
-          const r = cur.getBoundingClientRect();
-
-          if (
-            cs.position === 'fixed' ||
-            cs.position === 'absolute' ||
-            r.width >= window.innerWidth * 0.45 ||
-            r.height >= window.innerHeight * 0.18 ||
-            String(cur.className || '').includes('loading') ||
-            String(cur.id || '').toLowerCase().includes('loading')
-          ){
-            best = cur;
-          }
-        }catch(e){}
-
-        cur = cur.parentElement;
-      }
-
-      hits.push(best);
-    });
-
-    return hits;
+  function looksLikeLoadingText(t){
+    return (
+      t &&
+      t.indexOf('GoodJunk Solo Boss') >= 0 &&
+      (
+        t.indexOf('กำลังเตรียม') >= 0 ||
+        t.indexOf('อาหารดี') >= 0 ||
+        t.indexOf('อาหารขยะ') >= 0 ||
+        t.indexOf('ภารกิจโภชนาการ') >= 0
+      )
+    );
   }
 
   function killKnownLoading(){
@@ -137,37 +107,185 @@
       '[data-gj-loading]',
       '[data-role="loading"]'
     ].forEach(function(sel){
-      qa(sel).forEach(kill);
+      $all(sel).forEach(kill);
     });
   }
 
-  function killFullScreenBlockers(){
-    qa('body > div, body > section, body > main, body > article').forEach(function(el){
-      if (!isVisible(el)) return;
+  function bestLoadingCardFromNode(el){
+    let cur = el;
+    let best = el;
 
-      const txt = textOf(el);
-      const idc = String(el.id || '') + ' ' + String(el.className || '');
+    for (let i = 0; i < 10 && cur && cur !== document.body && cur !== document.documentElement; i++){
+      const r = rect(cur);
+      const s = css(cur);
+      const idc = String(cur.id || '') + ' ' + String(cur.className || '');
 
-      if (
-        idc.toLowerCase().includes('loading') ||
-        (
-          txt.includes('GoodJunk Solo Boss') &&
-          txt.includes('กำลังเตรียม')
-        )
-      ){
+      if (r && s){
+        const centerish =
+          r.left > -30 &&
+          r.top > -30 &&
+          r.right < window.innerWidth + 30 &&
+          r.bottom < window.innerHeight + 30;
+
+        const cardish =
+          r.width >= 220 &&
+          r.width <= window.innerWidth * 0.95 &&
+          r.height >= 90 &&
+          r.height <= window.innerHeight * 0.72;
+
+        const loadingName = /load|splash|boot|intro|prepare/i.test(idc);
+
+        const positioned =
+          s.position === 'fixed' ||
+          s.position === 'absolute' ||
+          s.position === 'relative';
+
+        if ((centerish && cardish) || loadingName || positioned){
+          best = cur;
+        }
+      }
+
+      cur = cur.parentElement;
+    }
+
+    return best;
+  }
+
+  function killLoadingByText(){
+    $all('body *').forEach(function(el){
+      if (!visible(el)) return;
+
+      const t = txt(el);
+      if (!looksLikeLoadingText(t)) return;
+
+      kill(bestLoadingCardFromNode(el));
+    });
+  }
+
+  function killCenteredGoodJunkCard(){
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+
+    $all('body *').forEach(function(el){
+      if (!visible(el)) return;
+
+      const r = rect(el);
+      if (!r) return;
+
+      const t = txt(el);
+      const isGoodJunkCard =
+        t.indexOf('GoodJunk Solo Boss') >= 0 &&
+        r.width >= 220 &&
+        r.height >= 90 &&
+        r.width <= window.innerWidth * 0.96 &&
+        r.height <= window.innerHeight * 0.75 &&
+        r.left < cx &&
+        r.right > cx &&
+        r.top < cy &&
+        r.bottom > cy;
+
+      if (!isGoodJunkCard) return;
+
+      kill(el);
+    });
+  }
+
+  function killProgressOnlyCard(){
+    $all('body *').forEach(function(el){
+      if (!visible(el)) return;
+
+      const r = rect(el);
+      if (!r) return;
+
+      const t = txt(el);
+      if (t.indexOf('GoodJunk Solo Boss') < 0) return;
+
+      const bars = $all('i,span,div', el).filter(function(x){
+        const rr = rect(x);
+        const ss = css(x);
+        if (!rr || !ss) return false;
+        return (
+          rr.width >= 40 &&
+          rr.height >= 4 &&
+          rr.height <= 24 &&
+          (
+            String(ss.background || '').includes('gradient') ||
+            ss.borderRadius !== '0px'
+          )
+        );
+      });
+
+      if (bars.length){
         kill(el);
       }
     });
   }
 
-  function forceGameVisible(){
+  function injectForceCss(){
+    if ($('#gjMobileLoadingBypassStyle')) return;
+
+    const st = document.createElement('style');
+    st.id = 'gjMobileLoadingBypassStyle';
+    st.textContent = `
+      #shellLoading,
+      #gjLoading,
+      #gjmLoading,
+      #gjSoloBossLoading,
+      #goodjunkLoading,
+      #goodjunkMobileLoading,
+      .shell-loading,
+      .shell-loading-card,
+      .gj-loading,
+      .gj-loading-card,
+      .gjm-loading,
+      .gjm-loading-card,
+      .loading-screen,
+      .gj-mobile-loading,
+      .gj-mobile-loading-card,
+      [data-loading],
+      [data-gj-loading],
+      [data-role="loading"]{
+        display:none !important;
+        visibility:hidden !important;
+        opacity:0 !important;
+        pointer-events:none !important;
+        z-index:-999999 !important;
+      }
+
+      #gjSoloBossMain,
+      #gjSoloBossArea,
+      .gjm-root,
+      .gjm-area{
+        display:block !important;
+        visibility:visible !important;
+        opacity:1 !important;
+        pointer-events:auto !important;
+      }
+
+      #gjmStartOverlay{
+        visibility:visible !important;
+        opacity:1 !important;
+        pointer-events:auto !important;
+      }
+
+      #gjmStartBtn{
+        visibility:visible !important;
+        opacity:1 !important;
+        pointer-events:auto !important;
+      }
+    `;
+
+    try{ document.head.appendChild(st); }catch(e){}
+  }
+
+  function unlockMainLayers(){
     [
       '#gjSoloBossMain',
       '#gjSoloBossArea',
       '.gjm-root',
       '.gjm-area'
     ].forEach(function(sel){
-      qa(sel).forEach(function(el){
+      $all(sel).forEach(function(el){
         try{
           el.style.setProperty('display','block','important');
           el.style.setProperty('visibility','visible','important');
@@ -178,72 +296,87 @@
       });
     });
 
-    const area = q('#gjSoloBossArea');
-    if (area){
+    const start = $('#gjmStartOverlay');
+    const btn = $('#gjmStartBtn');
+
+    if (start){
       try{
-        area.style.setProperty('pointer-events','auto','important');
+        start.style.setProperty('display','grid','important');
+        start.style.setProperty('visibility','visible','important');
+        start.style.setProperty('opacity','1','important');
+        start.style.setProperty('pointer-events','auto','important');
+        start.style.setProperty('z-index','80','important');
       }catch(e){}
     }
 
-    const startOverlay = q('#gjmStartOverlay');
-    const startBtn = q('#gjmStartBtn');
-
-    if (startOverlay){
+    if (btn){
       try{
-        startOverlay.style.setProperty('display','grid','important');
-        startOverlay.style.setProperty('visibility','visible','important');
-        startOverlay.style.setProperty('opacity','1','important');
-        startOverlay.style.setProperty('pointer-events','auto','important');
-        startOverlay.style.setProperty('z-index','80','important');
-        startOverlay.style.setProperty('transform','none','important');
-      }catch(e){}
-    }
-
-    if (startBtn){
-      try{
-        startBtn.style.setProperty('display','inline-block','important');
-        startBtn.style.setProperty('visibility','visible','important');
-        startBtn.style.setProperty('opacity','1','important');
-        startBtn.style.setProperty('pointer-events','auto','important');
+        btn.style.setProperty('display','inline-block','important');
+        btn.style.setProperty('visibility','visible','important');
+        btn.style.setProperty('opacity','1','important');
+        btn.style.setProperty('pointer-events','auto','important');
       }catch(e){}
     }
   }
 
-  function hardUnlock(){
+  function autoStartIfOnlyLoadingWasBlocking(){
+    const btn = $('#gjmStartBtn');
+    const start = $('#gjmStartOverlay');
+
+    if (!btn || !start) return;
+
+    const run = new URLSearchParams(location.search || '').get('run');
+    const phase = new URLSearchParams(location.search || '').get('phase');
+
+    if (run === 'menu') return;
+    if (phase === 'summary' || phase === 'cooldown') return;
+
+    const already = window.__GJ_MOBILE_AUTO_START_DONE__;
+    if (already) return;
+
+    window.__GJ_MOBILE_AUTO_START_DONE__ = true;
+
+    setTimeout(function(){
+      try{
+        if (document.body.contains(btn)){
+          btn.click();
+          console.info('[GoodJunk Mobile Loading Bypass] auto clicked start');
+        }
+      }catch(e){}
+    }, 350);
+  }
+
+  function hardBypass(){
+    injectForceCss();
     killKnownLoading();
-
-    findLoadingRootFromText().forEach(kill);
-
-    killFullScreenBlockers();
-
-    forceGameVisible();
-
-    try{
-      document.documentElement.style.setProperty('overflow','hidden','important');
-      document.body.style.setProperty('overflow','hidden','important');
-    }catch(e){}
+    killLoadingByText();
+    killCenteredGoodJunkCard();
+    killProgressOnlyCard();
+    unlockMainLayers();
+    autoStartIfOnlyLoadingWasBlocking();
   }
 
   function boot(){
-    hardUnlock();
+    hardBypass();
 
     [
-      60,120,200,320,500,750,1000,1300,1600,2000,
-      2500,3000,4000,5000,6500,8000,10000,12000
+      40,80,140,220,350,500,700,900,
+      1200,1500,1800,2200,2800,3500,
+      4500,6000,8000,10000,13000
     ].forEach(function(ms){
-      setTimeout(hardUnlock, ms);
+      setTimeout(hardBypass, ms);
     });
 
     let n = 0;
     const timer = setInterval(function(){
       n++;
-      hardUnlock();
-      if (n >= 100) clearInterval(timer);
+      hardBypass();
+      if (n >= 120) clearInterval(timer);
     }, 250);
 
     try{
       const mo = new MutationObserver(function(){
-        hardUnlock();
+        hardBypass();
       });
 
       mo.observe(document.documentElement || document.body, {
@@ -255,16 +388,16 @@
 
       setTimeout(function(){
         try{ mo.disconnect(); }catch(e){}
-      }, 20000);
+      }, 25000);
     }catch(e){}
 
-    window.addEventListener('pageshow', hardUnlock, true);
-    window.addEventListener('focus', hardUnlock, true);
-    document.addEventListener('visibilitychange', hardUnlock, true);
-    document.addEventListener('pointerdown', hardUnlock, true);
-    document.addEventListener('touchstart', hardUnlock, true);
+    window.addEventListener('pageshow', hardBypass, true);
+    window.addEventListener('focus', hardBypass, true);
+    document.addEventListener('visibilitychange', hardBypass, true);
+    document.addEventListener('pointerdown', hardBypass, true);
+    document.addEventListener('touchstart', hardBypass, true);
 
-    console.info('[GoodJunk Mobile Loading Hard Unlock]', VERSION, 'loaded');
+    console.info('[GoodJunk Mobile Loading Card Bypass]', VERSION, 'loaded');
   }
 
   if (document.readyState === 'loading'){
