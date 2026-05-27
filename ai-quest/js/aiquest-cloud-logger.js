@@ -5,8 +5,8 @@
 */
 (function(){
   'use strict';
-  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwVkL4eyQM_dq83Asjw6PfkgjG2WxVGgJQ_lCaAtoGhwBcylguZkWZvu7UUwrNR4Np9/exec';
-
+  const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+  
   function storage(){ return window.AIQuestStorage; }
   function getApiUrl(){
     const params = new URLSearchParams(location.search);
