@@ -799,3 +799,136 @@
   }
 
 })();
+(function(){
+  'use strict';
+
+  const PATCH_ID = 'v20260527-race-run-safe-waiting-ui-03';
+
+  if (window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_03__) return;
+  window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_03__ = true;
+
+  const qs = new URLSearchParams(location.search);
+
+  function $(id){ return document.getElementById(id); }
+
+  function getRoom(){
+    return (
+      qs.get('roomId') ||
+      qs.get('room') ||
+      qs.get('code') ||
+      sessionStorage.getItem('HHA_GROUPS_RACE_ROOM') ||
+      ''
+    ).trim().toUpperCase();
+  }
+
+  function getName(){
+    return (
+      qs.get('name') ||
+      qs.get('playerName') ||
+      sessionStorage.getItem('HHA_GROUPS_RACE_NAME') ||
+      'Hero'
+    ).trim();
+  }
+
+  function setText(id, text){
+    const el = $(id);
+    if (el) el.textContent = text;
+  }
+
+  function paintBase(){
+    const room = getRoom();
+    const name = getName();
+
+    if (room) {
+      setText('metaRoom', room);
+      try { sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', room); } catch(e) {}
+    }
+
+    if (name) {
+      setText('metaName', name);
+      try { sessionStorage.setItem('HHA_GROUPS_RACE_NAME', name); } catch(e) {}
+    }
+
+    const status = $('statusMsg');
+    if (status) {
+      status.className = 'status-text warn';
+      status.textContent = room
+        ? 'เข้าห้องแล้ว: ' + room + ' • กำลังซิงก์ผู้เล่นจาก Firebase...'
+        : 'ไม่พบ Room Code ใน URL';
+    }
+
+    const state = $('roomState');
+    if (state) {
+      state.textContent = room
+        ? 'ห้อง ' + room + ' พร้อมรอผู้เล่นอย่างน้อย 2 คน'
+        : 'ยังไม่มี Room Code';
+    }
+
+    const list = $('playersList');
+    if (list && room && /กำลังโหลดข้อมูลผู้เล่น/.test(list.textContent || '')) {
+      list.innerHTML =
+        '<div class="player">' +
+          '<div class="left">' +
+            '<div class="avatar">🏁</div>' +
+            '<div>' +
+              '<div class="name">' + escapeHtml(name) + '</div>' +
+              '<div class="tag">Host / local waiting • room ' + escapeHtml(room) + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="right wait">รอเพื่อน</div>' +
+        '</div>';
+    }
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function patchButtons(){
+    const room = getRoom();
+    const name = getName();
+
+    const backLobby = $('btnBackLobby');
+    if (backLobby && !backLobby.__hhaSafeBound) {
+      backLobby.__hhaSafeBound = true;
+      backLobby.addEventListener('click', function(ev){
+        ev.preventDefault();
+        location.href =
+          './groups-race-lobby.html?room=' + encodeURIComponent(room) +
+          '&roomId=' + encodeURIComponent(room) +
+          '&name=' + encodeURIComponent(name);
+      }, true);
+    }
+
+    const backHub = $('btnBackHub');
+    if (backHub && !backHub.__hhaSafeBound) {
+      backHub.__hhaSafeBound = true;
+      backHub.addEventListener('click', function(ev){
+        ev.preventDefault();
+        location.href = '../groups-vr.html?mode=race&view=pc&name=' + encodeURIComponent(name);
+      }, true);
+    }
+  }
+
+  function boot(){
+    paintBase();
+    patchButtons();
+
+    setTimeout(paintBase, 300);
+    setTimeout(paintBase, 900);
+    setTimeout(paintBase, 1800);
+
+    console.info('[Groups Race Safe Waiting UI]', PATCH_ID, {
+      room: getRoom(),
+      name: getName()
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  } else {
+    boot();
+  }
+})();
