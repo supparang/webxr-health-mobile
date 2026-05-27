@@ -679,5 +679,170 @@
   <script src="./groups-race-run-rematch-start-v42.js?v=20260519-race-run-v42-rematch-start"></script>
   <script src="./groups-race-run-safe-waiting-ui.js?v=20260527-safeui05"></script>
   <script src="./groups-race-player-band-v01.js?v=20260527-band01"></script>
+  <script>
+/* =========================================================
+   Groups Race Waiting Room Inline DOM Force
+   PATCH: v20260527-race-run-inline-force-06
+   Put this as the LAST script before </body>
+========================================================= */
+(function(){
+  'use strict';
+
+  var PATCH_ID = 'v20260527-race-run-inline-force-06';
+
+  if (window.__HHA_RACE_RUN_INLINE_FORCE_06__) return;
+  window.__HHA_RACE_RUN_INLINE_FORCE_06__ = true;
+
+  var qs = new URLSearchParams(location.search);
+
+  function $(id){
+    return document.getElementById(id);
+  }
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[c];
+    });
+  }
+
+  function room(){
+    return String(
+      qs.get('roomId') ||
+      qs.get('room') ||
+      qs.get('code') ||
+      sessionStorage.getItem('HHA_GROUPS_RACE_ROOM') ||
+      ''
+    ).trim().toUpperCase();
+  }
+
+  function name(){
+    return String(
+      qs.get('name') ||
+      qs.get('playerName') ||
+      sessionStorage.getItem('HHA_GROUPS_RACE_NAME') ||
+      'Hero'
+    ).trim() || 'Hero';
+  }
+
+  function setText(id, value){
+    var el = $(id);
+    if (!el) return;
+    el.textContent = String(value);
+    el.style.outline = '2px solid rgba(99,217,155,.32)';
+  }
+
+  function force(){
+    var r = room();
+    var n = name();
+
+    try {
+      if (r) sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', r);
+      if (n) sessionStorage.setItem('HHA_GROUPS_RACE_NAME', n);
+    } catch(e) {}
+
+    setText('metaRoom', r || '-');
+    setText('metaName', n || 'Hero');
+
+    var status = $('statusMsg');
+    if (status) {
+      status.className = 'status-text warn';
+      status.textContent = r
+        ? 'เข้าห้องแล้ว: ' + r + ' • ผู้เล่น: ' + n + ' • รอเพื่อนเข้าห้องเดียวกัน'
+        : 'ไม่พบ Room Code ใน URL';
+    }
+
+    var state = $('roomState');
+    if (state) {
+      state.textContent = r
+        ? 'ห้อง ' + r + ' พร้อมแล้ว • Race Standard ต้องมี 2–4 คนก่อนเริ่ม'
+        : 'ยังไม่มี Room Code';
+    }
+
+    var count = $('countdown');
+    if (count && (count.textContent === '...' || count.textContent.indexOf('Firebase') >= 0)) {
+      count.className = 'count wait';
+      count.textContent = 'รอ';
+    }
+
+    var list = $('playersList');
+    if (list) {
+      var t = (list.textContent || '').trim();
+
+      if (
+        !t ||
+        t.indexOf('กำลังโหลดข้อมูลผู้เล่น') >= 0 ||
+        t.indexOf('รอข้อมูลจาก Firebase') >= 0 ||
+        t.indexOf(n) < 0
+      ) {
+        list.innerHTML =
+          '<div class="player" data-inline-force="1">' +
+            '<div class="left">' +
+              '<div class="avatar">🏁</div>' +
+              '<div>' +
+                '<div class="name">' + esc(n) + '</div>' +
+                '<div class="tag">Host / waiting • room ' + esc(r || '-') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="right wait">รอเพื่อน</div>' +
+          '</div>';
+      }
+    }
+
+    var banner = document.getElementById('hhaRaceInlineForceBanner');
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.id = 'hhaRaceInlineForceBanner';
+      banner.style.cssText = [
+        'position:fixed',
+        'left:50%',
+        'bottom:14px',
+        'transform:translateX(-50%)',
+        'z-index:999999',
+        'width:min(680px,92vw)',
+        'padding:12px 16px',
+        'border-radius:20px',
+        'background:rgba(15,37,98,.96)',
+        'border:1px solid rgba(99,217,155,.32)',
+        'color:#eaf6ff',
+        'font:900 14px/1.35 system-ui,sans-serif',
+        'box-shadow:0 18px 42px rgba(0,0,0,.32)',
+        'text-align:center'
+      ].join(';');
+      document.body.appendChild(banner);
+    }
+
+    banner.innerHTML = r
+      ? '✅ Inline Force: ห้อง <b style="color:#ffe29b">' + esc(r) + '</b> • ผู้เล่น <b style="color:#ffe29b">' + esc(n) + '</b> • รอคนที่ 2'
+      : '⚠️ Inline Force: ไม่พบ Room Code';
+  }
+
+  function boot(){
+    force();
+
+    [80, 160, 300, 600, 1000, 1800, 3000].forEach(function(ms){
+      setTimeout(force, ms);
+    });
+
+    setInterval(force, 500);
+
+    console.info('[Groups Race Inline Force]', PATCH_ID, {
+      room: room(),
+      name: name()
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  } else {
+    boot();
+  }
+})();
+</script>
 </body>
 </html>
