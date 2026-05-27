@@ -443,63 +443,107 @@
   }
 
   function computeBalancedSummary(){
-    var scoreEl = q('.hha-solo-bigscore');
-    var originalScore = scoreEl ? Number(String(scoreEl.childNodes[0] && scoreEl.childNodes[0].nodeValue || scoreEl.textContent || '').replace(/[^0-9.-]/g,'')) : 0;
+  var scoreEl = q('.hha-solo-bigscore');
+  var originalScore = 0;
 
-    var hydration = parseSummaryNumber(/Hydration/i, 0);
-    var combo = parseSummaryNumber(/Combo|คอมโบ/i, 0);
-    var missions = parseSummaryNumber(/Mission/i, 0);
-    var good = parseSummaryNumber(/เก็บของดี/i, 0);
-    var bad = parseSummaryNumber(/โดนของเสีย/i, 0);
-    var miss = parseSummaryNumber(/พลาด/i, 0);
-
-    var bossWin = /ชนะ/.test(document.body.textContent || '');
-
-    var balanced = 0;
-    balanced += good * 64;
-    balanced += Math.min(combo, 40) * 38;
-    balanced += Math.max(0, combo - 40) * 12;
-    balanced += missions * 260;
-    balanced += hydration >= 90 ? 760 : hydration >= 75 ? 560 : hydration >= 55 ? 300 : 120;
-    balanced += bossWin ? 850 : 0;
-    balanced -= bad * 145;
-    balanced -= miss * 42;
-
-    if(currentDiff() === 'easy') balanced *= 0.88;
-    if(currentDiff() === 'hard') balanced *= 1.06;
-    if(currentDiff() === 'challenge') balanced *= 1.14;
-
-    balanced = Math.max(0, Math.round(balanced));
-
-    var rank = 'Bronze';
-    var stars = 1;
-
-    if(balanced >= 8200 && hydration >= 72 && combo >= 22 && missions >= 4 && bad <= 4 && bossWin){
-      rank = 'Diamond';
-      stars = 3;
-    }
-    }else if(balanced >= 5600 && hydration >= 58 && combo >= 12){
-      rank = 'Gold';
-      stars = 2;
-    }else if(balanced >= 3200 && hydration >= 38){
-      rank = 'Silver';
-      stars = 2;
-    }
-
-    return {
-      originalScore:originalScore,
-      score:balanced,
-      rank:rank,
-      stars:stars,
-      hydration:hydration,
-      combo:combo,
-      missions:missions,
-      good:good,
-      bad:bad,
-      miss:miss,
-      bossWin:bossWin
-    };
+  if(scoreEl){
+    var rawScore = String(scoreEl.textContent || '').replace(/[^0-9.-]/g,'');
+    originalScore = Number(rawScore);
+    if(!Number.isFinite(originalScore)) originalScore = 0;
   }
+
+  var hydration = parseSummaryNumber(/Hydration/i, 0);
+  var combo = parseSummaryNumber(/Combo|คอมโบ/i, 0);
+  var missions = parseSummaryNumber(/Mission/i, 0);
+  var good = parseSummaryNumber(/เก็บของดี/i, 0);
+  var bad = parseSummaryNumber(/โดนของเสีย/i, 0);
+  var miss = parseSummaryNumber(/พลาด/i, 0);
+
+  var bodyText = String(document.body.textContent || '');
+  var bossWin = /ชนะ/.test(bodyText);
+
+  var balanced = 0;
+
+  balanced += good * 64;
+  balanced += Math.min(combo, 40) * 38;
+  balanced += Math.max(0, combo - 40) * 12;
+  balanced += missions * 260;
+
+  if(hydration >= 90){
+    balanced += 760;
+  }else if(hydration >= 75){
+    balanced += 560;
+  }else if(hydration >= 55){
+    balanced += 300;
+  }else{
+    balanced += 120;
+  }
+
+  if(bossWin){
+    balanced += 850;
+  }
+
+  balanced -= bad * 145;
+  balanced -= miss * 42;
+
+  if(currentDiff() === 'easy'){
+    balanced *= 0.88;
+  }
+
+  if(currentDiff() === 'hard'){
+    balanced *= 1.06;
+  }
+
+  if(currentDiff() === 'challenge'){
+    balanced *= 1.14;
+  }
+
+  balanced = Math.max(0, Math.round(balanced));
+
+  var rank = 'Bronze';
+  var stars = 1;
+
+  /*
+    Pack43 fixed:
+    แยก if เป็นชั้น ๆ ชัดเจน ไม่ใช้ else chain
+    เพื่อกัน syntax พังจากการแก้ threshold
+  */
+  if(balanced >= 3200 && hydration >= 38){
+    rank = 'Silver';
+    stars = 2;
+  }
+
+  if(balanced >= 5600 && hydration >= 58 && combo >= 12){
+    rank = 'Gold';
+    stars = 2;
+  }
+
+  if(
+    balanced >= 8200 &&
+    hydration >= 72 &&
+    combo >= 22 &&
+    missions >= 4 &&
+    bad <= 4 &&
+    bossWin
+  ){
+    rank = 'Diamond';
+    stars = 3;
+  }
+
+  return {
+    originalScore: originalScore,
+    score: balanced,
+    rank: rank,
+    stars: stars,
+    hydration: hydration,
+    combo: combo,
+    missions: missions,
+    good: good,
+    bad: bad,
+    miss: miss,
+    bossWin: bossWin
+  };
+}
 
   function applySummaryRebalance(){
     var summary = summaryShown();
