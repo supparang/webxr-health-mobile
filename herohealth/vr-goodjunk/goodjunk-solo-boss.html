@@ -741,36 +741,71 @@
       }
 
       function buildCooldownUrl(extra){
-        extra = extra || {};
+  extra = extra || {};
 
-        const launcherUrl = buildGoodJunkLauncherUrl();
-        const keep = new URLSearchParams();
+  const launcherUrl = buildGoodJunkLauncherUrl();
+  const keep = new URLSearchParams();
 
-        keep.set('zone', 'nutrition');
-        keep.set('cat', 'nutrition');
-        keep.set('gameId', 'goodjunk');
-        keep.set('game', 'goodjunk');
-        keep.set('mode', 'solo_boss');
-        keep.set('phase', 'cooldown');
+  keep.set('zone', 'nutrition');
+  keep.set('cat', 'nutrition');
+  keep.set('gameId', 'goodjunk');
+  keep.set('game', 'goodjunk');
+  keep.set('mode', 'solo_boss');
+  keep.set('phase', 'cooldown');
 
-        keep.set('pid', q('pid', 'anon'));
-        keep.set('name', playerName());
-        keep.set('diff', q('diff', 'normal'));
-        keep.set('time', q('time', '120'));
-        keep.set('view', q('view', 'mobile'));
+  keep.set('pid', q('pid', 'anon'));
+  keep.set('name', playerName());
+  keep.set('diff', q('diff', 'normal'));
+  keep.set('time', q('time', '120'));
+  keep.set('view', q('view', 'mobile'));
 
-        keep.set('hub', CANONICAL.gateMainHub);
-        keep.set('next', launcherUrl);
-        keep.set('back', launcherUrl);
+  /*
+    สำคัญ:
+    หลัง cooldown ต้องกลับหน้าเลือกโหมด GoodJunk เท่านั้น
+  */
+  keep.set('hub', CANONICAL.goodjunkLauncher);
+  keep.set('next', launcherUrl);
+  keep.set('back', launcherUrl);
+  keep.set('launcher', launcherUrl);
+  keep.set('return', launcherUrl);
 
-        if(extra.reason) keep.set('reason', String(extra.reason));
-        if(extra.score !== undefined) keep.set('score', String(extra.score));
-        if(extra.stars !== undefined) keep.set('stars', String(extra.stars));
-        if(extra.rank !== undefined) keep.set('rank', String(extra.rank));
+  /*
+    ส่งผลลัพธ์จากหน้า Summary ไปหน้า cooldown gate ให้ครบ
+  */
+  const score = extra.score ?? q('score', '0');
+  const stars = extra.stars ?? q('stars', '');
+  const rank = extra.rank ?? q('rank', '');
+  const accuracy = extra.accuracy ?? extra.acc ?? q('accuracy', q('acc', ''));
+  const goodHits = extra.goodHits ?? extra.good ?? q('goodHits', q('good', ''));
+  const junkHits = extra.junkHits ?? extra.junk ?? q('junkHits', q('junk', ''));
+  const fakeHits = extra.fakeHits ?? extra.fake ?? q('fakeHits', q('fake', ''));
+  const miss = extra.miss ?? extra.misses ?? q('miss', q('misses', '0'));
+  const combo = extra.combo ?? extra.bestCombo ?? q('combo', q('bestCombo', ''));
+  const coins = extra.coins ?? q('coins', '');
+  const badge = extra.badge ?? q('badge', '');
+  const mission = extra.mission ?? extra.missionDone ?? q('mission', q('missionDone', ''));
 
-        return CANONICAL.warmupGate + '?' + keep.toString();
-      }
+  keep.set('score', String(score || 0));
+  keep.set('miss', String(miss || 0));
 
+  if (stars !== '') keep.set('stars', String(stars));
+  if (rank !== '') keep.set('rank', String(rank));
+  if (accuracy !== '') keep.set('accuracy', String(accuracy));
+  if (goodHits !== '') keep.set('goodHits', String(goodHits));
+  if (junkHits !== '') keep.set('junkHits', String(junkHits));
+  if (fakeHits !== '') keep.set('fakeHits', String(fakeHits));
+  if (combo !== '') keep.set('bestCombo', String(combo));
+  if (coins !== '') keep.set('coins', String(coins));
+  if (badge !== '') keep.set('badge', String(badge));
+  if (mission !== '') keep.set('missionDone', String(mission));
+
+  if (extra.reason) keep.set('reason', String(extra.reason));
+
+  keep.set('from', 'goodjunk-solo-boss-mobile');
+  keep.set('v', '20260526-mobile-cooldown-summary-return-final');
+
+  return CANONICAL.warmupGate + '?' + keep.toString();
+}
       function safeBackUrl(){
         return buildGoodJunkLauncherUrl();
       }
@@ -823,49 +858,68 @@
 
       function patchRewardZoneButtonToCooldown(){
         window.addEventListener('gj:reward-summary-shown', function(ev){
-          const summary = ev && ev.detail ? ev.detail : {};
+  const summary = ev && ev.detail ? ev.detail : {};
 
-          setTimeout(function(){
-            const btn = document.getElementById('gjrZoneBtn');
-            if(!btn) return;
+  setTimeout(function(){
+    const btn = document.getElementById('gjrZoneBtn');
+    if(!btn) return;
 
-            btn.innerHTML = '🧘 Cooldown แล้วกลับเลือกโหมด';
-            btn.setAttribute('aria-label', 'ไปหน้า Cooldown แล้วกลับหน้าเลือกโหมด GoodJunk');
-            btn.dataset.goCooldown = '1';
+    btn.innerHTML = '🧘 Cooldown แล้วกลับเลือกโหมด';
+    btn.setAttribute('aria-label', 'ไปหน้า Cooldown แล้วกลับหน้าเลือกโหมด GoodJunk');
+    btn.dataset.goCooldown = '1';
 
-            try{
-              localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-                patch:'v8.41.21-MOBILE-NO-BLOCK-TARGET',
-                cooldownUrl:buildCooldownUrl({
-                  reason:'reward-summary',
-                  score:summary.score,
-                  stars:summary.stars,
-                  rank:summary.rank
-                }),
-                goodjunkLauncherUrl:buildGoodJunkLauncherUrl(),
-                expectedAfterCooldown:CANONICAL.goodjunkLauncher,
-                gateMainHubUrl:CANONICAL.gateMainHub,
-                savedAt:new Date().toISOString()
-              }));
-            }catch(e){}
-          }, 30);
-        });
-
+    try{
+      localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
+        patch:'v20260526-MOBILE-COOLDOWN-SUMMARY-RETURN-FINAL',
+        cooldownUrl:buildCooldownUrl({
+          reason:'reward-summary',
+          score:summary.score,
+          stars:summary.stars,
+          rank:summary.rank,
+          accuracy:summary.accuracy || summary.acc,
+          goodHits:summary.goodHits || summary.good,
+          junkHits:summary.junkHits || summary.junk,
+          fakeHits:summary.fakeHits || summary.fake,
+          miss:summary.miss || summary.misses,
+          bestCombo:summary.bestCombo || summary.combo,
+          coins:summary.coins,
+          badge:summary.badge,
+          missionDone:summary.missionDone || summary.mission
+        }),
+        goodjunkLauncherUrl:buildGoodJunkLauncherUrl(),
+        expectedAfterCooldown:CANONICAL.goodjunkLauncher,
+        savedAt:new Date().toISOString()
+      }));
+    }catch(e){}
+  }, 30);
+});
         document.addEventListener('click', function(ev){
-          const target = ev.target && ev.target.closest
-            ? ev.target.closest('#gjrZoneBtn,[data-go-cooldown="1"]')
-            : null;
+  const target = ev.target && ev.target.closest
+    ? ev.target.closest('#gjrZoneBtn,[data-go-cooldown="1"]')
+    : null;
 
-          if(!target) return;
+  if(!target) return;
 
-          ev.preventDefault();
-          ev.stopPropagation();
-          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+  ev.preventDefault();
+  ev.stopPropagation();
+  if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
-          goCooldown({
-            reason:'reward-zone-button'
-          });
-        }, true);
+  let latest = {};
+
+  try{
+    latest = JSON.parse(
+      localStorage.getItem('GJ_SOLO_BOSS_LAST_SUMMARY') ||
+      localStorage.getItem('GJ_FULL_3D_VR_LAST_SUMMARY') ||
+      '{}'
+    ) || {};
+  }catch(e){
+    latest = {};
+  }
+
+  goCooldown(Object.assign({}, latest, {
+    reason:'reward-zone-button'
+  }));
+}, true);
       }
 
       function removeLoadingSoon(){
@@ -902,7 +956,17 @@
       removeLoadingSoon();
     })();
   </script>
-<script src="./goodjunk-solo-boss-warmup-entry-check-patch.js?v=8474"></script>
+  <script src="./goodjunk-solo-boss-warmup-entry-check-patch.js?v=8474"></script>
+  
+  <script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
+  <script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
+  <script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
+
+  <script src="./goodjunk-solo-boss-reward.js?v=20260504-v8404"></script>
+  <script src="./goodjunk-solo-boss-reward-polish.js?v=20260504-v8415"></script>
+
+  <script src="./goodjunk-solo-boss-warmup-entry-check-patch.js?v=8474"></script>
+
   <script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
   <script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
   <script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
@@ -924,14 +988,10 @@
 
   <script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
   <script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
+
   <script src="./goodjunk-solo-boss-mobile-target-compact-patch.js?v=8472"></script>
   <script src="./goodjunk-solo-boss-final-polish-patch.js?v=8473"></script>
-  <script src="./goodjunk-mobile-cooldown-return-final-patch.js?v=20260526"></script>
-  <script src="./goodjunk-global-nav-final-patch.js?v=20260526"></script>
-  <script src="./goodjunk-mobile-cooldown-return-lock.js?v=20260526-mobile-return-lock-final"></script>
-  <script src="./goodjunk-mobile-return-to-launcher-final-patch.js"></script>
-  <script src="./goodjunk-mobile-powerups-active-final-patch.js?v=20260526"></script>
-  <script src="./goodjunk-mobile-cooldown-return-launcher-final-patch.js?v=20260526"></script>
-  <script src="./goodjunk-mobile-powerups-click-active-final-patch.js?v=20260526"></script>
+
+  <script src="./goodjunk-mobile-return-cooldown-powerups-final-single.js?v=20260526-final1"></script>
 </body>
 </html>
