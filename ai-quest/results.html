@@ -7,16 +7,13 @@
   <meta name="theme-color" content="#0f172a" />
   <style>
     :root{--bg:#06101f;--panel:#0f172a;--text:#f8fafc;--muted:#a8b3c7;--line:rgba(255,255,255,.14);--brand:#38bdf8;--good:#34d399;--warn:#fbbf24;--bad:#fb7185;--radius:22px;--shadow:0 18px 44px rgba(0,0,0,.34)}
-    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 10% 0%,rgba(56,189,248,.25),transparent 30%),var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{width:min(1180px,100%);margin:0 auto;padding:18px 14px 40px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(15,23,42,.82);border:1px solid var(--line);border-radius:26px;padding:16px;box-shadow:var(--shadow)}h1{margin:0;font-size:clamp(22px,4vw,34px)}p{color:var(--muted);line-height:1.6}.btn{border:0;border-radius:15px;padding:11px 14px;font-weight:900;color:var(--text);background:linear-gradient(135deg,#2563eb,#7c3aed);cursor:pointer}.btn.secondary{background:rgba(255,255,255,.08);border:1px solid var(--line)}.btn.bad{background:linear-gradient(135deg,#e11d48,#fb7185)}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px}.card{background:rgba(15,23,42,.82);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}.num{font-size:30px;font-weight:1000}.label{font-size:12px;color:var(--muted);font-weight:800}.section{margin-top:16px}.profile{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.field{padding:12px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid var(--line)}.field b{display:block;color:#bae6fd;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:10px;overflow:hidden;border-radius:16px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}th{color:#bae6fd;background:rgba(255,255,255,.06)}.pill{display:inline-block;padding:5px 8px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-weight:900;font-size:12px}.ok{color:#bbf7d0}.warn{color:#fde68a}.badText{color:#fecaca}.bar{height:12px;background:rgba(255,255,255,.09);border:1px solid var(--line);border-radius:999px;overflow:hidden}.barFill{height:100%;background:linear-gradient(90deg,var(--good),var(--brand));width:0}.small{font-size:12px;color:var(--muted)}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.profile{grid-template-columns:1fr 1fr}}@media(max-width:620px){.grid,.profile{grid-template-columns:1fr}.top{align-items:flex-start}table{display:block;overflow-x:auto;white-space:nowrap}.btn{width:100%}}
+    *{box-sizing:border-box} body{margin:0;background:radial-gradient(circle at 10% 0%,rgba(56,189,248,.25),transparent 30%),var(--bg);color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.app{width:min(1180px,100%);margin:0 auto;padding:18px 14px 40px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:rgba(15,23,42,.82);border:1px solid var(--line);border-radius:26px;padding:16px;box-shadow:var(--shadow)}h1{margin:0;font-size:clamp(22px,4vw,34px)}p{color:var(--muted);line-height:1.6}.btn{border:0;border-radius:15px;padding:11px 14px;font-weight:900;color:var(--text);background:linear-gradient(135deg,#2563eb,#7c3aed);cursor:pointer}.btn.secondary{background:rgba(255,255,255,.08);border:1px solid var(--line)}.btn.bad{background:linear-gradient(135deg,#e11d48,#fb7185)}.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:16px}.card{background:rgba(15,23,42,.82);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}.num{font-size:30px;font-weight:1000}.label{font-size:12px;color:var(--muted);font-weight:800}.section{margin-top:16px}.profile{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.field{padding:12px;border-radius:16px;background:rgba(255,255,255,.06);border:1px solid var(--line)}.field b{display:block;color:#bae6fd;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:10px;overflow:hidden;border-radius:16px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}th{color:#bae6fd;background:rgba(255,255,255,.06)}.pill{display:inline-block;padding:5px 8px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.06);font-weight:900;font-size:12px}.ok{color:#bbf7d0}.warn{color:#fde68a}.bar{height:12px;background:rgba(255,255,255,.09);border:1px solid var(--line);border-radius:999px;overflow:hidden}.barFill{height:100%;background:linear-gradient(90deg,var(--good),var(--brand));width:0}.small{font-size:12px;color:var(--muted)}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.profile{grid-template-columns:1fr 1fr}}@media(max-width:620px){.grid,.profile{grid-template-columns:1fr}.top{align-items:flex-start}table{display:block;overflow-x:auto;white-space:nowrap}.btn{width:100%}}
   </style>
 </head>
 <body>
   <div class="app">
     <header class="top">
-      <div>
-        <h1>AI Quest Results Dashboard</h1>
-        <p>ดูผลการเล่นในเครื่องนี้ + Export ข้อมูลสำหรับอาจารย์</p>
-      </div>
+      <div><h1>AI Quest Results Dashboard</h1><p>ดูผลการเล่นในเครื่องนี้ + Export ข้อมูลสำหรับอาจารย์</p></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn secondary" id="btnBack">กลับหน้าเกม</button>
         <button class="btn" id="btnExportJson">Export JSON</button>
@@ -25,12 +22,7 @@
         <button class="btn bad" id="btnClear">Clear Local</button>
       </div>
     </header>
-
-    <section class="card section">
-      <h2>Student Profile</h2>
-      <div class="profile" id="profileBox"></div>
-    </section>
-
+    <section class="card section"><h2>Student Profile</h2><div class="profile" id="profileBox"></div></section>
     <section class="grid">
       <div class="card"><div class="num" id="totalAttempts">0</div><div class="label">Total Attempts</div></div>
       <div class="card"><div class="num" id="bestScore">0</div><div class="label">Best Score</div></div>
@@ -38,102 +30,36 @@
       <div class="card"><div class="num" id="masteryStatus">-</div><div class="label">Mastery</div></div>
       <div class="card"><div class="num" id="pendingCount">0</div><div class="label">Pending Cloud</div></div>
     </section>
-
-    <section class="card section">
-      <h2>Score Progress</h2>
-      <div class="bar"><div class="barFill" id="progressBar"></div></div>
-      <p class="small" id="progressText"></p>
-    </section>
-
-    <section class="card section">
-      <h2>Last 10 Attempts</h2>
-      <div id="attemptTable"></div>
-    </section>
-
-    <section class="card section">
-      <h2>Misconception Summary</h2>
-      <div id="misBox"></div>
-    </section>
+    <section class="card section"><h2>Score Progress</h2><div class="bar"><div class="barFill" id="progressBar"></div></div><p class="small" id="progressText"></p></section>
+    <section class="card section"><h2>Last 10 Attempts</h2><div id="attemptTable"></div></section>
+    <section class="card section"><h2>Misconception Summary</h2><div id="misBox"></div></section>
   </div>
-
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
   <script>
     'use strict';
-    const S = window.AIQuestStorage;
-    const C = window.AIQuestCloudLogger;
-
+    const S = window.AIQuestStorage, C = window.AIQuestCloudLogger;
     function render(){
-      const p = S.getProfile();
-      const attempts = S.getAttempts();
-      const pending = S.getPending();
-      const latest = attempts[attempts.length-1] || {};
+      const p = S.getProfile(), attempts = S.getAttempts(), pending = S.getPending(), latest = attempts[attempts.length-1] || {};
       const best = attempts.reduce((m,a)=>Math.max(m, Number(a.score||0)),0);
       const mastered = attempts.some(a=>a.mastered === true || String(a.mastered)==='true');
-
-      document.getElementById('profileBox').innerHTML = [
-        ['Student ID', p.studentId || '-'],
-        ['Name', p.studentName || '-'],
-        ['Section', p.section || '-'],
-        ['Cloud', C.isCloudReady() ? 'Ready' : 'Not configured']
-      ].map(([k,v])=>`<div class="field"><b>${k}</b>${escapeHtml(v)}</div>`).join('');
-
-      totalAttempts.textContent = attempts.length;
-      bestScore.textContent = best;
-      latestScore.textContent = latest.score || 0;
-      masteryStatus.textContent = mastered ? 'YES' : 'Not yet';
-      masteryStatus.className = mastered ? 'num ok' : 'num warn';
-      pendingCount.textContent = pending.length;
-      progressBar.style.width = Math.min(100,best) + '%';
-      progressText.textContent = `Best score ${best}/100 • Attempts ${attempts.length}`;
-
-      renderAttempts(attempts.slice(-10).reverse());
-      renderMis(attempts);
+      profileBox.innerHTML = [['Student ID',p.studentId||'-'],['Name',p.studentName||'-'],['Section',p.section||'-'],['Cloud',C.isCloudReady()?'Ready':'Not configured']].map(([k,v])=>`<div class="field"><b>${k}</b>${escapeHtml(v)}</div>`).join('');
+      totalAttempts.textContent = attempts.length; bestScore.textContent = best; latestScore.textContent = latest.score || 0; masteryStatus.textContent = mastered ? 'YES' : 'Not yet'; masteryStatus.className = mastered ? 'num ok' : 'num warn'; pendingCount.textContent = pending.length; progressBar.style.width = Math.min(100,best) + '%'; progressText.textContent = `Best score ${best}/100 • Attempts ${attempts.length}`;
+      renderAttempts(attempts.slice(-10).reverse()); renderMis(attempts);
     }
-
     function renderAttempts(rows){
       if(!rows.length){ attemptTable.innerHTML = '<p>ยังไม่มีข้อมูล attempt</p>'; return; }
       attemptTable.innerHTML = `<table><thead><tr><th>Time</th><th>Score</th><th>Stars</th><th>Difficulty</th><th>Accuracy</th><th>Help</th><th>Combo</th><th>Mastery</th></tr></thead><tbody>${rows.map(a=>`<tr><td>${shortTime(a.clientTs)}</td><td><b>${a.score||0}</b></td><td>${'★'.repeat(a.stars||0)}${'☆'.repeat(3-(a.stars||0))}</td><td>${a.difficulty||'-'}</td><td>${a.accuracy||0}%</td><td>${a.helpUsed||0}</td><td>${a.maxCombo||0}</td><td>${a.mastered?'<span class="pill ok">YES</span>':'<span class="pill warn">Not yet</span>'}</td></tr>`).join('')}</tbody></table>`;
     }
-
     function renderMis(attempts){
-      const total = {};
-      attempts.forEach(a=>{
-        const mis = a.misconceptions || {};
-        Object.keys(mis).forEach(k=> total[k]=(total[k]||0)+Number(mis[k]||0));
-      });
+      const total = {}; attempts.forEach(a=>{ const mis = a.misconceptions || {}; Object.keys(mis).forEach(k=> total[k]=(total[k]||0)+Number(mis[k]||0)); });
       const entries = Object.entries(total).sort((a,b)=>b[1]-a[1]);
-      if(!entries.length){ misBox.innerHTML = '<p>ยังไม่มี misconception ที่บันทึก</p>'; return; }
-      misBox.innerHTML = entries.map(([k,v])=>`<p><b>${escapeHtml(k)}</b>: ${v}</p>`).join('');
+      misBox.innerHTML = entries.length ? entries.map(([k,v])=>`<p><b>${escapeHtml(k)}</b>: ${v}</p>`).join('') : '<p>ยังไม่มี misconception ที่บันทึก</p>';
     }
-
-    function download(name, text, type='text/plain'){
-      const blob = new Blob([text], {type});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    }
-
-    function shortTime(ts){
-      if(!ts) return '-';
-      try{return new Date(ts).toLocaleString();}catch(e){return ts;}
-    }
-
-    function escapeHtml(v){
-      return String(v == null ? '' : v).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-    }
-
-    btnBack.onclick = () => location.href = './index.html';
-    btnExportJson.onclick = () => download('aiquest-attempts.json', S.exportAttemptsJson(), 'application/json');
-    btnExportCsv.onclick = () => download('aiquest-attempts.csv', S.attemptsToCsv(), 'text/csv');
-    btnFlush.onclick = async () => { await C.flushPending(50); render(); alert('Sync pending complete'); };
-    btnClear.onclick = () => { if(confirm('ล้าง local attempts ในเครื่องนี้?')){ S.clearAttempts(); render(); } };
-
+    function download(name,text,type='text/plain'){ const blob=new Blob([text],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }
+    function shortTime(ts){ if(!ts) return '-'; try{return new Date(ts).toLocaleString();}catch(e){return ts;} }
+    function escapeHtml(v){ return String(v == null ? '' : v).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch])); }
+    btnBack.onclick=()=>location.href='./index.html'; btnExportJson.onclick=()=>download('aiquest-attempts.json',S.exportAttemptsJson(),'application/json'); btnExportCsv.onclick=()=>download('aiquest-attempts.csv',S.attemptsToCsv(),'text/csv'); btnFlush.onclick=async()=>{await C.flushPending(50); render(); alert('Sync pending complete');}; btnClear.onclick=()=>{if(confirm('ล้าง local attempts ในเครื่องนี้?')){S.clearAttempts(); render();}};
     render();
   </script>
 </body>

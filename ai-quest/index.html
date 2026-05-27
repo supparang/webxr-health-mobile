@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v1.5 Session 1 Final Polish</title>
+  <title>CSAI2102: AI Quest v1.6 Google Sheets Ready</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -897,7 +897,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v1.5 • Session 1 Final Polish • Review + Export + Balance + Mobile QA</div>
+          <div class="subtitle">v1.6 • Google Sheets Ready • Events + Attempts + Profile</div>
         </div>
       </div>
 
@@ -922,7 +922,7 @@
         <div class="panel">
           <h2>Session 1: AI Awakening</h2>
           <p>
-            Final Polish v1.5 เพิ่ม Review Wrong Items, Teacher Export,
+            Google Sheets Ready v1.6 เพิ่ม Review Wrong Items, Teacher Export,
             ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
             เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
           </p>
@@ -1059,7 +1059,7 @@
   <script>
     'use strict';
 
-    const STORAGE_KEY = 'CSAI2102_AIQUEST_V15_M1_FINAL_POLISH';
+    const STORAGE_KEY = 'CSAI2102_AIQUEST_V16_M1_GOOGLE_SHEETS';
 
     const DIFF = {
       easy: {
@@ -1555,18 +1555,17 @@ async function saveStudentProfile(){
     }
 
     function phaseHTML(active, done=[]){
-  const phases = ['Card Rush','Trick Cards','Explain Strike','Mini Boss'];
-
-  return `
-    <div class="phaseStrip">
-      ${phases.map(phase => `
-        <span class="phasePill ${phase === active ? 'active' : ''} ${done.includes(phase) ? 'done' : ''}">
-          ${phase}
-        </span>
-      `).join('')}
-    </div>
-  `;
-}
+      const phases = ['Card Rush','Trick Cards','Explain Strike','Mini Boss'];
+      return `
+        <div class="phaseStrip">
+          ${phases.map(phase => `
+            <span class="phasePill ${phase === active ? 'active' : ''} ${done.includes(phase) ? 'done' : ''}">
+              ${phase}
+            </span>
+          `).join('')}
+        </div>
+      `;
+    }
 
     function updateCombo(combo){
       const comboText = document.querySelector('#comboText');
@@ -1734,19 +1733,16 @@ function logEvent(data){
       });
 
       logEvent({
-  eventType: 'answer_submit',
-  phase: 'Explain Strike',
-  itemId: item.id || '',
-  prompt: item.stem,
-  yourAnswer: selected,
-  correctAnswer: correctReason,
-  isCorrect: ok,
-  combo: metrics.combo,
-  helpLeft: metrics.helpLeft,
-  extraJson: {
-    concept: item.concept || ''
-  }
-});
+        eventType: 'session_start',
+        phase: 'start',
+        itemId: '',
+        prompt: 'Session 1 started',
+        yourAnswer: '',
+        correctAnswer: '',
+        isCorrect: '',
+        combo: 0,
+        helpLeft: metrics.helpLeft
+      });
 
       showRush();
 
@@ -1915,6 +1911,22 @@ function logEvent(data){
               card.misconception
             );
 
+            logEvent({
+              eventType: 'answer_submit',
+              phase: 'Card Rush',
+              itemId: card.id || '',
+              prompt: card.label,
+              yourAnswer: selected,
+              correctAnswer: card.answer,
+              isCorrect: ok,
+              combo: metrics.combo,
+              helpLeft: metrics.helpLeft,
+              extraJson: {
+                misconception: card.misconception || '',
+                group: card.group || ''
+              }
+            });
+
             setTimeout(() => {
               rushIdx++;
               if(rushIdx < rush.length){
@@ -2000,20 +2012,20 @@ function logEvent(data){
             );
 
             logEvent({
-  eventType: 'answer_submit',
-  phase: 'Card Rush',
-  itemId: card.id || '',
-  prompt: card.label,
-  yourAnswer: selected,
-  correctAnswer: card.answer,
-  isCorrect: ok,
-  combo: metrics.combo,
-  helpLeft: metrics.helpLeft,
-  extraJson: {
-    misconception: card.misconception || '',
-    group: card.group || ''
-  }
-});
+              eventType: 'answer_submit',
+              phase: 'Trick Cards',
+              itemId: card.id || '',
+              prompt: card.label,
+              yourAnswer: selected,
+              correctAnswer: card.answer,
+              isCorrect: ok,
+              combo: metrics.combo,
+              helpLeft: metrics.helpLeft,
+              extraJson: {
+                misconception: card.misconception || '',
+                group: card.group || ''
+              }
+            });
 
             setTimeout(() => {
               trickIdx++;
@@ -2101,6 +2113,21 @@ function logEvent(data){
               `เหตุผลยังไม่ถูก — คำตอบที่ดีคือ: ${correctReason}`,
               ok ? '' : 'automation'
             );
+
+            logEvent({
+              eventType: 'answer_submit',
+              phase: 'Explain Strike',
+              itemId: item.id || '',
+              prompt: item.stem,
+              yourAnswer: selected,
+              correctAnswer: correctReason,
+              isCorrect: ok,
+              combo: metrics.combo,
+              helpLeft: metrics.helpLeft,
+              extraJson: {
+                concept: item.concept || ''
+              }
+            });
 
             if(ok){
               beep('explain');
@@ -2244,6 +2271,22 @@ function logEvent(data){
 
             updateCombo(metrics.combo);
 
+            logEvent({
+              eventType: 'boss_answer',
+              phase: 'Mini Boss',
+              itemId: claim.id || '',
+              prompt: claim.claim,
+              yourAnswer: selected,
+              correctAnswer: claim.counter,
+              isCorrect: ok,
+              combo: metrics.combo,
+              helpLeft: metrics.helpLeft,
+              extraJson: {
+                misconceptionKey: claim.key || '',
+                why: claim.why || ''
+              }
+            });
+
             setTimeout(() => {
               area.classList.remove('pulse','shake');
               bossIdx++;
@@ -2283,21 +2326,6 @@ function logEvent(data){
         `;
       }
 
-      logEvent({
-  eventType: 'answer_submit',
-  phase: 'Trick Cards',
-  itemId: card.id || '',
-  prompt: card.label,
-  yourAnswer: selected,
-  correctAnswer: card.answer,
-  isCorrect: ok,
-  combo: metrics.combo,
-  helpLeft: metrics.helpLeft,
-  extraJson: {
-    misconception: card.misconception || '',
-    group: card.group || ''
-  }
-});
 
       function wrongReviewHTML(){
         const wrongs = metrics.wrongItems || [];
@@ -2363,7 +2391,7 @@ function logEvent(data){
         const summary = {
           missionId:'m1',
           missionTitle:'AI Awakening',
-          version:'v1.5-session1-final-polish',
+          version:'v1.6-google-sheets-events',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2386,6 +2414,27 @@ function logEvent(data){
           timestamp:new Date().toISOString()
         };
 
+        logEvent({
+          eventType: 'session_end',
+          phase: 'end',
+          itemId: '',
+          prompt: 'Session 1 ended',
+          yourAnswer: '',
+          correctAnswer: '',
+          isCorrect: '',
+          combo: metrics.combo,
+          helpLeft: metrics.helpLeft,
+          extraJson: {
+            score: finalScore,
+            mastered,
+            bossWin: metrics.bossWin,
+            accuracy: Math.round(accuracy * 100)
+          }
+        });
+
+        summary.attemptId = attemptId;
+        summary.events = eventLog;
+
         finishMission(
           finalScore,
           `${message}: Accuracy ${summary.accuracy}%, Max Combo x${metrics.maxCombo}, Trick ${metrics.trickCorrect}/${tricks.length}, Explain ${metrics.explainCorrect}/${explains.length}, AI Help ใช้ ${helpUsed}/${diff.help}, Boss ${metrics.bossWin ? 'ชนะ' : 'ยังไม่ชนะ'}, Mastery ${mastered ? 'YES' : 'Not yet'}`,
@@ -2399,47 +2448,6 @@ function logEvent(data){
         );
       }
     }
-
-    summary.attemptId = attemptId;
-    summary.attemptId = attemptId;
-summary.events = eventLog;
-
-logEvent({
-  eventType: 'session_end',
-  phase: 'end',
-  itemId: '',
-  prompt: 'Session 1 ended',
-  yourAnswer: '',
-  correctAnswer: '',
-  isCorrect: '',
-  combo: metrics.combo,
-  helpLeft: metrics.helpLeft,
-  extraJson: {
-    score: finalScore,
-    mastered,
-    bossWin: metrics.bossWin,
-    accuracy: Math.round(accuracy * 100)
-  }
-});
-summary.events = eventLog;
-
-logEvent({
-  eventType: 'session_end',
-  phase: 'end',
-  itemId: '',
-  prompt: 'Session 1 ended',
-  yourAnswer: '',
-  correctAnswer: '',
-  isCorrect: '',
-  combo: metrics.combo,
-  helpLeft: metrics.helpLeft,
-  extraJson: {
-    score: finalScore,
-    mastered,
-    bossWin: metrics.bossWin,
-    accuracy: Math.round(accuracy * 100)
-  }
-});
 
     function saveResult(){
       const id = currentMission.id;
@@ -2498,7 +2506,7 @@ logEvent({
 
   if(window.AIQuestCloudLogger){
     AIQuestCloudLogger
-      .sendAttempt(attempt, [])
+      .sendAttempt(attempt, attempt.events || [])
       .then(() => AIQuestCloudLogger.flushPending())
       .catch(() => {});
   }
