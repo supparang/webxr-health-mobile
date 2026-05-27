@@ -1,36 +1,30 @@
 /* =========================================================
    HeroHealth Groups Race Run Safe Waiting UI
-   PATCH: v20260527-groups-race-run-safe-waiting-ui-04-force
+   PATCH: v20260527-groups-race-run-safe-waiting-ui-05-hard-repair
    File: /herohealth/vr-groups/groups-race-run-safe-waiting-ui.js
 
    Purpose:
-   - Force room/name UI from URL immediately
-   - Prevent Waiting Room from looking stuck while Firebase syncs
+   - Hard repair Waiting Room UI when run/lifecycle keeps placeholders
+   - Force Room Code / Player / Player List from URL
+   - Add visible fallback status banner
    - Keep existing Race logic untouched
-   - Works even if run.js/lifecycle keeps repainting placeholders
 ========================================================= */
 (function(){
   'use strict';
 
-  var PATCH_ID = 'v20260527-groups-race-run-safe-waiting-ui-04-force';
+  var PATCH_ID = 'v20260527-groups-race-run-safe-waiting-ui-05-hard-repair';
 
-  if (window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_04_FORCE__) return;
-  window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_04_FORCE__ = true;
+  if (window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_05_HARD_REPAIR__) return;
+  window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_05_HARD_REPAIR__ = true;
 
   var qs = new URLSearchParams(location.search);
 
-  function $(id){
-    return document.getElementById(id);
-  }
+  function byId(id){ return document.getElementById(id); }
 
-  function txt(id, value){
-    var el = $(id);
-    if (el) el.textContent = String(value);
-  }
-
-  function html(id, value){
-    var el = $(id);
-    if (el) el.innerHTML = String(value);
+  function textOf(el){
+    return String(el && (el.innerText || el.textContent || '') || '')
+      .replace(/\s+/g,' ')
+      .trim();
   }
 
   function esc(s){
@@ -46,7 +40,7 @@
   }
 
   function getRoom(){
-    var room =
+    var v =
       qs.get('roomId') ||
       qs.get('room') ||
       qs.get('code') ||
@@ -54,26 +48,25 @@
       sessionStorage.getItem('HHA_RACE_ROOM') ||
       '';
 
-    room = String(room || '').trim().toUpperCase();
+    v = String(v || '').trim().toUpperCase();
 
-    if (!room) {
+    if (!v) {
       var m = location.href.match(/[?&](?:roomId|room|code)=([^&]+)/i);
-      if (m) room = decodeURIComponent(m[1]).trim().toUpperCase();
+      if (m) v = decodeURIComponent(m[1]).trim().toUpperCase();
     }
 
-    return room;
+    return v;
   }
 
   function getName(){
-    var name =
+    return String(
       qs.get('name') ||
       qs.get('playerName') ||
       qs.get('player') ||
       sessionStorage.getItem('HHA_GROUPS_RACE_NAME') ||
       sessionStorage.getItem('HHA_RACE_NAME') ||
-      'Hero';
-
-    return String(name || 'Hero').trim() || 'Hero';
+      'Hero'
+    ).trim() || 'Hero';
   }
 
   function getView(){
@@ -84,7 +77,7 @@
     return String(qs.get('diff') || sessionStorage.getItem('HHA_GROUPS_RACE_DIFF') || 'normal').toLowerCase();
   }
 
-  function storeBase(){
+  function saveBase(){
     var room = getRoom();
     var name = getName();
 
@@ -104,9 +97,118 @@
     } catch(e) {}
   }
 
-  function playerCard(name, tag, status, statusClass, avatar){
+  function addStyle(){
+    if (document.getElementById('hha-race-safe-ui05-style')) return;
+
+    var style = document.createElement('style');
+    style.id = 'hha-race-safe-ui05-style';
+    style.textContent = `
+      .hha-race-safe-banner{
+        position:fixed;
+        left:50%;
+        bottom:calc(14px + env(safe-area-inset-bottom,0px));
+        transform:translateX(-50%);
+        z-index:999999;
+        width:min(680px,92vw);
+        padding:12px 16px;
+        border-radius:20px;
+        background:rgba(15,37,98,.96);
+        border:1px solid rgba(118,199,255,.34);
+        color:#eaf6ff;
+        font:900 14px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+        box-shadow:0 18px 42px rgba(0,0,0,.32);
+        text-align:center;
+      }
+
+      .hha-race-safe-banner b{
+        color:#ffe29b;
+      }
+
+      .hha-safe-forced{
+        outline:2px solid rgba(99,217,155,.32);
+        box-shadow:0 0 0 5px rgba(99,217,155,.08);
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureBanner(){
+    var el = document.querySelector('.hha-race-safe-banner');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'hha-race-safe-banner';
+      document.body.appendChild(el);
+    }
+
+    var room = getRoom();
+    var name = getName();
+
+    el.innerHTML = room
+      ? '✅ เข้าห้องแล้ว: <b>' + esc(room) + '</b> • ผู้เล่น: <b>' + esc(name) + '</b> • รอผู้เล่นคนที่ 2'
+      : '⚠️ ไม่พบ Room Code ใน URL • กลับ Lobby แล้วสร้าง/เข้าห้องใหม่';
+  }
+
+  function setText(el, value){
+    if (el && textOf(el) !== String(value)) {
+      el.textContent = String(value);
+      el.classList.add('hha-safe-forced');
+    }
+  }
+
+  function findMetaValueByLabel(labelText){
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.metaBox'));
+    for (var i = 0; i < boxes.length; i++) {
+      var box = boxes[i];
+      var label = box.querySelector('.metaLabel');
+      var value = box.querySelector('.metaValue');
+      if (label && value && textOf(label).toLowerCase().indexOf(labelText.toLowerCase()) >= 0) {
+        return value;
+      }
+    }
+    return null;
+  }
+
+  function hardPaintMeta(){
+    var room = getRoom();
+    var name = getName();
+
+    var metaRoom = byId('metaRoom') || findMetaValueByLabel('Room');
+    var metaName = byId('metaName') || findMetaValueByLabel('Player');
+
+    setText(metaRoom, room || '-');
+    setText(metaName, name || 'Hero');
+  }
+
+  function hardPaintStatus(){
+    var room = getRoom();
+    var name = getName();
+
+    var status = byId('statusMsg') || document.querySelector('.status-text');
+    if (status) {
+      status.className = 'status-text warn hha-safe-forced';
+      status.textContent = room
+        ? 'เข้าห้องแล้ว: ' + room + ' • ผู้เล่น: ' + name + ' • รอเพื่อนเข้าห้องเดียวกัน'
+        : 'ไม่พบ Room Code ใน URL';
+    }
+
+    var roomState = byId('roomState') || document.querySelector('.roomState');
+    if (roomState) {
+      roomState.classList.add('hha-safe-forced');
+      roomState.textContent = room
+        ? 'ห้อง ' + room + ' พร้อมแล้ว • ต้องมีอย่างน้อย 2 คนก่อนเริ่มแข่ง'
+        : 'ยังไม่มี Room Code';
+    }
+
+    var countdown = byId('countdown') || document.querySelector('.count');
+    if (countdown && (textOf(countdown) === '...' || textOf(countdown) === '' || textOf(countdown).indexOf('Firebase') >= 0)) {
+      countdown.className = 'count wait hha-safe-forced';
+      countdown.textContent = 'รอ';
+    }
+  }
+
+  function playerCard(name, tag, status, cls, avatar){
     return '' +
-      '<div class="player" data-hha-safe-player="1">' +
+      '<div class="player hha-safe-forced" data-hha-safe-player="1">' +
         '<div class="left">' +
           '<div class="avatar">' + esc(avatar || '🏁') + '</div>' +
           '<div>' +
@@ -114,105 +216,186 @@
             '<div class="tag">' + esc(tag || 'Waiting') + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="right ' + esc(statusClass || 'wait') + '">' + esc(status || 'รอ...') + '</div>' +
+        '<div class="right ' + esc(cls || 'wait') + '">' + esc(status || 'รอ...') + '</div>' +
       '</div>';
   }
 
-  function paintBase(force){
+  function hardPaintPlayers(players){
     var room = getRoom();
     var name = getName();
-    var view = getView();
-    var diff = getDiff();
 
-    storeBase();
+    var list = byId('playersList') || document.querySelector('.playersWrap');
+    if (!list) return;
 
-    if (room) txt('metaRoom', room);
-    else txt('metaRoom', '-');
-
-    txt('metaName', name || 'Hero');
-
-    var status = $('statusMsg');
-    if (status) {
-      status.className = 'status-text warn';
-      status.textContent = room
-        ? 'เข้าห้องแล้ว: ' + room + ' • ผู้เล่น: ' + name + ' • กำลังรอผู้เล่นอีกอย่างน้อย 1 คน'
-        : 'ไม่พบ Room Code ใน URL • กลับไป Lobby แล้วสร้าง/เข้าห้องใหม่';
+    if (players && players.length) {
+      list.innerHTML = players.map(function(p, idx){
+        return playerCard(
+          p.name || p.playerName || ('Player ' + (idx + 1)),
+          (idx === 0 ? 'Host / ' : '') + 'online • room ' + room,
+          'พร้อม',
+          'ok',
+          idx === 0 ? '🏁' : '🙂'
+        );
+      }).join('');
+      return;
     }
 
-    var roomState = $('roomState');
-    if (roomState) {
-      roomState.textContent = room
-        ? 'ห้อง ' + room + ' พร้อมแล้ว • ต้องมีอย่างน้อย 2 คนก่อนเริ่มแข่ง'
-        : 'ยังไม่มี Room Code';
-    }
+    var t = textOf(list);
+    var shouldForce =
+      !t ||
+      t.indexOf('กำลังโหลดข้อมูลผู้เล่น') >= 0 ||
+      t.indexOf('รอข้อมูลจาก Firebase') >= 0 ||
+      t.indexOf('รอ...') >= 0 ||
+      t.indexOf(name) < 0;
 
-    var countdown = $('countdown');
-    if (countdown && (!countdown.textContent || countdown.textContent === '...' || force)) {
-      countdown.className = 'count wait';
-      countdown.textContent = 'รอ';
+    if (shouldForce) {
+      list.innerHTML = playerCard(
+        name,
+        'Host / local waiting • room ' + (room || '-'),
+        'รอเพื่อน',
+        'wait',
+        '🏁'
+      );
     }
+  }
 
-    var list = $('playersList');
-    if (list) {
-      var current = list.textContent || '';
-      var shouldForce =
-        force ||
-        current.indexOf('กำลังโหลดข้อมูลผู้เล่น') >= 0 ||
-        current.indexOf('รอข้อมูลจาก Firebase') >= 0 ||
-        current.trim() === '';
+  function repair(force){
+    saveBase();
+    addStyle();
+    ensureBanner();
+    hardPaintMeta();
+    hardPaintStatus();
 
-      if (shouldForce) {
-        list.innerHTML =
-          playerCard(
-            name,
-            'Host / local presence • room ' + (room || '-'),
-            'รอเพื่อน',
-            'wait',
-            '🏁'
-          );
-      }
-    }
+    if (force) hardPaintPlayers([]);
+    else hardPaintPlayers(null);
 
     window.__HHA_GROUPS_RACE_SAFE_WAITING_UI_STATE__ = {
       patch: PATCH_ID,
-      room: room,
-      name: name,
-      view: view,
-      diff: diff,
-      paintedAt: new Date().toISOString()
+      room: getRoom(),
+      name: getName(),
+      view: getView(),
+      diff: getDiff(),
+      repairedAt: new Date().toISOString()
     };
+  }
+
+  function attachFirebaseSoft(){
+    var room = getRoom();
+    var name = getName();
+
+    if (!room) return;
+
+    function tryAttach(){
+      if (!window.firebase || !firebase.apps || !firebase.apps.length || !firebase.database) return;
+
+      if (window.__HHA_GROUPS_RACE_SAFE_UI05_FIREBASE_ATTACHED__) return;
+      window.__HHA_GROUPS_RACE_SAFE_UI05_FIREBASE_ATTACHED__ = true;
+
+      try {
+        var db = firebase.database();
+        var pid =
+          qs.get('pid') ||
+          sessionStorage.getItem('HHA_PLAYER_ID') ||
+          ('p_' + Math.random().toString(36).slice(2,9));
+
+        try { sessionStorage.setItem('HHA_PLAYER_ID', pid); } catch(e) {}
+
+        var paths = [
+          'herohealth/groups/race/rooms/' + room,
+          'groups/race/rooms/' + room,
+          'groupsRace/rooms/' + room,
+          'groupsRaceRooms/' + room,
+          'raceRooms/' + room,
+          'rooms/groupsRace/' + room,
+          'rooms/' + room
+        ];
+
+        paths.forEach(function(path){
+          try {
+            var roomRef = db.ref(path);
+            var playerRef = roomRef.child('players').child(pid);
+
+            playerRef.update({
+              name: name,
+              playerName: name,
+              room: room,
+              view: getView(),
+              diff: getDiff(),
+              ready: true,
+              online: true,
+              updatedAt: firebase.database.ServerValue.TIMESTAMP
+            }).catch(function(){});
+
+            playerRef.onDisconnect().update({
+              online:false,
+              leftAt:firebase.database.ServerValue.TIMESTAMP
+            }).catch(function(){});
+
+            roomRef.child('players').on('value', function(snap){
+              var val = snap.val() || {};
+              var players = Object.keys(val).map(function(k){
+                return Object.assign({ key:k }, val[k] || {});
+              }).filter(function(p){
+                return p.online !== false;
+              });
+
+              if (players.length) {
+                renderPlayers(players);
+              }
+            });
+          } catch(e) {}
+        });
+
+        console.info('[Groups Race Safe Waiting UI]', PATCH_ID, 'firebase soft attached', { room: room });
+      } catch(e) {
+        console.warn('[Groups Race Safe Waiting UI]', PATCH_ID, 'firebase attach failed', e);
+      }
+    }
+
+    tryAttach();
+    setTimeout(tryAttach, 500);
+    setTimeout(tryAttach, 1200);
+    setTimeout(tryAttach, 2500);
+  }
+
+  function renderPlayers(players){
+    players = players || [];
+    hardPaintPlayers(players);
+
+    var room = getRoom();
+
+    var roomState = byId('roomState') || document.querySelector('.roomState');
+    if (roomState) {
+      roomState.classList.add('hha-safe-forced');
+      roomState.textContent = players.length >= 2
+        ? 'ผู้เล่นครบแล้ว (' + players.length + ' คน) • กดเริ่มแข่งได้'
+        : 'ห้อง ' + room + ' มีผู้เล่น ' + players.length + ' คน • รออีกอย่างน้อย 1 คน';
+    }
+
+    var status = byId('statusMsg') || document.querySelector('.status-text');
+    if (status) {
+      status.className = players.length >= 2
+        ? 'status-text ok hha-safe-forced'
+        : 'status-text warn hha-safe-forced';
+
+      status.textContent = players.length >= 2
+        ? 'พร้อมแข่งแล้ว • ผู้เล่นครบอย่างน้อย 2 คน'
+        : 'เข้าห้องแล้ว • รอเพื่อนเข้าห้องเดียวกัน';
+    }
+
+    ensureBanner();
   }
 
   function repoBase(){
     var path = location.pathname;
     var marker = '/herohealth/';
     var idx = path.indexOf(marker);
-
     if (idx >= 0) return location.origin + path.slice(0, idx);
-
     return location.origin + '/webxr-health-mobile';
   }
 
   function buildUrl(path, extra){
-    var base = repoBase() + '/herohealth/' + path.replace(/^\/+/, '');
-    var out = new URL(base);
-
-    [
-      'pid',
-      'studentId',
-      'studentName',
-      'classSection',
-      'studyId',
-      'conditionGroup',
-      'api',
-      'log',
-      'qa',
-      'debug',
-      'teacher'
-    ].forEach(function(k){
-      var v = qs.get(k);
-      if (v !== null && v !== '') out.searchParams.set(k, v);
-    });
+    var out = new URL(repoBase() + '/herohealth/' + path.replace(/^\/+/, ''));
 
     out.searchParams.set('roomId', getRoom());
     out.searchParams.set('room', getRoom());
@@ -231,217 +414,87 @@
   }
 
   function patchButtons(){
-    var backLobby = $('btnBackLobby');
-    if (backLobby && !backLobby.__hhaRaceSafe04Bound) {
-      backLobby.__hhaRaceSafe04Bound = true;
+    var backLobby = byId('btnBackLobby');
+    if (backLobby && !backLobby.__hhaRaceSafe05Bound) {
+      backLobby.__hhaRaceSafe05Bound = true;
       backLobby.addEventListener('click', function(ev){
         ev.preventDefault();
         ev.stopPropagation();
         if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
         location.href = buildUrl('vr-groups/groups-race-lobby.html', {
-          from: 'race-run-safe-ui'
+          from:'race-run-safe-ui05'
         });
 
         return false;
       }, true);
     }
 
-    var backHub = $('btnBackHub');
-    if (backHub && !backHub.__hhaRaceSafe04Bound) {
-      backHub.__hhaRaceSafe04Bound = true;
+    var backHub = byId('btnBackHub');
+    if (backHub && !backHub.__hhaRaceSafe05Bound) {
+      backHub.__hhaRaceSafe05Bound = true;
       backHub.addEventListener('click', function(ev){
         ev.preventDefault();
         ev.stopPropagation();
         if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
         location.href = buildUrl('groups-vr.html', {
-          from: 'race-run-safe-ui'
+          from:'race-run-safe-ui05'
         });
 
         return false;
       }, true);
     }
 
-    var start = $('btnStartRace');
-    if (start && !start.__hhaRaceSafe04Bound) {
-      start.__hhaRaceSafe04Bound = true;
-
+    var start = byId('btnStartRace');
+    if (start && !start.__hhaRaceSafe05Bound) {
+      start.__hhaRaceSafe05Bound = true;
       start.addEventListener('click', function(){
-        var list = $('playersList');
-        var text = list ? (list.textContent || '') : '';
-        var status = $('statusMsg');
-
-        if (text.indexOf('รอเพื่อน') >= 0 || text.indexOf('กำลังโหลด') >= 0) {
-          if (status) {
-            status.className = 'status-text warn';
-            status.textContent = 'ยังเริ่มไม่ได้ • Race ต้องมีอย่างน้อย 2 คนในห้องเดียวกันก่อน';
-          }
-        }
-
-        setTimeout(function(){ paintBase(true); }, 120);
+        setTimeout(function(){ repair(true); }, 120);
       }, true);
     }
   }
 
-  function attachFirebaseSoft(){
-    var room = getRoom();
-    var name = getName();
-
-    if (!room) return;
-
-    var started = false;
-
-    function tryAttach(){
-      if (started) return;
-
-      if (!window.firebase || !firebase.apps || !firebase.apps.length || !firebase.database) {
-        return;
-      }
-
-      started = true;
-
-      try {
-        var db = firebase.database();
-
-        var paths = [
-          'herohealth/groups/race/rooms/' + room,
-          'groups/race/rooms/' + room,
-          'groupsRace/rooms/' + room,
-          'groupsRaceRooms/' + room,
-          'raceRooms/' + room,
-          'rooms/groupsRace/' + room,
-          'rooms/' + room
-        ];
-
-        paths.forEach(function(path){
-          try {
-            var ref = db.ref(path);
-            var pid =
-              qs.get('pid') ||
-              sessionStorage.getItem('HHA_PLAYER_ID') ||
-              ('p_' + Math.random().toString(36).slice(2, 9));
-
-            var playerRef = ref.child('players').child(pid);
-
-            playerRef.update({
-              name: name,
-              room: room,
-              view: getView(),
-              diff: getDiff(),
-              ready: true,
-              online: true,
-              updatedAt: firebase.database.ServerValue.TIMESTAMP
-            }).catch(function(){});
-
-            playerRef.onDisconnect().update({
-              online: false,
-              leftAt: firebase.database.ServerValue.TIMESTAMP
-            }).catch(function(){});
-
-            ref.child('players').on('value', function(snap){
-              var val = snap.val() || {};
-              var players = Object.keys(val).map(function(k){
-                return Object.assign({ key:k }, val[k] || {});
-              }).filter(function(p){
-                return p.online !== false;
-              });
-
-              if (players.length) {
-                renderPlayers(players, path);
-              }
-            });
-          } catch(e) {}
-        });
-
-        var status = $('statusMsg');
-        if (status) {
-          status.className = 'status-text ok';
-          status.textContent = 'เชื่อม Firebase แล้ว • ห้อง ' + room + ' • รอผู้เล่นอย่างน้อย 2 คน';
-        }
-
-        console.info('[Groups Race Safe Waiting UI]', PATCH_ID, 'firebase soft attached', { room: room });
-      } catch(e) {
-        console.warn('[Groups Race Safe Waiting UI]', PATCH_ID, 'firebase soft attach failed', e);
-      }
-    }
-
-    tryAttach();
-    setTimeout(tryAttach, 500);
-    setTimeout(tryAttach, 1200);
-    setTimeout(tryAttach, 2500);
-  }
-
-  function renderPlayers(players, path){
-    var list = $('playersList');
-    if (!list) return;
-
-    players = players || [];
-
-    list.innerHTML = players.map(function(p, idx){
-      return playerCard(
-        p.name || p.playerName || ('Player ' + (idx + 1)),
-        (idx === 0 ? 'Host / ' : '') + 'online • ' + path,
-        'พร้อม',
-        'ok',
-        idx === 0 ? '🏁' : '🙂'
-      );
-    }).join('');
-
-    var state = $('roomState');
-    if (state) {
-      state.textContent = players.length >= 2
-        ? 'ผู้เล่นครบแล้ว (' + players.length + ' คน) • เจ้าของห้องกดเริ่มแข่งได้'
-        : 'มีผู้เล่น ' + players.length + ' คน • ต้องมีอย่างน้อย 2 คนก่อนเริ่ม';
-    }
-
-    var status = $('statusMsg');
-    if (status) {
-      status.className = players.length >= 2 ? 'status-text ok' : 'status-text warn';
-      status.textContent = players.length >= 2
-        ? 'พร้อมแข่งแล้ว • ผู้เล่นครบอย่างน้อย 2 คน'
-        : 'เข้าห้องแล้ว • รอเพื่อนเข้าห้องเดียวกัน';
-    }
-  }
-
   function boot(){
-    paintBase(true);
+    repair(true);
     patchButtons();
     attachFirebaseSoft();
 
-    setTimeout(function(){ paintBase(true); }, 80);
-    setTimeout(function(){ paintBase(true); patchButtons(); }, 300);
-    setTimeout(function(){ paintBase(true); patchButtons(); }, 900);
-    setTimeout(function(){ paintBase(true); patchButtons(); }, 1800);
+    [80, 180, 360, 700, 1200, 2000, 3200].forEach(function(ms){
+      setTimeout(function(){
+        repair(true);
+        patchButtons();
+      }, ms);
+    });
 
     var mo = new MutationObserver(function(){
-      clearTimeout(window.__HHA_RACE_SAFE_UI04_SCAN__);
-      window.__HHA_RACE_SAFE_UI04_SCAN__ = setTimeout(function(){
-        paintBase(false);
+      clearTimeout(window.__HHA_RACE_SAFE_UI05_SCAN__);
+      window.__HHA_RACE_SAFE_UI05_SCAN__ = setTimeout(function(){
+        repair(false);
         patchButtons();
       }, 80);
     });
 
     if (document.body) {
       mo.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: ['class', 'style']
+        childList:true,
+        subtree:true,
+        characterData:true,
+        attributes:true,
+        attributeFilter:['class','style']
       });
     }
 
     setInterval(function(){
-      paintBase(false);
+      repair(false);
       patchButtons();
-    }, 1000);
+    }, 700);
 
     console.info('[Groups Race Safe Waiting UI]', PATCH_ID, {
-      room: getRoom(),
-      name: getName(),
-      view: getView(),
-      diff: getDiff()
+      room:getRoom(),
+      name:getName(),
+      view:getView(),
+      diff:getDiff()
     });
   }
 
