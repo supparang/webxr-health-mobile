@@ -547,48 +547,46 @@
          - cVR ค่อยโหลด vr-ui เพิ่มเฉพาะ view=cvr
       ========================================================= */
 
-      var coreFile = './hydration-solo-core.js?v=20260523-pack41-effects-feedback';
+      var coreFile = './hydration-solo-core.js?v=20260526-pack44-sfx-mobile-feel';
 var effectFile = './hydration-solo-effects-pack41.patch.js?v=20260523-pack41-effects-feedback';
+var bossFile = './hydration-solo-boss-pack42.patch.js?v=20260525-pack42-boss-fever-mission';
+var balanceFile = './hydration-solo-balance-pack43.patch.js?v=20260526-pack43-adaptive-balance';
+var sfxFile = './hydration-solo-sfx-pack44.patch.js?v=20260526-pack44-sfx-mobile-feel';
 
-console.info('[Hydration Pack41] solo clean loader start:', coreFile);
+console.info('[Hydration Pack44] solo clean loader start:', coreFile);
 
 loadScript(coreFile, 'hydration solo clean core', 9000)
   .then(function(){
     console.info(
-      '[Hydration Pack41] solo core loaded:',
+      '[Hydration Pack44] solo core loaded:',
       'HHA=', !!window.HHA,
       'Hydration=', !!(window.HHA && window.HHA.Hydration),
       'start=', typeof window.beginHydrationFromOverlay,
       'force=', typeof window.HHA_HYDRATION_FORCE_START
     );
 
-    /*
-      Pack41:
-      โหลดเฉพาะ effect patch ใหม่ที่ออกแบบมาเพื่อ Solo Clean Core
-      ห้ามโหลด patch เก่า:
-      - hydration-vr.js
-      - hydration-vr.mode-patch.js
-      - hydration-start-hard-safe.patch.js
-      - hydration-cooldown-return.patch.js
-      - hydration-modes.js
-    */
-
     return loadScript(effectFile, 'hydration solo effects pack41', 5000)
-  .catch(function(err){
-    console.warn('[Hydration Pack41] effects optional failed:', err);
+      .catch(function(err){
+        console.warn('[Hydration Pack41] effects optional failed:', err);
+      });
   })
   .then(function(){
-    return loadScript('./hydration-solo-boss-pack42.patch.js?v=20260525-pack42-boss-fever-mission', 'hydration solo boss pack42', 5000)
-  .catch(function(err){
-    console.warn('[Hydration Pack42] boss patch optional failed:', err);
+    return loadScript(bossFile, 'hydration solo boss pack42', 5000)
+      .catch(function(err){
+        console.warn('[Hydration Pack42] boss patch optional failed:', err);
+      });
   })
   .then(function(){
-    return loadScript('./hydration-solo-balance-pack43.patch.js?v=20260526-pack43-adaptive-balance', 'hydration solo balance pack43', 5000)
+    return loadScript(balanceFile, 'hydration solo balance pack43', 5000)
       .catch(function(err){
         console.warn('[Hydration Pack43] balance patch optional failed:', err);
       });
-  });
-  });
+  })
+  .then(function(){
+    return loadScript(sfxFile, 'hydration solo sfx pack44', 5000)
+      .catch(function(err){
+        console.warn('[Hydration Pack44] sfx patch optional failed:', err);
+      });
   })
   .then(function(){
     var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
@@ -597,12 +595,12 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
     if(cvrView === 'cvr'){
       return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
         .catch(function(err){
-          console.warn('[Hydration Pack41] vr-ui optional failed:', err);
+          console.warn('[Hydration Pack44] vr-ui optional failed:', err);
         });
     }
   })
   .then(function(){
-    console.info('[Hydration Pack41] solo loader finished');
+    console.info('[Hydration Pack44] solo loader finished');
 
     setTimeout(function(){
       if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
@@ -611,13 +609,12 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
     }, 1200);
   })
   .catch(function(err){
-    console.error('[Hydration Pack41] solo core failed:', err);
+    console.error('[Hydration Pack44] solo loader failed:', err);
     window.HHA_HYDRATION_SHOW_BOOT_ERROR(
       (err && err.message) ||
-      'โหลด hydration-solo-core.js ไม่สำเร็จ'
+      'โหลด Hydration Solo Pack44 ไม่สำเร็จ'
     );
   });
-
     })();
   </script>
 </body>
