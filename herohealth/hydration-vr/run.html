@@ -588,9 +588,15 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
   })
   .then(function(){
     return loadScript('./hydration-solo-cvr-pack45.patch.js?v=20260527-pack45-cvr-polish', 'hydration solo cvr pack45', 5000)
+  .catch(function(err){
+    console.warn('[Hydration Pack45] cVR patch optional failed:', err);
+  })
+  .then(function(){
+    return loadScript('./hydration-solo-assist-pack46.patch.js?v=20260527-pack46-player-assist-hydro-coach', 'hydration solo assist pack46', 5000)
       .catch(function(err){
-        console.warn('[Hydration Pack45] cVR patch optional failed:', err);
+        console.warn('[Hydration Pack46] assist patch optional failed:', err);
       });
+  });
   });
   })
   .then(function(){
