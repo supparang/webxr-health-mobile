@@ -77,14 +77,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260525-pack42-boss-fever-mission-loader';
-    var VERSION = 'v20260525-pack42-boss-fever-mission-loader';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260526-pack44-sfx-mobile-feel-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260523-pack38-solo-clean-loader-final';
+      var VERSION = 'v20260526-pack44-sfx-mobile-feel-loader';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -498,7 +497,7 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack38] run context ready; solo clean loader starts now');
+      console.info('[Hydration Pack44] run context ready; solo clean loader starts now');
 
       function loadScript(src, label, timeoutMs){
         timeoutMs = timeoutMs || 7000;
@@ -528,7 +527,7 @@
           s.async = true;
 
           s.onload = function(){
-            console.info('[Hydration Pack38] loaded:', label);
+            console.info('[Hydration Pack44] loaded:', label);
             finish(true, src);
           };
 
