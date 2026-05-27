@@ -596,6 +596,18 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
       .catch(function(err){
         console.warn('[Hydration Pack46] assist patch optional failed:', err);
       });
+  })
+  .then(function(){
+    return loadScript('./hydration-solo-pc-mobile-pack47.patch.js?v=20260527-pack47-pc-mobile-final-polish', 'hydration solo pc mobile pack47', 5000)
+      .catch(function(err){
+        console.warn('[Hydration Pack47] pc/mobile patch optional failed:', err);
+      });
+  });
+  .then(function(){
+    return loadScript('./hydration-solo-assist-pack46.patch.js?v=20260527-pack46-player-assist-hydro-coach', 'hydration solo assist pack46', 5000)
+      .catch(function(err){
+        console.warn('[Hydration Pack46] assist patch optional failed:', err);
+      });
   });
   });
   })
