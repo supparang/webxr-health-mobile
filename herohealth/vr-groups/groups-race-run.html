@@ -11,7 +11,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="./groups-race-run-freeze-guard.js?v=20260521-guard01"></script>
   <script src="../firebase-config.js"></script>
 
   <style>
@@ -844,15 +843,37 @@
   }
 })();
 </script>
-  <script>
+  <script src="./groups-race-firebase-boot-v44.js?v=20260519-race-firebase-boot-v44"></script>
+<script src="./groups-race-room-lifecycle-v43.js?v=20260519-race-v43-lifecycle"></script>
+<script src="./groups-race-run-freeze-guard.js?v=20260521-guard01"></script>
+<script src="./groups-race-run.js?v=20260519-race-run-v36-dedup"></script>
+<script src="./groups-race-run-rematch-start-v42.js?v=20260519-race-run-v42-rematch-start"></script>
+<script src="./groups-race-run-safe-waiting-ui.js?v=20260527-safeui05"></script>
+<script src="./groups-race-player-band-v01.js?v=20260527-band01"></script>
+
+<script>
 (function(){
   'use strict';
+
+  const PATCH_ID = 'v20260527-race-run-inline-force-07-clean';
+  if (window.__HHA_RACE_RUN_INLINE_FORCE_07__) return;
+  window.__HHA_RACE_RUN_INLINE_FORCE_07__ = true;
 
   const qs = new URLSearchParams(location.search);
 
   function $(id){ return document.getElementById(id); }
 
-  function getRoom(){
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      '"':'&quot;',
+      "'":'&#39;'
+    }[c]));
+  }
+
+  function room(){
     return String(
       qs.get('roomId') ||
       qs.get('room') ||
@@ -862,7 +883,7 @@
     ).trim().toUpperCase();
   }
 
-  function getName(){
+  function name(){
     return String(
       qs.get('name') ||
       qs.get('playerName') ||
@@ -871,61 +892,63 @@
     ).trim() || 'Hero';
   }
 
-  function esc(s){
-    return String(s || '').replace(/[&<>"']/g, c => ({
-      '&':'&amp;',
-      '<':'&lt;',
-      '>':'&gt;',
-      '"':'&quot;',
-      "'":'&#39;'
-    }[c]));
+  function setText(id, value){
+    const el = $(id);
+    if (!el) return;
+    el.textContent = String(value);
+    el.style.outline = '2px solid rgba(99,217,155,.32)';
   }
 
-  function forceWaitingRoom(){
-    const room = getRoom();
-    const name = getName();
+  function force(){
+    const r = room();
+    const n = name();
 
-    try{
-      sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', room);
-      sessionStorage.setItem('HHA_GROUPS_RACE_NAME', name);
-    }catch(e){}
+    try {
+      if (r) sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', r);
+      if (n) sessionStorage.setItem('HHA_GROUPS_RACE_NAME', n);
+    } catch(e) {}
 
-    const metaRoom = $('metaRoom');
-    const metaName = $('metaName');
-    const statusMsg = $('statusMsg');
-    const roomState = $('roomState');
-    const playersList = $('playersList');
+    setText('metaRoom', r || '-');
+    setText('metaName', n || 'Hero');
 
-    if (metaRoom) metaRoom.textContent = room || '-';
-    if (metaName) metaName.textContent = name || 'Hero';
-
-    if (statusMsg) {
-      statusMsg.className = 'status-text warn';
-      statusMsg.textContent = room
-        ? 'เข้าห้องแล้ว: ' + room + ' • ผู้เล่น: ' + name + ' • รอเพื่อนเข้าห้องเดียวกัน'
+    const status = $('statusMsg');
+    if (status) {
+      status.className = 'status-text warn';
+      status.textContent = r
+        ? 'เข้าห้องแล้ว: ' + r + ' • ผู้เล่น: ' + n + ' • รอเพื่อนเข้าห้องเดียวกัน'
         : 'ไม่พบ Room Code ใน URL';
     }
 
-    if (roomState) {
-      roomState.textContent = room
-        ? 'ห้อง ' + room + ' พร้อมแล้ว • Race Standard ต้องมี 2–4 คนก่อนเริ่ม'
+    const state = $('roomState');
+    if (state) {
+      state.textContent = r
+        ? 'ห้อง ' + r + ' พร้อมแล้ว • Race Standard ต้องมี 2–4 คนก่อนเริ่ม'
         : 'ยังไม่มี Room Code';
     }
 
-    if (playersList) {
-      const current = playersList.textContent || '';
+    const count = $('countdown');
+    if (count && (count.textContent === '...' || count.textContent.indexOf('Firebase') >= 0)) {
+      count.className = 'count wait';
+      count.textContent = 'รอ';
+    }
+
+    const list = $('playersList');
+    if (list) {
+      const t = (list.textContent || '').trim();
+
       if (
-        current.includes('กำลังโหลดข้อมูลผู้เล่น') ||
-        current.includes('รอข้อมูลจาก Firebase') ||
-        !current.includes(name)
+        !t ||
+        t.indexOf('กำลังโหลดข้อมูลผู้เล่น') >= 0 ||
+        t.indexOf('รอข้อมูลจาก Firebase') >= 0 ||
+        t.indexOf(n) < 0
       ) {
-        playersList.innerHTML =
-          '<div class="player">' +
+        list.innerHTML =
+          '<div class="player" data-inline-force="1">' +
             '<div class="left">' +
               '<div class="avatar">🏁</div>' +
               '<div>' +
-                '<div class="name">' + esc(name) + '</div>' +
-                '<div class="tag">Host / waiting • room ' + esc(room) + '</div>' +
+                '<div class="name">' + esc(n) + '</div>' +
+                '<div class="tag">Host / waiting • room ' + esc(r || '-') + '</div>' +
               '</div>' +
             '</div>' +
             '<div class="right wait">รอเพื่อน</div>' +
@@ -933,22 +956,21 @@
       }
     }
 
-    console.info('[Groups Race Run Direct Fix]', {
-      room,
-      name,
-      metaRoom: !!metaRoom,
-      metaName: !!metaName,
-      statusMsg: !!statusMsg,
-      roomState: !!roomState,
-      playersList: !!playersList
+    console.info('[Groups Race Inline Force]', PATCH_ID, {
+      room: r,
+      name: n,
+      metaRoom: !!$('metaRoom'),
+      metaName: !!$('metaName'),
+      playersList: !!$('playersList')
     });
   }
 
-  forceWaitingRoom();
-  setTimeout(forceWaitingRoom, 100);
-  setTimeout(forceWaitingRoom, 300);
-  setTimeout(forceWaitingRoom, 800);
-  setInterval(forceWaitingRoom, 1000);
+  force();
+  setTimeout(force, 80);
+  setTimeout(force, 200);
+  setTimeout(force, 500);
+  setTimeout(force, 1000);
+  setInterval(force, 700);
 })();
 </script>
 </body>
