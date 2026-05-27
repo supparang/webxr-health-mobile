@@ -844,5 +844,112 @@
   }
 })();
 </script>
+  <script>
+(function(){
+  'use strict';
+
+  const qs = new URLSearchParams(location.search);
+
+  function $(id){ return document.getElementById(id); }
+
+  function getRoom(){
+    return String(
+      qs.get('roomId') ||
+      qs.get('room') ||
+      qs.get('code') ||
+      sessionStorage.getItem('HHA_GROUPS_RACE_ROOM') ||
+      ''
+    ).trim().toUpperCase();
+  }
+
+  function getName(){
+    return String(
+      qs.get('name') ||
+      qs.get('playerName') ||
+      sessionStorage.getItem('HHA_GROUPS_RACE_NAME') ||
+      'Hero'
+    ).trim() || 'Hero';
+  }
+
+  function esc(s){
+    return String(s || '').replace(/[&<>"']/g, c => ({
+      '&':'&amp;',
+      '<':'&lt;',
+      '>':'&gt;',
+      '"':'&quot;',
+      "'":'&#39;'
+    }[c]));
+  }
+
+  function forceWaitingRoom(){
+    const room = getRoom();
+    const name = getName();
+
+    try{
+      sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', room);
+      sessionStorage.setItem('HHA_GROUPS_RACE_NAME', name);
+    }catch(e){}
+
+    const metaRoom = $('metaRoom');
+    const metaName = $('metaName');
+    const statusMsg = $('statusMsg');
+    const roomState = $('roomState');
+    const playersList = $('playersList');
+
+    if (metaRoom) metaRoom.textContent = room || '-';
+    if (metaName) metaName.textContent = name || 'Hero';
+
+    if (statusMsg) {
+      statusMsg.className = 'status-text warn';
+      statusMsg.textContent = room
+        ? 'เข้าห้องแล้ว: ' + room + ' • ผู้เล่น: ' + name + ' • รอเพื่อนเข้าห้องเดียวกัน'
+        : 'ไม่พบ Room Code ใน URL';
+    }
+
+    if (roomState) {
+      roomState.textContent = room
+        ? 'ห้อง ' + room + ' พร้อมแล้ว • Race Standard ต้องมี 2–4 คนก่อนเริ่ม'
+        : 'ยังไม่มี Room Code';
+    }
+
+    if (playersList) {
+      const current = playersList.textContent || '';
+      if (
+        current.includes('กำลังโหลดข้อมูลผู้เล่น') ||
+        current.includes('รอข้อมูลจาก Firebase') ||
+        !current.includes(name)
+      ) {
+        playersList.innerHTML =
+          '<div class="player">' +
+            '<div class="left">' +
+              '<div class="avatar">🏁</div>' +
+              '<div>' +
+                '<div class="name">' + esc(name) + '</div>' +
+                '<div class="tag">Host / waiting • room ' + esc(room) + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="right wait">รอเพื่อน</div>' +
+          '</div>';
+      }
+    }
+
+    console.info('[Groups Race Run Direct Fix]', {
+      room,
+      name,
+      metaRoom: !!metaRoom,
+      metaName: !!metaName,
+      statusMsg: !!statusMsg,
+      roomState: !!roomState,
+      playersList: !!playersList
+    });
+  }
+
+  forceWaitingRoom();
+  setTimeout(forceWaitingRoom, 100);
+  setTimeout(forceWaitingRoom, 300);
+  setTimeout(forceWaitingRoom, 800);
+  setInterval(forceWaitingRoom, 1000);
+})();
+</script>
 </body>
 </html>
