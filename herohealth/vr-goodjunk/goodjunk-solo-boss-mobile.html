@@ -923,18 +923,58 @@
       }
 
       function removeLoadingSoon(){
-        const loading = document.getElementById('shellLoading');
+  function killLoading(){
+    const loading = document.getElementById('shellLoading');
 
-        setTimeout(function(){
-          if(loading){
-            loading.style.opacity = '0';
-            loading.style.transition = 'opacity .28s ease';
-            setTimeout(function(){
-              loading.remove();
-            }, 320);
-          }
-        }, 720);
-      }
+    if(loading){
+      try{
+        loading.style.setProperty('display','none','important');
+        loading.style.setProperty('visibility','hidden','important');
+        loading.style.setProperty('opacity','0','important');
+        loading.style.setProperty('pointer-events','none','important');
+        loading.style.setProperty('z-index','-1','important');
+        loading.remove();
+      }catch(e){}
+    }
+
+    const main = document.getElementById('gjSoloBossMain');
+    const area = document.getElementById('gjSoloBossArea');
+    const start = document.getElementById('gjmStartOverlay');
+    const btn = document.getElementById('gjmStartBtn');
+
+    if(main){
+      main.style.setProperty('display','block','important');
+      main.style.setProperty('visibility','visible','important');
+      main.style.setProperty('opacity','1','important');
+    }
+
+    if(area){
+      area.style.setProperty('display','block','important');
+      area.style.setProperty('visibility','visible','important');
+      area.style.setProperty('opacity','1','important');
+    }
+
+    if(start){
+      start.style.setProperty('display','grid','important');
+      start.style.setProperty('visibility','visible','important');
+      start.style.setProperty('opacity','1','important');
+      start.style.setProperty('pointer-events','auto','important');
+    }
+
+    if(btn){
+      btn.disabled = false;
+      btn.style.setProperty('pointer-events','auto','important');
+    }
+  }
+
+  setTimeout(killLoading, 120);
+  setTimeout(killLoading, 350);
+  setTimeout(killLoading, 700);
+  setTimeout(killLoading, 1200);
+  setTimeout(killLoading, 2000);
+
+  window.addEventListener('load', killLoading, { once:true });
+}
 
       window.GJ_SOLO_BOSS_SHELL = {
         version:'v20260527-MOBILE-SPLIT-CLEAN',
