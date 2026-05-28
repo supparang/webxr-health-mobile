@@ -77,13 +77,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260527-pack48-micro-onboarding-loader';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260528-pack49-cooldown-summary-qa-freeze-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260527-pack48-micro-onboarding-loader';
+      var VERSION = 'v20260528-pack49-cooldown-summary-qa-freeze-loader';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -497,7 +497,7 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack48] run context ready; solo clean loader starts now');
+      console.info('[Hydration Pack49] solo loader finished'); solo clean loader starts now');
 
       function loadScript(src, label, timeoutMs){
         timeoutMs = timeoutMs || 7000;
@@ -602,17 +602,17 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
         console.warn('[Hydration Pack47] pc/mobile patch optional failed:', err);
       });
   })
-  .then(function(){
+    .then(function(){
     return loadScript(onboardingFile, 'hydration solo onboarding pack48', 5000)
-  .catch(function(err){
-    console.warn('[Hydration Pack48] onboarding patch optional failed:', err);
+      .catch(function(err){
+        console.warn('[Hydration Pack48] onboarding patch optional failed:', err);
+      });
   })
   .then(function(){
-    return loadScript('./hydration-solo-freeze-pack49.patch.js?v=20260528-pack49-cooldown-summary-qa-freeze', 'hydration solo freeze pack49', 5000)
+    return loadScript(freezeFile, 'hydration solo freeze pack49', 5000)
       .catch(function(err){
         console.warn('[Hydration Pack49] freeze patch optional failed:', err);
       });
-  });
   })
   .then(function(){
     var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
