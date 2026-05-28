@@ -497,7 +497,7 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack49] solo loader finished'); solo clean loader starts now');
+      console.info('[Hydration Pack49] run context ready; solo clean loader starts now');
 
       function loadScript(src, label, timeoutMs){
         timeoutMs = timeoutMs || 7000;
@@ -548,6 +548,7 @@ var cvrFile = './hydration-solo-cvr-pack45.patch.js?v=20260527-pack45-cvr-polish
 var assistFile = './hydration-solo-assist-pack46.patch.js?v=20260527-pack46-player-assist-hydro-coach';
 var pcMobileFile = './hydration-solo-pc-mobile-pack47.patch.js?v=20260527-pack47-pc-mobile-final-polish';
 var onboardingFile = './hydration-solo-onboarding-pack48.patch.js?v=20260527-pack48-micro-onboarding';
+var freezeFile = './hydration-solo-freeze-pack49.patch.js?v=20260528-pack49-cooldown-summary-qa-freeze';
 
 console.info('[Hydration Pack48] solo clean loader start:', coreFile);
 
@@ -626,7 +627,7 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
     }
   })
   .then(function(){
-    console.info('[Hydration Pack48] solo loader finished');
+    console.info('[Hydration Pack49] solo loader finished');
 
     setTimeout(function(){
       if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
@@ -635,10 +636,10 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
     }, 1200);
   })
     .catch(function(err){
-    console.error('[Hydration Pack48] solo loader failed:', err);
+    console.error('[Hydration Pack49] solo loader failed:', err);
     window.HHA_HYDRATION_SHOW_BOOT_ERROR(
       (err && err.message) ||
-      'โหลด Hydration Solo Pack48 ไม่สำเร็จ'
+      'โหลด Hydration Solo Pack49 ไม่สำเร็จ'
     );
   });
 
