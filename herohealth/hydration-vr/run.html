@@ -77,13 +77,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260526-pack44-sfx-mobile-feel-loader';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260527-pack48-micro-onboarding-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260526-pack44-sfx-mobile-feel-loader';
+      var VERSION = 'v20260527-pack48-micro-onboarding-loader';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -497,7 +497,7 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack44] run context ready; solo clean loader starts now');
+      console.info('[Hydration Pack48] run context ready; solo clean loader starts now');
 
       function loadScript(src, label, timeoutMs){
         timeoutMs = timeoutMs || 7000;
@@ -527,7 +527,7 @@
           s.async = true;
 
           s.onload = function(){
-            console.info('[Hydration Pack44] loaded:', label);
+            console.info('[Hydration Pack48] loaded:', label);
             finish(true, src);
           };
 
@@ -607,6 +607,26 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
       .catch(function(err){
         console.warn('[Hydration Pack48] onboarding patch optional failed:', err);
       });
+  })
+  .then(function(){
+    var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
+    var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
+
+    if(cvrView === 'cvr'){
+      return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
+        .catch(function(err){
+          console.warn('[Hydration Pack48] vr-ui optional failed:', err);
+        });
+    }
+  })
+  .then(function(){
+    console.info('[Hydration Pack48] solo loader finished');
+
+    setTimeout(function(){
+      if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
+        window.HHA_HYDRATION_BOOT_CHECK();
+      }
+    }, 1200);
   })
     .catch(function(err){
     console.error('[Hydration Pack48] solo loader failed:', err);
