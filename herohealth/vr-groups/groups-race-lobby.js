@@ -14,7 +14,7 @@
   const VERSION = 'v20260519-groups-race-lobby-v37-room-format-lock';
 
   const ROOM_ROOT = 'hha-battle/groups/raceRooms';
-  const RUN_PAGE = './groups-race-run.html';
+  const RUN_PAGE = './groups-race-run-v09.html';
   const MODE_PAGE = './groups-mode.html';
   const HUB_PAGE = 'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html';
 
