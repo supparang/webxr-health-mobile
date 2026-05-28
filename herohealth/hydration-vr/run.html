@@ -604,9 +604,15 @@ loadScript(coreFile, 'hydration solo clean core', 9000)
   })
   .then(function(){
     return loadScript(onboardingFile, 'hydration solo onboarding pack48', 5000)
+  .catch(function(err){
+    console.warn('[Hydration Pack48] onboarding patch optional failed:', err);
+  })
+  .then(function(){
+    return loadScript('./hydration-solo-freeze-pack49.patch.js?v=20260528-pack49-cooldown-summary-qa-freeze', 'hydration solo freeze pack49', 5000)
       .catch(function(err){
-        console.warn('[Hydration Pack48] onboarding patch optional failed:', err);
+        console.warn('[Hydration Pack49] freeze patch optional failed:', err);
       });
+  });
   })
   .then(function(){
     var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
