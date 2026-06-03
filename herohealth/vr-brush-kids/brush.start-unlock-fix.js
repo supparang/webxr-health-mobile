@@ -108,11 +108,6 @@
   }
 
   function rewritePrepTexts(){
-    /*
-     * สำคัญ:
-     * P52/P54 ตรวจจากข้อความในหน้า
-     * ถ้ายังมี “เตรียม/ใส่ยาสีฟัน/เริ่มแปรงฟัน” จะถูกดึงกลับ Prep
-     */
     setText('stageTitle', 'แปรงฟันให้ครบทุกโซน');
     setText('stageLead', 'เลือกโซน แล้วลากแปรงบนฟันเพื่อทำความสะอาดคราบ');
 
@@ -185,9 +180,6 @@
     rewritePrepTexts();
     enableBrushInput();
 
-    /*
-     * ให้ core brush.js ได้รับ click ก่อน แล้วค่อยซ่อนปุ่ม
-     */
     setTimeout(hideStartButton, 30);
     setTimeout(forceFlowControllerBrush, 40);
     setTimeout(dispatchStart, 60);
@@ -244,10 +236,6 @@
 
         markStart('document-click');
 
-        /*
-         * ถ้าผู้ใช้กดปุ่ม overlay ที่ไม่ใช่ #btnStart
-         * ให้ส่ง click เข้า #btnStart จริงหนึ่งครั้ง
-         */
         const core = $('btnStart');
         if(core && b !== core && !clickingCore){
           clickingCore = true;
@@ -270,9 +258,6 @@
 
     const age = Date.now() - startAt;
 
-    /*
-     * ช่วง 10 วินาทีแรกหลังคลิก ต้องบังคับไม่ให้ P52/P54 ดึงกลับ prep
-     */
     if(age < 10000){
       setBrushStageAttrs();
       rewritePrepTexts();
@@ -283,9 +268,6 @@
 
     const m = metrics();
 
-    /*
-     * ถ้าเริ่มมี score/clean/zone แล้ว ให้ถือว่า gameplay เริ่มจริง
-     */
     if(m.score > 0 || m.combo > 0 || m.clean > 0 || m.zoneDone > 0){
       if(DOC.body){
         DOC.body.setAttribute('data-brush-real-started', '1');
