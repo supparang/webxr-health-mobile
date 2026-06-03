@@ -1,14 +1,14 @@
 /* =========================================================
  * HeroHealth Brush Kids
  * /herohealth/vr-brush-kids/brush.gameplay-flow-controller.js
- * PATCH v20260515-P52-BRUSH-KIDS-GAMEPLAY-FLOW-CONTROLLER
+ * PATCH v20260519-P52b-BRUSH-KIDS-GAMEPLAY-FLOW-CONTROLLER
  *
  * Purpose:
  * - คุม flow ทั้งเกมให้ชัด:
  *   prep → brush → mini-event → boss → summary
  * - กัน summary/target/boss โผล่ผิดจังหวะ
+ * - แก้ run=menu ดึงกลับ Prep หลังเริ่มเกมแล้ว
  * - ทำให้ UI title/lead/coach สอดคล้องกับ stage
- * - ไม่ override logic หลักของ brush.js แรงเกินไป
  * ========================================================= */
 
 (function(){
@@ -16,7 +16,7 @@
 
   const WIN = window;
   const DOC = document;
-  const PATCH_ID = 'v20260515-P52-BRUSH-KIDS-GAMEPLAY-FLOW-CONTROLLER';
+  const PATCH_ID = 'v20260519-P52b-BRUSH-KIDS-GAMEPLAY-FLOW-CONTROLLER';
 
   const STAGES = {
     PREP: 'prep',
@@ -44,8 +44,11 @@
   }
 
   function qs(){
-    try{ return new URLSearchParams(WIN.location.search || ''); }
-    catch(_){ return new URLSearchParams(); }
+    try{
+      return new URLSearchParams(WIN.location.search || '');
+    }catch(_){
+      return new URLSearchParams();
+    }
   }
 
   function param(k, fallback){
@@ -111,7 +114,44 @@
     ).toLowerCase();
   }
 
+  function hasStartOverride(){
+    try{
+      if(DOC.documentElement.getAttribute('data-brush-start-requested') === '1') return true;
+      if(DOC.documentElement.getAttribute('data-brush-flow-stage') === 'brush') return true;
+
+      if(DOC.body){
+        if(DOC.body.getAttribute('data-brush-start-requested') === '1') return true;
+        if(DOC.body.getAttribute('data-brush-real-started') === '1') return true;
+        if(DOC.body.getAttribute('data-brush-flow-stage') === 'brush') return true;
+      }
+
+      if(WIN.HHA_BRUSH_START_UNLOCK_STATE && WIN.HHA_BRUSH_START_UNLOCK_STATE.startRequested){
+        return true;
+      }
+
+      if(
+        WIN.HHA_BRUSH_START_UNLOCK &&
+        typeof WIN.HHA_BRUSH_START_UNLOCK.state === 'function'
+      ){
+        const s = WIN.HHA_BRUSH_START_UNLOCK.state();
+        if(s && s.startRequested) return true;
+      }
+
+      if(
+        WIN.HHA_BRUSH_TOOTHPASTE_PREP &&
+        typeof WIN.HHA_BRUSH_TOOTHPASTE_PREP.state === 'function'
+      ){
+        const p = WIN.HHA_BRUSH_TOOTHPASTE_PREP.state();
+        if(p && p.started) return true;
+      }
+    }catch(_){}
+
+    return false;
+  }
+
   function hasPrepMarkers(){
+    if(hasStartOverride()) return false;
+
     const body = text();
 
     if(/เตรียมแปรงสีฟัน|ใส่ยาสีฟัน|พร้อมแปรงฟัน|พร้อมแล้ว ไปเล่นจริง|ลายยาสีฟัน|ยังไม่ได้ใส่ยาสีฟัน/i.test(body)){
@@ -180,6 +220,19 @@
   function detectStage(){
     if(isSummaryOpen()) return STAGES.SUMMARY;
 
+    /*
+     * สำคัญ:
+     * ถ้าเริ่มเกมแล้ว ห้ามให้ run=menu หรือคำว่า Prep ดึงกลับหน้าเตรียมอีก
+     */
+    if(hasStartOverride()){
+      if(hasBossMarkers()) return STAGES.BOSS;
+      if(hasMiniMarkers()) return STAGES.MINI;
+      return STAGES.BRUSH;
+    }
+
+    /*
+     * Manual stage ใช้ชั่วคราวหลังปุ่มเริ่ม/เหตุการณ์ dispatch
+     */
     if(manualStage && Date.now() - lastStageAt < 4000){
       if(manualStage !== STAGES.SUMMARY) return manualStage;
     }
@@ -316,6 +369,7 @@
         color:#166534;
       }
     `;
+
     DOC.head.appendChild(style);
   }
 
@@ -349,7 +403,10 @@
     lastStageAt = Date.now();
 
     DOC.documentElement.setAttribute('data-brush-flow-stage', stage);
-    if(DOC.body) DOC.body.setAttribute('data-brush-flow-stage', stage);
+
+    if(DOC.body){
+      DOC.body.setAttribute('data-brush-flow-stage', stage);
+    }
 
     const stageNode = $('sceneStage');
     if(stageNode){
@@ -390,6 +447,7 @@
         stage,
         source: source || 'detect',
         metrics: getTopMetrics(),
+        startOverride: hasStartOverride(),
         at: new Date().toISOString()
       };
     }catch(_){}
@@ -452,6 +510,14 @@
     WIN.addEventListener('hha:brush-summary-modal-compact-fix', function(){
       setManualStage(STAGES.SUMMARY, 'summary-modal');
     }, true);
+
+    WIN.addEventListener('hha:brush-start-unlocked', function(){
+      setManualStage(STAGES.BRUSH, 'start-unlocked');
+    }, true);
+
+    WIN.addEventListener('hha:brush-toothpaste-ready-start', function(){
+      setManualStage(STAGES.BRUSH, 'toothpaste-ready-start');
+    }, true);
   }
 
   function cleanupWrongStageArtifacts(){
@@ -502,6 +568,11 @@
       });
     }catch(_){}
 
+    setInterval(function(){
+      refresh();
+      cleanupWrongStageArtifacts();
+    }, 500);
+
     setTimeout(run, 80);
     setTimeout(run, 350);
     setTimeout(run, 900);
@@ -515,6 +586,7 @@
       stages: STAGES,
       refresh,
       detectStage,
+      hasStartOverride,
       setStage: setManualStage,
       state(){
         return {
@@ -523,6 +595,7 @@
           metrics: getTopMetrics(),
           scene: sceneId(),
           manualStage,
+          startOverride: hasStartOverride(),
           at: new Date(lastStageAt || Date.now()).toISOString()
         };
       }
@@ -537,6 +610,10 @@
     bindGameEvents();
     refresh();
     observe();
+
+    try{
+      console.log('[BrushGameplayFlow]', PATCH_ID, 'booted');
+    }catch(_){}
   }
 
   if(DOC.readyState === 'loading'){
