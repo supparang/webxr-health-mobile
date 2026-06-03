@@ -57,11 +57,6 @@
   }
 
   function cleanTextWithoutInjectedSummary(){
-    /*
-     * สำคัญ:
-     * ห้ามให้ข้อความจาก card ที่เรา inject เอง เช่น "เยี่ยมมาก!"
-     * มาหลอกตัวตรวจว่าเป็น Summary
-     */
     let clone = null;
 
     try{
@@ -115,9 +110,6 @@
 
     const m = getTopMetrics();
 
-    /*
-     * หน้าเริ่มเกม/Prep มักเป็น 0,0,0,100,0/6
-     */
     if(
       m.score <= 0 &&
       m.combo <= 0 &&
@@ -134,9 +126,6 @@
   function hasRealEndMarkers(){
     const t = cleanTextWithoutInjectedSummary();
 
-    /*
-     * ต้องเป็น marker หลังจบจริง ไม่ใช่คำจาก HUD หรือการ์ดที่ inject เอง
-     */
     return (
       /Replay Challenge|Best Score|Best Clean|Tooth Pet Rescue/i.test(t) ||
       /Boss\s*:\s*(ชนะแล้ว|แพ้|ยังไม่ชนะ)/i.test(t) ||
@@ -198,9 +187,6 @@
   }
 
   function restoreHiddenByCompact(){
-    /*
-     * ถ้า P43 เคยซ่อน panel ไว้ผิดจังหวะ ให้คืนกลับ
-     */
     try{
       DOC.querySelectorAll('[data-compact-hidden="1"]').forEach(el => {
         el.style.display = '';
