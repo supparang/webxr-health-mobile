@@ -18,7 +18,7 @@
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260528-pack49-cooldown-summary-qa-freeze-loader
+    Version: v20260528-pack50-qa-version-lock-loader
 
     Purpose:
       Shared run entry for Hydration
@@ -48,6 +48,7 @@
       → Pack47 PC/Mobile
       → Pack48 Onboarding
       → Pack49 Freeze
+      → Pack50 QA Lock
       → vr-ui only when view=cvr
   -->
 </head>
@@ -90,13 +91,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260528-pack49-cooldown-summary-qa-freeze-loader';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260528-pack50-qa-version-lock-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260528-pack49-cooldown-summary-qa-freeze-loader';
+      var VERSION = 'v20260528-pack50-qa-version-lock-loader';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -510,7 +511,7 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack49] run context ready; solo clean loader starts now');
+      console.info('[Hydration Pack50] run context ready; solo clean loader starts now');
 
       function loadScript(src, label, timeoutMs){
         timeoutMs = timeoutMs || 7000;
@@ -540,7 +541,7 @@
           s.async = true;
 
           s.onload = function(){
-            console.info('[Hydration Pack49] loaded:', label);
+            console.info('[Hydration Pack50] loaded:', label);
             finish(true, src);
           };
 
@@ -552,7 +553,7 @@
         });
       }
 
-      var coreFile = './hydration-solo-core.js?v=20260528-pack49-cooldown-summary-qa-freeze';
+      var coreFile = './hydration-solo-core.js?v=20260528-pack50-qa-version-lock';
       var effectFile = './hydration-solo-effects-pack41.patch.js?v=20260523-pack41-effects-feedback';
       var bossFile = './hydration-solo-boss-pack42.patch.js?v=20260525-pack42-boss-fever-mission';
       var balanceFile = './hydration-solo-balance-pack43.patch.js?v=20260526-pack43-adaptive-balance';
@@ -562,13 +563,14 @@
       var pcMobileFile = './hydration-solo-pc-mobile-pack47.patch.js?v=20260527-pack47-pc-mobile-final-polish';
       var onboardingFile = './hydration-solo-onboarding-pack48.patch.js?v=20260527-pack48-micro-onboarding';
       var freezeFile = './hydration-solo-freeze-pack49.patch.js?v=20260528-pack49-cooldown-summary-qa-freeze';
+      var qaFile = './hydration-solo-qa-pack50.patch.js?v=20260528-pack50-qa-version-lock';
 
-      console.info('[Hydration Pack49] solo clean loader start:', coreFile);
+      console.info('[Hydration Pack50] solo clean loader start:', coreFile);
 
       loadScript(coreFile, 'hydration solo clean core', 9000)
         .then(function(){
           console.info(
-            '[Hydration Pack49] solo core loaded:',
+            '[Hydration Pack50] solo core loaded:',
             'HHA=', !!window.HHA,
             'Hydration=', !!(window.HHA && window.HHA.Hydration),
             'start=', typeof window.beginHydrationFromOverlay,
@@ -629,18 +631,24 @@
             });
         })
         .then(function(){
+          return loadScript(qaFile, 'hydration solo qa pack50', 5000)
+            .catch(function(err){
+              console.warn('[Hydration Pack50] QA patch optional failed:', err);
+            });
+        })
+        .then(function(){
           var ctx = window.HHA_HYDRATION_RUN_CONTEXT || {};
           var cvrView = String(ctx.view || document.body.dataset.view || '').toLowerCase();
 
           if(cvrView === 'cvr'){
             return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
               .catch(function(err){
-                console.warn('[Hydration Pack49] vr-ui optional failed:', err);
+                console.warn('[Hydration Pack50] vr-ui optional failed:', err);
               });
           }
         })
         .then(function(){
-          console.info('[Hydration Pack49] solo loader finished');
+          console.info('[Hydration Pack50] solo loader finished');
 
           setTimeout(function(){
             if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
@@ -649,10 +657,10 @@
           }, 1200);
         })
         .catch(function(err){
-          console.error('[Hydration Pack49] solo loader failed:', err);
+          console.error('[Hydration Pack50] solo loader failed:', err);
           window.HHA_HYDRATION_SHOW_BOOT_ERROR(
             (err && err.message) ||
-            'โหลด Hydration Solo Pack49 ไม่สำเร็จ'
+            'โหลด Hydration Solo Pack50 ไม่สำเร็จ'
           );
         });
 
