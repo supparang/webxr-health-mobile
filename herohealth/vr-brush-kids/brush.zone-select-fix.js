@@ -211,9 +211,6 @@
 
     const now = Date.now();
 
-    /*
-     * กัน double click จาก native click + synthetic click
-     */
     if(zoneId === lastZoneId && now - lastZoneTapAt < 120){
       return true;
     }
@@ -225,10 +222,6 @@
     setCoachHint(zoneId);
     dispatchZoneSelected(zoneId, source);
 
-    /*
-     * สำคัญ:
-     * ให้ click เดิมของ brush.js ทำงาน เพื่อเรียก onZoneSelect() จริง
-     */
     safeClick(el);
 
     log('selected', zoneId, source || '');
@@ -268,9 +261,6 @@
   }
 
   function bindCaptureZoneTaps(){
-    /*
-     * Capture phase: จับก่อน brushInputLayer จะกิน event
-     */
     DOC.addEventListener('pointerdown', function(ev){
       const direct = handleDirectZoneTap(ev, 'pointerdown-direct');
 
@@ -354,10 +344,6 @@
         z-index:90;
       }
 
-      /*
-       * ring ต้องอยู่เหนือ brushInputLayer ตอนเลือกโซน
-       * แต่ถ้า core ใส่ .is-hidden-scene ให้ยังปิดได้เหมือนเดิม
-       */
       [data-ring-zone]:not(.is-hidden-scene){
         pointer-events:auto !important;
         cursor:pointer;
