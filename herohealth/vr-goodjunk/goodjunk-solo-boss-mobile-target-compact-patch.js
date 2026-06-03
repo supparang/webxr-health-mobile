@@ -1,106 +1,105 @@
-(function GoodJunkSoloBossMobileTargetCompactPatch(){
+// === /herohealth/vr-goodjunk/goodjunk-solo-boss-mobile-target-compact-patch.js ===
+// PATCH v20260603-v848b
+// Purpose: compact mobile targets / foods / junk without breaking hitbox.
+
+(function () {
   'use strict';
 
-  const PATCH_VERSION = 'v8.47.2-solo-boss-mobile-target-mini';
+  const PATCH = 'GJ_MOBILE_TARGET_COMPACT_V848B';
 
-  const path = location.pathname || '';
-  const qs = new URL(location.href).searchParams;
-
-  /*
-   * ใช้กับ Solo / Solo Boss เท่านั้น
-   * กันไม่ให้ไปกระทบ Battle / Race / Duet / Coop
-   */
-  const isBlockedMode =
-    /battle|race|duet|coop|lobby/i.test(path) ||
-    /battle|race|duet|coop/i.test(qs.get('mode') || '');
-
-  if (isBlockedMode) return;
-
-  function $(sel, root){
-    return (root || document).querySelector(sel);
+  function isGoodJunk() {
+    return /goodjunk|good-junk/i.test(location.pathname + ' ' + document.title);
   }
 
-  function $all(sel, root){
-    return Array.from((root || document).querySelectorAll(sel));
-  }
+  if (!isGoodJunk()) return;
 
-  function isMobile(){
-    return (
-      window.matchMedia &&
-      window.matchMedia('(max-width: 760px)').matches
-    ) || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
-  }
+  const qs = new URLSearchParams(location.search || '');
+  const view = String(qs.get('view') || '').toLowerCase();
+  const isMobile =
+    view === 'mobile' ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
-  function injectStyle(){
-    if ($('#gjSoloBossMobileTargetCompactStyle')) return;
+  function injectStyle() {
+    if (document.getElementById('gjMobileTargetCompactV848b')) return;
 
     const style = document.createElement('style');
-    style.id = 'gjSoloBossMobileTargetCompactStyle';
-
+    style.id = 'gjMobileTargetCompactV848b';
     style.textContent = `
-      @media (max-width: 760px){
-        html.gj-solo-target-compact .target,
-        html.gj-solo-target-compact .food-target,
-        html.gj-solo-target-compact .gj-target,
-        html.gj-solo-target-compact .food-card,
-        html.gj-solo-target-compact [data-food-target],
-        html.gj-solo-target-compact .spawn-item{
-          width: clamp(52px, 14vw, 68px) !important;
-          min-width: clamp(52px, 14vw, 68px) !important;
-          max-width: 68px !important;
+      html.gj-mobile-target-compact-v848b .gjpu-item,
+      html.gj-mobile-target-compact-v848b .gj-target,
+      html.gj-mobile-target-compact-v848b .target,
+      html.gj-mobile-target-compact-v848b .food,
+      html.gj-mobile-target-compact-v848b .junk,
+      html.gj-mobile-target-compact-v848b [data-target],
+      html.gj-mobile-target-compact-v848b [data-food],
+      html.gj-mobile-target-compact-v848b [data-junk],
+      html.gj-mobile-target-compact-v848b [data-kind="good"],
+      html.gj-mobile-target-compact-v848b [data-kind="junk"],
+      html.gj-mobile-target-compact-v848b [data-kind="fake"]{
+        max-width:min(22vw,82px) !important;
+        max-height:min(22vw,82px) !important;
+      }
 
-          height: clamp(62px, 16.5vw, 80px) !important;
-          min-height: clamp(62px, 16.5vw, 80px) !important;
-          max-height: 80px !important;
+      html.gj-mobile-target-compact-v848b .gjpu-item{
+        width:62px !important;
+        min-height:68px !important;
+        padding:6px 5px !important;
+        border-radius:20px !important;
+        z-index:42 !important;
+        touch-action:manipulation !important;
+      }
 
-          padding: 5px 4px !important;
-          border-radius: 15px !important;
-          border-width: 3px !important;
-          box-shadow: 0 6px 14px rgba(45, 60, 90, .11) !important;
+      html.gj-mobile-target-compact-v848b .gjpu-item b,
+      html.gj-mobile-target-compact-v848b .gj-target b,
+      html.gj-mobile-target-compact-v848b .target b,
+      html.gj-mobile-target-compact-v848b .food b,
+      html.gj-mobile-target-compact-v848b .junk b{
+        font-size:30px !important;
+        line-height:1 !important;
+      }
+
+      html.gj-mobile-target-compact-v848b .gjpu-item span,
+      html.gj-mobile-target-compact-v848b .gj-target span,
+      html.gj-mobile-target-compact-v848b .target span,
+      html.gj-mobile-target-compact-v848b .food span,
+      html.gj-mobile-target-compact-v848b .junk span{
+        font-size:9px !important;
+        line-height:1.05 !important;
+      }
+
+      html.gj-mobile-target-compact-v848b .gjpu-item::after,
+      html.gj-mobile-target-compact-v848b .gj-target::after,
+      html.gj-mobile-target-compact-v848b .target::after,
+      html.gj-mobile-target-compact-v848b .food::after,
+      html.gj-mobile-target-compact-v848b .junk::after{
+        content:"" !important;
+        position:absolute !important;
+        inset:-13px !important;
+        border-radius:24px !important;
+        pointer-events:auto !important;
+      }
+
+      html.gj-mobile-target-compact-v848b .gjm-area{
+        padding-top:calc(72px + env(safe-area-inset-top,0px)) !important;
+        padding-bottom:calc(62px + env(safe-area-inset-bottom,0px)) !important;
+      }
+
+      html.gj-mobile-target-compact-v848b .gjm-message{
+        top:58% !important;
+        width:min(350px,calc(100vw - 28px)) !important;
+        padding:12px !important;
+        border-radius:22px !important;
+      }
+
+      @media (max-width:420px){
+        html.gj-mobile-target-compact-v848b .gjpu-item{
+          width:56px !important;
+          min-height:62px !important;
+          border-radius:18px !important;
         }
 
-        html.gj-solo-target-compact .target img,
-        html.gj-solo-target-compact .food-target img,
-        html.gj-solo-target-compact .gj-target img,
-        html.gj-solo-target-compact .food-card img,
-        html.gj-solo-target-compact [data-food-target] img,
-        html.gj-solo-target-compact .spawn-item img{
-          width: clamp(28px, 7.6vw, 38px) !important;
-          height: clamp(28px, 7.6vw, 38px) !important;
-          max-width: 38px !important;
-          max-height: 38px !important;
-          object-fit: contain !important;
-          margin: 0 auto 2px !important;
-        }
-
-        html.gj-solo-target-compact .target .label,
-        html.gj-solo-target-compact .food-target .label,
-        html.gj-solo-target-compact .gj-target .label,
-        html.gj-solo-target-compact .food-card .label,
-        html.gj-solo-target-compact [data-food-target] .label,
-        html.gj-solo-target-compact .spawn-item .label,
-        html.gj-solo-target-compact .target-name,
-        html.gj-solo-target-compact .food-name{
-          font-size: clamp(9px, 2.35vw, 10.8px) !important;
-          line-height: 1.06 !important;
-          max-height: 2.15em !important;
-          overflow: hidden !important;
-        }
-
-        html.gj-solo-target-compact .target,
-        html.gj-solo-target-compact .food-target,
-        html.gj-solo-target-compact .gj-target,
-        html.gj-solo-target-compact .food-card,
-        html.gj-solo-target-compact [data-food-target],
-        html.gj-solo-target-compact .spawn-item{
-          touch-action: manipulation !important;
-        }
-
-        /*
-         * กันเป้าหลุดขอบจอ / เข้าใต้ overlay
-         */
-        html.gj-solo-target-compact .gj-compact-clamped{
-          transition: left .12s ease, top .12s ease, transform .12s ease !important;
+        html.gj-mobile-target-compact-v848b .gjpu-item b{
+          font-size:27px !important;
         }
       }
     `;
@@ -108,148 +107,54 @@
     document.head.appendChild(style);
   }
 
-  function getArena(){
-    return (
-      $('#arena') ||
-      $('.arena') ||
-      $('#gameArea') ||
-      $('.game-area') ||
-      $('#playArea') ||
-      $('.play-area') ||
-      document.body
-    );
-  }
+  function markTargets() {
+    const selectors = [
+      '.gjpu-item',
+      '.gj-target',
+      '.target',
+      '.food',
+      '.junk',
+      '[data-target]',
+      '[data-food]',
+      '[data-junk]',
+      '[data-kind="good"]',
+      '[data-kind="junk"]',
+      '[data-kind="fake"]'
+    ];
 
-  function looksLikeTarget(el){
-    if (!el || !el.classList) return false;
+    document.querySelectorAll(selectors.join(',')).forEach(function (el) {
+      if (el.dataset.gjCompactMarked) return;
+      el.dataset.gjCompactMarked = '1';
+      el.style.touchAction = 'manipulation';
 
-    if (
-      el.matches('.target,.food-target,.gj-target,.food-card,[data-food-target],.spawn-item')
-    ){
-      return true;
-    }
-
-    return false;
-  }
-
-  function clampPercent(value, min, max){
-    const n = Number(String(value || '').replace('%',''));
-    if (!Number.isFinite(n)) return null;
-    return Math.max(min, Math.min(max, n));
-  }
-
-  function clampTarget(el){
-    if (!isMobile() || !looksLikeTarget(el)) return;
-
-    /*
-     * mobile safe area:
-     * เป้าเล็กลงแล้ว จึงขยายพื้นที่ spawn ได้อีกนิด
-     * แต่ยังกันไม่ให้ไปชน toast/mission ด้านบน และ boss/fair director/skill ด้านล่าง
-     */
-    const SAFE = {
-      minX: 12,
-      maxX: 82,
-      minY: 22,
-      maxY: 64
-    };
-
-    const left = el.style.left;
-    const top = el.style.top;
-
-    const lx = clampPercent(left, SAFE.minX, SAFE.maxX);
-    const ty = clampPercent(top, SAFE.minY, SAFE.maxY);
-
-    if (lx !== null){
-      el.style.left = lx + '%';
-    }
-
-    if (ty !== null){
-      el.style.top = ty + '%';
-    }
-
-    el.classList.add('gj-compact-clamped');
-  }
-
-  function compactExistingTargets(){
-    if (!isMobile()) return;
-
-    document.documentElement.classList.add('gj-solo-target-compact');
-
-    $all('.target,.food-target,.gj-target,.food-card,[data-food-target],.spawn-item')
-      .forEach(clampTarget);
-  }
-
-  function observeTargets(){
-    const arena = getArena();
-    if (!arena || !window.MutationObserver) return;
-
-    if (arena.dataset.gjSoloCompactObserved === '1') return;
-    arena.dataset.gjSoloCompactObserved = '1';
-
-    const mo = new MutationObserver(function(mutations){
-      mutations.forEach(function(m){
-        Array.from(m.addedNodes || []).forEach(function(node){
-          if (!(node instanceof HTMLElement)) return;
-
-          if (looksLikeTarget(node)){
-            clampTarget(node);
-          }
-
-          $all('.target,.food-target,.gj-target,.food-card,[data-food-target],.spawn-item', node)
-            .forEach(clampTarget);
-        });
-      });
-    });
-
-    mo.observe(arena, {
-      childList: true,
-      subtree: true
+      const cs = getComputedStyle(el);
+      if (cs.position === 'static') {
+        el.style.position = 'absolute';
+      }
     });
   }
 
-  function patchRandomSpawnHelpers(){
-    /*
-     * เผื่อไฟล์หลักอ่านค่า global นี้ในอนาคต
-     */
-    window.GJ_SOLO_BOSS_MOBILE_TARGET_COMPACT = {
-      version: PATCH_VERSION,
-      safeSpawnMobile: {
-        minX: 12,
-        maxX: 82,
-        minY: 22,
-        maxY: 64
-      },
-      targetSizeMobile: {
-        minW: 52,
-        maxW: 68,
-        minH: 62,
-        maxH: 80
-      },
-      compactExistingTargets,
-      clampTarget
-    };
-  }
+  function install() {
+    if (isMobile) {
+      document.documentElement.classList.add('gj-mobile-target-compact-v848b');
+    }
 
-  function boot(){
     injectStyle();
-    patchRandomSpawnHelpers();
+    markTargets();
 
-    if (isMobile()){
-      compactExistingTargets();
-      observeTargets();
+    const mo = new MutationObserver(markTargets);
+    mo.observe(document.documentElement, { childList: true, subtree: true });
 
-      /*
-       * กันกรณีเกมสร้างเป้าแบบ innerHTML / animation ภายหลัง
-       */
-      setInterval(compactExistingTargets, 900);
-    }
+    setInterval(markTargets, 1200);
 
-    console.info('[GoodJunk Solo Boss Mobile Target Compact]', PATCH_VERSION, 'loaded');
+    try {
+      console.log('[' + PATCH + '] installed');
+    } catch (_) {}
   }
 
-  if (document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, { once:true });
-  }else{
-    boot();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', install, { once: true });
+  } else {
+    install();
   }
 })();
