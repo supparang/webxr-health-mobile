@@ -85,22 +85,17 @@
   }
 
   function getTopMetrics(){
+    const zoneRaw = text($('zoneText')) || '0/6';
+    const zm = zoneRaw.match(/(\d+)\s*\/\s*(\d+)/);
+
     return {
       score: numFromText(text($('scoreText')), 0),
       combo: numFromText(text($('comboText')), 0),
       clean: numFromText(text($('cleanText')), 0),
       plaque: numFromText(text($('threatText')), 100),
-      zoneText: text($('zoneText')) || '0/6',
-      zoneDone: (() => {
-        const raw = text($('zoneText')) || '0/6';
-        const m = raw.match(/(\d+)\s*\/\s*(\d+)/);
-        return m ? safeNum(m[1], 0) : 0;
-      })(),
-      zoneTotal: (() => {
-        const raw = text($('zoneText')) || '0/6';
-        const m = raw.match(/(\d+)\s*\/\s*(\d+)/);
-        return m ? safeNum(m[2], 6) : 6;
-      })(),
+      zoneText: zoneRaw,
+      zoneDone: zm ? safeNum(zm[1], 0) : 0,
+      zoneTotal: zm ? safeNum(zm[2], 6) : 6,
       time: numFromText(text($('timeText')), safeNum(param('time', 90), 90))
     };
   }
@@ -124,7 +119,7 @@
     }
 
     const btnStart = $('btnStart');
-    if(visible(btnStart) && /เริ่มแปรงฟัน|พร้อม/i.test(text(btnStart))){
+    if(visible(btnStart) && /เริ่มแปรงฟัน|พร้อม|ใส่ยาสีฟัน/i.test(text(btnStart))){
       const m = getTopMetrics();
       if(m.score <= 0 && m.combo <= 0 && m.clean <= 0 && m.zoneDone <= 0){
         return true;
@@ -185,10 +180,6 @@
   function detectStage(){
     if(isSummaryOpen()) return STAGES.SUMMARY;
 
-    /*
-     * Manual stage ใช้ชั่วคราวหลังปุ่มเริ่ม/เหตุการณ์ dispatch
-     * แต่ไม่ให้ล็อกตลอดไปเกิน 4 วินาที
-     */
     if(manualStage && Date.now() - lastStageAt < 4000){
       if(manualStage !== STAGES.SUMMARY) return manualStage;
     }
@@ -276,16 +267,15 @@
       }
 
       body[data-brush-flow-stage="prep"] #bossVisualLayer,
-      body[data-brush-flow-stage="prep"] #bossWeakPointLayer,
+      body[data-brush-flow-stage="prep"] #bossWeakPointLayer{
+        opacity:0 !important;
+        pointer-events:none !important;
+      }
+
       body[data-brush-flow-stage="prep"] #scanTargetLayer,
       body[data-brush-flow-stage="prep"] #fxLayer,
       body[data-brush-flow-stage="prep"] #scorePopupLayer{
         pointer-events:none !important;
-      }
-
-      body[data-brush-flow-stage="prep"] #bossVisualLayer,
-      body[data-brush-flow-stage="prep"] #bossWeakPointLayer{
-        opacity:0 !important;
       }
 
       body[data-brush-flow-stage="summary"] #brushInputLayer,
@@ -298,26 +288,6 @@
       body[data-brush-flow-stage="mini-event"] [data-ring-zone],
       body[data-brush-flow-stage="boss"] [data-ring-zone]{
         pointer-events:auto;
-      }
-
-      body[data-brush-flow-stage="prep"] #sceneBadge::after{
-        content:" • Prep";
-      }
-
-      body[data-brush-flow-stage="brush"] #sceneBadge::after{
-        content:" • Brush";
-      }
-
-      body[data-brush-flow-stage="mini-event"] #sceneBadge::after{
-        content:" • Mini";
-      }
-
-      body[data-brush-flow-stage="boss"] #sceneBadge::after{
-        content:" • Boss";
-      }
-
-      body[data-brush-flow-stage="summary"] #sceneBadge::after{
-        content:" • Summary";
       }
 
       .hha-flow-stage-chip{
@@ -372,11 +342,11 @@
   function setStage(stage, source){
     if(!stage) return;
 
-    const now = Date.now();
     const changed = stage !== currentStage;
+    const previous = currentStage;
 
     currentStage = stage;
-    lastStageAt = now;
+    lastStageAt = Date.now();
 
     DOC.documentElement.setAttribute('data-brush-flow-stage', stage);
     if(DOC.body) DOC.body.setAttribute('data-brush-flow-stage', stage);
@@ -406,7 +376,7 @@
           detail:{
             patch: PATCH_ID,
             stage,
-            previous: currentStage,
+            previous,
             source: source || 'detect',
             metrics: getTopMetrics()
           }
@@ -444,9 +414,6 @@
     btnStart.__hhaFlowStartBound = true;
 
     btnStart.addEventListener('click', function(){
-      /*
-       * ไม่ preventDefault เพราะให้ brush.js ทำงานเดิม
-       */
       setManualStage(STAGES.BRUSH, 'btnStart');
     }, false);
   }
@@ -490,9 +457,6 @@
   function cleanupWrongStageArtifacts(){
     const stage = currentStage || detectStage();
 
-    /*
-     * Prep: ห้ามมีของว่อน/boss result/summary injected
-     */
     if(stage === STAGES.PREP){
       [
         '#hha-brush-compact-override-card',
@@ -506,9 +470,6 @@
       });
     }
 
-    /*
-     * Summary: ห้ามรับ input แปรงต่อ
-     */
     if(stage === STAGES.SUMMARY){
       const input = $('brushInputLayer');
       if(input){
