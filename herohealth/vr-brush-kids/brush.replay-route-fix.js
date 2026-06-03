@@ -36,6 +36,7 @@
         return WIN.location.origin + path.slice(0, idx + marker.length);
       }
     }catch(_){}
+
     return WIN.location.origin + '/herohealth/';
   }
 
@@ -69,10 +70,6 @@
   function hygieneZoneUrl(){
     const currentHub = cleanUrl(param('hub', ''));
 
-    /*
-     * ถ้า hub ปัจจุบันเป็น hygiene-zone.html อยู่แล้ว ให้ใช้ต่อเลย
-     * เช่น URL ที่อาจารย์ส่งมา
-     */
     if(currentHub && /hygiene-zone\.html/i.test(currentHub)){
       return currentHub;
     }
@@ -106,9 +103,6 @@
       entry: 'brush-kids',
       theme: 'brush',
 
-      /*
-       * replay กลับหน้า menu/prep ของ brush.html
-       */
       seed: param('seed', String(Date.now())),
       run: 'menu',
       hub: hygieneZoneUrl()
@@ -134,7 +128,7 @@
 
     const t = String(el.textContent || '').trim();
 
-    return /เล่นอีกครั้ง|Replay|ลองใหม่/i.test(t);
+    return /เล่นอีกครั้ง|Replay|ลองใหม่|ใส่ยาสีฟันใหม่/i.test(t);
   }
 
   function bindReplayButtons(){
