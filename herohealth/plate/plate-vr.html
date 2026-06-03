@@ -658,7 +658,8 @@
     .createZone{
       -webkit-tap-highlight-color:transparent;
     }
-.summaryGrid{
+
+    .summaryGrid{
       display:grid;
       grid-template-columns:1fr 1fr;
       gap:10px;
@@ -1046,6 +1047,37 @@
       to{ opacity:0; transform:translateY(-6px) scale(.98); }
     }
 
+    /* === PATCH: Plate Solo mobile mission scroll fix === */
+    #missionOverlay{
+      overflow-y:auto !important;
+      overflow-x:hidden !important;
+      -webkit-overflow-scrolling:touch !important;
+      overscroll-behavior:contain !important;
+      align-items:start !important;
+      justify-items:center !important;
+      padding:
+        max(16px, env(safe-area-inset-top))
+        12px
+        calc(120px + env(safe-area-inset-bottom)) !important;
+      touch-action:pan-y !important;
+    }
+
+    #missionOverlay .card{
+      margin:0 auto !important;
+      width:min(92vw,560px) !important;
+      max-height:none !important;
+      overflow:visible !important;
+      touch-action:pan-y !important;
+    }
+
+    body.overlay-open #missionOverlay{
+      touch-action:pan-y !important;
+    }
+
+    body.overlay-open #missionOverlay .card{
+      touch-action:pan-y !important;
+    }
+
     @media (max-width:860px){
       .topHud{
         grid-template-columns:repeat(4,1fr) 52px;
@@ -1251,6 +1283,16 @@
       .createProgressText{
         text-align:left;
       }
+
+      #missionOverlay{
+        place-items:start center !important;
+        padding-top:max(18px, env(safe-area-inset-top)) !important;
+        padding-bottom:calc(150px + env(safe-area-inset-bottom)) !important;
+      }
+
+      #missionOverlay .card{
+        border-radius:24px !important;
+      }
     }
   </style>
 </head>
@@ -1319,7 +1361,7 @@
     </footer>
   </div>
 
-  <div class="overlay" id="missionOverlay">
+  <div class="overlay scrollOverlay" id="missionOverlay">
     <div class="card">
       <div class="heroHead">
         <div class="heroBadge">🍽️</div>
@@ -1525,7 +1567,8 @@
   </div>
 
   <div class="toastLayer" id="toastLayer" aria-live="polite"></div>
-<script>
+
+  <script>
   (function(){
     'use strict';
 
@@ -1597,6 +1640,19 @@
       }
     }
 
+    function heroRoot(){
+      const path = location.pathname || '';
+      const idx = path.indexOf('/herohealth/');
+      if(idx >= 0){
+        return location.origin + path.slice(0, idx + '/herohealth'.length);
+      }
+      return location.origin + '/webxr-health-mobile/herohealth';
+    }
+
+    function defaultZoneUrl(){
+      return heroRoot() + '/nutrition-zone.html';
+    }
+
     const ctx = {
       pid: clean(qs('pid'),'anon'),
       name: clean(qs('name'),'Hero'),
@@ -1606,7 +1662,7 @@
       diff: clean(qs('diff'),'normal'),
       time: num(qs('time'),90),
       seed: clean(qs('seed'), String(Date.now())),
-      hub: clean(qs('hub'), '/webxr-health-mobile/herohealth/hub-v2.html'),
+      hub: clean(qs('hub'), defaultZoneUrl()),
       view: clean(qs('view'),'mobile'),
       run: clean(qs('run'),'play'),
       zone: clean(qs('zone'),'nutrition'),
@@ -2252,6 +2308,12 @@
 
       openOverlay($missionOverlay);
 
+      try{
+        $missionOverlay.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      }catch(_){}
+
       queueLog('mission_overlay_shown', {
         required_hits:state.requiredHits,
         lock_group:state.lockGroup,
@@ -2415,13 +2477,6 @@
       fx.style.top = `${y}px`;
       $playField.appendChild(fx);
       setTimeout(() => fx.remove(), 720);
-    }
-
-    function removeTarget(id){
-      const t = state.targets.get(id);
-      if(!t) return;
-      state.targets.delete(id);
-      try{ t.el.remove(); }catch(_){}
     }
 
     function retireTarget(id, delay=0){
@@ -2750,7 +2805,7 @@
         time:ctx.time
       });
 
-      openOverlay($missionOverlay);
+      openMission();
     }
 
     function backHub(){
@@ -2770,7 +2825,7 @@
 
       flushLogs(true);
 
-      location.href = ctx.hub || '/webxr-health-mobile/herohealth/hub-v2.html';
+      location.href = ctx.hub || defaultZoneUrl();
     }
 
     function pickEvaluateTemplate(){
