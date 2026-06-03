@@ -521,10 +521,6 @@
     if(DOC.__hhaToothpasteStartGuardBound) return;
     DOC.__hhaToothpasteStartGuardBound = true;
 
-    /*
-     * capture phase เพื่อกัน core/P55 ก่อนเริ่ม ถ้ายังไม่ได้ใส่ยาสีฟัน
-     * ดังนั้น P56 ต้องโหลดก่อน P55
-     */
     DOC.addEventListener('pointerdown', blockStartIfNotReady, true);
     DOC.addEventListener('click', blockStartIfNotReady, true);
   }
