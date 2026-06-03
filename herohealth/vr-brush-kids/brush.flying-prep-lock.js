@@ -1,12 +1,13 @@
 /* =========================================================
  * HeroHealth Brush Kids
  * /herohealth/vr-brush-kids/brush.flying-prep-lock.js
- * PATCH v20260515-P54-BRUSH-KIDS-FLYING-PREP-LOCK
+ * PATCH v20260519-P54b-BRUSH-KIDS-FLYING-PREP-LOCK
  *
  * Purpose:
  * - กันของว่อน/เป้าพิเศษโผล่ในหน้า Prep / Howto / Menu
  * - ลบเป้าจาก P53 และ polish ที่โผล่ผิดจังหวะ
  * - อนุญาตให้เป้าพิเศษโผล่เฉพาะหลังเริ่มแปรงจริง
+ * - แก้ run=menu ดึงกลับ Prep หลังเริ่มเกมแล้ว
  * ========================================================= */
 
 (function(){
@@ -14,7 +15,7 @@
 
   const WIN = window;
   const DOC = document;
-  const PATCH_ID = 'v20260515-P54-BRUSH-KIDS-FLYING-PREP-LOCK';
+  const PATCH_ID = 'v20260519-P54b-BRUSH-KIDS-FLYING-PREP-LOCK';
 
   function $(id){
     return DOC.getElementById(id);
@@ -30,8 +31,11 @@
   }
 
   function qs(){
-    try{ return new URLSearchParams(WIN.location.search || ''); }
-    catch(_){ return new URLSearchParams(); }
+    try{
+      return new URLSearchParams(WIN.location.search || '');
+    }catch(_){
+      return new URLSearchParams();
+    }
   }
 
   function param(k, fallback){
@@ -80,8 +84,49 @@
     return isVisible(modal);
   }
 
+  function hasStartOverride(){
+    try{
+      if(DOC.documentElement.getAttribute('data-brush-start-requested') === '1') return true;
+      if(DOC.documentElement.getAttribute('data-brush-flow-stage') === 'brush') return true;
+
+      if(DOC.body){
+        if(DOC.body.getAttribute('data-brush-start-requested') === '1') return true;
+        if(DOC.body.getAttribute('data-brush-real-started') === '1') return true;
+        if(DOC.body.getAttribute('data-brush-flow-stage') === 'brush') return true;
+      }
+
+      if(WIN.HHA_BRUSH_START_UNLOCK_STATE && WIN.HHA_BRUSH_START_UNLOCK_STATE.startRequested){
+        return true;
+      }
+
+      if(
+        WIN.HHA_BRUSH_START_UNLOCK &&
+        typeof WIN.HHA_BRUSH_START_UNLOCK.state === 'function'
+      ){
+        const s = WIN.HHA_BRUSH_START_UNLOCK.state();
+        if(s && s.startRequested) return true;
+      }
+
+      if(
+        WIN.HHA_BRUSH_TOOTHPASTE_PREP &&
+        typeof WIN.HHA_BRUSH_TOOTHPASTE_PREP.state === 'function'
+      ){
+        const p = WIN.HHA_BRUSH_TOOTHPASTE_PREP.state();
+        if(p && p.started) return true;
+      }
+    }catch(_){}
+
+    return false;
+  }
+
   function hardPrep(){
     if(summaryOpen()) return false;
+
+    /*
+     * สำคัญ:
+     * ถ้าเริ่มเกมแล้ว ห้ามใช้ run=menu / คำว่า Prep ดึงกลับ Prep อีก
+     */
+    if(hasStartOverride()) return false;
 
     const run = String(param('run', '')).toLowerCase();
     const phase = String(param('phase', '')).toLowerCase();
@@ -116,6 +161,9 @@
 
   function realBrushStarted(){
     if(summaryOpen()) return false;
+
+    if(hasStartOverride()) return true;
+
     if(hardPrep()) return false;
 
     const m = metrics();
@@ -153,8 +201,9 @@
     selectors.forEach(sel => {
       try{
         DOC.querySelectorAll(sel).forEach(el => {
-          try{ el.remove(); }
-          catch(_){
+          try{
+            el.remove();
+          }catch(_){
             el.style.display = 'none';
             el.style.visibility = 'hidden';
             el.style.pointerEvents = 'none';
@@ -208,10 +257,15 @@
 
     try{
       DOC.documentElement.setAttribute('data-brush-flow-stage', 'prep');
-      if(DOC.body) DOC.body.setAttribute('data-brush-flow-stage', 'prep');
+
+      if(DOC.body){
+        DOC.body.setAttribute('data-brush-flow-stage', 'prep');
+      }
 
       const sceneStage = $('sceneStage');
-      if(sceneStage) sceneStage.setAttribute('data-flow-stage', 'prep');
+      if(sceneStage){
+        sceneStage.setAttribute('data-flow-stage', 'prep');
+      }
 
       if(WIN.HHA_BRUSH_GAMEPLAY_FLOW && typeof WIN.HHA_BRUSH_GAMEPLAY_FLOW.setStage === 'function'){
         WIN.HHA_BRUSH_GAMEPLAY_FLOW.setStage('prep', 'flying-prep-lock');
@@ -240,6 +294,7 @@
         patch: PATCH_ID,
         hardPrep: prep,
         realBrushStarted: started,
+        startOverride: hasStartOverride(),
         metrics: metrics(),
         flowStage: DOC.body ? DOC.body.getAttribute('data-brush-flow-stage') : '',
         at: new Date().toISOString()
@@ -280,6 +335,7 @@
       apply,
       hardPrep,
       realBrushStarted,
+      hasStartOverride,
       killFlyingTargets,
       state(){
         return WIN.HHA_BRUSH_FLYING_PREP_LOCK_STATE || null;
@@ -290,6 +346,10 @@
   function boot(){
     expose();
     observe();
+
+    try{
+      console.log('[BrushFlyingPrepLock]', PATCH_ID, 'booted');
+    }catch(_){}
   }
 
   if(DOC.readyState === 'loading'){
