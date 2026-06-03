@@ -71,6 +71,7 @@
   let spawnTimer = null;
   let lastSpawnAt = 0;
   let lastPointer = { x: 0, y: 0, at: 0 };
+
   let stats = {
     spawned: 0,
     hit: 0,
@@ -84,14 +85,6 @@
 
   function $(id){
     return DOC.getElementById(id);
-  }
-
-  function text(el){
-    try{
-      return el ? String(el.textContent || '').trim() : '';
-    }catch(_){
-      return '';
-    }
   }
 
   function stage(){
@@ -602,11 +595,6 @@
   }
 
   function syncScoreBonusSoft(){
-    /*
-     * Soft update only:
-     * ไม่บังคับ score core หนักเกินไป แต่ช่วยให้ผู้เล่นเห็น bonus
-     * ถ้า brush.js เขียน score ทับ ก็ไม่พัง
-     */
     const scoreText = $('scoreText');
     if(!scoreText || stats.bonusScore <= 0) return;
 
@@ -665,10 +653,6 @@
       }, true);
     });
 
-    /*
-     * Cardboard/cVR หรือ custom shoot event:
-     * ใช้ตำแหน่งกลางจอชนเป้าได้
-     */
     WIN.addEventListener('hha:shoot', function(){
       if(!isAllowedStage()) return;
 
