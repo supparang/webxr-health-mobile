@@ -139,7 +139,6 @@
       '#hhaFlyingTargetHud',
       '.hha-flying-target',
 
-      /* polish / previous target artifacts */
       '.hha-brush-target',
       '.hha-brush-pop',
       '.hha-brush-sparkle',
