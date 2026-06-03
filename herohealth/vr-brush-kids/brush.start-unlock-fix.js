@@ -1,12 +1,12 @@
 /* =========================================================
  * HeroHealth Brush Kids
  * /herohealth/vr-brush-kids/brush.start-unlock-fix.js
- * PATCH v20260518-P55-BRUSH-KIDS-START-UNLOCK-FIX
+ * PATCH v20260519-P55b-BRUSH-KIDS-START-UNLOCK-FIX
  *
  * Purpose:
  * - แก้ปัญหากด “เริ่มแปรงฟัน” แล้วค้าง / ไม่ไปต่อ
  * - หลังผู้เล่นกดเริ่ม ต้องปลด hard prep lock
- * - ซ่อนปุ่มเริ่มเดิมหลังคลิก เพื่อไม่ให้ P52/P54 จับว่าเป็น Prep อีก
+ * - ซ่อนปุ่มเริ่มหลัง core ได้รับ click แล้ว
  * - เปลี่ยนข้อความ Prep เป็น Brush stage ทันที
  * ========================================================= */
 
@@ -15,7 +15,7 @@
 
   const WIN = window;
   const DOC = document;
-  const PATCH_ID = 'v20260518-P55-BRUSH-KIDS-START-UNLOCK-FIX';
+  const PATCH_ID = 'v20260519-P55b-BRUSH-KIDS-START-UNLOCK-FIX';
 
   let startRequested = false;
   let startAt = 0;
@@ -144,7 +144,7 @@
       WIN.dispatchEvent(new CustomEvent('hha:brush-start-unlocked', {
         detail:{
           patch: PATCH_ID,
-          source: 'P55',
+          source: 'P55b',
           metrics: metrics()
         }
       }));
@@ -180,7 +180,12 @@
     rewritePrepTexts();
     enableBrushInput();
 
-    setTimeout(hideStartButton, 30);
+    /*
+     * สำคัญ:
+     * เดิม 30ms เร็วเกินไป ทำให้ core brush.js อาจยังไม่ได้เริ่มจริง
+     * เปลี่ยนเป็น 450ms เพื่อให้ click หลักเข้าถึง core ก่อน
+     */
+    setTimeout(hideStartButton, 450);
     setTimeout(forceFlowControllerBrush, 40);
     setTimeout(dispatchStart, 60);
 
@@ -258,12 +263,21 @@
 
     const age = Date.now() - startAt;
 
+    /*
+     * ช่วง 10 วินาทีแรกหลังคลิก ต้องบังคับไม่ให้ P52/P54 ดึงกลับ prep
+     */
     if(age < 10000){
       setBrushStageAttrs();
       rewritePrepTexts();
       enableBrushInput();
-      hideStartButton();
       forceFlowControllerBrush();
+    }
+
+    /*
+     * ซ่อนปุ่มเมื่อเริ่มจริงแล้ว แต่ไม่รีบซ่อนตั้งแต่ event แรก
+     */
+    if(age > 450){
+      hideStartButton();
     }
 
     const m = metrics();
@@ -282,8 +296,8 @@
     const style = DOC.createElement('style');
     style.id = 'hha-start-unlock-style';
     style.textContent = `
-      body[data-brush-start-requested="1"] #btnStart,
-      html[data-brush-start-requested="1"] #btnStart{
+      body[data-brush-start-requested="1"] #btnStart[data-hha-start-hidden-after-click="1"],
+      html[data-brush-start-requested="1"] #btnStart[data-hha-start-hidden-after-click="1"]{
         display:none !important;
         visibility:hidden !important;
         pointer-events:none !important;
