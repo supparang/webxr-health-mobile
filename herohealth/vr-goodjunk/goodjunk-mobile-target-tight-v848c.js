@@ -1,11 +1,11 @@
 // === /herohealth/vr-goodjunk/goodjunk-mobile-target-tight-v848c.js ===
-// PATCH v20260604-v848c
+// PATCH v20260604-v848c2
 // Purpose: make visible mobile food/junk targets smaller, but keep touch hitbox friendly.
 
 (function () {
   'use strict';
 
-  const PATCH = 'GJ_MOBILE_TARGET_TIGHT_V848C';
+  const PATCH = 'GJ_MOBILE_TARGET_TIGHT_V848C2';
 
   function isGoodJunk() {
     return /goodjunk|good-junk/i.test(location.pathname + ' ' + document.title);
@@ -15,6 +15,7 @@
 
   const qs = new URLSearchParams(location.search || '');
   const view = String(qs.get('view') || '').toLowerCase();
+
   const isMobile =
     view === 'mobile' ||
     /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
@@ -22,10 +23,10 @@
   if (!isMobile) return;
 
   function injectStyle() {
-    if (document.getElementById('gjMobileTargetTightV848cStyle')) return;
+    if (document.getElementById('gjMobileTargetTightV848c2Style')) return;
 
     const style = document.createElement('style');
-    style.id = 'gjMobileTargetTightV848cStyle';
+    style.id = 'gjMobileTargetTightV848c2Style';
     style.textContent = `
       html.gj-mobile-target-tight-v848c .gjpu-item,
       html.gj-mobile-target-tight-v848c .gj-target,
@@ -38,16 +39,30 @@
       html.gj-mobile-target-tight-v848c [data-kind="good"],
       html.gj-mobile-target-tight-v848c [data-kind="junk"],
       html.gj-mobile-target-tight-v848c [data-kind="fake"]{
-        max-width:min(18vw,68px) !important;
-        max-height:min(18vw,76px) !important;
+        max-width:min(16vw,58px) !important;
+        max-height:min(17vw,64px) !important;
       }
 
       html.gj-mobile-target-tight-v848c .gjpu-item{
-        width:54px !important;
-        min-height:60px !important;
-        padding:5px 4px !important;
-        border-radius:18px !important;
-        box-shadow:0 10px 22px rgba(15,23,42,.15) !important;
+        width:48px !important;
+        min-height:54px !important;
+        padding:4px 3px !important;
+        border-radius:15px !important;
+        box-shadow:0 8px 18px rgba(15,23,42,.13) !important;
+      }
+
+      html.gj-mobile-target-tight-v848c .gjpu-item img,
+      html.gj-mobile-target-tight-v848c .gj-target img,
+      html.gj-mobile-target-tight-v848c .target img,
+      html.gj-mobile-target-tight-v848c .food img,
+      html.gj-mobile-target-tight-v848c .junk img,
+      html.gj-mobile-target-tight-v848c [data-target] img,
+      html.gj-mobile-target-tight-v848c [data-food] img,
+      html.gj-mobile-target-tight-v848c [data-junk] img,
+      html.gj-mobile-target-tight-v848c [data-kind] img{
+        max-width:34px !important;
+        max-height:34px !important;
+        object-fit:contain !important;
       }
 
       html.gj-mobile-target-tight-v848c .gjpu-item b,
@@ -55,7 +70,7 @@
       html.gj-mobile-target-tight-v848c .target b,
       html.gj-mobile-target-tight-v848c .food b,
       html.gj-mobile-target-tight-v848c .junk b{
-        font-size:26px !important;
+        font-size:22px !important;
         line-height:1 !important;
       }
 
@@ -64,9 +79,9 @@
       html.gj-mobile-target-tight-v848c .target span,
       html.gj-mobile-target-tight-v848c .food span,
       html.gj-mobile-target-tight-v848c .junk span{
-        font-size:8.5px !important;
+        font-size:7.5px !important;
         line-height:1.05 !important;
-        max-width:50px !important;
+        max-width:44px !important;
         margin-left:auto !important;
         margin-right:auto !important;
       }
@@ -79,7 +94,7 @@
       html.gj-mobile-target-tight-v848c .junk::after{
         content:"" !important;
         position:absolute !important;
-        inset:-16px !important;
+        inset:-18px !important;
         border-radius:26px !important;
         pointer-events:auto !important;
       }
@@ -88,16 +103,16 @@
       html.gj-mobile-target-tight-v848c .gjm-area,
       html.gj-mobile-target-tight-v848c #gjSoloBossArea{
         padding-top:calc(86px + env(safe-area-inset-top,0px)) !important;
-        padding-bottom:calc(146px + env(safe-area-inset-bottom,0px)) !important;
+        padding-bottom:calc(150px + env(safe-area-inset-bottom,0px)) !important;
       }
 
-      /* bottom back button currently blocks boss/powerups too much */
+      /* bottom back button should not block boss/powerups */
       html.gj-mobile-target-tight-v848c .shell-back{
-        max-width:112px !important;
-        padding:7px 9px !important;
-        font-size:10.5px !important;
-        opacity:.55 !important;
-        transform:scale(.92) !important;
+        max-width:106px !important;
+        padding:7px 8px !important;
+        font-size:10px !important;
+        opacity:.48 !important;
+        transform:scale(.9) !important;
         transform-origin:left bottom !important;
       }
 
@@ -108,18 +123,37 @@
 
       @media (max-width:420px){
         html.gj-mobile-target-tight-v848c .gjpu-item{
-          width:50px !important;
-          min-height:56px !important;
-          border-radius:16px !important;
+          width:46px !important;
+          min-height:52px !important;
+          border-radius:14px !important;
+          padding:4px 3px !important;
         }
 
-        html.gj-mobile-target-tight-v848c .gjpu-item b{
-          font-size:24px !important;
+        html.gj-mobile-target-tight-v848c .gjpu-item img,
+        html.gj-mobile-target-tight-v848c .gj-target img,
+        html.gj-mobile-target-tight-v848c .target img,
+        html.gj-mobile-target-tight-v848c .food img,
+        html.gj-mobile-target-tight-v848c .junk img,
+        html.gj-mobile-target-tight-v848c [data-kind] img{
+          max-width:31px !important;
+          max-height:31px !important;
         }
 
-        html.gj-mobile-target-tight-v848c .gjpu-item span{
-          font-size:8px !important;
-          max-width:46px !important;
+        html.gj-mobile-target-tight-v848c .gjpu-item b,
+        html.gj-mobile-target-tight-v848c .gj-target b,
+        html.gj-mobile-target-tight-v848c .target b,
+        html.gj-mobile-target-tight-v848c .food b,
+        html.gj-mobile-target-tight-v848c .junk b{
+          font-size:20px !important;
+        }
+
+        html.gj-mobile-target-tight-v848c .gjpu-item span,
+        html.gj-mobile-target-tight-v848c .gj-target span,
+        html.gj-mobile-target-tight-v848c .target span,
+        html.gj-mobile-target-tight-v848c .food span,
+        html.gj-mobile-target-tight-v848c .junk span{
+          font-size:7px !important;
+          max-width:42px !important;
         }
       }
     `;
@@ -143,9 +177,9 @@
     ];
 
     document.querySelectorAll(selectors.join(',')).forEach(function (el) {
-      if (el.dataset.gjTargetTightV848c) return;
+      if (el.dataset.gjTargetTightV848c2) return;
 
-      el.dataset.gjTargetTightV848c = '1';
+      el.dataset.gjTargetTightV848c2 = '1';
       el.style.touchAction = 'manipulation';
 
       try {
@@ -159,11 +193,16 @@
 
   function install() {
     document.documentElement.classList.add('gj-mobile-target-tight-v848c');
+    document.documentElement.classList.add('gj-mobile-target-tight-v848c2');
+
     injectStyle();
     markTargets();
 
     const mo = new MutationObserver(markTargets);
-    mo.observe(document.documentElement, { childList: true, subtree: true });
+    mo.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+    });
 
     setInterval(markTargets, 900);
 
