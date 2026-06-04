@@ -775,26 +775,21 @@
   <script>
     /* =========================================================
        HeroHealth Groups Race Run v09
-       PATCH: v20260528-race-run-v09-firebase-rescue-inline-01
+       PATCH: v20260528-race-run-v09-firebase-rescue-inline-02
        File: /herohealth/vr-groups/groups-race-run-v09.html
 
-       Purpose:
-       - Standalone waiting room
-       - Firebase RTDB rescue
-       - Anonymous auth
-       - Stable device player id
-       - Host/Friend join same room
-       - Repaint players from Firebase
-       - Race Standard 2–4 guard
+       Fixed:
+       - Firebase path now matches existing rules:
+         herohealth/groups/raceRooms/{ROOM}/players/{PID}
     ========================================================= */
     (function(){
       'use strict';
 
-      const PATCH_ID = 'v20260528-race-run-v09-firebase-rescue-inline-01';
-      const ROOM_PATH_PREFIX = 'herohealth/groupsRace/rooms';
+      const PATCH_ID = 'v20260528-race-run-v09-firebase-rescue-inline-02';
+      const ROOM_PATH_PREFIX = 'herohealth/groups/raceRooms';
 
-      if (window.__HHA_GROUPS_RACE_RUN_V09_RESCUE_01__) return;
-      window.__HHA_GROUPS_RACE_RUN_V09_RESCUE_01__ = true;
+      if (window.__HHA_GROUPS_RACE_RUN_V09_RESCUE_02__) return;
+      window.__HHA_GROUPS_RACE_RUN_V09_RESCUE_02__ = true;
 
       const qs = new URLSearchParams(location.search);
       const debugOn = qs.get('debug') === '1' || qs.get('qa') === '1';
