@@ -290,10 +290,10 @@
       const q = new URLSearchParams(location.search);
 
       const GOODJUNK_LAUNCHER =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
+        'https:///herohealth/goodjunk-launcher.html';
 
       const HUB_V2 =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+        'https:///herohealth/hub-v2.html';
 
       function clean(v, d=''){
         v = String(v ?? '').trim();
@@ -516,7 +516,7 @@
           }
           return new URL('./', location.href).toString();
         }catch(_){
-          return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+          return 'https:///herohealth/';
         }
       }
 
@@ -546,7 +546,7 @@
           'hub',
           q.get('hubRoot') ||
           q.get('rootHub') ||
-          'https://supparang.github.io/webxr-health-mobile/herohealth/hub.html'
+          'https:///herohealth/hub.html'
         );
 
         return u.toString();
@@ -848,9 +848,19 @@
       window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
       window.HH_GATE_FORCE_HUB = HUB_V2;
 
-      function go(url){
-        window.location.href = url;
-      }
+      function normalizeGoodJunkUrl(url){
+  return String(url || '').replace(
+    'https://supparang.github.io/webxr-health-mobile/goodjunk-launcher.html',
+    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html'
+  ).replace(
+    '/webxr-health-mobile/goodjunk-launcher.html',
+    '/webxr-health-mobile/herohealth/goodjunk-launcher.html'
+  );
+}
+
+function go(url){
+  window.location.href = normalizeGoodJunkUrl(url);
+}
 
       function labelOf(el){
         return String(
@@ -995,7 +1005,7 @@
 
       window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
       window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_HUB = HUB_V2;
+      window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
 
       try{
         localStorage.setItem('HH_GATE_GOODJUNK_AUTO_TARGET_FIXED', JSON.stringify({
