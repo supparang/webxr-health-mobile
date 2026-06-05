@@ -5,15 +5,38 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no" />
   <meta name="theme-color" content="#e9fff3" />
   <title>HeroHealth • Plate Launcher</title>
+
   <style>
     :root{
-      --bg1:#f6fff1;--bg2:#e7fbff;--bg3:#eef1ff;--card:#fff;--line:#d8edf6;
-      --text:#244761;--muted:#668aa0;--green:#45d483;--blue:#5cbcff;--yellow:#ffd65d;
-      --red:#ff5a70;--shadow:0 22px 54px rgba(42,78,102,.14);
-      --safeTop:env(safe-area-inset-top,0px);--safeBottom:env(safe-area-inset-bottom,0px);
+      --bg1:#f6fff1;
+      --bg2:#e7fbff;
+      --bg3:#eef1ff;
+      --card:#fff;
+      --line:#d8edf6;
+      --text:#244761;
+      --muted:#668aa0;
+      --green:#45d483;
+      --blue:#5cbcff;
+      --yellow:#ffd65d;
+      --red:#ff5a70;
+      --shadow:0 22px 54px rgba(42,78,102,.14);
+      --safeTop:env(safe-area-inset-top,0px);
+      --safeBottom:env(safe-area-inset-bottom,0px);
     }
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{margin:0;width:100%;min-height:100%;overflow-x:hidden}
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,
+    body{
+      margin:0;
+      width:100%;
+      min-height:100%;
+      overflow-x:hidden;
+    }
+
     body{
       font-family:"Noto Sans Thai","Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--text);
@@ -22,55 +45,473 @@
         radial-gradient(circle at 82% 14%,rgba(116,230,180,.45),transparent 30%),
         radial-gradient(circle at 50% 92%,rgba(112,210,255,.38),transparent 36%),
         linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));
-      user-select:none;touch-action:manipulation;
+      user-select:none;
+      touch-action:manipulation;
     }
-    button,select,input{font:inherit}button{border:0}.hidden{display:none!important}
-    .page{min-height:100vh;padding:calc(18px + var(--safeTop)) 16px calc(34px + var(--safeBottom));position:relative}
-    .page:before{content:"";position:fixed;inset:-20%;pointer-events:none;background:radial-gradient(circle at 25% 35%,rgba(255,255,255,.8),transparent 25%),radial-gradient(circle at 78% 58%,rgba(255,255,255,.62),transparent 28%);opacity:.9}
-    .wrap{width:min(1180px,100%);margin:0 auto;position:relative;z-index:1}
-    .hero{display:grid;grid-template-columns:1.08fr .92fr;gap:16px;align-items:stretch;margin-bottom:16px}
-    .heroCard,.settingsCard,.modeCard,.flowCard,.miniCard{
-      background:rgba(255,255,255,.78);border:1px solid rgba(216,237,246,.92);
-      border-radius:30px;box-shadow:var(--shadow);backdrop-filter:blur(18px);
+
+    button,
+    select,
+    input{
+      font:inherit;
     }
-    .heroCard{padding:22px;overflow:hidden;position:relative}.heroCard:after{content:"🍽️";position:absolute;right:22px;bottom:8px;font-size:98px;opacity:.16}
-    .kicker{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;background:#effff5;color:#16864f;border:1px solid #bdeed1;font-weight:1000;font-size:13px}
-    h1{margin:14px 0 8px;font-size:clamp(28px,4.2vw,46px);line-height:1.08;font-weight:1000;letter-spacing:-.6px}
-    .lead{margin:0;color:#55768b;font-weight:850;line-height:1.55;max-width:650px}
-    .heroBadges{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-    .badge,.tag{display:inline-flex;align-items:center;gap:6px;border-radius:999px;border:1px solid var(--line);font-weight:1000}
-    .badge{min-height:34px;padding:7px 11px;background:#fff;color:#446579;font-size:12px;box-shadow:0 8px 18px rgba(42,78,102,.06)}
-    .settingsCard{padding:18px;display:flex;flex-direction:column;gap:12px}
-    .settingsTitle{font-size:18px;font-weight:1000;color:#31536a;display:flex;justify-content:space-between;gap:10px;align-items:center}
-    .ctxLine,.note{padding:10px 12px;border-radius:18px;background:#f8fdff;border:1px solid var(--line);color:#57788e;font-weight:900;line-height:1.45;font-size:13px}
-    .formGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-    .field{padding:10px;border-radius:18px;background:#fff;border:1px solid var(--line)}
-    .field label{display:block;color:#668aa0;font-size:11px;font-weight:1000;margin-bottom:5px}
-    .field select,.field input{width:100%;min-height:38px;border:0;outline:0;background:#f3f9fc;border-radius:14px;padding:0 10px;color:#244761;font-weight:1000}
-    .modes{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:16px 0}
-    .modeCard{min-height:250px;padding:16px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:space-between;transition:.15s ease}
-    .modeCard.ready{cursor:pointer}.modeCard.ready:hover{transform:translateY(-3px);box-shadow:0 26px 62px rgba(42,78,102,.18);border-color:#afe9c7}
-    .modeCard.selected{border-color:#45d483;box-shadow:0 26px 62px rgba(35,190,104,.18);outline:4px solid rgba(69,212,131,.18)}
-    .modeCard.soon{opacity:.76}.modeIcon{width:62px;height:62px;display:flex;align-items:center;justify-content:center;border-radius:24px;background:linear-gradient(135deg,#fff,#effff5);border:1px solid var(--line);font-size:34px;box-shadow:0 12px 24px rgba(42,78,102,.08)}
-    .modeTitle{margin:12px 0 4px;font-size:19px;line-height:1.12;font-weight:1000;color:#244761}
-    .modeDesc{margin:0;color:#668aa0;line-height:1.38;font-size:13px;font-weight:850}
-    .modeMeta{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
-    .tag{padding:4px 8px;background:#f1f9fc;color:#55768b;font-size:11px}.tag.ready{background:#effff5;border-color:#bdf0d0;color:#16864f}.tag.soon{background:#fff8dd;border-color:#ffe08d;color:#8a6100}
-    .modeBtn{width:100%;min-height:46px;border-radius:999px;color:white;background:linear-gradient(90deg,var(--green),var(--blue));font-weight:1000;box-shadow:0 12px 24px rgba(47,140,255,.18);cursor:pointer}
-    .modeBtn.disabled{background:#dfeef5;color:#668aa0;box-shadow:none;cursor:not-allowed}
-    .bottomGrid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;align-items:start}.flowCard,.miniCard{padding:16px}
-    .cardTitle{margin:0 0 10px;font-size:18px;font-weight:1000;color:#31536a}
-    .flowSteps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-    .step{min-height:86px;padding:10px;border-radius:18px;background:#fff;border:1px solid var(--line);text-align:center;color:#55768b;font-weight:900;font-size:12px;line-height:1.28}.step b{display:block;color:#244761;font-size:22px;margin-bottom:3px}
-    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}.primaryBtn,.ghostBtn{min-height:52px;padding:0 18px;border-radius:999px;font-weight:1000;cursor:pointer}
-    .primaryBtn{color:white;background:linear-gradient(90deg,var(--green),var(--blue));box-shadow:0 14px 28px rgba(47,140,255,.19)}.ghostBtn{color:#31536a;background:#fff;border:1px solid var(--line);box-shadow:0 10px 20px rgba(42,78,102,.08)}
-    .miniGrid{display:grid;grid-template-columns:1fr;gap:9px}
-    .toast{position:fixed;left:50%;bottom:calc(18px + var(--safeBottom));z-index:20;transform:translateX(-50%) translateY(20px);opacity:0;max-width:min(560px,92vw);padding:12px 16px;border-radius:999px;background:rgba(36,71,97,.92);color:white;font-weight:1000;box-shadow:0 18px 36px rgba(42,78,102,.22);pointer-events:none;transition:.18s ease;text-align:center}.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    .debug{margin-top:10px;padding:10px;border-radius:14px;background:#f2f8fb;color:#6b879a;font-size:11px;line-height:1.38;word-break:break-all;display:none}.debug.on{display:block}
-    @media (max-width:1100px){.modes{grid-template-columns:repeat(3,1fr)}}
-    @media (max-width:820px){.page{padding:calc(12px + var(--safeTop)) 10px calc(28px + var(--safeBottom))}.hero,.bottomGrid{grid-template-columns:1fr}.modes{grid-template-columns:1fr}.modeCard{min-height:unset}.formGrid,.flowSteps{grid-template-columns:1fr}.actions{flex-direction:column}.primaryBtn,.ghostBtn{width:100%}}
+
+    button{
+      border:0;
+    }
+
+    .hidden{
+      display:none!important;
+    }
+
+    .page{
+      min-height:100vh;
+      padding:calc(18px + var(--safeTop)) 16px calc(34px + var(--safeBottom));
+      position:relative;
+    }
+
+    .page:before{
+      content:"";
+      position:fixed;
+      inset:-20%;
+      pointer-events:none;
+      background:
+        radial-gradient(circle at 25% 35%,rgba(255,255,255,.8),transparent 25%),
+        radial-gradient(circle at 78% 58%,rgba(255,255,255,.62),transparent 28%);
+      opacity:.9;
+    }
+
+    .wrap{
+      width:min(1180px,100%);
+      margin:0 auto;
+      position:relative;
+      z-index:1;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:1.08fr .92fr;
+      gap:16px;
+      align-items:stretch;
+      margin-bottom:16px;
+    }
+
+    .heroCard,
+    .settingsCard,
+    .modeCard,
+    .flowCard,
+    .miniCard{
+      background:rgba(255,255,255,.78);
+      border:1px solid rgba(216,237,246,.92);
+      border-radius:30px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(18px);
+    }
+
+    .heroCard{
+      padding:22px;
+      overflow:hidden;
+      position:relative;
+    }
+
+    .heroCard:after{
+      content:"🍽️";
+      position:absolute;
+      right:22px;
+      bottom:8px;
+      font-size:98px;
+      opacity:.16;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#effff5;
+      color:#16864f;
+      border:1px solid #bdeed1;
+      font-weight:1000;
+      font-size:13px;
+    }
+
+    h1{
+      margin:14px 0 8px;
+      font-size:clamp(28px,4.2vw,46px);
+      line-height:1.08;
+      font-weight:1000;
+      letter-spacing:-.6px;
+    }
+
+    .lead{
+      margin:0;
+      color:#55768b;
+      font-weight:850;
+      line-height:1.55;
+      max-width:650px;
+    }
+
+    .heroBadges{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:16px;
+    }
+
+    .badge,
+    .tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      font-weight:1000;
+    }
+
+    .badge{
+      min-height:34px;
+      padding:7px 11px;
+      background:#fff;
+      color:#446579;
+      font-size:12px;
+      box-shadow:0 8px 18px rgba(42,78,102,.06);
+    }
+
+    .settingsCard{
+      padding:18px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .settingsTitle{
+      font-size:18px;
+      font-weight:1000;
+      color:#31536a;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+    }
+
+    .ctxLine,
+    .note{
+      padding:10px 12px;
+      border-radius:18px;
+      background:#f8fdff;
+      border:1px solid var(--line);
+      color:#57788e;
+      font-weight:900;
+      line-height:1.45;
+      font-size:13px;
+    }
+
+    .formGrid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:10px;
+    }
+
+    .field{
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+    }
+
+    .field label{
+      display:block;
+      color:#668aa0;
+      font-size:11px;
+      font-weight:1000;
+      margin-bottom:5px;
+    }
+
+    .field select,
+    .field input{
+      width:100%;
+      min-height:38px;
+      border:0;
+      outline:0;
+      background:#f3f9fc;
+      border-radius:14px;
+      padding:0 10px;
+      color:#244761;
+      font-weight:1000;
+    }
+
+    .modes{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:12px;
+      margin:16px 0;
+    }
+
+    .modeCard{
+      min-height:250px;
+      padding:16px;
+      position:relative;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+      transition:.15s ease;
+    }
+
+    .modeCard.ready{
+      cursor:pointer;
+    }
+
+    .modeCard.ready:hover{
+      transform:translateY(-3px);
+      box-shadow:0 26px 62px rgba(42,78,102,.18);
+      border-color:#afe9c7;
+    }
+
+    .modeCard.selected{
+      border-color:#45d483;
+      box-shadow:0 26px 62px rgba(35,190,104,.18);
+      outline:4px solid rgba(69,212,131,.18);
+    }
+
+    .modeCard.soon{
+      opacity:.76;
+    }
+
+    .modeIcon{
+      width:62px;
+      height:62px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      border-radius:24px;
+      background:linear-gradient(135deg,#fff,#effff5);
+      border:1px solid var(--line);
+      font-size:34px;
+      box-shadow:0 12px 24px rgba(42,78,102,.08);
+    }
+
+    .modeTitle{
+      margin:12px 0 4px;
+      font-size:19px;
+      line-height:1.12;
+      font-weight:1000;
+      color:#244761;
+    }
+
+    .modeDesc{
+      margin:0;
+      color:#668aa0;
+      line-height:1.38;
+      font-size:13px;
+      font-weight:850;
+    }
+
+    .modeMeta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin:12px 0;
+    }
+
+    .tag{
+      padding:4px 8px;
+      background:#f1f9fc;
+      color:#55768b;
+      font-size:11px;
+    }
+
+    .tag.ready{
+      background:#effff5;
+      border-color:#bdf0d0;
+      color:#16864f;
+    }
+
+    .tag.soon{
+      background:#fff8dd;
+      border-color:#ffe08d;
+      color:#8a6100;
+    }
+
+    .modeBtn{
+      width:100%;
+      min-height:46px;
+      border-radius:999px;
+      color:white;
+      background:linear-gradient(90deg,var(--green),var(--blue));
+      font-weight:1000;
+      box-shadow:0 12px 24px rgba(47,140,255,.18);
+      cursor:pointer;
+    }
+
+    .modeBtn.disabled{
+      background:#dfeef5;
+      color:#668aa0;
+      box-shadow:none;
+      cursor:not-allowed;
+    }
+
+    .bottomGrid{
+      display:grid;
+      grid-template-columns:1.1fr .9fr;
+      gap:14px;
+      align-items:start;
+    }
+
+    .flowCard,
+    .miniCard{
+      padding:16px;
+    }
+
+    .cardTitle{
+      margin:0 0 10px;
+      font-size:18px;
+      font-weight:1000;
+      color:#31536a;
+    }
+
+    .flowSteps{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:8px;
+    }
+
+    .step{
+      min-height:86px;
+      padding:10px;
+      border-radius:18px;
+      background:#fff;
+      border:1px solid var(--line);
+      text-align:center;
+      color:#55768b;
+      font-weight:900;
+      font-size:12px;
+      line-height:1.28;
+    }
+
+    .step b{
+      display:block;
+      color:#244761;
+      font-size:22px;
+      margin-bottom:3px;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .primaryBtn,
+    .ghostBtn{
+      min-height:52px;
+      padding:0 18px;
+      border-radius:999px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .primaryBtn{
+      color:white;
+      background:linear-gradient(90deg,var(--green),var(--blue));
+      box-shadow:0 14px 28px rgba(47,140,255,.19);
+    }
+
+    .ghostBtn{
+      color:#31536a;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 10px 20px rgba(42,78,102,.08);
+    }
+
+    .miniGrid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:9px;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + var(--safeBottom));
+      z-index:20;
+      transform:translateX(-50%) translateY(20px);
+      opacity:0;
+      max-width:min(560px,92vw);
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(36,71,97,.92);
+      color:white;
+      font-weight:1000;
+      box-shadow:0 18px 36px rgba(42,78,102,.22);
+      pointer-events:none;
+      transition:.18s ease;
+      text-align:center;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .debug{
+      margin-top:10px;
+      padding:10px;
+      border-radius:14px;
+      background:#f2f8fb;
+      color:#6b879a;
+      font-size:11px;
+      line-height:1.38;
+      word-break:break-all;
+      display:none;
+    }
+
+    .debug.on{
+      display:block;
+    }
+
+    @media (max-width:1100px){
+      .modes{
+        grid-template-columns:repeat(3,1fr);
+      }
+    }
+
+    @media (max-width:820px){
+      .page{
+        padding:calc(12px + var(--safeTop)) 10px calc(28px + var(--safeBottom));
+      }
+
+      .hero,
+      .bottomGrid{
+        grid-template-columns:1fr;
+      }
+
+      .modes{
+        grid-template-columns:1fr;
+      }
+
+      .modeCard{
+        min-height:unset;
+      }
+
+      .formGrid,
+      .flowSteps{
+        grid-template-columns:1fr;
+      }
+
+      .actions{
+        flex-direction:column;
+      }
+
+      .primaryBtn,
+      .ghostBtn{
+        width:100%;
+      }
+    }
   </style>
 </head>
+
 <body>
   <main class="page">
     <div class="wrap">
@@ -83,106 +524,596 @@
             ตอนนี้เปิดให้เล่น <b>Solo</b> เป็นหลัก ส่วนโหมดทีมวางปุ่มไว้ให้ครบเพื่อเชื่อมต่อขั้นต่อไป
           </p>
           <div class="heroBadges">
-            <span class="badge">🍽️ Balanced Plate</span><span class="badge">🎯 5 Food Groups</span>
-            <span class="badge">⚡ Boss / Combo / Daily</span><span class="badge">📱 PC • Mobile • cVR</span>
+            <span class="badge">🍽️ Balanced Plate</span>
+            <span class="badge">🎯 5 Food Groups</span>
+            <span class="badge">⚡ Boss / Combo / Daily</span>
+            <span class="badge">📱 PC • Mobile • cVR</span>
           </div>
         </div>
+
         <aside class="settingsCard">
-          <div class="settingsTitle"><span>⚙️ ตั้งค่าก่อนเล่น</span><span id="selectedModeChip" class="tag ready">Solo</span></div>
-          <div id="ctxLine" class="ctxLine">กำลังอ่านค่าจาก URL...</div>
-          <div class="formGrid">
-            <div class="field"><label for="diffSelect">ระดับความยาก</label><select id="diffSelect"><option value="easy">easy • เบา ๆ</option><option value="normal">normal • แนะนำ</option><option value="hard">hard • ท้าทาย</option><option value="challenge">challenge • โหดสุด</option></select></div>
-            <div class="field"><label for="timeSelect">เวลาเล่น</label><select id="timeSelect"><option value="60">60 วินาที</option><option value="90">90 วินาที</option><option value="120">120 วินาที</option><option value="150">150 วินาที</option></select></div>
-            <div class="field"><label for="viewSelect">โหมดอุปกรณ์</label><select id="viewSelect"><option value="pc">PC</option><option value="mobile">Mobile</option><option value="cvr">Cardboard / cVR</option></select></div>
-            <div class="field"><label for="runSelect">Run</label><select id="runSelect"><option value="play">play</option><option value="research">research</option></select></div>
+          <div class="settingsTitle">
+            <span>⚙️ ตั้งค่าก่อนเล่น</span>
+            <span id="selectedModeChip" class="tag ready">Solo</span>
           </div>
-          <div class="actions"><button id="btnStartSelected" class="primaryBtn">▶️ เริ่มโหมดที่เลือก</button><button id="btnBackZone" class="ghostBtn">↩️ กลับ Nutrition Zone</button></div>
+
+          <div id="ctxLine" class="ctxLine">กำลังอ่านค่าจาก URL...</div>
+
+          <div class="formGrid">
+            <div class="field">
+              <label for="diffSelect">ระดับความยาก</label>
+              <select id="diffSelect">
+                <option value="easy">easy • เบา ๆ</option>
+                <option value="normal">normal • แนะนำ</option>
+                <option value="hard">hard • ท้าทาย</option>
+                <option value="challenge">challenge • โหดสุด</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="timeSelect">เวลาเล่น</label>
+              <select id="timeSelect">
+                <option value="60">60 วินาที</option>
+                <option value="90">90 วินาที</option>
+                <option value="120">120 วินาที</option>
+                <option value="150">150 วินาที</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="viewSelect">โหมดอุปกรณ์</label>
+              <select id="viewSelect">
+                <option value="pc">PC</option>
+                <option value="mobile">Mobile</option>
+                <option value="cvr">Cardboard / cVR</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="runSelect">Run</label>
+              <select id="runSelect">
+                <option value="play">play</option>
+                <option value="research">research</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button id="btnStartSelected" class="primaryBtn">▶️ เริ่มโหมดที่เลือก</button>
+            <button id="btnBackZone" class="ghostBtn">↩️ กลับ Nutrition Zone</button>
+          </div>
+
           <div id="debugBox" class="debug"></div>
         </aside>
       </section>
 
       <section class="modes" aria-label="Plate modes">
-        <article class="modeCard ready selected" data-mode="solo" data-ready="1"><div><div class="modeIcon">🍽️</div><h2 class="modeTitle">Solo</h2><p class="modeDesc">เล่นคนเดียว เก็บอาหารให้จานสมดุล หลบ junk สู้บอสท้ายเกม</p><div class="modeMeta"><span class="tag ready">เล่นได้แล้ว</span><span class="tag">Warmup</span><span class="tag">Boss</span></div></div><button class="modeBtn" data-start="solo">เริ่ม Solo</button></article>
-        <article class="modeCard soon" data-mode="duet" data-ready="0"><div><div class="modeIcon">👫</div><h2 class="modeTitle">Duet</h2><p class="modeDesc">ผู้เล่น 2 คนช่วยกันเติมจาน คนหนึ่งดูหมู่ที่ขาด อีกคนคุม junk</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">2 Players</span></div></div><button class="modeBtn disabled" data-start="duet">กำลังเตรียม</button></article>
-        <article class="modeCard soon" data-mode="race" data-ready="0"><div><div class="modeIcon">🏁</div><h2 class="modeTitle">Race</h2><p class="modeDesc">แข่งทำจานสมดุลให้เร็วและแม่นที่สุด คะแนนรวมแยกผู้เล่น</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">Room Code</span></div></div><button class="modeBtn disabled" data-start="race">กำลังเตรียม</button></article>
-        <article class="modeCard soon" data-mode="battle" data-ready="0"><div><div class="modeIcon">⚔️</div><h2 class="modeTitle">Battle</h2><p class="modeDesc">ทำภารกิจเพื่อปล่อยสกิลรบกวนคู่แข่ง แต่ยังต้องรักษาจานตัวเอง</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">Mission Skill</span></div></div><button class="modeBtn disabled" data-start="battle">กำลังเตรียม</button></article>
-        <article class="modeCard soon" data-mode="coop" data-ready="0"><div><div class="modeIcon">🤝</div><h2 class="modeTitle">Co-op</h2><p class="modeDesc">ช่วยกันทำจานใหญ่ของทีมให้ครบ 5 หมู่ ทุกคนมีหน้าที่ต่างกัน</p><div class="modeMeta"><span class="tag soon">ต่อไป</span><span class="tag">Team Goal</span></div></div><button class="modeBtn disabled" data-start="coop">กำลังเตรียม</button></article>
+        <article class="modeCard ready selected" data-mode="solo" data-ready="1">
+          <div>
+            <div class="modeIcon">🍽️</div>
+            <h2 class="modeTitle">Solo</h2>
+            <p class="modeDesc">เล่นคนเดียว เก็บอาหารให้จานสมดุล หลบ junk สู้บอสท้ายเกม</p>
+            <div class="modeMeta">
+              <span class="tag ready">เล่นได้แล้ว</span>
+              <span class="tag">Warmup</span>
+              <span class="tag">Boss</span>
+            </div>
+          </div>
+          <button class="modeBtn" data-start="solo">เริ่ม Solo</button>
+        </article>
+
+        <article class="modeCard soon" data-mode="duet" data-ready="0">
+          <div>
+            <div class="modeIcon">👫</div>
+            <h2 class="modeTitle">Duet</h2>
+            <p class="modeDesc">ผู้เล่น 2 คนช่วยกันเติมจาน คนหนึ่งดูหมู่ที่ขาด อีกคนคุม junk</p>
+            <div class="modeMeta">
+              <span class="tag soon">ต่อไป</span>
+              <span class="tag">2 Players</span>
+            </div>
+          </div>
+          <button class="modeBtn disabled" data-start="duet">กำลังเตรียม</button>
+        </article>
+
+        <article class="modeCard soon" data-mode="race" data-ready="0">
+          <div>
+            <div class="modeIcon">🏁</div>
+            <h2 class="modeTitle">Race</h2>
+            <p class="modeDesc">แข่งทำจานสมดุลให้เร็วและแม่นที่สุด คะแนนรวมแยกผู้เล่น</p>
+            <div class="modeMeta">
+              <span class="tag soon">ต่อไป</span>
+              <span class="tag">Room Code</span>
+            </div>
+          </div>
+          <button class="modeBtn disabled" data-start="race">กำลังเตรียม</button>
+        </article>
+
+        <article class="modeCard soon" data-mode="battle" data-ready="0">
+          <div>
+            <div class="modeIcon">⚔️</div>
+            <h2 class="modeTitle">Battle</h2>
+            <p class="modeDesc">ทำภารกิจเพื่อปล่อยสกิลรบกวนคู่แข่ง แต่ยังต้องรักษาจานตัวเอง</p>
+            <div class="modeMeta">
+              <span class="tag soon">ต่อไป</span>
+              <span class="tag">Mission Skill</span>
+            </div>
+          </div>
+          <button class="modeBtn disabled" data-start="battle">กำลังเตรียม</button>
+        </article>
+
+        <article class="modeCard soon" data-mode="coop" data-ready="0">
+          <div>
+            <div class="modeIcon">🤝</div>
+            <h2 class="modeTitle">Co-op</h2>
+            <p class="modeDesc">ช่วยกันทำจานใหญ่ของทีมให้ครบ 5 หมู่ ทุกคนมีหน้าที่ต่างกัน</p>
+            <div class="modeMeta">
+              <span class="tag soon">ต่อไป</span>
+              <span class="tag">Team Goal</span>
+            </div>
+          </div>
+          <button class="modeBtn disabled" data-start="coop">กำลังเตรียม</button>
+        </article>
       </section>
 
       <section class="bottomGrid">
-        <div class="flowCard"><h2 class="cardTitle">🧭 Flow ที่ใช้กับ Plate</h2><div class="flowSteps"><div class="step"><b>1</b>Nutrition Zone</div><div class="step"><b>2</b>Plate Launcher</div><div class="step"><b>3</b>Warmup Gate</div><div class="step"><b>4</b>Main Game</div><div class="step"><b>5</b>Cooldown → Zone</div></div></div>
-        <div class="miniCard"><h2 class="cardTitle">✅ สถานะตอนนี้</h2><div class="miniGrid"><div class="note">Solo จะส่งเข้า <b>/herohealth/warmup-gate.html</b> ก่อน แล้วค่อยไป <b>/herohealth/plate-solo.html</b></div><div class="note">ค่าจาก Hub/Zone เช่น pid, diff, time, view, run, seed, log/api จะถูกส่งต่อให้ครบ</div><div class="note">Duet / Race / Battle / Co-op วางเป็นการ์ดไว้ก่อน ไม่พาไป 404 จนกว่าไฟล์โหมดนั้นจะพร้อม</div></div></div>
+        <div class="flowCard">
+          <h2 class="cardTitle">🧭 Flow ที่ใช้กับ Plate</h2>
+          <div class="flowSteps">
+            <div class="step"><b>1</b>Nutrition Zone</div>
+            <div class="step"><b>2</b>Plate Launcher</div>
+            <div class="step"><b>3</b>Warmup Gate</div>
+            <div class="step"><b>4</b>Main Game</div>
+            <div class="step"><b>5</b>Cooldown → Zone</div>
+          </div>
+        </div>
+
+        <div class="miniCard">
+          <h2 class="cardTitle">✅ สถานะตอนนี้</h2>
+          <div class="miniGrid">
+            <div class="note">
+              Solo จะส่งเข้า <b>/herohealth/warmup-gate.html</b> ก่อน แล้วค่อยไป
+              <b>/herohealth/plate/plate-vr.html</b>
+            </div>
+            <div class="note">
+              ค่าจาก Hub/Zone เช่น pid, diff, time, view, run, seed, log/api จะถูกส่งต่อให้ครบ
+            </div>
+            <div class="note">
+              Duet / Race / Battle / Co-op วางเป็นการ์ดไว้ก่อน ไม่พาไป 404 จนกว่าไฟล์โหมดนั้นจะพร้อม
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   </main>
+
   <div id="toast" class="toast">พร้อม</div>
 
   <script>
     (() => {
       'use strict';
-      const VERSION = '20260509-PLATE-LAUNCHER-V1.0-MODE-SELECTOR';
+
+      const VERSION = '20260603-PLATE-LAUNCHER-V1.1-CANONICAL-RUN';
       const DOC = document;
       const Q = new URL(location.href).searchParams;
+
       const $ = (id) => DOC.getElementById(id);
       const qa = (sel, root = DOC) => Array.from(root.querySelectorAll(sel));
       const qs = (k, d = '') => Q.get(k) ?? d;
-      const PARAM_KEYS = ['pid','name','nick','diff','time','view','run','seed','studyId','phase','conditionGroup','section','session_code','log','api'];
-      const MODE_META = {
-        solo:{label:'Solo',ready:true,game:'plate',mode:'solo',entry:'plate-solo',runFile:'./plate-solo.html'},
-        duet:{label:'Duet',ready:false,game:'plate',mode:'duet',entry:'plate-duet',runFile:'./plate-duet-lobby.html'},
-        race:{label:'Race',ready:false,game:'plate',mode:'race',entry:'plate-race',runFile:'./plate-race-lobby.html'},
-        battle:{label:'Battle',ready:false,game:'plate',mode:'battle',entry:'plate-battle',runFile:'./plate-battle-lobby.html'},
-        coop:{label:'Co-op',ready:false,game:'plate',mode:'coop',entry:'plate-coop',runFile:'./plate-coop-lobby.html'}
-      };
-      const state = {selectedMode: normalizeMode(qs('mode', localStorage.getItem('HHA_PLATE_LAST_MODE') || 'solo')), baseHub:'', zoneUrl:''};
 
-      function normalizeMode(mode){mode=String(mode||'solo').toLowerCase(); if(mode==='co-op')mode='coop'; return MODE_META[mode]?mode:'solo';}
-      function safeSet(key, value){try{localStorage.setItem(key,value);}catch(e){}}
-      function setSelectValue(id, value, fallback){const el=$(id); if(!el)return; const ok=Array.from(el.options).some(o=>o.value===String(value)); el.value=ok?String(value):String(fallback);}
-      function guessView(){const w=Math.max(document.documentElement.clientWidth||0,window.innerWidth||0); return w>=900?'pc':'mobile';}
-      function preserveTo(url, keys){keys.forEach(k=>{const v=qs(k,''); if(String(v)!=='')url.searchParams.set(k,v);});}
-      function buildZoneUrl(){const zone=new URL('./nutrition-zone.html',location.href); preserveTo(zone,PARAM_KEYS); zone.searchParams.set('zone','nutrition'); zone.searchParams.set('from','plate-launcher'); return zone.toString();}
+      const PARAM_KEYS = [
+        'pid',
+        'name',
+        'nick',
+        'diff',
+        'time',
+        'view',
+        'run',
+        'seed',
+        'studyId',
+        'phase',
+        'conditionGroup',
+        'section',
+        'session_code',
+        'log',
+        'api'
+      ];
+
+      const MODE_META = {
+        solo:{
+          label:'Solo',
+          ready:true,
+          game:'plate',
+          mode:'solo',
+          entry:'plate-solo',
+          runFile:'./plate/plate-vr.html'
+        },
+        duet:{
+          label:'Duet',
+          ready:false,
+          game:'plate',
+          mode:'duet',
+          entry:'plate-duet',
+          runFile:'./plate-duet-lobby.html'
+        },
+        race:{
+          label:'Race',
+          ready:false,
+          game:'plate',
+          mode:'race',
+          entry:'plate-race',
+          runFile:'./plate-race-lobby.html'
+        },
+        battle:{
+          label:'Battle',
+          ready:false,
+          game:'plate',
+          mode:'battle',
+          entry:'plate-battle',
+          runFile:'./plate-battle-lobby.html'
+        },
+        coop:{
+          label:'Co-op',
+          ready:false,
+          game:'plate',
+          mode:'coop',
+          entry:'plate-coop',
+          runFile:'./plate-coop-lobby.html'
+        }
+      };
+
+      const state = {
+        selectedMode:normalizeMode(qs('mode', localStorage.getItem('HHA_PLATE_LAST_MODE') || 'solo')),
+        zoneUrl:'',
+        baseHub:''
+      };
+
+      function normalizeMode(mode){
+        mode = String(mode || 'solo').toLowerCase();
+
+        if(mode === 'co-op'){
+          mode = 'coop';
+        }
+
+        return MODE_META[mode] ? mode : 'solo';
+      }
+
+      function safeSet(key, value){
+        try{
+          localStorage.setItem(key, value);
+        }catch(e){}
+      }
+
+      function setSelectValue(id, value, fallback){
+        const el = $(id);
+
+        if(!el) return;
+
+        const ok = Array.from(el.options).some(o => o.value === String(value));
+        el.value = ok ? String(value) : String(fallback);
+      }
+
+      function guessView(){
+        const w = Math.max(
+          document.documentElement.clientWidth || 0,
+          window.innerWidth || 0
+        );
+
+        return w >= 900 ? 'pc' : 'mobile';
+      }
+
+      function preserveTo(url, keys){
+        keys.forEach(k => {
+          const v = qs(k, '');
+
+          if(String(v) !== ''){
+            url.searchParams.set(k, v);
+          }
+        });
+      }
+
+      function buildZoneUrl(){
+        const zone = new URL('./nutrition-zone.html', location.href);
+
+        preserveTo(zone, PARAM_KEYS);
+
+        zone.searchParams.set('pid', qs('pid','anon'));
+        zone.searchParams.set('name', qs('name', qs('nick','Hero')));
+        zone.searchParams.set('diff', $('diffSelect') ? $('diffSelect').value : qs('diff','normal'));
+        zone.searchParams.set('time', $('timeSelect') ? $('timeSelect').value : qs('time','90'));
+        zone.searchParams.set('view', $('viewSelect') ? $('viewSelect').value : qs('view', guessView()));
+        zone.searchParams.set('run', $('runSelect') ? $('runSelect').value : qs('run','play'));
+        zone.searchParams.set('zone', 'nutrition');
+        zone.searchParams.set('cat', 'nutrition');
+        zone.searchParams.set('game', 'plate');
+        zone.searchParams.set('gameId', 'plate');
+        zone.searchParams.set('mode', 'solo');
+        zone.searchParams.set('from', 'plate-launcher');
+
+        if(!zone.searchParams.get('seed')){
+          zone.searchParams.set('seed', qs('seed', String(Date.now())));
+        }
+
+        return zone.toString();
+      }
 
       function init(){
-        state.zoneUrl=buildZoneUrl();
-        state.baseHub=qs('hub','') || state.zoneUrl;
-        setSelectValue('diffSelect', qs('diff', localStorage.getItem('HHA_PLATE_LAST_DIFF') || 'normal'), 'normal');
-        setSelectValue('timeSelect', qs('time', localStorage.getItem('HHA_PLATE_LAST_TIME') || '90'), '90');
-        setSelectValue('viewSelect', qs('view', localStorage.getItem('HHA_PLATE_LAST_VIEW') || guessView()), guessView());
-        setSelectValue('runSelect', qs('run','play'), 'play');
-        bind(); selectMode(state.selectedMode,false); renderCtx(); renderDebug();
-        try{console.info('[Plate Launcher]', VERSION, 'loaded');}catch(e){}
+        state.zoneUrl = buildZoneUrl();
+
+        /*
+          Plate canonical flow:
+          Nutrition Zone → Plate Launcher → Warmup Gate → /plate/plate-vr.html → Summary → Cooldown → Nutrition Zone
+
+          ดังนั้น hub ของเกม Plate ควรเป็น Nutrition Zone เสมอ
+          ไม่ใช้ hub.html เป็นปลายทางของเกมนี้
+        */
+        state.baseHub = state.zoneUrl;
+
+        setSelectValue(
+          'diffSelect',
+          qs('diff', localStorage.getItem('HHA_PLATE_LAST_DIFF') || 'normal'),
+          'normal'
+        );
+
+        setSelectValue(
+          'timeSelect',
+          qs('time', localStorage.getItem('HHA_PLATE_LAST_TIME') || '90'),
+          '90'
+        );
+
+        setSelectValue(
+          'viewSelect',
+          qs('view', localStorage.getItem('HHA_PLATE_LAST_VIEW') || guessView()),
+          guessView()
+        );
+
+        setSelectValue(
+          'runSelect',
+          qs('run','play'),
+          'play'
+        );
+
+        state.zoneUrl = buildZoneUrl();
+        state.baseHub = state.zoneUrl;
+
+        bind();
+        selectMode(state.selectedMode, false);
+        renderCtx();
+        renderDebug();
+
+        try{
+          console.info('[Plate Launcher]', VERSION, 'loaded');
+        }catch(e){}
       }
 
       function bind(){
-        qa('.modeCard').forEach(card=>{
-          card.addEventListener('click',ev=>{
-            const mode=normalizeMode(card.dataset.mode);
-            selectMode(mode,true);
-            if(ev.target.closest('[data-start]')) startMode(mode);
+        qa('.modeCard').forEach(card => {
+          card.addEventListener('click', ev => {
+            const mode = normalizeMode(card.dataset.mode);
+            selectMode(mode, true);
+
+            if(ev.target.closest('[data-start]')){
+              startMode(mode);
+            }
           });
         });
-        qa('[data-start]').forEach(btn=>btn.addEventListener('click',ev=>{ev.stopPropagation(); startMode(normalizeMode(btn.dataset.start));}));
-        $('btnStartSelected').addEventListener('click',()=>startMode(state.selectedMode));
-        $('btnBackZone').addEventListener('click',goZone);
-        ['diffSelect','timeSelect','viewSelect','runSelect'].forEach(id=>{const el=$(id); if(el)el.addEventListener('change',()=>{rememberSettings();renderCtx();renderDebug();});});
-        document.addEventListener('keydown',ev=>{if(ev.key==='Enter')startMode(state.selectedMode);});
+
+        qa('[data-start]').forEach(btn => {
+          btn.addEventListener('click', ev => {
+            ev.stopPropagation();
+            startMode(normalizeMode(btn.dataset.start));
+          });
+        });
+
+        $('btnStartSelected').addEventListener('click', () => {
+          startMode(state.selectedMode);
+        });
+
+        $('btnBackZone').addEventListener('click', goZone);
+
+        [
+          'diffSelect',
+          'timeSelect',
+          'viewSelect',
+          'runSelect'
+        ].forEach(id => {
+          const el = $(id);
+
+          if(el){
+            el.addEventListener('change', () => {
+              rememberSettings();
+              state.zoneUrl = buildZoneUrl();
+              state.baseHub = state.zoneUrl;
+              renderCtx();
+              renderDebug();
+            });
+          }
+        });
+
+        document.addEventListener('keydown', ev => {
+          if(ev.key === 'Enter'){
+            startMode(state.selectedMode);
+          }
+        });
       }
 
-      function rememberSettings(){safeSet('HHA_PLATE_LAST_MODE',state.selectedMode); safeSet('HHA_PLATE_LAST_DIFF',$('diffSelect').value); safeSet('HHA_PLATE_LAST_TIME',$('timeSelect').value); safeSet('HHA_PLATE_LAST_VIEW',$('viewSelect').value);}
-      function selectMode(mode,userAction){mode=normalizeMode(mode); state.selectedMode=mode; rememberSettings(); qa('.modeCard').forEach(card=>card.classList.toggle('selected',normalizeMode(card.dataset.mode)===mode)); const meta=MODE_META[mode]||MODE_META.solo; $('selectedModeChip').textContent=meta.label; $('selectedModeChip').classList.toggle('ready',!!meta.ready); $('selectedModeChip').classList.toggle('soon',!meta.ready); if(userAction&&!meta.ready)toast(`${meta.label} วางโหมดไว้แล้ว แต่ยังไม่เปิดเล่น เพื่อกัน 404`); renderDebug();}
-      function addCommonParams(url){preserveTo(url,PARAM_KEYS); url.searchParams.set('pid',qs('pid','anon')); url.searchParams.set('name',qs('name',qs('nick','Hero'))); url.searchParams.set('diff',$('diffSelect').value); url.searchParams.set('time',$('timeSelect').value); url.searchParams.set('view',$('viewSelect').value); url.searchParams.set('run',$('runSelect').value); if(!url.searchParams.get('seed'))url.searchParams.set('seed',qs('seed',String(Date.now()))); url.searchParams.set('zone','nutrition'); url.searchParams.set('cat','nutrition'); url.searchParams.set('game','plate'); url.searchParams.set('gameId','plate'); url.searchParams.set('hub',state.baseHub||state.zoneUrl);}
-      function buildRunUrl(mode){const meta=MODE_META[normalizeMode(mode)]||MODE_META.solo; const runUrl=new URL(meta.runFile,location.href); addCommonParams(runUrl); runUrl.searchParams.set('mode',meta.mode); runUrl.searchParams.set('entry',meta.entry); runUrl.searchParams.set('recommendedMode',meta.mode); runUrl.searchParams.set('theme','plate'); if(meta.mode!=='solo')runUrl.searchParams.set('multiplayer','1'); return runUrl;}
-      function buildWarmupUrl(mode){const meta=MODE_META[normalizeMode(mode)]||MODE_META.solo; const runUrl=buildRunUrl(mode); const gate=new URL('./warmup-gate.html',location.href); addCommonParams(gate); gate.searchParams.set('phase','warmup'); gate.searchParams.set('game','plate'); gate.searchParams.set('gameId','plate'); gate.searchParams.set('mode',meta.mode); gate.searchParams.set('entry',meta.entry); gate.searchParams.set('fromLauncher','plate-vr'); gate.searchParams.set('hub',state.baseHub||state.zoneUrl); gate.searchParams.set('next',runUrl.toString()); return gate;}
-      function startMode(mode){mode=normalizeMode(mode); const meta=MODE_META[mode]||MODE_META.solo; selectMode(mode,false); if(!meta.ready){toast(`${meta.label} ยังไม่เปิดเล่นตอนนี้ — โหมดนี้จะทำต่อหลัง Solo เสถียร`); return;} rememberSettings(); const target=buildWarmupUrl(mode); toast(`กำลังเข้า ${meta.label} ผ่าน Warmup...`); setTimeout(()=>{location.href=target.toString();},180);}
-      function goZone(){location.href=state.zoneUrl;}
-      function renderCtx(){const pid=qs('pid','anon'); const name=qs('name',qs('nick','Hero')); $('ctxLine').innerHTML=`ผู้เล่น: <b>${escapeHtml(name||'Hero')}</b> · PID: <b>${escapeHtml(pid||'anon')}</b><br>Diff: <b>${escapeHtml($('diffSelect').value)}</b> · Time: <b>${escapeHtml($('timeSelect').value)}s</b> · View: <b>${escapeHtml($('viewSelect').value)}</b>`;}
-      function renderDebug(){const box=$('debugBox'); if(!box)return; const on=qs('debug','0')==='1'; box.classList.toggle('on',on); if(!on)return; const mode=state.selectedMode; box.innerHTML=`<b>VERSION</b>: ${escapeHtml(VERSION)}<br><b>mode</b>: ${escapeHtml(mode)}<br><b>run</b>: ${escapeHtml(buildRunUrl(mode).toString())}<br><b>warmup</b>: ${escapeHtml(buildWarmupUrl(mode).toString())}`;}
-      function toast(msg){const el=$('toast'); el.textContent=msg; el.classList.add('show'); clearTimeout(toast._t); toast._t=setTimeout(()=>el.classList.remove('show'),2200);}
-      function escapeHtml(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+      function rememberSettings(){
+        safeSet('HHA_PLATE_LAST_MODE', state.selectedMode);
+        safeSet('HHA_PLATE_LAST_DIFF', $('diffSelect').value);
+        safeSet('HHA_PLATE_LAST_TIME', $('timeSelect').value);
+        safeSet('HHA_PLATE_LAST_VIEW', $('viewSelect').value);
+      }
+
+      function selectMode(mode, userAction){
+        mode = normalizeMode(mode);
+        state.selectedMode = mode;
+
+        rememberSettings();
+
+        qa('.modeCard').forEach(card => {
+          card.classList.toggle(
+            'selected',
+            normalizeMode(card.dataset.mode) === mode
+          );
+        });
+
+        const meta = MODE_META[mode] || MODE_META.solo;
+
+        $('selectedModeChip').textContent = meta.label;
+        $('selectedModeChip').classList.toggle('ready', !!meta.ready);
+        $('selectedModeChip').classList.toggle('soon', !meta.ready);
+
+        if(userAction && !meta.ready){
+          toast(`${meta.label} วางโหมดไว้แล้ว แต่ยังไม่เปิดเล่น เพื่อกัน 404`);
+        }
+
+        renderDebug();
+      }
+
+      function addCommonParams(url){
+        preserveTo(url, PARAM_KEYS);
+
+        url.searchParams.set('pid', qs('pid','anon'));
+        url.searchParams.set('name', qs('name', qs('nick','Hero')));
+        url.searchParams.set('diff', $('diffSelect').value);
+        url.searchParams.set('time', $('timeSelect').value);
+        url.searchParams.set('view', $('viewSelect').value);
+        url.searchParams.set('run', $('runSelect').value);
+
+        if(!url.searchParams.get('seed')){
+          url.searchParams.set('seed', qs('seed', String(Date.now())));
+        }
+
+        url.searchParams.set('zone', 'nutrition');
+        url.searchParams.set('cat', 'nutrition');
+        url.searchParams.set('game', 'plate');
+        url.searchParams.set('gameId', 'plate');
+        url.searchParams.set('hub', state.baseHub || state.zoneUrl);
+      }
+
+      function buildRunUrl(mode){
+        const meta = MODE_META[normalizeMode(mode)] || MODE_META.solo;
+        const runUrl = new URL(meta.runFile, location.href);
+
+        addCommonParams(runUrl);
+
+        runUrl.searchParams.set('mode', meta.mode);
+        runUrl.searchParams.set('entry', meta.entry);
+        runUrl.searchParams.set('recommendedMode', meta.mode);
+        runUrl.searchParams.set('theme', 'plate');
+
+        if(meta.mode !== 'solo'){
+          runUrl.searchParams.set('multiplayer', '1');
+        }
+
+        return runUrl;
+      }
+
+      function buildWarmupUrl(mode){
+        const meta = MODE_META[normalizeMode(mode)] || MODE_META.solo;
+        const runUrl = buildRunUrl(mode);
+        const gate = new URL('./warmup-gate.html', location.href);
+
+        addCommonParams(gate);
+
+        gate.searchParams.set('phase', 'warmup');
+        gate.searchParams.set('game', 'plate');
+        gate.searchParams.set('gameId', 'plate');
+        gate.searchParams.set('mode', meta.mode);
+        gate.searchParams.set('entry', meta.entry);
+        gate.searchParams.set('fromLauncher', 'plate-vr');
+        gate.searchParams.set('hub', state.baseHub || state.zoneUrl);
+        gate.searchParams.set('next', runUrl.toString());
+
+        return gate;
+      }
+
+      function startMode(mode){
+        mode = normalizeMode(mode);
+
+        const meta = MODE_META[mode] || MODE_META.solo;
+
+        selectMode(mode, false);
+
+        if(!meta.ready){
+          toast(`${meta.label} ยังไม่เปิดเล่นตอนนี้ — โหมดนี้จะทำต่อหลัง Solo เสถียร`);
+          return;
+        }
+
+        rememberSettings();
+
+        state.zoneUrl = buildZoneUrl();
+        state.baseHub = state.zoneUrl;
+
+        const target = buildWarmupUrl(mode);
+
+        toast(`กำลังเข้า ${meta.label} ผ่าน Warmup...`);
+
+        setTimeout(() => {
+          location.href = target.toString();
+        }, 180);
+      }
+
+      function goZone(){
+        state.zoneUrl = buildZoneUrl();
+        location.href = state.zoneUrl;
+      }
+
+      function renderCtx(){
+        const pid = qs('pid','anon');
+        const name = qs('name', qs('nick','Hero'));
+
+        $('ctxLine').innerHTML =
+          `ผู้เล่น: <b>${escapeHtml(name || 'Hero')}</b> · PID: <b>${escapeHtml(pid || 'anon')}</b><br>` +
+          `Diff: <b>${escapeHtml($('diffSelect').value)}</b> · ` +
+          `Time: <b>${escapeHtml($('timeSelect').value)}s</b> · ` +
+          `View: <b>${escapeHtml($('viewSelect').value)}</b>`;
+      }
+
+      function renderDebug(){
+        const box = $('debugBox');
+
+        if(!box) return;
+
+        const on = qs('debug','0') === '1';
+
+        box.classList.toggle('on', on);
+
+        if(!on) return;
+
+        const mode = state.selectedMode;
+
+        box.innerHTML =
+          `<b>VERSION</b>: ${escapeHtml(VERSION)}<br>` +
+          `<b>mode</b>: ${escapeHtml(mode)}<br>` +
+          `<b>run</b>: ${escapeHtml(buildRunUrl(mode).toString())}<br>` +
+          `<b>warmup</b>: ${escapeHtml(buildWarmupUrl(mode).toString())}`;
+      }
+
+      function toast(msg){
+        const el = $('toast');
+
+        el.textContent = msg;
+        el.classList.add('show');
+
+        clearTimeout(toast._t);
+
+        toast._t = setTimeout(() => {
+          el.classList.remove('show');
+        }, 2200);
+      }
+
+      function escapeHtml(s){
+        return String(s ?? '').replace(/[&<>"']/g, m => ({
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[m]));
+      }
+
       init();
     })();
   </script>
-<script src="./plate-launcher-canonical-bridge.js?v=20260603"></script>
 </body>
 </html>
