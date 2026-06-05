@@ -131,6 +131,84 @@
       .bossStrip{grid-template-columns:42px 1fr auto}.bossIcon{font-size:24px}
       .missionPanel{padding:8px 10px}.platePanel{max-height:31dvh}
     }
+     /* === PATCH v20260603-PLATE-SUMMARY-MOBILE-SCROLL-TOUCH-FIX === */
+ /* แก้ mobile summary ให้เลื่อนได้จริง แม้ body ของเกมจะ touch-action:none */
+
+ #summaryOverlay,
+ #summaryOverlay *{
+   touch-action:pan-y;
+ }
+
+ #summaryOverlay{
+   overscroll-behavior:contain;
+ }
+
+ #summaryOverlay .overlayCard{
+   scrollbar-width:thin;
+   padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));
+ }
+
+ #summaryOverlay .actions{
+   touch-action:manipulation;
+ }
+
+ #summaryOverlay .actions button{
+   touch-action:manipulation;
+ }
+
+ body.plate-summary-open{
+   overflow:hidden;
+ }
+
+ body.plate-summary-open #summaryOverlay{
+   pointer-events:auto;
+ }
+
+ @media (max-width:480px){
+   #summaryOverlay{
+     padding:
+       calc(6px + env(safe-area-inset-top,0px))
+       8px
+       calc(8px + env(safe-area-inset-bottom,0px));
+   }
+
+   #summaryOverlay .overlayCard{
+     max-height:calc(100svh - 14px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+   }
+
+   #summaryOverlay h1{
+     font-size:clamp(24px,7.4vw,34px);
+   }
+
+   #summaryOverlay .lead{
+     font-size:clamp(15px,4.3vw,19px);
+   }
+
+   #summaryOverlay .summaryGrid{
+     gap:7px;
+   }
+
+   #summaryOverlay .summaryBox{
+     min-height:94px;
+     padding:8px 6px;
+   }
+
+   #summaryOverlay .summaryBox b{
+     font-size:clamp(26px,7.4vw,36px);
+   }
+
+   #summaryOverlay .tipBox{
+     font-size:clamp(14px,4vw,17px);
+     max-height:112px;
+   }
+
+   #summaryOverlay .primary,
+   #summaryOverlay .secondary,
+   #summaryOverlay .danger{
+     min-height:46px;
+     font-size:14px;
+   }
+ }
   </style>
 </head>
 <body>
