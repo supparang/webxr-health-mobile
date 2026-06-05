@@ -10,10 +10,10 @@
 
   <style>
     :root{
-      --safe-top: env(safe-area-inset-top);
-      --safe-bottom: env(safe-area-inset-bottom);
-      --safe-left: env(safe-area-inset-left);
-      --safe-right: env(safe-area-inset-right);
+      --safe-top: env(safe-area-inset-top,0px);
+      --safe-bottom: env(safe-area-inset-bottom,0px);
+      --safe-left: env(safe-area-inset-left,0px);
+      --safe-right: env(safe-area-inset-right,0px);
       --ink:#172033;
       --muted:#64748b;
     }
@@ -39,7 +39,9 @@
       color:var(--ink);
     }
 
-    button{ font:inherit; }
+    button{
+      font:inherit;
+    }
 
     .shell-back{
       position:fixed;
@@ -56,9 +58,15 @@
       box-shadow:0 12px 28px rgba(15,23,42,.24);
       backdrop-filter:blur(8px);
       cursor:pointer;
+      max-width:160px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
 
-    .shell-back:active{ transform:scale(.96); }
+    .shell-back:active{
+      transform:scale(.96);
+    }
 
     .shell-loading{
       position:fixed;
@@ -154,9 +162,22 @@
       animation:gjmFloat 7s ease-in-out infinite alternate;
     }
 
-    .gjm-bg-orbs i:nth-child(1){ left:6%; top:16%; }
-    .gjm-bg-orbs i:nth-child(2){ right:8%; top:28%; animation-delay:.8s; }
-    .gjm-bg-orbs i:nth-child(3){ left:42%; bottom:12%; animation-delay:1.4s; }
+    .gjm-bg-orbs i:nth-child(1){
+      left:6%;
+      top:16%;
+    }
+
+    .gjm-bg-orbs i:nth-child(2){
+      right:8%;
+      top:28%;
+      animation-delay:.8s;
+    }
+
+    .gjm-bg-orbs i:nth-child(3){
+      left:42%;
+      bottom:12%;
+      animation-delay:1.4s;
+    }
 
     .gjm-hud{
       position:absolute;
@@ -338,9 +359,12 @@
       font-weight:1000;
       box-shadow:0 14px 28px rgba(37,99,235,.24);
       cursor:pointer;
+      min-height:50px;
     }
 
-    .gjm-start-btn:active{ transform:scale(.97); }
+    .gjm-start-btn:active{
+      transform:scale(.97);
+    }
 
     .noscript{
       position:fixed;
@@ -356,69 +380,41 @@
     }
 
     @keyframes shellBob{
-      from{ transform:translateY(0) rotate(-3deg) scale(1); }
-      to{ transform:translateY(-6px) rotate(3deg) scale(1.05); }
+      from{
+        transform:translateY(0) rotate(-3deg) scale(1);
+      }
+      to{
+        transform:translateY(-6px) rotate(3deg) scale(1.05);
+      }
     }
 
     @keyframes shellLoad{
-      from{ transform:translateX(-55%); }
-      to{ transform:translateX(145%); }
+      from{
+        transform:translateX(-55%);
+      }
+      to{
+        transform:translateX(145%);
+      }
     }
 
     @keyframes gjmFloat{
-      from{ transform:translateY(0) scale(1); }
-      to{ transform:translateY(-22px) scale(1.08); }
+      from{
+        transform:translateY(0) scale(1);
+      }
+      to{
+        transform:translateY(-22px) scale(1.08);
+      }
     }
 
     @media (max-width:720px){
       .shell-back{
-        padding:9px 12px;
-        font-size:12px;
-      }
-
-      .gjm-hud{
-        grid-template-columns:repeat(2,1fr);
-        top:calc(8px + var(--safe-top));
-        gap:6px;
-      }
-
-      .gjm-pill{
-        min-height:46px;
-        border-radius:15px;
-        padding:7px 9px;
-      }
-
-      .gjm-pill b{ font-size:18px; }
-      .gjm-pill span{ font-size:10px; }
-
-      .gjm-start-card{
-        padding:18px;
-        border-radius:27px;
-      }
-
-      .gjm-start-icon{ font-size:50px; }
-
-      .gjm-rules{
-        grid-template-columns:1fr;
-        gap:6px;
-      }
-
-      .gjm-rule{
-        display:grid;
-        grid-template-columns:38px 1fr;
-        align-items:center;
-        text-align:left;
-        min-height:52px;
+        left:calc(8px + var(--safe-left));
+        bottom:calc(8px + var(--safe-bottom));
         padding:8px 10px;
+        font-size:11px;
+        opacity:.72;
+        max-width:132px;
       }
-
-      .gjm-rule b{ font-size:25px; }
-      .gjm-rule span{ margin-top:0; }
-    }
-
-    /* === PATCH v8.41.21-MOBILE-NO-BLOCK-TARGET === */
-    /* ลดการบังเป้า/อาหารบนมือถือ */
-    @media (max-width:720px){
 
       .gjm-hud{
         left:8px;
@@ -444,102 +440,50 @@
         margin-top:1px;
       }
 
-      .shell-back{
-        left:calc(8px + var(--safe-left));
-        bottom:calc(8px + var(--safe-bottom));
+      .gjm-start-card{
+        padding:18px;
+        border-radius:27px;
+      }
+
+      .gjm-start-icon{
+        font-size:50px;
+      }
+
+      .gjm-rules{
+        grid-template-columns:1fr;
+        gap:6px;
+      }
+
+      .gjm-rule{
+        display:grid;
+        grid-template-columns:38px 1fr;
+        align-items:center;
+        text-align:left;
+        min-height:52px;
         padding:8px 10px;
-        font-size:11px;
-        opacity:.72;
-        max-width:132px;
-        white-space:nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
       }
 
-      .shell-back:active,
-      .shell-back:hover{
-        opacity:1;
+      .gjm-rule b{
+        font-size:25px;
       }
 
-      .gjpu-root{
-        top:auto !important;
-        right:calc(8px + env(safe-area-inset-right)) !important;
-        bottom:calc(8px + env(safe-area-inset-bottom)) !important;
-        width:auto !important;
-        max-width:calc(100vw - 156px) !important;
-        display:flex !important;
-        flex-direction:row !important;
-        gap:5px !important;
-        z-index:100020 !important;
-        pointer-events:none !important;
-      }
-
-      .gjpu-card{
-        width:44px !important;
-        min-height:44px !important;
-        grid-template-columns:1fr !important;
-        padding:5px !important;
-        border-radius:15px !important;
-        opacity:.76 !important;
-      }
-
-      .gjpu-card.on{
-        opacity:.96 !important;
-      }
-
-      .gjpu-card .ico{
-        width:32px !important;
-        height:32px !important;
-        border-radius:12px !important;
-        font-size:20px !important;
-        margin:auto !important;
-      }
-
-      .gjpu-card b,
-      .gjpu-card span{
-        display:none !important;
-      }
-
-      .gjpu-item{
-        width:62px !important;
-        min-height:68px !important;
-        border-radius:21px !important;
-        padding:6px 5px !important;
-        z-index:38 !important;
-      }
-
-      .gjpu-item::after{
-        inset:-12px !important;
-      }
-
-      .gjpu-item b{
-        font-size:30px !important;
-      }
-
-      .gjpu-item span{
-        font-size:9px !important;
-      }
-
-      .gjpu-toast{
-        bottom:calc(70px + env(safe-area-inset-bottom)) !important;
-        width:min(360px, calc(100vw - 24px)) !important;
-        font-size:12px !important;
-        padding:9px 12px !important;
+      .gjm-rule span{
+        margin-top:0;
       }
 
       .gjm-message{
-        top:58% !important;
-        width:min(350px, calc(100vw - 28px)) !important;
-        padding:12px !important;
-        border-radius:22px !important;
+        top:58%;
+        width:min(350px, calc(100vw - 28px));
+        padding:12px;
+        border-radius:22px;
       }
 
       .gjm-message b{
-        font-size:19px !important;
+        font-size:19px;
       }
 
       .gjm-message span{
-        font-size:12px !important;
+        font-size:12px;
       }
     }
 
@@ -567,22 +511,6 @@
         font-size:10.5px;
         padding:7px 9px;
       }
-
-      .gjpu-root{
-        max-width:calc(100vw - 126px) !important;
-        gap:4px !important;
-      }
-
-      .gjpu-card{
-        width:39px !important;
-        min-height:39px !important;
-      }
-
-      .gjpu-card .ico{
-        width:29px !important;
-        height:29px !important;
-        font-size:18px !important;
-      }
     }
   </style>
 </head>
@@ -594,7 +522,9 @@
     </div>
   </noscript>
 
-  <button id="shellBackBtn" class="shell-back" type="button">🎮 กลับเลือกโหมด GoodJunk</button>
+  <button id="shellBackBtn" class="shell-back" type="button">
+    🎮 กลับเลือกโหมด GoodJunk
+  </button>
 
   <div class="shell-loading" id="shellLoading">
     <div class="shell-loading-card">
@@ -648,7 +578,9 @@
           </div>
         </div>
 
-        <button class="gjm-start-btn" id="gjmStartBtn" type="button">เริ่มสู้บอส</button>
+        <button class="gjm-start-btn" id="gjmStartBtn" type="button">
+          เริ่มสู้บอส
+        </button>
       </div>
     </section>
   </main>
@@ -689,24 +621,24 @@
       }
 
       function buildGoodJunkLauncherUrl(){
-  const u = new URL(CANONICAL.goodjunkLauncher);
+        const u = new URL(CANONICAL.goodjunkLauncher);
 
-  u.searchParams.set('pid', q('pid', 'anon'));
-  u.searchParams.set('name', playerName());
-  u.searchParams.set('diff', q('diff', 'normal'));
-  u.searchParams.set('time', q('time', '120'));
-  u.searchParams.set('view', q('view', 'mobile'));
+        u.searchParams.set('pid', q('pid', 'anon'));
+        u.searchParams.set('name', playerName());
+        u.searchParams.set('diff', q('diff', 'normal'));
+        u.searchParams.set('time', q('time', '120'));
+        u.searchParams.set('view', q('view', 'mobile'));
 
-  u.searchParams.set('zone', 'nutrition');
-  u.searchParams.set('cat', 'nutrition');
-  u.searchParams.set('game', 'goodjunk');
-  u.searchParams.set('gameId', 'goodjunk');
-  u.searchParams.set('mode', 'solo');
-  u.searchParams.set('entry', 'mobile-solo-boss');
-  u.searchParams.set('theme', 'goodjunk');
+        u.searchParams.set('zone', 'nutrition');
+        u.searchParams.set('cat', 'nutrition');
+        u.searchParams.set('game', 'goodjunk');
+        u.searchParams.set('gameId', 'goodjunk');
+        u.searchParams.set('mode', 'solo');
+        u.searchParams.set('entry', 'mobile-solo-boss');
+        u.searchParams.set('theme', 'goodjunk');
 
-  return u.href;
-}
+        return u.href;
+      }
 
       function buildWarmupUrl(extra){
         extra = extra || {};
@@ -741,71 +673,65 @@
       }
 
       function buildCooldownUrl(extra){
-  extra = extra || {};
+        extra = extra || {};
 
-  const launcherUrl = buildGoodJunkLauncherUrl();
-  const keep = new URLSearchParams();
+        const launcherUrl = buildGoodJunkLauncherUrl();
+        const keep = new URLSearchParams();
 
-  keep.set('zone', 'nutrition');
-  keep.set('cat', 'nutrition');
-  keep.set('gameId', 'goodjunk');
-  keep.set('game', 'goodjunk');
-  keep.set('mode', 'solo_boss');
-  keep.set('phase', 'cooldown');
+        keep.set('zone', 'nutrition');
+        keep.set('cat', 'nutrition');
+        keep.set('gameId', 'goodjunk');
+        keep.set('game', 'goodjunk');
+        keep.set('mode', 'solo_boss');
+        keep.set('phase', 'cooldown');
 
-  keep.set('pid', q('pid', 'anon'));
-  keep.set('name', playerName());
-  keep.set('diff', q('diff', 'normal'));
-  keep.set('time', q('time', '120'));
-  keep.set('view', q('view', 'mobile'));
+        keep.set('pid', q('pid', 'anon'));
+        keep.set('name', playerName());
+        keep.set('diff', q('diff', 'normal'));
+        keep.set('time', q('time', '120'));
+        keep.set('view', q('view', 'mobile'));
 
-  /*
-    สำคัญ:
-    หลัง cooldown ต้องกลับหน้าเลือกโหมด GoodJunk เท่านั้น
-  */
-  keep.set('hub', CANONICAL.goodjunkLauncher);
-  keep.set('next', launcherUrl);
-  keep.set('back', launcherUrl);
-  keep.set('launcher', launcherUrl);
-  keep.set('return', launcherUrl);
+        keep.set('hub', CANONICAL.goodjunkLauncher);
+        keep.set('next', launcherUrl);
+        keep.set('back', launcherUrl);
+        keep.set('launcher', launcherUrl);
+        keep.set('return', launcherUrl);
 
-  /*
-    ส่งผลลัพธ์จากหน้า Summary ไปหน้า cooldown gate ให้ครบ
-  */
-  const score = extra.score ?? q('score', '0');
-  const stars = extra.stars ?? q('stars', '');
-  const rank = extra.rank ?? q('rank', '');
-  const accuracy = extra.accuracy ?? extra.acc ?? q('accuracy', q('acc', ''));
-  const goodHits = extra.goodHits ?? extra.good ?? q('goodHits', q('good', ''));
-  const junkHits = extra.junkHits ?? extra.junk ?? q('junkHits', q('junk', ''));
-  const fakeHits = extra.fakeHits ?? extra.fake ?? q('fakeHits', q('fake', ''));
-  const miss = extra.miss ?? extra.misses ?? q('miss', q('misses', '0'));
-  const combo = extra.combo ?? extra.bestCombo ?? q('combo', q('bestCombo', ''));
-  const coins = extra.coins ?? q('coins', '');
-  const badge = extra.badge ?? q('badge', '');
-  const mission = extra.mission ?? extra.missionDone ?? q('mission', q('missionDone', ''));
+        const score = extra.score ?? q('score', '0');
+        const stars = extra.stars ?? q('stars', '');
+        const rank = extra.rank ?? q('rank', '');
+        const accuracy = extra.accuracy ?? extra.acc ?? q('accuracy', q('acc', ''));
+        const goodHits = extra.goodHits ?? extra.good ?? q('goodHits', q('good', ''));
+        const junkHits = extra.junkHits ?? extra.junk ?? q('junkHits', q('junk', ''));
+        const fakeHits = extra.fakeHits ?? extra.fake ?? q('fakeHits', q('fake', ''));
+        const miss = extra.miss ?? extra.misses ?? q('miss', q('misses', '0'));
+        const combo = extra.combo ?? extra.bestCombo ?? q('combo', q('bestCombo', ''));
+        const coins = extra.coins ?? q('coins', '');
+        const badge = extra.badge ?? q('badge', '');
+        const mission = extra.mission ?? extra.missionDone ?? q('mission', q('missionDone', ''));
 
-  keep.set('score', String(score || 0));
-  keep.set('miss', String(miss || 0));
+        keep.set('score', String(score || 0));
+        keep.set('miss', String(miss || 0));
 
-  if (stars !== '') keep.set('stars', String(stars));
-  if (rank !== '') keep.set('rank', String(rank));
-  if (accuracy !== '') keep.set('accuracy', String(accuracy));
-  if (goodHits !== '') keep.set('goodHits', String(goodHits));
-  if (junkHits !== '') keep.set('junkHits', String(junkHits));
-  if (fakeHits !== '') keep.set('fakeHits', String(fakeHits));
-  if (combo !== '') keep.set('bestCombo', String(combo));
-  if (coins !== '') keep.set('coins', String(coins));
-  if (badge !== '') keep.set('badge', String(badge));
-  if (mission !== '') keep.set('missionDone', String(mission));
+        if (stars !== '') keep.set('stars', String(stars));
+        if (rank !== '') keep.set('rank', String(rank));
+        if (accuracy !== '') keep.set('accuracy', String(accuracy));
+        if (goodHits !== '') keep.set('goodHits', String(goodHits));
+        if (junkHits !== '') keep.set('junkHits', String(junkHits));
+        if (fakeHits !== '') keep.set('fakeHits', String(fakeHits));
+        if (combo !== '') keep.set('bestCombo', String(combo));
+        if (coins !== '') keep.set('coins', String(coins));
+        if (badge !== '') keep.set('badge', String(badge));
+        if (mission !== '') keep.set('missionDone', String(mission));
 
-  if (extra.reason) keep.set('reason', String(extra.reason));
+        if (extra.reason) keep.set('reason', String(extra.reason));
 
-  keep.set('from', 'goodjunk-solo-boss-mobile');
-  keep.set('v', '20260526-mobile-cooldown-summary-return-final');
+        keep.set('from', 'goodjunk-solo-boss-mobile');
+        keep.set('v', '20260604-mobile-final-html');
 
-  return CANONICAL.warmupGate + '?' + keep.toString();
-}
+        return CANONICAL.warmupGate + '?' + keep.toString();
+      }
+
       function safeBackUrl(){
         return buildGoodJunkLauncherUrl();
       }
@@ -851,133 +777,136 @@
         btn.innerHTML = '🎮 กลับเลือกโหมด GoodJunk';
         btn.setAttribute('aria-label', 'กลับหน้าเลือกโหมด GoodJunk');
 
-        btn.addEventListener('click', function(){
+        btn.addEventListener('click', function(ev){
+          ev.preventDefault();
+          ev.stopPropagation();
           goGoodJunkLauncher();
-        });
+        }, true);
       }
 
       function patchRewardZoneButtonToCooldown(){
         window.addEventListener('gj:reward-summary-shown', function(ev){
-  const summary = ev && ev.detail ? ev.detail : {};
+          const summary = ev && ev.detail ? ev.detail : {};
 
-  setTimeout(function(){
-    const btn = document.getElementById('gjrZoneBtn');
-    if(!btn) return;
+          setTimeout(function(){
+            const btn = document.getElementById('gjrZoneBtn');
+            if(!btn) return;
 
-    btn.innerHTML = '🧘 Cooldown แล้วกลับเลือกโหมด';
-    btn.setAttribute('aria-label', 'ไปหน้า Cooldown แล้วกลับหน้าเลือกโหมด GoodJunk');
-    btn.dataset.goCooldown = '1';
+            btn.innerHTML = '🧘 Cooldown แล้วกลับเลือกโหมด';
+            btn.setAttribute('aria-label', 'ไปหน้า Cooldown แล้วกลับหน้าเลือกโหมด GoodJunk');
+            btn.dataset.goCooldown = '1';
 
-    try{
-      localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
-        patch:'v20260526-MOBILE-COOLDOWN-SUMMARY-RETURN-FINAL',
-        cooldownUrl:buildCooldownUrl({
-          reason:'reward-summary',
-          score:summary.score,
-          stars:summary.stars,
-          rank:summary.rank,
-          accuracy:summary.accuracy || summary.acc,
-          goodHits:summary.goodHits || summary.good,
-          junkHits:summary.junkHits || summary.junk,
-          fakeHits:summary.fakeHits || summary.fake,
-          miss:summary.miss || summary.misses,
-          bestCombo:summary.bestCombo || summary.combo,
-          coins:summary.coins,
-          badge:summary.badge,
-          missionDone:summary.missionDone || summary.mission
-        }),
-        goodjunkLauncherUrl:buildGoodJunkLauncherUrl(),
-        expectedAfterCooldown:CANONICAL.goodjunkLauncher,
-        savedAt:new Date().toISOString()
-      }));
-    }catch(e){}
-  }, 30);
-});
+            try{
+              localStorage.setItem('GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST', JSON.stringify({
+                patch:'v20260604-MOBILE-FINAL-HTML',
+                cooldownUrl:buildCooldownUrl({
+                  reason:'reward-summary',
+                  score:summary.score,
+                  stars:summary.stars,
+                  rank:summary.rank,
+                  accuracy:summary.accuracy || summary.acc,
+                  goodHits:summary.goodHits || summary.good,
+                  junkHits:summary.junkHits || summary.junk,
+                  fakeHits:summary.fakeHits || summary.fake,
+                  miss:summary.miss || summary.misses,
+                  bestCombo:summary.bestCombo || summary.combo,
+                  coins:summary.coins,
+                  badge:summary.badge,
+                  missionDone:summary.missionDone || summary.mission
+                }),
+                goodjunkLauncherUrl:buildGoodJunkLauncherUrl(),
+                expectedAfterCooldown:CANONICAL.goodjunkLauncher,
+                savedAt:new Date().toISOString()
+              }));
+            }catch(e){}
+          }, 30);
+        });
+
         document.addEventListener('click', function(ev){
-  const target = ev.target && ev.target.closest
-    ? ev.target.closest('#gjrZoneBtn,[data-go-cooldown="1"]')
-    : null;
+          const target = ev.target && ev.target.closest
+            ? ev.target.closest('#gjrZoneBtn,[data-go-cooldown="1"]')
+            : null;
 
-  if(!target) return;
+          if(!target) return;
 
-  ev.preventDefault();
-  ev.stopPropagation();
-  if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          ev.preventDefault();
+          ev.stopPropagation();
+          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
-  let latest = {};
+          let latest = {};
 
-  try{
-    latest = JSON.parse(
-      localStorage.getItem('GJ_SOLO_BOSS_LAST_SUMMARY') ||
-      localStorage.getItem('GJ_FULL_3D_VR_LAST_SUMMARY') ||
-      '{}'
-    ) || {};
-  }catch(e){
-    latest = {};
-  }
+          try{
+            latest = JSON.parse(
+              localStorage.getItem('GJ_SOLO_BOSS_LAST_SUMMARY') ||
+              localStorage.getItem('GJ_FULL_3D_VR_LAST_SUMMARY') ||
+              '{}'
+            ) || {};
+          }catch(e){
+            latest = {};
+          }
 
-  goCooldown(Object.assign({}, latest, {
-    reason:'reward-zone-button'
-  }));
-}, true);
+          goCooldown(Object.assign({}, latest, {
+            reason:'reward-zone-button'
+          }));
+        }, true);
       }
 
       function removeLoadingSoon(){
-  function killLoading(){
-    const loading = document.getElementById('shellLoading');
+        function killLoading(){
+          const loading = document.getElementById('shellLoading');
 
-    if(loading){
-      try{
-        loading.style.setProperty('display','none','important');
-        loading.style.setProperty('visibility','hidden','important');
-        loading.style.setProperty('opacity','0','important');
-        loading.style.setProperty('pointer-events','none','important');
-        loading.style.setProperty('z-index','-1','important');
-        loading.remove();
-      }catch(e){}
-    }
+          if(loading){
+            try{
+              loading.style.setProperty('display','none','important');
+              loading.style.setProperty('visibility','hidden','important');
+              loading.style.setProperty('opacity','0','important');
+              loading.style.setProperty('pointer-events','none','important');
+              loading.style.setProperty('z-index','-1','important');
+              loading.remove();
+            }catch(e){}
+          }
 
-    const main = document.getElementById('gjSoloBossMain');
-    const area = document.getElementById('gjSoloBossArea');
-    const start = document.getElementById('gjmStartOverlay');
-    const btn = document.getElementById('gjmStartBtn');
+          const main = document.getElementById('gjSoloBossMain');
+          const area = document.getElementById('gjSoloBossArea');
+          const start = document.getElementById('gjmStartOverlay');
+          const btn = document.getElementById('gjmStartBtn');
 
-    if(main){
-      main.style.setProperty('display','block','important');
-      main.style.setProperty('visibility','visible','important');
-      main.style.setProperty('opacity','1','important');
-    }
+          if(main){
+            main.style.setProperty('display','block','important');
+            main.style.setProperty('visibility','visible','important');
+            main.style.setProperty('opacity','1','important');
+          }
 
-    if(area){
-      area.style.setProperty('display','block','important');
-      area.style.setProperty('visibility','visible','important');
-      area.style.setProperty('opacity','1','important');
-    }
+          if(area){
+            area.style.setProperty('display','block','important');
+            area.style.setProperty('visibility','visible','important');
+            area.style.setProperty('opacity','1','important');
+          }
 
-    if(start){
-      start.style.setProperty('display','grid','important');
-      start.style.setProperty('visibility','visible','important');
-      start.style.setProperty('opacity','1','important');
-      start.style.setProperty('pointer-events','auto','important');
-    }
+          if(start){
+            start.style.setProperty('display','grid','important');
+            start.style.setProperty('visibility','visible','important');
+            start.style.setProperty('opacity','1','important');
+            start.style.setProperty('pointer-events','auto','important');
+          }
 
-    if(btn){
-      btn.disabled = false;
-      btn.style.setProperty('pointer-events','auto','important');
-    }
-  }
+          if(btn){
+            btn.disabled = false;
+            btn.style.setProperty('pointer-events','auto','important');
+          }
+        }
 
-  setTimeout(killLoading, 120);
-  setTimeout(killLoading, 350);
-  setTimeout(killLoading, 700);
-  setTimeout(killLoading, 1200);
-  setTimeout(killLoading, 2000);
+        setTimeout(killLoading, 120);
+        setTimeout(killLoading, 350);
+        setTimeout(killLoading, 700);
+        setTimeout(killLoading, 1200);
+        setTimeout(killLoading, 2000);
 
-  window.addEventListener('load', killLoading, { once:true });
-}
+        window.addEventListener('load', killLoading, { once:true });
+      }
 
       window.GJ_SOLO_BOSS_SHELL = {
-        version:'v20260527-MOBILE-SPLIT-CLEAN',
+        version:'v20260604-MOBILE-FINAL-HTML',
         canonical:CANONICAL,
         safeBackUrl:safeBackUrl,
         buildNutritionZoneUrl:buildNutritionZoneUrl,
@@ -997,42 +926,59 @@
     })();
   </script>
 
-<script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
-<script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
-<script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
+  <!-- =========================
+       GOODJUNK SOLO BOSS CORE
+       ต้องอยู่ในโฟลเดอร์เดียวกับ HTML นี้:
+       /herohealth/vr-goodjunk/
+  ========================== -->
 
-<script src="./goodjunk-solo-boss-reward.js?v=20260504-v8404"></script>
-<script src="./goodjunk-solo-boss-reward-polish.js?v=20260504-v8415"></script>
+  <script src="./goodjunk-solo-boss-ultimate.js?v=20260504-v8401"></script>
+  <script src="./goodjunk-solo-boss-drama.js?v=20260504-v8402"></script>
+  <script src="./goodjunk-solo-boss-juice.js?v=20260504-v8403"></script>
 
-<script src="./goodjunk-solo-boss-director.js?v=20260504-v8405"></script>
-<script src="./goodjunk-solo-boss-shim.js?v=20260504-v8406"></script>
-<script src="./goodjunk-solo-boss-merge.js?v=20260504-v8407"></script>
+  <script src="./goodjunk-solo-boss-reward.js?v=20260504-v8404"></script>
+  <script src="./goodjunk-solo-boss-reward-polish.js?v=20260504-v8415"></script>
 
-<script src="./goodjunk-solo-boss-foodbank.js?v=20260504-v8413"></script>
-<script src="./goodjunk-solo-boss-visual-variety.js?v=20260504-v8414"></script>
+  <script src="./goodjunk-solo-boss-director.js?v=20260504-v8405"></script>
+  <script src="./goodjunk-solo-boss-shim.js?v=20260504-v8406"></script>
+  <script src="./goodjunk-solo-boss-merge.js?v=20260504-v8407"></script>
 
-<script src="./goodjunk-solo-boss-main.js?v=20260504-v8410"></script>
-<script src="./goodjunk-solo-boss-mobile-polish.js?v=20260504-v8412"></script>
-<script src="./goodjunk-solo-boss-touch-comfort.js?v=20260504-v84110"></script>
-<script src="./goodjunk-solo-boss-powerups.js?v=20260504-v84121"></script>
+  <script src="./goodjunk-solo-boss-foodbank.js?v=20260504-v8413"></script>
+  <script src="./goodjunk-solo-boss-visual-variety.js?v=20260504-v8414"></script>
 
-<script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
-<script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
+  <script src="./goodjunk-solo-boss-main.js?v=20260504-v8410"></script>
+  <script src="./goodjunk-solo-boss-mobile-polish.js?v=20260504-v8412"></script>
+  <script src="./goodjunk-solo-boss-touch-comfort.js?v=20260504-v84110"></script>
+  <script src="./goodjunk-solo-boss-powerups.js?v=20260504-v84121"></script>
 
-<script src="./goodjunk-solo-boss-mobile-target-compact-patch.js?v=20260603-v848b"></script>
-<script src="./goodjunk-solo-boss-final-polish-patch.js?v=20260603-v848b"></script>
-<script src="./goodjunk-mobile-cooldown-return-launcher-final-patch.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
+  <script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
 
-<script src="./goodjunk-mobile-powerups-active-final-patch.js?v=20260603-v848b"></script>
-<script src="./goodjunk-mobile-powerups-click-active-final-patch.js?v=20260603-v848b"></script>
-<script src="./goodjunk-mobile-powerups-earned-final-patch.js?v=20260603-v848b"></script>
-<script src="./goodjunk-mobile-powerups-effect-lock-final.js?v=20260603-v848b"></script>
-<script src="./goodjunk-mobile-powerups-hitbox-unblock-final.js?v=20260603-v848b"></script>
+  <!-- =========================
+       GOODJUNK SOLO MOBILE FINAL PATCH SET
+       ห้ามโหลด final-freeze ซ้ำ
+       ลำดับนี้สำคัญ
+  ========================== -->
 
-<script src="./goodjunk-mobile-start-button-bridge-final.js?v=20260603-v848b"></script>
-<script src="./goodjunk-mobile-target-tight-v848c.js?v=20260604-v848c3"></script>
-<script src="./goodjunk-mobile-playfield-safe-v848d.js?v=20260604-v848d"></script>
-<script src="./goodjunk-solo-v848-final-freeze.js?v=20260604-v848c"></script>
-<script src="./goodjunk-solo-final-manifest-qa-v848d.js?v=20260604-v848d"></script>
+  <script src="./goodjunk-solo-boss-mobile-target-compact-patch.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-solo-boss-final-polish-patch.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-mobile-cooldown-return-launcher-final-patch.js?v=20260603-v848b"></script>
+
+  <script src="./goodjunk-mobile-powerups-active-final-patch.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-mobile-powerups-click-active-final-patch.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-mobile-powerups-earned-final-patch.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-mobile-powerups-effect-lock-final.js?v=20260603-v848b"></script>
+  <script src="./goodjunk-mobile-powerups-hitbox-unblock-final.js?v=20260603-v848b"></script>
+
+  <script src="./goodjunk-mobile-start-button-bridge-final.js?v=20260603-v848b"></script>
+
+  <!-- Target / Playfield mobile final tuning -->
+  <script src="./goodjunk-mobile-target-tight-v848c.js?v=20260604-v848c3"></script>
+  <script src="./goodjunk-mobile-playfield-safe-v848d.js?v=20260604-v848d"></script>
+  <script src="./goodjunk-mobile-target-mini-v848e.js?v=20260604-v848e"></script>
+
+  <!-- Final freeze + QA -->
+  <script src="./goodjunk-solo-v848-final-freeze.js?v=20260604-v848c"></script>
+  <script src="./goodjunk-solo-final-manifest-qa-v848d.js?v=20260604-v848d"></script>
 </body>
 </html>
