@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>HeroHealth • Plate Launcher Bridge</title>
+  <meta name="theme-color" content="#eafff3" />
+  <meta name="color-scheme" content="light" />
+</head>
+<body>
+  <!-- === /herohealth/plate-launcher-canonical-bridge.html === -->
+  <!-- PATCH v20260603-PLATE-LAUNCHER-CANONICAL-RUN-BRIDGE -->
+  <!--
+    Purpose:
+    - ใช้เป็น bridge patch สำหรับ /herohealth/plate-vr.html
+    - บังคับปุ่ม Solo ให้เข้า main game ตัวจริง:
+        /herohealth/plate/plate-vr.html
+    - ส่งผ่าน warmup-gate.html ก่อนเข้าเกม
+    - ส่งต่อค่า pid/name/diff/time/view/run/seed/log/api/hub ให้ครบ
+    - ไม่แตะโหมดอื่น เช่น Duet / Race / Battle / Co-op
+
+    วิธีใช้:
+    1) ถ้าจะใช้เป็นไฟล์แยก:
+       เพิ่มใน /herohealth/plate-vr.html ก่อน </body>:
+       <script src="./plate-launcher-canonical-bridge.html"></script>
+
+       แต่หมายเหตุ: browser จะโหลดไฟล์ .html เป็น script ไม่เหมาะนัก
+
+    2) วิธีที่แนะนำกว่า:
+       คัดลอกเฉพาะ <script>...</script> ด้านล่างนี้
+       ไปวางก่อน </body> ใน /herohealth/plate-vr.html
+
+    3) วิธีสะอาดที่สุด:
+       แก้ใน /herohealth/plate-vr.html ตรง MODE_META.solo:
+       runFile:'./plate-solo.html'
+       เป็น:
+       runFile:'./plate/plate-vr.html'
+  -->
+
+  <script>
+  (function(){
+    'use strict';
+
+    const PATCH_VERSION = '20260603-PLATE-LAUNCHER-CANONICAL-RUN-BRIDGE';
+
+    const PARAM_KEYS = [
+      'pid',
+      'name',
+      'nick',
+      'studyId',
+      'section',
+      'session_code',
+      'conditionGroup',
+      'phase',
+      'diff',
+      'time',
+      'view',
+      'run',
+      'seed',
+      'log',
+      'api'
+    ];
+
+    function getUrlParams(){
+      return new URL(location.href).searchParams;
+    }
+
+    function getValueFromUrlOrControl(key, controlId, fallback){
+      const Q = getUrlParams();
+      const control = controlId ? document.getElementById(controlId) : null;
+      const controlValue = control && typeof control.value === 'string' ? control.value : '';
+      const urlValue = Q.get(key) || '';
+      return controlValue || urlValue || fallback || '';
+    }
+
+    function guessView(){
+      try{
+        return innerWidth >= 900 ? 'pc' : 'mobile';
+      }catch(e){
+        return 'mobile';
+      }
+    }
+
+    function copyParams(fromParams, toUrl, keys){
+      keys.forEach(function(k){
+        const v = fromParams.get(k);
+        if(v !== null && v !== ''){
+          toUrl.searchParams.set(k, v);
+        }
+      });
+    }
+
+    function setCommonPlateParams(url){
+      const Q = getUrlParams();
+
+      copyParams(Q, url, PARAM_KEYS);
+
+      const pid = Q.get('pid') || 'anon';
+      const name = Q.get('name') || Q.get('nick') || 'Hero';
+
+      const diff = getValueFromUrlOrControl('diff', 'diffSelect', 'normal');
+      const time = getValueFromUrlOrControl('time', 'timeSelect', '90');
+      const view = getValueFromUrlOrControl('view', 'viewSelect', guessView());
+      const run = getValueFromUrlOrControl('run', 'runSelect', 'play');
+
+      url.searchParams.set('pid', pid);
+      url.searchParams.set('name', name);
+      url.searchParams.set('diff', diff);
+      url.searchParams.set('time', time);
+      url.searchParams.set('view', view);
+      url.searchParams.set('run', run);
+
+      if(!url.searchParams.get('seed')){
+        url.searchParams.set('seed', Q.get('seed') || String(Date.now()));
+      }
+
+      url.searchParams.set('zone', 'nutrition');
+      url.searchParams.set('cat', 'nutrition');
+      url.searchParams.set('game', 'plate');
+      url.searchParams.set('gameId', 'plate');
+      url.searchParams.set('mode', 'solo');
+      url.searchParams.set('entry', 'plate-solo');
+      url.searchParams.set('recommendedMode', 'solo');
+      url.searchParams.set('theme', 'plate');
+
+      return url;
+    }
+
+    function buildZoneUrl(){
+      const Q = getUrlParams();
+      const zoneUrl = new URL('./nutrition-zone.html', location.href);
+
+      copyParams(Q, zoneUrl, PARAM_KEYS);
+
+      zoneUrl.searchParams.set('pid', Q.get('pid') || 'anon');
+      zoneUrl.searchParams.set('name', Q.get('name') || Q.get('nick') || 'Hero');
+      zoneUrl.searchParams.set('diff', getValueFromUrlOrControl('diff', 'diffSelect', 'normal'));
+      zoneUrl.searchParams.set('time', getValueFromUrlOrControl('time', 'timeSelect', '90'));
+      zoneUrl.searchParams.set('view', getValueFromUrlOrControl('view', 'viewSelect', guessView()));
+      zoneUrl.searchParams.set('run', getValueFromUrlOrControl('run', 'runSelect', 'play'));
+
+      if(!zoneUrl.searchParams.get('seed')){
+        zoneUrl.searchParams.set('seed', Q.get('seed') || String(Date.now()));
+      }
+
+      zoneUrl.searchParams.set('zone', 'nutrition');
+      zoneUrl.searchParams.set('cat', 'nutrition');
+      zoneUrl.searchParams.set('game', 'plate');
+      zoneUrl.searchParams.set('gameId', 'plate');
+      zoneUrl.searchParams.set('mode', 'solo');
+      zoneUrl.searchParams.set('from', 'plate-launcher');
+
+      return zoneUrl;
+    }
+
+    function buildRunUrl(){
+      const runUrl = new URL('./plate/plate-vr.html', location.href);
+      setCommonPlateParams(runUrl);
+
+      const zoneUrl = buildZoneUrl();
+      runUrl.searchParams.set('hub', zoneUrl.toString());
+
+      return runUrl;
+    }
+
+    function buildWarmupUrl(){
+      const runUrl = buildRunUrl();
+      const zoneUrl = buildZoneUrl();
+
+      const warmup = new URL('./warmup-gate.html', location.href);
+      setCommonPlateParams(warmup);
+
+      warmup.searchParams.set('phase', 'warmup');
+      warmup.searchParams.set('game', 'plate');
+      warmup.searchParams.set('gameId', 'plate');
+      warmup.searchParams.set('mode', 'solo');
+      warmup.searchParams.set('entry', 'plate-solo');
+      warmup.searchParams.set('fromLauncher', 'plate-vr');
+      warmup.searchParams.set('hub', zoneUrl.toString());
+      warmup.searchParams.set('next', runUrl.toString());
+
+      return warmup;
+    }
+
+    function showBridgeToast(message){
+      let toast = document.getElementById('toast');
+
+      if(!toast){
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.style.cssText = [
+          'position:fixed',
+          'left:50%',
+          'bottom:calc(18px + env(safe-area-inset-bottom,0px))',
+          'z-index:99999',
+          'transform:translateX(-50%) translateY(20px)',
+          'opacity:0',
+          'max-width:min(560px,92vw)',
+          'padding:12px 16px',
+          'border-radius:999px',
+          'background:rgba(36,71,97,.94)',
+          'color:white',
+          'font-weight:1000',
+          'box-shadow:0 18px 36px rgba(42,78,102,.22)',
+          'pointer-events:none',
+          'transition:.18s ease',
+          'text-align:center',
+          'font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+        ].join(';');
+        document.body.appendChild(toast);
+      }
+
+      toast.textContent = message;
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateX(-50%) translateY(0)';
+
+      clearTimeout(showBridgeToast._timer);
+      showBridgeToast._timer = setTimeout(function(){
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(20px)';
+      }, 1800);
+    }
+
+    function shouldHandleSoloClick(ev, btn){
+      const startMode = btn && btn.dataset ? btn.dataset.start : '';
+      const card = btn ? btn.closest('[data-mode]') : null;
+      const cardMode = card && card.dataset ? card.dataset.mode : '';
+
+      if(btn && btn.id === 'btnStartSelected'){
+        const selectedCard = document.querySelector('.modeCard.selected[data-mode]');
+        const selectedMode = selectedCard && selectedCard.dataset ? selectedCard.dataset.mode : 'solo';
+        return !selectedMode || selectedMode === 'solo';
+      }
+
+      if(startMode === 'solo') return true;
+      if(cardMode === 'solo') return true;
+
+      return false;
+    }
+
+    function goSoloViaWarmup(ev, btn){
+      if(!shouldHandleSoloClick(ev, btn)) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+
+      if(typeof ev.stopImmediatePropagation === 'function'){
+        ev.stopImmediatePropagation();
+      }
+
+      const target = buildWarmupUrl();
+
+      try{
+        localStorage.setItem('HHA_PLATE_LAST_MODE', 'solo');
+        localStorage.setItem('HHA_PLATE_LAST_DIFF', getValueFromUrlOrControl('diff', 'diffSelect', 'normal'));
+        localStorage.setItem('HHA_PLATE_LAST_TIME', getValueFromUrlOrControl('time', 'timeSelect', '90'));
+        localStorage.setItem('HHA_PLATE_LAST_VIEW', getValueFromUrlOrControl('view', 'viewSelect', guessView()));
+      }catch(e){}
+
+      showBridgeToast('กำลังเข้า Plate Solo ผ่าน Warmup...');
+
+      setTimeout(function(){
+        location.href = target.toString();
+      }, 140);
+    }
+
+    function patchStartButtons(){
+      const selectors = [
+        '[data-start="solo"]',
+        '#btnStartSelected',
+        '.modeCard[data-mode="solo"] .modeBtn'
+      ];
+
+      const buttons = Array.from(document.querySelectorAll(selectors.join(',')));
+
+      buttons.forEach(function(btn){
+        if(!btn || btn.dataset.plateCanonicalPatched === '1') return;
+
+        btn.dataset.plateCanonicalPatched = '1';
+
+        btn.addEventListener('click', function(ev){
+          goSoloViaWarmup(ev, btn);
+        }, true);
+      });
+
+      patchSoloCardClick();
+      patchDebugLink();
+
+      try{
+        console.info('[Plate Launcher Bridge]', PATCH_VERSION, 'patched buttons:', buttons.length);
+      }catch(e){}
+    }
+
+    function patchSoloCardClick(){
+      const soloCard = document.querySelector('.modeCard[data-mode="solo"]');
+
+      if(!soloCard || soloCard.dataset.plateCanonicalCardPatched === '1') return;
+
+      soloCard.dataset.plateCanonicalCardPatched = '1';
+
+      soloCard.addEventListener('dblclick', function(ev){
+        goSoloViaWarmup(ev, soloCard);
+      }, true);
+    }
+
+    function patchDebugLink(){
+      const debugBox = document.getElementById('debugBox');
+
+      if(!debugBox) return;
+
+      const observer = new MutationObserver(function(){
+        try{
+          if(debugBox.classList.contains('on')){
+            const runUrl = buildRunUrl().toString();
+            const warmupUrl = buildWarmupUrl().toString();
+
+            if(!debugBox.dataset.plateCanonicalDebugPatched){
+              debugBox.dataset.plateCanonicalDebugPatched = '1';
+            }
+
+            const note = [
+              '<hr style="border:0;border-top:1px solid #d8edf6;margin:8px 0">',
+              '<b>PLATE CANONICAL PATCH</b>: ',
+              PATCH_VERSION,
+              '<br><b>canonical run</b>: ',
+              escapeHtml(runUrl),
+              '<br><b>canonical warmup</b>: ',
+              escapeHtml(warmupUrl)
+            ].join('');
+
+            if(!debugBox.innerHTML.includes('PLATE CANONICAL PATCH')){
+              debugBox.innerHTML += note;
+            }
+          }
+        }catch(e){}
+      });
+
+      observer.observe(debugBox, {
+        childList:true,
+        subtree:true,
+        attributes:true
+      });
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '').replace(/[&<>"']/g, function(m){
+        return {
+          '&':'&amp;',
+          '<':'&lt;',
+          '>':'&gt;',
+          '"':'&quot;',
+          "'":'&#39;'
+        }[m];
+      });
+    }
+
+    function boot(){
+      patchStartButtons();
+
+      setTimeout(patchStartButtons, 300);
+      setTimeout(patchStartButtons, 900);
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', boot);
+    }else{
+      boot();
+    }
+  })();
+  </script>
+</body>
+</html>
