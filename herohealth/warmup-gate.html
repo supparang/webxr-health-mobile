@@ -290,10 +290,10 @@
       const q = new URLSearchParams(location.search);
 
       const GOODJUNK_LAUNCHER =
-        'https:///herohealth/goodjunk-launcher.html';
+        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
 
       const HUB_V2 =
-        'https:///herohealth/hub-v2.html';
+        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
 
       function clean(v, d=''){
         v = String(v ?? '').trim();
@@ -368,8 +368,8 @@
 
       function hubHref(){
         if(isGoodJunkCooldown()){
-          return HUB_V2;
-        }
+        return GOODJUNK_LAUNCHER;
+      }
 
         return safeUrl(q.get('hub'), defaultZone());
       }
@@ -388,7 +388,7 @@
       if(isGoodJunkCooldown()){
         window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
         window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_HUB = HUB_V2;
+        window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
       }
 
       const icon = document.getElementById('gateBootIcon');
@@ -516,7 +516,7 @@
           }
           return new URL('./', location.href).toString();
         }catch(_){
-          return 'https:///herohealth/';
+          return 'https://supparang.github.io/webxr-health-mobile/herohealth';
         }
       }
 
@@ -546,7 +546,7 @@
           'hub',
           q.get('hubRoot') ||
           q.get('rootHub') ||
-          'https:///herohealth/hub.html'
+          'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
         );
 
         return u.toString();
@@ -846,14 +846,14 @@
 
       window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
       window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_HUB = HUB_V2;
+      window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
 
       function normalizeGoodJunkUrl(url){
   return String(url || '').replace(
-    'https://supparang.github.io/webxr-health-mobile/goodjunk-launcher.html',
+    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
     'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html'
   ).replace(
-    '/webxr-health-mobile/goodjunk-launcher.html',
+    '/webxr-health-mobile/herohealth/goodjunk-launcher.html',
     '/webxr-health-mobile/herohealth/goodjunk-launcher.html'
   );
 }
@@ -907,10 +907,10 @@ function go(url){
           }
 
           if(isMainButton(el)){
-            el.dataset.hhFixedTarget = 'hub-v2';
+            el.dataset.hhFixedTarget = 'goodjunk-launcher';
 
-            if(el.tagName && el.tagName.toLowerCase() === 'a'){
-              el.setAttribute('href', HUB_V2);
+          if(el.tagName && el.tagName.toLowerCase() === 'a'){
+            el.setAttribute('href', GOODJUNK_LAUNCHER);
             }
           }
         });
@@ -936,9 +936,9 @@ function go(url){
         if(fixed === 'hub-v2' || isMainButton(el)){
           ev.preventDefault();
           ev.stopPropagation();
-          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          go(HUB_V2);
-          return false;
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          go(GOODJUNK_LAUNCHER);
+        return false;
         }
       }, true);
 
@@ -994,9 +994,13 @@ function go(url){
 
       if(game !== 'goodjunk' || phase !== 'cooldown') return;
 
-      qs.set('hub', HUB_V2);
+      qs.set('hub', GOODJUNK_LAUNCHER);
       qs.set('next', GOODJUNK_LAUNCHER);
       qs.set('back', GOODJUNK_LAUNCHER);
+      qs.set('launcher', GOODJUNK_LAUNCHER);
+      qs.set('return', GOODJUNK_LAUNCHER);
+      qs.set('returnUrl', GOODJUNK_LAUNCHER);
+      qs.set('after', GOODJUNK_LAUNCHER);
 
       const newUrl =
         location.pathname + '?' + qs.toString() + (location.hash || '');
@@ -1012,7 +1016,7 @@ function go(url){
           patch:'v20260505h-GOODJUNK-COOLDOWN-AUTO-REDIRECT-FIX',
           next:GOODJUNK_LAUNCHER,
           back:GOODJUNK_LAUNCHER,
-          hub:HUB_V2,
+          hub:GOODJUNK_LAUNCHER,
           savedAt:new Date().toISOString()
         }));
       }catch(e){}
