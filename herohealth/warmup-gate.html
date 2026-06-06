@@ -4,9 +4,9 @@
 <!--
   FINAL RETURN RULES:
   1) GoodJunk cooldown
-     - Home = hub-v2.html
-     - Mode/Game select = goodjunk-launcher.html
-     - Auto redirect = goodjunk-launcher.html
+      - Home = goodjunk-launcher.html
+      - Mode/Game select = goodjunk-launcher.html
+      - Auto redirect = goodjunk-launcher.html
 
   2) Brush cooldown
      - Auto/return = hygiene-zone.html
@@ -816,15 +816,11 @@
   <script>
     /*
       === PATCH v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX ===
-      FINAL RULE:
-      - กลับหน้าหลัก / Home => hub-v2.html
-      - กลับหน้าโหมดเกม / กลับหน้าเลือกเกม / เลือกโหมด => goodjunk-launcher.html
-      สำคัญ:
-      - ไม่ใช้ MutationObserver
-      - ไม่ใช้ setInterval ถาวร
-      - ใช้ capture click ดักตอนกดจริง
-      - mark ปุ่มซ้ำแค่ไม่กี่รอบหลัง gate-core render
-    */
+      /*
+  FINAL RULE:
+  - กลับหน้าหลัก / Home => goodjunk-launcher.html
+  - กลับหน้าโหมดเกม / กลับหน้าเลือกเกม / เลือกโหมด => goodjunk-launcher.html
+*/
     (function(){
       'use strict';
 
@@ -849,13 +845,29 @@
       window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
 
       function normalizeGoodJunkUrl(url){
-  return String(url || '').replace(
-    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html',
+  let s = String(url || '');
+
+  s = s.replace(
+    'https://supparang.github.io/webxr-health-mobile/goodjunk-launcher.html',
     'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html'
-  ).replace(
-    '/webxr-health-mobile/herohealth/goodjunk-launcher.html',
+  );
+
+  s = s.replace(
+    '/webxr-health-mobile/goodjunk-launcher.html',
     '/webxr-health-mobile/herohealth/goodjunk-launcher.html'
   );
+
+  s = s.replace(
+    '/herohealth/herohealth/goodjunk-launcher.html',
+    '/herohealth/goodjunk-launcher.html'
+  );
+
+  s = s.replace(
+    'https://supparang.github.io/webxr-health-mobile/herohealth/herohealth/goodjunk-launcher.html',
+    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html'
+  );
+
+  return s;
 }
 
 function go(url){
@@ -954,7 +966,7 @@ function go(url){
           localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
             patch: 'v20260505h-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-AUTO-FIX',
             rule: {
-              main: HUB_V2,
+              main: GOODJUNK_LAUNCHER,
               mode: GOODJUNK_LAUNCHER
             },
             savedAt: new Date().toISOString()
@@ -1702,6 +1714,94 @@ function go(url){
       }
     }
   </script>
-  <script src="./goodjunk-mobile-cooldown-gate-summary-return-final.js?v=20260526"></script>
+  <!-- ปิดไฟล์เก่าไว้ก่อน เพราะอาจ override path ผิด -->
+<!-- <script src="./goodjunk-mobile-cooldown-gate-summary-return-final.js?v=20260526"></script> -->
+
+<script>
+/* GoodJunk cooldown hard lock final */
+(function(){
+  'use strict';
+
+  const GOODJUNK_LAUNCHER =
+    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
+
+  function isGoodJunkCooldown(){
+    const qs = new URLSearchParams(location.search || '');
+    const game = String(qs.get('game') || qs.get('gameId') || qs.get('theme') || '').toLowerCase();
+    const phase = String(qs.get('phase') || qs.get('gatePhase') || '').toLowerCase();
+    return game === 'goodjunk' && phase === 'cooldown';
+  }
+
+  if(!isGoodJunkCooldown()) return;
+
+  function fixedUrl(){
+    const qs = new URLSearchParams(location.search || '');
+    const u = new URL(GOODJUNK_LAUNCHER);
+
+    u.searchParams.set('pid', qs.get('pid') || 'anon');
+    u.searchParams.set('name', qs.get('name') || qs.get('nick') || 'Hero');
+    u.searchParams.set('diff', qs.get('diff') || 'normal');
+    u.searchParams.set('time', qs.get('time') || '120');
+    u.searchParams.set('view', qs.get('view') || 'mobile');
+    u.searchParams.set('zone', 'nutrition');
+    u.searchParams.set('cat', 'nutrition');
+    u.searchParams.set('game', 'goodjunk');
+    u.searchParams.set('gameId', 'goodjunk');
+    u.searchParams.set('mode', 'solo');
+    u.searchParams.set('entry', 'cooldown-return');
+
+    return u.toString();
+  }
+
+  const TARGET = fixedUrl();
+
+  window.HH_GATE_FORCE_NEXT = TARGET;
+  window.HH_GATE_FORCE_BACK = TARGET;
+  window.HH_GATE_FORCE_HUB = TARGET;
+
+  window.HHA_GATE_GO_NEXT = function(){ location.replace(TARGET); };
+  window.HHA_GATE_GO_BACK = function(){ location.replace(TARGET); };
+  window.HHA_GATE_GO_HUB = function(){ location.replace(TARGET); };
+  window.goNext = function(){ location.replace(TARGET); };
+  window.goBack = function(){ location.replace(TARGET); };
+  window.goHub = function(){ location.replace(TARGET); };
+  window.finishGate = function(){ location.replace(TARGET); };
+  window.finishCooldown = function(){ location.replace(TARGET); };
+  window.completeCooldown = function(){ location.replace(TARGET); };
+
+  document.addEventListener('click', function(ev){
+    const el = ev.target && ev.target.closest
+      ? ev.target.closest('a,button,[role="button"]')
+      : null;
+
+    if(!el) return;
+
+    const text = String(
+      el.textContent ||
+      el.getAttribute('aria-label') ||
+      el.getAttribute('title') ||
+      ''
+    ).replace(/\s+/g,' ').trim();
+
+    if(
+      text.includes('กลับ') ||
+      text.includes('ไปต่อ') ||
+      text.includes('เสร็จ') ||
+      text.includes('จบ') ||
+      text.includes('Home') ||
+      text.includes('Zone') ||
+      text.includes('โหมด') ||
+      text.includes('GoodJunk')
+    ){
+      ev.preventDefault();
+      ev.stopPropagation();
+      if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+      location.replace(TARGET);
+    }
+  }, true);
+
+  console.log('[GoodJunk cooldown hard lock final]', TARGET);
+})();
+</script>
 </body>
 </html>
