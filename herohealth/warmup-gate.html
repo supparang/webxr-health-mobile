@@ -1,24 +1,21 @@
 <!-- === /herohealth/warmup-gate.html === -->
-<!-- FULL PATCH v20260518-PLATE-COOLDOWN-RETURN-NUTRITION-ZONE-FINAL -->
+<!-- FULL PATCH v20260605-GATE-GOODJUNK-PC-MOBILE-PATH-FINAL -->
 <!-- ใช้ไฟล์นี้ไฟล์เดียวสำหรับ phase=warmup / phase=cooldown -->
 <!--
   FINAL RETURN RULES:
   1) GoodJunk cooldown
-      - Home = goodjunk-launcher.html
-      - Mode/Game select = goodjunk-launcher.html
-      - Auto redirect = goodjunk-launcher.html
+     - Home / Mode / Auto redirect = /herohealth/goodjunk-launcher.html
 
   2) Brush cooldown
-     - Auto/return = hygiene-zone.html
+     - Auto/return = /herohealth/hygiene-zone.html
 
   3) Plate cooldown
-     - Auto/return = nutrition-zone.html
-     - Nutrition Zone hub param = hub.html
+     - Auto/return = /herohealth/nutrition-zone.html
+     - Nutrition Zone hub param = /herohealth/hub.html
 
   4) Hydration cooldown
-     - Auto/return = nutrition-zone.html
-     - Nutrition Zone hub param = hub.html
-     - Pack30 hydration gate return force is embedded before gate-core
+     - Auto/return = /herohealth/nutrition-zone.html
+     - Nutrition Zone hub param = /herohealth/hub.html
 -->
 
 <!doctype html>
@@ -287,13 +284,11 @@
     (function(){
       'use strict';
 
-      const q = new URLSearchParams(location.search);
+      const q = new URLSearchParams(location.search || '');
 
-      const GOODJUNK_LAUNCHER =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
-
-      const HUB_V2 =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      const BASE = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+      const GOODJUNK_LAUNCHER = BASE + 'goodjunk-launcher.html';
+      const HUB_V2 = BASE + 'hub-v2.html';
 
       function clean(v, d=''){
         v = String(v ?? '').trim();
@@ -307,10 +302,31 @@
         catch(_){ return v; }
       }
 
+      function normalizeBadGoodJunkPath(url){
+        let s = String(url || '');
+
+        s = s.replace(
+          'https://supparang.github.io/webxr-health-mobile/goodjunk-launcher.html',
+          GOODJUNK_LAUNCHER
+        );
+
+        s = s.replace(
+          '/webxr-health-mobile/goodjunk-launcher.html',
+          '/webxr-health-mobile/herohealth/goodjunk-launcher.html'
+        );
+
+        s = s.replace(
+          '/herohealth/herohealth/goodjunk-launcher.html',
+          '/herohealth/goodjunk-launcher.html'
+        );
+
+        return s;
+      }
+
       function safeUrl(raw, fallback){
         try{
           if(!String(raw || '').trim()) return fallback;
-          return new URL(String(raw), location.href).toString();
+          return normalizeBadGoodJunkPath(new URL(String(raw), location.href).toString());
         }catch(_){
           return fallback;
         }
@@ -326,21 +342,51 @@
       }
 
       function isGoodJunkCooldown(){
-        const g = game();
-        return g === 'goodjunk' && phase() === 'cooldown';
+        return game() === 'goodjunk' && phase() === 'cooldown';
       }
 
       function defaultZone(){
         const z = clean(q.get('zone') || q.get('cat'), '');
-        if(z === 'fitness') return './fitness-zone.html';
-        if(z === 'hygiene') return './hygiene-zone.html';
-        return './nutrition-zone.html';
+        if(z === 'fitness') return BASE + 'fitness-zone.html';
+        if(z === 'hygiene') return BASE + 'hygiene-zone.html';
+        return BASE + 'nutrition-zone.html';
+      }
+
+      function goodJunkTarget(){
+        const u = new URL(GOODJUNK_LAUNCHER);
+
+        u.searchParams.set('pid', q.get('pid') || 'anon');
+        u.searchParams.set('name', q.get('name') || q.get('nick') || 'Hero');
+        u.searchParams.set('diff', q.get('diff') || 'normal');
+        u.searchParams.set('time', q.get('time') || '120');
+        u.searchParams.set('view', q.get('view') || 'mobile');
+
+        u.searchParams.set('zone', 'nutrition');
+        u.searchParams.set('cat', 'nutrition');
+        u.searchParams.set('game', 'goodjunk');
+        u.searchParams.set('gameId', 'goodjunk');
+        u.searchParams.set('mode', 'solo');
+        u.searchParams.set('entry', 'cooldown-return');
+        u.searchParams.set('theme', 'goodjunk');
+
+        [
+          'studyId',
+          'conditionGroup',
+          'section',
+          'session_code',
+          'log',
+          'api',
+          'seed'
+        ].forEach(function(k){
+          const v = q.get(k);
+          if(v) u.searchParams.set(k, v);
+        });
+
+        return u.toString();
       }
 
       function nextHref(){
-        if(isGoodJunkCooldown()){
-          return GOODJUNK_LAUNCHER;
-        }
+        if(isGoodJunkCooldown()) return goodJunkTarget();
 
         const n = safeDecode(q.get('next') || '');
         if(n) return safeUrl(n, defaultZone());
@@ -356,9 +402,7 @@
       }
 
       function backHref(){
-        if(isGoodJunkCooldown()){
-          return GOODJUNK_LAUNCHER;
-        }
+        if(isGoodJunkCooldown()) return goodJunkTarget();
 
         const b = safeDecode(q.get('back') || '');
         if(b) return safeUrl(b, defaultZone());
@@ -367,28 +411,58 @@
       }
 
       function hubHref(){
-        if(isGoodJunkCooldown()){
-        return GOODJUNK_LAUNCHER;
-      }
+        if(isGoodJunkCooldown()) return goodJunkTarget();
 
         return safeUrl(q.get('hub'), defaultZone());
       }
 
       window.HHA_GATE_BOOT = {
-        patch: 'v20260518-gate-boot-base',
-        phase: phase(),
-        game: game(),
-        nextHref: nextHref(),
-        backHref: backHref(),
-        hubHref: hubHref(),
-        params: Object.fromEntries(q.entries()),
-        isGoodJunkCooldown: isGoodJunkCooldown()
+        patch:'v20260605-GATE-GOODJUNK-PC-MOBILE-PATH-FINAL',
+        phase:phase(),
+        game:game(),
+        nextHref:nextHref(),
+        backHref:backHref(),
+        hubHref:hubHref(),
+        params:Object.fromEntries(q.entries()),
+        isGoodJunkCooldown:isGoodJunkCooldown()
       };
 
       if(isGoodJunkCooldown()){
-        window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-        window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
+        const target = goodJunkTarget();
+
+        q.set('hub', target);
+        q.set('next', target);
+        q.set('back', target);
+        q.set('launcher', target);
+        q.set('return', target);
+        q.set('returnUrl', target);
+        q.set('returnTo', target);
+        q.set('after', target);
+        q.set('done', target);
+        q.set('doneUrl', target);
+        q.set('cdnext', target);
+
+        history.replaceState(
+          null,
+          '',
+          location.pathname + '?' + q.toString() + (location.hash || '')
+        );
+
+        window.HH_GATE_FORCE_NEXT = target;
+        window.HH_GATE_FORCE_BACK = target;
+        window.HH_GATE_FORCE_HUB = target;
+
+        window.HHA_GATE_RETURN_URL = target;
+        window.HHA_GATE_DONE_URL = target;
+        window.HHA_NEXT_URL = target;
+        window.HHA_BACK_URL = target;
+        window.HHA_HUB_URL = target;
+        window.HHA_GOODJUNK_COOLDOWN_TARGET = target;
+
+        window.HHA_GATE_BOOT.nextHref = target;
+        window.HHA_GATE_BOOT.backHref = target;
+        window.HHA_GATE_BOOT.hubHref = target;
+        window.HHA_GATE_BOOT.goodjunkCooldownTarget = target;
       }
 
       const icon = document.getElementById('gateBootIcon');
@@ -456,9 +530,7 @@
           errorBox.style.display = 'block';
           errorBox.textContent = String(err && (err.stack || err.message) || err || 'Unknown error');
         }
-        if(actions){
-          actions.style.display = 'flex';
-        }
+        if(actions) actions.style.display = 'flex';
       };
 
       window.HHA_GATE_HIDE_BOOT = function(){
@@ -470,12 +542,8 @@
 
   <script>
     /*
-      === PATCH v20260505g-BRUSH-WARMUP-COOLDOWN-RETURN-FIX ===
-      Brush only:
-      - phase=warmup: complete 8/8 -> next brush.html
-      - phase=cooldown: complete 6/6 / Brush Smile Cooldown -> Hygiene Zone
-      - keeps shared warmup-gate.html, same pattern as Handwash
-      - does not affect GoodJunk / other games
+      === BRUSH WARMUP/COOLDOWN RETURN FIX ===
+      Brush only.
     */
     (function(){
       'use strict';
@@ -493,6 +561,23 @@
       let intervalId = 0;
       const startedAt = Date.now();
 
+      function heroBase(){
+        try{
+          const marker = '/herohealth/';
+          const idx = location.pathname.indexOf(marker);
+          if(idx >= 0){
+            return location.origin + location.pathname.slice(0, idx + marker.length);
+          }
+          return new URL('./', location.href).toString();
+        }catch(_){
+          return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+        }
+      }
+
+      function heroUrl(path){
+        return new URL(String(path || '').replace(/^\/+/, ''), heroBase());
+      }
+
       function decodeMaybeTwice(v){
         v = String(v || '').trim();
         for(let i = 0; i < 2; i++){
@@ -505,23 +590,6 @@
           }
         }
         return v;
-      }
-
-      function heroBase(){
-        try{
-          const marker = '/herohealth/';
-          const idx = location.pathname.indexOf(marker);
-          if(idx >= 0){
-            return location.origin + location.pathname.slice(0, idx + marker.length);
-          }
-          return new URL('./', location.href).toString();
-        }catch(_){
-          return 'https://supparang.github.io/webxr-health-mobile/herohealth';
-        }
-      }
-
-      function heroUrl(path){
-        return new URL(String(path || '').replace(/^\/+/, ''), heroBase());
       }
 
       function safeUrl(raw){
@@ -537,7 +605,7 @@
       function fallbackHygieneZone(){
         const u = heroUrl('hygiene-zone.html');
 
-        ['pid','name','diff','time','view'].forEach(k => {
+        ['pid','name','diff','time','view'].forEach(function(k){
           const v = q.get(k);
           if(v) u.searchParams.set(k, v);
         });
@@ -546,7 +614,7 @@
           'hub',
           q.get('hubRoot') ||
           q.get('rootHub') ||
-          'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html'
+          heroUrl('hub-v2.html').toString()
         );
 
         return u.toString();
@@ -563,27 +631,13 @@
         const next = safeUrl(q.get('next'));
         if(next) return next;
 
-        const key = q.get('nextKey');
-        if(key){
-          try{
-            const stored = sessionStorage.getItem(key);
-            const ok = safeUrl(stored);
-            if(ok) return ok;
-          }catch(_){}
-        }
-
-        try{
-          const stored = sessionStorage.getItem('HHA_BRUSH_NEXT');
-          const ok = safeUrl(stored);
-          if(ok) return ok;
-        }catch(_){}
-
         const u = heroUrl('vr-brush-kids/brush.html');
+
         [
           'pid','name','nick','diff','time','view','run','zone','cat',
           'game','gameId','variant','mode','entry','theme','launcher',
           'hub','back','return','seed'
-        ].forEach(k => {
+        ].forEach(function(k){
           const v = q.get(k);
           if(v) u.searchParams.set(k, v);
         });
@@ -649,7 +703,7 @@
             : 'Brush warmup complete → continuing...';
         }
 
-        window.setTimeout(() => {
+        window.setTimeout(function(){
           location.replace(target);
         }, 280);
       }
@@ -678,75 +732,8 @@
           text.includes('กลับโซน');
       }
 
-      function ensureBrushReturnButton(){
-        if(phase !== 'cooldown') return;
-
-        if(document.getElementById('brushCooldownReturnBtn')) return;
-
-        const btn = document.createElement('button');
-        btn.id = 'brushCooldownReturnBtn';
-        btn.type = 'button';
-        btn.textContent = '🏠 กลับ Hygiene Zone';
-        btn.setAttribute('aria-label', 'กลับ Hygiene Zone');
-        btn.style.cssText = [
-          'position:fixed',
-          'right:18px',
-          'bottom:18px',
-          'z-index:2147483647',
-          'min-height:56px',
-          'padding:12px 18px',
-          'border:0',
-          'border-radius:999px',
-          'background:linear-gradient(180deg,#dcfff2,#baf4cf)',
-          'color:#143a22',
-          'font:900 16px system-ui,-apple-system,Segoe UI,sans-serif',
-          'box-shadow:0 14px 28px rgba(0,0,0,.28)',
-          'cursor:pointer'
-        ].join(';');
-
-        btn.addEventListener('click', function(e){
-          e.preventDefault();
-          e.stopPropagation();
-          go('fixed-return-button');
-        });
-
-        document.documentElement.appendChild(btn);
-      }
-
-      function patchBootButtons(){
-        const actions = document.getElementById('gateBootActions');
-        const continueBtn = document.getElementById('gateContinueBtn');
-        const backBtn = document.getElementById('gateBackBtn');
-
-        if(actions) actions.style.display = 'flex';
-
-        if(continueBtn){
-          continueBtn.textContent = phase === 'cooldown' ? 'กลับ Hygiene Zone' : 'ไปต่อ';
-          continueBtn.onclick = function(e){
-            if(e){
-              e.preventDefault();
-              e.stopPropagation();
-            }
-            go('gate-continue-button');
-          };
-        }
-
-        if(backBtn){
-          backBtn.textContent = 'กลับ Hygiene Zone';
-          backBtn.onclick = function(e){
-            if(e){
-              e.preventDefault();
-              e.stopPropagation();
-            }
-            location.href = fallbackHygieneZone();
-          };
-        }
-      }
-
       function tick(){
         if(fired) return;
-
-        ensureBrushReturnButton();
 
         const text = pageText();
 
@@ -763,11 +750,6 @@
         }else{
           if(warmupDone(text)){
             go('warmup-complete');
-            return;
-          }
-
-          if(Date.now() - startedAt > 45000){
-            patchBootButtons();
           }
         }
       }
@@ -815,247 +797,169 @@
 
   <script>
     /*
-      === PATCH v20260505-GOODJUNK-COOLDOWN-FINAL-LINK-FIX ===
-      /*
-  FINAL RULE:
-  - กลับหน้าหลัก / Home => goodjunk-launcher.html
-  - กลับหน้าโหมดเกม / กลับหน้าเลือกเกม / เลือกโหมด => goodjunk-launcher.html
-*/
-    (function(){
-      'use strict';
-
-      const qs = new URLSearchParams(location.search || '');
-
-      const GOODJUNK_LAUNCHER =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
-
-      const HUB_V2 =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
-
-      function isGoodJunkCooldown(){
-        const game = String(qs.get('game') || qs.get('gameId') || '').toLowerCase();
-        const phase = String(qs.get('phase') || '').toLowerCase();
-        return game === 'goodjunk' && phase === 'cooldown';
-      }
-
-      if(!isGoodJunkCooldown()) return;
-
-      window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
-
-      function normalizeGoodJunkUrl(url){
-  let s = String(url || '');
-
-  s = s.replace(
-    'https://supparang.github.io/webxr-health-mobile/goodjunk-launcher.html',
-    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html'
-  );
-
-  s = s.replace(
-    '/webxr-health-mobile/goodjunk-launcher.html',
-    '/webxr-health-mobile/herohealth/goodjunk-launcher.html'
-  );
-
-  s = s.replace(
-    '/herohealth/herohealth/goodjunk-launcher.html',
-    '/herohealth/goodjunk-launcher.html'
-  );
-
-  s = s.replace(
-    'https://supparang.github.io/webxr-health-mobile/herohealth/herohealth/goodjunk-launcher.html',
-    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html'
-  );
-
-  return s;
-}
-
-function go(url){
-  window.location.href = normalizeGoodJunkUrl(url);
-}
-
-      function labelOf(el){
-        return String(
-          (el && (
-            el.textContent ||
-            el.getAttribute('aria-label') ||
-            el.getAttribute('title') ||
-            ''
-          )) || ''
-        ).replace(/\s+/g, ' ').trim();
-      }
-
-      function isGameModeButton(el){
-        const text = labelOf(el);
-        return (
-          text.includes('กลับหน้าเลือกเกม') ||
-          text.includes('กลับหน้าโหมดเกม') ||
-          text.includes('หน้าโหมดเกม') ||
-          text.includes('เลือกเกม') ||
-          text.includes('เลือกโหมด') ||
-          text.includes('กลับเลือกโหมด')
-        );
-      }
-
-      function isMainButton(el){
-        const text = labelOf(el);
-        return (
-          text.includes('กลับหน้าหลัก') ||
-          text.includes('หน้าหลัก') ||
-          text.includes('Home')
-        );
-      }
-
-      function markButtons(){
-        const buttons = Array.from(document.querySelectorAll('button, a, [role="button"]'));
-
-        buttons.forEach(el => {
-          if(isGameModeButton(el)){
-            el.dataset.hhFixedTarget = 'goodjunk-launcher';
-
-            if(el.tagName && el.tagName.toLowerCase() === 'a'){
-              el.setAttribute('href', GOODJUNK_LAUNCHER);
-            }
-          }
-
-          if(isMainButton(el)){
-            el.dataset.hhFixedTarget = 'goodjunk-launcher';
-
-          if(el.tagName && el.tagName.toLowerCase() === 'a'){
-            el.setAttribute('href', GOODJUNK_LAUNCHER);
-            }
-          }
-        });
-      }
-
-      document.addEventListener('click', function(ev){
-        const el = ev.target && ev.target.closest
-          ? ev.target.closest('button, a, [role="button"]')
-          : null;
-
-        if(!el) return;
-
-        const fixed = el.dataset ? el.dataset.hhFixedTarget : '';
-
-        if(fixed === 'goodjunk-launcher' || isGameModeButton(el)){
-          ev.preventDefault();
-          ev.stopPropagation();
-          if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          go(GOODJUNK_LAUNCHER);
-          return false;
-        }
-
-        if(fixed === 'hub-v2' || isMainButton(el)){
-          ev.preventDefault();
-          ev.stopPropagation();
-        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-          go(GOODJUNK_LAUNCHER);
-        return false;
-        }
-      }, true);
-
-      function boot(){
-        markButtons();
-
-        window.setTimeout(markButtons, 300);
-        window.setTimeout(markButtons, 900);
-        window.setTimeout(markButtons, 1800);
-        window.setTimeout(markButtons, 3000);
-
-        try{
-          localStorage.setItem('HH_GATE_GOODJUNK_COOLDOWN_TARGET', JSON.stringify({
-            patch: 'v20260505h-GOODJUNK-FINAL-BRUSH-COOLDOWN-RETURN-AUTO-FIX',
-            rule: {
-              main: GOODJUNK_LAUNCHER,
-              mode: GOODJUNK_LAUNCHER
-            },
-            savedAt: new Date().toISOString()
-          }));
-        }catch(e){}
-      }
-
-      if(document.readyState === 'loading'){
-        document.addEventListener('DOMContentLoaded', boot);
-      }else{
-        boot();
-      }
-    })();
-  </script>
-
-  <script>
-    /*
-      === PATCH v20260505h-GOODJUNK-COOLDOWN-AUTO-REDIRECT-FIX ===
-      Must run before gate-core is imported.
-      Forces gate-core auto redirect to:
-      - next/back = goodjunk-launcher.html
-      - hub = hub-v2.html
+      === GOODJUNK COOLDOWN PC/MOBILE HARD LOCK BEFORE GATE-CORE ===
+      แก้ปัญหา PC/Mobile หลุดไป /webxr-health-mobile/goodjunk-launcher.html
+      ต้องอยู่ก่อน import gate-core
     */
     (function(){
       'use strict';
 
-      const GOODJUNK_LAUNCHER =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
+      const PATCH = 'v20260605-goodjunk-pc-mobile-cooldown-hard-lock-inline';
 
-      const HUB_V2 =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/hub-v2.html';
+      const BASE = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+      const GOODJUNK_LAUNCHER = BASE + 'goodjunk-launcher.html';
 
       const qs = new URLSearchParams(location.search || '');
-
       const game = String(qs.get('game') || qs.get('gameId') || qs.get('theme') || '').toLowerCase();
       const phase = String(qs.get('phase') || qs.get('gatePhase') || '').toLowerCase();
 
       if(game !== 'goodjunk' || phase !== 'cooldown') return;
 
-      qs.set('hub', GOODJUNK_LAUNCHER);
-      qs.set('next', GOODJUNK_LAUNCHER);
-      qs.set('back', GOODJUNK_LAUNCHER);
-      qs.set('launcher', GOODJUNK_LAUNCHER);
-      qs.set('return', GOODJUNK_LAUNCHER);
-      qs.set('returnUrl', GOODJUNK_LAUNCHER);
-      qs.set('after', GOODJUNK_LAUNCHER);
+      function targetUrl(){
+        const u = new URL(GOODJUNK_LAUNCHER);
 
-      const newUrl =
-        location.pathname + '?' + qs.toString() + (location.hash || '');
+        u.searchParams.set('pid', qs.get('pid') || 'anon');
+        u.searchParams.set('name', qs.get('name') || qs.get('nick') || 'Hero');
+        u.searchParams.set('diff', qs.get('diff') || 'normal');
+        u.searchParams.set('time', qs.get('time') || '120');
+        u.searchParams.set('view', qs.get('view') || 'mobile');
 
-      history.replaceState(null, '', newUrl);
+        u.searchParams.set('zone', 'nutrition');
+        u.searchParams.set('cat', 'nutrition');
+        u.searchParams.set('game', 'goodjunk');
+        u.searchParams.set('gameId', 'goodjunk');
+        u.searchParams.set('mode', 'solo');
+        u.searchParams.set('entry', 'cooldown-return');
+        u.searchParams.set('theme', 'goodjunk');
 
-      window.HH_GATE_FORCE_NEXT = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_BACK = GOODJUNK_LAUNCHER;
-      window.HH_GATE_FORCE_HUB = GOODJUNK_LAUNCHER;
+        [
+          'studyId',
+          'conditionGroup',
+          'section',
+          'session_code',
+          'log',
+          'api',
+          'seed'
+        ].forEach(function(k){
+          const v = qs.get(k);
+          if(v) u.searchParams.set(k, v);
+        });
+
+        return u.toString();
+      }
+
+      const TARGET = targetUrl();
+
+      qs.set('hub', TARGET);
+      qs.set('next', TARGET);
+      qs.set('back', TARGET);
+      qs.set('launcher', TARGET);
+      qs.set('return', TARGET);
+      qs.set('returnUrl', TARGET);
+      qs.set('returnTo', TARGET);
+      qs.set('after', TARGET);
+      qs.set('done', TARGET);
+      qs.set('doneUrl', TARGET);
+      qs.set('cdnext', TARGET);
+
+      history.replaceState(
+        null,
+        '',
+        location.pathname + '?' + qs.toString() + (location.hash || '')
+      );
+
+      window.HH_GATE_FORCE_NEXT = TARGET;
+      window.HH_GATE_FORCE_BACK = TARGET;
+      window.HH_GATE_FORCE_HUB = TARGET;
+
+      window.HHA_GATE_RETURN_URL = TARGET;
+      window.HHA_GATE_DONE_URL = TARGET;
+      window.HHA_NEXT_URL = TARGET;
+      window.HHA_BACK_URL = TARGET;
+      window.HHA_HUB_URL = TARGET;
+      window.HHA_GOODJUNK_COOLDOWN_TARGET = TARGET;
+
+      if(window.HHA_GATE_BOOT){
+        window.HHA_GATE_BOOT.nextHref = TARGET;
+        window.HHA_GATE_BOOT.backHref = TARGET;
+        window.HHA_GATE_BOOT.hubHref = TARGET;
+        window.HHA_GATE_BOOT.goodjunkCooldownTarget = TARGET;
+        window.HHA_GATE_BOOT.goodjunkCooldownPathLock = PATCH;
+      }
+
+      function go(){
+        location.replace(TARGET);
+      }
+
+      window.HHA_GATE_GO_NEXT = go;
+      window.HHA_GATE_GO_BACK = go;
+      window.HHA_GATE_GO_HUB = go;
+      window.goNext = go;
+      window.goBack = go;
+      window.goHub = go;
+      window.finishGate = go;
+      window.finishCooldown = go;
+      window.completeCooldown = go;
+
+      document.addEventListener('click', function(ev){
+        const el = ev.target && ev.target.closest
+          ? ev.target.closest('a,button,[role="button"]')
+          : null;
+
+        if(!el) return;
+
+        const text = String(
+          el.textContent ||
+          el.getAttribute('aria-label') ||
+          el.getAttribute('title') ||
+          ''
+        ).replace(/\s+/g,' ').trim();
+
+        const href = String(el.getAttribute && el.getAttribute('href') || '');
+
+        const looksReturn =
+          text.includes('กลับ') ||
+          text.includes('ไปต่อ') ||
+          text.includes('เสร็จ') ||
+          text.includes('จบ') ||
+          text.includes('Home') ||
+          text.includes('Zone') ||
+          text.includes('โหมด') ||
+          text.includes('GoodJunk') ||
+          href.includes('goodjunk-launcher.html');
+
+        if(!looksReturn) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+
+        go();
+      }, true);
 
       try{
-        localStorage.setItem('HH_GATE_GOODJUNK_AUTO_TARGET_FIXED', JSON.stringify({
-          patch:'v20260505h-GOODJUNK-COOLDOWN-AUTO-REDIRECT-FIX',
-          next:GOODJUNK_LAUNCHER,
-          back:GOODJUNK_LAUNCHER,
-          hub:GOODJUNK_LAUNCHER,
-          savedAt:new Date().toISOString()
+        localStorage.setItem('HH_GATE_GOODJUNK_PC_MOBILE_PATH_LOCK', JSON.stringify({
+          patch: PATCH,
+          target: TARGET,
+          savedAt: new Date().toISOString()
         }));
-      }catch(e){}
+      }catch(_){}
+
+      console.log('[GoodJunk cooldown PC/Mobile hard lock]', TARGET);
     })();
   </script>
 
   <script>
     /*
-      === PATCH v20260518-PLATE-COOLDOWN-RETURN-NUTRITION-ZONE-FINAL ===
-      Plate only:
-      - phase=cooldown + game=plate / gameId=plate / entry=plate-solo
-      - Auto redirect หลัง cooldown = nutrition-zone.html
-      - ปุ่มกลับ/เสร็จ/Zone/Hub ใน cooldown กลับ nutrition-zone.html
-      - nutrition-zone.html ต้องมี hub=https://.../hub.html
-      - ต้องอยู่ก่อน warmup-gate-cooldown-once-force-patch.js และก่อน gate-core.js
+      === PLATE COOLDOWN RETURN NUTRITION ZONE ===
+      Plate only.
     */
     (function(){
       'use strict';
 
-      const BASE =
-        'https://supparang.github.io/webxr-health-mobile/herohealth/';
-
-      const NUTRITION_ZONE =
-        BASE + 'nutrition-zone.html';
-
-      const HUB =
-        BASE + 'hub.html';
+      const BASE = 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+      const NUTRITION_ZONE = BASE + 'nutrition-zone.html';
+      const HUB = BASE + 'hub.html';
 
       const qs = new URLSearchParams(location.search || '');
 
@@ -1091,7 +995,6 @@ function go(url){
         const u = new URL(NUTRITION_ZONE, location.href);
 
         u.searchParams.set('pid', qs.get('pid') || 'anon');
-
         setIf(u, 'name', qs.get('name') || qs.get('nick'));
         setIf(u, 'nick', qs.get('nick') || qs.get('name'));
 
@@ -1106,12 +1009,6 @@ function go(url){
         u.searchParams.set('mode', qs.get('mode') || 'solo');
         u.searchParams.set('entry', 'plate-solo');
         u.searchParams.set('from', 'plate-cooldown-done');
-
-        /*
-          สำคัญ:
-          หลังกลับ Nutrition Zone แล้ว ปุ่มกลับ Hub ของหน้า Zone
-          ต้องไป Hub หลัก ไม่ใช่กลับเข้าหน้า cooldown/gate ซ้ำ
-        */
         u.searchParams.set('hub', HUB);
 
         [
@@ -1122,12 +1019,10 @@ function go(url){
           'session_code',
           'log',
           'api'
-        ].forEach(k => setIf(u, k, qs.get(k)));
+        ].forEach(function(k){
+          setIf(u, k, qs.get(k));
+        });
 
-        /*
-          ไม่ส่ง run=play กลับไปหน้า zone
-          เพราะหน้า zone/launcher ไม่ควรถูกบังคับเป็น gameplay state
-        */
         u.searchParams.delete('run');
         u.searchParams.delete('phase');
 
@@ -1136,10 +1031,6 @@ function go(url){
 
       const TARGET = nutritionUrl();
 
-      /*
-        บังคับให้ gate-core และ patch ภายนอกอ่านปลายทางถูก
-        ตั้งแต่ก่อน gate-core ถูก import
-      */
       qs.set('next', TARGET);
       qs.set('back', TARGET);
       qs.set('hub', TARGET);
@@ -1149,14 +1040,6 @@ function go(url){
       qs.set('done', TARGET);
       qs.set('doneUrl', TARGET);
       qs.set('cdnext', TARGET);
-
-      qs.set('phase', 'cooldown');
-      qs.set('zone', 'nutrition');
-      qs.set('cat', 'nutrition');
-      qs.set('game', 'plate');
-      qs.set('gameId', 'plate');
-      qs.set('mode', qs.get('mode') || 'solo');
-      qs.set('entry', 'plate-solo');
 
       history.replaceState(
         null,
@@ -1180,15 +1063,10 @@ function go(url){
         window.HHA_GATE_BOOT.backHref = TARGET;
         window.HHA_GATE_BOOT.hubHref = TARGET;
         window.HHA_GATE_BOOT.plateCooldownTarget = TARGET;
-        window.HHA_GATE_BOOT.patchPlateCooldown =
-          'v20260518-PLATE-COOLDOWN-RETURN-NUTRITION-ZONE-FINAL';
       }
 
       function stopWatchers(){
-        try{
-          if(observer) observer.disconnect();
-        }catch(_){}
-
+        try{ if(observer) observer.disconnect(); }catch(_){}
         if(intervalId){
           clearInterval(intervalId);
           intervalId = 0;
@@ -1202,22 +1080,11 @@ function go(url){
         stopWatchers();
 
         try{
-          console.info('[Plate cooldown return fix]', reason || '', TARGET);
-
-          sessionStorage.setItem('HHA_PLATE_COOLDOWN_RETURN_TARGET', TARGET);
           localStorage.setItem('HHA_PLATE_COOLDOWN_RETURN_TARGET', TARGET);
-          localStorage.setItem('HHA_PLATE_COOLDOWN_RETURN_PATCH', JSON.stringify({
-            patch:'v20260518-PLATE-COOLDOWN-RETURN-NUTRITION-ZONE-FINAL',
-            target:TARGET,
-            reason:reason || '',
-            savedAt:new Date().toISOString()
-          }));
         }catch(e){}
 
         const status = document.getElementById('gateBootStatusText');
-        if(status){
-          status.textContent = 'Plate cooldown complete → returning to Nutrition Zone...';
-        }
+        if(status) status.textContent = 'Plate cooldown complete → returning to Nutrition Zone...';
 
         window.setTimeout(function(){
           location.replace(TARGET);
@@ -1239,14 +1106,6 @@ function go(url){
         const text = labelOf(el).toLowerCase();
         const id = String(el && el.id || '').toLowerCase();
         const cls = String(el && el.className || '').toLowerCase();
-        const action = String(
-          el && el.getAttribute && (
-            el.getAttribute('data-action') ||
-            el.getAttribute('data-next') ||
-            el.getAttribute('data-target') ||
-            ''
-          ) || ''
-        ).toLowerCase();
 
         return (
           id.includes('gatecontinue') ||
@@ -1257,7 +1116,6 @@ function go(url){
           id.includes('zone') ||
           id.includes('finish') ||
           id.includes('continue') ||
-
           cls.includes('next') ||
           cls.includes('done') ||
           cls.includes('back') ||
@@ -1265,15 +1123,6 @@ function go(url){
           cls.includes('zone') ||
           cls.includes('finish') ||
           cls.includes('continue') ||
-
-          action.includes('next') ||
-          action.includes('done') ||
-          action.includes('back') ||
-          action.includes('hub') ||
-          action.includes('zone') ||
-          action.includes('finish') ||
-          action.includes('continue') ||
-
           text.includes('กลับ') ||
           text.includes('โซน') ||
           text.includes('หน้าหลัก') ||
@@ -1329,36 +1178,6 @@ function go(url){
         );
       }
 
-      function patchBootButtons(){
-        const actions = document.getElementById('gateBootActions');
-        const continueBtn = document.getElementById('gateContinueBtn');
-        const backBtn = document.getElementById('gateBackBtn');
-
-        if(actions) actions.style.display = 'flex';
-
-        if(continueBtn){
-          continueBtn.textContent = 'กลับ Nutrition Zone';
-          continueBtn.onclick = function(e){
-            if(e){
-              e.preventDefault();
-              e.stopPropagation();
-            }
-            go('gate-continue-button');
-          };
-        }
-
-        if(backBtn){
-          backBtn.textContent = 'กลับ Nutrition Zone';
-          backBtn.onclick = function(e){
-            if(e){
-              e.preventDefault();
-              e.stopPropagation();
-            }
-            go('gate-back-button');
-          };
-        }
-      }
-
       function tick(){
         if(fired) return;
 
@@ -1380,19 +1199,13 @@ function go(url){
 
         ev.preventDefault();
         ev.stopPropagation();
-
-        if(ev.stopImmediatePropagation){
-          ev.stopImmediatePropagation();
-        }
+        if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
         go('captured-return-click');
 
         return false;
       }, true);
 
-      /*
-        เผื่อ gate-core เรียกชื่อ function กลางเหล่านี้
-      */
       window.goDone = function(){ go('goDone'); };
       window.goNext = function(){ go('goNext'); };
       window.goBack = function(){ go('goBack'); };
@@ -1416,10 +1229,6 @@ function go(url){
 
       intervalId = window.setInterval(tick, 300);
 
-      /*
-        ไม่ timeout เร็วเกินไป เพื่อไม่ข้าม cooldown ของเด็ก
-        แต่หยุด watcher หลัง 2 นาทีถ้าไม่มีอะไรเกิดขึ้น
-      */
       window.setTimeout(function(){
         if(!fired && intervalId){
           clearInterval(intervalId);
@@ -1427,17 +1236,11 @@ function go(url){
         }
       }, 120000);
 
-      window.addEventListener('DOMContentLoaded', function(){
-        patchBootButtons();
-        tick();
-      });
-
+      window.addEventListener('DOMContentLoaded', tick);
       window.addEventListener('load', tick);
       window.addEventListener('pageshow', tick);
 
       markButtons();
-      patchBootButtons();
-
       window.setTimeout(tick, 80);
       window.setTimeout(tick, 400);
       window.setTimeout(tick, 1000);
@@ -1445,124 +1248,106 @@ function go(url){
     })();
   </script>
 
-  <script src="./warmup-gate-cooldown-once-force-patch.js?v=20260518-plate-return-final"></script>
+  <script src="./warmup-gate-cooldown-once-force-patch.js?v=20260605-gate-final"></script>
 
   <script>
-/* =========================================================
-   HeroHealth Gate Patch
-   File: /herohealth/warmup-gate.html
-   Version: v20260518-pack30-hydration-gate-return-force
-
-   Purpose:
-   - บังคับ Hydration cooldown gate ให้กลับ Nutrition Zone เท่านั้น
-   - กันกลับ hub.html / run.html / hydration launcher
-   - ทำงานเฉพาะ game=hydration + phase=cooldown
-   ========================================================= */
-
-(function(){
-  'use strict';
-
-  var PATCH = 'v20260518-pack30-hydration-gate-return-force';
-
-  if(window.HHA_HYDRATION_GATE_RETURN_FIX_PACK30_LOADED){
-    return;
-  }
-  window.HHA_HYDRATION_GATE_RETURN_FIX_PACK30_LOADED = true;
-
-  var q = new URLSearchParams(location.search || '');
-
-  var game = String(
-    q.get('game') ||
-    q.get('gameId') ||
-    q.get('theme') ||
-    q.get('fromGame') ||
-    ''
-  ).toLowerCase();
-
-  var phase = String(
-    q.get('phase') ||
-    q.get('gatePhase') ||
-    q.get('studyPhase') ||
-    ''
-  ).toLowerCase();
-
-  var forceReturn = String(q.get('forceReturn') || '').toLowerCase();
-
-  var isHydrationCooldown =
-    game === 'hydration' &&
-    phase === 'cooldown';
-
-  if(!isHydrationCooldown && forceReturn !== 'nutrition-zone'){
-    return;
-  }
-
-  function heroBase(){
-    try{
-      var marker = '/herohealth/';
-      var idx = location.pathname.indexOf(marker);
-
-      if(idx >= 0){
-        return location.origin + location.pathname.slice(0, idx + marker.length);
-      }
-
-      return new URL('./', location.href).toString();
-    }catch(e){
-      return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
-    }
-  }
-
-  function nutritionZoneUrl(){
-    var u = new URL('nutrition-zone.html', heroBase());
-
-    [
-      'pid',
-      'name',
-      'nick',
-      'diff',
-      'time',
-      'view',
-      'log',
-      'api',
-      'studyId',
-      'conditionGroup'
-    ].forEach(function(k){
-      var v = q.get(k);
-      if(v){
-        u.searchParams.set(k, v);
-      }
-    });
-
     /*
-      หน้า Nutrition Zone ให้ hub หลักเป็น hub.html
-      ไม่เอา cooldown gate เป็น hub อีก
+      === HYDRATION COOLDOWN RETURN NUTRITION ZONE ===
     */
-    u.searchParams.set('hub', new URL('hub.html', heroBase()).toString());
+    (function(){
+      'use strict';
 
-    return u.toString();
-  }
+      var PATCH = 'v20260605-hydration-gate-return-force';
 
-  var target = nutritionZoneUrl();
+      if(window.HHA_HYDRATION_GATE_RETURN_FIX_PACK30_LOADED) return;
+      window.HHA_HYDRATION_GATE_RETURN_FIX_PACK30_LOADED = true;
 
-  /*
-    ใส่ global force ไว้ให้ gate-core / gate modules ใช้ได้
-  */
-  window.HH_GATE_FORCE_NEXT = target;
-  window.HH_GATE_FORCE_BACK = target;
-  window.HH_GATE_FORCE_HUB = target;
+      var q = new URLSearchParams(location.search || '');
 
-  window.HHA_GATE_BOOT = window.HHA_GATE_BOOT || {};
-  window.HHA_GATE_BOOT.nextHref = target;
-  window.HHA_GATE_BOOT.backHref = target;
-  window.HHA_GATE_BOOT.hubHref = target;
-  window.HHA_GATE_BOOT.hydrationCooldownReturnFix = PATCH;
+      var game = String(
+        q.get('game') ||
+        q.get('gameId') ||
+        q.get('theme') ||
+        q.get('fromGame') ||
+        ''
+      ).toLowerCase();
 
-  function markLinks(){
-    try{
-      document.querySelectorAll('a[href], button, [role="button"]').forEach(function(el){
-        var text = String(el.textContent || '').toLowerCase();
-        var href = String(el.getAttribute && el.getAttribute('href') || '').toLowerCase();
+      var phase = String(
+        q.get('phase') ||
+        q.get('gatePhase') ||
+        q.get('studyPhase') ||
+        ''
+      ).toLowerCase();
 
-        var looksReturn =
+      var forceReturn = String(q.get('forceReturn') || '').toLowerCase();
+
+      var isHydrationCooldown =
+        game === 'hydration' &&
+        phase === 'cooldown';
+
+      if(!isHydrationCooldown && forceReturn !== 'nutrition-zone') return;
+
+      function heroBase(){
+        try{
+          var marker = '/herohealth/';
+          var idx = location.pathname.indexOf(marker);
+
+          if(idx >= 0){
+            return location.origin + location.pathname.slice(0, idx + marker.length);
+          }
+
+          return new URL('./', location.href).toString();
+        }catch(e){
+          return 'https://supparang.github.io/webxr-health-mobile/herohealth/';
+        }
+      }
+
+      function nutritionZoneUrl(){
+        var u = new URL('nutrition-zone.html', heroBase());
+
+        [
+          'pid',
+          'name',
+          'nick',
+          'diff',
+          'time',
+          'view',
+          'log',
+          'api',
+          'studyId',
+          'conditionGroup'
+        ].forEach(function(k){
+          var v = q.get(k);
+          if(v) u.searchParams.set(k, v);
+        });
+
+        u.searchParams.set('hub', new URL('hub.html', heroBase()).toString());
+
+        return u.toString();
+      }
+
+      var target = nutritionZoneUrl();
+
+      window.HH_GATE_FORCE_NEXT = target;
+      window.HH_GATE_FORCE_BACK = target;
+      window.HH_GATE_FORCE_HUB = target;
+
+      window.HHA_GATE_BOOT = window.HHA_GATE_BOOT || {};
+      window.HHA_GATE_BOOT.nextHref = target;
+      window.HHA_GATE_BOOT.backHref = target;
+      window.HHA_GATE_BOOT.hubHref = target;
+      window.HHA_GATE_BOOT.hydrationCooldownReturnFix = PATCH;
+
+      function isReturnButton(el){
+        if(!el || !el.closest) return false;
+
+        var btn = el.closest('button, a, [role="button"]');
+        if(!btn) return false;
+
+        var text = String(btn.textContent || '').toLowerCase();
+        var href = String(btn.getAttribute && btn.getAttribute('href') || '').toLowerCase();
+
+        return (
           text.indexOf('ไปต่อ') !== -1 ||
           text.indexOf('กลับ') !== -1 ||
           text.indexOf('continue') !== -1 ||
@@ -1573,129 +1358,48 @@ function go(url){
           text.indexOf('จบ') !== -1 ||
           href.indexOf('hub.html') !== -1 ||
           href.indexOf('nutrition-zone.html') !== -1 ||
-          href.indexOf('run.html') !== -1;
+          href.indexOf('run.html') !== -1
+        );
+      }
 
-        if(!looksReturn) return;
-
-        el.dataset.hhaHydrationGateReturnForce = PATCH;
-
-        if(el.tagName === 'A'){
-          el.setAttribute('href', target);
+      function goTarget(ev){
+        if(ev){
+          try{ ev.preventDefault(); }catch(e){}
+          try{ ev.stopPropagation(); }catch(e){}
+          try{
+            if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
+          }catch(e){}
         }
-      });
-    }catch(e){}
-  }
 
-  function isReturnButton(el){
-    if(!el || !el.closest) return false;
+        location.href = target;
+        return false;
+      }
 
-    var btn = el.closest('button, a, [role="button"]');
-    if(!btn) return false;
+      window.addEventListener('click', function(ev){
+        if(isReturnButton(ev.target)) return goTarget(ev);
+      }, true);
 
-    var text = String(btn.textContent || '').toLowerCase();
-    var href = String(btn.getAttribute && btn.getAttribute('href') || '').toLowerCase();
+      window.addEventListener('pointerup', function(ev){
+        if(isReturnButton(ev.target)) return goTarget(ev);
+      }, true);
 
-    return (
-      btn.dataset.hhaHydrationGateReturnForce === PATCH ||
-      text.indexOf('ไปต่อ') !== -1 ||
-      text.indexOf('กลับ') !== -1 ||
-      text.indexOf('continue') !== -1 ||
-      text.indexOf('next') !== -1 ||
-      text.indexOf('zone') !== -1 ||
-      text.indexOf('nutrition') !== -1 ||
-      text.indexOf('เสร็จ') !== -1 ||
-      text.indexOf('จบ') !== -1 ||
-      href.indexOf('hub.html') !== -1 ||
-      href.indexOf('nutrition-zone.html') !== -1 ||
-      href.indexOf('run.html') !== -1
-    );
-  }
+      window.addEventListener('touchend', function(ev){
+        if(isReturnButton(ev.target)) return goTarget(ev);
+      }, { passive:false, capture:true });
 
-  function goTarget(ev){
-    if(ev){
-      try{ ev.preventDefault(); }catch(e){}
-      try{ ev.stopPropagation(); }catch(e){}
+      window.HHA_HYDRATION_GATE_RETURN_TARGET = target;
+      window.HHA_HYDRATION_GATE_RETURN_FIX = {
+        version: PATCH,
+        target: target,
+        go: goTarget
+      };
 
-      try{
-        if(ev.stopImmediatePropagation){
-          ev.stopImmediatePropagation();
-        }
-      }catch(e){}
-    }
+      console.info('[Hydration Gate] force return to:', target);
+    })();
+  </script>
 
-    location.href = target;
-
-    return false;
-  }
-
-  window.addEventListener('click', function(ev){
-    if(isReturnButton(ev.target)){
-      return goTarget(ev);
-    }
-  }, true);
-
-  window.addEventListener('pointerup', function(ev){
-    if(isReturnButton(ev.target)){
-      return goTarget(ev);
-    }
-  }, true);
-
-  window.addEventListener('touchend', function(ev){
-    if(isReturnButton(ev.target)){
-      return goTarget(ev);
-    }
-  }, { passive:false, capture:true });
-
-  document.addEventListener('click', function(ev){
-    if(isReturnButton(ev.target)){
-      return goTarget(ev);
-    }
-  }, true);
-
-  var mo = new MutationObserver(function(){
-    markLinks();
-  });
-
-  if(document.body){
-    mo.observe(document.body, {
-      childList:true,
-      subtree:true,
-      attributes:true,
-      attributeFilter:['href','class','style']
-    });
-  }else{
-    document.addEventListener('DOMContentLoaded', function(){
-      try{
-        mo.observe(document.body, {
-          childList:true,
-          subtree:true,
-          attributes:true,
-          attributeFilter:['href','class','style']
-        });
-      }catch(e){}
-      markLinks();
-    }, { once:true });
-  }
-
-  markLinks();
-  setInterval(markLinks, 900);
-
-  window.HHA_HYDRATION_GATE_RETURN_TARGET = target;
-  window.HHA_HYDRATION_GATE_RETURN_FIX = {
-    version: PATCH,
-    target: target,
-    go: goTarget,
-    markLinks: markLinks
-  };
-
-  console.info('[Hydration Gate Pack30] force return to:', target);
-})();
-</script>
-
-    <!-- <script src="./goodjunk-mobile-cooldown-gate-summary-return-final.js?v=20260526"></script> -->
-
-    <script type="module">
-      import bootGate from './gate/gate-core.js?v=20260503n-gate-core-goodjunk-flow';
+  <script type="module">
+    import bootGate from './gate/gate-core.js?v=20260605-gate-core-goodjunk-pc-mobile-final';
 
     const root = document.getElementById('gate-app');
     const status = document.getElementById('gateBootStatusText');
@@ -1716,94 +1420,8 @@ function go(url){
       }
     }
   </script>
-  <!-- ปิดไฟล์เก่าไว้ก่อน เพราะอาจ override path ผิด -->
-<!-- <script src="./goodjunk-mobile-cooldown-gate-summary-return-final.js?v=20260526"></script> -->
 
-<script>
-/* GoodJunk cooldown hard lock final */
-(function(){
-  'use strict';
-
-  const GOODJUNK_LAUNCHER =
-    'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
-
-  function isGoodJunkCooldown(){
-    const qs = new URLSearchParams(location.search || '');
-    const game = String(qs.get('game') || qs.get('gameId') || qs.get('theme') || '').toLowerCase();
-    const phase = String(qs.get('phase') || qs.get('gatePhase') || '').toLowerCase();
-    return game === 'goodjunk' && phase === 'cooldown';
-  }
-
-  if(!isGoodJunkCooldown()) return;
-
-  function fixedUrl(){
-    const qs = new URLSearchParams(location.search || '');
-    const u = new URL(GOODJUNK_LAUNCHER);
-
-    u.searchParams.set('pid', qs.get('pid') || 'anon');
-    u.searchParams.set('name', qs.get('name') || qs.get('nick') || 'Hero');
-    u.searchParams.set('diff', qs.get('diff') || 'normal');
-    u.searchParams.set('time', qs.get('time') || '120');
-    u.searchParams.set('view', qs.get('view') || 'mobile');
-    u.searchParams.set('zone', 'nutrition');
-    u.searchParams.set('cat', 'nutrition');
-    u.searchParams.set('game', 'goodjunk');
-    u.searchParams.set('gameId', 'goodjunk');
-    u.searchParams.set('mode', 'solo');
-    u.searchParams.set('entry', 'cooldown-return');
-
-    return u.toString();
-  }
-
-  const TARGET = fixedUrl();
-
-  window.HH_GATE_FORCE_NEXT = TARGET;
-  window.HH_GATE_FORCE_BACK = TARGET;
-  window.HH_GATE_FORCE_HUB = TARGET;
-
-  window.HHA_GATE_GO_NEXT = function(){ location.replace(TARGET); };
-  window.HHA_GATE_GO_BACK = function(){ location.replace(TARGET); };
-  window.HHA_GATE_GO_HUB = function(){ location.replace(TARGET); };
-  window.goNext = function(){ location.replace(TARGET); };
-  window.goBack = function(){ location.replace(TARGET); };
-  window.goHub = function(){ location.replace(TARGET); };
-  window.finishGate = function(){ location.replace(TARGET); };
-  window.finishCooldown = function(){ location.replace(TARGET); };
-  window.completeCooldown = function(){ location.replace(TARGET); };
-
-  document.addEventListener('click', function(ev){
-    const el = ev.target && ev.target.closest
-      ? ev.target.closest('a,button,[role="button"]')
-      : null;
-
-    if(!el) return;
-
-    const text = String(
-      el.textContent ||
-      el.getAttribute('aria-label') ||
-      el.getAttribute('title') ||
-      ''
-    ).replace(/\s+/g,' ').trim();
-
-    if(
-      text.includes('กลับ') ||
-      text.includes('ไปต่อ') ||
-      text.includes('เสร็จ') ||
-      text.includes('จบ') ||
-      text.includes('Home') ||
-      text.includes('Zone') ||
-      text.includes('โหมด') ||
-      text.includes('GoodJunk')
-    ){
-      ev.preventDefault();
-      ev.stopPropagation();
-      if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-      location.replace(TARGET);
-    }
-  }, true);
-
-  console.log('[GoodJunk cooldown hard lock final]', TARGET);
-})();
-</script>
+  <!-- ปิดไฟล์เก่า เพราะเคย override path GoodJunk ผิด -->
+  <!-- <script src="./goodjunk-mobile-cooldown-gate-summary-return-final.js?v=20260526"></script> -->
 </body>
 </html>
