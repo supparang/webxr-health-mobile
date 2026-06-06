@@ -936,7 +936,114 @@
 
     init();
   })();
-  </script>
+    </script>
 
+  <script>
+  /* === PATCH v20260606-PLATE-SUMMARY-MOBILE-FINAL-POLISH === */
+  (function(){
+    'use strict';
+
+    const PATCH_VERSION = '20260606-PLATE-SUMMARY-MOBILE-FINAL-POLISH';
+
+    function $(id){
+      return document.getElementById(id);
+    }
+
+    function isOpen(el){
+      return el && !el.classList.contains('hidden');
+    }
+
+    function compactCoachText(){
+      const coach = $('coachTip');
+      if(!coach) return;
+
+      const raw = coach.textContent || '';
+
+      if(raw.includes('ฟอร์มดีมาก')){
+        coach.innerHTML =
+          '<b>AI Coach:</b> ฟอร์มดีมาก จานสมดุลครบและคุม junk ได้ดี รอบหน้าลองเพิ่มระดับ hard/challenge';
+        return;
+      }
+
+      if(raw.includes('มองช่องจาน')){
+        coach.innerHTML =
+          '<b>AI Coach:</b> รอบหน้ามองช่องจานก่อน แล้วเลือกเฉพาะหมู่ที่ยังเป็น ○ เพื่อลดการกดซ้ำ';
+        return;
+      }
+
+      if(raw.includes('เริ่มจากหมู่')){
+        coach.innerHTML =
+          '<b>AI Coach:</b> เริ่มจากหมู่ที่เห็นชัด เช่น โปรตีน/คาร์บ แล้วค่อยเติมหมู่ที่เหลือ';
+        return;
+      }
+
+      if(raw.includes('เก็บ combo')){
+        coach.innerHTML =
+          '<b>AI Coach:</b> เก็บ combo ต่อเนื่องเพื่อเปิด Fever และตีบอสให้ทัน';
+      }
+    }
+
+    function polishSummary(){
+      const overlay = $('summaryOverlay');
+      const card = overlay ? overlay.querySelector('.overlayCard') : null;
+
+      if(!overlay || !card) return;
+
+      if(isOpen(overlay)){
+        document.body.classList.add('plate-summary-open');
+
+        requestAnimationFrame(function(){
+          card.scrollTop = 0;
+          compactCoachText();
+
+          const actions = overlay.querySelector('.actions');
+          if(actions){
+            actions.style.position = 'sticky';
+            actions.style.bottom = '0';
+            actions.style.zIndex = '10';
+          }
+        });
+      }else{
+        document.body.classList.remove('plate-summary-open');
+      }
+    }
+
+    function closeSummaryMode(){
+      document.body.classList.remove('plate-summary-open');
+    }
+
+    function boot(){
+      const overlay = $('summaryOverlay');
+
+      if(!overlay) return;
+
+      const observer = new MutationObserver(polishSummary);
+
+      observer.observe(overlay, {
+        attributes:true,
+        attributeFilter:['class']
+      });
+
+      ['againBtn','cooldownBtn','backLauncherBtn','backZoneBtn'].forEach(function(id){
+        const btn = $(id);
+        if(btn){
+          btn.addEventListener('click', closeSummaryMode, true);
+        }
+      });
+
+      polishSummary();
+
+      try{
+        console.info('[Plate Summary Polish]', PATCH_VERSION);
+      }catch(e){}
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', boot);
+    }else{
+      boot();
+    }
+  })();
+  </script>
 </body>
 </html>
