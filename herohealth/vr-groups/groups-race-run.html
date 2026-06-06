@@ -753,7 +753,85 @@
       </section>
     </section>
   </main>
+  <script>
+/* =========================================================
+   Groups Race Dev Pre-Room Seed
+   PATCH: v20260606-GROUPS-RACE-PRE-ROOM-SEED-V15
+   ต้องมาก่อน main v09 inline script
+========================================================= */
+(function(){
+  'use strict';
 
+  const PATCH = 'v20260606-GROUPS-RACE-PRE-ROOM-SEED-V15';
+  const qs = new URLSearchParams(location.search || '');
+
+  const devMode =
+    qs.get('mock') === '1' ||
+    qs.get('dev') === '1' ||
+    qs.get('bot') === '1' ||
+    qs.get('testBot') === '1';
+
+  if (!devMode) return;
+
+  function norm(v){
+    return String(v || '').trim();
+  }
+
+  function makeRoom(){
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let out = 'R';
+    for (let i = 0; i < 5; i++) {
+      out += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return out;
+  }
+
+  let room = norm(
+    qs.get('roomId') ||
+    qs.get('room') ||
+    qs.get('code') ||
+    sessionStorage.getItem('HHA_GROUPS_RACE_ROOM') ||
+    sessionStorage.getItem('HHA_GROUPS_RACE_ROOM_CODE') ||
+    localStorage.getItem('HHA_GROUPS_RACE_ROOM_CODE') ||
+    localStorage.getItem('HHA_GROUPS_RACE_ROOM') ||
+    ''
+  ).toUpperCase();
+
+  if (!room) room = makeRoom();
+
+  const name = norm(qs.get('name') || qs.get('playerName') || 'Hero') || 'Hero';
+
+  try {
+    sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', room);
+    sessionStorage.setItem('HHA_GROUPS_RACE_ROOM_CODE', room);
+    sessionStorage.setItem('HHA_GROUPS_RACE_NAME', name);
+
+    localStorage.setItem('HHA_GROUPS_RACE_ROOM', room);
+    localStorage.setItem('HHA_GROUPS_RACE_ROOM_CODE', room);
+    localStorage.setItem('HHA_RACE_ROOM', room);
+    localStorage.setItem('HHA_GROUPS_RACE_PLAYER_NAME', name);
+    localStorage.setItem('HHA_GROUPS_RACE_DEV_BOT', '1');
+  } catch(e) {}
+
+  window.__HHA_GROUPS_RACE_ROOM_CODE__ = room;
+  window.__HHA_GROUPS_RACE_ROOM__ = room;
+
+  try {
+    const url = new URL(location.href);
+    url.searchParams.set('room', room);
+    url.searchParams.set('roomId', room);
+    url.searchParams.set('code', room);
+    url.searchParams.set('mock', '1');
+    history.replaceState(null, '', url.toString());
+  } catch(e) {}
+
+  console.info('[GroupsRacePreRoomSeed]', {
+    patch: PATCH,
+    room: room,
+    name: name
+  });
+})();
+</script>
   <script src="./groups-race-firebase-boot-v44.js?v=20260519-race-firebase-boot-v44"></script>
   <script src="./groups-race-room-lifecycle-v43.js?v=20260519-race-v43-lifecycle"></script>
   <script src="./groups-race-run-freeze-guard.js?v=20260521-guard01"></script>
@@ -762,384 +840,10 @@
   <script src="./groups-race-run-safe-waiting-ui.js?v=20260527-safeui05"></script>
   <script src="./groups-race-player-band-v01.js?v=20260527-band01"></script>
 
-  <script>
-    /* =========================================================
-       Groups Race Run Inline Stabilizer
-       PATCH: v20260527-race-run-inline-stabilizer-09
-       - Must be LAST script
-       - Forces Room/Player UI
-       - Fixes white/blank render
-       - Keeps existing Race logic untouched
-    ========================================================= */
-    (function(){
-      'use strict';
-
-      const PATCH_ID = 'v20260527-race-run-inline-stabilizer-09';
-
-      if (window.__HHA_RACE_RUN_INLINE_STABILIZER_09__) return;
-      window.__HHA_RACE_RUN_INLINE_STABILIZER_09__ = true;
-
-      const qs = new URLSearchParams(location.search);
-
-      function $(id){ return document.getElementById(id); }
-
-      function esc(s){
-        return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
-          '&':'&amp;',
-          '<':'&lt;',
-          '>':'&gt;',
-          '"':'&quot;',
-          "'":'&#39;'
-        }[c]));
-      }
-
-      function getRoom(){
-        return String(
-          qs.get('roomId') ||
-          qs.get('room') ||
-          qs.get('code') ||
-          sessionStorage.getItem('HHA_GROUPS_RACE_ROOM') ||
-          ''
-        ).trim().toUpperCase();
-      }
-
-      function getName(){
-        return String(
-          qs.get('name') ||
-          qs.get('playerName') ||
-          sessionStorage.getItem('HHA_GROUPS_RACE_NAME') ||
-          'Hero'
-        ).trim() || 'Hero';
-      }
-
-      function repoBase(){
-        const path = location.pathname || '';
-        const marker = '/herohealth/';
-        const idx = path.indexOf(marker);
-
-        if (idx >= 0) return location.origin + path.slice(0, idx);
-        return location.origin + '/webxr-health-mobile';
-      }
-
-      function buildUrl(path, extra){
-        const out = new URL(repoBase() + '/herohealth/' + path.replace(/^\/+/, ''));
-
-        out.searchParams.set('roomId', getRoom());
-        out.searchParams.set('room', getRoom());
-        out.searchParams.set('name', getName());
-        out.searchParams.set('diff', qs.get('diff') || 'normal');
-        out.searchParams.set('timeSec', qs.get('timeSec') || qs.get('time') || '90');
-        out.searchParams.set('time', qs.get('time') || qs.get('timeSec') || '90');
-        out.searchParams.set('mode', 'race');
-        out.searchParams.set('view', qs.get('view') || 'pc');
-        out.searchParams.set('game', 'groups');
-        out.searchParams.set('gameId', 'groups');
-        out.searchParams.set('raceBand', qs.get('raceBand') || 'standard');
-        out.searchParams.set('band', qs.get('band') || 'standard');
-
-        Object.keys(extra || {}).forEach(k => out.searchParams.set(k, String(extra[k])));
-
-        return out.toString();
-      }
-
-      function forceBaseVisible(){
-        document.documentElement.style.background = '#071a52';
-        document.documentElement.style.minHeight = '100%';
-        document.documentElement.style.overflow = 'auto';
-
-        document.body.style.background =
-          'linear-gradient(180deg,#030b26,#071a52 52%,#0c2d84)';
-        document.body.style.minHeight = '100vh';
-        document.body.style.overflow = 'auto';
-        document.body.style.display = 'block';
-        document.body.style.opacity = '1';
-        document.body.style.visibility = 'visible';
-        document.body.style.color = '#f8fbff';
-
-        const page = $('page') || document.querySelector('.page');
-        if (page) {
-          page.style.display = 'grid';
-          page.style.opacity = '1';
-          page.style.visibility = 'visible';
-          page.style.transform = 'none';
-          page.style.position = 'relative';
-          page.style.zIndex = '1';
-        }
-      }
-
-      function countPlayersFromDom(){
-        const list = $('playersList');
-        if (!list) return 0;
-
-        const cards = Array.from(list.querySelectorAll('.player')).filter(card => {
-          const t = String(card.textContent || '');
-          if (!t.trim()) return false;
-          if (t.includes('กำลังโหลดข้อมูลผู้เล่น')) return false;
-          if (t.includes('รอข้อมูลจาก Firebase')) return false;
-          return true;
-        });
-
-        return cards.length || 0;
-      }
-
-      function renderLocalPlayerIfNeeded(){
-        const room = getRoom();
-        const name = getName();
-        const list = $('playersList');
-
-        if (!list) return;
-
-        const text = String(list.textContent || '');
-
-        if (
-          !text.trim() ||
-          text.includes('กำลังโหลดข้อมูลผู้เล่น') ||
-          text.includes('รอข้อมูลจาก Firebase') ||
-          !text.includes(name)
-        ) {
-          list.innerHTML =
-            '<div class="player" data-inline-player="1">' +
-              '<div class="left">' +
-                '<div class="avatar">🏁</div>' +
-                '<div>' +
-                  '<div class="name">' + esc(name) + '</div>' +
-                  '<div class="tag">Host / waiting • room ' + esc(room || '-') + '</div>' +
-                '</div>' +
-              '</div>' +
-              '<div class="right wait">รอเพื่อน</div>' +
-            '</div>';
-        }
-      }
-
-      function paintWaitingRoom(){
-        const room = getRoom();
-        const name = getName();
-
-        try {
-          if (room) sessionStorage.setItem('HHA_GROUPS_RACE_ROOM', room);
-          if (name) sessionStorage.setItem('HHA_GROUPS_RACE_NAME', name);
-          sessionStorage.setItem('HHA_GROUPS_RACE_BAND', 'standard');
-          sessionStorage.setItem('HHA_GROUPS_RACE_MIN_PLAYERS', '2');
-          sessionStorage.setItem('HHA_GROUPS_RACE_MAX_PLAYERS', '4');
-        } catch(e) {}
-
-        const metaRoom = $('metaRoom');
-        const metaName = $('metaName');
-        const status = $('statusMsg');
-        const state = $('roomState');
-        const countdown = $('countdown');
-        const bandPill = $('raceBandPill');
-
-        if (metaRoom) {
-          metaRoom.textContent = room || '-';
-          metaRoom.style.outline = '2px solid rgba(99,217,155,.32)';
-        }
-
-        if (metaName) {
-          metaName.textContent = name || 'Hero';
-          metaName.style.outline = '2px solid rgba(99,217,155,.32)';
-        }
-
-        if (countdown) {
-          countdown.className = 'count wait';
-          countdown.textContent = 'รอ';
-        }
-
-        renderLocalPlayerIfNeeded();
-
-        const count = countPlayersFromDom() || 1;
-
-        if (status) {
-          if (count >= 2) {
-            status.className = 'status-text ok';
-            status.textContent = 'พร้อมแข่งแล้ว • ผู้เล่นครบอย่างน้อย 2 คน';
-          } else {
-            status.className = 'status-text warn';
-            status.textContent = room
-              ? 'เข้าห้องแล้ว: ' + room + ' • ผู้เล่น: ' + name + ' • รอเพื่อนเข้าห้องเดียวกัน'
-              : 'ไม่พบ Room Code ใน URL';
-          }
-        }
-
-        if (state) {
-          state.textContent = count >= 2
-            ? 'ผู้เล่นครบแล้ว (' + count + ' คน) • Host กดเริ่มแข่งได้'
-            : 'ห้อง ' + (room || '-') + ' พร้อมแล้ว • Race Standard ต้องมี 2–4 คนก่อนเริ่ม';
-        }
-
-        if (bandPill) {
-          bandPill.textContent = '🏁 Race Standard 2–4';
-        }
-
-        window.__HHA_RACE_RUN_INLINE_STATE__ = {
-          patch: PATCH_ID,
-          room,
-          name,
-          playerCount: count,
-          metaRoom: !!metaRoom,
-          metaName: !!metaName,
-          playersList: !!$('playersList'),
-          paintedAt: new Date().toISOString()
-        };
-      }
-
-      function patchButtons(){
-        const room = getRoom();
-        const name = getName();
-
-        const backLobby = $('btnBackLobby');
-        if (backLobby && !backLobby.__hhaInline09Bound) {
-          backLobby.__hhaInline09Bound = true;
-          backLobby.addEventListener('click', function(ev){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-
-            location.href = buildUrl('vr-groups/groups-race-lobby.html', {
-              from:'race-run-inline-stabilizer'
-            });
-
-            return false;
-          }, true);
-        }
-
-        const backHub = $('btnBackHub');
-        if (backHub && !backHub.__hhaInline09Bound) {
-          backHub.__hhaInline09Bound = true;
-          backHub.addEventListener('click', function(ev){
-            ev.preventDefault();
-            ev.stopPropagation();
-            if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-
-            location.href = buildUrl('groups-vr.html', {
-              from:'race-run-inline-stabilizer'
-            });
-
-            return false;
-          }, true);
-        }
-
-        const start = $('btnStartRace');
-        if (start && !start.__hhaInline09Bound) {
-          start.__hhaInline09Bound = true;
-          start.addEventListener('click', function(ev){
-            const count = countPlayersFromDom() || 1;
-
-            if (count < 2) {
-              ev.preventDefault();
-              ev.stopPropagation();
-              if (ev.stopImmediatePropagation) ev.stopImmediatePropagation();
-
-              const status = $('statusMsg');
-              if (status) {
-                status.className = 'status-text warn';
-                status.textContent = 'ยังเริ่มไม่ได้ • Race Standard ต้องมีอย่างน้อย 2 คน ตอนนี้มี 1 คน';
-              }
-
-              paintWaitingRoom();
-              return false;
-            }
-
-            return true;
-          }, true);
-        }
-      }
-
-      function rescueIfBlank(){
-        const page = $('page') || document.querySelector('.page');
-        if (!page) return;
-
-        const r = page.getBoundingClientRect();
-        const style = getComputedStyle(page);
-
-        const looksHidden =
-          style.display === 'none' ||
-          style.visibility === 'hidden' ||
-          Number(style.opacity) === 0 ||
-          r.height < 80;
-
-        if (!looksHidden) return;
-
-        let box = $('hhaRaceVisibleRescue');
-        if (!box) {
-          box = document.createElement('div');
-          box.id = 'hhaRaceVisibleRescue';
-          document.body.appendChild(box);
-        }
-
-        const room = getRoom();
-        const name = getName();
-
-        box.style.cssText = [
-          'position:fixed',
-          'inset:12px',
-          'z-index:9999999',
-          'overflow:auto',
-          'padding:16px',
-          'border-radius:24px',
-          'background:linear-gradient(180deg,rgba(10,22,66,.98),rgba(6,16,52,.98))',
-          'border:1px solid rgba(132,168,255,.24)',
-          'box-shadow:0 22px 60px rgba(0,0,0,.42)',
-          'color:#f8fbff',
-          'font-family:ui-rounded,Nunito,\"Noto Sans Thai\",system-ui,sans-serif'
-        ].join(';');
-
-        box.innerHTML =
-          '<div style="font-size:26px;font-weight:1000;margin-bottom:12px">🏁 Groups Race Waiting Room</div>' +
-          '<div style="border-radius:20px;background:rgba(255,255,255,.06);padding:16px;margin-bottom:12px">' +
-            '<div style="color:#95a7d6;font-weight:900">Room Code</div>' +
-            '<div style="font-size:36px;font-weight:1000">' + esc(room || '-') + '</div>' +
-          '</div>' +
-          '<div style="border-radius:20px;background:rgba(255,255,255,.06);padding:16px;margin-bottom:12px">' +
-            '<div style="color:#95a7d6;font-weight:900">Player</div>' +
-            '<div style="font-size:36px;font-weight:1000">' + esc(name) + '</div>' +
-          '</div>' +
-          '<div style="color:#ffe29b;font-weight:1000">เข้าห้องแล้ว • รอเพื่อนเข้าห้องเดียวกัน</div>';
-      }
-
-      function tick(){
-        forceBaseVisible();
-        paintWaitingRoom();
-        patchButtons();
-        rescueIfBlank();
-      }
-
-      function boot(){
-        tick();
-
-        [80,180,360,700,1200,2200,3600].forEach(ms => {
-          setTimeout(tick, ms);
-        });
-
-        setInterval(tick, 900);
-
-        window.addEventListener('resize', function(){
-          setTimeout(tick, 80);
-          setTimeout(tick, 300);
-        }, { passive:true });
-
-        window.addEventListener('orientationchange', function(){
-          setTimeout(tick, 250);
-          setTimeout(tick, 800);
-        }, { passive:true });
-
-        console.info('[Groups Race Inline Stabilizer]', PATCH_ID, {
-          room:getRoom(),
-          name:getName()
-        });
-      }
-
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot, { once:true });
-      } else {
-        boot();
-      }
-    })();
-  </script>
   <script src="./groups-race-start-sync-v10.js?v=20260604-start-sync-v10"></script>
   <script src="./groups-race-play-bridge-v11.js?v=20260604-play-bridge-v11"></script>
-  <script src="./groups-race-dev-room-v14.js?v=20260606-dev-room-v14"></script>
-  <script src="./groups-race-dev-bot-v12.js?v=20260604-dev-bot-v12"></script>
-  <script src="./groups-race-inline-start-unlock-v13.js?v=20260606-inline-start-unlock-v13"></script>
+  <script src="./groups-race-dev-room-v14.js?v=20260606-dev-room-v14c"></script>
+  <script src="./groups-race-dev-bot-v12.js?v=20260604-dev-bot-v12c"></script>
+  <script src="./groups-race-inline-start-unlock-v13.js?v=20260606-inline-start-unlock-v13c"></script>
 </body>
 </html>
