@@ -1,903 +1,851 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss-juice.js ===
-// GoodJunk Solo Boss Juice + Sound Addon
-// PATCH v8.40.3-SOUND-JUICE-PACK
-// ✅ WebAudio SFX no external mp3
-// ✅ combo / mission / shield / boss / victory cues
-// ✅ screen flash + hit pulse + floating juice text
-// ✅ mobile vibration when available
-// ✅ small mute toggle
-// ✅ works with v8.40.1 ultimate + v8.40.2 drama
-// ✅ no backend / no Apps Script
+// FULL PATCH v20260606-GOODJUNK-SOLO-BOSS-JUICE-SAFE-VIBRATION-V8403F
+// Purpose:
+// - เพิ่มความรู้สึกสนุก เร้าใจ: toast, screen shake, hit spark, combo flash, boss punch feedback
+// - แก้ Intervention: navigator.vibrate ถูก block เพราะเรียกก่อน user gesture
+// - vibrate/audio จะทำงานเฉพาะหลังผู้เล่นแตะ/คลิก/กดปุ่มแล้วเท่านั้น
+// - ไม่บังคับจบเกม ไม่เปิด summary เอง ไม่ยุ่งกับ win gate / summary restore
+// - ใช้ได้กับ goodjunk-solo-boss.html และ goodjunk-solo-boss-pc.html
 
 (function(){
   'use strict';
 
-  const WIN = window;
-  const DOC = document;
+  if(window.GJ_SOLO_BOSS_JUICE_V8403F_LOADED){
+    console.log('[GJ Juice] already loaded');
+    return;
+  }
 
-  const STORE_KEY = 'GJ_SOLO_BOSS_JUICE_SOUND_ON';
+  window.GJ_SOLO_BOSS_JUICE_V8403F_LOADED = true;
+
+  const PATCH = 'v20260606-GOODJUNK-SOLO-BOSS-JUICE-SAFE-VIBRATION-V8403F';
 
   const state = {
-    started:false,
-    unlocked:false,
-    soundOn:true,
+    gestureUnlocked:false,
+    audioUnlocked:false,
+    audioCtx:null,
+    muted:false,
+
+    lastToastAt:0,
+    lastShakeAt:0,
+    lastSparkAt:0,
+    lastComboFlashAt:0,
+    lastVibrateAt:0,
+    lastSoundAt:0,
+
     combo:0,
-    lastGoodAt:0,
-    lastHitAt:0,
-    frenzy:false,
-    defeated:false,
-    audio:null,
-    master:null
+    maxCombo:0,
+    goodHits:0,
+    junkHits:0,
+    fakeHits:0,
+    score:0,
+
+    installedAt:Date.now()
   };
 
-  try{
-    const saved = localStorage.getItem(STORE_KEY);
-    if(saved === '0') state.soundOn = false;
-  }catch(e){}
+  const CFG = {
+    toastMinGap:220,
+    shakeMinGap:180,
+    sparkMinGap:60,
+    comboFlashMinGap:260,
+    vibrateMinGap:260,
+    soundMinGap:90
+  };
 
   function now(){
-    return performance.now();
+    return Date.now();
   }
 
-  function clamp(v, a, b){
-    return Math.max(a, Math.min(b, v));
+  function qs(){
+    return new URLSearchParams(location.search || '');
   }
 
-  function ensureLayer(){
-    let root = DOC.getElementById('gjJuiceLayer');
-    if(root) return root;
+  function boolParam(name, fallback){
+    const q = qs();
+    const v = String(q.get(name) || '').toLowerCase();
 
-    root = DOC.createElement('div');
-    root.id = 'gjJuiceLayer';
-    root.innerHTML = `
-      <button class="gjj-mute" id="gjjMuteBtn" type="button" aria-label="toggle sound">
-        ${state.soundOn ? '🔊' : '🔇'}
-      </button>
+    if(v === '1' || v === 'true' || v === 'yes' || v === 'on') return true;
+    if(v === '0' || v === 'false' || v === 'no' || v === 'off') return false;
 
-      <div class="gjj-combo" id="gjjCombo">
-        <b id="gjjComboMain">COMBO!</b>
-        <span id="gjjComboSub">เลือกอาหารดีต่อเนื่อง</span>
-      </div>
+    return !!fallback;
+  }
 
-      <div class="gjj-center" id="gjjCenter">
-        <div class="gjj-center-icon" id="gjjCenterIcon">⭐</div>
-        <b id="gjjCenterMain">Nice!</b>
-        <span id="gjjCenterSub">ทำได้ดีมาก</span>
-      </div>
+  function viewMode(){
+    const q = qs();
+    return String(q.get('view') || q.get('device') || 'mobile').toLowerCase();
+  }
 
-      <div class="gjj-pop-root" id="gjjPopRoot"></div>
-    `;
+  function isMobileish(){
+    const v = viewMode();
+    return v === 'mobile' || v === 'phone' || v === 'touch';
+  }
 
-    DOC.body.appendChild(root);
+  function safeText(v){
+    return String(v == null ? '' : v);
+  }
 
-    if(!DOC.getElementById('gjJuiceStyle')){
-      const css = DOC.createElement('style');
-      css.id = 'gjJuiceStyle';
-      css.textContent = `
-        #gjJuiceLayer{
-          position:fixed;
-          inset:0;
-          z-index:99995;
-          pointer-events:none;
-          font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-        }
+  function clamp(n, min, max){
+    n = Number(n);
+    if(!Number.isFinite(n)) n = min;
+    return Math.max(min, Math.min(max, n));
+  }
 
-        .gjj-mute{
-          position:absolute;
-          right:calc(12px + env(safe-area-inset-right));
-          bottom:calc(96px + env(safe-area-inset-bottom));
-          z-index:2;
-          width:46px;
-          height:46px;
-          border-radius:999px;
-          border:2px solid rgba(255,255,255,.9);
-          background:rgba(15,23,42,.76);
-          color:#fff;
-          font-size:22px;
-          box-shadow:0 10px 24px rgba(15,23,42,.25);
-          pointer-events:auto;
-          cursor:pointer;
-          backdrop-filter:blur(8px);
-        }
+  function root(){
+    return document.getElementById('gjSoloBossMain') ||
+           document.querySelector('.gjm-root') ||
+           document.body ||
+           document.documentElement;
+  }
 
-        .gjj-mute:active{
-          transform:scale(.94);
-        }
+  function playArea(){
+    return document.getElementById('gjSoloBossArea') ||
+           document.querySelector('.gjm-area') ||
+           root();
+  }
 
-        .gjj-combo{
-          position:absolute;
-          left:50%;
-          top:calc(92px + env(safe-area-inset-top));
-          transform:translateX(-50%) translateY(-14px) scale(.9);
-          min-width:190px;
-          max-width:min(88vw,420px);
-          text-align:center;
-          border-radius:999px;
-          padding:10px 16px;
-          background:linear-gradient(135deg,rgba(255,255,255,.96),rgba(254,243,199,.94));
-          border:2px solid rgba(255,255,255,.9);
-          box-shadow:0 16px 34px rgba(15,23,42,.22);
-          color:#0f172a;
-          opacity:0;
-          transition:opacity .16s ease, transform .16s ease;
-        }
+  function dispatch(name, detail){
+    try{
+      window.dispatchEvent(new CustomEvent(name, {
+        detail:detail || {}
+      }));
+    }catch(_){}
+  }
 
-        .gjj-combo.show{
-          opacity:1;
-          transform:translateX(-50%) translateY(0) scale(1);
-        }
+  function unlockByGesture(reason){
+    if(state.gestureUnlocked) return;
 
-        .gjj-combo b{
-          display:block;
-          font-size:22px;
-          line-height:1;
-          letter-spacing:.03em;
-        }
+    state.gestureUnlocked = true;
 
-        .gjj-combo span{
-          display:block;
-          margin-top:4px;
-          font-size:12px;
-          font-weight:800;
-          color:#2563eb;
-        }
+    try{
+      document.documentElement.dataset.gjGestureUnlocked = '1';
+      if(document.body) document.body.dataset.gjGestureUnlocked = '1';
+    }catch(_){}
 
-        .gjj-center{
-          position:absolute;
-          left:50%;
-          top:45%;
-          transform:translate(-50%,-50%) scale(.78);
-          width:min(430px, calc(100vw - 30px));
-          text-align:center;
-          border-radius:30px;
-          padding:18px 16px;
-          background:rgba(15,23,42,.86);
-          border:2px solid rgba(255,255,255,.82);
-          box-shadow:0 24px 58px rgba(15,23,42,.34);
-          color:#fff;
-          opacity:0;
-          transition:opacity .15s ease, transform .15s ease;
-        }
+    try{
+      localStorage.setItem('GJ_GESTURE_UNLOCKED_LAST', JSON.stringify({
+        patch:PATCH,
+        reason:reason || 'gesture',
+        at:new Date().toISOString()
+      }));
+    }catch(_){}
 
-        .gjj-center.show{
-          opacity:1;
-          transform:translate(-50%,-50%) scale(1);
-        }
+    console.log('[GJ Juice] gesture unlocked:', reason || 'gesture');
+  }
 
-        .gjj-center-icon{
-          font-size:48px;
-          line-height:1;
-          animation:gjjIconBob .64s ease infinite alternate;
-        }
+  function bindGestureUnlock(){
+    const unlock = function(ev){
+      unlockByGesture(ev && ev.type ? ev.type : 'gesture');
+      tryUnlockAudio('gesture-' + (ev && ev.type || 'event'));
+    };
 
-        .gjj-center b{
-          display:block;
-          margin-top:6px;
-          font-size:26px;
-          line-height:1.12;
-        }
-
-        .gjj-center span{
-          display:block;
-          margin-top:7px;
-          font-size:14px;
-          font-weight:800;
-          color:#fde68a;
-        }
-
-        .gjj-pop-root{
-          position:absolute;
-          inset:0;
-        }
-
-        .gjj-pop{
-          position:absolute;
-          left:50%;
-          top:50%;
-          transform:translate(-50%,-50%);
-          font-weight:1000;
-          font-size:25px;
-          color:#fff;
-          text-shadow:0 5px 16px rgba(0,0,0,.46);
-          animation:gjjPop .82s ease forwards;
-          white-space:nowrap;
-        }
-
-        .gjj-ring{
-          position:absolute;
-          left:50%;
-          top:50%;
-          width:30px;
-          height:30px;
-          border-radius:999px;
-          border:4px solid rgba(255,255,255,.92);
-          transform:translate(-50%,-50%) scale(.2);
-          opacity:.95;
-          animation:gjjRing .58s ease-out forwards;
-        }
-
-        .gjj-flash{
-          position:fixed;
-          inset:0;
-          z-index:99960;
-          pointer-events:none;
-          opacity:0;
-          animation:gjjFlash .34s ease forwards;
-        }
-
-        .gjj-flash.good{
-          background:rgba(34,197,94,.17);
-        }
-
-        .gjj-flash.bad{
-          background:rgba(239,68,68,.20);
-        }
-
-        .gjj-flash.warn{
-          background:rgba(250,204,21,.18);
-        }
-
-        .gjj-flash.victory{
-          background:radial-gradient(circle at 50% 45%,rgba(255,255,255,.65),rgba(34,197,94,.25),transparent 68%);
-        }
-
-        body.gjj-screen-shake{
-          animation:gjjShake .34s ease;
-        }
-
-        body.gjj-big-shake{
-          animation:gjjBigShake .46s ease;
-        }
-
-        body.gjj-frenzy-pulse::after{
-          content:"";
-          position:fixed;
-          inset:0;
-          pointer-events:none;
-          z-index:99950;
-          border:10px solid rgba(239,68,68,.18);
-          box-shadow:inset 0 0 60px rgba(239,68,68,.14);
-          animation:gjjFrenzyPulse 1.05s ease-in-out infinite alternate;
-        }
-
-        @keyframes gjjPop{
-          0%{ opacity:0; transform:translate(-50%,-20%) scale(.64); }
-          16%{ opacity:1; transform:translate(-50%,-55%) scale(1.22); }
-          100%{ opacity:0; transform:translate(-50%,-125%) scale(.9); }
-        }
-
-        @keyframes gjjRing{
-          0%{ opacity:.95; transform:translate(-50%,-50%) scale(.15); }
-          100%{ opacity:0; transform:translate(-50%,-50%) scale(3.2); }
-        }
-
-        @keyframes gjjFlash{
-          0%{ opacity:1; }
-          100%{ opacity:0; }
-        }
-
-        @keyframes gjjShake{
-          0%,100%{ transform:translate(0,0); }
-          20%{ transform:translate(-3px,1px); }
-          40%{ transform:translate(3px,-1px); }
-          60%{ transform:translate(-2px,1px); }
-          80%{ transform:translate(2px,-1px); }
-        }
-
-        @keyframes gjjBigShake{
-          0%,100%{ transform:translate(0,0); }
-          15%{ transform:translate(-7px,2px); }
-          30%{ transform:translate(7px,-2px); }
-          45%{ transform:translate(-6px,2px); }
-          60%{ transform:translate(6px,-2px); }
-          80%{ transform:translate(-3px,1px); }
-        }
-
-        @keyframes gjjIconBob{
-          from{ transform:scale(1) rotate(-3deg); }
-          to{ transform:scale(1.14) rotate(3deg); }
-        }
-
-        @keyframes gjjFrenzyPulse{
-          from{ opacity:.45; }
-          to{ opacity:1; }
-        }
-
-        @media (max-width:640px){
-          .gjj-mute{
-            width:42px;
-            height:42px;
-            right:10px;
-            bottom:calc(88px + env(safe-area-inset-bottom));
-            font-size:20px;
-          }
-
-          .gjj-combo{
-            top:calc(82px + env(safe-area-inset-top));
-            padding:8px 13px;
-          }
-
-          .gjj-combo b{
-            font-size:19px;
-          }
-
-          .gjj-center{
-            padding:15px 14px;
-            border-radius:26px;
-          }
-
-          .gjj-center-icon{
-            font-size:42px;
-          }
-
-          .gjj-center b{
-            font-size:23px;
-          }
-
-          .gjj-center span{
-            font-size:13px;
-          }
-
-          .gjj-pop{
-            font-size:22px;
-          }
-        }
-      `;
-      DOC.head.appendChild(css);
-    }
-
-    const btn = DOC.getElementById('gjjMuteBtn');
-    if(btn && !btn.dataset.bound){
-      btn.dataset.bound = '1';
-      btn.addEventListener('click', function(ev){
-        ev.preventDefault();
-        ev.stopPropagation();
-        toggleSound();
+    [
+      'pointerdown',
+      'mousedown',
+      'touchstart',
+      'keydown',
+      'click'
+    ].forEach(function(type){
+      document.addEventListener(type, unlock, {
+        capture:true,
+        passive:true
       });
-    }
+    });
 
-    return root;
+    window.addEventListener('gj:real-play', function(){
+      unlockByGesture('gj:real-play');
+      tryUnlockAudio('gj:real-play');
+    });
+
+    window.addEventListener('gj:game-start', function(){
+      unlockByGesture('gj:game-start');
+      tryUnlockAudio('gj:game-start');
+    });
+
+    window.addEventListener('gj:start', function(){
+      unlockByGesture('gj:start');
+      tryUnlockAudio('gj:start');
+    });
   }
 
-  function setText(id, txt){
-    const el = DOC.getElementById(id);
-    if(el) el.textContent = String(txt ?? '');
+  function canVibrate(){
+    if(!state.gestureUnlocked) return false;
+    if(boolParam('novibrate', false)) return false;
+    if(!('vibrate' in navigator)) return false;
+    if(now() - state.lastVibrateAt < CFG.vibrateMinGap) return false;
+
+    return true;
   }
 
-  function setMuteIcon(){
-    const btn = DOC.getElementById('gjjMuteBtn');
-    if(btn) btn.textContent = state.soundOn ? '🔊' : '🔇';
-  }
-
-  function toggleSound(){
-    state.soundOn = !state.soundOn;
-    try{
-      localStorage.setItem(STORE_KEY, state.soundOn ? '1' : '0');
-    }catch(e){}
-    setMuteIcon();
-
-    unlockAudio();
-    if(state.soundOn) playGood();
-    center(state.soundOn ? '🔊' : '🔇', state.soundOn ? 'เปิดเสียงแล้ว' : 'ปิดเสียงแล้ว', state.soundOn ? 'พร้อมลุยบอส!' : 'เล่นแบบเงียบ');
-  }
-
-  function unlockAudio(){
-    if(state.unlocked && state.audio) return true;
-
-    const AC = WIN.AudioContext || WIN.webkitAudioContext;
-    if(!AC) return false;
+  function safeVibrate(pattern, reason){
+    if(!canVibrate()) return false;
 
     try{
-      if(!state.audio){
-        state.audio = new AC();
-        state.master = state.audio.createGain();
-        state.master.gain.value = 0.42;
-        state.master.connect(state.audio.destination);
-      }
-
-      if(state.audio.state === 'suspended'){
-        state.audio.resume();
-      }
-
-      state.unlocked = true;
+      state.lastVibrateAt = now();
+      navigator.vibrate(pattern);
       return true;
     }catch(e){
       return false;
     }
   }
 
-  function withAudio(fn){
-    if(!state.soundOn) return;
-    if(!unlockAudio()) return;
+  function tryUnlockAudio(reason){
+    if(state.audioUnlocked) return true;
+    if(state.muted || boolParam('mute', false)) return false;
+
+    if(!state.gestureUnlocked) return false;
 
     try{
-      fn(state.audio, state.master);
-    }catch(e){}
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if(!AudioContext) return false;
+
+      if(!state.audioCtx){
+        state.audioCtx = new AudioContext();
+      }
+
+      if(state.audioCtx.state === 'suspended'){
+        state.audioCtx.resume().catch(function(){});
+      }
+
+      state.audioUnlocked = true;
+
+      console.log('[GJ Juice] audio unlocked:', reason || 'gesture');
+      return true;
+    }catch(e){
+      return false;
+    }
   }
 
-  function tone(freq, dur, type, gain, startDelay){
-    withAudio(function(ctx, out){
-      const t0 = ctx.currentTime + (Number(startDelay) || 0);
+  function beep(freq, duration, type, gain){
+    if(state.muted || boolParam('mute', false)) return false;
+    if(!state.gestureUnlocked) return false;
+    if(now() - state.lastSoundAt < CFG.soundMinGap) return false;
+
+    tryUnlockAudio('beep');
+
+    const ctx = state.audioCtx;
+    if(!ctx || ctx.state === 'closed') return false;
+
+    try{
+      state.lastSoundAt = now();
+
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
 
       osc.type = type || 'sine';
-      osc.frequency.setValueAtTime(freq, t0);
+      osc.frequency.value = Number(freq || 440);
 
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain || 0.12), t0 + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(0.04, dur || 0.12));
+      g.gain.value = 0.0001;
 
       osc.connect(g);
-      g.connect(out);
+      g.connect(ctx.destination);
 
-      osc.start(t0);
-      osc.stop(t0 + Math.max(0.05, dur || 0.12) + 0.03);
-    });
+      const t = ctx.currentTime;
+      const d = Math.max(0.03, Number(duration || 0.08));
+
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain || 0.045), t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+
+      osc.start(t);
+      osc.stop(t + d + 0.02);
+
+      return true;
+    }catch(e){
+      return false;
+    }
   }
 
-  function sweep(from, to, dur, type, gain){
-    withAudio(function(ctx, out){
-      const t0 = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const g = ctx.createGain();
+  function injectCss(){
+    if(document.getElementById('gjJuiceV8403fCss')) return;
 
-      osc.type = type || 'sawtooth';
-      osc.frequency.setValueAtTime(from, t0);
-      osc.frequency.exponentialRampToValueAtTime(Math.max(1, to), t0 + dur);
-
-      g.gain.setValueAtTime(0.0001, t0);
-      g.gain.exponentialRampToValueAtTime(gain || 0.12, t0 + 0.012);
-      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-
-      osc.connect(g);
-      g.connect(out);
-
-      osc.start(t0);
-      osc.stop(t0 + dur + 0.03);
-    });
-  }
-
-  function noise(dur, gain){
-    withAudio(function(ctx, out){
-      const len = Math.max(1, Math.floor(ctx.sampleRate * dur));
-      const buffer = ctx.createBuffer(1, len, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-
-      for(let i = 0; i < len; i++){
-        data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const css = document.createElement('style');
+    css.id = 'gjJuiceV8403fCss';
+    css.textContent = `
+      .gj-juice-shake{
+        animation:gjJuiceShake .18s linear 1 !important;
       }
 
-      const src = ctx.createBufferSource();
-      const g = ctx.createGain();
-      const filter = ctx.createBiquadFilter();
+      .gj-juice-hit-good{
+        animation:gjJuiceGoodPulse .28s ease-out 1 !important;
+      }
 
-      filter.type = 'highpass';
-      filter.frequency.value = 800;
+      .gj-juice-hit-bad{
+        animation:gjJuiceBadPulse .30s ease-out 1 !important;
+      }
 
-      g.gain.setValueAtTime(gain || 0.16, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + dur);
+      .gj-juice-combo{
+        animation:gjJuiceComboPulse .38s ease-out 1 !important;
+      }
 
-      src.buffer = buffer;
-      src.connect(filter);
-      filter.connect(g);
-      g.connect(out);
+      @keyframes gjJuiceShake{
+        0%{ transform:translate3d(0,0,0); }
+        20%{ transform:translate3d(-5px,2px,0); }
+        40%{ transform:translate3d(4px,-2px,0); }
+        60%{ transform:translate3d(-3px,1px,0); }
+        80%{ transform:translate3d(2px,-1px,0); }
+        100%{ transform:translate3d(0,0,0); }
+      }
 
-      src.start();
-      src.stop(ctx.currentTime + dur + 0.02);
+      @keyframes gjJuiceGoodPulse{
+        0%{ filter:saturate(1) brightness(1); }
+        35%{ filter:saturate(1.45) brightness(1.15); }
+        100%{ filter:saturate(1) brightness(1); }
+      }
+
+      @keyframes gjJuiceBadPulse{
+        0%{ filter:saturate(1) brightness(1); }
+        35%{ filter:saturate(1.3) brightness(.92) hue-rotate(-12deg); }
+        100%{ filter:saturate(1) brightness(1); }
+      }
+
+      @keyframes gjJuiceComboPulse{
+        0%{ transform:scale(1); }
+        35%{ transform:scale(1.08); }
+        100%{ transform:scale(1); }
+      }
+
+      .gj-juice-toast{
+        position:fixed;
+        left:50%;
+        top:calc(78px + env(safe-area-inset-top,0px));
+        z-index:2147483500;
+        transform:translate(-50%,-10px) scale(.96);
+        min-width:min(380px,calc(100vw - 28px));
+        max-width:min(560px,calc(100vw - 28px));
+        border-radius:22px;
+        padding:12px 16px;
+        color:#fff;
+        background:rgba(15,23,42,.92);
+        box-shadow:0 18px 42px rgba(15,23,42,.28);
+        border:2px solid rgba(255,255,255,.15);
+        font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+        text-align:center;
+        pointer-events:none;
+        opacity:0;
+        transition:opacity .16s ease, transform .16s ease;
+      }
+
+      .gj-juice-toast.show{
+        opacity:1;
+        transform:translate(-50%,0) scale(1);
+      }
+
+      .gj-juice-toast b{
+        display:block;
+        font-size:15px;
+        line-height:1.16;
+        font-weight:1000;
+      }
+
+      .gj-juice-toast span{
+        display:block;
+        margin-top:4px;
+        color:#fde68a;
+        font-size:12px;
+        line-height:1.25;
+        font-weight:900;
+      }
+
+      .gj-juice-spark{
+        position:fixed;
+        z-index:2147483400;
+        width:58px;
+        height:58px;
+        margin:-29px 0 0 -29px;
+        border-radius:999px;
+        display:grid;
+        place-items:center;
+        pointer-events:none;
+        font-size:30px;
+        background:rgba(255,255,255,.72);
+        box-shadow:0 12px 34px rgba(15,23,42,.16);
+        animation:gjJuiceSpark .44s ease-out forwards;
+      }
+
+      @keyframes gjJuiceSpark{
+        0%{ opacity:0; transform:scale(.52) translateY(6px); }
+        28%{ opacity:1; transform:scale(1.08) translateY(-2px); }
+        100%{ opacity:0; transform:scale(1.42) translateY(-20px); }
+      }
+
+      .gj-juice-boss-hit{
+        position:fixed;
+        left:50%;
+        bottom:calc(122px + env(safe-area-inset-bottom,0px));
+        z-index:2147483300;
+        transform:translateX(-50%);
+        min-width:min(360px,calc(100vw - 32px));
+        border-radius:999px;
+        padding:10px 16px;
+        background:linear-gradient(90deg,rgba(239,68,68,.94),rgba(251,191,36,.94));
+        color:#fff;
+        font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+        font-size:13px;
+        font-weight:1000;
+        text-align:center;
+        box-shadow:0 16px 38px rgba(239,68,68,.25);
+        pointer-events:none;
+        animation:gjJuiceBossHit .54s ease-out forwards;
+      }
+
+      @keyframes gjJuiceBossHit{
+        0%{ opacity:0; transform:translateX(-50%) translateY(12px) scale(.96); }
+        25%{ opacity:1; transform:translateX(-50%) translateY(0) scale(1.02); }
+        100%{ opacity:0; transform:translateX(-50%) translateY(-18px) scale(1); }
+      }
+
+      @media(max-width:720px){
+        .gj-juice-toast{
+          top:calc(62px + env(safe-area-inset-top,0px));
+          padding:10px 13px;
+          border-radius:18px;
+        }
+
+        .gj-juice-toast b{
+          font-size:13px;
+        }
+
+        .gj-juice-toast span{
+          font-size:11px;
+        }
+
+        .gj-juice-spark{
+          width:50px;
+          height:50px;
+          margin:-25px 0 0 -25px;
+          font-size:26px;
+        }
+
+        .gj-juice-boss-hit{
+          bottom:calc(88px + env(safe-area-inset-bottom,0px));
+          font-size:12px;
+          padding:9px 13px;
+        }
+      }
+    `;
+
+    document.head.appendChild(css);
+  }
+
+  function pulse(el, className){
+    if(!el) return;
+
+    try{
+      el.classList.remove(className);
+      void el.offsetWidth;
+      el.classList.add(className);
+
+      window.setTimeout(function(){
+        try{ el.classList.remove(className); }catch(_){}
+      }, 420);
+    }catch(_){}
+  }
+
+  function shake(reason){
+    if(now() - state.lastShakeAt < CFG.shakeMinGap) return;
+
+    state.lastShakeAt = now();
+
+    const el = root();
+    pulse(el, 'gj-juice-shake');
+
+    dispatch('gj:juice-shake', {
+      patch:PATCH,
+      reason:reason || ''
     });
   }
 
-  function playGood(){
-    tone(660, 0.08, 'sine', 0.12, 0);
-    tone(880, 0.10, 'sine', 0.10, 0.055);
-  }
+  function toast(title, sub, tone){
+    if(now() - state.lastToastAt < CFG.toastMinGap) return;
 
-  function playCombo(combo){
-    const base = combo >= 10 ? 760 : 620;
-    tone(base, 0.08, 'triangle', 0.13, 0);
-    tone(base * 1.25, 0.08, 'triangle', 0.11, 0.07);
-    tone(base * 1.55, 0.12, 'triangle', 0.10, 0.14);
-  }
+    state.lastToastAt = now();
 
-  function playBad(){
-    sweep(260, 90, 0.18, 'sawtooth', 0.15);
-    noise(0.12, 0.08);
-  }
+    let el = document.getElementById('gjJuiceToast');
+    if(!el){
+      el = document.createElement('div');
+      el.id = 'gjJuiceToast';
+      el.className = 'gj-juice-toast';
+      el.innerHTML = '<b></b><span></span>';
+      document.documentElement.appendChild(el);
+    }
 
-  function playTrap(){
-    tone(520, 0.07, 'square', 0.10, 0);
-    sweep(420, 120, 0.20, 'sawtooth', 0.12);
-  }
+    const b = el.querySelector('b');
+    const s = el.querySelector('span');
 
-  function playWarning(){
-    tone(440, 0.11, 'square', 0.13, 0);
-    tone(440, 0.11, 'square', 0.13, 0.19);
-    tone(440, 0.11, 'square', 0.13, 0.38);
-  }
+    if(b) b.textContent = safeText(title || '');
+    if(s) s.textContent = safeText(sub || '');
 
-  function playBossAttack(){
-    noise(0.20, 0.18);
-    sweep(180, 60, 0.28, 'sawtooth', 0.16);
-  }
-
-  function playMission(){
-    tone(523, 0.08, 'triangle', 0.10, 0);
-    tone(659, 0.09, 'triangle', 0.10, 0.08);
-    tone(784, 0.13, 'triangle', 0.12, 0.17);
-  }
-
-  function playShield(){
-    sweep(360, 920, 0.20, 'sine', 0.11);
-    tone(1180, 0.11, 'triangle', 0.08, 0.17);
-  }
-
-  function playFrenzy(){
-    tone(220, 0.13, 'sawtooth', 0.11, 0);
-    tone(247, 0.13, 'sawtooth', 0.11, 0.17);
-    tone(262, 0.16, 'sawtooth', 0.12, 0.34);
-  }
-
-  function playVictory(){
-    tone(523, 0.11, 'triangle', 0.11, 0);
-    tone(659, 0.11, 'triangle', 0.11, 0.11);
-    tone(784, 0.13, 'triangle', 0.12, 0.22);
-    tone(1046, 0.20, 'triangle', 0.13, 0.36);
-  }
-
-  function vibrate(pattern){
-    try{
-      if(navigator.vibrate) navigator.vibrate(pattern);
-    }catch(e){}
-  }
-
-  function flash(kind){
-    const f = DOC.createElement('div');
-    f.className = `gjj-flash ${kind || 'good'}`;
-    DOC.body.appendChild(f);
-    setTimeout(()=>f.remove(), 380);
-  }
-
-  function shake(big){
-    DOC.body.classList.remove('gjj-screen-shake', 'gjj-big-shake');
-    void DOC.body.offsetWidth;
-    DOC.body.classList.add(big ? 'gjj-big-shake' : 'gjj-screen-shake');
-    setTimeout(()=>{
-      DOC.body.classList.remove('gjj-screen-shake', 'gjj-big-shake');
-    }, big ? 520 : 380);
-  }
-
-  function pop(text, x, y){
-    ensureLayer();
-
-    const root = DOC.getElementById('gjjPopRoot');
-    if(!root) return;
-
-    const p = DOC.createElement('div');
-    p.className = 'gjj-pop';
-    p.textContent = text;
-
-    p.style.left = clamp(Number(x) || 50, 8, 92) + '%';
-    p.style.top = clamp(Number(y) || 50, 12, 84) + '%';
-
-    root.appendChild(p);
-    setTimeout(()=>p.remove(), 880);
-  }
-
-  function ring(x, y){
-    ensureLayer();
-
-    const root = DOC.getElementById('gjjPopRoot');
-    if(!root) return;
-
-    const r = DOC.createElement('div');
-    r.className = 'gjj-ring';
-
-    r.style.left = clamp(Number(x) || 50, 8, 92) + '%';
-    r.style.top = clamp(Number(y) || 50, 12, 84) + '%';
-
-    root.appendChild(r);
-    setTimeout(()=>r.remove(), 640);
-  }
-
-  let comboTimer = null;
-  function showCombo(combo){
-    ensureLayer();
-
-    const box = DOC.getElementById('gjjCombo');
-    if(!box) return;
-
-    setText('gjjComboMain', `COMBO x${combo}!`);
-
-    let sub = 'เลือกอาหารดีต่อเนื่อง';
-    if(combo >= 15) sub = 'สุดยอด! บอสเจ็บหนัก';
-    else if(combo >= 10) sub = 'แรงมาก! ใกล้ปิดฉากแล้ว';
-    else if(combo >= 5) sub = 'ดีมาก! คอมโบกำลังมา';
-
-    setText('gjjComboSub', sub);
-
-    box.classList.add('show');
-    clearTimeout(comboTimer);
-    comboTimer = setTimeout(()=>box.classList.remove('show'), 1200);
-  }
-
-  let centerTimer = null;
-  function center(icon, main, sub, ms){
-    ensureLayer();
-
-    const box = DOC.getElementById('gjjCenter');
-    if(!box) return;
-
-    setText('gjjCenterIcon', icon || '⭐');
-    setText('gjjCenterMain', main || 'Nice!');
-    setText('gjjCenterSub', sub || '');
-
-    box.classList.add('show');
-    clearTimeout(centerTimer);
-    centerTimer = setTimeout(()=>box.classList.remove('show'), ms || 1250);
-  }
-
-  function onStart(){
-    state.started = true;
-    state.defeated = false;
-    state.frenzy = false;
-    state.combo = 0;
-
-    ensureLayer();
-    setMuteIcon();
-
-    center('⚔️', 'Solo Boss!', 'เลือกอาหารดี หลบ junk และชนะบอส', 1500);
-    flash('warn');
-    vibrate(35);
-
-    tone(392, 0.10, 'triangle', 0.09, 0);
-    tone(523, 0.12, 'triangle', 0.10, 0.10);
-    tone(659, 0.16, 'triangle', 0.11, 0.22);
-  }
-
-  function onGood(detail){
-    const t = now();
-
-    if(t - state.lastGoodAt < 1600){
-      state.combo += 1;
+    if(tone === 'good'){
+      el.style.background = 'linear-gradient(135deg,rgba(22,163,74,.94),rgba(37,99,235,.92))';
+    }else if(tone === 'bad'){
+      el.style.background = 'linear-gradient(135deg,rgba(239,68,68,.94),rgba(124,45,18,.92))';
+    }else if(tone === 'boss'){
+      el.style.background = 'linear-gradient(135deg,rgba(124,58,237,.94),rgba(15,23,42,.92))';
     }else{
-      state.combo = 1;
+      el.style.background = 'rgba(15,23,42,.92)';
     }
 
-    state.lastGoodAt = t;
-    state.lastHitAt = t;
+    el.classList.add('show');
 
-    const x = detail && (detail.x || detail.xy?.x);
-    const y = detail && (detail.y || detail.xy?.y);
+    clearTimeout(el.__gjToastTimer);
+    el.__gjToastTimer = setTimeout(function(){
+      try{ el.classList.remove('show'); }catch(_){}
+    }, 1100);
+  }
 
-    playGood();
-    flash('good');
-    ring(x, y);
-    pop(state.combo >= 5 ? `+GOOD x${state.combo}` : '+GOOD!', x, y);
-    vibrate(18);
+  function spark(x, y, icon){
+    if(now() - state.lastSparkAt < CFG.sparkMinGap) return;
 
-    if(state.combo >= 3){
-      showCombo(state.combo);
-    }
+    state.lastSparkAt = now();
+
+    const el = document.createElement('div');
+    el.className = 'gj-juice-spark';
+    el.textContent = icon || '✨';
+
+    const px = clamp(x || window.innerWidth / 2, 30, window.innerWidth - 30);
+    const py = clamp(y || window.innerHeight / 2, 30, window.innerHeight - 30);
+
+    el.style.left = px + 'px';
+    el.style.top = py + 'px';
+
+    document.documentElement.appendChild(el);
+
+    setTimeout(function(){
+      try{ el.remove(); }catch(_){}
+    }, 520);
+  }
+
+  function bossHit(label){
+    const el = document.createElement('div');
+    el.className = 'gj-juice-boss-hit';
+    el.textContent = label || 'โจมตีบอสสำเร็จ!';
+
+    document.documentElement.appendChild(el);
+
+    setTimeout(function(){
+      try{ el.remove(); }catch(_){}
+    }, 620);
+  }
+
+  function updateHud(scoreDelta, comboDelta){
+    try{
+      const scoreEl = document.getElementById('gjmScore');
+      const comboEl = document.getElementById('gjmCombo');
+
+      if(scoreEl){
+        const n = Number(String(scoreEl.textContent || '0').replace(/[^\d.-]/g,'')) || 0;
+        state.score = Math.max(state.score, n + Number(scoreDelta || 0));
+      }
+
+      if(comboEl){
+        const current = Number(String(comboEl.textContent || '0').replace(/[^\d.-]/g,'')) || 0;
+        state.combo = Math.max(current, state.combo + Number(comboDelta || 0));
+        state.maxCombo = Math.max(state.maxCombo, state.combo);
+      }
+    }catch(_){}
+  }
+
+  function flashCombo(){
+    if(now() - state.lastComboFlashAt < CFG.comboFlashMinGap) return;
+
+    state.lastComboFlashAt = now();
+
+    const el = document.getElementById('gjmCombo');
+    pulse(el, 'gj-juice-combo');
+  }
+
+  function onGoodHit(detail){
+    detail = detail || {};
+
+    state.goodHits += 1;
+    state.combo += 1;
+    state.maxCombo = Math.max(state.maxCombo, state.combo);
+
+    const x = detail.x || detail.clientX || window.innerWidth * 0.5;
+    const y = detail.y || detail.clientY || window.innerHeight * 0.48;
+
+    spark(x, y, detail.icon || '🥦');
+    pulse(root(), 'gj-juice-hit-good');
+    flashCombo();
 
     if(state.combo > 0 && state.combo % 5 === 0){
-      playCombo(state.combo);
-      center('💥', `Combo x${state.combo}!`, 'บอสโดนโจมตีแรงขึ้น', 1050);
-      shake(false);
+      toast('🔥 คอมโบ x' + state.combo + '!', 'เลือกอาหารดีต่อเนื่อง เก่งมาก!', 'good');
+      beep(760, 0.09, 'triangle', 0.045);
+      safeVibrate([24, 28, 24], 'combo');
+    }else{
+      beep(640, 0.055, 'sine', 0.032);
+      safeVibrate(18, 'good-hit');
+    }
+
+    if(state.goodHits % 4 === 0){
+      bossHit('โจมตีบอสด้วยอาหารดี!');
+    }
+
+    dispatch('gj:juice-good', {
+      patch:PATCH,
+      goodHits:state.goodHits,
+      combo:state.combo,
+      maxCombo:state.maxCombo
+    });
+  }
+
+  function onBadHit(detail){
+    detail = detail || {};
+
+    state.combo = 0;
+
+    if(detail.kind === 'fake'){
+      state.fakeHits += 1;
+    }else{
+      state.junkHits += 1;
+    }
+
+    const x = detail.x || detail.clientX || window.innerWidth * 0.5;
+    const y = detail.y || detail.clientY || window.innerHeight * 0.48;
+
+    spark(x, y, detail.icon || '⚠️');
+    pulse(root(), 'gj-juice-hit-bad');
+    shake('bad-hit');
+
+    toast(
+      detail.title || 'ระวังอาหารขยะ!',
+      detail.sub || 'คอมโบถูกรีเซ็ตแล้ว ลองใหม่อีกครั้ง',
+      'bad'
+    );
+
+    beep(180, 0.12, 'sawtooth', 0.026);
+    safeVibrate([38, 30, 38], 'bad-hit');
+
+    dispatch('gj:juice-bad', {
+      patch:PATCH,
+      junkHits:state.junkHits,
+      fakeHits:state.fakeHits,
+      combo:state.combo
+    });
+  }
+
+  function onBossDamage(detail){
+    detail = detail || {};
+
+    bossHit(detail.label || 'Junk Boss โดนโจมตี!');
+    shake('boss-damage');
+
+    beep(330, 0.06, 'square', 0.035);
+    setTimeout(function(){
+      beep(520, 0.07, 'triangle', 0.035);
+    }, 70);
+
+    safeVibrate([18, 24, 18], 'boss-damage');
+
+    dispatch('gj:juice-boss-damage', {
+      patch:PATCH,
+      detail:detail
+    });
+  }
+
+  function onBossDefeated(detail){
+    detail = detail || {};
+
+    toast(
+      '🎉 ชนะบอสแล้ว!',
+      'เลือกอาหารดี ชนะอาหารขยะได้',
+      'boss'
+    );
+
+    bossHit('Boss Defeated!');
+    shake('boss-defeated');
+
+    beep(520, 0.08, 'triangle', 0.042);
+    setTimeout(function(){ beep(690, 0.09, 'triangle', 0.044); }, 95);
+    setTimeout(function(){ beep(880, 0.11, 'triangle', 0.046); }, 205);
+
+    safeVibrate([30, 30, 50, 30, 70], 'boss-defeated');
+
+    dispatch('gj:juice-boss-defeated', {
+      patch:PATCH,
+      detail:detail
+    });
+  }
+
+  function inferHitFromClick(ev){
+    const target = ev.target && ev.target.closest
+      ? ev.target.closest('.gjpu-item,.food,.food-item,[data-kind],[data-type],[data-food-kind],[data-good],[data-junk]')
+      : null;
+
+    if(!target) return;
+
+    const txt = safeText(target.textContent).toLowerCase();
+    const kind =
+      safeText(target.dataset && (
+        target.dataset.kind ||
+        target.dataset.type ||
+        target.dataset.foodKind ||
+        target.dataset.category ||
+        ''
+      )).toLowerCase();
+
+    const looksBad =
+      kind.includes('junk') ||
+      kind.includes('bad') ||
+      kind.includes('fake') ||
+      kind.includes('trap') ||
+      txt.includes('junk') ||
+      txt.includes('ขยะ') ||
+      txt.includes('หลอก');
+
+    const looksGood =
+      kind.includes('good') ||
+      kind.includes('healthy') ||
+      kind.includes('fruit') ||
+      kind.includes('veg') ||
+      txt.includes('ดี') ||
+      txt.includes('ผัก') ||
+      txt.includes('ผลไม้') ||
+      txt.includes('น้ำ');
+
+    if(looksBad){
+      onBadHit({
+        x:ev.clientX,
+        y:ev.clientY,
+        kind:kind.includes('fake') ? 'fake' : 'junk',
+        icon:txt.includes('น้ำ') ? '🧃' : '🍟'
+      });
+      return;
+    }
+
+    if(looksGood){
+      onGoodHit({
+        x:ev.clientX,
+        y:ev.clientY,
+        icon:txt.includes('น้ำ') ? '💧' : '🥦'
+      });
     }
   }
 
-  function onJunk(detail){
-    state.combo = 0;
+  function bindEvents(){
+    window.addEventListener('gj:good-hit', function(ev){
+      onGoodHit(ev && ev.detail || {});
+    });
 
-    const x = detail && (detail.x || detail.xy?.x);
-    const y = detail && (detail.y || detail.xy?.y);
+    window.addEventListener('gj:good', function(ev){
+      onGoodHit(ev && ev.detail || {});
+    });
 
-    playBad();
-    flash('bad');
-    shake(false);
-    pop('JUNK HIT!', x, y);
-    vibrate([35, 30, 35]);
+    window.addEventListener('gj:junk-hit', function(ev){
+      onBadHit(Object.assign({ kind:'junk' }, ev && ev.detail || {}));
+    });
+
+    window.addEventListener('gj:bad-hit', function(ev){
+      onBadHit(Object.assign({ kind:'junk' }, ev && ev.detail || {}));
+    });
+
+    window.addEventListener('gj:fake-hit', function(ev){
+      onBadHit(Object.assign({ kind:'fake', icon:'🧃' }, ev && ev.detail || {}));
+    });
+
+    window.addEventListener('gj:miss', function(ev){
+      onBadHit(Object.assign({
+        title:'พลาดนิดเดียว!',
+        sub:'ตั้งใจใหม่ เลือกอาหารดีให้ไวขึ้น',
+        icon:'💨'
+      }, ev && ev.detail || {}));
+    });
+
+    window.addEventListener('gj:boss-damage', function(ev){
+      onBossDamage(ev && ev.detail || {});
+    });
+
+    window.addEventListener('gj:boss-hit', function(ev){
+      onBossDamage(ev && ev.detail || {});
+    });
+
+    window.addEventListener('gj:boss-defeated', function(ev){
+      onBossDefeated(ev && ev.detail || {});
+    });
+
+    window.addEventListener('gj:win', function(ev){
+      onBossDefeated(ev && ev.detail || {});
+    });
+
+    document.addEventListener('click', function(ev){
+      unlockByGesture('click');
+      inferHitFromClick(ev);
+    }, true);
+
+    document.addEventListener('pointerdown', function(ev){
+      unlockByGesture('pointerdown');
+    }, true);
+
+    document.addEventListener('touchstart', function(){
+      unlockByGesture('touchstart');
+    }, {
+      passive:true,
+      capture:true
+    });
+
+    document.addEventListener('keydown', function(){
+      unlockByGesture('keydown');
+    }, true);
   }
 
-  function onFake(detail){
-    state.combo = 0;
+  function exposeApi(){
+    window.GJ_JUICE = window.GJ_JUICE || {};
 
-    const x = detail && (detail.x || detail.xy?.x);
-    const y = detail && (detail.y || detail.xy?.y);
+    Object.assign(window.GJ_JUICE, {
+      version:PATCH,
+      state:state,
+      unlock:unlockByGesture,
+      toast:toast,
+      spark:spark,
+      shake:shake,
+      bossHit:bossHit,
+      good:onGoodHit,
+      bad:onBadHit,
+      bossDamage:onBossDamage,
+      bossDefeated:onBossDefeated,
+      vibrate:safeVibrate,
+      beep:beep,
+      mute:function(v){
+        state.muted = !!v;
+      }
+    });
 
-    playTrap();
-    flash('bad');
-    shake(false);
-    pop('TRAP!', x, y);
-    center('🧃', 'อาหารหลอกตา!', 'ดูน้ำตาล น้ำมัน และซอสแฝง', 1300);
-    vibrate([25, 25, 45]);
+    window.GJ_SOLO_BOSS_JUICE = window.GJ_JUICE;
   }
 
-  function onMissGood(detail){
-    state.combo = 0;
-
-    const x = detail && (detail.x || detail.xy?.x);
-    const y = detail && (detail.y || detail.xy?.y);
-
-    tone(330, 0.10, 'sine', 0.07, 0);
-    tone(220, 0.12, 'sine', 0.07, 0.08);
-    pop('พลาดอาหารดี!', x, y);
-    vibrate(25);
+  function autoWarmupNotice(){
+    setTimeout(function(){
+      if(!state.gestureUnlocked){
+        toast('พร้อมลุยบอส!', 'แตะเริ่มเล่น แล้วเลือกอาหารดีให้ต่อเนื่อง', 'boss');
+      }
+    }, 900);
   }
 
-  function onMissionComplete(){
-    playMission();
-    flash('good');
-    center('🏅', 'ภารกิจสำเร็จ!', 'ได้โล่และโจมตีบอสแรงขึ้น', 1300);
-    shake(false);
-    vibrate([30, 20, 30]);
-  }
-
-  function onShield(){
-    playShield();
-    flash('warn');
-    center('🛡️', 'โล่ช่วยไว้ได้!', 'ยังไม่เสียจังหวะ สู้ต่อ!', 1100);
-    vibrate(30);
-  }
-
-  function onBossWarning(e){
-    playWarning();
-    flash('warn');
-
-    const name = e && e.detail && e.detail.name ? e.detail.name : 'Boss Attack';
-    center('⚠️', 'ระวังบอสโจมตี!', name, 1200);
-    vibrate([45, 40, 45]);
-  }
-
-  function onBossAttack(e){
-    playBossAttack();
-    flash('bad');
-    shake(true);
-
-    const name = e && e.detail && e.detail.name ? e.detail.name : 'Boss Attack';
-    pop(name, 50, 42);
-    vibrate([60, 35, 60]);
-  }
-
-  function onBossHp(e){
-    const d = e && e.detail ? e.detail : {};
-    const damage = Math.round(Number(d.damage) || 0);
-
-    if(damage >= 80){
-      playCombo(10);
-      flash('good');
-      pop('BIG HIT!', 50, 44);
-      shake(false);
-    }
-  }
-
-  function onFrenzy(){
-    state.frenzy = true;
-    DOC.body.classList.add('gjj-frenzy-pulse');
-
-    playFrenzy();
-    flash('bad');
-    center('🔥', 'บอสคลั่งแล้ว!', 'เลือดต่ำแล้ว รีบทำคอมโบปิดฉาก!', 1650);
-    shake(true);
-    vibrate([80, 40, 80]);
-  }
-
-  function onDefeated(){
-    state.defeated = true;
-    state.frenzy = false;
-    DOC.body.classList.remove('gjj-frenzy-pulse');
-
-    playVictory();
-    flash('victory');
-    center('🎉', 'ชนะบอสแล้ว!', 'เลือกอาหารดี ชนะอาหารขยะได้', 2200);
-
-    for(let i = 0; i < 10; i++){
-      setTimeout(()=>{
-        const x = 18 + Math.random() * 64;
-        const y = 24 + Math.random() * 38;
-        pop(['⭐','🎉','🏆','💚','✨'][Math.floor(Math.random() * 5)], x, y);
-        ring(x, y);
-      }, i * 95);
-    }
-
-    vibrate([90, 35, 90, 35, 120]);
-  }
-
-  function onEnd(){
-    DOC.body.classList.remove('gjj-frenzy-pulse');
+  function install(){
+    injectCss();
+    bindGestureUnlock();
+    bindEvents();
+    exposeApi();
+    autoWarmupNotice();
 
     try{
-      localStorage.setItem('GJ_SOLO_BOSS_JUICE_LAST', JSON.stringify({
-        patch:'v8.40.3-SOUND-JUICE-PACK',
-        combo:state.combo,
-        defeated:state.defeated,
-        frenzy:state.frenzy,
-        soundOn:state.soundOn,
-        savedAt:new Date().toISOString()
+      localStorage.setItem('GJ_SOLO_BOSS_JUICE_LAST_PATCH', JSON.stringify({
+        patch:PATCH,
+        view:viewMode(),
+        mobile:isMobileish(),
+        at:new Date().toISOString()
       }));
-    }catch(e){}
+    }catch(_){}
+
+    console.log('[GJ Juice] installed', {
+      patch:PATCH,
+      view:viewMode(),
+      mobile:isMobileish()
+    });
   }
 
-  function bridgeItemHit(e){
-    const d = e && e.detail ? e.detail : {};
-    const item = d.food || d.item || d;
-    const type = String(d.type || item.type || item.kind || '').toLowerCase();
-
-    if(type === 'good') onGood(d);
-    else if(type === 'junk' || type === 'bad') onJunk(d);
-    else if(type === 'fake' || type === 'trap' || type === 'fakehealthy') onFake(d);
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', install, { once:true });
+  }else{
+    install();
   }
-
-  WIN.GoodJunkSoloBossJuice = {
-    version:'v8.40.3-SOUND-JUICE-PACK',
-    unlockAudio,
-    toggleSound,
-    playGood,
-    playBad,
-    playTrap,
-    playCombo,
-    playWarning,
-    playBossAttack,
-    playMission,
-    playShield,
-    playVictory,
-    center,
-    pop,
-    ring,
-    flash,
-    shake,
-    getState:()=>({
-      started:state.started,
-      unlocked:state.unlocked,
-      soundOn:state.soundOn,
-      combo:state.combo,
-      frenzy:state.frenzy,
-      defeated:state.defeated
-    })
-  };
-
-  WIN.addEventListener('pointerdown', unlockAudio, { passive:true });
-  WIN.addEventListener('keydown', unlockAudio);
-
-  WIN.addEventListener('gj:game-start', onStart);
-  WIN.addEventListener('gj:boss-start', onStart);
-  WIN.addEventListener('gj:solo-boss-start', onStart);
-
-  WIN.addEventListener('gj:item-hit', bridgeItemHit);
-  WIN.addEventListener('gj:hit-good', e => onGood(e.detail || {}));
-  WIN.addEventListener('gj:hit-junk', e => onJunk(e.detail || {}));
-  WIN.addEventListener('gj:hit-fake', e => onFake(e.detail || {}));
-  WIN.addEventListener('gj:miss-good', e => onMissGood(e.detail || {}));
-
-  WIN.addEventListener('gj:ultimate-combo-strike', e => {
-    const combo = Number(e.detail && e.detail.combo) || 5;
-    playCombo(combo);
-    center('💥', `Combo Strike x${combo}!`, 'บอสโดนหนักมาก', 1000);
-    flash('good');
-    shake(false);
-  });
-
-  WIN.addEventListener('gj:ultimate-mission-complete', onMissionComplete);
-  WIN.addEventListener('gj:ultimate-shield-block', onShield);
-  WIN.addEventListener('gj:ultimate-boss-attack', function(e){
-    playBossAttack();
-    flash('bad');
-    shake(true);
-    center('👾', 'บอสสวนกลับ!', e.detail && e.detail.reason ? e.detail.reason : 'ตั้งใจใหม่อีกครั้ง', 1200);
-  });
-
-  WIN.addEventListener('gj:boss-attack-warning', onBossWarning);
-  WIN.addEventListener('gj:boss-visual-attack', onBossAttack);
-  WIN.addEventListener('gj:boss-hp-change', onBossHp);
-  WIN.addEventListener('gj:boss-frenzy', onFrenzy);
-  WIN.addEventListener('gj:boss-defeated', onDefeated);
-
-  WIN.addEventListener('gj:game-end', onEnd);
-  WIN.addEventListener('gj:boss-end', onEnd);
-
-  DOC.addEventListener('DOMContentLoaded', function(){
-    ensureLayer();
-    setMuteIcon();
-  });
 })();
