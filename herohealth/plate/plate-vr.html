@@ -7,21 +7,49 @@
   <meta name="theme-color" content="#eafff3" />
   <meta name="color-scheme" content="light" />
   <link rel="icon" href="../favicon.ico" />
+
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
       --safe-right:env(safe-area-inset-right,0px);
       --safe-bottom:env(safe-area-inset-bottom,0px);
       --safe-left:env(safe-area-inset-left,0px);
-      --bg1:#f6fff2;--bg2:#e7fbff;--bg3:#fff8db;
-      --card:#ffffff;--ink:#214761;--muted:#66879a;--line:#d7edf5;
-      --green:#45d483;--blue:#54bbff;--yellow:#ffd75e;--orange:#ffaf4d;--red:#ff6475;--purple:#9a82ff;
+
+      --bg1:#f6fff2;
+      --bg2:#e7fbff;
+      --bg3:#fff8db;
+
+      --card:#ffffff;
+      --ink:#214761;
+      --muted:#66879a;
+      --line:#d7edf5;
+
+      --green:#45d483;
+      --blue:#54bbff;
+      --yellow:#ffd75e;
+      --orange:#ffaf4d;
+      --red:#ff6475;
+      --purple:#9a82ff;
+
       --shadow:0 18px 46px rgba(41,82,111,.16);
       --shadow2:0 24px 80px rgba(41,82,111,.24);
+
       --target-size:74px;
     }
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-    html,body{margin:0;width:100%;height:100%;overflow:hidden}
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,
+    body{
+      margin:0;
+      width:100%;
+      height:100%;
+      overflow:hidden;
+    }
+
     body{
       font-family:"Noto Sans Thai","Inter",ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       color:var(--ink);
@@ -33,192 +61,949 @@
       user-select:none;
       touch-action:none;
     }
-    button{font:inherit;border:0}
-    .hidden{display:none!important}
-    .app{height:100dvh;display:grid;grid-template-rows:auto auto 1fr;position:relative;padding:calc(8px + var(--safe-top)) calc(8px + var(--safe-right)) calc(8px + var(--safe-bottom)) calc(8px + var(--safe-left));gap:8px}
-    .topHud{display:grid;grid-template-columns:repeat(5,1fr) 54px;gap:8px;z-index:5}
-    .hudBox,.iconBtn,.platePanel,.missionPanel,.playField,.overlayCard{
-      background:rgba(255,255,255,.82);border:1px solid rgba(215,237,245,.95);box-shadow:var(--shadow);backdrop-filter:blur(16px)
+
+    button{
+      font:inherit;
+      border:0;
     }
-    .hudBox{min-height:58px;border-radius:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:6px}
-    .hudBox.bump{animation:bump .22s ease}
-    .hudLabel{font-size:10px;font-weight:1000;color:var(--muted);line-height:1}
-    .hudValue{font-size:18px;font-weight:1000;line-height:1.1;color:#244b66;margin-top:3px}
-    .iconBtn{min-height:58px;border-radius:20px;font-size:24px;font-weight:1000;color:#865b0c;background:linear-gradient(180deg,#fff5c7,#ffd865);cursor:pointer}
-    @keyframes bump{50%{transform:translateY(-2px) scale(1.05)}}
-    .missionPanel{border-radius:24px;padding:10px 12px;z-index:4}
-    .missionTop{display:flex;align-items:center;justify-content:space-between;gap:10px}
-    .missionTitle{font-size:13px;font-weight:1000;color:#21855a}
-    .missionText{font-size:18px;font-weight:1000;line-height:1.22;margin-top:2px;color:#244b66}
-    .missionSub{font-size:12px;color:var(--muted);font-weight:850;margin-top:2px}
-    .bossStrip{display:grid;grid-template-columns:72px 1fr auto;align-items:center;gap:8px;margin-top:8px;padding:8px;border-radius:18px;background:#fff7fb;border:1px solid #ffd4e4}
-    .bossIcon{font-size:30px;text-align:center}
-    .bar{height:12px;background:#e9f3f8;border-radius:99px;overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.06)}
-    .barFill{height:100%;width:0%;border-radius:99px;background:linear-gradient(90deg,var(--green),var(--blue));transition:width .18s ease}
-    .bossFill{background:linear-gradient(90deg,#ffcc5e,#ff7aa2,#9a82ff)}
-    .bossHp{font-size:12px;font-weight:1000;color:#7a5164;min-width:42px;text-align:right}
-    .playWrap{min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 230px;gap:8px}
-    .playField{position:relative;min-height:0;border-radius:28px;overflow:hidden;background:
-      radial-gradient(circle at 18% 16%,rgba(255,230,116,.26),transparent 18%),
-      radial-gradient(circle at 78% 20%,rgba(89,190,255,.22),transparent 20%),
-      linear-gradient(180deg,rgba(255,255,255,.94),rgba(247,253,255,.9));
+
+    .hidden{
+      display:none!important;
     }
-    .playField:before{content:"";position:absolute;inset:12px;border:1px dashed rgba(85,175,216,.18);border-radius:22px;pointer-events:none}
-    .playField.fever{animation:feverBg .8s ease-in-out infinite alternate}
-    @keyframes feverBg{to{filter:saturate(1.1) brightness(1.03)}}
-    .platePanel{border-radius:28px;padding:12px;display:flex;flex-direction:column;gap:10px;overflow:auto}
-    .plateTitle{font-size:17px;font-weight:1000;color:#244b66;line-height:1.15}
-    .plateHint{font-size:12px;color:var(--muted);font-weight:850;line-height:1.35}
-    .slots{display:grid;grid-template-columns:1fr;gap:8px}
-    .slot{min-height:54px;border-radius:18px;border:1px solid var(--line);background:#fff;display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:8px;padding:7px 9px;box-shadow:0 8px 18px rgba(41,82,111,.07)}
-    .slotIcon{width:38px;height:38px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:#f2fbff;font-size:23px}
-    .slotName{font-size:12px;font-weight:1000;color:#2b536c;line-height:1.2}
-    .slotThai{font-size:10px;font-weight:900;color:var(--muted);line-height:1.2;margin-top:2px}
-    .slotState{font-size:20px;font-weight:1000;color:#c7d8e1}
-    .slot.done{border-color:#bdf0d0;background:#f5fff8}
-    .slot.done .slotState{color:#23b86b}
-    .target{position:absolute;width:var(--target-size);height:var(--target-size);border-radius:999px;background:linear-gradient(180deg,#fff,#f2fbff);border:1px solid rgba(215,237,245,.98);display:grid;place-items:center;box-shadow:0 16px 34px rgba(34,80,110,.20);cursor:pointer;z-index:3;transform:translate(-50%,-50%);animation:pop .16s ease;overflow:hidden;touch-action:none}
-    .target:active{transform:translate(-50%,-50%) scale(.94)}
-    .target.good{outline:3px solid rgba(84,187,255,.20)}
-    .target.junk{outline:3px solid rgba(255,100,117,.22);background:linear-gradient(180deg,#fff7f8,#fff)}
-    .target.needed{outline-color:rgba(69,212,131,.42);box-shadow:0 18px 38px rgba(69,212,131,.24)}
-    .target.extra{opacity:.84}
-    .target.bossShot{outline-color:rgba(154,130,255,.42)}
-    .targetEmoji{font-size:34px;line-height:1;transform:translateY(-5px)}
-    .targetTag{position:absolute;left:50%;bottom:5px;transform:translateX(-50%);max-width:88%;padding:2px 7px;border-radius:999px;background:rgba(255,255,255,.94);border:1px solid rgba(215,237,245,.95);font-size:9px;font-weight:1000;color:#55778c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .targetLife{position:absolute;left:12px;right:12px;top:8px;height:4px;border-radius:99px;background:#e9f3f8;overflow:hidden}
-    .targetLife i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--yellow));transform-origin:left center}
-    @keyframes pop{from{opacity:0;transform:translate(-50%,-50%) scale(.72)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-    .floatMsg{position:absolute;z-index:6;left:50%;top:46%;transform:translate(-50%,-50%);padding:10px 14px;border-radius:999px;background:rgba(33,71,97,.92);color:#fff;font-weight:1000;font-size:14px;box-shadow:0 16px 32px rgba(33,71,97,.22);pointer-events:none;animation:floatUp .72s ease forwards;text-align:center}
-    @keyframes floatUp{to{opacity:0;transform:translate(-50%,-86%)}}
-    .toast{position:fixed;left:50%;bottom:calc(18px + var(--safe-bottom));transform:translateX(-50%) translateY(20px);opacity:0;z-index:30;max-width:min(620px,92vw);padding:12px 16px;border-radius:999px;background:rgba(33,71,97,.94);color:white;font-size:14px;font-weight:1000;box-shadow:0 18px 40px rgba(33,71,97,.25);transition:.18s ease;text-align:center;pointer-events:none}
-    .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
-    .overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(225,245,255,.64);backdrop-filter:blur(18px)}
-    .overlayCard{width:min(760px,100%);max-height:calc(100dvh - 32px);overflow:auto;border-radius:32px;padding:20px}
-    .kicker{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;background:#effff5;border:1px solid #bdf0d0;color:#16864f;font-size:12px;font-weight:1000}
-    h1{margin:12px 0 8px;font-size:clamp(28px,5vw,46px);line-height:1.08;color:#214761}
-    .lead{margin:0;color:#5f7f93;font-weight:850;line-height:1.55}
-    .pillRow{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-    .pill{padding:7px 10px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:12px;font-weight:1000;color:#4c6f84}
-    .actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-    .primary,.secondary,.danger{min-height:50px;border-radius:999px;padding:0 18px;font-weight:1000;cursor:pointer}
-    .primary{color:#fff;background:linear-gradient(90deg,var(--green),var(--blue));box-shadow:0 14px 30px rgba(45,152,255,.2)}
-    .secondary{color:#2d536d;background:#fff;border:1px solid var(--line);box-shadow:0 10px 22px rgba(41,82,111,.09)}
-    .danger{color:#8c2e37;background:#fff1f2;border:1px solid #ffd2d7}
-    .summaryGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
-    .summaryBox{border:1px solid var(--line);background:#fff;border-radius:20px;padding:12px;text-align:center}
-    .summaryBox b{display:block;font-size:24px;color:#214761}
-    .summaryBox span{display:block;font-size:11px;font-weight:1000;color:#6a8798;margin-top:2px}
-    .tipBox{margin-top:12px;padding:12px;border-radius:18px;background:#f7fdff;border:1px solid var(--line);color:#55778c;font-weight:850;line-height:1.45}
-    .crosshair{position:fixed;left:50%;top:50%;z-index:12;width:42px;height:42px;transform:translate(-50%,-50%);pointer-events:none;display:none}
-    .crosshair:before,.crosshair:after{content:"";position:absolute;background:rgba(33,71,97,.72);border-radius:99px}
-    .crosshair:before{left:20px;top:3px;width:2px;height:36px}.crosshair:after{top:20px;left:3px;height:2px;width:36px}
-    .view-cvr .crosshair{display:block}
-    .view-cvr .target{pointer-events:none}
-    .view-cvr{--target-size:68px}
+
+    .app{
+      height:100dvh;
+      display:grid;
+      grid-template-rows:auto auto 1fr;
+      position:relative;
+      padding:
+        calc(8px + var(--safe-top))
+        calc(8px + var(--safe-right))
+        calc(8px + var(--safe-bottom))
+        calc(8px + var(--safe-left));
+      gap:8px;
+    }
+
+    .topHud{
+      display:grid;
+      grid-template-columns:repeat(5,1fr) 54px;
+      gap:8px;
+      z-index:5;
+    }
+
+    .hudBox,
+    .iconBtn,
+    .platePanel,
+    .missionPanel,
+    .playField,
+    .overlayCard{
+      background:rgba(255,255,255,.82);
+      border:1px solid rgba(215,237,245,.95);
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(16px);
+    }
+
+    .hudBox{
+      min-height:58px;
+      border-radius:20px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      padding:6px;
+    }
+
+    .hudBox.bump{
+      animation:bump .22s ease;
+    }
+
+    .hudLabel{
+      font-size:10px;
+      font-weight:1000;
+      color:var(--muted);
+      line-height:1;
+    }
+
+    .hudValue{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.1;
+      color:#244b66;
+      margin-top:3px;
+    }
+
+    .iconBtn{
+      min-height:58px;
+      border-radius:20px;
+      font-size:24px;
+      font-weight:1000;
+      color:#865b0c;
+      background:linear-gradient(180deg,#fff5c7,#ffd865);
+      cursor:pointer;
+    }
+
+    @keyframes bump{
+      50%{
+        transform:translateY(-2px) scale(1.05);
+      }
+    }
+
+    .missionPanel{
+      border-radius:24px;
+      padding:10px 12px;
+      z-index:4;
+    }
+
+    .missionTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+
+    .missionTitle{
+      font-size:13px;
+      font-weight:1000;
+      color:#21855a;
+    }
+
+    .missionText{
+      font-size:18px;
+      font-weight:1000;
+      line-height:1.22;
+      margin-top:2px;
+      color:#244b66;
+    }
+
+    .missionSub{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:850;
+      margin-top:2px;
+    }
+
+    .bossStrip{
+      display:grid;
+      grid-template-columns:72px 1fr auto;
+      align-items:center;
+      gap:8px;
+      margin-top:8px;
+      padding:8px;
+      border-radius:18px;
+      background:#fff7fb;
+      border:1px solid #ffd4e4;
+    }
+
+    .bossIcon{
+      font-size:30px;
+      text-align:center;
+    }
+
+    .bar{
+      height:12px;
+      background:#e9f3f8;
+      border-radius:99px;
+      overflow:hidden;
+      box-shadow:inset 0 1px 2px rgba(0,0,0,.06);
+    }
+
+    .barFill{
+      height:100%;
+      width:0%;
+      border-radius:99px;
+      background:linear-gradient(90deg,var(--green),var(--blue));
+      transition:width .18s ease;
+    }
+
+    .bossFill{
+      background:linear-gradient(90deg,#ffcc5e,#ff7aa2,#9a82ff);
+    }
+
+    .bossHp{
+      font-size:12px;
+      font-weight:1000;
+      color:#7a5164;
+      min-width:42px;
+      text-align:right;
+    }
+
+    .playWrap{
+      min-height:0;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 230px;
+      gap:8px;
+    }
+
+    .playField{
+      position:relative;
+      min-height:0;
+      border-radius:28px;
+      overflow:hidden;
+      background:
+        radial-gradient(circle at 18% 16%,rgba(255,230,116,.26),transparent 18%),
+        radial-gradient(circle at 78% 20%,rgba(89,190,255,.22),transparent 20%),
+        linear-gradient(180deg,rgba(255,255,255,.94),rgba(247,253,255,.9));
+    }
+
+    .playField:before{
+      content:"";
+      position:absolute;
+      inset:12px;
+      border:1px dashed rgba(85,175,216,.18);
+      border-radius:22px;
+      pointer-events:none;
+    }
+
+    .playField.fever{
+      animation:feverBg .8s ease-in-out infinite alternate;
+    }
+
+    @keyframes feverBg{
+      to{
+        filter:saturate(1.1) brightness(1.03);
+      }
+    }
+
+    .platePanel{
+      border-radius:28px;
+      padding:12px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      overflow:auto;
+    }
+
+    .plateTitle{
+      font-size:17px;
+      font-weight:1000;
+      color:#244b66;
+      line-height:1.15;
+    }
+
+    .plateHint{
+      font-size:12px;
+      color:var(--muted);
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .slots{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:8px;
+    }
+
+    .slot{
+      min-height:54px;
+      border-radius:18px;
+      border:1px solid var(--line);
+      background:#fff;
+      display:grid;
+      grid-template-columns:44px 1fr auto;
+      align-items:center;
+      gap:8px;
+      padding:7px 9px;
+      box-shadow:0 8px 18px rgba(41,82,111,.07);
+    }
+
+    .slotIcon{
+      width:38px;
+      height:38px;
+      border-radius:15px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#f2fbff;
+      font-size:23px;
+    }
+
+    .slotName{
+      font-size:12px;
+      font-weight:1000;
+      color:#2b536c;
+      line-height:1.2;
+    }
+
+    .slotThai{
+      font-size:10px;
+      font-weight:900;
+      color:var(--muted);
+      line-height:1.2;
+      margin-top:2px;
+    }
+
+    .slotState{
+      font-size:20px;
+      font-weight:1000;
+      color:#c7d8e1;
+    }
+
+    .slot.done{
+      border-color:#bdf0d0;
+      background:#f5fff8;
+    }
+
+    .slot.done .slotState{
+      color:#23b86b;
+    }
+
+    .target{
+      position:absolute;
+      width:var(--target-size);
+      height:var(--target-size);
+      border-radius:999px;
+      background:linear-gradient(180deg,#fff,#f2fbff);
+      border:1px solid rgba(215,237,245,.98);
+      display:grid;
+      place-items:center;
+      box-shadow:0 16px 34px rgba(34,80,110,.20);
+      cursor:pointer;
+      z-index:3;
+      transform:translate(-50%,-50%);
+      animation:pop .16s ease;
+      overflow:hidden;
+      touch-action:none;
+    }
+
+    .target:active{
+      transform:translate(-50%,-50%) scale(.94);
+    }
+
+    .target.good{
+      outline:3px solid rgba(84,187,255,.20);
+    }
+
+    .target.junk{
+      outline:3px solid rgba(255,100,117,.22);
+      background:linear-gradient(180deg,#fff7f8,#fff);
+    }
+
+    .target.needed{
+      outline-color:rgba(69,212,131,.42);
+      box-shadow:0 18px 38px rgba(69,212,131,.24);
+    }
+
+    .target.extra{
+      opacity:.84;
+    }
+
+    .target.bossShot{
+      outline-color:rgba(154,130,255,.42);
+    }
+
+    .targetEmoji{
+      font-size:34px;
+      line-height:1;
+      transform:translateY(-5px);
+    }
+
+    .targetTag{
+      position:absolute;
+      left:50%;
+      bottom:5px;
+      transform:translateX(-50%);
+      max-width:88%;
+      padding:2px 7px;
+      border-radius:999px;
+      background:rgba(255,255,255,.94);
+      border:1px solid rgba(215,237,245,.95);
+      font-size:9px;
+      font-weight:1000;
+      color:#55778c;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .targetLife{
+      position:absolute;
+      left:12px;
+      right:12px;
+      top:8px;
+      height:4px;
+      border-radius:99px;
+      background:#e9f3f8;
+      overflow:hidden;
+    }
+
+    .targetLife i{
+      display:block;
+      height:100%;
+      width:100%;
+      background:linear-gradient(90deg,var(--green),var(--yellow));
+      transform-origin:left center;
+    }
+
+    @keyframes pop{
+      from{
+        opacity:0;
+        transform:translate(-50%,-50%) scale(.72);
+      }
+      to{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+      }
+    }
+
+    .floatMsg{
+      position:absolute;
+      z-index:6;
+      left:50%;
+      top:46%;
+      transform:translate(-50%,-50%);
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(33,71,97,.92);
+      color:#fff;
+      font-weight:1000;
+      font-size:14px;
+      box-shadow:0 16px 32px rgba(33,71,97,.22);
+      pointer-events:none;
+      animation:floatUp .72s ease forwards;
+      text-align:center;
+    }
+
+    @keyframes floatUp{
+      to{
+        opacity:0;
+        transform:translate(-50%,-86%);
+      }
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      bottom:calc(18px + var(--safe-bottom));
+      transform:translateX(-50%) translateY(20px);
+      opacity:0;
+      z-index:30;
+      max-width:min(620px,92vw);
+      padding:12px 16px;
+      border-radius:999px;
+      background:rgba(33,71,97,.94);
+      color:white;
+      font-size:14px;
+      font-weight:1000;
+      box-shadow:0 18px 40px rgba(33,71,97,.25);
+      transition:.18s ease;
+      text-align:center;
+      pointer-events:none;
+    }
+
+    .toast.show{
+      opacity:1;
+      transform:translateX(-50%) translateY(0);
+    }
+
+    .overlay{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(225,245,255,.64);
+      backdrop-filter:blur(18px);
+    }
+
+    .overlayCard{
+      width:min(760px,100%);
+      max-height:calc(100dvh - 32px);
+      overflow:auto;
+      border-radius:32px;
+      padding:20px;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:7px;
+      padding:7px 12px;
+      border-radius:999px;
+      background:#effff5;
+      border:1px solid #bdf0d0;
+      color:#16864f;
+      font-size:12px;
+      font-weight:1000;
+    }
+
+    h1{
+      margin:12px 0 8px;
+      font-size:clamp(28px,5vw,46px);
+      line-height:1.08;
+      color:#214761;
+    }
+
+    .lead{
+      margin:0;
+      color:#5f7f93;
+      font-weight:850;
+      line-height:1.55;
+    }
+
+    .pillRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:14px;
+    }
+
+    .pill{
+      padding:7px 10px;
+      border-radius:999px;
+      background:#fff;
+      border:1px solid var(--line);
+      font-size:12px;
+      font-weight:1000;
+      color:#4c6f84;
+    }
+
+    .actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:16px;
+    }
+
+    .primary,
+    .secondary,
+    .danger{
+      min-height:50px;
+      border-radius:999px;
+      padding:0 18px;
+      font-weight:1000;
+      cursor:pointer;
+    }
+
+    .primary{
+      color:#fff;
+      background:linear-gradient(90deg,var(--green),var(--blue));
+      box-shadow:0 14px 30px rgba(45,152,255,.2);
+    }
+
+    .secondary{
+      color:#2d536d;
+      background:#fff;
+      border:1px solid var(--line);
+      box-shadow:0 10px 22px rgba(41,82,111,.09);
+    }
+
+    .danger{
+      color:#8c2e37;
+      background:#fff1f2;
+      border:1px solid #ffd2d7;
+    }
+
+    .summaryGrid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .summaryBox{
+      border:1px solid var(--line);
+      background:#fff;
+      border-radius:20px;
+      padding:12px;
+      text-align:center;
+    }
+
+    .summaryBox b{
+      display:block;
+      font-size:24px;
+      color:#214761;
+    }
+
+    .summaryBox span{
+      display:block;
+      font-size:11px;
+      font-weight:1000;
+      color:#6a8798;
+      margin-top:2px;
+    }
+
+    .tipBox{
+      margin-top:12px;
+      padding:12px;
+      border-radius:18px;
+      background:#f7fdff;
+      border:1px solid var(--line);
+      color:#55778c;
+      font-weight:850;
+      line-height:1.45;
+    }
+
+    .crosshair{
+      position:fixed;
+      left:50%;
+      top:50%;
+      z-index:12;
+      width:42px;
+      height:42px;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      display:none;
+    }
+
+    .crosshair:before,
+    .crosshair:after{
+      content:"";
+      position:absolute;
+      background:rgba(33,71,97,.72);
+      border-radius:99px;
+    }
+
+    .crosshair:before{
+      left:20px;
+      top:3px;
+      width:2px;
+      height:36px;
+    }
+
+    .crosshair:after{
+      top:20px;
+      left:3px;
+      height:2px;
+      width:36px;
+    }
+
+    .view-cvr .crosshair{
+      display:block;
+    }
+
+    .view-cvr .target{
+      pointer-events:none;
+    }
+
+    .view-cvr{
+      --target-size:68px;
+    }
+
     @media (max-width:900px){
-      :root{--target-size:64px}
-      .app{grid-template-rows:auto auto 1fr;padding:calc(6px + var(--safe-top)) calc(6px + var(--safe-right)) calc(6px + var(--safe-bottom)) calc(6px + var(--safe-left))}
-      .topHud{grid-template-columns:repeat(3,1fr) 52px}.topHud .hudBox:nth-child(4),.topHud .hudBox:nth-child(5){display:none}
-      .hudBox,.iconBtn{min-height:52px;border-radius:17px}.hudValue{font-size:16px}.missionText{font-size:15px}
-      .playWrap{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) auto}
-      .platePanel{max-height:34dvh;border-radius:24px}.slots{grid-template-columns:repeat(5,1fr);gap:6px}.slot{grid-template-columns:1fr;padding:6px;min-height:58px;text-align:center}.slotIcon{margin:auto;width:32px;height:32px;font-size:20px}.slotName{display:none}.slotThai{font-size:9px}.slotState{font-size:16px}
-      .summaryGrid{grid-template-columns:repeat(2,1fr)}
-      .actions{flex-direction:column}.primary,.secondary,.danger{width:100%}
+      :root{
+        --target-size:64px;
+      }
+
+      .app{
+        grid-template-rows:auto auto 1fr;
+        padding:
+          calc(6px + var(--safe-top))
+          calc(6px + var(--safe-right))
+          calc(6px + var(--safe-bottom))
+          calc(6px + var(--safe-left));
+      }
+
+      .topHud{
+        grid-template-columns:repeat(3,1fr) 52px;
+      }
+
+      .topHud .hudBox:nth-child(4),
+      .topHud .hudBox:nth-child(5){
+        display:none;
+      }
+
+      .hudBox,
+      .iconBtn{
+        min-height:52px;
+        border-radius:17px;
+      }
+
+      .hudValue{
+        font-size:16px;
+      }
+
+      .missionText{
+        font-size:15px;
+      }
+
+      .playWrap{
+        grid-template-columns:1fr;
+        grid-template-rows:minmax(0,1fr) auto;
+      }
+
+      .platePanel{
+        max-height:34dvh;
+        border-radius:24px;
+      }
+
+      .slots{
+        grid-template-columns:repeat(5,1fr);
+        gap:6px;
+      }
+
+      .slot{
+        grid-template-columns:1fr;
+        padding:6px;
+        min-height:58px;
+        text-align:center;
+      }
+
+      .slotIcon{
+        margin:auto;
+        width:32px;
+        height:32px;
+        font-size:20px;
+      }
+
+      .slotName{
+        display:none;
+      }
+
+      .slotThai{
+        font-size:9px;
+      }
+
+      .slotState{
+        font-size:16px;
+      }
+
+      .summaryGrid{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .actions{
+        flex-direction:column;
+      }
+
+      .primary,
+      .secondary,
+      .danger{
+        width:100%;
+      }
     }
+
     @media (max-width:420px){
-      :root{--target-size:58px}
-      .bossStrip{grid-template-columns:42px 1fr auto}.bossIcon{font-size:24px}
-      .missionPanel{padding:8px 10px}.platePanel{max-height:31dvh}
+      :root{
+        --target-size:58px;
+      }
+
+      .bossStrip{
+        grid-template-columns:42px 1fr auto;
+      }
+
+      .bossIcon{
+        font-size:24px;
+      }
+
+      .missionPanel{
+        padding:8px 10px;
+      }
+
+      .platePanel{
+        max-height:31dvh;
+      }
     }
-     /* === PATCH v20260603-PLATE-SUMMARY-MOBILE-SCROLL-TOUCH-FIX === */
- /* แก้ mobile summary ให้เลื่อนได้จริง แม้ body ของเกมจะ touch-action:none */
 
- #summaryOverlay,
- #summaryOverlay *{
-   touch-action:pan-y;
- }
+    /* === PATCH v20260603-PLATE-SUMMARY-MOBILE-SCROLL-TOUCH-FIX === */
+    /* แก้ mobile summary ให้เลื่อนได้จริง แม้ body ของเกมจะ touch-action:none */
 
- #summaryOverlay{
-   overscroll-behavior:contain;
- }
+    #summaryOverlay,
+    #summaryOverlay *{
+      touch-action:pan-y;
+    }
 
- #summaryOverlay .overlayCard{
-   scrollbar-width:thin;
-   padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));
- }
+    #summaryOverlay{
+      overscroll-behavior:contain;
+    }
 
- #summaryOverlay .actions{
-   touch-action:manipulation;
- }
+    #summaryOverlay .overlayCard{
+      scrollbar-width:thin;
+      padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));
+    }
 
- #summaryOverlay .actions button{
-   touch-action:manipulation;
- }
+    #summaryOverlay .actions{
+      touch-action:manipulation;
+    }
 
- body.plate-summary-open{
-   overflow:hidden;
- }
+    #summaryOverlay .actions button{
+      touch-action:manipulation;
+    }
 
- body.plate-summary-open #summaryOverlay{
-   pointer-events:auto;
- }
+    body.plate-summary-open{
+      overflow:hidden;
+    }
 
- @media (max-width:480px){
-   #summaryOverlay{
-     padding:
-       calc(6px + env(safe-area-inset-top,0px))
-       8px
-       calc(8px + env(safe-area-inset-bottom,0px));
-   }
+    body.plate-summary-open #summaryOverlay{
+      pointer-events:auto;
+    }
 
-   #summaryOverlay .overlayCard{
-     max-height:calc(100svh - 14px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
-   }
+    @media (max-width:480px){
+      #summaryOverlay{
+        padding:
+          calc(6px + env(safe-area-inset-top,0px))
+          8px
+          calc(8px + env(safe-area-inset-bottom,0px));
+      }
 
-   #summaryOverlay h1{
-     font-size:clamp(24px,7.4vw,34px);
-   }
+      #summaryOverlay .overlayCard{
+        max-height:calc(100svh - 14px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+      }
 
-   #summaryOverlay .lead{
-     font-size:clamp(15px,4.3vw,19px);
-   }
+      #summaryOverlay h1{
+        font-size:clamp(24px,7.4vw,34px);
+      }
 
-   #summaryOverlay .summaryGrid{
-     gap:7px;
-   }
+      #summaryOverlay .lead{
+        font-size:clamp(15px,4.3vw,19px);
+      }
 
-   #summaryOverlay .summaryBox{
-     min-height:94px;
-     padding:8px 6px;
-   }
+      #summaryOverlay .summaryGrid{
+        gap:7px;
+      }
 
-   #summaryOverlay .summaryBox b{
-     font-size:clamp(26px,7.4vw,36px);
-   }
+      #summaryOverlay .summaryBox{
+        min-height:94px;
+        padding:8px 6px;
+      }
 
-   #summaryOverlay .tipBox{
-     font-size:clamp(14px,4vw,17px);
-     max-height:112px;
-   }
+      #summaryOverlay .summaryBox b{
+        font-size:clamp(26px,7.4vw,36px);
+      }
 
-   #summaryOverlay .primary,
-   #summaryOverlay .secondary,
-   #summaryOverlay .danger{
-     min-height:46px;
-     font-size:14px;
-   }
- }
+      #summaryOverlay .tipBox{
+        font-size:clamp(14px,4vw,17px);
+        max-height:112px;
+      }
+
+      #summaryOverlay .primary,
+      #summaryOverlay .secondary,
+      #summaryOverlay .danger{
+        min-height:46px;
+        font-size:14px;
+      }
+    }
+
+    /* === PATCH v20260606-PLATE-SUMMARY-DESKTOP-BUTTON-LAYOUT-POLISH === */
+    /* จัด Summary บน PC/Desktop ให้กลางจอ ปุ่มท้ายเรียงสวย ไม่หล่นบรรทัด */
+
+    @media (min-width:821px){
+      #summaryOverlay{
+        align-items:center;
+        justify-content:center;
+        padding:24px;
+      }
+
+      #summaryOverlay .overlayCard{
+        width:min(920px,calc(100vw - 64px));
+        max-height:calc(100dvh - 64px);
+        padding:24px;
+        border-radius:34px;
+      }
+
+      #summaryOverlay h1{
+        font-size:clamp(42px,4.4vw,62px);
+        line-height:1.04;
+        margin:12px 0 8px;
+      }
+
+      #summaryOverlay .lead{
+        font-size:20px;
+        line-height:1.35;
+        font-weight:950;
+      }
+
+      #summaryOverlay .summaryGrid{
+        grid-template-columns:repeat(3,1fr);
+        gap:12px;
+        margin-top:18px;
+      }
+
+      #summaryOverlay .summaryBox{
+        min-height:86px;
+        padding:12px 10px;
+        border-radius:20px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+      }
+
+      #summaryOverlay .summaryBox b{
+        font-size:32px;
+        line-height:1;
+      }
+
+      #summaryOverlay .summaryBox span{
+        font-size:12px;
+        line-height:1.2;
+      }
+
+      #summaryOverlay .tipBox{
+        margin-top:14px;
+        padding:12px 14px;
+        border-radius:18px;
+        font-size:18px;
+        line-height:1.35;
+        max-height:none;
+        overflow:visible;
+      }
+
+      #summaryOverlay .actions{
+        display:grid;
+        grid-template-columns:repeat(4,minmax(0,1fr));
+        gap:12px;
+        margin-top:16px;
+        position:static;
+        padding:0;
+        background:none;
+      }
+
+      #summaryOverlay .primary,
+      #summaryOverlay .secondary,
+      #summaryOverlay .danger{
+        width:100%;
+        min-width:0;
+        min-height:52px;
+        padding:0 12px;
+        font-size:16px;
+        line-height:1.15;
+        white-space:normal;
+      }
+    }
+
+    @media (min-width:821px) and (max-width:980px){
+      #summaryOverlay .overlayCard{
+        width:min(820px,calc(100vw - 40px));
+      }
+
+      #summaryOverlay .actions{
+        grid-template-columns:repeat(2,1fr);
+      }
+    }
   </style>
 </head>
+
 <body>
   <main id="app" class="app">
     <section class="topHud" aria-label="Game HUD">
-      <div class="hudBox" id="scoreBox"><span class="hudLabel">คะแนน</span><span id="scoreVal" class="hudValue">0</span></div>
-      <div class="hudBox"><span class="hudLabel">เวลา</span><span id="timeVal" class="hudValue">90</span></div>
-      <div class="hudBox"><span class="hudLabel">จานครบ</span><span id="plateVal" class="hudValue">0</span></div>
-      <div class="hudBox"><span class="hudLabel">Combo</span><span id="comboVal" class="hudValue">0</span></div>
-      <div class="hudBox"><span class="hudLabel">แม่นยำ</span><span id="accVal" class="hudValue">100%</span></div>
+      <div class="hudBox" id="scoreBox">
+        <span class="hudLabel">คะแนน</span>
+        <span id="scoreVal" class="hudValue">0</span>
+      </div>
+
+      <div class="hudBox">
+        <span class="hudLabel">เวลา</span>
+        <span id="timeVal" class="hudValue">90</span>
+      </div>
+
+      <div class="hudBox">
+        <span class="hudLabel">จานครบ</span>
+        <span id="plateVal" class="hudValue">0</span>
+      </div>
+
+      <div class="hudBox">
+        <span class="hudLabel">Combo</span>
+        <span id="comboVal" class="hudValue">0</span>
+      </div>
+
+      <div class="hudBox">
+        <span class="hudLabel">แม่นยำ</span>
+        <span id="accVal" class="hudValue">100%</span>
+      </div>
+
       <button id="pauseBtn" class="iconBtn" aria-label="Pause">Ⅱ</button>
     </section>
 
@@ -229,16 +1014,22 @@
           <div id="missionText" class="missionText">เติมจานให้ครบ 5 หมู่</div>
           <div id="missionSub" class="missionSub">เลือกอาหารที่จานยังขาด หลีกเลี่ยง junk และของซ้ำ</div>
         </div>
+
         <div style="min-width:120px">
-          <div class="bar" title="Fever"><div id="feverFill" class="barFill"></div></div>
+          <div class="bar" title="Fever">
+            <div id="feverFill" class="barFill"></div>
+          </div>
           <div id="feverText" class="missionSub" style="text-align:right;margin-top:4px">Fever 0%</div>
         </div>
       </div>
+
       <div id="bossStrip" class="bossStrip hidden">
         <div class="bossIcon">👾</div>
         <div>
           <div class="missionTitle" style="color:#7a5164">Junk Boss</div>
-          <div class="bar"><div id="bossFill" class="barFill bossFill"></div></div>
+          <div class="bar">
+            <div id="bossFill" class="barFill bossFill"></div>
+          </div>
         </div>
         <div id="bossHp" class="bossHp">100%</div>
       </div>
@@ -246,12 +1037,15 @@
 
     <section class="playWrap" aria-label="Play area">
       <div id="playField" class="playField" aria-label="Tap food targets"></div>
+
       <aside class="platePanel" aria-label="Balanced plate">
         <div>
           <div class="plateTitle">จานสมดุล 5 หมู่</div>
           <div id="plateHint" class="plateHint">ครบทั้ง 5 ช่อง = ได้ 1 จาน แล้วเล่นต่อเพื่อทำคะแนนเพิ่ม</div>
         </div>
+
         <div id="slots" class="slots"></div>
+
         <div class="tipBox">
           <b>กติกา Solo:</b> เกมเป็นแบบจับเวลา เก็บให้ได้หลายจานที่สุดในเวลาที่เลือก ไม่ใช่จบแค่จานเดียว
         </div>
@@ -266,10 +1060,12 @@
     <div class="overlayCard">
       <div class="kicker">🥗 Nutrition Zone • Plate Solo</div>
       <h1>Balanced Plate Rush</h1>
+
       <p class="lead">
         เล่นแบบ Solo ตาม concept ล่าสุด: จัดจานให้ครบ 5 หมู่ เก็บได้หลายจานในเวลาจำกัด
         มี combo, fever, junk trap และ Junk Boss เพื่อให้เกมสนุกและท้าทายขึ้น
       </p>
+
       <div class="pillRow">
         <span class="pill">หมู่ 1 โปรตีน</span>
         <span class="pill">หมู่ 2 คาร์โบไฮเดรต</span>
@@ -278,10 +1074,12 @@
         <span class="pill">หมู่ 5 ไขมัน</span>
         <span id="viewPill" class="pill">PC / Mobile / cVR</span>
       </div>
+
       <div class="tipBox">
         <b>วิธีเล่น:</b> แตะอาหารที่ “จานยังขาด” ให้ครบทั้ง 5 หมู่ ถ้าแตะ junk หรือหมู่ที่มีแล้ว จะเสีย combo และเสียเวลา
         เมื่อจานครบจะเริ่มจานใหม่ทันที คะแนนวัดจากจำนวนจาน ความแม่นยำ และการชนะบอส
       </div>
+
       <div class="actions">
         <button id="startBtn" class="primary">▶️ เริ่มเล่น Plate Solo</button>
         <button id="launcherBtn" class="secondary">↩️ กลับ Plate Launcher</button>
@@ -295,15 +1093,41 @@
       <div class="kicker">🏁 Plate Solo Summary</div>
       <h1 id="summaryTitle">สรุปผลการเล่น</h1>
       <p id="summaryLead" class="lead">ยอดเยี่ยมมาก</p>
+
       <div class="summaryGrid">
-        <div class="summaryBox"><b id="sumScore">0</b><span>คะแนน</span></div>
-        <div class="summaryBox"><b id="sumPlates">0</b><span>จานครบ</span></div>
-        <div class="summaryBox"><b id="sumAcc">0%</b><span>ความแม่นยำ</span></div>
-        <div class="summaryBox"><b id="sumCombo">0</b><span>Max Combo</span></div>
-        <div class="summaryBox"><b id="sumBoss">-</b><span>Junk Boss</span></div>
-        <div class="summaryBox"><b id="sumRank">-</b><span>Rank</span></div>
+        <div class="summaryBox">
+          <b id="sumScore">0</b>
+          <span>คะแนน</span>
+        </div>
+
+        <div class="summaryBox">
+          <b id="sumPlates">0</b>
+          <span>จานครบ</span>
+        </div>
+
+        <div class="summaryBox">
+          <b id="sumAcc">0%</b>
+          <span>ความแม่นยำ</span>
+        </div>
+
+        <div class="summaryBox">
+          <b id="sumCombo">0</b>
+          <span>Max Combo</span>
+        </div>
+
+        <div class="summaryBox">
+          <b id="sumBoss">-</b>
+          <span>Junk Boss</span>
+        </div>
+
+        <div class="summaryBox">
+          <b id="sumRank">-</b>
+          <span>Rank</span>
+        </div>
       </div>
+
       <div id="coachTip" class="tipBox">คำแนะนำจะแสดงตรงนี้</div>
+
       <div class="actions">
         <button id="againBtn" class="primary">🔁 เล่นอีกครั้ง</button>
         <button id="cooldownBtn" class="secondary">🧘 Cooldown แล้วกลับ Zone</button>
@@ -317,84 +1141,255 @@
   (function(){
     'use strict';
 
-    const VERSION = '20260603-PLATE-CONCEPT-FINAL-SOLO-RUSH-BOSS';
+    const VERSION = '20260606-PLATE-CONCEPT-FINAL-SOLO-RUSH-BOSS-SUMMARY-POLISH';
     const $ = (id) => document.getElementById(id);
     const Q = new URL(location.href).searchParams;
 
     const GROUPS = [
-      {id:'protein', no:1, icon:'🥚', name:'Protein', thai:'โปรตีน', items:['🥚','🥛','🍗','🐟','🫘'], label:'โปรตีน'},
-      {id:'carb', no:2, icon:'🍚', name:'Carb', thai:'คาร์บ', items:['🍚','🍞','🥔','🌽','🍜'], label:'คาร์บ'},
-      {id:'veg', no:3, icon:'🥦', name:'Vegetable', thai:'ผัก', items:['🥦','🥬','🥕','🍅','🥒'], label:'ผัก'},
-      {id:'fruit', no:4, icon:'🍎', name:'Fruit', thai:'ผลไม้', items:['🍎','🍌','🍊','🍇','🍉'], label:'ผลไม้'},
-      {id:'fat', no:5, icon:'🥑', name:'Fat', thai:'ไขมันดี', items:['🥑','🥜','🫒','🥥','🧀'], label:'ไขมัน'}
+      {
+        id:'protein',
+        no:1,
+        icon:'🥚',
+        name:'Protein',
+        thai:'โปรตีน',
+        items:['🥚','🥛','🍗','🐟','🫘'],
+        label:'โปรตีน'
+      },
+      {
+        id:'carb',
+        no:2,
+        icon:'🍚',
+        name:'Carb',
+        thai:'คาร์บ',
+        items:['🍚','🍞','🥔','🌽','🍜'],
+        label:'คาร์บ'
+      },
+      {
+        id:'veg',
+        no:3,
+        icon:'🥦',
+        name:'Vegetable',
+        thai:'ผัก',
+        items:['🥦','🥬','🥕','🍅','🥒'],
+        label:'ผัก'
+      },
+      {
+        id:'fruit',
+        no:4,
+        icon:'🍎',
+        name:'Fruit',
+        thai:'ผลไม้',
+        items:['🍎','🍌','🍊','🍇','🍉'],
+        label:'ผลไม้'
+      },
+      {
+        id:'fat',
+        no:5,
+        icon:'🥑',
+        name:'Fat',
+        thai:'ไขมันดี',
+        items:['🥑','🥜','🫒','🥥','🧀'],
+        label:'ไขมัน'
+      }
     ];
+
     const JUNK = [
-      {emoji:'🍟', label:'junk'}, {emoji:'🍩', label:'junk'}, {emoji:'🥤', label:'junk'},
-      {emoji:'🍬', label:'junk'}, {emoji:'🍰', label:'junk'}, {emoji:'🍔', label:'junk'}
+      {emoji:'🍟', label:'junk'},
+      {emoji:'🍩', label:'junk'},
+      {emoji:'🥤', label:'junk'},
+      {emoji:'🍬', label:'junk'},
+      {emoji:'🍰', label:'junk'},
+      {emoji:'🍔', label:'junk'}
     ];
 
     const DIFF = {
-      easy:{time:90, spawn:980, life:2200, maxTargets:5, junk:0.18, bossEvery:3, missPenalty:1, scoreMul:1},
-      normal:{time:90, spawn:820, life:1900, maxTargets:6, junk:0.25, bossEvery:3, missPenalty:2, scoreMul:1.1},
-      hard:{time:90, spawn:700, life:1650, maxTargets:7, junk:0.32, bossEvery:2, missPenalty:3, scoreMul:1.25},
-      challenge:{time:75, spawn:590, life:1450, maxTargets:8, junk:0.38, bossEvery:2, missPenalty:4, scoreMul:1.45}
+      easy:{
+        time:90,
+        spawn:980,
+        life:2200,
+        maxTargets:5,
+        junk:0.18,
+        bossEvery:3,
+        missPenalty:1,
+        scoreMul:1
+      },
+      normal:{
+        time:90,
+        spawn:820,
+        life:1900,
+        maxTargets:6,
+        junk:0.25,
+        bossEvery:3,
+        missPenalty:2,
+        scoreMul:1.1
+      },
+      hard:{
+        time:90,
+        spawn:700,
+        life:1650,
+        maxTargets:7,
+        junk:0.32,
+        bossEvery:2,
+        missPenalty:3,
+        scoreMul:1.25
+      },
+      challenge:{
+        time:75,
+        spawn:590,
+        life:1450,
+        maxTargets:8,
+        junk:0.38,
+        bossEvery:2,
+        missPenalty:4,
+        scoreMul:1.45
+      }
     };
 
     const state = {
-      started:false, paused:false, ended:false,
-      view: qs('view', guessView()),
-      diff: normalizeDiff(qs('diff','normal')),
-      timeTotal:0, timeLeft:0,
-      score:0, plates:0, combo:0, maxCombo:0, hits:0, mistakes:0, attempts:0,
-      fever:0, feverOn:false, targetSeq:0, targets:new Map(), plate:{},
-      bossActive:false, bossHp:0, bossMax:100, bossWins:0,
-      timers:{tick:null,spawn:null,raf:null},
-      seed: Number(qs('seed', Date.now())) || Date.now(),
+      started:false,
+      paused:false,
+      ended:false,
+
+      view:qs('view', guessView()),
+      diff:normalizeDiff(qs('diff','normal')),
+
+      timeTotal:0,
+      timeLeft:0,
+
+      score:0,
+      plates:0,
+      combo:0,
+      maxCombo:0,
+      hits:0,
+      mistakes:0,
+      attempts:0,
+
+      fever:0,
+      feverOn:false,
+
+      targetSeq:0,
+      targets:new Map(),
+      plate:{},
+
+      bossActive:false,
+      bossHp:0,
+      bossMax:100,
+      bossWins:0,
+
+      timers:{
+        tick:null,
+        spawn:null,
+        raf:null
+      },
+
+      seed:Number(qs('seed', Date.now())) || Date.now(),
       rng:null,
       startedAt:0
     };
 
-    function qs(k,d=''){ return Q.get(k) ?? d; }
-    function normalizeDiff(v){ return DIFF[v] ? v : 'normal'; }
-    function guessView(){ return matchMedia('(max-width: 820px)').matches ? 'mobile' : 'pc'; }
+    function qs(k, d = ''){
+      return Q.get(k) ?? d;
+    }
+
+    function normalizeDiff(v){
+      return DIFF[v] ? v : 'normal';
+    }
+
+    function guessView(){
+      return matchMedia('(max-width: 820px)').matches ? 'mobile' : 'pc';
+    }
+
     function rng(){
       state.seed = (state.seed * 1664525 + 1013904223) >>> 0;
       return state.seed / 4294967296;
     }
-    function pick(arr){ return arr[Math.floor(rng()*arr.length)] || arr[0]; }
-    function clamp(n,a,b){ return Math.max(a, Math.min(b, n)); }
-    function pct(n){ return Math.round(clamp(n,0,1)*100); }
-    function escapeHtml(s){ return String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+    function pick(arr){
+      return arr[Math.floor(rng() * arr.length)] || arr[0];
+    }
+
+    function clamp(n, a, b){
+      return Math.max(a, Math.min(b, n));
+    }
+
+    function pct(n){
+      return Math.round(clamp(n,0,1) * 100);
+    }
+
+    function escapeHtml(s){
+      return String(s ?? '').replace(/[&<>"']/g, m => ({
+        '&':'&amp;',
+        '<':'&lt;',
+        '>':'&gt;',
+        '"':'&quot;',
+        "'":'&#39;'
+      }[m]));
+    }
 
     function init(){
-      document.body.classList.toggle('view-cvr', state.view === 'cvr' || state.view === 'view-cvr');
+      document.body.classList.toggle(
+        'view-cvr',
+        state.view === 'cvr' || state.view === 'view-cvr'
+      );
+
       $('viewPill').textContent = `View: ${state.view}`;
+
       renderSlots();
       bind();
       reset(false);
+
       toast(`Plate Concept Final loaded • ${VERSION}`);
-      try{ console.info('[Plate]', VERSION, {diff:state.diff, view:state.view}); }catch(e){}
+
+      try{
+        console.info('[Plate]', VERSION, {
+          diff:state.diff,
+          view:state.view
+        });
+      }catch(e){}
     }
 
     function bind(){
       $('startBtn').addEventListener('click', start);
-      $('againBtn').addEventListener('click', () => { $('summaryOverlay').classList.add('hidden'); $('startOverlay').classList.remove('hidden'); reset(false); });
+
+      $('againBtn').addEventListener('click', () => {
+        $('summaryOverlay').classList.add('hidden');
+        $('startOverlay').classList.remove('hidden');
+        reset(false);
+      });
+
       $('pauseBtn').addEventListener('click', togglePause);
+
       $('launcherBtn').addEventListener('click', goLauncher);
       $('backLauncherBtn').addEventListener('click', goLauncher);
+
       $('zoneBtn').addEventListener('click', goZone);
       $('backZoneBtn').addEventListener('click', goZone);
+
       $('cooldownBtn').addEventListener('click', goCooldown);
-      document.addEventListener('keydown', (ev)=>{
-        if(ev.code === 'Space'){ ev.preventDefault(); togglePause(); }
-        if(ev.code === 'Enter' && !state.started && !state.ended) start();
+
+      document.addEventListener('keydown', ev => {
+        if(ev.code === 'Space'){
+          ev.preventDefault();
+          togglePause();
+        }
+
+        if(ev.code === 'Enter' && !state.started && !state.ended){
+          start();
+        }
       });
-      document.addEventListener('click', (ev)=>{
-        if((state.view === 'cvr' || state.view === 'view-cvr') && state.started && !state.paused && !state.ended){
+
+      document.addEventListener('click', ev => {
+        if(
+          (state.view === 'cvr' || state.view === 'view-cvr') &&
+          state.started &&
+          !state.paused &&
+          !state.ended
+        ){
           const best = nearestCenterTarget();
           if(best) hitTarget(best.id);
         }
       }, true);
+
       window.addEventListener('pagehide', flushSummarySoft);
       window.addEventListener('beforeunload', flushSummarySoft);
     }
@@ -402,59 +1397,120 @@
     function config(){
       const c = Object.assign({}, DIFF[state.diff] || DIFF.normal);
       const qTime = Number(qs('time',''));
-      if(Number.isFinite(qTime) && qTime >= 45 && qTime <= 180) c.time = qTime;
-      if(state.view === 'mobile'){ c.maxTargets = Math.max(4, c.maxTargets - 1); c.life += 180; }
-      if(state.view === 'cvr' || state.view === 'view-cvr'){ c.maxTargets = Math.max(4, c.maxTargets - 1); c.life += 260; }
+
+      if(Number.isFinite(qTime) && qTime >= 45 && qTime <= 180){
+        c.time = qTime;
+      }
+
+      if(state.view === 'mobile'){
+        c.maxTargets = Math.max(4, c.maxTargets - 1);
+        c.life += 180;
+      }
+
+      if(state.view === 'cvr' || state.view === 'view-cvr'){
+        c.maxTargets = Math.max(4, c.maxTargets - 1);
+        c.life += 260;
+      }
+
       return c;
     }
 
     function reset(full){
       stopTimers();
-      state.started = false; state.paused = false; state.ended = false;
+
+      state.started = false;
+      state.paused = false;
+      state.ended = false;
+
       const c = config();
-      state.timeTotal = c.time; state.timeLeft = c.time;
-      state.score = 0; state.plates = 0; state.combo = 0; state.maxCombo = 0;
-      state.hits = 0; state.mistakes = 0; state.attempts = 0;
-      state.fever = 0; state.feverOn = false; state.targetSeq = 0; state.targets.clear();
-      state.bossActive = false; state.bossHp = 0; state.bossMax = 100; state.bossWins = 0;
+
+      state.timeTotal = c.time;
+      state.timeLeft = c.time;
+
+      state.score = 0;
+      state.plates = 0;
+      state.combo = 0;
+      state.maxCombo = 0;
+      state.hits = 0;
+      state.mistakes = 0;
+      state.attempts = 0;
+
+      state.fever = 0;
+      state.feverOn = false;
+
+      state.targetSeq = 0;
+      state.targets.clear();
+
+      state.bossActive = false;
+      state.bossHp = 0;
+      state.bossMax = 100;
+      state.bossWins = 0;
+
       state.startedAt = 0;
+
       clearField();
       resetPlate();
       renderAll();
+
       $('pauseBtn').textContent = 'Ⅱ';
       $('bossStrip').classList.add('hidden');
       $('playField').classList.remove('fever');
-      if(full) $('startOverlay').classList.remove('hidden');
+
+      if(full){
+        $('startOverlay').classList.remove('hidden');
+      }
     }
 
     function start(){
       reset(false);
+
       state.started = true;
       state.startedAt = Date.now();
+
       $('startOverlay').classList.add('hidden');
+
       toast('เริ่ม! เติมจานครบ 5 หมู่ให้เร็วและแม่น');
+
       spawnWave(true);
+
       state.timers.tick = setInterval(tick, 1000);
+
       scheduleSpawn();
       updateMission();
     }
 
     function tick(){
       if(!state.started || state.paused || state.ended) return;
+
       state.timeLeft -= 1;
-      if(state.bossActive && state.timeLeft % 2 === 0) spawnBossShot();
-      if(state.timeLeft <= 0){ endGame('time'); return; }
+
+      if(state.bossActive && state.timeLeft % 2 === 0){
+        spawnBossShot();
+      }
+
+      if(state.timeLeft <= 0){
+        endGame('time');
+        return;
+      }
+
       renderHud();
     }
 
     function scheduleSpawn(){
       clearTimeout(state.timers.spawn);
+
       if(!state.started || state.paused || state.ended) return;
+
       const c = config();
       const speedBonus = state.feverOn ? 0.72 : 1;
-      state.timers.spawn = setTimeout(()=>{
+
+      state.timers.spawn = setTimeout(() => {
         spawnOne();
-        if(rng() < .28) spawnOne();
+
+        if(rng() < .28){
+          spawnOne();
+        }
+
         cleanupOverflow();
         scheduleSpawn();
       }, Math.round(c.spawn * speedBonus));
@@ -464,19 +1520,31 @@
       clearInterval(state.timers.tick);
       clearTimeout(state.timers.spawn);
       cancelAnimationFrame(state.timers.raf);
-      state.timers.tick = null; state.timers.spawn = null; state.timers.raf = null;
+
+      state.timers.tick = null;
+      state.timers.spawn = null;
+      state.timers.raf = null;
     }
 
     function togglePause(){
       if(!state.started || state.ended) return;
+
       state.paused = !state.paused;
+
       $('pauseBtn').textContent = state.paused ? '▶' : 'Ⅱ';
+
       toast(state.paused ? 'พักเกมไว้ก่อน' : 'เล่นต่อ!');
-      if(!state.paused) scheduleSpawn();
+
+      if(!state.paused){
+        scheduleSpawn();
+      }
     }
 
     function resetPlate(){
-      GROUPS.forEach(g => state.plate[g.id] = false);
+      GROUPS.forEach(g => {
+        state.plate[g.id] = false;
+      });
+
       renderSlots();
     }
 
@@ -490,25 +1558,45 @@
 
     function spawnWave(first){
       const n = first ? 4 : 3;
-      for(let i=0;i<n;i++) spawnOne();
+
+      for(let i = 0; i < n; i++){
+        spawnOne();
+      }
     }
 
     function spawnOne(forceNeeded){
       if(!state.started || state.paused || state.ended) return;
+
       const c = config();
+
       if(state.targets.size >= c.maxTargets) return;
 
       let kind = 'good';
       const need = neededGroups();
       const junkChance = state.bossActive ? c.junk + .08 : c.junk;
-      if(!forceNeeded && rng() < junkChance) kind = 'junk';
+
+      if(!forceNeeded && rng() < junkChance){
+        kind = 'junk';
+      }
 
       let data;
+
       if(kind === 'junk'){
         const j = pick(JUNK);
-        data = {kind:'junk', emoji:j.emoji, label:'junk', group:null, needed:false, boss:false};
+
+        data = {
+          kind:'junk',
+          emoji:j.emoji,
+          label:'junk',
+          group:null,
+          needed:false,
+          boss:false
+        };
       }else{
-        const group = (need.length && (forceNeeded || rng() < .74)) ? pick(need) : pick(GROUPS);
+        const group = (need.length && (forceNeeded || rng() < .74))
+          ? pick(need)
+          : pick(GROUPS);
+
         data = {
           kind:'good',
           emoji:pick(group.items),
@@ -518,68 +1606,122 @@
           boss:false
         };
       }
+
       createTarget(data, c.life);
     }
 
     function spawnBossShot(){
       if(!state.bossActive) return;
+
       const shots = [
         {emoji:'💧', label:'ล้าง junk'},
         {emoji:'⭐', label:'power'},
         {emoji:'🥗', label:'healthy hit'}
       ];
-      createTarget({kind:'good', emoji:pick(shots).emoji, label:'Boss Hit', group:null, needed:true, boss:true}, Math.max(1200, config().life - 250));
+
+      createTarget(
+        {
+          kind:'good',
+          emoji:pick(shots).emoji,
+          label:'Boss Hit',
+          group:null,
+          needed:true,
+          boss:true
+        },
+        Math.max(1200, config().life - 250)
+      );
     }
 
     function createTarget(data, life){
       const field = $('playField');
       const rect = field.getBoundingClientRect();
+
       if(rect.width < 120 || rect.height < 120) return;
+
       const id = 't' + (++state.targetSeq);
       const el = document.createElement('button');
-      el.className = `target ${data.kind === 'junk' ? 'junk' : 'good'} ${data.needed ? 'needed' : 'extra'} ${data.boss ? 'bossShot' : ''}`;
+
+      el.className =
+        `target ${data.kind === 'junk' ? 'junk' : 'good'} ` +
+        `${data.needed ? 'needed' : 'extra'} ` +
+        `${data.boss ? 'bossShot' : ''}`;
+
       el.type = 'button';
       el.dataset.id = id;
-      el.innerHTML = `<div class="targetLife"><i></i></div><span class="targetEmoji">${escapeHtml(data.emoji)}</span><span class="targetTag">${escapeHtml(data.label)}</span>`;
+
+      el.innerHTML =
+        `<div class="targetLife"><i></i></div>` +
+        `<span class="targetEmoji">${escapeHtml(data.emoji)}</span>` +
+        `<span class="targetTag">${escapeHtml(data.label)}</span>`;
+
       const pad = 48;
-      const x = pad + rng() * Math.max(1, rect.width - pad*2);
-      const y = pad + rng() * Math.max(1, rect.height - pad*2);
+      const x = pad + rng() * Math.max(1, rect.width - pad * 2);
+      const y = pad + rng() * Math.max(1, rect.height - pad * 2);
+
       el.style.left = x + 'px';
       el.style.top = y + 'px';
+
       const born = performance.now();
-      state.targets.set(id, {id, el, data, born, life});
-      el.addEventListener('click', (ev)=>{ ev.stopPropagation(); hitTarget(id); });
+
+      state.targets.set(id, {
+        id,
+        el,
+        data,
+        born,
+        life
+      });
+
+      el.addEventListener('click', ev => {
+        ev.stopPropagation();
+        hitTarget(id);
+      });
+
       field.appendChild(el);
       animateLife(id);
     }
 
     function animateLife(id){
       const t = state.targets.get(id);
+
       if(!t) return;
+
       const bar = t.el.querySelector('.targetLife i');
-      const step = (now)=>{
+
+      const step = now => {
         const cur = state.targets.get(id);
+
         if(!cur || state.paused || state.ended) return;
+
         const age = now - cur.born;
         const remain = clamp(1 - age / cur.life, 0, 1);
-        if(bar) bar.style.transform = `scaleX(${remain})`;
+
+        if(bar){
+          bar.style.transform = `scaleX(${remain})`;
+        }
+
         if(remain <= 0){
           expireTarget(id);
           return;
         }
+
         cur.raf = requestAnimationFrame(step);
       };
+
       t.raf = requestAnimationFrame(step);
     }
 
     function expireTarget(id){
       const t = state.targets.get(id);
+
       if(!t) return;
+
       removeTarget(id);
+
       if(t.data.kind === 'good' && t.data.needed && !t.data.boss){
         state.combo = 0;
         state.mistakes++;
         state.fever = Math.max(0, state.fever - 12);
+
         floatMsg('พลาดอาหารที่จานขาด!', false);
         renderAll();
       }
@@ -587,7 +1729,9 @@
 
     function removeTarget(id){
       const t = state.targets.get(id);
+
       if(!t) return;
+
       cancelAnimationFrame(t.raf);
       t.el.remove();
       state.targets.delete(id);
@@ -598,11 +1742,13 @@
         cancelAnimationFrame(t.raf);
         t.el.remove();
       });
+
       state.targets.clear();
     }
 
     function cleanupOverflow(){
       const c = config();
+
       while(state.targets.size > c.maxTargets){
         const first = state.targets.keys().next().value;
         removeTarget(first);
@@ -611,10 +1757,15 @@
 
     function hitTarget(id){
       if(!state.started || state.paused || state.ended) return;
+
       const t = state.targets.get(id);
+
       if(!t) return;
+
       state.attempts++;
+
       const d = t.data;
+
       removeTarget(id);
 
       if(d.kind === 'junk'){
@@ -628,9 +1779,14 @@
         state.combo++;
         state.maxCombo = Math.max(state.maxCombo, state.combo);
         state.bossHp = Math.max(0, state.bossHp - (18 + Math.min(12, state.combo)));
+
         addScore(85 + state.combo * 4);
         floatMsg('โจมตี Junk Boss!', true);
-        if(state.bossHp <= 0) winBoss();
+
+        if(state.bossHp <= 0){
+          winBoss();
+        }
+
         renderAll();
         return;
       }
@@ -651,14 +1807,21 @@
       state.combo++;
       state.maxCombo = Math.max(state.maxCombo, state.combo);
       state.fever = clamp(state.fever + 16 + Math.min(10, state.combo), 0, 100);
-      if(state.fever >= 100) activateFever();
+
+      if(state.fever >= 100){
+        activateFever();
+      }
+
       addScore(100 + state.combo * 8);
+
       const group = GROUPS.find(g => g.id === d.group);
+
       floatMsg(`+ ${group ? group.thai : 'ถูกต้อง'} Combo ${state.combo}`, true);
 
       if(plateComplete()){
         completePlate();
       }
+
       renderAll();
     }
 
@@ -667,7 +1830,9 @@
       state.combo = 0;
       state.fever = Math.max(0, state.fever - 18);
       state.feverOn = false;
+
       $('playField').classList.remove('fever');
+
       floatMsg(msg, false);
       renderAll();
     }
@@ -676,8 +1841,11 @@
       state.plates++;
       addScore(360 + state.combo * 12);
       state.timeLeft = Math.min(state.timeTotal, state.timeLeft + 4);
+
       floatMsg(`จานครบ! +1 Plate`, true);
+
       resetPlate();
+
       if(state.plates > 0 && state.plates % config().bossEvery === 0 && !state.bossActive){
         startBoss();
       }else{
@@ -689,45 +1857,65 @@
       state.bossActive = true;
       state.bossMax = 100 + state.plates * 12;
       state.bossHp = state.bossMax;
+
       $('bossStrip').classList.remove('hidden');
+
       toast('Junk Boss มาแล้ว! แตะ power target เพื่อโจมตี');
-      for(let i=0;i<3;i++) spawnBossShot();
+
+      for(let i = 0; i < 3; i++){
+        spawnBossShot();
+      }
     }
 
     function winBoss(){
       state.bossActive = false;
       state.bossWins++;
       state.bossHp = 0;
+
       $('bossStrip').classList.add('hidden');
+
       state.timeLeft = Math.min(state.timeTotal, state.timeLeft + 8);
+
       addScore(650);
+
       toast('ชนะ Junk Boss! ได้เวลาเพิ่ม +8 วินาที');
+
       spawnWave(false);
     }
 
     function activateFever(){
       if(state.feverOn) return;
+
       state.feverOn = true;
       state.fever = 100;
+
       $('playField').classList.add('fever');
+
       toast('FEVER! คะแนนเพิ่มและเป้าออกไวขึ้น');
-      setTimeout(()=>{
+
+      setTimeout(() => {
         state.feverOn = false;
         state.fever = 30;
+
         $('playField').classList.remove('fever');
+
         renderAll();
       }, 6500);
     }
 
     function addScore(n){
       const mul = config().scoreMul * (state.feverOn ? 1.35 : 1);
+
       state.score += Math.round(n * mul);
+
       bump('scoreBox');
     }
 
     function bump(id){
       const el = $(id);
+
       if(!el) return;
+
       el.classList.remove('bump');
       void el.offsetWidth;
       el.classList.add('bump');
@@ -735,10 +1923,14 @@
 
     function renderSlots(){
       const slots = $('slots');
+
       slots.innerHTML = GROUPS.map(g => `
         <div class="slot ${state.plate[g.id] ? 'done' : ''}" data-group="${g.id}">
           <div class="slotIcon">${g.icon}</div>
-          <div><div class="slotName">หมู่ ${g.no} ${g.name}</div><div class="slotThai">${g.thai}</div></div>
+          <div>
+            <div class="slotName">หมู่ ${g.no} ${g.name}</div>
+            <div class="slotThai">${g.thai}</div>
+          </div>
           <div class="slotState">${state.plate[g.id] ? '✓' : '○'}</div>
         </div>
       `).join('');
@@ -749,12 +1941,18 @@
       $('timeVal').textContent = String(Math.max(0, state.timeLeft));
       $('plateVal').textContent = String(state.plates);
       $('comboVal').textContent = String(state.combo);
-      const acc = state.attempts ? Math.round((state.hits / state.attempts) * 100) : 100;
+
+      const acc = state.attempts
+        ? Math.round((state.hits / state.attempts) * 100)
+        : 100;
+
       $('accVal').textContent = `${acc}%`;
       $('feverFill').style.width = pct(state.fever / 100) + '%';
-      $('feverText').textContent = state.feverOn ? 'FEVER!' : `Fever ${pct(state.fever/100)}%`;
+      $('feverText').textContent = state.feverOn ? 'FEVER!' : `Fever ${pct(state.fever / 100)}%`;
+
       if(state.bossActive){
         const p = state.bossMax ? state.bossHp / state.bossMax : 0;
+
         $('bossFill').style.width = pct(p) + '%';
         $('bossHp').textContent = pct(p) + '%';
       }
@@ -762,11 +1960,12 @@
 
     function updateMission(){
       const need = neededGroups();
+
       if(state.bossActive){
         $('missionText').textContent = 'กำจัด Junk Boss แล้วเติมจานต่อ!';
         $('missionSub').textContent = 'แตะ power target เพื่อโจมตีบอส ระวัง junk หลอก';
       }else if(need.length){
-        $('missionText').textContent = `จานยังขาด: ${need.map(g=>g.thai).join(' • ')}`;
+        $('missionText').textContent = `จานยังขาด: ${need.map(g => g.thai).join(' • ')}`;
         $('missionSub').textContent = 'เลือกอาหารจากหมู่ที่ยังไม่ครบ เพื่อทำจานสมดุล';
       }else{
         $('missionText').textContent = 'จานครบแล้ว!';
@@ -782,50 +1981,86 @@
 
     function floatMsg(msg, good){
       const el = document.createElement('div');
+
       el.className = 'floatMsg';
       el.style.background = good ? 'rgba(25,132,83,.94)' : 'rgba(166,52,65,.94)';
       el.textContent = msg;
+
       $('playField').appendChild(el);
-      setTimeout(()=>el.remove(), 760);
+
+      setTimeout(() => el.remove(), 760);
     }
 
     function toast(msg){
       const el = $('toast');
+
       el.textContent = msg;
       el.classList.add('show');
+
       clearTimeout(toast._t);
-      toast._t = setTimeout(()=>el.classList.remove('show'), 2200);
+
+      toast._t = setTimeout(() => {
+        el.classList.remove('show');
+      }, 2200);
     }
 
     function nearestCenterTarget(){
       let best = null;
-      const cx = innerWidth / 2, cy = innerHeight / 2;
+      const cx = innerWidth / 2;
+      const cy = innerHeight / 2;
+
       state.targets.forEach(t => {
         const r = t.el.getBoundingClientRect();
-        const tx = r.left + r.width/2, ty = r.top + r.height/2;
-        const dist = Math.hypot(tx-cx, ty-cy);
-        if(dist < 70 && (!best || dist < best.dist)) best = {id:t.id, dist};
+        const tx = r.left + r.width / 2;
+        const ty = r.top + r.height / 2;
+        const dist = Math.hypot(tx - cx, ty - cy);
+
+        if(dist < 70 && (!best || dist < best.dist)){
+          best = {
+            id:t.id,
+            dist
+          };
+        }
       });
+
       return best;
     }
 
     function endGame(reason){
       if(state.ended) return;
+
       state.ended = true;
       state.started = false;
+
       stopTimers();
       clearField();
+
       const summary = buildSummary(reason);
+
       saveSummary(summary);
       showSummary(summary);
     }
 
     function buildSummary(reason){
-      const acc = state.attempts ? Math.round((state.hits / state.attempts) * 100) : 100;
-      const rank = state.plates >= 8 && acc >= 85 ? 'S' : state.plates >= 5 && acc >= 75 ? 'A' : state.plates >= 3 ? 'B' : 'C';
-      const bossText = state.bossWins ? `ชนะ ${state.bossWins}` : (state.bossActive ? 'ยังไม่ชนะ' : 'ยังไม่เจอ');
-      const summary = {
-        version: VERSION,
+      const acc = state.attempts
+        ? Math.round((state.hits / state.attempts) * 100)
+        : 100;
+
+      const rank =
+        state.plates >= 8 && acc >= 85
+          ? 'S'
+          : state.plates >= 5 && acc >= 75
+            ? 'A'
+            : state.plates >= 3
+              ? 'B'
+              : 'C';
+
+      const bossText = state.bossWins
+        ? `ชนะ ${state.bossWins}`
+        : (state.bossActive ? 'ยังไม่ชนะ' : 'ยังไม่เจอ');
+
+      return {
+        version:VERSION,
         game:'plate',
         mode:'solo',
         view:state.view,
@@ -843,10 +2078,9 @@
         bossText,
         rank,
         reason,
-        durationSec:Math.round((Date.now()-state.startedAt)/1000),
+        durationSec:Math.round((Date.now() - state.startedAt) / 1000),
         endedAt:new Date().toISOString()
       };
-      return summary;
     }
 
     function showSummary(s){
@@ -856,17 +2090,35 @@
       $('sumCombo').textContent = s.comboMax;
       $('sumBoss').textContent = s.bossText;
       $('sumRank').textContent = s.rank;
-      $('summaryTitle').textContent = s.rank === 'S' ? 'สุดยอด! Plate Master' : s.rank === 'A' ? 'เยี่ยมมาก! จานสมดุลดี' : 'สรุปผล Plate Solo';
-      $('summaryLead').textContent = `ทำได้ ${s.plates} จาน คะแนน ${s.score} ความแม่นยำ ${s.accuracy}%`;
+
+      $('summaryTitle').textContent =
+        s.rank === 'S'
+          ? 'สุดยอด! Plate Master'
+          : s.rank === 'A'
+            ? 'เยี่ยมมาก! จานสมดุลดี'
+            : 'สรุปผล Plate Solo';
+
+      $('summaryLead').textContent =
+        `ทำได้ ${s.plates} จาน คะแนน ${s.score} ความแม่นยำ ${s.accuracy}%`;
+
       $('coachTip').innerHTML = coachTip(s);
       $('summaryOverlay').classList.remove('hidden');
     }
 
     function coachTip(s){
-      if(s.accuracy < 70) return '<b>AI Coach:</b> รอบหน้าให้มองช่องจานด้านขวาก่อน แล้วเลือกเฉพาะหมู่ที่ยังเป็น ○ จะลดการกดซ้ำและ junk ได้มากขึ้น';
-      if(s.plates < 3) return '<b>AI Coach:</b> ลองเริ่มจากหมู่ที่เห็นชัด เช่น โปรตีน/คาร์บ แล้วค่อยเติมผัก ผลไม้ ไขมัน จะครบจานเร็วขึ้น';
-      if(s.bossWins < 1) return '<b>AI Coach:</b> เล่นดีแล้ว รอบหน้าเก็บ combo ต่อเนื่องเพื่อเปิด Fever และตีบอสให้ทัน';
-      return '<b>AI Coach:</b> ฟอร์มดีมาก จานสมดุลครบและควบคุม junk ได้ดี รอบหน้าลองเพิ่มระดับ hard/challenge ได้';
+      if(s.accuracy < 70){
+        return '<b>AI Coach:</b> รอบหน้ามองช่องจานก่อน แล้วเลือกเฉพาะหมู่ที่ยังเป็น ○ เพื่อลดการกดซ้ำ';
+      }
+
+      if(s.plates < 3){
+        return '<b>AI Coach:</b> เริ่มจากหมู่ที่เห็นชัด เช่น โปรตีน/คาร์บ แล้วค่อยเติมหมู่ที่เหลือ';
+      }
+
+      if(s.bossWins < 1){
+        return '<b>AI Coach:</b> เก็บ combo ต่อเนื่องเพื่อเปิด Fever และตีบอสให้ทัน';
+      }
+
+      return '<b>AI Coach:</b> ฟอร์มดีมาก จานสมดุลครบและคุม junk ได้ดี รอบหน้าลองเพิ่มระดับ hard/challenge';
     }
 
     function saveSummary(s){
@@ -878,6 +2130,7 @@
 
     function flushSummarySoft(){
       if(!state.started || state.ended) return;
+
       try{
         const soft = buildSummary('pagehide');
         localStorage.setItem('HHA_PLATE_LAST_SUMMARY_SOFT', JSON.stringify(soft));
@@ -886,32 +2139,47 @@
 
     function goLauncher(){
       const url = new URL('../plate-vr.html', location.href);
+
       carry(url);
+
       url.searchParams.set('from','plate-main');
+
       location.href = url.toString();
     }
 
     function goZone(){
       const hub = qs('hub','');
+
       let url;
+
       try{
-        url = hub && hub.includes('nutrition-zone.html') ? new URL(hub, location.href) : new URL('../nutrition-zone.html', location.href);
+        url = hub && hub.includes('nutrition-zone.html')
+          ? new URL(hub, location.href)
+          : new URL('../nutrition-zone.html', location.href);
       }catch(e){
         url = new URL('../nutrition-zone.html', location.href);
       }
+
       carry(url);
+
       url.searchParams.set('zone','nutrition');
       url.searchParams.set('from','plate-summary');
+
       location.href = url.toString();
     }
 
     function goCooldown(){
       const next = new URL('../nutrition-zone.html', location.href);
+
       carry(next);
+
       next.searchParams.set('zone','nutrition');
       next.searchParams.set('from','plate-cooldown');
+
       const gate = new URL('../warmup-gate.html', location.href);
+
       carry(gate);
+
       gate.searchParams.set('phase','cooldown');
       gate.searchParams.set('game','plate');
       gate.searchParams.set('gameId','plate');
@@ -919,16 +2187,41 @@
       gate.searchParams.set('fromGame','plate');
       gate.searchParams.set('next', next.toString());
       gate.searchParams.set('hub', next.toString());
+
       location.href = gate.toString();
     }
 
     function carry(url){
-      ['pid','name','nick','studyId','section','session_code','diff','time','view','run','seed','log','api'].forEach(k=>{
+      [
+        'pid',
+        'name',
+        'nick',
+        'studyId',
+        'section',
+        'session_code',
+        'diff',
+        'time',
+        'view',
+        'run',
+        'seed',
+        'log',
+        'api'
+      ].forEach(k => {
         const v = qs(k,'');
-        if(v !== '') url.searchParams.set(k,v);
+
+        if(v !== ''){
+          url.searchParams.set(k, v);
+        }
       });
-      if(!url.searchParams.get('pid')) url.searchParams.set('pid','anon');
-      if(!url.searchParams.get('name')) url.searchParams.set('name', qs('nick','Hero'));
+
+      if(!url.searchParams.get('pid')){
+        url.searchParams.set('pid','anon');
+      }
+
+      if(!url.searchParams.get('name')){
+        url.searchParams.set('name', qs('nick','Hero'));
+      }
+
       url.searchParams.set('game','plate');
       url.searchParams.set('gameId','plate');
       url.searchParams.set('mode','solo');
@@ -936,7 +2229,7 @@
 
     init();
   })();
-    </script>
+  </script>
 
   <script>
   /* === PATCH v20260606-PLATE-SUMMARY-MOBILE-FINAL-POLISH === */
@@ -955,6 +2248,7 @@
 
     function compactCoachText(){
       const coach = $('coachTip');
+
       if(!coach) return;
 
       const raw = coach.textContent || '';
@@ -997,9 +2291,10 @@
           compactCoachText();
 
           const actions = overlay.querySelector('.actions');
+
           if(actions){
-            actions.style.position = 'sticky';
-            actions.style.bottom = '0';
+            actions.style.position = window.innerWidth <= 820 ? 'sticky' : '';
+            actions.style.bottom = window.innerWidth <= 820 ? '0' : '';
             actions.style.zIndex = '10';
           }
         });
@@ -1024,12 +2319,20 @@
         attributeFilter:['class']
       });
 
-      ['againBtn','cooldownBtn','backLauncherBtn','backZoneBtn'].forEach(function(id){
+      [
+        'againBtn',
+        'cooldownBtn',
+        'backLauncherBtn',
+        'backZoneBtn'
+      ].forEach(function(id){
         const btn = $(id);
+
         if(btn){
           btn.addEventListener('click', closeSummaryMode, true);
         }
       });
+
+      window.addEventListener('resize', polishSummary, {passive:true});
 
       polishSummary();
 
