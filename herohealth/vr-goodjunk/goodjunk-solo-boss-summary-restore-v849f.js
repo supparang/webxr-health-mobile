@@ -1,26 +1,27 @@
 /* === /herohealth/vr-goodjunk/goodjunk-solo-boss-summary-restore-v849f.js === */
-/* FULL PATCH v20260606-GOODJUNK-SOLO-SUMMARY-RESTORE-V849F
+/* FULL PATCH v20260606-GOODJUNK-SOLO-SUMMARY-RESTORE-V849F2
    Purpose:
-   - แก้เคสชนะบอสแล้ว แต่หน้า Summary ไม่ขึ้น
-   - จับสถานะ Boss Defeated / ชนะบอสแล้ว จาก DOM
-   - เรียก/ยิง event summary ให้ระบบ reward เดิมทำงาน
-   - ไม่ยุ่งกับ warmup/cooldown path
+   - แก้ Summary โผล่ทันทีตอนเข้าเกม
+   - เปิด Summary เฉพาะหลัง “เล่นจริงแล้ว + ชนะบอสจริง”
+   - ไม่จับข้อความชนะจาก preload/toast/DOM ค้าง
 */
 
 (function(){
   'use strict';
 
-  var PATCH = 'v20260606-GOODJUNK-SOLO-SUMMARY-RESTORE-V849F';
+  var PATCH = 'v20260606-GOODJUNK-SOLO-SUMMARY-RESTORE-V849F2';
 
-  if(window.GJ_SOLO_SUMMARY_RESTORE_V849F_LOADED){
+  if(window.GJ_SOLO_SUMMARY_RESTORE_V849F2_LOADED){
     return;
   }
-  window.GJ_SOLO_SUMMARY_RESTORE_V849F_LOADED = true;
+  window.GJ_SOLO_SUMMARY_RESTORE_V849F2_LOADED = true;
 
   var fired = false;
   var observer = null;
   var intervalId = 0;
   var startedAt = Date.now();
+  var gameStartedAt = 0;
+  var hasRealPlay = false;
 
   function qs(){
     return new URLSearchParams(location.search || '');
@@ -31,15 +32,15 @@
     return Number.isFinite(v) ? v : d;
   }
 
+  function byId(id){
+    return document.getElementById(id);
+  }
+
   function textOfPage(){
     return String((document.body && document.body.innerText) || '')
       .replace(/\u00a0/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-  }
-
-  function byId(id){
-    return document.getElementById(id);
   }
 
   function readIntFrom(id, fallback){
@@ -93,11 +94,100 @@
     }catch(_){}
   }
 
+  function currentScore(){
+    return readIntFrom('gjmScore', 0);
+  }
+
+  function startOverlayVisible(){
+    var start = byId('gjmStartOverlay');
+    if(!start) return false;
+
+    var cs = getComputedStyle(start);
+
+    return (
+      cs.display !== 'none' &&
+      cs.visibility !== 'hidden' &&
+      Number(cs.opacity || 1) > 0.05
+    );
+  }
+
+  function summaryAlreadyVisible(){
+    return !!(
+      document.getElementById('gjSummaryRestoreModal') ||
+      document.getElementById('gjrSummary') ||
+      document.getElementById('gjRewardSummary')
+    );
+  }
+
+  function markRealPlay(reason){
+    if(hasRealPlay) return;
+
+    hasRealPlay = true;
+    gameStartedAt = Date.now();
+
+    try{
+      localStorage.setItem('GJ_SOLO_SUMMARY_RESTORE_REAL_PLAY', JSON.stringify({
+        patch: PATCH,
+        reason: reason || '',
+        at: new Date().toISOString()
+      }));
+    }catch(_){}
+  }
+
+  /*
+    จับเหตุการณ์เริ่มเล่นจริง
+    สำคัญ: ไม่ให้ Summary เปิดก่อนผู้เล่นกดเริ่ม / ก่อน overlay หาย
+  */
+  document.addEventListener('click', function(ev){
+    var btn = ev.target && ev.target.closest
+      ? ev.target.closest('#gjmStartBtn,.gjm-start-btn,[data-force-start="1"]')
+      : null;
+
+    if(btn){
+      markRealPlay('start-button-click');
+    }
+  }, true);
+
+  window.addEventListener('gj:game-started', function(){
+    markRealPlay('event-gj-game-started');
+  });
+
+  window.addEventListener('gj:start', function(){
+    markRealPlay('event-gj-start');
+  });
+
+  window.addEventListener('gj:boss-start', function(){
+    markRealPlay('event-gj-boss-start');
+  });
+
+  function detectRealPlayFromState(){
+    if(hasRealPlay) return true;
+
+    var score = currentScore();
+    var combo = readCombo();
+
+    if(score > 0 || combo > 0){
+      markRealPlay('score-or-combo');
+      return true;
+    }
+
+    /*
+      ถ้า start overlay หายไปนานพอ ให้ถือว่าเข้า gameplay แล้ว
+      แต่ยังไม่พอให้เปิด summary ต้องมี win evidence อีกที
+    */
+    if(!startOverlayVisible() && Date.now() - startedAt > 2500){
+      markRealPlay('overlay-hidden');
+      return true;
+    }
+
+    return false;
+  }
+
   function buildSummary(){
     var q = qs();
     var latest = readLatestSummary();
 
-    var score = num(latest.score, readIntFrom('gjmScore', 0));
+    var score = num(latest.score, currentScore());
     var bestCombo = num(
       latest.bestCombo || latest.combo,
       readCombo()
@@ -115,10 +205,6 @@
     var miss =
       num(latest.miss || latest.misses, junkHits + fakeHits);
 
-    /*
-      ถ้า core ไม่ส่ง goodHits มา ให้ประมาณจาก score/combo
-      เพื่อให้ summary ไม่เป็น 0 ทั้งหน้า
-    */
     if(goodHits <= 0){
       goodHits = Math.max(
         1,
@@ -239,28 +325,6 @@
     });
   }
 
-  function forceClickRewardIfExists(){
-    var candidates = [
-      '#gjrOpenBtn',
-      '#gjRewardBtn',
-      '#gjmSummaryBtn',
-      '[data-open-summary="1"]',
-      '[data-action="summary"]'
-    ];
-
-    for(var i = 0; i < candidates.length; i++){
-      var el = document.querySelector(candidates[i]);
-      if(el && typeof el.click === 'function'){
-        try{
-          el.click();
-          return true;
-        }catch(_){}
-      }
-    }
-
-    return false;
-  }
-
   function showFallbackSummary(summary){
     if(document.getElementById('gjSummaryRestoreModal')) return;
 
@@ -332,7 +396,7 @@
         if(window.GJ_SOLO_BOSS_SHELL && typeof window.GJ_SOLO_BOSS_SHELL.goCooldown === 'function'){
           window.GJ_SOLO_BOSS_SHELL.goCooldown(summary);
         }else{
-          location.href = './goodjunk-launcher.html';
+          location.href = 'https://supparang.github.io/webxr-health-mobile/herohealth/goodjunk-launcher.html';
         }
       });
     }
@@ -365,19 +429,49 @@
     ].join(';');
   }
 
-  function looksWon(){
+  function hasWinEvidence(){
     var text = textOfPage();
 
-    return (
-      text.indexOf('ชนะบอสแล้ว') !== -1 ||
+    var hasWinText =
       text.indexOf('Boss Defeated') !== -1 ||
       text.indexOf('boss defeated') !== -1 ||
-      text.indexOf('ชนะบอสแบบสุดยอด') !== -1
-    );
+      text.indexOf('ชนะบอสแล้ว') !== -1;
+
+    if(!hasWinText) return false;
+
+    /*
+      กัน Summary โผล่ทันที:
+      1) ต้องออกจาก Start overlay แล้ว
+      2) ต้องเล่นจริงแล้ว
+      3) ต้องผ่านอย่างน้อย 2 วินาทีหลังเริ่มเล่น
+      4) ต้องมี score หรือมีข้อมูล latest summary ที่ไม่ใช่ 0
+    */
+    detectRealPlayFromState();
+
+    if(!hasRealPlay) return false;
+    if(startOverlayVisible()) return false;
+
+    if(gameStartedAt && Date.now() - gameStartedAt < 2000){
+      return false;
+    }
+
+    var latest = readLatestSummary();
+    var score = currentScore();
+    var latestScore = num(latest.score, 0);
+    var latestGood = num(latest.goodHits || latest.good || latest.correct, 0);
+    var combo = readCombo();
+
+    if(score > 0 || latestScore > 0 || latestGood > 0 || combo > 0){
+      return true;
+    }
+
+    return false;
   }
 
   function openSummary(reason){
     if(fired) return;
+    if(summaryAlreadyVisible()) return;
+
     fired = true;
 
     try{
@@ -398,35 +492,27 @@
     setTimeout(function(){
       var ok = callKnownSummaryFunctions(summary);
 
-      if(!ok){
-        forceClickRewardIfExists();
-      }
-
       setTimeout(function(){
-        var text = textOfPage();
-
-        /*
-          ถ้า reward เดิมไม่ขึ้นจริง ให้ fallback modal เอง
-        */
         if(
           !document.getElementById('gjrSummary') &&
           !document.getElementById('gjRewardSummary') &&
-          !document.getElementById('gjSummaryRestoreModal') &&
-          text.indexOf('ชนะบอสแบบสุดยอด!') === -1
+          !document.getElementById('gjSummaryRestoreModal')
         ){
           showFallbackSummary(summary);
         }
-      }, 450);
-    }, 180);
+      }, ok ? 700 : 250);
+    }, 160);
 
-    console.log('[GoodJunk Summary Restore V849F] opened:', reason, summary);
+    console.log('[GoodJunk Summary Restore V849F2] opened:', reason, summary);
   }
 
   function tick(){
     if(fired) return;
 
-    if(looksWon()){
-      openSummary('boss-defeated-dom');
+    detectRealPlayFromState();
+
+    if(hasWinEvidence()){
+      openSummary('boss-defeated-after-real-play');
       return;
     }
 
@@ -435,6 +521,10 @@
         clearInterval(intervalId);
         intervalId = 0;
       }
+
+      try{
+        if(observer) observer.disconnect();
+      }catch(_){}
     }
   }
 
@@ -454,7 +544,9 @@
   window.addEventListener('pageshow', tick);
   document.addEventListener('DOMContentLoaded', tick);
 
-  setTimeout(tick, 300);
-  setTimeout(tick, 900);
-  setTimeout(tick, 1800);
+  setTimeout(tick, 500);
+  setTimeout(tick, 1500);
+  setTimeout(tick, 3000);
+
+  console.log('[GoodJunk Summary Restore V849F2] installed');
 })();
