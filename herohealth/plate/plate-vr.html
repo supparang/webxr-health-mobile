@@ -96,7 +96,8 @@
     .platePanel,
     .missionPanel,
     .playField,
-    .overlayCard{
+    .overlayCard,
+    .mobileGroupBar .groupMini{
       background:rgba(255,255,255,.82);
       border:1px solid rgba(215,237,245,.95);
       box-shadow:var(--shadow);
@@ -226,6 +227,52 @@
       color:#7a5164;
       min-width:42px;
       text-align:right;
+    }
+
+    .mobileGroupBar{
+      display:none;
+    }
+
+    .groupMini{
+      border-radius:16px;
+      padding:6px 4px;
+      text-align:center;
+      background:rgba(255,255,255,.92);
+      box-shadow:0 8px 18px rgba(41,82,111,.08);
+    }
+
+    .groupMiniIcon{
+      font-size:20px;
+      line-height:1;
+    }
+
+    .groupMiniName{
+      margin-top:3px;
+      font-size:9px;
+      font-weight:1000;
+      color:#55778c;
+      line-height:1.1;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .groupMiniQty{
+      margin-top:2px;
+      font-size:12px;
+      font-weight:1000;
+      color:#214761;
+      line-height:1;
+    }
+
+    .groupMini.done{
+      background:#f3fff7;
+      border-color:#bdf0d0;
+      box-shadow:0 8px 18px rgba(35,184,107,.12);
+    }
+
+    .groupMini.done .groupMiniQty{
+      color:#1a9a58;
     }
 
     .playWrap{
@@ -684,20 +731,22 @@
 
     @media (max-width:900px){
       :root{
-        --target-size:64px;
+        --target-size:54px;
       }
 
       .app{
-        grid-template-rows:auto auto 1fr;
+        grid-template-rows:auto auto auto 1fr;
+        gap:6px;
         padding:
-          calc(6px + var(--safe-top))
+          calc(5px + var(--safe-top))
           calc(6px + var(--safe-right))
           calc(6px + var(--safe-bottom))
           calc(6px + var(--safe-left));
       }
 
       .topHud{
-        grid-template-columns:repeat(3,1fr) 52px;
+        grid-template-columns:repeat(3,1fr) 46px;
+        gap:6px;
       }
 
       .topHud .hudBox:nth-child(4),
@@ -707,57 +756,110 @@
 
       .hudBox,
       .iconBtn{
-        min-height:52px;
-        border-radius:17px;
+        min-height:44px;
+        border-radius:15px;
+        padding:4px;
+      }
+
+      .hudLabel{
+        font-size:8px;
       }
 
       .hudValue{
-        font-size:16px;
+        font-size:14px;
+      }
+
+      .missionPanel{
+        padding:7px 9px;
+        border-radius:18px;
+      }
+
+      .missionTop{
+        gap:8px;
+      }
+
+      .missionTitle{
+        font-size:11px;
       }
 
       .missionText{
-        font-size:15px;
+        font-size:13px;
+        line-height:1.15;
       }
 
-      .playWrap{
-        grid-template-columns:1fr;
-        grid-template-rows:minmax(0,1fr) auto;
+      .missionSub{
+        font-size:10px;
+        line-height:1.2;
+      }
+
+      .missionPanel .bar{
+        height:9px;
+      }
+
+      .missionPanel .missionTop > div:last-child{
+        min-width:88px!important;
+      }
+
+      .mobileGroupBar{
+        display:grid;
+        grid-template-columns:repeat(5,minmax(0,1fr));
+        gap:5px;
+        z-index:5;
       }
 
       .platePanel{
-        max-height:34dvh;
-        border-radius:24px;
-      }
-
-      .slots{
-        grid-template-columns:repeat(5,1fr);
-        gap:6px;
-      }
-
-      .slot{
-        grid-template-columns:1fr;
-        padding:6px;
-        min-height:58px;
-        text-align:center;
-      }
-
-      .slotIcon{
-        margin:auto;
-        width:32px;
-        height:32px;
-        font-size:20px;
-      }
-
-      .slotName{
         display:none;
       }
 
-      .slotThai{
-        font-size:9px;
+      .playWrap{
+        min-height:0;
+        grid-template-columns:1fr;
+        grid-template-rows:minmax(0,1fr);
       }
 
-      .slotState{
-        font-size:16px;
+      .playField{
+        min-height:0;
+        border-radius:22px;
+      }
+
+      .bossStrip{
+        margin-top:5px;
+        padding:6px;
+        border-radius:14px;
+        grid-template-columns:34px 1fr auto;
+      }
+
+      .bossIcon{
+        font-size:22px;
+      }
+
+      .bossHp{
+        font-size:10px;
+        min-width:34px;
+      }
+
+      .targetEmoji{
+        font-size:27px;
+        transform:translateY(-4px);
+      }
+
+      .targetTag{
+        bottom:3px;
+        max-width:90%;
+        padding:1px 5px;
+        font-size:7px;
+      }
+
+      .targetLife{
+        left:9px;
+        right:9px;
+        top:6px;
+        height:3px;
+      }
+
+      .floatMsg{
+        font-size:12px;
+        padding:8px 11px;
       }
 
       .summaryGrid{
@@ -776,8 +878,45 @@
     }
 
     @media (max-width:420px){
+      .app{
+        gap:5px;
+      }
+
+      .mobileGroupBar{
+        gap:4px;
+      }
+
+      .groupMini{
+        padding:5px 2px;
+        border-radius:13px;
+      }
+
+      .groupMiniIcon{
+        font-size:17px;
+      }
+
+      .groupMiniName{
+        font-size:8px;
+      }
+
+      .groupMiniQty{
+        font-size:10px;
+      }
+
       :root{
-        --target-size:58px;
+        --target-size:50px;
+      }
+
+      .targetEmoji{
+        font-size:25px;
+      }
+
+      .missionText{
+        font-size:12px;
+      }
+
+      .missionSub{
+        display:none;
       }
 
       .bossStrip{
@@ -791,15 +930,9 @@
       .missionPanel{
         padding:8px 10px;
       }
-
-      .platePanel{
-        max-height:31dvh;
-      }
     }
 
     /* === PATCH v20260603-PLATE-SUMMARY-MOBILE-SCROLL-TOUCH-FIX === */
-    /* แก้ mobile summary ให้เลื่อนได้จริง แม้ body ของเกมจะ touch-action:none */
-
     #summaryOverlay,
     #summaryOverlay *{
       touch-action:pan-y;
@@ -877,8 +1010,6 @@
     }
 
     /* === PATCH v20260606-PLATE-SUMMARY-DESKTOP-BUTTON-LAYOUT-POLISH === */
-    /* จัด Summary บน PC/Desktop ให้กลางจอ ปุ่มท้ายเรียงสวย ไม่หล่นบรรทัด */
-
     @media (min-width:821px){
       #summaryOverlay{
         align-items:center;
@@ -1035,6 +1166,8 @@
       </div>
     </section>
 
+    <section id="mobileGroupBar" class="mobileGroupBar" aria-label="Mobile food group progress"></section>
+
     <section class="playWrap" aria-label="Play area">
       <div id="playField" class="playField" aria-label="Tap food targets"></div>
 
@@ -1141,56 +1274,16 @@
   (function(){
     'use strict';
 
-    const VERSION = '20260606-PLATE-CONCEPT-FINAL-SOLO-RUSH-BOSS-SUMMARY-POLISH';
+    const VERSION = '20260607-PLATE-CONCEPT-FINAL-MOBILE-COMPACT-GROUP-QTY';
     const $ = (id) => document.getElementById(id);
     const Q = new URL(location.href).searchParams;
 
     const GROUPS = [
-      {
-        id:'protein',
-        no:1,
-        icon:'🥚',
-        name:'Protein',
-        thai:'โปรตีน',
-        items:['🥚','🥛','🍗','🐟','🫘'],
-        label:'โปรตีน'
-      },
-      {
-        id:'carb',
-        no:2,
-        icon:'🍚',
-        name:'Carb',
-        thai:'คาร์บ',
-        items:['🍚','🍞','🥔','🌽','🍜'],
-        label:'คาร์บ'
-      },
-      {
-        id:'veg',
-        no:3,
-        icon:'🥦',
-        name:'Vegetable',
-        thai:'ผัก',
-        items:['🥦','🥬','🥕','🍅','🥒'],
-        label:'ผัก'
-      },
-      {
-        id:'fruit',
-        no:4,
-        icon:'🍎',
-        name:'Fruit',
-        thai:'ผลไม้',
-        items:['🍎','🍌','🍊','🍇','🍉'],
-        label:'ผลไม้'
-      },
-      {
-        id:'fat',
-        no:5,
-        icon:'🥑',
-        name:'Fat',
-        thai:'ไขมันดี',
-        items:['🥑','🥜','🫒','🥥','🧀'],
-        label:'ไขมัน'
-      }
+      {id:'protein', no:1, icon:'🥚', name:'Protein', thai:'โปรตีน', items:['🥚','🥛','🍗','🐟','🫘'], label:'โปรตีน'},
+      {id:'carb', no:2, icon:'🍚', name:'Carb', thai:'คาร์บ', items:['🍚','🍞','🥔','🌽','🍜'], label:'คาร์บ'},
+      {id:'veg', no:3, icon:'🥦', name:'Vegetable', thai:'ผัก', items:['🥦','🥬','🥕','🍅','🥒'], label:'ผัก'},
+      {id:'fruit', no:4, icon:'🍎', name:'Fruit', thai:'ผลไม้', items:['🍎','🍌','🍊','🍇','🍉'], label:'ผลไม้'},
+      {id:'fat', no:5, icon:'🥑', name:'Fat', thai:'ไขมันดี', items:['🥑','🥜','🫒','🥥','🧀'], label:'ไขมัน'}
     ];
 
     const JUNK = [
@@ -1203,46 +1296,10 @@
     ];
 
     const DIFF = {
-      easy:{
-        time:90,
-        spawn:980,
-        life:2200,
-        maxTargets:5,
-        junk:0.18,
-        bossEvery:3,
-        missPenalty:1,
-        scoreMul:1
-      },
-      normal:{
-        time:90,
-        spawn:820,
-        life:1900,
-        maxTargets:6,
-        junk:0.25,
-        bossEvery:3,
-        missPenalty:2,
-        scoreMul:1.1
-      },
-      hard:{
-        time:90,
-        spawn:700,
-        life:1650,
-        maxTargets:7,
-        junk:0.32,
-        bossEvery:2,
-        missPenalty:3,
-        scoreMul:1.25
-      },
-      challenge:{
-        time:75,
-        spawn:590,
-        life:1450,
-        maxTargets:8,
-        junk:0.38,
-        bossEvery:2,
-        missPenalty:4,
-        scoreMul:1.45
-      }
+      easy:{time:90, spawn:980, life:2200, maxTargets:5, junk:0.18, bossEvery:3, missPenalty:1, scoreMul:1},
+      normal:{time:90, spawn:820, life:1900, maxTargets:6, junk:0.25, bossEvery:3, missPenalty:2, scoreMul:1.1},
+      hard:{time:90, spawn:700, life:1650, maxTargets:7, junk:0.32, bossEvery:2, missPenalty:3, scoreMul:1.25},
+      challenge:{time:75, spawn:590, life:1450, maxTargets:8, junk:0.38, bossEvery:2, missPenalty:4, scoreMul:1.45}
     };
 
     const state = {
@@ -1276,14 +1333,9 @@
       bossMax:100,
       bossWins:0,
 
-      timers:{
-        tick:null,
-        spawn:null,
-        raf:null
-      },
+      timers:{tick:null, spawn:null, raf:null},
 
       seed:Number(qs('seed', Date.now())) || Date.now(),
-      rng:null,
       startedAt:0
     };
 
@@ -1335,16 +1387,14 @@
       $('viewPill').textContent = `View: ${state.view}`;
 
       renderSlots();
+      renderMobileGroupBar();
       bind();
       reset(false);
 
       toast(`Plate Concept Final loaded • ${VERSION}`);
 
       try{
-        console.info('[Plate]', VERSION, {
-          diff:state.diff,
-          view:state.view
-        });
+        console.info('[Plate]', VERSION, {diff:state.diff, view:state.view});
       }catch(e){}
     }
 
@@ -1358,13 +1408,10 @@
       });
 
       $('pauseBtn').addEventListener('click', togglePause);
-
       $('launcherBtn').addEventListener('click', goLauncher);
       $('backLauncherBtn').addEventListener('click', goLauncher);
-
       $('zoneBtn').addEventListener('click', goZone);
       $('backZoneBtn').addEventListener('click', goZone);
-
       $('cooldownBtn').addEventListener('click', goCooldown);
 
       document.addEventListener('keydown', ev => {
@@ -1426,7 +1473,6 @@
 
       state.timeTotal = c.time;
       state.timeLeft = c.time;
-
       state.score = 0;
       state.plates = 0;
       state.combo = 0;
@@ -1434,18 +1480,14 @@
       state.hits = 0;
       state.mistakes = 0;
       state.attempts = 0;
-
       state.fever = 0;
       state.feverOn = false;
-
       state.targetSeq = 0;
       state.targets.clear();
-
       state.bossActive = false;
       state.bossHp = 0;
       state.bossMax = 100;
       state.bossWins = 0;
-
       state.startedAt = 0;
 
       clearField();
@@ -1530,9 +1572,7 @@
       if(!state.started || state.ended) return;
 
       state.paused = !state.paused;
-
       $('pauseBtn').textContent = state.paused ? '▶' : 'Ⅱ';
-
       toast(state.paused ? 'พักเกมไว้ก่อน' : 'เล่นต่อ!');
 
       if(!state.paused){
@@ -1546,6 +1586,7 @@
       });
 
       renderSlots();
+      renderMobileGroupBar();
     }
 
     function neededGroups(){
@@ -1654,7 +1695,7 @@
         `<span class="targetEmoji">${escapeHtml(data.emoji)}</span>` +
         `<span class="targetTag">${escapeHtml(data.label)}</span>`;
 
-      const pad = 48;
+      const pad = window.innerWidth <= 900 ? 34 : 48;
       const x = pad + rng() * Math.max(1, rect.width - pad * 2);
       const y = pad + rng() * Math.max(1, rect.height - pad * 2);
 
@@ -1663,13 +1704,7 @@
 
       const born = performance.now();
 
-      state.targets.set(id, {
-        id,
-        el,
-        data,
-        born,
-        life
-      });
+      state.targets.set(id, {id, el, data, born, life});
 
       el.addEventListener('click', ev => {
         ev.stopPropagation();
@@ -1842,7 +1877,7 @@
       addScore(360 + state.combo * 12);
       state.timeLeft = Math.min(state.timeTotal, state.timeLeft + 4);
 
-      floatMsg(`จานครบ! +1 Plate`, true);
+      floatMsg('จานครบ! +1 Plate', true);
 
       resetPlate();
 
@@ -1924,6 +1959,8 @@
     function renderSlots(){
       const slots = $('slots');
 
+      if(!slots) return;
+
       slots.innerHTML = GROUPS.map(g => `
         <div class="slot ${state.plate[g.id] ? 'done' : ''}" data-group="${g.id}">
           <div class="slotIcon">${g.icon}</div>
@@ -1934,6 +1971,24 @@
           <div class="slotState">${state.plate[g.id] ? '✓' : '○'}</div>
         </div>
       `).join('');
+    }
+
+    function renderMobileGroupBar(){
+      const bar = $('mobileGroupBar');
+
+      if(!bar) return;
+
+      bar.innerHTML = GROUPS.map(g => {
+        const qty = state.plate[g.id] ? 1 : 0;
+
+        return `
+          <div class="groupMini ${state.plate[g.id] ? 'done' : ''}" data-group="${g.id}">
+            <div class="groupMiniIcon">${g.icon}</div>
+            <div class="groupMiniName">${g.thai}</div>
+            <div class="groupMiniQty">${qty}/1</div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderHud(){
@@ -1975,6 +2030,7 @@
 
     function renderAll(){
       renderSlots();
+      renderMobileGroupBar();
       renderHud();
       updateMission();
     }
@@ -2016,10 +2072,7 @@
         const dist = Math.hypot(tx - cx, ty - cy);
 
         if(dist < 70 && (!best || dist < best.dist)){
-          best = {
-            id:t.id,
-            dist
-          };
+          best = {id:t.id, dist};
         }
       });
 
