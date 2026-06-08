@@ -1,0 +1,2776 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <title>HeroHealth • Groups Race Run v15</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#071a52" />
+  <link rel="icon" href="../favicon.ico" />
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="../firebase-config.js"></script>
+
+  <style>
+    :root{
+      --bg1:#030b26;
+      --bg2:#071a52;
+      --bg3:#0c2d84;
+      --panel:rgba(9,18,54,.88);
+      --panel2:rgba(12,24,74,.96);
+      --stroke:rgba(132,168,255,.18);
+      --text:#f8fbff;
+      --muted:#c8d7ff;
+      --muted2:#95a7d6;
+      --blue:#4bb0ff;
+      --blue2:#76c7ff;
+      --green:#63d99b;
+      --green2:#46b97d;
+      --gold:#f0c16d;
+      --gold2:#d89a57;
+      --red:#ff8a8a;
+      --pink:#fb7185;
+      --shadow:0 18px 40px rgba(0,0,0,.28);
+      --sat:env(safe-area-inset-top,0px);
+      --sab:env(safe-area-inset-bottom,0px);
+      --sal:env(safe-area-inset-left,0px);
+      --sar:env(safe-area-inset-right,0px);
+    }
+
+    *{
+      box-sizing:border-box;
+      -webkit-tap-highlight-color:transparent;
+    }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      width:100%;
+      max-width:100%;
+      color:var(--text);
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:
+        radial-gradient(900px 500px at 50% -10%, rgba(60,100,255,.28), transparent 56%),
+        radial-gradient(520px 280px at 10% 10%, rgba(0,201,255,.10), transparent 60%),
+        radial-gradient(620px 360px at 90% 14%, rgba(255,205,95,.10), transparent 62%),
+        linear-gradient(180deg,var(--bg1),var(--bg2) 52%,var(--bg3));
+      overflow-x:hidden;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      background-image:
+        radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.35), transparent 60%),
+        radial-gradient(2px 2px at 70% 20%, rgba(255,255,255,.28), transparent 60%),
+        radial-gradient(1.5px 1.5px at 40% 70%, rgba(255,255,255,.22), transparent 60%),
+        radial-gradient(1.5px 1.5px at 85% 60%, rgba(255,255,255,.24), transparent 60%);
+      opacity:.8;
+      z-index:0;
+    }
+
+    button{
+      font-family:inherit;
+    }
+
+    .page{
+      position:relative;
+      z-index:1;
+      width:min(1120px,100%);
+      min-height:100vh;
+      margin:0 auto;
+      padding:
+        calc(14px + var(--sat))
+        calc(14px + var(--sar))
+        calc(22px + var(--sab))
+        calc(14px + var(--sal));
+      display:grid;
+      gap:14px;
+    }
+
+    .topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+    }
+
+    .brand{
+      min-width:0;
+      flex:1 1 auto;
+      display:flex;
+      align-items:center;
+      gap:12px;
+      padding:14px 16px;
+      border-radius:26px;
+      background:linear-gradient(180deg, rgba(14,32,91,.92), rgba(9,22,68,.96));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+    }
+
+    .brandMark{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      font-size:30px;
+      background:linear-gradient(180deg,#fff2b9,#f4d36d);
+      color:#3f2f00;
+      flex:0 0 auto;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,.45);
+    }
+
+    .brandText{
+      min-width:0;
+    }
+
+    .brandTitle{
+      margin:0;
+      font-size:26px;
+      line-height:1.04;
+      font-weight:1000;
+      letter-spacing:-.02em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .brandSub{
+      margin:6px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .topActions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .btn{
+      min-height:48px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.08);
+      padding:0 16px;
+      font:inherit;
+      font-size:16px;
+      font-weight:1000;
+      cursor:pointer;
+      color:#fff;
+      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
+      box-shadow:var(--shadow);
+      touch-action:manipulation;
+    }
+
+    .btn.primary{
+      background:linear-gradient(180deg,var(--blue2),var(--blue));
+      border-color:rgba(121,206,255,.42);
+      color:#041328;
+    }
+
+    .btn.primary:disabled{
+      opacity:.45;
+      cursor:not-allowed;
+      filter:saturate(.55);
+      color:#e8f6ff;
+    }
+
+    .btn.gold{
+      background:linear-gradient(180deg,var(--gold),var(--gold2));
+      border-color:rgba(255,230,161,.30);
+      color:#251600;
+    }
+
+    .btn.ghost{
+      background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.03));
+      color:var(--muted);
+    }
+
+    .heroGrid{
+      display:grid;
+      grid-template-columns:.92fr 1.08fr;
+      gap:14px;
+      align-items:stretch;
+    }
+
+    .card{
+      border-radius:30px;
+      background:linear-gradient(180deg,rgba(10,22,66,.92),rgba(6,16,52,.96));
+      border:1px solid var(--stroke);
+      box-shadow:var(--shadow);
+      padding:18px;
+    }
+
+    .countCard{
+      display:grid;
+      place-items:center;
+      text-align:center;
+      min-height:420px;
+    }
+
+    .countLabel{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:40px;
+      padding:0 14px;
+      border-radius:999px;
+      background:rgba(255,210,118,.12);
+      border:1px solid rgba(255,216,141,.22);
+      color:#ffe29b;
+      font-size:14px;
+      font-weight:1000;
+      margin-bottom:14px;
+    }
+
+    .count{
+      width:min(320px,70vw);
+      height:min(320px,70vw);
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      margin:0 auto;
+      font-size:clamp(64px,16vw,150px);
+      line-height:1;
+      font-weight:1000;
+      color:#fff;
+      background:
+        radial-gradient(circle at 35% 22%,rgba(255,255,255,.30),rgba(255,255,255,0) 26%),
+        linear-gradient(180deg,rgba(75,176,255,.28),rgba(75,176,255,.08));
+      border:2px solid rgba(146,200,255,.26);
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.18),
+        0 28px 70px rgba(0,0,0,.28);
+      text-shadow:0 8px 24px rgba(0,0,0,.32);
+    }
+
+    .count.wait{
+      color:#dbe8ff;
+    }
+
+    .count.ready{
+      color:#251600;
+      background:
+        radial-gradient(circle at 35% 22%,rgba(255,255,255,.36),rgba(255,255,255,0) 26%),
+        linear-gradient(180deg,#fff0bd,#efc96d);
+      border-color:rgba(255,230,161,.42);
+      animation:pulseReady .8s ease-in-out infinite alternate;
+    }
+
+    .count.go{
+      color:#062414;
+      background:
+        radial-gradient(circle at 35% 22%,rgba(255,255,255,.36),rgba(255,255,255,0) 26%),
+        linear-gradient(180deg,var(--green),var(--green2));
+      border-color:rgba(173,255,221,.34);
+      animation:goPop .42s ease both;
+    }
+
+    @keyframes pulseReady{
+      from{
+        transform:scale(1);
+        box-shadow:0 28px 70px rgba(0,0,0,.28);
+      }
+      to{
+        transform:scale(1.035);
+        box-shadow:0 36px 90px rgba(240,193,109,.25);
+      }
+    }
+
+    @keyframes goPop{
+      0%{ transform:scale(.88); }
+      70%{ transform:scale(1.08); }
+      100%{ transform:scale(1); }
+    }
+
+    .status-text{
+      margin-top:16px;
+      font-size:15px;
+      line-height:1.55;
+      font-weight:900;
+      color:#ffe29d;
+      word-break:break-word;
+    }
+
+    .status-text.ok{ color:#98f2bf; }
+    .status-text.warn{ color:#ffe29d; }
+    .status-text.err{ color:#ffb4b4; }
+
+    .metaGrid{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .metaBox{
+      border-radius:22px;
+      padding:14px;
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(167,192,255,.10);
+    }
+
+    .metaLabel{
+      color:var(--muted2);
+      font-size:12px;
+      font-weight:900;
+      margin-bottom:5px;
+    }
+
+    .metaValue{
+      color:#fff;
+      font-size:20px;
+      line-height:1.1;
+      font-weight:1000;
+      overflow:hidden;
+      white-space:nowrap;
+      text-overflow:ellipsis;
+    }
+
+    .sideStack{
+      display:grid;
+      gap:14px;
+    }
+
+    .cardTitle{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:12px;
+    }
+
+    .cardTitle h2{
+      margin:0;
+      font-size:22px;
+      line-height:1.08;
+      font-weight:1000;
+      letter-spacing:-.02em;
+    }
+
+    .pill,
+    .race-band-pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      min-height:38px;
+      padding:0 14px;
+      border-radius:999px;
+      background:rgba(145,96,255,.18);
+      border:1px solid rgba(192,146,255,.24);
+      color:#e6d9ff;
+      font-size:13px;
+      font-weight:1000;
+      white-space:nowrap;
+    }
+
+    .race-band-pill{
+      min-height:34px;
+      padding:0 12px;
+      background:rgba(99,217,155,.12);
+      border-color:rgba(99,217,155,.24);
+      color:#bfffd8;
+      font-size:12px;
+    }
+
+    .roomState{
+      margin:0;
+      color:#ffe29b;
+      font-size:15px;
+      line-height:1.5;
+      font-weight:1000;
+    }
+
+    .playersWrap{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+      max-height:430px;
+      overflow:auto;
+      padding-right:4px;
+    }
+
+    .player{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px;
+      border-radius:22px;
+      background:rgba(255,255,255,.045);
+      border:1px solid rgba(255,255,255,.06);
+    }
+
+    .left{
+      min-width:0;
+      display:flex;
+      align-items:center;
+      gap:12px;
+    }
+
+    .avatar{
+      width:46px;
+      height:46px;
+      display:grid;
+      place-items:center;
+      border-radius:16px;
+      font-size:24px;
+      background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.045));
+      border:1px solid rgba(255,255,255,.08);
+      flex:0 0 auto;
+    }
+
+    .name{
+      font-size:17px;
+      line-height:1.1;
+      font-weight:1000;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .tag{
+      margin-top:4px;
+      color:var(--muted2);
+      font-size:12px;
+      font-weight:850;
+      line-height:1.35;
+    }
+
+    .right{
+      flex:0 0 auto;
+      min-width:76px;
+      min-height:34px;
+      display:grid;
+      place-items:center;
+      border-radius:999px;
+      padding:0 12px;
+      font-size:13px;
+      font-weight:1000;
+      border:1px solid rgba(255,255,255,.08);
+    }
+
+    .right.ok{
+      color:#d8ffe8;
+      background:rgba(107,221,156,.12);
+      border-color:rgba(140,255,197,.16);
+    }
+
+    .right.wait{
+      color:#ffe4bd;
+      background:rgba(240,193,109,.12);
+      border-color:rgba(255,218,151,.14);
+    }
+
+    .right.run{
+      color:#dbeafe;
+      background:rgba(96,165,250,.14);
+      border-color:rgba(147,197,253,.20);
+    }
+
+    .right.done{
+      color:#fff7ed;
+      background:rgba(251,146,60,.14);
+      border-color:rgba(253,186,116,.20);
+    }
+
+    .infoList{
+      display:grid;
+      gap:10px;
+      margin:12px 0 0;
+    }
+
+    .infoItem{
+      display:flex;
+      gap:10px;
+      padding:12px;
+      border-radius:18px;
+      background:rgba(255,255,255,.04);
+      border:1px solid rgba(255,255,255,.06);
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.45;
+      font-weight:850;
+    }
+
+    .infoIcon{
+      font-size:20px;
+      flex:0 0 auto;
+    }
+
+    .debugBox{
+      position:fixed;
+      left:10px;
+      bottom:10px;
+      z-index:999999;
+      width:min(540px,calc(100vw - 20px));
+      max-height:160px;
+      overflow:auto;
+      border-radius:14px;
+      padding:8px 10px;
+      background:rgba(0,0,0,.58);
+      border:1px solid rgba(255,255,255,.10);
+      color:#dbe8ff;
+      font:800 10px/1.35 ui-monospace,Menlo,Consolas,monospace;
+      white-space:pre-wrap;
+      display:none;
+    }
+
+    body.debug .debugBox{
+      display:block;
+    }
+
+    .toast{
+      position:fixed;
+      left:50%;
+      top:calc(14px + var(--sat));
+      transform:translateX(-50%);
+      z-index:1000000;
+      width:max-content;
+      max-width:min(92vw,560px);
+      padding:12px 18px;
+      border-radius:18px;
+      color:#fff;
+      background:rgba(15,23,42,.94);
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 18px 46px rgba(0,0,0,.32);
+      font-weight:1000;
+      text-align:center;
+      pointer-events:none;
+    }
+
+    #hhaRacePlayV15{
+      position:fixed;
+      inset:0;
+      z-index:999998;
+      box-sizing:border-box;
+      overflow:auto;
+      padding:
+        calc(14px + var(--sat))
+        max(14px,var(--sar))
+        calc(18px + var(--sab))
+        max(14px,var(--sal));
+      color:#fff;
+      background:
+        radial-gradient(circle at 50% 16%, rgba(56,189,248,.26), transparent 34%),
+        linear-gradient(180deg,#07163f 0%,#08194c 46%,#0d2d80 100%);
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    }
+
+    .hha-race-wrap{
+      width:min(980px,100%);
+      margin:0 auto;
+    }
+
+    .hha-race-top{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      justify-content:space-between;
+      padding:12px;
+      border-radius:24px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.15);
+      box-shadow:0 18px 48px rgba(0,0,0,.25);
+    }
+
+    .hha-race-title{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
+    }
+
+    .hha-race-icon{
+      width:58px;
+      height:58px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,#fef08a,#fdba74);
+      color:#3f2f00;
+      font-size:32px;
+      flex:0 0 auto;
+    }
+
+    .hha-race-title h1{
+      margin:0;
+      font-size:clamp(22px,5vw,36px);
+      line-height:1.1;
+      font-weight:1000;
+    }
+
+    .hha-race-title p{
+      margin:4px 0 0;
+      color:#c7d2fe;
+      font-weight:900;
+      font-size:clamp(13px,3.5vw,16px);
+    }
+
+    .hha-race-pill{
+      padding:10px 14px;
+      border-radius:999px;
+      background:rgba(34,197,94,.18);
+      color:#bbf7d0;
+      border:1px solid rgba(187,247,208,.32);
+      font-weight:1000;
+      white-space:nowrap;
+      font-size:13px;
+    }
+
+    .hha-race-board{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:14px;
+      margin-top:14px;
+    }
+
+    .hha-race-stats{
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+    }
+
+    .hha-race-stat{
+      border-radius:20px;
+      padding:12px;
+      background:rgba(255,255,255,.08);
+      border:1px solid rgba(255,255,255,.14);
+      text-align:center;
+    }
+
+    .hha-race-stat b{
+      display:block;
+      font-size:clamp(22px,7vw,36px);
+      line-height:1.05;
+      font-weight:1000;
+    }
+
+    .hha-race-stat span{
+      display:block;
+      margin-top:3px;
+      color:#c7d2fe;
+      font-size:13px;
+      font-weight:900;
+    }
+
+    .hha-race-question{
+      border-radius:30px;
+      padding:18px;
+      background:rgba(255,255,255,.09);
+      border:1px solid rgba(255,255,255,.16);
+      text-align:center;
+      box-shadow:0 20px 55px rgba(0,0,0,.26);
+    }
+
+    .hha-race-food{
+      width:min(260px,68vw);
+      aspect-ratio:1;
+      margin:6px auto 12px;
+      border-radius:999px;
+      display:grid;
+      place-items:center;
+      background:
+        radial-gradient(circle at 35% 25%,rgba(255,255,255,.7),transparent 22%),
+        linear-gradient(135deg,#86efac,#22c55e);
+      border:8px solid rgba(255,255,255,.22);
+      box-shadow:0 18px 48px rgba(34,197,94,.26);
+    }
+
+    .hha-race-food .emoji{
+      display:block;
+      font-size:clamp(68px,20vw,118px);
+      line-height:1;
+    }
+
+    .hha-race-food-name{
+      margin:0;
+      font-size:clamp(28px,8vw,48px);
+      font-weight:1000;
+      line-height:1.1;
+    }
+
+    .hha-race-hint{
+      margin:8px 0 0;
+      color:#bfdbfe;
+      font-weight:900;
+      font-size:clamp(15px,4vw,18px);
+    }
+
+    .hha-race-options{
+      display:grid;
+      grid-template-columns:repeat(5,1fr);
+      gap:10px;
+    }
+
+    .hha-race-choice{
+      min-height:74px;
+      border:0;
+      border-radius:22px;
+      padding:10px 8px;
+      color:#07163f;
+      background:linear-gradient(180deg,#ffffff,#dbeafe);
+      font-weight:1000;
+      font-size:clamp(14px,3.8vw,18px);
+      line-height:1.15;
+      box-shadow:0 10px 24px rgba(0,0,0,.22);
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+
+    .hha-race-choice:active{
+      transform:scale(.97);
+    }
+
+    .hha-race-choice.good{
+      background:linear-gradient(180deg,#bbf7d0,#4ade80);
+    }
+
+    .hha-race-choice.bad{
+      color:#fff;
+      background:linear-gradient(180deg,#fb7185,#e11d48);
+    }
+
+    .hha-race-feedback{
+      min-height:34px;
+      margin-top:10px;
+      font-weight:1000;
+      font-size:clamp(18px,5vw,26px);
+    }
+
+    .hha-race-summary{
+      display:none;
+      border-radius:30px;
+      padding:18px;
+      margin-top:14px;
+      background:rgba(255,255,255,.1);
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow:0 20px 55px rgba(0,0,0,.26);
+      text-align:center;
+    }
+
+    .hha-race-summary h2{
+      margin:4px 0 10px;
+      font-size:clamp(28px,8vw,44px);
+      font-weight:1000;
+    }
+
+    .hha-race-rank-list{
+      display:grid;
+      gap:10px;
+      margin-top:12px;
+    }
+
+    .hha-race-rank-row{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:12px 14px;
+      border-radius:18px;
+      background:rgba(255,255,255,.09);
+      border:1px solid rgba(255,255,255,.15);
+      font-weight:1000;
+      text-align:left;
+    }
+
+    .hha-race-rank-row span:last-child{
+      white-space:nowrap;
+      color:#dbeafe;
+    }
+
+    .hha-race-actions{
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      flex-wrap:wrap;
+      margin-top:14px;
+    }
+
+    .hha-race-action{
+      border:0;
+      border-radius:18px;
+      padding:13px 18px;
+      font-weight:1000;
+      font-size:16px;
+      cursor:pointer;
+      touch-action:manipulation;
+    }
+
+    .hha-race-action-primary{
+      color:#082f49;
+      background:linear-gradient(180deg,#7dd3fc,#38bdf8);
+    }
+
+    .hha-race-action-warn{
+      color:#431407;
+      background:linear-gradient(180deg,#fed7aa,#fb923c);
+    }
+
+    #hhaDevBotPanel{
+      position:fixed;
+      right:10px;
+      bottom:calc(10px + var(--sab));
+      z-index:999999;
+      width:min(320px,calc(100vw - 20px));
+      box-sizing:border-box;
+      padding:12px;
+      border-radius:22px;
+      color:#fff;
+      background:rgba(15,23,42,.94);
+      border:1px solid rgba(255,255,255,.22);
+      box-shadow:0 18px 48px rgba(0,0,0,.36);
+      font-family:ui-rounded,"Nunito","Noto Sans Thai",system-ui,sans-serif;
+      display:none;
+    }
+
+    body.dev #hhaDevBotPanel{
+      display:block;
+    }
+
+    #hhaDevBotPanel h3{
+      margin:0 0 6px;
+      font-size:16px;
+      line-height:1.2;
+    }
+
+    #hhaDevBotPanel p{
+      margin:0 0 8px;
+      color:#c7d2fe;
+      font-size:12px;
+      line-height:1.35;
+      font-weight:800;
+    }
+
+    .devbot-row{
+      display:flex;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+
+    .devbot-btn{
+      flex:1 1 auto;
+      min-width:86px;
+      border:0;
+      border-radius:14px;
+      padding:9px 10px;
+      font-size:13px;
+      font-weight:1000;
+      cursor:pointer;
+      color:#06142f;
+      background:linear-gradient(180deg,#bfdbfe,#60a5fa);
+    }
+
+    .devbot-btn.warn{
+      background:linear-gradient(180deg,#fed7aa,#fb923c);
+    }
+
+    .devbot-btn.danger{
+      color:#fff;
+      background:linear-gradient(180deg,#fb7185,#e11d48);
+    }
+
+    .devbot-mini{
+      margin-top:7px;
+      padding-top:7px;
+      border-top:1px solid rgba(255,255,255,.14);
+      color:#bbf7d0;
+      font-size:12px;
+      font-weight:900;
+    }
+
+    @media (max-width:980px){
+      .heroGrid{
+        grid-template-columns:1fr;
+      }
+
+      .countCard{
+        min-height:360px;
+      }
+    }
+
+    @media (max-width:768px){
+      .page{
+        width:100%;
+        max-width:100vw;
+        margin:0;
+        padding:
+          calc(10px + var(--sat))
+          calc(10px + var(--sar))
+          calc(76px + var(--sab))
+          calc(10px + var(--sal));
+        gap:10px;
+      }
+
+      .topbar{
+        flex-direction:column;
+        align-items:stretch;
+        gap:8px;
+      }
+
+      .brand{
+        padding:12px;
+        border-radius:22px;
+      }
+
+      .brandMark{
+        width:50px;
+        height:50px;
+        border-radius:16px;
+        font-size:26px;
+      }
+
+      .brandTitle{
+        font-size:22px;
+      }
+
+      .brandSub{
+        font-size:12px;
+      }
+
+      .topActions{
+        width:100%;
+        display:grid;
+        grid-template-columns:1fr 1fr 1fr;
+        gap:8px;
+      }
+
+      .btn{
+        min-height:44px;
+        border-radius:16px;
+        font-size:13px;
+        padding:0 8px;
+        white-space:nowrap;
+      }
+
+      .card{
+        border-radius:24px;
+        padding:14px;
+      }
+
+      .countCard{
+        min-height:auto;
+        padding:14px;
+      }
+
+      .countLabel{
+        min-height:32px;
+        padding:0 10px;
+        margin-bottom:10px;
+        font-size:12px;
+      }
+
+      .count{
+        width:min(210px,58vw);
+        height:min(210px,58vw);
+        font-size:clamp(42px,18vw,82px);
+      }
+
+      .status-text{
+        margin-top:10px;
+        font-size:13px;
+        line-height:1.35;
+      }
+
+      .metaGrid{
+        grid-template-columns:1fr;
+        gap:8px;
+        margin-top:10px;
+      }
+
+      .metaBox{
+        border-radius:18px;
+        padding:10px;
+      }
+
+      .metaValue{
+        font-size:28px;
+        text-align:center;
+        letter-spacing:.04em;
+      }
+
+      .cardTitle{
+        align-items:center;
+        flex-direction:row;
+        gap:8px;
+      }
+
+      .cardTitle h2{
+        font-size:19px;
+      }
+
+      .pill,
+      .race-band-pill{
+        min-height:32px;
+        font-size:11px;
+        padding:0 10px;
+      }
+
+      .infoList{
+        gap:8px;
+        margin-top:9px;
+      }
+
+      .infoItem{
+        padding:9px;
+        border-radius:15px;
+        font-size:11px;
+      }
+
+      .player{
+        padding:12px;
+        border-radius:18px;
+      }
+
+      .avatar{
+        width:42px;
+        height:42px;
+        border-radius:14px;
+      }
+
+      .name{
+        font-size:16px;
+      }
+
+      .tag{
+        font-size:10px;
+        line-height:1.25;
+      }
+
+      .right{
+        min-width:64px;
+        font-size:12px;
+      }
+
+      .hha-race-stats{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .hha-race-options{
+        grid-template-columns:repeat(2,1fr);
+      }
+
+      .hha-race-choice:last-child{
+        grid-column:1 / -1;
+      }
+
+      #hhaDevBotPanel{
+        right:8px;
+        bottom:calc(8px + var(--sab));
+      }
+    }
+
+    @media (orientation:landscape) and (max-height:520px){
+      .page{
+        padding:
+          calc(6px + var(--sat))
+          calc(8px + var(--sar))
+          calc(58px + var(--sab))
+          calc(8px + var(--sal));
+      }
+
+      .topbar{
+        display:grid;
+        grid-template-columns:1fr auto;
+        align-items:center;
+      }
+
+      .topActions{
+        width:auto;
+        min-width:300px;
+        grid-template-columns:repeat(3,1fr);
+      }
+
+      .brand{
+        min-height:54px;
+      }
+
+      .heroGrid{
+        grid-template-columns:.82fr 1.18fr;
+        align-items:start;
+      }
+
+      .count{
+        width:min(150px,28vw);
+        height:min(150px,28vw);
+        font-size:52px;
+      }
+
+      .countCard{
+        min-height:300px;
+      }
+
+      .infoList{
+        display:none;
+      }
+
+      .metaValue{
+        font-size:22px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="page" id="page">
+    <section class="topbar">
+      <div class="brand">
+        <div class="brandMark">🏁</div>
+        <div class="brandText">
+          <h1 class="brandTitle">Groups Race Waiting Room</h1>
+          <p class="brandSub">รอผู้เล่นพร้อม • เชื่อม Firebase • เข้าเกมพร้อมกัน</p>
+        </div>
+      </div>
+
+      <div class="topActions">
+        <button class="btn primary" id="btnStartRace" type="button" disabled>🚀 เริ่มแข่ง</button>
+        <button class="btn ghost" id="btnBackLobby" type="button">← กลับ Lobby</button>
+        <button class="btn gold" id="btnBackHub" type="button">🏠 กลับโหมด</button>
+      </div>
+    </section>
+
+    <section class="heroGrid">
+      <section class="card countCard">
+        <div>
+          <div class="countLabel">🚀 Race Start</div>
+
+          <div id="countdown" class="count wait">รอ</div>
+
+          <div id="statusMsg" class="status-text warn">
+            กำลังเชื่อมต่อ Firebase...
+          </div>
+
+          <div class="metaGrid">
+            <div class="metaBox">
+              <div class="metaLabel">Room Code</div>
+              <div class="metaValue" id="metaRoom">-</div>
+            </div>
+
+            <div class="metaBox">
+              <div class="metaLabel">Player</div>
+              <div class="metaValue" id="metaName">-</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="sideStack">
+        <section class="card">
+          <div class="cardTitle">
+            <h2>สถานะห้อง</h2>
+            <div class="race-band-pill" id="raceBandPill">🏁 Race Standard 2–4</div>
+          </div>
+
+          <p id="roomState" class="roomState">กำลังตรวจสอบห้อง...</p>
+
+          <div class="infoList">
+            <div class="infoItem">
+              <div class="infoIcon">🎯</div>
+              <div>ทุกคนต้องเข้า Race ด้วย Room Code เดียวกัน และระบบจะซิงก์รายชื่อผ่าน Firebase</div>
+            </div>
+
+            <div class="infoItem">
+              <div class="infoIcon">⚡</div>
+              <div>เมื่อมีผู้เล่นครบอย่างน้อย 2 คน ปุ่มเริ่มแข่งจะเปิดให้ใช้งาน</div>
+            </div>
+
+            <div class="infoItem">
+              <div class="infoIcon">🏆</div>
+              <div>รอบนี้ล็อกเป็น Race Standard 2–4 คนก่อน เพื่อให้ระบบ multiplayer เสถียรก่อน</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="cardTitle">
+            <h2>ผู้เล่นในห้อง</h2>
+            <div class="pill" id="livePlayersPill">Live Players</div>
+          </div>
+
+          <div class="playersWrap" id="playersList">
+            <div class="player">
+              <div class="left">
+                <div class="avatar">👀</div>
+                <div>
+                  <div class="name">กำลังโหลดข้อมูลผู้เล่น</div>
+                  <div class="tag">รอข้อมูลจาก Firebase</div>
+                </div>
+              </div>
+              <div class="right wait">รอ...</div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </section>
+  </main>
+
+  <aside id="hhaDevBotPanel">
+    <h3>🤖 Race Dev Bot</h3>
+    <p id="devBotInfo">Single-device test mode<br>Room: <b>-</b> · Players: <b>0</b></p>
+    <div class="devbot-row">
+      <button class="devbot-btn" id="devBotAdd" type="button">+ Bot</button>
+      <button class="devbot-btn warn" id="devBotStart" type="button">Start</button>
+      <button class="devbot-btn danger" id="devBotRemove" type="button">ลบ Bot</button>
+    </div>
+    <div class="devbot-mini" id="devBotMsg">กด + Bot เพื่อจำลองผู้เล่นคนที่ 2</div>
+  </aside>
+
+  <pre class="debugBox" id="debugBox"></pre>
+
+  <script>
+    (function(){
+      'use strict';
+
+      const PATCH = 'v20260606-GROUPS-RACE-RUN-V15-STANDALONE';
+      const ROOM_PATH_PREFIX = 'herohealth/groups/raceRooms';
+
+      if (window.__HHA_GROUPS_RACE_RUN_V15__) return;
+      window.__HHA_GROUPS_RACE_RUN_V15__ = true;
+
+      const qs = new URLSearchParams(location.search || '');
+
+      const DEV_MODE =
+        qs.get('mock') === '1' ||
+        qs.get('dev') === '1' ||
+        qs.get('bot') === '1' ||
+        qs.get('testBot') === '1' ||
+        localStorage.getItem('HHA_GROUPS_RACE_DEV_BOT') === '1';
+
+      const DEBUG_MODE =
+        qs.get('debug') === '1' ||
+        qs.get('qa') === '1';
+
+      const FOODS = [
+        { name:'ไข่ต้ม', emoji:'🥚', group:1, label:'หมู่ 1 โปรตีน' },
+        { name:'ปลา', emoji:'🐟', group:1, label:'หมู่ 1 โปรตีน' },
+        { name:'นม', emoji:'🥛', group:1, label:'หมู่ 1 โปรตีน' },
+        { name:'ถั่วเมล็ดแห้ง', emoji:'🫘', group:1, label:'หมู่ 1 โปรตีน' },
+
+        { name:'ข้าว', emoji:'🍚', group:2, label:'หมู่ 2 คาร์โบไฮเดรต' },
+        { name:'ขนมปัง', emoji:'🍞', group:2, label:'หมู่ 2 คาร์โบไฮเดรต' },
+        { name:'มันเทศ', emoji:'🍠', group:2, label:'หมู่ 2 คาร์โบไฮเดรต' },
+        { name:'เส้นก๋วยเตี๋ยว', emoji:'🍜', group:2, label:'หมู่ 2 คาร์โบไฮเดรต' },
+
+        { name:'ผักบุ้ง', emoji:'🥬', group:3, label:'หมู่ 3 ผัก' },
+        { name:'แครอต', emoji:'🥕', group:3, label:'หมู่ 3 ผัก' },
+        { name:'บรอกโคลี', emoji:'🥦', group:3, label:'หมู่ 3 ผัก' },
+        { name:'แตงกวา', emoji:'🥒', group:3, label:'หมู่ 3 ผัก' },
+
+        { name:'กล้วย', emoji:'🍌', group:4, label:'หมู่ 4 ผลไม้' },
+        { name:'แอปเปิล', emoji:'🍎', group:4, label:'หมู่ 4 ผลไม้' },
+        { name:'ส้ม', emoji:'🍊', group:4, label:'หมู่ 4 ผลไม้' },
+        { name:'แตงโม', emoji:'🍉', group:4, label:'หมู่ 4 ผลไม้' },
+
+        { name:'น้ำมัน', emoji:'🛢️', group:5, label:'หมู่ 5 ไขมัน' },
+        { name:'เนย', emoji:'🧈', group:5, label:'หมู่ 5 ไขมัน' },
+        { name:'อะโวคาโด', emoji:'🥑', group:5, label:'หมู่ 5 ไขมัน' },
+        { name:'ถั่วทอด', emoji:'🥜', group:5, label:'หมู่ 5 ไขมัน' }
+      ];
+
+      const GROUPS = [
+        { id:1, text:'หมู่ 1\nโปรตีน' },
+        { id:2, text:'หมู่ 2\nข้าว-แป้ง' },
+        { id:3, text:'หมู่ 3\nผัก' },
+        { id:4, text:'หมู่ 4\nผลไม้' },
+        { id:5, text:'หมู่ 5\nไขมัน' }
+      ];
+
+      let firebaseReady = false;
+      let authUser = null;
+      let db = null;
+      let roomRef = null;
+      let playersRef = null;
+      let playerRef = null;
+      let botRef = null;
+
+      let roomCode = '';
+      let playerName = '';
+      let deviceKey = '';
+      let playerKey = '';
+      let botKey = '';
+      let playersCache = {};
+      let started = false;
+      let ended = false;
+      let gameTimer = null;
+      let botTimer = null;
+      let currentStartAt = 0;
+
+      if (DEBUG_MODE) {
+        document.body.classList.add('debug');
+      }
+
+      if (DEV_MODE) {
+        document.body.classList.add('dev');
+      }
+
+      function $(id){
+        return document.getElementById(id);
+      }
+
+      function norm(v){
+        return String(v == null ? '' : v).trim();
+      }
+
+      function upper(v){
+        return norm(v).toUpperCase();
+      }
+
+      function lower(v){
+        return norm(v).toLowerCase();
+      }
+
+      function now(){
+        return Date.now();
+      }
+
+      function log(){
+        const args = Array.from(arguments);
+        try {
+          console.info.apply(console, ['[GroupsRaceV15]'].concat(args));
+        } catch (_) {}
+
+        if (!DEBUG_MODE) return;
+
+        const box = $('debugBox');
+        if (!box) return;
+
+        const line = args.map(function(v){
+          try {
+            return typeof v === 'string' ? v : JSON.stringify(v);
+          } catch(e) {
+            return String(v);
+          }
+        }).join(' ');
+
+        box.textContent = (box.textContent + '\n' + line).trim().slice(-6000);
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function warn(){
+        try {
+          console.warn.apply(console, ['[GroupsRaceV15]'].concat(Array.from(arguments)));
+        } catch (_) {}
+      }
+
+      function esc(v){
+        return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){
+          return ({
+            '&':'&amp;',
+            '<':'&lt;',
+            '>':'&gt;',
+            '"':'&quot;',
+            "'":'&#39;'
+          })[c];
+        });
+      }
+
+      function safeKey(v){
+        return norm(v)
+          .replace(/[.#$\[\]/]/g, '_')
+          .replace(/\s+/g, '_')
+          .slice(0, 80) || 'anon';
+      }
+
+      function randomRoom(){
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let out = 'R';
+        for (let i = 0; i < 5; i += 1) {
+          out += chars[Math.floor(Math.random() * chars.length)];
+        }
+        return out;
+      }
+
+      function setLS(k,v){
+        try {
+          localStorage.setItem(k, String(v));
+        } catch (_) {}
+      }
+
+      function getLS(keys){
+        for (const k of keys) {
+          try {
+            const v = localStorage.getItem(k);
+            if (v) return v;
+          } catch (_) {}
+        }
+        return '';
+      }
+
+      function setSS(k,v){
+        try {
+          sessionStorage.setItem(k, String(v));
+        } catch (_) {}
+      }
+
+      function getSS(keys){
+        for (const k of keys) {
+          try {
+            const v = sessionStorage.getItem(k);
+            if (v) return v;
+          } catch (_) {}
+        }
+        return '';
+      }
+
+      function ensureDeviceKey(){
+        let id = getLS(['HHA_GROUPS_RACE_DEVICE_ID']);
+        if (!id) {
+          id = 'dev_' + Math.random().toString(36).slice(2,10) + '_' + Date.now().toString(36);
+          setLS('HHA_GROUPS_RACE_DEVICE_ID', id);
+        }
+        deviceKey = id;
+        return id;
+      }
+
+      function getParamRoom(){
+        return upper(
+          qs.get('roomId') ||
+          qs.get('room') ||
+          qs.get('code') ||
+          qs.get('raceRoom') ||
+          getSS(['HHA_GROUPS_RACE_ROOM','HHA_GROUPS_RACE_ROOM_CODE']) ||
+          getLS(['HHA_GROUPS_RACE_ROOM_CODE','HHA_GROUPS_RACE_ROOM','HHA_RACE_ROOM']) ||
+          ''
+        );
+      }
+
+      function getParamName(){
+        return norm(
+          qs.get('name') ||
+          qs.get('playerName') ||
+          qs.get('nickname') ||
+          getSS(['HHA_GROUPS_RACE_NAME']) ||
+          getLS(['HHA_GROUPS_RACE_PLAYER_NAME','HHA_PLAYER_NAME']) ||
+          'Hero'
+        ) || 'Hero';
+      }
+
+      function getView(){
+        return norm(qs.get('view') || 'pc') || 'pc';
+      }
+
+      function getDiff(){
+        return norm(qs.get('diff') || 'normal') || 'normal';
+      }
+
+      function getTimeSec(){
+        const raw = Number(qs.get('timeSec') || qs.get('time') || 45);
+        if (!Number.isFinite(raw)) return 45;
+        if (raw < 20) return 20;
+        if (raw > 120) return 120;
+        return Math.round(raw);
+      }
+
+      function repoBase(){
+        const path = location.pathname || '';
+        const marker = '/herohealth/';
+        const idx = path.indexOf(marker);
+        if (idx >= 0) return location.origin + path.slice(0, idx);
+        return location.origin + '/webxr-health-mobile';
+      }
+
+      function buildHeroUrl(path, extra){
+        const out = new URL(repoBase() + '/herohealth/' + path.replace(/^\/+/, ''));
+
+        out.searchParams.set('roomId', roomCode || '');
+        out.searchParams.set('room', roomCode || '');
+        out.searchParams.set('code', roomCode || '');
+        out.searchParams.set('name', playerName || 'Hero');
+        out.searchParams.set('diff', getDiff());
+        out.searchParams.set('timeSec', String(getTimeSec()));
+        out.searchParams.set('time', String(getTimeSec()));
+        out.searchParams.set('mode', 'race');
+        out.searchParams.set('view', getView());
+        out.searchParams.set('game', 'groups');
+        out.searchParams.set('gameId', 'groups');
+        out.searchParams.set('raceBand', 'standard');
+        out.searchParams.set('band', 'standard');
+
+        Object.keys(extra || {}).forEach(function(k){
+          out.searchParams.set(k, String(extra[k]));
+        });
+
+        return out.toString();
+      }
+
+      function patchUrl(){
+        try {
+          const url = new URL(location.href);
+          url.searchParams.set('room', roomCode);
+          url.searchParams.set('roomId', roomCode);
+          url.searchParams.set('code', roomCode);
+          if (DEV_MODE) url.searchParams.set('mock', '1');
+          history.replaceState(null, '', url.toString());
+        } catch (_) {}
+      }
+
+      function seedRoom(){
+        roomCode = getParamRoom();
+
+        if (!roomCode && DEV_MODE) {
+          roomCode = randomRoom();
+        }
+
+        playerName = getParamName();
+
+        if (roomCode) {
+          setSS('HHA_GROUPS_RACE_ROOM', roomCode);
+          setSS('HHA_GROUPS_RACE_ROOM_CODE', roomCode);
+          setLS('HHA_GROUPS_RACE_ROOM', roomCode);
+          setLS('HHA_GROUPS_RACE_ROOM_CODE', roomCode);
+          setLS('HHA_RACE_ROOM', roomCode);
+        }
+
+        if (playerName) {
+          setSS('HHA_GROUPS_RACE_NAME', playerName);
+          setLS('HHA_GROUPS_RACE_PLAYER_NAME', playerName);
+          setLS('HHA_PLAYER_NAME', playerName);
+        }
+
+        if (DEV_MODE) {
+          setLS('HHA_GROUPS_RACE_DEV_BOT', '1');
+        }
+
+        window.__HHA_GROUPS_RACE_ROOM_CODE__ = roomCode;
+        window.__HHA_GROUPS_RACE_ROOM__ = roomCode;
+
+        if (roomCode) patchUrl();
+
+        console.info('[GroupsRacePreRoomSeed]', {
+          patch: PATCH,
+          room: roomCode,
+          name: playerName,
+          devMode: DEV_MODE
+        });
+      }
+
+      function setText(id,value){
+        const el = $(id);
+        if (el) el.textContent = String(value);
+      }
+
+      function setStatus(text,type){
+        const el = $('statusMsg');
+        if (!el) return;
+        el.className = 'status-text ' + (type || 'warn');
+        el.textContent = text;
+      }
+
+      function setCountdown(text,mode){
+        const el = $('countdown');
+        if (!el) return;
+        el.className = 'count ' + (mode || 'wait');
+        el.textContent = text;
+      }
+
+      function paintBase(){
+        setText('metaRoom', roomCode || '-');
+        setText('metaName', playerName || 'Hero');
+        setText('raceBandPill', '🏁 Race Standard 2–4');
+      }
+
+      function toast(msg, ms){
+        let el = $('hhaRaceToast');
+        if (!el) {
+          el = document.createElement('div');
+          el.id = 'hhaRaceToast';
+          el.className = 'toast';
+          document.body.appendChild(el);
+        }
+        el.textContent = msg;
+        clearTimeout(toast._t);
+        toast._t = setTimeout(function(){
+          try { el.remove(); } catch (_) {}
+        }, ms || 1800);
+      }
+
+      function waitFirebaseApp(){
+        return new Promise(function(resolve,reject){
+          const startedAt = now();
+          const timer = setInterval(function(){
+            if (window.firebase && firebase.apps && firebase.apps.length) {
+              clearInterval(timer);
+              resolve(firebase);
+              return;
+            }
+
+            if (now() - startedAt > 9000) {
+              clearInterval(timer);
+              reject(new Error('Firebase app not initialized'));
+            }
+          }, 120);
+        });
+      }
+
+      async function signIn(firebaseRef){
+        try {
+          if (!firebaseRef.auth) return null;
+
+          const auth = firebaseRef.auth();
+
+          if (auth.currentUser) return auth.currentUser;
+
+          const cred = await auth.signInAnonymously();
+          return cred.user || auth.currentUser || null;
+        } catch (e) {
+          warn('anonymous auth failed', e && (e.code || e.message || e));
+          return null;
+        }
+      }
+
+      function isBotPlayer(p,key){
+        return !!(
+          p &&
+          (
+            p.isBot === true ||
+            p.devBot === true ||
+            lower(p.role) === 'bot' ||
+            lower(p.type) === 'bot' ||
+            String(key || '').indexOf('devbot_') === 0
+          )
+        );
+      }
+
+      function playerDisplayName(p,key){
+        return norm(
+          p &&
+          (
+            p.name ||
+            p.playerName ||
+            p.nickname ||
+            p.displayName ||
+            p.label ||
+            key ||
+            ''
+          )
+        );
+      }
+
+      function playerStatus(p){
+        const phase = lower(p && p.phase);
+        const status = lower(p && p.status);
+
+        if (phase === 'finished' || status === 'finished' || p.finishedAt || p.result) return 'done';
+        if (phase === 'running' || status === 'running') return 'run';
+        if (p.ready === true || phase === 'ready' || status === 'ready') return 'ok';
+        return 'wait';
+      }
+
+      function normalizePlayers(obj){
+        return Object.keys(obj || {}).map(function(key){
+          return Object.assign({ id:key }, obj[key] || {});
+        }).filter(function(p){
+          return !!playerDisplayName(p,p.id);
+        }).sort(function(a,b){
+          const ah = a.isHost === true || lower(a.role) === 'host';
+          const bh = b.isHost === true || lower(b.role) === 'host';
+          if (ah && !bh) return -1;
+          if (!ah && bh) return 1;
+          return Number(a.joinedAt || 0) - Number(b.joinedAt || 0);
+        });
+      }
+
+      function renderWaitingLocal(reason){
+        const list = $('playersList');
+        if (!list) return;
+
+        list.innerHTML =
+          '<div class="player" data-local-waiting="1">' +
+            '<div class="left">' +
+              '<div class="avatar">🏁</div>' +
+              '<div>' +
+                '<div class="name">' + esc(playerName) + ' <span style="color:#98f2bf">• คุณ</span></div>' +
+                '<div class="tag">Local waiting • room ' + esc(roomCode || '-') + ' • ' + esc(reason || 'รอ Firebase') + '</div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="right wait">รอเพื่อน</div>' +
+          '</div>';
+
+        setText('livePlayersPill','1 player');
+      }
+
+      function renderPlayers(obj){
+        playersCache = obj || {};
+        const list = $('playersList');
+        const btn = $('btnStartRace');
+        const players = normalizePlayers(playersCache);
+
+        window.__HHA_GROUPS_RACE_PLAYERS__ = players;
+
+        updateDevPanel();
+
+        if (!list) return;
+
+        if (!players.length) {
+          renderWaitingLocal(firebaseReady ? 'ยังไม่มี snapshot ผู้เล่น' : 'offline/mock');
+          if (btn) btn.disabled = !DEV_MODE;
+          if (DEV_MODE) {
+            setStatus('Dev Room พร้อมแล้ว: ' + (roomCode || '-') + ' • เพิ่ม Bot แล้วเริ่มแข่งได้', 'ok');
+            setText('roomState','Dev Room ' + (roomCode || '-') + ' พร้อมแล้ว • ใช้ทดสอบเครื่องเดียวได้');
+          } else {
+            setStatus('เข้าห้องแล้ว • กำลังรอ Firebase ส่งรายชื่อผู้เล่น','warn');
+            setText('roomState','ห้อง ' + (roomCode || '-') + ' พร้อมแล้ว • รอซิงก์รายชื่อผู้เล่น');
+          }
+          return;
+        }
+
+        list.innerHTML = players.map(function(p,idx){
+          const isMe =
+            p.deviceId === deviceKey ||
+            p.uid === (authUser && authUser.uid) ||
+            p.id === playerKey;
+
+          const bot = isBotPlayer(p,p.id);
+          const role = bot ? 'Dev Bot' : (p.isHost || lower(p.role) === 'host' || idx === 0 ? 'Host' : 'Player ' + (idx + 1));
+          const badge = bot ? '🤖' : (idx === 0 ? '🏁' : '👤');
+          const state = playerStatus(p);
+          const rightText = state === 'done' ? 'จบแล้ว' : state === 'run' ? 'แข่งอยู่' : state === 'ok' ? 'พร้อม' : 'รอ...';
+
+          return (
+            '<div class="player" data-player-id="' + esc(p.id) + '">' +
+              '<div class="left">' +
+                '<div class="avatar">' + badge + '</div>' +
+                '<div>' +
+                  '<div class="name">' + esc(playerDisplayName(p,p.id)) + (isMe ? ' <span style="color:#98f2bf">• คุณ</span>' : '') + '</div>' +
+                  '<div class="tag">' + esc(role) + ' • ' + esc(p.view || '-') + ' • ' + esc(p.diff || '-') + '</div>' +
+                '</div>' +
+              '</div>' +
+              '<div class="right ' + state + '">' + rightText + '</div>' +
+            '</div>'
+          );
+        }).join('');
+
+        setText('livePlayersPill', players.length + ' player' + (players.length > 1 ? 's' : ''));
+
+        if (players.length < 2) {
+          if (btn) btn.disabled = !DEV_MODE;
+          if (DEV_MODE) {
+            setStatus('Dev Bot ยังไม่ครบ • กด + Bot หรือ Start เพื่อจำลองผู้เล่นคนที่ 2', 'warn');
+            setText('roomState','มีผู้เล่น ' + players.length + ' คน • โหมดทดสอบสามารถเพิ่ม Bot ได้');
+          } else {
+            setStatus('เข้าห้องแล้ว: ' + roomCode + ' • ผู้เล่น: ' + playerName + ' • รอเพื่อนเข้าห้องเดียวกัน', 'warn');
+            setText('roomState','มีผู้เล่น ' + players.length + ' คน • Race Standard ต้องมีอย่างน้อย 2 คน');
+          }
+          return;
+        }
+
+        if (players.length > 4 && !DEV_MODE) {
+          if (btn) btn.disabled = true;
+          setStatus('ห้องเกินจำนวน • Race Standard รองรับสูงสุด 4 คน', 'err');
+          setText('roomState','มีผู้เล่น ' + players.length + ' คน • เกิน 4 คน ให้รอโหมด Race Party');
+          return;
+        }
+
+        if (btn) btn.disabled = false;
+        setStatus('พร้อมแข่งแล้ว • ผู้เล่นครบอย่างน้อย 2 คน', 'ok');
+        setText('roomState','ผู้เล่นครบแล้ว ' + players.length + ' คน • Host กดเริ่มแข่งได้');
+      }
+
+      function updateDevPanel(msg){
+        const info = $('devBotInfo');
+        const mini = $('devBotMsg');
+        if (!info && !mini) return;
+
+        const players = normalizePlayers(playersCache);
+        if (info) {
+          info.innerHTML =
+            'Single-device test mode<br>' +
+            'Room: <b>' + esc(roomCode || '-') + '</b> · Players: <b>' + players.length + '</b>';
+        }
+
+        if (mini && msg) {
+          mini.textContent = msg;
+        }
+      }
+
+      async function setupFirebase(){
+        if (!roomCode) {
+          setStatus('ไม่พบ Room Code ใน URL', 'err');
+          setText('roomState','กลับ Lobby แล้วสร้าง/เข้าห้องใหม่');
+          return false;
+        }
+
+        setStatus('กำลังเชื่อมต่อ Firebase...', 'warn');
+
+        let fb;
+        try {
+          fb = await waitFirebaseApp();
+        } catch (e) {
+          firebaseReady = false;
+          setStatus(DEV_MODE ? 'Firebase ยังไม่พร้อม • ใช้ mock/local ต่อได้' : 'Firebase ยังไม่พร้อม: ตรวจสอบ ../firebase-config.js', DEV_MODE ? 'warn' : 'err');
+          warn('waitFirebaseApp failed', e && e.message);
+          return false;
+        }
+
+        try {
+          db = fb.database();
+        } catch (e) {
+          firebaseReady = false;
+          setStatus(DEV_MODE ? 'Realtime DB ไม่พร้อม • ใช้ mock/local ต่อได้' : 'เปิด Realtime Database ไม่ได้: ตรวจสอบ databaseURL / firebase-config.js', DEV_MODE ? 'warn' : 'err');
+          warn('database failed', e && (e.code || e.message || e));
+          return false;
+        }
+
+        authUser = await signIn(fb);
+
+        const uid = authUser && authUser.uid ? authUser.uid : ensureDeviceKey();
+
+        playerKey = safeKey(uid || ensureDeviceKey());
+        botKey = 'devbot_' + safeKey(roomCode).slice(0,20);
+
+        const basePath = ROOM_PATH_PREFIX + '/' + safeKey(roomCode);
+        roomRef = db.ref(basePath);
+        playersRef = db.ref(basePath + '/players');
+        playerRef = db.ref(basePath + '/players/' + playerKey);
+        botRef = db.ref(basePath + '/players/' + botKey);
+
+        firebaseReady = true;
+
+        bindFirebaseListeners();
+        await joinRoom();
+
+        log('Firebase ready', {
+          patch:PATCH,
+          room:roomCode,
+          uid:uid,
+          playerKey:playerKey,
+          path:basePath
+        });
+
+        return true;
+      }
+
+      async function joinRoom(){
+        if (!playerRef || !roomRef) return false;
+
+        const payload = {
+          uid:authUser && authUser.uid ? authUser.uid : deviceKey,
+          deviceId:deviceKey,
+          name:playerName,
+          playerName:playerName,
+          room:roomCode,
+          view:getView(),
+          diff:getDiff(),
+          timeSec:getTimeSec(),
+          role:'host',
+          isHost:true,
+          ready:true,
+          online:true,
+          status:'ready',
+          phase:'ready',
+          joinedAt:firebase.database.ServerValue.TIMESTAMP,
+          lastSeen:firebase.database.ServerValue.TIMESTAMP,
+          patch:PATCH,
+          ua:navigator.userAgent || ''
+        };
+
+        try {
+          await playerRef.set(payload);
+          try {
+            playerRef.onDisconnect().remove();
+          } catch (_) {}
+
+          await roomRef.update({
+            room:roomCode,
+            roomCode:roomCode,
+            band:'standard',
+            minPlayers:2,
+            maxPlayers:4,
+            status:'waiting',
+            phase:'waiting',
+            updatedAt:firebase.database.ServerValue.TIMESTAMP,
+            patch:PATCH
+          });
+
+          setStatus('เข้าห้องแล้ว: ' + roomCode + ' • ผู้เล่น: ' + playerName + ' • รอเพื่อนเข้าห้องเดียวกัน', 'warn');
+          return true;
+        } catch (e) {
+          setStatus(DEV_MODE ? 'Firebase เขียนไม่ได้ • ใช้ mock/local ต่อได้' : 'Firebase เขียนข้อมูลไม่ได้: ' + (e.code || e.message), DEV_MODE ? 'warn' : 'err');
+          warn('joinRoom failed', e && (e.code || e.message || e));
+          return false;
+        }
+      }
+
+      function bindFirebaseListeners(){
+        if (!db || !roomRef || !playersRef) return;
+
+        try {
+          db.ref('.info/connected').on('value', function(snap){
+            const connected = snap.val() === true;
+            log('connected', connected);
+
+            if (!connected) {
+              if (!DEV_MODE) setStatus('ยังไม่เชื่อม Firebase • ตรวจสอบเน็ต / databaseURL / rules', 'warn');
+              return;
+            }
+
+            if (!started) {
+              setStatus('Firebase เชื่อมต่อแล้ว • กำลังเข้าห้อง ' + roomCode, 'ok');
+            }
+          });
+        } catch (_) {}
+
+        playersRef.on('value', function(snap){
+          const val = snap.val() || {};
+          renderPlayers(val);
+        }, function(err){
+          setStatus(DEV_MODE ? 'Firebase อ่านรายชื่อไม่ได้ • ใช้ mock/local ต่อได้' : 'Firebase อ่านรายชื่อผู้เล่นไม่ได้: ' + (err.code || err.message), DEV_MODE ? 'warn' : 'err');
+          warn('players listener failed', err && (err.code || err.message || err));
+        });
+
+        roomRef.on('value', function(snap){
+          const state = snap.val() || {};
+          const status = lower(state.status);
+          const phase = lower(state.phase);
+
+          if ((status === 'starting' || phase === 'starting' || status === 'running' || phase === 'running') && state.startAt) {
+            if (!started) {
+              startCountdown(Number(state.startAt || 0), 'firebase-room-state');
+            }
+          }
+        });
+
+        setInterval(function(){
+          if (!playerRef || ended) return;
+          playerRef.update({
+            lastSeen:firebase.database.ServerValue.TIMESTAMP,
+            online:true
+          }).catch(function(){});
+        }, 5000);
+      }
+
+      async function addDevBot(){
+        if (!DEV_MODE) return false;
+
+        if (!botKey) botKey = 'devbot_' + safeKey(roomCode).slice(0,20);
+
+        const localBot = {
+          id:botKey,
+          pid:botKey,
+          name:'RaceBot',
+          playerName:'RaceBot',
+          role:'bot',
+          type:'bot',
+          isBot:true,
+          devBot:true,
+          view:'bot',
+          diff:getDiff(),
+          ready:true,
+          online:true,
+          status:'ready',
+          phase:'ready',
+          score:0,
+          correct:0,
+          wrong:0,
+          accuracy:0,
+          maxCombo:0,
+          joinedAt:now(),
+          updatedAt:now(),
+          patch:PATCH
+        };
+
+        playersCache = Object.assign({}, playersCache);
+        if (!playersCache[playerKey || 'local_host']) {
+          playersCache[playerKey || 'local_host'] = {
+            id:playerKey || 'local_host',
+            name:playerName,
+            playerName:playerName,
+            role:'host',
+            isHost:true,
+            view:getView(),
+            diff:getDiff(),
+            ready:true,
+            status:'ready',
+            phase:'ready',
+            joinedAt:now()
+          };
+        }
+        playersCache[botKey] = localBot;
+        renderPlayers(playersCache);
+        updateDevPanel('เพิ่ม Bot แล้ว');
+
+        if (botRef) {
+          try {
+            await botRef.update(localBot);
+            try {
+              botRef.onDisconnect().remove();
+            } catch (_) {}
+          } catch (e) {
+            warn('bot write failed; local bot still active', e && (e.code || e.message || e));
+          }
+        }
+
+        toast('🤖 เพิ่ม RaceBot แล้ว', 1200);
+        return true;
+      }
+
+      async function removeDevBot(){
+        if (!DEV_MODE) return;
+
+        if (botTimer) {
+          clearInterval(botTimer);
+          botTimer = null;
+        }
+
+        if (botKey && playersCache[botKey]) {
+          delete playersCache[botKey];
+        }
+
+        renderPlayers(playersCache);
+        updateDevPanel('ลบ Bot แล้ว');
+
+        if (botRef) {
+          try {
+            await botRef.remove();
+          } catch (_) {}
+        }
+      }
+
+      function startBotSimulation(startAt){
+        if (!DEV_MODE || !botKey) return;
+
+        if (!playersCache[botKey]) {
+          addDevBot();
+        }
+
+        if (botTimer) {
+          clearInterval(botTimer);
+          botTimer = null;
+        }
+
+        const duration = getTimeSec();
+        const botStart = startAt || now();
+
+        function updateBot(partial){
+          const old = playersCache[botKey] || {};
+          playersCache[botKey] = Object.assign({}, old, partial, {
+            id:botKey,
+            name:'RaceBot',
+            playerName:'RaceBot',
+            role:'bot',
+            type:'bot',
+            isBot:true,
+            devBot:true,
+            updatedAt:now()
+          });
+          renderPlayers(playersCache);
+
+          if (botRef) {
+            botRef.update(playersCache[botKey]).catch(function(){});
+          }
+        }
+
+        updateBot({
+          status:'running',
+          phase:'running',
+          runningAt:now(),
+          score:0,
+          correct:0,
+          wrong:0,
+          accuracy:0,
+          maxCombo:0
+        });
+
+        botTimer = setInterval(function(){
+          const elapsed = Math.max(0, Math.floor((now() - botStart) / 1000));
+          const progress = Math.min(1, elapsed / duration);
+
+          const correct = Math.max(0, Math.floor(progress * 12 + Math.random() * 2));
+          const wrong = Math.max(0, Math.floor(progress * 4));
+          const total = correct + wrong;
+          const accuracy = total ? Math.round((correct / total) * 100) : 0;
+          const maxCombo = Math.max(1, Math.floor(2 + progress * 7));
+          const score = Math.max(0, correct * 105 + maxCombo * 15 - wrong * 25);
+
+          updateBot({
+            status:'running',
+            phase:'running',
+            score:score,
+            correct:correct,
+            wrong:wrong,
+            accuracy:accuracy,
+            maxCombo:maxCombo
+          });
+
+          if (progress >= 1) {
+            clearInterval(botTimer);
+            botTimer = null;
+
+            const finalCorrect = Math.max(8, correct);
+            const finalWrong = Math.max(2, wrong);
+            const finalTotal = finalCorrect + finalWrong;
+            const finalAccuracy = Math.round((finalCorrect / finalTotal) * 100);
+            const finalCombo = Math.max(4, maxCombo);
+            const finalScore = Math.max(score, finalCorrect * 110 + finalCombo * 20 - finalWrong * 25);
+
+            const result = {
+              name:'RaceBot',
+              pid:botKey,
+              isBot:true,
+              score:finalScore,
+              accuracy:finalAccuracy,
+              correct:finalCorrect,
+              wrong:finalWrong,
+              total:finalTotal,
+              maxCombo:finalCombo,
+              status:'finished',
+              phase:'finished',
+              finishedAt:now(),
+              patch:PATCH
+            };
+
+            updateBot({
+              result:result,
+              lastResult:result,
+              score:finalScore,
+              accuracy:finalAccuracy,
+              correct:finalCorrect,
+              wrong:finalWrong,
+              total:finalTotal,
+              maxCombo:finalCombo,
+              status:'finished',
+              phase:'finished',
+              finishedAt:result.finishedAt
+            });
+          }
+        }, 3000);
+      }
+
+      async function requestStart(reason){
+        const players = normalizePlayers(playersCache);
+
+        if (DEV_MODE && players.length < 2) {
+          await addDevBot();
+        }
+
+        const freshPlayers = normalizePlayers(playersCache);
+
+        if (freshPlayers.length < 2 && !DEV_MODE) {
+          setStatus('ยังเริ่มไม่ได้ • Race Standard ต้องมีอย่างน้อย 2 คน ตอนนี้มี ' + freshPlayers.length + ' คน', 'warn');
+          return false;
+        }
+
+        if (freshPlayers.length > 4 && !DEV_MODE) {
+          setStatus('ยังเริ่มไม่ได้ • ห้องเกิน 4 คน', 'err');
+          return false;
+        }
+
+        const startAt = now() + 1600;
+        currentStartAt = startAt;
+
+        if (roomRef) {
+          try {
+            await roomRef.update({
+              status:'starting',
+              phase:'starting',
+              startedBy:playerKey || deviceKey,
+              startAt:startAt,
+              updatedAt:firebase.database.ServerValue.TIMESTAMP,
+              patch:PATCH,
+              reason:reason || 'button'
+            });
+          } catch (e) {
+            warn('room start update failed; starting locally', e && (e.code || e.message || e));
+          }
+        }
+
+        startCountdown(startAt, reason || 'button');
+        startBotSimulation(startAt);
+
+        return true;
+      }
+
+      function startCountdown(startAt, source){
+        if (started) return;
+
+        currentStartAt = Number(startAt || now());
+
+        function tick(){
+          if (started) return;
+
+          const left = Math.max(0, currentStartAt - now());
+
+          if (left <= 0) {
+            setCountdown('GO', 'go');
+            setStatus('เริ่มแข่งแล้ว • เข้าเกม Groups Race', 'ok');
+            setTimeout(function(){
+              startGame(source || 'countdown');
+            }, 420);
+            return;
+          }
+
+          const sec = Math.ceil(left / 1000);
+          setCountdown(String(sec), 'ready');
+          setStatus('กำลังเริ่มแข่ง • นับถอยหลัง ' + sec, 'ok');
+          setTimeout(tick, 160);
+        }
+
+        tick();
+      }
+
+      function buildGameShell(){
+        let root = $('hhaRacePlayV15');
+        if (root) return root;
+
+        root = document.createElement('main');
+        root.id = 'hhaRacePlayV15';
+        root.innerHTML = `
+          <div class="hha-race-wrap">
+            <section class="hha-race-top">
+              <div class="hha-race-title">
+                <div class="hha-race-icon">🏁</div>
+                <div>
+                  <h1>Groups Race</h1>
+                  <p>แตะหมู่อาหารให้ถูก เร็ว และต่อเนื่อง</p>
+                </div>
+              </div>
+              <div class="hha-race-pill" id="hhaRaceRoomPill">Room ${esc(roomCode || '-')}</div>
+            </section>
+
+            <section class="hha-race-board">
+              <div class="hha-race-stats">
+                <div class="hha-race-stat">
+                  <b id="hhaRaceTime">45</b>
+                  <span>เวลา</span>
+                </div>
+                <div class="hha-race-stat">
+                  <b id="hhaRaceScore">0</b>
+                  <span>คะแนน</span>
+                </div>
+                <div class="hha-race-stat">
+                  <b id="hhaRaceCorrect">0</b>
+                  <span>ถูก</span>
+                </div>
+                <div class="hha-race-stat">
+                  <b id="hhaRaceCombo">0</b>
+                  <span>Combo</span>
+                </div>
+              </div>
+
+              <div class="hha-race-question" id="hhaRaceQuestion">
+                <div class="hha-race-food">
+                  <span class="emoji" id="hhaRaceEmoji">🍚</span>
+                </div>
+                <h2 class="hha-race-food-name" id="hhaRaceFoodName">ข้าว</h2>
+                <p class="hha-race-hint">อาหารนี้อยู่หมู่ใด?</p>
+                <div class="hha-race-feedback" id="hhaRaceFeedback"></div>
+              </div>
+
+              <div class="hha-race-options" id="hhaRaceOptions"></div>
+
+              <section class="hha-race-summary" id="hhaRaceSummary">
+                <h2>🏆 Race Summary</h2>
+                <div id="hhaRaceSummaryText"></div>
+                <div class="hha-race-rank-list" id="hhaRaceRankList"></div>
+                <div class="hha-race-actions">
+                  <button class="hha-race-action hha-race-action-primary" id="hhaRaceAgain" type="button">🔁 เล่นอีกครั้ง</button>
+                  <button class="hha-race-action hha-race-action-warn" id="hhaRaceBackLobby" type="button">← กลับ Lobby</button>
+                  <button class="hha-race-action hha-race-action-warn" id="hhaRaceBackMode" type="button">🏠 กลับโหมด</button>
+                </div>
+              </section>
+            </section>
+          </div>
+        `;
+
+        document.body.appendChild(root);
+
+        return root;
+      }
+
+      function startGame(source){
+        if (started) return;
+
+        started = true;
+        ended = false;
+        window.__HHA_GROUPS_RACE_STARTED__ = true;
+        window.__HHA_GROUPS_RACE_PLAYING__ = true;
+
+        const page = $('page');
+        if (page) {
+          page.style.pointerEvents = 'none';
+          page.style.opacity = '0';
+          page.style.transform = 'scale(.98)';
+          page.style.position = 'fixed';
+          page.style.inset = '0';
+          page.style.zIndex = '0';
+        }
+
+        const root = buildGameShell();
+
+        try {
+          root.scrollTop = 0;
+          window.scrollTo(0,0);
+        } catch (_) {}
+
+        if (playerRef) {
+          playerRef.update({
+            status:'running',
+            phase:'running',
+            runningAt:firebase.database.ServerValue.TIMESTAMP,
+            patch:PATCH
+          }).catch(function(){});
+        }
+
+        const state = {
+          totalTime:getTimeSec(),
+          timeLeft:getTimeSec(),
+          score:0,
+          correct:0,
+          wrong:0,
+          combo:0,
+          maxCombo:0,
+          round:0,
+          current:null,
+          locked:false,
+          startedAt:now(),
+          source:source || 'startGame'
+        };
+
+        const roomPill = $('hhaRaceRoomPill');
+        const timeEl = $('hhaRaceTime');
+        const scoreEl = $('hhaRaceScore');
+        const correctEl = $('hhaRaceCorrect');
+        const comboEl = $('hhaRaceCombo');
+        const emojiEl = $('hhaRaceEmoji');
+        const foodNameEl = $('hhaRaceFoodName');
+        const feedbackEl = $('hhaRaceFeedback');
+        const optionsEl = $('hhaRaceOptions');
+        const questionEl = $('hhaRaceQuestion');
+        const summaryEl = $('hhaRaceSummary');
+        const summaryTextEl = $('hhaRaceSummaryText');
+        const rankListEl = $('hhaRaceRankList');
+
+        if (roomPill) roomPill.textContent = 'Room ' + (roomCode || '-');
+
+        if (optionsEl) {
+          optionsEl.innerHTML = GROUPS.map(function(g){
+            return '<button class="hha-race-choice" data-g="' + g.id + '" type="button">' + esc(g.text).replace(/\n/g,'<br>') + '</button>';
+          }).join('');
+        }
+
+        function updateHud(){
+          if (timeEl) timeEl.textContent = String(Math.max(0,state.timeLeft));
+          if (scoreEl) scoreEl.textContent = String(state.score);
+          if (correctEl) correctEl.textContent = String(state.correct);
+          if (comboEl) comboEl.textContent = String(state.combo);
+        }
+
+        function nextQuestion(){
+          if (ended) return;
+
+          state.locked = false;
+          state.round += 1;
+          state.current = FOODS[Math.floor(Math.random() * FOODS.length)];
+
+          if (emojiEl) emojiEl.textContent = state.current.emoji;
+          if (foodNameEl) foodNameEl.textContent = state.current.name;
+          if (feedbackEl) {
+            feedbackEl.textContent = '';
+            feedbackEl.style.color = '#bfdbfe';
+          }
+
+          if (optionsEl) {
+            Array.from(optionsEl.querySelectorAll('button')).forEach(function(btn){
+              btn.disabled = false;
+              btn.classList.remove('good','bad');
+            });
+          }
+        }
+
+        function answer(groupId, btn){
+          if (state.locked || ended || !state.current) return;
+
+          state.locked = true;
+
+          const ok = Number(groupId) === Number(state.current.group);
+
+          if (optionsEl) {
+            Array.from(optionsEl.querySelectorAll('button')).forEach(function(b){
+              b.disabled = true;
+            });
+          }
+
+          if (ok) {
+            state.correct += 1;
+            state.combo += 1;
+            state.maxCombo = Math.max(state.maxCombo, state.combo);
+            state.score += 100 + Math.min(120, state.combo * 10);
+
+            if (btn) btn.classList.add('good');
+            if (feedbackEl) {
+              feedbackEl.textContent = '✅ ถูกต้อง! ' + state.current.label;
+              feedbackEl.style.color = '#bbf7d0';
+            }
+          } else {
+            state.wrong += 1;
+            state.combo = 0;
+            state.score = Math.max(0, state.score - 30);
+
+            if (btn) btn.classList.add('bad');
+            if (feedbackEl) {
+              feedbackEl.textContent = '❌ คำตอบที่ถูกคือ ' + state.current.label;
+              feedbackEl.style.color = '#fecaca';
+            }
+
+            if (optionsEl) {
+              const correctBtn = optionsEl.querySelector('[data-g="' + state.current.group + '"]');
+              if (correctBtn) correctBtn.classList.add('good');
+            }
+          }
+
+          updateHud();
+
+          if (playerRef) {
+            playerRef.update({
+              score:state.score,
+              correct:state.correct,
+              wrong:state.wrong,
+              maxCombo:state.maxCombo,
+              status:'running',
+              phase:'running',
+              updatedAt:firebase.database.ServerValue.TIMESTAMP
+            }).catch(function(){});
+          }
+
+          setTimeout(function(){
+            if (!ended) nextQuestion();
+          }, ok ? 520 : 880);
+        }
+
+        if (optionsEl) {
+          optionsEl.addEventListener('click', function(ev){
+            const btn = ev.target.closest('button[data-g]');
+            if (!btn) return;
+            answer(btn.getAttribute('data-g'), btn);
+          });
+        }
+
+        async function finish(){
+          if (ended) return;
+
+          ended = true;
+          window.__HHA_GROUPS_RACE_PLAYING__ = false;
+
+          if (gameTimer) {
+            clearInterval(gameTimer);
+            gameTimer = null;
+          }
+
+          const playedMs = now() - state.startedAt;
+          const total = state.correct + state.wrong;
+          const accuracy = total ? Math.round((state.correct / total) * 100) : 0;
+
+          if (questionEl) questionEl.style.display = 'none';
+          if (optionsEl) optionsEl.style.display = 'none';
+          if (summaryEl) summaryEl.style.display = 'block';
+
+          if (summaryTextEl) {
+            summaryTextEl.innerHTML =
+              '<div class="hha-race-stats">' +
+                '<div class="hha-race-stat"><b>' + state.score + '</b><span>คะแนน</span></div>' +
+                '<div class="hha-race-stat"><b>' + accuracy + '%</b><span>Accuracy</span></div>' +
+                '<div class="hha-race-stat"><b>' + state.correct + '</b><span>ถูก</span></div>' +
+                '<div class="hha-race-stat"><b>' + state.maxCombo + '</b><span>Max Combo</span></div>' +
+              '</div>';
+          }
+
+          const result = {
+            name:playerName || 'Hero',
+            pid:playerKey || deviceKey || '',
+            score:state.score,
+            accuracy:accuracy,
+            correct:state.correct,
+            wrong:state.wrong,
+            total:total,
+            maxCombo:state.maxCombo,
+            playedMs:playedMs,
+            status:'finished',
+            phase:'finished',
+            finishedAt:now(),
+            patch:PATCH
+          };
+
+          try {
+            localStorage.setItem('HHA_GROUPS_RACE_LAST_RESULT', JSON.stringify(result));
+          } catch (_) {}
+
+          playersCache[playerKey || 'local_host'] = Object.assign({}, playersCache[playerKey || 'local_host'] || {}, {
+            id:playerKey || 'local_host',
+            name:playerName,
+            playerName:playerName,
+            result:result,
+            lastResult:result,
+            score:state.score,
+            accuracy:accuracy,
+            correct:state.correct,
+            wrong:state.wrong,
+            total:total,
+            maxCombo:state.maxCombo,
+            status:'finished',
+            phase:'finished',
+            finishedAt:result.finishedAt
+          });
+
+          renderPlayers(playersCache);
+
+          if (playerRef) {
+            try {
+              await playerRef.update({
+                result:result,
+                lastResult:result,
+                score:state.score,
+                accuracy:accuracy,
+                correct:state.correct,
+                wrong:state.wrong,
+                total:total,
+                maxCombo:state.maxCombo,
+                status:'finished',
+                phase:'finished',
+                finishedAt:firebase.database.ServerValue.TIMESTAMP,
+                patch:PATCH
+              });
+            } catch (_) {}
+          }
+
+          renderRanking(rankListEl, result);
+        }
+
+        function renderRanking(targetEl, selfResult){
+          if (!targetEl) return;
+
+          const rows = normalizePlayers(playersCache).map(function(p){
+            const r = p.result || p.lastResult || p;
+            const name = playerDisplayName(p,p.id) || r.name || p.id;
+            return {
+              id:p.id,
+              name:name,
+              isBot:isBotPlayer(p,p.id),
+              score:Number(r.score || 0),
+              accuracy:Number(r.accuracy || 0),
+              correct:Number(r.correct || 0),
+              maxCombo:Number(r.maxCombo || 0),
+              finished:lower(p.status) === 'finished' || lower(p.phase) === 'finished' || !!p.finishedAt || !!p.result
+            };
+          });
+
+          if (!rows.some(function(r){ return r.id === (playerKey || 'local_host'); })) {
+            rows.push({
+              id:playerKey || 'local_host',
+              name:playerName,
+              score:selfResult.score,
+              accuracy:selfResult.accuracy,
+              correct:selfResult.correct,
+              maxCombo:selfResult.maxCombo,
+              finished:true
+            });
+          }
+
+          if (DEV_MODE && !rows.some(function(r){ return r.isBot || r.name === 'RaceBot'; })) {
+            const botScore = Math.max(450, Math.round(selfResult.score * 0.72));
+            const botAcc = Math.max(65, Math.min(92, selfResult.accuracy - 5 || 82));
+            rows.push({
+              id:'devbot_local',
+              name:'RaceBot',
+              isBot:true,
+              score:botScore,
+              accuracy:botAcc,
+              correct:Math.max(5, Math.round(selfResult.correct * .7)),
+              maxCombo:Math.max(3, Math.round(selfResult.maxCombo * .7)),
+              finished:true
+            });
+          }
+
+          rows.sort(function(a,b){
+            return b.score - a.score || b.accuracy - a.accuracy || b.maxCombo - a.maxCombo;
+          });
+
+          targetEl.innerHTML = rows.map(function(r,i){
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '🏁';
+            const wait = r.finished ? '' : ' · รอผล';
+            return (
+              '<div class="hha-race-rank-row">' +
+                '<span>' + medal + ' ' + (i + 1) + '. ' + esc(r.name) + wait + '</span>' +
+                '<span>' + r.score + ' pts · ' + r.accuracy + '%</span>' +
+              '</div>'
+            );
+          }).join('');
+        }
+
+        const againBtn = $('hhaRaceAgain');
+        if (againBtn) {
+          againBtn.onclick = function(){
+            const ok = confirm('เล่น Race ห้องเดิมอีกครั้งหรือไม่?');
+            if (!ok) return;
+            location.reload();
+          };
+        }
+
+        const backLobbyBtn = $('hhaRaceBackLobby');
+        if (backLobbyBtn) {
+          backLobbyBtn.onclick = function(){
+            location.href = buildHeroUrl('vr-groups/groups-race-lobby.html', {
+              from:'race-run-v15-summary'
+            });
+          };
+        }
+
+        const backModeBtn = $('hhaRaceBackMode');
+        if (backModeBtn) {
+          backModeBtn.onclick = function(){
+            const hub = qs.get('hub') || buildHeroUrl('groups-vr.html', {
+              from:'race-run-v15-summary'
+            });
+            location.href = hub;
+          };
+        }
+
+        updateHud();
+        nextQuestion();
+
+        gameTimer = setInterval(function(){
+          if (ended) {
+            clearInterval(gameTimer);
+            gameTimer = null;
+            return;
+          }
+
+          state.timeLeft -= 1;
+          updateHud();
+
+          if (state.timeLeft <= 0) {
+            finish();
+          }
+        }, 1000);
+      }
+
+      function bindButtons(){
+        const start = $('btnStartRace');
+        const backLobby = $('btnBackLobby');
+        const backHub = $('btnBackHub');
+        const addBot = $('devBotAdd');
+        const startBot = $('devBotStart');
+        const removeBot = $('devBotRemove');
+
+        if (start && !start.__v15Bound) {
+          start.__v15Bound = true;
+          start.addEventListener('click', function(ev){
+            ev.preventDefault();
+            requestStart('main-start-button');
+          });
+        }
+
+        if (backLobby && !backLobby.__v15Bound) {
+          backLobby.__v15Bound = true;
+          backLobby.addEventListener('click', function(ev){
+            ev.preventDefault();
+            location.href = buildHeroUrl('vr-groups/groups-race-lobby.html', {
+              from:'race-run-v15'
+            });
+          });
+        }
+
+        if (backHub && !backHub.__v15Bound) {
+          backHub.__v15Bound = true;
+          backHub.addEventListener('click', function(ev){
+            ev.preventDefault();
+            location.href = buildHeroUrl('groups-vr.html', {
+              from:'race-run-v15'
+            });
+          });
+        }
+
+        if (addBot && !addBot.__v15Bound) {
+          addBot.__v15Bound = true;
+          addBot.addEventListener('click', function(){
+            addDevBot();
+          });
+        }
+
+        if (startBot && !startBot.__v15Bound) {
+          startBot.__v15Bound = true;
+          startBot.addEventListener('click', async function(){
+            await addDevBot();
+            requestStart('devbot-start-button');
+          });
+        }
+
+        if (removeBot && !removeBot.__v15Bound) {
+          removeBot.__v15Bound = true;
+          removeBot.addEventListener('click', function(){
+            removeDevBot();
+          });
+        }
+      }
+
+      async function boot(){
+        ensureDeviceKey();
+        seedRoom();
+        paintBase();
+        bindButtons();
+
+        if (!roomCode) {
+          setStatus('ไม่พบ Room Code ใน URL', 'err');
+          setText('roomState','กลับ Lobby แล้วสร้าง/เข้าห้องใหม่');
+          renderWaitingLocal('ไม่พบ room');
+          return;
+        }
+
+        renderWaitingLocal('เริ่มเชื่อมต่อ');
+
+        const ok = await setupFirebase();
+
+        if (!ok && DEV_MODE) {
+          const hostKey = playerKey || 'local_host';
+          playersCache[hostKey] = {
+            id:hostKey,
+            name:playerName,
+            playerName:playerName,
+            role:'host',
+            isHost:true,
+            view:getView(),
+            diff:getDiff(),
+            ready:true,
+            status:'ready',
+            phase:'ready',
+            joinedAt:now()
+          };
+          renderPlayers(playersCache);
+          setStatus('Dev Room พร้อมแล้ว: ' + roomCode + ' • ใช้ทดสอบเครื่องเดียวได้', 'ok');
+        }
+
+        if (DEV_MODE) {
+          setTimeout(function(){
+            addDevBot();
+          }, 650);
+        }
+
+        setInterval(function(){
+          paintBase();
+          updateDevPanel();
+        }, 1000);
+
+        log('boot complete', {
+          patch:PATCH,
+          room:roomCode,
+          name:playerName,
+          devMode:DEV_MODE,
+          firebaseReady:firebaseReady
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', boot, { once:true });
+      } else {
+        boot();
+      }
+    })();
+  </script>
+</body>
+</html>
