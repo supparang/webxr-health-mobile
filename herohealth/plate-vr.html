@@ -519,10 +519,12 @@
         <div class="heroCard">
           <div class="kicker">🥗 Nutrition Zone • Plate Game</div>
           <h1>Plate Launcher</h1>
+
           <p class="lead">
             เลือกโหมดเกม Plate แล้วระบบจะพาไป Warmup ก่อนเข้าเกมจริง
             ตอนนี้เปิดให้เล่น <b>Solo</b> เป็นหลัก ส่วนโหมดทีมวางปุ่มไว้ให้ครบเพื่อเชื่อมต่อขั้นต่อไป
           </p>
+
           <div class="heroBadges">
             <span class="badge">🍽️ Balanced Plate</span>
             <span class="badge">🎯 5 Food Groups</span>
@@ -658,6 +660,7 @@
       <section class="bottomGrid">
         <div class="flowCard">
           <h2 class="cardTitle">🧭 Flow ที่ใช้กับ Plate</h2>
+
           <div class="flowSteps">
             <div class="step"><b>1</b>Nutrition Zone</div>
             <div class="step"><b>2</b>Plate Launcher</div>
@@ -669,14 +672,17 @@
 
         <div class="miniCard">
           <h2 class="cardTitle">✅ สถานะตอนนี้</h2>
+
           <div class="miniGrid">
             <div class="note">
               Solo จะส่งเข้า <b>/herohealth/warmup-gate.html</b> ก่อน แล้วค่อยไป
               <b>/herohealth/plate/plate-vr.html</b>
             </div>
+
             <div class="note">
               ค่าจาก Hub/Zone เช่น pid, diff, time, view, run, seed, log/api จะถูกส่งต่อให้ครบ
             </div>
+
             <div class="note">
               Duet / Race / Battle / Co-op วางเป็นการ์ดไว้ก่อน ไม่พาไป 404 จนกว่าไฟล์โหมดนั้นจะพร้อม
             </div>
@@ -692,7 +698,7 @@
     (() => {
       'use strict';
 
-      const VERSION = '20260603-PLATE-LAUNCHER-V1.1-CANONICAL-RUN';
+      const VERSION = '20260607-PLATE-LAUNCHER-V1.2-CANONICAL-RUN';
       const DOC = document;
       const Q = new URL(location.href).searchParams;
 
@@ -818,10 +824,27 @@
 
         zone.searchParams.set('pid', qs('pid','anon'));
         zone.searchParams.set('name', qs('name', qs('nick','Hero')));
-        zone.searchParams.set('diff', $('diffSelect') ? $('diffSelect').value : qs('diff','normal'));
-        zone.searchParams.set('time', $('timeSelect') ? $('timeSelect').value : qs('time','90'));
-        zone.searchParams.set('view', $('viewSelect') ? $('viewSelect').value : qs('view', guessView()));
-        zone.searchParams.set('run', $('runSelect') ? $('runSelect').value : qs('run','play'));
+
+        zone.searchParams.set(
+          'diff',
+          $('diffSelect') ? $('diffSelect').value : qs('diff','normal')
+        );
+
+        zone.searchParams.set(
+          'time',
+          $('timeSelect') ? $('timeSelect').value : qs('time','90')
+        );
+
+        zone.searchParams.set(
+          'view',
+          $('viewSelect') ? $('viewSelect').value : qs('view', guessView())
+        );
+
+        zone.searchParams.set(
+          'run',
+          $('runSelect') ? $('runSelect').value : qs('run','play')
+        );
+
         zone.searchParams.set('zone', 'nutrition');
         zone.searchParams.set('cat', 'nutrition');
         zone.searchParams.set('game', 'plate');
@@ -842,9 +865,6 @@
         /*
           Plate canonical flow:
           Nutrition Zone → Plate Launcher → Warmup Gate → /plate/plate-vr.html → Summary → Cooldown → Nutrition Zone
-
-          ดังนั้น hub ของเกม Plate ควรเป็น Nutrition Zone เสมอ
-          ไม่ใช้ hub.html เป็นปลายทางของเกมนี้
         */
         state.baseHub = state.zoneUrl;
 
@@ -889,6 +909,7 @@
         qa('.modeCard').forEach(card => {
           card.addEventListener('click', ev => {
             const mode = normalizeMode(card.dataset.mode);
+
             selectMode(mode, true);
 
             if(ev.target.closest('[data-start]')){
