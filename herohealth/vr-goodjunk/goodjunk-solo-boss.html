@@ -990,37 +990,35 @@
 <script src="./goodjunk-mobile-powerups-effect-lock-final.js?v=20260527"></script>
 <script src="./goodjunk-mobile-powerups-hitbox-unblock-final.js?v=20260606-v849b"></script>
 
-<!-- ปิด bridge เก่า -->
+<!-- ปิด bridge เก่า เพราะทำให้ปุ่มเริ่มสู้บอสต้องกดซ้ำ/ชน event -->
 <!-- <script src="./goodjunk-mobile-start-button-bridge-final.js?v=20260606-v849b"></script> -->
 
-<!-- ชุดใหม่ v850 แบบลดการชนกัน -->
+<!-- ชุด v850 core patch: โหลดอย่างละ 1 ครั้งเท่านั้น -->
 <script src="./goodjunk-solo-boss-balance-v850j.js?v=20260607-v850j"></script>
 <script src="./goodjunk-mobile-start-oneclick-v850a.js?v=20260607-v850a"></script>
-
-<!-- ปิดตัวที่อาจแย่งเปิด summary -->
-<!-- <script src="./goodjunk-solo-boss-win-gate-v850a.js?v=20260607-v850a"></script> -->
-<!-- <script src="./goodjunk-solo-boss-summary-final-gate-v850a.js?v=20260607-v850a"></script> -->
-
 <script src="./goodjunk-gesture-unlock-safe-v850a.js?v=20260607-v850a"></script>
 <script src="./goodjunk-solo-boss-qa-v850b.js?v=20260607-v850b"></script>
 <script src="./goodjunk-solo-boss-mobile-ui-polish-v850c.js?v=20260607-v850c"></script>
 
-<!-- ปิด summary force/emergency ทั้งหมด -->
+<!-- ปิดตัวที่เคยแย่งเปิด summary / เปิด summary เร็ว / ทำซ้อน -->
+<!-- <script src="./goodjunk-solo-boss-win-gate-v850a.js?v=20260607-v850a"></script> -->
+<!-- <script src="./goodjunk-solo-boss-summary-final-gate-v850a.js?v=20260607-v850a"></script> -->
 <!-- <script src="./goodjunk-solo-boss-summary-visible-v850e.js?v=20260607-v850e"></script> -->
 <!-- <script src="./goodjunk-solo-boss-summary-force-visible-v850f.js?v=20260607-v850f"></script> -->
 <!-- <script src="./goodjunk-solo-boss-summary-emergency-v850g.js?v=20260607-v850g"></script> -->
-<!-- ชุดใหม่ v850 แบบลดการชนกัน -->
-<script src="./goodjunk-solo-boss-balance-v850j.js?v=20260607-v850j"></script>
-<script src="./goodjunk-mobile-start-oneclick-v850a.js?v=20260607-v850a"></script>
-<script src="./goodjunk-solo-boss-balance-v850j.js?v=20260607-v850j"></script>
-<script src="./goodjunk-mobile-start-oneclick-v850a.js?v=20260607-v850a"></script>
-<script src="./goodjunk-gesture-unlock-safe-v850a.js?v=20260607-v850a"></script>
-<script src="./goodjunk-solo-boss-qa-v850b.js?v=20260607-v850b"></script>
-<script src="./goodjunk-solo-boss-mobile-ui-polish-v850c.js?v=20260607-v850c"></script>
+<!-- <script src="./goodjunk-solo-boss-summary-safe-end-v850h.js?v=20260607-v850h"></script> -->
+<!-- <script src="./goodjunk-solo-boss-summary-strict-end-v850i.js?v=20260607-v850i"></script> -->
+<!-- <script src="./goodjunk-solo-boss-summary-live-only-v850k.js?v=20260607-v850k"></script> -->
+<!-- <script src="./goodjunk-solo-boss-summary-metrics-v850l.js?v=20260607-v850l"></script> -->
 
 <!-- Summary ใช้ตัวเดียวเท่านั้น -->
 <script src="./goodjunk-solo-boss-summary-no-flicker-v850m.js?v=20260608-v850m"></script>
+
+<!-- ลดสั่น ไม่ให้สั่นมันส์เกิน -->
 <script src="./goodjunk-vibration-gentle-v850n.js?v=20260608-v850n"></script>
-  <script src="./goodjunk-solo-boss-boss-hp-balance-v850o.js?v=20260608-v850o"></script>
+
+<!-- Boss HP balance ต้องอยู่ท้าย summary/no-flicker เพื่อคุมเงื่อนไขจบเกม -->
+<script src="./goodjunk-solo-boss-boss-hp-balance-v850o.js?v=20260608-v850o"></script>
+
 </body>
 </html>
