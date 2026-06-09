@@ -835,6 +835,11 @@
       display:block;
     }
 
+    body.hha-race-playing #hhaDevBotPanel{
+      display:none !important;
+      pointer-events:none !important;
+    }
+
     #hhaDevBotPanel h3{
       margin:0 0 6px;
       font-size:16px;
@@ -1062,8 +1067,12 @@
       }
 
       #hhaDevBotPanel{
-        right:8px;
-        bottom:calc(8px + var(--sab));
+        left:10px;
+        right:10px;
+        bottom:calc(10px + var(--sab));
+        width:auto;
+        max-height:34vh;
+        overflow:auto;
       }
     }
 
@@ -1228,7 +1237,7 @@
     (function(){
       'use strict';
 
-      const PATCH = 'v20260606-GROUPS-RACE-RUN-V15-STANDALONE';
+      const PATCH = 'v20260606-GROUPS-RACE-RUN-V15-STANDALONE-HIDE-DEVBOT-GAME';
       const ROOM_PATH_PREFIX = 'herohealth/groups/raceRooms';
 
       if (window.__HHA_GROUPS_RACE_RUN_V15__) return;
@@ -2291,6 +2300,14 @@
         ended = false;
         window.__HHA_GROUPS_RACE_STARTED__ = true;
         window.__HHA_GROUPS_RACE_PLAYING__ = true;
+
+        document.body.classList.add('hha-race-playing');
+
+        const devPanel = $('hhaDevBotPanel');
+        if (devPanel) {
+          devPanel.style.display = 'none';
+          devPanel.style.pointerEvents = 'none';
+        }
 
         const page = $('page');
         if (page) {
