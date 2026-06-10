@@ -977,6 +977,9 @@
 <script src="./goodjunk-solo-boss-touch-comfort.js?v=20260504-v84110"></script>
 <script src="./goodjunk-solo-boss-powerups.js?v=20260504-v84121"></script>
 
+<!-- Shield Guard ต้องอยู่ตรงนี้: หลัง powerups.js แต่ก่อน mobile powerup click/effect patch -->
+<script src="./goodjunk-solo-boss-shield-guard-v852c.js?v=20260608-v852c3"></script>
+
 <script src="./goodjunk-solo-boss-guard.js?v=20260504-v8408"></script>
 <script src="./goodjunk-solo-boss-version-health.js?v=20260504-v8416"></script>
 
@@ -1008,13 +1011,11 @@
 <!-- <script src="./goodjunk-solo-boss-authoritative-end-v851a.js?v=20260608-v851a"></script> -->
 <!-- <script src="./goodjunk-solo-boss-summary-authority-v851c.js?v=20260608-v851c"></script> -->
 
-<!-- Shield ต้องมาก่อน summary เพื่อ block junk ก่อนถูกนับ -->
-<script src="./goodjunk-solo-boss-shield-guard-v852c.js?v=20260608-v852c"></script>
-
 <!-- Summary authority สูตรเดียว -->
-<script src="./goodjunk-solo-boss-summary-authority-v852a.js?v=20260608-v852a"></script>
+<script src="./goodjunk-solo-boss-summary-authority-v852a.js?v=20260608-v852a3"></script>
 
-<!-- ปิด v852b ก่อน เพราะเคยทำให้หน้าเสี่ยงค้าง -->
+<!-- ปิด v852b ก่อน เพราะเคยทำให้หน้าเสี่ยงค้าง / DOM loop หนัก -->
 <!-- <script src="./goodjunk-solo-boss-powerup-effects-v852b.js?v=20260608-v852b"></script> -->
+
 </body>
 </html>
