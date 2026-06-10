@@ -1,203 +1,488 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v1.6
+ * Version: v2.3.5
+ *
+ * รองรับ:
+ * - v1.6 legacy payload: profile / attempt / event / batch
+ * - v2.3 payload: action='sync_v23', kind='profile|attempt|event|progress'
+ * - GET test: action=health / setup / summary / testWrite
+ * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
-const APP_VERSION = 'v1.6';
+
+const APP_VERSION = 'v2.3.5';
 const TZ = 'Asia/Bangkok';
-const SHEETS = {profiles:'students_profile', attempts:'session_attempts', events:'session_events', summary:'teacher_summary'};
-const HEADERS = {
-  students_profile:['serverTs','studentId','studentName','section','nickname','email','createdAt','updatedAt','userAgent','lastSeenAt','extraJson'],
-  session_attempts:['serverTs','attemptId','studentId','studentName','section','sessionId','missionId','missionTitle','difficulty','score','stars','mastered','usedTimeSec','timeLeftSec','accuracy','correct','total','wrong','maxCombo','helpUsed','trickCorrect','trickTotal','explainCorrect','explainTotal','bossWin','misconceptionsJson','wrongItemsJson','reflection1','reflection2','reflection3','clientTs','userAgent','pageUrl','version','extraJson'],
-  session_events:['serverTs','eventId','attemptId','studentId','section','sessionId','missionId','eventType','phase','itemId','prompt','yourAnswer','correctAnswer','isCorrect','scoreDelta','combo','helpLeft','clientTs','userAgent','pageUrl','extraJson'],
-  teacher_summary:['serverTs','section','sessionId','missionId','totalStudents','totalAttempts','avgScore','avgAccuracy','masteryCount','mostCommonMisconception','avgHelpUsed','updatedAt','extraJson']
+
+const SHEETS = {
+  profiles: 'students_profile',
+  attempts: 'session_attempts',
+  events: 'session_events',
+  summary: 'teacher_summary',
+  progress: 'mission_progress'
 };
-function doGet(e){
-  const p=(e&&e.parameter)||{}; const action=p.action||p.api||'health';
-  if(action==='health') return jsonOut({ok:true,service:'CSAI2102_AIQuest_Logger',version:APP_VERSION,serverTs:bangkokIsoNow()});
-  if(action==='setup'){setupSheets();return jsonOut({ok:true,action:'setup',serverTs:bangkokIsoNow()});}
-  if(action==='summary'){updateTeacherSummary();return jsonOut({ok:true,action:'summary',serverTs:bangkokIsoNow()});}
-  return jsonOut({ok:true,action,message:'GET endpoint ready',serverTs:bangkokIsoNow()});
-}
-function doPost(e){
-  try{
-    const payload=parsePayload_(e); const type=payload.type||payload.eventType||payload.api||''; setupSheets();
-    if(type==='profile'){upsertProfile_(payload.profile||payload);return jsonOut({ok:true,type:'profile',serverTs:bangkokIsoNow()});}
-    if(type==='attempt'||type==='session_end'){appendAttempt_(payload.attempt||payload); safeAppendEvents_(payload.events||[]); updateTeacherSummary(); return jsonOut({ok:true,type:'attempt',serverTs:bangkokIsoNow()});}
-    if(type==='event'){appendEvent_(payload.event||payload);return jsonOut({ok:true,type:'event',serverTs:bangkokIsoNow()});}
-    if(type==='batch'){
-      const profiles=payload.profiles||[], attempts=payload.attempts||[], events=payload.events||[];
-      profiles.forEach(p=>upsertProfile_(p)); attempts.forEach(a=>appendAttempt_(a)); safeAppendEvents_(events); updateTeacherSummary();
-      return jsonOut({ok:true,type:'batch',profiles:profiles.length,attempts:attempts.length,events:events.length,serverTs:bangkokIsoNow()});
-    }
-    return jsonOut({ok:false,error:'Unknown type',receivedType:type,serverTs:bangkokIsoNow()});
-  }catch(err){return jsonOut({ok:false,error:String(err&&err.message||err),stack:String(err&&err.stack||''),serverTs:bangkokIsoNow()});}
-}
-function setupSheets(){
-  const ss=SpreadsheetApp.getActiveSpreadsheet();
-  Object.keys(HEADERS).forEach(name=>{let sh=ss.getSheetByName(name); if(!sh) sh=ss.insertSheet(name); const headers=HEADERS[name]; const existing=sh.getRange(1,1,1,Math.max(headers.length,sh.getLastColumn()||headers.length)).getValues()[0]; if(existing.slice(0,headers.length).join('|')!==headers.join('|')){sh.clear(); sh.getRange(1,1,1,headers.length).setValues([headers]); sh.setFrozenRows(1); sh.autoResizeColumns(1,headers.length);}});
-}
-function parsePayload_(e){
-  if(!e||!e.postData||!e.postData.contents) return {}; const text=e.postData.contents; const ct=(e.postData.type||'').toLowerCase();
-  if(ct.indexOf('application/json')>=0||looksLikeJson_(text)) return JSON.parse(text);
-  const params=e.parameter||{}; if(params.payload) return JSON.parse(params.payload); return params;
-}
-function looksLikeJson_(text){const t=String(text||'').trim(); return (t.startsWith('{')&&t.endsWith('}'))||(t.startsWith('[')&&t.endsWith(']'));}
-function upsertProfile_(profile){
-  const sh=getSheet_(SHEETS.profiles), headers=HEADERS.students_profile, studentId=clean_(profile.studentId||profile.id||''); if(!studentId) throw new Error('studentId is required');
-  const values=sh.getDataRange().getValues(); let rowIndex=-1; for(let i=1;i<values.length;i++){if(String(values[i][headers.indexOf('studentId')])===studentId){rowIndex=i+1;break;}}
-  const now=bangkokIsoNow(); const row=[now,studentId,clean_(profile.studentName||profile.name||''),clean_(profile.section||''),clean_(profile.nickname||''),clean_(profile.email||''),clean_(profile.createdAt||now),now,clean_(profile.userAgent||''),now,stringify_(profile.extra||profile.extraJson||{})];
-  if(rowIndex>0) sh.getRange(rowIndex,1,1,row.length).setValues([row]); else sh.appendRow(row);
-}
-function appendAttempt_(a){
-  const sh=getSheet_(SHEETS.attempts), now=bangkokIsoNow();
-  sh.appendRow([now,clean_(a.attemptId||makeId_('att')),clean_(a.studentId||''),clean_(a.studentName||''),clean_(a.section||''),clean_(a.sessionId||'s1'),clean_(a.missionId||'m1'),clean_(a.missionTitle||'AI Awakening'),clean_(a.difficulty||''),num_(a.score),num_(a.stars),bool_(a.mastered),num_(a.usedTimeSec),num_(a.timeLeftSec),num_(a.accuracy),num_(a.correct),num_(a.total),num_(a.wrong),num_(a.maxCombo),num_(a.helpUsed),num_(a.trickCorrect),num_(a.trickTotal),num_(a.explainCorrect),num_(a.explainTotal),bool_(a.bossWin),stringify_(a.misconceptions||a.misconceptionsJson||{}),stringify_(a.wrongItems||a.wrongItemsJson||[]),clean_(a.reflection1||''),clean_(a.reflection2||''),clean_(a.reflection3||''),clean_(a.clientTs||''),clean_(a.userAgent||''),clean_(a.pageUrl||''),clean_(a.version||APP_VERSION),stringify_(a.extra||a.extraJson||{})]);
-}
-function appendEvent_(e){
-  const sh=getSheet_(SHEETS.events), now=bangkokIsoNow();
-  sh.appendRow([now,clean_(e.eventId||makeId_('evt')),clean_(e.attemptId||''),clean_(e.studentId||''),clean_(e.section||''),clean_(e.sessionId||'s1'),clean_(e.missionId||'m1'),clean_(e.eventType||''),clean_(e.phase||''),clean_(e.itemId||''),clean_(e.prompt||''),clean_(e.yourAnswer||''),clean_(e.correctAnswer||''),bool_(e.isCorrect),num_(e.scoreDelta),num_(e.combo),num_(e.helpLeft),clean_(e.clientTs||''),clean_(e.userAgent||''),clean_(e.pageUrl||''),stringify_(e.extra||e.extraJson||{})]);
-}
-function safeAppendEvents_(events){if(!Array.isArray(events))return; events.slice(0,100).forEach(evt=>appendEvent_(evt));}
-function updateTeacherSummary(){
-  const ss=SpreadsheetApp.getActiveSpreadsheet(), aSh=ss.getSheetByName(SHEETS.attempts), sSh=ss.getSheetByName(SHEETS.summary); if(!aSh||!sSh) return; const data=aSh.getDataRange().getValues(); if(data.length<=1)return;
-  const h=HEADERS.session_attempts, idx=n=>h.indexOf(n), groups={};
-  for(let i=1;i<data.length;i++){const r=data[i], section=String(r[idx('section')]||'UNKNOWN'), sessionId=String(r[idx('sessionId')]||'s1'), missionId=String(r[idx('missionId')]||'m1'), key=[section,sessionId,missionId].join('|'); if(!groups[key]) groups[key]={section,sessionId,missionId,students:{},attempts:0,scoreSum:0,accSum:0,helpSum:0,masteryCount:0,mis:{}}; const g=groups[key], sid=String(r[idx('studentId')]||''); if(sid)g.students[sid]=true; g.attempts++; g.scoreSum+=Number(r[idx('score')]||0); g.accSum+=Number(r[idx('accuracy')]||0); g.helpSum+=Number(r[idx('helpUsed')]||0); if(String(r[idx('mastered')]).toUpperCase()==='TRUE') g.masteryCount++; try{const mis=JSON.parse(r[idx('misconceptionsJson')]||'{}'); Object.keys(mis).forEach(k=>g.mis[k]=(g.mis[k]||0)+Number(mis[k]||0));}catch(e){} }
-  sSh.clear(); sSh.getRange(1,1,1,HEADERS.teacher_summary.length).setValues([HEADERS.teacher_summary]); sSh.setFrozenRows(1); const now=bangkokIsoNow(); const rows=Object.values(groups).map(g=>[now,g.section,g.sessionId,g.missionId,Object.keys(g.students).length,g.attempts,round2_(g.scoreSum/Math.max(1,g.attempts)),round2_(g.accSum/Math.max(1,g.attempts)),g.masteryCount,mostCommon_(g.mis),round2_(g.helpSum/Math.max(1,g.attempts)),now,stringify_({misconceptions:g.mis})]); if(rows.length){sSh.getRange(2,1,rows.length,HEADERS.teacher_summary.length).setValues(rows); sSh.autoResizeColumns(1,HEADERS.teacher_summary.length);}
-}
-function getSheet_(name){const ss=SpreadsheetApp.getActiveSpreadsheet(); let sh=ss.getSheetByName(name); if(!sh) sh=ss.insertSheet(name); return sh;}
-function jsonOut(obj){return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);}
-function bangkokIsoNow(){return Utilities.formatDate(new Date(),TZ,"yyyy-MM-dd'T'HH:mm:ssXXX");}
-function makeId_(prefix){return prefix+'_'+Utilities.getUuid().replace(/-/g,'').slice(0,18);}
-function clean_(v){return String(v==null?'':v).slice(0,5000);}
-function stringify_(v){if(typeof v==='string') return v.slice(0,45000); return JSON.stringify(v==null?{}:v).slice(0,45000);}
-function num_(v){const n=Number(v); return Number.isFinite(n)?n:0;}
-function bool_(v){return v===true||String(v).toLowerCase()==='true';}
-function round2_(n){return Math.round(Number(n||0)*100)/100;}
-function mostCommon_(obj){const e=Object.entries(obj||{}).sort((a,b)=>Number(b[1])-Number(a[1])); return e.length?e[0][0]+':'+e[0][1]:'';}
 
+const HEADERS = {
+  students_profile: [
+    'serverTs','studentId','studentName','section','nickname','email','createdAt','updatedAt','userAgent','lastSeenAt','extraJson'
+  ],
+  session_attempts: [
+    'serverTs','attemptId','studentId','studentName','section','sessionId','missionId','missionTitle','difficulty',
+    'score','stars','mastered','usedTimeSec','timeLeftSec','accuracy','correct','total','wrong','maxCombo',
+    'helpUsed','trickCorrect','trickTotal','explainCorrect','explainTotal','bossWin','misconceptionsJson',
+    'wrongItemsJson','reflection1','reflection2','reflection3','clientTs','userAgent','pageUrl','version','extraJson'
+  ],
+  session_events: [
+    'serverTs','eventId','attemptId','studentId','section','sessionId','missionId','eventType','phase','itemId',
+    'prompt','yourAnswer','correctAnswer','isCorrect','scoreDelta','combo','helpLeft','clientTs','userAgent','pageUrl','extraJson'
+  ],
+  teacher_summary: [
+    'serverTs','section','sessionId','missionId','totalStudents','totalAttempts','avgScore','avgAccuracy',
+    'masteryCount','mostCommonMisconception','avgHelpUsed','updatedAt','extraJson'
+  ],
+  mission_progress: [
+    'serverTs','progressId','studentId','studentName','section','courseId','classId','term','sessionId','missionId',
+    'status','stars','bestScore','unlocked','updatedAt','extraJson'
+  ]
+};
 
-/**
- * PATCH v2.0/v2.1 helper idea:
- * หากต้องการให้ Teacher Dashboard ดึงข้อมูลตรงจาก Apps Script ในอนาคต
- * ให้เพิ่ม action=readAttempts / readEvents แล้ว return JSON
- * ตอนนี้ dashboard ใช้ CSV paste/export เพื่อเลี่ยง CORS และ deploy complexity
- */
-function aiquestDashboardReadme_() {
-  return {
-    version: 'v2.1-classroom-ready-preview',
-    mode: 'CSV-first dashboard',
-    tabs: ['students_profile','session_attempts','session_events','teacher_summary']
-  };
+function doGet(e) {
+  const p = (e && e.parameter) || {};
+  const action = p.action || p.api || 'health';
+  const callback = p.callback || '';
+
+  if (action === 'health') {
+    return jsonOutMaybe_({ok:true, service:'CSAI2102_AIQuest_Logger', version:APP_VERSION, serverTs:bangkokIsoNow()}, callback);
+  }
+
+  if (action === 'setup') {
+    setupSheets();
+    return jsonOutMaybe_({ok:true, action:'setup', version:APP_VERSION, serverTs:bangkokIsoNow()}, callback);
+  }
+
+  if (action === 'summary') {
+    setupSheets();
+    updateTeacherSummary();
+    return jsonOutMaybe_({ok:true, action:'summary', version:APP_VERSION, serverTs:bangkokIsoNow()}, callback);
+  }
+
+  if (action === 'testWrite') {
+    setupSheets();
+    return jsonOutMaybe_(testWrite_(), callback);
+  }
+
+  if (action === 'teacherConsole') {
+    setupSheets();
+    return jsonOutMaybe_(buildTeacherConsole_(p), callback);
+  }
+
+  return jsonOutMaybe_({ok:true, action:action, message:'GET endpoint ready', version:APP_VERSION, serverTs:bangkokIsoNow()}, callback);
 }
 
-
-/* ============================================================
-   AI QUEST PATCH v2.3: sync_v23 router
-   ใช้ร่วมกับ aiquest-sync-v23.js
-   ============================================================ */
-
-function aiquest_v23_parse_(e) {
-  var text = '';
+function doPost(e) {
   try {
-    text = e && e.postData && e.postData.contents ? e.postData.contents : '';
-    return text ? JSON.parse(text) : {};
+    const payload = parsePayload_(e);
+    const type = payload.type || payload.eventType || payload.api || '';
+    setupSheets();
+
+    if (payload.action === 'sync_v23') {
+      return jsonOut(aiquest_v23_sync_(payload.kind, payload.payload || {}));
+    }
+
+    if (type === 'profile') {
+      upsertProfile_(payload.profile || payload);
+      return jsonOut({ok:true,type:'profile',version:APP_VERSION,serverTs:bangkokIsoNow()});
+    }
+
+    if (type === 'attempt' || type === 'session_end') {
+      appendAttempt_(payload.attempt || payload);
+      safeAppendEvents_(payload.events || []);
+      updateTeacherSummary();
+      return jsonOut({ok:true,type:'attempt',version:APP_VERSION,events:Array.isArray(payload.events)?payload.events.length:0,serverTs:bangkokIsoNow()});
+    }
+
+    if (type === 'event') {
+      appendEvent_(payload.event || payload);
+      return jsonOut({ok:true,type:'event',version:APP_VERSION,serverTs:bangkokIsoNow()});
+    }
+
+    if (type === 'batch') {
+      const profiles = payload.profiles || [];
+      const attempts = payload.attempts || [];
+      const events = payload.events || [];
+      profiles.forEach(function(p){ upsertProfile_(p); });
+      attempts.forEach(function(a){ appendAttempt_(a); });
+      safeAppendEvents_(events);
+      updateTeacherSummary();
+      return jsonOut({ok:true,type:'batch',profiles:profiles.length,attempts:attempts.length,events:events.length,version:APP_VERSION,serverTs:bangkokIsoNow()});
+    }
+
+    return jsonOut({ok:false,error:'Unknown type/action',receivedType:type,action:payload.action||'',kind:payload.kind||'',version:APP_VERSION,serverTs:bangkokIsoNow()});
   } catch (err) {
-    return {};
+    return jsonOut({ok:false,error:String(err&&err.message||err),stack:String(err&&err.stack||''),version:APP_VERSION,serverTs:bangkokIsoNow()});
   }
 }
 
-function aiquest_v23_output_(obj) {
-  return ContentService
-    .createTextOutput(JSON.stringify(obj || {}))
-    .setMimeType(ContentService.MimeType.JSON);
+function setupSheets() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  Object.keys(HEADERS).forEach(function(sheetName) {
+    const headers = HEADERS[sheetName];
+    let sh = ss.getSheetByName(sheetName);
+    if (!sh) sh = ss.insertSheet(sheetName);
+    const lastColumn = Math.max(headers.length, sh.getLastColumn() || headers.length);
+    const existing = sh.getRange(1, 1, 1, lastColumn).getValues()[0];
+    if (existing.slice(0, headers.length).join('|') !== headers.join('|')) {
+      sh.clear();
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+      sh.setFrozenRows(1);
+      sh.autoResizeColumns(1, headers.length);
+    }
+  });
 }
 
-function aiquest_v23_ensureSheet_(ss, name, headers) {
-  var sh = ss.getSheetByName(name);
-  if (!sh) sh = ss.insertSheet(name);
-  if (sh.getLastRow() === 0) sh.appendRow(headers);
-  return sh;
+function parsePayload_(e) {
+  if (!e || !e.postData || !e.postData.contents) return {};
+  const text = e.postData.contents;
+  const ct = (e.postData.type || '').toLowerCase();
+  if (ct.indexOf('application/json') >= 0 || looksLikeJson_(text)) return JSON.parse(text);
+  const params = e.parameter || {};
+  if (params.payload) return JSON.parse(params.payload);
+  return params;
+}
+
+function looksLikeJson_(text) {
+  const t = String(text || '').trim();
+  return (t.startsWith('{') && t.endsWith('}')) || (t.startsWith('[') && t.endsWith(']'));
 }
 
 function aiquest_v23_sync_(kind, payload) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  payload = payload || {};
 
   if (kind === 'profile') {
-    var shP = aiquest_v23_ensureSheet_(ss, 'students_profile', [
-      'serverTs','schemaVersion','profileId','studentId','studentName','section','courseId','classId','term','teacherId','consent','createdAt','updatedAt','rawJson'
-    ]);
-    shP.appendRow([
-      new Date(), payload.schemaVersion || '', payload.profileId || '', payload.studentId || '', payload.studentName || '',
-      payload.section || '', payload.courseId || '', payload.classId || '', payload.term || '', payload.teacherId || '',
-      payload.consent === true, payload.createdAt || '', payload.updatedAt || '', JSON.stringify(payload)
-    ]);
-    return {ok:true, kind:kind};
+    upsertProfile_({
+      studentId: payload.studentId,
+      studentName: payload.studentName,
+      section: payload.section,
+      nickname: payload.nickname || '',
+      email: payload.email || '',
+      createdAt: payload.createdAt,
+      updatedAt: payload.updatedAt,
+      userAgent: payload.userAgent || '',
+      extraJson: {schemaVersion: payload.schemaVersion || '', profileId: payload.profileId || '', courseId: payload.courseId || '', classId: payload.classId || '', term: payload.term || '', teacherId: payload.teacherId || '', consent: payload.consent === true, raw: payload}
+    });
+    return {ok:true, action:'sync_v23', kind:'profile', version:APP_VERSION, serverTs:bangkokIsoNow()};
   }
 
   if (kind === 'attempt') {
-    var shA = aiquest_v23_ensureSheet_(ss, 'session_attempts', [
-      'serverTs','schemaVersion','attemptId','studentId','studentName','section','courseId','classId','term','teacherId',
-      'sessionId','missionId','runMode','submitStatus','score','accuracy','stars','gateStatus','gatePath','bossWin',
-      'explainCorrect','trickCorrect','helpUsed','startedAt','submittedAt','clientTs','reflection1','reflection2','reflection3',
-      'bestAttemptPolicy','isPractice','isGraded','pageUrl','userAgent','rawJson'
-    ]);
-    shA.appendRow([
-      new Date(), payload.schemaVersion || '', payload.attemptId || '', payload.studentId || '', payload.studentName || '', payload.section || '',
-      payload.courseId || '', payload.classId || '', payload.term || '', payload.teacherId || '', payload.sessionId || '', payload.missionId || '',
-      payload.runMode || '', payload.submitStatus || '', payload.score || 0, payload.accuracy || 0, payload.stars || 0, payload.gateStatus || '',
-      payload.gatePath || '', payload.bossWin === true, payload.explainCorrect || 0, payload.trickCorrect || 0, payload.helpUsed || 0,
-      payload.startedAt || '', payload.submittedAt || '', payload.clientTs || '', payload.reflection1 || '', payload.reflection2 || '', payload.reflection3 || '',
-      payload.bestAttemptPolicy || '', payload.isPractice === true, payload.isGraded === true, payload.pageUrl || '', payload.userAgent || '', JSON.stringify(payload)
-    ]);
-    aiquest_v23_updateTeacherSummary_(ss, payload);
-    return {ok:true, kind:kind};
+    appendAttempt_({
+      attemptId: payload.attemptId,
+      studentId: payload.studentId,
+      studentName: payload.studentName,
+      section: payload.section,
+      sessionId: payload.sessionId,
+      missionId: payload.missionId,
+      missionTitle: payload.missionTitle || '',
+      difficulty: payload.difficulty || payload.runMode || '',
+      score: payload.score,
+      stars: payload.stars,
+      mastered: payload.gateStatus === 'mastered',
+      usedTimeSec: payload.usedTimeSec || 0,
+      timeLeftSec: payload.timeLeftSec || 0,
+      accuracy: payload.accuracy,
+      correct: payload.correct || 0,
+      total: payload.total || 0,
+      wrong: payload.wrong || 0,
+      maxCombo: payload.maxCombo || 0,
+      helpUsed: payload.helpUsed,
+      trickCorrect: payload.trickCorrect,
+      trickTotal: payload.trickTotal || 0,
+      explainCorrect: payload.explainCorrect,
+      explainTotal: payload.explainTotal || 0,
+      bossWin: payload.bossWin,
+      misconceptions: payload.misconceptions || {},
+      wrongItems: payload.wrongItems || [],
+      reflection1: payload.reflection1,
+      reflection2: payload.reflection2,
+      reflection3: payload.reflection3,
+      clientTs: payload.clientTs,
+      userAgent: payload.userAgent,
+      pageUrl: payload.pageUrl,
+      version: payload.schemaVersion || APP_VERSION,
+      extraJson: {schemaVersion: payload.schemaVersion || '', courseId: payload.courseId || '', classId: payload.classId || '', term: payload.term || '', teacherId: payload.teacherId || '', runMode: payload.runMode || '', submitStatus: payload.submitStatus || '', gateStatus: payload.gateStatus || '', gatePath: payload.gatePath || '', bestAttemptPolicy: payload.bestAttemptPolicy || '', isPractice: payload.isPractice === true, isGraded: payload.isGraded === true, raw: payload}
+    });
+    updateTeacherSummary();
+    return {ok:true, action:'sync_v23', kind:'attempt', version:APP_VERSION, serverTs:bangkokIsoNow()};
   }
 
   if (kind === 'event') {
-    var shE = aiquest_v23_ensureSheet_(ss, 'session_events', [
-      'serverTs','schemaVersion','eventId','attemptId','studentId','section','courseId','classId','term','sessionId','missionId','runMode',
-      'eventType','phase','itemId','prompt','yourAnswer','correctAnswer','isCorrect','confidence','misconception','helpType',
-      'scoreDelta','combo','helpLeft','clientTs','pageUrl','userAgent','extraJson'
-    ]);
-    shE.appendRow([
-      new Date(), payload.schemaVersion || '', payload.eventId || '', payload.attemptId || '', payload.studentId || '', payload.section || '',
-      payload.courseId || '', payload.classId || '', payload.term || '', payload.sessionId || '', payload.missionId || '', payload.runMode || '',
-      payload.eventType || '', payload.phase || '', payload.itemId || '', payload.prompt || '', payload.yourAnswer || '', payload.correctAnswer || '',
-      payload.isCorrect, payload.confidence || '', payload.misconception || '', payload.helpType || '', payload.scoreDelta || 0,
-      payload.combo || 0, payload.helpLeft || 0, payload.clientTs || '', payload.pageUrl || '', payload.userAgent || '', payload.extraJson || ''
-    ]);
-    return {ok:true, kind:kind};
+    appendEvent_({
+      eventId: payload.eventId,
+      attemptId: payload.attemptId,
+      studentId: payload.studentId,
+      section: payload.section,
+      sessionId: payload.sessionId,
+      missionId: payload.missionId,
+      eventType: payload.eventType,
+      phase: payload.phase,
+      itemId: payload.itemId,
+      prompt: payload.prompt,
+      yourAnswer: payload.yourAnswer,
+      correctAnswer: payload.correctAnswer,
+      isCorrect: payload.isCorrect,
+      scoreDelta: payload.scoreDelta,
+      combo: payload.combo,
+      helpLeft: payload.helpLeft,
+      clientTs: payload.clientTs,
+      userAgent: payload.userAgent,
+      pageUrl: payload.pageUrl,
+      extraJson: {schemaVersion: payload.schemaVersion || '', courseId: payload.courseId || '', classId: payload.classId || '', term: payload.term || '', runMode: payload.runMode || '', confidence: payload.confidence || '', misconception: payload.misconception || '', helpType: payload.helpType || '', raw: payload}
+    });
+    return {ok:true, action:'sync_v23', kind:'event', version:APP_VERSION, serverTs:bangkokIsoNow()};
   }
 
   if (kind === 'progress') {
-    var shG = aiquest_v23_ensureSheet_(ss, 'mission_progress', [
-      'serverTs','schemaVersion','progressId','studentId','courseId','classId','term','sessionId','missionId','status','stars','bestScore','unlocked','updatedAt','rawJson'
-    ]);
-    shG.appendRow([
-      new Date(), payload.schemaVersion || '', payload.progressId || '', payload.studentId || '', payload.courseId || '', payload.classId || '',
-      payload.term || '', payload.sessionId || '', payload.missionId || '', payload.status || '', payload.stars || 0, payload.bestScore || 0,
-      payload.unlocked === true, payload.updatedAt || '', JSON.stringify(payload)
-    ]);
-    return {ok:true, kind:kind};
+    appendProgress_(payload);
+    return {ok:true, action:'sync_v23', kind:'progress', version:APP_VERSION, serverTs:bangkokIsoNow()};
   }
 
-  return {ok:false, error:'unknown kind: ' + kind};
+  return {ok:false, action:'sync_v23', error:'Unknown kind', kind:kind, version:APP_VERSION, serverTs:bangkokIsoNow()};
 }
 
-function aiquest_v23_updateTeacherSummary_(ss, payload) {
-  var sh = aiquest_v23_ensureSheet_(ss, 'teacher_summary', [
-    'serverTs','courseId','classId','term','section','studentId','studentName','sessionId','missionId','bestScore','latestScore','attemptId','gateStatus','gatePath','runMode','updatedAt'
-  ]);
-  sh.appendRow([
-    new Date(), payload.courseId || '', payload.classId || '', payload.term || '', payload.section || '', payload.studentId || '', payload.studentName || '',
-    payload.sessionId || '', payload.missionId || '', payload.score || 0, payload.score || 0, payload.attemptId || '', payload.gateStatus || '',
-    payload.gatePath || '', payload.runMode || '', new Date()
-  ]);
+function upsertProfile_(profile) {
+  const sh = getSheet_(SHEETS.profiles);
+  const headers = HEADERS.students_profile;
+  const studentId = clean_(profile.studentId || profile.id || '');
+  if (!studentId) throw new Error('studentId is required');
+  const values = sh.getDataRange().getValues();
+  let rowIndex = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (String(values[i][headers.indexOf('studentId')]) === studentId) { rowIndex = i + 1; break; }
+  }
+  const now = bangkokIsoNow();
+  const row = [now, studentId, clean_(profile.studentName || profile.name || ''), clean_(profile.section || ''), clean_(profile.nickname || ''), clean_(profile.email || ''), clean_(profile.createdAt || now), clean_(profile.updatedAt || now), clean_(profile.userAgent || ''), now, stringify_(profile.extra || profile.extraJson || {})];
+  if (rowIndex > 0) sh.getRange(rowIndex, 1, 1, row.length).setValues([row]);
+  else sh.appendRow(row);
 }
 
-/*
-  วิธีใช้:
-  ใน doPost(e) เดิม ให้เพิ่ม:
-  var body = aiquest_v23_parse_(e);
-  if (body.action === 'sync_v23') return aiquest_v23_output_(aiquest_v23_sync_(body.kind, body.payload || {}));
-*/
+function appendAttempt_(a) {
+  const sh = getSheet_(SHEETS.attempts);
+  const now = bangkokIsoNow();
+  sh.appendRow([now, clean_(a.attemptId || makeId_('att')), clean_(a.studentId || ''), clean_(a.studentName || ''), clean_(a.section || ''), clean_(a.sessionId || 's1'), clean_(a.missionId || 'm1'), clean_(a.missionTitle || 'AI Awakening'), clean_(a.difficulty || ''), num_(a.score), num_(a.stars), bool_(a.mastered), num_(a.usedTimeSec), num_(a.timeLeftSec), num_(a.accuracy), num_(a.correct), num_(a.total), num_(a.wrong), num_(a.maxCombo), num_(a.helpUsed), num_(a.trickCorrect), num_(a.trickTotal), num_(a.explainCorrect), num_(a.explainTotal), bool_(a.bossWin), stringify_(a.misconceptions || a.misconceptionsJson || {}), stringify_(a.wrongItems || a.wrongItemsJson || []), clean_(a.reflection1 || ''), clean_(a.reflection2 || ''), clean_(a.reflection3 || ''), clean_(a.clientTs || ''), clean_(a.userAgent || ''), clean_(a.pageUrl || ''), clean_(a.version || APP_VERSION), stringify_(a.extra || a.extraJson || {})]);
+}
+
+function appendEvent_(e) {
+  const sh = getSheet_(SHEETS.events);
+  const now = bangkokIsoNow();
+  sh.appendRow([now, clean_(e.eventId || makeId_('evt')), clean_(e.attemptId || ''), clean_(e.studentId || ''), clean_(e.section || ''), clean_(e.sessionId || 's1'), clean_(e.missionId || 'm1'), clean_(e.eventType || ''), clean_(e.phase || ''), clean_(e.itemId || ''), clean_(e.prompt || ''), clean_(e.yourAnswer || ''), clean_(e.correctAnswer || ''), boolOrBlank_(e.isCorrect), num_(e.scoreDelta), num_(e.combo), num_(e.helpLeft), clean_(e.clientTs || ''), clean_(e.userAgent || ''), clean_(e.pageUrl || ''), stringify_(e.extra || e.extraJson || {})]);
+}
+
+function appendProgress_(p) {
+  const sh = getSheet_(SHEETS.progress);
+  const now = bangkokIsoNow();
+  sh.appendRow([now, clean_(p.progressId || makeId_('prog')), clean_(p.studentId || ''), clean_(p.studentName || ''), clean_(p.section || ''), clean_(p.courseId || ''), clean_(p.classId || ''), clean_(p.term || ''), clean_(p.sessionId || 's1'), clean_(p.missionId || 'm1'), clean_(p.status || ''), num_(p.stars), num_(p.bestScore), bool_(p.unlocked), clean_(p.updatedAt || now), stringify_(p.extra || p.extraJson || p)]);
+}
+
+function safeAppendEvents_(events) {
+  if (!Array.isArray(events)) return;
+  events.slice(0, 300).forEach(function(evt){ appendEvent_(evt); });
+}
+
+function updateTeacherSummary() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const aSh = ss.getSheetByName(SHEETS.attempts);
+  const sSh = ss.getSheetByName(SHEETS.summary);
+  if (!aSh || !sSh) return;
+  const data = aSh.getDataRange().getValues();
+  if (data.length <= 1) return;
+  const h = HEADERS.session_attempts;
+  const idx = function(n){ return h.indexOf(n); };
+  const groups = {};
+  for (let i = 1; i < data.length; i++) {
+    const r = data[i];
+    const section = String(r[idx('section')] || 'UNKNOWN');
+    const sessionId = String(r[idx('sessionId')] || 's1');
+    const missionId = String(r[idx('missionId')] || 'm1');
+    const key = [section, sessionId, missionId].join('|');
+    if (!groups[key]) groups[key] = {section:section, sessionId:sessionId, missionId:missionId, students:{}, attempts:0, scoreSum:0, accSum:0, helpSum:0, masteryCount:0, mis:{}};
+    const g = groups[key];
+    const sid = String(r[idx('studentId')] || '');
+    if (sid) g.students[sid] = true;
+    g.attempts++;
+    g.scoreSum += Number(r[idx('score')] || 0);
+    g.accSum += Number(r[idx('accuracy')] || 0);
+    g.helpSum += Number(r[idx('helpUsed')] || 0);
+    if (String(r[idx('mastered')]).toUpperCase() === 'TRUE') g.masteryCount++;
+    try {
+      const mis = JSON.parse(r[idx('misconceptionsJson')] || '{}');
+      Object.keys(mis).forEach(function(k){ g.mis[k] = (g.mis[k] || 0) + Number(mis[k] || 0); });
+    } catch (e) {}
+  }
+  sSh.clear();
+  sSh.getRange(1, 1, 1, HEADERS.teacher_summary.length).setValues([HEADERS.teacher_summary]);
+  sSh.setFrozenRows(1);
+  const now = bangkokIsoNow();
+  const rows = Object.values(groups).map(function(g){
+    return [now, g.section, g.sessionId, g.missionId, Object.keys(g.students).length, g.attempts, round2_(g.scoreSum / Math.max(1, g.attempts)), round2_(g.accSum / Math.max(1, g.attempts)), g.masteryCount, mostCommon_(g.mis), round2_(g.helpSum / Math.max(1, g.attempts)), now, stringify_({misconceptions:g.mis})];
+  });
+  if (rows.length) {
+    sSh.getRange(2, 1, rows.length, HEADERS.teacher_summary.length).setValues(rows);
+    sSh.autoResizeColumns(1, HEADERS.teacher_summary.length);
+  }
+}
+
+function buildTeacherConsole_(params) {
+  params = params || {};
+  const sectionFilter = String(params.section || '').trim();
+  const sessionFilter = String(params.sessionId || 's1').trim();
+  const profiles = sheetObjects_(SHEETS.profiles);
+  const attemptsAll = sheetObjects_(SHEETS.attempts);
+  const eventsAll = sheetObjects_(SHEETS.events);
+  const filteredProfiles = profiles.filter(function(p){ return !sectionFilter || String(p.section || '') === sectionFilter; });
+  const attempts = attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter) && (!sessionFilter || String(a.sessionId || '') === sessionFilter); });
+  const events = eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter) && (!sessionFilter || String(e.sessionId || '') === sessionFilter); });
+  const studentMap = {};
+  filteredProfiles.forEach(function(p){
+    const sid = String(p.studentId || '').trim();
+    if (!sid) return;
+    studentMap[sid] = {studentId:sid, studentName:String(p.studentName || ''), section:String(p.section || ''), profile:true, attempts:[], bestScore:0, latestScore:0, helpUsed:0, reflectionComplete:false, mastered:false, risks:[]};
+  });
+  attempts.forEach(function(a){
+    const sid = String(a.studentId || '').trim() || 'UNKNOWN';
+    if (!studentMap[sid]) studentMap[sid] = {studentId:sid, studentName:String(a.studentName || ''), section:String(a.section || ''), profile:false, attempts:[], bestScore:0, latestScore:0, helpUsed:0, reflectionComplete:false, mastered:false, risks:[]};
+    const s = studentMap[sid];
+    const score = Number(a.score || 0);
+    const help = Number(a.helpUsed || 0);
+    const refl = reflectionComplete_(a);
+    s.attempts.push(a);
+    s.studentName = s.studentName || String(a.studentName || '');
+    s.section = s.section || String(a.section || '');
+    s.bestScore = Math.max(Number(s.bestScore || 0), score);
+    s.latestScore = score;
+    s.helpUsed = help;
+    s.reflectionComplete = s.reflectionComplete || refl;
+    s.mastered = s.mastered || bool_(a.mastered) || String(a.gateStatus || '').toLowerCase() === 'mastered';
+  });
+  const students = Object.values(studentMap);
+  students.forEach(function(s){
+    if (!s.attempts.length) s.risks.push('ยังไม่ส่ง');
+    if (s.attempts.length && Number(s.bestScore || 0) < 60) s.risks.push('คะแนนต่ำ');
+    if (Number(s.helpUsed || 0) >= 3) s.risks.push('ใช้ Help สูง');
+    if (s.attempts.length && !s.reflectionComplete) s.risks.push('Reflection ไม่ครบ');
+    if (!s.profile) s.risks.push('ไม่มี Profile');
+  });
+  const submitted = students.filter(function(s){ return s.attempts.length > 0; });
+  const scoreSum = submitted.reduce(function(sum,s){ return sum + Number(s.bestScore || 0); }, 0);
+  const masteryCount = students.filter(function(s){ return s.mastered; }).length;
+  const reflectionComplete = submitted.filter(function(s){ return s.reflectionComplete; }).length;
+  const needSupport = students.filter(function(s){ return s.risks && s.risks.length > 0; }).length;
+  const misconceptions = collectMisconceptions_(attempts, events);
+  const stats = {totalStudents:students.length, submittedStudents:submitted.length, totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, failedSync:0};
+  const risks = students.filter(function(s){ return s.risks && s.risks.length > 0; }).sort(function(a,b){ return Number(a.bestScore || 0) - Number(b.bestScore || 0); }).map(function(s){ return {studentId:s.studentId, studentName:s.studentName, section:s.section, bestScore:s.bestScore || '', latestScore:s.latestScore || '', helpUsed:s.helpUsed || 0, reflectionComplete:!!s.reflectionComplete, risks:s.risks || []}; });
+  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, misconceptions:misconceptions, students:students.length}};
+}
+
+function sheetObjects_(sheetName) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName(sheetName);
+  if (!sh) return [];
+  const values = sh.getDataRange().getValues();
+  if (values.length <= 1) return [];
+  const headers = values[0].map(function(h){ return String(h || ''); });
+  return values.slice(1).filter(function(row){ return row.some(function(v){ return v !== '' && v != null; }); }).map(function(row){
+    const obj = {};
+    headers.forEach(function(h, i){ obj[h] = row[i]; });
+    return obj;
+  });
+}
+
+function reflectionComplete_(a) {
+  return !!(String(a.reflection1 || '').trim() && String(a.reflection2 || '').trim() && String(a.reflection3 || '').trim());
+}
+
+function collectMisconceptions_(attempts, events) {
+  const mis = {};
+  attempts.forEach(function(a){
+    try {
+      const obj = JSON.parse(String(a.misconceptionsJson || '{}'));
+      Object.keys(obj || {}).forEach(function(k){ mis[k] = (mis[k] || 0) + Number(obj[k] || 0); });
+    } catch (e) {}
+  });
+  events.forEach(function(e){
+    try {
+      const extra = JSON.parse(String(e.extraJson || '{}'));
+      const key = extra.misconception || extra.misconceptionKey || extra.key || '';
+      if (key) mis[key] = (mis[key] || 0) + 1;
+    } catch (err) {}
+  });
+  return Object.keys(mis).map(function(k){ return {key:k, count:Number(mis[k] || 0)}; }).sort(function(a,b){ return b.count - a.count; });
+}
+
+function testWrite_() {
+  const now = bangkokIsoNow();
+  const attemptId = makeId_('test_att');
+  upsertProfile_({studentId:'TEST001', studentName:'Test Student', section:'SEC01', nickname:'Tester', email:'', createdAt:now, updatedAt:now, userAgent:'manual-test', extraJson:{source:'testWrite', version:APP_VERSION}});
+  appendAttempt_({attemptId:attemptId, studentId:'TEST001', studentName:'Test Student', section:'SEC01', sessionId:'s1', missionId:'m1', missionTitle:'AI Awakening', difficulty:'test', score:88, stars:2, mastered:false, usedTimeSec:60, timeLeftSec:20, accuracy:80, correct:8, total:10, wrong:2, maxCombo:4, helpUsed:1, trickCorrect:2, trickTotal:3, explainCorrect:2, explainTotal:3, bossWin:true, misconceptions:{automation:1}, wrongItems:[], reflection1:'test reflection 1', reflection2:'test reflection 2', reflection3:'test reflection 3', clientTs:now, userAgent:'manual-test', pageUrl:'manual-test', version:APP_VERSION, extraJson:{source:'testWrite', version:APP_VERSION}});
+  appendEvent_({eventId:makeId_('test_evt'), attemptId:attemptId, studentId:'TEST001', section:'SEC01', sessionId:'s1', missionId:'m1', eventType:'manual_test', phase:'test', itemId:'test_item', prompt:'manual test prompt', yourAnswer:'A', correctAnswer:'A', isCorrect:true, scoreDelta:1, combo:1, helpLeft:2, clientTs:now, userAgent:'manual-test', pageUrl:'manual-test', extraJson:{source:'testWrite', version:APP_VERSION}});
+  appendProgress_({progressId:makeId_('test_prog'), studentId:'TEST001', studentName:'Test Student', section:'SEC01', courseId:'CSAI2102', classId:'CSAI2102-2569-SEC01', term:'1/2569', sessionId:'s1', missionId:'m1', status:'clear', stars:2, bestScore:88, unlocked:true, updatedAt:now, extraJson:{source:'testWrite', version:APP_VERSION}});
+  updateTeacherSummary();
+  return {ok:true, action:'testWrite', version:APP_VERSION, wrote:{profile:true, attempt:true, event:true, progress:true}, attemptId:attemptId, serverTs:bangkokIsoNow()};
+}
+
+function getSheet_(name) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  return sh;
+}
+
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function jsonOutMaybe_(obj, callback) {
+  const json = JSON.stringify(obj || {});
+  if (callback) {
+    const safeCallback = String(callback).replace(/[^\w.$]/g, '');
+    return ContentService.createTextOutput(safeCallback + '(' + json + ');').setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+  return jsonOut(obj);
+}
+
+function bangkokIsoNow() {
+  return Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd'T'HH:mm:ssXXX");
+}
+
+function makeId_(prefix) {
+  return prefix + '_' + Utilities.getUuid().replace(/-/g, '').slice(0, 18);
+}
+
+function clean_(v) {
+  return String(v == null ? '' : v).slice(0, 5000);
+}
+
+function stringify_(v) {
+  if (typeof v === 'string') return v.slice(0, 45000);
+  try { return JSON.stringify(v == null ? {} : v).slice(0, 45000); } catch (e) { return '{}'; }
+}
+
+function num_(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function bool_(v) {
+  return v === true || String(v).toLowerCase() === 'true';
+}
+
+function boolOrBlank_(v) {
+  if (v === '' || v == null) return '';
+  return bool_(v);
+}
+
+function round2_(n) {
+  return Math.round(Number(n || 0) * 100) / 100;
+}
+
+function mostCommon_(obj) {
+  const e = Object.entries(obj || {}).sort(function(a,b){ return Number(b[1]) - Number(a[1]); });
+  return e.length ? e[0][0] + ':' + e[0][1] : '';
+}
