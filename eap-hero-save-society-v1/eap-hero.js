@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1u Listening Transcript Control ===
+/* === EAP Hero: Save the Society v1v AI Help Button Fix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1u-listening-transcript-control';
+  const APP_VERSION = '20260610-v1v-ai-help-button-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -33646,7 +33646,7 @@
           <span class="pill">Scaffold only</span>
         </div>
         <p class="mini-note">AI Help ครั้งที่ 1 ให้ strategy hint; ครั้งที่ 2 อ่าน draft/notes/transcript ที่พิมพ์อยู่ แล้วให้ feedback + response frame</p>
-        <button class="btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, aiDraftInputId('${skill}'))">Ask AI Mentor</button>
+        <button class="btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingOut' : ''}')">Ask AI Mentor</button>
         <div id="aiHelpOutput" class="feedback info" style="margin-top:10px"></div>
       </div>`;
   }
@@ -33682,7 +33682,10 @@
     saveState();
     if(out){
       out.classList.add('show');
+      out.style.display = 'block';
       out.innerHTML = `<b>AI Mentor (${safe(ai.level || 'hint')}):</b> ${safe(msg)}<br><span class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])} • ครั้งที่ 2 จะตรวจ draft/คำตอบที่พิมพ์อยู่ แล้วให้กรอบปรับแก้ แต่ยังไม่เฉลย</span>`;
+    }else{
+      alert(`AI Mentor: ${msg}`);
     }
   }
 
@@ -35156,6 +35159,7 @@
     startGateBoss,
     replayHub:renderReplayHub,
     aiHelp:useAIHelp,
+    aiDraftInputId,
     exportAIHelpCSV,
     showTranscriptHint,
     showFullTranscript,
