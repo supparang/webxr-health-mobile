@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z5 Speaking + AI Output Polish ===
+/* === EAP Hero: Save the Society v1z6 Speaking Oral Mode ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z5-speaking-ai-polish';
+  const APP_VERSION = '20260610-v1z6-speaking-oral-mode';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31772,7 +31772,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z5</div>
+              <div class="mini-note">Save the Society • v1z6z6</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34409,17 +34409,66 @@
     showSkillResult('Listening', score, id);
   }
 
+
+  let speakingTimer = null;
+  let speakingSeconds = 0;
+
+  function startSpeakingTimer(){
+    speakingSeconds = 0;
+    const box = document.getElementById('speakingTimerBox');
+    const btn = document.getElementById('startSpeakBtn');
+    if(btn) btn.disabled = true;
+    if(box){
+      box.classList.add('active');
+      box.innerHTML = '<b>Speaking now...</b> <span id="speakingTime">00:00</span><br><span class="mini-note">พูดจริงตาม prompt ก่อน แล้วค่อยติ๊ก checklist/ใส่ notes เป็นหลักฐานเสริม</span>';
+    }
+    clearInterval(speakingTimer);
+    speakingTimer = setInterval(()=>{
+      speakingSeconds += 1;
+      const t = document.getElementById('speakingTime');
+      if(t){
+        const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
+        const s = String(speakingSeconds%60).padStart(2,'0');
+        t.textContent = `${m}:${s}`;
+      }
+    }, 1000);
+  }
+
+  function stopSpeakingTimer(){
+    clearInterval(speakingTimer);
+    const btn = document.getElementById('startSpeakBtn');
+    if(btn) btn.disabled = false;
+    const box = document.getElementById('speakingTimerBox');
+    if(box){
+      const m = String(Math.floor(speakingSeconds/60)).padStart(2,'0');
+      const s = String(speakingSeconds%60).padStart(2,'0');
+      box.classList.add('active');
+      box.innerHTML = `<b>Speaking completed:</b> ${m}:${s}<br><span class="mini-note">ตอนนี้ใส่ evidence notes/transcript สั้น ๆ หรือ reflection เพื่อบันทึก portfolio</span>`;
+    }
+  }
+
+
   function renderSpeakingMission(id){
     const s = getSession(id), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
       <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
-      <p class="mini-note">พูดจริงหน้าห้อง/จับคู่/อัดเสียงเอง แล้วพิมพ์ transcript หรือ speaking notes เพื่อบันทึก portfolio</p>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Speaking'))}</p>
+      <div class="panel light speaking-oral-card">
+        <h3>🎙️ Oral Task First</h3>
+        <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
+        <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Speaking'))}</p>
+        <div class="footer-actions">
+          <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
+          <button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button>
+        </div>
+        <div id="speakingTimerBox" class="speaking-timer-box">กด Start Speaking แล้วพูดตาม prompt 30–90 วินาที</div>
+      </div>
       ${renderAIHelpBox('Speaking', s.id)}
-      <textarea id="speakingTranscript" class="input speaking-evidence-box" rows="9" placeholder="Type your speaking notes or transcript here..."></textarea>
-      <p class="mini-note speaking-check-note">Tick what your speaking evidence includes before submitting.</p><div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
+      <label class="label">Optional evidence notes / transcript</label>
+      <textarea id="speakingTranscript" class="input speaking-evidence-box" rows="9" placeholder="Optional: type short notes, keywords, or transcript after speaking. Do not write instead of speaking."></textarea>
+      <p class="mini-note speaking-check-note">หลังพูดแล้ว ติ๊กสิ่งที่พูดมี ก่อน Submit Speaking Evidence</p>
+      <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spSpoke"> I spoke</label><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
       <div class="footer-actions"><button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -34452,7 +34501,7 @@
     if(document.getElementById('spEvi')?.checked) score += 20;
     if(document.getElementById('spClose')?.checked) score += 20;
     score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking')));
-    addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
+    addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
     showSkillResult('Speaking', score, id);
   }
 
@@ -35689,6 +35738,8 @@
     stopLecture,
     submitListening,
     speakingMission:renderSpeakingMission,
+    startSpeakingTimer,
+    stopSpeakingTimer,
     submitSpeaking,
     exportPortfolioCSV,
     exportBackupJSON,

@@ -359,3 +359,28 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
     font-size:14px;
   }
 }
+
+
+/* === v1z6 Speaking Oral Mode === */
+.speaking-oral-card{
+  margin:14px 0;
+  border:1px solid rgba(103,232,249,.32) !important;
+  background:linear-gradient(135deg, rgba(103,232,249,.12), rgba(134,239,172,.09)) !important;
+}
+.speaking-timer-box{
+  margin-top:10px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(8,23,42,.18);
+  border:1px dashed rgba(255,255,255,.22);
+  color:#dff8ff;
+}
+.speaking-timer-box.active{
+  border-color:rgba(134,239,172,.55);
+  background:rgba(16,185,129,.10);
+}
+#speakingTime{
+  font-size:24px;
+  font-weight:900;
+  color:#a7f3d0;
+}
