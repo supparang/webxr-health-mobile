@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1m Limited AI Mentor ===
+/* === EAP Hero: Save the Society v1q Duplicate Guard ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1m-limited-ai-mentor';
+  const APP_VERSION = '20260610-v1q-duplicate-guard';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31526,6 +31526,7 @@
       replay:{ ghosts:{}, secretMissions:{}, bossRushLogs:[] },
       skillPath:{ unlockedBossGates:{} },
       ai:{ dailyUses:{}, logs:[], sessionUses:{} },
+      skillBankHistory:{},
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -31593,6 +31594,7 @@
       merged.ai.dailyUses = (parsed.ai && parsed.ai.dailyUses) || {};
       merged.ai.logs = (parsed.ai && parsed.ai.logs) || [];
       merged.ai.sessionUses = (parsed.ai && parsed.ai.sessionUses) || {};
+      merged.skillBankHistory = parsed.skillBankHistory || {};
       return merged;
     }catch(e){
       console.warn(e);
@@ -33594,6 +33596,438 @@
   }
 
 
+
+  const SKILL_MISSION_VARIANTS = {
+    Reading: {
+      templates:[
+        { id:'mainidea', q:['What is the main idea?','Which sentence supports the main idea?','Which detail is less central?'] },
+        { id:'evidence', q:['What claim is made?','Which sentence can be used as evidence?','What detail should not be overgeneralized?'] },
+        { id:'critical', q:['Which claim needs the most careful checking?','What information should be checked?','What is one limitation of the passage?'] },
+        { id:'structure', q:['What is the topic sentence?','What supporting detail is included?','How does the final sentence connect to the topic?'] },
+        { id:'inference', q:['What can be reasonably inferred from the passage?','Which detail supports this inference?','What should not be inferred?'] },
+        { id:'purpose', q:['What is the writer’s purpose?','Which phrase shows this purpose?','Who is the likely audience?'] },
+        { id:'tone-reading', q:['What is the tone of the passage?','Which word or phrase supports your answer?','How could the tone be made more academic?'] },
+        { id:'compare', q:['What two ideas are being compared?','What is the key similarity or difference?','Which signal word helps show the comparison?'] },
+        { id:'cause-effect', q:['What cause or reason is mentioned?','What result or effect follows?','Which signal word shows the relationship?'] },
+        { id:'source-check', q:['What information would you check before trusting this passage?','What evidence is provided?','What information is missing?'] },
+        { id:'detail-filter', q:['Which detail is important for the main idea?','Which detail is less important?','Why should readers avoid focusing only on details?'] },
+        { id:'claim-evidence', q:['What claim does the passage make?','What evidence supports the claim?','Is the evidence strong enough? Why?'] },
+        { id:'author-stance', q:['What is the author’s stance?','Which phrase shows the stance?','How strong or cautious is the stance?'] },
+        { id:'problem-identify', q:['What problem is described?','Who is affected by the problem?','What evidence shows the problem matters?'] },
+        { id:'solution-identify', q:['What solution is suggested?','What part of the passage supports the solution?','What limitation might the solution have?'] },
+        { id:'argument-map', q:['What is the claim?','What reason supports the claim?','What evidence is connected to the reason?'] },
+        { id:'keyword-chain', q:['List three keywords from the passage.','How are the keywords connected?','Which keyword is most important?'] },
+        { id:'reference-tracing', q:['What source information would you need?','Why would that information matter?','How would it affect credibility?'] },
+        { id:'bias-detect', q:['What wording may show bias?','What neutral wording could replace it?','What evidence is needed to reduce bias?'] },
+        { id:'overclaim-detect', q:['Which statement may overclaim?','What word makes it too strong?','Rewrite it more cautiously.'] },
+        { id:'summary-select', q:['Which idea must appear in a summary?','Which detail can be omitted?','Why should the omitted detail be excluded?'] },
+        { id:'paraphrase-prep', q:['What idea should be paraphrased?','What keywords must keep the same meaning?','What wording should be changed?'] },
+        { id:'definition-find', q:['What key term is explained?','How is the term defined or described?','What example helps clarify the term?'] },
+        { id:'example-role', q:['What example is given?','What idea does the example support?','Could the example be generalized? Why?'] },
+        { id:'method-read', q:['What method or process is mentioned?','What step comes first?','What information about the method is missing?'] },
+        { id:'result-read', q:['What result or outcome is described?','What evidence supports the result?','What conclusion should be avoided?'] },
+        { id:'limitation-read', q:['What limitation is stated or implied?','Why does the limitation matter?','How should readers interpret the claim?'] },
+        { id:'audience-read', q:['Which reader group would benefit most from this passage?','What clues show the audience?','How might the text change for another audience?'] },
+        { id:'context-read', q:['What background context is provided?','Why is the context useful?','What context is still missing?'] },
+        { id:'cohesion-read', q:['Which words connect ideas?','What relationship do they show?','How do they help the reader?'] },
+        { id:'chronology-read', q:['What sequence of events or steps is shown?','Which signal words show order?','Why does the order matter?'] },
+        { id:'classification-read', q:['What categories are mentioned?','How are the categories different?','Which category is most relevant?'] },
+        { id:'comparison-evidence', q:['What comparison is made?','What evidence supports the comparison?','Is the comparison fair? Why?'] },
+        { id:'cause-evidence', q:['What cause is claimed?','What evidence supports the cause?','What alternative cause is possible?'] },
+        { id:'effect-evidence', q:['What effect is described?','What evidence supports the effect?','What effect is not supported?'] },
+        { id:'quote-read', q:['Which phrase could be quoted?','Why is the wording worth quoting?','How should it be cited or introduced?'] },
+        { id:'data-read', q:['What data point is most important?','What trend does the data suggest?','What conclusion goes beyond the data?'] },
+        { id:'visual-read', q:['If this passage became a chart, what would the chart show?','What label would be needed?','What data would still be missing?'] },
+        { id:'ethics-read', q:['What ethical issue appears in the passage?','What responsible action is suggested?','What risk should be avoided?'] },
+        { id:'ai-read', q:['How could AI be used responsibly with this text?','What should the student check?','What should not be delegated to AI?'] },
+        { id:'reflection-read', q:['What did you learn from this passage?','What question remains?','What skill would help you read it better?'] },
+        { id:'application-read', q:['How could the idea be applied in university study?','What condition would affect the application?','What evidence would strengthen it?'] },
+        { id:'evaluation-read', q:['How useful is this passage for academic work?','What makes it useful or limited?','What would make it stronger?'] },
+        { id:'synthesis-read', q:['What idea could be combined with another source?','What connection could be made?','What conflict might appear?'] },
+        { id:'counterargument-read', q:['What counterargument could challenge the passage?','What evidence would support that counterargument?','How could the writer respond?'] },
+        { id:'recommendation-read', q:['What recommendation is suggested or implied?','What evidence supports it?','What caution should be added?'] },
+        { id:'research-gap-read', q:['What gap or unanswered question appears?','Why does the gap matter?','What research could address it?'] },
+        { id:'validity-read', q:['What makes the information valid or weak?','What should be verified?','What claim should be treated cautiously?'] },
+        { id:'transfer-read', q:['How can this idea transfer to another context?','What might change in the new context?','What evidence would be needed?'] },
+        { id:'exam-read', q:['What question could an instructor ask about this passage?','What evidence would answer it?','What mistake should be avoided?'] }
+      ]
+    },
+    Writing: {
+      prompts:[
+        { type:'summary', title:'Summary Writing', target:'60–90 words', instruction:'Write a short summary of the passage. Keep the key idea and avoid copying the original sentence structure.' },
+        { type:'paragraph', title:'Academic Paragraph', target:'topic sentence + support + conclusion', instruction:'Write one academic paragraph explaining the topic and supporting it with one clear reason.' },
+        { type:'email', title:'Academic Email', target:'subject, greeting, request, closing', instruction:'Write a polite academic email asking for clarification or feedback related to this topic.' },
+        { type:'data', title:'Data Description', target:'trend + comparison + caution', instruction:'Describe a simple trend related to this topic. Avoid claiming causes that are not shown.' },
+        { type:'ethics', title:'Academic Ethics Note', target:'transparent source/AI use', instruction:'Write a short ethical-use note explaining how a student should use sources or AI responsibly for this topic.' },
+        { type:'problem', title:'Problem-Solution Paragraph', target:'problem + evidence + solution', instruction:'Write a short problem-solution paragraph connected to this topic.' },
+        { type:'compare', title:'Compare-Contrast Paragraph', target:'similarity/difference + academic connector', instruction:'Write a short compare-contrast paragraph connected to this topic. Use at least one comparison signal.' },
+        { type:'cause-effect', title:'Cause-Effect Paragraph', target:'cause + result + cautious language', instruction:'Write a cause-effect paragraph about this topic. Avoid overclaiming.' },
+        { type:'argument', title:'Mini Academic Argument', target:'claim + evidence + reasoning', instruction:'Write a short argument with one claim, one supporting point, and one explanation.' },
+        { type:'source-evaluation', title:'Source Evaluation Note', target:'credibility + limitation', instruction:'Write a short note evaluating whether a source on this topic would be credible and what you would check.' },
+        { type:'reflection', title:'Learning Reflection', target:'skill reflection + next step', instruction:'Write a short reflection explaining what skill is needed for this topic and what you should practice next.' },
+        { type:'outline', title:'Paragraph Outline', target:'topic sentence + two supports + conclusion', instruction:'Create a short outline for an academic paragraph about this topic.' },
+        { type:'revision', title:'Tone Revision', target:'formal and cautious wording', instruction:'Rewrite a casual explanation of this topic in a more academic tone.' },
+        { type:'synthesis', title:'Two-Source Synthesis', target:'combine two ideas', instruction:'Write 4–5 sentences that synthesize two possible source ideas about this topic.' },
+        { type:'annotated-bib', title:'Annotated Source Note', target:'source summary + usefulness', instruction:'Write a short annotated-bibliography style note about a possible source on this topic.' },
+        { type:'claim-reason', title:'Claim-Reason-Evidence', target:'claim + reason + evidence', instruction:'Write a claim, one reason, and one evidence sentence related to this topic.' },
+        { type:'limitation', title:'Limitation Statement', target:'scope + caution', instruction:'Write 2–3 sentences explaining a possible limitation of the idea or evidence.' },
+        { type:'research-question', title:'Research Question', target:'clear and focused question', instruction:'Write two academic research questions related to this topic.' },
+        { type:'thesis', title:'Thesis Statement', target:'specific arguable thesis', instruction:'Write a focused thesis statement for an essay about this topic.' },
+        { type:'intro', title:'Mini Introduction', target:'hook/context + thesis', instruction:'Write a short introduction paragraph for this topic.' },
+        { type:'conclusion', title:'Mini Conclusion', target:'summary + implication', instruction:'Write a short conclusion that restates the idea and explains its importance.' },
+        { type:'peer-feedback', title:'Peer Feedback Comment', target:'strength + suggestion', instruction:'Write constructive feedback on a classmate’s paragraph about this topic.' },
+        { type:'rubric-self', title:'Self-Assessment Note', target:'strength + weakness + plan', instruction:'Write a self-assessment note about your response to this topic.' },
+        { type:'ai-prompt', title:'Responsible AI Prompt', target:'clear prompt + boundaries', instruction:'Write a responsible AI prompt that asks for help but not a final answer.' },
+        { type:'ai-declaration', title:'AI Use Declaration', target:'tool use + verification', instruction:'Write a declaration explaining how AI could be used and verified responsibly.' },
+        { type:'citation-sentence', title:'Citation Sentence', target:'source integration', instruction:'Write one sentence that integrates a source idea with an appropriate reporting verb.' },
+        { type:'quote-intro', title:'Quote Introduction', target:'context + quote purpose', instruction:'Write a sentence that introduces a direct quotation responsibly.' },
+        { type:'paraphrase', title:'Paraphrase Practice', target:'same meaning + new structure', instruction:'Paraphrase the source idea in your own academic wording.' },
+        { type:'abstract', title:'Mini Abstract', target:'purpose + method + result', instruction:'Write a very short abstract-style summary related to this topic.' },
+        { type:'method-note', title:'Method Note', target:'participants/tool/procedure', instruction:'Write a short method note for a simple classroom study about this topic.' },
+        { type:'result-note', title:'Result Sentence', target:'finding + caution', instruction:'Write one result sentence and one cautious interpretation sentence.' },
+        { type:'discussion-note', title:'Discussion Note', target:'meaning + implication', instruction:'Write a short discussion note explaining why the finding or idea matters.' },
+        { type:'recommendation', title:'Recommendation Paragraph', target:'evidence-based recommendation', instruction:'Write a recommendation paragraph connected to this topic.' },
+        { type:'policy-brief', title:'Mini Policy Brief', target:'problem + action', instruction:'Write a short policy-style recommendation for a university audience.' },
+        { type:'lesson-plan', title:'Learning Activity Plan', target:'objective + task + evidence', instruction:'Write a short activity plan that teaches this topic.' },
+        { type:'faq-answer', title:'Academic FAQ Answer', target:'clear answer + support', instruction:'Write an answer to a likely student question about this topic.' },
+        { type:'definition', title:'Definition Paragraph', target:'term + explanation + example', instruction:'Write a short definition paragraph for a key term related to this topic.' },
+        { type:'classification', title:'Classification Paragraph', target:'categories + distinction', instruction:'Classify ideas related to this topic into two or three categories.' },
+        { type:'process', title:'Process Paragraph', target:'sequence + transitions', instruction:'Write a process paragraph explaining steps related to this topic.' },
+        { type:'problem-cause', title:'Problem-Cause Paragraph', target:'problem + causes', instruction:'Write a paragraph explaining a problem and two possible causes.' },
+        { type:'solution-eval', title:'Solution Evaluation', target:'benefit + limitation', instruction:'Evaluate one solution by explaining one benefit and one limitation.' },
+        { type:'counterargument', title:'Counterargument Response', target:'opposing view + response', instruction:'Write a counterargument and a short academic response.' },
+        { type:'evidence-explain', title:'Evidence Explanation', target:'evidence + why it matters', instruction:'Explain why one piece of evidence supports the topic.' },
+        { type:'transition-practice', title:'Transition Practice', target:'cohesion', instruction:'Write 5 connected sentences using appropriate transition words.' },
+        { type:'coherence-revision', title:'Coherence Revision', target:'unity + flow', instruction:'Revise a weak paragraph outline to improve unity and flow.' },
+        { type:'grammar-focus', title:'Grammar for Academic Style', target:'sentence accuracy', instruction:'Write 5 accurate academic sentences related to this topic.' },
+        { type:'vocab-use', title:'Academic Vocabulary Use', target:'target word use', instruction:'Use five academic words correctly in sentences about this topic.' },
+        { type:'title-write', title:'Academic Title', target:'concise informative title', instruction:'Write three possible academic titles for an assignment about this topic.' },
+        { type:'presentation-script', title:'Presentation Script', target:'spoken academic style', instruction:'Write a 45-second presentation script about this topic.' },
+        { type:'reflection-action', title:'Action Reflection', target:'next learning step', instruction:'Write an action plan for improving your skill with this topic.' }
+      ]
+    },
+    Listening: {
+      tasks:[
+        { id:'lecture-main', focus:'main point', ask:'Write the main point and three keywords from the mini lecture.' },
+        { id:'signal', focus:'signal words', ask:'Write any signal words you hear and explain the relationship between ideas.' },
+        { id:'evidence-note', focus:'evidence', ask:'Write one claim and one piece of supporting evidence from the mini lecture.' },
+        { id:'summary-note', focus:'summary', ask:'Write a 2-sentence summary of the mini lecture.' },
+        { id:'question-note', focus:'question', ask:'Write one question you would ask the speaker after the lecture.' },
+        { id:'outline-note', focus:'outline', ask:'Write a simple outline of the lecture: introduction, main point, support, conclusion.' },
+        { id:'cause-effect-note', focus:'cause-effect', ask:'Write one cause-effect relationship you hear and identify the signal word if possible.' },
+        { id:'contrast-note', focus:'contrast', ask:'Write one contrast or comparison from the lecture and explain the difference.' },
+        { id:'evidence-quality', focus:'evidence quality', ask:'Write one piece of evidence and judge whether it is strong, limited, or unclear.' },
+        { id:'speaker-purpose', focus:'purpose', ask:'Write the speaker’s purpose and one phrase that helps you know it.' },
+        { id:'missing-info', focus:'missing information', ask:'Write one piece of information that is missing or should be checked after the lecture.' },
+        { id:'action-note', focus:'next action', ask:'Write one action a student should take after hearing this lecture.' },
+        { id:'keyword-map', focus:'keyword map', ask:'Create a keyword map from the lecture using at least five keywords.' },
+        { id:'prediction-check', focus:'prediction check', ask:'Write what you predicted before listening and whether the lecture confirmed it.' },
+        { id:'number-note', focus:'number/data note', ask:'Write any number, quantity, or data point you hear and explain its meaning.' },
+        { id:'example-note', focus:'example note', ask:'Write one example from the lecture and the idea it supports.' },
+        { id:'definition-note', focus:'definition note', ask:'Write one term and its definition or explanation from the lecture.' },
+        { id:'speaker-stance', focus:'speaker stance', ask:'Write the speaker’s stance and one phrase that shows it.' },
+        { id:'lecture-transition', focus:'lecture transitions', ask:'Write three transition phrases or moments where the speaker changes focus.' },
+        { id:'problem-note', focus:'problem note', ask:'Write the problem described in the lecture and who is affected.' },
+        { id:'solution-note', focus:'solution note', ask:'Write one solution mentioned and one possible limitation.' },
+        { id:'argument-note', focus:'argument note', ask:'Write the speaker’s claim, reason, and evidence.' },
+        { id:'compare-note', focus:'compare note', ask:'Write two ideas compared by the speaker and the basis of comparison.' },
+        { id:'sequence-note', focus:'sequence note', ask:'Write the steps or order of ideas in the lecture.' },
+        { id:'classification-note', focus:'classification note', ask:'Write any categories or groups mentioned in the lecture.' },
+        { id:'tone-note', focus:'tone note', ask:'Describe the speaker’s tone and support your answer.' },
+        { id:'citation-note', focus:'source note', ask:'Write what source information you would need to verify the lecture.' },
+        { id:'AI-note', focus:'AI ethics note', ask:'Write how AI could help review the lecture notes responsibly.' },
+        { id:'confusion-note', focus:'confusion log', ask:'Write one part that was unclear and what you would ask next.' },
+        { id:'peer-question', focus:'peer question', ask:'Write one question to ask a classmate about the lecture.' },
+        { id:'exam-note', focus:'exam note', ask:'Write one possible exam question based on the lecture.' },
+        { id:'main-support-note', focus:'main/support note', ask:'Separate the main point from two supporting details.' },
+        { id:'limitation-note', focus:'limitation note', ask:'Write one limitation or caution mentioned or implied.' },
+        { id:'implication-note', focus:'implication note', ask:'Write one implication for students or universities.' },
+        { id:'recommendation-note', focus:'recommendation note', ask:'Write one recommendation from or based on the lecture.' },
+        { id:'focus-listen', focus:'focused listening', ask:'Listen for one assigned keyword and write how it is used.' },
+        { id:'replay-summary', focus:'second-listen summary', ask:'After replaying, add one detail you missed the first time.' },
+        { id:'fast-note', focus:'speed notes', ask:'Write brief notes using symbols or abbreviations only.' },
+        { id:'slow-note', focus:'careful notes', ask:'Write complete notes for the introduction and conclusion.' },
+        { id:'lecture-title', focus:'lecture title', ask:'Write a suitable academic title for the lecture.' },
+        { id:'speaker-outline', focus:'speaker outline', ask:'Infer the speaker’s outline from the lecture.' },
+        { id:'evidence-gap', focus:'evidence gap', ask:'Write what evidence would make the lecture stronger.' },
+        { id:'source-link', focus:'source link', ask:'Write one source type that could support the lecture.' },
+        { id:'claim-check', focus:'claim check', ask:'Write one claim that should be fact-checked.' },
+        { id:'paraphrase-listen', focus:'oral paraphrase prep', ask:'Paraphrase the main point from your notes.' },
+        { id:'summary-audience', focus:'audience summary', ask:'Write a summary for a classmate who missed the lecture.' },
+        { id:'reflection-listen', focus:'listening reflection', ask:'Write what listening strategy helped you most.' },
+        { id:'note-revision', focus:'note revision', ask:'Revise your notes into a clearer structure.' },
+        { id:'Q-and-A-listen', focus:'Q&A prep', ask:'Write one likely audience question and a possible answer.' },
+        { id:'exit-ticket', focus:'listening exit ticket', ask:'Write three things learned, two keywords, and one question.' }
+      ]
+    },
+    Speaking: {
+      prompts:[
+        { id:'opening', title:'Academic Opening', instruction:'Give a 30–45 second opening that introduces the topic and tells the audience what you will explain.' },
+        { id:'evidence-talk', title:'Evidence Defender', instruction:'Give a 45–60 second explanation that includes one claim and one piece of evidence.' },
+        { id:'problem-solution', title:'Problem-Solution Talk', instruction:'Give a 60-second talk that explains a problem, one cause, and one solution.' },
+        { id:'qa-response', title:'Q&A Response', instruction:'Prepare a polite answer to a possible audience question about the topic.' },
+        { id:'reflection-talk', title:'Learning Reflection Talk', instruction:'Explain how this skill can help university students in academic work.' },
+        { id:'compare-talk', title:'Compare-Contrast Talk', instruction:'Give a short talk comparing two ideas related to the topic. Use one comparison signal.' },
+        { id:'cause-talk', title:'Cause-Effect Talk', instruction:'Give a short talk explaining one cause and one possible result related to the topic.' },
+        { id:'source-talk', title:'Source Credibility Talk', instruction:'Explain how you would decide whether a source about this topic is credible.' },
+        { id:'summary-talk', title:'Oral Summary', instruction:'Give a concise oral summary of the source idea in your own words.' },
+        { id:'data-talk', title:'Trend Explanation', instruction:'Explain a simple trend related to the topic using cautious academic language.' },
+        { id:'ethics-talk', title:'Responsible AI/Citation Talk', instruction:'Explain how a student should use sources or AI responsibly for this topic.' },
+        { id:'peer-feedback', title:'Peer Feedback Talk', instruction:'Give constructive feedback to a classmate about their academic response to this topic.' },
+        { id:'signpost-talk', title:'Signposting Drill', instruction:'Give a short talk using first, next, however, and in conclusion.' },
+        { id:'thesis-talk', title:'Thesis Pitch', instruction:'Present one clear thesis statement and explain why it matters.' },
+        { id:'method-talk', title:'Method Explanation', instruction:'Explain a simple method for studying or researching this topic.' },
+        { id:'result-talk', title:'Result Explanation', instruction:'Present one possible result and interpret it cautiously.' },
+        { id:'limitation-talk', title:'Limitation Talk', instruction:'Explain one limitation of evidence related to this topic.' },
+        { id:'recommendation-talk', title:'Recommendation Talk', instruction:'Give one evidence-based recommendation related to the topic.' },
+        { id:'source-summary-talk', title:'Source Summary Talk', instruction:'Summarize a possible source and explain how it could be used.' },
+        { id:'counterargument-talk', title:'Counterargument Talk', instruction:'Present an opposing view and respond politely with evidence.' },
+        { id:'definition-talk', title:'Definition Talk', instruction:'Define one key term and give an example.' },
+        { id:'classification-talk', title:'Classification Talk', instruction:'Classify ideas related to the topic into two or three groups.' },
+        { id:'process-talk', title:'Process Talk', instruction:'Explain steps or a process connected to the topic.' },
+        { id:'interview-answer', title:'Interview Answer', instruction:'Answer an academic interview-style question about this topic.' },
+        { id:'panel-answer', title:'Panel Discussion Answer', instruction:'Give a short panel-style response and invite another viewpoint.' },
+        { id:'poster-pitch', title:'Poster Pitch', instruction:'Give a 60-second poster presentation about the topic.' },
+        { id:'elevator-pitch', title:'Elevator Pitch', instruction:'Explain the topic and its importance in 30 seconds.' },
+        { id:'classroom-instruction', title:'Classroom Instruction', instruction:'Teach a classmate one strategy related to this topic.' },
+        { id:'debate-claim', title:'Debate Claim', instruction:'State a position and support it with one reason.' },
+        { id:'debate-rebuttal', title:'Debate Rebuttal', instruction:'Respond respectfully to an opposing claim.' },
+        { id:'story-evidence', title:'Story to Evidence', instruction:'Turn a simple example into an academic evidence-based explanation.' },
+        { id:'question-asking', title:'Academic Question Asking', instruction:'Ask two clear academic questions about the topic.' },
+        { id:'answer-uncertain', title:'Uncertain Answer Practice', instruction:'Respond when you do not know the full answer yet.' },
+        { id:'clarification-talk', title:'Clarification Request', instruction:'Ask for clarification politely in an academic situation.' },
+        { id:'email-to-speech', title:'Email Oral Version', instruction:'Convert an academic email request into a polite spoken request.' },
+        { id:'data-qna', title:'Data Q&A', instruction:'Answer a question about a simple data trend.' },
+        { id:'ethics-defense', title:'Ethics Defense', instruction:'Defend a responsible decision about citation or AI use.' },
+        { id:'AI-mentor-talk', title:'AI Use Reflection Talk', instruction:'Explain how AI helped and what you checked yourself.' },
+        { id:'progress-report', title:'Progress Report', instruction:'Give a short progress update on your learning task.' },
+        { id:'team-update', title:'Team Update', instruction:'Give a short group project update using academic tone.' },
+        { id:'conference-intro', title:'Conference Introduction', instruction:'Introduce yourself and your topic in an academic event.' },
+        { id:'research-gap-talk', title:'Research Gap Talk', instruction:'Explain one gap or unanswered question about the topic.' },
+        { id:'solution-pitch', title:'Solution Pitch', instruction:'Pitch one solution and explain who benefits.' },
+        { id:'risk-talk', title:'Risk and Caution Talk', instruction:'Explain one risk and one way to reduce it.' },
+        { id:'audience-adapt', title:'Audience Adaptation', instruction:'Explain the same idea for classmates and for instructors.' },
+        { id:'visual-talk', title:'Visual Explanation', instruction:'Explain what a chart or visual about this topic would show.' },
+        { id:'closing-talk', title:'Presentation Closing', instruction:'Give a strong conclusion and final message.' },
+        { id:'transition-talk', title:'Transition Practice', instruction:'Move smoothly from background to evidence to solution.' },
+        { id:'rubric-self-talk', title:'Self-Assessment Talk', instruction:'Assess your own speaking using organization, evidence, and clarity.' },
+        { id:'final-defense', title:'Final Defense', instruction:'Defend your final problem-solution proposal in one minute.' }
+      ]
+    }
+  };
+
+  const SESSION_TOPIC_VARIANTS = {
+    1:[
+      ['academic goal setting','Many students study English without a clear academic purpose. A useful EAP plan identifies a target skill, a practice strategy, and a way to review progress.'],
+      ['study habits','University students improve academic English when they set weekly goals, monitor progress, and reflect on difficulties after each task.'],
+      ['learning autonomy','Independent learners choose suitable strategies, ask for feedback, and revise their study plan when the first strategy does not work.'],
+      ['academic confidence','Confidence in EAP develops through repeated practice, clear feedback, and small achievable goals rather than memorizing every rule.'],
+      ['skill awareness','Students need to know whether their main problem is reading, writing, listening, speaking, vocabulary, or academic tone before choosing practice.'],
+      ['reflection practice','Short reflection helps students notice what they learned, what remains difficult, and what action they should take before the next lesson.']
+    ],
+    2:[
+      ['academic vocabulary','Academic vocabulary helps students understand lectures, textbooks, and research articles. Students should learn words in context and review how each word functions.'],
+      ['word families','Learning word families helps students recognize related forms such as analyze, analysis, and analytical in academic texts.'],
+      ['context clues','Readers can often infer unfamiliar vocabulary by checking examples, contrast markers, definitions, and the surrounding sentence.'],
+      ['collocation','Academic words often appear with common partners, such as conduct research, provide evidence, and indicate results.'],
+      ['precise word choice','Academic writing requires precise vocabulary because similar words may change the strength or meaning of a claim.'],
+      ['review strategy','Students remember vocabulary better when they use new words in sentences, summaries, and short speaking practice.']
+    ],
+    3:[
+      ['main idea reading','Effective readers identify the writer’s main idea, separate it from supporting details, and check how each sentence contributes to the paragraph.'],
+      ['detail trap','Some readers focus on names, numbers, or examples and miss the main idea that connects the whole paragraph.'],
+      ['topic sentence','A topic sentence often introduces the main idea, but readers should confirm it by checking the supporting details.'],
+      ['supporting details','Supporting details explain, illustrate, or prove the main idea, but they should not be confused with the overall message.'],
+      ['paragraph focus','A focused paragraph develops one central idea. Sentences that do not support this idea may weaken coherence.'],
+      ['reading strategy','Previewing the title, first sentence, repeated keywords, and conclusion can help readers predict the main idea.']
+    ],
+    4:[
+      ['keywords and signal words','Signal words such as however, therefore, and for example help readers follow relationships between ideas in reading and listening.'],
+      ['contrast markers','Words such as however and although show that the writer is introducing a contrast or unexpected idea.'],
+      ['cause-effect signals','Because, therefore, and as a result help readers understand why something happened or what consequence followed.'],
+      ['sequence markers','First, next, finally, and then help listeners follow the order of steps or stages in an explanation.'],
+      ['example markers','For example and such as introduce supporting examples that make an academic point clearer.'],
+      ['signal word awareness','Recognizing signal words improves note-taking because students can organize ideas by comparison, cause, example, or conclusion.']
+    ],
+    5:[
+      ['critical reading','Critical readers examine claims, evidence, source credibility, date, and possible bias before using information in academic work.'],
+      ['source credibility','A credible source usually has an identifiable author, reliable organization, publication date, and evidence for its claims.'],
+      ['claim and evidence','A claim becomes stronger when it is supported by relevant evidence rather than personal opinion or confident wording.'],
+      ['bias awareness','Readers should notice whether a text presents only one side of an issue or uses emotional language to persuade.'],
+      ['fact checking','Before sharing information, students should compare important claims with reliable sources and check whether the evidence is current.'],
+      ['overclaiming','Academic readers should be careful when a writer uses absolute words such as always, never, or proves without sufficient evidence.']
+    ],
+    6:[
+      ['summarizing','A good summary keeps the original meaning but expresses the key ideas briefly in the student’s own words.'],
+      ['paraphrase ethics','Changing only a few words is not enough. Ethical paraphrasing changes structure and wording while keeping the meaning.'],
+      ['key idea selection','A summary should include central ideas and omit minor examples unless those examples are necessary for understanding.'],
+      ['copy-paste risk','Copying sentences from a source without quotation or citation can create plagiarism even when the source is listed later.'],
+      ['summary length','An effective academic summary is shorter than the original and avoids adding personal opinions not found in the text.'],
+      ['source respect','Summarizing is both a reading skill and an ethics skill because it shows understanding while respecting source ownership.']
+    ],
+    7:[
+      ['academic tone','Academic tone is formal, precise, and cautious. Writers should avoid casual expressions and unsupported claims.'],
+      ['cautious language','Words such as may, can, suggests, and appears help writers avoid overclaiming when evidence is limited.'],
+      ['formal vocabulary','Academic writing usually avoids casual words such as stuff, a lot of, super, and really bad.'],
+      ['objective style','Academic tone focuses on evidence and reasoning rather than personal feelings or emotional language.'],
+      ['precision','Precise wording helps readers understand the exact meaning of a claim, method, result, or limitation.'],
+      ['tone revision','Students can improve tone by replacing casual phrases, removing exaggeration, and adding evidence-based wording.']
+    ],
+    8:[
+      ['integrated academic review','Academic English requires reading sources, identifying evidence, summarizing ideas, using formal tone, and explaining thinking clearly.'],
+      ['integrated review strategy','A useful review plan connects vocabulary, reading, writing, listening, and speaking instead of studying each skill separately.'],
+      ['skill integration','Students often read a source, take notes, write a summary, and explain the idea orally in the same academic task.'],
+      ['midterm preparation','Before an integrated assessment, students should review common errors, practice reasoning, and check weak skills.'],
+      ['evidence-based answer','Strong academic answers combine a clear claim, supporting evidence, and an explanation of why the evidence matters.'],
+      ['reflection review','Reflection helps students identify which EAP skills improved and which skills require more practice before assessment.']
+    ],
+    9:[
+      ['paragraph writing','A strong academic paragraph has a topic sentence, supporting details, evidence or examples, and a concluding sentence.'],
+      ['coherence','Coherence improves when each sentence supports the same main idea and uses transitions to show relationships.'],
+      ['topic sentence control','A topic sentence should be specific enough to guide the paragraph but broad enough to include supporting details.'],
+      ['supporting evidence','Examples, data, or source information can support a paragraph when they are clearly connected to the main claim.'],
+      ['concluding sentence','A concluding sentence should not simply repeat the topic sentence; it should close the paragraph meaningfully.'],
+      ['paragraph unity','A paragraph loses unity when it includes interesting information that does not support the central idea.']
+    ],
+    10:[
+      ['data description','When describing data, writers highlight major trends, compare important values, and avoid unsupported claims.'],
+      ['trend language','Useful data verbs include increase, decrease, remain stable, fluctuate, rise, fall, and peak.'],
+      ['comparison','Academic data description often compares groups, years, categories, or percentages to show meaningful differences.'],
+      ['cautious interpretation','A chart can show a pattern, but it may not show the cause of that pattern unless additional evidence is provided.'],
+      ['number selection','Writers should choose important numbers rather than list every value in the chart or table.'],
+      ['graph summary','A strong graph summary begins with the overall trend before describing specific details.']
+    ],
+    11:[
+      ['academic email','Academic email includes a clear subject, polite greeting, specific purpose, reasonable request, and respectful closing.'],
+      ['email subject','A clear subject line helps the reader understand the purpose before opening the message.'],
+      ['polite request','Academic requests should be specific and respectful, especially when asking for feedback, clarification, or an extension.'],
+      ['email structure','A useful email structure includes greeting, context, request, thanks, and closing.'],
+      ['tone in email','A message can be short and still polite if it avoids commands, vague urgency, and overly casual language.'],
+      ['professional communication','Academic email teaches students how to communicate responsibly with instructors, classmates, and organizations.']
+    ],
+    12:[
+      ['citation and ethics','Academic integrity requires students to credit sources, paraphrase carefully, quote accurately, and use AI transparently.'],
+      ['AI declaration','When AI is allowed, students should explain how it was used, what they checked, and which parts were written by themselves.'],
+      ['citation purpose','Citation helps readers locate sources and shows that the writer respects other people’s ideas.'],
+      ['plagiarism prevention','Students can reduce plagiarism risk by taking notes, paraphrasing properly, citing sources, and checking similarity.'],
+      ['quotation practice','Direct quotations need quotation marks, citation, and a clear reason for including the original wording.'],
+      ['source alignment','A citation should support the claim it is attached to; adding a random source does not make a claim credible.']
+    ],
+    13:[
+      ['academic listening','Academic listeners focus on keywords, signal words, main points, and repeated ideas rather than every word.'],
+      ['lecture notes','Good lecture notes use headings, keywords, arrows, abbreviations, and examples to organize information quickly.'],
+      ['listening for structure','Speakers often use signposting language to show the introduction, main points, examples, and conclusion.'],
+      ['missed information','If students miss one word, they should continue listening for the main idea instead of stopping completely.'],
+      ['listening prediction','Predicting topic vocabulary before listening helps students recognize important words during the lecture.'],
+      ['summary from notes','After listening, students should use notes to write a short summary rather than relying on memory alone.']
+    ],
+    14:[
+      ['academic presentation','A clear presentation includes an opening, outline, signposting, evidence, conclusion, and polite Q&A responses.'],
+      ['presentation opening','A strong opening introduces the topic, purpose, and structure so the audience knows what to expect.'],
+      ['signposting','Signposting phrases such as first, next, let us move to, and in conclusion help the audience follow the talk.'],
+      ['evidence in speaking','Academic presenters should refer to data, examples, or sources instead of giving unsupported opinions.'],
+      ['Q&A strategy','During Q&A, speakers should thank the questioner, answer clearly, and admit when more evidence is needed.'],
+      ['presentation confidence','Confidence improves when students rehearse structure, key phrases, and transitions rather than memorizing every word.']
+    ],
+    15:[
+      ['problem-solution presentation','A final academic presentation explains a social problem, causes, evidence, practical solutions, and a conclusion.'],
+      ['social issue analysis','A strong problem-solution task identifies a real issue, explains why it matters, and supports the explanation with evidence.'],
+      ['solution design','A useful solution should be realistic, connected to the cause, and appropriate for the target community.'],
+      ['final integration','The final task should combine reading evidence, writing a paragraph, listening to feedback, and speaking clearly.'],
+      ['society saver ending','Academic English becomes meaningful when students use it to understand problems and communicate responsible solutions.'],
+      ['presentation evidence','A final presentation is stronger when each recommendation is linked to data, source information, or classroom findings.']
+    ]
+  };
+
+  function missionHistoryKey(sessionId, skill){
+    return `S${sessionId}_${skill}`;
+  }
+
+  function pickMissionVariant(sessionId, skill){
+    state.skillBankHistory = state.skillBankHistory || {};
+    const hkey = missionHistoryKey(sessionId, skill);
+    const recent = state.skillBankHistory[hkey] || [];
+    const comboKey = `${hkey}_combos`;
+    const recentCombos = state.skillBankHistory[comboKey] || [];
+
+    const topics = SESSION_TOPIC_VARIANTS[sessionId] || SESSION_TOPIC_VARIANTS[1];
+    let variantList = [];
+    if(skill === 'Reading') variantList = SKILL_MISSION_VARIANTS.Reading.templates;
+    if(skill === 'Writing') variantList = SKILL_MISSION_VARIANTS.Writing.prompts;
+    if(skill === 'Listening') variantList = SKILL_MISSION_VARIANTS.Listening.tasks;
+    if(skill === 'Speaking') variantList = SKILL_MISSION_VARIANTS.Speaking.prompts;
+
+    const allCombos = [];
+    topics.forEach((t, topicIdx) => {
+      variantList.forEach((v, variantIdx) => {
+        allCombos.push({ topicIdx, variantIdx, t, v, combo:`topic${topicIdx}_var${variantIdx}` });
+      });
+    });
+
+    // Prefer combinations never used recently, then avoid recent topic/template separately.
+    let pool = allCombos.filter(x => !recentCombos.includes(x.combo));
+    if(!pool.length) pool = allCombos.slice();
+
+    const strongerPool = pool.filter(x => !recent.includes(`topic${x.topicIdx}`) && !recent.includes(`var${x.variantIdx}`));
+    if(strongerPool.length) pool = strongerPool;
+
+    const chosen = pool[Math.floor(Math.random() * pool.length)];
+
+    state.skillBankHistory[hkey] = [`topic${chosen.topicIdx}`, `var${chosen.variantIdx}`].concat(recent).slice(0,18);
+    state.skillBankHistory[comboKey] = [chosen.combo].concat(recentCombos).slice(0,120);
+    saveState();
+
+    return {
+      session:Number(sessionId),
+      skill,
+      topic:chosen.t[0],
+      passage:chosen.t[1],
+      variant:chosen.v,
+      topicIndex:chosen.topicIdx,
+      variantIndex:chosen.variantIdx,
+      combo:chosen.combo
+    };
+  }
+
+  function missionBankCount(){
+    const topicCount = Object.values(SESSION_TOPIC_VARIANTS).reduce((sum, arr)=>sum+arr.length, 0);
+    const perSkill = {
+      Reading:Object.keys(SESSION_TOPIC_VARIANTS).length * SKILL_MISSION_VARIANTS.Reading.templates.length * 6,
+      Writing:Object.keys(SESSION_TOPIC_VARIANTS).length * SKILL_MISSION_VARIANTS.Writing.prompts.length * 6,
+      Listening:Object.keys(SESSION_TOPIC_VARIANTS).length * SKILL_MISSION_VARIANTS.Listening.tasks.length * 6,
+      Speaking:Object.keys(SESSION_TOPIC_VARIANTS).length * SKILL_MISSION_VARIANTS.Speaking.prompts.length * 6
+    };
+    return { topics:topicCount, perSkill, estimatedCombinations: perSkill.Reading + perSkill.Writing + perSkill.Listening + perSkill.Speaking };
+  }
+
+
+
+  function skillTemplateDuplicateAudit(){
+    const groups = {
+      Reading:SKILL_MISSION_VARIANTS.Reading.templates.map(x => ({ id:x.id, text:(x.q || []).join(' | ') })),
+      Writing:SKILL_MISSION_VARIANTS.Writing.prompts.map(x => ({ id:x.type, text:[x.title,x.target,x.instruction].join(' | ') })),
+      Listening:SKILL_MISSION_VARIANTS.Listening.tasks.map(x => ({ id:x.id, text:[x.focus,x.ask].join(' | ') })),
+      Speaking:SKILL_MISSION_VARIANTS.Speaking.prompts.map(x => ({ id:x.id, text:[x.title,x.instruction].join(' | ') }))
+    };
+    const normalize = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+    const result = {};
+    Object.keys(groups).forEach(skill => {
+      const ids = {};
+      const texts = {};
+      groups[skill].forEach(x => {
+        ids[x.id] = (ids[x.id] || 0) + 1;
+        texts[normalize(x.text)] = (texts[normalize(x.text)] || 0) + 1;
+      });
+      result[skill] = {
+        count:groups[skill].length,
+        duplicateIds:Object.keys(ids).filter(k => ids[k] > 1),
+        duplicateTexts:Object.keys(texts).filter(k => texts[k] > 1)
+      };
+    });
+    return result;
+  }
+
+
   function skillTextForSession(s){
     const topicMap = {
       1:['academic goal setting','Many students study English without a clear academic purpose. A useful EAP plan identifies a target skill, a practice strategy, and a way to review progress.'],
@@ -33646,19 +34080,20 @@
   }
 
   function renderReadingMission(id){
-    const s = getSession(id), text = skillTextForSession(s);
+    const s = getSession(id), text = pickMissionVariant(s.id, 'Reading');
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
+      <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
       ${renderAIHelpBox('Reading', s.id)}
-      ${['What is the main idea?','Write two keywords.','Which idea gives useful academic support?'].map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
+      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
 
   function submitReading(id){
-    const s = getSession(id), text = skillTextForSession(s);
+    const s = getSession(id), text = { topic: document.getElementById('readingTopic')?.value || skillTextForSession(s).topic, passage: document.getElementById('readingPassage')?.value || skillTextForSession(s).passage };
     const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
     const joined = answers.join(' ').toLowerCase();
     let score = 0;
@@ -33672,16 +34107,31 @@
   }
 
   function renderWritingMission(id){
-    const s = getSession(id), prompt = writingPromptForSession(s);
+    const s = getSession(id), mv = pickMissionVariant(s.id, 'Writing'), prompt = writingPromptFromVariant(s, mv);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
+      <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">เป้าหมาย: ${safe(prompt.target)} • auto-check เบื้องต้น</p>
       ${renderAIHelpBox('Writing', s.id)}
       <textarea id="writingOutput" class="input" rows="9"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
+
+
+  function writingPromptFromVariant(s, mv){
+    const v = mv.variant || {};
+    return {
+      title:v.title || 'Academic Writing',
+      target:v.target || 'clear academic response',
+      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Write an academic response.'} Source idea: ${mv.passage}`,
+      topic:mv.topic,
+      passage:mv.passage,
+      variantType:v.type || 'writing'
+    };
+  }
+
 
   function writingPromptForSession(s){
     if(s.id === 6) return { title:'Summary Writing', target:'60–90 words', instruction:'Write a short summary: Academic English helps students read sources, evaluate evidence, and communicate ideas clearly.' };
@@ -33702,18 +34152,20 @@
     if(/\b(problem|cause|solution|summary|source|data|academic|students|learning)\b/i.test(out)) score += 25;
     if(/[.!?]\s+[A-Z]/.test(out) || words >= 80) score += 25;
     score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing'));
-    addPortfolio({ session:id, skill:'Writing', score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:writingPromptForSession(s).instruction });
+    addPortfolio({ session:id, skill:'Writing', score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction });
     showSkillResult('Writing', score, id);
   }
 
   function renderListeningMission(id){
-    const s = getSession(id), text = skillTextForSession(s);
-    const lecture = `Today, we will discuss ${text.topic}. ${text.passage} The key point is that students should understand the idea, identify useful evidence, and apply it in academic communication.`;
+    const s = getSession(id), text = pickMissionVariant(s.id, 'Listening');
+    const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
       <h2>🎧 Listening Mission</h2><div class="context" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.playLecture()">▶️ Play Lecture</button><button class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button></div>
       ${renderAIHelpBox('Listening', s.id)}
+      <p class="mini-note"><b>Task:</b> ${safe(text.variant.ask || 'Write listening notes.')}</p>
+      <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
@@ -33738,15 +34190,16 @@
     if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
     if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
     score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening'));
-    addPortfolio({ session:id, skill:'Listening', score, aiUses:aiUsesFor(id,'Listening'), output:notes, prompt:skillTextForSession(s).passage });
+    addPortfolio({ session:id, skill:'Listening', score, aiUses:aiUsesFor(id,'Listening'), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
     showSkillResult('Listening', score, id);
   }
 
   function renderSpeakingMission(id){
-    const s = getSession(id), prompt = speakingPromptForSession(s);
+    const s = getSession(id), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
+      <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">พูดจริงหน้าห้อง/จับคู่/อัดเสียงเอง แล้วพิมพ์ transcript หรือ speaking notes เพื่อบันทึก portfolio</p>
       ${renderAIHelpBox('Speaking', s.id)}
       <textarea id="speakingTranscript" class="input" rows="8"></textarea>
@@ -33754,6 +34207,19 @@
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
+
+
+  function speakingPromptFromVariant(s, mv){
+    const v = mv.variant || {};
+    return {
+      title:v.title || 'Academic Speaking',
+      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Give a short academic explanation.'} Use this source idea: ${mv.passage}`,
+      topic:mv.topic,
+      passage:mv.passage,
+      variantId:v.id || 'speaking'
+    };
+  }
+
 
   function speakingPromptForSession(s){
     if(s.id === 14) return { title:'Academic Presentation', instruction:'Give a 45–60 second presentation opening about digital literacy. Include opening, outline, signposting, and conclusion.' };
@@ -33770,7 +34236,7 @@
     if(document.getElementById('spEvi')?.checked) score += 20;
     if(document.getElementById('spClose')?.checked) score += 20;
     score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking'));
-    addPortfolio({ session:id, skill:'Speaking', score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:speakingPromptForSession(s).instruction });
+    addPortfolio({ session:id, skill:'Speaking', score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
     showSkillResult('Speaking', score, id);
   }
 
@@ -33856,7 +34322,9 @@
       { name:'LocalStorage size below 4 MB', pass:storageKb < 4096, note:`ประมาณ ${storageKb} KB` },
       { name:'Exam mode available', pass:typeof startExam === 'function', note:'Midterm/Final พร้อมใช้' },
       { name:'Export backup available', pass:typeof exportBackupJSON === 'function', note:'สำรองก่อน Firebase ได้' },
-      { name:'Firebase preview available', pass:typeof exportFirebasePreview === 'function', note:'ดู schema ก่อนต่อจริงได้' }
+      { name:'Firebase preview available', pass:typeof exportFirebasePreview === 'function', note:'ดู schema ก่อนต่อจริงได้' },
+      { name:'Skill mission bank has replay variants', pass:missionBankCount().estimatedCombinations >= 18000, note:`ประมาณ ${missionBankCount().estimatedCombinations} skill-task combinations` },
+      { name:'Skill template duplicate audit clean', pass:Object.values(skillTemplateDuplicateAudit()).every(x => x.duplicateIds.length === 0 && x.duplicateTexts.length === 0), note:'ตรวจ duplicate id/text ของ templates หลัก' }
     ];
   }
 
@@ -34274,6 +34742,8 @@
     replayHub:renderReplayHub,
     aiHelp:useAIHelp,
     exportAIHelpCSV,
+    missionBankCount,
+    skillTemplateDuplicateAudit,
     readingMission:renderReadingMission,
     submitReading,
     writingMission:renderWritingMission,
