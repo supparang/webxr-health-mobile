@@ -74,3 +74,18 @@ function num_(v){const n=Number(v); return Number.isFinite(n)?n:0;}
 function bool_(v){return v===true||String(v).toLowerCase()==='true';}
 function round2_(n){return Math.round(Number(n||0)*100)/100;}
 function mostCommon_(obj){const e=Object.entries(obj||{}).sort((a,b)=>Number(b[1])-Number(a[1])); return e.length?e[0][0]+':'+e[0][1]:'';}
+
+
+/**
+ * PATCH v2.0/v2.1 helper idea:
+ * หากต้องการให้ Teacher Dashboard ดึงข้อมูลตรงจาก Apps Script ในอนาคต
+ * ให้เพิ่ม action=readAttempts / readEvents แล้ว return JSON
+ * ตอนนี้ dashboard ใช้ CSV paste/export เพื่อเลี่ยง CORS และ deploy complexity
+ */
+function aiquestDashboardReadme_() {
+  return {
+    version: 'v2.1-classroom-ready-preview',
+    mode: 'CSV-first dashboard',
+    tabs: ['students_profile','session_attempts','session_events','teacher_summary']
+  };
+}

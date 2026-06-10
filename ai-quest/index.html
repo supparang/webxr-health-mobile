@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v1.8 Google Sheets Ready</title>
+  <title>CSAI2102: AI Quest v2.1 Google Sheets Ready</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -888,6 +888,8 @@
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
+  <script src="./js/aiquest-adaptive-coach-v19.js"></script>
+  <script src="./js/mission2-agent-bank-v21.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -899,7 +901,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v1.8 • Google Sheets Ready • Events + Attempts + Profile</div>
+          <div class="subtitle">v2.1 • Google Sheets Ready • Events + Attempts + Profile</div>
         </div>
       </div>
 
@@ -915,6 +917,8 @@
 
         <button class="btn secondary small" id="btnMenu">Mission Map</button>
         <button class="btn secondary small" id="btnResults">ดูผล</button>
+        <a class="btn secondary small" href="./teacher-dashboard.html" style="text-decoration:none">Dashboard</a>
+        <a class="btn secondary small" href="./session2-agent-preview.html" style="text-decoration:none">Session 2</a>
         <button class="btn secondary small" id="btnPracticeMode">Practice</button>
         <button class="btn secondary small" id="btnGateInfo">Gate</button>
         <button class="btn secondary small" id="btnReset">Reset</button>
@@ -926,7 +930,7 @@
         <div class="panel">
           <h2>Session 1: AI Awakening</h2>
           <p>
-            Google Sheets Ready v1.8 เพิ่ม Review Wrong Items, Teacher Export,
+            Google Sheets Ready v2.1 เพิ่ม Review Wrong Items, Teacher Export,
             ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
             เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
           </p>
@@ -987,6 +991,13 @@
           <button class="btn secondary" id="btnRefreshGate">Refresh Gate Status</button>
         </div>
         <div id="gateStatusBox" style="margin-top:12px"></div>
+      </section>
+
+      
+      <section class="panel" style="margin-top:16px" id="adaptiveCoachPanel">
+        <h2>Adaptive Coach</h2>
+        <p>ระบบช่วยวิเคราะห์ความผิดซ้ำและแนะนำการซ่อมแบบเฉพาะ misconception</p>
+        <div id="adaptiveCoachBox"></div>
       </section>
 
       <section class="layout">
@@ -1725,6 +1736,10 @@ function logEvent(data){
     pageUrl: location.href,
     ...data
   });
+  if(data && (data.eventType === 'answer_submit' || data.eventType === 'boss_answer') && window.AIQuestAdaptiveCoach){
+    AIQuestAdaptiveCoach.recordAnswer(data);
+    renderAdaptiveCoachBox && renderAdaptiveCoachBox();
+  }
 }
 
       const area = el('gameArea');
@@ -2409,7 +2424,7 @@ function logEvent(data){
         const summary = {
           missionId:'m1',
           missionTitle:'AI Awakening',
-          version:'v1.8-google-sheets-events',
+          version:'v2.1-google-sheets-events',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2659,7 +2674,7 @@ if(el('btnTestCloud')){
 
 loadProfileToForm();
   
-    /* PATCH v1.8: Gate + Support UI Hooks */
+    /* PATCH v2.1: Gate + Support UI Hooks */
     function renderGateStatusBox(){
       if(!window.AIQuestGateSupport || !document.getElementById('gateStatusBox')) return;
       AIQuestGateSupport.renderGatePanel(document.getElementById('gateStatusBox'));
@@ -2679,6 +2694,37 @@ loadProfileToForm();
       if(bp)bp.onclick=togglePractice;if(bt)bt.onclick=togglePractice;if(bg)bg.onclick=renderGateStatusBox;if(bf)bf.onclick=renderGateStatusBox;if(br)br.onclick=openRemedialQuest;renderGateStatusBox();
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachGateSupportButtons);else attachGateSupportButtons();
+
+
+    /* PATCH v2.1: Classroom Ready Preview Hooks */
+    function renderAdaptiveCoachBox(){
+      if(window.AIQuestAdaptiveCoach && document.getElementById('adaptiveCoachBox')){
+        AIQuestAdaptiveCoach.renderCoachPanel(document.getElementById('adaptiveCoachBox'));
+      }
+    }
+
+    function aiquestRecordAdaptiveEvent(evt){
+      if(!window.AIQuestAdaptiveCoach) return null;
+      const advice = AIQuestAdaptiveCoach.recordAnswer(evt || {});
+      renderAdaptiveCoachBox();
+
+      if(advice && advice.action && advice.message && typeof showToast === 'function'){
+        showToast(advice.title ? advice.title + ': ' + advice.message : advice.message);
+      }
+
+      if(advice && advice.addTime && typeof timeLeft !== 'undefined'){
+        timeLeft += advice.addTime;
+      }
+
+      return advice;
+    }
+
+    if(document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', renderAdaptiveCoachBox);
+    }else{
+      renderAdaptiveCoachBox();
+    }
+
 </script>
 </body>
 </html>
