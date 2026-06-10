@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z Complete Classroom Loop ===
+/* === EAP Hero: Save the Society v1z1 Difficulty Visibility Hotfix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z-complete-classroom-loop';
+  const APP_VERSION = '20260610-v1z1-difficulty-visibility-hotfix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -34487,7 +34487,7 @@
     if(!SKILL_DIFFICULTIES[level]) level = 'normal';
     state.settings.skillDifficulty = level;
     saveState();
-    toast(`Skill difficulty: ${SKILL_DIFFICULTIES[level].label}`);
+    toast(`Selected difficulty: ${SKILL_DIFFICULTIES[level].label}`);
     renderDifficultyPanel();
   }
 
@@ -34530,20 +34530,20 @@
   function renderDifficultyPanel(){
     const d = currentSkillDifficulty();
     const cards = Object.values(SKILL_DIFFICULTIES).map(x => `
-      <div class="hud-card ${x.key===d.key?'ok':''}">
+      <div class="hud-card difficulty-card ${x.key===d.key?'selected ok':''}">
         <h3>${x.key===d.key?'✅':'⬜'} ${safe(x.label)}</h3>
         <p class="mini-note">${safe(x.note)}</p>
-        <button class="btn ${x.key===d.key?'ghost':'primary'} block" onclick="EAPHero.setSkillDifficulty('${x.key}')">${x.key===d.key?'Current':'Use '+x.label}</button>
+        <button class="btn ${x.key===d.key?'success':'primary'} block" onclick="EAPHero.setSkillDifficulty('${x.key}')">${x.key===d.key?'Selected: '+x.label:'Use '+x.label}</button>
       </div>`).join('');
     layout(`
       <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">v1w</span><span class="pill">Difficulty Tier</span><span class="pill">${safe(d.label)}</span></div>
+        <div class="badges"><span class="pill">v1z1</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: ${safe(d.label)}</span></div>
         <h2>Skill Mission Difficulty</h2>
         <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
         <div class="grid four">${cards}</div>
         <div class="panel light" style="margin-top:18px">
-          <h3>Current Rule</h3>
-          <p>${safe(d.note)}</p>
+          <h3>Current Rule: ${safe(d.label)}</h3>
+          <p><b>ตอนนี้เลือกอยู่:</b> ${safe(d.label)} — ${safe(d.note)}</p>
           <p class="mini-note">Hard/Challenge เพิ่มคะแนน bonus เล็กน้อย แต่โจทย์จะคาดหวัง evidence, inference, limitation และ academic tone มากขึ้น</p>
         </div>
         <div class="footer-actions"><button class="btn" onclick="EAPHero.map()">Map</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>

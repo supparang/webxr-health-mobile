@@ -232,3 +232,34 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   .boss-portrait{min-height:160px}
   .session-tile{min-height:130px}
 }
+
+
+/* === v1z1 Difficulty Visibility Hotfix === */
+.difficulty-card{
+  position:relative;
+  border:1px solid rgba(255,255,255,.10);
+}
+.difficulty-card.selected{
+  border:2px solid rgba(104, 255, 213, .95) !important;
+  box-shadow:0 0 0 4px rgba(104,255,213,.14), 0 18px 38px rgba(0,0,0,.20);
+  background:linear-gradient(135deg, rgba(66,230,190,.22), rgba(125,211,252,.14)) !important;
+}
+.difficulty-card.selected::after{
+  content:"SELECTED";
+  position:absolute;
+  top:10px;
+  right:10px;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  color:#063b31;
+  background:#8fffe0;
+  border-radius:999px;
+  padding:5px 9px;
+}
+.btn.success{
+  background:linear-gradient(135deg,#67e8f9,#86efac) !important;
+  color:#06283a !important;
+  border-color:rgba(255,255,255,.55) !important;
+  font-weight:900 !important;
+}
