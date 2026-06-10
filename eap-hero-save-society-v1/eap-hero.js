@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z8-teacher-review-queue-polish';
+  const APP_VERSION = '20260610-v1z9-review-queue-compact-detail';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31532,7 +31532,7 @@
       revisions:{ submissions:[], improvementBadges:{} },
       lessons:{ activePlan:null, logs:[] },
       classActivities:{ pairMissions:[], peerReviews:[] },
-      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true },
+      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true, reviewView:'compact' },
       recentQuestions:{},
       active:null
     };
@@ -31617,6 +31617,7 @@
       merged.settings.skillDifficulty = parsed.settings?.skillDifficulty || parsed.settings?.difficulty || 'easy';
       merged.settings.uiMode = parsed.settings?.uiMode || 'simple';
       merged.settings.progressiveUnlock = parsed.settings?.progressiveUnlock !== false;
+      merged.settings.reviewView = parsed.settings?.reviewView || 'compact';
       return merged;
     }catch(e){
       console.warn(e);
@@ -31772,7 +31773,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z8</div>
+              <div class="mini-note">Save the Society • v1z9</div>
             </div>
           </div>
           <div class="top-actions">
@@ -35061,6 +35062,52 @@
   }
 
 
+
+  function reviewViewMode(){
+    return state.settings?.reviewView || 'compact';
+  }
+
+  function setReviewViewMode(mode){
+    state.settings = state.settings || {};
+    state.settings.reviewView = mode === 'detail' ? 'detail' : 'compact';
+    saveState();
+    refreshReviewQueueTable();
+    const label = document.getElementById('reviewViewLabel');
+    if(label) label.textContent = state.settings.reviewView === 'detail' ? 'Detailed' : 'Compact';
+  }
+
+  function scoreReasonBadges(p){
+    return scoreReason(p).split(' • ').filter(Boolean).map(r => `<span class="reason-badge">${safe(r)}</span>`).join('');
+  }
+
+  function viewEvidenceDetail(index){
+    const p = portfolioItemByIndex(index);
+    if(!p) return;
+    const status = reviewStatusFor(index);
+    const rubric = reviewScoreFor(index);
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Evidence Detail</span><span class="pill">S${p.session}</span><span class="pill">${safe(p.skill)}</span><span class="pill">${safe(status)}</span></div>
+        <h2>Portfolio Evidence Detail</h2>
+        <div class="grid three">
+          <div class="stat"><b>${safe(p.player_name || '')}</b><span>Player</span></div>
+          <div class="stat"><b>${p.score ?? '-'}</b><span>Auto Score</span></div>
+          <div class="stat"><b>${rubric || '-'}</b><span>Rubric</span></div>
+        </div>
+        <div class="panel light" style="margin-top:16px">
+          <h3>Prompt</h3><p>${safe(p.prompt || '-')}</p>
+          <h3>Evidence Output</h3><div class="context evidence-full">${safe(p.output || '-')}</div>
+          <h3>Score Reason</h3><div>${scoreReasonBadges(p)}</div>
+          <h3>Help Used</h3><div>${portfolioHelpBadges(p)}</div>
+        </div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.rubricReview(${index})">Review with Rubric</button>
+          <button class="btn" onclick="EAPHero.reviewQueue()">Back to Review Queue</button>
+        </div>
+      </section>`);
+  }
+
+
   function portfolioHelpBadges(p){
     const badges = [];
     if(Number(p.aiUses || 0) > 0) badges.push(`🤖 AI ${p.aiUses}`);
@@ -35099,6 +35146,12 @@
 
   function refreshReviewQueueTable(){
     const body = document.getElementById('reviewQueueBody');
+    const head = document.getElementById('reviewQueueHead');
+    if(head){
+      head.innerHTML = reviewViewMode()==='compact'
+        ? '<tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Status</th><th>Help Used</th><th>Evidence</th><th></th></tr>'
+        : '<tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Score Reason</th><th>Status</th><th>Rubric</th><th>Help Used</th><th>Evidence Output</th><th></th></tr>';
+    }
     if(!body) return;
     const items = filteredPortfolioItems().reverse();
     body.innerHTML = items.map(({p,idx})=>reviewQueueRowHTML(p,idx)).join('') || '<tr><td colspan="10">No matching portfolio evidence</td></tr>';
@@ -35110,20 +35163,32 @@
     const status = reviewStatusFor(idx);
     const score = reviewScoreFor(idx);
     const output = String(p.output || '');
-    return `<tr>
+    const mode = reviewViewMode();
+    if(mode === 'compact'){
+      return `<tr class="review-row compact">
         <td>${safe(p.player_name || '')}</td>
         <td>S${p.session}</td>
         <td>${safe(p.skill)}</td>
-        <td>${p.score ?? ''}</td>
-        <td>${safe(scoreReason(p))}</td>
+        <td><b>${p.score ?? ''}</b></td>
+        <td>${safe(status)}</td>
+        <td>${portfolioHelpBadges(p)}</td>
+        <td><div class="evidence-preview">${safe(output.slice(0,80))}${output.length>80?'…':''}</div></td>
+        <td><button class="btn small" onclick="EAPHero.viewEvidenceDetail(${idx})">View</button> <button class="btn small primary" onclick="EAPHero.rubricReview(${idx})">Review</button></td>
+      </tr>`;
+    }
+    return `<tr class="review-row detail">
+        <td>${safe(p.player_name || '')}</td>
+        <td>S${p.session}</td>
+        <td>${safe(p.skill)}</td>
+        <td><b>${p.score ?? ''}</b></td>
+        <td><div class="reason-list">${scoreReasonBadges(p)}</div></td>
         <td>${safe(status)}</td>
         <td>${score}</td>
         <td>${portfolioHelpBadges(p)}</td>
-        <td><div class="evidence-preview">${safe(output.slice(0,140))}${output.length>140?'…':''}</div></td>
-        <td><button class="btn small primary" onclick="EAPHero.rubricReview(${idx})">Review</button></td>
+        <td><div class="evidence-preview">${safe(output.slice(0,150))}${output.length>150?'…':''}</div></td>
+        <td><button class="btn small" onclick="EAPHero.viewEvidenceDetail(${idx})">View Full</button> <button class="btn small primary" onclick="EAPHero.rubricReview(${idx})">Review</button></td>
       </tr>`;
   }
-
 
   function renderReviewQueue(){
     setView('reviewQueue');
@@ -35173,6 +35238,9 @@
         </div>
 
         <div class="footer-actions">
+          <button class="btn ${reviewViewMode()==='compact'?'success':'ghost'}" onclick="EAPHero.setReviewViewMode('compact')">Compact</button>
+          <button class="btn ${reviewViewMode()==='detail'?'success':'ghost'}" onclick="EAPHero.setReviewViewMode('detail')">Detailed</button>
+          <span class="pill">View: <span id="reviewViewLabel">${reviewViewMode()==='detail'?'Detailed':'Compact'}</span></span>
           <button class="btn primary" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
           <button class="btn primary" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
           <button class="btn" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
@@ -35180,7 +35248,9 @@
         </div>
 
         <div class="table-wrap review-table-wrap"><table>
-          <thead><tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Score Reason</th><th>Status</th><th>Rubric</th><th>Help Used</th><th>Evidence Output</th><th></th></tr></thead>
+          <thead id="reviewQueueHead">${reviewViewMode()==='compact'
+            ? '<tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Status</th><th>Help Used</th><th>Evidence</th><th></th></tr>'
+            : '<tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Score Reason</th><th>Status</th><th>Rubric</th><th>Help Used</th><th>Evidence Output</th><th></th></tr>'}</thead>
           <tbody id="reviewQueueBody">${rows}</tbody>
         </table></div>
 
@@ -35274,6 +35344,7 @@
     if(statusInput === 'Excellent') addXP(20);
     if(statusInput === 'Needs Revision') addXP(5);
     saveState();
+    safeToast(`Rubric saved: ${statusInput} (${total})`);
     renderReviewQueue();
   }
 
@@ -35866,6 +35937,8 @@
     exportClassActivityCSV,
     reviewQueue:renderReviewQueue,
     refreshReviewQueueTable,
+    setReviewViewMode,
+    viewEvidenceDetail,
     rubricReview:renderRubricReview,
     saveRubricReview,
     markNeedsRevision,
