@@ -14,7 +14,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v2.1b-gameplay-lockdown';
+  const VERSION = 'v2.1b-gameplay-lockdown-submit-flow-fix';
   const STORE_KEY = 'CSAI2102_AIQUEST_GAMEPLAY_LOCKDOWN_V21B';
 
   const RUN_MODES = {
@@ -344,12 +344,12 @@
 
     const state = load();
     const label = {
-      idle:'ยังไม่ได้บันทึก',
+      idle:'พร้อมบันทึกผล',
       saving:'กำลังบันทึก...',
       saved:'บันทึกแล้ว',
       pending:'รอ sync',
-      failed:'Sync failed',
-      duplicate:'ส่งซ้ำไม่ได้'
+      failed:'บันทึกไม่สำเร็จ',
+      duplicate:'บันทึกแล้ว'
     }[state.saveStatus] || state.saveStatus;
 
     box.textContent = `Save Status: ${label}`;

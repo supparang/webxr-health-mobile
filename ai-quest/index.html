@@ -1068,10 +1068,10 @@
           <textarea id="ref3" placeholder="เชื่อมกับตัวอย่างจริงหรือแนวคิด Mini Project"></textarea>
         </div>
 
-        <div class="coachBox" id="saveStatusBox">Save Status: ยังไม่ได้บันทึก</div>
+        <div class="coachBox" id="saveStatusBox">Save Status: พร้อมบันทึกผล</div>
 
         <div class="row" style="justify-content:center;margin-top:16px">
-          <button class="btn good" id="btnSaveResult">บันทึกผลและกลับเมนู</button>
+          <button class="btn good" id="btnSaveResult">ส่งผลเข้า Google Sheets และกลับเมนู</button>
           <button class="btn secondary" id="btnReplay">เล่นซ้ำเพื่อ Mastery</button>
           <button class="btn secondary" id="btnExportSummary">Export Summary</button>
         </div>
@@ -1693,6 +1693,24 @@ async function saveStudentProfile(){
       el('ref3').value = refs.ref3 || '';
 
       lastSummary = currentMeta.summary || null;
+
+      /*
+       * PATCH v2.3.2
+       * จบเกมแล้วห้ามขึ้น "บันทึกแล้ว" ก่อนกด submit จริง
+       * เพราะ Google Sheets จะเข้าเมื่อกดปุ่มส่งผล
+       */
+      if(window.AIQuestGameplayLockdown){
+        AIQuestGameplayLockdown.setSaveStatus('idle', '');
+      }
+
+      if(el('saveStatusBox')){
+        el('saveStatusBox').textContent = 'Save Status: พร้อมบันทึกผล';
+      }
+
+      if(el('btnSaveResult')){
+        el('btnSaveResult').disabled = false;
+        el('btnSaveResult').textContent = 'ส่งผลเข้า Google Sheets และกลับเมนู';
+      }
 
       if(window.AIQuestGameplayLockdown && el('resultGateStatusBox')){
         AIQuestGameplayLockdown.renderResultStatus(el('resultGateStatusBox'), lastSummary || currentMeta);
@@ -2453,7 +2471,7 @@ function logEvent(data){
         const summary = {
           missionId:'m1',
           missionTitle:'AI Awakening',
-          version:'v2.3-google-sheets-events',
+          version:'v2.3.2-submit-flow',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2511,7 +2529,7 @@ function logEvent(data){
       }
     }
 
-    function saveResult(){
+    async function saveResult(){
       const pendingAttemptId = lastSummary && (lastSummary.attemptId || lastSummary.sessionId || 'unknown');
       if(window.AIQuestGameplayLockdown){
         const guard = AIQuestGameplayLockdown.canSaveAttempt(pendingAttemptId);
@@ -2521,6 +2539,10 @@ function logEvent(data){
           return;
         }
         AIQuestGameplayLockdown.setSaveStatus('saving', pendingAttemptId);
+        if(el('btnSaveResult')){
+          el('btnSaveResult').disabled = true;
+          el('btnSaveResult').textContent = 'กำลังส่งเข้า Google Sheets...';
+        }
       }
       const id = currentMission.id;
       const stars = calcStars(currentScore);
@@ -2589,15 +2611,52 @@ function logEvent(data){
   }
   AIQuestStorage.saveAttempt(attempt);
 
-  if(window.AIQuestCloudLogger){
+  /*
+   * PATCH v2.3.2
+   * กดปุ่มนี้แล้วต้องส่งเข้า Google Sheets ให้จบก่อนค่อยกลับเมนู
+   */
+  try{
     if(window.AIQuestSync){
-      AIQuestSync.submitAttempt(attempt).catch(() => {});
-    }else{
-      AIQuestCloudLogger
-        .sendAttempt(attempt, attempt.events || [])
-        .then(() => AIQuestCloudLogger.flushPending())
-        .catch(() => {});
+      const syncResult = await AIQuestSync.submitAttempt(attempt);
+      const failed = syncResult && syncResult.counts && Number(syncResult.counts.failed || 0) > 0;
+
+      if(failed){
+        if(window.AIQuestGameplayLockdown){
+          AIQuestGameplayLockdown.setSaveStatus('failed', attempt.attemptId || '');
+        }
+        if(el('btnSaveResult')){
+          el('btnSaveResult').disabled = false;
+          el('btnSaveResult').textContent = 'ลองส่งเข้า Google Sheets อีกครั้ง';
+        }
+        showToast('บันทึกไม่สำเร็จ กรุณากด Retry Sync หรือบันทึกอีกครั้ง');
+        return;
+      }
+    }else if(window.AIQuestCloudLogger){
+      await AIQuestCloudLogger.sendAttempt(attempt, attempt.events || []);
+      await AIQuestCloudLogger.flushPending();
     }
+
+    if(window.AIQuestGameplayLockdown){
+      AIQuestGameplayLockdown.setSaveStatus('saved', attempt.attemptId || '');
+    }
+
+    if(el('saveStatusBox')){
+      el('saveStatusBox').textContent = 'Save Status: บันทึกแล้ว';
+    }
+
+    if(el('btnSaveResult')){
+      el('btnSaveResult').textContent = 'บันทึกแล้ว • กลับเมนู';
+    }
+  }catch(error){
+    if(window.AIQuestGameplayLockdown){
+      AIQuestGameplayLockdown.setSaveStatus('failed', attempt.attemptId || '', {error:String(error && error.message || error)});
+    }
+    if(el('btnSaveResult')){
+      el('btnSaveResult').disabled = false;
+      el('btnSaveResult').textContent = 'ลองส่งเข้า Google Sheets อีกครั้ง';
+    }
+    showToast('บันทึกไม่สำเร็จ: ' + String(error && error.message || error));
+    return;
   }
 }
       saveState();
