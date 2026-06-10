@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.3.6
+ * Version: v2.3.7
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.3.6';
+const APP_VERSION = 'v2.3.7';
 const TZ = 'Asia/Bangkok';
 
 const SHEETS = {
@@ -377,7 +377,30 @@ function buildTeacherConsole_(params) {
   const misconceptions = collectMisconceptions_(attempts, events);
   const stats = {totalStudents:students.length, submittedStudents:submitted.length, totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, failedSync:0};
   const risks = students.filter(function(s){ return s.risks && s.risks.length > 0; }).sort(function(a,b){ return Number(a.bestScore || 0) - Number(b.bestScore || 0); }).map(function(s){ return {studentId:s.studentId, studentName:s.studentName, section:s.section, bestScore:s.bestScore || '', latestScore:s.latestScore || '', helpUsed:s.helpUsed || 0, reflectionComplete:!!s.reflectionComplete, risks:s.risks || []}; });
-  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, misconceptions:misconceptions, students:students.length}};
+
+  const allStudents = students.sort(function(a,b){ return String(a.studentId || '').localeCompare(String(b.studentId || '')); }).map(function(s){
+    const latest = s.attempts.length ? s.attempts[s.attempts.length - 1] : {};
+    const sEvents = events.filter(function(e){ return String(e.studentId || '') === String(s.studentId || ''); }).slice(-30).reverse();
+    return {
+      studentId:s.studentId,
+      studentName:s.studentName,
+      section:s.section,
+      profile:!!s.profile,
+      attemptCount:s.attempts.length,
+      bestScore:s.bestScore || '',
+      latestScore:s.latestScore || '',
+      helpUsed:s.helpUsed || 0,
+      reflectionComplete:!!s.reflectionComplete,
+      mastered:!!s.mastered,
+      risks:s.risks || [],
+      latestReflection:{reflection1:String(latest.reflection1 || ''), reflection2:String(latest.reflection2 || ''), reflection3:String(latest.reflection3 || '')},
+      misconceptions:collectMisconceptions_(s.attempts || [], sEvents || []),
+      attempts:(s.attempts || []).map(function(a){ return {attemptId:String(a.attemptId || ''), serverTs:String(a.serverTs || ''), clientTs:String(a.clientTs || ''), score:Number(a.score || 0), stars:Number(a.stars || 0), accuracy:Number(a.accuracy || 0), helpUsed:Number(a.helpUsed || 0), mastered:bool_(a.mastered), bossWin:bool_(a.bossWin), reflection1:String(a.reflection1 || ''), reflection2:String(a.reflection2 || ''), reflection3:String(a.reflection3 || '')}; }),
+      recentEvents:sEvents.map(function(e){ return {serverTs:String(e.serverTs || ''), eventType:String(e.eventType || ''), phase:String(e.phase || ''), itemId:String(e.itemId || ''), prompt:String(e.prompt || '').slice(0, 500), yourAnswer:String(e.yourAnswer || ''), correctAnswer:String(e.correctAnswer || ''), isCorrect:String(e.isCorrect || '')}; })
+    };
+  });
+
+  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:allStudents, misconceptions:misconceptions, students:students.length}};
 }
 
 function sheetObjects_(sheetName) {
