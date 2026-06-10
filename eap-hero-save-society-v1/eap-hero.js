@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1i Pre-Firebase QA Lock ===
+/* === EAP Hero: Save the Society v1k Skill Path + Replay Challenge ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1i-pre-firebase-qa-lock';
+  const APP_VERSION = '20260610-v1k-skill-path-replay';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31521,6 +31521,10 @@
       examAttempts:{},
       fun:{ coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] },
       qa:{ runtimeErrors:[], lastBackupAt:'', lastImportAt:'', qaNotes:[] },
+      portfolio:[],
+      mastery:{ Reading:0, Writing:0, Listening:0, Speaking:0, Ethics:0 },
+      replay:{ ghosts:{}, secretMissions:{}, bossRushLogs:[] },
+      skillPath:{ unlockedBossGates:{} },
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -31576,6 +31580,14 @@
       merged.fun.achievementsClaimed = (parsed.fun && parsed.fun.achievementsClaimed) || [];
       merged.qa = Object.assign(fresh.qa || {}, parsed.qa || {});
       merged.qa.runtimeErrors = (parsed.qa && parsed.qa.runtimeErrors) || [];
+      merged.portfolio = parsed.portfolio || [];
+      merged.mastery = Object.assign(fresh.mastery || {}, parsed.mastery || {});
+      merged.replay = Object.assign(fresh.replay || {}, parsed.replay || {});
+      merged.replay.ghosts = (parsed.replay && parsed.replay.ghosts) || {};
+      merged.replay.secretMissions = (parsed.replay && parsed.replay.secretMissions) || {};
+      merged.replay.bossRushLogs = (parsed.replay && parsed.replay.bossRushLogs) || [];
+      merged.skillPath = Object.assign(fresh.skillPath || {}, parsed.skillPath || {});
+      merged.skillPath.unlockedBossGates = (parsed.skillPath && parsed.skillPath.unlockedBossGates) || {};
       return merged;
     }catch(e){
       console.warn(e);
@@ -31739,6 +31751,8 @@
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
             <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
             <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
+            <button class="btn ghost small" onclick="EAPHero.skillHub()">🎧 Skills</button>
+            <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
             <button class="btn ghost small" onclick="EAPHero.dashboard()">📊 Teacher</button>
@@ -32642,6 +32656,25 @@
 
   function finishBoss(win, reason){
     clearInterval(bossTimer);
+    if(state.replay && state.replay.currentGate && state.active){
+      const gateId = state.replay.currentGate;
+      const percentNow = Math.round((state.active.correct / Math.max(1, state.active.answers.length)) * 100);
+      const old = state.replay.ghosts[gateId] || { bestPercent:0, bestCombo:0, wins:0 };
+      const beatGhost = percentNow > old.bestPercent || (state.active.maxCombo || 0) > old.bestCombo;
+      state.replay.ghosts[gateId] = {
+        bestPercent: Math.max(old.bestPercent || 0, percentNow),
+        bestCombo: Math.max(old.bestCombo || 0, state.active.maxCombo || 0),
+        wins: (old.wins || 0) + (win ? 1 : 0),
+        lastMutation: state.replay.currentMutation || 'standard',
+        updatedAt:new Date().toISOString()
+      };
+      state.replay.bossRushLogs = state.replay.bossRushLogs || [];
+      state.replay.bossRushLogs.push({ gateId, win, percent:percentNow, combo:state.active.maxCombo || 0, mutation:state.replay.currentMutation || 'standard', at:new Date().toISOString() });
+      if(beatGhost) state.replay.secretMissions.ghost_beater = true;
+      if((state.replay.currentMutation || '') === 'nohint' && win) state.replay.secretMissions.no_hint_win = true;
+      state.replay.currentGate = '';
+      state.replay.currentMutation = '';
+    }
     const a = state.active;
     if(!a) return renderMap();
     const s = getSession(a.sessionId);
@@ -33239,6 +33272,394 @@
 
 
 
+
+
+  const BOSS_GATES = [
+    { id:'gate1', title:'Foundation Boss', after:3, sessions:[1,2,3], boss:'Confusion Slime + Detail Trap Spider', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S1-S3' },
+    { id:'gate2', title:'Critical Boss', after:6, sessions:[4,5,6], boss:'Fake News Phantom + Copy-Paste Zombie', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S4-S6' },
+    { id:'gate3', title:'Midterm Hydra', after:8, sessions:[1,2,3,4,5,6,7,8], boss:'Exam Hydra', skills:['Reading','Writing','Listening'], unlock:'Complete at least 6 portfolio items before S8' },
+    { id:'gate4', title:'Production Boss', after:11, sessions:[9,10,11], boss:'Broken Paragraph Beast + Graph Fog Dragon + Rude Mail Gremlin', skills:['Writing','Speaking'], unlock:'Complete Writing evidence in S9-S11' },
+    { id:'gate5', title:'Communication Boss', after:14, sessions:[12,13,14], boss:'Plagiarism Monster + Lecture Storm + Nervous Ghost', skills:['Listening','Speaking','Ethics'], unlock:'Complete Listening + Speaking evidence in S12-S14' },
+    { id:'final', title:'Final Boss', after:15, sessions:[15], boss:'Stagnation Emperor', skills:['Reading','Writing','Listening','Speaking'], unlock:'Complete final problem-solution portfolio evidence' }
+  ];
+
+  const MUTATIONS = [
+    { key:'standard', name:'Standard Form', note:'Normal challenge', timeFactor:1, reasonBoost:0 },
+    { key:'speed', name:'Speed Form', note:'Less time, more XP', timeFactor:.75, reasonBoost:0 },
+    { key:'mirror', name:'Mirror Form', note:'Distractors feel closer', timeFactor:1, reasonBoost:1 },
+    { key:'evidence', name:'Evidence Form', note:'Reason Gate appears more often', timeFactor:1, reasonBoost:2 },
+    { key:'nohint', name:'No Hint Form', note:'No hint challenge', timeFactor:.9, reasonBoost:1 },
+    { key:'portfolio', name:'Portfolio Form', note:'Requires skill evidence before full victory', timeFactor:1, reasonBoost:2 }
+  ];
+
+  function portfolioEvidence(sessionId, skill){
+    return (state.portfolio || []).filter(p => Number(p.session) === Number(sessionId) && String(p.skill) === String(skill));
+  }
+
+  function hasSkillEvidenceInRange(sessions, skill){
+    return (state.portfolio || []).some(p => sessions.includes(Number(p.session)) && String(p.skill) === skill);
+  }
+
+  function bossGateStatus(gate){
+    if(gate.id === 'gate3') return (state.portfolio || []).length >= 6;
+    if(gate.id === 'final') return (state.portfolio || []).some(p => Number(p.session) === 15 && ['Writing','Speaking'].includes(p.skill));
+    return gate.skills.every(skill => hasSkillEvidenceInRange(gate.sessions, skill));
+  }
+
+  function bossGateForSession(sessionId){
+    return BOSS_GATES.find(g => Number(g.after) === Number(sessionId));
+  }
+
+  function skillPathForSession(sessionId){
+    const map = {
+      1:{ core:'Speaking', support:'Writing', optional:['Reading','Listening'] },
+      2:{ core:'Reading', support:'Listening', optional:['Writing','Speaking'] },
+      3:{ core:'Reading', support:'Writing', optional:['Listening','Speaking'] },
+      4:{ core:'Reading', support:'Listening', optional:['Writing','Speaking'] },
+      5:{ core:'Reading', support:'Speaking', optional:['Writing','Listening'] },
+      6:{ core:'Writing', support:'Reading', optional:['Listening','Speaking'] },
+      7:{ core:'Writing', support:'Reading', optional:['Listening','Speaking'] },
+      8:{ core:'Reading', support:'Writing', optional:['Listening','Speaking'] },
+      9:{ core:'Writing', support:'Reading', optional:['Speaking','Listening'] },
+      10:{ core:'Writing', support:'Reading', optional:['Speaking','Listening'] },
+      11:{ core:'Writing', support:'Speaking', optional:['Reading','Listening'] },
+      12:{ core:'Writing', support:'Reading', optional:['Speaking','Listening'] },
+      13:{ core:'Listening', support:'Writing', optional:['Reading','Speaking'] },
+      14:{ core:'Speaking', support:'Listening', optional:['Reading','Writing'] },
+      15:{ core:'Speaking', support:'Writing', optional:['Reading','Listening'] }
+    };
+    return map[sessionId] || { core:'Reading', support:'Writing', optional:['Listening','Speaking'] };
+  }
+
+  function renderSkillPath(sessionId){
+    const s = getSession(Number(sessionId || 1));
+    const path = skillPathForSession(s.id);
+    const gate = bossGateForSession(s.id);
+    const cards = ['Reading','Writing','Listening','Speaking'].map(skill=>{
+      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
+      const done = portfolioEvidence(s.id, skill).length > 0;
+      const fn = skill === 'Reading' ? 'readingMission' : skill === 'Writing' ? 'writingMission' : skill === 'Listening' ? 'listeningMission' : 'speakingMission';
+      return `<div class="hud-card ${done?'ok':''}">
+        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
+        <p class="mini-note">${required} Mission</p>
+        <button class="btn ${required==='Optional'?'ghost':'primary'} block" onclick="EAPHero.${fn}(${s.id})">${done?'Replay':'Start'} ${safe(skill)}</button>
+      </div>`;
+    }).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Skill Path Lock</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
+        <h2>Skill Path: Session ${s.id}</h2>
+        <p class="lead">ต้องผ่าน Core + Support evidence ก่อนจึงถือว่า Session พร้อมเข้า Boss Gate ช่วงถัดไป</p>
+        <div class="grid four">${cards}</div>
+        ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Boss Gate Available: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Boss Gate</button></div>` : ''}
+        <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
+      </section>`);
+  }
+
+  function renderBossGate(gateId){
+    const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
+    const unlocked = bossGateStatus(gate);
+    const mutation = mutationForGate(gate.id);
+    const ghost = state.replay?.ghosts?.[gate.id];
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Boss Gate</span><span class="pill">${safe(gate.title)}</span><span class="pill">${unlocked?'Unlocked':'Locked'}</span></div>
+        <h2>${safe(gate.boss)}</h2>
+        <p class="lead">${safe(gate.unlock)}</p>
+        <div class="grid three">
+          <div class="stat"><b>${safe(mutation.name)}</b><span>Mutation</span></div>
+          <div class="stat"><b>${ghost ? ghost.bestPercent+'%' : '-'}</b><span>Rival Ghost</span></div>
+          <div class="stat"><b>${gate.skills.join(' + ')}</b><span>Skill Check</span></div>
+        </div>
+        <div class="panel light" style="margin-top:18px">
+          <h3>Boss Rule</h3>
+          <p class="mini-note">บอสช่วงนี้ใช้ MCQ + Reason Gate + portfolio evidence ร่วมกัน ไม่ใช่เลือกตอบอย่างเดียว</p>
+        </div>
+        <div class="footer-actions">
+          <button class="btn primary" ${unlocked?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">Start Gate Boss</button>
+          <button class="btn" onclick="EAPHero.skillPath(${gate.after})">Complete Skill Evidence</button>
+          <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
+        </div>
+      </section>`);
+  }
+
+  function mutationForGate(gateId){
+    const logs = (state.replay?.bossRushLogs || []).filter(x => x.gateId === gateId).length;
+    return MUTATIONS[logs % MUTATIONS.length];
+  }
+
+  function startGateBoss(gateId){
+    const gate = BOSS_GATES.find(g => g.id === gateId);
+    if(!gate || !bossGateStatus(gate)) return renderBossGate(gateId);
+    const mutation = mutationForGate(gateId);
+    state.replay.currentGate = gateId;
+    state.replay.currentMutation = mutation.key;
+    saveState();
+    startBoss(gate.after, mutation.key === 'nohint' ? 'nohint' : mutation.key === 'speed' ? 'speed' : 'hero');
+  }
+
+  function updateMasteryFromPortfolio(entry){
+    if(!entry || !entry.skill) return;
+    state.mastery = state.mastery || {};
+    const skill = entry.skill;
+    state.mastery[skill] = Math.min(100, (state.mastery[skill] || 0) + Math.max(3, Math.round((entry.score || 0)/20)));
+    if(Number(entry.session) === 12) state.mastery.Ethics = Math.min(100, (state.mastery.Ethics || 0) + 4);
+  }
+
+  function masteryRank(score){
+    if(score >= 90) return 'S';
+    if(score >= 75) return 'A';
+    if(score >= 60) return 'B';
+    if(score >= 40) return 'C';
+    if(score >= 20) return 'D';
+    return 'E';
+  }
+
+  function renderReplayHub(){
+    const gates = BOSS_GATES.map(g=>{
+      const unlocked = bossGateStatus(g);
+      const ghost = state.replay?.ghosts?.[g.id];
+      return `<div class="hud-card">
+        <h3>${safe(g.title)}</h3>
+        <p>${safe(g.boss)}</p>
+        <p class="mini-note">${unlocked?'✅ Unlocked':'🔒 '+g.unlock}</p>
+        <p class="mini-note">Ghost: ${ghost ? ghost.bestPercent+'% / combo '+ghost.bestCombo : '-'}</p>
+        <button class="btn ${unlocked?'primary':'ghost'} block" onclick="EAPHero.bossGate('${g.id}')">${unlocked?'Challenge':'View Gate'}</button>
+      </div>`;
+    }).join('');
+    const mastery = ['Reading','Writing','Listening','Speaking','Ethics'].map(k=>`<div class="stat"><b>${masteryRank(state.mastery?.[k]||0)}</b><span>${k} ${state.mastery?.[k]||0}</span></div>`).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Replay Challenge Layer</span><span class="pill">Boss Mutation</span><span class="pill">Rival Ghost</span></div>
+        <h2>Replay Hub</h2>
+        <p class="lead">เล่นซ้ำเพื่อชนะตัวเอง เก็บ mastery rank ปลด secret missions และท้าทาย boss mutation</p>
+        <h3>Skill Mastery</h3><div class="grid five">${mastery}</div>
+        <h3 style="margin-top:20px">Boss Gates</h3><div class="grid three">${gates}</div>
+        <div class="panel light" style="margin-top:18px"><h3>Secret Missions</h3>${secretMissionRows()}</div>
+      </section>`);
+  }
+
+  function secretMissionRows(){
+    const missions = [
+      ['no_hint_win','Win any Boss Gate with No Hint Form'],
+      ['reason_chain','Answer 5 Reason Gates correctly'],
+      ['portfolio_10','Collect 10 portfolio evidence items'],
+      ['skill_balance','Reach rank C in all four skills'],
+      ['ghost_beater','Beat your Rival Ghost once']
+    ];
+    return `<div class="grid three">${missions.map(m=>`<div class="hud-card"><h3>${state.replay?.secretMissions?.[m[0]]?'🏆':'🔒'} ${safe(m[0])}</h3><p class="mini-note">${safe(m[1])}</p></div>`).join('')}</div>`;
+  }
+
+  function checkSecretMissions(){
+    state.replay = state.replay || {secretMissions:{}};
+    const sm = state.replay.secretMissions = state.replay.secretMissions || {};
+    if((state.portfolio || []).length >= 10) sm.portfolio_10 = true;
+    if(['Reading','Writing','Listening','Speaking'].every(k => (state.mastery?.[k] || 0) >= 40)) sm.skill_balance = true;
+  }
+
+
+  function skillTextForSession(s){
+    const topicMap = {
+      1:['academic goal setting','Many students study English without a clear academic purpose. A useful EAP plan identifies a target skill, a practice strategy, and a way to review progress.'],
+      2:['academic vocabulary','Academic vocabulary helps students understand lectures, textbooks, and research articles. Students should learn words in context and review how each word functions.'],
+      3:['main idea reading','Effective readers identify the writer’s main idea, separate it from supporting details, and check how each sentence contributes to the paragraph.'],
+      4:['keywords and signal words','Signal words such as however, therefore, and for example help readers follow relationships between ideas in reading and listening.'],
+      5:['critical reading','Critical readers examine claims, evidence, source credibility, date, and possible bias before using information in academic work.'],
+      6:['summarizing','A good summary keeps the original meaning but expresses the key ideas briefly in the student’s own words.'],
+      7:['academic tone','Academic tone is formal, precise, and cautious. Writers should avoid casual expressions and unsupported claims.'],
+      8:['integrated academic review','Academic English requires reading sources, identifying evidence, summarizing ideas, using formal tone, and explaining thinking clearly.'],
+      9:['paragraph writing','A strong academic paragraph has a topic sentence, supporting details, evidence or examples, and a concluding sentence.'],
+      10:['data description','When describing data, writers highlight major trends, compare important values, and avoid unsupported claims.'],
+      11:['academic email','Academic email includes a clear subject, polite greeting, specific purpose, reasonable request, and respectful closing.'],
+      12:['citation and ethics','Academic integrity requires students to credit sources, paraphrase carefully, quote accurately, and use AI transparently.'],
+      13:['academic listening','Academic listeners focus on keywords, signal words, main points, and repeated ideas rather than every word.'],
+      14:['academic presentation','A clear presentation includes an opening, outline, signposting, evidence, conclusion, and polite Q&A responses.'],
+      15:['problem-solution presentation','A final academic presentation explains a social problem, causes, evidence, practical solutions, and a conclusion.']
+    };
+    const data = topicMap[s.id] || ['academic English', s.skill];
+    return { topic:data[0], passage:data[1] };
+  }
+
+  function renderSkillHub(sessionId){
+    const current = getSession(Number(sessionId || 1));
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Four Skills Mode</span><span class="pill">Portfolio: ${(state.portfolio||[]).length}</span><span class="pill">Reading • Writing • Listening • Speaking</span></div>
+        <h2>EAP Skill Mission Hub</h2>
+        <p class="lead">โหมดนี้เพิ่มทักษะจริงของ EAP ไม่ใช่แค่เลือกตอบ: อ่าน เขียน ฟัง พูด และบันทึกหลักฐานเป็น portfolio</p>
+        <div class="grid four">${SESSIONS.map(x => `<button class="btn ${current.id===x.id?'primary':'ghost'}" onclick="EAPHero.skillHub(${x.id})">S${x.id} ${x.emoji}</button>`).join('')}</div>
+        <div class="panel light" style="margin-top:18px">
+          <h3>Session ${current.id}: ${safe(current.skill)}</h3>
+          <p class="mini-note">Boss: ${safe(current.boss)} • Topic: ${safe(skillTextForSession(current).topic)}</p>
+          <button class="btn warn block" onclick="EAPHero.skillPath(${current.id})">🧭 Required Path</button>
+          <div class="grid four">
+            <button class="btn primary block" onclick="EAPHero.readingMission(${current.id})">📖 Reading</button>
+            <button class="btn primary block" onclick="EAPHero.writingMission(${current.id})">✍️ Writing</button>
+            <button class="btn primary block" onclick="EAPHero.listeningMission(${current.id})">🎧 Listening</button>
+            <button class="btn primary block" onclick="EAPHero.speakingMission(${current.id})">🎤 Speaking</button>
+          </div>
+        </div>
+        <h3 style="margin-top:20px">Recent Portfolio</h3>
+        <div class="table-wrap"><table><thead><tr><th>At</th><th>Session</th><th>Skill</th><th>Score</th><th>Output</th></tr></thead><tbody>${portfolioRows()}</tbody></table></div>
+      </section>`);
+  }
+
+  function portfolioRows(){
+    const rows = (state.portfolio || []).slice(-12).reverse().map(p => `<tr><td>${new Date(p.at).toLocaleString()}</td><td>S${p.session}</td><td>${safe(p.skill)}</td><td>${p.score || 0}</td><td>${safe(String(p.output || '').slice(0,120))}</td></tr>`).join('');
+    return rows || '<tr><td colspan="5">No portfolio evidence yet</td></tr>';
+  }
+
+  function renderReadingMission(id){
+    const s = getSession(id), text = skillTextForSession(s);
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
+      <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
+      <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
+      ${['What is the main idea?','Write two keywords.','Which idea gives useful academic support?'].map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+    </section>`);
+  }
+
+  function submitReading(id){
+    const s = getSession(id), text = skillTextForSession(s);
+    const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
+    const joined = answers.join(' ').toLowerCase();
+    let score = 0;
+    if(joined.includes(text.topic.split(' ')[0].toLowerCase())) score += 25;
+    if(joined.length >= 80) score += 25;
+    if(/main|idea|keyword|evidence|support|source|trend|tone|summary|problem/.test(joined)) score += 25;
+    if(answers.filter(a=>a.length>10).length >= 2) score += 25;
+    addPortfolio({ session:id, skill:'Reading', score, output:answers.join(' | '), prompt:text.passage });
+    showSkillResult('Reading', score, id);
+  }
+
+  function renderWritingMission(id){
+    const s = getSession(id), prompt = writingPromptForSession(s);
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
+      <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
+      <p class="mini-note">เป้าหมาย: ${safe(prompt.target)} • auto-check เบื้องต้น</p>
+      <textarea id="writingOutput" class="input" rows="9"></textarea>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+    </section>`);
+  }
+
+  function writingPromptForSession(s){
+    if(s.id === 6) return { title:'Summary Writing', target:'60–90 words', instruction:'Write a short summary: Academic English helps students read sources, evaluate evidence, and communicate ideas clearly.' };
+    if(s.id === 9) return { title:'Academic Paragraph', target:'topic sentence + support + conclusion', instruction:'Write one paragraph about how digital literacy can help university students.' };
+    if(s.id === 10) return { title:'Data Description', target:'describe trend without overclaiming', instruction:'Describe this data: AI tool use increased from 30% in 2023 to 55% in 2025.' };
+    if(s.id === 11) return { title:'Academic Email', target:'subject, greeting, request, closing', instruction:'Write a polite email asking your instructor for feedback on a draft report.' };
+    if(s.id === 12) return { title:'AI Use Declaration', target:'transparent and ethical statement', instruction:'Write a short declaration explaining responsible AI use for brainstorming and grammar checking.' };
+    if(s.id === 15) return { title:'Problem-Solution Paragraph', target:'problem + evidence + solution', instruction:'Write a short problem-solution paragraph about fake news, online scams, or AI misuse.' };
+    return { title:'Academic Reflection', target:'80–120 words', instruction:`Write a short academic reflection about how ${s.skill} can help university students.` };
+  }
+
+  function submitWriting(id){
+    const s = getSession(id), out = document.getElementById('writingOutput')?.value.trim() || '';
+    const words = out.split(/\s+/).filter(Boolean).length;
+    let score = 0;
+    if(words >= 45) score += 25;
+    if(/\b(however|therefore|because|according to|evidence|suggest|indicate|in conclusion)\b/i.test(out)) score += 25;
+    if(/\b(problem|cause|solution|summary|source|data|academic|students|learning)\b/i.test(out)) score += 25;
+    if(/[.!?]\s+[A-Z]/.test(out) || words >= 80) score += 25;
+    addPortfolio({ session:id, skill:'Writing', score, output:out, prompt:writingPromptForSession(s).instruction });
+    showSkillResult('Writing', score, id);
+  }
+
+  function renderListeningMission(id){
+    const s = getSession(id), text = skillTextForSession(s);
+    const lecture = `Today, we will discuss ${text.topic}. ${text.passage} The key point is that students should understand the idea, identify useful evidence, and apply it in academic communication.`;
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
+      <h2>🎧 Listening Mission</h2><div class="context" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.playLecture()">▶️ Play Lecture</button><button class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button></div>
+      <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+    </section>`);
+  }
+
+  function playLecture(){
+    const el = document.getElementById('lectureText');
+    const text = el?.dataset?.lecture || el?.textContent || '';
+    if(!('speechSynthesis' in window)) return alert('Browser นี้ไม่รองรับ speech synthesis ค่ะ');
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text); utter.lang = 'en-US'; utter.rate = .9;
+    window.speechSynthesis.speak(utter);
+  }
+  function stopLecture(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); }
+
+  function submitListening(id){
+    const s = getSession(id), notes = document.getElementById('listeningNotes')?.value.trim() || '';
+    const low = notes.toLowerCase();
+    let score = 0;
+    if(notes.split(/\s+/).filter(Boolean).length >= 20) score += 25;
+    if(/main|point|keyword|evidence|source|academic|student|learning/.test(low)) score += 25;
+    if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
+    if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
+    addPortfolio({ session:id, skill:'Listening', score, output:notes, prompt:skillTextForSession(s).passage });
+    showSkillResult('Listening', score, id);
+  }
+
+  function renderSpeakingMission(id){
+    const s = getSession(id), prompt = speakingPromptForSession(s);
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
+      <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
+      <p class="mini-note">พูดจริงหน้าห้อง/จับคู่/อัดเสียงเอง แล้วพิมพ์ transcript หรือ speaking notes เพื่อบันทึก portfolio</p>
+      <textarea id="speakingTranscript" class="input" rows="8"></textarea>
+      <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+    </section>`);
+  }
+
+  function speakingPromptForSession(s){
+    if(s.id === 14) return { title:'Academic Presentation', instruction:'Give a 45–60 second presentation opening about digital literacy. Include opening, outline, signposting, and conclusion.' };
+    if(s.id === 15) return { title:'Final Problem-Solution Talk', instruction:'Give a 60–90 second talk about one social problem. Include problem, cause, evidence, solution, and conclusion.' };
+    return { title:'Mini Academic Speaking', instruction:`Give a 30–45 second explanation of how ${s.skill} helps university students in academic work.` };
+  }
+
+  function submitSpeaking(id){
+    const s = getSession(id), out = document.getElementById('speakingTranscript')?.value.trim() || '';
+    let score = 0;
+    if(out.split(/\s+/).filter(Boolean).length >= 35) score += 25;
+    if(document.getElementById('spOpen')?.checked) score += 15;
+    if(document.getElementById('spSign')?.checked) score += 20;
+    if(document.getElementById('spEvi')?.checked) score += 20;
+    if(document.getElementById('spClose')?.checked) score += 20;
+    addPortfolio({ session:id, skill:'Speaking', score, output:out, prompt:speakingPromptForSession(s).instruction });
+    showSkillResult('Speaking', score, id);
+  }
+
+  function addPortfolio(entry){
+    state.portfolio = state.portfolio || [];
+    state.portfolio.push(Object.assign({ at:new Date().toISOString(), student_id:state.profile.studentId || 'guest', player_name:state.profile.name || 'Guest' }, entry));
+    updateMasteryFromPortfolio(entry);
+    checkSecretMissions();
+    addXP(Math.max(5, Math.round((entry.score || 0) / 4)));
+    saveState();
+  }
+
+  function showSkillResult(skill, score, id){
+    layout(`<section class="panel light result-hero" style="margin-top:20px">
+      <div class="big-emoji">${score >= 75 ? '🌟' : score >= 50 ? '✅' : '📝'}</div><h2>${safe(skill)} Evidence Saved</h2>
+      <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio Items</span></div></div>
+      <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
+      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
+    </section>`);
+  }
+
+  function exportPortfolioCSV(){
+    const header = ['student_id','player_name','session','skill','score','prompt','output','at'];
+    const rows = (state.portfolio || []).map(p => header.map(h => csvCell(p[h])).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'eap-hero-portfolio.csv'; a.click(); URL.revokeObjectURL(url);
+  }
+
+  function safeAttr(text){ return String(text ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+
   function localStorageBytes(){
     try{
       return new Blob([localStorage.getItem(STORAGE_KEY) || '']).size;
@@ -33573,6 +33994,7 @@
 
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.exportCSV()">Export Game CSV</button>
+          <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
           <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
           <button class="btn" onclick="EAPHero.qaLock()">QA Lock</button>
@@ -33691,6 +34113,22 @@
     reasonAnswer,
     itemGuard:renderItemGuard,
     qaLock:renderQALock,
+    skillHub:renderSkillHub,
+    skillPath:renderSkillPath,
+    bossGate:renderBossGate,
+    startGateBoss,
+    replayHub:renderReplayHub,
+    readingMission:renderReadingMission,
+    submitReading,
+    writingMission:renderWritingMission,
+    submitWriting,
+    listeningMission:renderListeningMission,
+    playLecture,
+    stopLecture,
+    submitListening,
+    speakingMission:renderSpeakingMission,
+    submitSpeaking,
+    exportPortfolioCSV,
     exportBackupJSON,
     importBackupJSON,
     exportFirebasePreview,
