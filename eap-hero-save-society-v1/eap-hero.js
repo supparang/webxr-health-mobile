@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z3 Toast Safe Hotfix ===
+/* === EAP Hero: Save the Society v1z4 Student Simple Mode ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z3-toast-safe-hotfix';
+  const APP_VERSION = '20260610-v1z4-student-simple-mode';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31532,7 +31532,7 @@
       revisions:{ submissions:[], improvementBadges:{} },
       lessons:{ activePlan:null, logs:[] },
       classActivities:{ pairMissions:[], peerReviews:[] },
-      settings:{ difficulty:'normal', skillDifficulty:'normal' },
+      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true },
       recentQuestions:{},
       active:null
     };
@@ -31614,7 +31614,9 @@
       merged.classActivities = Object.assign(fresh.classActivities || {}, parsed.classActivities || {});
       merged.classActivities.pairMissions = (parsed.classActivities && parsed.classActivities.pairMissions) || [];
       merged.classActivities.peerReviews = (parsed.classActivities && parsed.classActivities.peerReviews) || [];
-      merged.settings.skillDifficulty = parsed.settings?.skillDifficulty || parsed.settings?.difficulty || 'normal';
+      merged.settings.skillDifficulty = parsed.settings?.skillDifficulty || parsed.settings?.difficulty || 'easy';
+      merged.settings.uiMode = parsed.settings?.uiMode || 'simple';
+      merged.settings.progressiveUnlock = parsed.settings?.progressiveUnlock !== false;
       return merged;
     }catch(e){
       console.warn(e);
@@ -33361,16 +33363,21 @@
     const s = getSession(Number(sessionId || 1));
     const path = skillPathForSession(s.id);
     const gate = bossGateForSession(s.id);
-    const cards = ['Reading','Writing','Listening','Speaking'].map(skill=>{
+    const visibleSkills = isSimpleMode()
+      ? [path.core].concat(featureUnlocked('supportMission') ? [path.support] : [])
+      : ['Reading','Writing','Listening','Speaking'];
+    const cards = visibleSkills.map(skill=>{
       const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
       const done = portfolioEvidence(s.id, skill).length > 0;
       const fn = skill === 'Reading' ? 'readingMission' : skill === 'Writing' ? 'writingMission' : skill === 'Listening' ? 'listeningMission' : 'speakingMission';
-      return `<div class="hud-card ${done?'ok':''}">
+      const locked = isSimpleMode() && required === 'Support' && !featureUnlocked('supportMission');
+      return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
         <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
-        <p class="mini-note">${required} Mission</p>
-        <button class="btn ${required==='Optional'?'ghost':'primary'} block" onclick="EAPHero.${fn}(${s.id})">${done?'Replay':'Start'} ${safe(skill)}</button>
+        <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
+        <button class="btn ${required==='Optional'?'ghost':'primary'} block" ${locked?'disabled':''} onclick="EAPHero.${fn}(${s.id})">${done?'Replay':'Start'} ${safe(skill)}</button>
       </div>`;
     }).join('');
+    const hiddenNote = isSimpleMode() ? `<div class="panel light" style="margin-top:12px"><b>Simple Mode:</b> ตอนนี้ให้ทำ Core Mission ก่อน ${featureUnlocked('supportMission') ? 'และ Support Mission ได้แล้ว' : 'Support Mission จะปลดหลังมี progress/evidence เพิ่ม'}</div>` : '';
     layout(`
       <section class="panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Skill Path Lock</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
@@ -33380,6 +33387,7 @@
           <b>Flow:</b> Map → Session Path → Core/Support Mission → Mini Check/Boss Gate → Map
         </div>
         <div class="grid four">${cards}</div>
+        ${hiddenNote}
         ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Boss Gate Available: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Boss Gate</button></div>` : ''}
         <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
       </section>`);
@@ -33405,7 +33413,7 @@
           <p class="mini-note">บอสช่วงนี้ใช้ MCQ + Reason Gate + portfolio evidence ร่วมกัน ไม่ใช่เลือกตอบอย่างเดียว</p>
         </div>
         <div class="footer-actions">
-          <button class="btn primary" ${unlocked?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">Start Gate Boss</button>
+          <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Gate Boss':'Boss Gate unlocks later'}</button>
           <button class="btn" onclick="EAPHero.skillPath(${gate.after})">Complete Skill Evidence</button>
           <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
         </div>
@@ -34494,6 +34502,70 @@
   }
 
 
+
+  function isSimpleMode(){
+    return (state.settings?.uiMode || 'simple') === 'simple';
+  }
+
+  function setUIMode(mode){
+    state.settings = state.settings || {};
+    state.settings.uiMode = mode === 'advanced' ? 'advanced' : 'simple';
+    if(state.settings.uiMode === 'simple'){
+      state.settings.skillDifficulty = state.settings.skillDifficulty || 'easy';
+    }
+    saveState();
+    safeToast(`UI Mode: ${state.settings.uiMode === 'simple' ? 'Student Simple' : 'Teacher Advanced'}`);
+    renderHome();
+  }
+
+  function unlockLevel(){
+    const passed = Object.keys(state.progress || {}).filter(k => state.progress[k]?.stars > 0).length;
+    const evidence = (state.portfolio || []).length;
+    if(!state.settings?.progressiveUnlock) return 99;
+    if(passed >= 8 || evidence >= 12) return 4;
+    if(passed >= 4 || evidence >= 6) return 3;
+    if(passed >= 2 || evidence >= 3) return 2;
+    return 1;
+  }
+
+  function featureUnlocked(feature){
+    if(!isSimpleMode()) return true;
+    const u = unlockLevel();
+    const rules = {
+      supportMission: u >= 2,
+      bossGate: u >= 3,
+      replay: u >= 3,
+      revision: u >= 4,
+      rubricView: false,
+      teacherTools: false,
+      exam: u >= 3,
+      qa: false,
+      classActivity: false
+    };
+    return !!rules[feature];
+  }
+
+  function simpleModeNoticeHTML(){
+    if(!isSimpleMode()) return '';
+    const u = unlockLevel();
+    return `<div class="panel light simple-notice">
+      <div class="badges"><span class="pill">Student Simple Mode</span><span class="pill">Unlock Lv.${u}</span><span class="pill">Default Easy</span></div>
+      <p><b>โหมดผู้เรียนเริ่มต้น:</b> ทำทีละขั้น เห็นเฉพาะสิ่งที่จำเป็นก่อน ระบบ Rubric/Revision/Teacher Tools จะซ่อนเพื่อไม่ให้ยากเกินไป</p>
+      <p class="mini-note">เริ่มจาก Core Mission ก่อน แล้วค่อยปลด Support Mission, Boss Gate และ Replay ตามความก้าวหน้า</p>
+    </div>`;
+  }
+
+  function simpleTopNavHTML(){
+    if(!isSimpleMode()) return '';
+    return `<button class="btn ghost small" onclick="EAPHero.setUIMode('advanced')">🔓 Advanced</button>`;
+  }
+
+  function advancedTopNavHTML(){
+    if(isSimpleMode()) return '';
+    return `<button class="btn ghost small" onclick="EAPHero.setUIMode('simple')">🧒 Simple</button>`;
+  }
+
+
   const SKILL_DIFFICULTIES = {
     easy:{ key:'easy', label:'Easy', note:'คำถามตรง มี scaffold มากกว่า', aiLimitBonus:1, transcriptPenalty:4, scoreBonus:0 },
     normal:{ key:'normal', label:'Normal', note:'ระดับมาตรฐานของคาบเรียน', aiLimitBonus:0, transcriptPenalty:8, scoreBonus:0 },
@@ -34593,6 +34665,7 @@
         <div class="badges"><span class="pill">v1z2</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: <span data-current-difficulty>${safe(d.label)}</span></span></div>
         <h2>Skill Mission Difficulty</h2>
         <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
+        ${isSimpleMode() ? `<div class="panel light"><b>แนะนำสำหรับผู้เรียนใหม่:</b> ใช้ Easy ในช่วงแรก แล้วค่อยปรับเป็น Normal หลังคุ้นกับเกม</div>` : ''}
         <div class="grid four">${cards}</div>
         <div id="currentDifficultyRule" class="panel light" style="margin-top:18px">
           <h3>Current Rule: ${safe(d.label)}</h3>
@@ -34604,6 +34677,16 @@
   }
 
   function renderTeacherTools(){
+    if(isSimpleMode()){
+      layout(`<section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Teacher Advanced Mode</span><span class="pill">Locked in Simple</span></div>
+        <h2>Teacher Tools are hidden for students</h2>
+        <p class="lead">เพื่อไม่ให้นักศึกษางง โหมด Simple จะซ่อน Rubric, Revision, Lesson Mode และ exports</p>
+        <button class="btn primary" onclick="EAPHero.setUIMode('advanced')">Unlock Teacher Advanced Mode</button>
+        <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
+      </section>`);
+      return;
+    }
     layout(`
       <section class="panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Teacher Tools</span><span class="pill">Classroom Loop</span><span class="pill">Pre-Firebase</span></div>

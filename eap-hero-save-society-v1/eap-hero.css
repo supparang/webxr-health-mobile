@@ -299,3 +299,18 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   opacity:1;
   transform:translateX(-50%) translateY(0);
 }
+
+
+/* === v1z4 Student Simple Mode === */
+.simple-notice{
+  margin-top:16px;
+  border:1px solid rgba(103,232,249,.35) !important;
+  background:linear-gradient(135deg, rgba(103,232,249,.14), rgba(134,239,172,.10)) !important;
+}
+.hud-card.locked{
+  opacity:.55;
+  filter:grayscale(.3);
+}
+.hud-card.locked button{
+  cursor:not-allowed;
+}
