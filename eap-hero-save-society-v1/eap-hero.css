@@ -384,3 +384,58 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   font-weight:900;
   color:#a7f3d0;
 }
+
+
+/* === v1z8 Teacher Review Queue Polish === */
+.review-filter-bar{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  align-items:end;
+  margin:16px 0;
+}
+.review-filter-bar label{
+  font-weight:800;
+  color:#dff8ff;
+  font-size:13px;
+}
+.review-filter-bar .input{
+  margin-top:6px;
+}
+.filter-count{
+  border-radius:18px;
+  background:rgba(255,255,255,.08);
+  padding:12px 14px;
+  text-align:center;
+}
+.filter-count b{
+  display:block;
+  font-size:22px;
+}
+.filter-count span{
+  font-size:12px;
+  color:#b9d8ea;
+}
+.pill.tiny{
+  font-size:11px;
+  padding:4px 7px;
+  margin:2px;
+  display:inline-block;
+}
+.evidence-preview{
+  max-width:360px;
+  line-height:1.45;
+  color:#e7f7ff;
+}
+.review-table-wrap table th,
+.review-table-wrap table td{
+  vertical-align:top;
+}
+@media(max-width:860px){
+  .review-filter-bar{
+    grid-template-columns:1fr;
+  }
+  .evidence-preview{
+    max-width:220px;
+  }
+}

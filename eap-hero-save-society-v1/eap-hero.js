@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z7-teacher-unlock-fix';
+  const APP_VERSION = '20260610-v1z8-teacher-review-queue-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31772,7 +31772,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z7</div>
+              <div class="mini-note">Save the Society • v1z8</div>
             </div>
           </div>
           <div class="top-actions">
@@ -35060,42 +35060,134 @@
     return 'Needs Support';
   }
 
-  function renderReviewQueue(){
-    setView('reviewQueue');
-    const items = (state.portfolio || []).map((p,idx)=>({p,idx})).reverse();
-    const rows = items.map(({p,idx})=>{
-      const status = reviewStatusFor(idx);
-      const score = reviewScoreFor(idx);
-      return `<tr>
+
+  function portfolioHelpBadges(p){
+    const badges = [];
+    if(Number(p.aiUses || 0) > 0) badges.push(`🤖 AI ${p.aiUses}`);
+    if(p.transcriptHint) badges.push('👁 Transcript Hint');
+    if(p.speakingSeconds) badges.push(`🎙 ${p.speakingSeconds}s`);
+    if(p.difficulty) badges.push(`🎚 ${p.difficulty}`);
+    return badges.length ? badges.map(x=>`<span class="pill tiny">${safe(x)}</span>`).join(' ') : '<span class="mini-note">No help log</span>';
+  }
+
+  function scoreReason(p){
+    const score = Number(p.score || 0);
+    const out = String(p.output || '');
+    const words = out.split(/\s+/).filter(Boolean).length;
+    const reasons = [];
+    if(score === 0) reasons.push('No/very weak evidence or required action missing');
+    if(words < 8) reasons.push('Very short output');
+    if(p.skill === 'Speaking' && !p.speakingSeconds) reasons.push('No speaking timer recorded');
+    if(p.skill === 'Listening' && p.transcriptHint) reasons.push('Transcript hint penalty');
+    if(Number(p.aiUses || 0) > 0) reasons.push('AI help penalty applied');
+    if(!reasons.length && score < 50) reasons.push('Needs more detail/evidence');
+    if(!reasons.length) reasons.push('Auto-score looks acceptable; rubric review still recommended');
+    return reasons.join(' • ');
+  }
+
+  function filteredPortfolioItems(){
+    const skill = document.getElementById('reviewFilterSkill')?.value || 'all';
+    const status = document.getElementById('reviewFilterStatus')?.value || 'all';
+    const session = document.getElementById('reviewFilterSession')?.value || 'all';
+    return (state.portfolio || []).map((p,idx)=>({p,idx})).filter(({p,idx})=>{
+      if(skill !== 'all' && p.skill !== skill) return false;
+      if(session !== 'all' && String(p.session) !== String(session)) return false;
+      if(status !== 'all' && reviewStatusFor(idx) !== status) return false;
+      return true;
+    });
+  }
+
+  function refreshReviewQueueTable(){
+    const body = document.getElementById('reviewQueueBody');
+    if(!body) return;
+    const items = filteredPortfolioItems().reverse();
+    body.innerHTML = items.map(({p,idx})=>reviewQueueRowHTML(p,idx)).join('') || '<tr><td colspan="10">No matching portfolio evidence</td></tr>';
+    const count = document.getElementById('reviewFilterCount');
+    if(count) count.textContent = String(items.length);
+  }
+
+  function reviewQueueRowHTML(p, idx){
+    const status = reviewStatusFor(idx);
+    const score = reviewScoreFor(idx);
+    const output = String(p.output || '');
+    return `<tr>
         <td>${safe(p.player_name || '')}</td>
         <td>S${p.session}</td>
         <td>${safe(p.skill)}</td>
         <td>${p.score ?? ''}</td>
+        <td>${safe(scoreReason(p))}</td>
         <td>${safe(status)}</td>
         <td>${score}</td>
-        <td>${safe(String(p.output || '').slice(0,90))}</td>
+        <td>${portfolioHelpBadges(p)}</td>
+        <td><div class="evidence-preview">${safe(output.slice(0,140))}${output.length>140?'…':''}</div></td>
         <td><button class="btn small primary" onclick="EAPHero.rubricReview(${idx})">Review</button></td>
       </tr>`;
-    }).join('') || '<tr><td colspan="8">No portfolio evidence yet</td></tr>';
+  }
+
+
+  function renderReviewQueue(){
+    setView('reviewQueue');
+    const totalItems = (state.portfolio || []).length;
+    const pending = (state.portfolio || []).filter((_,idx)=>reviewStatusFor(idx)==='Pending').length;
+    const reviewed = totalItems - pending;
+    const sessionOptions = ['all'].concat([...new Set((state.portfolio || []).map(p=>String(p.session)))]).map(s => `<option value="${s}">${s==='all'?'All Sessions':'S'+s}</option>`).join('');
+    const rows = (state.portfolio || []).map((p,idx)=>({p,idx})).reverse().map(({p,idx})=>reviewQueueRowHTML(p,idx)).join('') || '<tr><td colspan="10">No portfolio evidence yet</td></tr>';
 
     layout(`
       <section class="panel" style="margin-top:20px">
         <div class="badges">
           <span class="pill">Rubric Review Mode</span>
-          <span class="pill">Portfolio Items: ${(state.portfolio || []).length}</span>
-          <span class="pill">Reviews: ${(state.reviews?.rubricScores || []).length}</span>
+          <span class="pill">Portfolio Items: ${totalItems}</span>
+          <span class="pill">Pending: ${pending}</span>
+          <span class="pill">Reviewed: ${reviewed}</span>
         </div>
         <h2>Portfolio Review Queue</h2>
-        <p class="lead">คิวตรวจงานจริงของ Reading/Writing/Listening/Speaking พร้อม rubric score และ feedback สำหรับ revision</p>
+        <p class="lead">คิวตรวจงานจริงของ Reading/Writing/Listening/Speaking พร้อมแยก evidence, help logs, score reasons และ rubric review</p>
+
+        <div class="review-filter-bar">
+          <label>Skill
+            <select id="reviewFilterSkill" class="input" onchange="EAPHero.refreshReviewQueueTable()">
+              <option value="all">All Skills</option>
+              <option value="Reading">Reading</option>
+              <option value="Writing">Writing</option>
+              <option value="Listening">Listening</option>
+              <option value="Speaking">Speaking</option>
+            </select>
+          </label>
+          <label>Status
+            <select id="reviewFilterStatus" class="input" onchange="EAPHero.refreshReviewQueueTable()">
+              <option value="all">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Reviewed">Reviewed</option>
+              <option value="Needs Revision">Needs Revision</option>
+              <option value="Excellent">Excellent</option>
+              <option value="Needs Support">Needs Support</option>
+            </select>
+          </label>
+          <label>Session
+            <select id="reviewFilterSession" class="input" onchange="EAPHero.refreshReviewQueueTable()">
+              ${sessionOptions}
+            </select>
+          </label>
+          <div class="filter-count"><b id="reviewFilterCount">${totalItems}</b><span>shown</span></div>
+        </div>
+
         <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
           <button class="btn primary" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
           <button class="btn" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Status</th><th>Rubric</th><th>Output</th><th></th></tr></thead>
-          <tbody>${rows}</tbody>
+
+        <div class="table-wrap review-table-wrap"><table>
+          <thead><tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Score Reason</th><th>Status</th><th>Rubric</th><th>Help Used</th><th>Evidence Output</th><th></th></tr></thead>
+          <tbody id="reviewQueueBody">${rows}</tbody>
         </table></div>
+
+        <div class="panel light" style="margin-top:16px">
+          <h3>Teacher Reading Guide</h3>
+          <p class="mini-note">Auto score เป็น formative เท่านั้น คะแนนจริงควรใช้ Rubric Review โดยเฉพาะ Writing/Speaking. ช่อง Help Used แสดง AI, Transcript Hint, Speaking time และ Difficulty เพื่อช่วยตีความคะแนน</p>
+        </div>
       </section>`);
   }
 
@@ -35773,6 +35865,7 @@
     savePeerReview,
     exportClassActivityCSV,
     reviewQueue:renderReviewQueue,
+    refreshReviewQueueTable,
     rubricReview:renderRubricReview,
     saveRubricReview,
     markNeedsRevision,
