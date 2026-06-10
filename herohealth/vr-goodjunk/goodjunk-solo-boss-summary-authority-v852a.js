@@ -1,19 +1,20 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss-summary-authority-v852a.js ===
-// PATCH v20260608-GOODJUNK-SOLO-BOSS-SUMMARY-AUTHORITY-V852A
+// PATCH v20260608-GOODJUNK-SOLO-BOSS-SUMMARY-AUTHORITY-V852A2
 // FINAL PURPOSE:
 // 1) Summary owner ตัวเดียว
 // 2) นับเฉพาะ target อาหารจริงที่กดจริง
 // 3) ไม่ default unknown เป็น good/junk/fake — unknown = ignore
-// 4) สูตรเดียวทั้งไฟล์:
+// 4) Shield block แล้ว junk ไม่ถูกนับ และไม่เป็น miss
+// 5) สูตรเดียวทั้งไฟล์:
 //    totalAttempts = goodHits + junkHits + fakeHits + missedGood
 //    miss = missedGood + junkHits
 //    accuracy = goodHits / totalAttempts * 100
-// 5) เปิด summary หลังจบเกมจริงเท่านั้น และกัน summary ซ้อน/กระพริบ
+// 6) เปิด summary หลังจบเกมจริงเท่านั้น และกัน summary ซ้อน/กระพริบ
 
 (function(){
   'use strict';
 
-  const PATCH = 'v20260608-GOODJUNK-SUMMARY-AUTHORITY-V852A';
+  const PATCH = 'v20260608-GOODJUNK-SUMMARY-AUTHORITY-V852A2';
 
   if(window.__GJ_SUMMARY_AUTHORITY_V852A__){
     console.warn('[GJ Summary Authority V852A] already loaded');
@@ -114,11 +115,6 @@
     }
   }
 
-  function num(v, fallback){
-    const n = Number(v);
-    return Number.isFinite(n) ? n : (fallback || 0);
-  }
-
   function byId(id){
     return document.getElementById(id);
   }
@@ -141,6 +137,7 @@
       'GJ_FULL_3D_VR_LAST_SUMMARY',
       'GJ_SOLO_BOSS_LAST_SUMMARY_FRESH',
       'GJ_SOLO_BOSS_AUTHORITATIVE_SUMMARY',
+      'GJ_SOLO_BOSS_AUTHORITATIVE_SUMMARY_V852A',
       'GJ_SOLO_BOSS_COOLDOWN_TARGET_LAST',
       'GJ_SOLO_BOSS_PC_COOLDOWN_TARGET_LAST',
       'GJ_SOLO_BOSS_SUMMARY_LOCK',
@@ -206,9 +203,7 @@
 
   function isBlockedUi(el){
     if(!el || !el.closest) return true;
-
-    const blocked = el.closest(BLOCK_SELECTOR);
-    return !!blocked;
+    return !!el.closest(BLOCK_SELECTOR);
   }
 
   function findFoodTarget(raw){
@@ -220,6 +215,28 @@
     if(isBlockedUi(target)) return null;
 
     return target;
+  }
+
+  function isShieldIgnoredTarget(target){
+    if(!target || !target.dataset) return false;
+
+    return (
+      target.dataset.gjShieldBlocked === '1' ||
+      target.dataset.gjAuthorityIgnore === '1' ||
+      target.dataset.gjIgnoreSummary === '1'
+    );
+  }
+
+  function shieldRecentlyBlocked(){
+    const until = Number(window.GJ_IGNORE_NEXT_JUNK_HIT_UNTIL || 0);
+    const last = Number(window.GJ_LAST_SHIELD_BLOCK_AT || 0);
+    const t = Date.now();
+
+    return (
+      window.GJ_SHIELD_ACTIVE === true ||
+      (until && t < until) ||
+      (last && t - last < 1200)
+    );
   }
 
   function ensureTargetId(el){
@@ -345,11 +362,6 @@
       return 'fake';
     }
 
-    /*
-      จุดสำคัญของ v852a:
-      ไม่รู้ชนิด = ไม่เอามาคิด
-      ห้าม default เป็น good หรือ junk
-    */
     return null;
   }
 
@@ -386,6 +398,11 @@
     const target = findFoodTarget(ev.target);
     if(!target) return;
 
+    if(isShieldIgnoredTarget(target)){
+      log('ignored shield-blocked target');
+      return;
+    }
+
     const kind = getFoodKind(target);
 
     if(!kind){
@@ -394,6 +411,15 @@
         className:String(target.className || ''),
         dataset:Object.assign({}, target.dataset || {})
       });
+      return;
+    }
+
+    if(kind === 'junk' && shieldRecentlyBlocked()){
+      log('ignored junk because shield is active/recently blocked');
+      try{
+        target.dataset.gjAuthorityIgnore = '1';
+        target.dataset.gjIgnoreSummary = '1';
+      }catch(_){}
       return;
     }
 
@@ -428,16 +454,20 @@
   function handleMissEvent(name, detail){
     if(S.opened || S.ended) return;
 
-    markStarted(name || 'miss');
-
     const kind = String(
       (detail && (detail.kind || detail.type || detail.foodKind || detail.foodType)) || ''
     ).toLowerCase();
 
-    /*
-      missedGood = อาหารดีหลุด/หมดเวลาโดยไม่ได้กด
-      ถ้า event ไม่ระบุชนิด ไม่เพิ่มมั่ว
-    */
+    if(
+      (kind === 'junk' || kind === 'bad' || kind === 'unhealthy') &&
+      shieldRecentlyBlocked()
+    ){
+      log('ignored miss event because shield blocked junk', name, detail || {});
+      return;
+    }
+
+    markStarted(name || 'miss');
+
     if(kind === 'good' || kind === 'healthy'){
       S.missedGood += 1;
       S.combo = 0;
@@ -445,10 +475,6 @@
       return;
     }
 
-    /*
-      ถ้า core ส่ง miss เฉย ๆ โดยไม่ระบุชนิด:
-      ไม่บวกก่อน เพราะจะทำให้ accuracy ตกมั่ว
-    */
     warn('ignored vague miss event', name, detail || {});
   }
 
@@ -494,11 +520,6 @@
   }
 
   function finalScore(){
-    /*
-      authoritative score:
-      ใช้ S.score เป็นหลัก ไม่ใช้ Math.max(HUD, S.score)
-      เพื่อไม่ให้ score จาก core คนละระบบมาปนกับ metric ของเรา
-    */
     return Math.max(0, Math.round(S.score));
   }
 
@@ -751,7 +772,7 @@
     u.searchParams.set('game','goodjunk');
     u.searchParams.set('gameId','goodjunk');
     u.searchParams.set('mode','solo');
-    u.searchParams.set('entry','summary-v852a');
+    u.searchParams.set('entry','summary-v852a2');
 
     return u.href;
   }
@@ -792,7 +813,7 @@
     p.set('rank', String(data.rank));
     p.set('stars', String(data.stars));
     p.set('formulaOk', String(data.formulaOk ? 1 : 0));
-    p.set('from', 'goodjunk-summary-authority-v852a');
+    p.set('from', 'goodjunk-summary-authority-v852a2');
 
     return 'https://supparang.github.io/webxr-health-mobile/herohealth/warmup-gate.html?' + p.toString();
   }
@@ -859,7 +880,7 @@
           totalAttempts = goodHits + junkHits + fakeHits + missedGood<br>
           miss = missedGood + junkHits<br>
           accuracy = goodHits ÷ totalAttempts × 100<br>
-          ถ้ากดถูก good อย่างเดียว ต้องได้ junk=0, fake=0, missedGood=0, accuracy=100%
+          ถ้า Shield กัน junk ได้ junk และ miss ต้องไม่เพิ่ม
         </div>
 
         <div class="gjAuthBtns">
@@ -907,7 +928,7 @@
       if(!btn || btn.dataset.gjAuthorityV852aStart === '1') return;
       btn.dataset.gjAuthorityV852aStart = '1';
 
-      btn.addEventListener('click', function(ev){
+      btn.addEventListener('click', function(){
         markStarted('start-button');
 
         removeSummaryOverlays();
@@ -929,10 +950,6 @@
   }
 
   function hookFoodEvents(){
-    /*
-      ใช้ pointerdown เป็นตัวนับหลัก
-      click ยังฟังได้ แต่ target เดิมจะถูก acceptedIds กันไว้แล้ว
-    */
     document.addEventListener('pointerdown', handleFoodPointer, true);
     document.addEventListener('click', handleFoodPointer, true);
 
@@ -960,6 +977,11 @@
 
         if(!kind){
           warn('ignored vague hit event', name, d);
+          return;
+        }
+
+        if(kind === 'junk' && shieldRecentlyBlocked()){
+          log('ignored junk event because shield is active/recently blocked', name, d);
           return;
         }
 
@@ -995,9 +1017,6 @@
       window.addEventListener(name, function(){
         if(S.opened) return;
 
-        /*
-          หน่วงให้ core ลบ target/จบ animation ก่อน แต่ไม่ให้ตัวอื่นแทรก summary
-        */
         setTimeout(function(){
           showSummary(name);
         }, 650);
@@ -1017,9 +1036,6 @@
 
         if(isOldSummary){
           if(!S.opened){
-            /*
-              block old summary owner แล้วให้ v852a เป็นคนเปิดเองหลัง end event
-            */
             warn('blocked old summary dispatch', type);
             removeSummaryOverlays();
             unlockPointer();
