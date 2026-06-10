@@ -18,7 +18,7 @@
   <!--
     HeroHealth Hydration Run
     File: /herohealth/hydration-vr/run.html
-    Version: v20260604-pack51-mobile-coach-loader
+    Version: v20260610-pack52-mobile-start-unlock-loader
 
     Purpose:
       Shared run entry for Hydration
@@ -50,15 +50,15 @@
       → Pack49 Freeze
       → Pack50 QA Lock
       → Mobile Coach Off v4 only when view=mobile
+      → Mobile Start Unlock v5 only when view=mobile
       → vr-ui only when view=cvr
 
     Important Mobile QA Fix:
       - Do NOT add old v1/v2/v3/v4 script tags at the end of this file.
-      - Mobile Coach Off v4 must be loaded by the loader chain after Pack50.
-      - Correct path from this file is:
+      - Mobile patches must be loaded by the loader chain after Pack50.
+      - Correct paths from this file:
         ./hydration-mobile-disable-live-coach-v4.js
-      - Wrong path is:
-        ./hydration-vr/hydration-mobile-disable-live-coach-v4.js
+        ./hydration-mobile-start-unlock-v5.js
   -->
 </head>
 
@@ -100,13 +100,13 @@
 
   <script>
     window.HHA = window.HHA || {};
-    window.HHA.HYDRATION_RUN_VERSION = 'v20260604-pack51-mobile-coach-loader';
+    window.HHA.HYDRATION_RUN_VERSION = 'v20260610-pack52-mobile-start-unlock-loader';
     window.HHA_HYDRATION_ENTRY_PATH = '/herohealth/hydration-vr/run.html';
 
     (function(){
       'use strict';
 
-      var VERSION = 'v20260604-pack51-mobile-coach-loader';
+      var VERSION = 'v20260610-pack52-mobile-start-unlock-loader';
 
       var ALLOWED_VIEWS = ['pc','mobile','cvr'];
       var ALLOWED_MODES = ['solo','duet','race','battle','coop'];
@@ -520,7 +520,7 @@
 
       window.HHA_HYDRATION_BOOT_CHECK = bootCheck;
 
-      console.info('[Hydration Pack51] run context ready; solo clean loader starts now');
+      console.info('[Hydration Pack52] run context ready; solo clean loader starts now');
 
       function loadScript(src, label, timeoutMs){
         timeoutMs = timeoutMs || 7000;
@@ -550,7 +550,7 @@
           s.async = true;
 
           s.onload = function(){
-            console.info('[Hydration Pack51] loaded:', label);
+            console.info('[Hydration Pack52] loaded:', label);
             finish(true, src);
           };
 
@@ -575,19 +575,22 @@
       var qaFile = './hydration-solo-qa-pack50.patch.js?v=20260528-pack50-qa-version-lock';
 
       /*
-        Mobile QA fix:
-        This file must sit in /herohealth/hydration-vr/
-        Correct relative path from run.html:
+        Mobile QA fixes:
+        These files must sit in /herohealth/hydration-vr/
+
+        Correct relative paths from run.html:
         ./hydration-mobile-disable-live-coach-v4.js
+        ./hydration-mobile-start-unlock-v5.js
       */
       var mobileCoachOffFile = './hydration-mobile-disable-live-coach-v4.js?v=20260604e';
+      var mobileStartUnlockFile = './hydration-mobile-start-unlock-v5.js?v=20260610a';
 
-      console.info('[Hydration Pack51] solo clean loader start:', coreFile);
+      console.info('[Hydration Pack52] solo clean loader start:', coreFile);
 
       loadScript(coreFile, 'hydration solo clean core', 9000)
         .then(function(){
           console.info(
-            '[Hydration Pack51] solo core loaded:',
+            '[Hydration Pack52] solo core loaded:',
             'HHA=', !!window.HHA,
             'Hydration=', !!(window.HHA && window.HHA.Hydration),
             'start=', typeof window.beginHydrationFromOverlay,
@@ -661,9 +664,13 @@
             return loadScript(mobileCoachOffFile, 'hydration mobile coach off v4', 5000)
               .then(function(){
                 console.info('[Hydration Mobile V4] coach off patch loaded after Pack50');
+                return loadScript(mobileStartUnlockFile, 'hydration mobile start unlock v5', 5000);
+              })
+              .then(function(){
+                console.info('[Hydration Mobile V5] start unlock patch loaded after Pack50');
               })
               .catch(function(err){
-                console.warn('[Hydration Mobile V4] coach off patch optional failed:', err);
+                console.warn('[Hydration Mobile] optional mobile patches failed:', err);
               });
           }
 
@@ -676,14 +683,14 @@
           if(cvrView === 'cvr'){
             return loadScript('../vr/vr-ui.js?v=20260517-pack22', 'vr-ui', 4000)
               .catch(function(err){
-                console.warn('[Hydration Pack51] vr-ui optional failed:', err);
+                console.warn('[Hydration Pack52] vr-ui optional failed:', err);
               });
           }
 
           return Promise.resolve();
         })
         .then(function(){
-          console.info('[Hydration Pack51] solo loader finished');
+          console.info('[Hydration Pack52] solo loader finished');
 
           setTimeout(function(){
             if(typeof window.HHA_HYDRATION_BOOT_CHECK === 'function'){
@@ -692,10 +699,10 @@
           }, 1200);
         })
         .catch(function(err){
-          console.error('[Hydration Pack51] solo loader failed:', err);
+          console.error('[Hydration Pack52] solo loader failed:', err);
           window.HHA_HYDRATION_SHOW_BOOT_ERROR(
             (err && err.message) ||
-            'โหลด Hydration Solo Pack51 ไม่สำเร็จ'
+            'โหลด Hydration Solo Pack52 ไม่สำเร็จ'
           );
         });
 
