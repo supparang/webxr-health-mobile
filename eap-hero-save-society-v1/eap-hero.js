@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1t Context-Aware AI Help ===
+/* === EAP Hero: Save the Society v1u Listening Transcript Control ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1t-context-aware-ai-help';
+  const APP_VERSION = '20260610-v1u-listening-transcript-control';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31528,6 +31528,7 @@
       ai:{ dailyUses:{}, logs:[], sessionUses:{} },
       skillBankHistory:{},
       reviews:{ rubricScores:[], reviewNotes:[] },
+      listening:{ transcriptHints:[], transcriptUnlocked:{} },
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -31599,6 +31600,9 @@
       merged.reviews = Object.assign(fresh.reviews || {}, parsed.reviews || {});
       merged.reviews.rubricScores = (parsed.reviews && parsed.reviews.rubricScores) || [];
       merged.reviews.reviewNotes = (parsed.reviews && parsed.reviews.reviewNotes) || [];
+      merged.listening = Object.assign(fresh.listening || {}, parsed.listening || {});
+      merged.listening.transcriptHints = (parsed.listening && parsed.listening.transcriptHints) || [];
+      merged.listening.transcriptUnlocked = (parsed.listening && parsed.listening.transcriptUnlocked) || {};
       return merged;
     }catch(e){
       console.warn(e);
@@ -34267,14 +34271,83 @@
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
       <h2>🎧 Listening Mission</h2><div class="context" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.playLecture()">▶️ Play Lecture</button><button class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button></div>
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.playLecture()">▶️ Play Lecture</button>
+        <button class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button>
+        <button class="btn warn" onclick="EAPHero.showTranscriptHint(${s.id})">👁 Transcript Hint</button>
+      </div>
+      <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(text.variant.ask || 'Write listening notes.')}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
+      <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
       <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
+
+
+  function listeningKey(sessionId){
+    return `S${sessionId}_Listening`;
+  }
+
+  function transcriptHintUsed(sessionId){
+    return (state.listening?.transcriptHints || []).some(x => Number(x.session) === Number(sessionId));
+  }
+
+  function showTranscriptHint(sessionId){
+    const full = document.getElementById('listeningPromptText')?.value || '';
+    const out = document.getElementById('transcriptHintBox');
+    state.listening = state.listening || {transcriptHints:[], transcriptUnlocked:{}};
+    if(!transcriptHintUsed(sessionId)){
+      state.listening.transcriptHints.push({
+        session:Number(sessionId),
+        student_id:state.profile.studentId || 'guest',
+        at:new Date().toISOString(),
+        type:'limited-transcript-hint'
+      });
+      saveState();
+    }
+    const words = full.split(/\s+/).filter(Boolean);
+    const preview = words.slice(0, Math.min(22, words.length)).join(' ') + (words.length > 22 ? ' ...' : '');
+    if(out){
+      out.classList.add('show');
+      out.innerHTML = `<b>Transcript Hint:</b> ${safe(preview)}<br><span class="mini-note">ใช้ transcript hint แล้ว จะหักคะแนน listening เล็กน้อย แต่หลัง Submit จะดู full transcript ได้</span>`;
+    }
+  }
+
+  function unlockListeningTranscript(sessionId){
+    state.listening = state.listening || {transcriptHints:[], transcriptUnlocked:{}};
+    state.listening.transcriptUnlocked[listeningKey(sessionId)] = true;
+    saveState();
+  }
+
+  function transcriptPenalty(sessionId){
+    return transcriptHintUsed(sessionId) ? 8 : 0;
+  }
+
+  function showFullTranscript(sessionId){
+    const full = document.getElementById('listeningPromptText')?.value || '';
+    const out = document.getElementById('fullTranscriptBox');
+    if(out){
+      out.classList.add('show');
+      out.innerHTML = `<h3>Full Transcript</h3><p>${safe(full)}</p>`;
+    }
+  }
+
+  function exportListeningTranscriptCSV(){
+    const header = ['student_id','session','type','at'];
+    const rows = (state.listening?.transcriptHints || []).map(r => header.map(h => csvCell(r[h])).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'eap-hero-listening-transcript-hints.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
 
   function playLecture(){
     const el = document.getElementById('lectureText');
@@ -34294,8 +34367,10 @@
     if(/main|point|keyword|evidence|source|academic|student|learning/.test(low)) score += 25;
     if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
     if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
-    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening'));
-    addPortfolio({ session:id, skill:'Listening', score, aiUses:aiUsesFor(id,'Listening'), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
+    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id));
+    addPortfolio({ session:id, skill:'Listening', score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
+    unlockListeningTranscript(id);
+    showFullTranscript(id);
     showSkillResult('Listening', score, id);
   }
 
@@ -34840,6 +34915,14 @@
             submitted_at:new Date().toISOString()
           }
         },
+        listeningTranscriptHints:{
+          sampleHint: (state.listening?.transcriptHints || [])[state.listening?.transcriptHints?.length-1] || {
+            student_id:uid,
+            session:13,
+            type:'limited-transcript-hint',
+            at:new Date().toISOString()
+          }
+        },
         rubricReviews:{
           sampleReview: (state.reviews?.rubricScores || [])[state.reviews?.rubricScores?.length-1] || {
             student_id:uid,
@@ -34946,6 +35029,7 @@
           <button class="btn primary" onclick="EAPHero.exportCSV()">Export Game CSV</button>
           <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
           <button class="btn" onclick="EAPHero.exportAIHelpCSV()">Export AI Help CSV</button>
+          <button class="btn" onclick="EAPHero.exportListeningTranscriptCSV()">Export Listening Transcript Hints CSV</button>
           <button class="btn warn" onclick="EAPHero.reviewQueue()">Review Portfolio</button>
           <button class="btn" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
@@ -35073,6 +35157,9 @@
     replayHub:renderReplayHub,
     aiHelp:useAIHelp,
     exportAIHelpCSV,
+    showTranscriptHint,
+    showFullTranscript,
+    exportListeningTranscriptCSV,
     missionBankCount,
     skillTemplateDuplicateAudit,
     readingMission:renderReadingMission,
