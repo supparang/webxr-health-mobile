@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1g No Length Cue ===
+/* === EAP Hero: Save the Society v1h Reason Gate + Item Guard ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -31727,6 +31727,307 @@
   }
 
 
+
+  function reasonOptionsForQuestion(q){
+    const skill = String(q.skillTag || q.sourceSkill || '').toLowerCase();
+    const question = String(q.question || '').toLowerCase();
+
+    if(skill.includes('main idea') || question.includes('main idea')){
+      return {
+        answer:0,
+        choices:[
+          'It covers the whole text, not only one detail.',
+          'It copies one example from the text without general meaning.',
+          'It is broader than the paragraph topic.',
+          'It adds a new idea that the text does not mention.'
+        ]
+      };
+    }
+    if(skill.includes('critical') || question.includes('classify')){
+      return {
+        answer:0,
+        choices:[
+          'The wording shows whether it is fact, opinion, claim, or evidence.',
+          'The longest option is usually the academic answer.',
+          'A statement is reliable when it sounds confident.',
+          'Personal belief and research evidence are the same type.'
+        ]
+      };
+    }
+    if(skill.includes('summar')){
+      return {
+        answer:0,
+        choices:[
+          'It keeps the key idea briefly without copying the original.',
+          'It includes every detail so the meaning is complete.',
+          'It adds the writer’s personal opinion to improve the text.',
+          'It changes the original meaning to sound more interesting.'
+        ]
+      };
+    }
+    if(skill.includes('tone')){
+      return {
+        answer:0,
+        choices:[
+          'It is formal, precise, and appropriately cautious.',
+          'It uses stronger emotional words to sound persuasive.',
+          'It sounds friendly and casual for classroom communication.',
+          'It is correct because it is longer than the other choices.'
+        ]
+      };
+    }
+    if(skill.includes('data')){
+      return {
+        answer:0,
+        choices:[
+          'It reports the visible trend accurately without overclaiming.',
+          'It explains causes even when the chart does not show them.',
+          'It focuses on the largest number only.',
+          'It chooses the sentence that sounds most positive.'
+        ]
+      };
+    }
+    if(skill.includes('email')){
+      return {
+        answer:0,
+        choices:[
+          'It is specific, polite, and suitable for an academic context.',
+          'It is short enough to make the instructor reply quickly.',
+          'It sounds friendly, so it is more natural.',
+          'It avoids details so the email looks concise.'
+        ]
+      };
+    }
+    if(skill.includes('citation') || skill.includes('ethics')){
+      return {
+        answer:0,
+        choices:[
+          'It gives proper credit and avoids misusing source information.',
+          'It changes enough words to remove the need for a citation.',
+          'It includes a source name even if the source does not support the idea.',
+          'It is acceptable when the assignment is short.'
+        ]
+      };
+    }
+    if(skill.includes('listening')){
+      return {
+        answer:0,
+        choices:[
+          'It captures the main point or keyword from the transcript.',
+          'It repeats the transcript as completely as possible.',
+          'It focuses on the most difficult word only.',
+          'It selects the idea that sounds most familiar.'
+        ]
+      };
+    }
+    if(skill.includes('presentation')){
+      return {
+        answer:0,
+        choices:[
+          'It is clear, formal, and helps the audience follow the talk.',
+          'It sounds casual so the speaker appears confident.',
+          'It avoids structure so the talk feels natural.',
+          'It is correct because it contains more words.'
+        ]
+      };
+    }
+    if(skill.includes('vocabulary')){
+      return {
+        answer:0,
+        choices:[
+          'The word meaning fits the sentence and academic context.',
+          'The word is longer and therefore more academic.',
+          'The word sounds familiar from everyday English.',
+          'The word appears often, so it must be correct.'
+        ]
+      };
+    }
+
+    return {
+      answer:0,
+      choices:[
+        'It matches the target academic skill and the context.',
+        'It is the longest and most detailed option.',
+        'It sounds more confident than the other choices.',
+        'It uses familiar words from the question.'
+      ]
+    };
+  }
+
+  function shouldTriggerReasonGate(a, correct){
+    if(!a || a.mode !== 'boss' || !correct) return false;
+    const contractKey = a.contract || 'normal';
+    if(contractKey === 'hero' || contractKey === 'nohint' || contractKey === 'speed') return true;
+    if(a.rage) return true;
+    if((a.combo || 0) >= 2) return true;
+    return false;
+  }
+
+  function renderReasonGate(){
+    const a = state.active;
+    if(!a || !a.pendingReason) return renderBossQuestion();
+    const q = a.pendingReason.question;
+    const reason = reasonOptionsForQuestion(q);
+    const choices = shuffleChoicesForReason(reason.choices, reason.answer);
+    a.pendingReason.reasonChoices = choices;
+    saveState();
+
+    const s = getSession(a.sessionId);
+    layout(`
+      <section style="margin-top:20px" class="battle-layout">
+        <div class="challenge-card">
+          <div class="badges">
+            <span class="pill" style="background:#102033;color:#fff">Reason Gate</span>
+            <span class="pill" style="background:#102033;color:#fff">${safe(s.boss)}</span>
+            <span class="pill" style="background:#102033;color:#fff">Justify your strike</span>
+          </div>
+          <div class="context">${q.context ? safe(q.context) : 'Explain why your selected answer works.'}</div>
+          <div class="question">Why is your answer academically correct?</div>
+          <div class="choices">
+            ${choices.map((c,i)=>`<button class="choice" onclick="EAPHero.reasonAnswer(${i})">${String.fromCharCode(65+i)}. ${safe(c.text)}</button>`).join('')}
+          </div>
+          <div id="feedback" class="feedback show info">ตอบเหตุผลถูก = โจมตีเต็มแรง • ตอบเหตุผลผิด = โจมตีเบาลง</div>
+        </div>
+        <aside class="battle-hud">
+          <div class="hud-card rage">
+            <h3>Justification Attack</h3>
+            <p class="mini-note">ระบบนี้ทำให้เดาจากตัวเลือกยากขึ้น เพราะต้องรู้เหตุผลของคำตอบด้วย</p>
+          </div>
+          <div class="grid two">
+            <div class="hud-card"><b>Combo</b><p>x${a.combo}</p></div>
+            <div class="hud-card"><b>Boss HP</b><p>${a.bossHp}/${a.bossHpMax}</p></div>
+          </div>
+        </aside>
+      </section>
+    `);
+  }
+
+  function shuffleChoicesForReason(choices, answerIndex){
+    const paired = choices.map((text, idx) => ({ text, correct: idx === answerIndex }));
+    shuffle(paired);
+    return paired;
+  }
+
+  function reasonAnswer(choiceIndex){
+    const a = state.active;
+    if(!a || !a.pendingReason) return renderBossQuestion();
+
+    const choice = a.pendingReason.reasonChoices[choiceIndex];
+    const ok = !!(choice && choice.correct);
+    const bonusDmg = ok ? a.pendingReason.fullBonus : Math.max(2, Math.round(a.pendingReason.fullBonus * .25));
+
+    a.bossHp = Math.max(0, a.bossHp - bonusDmg);
+    a.score += ok ? 8 : 1;
+    a.pendingReasonRecord = {
+      questionId:a.pendingReason.question.id,
+      correct:ok,
+      selected: choice ? choice.text : '',
+      at:new Date().toISOString()
+    };
+    a.pendingReason = null;
+    saveState();
+
+    const fbText = ok
+      ? `Reason correct! Justification Strike -${bonusDmg} HP`
+      : `Reason weak. Partial Strike -${bonusDmg} HP`;
+
+    layout(`
+      <section class="panel light result-hero" style="margin-top:20px">
+        <div class="big-emoji">${ok ? '⚡' : '🧠'}</div>
+        <h2>${safe(fbText)}</h2>
+        <p>การตอบเหตุผลช่วยลดการเดา และทำให้ผู้เล่นต้องเข้าใจทักษะจริง</p>
+      </section>
+    `);
+
+    setTimeout(()=>{
+      if(a.bossHp <= 0) return finishBoss(true, 'ชนะบอส');
+      if(a.hearts <= 0) return finishBoss(false, 'Heart หมด');
+      if(a.index + 1 >= a.order.length) return finishBoss(false, 'ตอบครบชุดคำถามแล้ว แต่ยังลด HP บอสไม่หมด');
+      a.index += 1;
+      renderBossQuestion();
+    }, 850);
+  }
+
+  function itemQualityReport(){
+    const rows = [];
+    SESSIONS.forEach(s => {
+      const preferred = s.questions.filter(q => q.quality === 'v1g');
+      const pool = preferred.length ? preferred : s.questions;
+      const total = pool.length;
+      const answerLongest = pool.filter(q => {
+        const lens = q.choices.map(c => String(c).length);
+        return lens[q.answer] === Math.max(...lens);
+      }).length;
+      const avgGap = total ? Math.round(pool.reduce((sum,q)=>{
+        const lens = q.choices.map(c => String(c).length);
+        return sum + (Math.max(...lens) - Math.min(...lens));
+      },0)/total) : 0;
+      const groups = {};
+      pool.forEach(q => {
+        const fp = textFingerprint(q);
+        groups[fp] = (groups[fp] || 0) + 1;
+      });
+      const similarGroups = Object.values(groups).filter(n => n > 1).length;
+      rows.push({
+        session:s.id,
+        boss:s.boss,
+        skill:s.skill,
+        total,
+        answerLongest,
+        answerLongestRate: total ? Math.round(answerLongest/total*100) : 0,
+        avgGap,
+        similarGroups
+      });
+    });
+    return rows;
+  }
+
+  function renderItemGuard(){
+    const rows = itemQualityReport();
+    const htmlRows = rows.map(r=>{
+      const risk = (r.answerLongestRate > 55 || r.avgGap > 55 || r.similarGroups > 3) ? 'High' : (r.answerLongestRate > 45 || r.avgGap > 35 || r.similarGroups > 1) ? 'Medium' : 'Low';
+      return `<tr>
+        <td>S${r.session}</td>
+        <td>${safe(r.boss)}</td>
+        <td>${safe(r.skill)}</td>
+        <td>${r.total}</td>
+        <td>${r.answerLongestRate}%</td>
+        <td>${r.avgGap}</td>
+        <td>${r.similarGroups}</td>
+        <td>${risk}</td>
+      </tr>`;
+    }).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">Item Quality Guard</span>
+          <span class="pill">Length Cue</span>
+          <span class="pill">Similarity Check</span>
+        </div>
+        <h2>Item Guard Dashboard</h2>
+        <p class="lead">ตรวจข้อที่ยังมีความเสี่ยงว่าเด็กจะเดาจากความยาวตัวเลือก หรือเจอคำถามคล้ายกันมากเกินไป</p>
+        <div class="table-wrap"><table>
+          <thead>
+            <tr><th>Session</th><th>Boss</th><th>Skill</th><th>Items</th><th>Answer Longest</th><th>Avg Gap</th><th>Similar Groups</th><th>Risk</th></tr>
+          </thead>
+          <tbody>${htmlRows}</tbody>
+        </table></div>
+        <div class="panel light" style="margin-top:14px">
+          <h3>การอ่านค่า</h3>
+          <p class="mini-note">
+            Answer Longest ควรไม่สูงเกินไป, Avg Gap ยิ่งต่ำยิ่งดี, Similar Groups ยิ่งต่ำยิ่งลดข้อซ้ำ/คล้าย.
+            แต่ระบบ Reason Gate จะช่วยลดผลของการเดา แม้บางข้อยังมี visual cue อยู่
+          </p>
+        </div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
+          <button class="btn ghost" onclick="EAPHero.map()">Map</button>
+        </div>
+      </section>
+    `);
+  }
+
+
   function renderHome(){
     touchDailyStreak();
     setView('home');
@@ -32264,12 +32565,22 @@
       a.correct += 1;
       a.combo += 1;
       a.maxCombo = Math.max(a.maxCombo, a.combo);
-      let dmg = 12;
-      if(a.combo >= 3) dmg += 5;
-      if(a.combo >= 5) dmg += 8;
-      if(a.timeLeft > a.duration * .55) dmg += 3;
+
+      let dmg = 9;
+      let reasonBonus = 0;
+      if(a.combo >= 3) reasonBonus += 5;
+      if(a.combo >= 5) reasonBonus += 8;
+      if(a.timeLeft > a.duration * .55) reasonBonus += 3;
+
       a.bossHp = Math.max(0, a.bossHp - dmg);
       a.score += 10 + Math.min(20, a.combo*2);
+
+      if(shouldTriggerReasonGate(a, correct)){
+        a.pendingReason = {
+          question:q,
+          fullBonus: Math.max(5, reasonBonus + 6)
+        };
+      }
     }else{
       a.combo = 0;
       a.hearts -= 1;
@@ -32284,6 +32595,7 @@
     saveState();
 
     setTimeout(()=>{
+      if(a.pendingReason) return renderReasonGate();
       if(a.bossHp <= 0) return finishBoss(true, 'ชนะบอส');
       if(a.hearts <= 0) return finishBoss(false, 'Heart หมด');
       if(a.index + 1 >= a.order.length) return finishBoss(false, 'ตอบครบชุดคำถามแล้ว แต่ยังลด HP บอสไม่หมด');
@@ -32938,6 +33250,7 @@
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.exportCSV()">Export Game CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
+          <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
       </section>
@@ -33050,6 +33363,8 @@
     funHub:renderFunHub,
     claimAchievement,
     contract:renderContract,
+    reasonAnswer,
+    itemGuard:renderItemGuard,
     dashboard:renderDashboard,
     examPanel:renderExamPanel,
     startExam,
