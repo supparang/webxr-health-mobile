@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.1b Google Sheets Ready</title>
+  <title>CSAI2102: AI Quest v2.3 Google Sheets Ready</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -890,6 +890,9 @@
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
+  <script src="./js/aiquest-classroom-entry-v21c.js"></script>
+  <script src="./js/aiquest-data-contract-v22.js"></script>
+  <script src="./js/aiquest-sync-v23.js"></script>
   <script src="./js/mission2-agent-bank-v21.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
@@ -902,7 +905,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.1b • Google Sheets Ready • Events + Attempts + Profile</div>
+          <div class="subtitle">v2.3 • Google Sheets Ready • Events + Attempts + Profile</div>
         </div>
       </div>
 
@@ -919,6 +922,7 @@
         <button class="btn secondary small" id="btnMenu">Mission Map</button>
         <button class="btn secondary small" id="btnResults">ดูผล</button>
         <a class="btn secondary small" href="./teacher-dashboard.html" style="text-decoration:none">Dashboard</a>
+        <a class="btn secondary small" href="./classroom-config.html" style="text-decoration:none">Config</a>
         <a class="btn secondary small" href="./session2-agent-preview.html" style="text-decoration:none">Session 2</a>
         <button class="btn secondary small" id="btnPracticeMode">Practice</button>
         <button class="btn secondary small" id="btnGateInfo">Gate</button>
@@ -931,7 +935,7 @@
         <div class="panel">
           <h2>Session 1: AI Awakening</h2>
           <p>
-            Google Sheets Ready v2.1b เพิ่ม Review Wrong Items, Teacher Export,
+            Google Sheets Ready v2.3 เพิ่ม Review Wrong Items, Teacher Export,
             ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
             เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
           </p>
@@ -1282,7 +1286,11 @@ async function saveStudentProfile(){
   showToast('บันทึก Profile แล้ว');
 
   if(window.AIQuestCloudLogger){
-    await AIQuestCloudLogger.sendProfile(profile);
+    if(window.AIQuestSync){
+      await AIQuestSync.submitProfile(profile);
+    }else{
+      await AIQuestCloudLogger.sendProfile(profile);
+    }
     await AIQuestCloudLogger.flushPending();
   }
 }
@@ -1750,6 +1758,9 @@ function logEvent(data){
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
     pageUrl: location.href,
+    courseId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().courseId : 'CSAI2102',
+    classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
+    term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
     runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
     runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
     ...data
@@ -2442,7 +2453,7 @@ function logEvent(data){
         const summary = {
           missionId:'m1',
           missionTitle:'AI Awakening',
-          version:'v2.1b-google-sheets-events',
+          version:'v2.3-google-sheets-events',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2560,6 +2571,9 @@ function logEvent(data){
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
     pageUrl: location.href,
+    courseId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().courseId : 'CSAI2102',
+    classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
+    term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
     runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
     runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED'
   };
@@ -2576,10 +2590,14 @@ function logEvent(data){
   AIQuestStorage.saveAttempt(attempt);
 
   if(window.AIQuestCloudLogger){
-    AIQuestCloudLogger
-      .sendAttempt(attempt, attempt.events || [])
-      .then(() => AIQuestCloudLogger.flushPending())
-      .catch(() => {});
+    if(window.AIQuestSync){
+      AIQuestSync.submitAttempt(attempt).catch(() => {});
+    }else{
+      AIQuestCloudLogger
+        .sendAttempt(attempt, attempt.events || [])
+        .then(() => AIQuestCloudLogger.flushPending())
+        .catch(() => {});
+    }
   }
 }
       saveState();
@@ -2704,7 +2722,7 @@ if(el('btnTestCloud')){
 
 loadProfileToForm();
   
-    /* PATCH v2.1b: Gate + Support UI Hooks */
+    /* PATCH v2.3: Gate + Support UI Hooks */
     function renderGateStatusBox(){
       if(!window.AIQuestGateSupport || !document.getElementById('gateStatusBox')) return;
       AIQuestGateSupport.renderGatePanel(document.getElementById('gateStatusBox'));
@@ -2726,7 +2744,7 @@ loadProfileToForm();
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachGateSupportButtons);else attachGateSupportButtons();
 
 
-    /* PATCH v2.1b: Gameplay Lockdown Hooks */
+    /* PATCH v2.3: Firebase + Google Sheets Hooks */
     function renderAdaptiveCoachBox(){
       if(window.AIQuestAdaptiveCoach && document.getElementById('adaptiveCoachBox')){
         AIQuestAdaptiveCoach.renderCoachPanel(document.getElementById('adaptiveCoachBox'));

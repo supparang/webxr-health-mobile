@@ -89,3 +89,115 @@ function aiquestDashboardReadme_() {
     tabs: ['students_profile','session_attempts','session_events','teacher_summary']
   };
 }
+
+
+/* ============================================================
+   AI QUEST PATCH v2.3: sync_v23 router
+   ใช้ร่วมกับ aiquest-sync-v23.js
+   ============================================================ */
+
+function aiquest_v23_parse_(e) {
+  var text = '';
+  try {
+    text = e && e.postData && e.postData.contents ? e.postData.contents : '';
+    return text ? JSON.parse(text) : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function aiquest_v23_output_(obj) {
+  return ContentService
+    .createTextOutput(JSON.stringify(obj || {}))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function aiquest_v23_ensureSheet_(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
+  if (sh.getLastRow() === 0) sh.appendRow(headers);
+  return sh;
+}
+
+function aiquest_v23_sync_(kind, payload) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  if (kind === 'profile') {
+    var shP = aiquest_v23_ensureSheet_(ss, 'students_profile', [
+      'serverTs','schemaVersion','profileId','studentId','studentName','section','courseId','classId','term','teacherId','consent','createdAt','updatedAt','rawJson'
+    ]);
+    shP.appendRow([
+      new Date(), payload.schemaVersion || '', payload.profileId || '', payload.studentId || '', payload.studentName || '',
+      payload.section || '', payload.courseId || '', payload.classId || '', payload.term || '', payload.teacherId || '',
+      payload.consent === true, payload.createdAt || '', payload.updatedAt || '', JSON.stringify(payload)
+    ]);
+    return {ok:true, kind:kind};
+  }
+
+  if (kind === 'attempt') {
+    var shA = aiquest_v23_ensureSheet_(ss, 'session_attempts', [
+      'serverTs','schemaVersion','attemptId','studentId','studentName','section','courseId','classId','term','teacherId',
+      'sessionId','missionId','runMode','submitStatus','score','accuracy','stars','gateStatus','gatePath','bossWin',
+      'explainCorrect','trickCorrect','helpUsed','startedAt','submittedAt','clientTs','reflection1','reflection2','reflection3',
+      'bestAttemptPolicy','isPractice','isGraded','pageUrl','userAgent','rawJson'
+    ]);
+    shA.appendRow([
+      new Date(), payload.schemaVersion || '', payload.attemptId || '', payload.studentId || '', payload.studentName || '', payload.section || '',
+      payload.courseId || '', payload.classId || '', payload.term || '', payload.teacherId || '', payload.sessionId || '', payload.missionId || '',
+      payload.runMode || '', payload.submitStatus || '', payload.score || 0, payload.accuracy || 0, payload.stars || 0, payload.gateStatus || '',
+      payload.gatePath || '', payload.bossWin === true, payload.explainCorrect || 0, payload.trickCorrect || 0, payload.helpUsed || 0,
+      payload.startedAt || '', payload.submittedAt || '', payload.clientTs || '', payload.reflection1 || '', payload.reflection2 || '', payload.reflection3 || '',
+      payload.bestAttemptPolicy || '', payload.isPractice === true, payload.isGraded === true, payload.pageUrl || '', payload.userAgent || '', JSON.stringify(payload)
+    ]);
+    aiquest_v23_updateTeacherSummary_(ss, payload);
+    return {ok:true, kind:kind};
+  }
+
+  if (kind === 'event') {
+    var shE = aiquest_v23_ensureSheet_(ss, 'session_events', [
+      'serverTs','schemaVersion','eventId','attemptId','studentId','section','courseId','classId','term','sessionId','missionId','runMode',
+      'eventType','phase','itemId','prompt','yourAnswer','correctAnswer','isCorrect','confidence','misconception','helpType',
+      'scoreDelta','combo','helpLeft','clientTs','pageUrl','userAgent','extraJson'
+    ]);
+    shE.appendRow([
+      new Date(), payload.schemaVersion || '', payload.eventId || '', payload.attemptId || '', payload.studentId || '', payload.section || '',
+      payload.courseId || '', payload.classId || '', payload.term || '', payload.sessionId || '', payload.missionId || '', payload.runMode || '',
+      payload.eventType || '', payload.phase || '', payload.itemId || '', payload.prompt || '', payload.yourAnswer || '', payload.correctAnswer || '',
+      payload.isCorrect, payload.confidence || '', payload.misconception || '', payload.helpType || '', payload.scoreDelta || 0,
+      payload.combo || 0, payload.helpLeft || 0, payload.clientTs || '', payload.pageUrl || '', payload.userAgent || '', payload.extraJson || ''
+    ]);
+    return {ok:true, kind:kind};
+  }
+
+  if (kind === 'progress') {
+    var shG = aiquest_v23_ensureSheet_(ss, 'mission_progress', [
+      'serverTs','schemaVersion','progressId','studentId','courseId','classId','term','sessionId','missionId','status','stars','bestScore','unlocked','updatedAt','rawJson'
+    ]);
+    shG.appendRow([
+      new Date(), payload.schemaVersion || '', payload.progressId || '', payload.studentId || '', payload.courseId || '', payload.classId || '',
+      payload.term || '', payload.sessionId || '', payload.missionId || '', payload.status || '', payload.stars || 0, payload.bestScore || 0,
+      payload.unlocked === true, payload.updatedAt || '', JSON.stringify(payload)
+    ]);
+    return {ok:true, kind:kind};
+  }
+
+  return {ok:false, error:'unknown kind: ' + kind};
+}
+
+function aiquest_v23_updateTeacherSummary_(ss, payload) {
+  var sh = aiquest_v23_ensureSheet_(ss, 'teacher_summary', [
+    'serverTs','courseId','classId','term','section','studentId','studentName','sessionId','missionId','bestScore','latestScore','attemptId','gateStatus','gatePath','runMode','updatedAt'
+  ]);
+  sh.appendRow([
+    new Date(), payload.courseId || '', payload.classId || '', payload.term || '', payload.section || '', payload.studentId || '', payload.studentName || '',
+    payload.sessionId || '', payload.missionId || '', payload.score || 0, payload.score || 0, payload.attemptId || '', payload.gateStatus || '',
+    payload.gatePath || '', payload.runMode || '', new Date()
+  ]);
+}
+
+/*
+  วิธีใช้:
+  ใน doPost(e) เดิม ให้เพิ่ม:
+  var body = aiquest_v23_parse_(e);
+  if (body.action === 'sync_v23') return aiquest_v23_output_(aiquest_v23_sync_(body.kind, body.payload || {}));
+*/
