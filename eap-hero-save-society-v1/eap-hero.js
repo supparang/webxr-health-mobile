@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1a ===
+/* === EAP Hero: Save the Society v1b ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -656,6 +656,2214 @@
     }
   ];
 
+
+  // Extra plausible question bank v1b: expands every session to reduce repeated questions.
+  function addExtraQuestions(){
+    const EXTRA = {
+  "1": [
+    [
+      "Choose the clearest academic goal.",
+      "",
+      [
+        "I will improve my ability to summarize academic texts.",
+        "I will study more when I have time.",
+        "I want English to feel easier.",
+        "I will try to understand class better."
+      ],
+      0,
+      "A clear academic goal names the specific skill to improve."
+    ],
+    [
+      "Which task is most related to EAP?",
+      "",
+      [
+        "Writing a short evidence-based paragraph",
+        "Watching a video only for entertainment",
+        "Posting a casual comment online",
+        "Memorizing a song lyric"
+      ],
+      0,
+      "EAP focuses on academic communication tasks."
+    ],
+    [
+      "Which sentence best explains the purpose of EAP?",
+      "",
+      [
+        "It helps students communicate in academic contexts.",
+        "It helps students avoid difficult readings.",
+        "It is mainly for chatting with international friends.",
+        "It is only about grammar tests."
+      ],
+      0,
+      "EAP supports academic reading, writing, speaking, and listening."
+    ],
+    [
+      "Which learner profile is most academic?",
+      "",
+      [
+        "I can read short texts, but I need to improve my summary writing.",
+        "I am okay with English because I use social media.",
+        "I want easy English activities every week.",
+        "I like English when it has no writing task."
+      ],
+      0,
+      "This profile identifies a current ability and a target skill."
+    ],
+    [
+      "Which phrase is suitable for an academic reflection?",
+      "",
+      [
+        "I learned that evidence is important in academic reading.",
+        "This was kind of okay.",
+        "The game was cool and stuff.",
+        "I did it because I had to."
+      ],
+      0,
+      "Academic reflection should be clear and connected to learning."
+    ],
+    [
+      "Which skill would help in writing a university report?",
+      "",
+      [
+        "Paraphrasing information from a source",
+        "Sending short informal messages",
+        "Choosing only colorful pictures",
+        "Reading only headlines"
+      ],
+      0,
+      "Paraphrasing is a key academic writing skill."
+    ],
+    [
+      "Which is the best example of academic responsibility?",
+      "",
+      [
+        "Checking sources before using information",
+        "Using any website because it is fast",
+        "Copying a paragraph to save time",
+        "Guessing the answer from the title"
+      ],
+      0,
+      "Academic responsibility includes checking sources."
+    ],
+    [
+      "Which statement is most suitable for an Academic Hero ID?",
+      "",
+      [
+        "My goal is to improve my reading accuracy and academic vocabulary.",
+        "My goal is to finish quickly.",
+        "My goal is to avoid difficult questions.",
+        "My goal is to get points only."
+      ],
+      0,
+      "This statement is specific and learning-focused."
+    ],
+    [
+      "Which activity best supports academic growth?",
+      "",
+      [
+        "Reviewing mistakes after a reading task",
+        "Skipping feedback after finishing",
+        "Choosing answers as quickly as possible without reading",
+        "Doing only easy questions"
+      ],
+      0,
+      "Reviewing mistakes supports learning improvement."
+    ],
+    [
+      "Which sentence is most formal?",
+      "",
+      [
+        "I would like to improve my ability to present academic information.",
+        "I wanna speak better in class.",
+        "Speaking is hard for me, you know.",
+        "I need to be good at presentation stuff."
+      ],
+      0,
+      "This sentence uses formal academic language."
+    ],
+    [
+      "Which EAP skill is used when listening to a lecture?",
+      "",
+      [
+        "Identifying the speaker’s main points",
+        "Remembering every single word",
+        "Ignoring signal words",
+        "Writing only personal feelings"
+      ],
+      0,
+      "Academic listening focuses on main points and keywords."
+    ],
+    [
+      "Which choice shows a useful learning strategy?",
+      "",
+      [
+        "Set a skill goal, practice, review feedback, and try again.",
+        "Answer once and never review it.",
+        "Use only translation without understanding the idea.",
+        "Avoid tasks that feel difficult."
+      ],
+      0,
+      "A good strategy includes practice and reflection."
+    ]
+  ],
+  "2": [
+    [
+      "Choose the best word: The article presents strong ______ for its claim.",
+      "",
+      [
+        "evidence",
+        "opinion",
+        "topic",
+        "format"
+      ],
+      0,
+      "Evidence supports a claim."
+    ],
+    [
+      "Choose the best word: The ______ section explains how the data were collected.",
+      "",
+      [
+        "method",
+        "result",
+        "conclusion",
+        "title"
+      ],
+      0,
+      "The method explains procedures."
+    ],
+    [
+      "Choose the best connector: The sample size was small; ______, the findings should be interpreted carefully.",
+      "",
+      [
+        "therefore",
+        "for example",
+        "in addition",
+        "similarly"
+      ],
+      0,
+      "Therefore shows consequence."
+    ],
+    [
+      "Choose the word closest to 'evaluate'.",
+      "",
+      [
+        "assess",
+        "copy",
+        "decorate",
+        "announce"
+      ],
+      0,
+      "Evaluate means assess or judge."
+    ],
+    [
+      "Choose the best academic word: The study aims to ______ the relationship between sleep and stress.",
+      "",
+      [
+        "examine",
+        "guess",
+        "chat about",
+        "decorate"
+      ],
+      0,
+      "Examine is suitable in academic writing."
+    ],
+    [
+      "Which word is commonly used to introduce a result?",
+      "",
+      [
+        "therefore",
+        "although",
+        "whereas",
+        "despite"
+      ],
+      0,
+      "Therefore introduces a result."
+    ],
+    [
+      "Which word is commonly used to introduce contrast?",
+      "",
+      [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      0,
+      "However introduces contrast."
+    ],
+    [
+      "Choose the best word: The findings were ______ because they appeared in several studies.",
+      "",
+      [
+        "consistent",
+        "casual",
+        "unclear",
+        "personal"
+      ],
+      0,
+      "Consistent means similar across cases."
+    ],
+    [
+      "Choose the best word: A research ______ is a question or issue that a study investigates.",
+      "",
+      [
+        "problem",
+        "decoration",
+        "feeling",
+        "shortcut"
+      ],
+      0,
+      "A research problem is the issue studied."
+    ],
+    [
+      "Choose the best word: The researcher will ______ previous studies before designing the project.",
+      "",
+      [
+        "review",
+        "ignore",
+        "guess",
+        "replace"
+      ],
+      0,
+      "Reviewing previous studies is academic work."
+    ],
+    [
+      "Choose the best word family pair.",
+      "",
+      [
+        "analyze / analysis",
+        "evidence / evidentless",
+        "method / methoding",
+        "conclude / conclusionless"
+      ],
+      0,
+      "Analyze and analysis are a correct word family pair."
+    ],
+    [
+      "Choose the most academic phrase.",
+      "",
+      [
+        "The results indicate that...",
+        "The results are kind of nice...",
+        "The results look cool...",
+        "The results say stuff..."
+      ],
+      0,
+      "The results indicate that... is academic."
+    ]
+  ],
+  "3": [
+    [
+      "What is the main idea?",
+      "Students who plan their study time often complete assignments more effectively. Planning helps them divide large tasks into smaller steps and avoid last-minute work.",
+      [
+        "Study planning can improve assignment completion.",
+        "Students have many assignments.",
+        "Large tasks are sometimes difficult.",
+        "Last-minute work happens often."
+      ],
+      0,
+      "The paragraph focuses on study planning and assignment completion."
+    ],
+    [
+      "What is the main idea?",
+      "Academic vocabulary helps students understand textbooks and journal articles. Without key terms, students may misunderstand the writer’s argument.",
+      [
+        "Academic vocabulary supports understanding academic texts.",
+        "Textbooks have many pages.",
+        "Journal articles are difficult.",
+        "Writers use arguments."
+      ],
+      0,
+      "The whole paragraph is about vocabulary supporting understanding."
+    ],
+    [
+      "Which option is too narrow?",
+      "Digital literacy allows students to evaluate sources, protect personal information, and communicate responsibly online.",
+      [
+        "Digital literacy includes several responsible online skills.",
+        "Students should protect personal information.",
+        "Digital literacy is important for online learning.",
+        "Students need responsible online behavior."
+      ],
+      1,
+      "Protecting personal information is only one detail."
+    ],
+    [
+      "Which option is too broad?",
+      "Peer feedback can help students improve their writing because classmates may notice unclear ideas and organization problems.",
+      [
+        "Communication improves society.",
+        "Peer feedback can improve student writing.",
+        "Classmates can identify unclear ideas.",
+        "Writing organization can be improved."
+      ],
+      0,
+      "This is broader than the paragraph."
+    ],
+    [
+      "What is the main idea?",
+      "Using evidence makes academic arguments more convincing. Evidence shows readers that the writer’s claim is supported by data or credible sources.",
+      [
+        "Evidence strengthens academic arguments.",
+        "Readers like data.",
+        "Writers make claims.",
+        "Sources can be credible."
+      ],
+      0,
+      "The paragraph focuses on evidence strengthening arguments."
+    ],
+    [
+      "Which option is irrelevant?",
+      "Regular reading practice can improve students’ vocabulary and comprehension. It also helps them become more familiar with academic sentence patterns.",
+      [
+        "Reading practice supports vocabulary and comprehension.",
+        "Reading helps students notice academic sentence patterns.",
+        "Students should choose colorful presentation slides.",
+        "Regular practice can improve reading skills."
+      ],
+      2,
+      "Presentation slide color is not related to the paragraph."
+    ],
+    [
+      "What is the main idea?",
+      "Responsible AI use requires students to check information, edit outputs, and acknowledge assistance when required. These actions help maintain academic integrity.",
+      [
+        "Responsible AI use supports academic integrity.",
+        "Students use AI tools.",
+        "Editing outputs takes time.",
+        "Some information may be inaccurate."
+      ],
+      0,
+      "The paragraph focuses on responsible AI and integrity."
+    ],
+    [
+      "Which answer is a supporting detail?",
+      "Clear signposting helps audiences follow an academic presentation. Phrases such as 'first,' 'next,' and 'in conclusion' show the structure of the talk.",
+      [
+        "Clear signposting helps audiences follow a presentation.",
+        "Phrases such as 'first' and 'next' show structure.",
+        "Presentations should be academic.",
+        "Audiences listen to speakers."
+      ],
+      1,
+      "This is an example/detail supporting the main idea."
+    ],
+    [
+      "What is the main idea?",
+      "Summarizing is useful because it requires students to identify key points and express them in fewer words. This skill also reduces the risk of copying too much from a source.",
+      [
+        "Summarizing helps students identify key points and avoid copying.",
+        "Sources contain many words.",
+        "Students write fewer words.",
+        "Copying is risky."
+      ],
+      0,
+      "The answer covers the full paragraph."
+    ],
+    [
+      "Which option best states the main idea?",
+      "Academic email should be polite, clear, and specific. A good email includes a meaningful subject, a respectful greeting, and a clear request.",
+      [
+        "Academic email requires polite and clear communication.",
+        "A subject line is needed.",
+        "Students send emails.",
+        "Greetings can be respectful."
+      ],
+      0,
+      "The paragraph focuses on effective academic email."
+    ],
+    [
+      "What is the main idea?",
+      "Data description helps readers understand trends in numbers. Instead of listing every value, writers should highlight major increases, decreases, or comparisons.",
+      [
+        "Data description should highlight major trends.",
+        "Numbers can be listed.",
+        "Writers use comparisons.",
+        "Readers understand data."
+      ],
+      0,
+      "The paragraph is about highlighting data trends."
+    ],
+    [
+      "Which option is only a detail?",
+      "Critical reading helps students question claims and check evidence before accepting information. This skill is especially important when reading online sources.",
+      [
+        "Critical reading supports careful evaluation of information.",
+        "This skill is important when reading online sources.",
+        "Students should question claims.",
+        "Evidence should be checked."
+      ],
+      1,
+      "Online sources are a context/detail, not the whole main idea."
+    ]
+  ],
+  "4": [
+    [
+      "Which signal word shows contrast?",
+      "Although mobile learning is convenient, some students still prefer printed materials.",
+      [
+        "Although",
+        "mobile",
+        "convenient",
+        "materials"
+      ],
+      0,
+      "Although shows contrast."
+    ],
+    [
+      "Which signal word shows addition?",
+      "The app provides vocabulary practice. Moreover, it gives instant feedback.",
+      [
+        "Moreover",
+        "provides",
+        "practice",
+        "feedback"
+      ],
+      0,
+      "Moreover adds information."
+    ],
+    [
+      "Which signal word shows cause?",
+      "Students improved their scores because they practiced every week.",
+      [
+        "because",
+        "improved",
+        "scores",
+        "every week"
+      ],
+      0,
+      "Because shows cause."
+    ],
+    [
+      "Which signal word shows example?",
+      "Students can use academic tools, such as online dictionaries and citation managers.",
+      [
+        "such as",
+        "academic",
+        "tools",
+        "managers"
+      ],
+      0,
+      "Such as introduces examples."
+    ],
+    [
+      "Choose the key topic.",
+      "Academic integrity requires honesty, proper citation, and responsible use of information.",
+      [
+        "Academic integrity",
+        "honesty",
+        "proper citation",
+        "information"
+      ],
+      0,
+      "Academic integrity is the central topic."
+    ],
+    [
+      "Choose the keyword that shows the main issue.",
+      "Cyberbullying can reduce students’ confidence and affect their mental health.",
+      [
+        "Cyberbullying",
+        "confidence",
+        "mental health",
+        "students"
+      ],
+      0,
+      "Cyberbullying is the issue being discussed."
+    ],
+    [
+      "Which signal word shows result?",
+      "The instructions were unclear; as a result, many students submitted the wrong file.",
+      [
+        "as a result",
+        "unclear",
+        "submitted",
+        "file"
+      ],
+      0,
+      "As a result shows consequence."
+    ],
+    [
+      "Which keyword is most important?",
+      "Source credibility is important when students use online information for assignments.",
+      [
+        "Source credibility",
+        "students",
+        "online",
+        "assignments"
+      ],
+      0,
+      "Source credibility is the main concept."
+    ],
+    [
+      "Which word signals comparison?",
+      "Compared with printed books, e-books are easier to search.",
+      [
+        "Compared with",
+        "printed",
+        "e-books",
+        "search"
+      ],
+      0,
+      "Compared with signals comparison."
+    ],
+    [
+      "Which signal word shows conclusion?",
+      "In conclusion, digital literacy should be developed in university courses.",
+      [
+        "In conclusion",
+        "digital",
+        "literacy",
+        "courses"
+      ],
+      0,
+      "In conclusion signals a final summary."
+    ],
+    [
+      "Which keyword should be highlighted?",
+      "Paraphrasing requires writers to restate ideas accurately without changing the meaning.",
+      [
+        "Paraphrasing",
+        "writers",
+        "ideas",
+        "meaning"
+      ],
+      0,
+      "Paraphrasing is the main skill."
+    ],
+    [
+      "Which signal word shows contrast?",
+      "Online tools are useful; however, students must check the accuracy of information.",
+      [
+        "however",
+        "useful",
+        "students",
+        "accuracy"
+      ],
+      0,
+      "However shows contrast."
+    ]
+  ],
+  "5": [
+    [
+      "Classify this statement.",
+      "The official report states that 72% of respondents used mobile banking in 2025.",
+      [
+        "Evidence",
+        "Opinion",
+        "Guess",
+        "Emotion"
+      ],
+      0,
+      "A report with data can function as evidence."
+    ],
+    [
+      "Classify this statement.",
+      "Online learning is more convenient than traditional learning.",
+      [
+        "Claim",
+        "Citation",
+        "Definition",
+        "Reference"
+      ],
+      0,
+      "This is a claim unless evidence is provided."
+    ],
+    [
+      "Classify this statement.",
+      "In my view, AI feedback is more helpful than teacher feedback.",
+      [
+        "Opinion",
+        "Fact",
+        "Evidence",
+        "Method"
+      ],
+      0,
+      "In my view signals opinion."
+    ],
+    [
+      "Which is the strongest evidence?",
+      "",
+      [
+        "A survey result from a university research project",
+        "A comment from an unknown account",
+        "A headline without a source",
+        "A personal guess"
+      ],
+      0,
+      "Research data is stronger evidence."
+    ],
+    [
+      "Which question checks source credibility?",
+      "",
+      [
+        "Who published this information?",
+        "Is the font attractive?",
+        "Is the title short?",
+        "Does it have many emojis?"
+      ],
+      0,
+      "The publisher helps determine credibility."
+    ],
+    [
+      "Which statement is a fact?",
+      "",
+      [
+        "The university library opens at 8:30 a.m. according to its official website.",
+        "The library is the best place on campus.",
+        "All students love the library.",
+        "Studying there always improves grades."
+      ],
+      0,
+      "This can be verified from an official source."
+    ],
+    [
+      "Which statement is an opinion?",
+      "",
+      [
+        "I believe citation tools are difficult to use.",
+        "The article was published in 2024.",
+        "The survey included 150 students.",
+        "The website belongs to the university."
+      ],
+      0,
+      "I believe signals opinion."
+    ],
+    [
+      "Which statement needs evidence most clearly?",
+      "",
+      [
+        "AI will replace all university teachers within two years.",
+        "The article has five sections.",
+        "The table shows 40 participants.",
+        "The author published the paper in 2023."
+      ],
+      0,
+      "A strong prediction needs evidence."
+    ],
+    [
+      "Which source is least reliable?",
+      "",
+      [
+        "An anonymous post with no source",
+        "A university website",
+        "A peer-reviewed article",
+        "An official report"
+      ],
+      0,
+      "Anonymous posts with no source are weak evidence."
+    ],
+    [
+      "Choose the best critical reading action.",
+      "",
+      [
+        "Compare the claim with evidence from a credible source.",
+        "Share the text because it looks interesting.",
+        "Accept it because many people like it.",
+        "Ignore the date and author."
+      ],
+      0,
+      "Critical readers check claims against evidence."
+    ],
+    [
+      "Classify this statement.",
+      "The study found that students who practiced weekly scored higher on the vocabulary test.",
+      [
+        "Evidence",
+        "Opinion",
+        "Casual phrase",
+        "Greeting"
+      ],
+      0,
+      "A study finding can support a claim."
+    ],
+    [
+      "Which statement is a claim?",
+      "",
+      [
+        "Digital literacy training may reduce students’ exposure to misinformation.",
+        "The course has 15 sessions.",
+        "The website lists three contact emails.",
+        "The table includes two columns."
+      ],
+      0,
+      "This statement needs evidence to support it."
+    ]
+  ],
+  "6": [
+    [
+      "Choose the best summary.",
+      "Original: Digital literacy helps students evaluate sources, protect private information, and communicate responsibly online.",
+      [
+        "Digital literacy supports responsible and safe online behavior.",
+        "Digital literacy helps students evaluate sources, protect private information, and communicate responsibly online.",
+        "Students use the internet.",
+        "Online behavior is always safe."
+      ],
+      0,
+      "This keeps the main idea in fewer words."
+    ],
+    [
+      "Choose the best summary.",
+      "Original: Academic presentations require clear structure, signposting phrases, and evidence to help audiences follow the speaker’s ideas.",
+      [
+        "Academic presentations need structure, signposting, and evidence.",
+        "Presentations require clear structure, signposting phrases, and evidence to help audiences follow the speaker’s ideas.",
+        "Speakers use phrases.",
+        "Audiences listen to presentations."
+      ],
+      0,
+      "This is concise and complete."
+    ],
+    [
+      "Which summary is too narrow?",
+      "Original: Exercise may improve physical health, reduce stress, and help students sleep better.",
+      [
+        "Exercise may improve sleep.",
+        "Exercise may benefit students’ physical and mental well-being.",
+        "Exercise has several health benefits for students.",
+        "Exercise may support student wellness."
+      ],
+      0,
+      "It includes only one detail."
+    ],
+    [
+      "Which summary changes the meaning?",
+      "Original: AI can support learning when students check its output carefully.",
+      [
+        "AI always gives correct information.",
+        "AI can help learning if students evaluate its output.",
+        "Careful checking is needed when using AI.",
+        "AI may support learning responsibly."
+      ],
+      0,
+      "The original does not say AI is always correct."
+    ],
+    [
+      "A summary should avoid ______.",
+      "",
+      [
+        "adding unsupported personal opinions",
+        "keeping the central idea",
+        "using fewer words",
+        "paraphrasing key points"
+      ],
+      0,
+      "A summary should not add unsupported opinions."
+    ],
+    [
+      "Choose the best summary.",
+      "Original: Peer feedback helps students notice unclear ideas and improve the organization of their writing.",
+      [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Peer feedback helps students notice unclear ideas and improve the organization of their writing.",
+        "Students write paragraphs.",
+        "Feedback is always easy."
+      ],
+      0,
+      "This is concise and accurate."
+    ],
+    [
+      "Which is a good summary strategy?",
+      "",
+      [
+        "Identify key points before writing.",
+        "Copy the longest sentence.",
+        "Start with personal feelings.",
+        "Change only one word from each sentence."
+      ],
+      0,
+      "Good summaries begin with key points."
+    ],
+    [
+      "Which summary is too broad?",
+      "Original: Citation tools can help students format references more accurately.",
+      [
+        "Technology helps people.",
+        "Citation tools may improve reference formatting.",
+        "Students can use tools for references.",
+        "Reference formatting can be supported by citation tools."
+      ],
+      0,
+      "Technology helps people is too broad."
+    ],
+    [
+      "Choose the best summary.",
+      "Original: Data description should highlight major trends rather than list every number in a table.",
+      [
+        "Data description should focus on major trends.",
+        "Data description should highlight major trends rather than list every number in a table.",
+        "Tables have numbers.",
+        "Every number is always important."
+      ],
+      0,
+      "This keeps the key idea in fewer words."
+    ],
+    [
+      "Which sentence should not be in a neutral summary?",
+      "",
+      [
+        "I personally think this topic is boring.",
+        "The article discusses digital literacy.",
+        "The author explains two causes.",
+        "The study reports survey findings."
+      ],
+      0,
+      "Personal opinion should not be added to a neutral summary."
+    ],
+    [
+      "Choose the best summary.",
+      "Original: Students can improve listening comprehension by focusing on keywords, signal words, and the speaker’s main point.",
+      [
+        "Students can improve listening by focusing on key information.",
+        "Students can improve listening comprehension by focusing on keywords, signal words, and the speaker’s main point.",
+        "Students listen in class.",
+        "Keywords are words."
+      ],
+      0,
+      "This is shorter and accurate."
+    ],
+    [
+      "Which is the best paraphrased summary?",
+      "Original: Online discussions can increase participation because shy students may feel more comfortable writing than speaking.",
+      [
+        "Online discussions may support participation, especially for students who prefer writing.",
+        "Online discussions can increase participation because shy students may feel more comfortable writing than speaking.",
+        "Shy students never speak.",
+        "Writing is always better than speaking."
+      ],
+      0,
+      "This paraphrases the meaning without copying."
+    ]
+  ],
+  "7": [
+    [
+      "Choose the academic version.",
+      "Informal: Lots of students think online tests are okay.",
+      [
+        "Many students consider online tests acceptable.",
+        "Lots of students are okay with online tests.",
+        "Online tests are kind of fine.",
+        "Students think tests are okay-ish."
+      ],
+      0,
+      "Many and acceptable are more academic."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: The app helps students a lot.",
+      [
+        "The application may significantly support student learning.",
+        "The app helps students a lot.",
+        "The app is very helpful and nice.",
+        "Students get lots of help from the app."
+      ],
+      0,
+      "This sentence is formal and specific."
+    ],
+    [
+      "Which phrase is more academic?",
+      "",
+      [
+        "a considerable number of students",
+        "tons of students",
+        "loads of students",
+        "many many students"
+      ],
+      0,
+      "A considerable number is formal."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: The data looks weird.",
+      [
+        "The data appear inconsistent.",
+        "The data looks weird.",
+        "The numbers are strange.",
+        "The data is kind of odd."
+      ],
+      0,
+      "Inconsistent is more precise and academic."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: This problem is huge.",
+      [
+        "This issue is significant.",
+        "This problem is super huge.",
+        "This is a big big issue.",
+        "This problem is massive stuff."
+      ],
+      0,
+      "Significant is suitable academic language."
+    ],
+    [
+      "Which sentence is too informal?",
+      "",
+      [
+        "This result is kind of bad for students.",
+        "This result may negatively affect students.",
+        "The findings indicate a possible problem.",
+        "The outcome suggests a need for support."
+      ],
+      0,
+      "Kind of bad is informal."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: The writer talks about AI stuff.",
+      [
+        "The author discusses issues related to artificial intelligence.",
+        "The writer talks about AI stuff.",
+        "The writer says things about AI.",
+        "AI stuff is discussed."
+      ],
+      0,
+      "Author discusses issues is more academic."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: People should not believe random posts.",
+      [
+        "Users should evaluate online posts before accepting them as reliable.",
+        "People should not believe random posts.",
+        "Random posts are not good.",
+        "People should stop believing stuff."
+      ],
+      0,
+      "This version is formal and specific."
+    ],
+    [
+      "Which word is more academic than 'bad'?",
+      "",
+      [
+        "negative",
+        "not cool",
+        "awful stuff",
+        "bad bad"
+      ],
+      0,
+      "Negative is more academic."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: The class was useful because we learned many things.",
+      [
+        "The session was beneficial because students developed several academic skills.",
+        "The class was useful because we learned many things.",
+        "The class helped a lot.",
+        "We learned lots of stuff."
+      ],
+      0,
+      "This is more formal and specific."
+    ],
+    [
+      "Which phrase shows cautious academic tone?",
+      "",
+      [
+        "may indicate",
+        "totally proves",
+        "always means",
+        "for sure shows"
+      ],
+      0,
+      "May indicate is appropriately cautious."
+    ],
+    [
+      "Choose the academic version.",
+      "Informal: Social media makes students waste time.",
+      [
+        "Excessive social media use may reduce students’ study time.",
+        "Social media makes students waste time.",
+        "Students waste time because of social media.",
+        "Social media is bad for all students."
+      ],
+      0,
+      "This sentence is formal, cautious, and precise."
+    ]
+  ],
+  "8": [
+    [
+      "Integrated: Choose the best academic connector.",
+      "The evidence was limited; ______, the conclusion should be cautious.",
+      [
+        "therefore",
+        "such as",
+        "in addition",
+        "similarly"
+      ],
+      0,
+      "Therefore shows a result."
+    ],
+    [
+      "Integrated: Choose the main idea.",
+      "Students who review feedback after each task can identify weaknesses and improve their next attempt.",
+      [
+        "Reviewing feedback supports improvement.",
+        "Students do tasks.",
+        "Weaknesses exist.",
+        "Attempts can be next."
+      ],
+      0,
+      "The paragraph focuses on feedback and improvement."
+    ],
+    [
+      "Integrated: Choose the academic tone.",
+      "Informal: This source is kind of bad.",
+      [
+        "This source may not be reliable.",
+        "This source is kind of bad.",
+        "This source is not cool.",
+        "This source is bad stuff."
+      ],
+      0,
+      "Reliable is more academic and specific."
+    ],
+    [
+      "Integrated: Classify the statement.",
+      "The survey found that 58% of participants preferred mobile learning.",
+      [
+        "Evidence",
+        "Opinion",
+        "Claim",
+        "Greeting"
+      ],
+      0,
+      "Survey data is evidence."
+    ],
+    [
+      "Integrated: Choose the best summary.",
+      "Original: Citation helps readers identify the sources used in academic work.",
+      [
+        "Citation helps readers trace academic sources.",
+        "Citation helps readers identify the sources used in academic work.",
+        "Readers read sources.",
+        "Academic work is important."
+      ],
+      0,
+      "This is concise and accurate."
+    ],
+    [
+      "Integrated: Choose the academic vocabulary.",
+      "The study will ______ students’ attitudes toward AI tools.",
+      [
+        "examine",
+        "guess",
+        "chat",
+        "decorate"
+      ],
+      0,
+      "Examine is an academic verb."
+    ],
+    [
+      "Integrated: Which option is too narrow?",
+      "Academic writing requires clear structure, evidence, and formal language.",
+      [
+        "Academic writing requires formal language.",
+        "Academic writing requires several features.",
+        "Academic writing needs structure and evidence.",
+        "Academic writing should be clear."
+      ],
+      0,
+      "Formal language is only one detail."
+    ],
+    [
+      "Integrated: Choose the best source.",
+      "",
+      [
+        "A journal article with author and date",
+        "A screenshot with no source",
+        "A forwarded message",
+        "An anonymous comment"
+      ],
+      0,
+      "A journal article is more credible."
+    ],
+    [
+      "Integrated: Choose the best paraphrase.",
+      "Original: Online learning can increase access to educational materials.",
+      [
+        "Online learning may improve access to learning resources.",
+        "Online learning can increase access to educational materials.",
+        "Online learning is always better.",
+        "Educational materials are online."
+      ],
+      0,
+      "This paraphrases the original meaning."
+    ],
+    [
+      "Integrated: Choose the signal word for contrast.",
+      "",
+      [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      0,
+      "However shows contrast."
+    ],
+    [
+      "Integrated: Choose the best reflection sentence.",
+      "",
+      [
+        "I need to practice identifying evidence because I confused claims with facts.",
+        "It was hard.",
+        "I clicked the wrong one.",
+        "The boss was scary."
+      ],
+      0,
+      "This reflection identifies a specific weakness."
+    ],
+    [
+      "Integrated: Which skill helps defeat Plagiarism Monster?",
+      "",
+      [
+        "Citation and paraphrasing",
+        "Guessing quickly",
+        "Choosing colorful slides",
+        "Reading only the title"
+      ],
+      0,
+      "Citation and paraphrasing are ethics skills."
+    ]
+  ],
+  "9": [
+    [
+      "Choose the best topic sentence.",
+      "Topic: Digital literacy",
+      [
+        "Digital literacy is essential for responsible online learning.",
+        "Students use websites.",
+        "Some websites have pictures.",
+        "Online learning happens sometimes."
+      ],
+      0,
+      "This sentence states a clear main point."
+    ],
+    [
+      "Choose the best supporting detail.",
+      "Topic sentence: Academic vocabulary improves reading comprehension.",
+      [
+        "Students who know key terms can follow arguments more accurately.",
+        "Vocabulary is a word.",
+        "Some books are long.",
+        "Reading can happen at home."
+      ],
+      0,
+      "This detail directly supports the topic."
+    ],
+    [
+      "Choose the best evidence sentence.",
+      "Topic: Exercise can reduce stress.",
+      [
+        "A university survey found that students who exercised weekly reported lower stress levels.",
+        "Exercise is popular with some people.",
+        "Students have stress.",
+        "Stress is not good."
+      ],
+      0,
+      "This sentence provides data-based support."
+    ],
+    [
+      "Choose the best concluding sentence.",
+      "Paragraph topic: Responsible AI use",
+      [
+        "Therefore, students should use AI critically and ethically in academic work.",
+        "AI tools are on many websites.",
+        "Some students use AI.",
+        "The next paragraph is different."
+      ],
+      0,
+      "This conclusion summarizes the paragraph’s point."
+    ],
+    [
+      "Which sentence does not fit a paragraph about academic email?",
+      "",
+      [
+        "Graphs can show trends in student performance.",
+        "A clear subject line helps the reader understand the email.",
+        "A polite greeting creates a respectful tone.",
+        "A specific request helps the instructor respond."
+      ],
+      0,
+      "Graphs do not fit an academic email paragraph."
+    ],
+    [
+      "What is the role of a topic sentence?",
+      "",
+      [
+        "To introduce the main idea of the paragraph",
+        "To list all references",
+        "To end the essay",
+        "To add a random example"
+      ],
+      0,
+      "A topic sentence introduces the paragraph’s main idea."
+    ],
+    [
+      "Which order is most logical?",
+      "",
+      [
+        "Topic sentence → Supporting detail → Evidence → Concluding sentence",
+        "Evidence → Title → Random detail → Topic",
+        "Conclusion → Example → Topic → Greeting",
+        "Reference → Question → Opinion → Title"
+      ],
+      0,
+      "This is a logical paragraph structure."
+    ],
+    [
+      "Choose the best example for: “Mobile apps can support vocabulary learning.”",
+      "",
+      [
+        "For example, flashcard apps can help students review academic words daily.",
+        "For example, some students have phones.",
+        "For example, the screen is bright.",
+        "For example, apps are downloaded."
+      ],
+      0,
+      "This example supports vocabulary learning."
+    ],
+    [
+      "Choose the best paragraph focus.",
+      "",
+      [
+        "One clear main idea",
+        "Many unrelated ideas",
+        "Only examples without a topic",
+        "A conclusion with no support"
+      ],
+      0,
+      "A paragraph should focus on one clear idea."
+    ],
+    [
+      "Which sentence is too general for a topic sentence?",
+      "",
+      [
+        "Education is important.",
+        "Digital literacy can help students evaluate online information.",
+        "Academic email requires polite language.",
+        "Citation supports academic integrity."
+      ],
+      0,
+      "Education is important is too broad."
+    ],
+    [
+      "Choose the best support for: “Peer feedback improves writing.”",
+      "",
+      [
+        "Classmates may identify unclear ideas that the writer did not notice.",
+        "Peer means people of the same group.",
+        "Writing uses sentences.",
+        "Feedback can be short."
+      ],
+      0,
+      "This explains how peer feedback improves writing."
+    ],
+    [
+      "Choose the sentence that sounds like evidence.",
+      "",
+      [
+        "A study of 120 students reported improved scores after weekly practice.",
+        "I think practice is nice.",
+        "Students may enjoy games.",
+        "Practice is important."
+      ],
+      0,
+      "This sentence includes study data."
+    ]
+  ],
+  "10": [
+    [
+      "Choose the best description.",
+      "Data: 20% in 2022, 35% in 2023, 50% in 2024.",
+      [
+        "The percentage increased steadily from 2022 to 2024.",
+        "The percentage decreased steadily.",
+        "The percentage remained stable.",
+        "The percentage rose only in 2022."
+      ],
+      0,
+      "The numbers increase each year."
+    ],
+    [
+      "Choose the best description.",
+      "Data: 70, 70, 70.",
+      [
+        "The value remained stable.",
+        "The value increased significantly.",
+        "The value decreased gradually.",
+        "The value fluctuated sharply."
+      ],
+      0,
+      "The numbers do not change."
+    ],
+    [
+      "Choose the best description.",
+      "Data: Group A = 65%, Group B = 45%.",
+      [
+        "Group A was higher than Group B.",
+        "Group B was higher than Group A.",
+        "Both groups were equal.",
+        "Group A had no data."
+      ],
+      0,
+      "65% is higher than 45%."
+    ],
+    [
+      "Which phrase is best for a small increase?",
+      "",
+      [
+        "increased slightly",
+        "increased dramatically",
+        "fell sharply",
+        "remained stable"
+      ],
+      0,
+      "Slightly means a small change."
+    ],
+    [
+      "Which phrase is best for a large decrease?",
+      "",
+      [
+        "decreased significantly",
+        "increased slightly",
+        "remained stable",
+        "rose gradually"
+      ],
+      0,
+      "Decreased significantly shows a large drop."
+    ],
+    [
+      "Choose the academic data sentence.",
+      "Data: 40% preferred videos, 30% preferred quizzes.",
+      [
+        "Videos were preferred by a higher percentage of students than quizzes.",
+        "Videos win because they are better.",
+        "Everyone likes videos.",
+        "Quizzes are not cool."
+      ],
+      0,
+      "This sentence accurately compares the data."
+    ],
+    [
+      "Which should be avoided in data description?",
+      "",
+      [
+        "Claiming more than the data show",
+        "Identifying the main trend",
+        "Comparing major values",
+        "Using accurate percentages"
+      ],
+      0,
+      "Do not over-interpret data."
+    ],
+    [
+      "Choose the best verb for upward trend.",
+      "",
+      [
+        "rise",
+        "fall",
+        "remain stable",
+        "drop"
+      ],
+      0,
+      "Rise means increase."
+    ],
+    [
+      "Choose the best verb for downward trend.",
+      "",
+      [
+        "decline",
+        "increase",
+        "grow",
+        "remain stable"
+      ],
+      0,
+      "Decline means decrease."
+    ],
+    [
+      "Choose the best sentence.",
+      "Data: The number changed from 100 to 102.",
+      [
+        "The number increased slightly.",
+        "The number increased dramatically.",
+        "The number decreased sharply.",
+        "The number remained exactly the same."
+      ],
+      0,
+      "100 to 102 is a slight increase."
+    ],
+    [
+      "Which sentence is too strong for limited data?",
+      "",
+      [
+        "The result proves that all students prefer online learning.",
+        "The data suggest a possible preference for online learning.",
+        "The survey indicates a trend.",
+        "The findings should be interpreted carefully."
+      ],
+      0,
+      "Proves that all students is too strong."
+    ],
+    [
+      "Choose the best comparison phrase.",
+      "",
+      [
+        "compared with",
+        "because of",
+        "in conclusion",
+        "for example"
+      ],
+      0,
+      "Compared with is used for comparison."
+    ]
+  ],
+  "11": [
+    [
+      "Choose the best subject line.",
+      "",
+      [
+        "Request for Feedback on Draft Report",
+        "Need help fast",
+        "Question",
+        "Please read"
+      ],
+      0,
+      "This subject is specific and formal."
+    ],
+    [
+      "Choose the best greeting.",
+      "",
+      [
+        "Dear Professor Lee,",
+        "Hey prof,",
+        "Hello!!!",
+        "Teacher!"
+      ],
+      0,
+      "Dear Professor Lee is respectful."
+    ],
+    [
+      "Choose the best purpose sentence.",
+      "",
+      [
+        "I am writing to ask for clarification about the final presentation.",
+        "I don’t get it.",
+        "Tell me what to do.",
+        "Presentation problem."
+      ],
+      0,
+      "This sentence clearly states the purpose."
+    ],
+    [
+      "Choose the best request.",
+      "",
+      [
+        "Could you please let me know whether the report should include references?",
+        "Tell me references now.",
+        "I need answer.",
+        "You must explain references."
+      ],
+      0,
+      "Could you please is polite."
+    ],
+    [
+      "Choose the best reason sentence.",
+      "",
+      [
+        "I was unable to attend the class because of a medical appointment.",
+        "I missed it.",
+        "I was not there and need everything.",
+        "I forgot class."
+      ],
+      0,
+      "This reason is clear and respectful."
+    ],
+    [
+      "Choose the best closing line.",
+      "",
+      [
+        "Thank you for your time and consideration.",
+        "Reply fast.",
+        "That is all.",
+        "Okay bye."
+      ],
+      0,
+      "This closing is polite."
+    ],
+    [
+      "Which email element helps the reader understand the topic quickly?",
+      "",
+      [
+        "Subject line",
+        "Emoji",
+        "Font color",
+        "Long unrelated story"
+      ],
+      0,
+      "A subject line signals the topic."
+    ],
+    [
+      "Which sentence is too direct?",
+      "",
+      [
+        "Send me the score today.",
+        "I would like to ask whether my score is available.",
+        "Could you please advise me about the score?",
+        "I am writing to ask about my score."
+      ],
+      0,
+      "This sounds like a command."
+    ],
+    [
+      "Choose the best appointment request.",
+      "",
+      [
+        "Would it be possible to meet during your office hours?",
+        "Meet me today.",
+        "I want to see you now.",
+        "You have to talk to me."
+      ],
+      0,
+      "This is polite and appropriate."
+    ],
+    [
+      "Choose the best attachment sentence.",
+      "",
+      [
+        "I have attached my revised report for your review.",
+        "Here thing.",
+        "File is there.",
+        "Look at this."
+      ],
+      0,
+      "This sentence is clear and formal."
+    ],
+    [
+      "Which email is most appropriate for university context?",
+      "",
+      [
+        "A concise email with greeting, purpose, request, and closing",
+        "A message with no subject and only one word",
+        "A long complaint with no request",
+        "A casual chat message"
+      ],
+      0,
+      "Academic email should be structured and polite."
+    ],
+    [
+      "Choose the best apology phrase.",
+      "",
+      [
+        "I apologize for the late submission.",
+        "Sorry late lol.",
+        "My bad.",
+        "Late again."
+      ],
+      0,
+      "This phrase is formal and appropriate."
+    ]
+  ],
+  "12": [
+    [
+      "Which option needs citation?",
+      "",
+      [
+        "A specific idea from a journal article",
+        "Your own daily schedule",
+        "A common phrase such as 'thank you'",
+        "Your personal preference without source"
+      ],
+      0,
+      "Ideas from sources need citation."
+    ],
+    [
+      "Choose the safest academic action.",
+      "",
+      [
+        "Paraphrase the idea and cite the source.",
+        "Change a few words and remove the source.",
+        "Copy the paragraph because it sounds good.",
+        "Use a fake reference."
+      ],
+      0,
+      "Paraphrase plus citation is safest."
+    ],
+    [
+      "Which is patchwriting?",
+      "",
+      [
+        "Changing only a few words from the original sentence",
+        "Writing a new sentence from your own understanding",
+        "Quoting with quotation marks",
+        "Summarizing with citation"
+      ],
+      0,
+      "Patchwriting changes too little from the original."
+    ],
+    [
+      "Which AI use is risky?",
+      "",
+      [
+        "Submitting AI-generated text without checking or declaring it when required",
+        "Using AI to brainstorm possible keywords",
+        "Checking grammar and then revising yourself",
+        "Asking AI for practice questions"
+      ],
+      0,
+      "Submitting unchecked AI text is risky."
+    ],
+    [
+      "What should a reference help readers do?",
+      "",
+      [
+        "Find the original source",
+        "Guess your opinion",
+        "Ignore the evidence",
+        "Avoid reading"
+      ],
+      0,
+      "References help readers locate sources."
+    ],
+    [
+      "Choose the correct ethical statement.",
+      "",
+      [
+        "Using another author’s idea requires acknowledgment.",
+        "Changing one word removes the need for citation.",
+        "Online information never needs citation.",
+        "AI output is always your own work."
+      ],
+      0,
+      "Borrowed ideas require credit."
+    ],
+    [
+      "Which sentence is most transparent?",
+      "",
+      [
+        "AI was used to brainstorm ideas, and the final text was reviewed and edited by the student.",
+        "AI did everything.",
+        "No need to mention tools.",
+        "The source was somewhere online."
+      ],
+      0,
+      "This is transparent about AI assistance."
+    ],
+    [
+      "Which is acceptable quotation practice?",
+      "",
+      [
+        "Use quotation marks and provide citation.",
+        "Copy without citation if the text is short.",
+        "Remove the author’s name.",
+        "Use quotation marks but invent the year."
+      ],
+      0,
+      "Quotations need quotation marks and citation."
+    ],
+    [
+      "Choose the best paraphrase.",
+      "Original: Digital literacy helps students evaluate online information.",
+      [
+        "Digital literacy supports students in judging online information.",
+        "Digital literacy helps students evaluate online information.",
+        "Online information is digital literacy.",
+        "Students online information evaluate literacy."
+      ],
+      0,
+      "This changes wording while keeping meaning."
+    ],
+    [
+      "Which citation problem is shown?",
+      "The student includes a citation, but the cited source does not contain the information.",
+      [
+        "Incorrect source use",
+        "Perfect citation",
+        "Clear evidence",
+        "Good summary"
+      ],
+      0,
+      "The source must support the information."
+    ],
+    [
+      "Which is not enough to avoid plagiarism?",
+      "",
+      [
+        "Changing only one or two words",
+        "Using your own structure",
+        "Citing the source",
+        "Summarizing key ideas"
+      ],
+      0,
+      "Changing only a few words is not enough."
+    ],
+    [
+      "Choose the best source note.",
+      "",
+      [
+        "According to the Ministry report (2025), ...",
+        "Someone said online...",
+        "I saw it somewhere...",
+        "Many people know..."
+      ],
+      0,
+      "This gives an identifiable source."
+    ]
+  ],
+  "13": [
+    [
+      "Listening simulation: What is the speaker’s purpose?",
+      "Transcript: Today, I will explain three strategies for improving academic reading: previewing, identifying keywords, and reviewing notes.",
+      [
+        "To explain reading strategies",
+        "To describe a sports event",
+        "To advertise a phone",
+        "To tell a personal story only"
+      ],
+      0,
+      "The speaker introduces reading strategies."
+    ],
+    [
+      "Which note is best?",
+      "Transcript: The first reason is that citation helps readers locate the original source.",
+      [
+        "Citation → readers locate source",
+        "The first reason is that citation helps readers locate the original source.",
+        "Readers maybe source first",
+        "Citation nice"
+      ],
+      0,
+      "Good notes are short and meaningful."
+    ],
+    [
+      "Which signal word shows a new point?",
+      "Transcript: Next, I will discuss the role of evidence in academic writing.",
+      [
+        "Next",
+        "evidence",
+        "writing",
+        "role"
+      ],
+      0,
+      "Next introduces a new point."
+    ],
+    [
+      "What is the main point?",
+      "Transcript: Although AI tools are useful, students must check the accuracy of the information they provide.",
+      [
+        "AI tools require careful checking.",
+        "AI tools are always accurate.",
+        "Students should avoid all tools.",
+        "Accuracy is not important."
+      ],
+      0,
+      "The speaker emphasizes careful checking."
+    ],
+    [
+      "Which keyword should be in the notes?",
+      "Transcript: The study found a significant increase in student engagement after game-based learning was introduced.",
+      [
+        "significant increase",
+        "introduced",
+        "after",
+        "student"
+      ],
+      0,
+      "Significant increase is key information."
+    ],
+    [
+      "Which number should be noted?",
+      "Transcript: The survey included 250 undergraduate students from three faculties.",
+      [
+        "250 undergraduate students",
+        "survey included",
+        "faculties",
+        "from"
+      ],
+      0,
+      "Important numbers should be noted."
+    ],
+    [
+      "Which phrase signals conclusion?",
+      "Transcript: To sum up, academic English supports reading, writing, and presentation skills.",
+      [
+        "To sum up",
+        "supports",
+        "skills",
+        "academic"
+      ],
+      0,
+      "To sum up signals conclusion."
+    ],
+    [
+      "What should you do if you miss one word in a lecture?",
+      "",
+      [
+        "Keep listening for the main idea.",
+        "Stop listening completely.",
+        "Write random words.",
+        "Assume the lecture is impossible."
+      ],
+      0,
+      "Good listeners continue focusing on main ideas."
+    ],
+    [
+      "Which listening strategy is best before listening?",
+      "",
+      [
+        "Preview the topic and key vocabulary.",
+        "Ignore the title.",
+        "Close the notes.",
+        "Memorize unrelated words."
+      ],
+      0,
+      "Previewing prepares comprehension."
+    ],
+    [
+      "Which note-taking symbol is useful for cause?",
+      "",
+      [
+        "→",
+        "♥",
+        "?",
+        "#"
+      ],
+      0,
+      "Arrows can show cause/result relationships."
+    ],
+    [
+      "What is the main topic?",
+      "Transcript: This lecture focuses on how social media can spread misinformation and how students can evaluate sources.",
+      [
+        "Misinformation and source evaluation",
+        "Entertainment apps",
+        "Presentation anxiety",
+        "Exercise and sleep"
+      ],
+      0,
+      "The transcript focuses on misinformation and source evaluation."
+    ],
+    [
+      "Which detail supports the topic?",
+      "Transcript: Students should check the author, date, and evidence before sharing information.",
+      [
+        "Check author, date, and evidence",
+        "Students share things",
+        "Information exists online",
+        "The speaker talks today"
+      ],
+      0,
+      "These are specific evaluation steps."
+    ]
+  ],
+  "14": [
+    [
+      "Choose the best topic introduction.",
+      "",
+      [
+        "My presentation focuses on how digital literacy can reduce fake news.",
+        "I talk about things online.",
+        "This is my slide.",
+        "Maybe my topic is something."
+      ],
+      0,
+      "This introduction is clear."
+    ],
+    [
+      "Choose the best outline phrase.",
+      "",
+      [
+        "I will first explain the problem, then discuss causes and solutions.",
+        "I will say many things.",
+        "There are slides.",
+        "Please listen."
+      ],
+      0,
+      "This previews structure."
+    ],
+    [
+      "Choose the best transition.",
+      "",
+      [
+        "Let us now move to the causes of the problem.",
+        "Okay next stuff.",
+        "Another random point.",
+        "Go to slide."
+      ],
+      0,
+      "This is a clear transition."
+    ],
+    [
+      "Choose the best evidence phrase.",
+      "",
+      [
+        "According to the survey results, ...",
+        "I feel like...",
+        "People say...",
+        "It is obvious..."
+      ],
+      0,
+      "This introduces evidence."
+    ],
+    [
+      "Choose the best conclusion.",
+      "",
+      [
+        "In conclusion, digital literacy training can help students evaluate information more responsibly.",
+        "That’s it.",
+        "I finished.",
+        "No more slides."
+      ],
+      0,
+      "This conclusion summarizes the argument."
+    ],
+    [
+      "Choose the best Q&A response when you do not know the answer.",
+      "",
+      [
+        "Thank you for the question. I will need to check further information before answering fully.",
+        "I don’t know. Next.",
+        "Why do you ask that?",
+        "No answer."
+      ],
+      0,
+      "This is honest and polite."
+    ],
+    [
+      "Which phrase thanks the audience?",
+      "",
+      [
+        "Thank you for your attention.",
+        "Look at me.",
+        "Finally done.",
+        "Stop asking."
+      ],
+      0,
+      "This is a standard closing phrase."
+    ],
+    [
+      "Which slide title is most academic?",
+      "",
+      [
+        "Causes of Digital Literacy Gaps",
+        "Stuff about internet",
+        "My topic maybe",
+        "Things students do"
+      ],
+      0,
+      "This title is clear and formal."
+    ],
+    [
+      "Which speaking behavior is most effective?",
+      "",
+      [
+        "Use clear signposting and maintain a steady pace.",
+        "Read every word quickly.",
+        "Avoid eye contact completely.",
+        "Speak without structure."
+      ],
+      0,
+      "Clear signposting and pace support understanding."
+    ],
+    [
+      "Choose the best response to a challenging question.",
+      "",
+      [
+        "That is an important point. Based on the evidence I found, ...",
+        "You are wrong.",
+        "I do not want that question.",
+        "Ask someone else."
+      ],
+      0,
+      "This response is respectful and evidence-based."
+    ],
+    [
+      "Which phrase introduces a solution?",
+      "",
+      [
+        "One possible solution is...",
+        "The problem is...",
+        "I am nervous.",
+        "The end is here."
+      ],
+      0,
+      "This phrase introduces a solution."
+    ],
+    [
+      "Which phrase introduces a limitation?",
+      "",
+      [
+        "One limitation of this evidence is...",
+        "This proves everything.",
+        "There is no problem.",
+        "The answer is always true."
+      ],
+      0,
+      "Academic presentations should acknowledge limitations."
+    ]
+  ],
+  "15": [
+    [
+      "Choose the best problem statement.",
+      "",
+      [
+        "Fake news can mislead students and affect decision-making.",
+        "Fake news is bad stuff.",
+        "I do not like fake news.",
+        "Everyone knows fake news."
+      ],
+      0,
+      "This problem statement is specific and academic."
+    ],
+    [
+      "Choose the best cause sentence.",
+      "",
+      [
+        "One cause is low digital literacy among social media users.",
+        "The cause is people.",
+        "It happens because internet.",
+        "No one knows."
+      ],
+      0,
+      "This cause is clear and relevant."
+    ],
+    [
+      "Choose the best evidence sentence.",
+      "",
+      [
+        "A class survey found that 64% of students had shared news before checking the source.",
+        "Many people do it.",
+        "It is everywhere.",
+        "I saw it often."
+      ],
+      0,
+      "This uses specific data."
+    ],
+    [
+      "Choose the best solution.",
+      "",
+      [
+        "Universities should provide short workshops on source evaluation and responsible sharing.",
+        "People should be better.",
+        "Stop using phones.",
+        "Delete the internet."
+      ],
+      0,
+      "This solution is specific and realistic."
+    ],
+    [
+      "Choose the best conclusion.",
+      "",
+      [
+        "In conclusion, digital literacy can reduce misinformation and support responsible online behavior.",
+        "That is all about the thing.",
+        "Fake news is not good.",
+        "I finish now."
+      ],
+      0,
+      "This conclusion is academic and connected to the topic."
+    ],
+    [
+      "Which final mission skill combines reading and ethics?",
+      "",
+      [
+        "Checking source credibility before citing information",
+        "Choosing a colorful background",
+        "Speaking faster",
+        "Using only personal opinions"
+      ],
+      0,
+      "Source checking connects reading and ethics."
+    ],
+    [
+      "Which sentence is too opinion-based?",
+      "",
+      [
+        "I think this issue is annoying and people should stop.",
+        "The evidence suggests that the issue affects students’ decision-making.",
+        "The data indicate a need for training.",
+        "The report identifies digital literacy as a key factor."
+      ],
+      0,
+      "This relies on personal opinion rather than evidence."
+    ],
+    [
+      "Choose the best presentation structure.",
+      "",
+      [
+        "Problem, cause, evidence, solution, conclusion",
+        "Opinion, story, joke, ending, picture",
+        "Title, title, title, title, end",
+        "Cause only, no solution"
+      ],
+      0,
+      "This structure is clear and complete."
+    ],
+    [
+      "Which topic fits 'Save the Society' best?",
+      "",
+      [
+        "Online scams targeting university students",
+        "My favorite movie scene",
+        "A random food ranking",
+        "The color of my phone case"
+      ],
+      0,
+      "Online scams are a social issue."
+    ],
+    [
+      "Which solution is measurable?",
+      "",
+      [
+        "Run a 30-minute source-checking workshop and compare pre/post quiz scores.",
+        "Tell everyone to be careful.",
+        "Make people smarter.",
+        "Hope the problem decreases."
+      ],
+      0,
+      "This solution can be measured."
+    ],
+    [
+      "Choose the best academic title.",
+      "",
+      [
+        "Improving Digital Literacy to Reduce Fake News Among University Students",
+        "Fake News Bad",
+        "Internet Problem Stuff",
+        "Students and Things"
+      ],
+      0,
+      "This title is specific and formal."
+    ],
+    [
+      "Which final reflection is strongest?",
+      "",
+      [
+        "I learned to support solutions with evidence rather than only opinion.",
+        "I liked the final boss.",
+        "The game was okay.",
+        "I finished the work."
+      ],
+      0,
+      "This reflection identifies learning growth."
+    ]
+  ]
+};
+    Object.keys(EXTRA).forEach(key => {
+      const session = SESSIONS.find(s => s.id === Number(key));
+      if(!session) return;
+      EXTRA[key].forEach((q, idx) => {
+        session.questions.push(mcq(
+          `S${String(key).padStart(2,'0')}_X${String(idx+1).padStart(2,'0')}`,
+          q[0], q[1], q[2], q[3], q[4]
+        ));
+      });
+    });
+  }
+  addExtraQuestions();
+
   function mcq(id, question, context, choices, answer, feedback){
     return { id, type:'mcq', question, context, choices, answer, feedback };
   }
@@ -675,6 +2883,7 @@
       sessions,
       logs:[],
       settings:{ difficulty:'normal' },
+      recentQuestions:{},
       active:null
     };
   }
@@ -689,6 +2898,7 @@
       const fresh = cloneDefaultState();
       const merged = Object.assign(fresh, parsed);
       merged.sessions = Object.assign(fresh.sessions, parsed.sessions || {});
+      merged.recentQuestions = Object.assign(fresh.recentQuestions || {}, parsed.recentQuestions || {});
       return merged;
     }catch(e){
       console.warn(e);
@@ -931,7 +3141,7 @@
       mode:'practice',
       sessionId:id,
       index:0,
-      order:shuffle([...s.questions]).slice(0, Math.min(3, s.questions.length)),
+      order:selectQuestionSet(s, Math.min(4, s.questions.length), 'practice'),
       answers:[],
       correct:0
     };
@@ -1034,20 +3244,22 @@
     const s = getSession(id);
     clearInterval(bossTimer);
     const seconds = difficultySeconds();
+    const order = selectQuestionSet(s, bossQuestionCount(), 'boss');
+    const hp = Math.max(65, Math.min(95, Math.round(order.length * 10.5)));
     state.active = {
       mode:'boss',
       sessionId:id,
       startedAt:Date.now(),
       duration:seconds,
       timeLeft:seconds,
-      bossHpMax:90,
-      bossHp:90,
+      bossHpMax:hp,
+      bossHp:hp,
       hearts:3,
       combo:0,
       maxCombo:0,
       score:0,
       index:0,
-      order:shuffle([...s.questions]),
+      order,
       answers:[],
       correct:0,
       usedHints:0,
@@ -1056,6 +3268,38 @@
     saveState();
     renderBossQuestion();
     bossTimer = setInterval(tickBoss, 1000);
+  }
+
+
+  function bossQuestionCount(){
+    const d = state.settings.difficulty;
+    if(d === 'easy') return 7;
+    if(d === 'hard') return 9;
+    if(d === 'challenge') return 10;
+    return 8;
+  }
+
+  function selectQuestionSet(session, count, mode){
+    const pool = shuffle([...session.questions]);
+    const recent = new Set((state.recentQuestions && state.recentQuestions[session.id]) || []);
+    let fresh = pool.filter(q => !recent.has(q.id));
+    let selected = fresh.slice(0, count);
+
+    if(selected.length < count){
+      const selectedIds = new Set(selected.map(q => q.id));
+      selected = selected.concat(pool.filter(q => !selectedIds.has(q.id)).slice(0, count - selected.length));
+    }
+
+    return shuffle(selected).slice(0, Math.min(count, selected.length));
+  }
+
+  function updateRecentQuestions(sessionId, ids){
+    state.recentQuestions = state.recentQuestions || {};
+    const old = state.recentQuestions[sessionId] || [];
+    const merged = [...ids, ...old.filter(id => !ids.includes(id))];
+    const session = getSession(sessionId);
+    const keep = Math.max(8, Math.floor((session?.questions?.length || 20) * 0.55));
+    state.recentQuestions[sessionId] = merged.slice(0, keep);
   }
 
   function difficultySeconds(){
@@ -1082,8 +3326,8 @@
   function renderBossQuestion(){
     const a = state.active;
     const s = getSession(a.sessionId);
-    let q = a.order[a.index % a.order.length];
-    if(!q) return finishBoss(false, 'ไม่มีข้อคำถาม');
+    let q = a.order[a.index];
+    if(!q) return finishBoss(false, 'ตอบครบชุดคำถามแล้ว');
     setView('boss');
     const hpPct = Math.max(0, Math.round((a.bossHp/a.bossHpMax)*100));
     const timePct = Math.max(0, Math.round((a.timeLeft/a.duration)*100));
@@ -1146,7 +3390,7 @@
 
   function handleBossAnswer(correct){
     const a = state.active;
-    const q = a.order[a.index % a.order.length];
+    const q = a.order[a.index];
 
     if(correct){
       a.correct += 1;
@@ -1174,6 +3418,7 @@
     setTimeout(()=>{
       if(a.bossHp <= 0) return finishBoss(true, 'ชนะบอส');
       if(a.hearts <= 0) return finishBoss(false, 'Heart หมด');
+      if(a.index + 1 >= a.order.length) return finishBoss(false, 'ตอบครบชุดคำถามแล้ว แต่ยังลด HP บอสไม่หมด');
       a.index += 1;
       renderBossQuestion();
     }, 900);
@@ -1205,6 +3450,9 @@
     }else{
       addXP(xpGain);
     }
+
+
+    updateRecentQuestions(s.id, a.order.map(q => q.id));
 
     state.logs.push({
       student_id: state.profile.studentId || 'guest',
@@ -1376,7 +3624,7 @@
     const rows = SESSIONS.map(s=>{
       const p = state.sessions[s.id] || {};
       return `<tr>
-        <td>${s.id}</td><td>${safe(s.boss)}</td><td>${safe(s.skill)}</td>
+        <td>${s.id}</td><td>${safe(s.boss)}</td><td>${safe(s.skill)}</td><td>${s.questions.length}</td>
         <td>${p.cleared?'Cleared':'-'}</td><td>${stars(p.bestStars||0)}</td>
         <td>${p.bestAccuracy||0}%</td><td>${p.attempts||0}</td>
       </tr>`;
@@ -1397,7 +3645,7 @@
         </div>
         <h3 style="margin-top:20px">Session Progress</h3>
         <div class="table-wrap"><table>
-          <thead><tr><th>S</th><th>Boss</th><th>Skill</th><th>Status</th><th>Stars</th><th>Best Acc.</th><th>Attempts</th></tr></thead>
+          <thead><tr><th>S</th><th>Boss</th><th>Skill</th><th>Questions</th><th>Status</th><th>Stars</th><th>Best Acc.</th><th>Attempts</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>
         <h3 style="margin-top:20px">Recent Logs</h3>
@@ -1435,7 +3683,7 @@
     if(!a || a.mode !== 'boss') return;
     a.usedHints += 1;
     a.score = Math.max(0, a.score - 2);
-    const q = a.order[a.index % a.order.length];
+    const q = a.order[a.index];
     const fb = document.getElementById('feedback');
     if(fb){
       fb.className = 'feedback show info';
