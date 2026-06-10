@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1k Skill Path + Replay Challenge ===
+/* === EAP Hero: Save the Society v1l Unified Map Flow ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1k-skill-path-replay';
+  const APP_VERSION = '20260610-v1l-unified-map-flow';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31751,7 +31751,6 @@
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
             <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
             <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
-            <button class="btn ghost small" onclick="EAPHero.skillHub()">🎧 Skills</button>
             <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
@@ -32160,7 +32159,7 @@
     const tiles = SESSIONS.map(s=>{
       const p = state.sessions[s.id] || {};
       const cls = p.unlocked ? (p.cleared ? 'cleared unlocked' : 'unlocked') : 'locked';
-      const click = p.unlocked ? `onclick="EAPHero.sessionBrief(${s.id})"` : '';
+      const click = p.unlocked ? `onclick="EAPHero.skillPath(${s.id})"` : '';
       return `
         <button class="session-tile ${cls}" ${click}>
           <div class="num">SESSION ${s.id}</div>
@@ -32182,7 +32181,7 @@
           <span class="pill">Cards: ${state.cards.length}/15</span>
         </div>
         <h2>Campus Map</h2>
-        <p class="lead">เลือก Session ที่ปลดล็อกแล้ว เข้า Lab ฝึกทักษะ แล้วสู้ Boss ก่อนจบ Session</p>
+        <p class="lead">เลือก Session จาก Map → ทำ Skill Path → เก็บ Portfolio Evidence → ปลด Boss Gate เป็นช่วง ๆ</p>
         <div class="map">${tiles}</div>
       </section>
     `);
@@ -32237,7 +32236,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.practice(${s.id})">Practice Mission</button>
-          <button class="btn ghost" onclick="EAPHero.sessionBrief(${s.id})">Back</button>
+          <button class="btn ghost" onclick="EAPHero.skillPath(${s.id})">Back</button>
         </div>
       </section>
     `);
@@ -32584,7 +32583,7 @@
               <button class="btn small" onclick="EAPHero.freezeTime()">Time Freeze</button>
             </div>
           </div>
-          <button class="btn ghost block" onclick="EAPHero.sessionBrief(${s.id})">Quit Battle</button>
+          <button class="btn ghost block" onclick="EAPHero.skillPath(${s.id})">Quit Battle</button>
         </aside>
       </section>
     `);
@@ -33348,8 +33347,11 @@
     layout(`
       <section class="panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Skill Path Lock</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
-        <h2>Skill Path: Session ${s.id}</h2>
-        <p class="lead">ต้องผ่าน Core + Support evidence ก่อนจึงถือว่า Session พร้อมเข้า Boss Gate ช่วงถัดไป</p>
+        <h2>Session ${s.id} Path: ${safe(s.title || s.skill)}</h2>
+        <p class="lead">นี่คือหน้าหลักหลังจากเลือก Session บน Map: ทำ Core + Support Mission เพื่อเก็บ Evidence แล้วค่อยปลด Boss Gate ตามช่วง</p>
+        <div class="panel light" style="margin:14px 0">
+          <b>Flow:</b> Map → Session Path → Core/Support Mission → Mini Check/Boss Gate → Map
+        </div>
         <div class="grid four">${cards}</div>
         ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Boss Gate Available: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Boss Gate</button></div>` : ''}
         <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
@@ -33486,12 +33488,12 @@
       <section class="panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Four Skills Mode</span><span class="pill">Portfolio: ${(state.portfolio||[]).length}</span><span class="pill">Reading • Writing • Listening • Speaking</span></div>
         <h2>EAP Skill Mission Hub</h2>
-        <p class="lead">โหมดนี้เพิ่มทักษะจริงของ EAP ไม่ใช่แค่เลือกตอบ: อ่าน เขียน ฟัง พูด และบันทึกหลักฐานเป็น portfolio</p>
+        <p class="lead">หน้านี้เป็นส่วนย่อยของ Session Path ใช้เก็บหลักฐาน Reading/Writing/Listening/Speaking ไม่ใช่โหมดแยกจาก Map</p>
         <div class="grid four">${SESSIONS.map(x => `<button class="btn ${current.id===x.id?'primary':'ghost'}" onclick="EAPHero.skillHub(${x.id})">S${x.id} ${x.emoji}</button>`).join('')}</div>
         <div class="panel light" style="margin-top:18px">
           <h3>Session ${current.id}: ${safe(current.skill)}</h3>
           <p class="mini-note">Boss: ${safe(current.boss)} • Topic: ${safe(skillTextForSession(current).topic)}</p>
-          <button class="btn warn block" onclick="EAPHero.skillPath(${current.id})">🧭 Required Path</button>
+          <button class="btn warn block" onclick="EAPHero.skillPath(${current.id})">🧭 Back to Session Path</button>
           <div class="grid four">
             <button class="btn primary block" onclick="EAPHero.readingMission(${current.id})">📖 Reading</button>
             <button class="btn primary block" onclick="EAPHero.writingMission(${current.id})">✍️ Writing</button>
