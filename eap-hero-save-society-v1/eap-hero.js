@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1 ===
+/* === EAP Hero: Save the Society v1a ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -22,34 +22,34 @@
       ],
       questions:[
         mcq('S01_Q1','Which sentence is the best academic goal?','',[
-          'I want to be good.',
-          'I want to improve my academic reading and presentation skills.',
-          'English is hard.',
+          'I want to improve my English someday.',
+          'I want to improve my academic reading and presentation skills this semester.',
+          'I want to get a high score without changing my study strategy.',
           'I do not like homework.'
         ],1,'This goal is clear and academic.'),
-        mcq('S01_Q2','Which skill is related to EAP?','',[
-          'Reading research articles',
-          'Only chatting with friends',
-          'Playing games without learning',
-          'Avoiding homework'
-        ],0,'Reading academic texts is a core EAP skill.'),
+        mcq('S01_Q2','Which activity BEST shows EAP reading skill?','',[
+          'Reading a research article to identify claims and evidence',
+          'Reading a research article only to translate every word',
+          'Reading comments about the topic on social media',
+          'Reading only the title and guessing the conclusion'
+        ],0,'EAP reading focuses on claims, evidence, and meaning, not word-by-word translation only.'),
         mcq('S01_Q3','Choose the most academic sentence.','',[
-          'I wanna talk about stuff.',
+          'I will talk about my topic.',
           'Today, I would like to present my academic goal.',
-          'This is super cool.',
-          'Teacher, I don’t know.'
+          'My topic is useful for many students.',
+          'I have some ideas about my study plan.'
         ],1,'This sentence uses a polite academic presentation style.'),
         mcq('S01_Q4','Why is EAP useful for university students?','',[
-          'It helps students avoid all assignments.',
+          'It helps students only memorize grammar rules.',
           'It supports reading, writing, and presenting in academic contexts.',
-          'It is only for native speakers.',
-          'It replaces all other subjects.'
+          'It supports casual chatting more than academic tasks.',
+          'It helps students guess answers without reading sources.'
         ],1,'EAP supports academic communication.'),
         mcq('S01_Q5','Which phrase can start an academic self-profile?','',[
           'My academic goal is...',
-          'Whatever...',
-          'I hate this.',
-          'Very very good.'
+          'I will try to study more.',
+          'English is important for my future.',
+          'My English should become better.'
         ],0,'This phrase clearly introduces an academic goal.')
       ],
       reflection:'How can academic English help you as a university student?'
@@ -67,31 +67,31 @@
       ],
       questions:[
         mcq('S02_Q1','The researcher will ______ the data carefully.','',[
-          'sleep','analyze','color','forget'
+          'review','analyze','summarize','collect'
         ],1,'Analyze means to examine or study carefully.'),
         mcq('S02_Q2','Which word means “หลักฐาน”?','',[
-          'method','evidence','conclusion','however'
+          'result','evidence','source','claim'
         ],1,'Evidence means information that supports a claim.'),
         mcq('S02_Q3','Which connector shows contrast?','',[
-          'therefore','because','however','for example'
+          'therefore','because','however','in addition'
         ],2,'However shows contrast.'),
         mcq('S02_Q4','The final part of an academic text is often called the ______.','',[
-          'conclusion','noise','lunch','picture'
+          'discussion','introduction','conclusion','method'
         ],0,'Conclusion is the final part that summarizes key points.'),
         mcq('S02_Q5','Which word is closest to “important” in academic writing?','',[
-          'funny','significant','lazy','random'
+          'relevant','significant','frequent','general'
         ],1,'Significant means important or meaningful.'),
         mcq('S02_Q6','The ______ explains how the study was conducted.','',[
-          'method','snack','opinion','emotion'
+          'method','sample','result','limitation'
         ],0,'Method explains the process or procedure.'),
         mcq('S02_Q7','Choose the best academic connector: “The data were incomplete; ______, the result should be interpreted carefully.”','',[
-          'therefore','wow','very','stuff'
+          'therefore','however','for example','in contrast'
         ],0,'Therefore shows a result or consequence.'),
         mcq('S02_Q8','Which pair is correct?','',[
           'evidence = หลักฐาน',
-          'method = ข่าวลือ',
-          'result = คำถาม',
-          'conclusion = อาหาร'
+          'method = วิธีการศึกษา',
+          'result = ผลลัพธ์',
+          'conclusion = บทนำ'
         ],0,'Evidence means หลักฐาน.')
       ],
       reflection:'Which academic word from today is most useful for you? Why?'
@@ -234,20 +234,20 @@
         mcq('S06_Q1','Choose the best summary.','Original: Online learning platforms provide videos, quizzes, and discussion tools that help students study independently outside the classroom.',[
           'Online learning platforms provide videos, quizzes, and discussion tools that help students study independently outside the classroom.',
           'Online platforms can support independent learning through several learning tools.',
-          'Videos are fun for students.',
-          'Students should always study online only.'
+          'Online tools include videos and quizzes.',
+          'Online platforms are available outside class, but only for entertainment.'
         ],1,'This summary is shorter and keeps the main idea.'),
         mcq('S06_Q2','Which summary problem is shown here?','Original: AI can support writing when students use it responsibly. Summary: AI is always perfect for writing.',[
           'Good summary',
           'Changed meaning',
-          'Proper citation',
-          'Clear evidence'
+          'Too much detail',
+          'Personal opinion'
         ],1,'The summary changes the original meaning.'),
         mcq('S06_Q3','A good summary should ______.','',[
-          'copy every sentence',
-          'include only personal opinion',
+          'keep every example from the original',
+          'add new personal opinions',
           'keep the main idea in fewer words',
-          'be longer than the original'
+          'use the same sentence order as the original'
         ],2,'A summary keeps the main idea in fewer words.'),
         mcq('S06_Q4','Which sentence should usually be removed from a summary?','',[
           'The main result of the study',
@@ -258,8 +258,8 @@
         mcq('S06_Q5','Choose the best summary.','Original: Regular exercise may reduce stress, improve sleep, and increase students’ energy during the semester.',[
           'Regular exercise may benefit students’ health during the semester.',
           'Exercise may reduce stress, improve sleep, and increase students’ energy during the semester.',
-          'Students have semesters.',
-          'Sleep is the only benefit of exercise.'
+          'Exercise is one activity that students can do after class.',
+          'Exercise improves sleep but has no other benefits.'
         ],0,'This keeps the main idea and is shorter.')
       ],
       reflection:'What makes a summary different from copy-paste?'
@@ -277,37 +277,37 @@
       ],
       questions:[
         mcq('S07_Q1','Choose the academic version.','Informal: AI is super useful for students.',[
-          'AI is very very good for students.',
+          'AI is helpful for students in many ways.',
           'Artificial intelligence can support students’ learning processes.',
-          'AI is the best thing ever.',
-          'Students like AI so much.'
+          'AI always improves every student’s learning.',
+          'Many students think AI is useful.'
         ],1,'This sentence is formal and balanced.'),
         mcq('S07_Q2','Choose the academic version.','Informal: This thing is bad for students.',[
           'This issue may have negative effects on students.',
-          'This thing is really bad.',
-          'Students hate this thing.',
-          'It is super bad.'
+          'This issue is bad for many students.',
+          'Students may not like this issue.',
+          'Fake news causes many problems for students.'
         ],0,'This sentence uses academic and precise language.'),
         mcq('S07_Q3','Which word is more academic?','',[
-          'kids','children','stuff','kinda'
+          'young people','children','learners','students'
         ],1,'Children is more formal than kids.'),
         mcq('S07_Q4','Choose the academic version.','Informal: A lot of students use phones in class.',[
           'Many students use mobile phones in class.',
-          'Loads of students use phones.',
-          'Students use phones and stuff.',
-          'Phones are everywhere.'
+          'A large number of students use phones in class.',
+          'Students use phones for several activities.',
+          'Mobile phones are commonly used in learning environments.'
         ],0,'Many is more academic than a lot of.'),
         mcq('S07_Q5','Choose the academic version.','Informal: The result was really bad.',[
-          'The result was bad bad.',
+          'The result was not good for students.',
           'The result indicated a negative outcome.',
-          'The result was super terrible.',
-          'The result was not cool.'
+          'The result showed many problems.',
+          'The result may be considered unsuccessful.'
         ],1,'This version is formal and precise.'),
         mcq('S07_Q6','Which sentence has the best academic tone?','',[
-          'This app is cool.',
+          'This app is useful for students.',
           'This application may support independent learning.',
-          'This app rocks.',
-          'This is awesome.'
+          'This application helps students practice more often.',
+          'This application is popular among students.'
         ],1,'This sentence is clear, formal, and cautious.')
       ],
       reflection:'What is one informal word you should avoid in academic writing?'
@@ -325,25 +325,25 @@
       ],
       questions:[
         mcq('S08_Q1','Which word means “หลักฐาน”?','',[
-          'Evidence','Noise','Casual','Spider'
+          'Evidence','Claim','Method','Conclusion'
         ],0,'Evidence means หลักฐาน.'),
         mcq('S08_Q2','Choose the main idea.','Digital tools can help students learn independently through videos, quizzes, and feedback.',[
-          'Videos are online.',
+          'Digital tools provide online videos.',
           'Digital tools support independent learning.',
-          'Students like quizzes.',
-          'Feedback is short.'
+          'Quizzes are one feature of digital tools.',
+          'Feedback can help students improve.'
         ],1,'This captures the paragraph.'),
         mcq('S08_Q3','Choose the academic version.','Informal: This is super good.',[
-          'This is very very good.',
+          'This is useful for students.',
           'This may provide important benefits.',
-          'This is cool.',
-          'Good stuff.'
+          'This has many positive points.',
+          'This may be helpful in some contexts.'
         ],1,'This is formal and cautious.'),
         mcq('S08_Q4','A summary should ______.','',[
           'be shorter than the original',
-          'copy all sentences',
-          'add personal feelings',
-          'ignore the main idea'
+          'keep most original sentences',
+          'add extra opinions',
+          'focus only on examples'
         ],0,'A summary should be shorter.'),
         mcq('S08_Q5','Which connector shows result?','',[
           'however','therefore','although','such as'
@@ -361,40 +361,40 @@
       taunt:'Your paragraph is broken into pieces!',
       unlock:'Paragraph Builder + Academic Writer Badge',
       lab:[
-        'Academic paragraph ที่ดีมักมี Topic Sentence, Supporting Details, Example/Evidence และ Concluding Sentence',
+        'Academic paragraph ที่ดีมักมี Topic Sentence, Supporting Details, Contrast/Evidence และ Concluding Sentence',
         'Topic sentence บอกประเด็นหลักของย่อหน้า',
         'Supporting details และ evidence ทำให้ประเด็นน่าเชื่อถือ'
       ],
       questions:[
         mcq('S09_Q1','Which sentence is the best topic sentence?','Topic: Online learning',[
-          'Videos are sometimes short.',
+          'Online learning includes videos and quizzes.',
           'Online learning can support flexible study for university students.',
-          'Some students have phones.',
-          'Teachers use websites.'
+          'Students can access lessons on different devices.',
+          'Teachers may upload learning materials online.'
         ],1,'This states the main point of the paragraph.'),
         mcq('S09_Q2','What should usually come after a topic sentence?','',[
-          'Unrelated joke',
+          'An example related to the topic',
           'Supporting detail',
-          'Reference list only',
-          'Random opinion'
+          'A new topic sentence',
+          'A concluding sentence'
         ],1,'Supporting details develop the topic sentence.'),
         mcq('S09_Q3','Which is a concluding sentence?','',[
           'For example, students can watch videos.',
           'In conclusion, digital tools can improve learning when used appropriately.',
-          'Because students are busy',
-          'The survey had 100 students'
+          'This evidence supports the point.',
+          'The survey result provides evidence.'
         ],1,'In conclusion signals the closing idea.'),
         mcq('S09_Q4','Choose the best supporting detail for: “Exercise benefits students.”','',[
           'Many studies suggest that exercise can reduce stress.',
-          'Students wear shoes.',
-          'Classrooms have chairs.',
-          'Exercise is a word.'
+          'Students may exercise in different places.',
+          'Exercise can be done individually or in groups.',
+          'Exercise is a common activity among students.'
         ],0,'This detail supports the topic.'),
         mcq('S09_Q5','Which paragraph part gives the main point?','',[
           'Topic sentence',
-          'Font size',
-          'Page number',
-          'Emoji'
+          'Supporting detail',
+          'Concluding sentence',
+          'Contrast'
         ],0,'The topic sentence states the main point.')
       ],
       reflection:'What are the four parts of an academic paragraph?'
@@ -412,25 +412,25 @@
       ],
       questions:[
         mcq('S10_Q1','Choose the best data description.','Data: Student AI tool use increased from 30% in 2023 to 60% in 2025.',[
-          'AI tool use decreased.',
+          'AI tool use changed slightly.',
           'AI tool use increased from 2023 to 2025.',
-          'AI tool use remained stable.',
-          'AI tools disappeared.'
+          'AI tool use increased only in 2023.',
+          'AI tool use was higher in 2023 than 2025.'
         ],1,'The data show an increase.'),
         mcq('S10_Q2','Which word means “คงที่”?','',[
-          'increase','decrease','remain stable','fall'
+          'increase','decrease','remain stable','fluctuate'
         ],2,'Remain stable means stay the same.'),
         mcq('S10_Q3','Data: 80, 70, 60. Which trend is shown?','',[
-          'increase','decrease','remain stable','no data'
+          'increase','decrease','remain stable','fluctuation'
         ],1,'The numbers go down.'),
         mcq('S10_Q4','Choose the academic sentence.','Data: 45% of students preferred online quizzes.',[
-          'Online quizzes are awesome.',
+          'Many students may like online quizzes.',
           'The data show that 45% of students preferred online quizzes.',
-          'Everyone loves quizzes.',
-          'Quizzes win.'
+          'Most students preferred online quizzes.',
+          'Online quizzes were more popular than all learning tools.'
         ],1,'This sentence accurately reports the data.'),
         mcq('S10_Q5','Which word shows a large change?','',[
-          'significantly','randomly','maybe','stuff'
+          'significantly','slightly','gradually','steadily'
         ],0,'Significantly can show a meaningful or large change.')
       ],
       reflection:'Why should we describe data carefully?'
@@ -448,34 +448,34 @@
       ],
       questions:[
         mcq('S11_Q1','Choose the best opening for requesting an extension.','',[
-          'Hey teacher, I need more time.',
+          'Dear teacher, I need more time for homework.',
           'Dear Dr. Smith, I am writing to request an extension for the assignment.',
-          'Give me time.',
-          'I cannot do it.'
+          'I want to ask about the assignment deadline.',
+          'I am writing because the assignment is difficult.'
         ],1,'This opening is polite and clear.'),
         mcq('S11_Q2','Which subject line is best?','',[
-          'Help!!!',
+          'Assignment question',
           'Request for Assignment Extension',
-          'I have problem',
-          'Read this now'
+          'Question about homework',
+          'Need your reply'
         ],1,'This subject is clear and formal.'),
         mcq('S11_Q3','Choose the best closing.','',[
-          'Bye.',
+          'Thank you.',
           'Thank you for your consideration.',
-          'Answer me quickly.',
-          'Whatever.'
+          'I hope to hear from you soon.',
+          'After that, maybe...'
         ],1,'This closing is polite.'),
         mcq('S11_Q4','Which phrase is most polite?','',[
-          'You must meet me.',
+          'Can you meet me tomorrow?',
           'I would like to request an appointment.',
-          'Meet me now.',
-          'I want you.'
+          'I need to talk to you soon.',
+          'I would like to discuss my assignment.'
         ],1,'This is a polite request.'),
         mcq('S11_Q5','What should an academic email include?','',[
           'A clear purpose',
-          'Only emojis',
-          'No subject',
-          'Angry words'
+          'Author and year',
+          'A short reason',
+          'A respectful closing'
         ],0,'A clear purpose helps the reader understand the message.')
       ],
       reflection:'What phrase can make an email more polite?'
@@ -494,9 +494,9 @@
       questions:[
         mcq('S12_Q1','Choose the best academic use.','Original idea: AI tools can support students’ writing development when used responsibly.',[
           'AI tools can support students’ writing development when used responsibly.',
-          'AI is good for writing.',
+          'AI can help students write better.',
           'AI tools may support students’ writing development when used responsibly (Author, Year).',
-          'AI tools support writing.'
+          'AI tools help students improve writing skills.'
         ],2,'This paraphrases and includes a citation placeholder.'),
         mcq('S12_Q2','Which action is plagiarism?','',[
           'Paraphrasing with citation',
@@ -506,21 +506,21 @@
         ],1,'Copying without citation is plagiarism.'),
         mcq('S12_Q3','A paraphrase should ______.','',[
           'use your own words and cite the source',
-          'copy every word',
-          'remove the source',
-          'change only one word'
+          'change only a few words from the original',
+          'keep the same idea without naming the source',
+          'use synonyms but keep the exact sentence structure'
         ],0,'A paraphrase still needs citation.'),
         mcq('S12_Q4','Which is ethical AI use?','',[
-          'Submit AI output without reading it',
+          'Use AI to generate ideas and submit them without checking',
           'Use AI to support drafting, then review, edit, and declare use if required',
-          'Copy AI answer as your own research',
-          'Invent sources'
+          'Use AI text directly as your final answer',
+          'Ask AI for sources but do not verify them'
         ],1,'Responsible AI use includes review and transparency.'),
         mcq('S12_Q5','Which item is needed in academic citation?','',[
           'Source information',
-          'Only emojis',
-          'Random title',
-          'Nothing'
+          'Author and year',
+          'Website name only',
+          'A broad topic with no clear problem'
         ],0,'Citation points to the source.')
       ],
       reflection:'How can students use AI ethically in academic work?'
@@ -539,9 +539,9 @@
       questions:[
         mcq('S13_Q1','Listening simulation: What is the main topic?','Transcript: Today, I will discuss how digital literacy helps students evaluate online information and avoid misinformation.',[
           'Digital literacy and online information',
-          'Food and health',
-          'Sports events',
-          'Music performance'
+          'Digital tools for entertainment',
+          'General technology trends',
+          'Student social media habits'
         ],0,'The lecture focuses on digital literacy.'),
         mcq('S13_Q2','Which keyword is important?','Transcript: First, students should check the source of information before sharing it online.',[
           'source','sharing','online','check the source'
@@ -550,16 +550,16 @@
           'first','problem','possible','solutions'
         ],0,'First signals order.'),
         mcq('S13_Q4','What should you note while listening?','',[
-          'Every single word',
+          'Only the first sentence',
           'Only keywords and main points',
-          'Only the speaker’s clothes',
-          'Nothing'
+          'Only unfamiliar words',
+          'A broad topic with no clear problem'
         ],1,'Good note-taking focuses on keywords and main points.'),
         mcq('S13_Q5','What does “in conclusion” signal?','',[
-          'Beginning',
-          'Example',
+          'Opening example',
+          'Contrast',
           'Ending or summary',
-          'Cause'
+          'Additional detail'
         ],2,'In conclusion signals the final summary.')
       ],
       reflection:'What listening strategy can help you understand a lecture?'
@@ -577,34 +577,34 @@
       ],
       questions:[
         mcq('S14_Q1','Choose the best opening.','',[
-          'Hi, stuff today.',
+          'Hello, my topic is about digital things.',
           'Today, I would like to present my topic on digital literacy.',
-          'I don’t know what to say.',
-          'Let’s finish fast.'
+          'I will say something about my assignment.',
+          'I will briefly talk about a topic from class.'
         ],1,'This opening is clear and academic.'),
         mcq('S14_Q2','Which phrase introduces the next point?','',[
           'Next, I will discuss...',
-          'Bye now.',
-          'Whatever.',
-          'No idea.'
+          'Another thing is...',
+          'After that, maybe...',
+          'I also want to say...'
         ],0,'Next signals the next point.'),
         mcq('S14_Q3','Choose the best Q&A response.','Question: Can you explain your evidence?',[
-          'No.',
+          'I am not sure.',
           'Thank you for your question. The evidence comes from the survey results.',
-          'Why ask?',
-          'I don’t care.'
+          'Can you ask that again?',
+          'That is difficult to answer.'
         ],1,'This response is polite and informative.'),
         mcq('S14_Q4','Which phrase closes a presentation?','',[
           'In conclusion, this issue requires further attention.',
-          'Start now.',
-          'Randomly speaking.',
-          'I forgot.'
+          'That is all for my topic.',
+          'Finally, I have some final ideas.',
+          'This is the end.'
         ],0,'In conclusion signals closing.'),
         mcq('S14_Q5','What should a presentation outline do?','',[
           'Tell the audience the structure of the talk',
-          'Hide the topic',
-          'Confuse the audience',
-          'Replace all evidence'
+          'List unrelated details',
+          'Use as many slides as possible',
+          'Show only the conclusion'
         ],0,'An outline helps the audience follow the talk.')
       ],
       reflection:'Which presentation phrase will you use in your final presentation?'
@@ -617,39 +617,39 @@
       unlock:'Society Saver Ending + Final Trophy',
       lab:[
         'Final Mission รวมทุกทักษะ: vocabulary, reading, summary, academic tone, data, citation, listening, presentation',
-        'เลือกปัญหาสังคม 1 เรื่อง และนำเสนอ Problem → Cause → Evidence → Solution → Conclusion',
+        'เลือกปัญหาสังคม 1 เรื่อง และนำเสนอ Problem → Additional detail → Evidence → Solution → Conclusion',
         'เป้าหมายคือใช้ Academic English เพื่อเสนอทางออกอย่างมีเหตุผล'
       ],
       questions:[
         mcq('S15_Q1','Which structure is best for the final presentation?','',[
-          'Problem → Cause → Evidence → Solution → Conclusion',
-          'Joke → Random idea → End',
-          'Only opinion → No evidence',
-          'Title only'
+          'Problem → Additional detail → Evidence → Solution → Conclusion',
+          'Topic → Personal opinion → End',
+          'Problem → Opinion → Solution without evidence',
+          'Problem → Cause → Solution without conclusion'
         ],0,'This structure is clear and academic.'),
         mcq('S15_Q2','Which topic is suitable for the final mission?','',[
           'Fake news and digital literacy',
-          'My favorite snack only',
-          'Nothing',
-          'A random emoji'
+          'A personal hobby with no social issue',
+          'A broad topic with no clear problem',
+          'A topic with no evidence'
         ],0,'This is a social issue that can be discussed academically.'),
         mcq('S15_Q3','Which sentence uses evidence?','',[
-          'I think it is bad.',
+          'Many people say fake news is bad.',
           'A survey of 200 students found that 62% had seen fake news online.',
-          'Everyone knows this.',
-          'It is super bad.'
+          'Fake news is common on social media.',
+          'Fake news causes many problems for students.'
         ],1,'This sentence uses data as evidence.'),
         mcq('S15_Q4','Choose the most academic solution sentence.','',[
-          'People should just stop.',
+          'Students should be careful online.',
           'Universities should provide digital literacy training to help students evaluate online information.',
-          'This is bad stuff.',
-          'No one can fix it.'
+          'People should learn more about this issue.',
+          'Schools can tell students not to share wrong information.'
         ],1,'This solution is specific and academic.'),
         mcq('S15_Q5','Which final rank is earned by saving society?','',[
           'Society Saver',
-          'Noise Maker',
-          'Copy King',
-          'Lazy Goblin'
+          'Critical Reader',
+          'Academic Writer',
+          'Digital Citizen'
         ],0,'Society Saver is the final heroic rank.')
       ],
       reflection:'What social problem would you like to solve using academic English?'
