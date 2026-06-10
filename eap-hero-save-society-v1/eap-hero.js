@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1r Rubric Review Mode ===
+/* === EAP Hero: Save the Society v1t Context-Aware AI Help ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1r-rubric-review-mode';
+  const APP_VERSION = '20260610-v1t-context-aware-ai-help';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -33506,14 +33506,75 @@
     return { ok:true, reason:'' };
   }
 
-  function aiMentorMessage(skill, sessionId){
+
+  function aiDraftInputId(skill){
+    if(skill === 'Reading') return 'readAns0';
+    if(skill === 'Writing') return 'writingOut';
+    if(skill === 'Listening') return 'listeningNotes';
+    if(skill === 'Speaking') return 'speakingOut';
+    return '';
+  }
+
+  function collectAIDraft(skill){
+    if(skill === 'Reading'){
+      return [0,1,2].map(i => document.getElementById('readAns'+i)?.value || '').join(' ').trim();
+    }
+    const id = aiDraftInputId(skill);
+    return (document.getElementById(id)?.value || '').trim();
+  }
+
+  function analyzeDraftForAI(skill, draft){
+    const text = String(draft || '').trim();
+    const words = text ? text.split(/\s+/).filter(Boolean) : [];
+    const lower = text.toLowerCase();
+    const hasEvidence = /\b(evidence|example|data|source|because|for example|for instance|shows|suggests|indicates)\b/i.test(text);
+    const hasAcademicTone = /\b(may|might|suggests|indicates|appears|can|could|therefore|however|although)\b/i.test(text);
+    const hasStructure = /\b(first|second|next|finally|in conclusion|therefore|however|because|one reason|this means)\b/i.test(text);
+    const hasQuestion = /\?/.test(text);
+    const notes = [];
+
+    if(words.length === 0){
+      notes.push('You have not written a draft yet. Use the frame to start, then add your own content.');
+    } else {
+      if(skill === 'Reading'){
+        if(words.length < 18) notes.push('Your reading answer is still short. Add the main idea, two keywords, and one supporting detail.');
+        if(!hasEvidence) notes.push('Add one phrase or detail from the passage as evidence.');
+        if(!/\bmain|idea|purpose|claim|keyword|support/i.test(text)) notes.push('Name the reading focus clearly: main idea, purpose, claim, keyword, or support.');
+      }
+      if(skill === 'Writing'){
+        if(words.length < 45) notes.push('Your writing draft needs more development. Add a topic sentence, support, and conclusion.');
+        if(!hasEvidence) notes.push('Add evidence, an example, or a reason to support your claim.');
+        if(!hasAcademicTone) notes.push('Make the tone more academic by using cautious words such as suggests, may, or indicates.');
+        if(!hasStructure) notes.push('Add transitions such as first, however, therefore, or in conclusion.');
+      }
+      if(skill === 'Listening'){
+        if(words.length < 25) notes.push('Your notes are short. Add main point, keywords, evidence/example, and one question.');
+        if(!hasStructure) notes.push('Organize your notes with labels such as Main point, Evidence, Signal words, Question.');
+        if(!hasQuestion) notes.push('Add one follow-up question after listening.');
+      }
+      if(skill === 'Speaking'){
+        if(words.length < 45) notes.push('Your speaking notes/transcript are short. Add opening, evidence, and closing.');
+        if(!hasStructure) notes.push('Add signposting such as Today I will explain, First, Next, In conclusion.');
+        if(!hasEvidence) notes.push('Add one supporting reason, example, or evidence.');
+      }
+    }
+
+    if(!notes.length) notes.push('Your draft has a clear start. Improve it by adding one more precise academic detail and checking clarity.');
+    return { wordCount:words.length, notes:notes.slice(0,3), hasEvidence, hasAcademicTone, hasStructure };
+  }
+
+
+  function aiMentorMessage(skill, sessionId, draftText){
     const s = getSession(Number(sessionId || 1));
     const topic = skillTextForSession(s).topic;
-    const bank = {
+    const nextUse = aiUsesFor(sessionId, skill) + 1;
+    const draftInfo = analyzeDraftForAI(skill, draftText || '');
+
+    const level1 = {
       Reading:[
         `Look for the sentence that covers the whole passage about ${topic}, not only one detail.`,
-        'Try writing: The passage mainly explains that ...',
-        'Choose two keywords that appear important and repeat the topic idea.'
+        'Try to separate the main idea from examples, names, and numbers.',
+        'Check repeated keywords and the first or final sentence.'
       ],
       Writing:[
         `Plan first: topic sentence → support/evidence → concluding sentence about ${topic}.`,
@@ -33527,12 +33588,47 @@
       ],
       Speaking:[
         `Use this structure: opening → outline → evidence → conclusion about ${topic}.`,
-        'Start with: Today, I would like to explain ...',
+        'Start with a short opening, then give one clear reason.',
         'Add signposting: First, ... Next, ... In conclusion, ...'
       ]
     };
-    const arr = bank[skill] || ['Think about the target skill and explain your answer clearly.'];
-    return arr[aiUsesFor(sessionId, skill) % arr.length];
+
+    const level2 = {
+      Reading:[
+        `Use this answer frame: The passage mainly explains that ___. Two keywords are ___ and ___. A useful supporting detail is ___.`,
+        `Check your answer: Does it cover the whole topic of ${topic}, or only one small detail?`,
+        'Try this frame: The writer’s purpose is to ___ because the passage emphasizes ___.'
+      ],
+      Writing:[
+        `Try this frame: This topic is important because ___. One reason is ___. This suggests that ___.`,
+        `For academic tone, write: The evidence suggests that ___; however, more information is needed to ___.`,
+        `For a paragraph, use: Topic sentence → For example/One reason → This means that → Therefore/In conclusion.`
+      ],
+      Listening:[
+        `Use this note frame: Main point: ___. Keywords: ___ / ___ / ___. Evidence/example: ___. Question: ___.`,
+        `After listening, complete: The speaker first explains ___. Then, the speaker gives ___. The conclusion is ___.`,
+        'If you missed details, write the relationship instead: cause → effect, problem → solution, claim → evidence.'
+      ],
+      Speaking:[
+        `Use this speaking frame: Today, I will explain ___. First, ___. For example, ___. In conclusion, ___.`,
+        `For Q&A, try: Thank you for the question. My answer is ___. The reason is ___.`,
+        `For evidence talk, say: My claim is ___. One piece of evidence is ___. This matters because ___.`
+      ]
+    };
+
+    const selected = nextUse >= 2 ? level2 : level1;
+    const arr = selected[skill] || ['Think about the target skill and explain your answer clearly.'];
+    let baseMsg = arr[(nextUse - 1) % arr.length];
+    if(nextUse >= 2){
+      baseMsg = `Draft check (${draftInfo.wordCount} words): ${draftInfo.notes.join(' ')} Frame: ${baseMsg}`;
+    }
+    return {
+      level: nextUse >= 2 ? 'draft-aware-response-frame' : 'strategy-hint',
+      message: baseMsg,
+      useNumber: nextUse,
+      draftWordCount:draftInfo.wordCount,
+      draftNotes:draftInfo.notes
+    };
   }
 
   function renderAIHelpBox(skill, sessionId){
@@ -33545,13 +33641,13 @@
           <span class="pill">${left}/${AI_LIMITS.perSession} left</span>
           <span class="pill">Scaffold only</span>
         </div>
-        <p class="mini-note">AI Help ให้คำใบ้เชิงวิธีคิด ไม่เขียนคำตอบแทน ใช้แล้วจะถูกบันทึกใน portfolio/analytics</p>
-        <button class="btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId})">Ask AI Mentor</button>
+        <p class="mini-note">AI Help ครั้งที่ 1 ให้ strategy hint; ครั้งที่ 2 อ่าน draft/notes/transcript ที่พิมพ์อยู่ แล้วให้ feedback + response frame</p>
+        <button class="btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, aiDraftInputId('${skill}'))">Ask AI Mentor</button>
         <div id="aiHelpOutput" class="feedback info" style="margin-top:10px"></div>
       </div>`;
   }
 
-  function useAIHelp(skill, sessionId){
+  function useAIHelp(skill, sessionId, draftInputId){
     const allowed = canUseAI(sessionId, skill);
     const out = document.getElementById('aiHelpOutput');
     if(!allowed.ok){
@@ -33563,10 +33659,15 @@
     const key = aiUseKey(sessionId, skill);
     state.ai.sessionUses[key] = (state.ai.sessionUses[key] || 0) + 1;
     state.ai.dailyUses[todayKey()] = (state.ai.dailyUses[todayKey()] || 0) + 1;
-    const msg = aiMentorMessage(skill, sessionId);
+    const draftText = draftInputId ? (document.getElementById(draftInputId)?.value || collectAIDraft(skill)) : collectAIDraft(skill);
+    const ai = aiMentorMessage(skill, sessionId, draftText);
+    const msg = ai.message || String(ai);
     state.ai.logs.push({
       session:Number(sessionId),
       skill,
+      helpLevel:ai.level || 'strategy-hint',
+      draftWordCount:ai.draftWordCount || 0,
+      draftNotes:(ai.draftNotes || []).join(' | '),
       message:msg,
       useNumber:state.ai.sessionUses[key],
       day:todayKey(),
@@ -33577,7 +33678,7 @@
     saveState();
     if(out){
       out.classList.add('show');
-      out.innerHTML = `<b>AI Mentor:</b> ${safe(msg)}<br><span class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])}</span>`;
+      out.innerHTML = `<b>AI Mentor (${safe(ai.level || 'hint')}):</b> ${safe(msg)}<br><span class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])} • ครั้งที่ 2 จะตรวจ draft/คำตอบที่พิมพ์อยู่ แล้วให้กรอบปรับแก้ แต่ยังไม่เฉลย</span>`;
     }
   }
 
@@ -33587,7 +33688,7 @@
   }
 
   function exportAIHelpCSV(){
-    const header = ['student_id','session','skill','useNumber','message','day','at'];
+    const header = ['student_id','session','skill','useNumber','helpLevel','draftWordCount','draftNotes','message','day','at'];
     const rows = (state.ai?.logs || []).map(r => header.map(h => csvCell(r[h])).join(','));
     const csv = [header.join(','), ...rows].join('\n');
     const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
@@ -34754,6 +34855,7 @@
             student_id:uid,
             session:1,
             skill:'Writing',
+            helpLevel:'strategy-hint',
             message:'Plan first: topic sentence → support → conclusion.',
             at:new Date().toISOString()
           }
