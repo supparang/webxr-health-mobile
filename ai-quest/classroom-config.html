@@ -3,571 +3,116 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>CSAI2102 AI Quest • Classroom Config v2.3</title>
-
+  <title>CSAI2102 AI Quest • Classroom Config v2.3.1.1</title>
   <style>
-    :root{
-      --bg:#06101f;
-      --panel:#0f172a;
-      --text:#f8fafc;
-      --muted:#a8b3c7;
-      --line:rgba(255,255,255,.14);
-      --brand:#38bdf8;
-      --good:#34d399;
-      --warn:#fbbf24;
-      --bad:#fb7185;
-      --shadow:0 18px 44px rgba(0,0,0,.34);
-    }
-
-    *{box-sizing:border-box}
-
-    body{
-      margin:0;
-      color:var(--text);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      background:
-        radial-gradient(circle at 10% 0%,rgba(56,189,248,.22),transparent 32%),
-        radial-gradient(circle at 92% 6%,rgba(167,139,250,.20),transparent 34%),
-        var(--bg);
-    }
-
-    .app{
-      width:min(1050px,100%);
-      margin:0 auto;
-      padding:18px 14px 34px;
-    }
-
-    .panel{
-      background:rgba(15,23,42,.86);
-      border:1px solid var(--line);
-      border-radius:24px;
-      padding:16px;
-      margin-top:14px;
-      box-shadow:var(--shadow);
-    }
-
-    h1,h2{
-      margin:0 0 8px;
-    }
-
-    p{
-      color:var(--muted);
-      line-height:1.6;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(2,1fr);
-      gap:12px;
-    }
-
-    .row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-    }
-
-    label{
-      font-weight:900;
-      color:#dbeafe;
-      display:block;
-      margin-bottom:5px;
-    }
-
-    input,
-    select,
-    textarea{
-      width:100%;
-      background:#0b1324;
-      color:var(--text);
-      border:1px solid var(--line);
-      border-radius:14px;
-      padding:11px;
-      outline:none;
-    }
-
-    input:focus,
-    select:focus,
-    textarea:focus{
-      border-color:rgba(56,189,248,.75);
-      box-shadow:0 0 0 3px rgba(56,189,248,.12);
-    }
-
-    textarea{
-      min-height:130px;
-      font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace;
-      font-size:13px;
-      line-height:1.45;
-    }
-
-    .btn{
-      border:0;
-      border-radius:15px;
-      padding:11px 14px;
-      font-weight:1000;
-      color:var(--text);
-      background:linear-gradient(135deg,#2563eb,#7c3aed);
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      gap:6px;
-    }
-
-    .btn.secondary{
-      background:rgba(255,255,255,.08);
-      border:1px solid var(--line);
-    }
-
-    .btn.good{
-      background:linear-gradient(135deg,#059669,#22c55e);
-    }
-
-    .btn.warn{
-      background:linear-gradient(135deg,#d97706,#f59e0b);
-    }
-
-    .btn.bad{
-      background:linear-gradient(135deg,#e11d48,#fb7185);
-    }
-
-    .coachBox{
-      margin-top:10px;
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:12px;
-      background:rgba(255,255,255,.06);
-      line-height:1.6;
-      color:#e0f2fe;
-      word-break:break-word;
-    }
-
-    .statusGood{
-      border-color:rgba(52,211,153,.45);
-      background:rgba(52,211,153,.10);
-      color:#bbf7d0;
-    }
-
-    .statusWarn{
-      border-color:rgba(251,191,36,.45);
-      background:rgba(251,191,36,.10);
-      color:#fde68a;
-    }
-
-    .statusBad{
-      border-color:rgba(251,113,133,.45);
-      background:rgba(251,113,133,.10);
-      color:#fecdd3;
-    }
-
-    .small{
-      font-size:13px;
-      color:var(--muted);
-    }
-
-    @media(max-width:800px){
-      .grid{
-        grid-template-columns:1fr;
-      }
-
-      .btn{
-        width:100%;
-      }
-    }
+    :root{--bg:#06101f;--panel:#0f172a;--text:#f8fafc;--muted:#a8b3c7;--line:rgba(255,255,255,.14);--brand:#38bdf8;--good:#34d399;--warn:#fbbf24;--bad:#fb7185;--shadow:0 18px 44px rgba(0,0,0,.34)}
+    *{box-sizing:border-box}body{margin:0;color:var(--text);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg)}
+    .app{width:min(1050px,100%);margin:0 auto;padding:18px 14px 34px}.panel{background:rgba(15,23,42,.86);border:1px solid var(--line);border-radius:24px;padding:16px;margin-top:14px;box-shadow:var(--shadow)}
+    h1,h2{margin:0 0 8px}p{color:var(--muted);line-height:1.6}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    label{font-weight:900;color:#dbeafe;display:block;margin-bottom:5px}input,select,textarea{width:100%;background:#0b1324;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:11px}textarea{min-height:130px}
+    .btn{border:0;border-radius:15px;padding:11px 14px;font-weight:1000;color:var(--text);background:linear-gradient(135deg,#2563eb,#7c3aed);cursor:pointer}.btn.secondary{background:rgba(255,255,255,.08);border:1px solid var(--line)}.btn.good{background:linear-gradient(135deg,#059669,#22c55e)}
+    .coachBox{margin-top:10px;border:1px solid var(--line);border-radius:16px;padding:12px;background:rgba(255,255,255,.06);line-height:1.6}
+    @media(max-width:800px){.grid{grid-template-columns:1fr}}
   </style>
-
   <script src="./js/aiquest-data-contract-v22.js"></script>
 </head>
-
 <body>
-  <div class="app">
-    <section class="panel">
-      <h1>⚙️ Classroom Config v2.3</h1>
-      <p>
-        ตั้งค่าห้องเรียนก่อนใช้ Firebase / Google Sheets จริง
-        สำหรับ CSAI2102 AI Quest
-      </p>
-
-      <div class="row">
-        <a class="btn secondary" href="./index.html">กลับเกม</a>
-        <button class="btn good" id="btnSave">Save Config</button>
-        <button class="btn secondary" id="btnReset">Reset Default</button>
-        <button class="btn secondary" id="btnExport">Export JSON</button>
-        <button class="btn warn" id="btnTestGoogle">Test Google Sheets</button>
-        <button class="btn warn" id="btnTestFirebase">Test Firebase</button>
-      </div>
-
-      <div class="coachBox" id="statusBox">
-        พร้อมตั้งค่า Classroom Config
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Classroom</h2>
-
-      <div class="grid">
-        <div>
-          <label>Course ID</label>
-          <input id="courseId" placeholder="CSAI2102">
-        </div>
-
-        <div>
-          <label>Course Name</label>
-          <input id="courseName" placeholder="Artificial Intelligence Principles">
-        </div>
-
-        <div>
-          <label>Term</label>
-          <input id="term" placeholder="1/2569">
-        </div>
-
-        <div>
-          <label>Class ID</label>
-          <input id="classId" placeholder="CSAI2102-2569-SEC01">
-        </div>
-
-        <div>
-          <label>Section</label>
-          <input id="section" placeholder="SEC01">
-        </div>
-
-        <div>
-          <label>Teacher ID</label>
-          <input id="teacherId" placeholder="supparang">
-        </div>
-
-        <div>
-          <label>Active Session</label>
-          <input id="activeSession" placeholder="s1">
-        </div>
-
-        <div>
-          <label>Run Mode</label>
-          <select id="runMode">
-            <option value="practice">practice</option>
-            <option value="graded">graded</option>
-            <option value="remedial">remedial</option>
-            <option value="challenge">challenge</option>
-            <option value="demo">demo</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Policy</h2>
-
-      <div class="grid">
-        <div>
-          <label>Score Policy</label>
-          <select id="scorePolicy">
-            <option value="best_graded">best_graded</option>
-            <option value="latest_graded">latest_graded</option>
-            <option value="first_graded">first_graded</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Feedback Policy</label>
-          <select id="feedbackPolicy">
-            <option value="immediate">immediate</option>
-            <option value="after_finish">after_finish</option>
-            <option value="teacher_release">teacher_release</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Timer</label>
-          <select id="timerEnabled">
-            <option value="true">ON</option>
-            <option value="false">OFF</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Leaderboard</label>
-          <select id="leaderboardEnabled">
-            <option value="false">OFF</option>
-            <option value="true">ON</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel">
-      <h2>Cloud</h2>
-
-      <div class="grid">
-        <div>
-          <label>Apps Script URL</label>
-          <input id="appsScriptUrl" placeholder="Google Apps Script Web App URL">
-        </div>
-
-        <div>
-          <label>Google Sheets</label>
-          <select id="googleSheets">
-            <option value="true">ON</option>
-            <option value="false">OFF</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Firebase</label>
-          <select id="firebase">
-            <option value="false">OFF</option>
-            <option value="true">ON</option>
-          </select>
-        </div>
-      </div>
-
-      <label style="margin-top:12px">Firebase Config JSON</label>
-      <textarea id="firebaseConfig" placeholder='{"apiKey":"...","projectId":"...","databaseURL":"..."}'></textarea>
-
-      <p class="small">
-        ถ้ายังไม่ใช้ Firebase ให้ปล่อยช่อง Firebase Config ว่างไว้ และตั้ง Firebase = OFF
-      </p>
-
-      <div id="configPreview"></div>
-    </section>
-  </div>
-
-  <script>
-    (function(){
-      'use strict';
-
-      const DEFAULT_APPS_SCRIPT_URL =
-        'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
-
-      function el(id){
-        return document.getElementById(id);
-      }
-
-      function setStatus(message, type){
-        const box = el('statusBox');
-        if(!box) return;
-
-        box.className = 'coachBox';
-
-        if(type === 'good'){
-          box.classList.add('statusGood');
-        }else if(type === 'warn'){
-          box.classList.add('statusWarn');
-        }else if(type === 'bad'){
-          box.classList.add('statusBad');
-        }
-
-        box.textContent = message;
-      }
-
-      function load(){
-        if(!window.AIQuestDataContract){
-          setStatus('โหลด aiquest-data-contract-v22.js ไม่สำเร็จ กรุณาตรวจสอบ path ./js/aiquest-data-contract-v22.js', 'bad');
-          return;
-        }
-
-        const c = AIQuestDataContract.loadConfig();
-
-        const fields = [
-          'courseId',
-          'courseName',
-          'term',
-          'classId',
-          'section',
-          'teacherId',
-          'activeSession',
-          'runMode',
-          'scorePolicy',
-          'feedbackPolicy',
-          'appsScriptUrl'
-        ];
-
-        fields.forEach(k => {
-          if(el(k)){
-            el(k).value = c[k] || '';
-          }
-        });
-
-        el('timerEnabled').value = String(!!c.timerEnabled);
-        el('leaderboardEnabled').value = String(!!c.leaderboardEnabled);
-        el('googleSheets').value = String(!!(c.cloudTargets && c.cloudTargets.googleSheets));
-        el('firebase').value = String(!!(c.cloudTargets && c.cloudTargets.firebase));
-
-        el('firebaseConfig').value = c.firebaseConfig
-          ? JSON.stringify(c.firebaseConfig, null, 2)
-          : '';
-
-        if(!el('appsScriptUrl').value.trim()){
-          el('appsScriptUrl').value = DEFAULT_APPS_SCRIPT_URL;
-        }
-
-        preview();
-      }
-
-      function collect(){
-        let fb = null;
-
-        try{
-          fb = el('firebaseConfig').value.trim()
-            ? JSON.parse(el('firebaseConfig').value)
-            : null;
-        }catch(error){
-          alert('Firebase JSON ไม่ถูกต้อง');
-          throw error;
-        }
-
-        return {
-          courseId: el('courseId').value.trim() || 'CSAI2102',
-          courseName: el('courseName').value.trim() || 'Artificial Intelligence Principles',
-          term: el('term').value.trim() || '1/2569',
-          classId: el('classId').value.trim() || 'CSAI2102-2569-SEC01',
-          section: el('section').value.trim() || 'SEC01',
-          teacherId: el('teacherId').value.trim() || 'supparang',
-          activeSession: el('activeSession').value.trim() || 's1',
-          runMode: el('runMode').value || 'graded',
-          scorePolicy: el('scorePolicy').value || 'best_graded',
-          feedbackPolicy: el('feedbackPolicy').value || 'immediate',
-          timerEnabled: el('timerEnabled').value === 'true',
-          leaderboardEnabled: el('leaderboardEnabled').value === 'true',
-          appsScriptUrl: el('appsScriptUrl').value.trim() || DEFAULT_APPS_SCRIPT_URL,
-          cloudTargets: {
-            googleSheets: el('googleSheets').value === 'true',
-            firebase: el('firebase').value === 'true'
-          },
-          firebaseConfig: fb
-        };
-      }
-
-      function preview(){
-        if(!window.AIQuestDataContract) return;
-
-        const target = el('configPreview');
-        if(!target) return;
-
-        AIQuestDataContract.renderConfigPanel(target);
-      }
-
-      function saveConfig(){
-        if(!window.AIQuestDataContract){
-          setStatus('ยังโหลด AIQuestDataContract ไม่สำเร็จ', 'bad');
-          return;
-        }
-
-        try{
-          const config = collect();
-          AIQuestDataContract.saveConfig(config);
-          preview();
-          setStatus('Saved Config แล้ว', 'good');
-        }catch(error){
-          setStatus('Save Config failed: ' + error.message, 'bad');
-        }
-      }
-
-      function resetDefault(){
-        localStorage.removeItem('CSAI2102_AIQUEST_DATA_CONTRACT_V22');
-        load();
-        setStatus('Reset เป็นค่า default แล้ว', 'warn');
-      }
-
-      function exportJson(){
-        const config = window.AIQuestDataContract
-          ? AIQuestDataContract.loadConfig()
-          : collect();
-
-        const blob = new Blob(
-          [JSON.stringify(config, null, 2)],
-          {type:'application/json'}
-        );
-
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-
-        a.href = url;
-        a.download = 'aiquest-classroom-config.json';
-        a.click();
-
-        URL.revokeObjectURL(url);
-
-        setStatus('Export JSON แล้ว', 'good');
-      }
-
-      async function testGoogleSheets(){
-        const url = el('appsScriptUrl').value.trim() || DEFAULT_APPS_SCRIPT_URL;
-
-        if(!url){
-          setStatus('ยังไม่มี Apps Script URL', 'bad');
-          return;
-        }
-
-        setStatus('กำลังทดสอบ Google Sheets endpoint...', 'warn');
-
-        try{
-          await fetch(url + '?action=health', {
-            method:'GET',
-            mode:'no-cors'
-          });
-
-          setStatus('Google Sheets endpoint reachable', 'good');
-        }catch(error){
-          setStatus('Google Sheets test failed: ' + error.message, 'bad');
-        }
-      }
-
-      async function testFirebase(){
-        let fb = null;
-
-        try{
-          fb = el('firebaseConfig').value.trim()
-            ? JSON.parse(el('firebaseConfig').value)
-            : null;
-        }catch(error){
-          setStatus('Firebase JSON ไม่ถูกต้อง', 'bad');
-          return;
-        }
-
-        if(!fb || !fb.databaseURL){
-          setStatus('ยังไม่ได้ใส่ Firebase databaseURL', 'bad');
-          return;
-        }
-
-        const base = fb.databaseURL.replace(/\/$/, '');
-        const testUrl = base + '/aiquest_connection_test.json';
-
-        setStatus('กำลังทดสอบ Firebase write...', 'warn');
-
-        try{
-          const res = await fetch(testUrl, {
-            method:'PUT',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({
-              ok:true,
-              from:'AIQuest Classroom Config v2.3',
-              at:new Date().toISOString()
-            })
-          });
-
-          if(!res.ok){
-            throw new Error('HTTP ' + res.status);
-          }
-
-          setStatus('Firebase write test OK', 'good');
-        }catch(error){
-          setStatus('Firebase test failed: ' + error.message, 'bad');
-        }
-      }
-
-      function bind(){
-        el('btnSave').onclick = saveConfig;
-        el('btnReset').onclick = resetDefault;
-        el('btnExport').onclick = exportJson;
-        el('btnTestGoogle').onclick = testGoogleSheets;
-        el('btnTestFirebase').onclick = testFirebase;
-      }
-
-      bind();
-      load();
-    })();
-  </script>
+<div class="app">
+  <section class="panel">
+    <h1>⚙️ Classroom Config v2.3.1.1</h1>
+    <p>ตั้งค่าห้องเรียนก่อนทำ Firebase/Google Sheets จริง</p>
+    <div class="row">
+      <a class="btn secondary" href="./index.html" style="text-decoration:none">กลับเกม</a>
+      <button class="btn good" id="btnSave">Save Config</button>
+      <button class="btn secondary" id="btnReset">Reset Default</button>
+      <button class="btn secondary" id="btnExport">Export JSON</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Classroom</h2>
+    <div class="grid">
+      <div><label>Course ID</label><input id="courseId"></div>
+      <div><label>Course Name</label><input id="courseName"></div>
+      <div><label>Term</label><input id="term"></div>
+      <div><label>Class ID</label><input id="classId"></div>
+      <div><label>Section</label><input id="section"></div>
+      <div><label>Teacher ID</label><input id="teacherId"></div>
+      <div><label>Active Session</label><input id="activeSession"></div>
+      <div><label>Run Mode</label><select id="runMode"><option>practice</option><option>graded</option><option>remedial</option><option>challenge</option><option>demo</option></select></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Policy</h2>
+    <div class="grid">
+      <div><label>Score Policy</label><select id="scorePolicy"><option>best_graded</option><option>latest_graded</option><option>first_graded</option></select></div>
+      <div><label>Feedback Policy</label><select id="feedbackPolicy"><option>immediate</option><option>after_finish</option><option>teacher_release</option></select></div>
+      <div><label>Timer</label><select id="timerEnabled"><option value="true">ON</option><option value="false">OFF</option></select></div>
+      <div><label>Leaderboard</label><select id="leaderboardEnabled"><option value="false">OFF</option><option value="true">ON</option></select></div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Cloud</h2>
+    <div class="grid">
+      <div><label>Apps Script URL</label><input id="appsScriptUrl"></div>
+      <div><label>Google Sheets</label><select id="googleSheets"><option value="true">ON</option><option value="false">OFF</option></select></div>
+      <div><label>Firebase</label><select id="firebase"><option value="false">OFF</option><option value="true">ON</option></select></div>
+    </div>
+    <label style="margin-top:12px">Firebase Config JSON</label>
+    <textarea id="firebaseConfig" placeholder='{"apiKey":"...","projectId":"...","databaseURL":"..."}'></textarea>
+    <div id="configPreview"></div>
+  </section>
+</div>
+
+<script>
+(function(){
+  const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+  function el(id){return document.getElementById(id);}
+  function load(){
+    const c = AIQuestDataContract.loadConfig();
+    ['courseId','courseName','term','classId','section','teacherId','activeSession','runMode','scorePolicy','feedbackPolicy','appsScriptUrl'].forEach(k => el(k).value = c[k] || '');
+    el('timerEnabled').value = String(!!c.timerEnabled);
+    el('leaderboardEnabled').value = String(!!c.leaderboardEnabled);
+    el('googleSheets').value = String(!!c.cloudTargets?.googleSheets);
+    el('firebase').value = String(!!c.cloudTargets?.firebase);
+    el('firebaseConfig').value = c.firebaseConfig ? JSON.stringify(c.firebaseConfig,null,2) : '';
+    if(!el('appsScriptUrl').value.trim()){ el('appsScriptUrl').value = DEFAULT_APPS_SCRIPT_URL; }
+    preview();
+  }
+  function collect(){
+    let fb = null;
+    try{ fb = el('firebaseConfig').value.trim() ? JSON.parse(el('firebaseConfig').value) : null; }catch(e){ alert('Firebase JSON ไม่ถูกต้อง'); throw e; }
+    return {
+      courseId:el('courseId').value.trim(),
+      courseName:el('courseName').value.trim(),
+      term:el('term').value.trim(),
+      classId:el('classId').value.trim(),
+      section:el('section').value.trim(),
+      teacherId:el('teacherId').value.trim(),
+      activeSession:el('activeSession').value.trim(),
+      runMode:el('runMode').value,
+      scorePolicy:el('scorePolicy').value,
+      feedbackPolicy:el('feedbackPolicy').value,
+      timerEnabled:el('timerEnabled').value === 'true',
+      leaderboardEnabled:el('leaderboardEnabled').value === 'true',
+      appsScriptUrl:el('appsScriptUrl').value.trim(),
+      cloudTargets:{googleSheets:el('googleSheets').value === 'true', firebase:el('firebase').value === 'true'},
+      firebaseConfig:fb
+    };
+  }
+  function preview(){
+    AIQuestDataContract.renderConfigPanel(el('configPreview'));
+  }
+  el('btnSave').onclick = () => { AIQuestDataContract.saveConfig(collect()); preview(); alert('Saved'); };
+  el('btnReset').onclick = () => { localStorage.removeItem('CSAI2102_AIQUEST_DATA_CONTRACT_V22'); load(); };
+  el('btnExport').onclick = () => {
+    const blob = new Blob([JSON.stringify(AIQuestDataContract.loadConfig(),null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download='aiquest-classroom-config.json'; a.click(); URL.revokeObjectURL(url);
+  };
+  load();
+})();
+</script>
 </body>
 </html>
