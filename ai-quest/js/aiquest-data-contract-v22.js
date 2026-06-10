@@ -7,7 +7,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v2.2.2-data-contract-classroom-config';
+  const VERSION = 'v2.2.3-data-contract-reflection-fix';
   const STORE_KEY = 'CSAI2102_AIQUEST_DATA_CONTRACT_V22';
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 
@@ -97,6 +97,27 @@
     };
   }
 
+  
+  function pickReflection_(summary, key, domId){
+    summary = summary || {};
+    const direct = summary[key];
+    if(direct != null && String(direct).trim()) return String(direct).trim();
+
+    const extra = summary.extraJson || summary.extra || {};
+    if(extra && extra.reflections && extra.reflections[key] != null && String(extra.reflections[key]).trim()){
+      return String(extra.reflections[key]).trim();
+    }
+
+    try{
+      const node = document.getElementById(domId);
+      if(node && node.value != null && String(node.value).trim()){
+        return String(node.value).trim();
+      }
+    }catch(error){}
+
+    return '';
+  }
+
   function buildAttempt(summary){
     const ctx = getRuntimeContext();
     summary = summary || {};
@@ -129,9 +150,9 @@
       clientTs:summary.clientTs || nowIso(),
       pageUrl:ctx.pageUrl,
       userAgent:ctx.userAgent,
-      reflection1:summary.reflection1 || '',
-      reflection2:summary.reflection2 || '',
-      reflection3:summary.reflection3 || '',
+      reflection1:pickReflection_(summary, 'reflection1', 'ref1'),
+      reflection2:pickReflection_(summary, 'reflection2', 'ref2'),
+      reflection3:pickReflection_(summary, 'reflection3', 'ref3'),
       bestAttemptPolicy:ctx.scorePolicy,
       isPractice:ctx.runMode === 'practice',
       isGraded:['graded','challenge'].includes(ctx.runMode),

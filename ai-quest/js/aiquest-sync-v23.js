@@ -11,7 +11,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v2.3.2-google-sheets-submit-flow';
+  const VERSION = 'v2.3.3-google-sheets-reflection-fix';
   const STORE_KEY = 'CSAI2102_AIQUEST_SYNC_V23';
   const DEFAULT_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
 
@@ -395,7 +395,7 @@
 
     target.innerHTML = `
       <div class="coachBox">
-        <b>Sync v2.3.2</b><br>
+        <b>Sync v2.3.3</b><br>
         Total: ${s.total} |
         Pending: ${counts.pending || 0} |
         Syncing: ${counts.syncing || 0} |

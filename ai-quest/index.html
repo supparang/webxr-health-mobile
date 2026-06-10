@@ -1214,6 +1214,56 @@
 
     const el = id => document.getElementById(id);
 
+    /* PATCH v2.3.3: Reflection capture + required validation */
+    function getReflectionValues(){
+      const r1 = el('ref1') ? el('ref1').value.trim() : '';
+      const r2 = el('ref2') ? el('ref2').value.trim() : '';
+      const r3 = el('ref3') ? el('ref3').value.trim() : '';
+
+      return {
+        reflection1: r1,
+        reflection2: r2,
+        reflection3: r3,
+        ref1: r1,
+        ref2: r2,
+        ref3: r3
+      };
+    }
+
+    function reflectionRequiredForCurrentMode(){
+      const mode = window.AIQuestGameplayLockdown
+        ? AIQuestGameplayLockdown.getRunMode()
+        : 'graded';
+
+      return ['graded','challenge','remedial'].includes(mode);
+    }
+
+    function validateReflectionBeforeSubmit(){
+      const r = getReflectionValues();
+
+      if(!reflectionRequiredForCurrentMode()){
+        return {ok:true, reflections:r};
+      }
+
+      const missing = [];
+
+      if(!r.reflection1) missing.push('ข้อ 1 เกมนี้เกี่ยวกับหลักการ AI เรื่องใด');
+      if(!r.reflection2) missing.push('ข้อ 2 AI ใช้ข้อมูลอะไรในการตัดสินใจ');
+      if(!r.reflection3) missing.push('ข้อ 3 นำไปใช้กับปัญหาจริงหรือ Mini Project ได้อย่างไร');
+
+      if(missing.length){
+        return {
+          ok:false,
+          reflections:r,
+          message:'กรุณากรอก Reflection ให้ครบก่อนส่งผลเข้า Google Sheets',
+          missing
+        };
+      }
+
+      return {ok:true, reflections:r};
+    }
+
+
     let state = loadState();
     let selectedStageId = 'm1';
     let currentMission = null;
@@ -2530,6 +2580,38 @@ function logEvent(data){
     }
 
     async function saveResult(){
+      /*
+       * PATCH v2.3.3
+       * ต้องอ่าน/ตรวจ Reflection ก่อนเริ่ม sync
+       * เพื่อไม่ให้ส่ง attempt ที่ reflection ว่างเข้า Google Sheets
+       */
+      const reflectionCheck = validateReflectionBeforeSubmit();
+
+      if(!reflectionCheck.ok){
+        if(window.AIQuestGameplayLockdown){
+          AIQuestGameplayLockdown.setSaveStatus('idle', '');
+        }
+
+        if(el('saveStatusBox')){
+          el('saveStatusBox').textContent = 'Save Status: กรุณากรอก Reflection ให้ครบก่อนบันทึก';
+        }
+
+        if(el('btnSaveResult')){
+          el('btnSaveResult').disabled = false;
+          el('btnSaveResult').textContent = 'ส่งผลเข้า Google Sheets และกลับเมนู';
+        }
+
+        const firstEmpty = !reflectionCheck.reflections.ref1 ? el('ref1')
+          : !reflectionCheck.reflections.ref2 ? el('ref2')
+          : el('ref3');
+
+        if(firstEmpty && firstEmpty.focus) firstEmpty.focus();
+
+        showToast(reflectionCheck.message);
+        return;
+      }
+
+      const reflections = reflectionCheck.reflections;
       const pendingAttemptId = lastSummary && (lastSummary.attemptId || lastSummary.sessionId || 'unknown');
       if(window.AIQuestGameplayLockdown){
         const guard = AIQuestGameplayLockdown.canSaveAttempt(pendingAttemptId);
@@ -2573,9 +2655,9 @@ function logEvent(data){
       }
 
       state.reflections[id] = {
-        ref1:el('ref1').value.trim(),
-        ref2:el('ref2').value.trim(),
-        ref3:el('ref3').value.trim()
+        ref1: reflections.ref1,
+        ref2: reflections.ref2,
+        ref3: reflections.ref3
       };
       if(lastSummary && window.AIQuestStorage){
   const profile = AIQuestStorage.getProfile();
@@ -2587,9 +2669,9 @@ function logEvent(data){
     studentName: profile.studentName || '',
     section: profile.section || '',
     sessionId: 's1',
-    reflection1: el('ref1').value.trim(),
-    reflection2: el('ref2').value.trim(),
-    reflection3: el('ref3').value.trim(),
+    reflection1: reflections.reflection1,
+    reflection2: reflections.reflection2,
+    reflection3: reflections.reflection3,
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
     pageUrl: location.href,
@@ -2597,7 +2679,16 @@ function logEvent(data){
     classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
     term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
     runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
-    runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED'
+    runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
+    reflectionLockedAt: new Date().toISOString(),
+    extraJson: {
+      ...(lastSummary.extraJson || {}),
+      reflections: {
+        reflection1: reflections.reflection1,
+        reflection2: reflections.reflection2,
+        reflection3: reflections.reflection3
+      }
+    }
   };
 
   lastSummary = attempt;
