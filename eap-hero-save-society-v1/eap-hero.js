@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1q Duplicate Guard ===
+/* === EAP Hero: Save the Society v1r Rubric Review Mode ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1q-duplicate-guard';
+  const APP_VERSION = '20260610-v1r-rubric-review-mode';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31527,6 +31527,7 @@
       skillPath:{ unlockedBossGates:{} },
       ai:{ dailyUses:{}, logs:[], sessionUses:{} },
       skillBankHistory:{},
+      reviews:{ rubricScores:[], reviewNotes:[] },
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -31595,6 +31596,9 @@
       merged.ai.logs = (parsed.ai && parsed.ai.logs) || [];
       merged.ai.sessionUses = (parsed.ai && parsed.ai.sessionUses) || {};
       merged.skillBankHistory = parsed.skillBankHistory || {};
+      merged.reviews = Object.assign(fresh.reviews || {}, parsed.reviews || {});
+      merged.reviews.rubricScores = (parsed.reviews && parsed.reviews.rubricScores) || [];
+      merged.reviews.reviewNotes = (parsed.reviews && parsed.reviews.reviewNotes) || [];
       return merged;
     }catch(e){
       console.warn(e);
@@ -34270,6 +34274,218 @@
   function safeAttr(text){ return String(text ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 
+
+  const RUBRICS = {
+    Writing:[
+      ['task','Task Achievement','ตอบโจทย์ครบ ชัดเจน และตรงเป้าหมาย'],
+      ['organization','Organization','มีโครงสร้าง topic/support/conclusion หรือ structure เหมาะสม'],
+      ['tone','Academic Tone','ใช้ภาษาทางวิชาการ สุภาพ ระมัดระวัง ไม่ casual'],
+      ['vocabulary','Vocabulary','ใช้คำศัพท์เหมาะสมและสื่อความหมายชัดเจน'],
+      ['grammar','Grammar & Mechanics','ประโยคถูกต้อง อ่านเข้าใจ เครื่องหมายเหมาะสม'],
+      ['ethics','Citation / AI Ethics','ให้เครดิต ใช้ AI/แหล่งข้อมูลอย่างโปร่งใสเมื่อเกี่ยวข้อง']
+    ],
+    Speaking:[
+      ['opening','Opening & Purpose','เปิดเรื่องชัดเจน บอกหัวข้อ/เป้าหมาย'],
+      ['organization','Organization','จัดลำดับความคิดดี มี beginning-middle-end'],
+      ['signposting','Signposting','ใช้ first/next/however/in conclusion หรือวลีเชื่อม'],
+      ['evidence','Evidence / Support','มีเหตุผล ตัวอย่าง ข้อมูล หรือหลักฐานสนับสนุน'],
+      ['fluency','Fluency & Clarity','พูด/ถอด transcript เข้าใจ ต่อเนื่อง เหมาะสม'],
+      ['qa','Q&A / Response','ตอบคำถาม/ปิดท้ายอย่างสุภาพและตรงประเด็น']
+    ],
+    Reading:[
+      ['mainidea','Main Idea','จับใจความหลักได้ถูกต้อง'],
+      ['keywords','Keywords','เลือกคำสำคัญได้เหมาะสม'],
+      ['evidence','Evidence','ระบุหลักฐานหรือ support ได้'],
+      ['inference','Inference','ตีความอย่างสมเหตุสมผล'],
+      ['critical','Critical Check','รู้ว่าควรตรวจสอบอะไรเพิ่มเติม'],
+      ['clarity','Clarity','คำตอบชัดเจน กระชับ อ่านเข้าใจ']
+    ],
+    Listening:[
+      ['mainpoint','Main Point','จดประเด็นหลักได้'],
+      ['keywords','Keywords','จับคำสำคัญ/คำซ้ำได้'],
+      ['signal','Signal Words','จับ transition/signal words ได้'],
+      ['evidence','Evidence Note','จด claim/evidence/example ได้'],
+      ['summary','Summary','สรุปจาก note ได้เข้าใจ'],
+      ['question','Question / Follow-up','ตั้งคำถามต่อยอดได้เหมาะสม']
+    ]
+  };
+
+  function portfolioItemByIndex(index){
+    return (state.portfolio || [])[Number(index)];
+  }
+
+  function reviewStatusFor(index){
+    const item = portfolioItemByIndex(index);
+    if(!item) return 'Missing';
+    const latest = (state.reviews?.rubricScores || []).filter(r => Number(r.portfolioIndex) === Number(index)).slice(-1)[0];
+    if(latest) return latest.status || 'Reviewed';
+    return 'Pending';
+  }
+
+  function reviewScoreFor(index){
+    const latest = (state.reviews?.rubricScores || []).filter(r => Number(r.portfolioIndex) === Number(index)).slice(-1)[0];
+    return latest ? latest.total : '';
+  }
+
+  function statusFromScore(total){
+    if(total >= 85) return 'Excellent';
+    if(total >= 70) return 'Reviewed';
+    if(total >= 50) return 'Needs Revision';
+    return 'Needs Support';
+  }
+
+  function renderReviewQueue(){
+    setView('reviewQueue');
+    const items = (state.portfolio || []).map((p,idx)=>({p,idx})).reverse();
+    const rows = items.map(({p,idx})=>{
+      const status = reviewStatusFor(idx);
+      const score = reviewScoreFor(idx);
+      return `<tr>
+        <td>${safe(p.player_name || '')}</td>
+        <td>S${p.session}</td>
+        <td>${safe(p.skill)}</td>
+        <td>${p.score ?? ''}</td>
+        <td>${safe(status)}</td>
+        <td>${score}</td>
+        <td>${safe(String(p.output || '').slice(0,90))}</td>
+        <td><button class="btn small primary" onclick="EAPHero.rubricReview(${idx})">Review</button></td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="8">No portfolio evidence yet</td></tr>';
+
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">Rubric Review Mode</span>
+          <span class="pill">Portfolio Items: ${(state.portfolio || []).length}</span>
+          <span class="pill">Reviews: ${(state.reviews?.rubricScores || []).length}</span>
+        </div>
+        <h2>Portfolio Review Queue</h2>
+        <p class="lead">คิวตรวจงานจริงของ Reading/Writing/Listening/Speaking พร้อม rubric score และ feedback สำหรับ revision</p>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
+          <button class="btn" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
+          <button class="btn ghost" onclick="EAPHero.map()">Map</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Player</th><th>S</th><th>Skill</th><th>Auto</th><th>Status</th><th>Rubric</th><th>Output</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+      </section>`);
+  }
+
+  function renderRubricReview(index){
+    const item = portfolioItemByIndex(index);
+    if(!item) return renderReviewQueue();
+    const skill = item.skill || 'Writing';
+    const rubric = RUBRICS[skill] || RUBRICS.Writing;
+    const latest = (state.reviews?.rubricScores || []).filter(r => Number(r.portfolioIndex) === Number(index)).slice(-1)[0] || {};
+    const scores = latest.criteria || {};
+    const criteriaHtml = rubric.map(([key,label,desc])=>`
+      <div class="hud-card">
+        <h3>${safe(label)}</h3>
+        <p class="mini-note">${safe(desc)}</p>
+        <select id="rubric_${key}" class="input">
+          ${[0,1,2,3,4].map(v=>`<option value="${v}" ${Number(scores[key]||0)===v?'selected':''}>${v} / 4</option>`).join('')}
+        </select>
+      </div>`).join('');
+
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Rubric Review</span><span class="pill">${safe(skill)}</span><span class="pill">S${item.session}</span></div>
+        <h2>Review Portfolio Evidence</h2>
+        <div class="panel light">
+          <h3>Prompt</h3>
+          <p>${safe(item.prompt || '-')}</p>
+          <h3>Student Output</h3>
+          <div class="context">${safe(item.output || '-')}</div>
+          <p class="mini-note">Auto-score: ${item.score ?? '-'} • AI uses: ${item.aiUses || 0} • Submitted: ${safe(item.at || '')}</p>
+        </div>
+
+        <h3 style="margin-top:18px">Rubric Criteria</h3>
+        <div class="grid three">${criteriaHtml}</div>
+
+        <label class="label">Teacher Feedback</label>
+        <textarea id="rubric_feedback" class="input" rows="5" placeholder="Write feedback for revision...">${safe(latest.feedback || '')}</textarea>
+
+        <label class="label">Review Status</label>
+        <select id="rubric_status" class="input">
+          ${['Reviewed','Needs Revision','Excellent','Needs Support'].map(st=>`<option value="${st}" ${(latest.status||'Reviewed')===st?'selected':''}>${st}</option>`).join('')}
+        </select>
+
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.saveRubricReview(${index})">Save Rubric Review</button>
+          <button class="btn" onclick="EAPHero.markNeedsRevision(${index})">Mark Needs Revision</button>
+          <button class="btn ghost" onclick="EAPHero.reviewQueue()">Back to Queue</button>
+        </div>
+      </section>`);
+  }
+
+  function saveRubricReview(index){
+    const item = portfolioItemByIndex(index);
+    if(!item) return renderReviewQueue();
+    const rubric = RUBRICS[item.skill] || RUBRICS.Writing;
+    const criteria = {};
+    let raw = 0;
+    rubric.forEach(([key])=>{
+      const v = Number(document.getElementById('rubric_'+key)?.value || 0);
+      criteria[key] = v;
+      raw += v;
+    });
+    const max = rubric.length * 4;
+    const total = Math.round(raw / max * 100);
+    const statusInput = document.getElementById('rubric_status')?.value || statusFromScore(total);
+    const feedback = document.getElementById('rubric_feedback')?.value.trim() || '';
+
+    state.reviews = state.reviews || {rubricScores:[], reviewNotes:[]};
+    state.reviews.rubricScores.push({
+      portfolioIndex:Number(index),
+      student_id:item.student_id || state.profile.studentId || 'guest',
+      player_name:item.player_name || state.profile.name || 'Guest',
+      session:item.session,
+      skill:item.skill,
+      autoScore:item.score || 0,
+      aiUses:item.aiUses || 0,
+      criteria,
+      raw,
+      max,
+      total,
+      status:statusInput,
+      feedback,
+      reviewedAt:new Date().toISOString()
+    });
+    if(statusInput === 'Excellent') addXP(20);
+    if(statusInput === 'Needs Revision') addXP(5);
+    saveState();
+    renderReviewQueue();
+  }
+
+  function markNeedsRevision(index){
+    const fb = document.getElementById('rubric_feedback');
+    if(fb && !fb.value.trim()){
+      fb.value = 'Please revise this evidence by improving clarity, organization, and academic support.';
+    }
+    const st = document.getElementById('rubric_status');
+    if(st) st.value = 'Needs Revision';
+    saveRubricReview(index);
+  }
+
+  function exportRubricCSV(){
+    const header = ['student_id','player_name','session','skill','autoScore','aiUses','total','status','feedback','criteria','reviewedAt'];
+    const rows = (state.reviews?.rubricScores || []).map(r => header.map(h => {
+      if(h === 'criteria') return csvCell(JSON.stringify(r.criteria || {}));
+      return csvCell(r[h]);
+    }).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'eap-hero-rubric-reviews.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+
   function localStorageBytes(){
     try{
       return new Blob([localStorage.getItem(STORAGE_KEY) || '']).size;
@@ -34324,7 +34540,8 @@
       { name:'Export backup available', pass:typeof exportBackupJSON === 'function', note:'สำรองก่อน Firebase ได้' },
       { name:'Firebase preview available', pass:typeof exportFirebasePreview === 'function', note:'ดู schema ก่อนต่อจริงได้' },
       { name:'Skill mission bank has replay variants', pass:missionBankCount().estimatedCombinations >= 18000, note:`ประมาณ ${missionBankCount().estimatedCombinations} skill-task combinations` },
-      { name:'Skill template duplicate audit clean', pass:Object.values(skillTemplateDuplicateAudit()).every(x => x.duplicateIds.length === 0 && x.duplicateTexts.length === 0), note:'ตรวจ duplicate id/text ของ templates หลัก' }
+      { name:'Skill template duplicate audit clean', pass:Object.values(skillTemplateDuplicateAudit()).every(x => x.duplicateIds.length === 0 && x.duplicateTexts.length === 0), note:'ตรวจ duplicate id/text ของ templates หลัก' },
+      { name:'Rubric review mode available', pass:typeof renderReviewQueue === 'function', note:'พร้อมตรวจ portfolio evidence ด้วย rubric' }
     ];
   }
 
@@ -34522,6 +34739,16 @@
             submitted_at:new Date().toISOString()
           }
         },
+        rubricReviews:{
+          sampleReview: (state.reviews?.rubricScores || [])[state.reviews?.rubricScores?.length-1] || {
+            student_id:uid,
+            session:1,
+            skill:'Writing',
+            total:80,
+            status:'Reviewed',
+            reviewedAt:new Date().toISOString()
+          }
+        },
         aiHelpLogs:{
           sampleAIHelp: (state.ai?.logs || [])[state.ai.logs?.length-1] || {
             student_id:uid,
@@ -34617,6 +34844,8 @@
           <button class="btn primary" onclick="EAPHero.exportCSV()">Export Game CSV</button>
           <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
           <button class="btn" onclick="EAPHero.exportAIHelpCSV()">Export AI Help CSV</button>
+          <button class="btn warn" onclick="EAPHero.reviewQueue()">Review Portfolio</button>
+          <button class="btn" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
           <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
           <button class="btn" onclick="EAPHero.qaLock()">QA Lock</button>
@@ -34760,6 +34989,11 @@
     exportFirebasePreview,
     clearActiveRun,
     clearRuntimeErrors,
+    reviewQueue:renderReviewQueue,
+    rubricReview:renderRubricReview,
+    saveRubricReview,
+    markNeedsRevision,
+    exportRubricCSV,
     dashboard:renderDashboard,
     examPanel:renderExamPanel,
     startExam,
