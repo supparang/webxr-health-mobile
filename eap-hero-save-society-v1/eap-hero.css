@@ -263,3 +263,16 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   border-color:rgba(255,255,255,.55) !important;
   font-weight:900 !important;
 }
+
+
+/* === v1z2 Instant Difficulty Update === */
+.difficulty-card.selected{
+  transition:box-shadow .18s ease, border-color .18s ease, transform .18s ease;
+  transform:translateY(-2px);
+}
+.difficulty-card .btn{
+  transition:background .18s ease, color .18s ease, transform .18s ease;
+}
+.difficulty-card.selected .btn.success{
+  transform:scale(1.01);
+}

@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z1 Difficulty Visibility Hotfix ===
+/* === EAP Hero: Save the Society v1z2 Instant Difficulty Update ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z1-difficulty-visibility-hotfix';
+  const APP_VERSION = '20260610-v1z2-instant-difficulty-update';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -34485,10 +34485,40 @@
 
   function setSkillDifficulty(level){
     if(!SKILL_DIFFICULTIES[level]) level = 'normal';
+    state.settings = state.settings || {};
     state.settings.skillDifficulty = level;
     saveState();
+    updateDifficultyUI(level);
     toast(`Selected difficulty: ${SKILL_DIFFICULTIES[level].label}`);
-    renderDifficultyPanel();
+  }
+
+  function updateDifficultyUI(level){
+    const selected = SKILL_DIFFICULTIES[level] || SKILL_DIFFICULTIES.normal;
+
+    document.querySelectorAll('[data-difficulty-card]').forEach(card => {
+      const key = card.getAttribute('data-difficulty-card');
+      const isSelected = key === level;
+      card.classList.toggle('selected', isSelected);
+      card.classList.toggle('ok', isSelected);
+      const icon = card.querySelector('[data-difficulty-icon]');
+      if(icon) icon.textContent = isSelected ? '✅' : '⬜';
+      const btn = card.querySelector('[data-difficulty-button]');
+      if(btn){
+        btn.classList.toggle('success', isSelected);
+        btn.classList.toggle('primary', !isSelected);
+        btn.textContent = isSelected ? `Selected: ${selected.label}` : `Use ${SKILL_DIFFICULTIES[key]?.label || key}`;
+      }
+    });
+
+    document.querySelectorAll('[data-current-difficulty]').forEach(el => {
+      el.textContent = selected.label;
+    });
+    const rule = document.getElementById('currentDifficultyRule');
+    if(rule){
+      rule.innerHTML = `<h3>Current Rule: ${safe(selected.label)}</h3>
+        <p><b>ตอนนี้เลือกอยู่:</b> ${safe(selected.label)} — ${safe(selected.note)}</p>
+        <p class="mini-note">Hard/Challenge เพิ่มคะแนน bonus เล็กน้อย แต่โจทย์จะคาดหวัง evidence, inference, limitation และ academic tone มากขึ้น</p>`;
+    }
   }
 
   function difficultyPromptAddon(skill){
@@ -34530,18 +34560,18 @@
   function renderDifficultyPanel(){
     const d = currentSkillDifficulty();
     const cards = Object.values(SKILL_DIFFICULTIES).map(x => `
-      <div class="hud-card difficulty-card ${x.key===d.key?'selected ok':''}">
-        <h3>${x.key===d.key?'✅':'⬜'} ${safe(x.label)}</h3>
+      <div class="hud-card difficulty-card ${x.key===d.key?'selected ok':''}" data-difficulty-card="${x.key}">
+        <h3><span data-difficulty-icon>${x.key===d.key?'✅':'⬜'}</span> ${safe(x.label)}</h3>
         <p class="mini-note">${safe(x.note)}</p>
-        <button class="btn ${x.key===d.key?'success':'primary'} block" onclick="EAPHero.setSkillDifficulty('${x.key}')">${x.key===d.key?'Selected: '+x.label:'Use '+x.label}</button>
+        <button data-difficulty-button class="btn ${x.key===d.key?'success':'primary'} block" onclick="EAPHero.setSkillDifficulty('${x.key}')">${x.key===d.key?'Selected: '+x.label:'Use '+x.label}</button>
       </div>`).join('');
     layout(`
       <section class="panel" style="margin-top:20px">
-        <div class="badges"><span class="pill">v1z1</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: ${safe(d.label)}</span></div>
+        <div class="badges"><span class="pill">v1z2</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: <span data-current-difficulty>${safe(d.label)}</span></span></div>
         <h2>Skill Mission Difficulty</h2>
         <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
         <div class="grid four">${cards}</div>
-        <div class="panel light" style="margin-top:18px">
+        <div id="currentDifficultyRule" class="panel light" style="margin-top:18px">
           <h3>Current Rule: ${safe(d.label)}</h3>
           <p><b>ตอนนี้เลือกอยู่:</b> ${safe(d.label)} — ${safe(d.note)}</p>
           <p class="mini-note">Hard/Challenge เพิ่มคะแนน bonus เล็กน้อย แต่โจทย์จะคาดหวัง evidence, inference, limitation และ academic tone มากขึ้น</p>
