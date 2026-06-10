@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1d Fun Loop ===
+/* === EAP Hero: Save the Society v1e Balanced Items ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -11012,6 +11012,10249 @@
   }
   addExamReadyQuestions();
 
+
+  // Balanced Item Bank v1e: options are designed with similar length and plausible distractors.
+  function addBalancedQuestionsV1e(){
+    const BALANCED_BANK = {
+  "1": [
+    {
+      "id": "S01_B01",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic vocabulary by reviewing target words after each class.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_0",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B02",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my main idea reading by identifying the writer’s central point.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_1",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B03",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my critical reading by checking claims and evidence in sources.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_2",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B04",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my summary writing by restating key ideas in fewer words.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_3",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B05",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic tone by using formal and precise sentence choices.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_4",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B06",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my paragraph writing by organizing ideas with clear support.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_5",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B07",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my data description by explaining major trends in simple charts.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_6",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B08",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic email by writing polite and specific requests.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_7",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B09",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my citation ethics by acknowledging sources responsibly.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_8",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B10",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my presentation skills by using signposting and answering questions.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_9",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B11",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic vocabulary by reviewing target words after each class.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_0",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B12",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my main idea reading by identifying the writer’s central point.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_1",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B13",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my critical reading by checking claims and evidence in sources.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_2",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B14",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my summary writing by restating key ideas in fewer words.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_3",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B15",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic tone by using formal and precise sentence choices.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_4",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B16",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my paragraph writing by organizing ideas with clear support.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_5",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B17",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my data description by explaining major trends in simple charts.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_6",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B18",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic email by writing polite and specific requests.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_7",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B19",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my citation ethics by acknowledging sources responsibly.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_8",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B20",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my presentation skills by using signposting and answering questions.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_9",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B21",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic vocabulary by reviewing target words after each class.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_0",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B22",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my main idea reading by identifying the writer’s central point.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_1",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B23",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my critical reading by checking claims and evidence in sources.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_2",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B24",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my summary writing by restating key ideas in fewer words.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_3",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B25",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic tone by using formal and precise sentence choices.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_4",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B26",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my paragraph writing by organizing ideas with clear support.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_5",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B27",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my data description by explaining major trends in simple charts.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_6",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B28",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic email by writing polite and specific requests.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_7",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B29",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my citation ethics by acknowledging sources responsibly.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_8",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B30",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my presentation skills by using signposting and answering questions.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_9",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B31",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic vocabulary by reviewing target words after each class.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_0",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B32",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my main idea reading by identifying the writer’s central point.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_1",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B33",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my critical reading by checking claims and evidence in sources.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_2",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B34",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my summary writing by restating key ideas in fewer words.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_3",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B35",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic tone by using formal and precise sentence choices.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_4",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B36",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my paragraph writing by organizing ideas with clear support.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_5",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B37",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my data description by explaining major trends in simple charts.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_6",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B38",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my academic email by writing polite and specific requests.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_7",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B39",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my citation ethics by acknowledging sources responsibly.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_8",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    },
+    {
+      "id": "S01_B40",
+      "type": "mcq",
+      "question": "Which academic goal is the most specific and useful?",
+      "context": "",
+      "choices": [
+        "I will improve my presentation skills by using signposting and answering questions.",
+        "I will study English more often when I have enough free time.",
+        "I will try to get a better score by answering more quickly.",
+        "I will avoid difficult tasks until my English becomes stronger."
+      ],
+      "answer": 0,
+      "feedback": "The correct goal names a specific EAP skill and a practice action.",
+      "quality": "goal_9",
+      "skillTag": "Academic Mindset",
+      "stemGroup": "Which academic goal is the most specific and usefu"
+    }
+  ],
+  "2": [
+    {
+      "id": "S02_B01",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The researcher will ______ the interview data before writing the report.",
+      "choices": [
+        "analyze",
+        "summarize",
+        "collect",
+        "organize"
+      ],
+      "answer": 0,
+      "feedback": "Analyze means examine information carefully.",
+      "quality": "vocab_0",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B02",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The paragraph needs stronger ______ to support the writer’s claim.",
+      "choices": [
+        "evidence",
+        "method",
+        "context",
+        "purpose"
+      ],
+      "answer": 0,
+      "feedback": "Evidence supports a claim.",
+      "quality": "vocab_1",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B03",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The ______ section explains how participants were selected for the study.",
+      "choices": [
+        "method",
+        "result",
+        "summary",
+        "citation"
+      ],
+      "answer": 0,
+      "feedback": "Method explains the research procedure.",
+      "quality": "vocab_2",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B04",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The difference was ______ because it appeared across all three groups.",
+      "choices": [
+        "significant",
+        "consistent",
+        "specific",
+        "relevant"
+      ],
+      "answer": 0,
+      "feedback": "Significant means important or meaningful.",
+      "quality": "vocab_3",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B05",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The source was not reliable; ______, it should not be used as evidence.",
+      "choices": [
+        "therefore",
+        "however",
+        "moreover",
+        "although"
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "vocab_4",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B06",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The app is convenient; ______, students still need to check accuracy.",
+      "choices": [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "vocab_5",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B07",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "Students should ______ online information before using it in assignments.",
+      "choices": [
+        "evaluate",
+        "describe",
+        "collect",
+        "present"
+      ],
+      "answer": 0,
+      "feedback": "Evaluate means judge quality or reliability.",
+      "quality": "vocab_6",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B08",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The results ______ that weekly practice improved vocabulary scores.",
+      "choices": [
+        "indicate",
+        "define",
+        "contrast",
+        "replace"
+      ],
+      "answer": 0,
+      "feedback": "Indicate means show or suggest.",
+      "quality": "vocab_7",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B09",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "A strong ______ should be supported with data or credible sources.",
+      "choices": [
+        "claim",
+        "format",
+        "deadline",
+        "example"
+      ],
+      "answer": 0,
+      "feedback": "A claim is an idea that needs support.",
+      "quality": "vocab_8",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B10",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The findings were ______ across the three different classes.",
+      "choices": [
+        "consistent",
+        "limited",
+        "optional",
+        "informal"
+      ],
+      "answer": 0,
+      "feedback": "Consistent means showing the same pattern.",
+      "quality": "vocab_9",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B11",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The researcher will ______ the interview data before writing the report.",
+      "choices": [
+        "analyze",
+        "summarize",
+        "collect",
+        "organize"
+      ],
+      "answer": 0,
+      "feedback": "Analyze means examine information carefully.",
+      "quality": "vocab_0",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B12",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The paragraph needs stronger ______ to support the writer’s claim.",
+      "choices": [
+        "evidence",
+        "method",
+        "context",
+        "purpose"
+      ],
+      "answer": 0,
+      "feedback": "Evidence supports a claim.",
+      "quality": "vocab_1",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B13",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The ______ section explains how participants were selected for the study.",
+      "choices": [
+        "method",
+        "result",
+        "summary",
+        "citation"
+      ],
+      "answer": 0,
+      "feedback": "Method explains the research procedure.",
+      "quality": "vocab_2",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B14",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The difference was ______ because it appeared across all three groups.",
+      "choices": [
+        "significant",
+        "consistent",
+        "specific",
+        "relevant"
+      ],
+      "answer": 0,
+      "feedback": "Significant means important or meaningful.",
+      "quality": "vocab_3",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B15",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The source was not reliable; ______, it should not be used as evidence.",
+      "choices": [
+        "therefore",
+        "however",
+        "moreover",
+        "although"
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "vocab_4",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B16",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The app is convenient; ______, students still need to check accuracy.",
+      "choices": [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "vocab_5",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B17",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "Students should ______ online information before using it in assignments.",
+      "choices": [
+        "evaluate",
+        "describe",
+        "collect",
+        "present"
+      ],
+      "answer": 0,
+      "feedback": "Evaluate means judge quality or reliability.",
+      "quality": "vocab_6",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B18",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The results ______ that weekly practice improved vocabulary scores.",
+      "choices": [
+        "indicate",
+        "define",
+        "contrast",
+        "replace"
+      ],
+      "answer": 0,
+      "feedback": "Indicate means show or suggest.",
+      "quality": "vocab_7",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B19",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "A strong ______ should be supported with data or credible sources.",
+      "choices": [
+        "claim",
+        "format",
+        "deadline",
+        "example"
+      ],
+      "answer": 0,
+      "feedback": "A claim is an idea that needs support.",
+      "quality": "vocab_8",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B20",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The findings were ______ across the three different classes.",
+      "choices": [
+        "consistent",
+        "limited",
+        "optional",
+        "informal"
+      ],
+      "answer": 0,
+      "feedback": "Consistent means showing the same pattern.",
+      "quality": "vocab_9",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B21",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The researcher will ______ the interview data before writing the report.",
+      "choices": [
+        "analyze",
+        "summarize",
+        "collect",
+        "organize"
+      ],
+      "answer": 0,
+      "feedback": "Analyze means examine information carefully.",
+      "quality": "vocab_0",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B22",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The paragraph needs stronger ______ to support the writer’s claim.",
+      "choices": [
+        "evidence",
+        "method",
+        "context",
+        "purpose"
+      ],
+      "answer": 0,
+      "feedback": "Evidence supports a claim.",
+      "quality": "vocab_1",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B23",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The ______ section explains how participants were selected for the study.",
+      "choices": [
+        "method",
+        "result",
+        "summary",
+        "citation"
+      ],
+      "answer": 0,
+      "feedback": "Method explains the research procedure.",
+      "quality": "vocab_2",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B24",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The difference was ______ because it appeared across all three groups.",
+      "choices": [
+        "significant",
+        "consistent",
+        "specific",
+        "relevant"
+      ],
+      "answer": 0,
+      "feedback": "Significant means important or meaningful.",
+      "quality": "vocab_3",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B25",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The source was not reliable; ______, it should not be used as evidence.",
+      "choices": [
+        "therefore",
+        "however",
+        "moreover",
+        "although"
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "vocab_4",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B26",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The app is convenient; ______, students still need to check accuracy.",
+      "choices": [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "vocab_5",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B27",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "Students should ______ online information before using it in assignments.",
+      "choices": [
+        "evaluate",
+        "describe",
+        "collect",
+        "present"
+      ],
+      "answer": 0,
+      "feedback": "Evaluate means judge quality or reliability.",
+      "quality": "vocab_6",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B28",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The results ______ that weekly practice improved vocabulary scores.",
+      "choices": [
+        "indicate",
+        "define",
+        "contrast",
+        "replace"
+      ],
+      "answer": 0,
+      "feedback": "Indicate means show or suggest.",
+      "quality": "vocab_7",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B29",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "A strong ______ should be supported with data or credible sources.",
+      "choices": [
+        "claim",
+        "format",
+        "deadline",
+        "example"
+      ],
+      "answer": 0,
+      "feedback": "A claim is an idea that needs support.",
+      "quality": "vocab_8",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B30",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The findings were ______ across the three different classes.",
+      "choices": [
+        "consistent",
+        "limited",
+        "optional",
+        "informal"
+      ],
+      "answer": 0,
+      "feedback": "Consistent means showing the same pattern.",
+      "quality": "vocab_9",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B31",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The researcher will ______ the interview data before writing the report.",
+      "choices": [
+        "analyze",
+        "summarize",
+        "collect",
+        "organize"
+      ],
+      "answer": 0,
+      "feedback": "Analyze means examine information carefully.",
+      "quality": "vocab_0",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B32",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The paragraph needs stronger ______ to support the writer’s claim.",
+      "choices": [
+        "evidence",
+        "method",
+        "context",
+        "purpose"
+      ],
+      "answer": 0,
+      "feedback": "Evidence supports a claim.",
+      "quality": "vocab_1",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B33",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The ______ section explains how participants were selected for the study.",
+      "choices": [
+        "method",
+        "result",
+        "summary",
+        "citation"
+      ],
+      "answer": 0,
+      "feedback": "Method explains the research procedure.",
+      "quality": "vocab_2",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B34",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The difference was ______ because it appeared across all three groups.",
+      "choices": [
+        "significant",
+        "consistent",
+        "specific",
+        "relevant"
+      ],
+      "answer": 0,
+      "feedback": "Significant means important or meaningful.",
+      "quality": "vocab_3",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B35",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The source was not reliable; ______, it should not be used as evidence.",
+      "choices": [
+        "therefore",
+        "however",
+        "moreover",
+        "although"
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "vocab_4",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B36",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The app is convenient; ______, students still need to check accuracy.",
+      "choices": [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "vocab_5",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B37",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "Students should ______ online information before using it in assignments.",
+      "choices": [
+        "evaluate",
+        "describe",
+        "collect",
+        "present"
+      ],
+      "answer": 0,
+      "feedback": "Evaluate means judge quality or reliability.",
+      "quality": "vocab_6",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B38",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The results ______ that weekly practice improved vocabulary scores.",
+      "choices": [
+        "indicate",
+        "define",
+        "contrast",
+        "replace"
+      ],
+      "answer": 0,
+      "feedback": "Indicate means show or suggest.",
+      "quality": "vocab_7",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B39",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "A strong ______ should be supported with data or credible sources.",
+      "choices": [
+        "claim",
+        "format",
+        "deadline",
+        "example"
+      ],
+      "answer": 0,
+      "feedback": "A claim is an idea that needs support.",
+      "quality": "vocab_8",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    },
+    {
+      "id": "S02_B40",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The findings were ______ across the three different classes.",
+      "choices": [
+        "consistent",
+        "limited",
+        "optional",
+        "informal"
+      ],
+      "answer": 0,
+      "feedback": "Consistent means showing the same pattern.",
+      "quality": "vocab_9",
+      "skillTag": "Academic Vocabulary",
+      "stemGroup": "Choose the best academic word or connector."
+    }
+  ],
+  "3": [
+    {
+      "id": "S03_B01",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
+      "choices": [
+        "Digital literacy supports responsible evaluation and communication online.",
+        "Digital literacy includes evaluating online sources before sharing.",
+        "Communication online is common among university students.",
+        "Students use online information in many different situations."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_0",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B02",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Students often submit drafts before the final assignment.",
+        "Paragraph organization is one part of academic writing.",
+        "Feedback may come from classmates or instructors."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_1",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B03",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
+      "choices": [
+        "Academic vocabulary supports understanding of academic texts.",
+        "Research articles often contain difficult technical words.",
+        "Students sometimes misunderstand textbook arguments.",
+        "Vocabulary learning can happen inside or outside class."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_2",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B04",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
+      "choices": [
+        "Citation supports source tracing and academic integrity.",
+        "Readers can use citations to find original sources.",
+        "Academic integrity is important in university writing.",
+        "Writers include sources in many types of assignments."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_3",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B05",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
+      "choices": [
+        "Online learning platforms support practice beyond class time.",
+        "Videos and quizzes are common tools on learning platforms.",
+        "Feedback can help students understand their mistakes.",
+        "Classroom learning is not the only way students practice."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_4",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B06",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
+      "choices": [
+        "Critical reading helps students evaluate claims and evidence.",
+        "Students read online information in many daily situations.",
+        "Evidence should be checked before accepting a claim.",
+        "Online information may include both facts and opinions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_5",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B07",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
+      "choices": [
+        "Summarizing helps students express key ideas briefly and ethically.",
+        "Students need to identify key points before writing summaries.",
+        "Copying from sources can create academic problems.",
+        "Brief writing is often required in academic tasks."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_6",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B08",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
+      "choices": [
+        "Data description should highlight major trends clearly.",
+        "Writers sometimes list many numbers from tables.",
+        "Readers need help understanding patterns in data.",
+        "Major trends may include increases or decreases."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_7",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B09",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic email should be polite and specific. A clear subject and respectful request help instructors respond effectively.",
+      "choices": [
+        "Academic email requires polite and clear communication.",
+        "A subject line helps instructors identify the topic.",
+        "Respectful requests are useful in university contexts.",
+        "Instructors receive many emails from students."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_8",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B10",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Presentation signposting helps audiences follow the speaker’s structure. Phrases such as first, next, and in conclusion guide listeners.",
+      "choices": [
+        "Signposting helps audiences follow academic presentations.",
+        "Speakers can use phrases such as first and next.",
+        "Audiences need to understand the structure of a talk.",
+        "Presentations often include introductions and conclusions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_9",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B11",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
+      "choices": [
+        "Digital literacy supports responsible evaluation and communication online.",
+        "Digital literacy includes evaluating online sources before sharing.",
+        "Communication online is common among university students.",
+        "Students use online information in many different situations."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_0",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B12",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Students often submit drafts before the final assignment.",
+        "Paragraph organization is one part of academic writing.",
+        "Feedback may come from classmates or instructors."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_1",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B13",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
+      "choices": [
+        "Academic vocabulary supports understanding of academic texts.",
+        "Research articles often contain difficult technical words.",
+        "Students sometimes misunderstand textbook arguments.",
+        "Vocabulary learning can happen inside or outside class."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_2",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B14",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
+      "choices": [
+        "Citation supports source tracing and academic integrity.",
+        "Readers can use citations to find original sources.",
+        "Academic integrity is important in university writing.",
+        "Writers include sources in many types of assignments."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_3",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B15",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
+      "choices": [
+        "Online learning platforms support practice beyond class time.",
+        "Videos and quizzes are common tools on learning platforms.",
+        "Feedback can help students understand their mistakes.",
+        "Classroom learning is not the only way students practice."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_4",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B16",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
+      "choices": [
+        "Critical reading helps students evaluate claims and evidence.",
+        "Students read online information in many daily situations.",
+        "Evidence should be checked before accepting a claim.",
+        "Online information may include both facts and opinions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_5",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B17",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
+      "choices": [
+        "Summarizing helps students express key ideas briefly and ethically.",
+        "Students need to identify key points before writing summaries.",
+        "Copying from sources can create academic problems.",
+        "Brief writing is often required in academic tasks."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_6",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B18",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
+      "choices": [
+        "Data description should highlight major trends clearly.",
+        "Writers sometimes list many numbers from tables.",
+        "Readers need help understanding patterns in data.",
+        "Major trends may include increases or decreases."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_7",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B19",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic email should be polite and specific. A clear subject and respectful request help instructors respond effectively.",
+      "choices": [
+        "Academic email requires polite and clear communication.",
+        "A subject line helps instructors identify the topic.",
+        "Respectful requests are useful in university contexts.",
+        "Instructors receive many emails from students."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_8",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B20",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Presentation signposting helps audiences follow the speaker’s structure. Phrases such as first, next, and in conclusion guide listeners.",
+      "choices": [
+        "Signposting helps audiences follow academic presentations.",
+        "Speakers can use phrases such as first and next.",
+        "Audiences need to understand the structure of a talk.",
+        "Presentations often include introductions and conclusions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_9",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B21",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
+      "choices": [
+        "Digital literacy supports responsible evaluation and communication online.",
+        "Digital literacy includes evaluating online sources before sharing.",
+        "Communication online is common among university students.",
+        "Students use online information in many different situations."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_0",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B22",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Students often submit drafts before the final assignment.",
+        "Paragraph organization is one part of academic writing.",
+        "Feedback may come from classmates or instructors."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_1",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B23",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
+      "choices": [
+        "Academic vocabulary supports understanding of academic texts.",
+        "Research articles often contain difficult technical words.",
+        "Students sometimes misunderstand textbook arguments.",
+        "Vocabulary learning can happen inside or outside class."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_2",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B24",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
+      "choices": [
+        "Citation supports source tracing and academic integrity.",
+        "Readers can use citations to find original sources.",
+        "Academic integrity is important in university writing.",
+        "Writers include sources in many types of assignments."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_3",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B25",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
+      "choices": [
+        "Online learning platforms support practice beyond class time.",
+        "Videos and quizzes are common tools on learning platforms.",
+        "Feedback can help students understand their mistakes.",
+        "Classroom learning is not the only way students practice."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_4",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B26",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
+      "choices": [
+        "Critical reading helps students evaluate claims and evidence.",
+        "Students read online information in many daily situations.",
+        "Evidence should be checked before accepting a claim.",
+        "Online information may include both facts and opinions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_5",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B27",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
+      "choices": [
+        "Summarizing helps students express key ideas briefly and ethically.",
+        "Students need to identify key points before writing summaries.",
+        "Copying from sources can create academic problems.",
+        "Brief writing is often required in academic tasks."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_6",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B28",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
+      "choices": [
+        "Data description should highlight major trends clearly.",
+        "Writers sometimes list many numbers from tables.",
+        "Readers need help understanding patterns in data.",
+        "Major trends may include increases or decreases."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_7",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B29",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic email should be polite and specific. A clear subject and respectful request help instructors respond effectively.",
+      "choices": [
+        "Academic email requires polite and clear communication.",
+        "A subject line helps instructors identify the topic.",
+        "Respectful requests are useful in university contexts.",
+        "Instructors receive many emails from students."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_8",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B30",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Presentation signposting helps audiences follow the speaker’s structure. Phrases such as first, next, and in conclusion guide listeners.",
+      "choices": [
+        "Signposting helps audiences follow academic presentations.",
+        "Speakers can use phrases such as first and next.",
+        "Audiences need to understand the structure of a talk.",
+        "Presentations often include introductions and conclusions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_9",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B31",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
+      "choices": [
+        "Digital literacy supports responsible evaluation and communication online.",
+        "Digital literacy includes evaluating online sources before sharing.",
+        "Communication online is common among university students.",
+        "Students use online information in many different situations."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_0",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B32",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Students often submit drafts before the final assignment.",
+        "Paragraph organization is one part of academic writing.",
+        "Feedback may come from classmates or instructors."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_1",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B33",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
+      "choices": [
+        "Academic vocabulary supports understanding of academic texts.",
+        "Research articles often contain difficult technical words.",
+        "Students sometimes misunderstand textbook arguments.",
+        "Vocabulary learning can happen inside or outside class."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_2",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B34",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
+      "choices": [
+        "Citation supports source tracing and academic integrity.",
+        "Readers can use citations to find original sources.",
+        "Academic integrity is important in university writing.",
+        "Writers include sources in many types of assignments."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_3",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B35",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
+      "choices": [
+        "Online learning platforms support practice beyond class time.",
+        "Videos and quizzes are common tools on learning platforms.",
+        "Feedback can help students understand their mistakes.",
+        "Classroom learning is not the only way students practice."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_4",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B36",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
+      "choices": [
+        "Critical reading helps students evaluate claims and evidence.",
+        "Students read online information in many daily situations.",
+        "Evidence should be checked before accepting a claim.",
+        "Online information may include both facts and opinions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_5",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B37",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
+      "choices": [
+        "Summarizing helps students express key ideas briefly and ethically.",
+        "Students need to identify key points before writing summaries.",
+        "Copying from sources can create academic problems.",
+        "Brief writing is often required in academic tasks."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_6",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B38",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
+      "choices": [
+        "Data description should highlight major trends clearly.",
+        "Writers sometimes list many numbers from tables.",
+        "Readers need help understanding patterns in data.",
+        "Major trends may include increases or decreases."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_7",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B39",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic email should be polite and specific. A clear subject and respectful request help instructors respond effectively.",
+      "choices": [
+        "Academic email requires polite and clear communication.",
+        "A subject line helps instructors identify the topic.",
+        "Respectful requests are useful in university contexts.",
+        "Instructors receive many emails from students."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_8",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    },
+    {
+      "id": "S03_B40",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Presentation signposting helps audiences follow the speaker’s structure. Phrases such as first, next, and in conclusion guide listeners.",
+      "choices": [
+        "Signposting helps audiences follow academic presentations.",
+        "Speakers can use phrases such as first and next.",
+        "Audiences need to understand the structure of a talk.",
+        "Presentations often include introductions and conclusions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_9",
+      "skillTag": "Main Idea Reading",
+      "stemGroup": "Which option best states the main idea?"
+    }
+  ],
+  "4": [
+    {
+      "id": "S04_B01",
+      "type": "mcq",
+      "question": "What is the function of “however”?",
+      "context": "The tool is convenient; however, students must still check accuracy.",
+      "choices": [
+        "It shows contrast between two connected ideas.",
+        "It gives an example of the previous idea.",
+        "It adds another similar point to the idea.",
+        "It shows the result of the previous idea."
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "signal_0",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “however”?"
+    },
+    {
+      "id": "S04_B02",
+      "type": "mcq",
+      "question": "What is the function of “therefore”?",
+      "context": "The evidence was limited; therefore, the conclusion should be cautious.",
+      "choices": [
+        "It shows a result from the previous idea.",
+        "It introduces an example from the sentence.",
+        "It contrasts two different viewpoints.",
+        "It adds a similar supporting detail."
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "signal_1",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “therefore”?"
+    },
+    {
+      "id": "S04_B03",
+      "type": "mcq",
+      "question": "What is the function of “because”?",
+      "context": "Students improved because they practiced vocabulary every week.",
+      "choices": [
+        "It explains the cause of the improvement.",
+        "It contrasts the result with another idea.",
+        "It introduces an example of vocabulary.",
+        "It summarizes the final conclusion."
+      ],
+      "answer": 0,
+      "feedback": "Because signals cause.",
+      "quality": "signal_2",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “because”?"
+    },
+    {
+      "id": "S04_B04",
+      "type": "mcq",
+      "question": "What is the function of “such as”?",
+      "context": "Digital tools, such as flashcards and dictionaries, can support vocabulary learning.",
+      "choices": [
+        "It introduces examples of digital tools.",
+        "It shows the cause of vocabulary learning.",
+        "It contrasts two types of vocabulary.",
+        "It gives the final result of practice."
+      ],
+      "answer": 0,
+      "feedback": "Such as introduces examples.",
+      "quality": "signal_3",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “such as”?"
+    },
+    {
+      "id": "S04_B05",
+      "type": "mcq",
+      "question": "What is the function of “moreover”?",
+      "context": "The app provides practice; moreover, it gives immediate feedback.",
+      "choices": [
+        "It adds another supporting point.",
+        "It introduces an opposing viewpoint.",
+        "It shows a result from the first clause.",
+        "It gives a specific example only."
+      ],
+      "answer": 0,
+      "feedback": "Moreover adds information.",
+      "quality": "signal_4",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “moreover”?"
+    },
+    {
+      "id": "S04_B06",
+      "type": "mcq",
+      "question": "What is the function of “compared with”?",
+      "context": "Compared with printed texts, e-books are easier to search.",
+      "choices": [
+        "It compares two types of learning materials.",
+        "It introduces the cause of searching behavior.",
+        "It gives a conclusion about all texts.",
+        "It adds another unrelated detail."
+      ],
+      "answer": 0,
+      "feedback": "Compared with signals comparison.",
+      "quality": "signal_5",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “compared with”?"
+    },
+    {
+      "id": "S04_B07",
+      "type": "mcq",
+      "question": "What is the function of “although”?",
+      "context": "Although online learning is flexible, some students need face-to-face support.",
+      "choices": [
+        "It shows contrast within the sentence.",
+        "It gives an example of student support.",
+        "It explains the result of flexibility.",
+        "It adds another similar advantage."
+      ],
+      "answer": 0,
+      "feedback": "Although shows contrast.",
+      "quality": "signal_6",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “although”?"
+    },
+    {
+      "id": "S04_B08",
+      "type": "mcq",
+      "question": "What is the function of “in conclusion”?",
+      "context": "In conclusion, digital literacy should be developed in university courses.",
+      "choices": [
+        "It signals the final summary of the idea.",
+        "It introduces the first supporting reason.",
+        "It gives an example from the previous point.",
+        "It contrasts the topic with another course."
+      ],
+      "answer": 0,
+      "feedback": "In conclusion signals a final summary.",
+      "quality": "signal_7",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “in conclusion”?"
+    },
+    {
+      "id": "S04_B09",
+      "type": "mcq",
+      "question": "What is the function of “first” and “next”?",
+      "context": "First, the speaker explains the problem; next, she presents possible solutions.",
+      "choices": [
+        "They organize the sequence of ideas.",
+        "They show a contrast between two ideas.",
+        "They introduce evidence from a survey.",
+        "They explain the cause of the problem."
+      ],
+      "answer": 0,
+      "feedback": "First and next signal sequence.",
+      "quality": "signal_8",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “first” and “next”?"
+    },
+    {
+      "id": "S04_B10",
+      "type": "mcq",
+      "question": "What is the function of “as a result”?",
+      "context": "As a result, many students submitted the correct file after the instructions were clarified.",
+      "choices": [
+        "It shows the consequence of the clarified instructions.",
+        "It gives an example of an unclear instruction.",
+        "It contrasts correct and incorrect submissions.",
+        "It adds another unrelated point about files."
+      ],
+      "answer": 0,
+      "feedback": "As a result signals consequence.",
+      "quality": "signal_9",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “as a result”?"
+    },
+    {
+      "id": "S04_B11",
+      "type": "mcq",
+      "question": "What is the function of “however”?",
+      "context": "The tool is convenient; however, students must still check accuracy.",
+      "choices": [
+        "It shows contrast between two connected ideas.",
+        "It gives an example of the previous idea.",
+        "It adds another similar point to the idea.",
+        "It shows the result of the previous idea."
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "signal_0",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “however”?"
+    },
+    {
+      "id": "S04_B12",
+      "type": "mcq",
+      "question": "What is the function of “therefore”?",
+      "context": "The evidence was limited; therefore, the conclusion should be cautious.",
+      "choices": [
+        "It shows a result from the previous idea.",
+        "It introduces an example from the sentence.",
+        "It contrasts two different viewpoints.",
+        "It adds a similar supporting detail."
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "signal_1",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “therefore”?"
+    },
+    {
+      "id": "S04_B13",
+      "type": "mcq",
+      "question": "What is the function of “because”?",
+      "context": "Students improved because they practiced vocabulary every week.",
+      "choices": [
+        "It explains the cause of the improvement.",
+        "It contrasts the result with another idea.",
+        "It introduces an example of vocabulary.",
+        "It summarizes the final conclusion."
+      ],
+      "answer": 0,
+      "feedback": "Because signals cause.",
+      "quality": "signal_2",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “because”?"
+    },
+    {
+      "id": "S04_B14",
+      "type": "mcq",
+      "question": "What is the function of “such as”?",
+      "context": "Digital tools, such as flashcards and dictionaries, can support vocabulary learning.",
+      "choices": [
+        "It introduces examples of digital tools.",
+        "It shows the cause of vocabulary learning.",
+        "It contrasts two types of vocabulary.",
+        "It gives the final result of practice."
+      ],
+      "answer": 0,
+      "feedback": "Such as introduces examples.",
+      "quality": "signal_3",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “such as”?"
+    },
+    {
+      "id": "S04_B15",
+      "type": "mcq",
+      "question": "What is the function of “moreover”?",
+      "context": "The app provides practice; moreover, it gives immediate feedback.",
+      "choices": [
+        "It adds another supporting point.",
+        "It introduces an opposing viewpoint.",
+        "It shows a result from the first clause.",
+        "It gives a specific example only."
+      ],
+      "answer": 0,
+      "feedback": "Moreover adds information.",
+      "quality": "signal_4",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “moreover”?"
+    },
+    {
+      "id": "S04_B16",
+      "type": "mcq",
+      "question": "What is the function of “compared with”?",
+      "context": "Compared with printed texts, e-books are easier to search.",
+      "choices": [
+        "It compares two types of learning materials.",
+        "It introduces the cause of searching behavior.",
+        "It gives a conclusion about all texts.",
+        "It adds another unrelated detail."
+      ],
+      "answer": 0,
+      "feedback": "Compared with signals comparison.",
+      "quality": "signal_5",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “compared with”?"
+    },
+    {
+      "id": "S04_B17",
+      "type": "mcq",
+      "question": "What is the function of “although”?",
+      "context": "Although online learning is flexible, some students need face-to-face support.",
+      "choices": [
+        "It shows contrast within the sentence.",
+        "It gives an example of student support.",
+        "It explains the result of flexibility.",
+        "It adds another similar advantage."
+      ],
+      "answer": 0,
+      "feedback": "Although shows contrast.",
+      "quality": "signal_6",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “although”?"
+    },
+    {
+      "id": "S04_B18",
+      "type": "mcq",
+      "question": "What is the function of “in conclusion”?",
+      "context": "In conclusion, digital literacy should be developed in university courses.",
+      "choices": [
+        "It signals the final summary of the idea.",
+        "It introduces the first supporting reason.",
+        "It gives an example from the previous point.",
+        "It contrasts the topic with another course."
+      ],
+      "answer": 0,
+      "feedback": "In conclusion signals a final summary.",
+      "quality": "signal_7",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “in conclusion”?"
+    },
+    {
+      "id": "S04_B19",
+      "type": "mcq",
+      "question": "What is the function of “first” and “next”?",
+      "context": "First, the speaker explains the problem; next, she presents possible solutions.",
+      "choices": [
+        "They organize the sequence of ideas.",
+        "They show a contrast between two ideas.",
+        "They introduce evidence from a survey.",
+        "They explain the cause of the problem."
+      ],
+      "answer": 0,
+      "feedback": "First and next signal sequence.",
+      "quality": "signal_8",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “first” and “next”?"
+    },
+    {
+      "id": "S04_B20",
+      "type": "mcq",
+      "question": "What is the function of “as a result”?",
+      "context": "As a result, many students submitted the correct file after the instructions were clarified.",
+      "choices": [
+        "It shows the consequence of the clarified instructions.",
+        "It gives an example of an unclear instruction.",
+        "It contrasts correct and incorrect submissions.",
+        "It adds another unrelated point about files."
+      ],
+      "answer": 0,
+      "feedback": "As a result signals consequence.",
+      "quality": "signal_9",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “as a result”?"
+    },
+    {
+      "id": "S04_B21",
+      "type": "mcq",
+      "question": "What is the function of “however”?",
+      "context": "The tool is convenient; however, students must still check accuracy.",
+      "choices": [
+        "It shows contrast between two connected ideas.",
+        "It gives an example of the previous idea.",
+        "It adds another similar point to the idea.",
+        "It shows the result of the previous idea."
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "signal_0",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “however”?"
+    },
+    {
+      "id": "S04_B22",
+      "type": "mcq",
+      "question": "What is the function of “therefore”?",
+      "context": "The evidence was limited; therefore, the conclusion should be cautious.",
+      "choices": [
+        "It shows a result from the previous idea.",
+        "It introduces an example from the sentence.",
+        "It contrasts two different viewpoints.",
+        "It adds a similar supporting detail."
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "signal_1",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “therefore”?"
+    },
+    {
+      "id": "S04_B23",
+      "type": "mcq",
+      "question": "What is the function of “because”?",
+      "context": "Students improved because they practiced vocabulary every week.",
+      "choices": [
+        "It explains the cause of the improvement.",
+        "It contrasts the result with another idea.",
+        "It introduces an example of vocabulary.",
+        "It summarizes the final conclusion."
+      ],
+      "answer": 0,
+      "feedback": "Because signals cause.",
+      "quality": "signal_2",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “because”?"
+    },
+    {
+      "id": "S04_B24",
+      "type": "mcq",
+      "question": "What is the function of “such as”?",
+      "context": "Digital tools, such as flashcards and dictionaries, can support vocabulary learning.",
+      "choices": [
+        "It introduces examples of digital tools.",
+        "It shows the cause of vocabulary learning.",
+        "It contrasts two types of vocabulary.",
+        "It gives the final result of practice."
+      ],
+      "answer": 0,
+      "feedback": "Such as introduces examples.",
+      "quality": "signal_3",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “such as”?"
+    },
+    {
+      "id": "S04_B25",
+      "type": "mcq",
+      "question": "What is the function of “moreover”?",
+      "context": "The app provides practice; moreover, it gives immediate feedback.",
+      "choices": [
+        "It adds another supporting point.",
+        "It introduces an opposing viewpoint.",
+        "It shows a result from the first clause.",
+        "It gives a specific example only."
+      ],
+      "answer": 0,
+      "feedback": "Moreover adds information.",
+      "quality": "signal_4",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “moreover”?"
+    },
+    {
+      "id": "S04_B26",
+      "type": "mcq",
+      "question": "What is the function of “compared with”?",
+      "context": "Compared with printed texts, e-books are easier to search.",
+      "choices": [
+        "It compares two types of learning materials.",
+        "It introduces the cause of searching behavior.",
+        "It gives a conclusion about all texts.",
+        "It adds another unrelated detail."
+      ],
+      "answer": 0,
+      "feedback": "Compared with signals comparison.",
+      "quality": "signal_5",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “compared with”?"
+    },
+    {
+      "id": "S04_B27",
+      "type": "mcq",
+      "question": "What is the function of “although”?",
+      "context": "Although online learning is flexible, some students need face-to-face support.",
+      "choices": [
+        "It shows contrast within the sentence.",
+        "It gives an example of student support.",
+        "It explains the result of flexibility.",
+        "It adds another similar advantage."
+      ],
+      "answer": 0,
+      "feedback": "Although shows contrast.",
+      "quality": "signal_6",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “although”?"
+    },
+    {
+      "id": "S04_B28",
+      "type": "mcq",
+      "question": "What is the function of “in conclusion”?",
+      "context": "In conclusion, digital literacy should be developed in university courses.",
+      "choices": [
+        "It signals the final summary of the idea.",
+        "It introduces the first supporting reason.",
+        "It gives an example from the previous point.",
+        "It contrasts the topic with another course."
+      ],
+      "answer": 0,
+      "feedback": "In conclusion signals a final summary.",
+      "quality": "signal_7",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “in conclusion”?"
+    },
+    {
+      "id": "S04_B29",
+      "type": "mcq",
+      "question": "What is the function of “first” and “next”?",
+      "context": "First, the speaker explains the problem; next, she presents possible solutions.",
+      "choices": [
+        "They organize the sequence of ideas.",
+        "They show a contrast between two ideas.",
+        "They introduce evidence from a survey.",
+        "They explain the cause of the problem."
+      ],
+      "answer": 0,
+      "feedback": "First and next signal sequence.",
+      "quality": "signal_8",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “first” and “next”?"
+    },
+    {
+      "id": "S04_B30",
+      "type": "mcq",
+      "question": "What is the function of “as a result”?",
+      "context": "As a result, many students submitted the correct file after the instructions were clarified.",
+      "choices": [
+        "It shows the consequence of the clarified instructions.",
+        "It gives an example of an unclear instruction.",
+        "It contrasts correct and incorrect submissions.",
+        "It adds another unrelated point about files."
+      ],
+      "answer": 0,
+      "feedback": "As a result signals consequence.",
+      "quality": "signal_9",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “as a result”?"
+    },
+    {
+      "id": "S04_B31",
+      "type": "mcq",
+      "question": "What is the function of “however”?",
+      "context": "The tool is convenient; however, students must still check accuracy.",
+      "choices": [
+        "It shows contrast between two connected ideas.",
+        "It gives an example of the previous idea.",
+        "It adds another similar point to the idea.",
+        "It shows the result of the previous idea."
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "signal_0",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “however”?"
+    },
+    {
+      "id": "S04_B32",
+      "type": "mcq",
+      "question": "What is the function of “therefore”?",
+      "context": "The evidence was limited; therefore, the conclusion should be cautious.",
+      "choices": [
+        "It shows a result from the previous idea.",
+        "It introduces an example from the sentence.",
+        "It contrasts two different viewpoints.",
+        "It adds a similar supporting detail."
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "signal_1",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “therefore”?"
+    },
+    {
+      "id": "S04_B33",
+      "type": "mcq",
+      "question": "What is the function of “because”?",
+      "context": "Students improved because they practiced vocabulary every week.",
+      "choices": [
+        "It explains the cause of the improvement.",
+        "It contrasts the result with another idea.",
+        "It introduces an example of vocabulary.",
+        "It summarizes the final conclusion."
+      ],
+      "answer": 0,
+      "feedback": "Because signals cause.",
+      "quality": "signal_2",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “because”?"
+    },
+    {
+      "id": "S04_B34",
+      "type": "mcq",
+      "question": "What is the function of “such as”?",
+      "context": "Digital tools, such as flashcards and dictionaries, can support vocabulary learning.",
+      "choices": [
+        "It introduces examples of digital tools.",
+        "It shows the cause of vocabulary learning.",
+        "It contrasts two types of vocabulary.",
+        "It gives the final result of practice."
+      ],
+      "answer": 0,
+      "feedback": "Such as introduces examples.",
+      "quality": "signal_3",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “such as”?"
+    },
+    {
+      "id": "S04_B35",
+      "type": "mcq",
+      "question": "What is the function of “moreover”?",
+      "context": "The app provides practice; moreover, it gives immediate feedback.",
+      "choices": [
+        "It adds another supporting point.",
+        "It introduces an opposing viewpoint.",
+        "It shows a result from the first clause.",
+        "It gives a specific example only."
+      ],
+      "answer": 0,
+      "feedback": "Moreover adds information.",
+      "quality": "signal_4",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “moreover”?"
+    },
+    {
+      "id": "S04_B36",
+      "type": "mcq",
+      "question": "What is the function of “compared with”?",
+      "context": "Compared with printed texts, e-books are easier to search.",
+      "choices": [
+        "It compares two types of learning materials.",
+        "It introduces the cause of searching behavior.",
+        "It gives a conclusion about all texts.",
+        "It adds another unrelated detail."
+      ],
+      "answer": 0,
+      "feedback": "Compared with signals comparison.",
+      "quality": "signal_5",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “compared with”?"
+    },
+    {
+      "id": "S04_B37",
+      "type": "mcq",
+      "question": "What is the function of “although”?",
+      "context": "Although online learning is flexible, some students need face-to-face support.",
+      "choices": [
+        "It shows contrast within the sentence.",
+        "It gives an example of student support.",
+        "It explains the result of flexibility.",
+        "It adds another similar advantage."
+      ],
+      "answer": 0,
+      "feedback": "Although shows contrast.",
+      "quality": "signal_6",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “although”?"
+    },
+    {
+      "id": "S04_B38",
+      "type": "mcq",
+      "question": "What is the function of “in conclusion”?",
+      "context": "In conclusion, digital literacy should be developed in university courses.",
+      "choices": [
+        "It signals the final summary of the idea.",
+        "It introduces the first supporting reason.",
+        "It gives an example from the previous point.",
+        "It contrasts the topic with another course."
+      ],
+      "answer": 0,
+      "feedback": "In conclusion signals a final summary.",
+      "quality": "signal_7",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “in conclusion”?"
+    },
+    {
+      "id": "S04_B39",
+      "type": "mcq",
+      "question": "What is the function of “first” and “next”?",
+      "context": "First, the speaker explains the problem; next, she presents possible solutions.",
+      "choices": [
+        "They organize the sequence of ideas.",
+        "They show a contrast between two ideas.",
+        "They introduce evidence from a survey.",
+        "They explain the cause of the problem."
+      ],
+      "answer": 0,
+      "feedback": "First and next signal sequence.",
+      "quality": "signal_8",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “first” and “next”?"
+    },
+    {
+      "id": "S04_B40",
+      "type": "mcq",
+      "question": "What is the function of “as a result”?",
+      "context": "As a result, many students submitted the correct file after the instructions were clarified.",
+      "choices": [
+        "It shows the consequence of the clarified instructions.",
+        "It gives an example of an unclear instruction.",
+        "It contrasts correct and incorrect submissions.",
+        "It adds another unrelated point about files."
+      ],
+      "answer": 0,
+      "feedback": "As a result signals consequence.",
+      "quality": "signal_9",
+      "skillTag": "Keyword & Signal Words",
+      "stemGroup": "What is the function of “as a result”?"
+    }
+  ],
+  "5": [
+    {
+      "id": "S05_B01",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The official university website states that registration closes on June 30.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This statement can be checked through an official source.",
+      "quality": "critical_0",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B02",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "A survey of 420 students found that 61% used AI tools for drafting.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This data can support a claim.",
+      "quality": "critical_1",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B03",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Online learning may improve students’ independence.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This idea needs evidence before it is accepted.",
+      "quality": "critical_2",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B04",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "In my view, mobile learning is more convenient than classroom learning.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "The phrase in my view signals opinion.",
+      "quality": "critical_3",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B05",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The report was published by the Ministry in 2025.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This publication detail can be verified.",
+      "quality": "critical_4",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B06",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "According to the article, participants completed a ten-item questionnaire.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This source-based detail can support a method claim.",
+      "quality": "critical_5",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B07",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Social media always reduces students’ concentration.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "Always is a strong claim that needs evidence.",
+      "quality": "critical_6",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B08",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "I believe citation software is difficult to use.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "I believe signals personal opinion.",
+      "quality": "critical_7",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B09",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The table shows that Group A scored twelve points higher than Group B.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "A table result can support an argument.",
+      "quality": "critical_8",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B10",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Digital literacy training can reduce misinformation sharing.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This cause-effect idea needs evidence.",
+      "quality": "critical_9",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B11",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The official university website states that registration closes on June 30.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This statement can be checked through an official source.",
+      "quality": "critical_0",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B12",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "A survey of 420 students found that 61% used AI tools for drafting.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This data can support a claim.",
+      "quality": "critical_1",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B13",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Online learning may improve students’ independence.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This idea needs evidence before it is accepted.",
+      "quality": "critical_2",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B14",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "In my view, mobile learning is more convenient than classroom learning.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "The phrase in my view signals opinion.",
+      "quality": "critical_3",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B15",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The report was published by the Ministry in 2025.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This publication detail can be verified.",
+      "quality": "critical_4",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B16",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "According to the article, participants completed a ten-item questionnaire.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This source-based detail can support a method claim.",
+      "quality": "critical_5",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B17",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Social media always reduces students’ concentration.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "Always is a strong claim that needs evidence.",
+      "quality": "critical_6",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B18",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "I believe citation software is difficult to use.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "I believe signals personal opinion.",
+      "quality": "critical_7",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B19",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The table shows that Group A scored twelve points higher than Group B.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "A table result can support an argument.",
+      "quality": "critical_8",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B20",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Digital literacy training can reduce misinformation sharing.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This cause-effect idea needs evidence.",
+      "quality": "critical_9",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B21",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The official university website states that registration closes on June 30.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This statement can be checked through an official source.",
+      "quality": "critical_0",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B22",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "A survey of 420 students found that 61% used AI tools for drafting.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This data can support a claim.",
+      "quality": "critical_1",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B23",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Online learning may improve students’ independence.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This idea needs evidence before it is accepted.",
+      "quality": "critical_2",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B24",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "In my view, mobile learning is more convenient than classroom learning.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "The phrase in my view signals opinion.",
+      "quality": "critical_3",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B25",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The report was published by the Ministry in 2025.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This publication detail can be verified.",
+      "quality": "critical_4",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B26",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "According to the article, participants completed a ten-item questionnaire.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This source-based detail can support a method claim.",
+      "quality": "critical_5",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B27",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Social media always reduces students’ concentration.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "Always is a strong claim that needs evidence.",
+      "quality": "critical_6",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B28",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "I believe citation software is difficult to use.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "I believe signals personal opinion.",
+      "quality": "critical_7",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B29",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The table shows that Group A scored twelve points higher than Group B.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "A table result can support an argument.",
+      "quality": "critical_8",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B30",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Digital literacy training can reduce misinformation sharing.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This cause-effect idea needs evidence.",
+      "quality": "critical_9",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B31",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The official university website states that registration closes on June 30.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This statement can be checked through an official source.",
+      "quality": "critical_0",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B32",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "A survey of 420 students found that 61% used AI tools for drafting.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This data can support a claim.",
+      "quality": "critical_1",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B33",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Online learning may improve students’ independence.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This idea needs evidence before it is accepted.",
+      "quality": "critical_2",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B34",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "In my view, mobile learning is more convenient than classroom learning.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "The phrase in my view signals opinion.",
+      "quality": "critical_3",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B35",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The report was published by the Ministry in 2025.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This publication detail can be verified.",
+      "quality": "critical_4",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B36",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "According to the article, participants completed a ten-item questionnaire.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This source-based detail can support a method claim.",
+      "quality": "critical_5",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B37",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Social media always reduces students’ concentration.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "Always is a strong claim that needs evidence.",
+      "quality": "critical_6",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B38",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "I believe citation software is difficult to use.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "I believe signals personal opinion.",
+      "quality": "critical_7",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B39",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The table shows that Group A scored twelve points higher than Group B.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "A table result can support an argument.",
+      "quality": "critical_8",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    },
+    {
+      "id": "S05_B40",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Digital literacy training can reduce misinformation sharing.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This cause-effect idea needs evidence.",
+      "quality": "critical_9",
+      "skillTag": "Critical Reading",
+      "stemGroup": "Classify the statement."
+    }
+  ],
+  "6": [
+    {
+      "id": "S06_B01",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
+      "choices": [
+        "Digital literacy supports responsible online evaluation and communication.",
+        "Digital literacy helps students evaluate sources and communicate responsibly online.",
+        "Students use digital tools for many different online activities.",
+        "Digital literacy always solves every problem on the internet."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_0",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B02",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+        "Students sometimes exchange comments before submitting work.",
+        "Peer feedback is better than all other writing support."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_1",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B03",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
+      "choices": [
+        "Exercise may support students’ well-being in several ways.",
+        "Exercise may reduce stress and improve sleep quality among university students.",
+        "University students sometimes feel stress during a semester.",
+        "Exercise is the only factor that affects student well-being."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_2",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B04",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Citation allows readers to locate the sources used in academic work.",
+      "choices": [
+        "Citation helps readers trace academic sources.",
+        "Citation allows readers to locate the sources used in academic work.",
+        "Readers can look at sources after reading academic work.",
+        "Citation is useful because every sentence needs a reference."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_3",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B05",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
+      "choices": [
+        "Online platforms support learning beyond class time.",
+        "Online learning platforms provide tools that help students study outside the classroom.",
+        "Students may use technology in different learning contexts.",
+        "Online platforms are always more effective than classrooms."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_4",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B06",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Critical reading helps students check claims before accepting information.",
+      "choices": [
+        "Critical reading supports careful evaluation of claims.",
+        "Critical reading helps students check claims before accepting information.",
+        "Students accept information from many types of sources.",
+        "Critical reading means rejecting all online information."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_5",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B07",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic presentations require clear structure and evidence.",
+      "choices": [
+        "Academic presentations need organization and support.",
+        "Academic presentations require clear structure and evidence.",
+        "Presentations may include slides and spoken explanations.",
+        "Academic presentations are successful only when they are long."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_6",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B08",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Data description should highlight major trends instead of listing every value.",
+      "choices": [
+        "Data description should focus on major trends.",
+        "Data description should highlight major trends instead of listing every value.",
+        "Tables and graphs can contain many different numbers.",
+        "Data description should include every number from the table."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_7",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B09",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Responsible AI use requires checking outputs and acknowledging assistance when required.",
+      "choices": [
+        "Responsible AI use involves verification and transparency.",
+        "Responsible AI use requires checking outputs and acknowledging assistance when required.",
+        "AI tools can produce text for different learning tasks.",
+        "Responsible AI use means accepting all AI outputs."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_8",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B10",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic email should be polite, clear, and specific.",
+      "choices": [
+        "Academic email requires respectful and clear communication.",
+        "Academic email should be polite, clear, and specific.",
+        "Students send emails to instructors for many reasons.",
+        "Academic email should be written like a casual chat."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_9",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B11",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
+      "choices": [
+        "Digital literacy supports responsible online evaluation and communication.",
+        "Digital literacy helps students evaluate sources and communicate responsibly online.",
+        "Students use digital tools for many different online activities.",
+        "Digital literacy always solves every problem on the internet."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_0",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B12",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+        "Students sometimes exchange comments before submitting work.",
+        "Peer feedback is better than all other writing support."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_1",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B13",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
+      "choices": [
+        "Exercise may support students’ well-being in several ways.",
+        "Exercise may reduce stress and improve sleep quality among university students.",
+        "University students sometimes feel stress during a semester.",
+        "Exercise is the only factor that affects student well-being."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_2",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B14",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Citation allows readers to locate the sources used in academic work.",
+      "choices": [
+        "Citation helps readers trace academic sources.",
+        "Citation allows readers to locate the sources used in academic work.",
+        "Readers can look at sources after reading academic work.",
+        "Citation is useful because every sentence needs a reference."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_3",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B15",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
+      "choices": [
+        "Online platforms support learning beyond class time.",
+        "Online learning platforms provide tools that help students study outside the classroom.",
+        "Students may use technology in different learning contexts.",
+        "Online platforms are always more effective than classrooms."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_4",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B16",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Critical reading helps students check claims before accepting information.",
+      "choices": [
+        "Critical reading supports careful evaluation of claims.",
+        "Critical reading helps students check claims before accepting information.",
+        "Students accept information from many types of sources.",
+        "Critical reading means rejecting all online information."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_5",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B17",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic presentations require clear structure and evidence.",
+      "choices": [
+        "Academic presentations need organization and support.",
+        "Academic presentations require clear structure and evidence.",
+        "Presentations may include slides and spoken explanations.",
+        "Academic presentations are successful only when they are long."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_6",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B18",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Data description should highlight major trends instead of listing every value.",
+      "choices": [
+        "Data description should focus on major trends.",
+        "Data description should highlight major trends instead of listing every value.",
+        "Tables and graphs can contain many different numbers.",
+        "Data description should include every number from the table."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_7",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B19",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Responsible AI use requires checking outputs and acknowledging assistance when required.",
+      "choices": [
+        "Responsible AI use involves verification and transparency.",
+        "Responsible AI use requires checking outputs and acknowledging assistance when required.",
+        "AI tools can produce text for different learning tasks.",
+        "Responsible AI use means accepting all AI outputs."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_8",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B20",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic email should be polite, clear, and specific.",
+      "choices": [
+        "Academic email requires respectful and clear communication.",
+        "Academic email should be polite, clear, and specific.",
+        "Students send emails to instructors for many reasons.",
+        "Academic email should be written like a casual chat."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_9",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B21",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
+      "choices": [
+        "Digital literacy supports responsible online evaluation and communication.",
+        "Digital literacy helps students evaluate sources and communicate responsibly online.",
+        "Students use digital tools for many different online activities.",
+        "Digital literacy always solves every problem on the internet."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_0",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B22",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+        "Students sometimes exchange comments before submitting work.",
+        "Peer feedback is better than all other writing support."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_1",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B23",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
+      "choices": [
+        "Exercise may support students’ well-being in several ways.",
+        "Exercise may reduce stress and improve sleep quality among university students.",
+        "University students sometimes feel stress during a semester.",
+        "Exercise is the only factor that affects student well-being."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_2",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B24",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Citation allows readers to locate the sources used in academic work.",
+      "choices": [
+        "Citation helps readers trace academic sources.",
+        "Citation allows readers to locate the sources used in academic work.",
+        "Readers can look at sources after reading academic work.",
+        "Citation is useful because every sentence needs a reference."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_3",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B25",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
+      "choices": [
+        "Online platforms support learning beyond class time.",
+        "Online learning platforms provide tools that help students study outside the classroom.",
+        "Students may use technology in different learning contexts.",
+        "Online platforms are always more effective than classrooms."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_4",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B26",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Critical reading helps students check claims before accepting information.",
+      "choices": [
+        "Critical reading supports careful evaluation of claims.",
+        "Critical reading helps students check claims before accepting information.",
+        "Students accept information from many types of sources.",
+        "Critical reading means rejecting all online information."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_5",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B27",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic presentations require clear structure and evidence.",
+      "choices": [
+        "Academic presentations need organization and support.",
+        "Academic presentations require clear structure and evidence.",
+        "Presentations may include slides and spoken explanations.",
+        "Academic presentations are successful only when they are long."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_6",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B28",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Data description should highlight major trends instead of listing every value.",
+      "choices": [
+        "Data description should focus on major trends.",
+        "Data description should highlight major trends instead of listing every value.",
+        "Tables and graphs can contain many different numbers.",
+        "Data description should include every number from the table."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_7",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B29",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Responsible AI use requires checking outputs and acknowledging assistance when required.",
+      "choices": [
+        "Responsible AI use involves verification and transparency.",
+        "Responsible AI use requires checking outputs and acknowledging assistance when required.",
+        "AI tools can produce text for different learning tasks.",
+        "Responsible AI use means accepting all AI outputs."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_8",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B30",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic email should be polite, clear, and specific.",
+      "choices": [
+        "Academic email requires respectful and clear communication.",
+        "Academic email should be polite, clear, and specific.",
+        "Students send emails to instructors for many reasons.",
+        "Academic email should be written like a casual chat."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_9",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B31",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
+      "choices": [
+        "Digital literacy supports responsible online evaluation and communication.",
+        "Digital literacy helps students evaluate sources and communicate responsibly online.",
+        "Students use digital tools for many different online activities.",
+        "Digital literacy always solves every problem on the internet."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_0",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B32",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+        "Students sometimes exchange comments before submitting work.",
+        "Peer feedback is better than all other writing support."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_1",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B33",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
+      "choices": [
+        "Exercise may support students’ well-being in several ways.",
+        "Exercise may reduce stress and improve sleep quality among university students.",
+        "University students sometimes feel stress during a semester.",
+        "Exercise is the only factor that affects student well-being."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_2",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B34",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Citation allows readers to locate the sources used in academic work.",
+      "choices": [
+        "Citation helps readers trace academic sources.",
+        "Citation allows readers to locate the sources used in academic work.",
+        "Readers can look at sources after reading academic work.",
+        "Citation is useful because every sentence needs a reference."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_3",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B35",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
+      "choices": [
+        "Online platforms support learning beyond class time.",
+        "Online learning platforms provide tools that help students study outside the classroom.",
+        "Students may use technology in different learning contexts.",
+        "Online platforms are always more effective than classrooms."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_4",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B36",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Critical reading helps students check claims before accepting information.",
+      "choices": [
+        "Critical reading supports careful evaluation of claims.",
+        "Critical reading helps students check claims before accepting information.",
+        "Students accept information from many types of sources.",
+        "Critical reading means rejecting all online information."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_5",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B37",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic presentations require clear structure and evidence.",
+      "choices": [
+        "Academic presentations need organization and support.",
+        "Academic presentations require clear structure and evidence.",
+        "Presentations may include slides and spoken explanations.",
+        "Academic presentations are successful only when they are long."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_6",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B38",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Data description should highlight major trends instead of listing every value.",
+      "choices": [
+        "Data description should focus on major trends.",
+        "Data description should highlight major trends instead of listing every value.",
+        "Tables and graphs can contain many different numbers.",
+        "Data description should include every number from the table."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_7",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B39",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Responsible AI use requires checking outputs and acknowledging assistance when required.",
+      "choices": [
+        "Responsible AI use involves verification and transparency.",
+        "Responsible AI use requires checking outputs and acknowledging assistance when required.",
+        "AI tools can produce text for different learning tasks.",
+        "Responsible AI use means accepting all AI outputs."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_8",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    },
+    {
+      "id": "S06_B40",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic email should be polite, clear, and specific.",
+      "choices": [
+        "Academic email requires respectful and clear communication.",
+        "Academic email should be polite, clear, and specific.",
+        "Students send emails to instructors for many reasons.",
+        "Academic email should be written like a casual chat."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_9",
+      "skillTag": "Summarizing",
+      "stemGroup": "Choose the best summary."
+    }
+  ],
+  "7": [
+    {
+      "id": "S07_B01",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: AI is super useful for students.",
+      "choices": [
+        "Artificial intelligence may support students’ learning processes.",
+        "AI is really useful for students in every possible way.",
+        "Students think AI is cool and helpful for many tasks.",
+        "AI tools are good things that students can use a lot."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_0",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B02",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This source is kind of bad.",
+      "choices": [
+        "This source may not be reliable for academic use.",
+        "This source is not very good for student assignments.",
+        "The source looks bad because it seems strange.",
+        "Students should not use this source because it feels wrong."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_1",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B03",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Lots of students use phones in class.",
+      "choices": [
+        "Many students use mobile phones during class activities.",
+        "A lot of students use phones when they are in class.",
+        "Students use their phones in class all the time.",
+        "Phones are everywhere in class because students like them."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_2",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B04",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The data looks weird.",
+      "choices": [
+        "The data appear inconsistent with the expected pattern.",
+        "The data looks strange and not really normal.",
+        "The numbers seem weird compared with other results.",
+        "The data is not good because it does not look right."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_3",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B05",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This problem is huge.",
+      "choices": [
+        "This issue is significant in university learning contexts.",
+        "This problem is very big for many university students.",
+        "The problem is huge and should be fixed quickly.",
+        "Students face this big problem in many different ways."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_4",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B06",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The writer talks about AI stuff.",
+      "choices": [
+        "The author discusses issues related to artificial intelligence.",
+        "The writer says many things about AI and technology.",
+        "The author talks about AI topics in the article.",
+        "The text gives some points about AI stuff for students."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_5",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B07",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: People should not believe random posts.",
+      "choices": [
+        "Users should evaluate online posts before accepting them as reliable.",
+        "People should not believe posts if they seem random online.",
+        "Students should be careful with random posts on social media.",
+        "Online users should not trust posts that look suspicious."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_6",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B08",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The class helped a lot.",
+      "choices": [
+        "The session was beneficial for developing academic skills.",
+        "The class was helpful for students in many ways.",
+        "Students learned a lot from the useful class activity.",
+        "The lesson helped us understand many good things."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_7",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B09",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Social media makes students waste time.",
+      "choices": [
+        "Excessive social media use may reduce students’ study time.",
+        "Social media makes many students lose their study time.",
+        "Students waste time because social media is too interesting.",
+        "Social media use is bad for student learning in many cases."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_8",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B10",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The result was really bad.",
+      "choices": [
+        "The result indicated a negative outcome for the participants.",
+        "The result was not good for the students in the study.",
+        "The result showed that the situation was very bad.",
+        "The outcome was bad and created many problems."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_9",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B11",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: AI is super useful for students.",
+      "choices": [
+        "Artificial intelligence may support students’ learning processes.",
+        "AI is really useful for students in every possible way.",
+        "Students think AI is cool and helpful for many tasks.",
+        "AI tools are good things that students can use a lot."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_0",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B12",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This source is kind of bad.",
+      "choices": [
+        "This source may not be reliable for academic use.",
+        "This source is not very good for student assignments.",
+        "The source looks bad because it seems strange.",
+        "Students should not use this source because it feels wrong."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_1",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B13",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Lots of students use phones in class.",
+      "choices": [
+        "Many students use mobile phones during class activities.",
+        "A lot of students use phones when they are in class.",
+        "Students use their phones in class all the time.",
+        "Phones are everywhere in class because students like them."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_2",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B14",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The data looks weird.",
+      "choices": [
+        "The data appear inconsistent with the expected pattern.",
+        "The data looks strange and not really normal.",
+        "The numbers seem weird compared with other results.",
+        "The data is not good because it does not look right."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_3",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B15",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This problem is huge.",
+      "choices": [
+        "This issue is significant in university learning contexts.",
+        "This problem is very big for many university students.",
+        "The problem is huge and should be fixed quickly.",
+        "Students face this big problem in many different ways."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_4",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B16",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The writer talks about AI stuff.",
+      "choices": [
+        "The author discusses issues related to artificial intelligence.",
+        "The writer says many things about AI and technology.",
+        "The author talks about AI topics in the article.",
+        "The text gives some points about AI stuff for students."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_5",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B17",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: People should not believe random posts.",
+      "choices": [
+        "Users should evaluate online posts before accepting them as reliable.",
+        "People should not believe posts if they seem random online.",
+        "Students should be careful with random posts on social media.",
+        "Online users should not trust posts that look suspicious."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_6",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B18",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The class helped a lot.",
+      "choices": [
+        "The session was beneficial for developing academic skills.",
+        "The class was helpful for students in many ways.",
+        "Students learned a lot from the useful class activity.",
+        "The lesson helped us understand many good things."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_7",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B19",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Social media makes students waste time.",
+      "choices": [
+        "Excessive social media use may reduce students’ study time.",
+        "Social media makes many students lose their study time.",
+        "Students waste time because social media is too interesting.",
+        "Social media use is bad for student learning in many cases."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_8",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B20",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The result was really bad.",
+      "choices": [
+        "The result indicated a negative outcome for the participants.",
+        "The result was not good for the students in the study.",
+        "The result showed that the situation was very bad.",
+        "The outcome was bad and created many problems."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_9",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B21",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: AI is super useful for students.",
+      "choices": [
+        "Artificial intelligence may support students’ learning processes.",
+        "AI is really useful for students in every possible way.",
+        "Students think AI is cool and helpful for many tasks.",
+        "AI tools are good things that students can use a lot."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_0",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B22",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This source is kind of bad.",
+      "choices": [
+        "This source may not be reliable for academic use.",
+        "This source is not very good for student assignments.",
+        "The source looks bad because it seems strange.",
+        "Students should not use this source because it feels wrong."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_1",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B23",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Lots of students use phones in class.",
+      "choices": [
+        "Many students use mobile phones during class activities.",
+        "A lot of students use phones when they are in class.",
+        "Students use their phones in class all the time.",
+        "Phones are everywhere in class because students like them."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_2",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B24",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The data looks weird.",
+      "choices": [
+        "The data appear inconsistent with the expected pattern.",
+        "The data looks strange and not really normal.",
+        "The numbers seem weird compared with other results.",
+        "The data is not good because it does not look right."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_3",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B25",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This problem is huge.",
+      "choices": [
+        "This issue is significant in university learning contexts.",
+        "This problem is very big for many university students.",
+        "The problem is huge and should be fixed quickly.",
+        "Students face this big problem in many different ways."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_4",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B26",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The writer talks about AI stuff.",
+      "choices": [
+        "The author discusses issues related to artificial intelligence.",
+        "The writer says many things about AI and technology.",
+        "The author talks about AI topics in the article.",
+        "The text gives some points about AI stuff for students."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_5",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B27",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: People should not believe random posts.",
+      "choices": [
+        "Users should evaluate online posts before accepting them as reliable.",
+        "People should not believe posts if they seem random online.",
+        "Students should be careful with random posts on social media.",
+        "Online users should not trust posts that look suspicious."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_6",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B28",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The class helped a lot.",
+      "choices": [
+        "The session was beneficial for developing academic skills.",
+        "The class was helpful for students in many ways.",
+        "Students learned a lot from the useful class activity.",
+        "The lesson helped us understand many good things."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_7",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B29",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Social media makes students waste time.",
+      "choices": [
+        "Excessive social media use may reduce students’ study time.",
+        "Social media makes many students lose their study time.",
+        "Students waste time because social media is too interesting.",
+        "Social media use is bad for student learning in many cases."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_8",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B30",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The result was really bad.",
+      "choices": [
+        "The result indicated a negative outcome for the participants.",
+        "The result was not good for the students in the study.",
+        "The result showed that the situation was very bad.",
+        "The outcome was bad and created many problems."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_9",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B31",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: AI is super useful for students.",
+      "choices": [
+        "Artificial intelligence may support students’ learning processes.",
+        "AI is really useful for students in every possible way.",
+        "Students think AI is cool and helpful for many tasks.",
+        "AI tools are good things that students can use a lot."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_0",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B32",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This source is kind of bad.",
+      "choices": [
+        "This source may not be reliable for academic use.",
+        "This source is not very good for student assignments.",
+        "The source looks bad because it seems strange.",
+        "Students should not use this source because it feels wrong."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_1",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B33",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Lots of students use phones in class.",
+      "choices": [
+        "Many students use mobile phones during class activities.",
+        "A lot of students use phones when they are in class.",
+        "Students use their phones in class all the time.",
+        "Phones are everywhere in class because students like them."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_2",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B34",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The data looks weird.",
+      "choices": [
+        "The data appear inconsistent with the expected pattern.",
+        "The data looks strange and not really normal.",
+        "The numbers seem weird compared with other results.",
+        "The data is not good because it does not look right."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_3",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B35",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This problem is huge.",
+      "choices": [
+        "This issue is significant in university learning contexts.",
+        "This problem is very big for many university students.",
+        "The problem is huge and should be fixed quickly.",
+        "Students face this big problem in many different ways."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_4",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B36",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The writer talks about AI stuff.",
+      "choices": [
+        "The author discusses issues related to artificial intelligence.",
+        "The writer says many things about AI and technology.",
+        "The author talks about AI topics in the article.",
+        "The text gives some points about AI stuff for students."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_5",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B37",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: People should not believe random posts.",
+      "choices": [
+        "Users should evaluate online posts before accepting them as reliable.",
+        "People should not believe posts if they seem random online.",
+        "Students should be careful with random posts on social media.",
+        "Online users should not trust posts that look suspicious."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_6",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B38",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The class helped a lot.",
+      "choices": [
+        "The session was beneficial for developing academic skills.",
+        "The class was helpful for students in many ways.",
+        "Students learned a lot from the useful class activity.",
+        "The lesson helped us understand many good things."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_7",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B39",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Social media makes students waste time.",
+      "choices": [
+        "Excessive social media use may reduce students’ study time.",
+        "Social media makes many students lose their study time.",
+        "Students waste time because social media is too interesting.",
+        "Social media use is bad for student learning in many cases."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_8",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    },
+    {
+      "id": "S07_B40",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The result was really bad.",
+      "choices": [
+        "The result indicated a negative outcome for the participants.",
+        "The result was not good for the students in the study.",
+        "The result showed that the situation was very bad.",
+        "The outcome was bad and created many problems."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_9",
+      "skillTag": "Academic Tone",
+      "stemGroup": "Choose the most academic version."
+    }
+  ],
+  "8": [
+    {
+      "id": "S08_B01",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The researcher will ______ the interview data before writing the report.",
+      "choices": [
+        "analyze",
+        "summarize",
+        "collect",
+        "organize"
+      ],
+      "answer": 0,
+      "feedback": "Analyze means examine information carefully.",
+      "quality": "vocab_0",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_0"
+    },
+    {
+      "id": "S08_B02",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The paragraph needs stronger ______ to support the writer’s claim.",
+      "choices": [
+        "evidence",
+        "method",
+        "context",
+        "purpose"
+      ],
+      "answer": 0,
+      "feedback": "Evidence supports a claim.",
+      "quality": "vocab_1",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_1"
+    },
+    {
+      "id": "S08_B03",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The ______ section explains how participants were selected for the study.",
+      "choices": [
+        "method",
+        "result",
+        "summary",
+        "citation"
+      ],
+      "answer": 0,
+      "feedback": "Method explains the research procedure.",
+      "quality": "vocab_2",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_2"
+    },
+    {
+      "id": "S08_B04",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The difference was ______ because it appeared across all three groups.",
+      "choices": [
+        "significant",
+        "consistent",
+        "specific",
+        "relevant"
+      ],
+      "answer": 0,
+      "feedback": "Significant means important or meaningful.",
+      "quality": "vocab_3",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_3"
+    },
+    {
+      "id": "S08_B05",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The source was not reliable; ______, it should not be used as evidence.",
+      "choices": [
+        "therefore",
+        "however",
+        "moreover",
+        "although"
+      ],
+      "answer": 0,
+      "feedback": "Therefore signals result.",
+      "quality": "vocab_4",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_4"
+    },
+    {
+      "id": "S08_B06",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The app is convenient; ______, students still need to check accuracy.",
+      "choices": [
+        "however",
+        "therefore",
+        "for example",
+        "as a result"
+      ],
+      "answer": 0,
+      "feedback": "However signals contrast.",
+      "quality": "vocab_5",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_5"
+    },
+    {
+      "id": "S08_B07",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "Students should ______ online information before using it in assignments.",
+      "choices": [
+        "evaluate",
+        "describe",
+        "collect",
+        "present"
+      ],
+      "answer": 0,
+      "feedback": "Evaluate means judge quality or reliability.",
+      "quality": "vocab_6",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_6"
+    },
+    {
+      "id": "S08_B08",
+      "type": "mcq",
+      "question": "Choose the best academic word or connector.",
+      "context": "The results ______ that weekly practice improved vocabulary scores.",
+      "choices": [
+        "indicate",
+        "define",
+        "contrast",
+        "replace"
+      ],
+      "answer": 0,
+      "feedback": "Indicate means show or suggest.",
+      "quality": "vocab_7",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_7"
+    },
+    {
+      "id": "S08_B09",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
+      "choices": [
+        "Digital literacy supports responsible evaluation and communication online.",
+        "Digital literacy includes evaluating online sources before sharing.",
+        "Communication online is common among university students.",
+        "Students use online information in many different situations."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_0",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_8"
+    },
+    {
+      "id": "S08_B10",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Students often submit drafts before the final assignment.",
+        "Paragraph organization is one part of academic writing.",
+        "Feedback may come from classmates or instructors."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_1",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_9"
+    },
+    {
+      "id": "S08_B11",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
+      "choices": [
+        "Academic vocabulary supports understanding of academic texts.",
+        "Research articles often contain difficult technical words.",
+        "Students sometimes misunderstand textbook arguments.",
+        "Vocabulary learning can happen inside or outside class."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_2",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_10"
+    },
+    {
+      "id": "S08_B12",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
+      "choices": [
+        "Citation supports source tracing and academic integrity.",
+        "Readers can use citations to find original sources.",
+        "Academic integrity is important in university writing.",
+        "Writers include sources in many types of assignments."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_3",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_11"
+    },
+    {
+      "id": "S08_B13",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
+      "choices": [
+        "Online learning platforms support practice beyond class time.",
+        "Videos and quizzes are common tools on learning platforms.",
+        "Feedback can help students understand their mistakes.",
+        "Classroom learning is not the only way students practice."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_4",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_12"
+    },
+    {
+      "id": "S08_B14",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
+      "choices": [
+        "Critical reading helps students evaluate claims and evidence.",
+        "Students read online information in many daily situations.",
+        "Evidence should be checked before accepting a claim.",
+        "Online information may include both facts and opinions."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_5",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_13"
+    },
+    {
+      "id": "S08_B15",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
+      "choices": [
+        "Summarizing helps students express key ideas briefly and ethically.",
+        "Students need to identify key points before writing summaries.",
+        "Copying from sources can create academic problems.",
+        "Brief writing is often required in academic tasks."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_6",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_14"
+    },
+    {
+      "id": "S08_B16",
+      "type": "mcq",
+      "question": "Which option best states the main idea?",
+      "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
+      "choices": [
+        "Data description should highlight major trends clearly.",
+        "Writers sometimes list many numbers from tables.",
+        "Readers need help understanding patterns in data.",
+        "Major trends may include increases or decreases."
+      ],
+      "answer": 0,
+      "feedback": "The correct answer covers the whole paragraph, not just a detail.",
+      "quality": "mainidea_7",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_15"
+    },
+    {
+      "id": "S08_B17",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The official university website states that registration closes on June 30.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This statement can be checked through an official source.",
+      "quality": "critical_0",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_16"
+    },
+    {
+      "id": "S08_B18",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "A survey of 420 students found that 61% used AI tools for drafting.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This data can support a claim.",
+      "quality": "critical_1",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_17"
+    },
+    {
+      "id": "S08_B19",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Online learning may improve students’ independence.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This idea needs evidence before it is accepted.",
+      "quality": "critical_2",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_18"
+    },
+    {
+      "id": "S08_B20",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "In my view, mobile learning is more convenient than classroom learning.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "The phrase in my view signals opinion.",
+      "quality": "critical_3",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_19"
+    },
+    {
+      "id": "S08_B21",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "The report was published by the Ministry in 2025.",
+      "choices": [
+        "Fact",
+        "Opinion",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "This publication detail can be verified.",
+      "quality": "critical_4",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_20"
+    },
+    {
+      "id": "S08_B22",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "According to the article, participants completed a ten-item questionnaire.",
+      "choices": [
+        "Evidence",
+        "Fact",
+        "Opinion",
+        "Claim"
+      ],
+      "answer": 0,
+      "feedback": "This source-based detail can support a method claim.",
+      "quality": "critical_5",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_21"
+    },
+    {
+      "id": "S08_B23",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "Social media always reduces students’ concentration.",
+      "choices": [
+        "Claim",
+        "Fact",
+        "Opinion",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "Always is a strong claim that needs evidence.",
+      "quality": "critical_6",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_22"
+    },
+    {
+      "id": "S08_B24",
+      "type": "mcq",
+      "question": "Classify the statement.",
+      "context": "I believe citation software is difficult to use.",
+      "choices": [
+        "Opinion",
+        "Fact",
+        "Claim",
+        "Evidence"
+      ],
+      "answer": 0,
+      "feedback": "I believe signals personal opinion.",
+      "quality": "critical_7",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_23"
+    },
+    {
+      "id": "S08_B25",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
+      "choices": [
+        "Digital literacy supports responsible online evaluation and communication.",
+        "Digital literacy helps students evaluate sources and communicate responsibly online.",
+        "Students use digital tools for many different online activities.",
+        "Digital literacy always solves every problem on the internet."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_0",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_24"
+    },
+    {
+      "id": "S08_B26",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+      "choices": [
+        "Peer feedback can improve clarity and organization in writing.",
+        "Peer feedback can help students revise unclear ideas and improve paragraph organization.",
+        "Students sometimes exchange comments before submitting work.",
+        "Peer feedback is better than all other writing support."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_1",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_25"
+    },
+    {
+      "id": "S08_B27",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
+      "choices": [
+        "Exercise may support students’ well-being in several ways.",
+        "Exercise may reduce stress and improve sleep quality among university students.",
+        "University students sometimes feel stress during a semester.",
+        "Exercise is the only factor that affects student well-being."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_2",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_26"
+    },
+    {
+      "id": "S08_B28",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Citation allows readers to locate the sources used in academic work.",
+      "choices": [
+        "Citation helps readers trace academic sources.",
+        "Citation allows readers to locate the sources used in academic work.",
+        "Readers can look at sources after reading academic work.",
+        "Citation is useful because every sentence needs a reference."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_3",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_27"
+    },
+    {
+      "id": "S08_B29",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
+      "choices": [
+        "Online platforms support learning beyond class time.",
+        "Online learning platforms provide tools that help students study outside the classroom.",
+        "Students may use technology in different learning contexts.",
+        "Online platforms are always more effective than classrooms."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_4",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_28"
+    },
+    {
+      "id": "S08_B30",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Critical reading helps students check claims before accepting information.",
+      "choices": [
+        "Critical reading supports careful evaluation of claims.",
+        "Critical reading helps students check claims before accepting information.",
+        "Students accept information from many types of sources.",
+        "Critical reading means rejecting all online information."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_5",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_29"
+    },
+    {
+      "id": "S08_B31",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Academic presentations require clear structure and evidence.",
+      "choices": [
+        "Academic presentations need organization and support.",
+        "Academic presentations require clear structure and evidence.",
+        "Presentations may include slides and spoken explanations.",
+        "Academic presentations are successful only when they are long."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_6",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_30"
+    },
+    {
+      "id": "S08_B32",
+      "type": "mcq",
+      "question": "Choose the best summary.",
+      "context": "Original: Data description should highlight major trends instead of listing every value.",
+      "choices": [
+        "Data description should focus on major trends.",
+        "Data description should highlight major trends instead of listing every value.",
+        "Tables and graphs can contain many different numbers.",
+        "Data description should include every number from the table."
+      ],
+      "answer": 0,
+      "feedback": "The best summary is shorter, accurate, and not copied word-for-word.",
+      "quality": "summary_7",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_31"
+    },
+    {
+      "id": "S08_B33",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: AI is super useful for students.",
+      "choices": [
+        "Artificial intelligence may support students’ learning processes.",
+        "AI is really useful for students in every possible way.",
+        "Students think AI is cool and helpful for many tasks.",
+        "AI tools are good things that students can use a lot."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_0",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_32"
+    },
+    {
+      "id": "S08_B34",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This source is kind of bad.",
+      "choices": [
+        "This source may not be reliable for academic use.",
+        "This source is not very good for student assignments.",
+        "The source looks bad because it seems strange.",
+        "Students should not use this source because it feels wrong."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_1",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_33"
+    },
+    {
+      "id": "S08_B35",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: Lots of students use phones in class.",
+      "choices": [
+        "Many students use mobile phones during class activities.",
+        "A lot of students use phones when they are in class.",
+        "Students use their phones in class all the time.",
+        "Phones are everywhere in class because students like them."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_2",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_34"
+    },
+    {
+      "id": "S08_B36",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The data looks weird.",
+      "choices": [
+        "The data appear inconsistent with the expected pattern.",
+        "The data looks strange and not really normal.",
+        "The numbers seem weird compared with other results.",
+        "The data is not good because it does not look right."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_3",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_35"
+    },
+    {
+      "id": "S08_B37",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: This problem is huge.",
+      "choices": [
+        "This issue is significant in university learning contexts.",
+        "This problem is very big for many university students.",
+        "The problem is huge and should be fixed quickly.",
+        "Students face this big problem in many different ways."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_4",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_36"
+    },
+    {
+      "id": "S08_B38",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The writer talks about AI stuff.",
+      "choices": [
+        "The author discusses issues related to artificial intelligence.",
+        "The writer says many things about AI and technology.",
+        "The author talks about AI topics in the article.",
+        "The text gives some points about AI stuff for students."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_5",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_37"
+    },
+    {
+      "id": "S08_B39",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: People should not believe random posts.",
+      "choices": [
+        "Users should evaluate online posts before accepting them as reliable.",
+        "People should not believe posts if they seem random online.",
+        "Students should be careful with random posts on social media.",
+        "Online users should not trust posts that look suspicious."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_6",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_38"
+    },
+    {
+      "id": "S08_B40",
+      "type": "mcq",
+      "question": "Choose the most academic version.",
+      "context": "Informal: The class helped a lot.",
+      "choices": [
+        "The session was beneficial for developing academic skills.",
+        "The class was helpful for students in many ways.",
+        "Students learned a lot from the useful class activity.",
+        "The lesson helped us understand many good things."
+      ],
+      "answer": 0,
+      "feedback": "The correct option is formal, precise, and appropriately cautious.",
+      "quality": "tone_7",
+      "skillTag": "Integrated Review",
+      "stemGroup": "integrated_39"
+    }
+  ],
+  "9": [
+    {
+      "id": "S09_B01",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Digital literacy",
+      "choices": [
+        "Digital literacy is essential for responsible online learning.",
+        "Students can evaluate sources before sharing information.",
+        "Therefore, digital literacy should be developed in university courses.",
+        "Digital literacy is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_0",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B02",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Peer feedback can improve students’ academic writing.",
+      "choices": [
+        "Classmates may identify unclear ideas in a draft.",
+        "Therefore, peer feedback can support better revision.",
+        "Peer feedback is important for many students.",
+        "The paragraph will end with another idea about peer feedback."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_1",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B03",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Exercise",
+      "choices": [
+        "Therefore, exercise should be encouraged during the semester.",
+        "Studies suggest that exercise may reduce stress.",
+        "Regular exercise can support students’ physical and mental health.",
+        "This paragraph includes information about exercise."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_2",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B04",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Citation",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Citation is important for academic integrity.",
+        "It allows readers to locate the original sources.",
+        "Therefore, students should cite information carefully."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_3",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B05",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: AI tools",
+      "choices": [
+        "AI tools may support learning when used responsibly.",
+        "Students should check the accuracy of AI-generated content.",
+        "Therefore, AI use should involve careful evaluation.",
+        "AI tools is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_4",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B06",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Academic email requires polite and clear communication.",
+      "choices": [
+        "A specific subject line helps the reader understand the purpose.",
+        "Therefore, students should write emails with clear structure.",
+        "Academic email is important for many students.",
+        "The paragraph will end with another idea about academic email."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_5",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B07",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Presentation",
+      "choices": [
+        "Therefore, speakers should use signposting phrases.",
+        "Phrases such as first and in conclusion help audiences follow the structure.",
+        "Clear signposting improves academic presentations.",
+        "This paragraph includes information about presentation."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_6",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B08",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Data description",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Data description should highlight major trends.",
+        "Writers should compare important values instead of listing every number.",
+        "Therefore, data paragraphs should focus on patterns."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_7",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B09",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Critical reading",
+      "choices": [
+        "Critical reading helps students evaluate information.",
+        "Readers should check claims, evidence, and source credibility.",
+        "Therefore, critical reading is important for academic work.",
+        "Critical reading is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_8",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B10",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Online learning can support flexible study for university students.",
+      "choices": [
+        "Students can access videos and quizzes outside class.",
+        "Therefore, online learning may increase learning opportunities.",
+        "Online learning is important for many students.",
+        "The paragraph will end with another idea about online learning."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_9",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B11",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Digital literacy",
+      "choices": [
+        "Therefore, digital literacy should be developed in university courses.",
+        "Students can evaluate sources before sharing information.",
+        "Digital literacy is essential for responsible online learning.",
+        "This paragraph includes information about digital literacy."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_0",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B12",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Peer feedback",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Peer feedback can improve students’ academic writing.",
+        "Classmates may identify unclear ideas in a draft.",
+        "Therefore, peer feedback can support better revision."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_1",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B13",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Exercise",
+      "choices": [
+        "Regular exercise can support students’ physical and mental health.",
+        "Studies suggest that exercise may reduce stress.",
+        "Therefore, exercise should be encouraged during the semester.",
+        "Exercise is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_2",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B14",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Citation is important for academic integrity.",
+      "choices": [
+        "It allows readers to locate the original sources.",
+        "Therefore, students should cite information carefully.",
+        "Citation is important for many students.",
+        "The paragraph will end with another idea about citation."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_3",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B15",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: AI tools",
+      "choices": [
+        "Therefore, AI use should involve careful evaluation.",
+        "Students should check the accuracy of AI-generated content.",
+        "AI tools may support learning when used responsibly.",
+        "This paragraph includes information about ai tools."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_4",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B16",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Academic email",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Academic email requires polite and clear communication.",
+        "A specific subject line helps the reader understand the purpose.",
+        "Therefore, students should write emails with clear structure."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_5",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B17",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Presentation",
+      "choices": [
+        "Clear signposting improves academic presentations.",
+        "Phrases such as first and in conclusion help audiences follow the structure.",
+        "Therefore, speakers should use signposting phrases.",
+        "Presentation is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_6",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B18",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Data description should highlight major trends.",
+      "choices": [
+        "Writers should compare important values instead of listing every number.",
+        "Therefore, data paragraphs should focus on patterns.",
+        "Data description is important for many students.",
+        "The paragraph will end with another idea about data description."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_7",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B19",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Critical reading",
+      "choices": [
+        "Therefore, critical reading is important for academic work.",
+        "Readers should check claims, evidence, and source credibility.",
+        "Critical reading helps students evaluate information.",
+        "This paragraph includes information about critical reading."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_8",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B20",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Online learning",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Online learning can support flexible study for university students.",
+        "Students can access videos and quizzes outside class.",
+        "Therefore, online learning may increase learning opportunities."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_9",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B21",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Digital literacy",
+      "choices": [
+        "Digital literacy is essential for responsible online learning.",
+        "Students can evaluate sources before sharing information.",
+        "Therefore, digital literacy should be developed in university courses.",
+        "Digital literacy is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_0",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B22",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Peer feedback can improve students’ academic writing.",
+      "choices": [
+        "Classmates may identify unclear ideas in a draft.",
+        "Therefore, peer feedback can support better revision.",
+        "Peer feedback is important for many students.",
+        "The paragraph will end with another idea about peer feedback."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_1",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B23",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Exercise",
+      "choices": [
+        "Therefore, exercise should be encouraged during the semester.",
+        "Studies suggest that exercise may reduce stress.",
+        "Regular exercise can support students’ physical and mental health.",
+        "This paragraph includes information about exercise."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_2",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B24",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Citation",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Citation is important for academic integrity.",
+        "It allows readers to locate the original sources.",
+        "Therefore, students should cite information carefully."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_3",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B25",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: AI tools",
+      "choices": [
+        "AI tools may support learning when used responsibly.",
+        "Students should check the accuracy of AI-generated content.",
+        "Therefore, AI use should involve careful evaluation.",
+        "AI tools is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_4",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B26",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Academic email requires polite and clear communication.",
+      "choices": [
+        "A specific subject line helps the reader understand the purpose.",
+        "Therefore, students should write emails with clear structure.",
+        "Academic email is important for many students.",
+        "The paragraph will end with another idea about academic email."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_5",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B27",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Presentation",
+      "choices": [
+        "Therefore, speakers should use signposting phrases.",
+        "Phrases such as first and in conclusion help audiences follow the structure.",
+        "Clear signposting improves academic presentations.",
+        "This paragraph includes information about presentation."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_6",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B28",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Data description",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Data description should highlight major trends.",
+        "Writers should compare important values instead of listing every number.",
+        "Therefore, data paragraphs should focus on patterns."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_7",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B29",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Critical reading",
+      "choices": [
+        "Critical reading helps students evaluate information.",
+        "Readers should check claims, evidence, and source credibility.",
+        "Therefore, critical reading is important for academic work.",
+        "Critical reading is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_8",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B30",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Online learning can support flexible study for university students.",
+      "choices": [
+        "Students can access videos and quizzes outside class.",
+        "Therefore, online learning may increase learning opportunities.",
+        "Online learning is important for many students.",
+        "The paragraph will end with another idea about online learning."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_9",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B31",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Digital literacy",
+      "choices": [
+        "Therefore, digital literacy should be developed in university courses.",
+        "Students can evaluate sources before sharing information.",
+        "Digital literacy is essential for responsible online learning.",
+        "This paragraph includes information about digital literacy."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_0",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B32",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Peer feedback",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Peer feedback can improve students’ academic writing.",
+        "Classmates may identify unclear ideas in a draft.",
+        "Therefore, peer feedback can support better revision."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_1",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B33",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Exercise",
+      "choices": [
+        "Regular exercise can support students’ physical and mental health.",
+        "Studies suggest that exercise may reduce stress.",
+        "Therefore, exercise should be encouraged during the semester.",
+        "Exercise is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_2",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B34",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Citation is important for academic integrity.",
+      "choices": [
+        "It allows readers to locate the original sources.",
+        "Therefore, students should cite information carefully.",
+        "Citation is important for many students.",
+        "The paragraph will end with another idea about citation."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_3",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B35",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: AI tools",
+      "choices": [
+        "Therefore, AI use should involve careful evaluation.",
+        "Students should check the accuracy of AI-generated content.",
+        "AI tools may support learning when used responsibly.",
+        "This paragraph includes information about ai tools."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_4",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B36",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Academic email",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Academic email requires polite and clear communication.",
+        "A specific subject line helps the reader understand the purpose.",
+        "Therefore, students should write emails with clear structure."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_5",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    },
+    {
+      "id": "S09_B37",
+      "type": "mcq",
+      "question": "Choose the best topic sentence.",
+      "context": "Topic: Presentation",
+      "choices": [
+        "Clear signposting improves academic presentations.",
+        "Phrases such as first and in conclusion help audiences follow the structure.",
+        "Therefore, speakers should use signposting phrases.",
+        "Presentation is a common topic in university classes."
+      ],
+      "answer": 0,
+      "feedback": "A topic sentence states the main idea of the paragraph.",
+      "quality": "para_topic_6",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best topic sentence."
+    },
+    {
+      "id": "S09_B38",
+      "type": "mcq",
+      "question": "Choose the best supporting detail.",
+      "context": "Topic sentence: Data description should highlight major trends.",
+      "choices": [
+        "Writers should compare important values instead of listing every number.",
+        "Therefore, data paragraphs should focus on patterns.",
+        "Data description is important for many students.",
+        "The paragraph will end with another idea about data description."
+      ],
+      "answer": 0,
+      "feedback": "A supporting detail explains or supports the topic sentence.",
+      "quality": "para_support_7",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best supporting detail."
+    },
+    {
+      "id": "S09_B39",
+      "type": "mcq",
+      "question": "Choose the best concluding sentence.",
+      "context": "Paragraph topic: Critical reading",
+      "choices": [
+        "Therefore, critical reading is important for academic work.",
+        "Readers should check claims, evidence, and source credibility.",
+        "Critical reading helps students evaluate information.",
+        "This paragraph includes information about critical reading."
+      ],
+      "answer": 0,
+      "feedback": "A concluding sentence closes the paragraph and connects to the main idea.",
+      "quality": "para_conc_8",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Choose the best concluding sentence."
+    },
+    {
+      "id": "S09_B40",
+      "type": "mcq",
+      "question": "Which sentence does NOT fit this paragraph topic?",
+      "context": "Topic: Online learning",
+      "choices": [
+        "The cafeteria menu changed after the lunch break.",
+        "Online learning can support flexible study for university students.",
+        "Students can access videos and quizzes outside class.",
+        "Therefore, online learning may increase learning opportunities."
+      ],
+      "answer": 0,
+      "feedback": "The incorrect sentence is unrelated to the paragraph topic.",
+      "quality": "para_irrel_9",
+      "skillTag": "Paragraph Writing",
+      "stemGroup": "Which sentence does NOT fit this paragraph topic?"
+    }
+  ],
+  "10": [
+    {
+      "id": "S10_B01",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: AI tool use increased from 30% in 2023 to 55% in 2025.",
+      "choices": [
+        "AI tool use increased between 2023 and 2025.",
+        "AI tool use remained exactly stable across the years.",
+        "AI tool use decreased after 2023.",
+        "AI tool use was higher in 2023 than in 2025."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_0",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B02",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Group A scored 78%, while Group B scored 62%.",
+      "choices": [
+        "Group A scored higher than Group B.",
+        "Group B scored higher than Group A.",
+        "Both groups received the same score.",
+        "The scores cannot be compared at all."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_1",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B03",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The number of errors fell from 15 in Draft 1 to 6 in Draft 2.",
+      "choices": [
+        "The number of errors decreased between the two drafts.",
+        "The number of errors increased in the second draft.",
+        "The number of errors remained stable across drafts.",
+        "The second draft had more errors than the first draft."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_2",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B04",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Student attendance was 80%, 81%, and 80% across three weeks.",
+      "choices": [
+        "Student attendance remained relatively stable.",
+        "Student attendance increased dramatically each week.",
+        "Student attendance decreased sharply across the period.",
+        "Student attendance doubled after the first week."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_3",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B05",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Downloads rose from 100 in January to 180 in February.",
+      "choices": [
+        "The number of downloads increased significantly.",
+        "The number of downloads declined after January.",
+        "The number of downloads remained unchanged.",
+        "The data show no change in user behavior."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_4",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B06",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Video preference was 45%, while quiz preference was 30%.",
+      "choices": [
+        "Videos were preferred by a higher percentage of students.",
+        "Quizzes were preferred by a higher percentage of students.",
+        "Both tools were preferred by the same percentage.",
+        "The data prove that quizzes are ineffective."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_5",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B07",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The score changed from 81 to 83.",
+      "choices": [
+        "The score increased slightly.",
+        "The score increased dramatically.",
+        "The score decreased sharply.",
+        "The score remained exactly the same."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_6",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B08",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The percentage fell from 70% to 52% after the training.",
+      "choices": [
+        "The percentage decreased after the training.",
+        "The percentage increased after the training.",
+        "The percentage stayed the same after the training.",
+        "The data show no pattern after the training."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_7",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B09",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Class A had 35 participants and Class B had 35 participants.",
+      "choices": [
+        "Both classes had the same number of participants.",
+        "Class A had more participants than Class B.",
+        "Class B had more participants than Class A.",
+        "The participant numbers were not reported."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_8",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B10",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Engagement rose from 40% to 65% after game-based learning was introduced.",
+      "choices": [
+        "Engagement increased after game-based learning was introduced.",
+        "Engagement decreased after game-based learning was introduced.",
+        "Engagement remained stable throughout the study.",
+        "Engagement was not related to the learning activity."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_9",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B11",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: AI tool use increased from 30% in 2023 to 55% in 2025.",
+      "choices": [
+        "AI tool use increased between 2023 and 2025.",
+        "AI tool use remained exactly stable across the years.",
+        "AI tool use decreased after 2023.",
+        "AI tool use was higher in 2023 than in 2025."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_0",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B12",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Group A scored 78%, while Group B scored 62%.",
+      "choices": [
+        "Group A scored higher than Group B.",
+        "Group B scored higher than Group A.",
+        "Both groups received the same score.",
+        "The scores cannot be compared at all."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_1",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B13",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The number of errors fell from 15 in Draft 1 to 6 in Draft 2.",
+      "choices": [
+        "The number of errors decreased between the two drafts.",
+        "The number of errors increased in the second draft.",
+        "The number of errors remained stable across drafts.",
+        "The second draft had more errors than the first draft."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_2",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B14",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Student attendance was 80%, 81%, and 80% across three weeks.",
+      "choices": [
+        "Student attendance remained relatively stable.",
+        "Student attendance increased dramatically each week.",
+        "Student attendance decreased sharply across the period.",
+        "Student attendance doubled after the first week."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_3",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B15",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Downloads rose from 100 in January to 180 in February.",
+      "choices": [
+        "The number of downloads increased significantly.",
+        "The number of downloads declined after January.",
+        "The number of downloads remained unchanged.",
+        "The data show no change in user behavior."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_4",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B16",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Video preference was 45%, while quiz preference was 30%.",
+      "choices": [
+        "Videos were preferred by a higher percentage of students.",
+        "Quizzes were preferred by a higher percentage of students.",
+        "Both tools were preferred by the same percentage.",
+        "The data prove that quizzes are ineffective."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_5",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B17",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The score changed from 81 to 83.",
+      "choices": [
+        "The score increased slightly.",
+        "The score increased dramatically.",
+        "The score decreased sharply.",
+        "The score remained exactly the same."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_6",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B18",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The percentage fell from 70% to 52% after the training.",
+      "choices": [
+        "The percentage decreased after the training.",
+        "The percentage increased after the training.",
+        "The percentage stayed the same after the training.",
+        "The data show no pattern after the training."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_7",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B19",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Class A had 35 participants and Class B had 35 participants.",
+      "choices": [
+        "Both classes had the same number of participants.",
+        "Class A had more participants than Class B.",
+        "Class B had more participants than Class A.",
+        "The participant numbers were not reported."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_8",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B20",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Engagement rose from 40% to 65% after game-based learning was introduced.",
+      "choices": [
+        "Engagement increased after game-based learning was introduced.",
+        "Engagement decreased after game-based learning was introduced.",
+        "Engagement remained stable throughout the study.",
+        "Engagement was not related to the learning activity."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_9",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B21",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: AI tool use increased from 30% in 2023 to 55% in 2025.",
+      "choices": [
+        "AI tool use increased between 2023 and 2025.",
+        "AI tool use remained exactly stable across the years.",
+        "AI tool use decreased after 2023.",
+        "AI tool use was higher in 2023 than in 2025."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_0",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B22",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Group A scored 78%, while Group B scored 62%.",
+      "choices": [
+        "Group A scored higher than Group B.",
+        "Group B scored higher than Group A.",
+        "Both groups received the same score.",
+        "The scores cannot be compared at all."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_1",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B23",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The number of errors fell from 15 in Draft 1 to 6 in Draft 2.",
+      "choices": [
+        "The number of errors decreased between the two drafts.",
+        "The number of errors increased in the second draft.",
+        "The number of errors remained stable across drafts.",
+        "The second draft had more errors than the first draft."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_2",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B24",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Student attendance was 80%, 81%, and 80% across three weeks.",
+      "choices": [
+        "Student attendance remained relatively stable.",
+        "Student attendance increased dramatically each week.",
+        "Student attendance decreased sharply across the period.",
+        "Student attendance doubled after the first week."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_3",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B25",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Downloads rose from 100 in January to 180 in February.",
+      "choices": [
+        "The number of downloads increased significantly.",
+        "The number of downloads declined after January.",
+        "The number of downloads remained unchanged.",
+        "The data show no change in user behavior."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_4",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B26",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Video preference was 45%, while quiz preference was 30%.",
+      "choices": [
+        "Videos were preferred by a higher percentage of students.",
+        "Quizzes were preferred by a higher percentage of students.",
+        "Both tools were preferred by the same percentage.",
+        "The data prove that quizzes are ineffective."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_5",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B27",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The score changed from 81 to 83.",
+      "choices": [
+        "The score increased slightly.",
+        "The score increased dramatically.",
+        "The score decreased sharply.",
+        "The score remained exactly the same."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_6",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B28",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The percentage fell from 70% to 52% after the training.",
+      "choices": [
+        "The percentage decreased after the training.",
+        "The percentage increased after the training.",
+        "The percentage stayed the same after the training.",
+        "The data show no pattern after the training."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_7",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B29",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Class A had 35 participants and Class B had 35 participants.",
+      "choices": [
+        "Both classes had the same number of participants.",
+        "Class A had more participants than Class B.",
+        "Class B had more participants than Class A.",
+        "The participant numbers were not reported."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_8",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B30",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Engagement rose from 40% to 65% after game-based learning was introduced.",
+      "choices": [
+        "Engagement increased after game-based learning was introduced.",
+        "Engagement decreased after game-based learning was introduced.",
+        "Engagement remained stable throughout the study.",
+        "Engagement was not related to the learning activity."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_9",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B31",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: AI tool use increased from 30% in 2023 to 55% in 2025.",
+      "choices": [
+        "AI tool use increased between 2023 and 2025.",
+        "AI tool use remained exactly stable across the years.",
+        "AI tool use decreased after 2023.",
+        "AI tool use was higher in 2023 than in 2025."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_0",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B32",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Group A scored 78%, while Group B scored 62%.",
+      "choices": [
+        "Group A scored higher than Group B.",
+        "Group B scored higher than Group A.",
+        "Both groups received the same score.",
+        "The scores cannot be compared at all."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_1",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B33",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The number of errors fell from 15 in Draft 1 to 6 in Draft 2.",
+      "choices": [
+        "The number of errors decreased between the two drafts.",
+        "The number of errors increased in the second draft.",
+        "The number of errors remained stable across drafts.",
+        "The second draft had more errors than the first draft."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_2",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B34",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Student attendance was 80%, 81%, and 80% across three weeks.",
+      "choices": [
+        "Student attendance remained relatively stable.",
+        "Student attendance increased dramatically each week.",
+        "Student attendance decreased sharply across the period.",
+        "Student attendance doubled after the first week."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_3",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B35",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Downloads rose from 100 in January to 180 in February.",
+      "choices": [
+        "The number of downloads increased significantly.",
+        "The number of downloads declined after January.",
+        "The number of downloads remained unchanged.",
+        "The data show no change in user behavior."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_4",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B36",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Video preference was 45%, while quiz preference was 30%.",
+      "choices": [
+        "Videos were preferred by a higher percentage of students.",
+        "Quizzes were preferred by a higher percentage of students.",
+        "Both tools were preferred by the same percentage.",
+        "The data prove that quizzes are ineffective."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_5",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B37",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The score changed from 81 to 83.",
+      "choices": [
+        "The score increased slightly.",
+        "The score increased dramatically.",
+        "The score decreased sharply.",
+        "The score remained exactly the same."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_6",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B38",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: The percentage fell from 70% to 52% after the training.",
+      "choices": [
+        "The percentage decreased after the training.",
+        "The percentage increased after the training.",
+        "The percentage stayed the same after the training.",
+        "The data show no pattern after the training."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_7",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B39",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Class A had 35 participants and Class B had 35 participants.",
+      "choices": [
+        "Both classes had the same number of participants.",
+        "Class A had more participants than Class B.",
+        "Class B had more participants than Class A.",
+        "The participant numbers were not reported."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_8",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    },
+    {
+      "id": "S10_B40",
+      "type": "mcq",
+      "question": "Choose the best data description.",
+      "context": "Data: Engagement rose from 40% to 65% after game-based learning was introduced.",
+      "choices": [
+        "Engagement increased after game-based learning was introduced.",
+        "Engagement decreased after game-based learning was introduced.",
+        "Engagement remained stable throughout the study.",
+        "Engagement was not related to the learning activity."
+      ],
+      "answer": 0,
+      "feedback": "The correct option describes the data accurately without overclaiming.",
+      "quality": "data_9",
+      "skillTag": "Data Description",
+      "stemGroup": "Choose the best data description."
+    }
+  ],
+  "11": [
+    {
+      "id": "S11_B01",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to request feedback on a draft report.",
+      "choices": [
+        "Request for Feedback on Draft Report",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_0",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B02",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask for an appointment during office hours.",
+      "choices": [
+        "I would like to request an appointment during your office hours.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_1",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B03",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_2",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B04",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to submit a revised assignment.",
+      "choices": [
+        "Submission of Revised Assignment",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_3",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B05",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to request an assignment extension.",
+      "choices": [
+        "I am writing to request an extension for the assignment.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_4",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B06",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_5",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B07",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to apologize for late submission.",
+      "choices": [
+        "Apology for Late Submission",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_6",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B08",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask about a group project meeting.",
+      "choices": [
+        "I am writing to ask about the schedule for the group project meeting.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_7",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B09",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_8",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B10",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to ask for score clarification.",
+      "choices": [
+        "Request for Score Clarification",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_9",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B11",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to request feedback on a draft report.",
+      "choices": [
+        "I am writing to request feedback on my draft report.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_0",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B12",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_1",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B13",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to ask about presentation requirements.",
+      "choices": [
+        "Question about Final Presentation Requirements",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_2",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B14",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to submit a revised assignment.",
+      "choices": [
+        "I have attached my revised assignment for your review.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_3",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B15",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_4",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B16",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to ask about citation format.",
+      "choices": [
+        "Question about Citation Format",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_5",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B17",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to apologize for late submission.",
+      "choices": [
+        "I apologize for submitting the assignment late.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_6",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B18",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_7",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B19",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to send presentation slides.",
+      "choices": [
+        "Submission of Presentation Slides",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_8",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B20",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask for score clarification.",
+      "choices": [
+        "I would like to ask for clarification regarding my assignment score.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_9",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B21",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_0",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B22",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to ask for an appointment during office hours.",
+      "choices": [
+        "Request for Appointment During Office Hours",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_1",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B23",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask about presentation requirements.",
+      "choices": [
+        "I am writing to ask for clarification about the final presentation requirements.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_2",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B24",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_3",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B25",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to request an assignment extension.",
+      "choices": [
+        "Request for Assignment Extension",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_4",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B26",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask about citation format.",
+      "choices": [
+        "I would like to ask which citation format should be used.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_5",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B27",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_6",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B28",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to ask about a group project meeting.",
+      "choices": [
+        "Question about Group Project Meeting",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_7",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B29",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to send presentation slides.",
+      "choices": [
+        "I have attached my presentation slides to this email.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_8",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B30",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_9",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B31",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to request feedback on a draft report.",
+      "choices": [
+        "Request for Feedback on Draft Report",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_0",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B32",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask for an appointment during office hours.",
+      "choices": [
+        "I would like to request an appointment during your office hours.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_1",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B33",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_2",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B34",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to submit a revised assignment.",
+      "choices": [
+        "Submission of Revised Assignment",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_3",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B35",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to request an assignment extension.",
+      "choices": [
+        "I am writing to request an extension for the assignment.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_4",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B36",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_5",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B37",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to apologize for late submission.",
+      "choices": [
+        "Apology for Late Submission",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_6",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    },
+    {
+      "id": "S11_B38",
+      "type": "mcq",
+      "question": "Choose the best purpose sentence.",
+      "context": "Situation: You need to ask about a group project meeting.",
+      "choices": [
+        "I am writing to ask about the schedule for the group project meeting.",
+        "I have something that I need you to answer.",
+        "Please tell me what I should do about this issue.",
+        "I need help because this class task is confusing."
+      ],
+      "answer": 0,
+      "feedback": "A purpose sentence should be polite and clear.",
+      "quality": "email_purpose_7",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best purpose sentence."
+    },
+    {
+      "id": "S11_B39",
+      "type": "mcq",
+      "question": "Choose the most appropriate closing for an academic email.",
+      "context": "",
+      "choices": [
+        "Thank you for your time and consideration.",
+        "Please answer this message as soon as possible.",
+        "That is all I need to say about this issue.",
+        "I hope you understand my situation quickly."
+      ],
+      "answer": 0,
+      "feedback": "This closing is polite and appropriate for academic communication.",
+      "quality": "email_close_8",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the most appropriate closing for an academi"
+    },
+    {
+      "id": "S11_B40",
+      "type": "mcq",
+      "question": "Choose the best subject line.",
+      "context": "Situation: You need to ask for score clarification.",
+      "choices": [
+        "Request for Score Clarification",
+        "Important question about the class",
+        "Please help me with something",
+        "I need information from you"
+      ],
+      "answer": 0,
+      "feedback": "A strong subject line is specific and formal.",
+      "quality": "email_subj_9",
+      "skillTag": "Academic Email",
+      "stemGroup": "Choose the best subject line."
+    }
+  ],
+  "12": [
+    {
+      "id": "S12_B01",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Copying a paragraph from a website without citation.",
+      "choices": [
+        "This is plagiarism because the source is not acknowledged.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_0",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B02",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Paraphrasing a source idea and including a citation.",
+      "choices": [
+        "This is acceptable because the source receives credit.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_1",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B03",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Changing only a few words from the original sentence.",
+      "choices": [
+        "This is patchwriting because the wording is too close.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_2",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B04",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using AI output without checking accuracy or declaring use when required.",
+      "choices": [
+        "This is risky because the work may be inaccurate or non-transparent.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_3",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B05",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Inventing a reference that does not exist.",
+      "choices": [
+        "This is academic misconduct because the source is false.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_4",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B06",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Quoting a sentence with quotation marks and citation.",
+      "choices": [
+        "This is acceptable quotation practice.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_5",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B07",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Summarizing a source and citing it in the paragraph.",
+      "choices": [
+        "This is acceptable because the borrowed idea is credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_6",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B08",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using a source idea without naming the source.",
+      "choices": [
+        "This is plagiarism because the idea is not credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_7",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B09",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Checking AI information against credible sources before using it.",
+      "choices": [
+        "This is responsible AI use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_8",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B10",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Citing a source that does not support the claim.",
+      "choices": [
+        "This is incorrect source use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_9",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B11",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Copying a paragraph from a website without citation.",
+      "choices": [
+        "This is plagiarism because the source is not acknowledged.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_0",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B12",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Paraphrasing a source idea and including a citation.",
+      "choices": [
+        "This is acceptable because the source receives credit.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_1",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B13",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Changing only a few words from the original sentence.",
+      "choices": [
+        "This is patchwriting because the wording is too close.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_2",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B14",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using AI output without checking accuracy or declaring use when required.",
+      "choices": [
+        "This is risky because the work may be inaccurate or non-transparent.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_3",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B15",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Inventing a reference that does not exist.",
+      "choices": [
+        "This is academic misconduct because the source is false.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_4",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B16",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Quoting a sentence with quotation marks and citation.",
+      "choices": [
+        "This is acceptable quotation practice.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_5",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B17",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Summarizing a source and citing it in the paragraph.",
+      "choices": [
+        "This is acceptable because the borrowed idea is credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_6",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B18",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using a source idea without naming the source.",
+      "choices": [
+        "This is plagiarism because the idea is not credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_7",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B19",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Checking AI information against credible sources before using it.",
+      "choices": [
+        "This is responsible AI use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_8",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B20",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Citing a source that does not support the claim.",
+      "choices": [
+        "This is incorrect source use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_9",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B21",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Copying a paragraph from a website without citation.",
+      "choices": [
+        "This is plagiarism because the source is not acknowledged.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_0",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B22",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Paraphrasing a source idea and including a citation.",
+      "choices": [
+        "This is acceptable because the source receives credit.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_1",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B23",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Changing only a few words from the original sentence.",
+      "choices": [
+        "This is patchwriting because the wording is too close.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_2",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B24",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using AI output without checking accuracy or declaring use when required.",
+      "choices": [
+        "This is risky because the work may be inaccurate or non-transparent.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_3",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B25",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Inventing a reference that does not exist.",
+      "choices": [
+        "This is academic misconduct because the source is false.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_4",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B26",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Quoting a sentence with quotation marks and citation.",
+      "choices": [
+        "This is acceptable quotation practice.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_5",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B27",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Summarizing a source and citing it in the paragraph.",
+      "choices": [
+        "This is acceptable because the borrowed idea is credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_6",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B28",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using a source idea without naming the source.",
+      "choices": [
+        "This is plagiarism because the idea is not credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_7",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B29",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Checking AI information against credible sources before using it.",
+      "choices": [
+        "This is responsible AI use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_8",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B30",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Citing a source that does not support the claim.",
+      "choices": [
+        "This is incorrect source use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_9",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B31",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Copying a paragraph from a website without citation.",
+      "choices": [
+        "This is plagiarism because the source is not acknowledged.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_0",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B32",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Paraphrasing a source idea and including a citation.",
+      "choices": [
+        "This is acceptable because the source receives credit.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_1",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B33",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Changing only a few words from the original sentence.",
+      "choices": [
+        "This is patchwriting because the wording is too close.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_2",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B34",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using AI output without checking accuracy or declaring use when required.",
+      "choices": [
+        "This is risky because the work may be inaccurate or non-transparent.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_3",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B35",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Inventing a reference that does not exist.",
+      "choices": [
+        "This is academic misconduct because the source is false.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_4",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B36",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Quoting a sentence with quotation marks and citation.",
+      "choices": [
+        "This is acceptable quotation practice.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_5",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B37",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Summarizing a source and citing it in the paragraph.",
+      "choices": [
+        "This is acceptable because the borrowed idea is credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_6",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B38",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Using a source idea without naming the source.",
+      "choices": [
+        "This is plagiarism because the idea is not credited.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_7",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B39",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Checking AI information against credible sources before using it.",
+      "choices": [
+        "This is responsible AI use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_8",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    },
+    {
+      "id": "S12_B40",
+      "type": "mcq",
+      "question": "Choose the best ethical judgment.",
+      "context": "Action: Citing a source that does not support the claim.",
+      "choices": [
+        "This is incorrect source use.",
+        "This is acceptable because academic tasks allow any source use.",
+        "This is only a formatting issue and does not affect ethics.",
+        "This is unrelated to academic integrity in university work."
+      ],
+      "answer": 0,
+      "feedback": "The correct judgment identifies the academic ethics issue accurately.",
+      "quality": "ethics_9",
+      "skillTag": "Citation & Ethics",
+      "stemGroup": "Choose the best ethical judgment."
+    }
+  ],
+  "13": [
+    {
+      "id": "S13_B01",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Today, I will explain three strategies for academic reading: previewing, identifying keywords, and reviewing notes.",
+      "choices": [
+        "academic reading strategies",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_0",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B02",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The first reason citation is important is that it helps readers locate the original source.",
+      "choices": [
+        "the importance of citation → key point",
+        "The first reason citation is important is that it helps readers locate the original source.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_1",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B03",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Although AI tools are useful, students must check the accuracy of their output.",
+      "choices": [
+        "responsible AI use",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_2",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B04",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The survey included 250 undergraduate students from three faculties.",
+      "choices": [
+        "survey participants and sample details → key point",
+        "The survey included 250 undergraduate students from three faculties.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_3",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B05",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: To sum up, digital literacy helps students evaluate online information more responsibly.",
+      "choices": [
+        "digital literacy and evaluation",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_4",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B06",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Next, I will discuss how evidence can make an academic argument more convincing.",
+      "choices": [
+        "evidence in academic arguments → key point",
+        "Next, I will discuss how evidence can make an academic argument more convincing.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_5",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B07",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: The study found a significant increase in engagement after game-based learning was introduced.",
+      "choices": [
+        "game-based learning and engagement",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_6",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B08",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Students should check the author, date, and source before sharing online information.",
+      "choices": [
+        "source checking before sharing → key point",
+        "Students should check the author, date, and source before sharing online information.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_7",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B09",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: In conclusion, clear presentation structure helps audiences follow complex ideas.",
+      "choices": [
+        "presentation structure and audience understanding",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_8",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B10",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: First, the speaker introduces the problem; then, she explains possible solutions.",
+      "choices": [
+        "the organization of a lecture → key point",
+        "First, the speaker introduces the problem; then, she explains possible solutions.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_9",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B11",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Today, I will explain three strategies for academic reading: previewing, identifying keywords, and reviewing notes.",
+      "choices": [
+        "academic reading strategies",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_0",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B12",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The first reason citation is important is that it helps readers locate the original source.",
+      "choices": [
+        "the importance of citation → key point",
+        "The first reason citation is important is that it helps readers locate the original source.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_1",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B13",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Although AI tools are useful, students must check the accuracy of their output.",
+      "choices": [
+        "responsible AI use",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_2",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B14",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The survey included 250 undergraduate students from three faculties.",
+      "choices": [
+        "survey participants and sample details → key point",
+        "The survey included 250 undergraduate students from three faculties.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_3",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B15",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: To sum up, digital literacy helps students evaluate online information more responsibly.",
+      "choices": [
+        "digital literacy and evaluation",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_4",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B16",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Next, I will discuss how evidence can make an academic argument more convincing.",
+      "choices": [
+        "evidence in academic arguments → key point",
+        "Next, I will discuss how evidence can make an academic argument more convincing.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_5",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B17",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: The study found a significant increase in engagement after game-based learning was introduced.",
+      "choices": [
+        "game-based learning and engagement",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_6",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B18",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Students should check the author, date, and source before sharing online information.",
+      "choices": [
+        "source checking before sharing → key point",
+        "Students should check the author, date, and source before sharing online information.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_7",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B19",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: In conclusion, clear presentation structure helps audiences follow complex ideas.",
+      "choices": [
+        "presentation structure and audience understanding",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_8",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B20",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: First, the speaker introduces the problem; then, she explains possible solutions.",
+      "choices": [
+        "the organization of a lecture → key point",
+        "First, the speaker introduces the problem; then, she explains possible solutions.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_9",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B21",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Today, I will explain three strategies for academic reading: previewing, identifying keywords, and reviewing notes.",
+      "choices": [
+        "academic reading strategies",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_0",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B22",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The first reason citation is important is that it helps readers locate the original source.",
+      "choices": [
+        "the importance of citation → key point",
+        "The first reason citation is important is that it helps readers locate the original source.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_1",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B23",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Although AI tools are useful, students must check the accuracy of their output.",
+      "choices": [
+        "responsible AI use",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_2",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B24",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The survey included 250 undergraduate students from three faculties.",
+      "choices": [
+        "survey participants and sample details → key point",
+        "The survey included 250 undergraduate students from three faculties.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_3",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B25",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: To sum up, digital literacy helps students evaluate online information more responsibly.",
+      "choices": [
+        "digital literacy and evaluation",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_4",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B26",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Next, I will discuss how evidence can make an academic argument more convincing.",
+      "choices": [
+        "evidence in academic arguments → key point",
+        "Next, I will discuss how evidence can make an academic argument more convincing.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_5",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B27",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: The study found a significant increase in engagement after game-based learning was introduced.",
+      "choices": [
+        "game-based learning and engagement",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_6",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B28",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Students should check the author, date, and source before sharing online information.",
+      "choices": [
+        "source checking before sharing → key point",
+        "Students should check the author, date, and source before sharing online information.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_7",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B29",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: In conclusion, clear presentation structure helps audiences follow complex ideas.",
+      "choices": [
+        "presentation structure and audience understanding",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_8",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B30",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: First, the speaker introduces the problem; then, she explains possible solutions.",
+      "choices": [
+        "the organization of a lecture → key point",
+        "First, the speaker introduces the problem; then, she explains possible solutions.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_9",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B31",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Today, I will explain three strategies for academic reading: previewing, identifying keywords, and reviewing notes.",
+      "choices": [
+        "academic reading strategies",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_0",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B32",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The first reason citation is important is that it helps readers locate the original source.",
+      "choices": [
+        "the importance of citation → key point",
+        "The first reason citation is important is that it helps readers locate the original source.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_1",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B33",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: Although AI tools are useful, students must check the accuracy of their output.",
+      "choices": [
+        "responsible AI use",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_2",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B34",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: The survey included 250 undergraduate students from three faculties.",
+      "choices": [
+        "survey participants and sample details → key point",
+        "The survey included 250 undergraduate students from three faculties.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_3",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B35",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: To sum up, digital literacy helps students evaluate online information more responsibly.",
+      "choices": [
+        "digital literacy and evaluation",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_4",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B36",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Next, I will discuss how evidence can make an academic argument more convincing.",
+      "choices": [
+        "evidence in academic arguments → key point",
+        "Next, I will discuss how evidence can make an academic argument more convincing.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_5",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B37",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: The study found a significant increase in engagement after game-based learning was introduced.",
+      "choices": [
+        "game-based learning and engagement",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_6",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B38",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: Students should check the author, date, and source before sharing online information.",
+      "choices": [
+        "source checking before sharing → key point",
+        "Students should check the author, date, and source before sharing online information.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_7",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    },
+    {
+      "id": "S13_B39",
+      "type": "mcq",
+      "question": "Listening simulation: What is the main point?",
+      "context": "Transcript: In conclusion, clear presentation structure helps audiences follow complex ideas.",
+      "choices": [
+        "presentation structure and audience understanding",
+        "a personal story with no academic purpose",
+        "a list of unrelated classroom activities",
+        "a casual conversation about daily routines"
+      ],
+      "answer": 0,
+      "feedback": "The main point is the central idea of the transcript.",
+      "quality": "listen_main_8",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Listening simulation: What is the main point?"
+    },
+    {
+      "id": "S13_B40",
+      "type": "mcq",
+      "question": "Which note is most effective?",
+      "context": "Transcript: First, the speaker introduces the problem; then, she explains possible solutions.",
+      "choices": [
+        "the organization of a lecture → key point",
+        "First, the speaker introduces the problem; then, she explains possible solutions.",
+        "interesting topic with many details",
+        "speaker talks about something important"
+      ],
+      "answer": 0,
+      "feedback": "Effective notes are brief and focus on key information.",
+      "quality": "listen_note_9",
+      "skillTag": "Academic Listening",
+      "stemGroup": "Which note is most effective?"
+    }
+  ],
+  "14": [
+    {
+      "id": "S14_B01",
+      "type": "mcq",
+      "question": "Choose the best opening phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Today, I would like to present my topic on digital literacy.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_0",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best opening phrase for an academic pre"
+    },
+    {
+      "id": "S14_B02",
+      "type": "mcq",
+      "question": "Choose the best outline phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will first explain the problem, then discuss causes and solutions.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_1",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best outline phrase for an academic pre"
+    },
+    {
+      "id": "S14_B03",
+      "type": "mcq",
+      "question": "Choose the best transition phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Let us now move to the causes of the problem.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_2",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best transition phrase for an academic "
+    },
+    {
+      "id": "S14_B04",
+      "type": "mcq",
+      "question": "Choose the best evidence phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "According to the survey results, student awareness increased after training.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_3",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best evidence phrase for an academic pr"
+    },
+    {
+      "id": "S14_B05",
+      "type": "mcq",
+      "question": "Choose the best conclusion phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "In conclusion, digital literacy training can support responsible online behavior.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_4",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best conclusion phrase for an academic "
+    },
+    {
+      "id": "S14_B06",
+      "type": "mcq",
+      "question": "Choose the best Q&A response phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your question. Based on the evidence I found, ...",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_5",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best Q&A response phrase for an academi"
+    },
+    {
+      "id": "S14_B07",
+      "type": "mcq",
+      "question": "Choose the best limitation phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One limitation of this evidence is the small sample size.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_6",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best limitation phrase for an academic "
+    },
+    {
+      "id": "S14_B08",
+      "type": "mcq",
+      "question": "Choose the best solution phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One possible solution is to provide short source-checking workshops.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_7",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best solution phrase for an academic pr"
+    },
+    {
+      "id": "S14_B09",
+      "type": "mcq",
+      "question": "Choose the best audience thanks phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your attention.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_8",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best audience thanks phrase for an acad"
+    },
+    {
+      "id": "S14_B10",
+      "type": "mcq",
+      "question": "Choose the best uncertain answer phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will need to check further information before answering fully.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_9",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best uncertain answer phrase for an aca"
+    },
+    {
+      "id": "S14_B11",
+      "type": "mcq",
+      "question": "Choose the best opening phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Today, I would like to present my topic on digital literacy.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_0",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best opening phrase for an academic pre"
+    },
+    {
+      "id": "S14_B12",
+      "type": "mcq",
+      "question": "Choose the best outline phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will first explain the problem, then discuss causes and solutions.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_1",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best outline phrase for an academic pre"
+    },
+    {
+      "id": "S14_B13",
+      "type": "mcq",
+      "question": "Choose the best transition phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Let us now move to the causes of the problem.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_2",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best transition phrase for an academic "
+    },
+    {
+      "id": "S14_B14",
+      "type": "mcq",
+      "question": "Choose the best evidence phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "According to the survey results, student awareness increased after training.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_3",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best evidence phrase for an academic pr"
+    },
+    {
+      "id": "S14_B15",
+      "type": "mcq",
+      "question": "Choose the best conclusion phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "In conclusion, digital literacy training can support responsible online behavior.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_4",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best conclusion phrase for an academic "
+    },
+    {
+      "id": "S14_B16",
+      "type": "mcq",
+      "question": "Choose the best Q&A response phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your question. Based on the evidence I found, ...",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_5",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best Q&A response phrase for an academi"
+    },
+    {
+      "id": "S14_B17",
+      "type": "mcq",
+      "question": "Choose the best limitation phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One limitation of this evidence is the small sample size.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_6",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best limitation phrase for an academic "
+    },
+    {
+      "id": "S14_B18",
+      "type": "mcq",
+      "question": "Choose the best solution phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One possible solution is to provide short source-checking workshops.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_7",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best solution phrase for an academic pr"
+    },
+    {
+      "id": "S14_B19",
+      "type": "mcq",
+      "question": "Choose the best audience thanks phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your attention.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_8",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best audience thanks phrase for an acad"
+    },
+    {
+      "id": "S14_B20",
+      "type": "mcq",
+      "question": "Choose the best uncertain answer phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will need to check further information before answering fully.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_9",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best uncertain answer phrase for an aca"
+    },
+    {
+      "id": "S14_B21",
+      "type": "mcq",
+      "question": "Choose the best opening phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Today, I would like to present my topic on digital literacy.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_0",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best opening phrase for an academic pre"
+    },
+    {
+      "id": "S14_B22",
+      "type": "mcq",
+      "question": "Choose the best outline phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will first explain the problem, then discuss causes and solutions.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_1",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best outline phrase for an academic pre"
+    },
+    {
+      "id": "S14_B23",
+      "type": "mcq",
+      "question": "Choose the best transition phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Let us now move to the causes of the problem.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_2",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best transition phrase for an academic "
+    },
+    {
+      "id": "S14_B24",
+      "type": "mcq",
+      "question": "Choose the best evidence phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "According to the survey results, student awareness increased after training.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_3",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best evidence phrase for an academic pr"
+    },
+    {
+      "id": "S14_B25",
+      "type": "mcq",
+      "question": "Choose the best conclusion phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "In conclusion, digital literacy training can support responsible online behavior.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_4",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best conclusion phrase for an academic "
+    },
+    {
+      "id": "S14_B26",
+      "type": "mcq",
+      "question": "Choose the best Q&A response phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your question. Based on the evidence I found, ...",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_5",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best Q&A response phrase for an academi"
+    },
+    {
+      "id": "S14_B27",
+      "type": "mcq",
+      "question": "Choose the best limitation phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One limitation of this evidence is the small sample size.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_6",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best limitation phrase for an academic "
+    },
+    {
+      "id": "S14_B28",
+      "type": "mcq",
+      "question": "Choose the best solution phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One possible solution is to provide short source-checking workshops.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_7",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best solution phrase for an academic pr"
+    },
+    {
+      "id": "S14_B29",
+      "type": "mcq",
+      "question": "Choose the best audience thanks phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your attention.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_8",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best audience thanks phrase for an acad"
+    },
+    {
+      "id": "S14_B30",
+      "type": "mcq",
+      "question": "Choose the best uncertain answer phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will need to check further information before answering fully.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_9",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best uncertain answer phrase for an aca"
+    },
+    {
+      "id": "S14_B31",
+      "type": "mcq",
+      "question": "Choose the best opening phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Today, I would like to present my topic on digital literacy.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_0",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best opening phrase for an academic pre"
+    },
+    {
+      "id": "S14_B32",
+      "type": "mcq",
+      "question": "Choose the best outline phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will first explain the problem, then discuss causes and solutions.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_1",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best outline phrase for an academic pre"
+    },
+    {
+      "id": "S14_B33",
+      "type": "mcq",
+      "question": "Choose the best transition phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Let us now move to the causes of the problem.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_2",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best transition phrase for an academic "
+    },
+    {
+      "id": "S14_B34",
+      "type": "mcq",
+      "question": "Choose the best evidence phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "According to the survey results, student awareness increased after training.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_3",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best evidence phrase for an academic pr"
+    },
+    {
+      "id": "S14_B35",
+      "type": "mcq",
+      "question": "Choose the best conclusion phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "In conclusion, digital literacy training can support responsible online behavior.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_4",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best conclusion phrase for an academic "
+    },
+    {
+      "id": "S14_B36",
+      "type": "mcq",
+      "question": "Choose the best Q&A response phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your question. Based on the evidence I found, ...",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_5",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best Q&A response phrase for an academi"
+    },
+    {
+      "id": "S14_B37",
+      "type": "mcq",
+      "question": "Choose the best limitation phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One limitation of this evidence is the small sample size.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_6",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best limitation phrase for an academic "
+    },
+    {
+      "id": "S14_B38",
+      "type": "mcq",
+      "question": "Choose the best solution phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "One possible solution is to provide short source-checking workshops.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_7",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best solution phrase for an academic pr"
+    },
+    {
+      "id": "S14_B39",
+      "type": "mcq",
+      "question": "Choose the best audience thanks phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "Thank you for your attention.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_8",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best audience thanks phrase for an acad"
+    },
+    {
+      "id": "S14_B40",
+      "type": "mcq",
+      "question": "Choose the best uncertain answer phrase for an academic presentation.",
+      "context": "",
+      "choices": [
+        "I will need to check further information before answering fully.",
+        "I will say some things about this topic now.",
+        "This slide has information that might be useful.",
+        "Let us finish this part and go to the next thing."
+      ],
+      "answer": 0,
+      "feedback": "The correct phrase is polite, clear, and academic.",
+      "quality": "pres_9",
+      "skillTag": "Academic Presentation",
+      "stemGroup": "Choose the best uncertain answer phrase for an aca"
+    }
+  ],
+  "15": [
+    {
+      "id": "S15_B01",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Fake news can affect students and academic decision-making.",
+        "Fake news is a bad thing for many people.",
+        "I personally dislike fake news in many situations.",
+        "Everyone already knows that fake news is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_0",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B02",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is irresponsible online communication.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_1",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B03",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Interviews showed that many students were unsure how to cite AI assistance.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_2",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B04",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide campus learning support points to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_3",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B05",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_4",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B06",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Poor health awareness can affect students and academic decision-making.",
+        "Poor health awareness is a bad thing for many people.",
+        "I personally dislike poor health awareness in many situations.",
+        "Everyone already knows that poor health awareness is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_5",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B07",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is limited recycling behavior on campus.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_6",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B08",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Pre-test results showed low reading confidence.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_7",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B09",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide structured presentation rehearsal to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_8",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B10",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_9",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B11",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Fake news can affect students and academic decision-making.",
+        "Fake news is a bad thing for many people.",
+        "I personally dislike fake news in many situations.",
+        "Everyone already knows that fake news is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_0",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B12",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is irresponsible online communication.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_1",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B13",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Interviews showed that many students were unsure how to cite AI assistance.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_2",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B14",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide campus learning support points to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_3",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B15",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_4",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B16",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Poor health awareness can affect students and academic decision-making.",
+        "Poor health awareness is a bad thing for many people.",
+        "I personally dislike poor health awareness in many situations.",
+        "Everyone already knows that poor health awareness is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_5",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B17",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is limited recycling behavior on campus.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_6",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B18",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Pre-test results showed low reading confidence.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_7",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B19",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide structured presentation rehearsal to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_8",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B20",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_9",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B21",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Fake news can affect students and academic decision-making.",
+        "Fake news is a bad thing for many people.",
+        "I personally dislike fake news in many situations.",
+        "Everyone already knows that fake news is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_0",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B22",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is irresponsible online communication.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_1",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B23",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Interviews showed that many students were unsure how to cite AI assistance.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_2",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B24",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide campus learning support points to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_3",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B25",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_4",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B26",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Poor health awareness can affect students and academic decision-making.",
+        "Poor health awareness is a bad thing for many people.",
+        "I personally dislike poor health awareness in many situations.",
+        "Everyone already knows that poor health awareness is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_5",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B27",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is limited recycling behavior on campus.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_6",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B28",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Pre-test results showed low reading confidence.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_7",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B29",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide structured presentation rehearsal to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_8",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B30",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_9",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B31",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Fake news can affect students and academic decision-making.",
+        "Fake news is a bad thing for many people.",
+        "I personally dislike fake news in many situations.",
+        "Everyone already knows that fake news is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_0",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B32",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is irresponsible online communication.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_1",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B33",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Interviews showed that many students were unsure how to cite AI assistance.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_2",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B34",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide campus learning support points to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_3",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B35",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_4",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    },
+    {
+      "id": "S15_B36",
+      "type": "mcq",
+      "question": "Choose the best problem statement.",
+      "context": "",
+      "choices": [
+        "Poor health awareness can affect students and academic decision-making.",
+        "Poor health awareness is a bad thing for many people.",
+        "I personally dislike poor health awareness in many situations.",
+        "Everyone already knows that poor health awareness is a problem."
+      ],
+      "answer": 0,
+      "feedback": "A strong problem statement is specific and academic.",
+      "quality": "final_problem_5",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best problem statement."
+    },
+    {
+      "id": "S15_B37",
+      "type": "mcq",
+      "question": "Choose the best cause sentence.",
+      "context": "",
+      "choices": [
+        "One possible cause is limited recycling behavior on campus.",
+        "The cause is people not doing the right thing.",
+        "This problem happens because of many different issues.",
+        "No one can clearly explain why this problem happens."
+      ],
+      "answer": 0,
+      "feedback": "A good cause sentence is specific and relevant.",
+      "quality": "final_cause_6",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best cause sentence."
+    },
+    {
+      "id": "S15_B38",
+      "type": "mcq",
+      "question": "Choose the best evidence sentence.",
+      "context": "",
+      "choices": [
+        "Pre-test results showed low reading confidence.",
+        "Many people say this issue happens in many places.",
+        "This problem is common because it appears online often.",
+        "I have personally seen this issue several times."
+      ],
+      "answer": 0,
+      "feedback": "Evidence should be specific and credible.",
+      "quality": "final_evidence_7",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best evidence sentence."
+    },
+    {
+      "id": "S15_B39",
+      "type": "mcq",
+      "question": "Choose the best solution sentence.",
+      "context": "",
+      "choices": [
+        "Universities could provide structured presentation rehearsal to address this issue.",
+        "People should be more careful and try to improve themselves.",
+        "Everyone should stop doing the behavior immediately.",
+        "The problem should disappear if people understand it better."
+      ],
+      "answer": 0,
+      "feedback": "A good solution is realistic and specific.",
+      "quality": "final_solution_8",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best solution sentence."
+    },
+    {
+      "id": "S15_B40",
+      "type": "mcq",
+      "question": "Choose the best final presentation structure.",
+      "context": "",
+      "choices": [
+        "Problem → Cause → Evidence → Solution → Conclusion",
+        "Opinion → Story → Personal example → Ending",
+        "Title → Picture → General idea → Thank you",
+        "Cause only → More causes → Personal opinion → End"
+      ],
+      "answer": 0,
+      "feedback": "This structure supports academic problem-solution presentation.",
+      "quality": "final_structure_9",
+      "skillTag": "Final Integration",
+      "stemGroup": "Choose the best final presentation structure."
+    }
+  ]
+};
+    Object.keys(BALANCED_BANK).forEach(key => {
+      const session = SESSIONS.find(s => s.id === Number(key));
+      if(!session) return;
+      BALANCED_BANK[key].forEach(q => session.questions.push(q));
+    });
+  }
+  addBalancedQuestionsV1e();
+
   function mcq(id, question, context, choices, answer, feedback){
     return { id, type:'mcq', question, context, choices, answer, feedback };
   }
@@ -11577,24 +21820,29 @@
     });
   }
 
+
   function pickQuestionsFromSessions(sessionIds, count, examKey){
     let pool = [];
     sessionIds.forEach(id => {
       const s = getSession(id);
-      if(s) pool = pool.concat(s.questions.map(q => Object.assign({}, q, { sourceSession:id, sourceBoss:s.boss, sourceSkill:s.skill })));
+      if(s){
+        const preferred = preferredPool(s.questions, Math.ceil(count / sessionIds.length));
+        pool = pool.concat(preferred.map(q => Object.assign({}, q, { sourceSession:id, sourceBoss:s.boss, sourceSkill:s.skill })));
+      }
     });
 
     const recentKey = 'exam_' + examKey;
     const recent = new Set((state.recentQuestions && state.recentQuestions[recentKey]) || []);
-    let fresh = shuffle([...pool]).filter(q => !recent.has(q.id));
+    let fresh = uniqueByFingerprint(shuffle([...pool]).filter(q => !recent.has(q.id)));
     let selected = fresh.slice(0, count);
 
     if(selected.length < count){
       const ids = new Set(selected.map(q => q.id));
-      selected = selected.concat(shuffle([...pool]).filter(q => !ids.has(q.id)).slice(0, count - selected.length));
+      selected = selected.concat(uniqueByFingerprint(shuffle([...pool]).filter(q => !ids.has(q.id))).slice(0, count - selected.length));
     }
     return shuffle(selected).slice(0, Math.min(count, selected.length)).map(shuffleChoicesForQuestion);
   }
+
 
   function bossQuestionCount(){
     const d = state.settings.difficulty;
@@ -11604,19 +21852,47 @@
     return 8;
   }
 
+
+  function textFingerprint(q){
+    const base = (q.stemGroup || (q.question + ' ' + (q.context || ''))).toString().toLowerCase();
+    return base.replace(/[^a-z0-9ก-๙]+/gi,' ').replace(/\s+/g,' ').trim();
+  }
+
+  function uniqueByFingerprint(pool){
+    const used = new Set();
+    const out = [];
+    pool.forEach(q => {
+      const fp = textFingerprint(q);
+      if(!used.has(fp)){
+        used.add(fp);
+        out.push(q);
+      }
+    });
+    return out;
+  }
+
+  function preferredPool(questions, count){
+    const balanced = questions.filter(q => q.quality === 'v1e');
+    if(balanced.length >= count) return balanced;
+    return balanced.concat(questions.filter(q => q.quality !== 'v1e'));
+  }
+
   function selectQuestionSet(session, count, mode){
-    const pool = shuffle([...session.questions]);
+    const basePool = preferredPool(session.questions, count);
+    const pool = shuffle([...basePool]);
     const recent = new Set((state.recentQuestions && state.recentQuestions[session.id]) || []);
-    let fresh = pool.filter(q => !recent.has(q.id));
+    let fresh = uniqueByFingerprint(pool.filter(q => !recent.has(q.id)));
     let selected = fresh.slice(0, count);
 
     if(selected.length < count){
       const selectedIds = new Set(selected.map(q => q.id));
-      selected = selected.concat(pool.filter(q => !selectedIds.has(q.id)).slice(0, count - selected.length));
+      const fallback = uniqueByFingerprint(pool.filter(q => !selectedIds.has(q.id)));
+      selected = selected.concat(fallback.slice(0, count - selected.length));
     }
 
     return shuffle(selected).slice(0, Math.min(count, selected.length)).map(shuffleChoicesForQuestion);
   }
+
 
   function updateRecentQuestions(sessionId, ids){
     state.recentQuestions = state.recentQuestions || {};
