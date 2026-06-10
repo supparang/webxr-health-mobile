@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1v AI Help Button Fix ===
+/* === EAP Hero: Save the Society v1z Complete Classroom Loop ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1v-ai-help-button-fix';
+  const APP_VERSION = '20260610-v1z-complete-classroom-loop';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31529,7 +31529,10 @@
       skillBankHistory:{},
       reviews:{ rubricScores:[], reviewNotes:[] },
       listening:{ transcriptHints:[], transcriptUnlocked:{} },
-      settings:{ difficulty:'normal' },
+      revisions:{ submissions:[], improvementBadges:{} },
+      lessons:{ activePlan:null, logs:[] },
+      classActivities:{ pairMissions:[], peerReviews:[] },
+      settings:{ difficulty:'normal', skillDifficulty:'normal' },
       recentQuestions:{},
       active:null
     };
@@ -31603,6 +31606,15 @@
       merged.listening = Object.assign(fresh.listening || {}, parsed.listening || {});
       merged.listening.transcriptHints = (parsed.listening && parsed.listening.transcriptHints) || [];
       merged.listening.transcriptUnlocked = (parsed.listening && parsed.listening.transcriptUnlocked) || {};
+      merged.revisions = Object.assign(fresh.revisions || {}, parsed.revisions || {});
+      merged.revisions.submissions = (parsed.revisions && parsed.revisions.submissions) || [];
+      merged.revisions.improvementBadges = (parsed.revisions && parsed.revisions.improvementBadges) || {};
+      merged.lessons = Object.assign(fresh.lessons || {}, parsed.lessons || {});
+      merged.lessons.logs = (parsed.lessons && parsed.lessons.logs) || [];
+      merged.classActivities = Object.assign(fresh.classActivities || {}, parsed.classActivities || {});
+      merged.classActivities.pairMissions = (parsed.classActivities && parsed.classActivities.pairMissions) || [];
+      merged.classActivities.peerReviews = (parsed.classActivities && parsed.classActivities.peerReviews) || [];
+      merged.settings.skillDifficulty = parsed.settings?.skillDifficulty || parsed.settings?.difficulty || 'normal';
       return merged;
     }catch(e){
       console.warn(e);
@@ -31769,7 +31781,7 @@
             <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
-            <button class="btn ghost small" onclick="EAPHero.dashboard()">📊 Teacher</button>
+            <button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>
           </div>
         </div>
         ${content}
@@ -34198,6 +34210,7 @@
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Reading'))}</p>
       ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -34213,8 +34226,8 @@
     if(joined.length >= 80) score += 25;
     if(/main|idea|keyword|evidence|support|source|trend|tone|summary|problem/.test(joined)) score += 25;
     if(answers.filter(a=>a.length>10).length >= 2) score += 25;
-    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading'));
-    addPortfolio({ session:id, skill:'Reading', score, aiUses:aiUsesFor(id,'Reading'), output:answers.join(' | '), prompt:text.passage });
+    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading')));
+    addPortfolio({ session:id, skill:'Reading', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Reading'), output:answers.join(' | '), prompt:text.passage });
     showSkillResult('Reading', score, id);
   }
 
@@ -34225,6 +34238,7 @@
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">เป้าหมาย: ${safe(prompt.target)} • auto-check เบื้องต้น</p>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Writing'))}</p>
       ${renderAIHelpBox('Writing', s.id)}
       <textarea id="writingOutput" class="input" rows="9"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -34263,8 +34277,8 @@
     if(/\b(however|therefore|because|according to|evidence|suggest|indicate|in conclusion)\b/i.test(out)) score += 25;
     if(/\b(problem|cause|solution|summary|source|data|academic|students|learning)\b/i.test(out)) score += 25;
     if(/[.!?]\s+[A-Z]/.test(out) || words >= 80) score += 25;
-    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing'));
-    addPortfolio({ session:id, skill:'Writing', score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction });
+    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing')));
+    addPortfolio({ session:id, skill:'Writing', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction });
     showSkillResult('Writing', score, id);
   }
 
@@ -34282,6 +34296,7 @@
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(text.variant.ask || 'Write listening notes.')}</p>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Listening'))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
       <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
@@ -34326,7 +34341,7 @@
   }
 
   function transcriptPenalty(sessionId){
-    return transcriptHintUsed(sessionId) ? 8 : 0;
+    return transcriptHintUsed(sessionId) ? currentSkillDifficulty().transcriptPenalty : 0;
   }
 
   function showFullTranscript(sessionId){
@@ -34370,8 +34385,8 @@
     if(/main|point|keyword|evidence|source|academic|student|learning/.test(low)) score += 25;
     if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
     if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
-    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id));
-    addPortfolio({ session:id, skill:'Listening', score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
+    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id)));
+    addPortfolio({ session:id, skill:'Listening', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
     unlockListeningTranscript(id);
     showFullTranscript(id);
     showSkillResult('Listening', score, id);
@@ -34384,6 +34399,7 @@
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
       <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">พูดจริงหน้าห้อง/จับคู่/อัดเสียงเอง แล้วพิมพ์ transcript หรือ speaking notes เพื่อบันทึก portfolio</p>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Speaking'))}</p>
       ${renderAIHelpBox('Speaking', s.id)}
       <textarea id="speakingTranscript" class="input" rows="8"></textarea>
       <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
@@ -34418,8 +34434,8 @@
     if(document.getElementById('spSign')?.checked) score += 20;
     if(document.getElementById('spEvi')?.checked) score += 20;
     if(document.getElementById('spClose')?.checked) score += 20;
-    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking'));
-    addPortfolio({ session:id, skill:'Speaking', score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
+    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking')));
+    addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
     showSkillResult('Speaking', score, id);
   }
 
@@ -34452,6 +34468,335 @@
 
   function safeAttr(text){ return String(text ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+
+
+
+  const SKILL_DIFFICULTIES = {
+    easy:{ key:'easy', label:'Easy', note:'คำถามตรง มี scaffold มากกว่า', aiLimitBonus:1, transcriptPenalty:4, scoreBonus:0 },
+    normal:{ key:'normal', label:'Normal', note:'ระดับมาตรฐานของคาบเรียน', aiLimitBonus:0, transcriptPenalty:8, scoreBonus:0 },
+    hard:{ key:'hard', label:'Hard', note:'ต้อง infer/evaluate/synthesize มากขึ้น', aiLimitBonus:0, transcriptPenalty:10, scoreBonus:8 },
+    challenge:{ key:'challenge', label:'Challenge', note:'จำกัดตัวช่วย ต้องตอบครบหลายส่วน', aiLimitBonus:-1, transcriptPenalty:12, scoreBonus:15 }
+  };
+
+  function currentSkillDifficulty(){
+    const key = state.settings?.skillDifficulty || state.settings?.difficulty || 'normal';
+    return SKILL_DIFFICULTIES[key] || SKILL_DIFFICULTIES.normal;
+  }
+
+  function setSkillDifficulty(level){
+    if(!SKILL_DIFFICULTIES[level]) level = 'normal';
+    state.settings.skillDifficulty = level;
+    saveState();
+    toast(`Skill difficulty: ${SKILL_DIFFICULTIES[level].label}`);
+    renderDifficultyPanel();
+  }
+
+  function difficultyPromptAddon(skill){
+    const d = currentSkillDifficulty().key;
+    const map = {
+      easy:{
+        Reading:'Answer directly. Focus on main idea, keywords, and one support.',
+        Writing:'Use the paragraph frame. Keep ideas clear and simple.',
+        Listening:'Write main point, keywords, and one example.',
+        Speaking:'Use opening, one reason, and closing.'
+      },
+      normal:{
+        Reading:'Separate main idea, support, and one limitation.',
+        Writing:'Include topic sentence, evidence/reason, and conclusion.',
+        Listening:'Organize notes by main point, evidence, signal words, question.',
+        Speaking:'Use signposting and one clear evidence/example.'
+      },
+      hard:{
+        Reading:'Infer purpose/stance and evaluate evidence quality.',
+        Writing:'Add cautious language, limitation, and stronger academic support.',
+        Listening:'Identify claim-evidence relationship and missing information.',
+        Speaking:'Include claim, evidence, limitation, and Q&A readiness.'
+      },
+      challenge:{
+        Reading:'Evaluate source credibility, claim strength, limitation, and cautious rewrite.',
+        Writing:'Produce a polished academic response with synthesis/ethics/limitation.',
+        Listening:'Create structured notes plus summary, implication, and follow-up question.',
+        Speaking:'Deliver a defendable mini-presentation with evidence, limitation, and response to challenge.'
+      }
+    };
+    return map[d]?.[skill] || '';
+  }
+
+  function difficultyAdjustedScore(score){
+    const d = currentSkillDifficulty();
+    return Math.max(0, Math.min(100, Number(score || 0) + (d.scoreBonus || 0)));
+  }
+
+  function renderDifficultyPanel(){
+    const d = currentSkillDifficulty();
+    const cards = Object.values(SKILL_DIFFICULTIES).map(x => `
+      <div class="hud-card ${x.key===d.key?'ok':''}">
+        <h3>${x.key===d.key?'✅':'⬜'} ${safe(x.label)}</h3>
+        <p class="mini-note">${safe(x.note)}</p>
+        <button class="btn ${x.key===d.key?'ghost':'primary'} block" onclick="EAPHero.setSkillDifficulty('${x.key}')">${x.key===d.key?'Current':'Use '+x.label}</button>
+      </div>`).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">v1w</span><span class="pill">Difficulty Tier</span><span class="pill">${safe(d.label)}</span></div>
+        <h2>Skill Mission Difficulty</h2>
+        <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
+        <div class="grid four">${cards}</div>
+        <div class="panel light" style="margin-top:18px">
+          <h3>Current Rule</h3>
+          <p>${safe(d.note)}</p>
+          <p class="mini-note">Hard/Challenge เพิ่มคะแนน bonus เล็กน้อย แต่โจทย์จะคาดหวัง evidence, inference, limitation และ academic tone มากขึ้น</p>
+        </div>
+        <div class="footer-actions"><button class="btn" onclick="EAPHero.map()">Map</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
+      </section>`);
+  }
+
+  function renderTeacherTools(){
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Teacher Tools</span><span class="pill">Classroom Loop</span><span class="pill">Pre-Firebase</span></div>
+        <h2>Teacher Classroom Control</h2>
+        <p class="lead">ศูนย์ควบคุมก่อนต่อ Firebase: ตั้งความยาก สร้างแผนคาบ ตรวจงาน สั่ง revision และจัด pair/class activity</p>
+        <div class="grid three">
+          <div class="hud-card"><h3>🎚 Difficulty</h3><p>ตั้งระดับโจทย์ skill mission</p><button class="btn primary block" onclick="EAPHero.difficultyPanel()">Open</button></div>
+          <div class="hud-card"><h3>🧾 Review Queue</h3><p>ตรวจ portfolio ด้วย rubric</p><button class="btn primary block" onclick="EAPHero.reviewQueue()">Open</button></div>
+          <div class="hud-card"><h3>🔁 Revision Loop</h3><p>ติดตามงานแก้ไขและ improvement</p><button class="btn primary block" onclick="EAPHero.revisionCenter()">Open</button></div>
+          <div class="hud-card"><h3>📚 Lesson Mode</h3><p>สร้างแผนคาบเรียน 60/90 นาที</p><button class="btn primary block" onclick="EAPHero.lessonMode()">Open</button></div>
+          <div class="hud-card"><h3>🤝 Pair/Class Mission</h3><p>กิจกรรมคู่ กลุ่ม และ peer review</p><button class="btn primary block" onclick="EAPHero.classActivity()">Open</button></div>
+          <div class="hud-card"><h3>📤 Exports</h3><p>CSV สำหรับ evidence/research</p><button class="btn primary block" onclick="EAPHero.dashboard()">Dashboard</button></div>
+        </div>
+      </section>`);
+  }
+
+  function renderRevisionCenter(){
+    const rows = (state.portfolio || []).map((p,idx)=>{
+      const reviews = (state.reviews?.rubricScores || []).filter(r => Number(r.portfolioIndex) === idx);
+      const latest = reviews.slice(-1)[0];
+      const revs = (state.revisions?.submissions || []).filter(r => Number(r.originalIndex) === idx);
+      const need = latest?.status === 'Needs Revision' || latest?.status === 'Needs Support';
+      return {p,idx,latest,revs,need};
+    }).filter(x => x.need || x.revs.length).reverse().map(x => `
+      <tr>
+        <td>S${x.p.session}</td><td>${safe(x.p.skill)}</td><td>${safe(x.latest?.status || 'Pending')}</td><td>${x.latest?.total ?? ''}</td>
+        <td>${x.revs.length}</td><td>${safe(String(x.p.output || '').slice(0,80))}</td>
+        <td><button class="btn small primary" onclick="EAPHero.reviseEvidence(${x.idx})">Revise</button></td>
+      </tr>`).join('') || '<tr><td colspan="7">No revision tasks yet. Mark work as Needs Revision from Review Queue.</td></tr>';
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">v1x</span><span class="pill">Revision Loop</span><span class="pill">Process Writing/Speaking</span></div>
+        <h2>Revision Center</h2>
+        <p class="lead">EAP ต้องมี Submit → Feedback → Revise → Resubmit → Improvement XP ไม่ใช่ส่งครั้งเดียวจบ</p>
+        <div class="table-wrap"><table><thead><tr><th>S</th><th>Skill</th><th>Status</th><th>Rubric</th><th>Revisions</th><th>Original</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="footer-actions"><button class="btn" onclick="EAPHero.reviewQueue()">Review Queue</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
+      </section>`);
+  }
+
+  function renderReviseEvidence(index){
+    const item = portfolioItemByIndex(index);
+    if(!item) return renderRevisionCenter();
+    const latest = (state.reviews?.rubricScores || []).filter(r => Number(r.portfolioIndex) === Number(index)).slice(-1)[0] || {};
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Revision</span><span class="pill">${safe(item.skill)}</span><span class="pill">S${item.session}</span></div>
+        <h2>Revise Portfolio Evidence</h2>
+        <div class="panel light">
+          <h3>Teacher Feedback</h3><p>${safe(latest.feedback || 'Revise for clarity, organization, and stronger support.')}</p>
+          <h3>Original Output</h3><div class="context">${safe(item.output || '')}</div>
+        </div>
+        <label class="label">Revised Output</label>
+        <textarea id="revisionOut" class="input" rows="8" placeholder="Rewrite or improve your answer here...">${safe(item.output || '')}</textarea>
+        <label class="label">Revision Reflection</label>
+        <textarea id="revisionReflect" class="input" rows="4" placeholder="What did you improve and why?"></textarea>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.submitRevision(${index})">Submit Revision</button>
+          <button class="btn ghost" onclick="EAPHero.revisionCenter()">Back</button>
+        </div>
+      </section>`);
+  }
+
+  function submitRevision(index){
+    const item = portfolioItemByIndex(index);
+    if(!item) return renderRevisionCenter();
+    const revised = document.getElementById('revisionOut')?.value.trim() || '';
+    const reflection = document.getElementById('revisionReflect')?.value.trim() || '';
+    const oldWords = String(item.output || '').split(/\s+/).filter(Boolean).length;
+    const newWords = revised.split(/\s+/).filter(Boolean).length;
+    const improvementScore = Math.min(100, Math.max(10, Math.round((newWords - oldWords) * 2 + (reflection.length>20?20:0) + 50)));
+    state.revisions = state.revisions || {submissions:[], improvementBadges:{}};
+    state.revisions.submissions.push({
+      originalIndex:Number(index),
+      session:item.session,
+      skill:item.skill,
+      original:item.output || '',
+      revised,
+      reflection,
+      oldWords,
+      newWords,
+      improvementScore,
+      student_id:item.student_id || state.profile.studentId || 'guest',
+      at:new Date().toISOString()
+    });
+    if(improvementScore >= 70){
+      state.revisions.improvementBadges['Revision Hero'] = true;
+      addXP(30);
+      toast('Revision Hero unlocked!');
+    }else{
+      addXP(12);
+    }
+    saveState();
+    renderRevisionCenter();
+  }
+
+  function exportRevisionCSV(){
+    const header = ['student_id','session','skill','oldWords','newWords','improvementScore','reflection','original','revised','at'];
+    const rows = (state.revisions?.submissions || []).map(r => header.map(h => csvCell(r[h])).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='eap-hero-revisions.csv'; a.click(); URL.revokeObjectURL(url);
+  }
+
+  function lessonPlanForSession(sessionId, minutes){
+    const s = getSession(Number(sessionId || 1));
+    const path = skillPathForSession(s.id);
+    const m = Number(minutes || 60);
+    const boss = bossGateForSession(s.id);
+    return {
+      session:s,
+      minutes:m,
+      warmup:m>=90?10:5,
+      brief:m>=90?10:7,
+      core:m>=90?25:15,
+      support:m>=90?25:15,
+      review:m>=90?15:10,
+      reflection:m>=90?5:3,
+      path,
+      boss
+    };
+  }
+
+  function renderLessonMode(sessionId){
+    const id = Number(sessionId || state.currentSession || 1);
+    const plan = lessonPlanForSession(id, 60);
+    const sessionOptions = SESSIONS.map(s => `<option value="${s.id}" ${s.id===id?'selected':''}>S${s.id} ${safe(s.title || s.skill)}</option>`).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">v1y</span><span class="pill">Teacher Lesson Mode</span><span class="pill">60/90 min</span></div>
+        <h2>Teacher Lesson Mode</h2>
+        <p class="lead">สร้างแผนคาบจาก Session Path เพื่อใช้จริงในห้องเรียน</p>
+        <div class="grid two">
+          <div><label class="label">Session</label><select id="lessonSession" class="input">${sessionOptions}</select></div>
+          <div><label class="label">Class Time</label><select id="lessonMinutes" class="input"><option value="60">60 minutes</option><option value="90">90 minutes</option></select></div>
+        </div>
+        <div class="footer-actions"><button class="btn primary" onclick="EAPHero.generateLessonPlan()">Generate Lesson Plan</button><button class="btn" onclick="EAPHero.exportLessonPlanCSV()">Export Lesson Logs CSV</button></div>
+        <div id="lessonPlanBox">${lessonPlanHTML(plan)}</div>
+      </section>`);
+  }
+
+  function lessonPlanHTML(plan){
+    const s = plan.session, path = plan.path;
+    return `<div class="panel light" style="margin-top:18px">
+      <h3>Lesson Plan: S${s.id} ${safe(s.title || s.skill)}</h3>
+      <p><b>Core:</b> ${safe(path.core)} • <b>Support:</b> ${safe(path.support)} • <b>Difficulty:</b> ${safe(currentSkillDifficulty().label)}</p>
+      <div class="table-wrap"><table><thead><tr><th>Stage</th><th>Minutes</th><th>Activity</th></tr></thead><tbody>
+        <tr><td>Warm-up</td><td>${plan.warmup}</td><td>Quick question / vocabulary activation</td></tr>
+        <tr><td>Session Brief</td><td>${plan.brief}</td><td>Introduce topic, boss/problem, and success criteria</td></tr>
+        <tr><td>Core Mission</td><td>${plan.core}</td><td>${safe(path.core)} Mission with portfolio evidence</td></tr>
+        <tr><td>Support Mission</td><td>${plan.support}</td><td>${safe(path.support)} Mission or pair check</td></tr>
+        <tr><td>Review</td><td>${plan.review}</td><td>Rubric/peer feedback, Reason Gate, or Boss Gate ${plan.boss ? '('+safe(plan.boss.title)+')' : ''}</td></tr>
+        <tr><td>Reflection</td><td>${plan.reflection}</td><td>Exit ticket: what improved / what to revise</td></tr>
+      </tbody></table></div>
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.startLesson(${s.id})">Start This Lesson</button>
+        <button class="btn" onclick="EAPHero.skillPath(${s.id})">Open Session Path</button>
+      </div>
+    </div>`;
+  }
+
+  function generateLessonPlan(){
+    const id = Number(document.getElementById('lessonSession')?.value || 1);
+    const minutes = Number(document.getElementById('lessonMinutes')?.value || 60);
+    const plan = lessonPlanForSession(id, minutes);
+    const box = document.getElementById('lessonPlanBox');
+    if(box) box.innerHTML = lessonPlanHTML(plan);
+  }
+
+  function startLesson(sessionId){
+    const plan = lessonPlanForSession(sessionId, Number(document.getElementById('lessonMinutes')?.value || 60));
+    state.lessons = state.lessons || {logs:[]};
+    state.lessons.activePlan = { session:plan.session.id, minutes:plan.minutes, core:plan.path.core, support:plan.path.support, difficulty:currentSkillDifficulty().key, startedAt:new Date().toISOString() };
+    state.lessons.logs.push(state.lessons.activePlan);
+    saveState();
+    renderSkillPath(plan.session.id);
+  }
+
+  function exportLessonPlanCSV(){
+    const header = ['session','minutes','core','support','difficulty','startedAt'];
+    const rows = (state.lessons?.logs || []).map(r => header.map(h => csvCell(r[h])).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='eap-hero-lesson-logs.csv'; a.click(); URL.revokeObjectURL(url);
+  }
+
+  function renderClassActivity(){
+    const id = Number(state.currentSession || 1);
+    const s = getSession(id);
+    const activities = [
+      ['Pair Reading','Student A reads for main idea; Student B checks evidence; switch roles.'],
+      ['Peer Review Writing','Use rubric language: one strength, one question, one revision suggestion.'],
+      ['Speaking Q&A Pair','Student A presents 45 seconds; Student B asks one academic question.'],
+      ['Group Boss Prep','Group identifies claim, evidence, limitation, and response before Boss Gate.'],
+      ['Mini Debate','Two sides give claim-evidence-response using academic tone.']
+    ];
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">v1z</span><span class="pill">Class Activity</span><span class="pill">Pair/Group</span></div>
+        <h2>Class / Pair Mission</h2>
+        <p class="lead">กิจกรรมในห้องเรียนแบบไม่ต้อง real-time online ก่อนต่อ Firebase</p>
+        <div class="grid two">${activities.map((a,i)=>`<div class="hud-card"><h3>${safe(a[0])}</h3><p>${safe(a[1])}</p><button class="btn primary block" onclick="EAPHero.startClassActivity('${safeAttr(a[0])}', '${safeAttr(a[1])}')">Start</button></div>`).join('')}</div>
+        <div class="panel light" style="margin-top:18px">
+          <h3>Peer Review Quick Form</h3>
+          <label class="label">Partner / Group</label><input id="peerPartner" class="input" placeholder="Partner name or group">
+          <label class="label">Feedback</label><textarea id="peerFeedback" class="input" rows="4" placeholder="One strength, one question, one suggestion"></textarea>
+          <button class="btn primary" onclick="EAPHero.savePeerReview()">Save Peer Review</button>
+        </div>
+        <div class="footer-actions"><button class="btn" onclick="EAPHero.exportClassActivityCSV()">Export Class Activity CSV</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
+      </section>`);
+  }
+
+  function startClassActivity(title, desc){
+    state.classActivities = state.classActivities || {pairMissions:[], peerReviews:[]};
+    state.classActivities.pairMissions.push({ title, desc, session:state.currentSession || 1, difficulty:currentSkillDifficulty().key, at:new Date().toISOString() });
+    addXP(5);
+    saveState();
+    toast(`${title} started`);
+  }
+
+  function savePeerReview(){
+    const partner = document.getElementById('peerPartner')?.value.trim() || '';
+    const feedback = document.getElementById('peerFeedback')?.value.trim() || '';
+    state.classActivities = state.classActivities || {pairMissions:[], peerReviews:[]};
+    state.classActivities.peerReviews.push({
+      partner, feedback,
+      session:state.currentSession || 1,
+      student_id:state.profile.studentId || 'guest',
+      at:new Date().toISOString()
+    });
+    addXP(10);
+    saveState();
+    toast('Peer review saved');
+  }
+
+  function exportClassActivityCSV(){
+    const header = ['type','student_id','session','title','partner','feedback','difficulty','at'];
+    const rows = [];
+    (state.classActivities?.pairMissions || []).forEach(r => rows.push(['pairMission',state.profile.studentId||'guest',r.session,r.title,'','',r.difficulty,r.at].map(csvCell).join(',')));
+    (state.classActivities?.peerReviews || []).forEach(r => rows.push(['peerReview',r.student_id,r.session,'',r.partner,r.feedback,'',r.at].map(csvCell).join(',')));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='eap-hero-class-activities.csv'; a.click(); URL.revokeObjectURL(url);
+  }
 
 
   const RUBRICS = {
@@ -34918,6 +35263,21 @@
             submitted_at:new Date().toISOString()
           }
         },
+        revisions:{
+          sampleRevision: (state.revisions?.submissions || [])[state.revisions?.submissions?.length-1] || {
+            student_id:uid, session:6, skill:'Writing', improvementScore:75, at:new Date().toISOString()
+          }
+        },
+        lessonLogs:{
+          sampleLesson: (state.lessons?.logs || [])[state.lessons?.logs?.length-1] || {
+            session:1, minutes:60, core:'Reading', support:'Writing', difficulty:state.settings.skillDifficulty || 'normal', startedAt:new Date().toISOString()
+          }
+        },
+        classActivities:{
+          sampleActivity: (state.classActivities?.pairMissions || [])[state.classActivities?.pairMissions?.length-1] || {
+            session:1, title:'Pair Reading', difficulty:state.settings.skillDifficulty || 'normal', at:new Date().toISOString()
+          }
+        },
         listeningTranscriptHints:{
           sampleHint: (state.listening?.transcriptHints || [])[state.listening?.transcriptHints?.length-1] || {
             student_id:uid,
@@ -35034,7 +35394,15 @@
           <button class="btn" onclick="EAPHero.exportAIHelpCSV()">Export AI Help CSV</button>
           <button class="btn" onclick="EAPHero.exportListeningTranscriptCSV()">Export Listening Transcript Hints CSV</button>
           <button class="btn warn" onclick="EAPHero.reviewQueue()">Review Portfolio</button>
+          <button class="btn warn" onclick="EAPHero.teacherTools()">Teacher Tools</button>
+          <button class="btn" onclick="EAPHero.difficultyPanel()">Difficulty</button>
+          <button class="btn" onclick="EAPHero.revisionCenter()">Revision Center</button>
+          <button class="btn" onclick="EAPHero.lessonMode()">Lesson Mode</button>
+          <button class="btn" onclick="EAPHero.classActivity()">Class Activity</button>
           <button class="btn" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
+          <button class="btn" onclick="EAPHero.exportRevisionCSV()">Export Revision CSV</button>
+          <button class="btn" onclick="EAPHero.exportLessonPlanCSV()">Export Lesson Logs CSV</button>
+          <button class="btn" onclick="EAPHero.exportClassActivityCSV()">Export Class Activity CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
           <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
           <button class="btn" onclick="EAPHero.qaLock()">QA Lock</button>
@@ -35182,6 +35550,21 @@
     exportFirebasePreview,
     clearActiveRun,
     clearRuntimeErrors,
+    teacherTools:renderTeacherTools,
+    difficultyPanel:renderDifficultyPanel,
+    setSkillDifficulty,
+    revisionCenter:renderRevisionCenter,
+    reviseEvidence:renderReviseEvidence,
+    submitRevision,
+    exportRevisionCSV,
+    lessonMode:renderLessonMode,
+    generateLessonPlan,
+    startLesson,
+    exportLessonPlanCSV,
+    classActivity:renderClassActivity,
+    startClassActivity,
+    savePeerReview,
+    exportClassActivityCSV,
     reviewQueue:renderReviewQueue,
     rubricReview:renderRubricReview,
     saveRubricReview,
