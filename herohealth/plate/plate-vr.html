@@ -932,6 +932,52 @@
       }
     }
 
+    /* === PATCH v20260609-PLATE-PC-TARGET-SIZE-POLISH === */
+    /* PC/Desktop: เป้าใหญ่ขึ้น มองชัดขึ้น เล่นสนุกขึ้น */
+
+    @media (min-width:901px){
+      :root{
+        --target-size:108px;
+      }
+
+      .target{
+        box-shadow:0 22px 46px rgba(34,80,110,.22);
+      }
+
+      .targetEmoji{
+        font-size:48px;
+        transform:translateY(-8px);
+      }
+
+      .targetTag{
+        bottom:8px;
+        font-size:12px;
+        padding:3px 10px;
+      }
+
+      .targetLife{
+        left:16px;
+        right:16px;
+        top:10px;
+        height:5px;
+      }
+
+      .floatMsg{
+        font-size:16px;
+        padding:11px 16px;
+      }
+    }
+
+    @media (min-width:1500px){
+      :root{
+        --target-size:118px;
+      }
+
+      .targetEmoji{
+        font-size:52px;
+      }
+    }
+
     /* === PATCH v20260603-PLATE-SUMMARY-MOBILE-SCROLL-TOUCH-FIX === */
     #summaryOverlay,
     #summaryOverlay *{
@@ -1274,7 +1320,7 @@
   (function(){
     'use strict';
 
-    const VERSION = '20260607-PLATE-CONCEPT-FINAL-MOBILE-COMPACT-GROUP-QTY';
+    const VERSION = '20260609-PLATE-CONCEPT-FINAL-PC-TARGET-POLISH';
     const $ = (id) => document.getElementById(id);
     const Q = new URL(location.href).searchParams;
 
@@ -1695,7 +1741,7 @@
         `<span class="targetEmoji">${escapeHtml(data.emoji)}</span>` +
         `<span class="targetTag">${escapeHtml(data.label)}</span>`;
 
-      const pad = window.innerWidth <= 900 ? 34 : 48;
+      const pad = window.innerWidth <= 900 ? 34 : 72;
       const x = pad + rng() * Math.max(1, rect.width - pad * 2);
       const y = pad + rng() * Math.max(1, rect.height - pad * 2);
 
