@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1c Exam Ready ===
+/* === EAP Hero: Save the Society v1d Fun Loop ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -11032,6 +11032,7 @@
       logs:[],
       examLogs:[],
       examAttempts:{},
+      fun:{ coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] },
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -11051,6 +11052,9 @@
       merged.recentQuestions = Object.assign(fresh.recentQuestions || {}, parsed.recentQuestions || {});
       merged.examLogs = parsed.examLogs || [];
       merged.examAttempts = Object.assign(fresh.examAttempts || {}, parsed.examAttempts || {});
+      merged.fun = Object.assign(fresh.fun || {}, parsed.fun || {});
+      merged.fun.daily = Object.assign((fresh.fun && fresh.fun.daily) || {}, (parsed.fun && parsed.fun.daily) || {});
+      merged.fun.achievementsClaimed = (parsed.fun && parsed.fun.achievementsClaimed) || [];
       return merged;
     }catch(e){
       console.warn(e);
@@ -11087,6 +11091,102 @@
     return 'New Learner';
   }
 
+
+  function dateKey(d = new Date()){
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function yesterdayKey(){
+    const d = new Date();
+    d.setDate(d.getDate()-1);
+    return dateKey(d);
+  }
+
+  function touchDailyStreak(){
+    state.fun = state.fun || { coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] };
+    state.fun.daily = state.fun.daily || { lastDate:'', streak:0 };
+    const today = dateKey();
+    if(state.fun.daily.lastDate === today) return;
+    if(state.fun.daily.lastDate === yesterdayKey()) state.fun.daily.streak = (state.fun.daily.streak || 0) + 1;
+    else state.fun.daily.streak = 1;
+    state.fun.daily.lastDate = today;
+    saveState();
+  }
+
+  function getContract(key){
+    const map = {
+      normal:{ key:'normal', label:'Standard Mission', note:'สมดุล เหมาะกับเล่นทั่วไป', xpMultiplier:1, timeFactor:1, hpBonus:0, hearts:3, chest:'bronze', noHint:false },
+      brave:{ key:'brave', label:'Brave Contract', note:'บอสอึดขึ้น เวลาเท่าเดิม ได้ XP มากขึ้น', xpMultiplier:1.25, timeFactor:1, hpBonus:16, hearts:3, chest:'silver', noHint:false },
+      hero:{ key:'hero', label:'Hero Contract', note:'เวลาเหลือน้อยลง หัวใจ 2 ดวง รางวัลสูง', xpMultiplier:1.65, timeFactor:.78, hpBonus:28, hearts:2, chest:'gold', noHint:false },
+      nohint:{ key:'nohint', label:'No Hint Contract', note:'ห้ามใช้ Hint เพื่อรับโบนัส', xpMultiplier:1.35, timeFactor:1, hpBonus:8, hearts:3, chest:'silver', noHint:true },
+      speed:{ key:'speed', label:'Speed Scholar', note:'เวลาน้อยลงมาก เหมาะกับ Speed Run', xpMultiplier:1.5, timeFactor:.65, hpBonus:10, hearts:3, chest:'gold', noHint:false }
+    };
+    return map[key] || map.normal;
+  }
+
+  function grantTreasure(session, starsEarned, contractKey){
+    state.fun = state.fun || { coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] };
+    const contract = getContract(contractKey || 'normal');
+    let tier = contract.chest || 'bronze';
+    if(starsEarned >= 3 && tier === 'bronze') tier = 'silver';
+    if(starsEarned >= 3 && (contractKey === 'hero' || contractKey === 'speed')) tier = 'legendary';
+
+    const coinMap = { bronze:20, silver:40, gold:70, legendary:110 };
+    const titlePool = [
+      'Truth Hunter','Speed Scholar','No Hint Hero','Evidence Defender','Academic Striker',
+      'Comeback Hero','Critical Reader','Citation Guardian','Boss Slayer','Society Spark'
+    ];
+    const coin = coinMap[tier] || 20;
+    state.fun.coins = (state.fun.coins || 0) + coin;
+
+    let bonus = null;
+    if(tier === 'legendary' || Math.random() < .33){
+      bonus = titlePool[(session.id + (state.fun.chests?.length || 0)) % titlePool.length];
+      if(!state.fun.titles.includes(bonus)) state.fun.titles.push(bonus);
+    }
+
+    const reward = {
+      at:new Date().toISOString(),
+      session:session.id,
+      boss:session.boss,
+      tier,
+      coins:coin,
+      bonusTitle:bonus,
+      contract:contract.key
+    };
+    state.fun.chests = state.fun.chests || [];
+    state.fun.chests.push(reward);
+    return reward;
+  }
+
+  function achievementList(){
+    const wins = state.logs.filter(l => l.win);
+    const threeStars = state.logs.filter(l => l.win && l.stars >= 3);
+    const combo5 = state.logs.some(l => (l.max_combo || 0) >= 5);
+    const examDone = (state.examLogs || []).length > 0;
+    const cards = state.cards.length;
+    const streak = state.fun?.daily?.streak || 0;
+    const chests = state.fun?.chests?.length || 0;
+    return [
+      { id:'first_win', name:'First Victory', desc:'ชนะบอสตัวแรก', unlocked:wins.length >= 1, reward:30 },
+      { id:'combo_5', name:'Academic Rush', desc:'ทำ Combo อย่างน้อย x5', unlocked:combo5, reward:35 },
+      { id:'three_star', name:'Three-Star Scholar', desc:'ได้ 3 ดาวอย่างน้อย 1 Session', unlocked:threeStars.length >= 1, reward:40 },
+      { id:'five_cards', name:'Boss Collector', desc:'สะสม Boss Card อย่างน้อย 5 ใบ', unlocked:cards >= 5, reward:50 },
+      { id:'streak_3', name:'Consistent Scholar', desc:'เข้าเล่นต่อเนื่อง 3 วัน', unlocked:streak >= 3, reward:60 },
+      { id:'exam_done', name:'Exam Challenger', desc:'ทำข้อสอบ Midterm หรือ Final อย่างน้อย 1 ครั้ง', unlocked:examDone, reward:70 },
+      { id:'ten_chests', name:'Treasure Hunter', desc:'เปิด Treasure Chest อย่างน้อย 10 ครั้ง', unlocked:chests >= 10, reward:80 },
+      { id:'final_boss', name:'Society Saver', desc:'ชนะ Final Boss', unlocked:state.sessions[15]?.cleared, reward:120 }
+    ];
+  }
+
+  function dailyChallengeSession(){
+    const today = dateKey();
+    let sum = 0;
+    for(const ch of today) sum += ch.charCodeAt(0);
+    return SESSIONS[(sum % SESSIONS.length)];
+  }
+
+
   function safe(text){
     return String(text ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   }
@@ -11117,6 +11217,7 @@
             <button class="btn ghost small" onclick="EAPHero.map()">🗺️ Map</button>
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
             <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
+            <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.dashboard()">📊 Teacher</button>
           </div>
@@ -11127,6 +11228,7 @@
   }
 
   function renderHome(){
+    touchDailyStreak();
     setView('home');
     layout(`
       <section class="hero">
@@ -11154,6 +11256,8 @@
             <div class="stat"><b>${safe(state.rank)}</b><span>Rank</span></div>
             <div class="stat"><b>${state.xp}</b><span>XP</span></div>
             <div class="stat"><b>${state.cards.length}/15</b><span>Boss Cards</span></div>
+            <div class="stat"><b>${state.fun?.coins || 0}</b><span>Coins</span></div>
+            <div class="stat"><b>${state.fun?.daily?.streak || 0}</b><span>Daily Streak</span></div>
           </div>
           <div class="badges">${state.badges.slice(0,6).map(b=>`<span class="pill">${safe(b)}</span>`).join('') || '<span class="mini-note">ยังไม่มี Badge — ชนะบอสเพื่อปลดล็อก</span>'}</div>
           <button class="btn danger small" onclick="EAPHero.reset()">Reset Local Progress</button>
@@ -11335,7 +11439,7 @@
         <h2>Practice Complete</h2>
         <p>ถูก ${state.active.correct}/${state.active.order.length} ข้อ พร้อมสู้ ${safe(s.boss)} แล้วค่ะ</p>
         <div class="footer-actions" style="justify-content:center">
-          <button class="btn primary" onclick="EAPHero.startBoss(${s.id})">Start Boss Battle</button>
+          <button class="btn primary" onclick="EAPHero.contract(${s.id})">Choose Contract</button>
           <button class="btn" onclick="EAPHero.practice(${s.id})">Replay Practice</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
@@ -11393,12 +11497,49 @@
 
   let bossTimer = null;
 
-  function startBoss(id){
+
+  function renderContract(id){
+    const s = getSession(id);
+    if(!s) return renderMap();
+    const contracts = ['normal','brave','hero','nohint','speed'].map(k => getContract(k));
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">${s.emoji} ${safe(s.boss)}</span>
+          <span class="pill">Boss Contract</span>
+          <span class="pill">เลือกความท้าทายก่อนสู้</span>
+        </div>
+        <h2>Choose Your Contract</h2>
+        <p class="lead">ยิ่งเสี่ยง ยิ่งได้ XP และ Treasure Chest ดีขึ้น เหมาะสำหรับเล่นซ้ำเพื่อเก็บดาว/รางวัล</p>
+        <div class="grid three">
+          ${contracts.map(c => `
+            <div class="panel light">
+              <h3>${safe(c.label)}</h3>
+              <p class="mini-note">${safe(c.note)}</p>
+              <div class="badges">
+                <span class="pill">XP x${c.xpMultiplier}</span>
+                <span class="pill">Heart ${c.hearts}</span>
+                <span class="pill">${safe(c.chest)} chest</span>
+              </div>
+              <button class="btn primary block" onclick="EAPHero.startBoss(${s.id}, '${c.key}')">Start</button>
+            </div>
+          `).join('')}
+        </div>
+        <div class="footer-actions">
+          <button class="btn ghost" onclick="EAPHero.map()">Map</button>
+          <button class="btn ghost" onclick="EAPHero.practice(${s.id})">Practice Again</button>
+        </div>
+      </section>
+    `);
+  }
+
+
+  function startBoss(id, contractName){
     const s = getSession(id);
     clearInterval(bossTimer);
     const seconds = difficultySeconds();
     const order = selectQuestionSet(s, bossQuestionCount(), 'boss');
-    const hp = Math.max(65, Math.min(95, Math.round(order.length * 10.5)));
+    const hp = Math.max(65, Math.min(130, Math.round(order.length * 10.5) + contract.hpBonus));
     state.active = {
       mode:'boss',
       sessionId:id,
@@ -11407,7 +11548,7 @@
       timeLeft:seconds,
       bossHpMax:hp,
       bossHp:hp,
-      hearts:3,
+      hearts:contract.hearts,
       combo:0,
       maxCombo:0,
       score:0,
@@ -11522,6 +11663,7 @@
             <span class="pill" style="background:#102033;color:#fff">${s.emoji} Boss Battle</span>
             <span class="pill" style="background:#102033;color:#fff">Session ${s.id}</span>
             <span class="pill" style="background:#102033;color:#fff">Question ${a.index+1}</span>
+            <span class="pill" style="background:#102033;color:#fff">${safe(getContract(a.contract || 'normal').label)}</span>
           </div>
           ${renderQuestionHTML(q)}
           <div id="feedback" class="feedback"></div>
@@ -11616,8 +11758,11 @@
     const attempts = Math.max(1, a.answers.length);
     const accuracy = attempts ? a.correct / attempts : 0;
     const starsEarned = win ? calcStars(accuracy, a.timeLeft, a.usedHints) : 0;
-    const xpGain = win ? Math.round(60 + a.score + starsEarned*25 + (a.timeLeft/4)) : Math.round(20 + a.correct*5);
+    const contract = getContract(a.contract || 'normal');
+    let xpGain = win ? Math.round(60 + a.score + starsEarned*25 + (a.timeLeft/4)) : Math.round(20 + a.correct*5);
+    if(win) xpGain = Math.round(xpGain * contract.xpMultiplier);
     const badge = win ? badgeForSession(s.id) : null;
+    const chestReward = win ? grantTreasure(s, starsEarned, a.contract || 'normal') : null;
 
     const prog = state.sessions[s.id];
     prog.attempts = (prog.attempts || 0) + 1;
@@ -11658,7 +11803,7 @@
 
     const mistakes = a.answers.filter(x=>!x.correct);
     const result = {
-      win, reason, sessionId:s.id, xpGain, starsEarned, accuracy:Math.round(accuracy*100),
+      win, reason, sessionId:s.id, xpGain, chestReward, contract:a.contract || 'normal', starsEarned, accuracy:Math.round(accuracy*100),
       score:a.score, maxCombo:a.maxCombo, timeLeft:a.timeLeft, badge, mistakes
     };
     state.active.result = result;
@@ -11709,10 +11854,11 @@
           <div class="stat"><b class="stars">${stars(r.starsEarned)}</b><span>Stars</span></div>
         </div>
         ${r.win ? `<p class="feedback show ok">Unlock: ${safe(s.unlock)} ${r.badge ? ' • Badge: '+safe(r.badge):''}</p>` : `<p class="feedback show bad">${safe(r.reason)} — กลับไปฝึกแล้วมาสู้ใหม่ได้ค่ะ</p>`}
+        ${r.chestReward ? `<p class="feedback show info">Treasure Chest: ${safe(r.chestReward.tier.toUpperCase())} +${r.chestReward.coins} coins ${r.chestReward.bonusTitle ? '• Title: '+safe(r.chestReward.bonusTitle) : ''}</p>` : ''}
         <div class="footer-actions" style="justify-content:center">
           ${r.mistakes.length ? `<button class="btn warn" onclick="EAPHero.reviewMistakes()">Review Mistakes (${r.mistakes.length})</button>` : ''}
           <button class="btn primary" onclick="EAPHero.reflection(${s.id})">Reflection</button>
-          <button class="btn" onclick="EAPHero.startBoss(${s.id})">Rematch</button>
+          <button class="btn" onclick="EAPHero.contract(${s.id})">Rematch Contract</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
       </section>
@@ -11738,7 +11884,7 @@
         <h2>Review Mistakes: ${safe(s.boss)}</h2>
         ${rows || '<div class="panel light">ไม่มีข้อผิดพลาด ยอดเยี่ยมมากค่ะ</div>'}
         <div class="footer-actions">
-          <button class="btn primary" onclick="EAPHero.startBoss(${s.id})">Replay Boss</button>
+          <button class="btn primary" onclick="EAPHero.contract(${s.id})">Replay Boss</button>
           <button class="btn" onclick="EAPHero.reflection(${s.id})">Reflection</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
@@ -11798,6 +11944,82 @@
         <div class="card-gallery">${cards}</div>
       </section>
     `);
+  }
+
+
+
+  function renderFunHub(){
+    touchDailyStreak();
+    const daily = dailyChallengeSession();
+    const achievements = achievementList();
+    const claimed = new Set(state.fun?.achievementsClaimed || []);
+    const unlockedCount = achievements.filter(a=>a.unlocked).length;
+    const lastChests = (state.fun?.chests || []).slice(-8).reverse();
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">Daily Streak: ${state.fun?.daily?.streak || 0}</span>
+          <span class="pill">Coins: ${state.fun?.coins || 0}</span>
+          <span class="pill">Achievements: ${unlockedCount}/${achievements.length}</span>
+        </div>
+        <h2>Fun Loop Hub</h2>
+        <p class="lead">ศูนย์รวมภารกิจเล่นซ้ำ: Daily Challenge, Boss Contract, Treasure Chest, Achievements และ Titles</p>
+
+        <div class="grid two">
+          <div class="panel light">
+            <h3>Daily Challenge</h3>
+            <p class="mini-note">วันนี้ท้าชน: Session ${daily.id} • ${safe(daily.boss)} • เล่นแบบ Brave Contract เพื่อเก็บรางวัล</p>
+            <div class="big-emoji" style="font-size:58px">${daily.emoji}</div>
+            <button class="btn primary block" onclick="EAPHero.startBoss(${daily.id}, 'brave')">Start Daily Challenge</button>
+          </div>
+          <div class="panel light">
+            <h3>Titles</h3>
+            <p class="mini-note">ปลดล็อกจาก Legendary Chest และ Achievement</p>
+            <div class="badges">
+              ${(state.fun?.titles || []).map(t=>`<span class="pill">${safe(t)}</span>`).join('') || '<span class="mini-note">ยังไม่มี Title — เล่น Contract ยากขึ้นเพื่อปลดล็อก</span>'}
+            </div>
+          </div>
+        </div>
+
+        <h3 style="margin-top:20px">Achievements</h3>
+        <div class="grid four">
+          ${achievements.map(a=>`
+            <div class="panel light">
+              <h3>${a.unlocked ? '🏅' : '🔒'} ${safe(a.name)}</h3>
+              <p class="mini-note">${safe(a.desc)}</p>
+              <p><b>Reward:</b> ${a.reward} coins</p>
+              ${a.unlocked && !claimed.has(a.id) ? `<button class="btn primary block" onclick="EAPHero.claimAchievement('${a.id}')">Claim</button>` : `<button class="btn block" disabled>${claimed.has(a.id)?'Claimed': 'Locked'}</button>`}
+            </div>
+          `).join('')}
+        </div>
+
+        <h3 style="margin-top:20px">Recent Treasure Chests</h3>
+        <div class="grid four">
+          ${lastChests.map(c=>`
+            <div class="panel light">
+              <h3>${c.tier === 'legendary' ? '🌈' : c.tier === 'gold' ? '🥇' : c.tier === 'silver' ? '🥈' : '🥉'} ${safe(c.tier)} Chest</h3>
+              <p class="mini-note">${safe(c.boss)} • ${safe(c.contract)}</p>
+              <p><b>+${c.coins}</b> coins</p>
+              ${c.bonusTitle ? `<p>Title: <b>${safe(c.bonusTitle)}</b></p>` : ''}
+            </div>
+          `).join('') || '<div class="panel light"><p>ยังไม่มี Chest — ชนะบอสก่อนค่ะ</p></div>'}
+        </div>
+      </section>
+    `);
+  }
+
+  function claimAchievement(id){
+    const ach = achievementList().find(a => a.id === id);
+    if(!ach || !ach.unlocked) return renderFunHub();
+    state.fun = state.fun || { coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] };
+    state.fun.achievementsClaimed = state.fun.achievementsClaimed || [];
+    if(!state.fun.achievementsClaimed.includes(id)){
+      state.fun.achievementsClaimed.push(id);
+      state.fun.coins = (state.fun.coins || 0) + ach.reward;
+      if(!state.fun.titles.includes(ach.name)) state.fun.titles.push(ach.name);
+      saveState();
+    }
+    renderFunHub();
   }
 
 
@@ -12152,6 +12374,7 @@
           <div class="stat"><b>${avgAcc}%</b><span>Average Accuracy</span></div>
           <div class="stat"><b>${avgAttempts}</b><span>Avg Attempts / Cleared Session</span></div>
           <div class="stat"><b>${state.xp}</b><span>Total XP</span></div>
+          <div class="stat"><b>${state.fun?.coins || 0}</b><span>Fun Coins</span></div>
         </div>
         <h3 style="margin-top:20px">Session Progress</h3>
         <div class="table-wrap"><table>
@@ -12222,6 +12445,14 @@
   function useHint(){
     const a = state.active;
     if(!a || a.mode !== 'boss') return;
+    if(getContract(a.contract || 'normal').noHint){
+      const fb = document.getElementById('feedback');
+      if(fb){
+        fb.className = 'feedback show bad';
+        fb.textContent = 'No Hint Contract: ใช้ Hint ไม่ได้ในรอบนี้';
+      }
+      return;
+    }
     a.usedHints += 1;
     a.score = Math.max(0, a.score - 2);
     const q = a.order[a.index];
@@ -12274,6 +12505,9 @@
     reflection:renderReflection,
     saveReflection,
     gallery:renderGallery,
+    funHub:renderFunHub,
+    claimAchievement,
+    contract:renderContract,
     dashboard:renderDashboard,
     examPanel:renderExamPanel,
     startExam,
