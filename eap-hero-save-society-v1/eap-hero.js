@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1e Balanced Items ===
+/* === EAP Hero: Save the Society v1f Hotfix Contract ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -21779,12 +21779,18 @@
 
   function startBoss(id, contractName){
     const s = getSession(id);
+    if(!s) return renderMap();
+
     clearInterval(bossTimer);
-    const seconds = difficultySeconds();
+
+    const contract = getContract(contractName || 'normal');
+    const seconds = Math.max(45, Math.round(difficultySeconds() * contract.timeFactor));
     const order = selectQuestionSet(s, bossQuestionCount(), 'boss');
     const hp = Math.max(65, Math.min(130, Math.round(order.length * 10.5) + contract.hpBonus));
+
     state.active = {
       mode:'boss',
+      contract:contract.key,
       sessionId:id,
       startedAt:Date.now(),
       duration:seconds,
@@ -21802,6 +21808,7 @@
       usedHints:0,
       rage:false
     };
+
     saveState();
     renderBossQuestion();
     bossTimer = setInterval(tickBoss, 1000);
