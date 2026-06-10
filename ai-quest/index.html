@@ -886,6 +886,7 @@
   </style>
 
   <script src="./js/mission1-bank.js"></script>
+  <script src="./js/mission1-hard-choice-upgrade.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -2147,13 +2148,15 @@ function logEvent(data){
 
       function showMiniBoss(){
         const claim = bossClaims[bossIdx];
-        const wrongChoices = [
-          'ถูกต้อง เพราะ AI คืออะไรก็ได้ที่ใช้ไฟฟ้า',
-          'ถูกต้อง เพราะระบบอัตโนมัติทุกอย่างคือ AI',
-          'ไม่ต้องตรวจสอบ AI เพราะ AI ถูกเสมอ'
-        ];
+        const wrongChoices = Array.isArray(claim.distractors) && claim.distractors.length
+          ? claim.distractors
+          : [
+              'ถูกบางส่วน เพราะระบบดูเหมือนตัดสินใจได้เองจากข้อมูลที่มี',
+              'ถูกถ้าระบบทำงานอัตโนมัติและตอบสนองต่อผู้ใช้ได้รวดเร็ว',
+              'ไม่ถูก เพราะ AI ไม่สามารถเกี่ยวข้องกับระบบลักษณะนี้ได้เลย'
+            ];
 
-        const choices = shuffle([claim.counter, ...wrongChoices]);
+        const choices = shuffle([claim.counter, ...wrongChoices]).slice(0, 4);
 
         area.innerHTML = `
           ${commonHUD('Mini Boss',['Card Rush','Trick Cards','Explain Strike'])}
