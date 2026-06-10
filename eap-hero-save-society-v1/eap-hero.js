@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1l Unified Map Flow ===
+/* === EAP Hero: Save the Society v1m Limited AI Mentor ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1l-unified-map-flow';
+  const APP_VERSION = '20260610-v1m-limited-ai-mentor';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31525,6 +31525,7 @@
       mastery:{ Reading:0, Writing:0, Listening:0, Speaking:0, Ethics:0 },
       replay:{ ghosts:{}, secretMissions:{}, bossRushLogs:[] },
       skillPath:{ unlockedBossGates:{} },
+      ai:{ dailyUses:{}, logs:[], sessionUses:{} },
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -31588,6 +31589,10 @@
       merged.replay.bossRushLogs = (parsed.replay && parsed.replay.bossRushLogs) || [];
       merged.skillPath = Object.assign(fresh.skillPath || {}, parsed.skillPath || {});
       merged.skillPath.unlockedBossGates = (parsed.skillPath && parsed.skillPath.unlockedBossGates) || {};
+      merged.ai = Object.assign(fresh.ai || {}, parsed.ai || {});
+      merged.ai.dailyUses = (parsed.ai && parsed.ai.dailyUses) || {};
+      merged.ai.logs = (parsed.ai && parsed.ai.logs) || [];
+      merged.ai.sessionUses = (parsed.ai && parsed.ai.sessionUses) || {};
       return merged;
     }catch(e){
       console.warn(e);
@@ -33460,6 +33465,135 @@
   }
 
 
+
+  const AI_LIMITS = {
+    perSession: 2,
+    perDay: 8,
+    examAllowed: false,
+    bossAllowed: false
+  };
+
+  function todayKey(){
+    return new Date().toISOString().slice(0,10);
+  }
+
+  function aiUseKey(sessionId, skill){
+    return `S${sessionId}_${skill}`;
+  }
+
+  function aiUsesFor(sessionId, skill){
+    state.ai = state.ai || {dailyUses:{}, logs:[], sessionUses:{}};
+    const key = aiUseKey(sessionId, skill);
+    return state.ai.sessionUses[key] || 0;
+  }
+
+  function aiDailyUses(){
+    state.ai = state.ai || {dailyUses:{}, logs:[], sessionUses:{}};
+    return state.ai.dailyUses[todayKey()] || 0;
+  }
+
+  function canUseAI(sessionId, skill){
+    if(state.active && state.active.mode === 'exam') return { ok:false, reason:'AI Help is disabled during Exam Mode.' };
+    if(state.active && state.active.mode === 'boss') return { ok:false, reason:'AI Help is disabled during Boss Battle.' };
+    if(aiUsesFor(sessionId, skill) >= AI_LIMITS.perSession) return { ok:false, reason:`AI Help limit reached for this ${skill} mission.` };
+    if(aiDailyUses() >= AI_LIMITS.perDay) return { ok:false, reason:'Daily AI Help limit reached.' };
+    return { ok:true, reason:'' };
+  }
+
+  function aiMentorMessage(skill, sessionId){
+    const s = getSession(Number(sessionId || 1));
+    const topic = skillTextForSession(s).topic;
+    const bank = {
+      Reading:[
+        `Look for the sentence that covers the whole passage about ${topic}, not only one detail.`,
+        'Try writing: The passage mainly explains that ...',
+        'Choose two keywords that appear important and repeat the topic idea.'
+      ],
+      Writing:[
+        `Plan first: topic sentence → support/evidence → concluding sentence about ${topic}.`,
+        'Use cautious academic language such as may, suggests, indicates, can support.',
+        'Do not copy the prompt. Rewrite the idea in your own words and keep the meaning.'
+      ],
+      Listening:[
+        `Before listening, predict keywords about ${topic}.`,
+        'Write short notes, not full sentences: main point, signal words, evidence.',
+        'Listen for first, next, however, therefore, in conclusion.'
+      ],
+      Speaking:[
+        `Use this structure: opening → outline → evidence → conclusion about ${topic}.`,
+        'Start with: Today, I would like to explain ...',
+        'Add signposting: First, ... Next, ... In conclusion, ...'
+      ]
+    };
+    const arr = bank[skill] || ['Think about the target skill and explain your answer clearly.'];
+    return arr[aiUsesFor(sessionId, skill) % arr.length];
+  }
+
+  function renderAIHelpBox(skill, sessionId){
+    const uses = aiUsesFor(sessionId, skill);
+    const left = Math.max(0, AI_LIMITS.perSession - uses);
+    return `
+      <div class="panel light" style="margin:14px 0;border-style:dashed">
+        <div class="badges">
+          <span class="pill">🤖 AI Mentor</span>
+          <span class="pill">${left}/${AI_LIMITS.perSession} left</span>
+          <span class="pill">Scaffold only</span>
+        </div>
+        <p class="mini-note">AI Help ให้คำใบ้เชิงวิธีคิด ไม่เขียนคำตอบแทน ใช้แล้วจะถูกบันทึกใน portfolio/analytics</p>
+        <button class="btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId})">Ask AI Mentor</button>
+        <div id="aiHelpOutput" class="feedback info" style="margin-top:10px"></div>
+      </div>`;
+  }
+
+  function useAIHelp(skill, sessionId){
+    const allowed = canUseAI(sessionId, skill);
+    const out = document.getElementById('aiHelpOutput');
+    if(!allowed.ok){
+      if(out) out.innerHTML = safe(allowed.reason);
+      else alert(allowed.reason);
+      return;
+    }
+    state.ai = state.ai || {dailyUses:{}, logs:[], sessionUses:{}};
+    const key = aiUseKey(sessionId, skill);
+    state.ai.sessionUses[key] = (state.ai.sessionUses[key] || 0) + 1;
+    state.ai.dailyUses[todayKey()] = (state.ai.dailyUses[todayKey()] || 0) + 1;
+    const msg = aiMentorMessage(skill, sessionId);
+    state.ai.logs.push({
+      session:Number(sessionId),
+      skill,
+      message:msg,
+      useNumber:state.ai.sessionUses[key],
+      day:todayKey(),
+      at:new Date().toISOString(),
+      student_id:state.profile.studentId || 'guest'
+    });
+    state.ai.logs = state.ai.logs.slice(-100);
+    saveState();
+    if(out){
+      out.classList.add('show');
+      out.innerHTML = `<b>AI Mentor:</b> ${safe(msg)}<br><span class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])}</span>`;
+    }
+  }
+
+  function aiPenaltyForPortfolio(sessionId, skill){
+    const uses = aiUsesFor(sessionId, skill);
+    return uses > 0 ? Math.min(10, uses * 5) : 0;
+  }
+
+  function exportAIHelpCSV(){
+    const header = ['student_id','session','skill','useNumber','message','day','at'];
+    const rows = (state.ai?.logs || []).map(r => header.map(h => csvCell(r[h])).join(','));
+    const csv = [header.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'eap-hero-ai-help-logs.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+
   function skillTextForSession(s){
     const topicMap = {
       1:['academic goal setting','Many students study English without a clear academic purpose. A useful EAP plan identifies a target skill, a practice strategy, and a way to review progress.'],
@@ -33517,6 +33651,7 @@
       <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
+      ${renderAIHelpBox('Reading', s.id)}
       ${['What is the main idea?','Write two keywords.','Which idea gives useful academic support?'].map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
@@ -33531,7 +33666,8 @@
     if(joined.length >= 80) score += 25;
     if(/main|idea|keyword|evidence|support|source|trend|tone|summary|problem/.test(joined)) score += 25;
     if(answers.filter(a=>a.length>10).length >= 2) score += 25;
-    addPortfolio({ session:id, skill:'Reading', score, output:answers.join(' | '), prompt:text.passage });
+    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading'));
+    addPortfolio({ session:id, skill:'Reading', score, aiUses:aiUsesFor(id,'Reading'), output:answers.join(' | '), prompt:text.passage });
     showSkillResult('Reading', score, id);
   }
 
@@ -33541,6 +33677,7 @@
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
       <p class="mini-note">เป้าหมาย: ${safe(prompt.target)} • auto-check เบื้องต้น</p>
+      ${renderAIHelpBox('Writing', s.id)}
       <textarea id="writingOutput" class="input" rows="9"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
@@ -33564,7 +33701,8 @@
     if(/\b(however|therefore|because|according to|evidence|suggest|indicate|in conclusion)\b/i.test(out)) score += 25;
     if(/\b(problem|cause|solution|summary|source|data|academic|students|learning)\b/i.test(out)) score += 25;
     if(/[.!?]\s+[A-Z]/.test(out) || words >= 80) score += 25;
-    addPortfolio({ session:id, skill:'Writing', score, output:out, prompt:writingPromptForSession(s).instruction });
+    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing'));
+    addPortfolio({ session:id, skill:'Writing', score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:writingPromptForSession(s).instruction });
     showSkillResult('Writing', score, id);
   }
 
@@ -33575,6 +33713,7 @@
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
       <h2>🎧 Listening Mission</h2><div class="context" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.playLecture()">▶️ Play Lecture</button><button class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button></div>
+      ${renderAIHelpBox('Listening', s.id)}
       <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
@@ -33598,7 +33737,8 @@
     if(/main|point|keyword|evidence|source|academic|student|learning/.test(low)) score += 25;
     if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
     if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
-    addPortfolio({ session:id, skill:'Listening', score, output:notes, prompt:skillTextForSession(s).passage });
+    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening'));
+    addPortfolio({ session:id, skill:'Listening', score, aiUses:aiUsesFor(id,'Listening'), output:notes, prompt:skillTextForSession(s).passage });
     showSkillResult('Listening', score, id);
   }
 
@@ -33608,6 +33748,7 @@
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
       <p class="mini-note">พูดจริงหน้าห้อง/จับคู่/อัดเสียงเอง แล้วพิมพ์ transcript หรือ speaking notes เพื่อบันทึก portfolio</p>
+      ${renderAIHelpBox('Speaking', s.id)}
       <textarea id="speakingTranscript" class="input" rows="8"></textarea>
       <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -33628,7 +33769,8 @@
     if(document.getElementById('spSign')?.checked) score += 20;
     if(document.getElementById('spEvi')?.checked) score += 20;
     if(document.getElementById('spClose')?.checked) score += 20;
-    addPortfolio({ session:id, skill:'Speaking', score, output:out, prompt:speakingPromptForSession(s).instruction });
+    score = Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking'));
+    addPortfolio({ session:id, skill:'Speaking', score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:speakingPromptForSession(s).instruction });
     showSkillResult('Speaking', score, id);
   }
 
@@ -33912,6 +34054,15 @@
             submitted_at:new Date().toISOString()
           }
         },
+        aiHelpLogs:{
+          sampleAIHelp: (state.ai?.logs || [])[state.ai.logs?.length-1] || {
+            student_id:uid,
+            session:1,
+            skill:'Writing',
+            message:'Plan first: topic sentence → support → conclusion.',
+            at:new Date().toISOString()
+          }
+        },
         itemAnalytics:{
           summary:questionBankSummary(),
           quality:itemQualityReport()
@@ -33997,6 +34148,7 @@
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.exportCSV()">Export Game CSV</button>
           <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
+          <button class="btn" onclick="EAPHero.exportAIHelpCSV()">Export AI Help CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
           <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
           <button class="btn" onclick="EAPHero.qaLock()">QA Lock</button>
@@ -34120,6 +34272,8 @@
     bossGate:renderBossGate,
     startGateBoss,
     replayHub:renderReplayHub,
+    aiHelp:useAIHelp,
+    exportAIHelpCSV,
     readingMission:renderReadingMission,
     submitReading,
     writingMission:renderWritingMission,
