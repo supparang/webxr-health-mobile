@@ -1,14 +1,15 @@
 // === /herohealth/vr-goodjunk/goodjunk-solo-boss-shield-guard-v852c.js ===
-// PATCH v20260608-GOODJUNK-SOLO-BOSS-SHIELD-GUARD-V852C
+// PATCH v20260608-GOODJUNK-SOLO-BOSS-SHIELD-GUARD-V852C2
 // Purpose:
 // - Shield ต้อง block junk ก่อน summary-authority-v852a นับผล
 // - ถ้า Shield active แล้วกด junk: junk ไม่ถูกนับ, miss ไม่เพิ่ม, junk หาย
 // - ไม่สแกน DOM หนัก ไม่ใช้ MutationObserver
+// - ส่ง flag ให้ summary v852a ignore target/event ที่ Shield กันไว้แล้ว
 
 (function(){
   'use strict';
 
-  const PATCH = 'v20260608-GOODJUNK-SHIELD-GUARD-V852C';
+  const PATCH = 'v20260608-GOODJUNK-SHIELD-GUARD-V852C2';
 
   if(window.__GJ_SHIELD_GUARD_V852C__){
     console.warn('[GJ Shield Guard V852C] already loaded');
@@ -35,7 +36,8 @@
     active:false,
     used:false,
     blockedJunk:0,
-    lastActivatedAt:0
+    lastActivatedAt:0,
+    lastBlockedAt:0
   };
 
   function log(){
@@ -94,7 +96,7 @@
       }
 
       @keyframes gjShieldBlockedV852C{
-        0%{ transform:scale(1); filter:brightness(1); }
+        0%{ transform:scale(1); filter:brightness(1); opacity:1; }
         45%{ transform:scale(.86); filter:brightness(1.4) saturate(1.4); opacity:.75; }
         100%{ transform:scale(.2); filter:brightness(1.2); opacity:0; }
       }
@@ -205,6 +207,8 @@
     try{
       window.GJ_SHIELD_ACTIVE = true;
       window.GJ_SHIELD_BLOCKED_JUNK = S.blockedJunk;
+      window.GJ_LAST_SHIELD_ACTIVATE_AT = S.lastActivatedAt;
+
       document.body.dataset.gjShieldActive = '1';
       document.documentElement.dataset.gjShieldActive = '1';
     }catch(_){}
@@ -265,6 +269,19 @@
     log('bound shield button:', textOf(btn));
   }
 
+  function markTargetIgnored(target){
+    if(!target) return;
+
+    try{
+      target.dataset.gjShieldBlocked = '1';
+      target.dataset.gjIgnoreSummary = '1';
+      target.dataset.gjAuthorityIgnore = '1';
+      target.dataset.gjShieldBlockedAt = String(Date.now());
+      target.classList.add('gjShieldBlockedV852C');
+      target.style.setProperty('pointer-events','none','important');
+    }catch(_){}
+  }
+
   function blockJunkIfShield(ev){
     if(!S.active) return;
 
@@ -282,18 +299,15 @@
     if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
 
     S.blockedJunk += 1;
+    S.lastBlockedAt = Date.now();
 
     try{
       window.GJ_SHIELD_BLOCKED_JUNK = S.blockedJunk;
-      window.GJ_LAST_SHIELD_BLOCK_AT = Date.now();
-
-      target.dataset.gjShieldBlocked = '1';
-      target.dataset.gjIgnoreSummary = '1';
-      target.dataset.gjAuthorityIgnore = '1';
-
-      target.classList.add('gjShieldBlockedV852C');
-      target.style.setProperty('pointer-events','none','important');
+      window.GJ_LAST_SHIELD_BLOCK_AT = S.lastBlockedAt;
+      window.GJ_IGNORE_NEXT_JUNK_HIT_UNTIL = S.lastBlockedAt + 1200;
     }catch(_){}
+
+    markTargetIgnored(target);
 
     toast('🛡️ Shield กัน junk ไว้แล้ว!');
 
@@ -311,19 +325,14 @@
     });
   }
 
-  function patchSummaryAuthorityIgnore(){
-    /*
-      ให้ v852a เห็นสถานะนี้ได้ ถ้าต้องการ debug:
-      - window.GJ_SHIELD_ACTIVE
-      - target.dataset.gjShieldBlocked = 1
-      - target.dataset.gjAuthorityIgnore = 1
-    */
+  function expose(){
     window.GJ_SHIELD_GUARD_V852C = {
       patch:PATCH,
       state:S,
       activate:activateShield,
       deactivate:deactivateShield,
-      blockedJunk:function(){ return S.blockedJunk; }
+      blockedJunk:function(){ return S.blockedJunk; },
+      isActive:function(){ return S.active; }
     };
   }
 
@@ -334,16 +343,17 @@
     setTimeout(bindShieldButton, 300);
     setTimeout(bindShieldButton, 900);
     setTimeout(bindShieldButton, 1600);
+    setTimeout(bindShieldButton, 2500);
 
     /*
-      สำคัญมาก:
-      Shield Guard ต้องดัก capture phase ก่อน summary v852a
-      เพราะฉะนั้นต้องโหลดไฟล์นี้ก่อน v852a
+      สำคัญ:
+      Shield Guard ต้องโหลดก่อน summary v852a
+      เพื่อให้ capture listener นี้ได้สิทธิ์ block junk ก่อน
     */
     document.addEventListener('pointerdown', blockJunkIfShield, true);
     document.addEventListener('click', blockJunkIfShield, true);
 
-    patchSummaryAuthorityIgnore();
+    expose();
 
     log('installed', PATCH);
   }
