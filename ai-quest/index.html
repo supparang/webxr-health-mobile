@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.1 Google Sheets Ready</title>
+  <title>CSAI2102: AI Quest v2.1b Google Sheets Ready</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -889,6 +889,7 @@
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
+  <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
   <script src="./js/mission2-agent-bank-v21.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
@@ -901,7 +902,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.1 • Google Sheets Ready • Events + Attempts + Profile</div>
+          <div class="subtitle">v2.1b • Google Sheets Ready • Events + Attempts + Profile</div>
         </div>
       </div>
 
@@ -930,7 +931,7 @@
         <div class="panel">
           <h2>Session 1: AI Awakening</h2>
           <p>
-            Google Sheets Ready v2.1 เพิ่ม Review Wrong Items, Teacher Export,
+            Google Sheets Ready v2.1b เพิ่ม Review Wrong Items, Teacher Export,
             ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
             เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
           </p>
@@ -1033,6 +1034,8 @@
         <div class="resultStars" id="resultStars">☆☆☆</div>
         <p id="resultFeedback">Feedback</p>
 
+        <div id="resultGateStatusBox"></div>
+
         <div class="coachBox" id="coachSummary">
           <b>AI Coach Summary</b><br />
           สรุปคำแนะนำจะแสดงที่นี่
@@ -1060,6 +1063,8 @@
           <label>3) หลักการนี้นำไปใช้กับปัญหาจริงหรือ Mini Project ได้อย่างไร?</label>
           <textarea id="ref3" placeholder="เชื่อมกับตัวอย่างจริงหรือแนวคิด Mini Project"></textarea>
         </div>
+
+        <div class="coachBox" id="saveStatusBox">Save Status: ยังไม่ได้บันทึก</div>
 
         <div class="row" style="justify-content:center;margin-top:16px">
           <button class="btn good" id="btnSaveResult">บันทึกผลและกลับเมนู</button>
@@ -1312,7 +1317,12 @@ async function saveStudentProfile(){
     }
 
     function beep(type='ok'){
-      ensureAudio();
+      if(window.AIQuestGameplayLockdown && AIQuestGameplayLockdown.shouldConfirmStart()){
+    AIQuestGameplayLockdown.showStartConfirm(() => startMission(id));
+    return;
+  }
+
+  ensureAudio();
       if(!audioCtx) return;
 
       const osc = audioCtx.createOscillator();
@@ -1661,7 +1671,9 @@ async function saveStudentProfile(){
       el('resultStars').textContent = starText(stars);
       el('resultFeedback').textContent = currentFeedback;
       el('coachSummary').innerHTML = currentMeta.coachSummary || '<b>AI Coach Summary</b><br>ไม่มีข้อมูลสรุป';
-      el('wrongReview').innerHTML = currentMeta.wrongReview || '<b>Review Wrong Items</b><br>ไม่มีข้อมูลข้อผิดพลาด';
+      el('wrongReview').innerHTML = (window.AIQuestGameplayLockdown && currentMeta.wrongItems)
+        ? AIQuestGameplayLockdown.renderGroupedWrongReview(currentMeta.wrongItems)
+        : (currentMeta.wrongReview || '<b>Review Wrong Items</b><br>ไม่มีข้อมูลข้อผิดพลาด');
       el('resultBestScore').textContent = `Best Score: ${Math.max(currentScore, state.bestScore[currentMission.id] || 0)}`;
       el('resultBestTime').textContent = `Best Time: ${bestTimePreview(currentMission.id, currentMeta.usedTime)}`;
       el('resultDiff').textContent = `Difficulty: ${difficulty().label}`;
@@ -1673,6 +1685,10 @@ async function saveStudentProfile(){
       el('ref3').value = refs.ref3 || '';
 
       lastSummary = currentMeta.summary || null;
+
+      if(window.AIQuestGameplayLockdown && el('resultGateStatusBox')){
+        AIQuestGameplayLockdown.renderResultStatus(el('resultGateStatusBox'), lastSummary || currentMeta);
+      }
       switchScreen('resultScreen');
     }
 
@@ -1734,6 +1750,8 @@ function logEvent(data){
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
     pageUrl: location.href,
+    runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
+    runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
     ...data
   });
   if(data && (data.eventType === 'answer_submit' || data.eventType === 'boss_answer') && window.AIQuestAdaptiveCoach){
@@ -2424,7 +2442,7 @@ function logEvent(data){
         const summary = {
           missionId:'m1',
           missionTitle:'AI Awakening',
-          version:'v2.1-google-sheets-events',
+          version:'v2.1b-google-sheets-events',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2483,6 +2501,16 @@ function logEvent(data){
     }
 
     function saveResult(){
+      const pendingAttemptId = lastSummary && (lastSummary.attemptId || lastSummary.sessionId || 'unknown');
+      if(window.AIQuestGameplayLockdown){
+        const guard = AIQuestGameplayLockdown.canSaveAttempt(pendingAttemptId);
+        if(!guard.ok){
+          AIQuestGameplayLockdown.setSaveStatus(guard.reason === 'duplicate' ? 'duplicate' : 'saving', pendingAttemptId);
+          showToast(guard.reason === 'duplicate' ? 'บันทึกแล้ว ส่งซ้ำไม่ได้' : 'กำลังบันทึกอยู่');
+          return;
+        }
+        AIQuestGameplayLockdown.setSaveStatus('saving', pendingAttemptId);
+      }
       const id = currentMission.id;
       const stars = calcStars(currentScore);
       const used = currentMeta.usedTime || 0;
@@ -2531,7 +2559,9 @@ function logEvent(data){
     reflection3: el('ref3').value.trim(),
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
-    pageUrl: location.href
+    pageUrl: location.href,
+    runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
+    runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED'
   };
 
   lastSummary = attempt;
@@ -2674,7 +2704,7 @@ if(el('btnTestCloud')){
 
 loadProfileToForm();
   
-    /* PATCH v2.1: Gate + Support UI Hooks */
+    /* PATCH v2.1b: Gate + Support UI Hooks */
     function renderGateStatusBox(){
       if(!window.AIQuestGateSupport || !document.getElementById('gateStatusBox')) return;
       AIQuestGateSupport.renderGatePanel(document.getElementById('gateStatusBox'));
@@ -2696,7 +2726,7 @@ loadProfileToForm();
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachGateSupportButtons);else attachGateSupportButtons();
 
 
-    /* PATCH v2.1: Classroom Ready Preview Hooks */
+    /* PATCH v2.1b: Gameplay Lockdown Hooks */
     function renderAdaptiveCoachBox(){
       if(window.AIQuestAdaptiveCoach && document.getElementById('adaptiveCoachBox')){
         AIQuestAdaptiveCoach.renderCoachPanel(document.getElementById('adaptiveCoachBox'));
