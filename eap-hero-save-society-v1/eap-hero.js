@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z6-speaking-oral-mode';
+  const APP_VERSION = '20260610-v1z7-teacher-unlock-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31772,7 +31772,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z6z6</div>
+              <div class="mini-note">Save the Society • v1z7</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34565,7 +34565,7 @@
     return (state.settings?.uiMode || 'simple') === 'simple';
   }
 
-  function setUIMode(mode){
+  function setUIMode(mode, nextView){
     state.settings = state.settings || {};
     state.settings.uiMode = mode === 'advanced' ? 'advanced' : 'simple';
     if(state.settings.uiMode === 'simple'){
@@ -34573,7 +34573,15 @@
     }
     saveState();
     safeToast(`UI Mode: ${state.settings.uiMode === 'simple' ? 'Student Simple' : 'Teacher Advanced'}`);
+    if(state.settings.uiMode === 'advanced' && (nextView === 'teacher' || nextView === true)){
+      renderTeacherTools();
+      return;
+    }
     renderHome();
+  }
+
+  function unlockTeacherMode(){
+    setUIMode('advanced', 'teacher');
   }
 
   function unlockLevel(){
@@ -34615,7 +34623,7 @@
 
   function simpleTopNavHTML(){
     if(!isSimpleMode()) return '';
-    return `<button class="btn ghost small" onclick="EAPHero.setUIMode('advanced')">🔓 Advanced</button>`;
+    return `<button class="btn ghost small" onclick="EAPHero.unlockTeacherMode()">🔓 Advanced</button>`;
   }
 
   function advancedTopNavHTML(){
@@ -34740,7 +34748,7 @@
         <div class="badges"><span class="pill">Teacher Advanced Mode</span><span class="pill">Locked in Simple</span></div>
         <h2>Teacher Tools are hidden for students</h2>
         <p class="lead">เพื่อไม่ให้นักศึกษางง โหมด Simple จะซ่อน Rubric, Revision, Lesson Mode และ exports</p>
-        <button class="btn primary" onclick="EAPHero.setUIMode('advanced')">Unlock Teacher Advanced Mode</button>
+        <button class="btn primary" onclick="EAPHero.unlockTeacherMode()">Unlock Teacher Advanced Mode</button>
         <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
       </section>`);
       return;
@@ -35747,6 +35755,8 @@
     exportFirebasePreview,
     clearActiveRun,
     clearRuntimeErrors,
+    setUIMode,
+    unlockTeacherMode,
     teacherTools:renderTeacherTools,
     difficultyPanel:renderDifficultyPanel,
     setSkillDifficulty,
@@ -35782,4 +35792,10 @@
 
   renderHome();
 
+
+  window.EAPHeroUnlockTeacherMode = function(){
+    if(window.EAPHero && typeof window.EAPHero.unlockTeacherMode === 'function'){
+      window.EAPHero.unlockTeacherMode();
+    }
+  };
 })();
