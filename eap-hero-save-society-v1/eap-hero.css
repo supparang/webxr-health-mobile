@@ -276,3 +276,26 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .difficulty-card.selected .btn.success{
   transform:scale(1.01);
 }
+
+
+/* === v1z3 Toast Safe Hotfix === */
+.eap-toast{
+  position:fixed;
+  left:50%;
+  bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  transform:translateX(-50%) translateY(12px);
+  z-index:99999;
+  padding:12px 16px;
+  border-radius:999px;
+  background:linear-gradient(135deg,#67e8f9,#86efac);
+  color:#06283a;
+  font-weight:900;
+  box-shadow:0 16px 40px rgba(0,0,0,.28);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .18s ease, transform .18s ease;
+}
+.eap-toast.show{
+  opacity:1;
+  transform:translateX(-50%) translateY(0);
+}

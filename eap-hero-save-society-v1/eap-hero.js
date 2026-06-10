@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z2 Instant Difficulty Update ===
+/* === EAP Hero: Save the Society v1z3 Toast Safe Hotfix ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z2-instant-difficulty-update';
+  const APP_VERSION = '20260610-v1z3-toast-safe-hotfix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -34471,6 +34471,29 @@
 
 
 
+
+  function safeToast(message){
+    const msg = String(message || '');
+    try{
+      if(typeof toast === 'function'){
+        safeToast(msg);
+        return;
+      }
+    }catch(_){}
+    let box = document.getElementById('eapToast');
+    if(!box){
+      box = document.createElement('div');
+      box.id = 'eapToast';
+      box.className = 'eap-toast';
+      document.body.appendChild(box);
+    }
+    box.textContent = msg;
+    box.classList.add('show');
+    clearTimeout(box._timer);
+    box._timer = setTimeout(()=>box.classList.remove('show'), 1800);
+  }
+
+
   const SKILL_DIFFICULTIES = {
     easy:{ key:'easy', label:'Easy', note:'คำถามตรง มี scaffold มากกว่า', aiLimitBonus:1, transcriptPenalty:4, scoreBonus:0 },
     normal:{ key:'normal', label:'Normal', note:'ระดับมาตรฐานของคาบเรียน', aiLimitBonus:0, transcriptPenalty:8, scoreBonus:0 },
@@ -34489,7 +34512,7 @@
     state.settings.skillDifficulty = level;
     saveState();
     updateDifficultyUI(level);
-    toast(`Selected difficulty: ${SKILL_DIFFICULTIES[level].label}`);
+    safeToast(`Selected difficulty: ${SKILL_DIFFICULTIES[level].label}`);
   }
 
   function updateDifficultyUI(level){
@@ -34668,7 +34691,7 @@
     if(improvementScore >= 70){
       state.revisions.improvementBadges['Revision Hero'] = true;
       addXP(30);
-      toast('Revision Hero unlocked!');
+      safeToast('Revision Hero unlocked!');
     }else{
       addXP(12);
     }
@@ -34799,7 +34822,7 @@
     state.classActivities.pairMissions.push({ title, desc, session:state.currentSession || 1, difficulty:currentSkillDifficulty().key, at:new Date().toISOString() });
     addXP(5);
     saveState();
-    toast(`${title} started`);
+    safeToast(`${title} started`);
   }
 
   function savePeerReview(){
@@ -34814,7 +34837,7 @@
     });
     addXP(10);
     saveState();
-    toast('Peer review saved');
+    safeToast('Peer review saved');
   }
 
   function exportClassActivityCSV(){
