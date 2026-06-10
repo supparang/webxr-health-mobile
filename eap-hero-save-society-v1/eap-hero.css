@@ -314,3 +314,48 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .hud-card.locked button{
   cursor:not-allowed;
 }
+
+
+/* === v1z5 Speaking + AI Output Polish === */
+.ai-output-box{
+  border:1px solid rgba(103,232,249,.35) !important;
+  border-radius:18px !important;
+  padding:14px 16px !important;
+  background:linear-gradient(135deg, rgba(103,232,249,.13), rgba(134,239,172,.10)) !important;
+  color:#dff8ff !important;
+}
+.ai-output-title{
+  font-weight:900;
+  margin-bottom:8px;
+  color:#a7f3d0;
+}
+.ai-output-message{
+  font-size:15px;
+  line-height:1.55;
+  color:#eaf8ff;
+  margin-bottom:8px;
+}
+.ai-mentor-btn{
+  min-width:150px;
+}
+.speaking-evidence-box{
+  width:100% !important;
+  min-height:160px !important;
+  resize:vertical;
+  display:block;
+}
+.speaking-check-note{
+  margin:14px 0 8px;
+  color:#c8e7ff !important;
+}
+.submit-speaking-btn{
+  margin-top:8px;
+}
+@media (max-width:720px){
+  .speaking-evidence-box{
+    min-height:180px !important;
+  }
+  .ai-output-message{
+    font-size:14px;
+  }
+}

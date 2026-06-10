@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1z4 Student Simple Mode ===
+/* === EAP Hero: Save the Society v1z5 Speaking + AI Output Polish ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z4-student-simple-mode';
+  const APP_VERSION = '20260610-v1z5-speaking-ai-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31772,7 +31772,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1</div>
+              <div class="mini-note">Save the Society • v1z5</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33535,8 +33535,12 @@
     if(skill === 'Reading') return 'readAns0';
     if(skill === 'Writing') return 'writingOut';
     if(skill === 'Listening') return 'listeningNotes';
-    if(skill === 'Speaking') return 'speakingOut';
+    if(skill === 'Speaking') return 'speakingTranscript';
     return '';
+  }
+
+  function aiOutputId(skill, sessionId){
+    return `aiHelpOutput_${String(skill || 'Skill')}_${Number(sessionId || 0)}`;
   }
 
   function collectAIDraft(skill){
@@ -33666,17 +33670,20 @@
           <span class="pill">Scaffold only</span>
         </div>
         <p class="mini-note">AI Help ครั้งที่ 1 ให้ strategy hint; ครั้งที่ 2 อ่าน draft/notes/transcript ที่พิมพ์อยู่ แล้วให้ feedback + response frame</p>
-        <button class="btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingOut' : ''}')">Ask AI Mentor</button>
-        <div id="aiHelpOutput" class="feedback info" style="margin-top:10px"></div>
+        <button class="btn ai-mentor-btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingTranscript' : ''}', '${aiOutputId(skill, sessionId)}')">Ask AI Mentor</button>
+        <div id="${aiOutputId(skill, sessionId)}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
       </div>`;
   }
 
-  function useAIHelp(skill, sessionId, draftInputId){
+  function useAIHelp(skill, sessionId, draftInputId, outputId){
     const allowed = canUseAI(sessionId, skill);
-    const out = document.getElementById('aiHelpOutput');
+    const out = document.getElementById(outputId || aiOutputId(skill, sessionId)) || document.getElementById('aiHelpOutput');
     if(!allowed.ok){
-      if(out) out.innerHTML = safe(allowed.reason);
-      else alert(allowed.reason);
+      if(out){
+        out.style.display = 'block';
+        out.classList.add('show');
+        out.innerHTML = `<b>AI Mentor:</b> ${safe(allowed.reason)}`;
+      }else alert(allowed.reason);
       return;
     }
     state.ai = state.ai || {dailyUses:{}, logs:[], sessionUses:{}};
@@ -33703,7 +33710,9 @@
     if(out){
       out.classList.add('show');
       out.style.display = 'block';
-      out.innerHTML = `<b>AI Mentor (${safe(ai.level || 'hint')}):</b> ${safe(msg)}<br><span class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])} • ครั้งที่ 2 จะตรวจ draft/คำตอบที่พิมพ์อยู่ แล้วให้กรอบปรับแก้ แต่ยังไม่เฉลย</span>`;
+      out.innerHTML = `<div class="ai-output-title">🤖 AI Mentor (${safe(ai.level || 'hint')})</div>
+        <div class="ai-output-message">${safe(msg)}</div>
+        <div class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])} • ครั้งที่ 2 จะตรวจ draft/notes/transcript ที่พิมพ์อยู่ แล้วให้กรอบปรับแก้ แต่ยังไม่เฉลย</div>`;
     }else{
       alert(`AI Mentor: ${msg}`);
     }
@@ -34409,9 +34418,9 @@
       <p class="mini-note">พูดจริงหน้าห้อง/จับคู่/อัดเสียงเอง แล้วพิมพ์ transcript หรือ speaking notes เพื่อบันทึก portfolio</p>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Speaking'))}</p>
       ${renderAIHelpBox('Speaking', s.id)}
-      <textarea id="speakingTranscript" class="input" rows="8"></textarea>
-      <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
-      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
+      <textarea id="speakingTranscript" class="input speaking-evidence-box" rows="9" placeholder="Type your speaking notes or transcript here..."></textarea>
+      <p class="mini-note speaking-check-note">Tick what your speaking evidence includes before submitting.</p><div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
+      <div class="footer-actions"><button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
 
@@ -35664,6 +35673,7 @@
     replayHub:renderReplayHub,
     aiHelp:useAIHelp,
     aiDraftInputId,
+    aiOutputId,
     exportAIHelpCSV,
     showTranscriptHint,
     showFullTranscript,
