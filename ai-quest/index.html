@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v1.6 Google Sheets Ready</title>
+  <title>CSAI2102: AI Quest v1.8 Google Sheets Ready</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -887,6 +887,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
+  <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -898,7 +899,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v1.6 • Google Sheets Ready • Events + Attempts + Profile</div>
+          <div class="subtitle">v1.8 • Google Sheets Ready • Events + Attempts + Profile</div>
         </div>
       </div>
 
@@ -914,6 +915,8 @@
 
         <button class="btn secondary small" id="btnMenu">Mission Map</button>
         <button class="btn secondary small" id="btnResults">ดูผล</button>
+        <button class="btn secondary small" id="btnPracticeMode">Practice</button>
+        <button class="btn secondary small" id="btnGateInfo">Gate</button>
         <button class="btn secondary small" id="btnReset">Reset</button>
       </div>
     </header>
@@ -923,7 +926,7 @@
         <div class="panel">
           <h2>Session 1: AI Awakening</h2>
           <p>
-            Google Sheets Ready v1.6 เพิ่ม Review Wrong Items, Teacher Export,
+            Google Sheets Ready v1.8 เพิ่ม Review Wrong Items, Teacher Export,
             ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
             เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
           </p>
@@ -974,6 +977,18 @@
   </div>
   <p id="profileStatus" class="small"></p>
 </section>
+      
+      <section class="panel" style="margin-top:16px" id="gateSupportPanel">
+        <h2>Gate & Support</h2>
+        <p>ระบบเปิด Division ถัดไปแบบ Skill Path + Learning Path พร้อม Remedial Quest สำหรับคนที่ยังไม่พร้อม</p>
+        <div class="row">
+          <button class="btn secondary" id="btnPracticeToggle">Practice Mode: OFF</button>
+          <button class="btn warn" id="btnOpenRemedial">Remedial Quest</button>
+          <button class="btn secondary" id="btnRefreshGate">Refresh Gate Status</button>
+        </div>
+        <div id="gateStatusBox" style="margin-top:12px"></div>
+      </section>
+
       <section class="layout">
         <div class="panel" id="missionMap"></div>
         <aside class="panel sidePanel selectedBox" id="detailPanel"></aside>
@@ -2394,7 +2409,7 @@ function logEvent(data){
         const summary = {
           missionId:'m1',
           missionTitle:'AI Awakening',
-          version:'v1.6-google-sheets-events',
+          version:'v1.8-google-sheets-events',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2505,6 +2520,14 @@ function logEvent(data){
   };
 
   lastSummary = attempt;
+
+  if(window.AIQuestGateSupport){
+    const gateResult = AIQuestGateSupport.recordAttempt(attempt);
+    attempt.gateStatus = gateResult.result.status;
+    attempt.gatePath = gateResult.result.gatePath;
+    attempt.gateStars = gateResult.result.stars;
+    attempt.supportRecommendations = AIQuestGateSupport.recommendSupport(gateResult.result);
+  }
   AIQuestStorage.saveAttempt(attempt);
 
   if(window.AIQuestCloudLogger){
@@ -2635,6 +2658,27 @@ if(el('btnTestCloud')){
 }
 
 loadProfileToForm();
-  </script>
+  
+    /* PATCH v1.8: Gate + Support UI Hooks */
+    function renderGateStatusBox(){
+      if(!window.AIQuestGateSupport || !document.getElementById('gateStatusBox')) return;
+      AIQuestGateSupport.renderGatePanel(document.getElementById('gateStatusBox'));
+      const btn=document.getElementById('btnPracticeToggle');
+      if(btn){const on=AIQuestGateSupport.isPracticeMode();btn.textContent=on?'Practice Mode: ON':'Practice Mode: OFF';btn.classList.toggle('good',on);}
+    }
+    function openRemedialQuest(){
+      if(!window.AIQuestGateSupport){showToast('Gate Support ยังไม่พร้อม');return;}
+      const missionId=currentMission&&currentMission.id?currentMission.id:'m1';
+      AIQuestGateSupport.markRemedialPassed(missionId,75);
+      showToast('ผ่าน Remedial Quest แล้ว: เปิด Learning Path ให้เดินหน้าต่อได้');
+      renderGateStatusBox(); renderAll();
+    }
+    function attachGateSupportButtons(){
+      const bp=document.getElementById('btnPracticeMode'),bt=document.getElementById('btnPracticeToggle'),bg=document.getElementById('btnGateInfo'),br=document.getElementById('btnOpenRemedial'),bf=document.getElementById('btnRefreshGate');
+      function togglePractice(){if(!window.AIQuestGateSupport)return;const next=!AIQuestGateSupport.isPracticeMode();AIQuestGateSupport.setPracticeMode(next);showToast(next?'เปิด Practice Mode: ไม่มี timer กดดัน':'ปิด Practice Mode แล้ว');renderGateStatusBox();}
+      if(bp)bp.onclick=togglePractice;if(bt)bt.onclick=togglePractice;if(bg)bg.onclick=renderGateStatusBox;if(bf)bf.onclick=renderGateStatusBox;if(br)br.onclick=openRemedialQuest;renderGateStatusBox();
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attachGateSupportButtons);else attachGateSupportButtons();
+</script>
 </body>
 </html>
