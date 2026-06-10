@@ -1,4 +1,4 @@
-/* === EAP Hero: Save the Society v1h Reason Gate + Item Guard ===
+/* === EAP Hero: Save the Society v1i Pre-Firebase QA Lock ===
    Standalone PC/Mobile web prototype.
    Upload index.html, eap-hero.css, eap-hero.js to GitHub Pages folder.
 */
@@ -6,6 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
+  const APP_VERSION = '20260610-v1i-pre-firebase-qa-lock';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31519,6 +31520,7 @@
       examLogs:[],
       examAttempts:{},
       fun:{ coins:0, chests:[], titles:[], daily:{ lastDate:'', streak:0 }, achievementsClaimed:[] },
+      qa:{ runtimeErrors:[], lastBackupAt:'', lastImportAt:'', qaNotes:[] },
       settings:{ difficulty:'normal' },
       recentQuestions:{},
       active:null
@@ -31526,6 +31528,37 @@
   }
 
   let state = loadState();
+
+
+  function recordRuntimeError(type, message, source, line, col){
+    try{
+      state.qa = state.qa || { runtimeErrors:[] };
+      state.qa.runtimeErrors = state.qa.runtimeErrors || [];
+      state.qa.runtimeErrors.push({
+        type,
+        message:String(message || ''),
+        source:String(source || ''),
+        line:line || '',
+        col:col || '',
+        view:state.view || '',
+        activeMode:state.active?.mode || '',
+        at:new Date().toISOString()
+      });
+      state.qa.runtimeErrors = state.qa.runtimeErrors.slice(-30);
+      saveState();
+    }catch(e){
+      console.warn('Failed to record runtime error', e);
+    }
+  }
+
+  window.addEventListener('error', (event)=>{
+    recordRuntimeError('error', event.message, event.filename, event.lineno, event.colno);
+  });
+
+  window.addEventListener('unhandledrejection', (event)=>{
+    recordRuntimeError('promise', event.reason && (event.reason.message || event.reason), 'unhandledrejection', '', '');
+  });
+
 
   function loadState(){
     try{
@@ -31541,6 +31574,8 @@
       merged.fun = Object.assign(fresh.fun || {}, parsed.fun || {});
       merged.fun.daily = Object.assign((fresh.fun && fresh.fun.daily) || {}, (parsed.fun && parsed.fun.daily) || {});
       merged.fun.achievementsClaimed = (parsed.fun && parsed.fun.achievementsClaimed) || [];
+      merged.qa = Object.assign(fresh.qa || {}, parsed.qa || {});
+      merged.qa.runtimeErrors = (parsed.qa && parsed.qa.runtimeErrors) || [];
       return merged;
     }catch(e){
       console.warn(e);
@@ -31705,6 +31740,7 @@
             <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
             <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
+            <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
             <button class="btn ghost small" onclick="EAPHero.dashboard()">📊 Teacher</button>
           </div>
         </div>
@@ -33202,6 +33238,294 @@
   });
 
 
+
+  function localStorageBytes(){
+    try{
+      return new Blob([localStorage.getItem(STORAGE_KEY) || '']).size;
+    }catch(e){
+      return 0;
+    }
+  }
+
+  function questionBankSummary(){
+    return SESSIONS.map(s => {
+      const byQuality = {};
+      s.questions.forEach(q => {
+        const key = q.quality || 'base';
+        byQuality[key] = (byQuality[key] || 0) + 1;
+      });
+      const fp = {};
+      s.questions.forEach(q => {
+        const key = textFingerprint(q);
+        fp[key] = (fp[key] || 0) + 1;
+      });
+      const similarGroups = Object.values(fp).filter(n => n > 1).length;
+      return {
+        session:s.id,
+        boss:s.boss,
+        skill:s.skill,
+        total:s.questions.length,
+        v1g:byQuality.v1g || 0,
+        v1e:byQuality.v1e || 0,
+        exam:byQuality.v1c || 0,
+        base:byQuality.base || 0,
+        similarGroups
+      };
+    });
+  }
+
+  function qaChecks(){
+    const qsum = questionBankSummary();
+    const allUnlocked = SESSIONS.every(s => !!state.sessions[s.id]);
+    const hasProfile = !!(state.profile.name && state.profile.studentId);
+    const minV1g = Math.min(...qsum.map(x => x.v1g));
+    const minTotal = Math.min(...qsum.map(x => x.total));
+    const storageKb = Math.round(localStorageBytes()/1024);
+    const errors = (state.qa?.runtimeErrors || []).length;
+    return [
+      { name:'Profile has name and student ID', pass:hasProfile, note:hasProfile?'พร้อมระบุตัวผู้เรียน':'ควรกรอก Profile ก่อนสอบ/เก็บข้อมูล' },
+      { name:'All 15 session progress records exist', pass:allUnlocked, note:allUnlocked?'โครง session ครบ':'ควร reset/load state ใหม่' },
+      { name:'Question bank total per session >= 100', pass:minTotal >= 100, note:`ต่ำสุดตอนนี้ ${minTotal} ข้อ/Session` },
+      { name:'No-Length-Cue v1g items per session >= 40', pass:minV1g >= 40, note:`ต่ำสุดตอนนี้ ${minV1g} ข้อ/Session` },
+      { name:'Runtime errors in current browser = 0', pass:errors === 0, note:`พบ ${errors} รายการ` },
+      { name:'LocalStorage size below 4 MB', pass:storageKb < 4096, note:`ประมาณ ${storageKb} KB` },
+      { name:'Exam mode available', pass:typeof startExam === 'function', note:'Midterm/Final พร้อมใช้' },
+      { name:'Export backup available', pass:typeof exportBackupJSON === 'function', note:'สำรองก่อน Firebase ได้' },
+      { name:'Firebase preview available', pass:typeof exportFirebasePreview === 'function', note:'ดู schema ก่อนต่อจริงได้' }
+    ];
+  }
+
+  function renderQALock(){
+    setView('qa');
+    const checks = qaChecks();
+    const qsum = questionBankSummary();
+    const passed = checks.filter(c=>c.pass).length;
+    const rows = checks.map(c => `<tr>
+      <td>${c.pass ? '✅' : '⚠️'}</td>
+      <td>${safe(c.name)}</td>
+      <td>${c.pass ? 'PASS' : 'CHECK'}</td>
+      <td>${safe(c.note)}</td>
+    </tr>`).join('');
+
+    const qRows = qsum.map(q => `<tr>
+      <td>S${q.session}</td>
+      <td>${safe(q.boss)}</td>
+      <td>${safe(q.skill)}</td>
+      <td>${q.total}</td>
+      <td>${q.v1g}</td>
+      <td>${q.v1e}</td>
+      <td>${q.similarGroups}</td>
+    </tr>`).join('');
+
+    const errRows = (state.qa?.runtimeErrors || []).slice(-12).reverse().map(e => `<tr>
+      <td>${safe(e.type)}</td>
+      <td>${safe(e.message).slice(0,120)}</td>
+      <td>${safe(e.view || '')}</td>
+      <td>${safe(e.activeMode || '')}</td>
+      <td>${safe(e.at || '')}</td>
+    </tr>`).join('') || '<tr><td colspan="5">No runtime errors recorded</td></tr>';
+
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">Pre-Firebase QA Lock</span>
+          <span class="pill">${APP_VERSION}</span>
+          <span class="pill">${passed}/${checks.length} checks passed</span>
+        </div>
+        <h2>QA Lock Center</h2>
+        <p class="lead">
+          หน้านี้ใช้ตรวจความพร้อมก่อนย้ายข้อมูลขึ้น Firebase: runtime, question bank, backup/import,
+          localStorage health, data preview และ cache/active run control
+        </p>
+
+        <div class="grid four">
+          <div class="stat"><b>${APP_VERSION.split('-v').pop()}</b><span>Version</span></div>
+          <div class="stat"><b>${Math.round(localStorageBytes()/1024)} KB</b><span>Storage</span></div>
+          <div class="stat"><b>${(state.qa?.runtimeErrors || []).length}</b><span>Runtime Errors</span></div>
+          <div class="stat"><b>${navigator.onLine ? 'Online' : 'Offline'}</b><span>Browser</span></div>
+        </div>
+
+        <h3 style="margin-top:20px">QA Checklist</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th></th><th>Check</th><th>Status</th><th>Note</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>
+
+        <h3 style="margin-top:20px">Question Bank Summary</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>S</th><th>Boss</th><th>Skill</th><th>Total</th><th>v1g</th><th>v1e</th><th>Similar Groups</th></tr></thead>
+          <tbody>${qRows}</tbody>
+        </table></div>
+
+        <h3 style="margin-top:20px">Runtime Error Log</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Type</th><th>Message</th><th>View</th><th>Mode</th><th>At</th></tr></thead>
+          <tbody>${errRows}</tbody>
+        </table></div>
+
+        <div class="panel light" style="margin-top:18px">
+          <h3>Pre-Firebase Tools</h3>
+          <p class="mini-note">แนะนำให้ Export Backup JSON ก่อนทดสอบใหญ่หรือก่อนต่อ Firebase ทุกครั้ง</p>
+          <div class="footer-actions">
+            <button class="btn primary" onclick="EAPHero.exportBackupJSON()">Export Full Backup JSON</button>
+            <button class="btn" onclick="document.getElementById('backupImportInput').click()">Import Backup JSON</button>
+            <button class="btn" onclick="EAPHero.exportFirebasePreview()">Export Firebase Preview</button>
+            <button class="btn ghost" onclick="EAPHero.clearActiveRun()">Clear Active Run</button>
+            <button class="btn warn" onclick="EAPHero.clearRuntimeErrors()">Clear Runtime Errors</button>
+          </div>
+          <input id="backupImportInput" type="file" accept="application/json,.json" style="display:none" onchange="EAPHero.importBackupJSON(this)" />
+        </div>
+
+        <div class="panel light" style="margin-top:18px">
+          <h3>Browser / Device Debug</h3>
+          <p class="mini-note">User Agent: ${safe(navigator.userAgent)}</p>
+          <p class="mini-note">Screen: ${window.innerWidth}×${window.innerHeight} • DevicePixelRatio: ${window.devicePixelRatio || 1}</p>
+          <p class="mini-note">Active: ${state.active ? safe(state.active.mode || 'unknown') : 'none'}</p>
+          <p class="mini-note">Last Backup: ${safe(state.qa?.lastBackupAt || '-')} • Last Import: ${safe(state.qa?.lastImportAt || '-')}</p>
+        </div>
+      </section>
+    `);
+  }
+
+  function buildBackupPayload(){
+    return {
+      app:'EAP Hero: Save the Society',
+      version:APP_VERSION,
+      storageKey:STORAGE_KEY,
+      exportedAt:new Date().toISOString(),
+      profile:state.profile,
+      state,
+      questionBankSummary:questionBankSummary(),
+      itemQualityReport:itemQualityReport(),
+      qaChecks:qaChecks()
+    };
+  }
+
+  function downloadJSON(filename, payload){
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json;charset=utf-8'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportBackupJSON(){
+    state.qa = state.qa || {};
+    state.qa.lastBackupAt = new Date().toISOString();
+    saveState();
+    downloadJSON('eap-hero-full-backup.json', buildBackupPayload());
+  }
+
+  function importBackupJSON(input){
+    const file = input && input.files && input.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const payload = JSON.parse(reader.result);
+        const nextState = payload.state || payload;
+        if(!nextState || !nextState.sessions || !nextState.profile){
+          alert('ไฟล์นี้ไม่ใช่ backup ของ EAP Hero หรือข้อมูลไม่ครบค่ะ');
+          return;
+        }
+        state = Object.assign(cloneDefaultState(), nextState);
+        state.qa = state.qa || {};
+        state.qa.lastImportAt = new Date().toISOString();
+        saveState();
+        alert('Import backup สำเร็จค่ะ');
+        renderQALock();
+      }catch(e){
+        alert('Import ไม่สำเร็จ: ' + e.message);
+      }
+    };
+    reader.readAsText(file, 'utf-8');
+  }
+
+  function firebasePreviewPayload(){
+    const uid = state.profile.studentId || 'student_demo_id';
+    return {
+      firebaseReady:true,
+      version:APP_VERSION,
+      generatedAt:new Date().toISOString(),
+      suggestedCollections:{
+        classes:{
+          classId:'eap_2026_sec01',
+          fields:{
+            title:'English for Academic Purposes',
+            teacherEmail:'teacher@example.ac.th',
+            activeExam:'midterm_2026_01',
+            createdAt:'serverTimestamp()'
+          }
+        },
+        users:{
+          [uid]:{
+            profile:state.profile,
+            xp:state.xp,
+            rank:state.rank,
+            badges:state.badges,
+            cards:state.cards,
+            progress:state.sessions,
+            fun:state.fun,
+            updatedAt:'serverTimestamp()'
+          }
+        },
+        gameLogs:{
+          sampleLog: state.logs[state.logs.length-1] || {
+            student_id:uid,
+            session:1,
+            boss:'Confusion Slime',
+            win:true,
+            accuracy:85,
+            completed_at:new Date().toISOString()
+          }
+        },
+        examLogs:{
+          sampleExamLog: state.examLogs[state.examLogs.length-1] || {
+            student_id:uid,
+            exam_type:'midterm',
+            percent:0,
+            submitted_at:new Date().toISOString()
+          }
+        },
+        itemAnalytics:{
+          summary:questionBankSummary(),
+          quality:itemQualityReport()
+        }
+      },
+      securityRulePlan:[
+        'students can read/write only their own users/{uid}',
+        'students can create their own gameLogs/examLogs with matching student_id',
+        'teachers can read class dashboards',
+        'exam attempts should be locked by classId + examId + studentId'
+      ]
+    };
+  }
+
+  function exportFirebasePreview(){
+    downloadJSON('eap-hero-firebase-preview.json', firebasePreviewPayload());
+  }
+
+  function clearActiveRun(){
+    if(confirm('ล้างเฉพาะ active run/timer ที่ค้างอยู่ โดยไม่ลบ progress ใช่ไหมคะ?')){
+      clearInterval(bossTimer);
+      state.active = null;
+      saveState();
+      renderQALock();
+    }
+  }
+
+  function clearRuntimeErrors(){
+    if(confirm('ล้าง runtime error log ใช่ไหมคะ?')){
+      state.qa = state.qa || {};
+      state.qa.runtimeErrors = [];
+      saveState();
+      renderQALock();
+    }
+  }
+
+
   function renderDashboard(){
     setView('dashboard');
     const completed = SESSIONS.filter(s => state.sessions[s.id]?.cleared).length;
@@ -33251,6 +33575,7 @@
           <button class="btn primary" onclick="EAPHero.exportCSV()">Export Game CSV</button>
           <button class="btn warn" onclick="EAPHero.exportExamCSV()">Export Exam CSV</button>
           <button class="btn" onclick="EAPHero.itemGuard()">Item Guard</button>
+          <button class="btn" onclick="EAPHero.qaLock()">QA Lock</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
       </section>
@@ -33365,6 +33690,12 @@
     contract:renderContract,
     reasonAnswer,
     itemGuard:renderItemGuard,
+    qaLock:renderQALock,
+    exportBackupJSON,
+    importBackupJSON,
+    exportFirebasePreview,
+    clearActiveRun,
+    clearRuntimeErrors,
     dashboard:renderDashboard,
     examPanel:renderExamPanel,
     startExam,
