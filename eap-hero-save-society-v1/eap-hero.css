@@ -733,3 +733,72 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
     grid-template-columns:1fr;
   }
 }
+
+
+/* === v1z22 Answer Box Size Polish === */
+.answer-box-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:14px 0 8px;
+  padding:10px 12px;
+  border-radius:16px;
+  background:rgba(125,211,252,.10);
+  border:1px solid rgba(125,211,252,.22);
+  color:#dff8ff;
+  font-weight:900;
+}
+.answer-box-toolbar span{
+  font-size:14px;
+}
+.answer-box{
+  width:100% !important;
+  max-width:100% !important;
+  min-height:180px;
+  font-size:17px !important;
+  line-height:1.65 !important;
+  padding:16px !important;
+  border-radius:18px !important;
+  resize:vertical !important;
+  background:#ffffff !important;
+  color:#0f172a !important;
+  border:2px solid #93c5fd !important;
+  box-shadow:0 12px 28px rgba(15,23,42,.10);
+}
+.answer-box::placeholder{
+  color:#64748b !important;
+  opacity:1;
+}
+.large-writing-box{
+  min-height:300px !important;
+}
+.large-speaking-box{
+  min-height:260px !important;
+}
+.listening-notes-box{
+  min-height:230px !important;
+}
+.reading-answer-box{
+  min-height:120px !important;
+}
+.answer-box-expanded{
+  min-height:520px !important;
+}
+.panel textarea.answer-box:focus{
+  outline:none !important;
+  border-color:#22c55e !important;
+  box-shadow:0 0 0 4px rgba(34,197,94,.18), 0 14px 32px rgba(15,23,42,.14) !important;
+}
+@media(max-width:860px){
+  .answer-box-toolbar{
+    flex-wrap:wrap;
+  }
+  .answer-box{
+    font-size:16px !important;
+    min-height:220px;
+  }
+  .large-writing-box{
+    min-height:360px !important;
+  }
+}

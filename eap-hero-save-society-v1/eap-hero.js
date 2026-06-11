@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z21-report-card-contrast-polish';
+  const APP_VERSION = '20260610-v1z22-answer-box-size-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z21</div>
+              <div class="mini-note">Save the Society • v1z22</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34321,7 +34321,7 @@
       <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrStepsHTML('Reading')}${cefrFrame('Reading')}${cefrVocabularyHTML(text.topic)}${cefrAIHelpNote('Reading')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
       ${renderAIHelpBox('Reading', s.id)}
-      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
+      ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="4"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -34340,6 +34340,31 @@
     showSkillResult('Reading', score, id);
   }
 
+
+  function expandAnswerBox(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.classList.toggle('answer-box-expanded');
+    if(el.classList.contains('answer-box-expanded')){
+      el.rows = Math.max(Number(el.rows || 0), 16);
+      safeToast('Answer box expanded');
+    }else{
+      el.rows = Math.max(Number(el.dataset.defaultRows || 10), 10);
+      safeToast('Answer box normal size');
+    }
+    el.focus();
+  }
+
+  function clearAnswerBox(id){
+    const el = document.getElementById(id);
+    if(!el) return;
+    const ok = confirm('Clear this answer box?');
+    if(!ok) return;
+    el.value = '';
+    el.focus();
+  }
+
+
   function renderWritingMission(id){
     const s = getSession(id), mv = pickMissionVariant(s.id, 'Writing'), prompt = writingPromptFromVariant(s, mv);
     layout(`<section class="panel" style="margin-top:20px">
@@ -34350,7 +34375,12 @@
       <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrStepsHTML('Writing')}${cefrFrame('Writing')}${cefrVocabularyHTML(prompt.topic || s.skill)}${cefrAIHelpNote('Writing')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing')))}</p>
       ${renderAIHelpBox('Writing', s.id)}
-      <textarea id="writingOutput" class="input" rows="9"></textarea>
+      <div class="answer-box-toolbar">
+        <span>Write your answer here</span>
+        <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('writingOutput')">↕ Expand</button>
+        <button type="button" class="btn small ghost" onclick="EAPHero.clearAnswerBox('writingOutput')">Clear</button>
+      </div>
+      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="13" data-default-rows="13" placeholder="Use the frame: This topic is important because ___. One reason is ___. For example, ___. In conclusion, ___."></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -34410,7 +34440,12 @@
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening')))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
-      <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
+      <label class="label">Listening notes</label>
+      <div class="answer-box-toolbar">
+        <span>Main point + keywords + one detail</span>
+        <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('listeningNotes')">↕ Expand</button>
+      </div>
+      <textarea id="listeningNotes" class="input answer-box listening-notes-box" rows="10" data-default-rows="10" placeholder="Main point: ___. Keywords: ___ and ___. Detail/example: ___."></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -34562,7 +34597,7 @@
       </div>
       ${renderAIHelpBox('Speaking', s.id)}
       <label class="label">Optional evidence notes / transcript</label>
-      <textarea id="speakingTranscript" class="input speaking-evidence-box" rows="9" placeholder="Optional: type short notes, keywords, or transcript after speaking. Do not write instead of speaking."></textarea>
+      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box large-speaking-box" rows="12" data-default-rows="12" placeholder="Optional: type short notes, keywords, or transcript after speaking. Do not write instead of speaking."></textarea>
       <p class="mini-note speaking-check-note">หลังพูดแล้ว ติ๊กสิ่งที่พูดมี ก่อน Submit Speaking Evidence</p>
       <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spSpoke"> I spoke</label><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
       <div class="footer-actions"><button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -36453,6 +36488,8 @@
     refreshReviewQueueTable,
     pilotReadiness:renderPilotReadiness,
     renderStudentReports,
+    expandAnswerBox,
+    clearAnswerBox,
     myReports:renderStudentReports,
     exportLearningReportsCSV,
     
