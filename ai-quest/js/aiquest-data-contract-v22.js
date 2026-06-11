@@ -7,7 +7,7 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v2.4.2-data-contract-production';
+  const VERSION = 'v2.5.0-data-contract-session2';
   const STORE_KEY = 'CSAI2102_AIQUEST_DATA_CONTRACT_V22';
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
   const SECTION_LOCK = '101';

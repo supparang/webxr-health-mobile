@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.4.2 Production Ready</title>
+  <title>CSAI2102: AI Quest v2.5.0 Session 2 Full Gameplay</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -894,7 +894,7 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v21.js"></script>
+  <script src="./js/mission2-agent-bank-v250.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -906,7 +906,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.4.2 • Classroom Production Ready • Section 101</div>
+          <div class="subtitle">v2.5.0 • Session 2 Full Gameplay • Section 101</div>
         </div>
       </div>
 
@@ -924,7 +924,7 @@
         <button class="btn secondary small" id="btnResults">ดูผล</button>
         <a class="btn secondary small" href="./teacher-dashboard.html" style="text-decoration:none">Dashboard</a>
         <a class="btn secondary small" href="./classroom-config.html" style="text-decoration:none">Config</a>
-        <a class="btn secondary small" href="./session2-agent-preview.html" style="text-decoration:none">Session 2</a>
+        <button class="btn secondary small" id="btnSession2Top">Session 2</button>
         <button class="btn secondary small" id="btnPracticeMode">Practice</button>
         <button class="btn secondary small" id="btnGateInfo">Gate</button>
         <button class="btn secondary small" id="btnReset">Reset</button>
@@ -1157,11 +1157,17 @@
         type:'main',
         division:'Division 1: AI Rookie Base',
         title:'Agent Builder',
-        topic:'Intelligent Agent',
+        topic:'Intelligent Agent / PEAS / Environment / Rational Agent',
         badge:'Agent Designer',
-        playable:false,
-        mastery:'Coming in Session 2',
-        objectives:['Coming Soon']
+        playable:true,
+        mastery:'Score ≥85, Agent ≥80%, PEAS ≥2, Environment ≥2, Boss Win, AI Help ≤2',
+        objectives:[
+          'Agent or Not: แยกระบบที่เป็น agent / ไม่ใช่ / อาจเป็น',
+          'PEAS Builder: จัด Performance, Environment, Actuators, Sensors',
+          'Environment Classifier: แยก observable, stochastic, dynamic, discrete, multi-agent',
+          'Rational Agent Boss: โต้แย้ง misconception สำคัญ',
+          'Save to Google Sheets as sessionId=s2'
+        ]
       },
       {
         id:'b1',
@@ -1354,7 +1360,12 @@ async function saveStudentProfile(){
     }
 
     function isUnlocked(stage){
-      return stage.playable && stage.id === 'm1';
+      if(!stage || !stage.playable) return false;
+      if(stage.id === 'm1') return true;
+      if(stage.id === 'm2'){
+        return !!(state.completed.m1 || state.stars.m1 || state.mastered.m1);
+      }
+      return false;
     }
 
     function stageById(id){
@@ -1663,6 +1674,18 @@ async function saveStudentProfile(){
       `;
     }
 
+    function phaseHTMLCustom(phases, active, done=[]){
+      return `
+        <div class="phaseStrip">
+          ${(phases || []).map(phase => `
+            <span class="phasePill ${phase === active ? 'active' : ''} ${done.includes(phase) ? 'done' : ''}">
+              ${phase}
+            </span>
+          `).join('')}
+        </div>
+      `;
+    }
+
     function updateCombo(combo){
       const comboText = document.querySelector('#comboText');
       if(comboText){
@@ -1702,8 +1725,577 @@ async function saveStudentProfile(){
   el('gameSubheading').textContent = `${stage.topic} — ${stage.objectives[0]}`;
 
   switchScreen('gameScreen');
-  renderMission1Coach();
+
+  if(stage.id === 'm2'){
+    renderSession2AgentGame();
+  }else{
+    renderMission1Coach();
+  }
 }
+
+    function renderSession2AgentGame(){
+      if(typeof buildSession2Round !== 'function'){
+        el('gameArea').innerHTML = `
+          <div class="feedback bad">
+            โหลดไฟล์ mission2-agent-bank-v250.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v250.js</b>
+          </div>
+        `;
+        return;
+      }
+
+      const diff = difficulty();
+      const startTs = Date.now();
+      const totalTime = diff.time;
+      const round = buildSession2Round(state.difficulty);
+      const phases = round.phases || ['Agent or Not','PEAS Builder','Environment Classifier','Rational Agent Boss'];
+
+      const metrics = {
+        correct:0,
+        total:0,
+        combo:0,
+        maxCombo:0,
+        agentCorrect:0,
+        peasCorrect:0,
+        envCorrect:0,
+        bossCorrect:0,
+        bossWin:false,
+        wrong:0,
+        helpLeft:diff.help,
+        wrongItems:[],
+        mis:{}
+      };
+
+      const attemptId = window.AIQuestStorage
+        ? AIQuestStorage.uid('att')
+        : 'att_s2_' + Date.now();
+
+      const eventLog = [];
+
+      function logEvent(data){
+        const profile = window.AIQuestStorage ? AIQuestStorage.getProfile() : {};
+
+        eventLog.push({
+          eventId: window.AIQuestStorage ? AIQuestStorage.uid('evt') : 'evt_' + Date.now() + '_' + Math.random(),
+          attemptId,
+          studentId: profile.studentId || '',
+          section: profile.section || '',
+          sessionId: 's2',
+          missionId: 'm2',
+          clientTs: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          pageUrl: location.href,
+          courseId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().courseId : 'CSAI2102',
+          classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
+          term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
+          runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
+          runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
+          ...data
+        });
+
+        if(data && (data.eventType === 'answer_submit' || data.eventType === 'boss_answer') && window.AIQuestAdaptiveCoach){
+          AIQuestAdaptiveCoach.recordAnswer(data);
+          renderAdaptiveCoachBox && renderAdaptiveCoachBox();
+        }
+      }
+
+      const area = el('gameArea');
+
+      let agentIdx = 0;
+      let peasIdx = 0;
+      let envIdx = 0;
+      let bossIdx = 0;
+      let bossHp = 100;
+      let playerHp = 100;
+
+      startTimer(totalTime, () => {
+        end(false, 'หมดเวลา! AI Coach แนะนำให้ฝึก PEAS และ Environment Classifier เพิ่มก่อน Challenge');
+      });
+
+      logEvent({
+        eventType:'session_start',
+        phase:'start',
+        itemId:'',
+        prompt:'Session 2 started',
+        yourAnswer:'',
+        correctAnswer:'',
+        isCorrect:'',
+        combo:0,
+        helpLeft:metrics.helpLeft,
+        extraJson:{roundVersion:round.version}
+      });
+
+      function addMis(key){
+        if(!key) return;
+        metrics.mis[key] = (metrics.mis[key] || 0) + 1;
+      }
+
+      function recordAnswer(ok, payload){
+        metrics.total += 1;
+
+        if(ok){
+          metrics.correct += 1;
+          metrics.combo += 1;
+          metrics.maxCombo = Math.max(metrics.maxCombo, metrics.combo);
+          beep('ok');
+        }else{
+          metrics.wrong += 1;
+          metrics.combo = 0;
+          addMis(payload.misconception);
+          beep('bad');
+
+          metrics.wrongItems.push({
+            phase:payload.phase,
+            itemId:payload.itemId,
+            prompt:payload.prompt,
+            yourAnswer:payload.yourAnswer,
+            correctAnswer:payload.correctAnswer,
+            why:payload.why || payload.correctAnswer,
+            misconception:payload.misconception || ''
+          });
+        }
+
+        updateCombo(metrics.combo);
+
+        logEvent({
+          eventType: payload.eventType || 'answer_submit',
+          phase: payload.phase,
+          itemId: payload.itemId,
+          prompt: payload.prompt,
+          yourAnswer: payload.yourAnswer,
+          correctAnswer: payload.correctAnswer,
+          isCorrect: ok,
+          combo: metrics.combo,
+          helpLeft: metrics.helpLeft,
+          scoreDelta: ok ? 10 : -5,
+          extraJson: {
+            why: payload.why || '',
+            misconception: payload.misconception || '',
+            phaseScore: {
+              agentCorrect:metrics.agentCorrect,
+              peasCorrect:metrics.peasCorrect,
+              envCorrect:metrics.envCorrect,
+              bossCorrect:metrics.bossCorrect
+            }
+          }
+        });
+      }
+
+      function helpBox(text){
+        if(metrics.helpLeft <= 0){
+          showToast('AI Help หมดแล้ว');
+          return;
+        }
+
+        metrics.helpLeft -= 1;
+        updateHelp(metrics.helpLeft);
+        showToast('AI Help: ' + text);
+
+        logEvent({
+          eventType:'ai_help_used',
+          phase:'help',
+          itemId:'',
+          prompt:text,
+          yourAnswer:'',
+          correctAnswer:'',
+          isCorrect:'',
+          combo:metrics.combo,
+          helpLeft:metrics.helpLeft,
+          extraJson:{}
+        });
+      }
+
+      function header(active, done=[]){
+        return `
+          ${hudHTML(`<span class="hudChip">Session 2</span>`)}
+          ${phaseHTMLCustom(phases, active, done)}
+        `;
+      }
+
+      function renderChoiceButtons(choices, onPick){
+        return `
+          <div class="choicesGrid">
+            ${choices.map((choice, idx) => `
+              <button class="choiceBtn" data-choice="${idx}">
+                ${escapeHtml(choice.text || choice)}
+              </button>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function bindChoices(choices, onPick){
+        area.querySelectorAll('[data-choice]').forEach(btn => {
+          btn.onclick = () => {
+            const choice = choices[Number(btn.dataset.choice)];
+            onPick(choice);
+          };
+        });
+      }
+
+      function renderAgent(){
+        const item = round.agent[agentIdx];
+
+        if(!item){
+          renderPeas();
+          return;
+        }
+
+        area.innerHTML = `
+          ${header('Agent or Not', [])}
+          <div class="gamePanel">
+            <div class="tagline">Phase 1/${phases.length} · Agent or Not</div>
+            <h3>${escapeHtml(item.label)}</h3>
+            <p>ระบบนี้เป็น Intelligent Agent หรือไม่?</p>
+            <div class="choicesGrid">
+              <button class="choiceBtn" data-answer="Agent">Agent</button>
+              <button class="choiceBtn" data-answer="Maybe Agent">Maybe Agent</button>
+              <button class="choiceBtn" data-answer="Not Agent">Not Agent</button>
+            </div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn secondary" id="s2HelpBtn">AI Help</button>
+            </div>
+          </div>
+        `;
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+
+        area.querySelectorAll('[data-answer]').forEach(btn => {
+          btn.onclick = () => {
+            const ans = btn.dataset.answer;
+            const ok = ans === item.answer;
+
+            if(ok) metrics.agentCorrect += 1;
+
+            recordAnswer(ok, {
+              phase:'Agent or Not',
+              itemId:item.id,
+              prompt:item.label,
+              yourAnswer:ans,
+              correctAnswer:item.answer,
+              why:item.why,
+              misconception:item.misconception
+            });
+
+            showToast(ok ? 'ถูกต้อง: agent ต้องมี percept/action/goal' : 'ยังสับสน: ' + item.why);
+            agentIdx += 1;
+            setTimeout(renderAgent, 450);
+          };
+        });
+
+        el('s2HelpBtn').onclick = () => helpBox(item.hint || 'ดูว่า agent มี percept, action และ goal หรือไม่');
+      }
+
+      function renderPeas(){
+        const item = round.peas[peasIdx];
+
+        if(!item){
+          renderEnv();
+          return;
+        }
+
+        const choices = shuffle(item.choices);
+
+        area.innerHTML = `
+          ${header('PEAS Builder', ['Agent or Not'])}
+          <div class="gamePanel">
+            <div class="tagline">Phase 2/${phases.length} · PEAS Builder</div>
+            <h3>${escapeHtml(item.scenario)}</h3>
+            <p>เลือกการจับคู่ PEAS ที่ถูกต้องที่สุด</p>
+            ${renderChoiceButtons(choices, () => {})}
+            <div class="row" style="margin-top:14px">
+              <button class="btn secondary" id="s2HelpBtn">AI Help</button>
+            </div>
+          </div>
+        `;
+
+        bindChoices(choices, choice => {
+          const ok = !!choice.correct;
+          const correct = item.choices.find(c => c.correct);
+
+          if(ok) metrics.peasCorrect += 1;
+
+          recordAnswer(ok, {
+            phase:'PEAS Builder',
+            itemId:item.id,
+            prompt:item.scenario,
+            yourAnswer:choice.text,
+            correctAnswer:correct ? correct.text : '',
+            why:correct ? correct.text : '',
+            misconception:choice.misconception
+          });
+
+          showToast(ok ? 'PEAS ถูกต้อง' : 'PEAS ยังสลับบทบาทกันอยู่');
+          peasIdx += 1;
+          setTimeout(renderPeas, 450);
+        });
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+        el('s2HelpBtn').onclick = () => helpBox('P=วัดความสำเร็จ, E=โลก/บริบท, A=สิ่งที่ agent ใช้กระทำ, S=สิ่งที่ agent ใช้รับรู้');
+      }
+
+      function renderEnv(){
+        const item = round.env[envIdx];
+
+        if(!item){
+          renderBoss();
+          return;
+        }
+
+        const choices = shuffle(item.choices);
+
+        area.innerHTML = `
+          ${header('Environment Classifier', ['Agent or Not','PEAS Builder'])}
+          <div class="gamePanel">
+            <div class="tagline">Phase 3/${phases.length} · Environment Classifier</div>
+            <h3>${escapeHtml(item.stem)}</h3>
+            <p>เลือกคำอธิบาย environment ที่เหมาะสมที่สุด</p>
+            ${renderChoiceButtons(choices, () => {})}
+            <div class="row" style="margin-top:14px">
+              <button class="btn secondary" id="s2HelpBtn">AI Help</button>
+            </div>
+          </div>
+        `;
+
+        bindChoices(choices, choice => {
+          const ok = !!choice.correct;
+          const correct = item.choices.find(c => c.correct);
+
+          if(ok) metrics.envCorrect += 1;
+
+          recordAnswer(ok, {
+            phase:'Environment Classifier',
+            itemId:item.id,
+            prompt:item.stem,
+            yourAnswer:choice.text,
+            correctAnswer:correct ? correct.text : '',
+            why:correct ? correct.text : '',
+            misconception:choice.misconception
+          });
+
+          showToast(ok ? 'จำแนก environment ได้ดี' : 'ลองดูว่าโลกเปลี่ยนไหม เห็นครบไหม และมี agent อื่นไหม');
+          envIdx += 1;
+          setTimeout(renderEnv, 450);
+        });
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+        el('s2HelpBtn').onclick = () => helpBox('ให้แยก observable/deterministic/sequential/dynamic/discrete/multi-agent ทีละคู่');
+      }
+
+      function renderBoss(){
+        const item = round.boss[bossIdx];
+
+        if(!item){
+          end(true, 'จบ Session 2: Intelligent Agent แล้ว');
+          return;
+        }
+
+        const otherCounters = round.boss
+          .filter(x => x.id !== item.id)
+          .map(x => x.counter);
+
+        const choices = shuffle([
+          {text:item.counter, correct:true, misconception:''},
+          ...shuffle(otherCounters.concat(round.distractors || [])).slice(0,3).map(text => ({
+            text,
+            correct:false,
+            misconception:item.key
+          }))
+        ]);
+
+        area.innerHTML = `
+          ${header('Rational Agent Boss', ['Agent or Not','PEAS Builder','Environment Classifier'])}
+          <div class="gamePanel bossPanel">
+            <div class="tagline">Phase 4/${phases.length} · Rational Agent Boss</div>
+            <h3>Boss Claim</h3>
+            <p style="font-size:20px;font-weight:1000">${escapeHtml(item.claim)}</p>
+            <div class="scoreLine">
+              <span class="scoreChip">Boss HP: ${Math.max(0, bossHp)}</span>
+              <span class="scoreChip">Player HP: ${Math.max(0, playerHp)}</span>
+            </div>
+            <p>เลือกคำโต้แย้งที่ถูกต้องที่สุด</p>
+            ${renderChoiceButtons(choices, () => {})}
+            <div class="row" style="margin-top:14px">
+              <button class="btn secondary" id="s2HelpBtn">AI Help</button>
+            </div>
+          </div>
+        `;
+
+        bindChoices(choices, choice => {
+          const ok = !!choice.correct;
+
+          if(ok){
+            metrics.bossCorrect += 1;
+            bossHp -= 35;
+            beep('boss');
+          }else{
+            playerHp -= 25;
+          }
+
+          recordAnswer(ok, {
+            eventType:'boss_answer',
+            phase:'Rational Agent Boss',
+            itemId:item.id,
+            prompt:item.claim,
+            yourAnswer:choice.text,
+            correctAnswer:item.counter,
+            why:item.why,
+            misconception:choice.misconception || item.key
+          });
+
+          showToast(ok ? 'โต้แย้งได้ดี: Boss เสีย HP' : 'Boss โจมตีกลับ: ยังมี misconception');
+          bossIdx += 1;
+
+          if(playerHp <= 0){
+            end(false, 'Boss ชนะรอบนี้: ควรฝึก PEAS และ rationality เพิ่ม');
+          }else{
+            setTimeout(renderBoss, 500);
+          }
+        });
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+        el('s2HelpBtn').onclick = () => helpBox(item.hint || 'ดูว่า claim สับสนเรื่อง percept, action, goal หรือ rationality ตรงไหน');
+      }
+
+      function wrongReviewHTML(){
+        if(!metrics.wrongItems.length){
+          return '<b>Review Wrong Items</b><br>ยอดเยี่ยม! รอบนี้ไม่มีข้อผิดพลาดหลัก';
+        }
+
+        return `
+          <b>Review Wrong Items</b>
+          <div class="wrongList">
+            ${metrics.wrongItems.slice(0,10).map(item => `
+              <div class="wrongItem">
+                <b>${escapeHtml(item.phase)}</b><br>
+                ${escapeHtml(item.prompt)}<br>
+                <b>ตอบ:</b> ${escapeHtml(item.yourAnswer)}<br>
+                <b>ควรเป็น:</b> ${escapeHtml(item.correctAnswer)}<br>
+                <b>เหตุผล:</b> ${escapeHtml(item.why || '')}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function coachSummary(){
+        const topMis = Object.entries(metrics.mis).sort((a,b)=>b[1]-a[1])[0];
+
+        const lines = [
+          `<b>AI Coach Summary</b>`,
+          `Agent: ${metrics.agentCorrect}/${round.agent.length}`,
+          `PEAS: ${metrics.peasCorrect}/${round.peas.length}`,
+          `Environment: ${metrics.envCorrect}/${round.env.length}`,
+          `Boss: ${metrics.bossCorrect}/${round.boss.length}`
+        ];
+
+        if(topMis){
+          lines.push(`Misconception เด่น: ${escapeHtml(topMis[0])} (${topMis[1]})`);
+        }else{
+          lines.push('Misconception เด่น: ยังไม่พบ');
+        }
+
+        return lines.join('<br>');
+      }
+
+      function end(forceBossWin, message){
+        stopTimer();
+
+        const used = Math.max(0, Math.round((Date.now() - startTs) / 1000));
+        const accuracy = metrics.total ? metrics.correct / metrics.total : 0;
+        metrics.bossWin = forceBossWin || (metrics.bossCorrect >= Math.ceil(round.boss.length * .66) && playerHp > 0);
+
+        const helpUsed = Math.max(0, diff.help - metrics.helpLeft);
+        const phaseScore = Math.round(accuracy * 72);
+        const bossScore = Math.round((metrics.bossCorrect / Math.max(1, round.boss.length)) * 18);
+        const helpBonus = Math.round((metrics.helpLeft / Math.max(1, diff.help)) * 10);
+        const finalScore = Math.max(0, Math.min(100, phaseScore + bossScore + helpBonus));
+
+        const mastered =
+          finalScore >= 85 &&
+          metrics.agentCorrect >= Math.ceil(round.agent.length * .8) &&
+          metrics.peasCorrect >= Math.min(2, round.peas.length) &&
+          metrics.envCorrect >= Math.min(2, round.env.length) &&
+          metrics.bossWin &&
+          helpUsed <= 2;
+
+        logEvent({
+          eventType:'session_end',
+          phase:'end',
+          itemId:'',
+          prompt:'Session 2 ended',
+          yourAnswer:'',
+          correctAnswer:'',
+          isCorrect:'',
+          combo:metrics.combo,
+          helpLeft:metrics.helpLeft,
+          extraJson:{
+            score:finalScore,
+            mastered,
+            bossWin:metrics.bossWin,
+            accuracy:Math.round(accuracy * 100)
+          }
+        });
+
+        const summary = {
+          attemptId,
+          sessionId:'s2',
+          missionId:'m2',
+          missionTitle:'Agent Builder',
+          version:'v2.5.0-session2-full-gameplay',
+          score:finalScore,
+          stars:calcStars(finalScore),
+          mastered,
+          difficulty:state.difficulty,
+          usedTimeSec:used,
+          timeLeftSec:timeLeft,
+          accuracy:Math.round(accuracy * 100),
+          correct:metrics.correct,
+          total:metrics.total,
+          wrong:metrics.wrong,
+          maxCombo:metrics.maxCombo,
+          helpUsed,
+          bossWin:metrics.bossWin,
+          misconceptionsJson:JSON.stringify(metrics.mis),
+          extraJson:{
+            sessionTitle:'Intelligent Agent',
+            agentCorrect:metrics.agentCorrect,
+            agentTotal:round.agent.length,
+            peasCorrect:metrics.peasCorrect,
+            peasTotal:round.peas.length,
+            envCorrect:metrics.envCorrect,
+            envTotal:round.env.length,
+            bossCorrect:metrics.bossCorrect,
+            bossTotal:round.boss.length,
+            helpUsed,
+            wrongItems:metrics.wrongItems
+          },
+          events:eventLog
+        };
+
+        finishMission(
+          finalScore,
+          `${message}: Accuracy ${summary.accuracy}%, Agent ${metrics.agentCorrect}/${round.agent.length}, PEAS ${metrics.peasCorrect}/${round.peas.length}, Environment ${metrics.envCorrect}/${round.env.length}, Boss ${metrics.bossWin ? 'ชนะ' : 'ยังไม่ชนะ'}, Mastery ${mastered ? 'YES' : 'Not yet'}`,
+          {
+            usedTime:used,
+            mastered,
+            bossWin:metrics.bossWin,
+            coachSummary:coachSummary(),
+            wrongReview:wrongReviewHTML(),
+            wrongItems:metrics.wrongItems,
+            summary
+          }
+        );
+      }
+
+      renderAgent();
+    }
+
+
     function finishMission(score, feedback, meta={}){
       if(gameLocked) return;
 
@@ -1822,7 +2414,7 @@ function logEvent(data){
     attemptId,
     studentId: profile.studentId || '',
     section: profile.section || '',
-    sessionId: 's1',
+    sessionId: lastSummary.sessionId || (currentMission && currentMission.id === 'm2' ? 's2' : 's1'),
     missionId: 'm1',
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -2669,7 +3261,7 @@ function logEvent(data){
     studentId: profile.studentId || '',
     studentName: profile.studentName || '',
     section: profile.section || '',
-    sessionId: 's1',
+    sessionId: lastSummary.sessionId || (currentMission && currentMission.id === 'm2' ? 's2' : 's1'),
     reflection1: reflections.reflection1,
     reflection2: reflections.reflection2,
     reflection3: reflections.reflection3,
@@ -2848,6 +3440,17 @@ function logEvent(data){
       showToast('รีเซ็ตเรียบร้อย');
     });
 
+    if(el('btnSession2Top')){
+      el('btnSession2Top').addEventListener('click', () => {
+        selectedStageId = 'm2';
+        renderAll();
+        renderDetail('m2');
+        switchScreen('menuScreen');
+        if(isUnlocked(stageById('m2'))) showToast('เลือก Session 2: Agent Builder แล้ว กดเริ่ม Session');
+        else showToast('Session 2 จะเปิดหลังผ่าน Session 1 อย่างน้อย 1 ดาว');
+      });
+    }
+
     renderAll();
     if(el('btnResults')){
   el('btnResults').addEventListener('click', () => {
@@ -2926,8 +3529,8 @@ loadProfileToForm();
 
 </script>
   <script src="./js/aiquest-ui-mode-v234.js"></script>
-  <script src="./js/aiquest-teacher-console-v242.js"></script>
-  <script src="./js/aiquest-student-detail-v242.js"></script>
-  <script src="./js/aiquest-production-v242.js"></script>
+  <script src="./js/aiquest-teacher-console-v250.js"></script>
+  <script src="./js/aiquest-student-detail-v250.js"></script>
+  <script src="./js/aiquest-production-v250.js"></script>
 </body>
 </html>
