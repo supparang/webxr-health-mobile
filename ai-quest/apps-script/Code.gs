@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.5.9
+ * Version: v2.6.0
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.5.9';
+const APP_VERSION = 'v2.6.0';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -337,7 +337,8 @@ function updateTeacherSummary() {
 function buildTeacherConsole_(params) {
   params = params || {};
   const sectionFilter = SECTION_LOCK;
-  const sessionFilter = String(params.sessionId || 's1').trim();
+  const sessionFilter = String(params.sessionId || 'all').trim();
+  const isAllSessions = !sessionFilter || sessionFilter === 'all' || sessionFilter === '*';
   const includeTest = String(params.includeTest || params.showTest || '') === '1';
 
   const rawProfiles = sheetObjects_(SHEETS.profiles);
@@ -361,8 +362,8 @@ function buildTeacherConsole_(params) {
     (rawAttemptsAll.length - attemptsAll.length) +
     (rawEventsAll.length - eventsAll.length);
   const filteredProfiles = profiles.filter(function(p){ return !sectionFilter || String(p.section || '') === sectionFilter; });
-  const attempts = attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter) && (!sessionFilter || String(a.sessionId || '') === sessionFilter); });
-  const events = eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter) && (!sessionFilter || String(e.sessionId || '') === sessionFilter); });
+  const attempts = attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter) && (isAllSessions || String(a.sessionId || '') === sessionFilter); });
+  const events = eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter) && (isAllSessions || String(e.sessionId || '') === sessionFilter); });
   const studentMap = {};
   filteredProfiles.forEach(function(p){
     const sid = String(p.studentId || '').trim();
@@ -466,8 +467,200 @@ function buildTeacherConsole_(params) {
     };
   });
 
-  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:allStudents, misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, students:students.length}};
+  const masteryGate = buildMasteryGate_(filteredProfiles, attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter); }), eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter); }));
+
+  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:allStudents, misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, masteryGate:masteryGate, students:students.length}};
 }
+
+
+function buildMasteryGate_(profiles, attempts, events) {
+  profiles = profiles || [];
+  attempts = attempts || [];
+  events = events || [];
+
+  const required = [
+    {sessionId:'s1', missionId:'m1', label:'S1 AI Awakening'},
+    {sessionId:'s2', missionId:'m2', label:'S2 Agent Builder'},
+    {sessionId:'b1', missionId:'b1', label:'B1 Rookie Boss'}
+  ];
+
+  const studentMap = {};
+  profiles.forEach(function(p){
+    const sid = String(p.studentId || '').trim();
+    if (!sid) return;
+    studentMap[sid] = {
+      studentId:sid,
+      studentName:String(p.studentName || ''),
+      section:String(p.section || ''),
+      sessions:{},
+      ready:false,
+      challenge:false,
+      risks:[]
+    };
+  });
+
+  attempts.forEach(function(a){
+    const sid = String(a.studentId || '').trim();
+    if (!sid) return;
+    if (!studentMap[sid]) {
+      studentMap[sid] = {
+        studentId:sid,
+        studentName:String(a.studentName || ''),
+        section:String(a.section || ''),
+        sessions:{},
+        ready:false,
+        challenge:false,
+        risks:['ไม่มี Profile']
+      };
+    }
+
+    const sessionId = String(a.sessionId || '').trim();
+    if (!sessionId) return;
+
+    const score = Number(a.score || 0);
+    const stars = Number(a.stars || 0);
+    const mastered = bool_(a.mastered);
+    const bossWin = bool_(a.bossWin);
+    const helpUsed = Number(a.helpUsed || 0);
+    const reflectionOk = reflectionComplete_(a);
+
+    const s = studentMap[sid];
+    const cur = s.sessions[sessionId] || {
+      sessionId:sessionId,
+      attempts:0,
+      bestScore:0,
+      latestScore:0,
+      stars:0,
+      mastered:false,
+      bossWin:false,
+      helpUsed:0,
+      reflectionComplete:false,
+      passed:false
+    };
+
+    cur.attempts += 1;
+    cur.bestScore = Math.max(Number(cur.bestScore || 0), score);
+    cur.latestScore = score;
+    cur.stars = Math.max(Number(cur.stars || 0), stars);
+    cur.mastered = cur.mastered || mastered;
+    cur.bossWin = cur.bossWin || bossWin;
+    cur.helpUsed = helpUsed;
+    cur.reflectionComplete = cur.reflectionComplete || reflectionOk;
+    cur.passed = cur.passed || mastered || stars >= 1 || score >= 60 || (sessionId === 'b1' && bossWin);
+
+    s.sessions[sessionId] = cur;
+    s.studentName = s.studentName || String(a.studentName || '');
+    s.section = s.section || String(a.section || '');
+  });
+
+  const students = Object.values(studentMap);
+  const stageProgress = required.map(function(req){
+    let submitted = 0, passed = 0, mastery = 0, scoreSum = 0;
+    students.forEach(function(st){
+      const ss = st.sessions[req.sessionId];
+      if (ss && ss.attempts > 0) {
+        submitted++;
+        scoreSum += Number(ss.bestScore || 0);
+        if (ss.passed) passed++;
+        if (ss.mastered) mastery++;
+      }
+    });
+    return {
+      sessionId:req.sessionId,
+      label:req.label,
+      submitted:submitted,
+      passed:passed,
+      mastery:mastery,
+      avgBest:round2_(scoreSum / Math.max(1, submitted))
+    };
+  });
+
+  let readyForS3 = 0, challengeReady = 0, needS1 = 0, needS2 = 0, needB1 = 0, remedial = 0;
+
+  const studentGateRows = students.map(function(st){
+    const s1 = st.sessions.s1 || {};
+    const s2 = st.sessions.s2 || {};
+    const b1 = st.sessions.b1 || {};
+
+    const passS1 = !!s1.passed;
+    const passS2 = !!s2.passed;
+    const passB1 = !!b1.passed;
+
+    const risks = [];
+    if (!passS1) risks.push('Need S1');
+    if (!passS2) risks.push('Need S2');
+    if (!passB1) risks.push('Need B1');
+    if (passS1 && passS2 && passB1 && (Number(b1.bestScore || 0) < 85 || !b1.mastered)) risks.push('B1 passed but not mastery');
+
+    if (!passS1) needS1++;
+    else if (!passS2) needS2++;
+    else if (!passB1) needB1++;
+
+    const ready = passS1 && passS2 && passB1;
+    const challenge = ready && Number(s1.bestScore || 0) >= 85 && Number(s2.bestScore || 0) >= 85 && Number(b1.bestScore || 0) >= 85 && !!b1.mastered;
+
+    if (ready) readyForS3++;
+    if (challenge) challengeReady++;
+    if (!ready) remedial++;
+
+    st.ready = ready;
+    st.challenge = challenge;
+    st.risks = (st.risks || []).concat(risks);
+
+    return {
+      studentId:st.studentId,
+      studentName:st.studentName,
+      section:st.section,
+      s1:{passed:passS1, bestScore:Number(s1.bestScore || 0), mastered:!!s1.mastered},
+      s2:{passed:passS2, bestScore:Number(s2.bestScore || 0), mastered:!!s2.mastered},
+      b1:{passed:passB1, bestScore:Number(b1.bestScore || 0), mastered:!!b1.mastered, bossWin:!!b1.bossWin},
+      readyForS3:ready,
+      challengeReady:challenge,
+      risks:risks
+    };
+  });
+
+  const misconceptions = collectMisconceptions_(attempts, events);
+  const topMis = misconceptions.slice(0, 8);
+  const readyPct = students.length ? Math.round(readyForS3 / students.length * 100) : 0;
+  const recommendations = [];
+
+  if (students.length === 0) {
+    recommendations.push('ยังไม่มีรายชื่อนักศึกษา/attempt สำหรับวิเคราะห์ Class Gate');
+  } else {
+    if (readyPct >= 70) {
+      recommendations.push('เปิด S3 Search Maze ได้ โดยใช้ 10 นาทีแรกทบทวน misconception เด่น');
+    } else if (readyPct >= 50) {
+      recommendations.push('เปิด S3 ได้แบบมี Remedial คู่ขนาน: ให้กลุ่มที่ยังไม่ผ่านทำ S2/B1 Training ก่อน');
+    } else {
+      recommendations.push('ยังไม่ควรเปิด S3 ทันที: ควรทำ remedial S1-S2-B1 ก่อนอย่างน้อย 15–25 นาที');
+    }
+
+    if (needB1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน B1 ทำ Rookie Boss ซ้ำจนได้อย่างน้อย 1 ดาว');
+    if (needS2 > 0) recommendations.push('ทบทวน Intelligent Agent / PEAS / Environment สำหรับผู้เรียนที่ยังไม่ผ่าน S2');
+    if (needS1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน S1 กลับไปเก็บ AI Overview ก่อนเข้าด่านต่อ');
+    if (topMis.length) recommendations.push('คาบถัดไปควรยกตัวอย่างซ้ำเรื่อง ' + topMis.slice(0,3).map(function(x){ return x.key; }).join(', '));
+  }
+
+  return {
+    requiredSessions:required,
+    totalStudents:students.length,
+    readyForS3:readyForS3,
+    readyPct:readyPct,
+    challengeReady:challengeReady,
+    remedial:remedial,
+    needS1:needS1,
+    needS2:needS2,
+    needB1:needB1,
+    stageProgress:stageProgress,
+    topMisconceptions:topMis,
+    recommendations:recommendations,
+    studentGateRows:studentGateRows.sort(function(a,b){
+      return String(a.studentId || '').localeCompare(String(b.studentId || ''));
+    })
+  };
+}
+
 
 function collectPhaseAnalytics_(events) {
   const map = {};
