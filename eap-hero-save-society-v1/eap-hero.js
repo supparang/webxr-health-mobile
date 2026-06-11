@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z35-reading-mission-coherence-ai-help-fix';
+  const APP_VERSION = '20260610-v1z36-reading-sessionid-scope-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z35</div>
+              <div class="mini-note">Save the Society • v1z36</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34683,6 +34683,12 @@
   }
 
 
+
+  function safeMissionSessionId(v){
+    return Number(v || state.currentSession || 1) || 1;
+  }
+
+
   function readingQuestionSetForSession(sessionId){
     const n = Number(sessionId || 1);
     if(n === 5){
@@ -34708,7 +34714,7 @@
 
 
   function renderReadingMission(id){
-    const readingQs = readingQuestionSetForSession(sessionId);
+    const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
 
     const s = getSession(id), text = pickMissionVariant(s.id, 'Reading');
     layout(`<section class="panel" style="margin-top:20px">
@@ -37368,6 +37374,7 @@
     openSkillMissionFromButton,
     bindHardButtonDelegation,
     openSkillMission,
+    safeMissionSessionId,
     bossGate:renderBossGate,
     startGateBoss,
     replayHub:renderReplayHub,
