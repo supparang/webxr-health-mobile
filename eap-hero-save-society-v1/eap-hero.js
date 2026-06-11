@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z31-student-map-clarity-polish';
+  const APP_VERSION = '20260610-v1z32-continue-button-binding-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31781,6 +31781,7 @@
   function layout(content){
     setTimeout(hardStudentOnlyUILock, 0);
     bindHardButtonDelegation();
+    bindContinueButtons();
     app.innerHTML = `
       <div class="shell">
         <div class="topbar">
@@ -31788,12 +31789,12 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z31</div>
+              <div class="mini-note">Save the Society • v1z32</div>
             </div>
           </div>
           <div class="top-actions">
             <button class="btn ghost small" onclick="EAPHero.map()">🗺️ Map</button>
-            <button class="btn ghost small" onclick="EAPHero.continueSession()">▶ Continue</button>
+            <button class="btn ghost small" data-action="continue-session" onclick="return EAPHero.continueFromButton(this)">▶ Continue</button>
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>':''}
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>':''}
@@ -32358,10 +32359,45 @@
     return 1;
   }
 
+
+  function continueFromButton(btn){
+    return continueSession();
+  }
+
+  function bindContinueButtons(){
+    if(window.__EAP_CONTINUE_BIND__) return;
+    window.__EAP_CONTINUE_BIND__ = true;
+    document.addEventListener('click', function(ev){
+      const btn = ev.target && ev.target.closest ? ev.target.closest('[data-action="continue-session"]') : null;
+      if(!btn) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      continueSession();
+    }, true);
+  }
+
+
   function continueSession(){
-    const current = Number(state.currentSession || 1);
-    const id = current && !isSessionLocked(current) ? current : nextPlayableSessionId();
-    renderSkillPath(id || 1);
+    try{
+      const current = Number(state.currentSession || 1);
+      let id = current;
+      if(!id || (typeof isSessionLocked === 'function' && isSessionLocked(id))){
+        id = nextPlayableSessionId ? nextPlayableSessionId() : 1;
+      }
+      if(!id) id = 1;
+      state.currentSession = id;
+      saveState();
+      if(typeof renderSkillPath === 'function'){
+        renderSkillPath(id);
+      }else if(typeof renderMap === 'function'){
+        renderMap();
+      }
+    }catch(err){
+      console.error('[EAP continueSession]', err);
+      alert('Continue could not open. Going to Map.');
+      renderMap();
+    }
+    return false;
   }
 
   function studentMapHelpHTML(){
@@ -32370,7 +32406,7 @@
       <span>กด Continue Session เพื่อเล่นต่อ หรือเลือก Session ที่ยังไม่ล็อกบนแผนที่</span>
     </div>
     <div class="footer-actions student-map-actions">
-      <button class="btn primary" onclick="EAPHero.continueSession()">Continue Session</button>
+      <button class="btn primary" data-action="continue-session" onclick="return EAPHero.continueFromButton(this)">Continue Session</button>
       <button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
     </div>`;
   }
@@ -37112,6 +37148,8 @@
     profile:renderProfile,
     saveProfile,
     map:renderMap,
+    bindContinueButtons,
+    continueFromButton,
     continueSession,
     sessionBrief:renderSessionBrief,
     startLab:renderLab,
@@ -37251,5 +37289,9 @@
   };
   window.EAPHeroOpenSkillMissionFromButton = function(btn){
     return openSkillMissionFromButton(btn);
+  };
+
+  window.EAPHeroContinueSession = function(){
+    return continueSession();
   };
 })();

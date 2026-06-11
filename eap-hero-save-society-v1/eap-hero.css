@@ -1155,3 +1155,21 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   color:#cbd5e1;
   font-weight:800;
 }
+
+
+/* === v1z32 Continue Button Binding Fix === */
+button[data-action="continue-session"]{
+  pointer-events:auto !important;
+  cursor:pointer !important;
+  position:relative;
+  z-index:20;
+}
+.true-student-lock button[data-action="continue-session"],
+.student-only-mode button[data-action="continue-session"]{
+  display:inline-flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  pointer-events:auto !important;
+  width:auto !important;
+  height:auto !important;
+}
