@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z17-hard-button-binding-fix';
+  const APP_VERSION = '20260610-v1z18-mission-id-scope-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z17</div>
+              <div class="mini-note">Save the Society • v1z18</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33750,7 +33750,7 @@
           <span class="pill">Scaffold only</span>
         </div>
         <p class="mini-note">AI Help ครั้งที่ 1 ให้ strategy hint; ครั้งที่ 2 อ่าน draft/notes/transcript ที่พิมพ์อยู่ แล้วให้ feedback + response frame</p>
-        <button class="btn ai-mentor-btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingTranscript' : ''}', '${aiOutputId(skill, sessionId)}')">${aiHelpButtonLabel('Reading', id)}</button>
+        <button class="btn ai-mentor-btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingTranscript' : ''}', '${aiOutputId(skill, sessionId)}')">${aiHelpButtonLabel('Reading', s.id)}</button>
         <div id="${aiOutputId(skill, sessionId)}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
       </div>`;
   }
