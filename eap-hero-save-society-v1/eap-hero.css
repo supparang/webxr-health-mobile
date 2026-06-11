@@ -1030,3 +1030,8 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .panel .table-wrap table th{
   line-height:1.5;
 }
+
+/* === v1z27 Research Dataset Export === */
+.research-export-card{margin:16px 0;padding:16px;border-radius:20px;background:#ffffff;color:#0f172a;border:2px solid #bfdbfe;box-shadow:0 16px 34px rgba(15,23,42,.12)}
+.research-export-card h3{color:#0f172a;font-weight:900;margin:0 0 8px}
+.research-export-card p{color:#334155;font-weight:800;line-height:1.65;margin:0}

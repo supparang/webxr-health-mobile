@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z26-prepost-contrast-research-polish';
+  const APP_VERSION = '20260610-v1z27-research-dataset-export';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z26</div>
+              <div class="mini-note">Save the Society • v1z27</div>
             </div>
           </div>
           <div class="top-actions">
@@ -31797,6 +31797,7 @@
             <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
             <button class="btn ghost small" onclick="EAPHero.renderStudentReports()">📘 Report</button>
             <button class="btn ghost small" onclick="EAPHero.prepostPanel()">📈 Gain</button>
+            <button class="btn ghost small" onclick="EAPHero.researchDataset()">🧪 Research</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
             <button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>
@@ -32141,7 +32142,7 @@
           </p>
           <div class="footer-actions">
             <button class="btn primary" onclick="EAPHero.profile()">เริ่ม / ตั้งค่า Player</button>
-            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
+            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button><button class="btn" onclick="EAPHero.researchDataset()">Research Dataset</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
             <button class="btn ghost" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
           </div>
           <div class="home-report-help">
@@ -35366,6 +35367,84 @@
 
 
 
+
+  function researchPrePostForStudent(){
+    const attempts = (prepostState ? prepostState().attempts : []) || [];
+    const pre = attempts.slice().reverse().find(a=>a.type==='pre') || null;
+    const post = attempts.slice().reverse().find(a=>a.type==='post') || null;
+    const preScore = pre ? Number(pre.score||0) : '';
+    const postScore = post ? Number(post.score||0) : '';
+    const rawGain = pre && post ? postScore - preScore : '';
+    const normalizedGain = pre && post ? Math.round((rawGain / Math.max(1,100-preScore)) * 100) : '';
+    return {pre,post,preScore,postScore,rawGain,normalizedGain};
+  }
+  function researchReflectionForSession(session){
+    const refs = (prepostState ? prepostState().reflections : []) || [];
+    return refs.slice().reverse().find(r=>String(r.session||'')===String(session||'')) || refs.slice().reverse()[0] || {};
+  }
+  function researchReportForPortfolio(index,p){
+    const reports = state.learningReports || [];
+    return reports.find(r=>Number(r.portfolioIndex)===Number(index)) ||
+      reports.slice().reverse().find(r=>String(r.skill)===String(p.skill) && String(r.session)===String(p.session)) || {};
+  }
+  function researchRubricForPortfolio(index){
+    return (state.rubricReviews || []).find(r=>Number(r.portfolioIndex)===Number(index)) || {};
+  }
+  function researchAIUses(session, skill){
+    const logs = state.ai?.logs || state.aiHelpLogs || [];
+    return logs.filter(l=>String(l.session)===String(session) && String(l.skill)===String(skill)).length;
+  }
+  function researchDatasetRows(){
+    const pp = researchPrePostForStudent();
+    const header = ['student_id','player_name','session','skill','difficulty','auto_score','report_band','cefr_target','ai_uses','speaking_seconds','portfolio_output','report_did_well','report_next_step','report_try_frame','pre_score','post_score','raw_gain','normalized_gain','reflection_learned','reflection_difficult','reflection_improve','rubric_score','rubric_status','teacher_feedback','created_at'];
+    const rows = [header];
+    (state.portfolio || []).forEach((p,index)=>{
+      const report = researchReportForPortfolio(index,p);
+      const rubric = researchRubricForPortfolio(index);
+      const ref = researchReflectionForSession(p.session);
+      rows.push([
+        p.student_id || p.player_id || state.profile?.studentId || 'guest',
+        p.player_name || state.profile?.name || 'Guest',
+        p.session || '', p.skill || '', p.difficulty || state.settings?.skillDifficulty || '',
+        p.score ?? '', report.band || '', report.cefrTarget || '',
+        p.aiUses ?? researchAIUses(p.session,p.skill), p.speakingSeconds || '',
+        p.output || '', report.didWell || '', report.nextStep || '', report.tryFrame || '',
+        pp.preScore, pp.postScore, pp.rawGain, pp.normalizedGain,
+        ref.learned || '', ref.difficult || '', ref.improve || '',
+        rubric.total || rubric.score || '', rubric.status || '', rubric.feedback || rubric.comment || '',
+        p.at || p.createdAt || ''
+      ]);
+    });
+    if(rows.length===1){
+      rows.push([state.profile?.studentId || 'guest', state.profile?.name || 'Guest','','',state.settings?.skillDifficulty||'','','','','','','','','','',pp.preScore,pp.postScore,pp.rawGain,pp.normalizedGain,'','','','','','',new Date().toISOString()]);
+    }
+    return rows;
+  }
+  function exportResearchDatasetCSV(){
+    const csv = researchDatasetRows().map(row=>row.map(csvCell).join(',')).join('\n');
+    downloadCSVBlob('eap-research-dataset.csv', csv);
+  }
+  function renderResearchDatasetPanel(){
+    setView('researchDataset');
+    const rows = researchDatasetRows();
+    const pp = researchPrePostForStudent();
+    const portfolioCount = (state.portfolio || []).length;
+    const reportCount = (state.learningReports || []).length;
+    const rubricCount = (state.rubricReviews || []).length;
+    const reflectionCount = prepostState ? (prepostState().reflections || []).length : 0;
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Research Dataset</span><span class="pill">CSV Export</span><span class="pill">Pilot-ready</span></div>
+      <h2>Research Dataset Export</h2>
+      <p class="lead">รวมข้อมูลสำคัญจาก Portfolio, Learning Report, Pre/Post, Reflection, AI Help และ Teacher Rubric เป็น CSV เดียว</p>
+      <div class="grid four"><div class="stat"><b>${portfolioCount}</b><span>Portfolio</span></div><div class="stat"><b>${reportCount}</b><span>Learning Reports</span></div><div class="stat"><b>${rubricCount}</b><span>Rubric Reviews</span></div><div class="stat"><b>${reflectionCount}</b><span>Reflections</span></div></div>
+      <div class="grid four" style="margin-top:12px"><div class="stat"><b>${pp.preScore===''?'-':pp.preScore}</b><span>Pre-score</span></div><div class="stat"><b>${pp.postScore===''?'-':pp.postScore}</b><span>Post-score</span></div><div class="stat"><b>${pp.rawGain===''?'-':(pp.rawGain>=0?'+':'')+pp.rawGain}</b><span>Raw gain</span></div><div class="stat"><b>${pp.normalizedGain===''?'-':pp.normalizedGain+'%'}</b><span>Normalized gain</span></div></div>
+      <div class="research-export-card"><h3>Included fields</h3><p>student, session, skill, difficulty, auto score, report band, CEFR target, AI uses, speaking seconds, portfolio output, next-step feedback, pre/post scores, learning gain, reflection, rubric score, teacher feedback, timestamp</p></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.exportResearchDatasetCSV()">Export Research Dataset CSV</button><button class="btn" onclick="EAPHero.exportPrePostCSV()">Export Pre/Post CSV</button><button class="btn" onclick="EAPHero.exportReflectionCSV()">Export Reflection CSV</button><button class="btn" onclick="EAPHero.reviewQueue()">Teacher Review Queue</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
+      <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Rows</th><th>Student</th><th>Pre</th><th>Post</th><th>Gain</th><th>Ready?</th></tr></thead><tbody><tr><td>${rows.length-1}</td><td>${safe(state.profile?.name||'Guest')}</td><td>${safe(pp.preScore===''?'-':pp.preScore)}</td><td>${safe(pp.postScore===''?'-':pp.postScore)}</td><td>${safe(pp.rawGain===''?'-':pp.rawGain)}</td><td>${rows.length>1?'✅ Exportable':'⚠️ Add portfolio evidence first'}</td></tr></tbody></table></div>
+    </section>`);
+  }
+
+
   const PREPOST_ITEMS = [
     {id:'pp01', skill:'Reading', q:'What is the main idea of a short academic text?', choices:['One small example','The most important message','The longest word','The author name'], answer:1},
     {id:'pp02', skill:'Reading', q:'Which word is a signal word for contrast?', choices:['however','first','also','because'], answer:0},
@@ -35462,6 +35541,7 @@
     checks.push({name:'AI Help logs', ok:true, detail:`${(state.aiHelpLogs || []).length} log(s)`});
     checks.push({name:'Student learning reports', ok:typeof renderStudentReports === 'function', detail:`${(state.learningReports || []).length} report(s)`});
     checks.push({name:'Pre/Post module', ok:typeof renderPrePostPanel === 'function', detail:`${(state.prepost?.attempts || []).length} attempt(s)`});
+    checks.push({name:'Research dataset export', ok:typeof exportResearchDatasetCSV === 'function', detail:`${(state.portfolio || []).length} row source(s)`});
     return checks;
   }
 
@@ -36942,6 +37022,8 @@
     refreshReviewQueueTable,
     pilotReadiness:renderPilotReadiness,
     renderStudentReports,
+    researchDataset:renderResearchDatasetPanel,
+    exportResearchDatasetCSV,
     prepostPanel:renderPrePostPanel,
     preTest:function(){renderPrePostTest('pre')},
     postTest:function(){renderPrePostTest('post')},
