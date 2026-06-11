@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.5.6 S2 Learning Feedback</title>
+  <title>CSAI2102: AI Quest v2.5.7 Teacher Mode Clean</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -914,7 +914,7 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v256.js"></script>
+  <script src="./js/mission2-agent-bank-v257.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -926,7 +926,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.5.6 • S2 Learning Feedback + Phase Analytics • Section 101</div>
+          <div class="subtitle">v2.5.7 • Teacher Mode Clean + Student Roadmap • Section 101</div>
         </div>
       </div>
 
@@ -1769,8 +1769,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v256.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v256.js</b>
+            โหลดไฟล์ mission2-agent-bank-v257.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v257.js</b>
           </div>
         `;
         return;
@@ -2430,7 +2430,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v2.5.6-session2-learning-feedback',
+          version:'v2.5.7-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3942,10 +3942,10 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v256.js"></script>
-  <script src="./js/aiquest-teacher-console-v256.js"></script>
-  <script src="./js/aiquest-student-detail-v256.js"></script>
-  <script src="./js/aiquest-production-v256.js"></script>
-  <script src="./js/aiquest-session-roadmap-v256.js"></script>
+  <script src="./js/aiquest-ui-mode-v257.js"></script>
+  <script src="./js/aiquest-teacher-console-v257.js"></script>
+  <script src="./js/aiquest-student-detail-v257.js"></script>
+  <script src="./js/aiquest-production-v257.js"></script>
+  <script src="./js/aiquest-session-roadmap-v257.js"></script>
 </body>
 </html>
