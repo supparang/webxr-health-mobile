@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.5.0 Session 2 Full Gameplay</title>
+  <title>CSAI2102: AI Quest v2.5.1 Session 2 Direct Start</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -894,7 +894,7 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v250.js"></script>
+  <script src="./js/mission2-agent-bank-v251.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -906,7 +906,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.5.0 • Session 2 Full Gameplay • Section 101</div>
+          <div class="subtitle">v2.5.1 • Session 2 Direct Start • Section 101</div>
         </div>
       </div>
 
@@ -1579,7 +1579,7 @@ async function saveStudentProfile(){
 
         <div class="row" style="margin-top:14px">
           <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed)) ? 'disabled' : ''}>
-            เริ่ม Session
+            ${stage.id === 'm2' ? 'เริ่ม Session 2' : 'เริ่ม Session'}
           </button>
           <button class="btn secondary" id="reviewSelected">ดูสถานะ</button>
         </div>
@@ -1737,8 +1737,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v250.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v250.js</b>
+            โหลดไฟล์ mission2-agent-bank-v251.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v251.js</b>
           </div>
         `;
         return;
@@ -3445,13 +3445,52 @@ function logEvent(data){
         selectedStageId = 'm2';
         renderAll();
         renderDetail('m2');
-        switchScreen('menuScreen');
-        if(isUnlocked(stageById('m2'))) showToast('เลือก Session 2: Agent Builder แล้ว กดเริ่ม Session');
-        else showToast('Session 2 จะเปิดหลังผ่าน Session 1 อย่างน้อย 1 ดาว');
+
+        const m2 = stageById('m2');
+
+        if(window.AIQuestStorage && !AIQuestStorage.isProfileReady()){
+          switchScreen('menuScreen');
+          document.getElementById('profilePanel')?.scrollIntoView({behavior:'smooth', block:'center'});
+          showToast('กรุณากรอก Student Profile ก่อนเข้า Session 2');
+          return;
+        }
+
+        if(!m2 || !m2.playable){
+          switchScreen('menuScreen');
+          showToast('Session 2 ยังไม่พร้อม');
+          return;
+        }
+
+        if(!isUnlocked(m2)){
+          switchScreen('menuScreen');
+          document.getElementById('detailPanel')?.scrollIntoView({behavior:'smooth', block:'center'});
+          showToast('Session 2 จะเปิดหลังผ่าน Session 1 อย่างน้อย 1 ดาว');
+          return;
+        }
+
+        showToast('เข้าสู่ Session 2: Agent Builder');
+        startMission('m2');
       });
     }
 
     renderAll();
+
+    const initialParams = new URLSearchParams(location.search);
+    if(initialParams.get('session') === 's2' || initialParams.get('mission') === 'm2'){
+      setTimeout(() => {
+        if(isUnlocked(stageById('m2'))){
+          selectedStageId = 'm2';
+          renderAll();
+          startMission('m2');
+        }else{
+          selectedStageId = 'm2';
+          renderAll();
+          renderDetail('m2');
+          showToast('Session 2 จะเปิดหลังผ่าน Session 1 อย่างน้อย 1 ดาว');
+        }
+      }, 300);
+    }
+
     if(el('btnResults')){
   el('btnResults').addEventListener('click', () => {
     location.href = './results.html';
@@ -3529,8 +3568,8 @@ loadProfileToForm();
 
 </script>
   <script src="./js/aiquest-ui-mode-v234.js"></script>
-  <script src="./js/aiquest-teacher-console-v250.js"></script>
-  <script src="./js/aiquest-student-detail-v250.js"></script>
-  <script src="./js/aiquest-production-v250.js"></script>
+  <script src="./js/aiquest-teacher-console-v251.js"></script>
+  <script src="./js/aiquest-student-detail-v251.js"></script>
+  <script src="./js/aiquest-production-v251.js"></script>
 </body>
 </html>
