@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z34-session-quality-audit-a2-b1-balance';
+  const APP_VERSION = '20260610-v1z35-reading-mission-coherence-ai-help-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z34</div>
+              <div class="mini-note">Save the Society • v1z35</div>
             </div>
           </div>
           <div class="top-actions">
@@ -31812,6 +31812,7 @@
       </div>
     `;
     runTrueStudentUILockSoon();
+    runAIHelpRepairSoon();
 
   }
 
@@ -34083,7 +34084,36 @@
     };
   }
 
-    function renderAIHelpBox(skill, sessionId){
+  
+  function aiHelpRuntimeState(skill, sessionId){
+    const limit = aiLimitFor(skill, sessionId);
+    const used = aiUsesFor(skill, sessionId);
+    const left = Math.max(0, Number(limit || 0) - Number(used || 0));
+    return {limit, used, left, allowed:left > 0};
+  }
+
+  function repairAIHelpBoxes(){
+    document.querySelectorAll('[id^="aiOut"], .ai-output, .ai-help-output').forEach(el=>{
+      const txt = (el.textContent || '').trim();
+      if(/limit reached/i.test(txt)){
+        const near = el.closest('.panel,.card,.ai-box,section,div') || document;
+        const leftText = (near.textContent || '').match(/(\d+)\/(\d+)\s*left/i);
+        if(leftText && Number(leftText[1]) > 0){
+          el.textContent = 'AI Mentor is ready. Click Ask AI Mentor to get a hint.';
+          el.classList.add('ai-ready-text');
+        }
+      }
+    });
+  }
+
+  function runAIHelpRepairSoon(){
+    repairAIHelpBoxes();
+    setTimeout(repairAIHelpBoxes, 0);
+    setTimeout(repairAIHelpBoxes, 120);
+  }
+
+
+  function renderAIHelpBox(skill, sessionId){
     sessionId = Number(sessionId || 1);
     const uses = aiUsesFor(sessionId, skill);
     const limit = adaptiveAIHelpLimit(skill);
@@ -34208,7 +34238,7 @@
         { id:'comparison-evidence', q:['What comparison is made?','What evidence supports the comparison?','Is the comparison fair? Why?'] },
         { id:'cause-evidence', q:['What cause is claimed?','What evidence supports the cause?','What alternative cause is possible?'] },
         { id:'effect-evidence', q:['What effect is described?','What evidence supports the effect?','What effect is not supported?'] },
-        { id:'quote-read', q:['Which phrase could be quoted?','Why is the wording worth quoting?','How should it be cited or introduced?'] },
+        { id:'quote-read', q:['What is the main idea?','Which words show bias or emotion?','What evidence supports your answer?'] },
         { id:'data-read', q:['What data point is most important?','What trend does the data suggest?','What conclusion goes beyond the data?'] },
         { id:'visual-read', q:['If this passage became a chart, what would the chart show?','What label would be needed?','What data would still be missing?'] },
         { id:'ethics-read', q:['What ethical issue appears in the passage?','What responsible action is suggested?','What risk should be avoided?'] },
@@ -34652,7 +34682,34 @@
     return rows || '<tr><td colspan="5">No portfolio evidence yet</td></tr>';
   }
 
+
+  function readingQuestionSetForSession(sessionId){
+    const n = Number(sessionId || 1);
+    if(n === 5){
+      return [
+        'What is the main idea?',
+        'Which words show bias or emotion?',
+        'What evidence supports your answer?'
+      ];
+    }
+    if(n === 12){
+      return [
+        'What information needs a citation?',
+        'How can you write it in your own words?',
+        'How should you mention the source or AI help?'
+      ];
+    }
+    return [
+      'What is the main idea?',
+      'Choose 1–2 keywords.',
+      'Write one support detail.'
+    ];
+  }
+
+
   function renderReadingMission(id){
+    const readingQs = readingQuestionSetForSession(sessionId);
+
     const s = getSession(id), text = pickMissionVariant(s.id, 'Reading');
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>

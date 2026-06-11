@@ -1255,3 +1255,42 @@ button[data-action="continue-session"]{
 .quality-summary-note b{
   color:#9a3412;
 }
+
+
+/* === v1z35 Reading Mission Coherence + AI Help State Fix === */
+.ai-output,
+.ai-help-output,
+[id^="aiOut"],
+.ai-ready-text{
+  color:#0f172a !important;
+  font-weight:850 !important;
+  opacity:1 !important;
+}
+.ai-output:empty,
+.ai-help-output:empty,
+[id^="aiOut"]:empty{
+  min-height:44px;
+}
+.ai-output,
+.ai-help-output,
+[id^="aiOut"]{
+  background:linear-gradient(135deg,#ecfeff,#f0fdf4) !important;
+  border:1px solid #99f6e4 !important;
+  border-radius:18px !important;
+  padding:12px 14px !important;
+}
+.ai-output .muted,
+.ai-help-output .muted,
+[id^="aiOut"] .muted{
+  color:#334155 !important;
+  opacity:1 !important;
+}
+textarea{
+  color:#0f172a !important;
+  font-weight:650;
+}
+.mission-question,
+.question-label{
+  color:#e7f7ff !important;
+  font-weight:900 !important;
+}
