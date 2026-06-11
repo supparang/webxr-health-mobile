@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z23-speaking-speech-to-text-input';
+  const APP_VERSION = '20260610-v1z24-listening-ai-voice-lab-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z23</div>
+              <div class="mini-note">Save the Society • v1z24</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34422,15 +34422,260 @@
     showSkillResult('Writing', score, id);
   }
 
+
+  let listeningVoiceState = {
+    utterance:null,
+    chunks:[],
+    index:0,
+    playing:false,
+    paused:false,
+    selectedVoiceName:'',
+    rate:0.88,
+    pitch:1.02,
+    accent:'en-US'
+  };
+
+  function getBestEnglishVoice(accent){
+    const voices = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
+    const lang = accent || listeningVoiceState.accent || 'en-US';
+    const preferredNames = [
+      'Google US English','Google UK English Female','Google UK English Male',
+      'Microsoft Jenny','Microsoft Aria','Microsoft Guy','Microsoft Sonia','Microsoft Ryan',
+      'Samantha','Alex','Daniel','Karen','Moira'
+    ];
+    let candidates = voices.filter(v => String(v.lang || '').toLowerCase().startsWith(String(lang).toLowerCase().slice(0,2)));
+    if(lang) candidates = candidates.sort((a,b)=>{
+      const exactA = a.lang === lang ? 1 : 0;
+      const exactB = b.lang === lang ? 1 : 0;
+      return exactB - exactA;
+    });
+    for(const name of preferredNames){
+      const found = candidates.find(v => String(v.name || '').toLowerCase().includes(name.toLowerCase()));
+      if(found) return found;
+    }
+    return candidates[0] || voices.find(v=>String(v.lang||'').startsWith('en')) || voices[0] || null;
+  }
+
+  function sentenceChunks(text){
+    const clean = String(text || '').replace(/\s+/g,' ').trim();
+    if(!clean) return [];
+    const parts = clean.match(/[^.!?]+[.!?]*/g) || [clean];
+    const chunks = [];
+    let buf = '';
+    parts.forEach(p=>{
+      const next = (buf + ' ' + p.trim()).trim();
+      if(next.split(/\s+/).length > 18 && buf){
+        chunks.push(buf);
+        buf = p.trim();
+      }else{
+        buf = next;
+      }
+    });
+    if(buf) chunks.push(buf);
+    return chunks;
+  }
+
+  function renderVoiceOptions(){
+    setTimeout(populateVoiceSelect, 100);
+    if(speechSynthesis && speechSynthesis.onvoiceschanged !== undefined){
+      speechSynthesis.onvoiceschanged = populateVoiceSelect;
+    }
+  }
+
+  function populateVoiceSelect(){
+    const sel = document.getElementById('voiceSelect');
+    if(!sel || !window.speechSynthesis) return;
+    const voices = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
+    const english = voices.filter(v=>String(v.lang||'').toLowerCase().startsWith('en'));
+    const best = getBestEnglishVoice(document.getElementById('voiceAccent')?.value || 'en-US');
+    const current = sel.value || listeningVoiceState.selectedVoiceName || best?.name || '';
+    sel.innerHTML = english.map(v=>`<option value="${safeAttr(v.name)}">${safe(v.name)} (${safe(v.lang)})${v.default?' • default':''}</option>`).join('') || '<option value="">Default browser voice</option>';
+    if(current) sel.value = current;
+    listeningVoiceState.selectedVoiceName = sel.value || best?.name || '';
+    updateVoiceQualityLabel();
+  }
+
+  function selectedListeningVoice(){
+    const voices = speechSynthesis.getVoices ? speechSynthesis.getVoices() : [];
+    const name = document.getElementById('voiceSelect')?.value || listeningVoiceState.selectedVoiceName;
+    const accent = document.getElementById('voiceAccent')?.value || listeningVoiceState.accent || 'en-US';
+    return voices.find(v=>v.name===name) || getBestEnglishVoice(accent);
+  }
+
+  function updateVoiceQualityLabel(){
+    const box = document.getElementById('voiceQualityLabel');
+    if(!box) return;
+    const v = selectedListeningVoice();
+    if(!v){
+      box.textContent = 'Voice: browser default';
+      return;
+    }
+    const local = v.localService ? 'local' : 'network/cloud';
+    box.textContent = `Voice: ${v.name} • ${v.lang} • ${local}`;
+  }
+
+  function updateListeningStatus(msg, type='info'){
+    const box = document.getElementById('listeningVoiceStatus');
+    if(box){
+      box.className = `listening-voice-status ${type}`;
+      box.textContent = msg;
+    }else{
+      safeToast(msg);
+    }
+  }
+
+  function highlightListeningChunk(i){
+    document.querySelectorAll('.lecture-chunk').forEach((el,idx)=>{
+      el.classList.toggle('active', idx === i);
+      el.classList.toggle('done', idx < i);
+    });
+  }
+
+  function getLectureText(){
+    return document.getElementById('listeningPromptText')?.value ||
+      document.getElementById('lectureText')?.dataset?.lecture ||
+      document.getElementById('lectureText')?.textContent || '';
+  }
+
+  function applyVoiceControls(){
+    listeningVoiceState.rate = Number(document.getElementById('voiceRate')?.value || 0.88);
+    listeningVoiceState.pitch = Number(document.getElementById('voicePitch')?.value || 1.02);
+    listeningVoiceState.accent = document.getElementById('voiceAccent')?.value || 'en-US';
+    listeningVoiceState.selectedVoiceName = document.getElementById('voiceSelect')?.value || '';
+    updateVoiceQualityLabel();
+  }
+
+  function playLectureChunk(index=0){
+    if(!window.speechSynthesis){
+      updateListeningStatus('Speech synthesis is not supported in this browser.', 'warn');
+      return;
+    }
+    applyVoiceControls();
+    const text = getLectureText();
+    listeningVoiceState.chunks = sentenceChunks(text);
+    if(!listeningVoiceState.chunks.length){
+      updateListeningStatus('No lecture text found.', 'warn');
+      return;
+    }
+    if(index >= listeningVoiceState.chunks.length){
+      listeningVoiceState.playing = false;
+      listeningVoiceState.paused = false;
+      highlightListeningChunk(-1);
+      updateListeningStatus('Lecture finished. Now write your notes: main point, keywords, and one detail.', 'done');
+      return;
+    }
+    listeningVoiceState.index = index;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(listeningVoiceState.chunks[index]);
+    const voice = selectedListeningVoice();
+    if(voice) u.voice = voice;
+    u.lang = voice?.lang || listeningVoiceState.accent || 'en-US';
+    u.rate = listeningVoiceState.rate;
+    u.pitch = listeningVoiceState.pitch;
+    u.volume = 1;
+    listeningVoiceState.utterance = u;
+    listeningVoiceState.playing = true;
+    listeningVoiceState.paused = false;
+    highlightListeningChunk(index);
+    updateListeningStatus(`Playing chunk ${index+1}/${listeningVoiceState.chunks.length}`, 'live');
+    u.onend = () => {
+      if(listeningVoiceState.playing){
+        playLectureChunk(index + 1);
+      }
+    };
+    u.onerror = (e) => {
+      listeningVoiceState.playing = false;
+      updateListeningStatus(`Voice error: ${e.error || 'unknown'}. Try another voice/accent.`, 'warn');
+    };
+    speechSynthesis.speak(u);
+  }
+
+  function playLecture(){
+    playLectureChunk(0);
+  }
+
+  function pauseLecture(){
+    if(window.speechSynthesis && speechSynthesis.speaking && !speechSynthesis.paused){
+      speechSynthesis.pause();
+      listeningVoiceState.paused = true;
+      updateListeningStatus('Paused. Press Resume to continue.', 'info');
+    }
+  }
+
+  function resumeLecture(){
+    if(window.speechSynthesis && speechSynthesis.paused){
+      speechSynthesis.resume();
+      listeningVoiceState.paused = false;
+      updateListeningStatus(`Resumed chunk ${listeningVoiceState.index+1}/${listeningVoiceState.chunks.length}`, 'live');
+    }
+  }
+
+  function replayCurrentChunk(){
+    playLectureChunk(listeningVoiceState.index || 0);
+  }
+
+  function playSlowMode(){
+    const rate = document.getElementById('voiceRate');
+    if(rate) rate.value = '0.72';
+    playLectureChunk(0);
+  }
+
+  function stopLecture(){
+    if(window.speechSynthesis) speechSynthesis.cancel();
+    listeningVoiceState.playing = false;
+    listeningVoiceState.paused = false;
+    highlightListeningChunk(-1);
+    updateListeningStatus('Stopped. You can replay the lecture or write notes.', 'info');
+  }
+
+
   function renderListeningMission(id){
     const s = getSession(id), text = pickMissionVariant(s.id, 'Listening');
     const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
-      <h2>🎧 Listening Mission</h2><div class="context" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
+      <h2>🎧 Listening Mission</h2>
+      <div class="ai-voice-lab">
+        <div class="badges"><span class="pill">🎧 AI Voice Lab</span><span class="pill">Best browser voice</span><span class="pill">A2-B1+ listening</span></div>
+        <div class="voice-control-grid">
+          <label>Accent
+            <select id="voiceAccent" class="input" onchange="EAPHero.populateVoiceSelect()">
+              <option value="en-US">US English</option>
+              <option value="en-GB">UK English</option>
+              <option value="en-AU">AU English</option>
+            </select>
+          </label>
+          <label>Voice
+            <select id="voiceSelect" class="input" onchange="EAPHero.updateVoiceQualityLabel()">
+              <option value="">Loading voices...</option>
+            </select>
+          </label>
+          <label>Speed
+            <input id="voiceRate" class="input" type="range" min="0.65" max="1.08" step="0.01" value="0.88" oninput="document.getElementById('voiceRateLabel').textContent=this.value">
+            <span id="voiceRateLabel" class="mini-note">0.88</span>
+          </label>
+          <label>Pitch
+            <input id="voicePitch" class="input" type="range" min="0.85" max="1.2" step="0.01" value="1.02" oninput="document.getElementById('voicePitchLabel').textContent=this.value">
+            <span id="voicePitchLabel" class="mini-note">1.02</span>
+          </label>
+        </div>
+        <div class="footer-actions">
+          <button type="button" class="btn primary" onclick="EAPHero.playLecture()">▶ Play AI Voice</button>
+          <button type="button" class="btn" onclick="EAPHero.pauseLecture()">⏸ Pause</button>
+          <button type="button" class="btn" onclick="EAPHero.resumeLecture()">▶ Resume</button>
+          <button type="button" class="btn" onclick="EAPHero.replayCurrentChunk()">🔁 Replay chunk</button>
+          <button type="button" class="btn" onclick="EAPHero.playSlowMode()">🐢 Slow mode</button>
+          <button type="button" class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button>
+        </div>
+        <div id="voiceQualityLabel" class="voice-quality-label">Voice: detecting...</div>
+        <div id="listeningVoiceStatus" class="listening-voice-status info">Choose Play AI Voice to listen. Transcript stays hidden until review.</div>
+      </div>
+      <div class="lecture-chunks">${sentenceChunks(lecture).map((c,i)=>`<div class="lecture-chunk"><b>${i+1}</b><span>${safe(c)}</span></div>`).join('')}</div>
+      <div class="context hidden-lecture-text" id="lectureText" data-lecture="${safeAttr(lecture)}">${safe(lecture)}</div>
+      <script>setTimeout(function(){ if(window.EAPHero && EAPHero.renderVoiceOptions) EAPHero.renderVoiceOptions(); }, 150);</script>
       <div class="footer-actions">
-        <button class="btn primary" onclick="EAPHero.playLecture()">▶️ Play Lecture</button>
-        <button class="btn ghost" onclick="EAPHero.stopLecture()">⏹ Stop</button>
+        
+        
         <button class="btn warn" onclick="EAPHero.showTranscriptHint(${s.id})">👁 Transcript Hint</button>
       </div>
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
@@ -34513,16 +34758,8 @@
   }
 
 
-  function playLecture(){
-    const el = document.getElementById('lectureText');
-    const text = el?.dataset?.lecture || el?.textContent || '';
-    if(!('speechSynthesis' in window)) return alert('Browser นี้ไม่รองรับ speech synthesis ค่ะ');
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text); utter.lang = 'en-US'; utter.rate = .9;
-    window.speechSynthesis.speak(utter);
-  }
-  function stopLecture(){ if('speechSynthesis' in window) window.speechSynthesis.cancel(); }
-
+  
+  
   function submitListening(id){
     const s = getSession(id), notes = document.getElementById('listeningNotes')?.value.trim() || '';
     const low = notes.toLowerCase();
@@ -36566,6 +36803,12 @@
     aiDraftInputId,
     aiOutputId,
     exportAIHelpCSV,
+    pauseLecture,
+    resumeLecture,
+    replayCurrentChunk,
+    playSlowMode,
+    updateVoiceQualityLabel,
+    renderVoiceOptions,
     showTranscriptHint,
     showFullTranscript,
     exportListeningTranscriptCSV,
