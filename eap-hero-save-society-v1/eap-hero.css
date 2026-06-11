@@ -489,3 +489,15 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .guided-speaking-frame ol{margin:8px 0 0 20px;line-height:1.7}
 .cefr-review-badge{background:rgba(134,239,172,.16)!important;border:1px solid rgba(134,239,172,.30)}
 @media(max-width:800px){.cefr-steps,.vocab-grid{grid-template-columns:1fr}}
+
+
+/* === v1z12 Adaptive AI Help Limits === */
+.ai-help-limit-note{
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:14px;
+  background:rgba(168,85,247,.12);
+  border:1px solid rgba(216,180,254,.24);
+  color:#f4e8ff;
+  font-size:12px;
+}

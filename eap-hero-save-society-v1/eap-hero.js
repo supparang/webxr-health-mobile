@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z11-cefr-step-vocab-guided-speaking';
+  const APP_VERSION = '20260610-v1z12-adaptive-ai-help-limits';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31774,7 +31774,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z11</div>
+              <div class="mini-note">Save the Society • v1z12</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33672,7 +33672,7 @@
           <span class="pill">Scaffold only</span>
         </div>
         <p class="mini-note">AI Help ครั้งที่ 1 ให้ strategy hint; ครั้งที่ 2 อ่าน draft/notes/transcript ที่พิมพ์อยู่ แล้วให้ feedback + response frame</p>
-        <button class="btn ai-mentor-btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingTranscript' : ''}', '${aiOutputId(skill, sessionId)}')">Ask AI Mentor</button>
+        <button class="btn ai-mentor-btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingTranscript' : ''}', '${aiOutputId(skill, sessionId)}')">${aiHelpButtonLabel('Reading', id)}</button>
         <div id="${aiOutputId(skill, sessionId)}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
       </div>`;
   }
@@ -34698,14 +34698,66 @@
     </div>`;
   }
 
-  function aiPenaltyForSkillLevel(skill, sessionId){
-    const uses = aiUsesFor(sessionId, skill);
-    if(!uses) return 0;
-    const d = currentSkillDifficulty().key;
-    if(d === 'easy') return Math.max(0, uses - 1) * 2;
-    if(d === 'normal') return uses * 3;
+
+  function adaptiveAIHelpLimit(skill){
+    const d = currentSkillDifficulty().key || 'easy';
+    const s = String(skill || '').toLowerCase();
+
+    if(d === 'challenge') return 1;
+    if(d === 'hard') return 2;
+
+    if(d === 'easy'){
+      if(s === 'reading') return 2;
+      return 3;
+    }
+
+    // Normal B1
+    if(s === 'reading') return 2;
+    return 3;
+  }
+
+  function aiHelpButtonLabel(skill, sessionId){
+    const used = aiUsesFor(sessionId, skill);
+    const limit = adaptiveAIHelpLimit(skill);
+    const next = used < limit ? aiHelpStageLabel(used + 1, limit) : 'Limit reached';
+    return `Ask AI Mentor (${used}/${limit}) • ${next}`;
+  }
+
+  function adaptiveAIHelpLabel(skill){
+    const d = currentSkillDifficulty().key || 'easy';
+    const limit = adaptiveAIHelpLimit(skill);
+    if(d === 'challenge') return `${limit}/${limit} Challenge`;
+    if(d === 'hard') return `${limit}/${limit} Hard B1+`;
+    if(d === 'easy') return `${limit}/${limit} Easy A2`;
+    return `${limit}/${limit} Normal B1`;
+  }
+
+  function aiHelpStageLabel(useNo, limit){
+    if(limit >= 3){
+      if(useNo === 1) return 'Hint';
+      if(useNo === 2) return 'Draft feedback';
+      return 'Sentence frame / checklist';
+    }
+    if(limit === 2){
+      return useNo === 1 ? 'Hint' : 'Frame / checklist';
+    }
+    return 'One careful hint';
+  }
+
+  function adaptiveAIPenalty(uses, skill){
+    const d = currentSkillDifficulty().key || 'easy';
+    uses = Number(uses || 0);
+    if(uses <= 0) return 0;
+    if(d === 'easy') return Math.max(0, uses - 2) * 2;
+    if(d === 'normal') return Math.max(0, uses - 1) * 3;
     if(d === 'hard') return uses * 5;
     return uses * 8;
+  }
+
+
+  function aiPenaltyForSkillLevel(skill, sessionId){
+    const uses = aiUsesFor(sessionId, skill);
+    return adaptiveAIPenalty(uses, skill);
   }
 
 
@@ -34831,7 +34883,8 @@
         <div class="badges"><span class="pill">v1z2</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: <span data-current-difficulty>${safe(d.label)}</span></span></div>
         <h2>Skill Mission Difficulty</h2>
         <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
-        <div class="cefr-support">${cefrBadgeHTML()}<p><b>Calibration:</b> โหมดนี้ปรับโจทย์ให้เหมาะกับปี 2 ระดับ A2–B1+ โดยใช้คำสั่งสั้นขึ้นและมี sentence frames</p></div>
+        <div class="cefr-support">${cefrBadgeHTML()}<p><b>Calibration:</b> โหมดนี้ปรับโจทย์ให้เหมาะกับปี 2 ระดับ A2–B1+ โดยใช้คำสั่งสั้นขึ้นและมี sentence frames</p>
+          <p><b>AI Help:</b> Reading 2 ครั้ง, Writing/Listening/Speaking 3 ครั้งใน Easy/Normal; Hard 2; Challenge 1</p></div>
         ${isSimpleMode() ? `<div class="panel light"><b>แนะนำสำหรับผู้เรียนใหม่:</b> ใช้ Easy ในช่วงแรก แล้วค่อยปรับเป็น Normal หลังคุ้นกับเกม</div>` : ''}
         <div class="grid four">${cards}</div>
         <div id="currentDifficultyRule" class="panel light" style="margin-top:18px">
@@ -35217,7 +35270,7 @@
 
   function portfolioHelpBadges(p){
     const badges = [];
-    if(Number(p.aiUses || 0) > 0) badges.push(`🤖 AI ${p.aiUses}`);
+    if(Number(p.aiUses || 0) > 0) badges.push(`🤖 AI ${p.aiUses}`); badges.push(`AI Limit ${adaptiveAIHelpLimit(p.skill)}`);
     if(p.transcriptHint) badges.push('👁 Transcript Hint');
     if(p.speakingSeconds) badges.push(`🎙 ${p.speakingSeconds}s`);
     if(p.difficulty) badges.push(`🎚 ${p.difficulty}`);
