@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.5.1 Session 2 Direct Start</title>
+  <title>CSAI2102: AI Quest v2.5.3 Roadmap Boss Gate</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -894,7 +894,7 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v251.js"></script>
+  <script src="./js/mission2-agent-bank-v253.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -906,7 +906,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.5.1 • Session 2 Direct Start • Section 101</div>
+          <div class="subtitle">v2.5.3 • Roadmap + Boss Gate • Section 101</div>
         </div>
       </div>
 
@@ -934,11 +934,10 @@
     <main id="menuScreen" class="screen active">
       <section class="hero">
         <div class="panel">
-          <h2>Session 1: AI Awakening</h2>
+          <h2>AI Quest Roadmap: Session 1–15</h2>
           <p>
-            Google Sheets Ready v2.3 เพิ่ม Review Wrong Items, Teacher Export,
-            ปรับ Mobile One-hand Mode, ปรับ Balance ความยาก และเพิ่ม Mastery Flag
-            เพื่อให้พร้อมใช้เป็น Pilot Version กับนักศึกษาจริง
+            ระบบแสดงเส้นทางการเรียนทั้งหมด, จำนวน session ที่เปิดแล้ว,
+            เกณฑ์การปลดล็อก และ Boss Gate หลังผ่านกลุ่ม session ตามที่กำหนด
           </p>
 
           <div class="progressBar">
@@ -1737,8 +1736,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v251.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v251.js</b>
+            โหลดไฟล์ mission2-agent-bank-v253.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v253.js</b>
           </div>
         `;
         return;
@@ -3567,9 +3566,10 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v234.js"></script>
-  <script src="./js/aiquest-teacher-console-v251.js"></script>
-  <script src="./js/aiquest-student-detail-v251.js"></script>
-  <script src="./js/aiquest-production-v251.js"></script>
+  <script src="./js/aiquest-ui-mode-v253.js"></script>
+  <script src="./js/aiquest-teacher-console-v253.js"></script>
+  <script src="./js/aiquest-student-detail-v253.js"></script>
+  <script src="./js/aiquest-production-v253.js"></script>
+  <script src="./js/aiquest-session-roadmap-v253.js"></script>
 </body>
 </html>
