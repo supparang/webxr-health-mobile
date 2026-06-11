@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z14-student-learning-report-card-final';
+  const APP_VERSION = '20260610-v1z16-session-button-action-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31766,6 +31766,17 @@
     saveState();
   }
 
+
+  function cacheVersionNotice(){
+    const q = new URLSearchParams(location.search);
+    const x = q.get('x') || '';
+    if(x && !String(APP_VERSION).includes(x.replace(/^v/, 'v'))){
+      return `<div class="cache-notice">Cache notice: URL asks for ${safe(x)}, but loaded JS is ${safe(APP_VERSION)}. Please upload index.html/eap-hero.js/eap-hero.css and hard refresh.</div>`;
+    }
+    return '';
+  }
+
+
   function layout(content){
     app.innerHTML = `
       <div class="shell">
@@ -31774,7 +31785,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z14</div>
+              <div class="mini-note">Save the Society • v1z16</div>
             </div>
           </div>
           <div class="top-actions">
@@ -31783,11 +31794,13 @@
             <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
             <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
             <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
+            <button class="btn ghost small" onclick="EAPHero.renderStudentReports()">📘 Report</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
             <button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>
           </div>
         </div>
+        ${cacheVersionNotice()}
         ${content}
       </div>
     `;
@@ -32126,8 +32139,12 @@
           </p>
           <div class="footer-actions">
             <button class="btn primary" onclick="EAPHero.profile()">เริ่ม / ตั้งค่า Player</button>
-            <button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button>
+            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
             <button class="btn ghost" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
+          </div>
+          <div class="home-report-help">
+            <b>ดูผลการเรียนตรงไหน?</b>
+            <span>ทำ Mission แล้วกด Submit → ระบบจะแสดง Learning Report Card ทันที หรือกด My Learning Report เพื่อดูย้อนหลัง</span>
           </div>
         </div>
         <div class="panel light">
@@ -32243,6 +32260,7 @@
               <div><b>Boss says</b>“${safe(s.taunt)}”</div>
             </div>
             <div class="footer-actions">
+          <button class="btn" onclick="EAPHero.renderStudentReports()">📘 View My Learning Report</button>
               <button class="btn primary" onclick="EAPHero.startLab(${s.id})">Start Lab</button>
               <button class="btn ghost" onclick="EAPHero.map()">Back to Map</button>
             </div>
@@ -33361,6 +33379,28 @@
     return map[sessionId] || { core:'Reading', support:'Writing', optional:['Listening','Speaking'] };
   }
 
+
+  function openSkillMission(skill, sessionId){
+    sessionId = Number(sessionId || 1);
+    skill = String(skill || '').toLowerCase();
+    try{
+      if(skill === 'reading') return renderReadingMission(sessionId);
+      if(skill === 'writing') return renderWritingMission(sessionId);
+      if(skill === 'listening') return renderListeningMission(sessionId);
+      if(skill === 'speaking') return renderSpeakingMission(sessionId);
+      safeToast('Skill mission not found.');
+      return renderSkillPath(sessionId);
+    }catch(err){
+      console.error('[EAP openSkillMission]', err);
+      state.runtimeErrors = state.runtimeErrors || [];
+      state.runtimeErrors.push({at:new Date().toISOString(), message:String(err.message || err), source:'openSkillMission', skill, sessionId});
+      saveState();
+      safeToast('Mission could not open. Please try Map again.');
+      return renderSkillPath(sessionId);
+    }
+  }
+
+
   function renderSkillPath(sessionId){
     const s = getSession(Number(sessionId || 1));
     const path = skillPathForSession(s.id);
@@ -33371,12 +33411,12 @@
     const cards = visibleSkills.map(skill=>{
       const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
       const done = portfolioEvidence(s.id, skill).length > 0;
-      const fn = skill === 'Reading' ? 'readingMission' : skill === 'Writing' ? 'writingMission' : skill === 'Listening' ? 'listeningMission' : 'speakingMission';
+      const fn = skill.toLowerCase();
       const locked = isSimpleMode() && required === 'Support' && !featureUnlocked('supportMission');
       return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
         <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
         <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
-        <button class="btn ${required==='Optional'?'ghost':'primary'} block" ${locked?'disabled':''} onclick="EAPHero.${fn}(${s.id})">${done?'Replay':'Start'} ${safe(skill)}</button>
+        <button class="btn ${required==='Optional'?'ghost':'primary'} block" ${locked?'disabled':''} onclick="EAPHero.openSkillMission('${skill}', ${s.id})">${done?'Replay':'Start'} ${safe(skill)}</button>
       </div>`;
     }).join('');
     const hiddenNote = isSimpleMode() ? `<div class="panel light" style="margin-top:12px"><b>Simple Mode:</b> ตอนนี้ให้ทำ Core Mission ก่อน ${featureUnlocked('supportMission') ? 'และ Support Mission ได้แล้ว' : 'Support Mission จะปลดหลังมี progress/evidence เพิ่ม'}</div>` : '';
@@ -36310,6 +36350,7 @@
     qaLock:renderQALock,
     skillHub:renderSkillHub,
     skillPath:renderSkillPath,
+    openSkillMission,
     bossGate:renderBossGate,
     startGateBoss,
     replayHub:renderReplayHub,
@@ -36361,6 +36402,7 @@
     refreshReviewQueueTable,
     pilotReadiness:renderPilotReadiness,
     renderStudentReports,
+    myReports:renderStudentReports,
     exportLearningReportsCSV,
     
     renderPilotReadiness,

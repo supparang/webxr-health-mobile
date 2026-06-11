@@ -584,3 +584,35 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   .report-head{flex-direction:column}
   .report-grid{grid-template-columns:1fr}
 }
+
+
+/* === v1z15 Student Report Navigation Fix === */
+.home-report-help{
+  margin-top:16px;
+  padding:12px 14px;
+  border-radius:18px;
+  background:rgba(125,211,252,.12);
+  border:1px solid rgba(125,211,252,.28);
+  color:#e7f7ff;
+  line-height:1.55;
+}
+.home-report-help b{
+  display:block;
+  color:#a7f3d0;
+  margin-bottom:4px;
+}
+.home-report-help span{
+  display:block;
+}
+
+
+/* === v1z16 Session Button Action + Cache Notice === */
+.cache-notice{
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:16px;
+  background:rgba(239,68,68,.16);
+  border:1px solid rgba(248,113,113,.35);
+  color:#ffecec;
+  font-weight:800;
+}
