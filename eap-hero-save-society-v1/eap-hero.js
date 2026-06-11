@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z16-session-button-action-fix';
+  const APP_VERSION = '20260610-v1z17-hard-button-binding-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31778,6 +31778,7 @@
 
 
   function layout(content){
+    bindHardButtonDelegation();
     app.innerHTML = `
       <div class="shell">
         <div class="topbar">
@@ -31785,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z16</div>
+              <div class="mini-note">Save the Society • v1z17</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33380,23 +33381,60 @@
   }
 
 
+
+  function openSkillMissionFromButton(btn){
+    const skill = btn?.dataset?.skill || btn?.getAttribute?.('data-skill') || '';
+    const sessionId = btn?.dataset?.session || btn?.getAttribute?.('data-session') || 1;
+    openSkillMission(skill, sessionId);
+    return false;
+  }
+
+  function bindHardButtonDelegation(){
+    if(window.__EAP_HARD_BINDING__) return;
+    window.__EAP_HARD_BINDING__ = true;
+    document.addEventListener('click', function(ev){
+      const btn = ev.target && ev.target.closest ? ev.target.closest('.js-skill-mission-btn') : null;
+      if(!btn) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      openSkillMissionFromButton(btn);
+    }, true);
+  }
+
+
   function openSkillMission(skill, sessionId){
     sessionId = Number(sessionId || 1);
-    skill = String(skill || '').toLowerCase();
+    const rawSkill = String(skill || '').trim();
+    const k = rawSkill.toLowerCase();
     try{
-      if(skill === 'reading') return renderReadingMission(sessionId);
-      if(skill === 'writing') return renderWritingMission(sessionId);
-      if(skill === 'listening') return renderListeningMission(sessionId);
-      if(skill === 'speaking') return renderSpeakingMission(sessionId);
-      safeToast('Skill mission not found.');
-      return renderSkillPath(sessionId);
+      const routes = {
+        reading: renderReadingMission,
+        writing: renderWritingMission,
+        listening: renderListeningMission,
+        speaking: renderSpeakingMission
+      };
+      const fn = routes[k];
+      if(typeof fn === 'function'){
+        fn(sessionId);
+        return false;
+      }
+      const api = window.EAPHero || {};
+      const apiFn = api[`${k}Mission`];
+      if(typeof apiFn === 'function'){
+        apiFn(sessionId);
+        return false;
+      }
+      safeToast(`Skill mission not found: ${rawSkill}`);
+      renderSkillPath(sessionId);
+      return false;
     }catch(err){
       console.error('[EAP openSkillMission]', err);
       state.runtimeErrors = state.runtimeErrors || [];
-      state.runtimeErrors.push({at:new Date().toISOString(), message:String(err.message || err), source:'openSkillMission', skill, sessionId});
+      state.runtimeErrors.push({at:new Date().toISOString(), message:String(err.message || err), source:'openSkillMission', skill:rawSkill, sessionId});
       saveState();
-      safeToast('Mission could not open. Please try Map again.');
-      return renderSkillPath(sessionId);
+      alert('Mission could not open. Error: ' + (err.message || err));
+      renderSkillPath(sessionId);
+      return false;
     }
   }
 
@@ -33416,7 +33454,7 @@
       return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
         <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
         <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
-        <button class="btn ${required==='Optional'?'ghost':'primary'} block" ${locked?'disabled':''} onclick="EAPHero.openSkillMission('${skill}', ${s.id})">${done?'Replay':'Start'} ${safe(skill)}</button>
+        <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
       </div>`;
     }).join('');
     const hiddenNote = isSimpleMode() ? `<div class="panel light" style="margin-top:12px"><b>Simple Mode:</b> ตอนนี้ให้ทำ Core Mission ก่อน ${featureUnlocked('supportMission') ? 'และ Support Mission ได้แล้ว' : 'Support Mission จะปลดหลังมี progress/evidence เพิ่ม'}</div>` : '';
@@ -33431,7 +33469,7 @@
         <div class="grid four">${cards}</div>
         ${hiddenNote}
         ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Boss Gate Available: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Boss Gate</button></div>` : ''}
-        <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
+        <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button></div>
       </section>`);
   }
 
@@ -36350,6 +36388,8 @@
     qaLock:renderQALock,
     skillHub:renderSkillHub,
     skillPath:renderSkillPath,
+    openSkillMissionFromButton,
+    bindHardButtonDelegation,
     openSkillMission,
     bossGate:renderBossGate,
     startGateBoss,
@@ -36434,5 +36474,12 @@
     if(window.EAPHero && typeof window.EAPHero.unlockTeacherMode === 'function'){
       window.EAPHero.unlockTeacherMode();
     }
+  };
+
+  window.EAPHeroOpenSkillMission = function(skill, sessionId){
+    return openSkillMission(skill, sessionId);
+  };
+  window.EAPHeroOpenSkillMissionFromButton = function(btn){
+    return openSkillMissionFromButton(btn);
   };
 })();

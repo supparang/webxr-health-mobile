@@ -616,3 +616,15 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   color:#ffecec;
   font-weight:800;
 }
+
+
+/* === v1z17 Hard Button Binding Fix === */
+.js-skill-mission-btn{
+  pointer-events:auto !important;
+  cursor:pointer !important;
+  position:relative;
+  z-index:5;
+}
+.hud-card{
+  pointer-events:auto;
+}
