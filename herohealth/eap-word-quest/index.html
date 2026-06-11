@@ -3,1952 +3,390 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <meta name="theme-color" content="#312e81" />
+  <meta name="theme-color" content="#eef2ff" />
   <meta name="color-scheme" content="light" />
 
   <title>EAP Word Quest • Academic Vocabulary Mission</title>
 
-  <style>
-    :root{
-      --bg:#eef2ff;
-      --bg2:#f8fafc;
-      --card:#ffffff;
-      --ink:#172033;
-      --muted:#64748b;
-      --line:#dbe3f0;
-      --primary:#4f46e5;
-      --primary2:#7c3aed;
-      --good:#16a34a;
-      --bad:#dc2626;
-      --warn:#f59e0b;
-      --soft:#eef2ff;
-      --shadow:0 18px 45px rgba(15,23,42,.14);
-      --radius:24px;
-      --safe-top:env(safe-area-inset-top,0px);
-      --safe-bottom:env(safe-area-inset-bottom,0px);
-    }
-
-    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-
-    html,body{
-      margin:0;
-      min-height:100%;
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top left,rgba(124,58,237,.22),transparent 34%),
-        radial-gradient(circle at top right,rgba(14,165,233,.18),transparent 36%),
-        linear-gradient(180deg,#eef2ff 0%,#f8fafc 62%,#ffffff 100%);
-      overscroll-behavior:none;
-    }
-
-    body{
-      padding:calc(12px + var(--safe-top)) 12px calc(18px + var(--safe-bottom));
-    }
-
-    button{
-      font:inherit;
-      border:0;
-      cursor:pointer;
-    }
-
-    button:disabled{
-      opacity:.45;
-      cursor:not-allowed;
-    }
-
-    .app{
-      width:min(1080px,100%);
-      margin:0 auto;
-    }
-
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      margin-bottom:12px;
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-    }
-
-    .logo{
-      width:44px;
-      height:44px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      color:white;
-      font-weight:1000;
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-      box-shadow:0 12px 28px rgba(79,70,229,.35);
-      flex:0 0 auto;
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:18px;
-      line-height:1.1;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-
-    .brand p{
-      margin:3px 0 0;
-      color:var(--muted);
-      font-size:12px;
-    }
-
-    .pill{
-      border:1px solid rgba(79,70,229,.16);
-      background:rgba(255,255,255,.76);
-      color:#3730a3;
-      border-radius:999px;
-      padding:8px 12px;
-      font-size:12px;
-      font-weight:800;
-      white-space:nowrap;
-      box-shadow:0 10px 22px rgba(15,23,42,.08);
-    }
-
-    .screen{display:none}
-    .screen.active{display:block}
-
-    .hero{
-      background:rgba(255,255,255,.86);
-      border:1px solid rgba(219,227,240,.9);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow:var(--shadow);
-      overflow:hidden;
-      position:relative;
-    }
-
-    .hero:before{
-      content:"";
-      position:absolute;
-      right:-90px;
-      top:-90px;
-      width:220px;
-      height:220px;
-      border-radius:50%;
-      background:radial-gradient(circle,rgba(79,70,229,.18),transparent 70%);
-      pointer-events:none;
-    }
-
-    .hero h2{
-      margin:0;
-      font-size:28px;
-      line-height:1.1;
-      letter-spacing:-.04em;
-    }
-
-    .hero p{
-      margin:10px 0 0;
-      color:var(--muted);
-      line-height:1.55;
-      max-width:760px;
-    }
-
-    .controls{
-      display:grid;
-      grid-template-columns:1fr 1fr auto;
-      gap:10px;
-      margin-top:16px;
-    }
-
-    .field{
-      background:#fff;
-      border:1px solid var(--line);
-      border-radius:18px;
-      padding:10px 12px;
-    }
-
-    .field label{
-      display:block;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:900;
-      margin-bottom:5px;
-      text-transform:uppercase;
-      letter-spacing:.04em;
-    }
-
-    select{
-      width:100%;
-      border:0;
-      outline:0;
-      background:transparent;
-      color:var(--ink);
-      font-weight:900;
-      font-size:15px;
-    }
-
-    .btn{
-      border-radius:18px;
-      padding:12px 16px;
-      font-weight:1000;
-      color:white;
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-      box-shadow:0 14px 28px rgba(79,70,229,.28);
-      min-height:48px;
-    }
-
-    .btn.secondary{
-      color:#3730a3;
-      background:#eef2ff;
-      box-shadow:none;
-      border:1px solid rgba(79,70,229,.18);
-    }
-
-    .btn.danger{
-      color:#991b1b;
-      background:#fee2e2;
-      box-shadow:none;
-      border:1px solid #fecaca;
-    }
-
-    .section-title{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-end;
-      gap:10px;
-      margin:18px 4px 10px;
-    }
-
-    .section-title h3{
-      margin:0;
-      font-size:18px;
-      letter-spacing:-.02em;
-    }
-
-    .section-title span{
-      color:var(--muted);
-      font-size:12px;
-      font-weight:800;
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:12px;
-    }
-
-    .session-card{
-      background:rgba(255,255,255,.86);
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:14px;
-      box-shadow:0 12px 28px rgba(15,23,42,.08);
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-      min-height:150px;
-    }
-
-    .session-card.active-card{
-      border-color:rgba(79,70,229,.45);
-      box-shadow:0 16px 36px rgba(79,70,229,.16);
-    }
-
-    .session-top{
-      display:flex;
-      justify-content:space-between;
-      gap:10px;
-      align-items:flex-start;
-    }
-
-    .session-id{
-      width:42px;
-      height:42px;
-      border-radius:16px;
-      display:grid;
-      place-items:center;
-      background:#eef2ff;
-      color:#3730a3;
-      font-weight:1000;
-    }
-
-    .session-card h4{
-      margin:0;
-      font-size:16px;
-    }
-
-    .session-card p{
-      margin:0;
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.35;
-    }
-
-    .session-meta{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-      margin-top:auto;
-    }
-
-    .tag{
-      padding:5px 8px;
-      border-radius:999px;
-      background:#f1f5f9;
-      color:#475569;
-      font-size:11px;
-      font-weight:900;
-    }
-
-    .tag.good{background:#dcfce7;color:#166534}
-    .tag.warn{background:#fef3c7;color:#92400e}
-    .tag.primary{background:#e0e7ff;color:#3730a3}
-    .tag.bad{background:#fee2e2;color:#991b1b}
-
-    .session-card button{
-      margin-top:4px;
-      width:100%;
-      border-radius:16px;
-      padding:10px 12px;
-      font-weight:1000;
-      color:white;
-      background:linear-gradient(135deg,var(--primary),var(--primary2));
-    }
-
-    .stats-row{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
-      margin-top:12px;
-    }
-
-    .stat{
-      background:rgba(255,255,255,.82);
-      border:1px solid var(--line);
-      border-radius:20px;
-      padding:12px;
-      box-shadow:0 10px 24px rgba(15,23,42,.06);
-    }
-
-    .stat b{
-      display:block;
-      font-size:22px;
-      line-height:1;
-    }
-
-    .stat span{
-      display:block;
-      margin-top:6px;
-      font-size:12px;
-      color:var(--muted);
-      font-weight:800;
-    }
-
-    .game-wrap{
-      display:grid;
-      grid-template-columns:1fr 310px;
-      gap:12px;
-      align-items:start;
-    }
-
-    .game-card{
-      background:rgba(255,255,255,.92);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      overflow:hidden;
-    }
-
-    .game-head{
-      padding:14px;
-      border-bottom:1px solid var(--line);
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:10px;
-      background:linear-gradient(180deg,#ffffff,#f8fafc);
-    }
-
-    .progress-text{
-      font-size:13px;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .progress-bar{
-      height:10px;
-      background:#e2e8f0;
-      border-radius:999px;
-      overflow:hidden;
-      margin-top:8px;
-    }
-
-    .progress-fill{
-      height:100%;
-      width:0%;
-      background:linear-gradient(90deg,var(--primary),#06b6d4);
-      border-radius:999px;
-      transition:width .25s ease;
-    }
-
-    .timer{
-      margin:14px 14px 0;
-      height:9px;
-      background:#e2e8f0;
-      border-radius:999px;
-      overflow:hidden;
-    }
-
-    .timer-fill{
-      height:100%;
-      width:100%;
-      background:linear-gradient(90deg,#22c55e,#f59e0b,#ef4444);
-      transform-origin:left center;
-    }
-
-    .question-area{
-      padding:18px;
-    }
-
-    .q-tags{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      margin-bottom:12px;
-    }
-
-    .word-chip{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      border-radius:999px;
-      background:#eef2ff;
-      color:#3730a3;
-      padding:7px 10px;
-      font-weight:1000;
-      font-size:12px;
-    }
-
-    .prompt{
-      font-size:24px;
-      line-height:1.25;
-      letter-spacing:-.02em;
-      font-weight:1000;
-      margin:0 0 16px;
-    }
-
-    .choices{
-      display:grid;
-      gap:10px;
-    }
-
-    .choice{
-      text-align:left;
-      width:100%;
-      background:#ffffff;
-      border:1px solid #dbe3f0;
-      border-radius:18px;
-      padding:14px;
-      min-height:56px;
-      color:var(--ink);
-      font-weight:900;
-      box-shadow:0 8px 18px rgba(15,23,42,.055);
-      transition:transform .08s ease,border-color .12s ease,background .12s ease;
-    }
-
-    .choice:active{transform:scale(.99)}
-    .choice.correct{
-      border-color:#86efac;
-      background:#dcfce7;
-      color:#166534;
-    }
-
-    .choice.wrong{
-      border-color:#fecaca;
-      background:#fee2e2;
-      color:#991b1b;
-    }
-
-    .feedback{
-      margin-top:14px;
-      padding:14px;
-      border-radius:18px;
-      border:1px solid var(--line);
-      background:#f8fafc;
-      display:none;
-    }
-
-    .feedback.show{display:block}
-    .feedback.good{
-      border-color:#86efac;
-      background:#f0fdf4;
-    }
-
-    .feedback.bad{
-      border-color:#fecaca;
-      background:#fff1f2;
-    }
-
-    .feedback h4{
-      margin:0 0 6px;
-      font-size:16px;
-    }
-
-    .feedback p{
-      margin:0;
-      color:#475569;
-      line-height:1.45;
-    }
-
-    .game-actions{
-      padding:0 18px 18px;
-      display:flex;
-      gap:10px;
-      justify-content:space-between;
-    }
-
-    .side{
-      display:grid;
-      gap:12px;
-    }
-
-    .panel{
-      background:rgba(255,255,255,.9);
-      border:1px solid var(--line);
-      border-radius:22px;
-      padding:14px;
-      box-shadow:0 12px 26px rgba(15,23,42,.08);
-    }
-
-    .panel h3{
-      margin:0 0 10px;
-      font-size:16px;
-    }
-
-    .mini-stats{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:8px;
-    }
-
-    .mini{
-      border-radius:16px;
-      background:#f8fafc;
-      border:1px solid #e2e8f0;
-      padding:10px;
-    }
-
-    .mini b{
-      display:block;
-      font-size:20px;
-      line-height:1;
-    }
-
-    .mini span{
-      display:block;
-      margin-top:5px;
-      font-size:11px;
-      color:var(--muted);
-      font-weight:900;
-    }
-
-    .word-list{
-      display:flex;
-      flex-wrap:wrap;
-      gap:6px;
-    }
-
-    .word-pill{
-      border-radius:999px;
-      background:#f1f5f9;
-      color:#475569;
-      padding:6px 8px;
-      font-size:12px;
-      font-weight:900;
-    }
-
-    .summary-card{
-      background:rgba(255,255,255,.92);
-      border:1px solid var(--line);
-      border-radius:var(--radius);
-      box-shadow:var(--shadow);
-      padding:18px;
-    }
-
-    .summary-title{
-      display:flex;
-      justify-content:space-between;
-      gap:12px;
-      align-items:flex-start;
-      margin-bottom:14px;
-    }
-
-    .summary-title h2{
-      margin:0;
-      font-size:28px;
-      line-height:1.1;
-    }
-
-    .stars{
-      font-size:30px;
-      letter-spacing:2px;
-      white-space:nowrap;
-    }
-
-    .summary-grid{
-      display:grid;
-      grid-template-columns:repeat(4,1fr);
-      gap:10px;
-      margin:14px 0;
-    }
-
-    .review-list{
-      display:grid;
-      gap:8px;
-      margin-top:10px;
-    }
-
-    .review-item{
-      border:1px solid var(--line);
-      border-radius:16px;
-      padding:10px;
-      background:#fff;
-    }
-
-    .review-item b{
-      display:block;
-      font-size:14px;
-    }
-
-    .review-item span{
-      color:var(--muted);
-      font-size:12px;
-      line-height:1.35;
-    }
-
-    .empty{
-      color:var(--muted);
-      font-size:13px;
-      line-height:1.45;
-    }
-
-    .toast{
-      position:fixed;
-      left:50%;
-      bottom:calc(18px + var(--safe-bottom));
-      transform:translateX(-50%) translateY(20px);
-      opacity:0;
-      pointer-events:none;
-      z-index:99;
-      background:#111827;
-      color:white;
-      border-radius:999px;
-      padding:10px 14px;
-      box-shadow:0 18px 42px rgba(15,23,42,.28);
-      font-weight:900;
-      font-size:13px;
-      transition:.18s ease;
-      max-width:min(92vw,520px);
-      text-align:center;
-    }
-
-    .toast.show{
-      opacity:1;
-      transform:translateX(-50%) translateY(0);
-    }
-
-    @media (max-width:860px){
-      body{padding:calc(10px + var(--safe-top)) 10px calc(14px + var(--safe-bottom))}
-      .grid{grid-template-columns:1fr 1fr}
-      .game-wrap{grid-template-columns:1fr}
-      .side{grid-template-columns:1fr 1fr}
-      .controls{grid-template-columns:1fr 1fr}
-      .controls .btn{grid-column:1/-1}
-      .summary-grid,.stats-row{grid-template-columns:1fr 1fr}
-    }
-
-    @media (max-width:560px){
-      .brand h1{font-size:15px}
-      .brand p{display:none}
-      .pill{font-size:11px;padding:7px 9px}
-      .hero h2{font-size:24px}
-      .grid{grid-template-columns:1fr}
-      .side{grid-template-columns:1fr}
-      .prompt{font-size:21px}
-      .summary-title{display:block}
-      .stars{margin-top:8px}
-      .game-actions{flex-direction:column}
-      .game-actions .btn{width:100%}
-    }
-  </style>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="./eap-word-quest.css?v=20260611-v14-final-arc" />
 </head>
 
 <body>
-  <main class="app">
+  <div class="app-shell">
     <header class="topbar">
-      <div class="brand">
-        <div class="logo">EAP</div>
-        <div>
-          <h1>EAP Word Quest</h1>
-          <p>Academic Vocabulary Mission • A2–B1+</p>
-        </div>
+      <div>
+        <p class="eyebrow">EAP Word Quest</p>
+        <h1>Academic Vocabulary Mission</h1>
+        <p class="subtitle">
+          Session-based EAP vocabulary game • A2–B1+ • Boss • Weak Words • Word Deck • Teacher Dashboard
+        </p>
       </div>
-      <div class="pill" id="versionPill">v0.1</div>
+
+      <div class="topbar-actions">
+        <span class="version-pill" id="versionPill">v1.4</span>
+        <span class="section-pill">Section 101</span>
+      </div>
     </header>
 
-    <section id="homeScreen" class="screen active">
-      <div class="hero">
-        <h2>ภารกิจคำศัพท์ EAP สำหรับเล่นซ้ำ</h2>
-        <p>
-          Prototype แรกนี้เปิดให้เล่น S1: Academic Profile ก่อน มีระบบสุ่มข้อ A2–B1+,
-          XP, Combo, Time Bonus, Weak Words และ Word Mastery เพื่อใช้เป็นแกนขยายไป S1–S15
-        </p>
-
-        <div class="controls">
-          <div class="field">
-            <label>โหมดระดับภาษา</label>
-            <select id="modeSelect">
-              <option value="mixed">Mixed A2–B1+</option>
-              <option value="A2">A2 Easy</option>
-              <option value="A2+">A2+ Normal</option>
-              <option value="B1">B1 Hard</option>
-              <option value="B1+">B1+ Challenge</option>
-            </select>
+    <main>
+      <!-- =========================================================
+           HOME SCREEN
+      ========================================================== -->
+      <section id="homeScreen" class="screen active">
+        <article class="hero-card">
+          <div class="hero-copy">
+            <p class="eyebrow">Course Map S1–S15</p>
+            <h2>เรียนคำศัพท์ EAP แบบภารกิจ</h2>
+            <p>
+              เล่นตาม Session → สะสม XP → ฝึกคำที่เคยผิด → ปลดล็อก Boss →
+              ดู Word Deck → ส่งออกผลสำหรับอาจารย์
+            </p>
           </div>
 
-          <div class="field">
-            <label>จำนวนข้อต่อรอบ</label>
-            <select id="roundSizeSelect">
-              <option value="12">12 ข้อ</option>
-              <option value="16" selected>16 ข้อ</option>
-              <option value="20">20 ข้อ</option>
-            </select>
-          </div>
-
-          <button class="btn" id="quickStartBtn">เริ่ม S1 ตอนนี้</button>
-        </div>
-      </div>
-
-      <div class="stats-row" id="homeStats"></div>
-
-      <div class="section-title">
-        <h3>Session Map</h3>
-        <span>S1 playable • S2–S15 ready for expansion</span>
-      </div>
-
-      <div class="grid" id="sessionGrid"></div>
-    </section>
-
-    <section id="gameScreen" class="screen">
-      <div class="game-wrap">
-        <article class="game-card">
-          <div class="game-head">
-            <div>
-              <div class="progress-text" id="progressText">Question 1/16</div>
-              <div class="progress-bar">
-                <div class="progress-fill" id="progressFill"></div>
-              </div>
+          <div class="profile-box">
+            <div class="field">
+              <label>Student Name</label>
+              <input id="studentNameInput" type="text" placeholder="ชื่อนักศึกษา" autocomplete="name" />
             </div>
-            <button class="btn secondary" id="quitBtn">ออก</button>
-          </div>
 
-          <div class="timer">
-            <div class="timer-fill" id="timerFill"></div>
-          </div>
+            <div class="field">
+              <label>Student ID</label>
+              <input id="studentIdInput" type="text" placeholder="รหัสนักศึกษา" inputmode="numeric" />
+            </div>
 
-          <div class="question-area">
-            <div class="q-tags" id="questionTags"></div>
-            <h2 class="prompt" id="promptText">Prompt</h2>
-            <div class="choices" id="choicesBox"></div>
+            <div class="field">
+              <label>Section</label>
+              <input id="sectionInput" type="text" value="101" />
+            </div>
 
-            <div class="feedback" id="feedbackBox">
-              <h4 id="feedbackTitle">Feedback</h4>
-              <p id="feedbackText">Explanation</p>
+            <div class="profile-actions">
+              <button class="btn secondary" id="saveProfileBtn" type="button">Save Profile</button>
+              <button class="btn danger" id="resetProfileBtn" type="button">Reset Profile</button>
             </div>
           </div>
 
-          <div class="game-actions">
-            <button class="btn secondary" id="hintBtn">AI Help 2/2</button>
-            <button class="btn" id="nextBtn" disabled>ข้อต่อไป</button>
+          <div class="profile-status" id="profileStatus"></div>
+
+          <div class="game-options">
+            <div class="field">
+              <label>Mode</label>
+              <select id="modeSelect">
+                <option value="mixed">Mixed A2–B1+</option>
+                <option value="A2">A2 Meaning</option>
+                <option value="A2+">A2+ Sentence</option>
+                <option value="B1">B1 Context</option>
+                <option value="B1+">B1+ Academic</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Round Size</label>
+              <select id="roundSizeSelect">
+                <option value="10">10 questions</option>
+                <option value="12" selected>12 questions</option>
+                <option value="15">15 questions</option>
+                <option value="20">20 questions</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="controls">
+            <button class="btn" id="quickStartBtn" type="button">Start S1</button>
+            <button class="btn secondary" id="startS2Btn" type="button">Start S2</button>
+            <button class="btn secondary" id="startS4Btn" type="button">S4 Locked</button>
+            <button class="btn secondary" id="startS5Btn" type="button">S5 Locked</button>
+            <button class="btn secondary" id="startS7Btn" type="button">S7 Locked</button>
+            <button class="btn secondary" id="startS8Btn" type="button">S8 Locked</button>
+            <button class="btn secondary" id="startS10Btn" type="button">S10 Locked</button>
+            <button class="btn secondary" id="startS11Btn" type="button">S11 Locked</button>
+            <button class="btn secondary" id="startS13Btn" type="button">S13 Locked</button>
+            <button class="btn secondary" id="startS14Btn" type="button">S14 Locked</button>
+            <button class="btn secondary" id="weakStartBtn" type="button">ฝึกคำที่เคยผิด</button>
+            <button class="btn secondary" id="dailyBtn" type="button">Daily Challenge</button>
+            <button class="btn secondary" id="speedRunBtn" type="button">Speed Run 60s</button>
+            <button class="btn secondary" id="wordDeckBtn" type="button">Word Deck</button>
+            <button class="btn secondary" id="teacherBtn" type="button">Teacher Dashboard</button>
           </div>
         </article>
 
-        <aside class="side">
-          <section class="panel">
-            <h3>Mission Status</h3>
-            <div class="mini-stats">
-              <div class="mini"><b id="xpText">0</b><span>XP</span></div>
-              <div class="mini"><b id="comboText">0</b><span>Combo</span></div>
-              <div class="mini"><b id="correctText">0</b><span>Correct</span></div>
-              <div class="mini"><b id="accuracyText">0%</b><span>Accuracy</span></div>
+        <section class="summary-grid" id="homeStats"></section>
+
+        <section class="section-title">
+          <h3>Session Map</h3>
+          <span>ปลดล็อกทีละ Arc ตามผลการเล่น</span>
+        </section>
+
+        <section class="session-grid" id="sessionGrid"></section>
+      </section>
+
+      <!-- =========================================================
+           GAME SCREEN
+      ========================================================== -->
+      <section id="gameScreen" class="screen">
+        <article class="game-card">
+          <div class="game-head">
+            <div>
+              <p class="eyebrow" id="gameModeText">Mission</p>
+              <h2 id="gameTitle">Question</h2>
+              <p id="progressText" class="empty">Question 1/12</p>
             </div>
-          </section>
 
-          <section class="panel">
-            <h3>Weak Words รอบนี้</h3>
-            <div class="word-list" id="weakWordsBox">
-              <span class="empty">ยังไม่มีคำที่ผิด</span>
+            <div class="game-head-actions">
+              <button class="btn secondary small" id="aiHelpBtn" type="button">AI Help</button>
+              <button class="btn danger small" id="quitBtn" type="button">Quit</button>
             </div>
-          </section>
-
-          <section class="panel">
-            <h3>Mastery Focus</h3>
-            <div class="word-list" id="focusWordsBox"></div>
-          </section>
-        </aside>
-      </div>
-    </section>
-
-    <section id="summaryScreen" class="screen">
-      <article class="summary-card">
-        <div class="summary-title">
-          <div>
-            <h2 id="summaryTitle">Mission Complete</h2>
-            <p class="empty" id="summarySubtitle">สรุปผลการเล่นรอบนี้</p>
           </div>
-          <div class="stars" id="starsText">☆☆☆</div>
-        </div>
 
-        <div class="summary-grid">
-          <div class="stat"><b id="sumXp">0</b><span>XP</span></div>
-          <div class="stat"><b id="sumAcc">0%</b><span>Accuracy</span></div>
-          <div class="stat"><b id="sumCombo">0</b><span>Max Combo</span></div>
-          <div class="stat"><b id="sumWeak">0</b><span>Weak Words</span></div>
-        </div>
-
-        <div class="section-title">
-          <h3>คำที่ควรทบทวน</h3>
-          <span>Weak Word Monster</span>
-        </div>
-        <div class="review-list" id="summaryWeakList"></div>
-
-        <div class="section-title">
-          <h3>รายการคำถามรอบนี้</h3>
-          <span>Review</span>
-        </div>
-        <div class="review-list" id="summaryReviewList"></div>
-
-        <div class="game-actions" style="padding:18px 0 0">
-          <button class="btn secondary" id="backHomeBtn">กลับหน้า Session</button>
-          <button class="btn" id="replayBtn">เล่น S1 อีกครั้ง</button>
-        </div>
-      </article>
-    </section>
-  </main>
-
-  <div class="toast" id="toast"></div>
-
-  <script>
-    "use strict";
-
-    const APP_VERSION = "v0.1.0-S1-A2-B1P";
-    const STORAGE_KEY = "EAP_WORD_QUEST_STATS_V01";
-    const RECENT_KEY = "EAP_WORD_QUEST_RECENT_V01";
-
-    const LEVEL_SECONDS = {
-      "A2": 15,
-      "A2+": 13,
-      "B1": 11,
-      "B1+": 10
-    };
-
-    const LEVEL_XP = {
-      "A2": 10,
-      "A2+": 12,
-      "B1": 15,
-      "B1+": 18
-    };
-
-    const SESSIONS = [
-      {id:"S1", title:"Academic Profile", desc:"แนะนำตัวเองเชิงวิชาการ สาขา ความสนใจ ทักษะ และเป้าหมาย", status:"playable", boss:false},
-      {id:"S2", title:"Project Introduction", desc:"อธิบายโปรเจกต์ objective, feature, user, problem, solution", status:"soon", boss:false},
-      {id:"S3", title:"Boss 1", desc:"Profile & Project Boss รวมคำจาก S1–S2", status:"locked", boss:true},
-      {id:"S4", title:"Tech Jobs / Careers", desc:"คำศัพท์อาชีพ IT, AI, Multimedia และบทบาทงาน", status:"soon", boss:false},
-      {id:"S5", title:"Workplace Communication", desc:"request, clarify, update, confirm, explain", status:"soon", boss:false},
-      {id:"S6", title:"Boss 2", desc:"Communication Boss", status:"locked", boss:true},
-      {id:"S7", title:"Professional Email", desc:"subject, attachment, deadline, inquiry, response", status:"soon", boss:false},
-      {id:"S8", title:"Meeting / Discussion", desc:"agenda, opinion, suggest, decision, concern", status:"soon", boss:false},
-      {id:"S9", title:"Boss 3", desc:"Email & Meeting Boss", status:"locked", boss:true},
-      {id:"S10", title:"System Explanation", desc:"function, process, input, output, interface", status:"soon", boss:false},
-      {id:"S11", title:"Bug Report", desc:"issue, bug, reproduce, solution, update", status:"soon", boss:false},
-      {id:"S12", title:"Boss 4", desc:"System & Problem Boss", status:"locked", boss:true},
-      {id:"S13", title:"AI Report / Academic Summary", desc:"dataset, model, accuracy, findings, limitation", status:"soon", boss:false},
-      {id:"S14", title:"CV / Interview / Pitch", desc:"strength, qualification, achievement, contribute", status:"soon", boss:false},
-      {id:"S15", title:"Final Academic Examiner", desc:"รวมคำศัพท์ทั้งคอร์ส", status:"locked", boss:true}
-    ];
-
-    const QUESTION_BANK = [
-      {
-        id:"S1-A2-001", session:"S1", level:"A2", type:"meaning", word:"major",
-        prompt:"What does “major” mean?",
-        choices:["สาขาวิชา","ห้องอาหาร","เวลาเรียน","สีประจำตัว"],
-        answer:"สาขาวิชา",
-        explanation:"major หมายถึงสาขาวิชาหรือวิชาเอกที่ผู้เรียนศึกษา"
-      },
-      {
-        id:"S1-A2-002", session:"S1", level:"A2", type:"meaning", word:"university",
-        prompt:"Choose the meaning of “university”.",
-        choices:["มหาวิทยาลัย","โรงพยาบาล","สนามกีฬา","ร้านอาหาร"],
-        answer:"มหาวิทยาลัย",
-        explanation:"university หมายถึงมหาวิทยาลัย ใช้เมื่อแนะนำตัวในบริบทการเรียน"
-      },
-      {
-        id:"S1-A2-003", session:"S1", level:"A2", type:"meaning", word:"student",
-        prompt:"A “student” is a person who...",
-        choices:["learns at school or university","sells food","drives a bus","builds a road"],
-        answer:"learns at school or university",
-        explanation:"student หมายถึงนักเรียนหรือนักศึกษา"
-      },
-      {
-        id:"S1-A2-004", session:"S1", level:"A2", type:"meaning", word:"skill",
-        prompt:"What does “skill” mean?",
-        choices:["ทักษะ","ปัญหา","กำแพง","คะแนนสอบ"],
-        answer:"ทักษะ",
-        explanation:"skill หมายถึงทักษะหรือความสามารถที่ทำได้"
-      },
-      {
-        id:"S1-A2-005", session:"S1", level:"A2", type:"meaning", word:"experience",
-        prompt:"Choose the best meaning of “experience”.",
-        choices:["ประสบการณ์","อาหารกลางวัน","สี","อาคาร"],
-        answer:"ประสบการณ์",
-        explanation:"experience หมายถึงประสบการณ์ที่เคยทำหรือเคยเรียนรู้"
-      },
-      {
-        id:"S1-A2-006", session:"S1", level:"A2", type:"meaning", word:"interest",
-        prompt:"What does “interest” mean in an academic profile?",
-        choices:["ความสนใจ","วันหยุด","ค่าเดินทาง","อุปกรณ์กีฬา"],
-        answer:"ความสนใจ",
-        explanation:"interest หมายถึงความสนใจ เช่น interest in AI หรือ interest in digital media"
-      },
-      {
-        id:"S1-A2-007", session:"S1", level:"A2", type:"meaning", word:"background",
-        prompt:"“Background” in self-introduction means...",
-        choices:["พื้นฐานหรือประวัติที่เกี่ยวข้อง","เสียงด้านหลัง","รูปภาพ","โต๊ะเรียน"],
-        answer:"พื้นฐานหรือประวัติที่เกี่ยวข้อง",
-        explanation:"academic background หมายถึงพื้นฐานทางการเรียนหรือประสบการณ์ที่เกี่ยวข้อง"
-      },
-      {
-        id:"S1-A2-008", session:"S1", level:"A2", type:"meaning", word:"goal",
-        prompt:"What does “goal” mean?",
-        choices:["เป้าหมาย","หน้าจอ","เสียง","กระเป๋า"],
-        answer:"เป้าหมาย",
-        explanation:"goal หมายถึงเป้าหมาย เช่น learning goal หรือ career goal"
-      },
-      {
-        id:"S1-A2-009", session:"S1", level:"A2", type:"meaning", word:"study",
-        prompt:"Choose the meaning of “study”.",
-        choices:["ศึกษา","วิ่ง","ซื้อ","นอน"],
-        answer:"ศึกษา",
-        explanation:"study หมายถึงศึกษา เช่น I study digital technology."
-      },
-      {
-        id:"S1-A2-010", session:"S1", level:"A2", type:"meaning", word:"learn",
-        prompt:"“Learn” means...",
-        choices:["เรียนรู้","ตกแต่ง","ยกเลิก","เปิดไฟ"],
-        answer:"เรียนรู้",
-        explanation:"learn หมายถึงเรียนรู้หรือรับความรู้ใหม่"
-      },
-      {
-        id:"S1-A2-011", session:"S1", level:"A2", type:"meaning", word:"course",
-        prompt:"What is a “course”?",
-        choices:["รายวิชา","สนามฟุตบอล","ร้านค้า","เก้าอี้"],
-        answer:"รายวิชา",
-        explanation:"course หมายถึงรายวิชาหรือหลักสูตรระยะสั้น"
-      },
-      {
-        id:"S1-A2-012", session:"S1", level:"A2", type:"meaning", word:"project",
-        prompt:"Choose the best meaning of “project”.",
-        choices:["โครงงานหรือโปรเจกต์","กระดาษคำตอบ","รถโดยสาร","อาหารเช้า"],
-        answer:"โครงงานหรือโปรเจกต์",
-        explanation:"project หมายถึงโครงงานหรือผลงานที่ทำเพื่อเป้าหมายหนึ่ง"
-      },
-      {
-        id:"S1-A2-013", session:"S1", level:"A2", type:"meaning", word:"team",
-        prompt:"A “team” means...",
-        choices:["กลุ่มคนที่ทำงานร่วมกัน","ไฟล์เอกสาร","คะแนน","ห้องพัก"],
-        answer:"กลุ่มคนที่ทำงานร่วมกัน",
-        explanation:"team หมายถึงทีม หรือกลุ่มคนที่ทำงานร่วมกัน"
-      },
-      {
-        id:"S1-A2-014", session:"S1", level:"A2", type:"meaning", word:"presentation",
-        prompt:"What does “presentation” mean?",
-        choices:["การนำเสนอ","การพักผ่อน","การเดินทาง","การซื้อของ"],
-        answer:"การนำเสนอ",
-        explanation:"presentation หมายถึงการนำเสนอ เช่น class presentation"
-      },
-      {
-        id:"S1-A2-015", session:"S1", level:"A2", type:"meaning", word:"profile",
-        prompt:"A “profile” is...",
-        choices:["ข้อมูลแนะนำตัวหรือประวัติโดยย่อ","เกมกีฬา","ร้านค้า","รหัสผ่านเท่านั้น"],
-        answer:"ข้อมูลแนะนำตัวหรือประวัติโดยย่อ",
-        explanation:"profile คือข้อมูลแนะนำตัว เช่น academic profile"
-      },
-
-      {
-        id:"S1-A2P-001", session:"S1", level:"A2+", type:"sentence_fill", word:"major",
-        prompt:"My ______ is Information Technology.",
-        choices:["major","lunch","color","bus"],
-        answer:"major",
-        explanation:"ประโยคนี้ต้องใช้ major เพราะพูดถึงสาขาวิชา"
-      },
-      {
-        id:"S1-A2P-002", session:"S1", level:"A2+", type:"sentence_fill", word:"skill",
-        prompt:"Communication is an important ______ for students.",
-        choices:["skill","chair","weather","holiday"],
-        answer:"skill",
-        explanation:"skill ใช้กับความสามารถ เช่น communication skill"
-      },
-      {
-        id:"S1-A2P-003", session:"S1", level:"A2+", type:"sentence_fill", word:"experience",
-        prompt:"I have ______ in using design tools.",
-        choices:["experience","hungry","building","cloud"],
-        answer:"experience",
-        explanation:"have experience in + V-ing หมายถึงมีประสบการณ์ในการทำสิ่งนั้น"
-      },
-      {
-        id:"S1-A2P-004", session:"S1", level:"A2+", type:"sentence_fill", word:"interested in",
-        prompt:"I am ______ digital media and mobile apps.",
-        choices:["interested in","angry to","blue with","late from"],
-        answer:"interested in",
-        explanation:"interested in ใช้บอกความสนใจ เช่น I am interested in AI."
-      },
-      {
-        id:"S1-A2P-005", session:"S1", level:"A2+", type:"sentence_fill", word:"good at",
-        prompt:"I am ______ designing simple mobile interfaces.",
-        choices:["good at","good to","good from","good by"],
-        answer:"good at",
-        explanation:"good at + V-ing ใช้บอกสิ่งที่ทำได้ดี"
-      },
-      {
-        id:"S1-A2P-006", session:"S1", level:"A2+", type:"sentence_fill", word:"goal",
-        prompt:"My learning ______ is to improve my academic English.",
-        choices:["goal","bag","screen","sound"],
-        answer:"goal",
-        explanation:"learning goal หมายถึงเป้าหมายการเรียนรู้"
-      },
-      {
-        id:"S1-A2P-007", session:"S1", level:"A2+", type:"sentence_fill", word:"background",
-        prompt:"My academic ______ is related to digital technology.",
-        choices:["background","banana","birthday","battery"],
-        answer:"background",
-        explanation:"academic background หมายถึงพื้นฐานหรือประวัติทางการเรียน"
-      },
-      {
-        id:"S1-A2P-008", session:"S1", level:"A2+", type:"sentence_fill", word:"study",
-        prompt:"I ______ multimedia and mobile application development.",
-        choices:["study","sleep","paint","drink"],
-        answer:"study",
-        explanation:"study ใช้บอกสิ่งที่เรียน"
-      },
-      {
-        id:"S1-A2P-009", session:"S1", level:"A2+", type:"sentence_fill", word:"learn",
-        prompt:"I want to ______ more academic vocabulary.",
-        choices:["learn","carry","wash","close"],
-        answer:"learn",
-        explanation:"learn vocabulary หมายถึงเรียนรู้คำศัพท์"
-      },
-      {
-        id:"S1-A2P-010", session:"S1", level:"A2+", type:"sentence_fill", word:"project",
-        prompt:"This ______ is about an English vocabulary game.",
-        choices:["project","window","market","river"],
-        answer:"project",
-        explanation:"project ใช้กับโครงงานหรือผลงานที่พัฒนา"
-      },
-      {
-        id:"S1-A2P-011", session:"S1", level:"A2+", type:"sentence_fill", word:"presentation",
-        prompt:"I will give a short ______ about my project.",
-        choices:["presentation","breakfast","ticket","medicine"],
-        answer:"presentation",
-        explanation:"give a presentation หมายถึงนำเสนอ"
-      },
-      {
-        id:"S1-A2P-012", session:"S1", level:"A2+", type:"sentence_fill", word:"course",
-        prompt:"This ______ helps students practice academic English.",
-        choices:["course","shoe","phone case","street"],
-        answer:"course",
-        explanation:"course หมายถึงรายวิชาหรือคอร์สเรียน"
-      },
-      {
-        id:"S1-A2P-013", session:"S1", level:"A2+", type:"sentence_fill", word:"teamwork",
-        prompt:"______ is useful when students work on a group project.",
-        choices:["Teamwork","Weather","Shopping","Sleeping"],
-        answer:"Teamwork",
-        explanation:"teamwork หมายถึงการทำงานเป็นทีม"
-      },
-      {
-        id:"S1-A2P-014", session:"S1", level:"A2+", type:"sentence_fill", word:"improve",
-        prompt:"I want to ______ my speaking and writing skills.",
-        choices:["improve","delete","hide","borrow"],
-        answer:"improve",
-        explanation:"improve หมายถึงพัฒนาให้ดีขึ้น"
-      },
-      {
-        id:"S1-A2P-015", session:"S1", level:"A2+", type:"sentence_fill", word:"explain",
-        prompt:"Can you ______ your project idea in English?",
-        choices:["explain","eat","repair","rain"],
-        answer:"explain",
-        explanation:"explain หมายถึงอธิบาย"
-      },
-
-      {
-        id:"S1-B1-001", session:"S1", level:"B1", type:"context", word:"field of study",
-        prompt:"A student says: “I study digital technology.” Which phrase best describes this?",
-        choices:["field of study","food menu","travel plan","daily weather"],
-        answer:"field of study",
-        explanation:"field of study หมายถึงสาขาหรือขอบเขตที่ศึกษา"
-      },
-      {
-        id:"S1-B1-002", session:"S1", level:"B1", type:"context", word:"academic background",
-        prompt:"Which phrase fits this idea: previous study and knowledge related to a subject?",
-        choices:["academic background","shopping list","sound effect","bus station"],
-        answer:"academic background",
-        explanation:"academic background ใช้พูดถึงพื้นฐานทางการเรียนที่เกี่ยวข้อง"
-      },
-      {
-        id:"S1-B1-003", session:"S1", level:"B1", type:"context", word:"strength",
-        prompt:"A student is good at teamwork and communication. These are the student’s...",
-        choices:["strengths","errors","deadlines","passwords"],
-        answer:"strengths",
-        explanation:"strength หมายถึงจุดแข็งหรือความสามารถเด่น"
-      },
-      {
-        id:"S1-B1-004", session:"S1", level:"B1", type:"context", word:"learning goal",
-        prompt:"“I want to improve my academic vocabulary this semester.” This sentence describes a...",
-        choices:["learning goal","computer bug","meeting room","file name"],
-        answer:"learning goal",
-        explanation:"learning goal คือเป้าหมายการเรียนรู้"
-      },
-      {
-        id:"S1-B1-005", session:"S1", level:"B1", type:"collocation", word:"communication skill",
-        prompt:"Choose the best collocation.",
-        choices:["communication skill","communication chair","communication lunch","communication tree"],
-        answer:"communication skill",
-        explanation:"communication skill เป็น collocation ที่ใช้จริง หมายถึงทักษะการสื่อสาร"
-      },
-      {
-        id:"S1-B1-006", session:"S1", level:"B1", type:"context", word:"digital media",
-        prompt:"Videos, websites, animations, and mobile content are examples of...",
-        choices:["digital media","physical exercise","public transport","traditional food"],
-        answer:"digital media",
-        explanation:"digital media หมายถึงสื่อดิจิทัล เช่น วิดีโอ เว็บไซต์ แอป และแอนิเมชัน"
-      },
-      {
-        id:"S1-B1-007", session:"S1", level:"B1", type:"context", word:"mobile application",
-        prompt:"An app installed on a smartphone can be called a...",
-        choices:["mobile application","printed book","wooden chair","paper box"],
-        answer:"mobile application",
-        explanation:"mobile application หมายถึงแอปพลิเคชันบนมือถือ"
-      },
-      {
-        id:"S1-B1-008", session:"S1", level:"B1", type:"context", word:"research interest",
-        prompt:"A topic that a student wants to study more deeply is a...",
-        choices:["research interest","bus ticket","sport score","lunch break"],
-        answer:"research interest",
-        explanation:"research interest หมายถึงความสนใจด้านการวิจัยหรือหัวข้อที่อยากศึกษา"
-      },
-      {
-        id:"S1-B1-009", session:"S1", level:"B1", type:"collocation", word:"class project",
-        prompt:"Choose the best collocation for a project done in a course.",
-        choices:["class project","class banana","class mountain","class weather"],
-        answer:"class project",
-        explanation:"class project หมายถึงโครงงานในรายวิชา"
-      },
-      {
-        id:"S1-B1-010", session:"S1", level:"B1", type:"context", word:"learning progress",
-        prompt:"A system shows how much vocabulary a student has learned. It tracks...",
-        choices:["learning progress","food price","room temperature","travel distance"],
-        answer:"learning progress",
-        explanation:"learning progress หมายถึงความก้าวหน้าในการเรียนรู้"
-      },
-      {
-        id:"S1-B1-011", session:"S1", level:"B1", type:"collocation", word:"presentation skill",
-        prompt:"Choose the best collocation.",
-        choices:["presentation skill","presentation soup","presentation wallet","presentation shoe"],
-        answer:"presentation skill",
-        explanation:"presentation skill หมายถึงทักษะการนำเสนอ"
-      },
-      {
-        id:"S1-B1-012", session:"S1", level:"B1", type:"context", word:"user experience",
-        prompt:"If students say an app is easy and enjoyable to use, they are describing the...",
-        choices:["user experience","battery color","street name","exam room"],
-        answer:"user experience",
-        explanation:"user experience หมายถึงประสบการณ์ของผู้ใช้เมื่อใช้งานระบบหรือแอป"
-      },
-      {
-        id:"S1-B1-013", session:"S1", level:"B1", type:"context", word:"responsible for",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "I am responsible for designing the interface.",
-          "I am responsible to design the interface.",
-          "I responsible designing interface.",
-          "I responsibility for design."
-        ],
-        answer:"I am responsible for designing the interface.",
-        explanation:"responsible for + V-ing ใช้บอกหน้าที่รับผิดชอบ"
-      },
-      {
-        id:"S1-B1-014", session:"S1", level:"B1", type:"context", word:"collaborate",
-        prompt:"Students work together on the same project. Which verb is best?",
-        choices:["collaborate","sleep","decorate","erase"],
-        answer:"collaborate",
-        explanation:"collaborate หมายถึงร่วมมือกันทำงาน"
-      },
-      {
-        id:"S1-B1-015", session:"S1", level:"B1", type:"context", word:"development",
-        prompt:"The process of creating and improving an application is application...",
-        choices:["development","celebration","transportation","decoration"],
-        answer:"development",
-        explanation:"application development หมายถึงการพัฒนาแอปพลิเคชัน"
-      },
-
-      {
-        id:"S1-B1P-001", session:"S1", level:"B1+", type:"academic_upgrade", word:"particularly interested in",
-        prompt:"Choose the best academic self-introduction sentence.",
-        choices:[
-          "I am particularly interested in digital media and mobile application development.",
-          "I very like digital media so much.",
-          "Digital media good for me.",
-          "I interesting in mobile application."
-        ],
-        answer:"I am particularly interested in digital media and mobile application development.",
-        explanation:"I am particularly interested in... เป็นวลีที่เหมาะกับการแนะนำความสนใจเชิงวิชาการ"
-      },
-      {
-        id:"S1-B1P-002", session:"S1", level:"B1+", type:"academic_upgrade", word:"academic background",
-        prompt:"Choose the sentence with the best academic tone.",
-        choices:[
-          "My academic background is related to information technology.",
-          "My school thing is IT.",
-          "I learn computer many.",
-          "Technology is my thing very good."
-        ],
-        answer:"My academic background is related to information technology.",
-        explanation:"ประโยคนี้ใช้ academic background และ related to ได้เหมาะกับบริบท EAP"
-      },
-      {
-        id:"S1-B1P-003", session:"S1", level:"B1+", type:"academic_upgrade", word:"aim to",
-        prompt:"Plain English: “I want to get better at English.” Choose the academic version.",
-        choices:[
-          "I aim to improve my academic English skills.",
-          "I want English good.",
-          "English better me.",
-          "I like to good English."
-        ],
-        answer:"I aim to improve my academic English skills.",
-        explanation:"aim to improve เป็นวลีที่สุภาพและเหมาะกับ academic profile"
-      },
-      {
-        id:"S1-B1P-004", session:"S1", level:"B1+", type:"academic_upgrade", word:"allows me to",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "This course allows me to develop my communication skills.",
-          "This course make me skill.",
-          "Course lets good communication.",
-          "I communication because course."
-        ],
-        answer:"This course allows me to develop my communication skills.",
-        explanation:"allows me to develop ใช้เชื่อมรายวิชากับผลลัพธ์การเรียนรู้ได้ดี"
-      },
-      {
-        id:"S1-B1P-005", session:"S1", level:"B1+", type:"academic_upgrade", word:"experience in",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "I have experience in creating simple mobile applications.",
-          "I have experience to create mobile applications.",
-          "I experience mobile create.",
-          "I have create app experience."
-        ],
-        answer:"I have experience in creating simple mobile applications.",
-        explanation:"have experience in + V-ing เป็นโครงสร้างที่ถูกต้อง"
-      },
-      {
-        id:"S1-B1P-006", session:"S1", level:"B1+", type:"academic_upgrade", word:"main goal",
-        prompt:"Choose the best academic sentence.",
-        choices:[
-          "My main goal is to apply English vocabulary in academic tasks.",
-          "My goal main English task do.",
-          "I want words for homework good.",
-          "English vocabulary is very want."
-        ],
-        answer:"My main goal is to apply English vocabulary in academic tasks.",
-        explanation:"main goal และ apply...in academic tasks เหมาะกับบริบท EAP"
-      },
-      {
-        id:"S1-B1P-007", session:"S1", level:"B1+", type:"academic_upgrade", word:"would like to develop",
-        prompt:"Choose the most appropriate sentence for academic self-introduction.",
-        choices:[
-          "I would like to develop stronger presentation skills.",
-          "I want present good more.",
-          "Presentation makes me like.",
-          "I develop presentation very."
-        ],
-        answer:"I would like to develop stronger presentation skills.",
-        explanation:"would like to develop สุภาพกว่า want และเหมาะกับภาษาเชิงวิชาการ"
-      },
-      {
-        id:"S1-B1P-008", session:"S1", level:"B1+", type:"academic_phrase", word:"focuses on",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "The project focuses on helping students learn academic vocabulary.",
-          "The project focus help word.",
-          "Project is vocabulary happy.",
-          "The project focusing student to word."
-        ],
-        answer:"The project focuses on helping students learn academic vocabulary.",
-        explanation:"focuses on + V-ing ใช้อธิบายจุดเน้นของโปรเจกต์"
-      },
-      {
-        id:"S1-B1P-009", session:"S1", level:"B1+", type:"academic_phrase", word:"introduces",
-        prompt:"Choose the best sentence for a presentation opening.",
-        choices:[
-          "This presentation introduces my academic background and learning goals.",
-          "This presentation say me.",
-          "Presentation about I and goal.",
-          "I introduce many thing."
-        ],
-        answer:"This presentation introduces my academic background and learning goals.",
-        explanation:"introduces ใช้เปิดการนำเสนออย่างเป็นทางการได้ดี"
-      },
-      {
-        id:"S1-B1P-010", session:"S1", level:"B1+", type:"academic_phrase", word:"contributed to",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "I contributed to the design of the project interface.",
-          "I contribute for design interface.",
-          "I design contribute project.",
-          "Interface contributed me."
-        ],
-        answer:"I contributed to the design of the project interface.",
-        explanation:"contributed to + noun ใช้บอกสิ่งที่มีส่วนร่วมทำ"
-      },
-      {
-        id:"S1-B1P-011", session:"S1", level:"B1+", type:"academic_phrase", word:"is designed to",
-        prompt:"Choose the best academic sentence.",
-        choices:[
-          "The application is designed to support vocabulary practice.",
-          "The application design support practice.",
-          "App is design for vocabulary very.",
-          "The app designed vocabulary to."
-        ],
-        answer:"The application is designed to support vocabulary practice.",
-        explanation:"is designed to ใช้อธิบายวัตถุประสงค์ของระบบหรือแอป"
-      },
-      {
-        id:"S1-B1P-012", session:"S1", level:"B1+", type:"academic_phrase", word:"supports",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "This activity supports students’ academic vocabulary development.",
-          "This activity support student word good.",
-          "Activity is word student support.",
-          "Students support activity vocabulary good."
-        ],
-        answer:"This activity supports students’ academic vocabulary development.",
-        explanation:"supports + noun phrase ใช้ใน academic tone ได้ดี"
-      },
-      {
-        id:"S1-B1P-013", session:"S1", level:"B1+", type:"academic_phrase", word:"responsible for",
-        prompt:"Choose the most accurate sentence.",
-        choices:[
-          "I am responsible for preparing the presentation slides.",
-          "I am responsible to prepare slides.",
-          "I responsible slides prepare.",
-          "Slides responsible for me."
-        ],
-        answer:"I am responsible for preparing the presentation slides.",
-        explanation:"responsible for + V-ing คือรูปแบบที่ถูกต้อง"
-      },
-      {
-        id:"S1-B1P-014", session:"S1", level:"B1+", type:"academic_phrase", word:"strength",
-        prompt:"Choose the best academic sentence.",
-        choices:[
-          "One of my strengths is the ability to work collaboratively.",
-          "My strength is I work team good.",
-          "I good team much.",
-          "Team is my strong very."
-        ],
-        answer:"One of my strengths is the ability to work collaboratively.",
-        explanation:"One of my strengths is... ใช้บอกจุดแข็งอย่างเหมาะสม"
-      },
-      {
-        id:"S1-B1P-015", session:"S1", level:"B1+", type:"academic_phrase", word:"academic contexts",
-        prompt:"Choose the best sentence.",
-        choices:[
-          "In academic contexts, clear communication is essential.",
-          "In school thing, clear talk is good.",
-          "Academic context communication yes.",
-          "Clear communication very school."
-        ],
-        answer:"In academic contexts, clear communication is essential.",
-        explanation:"In academic contexts และ essential เป็นภาษาที่เหมาะกับ EAP"
-      }
-    ];
-
-    const $ = (id) => document.getElementById(id);
-
-    const state = {
-      session:"S1",
-      mode:"mixed",
-      roundSize:16,
-      questions:[],
-      index:0,
-      answered:false,
-      current:null,
-      xp:0,
-      combo:0,
-      maxCombo:0,
-      correct:0,
-      answers:[],
-      weakWords:[],
-      aiHelp:2,
-      timer:null,
-      timerStart:0,
-      timerDuration:0,
-      timeLeft:0
-    };
-
-    function loadStats(){
-      try{
-        return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
-          totalXp:0,
-          rounds:0,
-          correct:0,
-          total:0,
-          words:{}
-        };
-      }catch(e){
-        return {totalXp:0,rounds:0,correct:0,total:0,words:{}};
-      }
-    }
-
-    function saveStats(stats){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
-    }
-
-    function loadRecent(){
-      try{
-        return JSON.parse(localStorage.getItem(RECENT_KEY)) || {};
-      }catch(e){
-        return {};
-      }
-    }
-
-    function saveRecent(recent){
-      localStorage.setItem(RECENT_KEY, JSON.stringify(recent));
-    }
-
-    function shuffle(arr){
-      const a = arr.slice();
-      for(let i=a.length-1;i>0;i--){
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i],a[j]] = [a[j],a[i]];
-      }
-      return a;
-    }
-
-    function uniq(arr){
-      return Array.from(new Set(arr));
-    }
-
-    function showToast(msg){
-      const t = $("toast");
-      t.textContent = msg;
-      t.classList.add("show");
-      clearTimeout(showToast._timer);
-      showToast._timer = setTimeout(() => t.classList.remove("show"), 1700);
-    }
-
-    function setScreen(name){
-      ["homeScreen","gameScreen","summaryScreen"].forEach(id => $(id).classList.remove("active"));
-      $(name).classList.add("active");
-      window.scrollTo({top:0,behavior:"smooth"});
-    }
-
-    function levelTag(level){
-      const cls = level === "B1+" ? "bad" : level === "B1" ? "warn" : level === "A2+" ? "primary" : "good";
-      return `<span class="tag ${cls}">${level}</span>`;
-    }
-
-    function typeLabel(type){
-      const map = {
-        meaning:"Meaning",
-        sentence_fill:"Sentence Fill",
-        context:"Context",
-        collocation:"Collocation",
-        academic_upgrade:"Academic Upgrade",
-        academic_phrase:"Academic Phrase"
-      };
-      return map[type] || type;
-    }
-
-    function masteryLabel(wordStats){
-      if(!wordStats) return "New";
-      const seen = wordStats.seen || 0;
-      const correct = wordStats.correct || 0;
-      const levels = Object.keys(wordStats.levels || {}).length;
-      if(correct >= 5 && levels >= 3) return "Mastered";
-      if(correct >= 4 && levels >= 2) return "Strong";
-      if(correct >= 2) return "Familiar";
-      if(seen >= 1) return "Learned";
-      return "New";
-    }
-
-    function renderHomeStats(){
-      const stats = loadStats();
-      const acc = stats.total ? Math.round((stats.correct / stats.total) * 100) : 0;
-      const words = Object.keys(stats.words || {});
-      const mastered = words.filter(w => masteryLabel(stats.words[w]) === "Mastered").length;
-      const weak = words.filter(w => (stats.words[w].wrong || 0) > 0).length;
-
-      $("homeStats").innerHTML = `
-        <div class="stat"><b>${stats.totalXp || 0}</b><span>Total XP</span></div>
-        <div class="stat"><b>${stats.rounds || 0}</b><span>Rounds Played</span></div>
-        <div class="stat"><b>${acc}%</b><span>Overall Accuracy</span></div>
-        <div class="stat"><b>${mastered}/${words.length}</b><span>Mastered Words</span></div>
-      `;
-    }
-
-    function renderSessions(){
-      const grid = $("sessionGrid");
-      grid.innerHTML = SESSIONS.map(s => {
-        const active = s.status === "playable";
-        const statusTag = s.status === "playable"
-          ? `<span class="tag good">Playable</span>`
-          : s.status === "soon"
-            ? `<span class="tag primary">Data Soon</span>`
-            : `<span class="tag warn">Locked</span>`;
-
-        const bossTag = s.boss ? `<span class="tag bad">Boss</span>` : `<span class="tag">Mission</span>`;
-
-        return `
-          <div class="session-card ${active ? "active-card" : ""}">
-            <div class="session-top">
-              <div class="session-id">${s.id}</div>
-              <div class="session-meta">${statusTag}${bossTag}</div>
+          <div class="progress-wrap">
+            <div class="progress-label">
+              <span>Round Progress</span>
+              <span id="progressPercent">0%</span>
             </div>
-            <h4>${s.title}</h4>
-            <p>${s.desc}</p>
-            <button ${active ? "" : "disabled"} onclick="startSession('${s.id}')">
-              ${active ? "เริ่มเล่น" : "รอเพิ่มคลังคำศัพท์"}
-            </button>
+            <div class="progress-track">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
           </div>
-        `;
-      }).join("");
-    }
 
-    function getWeakItemsForSession(session){
-      const stats = loadStats();
-      const weakWords = Object.entries(stats.words || {})
-        .filter(([,v]) => (v.wrong || 0) > 0)
-        .sort((a,b) => (b[1].wrong || 0) - (a[1].wrong || 0))
-        .map(([w]) => w);
-
-      return QUESTION_BANK.filter(q => q.session === session && weakWords.includes(q.word));
-    }
-
-    function buildRound(session, mode, roundSize){
-      const recent = loadRecent();
-      const recentIds = new Set(recent[session] || []);
-
-      let pool = QUESTION_BANK.filter(q => q.session === session);
-      if(mode !== "mixed"){
-        pool = pool.filter(q => q.level === mode);
-      }
-
-      if(!pool.length){
-        return [];
-      }
-
-      const selected = [];
-      const selectedIds = new Set();
-
-      const weakItems = shuffle(getWeakItemsForSession(session))
-        .filter(q => mode === "mixed" || q.level === mode)
-        .slice(0, Math.min(2, Math.floor(roundSize * 0.15)));
-
-      weakItems.forEach(q => {
-        if(!selectedIds.has(q.id)){
-          selected.push(q);
-          selectedIds.add(q.id);
-        }
-      });
-
-      if(mode === "mixed"){
-        const levels = ["A2","A2+","B1","B1+"];
-        const base = Math.floor(roundSize / levels.length);
-        const rem = roundSize % levels.length;
-        const quota = {};
-        levels.forEach((l,i) => quota[l] = base + (i < rem ? 1 : 0));
-
-        selected.forEach(q => {
-          if(quota[q.level] > 0) quota[q.level]--;
-        });
-
-        levels.forEach(level => {
-          const levelPoolFresh = shuffle(pool.filter(q => q.level === level && !recentIds.has(q.id) && !selectedIds.has(q.id)));
-          const levelPoolFallback = shuffle(pool.filter(q => q.level === level && !selectedIds.has(q.id)));
-          const combined = levelPoolFresh.concat(levelPoolFallback.filter(q => !levelPoolFresh.some(x => x.id === q.id)));
-
-          for(const q of combined){
-            if((quota[level] || 0) <= 0) break;
-            selected.push(q);
-            selectedIds.add(q.id);
-            quota[level]--;
-          }
-        });
-      }
-
-      const fresh = shuffle(pool.filter(q => !recentIds.has(q.id) && !selectedIds.has(q.id)));
-      const fallback = shuffle(pool.filter(q => !selectedIds.has(q.id)));
-      const combined = fresh.concat(fallback.filter(q => !fresh.some(x => x.id === q.id)));
-
-      for(const q of combined){
-        if(selected.length >= roundSize) break;
-        selected.push(q);
-        selectedIds.add(q.id);
-      }
-
-      return shuffle(selected).slice(0, roundSize);
-    }
-
-    window.startSession = function(sessionId){
-      if(sessionId !== "S1"){
-        showToast("ตอนนี้ prototype เปิด S1 ก่อนค่ะ");
-        return;
-      }
-
-      state.session = sessionId;
-      state.mode = $("modeSelect").value;
-      state.roundSize = Number($("roundSizeSelect").value || 16);
-      state.questions = buildRound(state.session, state.mode, state.roundSize);
-      state.index = 0;
-      state.answered = false;
-      state.current = null;
-      state.xp = 0;
-      state.combo = 0;
-      state.maxCombo = 0;
-      state.correct = 0;
-      state.answers = [];
-      state.weakWords = [];
-      state.aiHelp = 2;
-
-      if(!state.questions.length){
-        showToast("ยังไม่มีคำถามสำหรับโหมดนี้");
-        return;
-      }
-
-      setScreen("gameScreen");
-      renderQuestion();
-    };
-
-    function renderQuestion(){
-      clearQuestionTimer();
-
-      state.answered = false;
-      state.current = state.questions[state.index];
-      const q = state.current;
-
-      $("feedbackBox").className = "feedback";
-      $("feedbackTitle").textContent = "";
-      $("feedbackText").textContent = "";
-      $("nextBtn").disabled = true;
-      $("hintBtn").disabled = state.aiHelp <= 0;
-      $("hintBtn").textContent = `AI Help ${state.aiHelp}/2`;
-
-      const progress = ((state.index) / state.questions.length) * 100;
-      $("progressText").textContent = `Question ${state.index + 1}/${state.questions.length}`;
-      $("progressFill").style.width = `${progress}%`;
-
-      $("questionTags").innerHTML = `
-        ${levelTag(q.level)}
-        <span class="tag">${typeLabel(q.type)}</span>
-        <span class="word-chip">Word: ${q.word}</span>
-      `;
-
-      $("promptText").textContent = q.prompt;
-
-      $("choicesBox").innerHTML = shuffle(q.choices).map(choice => `
-        <button class="choice" data-choice="${escapeAttr(choice)}">${escapeHtml(choice)}</button>
-      `).join("");
-
-      Array.from(document.querySelectorAll(".choice")).forEach(btn => {
-        btn.addEventListener("click", () => handleAnswer(btn.dataset.choice, false));
-      });
-
-      updateSideStats();
-      renderFocusWords();
-      startQuestionTimer(LEVEL_SECONDS[q.level] || 12);
-    }
-
-    function escapeHtml(s){
-      return String(s).replace(/[&<>"']/g, m => ({
-        "&":"&amp;",
-        "<":"&lt;",
-        ">":"&gt;",
-        '"':"&quot;",
-        "'":"&#039;"
-      }[m]));
-    }
-
-    function escapeAttr(s){
-      return escapeHtml(s).replace(/`/g,"&#096;");
-    }
-
-    function startQuestionTimer(seconds){
-      state.timerDuration = seconds * 1000;
-      state.timerStart = Date.now();
-      state.timeLeft = seconds;
-      $("timerFill").style.transform = "scaleX(1)";
-
-      state.timer = setInterval(() => {
-        const elapsed = Date.now() - state.timerStart;
-        const ratio = Math.max(0, 1 - elapsed / state.timerDuration);
-        state.timeLeft = Math.ceil((state.timerDuration - elapsed) / 1000);
-        $("timerFill").style.transform = `scaleX(${ratio})`;
-
-        if(ratio <= 0){
-          clearQuestionTimer();
-          handleAnswer(null, true);
-        }
-      }, 80);
-    }
-
-    function clearQuestionTimer(){
-      if(state.timer){
-        clearInterval(state.timer);
-        state.timer = null;
-      }
-    }
-
-    function handleAnswer(choice, timeout){
-      if(state.answered) return;
-      state.answered = true;
-      clearQuestionTimer();
-
-      const q = state.current;
-      const isCorrect = choice === q.answer;
-      const buttons = Array.from(document.querySelectorAll(".choice"));
-
-      buttons.forEach(btn => {
-        btn.disabled = true;
-        const c = btn.dataset.choice;
-        if(c === q.answer) btn.classList.add("correct");
-        if(choice && c === choice && !isCorrect) btn.classList.add("wrong");
-      });
-
-      let gained = 0;
-      if(isCorrect){
-        state.correct++;
-        state.combo++;
-        state.maxCombo = Math.max(state.maxCombo, state.combo);
-
-        const base = LEVEL_XP[q.level] || 10;
-        const comboBonus = Math.min(12, Math.floor(state.combo / 2) * 2);
-        const speedBonus = state.timeLeft >= 6 ? 5 : state.timeLeft >= 3 ? 2 : 0;
-        gained = base + comboBonus + speedBonus;
-        state.xp += gained;
-
-        showFeedback(true, `ถูกต้อง +${gained} XP`, q.explanation);
-      }else{
-        state.combo = 0;
-        if(!state.weakWords.includes(q.word)) state.weakWords.push(q.word);
-        showFeedback(false, timeout ? "หมดเวลา" : "ยังไม่ถูก", `${q.explanation} คำตอบที่ถูกคือ “${q.answer}”`);
-      }
-
-      state.answers.push({
-        id:q.id,
-        word:q.word,
-        level:q.level,
-        type:q.type,
-        prompt:q.prompt,
-        selected:choice || "(timeout)",
-        answer:q.answer,
-        correct:isCorrect,
-        explanation:q.explanation,
-        xp:gained
-      });
-
-      updateWordStats(q, isCorrect);
-      updateSideStats();
-      renderWeakWords();
-      $("nextBtn").disabled = false;
-      $("hintBtn").disabled = true;
-
-      if(state.index >= state.questions.length - 1){
-        $("nextBtn").textContent = "ดูผลสรุป";
-      }else{
-        $("nextBtn").textContent = "ข้อต่อไป";
-      }
-    }
-
-    function showFeedback(good, title, text){
-      const box = $("feedbackBox");
-      box.className = `feedback show ${good ? "good" : "bad"}`;
-      $("feedbackTitle").textContent = title;
-      $("feedbackText").textContent = text;
-    }
-
-    function updateWordStats(q, isCorrect){
-      const stats = loadStats();
-      if(!stats.words[q.word]){
-        stats.words[q.word] = {
-          seen:0,
-          correct:0,
-          wrong:0,
-          levels:{},
-          lastSeen:null
-        };
-      }
-
-      const w = stats.words[q.word];
-      w.seen++;
-      if(isCorrect) w.correct++;
-      else w.wrong++;
-      w.levels[q.level] = (w.levels[q.level] || 0) + 1;
-      w.lastSeen = new Date().toISOString();
-
-      saveStats(stats);
-    }
-
-    function updateRoundStatsAtEnd(){
-      const stats = loadStats();
-      stats.rounds = (stats.rounds || 0) + 1;
-      stats.totalXp = (stats.totalXp || 0) + state.xp;
-      stats.correct = (stats.correct || 0) + state.correct;
-      stats.total = (stats.total || 0) + state.questions.length;
-      saveStats(stats);
-
-      const recent = loadRecent();
-      const current = recent[state.session] || [];
-      const addIds = state.questions.map(q => q.id);
-      recent[state.session] = uniq(current.concat(addIds)).slice(-90);
-      saveRecent(recent);
-    }
-
-    function updateSideStats(){
-      const attempted = state.answers.length;
-      const acc = attempted ? Math.round((state.correct / attempted) * 100) : 0;
-      $("xpText").textContent = state.xp;
-      $("comboText").textContent = state.combo;
-      $("correctText").textContent = state.correct;
-      $("accuracyText").textContent = `${acc}%`;
-    }
-
-    function renderWeakWords(){
-      const box = $("weakWordsBox");
-      if(!state.weakWords.length){
-        box.innerHTML = `<span class="empty">ยังไม่มีคำที่ผิด</span>`;
-        return;
-      }
-      box.innerHTML = state.weakWords.map(w => `<span class="word-pill">${escapeHtml(w)}</span>`).join("");
-    }
-
-    function renderFocusWords(){
-      const stats = loadStats();
-      const candidates = QUESTION_BANK
-        .filter(q => q.session === state.session)
-        .map(q => q.word);
-
-      const words = uniq(candidates).slice(0, 10);
-      $("focusWordsBox").innerHTML = words.map(w => {
-        const label = masteryLabel(stats.words[w]);
-        return `<span class="word-pill">${escapeHtml(w)} • ${label}</span>`;
-      }).join("");
-    }
-
-    function finishRound(){
-      clearQuestionTimer();
-      updateRoundStatsAtEnd();
-
-      const acc = Math.round((state.correct / state.questions.length) * 100);
-      const stars = acc >= 90 ? "★★★" : acc >= 75 ? "★★☆" : acc >= 60 ? "★☆☆" : "☆☆☆";
-      const title = acc >= 90 ? "Excellent Academic Mission!" :
-                    acc >= 75 ? "Good Progress!" :
-                    acc >= 60 ? "Mission Clear" :
-                    "Try Again Mission";
-
-      $("summaryTitle").textContent = title;
-      $("summarySubtitle").textContent = `${state.session} • ${state.mode === "mixed" ? "Mixed A2–B1+" : state.mode} • ${state.questions.length} questions`;
-      $("starsText").textContent = stars;
-      $("sumXp").textContent = state.xp;
-      $("sumAcc").textContent = `${acc}%`;
-      $("sumCombo").textContent = state.maxCombo;
-      $("sumWeak").textContent = state.weakWords.length;
-
-      if(state.weakWords.length){
-        $("summaryWeakList").innerHTML = state.weakWords.map(w => `
-          <div class="review-item">
-            <b>Weak Word Monster: ${escapeHtml(w)}</b>
-            <span>คำนี้จะถูกดึงกลับมาในรอบถัดไปเพื่อฝึกซ้ำแบบเปลี่ยนโจทย์</span>
+          <div class="timer-track">
+            <div class="timer-fill" id="timeFill"></div>
           </div>
-        `).join("");
-      }else{
-        $("summaryWeakList").innerHTML = `<p class="empty">รอบนี้ไม่มี Weak Word เยี่ยมมากค่ะ</p>`;
-      }
 
-      $("summaryReviewList").innerHTML = state.answers.map((a,i) => `
-        <div class="review-item">
-          <b>${i + 1}. ${escapeHtml(a.word)} • ${a.level} • ${a.correct ? "ถูก" : "ผิด"}</b>
-          <span>
-            ${escapeHtml(a.prompt)}<br>
-            Your answer: ${escapeHtml(a.selected)}<br>
-            Correct answer: ${escapeHtml(a.answer)}
-          </span>
-        </div>
-      `).join("");
+          <div class="question-tags" id="questionTags"></div>
 
-      setScreen("summaryScreen");
-      renderHomeStats();
-    }
+          <div class="prompt-box">
+            <h3 id="promptText">Prompt</h3>
+          </div>
 
-    $("quickStartBtn").addEventListener("click", () => startSession("S1"));
+          <div class="choices" id="choicesEl"></div>
 
-    $("quitBtn").addEventListener("click", () => {
-      clearQuestionTimer();
-      setScreen("homeScreen");
-      renderHomeStats();
-    });
+          <div class="feedback-box" id="feedbackBox" hidden>
+            <h4 id="feedbackTitle">Feedback</h4>
+            <p id="feedbackText"></p>
+          </div>
 
-    $("nextBtn").addEventListener("click", () => {
-      if(state.index >= state.questions.length - 1){
-        finishRound();
-        return;
-      }
-      state.index++;
-      renderQuestion();
-    });
+          <div class="game-footer">
+            <div class="mini-stats" id="gameStats"></div>
+            <button class="btn" id="nextBtn" type="button" disabled>ข้อต่อไป</button>
+          </div>
+        </article>
+      </section>
 
-    $("hintBtn").addEventListener("click", () => {
-      if(state.aiHelp <= 0 || state.answered) return;
-      state.aiHelp--;
-      const q = state.current;
-      const hint = q.level === "A2"
-        ? `Hint: คำนี้เกี่ยวกับ “${q.word}” ในการแนะนำตัวหรือการเรียน`
-        : q.level === "A2+"
-          ? `Hint: ดูคำรอบ ๆ ช่องว่าง ประโยคนี้ต้องใช้คำที่เข้ากับบริบท`
-          : q.level === "B1"
-            ? `Hint: คิดจากสถานการณ์ ไม่ใช่แปลคำเดี่ยว`
-            : `Hint: เลือกประโยคที่สุภาพ ถูกโครงสร้าง และมี academic tone`;
+      <!-- =========================================================
+           TEACHER DASHBOARD
+      ========================================================== -->
+      <section id="teacherScreen" class="screen">
+        <article class="summary-card">
+          <div class="summary-title">
+            <div>
+              <h2>Teacher Dashboard</h2>
+              <p class="empty">
+                ภาพรวมผลการเล่นจาก browser เครื่องนี้ ใช้ตรวจ progress, accuracy,
+                weak words และ mastery เบื้องต้น
+              </p>
+            </div>
+            <div class="stars">📊</div>
+          </div>
 
-      showFeedback(true, "AI Help", hint);
-      $("hintBtn").textContent = `AI Help ${state.aiHelp}/2`;
-      if(state.aiHelp <= 0) $("hintBtn").disabled = true;
-    });
+          <div class="dash-note">
+            ข้อมูลนี้เก็บใน browser ผ่าน localStorage เหมาะสำหรับ prototype/test
+            ก่อนเชื่อม Google Sheets หรือ Teacher Console จริง
+          </div>
 
-    $("backHomeBtn").addEventListener("click", () => {
-      setScreen("homeScreen");
-      renderHomeStats();
-      renderSessions();
-    });
+          <div class="dash-note" id="teacherProfileBox"></div>
 
-    $("replayBtn").addEventListener("click", () => startSession("S1"));
+          <div class="summary-grid" id="teacherStats"></div>
 
-    $("versionPill").textContent = APP_VERSION;
+          <div class="teacher-toolbar">
+            <button class="btn secondary" id="teacherRefreshBtn" type="button">Refresh</button>
+            <button class="btn secondary" id="exportCsvBtn" type="button">Export CSV</button>
+            <button class="btn secondary" id="exportJsonBtn" type="button">Export JSON</button>
+            <button class="btn danger" id="clearStatsBtn" type="button">Clear Local Data</button>
+            <button class="btn" id="teacherBackBtn" type="button">กลับหน้า Session</button>
+          </div>
 
-    renderHomeStats();
-    renderSessions();
-  </script>
+          <div class="section-title">
+            <h3>Session Progress</h3>
+            <span>S1–S15 / Boss / Review Modes</span>
+          </div>
+
+          <div class="dash-table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Session</th>
+                  <th>Rounds</th>
+                  <th>Questions</th>
+                  <th>Correct</th>
+                  <th>Accuracy</th>
+                  <th>XP</th>
+                  <th>Passed</th>
+                  <th>Best</th>
+                  <th>Last Played</th>
+                </tr>
+              </thead>
+              <tbody id="sessionProgressBody"></tbody>
+            </table>
+          </div>
+
+          <div class="section-title">
+            <h3>Top Weak Words</h3>
+            <span>คำที่ผิดบ่อยที่สุด</span>
+          </div>
+
+          <div class="dash-table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Word</th>
+                  <th>Seen</th>
+                  <th>Correct</th>
+                  <th>Wrong</th>
+                  <th>Accuracy</th>
+                  <th>Mastery</th>
+                </tr>
+              </thead>
+              <tbody id="weakWordsTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="section-title">
+            <h3>Mastery Overview</h3>
+            <span>สถานะคำศัพท์</span>
+          </div>
+
+          <div class="dash-table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Count</th>
+                  <th>Examples</th>
+                </tr>
+              </thead>
+              <tbody id="masteryOverviewBody"></tbody>
+            </table>
+          </div>
+
+          <div class="section-title">
+            <h3>Recent Rounds</h3>
+            <span>ประวัติการเล่นล่าสุด</span>
+          </div>
+
+          <div class="dash-table-wrap">
+            <table class="dash-table">
+              <thead>
+                <tr>
+                  <th>Date/Time</th>
+                  <th>Student</th>
+                  <th>Section</th>
+                  <th>Mode</th>
+                  <th>Questions</th>
+                  <th>Correct</th>
+                  <th>Accuracy</th>
+                  <th>XP</th>
+                  <th>Passed</th>
+                  <th>Weak Words</th>
+                </tr>
+              </thead>
+              <tbody id="recentRoundsBody"></tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <!-- =========================================================
+           WORD DECK
+      ========================================================== -->
+      <section id="wordDeckScreen" class="screen">
+        <article class="summary-card">
+          <div class="summary-title">
+            <div>
+              <h2>Word Deck</h2>
+              <p class="empty">
+                การ์ดคำศัพท์สะสมของผู้เรียน แสดงสถานะ New, Learned,
+                Familiar, Strong และ Mastered
+              </p>
+            </div>
+            <div class="stars">🃏</div>
+          </div>
+
+          <div class="summary-grid" id="deckStats"></div>
+
+          <div class="deck-toolbar">
+            <div class="field">
+              <label>Session</label>
+              <select id="deckSessionFilter">
+                <option value="ALL">All S1–S14</option>
+                <option value="S1">S1 Academic Profile</option>
+                <option value="S2">S2 Project Introduction</option>
+                <option value="S4">S4 Tech Jobs / Careers</option>
+                <option value="S5">S5 Workplace Communication</option>
+                <option value="S7">S7 Professional Email</option>
+                <option value="S8">S8 Meeting / Discussion</option>
+                <option value="S10">S10 System Explanation</option>
+                <option value="S11">S11 Bug Report / Problem Solving</option>
+                <option value="S13">S13 AI Report / Academic Summary</option>
+                <option value="S14">S14 CV / Interview / Pitch</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Mastery Status</label>
+              <select id="deckMasteryFilter">
+                <option value="ALL">All Status</option>
+                <option value="New">New</option>
+                <option value="Learned">Learned</option>
+                <option value="Familiar">Familiar</option>
+                <option value="Strong">Strong</option>
+                <option value="Mastered">Mastered</option>
+                <option value="Weak">Weak Words</option>
+              </select>
+            </div>
+
+            <button class="btn secondary" id="deckBackBtn" type="button">กลับหน้า Session</button>
+          </div>
+
+          <div class="deck-grid" id="wordDeckGrid"></div>
+        </article>
+      </section>
+
+      <!-- =========================================================
+           SUMMARY SCREEN
+      ========================================================== -->
+      <section id="summaryScreen" class="screen">
+        <article class="summary-card">
+          <div class="summary-title">
+            <div>
+              <h2 id="summaryTitle">Mission Complete</h2>
+              <p id="summarySubtitle" class="empty"></p>
+            </div>
+            <div class="stars" id="summaryStars">⭐</div>
+          </div>
+
+          <div class="summary-grid" id="summaryStats"></div>
+
+          <div class="section-title">
+            <h3>Weak Words</h3>
+            <span>คำที่ควรกลับไปทบทวน</span>
+          </div>
+
+          <div class="word-list" id="summaryWeakWords"></div>
+
+          <div class="summary-actions">
+            <button class="btn" id="replayBtn" type="button">เล่นอีกครั้ง</button>
+            <button class="btn secondary" id="summaryDeckBtn" type="button">เปิด Word Deck</button>
+            <button class="btn secondary" id="summaryTeacherBtn" type="button">Teacher Dashboard</button>
+            <button class="btn secondary" id="homeBtn" type="button">กลับหน้า Session</button>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="./eap-word-data.js?v=20260611-v14-final-arc"></script>
+  <script src="./eap-word-engine.js?v=20260611-v14-final-arc"></script>
 </body>
 </html>
