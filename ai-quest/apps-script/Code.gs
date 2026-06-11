@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.6.0
+ * Version: v2.6.1
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.6.0';
+const APP_VERSION = 'v2.6.1';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -629,11 +629,11 @@ function buildMasteryGate_(profiles, attempts, events) {
     recommendations.push('ยังไม่มีรายชื่อนักศึกษา/attempt สำหรับวิเคราะห์ Class Gate');
   } else {
     if (readyPct >= 70) {
-      recommendations.push('เปิด S3 Search Maze ได้ โดยใช้ 10 นาทีแรกทบทวน misconception เด่น');
+      recommendations.push('เปิด S3 Search Maze ได้ โดยใช้ 10 นาทีแรกทบทวน misconception เด่นก่อนเริ่ม BFS/DFS');
     } else if (readyPct >= 50) {
-      recommendations.push('เปิด S3 ได้แบบมี Remedial คู่ขนาน: ให้กลุ่มที่ยังไม่ผ่านทำ S2/B1 Training ก่อน');
+      recommendations.push('เปิด S3 ได้แบบมี Remedial คู่ขนาน: กลุ่มพร้อมเริ่ม S3 ส่วนกลุ่มที่ยังไม่ผ่านทำ S2/B1 Training ก่อน');
     } else {
-      recommendations.push('ยังไม่ควรเปิด S3 ทันที: ควรทำ remedial S1-S2-B1 ก่อนอย่างน้อย 15–25 นาที');
+      recommendations.push('ยังไม่ควรเปิด S3 ทันที: ควรทำ remedial S1-S2-B1 ก่อนอย่างน้อย 15–25 นาที แล้วให้ทำ B1 ซ้ำ');
     }
 
     if (needB1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน B1 ทำ Rookie Boss ซ้ำจนได้อย่างน้อย 1 ดาว');
@@ -662,13 +662,43 @@ function buildMasteryGate_(profiles, attempts, events) {
 }
 
 
+
+function normalizePhaseName_(phase) {
+  const raw = String(phase || '').trim();
+  const key = raw.toLowerCase().replace(/\s+/g, '_');
+
+  const map = {
+    'agent':'Agent Foundation',
+    'agent_foundation':'Agent Foundation',
+    'agent_or_not':'Agent Foundation',
+    'ai_vs_automation':'AI vs Automation',
+    'automation':'AI vs Automation',
+    'peas':'PEAS Gate',
+    'peas_builder':'PEAS Gate',
+    'peas_gate':'PEAS Gate',
+    'environment':'Environment Gate',
+    'environment_classifier':'Environment Gate',
+    'environment_gate':'Environment Gate',
+    'rationality':'Rationality Gate',
+    'rational_agent':'Rationality Gate',
+    'rationality_gate':'Rationality Gate',
+    'boss':'Final Attack',
+    'adaptive_boss':'Final Attack',
+    'rational_agent_boss':'Final Attack',
+    'final_attack':'Final Attack'
+  };
+
+  return map[key] || raw || 'Unknown';
+}
+
+
 function collectPhaseAnalytics_(events) {
   const map = {};
   (events || []).forEach(function(e){
     const type = String(e.eventType || '');
     if (type !== 'answer_submit' && type !== 'boss_answer') return;
 
-    const phase = String(e.phase || 'Unknown');
+    const phase = normalizePhaseName_(e.phase || 'Unknown');
     if (!map[phase]) map[phase] = {phase:phase, correct:0, total:0, wrong:0};
 
     map[phase].total += 1;
@@ -679,8 +709,11 @@ function collectPhaseAnalytics_(events) {
     else map[phase].wrong += 1;
   });
 
+  const order = ['AI vs Automation','Agent Foundation','PEAS Gate','Environment Gate','Rationality Gate','Final Attack'];
   return Object.values(map).sort(function(a,b){
-    return String(a.phase || '').localeCompare(String(b.phase || ''));
+    const ai = order.indexOf(String(a.phase || ''));
+    const bi = order.indexOf(String(b.phase || ''));
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi) || String(a.phase || '').localeCompare(String(b.phase || ''));
   }).map(function(row){
     row.percent = row.total ? Math.round(row.correct / row.total * 100) : 0;
     return row;
