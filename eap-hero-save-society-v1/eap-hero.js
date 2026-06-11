@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z30-true-student-ui-lock';
+  const APP_VERSION = '20260610-v1z31-student-map-clarity-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31788,11 +31788,12 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z30</div>
+              <div class="mini-note">Save the Society • v1z31</div>
             </div>
           </div>
           <div class="top-actions">
             <button class="btn ghost small" onclick="EAPHero.map()">🗺️ Map</button>
+            <button class="btn ghost small" onclick="EAPHero.continueSession()">▶ Continue</button>
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>':''}
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>':''}
@@ -32293,7 +32294,7 @@
             <div class="stat"><b>${safe(state.profile.name || 'Guest')}</b><span>Player</span></div>
             <div class="stat"><b>${safe(state.rank)}</b><span>Rank</span></div>
             <div class="stat"><b>${state.xp}</b><span>XP</span></div>
-            <div class="stat"><b>${state.cards.length}/15</b><span>Boss Cards</span></div>
+            <div class="stat"><b>${state.cards.length}/15</b><span>Progress</span></div>
             <div class="stat"><b>${state.fun?.coins || 0}</b><span>Coins</span></div>
             <div class="stat"><b>${state.fun?.daily?.streak || 0}</b><span>Daily Streak</span></div>
           </div>
@@ -32342,6 +32343,39 @@
     renderMap();
   }
 
+
+  function completedSessionCount(){
+    return Object.keys(state.bossCards || {}).length || 0;
+  }
+
+  function nextPlayableSessionId(){
+    const sessions = SESSIONS || [];
+    for(const s of sessions){
+      try{
+        if(!isSessionLocked(s.id)) return s.id;
+      }catch(e){}
+    }
+    return 1;
+  }
+
+  function continueSession(){
+    const current = Number(state.currentSession || 1);
+    const id = current && !isSessionLocked(current) ? current : nextPlayableSessionId();
+    renderSkillPath(id || 1);
+  }
+
+  function studentMapHelpHTML(){
+    return `<div class="student-map-help">
+      <b>What should I do?</b>
+      <span>กด Continue Session เพื่อเล่นต่อ หรือเลือก Session ที่ยังไม่ล็อกบนแผนที่</span>
+    </div>
+    <div class="footer-actions student-map-actions">
+      <button class="btn primary" onclick="EAPHero.continueSession()">Continue Session</button>
+      <button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
+    </div>`;
+  }
+
+
   function renderMap(){
     setView('map');
     const tiles = SESSIONS.map(s=>{
@@ -32370,6 +32404,7 @@
         </div>
         <h2>Campus Map</h2>
         <p class="lead">เลือก Session จาก Map → ทำ Skill Path → เก็บ Portfolio Evidence → ปลด Boss Gate เป็นช่วง ๆ</p>
+        ${studentMapHelpHTML()}
         <div class="map">${tiles}</div>
       </section>
     `);
@@ -37077,6 +37112,7 @@
     profile:renderProfile,
     saveProfile,
     map:renderMap,
+    continueSession,
     sessionBrief:renderSessionBrief,
     startLab:renderLab,
     practice:startPractice,
