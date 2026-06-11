@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.3.7
+ * Version: v2.3.8
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,8 +10,13 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.3.7';
+const APP_VERSION = 'v2.3.8';
 const TZ = 'Asia/Bangkok';
+
+const COURSE_ID_LOCK = 'CSAI2102';
+const TERM_LOCK = '1/2569';
+const SECTION_LOCK = '101';
+const CLASS_ID_LOCK = 'CSAI2102-2569-101';
 
 const SHEETS = {
   profiles: 'students_profile',
@@ -258,7 +263,7 @@ function upsertProfile_(profile) {
     if (String(values[i][headers.indexOf('studentId')]) === studentId) { rowIndex = i + 1; break; }
   }
   const now = bangkokIsoNow();
-  const row = [now, studentId, clean_(profile.studentName || profile.name || ''), clean_(profile.section || ''), clean_(profile.nickname || ''), clean_(profile.email || ''), clean_(profile.createdAt || now), clean_(profile.updatedAt || now), clean_(profile.userAgent || ''), now, stringify_(profile.extra || profile.extraJson || {})];
+  const row = [now, studentId, clean_(profile.studentName || profile.name || ''), forceSection_(profile.section), clean_(profile.nickname || ''), clean_(profile.email || ''), clean_(profile.createdAt || now), clean_(profile.updatedAt || now), clean_(profile.userAgent || ''), now, stringify_(profile.extra || profile.extraJson || {})];
   if (rowIndex > 0) sh.getRange(rowIndex, 1, 1, row.length).setValues([row]);
   else sh.appendRow(row);
 }
@@ -266,19 +271,19 @@ function upsertProfile_(profile) {
 function appendAttempt_(a) {
   const sh = getSheet_(SHEETS.attempts);
   const now = bangkokIsoNow();
-  sh.appendRow([now, clean_(a.attemptId || makeId_('att')), clean_(a.studentId || ''), clean_(a.studentName || ''), clean_(a.section || ''), clean_(a.sessionId || 's1'), clean_(a.missionId || 'm1'), clean_(a.missionTitle || 'AI Awakening'), clean_(a.difficulty || ''), num_(a.score), num_(a.stars), bool_(a.mastered), num_(a.usedTimeSec), num_(a.timeLeftSec), num_(a.accuracy), num_(a.correct), num_(a.total), num_(a.wrong), num_(a.maxCombo), num_(a.helpUsed), num_(a.trickCorrect), num_(a.trickTotal), num_(a.explainCorrect), num_(a.explainTotal), bool_(a.bossWin), stringify_(a.misconceptions || a.misconceptionsJson || {}), stringify_(a.wrongItems || a.wrongItemsJson || []), clean_(a.reflection1 || ''), clean_(a.reflection2 || ''), clean_(a.reflection3 || ''), clean_(a.clientTs || ''), clean_(a.userAgent || ''), clean_(a.pageUrl || ''), clean_(a.version || APP_VERSION), stringify_(a.extra || a.extraJson || {})]);
+  sh.appendRow([now, clean_(a.attemptId || makeId_('att')), clean_(a.studentId || ''), clean_(a.studentName || ''), forceSection_(a.section), clean_(a.sessionId || 's1'), clean_(a.missionId || 'm1'), clean_(a.missionTitle || 'AI Awakening'), clean_(a.difficulty || ''), num_(a.score), num_(a.stars), bool_(a.mastered), num_(a.usedTimeSec), num_(a.timeLeftSec), num_(a.accuracy), num_(a.correct), num_(a.total), num_(a.wrong), num_(a.maxCombo), num_(a.helpUsed), num_(a.trickCorrect), num_(a.trickTotal), num_(a.explainCorrect), num_(a.explainTotal), bool_(a.bossWin), stringify_(a.misconceptions || a.misconceptionsJson || {}), stringify_(a.wrongItems || a.wrongItemsJson || []), clean_(a.reflection1 || ''), clean_(a.reflection2 || ''), clean_(a.reflection3 || ''), clean_(a.clientTs || ''), clean_(a.userAgent || ''), clean_(a.pageUrl || ''), clean_(a.version || APP_VERSION), stringify_(a.extra || a.extraJson || {})]);
 }
 
 function appendEvent_(e) {
   const sh = getSheet_(SHEETS.events);
   const now = bangkokIsoNow();
-  sh.appendRow([now, clean_(e.eventId || makeId_('evt')), clean_(e.attemptId || ''), clean_(e.studentId || ''), clean_(e.section || ''), clean_(e.sessionId || 's1'), clean_(e.missionId || 'm1'), clean_(e.eventType || ''), clean_(e.phase || ''), clean_(e.itemId || ''), clean_(e.prompt || ''), clean_(e.yourAnswer || ''), clean_(e.correctAnswer || ''), boolOrBlank_(e.isCorrect), num_(e.scoreDelta), num_(e.combo), num_(e.helpLeft), clean_(e.clientTs || ''), clean_(e.userAgent || ''), clean_(e.pageUrl || ''), stringify_(e.extra || e.extraJson || {})]);
+  sh.appendRow([now, clean_(e.eventId || makeId_('evt')), clean_(e.attemptId || ''), clean_(e.studentId || ''), forceSection_(e.section), clean_(e.sessionId || 's1'), clean_(e.missionId || 'm1'), clean_(e.eventType || ''), clean_(e.phase || ''), clean_(e.itemId || ''), clean_(e.prompt || ''), clean_(e.yourAnswer || ''), clean_(e.correctAnswer || ''), boolOrBlank_(e.isCorrect), num_(e.scoreDelta), num_(e.combo), num_(e.helpLeft), clean_(e.clientTs || ''), clean_(e.userAgent || ''), clean_(e.pageUrl || ''), stringify_(e.extra || e.extraJson || {})]);
 }
 
 function appendProgress_(p) {
   const sh = getSheet_(SHEETS.progress);
   const now = bangkokIsoNow();
-  sh.appendRow([now, clean_(p.progressId || makeId_('prog')), clean_(p.studentId || ''), clean_(p.studentName || ''), clean_(p.section || ''), clean_(p.courseId || ''), clean_(p.classId || ''), clean_(p.term || ''), clean_(p.sessionId || 's1'), clean_(p.missionId || 'm1'), clean_(p.status || ''), num_(p.stars), num_(p.bestScore), bool_(p.unlocked), clean_(p.updatedAt || now), stringify_(p.extra || p.extraJson || p)]);
+  sh.appendRow([now, clean_(p.progressId || makeId_('prog')), clean_(p.studentId || ''), clean_(p.studentName || ''), forceSection_(p.section), COURSE_ID_LOCK, CLASS_ID_LOCK, TERM_LOCK, clean_(p.sessionId || 's1'), clean_(p.missionId || 'm1'), clean_(p.status || ''), num_(p.stars), num_(p.bestScore), bool_(p.unlocked), clean_(p.updatedAt || now), stringify_(p.extra || p.extraJson || p)]);
 }
 
 function safeAppendEvents_(events) {
@@ -331,7 +336,7 @@ function updateTeacherSummary() {
 
 function buildTeacherConsole_(params) {
   params = params || {};
-  const sectionFilter = String(params.section || '').trim();
+  const sectionFilter = SECTION_LOCK;
   const sessionFilter = String(params.sessionId || 's1').trim();
   const profiles = sheetObjects_(SHEETS.profiles);
   const attemptsAll = sheetObjects_(SHEETS.attempts);
@@ -448,6 +453,10 @@ function testWrite_() {
   appendProgress_({progressId:makeId_('test_prog'), studentId:'TEST001', studentName:'Test Student', section:'SEC01', courseId:'CSAI2102', classId:'CSAI2102-2569-SEC01', term:'1/2569', sessionId:'s1', missionId:'m1', status:'clear', stars:2, bestScore:88, unlocked:true, updatedAt:now, extraJson:{source:'testWrite', version:APP_VERSION}});
   updateTeacherSummary();
   return {ok:true, action:'testWrite', version:APP_VERSION, wrote:{profile:true, attempt:true, event:true, progress:true}, attemptId:attemptId, serverTs:bangkokIsoNow()};
+}
+
+function forceSection_(value) {
+  return SECTION_LOCK;
 }
 
 function getSheet_(name) {

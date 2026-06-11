@@ -7,16 +7,18 @@
 (function(){
   'use strict';
 
-  const VERSION = 'v2.2.3-data-contract-reflection-fix';
+  const VERSION = 'v2.2.8-data-contract-section-101-lock';
   const STORE_KEY = 'CSAI2102_AIQUEST_DATA_CONTRACT_V22';
   const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXSUHbhVbZtKcjNIDzs4TawAohdeInm1MxLpomVeST2JilOL3L0LWQtT4_Yb7fbJG9/exec';
+  const SECTION_LOCK = '101';
+  const CLASS_ID_LOCK = 'CSAI2102-2569-101';
 
   const DEFAULT_CONFIG = {
     courseId:'CSAI2102',
     courseName:'Artificial Intelligence Principles',
     term:'1/2569',
-    classId:'CSAI2102-2569-SEC01',
-    section:'SEC01',
+    classId:'CSAI2102-2569-101',
+    section:'101',
     teacherId:'supparang',
     activeSession:'s1',
     enabledSessions:['s1'],
@@ -38,16 +40,25 @@
   function nowIso(){ return new Date().toISOString(); }
   function uid(prefix){ return (prefix || 'id') + '_' + Date.now() + '_' + Math.random().toString(36).slice(2,10); }
 
+  function normalizeClassConfig(config){
+    const c = Object.assign({}, config || {});
+    c.courseId = 'CSAI2102';
+    c.term = c.term || '1/2569';
+    c.classId = CLASS_ID_LOCK;
+    c.section = SECTION_LOCK;
+    return c;
+  }
+
   function loadConfig(){
     try{
-      return Object.assign({}, DEFAULT_CONFIG, JSON.parse(localStorage.getItem(STORE_KEY) || '{}'));
+      return normalizeClassConfig(Object.assign({}, DEFAULT_CONFIG, JSON.parse(localStorage.getItem(STORE_KEY) || '{}')));
     }catch(error){
-      return Object.assign({}, DEFAULT_CONFIG);
+      return normalizeClassConfig(Object.assign({}, DEFAULT_CONFIG));
     }
   }
 
   function saveConfig(config){
-    const c = Object.assign({}, loadConfig(), config || {});
+    const c = normalizeClassConfig(Object.assign({}, loadConfig(), config || {}));
     c.updatedAt = nowIso();
     localStorage.setItem(STORE_KEY, JSON.stringify(c));
     return c;
@@ -64,8 +75,8 @@
       courseId:classroom.courseId || c.courseId,
       courseName:c.courseName,
       term:classroom.term || c.term,
-      classId:classroom.classId || c.classId,
-      section:profile.section || classroom.section || c.section,
+      classId:CLASS_ID_LOCK,
+      section:SECTION_LOCK,
       teacherId:classroom.teacherId || c.teacherId,
       sessionId:classroom.sessionId || c.activeSession,
       runMode:mode,
@@ -86,9 +97,9 @@
       profileId:profile.profileId || uid('profile'),
       studentId:String(profile.studentId || '').trim(),
       studentName:String(profile.studentName || '').trim(),
-      section:String(profile.section || ctx.section || '').trim(),
+      section:SECTION_LOCK,
       courseId:ctx.courseId,
-      classId:ctx.classId,
+      classId:CLASS_ID_LOCK,
       term:ctx.term,
       teacherId:ctx.teacherId,
       consent: !!(profile.consent || profile.dataConsent || (window.AIQuestClassroomEntry && AIQuestClassroomEntry.isEntryConfirmed())),
@@ -127,9 +138,9 @@
       attemptId,
       studentId:summary.studentId || '',
       studentName:summary.studentName || '',
-      section:summary.section || ctx.section,
+      section:SECTION_LOCK,
       courseId:ctx.courseId,
-      classId:ctx.classId,
+      classId:CLASS_ID_LOCK,
       term:ctx.term,
       teacherId:ctx.teacherId,
       sessionId:summary.sessionId || ctx.sessionId,
@@ -169,9 +180,9 @@
       eventId:event.eventId || uid('evt'),
       attemptId:event.attemptId || attempt.attemptId || '',
       studentId:event.studentId || attempt.studentId || '',
-      section:event.section || attempt.section || ctx.section,
+      section:SECTION_LOCK,
       courseId:ctx.courseId,
-      classId:ctx.classId,
+      classId:CLASS_ID_LOCK,
       term:ctx.term,
       sessionId:event.sessionId || attempt.sessionId || ctx.sessionId,
       missionId:event.missionId || attempt.missionId || 'm1',
@@ -204,7 +215,7 @@
       progressId:input.progressId || uid('prog'),
       studentId:input.studentId || '',
       courseId:ctx.courseId,
-      classId:ctx.classId,
+      classId:CLASS_ID_LOCK,
       term:ctx.term,
       sessionId:input.sessionId || ctx.sessionId,
       missionId:input.missionId || 'm1',
@@ -242,7 +253,7 @@
     return Object.assign({
       schemaVersion:SCHEMA_VERSION,
       courseId:ctx.courseId,
-      classId:ctx.classId,
+      classId:CLASS_ID_LOCK,
       term:ctx.term,
       teacherId:ctx.teacherId,
       runMode:ctx.runMode,
