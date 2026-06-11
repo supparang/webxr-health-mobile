@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z27-research-dataset-export';
+  const APP_VERSION = '20260610-v1z28-student-menu-role-mode-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31532,7 +31532,7 @@
       revisions:{ submissions:[], improvementBadges:{} },
       lessons:{ activePlan:null, logs:[] },
       classActivities:{ pairMissions:[], peerReviews:[] },
-      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true, reviewView:'compact', cefrLevel:'A2-B1+' },
+      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true, reviewView:'compact', cefrLevel:'A2-B1+', roleMode:'student' },
       recentQuestions:{},
       active:null
     };
@@ -31619,6 +31619,7 @@
       merged.settings.progressiveUnlock = parsed.settings?.progressiveUnlock !== false;
       merged.settings.reviewView = parsed.settings?.reviewView || 'compact';
       merged.settings.cefrLevel = parsed.settings?.cefrLevel || 'A2-B1+';
+      merged.settings.roleMode = parsed.settings?.roleMode || parsed.settings?.uiMode || 'student';
       return merged;
     }catch(e){
       console.warn(e);
@@ -31786,20 +31787,20 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z27</div>
+              <div class="mini-note">Save the Society • v1z28</div>
             </div>
           </div>
           <div class="top-actions">
             <button class="btn ghost small" onclick="EAPHero.map()">🗺️ Map</button>
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
             <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
-            <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
-            <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
+            ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>':''}
+            ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>':''}
             <button class="btn ghost small" onclick="EAPHero.renderStudentReports()">📘 Report</button>
-            <button class="btn ghost small" onclick="EAPHero.prepostPanel()">📈 Gain</button>
-            <button class="btn ghost small" onclick="EAPHero.researchDataset()">🧪 Research</button>
-            <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
-            <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
+            ${roleMode()==='teacher'||roleMode()==='researcher'?'<button class="btn ghost small" onclick="EAPHero.prepostPanel()">📈 Gain</button>':''}
+            ${roleMode()==='researcher'?'<button class="btn ghost small" onclick="EAPHero.researchDataset()">🧪 Research</button>':''}
+            ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>':''}
+            ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>':''}
             <button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>
           </div>
         </div>
@@ -32116,11 +32117,49 @@
           </p>
         </div>
         <div class="footer-actions">
+          ${roleModeSwitcher()}
           <button class="btn primary" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
           <button class="btn ghost" onclick="EAPHero.map()">Map</button>
         </div>
       </section>
     `);
+  }
+
+
+
+  function roleMode(){
+    return state.settings?.roleMode || state.settings?.uiMode || 'student';
+  }
+
+  function setRoleMode(mode){
+    state.settings = state.settings || {};
+    state.settings.roleMode = ['student','teacher','researcher'].includes(mode) ? mode : 'student';
+    if(state.settings.roleMode === 'student'){
+      state.settings.uiMode = 'simple';
+    state.settings.roleMode = 'student';
+      state.settings.progressiveUnlock = true;
+    }else{
+      state.settings.uiMode = 'advanced';
+    }
+    saveState();
+    safeToast(`Mode: ${state.settings.roleMode}`);
+    renderHome();
+  }
+
+  function studentMenuNotice(){
+    if(roleMode() !== 'student') return '';
+    return `<div class="student-mode-notice">
+      <b>Student Mode</b>
+      <span>ผู้เรียนใช้แค่ Start / Map / My Learning Report / Profile เท่านั้น เมนู Teacher และ Research ถูกซ่อนไว้เพื่อลดความสับสน</span>
+    </div>`;
+  }
+
+  function roleModeSwitcher(){
+    return `<div class="role-switcher">
+      <button class="btn ${roleMode()==='student'?'success':'ghost'} small" onclick="EAPHero.setRoleMode('student')">Student</button>
+      <button class="btn ${roleMode()==='teacher'?'success':'ghost'} small" onclick="EAPHero.setRoleMode('teacher')">Teacher</button>
+      <button class="btn ${roleMode()==='researcher'?'success':'ghost'} small" onclick="EAPHero.setRoleMode('researcher')">Researcher</button>
+    </div>`;
   }
 
 
@@ -32140,6 +32179,7 @@
             เกมภาษาอังกฤษเพื่อวัตถุประสงค์ทางวิชาการสำหรับ ป.ตรี 
             ใช้ทักษะ Academic English เพื่อปราบบอสที่ทำให้สังคมไม่พัฒนา
           </p>
+          ${studentMenuNotice()}
           <div class="footer-actions">
             <button class="btn primary" onclick="EAPHero.profile()">เริ่ม / ตั้งค่า Player</button>
             <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button><button class="btn" onclick="EAPHero.researchDataset()">Research Dataset</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
@@ -35530,6 +35570,7 @@
   function finalPilotChecklist(){
     const checks = [];
     checks.push({name:'Student Simple Mode default', ok:(state.settings?.uiMode || 'simple') === 'simple'});
+    checks.push({name:'Role mode default', ok:(state.settings?.roleMode || 'student') === 'student', detail:state.settings?.roleMode || 'student'});
     checks.push({name:'CEFR A2-B1+ calibration active', ok:!!cefrLevel && cefrLevel()==='A2-B1+'});
     checks.push({name:'Adaptive AI Help active', ok:typeof adaptiveAIHelpLimit === 'function'});
     checks.push({name:'Speaking oral mode active', ok:typeof startSpeakingTimer === 'function' && typeof stopSpeakingTimer === 'function'});
@@ -37041,6 +37082,7 @@
     renderPilotReadiness,
     resetDemoDataConfirm,
     studentStartSafe,
+    setRoleMode,
     setReviewViewMode,
     viewEvidenceDetail,
     rubricReview:renderRubricReview,
