@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z36-reading-sessionid-scope-fix';
+  const APP_VERSION = '20260610-v1z37-mission-specific-frame-alignment-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z36</div>
+              <div class="mini-note">Save the Society • v1z37</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34713,6 +34713,105 @@
   }
 
 
+
+  function missionSpecificReadingGuide(sessionId){
+    const n = Number(sessionId || state.currentSession || 1);
+    const guides = {
+      1:{
+        steps:['Find the topic.','Find the main idea.','Write one simple reason.'],
+        frames:['The passage is about ___.','The main idea is ___.','This matters because ___.'],
+        vocab:['topic','main idea','academic goal','reason']
+      },
+      2:{
+        steps:['Find the target word.','Use context clues.','Write one example.'],
+        frames:['The word ___ means ___.','A clue is ___.','For example, ___.'],
+        vocab:['word','meaning','clue','example']
+      },
+      3:{
+        steps:['Find the main idea.','Choose one detail.','Explain how the detail supports it.'],
+        frames:['The main idea is ___.','One detail is ___.','This detail supports it because ___.'],
+        vocab:['main idea','detail','support','because']
+      },
+      4:{
+        steps:['Listen for signal words.','Write two keywords.','State the main point.'],
+        frames:['I heard ___ and ___.','The signal word is ___.','The main point is ___.'],
+        vocab:['first','however','because','main point']
+      },
+      5:{
+        steps:['Identify the audience or reader group.','Find clues in the wording.','Explain if the text is one-sided or emotional.'],
+        frames:['The reader group is ___.','The clues are ___ and ___.','The text may be biased because ___.'],
+        vocab:['reader group','audience','clue','biased','emotional','one-sided']
+      },
+      6:{
+        steps:['Find who the passage is for.','Find what the passage wants readers to do.','Summarize in your own words.'],
+        frames:['This passage is for ___.','It wants readers to ___.','In my own words, the passage says ___.'],
+        vocab:['audience','reader','purpose','summary','own words']
+      },
+      7:{
+        steps:['Find casual wording.','Change it to polite academic tone.','Check if the message is clear.'],
+        frames:['The casual phrase is ___.','A more academic phrase is ___.','This sounds better because ___.'],
+        vocab:['formal','polite','academic tone','clear']
+      },
+      8:{
+        steps:['Identify the question type.','Choose the best evidence.','Write a short integrated answer.'],
+        frames:['The question asks about ___.','The evidence is ___.','My answer is ___.'],
+        vocab:['question','evidence','answer','integrate']
+      },
+      9:{
+        steps:['Find the topic.','Choose two support ideas.','Plan a paragraph.'],
+        frames:['My topic sentence is ___.','One support idea is ___.','Another support idea is ___.'],
+        vocab:['paragraph','topic sentence','support','conclusion']
+      },
+      10:{
+        steps:['Find the highest or lowest number.','Describe the trend.','Explain what it means.'],
+        frames:['The highest number is ___.','The trend shows ___.','This may mean ___.'],
+        vocab:['increase','decrease','higher','lower','trend']
+      },
+      11:{
+        steps:['Identify the email purpose.','Find the polite request.','Write a suitable reply.'],
+        frames:['The purpose of the email is ___.','The request is ___.','A polite reply is ___.'],
+        vocab:['email','request','reply','appointment','thank you']
+      },
+      12:{
+        steps:['Find information from a source.','Decide what needs citation.','Write it in your own words.'],
+        frames:['This information needs a citation because ___.','In my own words, it means ___.','I should mention the source by ___.'],
+        vocab:['citation','source','own words','AI help','plagiarism']
+      },
+      13:{
+        steps:['Listen for the main point.','Write two keywords.','Add one detail from the lecture.'],
+        frames:['The main point is ___.','The keywords are ___ and ___.','One detail is ___.'],
+        vocab:['lecture','main point','keyword','detail']
+      },
+      14:{
+        steps:['State your topic.','Give one example.','End with a conclusion.'],
+        frames:['Today, I will talk about ___.','For example, ___.','In conclusion, ___.'],
+        vocab:['present','topic','example','conclusion']
+      },
+      15:{
+        steps:['Choose your strongest evidence.','Connect skills together.','Reflect on improvement.'],
+        frames:['My strongest evidence is ___.','I used reading/writing/listening/speaking to ___.','Next time, I will improve ___.'],
+        vocab:['evidence','integrate','reflect','improve']
+      }
+    };
+    return guides[n] || guides[3];
+  }
+
+  function missionSpecificReadingGuideHTML(sessionId){
+    const g = missionSpecificReadingGuide(sessionId);
+    return `<div class="mission-specific-guide">
+      <div class="badges"><span class="pill">Mission-specific help</span><span class="pill">Aligned frames</span></div>
+      <h3>Useful frame for this mission</h3>
+      <div class="grid three">
+        ${g.steps.map((s,i)=>`<div class="step-card"><b>Step ${i+1}</b><span>${safe(s)}</span></div>`).join('')}
+      </div>
+      <h4>Use these sentence frames</h4>
+      <div class="frame-row">${g.frames.map(f=>`<span class="frame-chip">${safe(f)}</span>`).join('')}</div>
+      <h4>Useful vocabulary for this task</h4>
+      <div class="vocab-row">${g.vocab.map(v=>`<span class="mini-word">${safe(v)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+
   function renderReadingMission(id){
     const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
 
@@ -34724,7 +34823,8 @@
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
       <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrStepsHTML('Reading')}${cefrFrame('Reading')}${cefrVocabularyHTML(text.topic)}${cefrAIHelpNote('Reading')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
-      ${renderAIHelpBox('Reading', s.id)}
+      ${missionSpecificReadingGuideHTML(__readingSessionId)}
+        ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="4"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
@@ -37375,6 +37475,8 @@
     bindHardButtonDelegation,
     openSkillMission,
     safeMissionSessionId,
+    missionSpecificReadingGuide,
+    missionSpecificReadingGuideHTML,
     bossGate:renderBossGate,
     startGateBoss,
     replayHub:renderReplayHub,
