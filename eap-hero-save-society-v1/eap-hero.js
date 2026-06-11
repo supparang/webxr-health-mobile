@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z20-adaptive-ai-limit-runtime-fix';
+  const APP_VERSION = '20260610-v1z21-report-card-contrast-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z20</div>
+              <div class="mini-note">Save the Society • v1z21</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34901,10 +34901,10 @@
         <div><b>${safe(band.emoji)} ${safe(report.band)}</b><span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span></div>
         <div class="report-score">${safe(report.score)}/100</div>
       </div>
-      <div class="report-grid">
-        <div><h4>You did well</h4><p>${safe(report.didWell)}</p></div>
-        <div><h4>Next time</h4><p>${safe(report.nextStep)}</p></div>
-        <div><h4>Try this</h4><p><code>${safe(report.tryFrame)}</code></p></div>
+      <div class="report-grid report-grid-readable">
+        <div><h4>✅ You did well</h4><p>${safe(report.didWell)}</p></div>
+        <div><h4>🎯 Next time</h4><p>${safe(report.nextStep)}</p></div>
+        <div><h4>✍️ Try this</h4><p><code>${safe(report.tryFrame)}</code></p></div>
       </div>
       ${opts.actions===false?'':`<div class="footer-actions">
         <button class="btn small primary" onclick="EAPHero.renderStudentReports()">My Reports</button>
