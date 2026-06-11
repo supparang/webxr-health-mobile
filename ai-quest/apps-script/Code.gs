@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.5.5
+ * Version: v2.5.6
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.5.5';
+const APP_VERSION = 'v2.5.6';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -410,6 +410,7 @@ function buildTeacherConsole_(params) {
   const reflectionComplete = submitted.filter(function(s){ return s.reflectionComplete; }).length;
   const needSupport = students.filter(function(s){ return s.risks && s.risks.length > 0; }).length;
   const misconceptions = collectMisconceptions_(attempts, events);
+  const phaseAnalytics = collectPhaseAnalytics_(events);
   const notSubmittedStudents = Math.max(0, students.length - submitted.length);
   const stats = {totalStudents:students.length, submittedStudents:submitted.length, notSubmittedStudents:Math.max(0, notSubmittedStudents || 0), totalAttempts:attempts.length, avgScore:avgLatestScore, avgLatestScore:avgLatestScore, avgBestScore:avgBestScore, masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, ignoredTestRows:ignoredTestRows, includeTestData:includeTest, failedSync:0};
   const risks = students.filter(function(s){ return s.risks && s.risks.length > 0; }).sort(function(a,b){ return Number(a.bestScore || 0) - Number(b.bestScore || 0); }).map(function(s){ return {studentId:s.studentId, studentName:s.studentName, section:s.section, bestScore:s.bestScore || '', latestScore:s.latestScore || '', helpUsed:s.helpUsed || 0, reflectionComplete:!!s.reflectionComplete, risks:s.risks || []}; });
@@ -465,8 +466,34 @@ function buildTeacherConsole_(params) {
     };
   });
 
-  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:allStudents, misconceptions:misconceptions, students:students.length}};
+  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:allStudents, misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, students:students.length}};
 }
+
+function collectPhaseAnalytics_(events) {
+  const map = {};
+  (events || []).forEach(function(e){
+    const type = String(e.eventType || '');
+    if (type !== 'answer_submit' && type !== 'boss_answer') return;
+
+    const phase = String(e.phase || 'Unknown');
+    if (!map[phase]) map[phase] = {phase:phase, correct:0, total:0, wrong:0};
+
+    map[phase].total += 1;
+
+    const val = String(e.isCorrect || '').toLowerCase();
+    const ok = val === 'true' || val === 'yes' || val === '1';
+    if (ok) map[phase].correct += 1;
+    else map[phase].wrong += 1;
+  });
+
+  return Object.values(map).sort(function(a,b){
+    return String(a.phase || '').localeCompare(String(b.phase || ''));
+  }).map(function(row){
+    row.percent = row.total ? Math.round(row.correct / row.total * 100) : 0;
+    return row;
+  });
+}
+
 
 function sheetObjects_(sheetName) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();

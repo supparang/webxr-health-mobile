@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.5.5 S2 Expanded Bank</title>
+  <title>CSAI2102: AI Quest v2.5.6 S2 Learning Feedback</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -883,6 +883,26 @@
         text-align:center;
       }
     }
+  
+    .learningFeedbackPanel{
+      margin-top:14px;border-radius:18px;border:1px solid rgba(56,189,248,.28);
+      background:rgba(56,189,248,.08);padding:14px;text-align:left;line-height:1.65;
+      animation:fadePop .18s ease-out;
+    }
+    .learningFeedbackPanel.good{border-color:rgba(52,211,153,.42);background:rgba(52,211,153,.09)}
+    .learningFeedbackPanel.bad{border-color:rgba(251,113,133,.42);background:rgba(251,113,133,.10)}
+    .learningFeedbackPanel h4{margin:0 0 8px;font-size:18px}
+    .learningFeedbackPanel .explainGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .learningFeedbackPanel .explainCell{border:1px solid var(--line);background:rgba(255,255,255,.045);border-radius:14px;padding:10px}
+    .phaseInsightGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px}
+    .phaseInsightCard{border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.045);padding:12px;line-height:1.45}
+    .phaseInsightCard.good{border-color:rgba(52,211,153,.38);background:rgba(52,211,153,.08)}
+    .phaseInsightCard.warn{border-color:rgba(251,191,36,.38);background:rgba(251,191,36,.08)}
+    .phaseInsightCard.bad{border-color:rgba(251,113,133,.38);background:rgba(251,113,133,.08)}
+    .phaseInsightCard b{display:block;margin-bottom:4px}
+    .nextPathBox{margin-top:12px;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.09);border-radius:16px;padding:12px;line-height:1.6;text-align:left}
+    @media(max-width:780px){.learningFeedbackPanel .explainGrid,.phaseInsightGrid{grid-template-columns:1fr}}
+
   </style>
 
   <script src="./js/mission1-bank.js"></script>
@@ -894,7 +914,7 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v255.js"></script>
+  <script src="./js/mission2-agent-bank-v256.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -906,7 +926,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.5.5 • Expanded S2 Bank + No-repeat • Section 101</div>
+          <div class="subtitle">v2.5.6 • S2 Learning Feedback + Phase Analytics • Section 101</div>
         </div>
       </div>
 
@@ -1749,8 +1769,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v255.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v255.js</b>
+            โหลดไฟล์ mission2-agent-bank-v256.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v256.js</b>
           </div>
         `;
         return;
@@ -1945,6 +1965,119 @@ async function saveStudentProfile(){
         });
       }
 
+      function phaseAdvice(phase, ratio){
+        if(phase === 'Agent or Not'){
+          return ratio >= .8 ? 'แยก agent ได้ดีแล้ว' : 'ทบทวนว่า agent ต้องมี percept + action + goal/performance measure ไม่ใช่แค่ระบบอัตโนมัติ';
+        }
+        if(phase === 'PEAS Builder'){
+          return ratio >= .8 ? 'จับคู่ PEAS ได้มั่นคง' : 'ทบทวน P=เกณฑ์วัดผล, E=โลก/บริบท, A=สิ่งที่ใช้กระทำ, S=สิ่งที่ใช้รับรู้';
+        }
+        if(phase === 'Environment Classifier'){
+          return ratio >= .8 ? 'จำแนก environment ได้ดี' : 'ทบทวน observable, deterministic, episodic/sequential, static/dynamic, discrete/continuous, single/multi-agent';
+        }
+        return ratio >= .8 ? 'โต้แย้ง Boss claim ได้ดี' : 'ทบทวน rationality: เลือก action ที่คาดว่าดีที่สุดจาก percept และ knowledge ที่มี';
+      }
+
+      function conceptHint(phase, misconception){
+        const key = String(misconception || '');
+        const map = {
+          automation:'Automation ไม่เท่ากับ AI/Agent เสมอ ต้องดู goal และการตัดสินใจ',
+          sensor:'Sensor เป็นช่องทางรับข้อมูล ไม่ใช่ intelligence ทั้งหมด',
+          peas_swap:'PEAS ห้ามสลับบทบาท: P วัดผล, E คือโลก, A คือ action, S คือ sensor',
+          observable_confusion:'มี sensor มากไม่ได้แปลว่า fully observable เสมอ',
+          sensor_full_observable:'sensor หลายตัวอาจยังมี blind spot จึงอาจ partially observable',
+          rationality:'Rational agent ไม่ได้รู้ทุกอย่าง แต่เลือก action ที่คาดว่าดีที่สุดจากข้อมูลที่มี',
+          dynamic_confusion:'Dynamic หมายถึง environment เปลี่ยนระหว่างตัดสินใจ ไม่ใช่แค่ agent ขยับ',
+          multiagent_confusion:'Multi-agent ดูว่ามี decision makers อื่นที่ส่งผลต่อกันหรือไม่',
+          rulebased:'Rule-based อาจเป็น simple reflex agent ได้ แต่ไม่จำเป็นต้องเป็น learning AI'
+        };
+        return map[key] || phaseAdvice(phase, 0);
+      }
+
+      function showS2LearningFeedback(payload, nextFn){
+        area.querySelectorAll('button').forEach(btn => {
+          if(btn.id !== 's2ContinueFeedback') btn.disabled = true;
+        });
+
+        const panel = document.createElement('div');
+        panel.className = 'learningFeedbackPanel ' + (payload.ok ? 'good' : 'bad');
+        panel.innerHTML = `
+          <h4>${payload.ok ? '✅ ถูกต้อง' : '⚠️ ยังต้องทบทวน'} · ${escapeHtml(payload.phase)}</h4>
+          <div class="explainGrid">
+            <div class="explainCell"><b>คำตอบของคุณ</b><br>${escapeHtml(payload.yourAnswer || '-')}</div>
+            <div class="explainCell"><b>คำตอบที่ควรได้</b><br>${escapeHtml(payload.correctAnswer || '-')}</div>
+          </div>
+          <div style="margin-top:10px"><b>เหตุผล:</b> ${escapeHtml(payload.why || payload.correctAnswer || '')}</div>
+          <div style="margin-top:6px"><b>Concept focus:</b> ${escapeHtml(conceptHint(payload.phase, payload.misconception))}</div>
+          <div class="row" style="margin-top:12px"><button class="btn good" id="s2ContinueFeedback">ไปข้อถัดไป</button></div>
+        `;
+
+        const panelHost = area.querySelector('.gamePanel') || area;
+        panelHost.appendChild(panel);
+
+        const nextBtn = panel.querySelector('#s2ContinueFeedback');
+        if(nextBtn){
+          nextBtn.onclick = () => {
+            if(typeof nextFn === 'function') nextFn();
+          };
+        }
+      }
+
+      function phaseAnalytics(){
+        const rows = [
+          {key:'agent', label:'Agent or Not', correct:metrics.agentCorrect, total:round.agent.length},
+          {key:'peas', label:'PEAS Builder', correct:metrics.peasCorrect, total:round.peas.length},
+          {key:'env', label:'Environment Classifier', correct:metrics.envCorrect, total:round.env.length},
+          {key:'boss', label:'Rational Agent Boss', correct:metrics.bossCorrect, total:round.boss.length}
+        ];
+
+        return rows.map(row => {
+          const ratio = row.total ? row.correct / row.total : 0;
+          return {
+            ...row,
+            percent:Math.round(ratio * 100),
+            level: ratio >= .8 ? 'good' : ratio >= .6 ? 'warn' : 'bad',
+            advice:phaseAdvice(row.label, ratio)
+          };
+        });
+      }
+
+      function phaseAnalyticsHTML(){
+        return `
+          <div class="phaseInsightGrid">
+            ${phaseAnalytics().map(row => `
+              <div class="phaseInsightCard ${row.level}">
+                <b>${escapeHtml(row.label)}</b>
+                ${row.correct}/${row.total} · ${row.percent}%<br>
+                <span>${escapeHtml(row.advice)}</span>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function nextPathHTML(score, mastered){
+        let title = 'ควรทำ Practice เพิ่ม';
+        let detail = 'คะแนนยังต่ำกว่า 60 ควรทบทวน Agent/PEAS/Environment ก่อนเข้า Boss';
+        let cls = 'bad';
+
+        if(score >= 85 && mastered){
+          title = 'พร้อมเข้า Boss B1';
+          detail = 'ผ่านระดับ Mastery แล้ว สามารถกดการ์ด B1 Rookie AI Boss ใน Roadmap ได้';
+          cls = 'good';
+        }else if(score >= 70){
+          title = 'ผ่านแล้ว แต่ยังควรเล่นซ้ำเพื่อ Mastery';
+          detail = 'เน้น phase ที่คะแนนต่ำที่สุด แล้วเล่นซ้ำอีกหนึ่งรอบ';
+          cls = 'warn';
+        }else if(score >= 60){
+          title = 'ผ่านขั้นต่ำ';
+          detail = 'ควรทบทวน PEAS/Environment และเขียน Reflection ให้ชัดก่อนเข้า Boss';
+          cls = 'warn';
+        }
+
+        return `<div class="nextPathBox ${cls}"><b>Recommended Next:</b> ${escapeHtml(title)}<br>${escapeHtml(detail)}</div>`;
+      }
+
       function renderAgent(){
         const item = round.agent[agentIdx];
 
@@ -1990,9 +2123,18 @@ async function saveStudentProfile(){
               misconception:item.misconception
             });
 
-            showToast(ok ? 'ถูกต้อง: agent ต้องมี percept/action/goal' : 'ยังสับสน: ' + item.why);
-            agentIdx += 1;
-            setTimeout(renderAgent, 450);
+            showS2LearningFeedback({
+              phase:'Agent or Not',
+              ok,
+              prompt:item.label,
+              yourAnswer:ans,
+              correctAnswer:item.answer,
+              why:item.why,
+              misconception:item.misconception
+            }, () => {
+              agentIdx += 1;
+              renderAgent();
+            });
           };
         });
 
@@ -2038,9 +2180,18 @@ async function saveStudentProfile(){
             misconception:choice.misconception
           });
 
-          showToast(ok ? 'PEAS ถูกต้อง' : 'PEAS ยังสลับบทบาทกันอยู่');
-          peasIdx += 1;
-          setTimeout(renderPeas, 450);
+          showS2LearningFeedback({
+            phase:'PEAS Builder',
+            ok,
+            prompt:item.scenario,
+            yourAnswer:choice.text,
+            correctAnswer:correct ? correct.text : '',
+            why:correct ? correct.text : '',
+            misconception:choice.misconception
+          }, () => {
+            peasIdx += 1;
+            renderPeas();
+          });
         });
 
         updateHelp(metrics.helpLeft);
@@ -2087,9 +2238,18 @@ async function saveStudentProfile(){
             misconception:choice.misconception
           });
 
-          showToast(ok ? 'จำแนก environment ได้ดี' : 'ลองดูว่าโลกเปลี่ยนไหม เห็นครบไหม และมี agent อื่นไหม');
-          envIdx += 1;
-          setTimeout(renderEnv, 450);
+          showS2LearningFeedback({
+            phase:'Environment Classifier',
+            ok,
+            prompt:item.stem,
+            yourAnswer:choice.text,
+            correctAnswer:correct ? correct.text : '',
+            why:correct ? correct.text : '',
+            misconception:choice.misconception
+          }, () => {
+            envIdx += 1;
+            renderEnv();
+          });
         });
 
         updateHelp(metrics.helpLeft);
@@ -2194,11 +2354,11 @@ async function saveStudentProfile(){
         `;
       }
 
-      function coachSummary(){
+      function coachSummary(finalScore, mastered){
         const topMis = Object.entries(metrics.mis).sort((a,b)=>b[1]-a[1])[0];
-
         const lines = [
           `<b>AI Coach Summary</b>`,
+          `Score: ${finalScore}/100 · Mastery: ${mastered ? 'YES' : 'Not yet'}`,
           `Agent: ${metrics.agentCorrect}/${round.agent.length}`,
           `PEAS: ${metrics.peasCorrect}/${round.peas.length}`,
           `Environment: ${metrics.envCorrect}/${round.env.length}`,
@@ -2207,9 +2367,13 @@ async function saveStudentProfile(){
 
         if(topMis){
           lines.push(`Misconception เด่น: ${escapeHtml(topMis[0])} (${topMis[1]})`);
+          lines.push(`คำแนะนำเฉพาะจุด: ${escapeHtml(conceptHint('Misconception', topMis[0]))}`);
         }else{
           lines.push('Misconception เด่น: ยังไม่พบ');
         }
+
+        lines.push(phaseAnalyticsHTML());
+        lines.push(nextPathHTML(finalScore, mastered));
 
         return lines.join('<br>');
       }
@@ -2253,12 +2417,20 @@ async function saveStudentProfile(){
           }
         });
 
+        try{
+          localStorage.setItem('CSAI2102_AIQUEST_S2_WEAK_MIS_V256', JSON.stringify({
+            ts:new Date().toISOString(),
+            mis:metrics.mis,
+            phaseAnalytics:phaseAnalytics()
+          }));
+        }catch(error){}
+
         const summary = {
           attemptId,
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v2.5.0-session2-full-gameplay',
+          version:'v2.5.6-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2283,6 +2455,12 @@ async function saveStudentProfile(){
             envTotal:round.env.length,
             bossCorrect:metrics.bossCorrect,
             bossTotal:round.boss.length,
+            phaseAnalytics:phaseAnalytics(),
+            recommendedNext:(function(){
+              const rows = phaseAnalytics().sort((a,b)=>a.percent-b.percent);
+              return rows[0] ? rows[0].label + ': ' + rows[0].advice : '';
+            })(),
+            noRepeat:round.noRepeat || {},
             helpUsed,
             wrongItems:metrics.wrongItems
           },
@@ -2296,7 +2474,7 @@ async function saveStudentProfile(){
             usedTime:used,
             mastered,
             bossWin:metrics.bossWin,
-            coachSummary:coachSummary(),
+            coachSummary:coachSummary(finalScore, mastered),
             wrongReview:wrongReviewHTML(),
             wrongItems:metrics.wrongItems,
             summary
@@ -2315,13 +2493,39 @@ async function saveStudentProfile(){
       const totalTime = Math.max(90, Math.round(diff.time * .75));
       const attemptId = window.AIQuestStorage ? AIQuestStorage.uid('att') : 'att_b1_' + Date.now();
 
-      const claims = shuffle([
+      function readS2WeakKeys(){
+        try{
+          const data = JSON.parse(localStorage.getItem('CSAI2102_AIQUEST_S2_WEAK_MIS_V256') || '{}');
+          return Object.entries(data.mis || {}).sort((a,b)=>Number(b[1])-Number(a[1])).map(x=>x[0]).slice(0,4);
+        }catch(error){
+          return [];
+        }
+      }
+
+      const staticClaims = [
         {id:'b1_001', phase:'AI Overview', claim:'ระบบอัตโนมัติทุกระบบคือ AI', answer:'ไม่ถูก ต้องดูว่าระบบเรียนรู้/คาดการณ์/ตัดสินใจจากข้อมูลหรือไม่', why:'Automation ทำตามกฎได้โดยไม่จำเป็นต้องเป็น AI', key:'automation'},
         {id:'b1_002', phase:'Agent', claim:'Agent ต้องเป็นหุ่นยนต์เท่านั้น', answer:'ไม่ถูก Agent อาจเป็นซอฟต์แวร์ก็ได้ ถ้ามี percept, action และ goal', why:'Agent ไม่จำเป็นต้องมีร่างกาย เช่น recommendation system หรือ chatbot', key:'robot_only'},
         {id:'b1_003', phase:'PEAS', claim:'Performance measure คือ sensor ของ agent', answer:'ไม่ถูก Performance measure คือเกณฑ์วัดความสำเร็จ ส่วน sensor คือช่องทางรับ percept', why:'ใน PEAS ต้องแยก P กับ S ให้ชัด', key:'peas_swap'},
         {id:'b1_004', phase:'Rationality', claim:'Rational agent ต้องรู้คำตอบที่ดีที่สุดจริงเสมอ', answer:'ไม่ถูก Rational agent เลือก action ที่คาดว่าดีที่สุดจากข้อมูลและความรู้ที่มี', why:'Rational ไม่ได้แปลว่ารู้ทุกอย่าง', key:'rationality'},
         {id:'b1_005', phase:'Environment', claim:'ถ้ามี sensor เยอะ แปลว่า environment fully observable เสมอ', answer:'ไม่ถูก sensor เยอะไม่ได้แปลว่าเห็นโลกครบทั้งหมด', why:'รถไร้คนขับยังอาจมองไม่เห็นบางอย่าง จึงมัก partially observable', key:'sensor_full_observable'}
-      ]).slice(0, state.difficulty === 'easy' ? 3 : state.difficulty === 'challenge' ? 5 : 4);
+      ];
+
+      const bankClaims = (window.AIQUEST_SESSION2_BANK && AIQUEST_SESSION2_BANK.BOSS_CLAIMS ? AIQUEST_SESSION2_BANK.BOSS_CLAIMS : []).map(c => ({
+        id:'b1_adapt_' + c.id,
+        phase:'Adaptive Boss',
+        claim:c.claim,
+        answer:c.counter,
+        why:c.why || c.hint || c.counter,
+        key:c.key || ''
+      }));
+
+      const weakKeys = readS2WeakKeys();
+      const prioritized = bankClaims
+        .filter(c => weakKeys.includes(c.key))
+        .concat(bankClaims.filter(c => !weakKeys.includes(c.key)))
+        .concat(staticClaims);
+
+      const claims = shuffle(prioritized).slice(0, state.difficulty === 'easy' ? 3 : state.difficulty === 'challenge' ? 6 : 5);
 
       const distractors = [
         'ถูก เพราะระบบดิจิทัลทุกระบบเป็น AI',
@@ -2435,6 +2639,36 @@ async function saveStudentProfile(){
       render();
     }
 
+
+    function applyReflectionPromptsForMission(id){
+      const sets = {
+        m2:[
+          ['1) ระบบใดในเกมที่เป็น intelligent agent เพราะอะไร?', 'ตอบโดยใช้คำว่า percept, action, goal หรือ performance measure'],
+          ['2) เลือกระบบหนึ่งในเกม แล้วเขียน PEAS ให้ครบ 4 ส่วน', 'เช่น P=..., E=..., A=..., S=...'],
+          ['3) Environment ของระบบนั้นเป็นแบบใด และมีผลต่อการออกแบบ agent อย่างไร?', 'เช่น partially observable, stochastic, dynamic, multi-agent']
+        ],
+        b1:[
+          ['1) Boss ตรวจ misconception เรื่องใดของคุณมากที่สุด?', 'เช่น automation, PEAS, observable, rationality'],
+          ['2) หลังสู้ Boss แล้ว คุณแก้ความเข้าใจผิดข้อใดได้?', 'อธิบายก่อน/หลังเรียนให้ชัด'],
+          ['3) จะนำแนวคิด AI Overview + Agent ไปใช้ใน Mini Project อย่างไร?', 'เชื่อมกับ project หรือปัญหาจริง']
+        ],
+        default:[
+          ['1) เกมนี้เกี่ยวกับหลักการ AI เรื่องใด?', 'เช่น AI vs Traditional Program, Automation vs AI, Intelligent System'],
+          ['2) AI ใช้ข้อมูลอะไรในการตัดสินใจ?', 'อธิบาย input, pattern, prediction, classification หรือ learning'],
+          ['3) หลักการนี้นำไปใช้กับปัญหาจริงหรือ Mini Project ได้อย่างไร?', 'เชื่อมกับตัวอย่างจริงหรือแนวคิด Mini Project']
+        ]
+      };
+
+      const prompts = sets[id] || sets.default;
+      ['ref1','ref2','ref3'].forEach((rid, idx) => {
+        const ta = el(rid);
+        if(!ta) return;
+        const label = ta.previousElementSibling;
+        if(label) label.textContent = prompts[idx][0];
+        ta.placeholder = prompts[idx][1];
+      });
+    }
+
     function finishMission(score, feedback, meta={}){
       if(gameLocked) return;
 
@@ -2468,6 +2702,8 @@ async function saveStudentProfile(){
       el('resultBestTime').textContent = `Best Time: ${bestTimePreview(currentMission.id, currentMeta.usedTime)}`;
       el('resultDiff').textContent = `Difficulty: ${difficulty().label}`;
       el('resultMastery').textContent = `Mastery: ${currentMeta.mastered ? 'YES' : 'Not yet'}`;
+
+      applyReflectionPromptsForMission(currentMission.id);
 
       const refs = state.reflections[currentMission.id] || {};
       el('ref1').value = refs.ref1 || '';
@@ -3303,7 +3539,7 @@ function logEvent(data){
           {
             usedTime:used,
             mastered,
-            coachSummary:coachSummary(),
+            coachSummary:coachSummary(finalScore, mastered),
             wrongReview:wrongReviewHTML(),
             summary
           }
@@ -3706,10 +3942,10 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v255.js"></script>
-  <script src="./js/aiquest-teacher-console-v255.js"></script>
-  <script src="./js/aiquest-student-detail-v255.js"></script>
-  <script src="./js/aiquest-production-v255.js"></script>
-  <script src="./js/aiquest-session-roadmap-v255.js"></script>
+  <script src="./js/aiquest-ui-mode-v256.js"></script>
+  <script src="./js/aiquest-teacher-console-v256.js"></script>
+  <script src="./js/aiquest-student-detail-v256.js"></script>
+  <script src="./js/aiquest-production-v256.js"></script>
+  <script src="./js/aiquest-session-roadmap-v256.js"></script>
 </body>
 </html>
