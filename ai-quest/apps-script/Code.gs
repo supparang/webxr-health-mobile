@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.5.7
+ * Version: v2.5.8
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.5.7';
+const APP_VERSION = 'v2.5.8';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
