@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z10-cefr-a2-b1-calibration';
+  const APP_VERSION = '20260610-v1z11-cefr-step-vocab-guided-speaking';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31774,7 +31774,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z10</div>
+              <div class="mini-note">Save the Society • v1z11</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33721,8 +33721,7 @@
   }
 
   function aiPenaltyForPortfolio(sessionId, skill){
-    const uses = aiUsesFor(sessionId, skill);
-    return uses > 0 ? Math.min(10, uses * 5) : 0;
+    return aiPenaltyForSkillLevel(skill, sessionId);
   }
 
   function exportAIHelpCSV(){
@@ -34229,7 +34228,7 @@
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrFrame('Reading')}</div>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrStepsHTML('Reading')}${cefrFrame('Reading')}${cefrVocabularyHTML(text.topic)}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
       ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
@@ -34258,7 +34257,7 @@
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrFrame('Writing')}</div>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrStepsHTML('Writing')}${cefrFrame('Writing')}${cefrVocabularyHTML(prompt.topic || s.skill)}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing')))}</p>
       ${renderAIHelpBox('Writing', s.id)}
       <textarea id="writingOutput" class="input" rows="9"></textarea>
@@ -34317,7 +34316,7 @@
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(text.variant.ask || 'Write listening notes.'))}</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${cefrFrame('Listening')}</div>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${cefrStepsHTML('Listening')}${cefrFrame('Listening')}${cefrVocabularyHTML(text.topic)}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening')))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
@@ -34463,7 +34462,8 @@
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
         <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking')))}</p>
-        <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${cefrFrame('Speaking')}</div>
+        <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${cefrStepsHTML('Speaking')}${cefrFrame('Speaking')}${cefrVocabularyHTML(prompt.topic || s.skill)}</div>
+        ${guidedSpeakingFrameHTML()}
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
           <button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button>
@@ -34664,6 +34664,50 @@
     };
     return `<div class="cefr-frame"><b>Useful frame:</b><br>${(frames[skill] || []).map(x=>`<code>${safe(x)}</code>`).join(' ')}</div>`;
   }
+
+
+  function cefrVocabularyHTML(topic){
+    const words = [
+      ['goal','เป้าหมาย'], ['support','สนับสนุน/หลักฐานช่วย'], ['example','ตัวอย่าง'], ['improve','พัฒนา'],
+      ['problem','ปัญหา'], ['solution','วิธีแก้'], ['reason','เหตุผล'], ['main idea','ใจความหลัก'],
+      ['keyword','คำสำคัญ'], ['question','คำถาม']
+    ];
+    return `<div class="cefr-vocab"><b>Useful vocabulary</b><div class="vocab-grid">${words.map(([en,th])=>`<span><b>${safe(en)}</b> = ${safe(th)}</span>`).join('')}</div></div>`;
+  }
+
+  function cefrStepsHTML(skill){
+    const steps = {
+      Reading:[['Step 1','Find the main idea.'],['Step 2','Choose 1–2 keywords.'],['Step 3','Write one support detail.']],
+      Writing:[['Step 1','Write one topic sentence.'],['Step 2','Add one reason/example.'],['Step 3','Finish with a short conclusion.']],
+      Listening:[['Step 1','Listen for the main point.'],['Step 2','Write 2 keywords.'],['Step 3','Add one detail or question.']],
+      Speaking:[['Step 1','Say your topic.'],['Step 2','Give one reason/example.'],['Step 3','End with one conclusion.']]
+    };
+    return `<div class="cefr-steps">${(steps[skill] || []).map(([a,b])=>`<div><b>${safe(a)}</b><span>${safe(b)}</span></div>`).join('')}</div>`;
+  }
+
+  function guidedSpeakingFrameHTML(){
+    return `<div class="guided-speaking-frame">
+      <h3>Guided Speaking Frame</h3>
+      <p class="mini-note">พูดตามกรอบนี้ได้สำหรับ Easy A2 / Normal B1</p>
+      <ol>
+        <li>Today, I will talk about <b>_____</b>.</li>
+        <li>First, <b>_____</b>.</li>
+        <li>For example, <b>_____</b>.</li>
+        <li>In conclusion, <b>_____</b>.</li>
+      </ol>
+    </div>`;
+  }
+
+  function aiPenaltyForSkillLevel(skill, sessionId){
+    const uses = aiUsesFor(sessionId, skill);
+    if(!uses) return 0;
+    const d = currentSkillDifficulty().key;
+    if(d === 'easy') return Math.max(0, uses - 1) * 2;
+    if(d === 'normal') return uses * 3;
+    if(d === 'hard') return uses * 5;
+    return uses * 8;
+  }
+
 
   function cefrSimplifyTask(text){
     return String(text || '')
@@ -35164,13 +35208,21 @@
   }
 
 
+
+  function cefrReviewBadge(p){
+    const diff = p.difficulty || currentSkillDifficulty().key || 'easy';
+    const label = diff === 'easy' ? 'CEFR A2' : diff === 'normal' ? 'CEFR B1' : diff === 'hard' ? 'CEFR B1+' : 'Challenge';
+    return `<span class="pill tiny cefr-review-badge">${safe(label)}</span>`;
+  }
+
   function portfolioHelpBadges(p){
     const badges = [];
     if(Number(p.aiUses || 0) > 0) badges.push(`🤖 AI ${p.aiUses}`);
     if(p.transcriptHint) badges.push('👁 Transcript Hint');
     if(p.speakingSeconds) badges.push(`🎙 ${p.speakingSeconds}s`);
     if(p.difficulty) badges.push(`🎚 ${p.difficulty}`);
-    return badges.length ? badges.map(x=>`<span class="pill tiny">${safe(x)}</span>`).join(' ') : '<span class="mini-note">No help log</span>';
+    const help = badges.length ? badges.map(x=>`<span class="pill tiny">${safe(x)}</span>`).join(' ') : '<span class="mini-note">No help log</span>';
+    return `${cefrReviewBadge(p)} ${help}`;
   }
 
   function scoreReason(p){
@@ -35178,12 +35230,12 @@
     const out = String(p.output || '');
     const words = out.split(/\s+/).filter(Boolean).length;
     const reasons = [];
-    if(score === 0) reasons.push('No/very weak evidence or required action missing');
-    if(words < 8) reasons.push('Very short output');
-    if(p.skill === 'Speaking' && !p.speakingSeconds) reasons.push('No speaking timer recorded');
+    if(score === 0) reasons.push('Needs a little more evidence/action');
+    if(words < 8) reasons.push('Very short answer');
+    if(p.skill === 'Speaking' && !p.speakingSeconds) reasons.push('Speaking time not recorded yet');
     if(p.skill === 'Listening' && p.transcriptHint) reasons.push('Transcript hint penalty');
     if(Number(p.aiUses || 0) > 0) reasons.push('AI help penalty applied');
-    if(!reasons.length && score < 50) reasons.push('Needs more detail/evidence');
+    if(!reasons.length && score < 50) reasons.push('Add one more detail/example');
     if(!reasons.length) reasons.push('Auto-score looks acceptable; rubric review still recommended');
     return reasons.join(' • ');
   }

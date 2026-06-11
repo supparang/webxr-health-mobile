@@ -475,3 +475,17 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   font-family:inherit;
   font-weight:800;
 }
+
+
+/* === v1z11 CEFR Step-by-Step + Vocabulary + Guided Speaking === */
+.cefr-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:10px 0}
+.cefr-steps div{padding:10px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
+.cefr-steps b{display:block;color:#a7f3d0;margin-bottom:4px}
+.cefr-steps span{color:#e7f7ff;font-size:13px}
+.cefr-vocab{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.22)}
+.vocab-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
+.vocab-grid span{padding:7px 9px;border-radius:12px;background:rgba(255,255,255,.08);font-size:12px}
+.guided-speaking-frame{margin:12px 0;padding:12px 14px;border-radius:18px;background:rgba(125,211,252,.10);border:1px solid rgba(125,211,252,.28)}
+.guided-speaking-frame ol{margin:8px 0 0 20px;line-height:1.7}
+.cefr-review-badge{background:rgba(134,239,172,.16)!important;border:1px solid rgba(134,239,172,.30)}
+@media(max-width:800px){.cefr-steps,.vocab-grid{grid-template-columns:1fr}}
