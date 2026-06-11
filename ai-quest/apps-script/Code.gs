@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.4.0
+ * Version: v2.4.1
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.4.0';
+const APP_VERSION = 'v2.4.1';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -399,7 +399,8 @@ function buildTeacherConsole_(params) {
   const reflectionComplete = submitted.filter(function(s){ return s.reflectionComplete; }).length;
   const needSupport = students.filter(function(s){ return s.risks && s.risks.length > 0; }).length;
   const misconceptions = collectMisconceptions_(attempts, events);
-  const stats = {totalStudents:students.length, submittedStudents:submitted.length, notSubmittedStudents:notSubmittedStudents, totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, ignoredTestRows:ignoredTestRows, includeTestData:includeTest, failedSync:0};
+  const notSubmittedStudents = Math.max(0, students.length - submitted.length);
+  const stats = {totalStudents:students.length, submittedStudents:submitted.length, notSubmittedStudents:Math.max(0, notSubmittedStudents || 0), totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, ignoredTestRows:ignoredTestRows, includeTestData:includeTest, failedSync:0};
   const risks = students.filter(function(s){ return s.risks && s.risks.length > 0; }).sort(function(a,b){ return Number(a.bestScore || 0) - Number(b.bestScore || 0); }).map(function(s){ return {studentId:s.studentId, studentName:s.studentName, section:s.section, bestScore:s.bestScore || '', latestScore:s.latestScore || '', helpUsed:s.helpUsed || 0, reflectionComplete:!!s.reflectionComplete, risks:s.risks || []}; });
 
   const allStudents = students.sort(function(a,b){ return String(a.studentId || '').localeCompare(String(b.studentId || '')); }).map(function(s){
