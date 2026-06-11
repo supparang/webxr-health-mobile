@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.3.8
+ * Version: v2.3.9
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.3.8';
+const APP_VERSION = 'v2.3.9';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -400,8 +400,37 @@ function buildTeacherConsole_(params) {
       risks:s.risks || [],
       latestReflection:{reflection1:String(latest.reflection1 || ''), reflection2:String(latest.reflection2 || ''), reflection3:String(latest.reflection3 || '')},
       misconceptions:collectMisconceptions_(s.attempts || [], sEvents || []),
-      attempts:(s.attempts || []).map(function(a){ return {attemptId:String(a.attemptId || ''), serverTs:String(a.serverTs || ''), clientTs:String(a.clientTs || ''), score:Number(a.score || 0), stars:Number(a.stars || 0), accuracy:Number(a.accuracy || 0), helpUsed:Number(a.helpUsed || 0), mastered:bool_(a.mastered), bossWin:bool_(a.bossWin), reflection1:String(a.reflection1 || ''), reflection2:String(a.reflection2 || ''), reflection3:String(a.reflection3 || '')}; }),
-      recentEvents:sEvents.map(function(e){ return {serverTs:String(e.serverTs || ''), eventType:String(e.eventType || ''), phase:String(e.phase || ''), itemId:String(e.itemId || ''), prompt:String(e.prompt || '').slice(0, 500), yourAnswer:String(e.yourAnswer || ''), correctAnswer:String(e.correctAnswer || ''), isCorrect:String(e.isCorrect || '')}; })
+      attempts:(s.attempts || []).map(function(a){ return {
+        attemptId:String(a.attemptId || ''),
+        serverTs:String(a.serverTs || ''),
+        clientTs:String(a.clientTs || ''),
+        difficulty:String(a.difficulty || ''),
+        score:Number(a.score || 0),
+        stars:Number(a.stars || 0),
+        accuracy:Number(a.accuracy || 0),
+        correct:Number(a.correct || 0),
+        total:Number(a.total || 0),
+        wrong:Number(a.wrong || 0),
+        helpUsed:Number(a.helpUsed || 0),
+        mastered:bool_(a.mastered),
+        bossWin:bool_(a.bossWin),
+        reflection1:String(a.reflection1 || ''),
+        reflection2:String(a.reflection2 || ''),
+        reflection3:String(a.reflection3 || '')
+      }; }),
+      recentEvents:sEvents.map(function(e){ return {
+        serverTs:String(e.serverTs || ''),
+        eventType:String(e.eventType || ''),
+        phase:String(e.phase || ''),
+        itemId:String(e.itemId || ''),
+        prompt:String(e.prompt || '').slice(0, 700),
+        yourAnswer:String(e.yourAnswer || ''),
+        correctAnswer:String(e.correctAnswer || ''),
+        isCorrect:String(e.isCorrect || ''),
+        scoreDelta:Number(e.scoreDelta || 0),
+        combo:Number(e.combo || 0),
+        helpLeft:Number(e.helpLeft || 0)
+      }; })
     };
   });
 
