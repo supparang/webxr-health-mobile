@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.5.3 Roadmap Boss Gate</title>
+  <title>CSAI2102: AI Quest v2.5.4 Clickable Roadmap</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -894,7 +894,7 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v253.js"></script>
+  <script src="./js/mission2-agent-bank-v254.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -906,7 +906,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.5.3 • Roadmap + Boss Gate • Section 101</div>
+          <div class="subtitle">v2.5.4 • Clickable Roadmap + Rookie Boss • Section 101</div>
         </div>
       </div>
 
@@ -1174,11 +1174,17 @@
         type:'boss',
         division:'Division 1: AI Rookie Base',
         title:'Rookie AI Boss',
-        topic:'AI Overview + Agent',
-        badge:'Rookie Challenger',
-        playable:false,
-        mastery:'Coming Soon',
-        objectives:['Coming Soon']
+        topic:'AI Overview + Intelligent Agent',
+        badge:'Rookie AI Challenger',
+        playable:true,
+        mastery:'เปิดเมื่อผ่าน S1 และ S2 อย่างน้อย 1 ดาว; Mastery เมื่อ Score ≥85 และ Boss Win',
+        objectives:[
+          'Boss Gate หลังผ่าน Session 1–2',
+          'ทบทวน AI vs Automation',
+          'ทบทวน Agent / PEAS / Rationality',
+          'รวม misconception จาก S1 และ S2',
+          'ส่งผลเข้า Google Sheets ด้วย sessionId=b1'
+        ]
       },
       {
         id:'m3',
@@ -1362,7 +1368,12 @@ async function saveStudentProfile(){
       if(!stage || !stage.playable) return false;
       if(stage.id === 'm1') return true;
       if(stage.id === 'm2'){
-        return !!(state.completed.m1 || state.stars.m1 || state.mastered.m1);
+        return !!(state.completed.m1 || state.stars.m1 || state.mastered.m1 || Number(state.bestScore.m1 || 0) >= 60);
+      }
+      if(stage.id === 'b1'){
+        const s1 = !!(state.completed.m1 || state.stars.m1 || state.mastered.m1 || Number(state.bestScore.m1 || 0) >= 60);
+        const s2 = !!(state.completed.m2 || state.stars.m2 || state.mastered.m2 || Number(state.bestScore.m2 || 0) >= 60);
+        return s1 && s2;
       }
       return false;
     }
@@ -1727,6 +1738,8 @@ async function saveStudentProfile(){
 
   if(stage.id === 'm2'){
     renderSession2AgentGame();
+  }else if(stage.id === 'b1'){
+    renderRookieBossGame();
   }else{
     renderMission1Coach();
   }
@@ -1736,8 +1749,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v253.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v253.js</b>
+            โหลดไฟล์ mission2-agent-bank-v254.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v254.js</b>
           </div>
         `;
         return;
@@ -2295,6 +2308,133 @@ async function saveStudentProfile(){
     }
 
 
+
+    function renderRookieBossGame(){
+      const diff = difficulty();
+      const startTs = Date.now();
+      const totalTime = Math.max(90, Math.round(diff.time * .75));
+      const attemptId = window.AIQuestStorage ? AIQuestStorage.uid('att') : 'att_b1_' + Date.now();
+
+      const claims = shuffle([
+        {id:'b1_001', phase:'AI Overview', claim:'ระบบอัตโนมัติทุกระบบคือ AI', answer:'ไม่ถูก ต้องดูว่าระบบเรียนรู้/คาดการณ์/ตัดสินใจจากข้อมูลหรือไม่', why:'Automation ทำตามกฎได้โดยไม่จำเป็นต้องเป็น AI', key:'automation'},
+        {id:'b1_002', phase:'Agent', claim:'Agent ต้องเป็นหุ่นยนต์เท่านั้น', answer:'ไม่ถูก Agent อาจเป็นซอฟต์แวร์ก็ได้ ถ้ามี percept, action และ goal', why:'Agent ไม่จำเป็นต้องมีร่างกาย เช่น recommendation system หรือ chatbot', key:'robot_only'},
+        {id:'b1_003', phase:'PEAS', claim:'Performance measure คือ sensor ของ agent', answer:'ไม่ถูก Performance measure คือเกณฑ์วัดความสำเร็จ ส่วน sensor คือช่องทางรับ percept', why:'ใน PEAS ต้องแยก P กับ S ให้ชัด', key:'peas_swap'},
+        {id:'b1_004', phase:'Rationality', claim:'Rational agent ต้องรู้คำตอบที่ดีที่สุดจริงเสมอ', answer:'ไม่ถูก Rational agent เลือก action ที่คาดว่าดีที่สุดจากข้อมูลและความรู้ที่มี', why:'Rational ไม่ได้แปลว่ารู้ทุกอย่าง', key:'rationality'},
+        {id:'b1_005', phase:'Environment', claim:'ถ้ามี sensor เยอะ แปลว่า environment fully observable เสมอ', answer:'ไม่ถูก sensor เยอะไม่ได้แปลว่าเห็นโลกครบทั้งหมด', why:'รถไร้คนขับยังอาจมองไม่เห็นบางอย่าง จึงมัก partially observable', key:'sensor_full_observable'}
+      ]).slice(0, state.difficulty === 'easy' ? 3 : state.difficulty === 'challenge' ? 5 : 4);
+
+      const distractors = [
+        'ถูก เพราะระบบดิจิทัลทุกระบบเป็น AI',
+        'ถูก เพราะถ้าระบบทำงานเองได้ก็คือ intelligent agent เสมอ',
+        'ไม่ต้องดู goal หรือ performance measure ก็ได้',
+        'ถูก เพราะระบบที่มีข้อมูลมากจะตัดสินใจถูกเสมอ'
+      ];
+
+      const metrics = {correct:0,total:0,combo:0,maxCombo:0,wrong:0,helpLeft:diff.help,bossWin:false,wrongItems:[],mis:{}};
+      const eventLog = [];
+      let idxBoss = 0;
+      let bossHp = 100;
+      let playerHp = 100;
+
+      function logEvent(data){
+        const profile = window.AIQuestStorage ? AIQuestStorage.getProfile() : {};
+        eventLog.push({
+          eventId: window.AIQuestStorage ? AIQuestStorage.uid('evt') : 'evt_' + Date.now() + '_' + Math.random(),
+          attemptId,
+          studentId: profile.studentId || '',
+          section: profile.section || '',
+          sessionId: 'b1',
+          missionId: 'b1',
+          clientTs: new Date().toISOString(),
+          userAgent: navigator.userAgent,
+          pageUrl: location.href,
+          courseId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().courseId : 'CSAI2102',
+          classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
+          term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
+          runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
+          runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
+          ...data
+        });
+      }
+
+      function addMis(key){ if(key) metrics.mis[key] = (metrics.mis[key] || 0) + 1; }
+
+      function render(){
+        const item = claims[idxBoss];
+        if(!item || playerHp <= 0 || bossHp <= 0){ end(); return; }
+
+        const choices = shuffle([
+          {text:item.answer, correct:true},
+          ...shuffle(distractors).slice(0,3).map(text => ({text, correct:false}))
+        ]);
+
+        el('gameArea').innerHTML = `
+          ${hudHTML(`<span class="hudChip">Boss Gate B1</span>`)}
+          ${phaseHTMLCustom(['AI Overview','Agent','PEAS','Rationality','Boss Finish'], item.phase, [])}
+          <div class="gamePanel bossPanel">
+            <div class="tagline">Rookie AI Boss · Question ${idxBoss + 1}/${claims.length}</div>
+            <h3>Boss Claim</h3>
+            <p style="font-size:20px;font-weight:1000">${escapeHtml(item.claim)}</p>
+            <div class="scoreLine"><span class="scoreChip">Boss HP: ${Math.max(0, bossHp)}</span><span class="scoreChip">Player HP: ${Math.max(0, playerHp)}</span></div>
+            <p>เลือกคำโต้แย้งที่ถูกต้องที่สุด</p>
+            <div class="choicesGrid">${choices.map((choice, i) => `<button class="choiceBtn" data-choice="${i}">${escapeHtml(choice.text)}</button>`).join('')}</div>
+            <div class="row" style="margin-top:14px"><button class="btn secondary" id="b1HelpBtn">AI Help</button></div>
+          </div>`;
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+
+        el('gameArea').querySelectorAll('[data-choice]').forEach(btn => {
+          btn.onclick = () => {
+            const choice = choices[Number(btn.dataset.choice)];
+            const ok = !!choice.correct;
+            metrics.total += 1;
+            if(ok){
+              metrics.correct += 1; metrics.combo += 1; metrics.maxCombo = Math.max(metrics.maxCombo, metrics.combo); bossHp -= 30; beep('boss');
+            }else{
+              metrics.wrong += 1; metrics.combo = 0; playerHp -= 25; addMis(item.key); beep('bad');
+              metrics.wrongItems.push({phase:item.phase,itemId:item.id,prompt:item.claim,yourAnswer:choice.text,correctAnswer:item.answer,why:item.why,misconception:item.key});
+            }
+            updateCombo(metrics.combo);
+            logEvent({eventType:'boss_answer',phase:item.phase,itemId:item.id,prompt:item.claim,yourAnswer:choice.text,correctAnswer:item.answer,isCorrect:ok,combo:metrics.combo,helpLeft:metrics.helpLeft,scoreDelta:ok ? 15 : -8,extraJson:{why:item.why,misconception:item.key,bossHp,playerHp}});
+            showToast(ok ? 'Boss เสีย HP!' : 'Boss โจมตีกลับ: ทบทวน misconception นี้');
+            idxBoss += 1;
+            setTimeout(render, 500);
+          };
+        });
+
+        el('b1HelpBtn').onclick = () => {
+          if(metrics.helpLeft <= 0){ showToast('AI Help หมดแล้ว'); return; }
+          metrics.helpLeft -= 1; updateHelp(metrics.helpLeft);
+          showToast('AI Help: หา claim ที่สับสนระหว่าง AI, Agent, PEAS หรือ Rationality');
+        };
+      }
+
+      function wrongReviewHTML(){
+        if(!metrics.wrongItems.length) return '<b>Review Wrong Items</b><br>ยอดเยี่ยม! Boss รอบนี้ไม่มีข้อผิดพลาดหลัก';
+        return `<b>Review Wrong Items</b><div class="wrongList">${metrics.wrongItems.map(item => `<div class="wrongItem"><b>${escapeHtml(item.phase)}</b><br>${escapeHtml(item.prompt)}<br><b>ตอบ:</b> ${escapeHtml(item.yourAnswer)}<br><b>ควรเป็น:</b> ${escapeHtml(item.correctAnswer)}<br><b>เหตุผล:</b> ${escapeHtml(item.why)}</div>`).join('')}</div>`;
+      }
+
+      function end(){
+        stopTimer();
+        const used = Math.max(0, Math.round((Date.now() - startTs) / 1000));
+        const accuracy = metrics.total ? metrics.correct / metrics.total : 0;
+        const helpUsed = Math.max(0, diff.help - metrics.helpLeft);
+        metrics.bossWin = bossHp <= 0 || (metrics.correct >= Math.ceil(claims.length * .7) && playerHp > 0);
+        const finalScore = Math.max(0, Math.min(100, Math.round(accuracy * 76 + (metrics.bossWin ? 14 : 0) + (metrics.helpLeft / Math.max(1, diff.help)) * 10)));
+        const mastered = finalScore >= 85 && metrics.bossWin && helpUsed <= 2;
+        logEvent({eventType:'session_end',phase:'end',itemId:'',prompt:'B1 ended',yourAnswer:'',correctAnswer:'',isCorrect:'',combo:metrics.combo,helpLeft:metrics.helpLeft,extraJson:{score:finalScore,mastered,bossWin:metrics.bossWin}});
+        const topMis = Object.entries(metrics.mis).sort((a,b)=>b[1]-a[1])[0];
+        const coachSummary = ['<b>AI Coach Summary</b>',`Boss Correct: ${metrics.correct}/${metrics.total}`,`Boss Win: ${metrics.bossWin ? 'YES' : 'Not yet'}`,topMis ? `Misconception เด่น: ${escapeHtml(topMis[0])} (${topMis[1]})` : 'Misconception เด่น: ยังไม่พบ'].join('<br>');
+        const summary = {attemptId,sessionId:'b1',missionId:'b1',missionTitle:'Rookie AI Boss',version:'v2.5.4-rookie-boss',score:finalScore,stars:calcStars(finalScore),mastered,difficulty:state.difficulty,usedTimeSec:used,timeLeftSec:timeLeft,accuracy:Math.round(accuracy * 100),correct:metrics.correct,total:metrics.total,wrong:metrics.wrong,maxCombo:metrics.maxCombo,helpUsed,bossWin:metrics.bossWin,misconceptionsJson:JSON.stringify(metrics.mis),extraJson:{bossId:'b1',bossTitle:'Rookie AI Boss',helpUsed,wrongItems:metrics.wrongItems},events:eventLog};
+        finishMission(finalScore,`Rookie Boss ${metrics.bossWin ? 'ชนะ' : 'ยังไม่ชนะ'} · Accuracy ${summary.accuracy}% · Mastery ${mastered ? 'YES' : 'Not yet'}`,{usedTime:used,mastered,bossWin:metrics.bossWin,coachSummary,wrongReview:wrongReviewHTML(),wrongItems:metrics.wrongItems,summary});
+      }
+
+      startTimer(totalTime, () => end());
+      logEvent({eventType:'session_start',phase:'start',itemId:'',prompt:'B1 started',yourAnswer:'',correctAnswer:'',isCorrect:'',combo:0,helpLeft:metrics.helpLeft,extraJson:{}});
+      render();
+    }
+
     function finishMission(score, feedback, meta={}){
       if(gameLocked) return;
 
@@ -2413,7 +2553,7 @@ function logEvent(data){
     attemptId,
     studentId: profile.studentId || '',
     section: profile.section || '',
-    sessionId: lastSummary.sessionId || (currentMission && currentMission.id === 'm2' ? 's2' : 's1'),
+    sessionId: lastSummary.sessionId || (currentMission ? currentMission.id : 's1'),
     missionId: 'm1',
     clientTs: new Date().toISOString(),
     userAgent: navigator.userAgent,
@@ -3260,7 +3400,7 @@ function logEvent(data){
     studentId: profile.studentId || '',
     studentName: profile.studentName || '',
     section: profile.section || '',
-    sessionId: lastSummary.sessionId || (currentMission && currentMission.id === 'm2' ? 's2' : 's1'),
+    sessionId: lastSummary.sessionId || (currentMission ? currentMission.id : 's1'),
     reflection1: reflections.reflection1,
     reflection2: reflections.reflection2,
     reflection3: reflections.reflection3,
@@ -3566,10 +3706,10 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v253.js"></script>
-  <script src="./js/aiquest-teacher-console-v253.js"></script>
-  <script src="./js/aiquest-student-detail-v253.js"></script>
-  <script src="./js/aiquest-production-v253.js"></script>
-  <script src="./js/aiquest-session-roadmap-v253.js"></script>
+  <script src="./js/aiquest-ui-mode-v254.js"></script>
+  <script src="./js/aiquest-teacher-console-v254.js"></script>
+  <script src="./js/aiquest-student-detail-v254.js"></script>
+  <script src="./js/aiquest-production-v254.js"></script>
+  <script src="./js/aiquest-session-roadmap-v254.js"></script>
 </body>
 </html>
