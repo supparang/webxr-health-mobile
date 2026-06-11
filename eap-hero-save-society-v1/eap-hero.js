@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z25-prepost-learning-gain-reflection';
+  const APP_VERSION = '20260610-v1z26-prepost-contrast-research-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z25</div>
+              <div class="mini-note">Save the Society • v1z26</div>
             </div>
           </div>
           <div class="top-actions">
@@ -35402,9 +35402,26 @@
       <div class="badges"><span class="pill">Learning Gain</span><span class="pill">Pre/Post</span><span class="pill">Research-ready</span></div>
       <h2>Pre/Post Learning Gain</h2><p class="lead">ใช้วัดความก้าวหน้าก่อน–หลังเรียน เหมาะสำหรับ pilot และงานวิจัยเบื้องต้น</p>
       <div class="grid four"><div class="stat"><b>${sum.pre?sum.pre.score:'-'}</b><span>Pre-test</span></div><div class="stat"><b>${sum.post?sum.post.score:'-'}</b><span>Post-test</span></div><div class="stat"><b>${sum.gain===null?'-':(sum.gain>=0?'+':'')+sum.gain}</b><span>Raw Gain</span></div><div class="stat"><b>${sum.normalizedGain===null?'-':sum.normalizedGain+'%'}</b><span>Normalized Gain</span></div></div>
+      <div class="gain-interpretation">
+        <b>Learning gain interpretation:</b>
+        <span>Raw Gain = Post-test − Pre-test</span>
+        <span>Normalized Gain = gain compared with remaining possible improvement</span>
+      </div>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.preTest()">Start Pre-test</button><button class="btn success" onclick="EAPHero.postTest()">Start Post-test</button><button class="btn" onclick="EAPHero.sessionReflection()">Session Reflection</button><button class="btn" onclick="EAPHero.exportPrePostCSV()">Export Pre/Post CSV</button><button class="btn" onclick="EAPHero.exportReflectionCSV()">Export Reflection CSV</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
       <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Type</th><th>Score</th><th>Correct</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table></div>
-      <div class="panel light" style="margin-top:16px"><h3>How to use in class</h3><ol class="pilot-steps"><li>ก่อนเล่นเกม ให้ทำ Pre-test 5–7 นาที</li><li>ให้นักศึกษาทำ mission/session ตามแผน</li><li>หลังเรียน ให้ทำ Post-test</li><li>ให้นักศึกษาตอบ Reflection สั้น ๆ</li><li>Export CSV เพื่อดู learning gain และข้อมูลเชิงคุณภาพ</li></ol></div>
+      <div class="panel light prepost-guide-card" style="margin-top:16px">
+        <h3>How to use in class</h3>
+        <ol class="pilot-steps research-flow-steps">
+          <li><b>Pre-test:</b> ก่อนเล่นเกม ให้นักศึกษาทำ Pre-test 5–7 นาที</li>
+          <li><b>Learning activity:</b> ทำ mission/session ตามแผนการสอน</li>
+          <li><b>Post-test:</b> หลังเรียน ให้นักศึกษาทำ Post-test</li>
+          <li><b>Reflection:</b> ให้นักศึกษาตอบ Reflection สั้น ๆ</li>
+          <li><b>Export:</b> Export CSV เพื่อดู learning gain และข้อมูลเชิงคุณภาพ</li>
+        </ol>
+        <div class="research-note">
+          <b>Research use:</b> ใช้ Pre/Post score เพื่อดู improvement และใช้ Reflection เป็นข้อมูลเชิงคุณภาพประกอบการอภิปรายผล
+        </div>
+      </div>
     </section>`);
   }
   function renderPrePostTest(type='pre'){
