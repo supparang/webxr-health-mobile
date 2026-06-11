@@ -1064,3 +1064,33 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .student-mode-notice span{
   display:block;
 }
+
+
+/* === v1z29 Hard Student Only UI Lock === */
+.student-only-mode .student-hidden-menu{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+.student-home-actions-final{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  width:100%;
+  margin:0 0 8px 0;
+}
+.student-only-mode .student-home-actions-final{
+  display:flex !important;
+}
+.student-only-mode button[onclick*="prepostPanel"],
+.student-only-mode button[onclick*="researchDataset"],
+.student-only-mode button[onclick*="pilotReadiness"],
+.student-only-mode button[onclick*="dashboard"],
+.student-only-mode button[onclick*="teacher"],
+.student-only-mode button[onclick*="qaLock"],
+.student-only-mode button[onclick*="examPanel"],
+.student-only-mode button[onclick*="cards"],
+.student-only-mode button[onclick*="funHub"],
+.student-only-mode button[onclick*="replayHub"]{
+  display:none !important;
+}

@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z28-student-menu-role-mode-fix';
+  const APP_VERSION = '20260610-v1z29-hard-student-only-ui-lock';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31619,7 +31619,7 @@
       merged.settings.progressiveUnlock = parsed.settings?.progressiveUnlock !== false;
       merged.settings.reviewView = parsed.settings?.reviewView || 'compact';
       merged.settings.cefrLevel = parsed.settings?.cefrLevel || 'A2-B1+';
-      merged.settings.roleMode = parsed.settings?.roleMode || parsed.settings?.uiMode || 'student';
+      merged.settings.roleMode = parsed.settings?.roleMode || 'student';
       return merged;
     }catch(e){
       console.warn(e);
@@ -31779,6 +31779,7 @@
 
 
   function layout(content){
+    setTimeout(hardStudentOnlyUILock, 0);
     bindHardButtonDelegation();
     app.innerHTML = `
       <div class="shell">
@@ -31787,7 +31788,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z28</div>
+              <div class="mini-note">Save the Society • v1z29</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32127,6 +32128,56 @@
 
 
 
+
+  function isStudentMode(){
+    return (state.settings?.roleMode || state.settings?.uiMode || 'student') === 'student';
+  }
+
+  function hardStudentOnlyUILock(){
+    if(!isStudentMode()) return;
+    document.body.classList.add('student-only-mode');
+    const hideWords = [
+      'Cards','Fun','Replay','Exam','QA','Teacher','Research','Research Dataset',
+      'Pre/Post Gain','Pilot Readiness','Teacher Dashboard','🃏','⚡','🔥','📝','🧪','📊','📈'
+    ];
+    const keepWords = ['Map','Profile','Report','My Learning Report','Start','Continue','Student Safe Start','เข้า Campus Map','เริ่ม'];
+    const buttons = Array.from(document.querySelectorAll('button, a.btn, .nav button, .topbar button, .footer-actions button'));
+    buttons.forEach(btn=>{
+      const txt = (btn.textContent || '').trim();
+      const onclick = String(btn.getAttribute('onclick') || '');
+      const shouldHide =
+        hideWords.some(w => txt.includes(w) || onclick.includes(w.toLowerCase())) &&
+        !keepWords.some(w => txt.includes(w));
+      if(shouldHide){
+        btn.classList.add('student-hidden-menu');
+        btn.setAttribute('aria-hidden','true');
+        btn.tabIndex = -1;
+      }
+    });
+
+    // Home page specific: hide advanced action buttons by onclick target
+    const advancedTargets = ['prepostPanel','researchDataset','pilotReadiness','dashboard','teacher','qaLock','examPanel','cards','funHub','replayHub'];
+    Array.from(document.querySelectorAll('button')).forEach(btn=>{
+      const onclick = String(btn.getAttribute('onclick') || '');
+      if(advancedTargets.some(t => onclick.includes(t))){
+        btn.classList.add('student-hidden-menu');
+        btn.setAttribute('aria-hidden','true');
+        btn.tabIndex = -1;
+      }
+    });
+  }
+
+  function forceStudentMode(){
+    state.settings = state.settings || {};
+    state.settings.roleMode = 'student';
+    state.settings.uiMode = 'simple';
+    state.settings.progressiveUnlock = true;
+    saveState();
+    safeToast('Student Mode locked');
+    renderHome();
+  }
+
+
   function roleMode(){
     return state.settings?.roleMode || state.settings?.uiMode || 'student';
   }
@@ -32181,6 +32232,12 @@
           </p>
           ${studentMenuNotice()}
           <div class="footer-actions">
+          <div class="student-home-actions-final">
+            <button class="btn primary" onclick="EAPHero.studentStartSafe()">Start / Continue</button>
+            <button class="btn" onclick="EAPHero.map()">Map</button>
+            <button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
+            <button class="btn ghost" onclick="EAPHero.profile()">Profile</button>
+          </div>
             <button class="btn primary" onclick="EAPHero.profile()">เริ่ม / ตั้งค่า Player</button>
             <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button><button class="btn" onclick="EAPHero.researchDataset()">Research Dataset</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
             <button class="btn ghost" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
@@ -37083,6 +37140,8 @@
     resetDemoDataConfirm,
     studentStartSafe,
     setRoleMode,
+    forceStudentMode,
+    hardStudentOnlyUILock,
     setReviewViewMode,
     viewEvidenceDetail,
     rubricReview:renderRubricReview,
