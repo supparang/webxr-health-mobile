@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.4.1
+ * Version: v2.4.2
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.4.1';
+const APP_VERSION = 'v2.4.2';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -387,20 +387,31 @@ function buildTeacherConsole_(params) {
   });
   const students = Object.values(studentMap);
   students.forEach(function(s){
+    const latestAttempt = s.attempts.length ? s.attempts[s.attempts.length - 1] : {};
+    const sEvents = events.filter(function(e){ return String(e.studentId || '') === String(s.studentId || ''); });
+    const sMis = collectMisconceptions_(s.attempts || [], sEvents || []);
+    const topMis = sMis && sMis.length ? sMis[0] : null;
+
     if (!s.attempts.length) s.risks.push('ยังไม่ส่ง');
-    if (s.attempts.length && Number(s.bestScore || 0) < 60) s.risks.push('คะแนนต่ำ');
+    if (s.attempts.length && Number(s.bestScore || 0) < 60) s.risks.push('คะแนนดีที่สุดต่ำ');
+    if (s.attempts.length && Number(s.latestScore || 0) < 70) s.risks.push('คะแนนล่าสุดควรทบทวน');
     if (Number(s.helpUsed || 0) >= 3) s.risks.push('ใช้ Help สูง');
     if (s.attempts.length && !s.reflectionComplete) s.risks.push('Reflection ไม่ครบ');
+    if (s.attempts.length && reflectionShort_(latestAttempt)) s.risks.push('Reflection สั้น');
+    if (topMis && Number(topMis.count || 0) >= 10) s.risks.push('Misconception: ' + String(topMis.key || ''));
     if (!s.profile) s.risks.push('ไม่มี Profile');
   });
   const submitted = students.filter(function(s){ return s.attempts.length > 0; });
-  const scoreSum = submitted.reduce(function(sum,s){ return sum + Number(s.bestScore || 0); }, 0);
+  const bestScoreSum = submitted.reduce(function(sum,s){ return sum + Number(s.bestScore || 0); }, 0);
+  const latestScoreSum = submitted.reduce(function(sum,s){ return sum + Number(s.latestScore || 0); }, 0);
+  const avgBestScore = round2_(bestScoreSum / Math.max(1, submitted.length));
+  const avgLatestScore = round2_(latestScoreSum / Math.max(1, submitted.length));
   const masteryCount = students.filter(function(s){ return s.mastered; }).length;
   const reflectionComplete = submitted.filter(function(s){ return s.reflectionComplete; }).length;
   const needSupport = students.filter(function(s){ return s.risks && s.risks.length > 0; }).length;
   const misconceptions = collectMisconceptions_(attempts, events);
   const notSubmittedStudents = Math.max(0, students.length - submitted.length);
-  const stats = {totalStudents:students.length, submittedStudents:submitted.length, notSubmittedStudents:Math.max(0, notSubmittedStudents || 0), totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, ignoredTestRows:ignoredTestRows, includeTestData:includeTest, failedSync:0};
+  const stats = {totalStudents:students.length, submittedStudents:submitted.length, notSubmittedStudents:Math.max(0, notSubmittedStudents || 0), totalAttempts:attempts.length, avgScore:avgLatestScore, avgLatestScore:avgLatestScore, avgBestScore:avgBestScore, masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, ignoredTestRows:ignoredTestRows, includeTestData:includeTest, failedSync:0};
   const risks = students.filter(function(s){ return s.risks && s.risks.length > 0; }).sort(function(a,b){ return Number(a.bestScore || 0) - Number(b.bestScore || 0); }).map(function(s){ return {studentId:s.studentId, studentName:s.studentName, section:s.section, bestScore:s.bestScore || '', latestScore:s.latestScore || '', helpUsed:s.helpUsed || 0, reflectionComplete:!!s.reflectionComplete, risks:s.risks || []}; });
 
   const allStudents = students.sort(function(a,b){ return String(a.studentId || '').localeCompare(String(b.studentId || '')); }).map(function(s){
@@ -475,6 +486,16 @@ function reflectionComplete_(a) {
   return !!(String(a.reflection1 || '').trim() && String(a.reflection2 || '').trim() && String(a.reflection3 || '').trim());
 }
 
+function reflectionShort_(a) {
+  if (!reflectionComplete_(a)) return false;
+
+  const r1 = String(a.reflection1 || '').trim();
+  const r2 = String(a.reflection2 || '').trim();
+  const r3 = String(a.reflection3 || '').trim();
+
+  return r1.length < 20 || r2.length < 20 || r3.length < 20;
+}
+
 function collectMisconceptions_(attempts, events) {
   const mis = {};
   attempts.forEach(function(a){
@@ -496,10 +517,10 @@ function collectMisconceptions_(attempts, events) {
 function testWrite_() {
   const now = bangkokIsoNow();
   const attemptId = makeId_('test_att');
-  upsertProfile_({studentId:'TEST001', studentName:'Test Student', section:'SEC01', nickname:'Tester', email:'', createdAt:now, updatedAt:now, userAgent:'manual-test', extraJson:{source:'testWrite', version:APP_VERSION}});
-  appendAttempt_({attemptId:attemptId, studentId:'TEST001', studentName:'Test Student', section:'SEC01', sessionId:'s1', missionId:'m1', missionTitle:'AI Awakening', difficulty:'test', score:88, stars:2, mastered:false, usedTimeSec:60, timeLeftSec:20, accuracy:80, correct:8, total:10, wrong:2, maxCombo:4, helpUsed:1, trickCorrect:2, trickTotal:3, explainCorrect:2, explainTotal:3, bossWin:true, misconceptions:{automation:1}, wrongItems:[], reflection1:'test reflection 1', reflection2:'test reflection 2', reflection3:'test reflection 3', clientTs:now, userAgent:'manual-test', pageUrl:'manual-test', version:APP_VERSION, extraJson:{source:'testWrite', version:APP_VERSION}});
-  appendEvent_({eventId:makeId_('test_evt'), attemptId:attemptId, studentId:'TEST001', section:'SEC01', sessionId:'s1', missionId:'m1', eventType:'manual_test', phase:'test', itemId:'test_item', prompt:'manual test prompt', yourAnswer:'A', correctAnswer:'A', isCorrect:true, scoreDelta:1, combo:1, helpLeft:2, clientTs:now, userAgent:'manual-test', pageUrl:'manual-test', extraJson:{source:'testWrite', version:APP_VERSION}});
-  appendProgress_({progressId:makeId_('test_prog'), studentId:'TEST001', studentName:'Test Student', section:'SEC01', courseId:'CSAI2102', classId:'CSAI2102-2569-SEC01', term:'1/2569', sessionId:'s1', missionId:'m1', status:'clear', stars:2, bestScore:88, unlocked:true, updatedAt:now, extraJson:{source:'testWrite', version:APP_VERSION}});
+  upsertProfile_({studentId:'TEST001', studentName:'Test Student', section:SECTION_LOCK, nickname:'Tester', email:'', createdAt:now, updatedAt:now, userAgent:'manual-test', extraJson:{source:'testWrite', version:APP_VERSION}});
+  appendAttempt_({attemptId:attemptId, studentId:'TEST001', studentName:'Test Student', section:SECTION_LOCK, sessionId:'s1', missionId:'m1', missionTitle:'AI Awakening', difficulty:'test', score:88, stars:2, mastered:false, usedTimeSec:60, timeLeftSec:20, accuracy:80, correct:8, total:10, wrong:2, maxCombo:4, helpUsed:1, trickCorrect:2, trickTotal:3, explainCorrect:2, explainTotal:3, bossWin:true, misconceptions:{automation:1}, wrongItems:[], reflection1:'test reflection 1', reflection2:'test reflection 2', reflection3:'test reflection 3', clientTs:now, userAgent:'manual-test', pageUrl:'manual-test', version:APP_VERSION, extraJson:{source:'testWrite', version:APP_VERSION}});
+  appendEvent_({eventId:makeId_('test_evt'), attemptId:attemptId, studentId:'TEST001', section:SECTION_LOCK, sessionId:'s1', missionId:'m1', eventType:'manual_test', phase:'test', itemId:'test_item', prompt:'manual test prompt', yourAnswer:'A', correctAnswer:'A', isCorrect:true, scoreDelta:1, combo:1, helpLeft:2, clientTs:now, userAgent:'manual-test', pageUrl:'manual-test', extraJson:{source:'testWrite', version:APP_VERSION}});
+  appendProgress_({progressId:makeId_('test_prog'), studentId:'TEST001', studentName:'Test Student', section:SECTION_LOCK, courseId:'CSAI2102', classId:'CSAI2102-2569-SEC01', term:'1/2569', sessionId:'s1', missionId:'m1', status:'clear', stars:2, bestScore:88, unlocked:true, updatedAt:now, extraJson:{source:'testWrite', version:APP_VERSION}});
   updateTeacherSummary();
   return {ok:true, action:'testWrite', version:APP_VERSION, wrote:{profile:true, attempt:true, event:true, progress:true}, attemptId:attemptId, serverTs:bangkokIsoNow()};
 }
