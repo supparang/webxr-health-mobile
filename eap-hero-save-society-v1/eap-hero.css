@@ -447,3 +447,31 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .review-row.compact td{padding-top:12px;padding-bottom:12px}
 .evidence-full{white-space:pre-wrap;line-height:1.7}
 .review-row .btn.small{margin:2px}
+
+
+/* === v1z10 CEFR A2-B1+ Calibration === */
+.cefr-support{
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:18px;
+  background:linear-gradient(135deg, rgba(59,130,246,.12), rgba(16,185,129,.10));
+  border:1px solid rgba(125,211,252,.25);
+}
+.cefr-support p{
+  margin:8px 0;
+  color:#dff8ff;
+}
+.cefr-frame{
+  margin-top:8px;
+  line-height:1.8;
+}
+.cefr-frame code{
+  display:inline-block;
+  margin:3px 4px 3px 0;
+  padding:5px 8px;
+  border-radius:10px;
+  background:rgba(255,255,255,.10);
+  color:#e8fbff;
+  font-family:inherit;
+  font-weight:800;
+}

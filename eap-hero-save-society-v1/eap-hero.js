@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z9-review-queue-compact-detail';
+  const APP_VERSION = '20260610-v1z10-cefr-a2-b1-calibration';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -2415,7 +2415,7 @@
   ],
   "13": [
     [
-      "Listening simulation: What is the speaker’s purpose?",
+      "Listening simulation: What is the speaker’s main purpose?",
       "Transcript: Today, I will explain three strategies for improving academic reading: previewing, identifying keywords, and reviewing notes.",
       [
         "To explain reading strategies",
@@ -31532,7 +31532,7 @@
       revisions:{ submissions:[], improvementBadges:{} },
       lessons:{ activePlan:null, logs:[] },
       classActivities:{ pairMissions:[], peerReviews:[] },
-      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true, reviewView:'compact' },
+      settings:{ difficulty:'easy', skillDifficulty:'easy', uiMode:'simple', progressiveUnlock:true, reviewView:'compact', cefrLevel:'A2-B1+' },
       recentQuestions:{},
       active:null
     };
@@ -31618,6 +31618,7 @@
       merged.settings.uiMode = parsed.settings?.uiMode || 'simple';
       merged.settings.progressiveUnlock = parsed.settings?.progressiveUnlock !== false;
       merged.settings.reviewView = parsed.settings?.reviewView || 'compact';
+      merged.settings.cefrLevel = parsed.settings?.cefrLevel || 'A2-B1+';
       return merged;
     }catch(e){
       console.warn(e);
@@ -31773,7 +31774,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z9</div>
+              <div class="mini-note">Save the Society • v1z10</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33630,7 +33631,7 @@
       ],
       Writing:[
         `Try this frame: This topic is important because ___. One reason is ___. This suggests that ___.`,
-        `For academic tone, write: The evidence suggests that ___; however, more information is needed to ___.`,
+        `For academic tone, write: The text suggests that ___. I need more information about ___.`,
         `For a paragraph, use: Topic sentence → For example/One reason → This means that → Therefore/In conclusion.`
       ],
       Listening:[
@@ -33641,7 +33642,7 @@
       Speaking:[
         `Use this speaking frame: Today, I will explain ___. First, ___. For example, ___. In conclusion, ___.`,
         `For Q&A, try: Thank you for the question. My answer is ___. The reason is ___.`,
-        `For evidence talk, say: My claim is ___. One piece of evidence is ___. This matters because ___.`
+        `For evidence talk, say: My idea is ___. One example is ___. This is important because ___.`
       ]
     };
 
@@ -33859,7 +33860,7 @@
         { id:'cause-effect-note', focus:'cause-effect', ask:'Write one cause-effect relationship you hear and identify the signal word if possible.' },
         { id:'contrast-note', focus:'contrast', ask:'Write one contrast or comparison from the lecture and explain the difference.' },
         { id:'evidence-quality', focus:'evidence quality', ask:'Write one piece of evidence and judge whether it is strong, limited, or unclear.' },
-        { id:'speaker-purpose', focus:'purpose', ask:'Write the speaker’s purpose and one phrase that helps you know it.' },
+        { id:'speaker-purpose', focus:'purpose', ask:'Write the speaker’s main purpose and one phrase that helps you know it.' },
         { id:'missing-info', focus:'missing information', ask:'Write one piece of information that is missing or should be checked after the lecture.' },
         { id:'action-note', focus:'next action', ask:'Write one action a student should take after hearing this lecture.' },
         { id:'keyword-map', focus:'keyword map', ask:'Create a keyword map from the lecture using at least five keywords.' },
@@ -34228,7 +34229,8 @@
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Reading'))}</p>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrFrame('Reading')}</div>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
       ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -34244,7 +34246,7 @@
     if(joined.length >= 80) score += 25;
     if(/main|idea|keyword|evidence|support|source|trend|tone|summary|problem/.test(joined)) score += 25;
     if(answers.filter(a=>a.length>10).length >= 2) score += 25;
-    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading')));
+    score = cefrScoreFloor('Reading', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading'))), answers.join(' '));
     addPortfolio({ session:id, skill:'Reading', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Reading'), output:answers.join(' | '), prompt:text.passage });
     showSkillResult('Reading', score, id);
   }
@@ -34253,10 +34255,11 @@
     const s = getSession(id), mv = pickMissionVariant(s.id, 'Writing'), prompt = writingPromptFromVariant(s, mv);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
-      <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
+      <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
-      <p class="mini-note">เป้าหมาย: ${safe(prompt.target)} • auto-check เบื้องต้น</p>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Writing'))}</p>
+      <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrFrame('Writing')}</div>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing')))}</p>
       ${renderAIHelpBox('Writing', s.id)}
       <textarea id="writingOutput" class="input" rows="9"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -34295,7 +34298,7 @@
     if(/\b(however|therefore|because|according to|evidence|suggest|indicate|in conclusion)\b/i.test(out)) score += 25;
     if(/\b(problem|cause|solution|summary|source|data|academic|students|learning)\b/i.test(out)) score += 25;
     if(/[.!?]\s+[A-Z]/.test(out) || words >= 80) score += 25;
-    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing')));
+    score = cefrScoreFloor('Writing', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing'))), out);
     addPortfolio({ session:id, skill:'Writing', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction });
     showSkillResult('Writing', score, id);
   }
@@ -34313,8 +34316,9 @@
       </div>
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
       ${renderAIHelpBox('Listening', s.id)}
-      <p class="mini-note"><b>Task:</b> ${safe(text.variant.ask || 'Write listening notes.')}</p>
-      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Listening'))}</p>
+      <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(text.variant.ask || 'Write listening notes.'))}</p>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${cefrFrame('Listening')}</div>
+      <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening')))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
       <label class="label">Listening notes</label><textarea id="listeningNotes" class="input" rows="7"></textarea>
@@ -34403,7 +34407,7 @@
     if(/main|point|keyword|evidence|source|academic|student|learning/.test(low)) score += 25;
     if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
     if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
-    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id)));
+    score = cefrScoreFloor('Listening', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id))), notes);
     addPortfolio({ session:id, skill:'Listening', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
     unlockListeningTranscript(id);
     showFullTranscript(id);
@@ -34453,12 +34457,13 @@
     const s = getSession(id), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
-      <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(prompt.instruction)}</div>
+      <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
       <input type="hidden" id="speakingPromptText" value="${safeAttr(prompt.instruction)}">
       <div class="panel light speaking-oral-card">
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
-        <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(difficultyPromptAddon('Speaking'))}</p>
+        <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking')))}</p>
+        <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${cefrFrame('Speaking')}</div>
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
           <button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button>
@@ -34501,7 +34506,7 @@
     if(document.getElementById('spSign')?.checked) score += 20;
     if(document.getElementById('spEvi')?.checked) score += 20;
     if(document.getElementById('spClose')?.checked) score += 20;
-    score = difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking')));
+    score = cefrScoreFloor('Speaking', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking'))), out);
     addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
     showSkillResult('Speaking', score, id);
   }
@@ -34633,11 +34638,61 @@
   }
 
 
+
+  function cefrLevel(){ return state.settings?.cefrLevel || 'A2-B1+'; }
+
+  function cefrBadgeHTML(){
+    return `<span class="pill">CEFR ${safe(cefrLevel())}</span><span class="pill">Year 2 Friendly</span>`;
+  }
+
+  function cefrInstruction(skill){
+    const map = {
+      Reading:'อ่านข้อความสั้น ๆ แล้วตอบเป็นวลีหรือประโยคง่าย ๆ ได้ ไม่ต้องใช้ศัพท์ยาก',
+      Writing:'เขียนสั้น ชัด ใช้โครงประโยคที่ให้มาได้ เน้นสื่อความหมายก่อนความซับซ้อน',
+      Listening:'ฟังเพื่อจับ main point / keywords / example ไม่ต้องจดทุกคำ',
+      Speaking:'พูดจริง 30–60 วินาที ใช้ sentence frame ได้ ไม่ต้องพูดเหมือน native speaker'
+    };
+    return map[skill] || 'ใช้ภาษาอังกฤษระดับ A2–B1+ ตอบให้ชัดและตรงประเด็น';
+  }
+
+  function cefrFrame(skill){
+    const frames = {
+      Reading:['The main idea is ___.','Two keywords are ___ and ___.','One support detail is ___.'],
+      Writing:['This topic is important because ___.','One reason is ___.','For example, ___.','In conclusion, ___.'],
+      Listening:['Main point: ___.','Keywords: ___, ___.','Example/detail: ___.','Question: ___.'],
+      Speaking:['Today, I will talk about ___.','First, ___.','For example, ___.','In conclusion, ___.']
+    };
+    return `<div class="cefr-frame"><b>Useful frame:</b><br>${(frames[skill] || []).map(x=>`<code>${safe(x)}</code>`).join(' ')}</div>`;
+  }
+
+  function cefrSimplifyTask(text){
+    return String(text || '')
+      .replace(/\bevaluate\b/gi, 'check')
+      .replace(/\bsynthesize\b/gi, 'combine')
+      .replace(/\binfer\b/gi, 'guess from the text')
+      .replace(/\bimplication\b/gi, 'meaning')
+      .replace(/\blimitation\b/gi, 'weak point')
+      .replace(/\bcredibility\b/gi, 'trust')
+      .replace(/\bcautious academic language\b/gi, 'careful academic words')
+      .replace(/\bclaim\b/gi, 'main idea')
+      .replace(/\bevidence\b/gi, 'example or support');
+  }
+
+  function cefrScoreFloor(skill, score, output){
+    const words = String(output || '').split(/\s+/).filter(Boolean).length;
+    let bonus = 0;
+    if(skill === 'Reading' && words >= 8) bonus = 10;
+    if(skill === 'Writing' && words >= 25) bonus = 12;
+    if(skill === 'Listening' && words >= 15) bonus = 12;
+    if(skill === 'Speaking' && words >= 10) bonus = 8;
+    return Math.min(100, Math.max(score, score + bonus));
+  }
+
   const SKILL_DIFFICULTIES = {
-    easy:{ key:'easy', label:'Easy', note:'คำถามตรง มี scaffold มากกว่า', aiLimitBonus:1, transcriptPenalty:4, scoreBonus:0 },
-    normal:{ key:'normal', label:'Normal', note:'ระดับมาตรฐานของคาบเรียน', aiLimitBonus:0, transcriptPenalty:8, scoreBonus:0 },
-    hard:{ key:'hard', label:'Hard', note:'ต้อง infer/evaluate/synthesize มากขึ้น', aiLimitBonus:0, transcriptPenalty:10, scoreBonus:8 },
-    challenge:{ key:'challenge', label:'Challenge', note:'จำกัดตัวช่วย ต้องตอบครบหลายส่วน', aiLimitBonus:-1, transcriptPenalty:12, scoreBonus:15 }
+    easy:{ key:'easy', label:'Easy A2', note:'คำถามสั้น มีกรอบช่วย เหมาะกับเริ่มต้น', aiLimitBonus:1, transcriptPenalty:3, scoreBonus:5 },
+    normal:{ key:'normal', label:'Normal B1', note:'ระดับมาตรฐานของปี 2 ตอบสั้นแต่มีเหตุผล', aiLimitBonus:0, transcriptPenalty:6, scoreBonus:0 },
+    hard:{ key:'hard', label:'Hard B1+', note:'ต้องอธิบายเหตุผลและหลักฐานมากขึ้น', aiLimitBonus:0, transcriptPenalty:9, scoreBonus:8 },
+    challenge:{ key:'challenge', label:'Challenge Optional', note:'สำหรับโบนัส/เด็กพร้อม ไม่ใช่ค่าเริ่มต้น', aiLimitBonus:-1, transcriptPenalty:12, scoreBonus:15 }
   };
 
   function currentSkillDifficulty(){
@@ -34701,7 +34756,7 @@
       hard:{
         Reading:'Infer purpose/stance and evaluate evidence quality.',
         Writing:'Add cautious language, limitation, and stronger academic support.',
-        Listening:'Identify claim-evidence relationship and missing information.',
+        Listening:'Identify idea and example relationship and missing information.',
         Speaking:'Include claim, evidence, limitation, and Q&A readiness.'
       },
       challenge:{
@@ -34732,6 +34787,7 @@
         <div class="badges"><span class="pill">v1z2</span><span class="pill">Difficulty Tier</span><span class="pill">Selected: <span data-current-difficulty>${safe(d.label)}</span></span></div>
         <h2>Skill Mission Difficulty</h2>
         <p class="lead">เลือกระดับความยากของ Reading/Writing/Listening/Speaking Missions เพื่อใช้กับทั้งคาบหรือรอบ replay</p>
+        <div class="cefr-support">${cefrBadgeHTML()}<p><b>Calibration:</b> โหมดนี้ปรับโจทย์ให้เหมาะกับปี 2 ระดับ A2–B1+ โดยใช้คำสั่งสั้นขึ้นและมี sentence frames</p></div>
         ${isSimpleMode() ? `<div class="panel light"><b>แนะนำสำหรับผู้เรียนใหม่:</b> ใช้ Easy ในช่วงแรก แล้วค่อยปรับเป็น Normal หลังคุ้นกับเกม</div>` : ''}
         <div class="grid four">${cards}</div>
         <div id="currentDifficultyRule" class="panel light" style="margin-top:18px">
