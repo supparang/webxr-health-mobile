@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z19-ai-help-session-scope-fix';
+  const APP_VERSION = '20260610-v1z20-adaptive-ai-limit-runtime-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z19</div>
+              <div class="mini-note">Save the Society • v1z20</div>
             </div>
           </div>
           <div class="top-actions">
@@ -33602,15 +33602,18 @@
     return state.ai.dailyUses[todayKey()] || 0;
   }
 
-  function canUseAI(sessionId, skill){
-    if(state.active && state.active.mode === 'exam') return { ok:false, reason:'AI Help is disabled during Exam Mode.' };
-    if(state.active && state.active.mode === 'boss') return { ok:false, reason:'AI Help is disabled during Boss Battle.' };
-    if(aiUsesFor(sessionId, skill) >= AI_LIMITS.perSession) return { ok:false, reason:`AI Help limit reached for this ${skill} mission.` };
-    if(aiDailyUses() >= AI_LIMITS.perDay) return { ok:false, reason:'Daily AI Help limit reached.' };
-    return { ok:true, reason:'' };
+    function canUseAI(sessionId, skill){
+    const dkey = todayKey();
+    state.ai = state.ai || {dailyUses:{}, logs:[], sessionUses:{}};
+    const daily = state.ai.dailyUses[dkey] || 0;
+    const key = aiUseKey(sessionId, skill);
+    const used = state.ai.sessionUses[key] || 0;
+    const limit = adaptiveAIHelpLimit(skill);
+    const dailyLimit = AI_LIMITS.daily || 8;
+    if(used >= limit) return {ok:false, reason:`AI Help limit reached for this ${skill} mission.`, used, limit, daily, dailyLimit};
+    if(daily >= dailyLimit) return {ok:false, reason:`Daily AI Help limit reached (${dailyLimit}/day).`, used, limit, daily, dailyLimit};
+    return {ok:true, used, limit, daily, dailyLimit};
   }
-
-
   function aiDraftInputId(skill){
     if(skill === 'Reading') return 'readAns0';
     if(skill === 'Writing') return 'writingOut';
@@ -33739,22 +33742,31 @@
     };
   }
 
-  function renderAIHelpBox(skill, sessionId){
+    function renderAIHelpBox(skill, sessionId){
+    sessionId = Number(sessionId || 1);
     const uses = aiUsesFor(sessionId, skill);
-    const left = Math.max(0, AI_LIMITS.perSession - uses);
+    const limit = adaptiveAIHelpLimit(skill);
+    const left = Math.max(0, limit - uses);
+    const draftId = skill === 'Reading' ? 'readingAns0'
+      : skill === 'Writing' ? 'writingOutput'
+      : skill === 'Listening' ? 'listeningNotes'
+      : skill === 'Speaking' ? 'speakingTranscript'
+      : '';
+    const outputId = aiOutputId(skill, sessionId);
+    const stage = uses < limit ? aiHelpStageLabel(uses + 1, limit) : 'Limit reached';
     return `
-      <div class="panel light" style="margin:14px 0;border-style:dashed">
+      <div class="panel light ai-help-box" style="margin:14px 0;border-style:dashed">
         <div class="badges">
           <span class="pill">🤖 AI Mentor</span>
-          <span class="pill">${left}/${AI_LIMITS.perSession} left</span>
+          <span class="pill">${left}/${limit} left</span>
+          <span class="pill">${safe(stage)}</span>
           <span class="pill">Scaffold only</span>
         </div>
-        <p class="mini-note">AI Help ครั้งที่ 1 ให้ strategy hint; ครั้งที่ 2 อ่าน draft/notes/transcript ที่พิมพ์อยู่ แล้วให้ feedback + response frame</p>
-        <button class="btn ai-mentor-btn" onclick="EAPHero.aiHelp('${skill}', ${sessionId}, '${skill === 'Reading' ? 'readAns0' : skill === 'Writing' ? 'writingOut' : skill === 'Listening' ? 'listeningNotes' : skill === 'Speaking' ? 'speakingTranscript' : ''}', '${aiOutputId(skill, sessionId)}')">${aiHelpButtonLabel(skill, sessionId)}</button>
-        <div id="${aiOutputId(skill, sessionId)}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
+        <p class="mini-note">AI Help ใช้เพื่อฝึกคิด: Hint → Draft feedback → Sentence frame/checklist ตามระดับความยาก</p>
+        <button type="button" class="btn ai-mentor-btn" ${left<=0?'disabled':''} onclick="EAPHero.aiHelp('${safeAttr(skill)}', ${sessionId}, '${draftId}', '${outputId}')">${safe(aiHelpButtonLabel(skill, sessionId))}</button>
+        <div id="${outputId}" class="feedback info ai-output-box" style="margin-top:10px;display:none"></div>
       </div>`;
   }
-
   function useAIHelp(skill, sessionId, draftInputId, outputId){
     const allowed = canUseAI(sessionId, skill);
     const out = document.getElementById(outputId || aiOutputId(skill, sessionId)) || document.getElementById('aiHelpOutput');
@@ -33792,7 +33804,7 @@
       out.style.display = 'block';
       out.innerHTML = `<div class="ai-output-title">🤖 AI Mentor (${safe(ai.level || 'hint')})</div>
         <div class="ai-output-message">${safe(msg)}</div>
-        <div class="mini-note">Uses left: ${Math.max(0, AI_LIMITS.perSession - state.ai.sessionUses[key])} • ครั้งที่ 2 จะตรวจ draft/notes/transcript ที่พิมพ์อยู่ แล้วให้กรอบปรับแก้ แต่ยังไม่เฉลย</div>`;
+        <div class="mini-note">Uses left: ${Math.max(0, adaptiveAIHelpLimit(skill) - state.ai.sessionUses[key])} • ครั้งที่ 2 จะตรวจ draft/notes/transcript ที่พิมพ์อยู่ แล้วให้กรอบปรับแก้ แต่ยังไม่เฉลย</div>`;
     }else{
       alert(`AI Mentor: ${msg}`);
     }
@@ -35053,13 +35065,12 @@
   }
 
 
-  function aiHelpButtonLabel(skill, sessionId){
+    function aiHelpButtonLabel(skill, sessionId){
     const used = aiUsesFor(sessionId, skill);
     const limit = adaptiveAIHelpLimit(skill);
     const next = used < limit ? aiHelpStageLabel(used + 1, limit) : 'Limit reached';
-    return `Ask AI Mentor (${used}/${limit}) • ${next}`;
+    return `Ask AI Mentor (${Math.min(used + 1, limit)}/${limit}) • ${next}`;
   }
-
   function adaptiveAIHelpLabel(skill){
     const d = currentSkillDifficulty().key || 'easy';
     const limit = adaptiveAIHelpLimit(skill);

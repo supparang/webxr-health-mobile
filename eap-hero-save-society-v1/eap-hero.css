@@ -628,3 +628,13 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .hud-card{
   pointer-events:auto;
 }
+
+
+/* === v1z20 Adaptive AI Limit Runtime Fix === */
+.ai-mentor-btn:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+}
+.ai-help-box .pill{
+  white-space:nowrap;
+}
