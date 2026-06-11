@@ -501,3 +501,86 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
   color:#f4e8ff;
   font-size:12px;
 }
+
+
+/* === v1z13 Final Student Pilot Readiness Lock === */
+.pilot-steps{
+  line-height:1.8;
+  color:#e7f7ff;
+}
+.btn.danger{
+  background:linear-gradient(135deg,#ef4444,#f97316);
+  color:white;
+  border-color:rgba(255,255,255,.18);
+}
+.btn.success{
+  background:linear-gradient(135deg,#10b981,#22c55e);
+  color:white;
+  border-color:rgba(255,255,255,.18);
+}
+
+
+/* === v1z14 Student Learning Report Card Final === */
+.learning-report-card{
+  margin:14px 0;
+  padding:16px;
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.16);
+  background:rgba(255,255,255,.08);
+}
+.learning-report-card.excellent{border-color:rgba(250,204,21,.45);background:rgba(250,204,21,.10)}
+.learning-report-card.good{border-color:rgba(34,197,94,.42);background:rgba(34,197,94,.09)}
+.learning-report-card.developing{border-color:rgba(59,130,246,.42);background:rgba(59,130,246,.09)}
+.learning-report-card.practice{border-color:rgba(249,115,22,.42);background:rgba(249,115,22,.09)}
+.report-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  margin-bottom:12px;
+}
+.report-head b{font-size:20px}
+.report-head span{display:block;color:#cfe9f8;font-size:13px;margin-top:4px}
+.report-score{
+  font-size:24px;
+  font-weight:900;
+  color:#fff;
+  padding:8px 12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.12);
+}
+.report-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+.report-grid div{
+  padding:12px;
+  border-radius:16px;
+  background:rgba(255,255,255,.08);
+}
+.report-grid h4{
+  margin:0 0 6px;
+  color:#a7f3d0;
+}
+.report-grid p{
+  margin:0;
+  color:#e7f7ff;
+  line-height:1.55;
+}
+.report-grid code{
+  font-family:inherit;
+  font-weight:800;
+  color:#fff7bd;
+}
+.report-list{
+  margin-top:14px;
+}
+.report-skill.excellent{border-color:rgba(250,204,21,.45)}
+.report-skill.good{border-color:rgba(34,197,94,.45)}
+.report-skill.developing{border-color:rgba(59,130,246,.45)}
+.report-skill.practice{border-color:rgba(249,115,22,.45)}
+@media(max-width:860px){
+  .report-head{flex-direction:column}
+  .report-grid{grid-template-columns:1fr}
+}

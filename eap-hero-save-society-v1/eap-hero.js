@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z12-adaptive-ai-help-limits';
+  const APP_VERSION = '20260610-v1z14-student-learning-report-card-final';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31774,7 +31774,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z12</div>
+              <div class="mini-note">Save the Society • v1z14</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34228,7 +34228,7 @@
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrStepsHTML('Reading')}${cefrFrame('Reading')}${cefrVocabularyHTML(text.topic)}</div>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrStepsHTML('Reading')}${cefrFrame('Reading')}${cefrVocabularyHTML(text.topic)}${cefrAIHelpNote('Reading')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
       ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input" rows="3"></textarea>`).join('')}
@@ -34257,7 +34257,7 @@
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrStepsHTML('Writing')}${cefrFrame('Writing')}${cefrVocabularyHTML(prompt.topic || s.skill)}</div>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrStepsHTML('Writing')}${cefrFrame('Writing')}${cefrVocabularyHTML(prompt.topic || s.skill)}${cefrAIHelpNote('Writing')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing')))}</p>
       ${renderAIHelpBox('Writing', s.id)}
       <textarea id="writingOutput" class="input" rows="9"></textarea>
@@ -34316,7 +34316,7 @@
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(text.variant.ask || 'Write listening notes.'))}</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${cefrStepsHTML('Listening')}${cefrFrame('Listening')}${cefrVocabularyHTML(text.topic)}</div>
+      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${cefrStepsHTML('Listening')}${cefrFrame('Listening')}${cefrVocabularyHTML(text.topic)}${cefrAIHelpNote('Listening')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening')))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
@@ -34462,7 +34462,7 @@
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
         <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking')))}</p>
-        <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${cefrStepsHTML('Speaking')}${cefrFrame('Speaking')}${cefrVocabularyHTML(prompt.topic || s.skill)}</div>
+        <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${cefrStepsHTML('Speaking')}${cefrFrame('Speaking')}${cefrVocabularyHTML(prompt.topic || s.skill)}${cefrAIHelpNote('Speaking')}</div>
         ${guidedSpeakingFrameHTML()}
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
@@ -34514,18 +34514,23 @@
   function addPortfolio(entry){
     state.portfolio = state.portfolio || [];
     state.portfolio.push(Object.assign({ at:new Date().toISOString(), student_id:state.profile.studentId || 'guest', player_name:state.profile.name || 'Guest' }, entry));
+    const portfolioIndex = state.portfolio.length - 1;
     updateMasteryFromPortfolio(entry);
     checkSecretMissions();
     addXP(Math.max(5, Math.round((entry.score || 0) / 4)));
     saveState();
+    if(typeof createLearningReport === 'function'){
+      createLearningReport(portfolioIndex);
+    }
   }
 
   function showSkillResult(skill, score, id){
     layout(`<section class="panel light result-hero" style="margin-top:20px">
       <div class="big-emoji">${score >= 75 ? '🌟' : score >= 50 ? '✅' : '📝'}</div><h2>${safe(skill)} Evidence Saved</h2>
       <div class="grid three"><div class="stat"><b>${score}/100</b><span>Auto Score</span></div><div class="stat"><b>+${Math.max(5, Math.round(score/4))}</b><span>XP</span></div><div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio Items</span></div></div>
-      <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
-      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
+      <p class="mini-note">คะแนนนี้เป็น auto-check เบื้องต้น ใช้เพื่อปรับปรุงครั้งถัดไป อาจารย์ยังควรใช้ rubric ตรวจ writing/speaking จริง</p>
+      ${renderLearningReportCard(latestLearningReport())}
+      <div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.skillHub(${id})">Back to Skills</button><button class="btn" onclick="EAPHero.contract(${id})">Boss Contract</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn ghost" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button></div>
     </section>`);
   }
 
@@ -34666,6 +34671,12 @@
   }
 
 
+
+  function cefrAIHelpNote(skill){
+    return `<div class="ai-help-limit-note">AI Help for this mission: <b>${adaptiveAIHelpLabel(skill)}</b></div>`;
+  }
+
+
   function cefrVocabularyHTML(topic){
     const words = [
       ['goal','เป้าหมาย'], ['support','สนับสนุน/หลักฐานช่วย'], ['example','ตัวอย่าง'], ['improve','พัฒนา'],
@@ -34715,6 +34726,254 @@
     if(s === 'reading') return 2;
     return 3;
   }
+
+
+
+  function learningBand(score){
+    score = Number(score || 0);
+    if(score >= 85) return {label:'Excellent', emoji:'🌟', cls:'excellent'};
+    if(score >= 70) return {label:'Good Start', emoji:'✅', cls:'good'};
+    if(score >= 50) return {label:'Developing', emoji:'🌱', cls:'developing'};
+    return {label:'Needs Practice', emoji:'💪', cls:'practice'};
+  }
+
+  function skillPositiveFeedback(skill, score){
+    const band = learningBand(score).label;
+    const good = {
+      Reading:'You tried to find the main idea and keywords.',
+      Writing:'You started to write your idea in English.',
+      Listening:'You listened for the main point and useful words.',
+      Speaking:'You spoke about the topic and tried to use a simple structure.'
+    };
+    if(band === 'Excellent') return `Great work. ${good[skill] || 'You completed the task well.'}`;
+    if(band === 'Good Start') return good[skill] || 'You made a good start.';
+    if(band === 'Developing') return `Good try. ${good[skill] || 'You are developing this skill.'}`;
+    return `You started the task. That is the first step.`;
+  }
+
+  function skillNextStep(skill, score){
+    const steps = {
+      Reading:'Next time, add one more support detail from the text.',
+      Writing:'Next time, add one example and one short conclusion.',
+      Listening:'Next time, write 2 keywords and one example/detail.',
+      Speaking:'Next time, speak a little longer and add one example.'
+    };
+    return steps[skill] || 'Next time, add one more detail.';
+  }
+
+  function skillTryFrame(skill){
+    const frames = {
+      Reading:'The main idea is ___. One detail is ___.',
+      Writing:'This topic is important because ___. For example, ___.',
+      Listening:'Main point: ___. Keywords: ___ and ___.',
+      Speaking:'Today, I will talk about ___. For example, ___. In conclusion, ___.'
+    };
+    return frames[skill] || 'For example, ___.';
+  }
+
+  function createLearningReport(portfolioIndex){
+    const p = state.portfolio?.[portfolioIndex];
+    if(!p) return null;
+    const band = learningBand(p.score);
+    const report = {
+      id: `lr_${Date.now()}_${Math.random().toString(36).slice(2,7)}`,
+      portfolioIndex,
+      studentId: p.player_id || state.profile?.studentId || '',
+      studentName: p.player_name || state.profile?.name || '',
+      session: p.session,
+      skill: p.skill,
+      score: Number(p.score || 0),
+      band: band.label,
+      cefrTarget: p.difficulty === 'hard' ? 'B1+' : p.difficulty === 'normal' ? 'B1' : 'A2-B1+',
+      didWell: skillPositiveFeedback(p.skill, p.score),
+      nextStep: skillNextStep(p.skill, p.score),
+      tryFrame: skillTryFrame(p.skill),
+      aiUses: p.aiUses || 0,
+      difficulty: p.difficulty || state.settings?.skillDifficulty || 'easy',
+      createdAt: new Date().toISOString()
+    };
+    state.learningReports = state.learningReports || [];
+    state.learningReports.push(report);
+    saveState();
+    return report;
+  }
+
+  function latestLearningReport(){
+    const arr = state.learningReports || [];
+    return arr[arr.length - 1] || null;
+  }
+
+  function renderLearningReportCard(report, opts={}){
+    if(!report) return '';
+    const band = learningBand(report.score);
+    return `<div class="learning-report-card ${safe(band.cls)}">
+      <div class="report-head">
+        <div><b>${safe(band.emoji)} ${safe(report.band)}</b><span>${safe(report.skill)} • Session ${safe(report.session)} • CEFR ${safe(report.cefrTarget)}</span></div>
+        <div class="report-score">${safe(report.score)}/100</div>
+      </div>
+      <div class="report-grid">
+        <div><h4>You did well</h4><p>${safe(report.didWell)}</p></div>
+        <div><h4>Next time</h4><p>${safe(report.nextStep)}</p></div>
+        <div><h4>Try this</h4><p><code>${safe(report.tryFrame)}</code></p></div>
+      </div>
+      ${opts.actions===false?'':`<div class="footer-actions">
+        <button class="btn small primary" onclick="EAPHero.renderStudentReports()">My Reports</button>
+        <button class="btn small" onclick="EAPHero.map()">Continue Map</button>
+      </div>`}
+    </div>`;
+  }
+
+  function showLearningReport(portfolioIndex){
+    const report = createLearningReport(portfolioIndex);
+    if(report) safeToast(`Learning report: ${report.band}`);
+    return report;
+  }
+
+  function skillSummaryReports(){
+    const reports = state.learningReports || [];
+    const bySkill = {};
+    ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
+      const list = reports.filter(r=>r.skill===skill);
+      const avg = list.length ? Math.round(list.reduce((a,b)=>a+Number(b.score||0),0)/list.length) : 0;
+      bySkill[skill] = {count:list.length, avg, band:learningBand(avg)};
+    });
+    return bySkill;
+  }
+
+  function renderStudentReports(){
+    setView('studentReports');
+    const reports = (state.learningReports || []).slice().reverse();
+    const summary = skillSummaryReports();
+    const summaryCards = Object.entries(summary).map(([skill,d])=>`<div class="stat report-skill ${safe(d.band.cls)}"><b>${d.count?d.avg:'-'}</b><span>${safe(skill)} • ${d.count?d.band.label:'No report yet'}</span></div>`).join('');
+    const cards = reports.map(r=>renderLearningReportCard(r,{actions:false})).join('') || `<div class="panel light"><h3>No report yet</h3><p>ทำ mission อย่างน้อย 1 ครั้ง แล้วระบบจะแจ้งผลเพื่อปรับปรุงครั้งถัดไป</p></div>`;
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Student Learning Reports</span><span class="pill">Formative Feedback</span><span class="pill">A2-B1+</span></div>
+        <h2>My Learning Report</h2>
+        <p class="lead">ผลนี้ใช้เพื่อพัฒนาครั้งถัดไป: รู้ระดับปัจจุบัน จุดที่ทำได้ดี จุดที่ควรเพิ่ม และประโยคช่วยตอบ</p>
+        <div class="grid four">${summaryCards}</div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.exportLearningReportsCSV()">Export Student Report CSV</button>
+          <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+        </div>
+        <div class="report-list">${cards}</div>
+      </section>`);
+  }
+
+  function exportLearningReportsCSV(){
+    const rows = [['createdAt','studentId','studentName','session','skill','score','band','cefrTarget','difficulty','aiUses','didWell','nextStep','tryFrame']];
+    (state.learningReports || []).forEach(r=>{
+      rows.push([r.createdAt,r.studentId,r.studentName,r.session,r.skill,r.score,r.band,r.cefrTarget,r.difficulty,r.aiUses,r.didWell,r.nextStep,r.tryFrame]);
+    });
+    downloadCSV('eap-learning-reports.csv', rows);
+  }
+
+  function attachLearningReportToLatestPortfolio(skill){
+    const arr = state.portfolio || [];
+    for(let i=arr.length-1;i>=0;i--){
+      if(arr[i]?.skill === skill){
+        const r = showLearningReport(i);
+        return r;
+      }
+    }
+    return null;
+  }
+
+
+  function finalPilotChecklist(){
+    const checks = [];
+    checks.push({name:'Student Simple Mode default', ok:(state.settings?.uiMode || 'simple') === 'simple'});
+    checks.push({name:'CEFR A2-B1+ calibration active', ok:!!cefrLevel && cefrLevel()==='A2-B1+'});
+    checks.push({name:'Adaptive AI Help active', ok:typeof adaptiveAIHelpLimit === 'function'});
+    checks.push({name:'Speaking oral mode active', ok:typeof startSpeakingTimer === 'function' && typeof stopSpeakingTimer === 'function'});
+    checks.push({name:'Portfolio export available', ok:typeof exportPortfolioCSV === 'function'});
+    checks.push({name:'Rubric review available', ok:typeof renderReviewQueue === 'function'});
+    checks.push({name:'Listening transcript controlled', ok:typeof transcriptPenalty === 'function'});
+    checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length === 0, detail:`${(state.runtimeErrors || []).length} error(s)`});
+    checks.push({name:'Portfolio data', ok:true, detail:`${(state.portfolio || []).length} item(s)`});
+    checks.push({name:'AI Help logs', ok:true, detail:`${(state.aiHelpLogs || []).length} log(s)`});
+    checks.push({name:'Student learning reports', ok:typeof renderStudentReports === 'function', detail:`${(state.learningReports || []).length} report(s)`});
+    return checks;
+  }
+
+  function renderPilotReadiness(){
+    setView('pilotReadiness');
+    const checks = finalPilotChecklist();
+    const okCount = checks.filter(c=>c.ok).length;
+    const rows = checks.map(c=>`<tr><td>${c.ok?'✅':'⚠️'}</td><td>${safe(c.name)}</td><td>${safe(c.detail || (c.ok?'Ready':'Check needed'))}</td></tr>`).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges">
+          <span class="pill">Final Lock v1z13</span>
+          <span class="pill">Pilot Ready ${okCount}/${checks.length}</span>
+          <span class="pill">CEFR A2-B1+</span>
+        </div>
+        <h2>Student Pilot Readiness Lock</h2>
+        <p class="lead">เช็กลิสต์สุดท้ายก่อนนำไปใช้กับนักศึกษาปี 2 ระดับ A2–B1+ จริงในห้องเรียน</p>
+
+        <div class="grid three">
+          <div class="stat"><b>${state.settings?.uiMode || 'simple'}</b><span>UI Mode</span></div>
+          <div class="stat"><b>${safe(currentSkillDifficulty().label)}</b><span>Difficulty</span></div>
+          <div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio Items</span></div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:16px">
+          <table>
+            <thead><tr><th>Status</th><th>Item</th><th>Detail</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+
+        <div class="panel light" style="margin-top:16px">
+          <h3>Recommended classroom start</h3>
+          <ol class="pilot-steps">
+            <li>ให้นักศึกษาเข้า Student Simple Mode เท่านั้น</li>
+            <li>เริ่มที่ Easy A2 หรือ Normal B1</li>
+            <li>ให้ใช้ AI Help ได้ตามระบบ โดยย้ำว่าใช้เพื่อฝึก ไม่ใช่ให้ตอบแทน</li>
+            <li>ให้ทำ Reading/Writing/Listening/Speaking อย่างน้อย 1 evidence ต่อคาบ</li>
+            <li>Teacher ตรวจจาก Review Queue และ Rubric Review</li>
+          </ol>
+        </div>
+
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.map()">Start Student Map</button>
+          <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button>
+          <button class="btn" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
+          <button class="btn" onclick="EAPHero.reviewQueue()">Teacher Review Queue</button>
+          <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
+          <button class="btn" onclick="EAPHero.exportRubricCSV()">Export Rubric CSV</button>
+          <button class="btn danger" onclick="EAPHero.resetDemoDataConfirm()">Reset Demo Data</button>
+        </div>
+      </section>`);
+  }
+
+  function resetDemoDataConfirm(){
+    const ok = confirm('Reset demo data on this browser? This clears portfolio, reviews, AI logs, revision logs, lesson logs, and runtime errors.');
+    if(!ok) return;
+    state.portfolio = [];
+    state.rubricReviews = [];
+    state.aiHelpLogs = [];
+    state.transcriptHints = [];
+    state.revisions = [];
+    state.lessonLogs = [];
+    state.classActivities = [];
+    state.runtimeErrors = [];
+    state.learningReports = [];
+    saveState();
+    safeToast('Demo data reset. Ready for pilot.');
+    renderPilotReadiness();
+  }
+
+  function studentStartSafe(){
+    state.settings = state.settings || {};
+    state.settings.uiMode = 'simple';
+    state.settings.skillDifficulty = state.settings.skillDifficulty || 'easy';
+    state.settings.progressiveUnlock = true;
+    state.settings.cefrLevel = 'A2-B1+';
+    saveState();
+    renderMap();
+  }
+
 
   function aiHelpButtonLabel(skill, sessionId){
     const used = aiUsesFor(sessionId, skill);
@@ -34942,7 +35201,8 @@
         <h2>Revision Center</h2>
         <p class="lead">EAP ต้องมี Submit → Feedback → Revise → Resubmit → Improvement XP ไม่ใช่ส่งครั้งเดียวจบ</p>
         <div class="table-wrap"><table><thead><tr><th>S</th><th>Skill</th><th>Status</th><th>Rubric</th><th>Revisions</th><th>Original</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
-        <div class="footer-actions"><button class="btn" onclick="EAPHero.reviewQueue()">Review Queue</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
+        <div class="footer-actions">
+          <button class="btn success" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button><button class="btn" onclick="EAPHero.reviewQueue()">Review Queue</button><button class="btn ghost" onclick="EAPHero.teacherTools()">Teacher Tools</button></div>
       </section>`);
   }
 
@@ -35667,6 +35927,7 @@
           <h3>Pre-Firebase Tools</h3>
           <p class="mini-note">แนะนำให้ Export Backup JSON ก่อนทดสอบใหญ่หรือก่อนต่อ Firebase ทุกครั้ง</p>
           <div class="footer-actions">
+          <button class="btn danger" onclick="EAPHero.resetDemoDataConfirm()">Reset Demo Data</button>
             <button class="btn primary" onclick="EAPHero.exportBackupJSON()">Export Full Backup JSON</button>
             <button class="btn" onclick="document.getElementById('backupImportInput').click()">Import Backup JSON</button>
             <button class="btn" onclick="EAPHero.exportFirebasePreview()">Export Firebase Preview</button>
@@ -36098,6 +36359,13 @@
     exportClassActivityCSV,
     reviewQueue:renderReviewQueue,
     refreshReviewQueueTable,
+    pilotReadiness:renderPilotReadiness,
+    renderStudentReports,
+    exportLearningReportsCSV,
+    
+    renderPilotReadiness,
+    resetDemoDataConfirm,
+    studentStartSafe,
     setReviewViewMode,
     viewEvidenceDetail,
     rubricReview:renderRubricReview,
