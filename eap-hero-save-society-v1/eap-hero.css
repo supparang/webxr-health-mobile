@@ -936,3 +936,12 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
     grid-template-columns:1fr;
   }
 }
+
+/* === v1z25 Pre/Post Learning Gain + Reflection === */
+.prepost-list{display:grid;gap:12px;margin:16px 0}
+.prepost-item{padding:14px;border-radius:18px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
+.prepost-item h3{margin:0 0 10px;color:#e7f7ff}
+.choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.choice-grid .choice{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:10px}
+.reflection-box{min-height:120px!important;margin-bottom:12px}
+@media(max-width:860px){.choice-grid{grid-template-columns:1fr}}

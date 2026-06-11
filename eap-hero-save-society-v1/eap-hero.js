@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z24-listening-ai-voice-lab-polish';
+  const APP_VERSION = '20260610-v1z25-prepost-learning-gain-reflection';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z24</div>
+              <div class="mini-note">Save the Society • v1z25</div>
             </div>
           </div>
           <div class="top-actions">
@@ -31796,6 +31796,7 @@
             <button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>
             <button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>
             <button class="btn ghost small" onclick="EAPHero.renderStudentReports()">📘 Report</button>
+            <button class="btn ghost small" onclick="EAPHero.prepostPanel()">📈 Gain</button>
             <button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>
             <button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>
             <button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>
@@ -32140,7 +32141,7 @@
           </p>
           <div class="footer-actions">
             <button class="btn primary" onclick="EAPHero.profile()">เริ่ม / ตั้งค่า Player</button>
-            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
+            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
             <button class="btn ghost" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
           </div>
           <div class="home-report-help">
@@ -35364,6 +35365,72 @@
   }
 
 
+
+  const PREPOST_ITEMS = [
+    {id:'pp01', skill:'Reading', q:'What is the main idea of a short academic text?', choices:['One small example','The most important message','The longest word','The author name'], answer:1},
+    {id:'pp02', skill:'Reading', q:'Which word is a signal word for contrast?', choices:['however','first','also','because'], answer:0},
+    {id:'pp03', skill:'Vocabulary', q:'What does “support” mean in academic writing?', choices:['a reason or detail that helps an idea','a picture only','a title','a mistake'], answer:0},
+    {id:'pp04', skill:'Writing', q:'Which sentence is more academic?', choices:['This thing is super cool.','This topic is important because it affects students.','I like it a lot.','It is kinda good.'], answer:1},
+    {id:'pp05', skill:'Writing', q:'What should a short academic paragraph usually include?', choices:['Topic sentence, support, conclusion','Only emojis','Only one word','Only a question'], answer:0},
+    {id:'pp06', skill:'Listening', q:'When listening to a mini lecture, what should students write first?', choices:['Every word','The main point and keywords','Only the last sentence','Nothing'], answer:1},
+    {id:'pp07', skill:'Listening', q:'Which note is useful?', choices:['Main point: AI helps learning. Keywords: feedback, practice.','Good good good','I do not know','Long long long'], answer:0},
+    {id:'pp08', skill:'Speaking', q:'Which phrase is a good speaking opening?', choices:['Today, I will talk about...','Hey bro','Whatever','No idea'], answer:0},
+    {id:'pp09', skill:'Speaking', q:'Which phrase helps give an example?', choices:['For example,...','In my bed','Goodbye only','Nothing'], answer:0},
+    {id:'pp10', skill:'Ethics', q:'What should students do when using AI help?', choices:['Copy everything without thinking','Use it as support and write their own answer','Hide all use','Delete the task'], answer:1},
+    {id:'pp11', skill:'Reading', q:'What does “evidence” mean?', choices:['Example or support','Decoration','A game button','A sound'], answer:0},
+    {id:'pp12', skill:'Writing', q:'Which ending is suitable for a short paragraph?', choices:['In conclusion,...','555','bye bye only','No comment'], answer:0}
+  ];
+
+  function prepostState(){
+    state.prepost = state.prepost || {attempts:[], reflections:[]};
+    state.prepost.attempts = state.prepost.attempts || [];
+    state.prepost.reflections = state.prepost.reflections || [];
+    return state.prepost;
+  }
+  function latestPrePost(type){ return prepostState().attempts.slice().reverse().find(a=>a.type===type)||null; }
+  function learningGainSummary(){
+    const pre=latestPrePost('pre'), post=latestPrePost('post');
+    const gain=pre&&post ? Number(post.score||0)-Number(pre.score||0) : null;
+    const ng=pre&&post ? Math.round((gain/Math.max(1,100-Number(pre.score||0)))*100) : null;
+    return {pre,post,gain,normalizedGain:ng};
+  }
+  function renderPrePostPanel(){
+    setView('prepost');
+    const sum=learningGainSummary();
+    const rows=prepostState().attempts.slice().reverse().map(a=>`<tr><td>${safe(a.type.toUpperCase())}</td><td>${a.score}/100</td><td>${a.correct}/${a.total}</td><td>${safe(a.at)}</td></tr>`).join('') || '<tr><td colspan="4">No pre/post test yet</td></tr>';
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Learning Gain</span><span class="pill">Pre/Post</span><span class="pill">Research-ready</span></div>
+      <h2>Pre/Post Learning Gain</h2><p class="lead">ใช้วัดความก้าวหน้าก่อน–หลังเรียน เหมาะสำหรับ pilot และงานวิจัยเบื้องต้น</p>
+      <div class="grid four"><div class="stat"><b>${sum.pre?sum.pre.score:'-'}</b><span>Pre-test</span></div><div class="stat"><b>${sum.post?sum.post.score:'-'}</b><span>Post-test</span></div><div class="stat"><b>${sum.gain===null?'-':(sum.gain>=0?'+':'')+sum.gain}</b><span>Raw Gain</span></div><div class="stat"><b>${sum.normalizedGain===null?'-':sum.normalizedGain+'%'}</b><span>Normalized Gain</span></div></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.preTest()">Start Pre-test</button><button class="btn success" onclick="EAPHero.postTest()">Start Post-test</button><button class="btn" onclick="EAPHero.sessionReflection()">Session Reflection</button><button class="btn" onclick="EAPHero.exportPrePostCSV()">Export Pre/Post CSV</button><button class="btn" onclick="EAPHero.exportReflectionCSV()">Export Reflection CSV</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div>
+      <div class="table-wrap" style="margin-top:14px"><table><thead><tr><th>Type</th><th>Score</th><th>Correct</th><th>Time</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <div class="panel light" style="margin-top:16px"><h3>How to use in class</h3><ol class="pilot-steps"><li>ก่อนเล่นเกม ให้ทำ Pre-test 5–7 นาที</li><li>ให้นักศึกษาทำ mission/session ตามแผน</li><li>หลังเรียน ให้ทำ Post-test</li><li>ให้นักศึกษาตอบ Reflection สั้น ๆ</li><li>Export CSV เพื่อดู learning gain และข้อมูลเชิงคุณภาพ</li></ol></div>
+    </section>`);
+  }
+  function renderPrePostTest(type='pre'){
+    const title=type==='post'?'Post-test':'Pre-test';
+    layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">${safe(title)}</span><span class="pill">12 items</span><span class="pill">A2-B1+</span></div><h2>${safe(title)}: Academic English Readiness</h2><p class="lead">เลือกคำตอบที่ดีที่สุด คะแนนนี้ใช้เพื่อดูพัฒนาการ ไม่ใช่ตัดสินผ่าน/ตก</p><div class="prepost-list">${PREPOST_ITEMS.map((q,i)=>`<div class="prepost-item"><h3>${i+1}. ${safe(q.q)}</h3><div class="choice-grid">${q.choices.map((c,j)=>`<label class="choice"><input type="radio" name="pp_${q.id}" value="${j}"> ${safe(c)}</label>`).join('')}</div></div>`).join('')}</div><div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitPrePost('${type}')">Submit ${safe(title)}</button><button class="btn ghost" onclick="EAPHero.prepostPanel()">Back</button></div></section>`);
+  }
+  function submitPrePost(type='pre'){
+    let correct=0, answers={};
+    PREPOST_ITEMS.forEach(q=>{ const v=document.querySelector(`input[name="pp_${q.id}"]:checked`)?.value; answers[q.id]=v===undefined?'':Number(v); if(Number(v)===Number(q.answer)) correct++; });
+    const total=PREPOST_ITEMS.length, score=Math.round(correct/total*100), band=learningBand(score);
+    const attempt={id:`${type}_${Date.now()}`, type, student_id:state.profile?.studentId||'guest', player_name:state.profile?.name||'Guest', correct,total,score,answers,at:new Date().toISOString()};
+    prepostState().attempts.push(attempt); saveState();
+    layout(`<section class="panel light result-hero" style="margin-top:20px"><div class="big-emoji">${band.emoji}</div><h2>${safe(type==='post'?'Post-test':'Pre-test')} Saved</h2><div class="grid three"><div class="stat"><b>${score}/100</b><span>Score</span></div><div class="stat"><b>${correct}/${total}</b><span>Correct</span></div><div class="stat"><b>${safe(band.label)}</b><span>Level</span></div></div><div class="footer-actions" style="justify-content:center"><button class="btn primary" onclick="EAPHero.prepostPanel()">Learning Gain Panel</button><button class="btn" onclick="EAPHero.sessionReflection()">Write Reflection</button><button class="btn ghost" onclick="EAPHero.map()">Map</button></div></section>`);
+  }
+  function renderSessionReflection(){
+    const last=latestLearningReport&&latestLearningReport();
+    layout(`<section class="panel" style="margin-top:20px"><div class="badges"><span class="pill">Reflection</span><span class="pill">Formative</span><span class="pill">A2-B1+</span></div><h2>Session Reflection</h2><p class="lead">ตอบสั้น ๆ เพื่อบอกว่าได้เรียนรู้อะไร ยังยากตรงไหน และครั้งหน้าจะปรับอะไร</p>${last?renderLearningReportCard(last,{actions:false}):''}<label class="label">1. What did you learn?</label><textarea id="refLearned" class="input answer-box reflection-box" rows="5" placeholder="I learned that ___."></textarea><label class="label">2. What was difficult?</label><textarea id="refDifficult" class="input answer-box reflection-box" rows="5" placeholder="It was difficult to ___."></textarea><label class="label">3. What will you improve next time?</label><textarea id="refImprove" class="input answer-box reflection-box" rows="5" placeholder="Next time, I will improve ___."></textarea><div class="footer-actions"><button class="btn primary" onclick="EAPHero.saveSessionReflection()">Save Reflection</button><button class="btn ghost" onclick="EAPHero.prepostPanel()">Back</button></div></section>`);
+  }
+  function saveSessionReflection(){
+    const r={id:`ref_${Date.now()}`, student_id:state.profile?.studentId||'guest', player_name:state.profile?.name||'Guest', session:state.currentSession||'', learned:document.getElementById('refLearned')?.value||'', difficult:document.getElementById('refDifficult')?.value||'', improve:document.getElementById('refImprove')?.value||'', latestReportBand:(latestLearningReport&&latestLearningReport()?.band)||'', at:new Date().toISOString()};
+    prepostState().reflections.push(r); saveState(); safeToast('Reflection saved'); renderPrePostPanel();
+  }
+  function exportPrePostCSV(){ const h=['id','type','student_id','player_name','score','correct','total','at']; const rows=prepostState().attempts.map(a=>h.map(k=>csvCell(a[k])).join(',')); downloadCSVBlob('eap-prepost-learning-gain.csv',[h.join(','),...rows].join('\n')); }
+  function exportReflectionCSV(){ const h=['id','student_id','player_name','session','learned','difficult','improve','latestReportBand','at']; const rows=prepostState().reflections.map(r=>h.map(k=>csvCell(r[k])).join(',')); downloadCSVBlob('eap-session-reflections.csv',[h.join(','),...rows].join('\n')); }
+  function downloadCSVBlob(filename,csv){ const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
+
   function finalPilotChecklist(){
     const checks = [];
     checks.push({name:'Student Simple Mode default', ok:(state.settings?.uiMode || 'simple') === 'simple'});
@@ -35377,6 +35444,7 @@
     checks.push({name:'Portfolio data', ok:true, detail:`${(state.portfolio || []).length} item(s)`});
     checks.push({name:'AI Help logs', ok:true, detail:`${(state.aiHelpLogs || []).length} log(s)`});
     checks.push({name:'Student learning reports', ok:typeof renderStudentReports === 'function', detail:`${(state.learningReports || []).length} report(s)`});
+    checks.push({name:'Pre/Post module', ok:typeof renderPrePostPanel === 'function', detail:`${(state.prepost?.attempts || []).length} attempt(s)`});
     return checks;
   }
 
@@ -35443,6 +35511,7 @@
     state.classActivities = [];
     state.runtimeErrors = [];
     state.learningReports = [];
+    state.prepost = {attempts:[], reflections:[]};
     saveState();
     safeToast('Demo data reset. Ready for pilot.');
     renderPilotReadiness();
@@ -36856,6 +36925,15 @@
     refreshReviewQueueTable,
     pilotReadiness:renderPilotReadiness,
     renderStudentReports,
+    prepostPanel:renderPrePostPanel,
+    preTest:function(){renderPrePostTest('pre')},
+    postTest:function(){renderPrePostTest('post')},
+    submitPrePost,
+    sessionReflection:renderSessionReflection,
+    saveSessionReflection,
+    exportPrePostCSV,
+    exportReflectionCSV,
+    
     expandAnswerBox,
     clearAnswerBox,
     myReports:renderStudentReports,
