@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z22-answer-box-size-polish';
+  const APP_VERSION = '20260610-v1z23-speaking-speech-to-text-input';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31786,7 +31786,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z22</div>
+              <div class="mini-note">Save the Society • v1z23</div>
             </div>
           </div>
           <div class="top-actions">
@@ -34542,6 +34542,116 @@
   let speakingTimer = null;
   let speakingSeconds = 0;
 
+
+  let speechRecognizer = null;
+  let speechRecognizing = false;
+
+  function speechSupported(){
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  }
+
+  function setSpeechStatus(message, type='info'){
+    const box = document.getElementById('speechStatusBox');
+    if(box){
+      box.className = `speech-status ${type}`;
+      box.textContent = message;
+    }else{
+      safeToast(message);
+    }
+  }
+
+  function appendSpeechText(text){
+    const el = document.getElementById('speakingTranscript');
+    if(!el) return;
+    const clean = String(text || '').trim();
+    if(!clean) return;
+    const before = el.value.trim();
+    el.value = before ? `${before} ${clean}` : clean;
+    el.dispatchEvent(new Event('input', {bubbles:true}));
+  }
+
+  function startSpeechToText(){
+    if(!speechSupported()){
+      setSpeechStatus('Speech-to-text is not supported in this browser. Please type notes manually.', 'warn');
+      alert('Speech-to-text is not supported in this browser. Try Chrome or Edge, or type notes manually.');
+      return false;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    try{
+      if(speechRecognizer && speechRecognizing){
+        setSpeechStatus('Voice input is already listening...', 'info');
+        return false;
+      }
+      speechRecognizer = new SpeechRecognition();
+      speechRecognizer.lang = 'en-US';
+      speechRecognizer.interimResults = true;
+      speechRecognizer.continuous = true;
+      speechRecognizing = true;
+
+      let finalText = '';
+      speechRecognizer.onstart = function(){
+        setSpeechStatus('Listening... speak in English. Your words will appear below.', 'live');
+        const startBtn = document.getElementById('voiceStartBtn');
+        const stopBtn = document.getElementById('voiceStopBtn');
+        if(startBtn) startBtn.disabled = true;
+        if(stopBtn) stopBtn.disabled = false;
+      };
+      speechRecognizer.onresult = function(event){
+        let interim = '';
+        for(let i = event.resultIndex; i < event.results.length; i++){
+          const transcript = event.results[i][0].transcript;
+          if(event.results[i].isFinal){
+            finalText += transcript + ' ';
+            appendSpeechText(transcript);
+          }else{
+            interim += transcript;
+          }
+        }
+        const interimBox = document.getElementById('speechInterimBox');
+        if(interimBox) interimBox.textContent = interim ? `Hearing: ${interim}` : '';
+      };
+      speechRecognizer.onerror = function(event){
+        speechRecognizing = false;
+        setSpeechStatus(`Voice input error: ${event.error || 'unknown'}. You can type notes manually.`, 'warn');
+        const startBtn = document.getElementById('voiceStartBtn');
+        const stopBtn = document.getElementById('voiceStopBtn');
+        if(startBtn) startBtn.disabled = false;
+        if(stopBtn) stopBtn.disabled = true;
+      };
+      speechRecognizer.onend = function(){
+        speechRecognizing = false;
+        setSpeechStatus('Voice input stopped. You can edit the transcript before submitting.', 'done');
+        const startBtn = document.getElementById('voiceStartBtn');
+        const stopBtn = document.getElementById('voiceStopBtn');
+        if(startBtn) startBtn.disabled = false;
+        if(stopBtn) stopBtn.disabled = true;
+        const interimBox = document.getElementById('speechInterimBox');
+        if(interimBox) interimBox.textContent = '';
+      };
+      speechRecognizer.start();
+      startSpeakingTimer();
+      return false;
+    }catch(err){
+      speechRecognizing = false;
+      setSpeechStatus(`Could not start voice input: ${err.message || err}`, 'warn');
+      return false;
+    }
+  }
+
+  function stopSpeechToText(){
+    try{
+      if(speechRecognizer && speechRecognizing){
+        speechRecognizer.stop();
+      }
+      stopSpeakingTimer();
+      setSpeechStatus('Voice input stopped. Review and edit your words below.', 'done');
+    }catch(err){
+      setSpeechStatus(`Could not stop voice input: ${err.message || err}`, 'warn');
+    }
+    return false;
+  }
+
+
   function startSpeakingTimer(){
     speakingSeconds = 0;
     const box = document.getElementById('speakingTimerBox');
@@ -34597,6 +34707,18 @@
       </div>
       ${renderAIHelpBox('Speaking', s.id)}
       <label class="label">Optional evidence notes / transcript</label>
+      
+        <div class="voice-input-panel">
+          <h3>🎙 Voice Input / Speech-to-Text</h3>
+          <p class="mini-note">กด Start Voice Input แล้วพูดเป็นภาษาอังกฤษ ระบบจะพยายามถอดคำพูดลงในช่อง notes/transcript ด้านล่าง จากนั้นแก้ไขก่อน Submit ได้</p>
+          <div class="footer-actions">
+            <button type="button" id="voiceStartBtn" class="btn primary" onclick="return EAPHero.startSpeechToText()">🎙 Start Voice Input</button>
+            <button type="button" id="voiceStopBtn" class="btn" onclick="return EAPHero.stopSpeechToText()" disabled>⏹ Stop Voice Input</button>
+          </div>
+          <div id="speechStatusBox" class="speech-status info">${speechSupported() ? 'Voice input ready in supported browsers.' : 'Speech-to-text may not be supported in this browser.'}</div>
+          <div id="speechInterimBox" class="speech-interim"></div>
+        </div>
+
       <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box large-speaking-box" rows="12" data-default-rows="12" placeholder="Optional: type short notes, keywords, or transcript after speaking. Do not write instead of speaking."></textarea>
       <p class="mini-note speaking-check-note">หลังพูดแล้ว ติ๊กสิ่งที่พูดมี ก่อน Submit Speaking Evidence</p>
       <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spSpoke"> I spoke</label><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
@@ -36459,6 +36581,9 @@
     submitListening,
     speakingMission:renderSpeakingMission,
     startSpeakingTimer,
+    startSpeechToText,
+    stopSpeechToText,
+    speechSupported,
     stopSpeakingTimer,
     submitSpeaking,
     exportPortfolioCSV,
