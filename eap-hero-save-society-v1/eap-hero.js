@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z29-hard-student-only-ui-lock';
+  const APP_VERSION = '20260610-v1z30-true-student-ui-lock';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31788,13 +31788,13 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z29</div>
+              <div class="mini-note">Save the Society • v1z30</div>
             </div>
           </div>
           <div class="top-actions">
             <button class="btn ghost small" onclick="EAPHero.map()">🗺️ Map</button>
             <button class="btn ghost small" onclick="EAPHero.profile()">👤 Profile</button>
-            <button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>
+            ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.gallery()">🃏 Cards</button>':''}
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.funHub()">⚡ Fun</button>':''}
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.replayHub()">🔥 Replay</button>':''}
             <button class="btn ghost small" onclick="EAPHero.renderStudentReports()">📘 Report</button>
@@ -31802,13 +31802,15 @@
             ${roleMode()==='researcher'?'<button class="btn ghost small" onclick="EAPHero.researchDataset()">🧪 Research</button>':''}
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.examPanel()">📝 Exam</button>':''}
             ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.qaLock()">🧪 QA</button>':''}
-            <button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>
+            ${roleMode()!=='student'?'<button class="btn ghost small" onclick="EAPHero.teacherTools()">📊 Teacher</button>':''}
           </div>
         </div>
         ${cacheVersionNotice()}
         ${content}
       </div>
     `;
+    runTrueStudentUILockSoon();
+
   }
 
 
@@ -32178,6 +32180,43 @@
   }
 
 
+
+  function trueStudentUILock(){
+    const mode = (state.settings?.roleMode || state.settings?.uiMode || 'student');
+    if(mode !== 'student') return;
+    document.body.classList.add('student-only-mode','true-student-lock');
+    const advancedOnclick = [
+      'gallery','cards','funHub','replayHub','examPanel','qaLock','teacherTools','teacher()','dashboard',
+      'prepostPanel','researchDataset','pilotReadiness'
+    ];
+    const advancedWords = [
+      'Cards','Fun','Replay','Exam','QA','Teacher','Research','Research Dataset','Pre/Post Gain',
+      'Pilot Readiness','Teacher Dashboard','Gain','🃏','⚡','🔥','📝','🧪','📊','📈'
+    ];
+    const allowedWords = ['Map','Profile','Report','My Learning Report','Start','Continue','Student Safe Start','Start / Continue','เข้า Campus Map','เริ่ม','ตั้งค่า Player'];
+    document.querySelectorAll('button,a,.btn').forEach(el=>{
+      const txt = (el.textContent || '').trim();
+      const onclick = String(el.getAttribute('onclick') || '');
+      const isAdvanced = advancedOnclick.some(w=>onclick.includes(w)) || advancedWords.some(w=>txt.includes(w));
+      const isAllowed = allowedWords.some(w=>txt.includes(w));
+      if(isAdvanced && !isAllowed){
+        el.classList.add('student-hidden-menu');
+        el.hidden = true;
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden','true');
+        el.tabIndex = -1;
+      }
+    });
+  }
+
+  function runTrueStudentUILockSoon(){
+    trueStudentUILock();
+    setTimeout(trueStudentUILock, 0);
+    setTimeout(trueStudentUILock, 80);
+    setTimeout(trueStudentUILock, 300);
+  }
+
+
   function roleMode(){
     return state.settings?.roleMode || state.settings?.uiMode || 'student';
   }
@@ -32215,6 +32254,7 @@
 
 
   function renderHome(){
+    state.settings = state.settings || {}; state.settings.roleMode = 'student';
     touchDailyStreak();
     setView('home');
     layout(`
@@ -32239,8 +32279,8 @@
             <button class="btn ghost" onclick="EAPHero.profile()">Profile</button>
           </div>
             <button class="btn primary" onclick="EAPHero.profile()">เริ่ม / ตั้งค่า Player</button>
-            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button><button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button><button class="btn" onclick="EAPHero.researchDataset()">Research Dataset</button><button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
-            <button class="btn ghost" onclick="EAPHero.dashboard()">Teacher Dashboard</button>
+            <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button><button class="btn" onclick="EAPHero.map()">เข้า Campus Map</button><button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button>${roleMode()!=='student'?'<button class="btn" onclick="EAPHero.prepostPanel()">Pre/Post Gain</button>':''}${roleMode()!=='student'?'<button class="btn" onclick="EAPHero.researchDataset()">Research Dataset</button>':''}${roleMode()!=='student'?'<button class="btn ghost" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>':''}
+            ${roleMode()!=='student'?'<button class="btn ghost" onclick="EAPHero.dashboard()">Teacher Dashboard</button>':''}
           </div>
           <div class="home-report-help">
             <b>ดูผลการเรียนตรงไหน?</b>

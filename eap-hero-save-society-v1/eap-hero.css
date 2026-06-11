@@ -1094,3 +1094,33 @@ th{color:#a7f3d0;background:rgba(255,255,255,.05)}
 .student-only-mode button[onclick*="replayHub"]{
   display:none !important;
 }
+
+
+/* === v1z30 True Student UI Lock === */
+.true-student-lock .student-hidden-menu,
+.student-only-mode .student-hidden-menu{
+  display:none !important;
+  visibility:hidden !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  width:0 !important;
+  height:0 !important;
+  overflow:hidden !important;
+  margin:0 !important;
+  padding:0 !important;
+  border:0 !important;
+}
+.true-student-lock button[onclick*="gallery"],
+.true-student-lock button[onclick*="cards"],
+.true-student-lock button[onclick*="funHub"],
+.true-student-lock button[onclick*="replayHub"],
+.true-student-lock button[onclick*="examPanel"],
+.true-student-lock button[onclick*="qaLock"],
+.true-student-lock button[onclick*="teacherTools"],
+.true-student-lock button[onclick*="teacher"],
+.true-student-lock button[onclick*="dashboard"],
+.true-student-lock button[onclick*="prepostPanel"],
+.true-student-lock button[onclick*="researchDataset"],
+.true-student-lock button[onclick*="pilotReadiness"]{
+  display:none !important;
+}
