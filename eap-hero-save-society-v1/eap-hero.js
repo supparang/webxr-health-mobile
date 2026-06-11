@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z33-student-pilot-final-lock';
+  const APP_VERSION = '20260610-v1z34-session-quality-audit-a2-b1-balance';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z33</div>
+              <div class="mini-note">Save the Society • v1z34</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32279,6 +32279,7 @@
     checks.push({name:'Speaking voice input/fallback', ok:typeof startSpeechToText === 'function' && typeof stopSpeechToText === 'function', detail:(typeof speechSupported === 'function' && speechSupported()) ? 'Speech-to-text supported' : 'Manual notes fallback available'});
     checks.push({name:'Student UI lock', ok:typeof trueStudentUILock === 'function' && document.body.classList.contains('true-student-lock')});
     checks.push({name:'Teacher/Research hidden from student', ok:audit.blockedFound.length===0, detail:audit.blockedFound.length ? audit.blockedFound.join(', ') : 'Hidden'});
+    checks.push({name:'Session quality audit', ok:typeof sessionQuality === 'function' && Object.keys(SESSION_QUALITY_AUDIT||{}).length===15, detail:'S1-S15 balanced'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32471,6 +32472,73 @@
       <button class="btn primary" data-action="continue-session" onclick="return EAPHero.continueFromButton(this)">Continue Session</button>
       <button class="btn" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
     </div>`;
+  }
+
+
+
+  const SESSION_QUALITY_AUDIT = {
+    1:{level:'A2', risk:'Low', core:'Reading', support:'Writing', expected:'1–2 short sentences', objective:'Understand academic mindset and identify a main idea.', vocab:['goal','main idea','reason','support'], frame:'The main idea is ___. One reason is ___.', teacherNote:'เน้นให้เด็กตอบสั้นและจับใจความหลักให้ได้ก่อน'},
+    2:{level:'A2', risk:'Low', core:'Vocabulary', support:'Reading', expected:'keywords + 1 sentence', objective:'Use basic academic vocabulary in context.', vocab:['meaning','keyword','example','use'], frame:'The word ___ means ___. For example, ___.', teacherNote:'ยังไม่ควรให้จำศัพท์ยาก ให้ดู context clues'},
+    3:{level:'A2-B1', risk:'Low', core:'Reading', support:'Speaking', expected:'main idea + 1 detail', objective:'Find main idea and one supporting detail.', vocab:['text','detail','evidence','topic'], frame:'The text is about ___. One detail is ___.', teacherNote:'เหมาะสำหรับฝึก reading confidence'},
+    4:{level:'A2-B1', risk:'Medium', core:'Listening', support:'Vocabulary', expected:'2 keywords + 1 note', objective:'Listen for signal words and keywords.', vocab:['first','however','because','also'], frame:'I heard ___ and ___. The main point is ___.', teacherNote:'ให้ใช้ slow mode ได้ ไม่หักมาก'},
+    5:{level:'B1', risk:'Medium', core:'Reading', support:'Writing', expected:'2–3 sentences', objective:'Check simple evidence and source trust.', vocab:['source','trust','claim','evidence'], frame:'I trust this because ___. The evidence is ___.', teacherNote:'อย่าใช้คำว่า evaluate หนักเกิน ให้ใช้ trust/check'},
+    6:{level:'B1', risk:'Medium', core:'Writing', support:'Reading', expected:'3 short sentences', objective:'Summarize a short academic idea without copying.', vocab:['summary','copy','own words','important'], frame:'The text says ___. This is important because ___.', teacherNote:'เน้น own words แบบง่าย ไม่ต้อง paraphrase ซับซ้อน'},
+    7:{level:'B1', risk:'Medium', core:'Writing', support:'Speaking', expected:'3–4 sentences', objective:'Use polite and academic tone.', vocab:['formal','polite','academic','tone'], frame:'I would like to explain ___. This topic is important because ___.', teacherNote:'เปรียบเทียบ casual vs academic ให้เห็นชัด'},
+    8:{level:'B1', risk:'Medium', core:'Reading', support:'Writing', expected:'short integrated answer', objective:'Review reading, vocabulary, and writing basics.', vocab:['review','integrate','support','answer'], frame:'My answer is ___. I know this because ___.', teacherNote:'เป็น checkpoint ไม่ควรยากเกินก่อน boss'},
+    9:{level:'B1', risk:'Medium', core:'Writing', support:'Reading', expected:'1 paragraph, 4–5 sentences', objective:'Write a short paragraph with topic/support/conclusion.', vocab:['paragraph','topic sentence','support','conclusion'], frame:'This topic is important because ___. For example, ___. In conclusion, ___.', teacherNote:'ให้ frame ชัดและไม่เน้น grammar มากเกิน'},
+    10:{level:'B1+', risk:'High', core:'Writing', support:'Vocabulary', expected:'3–4 data sentences', objective:'Describe simple data trends.', vocab:['increase','decrease','higher','lower','trend'], frame:'The number increases from ___ to ___. This means ___.', teacherNote:'เสี่ยงยาก ต้องให้คำศัพท์ trend และตัวอย่างมาก'},
+    11:{level:'B1', risk:'Medium', core:'Writing', support:'Speaking', expected:'short email 5 lines', objective:'Write a polite academic email.', vocab:['request','please','thank you','appointment'], frame:'Dear ___. I would like to ___. Thank you for ___.', teacherNote:'เหมาะกับการใช้จริง ให้เน้น structure'},
+    12:{level:'B1+', risk:'High', core:'Ethics', support:'Writing', expected:'2–3 ethics sentences', objective:'Understand citation, plagiarism, and responsible AI help.', vocab:['citation','source','AI help','own words'], frame:'I used help for ___. My own answer is ___. The source is ___.', teacherNote:'เสี่ยงยากและสำคัญ ต้องใช้ตัวอย่างสถานการณ์ง่าย'},
+    13:{level:'B1', risk:'High', core:'Listening', support:'Writing', expected:'main point + 2 keywords + 1 detail', objective:'Listen to a mini lecture and take useful notes.', vocab:['lecture','main point','keyword','detail'], frame:'Main point: ___. Keywords: ___ and ___. Detail: ___.', teacherNote:'ใช้ AI Voice Lab + chunk + slow mode เป็นหลัก'},
+    14:{level:'B1+', risk:'High', core:'Speaking', support:'Writing', expected:'45–60 sec guided speaking', objective:'Give a short academic presentation using a frame.', vocab:['present','audience','example','conclusion'], frame:'Today, I will talk about ___. First, ___. For example, ___. In conclusion, ___.', teacherNote:'ต้องใช้ guided speaking ไม่ควรปล่อย free speaking ทันที'},
+    15:{level:'B1+', risk:'High', core:'Integrated', support:'All skills', expected:'short project evidence', objective:'Integrate reading, writing, listening, speaking, and ethics.', vocab:['integrate','reflect','evidence','improve'], frame:'I learned ___. My evidence is ___. Next time, I will improve ___.', teacherNote:'Final integration ต้องใช้เป็น portfolio project ไม่ใช่ข้อสอบยาก'}
+  };
+
+  function sessionQuality(sessionId){
+    return SESSION_QUALITY_AUDIT[Number(sessionId || 1)] || SESSION_QUALITY_AUDIT[1];
+  }
+
+  function sessionQualityHTML(sessionId){
+    const q = sessionQuality(sessionId);
+    const riskCls = q.risk === 'High' ? 'high' : q.risk === 'Medium' ? 'medium' : 'low';
+    return `<div class="session-quality-card ${riskCls}">
+      <div class="badges">
+        <span class="pill">CEFR ${safe(q.level)}</span>
+        <span class="pill">Core: ${safe(q.core)}</span>
+        <span class="pill">Support: ${safe(q.support)}</span>
+        <span class="pill">Risk: ${safe(q.risk)}</span>
+      </div>
+      <h3>Session Quality Guide</h3>
+      <p><b>Objective:</b> ${safe(q.objective)}</p>
+      <p><b>Expected answer:</b> ${safe(q.expected)}</p>
+      <p><b>Useful words:</b> ${q.vocab.map(x=>`<span class="mini-word">${safe(x)}</span>`).join(' ')}</p>
+      <p><b>Frame:</b> <code>${safe(q.frame)}</code></p>
+      <p><b>Teacher note:</b> ${safe(q.teacherNote)}</p>
+    </div>`;
+  }
+
+  function renderSessionQualityAudit(){
+    setView('sessionQualityAudit');
+    const rows = Object.entries(SESSION_QUALITY_AUDIT).map(([id,q])=>`<tr>
+      <td>S${id}</td><td>${safe(q.level)}</td><td>${safe(q.core)}</td><td>${safe(q.support)}</td><td>${safe(q.risk)}</td><td>${safe(q.expected)}</td><td>${safe(q.teacherNote)}</td>
+    </tr>`).join('');
+    const high = Object.values(SESSION_QUALITY_AUDIT).filter(q=>q.risk==='High').length;
+    const med = Object.values(SESSION_QUALITY_AUDIT).filter(q=>q.risk==='Medium').length;
+    const low = Object.values(SESSION_QUALITY_AUDIT).filter(q=>q.risk==='Low').length;
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">S1–S15 Audit</span><span class="pill">A2-B1+ Balance</span><span class="pill">Teacher Guide</span></div>
+      <h2>Session Quality Audit</h2>
+      <p class="lead">ตรวจความเหมาะสมของทุก Session สำหรับนักศึกษาปี 2 ระดับ A2–B1+ ก่อนใช้จริง</p>
+      <div class="grid three"><div class="stat"><b>${low}</b><span>Low risk</span></div><div class="stat"><b>${med}</b><span>Medium risk</span></div><div class="stat"><b>${high}</b><span>High risk / needs scaffold</span></div></div>
+      <div class="quality-summary-note">
+        <b>สรุป:</b> S1–S9 เหมาะสำหรับสร้างฐาน, S10/S12/S13/S14/S15 เป็นกลุ่มเสี่ยงยาก ต้องใช้ frame, vocabulary, AI Help และ teacher scaffold ชัดเจน
+      </div>
+      <div class="table-wrap" style="margin-top:14px"><table>
+        <thead><tr><th>Session</th><th>CEFR</th><th>Core</th><th>Support</th><th>Risk</th><th>Expected Answer</th><th>Teacher Note</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.map()">Back to Map</button><button class="btn" onclick="EAPHero.studentPilotFinalLock()">Pilot Final Check</button></div>
+    </section>`);
   }
 
 
@@ -33726,6 +33794,7 @@
       return `<div class="hud-card ${done?'ok':''} ${locked?'locked':''}">
         <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
         <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
+        ${sessionQualityHTML(s.id)}
         <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
       </div>`;
     }).join('');
@@ -37213,6 +37282,9 @@
     bindContinueButtons,
     continueFromButton,
     continueSession,
+    sessionQualityAudit:renderSessionQualityAudit,
+    sessionQuality,
+    sessionQualityAuditData:SESSION_QUALITY_AUDIT,
     studentPilotFinalLock:renderStudentPilotFinalLock,
     renderStudentPilotFinalLock,
     studentPilotFinalChecks,
