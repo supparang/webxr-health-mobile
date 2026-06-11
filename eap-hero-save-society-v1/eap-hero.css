@@ -1173,3 +1173,32 @@ button[data-action="continue-session"]{
   width:auto !important;
   height:auto !important;
 }
+
+
+/* === v1z33 Student Pilot Final Lock === */
+.student-pilot-ready-card{
+  margin:16px 0;
+  padding:16px;
+  border-radius:20px;
+  border:2px solid;
+  font-weight:800;
+  line-height:1.65;
+}
+.student-pilot-ready-card.ready{
+  background:#ecfdf5;
+  border-color:#86efac;
+  color:#064e3b;
+}
+.student-pilot-ready-card.warn{
+  background:#fff7ed;
+  border-color:#fdba74;
+  color:#7c2d12;
+}
+.student-pilot-ready-card h3{
+  margin:0 0 6px;
+  font-size:22px;
+  font-weight:900;
+}
+.student-pilot-ready-card p{
+  margin:0;
+}

@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z32-continue-button-binding-fix';
+  const APP_VERSION = '20260610-v1z33-student-pilot-final-lock';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z32</div>
+              <div class="mini-note">Save the Society • v1z33</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32252,6 +32252,68 @@
       <button class="btn ${roleMode()==='teacher'?'success':'ghost'} small" onclick="EAPHero.setRoleMode('teacher')">Teacher</button>
       <button class="btn ${roleMode()==='researcher'?'success':'ghost'} small" onclick="EAPHero.setRoleMode('researcher')">Researcher</button>
     </div>`;
+  }
+
+
+
+  function studentVisibleMenuAudit(){
+    const allowed = ['Map','Continue','Profile','Report'];
+    const blocked = ['Cards','Fun','Replay','Exam','QA','Teacher','Research','Gain','Pre/Post','Pilot'];
+    const buttons = Array.from(document.querySelectorAll('.top-actions button, .topbar button')).map(b=>(b.textContent||'').trim()).filter(Boolean);
+    return {
+      buttons,
+      allowedOk: buttons.every(t => allowed.some(a=>t.includes(a))),
+      blockedFound: buttons.filter(t => blocked.some(b=>t.includes(b)))
+    };
+  }
+
+  function studentPilotFinalChecks(){
+    const checks = [];
+    const audit = studentVisibleMenuAudit();
+    checks.push({name:'Version loaded', ok:String(APP_VERSION).includes('v1z33'), detail:APP_VERSION});
+    checks.push({name:'Student menu only', ok:audit.blockedFound.length===0, detail:audit.buttons.join(' | ') || 'No top buttons found'});
+    checks.push({name:'Continue binding', ok:typeof continueSession === 'function' && typeof continueFromButton === 'function' && typeof bindContinueButtons === 'function'});
+    checks.push({name:'Mission launcher', ok:typeof openSkillMission === 'function' && typeof openSkillMissionFromButton === 'function'});
+    checks.push({name:'Learning Report', ok:typeof renderStudentReports === 'function' && typeof renderLearningReportCard === 'function'});
+    checks.push({name:'Listening AI Voice', ok:typeof playLecture === 'function' && typeof pauseLecture === 'function' && typeof resumeLecture === 'function'});
+    checks.push({name:'Speaking voice input/fallback', ok:typeof startSpeechToText === 'function' && typeof stopSpeechToText === 'function', detail:(typeof speechSupported === 'function' && speechSupported()) ? 'Speech-to-text supported' : 'Manual notes fallback available'});
+    checks.push({name:'Student UI lock', ok:typeof trueStudentUILock === 'function' && document.body.classList.contains('true-student-lock')});
+    checks.push({name:'Teacher/Research hidden from student', ok:audit.blockedFound.length===0, detail:audit.blockedFound.length ? audit.blockedFound.join(', ') : 'Hidden'});
+    checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
+    return checks;
+  }
+
+  function renderStudentPilotFinalLock(){
+    setView('studentPilotFinalLock');
+    if(typeof runTrueStudentUILockSoon === 'function') runTrueStudentUILockSoon();
+    const checks = studentPilotFinalChecks();
+    const ready = checks.filter(c=>c.ok).length;
+    const rows = checks.map(c=>`<tr><td>${c.ok?'✅':'⚠️'}</td><td>${safe(c.name)}</td><td>${safe(c.detail || (c.ok?'Ready':'Check needed'))}</td></tr>`).join('');
+    layout(`
+      <section class="panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Student Pilot Final Lock</span><span class="pill">${ready}/${checks.length} Ready</span><span class="pill">A2-B1+</span></div>
+        <h2>Student Pilot Final Check</h2>
+        <p class="lead">หน้าตรวจสุดท้ายก่อนให้นักศึกษาใช้จริง: เมนูต้องง่าย ปุ่มต้องกดติด Mission ต้องเปิดได้ และ feedback ต้องพร้อม</p>
+        <div class="grid four">
+          <div class="stat"><b>${ready}/${checks.length}</b><span>Ready checks</span></div>
+          <div class="stat"><b>${(state.portfolio || []).length}</b><span>Portfolio items</span></div>
+          <div class="stat"><b>${(state.learningReports || []).length}</b><span>Reports</span></div>
+          <div class="stat"><b>${(state.runtimeErrors || []).length}</b><span>Runtime errors</span></div>
+        </div>
+        <div class="student-pilot-ready-card ${ready===checks.length?'ready':'warn'}">
+          <h3>${ready===checks.length?'Ready for student pilot':'Check before pilot'}</h3>
+          <p>${ready===checks.length?'ระบบฝั่งผู้เรียนพร้อมสำหรับทดสอบในห้องเรียนแบบ local pilot แล้ว':'ยังมีรายการที่ควรเช็กก่อนให้นักศึกษาใช้จริง'}</p>
+        </div>
+        <div class="table-wrap" style="margin-top:14px">
+          <table><thead><tr><th>Status</th><th>Check</th><th>Detail</th></tr></thead><tbody>${rows}</tbody></table>
+        </div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.continueSession()">Test Continue</button>
+          <button class="btn" onclick="EAPHero.map()">Map</button>
+          <button class="btn" onclick="EAPHero.renderStudentReports()">Report</button>
+          <button class="btn" onclick="EAPHero.forceStudentMode()">Force Student Mode</button>
+        </div>
+      </section>`);
   }
 
 
@@ -35794,7 +35856,7 @@
         </div>
 
         <div class="footer-actions">
-          <button class="btn primary" onclick="EAPHero.map()">Start Student Map</button>
+          <button class="btn primary" onclick="EAPHero.map()">Start Student Map</button><button class="btn" onclick="EAPHero.studentPilotFinalLock()">Student Pilot Check</button>
           <button class="btn success" onclick="EAPHero.studentStartSafe()">Student Safe Start</button>
           <button class="btn" onclick="EAPHero.pilotReadiness()">Pilot Readiness</button>
           <button class="btn" onclick="EAPHero.reviewQueue()">Teacher Review Queue</button>
@@ -37151,6 +37213,9 @@
     bindContinueButtons,
     continueFromButton,
     continueSession,
+    studentPilotFinalLock:renderStudentPilotFinalLock,
+    renderStudentPilotFinalLock,
+    studentPilotFinalChecks,
     sessionBrief:renderSessionBrief,
     startLab:renderLab,
     practice:startPractice,
