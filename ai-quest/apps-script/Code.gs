@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.3.9
+ * Version: v2.4.0
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.3.9';
+const APP_VERSION = 'v2.4.0';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -338,9 +338,28 @@ function buildTeacherConsole_(params) {
   params = params || {};
   const sectionFilter = SECTION_LOCK;
   const sessionFilter = String(params.sessionId || 's1').trim();
-  const profiles = sheetObjects_(SHEETS.profiles);
-  const attemptsAll = sheetObjects_(SHEETS.attempts);
-  const eventsAll = sheetObjects_(SHEETS.events);
+  const includeTest = String(params.includeTest || params.showTest || '') === '1';
+
+  const rawProfiles = sheetObjects_(SHEETS.profiles);
+  const rawAttemptsAll = sheetObjects_(SHEETS.attempts);
+  const rawEventsAll = sheetObjects_(SHEETS.events);
+
+  const profiles = includeTest ? rawProfiles : rawProfiles.filter(function(p) {
+    return !isTestStudent_(p.studentId, p.studentName);
+  });
+
+  const attemptsAll = includeTest ? rawAttemptsAll : rawAttemptsAll.filter(function(a) {
+    return !isTestStudent_(a.studentId, a.studentName);
+  });
+
+  const eventsAll = includeTest ? rawEventsAll : rawEventsAll.filter(function(e) {
+    return !isTestStudent_(e.studentId, '');
+  });
+
+  const ignoredTestRows =
+    (rawProfiles.length - profiles.length) +
+    (rawAttemptsAll.length - attemptsAll.length) +
+    (rawEventsAll.length - eventsAll.length);
   const filteredProfiles = profiles.filter(function(p){ return !sectionFilter || String(p.section || '') === sectionFilter; });
   const attempts = attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter) && (!sessionFilter || String(a.sessionId || '') === sessionFilter); });
   const events = eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter) && (!sessionFilter || String(e.sessionId || '') === sessionFilter); });
@@ -380,7 +399,7 @@ function buildTeacherConsole_(params) {
   const reflectionComplete = submitted.filter(function(s){ return s.reflectionComplete; }).length;
   const needSupport = students.filter(function(s){ return s.risks && s.risks.length > 0; }).length;
   const misconceptions = collectMisconceptions_(attempts, events);
-  const stats = {totalStudents:students.length, submittedStudents:submitted.length, totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, failedSync:0};
+  const stats = {totalStudents:students.length, submittedStudents:submitted.length, notSubmittedStudents:notSubmittedStudents, totalAttempts:attempts.length, avgScore:round2_(scoreSum / Math.max(1, submitted.length)), masteryCount:masteryCount, needSupport:needSupport, reflectionComplete:reflectionComplete, profileRows:profiles.length, attemptRows:attemptsAll.length, eventRows:eventsAll.length, ignoredTestRows:ignoredTestRows, includeTestData:includeTest, failedSync:0};
   const risks = students.filter(function(s){ return s.risks && s.risks.length > 0; }).sort(function(a,b){ return Number(a.bestScore || 0) - Number(b.bestScore || 0); }).map(function(s){ return {studentId:s.studentId, studentName:s.studentName, section:s.section, bestScore:s.bestScore || '', latestScore:s.latestScore || '', helpUsed:s.helpUsed || 0, reflectionComplete:!!s.reflectionComplete, risks:s.risks || []}; });
 
   const allStudents = students.sort(function(a,b){ return String(a.studentId || '').localeCompare(String(b.studentId || '')); }).map(function(s){
@@ -482,6 +501,20 @@ function testWrite_() {
   appendProgress_({progressId:makeId_('test_prog'), studentId:'TEST001', studentName:'Test Student', section:'SEC01', courseId:'CSAI2102', classId:'CSAI2102-2569-SEC01', term:'1/2569', sessionId:'s1', missionId:'m1', status:'clear', stars:2, bestScore:88, unlocked:true, updatedAt:now, extraJson:{source:'testWrite', version:APP_VERSION}});
   updateTeacherSummary();
   return {ok:true, action:'testWrite', version:APP_VERSION, wrote:{profile:true, attempt:true, event:true, progress:true}, attemptId:attemptId, serverTs:bangkokIsoNow()};
+}
+
+function isTestStudent_(studentId, studentName) {
+  const raw = String(studentId || '') + ' ' + String(studentName || '');
+  const s = raw.toUpperCase();
+
+  return (
+    s.indexOf('TEST') >= 0 ||
+    s.indexOf('GAME_TEST') >= 0 ||
+    s.indexOf('BROWSER') >= 0 ||
+    s.indexOf('MANUAL-TEST') >= 0 ||
+    s.indexOf('SAMPLE') >= 0 ||
+    s.indexOf('DEMO') >= 0
+  );
 }
 
 function forceSection_(value) {
