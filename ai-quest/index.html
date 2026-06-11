@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.6.3 Pre-S3 Remedial</title>
+  <title>CSAI2102: AI Quest v2.6.4 Remedial Anti-repeat</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -914,8 +914,8 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v263.js"></script>
-  <script src="./js/boss1-rookie-bank-v263.js"></script>
+  <script src="./js/mission2-agent-bank-v264.js"></script>
+  <script src="./js/boss1-rookie-bank-v264.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -927,7 +927,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.6.3 • Pre-S3 Remedial Path • Section 101</div>
+          <div class="subtitle">v2.6.4 • Remedial Anti-repeat + Optional Review • Section 101</div>
         </div>
       </div>
 
@@ -1770,8 +1770,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v263.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v263.js</b>
+            โหลดไฟล์ mission2-agent-bank-v264.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v264.js</b>
           </div>
         `;
         return;
@@ -2431,7 +2431,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v2.6.3-session2-learning-feedback',
+          version:'v2.6.4-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2493,8 +2493,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v263.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v263.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v264.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v264.js</b>
           </div>
         `;
         return;
@@ -2879,7 +2879,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v2.6.3-b1-full-boss',
+          version:'v2.6.4-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4233,11 +4233,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v263.js"></script>
-  <script src="./js/aiquest-teacher-console-v263.js"></script>
-  <script src="./js/aiquest-student-detail-v263.js"></script>
-  <script src="./js/aiquest-production-v263.js"></script>
-  <script src="./js/aiquest-remedial-path-v263.js"></script>
-  <script src="./js/aiquest-session-roadmap-v263.js"></script>
+  <script src="./js/aiquest-ui-mode-v264.js"></script>
+  <script src="./js/aiquest-teacher-console-v264.js"></script>
+  <script src="./js/aiquest-student-detail-v264.js"></script>
+  <script src="./js/aiquest-production-v264.js"></script>
+  <script src="./js/aiquest-remedial-path-v264.js"></script>
+  <script src="./js/aiquest-session-roadmap-v264.js"></script>
 </body>
 </html>
