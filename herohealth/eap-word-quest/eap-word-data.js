@@ -1,18 +1,19 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-data.js
-   Version: v1.5.1-STUDENT-HOME-SIMPLIFY
+   Version: v1.5.3-ROUND-QUALITY-BOSS-BALANCE
 
    Consolidated Final Data File
    - S1–S15 = 20 words/session
    - BG1–BG5 = Boss Gate separated from sessions
    - Auto-generate 8 item types per word
    - Total target ≈ 300 words × 8 = 2400 items
+   - v1.5.3: anti-guess choices + plausible distractors
 ========================================================= */
 
 "use strict";
 
-window.APP_VERSION = "v1.5.1-STUDENT-HOME-SIMPLIFY";
+window.APP_VERSION = "v1.5.3-ROUND-QUALITY-BOSS-BALANCE";
 
 /* =========================================================
    Course Map
@@ -181,395 +182,395 @@ window.SESSIONS = [
     S1:{
       theme:"Academic Profile",
       rows:[
-        ["major","สาขาวิชา","noun","academic major",["majoring","majority","majored"]],
-        ["background","พื้นฐานหรือประสบการณ์เดิม","noun","academic background",["backdrop","backgrounded","backward"]],
-        ["skill set","ชุดทักษะ","noun phrase","technical skill set",["skillful set","set skill","skill setting"]],
-        ["strength","จุดแข็ง","noun","personal strength",["strong","strengthen","straight"]],
-        ["weakness","จุดที่ต้องพัฒนา","noun","learning weakness",["weak","weaken","weekly"]],
-        ["interest","ความสนใจ","noun","academic interest",["interesting","interested","interestingly"]],
-        ["goal","เป้าหมาย","noun","learning goal",["gold","goalie","goaled"]],
-        ["confidence","ความมั่นใจ","noun","academic confidence",["confident","confidential","conference"]],
-        ["experience","ประสบการณ์","noun","practical experience",["experienced","experiment","expertise"]],
-        ["academic profile","ข้อมูลแนะนำตัวเชิงวิชาการ","noun phrase","academic profile",["academic profiling","profile academic","academy profile"]],
-        ["learning style","รูปแบบการเรียนรู้","noun phrase","learning style",["learning stylish","style learning","learning still"]],
-        ["academic goal","เป้าหมายทางวิชาการ","noun phrase","academic goal",["academic gold","goal academic","academy goal"]],
-        ["communication skill","ทักษะการสื่อสาร","noun phrase","communication skill",["communicate skill","communication skilled","skill communication"]],
-        ["technical skill","ทักษะเชิงเทคนิค","noun phrase","technical skill",["technique skill","technical skilled","skill technical"]],
-        ["teamwork","การทำงานเป็นทีม","noun","teamwork skill",["team work only","teamworking","team worker"]],
-        ["creativity","ความคิดสร้างสรรค์","noun","creative ability",["creative","creation","creatively"]],
-        ["problem-solving","การแก้ปัญหา","noun phrase","problem-solving skill",["problem solved","solving problem","problem solver only"]],
-        ["motivation","แรงจูงใจ","noun","learning motivation",["motivate","motivated","motive"]],
-        ["academic writing","การเขียนเชิงวิชาการ","noun phrase","academic writing",["academic written","writing academic","academy writing"]],
-        ["presentation skill","ทักษะการนำเสนอ","noun phrase","presentation skill",["present skill","presentation skilled","skill presentation"]]
+        ["major","สาขาวิชา","noun","academic major",["field of study","programme area","academic department"]],
+        ["background","พื้นฐานหรือประสบการณ์เดิม","noun","academic background",["previous experience","learning history","academic context"]],
+        ["skill set","ชุดทักษะ","noun phrase","technical skill set",["communication skill","digital skill","professional skill"]],
+        ["strength","จุดแข็ง","noun","personal strength",["ability","advantage","positive quality"]],
+        ["weakness","จุดที่ต้องพัฒนา","noun","learning weakness",["challenge area","limitation","development point"]],
+        ["interest","ความสนใจ","noun","academic interest",["motivation","learning focus","career goal"]],
+        ["goal","เป้าหมาย","noun","learning goal",["objective","target","expected outcome"]],
+        ["confidence","ความมั่นใจ","noun","academic confidence",["motivation","readiness","self-belief"]],
+        ["experience","ประสบการณ์","noun","practical experience",["background","practice","previous work"]],
+        ["academic profile","ข้อมูลแนะนำตัวเชิงวิชาการ","noun phrase","academic profile",["personal statement","student profile","learning profile"]],
+        ["learning style","รูปแบบการเรียนรู้","noun phrase","learning style",["study habit","learning preference","study strategy"]],
+        ["academic goal","เป้าหมายทางวิชาการ","noun phrase","academic goal",["learning objective","course target","study plan"]],
+        ["communication skill","ทักษะการสื่อสาร","noun phrase","communication skill",["presentation skill","teamwork skill","professional skill"]],
+        ["technical skill","ทักษะเชิงเทคนิค","noun phrase","technical skill",["digital skill","software skill","practical skill"]],
+        ["teamwork","การทำงานเป็นทีม","noun","teamwork skill",["collaboration","group work","team participation"]],
+        ["creativity","ความคิดสร้างสรรค์","noun","creative ability",["innovation","original thinking","design idea"]],
+        ["problem-solving","การแก้ปัญหา","noun phrase","problem-solving skill",["critical thinking","solution design","decision making"]],
+        ["motivation","แรงจูงใจ","noun","learning motivation",["interest","goal orientation","study drive"]],
+        ["academic writing","การเขียนเชิงวิชาการ","noun phrase","academic writing",["formal writing","report writing","research writing"]],
+        ["presentation skill","ทักษะการนำเสนอ","noun phrase","presentation skill",["speaking skill","communication skill","pitching skill"]]
       ]
     },
 
     S2:{
       theme:"Project Introduction",
       rows:[
-        ["project","โครงการ","noun","project overview",["projected","projection","projecting"]],
-        ["objective","วัตถุประสงค์","noun","project objective",["object","objection","objectivee"]],
-        ["feature","คุณสมบัติหรือฟีเจอร์","noun","app feature",["future","featured","featuring"]],
-        ["function","หน้าที่การทำงาน","noun","main function",["functional","functioning","fiction"]],
-        ["user","ผู้ใช้","noun","target user",["using","usage","used"]],
-        ["problem","ปัญหา","noun","learning problem",["problematic","probe","program"]],
-        ["solution","แนวทางแก้ปัญหา","noun","learning solution",["solve","solving","soluble"]],
-        ["prototype","ต้นแบบ","noun","project prototype",["protocol","type proto","prototypeing"]],
-        ["user feedback","ความคิดเห็นจากผู้ใช้","noun phrase","collect user feedback",["user feed","feedback user","user feedbacked"]],
-        ["requirement","ข้อกำหนดหรือสิ่งที่จำเป็น","noun","project requirement",["request","required","require"]],
-        ["implementation","การนำไปพัฒนา/ใช้งานจริง","noun","project implementation",["implement","implemented","implication"]],
-        ["usability","ความง่ายในการใช้งาน","noun","usability testing",["usable","useful","usage"]],
-        ["interface","ส่วนติดต่อผู้ใช้","noun","user interface",["interact","interaction","internet face"]],
-        ["target user","ผู้ใช้เป้าหมาย","noun phrase","target user",["target using","target used","target useful"]],
-        ["learning app","แอปเพื่อการเรียนรู้","noun phrase","learning app",["learn app","learning applicationed","app learning"]],
-        ["design concept","แนวคิดการออกแบบ","noun phrase","design concept",["concept design","design conceptual","design contact"]],
-        ["project scope","ขอบเขตโครงการ","noun phrase","project scope",["project score","scope project","project scoped"]],
-        ["expected outcome","ผลลัพธ์ที่คาดหวัง","noun phrase","expected outcome",["expected output only","outcome expected","expected income"]],
-        ["benefit","ประโยชน์","noun","learning benefit",["beneficial","benefited","benefiting"]],
-        ["evaluation","การประเมิน","noun","project evaluation",["evaluate","evaluated","evaluating"]]
+        ["project","โครงการ","noun","project overview",["assignment","learning task","development work"]],
+        ["objective","วัตถุประสงค์","noun","project objective",["goal","purpose","expected outcome"]],
+        ["feature","คุณสมบัติหรือฟีเจอร์","noun","app feature",["function","component","design element"]],
+        ["function","หน้าที่การทำงาน","noun","main function",["feature","system action","user operation"]],
+        ["user","ผู้ใช้","noun","target user",["learner","audience","participant"]],
+        ["problem","ปัญหา","noun","learning problem",["issue","challenge","need"]],
+        ["solution","แนวทางแก้ปัญหา","noun","learning solution",["approach","method","improvement plan"]],
+        ["prototype","ต้นแบบ","noun","project prototype",["early model","demo version","sample design"]],
+        ["user feedback","ความคิดเห็นจากผู้ใช้","noun phrase","collect user feedback",["learner comment","evaluation response","user opinion"]],
+        ["requirement","ข้อกำหนดหรือสิ่งที่จำเป็น","noun","project requirement",["condition","specification","needed feature"]],
+        ["implementation","การนำไปพัฒนา/ใช้งานจริง","noun","project implementation",["development process","application in practice","deployment step"]],
+        ["usability","ความง่ายในการใช้งาน","noun","usability testing",["ease of use","user experience","interface quality"]],
+        ["interface","ส่วนติดต่อผู้ใช้","noun","user interface",["screen layout","visual control","interaction area"]],
+        ["target user","ผู้ใช้เป้าหมาย","noun phrase","target user",["intended user","main user group","learner group"]],
+        ["learning app","แอปเพื่อการเรียนรู้","noun phrase","learning app",["educational application","mobile learning tool","study application"]],
+        ["design concept","แนวคิดการออกแบบ","noun phrase","design concept",["design idea","visual concept","interaction concept"]],
+        ["project scope","ขอบเขตโครงการ","noun phrase","project scope",["project boundary","work coverage","development scope"]],
+        ["expected outcome","ผลลัพธ์ที่คาดหวัง","noun phrase","expected outcome",["learning result","project result","intended effect"]],
+        ["benefit","ประโยชน์","noun","learning benefit",["advantage","positive effect","learning value"]],
+        ["evaluation","การประเมิน","noun","project evaluation",["assessment","review process","effectiveness check"]]
       ]
     },
 
     S3:{
       theme:"Project Rationale & Target Users",
       rows:[
-        ["rationale","เหตุผลหรือหลักการรองรับ","noun","project rationale",["rational","ratio","relation"]],
-        ["target users","ผู้ใช้เป้าหมาย","noun phrase","target users",["target using","target used","target useful"]],
-        ["user need","ความต้องการของผู้ใช้","noun phrase","user need",["user needy","user needed","user needing"]],
-        ["scope","ขอบเขต","noun","project scope",["score","scoped","screen"]],
-        ["benefit","ประโยชน์","noun","learning benefit",["beneficial","benefited","benefiting"]],
-        ["challenge","ความท้าทาย","noun","learning challenge",["change","chance","channel"]],
-        ["suitable for","เหมาะสำหรับ","phrase","suitable for mobile learning",["suit for","suitable to","suiting for"]],
-        ["support","สนับสนุน","verb","support learning",["supporting","supported","supportive"]],
-        ["learning need","ความจำเป็นหรือความต้องการด้านการเรียนรู้","noun phrase","learning need",["learning needed","learn need","learning needs only"]],
-        ["project aim","เป้าหมายของโครงการ","noun phrase","project aim",["project aimed","project aiming","aim project"]],
-        ["learning gap","ช่องว่างหรือปัญหาด้านการเรียนรู้","noun phrase","learning gap",["learning cap","learn gap","learning goal"]],
-        ["intended users","ผู้ใช้ที่ตั้งใจออกแบบให้ใช้","noun phrase","intended users",["intention users","intended using","intended useful"]],
-        ["project context","บริบทของโครงการ","noun phrase","project context",["project contact","project content","context project"]],
-        ["practical value","คุณค่าเชิงปฏิบัติ","noun phrase","practical value",["practice value","practical valuable","value practical"]],
-        ["design focus","จุดเน้นของการออกแบบ","noun phrase","design focus",["design focused","focus design","design function"]],
-        ["expected benefit","ประโยชน์ที่คาดว่าจะได้รับ","noun phrase","expected benefit",["expected beneficial","expect benefit","expected result only"]],
-        ["feasibility","ความเป็นไปได้ในการดำเนินโครงการ","noun","project feasibility",["feasible","facility","flexibility"]],
-        ["project justification","เหตุผลสนับสนุนความจำเป็นของโครงการ","noun phrase","project justification",["project justified","justification project","project justice"]],
-        ["learner profile","ข้อมูลลักษณะของผู้เรียน","noun phrase","learner profile",["learning profile","profile learner","learner profiling"]],
-        ["design purpose","จุดประสงค์ของการออกแบบ","noun phrase","design purpose",["purpose design","design purposeful","design propose"]]
+        ["rationale","เหตุผลหรือหลักการรองรับ","noun","project rationale",["justification","reasoning","project basis"]],
+        ["target users","ผู้ใช้เป้าหมาย","noun phrase","target users",["intended users","main audience","learner group"]],
+        ["user need","ความต้องการของผู้ใช้","noun phrase","user need",["learner requirement","user problem","support need"]],
+        ["scope","ขอบเขต","noun","project scope",["coverage","boundary","work range"]],
+        ["benefit","ประโยชน์","noun","learning benefit",["advantage","positive outcome","practical value"]],
+        ["challenge","ความท้าทาย","noun","learning challenge",["difficulty","problem area","learning barrier"]],
+        ["suitable for","เหมาะสำหรับ","phrase","suitable for mobile learning",["appropriate for","designed for","useful for"]],
+        ["support","สนับสนุน","verb","support learning",["assist","help improve","provide help for"]],
+        ["learning need","ความจำเป็นหรือความต้องการด้านการเรียนรู้","noun phrase","learning need",["learning requirement","skill gap","study need"]],
+        ["project aim","เป้าหมายของโครงการ","noun phrase","project aim",["project objective","project purpose","project goal"]],
+        ["learning gap","ช่องว่างหรือปัญหาด้านการเรียนรู้","noun phrase","learning gap",["skill gap","knowledge gap","performance gap"]],
+        ["intended users","ผู้ใช้ที่ตั้งใจออกแบบให้ใช้","noun phrase","intended users",["target users","primary users","expected users"]],
+        ["project context","บริบทของโครงการ","noun phrase","project context",["learning context","development context","course context"]],
+        ["practical value","คุณค่าเชิงปฏิบัติ","noun phrase","practical value",["usefulness","real-world value","application value"]],
+        ["design focus","จุดเน้นของการออกแบบ","noun phrase","design focus",["main design point","design priority","interaction focus"]],
+        ["expected benefit","ประโยชน์ที่คาดว่าจะได้รับ","noun phrase","expected benefit",["intended benefit","learning value","positive effect"]],
+        ["feasibility","ความเป็นไปได้ในการดำเนินโครงการ","noun","project feasibility",["practical possibility","development readiness","implementation possibility"]],
+        ["project justification","เหตุผลสนับสนุนความจำเป็นของโครงการ","noun phrase","project justification",["project rationale","supporting reason","reasoned explanation"]],
+        ["learner profile","ข้อมูลลักษณะของผู้เรียน","noun phrase","learner profile",["student profile","target learner data","learning background"]],
+        ["design purpose","จุดประสงค์ของการออกแบบ","noun phrase","design purpose",["design aim","design objective","intended design goal"]]
       ]
     },
 
     S4:{
       theme:"Tech Jobs / Careers",
       rows:[
-        ["developer","นักพัฒนาโปรแกรม","noun","software developer",["develop","developing","development"]],
-        ["designer","นักออกแบบ","noun","UI designer",["design","designed","designation"]],
-        ["data analyst","นักวิเคราะห์ข้อมูล","noun phrase","data analyst",["data analysis","data analytics","analyst data"]],
-        ["AI engineer","วิศวกรปัญญาประดิษฐ์","noun phrase","AI engineer",["AI engine","engineer AI","AI engineering only"]],
-        ["UX designer","นักออกแบบประสบการณ์ผู้ใช้","noun phrase","UX designer",["UX design","designer UX","user design only"]],
-        ["cybersecurity analyst","นักวิเคราะห์ความมั่นคงปลอดภัยไซเบอร์","noun phrase","cybersecurity analyst",["cybersecurity analysis","cyber analysted","security cyber analyst"]],
-        ["multimedia specialist","ผู้เชี่ยวชาญด้านมัลติมีเดีย","noun phrase","multimedia specialist",["multimedia special","specialist multimedia","media specialist only"]],
-        ["responsibility","ความรับผิดชอบ","noun","job responsibility",["responsible","response","responsibly"]],
-        ["qualification","คุณสมบัติ","noun","job qualification",["qualified","quality","qualify"]],
-        ["candidate","ผู้สมัคร","noun","job candidate",["candid","candidatee","candidacy"]],
-        ["position","ตำแหน่งงาน","noun","job position",["positive","possession","positioning"]],
-        ["portfolio","แฟ้มผลงาน","noun","digital portfolio",["profile only","port follow","portfolioed"]],
-        ["professional role","บทบาททางวิชาชีพ","noun phrase","professional role",["professional rule","role professional","profession role"]],
-        ["career path","เส้นทางอาชีพ","noun phrase","career path",["career part","path career","career pass"]],
-        ["internship","การฝึกงาน","noun","internship opportunity",["internal ship","interned","interning"]],
-        ["workplace","สถานที่ทำงาน/บริบทการทำงาน","noun","digital workplace",["workplaceful","work placement only","work play"]],
-        ["technical skill","ทักษะเชิงเทคนิค","noun phrase","technical skill",["technique skill","technical skilled","skill technical"]],
-        ["soft skill","ทักษะด้านมนุษยสัมพันธ์/การทำงานร่วมกับผู้อื่น","noun phrase","soft skill",["softly skill","skill soft","software skill only"]],
-        ["job description","รายละเอียดงาน","noun phrase","job description",["job describe","description job","job descriptive"]],
-        ["employability","ความพร้อมในการมีงานทำ","noun","employability skill",["employable","employment","employee ability"]]
+        ["developer","นักพัฒนาโปรแกรม","noun","software developer",["programmer","application developer","web developer"]],
+        ["designer","นักออกแบบ","noun","UI designer",["visual designer","UX designer","interaction designer"]],
+        ["data analyst","นักวิเคราะห์ข้อมูล","noun phrase","data analyst",["data scientist","business analyst","research analyst"]],
+        ["AI engineer","วิศวกรปัญญาประดิษฐ์","noun phrase","AI engineer",["machine learning engineer","software engineer","data engineer"]],
+        ["UX designer","นักออกแบบประสบการณ์ผู้ใช้","noun phrase","UX designer",["UI designer","interaction designer","product designer"]],
+        ["cybersecurity analyst","นักวิเคราะห์ความมั่นคงปลอดภัยไซเบอร์","noun phrase","cybersecurity analyst",["security analyst","network analyst","IT risk analyst"]],
+        ["multimedia specialist","ผู้เชี่ยวชาญด้านมัลติมีเดีย","noun phrase","multimedia specialist",["media designer","content producer","digital media specialist"]],
+        ["responsibility","ความรับผิดชอบ","noun","job responsibility",["duty","task ownership","role requirement"]],
+        ["qualification","คุณสมบัติ","noun","job qualification",["requirement","credential","professional skill"]],
+        ["candidate","ผู้สมัคร","noun","job candidate",["applicant","interviewee","prospective employee"]],
+        ["position","ตำแหน่งงาน","noun","job position",["role","job title","vacancy"]],
+        ["portfolio","แฟ้มผลงาน","noun","digital portfolio",["work sample","project evidence","professional profile"]],
+        ["professional role","บทบาททางวิชาชีพ","noun phrase","professional role",["job role","career role","work responsibility"]],
+        ["career path","เส้นทางอาชีพ","noun phrase","career path",["career plan","professional direction","employment pathway"]],
+        ["internship","การฝึกงาน","noun","internship opportunity",["work placement","practical training","field experience"]],
+        ["workplace","สถานที่ทำงาน/บริบทการทำงาน","noun","digital workplace",["work environment","office context","professional setting"]],
+        ["technical skill","ทักษะเชิงเทคนิค","noun phrase","technical skill",["software skill","digital skill","programming skill"]],
+        ["soft skill","ทักษะด้านมนุษยสัมพันธ์/การทำงานร่วมกับผู้อื่น","noun phrase","soft skill",["communication skill","teamwork skill","interpersonal skill"]],
+        ["job description","รายละเอียดงาน","noun phrase","job description",["role description","work detail","position summary"]],
+        ["employability","ความพร้อมในการมีงานทำ","noun","employability skill",["career readiness","job readiness","professional competence"]]
       ]
     },
 
     S5:{
       theme:"Workplace Communication",
       rows:[
-        ["request","คำขอ/การขอร้อง","verb/noun","request information",["require","question","requested"]],
-        ["clarify","ทำให้ชัดเจน/ขอความชัดเจน","verb","clarify the deadline",["clarification","clear","classify"]],
-        ["confirm","ยืนยัน","verb","confirm the meeting",["conform","inform","perform"]],
-        ["update","อัปเดต/แจ้งความคืบหน้า","verb/noun","update on progress",["upgrade","updating","updated"]],
-        ["apologize","ขอโทษ","verb","apologize for the delay",["apology","apologized","apologetic"]],
-        ["appreciate","ขอบคุณ/ซาบซึ้ง","verb","appreciate feedback",["appreciation","appreciated","appropriate"]],
-        ["response","การตอบกลับ","noun","quick response",["respond","responsible","responsive"]],
-        ["available","ว่าง/พร้อมใช้งาน","adjective","available for a meeting",["availability","avail","availabled"]],
-        ["regarding","เกี่ยวกับ","preposition","regarding the project",["regarded","regards","regardless"]],
-        ["sincerely","ด้วยความเคารพ/ขอแสดงความนับถือ","adverb","Yours sincerely",["Sincere","Sincerity","Since"]],
-        ["schedule","กำหนดการ","noun","project schedule",["scheduled","scheduling","scheme"]],
-        ["coordinate","ประสานงาน","verb","coordinate tasks",["coordination","coordinator","coordinated"]],
-        ["ask for","ขอ","phrase","ask for clarification",["ask to","ask about only","asked for"]],
-        ["follow up","ติดตามผล","verb phrase","follow up on progress",["followed up","following up only","follow-up noun only"]],
-        ["explain","อธิบาย","verb","explain the issue",["explanation","explained","explainable"]],
-        ["propose","เสนอ","verb","propose a solution",["proposal","proposed","purpose"]],
-        ["agree","เห็นด้วย","verb","agree with a suggestion",["agreement","agreed","agreeing"]],
-        ["inform","แจ้งให้ทราบ","verb","inform the team",["information","informed","informative"]],
-        ["polite request","คำขออย่างสุภาพ","noun phrase","polite request",["politely request","request polite","polite require"]],
-        ["professional tone","น้ำเสียงแบบมืออาชีพ","noun phrase","professional tone",["professional tune","tone professional","profession tone"]]
+        ["request","คำขอ/การขอร้อง","verb/noun","request information",["ask for information","make an inquiry","seek clarification"]],
+        ["clarify","ทำให้ชัดเจน/ขอความชัดเจน","verb","clarify the deadline",["explain clearly","confirm details","make clear"]],
+        ["confirm","ยืนยัน","verb","confirm the meeting",["verify","acknowledge","approve"]],
+        ["update","อัปเดต/แจ้งความคืบหน้า","verb/noun","update on progress",["progress report","status update","notify the team"]],
+        ["apologize","ขอโทษ","verb","apologize for the delay",["express regret","say sorry formally","acknowledge inconvenience"]],
+        ["appreciate","ขอบคุณ/ซาบซึ้ง","verb","appreciate feedback",["value feedback","thank someone","recognize support"]],
+        ["response","การตอบกลับ","noun","quick response",["reply","answer","feedback message"]],
+        ["available","ว่าง/พร้อมใช้งาน","adjective","available for a meeting",["free for discussion","ready to join","accessible"]],
+        ["regarding","เกี่ยวกับ","preposition","regarding the project",["about","concerning","in relation to"]],
+        ["sincerely","ด้วยความเคารพ/ขอแสดงความนับถือ","adverb","Yours sincerely",["respectfully","best regards","with appreciation"]],
+        ["schedule","กำหนดการ","noun","project schedule",["timeline","plan","calendar"]],
+        ["coordinate","ประสานงาน","verb","coordinate tasks",["organize tasks","manage communication","arrange work"]],
+        ["ask for","ขอ","phrase","ask for clarification",["request","seek","inquire about"]],
+        ["follow up","ติดตามผล","verb phrase","follow up on progress",["check progress","continue communication","monitor the task"]],
+        ["explain","อธิบาย","verb","explain the issue",["describe","clarify","give details"]],
+        ["propose","เสนอ","verb","propose a solution",["suggest","recommend","present an idea"]],
+        ["agree","เห็นด้วย","verb","agree with a suggestion",["accept","support","approve"]],
+        ["inform","แจ้งให้ทราบ","verb","inform the team",["notify","tell formally","provide information"]],
+        ["polite request","คำขออย่างสุภาพ","noun phrase","polite request",["formal request","respectful inquiry","professional request"]],
+        ["professional tone","น้ำเสียงแบบมืออาชีพ","noun phrase","professional tone",["formal tone","polite tone","workplace tone"]]
       ]
     },
 
     S6:{
       theme:"Team Progress & Responsibility",
       rows:[
-        ["progress","ความก้าวหน้า","noun","project progress",["process","program","progressive"]],
-        ["responsibility","ความรับผิดชอบ","noun","team responsibility",["responsible","response","responsibly"]],
-        ["contribution","การมีส่วนร่วม/ผลงานที่ช่วยทีม","noun","team contribution",["contribute","contributed","contributor"]],
-        ["timeline","เส้นเวลา/แผนกำหนดการ","noun","project timeline",["deadline","time line only","timely"]],
-        ["milestone","หมุดหมายสำคัญของงาน","noun","project milestone",["millstone","military","mile"]],
-        ["coordinate","ประสานงาน","verb","coordinate tasks",["coordination","coordinator","coordinated"]],
-        ["deadline","กำหนดส่ง","noun","meet the deadline",["dead line only","headline","timeline only"]],
-        ["collaboration","การทำงานร่วมกัน","noun","team collaboration",["collaborate","collaborative","collaboratively"]],
-        ["weekly update","การแจ้งความคืบหน้ารายสัปดาห์","noun phrase","weekly update",["week update","weekly updated","update weekly"]],
-        ["task allocation","การจัดสรรงาน","noun phrase","task allocation",["task allocate","task allocated","allocation task"]],
-        ["role","บทบาท","noun","team role",["rule","roll","roleplay"]],
-        ["deliverable","งานส่งมอบ","noun","project deliverable",["delivery","deliver","delivered"]],
-        ["workload","ภาระงาน","noun","divide the workload",["workflow","workshop","work line"]],
-        ["delay","ความล่าช้า","noun/verb","project delay",["delayed","delete","deadline"]],
-        ["monitor","ติดตามตรวจสอบ","verb","monitor progress",["monitoring","monitored","mentor"]],
-        ["team performance","ผลการทำงานของทีม","noun phrase","team performance",["team perform","team performer","performance team"]],
-        ["status report","รายงานสถานะงาน","noun phrase","weekly status report",["status reported","report status","state report"]],
-        ["task dependency","ความสัมพันธ์ที่งานหนึ่งต้องรออีกงานหนึ่ง","noun phrase","task dependency",["task dependent","dependency task","task depend"]],
-        ["completion rate","อัตราความสำเร็จของงาน","noun phrase","task completion rate",["complete rate","completion ratio only","rate completion"]],
-        ["risk management","การบริหารความเสี่ยง","noun phrase","project risk management",["risk managed","management risk","risky management"]]
+        ["progress","ความก้าวหน้า","noun","project progress",["development status","work progress","task completion"]],
+        ["responsibility","ความรับผิดชอบ","noun","team responsibility",["duty","assigned role","task ownership"]],
+        ["contribution","การมีส่วนร่วม/ผลงานที่ช่วยทีม","noun","team contribution",["team input","work support","individual effort"]],
+        ["timeline","เส้นเวลา/แผนกำหนดการ","noun","project timeline",["schedule","project plan","work calendar"]],
+        ["milestone","หมุดหมายสำคัญของงาน","noun","project milestone",["key stage","important deadline","progress checkpoint"]],
+        ["coordinate","ประสานงาน","verb","coordinate tasks",["organize tasks","arrange teamwork","manage collaboration"]],
+        ["deadline","กำหนดส่ง","noun","meet the deadline",["due date","submission date","target date"]],
+        ["collaboration","การทำงานร่วมกัน","noun","team collaboration",["teamwork","group cooperation","joint work"]],
+        ["weekly update","การแจ้งความคืบหน้ารายสัปดาห์","noun phrase","weekly update",["status report","progress update","weekly report"]],
+        ["task allocation","การจัดสรรงาน","noun phrase","task allocation",["work distribution","role assignment","task division"]],
+        ["role","บทบาท","noun","team role",["responsibility","position","assigned function"]],
+        ["deliverable","งานส่งมอบ","noun","project deliverable",["final output","required product","submission item"]],
+        ["workload","ภาระงาน","noun","divide the workload",["amount of work","task load","team workload"]],
+        ["delay","ความล่าช้า","noun/verb","project delay",["late progress","postponement","schedule problem"]],
+        ["monitor","ติดตามตรวจสอบ","verb","monitor progress",["track","observe","check regularly"]],
+        ["team performance","ผลการทำงานของทีม","noun phrase","team performance",["group result","team output","collaboration quality"]],
+        ["status report","รายงานสถานะงาน","noun phrase","weekly status report",["progress report","team update","work report"]],
+        ["task dependency","ความสัมพันธ์ที่งานหนึ่งต้องรออีกงานหนึ่ง","noun phrase","task dependency",["linked task","dependent step","workflow relationship"]],
+        ["completion rate","อัตราความสำเร็จของงาน","noun phrase","task completion rate",["progress percentage","completion percentage","finished work rate"]],
+        ["risk management","การบริหารความเสี่ยง","noun phrase","project risk management",["risk planning","risk control","problem prevention"]]
       ]
     },
 
     S7:{
       theme:"Professional Email",
       rows:[
-        ["subject line","หัวข้ออีเมล","noun phrase","clear subject line",["subjective line","line subject","subject title only"]],
-        ["attachment","ไฟล์แนบ","noun","email attachment",["attached","attaching","attention"]],
-        ["inquiry","การสอบถาม","noun","course inquiry",["inquire","enquiry spelling only","inquired"]],
-        ["deadline","กำหนดส่ง","noun","assignment deadline",["timeline","dead line only","headline"]],
-        ["recipient","ผู้รับอีเมล","noun","email recipient",["receiver only","receipt","recipe"]],
-        ["sender","ผู้ส่งอีเมล","noun","email sender",["sending","send","sendee"]],
-        ["formal greeting","คำขึ้นต้นอีเมลแบบทางการ","noun phrase","formal greeting",["formal greating","greeting formal","format greeting"]],
-        ["closing statement","ข้อความปิดท้าย","noun phrase","email closing statement",["close statement","closing stated","statement closing"]],
-        ["reply","ตอบกลับ","verb/noun","reply by Friday",["replied","replying","response only"]],
-        ["polite tone","น้ำเสียงสุภาพ","noun phrase","polite tone",["polite tune","tone polite","politely tone"]],
-        ["email body","เนื้อหาอีเมล","noun phrase","email body",["body email","email bodily","mail body only"]],
-        ["carbon copy","สำเนาอีเมลถึงผู้อื่น","noun phrase","carbon copy",["copy carbon","carbon copied only","CC only"]],
-        ["salutation","คำขึ้นต้นจดหมาย/อีเมล","noun","email salutation",["salute","saluted","salutationed"]],
-        ["signature","ลายเซ็น/ชื่อท้ายอีเมล","noun","email signature",["signed","signing","signal"]],
-        ["request email","อีเมลเพื่อขอข้อมูลหรือความช่วยเหลือ","noun phrase","request email",["requested email","email request","requesting mail"]],
-        ["confirmation email","อีเมลยืนยัน","noun phrase","confirmation email",["confirmed email","email confirmation","confirming mail"]],
-        ["reminder email","อีเมลเตือนความจำ","noun phrase","reminder email",["remind email","email reminder","reminded mail"]],
-        ["response time","เวลาที่ใช้ในการตอบกลับ","noun phrase","response time",["respond time","time response","responsive time"]],
-        ["formal language","ภาษาทางการ","noun phrase","formal language",["form language","language formal","formally language"]],
-        ["attachment note","ข้อความแจ้งเรื่องไฟล์แนบ","noun phrase","attachment note",["attached note","note attachment","attention note"]]
+        ["subject line","หัวข้ออีเมล","noun phrase","clear subject line",["email title","message heading","topic line"]],
+        ["attachment","ไฟล์แนบ","noun","email attachment",["attached file","supporting file","document file"]],
+        ["inquiry","การสอบถาม","noun","course inquiry",["question","formal request","information request"]],
+        ["deadline","กำหนดส่ง","noun","assignment deadline",["due date","submission date","target date"]],
+        ["recipient","ผู้รับอีเมล","noun","email recipient",["receiver","addressee","message receiver"]],
+        ["sender","ผู้ส่งอีเมล","noun","email sender",["writer","message sender","email author"]],
+        ["formal greeting","คำขึ้นต้นอีเมลแบบทางการ","noun phrase","formal greeting",["salutation","professional opening","email opening"]],
+        ["closing statement","ข้อความปิดท้าย","noun phrase","email closing statement",["closing line","final sentence","professional closing"]],
+        ["reply","ตอบกลับ","verb/noun","reply by Friday",["respond","answer","send a response"]],
+        ["polite tone","น้ำเสียงสุภาพ","noun phrase","polite tone",["professional tone","formal tone","respectful tone"]],
+        ["email body","เนื้อหาอีเมล","noun phrase","email body",["main message","message content","email text"]],
+        ["carbon copy","สำเนาอีเมลถึงผู้อื่น","noun phrase","carbon copy",["CC recipient","copied recipient","shared copy"]],
+        ["salutation","คำขึ้นต้นจดหมาย/อีเมล","noun","email salutation",["formal greeting","opening phrase","greeting line"]],
+        ["signature","ลายเซ็น/ชื่อท้ายอีเมล","noun","email signature",["name block","closing identity","sender detail"]],
+        ["request email","อีเมลเพื่อขอข้อมูลหรือความช่วยเหลือ","noun phrase","request email",["inquiry email","formal request message","information request email"]],
+        ["confirmation email","อีเมลยืนยัน","noun phrase","confirmation email",["approval email","verification message","confirmation message"]],
+        ["reminder email","อีเมลเตือนความจำ","noun phrase","reminder email",["follow-up email","notification email","deadline reminder"]],
+        ["response time","เวลาที่ใช้ในการตอบกลับ","noun phrase","response time",["reply time","turnaround time","communication delay"]],
+        ["formal language","ภาษาทางการ","noun phrase","formal language",["professional language","academic tone","official wording"]],
+        ["attachment note","ข้อความแจ้งเรื่องไฟล์แนบ","noun phrase","attachment note",["file note","attached file message","document note"]]
       ]
     },
 
     S8:{
       theme:"Meeting / Discussion",
       rows:[
-        ["agenda","วาระการประชุม","noun","meeting agenda",["agent","agendaed","agendum only"]],
-        ["discussion","การอภิปราย","noun","team discussion",["discuss","discussed","decision"]],
-        ["opinion","ความคิดเห็น","noun","give an opinion",["option","optional","opinionated"]],
-        ["suggestion","ข้อเสนอแนะ","noun","make a suggestion",["suggest","suggested","suggestive"]],
-        ["decision","การตัดสินใจ","noun","make a decision",["decide","decided","division"]],
-        ["concern","ข้อกังวล","noun","raise a concern",["confirm","concert","concerning"]],
-        ["agree","เห็นด้วย","verb","agree with a suggestion",["agreement","agreed","agreeing"]],
-        ["disagree","ไม่เห็นด้วย","verb","respectfully disagree",["disagreement","disagreed","disagreeing"]],
-        ["alternative","ทางเลือกอื่น","noun/adjective","alternative solution",["alternate","alternatively","alteration"]],
-        ["recommend","แนะนำ","verb","recommend testing",["recommendation","recommended","recommending"]],
-        ["meeting objective","วัตถุประสงค์ของการประชุม","noun phrase","meeting objective",["objective meeting","meeting object","meeting objection"]],
-        ["participant","ผู้เข้าร่วม","noun","meeting participant",["participate","participated","participation"]],
-        ["moderator","ผู้ดำเนินการประชุม","noun","meeting moderator",["moderate","moderated","modernator"]],
-        ["issue raised","ประเด็นที่ถูกหยิบยกขึ้นมา","noun phrase","issue raised",["raised issue only","issue raising","issue rise"]],
-        ["decision point","จุดที่ต้องตัดสินใจ","noun phrase","decision point",["point decision","deciding point","decision pointer"]],
-        ["discussion point","ประเด็นอภิปราย","noun phrase","discussion point",["point discussion","discuss point","discussion pointer"]],
-        ["action plan","แผนปฏิบัติการ","noun phrase","action plan",["active plan","plan action","acting plan"]],
-        ["time allocation","การจัดสรรเวลา","noun phrase","time allocation",["time allocate","allocation time","time allocated"]],
-        ["turn-taking","การผลัดกันพูด","noun","turn-taking strategy",["take turn only","turning take","turn taken"]],
-        ["consensus building","การสร้างฉันทามติ","noun phrase","consensus building",["consent building","building consensus only","consensus build"]]
+        ["agenda","วาระการประชุม","noun","meeting agenda",["meeting plan","discussion list","topic schedule"]],
+        ["discussion","การอภิปราย","noun","team discussion",["conversation","group talk","formal exchange"]],
+        ["opinion","ความคิดเห็น","noun","give an opinion",["viewpoint","perspective","comment"]],
+        ["suggestion","ข้อเสนอแนะ","noun","make a suggestion",["recommendation","idea","proposal"]],
+        ["decision","การตัดสินใจ","noun","make a decision",["choice","agreement","final decision"]],
+        ["concern","ข้อกังวล","noun","raise a concern",["worry","issue","possible problem"]],
+        ["agree","เห็นด้วย","verb","agree with a suggestion",["support","accept","approve"]],
+        ["disagree","ไม่เห็นด้วย","verb","respectfully disagree",["question the idea","raise a different view","not support"]],
+        ["alternative","ทางเลือกอื่น","noun/adjective","alternative solution",["option","different approach","another solution"]],
+        ["recommend","แนะนำ","verb","recommend testing",["suggest","advise","propose"]],
+        ["meeting objective","วัตถุประสงค์ของการประชุม","noun phrase","meeting objective",["meeting goal","discussion purpose","meeting aim"]],
+        ["participant","ผู้เข้าร่วม","noun","meeting participant",["attendee","member","discussion participant"]],
+        ["moderator","ผู้ดำเนินการประชุม","noun","meeting moderator",["facilitator","meeting chair","discussion leader"]],
+        ["issue raised","ประเด็นที่ถูกหยิบยกขึ้นมา","noun phrase","issue raised",["main concern","discussion issue","raised point"]],
+        ["decision point","จุดที่ต้องตัดสินใจ","noun phrase","decision point",["key decision","choice point","critical decision"]],
+        ["discussion point","ประเด็นอภิปราย","noun phrase","discussion point",["key point","topic point","meeting topic"]],
+        ["action plan","แผนปฏิบัติการ","noun phrase","action plan",["implementation plan","work plan","next-step plan"]],
+        ["time allocation","การจัดสรรเวลา","noun phrase","time allocation",["time planning","meeting schedule","time distribution"]],
+        ["turn-taking","การผลัดกันพูด","noun","turn-taking strategy",["speaking order","discussion flow","participation order"]],
+        ["consensus building","การสร้างฉันทามติ","noun phrase","consensus building",["agreement building","shared decision making","group agreement process"]]
       ]
     },
 
     S9:{
       theme:"Discussion Summary & Action Items",
       rows:[
-        ["follow-up","การติดตามผล","noun/adjective","follow-up email",["following","followed","follow uping"]],
-        ["action item","งานที่ต้องทำหลังประชุม","noun phrase","meeting action item",["active item","action idea","acting item"]],
-        ["agreement","ข้อตกลง","noun","reach an agreement",["agree","agreed","agreeing"]],
-        ["conclusion","ข้อสรุป","noun","meeting conclusion",["confusion","condition","connection"]],
-        ["summarize","สรุป","verb","summarize key points",["summary","summarized","summer"]],
-        ["key point","ประเด็นสำคัญ","noun phrase","key point",["key port","key part","key paint"]],
-        ["confirm","ยืนยัน","verb","confirm the decision",["conform","perform","inform"]],
-        ["assign","มอบหมาย","verb","assign tasks",["assignment","assigned","assist"]],
-        ["meeting minutes","บันทึกการประชุม","noun phrase","meeting minutes",["meeting minute","minutes meeting","meeting summary only"]],
-        ["decision record","บันทึกการตัดสินใจ","noun phrase","decision record",["decision recorded","record decision","decide record"]],
-        ["next step","ขั้นตอนถัดไป","noun phrase","next step",["next stop","next stage only","step next"]],
-        ["follow-up task","งานติดตามผล","noun phrase","follow-up task",["following task","followed task","task follow-uping"]],
-        ["consensus","ฉันทามติ/ความเห็นพ้องร่วมกัน","noun","reach a consensus",["consent","concern","conclusion"]],
-        ["priority","ลำดับความสำคัญ","noun","first priority",["prior","prioritize","primary"]],
-        ["revision plan","แผนการปรับแก้","noun phrase","revision plan",["revise plan","revision planning","plan revision"]],
-        ["shared understanding","ความเข้าใจร่วมกัน","noun phrase","shared understanding",["sharing understanding","shared understand","understanding shared"]],
-        ["meeting outcome","ผลลัพธ์จากการประชุม","noun phrase","meeting outcome",["meeting output only","outcome meeting","meeting income"]],
-        ["assigned owner","ผู้รับผิดชอบงานที่ได้รับมอบหมาย","noun phrase","assigned owner",["assignment owner","owner assigned","assigned owing"]],
-        ["due date","วันที่ครบกำหนด","noun phrase","task due date",["do date","date due","deadline date only"]],
-        ["decision summary","สรุปการตัดสินใจ","noun phrase","decision summary",["summary decision","decided summary","decision summarize"]]
+        ["follow-up","การติดตามผล","noun/adjective","follow-up email",["progress check","next contact","continued action"]],
+        ["action item","งานที่ต้องทำหลังประชุม","noun phrase","meeting action item",["assigned task","next task","follow-up task"]],
+        ["agreement","ข้อตกลง","noun","reach an agreement",["consensus","shared decision","team decision"]],
+        ["conclusion","ข้อสรุป","noun","meeting conclusion",["final point","summary result","closing idea"]],
+        ["summarize","สรุป","verb","summarize key points",["briefly explain","present key points","give a summary"]],
+        ["key point","ประเด็นสำคัญ","noun phrase","key point",["main idea","important point","central issue"]],
+        ["confirm","ยืนยัน","verb","confirm the decision",["verify","approve","acknowledge"]],
+        ["assign","มอบหมาย","verb","assign tasks",["allocate","give responsibility","delegate"]],
+        ["meeting minutes","บันทึกการประชุม","noun phrase","meeting minutes",["meeting record","discussion notes","official summary"]],
+        ["decision record","บันทึกการตัดสินใจ","noun phrase","decision record",["decision log","agreement record","meeting decision note"]],
+        ["next step","ขั้นตอนถัดไป","noun phrase","next step",["following action","future action","upcoming task"]],
+        ["follow-up task","งานติดตามผล","noun phrase","follow-up task",["next task","assigned task","continuing task"]],
+        ["consensus","ฉันทามติ/ความเห็นพ้องร่วมกัน","noun","reach a consensus",["agreement","shared view","group decision"]],
+        ["priority","ลำดับความสำคัญ","noun","first priority",["importance","main focus","urgent task"]],
+        ["revision plan","แผนการปรับแก้","noun phrase","revision plan",["improvement plan","editing plan","update plan"]],
+        ["shared understanding","ความเข้าใจร่วมกัน","noun phrase","shared understanding",["common understanding","team understanding","mutual understanding"]],
+        ["meeting outcome","ผลลัพธ์จากการประชุม","noun phrase","meeting outcome",["meeting result","discussion result","agreed outcome"]],
+        ["assigned owner","ผู้รับผิดชอบงานที่ได้รับมอบหมาย","noun phrase","assigned owner",["task owner","responsible person","assigned member"]],
+        ["due date","วันที่ครบกำหนด","noun phrase","task due date",["deadline","submission date","target date"]],
+        ["decision summary","สรุปการตัดสินใจ","noun phrase","decision summary",["summary of decision","decision note","agreement summary"]]
       ]
     },
 
     S10:{
       theme:"System Explanation",
       rows:[
-        ["system","ระบบ","noun","learning system",["systematic","systemic","symptom"]],
-        ["process","กระบวนการ","noun","login process",["progress","procedure only","processed"]],
-        ["input","ข้อมูลนำเข้า","noun","user input",["output","inputting","inside"]],
-        ["output","ผลลัพธ์ที่ระบบแสดง","noun","system output",["input","outside","outcome only"]],
-        ["interface","ส่วนติดต่อผู้ใช้","noun","user interface",["interact","interaction","internet face"]],
-        ["database","ฐานข้อมูล","noun","database system",["data base only","dataset","data table only"]],
-        ["algorithm","ขั้นตอนวิธี","noun","selection algorithm",["logarithm","algorithmic","algorism"]],
-        ["workflow","ลำดับการทำงาน","noun","game workflow",["workload","workshop","flow work"]],
-        ["display","แสดงผล","verb/noun","display progress",["displayed","displaying","displace"]],
-        ["store","จัดเก็บ","verb","store data",["storage","stored","story"]],
-        ["login","เข้าสู่ระบบ","verb/noun","login process",["logging","logged in only","log in noun only"]],
-        ["dashboard","แผงสรุปข้อมูล","noun","teacher dashboard",["dash board only","dashboarded","data board"]],
-        ["data field","ช่องข้อมูล","noun phrase","data field",["field data","data filled","fielded data"]],
-        ["validation","การตรวจสอบความถูกต้อง","noun","input validation",["valid","validate","valuable"]],
-        ["local storage","พื้นที่จัดเก็บข้อมูลในเครื่อง","noun phrase","local storage",["storage local","location storage","locally stored"]],
-        ["progress tracker","ตัวติดตามความก้าวหน้า","noun phrase","progress tracker",["tracking progress","progress tracking only","tracker progress"]],
-        ["menu","เมนู","noun","main menu",["manual","menued","mean you"]],
-        ["button","ปุ่ม","noun","start button",["bottom","buttoned","buttoning"]],
-        ["result screen","หน้าจอผลลัพธ์","noun phrase","result screen",["screen result","resulted screen","screening result"]],
-        ["export function","ฟังก์ชันส่งออกข้อมูล","noun phrase","export function",["exported function","function export","export functional"]]
+        ["system","ระบบ","noun","learning system",["application","platform","digital tool"]],
+        ["process","กระบวนการ","noun","login process",["procedure","workflow","step sequence"]],
+        ["input","ข้อมูลนำเข้า","noun","user input",["entered data","submitted information","data entry"]],
+        ["output","ผลลัพธ์ที่ระบบแสดง","noun","system output",["displayed result","generated result","response data"]],
+        ["interface","ส่วนติดต่อผู้ใช้","noun","user interface",["screen layout","interaction area","visual control"]],
+        ["database","ฐานข้อมูล","noun","database system",["data storage","data table","information repository"]],
+        ["algorithm","ขั้นตอนวิธี","noun","selection algorithm",["calculation method","decision rule","processing method"]],
+        ["workflow","ลำดับการทำงาน","noun","game workflow",["process flow","task sequence","operation flow"]],
+        ["display","แสดงผล","verb/noun","display progress",["show","present","visualize"]],
+        ["store","จัดเก็บ","verb","store data",["save","record","keep data"]],
+        ["login","เข้าสู่ระบบ","verb/noun","login process",["sign-in","access account","user authentication"]],
+        ["dashboard","แผงสรุปข้อมูล","noun","teacher dashboard",["control panel","summary screen","data overview"]],
+        ["data field","ช่องข้อมูล","noun phrase","data field",["input field","form field","information field"]],
+        ["validation","การตรวจสอบความถูกต้อง","noun","input validation",["data check","accuracy check","format check"]],
+        ["local storage","พื้นที่จัดเก็บข้อมูลในเครื่อง","noun phrase","local storage",["browser storage","device storage","offline data storage"]],
+        ["progress tracker","ตัวติดตามความก้าวหน้า","noun phrase","progress tracker",["learning tracker","progress monitor","achievement tracker"]],
+        ["menu","เมนู","noun","main menu",["navigation menu","option list","control list"]],
+        ["button","ปุ่ม","noun","start button",["control button","action button","navigation button"]],
+        ["result screen","หน้าจอผลลัพธ์","noun phrase","result screen",["summary screen","outcome page","report screen"]],
+        ["export function","ฟังก์ชันส่งออกข้อมูล","noun phrase","export function",["download function","data export tool","report export option"]]
       ]
     },
 
     S11:{
       theme:"Bug Report / Problem Solving",
       rows:[
-        ["bug","ข้อผิดพลาดของโปรแกรม","noun","software bug",["debug","buggy","bag"]],
-        ["issue","ปัญหา","noun","technical issue",["tissue","issued","issueing"]],
-        ["error","ข้อผิดพลาด","noun","console error",["errand","erroneous","terror"]],
-        ["reproduce","ทำซ้ำเพื่อให้เห็นปัญหา","verb","reproduce the issue",["reproduction","reproduced","produce"]],
-        ["expected result","ผลลัพธ์ที่คาดหวัง","noun phrase","expected result",["expect result","expected outcome only","result expected"]],
-        ["actual result","ผลลัพธ์ที่เกิดขึ้นจริง","noun phrase","actual result",["actuality result","actually result","result actual"]],
-        ["fix","แก้ไข","verb/noun","fix the issue",["fixed","fixing","fixture"]],
-        ["patch","ชุดแก้ไข","verb/noun","software patch",["path","patched","patching"]],
-        ["test case","กรณีทดสอบ","noun phrase","test case",["testing case","case test","test cause"]],
-        ["debug","ตรวจหาและแก้ข้อผิดพลาด","verb","debug an error",["debugging","debugged","bug"]],
-        ["crash","โปรแกรมหยุดทำงาน","verb/noun","app crash",["crashed","crashing","crush"]],
-        ["freeze","ค้าง","verb","page freeze",["frozen","freezing","free"]],
-        ["loading error","ข้อผิดพลาดขณะโหลด","noun phrase","loading error",["loaded error","error loading only","loading errand"]],
-        ["missing file","ไฟล์หายหรือหาไม่เจอ","noun phrase","missing file",["missed file","file missing only","mission file"]],
-        ["console log","บันทึกข้อความใน console","noun phrase","console log",["log console","console logged","control log"]],
-        ["event handler","ตัวจัดการเหตุการณ์","noun phrase","event handler",["handler event","event handling only","event hander"]],
-        ["broken link","ลิงก์เสีย","noun phrase","broken link",["break link","linked broken","broken line"]],
-        ["version cache","แคชของเวอร์ชันไฟล์","noun phrase","version cache",["cache version only","version cash","cached version"]],
-        ["fallback","ทางเลือกสำรอง","noun","fallback plan",["fall back only","fallbacked","backfall"]],
-        ["hotfix","แพตช์แก้ด่วน","noun","hotfix release",["hot fix only","fixed hot","hotfixed"]]
+        ["bug","ข้อผิดพลาดของโปรแกรม","noun","software bug",["software issue","program error","system defect"]],
+        ["issue","ปัญหา","noun","technical issue",["problem","difficulty","system problem"]],
+        ["error","ข้อผิดพลาด","noun","console error",["mistake","system error","runtime problem"]],
+        ["reproduce","ทำซ้ำเพื่อให้เห็นปัญหา","verb","reproduce the issue",["repeat the steps","make the issue happen again","replicate the problem"]],
+        ["expected result","ผลลัพธ์ที่คาดหวัง","noun phrase","expected result",["intended output","planned outcome","expected outcome"]],
+        ["actual result","ผลลัพธ์ที่เกิดขึ้นจริง","noun phrase","actual result",["real output","observed result","displayed outcome"]],
+        ["fix","แก้ไข","verb/noun","fix the issue",["solve","repair","correct"]],
+        ["patch","ชุดแก้ไข","verb/noun","software patch",["hotfix","update","correction package"]],
+        ["test case","กรณีทดสอบ","noun phrase","test case",["testing scenario","check case","validation case"]],
+        ["debug","ตรวจหาและแก้ข้อผิดพลาด","verb","debug an error",["find the cause","check the code","troubleshoot"]],
+        ["crash","โปรแกรมหยุดทำงาน","verb/noun","app crash",["system failure","application stop","program shutdown"]],
+        ["freeze","ค้าง","verb","page freeze",["screen lock","application hang","unresponsive page"]],
+        ["loading error","ข้อผิดพลาดขณะโหลด","noun phrase","loading error",["load failure","page load issue","resource loading problem"]],
+        ["missing file","ไฟล์หายหรือหาไม่เจอ","noun phrase","missing file",["file not found","absent resource","unavailable file"]],
+        ["console log","บันทึกข้อความใน console","noun phrase","console log",["debug message","system log","browser log"]],
+        ["event handler","ตัวจัดการเหตุการณ์","noun phrase","event handler",["interaction handler","click handler","input handler"]],
+        ["broken link","ลิงก์เสีย","noun phrase","broken link",["invalid link","dead link","unavailable URL"]],
+        ["version cache","แคชของเวอร์ชันไฟล์","noun phrase","version cache",["cached file version","browser cache","stored script version"]],
+        ["fallback","ทางเลือกสำรอง","noun","fallback plan",["backup option","alternative solution","reserve method"]],
+        ["hotfix","แพตช์แก้ด่วน","noun","hotfix release",["urgent patch","quick fix","emergency update"]]
       ]
     },
 
     S12:{
       theme:"User Guide / Technical Instruction",
       rows:[
-        ["instruction","คำแนะนำ/คำสั่ง","noun","clear instructions",["instruct","instructive","instructing"]],
-        ["requirement","ข้อกำหนด","noun","system requirement",["request","require","required"]],
-        ["configure","ตั้งค่า","verb","configure settings",["configuration","configured","confirm"]],
-        ["verify","ตรวจสอบยืนยัน","verb","verify information",["verified","verification","very"]],
-        ["navigate","นำทาง/เปลี่ยนหน้า","verb","navigate to a page",["navigation","navigator","navigated"]],
-        ["step-by-step","ทีละขั้นตอน","adjective/adverb","step-by-step guide",["step by steped","step-step","stepping"]],
-        ["troubleshoot","แก้ปัญหาเบื้องต้น","verb","troubleshoot problems",["troubleshooting","troubleshot","trouble shoot"]],
-        ["complete","ทำให้เสร็จสมบูรณ์","verb","complete a task",["completion","completed","completely"]],
-        ["setup","การตั้งค่าเริ่มต้น","noun","setup process",["set uped","setting up only","setuped"]],
-        ["access","เข้าถึง","verb/noun","access the feature",["accessing","accessed","excess"]],
-        ["enable","เปิดใช้งาน","verb","enable a feature",["enabled","enabling","unable"]],
-        ["disable","ปิดใช้งาน","verb","disable notifications",["disabled","disabling","enable"]],
-        ["require","ต้องการ/จำเป็นต้องมี","verb","require an internet connection",["requirement","required","request"]],
-        ["restart","เริ่มใหม่","verb","restart the page",["restore","reload only","restartable"]],
-        ["checklist","รายการตรวจสอบ","noun","testing checklist",["check list only","checked list","checking list"]],
-        ["verify completion","ตรวจสอบว่างานเสร็จสมบูรณ์","verb phrase","verify completion",["verification completion","verify complete","completed verify"]],
-        ["user manual","คู่มือผู้ใช้","noun phrase","user manual",["manual user","user manually","usage manual"]],
-        ["login step","ขั้นตอนการเข้าสู่ระบบ","noun phrase","login step",["login stepped","step login","logging step"]],
-        ["troubleshooting guide","คู่มือแก้ปัญหาเบื้องต้น","noun phrase","troubleshooting guide",["trouble guide","guide troubleshooting","troubleshoot guided"]],
-        ["validation","การตรวจสอบความถูกต้อง","noun","input validation",["valid","validate","valuable"]]
+        ["instruction","คำแนะนำ/คำสั่ง","noun","clear instructions",["guide","direction","procedure"]],
+        ["requirement","ข้อกำหนด","noun","system requirement",["condition","specification","needed resource"]],
+        ["configure","ตั้งค่า","verb","configure settings",["set up","adjust settings","prepare options"]],
+        ["verify","ตรวจสอบยืนยัน","verb","verify information",["confirm","check","validate"]],
+        ["navigate","นำทาง/เปลี่ยนหน้า","verb","navigate to a page",["go to","move through","open a page"]],
+        ["step-by-step","ทีละขั้นตอน","adjective/adverb","step-by-step guide",["sequential","ordered","procedural"]],
+        ["troubleshoot","แก้ปัญหาเบื้องต้น","verb","troubleshoot problems",["solve problems","identify issues","check errors"]],
+        ["complete","ทำให้เสร็จสมบูรณ์","verb","complete a task",["finish","submit","finalize"]],
+        ["setup","การตั้งค่าเริ่มต้น","noun","setup process",["installation process","initial configuration","preparation step"]],
+        ["access","เข้าถึง","verb/noun","access the feature",["open","use","enter"]],
+        ["enable","เปิดใช้งาน","verb","enable a feature",["turn on","activate","allow"]],
+        ["disable","ปิดใช้งาน","verb","disable notifications",["turn off","deactivate","block"]],
+        ["require","ต้องการ/จำเป็นต้องมี","verb","require an internet connection",["need","depend on","must have"]],
+        ["restart","เริ่มใหม่","verb","restart the page",["reload","start again","reopen"]],
+        ["checklist","รายการตรวจสอบ","noun","testing checklist",["review list","task list","verification list"]],
+        ["verify completion","ตรวจสอบว่างานเสร็จสมบูรณ์","verb phrase","verify completion",["check completion","confirm completion","validate completion"]],
+        ["user manual","คู่มือผู้ใช้","noun phrase","user manual",["user guide","instruction manual","help document"]],
+        ["login step","ขั้นตอนการเข้าสู่ระบบ","noun phrase","login step",["sign-in step","access step","authentication step"]],
+        ["troubleshooting guide","คู่มือแก้ปัญหาเบื้องต้น","noun phrase","troubleshooting guide",["problem-solving guide","support guide","error guide"]],
+        ["validation","การตรวจสอบความถูกต้อง","noun","input validation",["data check","format check","accuracy check"]]
       ]
     },
 
     S13:{
       theme:"AI Report / Academic Summary",
       rows:[
-        ["dataset","ชุดข้อมูล","noun","training dataset",["data set only","database","data sheet"]],
-        ["model","แบบจำลอง","noun","AI model",["module","modal","mode"]],
-        ["accuracy","ความแม่นยำ","noun","model accuracy",["accurate","accurately","account"]],
-        ["finding","ข้อค้นพบ","noun","key finding",["find","founded","funding"]],
-        ["limitation","ข้อจำกัด","noun","study limitation",["limited","limit","limitationed"]],
-        ["analysis","การวิเคราะห์","noun","data analysis",["analyze","analyst","analytical"]],
-        ["trend","แนวโน้ม","noun","upward trend",["trendline only","trendy","treat"]],
-        ["evidence","หลักฐาน","noun","supporting evidence",["evident","event","evidencee"]],
-        ["interpret","ตีความ","verb","interpret results",["interpretation","interpreted","interview"]],
-        ["summary","สรุปสาระสำคัญ","noun","academic summary",["summarize","summarized","summer"]],
-        ["prediction","การคาดการณ์","noun","model prediction",["predict","predicted","predictive"]],
-        ["training data","ข้อมูลฝึกโมเดล","noun phrase","training data",["train data","data training","trained data"]],
-        ["testing data","ข้อมูลทดสอบโมเดล","noun phrase","testing data",["test data only","data testing","tested data"]],
-        ["variable","ตัวแปร","noun","research variable",["variety","variation","vary"]],
-        ["result","ผลลัพธ์","noun","research result",["resulted","resulting","resolve"]],
-        ["chart","แผนภูมิ","noun","result chart",["charter","charted","charting"]],
-        ["comparison","การเปรียบเทียบ","noun","data comparison",["compare","compared","comparative"]],
-        ["performance","ประสิทธิภาพ/ผลการทำงาน","noun","model performance",["perform","performed","performing"]],
-        ["implication","นัยสำคัญ/ข้อบ่งชี้","noun","learning implication",["imply","implicit","application"]],
-        ["conclusion","ข้อสรุป","noun","report conclusion",["confusion","condition","connection"]]
+        ["dataset","ชุดข้อมูล","noun","training dataset",["data collection","data table","research data"]],
+        ["model","แบบจำลอง","noun","AI model",["prediction model","machine learning model","classification model"]],
+        ["accuracy","ความแม่นยำ","noun","model accuracy",["correctness rate","performance score","prediction accuracy"]],
+        ["finding","ข้อค้นพบ","noun","key finding",["result","research result","main discovery"]],
+        ["limitation","ข้อจำกัด","noun","study limitation",["constraint","weakness","scope limit"]],
+        ["analysis","การวิเคราะห์","noun","data analysis",["interpretation","examination","evaluation"]],
+        ["trend","แนวโน้ม","noun","upward trend",["pattern","direction","change pattern"]],
+        ["evidence","หลักฐาน","noun","supporting evidence",["data support","proof","research support"]],
+        ["interpret","ตีความ","verb","interpret results",["explain meaning","analyze meaning","make sense of results"]],
+        ["summary","สรุปสาระสำคัญ","noun","academic summary",["overview","brief report","main point summary"]],
+        ["prediction","การคาดการณ์","noun","model prediction",["forecast","estimated result","predicted outcome"]],
+        ["training data","ข้อมูลฝึกโมเดล","noun phrase","training data",["model training dataset","learning data","sample data"]],
+        ["testing data","ข้อมูลทดสอบโมเดล","noun phrase","testing data",["evaluation data","test dataset","validation data"]],
+        ["variable","ตัวแปร","noun","research variable",["factor","data feature","measured item"]],
+        ["result","ผลลัพธ์","noun","research result",["outcome","finding","observed result"]],
+        ["chart","แผนภูมิ","noun","result chart",["graph","visual chart","data figure"]],
+        ["comparison","การเปรียบเทียบ","noun","data comparison",["contrast","side-by-side analysis","comparative review"]],
+        ["performance","ประสิทธิภาพ/ผลการทำงาน","noun","model performance",["effectiveness","accuracy level","system performance"]],
+        ["implication","นัยสำคัญ/ข้อบ่งชี้","noun","learning implication",["meaning","possible effect","practical meaning"]],
+        ["conclusion","ข้อสรุป","noun","report conclusion",["final statement","main conclusion","summary conclusion"]]
       ]
     },
 
     S14:{
       theme:"CV / Interview / Pitch",
       rows:[
-        ["CV","ประวัติย่อสำหรับสมัครงาน/การศึกษา","noun","academic CV",["VC","resume only","cover letter"]],
-        ["interview","การสัมภาษณ์","noun/verb","job interview",["interviewer only","interviewed","interval"]],
-        ["pitch","การนำเสนอขายไอเดียอย่างกระชับ","noun/verb","project pitch",["picture","pitched","pitching only"]],
-        ["qualification","คุณสมบัติ","noun","professional qualification",["qualified","quality","qualify"]],
-        ["achievement","ความสำเร็จ/ผลงานเด่น","noun","project achievement",["achieve","achieved","achievemented"]],
-        ["strength","จุดแข็ง","noun","professional strength",["strong","strengthen","straight"]],
-        ["experience","ประสบการณ์","noun","relevant experience",["experienced","experiment","expertise only"]],
-        ["leadership","ภาวะผู้นำ","noun","leadership skills",["leader","leading","lead"]],
-        ["communication skill","ทักษะการสื่อสาร","noun phrase","communication skill",["communicate skill","communication skilled","skill communication"]],
-        ["career goal","เป้าหมายทางอาชีพ","noun phrase","career goal",["career gold","goal career","career go"]],
-        ["cover letter","จดหมายสมัครงาน","noun phrase","cover letter",["covered letter","letter cover","cover later"]],
-        ["personal statement","ข้อความแนะนำตนเอง","noun phrase","personal statement",["statement personal","person statement","personally statement"]],
-        ["relevant skill","ทักษะที่เกี่ยวข้อง","noun phrase","relevant skill",["relevance skill","skill relevant","relevantly skill"]],
-        ["project evidence","หลักฐานจากผลงานโครงการ","noun phrase","project evidence",["evidence project","project event","evident project"]],
-        ["professional summary","สรุปประวัติแบบมืออาชีพ","noun phrase","professional summary",["summary professional","profession summary","professional summarize"]],
-        ["interview question","คำถามสัมภาษณ์","noun phrase","interview question",["question interview","interviewer question","questioned interview"]],
-        ["answer strategy","กลยุทธ์การตอบ","noun phrase","answer strategy",["strategy answer","answer strategic","answered strategy"]],
-        ["value proposition","คุณค่าที่เสนอ","noun phrase","value proposition",["valuable proposition","proposition value","value propose"]],
-        ["career plan","แผนอาชีพ","noun phrase","career plan",["plan career","career planning only","career plane"]],
-        ["self-introduction","การแนะนำตนเอง","noun","self-introduction",["introduce self only","self introduce","self-introduced"]]
+        ["CV","ประวัติย่อสำหรับสมัครงาน/การศึกษา","noun","academic CV",["resume","professional profile","application document"]],
+        ["interview","การสัมภาษณ์","noun/verb","job interview",["formal interview","selection interview","career discussion"]],
+        ["pitch","การนำเสนอขายไอเดียอย่างกระชับ","noun/verb","project pitch",["short presentation","idea pitch","proposal presentation"]],
+        ["qualification","คุณสมบัติ","noun","professional qualification",["credential","required skill","career requirement"]],
+        ["achievement","ความสำเร็จ/ผลงานเด่น","noun","project achievement",["accomplishment","successful outcome","notable result"]],
+        ["strength","จุดแข็ง","noun","professional strength",["advantage","positive quality","key ability"]],
+        ["experience","ประสบการณ์","noun","relevant experience",["work background","practical work","previous experience"]],
+        ["leadership","ภาวะผู้นำ","noun","leadership skills",["team leadership","management ability","guiding role"]],
+        ["communication skill","ทักษะการสื่อสาร","noun phrase","communication skill",["presentation skill","workplace communication","interpersonal skill"]],
+        ["career goal","เป้าหมายทางอาชีพ","noun phrase","career goal",["professional aim","career objective","future plan"]],
+        ["cover letter","จดหมายสมัครงาน","noun phrase","cover letter",["application letter","motivation letter","formal application message"]],
+        ["personal statement","ข้อความแนะนำตนเอง","noun phrase","personal statement",["self-introduction statement","profile statement","application statement"]],
+        ["relevant skill","ทักษะที่เกี่ยวข้อง","noun phrase","relevant skill",["related skill","useful skill","required skill"]],
+        ["project evidence","หลักฐานจากผลงานโครงการ","noun phrase","project evidence",["portfolio evidence","work sample","project proof"]],
+        ["professional summary","สรุปประวัติแบบมืออาชีพ","noun phrase","professional summary",["profile summary","career summary","application summary"]],
+        ["interview question","คำถามสัมภาษณ์","noun phrase","interview question",["selection question","career question","application question"]],
+        ["answer strategy","กลยุทธ์การตอบ","noun phrase","answer strategy",["response plan","answer method","interview strategy"]],
+        ["value proposition","คุณค่าที่เสนอ","noun phrase","value proposition",["main value","benefit statement","unique value"]],
+        ["career plan","แผนอาชีพ","noun phrase","career plan",["professional plan","future work plan","employment plan"]],
+        ["self-introduction","การแนะนำตนเอง","noun","self-introduction",["personal introduction","brief profile","opening introduction"]]
       ]
     },
 
     S15:{
       theme:"Final Project Presentation & Reflection",
       rows:[
-        ["presentation","การนำเสนอ","noun","final presentation",["present","presenter","presenting"]],
-        ["reflection","การสะท้อนคิด","noun","learning reflection",["reflect","reflected","reflective"]],
-        ["outcome","ผลลัพธ์","noun","learning outcome",["output","outfit","outlet"]],
-        ["evidence","หลักฐาน","noun","supporting evidence",["evident","event","evidencee"]],
-        ["future work","งานต่อยอดในอนาคต","noun phrase","future work",["future job","work future","future working"]],
-        ["evaluate","ประเมิน","verb","evaluate effectiveness",["evaluation","evaluated","evaluating"]],
-        ["improvement","การพัฒนา/การปรับปรุง","noun","vocabulary improvement",["improve","improved","improving"]],
-        ["recommendation","ข้อเสนอแนะ","noun","final recommendation",["recommend","recommended","recommending"]],
-        ["final outcome","ผลลัพธ์สุดท้าย","noun phrase","final outcome",["final output only","final income","outcome final"]],
-        ["project impact","ผลกระทบของโครงการ","noun phrase","project impact",["project compact","impact project","project input"]],
-        ["lesson learned","บทเรียนที่ได้รับ","noun phrase","lesson learned",["learned lesson only","lesson learning","learn lesson"]],
-        ["academic growth","พัฒนาการทางวิชาการ","noun phrase","academic growth",["academic grow","growth academic","academic goal"]],
-        ["self-evaluation","การประเมินตนเอง","noun","self-evaluation",["self-evaluate","self-evaluated","evaluation self"]],
-        ["presentation skill","ทักษะการนำเสนอ","noun phrase","presentation skill",["present skill","presentation skilled","skill presentation"]],
-        ["supporting data","ข้อมูลสนับสนุน","noun phrase","supporting data",["support data only","supported data","data supporting"]],
-        ["project recommendation","ข้อเสนอแนะต่อโครงการ","noun phrase","project recommendation",["project recommend","recommendation project","project recommended"]],
-        ["final conclusion","ข้อสรุปสุดท้าย","noun phrase","final conclusion",["conclusion final","finally conclusion","final confusion"]],
-        ["project showcase","การนำเสนอผลงานโครงการ","noun phrase","project showcase",["showcase project","project show case","project shown"]],
-        ["evaluation result","ผลการประเมิน","noun phrase","evaluation result",["evaluation resulted","result evaluation","evaluate result"]],
-        ["improvement plan","แผนการปรับปรุง","noun phrase","improvement plan",["improve plan","improved planning","plan improvement"]]
+        ["presentation","การนำเสนอ","noun","final presentation",["project presentation","oral report","class presentation"]],
+        ["reflection","การสะท้อนคิด","noun","learning reflection",["self-review","learning review","reflective summary"]],
+        ["outcome","ผลลัพธ์","noun","learning outcome",["result","achievement","final result"]],
+        ["evidence","หลักฐาน","noun","supporting evidence",["data support","proof","project evidence"]],
+        ["future work","งานต่อยอดในอนาคต","noun phrase","future work",["next development","future improvement","further work"]],
+        ["evaluate","ประเมิน","verb","evaluate effectiveness",["assess","review","measure"]],
+        ["improvement","การพัฒนา/การปรับปรุง","noun","vocabulary improvement",["development","enhancement","revision"]],
+        ["recommendation","ข้อเสนอแนะ","noun","final recommendation",["suggestion","proposal","advice"]],
+        ["final outcome","ผลลัพธ์สุดท้าย","noun phrase","final outcome",["final result","project result","learning result"]],
+        ["project impact","ผลกระทบของโครงการ","noun phrase","project impact",["project effect","learning impact","practical effect"]],
+        ["lesson learned","บทเรียนที่ได้รับ","noun phrase","lesson learned",["learning insight","reflection point","experience gained"]],
+        ["academic growth","พัฒนาการทางวิชาการ","noun phrase","academic growth",["learning development","skill improvement","academic progress"]],
+        ["self-evaluation","การประเมินตนเอง","noun","self-evaluation",["self-assessment","personal review","reflection assessment"]],
+        ["presentation skill","ทักษะการนำเสนอ","noun phrase","presentation skill",["speaking skill","communication skill","pitching skill"]],
+        ["supporting data","ข้อมูลสนับสนุน","noun phrase","supporting data",["evidence data","support data","research data"]],
+        ["project recommendation","ข้อเสนอแนะต่อโครงการ","noun phrase","project recommendation",["improvement suggestion","project advice","development recommendation"]],
+        ["final conclusion","ข้อสรุปสุดท้าย","noun phrase","final conclusion",["summary conclusion","closing conclusion","final statement"]],
+        ["project showcase","การนำเสนอผลงานโครงการ","noun phrase","project showcase",["project demonstration","work presentation","portfolio showcase"]],
+        ["evaluation result","ผลการประเมิน","noun phrase","evaluation result",["assessment result","review outcome","evaluation outcome"]],
+        ["improvement plan","แผนการปรับปรุง","noun phrase","improvement plan",["revision plan","development plan","enhancement plan"]]
       ]
     }
   };
 
-  function autoSpec(sessionId, session){
+  function autoSpec(sessionId,session){
     return {
       theme:session.theme,
       words:session.rows.map((row,index) => {
@@ -581,7 +582,6 @@ window.SESSIONS = [
 
         const isVerb = String(pos).toLowerCase().includes("verb");
         const isAdj = String(pos).toLowerCase().includes("adjective");
-        const isPhrase = String(pos).toLowerCase().includes("phrase") || String(w).includes(" ");
 
         const fill = isVerb
           ? `Students can ______ clearly in the ${session.theme} task.`
@@ -618,8 +618,7 @@ window.SESSIONS = [
           academic,
           plain,
           upgrade,
-          trapChoices,
-          isPhrase
+          trapChoices
         };
       })
     };
@@ -687,7 +686,10 @@ window.SESSIONS = [
       "รายงานสถานะ",
       "บทบาท",
       "ความมั่นใจ",
-      "แผนการปรับปรุง"
+      "แผนการปรับปรุง",
+      "ความพร้อมในการมีงานทำ",
+      "ความง่ายในการใช้งาน",
+      "ผลงานส่งมอบ"
     ],
     verb:[
       "อธิบาย",
@@ -704,7 +706,10 @@ window.SESSIONS = [
       "ตั้งค่า",
       "เข้าถึง",
       "แก้ปัญหา",
-      "ตีความ"
+      "ตีความ",
+      "แจ้งให้ทราบ",
+      "มอบหมาย",
+      "เปิดใช้งาน"
     ],
     adjective:[
       "เหมาะสม",
@@ -731,7 +736,9 @@ window.SESSIONS = [
       "งานต่อยอดในอนาคต",
       "แผนการปรับปรุง",
       "การนำเสนอผลงาน",
-      "ผลการประเมิน"
+      "ผลการประเมิน",
+      "รายงานความก้าวหน้า",
+      "แผนปฏิบัติการ"
     ]
   };
 
@@ -740,7 +747,7 @@ window.SESSIONS = [
     "learning outcome",
     "user feedback",
     "user need",
-    "target users",
+    "target user",
     "project scope",
     "main function",
     "system output",
@@ -759,7 +766,13 @@ window.SESSIONS = [
     "final conclusion",
     "evaluation result",
     "improvement plan",
-    "professional summary"
+    "professional summary",
+    "project evidence",
+    "user requirement",
+    "status report",
+    "meeting outcome",
+    "career goal",
+    "design purpose"
   ];
 
   function posGroup(spec){
@@ -782,23 +795,11 @@ window.SESSIONS = [
   }
 
   function wordFamilyDistractors(spec){
-    const w = normalizeChoiceText(spec.w);
     const answer = normalizeChoiceText(spec.answer || spec.w);
     const traps = cloneChoices(spec.trapChoices);
 
-    const suffixForms = [
-      `${w}s`,
-      `${w}ed`,
-      `${w}ing`,
-      `${w}tion`,
-      `${w}ment`,
-      `${w}ly`,
-      `${w}ive`,
-      `${w}al`
-    ];
-
     return uniqChoices(
-      traps.concat(suffixForms).filter(x => normalizeChoiceText(x) !== answer),
+      traps.filter(x => normalizeChoiceText(x) !== answer),
       answer,
       8
     ).slice(1);
@@ -806,39 +807,9 @@ window.SESSIONS = [
 
   function phraseDistractors(spec){
     const base = normalizeChoiceText(spec.collocation || spec.w);
-    const parts = base.split(" ");
-    const head = parts[0] || base;
-    const tail = parts.slice(1).join(" ");
     const traps = cloneChoices(spec.trapChoices);
-    const phraseWrong = [];
 
-    if(base.includes(" of ")){
-      phraseWrong.push(base.replace(" of "," for "));
-      phraseWrong.push(base.replace(" of "," to "));
-    }
-
-    if(base.includes(" for ")){
-      phraseWrong.push(base.replace(" for "," to "));
-      phraseWrong.push(base.replace(" for "," in "));
-    }
-
-    if(base.includes(" in ")){
-      phraseWrong.push(base.replace(" in "," on "));
-      phraseWrong.push(base.replace(" in "," at "));
-    }
-
-    if(base.includes(" to ")){
-      phraseWrong.push(base.replace(" to "," for "));
-      phraseWrong.push(base.replace(" to "," with "));
-    }
-
-    if(parts.length >= 2){
-      phraseWrong.push(`${tail} ${head}`.trim());
-      phraseWrong.push(`${head} ${tail}s`.trim());
-      phraseWrong.push(`${head} general ${tail}`.trim());
-    }
-
-    return traps.concat(phraseWrong).concat(ACADEMIC_NEAR_MISS.filter(x => x !== base));
+    return traps.concat(ACADEMIC_NEAR_MISS.filter(x => x !== base));
   }
 
   function sentenceDistractors(spec){
@@ -848,46 +819,36 @@ window.SESSIONS = [
 
     const traps = cloneChoices(spec.trapChoices);
 
-    const grammarTraps = [
-      correct.replace(/\bis\b/g,"are"),
-      correct.replace(/\bare\b/g,"is"),
-      correct.replace(/\ballows users to\b/gi,"allows users"),
-      correct.replace(/\bcan be\b/gi,"can"),
-      correct.replace(/\bwas\b/gi,"were"),
-      correct.replace(/\bwere\b/gi,"was"),
-      correct.replace(/\bprovides\b/gi,"provide"),
-      correct.replace(/\bsupports\b/gi,"support"),
-      correct.replace(/\bresults show\b/gi,"result show"),
-      correct.replace(/\bfindings indicate\b/gi,"finding indicate"),
-      correct.replace(/\bI have experience in\b/gi,"I have experienced in"),
-      correct.replace(/\bI am interested in\b/gi,"I am interesting in"),
-      correct.replace(/\bqualified for\b/gi,"qualification for")
+    const formalSentences = [
+      `The ${collocation} supports effective learning in this project.`,
+      `The project uses ${collocation} to improve learner understanding.`,
+      `Students can apply ${w} in an academic communication task.`,
+      `This report explains ${w} with clear supporting evidence.`,
+      `The learning activity provides useful feedback for students.`,
+      `The system helps users complete the task more effectively.`,
+      `The summary presents the key points in a formal way.`,
+      `The design supports repeated practice and skill development.`
     ].filter(x => x && x !== correct);
 
-    const genericButPlausible = [
-      `The ${collocation} is important but needs clearer explanation.`,
-      `Students can use ${w} to support the academic task.`,
-      `The project uses ${collocation} to improve learning outcomes.`,
-      `This report explains ${w} in an academic context.`
-    ];
-
-    return traps.concat(grammarTraps).concat(genericButPlausible);
+    return traps.concat(formalSentences);
   }
 
   function upgradeDistractors(spec){
     const correct = normalizeChoiceText(spec.upgrade || spec.academic || "");
-    const plain = normalizeChoiceText(spec.plain || "");
     const w = normalizeChoiceText(spec.w);
+    const collocation = normalizeChoiceText(spec.collocation || spec.w);
 
-    const informal = [
-      plain,
-      plain ? `${plain} It is very good.` : "",
-      `The ${w} is good and students can learn many things.`,
-      `Students use this because it is nice and useful.`,
-      `This project helps students and makes learning better.`
-    ];
+    const formalAlternatives = [
+      `The ${collocation} helps learners complete the academic task effectively.`,
+      `The project provides clear support for student learning progress.`,
+      `The report presents ${w} in a clear academic context.`,
+      `The activity supports communication skills in a professional context.`,
+      `The design improves the learning experience through structured practice.`,
+      `The evidence explains the project outcome in a formal way.`,
+      `The recommendation identifies a practical improvement for future work.`
+    ].filter(x => x && x !== correct);
 
-    return informal.concat(sentenceDistractors(spec)).filter(x => x && x !== correct);
+    return formalAlternatives;
   }
 
   function cleanIdPart(text){
@@ -1038,10 +999,10 @@ window.SESSIONS = [
         "word_form",
         "B1",
         `${n}-B1-WORDFORM`,
-        `Choose the correct word form: ${spec.fill || "The answer is ______."}`,
+        `Choose the correct form or academic phrase for this context: ${spec.fill || "The answer is ______."}`,
         spec.answer || spec.w,
         makeWordFormChoices(spec),
-        `The correct form is “${spec.answer || spec.w}”.`
+        `Use “${spec.answer || spec.w}” as the correct form or academic phrase in this context.`
       ));
 
       bank.push(makeQuestion(
@@ -1082,50 +1043,181 @@ window.SESSIONS = [
     });
   });
 
+  function isObviousDistractor(choice,answer){
+    const c = normalizeChoiceText(choice).toLowerCase();
+    const a = normalizeChoiceText(answer).toLowerCase();
+
+    if(!c) return true;
+    if(c === a) return false;
+
+    const obviousBits = [
+      " only",
+      "option ",
+      "near alternative",
+      "banana",
+      "chair",
+      "weather",
+      "sandwich",
+      "shoe",
+      "food menu",
+      "travel plan",
+      "classroom color",
+      "good and students can learn many things",
+      "nice and useful"
+    ];
+
+    if(obviousBits.some(x => c.includes(x))) return true;
+
+    if(/\b[a-z]{4,}e{2}\b/.test(c)) return true;
+    if(/\b[a-z]{4,}(?:tioned|mented|nessed|shiped|ableed|backed)\b/.test(c)) return true;
+    if(/\b[a-z]{4,}(?:inged|eded)\b/.test(c)) return true;
+    if(/\b[a-z]+\s+[a-z]+ed\b/.test(c)) return true;
+
+    if(!c.includes(" ") && !a.includes(" ")){
+      if(c === `${a}s`) return true;
+      if(c === `${a}ed`) return true;
+      if(c === `${a}ing`) return true;
+    }
+
+    const parts = a.split(" ");
+    if(parts.length === 2){
+      const reversed = `${parts[1]} ${parts[0]}`;
+      if(c === reversed) return true;
+    }
+
+    return false;
+  }
+
+  function formalFallbackChoices(item){
+    if(item.type === "meaning"){
+      return THAI_MEANING_DISTRACTORS.noun
+        .concat(THAI_MEANING_DISTRACTORS.verb)
+        .concat(THAI_MEANING_DISTRACTORS.adjective)
+        .concat(THAI_MEANING_DISTRACTORS.phrase);
+    }
+
+    if(item.type === "academic_phrase" || item.type === "academic_upgrade"){
+      return [
+        "The project supports learners’ academic development.",
+        "The system provides useful feedback for learning.",
+        "The report explains the main findings clearly.",
+        "The application helps students practise repeatedly.",
+        "The design improves the learning experience.",
+        "The summary presents the key points clearly.",
+        "The evidence supports the project outcome.",
+        "The recommendation explains the next improvement step."
+      ];
+    }
+
+    return ACADEMIC_NEAR_MISS.concat([
+      "learning outcome",
+      "project objective",
+      "user requirement",
+      "system function",
+      "technical issue",
+      "evaluation result",
+      "academic summary",
+      "improvement plan",
+      "project evidence",
+      "final conclusion"
+    ]);
+  }
+
+  function plausiblePoolForItem(item,allItems){
+    const answer = normalizeChoiceText(item.answer);
+
+    const pools = [
+      allItems.filter(q =>
+        q &&
+        q.id !== item.id &&
+        q.session === item.session &&
+        q.type === item.type &&
+        q.level === item.level
+      ),
+
+      allItems.filter(q =>
+        q &&
+        q.id !== item.id &&
+        q.type === item.type &&
+        q.level === item.level
+      ),
+
+      allItems.filter(q =>
+        q &&
+        q.id !== item.id &&
+        q.type === item.type
+      ),
+
+      allItems.filter(q =>
+        q &&
+        q.id !== item.id &&
+        q.level === item.level
+      )
+    ];
+
+    const out = [];
+
+    pools.forEach(pool => {
+      pool.forEach(q => {
+        const candidate = normalizeChoiceText(q.answer);
+
+        if(!candidate) return;
+        if(candidate === answer) return;
+        if(isObviousDistractor(candidate,answer)) return;
+
+        out.push(candidate);
+      });
+    });
+
+    return out;
+  }
+
+  function polishPlausibleChoices(item,allItems){
+    if(!item) return item;
+
+    const answer = normalizeChoiceText(item.answer);
+
+    const kept = (Array.isArray(item.choices) ? item.choices : [])
+      .map(normalizeChoiceText)
+      .filter(choice => choice && choice !== answer)
+      .filter(choice => !isObviousDistractor(choice,answer));
+
+    const plausible = plausiblePoolForItem(item,allItems);
+
+    let choices = uniqChoices(kept.concat(plausible),answer,4);
+
+    if(choices.length < 4){
+      choices = uniqChoices(
+        choices.concat(formalFallbackChoices(item)),
+        answer,
+        4
+      );
+    }
+
+    item.answer = answer;
+    item.choices = choices.slice(0,4);
+
+    return item;
+  }
+
   function hardenQuestionItem(item){
     if(!item) return item;
 
     const answer = normalizeChoiceText(item.answer);
-    let choices = Array.isArray(item.choices) ? item.choices.map(normalizeChoiceText) : [];
 
-    choices = uniqChoices(choices,answer,4);
+    let choices = Array.isArray(item.choices)
+      ? item.choices.map(normalizeChoiceText)
+      : [];
 
-    if(choices.length < 4){
-      let fallback = [];
+    choices = choices
+      .filter(choice => choice && choice !== answer)
+      .filter(choice => !isObviousDistractor(choice,answer));
 
-      if(item.type === "meaning"){
-        fallback = THAI_MEANING_DISTRACTORS.noun.concat(
-          THAI_MEANING_DISTRACTORS.verb,
-          THAI_MEANING_DISTRACTORS.phrase
-        );
-      }else if(item.type === "collocation" || item.type === "context"){
-        fallback = ACADEMIC_NEAR_MISS;
-      }else if(item.type === "academic_phrase" || item.type === "academic_upgrade"){
-        fallback = [
-          "The system supports students’ learning progress.",
-          "The project provides useful feedback for learners.",
-          "The report summarizes the main findings clearly.",
-          "The application is designed to support repeated practice."
-        ];
-      }else{
-        fallback = [
-          "analysis",
-          "analyze",
-          "analytical",
-          "analyst",
-          "development",
-          "develop",
-          "developed",
-          "developing"
-        ];
-      }
-
-      choices = uniqChoices(choices.concat(fallback),answer,4);
-    }
-
-    while(choices.length < 4){
-      choices.push(`near alternative ${choices.length + 1}`);
-    }
+    choices = uniqChoices(
+      choices.concat(formalFallbackChoices(item)),
+      answer,
+      4
+    );
 
     item.answer = answer;
     item.choices = choices.slice(0,4);
@@ -1135,7 +1227,11 @@ window.SESSIONS = [
 
   const seen = new Set();
 
-  window.QUESTION_BANK = bank.map(hardenQuestionItem).filter(item => {
+  const hardenedBank = bank.map(hardenQuestionItem);
+
+  window.QUESTION_BANK = hardenedBank.map(item => {
+    return polishPlausibleChoices(item,hardenedBank);
+  }).filter(item => {
     if(!item || !item.id) return false;
 
     if(seen.has(item.id)){
@@ -1156,7 +1252,11 @@ window.SESSIONS = [
       "shoe",
       "food menu",
       "travel plan",
-      "classroom color"
+      "classroom color",
+      "option ",
+      "near alternative",
+      "nice and useful",
+      "good and students can learn"
     ];
 
     return window.QUESTION_BANK.filter(item =>
