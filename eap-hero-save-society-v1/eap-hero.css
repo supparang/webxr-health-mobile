@@ -1603,3 +1603,11 @@ textarea{
 .unified-checkpoint-session .hud-card{
   min-height:360px;
 }
+
+/* === v1z51 Normalized Checkpoint Session UI Polish === */
+.normalized-checkpoint-session{border-color:rgba(125,211,252,.35)!important}
+.normal-route-note{margin:12px 0 14px}
+.compact-checkpoint-note{margin:14px 0 0;padding:10px 12px;border-radius:14px;background:rgba(236,253,245,.92);color:#14532d;border:1px solid #86efac;font-weight:850;line-height:1.45}
+.compact-checkpoint-note b{font-weight:950}
+.compact-checkpoint-note span{display:block;margin-top:3px;font-size:12px}
+.normalized-checkpoint-session .soft-recovery-note,.normalized-checkpoint-session .recovery-error{display:none!important}

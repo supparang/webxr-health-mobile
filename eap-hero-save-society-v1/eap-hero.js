@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z50-unified-checkpoint-session-ui';
+  const APP_VERSION = '20260610-v1z51-normalized-checkpoint-session-ui-polish';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z50</div>
+              <div class="mini-note">Save the Society • v1z51</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32338,7 +32338,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z50</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z51</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32561,8 +32561,8 @@
   const SESSION_QUALITY_AUDIT = {
     1:{level:'A2', risk:'Low', core:'Reading', support:'Writing', expected:'1–2 short sentences', objective:'Understand academic mindset and identify a main idea.', vocab:['goal','main idea','reason','support'], frame:'The main idea is ___. One reason is ___.', teacherNote:'เน้นให้เด็กตอบสั้นและจับใจความหลักให้ได้ก่อน'},
     2:{level:'A2', risk:'Low', core:'Vocabulary', support:'Reading', expected:'keywords + 1 sentence', objective:'Use basic academic vocabulary in context.', vocab:['meaning','keyword','example','use'], frame:'The word ___ means ___. For example, ___.', teacherNote:'ยังไม่ควรให้จำศัพท์ยาก ให้ดู context clues'},
-    3:{level:'A2-Boss Gate 1', risk:'Low', core:'Reading', support:'Speaking', expected:'main idea + 1 detail', objective:'Find main idea and one supporting detail.', vocab:['text','detail','evidence','topic'], frame:'The text is about ___. One detail is ___.', teacherNote:'เหมาะสำหรับฝึก reading confidence'},
-    4:{level:'A2-Boss Gate 1', risk:'Medium', core:'Listening', support:'Vocabulary', expected:'2 keywords + 1 note', objective:'Listen for signal words and keywords.', vocab:['first','however','because','also'], frame:'I heard ___ and ___. The main point is ___.', teacherNote:'ให้ใช้ slow mode ได้ ไม่หักมาก'},
+    3:{level:'A2-B1+', risk:'Low', core:'Reading', support:'Speaking', expected:'main idea + 1 detail', objective:'Find main idea and one supporting detail.', vocab:['text','detail','evidence','topic'], frame:'The text is about ___. One detail is ___.', teacherNote:'เหมาะสำหรับฝึก reading confidence'},
+    4:{level:'A2-B1+', risk:'Medium', core:'Listening', support:'Vocabulary', expected:'2 keywords + 1 note', objective:'Listen for signal words and keywords.', vocab:['first','however','because','also'], frame:'I heard ___ and ___. The main point is ___.', teacherNote:'ให้ใช้ slow mode ได้ ไม่หักมาก'},
     5:{level:'Boss Gate 1', risk:'Medium', core:'Reading', support:'Writing', expected:'2–3 sentences', objective:'Check simple evidence and source trust.', vocab:['source','trust','claim','evidence'], frame:'I trust this because ___. The evidence is ___.', teacherNote:'อย่าใช้คำว่า evaluate หนักเกิน ให้ใช้ trust/check'},
     6:{level:'Boss Gate 1', risk:'Medium', core:'Writing', support:'Reading', expected:'3 short sentences', objective:'Summarize a short academic idea without copying.', vocab:['summary','copy','own words','important'], frame:'The text says ___. This is important because ___.', teacherNote:'เน้น own words แบบง่าย ไม่ต้อง paraphrase ซับซ้อน'},
     7:{level:'Boss Gate 1', risk:'Medium', core:'Writing', support:'Speaking', expected:'3–4 sentences', objective:'Use polite and academic tone.', vocab:['formal','polite','academic','tone'], frame:'I would like to explain ___. This topic is important because ___.', teacherNote:'เปรียบเทียบ casual vs academic ให้เห็นชัด'},
@@ -34339,23 +34339,20 @@
 
 
   function checkpointSessionNoteHTML(sessionId){
+    return compactCheckpointNoteHTML(sessionId);
+  }
+
+
+  function compactCheckpointNoteHTML(sessionId){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
-    const gate = bossGateAfterSession ? bossGateAfterSession(sid) : null;
+    const gate = typeof bossGateAfterSession === 'function' ? bossGateAfterSession(sid) : null;
     if(!gate) return '';
     const label = gate.type === 'final' ? 'Final Boss' : `Boss Gate ${gate.gate}`;
     const first = gate.after?.[0] || sid - 2;
     const last = gate.after?.[gate.after.length-1] || sid;
-    const rule = gate.type === 'final'
-      ? `Pass S${first}–S${last} and clear Boss Gate 4 to unlock Final Boss.`
-      : gate.gate === 1
-        ? `Pass S${first}–S${last} to unlock Boss Gate 1.`
-        : `Pass S${first}–S${last} and clear Boss Gate ${gate.gate-1} to unlock Boss Gate ${gate.gate}.`;
-    return `<div class="session-not-boss-note checkpoint-normal-note">
-      <b>S${sid} is a normal Session.</b>
-      <span>${safe(label)} is a checkpoint after this group, not this Session itself.</span>
-      <span>${safe(rule)}</span>
-    </div>`;
+    return `<div class="compact-checkpoint-note"><b>Checkpoint after this group:</b> Pass S${safe(first)}–S${safe(last)} to unlock ${safe(label)}.<span>S${safe(sid)} is still a normal Session.</span></div>`;
   }
+
 
   function unifiedCheckpointSessionPage(sessionId, reason){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
@@ -34375,20 +34372,17 @@
         <button class="btn primary full" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">Start ${safe(skill)}</button>
       </div>`;
     }).join('');
-    const flow = `Map → Session Path → Core/Support Mission → Mini Check → ${bossGateAfterSession && bossGateAfterSession(sid) ? 'Boss Gate checkpoint after criteria' : 'Map'}`;
-    layout(`<section class="panel skill-path-panel unified-checkpoint-session" style="margin-top:20px">
-      <div class="badges"><span class="pill">Session ${sid}</span><span class="pill">Normal Session</span><span class="pill">Unified UI</span></div>
+    layout(`<section class="panel skill-path-panel normalized-checkpoint-session" style="margin-top:20px">
       <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
       <p class="lead">${safe(s.skill || s.subtitle || 'Academic English practice')}</p>
-      <div class="route-note">Flow: ${safe(flow)}</div>
-      ${checkpointSessionNoteHTML(sid)}
+      <div class="route-note normal-route-note">Flow: Map → Session Path → Core/Support Mission → Mini Check → Map</div>
       <div class="grid four">${cards}</div>
       <div class="simple-mode-note">Simple Mode: ตอนนี้ให้ทำ Core Mission ก่อน และ Support Mission ได้แล้ว</div>
+      ${compactCheckpointNoteHTML(sid)}
       <div class="footer-actions">
         <button class="btn" onclick="EAPHero.map()">Map</button>
         <button class="btn ghost" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Debug: Open Reading</button>
       </div>
-      ${reason ? `<div class="soft-recovery-note">Safe route active: ${safe(reason.message || reason)}</div>` : ''}
     </section>`);
     return false;
   }
@@ -34416,7 +34410,7 @@
         <button class="btn" onclick="EAPHero.map()">Back to Map</button>
         <button class="btn ghost" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
       </div>
-      ${err ? `<div class="soft-recovery-note">Safe route active: ${safe(err.message || err)}</div>` : ''}
+      ${err ? `<div class="soft-recovery-note">Checkpoint note: ${safe(err.message || err)}</div>` : ''}
     </section>`);
     return false;
   }
@@ -35533,8 +35527,8 @@
   const MISSION_COHERENCE_FOCUS = {
     1:{topic:'academic mindset', audience:'new university students', product:'short explanation', vocab:['academic goal','mindset','reason','support'], level:'A2'},
     2:{topic:'academic vocabulary', audience:'students learning EAP words', product:'keyword explanation', vocab:['keyword','meaning','context clue','example'], level:'A2'},
-    3:{topic:'main idea reading', audience:'readers of short academic texts', product:'main idea + detail', vocab:['main idea','detail','topic','support'], level:'A2-Boss Gate 1'},
-    4:{topic:'keyword scanning', audience:'students reading/listening quickly', product:'keywords + signal words', vocab:['keyword','signal word','first','however','because'], level:'A2-Boss Gate 1'},
+    3:{topic:'main idea reading', audience:'readers of short academic texts', product:'main idea + detail', vocab:['main idea','detail','topic','support'], level:'A2-B1+'},
+    4:{topic:'keyword scanning', audience:'students reading/listening quickly', product:'keywords + signal words', vocab:['keyword','signal word','first','however','because'], level:'A2-B1+'},
     5:{topic:'critical reading and bias awareness', audience:'critical readers', product:'bias/evidence answer', vocab:['reader group','audience','biased','emotional','one-sided','evidence'], level:'Boss Gate 1'},
     6:{topic:'summary writing and audience awareness', audience:'readers who need a short summary', product:'summary/purpose answer', vocab:['audience','purpose','summary','own words','important'], level:'Boss Gate 1'},
     7:{topic:'academic tone', audience:'academic readers/listeners', product:'formal tone revision', vocab:['formal','polite','academic tone','clear','appropriate'], level:'Boss Gate 1'},
@@ -38600,6 +38594,7 @@
     bindCheckpointSessionIntercept,
     checkpointSessionIdFromElement,
     checkpointSessionNoteHTML,
+    compactCheckpointNoteHTML,
     unifiedCheckpointSessionPage,
     forceCheckpointSessionFallback,
     patchCheckpointSessionCards,
