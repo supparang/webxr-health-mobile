@@ -1,21 +1,22 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-data.js
-   Version: v1.6.0-VALID-ITEM-BANK
+   Version: v1.6.1-VALID-ITEM-BANK-1800-FIX
 
-   VALID ITEM BANK PATCH
+   VALID ITEM BANK 1800 FIX
    - S1–S15 = 20 words/session
    - 6 validated item types / word
    - 300 words × 6 = 1800 items
+   - Fixed academic_sentence being dropped
+   - Sentence-choice validation separated from term-choice validation
    - No hidden-answer prompt
    - No vague “which option is correct?”
    - No “This is useful for the task.”
-   - Definition/context/meaning clue required for every high-level item
 ========================================================= */
 
 "use strict";
 
-window.APP_VERSION = "v1.6.0-VALID-ITEM-BANK";
+window.APP_VERSION = "v1.6.1-VALID-ITEM-BANK-1800-FIX";
 
 /* =========================================================
    Course Map
@@ -51,7 +52,7 @@ window.SESSIONS = [
 /* =========================================================
    Valid Vocabulary Source
    Format:
-   word | thai meaning | part of speech | academic collocation | safe distractors
+   word | thai meaning | part of speech | academic collocation | safe related terms
 ========================================================= */
 
 (function buildVocabularySpecs(){
@@ -447,8 +448,13 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     }
   };
 
+  function normalizeText(value){
+    return String(value == null ? "" : value).replace(/\s+/g," ").trim();
+  }
+
   function splitRow(line){
     const parts = String(line || "").split("|").map(x => x.trim());
+
     return {
       w:parts[0] || "",
       th:parts[1] || "",
@@ -456,10 +462,6 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
       collocation:parts[3] || parts[0] || "",
       safeRelated:(parts[4] || "").split(";").map(x => x.trim()).filter(Boolean)
     };
-  }
-
-  function normalizeText(value){
-    return String(value == null ? "" : value).replace(/\s+/g," ").trim();
   }
 
   function familyFromText(text){
@@ -492,8 +494,10 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     return {
       theme:session.theme,
       words:rows.map((row,index) => {
-        const isVerb = /verb/.test(String(row.pos).toLowerCase());
-        const isAdj = /adjective/.test(String(row.pos).toLowerCase());
+        const posLower = String(row.pos).toLowerCase();
+        const isVerb = /verb/.test(posLower);
+        const isAdj = /adjective|adverb/.test(posLower);
+        const isPhrase = /phrase/.test(posLower) || /\s/.test(row.w);
         const family = familyFromText(`${row.w} ${row.th} ${row.collocation}`);
 
         return {
@@ -509,6 +513,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
           safeRelated:row.safeRelated,
           isVerb,
           isAdj,
+          isPhrase,
           family
         };
       })
@@ -573,7 +578,9 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     "แผนปฏิบัติการ",
     "ข้อสรุป",
     "การวิเคราะห์",
-    "ความแม่นยำ"
+    "ความแม่นยำ",
+    "การทำงานร่วมกัน",
+    "คู่มือผู้ใช้"
   ];
 
   const GENERIC_TERM_POOL = [
@@ -602,7 +609,11 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     "data analysis",
     "model accuracy",
     "future work",
-    "risk management"
+    "risk management",
+    "email attachment",
+    "teacher dashboard",
+    "project timeline",
+    "cover letter"
   ];
 
   const GENERIC_SENTENCE_POOL = [
@@ -615,7 +626,12 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     "The application uses input validation to reduce errors.",
     "The portfolio provides project evidence for an interview.",
     "The summary explains the main finding from the data analysis.",
-    "The design focus helps the team improve the user experience."
+    "The design focus helps the team improve the user experience.",
+    "The guide explains the login step in a clear sequence.",
+    "The team reviews the project timeline before assigning tasks.",
+    "The email includes an attachment note for the document.",
+    "The presentation shows supporting data for the final outcome.",
+    "The report discusses the limitation before the conclusion."
   ];
 
   const BANNED_PROMPT_FRAGMENTS = [
@@ -657,7 +673,9 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
   function tokenSet(value){
     const generic = new Set([
       "project","learning","academic","user","users","student","students",
-      "system","team","final","professional","data","report","task","work"
+      "system","team","final","professional","data","report","task","work",
+      "clear","clearly","communication","context","information","supports",
+      "explains","provides","uses","helps","before","after","with","for","the"
     ]);
 
     return canonicalText(value)
@@ -685,7 +703,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     return "general";
   }
 
-  function areConfusableText(a,b){
+  function areConfusableTerm(a,b){
     const ca = canonicalText(a);
     const cb = canonicalText(b);
 
@@ -765,40 +783,49 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
       x.session === spec.session &&
       x.w !== spec.w &&
       x.family !== spec.family &&
-      !areConfusableText(x.w,spec.w) &&
-      !areConfusableText(x.th,spec.th) &&
-      !areConfusableText(x.collocation,spec.collocation)
+      !areConfusableTerm(x.w,spec.w) &&
+      !areConfusableTerm(x.th,spec.th) &&
+      !areConfusableTerm(x.collocation,spec.collocation)
     );
 
     const global = ALL_SPECS.filter(x =>
       x.session !== spec.session &&
       x.w !== spec.w &&
       x.family !== spec.family &&
-      !areConfusableText(x.w,spec.w) &&
-      !areConfusableText(x.th,spec.th) &&
-      !areConfusableText(x.collocation,spec.collocation)
+      !areConfusableTerm(x.w,spec.w) &&
+      !areConfusableTerm(x.th,spec.th) &&
+      !areConfusableTerm(x.collocation,spec.collocation)
     );
 
     return sameSession.concat(global);
   }
 
-  function buildChoices(answer,candidates,fallback){
+  function buildTermLikeChoices(answer,candidates,fallback){
     const ans = normalizeText(answer);
     const out = [ans];
 
     uniq(candidates).forEach(c => {
       if(out.length >= 4) return;
       if(isBadChoiceText(c,ans)) return;
-      if(areConfusableText(c,ans)) return;
+      if(areConfusableTerm(c,ans)) return;
       out.push(c);
     });
 
     uniq(fallback || []).forEach(c => {
       if(out.length >= 4) return;
       if(isBadChoiceText(c,ans)) return;
-      if(areConfusableText(c,ans)) return;
+      if(areConfusableTerm(c,ans)) return;
       out.push(c);
     });
+
+    if(out.length < 4){
+      uniq(GENERIC_TERM_POOL.concat(THAI_DISTRACTOR_POOL)).forEach(c => {
+        if(out.length >= 4) return;
+        if(isBadChoiceText(c,ans)) return;
+        if(out.map(x => x.toLowerCase()).includes(c.toLowerCase())) return;
+        out.push(c);
+      });
+    }
 
     return out.slice(0,4);
   }
@@ -806,7 +833,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
   function buildThaiChoices(spec){
     const candidates = candidateSpecsFor(spec).map(x => x.th);
 
-    return buildChoices(
+    return buildTermLikeChoices(
       spec.th,
       candidates,
       THAI_DISTRACTOR_POOL
@@ -816,7 +843,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
   function buildTermChoices(spec){
     const candidates = candidateSpecsFor(spec).map(x => x.w);
 
-    return buildChoices(
+    return buildTermLikeChoices(
       spec.w,
       candidates,
       GENERIC_TERM_POOL
@@ -826,7 +853,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
   function buildCollocationChoices(spec){
     const candidates = candidateSpecsFor(spec).map(x => x.collocation);
 
-    return buildChoices(
+    return buildTermLikeChoices(
       spec.collocation,
       candidates,
       GENERIC_TERM_POOL
@@ -839,31 +866,82 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     const theme = String(spec.theme || "academic task").toLowerCase();
 
     if(spec.isVerb){
-      return `Students can ${term} information clearly in the ${theme} task.`;
+      return `Students use “${term}” to express “${spec.th}” clearly in the ${theme} task.`;
     }
 
-    if(/phrase/.test(String(spec.pos).toLowerCase()) || String(term).includes(" ")){
+    if(String(term).toLowerCase() === "cv"){
+      return `The academic CV summarizes the student’s qualifications for an application.`;
+    }
+
+    if(String(term).toLowerCase() === "suitable for"){
+      return `The design is suitable for the target learners in the project rationale.`;
+    }
+
+    if(spec.isAdj){
+      return `The text uses “${term}” to express “${spec.th}” in a formal academic context.`;
+    }
+
+    if(spec.isPhrase){
       return `The project explains the ${term} clearly in the ${theme} context.`;
     }
 
     return `The ${collocation} supports clear academic communication in the ${theme} task.`;
   }
 
-  function buildSentenceChoices(spec){
-    const candidates = candidateSpecsFor(spec).map(sentenceFor);
+  function sentenceIsSafeDistractor(sentence,answerSentence,spec){
+    const s = canonicalText(sentence);
+    const a = canonicalText(answerSentence);
+    const target = canonicalText(spec.w);
+    const meaning = canonicalText(spec.th);
 
-    return buildChoices(
-      sentenceFor(spec),
-      candidates,
-      GENERIC_SENTENCE_POOL
-    );
+    if(!s) return false;
+    if(s === a) return false;
+    if(isBadChoiceText(s,a)) return false;
+
+    if(target && s.includes(target)) return false;
+    if(meaning && s.includes(meaning)) return false;
+
+    return true;
+  }
+
+  function buildSentenceChoices(spec){
+    const answer = sentenceFor(spec);
+    const candidates = candidateSpecsFor(spec)
+      .filter(x => x.family !== spec.family)
+      .map(sentenceFor)
+      .filter(sentence => sentenceIsSafeDistractor(sentence,answer,spec));
+
+    const out = [answer];
+
+    uniq(candidates).forEach(sentence => {
+      if(out.length >= 4) return;
+      out.push(sentence);
+    });
+
+    uniq(GENERIC_SENTENCE_POOL).forEach(sentence => {
+      if(out.length >= 4) return;
+      if(sentenceIsSafeDistractor(sentence,answer,spec)){
+        out.push(sentence);
+      }
+    });
+
+    if(out.length < 4){
+      uniq(GENERIC_SENTENCE_POOL).forEach(sentence => {
+        if(out.length >= 4) return;
+        if(sentence.toLowerCase() !== answer.toLowerCase()){
+          out.push(sentence);
+        }
+      });
+    }
+
+    return out.slice(0,4);
   }
 
   function contextSentence(spec){
     const theme = spec.theme || "academic task";
 
     if(spec.isVerb){
-      return `In ${theme}, students should ______ when they want to express “${spec.th}” clearly.`;
+      return `In ${theme}, students should use the term ______ when they want to express “${spec.th}”.`;
     }
 
     return `In ${theme}, the term ______ refers to “${spec.th}”.`;
@@ -896,7 +974,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     };
   }
 
-  function validChoices(item){
+  function validTermLikeChoices(item){
     const choices = Array.isArray(item.choices) ? item.choices.map(normalizeText) : [];
     const answer = normalizeText(item.answer);
     const unique = new Set(choices.map(x => x.toLowerCase()));
@@ -905,7 +983,35 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
       unique.size === 4 &&
       choices.includes(answer) &&
       !choices.some(c => isBadChoiceText(c,answer)) &&
-      choices.filter(c => c !== answer).every(c => !areConfusableText(c,answer));
+      choices.filter(c => c !== answer).every(c => !areConfusableTerm(c,answer));
+  }
+
+  function validSentenceChoices(item){
+    const choices = Array.isArray(item.choices) ? item.choices.map(normalizeText) : [];
+    const answer = normalizeText(item.answer);
+    const unique = new Set(choices.map(x => x.toLowerCase()));
+    const target = canonicalText(item.targetTerm || item.word || "");
+    const meaning = canonicalText(item.targetMeaning || "");
+
+    if(choices.length !== 4) return false;
+    if(unique.size !== 4) return false;
+    if(!choices.includes(answer)) return false;
+    if(choices.some(c => isBadChoiceText(c,answer))) return false;
+
+    return choices.filter(c => c !== answer).every(c => {
+      const low = canonicalText(c);
+      if(target && low.includes(target)) return false;
+      if(meaning && low.includes(meaning)) return false;
+      return true;
+    });
+  }
+
+  function validChoices(item){
+    if(item.type === "academic_sentence"){
+      return validSentenceChoices(item);
+    }
+
+    return validTermLikeChoices(item);
   }
 
   function buildItemsForSpec(spec){
@@ -1001,11 +1107,24 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     if(unique.size !== 4) return "duplicate-choices";
     if(!choices.includes(answer)) return "answer-not-in-choices";
     if(BANNED_PROMPT_FRAGMENTS.some(x => lowPrompt.includes(x))) return "ambiguous-prompt";
-    if((item.type === "academic_sentence" || item.type === "applied_context" || item.type === "context_gap") && !prompt.includes(item.targetMeaning)){
-      return "prompt-missing-target-meaning";
+
+    if(
+      item.type === "academic_sentence" ||
+      item.type === "applied_context" ||
+      item.type === "context_gap" ||
+      item.type === "collocation_meaning" ||
+      item.type === "term_definition"
+    ){
+      if(!prompt.includes(item.targetMeaning)){
+        return "prompt-missing-target-meaning";
+      }
     }
-    if(choices.some(c => isBadChoiceText(c,answer))) return "weak-choice";
-    if(choices.filter(c => c !== answer).some(c => areConfusableText(c,answer))) return "semantic-collision";
+
+    if(item.type === "academic_sentence"){
+      if(!validSentenceChoices(item)) return "sentence-choice-issue";
+    }else{
+      if(!validTermLikeChoices(item)) return "term-choice-issue";
+    }
 
     return "";
   }
@@ -1029,7 +1148,8 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     expectedItemsPerSession:120,
     expectedBossPool:360,
     expectedFinalBossPool:1800,
-    bannedPromptFragments:BANNED_PROMPT_FRAGMENTS.slice()
+    bannedPromptFragments:BANNED_PROMPT_FRAGMENTS.slice(),
+    version:"v1.6.1"
   };
 
   window.EAP_DATA_SUMMARY = {
@@ -1037,6 +1157,7 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
     totalWords:ALL_SPECS.length,
     totalItems:window.QUESTION_BANK.length,
     expectedItems:1800,
+    expectedItemsPerSession:120,
     itemTypes:ITEM_TYPES.length,
     validityIssues:issueItems.length,
     finalStatus:
@@ -1052,6 +1173,6 @@ improvement plan|แผนการปรับปรุง|noun phrase|improvem
   console.info("[EAP Word Quest] Valid data loaded:",window.EAP_DATA_SUMMARY);
 
   if(issueItems.length){
-    console.warn("[EAP Word Quest] Validity issues:",issueItems.slice(0,80));
+    console.warn("[EAP Word Quest] Validity issues:",issueItems.slice(0,120));
   }
 })();
