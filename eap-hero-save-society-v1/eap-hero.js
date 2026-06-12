@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z47-boss-gate-naming-unlock-clarity';
+  const APP_VERSION = '20260610-v1z48-direct-s3-s6-route-hotfix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z47</div>
+              <div class="mini-note">Save the Society • v1z48</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32292,6 +32292,7 @@
     checks.push({name:'Session black screen recovery', ok:typeof safeOpenSession === 'function' && typeof renderSessionRecoveryPanel === 'function', detail:'Safe render guard active'});
     checks.push({name:'S3/S6 boss notice safe render', ok:typeof safeBossGateNoticeHTML === 'function' && typeof openSessionFromCard === 'function', detail:'Boss notice cannot black-screen session'});
     checks.push({name:'Boss gate naming clarity', ok:typeof sessionIsNotBossNote === 'function' && typeof bossGateUnlockRuleText === 'function', detail:'S3/S6 are normal sessions; Boss Gates are checkpoints'});
+    checks.push({name:'Direct S3/S6 route hotfix', ok:typeof directOpenSession === 'function' && typeof simpleSessionFallback === 'function', detail:'Checkpoint-adjacent sessions have fallback route'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32337,7 +32338,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z47</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z48</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -34307,7 +34308,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.map()">Back to Map</button>
-          <button class="btn" onclick="return EAPHero.safeOpenSession(${sid})">Try Again</button>
+          <button class="btn" onclick="return EAPHero.directOpenSession(${sid})">Try Again</button>
           <button class="btn" onclick="EAPHero.repairLegacySessionCompletion()">Repair Progress</button>
           <button class="btn ghost" onclick="EAPHero.continueSession()">Continue</button>
         </div>
@@ -34324,8 +34325,104 @@
   }
 
 
+
+  function safeSessionMeta(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    let s = null;
+    try{ s = typeof getSession === 'function' ? getSession(sid) : null; }catch(e){}
+    if(!s && Array.isArray(SESSIONS)) s = SESSIONS.find(x=>Number(x.id)===sid);
+    if(!s) s = {id:sid, title:`Session ${sid}`, boss:'Session Boss', skill:'Academic English', subtitle:'Skill practice'};
+    return s;
+  }
+
+  function simpleSessionFallback(sessionId, err){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const s = safeSessionMeta(sid);
+    const gateNote = (sid===3 || sid===6 || sid===9 || sid===12 || sid===15)
+      ? `<div class="session-not-boss-note"><b>S${sid} is a normal Session.</b><span>Complete this Session first. The Boss Gate opens only after the required Session set is passed.</span></div>`
+      : '';
+    layout(`<section class="panel simple-session-fallback" style="margin-top:20px">
+      <div class="badges"><span class="pill">Safe Session Mode</span><span class="pill">S${sid}</span><span class="pill">v1z48</span></div>
+      <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
+      <p class="lead">${safe(s.subtitle || s.skill || 'Practice Reading, Writing, Listening, and Speaking missions.')}</p>
+      ${gateNote}
+      <div class="grid four skill-open-grid">
+        <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Reading</button>
+        <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Writing',${sid})">Writing</button>
+        <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Listening',${sid})">Listening</button>
+        <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Speaking',${sid})">Speaking</button>
+      </div>
+      <div class="footer-actions">
+        <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+        <button class="btn ghost" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
+      </div>
+      ${err ? `<div class="recovery-error"><b>Recovered from:</b> ${safe(err.message || err)}</div>` : ''}
+    </section>`);
+    return false;
+  }
+
+  function openSkillMissionSafe(skill, sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    try{
+      state.currentSession = sid;
+      saveState();
+      if(typeof openSkillMission === 'function'){
+        openSkillMission(skill, sid);
+      }else if(skill === 'Reading' && typeof renderReadingMission === 'function') renderReadingMission(sid);
+      else if(skill === 'Writing' && typeof renderWritingMission === 'function') renderWritingMission(sid);
+      else if(skill === 'Listening' && typeof renderListeningMission === 'function') renderListeningMission(sid);
+      else if(skill === 'Speaking' && typeof renderSpeakingMission === 'function') renderSpeakingMission(sid);
+      else simpleSessionFallback(sid, 'Mission renderer not found');
+    }catch(err){
+      console.error('[openSkillMissionSafe]', err);
+      try{ logRuntimeErrorSafe('openSkillMissionSafe', err, {skill, sessionId:sid}); }catch(e){}
+      renderSessionRecoveryPanel(sid, err, 'openSkillMissionSafe');
+    }
+    return false;
+  }
+
+
+  function testS3S6Open(){
+    return {
+      s3: typeof directOpenSession === 'function',
+      s6: typeof simpleSessionFallback === 'function',
+      skillSafe: typeof openSkillMissionSafe === 'function'
+    };
+  }
+
+
+  function directOpenSession(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    state.currentSession = sid;
+    saveState();
+
+    // S3/S6/S9/S12/S15 are checkpoint-adjacent sessions. Open them with a safe fallback first to prevent black screen.
+    if([3,6,9,12,15].includes(sid)){
+      try{
+        if(typeof renderSkillPath === 'function'){
+          renderSkillPath(sid);
+          setTimeout(()=>{
+            const app = document.getElementById('app');
+            const blank = !app || ((app.textContent||'').trim().length < 20);
+            if(blank) simpleSessionFallback(sid, 'Blank after renderSkillPath');
+          }, 220);
+        }else{
+          simpleSessionFallback(sid);
+        }
+      }catch(err){
+        console.error('[directOpenSession checkpoint fallback]', err);
+        try{ logRuntimeErrorSafe('directOpenSession', err, {sessionId:sid}); }catch(e){}
+        simpleSessionFallback(sid, err);
+      }
+      return false;
+    }
+
+    return safeOpenSession(sid);
+  }
+
+
   function openSessionFromCard(sessionId){
-    return safeOpenSession(Number(sessionId || state.currentSession || 1) || 1);
+    return directOpenSession(Number(sessionId || state.currentSession || 1) || 1);
   }
 
 
@@ -34448,7 +34545,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Gate Boss':'Boss Gate unlocks later'}</button>
-          <button class="btn" onclick="return EAPHero.safeOpenSession(${gate.after})">Complete Skill Evidence</button>
+          <button class="btn" onclick="return EAPHero.directOpenSession(${gate.after})">Complete Skill Evidence</button>
           <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
         </div>
       </section>`);
@@ -35278,7 +35375,7 @@
         <div class="panel light" style="margin-top:18px">
           <h3>Session ${current.id}: ${safe(current.skill)}</h3>
           <p class="mini-note">Boss: ${safe(current.boss)} • Topic: ${safe(skillTextForSession(current).topic)}</p>
-          <button class="btn warn block" onclick="return EAPHero.safeOpenSession(${current.id})">🧭 Back to Session Path</button>
+          <button class="btn warn block" onclick="return EAPHero.directOpenSession(${current.id})">🧭 Back to Session Path</button>
           <div class="grid four">
             <button class="btn primary block" onclick="EAPHero.readingMission(${current.id})">📖 Reading</button>
             <button class="btn primary block" onclick="EAPHero.writingMission(${current.id})">✍️ Writing</button>
@@ -38394,6 +38491,11 @@
     bindHardButtonDelegation,
     openSkillMission,
     safeMissionSessionId,
+    testS3S6Open,
+    directOpenSession,
+    simpleSessionFallback,
+    openSkillMissionSafe,
+    safeSessionMeta,
     openSessionFromCard,
     safeOpenSession,
     safeOpenSkillPath,
