@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z40-boss-gate-unlock-enforcement';
+  const APP_VERSION = '20260610-v1z41-boss-gate-completion-detection-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z40</div>
+              <div class="mini-note">Save the Society • v1z41</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32284,6 +32284,7 @@
     checks.push({name:'Full mission coherence', ok:typeof fullMissionCoherenceAudit === 'function' && fullMissionCoherenceAudit().filter(r=>r.ok).length===60, detail:'S1-S15 x 4 skills aligned'});
     checks.push({name:'Boss gate timeline', ok:typeof BOSS_GATE_PLAN !== 'undefined' && BOSS_GATE_PLAN.length===5 && BOSS_GATE_PLAN[0].after.join(',')==='1,2,3', detail:'15 sessions + 5 checkpoints'});
     checks.push({name:'Boss gate unlock enforcement', ok:typeof bossGateUnlockReport === 'function' && bossGateUnlockReport(1).sessions.join(',')==='1,2,3', detail:'Locked gates require session completion'});
+    checks.push({name:'Boss gate completion detection', ok:typeof sessionCompletionReport === 'function' && typeof skillEvidenceCountForSession === 'function', detail:'Legacy evidence/stars/cards recognized'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32573,12 +32574,68 @@
     return bossGateUnlockReport(gateNo).unlocked;
   }
 
-  function isSessionCompleteForGate(sessionId){
+
+  function skillEvidenceCountForSession(sessionId){
+    const sid = Number(sessionId || 1);
+    const buckets = [
+      state.portfolio,
+      state.learningReports,
+      state.reports,
+      state.evidence,
+      state.submissions,
+      state.logs
+    ];
+    const skills = new Set();
+    buckets.forEach(bucket=>{
+      if(!bucket) return;
+      const arr = Array.isArray(bucket) ? bucket : Object.values(bucket);
+      arr.forEach(item=>{
+        if(!item || typeof item !== 'object') return;
+        const itemSid = Number(item.sessionId || item.session || item.s || item.sid || item.currentSession || 0);
+        if(itemSid !== sid) return;
+        const sk = String(item.skill || item.type || item.missionSkill || '').toLowerCase();
+        if(sk.includes('reading')) skills.add('Reading');
+        if(sk.includes('writing')) skills.add('Writing');
+        if(sk.includes('listening')) skills.add('Listening');
+        if(sk.includes('speaking')) skills.add('Speaking');
+      });
+    });
+    const sess = state.sessions?.[sid] || {};
+    const skillObj = sess.skills || sess.skillDone || sess.skillProgress || sess.missions || {};
+    ['Reading','Writing','Listening','Speaking'].forEach(k=>{
+      if(skillObj[k] || skillObj[k.toLowerCase()] || skillObj[k.toUpperCase()]) skills.add(k);
+    });
+    return {count:skills.size, skills:Array.from(skills)};
+  }
+
+  function sessionCompletionReport(sessionId){
     const sid = Number(sessionId || 1);
     const sess = state.sessions?.[sid] || {};
-    const skills = sess.skills || sess.skillDone || {};
-    const skillCount = ['Reading','Writing','Listening','Speaking'].filter(k => skills[k] || skills[k.toLowerCase()]).length;
-    return !!(sess.done || sess.completed || sess.bossDone || state.bossCards?.[sid] || skillCount >= 4);
+    const ev = skillEvidenceCountForSession(sid);
+    const starLike = Number(sess.stars || sess.scoreStars || sess.rating || 0) >= 1;
+    const xpLike = Number(sess.xp || sess.points || 0) > 0;
+    const cardLike = !!state.bossCards?.[sid];
+    const explicit = !!(sess.done || sess.completed || sess.complete || sess.bossDone || sess.cleared || sess.unlockedDone);
+    const enoughEvidence = ev.count >= 2; 
+    const complete = explicit || cardLike || enoughEvidence || starLike || xpLike;
+    return {
+      session:sid,
+      complete,
+      explicit,
+      cardLike,
+      evidenceSkills:ev.skills,
+      evidenceCount:ev.count,
+      starLike,
+      xpLike,
+      reason: complete
+        ? (explicit ? 'marked complete' : cardLike ? 'session boss cleared' : enoughEvidence ? `${ev.count} skill evidences` : starLike ? 'session has stars' : 'session has XP')
+        : `needs mission evidence (${ev.count}/2 found)`
+    };
+  }
+
+
+  function isSessionCompleteForGate(sessionId){
+    return sessionCompletionReport(sessionId).complete;
   }
 
   function isPreviousBossGateCleared(gateNo){
@@ -32590,34 +32647,59 @@
 
   function bossGateUnlockReport(gateNo){
     const gate = bossGateByNumber(gateNo);
-    const missingSessions = gate.after.filter(sid => !isSessionCompleteForGate(sid));
+    const sessionReports = gate.after.map(sid => sessionCompletionReport(sid));
+    const missingSessions = sessionReports.filter(r => !r.complete).map(r => r.session);
     const prevOk = isPreviousBossGateCleared(gate.gate);
     const unlocked = missingSessions.length === 0 && prevOk;
+    const missingDetail = sessionReports.filter(r=>!r.complete).map(r=>`S${r.session}: ${r.reason}`).join(' | ');
     return {
       gate: gate.gate,
       title: gate.title,
       sessions: gate.after,
+      sessionReports,
       missingSessions,
+      missingDetail,
       previousGateRequired: gate.gate > 1 ? gate.gate - 1 : null,
       previousGateCleared: prevOk,
       unlocked,
-      reason: unlocked ? 'Unlocked' : `${missingSessions.length ? 'Complete S' + missingSessions.join(', S') + '. ' : ''}${!prevOk ? 'Clear Boss Gate ' + (gate.gate-1) + ' first.' : ''}`.trim()
+      reason: unlocked
+        ? 'Unlocked'
+        : `${missingSessions.length ? missingDetail + '. ' : ''}${!prevOk ? 'Clear Boss Gate ' + (gate.gate-1) + ' first.' : ''}`.trim()
     };
   }
 
   function bossGateLockMessage(gateNo){
     const r = bossGateUnlockReport(gateNo);
+    const details = (r.sessionReports || []).map(x=>`<li>${x.complete?'✅':'⚠️'} S${x.session}: ${safe(x.reason)}${x.evidenceSkills?.length ? ' — '+safe(x.evidenceSkills.join(', ')) : ''}</li>`).join('');
     return `<div class="boss-gate-lock-message">
       <h3>🔒 ${safe(r.title)} is locked</h3>
       <p>${safe(r.reason || 'Complete the required sessions first.')}</p>
       <p><b>Required route:</b> ${r.sessions.map(s=>'S'+s).join(' → ')} → ${safe(r.title)}</p>
       ${r.previousGateRequired ? `<p><b>Also required:</b> Clear Boss Gate ${r.previousGateRequired}</p>` : ''}
+      <ul class="gate-session-checklist">${details}</ul>
       <div class="footer-actions">
         <button class="btn primary" onclick="EAPHero.map()">Back to Map</button>
         <button class="btn" onclick="EAPHero.continueSession()">Continue Session</button>
       </div>
     </div>`;
   }
+
+
+  function repairLegacySessionCompletion(){
+    state.sessions = state.sessions || {};
+    for(let sid=1; sid<=15; sid++){
+      const rep = sessionCompletionReport(sid);
+      if(rep.complete){
+        state.sessions[sid] = state.sessions[sid] || {};
+        state.sessions[sid].completed = true;
+        state.sessions[sid].completionReason = rep.reason;
+      }
+    }
+    saveState();
+    safeToast('Legacy session completion repaired');
+    renderMap();
+  }
+
 
   function renderBossGateLocked(gateNo){
     layout(`<section class="panel" style="margin-top:20px">${bossGateLockMessage(gateNo)}</section>`);
@@ -37874,6 +37956,9 @@
     bossGateProgress,
     isSessionCompleteForGate,
     isPreviousBossGateCleared,
+    skillEvidenceCountForSession,
+    sessionCompletionReport,
+    repairLegacySessionCompletion,
     bossGateUnlockReport,
     bossGateLockMessage,
     renderBossGateLocked,
