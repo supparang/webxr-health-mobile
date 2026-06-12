@@ -1611,3 +1611,7 @@ textarea{
 .compact-checkpoint-note b{font-weight:950}
 .compact-checkpoint-note span{display:block;margin-top:3px;font-size:12px}
 .normalized-checkpoint-session .soft-recovery-note,.normalized-checkpoint-session .recovery-error{display:none!important}
+
+/* === v1z52 Hide Four Skills Hub from Student Flow === */
+.student-hidden-hub-button{display:none!important}
+.student-hub-redirect-panel{opacity:.55;pointer-events:none}

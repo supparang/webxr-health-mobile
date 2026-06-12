@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z51-normalized-checkpoint-session-ui-polish';
+  const APP_VERSION = '20260610-v1z52-hide-four-skills-hub-student-flow';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z51</div>
+              <div class="mini-note">Save the Society • v1z52</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32338,7 +32338,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z51</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z52</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32397,6 +32397,51 @@
     }catch(err){
       emergencyBootPanel(err?.message || err);
     }
+  }
+
+
+
+  function isStudentRole(){
+    try{
+      const r = typeof roleMode === 'function' ? roleMode() : (state.settings?.roleMode || state.settings?.uiMode || 'student');
+      return String(r || 'student') === 'student';
+    }catch(e){ return true; }
+  }
+  function shouldHideFourSkillsHub(){ return isStudentRole(); }
+  function studentFlowRedirectFromHub(){
+    if(!shouldHideFourSkillsHub()) return false;
+    const sid = Number(state.currentSession || 1) || 1;
+    safeToast('Student flow uses Map → Session Path, not Four Skills Hub.');
+    if(typeof directOpenSession === 'function') return directOpenSession(sid);
+    if(typeof safeOpenSession === 'function') return safeOpenSession(sid);
+    renderMap();
+    return false;
+  }
+  function cleanupFourSkillsHubStudentUI(){
+    if(!shouldHideFourSkillsHub()) return;
+    document.querySelectorAll('button,a,.btn').forEach(el=>{
+      const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
+      const oc = String(el.getAttribute('onclick') || '');
+      if(/Four Skills Hub/i.test(txt) || /fourSkillsHub|skillMissionHub|renderSkillMissionHub/i.test(oc)){
+        el.style.display = 'none';
+        el.setAttribute('aria-hidden','true');
+        el.classList.add('student-hidden-hub-button');
+      }
+    });
+    document.querySelectorAll('h1,h2').forEach(h=>{
+      if(/EAP Skill Mission Hub|Four Skills/i.test(h.textContent || '')){
+        const panel = h.closest('.panel,section');
+        if(panel){
+          panel.classList.add('student-hub-redirect-panel');
+          setTimeout(studentFlowRedirectFromHub, 60);
+        }
+      }
+    });
+  }
+  function runFourSkillsHubCleanupSoon(){
+    cleanupFourSkillsHubStudentUI();
+    setTimeout(cleanupFourSkillsHubStudentUI, 80);
+    setTimeout(cleanupFourSkillsHubStudentUI, 350);
   }
 
 
@@ -34504,6 +34549,7 @@
 
   function testCheckpointIntercept(){
     runCheckpointSessionPatchSoon();
+    runFourSkillsHubCleanupSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -38514,6 +38560,11 @@
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
+    isStudentRole,
+    shouldHideFourSkillsHub,
+    studentFlowRedirectFromHub,
+    cleanupFourSkillsHubStudentUI,
+    runFourSkillsHubCleanupSoon,
     forceHome,
     forceMap,
     emergencyBootPanel,
