@@ -1,7 +1,7 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-quest.css
-   Version: v1.5.0-FINAL-RELEASE-LOCK
+   Version: v1.5.1-STUDENT-HOME-SIMPLIFY
 ========================================================= */
 
 :root{
@@ -451,7 +451,7 @@ select:focus{
 }
 
 /* =========================================================
-   Controls
+   Old Controls fallback
 ========================================================= */
 
 .controls{
@@ -461,6 +461,75 @@ select:focus{
   margin-top:16px;
   align-items:stretch;
   justify-content:start;
+}
+
+/* =========================================================
+   Student Home Controls v1.5.1
+========================================================= */
+
+.student-controls{
+  display:grid;
+  gap:12px;
+  margin-top:16px;
+}
+
+.primary-play{
+  width:100%;
+  min-height:58px;
+  font-size:1.08rem;
+  border-radius:18px;
+  box-shadow:0 18px 36px rgba(79,70,229,.24);
+}
+
+.student-secondary-controls{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+}
+
+.teacher-tools{
+  margin-top:4px;
+  border:1px dashed #cbd5e1;
+  border-radius:16px;
+  background:#f8fafc;
+  overflow:hidden;
+}
+
+.teacher-tools summary{
+  list-style:none;
+  cursor:pointer;
+  padding:12px 14px;
+  color:#64748b;
+  font-size:.86rem;
+  font-weight:900;
+  user-select:none;
+}
+
+.teacher-tools summary::-webkit-details-marker{
+  display:none;
+}
+
+.teacher-tools summary::before{
+  content:"▸ ";
+  color:#64748b;
+}
+
+.teacher-tools[open] summary::before{
+  content:"▾ ";
+}
+
+.teacher-tools-inner{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:10px;
+  padding:0 14px 14px;
+}
+
+.teacher-note{
+  color:#64748b;
+  font-size:.82rem;
+  line-height:1.35;
 }
 
 /* =========================================================
@@ -518,6 +587,11 @@ select:focus{
 
 .session-card.locked{
   opacity:.7;
+  filter:saturate(.85);
+}
+
+.session-card .tag.bad{
+  font-weight:900;
 }
 
 .session-top{
@@ -1092,6 +1166,10 @@ td{
   .controls{
     grid-template-columns:repeat(3,1fr);
   }
+
+  .student-secondary-controls{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
 }
 
 @media (max-width:860px){
@@ -1119,6 +1197,10 @@ td{
 
   .controls{
     grid-template-columns:repeat(2,1fr);
+  }
+
+  .student-secondary-controls{
+    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 
   .session-grid,
@@ -1167,11 +1249,13 @@ td{
     border-radius:22px;
   }
 
-  .controls{
+  .controls,
+  .student-secondary-controls{
     grid-template-columns:1fr;
   }
 
-  .controls .btn{
+  .controls .btn,
+  .student-secondary-controls .btn{
     width:100%;
   }
 
@@ -1224,7 +1308,7 @@ td{
 }
 
 /* =========================================================
-   EAP Word Quest v1.4.9 Final Mobile UX Polish
+   Mobile UX Polish
 ========================================================= */
 
 body.is-mobile{
@@ -1262,15 +1346,40 @@ body.is-mobile .word-card2{
   border-radius:18px;
 }
 
-body.is-mobile .controls{
+body.is-mobile .controls,
+body.is-mobile .student-controls{
   grid-template-columns:1fr;
-  gap:9px;
+  gap:10px;
 }
 
 body.is-mobile .controls .btn{
   width:100%;
   min-height:46px;
   justify-content:center;
+}
+
+body.is-mobile .primary-play{
+  min-height:56px;
+  font-size:1rem;
+}
+
+body.is-mobile .student-secondary-controls{
+  grid-template-columns:1fr;
+  gap:9px;
+}
+
+body.is-mobile .student-secondary-controls .btn{
+  width:100%;
+  min-height:46px;
+}
+
+body.is-mobile .teacher-tools-inner{
+  display:grid;
+  grid-template-columns:1fr;
+}
+
+body.is-mobile .teacher-tools-inner .btn{
+  width:100%;
 }
 
 body.is-mobile #homeStats,
