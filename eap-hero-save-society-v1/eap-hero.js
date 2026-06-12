@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z44-session-black-screen-recovery-safe-render';
+  const APP_VERSION = '20260610-v1z47-boss-gate-naming-unlock-clarity';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -11172,7 +11172,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B10",
+      "id": "S01_Boss Gate 10",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11189,7 +11189,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B11",
+      "id": "S01_Boss Gate 11",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11206,7 +11206,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B12",
+      "id": "S01_Boss Gate 12",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11223,7 +11223,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B13",
+      "id": "S01_Boss Gate 13",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11240,7 +11240,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B14",
+      "id": "S01_Boss Gate 14",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11257,7 +11257,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B15",
+      "id": "S01_Boss Gate 15",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11274,7 +11274,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B16",
+      "id": "S01_Boss Gate 16",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11291,7 +11291,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B17",
+      "id": "S01_Boss Gate 17",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11308,7 +11308,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B18",
+      "id": "S01_Boss Gate 18",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11325,7 +11325,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B19",
+      "id": "S01_Boss Gate 19",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11342,7 +11342,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B20",
+      "id": "S01_Boss Gate 20",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11359,7 +11359,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B21",
+      "id": "S01_Boss Gate 21",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11376,7 +11376,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B22",
+      "id": "S01_Boss Gate 22",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11393,7 +11393,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B23",
+      "id": "S01_Boss Gate 23",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11410,7 +11410,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B24",
+      "id": "S01_Boss Gate 24",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11427,7 +11427,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B25",
+      "id": "S01_Boss Gate 25",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11444,7 +11444,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B26",
+      "id": "S01_Boss Gate 26",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11461,7 +11461,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B27",
+      "id": "S01_Boss Gate 27",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11478,7 +11478,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B28",
+      "id": "S01_Boss Gate 28",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11495,7 +11495,7 @@
       "stemGroup": "Which academic goal is the most specific and usefu"
     },
     {
-      "id": "S01_B29",
+      "id": "S01_Boss Gate 29",
       "type": "mcq",
       "question": "Which academic goal is the most specific and useful?",
       "context": "",
@@ -11854,7 +11854,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B10",
+      "id": "S02_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The findings were ______ across the three different classes.",
@@ -11871,7 +11871,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B11",
+      "id": "S02_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The researcher will ______ the interview data before writing the report.",
@@ -11888,7 +11888,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B12",
+      "id": "S02_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The paragraph needs stronger ______ to support the writer’s claim.",
@@ -11905,7 +11905,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B13",
+      "id": "S02_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The ______ section explains how participants were selected for the study.",
@@ -11922,7 +11922,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B14",
+      "id": "S02_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The difference was ______ because it appeared across all three groups.",
@@ -11939,7 +11939,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B15",
+      "id": "S02_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The source was not reliable; ______, it should not be used as evidence.",
@@ -11956,7 +11956,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B16",
+      "id": "S02_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The app is convenient; ______, students still need to check accuracy.",
@@ -11973,7 +11973,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B17",
+      "id": "S02_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "Students should ______ online information before using it in assignments.",
@@ -11990,7 +11990,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B18",
+      "id": "S02_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The results ______ that weekly practice improved vocabulary scores.",
@@ -12007,7 +12007,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B19",
+      "id": "S02_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "A strong ______ should be supported with data or credible sources.",
@@ -12024,7 +12024,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B20",
+      "id": "S02_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The findings were ______ across the three different classes.",
@@ -12041,7 +12041,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B21",
+      "id": "S02_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The researcher will ______ the interview data before writing the report.",
@@ -12058,7 +12058,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B22",
+      "id": "S02_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The paragraph needs stronger ______ to support the writer’s claim.",
@@ -12075,7 +12075,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B23",
+      "id": "S02_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The ______ section explains how participants were selected for the study.",
@@ -12092,7 +12092,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B24",
+      "id": "S02_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The difference was ______ because it appeared across all three groups.",
@@ -12109,7 +12109,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B25",
+      "id": "S02_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The source was not reliable; ______, it should not be used as evidence.",
@@ -12126,7 +12126,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B26",
+      "id": "S02_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The app is convenient; ______, students still need to check accuracy.",
@@ -12143,7 +12143,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B27",
+      "id": "S02_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "Students should ______ online information before using it in assignments.",
@@ -12160,7 +12160,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B28",
+      "id": "S02_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "The results ______ that weekly practice improved vocabulary scores.",
@@ -12177,7 +12177,7 @@
       "stemGroup": "Choose the best academic word or connector."
     },
     {
-      "id": "S02_B29",
+      "id": "S02_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best academic word or connector.",
       "context": "A strong ______ should be supported with data or credible sources.",
@@ -12536,7 +12536,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B10",
+      "id": "S03_Boss Gate 10",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Presentation signposting helps audiences follow the speaker’s structure. Phrases such as first, next, and in conclusion guide listeners.",
@@ -12553,7 +12553,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B11",
+      "id": "S03_Boss Gate 11",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
@@ -12570,7 +12570,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B12",
+      "id": "S03_Boss Gate 12",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
@@ -12587,7 +12587,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B13",
+      "id": "S03_Boss Gate 13",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
@@ -12604,7 +12604,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B14",
+      "id": "S03_Boss Gate 14",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
@@ -12621,7 +12621,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B15",
+      "id": "S03_Boss Gate 15",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
@@ -12638,7 +12638,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B16",
+      "id": "S03_Boss Gate 16",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
@@ -12655,7 +12655,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B17",
+      "id": "S03_Boss Gate 17",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
@@ -12672,7 +12672,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B18",
+      "id": "S03_Boss Gate 18",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
@@ -12689,7 +12689,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B19",
+      "id": "S03_Boss Gate 19",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Academic email should be polite and specific. A clear subject and respectful request help instructors respond effectively.",
@@ -12706,7 +12706,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B20",
+      "id": "S03_Boss Gate 20",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Presentation signposting helps audiences follow the speaker’s structure. Phrases such as first, next, and in conclusion guide listeners.",
@@ -12723,7 +12723,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B21",
+      "id": "S03_Boss Gate 21",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Digital literacy helps students evaluate online sources and avoid misinformation. It also supports responsible communication when students share information online.",
@@ -12740,7 +12740,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B22",
+      "id": "S03_Boss Gate 22",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
@@ -12757,7 +12757,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B23",
+      "id": "S03_Boss Gate 23",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
@@ -12774,7 +12774,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B24",
+      "id": "S03_Boss Gate 24",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
@@ -12791,7 +12791,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B25",
+      "id": "S03_Boss Gate 25",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
@@ -12808,7 +12808,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B26",
+      "id": "S03_Boss Gate 26",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
@@ -12825,7 +12825,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B27",
+      "id": "S03_Boss Gate 27",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
@@ -12842,7 +12842,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B28",
+      "id": "S03_Boss Gate 28",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
@@ -12859,7 +12859,7 @@
       "stemGroup": "Which option best states the main idea?"
     },
     {
-      "id": "S03_B29",
+      "id": "S03_Boss Gate 29",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Academic email should be polite and specific. A clear subject and respectful request help instructors respond effectively.",
@@ -13218,7 +13218,7 @@
       "stemGroup": "What is the function of “first” and “next”?"
     },
     {
-      "id": "S04_B10",
+      "id": "S04_Boss Gate 10",
       "type": "mcq",
       "question": "What is the function of “as a result”?",
       "context": "As a result, many students submitted the correct file after the instructions were clarified.",
@@ -13235,7 +13235,7 @@
       "stemGroup": "What is the function of “as a result”?"
     },
     {
-      "id": "S04_B11",
+      "id": "S04_Boss Gate 11",
       "type": "mcq",
       "question": "What is the function of “however”?",
       "context": "The tool is convenient; however, students must still check accuracy.",
@@ -13252,7 +13252,7 @@
       "stemGroup": "What is the function of “however”?"
     },
     {
-      "id": "S04_B12",
+      "id": "S04_Boss Gate 12",
       "type": "mcq",
       "question": "What is the function of “therefore”?",
       "context": "The evidence was limited; therefore, the conclusion should be cautious.",
@@ -13269,7 +13269,7 @@
       "stemGroup": "What is the function of “therefore”?"
     },
     {
-      "id": "S04_B13",
+      "id": "S04_Boss Gate 13",
       "type": "mcq",
       "question": "What is the function of “because”?",
       "context": "Students improved because they practiced vocabulary every week.",
@@ -13286,7 +13286,7 @@
       "stemGroup": "What is the function of “because”?"
     },
     {
-      "id": "S04_B14",
+      "id": "S04_Boss Gate 14",
       "type": "mcq",
       "question": "What is the function of “such as”?",
       "context": "Digital tools, such as flashcards and dictionaries, can support vocabulary learning.",
@@ -13303,7 +13303,7 @@
       "stemGroup": "What is the function of “such as”?"
     },
     {
-      "id": "S04_B15",
+      "id": "S04_Boss Gate 15",
       "type": "mcq",
       "question": "What is the function of “moreover”?",
       "context": "The app provides practice; moreover, it gives immediate feedback.",
@@ -13320,7 +13320,7 @@
       "stemGroup": "What is the function of “moreover”?"
     },
     {
-      "id": "S04_B16",
+      "id": "S04_Boss Gate 16",
       "type": "mcq",
       "question": "What is the function of “compared with”?",
       "context": "Compared with printed texts, e-books are easier to search.",
@@ -13337,7 +13337,7 @@
       "stemGroup": "What is the function of “compared with”?"
     },
     {
-      "id": "S04_B17",
+      "id": "S04_Boss Gate 17",
       "type": "mcq",
       "question": "What is the function of “although”?",
       "context": "Although online learning is flexible, some students need face-to-face support.",
@@ -13354,7 +13354,7 @@
       "stemGroup": "What is the function of “although”?"
     },
     {
-      "id": "S04_B18",
+      "id": "S04_Boss Gate 18",
       "type": "mcq",
       "question": "What is the function of “in conclusion”?",
       "context": "In conclusion, digital literacy should be developed in university courses.",
@@ -13371,7 +13371,7 @@
       "stemGroup": "What is the function of “in conclusion”?"
     },
     {
-      "id": "S04_B19",
+      "id": "S04_Boss Gate 19",
       "type": "mcq",
       "question": "What is the function of “first” and “next”?",
       "context": "First, the speaker explains the problem; next, she presents possible solutions.",
@@ -13388,7 +13388,7 @@
       "stemGroup": "What is the function of “first” and “next”?"
     },
     {
-      "id": "S04_B20",
+      "id": "S04_Boss Gate 20",
       "type": "mcq",
       "question": "What is the function of “as a result”?",
       "context": "As a result, many students submitted the correct file after the instructions were clarified.",
@@ -13405,7 +13405,7 @@
       "stemGroup": "What is the function of “as a result”?"
     },
     {
-      "id": "S04_B21",
+      "id": "S04_Boss Gate 21",
       "type": "mcq",
       "question": "What is the function of “however”?",
       "context": "The tool is convenient; however, students must still check accuracy.",
@@ -13422,7 +13422,7 @@
       "stemGroup": "What is the function of “however”?"
     },
     {
-      "id": "S04_B22",
+      "id": "S04_Boss Gate 22",
       "type": "mcq",
       "question": "What is the function of “therefore”?",
       "context": "The evidence was limited; therefore, the conclusion should be cautious.",
@@ -13439,7 +13439,7 @@
       "stemGroup": "What is the function of “therefore”?"
     },
     {
-      "id": "S04_B23",
+      "id": "S04_Boss Gate 23",
       "type": "mcq",
       "question": "What is the function of “because”?",
       "context": "Students improved because they practiced vocabulary every week.",
@@ -13456,7 +13456,7 @@
       "stemGroup": "What is the function of “because”?"
     },
     {
-      "id": "S04_B24",
+      "id": "S04_Boss Gate 24",
       "type": "mcq",
       "question": "What is the function of “such as”?",
       "context": "Digital tools, such as flashcards and dictionaries, can support vocabulary learning.",
@@ -13473,7 +13473,7 @@
       "stemGroup": "What is the function of “such as”?"
     },
     {
-      "id": "S04_B25",
+      "id": "S04_Boss Gate 25",
       "type": "mcq",
       "question": "What is the function of “moreover”?",
       "context": "The app provides practice; moreover, it gives immediate feedback.",
@@ -13490,7 +13490,7 @@
       "stemGroup": "What is the function of “moreover”?"
     },
     {
-      "id": "S04_B26",
+      "id": "S04_Boss Gate 26",
       "type": "mcq",
       "question": "What is the function of “compared with”?",
       "context": "Compared with printed texts, e-books are easier to search.",
@@ -13507,7 +13507,7 @@
       "stemGroup": "What is the function of “compared with”?"
     },
     {
-      "id": "S04_B27",
+      "id": "S04_Boss Gate 27",
       "type": "mcq",
       "question": "What is the function of “although”?",
       "context": "Although online learning is flexible, some students need face-to-face support.",
@@ -13524,7 +13524,7 @@
       "stemGroup": "What is the function of “although”?"
     },
     {
-      "id": "S04_B28",
+      "id": "S04_Boss Gate 28",
       "type": "mcq",
       "question": "What is the function of “in conclusion”?",
       "context": "In conclusion, digital literacy should be developed in university courses.",
@@ -13541,7 +13541,7 @@
       "stemGroup": "What is the function of “in conclusion”?"
     },
     {
-      "id": "S04_B29",
+      "id": "S04_Boss Gate 29",
       "type": "mcq",
       "question": "What is the function of “first” and “next”?",
       "context": "First, the speaker explains the problem; next, she presents possible solutions.",
@@ -13900,7 +13900,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B10",
+      "id": "S05_Boss Gate 10",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Digital literacy training can reduce misinformation sharing.",
@@ -13917,7 +13917,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B11",
+      "id": "S05_Boss Gate 11",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The official university website states that registration closes on June 30.",
@@ -13934,7 +13934,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B12",
+      "id": "S05_Boss Gate 12",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "A survey of 420 students found that 61% used AI tools for drafting.",
@@ -13951,7 +13951,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B13",
+      "id": "S05_Boss Gate 13",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Online learning may improve students’ independence.",
@@ -13968,7 +13968,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B14",
+      "id": "S05_Boss Gate 14",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "In my view, mobile learning is more convenient than classroom learning.",
@@ -13985,7 +13985,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B15",
+      "id": "S05_Boss Gate 15",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The report was published by the Ministry in 2025.",
@@ -14002,7 +14002,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B16",
+      "id": "S05_Boss Gate 16",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "According to the article, participants completed a ten-item questionnaire.",
@@ -14019,7 +14019,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B17",
+      "id": "S05_Boss Gate 17",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Social media always reduces students’ concentration.",
@@ -14036,7 +14036,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B18",
+      "id": "S05_Boss Gate 18",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "I believe citation software is difficult to use.",
@@ -14053,7 +14053,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B19",
+      "id": "S05_Boss Gate 19",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The table shows that Group A scored twelve points higher than Group B.",
@@ -14070,7 +14070,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B20",
+      "id": "S05_Boss Gate 20",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Digital literacy training can reduce misinformation sharing.",
@@ -14087,7 +14087,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B21",
+      "id": "S05_Boss Gate 21",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The official university website states that registration closes on June 30.",
@@ -14104,7 +14104,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B22",
+      "id": "S05_Boss Gate 22",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "A survey of 420 students found that 61% used AI tools for drafting.",
@@ -14121,7 +14121,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B23",
+      "id": "S05_Boss Gate 23",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Online learning may improve students’ independence.",
@@ -14138,7 +14138,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B24",
+      "id": "S05_Boss Gate 24",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "In my view, mobile learning is more convenient than classroom learning.",
@@ -14155,7 +14155,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B25",
+      "id": "S05_Boss Gate 25",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The report was published by the Ministry in 2025.",
@@ -14172,7 +14172,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B26",
+      "id": "S05_Boss Gate 26",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "According to the article, participants completed a ten-item questionnaire.",
@@ -14189,7 +14189,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B27",
+      "id": "S05_Boss Gate 27",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Social media always reduces students’ concentration.",
@@ -14206,7 +14206,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B28",
+      "id": "S05_Boss Gate 28",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "I believe citation software is difficult to use.",
@@ -14223,7 +14223,7 @@
       "stemGroup": "Classify the statement."
     },
     {
-      "id": "S05_B29",
+      "id": "S05_Boss Gate 29",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The table shows that Group A scored twelve points higher than Group B.",
@@ -14582,7 +14582,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B10",
+      "id": "S06_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Academic email should be polite, clear, and specific.",
@@ -14599,7 +14599,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B11",
+      "id": "S06_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
@@ -14616,7 +14616,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B12",
+      "id": "S06_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
@@ -14633,7 +14633,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B13",
+      "id": "S06_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
@@ -14650,7 +14650,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B14",
+      "id": "S06_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Citation allows readers to locate the sources used in academic work.",
@@ -14667,7 +14667,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B15",
+      "id": "S06_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
@@ -14684,7 +14684,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B16",
+      "id": "S06_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Critical reading helps students check claims before accepting information.",
@@ -14701,7 +14701,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B17",
+      "id": "S06_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Academic presentations require clear structure and evidence.",
@@ -14718,7 +14718,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B18",
+      "id": "S06_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Data description should highlight major trends instead of listing every value.",
@@ -14735,7 +14735,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B19",
+      "id": "S06_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Responsible AI use requires checking outputs and acknowledging assistance when required.",
@@ -14752,7 +14752,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B20",
+      "id": "S06_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Academic email should be polite, clear, and specific.",
@@ -14769,7 +14769,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B21",
+      "id": "S06_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
@@ -14786,7 +14786,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B22",
+      "id": "S06_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
@@ -14803,7 +14803,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B23",
+      "id": "S06_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
@@ -14820,7 +14820,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B24",
+      "id": "S06_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Citation allows readers to locate the sources used in academic work.",
@@ -14837,7 +14837,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B25",
+      "id": "S06_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
@@ -14854,7 +14854,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B26",
+      "id": "S06_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Critical reading helps students check claims before accepting information.",
@@ -14871,7 +14871,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B27",
+      "id": "S06_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Academic presentations require clear structure and evidence.",
@@ -14888,7 +14888,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B28",
+      "id": "S06_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Data description should highlight major trends instead of listing every value.",
@@ -14905,7 +14905,7 @@
       "stemGroup": "Choose the best summary."
     },
     {
-      "id": "S06_B29",
+      "id": "S06_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Responsible AI use requires checking outputs and acknowledging assistance when required.",
@@ -15264,7 +15264,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B10",
+      "id": "S07_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The result was really bad.",
@@ -15281,7 +15281,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B11",
+      "id": "S07_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: AI is super useful for students.",
@@ -15298,7 +15298,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B12",
+      "id": "S07_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: This source is kind of bad.",
@@ -15315,7 +15315,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B13",
+      "id": "S07_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: Lots of students use phones in class.",
@@ -15332,7 +15332,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B14",
+      "id": "S07_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The data looks weird.",
@@ -15349,7 +15349,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B15",
+      "id": "S07_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: This problem is huge.",
@@ -15366,7 +15366,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B16",
+      "id": "S07_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The writer talks about AI stuff.",
@@ -15383,7 +15383,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B17",
+      "id": "S07_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: People should not believe random posts.",
@@ -15400,7 +15400,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B18",
+      "id": "S07_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The class helped a lot.",
@@ -15417,7 +15417,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B19",
+      "id": "S07_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: Social media makes students waste time.",
@@ -15434,7 +15434,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B20",
+      "id": "S07_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The result was really bad.",
@@ -15451,7 +15451,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B21",
+      "id": "S07_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: AI is super useful for students.",
@@ -15468,7 +15468,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B22",
+      "id": "S07_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: This source is kind of bad.",
@@ -15485,7 +15485,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B23",
+      "id": "S07_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: Lots of students use phones in class.",
@@ -15502,7 +15502,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B24",
+      "id": "S07_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The data looks weird.",
@@ -15519,7 +15519,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B25",
+      "id": "S07_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: This problem is huge.",
@@ -15536,7 +15536,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B26",
+      "id": "S07_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The writer talks about AI stuff.",
@@ -15553,7 +15553,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B27",
+      "id": "S07_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: People should not believe random posts.",
@@ -15570,7 +15570,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B28",
+      "id": "S07_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: The class helped a lot.",
@@ -15587,7 +15587,7 @@
       "stemGroup": "Choose the most academic version."
     },
     {
-      "id": "S07_B29",
+      "id": "S07_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the most academic version.",
       "context": "Informal: Social media makes students waste time.",
@@ -15946,7 +15946,7 @@
       "stemGroup": "integrated_8"
     },
     {
-      "id": "S08_B10",
+      "id": "S08_Boss Gate 10",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Peer feedback helps students notice unclear ideas in a draft. It can also improve paragraph organization before final submission.",
@@ -15963,7 +15963,7 @@
       "stemGroup": "integrated_9"
     },
     {
-      "id": "S08_B11",
+      "id": "S08_Boss Gate 11",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Academic vocabulary helps students understand textbooks and research articles. Without key terms, they may misunderstand the writer’s argument.",
@@ -15980,7 +15980,7 @@
       "stemGroup": "integrated_10"
     },
     {
-      "id": "S08_B12",
+      "id": "S08_Boss Gate 12",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Citation helps readers locate the original sources of information. It also shows that writers respect academic integrity.",
@@ -15997,7 +15997,7 @@
       "stemGroup": "integrated_11"
     },
     {
-      "id": "S08_B13",
+      "id": "S08_Boss Gate 13",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Online learning platforms provide videos, quizzes, and feedback. These tools help students practice outside the classroom.",
@@ -16014,7 +16014,7 @@
       "stemGroup": "integrated_12"
     },
     {
-      "id": "S08_B14",
+      "id": "S08_Boss Gate 14",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Critical reading requires checking claims and evidence. This skill is important when students read online information.",
@@ -16031,7 +16031,7 @@
       "stemGroup": "integrated_13"
     },
     {
-      "id": "S08_B15",
+      "id": "S08_Boss Gate 15",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Summarizing requires students to identify key points and restate them briefly. This skill helps reduce copying from sources.",
@@ -16048,7 +16048,7 @@
       "stemGroup": "integrated_14"
     },
     {
-      "id": "S08_B16",
+      "id": "S08_Boss Gate 16",
       "type": "mcq",
       "question": "Which option best states the main idea?",
       "context": "Data description should focus on major trends rather than every number. This helps readers understand the main pattern quickly.",
@@ -16065,7 +16065,7 @@
       "stemGroup": "integrated_15"
     },
     {
-      "id": "S08_B17",
+      "id": "S08_Boss Gate 17",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The official university website states that registration closes on June 30.",
@@ -16082,7 +16082,7 @@
       "stemGroup": "integrated_16"
     },
     {
-      "id": "S08_B18",
+      "id": "S08_Boss Gate 18",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "A survey of 420 students found that 61% used AI tools for drafting.",
@@ -16099,7 +16099,7 @@
       "stemGroup": "integrated_17"
     },
     {
-      "id": "S08_B19",
+      "id": "S08_Boss Gate 19",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Online learning may improve students’ independence.",
@@ -16116,7 +16116,7 @@
       "stemGroup": "integrated_18"
     },
     {
-      "id": "S08_B20",
+      "id": "S08_Boss Gate 20",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "In my view, mobile learning is more convenient than classroom learning.",
@@ -16133,7 +16133,7 @@
       "stemGroup": "integrated_19"
     },
     {
-      "id": "S08_B21",
+      "id": "S08_Boss Gate 21",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "The report was published by the Ministry in 2025.",
@@ -16150,7 +16150,7 @@
       "stemGroup": "integrated_20"
     },
     {
-      "id": "S08_B22",
+      "id": "S08_Boss Gate 22",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "According to the article, participants completed a ten-item questionnaire.",
@@ -16167,7 +16167,7 @@
       "stemGroup": "integrated_21"
     },
     {
-      "id": "S08_B23",
+      "id": "S08_Boss Gate 23",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "Social media always reduces students’ concentration.",
@@ -16184,7 +16184,7 @@
       "stemGroup": "integrated_22"
     },
     {
-      "id": "S08_B24",
+      "id": "S08_Boss Gate 24",
       "type": "mcq",
       "question": "Classify the statement.",
       "context": "I believe citation software is difficult to use.",
@@ -16201,7 +16201,7 @@
       "stemGroup": "integrated_23"
     },
     {
-      "id": "S08_B25",
+      "id": "S08_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Digital literacy helps students evaluate sources and communicate responsibly online.",
@@ -16218,7 +16218,7 @@
       "stemGroup": "integrated_24"
     },
     {
-      "id": "S08_B26",
+      "id": "S08_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Peer feedback can help students revise unclear ideas and improve paragraph organization.",
@@ -16235,7 +16235,7 @@
       "stemGroup": "integrated_25"
     },
     {
-      "id": "S08_B27",
+      "id": "S08_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Exercise may reduce stress and improve sleep quality among university students.",
@@ -16252,7 +16252,7 @@
       "stemGroup": "integrated_26"
     },
     {
-      "id": "S08_B28",
+      "id": "S08_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Citation allows readers to locate the sources used in academic work.",
@@ -16269,7 +16269,7 @@
       "stemGroup": "integrated_27"
     },
     {
-      "id": "S08_B29",
+      "id": "S08_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best summary.",
       "context": "Original: Online learning platforms provide tools that help students study outside the classroom.",
@@ -16628,7 +16628,7 @@
       "stemGroup": "Choose the best topic sentence."
     },
     {
-      "id": "S09_B10",
+      "id": "S09_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best supporting detail.",
       "context": "Topic sentence: Online learning can support flexible study for university students.",
@@ -16645,7 +16645,7 @@
       "stemGroup": "Choose the best supporting detail."
     },
     {
-      "id": "S09_B11",
+      "id": "S09_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best concluding sentence.",
       "context": "Paragraph topic: Digital literacy",
@@ -16662,7 +16662,7 @@
       "stemGroup": "Choose the best concluding sentence."
     },
     {
-      "id": "S09_B12",
+      "id": "S09_Boss Gate 12",
       "type": "mcq",
       "question": "Which sentence does NOT fit this paragraph topic?",
       "context": "Topic: Peer feedback",
@@ -16679,7 +16679,7 @@
       "stemGroup": "Which sentence does NOT fit this paragraph topic?"
     },
     {
-      "id": "S09_B13",
+      "id": "S09_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best topic sentence.",
       "context": "Topic: Exercise",
@@ -16696,7 +16696,7 @@
       "stemGroup": "Choose the best topic sentence."
     },
     {
-      "id": "S09_B14",
+      "id": "S09_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best supporting detail.",
       "context": "Topic sentence: Citation is important for academic integrity.",
@@ -16713,7 +16713,7 @@
       "stemGroup": "Choose the best supporting detail."
     },
     {
-      "id": "S09_B15",
+      "id": "S09_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best concluding sentence.",
       "context": "Paragraph topic: AI tools",
@@ -16730,7 +16730,7 @@
       "stemGroup": "Choose the best concluding sentence."
     },
     {
-      "id": "S09_B16",
+      "id": "S09_Boss Gate 16",
       "type": "mcq",
       "question": "Which sentence does NOT fit this paragraph topic?",
       "context": "Topic: Academic email",
@@ -16747,7 +16747,7 @@
       "stemGroup": "Which sentence does NOT fit this paragraph topic?"
     },
     {
-      "id": "S09_B17",
+      "id": "S09_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best topic sentence.",
       "context": "Topic: Presentation",
@@ -16764,7 +16764,7 @@
       "stemGroup": "Choose the best topic sentence."
     },
     {
-      "id": "S09_B18",
+      "id": "S09_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best supporting detail.",
       "context": "Topic sentence: Data description should highlight major trends.",
@@ -16781,7 +16781,7 @@
       "stemGroup": "Choose the best supporting detail."
     },
     {
-      "id": "S09_B19",
+      "id": "S09_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best concluding sentence.",
       "context": "Paragraph topic: Critical reading",
@@ -16798,7 +16798,7 @@
       "stemGroup": "Choose the best concluding sentence."
     },
     {
-      "id": "S09_B20",
+      "id": "S09_Boss Gate 20",
       "type": "mcq",
       "question": "Which sentence does NOT fit this paragraph topic?",
       "context": "Topic: Online learning",
@@ -16815,7 +16815,7 @@
       "stemGroup": "Which sentence does NOT fit this paragraph topic?"
     },
     {
-      "id": "S09_B21",
+      "id": "S09_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best topic sentence.",
       "context": "Topic: Digital literacy",
@@ -16832,7 +16832,7 @@
       "stemGroup": "Choose the best topic sentence."
     },
     {
-      "id": "S09_B22",
+      "id": "S09_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best supporting detail.",
       "context": "Topic sentence: Peer feedback can improve students’ academic writing.",
@@ -16849,7 +16849,7 @@
       "stemGroup": "Choose the best supporting detail."
     },
     {
-      "id": "S09_B23",
+      "id": "S09_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best concluding sentence.",
       "context": "Paragraph topic: Exercise",
@@ -16866,7 +16866,7 @@
       "stemGroup": "Choose the best concluding sentence."
     },
     {
-      "id": "S09_B24",
+      "id": "S09_Boss Gate 24",
       "type": "mcq",
       "question": "Which sentence does NOT fit this paragraph topic?",
       "context": "Topic: Citation",
@@ -16883,7 +16883,7 @@
       "stemGroup": "Which sentence does NOT fit this paragraph topic?"
     },
     {
-      "id": "S09_B25",
+      "id": "S09_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best topic sentence.",
       "context": "Topic: AI tools",
@@ -16900,7 +16900,7 @@
       "stemGroup": "Choose the best topic sentence."
     },
     {
-      "id": "S09_B26",
+      "id": "S09_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best supporting detail.",
       "context": "Topic sentence: Academic email requires polite and clear communication.",
@@ -16917,7 +16917,7 @@
       "stemGroup": "Choose the best supporting detail."
     },
     {
-      "id": "S09_B27",
+      "id": "S09_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best concluding sentence.",
       "context": "Paragraph topic: Presentation",
@@ -16934,7 +16934,7 @@
       "stemGroup": "Choose the best concluding sentence."
     },
     {
-      "id": "S09_B28",
+      "id": "S09_Boss Gate 28",
       "type": "mcq",
       "question": "Which sentence does NOT fit this paragraph topic?",
       "context": "Topic: Data description",
@@ -16951,7 +16951,7 @@
       "stemGroup": "Which sentence does NOT fit this paragraph topic?"
     },
     {
-      "id": "S09_B29",
+      "id": "S09_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best topic sentence.",
       "context": "Topic: Critical reading",
@@ -17310,7 +17310,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B10",
+      "id": "S10_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Engagement rose from 40% to 65% after game-based learning was introduced.",
@@ -17327,7 +17327,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B11",
+      "id": "S10_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: AI tool use increased from 30% in 2023 to 55% in 2025.",
@@ -17344,7 +17344,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B12",
+      "id": "S10_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Group A scored 78%, while Group B scored 62%.",
@@ -17361,7 +17361,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B13",
+      "id": "S10_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: The number of errors fell from 15 in Draft 1 to 6 in Draft 2.",
@@ -17378,7 +17378,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B14",
+      "id": "S10_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Student attendance was 80%, 81%, and 80% across three weeks.",
@@ -17395,7 +17395,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B15",
+      "id": "S10_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Downloads rose from 100 in January to 180 in February.",
@@ -17412,7 +17412,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B16",
+      "id": "S10_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Video preference was 45%, while quiz preference was 30%.",
@@ -17429,7 +17429,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B17",
+      "id": "S10_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: The score changed from 81 to 83.",
@@ -17446,7 +17446,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B18",
+      "id": "S10_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: The percentage fell from 70% to 52% after the training.",
@@ -17463,7 +17463,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B19",
+      "id": "S10_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Class A had 35 participants and Class B had 35 participants.",
@@ -17480,7 +17480,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B20",
+      "id": "S10_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Engagement rose from 40% to 65% after game-based learning was introduced.",
@@ -17497,7 +17497,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B21",
+      "id": "S10_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: AI tool use increased from 30% in 2023 to 55% in 2025.",
@@ -17514,7 +17514,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B22",
+      "id": "S10_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Group A scored 78%, while Group B scored 62%.",
@@ -17531,7 +17531,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B23",
+      "id": "S10_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: The number of errors fell from 15 in Draft 1 to 6 in Draft 2.",
@@ -17548,7 +17548,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B24",
+      "id": "S10_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Student attendance was 80%, 81%, and 80% across three weeks.",
@@ -17565,7 +17565,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B25",
+      "id": "S10_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Downloads rose from 100 in January to 180 in February.",
@@ -17582,7 +17582,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B26",
+      "id": "S10_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Video preference was 45%, while quiz preference was 30%.",
@@ -17599,7 +17599,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B27",
+      "id": "S10_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: The score changed from 81 to 83.",
@@ -17616,7 +17616,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B28",
+      "id": "S10_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: The percentage fell from 70% to 52% after the training.",
@@ -17633,7 +17633,7 @@
       "stemGroup": "Choose the best data description."
     },
     {
-      "id": "S10_B29",
+      "id": "S10_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best data description.",
       "context": "Data: Class A had 35 participants and Class B had 35 participants.",
@@ -17992,7 +17992,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B10",
+      "id": "S11_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to ask for score clarification.",
@@ -18009,7 +18009,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B11",
+      "id": "S11_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to request feedback on a draft report.",
@@ -18026,7 +18026,7 @@
       "stemGroup": "Choose the best purpose sentence."
     },
     {
-      "id": "S11_B12",
+      "id": "S11_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the most appropriate closing for an academic email.",
       "context": "",
@@ -18043,7 +18043,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B13",
+      "id": "S11_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to ask about presentation requirements.",
@@ -18060,7 +18060,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B14",
+      "id": "S11_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to submit a revised assignment.",
@@ -18077,7 +18077,7 @@
       "stemGroup": "Choose the best purpose sentence."
     },
     {
-      "id": "S11_B15",
+      "id": "S11_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the most appropriate closing for an academic email.",
       "context": "",
@@ -18094,7 +18094,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B16",
+      "id": "S11_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to ask about citation format.",
@@ -18111,7 +18111,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B17",
+      "id": "S11_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to apologize for late submission.",
@@ -18128,7 +18128,7 @@
       "stemGroup": "Choose the best purpose sentence."
     },
     {
-      "id": "S11_B18",
+      "id": "S11_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the most appropriate closing for an academic email.",
       "context": "",
@@ -18145,7 +18145,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B19",
+      "id": "S11_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to send presentation slides.",
@@ -18162,7 +18162,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B20",
+      "id": "S11_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to ask for score clarification.",
@@ -18179,7 +18179,7 @@
       "stemGroup": "Choose the best purpose sentence."
     },
     {
-      "id": "S11_B21",
+      "id": "S11_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the most appropriate closing for an academic email.",
       "context": "",
@@ -18196,7 +18196,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B22",
+      "id": "S11_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to ask for an appointment during office hours.",
@@ -18213,7 +18213,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B23",
+      "id": "S11_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to ask about presentation requirements.",
@@ -18230,7 +18230,7 @@
       "stemGroup": "Choose the best purpose sentence."
     },
     {
-      "id": "S11_B24",
+      "id": "S11_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the most appropriate closing for an academic email.",
       "context": "",
@@ -18247,7 +18247,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B25",
+      "id": "S11_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to request an assignment extension.",
@@ -18264,7 +18264,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B26",
+      "id": "S11_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to ask about citation format.",
@@ -18281,7 +18281,7 @@
       "stemGroup": "Choose the best purpose sentence."
     },
     {
-      "id": "S11_B27",
+      "id": "S11_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the most appropriate closing for an academic email.",
       "context": "",
@@ -18298,7 +18298,7 @@
       "stemGroup": "Choose the most appropriate closing for an academi"
     },
     {
-      "id": "S11_B28",
+      "id": "S11_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best subject line.",
       "context": "Situation: You need to ask about a group project meeting.",
@@ -18315,7 +18315,7 @@
       "stemGroup": "Choose the best subject line."
     },
     {
-      "id": "S11_B29",
+      "id": "S11_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best purpose sentence.",
       "context": "Situation: You need to send presentation slides.",
@@ -18674,7 +18674,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B10",
+      "id": "S12_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Citing a source that does not support the claim.",
@@ -18691,7 +18691,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B11",
+      "id": "S12_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Copying a paragraph from a website without citation.",
@@ -18708,7 +18708,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B12",
+      "id": "S12_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Paraphrasing a source idea and including a citation.",
@@ -18725,7 +18725,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B13",
+      "id": "S12_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Changing only a few words from the original sentence.",
@@ -18742,7 +18742,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B14",
+      "id": "S12_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Using AI output without checking accuracy or declaring use when required.",
@@ -18759,7 +18759,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B15",
+      "id": "S12_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Inventing a reference that does not exist.",
@@ -18776,7 +18776,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B16",
+      "id": "S12_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Quoting a sentence with quotation marks and citation.",
@@ -18793,7 +18793,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B17",
+      "id": "S12_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Summarizing a source and citing it in the paragraph.",
@@ -18810,7 +18810,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B18",
+      "id": "S12_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Using a source idea without naming the source.",
@@ -18827,7 +18827,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B19",
+      "id": "S12_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Checking AI information against credible sources before using it.",
@@ -18844,7 +18844,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B20",
+      "id": "S12_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Citing a source that does not support the claim.",
@@ -18861,7 +18861,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B21",
+      "id": "S12_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Copying a paragraph from a website without citation.",
@@ -18878,7 +18878,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B22",
+      "id": "S12_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Paraphrasing a source idea and including a citation.",
@@ -18895,7 +18895,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B23",
+      "id": "S12_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Changing only a few words from the original sentence.",
@@ -18912,7 +18912,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B24",
+      "id": "S12_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Using AI output without checking accuracy or declaring use when required.",
@@ -18929,7 +18929,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B25",
+      "id": "S12_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Inventing a reference that does not exist.",
@@ -18946,7 +18946,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B26",
+      "id": "S12_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Quoting a sentence with quotation marks and citation.",
@@ -18963,7 +18963,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B27",
+      "id": "S12_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Summarizing a source and citing it in the paragraph.",
@@ -18980,7 +18980,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B28",
+      "id": "S12_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Using a source idea without naming the source.",
@@ -18997,7 +18997,7 @@
       "stemGroup": "Choose the best ethical judgment."
     },
     {
-      "id": "S12_B29",
+      "id": "S12_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best ethical judgment.",
       "context": "Action: Checking AI information against credible sources before using it.",
@@ -19356,7 +19356,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B10",
+      "id": "S13_Boss Gate 10",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: First, the speaker introduces the problem; then, she explains possible solutions.",
@@ -19373,7 +19373,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B11",
+      "id": "S13_Boss Gate 11",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: Today, I will explain three strategies for academic reading: previewing, identifying keywords, and reviewing notes.",
@@ -19390,7 +19390,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B12",
+      "id": "S13_Boss Gate 12",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: The first reason citation is important is that it helps readers locate the original source.",
@@ -19407,7 +19407,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B13",
+      "id": "S13_Boss Gate 13",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: Although AI tools are useful, students must check the accuracy of their output.",
@@ -19424,7 +19424,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B14",
+      "id": "S13_Boss Gate 14",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: The survey included 250 undergraduate students from three faculties.",
@@ -19441,7 +19441,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B15",
+      "id": "S13_Boss Gate 15",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: To sum up, digital literacy helps students evaluate online information more responsibly.",
@@ -19458,7 +19458,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B16",
+      "id": "S13_Boss Gate 16",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: Next, I will discuss how evidence can make an academic argument more convincing.",
@@ -19475,7 +19475,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B17",
+      "id": "S13_Boss Gate 17",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: The study found a significant increase in engagement after game-based learning was introduced.",
@@ -19492,7 +19492,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B18",
+      "id": "S13_Boss Gate 18",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: Students should check the author, date, and source before sharing online information.",
@@ -19509,7 +19509,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B19",
+      "id": "S13_Boss Gate 19",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: In conclusion, clear presentation structure helps audiences follow complex ideas.",
@@ -19526,7 +19526,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B20",
+      "id": "S13_Boss Gate 20",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: First, the speaker introduces the problem; then, she explains possible solutions.",
@@ -19543,7 +19543,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B21",
+      "id": "S13_Boss Gate 21",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: Today, I will explain three strategies for academic reading: previewing, identifying keywords, and reviewing notes.",
@@ -19560,7 +19560,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B22",
+      "id": "S13_Boss Gate 22",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: The first reason citation is important is that it helps readers locate the original source.",
@@ -19577,7 +19577,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B23",
+      "id": "S13_Boss Gate 23",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: Although AI tools are useful, students must check the accuracy of their output.",
@@ -19594,7 +19594,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B24",
+      "id": "S13_Boss Gate 24",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: The survey included 250 undergraduate students from three faculties.",
@@ -19611,7 +19611,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B25",
+      "id": "S13_Boss Gate 25",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: To sum up, digital literacy helps students evaluate online information more responsibly.",
@@ -19628,7 +19628,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B26",
+      "id": "S13_Boss Gate 26",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: Next, I will discuss how evidence can make an academic argument more convincing.",
@@ -19645,7 +19645,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B27",
+      "id": "S13_Boss Gate 27",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: The study found a significant increase in engagement after game-based learning was introduced.",
@@ -19662,7 +19662,7 @@
       "stemGroup": "Listening simulation: What is the main point?"
     },
     {
-      "id": "S13_B28",
+      "id": "S13_Boss Gate 28",
       "type": "mcq",
       "question": "Which note is most effective?",
       "context": "Transcript: Students should check the author, date, and source before sharing online information.",
@@ -19679,7 +19679,7 @@
       "stemGroup": "Which note is most effective?"
     },
     {
-      "id": "S13_B29",
+      "id": "S13_Boss Gate 29",
       "type": "mcq",
       "question": "Listening simulation: What is the main point?",
       "context": "Transcript: In conclusion, clear presentation structure helps audiences follow complex ideas.",
@@ -20038,7 +20038,7 @@
       "stemGroup": "Choose the best audience thanks phrase for an acad"
     },
     {
-      "id": "S14_B10",
+      "id": "S14_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best uncertain answer phrase for an academic presentation.",
       "context": "",
@@ -20055,7 +20055,7 @@
       "stemGroup": "Choose the best uncertain answer phrase for an aca"
     },
     {
-      "id": "S14_B11",
+      "id": "S14_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best opening phrase for an academic presentation.",
       "context": "",
@@ -20072,7 +20072,7 @@
       "stemGroup": "Choose the best opening phrase for an academic pre"
     },
     {
-      "id": "S14_B12",
+      "id": "S14_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the best outline phrase for an academic presentation.",
       "context": "",
@@ -20089,7 +20089,7 @@
       "stemGroup": "Choose the best outline phrase for an academic pre"
     },
     {
-      "id": "S14_B13",
+      "id": "S14_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best transition phrase for an academic presentation.",
       "context": "",
@@ -20106,7 +20106,7 @@
       "stemGroup": "Choose the best transition phrase for an academic "
     },
     {
-      "id": "S14_B14",
+      "id": "S14_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best evidence phrase for an academic presentation.",
       "context": "",
@@ -20123,7 +20123,7 @@
       "stemGroup": "Choose the best evidence phrase for an academic pr"
     },
     {
-      "id": "S14_B15",
+      "id": "S14_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best conclusion phrase for an academic presentation.",
       "context": "",
@@ -20140,7 +20140,7 @@
       "stemGroup": "Choose the best conclusion phrase for an academic "
     },
     {
-      "id": "S14_B16",
+      "id": "S14_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best Q&A response phrase for an academic presentation.",
       "context": "",
@@ -20157,7 +20157,7 @@
       "stemGroup": "Choose the best Q&A response phrase for an academi"
     },
     {
-      "id": "S14_B17",
+      "id": "S14_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best limitation phrase for an academic presentation.",
       "context": "",
@@ -20174,7 +20174,7 @@
       "stemGroup": "Choose the best limitation phrase for an academic "
     },
     {
-      "id": "S14_B18",
+      "id": "S14_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best solution phrase for an academic presentation.",
       "context": "",
@@ -20191,7 +20191,7 @@
       "stemGroup": "Choose the best solution phrase for an academic pr"
     },
     {
-      "id": "S14_B19",
+      "id": "S14_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best audience thanks phrase for an academic presentation.",
       "context": "",
@@ -20208,7 +20208,7 @@
       "stemGroup": "Choose the best audience thanks phrase for an acad"
     },
     {
-      "id": "S14_B20",
+      "id": "S14_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best uncertain answer phrase for an academic presentation.",
       "context": "",
@@ -20225,7 +20225,7 @@
       "stemGroup": "Choose the best uncertain answer phrase for an aca"
     },
     {
-      "id": "S14_B21",
+      "id": "S14_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best opening phrase for an academic presentation.",
       "context": "",
@@ -20242,7 +20242,7 @@
       "stemGroup": "Choose the best opening phrase for an academic pre"
     },
     {
-      "id": "S14_B22",
+      "id": "S14_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best outline phrase for an academic presentation.",
       "context": "",
@@ -20259,7 +20259,7 @@
       "stemGroup": "Choose the best outline phrase for an academic pre"
     },
     {
-      "id": "S14_B23",
+      "id": "S14_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best transition phrase for an academic presentation.",
       "context": "",
@@ -20276,7 +20276,7 @@
       "stemGroup": "Choose the best transition phrase for an academic "
     },
     {
-      "id": "S14_B24",
+      "id": "S14_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the best evidence phrase for an academic presentation.",
       "context": "",
@@ -20293,7 +20293,7 @@
       "stemGroup": "Choose the best evidence phrase for an academic pr"
     },
     {
-      "id": "S14_B25",
+      "id": "S14_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best conclusion phrase for an academic presentation.",
       "context": "",
@@ -20310,7 +20310,7 @@
       "stemGroup": "Choose the best conclusion phrase for an academic "
     },
     {
-      "id": "S14_B26",
+      "id": "S14_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best Q&A response phrase for an academic presentation.",
       "context": "",
@@ -20327,7 +20327,7 @@
       "stemGroup": "Choose the best Q&A response phrase for an academi"
     },
     {
-      "id": "S14_B27",
+      "id": "S14_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best limitation phrase for an academic presentation.",
       "context": "",
@@ -20344,7 +20344,7 @@
       "stemGroup": "Choose the best limitation phrase for an academic "
     },
     {
-      "id": "S14_B28",
+      "id": "S14_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best solution phrase for an academic presentation.",
       "context": "",
@@ -20361,7 +20361,7 @@
       "stemGroup": "Choose the best solution phrase for an academic pr"
     },
     {
-      "id": "S14_B29",
+      "id": "S14_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best audience thanks phrase for an academic presentation.",
       "context": "",
@@ -20720,7 +20720,7 @@
       "stemGroup": "Choose the best solution sentence."
     },
     {
-      "id": "S15_B10",
+      "id": "S15_Boss Gate 10",
       "type": "mcq",
       "question": "Choose the best final presentation structure.",
       "context": "",
@@ -20737,7 +20737,7 @@
       "stemGroup": "Choose the best final presentation structure."
     },
     {
-      "id": "S15_B11",
+      "id": "S15_Boss Gate 11",
       "type": "mcq",
       "question": "Choose the best problem statement.",
       "context": "",
@@ -20754,7 +20754,7 @@
       "stemGroup": "Choose the best problem statement."
     },
     {
-      "id": "S15_B12",
+      "id": "S15_Boss Gate 12",
       "type": "mcq",
       "question": "Choose the best cause sentence.",
       "context": "",
@@ -20771,7 +20771,7 @@
       "stemGroup": "Choose the best cause sentence."
     },
     {
-      "id": "S15_B13",
+      "id": "S15_Boss Gate 13",
       "type": "mcq",
       "question": "Choose the best evidence sentence.",
       "context": "",
@@ -20788,7 +20788,7 @@
       "stemGroup": "Choose the best evidence sentence."
     },
     {
-      "id": "S15_B14",
+      "id": "S15_Boss Gate 14",
       "type": "mcq",
       "question": "Choose the best solution sentence.",
       "context": "",
@@ -20805,7 +20805,7 @@
       "stemGroup": "Choose the best solution sentence."
     },
     {
-      "id": "S15_B15",
+      "id": "S15_Boss Gate 15",
       "type": "mcq",
       "question": "Choose the best final presentation structure.",
       "context": "",
@@ -20822,7 +20822,7 @@
       "stemGroup": "Choose the best final presentation structure."
     },
     {
-      "id": "S15_B16",
+      "id": "S15_Boss Gate 16",
       "type": "mcq",
       "question": "Choose the best problem statement.",
       "context": "",
@@ -20839,7 +20839,7 @@
       "stemGroup": "Choose the best problem statement."
     },
     {
-      "id": "S15_B17",
+      "id": "S15_Boss Gate 17",
       "type": "mcq",
       "question": "Choose the best cause sentence.",
       "context": "",
@@ -20856,7 +20856,7 @@
       "stemGroup": "Choose the best cause sentence."
     },
     {
-      "id": "S15_B18",
+      "id": "S15_Boss Gate 18",
       "type": "mcq",
       "question": "Choose the best evidence sentence.",
       "context": "",
@@ -20873,7 +20873,7 @@
       "stemGroup": "Choose the best evidence sentence."
     },
     {
-      "id": "S15_B19",
+      "id": "S15_Boss Gate 19",
       "type": "mcq",
       "question": "Choose the best solution sentence.",
       "context": "",
@@ -20890,7 +20890,7 @@
       "stemGroup": "Choose the best solution sentence."
     },
     {
-      "id": "S15_B20",
+      "id": "S15_Boss Gate 20",
       "type": "mcq",
       "question": "Choose the best final presentation structure.",
       "context": "",
@@ -20907,7 +20907,7 @@
       "stemGroup": "Choose the best final presentation structure."
     },
     {
-      "id": "S15_B21",
+      "id": "S15_Boss Gate 21",
       "type": "mcq",
       "question": "Choose the best problem statement.",
       "context": "",
@@ -20924,7 +20924,7 @@
       "stemGroup": "Choose the best problem statement."
     },
     {
-      "id": "S15_B22",
+      "id": "S15_Boss Gate 22",
       "type": "mcq",
       "question": "Choose the best cause sentence.",
       "context": "",
@@ -20941,7 +20941,7 @@
       "stemGroup": "Choose the best cause sentence."
     },
     {
-      "id": "S15_B23",
+      "id": "S15_Boss Gate 23",
       "type": "mcq",
       "question": "Choose the best evidence sentence.",
       "context": "",
@@ -20958,7 +20958,7 @@
       "stemGroup": "Choose the best evidence sentence."
     },
     {
-      "id": "S15_B24",
+      "id": "S15_Boss Gate 24",
       "type": "mcq",
       "question": "Choose the best solution sentence.",
       "context": "",
@@ -20975,7 +20975,7 @@
       "stemGroup": "Choose the best solution sentence."
     },
     {
-      "id": "S15_B25",
+      "id": "S15_Boss Gate 25",
       "type": "mcq",
       "question": "Choose the best final presentation structure.",
       "context": "",
@@ -20992,7 +20992,7 @@
       "stemGroup": "Choose the best final presentation structure."
     },
     {
-      "id": "S15_B26",
+      "id": "S15_Boss Gate 26",
       "type": "mcq",
       "question": "Choose the best problem statement.",
       "context": "",
@@ -21009,7 +21009,7 @@
       "stemGroup": "Choose the best problem statement."
     },
     {
-      "id": "S15_B27",
+      "id": "S15_Boss Gate 27",
       "type": "mcq",
       "question": "Choose the best cause sentence.",
       "context": "",
@@ -21026,7 +21026,7 @@
       "stemGroup": "Choose the best cause sentence."
     },
     {
-      "id": "S15_B28",
+      "id": "S15_Boss Gate 28",
       "type": "mcq",
       "question": "Choose the best evidence sentence.",
       "context": "",
@@ -21043,7 +21043,7 @@
       "stemGroup": "Choose the best evidence sentence."
     },
     {
-      "id": "S15_B29",
+      "id": "S15_Boss Gate 29",
       "type": "mcq",
       "question": "Choose the best solution sentence.",
       "context": "",
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z44</div>
+              <div class="mini-note">Save the Society • v1z47</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32290,6 +32290,8 @@
     checks.push({name:'Legacy boss gate UI cleanup', ok:typeof cleanupLegacyBossGateUI === 'function', detail:'Old Boss Gate Available UI hidden'});
     checks.push({name:'Session stars evidence sync', ok:typeof sessionEvidenceSummary === 'function' && typeof augmentSessionCardsWithProgress === 'function', detail:'Earned stars and evidence badges visible'});
     checks.push({name:'Session black screen recovery', ok:typeof safeOpenSession === 'function' && typeof renderSessionRecoveryPanel === 'function', detail:'Safe render guard active'});
+    checks.push({name:'S3/S6 boss notice safe render', ok:typeof safeBossGateNoticeHTML === 'function' && typeof openSessionFromCard === 'function', detail:'Boss notice cannot black-screen session'});
+    checks.push({name:'Boss gate naming clarity', ok:typeof sessionIsNotBossNote === 'function' && typeof bossGateUnlockRuleText === 'function', detail:'S3/S6 are normal sessions; Boss Gates are checkpoints'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32325,6 +32327,75 @@
           <button class="btn" onclick="EAPHero.forceStudentMode()">Force Student Mode</button>
         </div>
       </section>`);
+  }
+
+
+
+  function emergencyBootPanel(reason){
+    const msg = String(reason || 'App did not render.');
+    const el = document.getElementById('app') || document.querySelector('#root') || document.body;
+    if(!el) return;
+    el.innerHTML = `<div class="shell emergency-boot-shell">
+      <div class="topbar">
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z47</div></div></div>
+      </div>
+      <section class="panel emergency-boot-panel" style="margin-top:20px">
+        <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
+        <h1>EAP Hero Recovery</h1>
+        <p class="lead">ระบบตรวจพบว่า app ไม่ render ตามปกติ จึงเปิดหน้า recovery เพื่อไม่ให้จอดำ</p>
+        <div class="recovery-error"><b>Reason:</b> ${safe(msg)}</div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.forceHome()">Force Home</button>
+          <button class="btn" onclick="EAPHero.forceMap()">Force Map</button>
+          <button class="btn" onclick="EAPHero.repairLegacySessionCompletion()">Repair Progress</button>
+          <button class="btn ghost" onclick="location.reload()">Reload</button>
+        </div>
+      </section>
+    </div>`;
+  }
+
+  function appLooksBlank(){
+    const el = document.getElementById('app') || document.querySelector('#root');
+    if(!el) return true;
+    const txt = (el.textContent || '').trim();
+    const html = (el.innerHTML || '').trim();
+    return txt.length < 10 && html.length < 50;
+  }
+
+  function forceHome(){
+    try{
+      if(typeof renderHome === 'function') renderHome();
+      else if(typeof renderMap === 'function') renderMap();
+      else emergencyBootPanel('renderHome/renderMap not available');
+    }catch(err){
+      console.error('[forceHome]', err);
+      try{ logRuntimeErrorSafe('forceHome', err); }catch(e){}
+      emergencyBootPanel(err?.message || err);
+    }
+    return false;
+  }
+
+  function forceMap(){
+    try{
+      if(typeof renderMap === 'function') renderMap();
+      else if(typeof renderHome === 'function') renderHome();
+      else emergencyBootPanel('renderMap/renderHome not available');
+    }catch(err){
+      console.error('[forceMap]', err);
+      try{ logRuntimeErrorSafe('forceMap', err); }catch(e){}
+      emergencyBootPanel(err?.message || err);
+    }
+    return false;
+  }
+
+  function emergencyBootWatchdog(){
+    try{
+      setTimeout(()=>{ if(appLooksBlank()) forceHome(); }, 250);
+      setTimeout(()=>{ if(appLooksBlank()) forceMap(); }, 700);
+      setTimeout(()=>{ if(appLooksBlank()) emergencyBootPanel('Blank screen after boot watchdog'); }, 900);
+    }catch(err){
+      emergencyBootPanel(err?.message || err);
+    }
   }
 
 
@@ -32489,19 +32560,19 @@
   const SESSION_QUALITY_AUDIT = {
     1:{level:'A2', risk:'Low', core:'Reading', support:'Writing', expected:'1–2 short sentences', objective:'Understand academic mindset and identify a main idea.', vocab:['goal','main idea','reason','support'], frame:'The main idea is ___. One reason is ___.', teacherNote:'เน้นให้เด็กตอบสั้นและจับใจความหลักให้ได้ก่อน'},
     2:{level:'A2', risk:'Low', core:'Vocabulary', support:'Reading', expected:'keywords + 1 sentence', objective:'Use basic academic vocabulary in context.', vocab:['meaning','keyword','example','use'], frame:'The word ___ means ___. For example, ___.', teacherNote:'ยังไม่ควรให้จำศัพท์ยาก ให้ดู context clues'},
-    3:{level:'A2-B1', risk:'Low', core:'Reading', support:'Speaking', expected:'main idea + 1 detail', objective:'Find main idea and one supporting detail.', vocab:['text','detail','evidence','topic'], frame:'The text is about ___. One detail is ___.', teacherNote:'เหมาะสำหรับฝึก reading confidence'},
-    4:{level:'A2-B1', risk:'Medium', core:'Listening', support:'Vocabulary', expected:'2 keywords + 1 note', objective:'Listen for signal words and keywords.', vocab:['first','however','because','also'], frame:'I heard ___ and ___. The main point is ___.', teacherNote:'ให้ใช้ slow mode ได้ ไม่หักมาก'},
-    5:{level:'B1', risk:'Medium', core:'Reading', support:'Writing', expected:'2–3 sentences', objective:'Check simple evidence and source trust.', vocab:['source','trust','claim','evidence'], frame:'I trust this because ___. The evidence is ___.', teacherNote:'อย่าใช้คำว่า evaluate หนักเกิน ให้ใช้ trust/check'},
-    6:{level:'B1', risk:'Medium', core:'Writing', support:'Reading', expected:'3 short sentences', objective:'Summarize a short academic idea without copying.', vocab:['summary','copy','own words','important'], frame:'The text says ___. This is important because ___.', teacherNote:'เน้น own words แบบง่าย ไม่ต้อง paraphrase ซับซ้อน'},
-    7:{level:'B1', risk:'Medium', core:'Writing', support:'Speaking', expected:'3–4 sentences', objective:'Use polite and academic tone.', vocab:['formal','polite','academic','tone'], frame:'I would like to explain ___. This topic is important because ___.', teacherNote:'เปรียบเทียบ casual vs academic ให้เห็นชัด'},
-    8:{level:'B1', risk:'Medium', core:'Reading', support:'Writing', expected:'short integrated answer', objective:'Review reading, vocabulary, and writing basics.', vocab:['review','integrate','support','answer'], frame:'My answer is ___. I know this because ___.', teacherNote:'เป็น checkpoint ไม่ควรยากเกินก่อน boss'},
-    9:{level:'B1', risk:'Medium', core:'Writing', support:'Reading', expected:'1 paragraph, 4–5 sentences', objective:'Write a short paragraph with topic/support/conclusion.', vocab:['paragraph','topic sentence','support','conclusion'], frame:'This topic is important because ___. For example, ___. In conclusion, ___.', teacherNote:'ให้ frame ชัดและไม่เน้น grammar มากเกิน'},
-    10:{level:'B1+', risk:'High', core:'Writing', support:'Vocabulary', expected:'3–4 data sentences', objective:'Describe simple data trends.', vocab:['increase','decrease','higher','lower','trend'], frame:'The number increases from ___ to ___. This means ___.', teacherNote:'เสี่ยงยาก ต้องให้คำศัพท์ trend และตัวอย่างมาก'},
-    11:{level:'B1', risk:'Medium', core:'Writing', support:'Speaking', expected:'short email 5 lines', objective:'Write a polite academic email.', vocab:['request','please','thank you','appointment'], frame:'Dear ___. I would like to ___. Thank you for ___.', teacherNote:'เหมาะกับการใช้จริง ให้เน้น structure'},
-    12:{level:'B1+', risk:'High', core:'Ethics', support:'Writing', expected:'2–3 ethics sentences', objective:'Understand citation, plagiarism, and responsible AI help.', vocab:['citation','source','AI help','own words'], frame:'I used help for ___. My own answer is ___. The source is ___.', teacherNote:'เสี่ยงยากและสำคัญ ต้องใช้ตัวอย่างสถานการณ์ง่าย'},
-    13:{level:'B1', risk:'High', core:'Listening', support:'Writing', expected:'main point + 2 keywords + 1 detail', objective:'Listen to a mini lecture and take useful notes.', vocab:['lecture','main point','keyword','detail'], frame:'Main point: ___. Keywords: ___ and ___. Detail: ___.', teacherNote:'ใช้ AI Voice Lab + chunk + slow mode เป็นหลัก'},
-    14:{level:'B1+', risk:'High', core:'Speaking', support:'Writing', expected:'45–60 sec guided speaking', objective:'Give a short academic presentation using a frame.', vocab:['present','audience','example','conclusion'], frame:'Today, I will talk about ___. First, ___. For example, ___. In conclusion, ___.', teacherNote:'ต้องใช้ guided speaking ไม่ควรปล่อย free speaking ทันที'},
-    15:{level:'B1+', risk:'High', core:'Integrated', support:'All skills', expected:'short project evidence', objective:'Integrate reading, writing, listening, speaking, and ethics.', vocab:['integrate','reflect','evidence','improve'], frame:'I learned ___. My evidence is ___. Next time, I will improve ___.', teacherNote:'Final integration ต้องใช้เป็น portfolio project ไม่ใช่ข้อสอบยาก'}
+    3:{level:'A2-Boss Gate 1', risk:'Low', core:'Reading', support:'Speaking', expected:'main idea + 1 detail', objective:'Find main idea and one supporting detail.', vocab:['text','detail','evidence','topic'], frame:'The text is about ___. One detail is ___.', teacherNote:'เหมาะสำหรับฝึก reading confidence'},
+    4:{level:'A2-Boss Gate 1', risk:'Medium', core:'Listening', support:'Vocabulary', expected:'2 keywords + 1 note', objective:'Listen for signal words and keywords.', vocab:['first','however','because','also'], frame:'I heard ___ and ___. The main point is ___.', teacherNote:'ให้ใช้ slow mode ได้ ไม่หักมาก'},
+    5:{level:'Boss Gate 1', risk:'Medium', core:'Reading', support:'Writing', expected:'2–3 sentences', objective:'Check simple evidence and source trust.', vocab:['source','trust','claim','evidence'], frame:'I trust this because ___. The evidence is ___.', teacherNote:'อย่าใช้คำว่า evaluate หนักเกิน ให้ใช้ trust/check'},
+    6:{level:'Boss Gate 1', risk:'Medium', core:'Writing', support:'Reading', expected:'3 short sentences', objective:'Summarize a short academic idea without copying.', vocab:['summary','copy','own words','important'], frame:'The text says ___. This is important because ___.', teacherNote:'เน้น own words แบบง่าย ไม่ต้อง paraphrase ซับซ้อน'},
+    7:{level:'Boss Gate 1', risk:'Medium', core:'Writing', support:'Speaking', expected:'3–4 sentences', objective:'Use polite and academic tone.', vocab:['formal','polite','academic','tone'], frame:'I would like to explain ___. This topic is important because ___.', teacherNote:'เปรียบเทียบ casual vs academic ให้เห็นชัด'},
+    8:{level:'Boss Gate 1', risk:'Medium', core:'Reading', support:'Writing', expected:'short integrated answer', objective:'Review reading, vocabulary, and writing basics.', vocab:['review','integrate','support','answer'], frame:'My answer is ___. I know this because ___.', teacherNote:'เป็น checkpoint ไม่ควรยากเกินก่อน boss'},
+    9:{level:'Boss Gate 1', risk:'Medium', core:'Writing', support:'Reading', expected:'1 paragraph, 4–5 sentences', objective:'Write a short paragraph with topic/support/conclusion.', vocab:['paragraph','topic sentence','support','conclusion'], frame:'This topic is important because ___. For example, ___. In conclusion, ___.', teacherNote:'ให้ frame ชัดและไม่เน้น grammar มากเกิน'},
+    10:{level:'Boss Gate 1+', risk:'High', core:'Writing', support:'Vocabulary', expected:'3–4 data sentences', objective:'Describe simple data trends.', vocab:['increase','decrease','higher','lower','trend'], frame:'The number increases from ___ to ___. This means ___.', teacherNote:'เสี่ยงยาก ต้องให้คำศัพท์ trend และตัวอย่างมาก'},
+    11:{level:'Boss Gate 1', risk:'Medium', core:'Writing', support:'Speaking', expected:'short email 5 lines', objective:'Write a polite academic email.', vocab:['request','please','thank you','appointment'], frame:'Dear ___. I would like to ___. Thank you for ___.', teacherNote:'เหมาะกับการใช้จริง ให้เน้น structure'},
+    12:{level:'Boss Gate 1+', risk:'High', core:'Ethics', support:'Writing', expected:'2–3 ethics sentences', objective:'Understand citation, plagiarism, and responsible AI help.', vocab:['citation','source','AI help','own words'], frame:'I used help for ___. My own answer is ___. The source is ___.', teacherNote:'เสี่ยงยากและสำคัญ ต้องใช้ตัวอย่างสถานการณ์ง่าย'},
+    13:{level:'Boss Gate 1', risk:'High', core:'Listening', support:'Writing', expected:'main point + 2 keywords + 1 detail', objective:'Listen to a mini lecture and take useful notes.', vocab:['lecture','main point','keyword','detail'], frame:'Main point: ___. Keywords: ___ and ___. Detail: ___.', teacherNote:'ใช้ AI Voice Lab + chunk + slow mode เป็นหลัก'},
+    14:{level:'Boss Gate 1+', risk:'High', core:'Speaking', support:'Writing', expected:'45–60 sec guided speaking', objective:'Give a short academic presentation using a frame.', vocab:['present','audience','example','conclusion'], frame:'Today, I will talk about ___. First, ___. For example, ___. In conclusion, ___.', teacherNote:'ต้องใช้ guided speaking ไม่ควรปล่อย free speaking ทันที'},
+    15:{level:'Boss Gate 1+', risk:'High', core:'Integrated', support:'All skills', expected:'short project evidence', objective:'Integrate reading, writing, listening, speaking, and ethics.', vocab:['integrate','reflect','evidence','improve'], frame:'I learned ___. My evidence is ___. Next time, I will improve ___.', teacherNote:'Final integration ต้องใช้เป็น portfolio project ไม่ใช่ข้อสอบยาก'}
   };
 
   function sessionQuality(sessionId){
@@ -32778,7 +32849,7 @@
     const details = (r.sessionReports || []).map(x=>`<li>${x.complete?'✅':'⚠️'} S${x.session}: ${safe(x.reason)}${x.evidenceSkills?.length ? ' — '+safe(x.evidenceSkills.join(', ')) : ''}</li>`).join('');
     return `<div class="boss-gate-lock-message">
       <h3>🔒 ${safe(r.title)} is locked</h3>
-      <p>${safe(r.reason || 'Complete the required sessions first.')}</p>
+      <p>${safe(bossGateUnlockRuleText(r.gate))}</p><p>${safe(r.reason || 'Complete the required sessions first.')}</p>
       <p><b>Required route:</b> ${r.sessions.map(s=>'S'+s).join(' → ')} → ${safe(r.title)}</p>
       ${r.previousGateRequired ? `<p><b>Also required:</b> Clear Boss Gate ${r.previousGateRequired}</p>` : ''}
       <ul class="gate-session-checklist">${details}</ul>
@@ -32823,17 +32894,51 @@
     return {cleared:Object.keys(state.bossCards || {}).length, total:15};
   }
 
+
+  function bossGateShortLabel(gateNo){
+    const gate = bossGateByNumber(gateNo);
+    return gate.type === 'final' ? 'Final Boss' : `Boss Gate ${gate.gate}`;
+  }
+
+  function bossGateUnlockRuleText(gateNo){
+    const gate = bossGateByNumber(gateNo);
+    const route = gate.after.map(s=>'S'+s).join(' + ');
+    if(gate.gate === 1) return `Pass ${route} to unlock Boss Gate 1.`;
+    if(gate.type === 'final') return `Pass ${route} and clear Boss Gate 4 to unlock Final Boss.`;
+    return `Pass ${route} and clear Boss Gate ${gate.gate - 1} to unlock Boss Gate ${gate.gate}.`;
+  }
+
+  function sessionIsNotBossNote(sessionId){
+    const sid = Number(sessionId || 1);
+    const gate = bossGateAfterSession(sid);
+    if(!gate) return '';
+    return `<div class="session-not-boss-note">
+      <b>S${sid} is still a normal Session.</b>
+      <span>${bossGateShortLabel(gate.gate)} opens only after the required sessions are complete. ${safe(bossGateUnlockRuleText(gate.gate))}</span>
+    </div>`;
+  }
+
+  function bossGateNamingLegendHTML(){
+    return `<div class="boss-naming-legend">
+      <b>Important:</b>
+      <span>S1–S15 are learning sessions. Boss Gate 1–4 and Final Boss are checkpoints after groups of sessions.</span>
+      <span>Example: S3 is not Boss Gate 1. Pass S1–S3 first, then open Boss Gate 1.</span>
+    </div>`;
+  }
+
+
   function bossGateTimelineHTML(){
     return `<div class="boss-timeline">
       <div class="badges"><span class="pill">15 Sessions</span><span class="pill">5 Boss Gates</span><span class="pill">Boss Gates are checkpoints, not extra sessions</span></div>
       <h3>Learning Route</h3>
+      ${bossGateNamingLegendHTML()}
       <div class="boss-route">
         ${BOSS_GATE_PLAN.map(g=>`<div class="boss-route-block ${g.type==='final'?'final':''}">
           <div class="route-sessions">${g.after.map(sid=>`<span class="route-session">S${sid}</span>`).join('<span class="route-arrow">→</span>')}</div>
           <div class="route-arrow-down">↓</div>
           <button class="boss-gate-chip ${isBossGateUnlocked(g.gate)?'unlocked':'locked'}" onclick="return EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
           <p>${safe(g.focus)}</p>
-          <p class="gate-requirement">${bossGateUnlockReport(g.gate).unlocked ? 'Unlocked' : safe(bossGateUnlockReport(g.gate).reason)}</p>
+          <p class="gate-requirement">${bossGateUnlockReport(g.gate).unlocked ? 'Unlocked checkpoint' : safe(bossGateUnlockRuleText(g.gate) + ' ' + bossGateUnlockReport(g.gate).reason)}</p>
         </div>`).join('')}
       </div>
     </div>`;
@@ -32878,13 +32983,24 @@
 
 
   function bossGateNoticeForSession(sessionId){
-    const gate = bossGateAfterSession(sessionId);
-    if(!gate) return '';
-    return `<div class="boss-gate-notice" data-gate="${gate.gate}" data-after="${sessionId}">
-      <b>${gate.type==='final'?'Final Boss after S15':'Boss Gate '+gate.gate+' after S'+sessionId}</b>
-      <span>${safe(gate.title)} summarizes S${gate.after[0]}–S${gate.after[2]}. It is a checkpoint after the sessions, not a replacement for S${sessionId}.</span>
-      <button class="btn primary small" onclick="return EAPHero.openBossGate(${gate.gate})">${gate.type==='final'?'Open Final Boss':'Open Checkpoint '+gate.gate}</button>
-    </div>`;
+    try{
+      const sid = Number(sessionId || state.currentSession || 1) || 1;
+      const gate = bossGateAfterSession(sid);
+      if(!gate) return '';
+      const isFinal = gate.type === 'final';
+      const title = gate.title || (isFinal ? 'Final Boss' : `Boss Gate ${gate.gate}`);
+      const first = gate.after && gate.after[0] ? gate.after[0] : sid - 2;
+      const last = gate.after && gate.after[gate.after.length - 1] ? gate.after[gate.after.length - 1] : sid;
+      return `<div class="boss-gate-notice safe-boss-gate-notice" data-gate="${safe(gate.gate)}" data-after="${safe(sid)}">
+        <b>S${safe(sid)} complete checkpoint: ${isFinal ? 'Final Boss after S15' : 'Boss Gate ' + safe(gate.gate) + ' after S' + safe(sid)}</b>
+        <span>S${safe(sid)} is not the Boss. ${safe(title)} summarizes S${safe(first)}–S${safe(last)} after those Sessions are passed.</span>
+        <button class="btn primary small" onclick="return EAPHero.openBossGate(${Number(gate.gate || 1)})">${isFinal ? 'Open Final Boss' : 'Open Boss Gate ' + safe(gate.gate)}</button>
+      </div>`;
+    }catch(err){
+      console.warn('[bossGateNoticeForSession]', err);
+      try{ logRuntimeErrorSafe('bossGateNoticeForSession', err, {sessionId}); }catch(e){}
+      return '';
+    }
   }
 
   function renderBossGateTimeline(){
@@ -32928,7 +33044,7 @@
     const tiles = SESSIONS.map(s=>{
       const p = state.sessions[s.id] || {};
       const cls = p.unlocked ? (p.cleared ? 'cleared unlocked' : 'unlocked') : 'locked';
-      const click = p.unlocked ? `onclick="return EAPHero.safeOpenSession(${s.id})"` : '';
+      const click = p.unlocked ? `onclick="return EAPHero.openSessionFromCard(${s.id})"` : '';
       return `
         <button class="session-tile ${cls}" ${click}>
           <div class="num">SESSION ${s.id}</div>
@@ -33008,7 +33124,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.practice(${s.id})">Practice Mission</button>
-          <button class="btn ghost" onclick="return EAPHero.safeOpenSession(${s.id})">Back</button>
+          <button class="btn ghost" onclick="return EAPHero.openSessionFromCard(${s.id})">Back</button>
         </div>
       </section>
     `);
@@ -33355,7 +33471,7 @@
               <button class="btn small" onclick="EAPHero.freezeTime()">Time Freeze</button>
             </div>
           </div>
-          <button class="btn ghost block" onclick="return EAPHero.safeOpenSession(${s.id})">Quit Battle</button>
+          <button class="btn ghost block" onclick="return EAPHero.openSessionFromCard(${s.id})">Quit Battle</button>
         </aside>
       </section>
     `);
@@ -34207,6 +34323,12 @@
     }
   }
 
+
+  function openSessionFromCard(sessionId){
+    return safeOpenSession(Number(sessionId || state.currentSession || 1) || 1);
+  }
+
+
   function safeOpenSession(sessionId){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
     try{
@@ -34230,7 +34352,36 @@
   }
 
 
+
+  function safeBossGateNoticeHTML(sessionId){
+    try{
+      return bossGateNoticeForSession(sessionId);
+    }catch(err){
+      console.warn('[safeBossGateNoticeHTML]', err);
+      try{ logRuntimeErrorSafe('safeBossGateNoticeHTML', err, {sessionId}); }catch(e){}
+      return '';
+    }
+  }
+
+  function attachSafeBossGateNotice(sessionId){
+    try{
+      const sid = Number(sessionId || state.currentSession || 1) || 1;
+      const gate = bossGateAfterSession(sid);
+      if(!gate) return;
+      if(document.querySelector(`.safe-boss-gate-notice[data-after="${sid}"]`)) return;
+      const panel = document.querySelector('.skill-path-panel,.panel,section');
+      if(!panel) return;
+      panel.insertAdjacentHTML('beforeend', safeBossGateNoticeHTML(sid));
+    }catch(err){
+      console.warn('[attachSafeBossGateNotice]', err);
+      try{ logRuntimeErrorSafe('attachSafeBossGateNotice', err, {sessionId}); }catch(e){}
+    }
+  }
+
+
   function renderSkillPath(sessionId){
+    setTimeout(()=>attachSafeBossGateNotice(Number(arguments[0] || state.currentSession || 1)), 120);
+
     try{
 
     setTimeout(runBossGateUICleanupSoon, 0);
@@ -34250,7 +34401,8 @@
         <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
         <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
         ${sessionQualityHTML(s.id)}
-        ${bossGateNoticeForSession(s.id)}
+        ${sessionIsNotBossNote(s.id)}
+        ${safeBossGateNoticeHTML(s.id)}
         <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
       </div>`;
     }).join('');
@@ -34271,8 +34423,8 @@
   
     }catch(err){
       console.error('[renderSkillPath]', err);
-      logRuntimeErrorSafe('renderSkillPath', err, {sessionId});
-      renderSessionRecoveryPanel(sessionId, err, 'renderSkillPath');
+      logRuntimeErrorSafe('renderSkillPath', err, {sessionId:(typeof sessionId!=='undefined'?sessionId:state.currentSession||1)});
+      renderSessionRecoveryPanel((typeof sessionId!=='undefined'?sessionId:state.currentSession||1), err, 'renderSkillPath');
     }
   }
   function renderBossGate(gateId){
@@ -35180,19 +35332,19 @@
   const MISSION_COHERENCE_FOCUS = {
     1:{topic:'academic mindset', audience:'new university students', product:'short explanation', vocab:['academic goal','mindset','reason','support'], level:'A2'},
     2:{topic:'academic vocabulary', audience:'students learning EAP words', product:'keyword explanation', vocab:['keyword','meaning','context clue','example'], level:'A2'},
-    3:{topic:'main idea reading', audience:'readers of short academic texts', product:'main idea + detail', vocab:['main idea','detail','topic','support'], level:'A2-B1'},
-    4:{topic:'keyword scanning', audience:'students reading/listening quickly', product:'keywords + signal words', vocab:['keyword','signal word','first','however','because'], level:'A2-B1'},
-    5:{topic:'critical reading and bias awareness', audience:'critical readers', product:'bias/evidence answer', vocab:['reader group','audience','biased','emotional','one-sided','evidence'], level:'B1'},
-    6:{topic:'summary writing and audience awareness', audience:'readers who need a short summary', product:'summary/purpose answer', vocab:['audience','purpose','summary','own words','important'], level:'B1'},
-    7:{topic:'academic tone', audience:'academic readers/listeners', product:'formal tone revision', vocab:['formal','polite','academic tone','clear','appropriate'], level:'B1'},
-    8:{topic:'integrated review', audience:'students preparing for boss gate', product:'integrated short answer', vocab:['review','evidence','answer','integrate'], level:'B1'},
-    9:{topic:'paragraph writing', audience:'academic readers', product:'one short paragraph', vocab:['topic sentence','support','example','conclusion'], level:'B1'},
-    10:{topic:'data description', audience:'readers of simple data', product:'trend description', vocab:['increase','decrease','higher','lower','trend','data'], level:'B1+'},
-    11:{topic:'academic email', audience:'teacher or academic contact', product:'polite email/request', vocab:['request','appointment','feedback','thank you','closing'], level:'B1'},
-    12:{topic:'citation and ethics', audience:'academic community', product:'citation/AI use statement', vocab:['citation','source','own words','AI help','plagiarism','ethics'], level:'B1+'},
-    13:{topic:'academic listening', audience:'students listening to mini lectures', product:'listening notes', vocab:['lecture','main point','keyword','detail','signal word'], level:'B1'},
-    14:{topic:'academic presentation', audience:'class audience', product:'short presentation', vocab:['present','topic','example','signpost','conclusion'], level:'B1+'},
-    15:{topic:'final integration', audience:'teacher/reviewer', product:'portfolio reflection', vocab:['evidence','integrate','reflect','improve','next step'], level:'B1+'}
+    3:{topic:'main idea reading', audience:'readers of short academic texts', product:'main idea + detail', vocab:['main idea','detail','topic','support'], level:'A2-Boss Gate 1'},
+    4:{topic:'keyword scanning', audience:'students reading/listening quickly', product:'keywords + signal words', vocab:['keyword','signal word','first','however','because'], level:'A2-Boss Gate 1'},
+    5:{topic:'critical reading and bias awareness', audience:'critical readers', product:'bias/evidence answer', vocab:['reader group','audience','biased','emotional','one-sided','evidence'], level:'Boss Gate 1'},
+    6:{topic:'summary writing and audience awareness', audience:'readers who need a short summary', product:'summary/purpose answer', vocab:['audience','purpose','summary','own words','important'], level:'Boss Gate 1'},
+    7:{topic:'academic tone', audience:'academic readers/listeners', product:'formal tone revision', vocab:['formal','polite','academic tone','clear','appropriate'], level:'Boss Gate 1'},
+    8:{topic:'integrated review', audience:'students preparing for boss gate', product:'integrated short answer', vocab:['review','evidence','answer','integrate'], level:'Boss Gate 1'},
+    9:{topic:'paragraph writing', audience:'academic readers', product:'one short paragraph', vocab:['topic sentence','support','example','conclusion'], level:'Boss Gate 1'},
+    10:{topic:'data description', audience:'readers of simple data', product:'trend description', vocab:['increase','decrease','higher','lower','trend','data'], level:'Boss Gate 1+'},
+    11:{topic:'academic email', audience:'teacher or academic contact', product:'polite email/request', vocab:['request','appointment','feedback','thank you','closing'], level:'Boss Gate 1'},
+    12:{topic:'citation and ethics', audience:'academic community', product:'citation/AI use statement', vocab:['citation','source','own words','AI help','plagiarism','ethics'], level:'Boss Gate 1+'},
+    13:{topic:'academic listening', audience:'students listening to mini lectures', product:'listening notes', vocab:['lecture','main point','keyword','detail','signal word'], level:'Boss Gate 1'},
+    14:{topic:'academic presentation', audience:'class audience', product:'short presentation', vocab:['present','topic','example','signpost','conclusion'], level:'Boss Gate 1+'},
+    15:{topic:'final integration', audience:'teacher/reviewer', product:'portfolio reflection', vocab:['evidence','integrate','reflect','improve','next step'], level:'Boss Gate 1+'}
   };
 
   function alignmentBase(skill, sessionId){
@@ -36415,7 +36567,7 @@
   function guidedSpeakingFrameHTML(){
     return `<div class="guided-speaking-frame">
       <h3>Guided Speaking Frame</h3>
-      <p class="mini-note">พูดตามกรอบนี้ได้สำหรับ Easy A2 / Normal B1</p>
+      <p class="mini-note">พูดตามกรอบนี้ได้สำหรับ Easy A2 / Normal Boss Gate 1</p>
       <ol>
         <li>Today, I will talk about <b>_____</b>.</li>
         <li>First, <b>_____</b>.</li>
@@ -36438,7 +36590,7 @@
       return 3;
     }
 
-    // Normal B1
+    // Normal Boss Gate 1
     if(s === 'reading') return 2;
     return 3;
   }
@@ -36500,7 +36652,7 @@
       skill: p.skill,
       score: Number(p.score || 0),
       band: band.label,
-      cefrTarget: p.difficulty === 'hard' ? 'B1+' : p.difficulty === 'normal' ? 'B1' : 'A2-B1+',
+      cefrTarget: p.difficulty === 'hard' ? 'Boss Gate 1+' : p.difficulty === 'normal' ? 'Boss Gate 1' : 'A2-B1+',
       didWell: skillPositiveFeedback(p.skill, p.score),
       nextStep: skillNextStep(p.skill, p.score),
       tryFrame: skillTryFrame(p.skill),
@@ -36808,7 +36960,7 @@
           <h3>Recommended classroom start</h3>
           <ol class="pilot-steps">
             <li>ให้นักศึกษาเข้า Student Simple Mode เท่านั้น</li>
-            <li>เริ่มที่ Easy A2 หรือ Normal B1</li>
+            <li>เริ่มที่ Easy A2 หรือ Normal Boss Gate 1</li>
             <li>ให้ใช้ AI Help ได้ตามระบบ โดยย้ำว่าใช้เพื่อฝึก ไม่ใช่ให้ตอบแทน</li>
             <li>ให้ทำ Reading/Writing/Listening/Speaking อย่างน้อย 1 evidence ต่อคาบ</li>
             <li>Teacher ตรวจจาก Review Queue และ Rubric Review</li>
@@ -36866,9 +37018,9 @@
     const d = currentSkillDifficulty().key || 'easy';
     const limit = adaptiveAIHelpLimit(skill);
     if(d === 'challenge') return `${limit}/${limit} Challenge`;
-    if(d === 'hard') return `${limit}/${limit} Hard B1+`;
+    if(d === 'hard') return `${limit}/${limit} Hard Boss Gate 1+`;
     if(d === 'easy') return `${limit}/${limit} Easy A2`;
-    return `${limit}/${limit} Normal B1`;
+    return `${limit}/${limit} Normal Boss Gate 1`;
   }
 
   function aiHelpStageLabel(useNo, limit){
@@ -36925,8 +37077,8 @@
 
   const SKILL_DIFFICULTIES = {
     easy:{ key:'easy', label:'Easy A2', note:'คำถามสั้น มีกรอบช่วย เหมาะกับเริ่มต้น', aiLimitBonus:1, transcriptPenalty:3, scoreBonus:5 },
-    normal:{ key:'normal', label:'Normal B1', note:'ระดับมาตรฐานของปี 2 ตอบสั้นแต่มีเหตุผล', aiLimitBonus:0, transcriptPenalty:6, scoreBonus:0 },
-    hard:{ key:'hard', label:'Hard B1+', note:'ต้องอธิบายเหตุผลและหลักฐานมากขึ้น', aiLimitBonus:0, transcriptPenalty:9, scoreBonus:8 },
+    normal:{ key:'normal', label:'Normal Boss Gate 1', note:'ระดับมาตรฐานของปี 2 ตอบสั้นแต่มีเหตุผล', aiLimitBonus:0, transcriptPenalty:6, scoreBonus:0 },
+    hard:{ key:'hard', label:'Hard Boss Gate 1+', note:'ต้องอธิบายเหตุผลและหลักฐานมากขึ้น', aiLimitBonus:0, transcriptPenalty:9, scoreBonus:8 },
     challenge:{ key:'challenge', label:'Challenge Optional', note:'สำหรับโบนัส/เด็กพร้อม ไม่ใช่ค่าเริ่มต้น', aiLimitBonus:-1, transcriptPenalty:12, scoreBonus:15 }
   };
 
@@ -37203,7 +37355,7 @@
       </tbody></table></div>
       <div class="footer-actions">
         <button class="btn primary" onclick="EAPHero.startLesson(${s.id})">Start This Lesson</button>
-        <button class="btn" onclick="return EAPHero.safeOpenSession(${s.id})">Open Session Path</button>
+        <button class="btn" onclick="return EAPHero.openSessionFromCard(${s.id})">Open Session Path</button>
       </div>
     </div>`;
   }
@@ -37404,7 +37556,7 @@
 
   function cefrReviewBadge(p){
     const diff = p.difficulty || currentSkillDifficulty().key || 'easy';
-    const label = diff === 'easy' ? 'CEFR A2' : diff === 'normal' ? 'CEFR B1' : diff === 'hard' ? 'CEFR B1+' : 'Challenge';
+    const label = diff === 'easy' ? 'CEFR A2' : diff === 'normal' ? 'CEFR Boss Gate 1' : diff === 'hard' ? 'CEFR Boss Gate 1+' : 'Challenge';
     return `<span class="pill tiny cefr-review-badge">${safe(label)}</span>`;
   }
 
@@ -38167,16 +38319,26 @@
   // public API for inline handlers
   window.EAPHero = {
     home:renderHome,
+    forceHome,
+    forceMap,
+    emergencyBootPanel,
+    emergencyBootWatchdog,
     profile:renderProfile,
     saveProfile,
     map:renderMap,
     bossGateTimeline:renderBossGateTimeline,
     renderBossGateTimeline,
+    safeBossGateNoticeHTML,
+    attachSafeBossGateNotice,
     openBossGate,
     bossGatePlan:BOSS_GATE_PLAN,
     bossGateForSession,
     bossGateAfterSession,
     bossGateByNumber,
+    bossGateShortLabel,
+    bossGateUnlockRuleText,
+    sessionIsNotBossNote,
+    bossGateNamingLegendHTML,
     isBossGateUnlocked,
     bossGateProgress,
     isSessionCompleteForGate,
@@ -38232,6 +38394,7 @@
     bindHardButtonDelegation,
     openSkillMission,
     safeMissionSessionId,
+    openSessionFromCard,
     safeOpenSession,
     safeOpenSkillPath,
     renderSessionRecoveryPanel,
@@ -38375,5 +38538,8 @@
     });
   }
 
+
+
+  emergencyBootWatchdog();
 
 })();

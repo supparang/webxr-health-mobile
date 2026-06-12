@@ -1502,3 +1502,56 @@ textarea{
   white-space:normal;
   overflow-wrap:anywhere;
 }
+
+
+/* === v1z45 Emergency App Boot Recovery === */
+.emergency-boot-shell{
+  max-width:1100px;
+  margin:0 auto;
+  padding:20px;
+}
+.emergency-boot-panel{
+  background:linear-gradient(135deg,#fff7ed,#fffbeb) !important;
+  color:#7c2d12 !important;
+  border:2px solid #fdba74 !important;
+}
+.emergency-boot-panel h1,
+.emergency-boot-panel .lead{
+  color:#7c2d12 !important;
+}
+
+
+/* === v1z46 S3/S6 Boss Notice Safe Render Fix === */
+.safe-boss-gate-notice{
+  position:relative;
+  z-index:1;
+}
+.safe-boss-gate-notice .btn{
+  pointer-events:auto;
+}
+
+
+/* === v1z47 Boss Gate Naming + Unlock Clarity === */
+.boss-naming-legend,
+.session-not-boss-note{
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:18px;
+  background:#ecfeff;
+  color:#155e75;
+  border:1px solid #67e8f9;
+  font-weight:850;
+  line-height:1.55;
+}
+.boss-naming-legend b,
+.session-not-boss-note b,
+.boss-naming-legend span,
+.session-not-boss-note span{
+  display:block;
+  margin:4px 0;
+}
+.session-not-boss-note{
+  background:#f0fdf4;
+  color:#14532d;
+  border-color:#86efac;
+}
