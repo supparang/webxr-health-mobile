@@ -1478,3 +1478,27 @@ textarea{
   white-space:normal;
   overflow-wrap:anywhere;
 }
+
+
+/* === v1z44 Session Black Screen Recovery + Safe Render === */
+.black-screen-recovery{
+  border:2px solid #fdba74 !important;
+  background:linear-gradient(135deg,#fff7ed,#fffbeb) !important;
+  color:#7c2d12 !important;
+}
+.black-screen-recovery h2,
+.black-screen-recovery .lead{
+  color:#7c2d12 !important;
+}
+.recovery-error{
+  margin:14px 0;
+  padding:14px;
+  border-radius:16px;
+  background:#fee2e2;
+  border:1px solid #fecaca;
+  color:#7f1d1d;
+  font-weight:850;
+  line-height:1.6;
+  white-space:normal;
+  overflow-wrap:anywhere;
+}

@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z43-session-stars-evidence-sync-fix';
+  const APP_VERSION = '20260610-v1z44-session-black-screen-recovery-safe-render';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z43</div>
+              <div class="mini-note">Save the Society • v1z44</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32289,6 +32289,7 @@
     checks.push({name:'Boss gate completion detection', ok:typeof sessionCompletionReport === 'function' && typeof skillEvidenceCountForSession === 'function', detail:'Legacy evidence/stars/cards recognized'});
     checks.push({name:'Legacy boss gate UI cleanup', ok:typeof cleanupLegacyBossGateUI === 'function', detail:'Old Boss Gate Available UI hidden'});
     checks.push({name:'Session stars evidence sync', ok:typeof sessionEvidenceSummary === 'function' && typeof augmentSessionCardsWithProgress === 'function', detail:'Earned stars and evidence badges visible'});
+    checks.push({name:'Session black screen recovery', ok:typeof safeOpenSession === 'function' && typeof renderSessionRecoveryPanel === 'function', detail:'Safe render guard active'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32682,16 +32683,22 @@
   }
 
   function augmentSessionCardsWithProgress(){
-    document.querySelectorAll('.session-progress-badge').forEach(x=>x.remove());
-    document.querySelectorAll('.map-card,.session-card,.card').forEach(card=>{
-      const txt = (card.textContent || '');
-      const m = txt.match(/SESSION\s+(\d{1,2})|S(\d{1,2})\b/i);
-      if(!m) return;
-      const sid = Number(m[1] || m[2] || 0);
-      if(!sid || sid < 1 || sid > 15) return;
-      if(card.querySelector('.session-progress-badge')) return;
-      card.insertAdjacentHTML('beforeend', sessionProgressBadgeHTML(sid));
-    });
+    try{
+      document.querySelectorAll('.session-progress-badge').forEach(x=>x.remove());
+      document.querySelectorAll('.map-card,.session-card,[data-session-card]').forEach(card=>{
+        if(!card || card.closest('.black-screen-recovery')) return;
+        const txt = (card.textContent || '');
+        const mm = txt.match(/SESSION\s+(\d{1,2})\b|S(\d{1,2})\b/i);
+        if(!mm) return;
+        const sid = Number(mm[1] || mm[2] || 0);
+        if(!sid || sid < 1 || sid > 15) return;
+        if(card.querySelector('.session-progress-badge')) return;
+        card.insertAdjacentHTML('beforeend', sessionProgressBadgeHTML(sid));
+      });
+    }catch(err){
+      console.warn('[augmentSessionCardsWithProgress]', err);
+      logRuntimeErrorSafe('augmentSessionCardsWithProgress', err);
+    }
   }
 
   function runSessionEvidenceSyncSoon(){
@@ -32921,7 +32928,7 @@
     const tiles = SESSIONS.map(s=>{
       const p = state.sessions[s.id] || {};
       const cls = p.unlocked ? (p.cleared ? 'cleared unlocked' : 'unlocked') : 'locked';
-      const click = p.unlocked ? `onclick="EAPHero.skillPath(${s.id})"` : '';
+      const click = p.unlocked ? `onclick="return EAPHero.safeOpenSession(${s.id})"` : '';
       return `
         <button class="session-tile ${cls}" ${click}>
           <div class="num">SESSION ${s.id}</div>
@@ -33001,7 +33008,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" onclick="EAPHero.practice(${s.id})">Practice Mission</button>
-          <button class="btn ghost" onclick="EAPHero.skillPath(${s.id})">Back</button>
+          <button class="btn ghost" onclick="return EAPHero.safeOpenSession(${s.id})">Back</button>
         </div>
       </section>
     `);
@@ -33348,7 +33355,7 @@
               <button class="btn small" onclick="EAPHero.freezeTime()">Time Freeze</button>
             </div>
           </div>
-          <button class="btn ghost block" onclick="EAPHero.skillPath(${s.id})">Quit Battle</button>
+          <button class="btn ghost block" onclick="return EAPHero.safeOpenSession(${s.id})">Quit Battle</button>
         </aside>
       </section>
     `);
@@ -34154,7 +34161,78 @@
   }
 
 
+
+  function logRuntimeErrorSafe(source, err, extra){
+    try{
+      state.runtimeErrors = state.runtimeErrors || [];
+      state.runtimeErrors.push({
+        at:new Date().toISOString(),
+        source:source || 'runtime',
+        message:String(err?.message || err),
+        stack:String(err?.stack || '').slice(0,1200),
+        extra:extra || null,
+        view:state.view || ''
+      });
+      saveState();
+    }catch(e){}
+  }
+
+  function renderSessionRecoveryPanel(sessionId, err, source){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const msg = String(err?.message || err || 'Unknown render error');
+    try{
+      layout(`<section class="panel black-screen-recovery" style="margin-top:20px">
+        <div class="badges"><span class="pill">Recovery Mode</span><span class="pill">S${sid}</span><span class="pill">v1z44</span></div>
+        <h2>Session could not open safely</h2>
+        <p class="lead">ระบบกันจอดำเปิดทำงานแล้ว หน้านี้ช่วยกลับไปเล่นต่อได้โดยไม่ค้าง</p>
+        <div class="recovery-error">
+          <b>Error source:</b> ${safe(source || 'session render')}<br>
+          <b>Message:</b> ${safe(msg)}
+        </div>
+        <div class="footer-actions">
+          <button class="btn primary" onclick="EAPHero.map()">Back to Map</button>
+          <button class="btn" onclick="return EAPHero.safeOpenSession(${sid})">Try Again</button>
+          <button class="btn" onclick="EAPHero.repairLegacySessionCompletion()">Repair Progress</button>
+          <button class="btn ghost" onclick="EAPHero.continueSession()">Continue</button>
+        </div>
+      </section>`);
+    }catch(e){
+      const el = document.getElementById('app') || document.body;
+      el.innerHTML = `<div style="margin:24px;padding:20px;border-radius:18px;background:#fff;color:#111;font-family:system-ui">
+        <h2>Recovery Mode</h2>
+        <p>Session S${sid} could not render.</p>
+        <pre>${safe(msg)}</pre>
+        <button onclick="EAPHero.map()">Back to Map</button>
+      </div>`;
+    }
+  }
+
+  function safeOpenSession(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    try{
+      state.currentSession = sid;
+      saveState();
+      if(typeof renderSkillPath === 'function'){
+        renderSkillPath(sid);
+      }else{
+        renderMap();
+      }
+    }catch(err){
+      console.error('[safeOpenSession]', err);
+      logRuntimeErrorSafe('safeOpenSession', err, {sessionId:sid});
+      renderSessionRecoveryPanel(sid, err, 'safeOpenSession');
+    }
+    return false;
+  }
+
+  function safeOpenSkillPath(sessionId){
+    return safeOpenSession(sessionId);
+  }
+
+
   function renderSkillPath(sessionId){
+    try{
+
     setTimeout(runBossGateUICleanupSoon, 0);
 
     const s = getSession(Number(sessionId || 1));
@@ -34190,8 +34268,13 @@
         ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Legacy Boss Gate Hidden: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Checkpoint</button></div>` : ''}
         <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button></div>
       </section>`);
+  
+    }catch(err){
+      console.error('[renderSkillPath]', err);
+      logRuntimeErrorSafe('renderSkillPath', err, {sessionId});
+      renderSessionRecoveryPanel(sessionId, err, 'renderSkillPath');
+    }
   }
-
   function renderBossGate(gateId){
     const gate = BOSS_GATES.find(g => g.id === gateId) || BOSS_GATES[0];
     const unlocked = bossGateStatus(gate);
@@ -34213,7 +34296,7 @@
         </div>
         <div class="footer-actions">
           <button class="btn primary" ${(unlocked && featureUnlocked('bossGate'))?'':'disabled'} onclick="EAPHero.startGateBoss('${gate.id}')">${featureUnlocked('bossGate')?'Start Gate Boss':'Boss Gate unlocks later'}</button>
-          <button class="btn" onclick="EAPHero.skillPath(${gate.after})">Complete Skill Evidence</button>
+          <button class="btn" onclick="return EAPHero.safeOpenSession(${gate.after})">Complete Skill Evidence</button>
           <button class="btn ghost" onclick="EAPHero.replayHub()">Replay Hub</button>
         </div>
       </section>`);
@@ -35043,7 +35126,7 @@
         <div class="panel light" style="margin-top:18px">
           <h3>Session ${current.id}: ${safe(current.skill)}</h3>
           <p class="mini-note">Boss: ${safe(current.boss)} • Topic: ${safe(skillTextForSession(current).topic)}</p>
-          <button class="btn warn block" onclick="EAPHero.skillPath(${current.id})">🧭 Back to Session Path</button>
+          <button class="btn warn block" onclick="return EAPHero.safeOpenSession(${current.id})">🧭 Back to Session Path</button>
           <div class="grid four">
             <button class="btn primary block" onclick="EAPHero.readingMission(${current.id})">📖 Reading</button>
             <button class="btn primary block" onclick="EAPHero.writingMission(${current.id})">✍️ Writing</button>
@@ -37120,7 +37203,7 @@
       </tbody></table></div>
       <div class="footer-actions">
         <button class="btn primary" onclick="EAPHero.startLesson(${s.id})">Start This Lesson</button>
-        <button class="btn" onclick="EAPHero.skillPath(${s.id})">Open Session Path</button>
+        <button class="btn" onclick="return EAPHero.safeOpenSession(${s.id})">Open Session Path</button>
       </div>
     </div>`;
   }
@@ -38149,6 +38232,10 @@
     bindHardButtonDelegation,
     openSkillMission,
     safeMissionSessionId,
+    safeOpenSession,
+    safeOpenSkillPath,
+    renderSessionRecoveryPanel,
+    logRuntimeErrorSafe,
     missionSpecificReadingGuide,
     missionSpecificReadingGuideHTML,
     bossGate:renderBossGate,
@@ -38271,4 +38358,22 @@
   window.EAPHeroContinueSession = function(){
     return continueSession();
   };
+
+  if(!window.__EAP_BLACK_SCREEN_GUARD__){
+    window.__EAP_BLACK_SCREEN_GUARD__ = true;
+    window.addEventListener('error', function(ev){
+      try{
+        const msg = String(ev.message || '');
+        if(msg && /renderSkillPath|session|skillPath|Cannot read|undefined|null/i.test(msg)){
+          logRuntimeErrorSafe('window.error', ev.error || msg, {filename:ev.filename, lineno:ev.lineno});
+          const appEl = document.getElementById('app');
+          if(appEl && !appEl.textContent.trim()){
+            renderSessionRecoveryPanel(state.currentSession || 1, ev.error || msg, 'window.error');
+          }
+        }
+      }catch(e){}
+    });
+  }
+
+
 })();
