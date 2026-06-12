@@ -1,13 +1,13 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-engine-v14.js
-   Version: v1.5.0-FINAL-RELEASE-LOCK
+   Version: v1.5.1-STUDENT-HOME-SIMPLIFY
 ========================================================= */
 
 "use strict";
 
 (function(){
-  const APP_VERSION = window.APP_VERSION || "v1.5.0-FINAL-RELEASE-LOCK";
+  const APP_VERSION = window.APP_VERSION || "v1.5.1-STUDENT-HOME-SIMPLIFY";
   const SESSIONS = Array.isArray(window.SESSIONS) ? window.SESSIONS : [];
   const QUESTION_BANK = Array.isArray(window.QUESTION_BANK) ? window.QUESTION_BANK : [];
 
@@ -207,16 +207,20 @@
   function percent(correct,total){
     const c = Number(correct || 0);
     const t = Number(total || 0);
+
     if(!t) return 0;
+
     return Math.round((c / t) * 100);
   }
 
   function shuffle(arr){
     const a = arr.slice();
+
     for(let i = a.length - 1; i > 0; i--){
       const j = Math.floor(Math.random() * (i + 1));
       [a[i],a[j]] = [a[j],a[i]];
     }
+
     return a;
   }
 
@@ -229,6 +233,7 @@
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2,"0");
     const dd = String(d.getDate()).padStart(2,"0");
+
     return `${yyyy}-${mm}-${dd}`;
   }
 
@@ -237,6 +242,7 @@
 
     try{
       const d = new Date(value);
+
       if(Number.isNaN(d.getTime())) return "-";
 
       return d.toLocaleString("th-TH",{
@@ -295,9 +301,11 @@
 
   function csvEscape(value){
     const s = String(value == null ? "" : value);
+
     if(/[",\n\r]/.test(s)){
       return `"${s.replace(/"/g,'""')}"`;
     }
+
     return s;
   }
 
@@ -327,6 +335,7 @@
     };
 
     localStorage.setItem(PROFILE_KEY,JSON.stringify(next));
+
     return next;
   }
 
@@ -338,6 +347,7 @@
     if($("sectionInput")) $("sectionInput").value = profile.section || "101";
 
     const status = $("profileStatus");
+
     if(status){
       const hasProfile = profile.studentName || profile.studentId;
 
@@ -457,7 +467,9 @@
   function saveStats(stats){
     const next = normalizeStats(stats);
     next.updatedAt = new Date().toISOString();
+
     localStorage.setItem(STORAGE_KEY,JSON.stringify(next));
+
     return next;
   }
 
@@ -468,6 +480,7 @@
       : normalizeSessionStats(null);
 
     s.played = Boolean(s.played || s.rounds);
+
     return s;
   }
 
@@ -482,6 +495,7 @@
     if(seen >= 4 && acc >= 80) return "Strong";
     if(seen >= 2 && acc >= 65) return "Familiar";
     if(seen >= 1) return "Learned";
+
     return "New";
   }
 
@@ -527,6 +541,7 @@
     if(sessionId === "BG5") return 75;
     if(sessionId === "BG1" || sessionId === "BG2" || sessionId === "BG3" || sessionId === "BG4") return 70;
     if(sessionId === "DAILY" || sessionId === "SPEED" || sessionId === "WEAK") return 0;
+
     return 60;
   }
 
@@ -618,6 +633,7 @@
 
   function getNextMissionId(currentId,passedThisRound){
     const idx = COURSE_FLOW.indexOf(currentId);
+
     if(idx === -1) return getFirstUnlockedMission();
 
     if(!passedThisRound) return currentId;
@@ -664,7 +680,6 @@
   function sortBossPriority(a,b){
     const ai = BOSS_TYPE_PRIORITY.indexOf(a.type);
     const bi = BOSS_TYPE_PRIORITY.indexOf(b.type);
-
     const av = ai === -1 ? 999 : ai;
     const bv = bi === -1 ? 999 : bi;
 
@@ -678,6 +693,7 @@
 
     out.push(q);
     seen.add(q.id);
+
     return true;
   }
 
@@ -688,6 +704,7 @@
     for(const q of shuffled){
       if(out.length >= count) break;
       if(seen && seen.has(q.id)) continue;
+
       out.push(q);
     }
 
@@ -760,6 +777,7 @@
     }
 
     const size = Math.min(Number(roundSize || 12),pool.length);
+
     const hard = pool.filter(q =>
       q.type === "academic_upgrade" ||
       q.type === "academic_phrase" ||
@@ -794,29 +812,31 @@
   function renderHomeStats(){
     const stats = loadStats();
     const words = getDeckWords();
+
     const mastered = words.filter(w => w.mastery === "Mastered").length;
+    const weak = words.filter(w => w.mastery === "Weak" || w.wrong > 0).length;
     const overallAcc = percent(stats.correct,stats.total);
     const nextMission = getFirstUnlockedMission();
+
+    const missionRows = getMissionSummaryRows();
+    const passedMissions = missionRows.filter(r => r.passed).length;
+    const totalMissions = missionRows.length;
 
     const quickBtn = $("quickStartBtn");
     if(quickBtn){
       quickBtn.textContent = `เล่นต่อ: ${nextMission}`;
     }
 
-    const qa = window.EAP_QA_REPORT && window.EAP_QA_REPORT.summary;
-    const qaStatus = qa && qa.finalStatus === "QA PASS" ? "QA PASS" : "QA CHECK";
-    const qaClass = qaStatus === "QA PASS" ? "pass" : "check";
-
     const el = $("homeStats");
     if(!el) return;
 
     el.innerHTML = `
-      <div class="stat"><b>${stats.rounds || 0}</b><span>Rounds</span></div>
-      <div class="stat"><b>${stats.totalXp || 0}</b><span>Total XP</span></div>
-      <div class="stat"><b>${overallAcc}%</b><span>Accuracy</span></div>
-      <div class="stat"><b>${mastered}/${words.length}</b><span>Mastered</span></div>
-      <div class="stat"><b>${escapeHtml(nextMission)}</b><span>Next Mission</span></div>
-      <div class="stat"><b><span class="qa-status-pill ${qaClass}">${qaStatus}</span></b><span>Content QA</span></div>
+      <div class="stat"><b>${escapeHtml(nextMission)}</b><span>ภารกิจถัดไป</span></div>
+      <div class="stat"><b>${passedMissions}/${totalMissions}</b><span>ผ่านแล้ว</span></div>
+      <div class="stat"><b>${stats.totalXp || 0}</b><span>XP สะสม</span></div>
+      <div class="stat"><b>${overallAcc}%</b><span>ความถูกต้อง</span></div>
+      <div class="stat"><b>${mastered}</b><span>คำที่จำได้ดี</span></div>
+      <div class="stat"><b>${weak}</b><span>คำที่ควรทบทวน</span></div>
     `;
   }
 
@@ -854,8 +874,6 @@
         ? `<span class="tag bad">Boss Gate</span>`
         : `<span class="tag">Session</span>`;
 
-      const itemCount = getPoolBySession(s.id).length;
-      const countTag = itemCount ? `<span class="tag">${itemCount} items</span>` : `<span class="tag">0 items</span>`;
       const progressTag = progress.played ? `<span class="tag">Best ${progress.bestAccuracy || 0}%</span>` : "";
 
       let lockText = "Locked";
@@ -881,17 +899,17 @@
       const passLine = s.boss
         ? (
             s.id === "BG5"
-              ? "ผ่านเมื่อ Accuracy ≥ 75% และลด Boss HP เป็น 0"
-              : "ผ่านเมื่อ Accuracy ≥ 70% และลด Boss HP เป็น 0"
+              ? "ภารกิจใหญ่สุดท้าย: ตอบให้แม่นและลด Boss HP ให้หมด"
+              : "ด่านทบทวนท้าย Arc: ตอบให้แม่นและลด Boss HP ให้หมด"
           )
-        : "ผ่านเมื่อ Accuracy ≥ 60%";
+        : "เล่นให้ผ่านเพื่อปลดล็อกภารกิจถัดไป";
 
       parts.push(`
         <article class="session-card ${s.boss ? "boss" : ""} ${active ? "" : "locked"}">
           <div class="session-top">
             <h4>${escapeHtml(s.id)} • ${escapeHtml(s.title)}</h4>
             <p>${escapeHtml(s.desc)}</p>
-            <div class="session-meta">${statusTag}${bossTag}${countTag}${progressTag}</div>
+            <div class="session-meta">${statusTag}${bossTag}${progressTag}</div>
             <div class="next-hint">${escapeHtml(passLine)}</div>
           </div>
           <div class="session-actions">
@@ -932,6 +950,7 @@
       else if(sessionId === "S13" || sessionId === "S14" || sessionId === "S15") showToast("ต้องผ่าน Boss Gate 4 ก่อนปลดล็อก Arc 5");
       else if(sessionId === "BG5") showToast("ต้องผ่าน S13, S14 และ S15 ก่อนเข้า Final Boss Gate");
       else showToast("ด่านนี้ยังถูกล็อก");
+
       return false;
     }
 
@@ -1086,6 +1105,7 @@
   function questionTimeLimit(q){
     if(state.isSpeedRun) return Math.max(5,Math.ceil((state.speedDeadline - Date.now()) / 1000));
     if(q && LEVEL_TIME[q.level]) return LEVEL_TIME[q.level];
+
     return 20;
   }
 
@@ -1213,6 +1233,7 @@
 
   function handleTimeout(){
     if(state.selected) return;
+
     const q = state.round[state.index];
     if(!q) return;
 
@@ -1544,6 +1565,7 @@
       const bi = CONTENT_SESSIONS.indexOf(b.session);
 
       if(ai !== bi) return ai - bi;
+
       return a.word.localeCompare(b.word);
     });
   }
@@ -1688,6 +1710,7 @@
       .sort((a,b) => {
         if(b.priorityScore !== a.priorityScore) return b.priorityScore - a.priorityScore;
         if(b.wrong !== a.wrong) return b.wrong - a.wrong;
+
         return a.accuracy - b.accuracy;
       })
       .slice(0,limit || 15);
@@ -2135,11 +2158,12 @@
     renderHomeStats();
     renderSessions();
     renderTeacherDashboard();
+
     showToast("ล้างข้อมูลคะแนนแล้ว");
   }
 
   /* =========================================================
-     QA LOCK v1.4.5
+     QA LOCK
   ========================================================= */
 
   function qaNormalize(value){
@@ -2320,7 +2344,7 @@
           : "QA CHECK"
     };
 
-    console.group("[EAP Word Quest] QA LOCK v1.5.0");
+    console.group("[EAP Word Quest] QA LOCK v1.5.1");
     console.log("Summary:",summary);
     console.table(sessionRows);
     console.table(bossRows);
@@ -2349,7 +2373,7 @@
   window.runEapQaLock = runEapQaLock;
 
   /* =========================================================
-     TEST HARDENING v1.4.7
+     TEST HARDENING
   ========================================================= */
 
   function testNow(){
@@ -2367,12 +2391,14 @@
   function testQuestionCount(sessionId){
     if(sessionId === "BG5") return 30;
     if(isBossGate(sessionId)) return 24;
+
     return 12;
   }
 
   function testXp(sessionId){
     if(sessionId === "BG5") return 900;
     if(isBossGate(sessionId)) return 650;
+
     return 260;
   }
 
@@ -2516,6 +2542,7 @@
     testRefreshUi("TEST: Course progress reset");
 
     console.info("[EAP Word Quest] Course progress reset. Word mastery was kept.");
+
     return loadStats();
   }
 
@@ -2527,6 +2554,7 @@
     testRefreshUi("TEST: All game stats reset");
 
     console.info("[EAP Word Quest] All game stats reset. Student profile was kept.");
+
     return loadStats();
   }
 
@@ -2541,6 +2569,7 @@
     testRefreshUi("TEST Profile ready");
 
     console.info("[EAP Word Quest] Test profile saved:",profile);
+
     return profile;
   }
 
@@ -2561,6 +2590,7 @@
     });
 
     console.table(rows);
+
     return rows;
   }
 
@@ -2608,6 +2638,7 @@
     }
 
     console.table(rows);
+
     return rows;
   }
 
@@ -2790,46 +2821,8 @@
   }
 
   /* =========================================================
-     FINAL RELEASE LOCK v1.5.0
+     FINAL RELEASE LOCK
   ========================================================= */
-
-  const FINAL_RELEASE_REQUIREMENTS = [
-    {
-      id:"QA_PASS",
-      label:"Content QA must pass",
-      detail:"S1–S15 ≥ 20 words, ≥ 160 items/session, choices valid, no duplicate id"
-    },
-    {
-      id:"SMOKE_PASS",
-      label:"Course flow smoke test must pass",
-      detail:"Unlock flow S1–BG5 must work correctly"
-    },
-    {
-      id:"PROFILE_READY",
-      label:"Student profile system ready",
-      detail:"Student Name / ID / Section 101 must be saved correctly"
-    },
-    {
-      id:"BOSS_GATES_READY",
-      label:"Boss Gates ready",
-      detail:"BG1–BG5 must have enough pool and balanced distribution"
-    },
-    {
-      id:"EXPORT_READY",
-      label:"Teacher export ready",
-      detail:"CSV/JSON export must include course summary and progress data"
-    },
-    {
-      id:"MOBILE_READY",
-      label:"Mobile UX ready",
-      detail:"Mobile layout, choices, dashboard tables, summary actions are usable"
-    },
-    {
-      id:"TEST_HELPERS_READY",
-      label:"Test helpers ready",
-      detail:"Console helpers must be available for debugging and demonstration"
-    }
-  ];
 
   function getFinalReleaseChecklist(){
     const qa = window.EAP_QA_REPORT && window.EAP_QA_REPORT.summary
@@ -2868,7 +2861,7 @@
       typeof updateMobileClass === "function" &&
       typeof polishMobileAfterRender === "function";
 
-    const rows = [
+    return [
       {
         id:"QA_PASS",
         label:"Content QA must pass",
@@ -2906,14 +2899,12 @@
         evidence:"QA / smoke / progress / boss distribution helpers"
       }
     ];
-
-    return rows;
   }
 
   function printFinalReleaseChecklist(){
     const rows = getFinalReleaseChecklist();
 
-    console.group("[EAP Word Quest] Final Release Checklist v1.5.0");
+    console.group("[EAP Word Quest] Final Release Checklist v1.5.1");
     console.table(rows);
     console.groupEnd();
 
@@ -2966,7 +2957,7 @@
 
     window.EAP_FINAL_RELEASE_REPORT = report;
 
-    console.group("[EAP Word Quest] FINAL RELEASE CHECK v1.5.0");
+    console.group("[EAP Word Quest] FINAL RELEASE CHECK v1.5.1");
     console.log("Final Status:",report.finalStatus);
     console.log("QA Status:",report.qaStatus);
     console.log("Smoke Status:",report.smokeStatus);
@@ -3122,7 +3113,8 @@
 
   function init(){
     if($("versionPill")){
-      $("versionPill").textContent = APP_VERSION;
+      $("versionPill").textContent = "Student Mode";
+      $("versionPill").title = APP_VERSION;
     }
 
     renderProfile();
