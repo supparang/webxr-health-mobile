@@ -2,339 +2,336 @@
 <html lang="th">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#eef2ff" />
   <meta name="color-scheme" content="light" />
 
   <title>EAP Word Quest • Academic Vocabulary Mission</title>
 
   <link rel="icon" href="data:," />
-  <link rel="stylesheet" href="./eap-word-quest.css?v=20260611-v14-final-arc" />
+  <link rel="stylesheet" href="./eap-word-quest.css?v=20260612-v150-final-release-lock" />
 </head>
 
 <body>
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">EAP Word Quest</p>
-        <h1>Academic Vocabulary Mission</h1>
+        <p class="eyebrow">Academic Vocabulary Mission</p>
+        <h1>EAP Word Quest</h1>
         <p class="subtitle">
-          Session-based EAP vocabulary game • A2–B1+ • Boss • Weak Words • Word Deck • Teacher Dashboard
+          Session → Mission → Combo → Boss Gate → Weak Word → Mastery → Teacher Dashboard
         </p>
       </div>
 
-      <div class="topbar-actions">
-        <span class="version-pill" id="versionPill">v1.4</span>
+      <div class="topbar-right">
+        <span class="version-pill" id="versionPill">v1.5.0</span>
         <span class="section-pill">Section 101</span>
       </div>
     </header>
 
     <main>
-      <!-- =========================================================
+      <!-- =====================================================
            HOME SCREEN
-      ========================================================== -->
+      ====================================================== -->
       <section id="homeScreen" class="screen active">
-        <article class="hero-card">
+        <section class="hero-card">
           <div class="hero-copy">
-            <p class="eyebrow">Course Map S1–S15</p>
-            <h2>เรียนคำศัพท์ EAP แบบภารกิจ</h2>
+            <p class="eyebrow">A2 → B1+</p>
+            <h2>Academic Vocabulary Mission สำหรับรายวิชา EAP</h2>
             <p>
-              เล่นตาม Session → สะสม XP → ฝึกคำที่เคยผิด → ปลดล็อก Boss →
-              ดู Word Deck → ส่งออกผลสำหรับอาจารย์
+              เล่นตาม Session จริง ฝึกคำศัพท์เชิงวิชาการ สะสม XP ปราบ Boss Gate
+              และดู Weak Words เพื่อทบทวนเฉพาะจุด
             </p>
           </div>
 
-          <div class="profile-box">
-            <div class="field">
-              <label>Student Name</label>
-              <input id="studentNameInput" type="text" placeholder="ชื่อนักศึกษา" autocomplete="name" />
-            </div>
+          <div class="hero-badge">
+            <b>15</b>
+            <span>Sessions</span>
+          </div>
+        </section>
 
-            <div class="field">
-              <label>Student ID</label>
-              <input id="studentIdInput" type="text" placeholder="รหัสนักศึกษา" inputmode="numeric" />
-            </div>
-
-            <div class="field">
-              <label>Section</label>
-              <input id="sectionInput" type="text" value="101" />
-            </div>
-
-            <div class="profile-actions">
-              <button class="btn secondary" id="saveProfileBtn" type="button">Save Profile</button>
-              <button class="btn danger" id="resetProfileBtn" type="button">Reset Profile</button>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Student Profile</h3>
+              <p>กรอกข้อมูลก่อนเล่น เพื่อให้ Teacher Dashboard และ Export ใช้งานได้จริง</p>
             </div>
           </div>
 
-          <div class="profile-status" id="profileStatus"></div>
+          <div class="profile-grid">
+            <label>
+              <span>Student Name</span>
+              <input id="studentNameInput" type="text" placeholder="เช่น Supparang" autocomplete="name" />
+            </label>
 
-          <div class="game-options">
-            <div class="field">
-              <label>Mode</label>
+            <label>
+              <span>Student ID</span>
+              <input id="studentIdInput" type="text" placeholder="เช่น 6600000001" autocomplete="off" />
+            </label>
+
+            <label>
+              <span>Section</span>
+              <input id="sectionInput" type="text" value="101" autocomplete="off" />
+            </label>
+          </div>
+
+          <div class="profile-actions">
+            <button class="btn" id="saveProfileBtn" type="button">Save Profile</button>
+            <button class="btn secondary" id="resetProfileBtn" type="button">Reset Profile</button>
+          </div>
+
+          <div id="profileStatus" class="profile-status"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Mission Control</h3>
+              <p>เลือกโหมด/จำนวนข้อ แล้วเล่นต่อจากด่านที่ปลดล็อกล่าสุด</p>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <label>
+              <span>Mode</span>
               <select id="modeSelect">
                 <option value="mixed">Mixed A2–B1+</option>
                 <option value="A2">A2 Meaning</option>
-                <option value="A2+">A2+ Sentence</option>
+                <option value="A2+">A2+ Sentence Fill</option>
                 <option value="B1">B1 Context</option>
                 <option value="B1+">B1+ Academic</option>
               </select>
-            </div>
+            </label>
 
-            <div class="field">
-              <label>Round Size</label>
+            <label>
+              <span>Round Size</span>
               <select id="roundSizeSelect">
-                <option value="10">10 questions</option>
-                <option value="12" selected>12 questions</option>
-                <option value="15">15 questions</option>
-                <option value="20">20 questions</option>
+                <option value="10">10 Questions</option>
+                <option value="12" selected>12 Questions</option>
+                <option value="15">15 Questions</option>
+                <option value="18">18 Questions</option>
+                <option value="20">20 Questions</option>
               </select>
-            </div>
+            </label>
           </div>
 
+          <div id="homeStats" class="stats-grid"></div>
+
           <div class="controls">
-            <button class="btn" id="quickStartBtn" type="button">Start S1</button>
-            <button class="btn secondary" id="startS2Btn" type="button">Start S2</button>
-            <button class="btn secondary" id="startS4Btn" type="button">S4 Locked</button>
-            <button class="btn secondary" id="startS5Btn" type="button">S5 Locked</button>
-            <button class="btn secondary" id="startS7Btn" type="button">S7 Locked</button>
-            <button class="btn secondary" id="startS8Btn" type="button">S8 Locked</button>
-            <button class="btn secondary" id="startS10Btn" type="button">S10 Locked</button>
-            <button class="btn secondary" id="startS11Btn" type="button">S11 Locked</button>
-            <button class="btn secondary" id="startS13Btn" type="button">S13 Locked</button>
-            <button class="btn secondary" id="startS14Btn" type="button">S14 Locked</button>
+            <button class="btn" id="quickStartBtn" type="button">เริ่ม / เล่นต่อ</button>
             <button class="btn secondary" id="weakStartBtn" type="button">ฝึกคำที่เคยผิด</button>
             <button class="btn secondary" id="dailyBtn" type="button">Daily Challenge</button>
             <button class="btn secondary" id="speedRunBtn" type="button">Speed Run 60s</button>
             <button class="btn secondary" id="wordDeckBtn" type="button">Word Deck</button>
             <button class="btn secondary" id="teacherBtn" type="button">Teacher Dashboard</button>
           </div>
-        </article>
-
-        <section class="summary-grid" id="homeStats"></section>
-
-        <section class="section-title">
-          <h3>Session Map</h3>
-          <span>ปลดล็อกทีละ Arc ตามผลการเล่น</span>
         </section>
 
-        <section class="session-grid" id="sessionGrid"></section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h3>Session Map</h3>
+              <p>S1–S15 คือบทเรียนจริง ส่วน BG1–BG5 คือ Boss Gate หลังจบแต่ละ Arc</p>
+            </div>
+          </div>
+
+          <div id="sessionGrid" class="session-grid"></div>
+        </section>
       </section>
 
-      <!-- =========================================================
+      <!-- =====================================================
            GAME SCREEN
-      ========================================================== -->
+      ====================================================== -->
       <section id="gameScreen" class="screen">
-        <article class="game-card">
+        <section class="game-card">
           <div class="game-head">
             <div>
               <p class="eyebrow" id="gameModeText">Mission</p>
-              <h2 id="gameTitle">Question</h2>
-              <p id="progressText" class="empty">Question 1/12</p>
+              <h2 id="gameTitle">Vocabulary Mission</h2>
             </div>
 
-            <div class="game-head-actions">
-              <button class="btn secondary small" id="aiHelpBtn" type="button">AI Help</button>
-              <button class="btn danger small" id="quitBtn" type="button">Quit</button>
-            </div>
+            <button class="btn ghost" id="quitBtn" type="button">ออก</button>
           </div>
 
-          <div class="progress-wrap">
-            <div class="progress-label">
-              <span>Round Progress</span>
+          <div class="progress-block">
+            <div class="progress-top">
+              <span id="progressText">Question 1/12</span>
               <span id="progressPercent">0%</span>
             </div>
-            <div class="progress-track">
-              <div class="progress-fill" id="progressFill"></div>
+
+            <div class="progress-bar">
+              <div id="progressFill" class="progress-fill"></div>
+            </div>
+
+            <div class="time-bar">
+              <div id="timeFill" class="time-fill"></div>
             </div>
           </div>
 
-          <div class="timer-track">
-            <div class="timer-fill" id="timeFill"></div>
+          <div id="questionTags" class="question-tags"></div>
+
+          <div id="promptText" class="prompt-box">
+            Loading question...
           </div>
 
-          <div class="question-tags" id="questionTags"></div>
+          <div id="choicesEl" class="choices-grid"></div>
 
-          <div class="prompt-box">
-            <h3 id="promptText">Prompt</h3>
-          </div>
-
-          <div class="choices" id="choicesEl"></div>
-
-          <div class="feedback-box" id="feedbackBox" hidden>
-            <h4 id="feedbackTitle">Feedback</h4>
+          <div id="feedbackBox" class="feedback-box" hidden>
+            <h3 id="feedbackTitle">Feedback</h3>
             <p id="feedbackText"></p>
           </div>
 
-          <div class="game-footer">
-            <div class="mini-stats" id="gameStats"></div>
+          <div id="gameStats" class="mini-stats"></div>
+
+          <div class="game-actions">
+            <button class="btn secondary" id="aiHelpBtn" type="button">AI Help 2</button>
             <button class="btn" id="nextBtn" type="button" disabled>ข้อต่อไป</button>
           </div>
-        </article>
+        </section>
       </section>
 
-      <!-- =========================================================
+      <!-- =====================================================
            TEACHER DASHBOARD
-      ========================================================== -->
+      ====================================================== -->
       <section id="teacherScreen" class="screen">
-        <article class="summary-card">
-          <div class="summary-title">
+        <section class="panel">
+          <div class="panel-head">
             <div>
-              <h2>Teacher Dashboard</h2>
-              <p class="empty">
-                ภาพรวมผลการเล่นจาก browser เครื่องนี้ ใช้ตรวจ progress, accuracy,
-                weak words และ mastery เบื้องต้น
-              </p>
+              <h3>Teacher Dashboard</h3>
+              <p>ดูคะแนน ความก้าวหน้า Weak Words และ Export ข้อมูลสำหรับการสอน/วิจัย</p>
             </div>
-            <div class="stars">📊</div>
+
+            <button class="btn ghost" id="teacherBackBtn" type="button">กลับหน้าแรก</button>
           </div>
 
-          <div class="dash-note">
-            ข้อมูลนี้เก็บใน browser ผ่าน localStorage เหมาะสำหรับ prototype/test
-            ก่อนเชื่อม Google Sheets หรือ Teacher Console จริง
-          </div>
+          <div id="teacherProfileBox" class="teacher-profile"></div>
 
-          <div class="dash-note" id="teacherProfileBox"></div>
+          <div id="teacherStats" class="stats-grid"></div>
 
-          <div class="summary-grid" id="teacherStats"></div>
-
-          <div class="teacher-toolbar">
+          <div class="dashboard-actions">
             <button class="btn secondary" id="teacherRefreshBtn" type="button">Refresh</button>
             <button class="btn secondary" id="exportCsvBtn" type="button">Export CSV</button>
             <button class="btn secondary" id="exportJsonBtn" type="button">Export JSON</button>
             <button class="btn danger" id="clearStatsBtn" type="button">Clear Local Data</button>
-            <button class="btn" id="teacherBackBtn" type="button">กลับหน้า Session</button>
           </div>
+        </section>
 
-          <div class="section-title">
-            <h3>Session Progress</h3>
-            <span>S1–S15 / Boss / Review Modes</span>
-          </div>
+        <section class="panel dashboard-card">
+          <h3>Mission Progress</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Mission</th>
+                <th>Rounds</th>
+                <th>Questions</th>
+                <th>Correct</th>
+                <th>Avg Acc</th>
+                <th>XP</th>
+                <th>Passed</th>
+                <th>Best</th>
+                <th>Last Played</th>
+              </tr>
+            </thead>
+            <tbody id="sessionProgressBody"></tbody>
+          </table>
+        </section>
 
-          <div class="dash-table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>Session</th>
-                  <th>Rounds</th>
-                  <th>Questions</th>
-                  <th>Correct</th>
-                  <th>Accuracy</th>
-                  <th>XP</th>
-                  <th>Passed</th>
-                  <th>Best</th>
-                  <th>Last Played</th>
-                </tr>
-              </thead>
-              <tbody id="sessionProgressBody"></tbody>
-            </table>
-          </div>
+        <section class="panel dashboard-card">
+          <h3>Weak Words Priority</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Word</th>
+                <th>Seen</th>
+                <th>Correct</th>
+                <th>Wrong</th>
+                <th>Accuracy</th>
+                <th>Mastery</th>
+              </tr>
+            </thead>
+            <tbody id="weakWordsTableBody"></tbody>
+          </table>
+        </section>
 
-          <div class="section-title">
-            <h3>Top Weak Words</h3>
-            <span>คำที่ผิดบ่อยที่สุด</span>
-          </div>
+        <section class="panel dashboard-card">
+          <h3>Mastery Overview</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Level</th>
+                <th>Count</th>
+                <th>Examples</th>
+              </tr>
+            </thead>
+            <tbody id="masteryOverviewBody"></tbody>
+          </table>
+        </section>
 
-          <div class="dash-table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>Word</th>
-                  <th>Seen</th>
-                  <th>Correct</th>
-                  <th>Wrong</th>
-                  <th>Accuracy</th>
-                  <th>Mastery</th>
-                </tr>
-              </thead>
-              <tbody id="weakWordsTableBody"></tbody>
-            </table>
-          </div>
-
-          <div class="section-title">
-            <h3>Mastery Overview</h3>
-            <span>สถานะคำศัพท์</span>
-          </div>
-
-          <div class="dash-table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Count</th>
-                  <th>Examples</th>
-                </tr>
-              </thead>
-              <tbody id="masteryOverviewBody"></tbody>
-            </table>
-          </div>
-
-          <div class="section-title">
-            <h3>Recent Rounds</h3>
-            <span>ประวัติการเล่นล่าสุด</span>
-          </div>
-
-          <div class="dash-table-wrap">
-            <table class="dash-table">
-              <thead>
-                <tr>
-                  <th>Date/Time</th>
-                  <th>Student</th>
-                  <th>Section</th>
-                  <th>Mode</th>
-                  <th>Questions</th>
-                  <th>Correct</th>
-                  <th>Accuracy</th>
-                  <th>XP</th>
-                  <th>Passed</th>
-                  <th>Weak Words</th>
-                </tr>
-              </thead>
-              <tbody id="recentRoundsBody"></tbody>
-            </table>
-          </div>
-        </article>
+        <section class="panel dashboard-card">
+          <h3>Recent Rounds</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Student</th>
+                <th>Section</th>
+                <th>Mission</th>
+                <th>Q</th>
+                <th>Correct</th>
+                <th>Acc</th>
+                <th>XP</th>
+                <th>Passed</th>
+                <th>Weak Words</th>
+              </tr>
+            </thead>
+            <tbody id="recentRoundsBody"></tbody>
+          </table>
+        </section>
       </section>
 
-      <!-- =========================================================
+      <!-- =====================================================
            WORD DECK
-      ========================================================== -->
+      ====================================================== -->
       <section id="wordDeckScreen" class="screen">
-        <article class="summary-card">
-          <div class="summary-title">
+        <section class="panel">
+          <div class="panel-head">
             <div>
-              <h2>Word Deck</h2>
-              <p class="empty">
-                การ์ดคำศัพท์สะสมของผู้เรียน แสดงสถานะ New, Learned,
-                Familiar, Strong และ Mastered
-              </p>
+              <h3>Word Deck</h3>
+              <p>ดูคลังคำศัพท์ทั้งหมด แยกตาม Session และระดับ Mastery</p>
             </div>
-            <div class="stars">🃏</div>
+
+            <button class="btn ghost" id="deckBackBtn" type="button">กลับหน้าแรก</button>
           </div>
 
-          <div class="summary-grid" id="deckStats"></div>
+          <div id="deckStats" class="stats-grid"></div>
 
-          <div class="deck-toolbar">
-            <div class="field">
-              <label>Session</label>
+          <div class="settings-row">
+            <label>
+              <span>Session Filter</span>
               <select id="deckSessionFilter">
-                <option value="ALL">All S1–S14</option>
-                <option value="S1">S1 Academic Profile</option>
-                <option value="S2">S2 Project Introduction</option>
-                <option value="S4">S4 Tech Jobs / Careers</option>
-                <option value="S5">S5 Workplace Communication</option>
-                <option value="S7">S7 Professional Email</option>
-                <option value="S8">S8 Meeting / Discussion</option>
-                <option value="S10">S10 System Explanation</option>
-                <option value="S11">S11 Bug Report / Problem Solving</option>
-                <option value="S13">S13 AI Report / Academic Summary</option>
-                <option value="S14">S14 CV / Interview / Pitch</option>
+                <option value="ALL">All Sessions</option>
+                <option value="S1">S1</option>
+                <option value="S2">S2</option>
+                <option value="S3">S3</option>
+                <option value="S4">S4</option>
+                <option value="S5">S5</option>
+                <option value="S6">S6</option>
+                <option value="S7">S7</option>
+                <option value="S8">S8</option>
+                <option value="S9">S9</option>
+                <option value="S10">S10</option>
+                <option value="S11">S11</option>
+                <option value="S12">S12</option>
+                <option value="S13">S13</option>
+                <option value="S14">S14</option>
+                <option value="S15">S15</option>
               </select>
-            </div>
+            </label>
 
-            <div class="field">
-              <label>Mastery Status</label>
+            <label>
+              <span>Mastery Filter</span>
               <select id="deckMasteryFilter">
-                <option value="ALL">All Status</option>
+                <option value="ALL">All Mastery</option>
                 <option value="New">New</option>
                 <option value="Learned">Learned</option>
                 <option value="Familiar">Familiar</option>
@@ -342,51 +339,46 @@
                 <option value="Mastered">Mastered</option>
                 <option value="Weak">Weak Words</option>
               </select>
-            </div>
-
-            <button class="btn secondary" id="deckBackBtn" type="button">กลับหน้า Session</button>
+            </label>
           </div>
 
-          <div class="deck-grid" id="wordDeckGrid"></div>
-        </article>
+          <div id="wordDeckGrid" class="word-deck-grid"></div>
+        </section>
       </section>
 
-      <!-- =========================================================
+      <!-- =====================================================
            SUMMARY SCREEN
-      ========================================================== -->
+      ====================================================== -->
       <section id="summaryScreen" class="screen">
-        <article class="summary-card">
-          <div class="summary-title">
-            <div>
-              <h2 id="summaryTitle">Mission Complete</h2>
-              <p id="summarySubtitle" class="empty"></p>
-            </div>
-            <div class="stars" id="summaryStars">⭐</div>
+        <section class="summary-card">
+          <div class="summary-hero">
+            <p id="summaryStars" class="summary-stars">⭐</p>
+            <h2 id="summaryTitle">Mission Complete</h2>
+            <p id="summarySubtitle">Summary</p>
           </div>
 
-          <div class="summary-grid" id="summaryStats"></div>
+          <div id="summaryStats" class="stats-grid"></div>
 
-          <div class="section-title">
-            <h3>Weak Words</h3>
-            <span>คำที่ควรกลับไปทบทวน</span>
+          <div class="panel weak-summary">
+            <h3>Weak Words จากรอบนี้</h3>
+            <div id="summaryWeakWords" class="word-list"></div>
           </div>
-
-          <div class="word-list" id="summaryWeakWords"></div>
 
           <div class="summary-actions">
-            <button class="btn" id="replayBtn" type="button">เล่นอีกครั้ง</button>
+            <button class="btn" id="nextMissionBtn" type="button">ไปด่านถัดไป</button>
+            <button class="btn secondary" id="replayBtn" type="button">เล่นอีกครั้ง</button>
             <button class="btn secondary" id="summaryDeckBtn" type="button">เปิด Word Deck</button>
             <button class="btn secondary" id="summaryTeacherBtn" type="button">Teacher Dashboard</button>
-            <button class="btn secondary" id="homeBtn" type="button">กลับหน้า Session</button>
+            <button class="btn secondary" id="homeBtn" type="button">กลับหน้าแรก</button>
           </div>
-        </article>
+        </section>
       </section>
     </main>
   </div>
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="./eap-word-data.js?v=20260612-v141-stats-fix"></script>
-<script src="./eap-word-engine-v14.js?v=20260612-v141-stats-fix"></script>
+  <script src="./eap-word-data.js?v=20260612-v150-final-release-lock"></script>
+  <script src="./eap-word-engine-v14.js?v=20260612-v150-final-release-lock"></script>
 </body>
 </html>
