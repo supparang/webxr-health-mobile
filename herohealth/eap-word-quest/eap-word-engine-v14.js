@@ -1,17 +1,18 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-engine-v14.js
-   Version: v1.5.3-ROUND-QUALITY-BOSS-BALANCE
+   Version: v1.6.0-VALID-ITEM-BANK
 ========================================================= */
 
 "use strict";
 
 (function(){
-  const APP_VERSION = window.APP_VERSION || "v1.5.3-ROUND-QUALITY-BOSS-BALANCE";
+  const APP_VERSION = window.APP_VERSION || "v1.6.0-VALID-ITEM-BANK";
   const SESSIONS = Array.isArray(window.SESSIONS) ? window.SESSIONS : [];
   const QUESTION_BANK = Array.isArray(window.QUESTION_BANK) ? window.QUESTION_BANK : [];
+  const VALIDITY_RULES = window.EAP_VALIDITY_RULES || {};
 
-  const STORAGE_KEY = "EAP_WORD_QUEST_STATS_V150";
+  const STORAGE_KEY = "EAP_WORD_QUEST_STATS_V160";
   const PROFILE_KEY = "EAP_WORD_QUEST_PROFILE_V01";
   const RECENT_KEY = "EAP_WORD_QUEST_RECENT_V01";
   const DAILY_KEY = "EAP_WORD_QUEST_DAILY_V01";
@@ -96,43 +97,37 @@
   };
 
   const BOSS_TYPE_PRIORITY = [
-    "academic_upgrade",
-    "academic_phrase",
-    "near_miss",
-    "word_form",
-    "context",
-    "collocation",
-    "sentence_fill",
+    "academic_sentence",
+    "applied_context",
+    "context_gap",
+    "collocation_meaning",
+    "term_definition",
     "meaning"
   ];
 
   const BOSS_TYPE_QUOTA = {
-    academic_upgrade:0.18,
-    academic_phrase:0.18,
-    near_miss:0.14,
-    word_form:0.14,
-    context:0.13,
-    collocation:0.11,
-    sentence_fill:0.07,
-    meaning:0.05
+    academic_sentence:0.22,
+    applied_context:0.22,
+    context_gap:0.18,
+    collocation_meaning:0.16,
+    term_definition:0.12,
+    meaning:0.10
   };
 
   const TYPE_LABEL = {
     meaning:"Meaning",
-    sentence_fill:"Sentence Fill",
-    collocation:"Collocation",
-    context:"Context",
-    word_form:"Form & Usage",
-    near_miss:"Near Miss",
-    academic_phrase:"Academic Phrase",
-    academic_upgrade:"Academic Upgrade"
+    term_definition:"Term by Definition",
+    context_gap:"Context Gap",
+    collocation_meaning:"Collocation by Meaning",
+    academic_sentence:"Academic Sentence",
+    applied_context:"Applied Context"
   };
 
   const LEVEL_TIME = {
     A2:24,
-    "A2+":22,
-    B1:20,
-    "B1+":18
+    "A2+":23,
+    B1:21,
+    "B1+":19
   };
 
   const DEFAULT_PROFILE = {
@@ -703,13 +698,12 @@
       .replace(/\bsteps\b/g,"step")
       .replace(/\bquestions\b/g,"question")
       .replace(/\bmeetings\b/g,"meeting")
-      .replace(/\bsessions\b/g,"session")
       .replace(/\s+/g," ")
       .trim();
   }
 
   function questionWordKey(q){
-    const raw = q && (q.word || q.answer || q.id);
+    const raw = q && (q.word || q.targetTerm || q.answer || q.id);
     return `word:${canonicalWordText(raw)}`;
   }
 
@@ -855,23 +849,21 @@
     const size = Math.min(Number(roundSize || 12),uniqueWordCount(pool));
 
     const hard = pool.filter(q =>
-      q.type === "academic_upgrade" ||
-      q.type === "academic_phrase" ||
-      q.type === "near_miss" ||
-      q.type === "word_form"
+      q.type === "academic_sentence" ||
+      q.type === "applied_context" ||
+      q.type === "context_gap"
     );
 
     const support = pool.filter(q =>
       q.type === "meaning" ||
-      q.type === "sentence_fill" ||
-      q.type === "collocation" ||
-      q.type === "context"
+      q.type === "term_definition" ||
+      q.type === "collocation_meaning"
     );
 
     const out = [];
     const seen = new Set();
 
-    pickFromPool(hard,Math.ceil(size * .45),seen).forEach(q => addUniqueQuestion(out,seen,q));
+    pickFromPool(hard,Math.ceil(size * .50),seen).forEach(q => addUniqueQuestion(out,seen,q));
     pickFromPool(support,size - out.length,seen).forEach(q => addUniqueQuestion(out,seen,q));
 
     if(out.length < size){
@@ -1633,7 +1625,7 @@
             word:q.word,
             session:q.session,
             level:q.level,
-            meaning:"",
+            meaning:q.targetMeaning || "",
             types:new Set()
           });
         }
@@ -1649,6 +1641,7 @@
         word:item.word,
         session:item.session,
         level:item.level,
+        meaning:item.meaning,
         seen:w.seen,
         correct:w.correct,
         wrong:w.wrong,
@@ -1713,7 +1706,7 @@
           <div class="word-card-head">
             <div>
               <h4>${escapeHtml(w.word)}</h4>
-              <small>${escapeHtml(w.session)} • ${escapeHtml(w.level)} • ${escapeHtml(w.types.join(", "))}</small>
+              <small>${escapeHtml(w.session)} • ${escapeHtml(w.level)} • ${escapeHtml(w.meaning || "-")}</small>
             </div>
             <span class="tag ${w.mastery === "Mastered" ? "good" : w.mastery === "Weak" ? "bad" : "primary"}">
               ${escapeHtml(w.mastery)}
@@ -2026,7 +2019,9 @@
       stats,
       deck:getDeckWords(),
       qaReport:window.EAP_QA_REPORT || null,
-      roundQualityReport:window.EAP_ROUND_QUALITY_REPORT || null
+      itemValidityReport:window.EAP_ITEM_VALIDITY_REPORT || null,
+      roundQualityReport:window.EAP_ROUND_QUALITY_REPORT || null,
+      finalReleaseReport:window.EAP_FINAL_RELEASE_REPORT || null
     };
 
     downloadTextFile(
@@ -2035,7 +2030,7 @@
       "application/json;charset=utf-8"
     );
 
-    showToast("Export JSON พร้อม Course Summary แล้ว");
+    showToast("Export JSON พร้อม Item Validity แล้ว");
   }
 
   function exportDashboardCsv(){
@@ -2262,11 +2257,79 @@
   }
 
   /* =========================================================
-     QA LOCK
+     VALIDITY / QA HELPERS
   ========================================================= */
 
   function qaNormalize(value){
     return String(value == null ? "" : value).replace(/\s+/g," ").trim();
+  }
+
+  function qaCanonical(value){
+    return qaNormalize(value)
+      .toLowerCase()
+      .replace(/[‐-‒–—−]/g," ")
+      .replace(/\busers\b/g,"user")
+      .replace(/\bskills\b/g,"skill")
+      .replace(/\bitems\b/g,"item")
+      .replace(/\boutcomes\b/g,"outcome")
+      .replace(/\bresults\b/g,"result")
+      .replace(/\bfindings\b/g,"finding")
+      .replace(/\btasks\b/g,"task")
+      .replace(/\s+/g," ")
+      .trim();
+  }
+
+  function qaFamilyFromText(text){
+    const t = qaCanonical(text);
+
+    if(/\b(goal|objective|aim|purpose|target)\b/.test(t)) return "goal";
+    if(/\b(need|requirement|gap|problem|issue|challenge|barrier|limitation|constraint)\b/.test(t)) return "need_problem";
+    if(/\b(user|learner|participant|audience|recipient|sender|candidate|applicant)\b/.test(t)) return "people";
+    if(/\b(scope|context|boundary|coverage|range)\b/.test(t)) return "scope_context";
+    if(/\b(benefit|value|impact|advantage|effect)\b/.test(t)) return "benefit_value";
+    if(/\b(system|interface|database|algorithm|workflow|process|input|output|dashboard|button|menu|screen|storage)\b/.test(t)) return "system";
+    if(/\b(error|bug|fix|patch|debug|crash|freeze|hotfix|fallback|link|file|cache)\b/.test(t)) return "bug_fix";
+    if(/\b(email|reply|request|greeting|attachment|signature|tone|language|inquiry)\b/.test(t)) return "email";
+    if(/\b(meeting|discussion|agenda|decision|consensus|participant|moderator|minutes)\b/.test(t)) return "meeting";
+    if(/\b(data|dataset|model|accuracy|analysis|finding|evidence|chart|prediction|variable)\b/.test(t)) return "data_ai";
+    if(/\b(career|cv|interview|qualification|portfolio|pitch|leadership|employability)\b/.test(t)) return "career";
+    if(/\b(reflection|presentation|outcome|recommendation|improvement|future work|showcase)\b/.test(t)) return "presentation_reflection";
+    if(/\b(skill|teamwork|creativity|motivation|confidence|experience|background)\b/.test(t)) return "profile_skill";
+
+    return "general";
+  }
+
+  function qaTokens(value){
+    const generic = new Set([
+      "project","learning","academic","user","users","student","students",
+      "system","team","final","professional","data","report","task","work",
+      "clearly","supports","context","communication","information"
+    ]);
+
+    return qaCanonical(value)
+      .split(" ")
+      .filter(t => t && t.length > 2 && !generic.has(t));
+  }
+
+  function qaAreConfusable(a,b){
+    const ca = qaCanonical(a);
+    const cb = qaCanonical(b);
+
+    if(!ca || !cb) return true;
+    if(ca === cb) return true;
+
+    const fa = qaFamilyFromText(ca);
+    const fb = qaFamilyFromText(cb);
+
+    if(fa !== "general" && fa === fb) return true;
+
+    const ta = qaTokens(ca);
+    const tb = new Set(qaTokens(cb));
+    const overlap = ta.filter(t => tb.has(t));
+
+    if(overlap.length >= 1) return true;
+
+    return false;
   }
 
   function qaHasBadDistractor(item){
@@ -2279,10 +2342,6 @@
       "food menu",
       "travel plan",
       "classroom color",
-      "option 1",
-      "option 2",
-      "option 3",
-      "option 4",
       "option ",
       "near alternative",
       "nice and useful",
@@ -2293,6 +2352,35 @@
       const c = qaNormalize(choice).toLowerCase();
       return badWords.some(bad => c.includes(bad));
     });
+  }
+
+  function qaPromptIssue(item){
+    const prompt = qaNormalize(item.prompt);
+    const low = prompt.toLowerCase();
+    const banned = VALIDITY_RULES.bannedPromptFragments || [
+      "which option is the correct",
+      "this is useful for the task",
+      "upgrade this plain sentence",
+      "near-miss challenge",
+      "which option is correct",
+      "choose the sentence that sounds most academic"
+    ];
+
+    if(!prompt) return "missing-prompt";
+    if(banned.some(fragment => low.includes(fragment))) return "ambiguous-prompt";
+
+    if(
+      item.type === "academic_sentence" ||
+      item.type === "applied_context" ||
+      item.type === "context_gap" ||
+      item.type === "collocation_meaning" ||
+      item.type === "term_definition"
+    ){
+      if(!item.targetMeaning) return "missing-target-meaning";
+      if(!prompt.includes(item.targetMeaning)) return "prompt-missing-target-meaning";
+    }
+
+    return "";
   }
 
   function qaChoiceIssue(item){
@@ -2310,6 +2398,17 @@
     if(unique.size !== choices.length) return "duplicate-choices";
     if(!choices.includes(answer)) return "answer-not-in-choices";
     if(qaHasBadDistractor(item)) return "weak-distractor";
+    if(choices.filter(c => c !== answer).some(c => qaAreConfusable(c,answer))) return "semantic-collision";
+
+    return "";
+  }
+
+  function qaItemIssue(item){
+    const promptIssue = qaPromptIssue(item);
+    if(promptIssue) return promptIssue;
+
+    const choiceIssue = qaChoiceIssue(item);
+    if(choiceIssue) return choiceIssue;
 
     return "";
   }
@@ -2339,7 +2438,7 @@
         word:item && item.word,
         type:item && item.type,
         level:item && item.level,
-        issue:qaChoiceIssue(item || {})
+        issue:qaItemIssue(item || {})
       }))
       .filter(row => row.issue);
 
@@ -2361,16 +2460,15 @@
       const hardItems = bank.filter(q =>
         q.session === sessionId &&
         (
-          q.type === "near_miss" ||
-          q.type === "word_form" ||
-          q.type === "academic_phrase" ||
-          q.type === "academic_upgrade"
+          q.type === "academic_sentence" ||
+          q.type === "applied_context" ||
+          q.type === "context_gap"
         )
       ).length;
 
       const status =
         words >= 20 &&
-        items >= 160 &&
+        items >= 120 &&
         badChoices === 0
           ? "PASS"
           : "CHECK";
@@ -2379,13 +2477,13 @@
         session:sessionId,
         words,
         items,
-        expectedMinItems:160,
+        expectedMinItems:120,
         A2:levels.A2,
         A2plus:levels["A2+"],
         B1:levels.B1,
         B1plus:levels["B1+"],
         hardItems,
-        badChoices,
+        issueItems:badChoices,
         status
       };
     });
@@ -2401,13 +2499,12 @@
       });
 
       const hardPool = pool.filter(q =>
-        q.type === "near_miss" ||
-        q.type === "word_form" ||
-        q.type === "academic_phrase" ||
-        q.type === "academic_upgrade"
+        q.type === "academic_sentence" ||
+        q.type === "applied_context" ||
+        q.type === "context_gap"
       ).length;
 
-      const minPool = gateId === "BG5" ? 2400 : 480;
+      const minPool = gateId === "BG5" ? 1800 : 360;
       const minRound = cfg && cfg.minRound ? cfg.minRound : (gateId === "BG5" ? 30 : 24);
 
       return {
@@ -2418,7 +2515,7 @@
         hardPool,
         sessions:sessionsInGate.join("/"),
         distribution:JSON.stringify(bySession),
-        status:pool.length >= minPool && hardPool >= Math.round(pool.length * 0.35) ? "PASS" : "CHECK"
+        status:pool.length >= minPool && hardPool >= Math.round(pool.length * 0.45) ? "PASS" : "CHECK"
       };
     });
 
@@ -2430,14 +2527,15 @@
       version:APP_VERSION,
       totalWords,
       totalItems,
+      expectedItems:1800,
       duplicateIds:duplicateIds.length,
-      choiceIssues:issueItems.length,
+      itemIssues:issueItems.length,
       weakDistractors,
       sessionsPass:sessionRows.filter(r => r.status === "PASS").length + "/" + sessionRows.length,
       bossGatesPass:bossRows.filter(r => r.status === "PASS").length + "/" + bossRows.length,
       finalStatus:
         totalWords >= 300 &&
-        totalItems >= 2400 &&
+        totalItems >= 1800 &&
         duplicateIds.length === 0 &&
         issueItems.length === 0 &&
         sessionRows.every(r => r.status === "PASS") &&
@@ -2446,7 +2544,7 @@
           : "QA CHECK"
     };
 
-    console.group("[EAP Word Quest] QA LOCK v1.5.3");
+    console.group("[EAP Word Quest] QA LOCK v1.6.0");
     console.log("Summary:",summary);
     console.table(sessionRows);
     console.table(bossRows);
@@ -2456,7 +2554,7 @@
     }
 
     if(issueItems.length){
-      console.warn("Choice / Item issues:",issueItems.slice(0,80));
+      console.warn("Validity / item issues:",issueItems.slice(0,120));
     }
 
     console.groupEnd();
@@ -2472,7 +2570,89 @@
     return window.EAP_QA_REPORT;
   }
 
+  function inspectItemValidity(sessionId){
+    const bank = (window.QUESTION_BANK || []).filter(q => !sessionId || q.session === sessionId);
+
+    const rows = bank.map(item => ({
+      id:item.id,
+      session:item.session,
+      word:item.word,
+      type:item.type,
+      level:item.level,
+      targetMeaning:item.targetMeaning || "",
+      answer:item.answer,
+      promptIssue:qaPromptIssue(item),
+      choiceIssue:qaChoiceIssue(item),
+      status:qaItemIssue(item) ? "CHECK" : "PASS"
+    }));
+
+    const summary = {
+      version:APP_VERSION,
+      session:sessionId || "ALL",
+      checked:rows.length,
+      pass:rows.filter(r => r.status === "PASS").length,
+      check:rows.filter(r => r.status !== "PASS").length,
+      status:rows.every(r => r.status === "PASS") ? "ITEM VALIDITY PASS" : "ITEM VALIDITY CHECK"
+    };
+
+    console.group(`[EAP Word Quest] Item Validity Inspect: ${sessionId || "ALL"}`);
+    console.log("Summary:",summary);
+    console.table(rows.filter(r => r.status !== "PASS").slice(0,120));
+    console.groupEnd();
+
+    return {
+      summary,
+      rows
+    };
+  }
+
+  function runItemValiditySuite(){
+    const targets = CONTENT_SESSIONS.slice();
+
+    const results = targets.map(id => {
+      const report = inspectItemValidity(id);
+
+      return {
+        session:id,
+        checked:report.summary.checked,
+        pass:report.summary.pass,
+        check:report.summary.check,
+        status:report.summary.status === "ITEM VALIDITY PASS" ? "PASS" : "CHECK",
+        report
+      };
+    });
+
+    const summary = {
+      version:APP_VERSION,
+      checkedAt:new Date().toISOString(),
+      sessions:results.length,
+      pass:results.filter(r => r.status === "PASS").length,
+      check:results.filter(r => r.status !== "PASS").length,
+      status:results.every(r => r.status === "PASS") ? "ITEM VALIDITY PASS" : "ITEM VALIDITY CHECK"
+    };
+
+    console.group("[EAP Word Quest] Item Validity Suite");
+    console.log("Summary:",summary);
+    console.table(results.map(r => ({
+      session:r.session,
+      checked:r.checked,
+      pass:r.pass,
+      check:r.check,
+      status:r.status
+    })));
+    console.groupEnd();
+
+    window.EAP_ITEM_VALIDITY_REPORT = {
+      summary,
+      results
+    };
+
+    return window.EAP_ITEM_VALIDITY_REPORT;
+  }
+
   window.runEapQaLock = runEapQaLock;
+  window.inspectItemValidity = inspectItemValidity;
+  window.runItemValiditySuite = runItemValiditySuite;
 
   /* =========================================================
      TEST HARDENING
@@ -2721,10 +2901,9 @@
       });
 
       const hardItems = round.filter(q =>
-        q.type === "near_miss" ||
-        q.type === "word_form" ||
-        q.type === "academic_phrase" ||
-        q.type === "academic_upgrade"
+        q.type === "academic_sentence" ||
+        q.type === "applied_context" ||
+        q.type === "context_gap"
       ).length;
 
       rows.push({
@@ -2766,18 +2945,12 @@
     if(/\b[a-z]{4,}(?:tioned|mented|nessed|shiped|ableed|backed)\b/.test(c)) return true;
     if(/\b[a-z]{4,}(?:inged|eded)\b/.test(c)) return true;
 
-    if(c !== a && !c.includes(" ") && !a.includes(" ")){
-      if(c === `${a}s`) return true;
-      if(c === `${a}ed`) return true;
-      if(c === `${a}ing`) return true;
-    }
-
     return false;
   }
 
   function hasChoiceLengthDominance(q){
     if(!q) return false;
-    if(q.type !== "academic_phrase" && q.type !== "academic_upgrade") return false;
+    if(q.type !== "academic_sentence") return false;
 
     const answer = normalizeText(q.answer);
     const choices = Array.isArray(q.choices) ? q.choices.map(normalizeText) : [];
@@ -2850,6 +3023,8 @@
 
       const lengthDominanceItems = round.filter(q => hasChoiceLengthDominance(q));
 
+      const invalidItems = round.filter(q => qaItemIssue(q));
+
       rows.push({
         round:i,
         mission:id,
@@ -2858,9 +3033,13 @@
         duplicateWords:[...new Set(duplicatedWords)].join(", ") || "-",
         weakChoiceItems:weakChoiceItems.length,
         lengthDominanceItems:lengthDominanceItems.length,
-        status:duplicatedWords.length === 0 && weakChoiceItems.length === 0 && lengthDominanceItems.length === 0
-          ? "PASS"
-          : "CHECK"
+        invalidItems:invalidItems.length,
+        status:duplicatedWords.length === 0 &&
+          weakChoiceItems.length === 0 &&
+          lengthDominanceItems.length === 0 &&
+          invalidItems.length === 0
+            ? "PASS"
+            : "CHECK"
       });
     }
 
@@ -3064,6 +3243,8 @@
     boss:testBossGateDistribution,
     inspect:inspectRoundQuality,
     roundQuality:runRoundQualitySuite,
+    itemValidity:runItemValiditySuite,
+    inspectItem:inspectItemValidity,
     smoke:runCourseFlowSmokeTest,
     qa:window.runEapQaLock
   };
@@ -3108,6 +3289,14 @@
       ? window.EAP_QA_REPORT.summary
       : null;
 
+    const itemValidity = window.EAP_ITEM_VALIDITY_REPORT && window.EAP_ITEM_VALIDITY_REPORT.summary
+      ? window.EAP_ITEM_VALIDITY_REPORT.summary
+      : null;
+
+    const roundQuality = window.EAP_ROUND_QUALITY_REPORT && window.EAP_ROUND_QUALITY_REPORT.summary
+      ? window.EAP_ROUND_QUALITY_REPORT.summary
+      : null;
+
     const course = typeof getCourseCompletionReport === "function"
       ? getCourseCompletionReport()
       : null;
@@ -3117,7 +3306,8 @@
       typeof window.runCourseFlowSmokeTest === "function" &&
       typeof window.printCourseProgress === "function" &&
       typeof window.testBossGateDistribution === "function" &&
-      typeof window.runRoundQualitySuite === "function";
+      typeof window.runRoundQualitySuite === "function" &&
+      typeof window.runItemValiditySuite === "function";
 
     const exportReady =
       typeof exportDashboardCsv === "function" &&
@@ -3127,7 +3317,7 @@
     const bossReady = BOSS_SESSIONS.every(gateId => {
       const pool = getPoolBySession(gateId);
       const cfg = getBossGateConfig(gateId);
-      const min = gateId === "BG5" ? 2400 : 480;
+      const min = gateId === "BG5" ? 1800 : 360;
 
       return cfg && pool && pool.length >= min;
     });
@@ -3147,6 +3337,18 @@
         label:"Content QA must pass",
         status:qa && qa.finalStatus === "QA PASS" ? "PASS" : "CHECK",
         evidence:qa ? qa.finalStatus : "QA report not available"
+      },
+      {
+        id:"ITEM_VALIDITY_PASS",
+        label:"Item validity must pass",
+        status:itemValidity && itemValidity.status === "ITEM VALIDITY PASS" ? "PASS" : "CHECK",
+        evidence:itemValidity ? itemValidity.status : "Item validity report not available"
+      },
+      {
+        id:"ROUND_QUALITY_PASS",
+        label:"Round quality must pass",
+        status:roundQuality && roundQuality.status === "ROUND QUALITY PASS" ? "PASS" : "CHECK",
+        evidence:roundQuality ? roundQuality.status : "Round quality report not available"
       },
       {
         id:"PROFILE_READY",
@@ -3176,7 +3378,7 @@
         id:"TEST_HELPERS_READY",
         label:"Test helpers ready",
         status:testHelpersReady ? "PASS" : "CHECK",
-        evidence:"QA / smoke / progress / boss distribution / round quality helpers"
+        evidence:"QA / item validity / smoke / progress / boss distribution / round quality helpers"
       }
     ];
   }
@@ -3184,7 +3386,7 @@
   function printFinalReleaseChecklist(){
     const rows = getFinalReleaseChecklist();
 
-    console.group("[EAP Word Quest] Final Release Checklist v1.5.3");
+    console.group("[EAP Word Quest] Final Release Checklist v1.6.0");
     console.table(rows);
     console.groupEnd();
 
@@ -3193,15 +3395,35 @@
 
   function runFinalReleaseCheck(){
     let qaReport = null;
+    let itemValidityReport = null;
     let smokeReport = null;
-    let smokeStatus = "CHECK";
     let roundQualityReport = null;
+
+    let qaStatus = "CHECK";
+    let itemValidityStatus = "CHECK";
+    let smokeStatus = "CHECK";
     let roundQualityStatus = "CHECK";
 
     try{
       qaReport = runEapQaLock();
+      qaStatus = qaReport &&
+        qaReport.summary &&
+        qaReport.summary.finalStatus === "QA PASS"
+          ? "PASS"
+          : "CHECK";
     }catch(err){
       console.warn("[EAP Word Quest] Final QA failed:",err);
+    }
+
+    try{
+      itemValidityReport = runItemValiditySuite();
+      itemValidityStatus = itemValidityReport &&
+        itemValidityReport.summary &&
+        itemValidityReport.summary.status === "ITEM VALIDITY PASS"
+          ? "PASS"
+          : "CHECK";
+    }catch(err){
+      console.warn("[EAP Word Quest] Final item validity test failed:",err);
     }
 
     try{
@@ -3235,15 +3457,6 @@
       evidence:smokeReport && smokeReport.summary ? smokeReport.summary.status : "Smoke report not available"
     });
 
-    checklist.push({
-      id:"ROUND_QUALITY_PASS",
-      label:"Round quality must pass",
-      status:roundQualityStatus,
-      evidence:roundQualityReport && roundQualityReport.summary
-        ? roundQualityReport.summary.status
-        : "Round quality report not available"
-    });
-
     const allPass = checklist.every(row => row.status === "PASS");
 
     const report = {
@@ -3251,19 +3464,22 @@
       checkedAt:new Date().toISOString(),
       finalStatus:allPass ? "FINAL READY" : "FINAL CHECK",
       qaStatus:qaReport && qaReport.summary ? qaReport.summary.finalStatus : "QA CHECK",
+      itemValidityStatus:itemValidityReport && itemValidityReport.summary ? itemValidityReport.summary.status : "ITEM VALIDITY CHECK",
       smokeStatus:smokeReport && smokeReport.summary ? smokeReport.summary.status : "SMOKE CHECK",
       roundQualityStatus:roundQualityReport && roundQualityReport.summary ? roundQualityReport.summary.status : "ROUND QUALITY CHECK",
       checklist,
       qaReport,
+      itemValidityReport,
       smokeReport,
       roundQualityReport
     };
 
     window.EAP_FINAL_RELEASE_REPORT = report;
 
-    console.group("[EAP Word Quest] FINAL RELEASE CHECK v1.5.3");
+    console.group("[EAP Word Quest] FINAL RELEASE CHECK v1.6.0");
     console.log("Final Status:",report.finalStatus);
     console.log("QA Status:",report.qaStatus);
+    console.log("Item Validity Status:",report.itemValidityStatus);
     console.log("Smoke Status:",report.smokeStatus);
     console.log("Round Quality Status:",report.roundQualityStatus);
     console.table(checklist);
@@ -3288,6 +3504,8 @@
     checklist:printFinalReleaseChecklist,
     check:runFinalReleaseCheck,
     qa:window.runEapQaLock,
+    itemValidity:window.runItemValiditySuite,
+    inspectItem:window.inspectItemValidity,
     smoke:window.runCourseFlowSmokeTest,
     roundQuality:window.runRoundQualitySuite,
     inspect:window.inspectRoundQuality,
@@ -3441,7 +3659,8 @@
     console.info("[EAP Word Quest] Engine ready:",{
       version:APP_VERSION,
       items:QUESTION_BANK.length,
-      sessions:SESSIONS.length
+      sessions:SESSIONS.length,
+      expectedItems:VALIDITY_RULES.expectedItems || 1800
     });
 
     try{
@@ -3459,23 +3678,17 @@
       "printCourseProgress()",
       "testBossGateDistribution('BG1',5)",
       "inspectRoundQuality('S1',20)",
+      "inspectItemValidity('S3')",
+      "runItemValiditySuite()",
       "runRoundQualitySuite()",
       "runCourseFlowSmokeTest()"
     ]);
 
-    console.info("[EAP Word Quest] Export polish ready:",[
-      "Course Summary",
-      "Mission Progress",
-      "Word Mastery",
-      "Weak Priority",
-      "Recent Rounds",
-      "QA Report in JSON",
-      "Round Quality Report in JSON"
-    ]);
-
-    console.info("[EAP Word Quest] Mobile UX polish ready:",{
-      mobileClass:"body.is-mobile",
-      wideTables:"wide-table-wrap",
+    console.info("[EAP Word Quest] Valid Item Bank ready:",{
+      itemTypes:Object.keys(TYPE_LABEL),
+      noHiddenAnswer:true,
+      noVaguePrompt:true,
+      targetMeaningRequired:true,
       version:APP_VERSION
     });
 
@@ -3483,7 +3696,7 @@
       "printFinalReleaseChecklist()",
       "runFinalReleaseCheck()",
       "eapRelease.check()",
-      "eapRelease.checklist()",
+      "eapRelease.itemValidity()",
       "eapRelease.roundQuality()"
     ]);
 
