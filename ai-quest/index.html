@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.6.7 Review UX</title>
+  <title>CSAI2102: AI Quest v2.7.0 Search Maze</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -914,8 +914,9 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v267.js"></script>
-  <script src="./js/boss1-rookie-bank-v267.js"></script>
+  <script src="./js/mission2-agent-bank-v270.js"></script>
+  <script src="./js/boss1-rookie-bank-v270.js"></script>
+  <script src="./js/search3-maze-bank-v270.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -927,7 +928,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.6.7 • Constructed Review UX Polish • Section 101</div>
+          <div class="subtitle">v2.7.0 • Session 3 Search Maze • Section 101</div>
         </div>
       </div>
 
@@ -1213,11 +1214,17 @@
         type:'main',
         division:'Division 2: Search Arena',
         title:'Search Maze',
-        topic:'BFS / DFS',
+        topic:'State Space / BFS / DFS / Goal Test',
         badge:'Maze Solver',
-        playable:false,
-        mastery:'Coming in Session 3',
-        objectives:['Coming Soon']
+        playable:true,
+        mastery:'Score ≥85, State ≥70%, Trace ≥70%, Maze ≥70%, Boss ≥70%, AI Help ≤2',
+        objectives:[
+          'State Space: แยก state, initial state, actions, goal test',
+          'BFS / DFS Trace: อ่าน queue/stack และลำดับ visited',
+          'Maze Path: แยก visited order กับ final path',
+          'Search Boss: จับ misconception เรื่อง BFS/DFS/frontier/visited',
+          'ส่งผลเข้า Google Sheets ด้วย sessionId=s3'
+        ]
       },
       {
         id:'m4',
@@ -1395,6 +1402,9 @@ async function saveStudentProfile(){
         const s1 = !!(state.completed.m1 || state.stars.m1 || state.mastered.m1 || Number(state.bestScore.m1 || 0) >= 60);
         const s2 = !!(state.completed.m2 || state.stars.m2 || state.mastered.m2 || Number(state.bestScore.m2 || 0) >= 60);
         return s1 && s2;
+      }
+      if(stage.id === 'm3'){
+        return !!(state.completed.b1 || state.stars.b1 || state.mastered.b1 || Number(state.bestScore.b1 || 0) >= 60);
       }
       return false;
     }
@@ -1610,7 +1620,7 @@ async function saveStudentProfile(){
 
         <div class="row" style="margin-top:14px">
           <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed)) ? 'disabled' : ''}>
-            ${stage.id === 'm2' ? 'เริ่ม Session 2' : 'เริ่ม Session'}
+            ${stage.id === 'm2' ? 'เริ่ม Session 2' : stage.id === 'm3' ? 'เริ่ม Session 3' : 'เริ่ม Session'}
           </button>
           <button class="btn secondary" id="reviewSelected">ดูสถานะ</button>
         </div>
@@ -1761,6 +1771,8 @@ async function saveStudentProfile(){
     renderSession2AgentGame();
   }else if(stage.id === 'b1'){
     renderRookieBossGame();
+  }else if(stage.id === 'm3'){
+    renderSession3SearchMazeGame();
   }else{
     renderMission1Coach();
   }
@@ -1770,8 +1782,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v267.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v267.js</b>
+            โหลดไฟล์ mission2-agent-bank-v270.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v270.js</b>
           </div>
         `;
         return;
@@ -2431,7 +2443,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v2.6.7-session2-learning-feedback',
+          version:'v2.7.0-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2493,8 +2505,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v267.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v267.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v270.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v270.js</b>
           </div>
         `;
         return;
@@ -2879,7 +2891,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v2.6.7-b1-full-boss',
+          version:'v2.7.0-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2931,6 +2943,375 @@ async function saveStudentProfile(){
     }
 
 
+
+    function renderSession3SearchMazeGame(){
+      if(typeof buildSession3Round !== 'function'){
+        el('gameArea').innerHTML = `
+          <div class="feedback bad">
+            โหลดไฟล์ search3-maze-bank-v270.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v270.js</b>
+          </div>
+        `;
+        return;
+      }
+
+      const diff = difficulty();
+      const startTs = Date.now();
+      const totalTime = Math.max(110, Math.round(diff.time * 1.05));
+      const round = buildSession3Round(state.difficulty);
+      const phases = round.phases || ['State Space','BFS/DFS Trace','Maze Path','Search Boss'];
+      const questions = []
+        .concat(round.state || [])
+        .concat(round.graph || [])
+        .concat(round.maze || [])
+        .concat(round.boss || []);
+
+      const attemptId = window.AIQuestStorage ? AIQuestStorage.uid('att') : 'att_s3_' + Date.now();
+
+      const metrics = {
+        correct:0,
+        total:0,
+        wrong:0,
+        combo:0,
+        maxCombo:0,
+        helpLeft:diff.help,
+        helpUsed:0,
+        wrongItems:[],
+        mis:{},
+        phase:{}
+      };
+
+      phases.forEach(phase => {
+        metrics.phase[phase] = {phase, correct:0, total:0, wrong:0};
+      });
+
+      const eventLog = [];
+      let qIndex = 0;
+      let answered = false;
+
+      function logEvent(data){
+        const profile = window.AIQuestStorage ? AIQuestStorage.getProfile() : {};
+        eventLog.push({
+          eventId: window.AIQuestStorage ? AIQuestStorage.uid('evt') : 'evt_s3_' + Date.now() + '_' + Math.random(),
+          attemptId,
+          studentId: profile.studentId || '',
+          section: profile.section || '',
+          sessionId:'s3',
+          missionId:'m3',
+          clientTs:new Date().toISOString(),
+          userAgent:navigator.userAgent,
+          pageUrl:location.href,
+          courseId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().courseId : 'CSAI2102',
+          classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
+          term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
+          runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
+          runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
+          ...data
+        });
+      }
+
+      function phaseDone(){
+        return phases.filter(phase => {
+          const p = metrics.phase[phase];
+          return p && p.total > 0;
+        });
+      }
+
+      function makeChoices(q){
+        return shuffle([{text:q.answer, correct:true}].concat((q.distractors || []).slice(0,3).map(text => ({text, correct:false}))));
+      }
+
+      function contextHTML(q){
+        if(!q.context) return '';
+        const parts = String(q.context).split('|').map(x => x.trim()).filter(Boolean);
+        return `
+          <div class="bigCard" style="text-align:left;margin-top:12px">
+            <b>State graph</b>
+            <div class="phaseInsightGrid" style="grid-template-columns:repeat(2,1fr)">
+              ${parts.map(p => `<div class="phaseInsightCard">${escapeHtml(p)}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      function recordAnswer(q, choice){
+        const ok = !!choice.correct;
+        metrics.total += 1;
+        metrics.phase[q.phase] = metrics.phase[q.phase] || {phase:q.phase, correct:0, total:0, wrong:0};
+        metrics.phase[q.phase].total += 1;
+
+        if(ok){
+          metrics.correct += 1;
+          metrics.combo += 1;
+          metrics.maxCombo = Math.max(metrics.maxCombo, metrics.combo);
+          metrics.phase[q.phase].correct += 1;
+          beep('ok');
+        }else{
+          metrics.wrong += 1;
+          metrics.combo = 0;
+          metrics.phase[q.phase].wrong += 1;
+          const key = q.familyId || q.phase || 'search';
+          metrics.mis[key] = (metrics.mis[key] || 0) + 1;
+          metrics.wrongItems.push({
+            phase:q.phase,
+            itemId:q.id,
+            prompt:q.prompt,
+            yourAnswer:choice.text,
+            correctAnswer:q.answer,
+            why:q.why,
+            misconception:key
+          });
+          beep('bad');
+        }
+
+        logEvent({
+          eventType:'answer',
+          phase:q.phase,
+          itemId:q.id,
+          prompt:q.prompt,
+          yourAnswer:choice.text,
+          correctAnswer:q.answer,
+          isCorrect:ok,
+          combo:metrics.combo,
+          helpLeft:metrics.helpLeft,
+          scoreDelta:ok ? 1 : 0,
+          extraJson:{why:q.why, familyId:q.familyId, context:q.context || ''}
+        });
+
+        return ok;
+      }
+
+      function feedbackHTML(ok, q, choice){
+        return `
+          <div class="learningFeedbackPanel ${ok ? 'good' : 'bad'}">
+            <h4>${ok ? '✅ Search trace ถูกต้อง' : '⚠️ ยังสับสนเรื่อง search'}</h4>
+            <div class="explainGrid">
+              <div class="explainCell"><b>คำตอบของคุณ</b><br>${escapeHtml(choice.text)}</div>
+              <div class="explainCell"><b>คำตอบที่ควรได้</b><br>${escapeHtml(q.answer)}</div>
+              <div class="explainCell"><b>เหตุผล</b><br>${escapeHtml(q.why || '')}</div>
+              <div class="explainCell"><b>Phase</b><br>${escapeHtml(q.phase)} · ${escapeHtml(q.familyId || '-')}</div>
+            </div>
+            <div class="row" style="margin-top:12px;justify-content:center">
+              <button class="btn good" id="s3NextBtn">${qIndex + 1 >= questions.length ? 'สรุปผล S3' : 'ข้อถัดไป'}</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function render(){
+        const q = questions[qIndex];
+        if(!q){
+          end();
+          return;
+        }
+
+        answered = false;
+        const choices = makeChoices(q);
+
+        el('gameArea').innerHTML = `
+          ${hudHTML(`
+            <span class="hudChip">Search ${qIndex + 1}/${questions.length}</span>
+            <span class="hudChip">Combo x${metrics.combo}</span>
+            <span class="hudChip">AI Help ${metrics.helpLeft}/${diff.help}</span>
+          `)}
+          ${phaseHTMLCustom(phases, q.phase, phaseDone())}
+
+          <div class="gamePanel">
+            <div class="tagline">S3 Search Maze · ${escapeHtml(q.phase)}</div>
+            <h3>${escapeHtml(q.prompt)}</h3>
+            ${contextHTML(q)}
+            <p>เลือกคำตอบที่ตรงกับหลัก search มากที่สุด ระวังสับสนระหว่าง <b>visited order</b> กับ <b>final path</b></p>
+            <div class="choicesGrid">
+              ${choices.map((choice, i) => `<button class="choiceBtn" data-choice="${i}">${escapeHtml(choice.text)}</button>`).join('')}
+            </div>
+            <div id="s3FeedbackBox"></div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn secondary" id="s3HelpBtn">AI Help</button>
+            </div>
+          </div>
+        `;
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+
+        el('gameArea').querySelectorAll('[data-choice]').forEach(btn => {
+          btn.onclick = () => {
+            if(answered) return;
+            answered = true;
+
+            const choice = choices[Number(btn.dataset.choice)];
+            const ok = recordAnswer(q, choice);
+
+            btn.classList.add(ok ? 'correct' : 'wrong');
+            el('gameArea').querySelectorAll('[data-choice]').forEach(b => {
+              b.disabled = true;
+              const c = choices[Number(b.dataset.choice)];
+              if(c && c.correct) b.classList.add('correct');
+            });
+
+            const box = el('s3FeedbackBox');
+            if(box) box.innerHTML = feedbackHTML(ok, q, choice);
+
+            const next = el('s3NextBtn');
+            if(next){
+              next.onclick = () => {
+                qIndex += 1;
+                render();
+              };
+            }
+
+            updateHelp(metrics.helpLeft);
+            updateCombo(metrics.combo);
+          };
+        });
+
+        const help = el('s3HelpBtn');
+        if(help){
+          help.onclick = () => {
+            if(metrics.helpLeft <= 0){
+              showToast('AI Help หมดแล้ว');
+              return;
+            }
+            metrics.helpLeft -= 1;
+            metrics.helpUsed += 1;
+            updateHelp(metrics.helpLeft);
+            showToast(q.hint || 'ดู frontier, visited, queue/stack และ goal test');
+          };
+        }
+      }
+
+      function phaseAnalytics(){
+        return Object.values(metrics.phase).filter(p => p.total > 0).map(p => {
+          const percent = p.total ? Math.round(p.correct / p.total * 100) : 0;
+          return {
+            phase:p.phase,
+            label:p.phase,
+            correct:p.correct,
+            total:p.total,
+            wrong:p.wrong,
+            percent,
+            advice:percent >= 80 ? 'ผ่านดี' : percent >= 60 ? 'ควรทบทวนบางจุด' : 'ควร remedial ก่อนขึ้น S4'
+          };
+        });
+      }
+
+      function wrongReviewHTML(){
+        if(!metrics.wrongItems.length){
+          return '<b>Review Wrong Items</b><br>ยอดเยี่ยม! S3 รอบนี้ไม่มีข้อผิดพลาดหลัก';
+        }
+
+        return `
+          <b>Review Wrong Items</b>
+          <div class="wrongList">
+            ${metrics.wrongItems.slice(0,10).map(item => `
+              <div class="wrongItem">
+                <b>${escapeHtml(item.phase)}</b><br>
+                ${escapeHtml(item.prompt)}<br>
+                <b>ตอบ:</b> ${escapeHtml(item.yourAnswer)}<br>
+                <b>ควรเป็น:</b> ${escapeHtml(item.correctAnswer)}<br>
+                <b>เหตุผล:</b> ${escapeHtml(item.why || '')}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function coachSummary(finalScore, mastered){
+        const rows = phaseAnalytics();
+        const weakest = rows.slice().sort((a,b)=>a.percent-b.percent)[0];
+        return `
+          <b>AI Coach Summary</b><br>
+          S3 Search Maze Score: ${finalScore}/100 · Mastery: ${mastered ? 'YES' : 'Not yet'}<br>
+          Correct ${metrics.correct}/${metrics.total} · Max combo x${metrics.maxCombo} · AI Help used ${metrics.helpUsed}/${diff.help}<br>
+          ${weakest ? `Weakest phase: ${escapeHtml(weakest.label)} (${weakest.percent}%) · ${escapeHtml(weakest.advice)}` : ''}
+          <div class="phaseInsightGrid">
+            ${rows.map(row => `
+              <div class="phaseInsightCard ${row.percent >= 80 ? 'good' : row.percent >= 60 ? 'warn' : 'bad'}">
+                <b>${escapeHtml(row.label)}</b>
+                ${row.correct}/${row.total} · ${row.percent}%<br>
+                ${escapeHtml(row.advice)}
+              </div>
+            `).join('')}
+          </div>
+          <div class="nextPathBox">
+            <b>Next:</b> ถ้า S3 ผ่านแล้ว จะใช้เป็นฐานสำหรับ S4 Route Cost Challenge / Uniform Cost Search
+          </div>
+        `;
+      }
+
+      function end(){
+        stopTimer();
+
+        const used = Math.max(0, Math.round((Date.now() - startTs) / 1000));
+        const rows = phaseAnalytics();
+        const accuracy = metrics.total ? metrics.correct / metrics.total : 0;
+        const phasePass = rows.every(row => row.percent >= 60);
+        const helpBonus = Math.max(0, Math.round((diff.help - metrics.helpUsed) / Math.max(1,diff.help) * 8));
+        const comboBonus = Math.min(8, metrics.maxCombo * 2);
+        const finalScore = Math.max(0, Math.min(100, Math.round(accuracy * 84 + helpBonus + comboBonus)));
+        const mastered = finalScore >= 85 && phasePass && metrics.helpUsed <= 2;
+
+        logEvent({
+          eventType:'session_end',
+          phase:'end',
+          itemId:'',
+          prompt:'S3 ended',
+          yourAnswer:'',
+          correctAnswer:'',
+          isCorrect:'',
+          combo:metrics.combo,
+          helpLeft:metrics.helpLeft,
+          extraJson:{score:finalScore, mastered, phaseAnalytics:rows}
+        });
+
+        const summary = {
+          attemptId,
+          sessionId:'s3',
+          missionId:'m3',
+          missionTitle:'Search Maze',
+          version:'v2.7.0-search-maze',
+          score:finalScore,
+          stars:calcStars(finalScore),
+          mastered,
+          difficulty:state.difficulty,
+          usedTimeSec:used,
+          timeLeftSec:timeLeft,
+          accuracy:Math.round(accuracy * 100),
+          correct:metrics.correct,
+          total:metrics.total,
+          wrong:metrics.wrong,
+          maxCombo:metrics.maxCombo,
+          helpUsed:metrics.helpUsed,
+          misconceptionsJson:JSON.stringify(metrics.mis),
+          extraJson:{
+            phaseAnalytics:rows,
+            noRepeat:round.noRepeat || {},
+            wrongItems:metrics.wrongItems,
+            next:'S4 Route Cost Challenge'
+          },
+          events:eventLog
+        };
+
+        finishMission(
+          finalScore,
+          `S3 Search Maze: Accuracy ${summary.accuracy}% · Combo x${metrics.maxCombo} · Help ${metrics.helpUsed}/${diff.help} · Mastery ${mastered ? 'YES' : 'Not yet'}`,
+          {
+            usedTime:used,
+            mastered,
+            coachSummary:coachSummary(finalScore, mastered),
+            wrongReview:wrongReviewHTML(),
+            wrongItems:metrics.wrongItems,
+            summary
+          }
+        );
+      }
+
+      startTimer(totalTime, end);
+      logEvent({eventType:'session_start',phase:'start',itemId:'',prompt:'S3 started',yourAnswer:'',correctAnswer:'',isCorrect:'',combo:0,helpLeft:metrics.helpLeft,extraJson:{roundVersion:round.version, totalQuestions:questions.length}});
+      render();
+    }
+
+
     function applyReflectionPromptsForMission(id){
       const sets = {
         m2:[
@@ -2942,6 +3323,11 @@ async function saveStudentProfile(){
           ['1) Boss ตรวจ misconception เรื่องใดของคุณมากที่สุด?', 'เช่น automation, PEAS, observable, rationality'],
           ['2) หลังสู้ Boss แล้ว คุณแก้ความเข้าใจผิดข้อใดได้?', 'อธิบายก่อน/หลังเรียนให้ชัด'],
           ['3) จะนำแนวคิด AI Overview + Agent ไปใช้ใน Mini Project อย่างไร?', 'เชื่อมกับ project หรือปัญหาจริง']
+        ],
+        m3:[
+          ['1) อธิบาย state, initial state, actions และ goal test ของโจทย์หนึ่งในเกม', 'เขียนเป็นชุดคำตอบสั้น ๆ เช่น State=..., Initial=..., Actions=..., Goal Test=...'],
+          ['2) BFS กับ DFS ต่างกันที่ frontier อย่างไร?', 'ใช้คำว่า queue, stack/recursion, visited หรือ frontier'],
+          ['3) ถ้าจะใช้ BFS/DFS ใน Mini Project ควรใช้กับปัญหาใด และต้องระวังอะไร?', 'เช่น path finding, recommendation path, search tree, loop/cycle']
         ],
         default:[
           ['1) เกมนี้เกี่ยวกับหลักการ AI เรื่องใด?', 'เช่น AI vs Traditional Program, Automation vs AI, Intelligent System'],
@@ -4233,11 +4619,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v267.js"></script>
-  <script src="./js/aiquest-teacher-console-v267.js"></script>
-  <script src="./js/aiquest-student-detail-v267.js"></script>
-  <script src="./js/aiquest-production-v267.js"></script>
-  <script src="./js/aiquest-remedial-path-v267.js"></script>
-  <script src="./js/aiquest-session-roadmap-v267.js"></script>
+  <script src="./js/aiquest-ui-mode-v270.js"></script>
+  <script src="./js/aiquest-teacher-console-v270.js"></script>
+  <script src="./js/aiquest-student-detail-v270.js"></script>
+  <script src="./js/aiquest-production-v270.js"></script>
+  <script src="./js/aiquest-remedial-path-v270.js"></script>
+  <script src="./js/aiquest-session-roadmap-v270.js"></script>
 </body>
 </html>
