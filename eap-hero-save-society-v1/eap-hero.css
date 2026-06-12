@@ -1424,3 +1424,22 @@ textarea{
 .gate-session-checklist li{
   margin:6px 0;
 }
+
+
+/* === v1z42 Boss Gate Legacy UI Cleanup === */
+.legacy-boss-gate-ui{
+  display:none !important;
+  visibility:hidden !important;
+  height:0 !important;
+  overflow:hidden !important;
+  pointer-events:none !important;
+}
+.boss-gate-notice + .boss-gate-notice{
+  display:none !important;
+}
+.boss-gate-notice{
+  max-width:100%;
+}
+.boss-gate-notice [onclick*="openBossGate"]::after{
+  content:"";
+}

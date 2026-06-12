@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z41-boss-gate-completion-detection-fix';
+  const APP_VERSION = '20260610-v1z42-boss-gate-legacy-ui-cleanup';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z41</div>
+              <div class="mini-note">Save the Society • v1z42</div>
             </div>
           </div>
           <div class="top-actions">
@@ -31813,6 +31813,7 @@
     `;
     runTrueStudentUILockSoon();
     runAIHelpRepairSoon();
+    runBossGateUICleanupSoon();
 
   }
 
@@ -32285,6 +32286,7 @@
     checks.push({name:'Boss gate timeline', ok:typeof BOSS_GATE_PLAN !== 'undefined' && BOSS_GATE_PLAN.length===5 && BOSS_GATE_PLAN[0].after.join(',')==='1,2,3', detail:'15 sessions + 5 checkpoints'});
     checks.push({name:'Boss gate unlock enforcement', ok:typeof bossGateUnlockReport === 'function' && bossGateUnlockReport(1).sessions.join(',')==='1,2,3', detail:'Locked gates require session completion'});
     checks.push({name:'Boss gate completion detection', ok:typeof sessionCompletionReport === 'function' && typeof skillEvidenceCountForSession === 'function', detail:'Legacy evidence/stars/cards recognized'});
+    checks.push({name:'Legacy boss gate UI cleanup', ok:typeof cleanupLegacyBossGateUI === 'function', detail:'Old Boss Gate Available UI hidden'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32730,13 +32732,51 @@
     </div>`;
   }
 
+
+  function cleanupLegacyBossGateUI(){
+    const seen = new Set();
+    document.querySelectorAll('.boss-gate-notice').forEach(el=>{
+      const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
+      const key = txt.slice(0,120);
+      if(seen.has(key)){
+        el.remove();
+      }else{
+        seen.add(key);
+      }
+    });
+
+    document.querySelectorAll('section,.panel,.card,div').forEach(el=>{
+      const txt = (el.textContent || '').replace(/\s+/g,' ').trim();
+      const isLegacy =
+        txt.includes('Checkpoint status:') ||
+        txt.includes('Complete Reading + Writing evidence in S4-S6') ||
+        txt.includes('Complete Reading + Writing evidence in S1-S3') ||
+        txt.includes('Open Checkpoint') && txt.includes('Status:');
+      if(isLegacy && !el.classList.contains('boss-gate-notice') && !el.classList.contains('boss-timeline')){
+        el.classList.add('legacy-boss-gate-ui');
+      }
+    });
+
+    document.querySelectorAll('.legacy-boss-gate-ui').forEach(el=>{
+      el.style.display = 'none';
+      el.setAttribute('aria-hidden','true');
+    });
+  }
+
+  function runBossGateUICleanupSoon(){
+    cleanupLegacyBossGateUI();
+    setTimeout(cleanupLegacyBossGateUI, 0);
+    setTimeout(cleanupLegacyBossGateUI, 120);
+  }
+
+
   function bossGateNoticeForSession(sessionId){
     const gate = bossGateAfterSession(sessionId);
     if(!gate) return '';
-    return `<div class="boss-gate-notice">
+    return `<div class="boss-gate-notice" data-gate="${gate.gate}" data-after="${sessionId}">
       <b>${gate.type==='final'?'Final Boss after S15':'Boss Gate '+gate.gate+' after S'+sessionId}</b>
       <span>${safe(gate.title)} summarizes S${gate.after[0]}–S${gate.after[2]}. It is a checkpoint after the sessions, not a replacement for S${sessionId}.</span>
-      <button class="btn primary small" onclick="return EAPHero.openBossGate(${gate.gate})">${gate.type==='final'?'Open Final Boss':'Open Boss Gate '+gate.gate}</button>
+      <button class="btn primary small" onclick="return EAPHero.openBossGate(${gate.gate})">${gate.type==='final'?'Open Final Boss':'Open Checkpoint '+gate.gate}</button>
     </div>`;
   }
 
@@ -34015,6 +34055,8 @@
 
 
   function renderSkillPath(sessionId){
+    setTimeout(runBossGateUICleanupSoon, 0);
+
     const s = getSession(Number(sessionId || 1));
     const path = skillPathForSession(s.id);
     const gate = bossGateForSession(s.id);
@@ -34045,7 +34087,7 @@
         </div>
         <div class="grid four">${cards}</div>
         ${hiddenNote}
-        ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Boss Gate Available: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Boss Gate</button></div>` : ''}
+        ${gate ? `<div class="panel light" style="margin-top:18px"><h3>Legacy Boss Gate Hidden: ${safe(gate.title)}</h3><p>${safe(gate.boss)}</p><p class="mini-note">Status: ${bossGateStatus(gate)?'✅ Unlocked':'🔒 Locked'} • ${safe(gate.unlock)}</p><button class="btn primary" onclick="EAPHero.bossGate('${gate.id}')">Open Checkpoint</button></div>` : ''}
         <div class="footer-actions"><button class="btn" onclick="EAPHero.skillHub(${s.id})">Four Skills Hub</button><button class="btn ghost" onclick="EAPHero.map()">Map</button><button class="btn ghost small" onclick="return EAPHero.openSkillMission('Reading', ${s.id})">Debug: Open Reading</button></div>
       </section>`);
   }
