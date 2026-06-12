@@ -1,39 +1,28 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-data.js
-   Version: v1.4.0-FINAL-ACADEMIC-ARC
+   Version: v1.5.0-FINAL-RELEASE-LOCK
 
-   ใช้คู่กับ:
-   - index.html
-   - eap-word-quest.css
-   - eap-word-engine.js
-
-   แนวคิดข้อมูล:
-   - Session playable: S1, S2, S4, S5, S7, S8, S10, S11, S13, S14
-   - Boss: S3, S6, S9, S12, S15
-   - QUESTION_BANK สร้างจาก vocabulary specs
-   - 1 word/phrase แตกเป็นหลายรูปแบบ:
-     meaning, sentence_fill, collocation, context,
-     word_form, near_miss, academic_phrase, academic_upgrade
+   Consolidated Final Data File
+   - S1–S15 = 20 words/session
+   - BG1–BG5 = Boss Gate separated from sessions
+   - Auto-generate 8 item types per word
+   - Total target ≈ 300 words × 8 = 2400 items
 ========================================================= */
 
 "use strict";
 
-/* =========================================================
-   App Version
-========================================================= */
-
-window.APP_VERSION = "v1.4.0-FINAL-ACADEMIC-ARC";
+window.APP_VERSION = "v1.5.0-FINAL-RELEASE-LOCK";
 
 /* =========================================================
-   Session Map
+   Course Map
 ========================================================= */
 
 window.SESSIONS = [
   {
     id:"S1",
     title:"Academic Profile",
-    desc:"major, background, skill, interested in, goal",
+    desc:"major, background, skill, strength, interest, goal",
     status:"playable",
     boss:false
   },
@@ -46,10 +35,18 @@ window.SESSIONS = [
   },
   {
     id:"S3",
-    title:"Boss 1",
-    desc:"Academic Profile + Project Introduction",
+    title:"Project Rationale & Target Users",
+    desc:"rationale, target users, need, benefit, scope",
+    status:"playable",
+    boss:false
+  },
+  {
+    id:"BG1",
+    title:"Boss Gate 1",
+    desc:"Review Gate รวม S1–S3: Profile + Project Foundation",
     status:"boss",
-    boss:true
+    boss:true,
+    gate:true
   },
 
   {
@@ -68,10 +65,18 @@ window.SESSIONS = [
   },
   {
     id:"S6",
-    title:"Boss 2",
-    desc:"Communication Boss รวมคำจาก S1–S5 โดยเน้น S4–S5",
+    title:"Team Progress & Responsibility",
+    desc:"progress, responsibility, timeline, contribution, teamwork",
+    status:"playable",
+    boss:false
+  },
+  {
+    id:"BG2",
+    title:"Boss Gate 2",
+    desc:"Review Gate รวม S4–S6: Career + Workplace Communication",
     status:"boss",
-    boss:true
+    boss:true,
+    gate:true
   },
 
   {
@@ -90,10 +95,18 @@ window.SESSIONS = [
   },
   {
     id:"S9",
-    title:"Boss 3",
-    desc:"Email & Meeting Boss รวมคำจาก S7–S8",
+    title:"Discussion Summary & Action Items",
+    desc:"summary, action item, follow-up, conclusion, agreement",
+    status:"playable",
+    boss:false
+  },
+  {
+    id:"BG3",
+    title:"Boss Gate 3",
+    desc:"Review Gate รวม S7–S9: Email + Meeting + Summary",
     status:"boss",
-    boss:true
+    boss:true,
+    gate:true
   },
 
   {
@@ -112,10 +125,18 @@ window.SESSIONS = [
   },
   {
     id:"S12",
-    title:"Boss 4",
-    desc:"System & Problem Boss รวมคำจาก S10–S11",
+    title:"User Guide / Technical Instruction",
+    desc:"instruction, requirement, step, configure, verify",
+    status:"playable",
+    boss:false
+  },
+  {
+    id:"BG4",
+    title:"Boss Gate 4",
+    desc:"Review Gate รวม S10–S12: System + Bug + Technical Guide",
     status:"boss",
-    boss:true
+    boss:true,
+    gate:true
   },
 
   {
@@ -134,1861 +155,1022 @@ window.SESSIONS = [
   },
   {
     id:"S15",
-    title:"Final Boss",
-    desc:"Final Academic Vocabulary Boss รวมคำศัพท์ทั้งคอร์ส",
+    title:"Final Project Presentation & Reflection",
+    desc:"presentation, reflection, contribution, evidence, future work",
+    status:"playable",
+    boss:false
+  },
+  {
+    id:"BG5",
+    title:"Final Boss Gate",
+    desc:"Final Review Gate รวม Academic Vocabulary ทั้งคอร์ส",
     status:"boss",
-    boss:true
+    boss:true,
+    gate:true
   }
 ];
 
 /* =========================================================
    Vocabulary Specs
-
-   field:
-   - w: word/phrase
-   - th: Thai meaning
-   - pos: part of speech / category
-   - simple: simple sentence
-   - fill: sentence with ______
-   - answer: answer for fill
-   - collocation: phrase
-   - context: context prompt
-   - contextAnswer: answer for context
-   - academic: correct academic/professional sentence
-   - plain: plain English for upgrade
-   - upgrade: upgraded academic sentence
-   - trapChoices: near-miss/wrong choices
+   Format per row:
+   [word, thaiMeaning, partOfSpeech, collocation, trapChoices]
 ========================================================= */
 
-window.EAP_VOCAB_SPECS = {
-  S1: {
-    theme:"Academic Profile",
-    words:[
-      {
-        w:"major",
-        th:"สาขาวิชา",
-        pos:"noun",
-        fill:"My ______ is Digital Technology.",
-        answer:"major",
-        collocation:"academic major",
-        context:"A student studies Digital Technology as the main field. This is the student's...",
-        contextAnswer:"major",
-        academic:"My academic major is related to digital technology and multimedia.",
-        plain:"I study Digital Technology.",
-        upgrade:"My academic major is Digital Technology.",
-        trapChoices:["mayor","majority","measure"]
-      },
-      {
-        w:"background",
-        th:"พื้นฐานหรือประวัติด้านการเรียน/ประสบการณ์",
-        pos:"noun",
-        fill:"My academic ______ is related to IT.",
-        answer:"background",
-        collocation:"academic background",
-        context:"A short profile explains a student's study history and skills. This is the student's...",
-        contextAnswer:"academic background",
-        academic:"My academic background is related to information technology.",
-        plain:"I studied IT before.",
-        upgrade:"My academic background is related to information technology.",
-        trapChoices:["backpack","backspace","backyard"]
-      },
-      {
-        w:"skill",
-        th:"ทักษะ",
-        pos:"noun",
-        fill:"Communication is an important ______.",
-        answer:"skill",
-        collocation:"communication skill",
-        context:"Coding, teamwork, and presentation are examples of...",
-        contextAnswer:"skills",
-        academic:"Communication is an important skill for academic and professional contexts.",
-        plain:"I can communicate well.",
-        upgrade:"I have strong communication skills.",
-        trapChoices:["skilled","skillses","skilling"]
-      },
-      {
-        w:"interested in",
-        th:"สนใจใน",
-        pos:"phrase",
-        fill:"I am ______ digital media.",
-        answer:"interested in",
-        collocation:"interested in technology",
-        context:"A student likes AI and wants to learn more about it. The student is...",
-        contextAnswer:"interested in AI",
-        academic:"I am particularly interested in educational technology.",
-        plain:"I like educational technology.",
-        upgrade:"I am particularly interested in educational technology.",
-        trapChoices:["interesting in","interest on","interested at"]
-      },
-      {
-        w:"goal",
-        th:"เป้าหมาย",
-        pos:"noun",
-        fill:"My learning ______ is to improve academic English.",
-        answer:"goal",
-        collocation:"learning goal",
-        context:"A student wants to improve English speaking by the end of the course. This is a...",
-        contextAnswer:"learning goal",
-        academic:"My learning goal is to improve my academic communication skills.",
-        plain:"I want to speak English better.",
-        upgrade:"I aim to improve my English communication skills.",
-        trapChoices:["gold","goat","goalkeeper"]
-      },
-      {
-        w:"experience",
-        th:"ประสบการณ์",
-        pos:"noun",
-        fill:"I have ______ in using design tools.",
-        answer:"experience",
-        collocation:"project experience",
-        context:"A student has used Canva and Figma in previous projects. The student has...",
-        contextAnswer:"design experience",
-        academic:"I have experience in using digital design tools for class projects.",
-        plain:"I used design tools before.",
-        upgrade:"I have experience in using digital design tools.",
-        trapChoices:["experienced","experiment","expert"]
-      },
-      {
-        w:"strength",
-        th:"จุดแข็ง",
-        pos:"noun",
-        fill:"One of my ______ is teamwork.",
-        answer:"strengths",
-        collocation:"key strength",
-        context:"A student is good at working with others. This ability is a...",
-        contextAnswer:"strength",
-        academic:"One of my key strengths is the ability to work collaboratively.",
-        plain:"I work well with people.",
-        upgrade:"One of my key strengths is teamwork.",
-        trapChoices:["strong","strengthen","strict"]
-      },
-      {
-        w:"presentation",
-        th:"การนำเสนอ",
-        pos:"noun",
-        fill:"I will give a short ______ about my project.",
-        answer:"presentation",
-        collocation:"give a presentation",
-        context:"A student speaks in front of the class with slides. This activity is a...",
-        contextAnswer:"presentation",
-        academic:"The presentation introduces my academic background and learning goals.",
-        plain:"I will talk about my project.",
-        upgrade:"I will give a short presentation about my project.",
-        trapChoices:["present","presenter","presenting"]
-      },
-      {
-        w:"collaborate",
-        th:"ร่วมมือกัน",
-        pos:"verb",
-        fill:"Students ______ with team members on a project.",
-        answer:"collaborate",
-        collocation:"collaborate with team members",
-        context:"Students work together to finish a group project. They...",
-        contextAnswer:"collaborate",
-        academic:"Students should collaborate effectively during group projects.",
-        plain:"Students work together.",
-        upgrade:"Students work collaboratively on group projects.",
-        trapChoices:["collaboration","collaborative","collaboratively"]
-      },
-      {
-        w:"learning progress",
-        th:"ความก้าวหน้าในการเรียนรู้",
-        pos:"noun phrase",
-        fill:"The system shows students’ ______ after each mission.",
-        answer:"learning progress",
-        collocation:"track learning progress",
-        context:"The app shows XP, accuracy, and mastered words. It tracks...",
-        contextAnswer:"learning progress",
-        academic:"The system allows students to monitor their learning progress.",
-        plain:"Students can see how much they improved.",
-        upgrade:"Students can monitor their learning progress.",
-        trapChoices:["learning process","learn progress","progress learning"]
-      }
-    ]
-  },
+(function buildVocabularySpecs(){
+  const RAW = {
+    S1:{
+      theme:"Academic Profile",
+      rows:[
+        ["major","สาขาวิชา","noun","academic major",["majoring","majority","majored"]],
+        ["background","พื้นฐานหรือประสบการณ์เดิม","noun","academic background",["backdrop","backgrounded","backward"]],
+        ["skill set","ชุดทักษะ","noun phrase","technical skill set",["skillful set","set skill","skill setting"]],
+        ["strength","จุดแข็ง","noun","personal strength",["strong","strengthen","straight"]],
+        ["weakness","จุดที่ต้องพัฒนา","noun","learning weakness",["weak","weaken","weekly"]],
+        ["interest","ความสนใจ","noun","academic interest",["interesting","interested","interestingly"]],
+        ["goal","เป้าหมาย","noun","learning goal",["gold","goalie","goaled"]],
+        ["confidence","ความมั่นใจ","noun","academic confidence",["confident","confidential","conference"]],
+        ["experience","ประสบการณ์","noun","practical experience",["experienced","experiment","expertise"]],
+        ["academic profile","ข้อมูลแนะนำตัวเชิงวิชาการ","noun phrase","academic profile",["academic profiling","profile academic","academy profile"]],
+        ["learning style","รูปแบบการเรียนรู้","noun phrase","learning style",["learning stylish","style learning","learning still"]],
+        ["academic goal","เป้าหมายทางวิชาการ","noun phrase","academic goal",["academic gold","goal academic","academy goal"]],
+        ["communication skill","ทักษะการสื่อสาร","noun phrase","communication skill",["communicate skill","communication skilled","skill communication"]],
+        ["technical skill","ทักษะเชิงเทคนิค","noun phrase","technical skill",["technique skill","technical skilled","skill technical"]],
+        ["teamwork","การทำงานเป็นทีม","noun","teamwork skill",["team work only","teamworking","team worker"]],
+        ["creativity","ความคิดสร้างสรรค์","noun","creative ability",["creative","creation","creatively"]],
+        ["problem-solving","การแก้ปัญหา","noun phrase","problem-solving skill",["problem solved","solving problem","problem solver only"]],
+        ["motivation","แรงจูงใจ","noun","learning motivation",["motivate","motivated","motive"]],
+        ["academic writing","การเขียนเชิงวิชาการ","noun phrase","academic writing",["academic written","writing academic","academy writing"]],
+        ["presentation skill","ทักษะการนำเสนอ","noun phrase","presentation skill",["present skill","presentation skilled","skill presentation"]]
+      ]
+    },
 
-  S2: {
-    theme:"Project Introduction",
-    words:[
-      {
-        w:"project",
-        th:"โครงการหรือชิ้นงาน",
-        pos:"noun",
-        fill:"This ______ aims to support vocabulary learning.",
-        answer:"project",
-        collocation:"class project",
-        context:"Students design an app and present it to the class. This work is a...",
-        contextAnswer:"project",
-        academic:"This project aims to support repeated EAP vocabulary practice.",
-        plain:"This work helps students learn words.",
-        upgrade:"This project supports students’ EAP vocabulary learning.",
-        trapChoices:["product","protect","process"]
-      },
-      {
-        w:"objective",
-        th:"วัตถุประสงค์",
-        pos:"noun",
-        fill:"The main ______ is to improve vocabulary practice.",
-        answer:"objective",
-        collocation:"project objective",
-        context:"A sentence explains what the project wants to achieve. This is the...",
-        contextAnswer:"objective",
-        academic:"The main objective of this project is to support vocabulary practice.",
-        plain:"The project wants students to practice words.",
-        upgrade:"The main objective of this project is to support vocabulary practice.",
-        trapChoices:["object","objection","observe"]
-      },
-      {
-        w:"purpose",
-        th:"จุดประสงค์",
-        pos:"noun",
-        fill:"The ______ of the app is to help students practice.",
-        answer:"purpose",
-        collocation:"purpose of the project",
-        context:"A project description explains why the app was created. It explains the...",
-        contextAnswer:"purpose",
-        academic:"The purpose of this project is to improve students’ ability to use EAP vocabulary.",
-        plain:"The app is for learning words.",
-        upgrade:"The purpose of the application is to support vocabulary learning.",
-        trapChoices:["proposal","process","purchase"]
-      },
-      {
-        w:"feature",
-        th:"ฟีเจอร์หรือคุณสมบัติ",
-        pos:"noun",
-        fill:"A leaderboard is one ______ of the game.",
-        answer:"feature",
-        collocation:"main feature",
-        context:"A badge system, timer, and dashboard are parts of an app. They are...",
-        contextAnswer:"features",
-        academic:"The application includes several features, such as missions, feedback, and a word deck.",
-        plain:"The app has many things.",
-        upgrade:"The application includes several learning features.",
-        trapChoices:["future","figure","failure"]
-      },
-      {
-        w:"function",
-        th:"ฟังก์ชันหรือหน้าที่การทำงาน",
-        pos:"noun",
-        fill:"The main ______ of the app is vocabulary practice.",
-        answer:"function",
-        collocation:"main function",
-        context:"A button lets users start a session. This is one app...",
-        contextAnswer:"function",
-        academic:"The main function of the application is to provide vocabulary missions.",
-        plain:"The app lets students practice.",
-        upgrade:"The main function of the application is vocabulary practice.",
-        trapChoices:["functional","functioning","fiction"]
-      },
-      {
-        w:"user",
-        th:"ผู้ใช้",
-        pos:"noun",
-        fill:"The ______ can select a session.",
-        answer:"user",
-        collocation:"target user",
-        context:"Students who play the app are the...",
-        contextAnswer:"users",
-        academic:"The target users are students who need repeated vocabulary practice.",
-        plain:"Students use the app.",
-        upgrade:"The target users are students in an EAP course.",
-        trapChoices:["usage","useful","using"]
-      },
-      {
-        w:"problem",
-        th:"ปัญหา",
-        pos:"noun",
-        fill:"The project addresses the ______ of limited vocabulary review.",
-        answer:"problem",
-        collocation:"research problem",
-        context:"Students often forget academic words after class. This is a learning...",
-        contextAnswer:"problem",
-        academic:"The project addresses the problem of limited vocabulary practice.",
-        plain:"Students do not practice enough.",
-        upgrade:"The project addresses limited opportunities for vocabulary review.",
-        trapChoices:["program","process","proposal"]
-      },
-      {
-        w:"solution",
-        th:"วิธีแก้ปัญหา",
-        pos:"noun",
-        fill:"A possible ______ is a game-based vocabulary app.",
-        answer:"solution",
-        collocation:"possible solution",
-        context:"An app is designed to solve a learning problem. The app is a...",
-        contextAnswer:"solution",
-        academic:"The proposed solution is a game-based vocabulary learning application.",
-        plain:"The app fixes the problem.",
-        upgrade:"The proposed solution is a vocabulary learning game.",
-        trapChoices:["selection","situation","simulation"]
-      },
-      {
-        w:"prototype",
-        th:"ต้นแบบ",
-        pos:"noun",
-        fill:"Students created a ______ to test their project idea.",
-        answer:"prototype",
-        collocation:"prototype testing",
-        context:"A first version of an app is made for testing. It is a...",
-        contextAnswer:"prototype",
-        academic:"The prototype was developed to test the basic concept of the vocabulary game.",
-        plain:"Students made the first version.",
-        upgrade:"Students developed a prototype to test the project concept.",
-        trapChoices:["phototype","proposal","productivity"]
-      },
-      {
-        w:"feedback",
-        th:"ข้อเสนอแนะหรือผลตอบกลับ",
-        pos:"noun",
-        fill:"The teacher gave useful ______ to improve the project.",
-        answer:"feedback",
-        collocation:"user feedback",
-        context:"Users give comments after trying the app. These comments are...",
-        contextAnswer:"feedback",
-        academic:"User feedback can be used to improve the design and usability of the application.",
-        plain:"Users tell us what to improve.",
-        upgrade:"User feedback can improve the application design.",
-        trapChoices:["feed back","feedbacks","feeding"]
-      },
-      {
-        w:"educational benefit",
-        th:"ประโยชน์ทางการศึกษา",
-        pos:"noun phrase",
-        fill:"Repeated practice is an important ______.",
-        answer:"educational benefit",
-        collocation:"educational benefit",
-        context:"The game helps students review words many times. This is an...",
-        contextAnswer:"educational benefit",
-        academic:"The game provides educational benefits by supporting repeated vocabulary practice.",
-        plain:"The game is good for learning.",
-        upgrade:"The game provides educational benefits for vocabulary learning.",
-        trapChoices:["education benefit","educational problem","benefit education"]
-      }
-    ]
-  },
+    S2:{
+      theme:"Project Introduction",
+      rows:[
+        ["project","โครงการ","noun","project overview",["projected","projection","projecting"]],
+        ["objective","วัตถุประสงค์","noun","project objective",["object","objection","objectivee"]],
+        ["feature","คุณสมบัติหรือฟีเจอร์","noun","app feature",["future","featured","featuring"]],
+        ["function","หน้าที่การทำงาน","noun","main function",["functional","functioning","fiction"]],
+        ["user","ผู้ใช้","noun","target user",["using","usage","used"]],
+        ["problem","ปัญหา","noun","learning problem",["problematic","probe","program"]],
+        ["solution","แนวทางแก้ปัญหา","noun","learning solution",["solve","solving","soluble"]],
+        ["prototype","ต้นแบบ","noun","project prototype",["protocol","type proto","prototypeing"]],
+        ["user feedback","ความคิดเห็นจากผู้ใช้","noun phrase","collect user feedback",["user feed","feedback user","user feedbacked"]],
+        ["requirement","ข้อกำหนดหรือสิ่งที่จำเป็น","noun","project requirement",["request","required","require"]],
+        ["implementation","การนำไปพัฒนา/ใช้งานจริง","noun","project implementation",["implement","implemented","implication"]],
+        ["usability","ความง่ายในการใช้งาน","noun","usability testing",["usable","useful","usage"]],
+        ["interface","ส่วนติดต่อผู้ใช้","noun","user interface",["interact","interaction","internet face"]],
+        ["target user","ผู้ใช้เป้าหมาย","noun phrase","target user",["target using","target used","target useful"]],
+        ["learning app","แอปเพื่อการเรียนรู้","noun phrase","learning app",["learn app","learning applicationed","app learning"]],
+        ["design concept","แนวคิดการออกแบบ","noun phrase","design concept",["concept design","design conceptual","design contact"]],
+        ["project scope","ขอบเขตโครงการ","noun phrase","project scope",["project score","scope project","project scoped"]],
+        ["expected outcome","ผลลัพธ์ที่คาดหวัง","noun phrase","expected outcome",["expected output only","outcome expected","expected income"]],
+        ["benefit","ประโยชน์","noun","learning benefit",["beneficial","benefited","benefiting"]],
+        ["evaluation","การประเมิน","noun","project evaluation",["evaluate","evaluated","evaluating"]]
+      ]
+    },
 
-  S4: {
-    theme:"Tech Jobs / Careers",
-    words:[
-      {
-        w:"developer",
-        th:"นักพัฒนา",
-        pos:"noun",
-        fill:"A software ______ creates applications.",
-        answer:"developer",
-        collocation:"software developer",
-        context:"A person who writes and tests code is a...",
-        contextAnswer:"software developer",
-        academic:"A software developer is responsible for designing, coding, and maintaining applications.",
-        plain:"A developer writes code.",
-        upgrade:"A software developer develops and maintains applications.",
-        trapChoices:["development","developing","developed"]
-      },
-      {
-        w:"designer",
-        th:"นักออกแบบ",
-        pos:"noun",
-        fill:"A UI ______ creates screens and buttons.",
-        answer:"designer",
-        collocation:"UI designer",
-        context:"A person who designs screens, buttons, and layouts is a...",
-        contextAnswer:"UI designer",
-        academic:"A UI designer collaborates with developers to improve the user interface.",
-        plain:"A designer makes screens.",
-        upgrade:"A UI designer creates user interface layouts.",
-        trapChoices:["design","designed","designing"]
-      },
-      {
-        w:"analyst",
-        th:"นักวิเคราะห์",
-        pos:"noun",
-        fill:"A data ______ studies information to find patterns.",
-        answer:"analyst",
-        collocation:"data analyst",
-        context:"A person who studies data and explains patterns is a...",
-        contextAnswer:"data analyst",
-        academic:"A data analyst interprets data to support decision-making.",
-        plain:"An analyst studies data.",
-        upgrade:"A data analyst analyzes data to support decisions.",
-        trapChoices:["analysis","analyze","analytical"]
-      },
-      {
-        w:"engineer",
-        th:"วิศวกร",
-        pos:"noun",
-        fill:"An AI ______ develops intelligent systems.",
-        answer:"engineer",
-        collocation:"AI engineer",
-        context:"A person who builds machine learning systems is an...",
-        contextAnswer:"AI engineer",
-        academic:"An AI engineer develops intelligent systems and evaluates model performance.",
-        plain:"An AI engineer builds AI.",
-        upgrade:"An AI engineer develops intelligent systems.",
-        trapChoices:["engine","engineering","engineered"]
-      },
-      {
-        w:"technical skills",
-        th:"ทักษะทางเทคนิค",
-        pos:"noun phrase",
-        fill:"Coding is one of the important ______.",
-        answer:"technical skills",
-        collocation:"technical skills",
-        context:"Programming, database use, and debugging are examples of...",
-        contextAnswer:"technical skills",
-        academic:"This career requires both technical skills and communication skills.",
-        plain:"I can code and use databases.",
-        upgrade:"I have technical skills in programming and database management.",
-        trapChoices:["technology skills","technician skills","technical skillful"]
-      },
-      {
-        w:"responsibility",
-        th:"ความรับผิดชอบ",
-        pos:"noun",
-        fill:"Testing the app is one ______ of the developer.",
-        answer:"responsibility",
-        collocation:"job responsibility",
-        context:"Writing code and fixing bugs are tasks a developer must do. They are job...",
-        contextAnswer:"responsibilities",
-        academic:"One responsibility of a developer is to test the application.",
-        plain:"A developer must test the app.",
-        upgrade:"One responsibility of a developer is application testing.",
-        trapChoices:["responsible","response","responsibly"]
-      },
-      {
-        w:"requirement",
-        th:"ข้อกำหนดหรือคุณสมบัติที่จำเป็น",
-        pos:"noun",
-        fill:"English communication is an important job ______.",
-        answer:"requirement",
-        collocation:"job requirement",
-        context:"A company says applicants must know JavaScript. This is a...",
-        contextAnswer:"job requirement",
-        academic:"The job requirements include programming skills, teamwork, and English communication.",
-        plain:"The job needs English and coding.",
-        upgrade:"The job requirements include English communication and coding skills.",
-        trapChoices:["require","required","request"]
-      },
-      {
-        w:"career path",
-        th:"เส้นทางอาชีพ",
-        pos:"noun phrase",
-        fill:"AI development can be a future ______.",
-        answer:"career path",
-        collocation:"future career path",
-        context:"A student plans to work in AI after graduation. This is a...",
-        contextAnswer:"career path",
-        academic:"My future career path is related to artificial intelligence development.",
-        plain:"I want to work with AI in the future.",
-        upgrade:"My future career path is related to AI development.",
-        trapChoices:["carrier path","career part","carry path"]
-      },
-      {
-        w:"collaborate",
-        th:"ร่วมมือกัน",
-        pos:"verb",
-        fill:"Developers ______ with designers in a project team.",
-        answer:"collaborate",
-        collocation:"collaborate with developers",
-        context:"Team members work together to complete a software project. They...",
-        contextAnswer:"collaborate",
-        academic:"Team members work collaboratively to complete the software project.",
-        plain:"People in the team work together.",
-        upgrade:"Team members work collaboratively.",
-        trapChoices:["collaboration","collaborative","collaboratively"]
-      },
-      {
-        w:"decision-making",
-        th:"การตัดสินใจ",
-        pos:"noun",
-        fill:"Data can support business ______.",
-        answer:"decision-making",
-        collocation:"support decision-making",
-        context:"A report helps managers choose a better solution. It supports...",
-        contextAnswer:"decision-making",
-        academic:"Data analysis can support decision-making in organizations.",
-        plain:"Data helps people decide.",
-        upgrade:"Data analysis supports decision-making.",
-        trapChoices:["decision make","decision made","decide-making"]
-      }
-    ]
-  },
+    S3:{
+      theme:"Project Rationale & Target Users",
+      rows:[
+        ["rationale","เหตุผลหรือหลักการรองรับ","noun","project rationale",["rational","ratio","relation"]],
+        ["target users","ผู้ใช้เป้าหมาย","noun phrase","target users",["target using","target used","target useful"]],
+        ["user need","ความต้องการของผู้ใช้","noun phrase","user need",["user needy","user needed","user needing"]],
+        ["scope","ขอบเขต","noun","project scope",["score","scoped","screen"]],
+        ["benefit","ประโยชน์","noun","learning benefit",["beneficial","benefited","benefiting"]],
+        ["challenge","ความท้าทาย","noun","learning challenge",["change","chance","channel"]],
+        ["suitable for","เหมาะสำหรับ","phrase","suitable for mobile learning",["suit for","suitable to","suiting for"]],
+        ["support","สนับสนุน","verb","support learning",["supporting","supported","supportive"]],
+        ["learning need","ความจำเป็นหรือความต้องการด้านการเรียนรู้","noun phrase","learning need",["learning needed","learn need","learning needs only"]],
+        ["project aim","เป้าหมายของโครงการ","noun phrase","project aim",["project aimed","project aiming","aim project"]],
+        ["learning gap","ช่องว่างหรือปัญหาด้านการเรียนรู้","noun phrase","learning gap",["learning cap","learn gap","learning goal"]],
+        ["intended users","ผู้ใช้ที่ตั้งใจออกแบบให้ใช้","noun phrase","intended users",["intention users","intended using","intended useful"]],
+        ["project context","บริบทของโครงการ","noun phrase","project context",["project contact","project content","context project"]],
+        ["practical value","คุณค่าเชิงปฏิบัติ","noun phrase","practical value",["practice value","practical valuable","value practical"]],
+        ["design focus","จุดเน้นของการออกแบบ","noun phrase","design focus",["design focused","focus design","design function"]],
+        ["expected benefit","ประโยชน์ที่คาดว่าจะได้รับ","noun phrase","expected benefit",["expected beneficial","expect benefit","expected result only"]],
+        ["feasibility","ความเป็นไปได้ในการดำเนินโครงการ","noun","project feasibility",["feasible","facility","flexibility"]],
+        ["project justification","เหตุผลสนับสนุนความจำเป็นของโครงการ","noun phrase","project justification",["project justified","justification project","project justice"]],
+        ["learner profile","ข้อมูลลักษณะของผู้เรียน","noun phrase","learner profile",["learning profile","profile learner","learner profiling"]],
+        ["design purpose","จุดประสงค์ของการออกแบบ","noun phrase","design purpose",["purpose design","design purposeful","design propose"]]
+      ]
+    },
 
-  S5: {
-    theme:"Workplace Communication",
-    words:[
-      {
-        w:"request",
-        th:"ร้องขอ",
-        pos:"verb/noun",
-        fill:"I would like to ______ more information.",
-        answer:"request",
-        collocation:"request information",
-        context:"You politely ask for more details. You make a...",
-        contextAnswer:"request",
-        academic:"I would like to request additional information about the assignment.",
-        plain:"I want more information.",
-        upgrade:"I would like to request additional information.",
-        trapChoices:["require","response","receive"]
-      },
-      {
-        w:"clarify",
-        th:"ทำให้ชัดเจน",
-        pos:"verb",
-        fill:"Could you ______ the deadline, please?",
-        answer:"clarify",
-        collocation:"clarify the deadline",
-        context:"You do not understand the task and ask for more explanation. You ask someone to...",
-        contextAnswer:"clarify",
-        academic:"Could you please clarify the project requirements?",
-        plain:"I don't understand the task.",
-        upgrade:"Could you please clarify the task requirements?",
-        trapChoices:["clarification","clearify","classify"]
-      },
-      {
-        w:"confirm",
-        th:"ยืนยัน",
-        pos:"verb",
-        fill:"Please ______ the meeting time.",
-        answer:"confirm",
-        collocation:"confirm the schedule",
-        context:"You ask whether the deadline is Friday. You ask someone to...",
-        contextAnswer:"confirm",
-        academic:"Could you please confirm whether the deadline is Friday?",
-        plain:"Is the deadline Friday?",
-        upgrade:"Could you please confirm whether the deadline is Friday?",
-        trapChoices:["conform","perform","inform"]
-      },
-      {
-        w:"update",
-        th:"อัปเดตหรือแจ้งความคืบหน้า",
-        pos:"verb/noun",
-        fill:"Can you ______ me on the project progress?",
-        answer:"update",
-        collocation:"update someone on progress",
-        context:"Your teammate wants to know what has been completed. You should...",
-        contextAnswer:"update the teammate",
-        academic:"Could you please update me on the project progress?",
-        plain:"What happened with the project?",
-        upgrade:"Could you please update me on the project progress?",
-        trapChoices:["upload","upgrade","updating"]
-      },
-      {
-        w:"explain",
-        th:"อธิบาย",
-        pos:"verb",
-        fill:"Could you ______ the problem again?",
-        answer:"explain",
-        collocation:"explain the problem",
-        context:"Someone does not understand the issue. You describe it clearly. You...",
-        contextAnswer:"explain",
-        academic:"Could you please explain the issue in more detail?",
-        plain:"Tell me about the problem.",
-        upgrade:"Could you please explain the issue in more detail?",
-        trapChoices:["explanation","explained","explaining"]
-      },
-      {
-        w:"deadline",
-        th:"กำหนดส่ง",
-        pos:"noun",
-        fill:"The project ______ is next Monday.",
-        answer:"deadline",
-        collocation:"meet the deadline",
-        context:"A team must submit the work by Friday. Friday is the...",
-        contextAnswer:"deadline",
-        academic:"Could you please confirm the submission deadline?",
-        plain:"When do we send it?",
-        upgrade:"Could you please confirm the submission deadline?",
-        trapChoices:["dead line","timeline","headline"]
-      },
-      {
-        w:"available",
-        th:"ว่างหรือพร้อมใช้งาน",
-        pos:"adjective",
-        fill:"Are you ______ for a short meeting today?",
-        answer:"available",
-        collocation:"available for a meeting",
-        context:"You want to ask if someone has time for a meeting. You ask about their...",
-        contextAnswer:"availability",
-        academic:"Please let me know if you are available for a meeting.",
-        plain:"Are you free for a meeting?",
-        upgrade:"Please let me know if you are available for a meeting.",
-        trapChoices:["availability","availably","valuable"]
-      },
-      {
-        w:"issue",
-        th:"ปัญหาหรือประเด็น",
-        pos:"noun",
-        fill:"We need to discuss this technical ______.",
-        answer:"issue",
-        collocation:"technical issue",
-        context:"The login button does not work. This is a...",
-        contextAnswer:"technical issue",
-        academic:"The team needs to discuss the technical issue before the deadline.",
-        plain:"There is a problem with the app.",
-        upgrade:"There is a technical issue with the application.",
-        trapChoices:["tissue","assign","assist"]
-      },
-      {
-        w:"suggest",
-        th:"เสนอแนะ",
-        pos:"verb",
-        fill:"I would like to ______ a different solution.",
-        answer:"suggest",
-        collocation:"suggest a solution",
-        context:"A teammate reports a problem. You give an idea to fix it. You...",
-        contextAnswer:"suggest a solution",
-        academic:"I would like to suggest an alternative solution.",
-        plain:"I have another idea.",
-        upgrade:"I would like to suggest an alternative solution.",
-        trapChoices:["suggestion","suggested","suggesting"]
-      },
-      {
-        w:"appreciate",
-        th:"ขอบคุณหรือซาบซึ้ง",
-        pos:"verb",
-        fill:"I would ______ your help with this issue.",
-        answer:"appreciate",
-        collocation:"appreciate your feedback",
-        context:"You politely thank someone for help or feedback. You say you...",
-        contextAnswer:"appreciate it",
-        academic:"I would appreciate it if you could provide feedback.",
-        plain:"Please give me feedback.",
-        upgrade:"I would appreciate it if you could provide feedback.",
-        trapChoices:["appreciation","appreciated","appropriate"]
-      }
-    ]
-  },
+    S4:{
+      theme:"Tech Jobs / Careers",
+      rows:[
+        ["developer","นักพัฒนาโปรแกรม","noun","software developer",["develop","developing","development"]],
+        ["designer","นักออกแบบ","noun","UI designer",["design","designed","designation"]],
+        ["data analyst","นักวิเคราะห์ข้อมูล","noun phrase","data analyst",["data analysis","data analytics","analyst data"]],
+        ["AI engineer","วิศวกรปัญญาประดิษฐ์","noun phrase","AI engineer",["AI engine","engineer AI","AI engineering only"]],
+        ["UX designer","นักออกแบบประสบการณ์ผู้ใช้","noun phrase","UX designer",["UX design","designer UX","user design only"]],
+        ["cybersecurity analyst","นักวิเคราะห์ความมั่นคงปลอดภัยไซเบอร์","noun phrase","cybersecurity analyst",["cybersecurity analysis","cyber analysted","security cyber analyst"]],
+        ["multimedia specialist","ผู้เชี่ยวชาญด้านมัลติมีเดีย","noun phrase","multimedia specialist",["multimedia special","specialist multimedia","media specialist only"]],
+        ["responsibility","ความรับผิดชอบ","noun","job responsibility",["responsible","response","responsibly"]],
+        ["qualification","คุณสมบัติ","noun","job qualification",["qualified","quality","qualify"]],
+        ["candidate","ผู้สมัคร","noun","job candidate",["candid","candidatee","candidacy"]],
+        ["position","ตำแหน่งงาน","noun","job position",["positive","possession","positioning"]],
+        ["portfolio","แฟ้มผลงาน","noun","digital portfolio",["profile only","port follow","portfolioed"]],
+        ["professional role","บทบาททางวิชาชีพ","noun phrase","professional role",["professional rule","role professional","profession role"]],
+        ["career path","เส้นทางอาชีพ","noun phrase","career path",["career part","path career","career pass"]],
+        ["internship","การฝึกงาน","noun","internship opportunity",["internal ship","interned","interning"]],
+        ["workplace","สถานที่ทำงาน/บริบทการทำงาน","noun","digital workplace",["workplaceful","work placement only","work play"]],
+        ["technical skill","ทักษะเชิงเทคนิค","noun phrase","technical skill",["technique skill","technical skilled","skill technical"]],
+        ["soft skill","ทักษะด้านมนุษยสัมพันธ์/การทำงานร่วมกับผู้อื่น","noun phrase","soft skill",["softly skill","skill soft","software skill only"]],
+        ["job description","รายละเอียดงาน","noun phrase","job description",["job describe","description job","job descriptive"]],
+        ["employability","ความพร้อมในการมีงานทำ","noun","employability skill",["employable","employment","employee ability"]]
+      ]
+    },
 
-  S7: {
-    theme:"Professional Email",
-    words:[
-      {
-        w:"subject",
-        th:"หัวข้ออีเมล",
-        pos:"noun",
-        fill:"Please write a clear email ______.",
-        answer:"subject",
-        collocation:"email subject",
-        context:"The line that tells what an email is about is the...",
-        contextAnswer:"subject",
-        academic:"The email subject should be clear and specific.",
-        plain:"The email title should be clear.",
-        upgrade:"The email subject should be clear and specific.",
-        trapChoices:["object","project","reject"]
-      },
-      {
-        w:"attachment",
-        th:"ไฟล์แนบ",
-        pos:"noun",
-        fill:"Please find the ______ file.",
-        answer:"attached",
-        collocation:"attached file",
-        context:"A document sent together with an email is an...",
-        contextAnswer:"attachment",
-        academic:"Please find attached my project report.",
-        plain:"I sent the report file.",
-        upgrade:"Please find attached my project report.",
-        trapChoices:["attach","attachment file","attacheded"]
-      },
-      {
-        w:"inquiry",
-        th:"การสอบถาม",
-        pos:"noun",
-        fill:"I am writing to make an ______ about the assignment.",
-        answer:"inquiry",
-        collocation:"make an inquiry",
-        context:"You formally ask about a deadline. This email is an...",
-        contextAnswer:"inquiry",
-        academic:"I am writing to inquire about the project submission deadline.",
-        plain:"I want to ask about the deadline.",
-        upgrade:"I am writing to inquire about the submission deadline.",
-        trapChoices:["inquire","inquired","require"]
-      },
-      {
-        w:"response",
-        th:"การตอบกลับ",
-        pos:"noun",
-        fill:"Thank you for your quick ______.",
-        answer:"response",
-        collocation:"quick response",
-        context:"A teacher answers your email quickly. You thank them for their...",
-        contextAnswer:"response",
-        academic:"Thank you for your prompt response.",
-        plain:"Thanks for replying quickly.",
-        upgrade:"Thank you for your prompt response.",
-        trapChoices:["respond","responsible","responsibility"]
-      },
-      {
-        w:"recipient",
-        th:"ผู้รับ",
-        pos:"noun",
-        fill:"The ______ of the email is the project advisor.",
-        answer:"recipient",
-        collocation:"email recipient",
-        context:"The person who receives an email is the...",
-        contextAnswer:"recipient",
-        academic:"The recipient should be addressed politely in a professional email.",
-        plain:"The teacher receives the email.",
-        upgrade:"The recipient of the email is the project advisor.",
-        trapChoices:["receiver only","sender","receipt"]
-      },
-      {
-        w:"greeting",
-        th:"คำขึ้นต้นทักทาย",
-        pos:"noun",
-        fill:"“Dear Professor,” is an email ______.",
-        answer:"greeting",
-        collocation:"formal greeting",
-        context:"The first polite line of an email is a...",
-        contextAnswer:"greeting",
-        academic:"A professional email should begin with an appropriate greeting.",
-        plain:"Start the email politely.",
-        upgrade:"Begin the email with an appropriate greeting.",
-        trapChoices:["closing","heading","meeting"]
-      },
-      {
-        w:"closing",
-        th:"คำลงท้าย",
-        pos:"noun",
-        fill:"“Best regards,” is an email ______.",
-        answer:"closing",
-        collocation:"formal closing",
-        context:"The final polite phrase before your name is the...",
-        contextAnswer:"closing",
-        academic:"A formal closing, such as Best regards, is appropriate for professional emails.",
-        plain:"End the email politely.",
-        upgrade:"Use a formal closing such as Best regards.",
-        trapChoices:["greeting","subject","opening"]
-      },
-      {
-        w:"regarding",
-        th:"เกี่ยวกับ",
-        pos:"preposition",
-        fill:"I am writing ______ the project deadline.",
-        answer:"regarding",
-        collocation:"regarding the assignment",
-        context:"A formal word that means about is...",
-        contextAnswer:"regarding",
-        academic:"I have a question regarding the assignment requirements.",
-        plain:"I have a question about the assignment.",
-        upgrade:"I have a question regarding the assignment requirements.",
-        trapChoices:["regard","regarded","according"]
-      },
-      {
-        w:"submit",
-        th:"ส่งงานหรือยื่นเอกสาร",
-        pos:"verb",
-        fill:"I would like to ______ my project report.",
-        answer:"submit",
-        collocation:"submit a report",
-        context:"A student sends an assignment to the teacher. The student...",
-        contextAnswer:"submits the report",
-        academic:"I would like to submit my project report for your review.",
-        plain:"I want to send my report.",
-        upgrade:"I would like to submit my project report.",
-        trapChoices:["submission","submitted","submitting"]
-      },
-      {
-        w:"apologize",
-        th:"ขอโทษ",
-        pos:"verb",
-        fill:"I ______ for the late reply.",
-        answer:"apologize",
-        collocation:"apologize for the delay",
-        context:"A student replies late and says sorry politely. The student...",
-        contextAnswer:"apologizes",
-        academic:"I apologize for the delayed response.",
-        plain:"Sorry for replying late.",
-        upgrade:"I apologize for the delayed response.",
-        trapChoices:["apology","apologizing","apologized"]
-      }
-    ]
-  },
+    S5:{
+      theme:"Workplace Communication",
+      rows:[
+        ["request","คำขอ/การขอร้อง","verb/noun","request information",["require","question","requested"]],
+        ["clarify","ทำให้ชัดเจน/ขอความชัดเจน","verb","clarify the deadline",["clarification","clear","classify"]],
+        ["confirm","ยืนยัน","verb","confirm the meeting",["conform","inform","perform"]],
+        ["update","อัปเดต/แจ้งความคืบหน้า","verb/noun","update on progress",["upgrade","updating","updated"]],
+        ["apologize","ขอโทษ","verb","apologize for the delay",["apology","apologized","apologetic"]],
+        ["appreciate","ขอบคุณ/ซาบซึ้ง","verb","appreciate feedback",["appreciation","appreciated","appropriate"]],
+        ["response","การตอบกลับ","noun","quick response",["respond","responsible","responsive"]],
+        ["available","ว่าง/พร้อมใช้งาน","adjective","available for a meeting",["availability","avail","availabled"]],
+        ["regarding","เกี่ยวกับ","preposition","regarding the project",["regarded","regards","regardless"]],
+        ["sincerely","ด้วยความเคารพ/ขอแสดงความนับถือ","adverb","Yours sincerely",["Sincere","Sincerity","Since"]],
+        ["schedule","กำหนดการ","noun","project schedule",["scheduled","scheduling","scheme"]],
+        ["coordinate","ประสานงาน","verb","coordinate tasks",["coordination","coordinator","coordinated"]],
+        ["ask for","ขอ","phrase","ask for clarification",["ask to","ask about only","asked for"]],
+        ["follow up","ติดตามผล","verb phrase","follow up on progress",["followed up","following up only","follow-up noun only"]],
+        ["explain","อธิบาย","verb","explain the issue",["explanation","explained","explainable"]],
+        ["propose","เสนอ","verb","propose a solution",["proposal","proposed","purpose"]],
+        ["agree","เห็นด้วย","verb","agree with a suggestion",["agreement","agreed","agreeing"]],
+        ["inform","แจ้งให้ทราบ","verb","inform the team",["information","informed","informative"]],
+        ["polite request","คำขออย่างสุภาพ","noun phrase","polite request",["politely request","request polite","polite require"]],
+        ["professional tone","น้ำเสียงแบบมืออาชีพ","noun phrase","professional tone",["professional tune","tone professional","profession tone"]]
+      ]
+    },
 
-  S8: {
-    theme:"Meeting / Discussion",
-    words:[
-      {
-        w:"agenda",
-        th:"วาระหรือหัวข้อการประชุม",
-        pos:"noun",
-        fill:"The first item on the meeting ______ is project progress.",
-        answer:"agenda",
-        collocation:"meeting agenda",
-        context:"A list of topics for a meeting is an...",
-        contextAnswer:"agenda",
-        academic:"The meeting agenda includes project progress and user feedback.",
-        plain:"The meeting has three topics.",
-        upgrade:"The meeting agenda includes three main topics.",
-        trapChoices:["agent","gender","engine"]
-      },
-      {
-        w:"opinion",
-        th:"ความคิดเห็น",
-        pos:"noun",
-        fill:"In my ______, the app should have a simple interface.",
-        answer:"opinion",
-        collocation:"give an opinion",
-        context:"A student says what they think about the design. This is an...",
-        contextAnswer:"opinion",
-        academic:"In my opinion, the design is appropriate for mobile users.",
-        plain:"I think the design is good.",
-        upgrade:"In my opinion, the design is appropriate for mobile users.",
-        trapChoices:["option","operation","opportunity"]
-      },
-      {
-        w:"suggest",
-        th:"เสนอแนะ",
-        pos:"verb",
-        fill:"I would like to ______ a new feature.",
-        answer:"suggest",
-        collocation:"suggest an idea",
-        context:"A team member proposes adding progress tracking. The member...",
-        contextAnswer:"suggests an idea",
-        academic:"I would like to suggest that we improve the user interface.",
-        plain:"We should make the menu clearer.",
-        upgrade:"I would like to suggest that we make the navigation menu clearer.",
-        trapChoices:["suggestion","suggested","suggesting"]
-      },
-      {
-        w:"decision",
-        th:"การตัดสินใจ",
-        pos:"noun",
-        fill:"The team made a ______ about the design.",
-        answer:"decision",
-        collocation:"make a decision",
-        context:"After discussion, the team chooses one design. The team makes a...",
-        contextAnswer:"decision",
-        academic:"The team decided to revise the prototype before the presentation.",
-        plain:"The team chose to revise it.",
-        upgrade:"The team decided to revise the prototype.",
-        trapChoices:["decide","decisive","deciding"]
-      },
-      {
-        w:"agree",
-        th:"เห็นด้วย",
-        pos:"verb",
-        fill:"I ______ with your idea.",
-        answer:"agree",
-        collocation:"agree with a point",
-        context:"A student supports another student's recommendation. The student...",
-        contextAnswer:"agrees",
-        academic:"I agree with this point because it improves user experience.",
-        plain:"I think your idea is right.",
-        upgrade:"I agree with this point because it improves user experience.",
-        trapChoices:["agreement","agreed","agreeing"]
-      },
-      {
-        w:"disagree",
-        th:"ไม่เห็นด้วย",
-        pos:"verb",
-        fill:"I respectfully ______ with this point.",
-        answer:"disagree",
-        collocation:"respectfully disagree",
-        context:"A student does not support an idea but wants to be polite. The student...",
-        contextAnswer:"respectfully disagrees",
-        academic:"I respectfully disagree because the timeline may be too limited.",
-        plain:"I don't think this is a good idea.",
-        upgrade:"I respectfully disagree because the timeline may be too limited.",
-        trapChoices:["agreement","disagreement","agree"]
-      },
-      {
-        w:"concern",
-        th:"ข้อกังวล",
-        pos:"noun",
-        fill:"One ______ is the limited time for testing.",
-        answer:"concern",
-        collocation:"main concern",
-        context:"A student worries about the limited testing time. This is a...",
-        contextAnswer:"concern",
-        academic:"The main concern is the limited time for user testing.",
-        plain:"I am worried about the testing time.",
-        upgrade:"The main concern is the limited time for user testing.",
-        trapChoices:["concert","confirm","condition"]
-      },
-      {
-        w:"recommendation",
-        th:"ข้อเสนอแนะ",
-        pos:"noun",
-        fill:"My ______ is to improve the navigation menu.",
-        answer:"recommendation",
-        collocation:"make a recommendation",
-        context:"A student suggests improving the feedback system. This suggestion is a...",
-        contextAnswer:"recommendation",
-        academic:"My recommendation is to improve the feedback system.",
-        plain:"I think we should improve feedback.",
-        upgrade:"My recommendation is to improve the feedback system.",
-        trapChoices:["recommend","recommended","recommending"]
-      },
-      {
-        w:"summary",
-        th:"สรุป",
-        pos:"noun",
-        fill:"Could you give a short ______ of the discussion?",
-        answer:"summary",
-        collocation:"meeting summary",
-        context:"At the end, a member explains the main points. This is a...",
-        contextAnswer:"summary",
-        academic:"To summarize, the team agreed to revise the prototype.",
-        plain:"In short, we will revise it.",
-        upgrade:"To summarize, the team agreed to revise the prototype.",
-        trapChoices:["summarize","summarized","summer"]
-      },
-      {
-        w:"action item",
-        th:"งานที่ต้องทำหลังประชุม",
-        pos:"noun phrase",
-        fill:"The ______ is to revise the login screen by Friday.",
-        answer:"action item",
-        collocation:"meeting action item",
-        context:"A task assigned after a meeting is an...",
-        contextAnswer:"action item",
-        academic:"The action item is to revise the login screen by Friday.",
-        plain:"We need to fix the login screen by Friday.",
-        upgrade:"The action item is to revise the login screen by Friday.",
-        trapChoices:["active item","action idea","acting item"]
-      }
-    ]
-  },
+    S6:{
+      theme:"Team Progress & Responsibility",
+      rows:[
+        ["progress","ความก้าวหน้า","noun","project progress",["process","program","progressive"]],
+        ["responsibility","ความรับผิดชอบ","noun","team responsibility",["responsible","response","responsibly"]],
+        ["contribution","การมีส่วนร่วม/ผลงานที่ช่วยทีม","noun","team contribution",["contribute","contributed","contributor"]],
+        ["timeline","เส้นเวลา/แผนกำหนดการ","noun","project timeline",["deadline","time line only","timely"]],
+        ["milestone","หมุดหมายสำคัญของงาน","noun","project milestone",["millstone","military","mile"]],
+        ["coordinate","ประสานงาน","verb","coordinate tasks",["coordination","coordinator","coordinated"]],
+        ["deadline","กำหนดส่ง","noun","meet the deadline",["dead line only","headline","timeline only"]],
+        ["collaboration","การทำงานร่วมกัน","noun","team collaboration",["collaborate","collaborative","collaboratively"]],
+        ["weekly update","การแจ้งความคืบหน้ารายสัปดาห์","noun phrase","weekly update",["week update","weekly updated","update weekly"]],
+        ["task allocation","การจัดสรรงาน","noun phrase","task allocation",["task allocate","task allocated","allocation task"]],
+        ["role","บทบาท","noun","team role",["rule","roll","roleplay"]],
+        ["deliverable","งานส่งมอบ","noun","project deliverable",["delivery","deliver","delivered"]],
+        ["workload","ภาระงาน","noun","divide the workload",["workflow","workshop","work line"]],
+        ["delay","ความล่าช้า","noun/verb","project delay",["delayed","delete","deadline"]],
+        ["monitor","ติดตามตรวจสอบ","verb","monitor progress",["monitoring","monitored","mentor"]],
+        ["team performance","ผลการทำงานของทีม","noun phrase","team performance",["team perform","team performer","performance team"]],
+        ["status report","รายงานสถานะงาน","noun phrase","weekly status report",["status reported","report status","state report"]],
+        ["task dependency","ความสัมพันธ์ที่งานหนึ่งต้องรออีกงานหนึ่ง","noun phrase","task dependency",["task dependent","dependency task","task depend"]],
+        ["completion rate","อัตราความสำเร็จของงาน","noun phrase","task completion rate",["complete rate","completion ratio only","rate completion"]],
+        ["risk management","การบริหารความเสี่ยง","noun phrase","project risk management",["risk managed","management risk","risky management"]]
+      ]
+    },
 
-  S10: {
-    theme:"System Explanation",
-    words:[
-      {
-        w:"system",
-        th:"ระบบ",
-        pos:"noun",
-        fill:"The ______ records students’ scores.",
-        answer:"system",
-        collocation:"learning system",
-        context:"An app with screens, data, buttons, and rules is a...",
-        contextAnswer:"system",
-        academic:"The system allows users to select a session and track their progress.",
-        plain:"The app records scores.",
-        upgrade:"The system records students’ scores.",
-        trapChoices:["sustain","symbol","syllabus"]
-      },
-      {
-        w:"function",
-        th:"ฟังก์ชันหรือหน้าที่การทำงาน",
-        pos:"noun",
-        fill:"The main ______ is to show learning progress.",
-        answer:"function",
-        collocation:"main function",
-        context:"The app can save weak words. This ability is a...",
-        contextAnswer:"function",
-        academic:"The main function of the system is to support repeated vocabulary practice.",
-        plain:"The app helps students practice.",
-        upgrade:"The main function is to support vocabulary practice.",
-        trapChoices:["functional","functioning","fiction"]
-      },
-      {
-        w:"process",
-        th:"กระบวนการ",
-        pos:"noun",
-        fill:"The login ______ starts when users enter their ID.",
-        answer:"process",
-        collocation:"login process",
-        context:"First enter ID, then choose session, then answer questions. This is a...",
-        contextAnswer:"process",
-        academic:"The workflow includes login, gameplay, and summary review.",
-        plain:"First login, then play, then see score.",
-        upgrade:"The workflow includes login, gameplay, and summary review.",
-        trapChoices:["progress","proposal","purpose"]
-      },
-      {
-        w:"input",
-        th:"ข้อมูลที่ป้อนเข้า",
-        pos:"noun",
-        fill:"The user ______ is the student ID.",
-        answer:"input",
-        collocation:"user input",
-        context:"A student types their ID into the form. This is...",
-        contextAnswer:"user input",
-        academic:"Students enter their ID as user input.",
-        plain:"Students type their ID.",
-        upgrade:"Students enter their ID as user input.",
-        trapChoices:["impact","import","income"]
-      },
-      {
-        w:"output",
-        th:"ผลลัพธ์ที่แสดงออกมา",
-        pos:"noun",
-        fill:"The final score is the system ______.",
-        answer:"output",
-        collocation:"system output",
-        context:"After a round, the app shows XP and accuracy. This is...",
-        contextAnswer:"output",
-        academic:"The application displays the learner’s score on the summary page.",
-        plain:"The app shows the score.",
-        upgrade:"The application displays the learner’s score on the summary page.",
-        trapChoices:["outcome","outfit","outlet"]
-      },
-      {
-        w:"interface",
-        th:"ส่วนติดต่อผู้ใช้",
-        pos:"noun",
-        fill:"A simple ______ helps users play easily.",
-        answer:"interface",
-        collocation:"user interface",
-        context:"Users click buttons and select options on the screen. This part is the...",
-        contextAnswer:"user interface",
-        academic:"A user-friendly interface helps learners complete tasks efficiently.",
-        plain:"A simple screen helps users.",
-        upgrade:"A user-friendly interface helps learners complete tasks efficiently.",
-        trapChoices:["interference","internet face","interaction"]
-      },
-      {
-        w:"display",
-        th:"แสดงผล",
-        pos:"verb",
-        fill:"The app can ______ the correct answer.",
-        answer:"display",
-        collocation:"display results",
-        context:"The summary page shows score and accuracy. It...",
-        contextAnswer:"displays results",
-        academic:"After each answer, the system displays immediate feedback.",
-        plain:"The app shows feedback.",
-        upgrade:"The system displays immediate feedback.",
-        trapChoices:["delete","deploy","describe"]
-      },
-      {
-        w:"select",
-        th:"เลือก",
-        pos:"verb",
-        fill:"Users can ______ the difficulty level.",
-        answer:"select",
-        collocation:"select an option",
-        context:"A student chooses S1 from the menu. The student...",
-        contextAnswer:"selects an option",
-        academic:"The interface allows users to select a session.",
-        plain:"Users choose a session.",
-        upgrade:"The interface allows users to select a session.",
-        trapChoices:["selection","selected","selector"]
-      },
-      {
-        w:"data storage",
-        th:"การจัดเก็บข้อมูล",
-        pos:"noun phrase",
-        fill:"localStorage is used for ______.",
-        answer:"data storage",
-        collocation:"local data storage",
-        context:"The app keeps scores and weak words in the browser. This is...",
-        contextAnswer:"data storage",
-        academic:"The system stores data locally in the user’s browser.",
-        plain:"The app saves data in the browser.",
-        upgrade:"The system stores data locally in the user’s browser.",
-        trapChoices:["data story","data stored","storage data"]
-      },
-      {
-        w:"feedback",
-        th:"ผลตอบกลับ",
-        pos:"noun",
-        fill:"The system provides immediate ______ after each answer.",
-        answer:"feedback",
-        collocation:"immediate feedback",
-        context:"After answering, the app says why the answer is correct. This is...",
-        contextAnswer:"feedback",
-        academic:"The system provides immediate feedback to support vocabulary learning.",
-        plain:"The app tells students if they are right.",
-        upgrade:"The system provides immediate feedback.",
-        trapChoices:["feed back","feedbacks","feeding"]
-      }
-    ]
-  },
+    S7:{
+      theme:"Professional Email",
+      rows:[
+        ["subject line","หัวข้ออีเมล","noun phrase","clear subject line",["subjective line","line subject","subject title only"]],
+        ["attachment","ไฟล์แนบ","noun","email attachment",["attached","attaching","attention"]],
+        ["inquiry","การสอบถาม","noun","course inquiry",["inquire","enquiry spelling only","inquired"]],
+        ["deadline","กำหนดส่ง","noun","assignment deadline",["timeline","dead line only","headline"]],
+        ["recipient","ผู้รับอีเมล","noun","email recipient",["receiver only","receipt","recipe"]],
+        ["sender","ผู้ส่งอีเมล","noun","email sender",["sending","send","sendee"]],
+        ["formal greeting","คำขึ้นต้นอีเมลแบบทางการ","noun phrase","formal greeting",["formal greating","greeting formal","format greeting"]],
+        ["closing statement","ข้อความปิดท้าย","noun phrase","email closing statement",["close statement","closing stated","statement closing"]],
+        ["reply","ตอบกลับ","verb/noun","reply by Friday",["replied","replying","response only"]],
+        ["polite tone","น้ำเสียงสุภาพ","noun phrase","polite tone",["polite tune","tone polite","politely tone"]],
+        ["email body","เนื้อหาอีเมล","noun phrase","email body",["body email","email bodily","mail body only"]],
+        ["carbon copy","สำเนาอีเมลถึงผู้อื่น","noun phrase","carbon copy",["copy carbon","carbon copied only","CC only"]],
+        ["salutation","คำขึ้นต้นจดหมาย/อีเมล","noun","email salutation",["salute","saluted","salutationed"]],
+        ["signature","ลายเซ็น/ชื่อท้ายอีเมล","noun","email signature",["signed","signing","signal"]],
+        ["request email","อีเมลเพื่อขอข้อมูลหรือความช่วยเหลือ","noun phrase","request email",["requested email","email request","requesting mail"]],
+        ["confirmation email","อีเมลยืนยัน","noun phrase","confirmation email",["confirmed email","email confirmation","confirming mail"]],
+        ["reminder email","อีเมลเตือนความจำ","noun phrase","reminder email",["remind email","email reminder","reminded mail"]],
+        ["response time","เวลาที่ใช้ในการตอบกลับ","noun phrase","response time",["respond time","time response","responsive time"]],
+        ["formal language","ภาษาทางการ","noun phrase","formal language",["form language","language formal","formally language"]],
+        ["attachment note","ข้อความแจ้งเรื่องไฟล์แนบ","noun phrase","attachment note",["attached note","note attachment","attention note"]]
+      ]
+    },
 
-  S11: {
-    theme:"Bug Report / Problem Solving",
-    words:[
-      {
-        w:"bug",
-        th:"ข้อผิดพลาดของระบบ",
-        pos:"noun",
-        fill:"There is a ______ in the login page.",
-        answer:"bug",
-        collocation:"report a bug",
-        context:"The Continue button does not work. This software problem is a...",
-        contextAnswer:"bug",
-        academic:"The Continue button does not respond when users click it.",
-        plain:"The button does not work.",
-        upgrade:"The Continue button does not respond when users click it.",
-        trapChoices:["bag","buggy","debug"]
-      },
-      {
-        w:"error",
-        th:"ข้อผิดพลาด",
-        pos:"noun",
-        fill:"The system shows an ______ message.",
-        answer:"error",
-        collocation:"error message",
-        context:"A warning appears when something goes wrong. It is an...",
-        contextAnswer:"error message",
-        academic:"The system displays an error message after the user clicks Continue.",
-        plain:"The app shows an error.",
-        upgrade:"The system displays an error message.",
-        trapChoices:["error massage","era","arrow"]
-      },
-      {
-        w:"issue",
-        th:"ปัญหาหรือประเด็น",
-        pos:"noun",
-        fill:"The button has a technical ______.",
-        answer:"issue",
-        collocation:"technical issue",
-        context:"The problem occurs on mobile devices. This problem is an...",
-        contextAnswer:"issue",
-        academic:"The issue occurs when users click the Continue button.",
-        plain:"The problem happens when users click Continue.",
-        upgrade:"The issue occurs when users click the Continue button.",
-        trapChoices:["tissue","assign","assist"]
-      },
-      {
-        w:"reproduce",
-        th:"ทำให้เกิดซ้ำ",
-        pos:"verb",
-        fill:"The developer can ______ the issue on mobile.",
-        answer:"reproduce",
-        collocation:"steps to reproduce",
-        context:"A developer follows the same steps and sees the same bug. The developer can...",
-        contextAnswer:"reproduce the issue",
-        academic:"The issue can be reproduced by opening the page on a mobile device.",
-        plain:"I can make the problem happen again.",
-        upgrade:"I can reproduce the issue by following the same steps.",
-        trapChoices:["reproduction","reproduced","produce"]
-      },
-      {
-        w:"expected result",
-        th:"ผลลัพธ์ที่ควรเกิดขึ้น",
-        pos:"noun phrase",
-        fill:"The ______ is that the next page should load.",
-        answer:"expected result",
-        collocation:"expected result",
-        context:"The app should go to the next page after clicking Continue. This is the...",
-        contextAnswer:"expected result",
-        academic:"The expected result is that the next page should load correctly.",
-        plain:"The next page should open.",
-        upgrade:"The expected result is that the next page should load correctly.",
-        trapChoices:["expect result","expectation result","actual result"]
-      },
-      {
-        w:"actual result",
-        th:"ผลลัพธ์ที่เกิดขึ้นจริง",
-        pos:"noun phrase",
-        fill:"The ______ is that the page remains unchanged.",
-        answer:"actual result",
-        collocation:"actual result",
-        context:"The app stays on the same page after clicking Continue. This is the...",
-        contextAnswer:"actual result",
-        academic:"The actual result is that the page remains unchanged.",
-        plain:"The page does not change.",
-        upgrade:"The actual result is that the page remains unchanged.",
-        trapChoices:["actually result","action result","expected result"]
-      },
-      {
-        w:"solution",
-        th:"วิธีแก้ปัญหา",
-        pos:"noun",
-        fill:"A possible ______ is to update the code.",
-        answer:"solution",
-        collocation:"possible solution",
-        context:"A team updates the event listener to fix a bug. This update is a...",
-        contextAnswer:"solution",
-        academic:"A possible solution is to update the event listener for the Continue button.",
-        plain:"We should update the button code.",
-        upgrade:"A possible solution is to update the event listener.",
-        trapChoices:["solve","solved","solving"]
-      },
-      {
-        w:"troubleshooting",
-        th:"การวิเคราะห์และแก้ปัญหา",
-        pos:"noun",
-        fill:"Testing different solutions is part of ______.",
-        answer:"troubleshooting",
-        collocation:"technical troubleshooting",
-        context:"A developer checks causes and tries fixes. This process is...",
-        contextAnswer:"troubleshooting",
-        academic:"Troubleshooting helps the team identify and resolve technical issues.",
-        plain:"The team tests ways to fix the problem.",
-        upgrade:"The team conducts troubleshooting to resolve the issue.",
-        trapChoices:["trouble shooting","problem shooting","troubleshot"]
-      },
-      {
-        w:"resolved",
-        th:"ได้รับการแก้ไขแล้ว",
-        pos:"verb/adjective",
-        fill:"The issue was ______ after updating the code.",
-        answer:"resolved",
-        collocation:"issue was resolved",
-        context:"After the code update, the bug no longer appears. The issue was...",
-        contextAnswer:"resolved",
-        academic:"The issue was resolved after updating the JavaScript code.",
-        plain:"The problem was fixed.",
-        upgrade:"The issue was resolved after updating the code.",
-        trapChoices:["resolution","resolve","resolving"]
-      },
-      {
-        w:"performance",
-        th:"ประสิทธิภาพการทำงาน",
-        pos:"noun",
-        fill:"The update improved the app’s ______.",
-        answer:"performance",
-        collocation:"app performance",
-        context:"After optimization, the app loads faster. Its...",
-        contextAnswer:"performance improved",
-        academic:"The update improved the application’s performance on mobile devices.",
-        plain:"The app became faster.",
-        upgrade:"The update improved the application’s performance.",
-        trapChoices:["perform","performed","performing"]
-      }
-    ]
-  },
+    S8:{
+      theme:"Meeting / Discussion",
+      rows:[
+        ["agenda","วาระการประชุม","noun","meeting agenda",["agent","agendaed","agendum only"]],
+        ["discussion","การอภิปราย","noun","team discussion",["discuss","discussed","decision"]],
+        ["opinion","ความคิดเห็น","noun","give an opinion",["option","optional","opinionated"]],
+        ["suggestion","ข้อเสนอแนะ","noun","make a suggestion",["suggest","suggested","suggestive"]],
+        ["decision","การตัดสินใจ","noun","make a decision",["decide","decided","division"]],
+        ["concern","ข้อกังวล","noun","raise a concern",["confirm","concert","concerning"]],
+        ["agree","เห็นด้วย","verb","agree with a suggestion",["agreement","agreed","agreeing"]],
+        ["disagree","ไม่เห็นด้วย","verb","respectfully disagree",["disagreement","disagreed","disagreeing"]],
+        ["alternative","ทางเลือกอื่น","noun/adjective","alternative solution",["alternate","alternatively","alteration"]],
+        ["recommend","แนะนำ","verb","recommend testing",["recommendation","recommended","recommending"]],
+        ["meeting objective","วัตถุประสงค์ของการประชุม","noun phrase","meeting objective",["objective meeting","meeting object","meeting objection"]],
+        ["participant","ผู้เข้าร่วม","noun","meeting participant",["participate","participated","participation"]],
+        ["moderator","ผู้ดำเนินการประชุม","noun","meeting moderator",["moderate","moderated","modernator"]],
+        ["issue raised","ประเด็นที่ถูกหยิบยกขึ้นมา","noun phrase","issue raised",["raised issue only","issue raising","issue rise"]],
+        ["decision point","จุดที่ต้องตัดสินใจ","noun phrase","decision point",["point decision","deciding point","decision pointer"]],
+        ["discussion point","ประเด็นอภิปราย","noun phrase","discussion point",["point discussion","discuss point","discussion pointer"]],
+        ["action plan","แผนปฏิบัติการ","noun phrase","action plan",["active plan","plan action","acting plan"]],
+        ["time allocation","การจัดสรรเวลา","noun phrase","time allocation",["time allocate","allocation time","time allocated"]],
+        ["turn-taking","การผลัดกันพูด","noun","turn-taking strategy",["take turn only","turning take","turn taken"]],
+        ["consensus building","การสร้างฉันทามติ","noun phrase","consensus building",["consent building","building consensus only","consensus build"]]
+      ]
+    },
 
-  S13: {
-    theme:"AI Report / Academic Summary",
-    words:[
-      {
-        w:"dataset",
-        th:"ชุดข้อมูล",
-        pos:"noun",
-        fill:"The AI model was trained using a small ______.",
-        answer:"dataset",
-        collocation:"training dataset",
-        context:"A collection of examples used to train a model is a...",
-        contextAnswer:"dataset",
-        academic:"The dataset contains examples used to train the AI model.",
-        plain:"The AI learned from data.",
-        upgrade:"The AI model was trained using a dataset.",
-        trapChoices:["data set are","database","data seat"]
-      },
-      {
-        w:"model",
-        th:"โมเดลหรือแบบจำลอง",
-        pos:"noun",
-        fill:"The ______ can classify images into categories.",
-        answer:"model",
-        collocation:"AI model",
-        context:"A trained AI system that predicts or classifies data is a...",
-        contextAnswer:"model",
-        academic:"The AI model achieved an accuracy rate of 90%.",
-        plain:"The AI was right 90% of the time.",
-        upgrade:"The AI model achieved an accuracy rate of 90%.",
-        trapChoices:["module","modal","modern"]
-      },
-      {
-        w:"accuracy",
-        th:"ความแม่นยำ",
-        pos:"noun",
-        fill:"The model achieved 85% ______.",
-        answer:"accuracy",
-        collocation:"model accuracy",
-        context:"A model predicts correctly 85 out of 100 times. This is its...",
-        contextAnswer:"accuracy",
-        academic:"The model was evaluated using accuracy as a key metric.",
-        plain:"The model was correct many times.",
-        upgrade:"The model achieved high accuracy.",
-        trapChoices:["accurate","accurately","accurateness"]
-      },
-      {
-        w:"findings",
-        th:"ข้อค้นพบ",
-        pos:"noun",
-        fill:"The main ______ indicate improvement.",
-        answer:"findings",
-        collocation:"research findings",
-        context:"A report says vocabulary scores increased. These results are...",
-        contextAnswer:"findings",
-        academic:"The findings indicate that the AI model improved classification accuracy.",
-        plain:"The results show AI improved.",
-        upgrade:"The findings indicate improvement in model accuracy.",
-        trapChoices:["finding","found","find"]
-      },
-      {
-        w:"limitation",
-        th:"ข้อจำกัด",
-        pos:"noun",
-        fill:"One ______ of the study is the small sample size.",
-        answer:"limitation",
-        collocation:"study limitation",
-        context:"The study used only 20 students, so the result may not represent everyone. This is a...",
-        contextAnswer:"limitation",
-        academic:"One limitation of this study is the small sample size.",
-        plain:"The study had only a few students.",
-        upgrade:"One limitation of this study is the small sample size.",
-        trapChoices:["limited","limit","limiting"]
-      },
-      {
-        w:"method",
-        th:"วิธีการ",
-        pos:"noun",
-        fill:"The research ______ includes data collection and analysis.",
-        answer:"method",
-        collocation:"research method",
-        context:"A section explains how the study was conducted. This section describes the...",
-        contextAnswer:"method",
-        academic:"The research method includes data collection, analysis, and evaluation.",
-        plain:"The report explains how we did it.",
-        upgrade:"The report describes the research method.",
-        trapChoices:["methodology only","media","meeting"]
-      },
-      {
-        w:"analysis",
-        th:"การวิเคราะห์",
-        pos:"noun",
-        fill:"Data ______ was conducted after the experiment.",
-        answer:"analysis",
-        collocation:"data analysis",
-        context:"Researchers examine data to identify patterns. They conduct...",
-        contextAnswer:"data analysis",
-        academic:"Data analysis helps identify patterns and trends.",
-        plain:"Researchers study the data.",
-        upgrade:"Researchers conduct data analysis.",
-        trapChoices:["analyze","analyst","analytical"]
-      },
-      {
-        w:"evidence",
-        th:"หลักฐาน",
-        pos:"noun",
-        fill:"The data provides ______ for the conclusion.",
-        answer:"evidence",
-        collocation:"strong evidence",
-        context:"Data supports the conclusion of a report. The data is...",
-        contextAnswer:"evidence",
-        academic:"The evidence supports the conclusion of the study.",
-        plain:"The data supports the idea.",
-        upgrade:"The evidence supports the conclusion.",
-        trapChoices:["evident","event","evidencee"]
-      },
-      {
-        w:"significant",
-        th:"มีนัยสำคัญ/สำคัญมาก",
-        pos:"adjective",
-        fill:"The results showed a ______ improvement.",
-        answer:"significant",
-        collocation:"significant improvement",
-        context:"A result is important and meaningful. It is...",
-        contextAnswer:"significant",
-        academic:"The results showed a significant improvement in vocabulary scores.",
-        plain:"Scores improved a lot.",
-        upgrade:"The results showed a significant improvement.",
-        trapChoices:["significance","significantly","signify"]
-      },
-      {
-        w:"further research",
-        th:"การวิจัยเพิ่มเติม",
-        pos:"noun phrase",
-        fill:"______ is needed to evaluate long-term outcomes.",
-        answer:"Further research",
-        collocation:"further research is needed",
-        context:"A study recommends more investigation in the future. It says...",
-        contextAnswer:"further research is needed",
-        academic:"Further research is needed to evaluate long-term learning outcomes.",
-        plain:"We need more research later.",
-        upgrade:"Further research is needed to evaluate long-term outcomes.",
-        trapChoices:["Farther research","Future researcher","Research furthering"]
-      }
-    ]
-  },
+    S9:{
+      theme:"Discussion Summary & Action Items",
+      rows:[
+        ["follow-up","การติดตามผล","noun/adjective","follow-up email",["following","followed","follow uping"]],
+        ["action item","งานที่ต้องทำหลังประชุม","noun phrase","meeting action item",["active item","action idea","acting item"]],
+        ["agreement","ข้อตกลง","noun","reach an agreement",["agree","agreed","agreeing"]],
+        ["conclusion","ข้อสรุป","noun","meeting conclusion",["confusion","condition","connection"]],
+        ["summarize","สรุป","verb","summarize key points",["summary","summarized","summer"]],
+        ["key point","ประเด็นสำคัญ","noun phrase","key point",["key port","key part","key paint"]],
+        ["confirm","ยืนยัน","verb","confirm the decision",["conform","perform","inform"]],
+        ["assign","มอบหมาย","verb","assign tasks",["assignment","assigned","assist"]],
+        ["meeting minutes","บันทึกการประชุม","noun phrase","meeting minutes",["meeting minute","minutes meeting","meeting summary only"]],
+        ["decision record","บันทึกการตัดสินใจ","noun phrase","decision record",["decision recorded","record decision","decide record"]],
+        ["next step","ขั้นตอนถัดไป","noun phrase","next step",["next stop","next stage only","step next"]],
+        ["follow-up task","งานติดตามผล","noun phrase","follow-up task",["following task","followed task","task follow-uping"]],
+        ["consensus","ฉันทามติ/ความเห็นพ้องร่วมกัน","noun","reach a consensus",["consent","concern","conclusion"]],
+        ["priority","ลำดับความสำคัญ","noun","first priority",["prior","prioritize","primary"]],
+        ["revision plan","แผนการปรับแก้","noun phrase","revision plan",["revise plan","revision planning","plan revision"]],
+        ["shared understanding","ความเข้าใจร่วมกัน","noun phrase","shared understanding",["sharing understanding","shared understand","understanding shared"]],
+        ["meeting outcome","ผลลัพธ์จากการประชุม","noun phrase","meeting outcome",["meeting output only","outcome meeting","meeting income"]],
+        ["assigned owner","ผู้รับผิดชอบงานที่ได้รับมอบหมาย","noun phrase","assigned owner",["assignment owner","owner assigned","assigned owing"]],
+        ["due date","วันที่ครบกำหนด","noun phrase","task due date",["do date","date due","deadline date only"]],
+        ["decision summary","สรุปการตัดสินใจ","noun phrase","decision summary",["summary decision","decided summary","decision summarize"]]
+      ]
+    },
 
-  S14: {
-    theme:"CV / Interview / Pitch",
-    words:[
-      {
-        w:"CV",
-        th:"เอกสารประวัติการศึกษาและประสบการณ์",
-        pos:"noun",
-        fill:"My ______ includes my education and project experience.",
-        answer:"CV",
-        collocation:"submit a CV",
-        context:"A document lists education, skills, and experience. This document is a...",
-        contextAnswer:"CV",
-        academic:"My CV includes my education, technical skills, and project experience.",
-        plain:"My CV has my education and experience.",
-        upgrade:"My CV includes my education and project experience.",
-        trapChoices:["TV","VC","CVE"]
-      },
-      {
-        w:"resume",
-        th:"เอกสารสมัครงานแบบย่อ",
-        pos:"noun",
-        fill:"Please attach your ______ to the application form.",
-        answer:"resume",
-        collocation:"attach a resume",
-        context:"A short job application document is a...",
-        contextAnswer:"resume",
-        academic:"The applicant should attach a resume to the application form.",
-        plain:"Send your job document.",
-        upgrade:"Please attach your resume to the application form.",
-        trapChoices:["resumé only","result","resource"]
-      },
-      {
-        w:"interview",
-        th:"การสัมภาษณ์",
-        pos:"noun",
-        fill:"I have a job ______ tomorrow.",
-        answer:"interview",
-        collocation:"job interview",
-        context:"An employer asks a candidate questions for a position. This is a...",
-        contextAnswer:"interview",
-        academic:"During the interview, applicants should explain their relevant experience clearly.",
-        plain:"I will answer job questions.",
-        upgrade:"I have a job interview tomorrow.",
-        trapChoices:["interface","inquiry","internet"]
-      },
-      {
-        w:"qualification",
-        th:"คุณสมบัติ",
-        pos:"noun",
-        fill:"English communication is an important ______ for this position.",
-        answer:"qualification",
-        collocation:"job qualification",
-        context:"Skills and education required for a job are...",
-        contextAnswer:"qualifications",
-        academic:"The qualifications include communication skills and programming experience.",
-        plain:"The job needs English and coding.",
-        upgrade:"The qualifications include English communication and programming skills.",
-        trapChoices:["qualified","qualify","quality"]
-      },
-      {
-        w:"strength",
-        th:"จุดแข็ง",
-        pos:"noun",
-        fill:"One of my ______ is problem-solving.",
-        answer:"strengths",
-        collocation:"key strength",
-        context:"A candidate is good at teamwork. This is one of the candidate's...",
-        contextAnswer:"strengths",
-        academic:"One of my key strengths is problem-solving in software projects.",
-        plain:"I am good at solving problems.",
-        upgrade:"One of my key strengths is problem-solving.",
-        trapChoices:["strong","strengthen","strict"]
-      },
-      {
-        w:"experience",
-        th:"ประสบการณ์",
-        pos:"noun",
-        fill:"I have ______ in designing mobile applications.",
-        answer:"experience",
-        collocation:"relevant experience",
-        context:"A candidate has designed apps before. The candidate has...",
-        contextAnswer:"experience",
-        academic:"I have experience in designing user interfaces for mobile applications.",
-        plain:"I designed mobile apps before.",
-        upgrade:"I have experience in designing mobile applications.",
-        trapChoices:["experienced","experiment","expert"]
-      },
-      {
-        w:"achievement",
-        th:"ความสำเร็จ",
-        pos:"noun",
-        fill:"Winning the project award was my major ______.",
-        answer:"achievement",
-        collocation:"project achievement",
-        context:"Completing a successful prototype is a project...",
-        contextAnswer:"achievement",
-        academic:"I successfully developed a mobile application prototype for a class project.",
-        plain:"I made a good app project.",
-        upgrade:"I successfully developed a mobile application prototype.",
-        trapChoices:["attachment","agreement","arrangement"]
-      },
-      {
-        w:"apply for",
-        th:"สมัคร",
-        pos:"phrase",
-        fill:"I would like to ______ the internship.",
-        answer:"apply for",
-        collocation:"apply for a position",
-        context:"A student sends documents for a job position. The student...",
-        contextAnswer:"applies for a position",
-        academic:"I am applying for the junior software developer position.",
-        plain:"I want this job.",
-        upgrade:"I am applying for the junior software developer position.",
-        trapChoices:["apply on","apply in","apply to"]
-      },
-      {
-        w:"pitch",
-        th:"การนำเสนอไอเดียสั้น ๆ เพื่อโน้มน้าว",
-        pos:"noun",
-        fill:"The team prepared a short project ______.",
-        answer:"pitch",
-        collocation:"project pitch",
-        context:"A short persuasive presentation about an idea is a...",
-        contextAnswer:"pitch",
-        academic:"The main value proposition is personalized vocabulary practice through game-based learning.",
-        plain:"Our app helps students practice words.",
-        upgrade:"The main value proposition is personalized vocabulary practice.",
-        trapChoices:["peach","patch","pitcher"]
-      },
-      {
-        w:"propose",
-        th:"เสนอ",
-        pos:"verb",
-        fill:"I would like to ______ a new learning application.",
-        answer:"propose",
-        collocation:"propose a solution",
-        context:"A student presents a new app idea. The student...",
-        contextAnswer:"proposes an idea",
-        academic:"I would like to propose a mobile application that supports vocabulary learning.",
-        plain:"I want to present an app idea.",
-        upgrade:"I would like to propose a mobile learning application.",
-        trapChoices:["proposal","proposed","proposing"]
-      },
-      {
-        w:"value proposition",
-        th:"คุณค่าหลักที่เสนอให้ผู้ใช้",
-        pos:"noun phrase",
-        fill:"The main ______ is personalized vocabulary practice.",
-        answer:"value proposition",
-        collocation:"main value proposition",
-        context:"A sentence explains why a product is useful. This is a...",
-        contextAnswer:"value proposition",
-        academic:"The main value proposition is personalized vocabulary practice through game-based learning.",
-        plain:"The app is useful because it helps review words.",
-        upgrade:"The main value proposition is personalized vocabulary practice.",
-        trapChoices:["valuable proposition","value proposal","proposition value"]
-      }
-    ]
+    S10:{
+      theme:"System Explanation",
+      rows:[
+        ["system","ระบบ","noun","learning system",["systematic","systemic","symptom"]],
+        ["process","กระบวนการ","noun","login process",["progress","procedure only","processed"]],
+        ["input","ข้อมูลนำเข้า","noun","user input",["output","inputting","inside"]],
+        ["output","ผลลัพธ์ที่ระบบแสดง","noun","system output",["input","outside","outcome only"]],
+        ["interface","ส่วนติดต่อผู้ใช้","noun","user interface",["interact","interaction","internet face"]],
+        ["database","ฐานข้อมูล","noun","database system",["data base only","dataset","data table only"]],
+        ["algorithm","ขั้นตอนวิธี","noun","selection algorithm",["logarithm","algorithmic","algorism"]],
+        ["workflow","ลำดับการทำงาน","noun","game workflow",["workload","workshop","flow work"]],
+        ["display","แสดงผล","verb/noun","display progress",["displayed","displaying","displace"]],
+        ["store","จัดเก็บ","verb","store data",["storage","stored","story"]],
+        ["login","เข้าสู่ระบบ","verb/noun","login process",["logging","logged in only","log in noun only"]],
+        ["dashboard","แผงสรุปข้อมูล","noun","teacher dashboard",["dash board only","dashboarded","data board"]],
+        ["data field","ช่องข้อมูล","noun phrase","data field",["field data","data filled","fielded data"]],
+        ["validation","การตรวจสอบความถูกต้อง","noun","input validation",["valid","validate","valuable"]],
+        ["local storage","พื้นที่จัดเก็บข้อมูลในเครื่อง","noun phrase","local storage",["storage local","location storage","locally stored"]],
+        ["progress tracker","ตัวติดตามความก้าวหน้า","noun phrase","progress tracker",["tracking progress","progress tracking only","tracker progress"]],
+        ["menu","เมนู","noun","main menu",["manual","menued","mean you"]],
+        ["button","ปุ่ม","noun","start button",["bottom","buttoned","buttoning"]],
+        ["result screen","หน้าจอผลลัพธ์","noun phrase","result screen",["screen result","resulted screen","screening result"]],
+        ["export function","ฟังก์ชันส่งออกข้อมูล","noun phrase","export function",["exported function","function export","export functional"]]
+      ]
+    },
+
+    S11:{
+      theme:"Bug Report / Problem Solving",
+      rows:[
+        ["bug","ข้อผิดพลาดของโปรแกรม","noun","software bug",["debug","buggy","bag"]],
+        ["issue","ปัญหา","noun","technical issue",["tissue","issued","issueing"]],
+        ["error","ข้อผิดพลาด","noun","console error",["errand","erroneous","terror"]],
+        ["reproduce","ทำซ้ำเพื่อให้เห็นปัญหา","verb","reproduce the issue",["reproduction","reproduced","produce"]],
+        ["expected result","ผลลัพธ์ที่คาดหวัง","noun phrase","expected result",["expect result","expected outcome only","result expected"]],
+        ["actual result","ผลลัพธ์ที่เกิดขึ้นจริง","noun phrase","actual result",["actuality result","actually result","result actual"]],
+        ["fix","แก้ไข","verb/noun","fix the issue",["fixed","fixing","fixture"]],
+        ["patch","ชุดแก้ไข","verb/noun","software patch",["path","patched","patching"]],
+        ["test case","กรณีทดสอบ","noun phrase","test case",["testing case","case test","test cause"]],
+        ["debug","ตรวจหาและแก้ข้อผิดพลาด","verb","debug an error",["debugging","debugged","bug"]],
+        ["crash","โปรแกรมหยุดทำงาน","verb/noun","app crash",["crashed","crashing","crush"]],
+        ["freeze","ค้าง","verb","page freeze",["frozen","freezing","free"]],
+        ["loading error","ข้อผิดพลาดขณะโหลด","noun phrase","loading error",["loaded error","error loading only","loading errand"]],
+        ["missing file","ไฟล์หายหรือหาไม่เจอ","noun phrase","missing file",["missed file","file missing only","mission file"]],
+        ["console log","บันทึกข้อความใน console","noun phrase","console log",["log console","console logged","control log"]],
+        ["event handler","ตัวจัดการเหตุการณ์","noun phrase","event handler",["handler event","event handling only","event hander"]],
+        ["broken link","ลิงก์เสีย","noun phrase","broken link",["break link","linked broken","broken line"]],
+        ["version cache","แคชของเวอร์ชันไฟล์","noun phrase","version cache",["cache version only","version cash","cached version"]],
+        ["fallback","ทางเลือกสำรอง","noun","fallback plan",["fall back only","fallbacked","backfall"]],
+        ["hotfix","แพตช์แก้ด่วน","noun","hotfix release",["hot fix only","fixed hot","hotfixed"]]
+      ]
+    },
+
+    S12:{
+      theme:"User Guide / Technical Instruction",
+      rows:[
+        ["instruction","คำแนะนำ/คำสั่ง","noun","clear instructions",["instruct","instructive","instructing"]],
+        ["requirement","ข้อกำหนด","noun","system requirement",["request","require","required"]],
+        ["configure","ตั้งค่า","verb","configure settings",["configuration","configured","confirm"]],
+        ["verify","ตรวจสอบยืนยัน","verb","verify information",["verified","verification","very"]],
+        ["navigate","นำทาง/เปลี่ยนหน้า","verb","navigate to a page",["navigation","navigator","navigated"]],
+        ["step-by-step","ทีละขั้นตอน","adjective/adverb","step-by-step guide",["step by steped","step-step","stepping"]],
+        ["troubleshoot","แก้ปัญหาเบื้องต้น","verb","troubleshoot problems",["troubleshooting","troubleshot","trouble shoot"]],
+        ["complete","ทำให้เสร็จสมบูรณ์","verb","complete a task",["completion","completed","completely"]],
+        ["setup","การตั้งค่าเริ่มต้น","noun","setup process",["set uped","setting up only","setuped"]],
+        ["access","เข้าถึง","verb/noun","access the feature",["accessing","accessed","excess"]],
+        ["enable","เปิดใช้งาน","verb","enable a feature",["enabled","enabling","unable"]],
+        ["disable","ปิดใช้งาน","verb","disable notifications",["disabled","disabling","enable"]],
+        ["require","ต้องการ/จำเป็นต้องมี","verb","require an internet connection",["requirement","required","request"]],
+        ["restart","เริ่มใหม่","verb","restart the page",["restore","reload only","restartable"]],
+        ["checklist","รายการตรวจสอบ","noun","testing checklist",["check list only","checked list","checking list"]],
+        ["verify completion","ตรวจสอบว่างานเสร็จสมบูรณ์","verb phrase","verify completion",["verification completion","verify complete","completed verify"]],
+        ["user manual","คู่มือผู้ใช้","noun phrase","user manual",["manual user","user manually","usage manual"]],
+        ["login step","ขั้นตอนการเข้าสู่ระบบ","noun phrase","login step",["login stepped","step login","logging step"]],
+        ["troubleshooting guide","คู่มือแก้ปัญหาเบื้องต้น","noun phrase","troubleshooting guide",["trouble guide","guide troubleshooting","troubleshoot guided"]],
+        ["validation","การตรวจสอบความถูกต้อง","noun","input validation",["valid","validate","valuable"]]
+      ]
+    },
+
+    S13:{
+      theme:"AI Report / Academic Summary",
+      rows:[
+        ["dataset","ชุดข้อมูล","noun","training dataset",["data set only","database","data sheet"]],
+        ["model","แบบจำลอง","noun","AI model",["module","modal","mode"]],
+        ["accuracy","ความแม่นยำ","noun","model accuracy",["accurate","accurately","account"]],
+        ["finding","ข้อค้นพบ","noun","key finding",["find","founded","funding"]],
+        ["limitation","ข้อจำกัด","noun","study limitation",["limited","limit","limitationed"]],
+        ["analysis","การวิเคราะห์","noun","data analysis",["analyze","analyst","analytical"]],
+        ["trend","แนวโน้ม","noun","upward trend",["trendline only","trendy","treat"]],
+        ["evidence","หลักฐาน","noun","supporting evidence",["evident","event","evidencee"]],
+        ["interpret","ตีความ","verb","interpret results",["interpretation","interpreted","interview"]],
+        ["summary","สรุปสาระสำคัญ","noun","academic summary",["summarize","summarized","summer"]],
+        ["prediction","การคาดการณ์","noun","model prediction",["predict","predicted","predictive"]],
+        ["training data","ข้อมูลฝึกโมเดล","noun phrase","training data",["train data","data training","trained data"]],
+        ["testing data","ข้อมูลทดสอบโมเดล","noun phrase","testing data",["test data only","data testing","tested data"]],
+        ["variable","ตัวแปร","noun","research variable",["variety","variation","vary"]],
+        ["result","ผลลัพธ์","noun","research result",["resulted","resulting","resolve"]],
+        ["chart","แผนภูมิ","noun","result chart",["charter","charted","charting"]],
+        ["comparison","การเปรียบเทียบ","noun","data comparison",["compare","compared","comparative"]],
+        ["performance","ประสิทธิภาพ/ผลการทำงาน","noun","model performance",["perform","performed","performing"]],
+        ["implication","นัยสำคัญ/ข้อบ่งชี้","noun","learning implication",["imply","implicit","application"]],
+        ["conclusion","ข้อสรุป","noun","report conclusion",["confusion","condition","connection"]]
+      ]
+    },
+
+    S14:{
+      theme:"CV / Interview / Pitch",
+      rows:[
+        ["CV","ประวัติย่อสำหรับสมัครงาน/การศึกษา","noun","academic CV",["VC","resume only","cover letter"]],
+        ["interview","การสัมภาษณ์","noun/verb","job interview",["interviewer only","interviewed","interval"]],
+        ["pitch","การนำเสนอขายไอเดียอย่างกระชับ","noun/verb","project pitch",["picture","pitched","pitching only"]],
+        ["qualification","คุณสมบัติ","noun","professional qualification",["qualified","quality","qualify"]],
+        ["achievement","ความสำเร็จ/ผลงานเด่น","noun","project achievement",["achieve","achieved","achievemented"]],
+        ["strength","จุดแข็ง","noun","professional strength",["strong","strengthen","straight"]],
+        ["experience","ประสบการณ์","noun","relevant experience",["experienced","experiment","expertise only"]],
+        ["leadership","ภาวะผู้นำ","noun","leadership skills",["leader","leading","lead"]],
+        ["communication skill","ทักษะการสื่อสาร","noun phrase","communication skill",["communicate skill","communication skilled","skill communication"]],
+        ["career goal","เป้าหมายทางอาชีพ","noun phrase","career goal",["career gold","goal career","career go"]],
+        ["cover letter","จดหมายสมัครงาน","noun phrase","cover letter",["covered letter","letter cover","cover later"]],
+        ["personal statement","ข้อความแนะนำตนเอง","noun phrase","personal statement",["statement personal","person statement","personally statement"]],
+        ["relevant skill","ทักษะที่เกี่ยวข้อง","noun phrase","relevant skill",["relevance skill","skill relevant","relevantly skill"]],
+        ["project evidence","หลักฐานจากผลงานโครงการ","noun phrase","project evidence",["evidence project","project event","evident project"]],
+        ["professional summary","สรุปประวัติแบบมืออาชีพ","noun phrase","professional summary",["summary professional","profession summary","professional summarize"]],
+        ["interview question","คำถามสัมภาษณ์","noun phrase","interview question",["question interview","interviewer question","questioned interview"]],
+        ["answer strategy","กลยุทธ์การตอบ","noun phrase","answer strategy",["strategy answer","answer strategic","answered strategy"]],
+        ["value proposition","คุณค่าที่เสนอ","noun phrase","value proposition",["valuable proposition","proposition value","value propose"]],
+        ["career plan","แผนอาชีพ","noun phrase","career plan",["plan career","career planning only","career plane"]],
+        ["self-introduction","การแนะนำตนเอง","noun","self-introduction",["introduce self only","self introduce","self-introduced"]]
+      ]
+    },
+
+    S15:{
+      theme:"Final Project Presentation & Reflection",
+      rows:[
+        ["presentation","การนำเสนอ","noun","final presentation",["present","presenter","presenting"]],
+        ["reflection","การสะท้อนคิด","noun","learning reflection",["reflect","reflected","reflective"]],
+        ["outcome","ผลลัพธ์","noun","learning outcome",["output","outfit","outlet"]],
+        ["evidence","หลักฐาน","noun","supporting evidence",["evident","event","evidencee"]],
+        ["future work","งานต่อยอดในอนาคต","noun phrase","future work",["future job","work future","future working"]],
+        ["evaluate","ประเมิน","verb","evaluate effectiveness",["evaluation","evaluated","evaluating"]],
+        ["improvement","การพัฒนา/การปรับปรุง","noun","vocabulary improvement",["improve","improved","improving"]],
+        ["recommendation","ข้อเสนอแนะ","noun","final recommendation",["recommend","recommended","recommending"]],
+        ["final outcome","ผลลัพธ์สุดท้าย","noun phrase","final outcome",["final output only","final income","outcome final"]],
+        ["project impact","ผลกระทบของโครงการ","noun phrase","project impact",["project compact","impact project","project input"]],
+        ["lesson learned","บทเรียนที่ได้รับ","noun phrase","lesson learned",["learned lesson only","lesson learning","learn lesson"]],
+        ["academic growth","พัฒนาการทางวิชาการ","noun phrase","academic growth",["academic grow","growth academic","academic goal"]],
+        ["self-evaluation","การประเมินตนเอง","noun","self-evaluation",["self-evaluate","self-evaluated","evaluation self"]],
+        ["presentation skill","ทักษะการนำเสนอ","noun phrase","presentation skill",["present skill","presentation skilled","skill presentation"]],
+        ["supporting data","ข้อมูลสนับสนุน","noun phrase","supporting data",["support data only","supported data","data supporting"]],
+        ["project recommendation","ข้อเสนอแนะต่อโครงการ","noun phrase","project recommendation",["project recommend","recommendation project","project recommended"]],
+        ["final conclusion","ข้อสรุปสุดท้าย","noun phrase","final conclusion",["conclusion final","finally conclusion","final confusion"]],
+        ["project showcase","การนำเสนอผลงานโครงการ","noun phrase","project showcase",["showcase project","project show case","project shown"]],
+        ["evaluation result","ผลการประเมิน","noun phrase","evaluation result",["evaluation resulted","result evaluation","evaluate result"]],
+        ["improvement plan","แผนการปรับปรุง","noun phrase","improvement plan",["improve plan","improved planning","plan improvement"]]
+      ]
+    }
+  };
+
+  function autoSpec(sessionId, session){
+    return {
+      theme:session.theme,
+      words:session.rows.map((row,index) => {
+        const w = row[0];
+        const th = row[1];
+        const pos = row[2];
+        const collocation = row[3] || w;
+        const trapChoices = Array.isArray(row[4]) ? row[4] : [];
+
+        const isVerb = String(pos).toLowerCase().includes("verb");
+        const isAdj = String(pos).toLowerCase().includes("adjective");
+        const isPhrase = String(pos).toLowerCase().includes("phrase") || String(w).includes(" ");
+
+        const fill = isVerb
+          ? `Students can ______ clearly in the ${session.theme} task.`
+          : isAdj
+            ? `The message should be ______ in an academic context.`
+            : `The ______ is important in the ${session.theme} task.`;
+
+        const context = isVerb
+          ? `In ${session.theme}, a student needs to do the action meaning "${th}". Which word fits best?`
+          : `In ${session.theme}, the phrase means "${th}". Which term fits best?`;
+
+        const academic = isVerb
+          ? `Students can ${w} information clearly in the ${session.theme.toLowerCase()} task.`
+          : `The ${collocation} supports clear academic communication in the ${session.theme.toLowerCase()} task.`;
+
+        const plain = isVerb
+          ? `Students can do this clearly.`
+          : `This is useful for the task.`;
+
+        const upgrade = isVerb
+          ? `Students can ${w} information clearly in an academic context.`
+          : `The ${collocation} supports clear academic communication.`;
+
+        return {
+          w,
+          th,
+          pos,
+          order:index + 1,
+          answer:w,
+          collocation,
+          contextAnswer:w,
+          fill,
+          context,
+          academic,
+          plain,
+          upgrade,
+          trapChoices,
+          isPhrase
+        };
+      })
+    };
   }
-};
+
+  const specs = {};
+  Object.keys(RAW).forEach(sessionId => {
+    specs[sessionId] = autoSpec(sessionId,RAW[sessionId]);
+  });
+
+  window.EAP_VOCAB_SPECS = specs;
+})();
 
 /* =========================================================
-   Builder Helpers
+   Question Bank Generator
 ========================================================= */
 
 (function buildQuestionBank(){
-  const specs = window.EAP_VOCAB_SPECS;
+  const specs = window.EAP_VOCAB_SPECS || {};
+  const bank = [];
 
   function cloneChoices(arr){
     return Array.isArray(arr) ? arr.slice() : [];
   }
 
-  function wrongGeneric(word){
-    return [
-      "อาหาร",
-      "รองเท้า",
-      "สี",
-      "ห้องเรียน"
-    ].filter(x => x !== word);
+  function normalizeChoiceText(value){
+    return String(value == null ? "" : value).replace(/\s+/g," ").trim();
+  }
+
+  function uniqChoices(list,answer,limit){
+    const out = [];
+    const seen = new Set();
+    const ans = normalizeChoiceText(answer);
+
+    function add(v){
+      const s = normalizeChoiceText(v);
+      if(!s) return;
+      const key = s.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push(s);
+    }
+
+    add(ans);
+    (list || []).forEach(add);
+
+    return out.slice(0,limit || 4);
+  }
+
+  const THAI_MEANING_DISTRACTORS = {
+    noun:[
+      "วัตถุประสงค์",
+      "ผลลัพธ์",
+      "ข้อจำกัด",
+      "หลักฐาน",
+      "ขอบเขต",
+      "กระบวนการ",
+      "คุณสมบัติ",
+      "ความก้าวหน้า",
+      "ข้อเสนอแนะ",
+      "ความรับผิดชอบ",
+      "การประเมิน",
+      "รายงานสถานะ",
+      "บทบาท",
+      "ความมั่นใจ",
+      "แผนการปรับปรุง"
+    ],
+    verb:[
+      "อธิบาย",
+      "ยืนยัน",
+      "เสนอแนะ",
+      "ประเมิน",
+      "ตรวจสอบ",
+      "สนับสนุน",
+      "ประสานงาน",
+      "แก้ไข",
+      "สรุป",
+      "นำเสนอ",
+      "ติดตามผล",
+      "ตั้งค่า",
+      "เข้าถึง",
+      "แก้ปัญหา",
+      "ตีความ"
+    ],
+    adjective:[
+      "เหมาะสม",
+      "สำคัญ",
+      "ชัดเจน",
+      "เป็นทางการ",
+      "มีประสิทธิภาพ",
+      "เกี่ยวข้อง",
+      "มีนัยสำคัญ",
+      "มั่นใจ",
+      "พร้อมใช้งาน",
+      "โต้ตอบได้"
+    ],
+    phrase:[
+      "ความต้องการของผู้ใช้",
+      "ผู้ใช้เป้าหมาย",
+      "ข้อเสนอแนะจากผู้ใช้",
+      "ผลลัพธ์การเรียนรู้",
+      "การฝึกซ้ำ",
+      "ขอบเขตโครงการ",
+      "ประโยชน์ทางการศึกษา",
+      "ความก้าวหน้าในการเรียนรู้",
+      "ข้อสรุปการประชุม",
+      "งานต่อยอดในอนาคต",
+      "แผนการปรับปรุง",
+      "การนำเสนอผลงาน",
+      "ผลการประเมิน"
+    ]
+  };
+
+  const ACADEMIC_NEAR_MISS = [
+    "project objective",
+    "learning outcome",
+    "user feedback",
+    "user need",
+    "target users",
+    "project scope",
+    "main function",
+    "system output",
+    "user input",
+    "technical issue",
+    "expected result",
+    "actual result",
+    "research finding",
+    "data analysis",
+    "model accuracy",
+    "project timeline",
+    "action item",
+    "follow-up email",
+    "value proposition",
+    "future work",
+    "final conclusion",
+    "evaluation result",
+    "improvement plan",
+    "professional summary"
+  ];
+
+  function posGroup(spec){
+    const pos = String(spec.pos || "").toLowerCase();
+    const w = String(spec.w || "");
+
+    if(pos.includes("verb")) return "verb";
+    if(pos.includes("adjective")) return "adjective";
+    if(pos.includes("phrase") || w.includes(" ")) return "phrase";
+    return "noun";
+  }
+
+  function meaningDistractors(spec){
+    const group = posGroup(spec);
+    const own = normalizeChoiceText(spec.th);
+    const pool = (THAI_MEANING_DISTRACTORS[group] || THAI_MEANING_DISTRACTORS.noun)
+      .filter(x => normalizeChoiceText(x) !== own);
+
+    return pool;
+  }
+
+  function wordFamilyDistractors(spec){
+    const w = normalizeChoiceText(spec.w);
+    const answer = normalizeChoiceText(spec.answer || spec.w);
+    const traps = cloneChoices(spec.trapChoices);
+
+    const suffixForms = [
+      `${w}s`,
+      `${w}ed`,
+      `${w}ing`,
+      `${w}tion`,
+      `${w}ment`,
+      `${w}ly`,
+      `${w}ive`,
+      `${w}al`
+    ];
+
+    return uniqChoices(
+      traps.concat(suffixForms).filter(x => normalizeChoiceText(x) !== answer),
+      answer,
+      8
+    ).slice(1);
+  }
+
+  function phraseDistractors(spec){
+    const base = normalizeChoiceText(spec.collocation || spec.w);
+    const parts = base.split(" ");
+    const head = parts[0] || base;
+    const tail = parts.slice(1).join(" ");
+    const traps = cloneChoices(spec.trapChoices);
+    const phraseWrong = [];
+
+    if(base.includes(" of ")){
+      phraseWrong.push(base.replace(" of "," for "));
+      phraseWrong.push(base.replace(" of "," to "));
+    }
+
+    if(base.includes(" for ")){
+      phraseWrong.push(base.replace(" for "," to "));
+      phraseWrong.push(base.replace(" for "," in "));
+    }
+
+    if(base.includes(" in ")){
+      phraseWrong.push(base.replace(" in "," on "));
+      phraseWrong.push(base.replace(" in "," at "));
+    }
+
+    if(base.includes(" to ")){
+      phraseWrong.push(base.replace(" to "," for "));
+      phraseWrong.push(base.replace(" to "," with "));
+    }
+
+    if(parts.length >= 2){
+      phraseWrong.push(`${tail} ${head}`.trim());
+      phraseWrong.push(`${head} ${tail}s`.trim());
+      phraseWrong.push(`${head} general ${tail}`.trim());
+    }
+
+    return traps.concat(phraseWrong).concat(ACADEMIC_NEAR_MISS.filter(x => x !== base));
+  }
+
+  function sentenceDistractors(spec){
+    const correct = normalizeChoiceText(spec.academic || spec.upgrade || spec.plain || "");
+    const w = normalizeChoiceText(spec.w);
+    const collocation = normalizeChoiceText(spec.collocation || spec.w);
+
+    const traps = cloneChoices(spec.trapChoices);
+
+    const grammarTraps = [
+      correct.replace(/\bis\b/g,"are"),
+      correct.replace(/\bare\b/g,"is"),
+      correct.replace(/\ballows users to\b/gi,"allows users"),
+      correct.replace(/\bcan be\b/gi,"can"),
+      correct.replace(/\bwas\b/gi,"were"),
+      correct.replace(/\bwere\b/gi,"was"),
+      correct.replace(/\bprovides\b/gi,"provide"),
+      correct.replace(/\bsupports\b/gi,"support"),
+      correct.replace(/\bresults show\b/gi,"result show"),
+      correct.replace(/\bfindings indicate\b/gi,"finding indicate"),
+      correct.replace(/\bI have experience in\b/gi,"I have experienced in"),
+      correct.replace(/\bI am interested in\b/gi,"I am interesting in"),
+      correct.replace(/\bqualified for\b/gi,"qualification for")
+    ].filter(x => x && x !== correct);
+
+    const genericButPlausible = [
+      `The ${collocation} is important but needs clearer explanation.`,
+      `Students can use ${w} to support the academic task.`,
+      `The project uses ${collocation} to improve learning outcomes.`,
+      `This report explains ${w} in an academic context.`
+    ];
+
+    return traps.concat(grammarTraps).concat(genericButPlausible);
+  }
+
+  function upgradeDistractors(spec){
+    const correct = normalizeChoiceText(spec.upgrade || spec.academic || "");
+    const plain = normalizeChoiceText(spec.plain || "");
+    const w = normalizeChoiceText(spec.w);
+
+    const informal = [
+      plain,
+      plain ? `${plain} It is very good.` : "",
+      `The ${w} is good and students can learn many things.`,
+      `Students use this because it is nice and useful.`,
+      `This project helps students and makes learning better.`
+    ];
+
+    return informal.concat(sentenceDistractors(spec)).filter(x => x && x !== correct);
   }
 
   function cleanIdPart(text){
     return String(text || "")
-      .toUpperCase()
-      .replace(/[^A-Z0-9]+/g,"-")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g,"-")
       .replace(/^-+|-+$/g,"")
-      .slice(0,26);
-  }
-
-  function pushItem(bank,item){
-    if(!item || !item.id || !item.session || !item.answer) return;
-    bank.push(item);
+      .slice(0,44) || "item";
   }
 
   function makeMeaningChoices(spec){
-    const choices = [spec.th].concat(wrongGeneric(spec.th));
-    return choices.slice(0,4);
+    return uniqChoices(
+      meaningDistractors(spec),
+      spec.th,
+      4
+    );
   }
 
   function makeSentenceChoices(spec){
-    const traps = cloneChoices(spec.trapChoices);
-    return [spec.answer].concat(traps).slice(0,4);
+    return uniqChoices(
+      cloneChoices(spec.trapChoices).concat(wordFamilyDistractors(spec)),
+      spec.answer,
+      4
+    );
   }
 
   function makeCollocationChoices(spec){
     const base = spec.collocation || spec.w;
-    const head = String(base).split(" ")[0] || "academic";
-    const wrongs = [
-      `${head} banana`,
-      `${head} weather`,
-      `${head} chair`,
-      `${head} sandwich`
-    ];
-    return [base].concat(wrongs).slice(0,4);
+    return uniqChoices(
+      phraseDistractors(spec),
+      base,
+      4
+    );
   }
 
   function makeContextChoices(spec){
     const answer = spec.contextAnswer || spec.w;
-    const traps = cloneChoices(spec.trapChoices);
-    const fallback = [
-      "email greeting",
-      "food menu",
-      "travel plan",
-      "classroom color"
-    ];
-    return [answer].concat(traps).concat(fallback).slice(0,4);
+
+    return uniqChoices(
+      cloneChoices(spec.trapChoices)
+        .concat(phraseDistractors(spec))
+        .concat(wordFamilyDistractors(spec)),
+      answer,
+      4
+    );
   }
 
   function makeAcademicChoices(spec){
-    const correct = spec.academic || spec.upgrade || spec.simple;
-    const w = spec.w;
-    return [
+    const correct = spec.academic || spec.upgrade || spec.plain;
+
+    return uniqChoices(
+      sentenceDistractors(spec),
       correct,
-      `${w} good for students and project.`,
-      `Students ${w} because application nice.`,
-      `This is ${w} and it very good.`
-    ];
+      4
+    );
   }
 
   function makeUpgradeChoices(spec){
     const correct = spec.upgrade || spec.academic;
-    return [
+
+    return uniqChoices(
+      upgradeDistractors(spec),
       correct,
-      spec.plain || "This is good.",
-      "Students do it good and nice.",
-      "The thing is useful because very good."
-    ];
-  }
-
-  function makeWordFormChoices(spec){
-    const traps = cloneChoices(spec.trapChoices);
-    return [spec.answer || spec.w].concat(traps).slice(0,4);
-  }
-
-  function buildItemsForSpec(sessionId, index, spec){
-    const idBase = `${sessionId}-${String(index + 1).padStart(3,"0")}-${cleanIdPart(spec.w)}`;
-    const items = [];
-
-    pushItem(items,{
-      id:`${idBase}-A2-MEANING`,
-      session:sessionId,
-      level:"A2",
-      type:"meaning",
-      word:spec.w,
-      prompt:`What does “${spec.w}” mean?`,
-      choices:makeMeaningChoices(spec),
-      answer:spec.th,
-      explanation:`${spec.w} หมายถึง ${spec.th}`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-A2P-FILL`,
-      session:sessionId,
-      level:"A2+",
-      type:"sentence_fill",
-      word:spec.w,
-      prompt:spec.fill,
-      choices:makeSentenceChoices(spec),
-      answer:spec.answer,
-      explanation:`ใช้ “${spec.answer}” ในประโยคนี้ให้เหมาะกับบริบท ${specs[sessionId].theme}`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-B1-COLLOCATION`,
-      session:sessionId,
-      level:"B1",
-      type:"collocation",
-      word:spec.collocation || spec.w,
-      prompt:"Choose the best collocation.",
-      choices:makeCollocationChoices(spec),
-      answer:spec.collocation || spec.w,
-      explanation:`“${spec.collocation || spec.w}” เป็นวลีที่ใช้ได้จริงในบริบท ${specs[sessionId].theme}`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-B1-CONTEXT`,
-      session:sessionId,
-      level:"B1",
-      type:"context",
-      word:spec.w,
-      prompt:spec.context,
-      choices:makeContextChoices(spec),
-      answer:spec.contextAnswer || spec.w,
-      explanation:`คำตอบที่เหมาะสมคือ “${spec.contextAnswer || spec.w}” เพราะสอดคล้องกับสถานการณ์`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-B1-WORDFORM`,
-      session:sessionId,
-      level:"B1",
-      type:"word_form",
-      word:spec.w,
-      prompt:spec.fill,
-      choices:makeWordFormChoices(spec),
-      answer:spec.answer,
-      explanation:`ระวังรูปคำของ “${spec.w}” ให้ตรงกับหน้าที่ในประโยค`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-B1-NEARMISS`,
-      session:sessionId,
-      level:"B1",
-      type:"near_miss",
-      word:spec.w,
-      prompt:`Choose the best word or phrase for this context: ${spec.context}`,
-      choices:makeContextChoices(spec),
-      answer:spec.contextAnswer || spec.w,
-      explanation:`ข้อนี้เป็น near-miss ต้องแยก “${spec.w}” จากคำที่หน้าตาคล้ายกัน`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-B1P-ACADEMIC`,
-      session:sessionId,
-      level:"B1+",
-      type:"academic_phrase",
-      word:spec.w,
-      prompt:"Choose the sentence with the best academic/professional tone.",
-      choices:makeAcademicChoices(spec),
-      answer:spec.academic || spec.upgrade || spec.simple,
-      explanation:`ประโยคนี้ใช้ “${spec.w}” ด้วยโทนที่เหมาะกับ EAP / professional communication`
-    });
-
-    pushItem(items,{
-      id:`${idBase}-B1P-UPGRADE`,
-      session:sessionId,
-      level:"B1+",
-      type:"academic_upgrade",
-      word:spec.w,
-      prompt:`Plain English: “${spec.plain || spec.fill}” Choose the academic/professional version.`,
-      choices:makeUpgradeChoices(spec),
-      answer:spec.upgrade || spec.academic,
-      explanation:`ประโยคที่เลือกมี academic tone ดีกว่าและเหมาะกับ ${specs[sessionId].theme}`
-    });
-
-    return items;
-  }
-
-  function addManualBossPolish(bank){
-    bank.push(
-      {
-        id:"S15-FINAL-BOSS-MIX-001",
-        session:"S14",
-        level:"B1+",
-        type:"trap",
-        word:"qualified for",
-        prompt:"Choose the correct sentence.",
-        choices:[
-          "I believe I am qualified for this position.",
-          "I believe I am qualification for this position.",
-          "I believe I qualified to this position.",
-          "I believe I am qualify for this position."
-        ],
-        answer:"I believe I am qualified for this position.",
-        explanation:"ใช้ be qualified for + position เพื่อบอกว่ามีคุณสมบัติเหมาะกับตำแหน่ง"
-      },
-      {
-        id:"S15-FINAL-BOSS-MIX-002",
-        session:"S13",
-        level:"B1+",
-        type:"trap",
-        word:"findings suggest",
-        prompt:"Choose the correct sentence.",
-        choices:[
-          "The findings suggest that the application is useful for review.",
-          "The finding suggest that application useful.",
-          "The findings suggests application useful.",
-          "Findings is suggest useful application."
-        ],
-        answer:"The findings suggest that the application is useful for review.",
-        explanation:"findings เป็นพหูพจน์ จึงใช้ suggest"
-      },
-      {
-        id:"S12-BOSS-POLISH-001",
-        session:"S11",
-        level:"B1+",
-        type:"trap",
-        word:"can be reproduced",
-        prompt:"Choose the correct bug report sentence.",
-        choices:[
-          "The issue can be reproduced on mobile devices.",
-          "The issue can reproduced on mobile devices.",
-          "The issue can be reproduce on mobile devices.",
-          "The issue can reproduction on mobile devices."
-        ],
-        answer:"The issue can be reproduced on mobile devices.",
-        explanation:"can be reproduced เป็น passive voice ที่ถูกต้องใน bug report"
-      },
-      {
-        id:"S9-BOSS-POLISH-001",
-        session:"S7",
-        level:"B1+",
-        type:"trap",
-        word:"prompt response",
-        prompt:"Choose the correct email sentence.",
-        choices:[
-          "Thank you for your prompt response.",
-          "Thank you for your prompt respond.",
-          "Thank you for your promptly response.",
-          "Thank you for respond prompt."
-        ],
-        answer:"Thank you for your prompt response.",
-        explanation:"response เป็นคำนาม ส่วน respond เป็นกริยา"
-      },
-      {
-        id:"S6-BOSS-POLISH-001",
-        session:"S5",
-        level:"B1+",
-        type:"trap",
-        word:"I would appreciate it if",
-        prompt:"Choose the most polite request.",
-        choices:[
-          "I would appreciate it if you could provide feedback.",
-          "I would appreciate if you provide feedback.",
-          "I appreciate you to provide feedback.",
-          "I would appreciation your feedback."
-        ],
-        answer:"I would appreciate it if you could provide feedback.",
-        explanation:"I would appreciate it if you could... เป็นโครงสร้างสุภาพและถูกต้อง"
-      },
-      {
-        id:"S3-BOSS-POLISH-001",
-        session:"S1",
-        level:"B1",
-        type:"trap",
-        word:"interested in",
-        prompt:"Choose the correct sentence.",
-        choices:[
-          "I am interested in digital media.",
-          "I am interesting in digital media.",
-          "I interested at digital media.",
-          "I am interest on digital media."
-        ],
-        answer:"I am interested in digital media.",
-        explanation:"ใช้ be interested in + noun/V-ing เพื่อบอกความสนใจ"
-      },
-      {
-        id:"S3-BOSS-POLISH-002",
-        session:"S2",
-        level:"B1",
-        type:"trap",
-        word:"objective",
-        prompt:"Choose the correct word: The main ______ of this project is to support vocabulary learning.",
-        choices:[
-          "objective",
-          "object",
-          "objection",
-          "observe"
-        ],
-        answer:"objective",
-        explanation:"objective = วัตถุประสงค์, object = วัตถุ, objection = การคัดค้าน"
-      }
+      4
     );
   }
 
-  const bank = [];
+  function makeWordFormChoices(spec){
+    return uniqChoices(
+      wordFamilyDistractors(spec).concat(cloneChoices(spec.trapChoices)),
+      spec.answer || spec.w,
+      4
+    );
+  }
 
-  Object.entries(specs).forEach(([sessionId,sessionSpec]) => {
-    sessionSpec.words.forEach((spec,index) => {
-      bank.push(...buildItemsForSpec(sessionId,index,spec));
+  function makeQuestion(sessionId,spec,type,level,index,prompt,answer,choices,explanation){
+    return {
+      id:`${sessionId}-${cleanIdPart(spec.w)}-${type}-${index}`,
+      session:sessionId,
+      word:spec.w,
+      type,
+      level,
+      prompt,
+      answer:normalizeChoiceText(answer),
+      choices:choices.map(normalizeChoiceText),
+      explanation:explanation || `“${spec.w}” หมายถึง ${spec.th} และใช้ในหัวข้อ ${spec.theme || ""}`
+    };
+  }
+
+  Object.entries(specs).forEach(([sessionId,session]) => {
+    const theme = session.theme || sessionId;
+
+    (session.words || []).forEach((spec,idx) => {
+      spec.theme = theme;
+      const n = String(idx + 1).padStart(3,"0");
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "meaning",
+        "A2",
+        `${n}-A2-MEANING`,
+        `What does “${spec.w}” mean in ${theme}?`,
+        spec.th,
+        makeMeaningChoices(spec),
+        `“${spec.w}” = ${spec.th}`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "sentence_fill",
+        "A2+",
+        `${n}-A2P-FILL`,
+        spec.fill || `Choose the best word or phrase: ${spec.th} = ______.`,
+        spec.answer || spec.w,
+        makeSentenceChoices(spec),
+        `The correct form is “${spec.answer || spec.w}”.`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "collocation",
+        "B1",
+        `${n}-B1-COLLOCATION`,
+        `Choose the most natural academic collocation for “${spec.w}”.`,
+        spec.collocation || spec.w,
+        makeCollocationChoices(spec),
+        `A natural phrase is “${spec.collocation || spec.w}”.`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "context",
+        "B1",
+        `${n}-B1-CONTEXT`,
+        spec.context || `In ${theme}, which term best fits the meaning “${spec.th}”?`,
+        spec.contextAnswer || spec.w,
+        makeContextChoices(spec),
+        `In this context, “${spec.contextAnswer || spec.w}” is the best answer.`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "word_form",
+        "B1",
+        `${n}-B1-WORDFORM`,
+        `Choose the correct word form: ${spec.fill || "The answer is ______."}`,
+        spec.answer || spec.w,
+        makeWordFormChoices(spec),
+        `The correct form is “${spec.answer || spec.w}”.`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "near_miss",
+        "B1",
+        `${n}-B1-NEARMISS`,
+        `Near-miss challenge: which option is the correct academic term or phrase?`,
+        spec.answer || spec.w,
+        makeSentenceChoices(spec),
+        `The correct option is “${spec.answer || spec.w}”.`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "academic_phrase",
+        "B1+",
+        `${n}-B1P-PHRASE`,
+        `Choose the sentence that sounds most academic and natural.`,
+        spec.academic || spec.upgrade,
+        makeAcademicChoices(spec),
+        `The best academic sentence is: ${spec.academic || spec.upgrade}`
+      ));
+
+      bank.push(makeQuestion(
+        sessionId,
+        spec,
+        "academic_upgrade",
+        "B1+",
+        `${n}-B1P-UPGRADE`,
+        `Upgrade this plain sentence: “${spec.plain || "This is useful."}”`,
+        spec.upgrade || spec.academic,
+        makeUpgradeChoices(spec),
+        `The upgraded sentence is: ${spec.upgrade || spec.academic}`
+      ));
     });
   });
 
-  addManualBossPolish(bank);
+  function hardenQuestionItem(item){
+    if(!item) return item;
+
+    const answer = normalizeChoiceText(item.answer);
+    let choices = Array.isArray(item.choices) ? item.choices.map(normalizeChoiceText) : [];
+
+    choices = uniqChoices(choices,answer,4);
+
+    if(choices.length < 4){
+      let fallback = [];
+
+      if(item.type === "meaning"){
+        fallback = THAI_MEANING_DISTRACTORS.noun.concat(
+          THAI_MEANING_DISTRACTORS.verb,
+          THAI_MEANING_DISTRACTORS.phrase
+        );
+      }else if(item.type === "collocation" || item.type === "context"){
+        fallback = ACADEMIC_NEAR_MISS;
+      }else if(item.type === "academic_phrase" || item.type === "academic_upgrade"){
+        fallback = [
+          "The system supports students’ learning progress.",
+          "The project provides useful feedback for learners.",
+          "The report summarizes the main findings clearly.",
+          "The application is designed to support repeated practice."
+        ];
+      }else{
+        fallback = [
+          "analysis",
+          "analyze",
+          "analytical",
+          "analyst",
+          "development",
+          "develop",
+          "developed",
+          "developing"
+        ];
+      }
+
+      choices = uniqChoices(choices.concat(fallback),answer,4);
+    }
+
+    while(choices.length < 4){
+      choices.push(`near alternative ${choices.length + 1}`);
+    }
+
+    item.answer = answer;
+    item.choices = choices.slice(0,4);
+
+    return item;
+  }
 
   const seen = new Set();
-  window.QUESTION_BANK = bank.filter(item => {
+
+  window.QUESTION_BANK = bank.map(hardenQuestionItem).filter(item => {
+    if(!item || !item.id) return false;
+
     if(seen.has(item.id)){
-      console.warn("[EAP Word Quest] Duplicate item id skipped:", item.id);
+      console.warn("[EAP Word Quest] Duplicate item removed:", item.id);
       return false;
     }
+
     seen.add(item.id);
     return true;
   });
+
+  function countWeakDistractors(){
+    const badWords = [
+      "banana",
+      "chair",
+      "weather",
+      "sandwich",
+      "shoe",
+      "food menu",
+      "travel plan",
+      "classroom color"
+    ];
+
+    return window.QUESTION_BANK.filter(item =>
+      (item.choices || []).some(c =>
+        badWords.some(b => String(c).toLowerCase().includes(b))
+      )
+    ).length;
+  }
 
   window.EAP_DATA_SUMMARY = {
     version:window.APP_VERSION,
     playableSessions:Object.keys(specs),
     totalItems:window.QUESTION_BANK.length,
-    totalWords:Object.values(specs).reduce((sum,s) => sum + s.words.length,0)
+    totalWords:Object.values(specs).reduce((sum,s) => sum + s.words.length,0),
+    weakDistractorItems:countWeakDistractors()
   };
 
-  console.info("[EAP Word Quest] Data loaded:", window.EAP_DATA_SUMMARY);
+  console.info("[EAP Word Quest] Data loaded:",window.EAP_DATA_SUMMARY);
 })();
