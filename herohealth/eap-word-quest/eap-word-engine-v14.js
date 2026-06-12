@@ -1,7 +1,7 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-engine.js
-   Version: v1.4.0-FINAL-ACADEMIC-ARC
+   Version: v1.4.1-STATS-NORMALIZE-FIX
 ========================================================= */
 
 "use strict";
@@ -11,7 +11,7 @@
      Constants
   ========================================================= */
 
-  const APP_VERSION = window.APP_VERSION || "v1.4.0-FINAL-ACADEMIC-ARC";
+  const APP_VERSION = window.APP_VERSION || "v1.4.1-STATS-NORMALIZE-FIX";
   const SESSIONS = window.SESSIONS || [];
   const QUESTION_BANK = window.QUESTION_BANK || [];
 
@@ -35,7 +35,6 @@
   };
 
   const BOSS_SESSIONS = ["S3","S6","S9","S12","S15"];
-  const PLAYABLE_SESSIONS = ["S1","S2","S4","S5","S7","S8","S10","S11","S13","S14"];
 
   /* =========================================================
      State
@@ -164,7 +163,7 @@
     clearTimeout(showToast._timer);
     showToast._timer = setTimeout(() => {
       el.hidden = true;
-    }, 2500);
+    },2500);
   }
 
   function setScreen(screenId){
@@ -191,7 +190,7 @@
       word_form:"Word Form",
       near_miss:"Near Miss"
     };
-    return map[type] || type;
+    return map[type] || type || "-";
   }
 
   function levelTag(level){
@@ -335,6 +334,41 @@
     stats.rounds = Number(stats.rounds || 0);
     stats.correct = Number(stats.correct || 0);
     stats.total = Number(stats.total || 0);
+
+    /*
+      PATCH v1.4.1:
+      รองรับ localStorage เก่าที่เคยมีแค่ seen/correct/wrong/levels
+      ถ้าไม่มี types/sessions จะสร้างให้ทันที
+    */
+    Object.keys(stats.words).forEach(key => {
+      const old = stats.words[key] || {};
+
+      stats.words[key] = {
+        seen:Number(old.seen || 0),
+        correct:Number(old.correct || 0),
+        wrong:Number(old.wrong || 0),
+        levels:(old.levels && typeof old.levels === "object") ? old.levels : {},
+        types:(old.types && typeof old.types === "object") ? old.types : {},
+        sessions:(old.sessions && typeof old.sessions === "object") ? old.sessions : {},
+        lastSeen:old.lastSeen || null
+      };
+    });
+
+    Object.keys(stats.sessions).forEach(key => {
+      const old = stats.sessions[key] || {};
+
+      stats.sessions[key] = {
+        rounds:Number(old.rounds || 0),
+        correct:Number(old.correct || 0),
+        total:Number(old.total || 0),
+        xp:Number(old.xp || 0),
+        lastPlayed:old.lastPlayed || null,
+        bestAccuracy:Number(old.bestAccuracy || 0),
+        bestXp:Number(old.bestXp || 0),
+        passed:Boolean(old.passed || false),
+        lastPassed:old.lastPassed || null
+      };
+    });
 
     return stats;
   }
@@ -538,12 +572,23 @@
     }
 
     const w = stats.words[key];
-    w.seen = (w.seen || 0) + 1;
-    w.correct = (w.correct || 0) + (isCorrect ? 1 : 0);
-    w.wrong = (w.wrong || 0) + (isCorrect ? 0 : 1);
-    w.levels[q.level] = (w.levels[q.level] || 0) + 1;
-    w.types[q.type] = (w.types[q.type] || 0) + 1;
-    w.sessions[q.session] = (w.sessions[q.session] || 0) + 1;
+
+    /*
+      PATCH v1.4.1:
+      กันข้อมูลเก่าที่ไม่มี levels/types/sessions
+    */
+    if(!w.levels || typeof w.levels !== "object") w.levels = {};
+    if(!w.types || typeof w.types !== "object") w.types = {};
+    if(!w.sessions || typeof w.sessions !== "object") w.sessions = {};
+
+    w.seen = Number(w.seen || 0) + 1;
+    w.correct = Number(w.correct || 0) + (isCorrect ? 1 : 0);
+    w.wrong = Number(w.wrong || 0) + (isCorrect ? 0 : 1);
+
+    w.levels[q.level] = Number(w.levels[q.level] || 0) + 1;
+    w.types[q.type] = Number(w.types[q.type] || 0) + 1;
+    w.sessions[q.session] = Number(w.sessions[q.session] || 0) + 1;
+
     w.lastSeen = now;
 
     saveStats(stats);
@@ -1510,7 +1555,13 @@
         state.bossHp = Math.max(0,state.bossHp - damage);
 
         if(state.bossHp <= 0 && !state.bossBonusGiven){
-          const bossBonus = state.session === "S15" ? 120 : state.session === "S12" ? 90 : state.session === "S9" ? 80 : state.session === "S6" ? 70 : 50;
+          const bossBonus =
+            state.session === "S15" ? 120 :
+            state.session === "S12" ? 90 :
+            state.session === "S9" ? 80 :
+            state.session === "S6" ? 70 :
+            50;
+
           state.xp += bossBonus;
           state.bossBonusGiven = true;
           showFeedback(true,`ถูกต้อง +${gained} XP • Boss -${damage} HP • Trophy Bonus +${bossBonus} XP`,`${q.explanation} คุณชนะ Boss แล้ว!`);
@@ -1810,7 +1861,7 @@
     const sessionFilter = $("deckSessionFilter") ? $("deckSessionFilter").value : "ALL";
     const masteryFilter = $("deckMasteryFilter") ? $("deckMasteryFilter").value : "ALL";
 
-    let filtered = allWords.filter(item => {
+    const filtered = allWords.filter(item => {
       if(sessionFilter !== "ALL" && !item.sessions.includes(sessionFilter)) return false;
 
       const wStats = stats.words[item.word];
