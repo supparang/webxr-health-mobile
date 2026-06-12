@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z39-boss-gate-timeline-restructure-final';
+  const APP_VERSION = '20260610-v1z40-boss-gate-unlock-enforcement';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z39</div>
+              <div class="mini-note">Save the Society • v1z40</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32283,6 +32283,7 @@
     checks.push({name:'Session quality audit', ok:typeof sessionQuality === 'function' && Object.keys(SESSION_QUALITY_AUDIT||{}).length===15, detail:'S1-S15 balanced'});
     checks.push({name:'Full mission coherence', ok:typeof fullMissionCoherenceAudit === 'function' && fullMissionCoherenceAudit().filter(r=>r.ok).length===60, detail:'S1-S15 x 4 skills aligned'});
     checks.push({name:'Boss gate timeline', ok:typeof BOSS_GATE_PLAN !== 'undefined' && BOSS_GATE_PLAN.length===5 && BOSS_GATE_PLAN[0].after.join(',')==='1,2,3', detail:'15 sessions + 5 checkpoints'});
+    checks.push({name:'Boss gate unlock enforcement', ok:typeof bossGateUnlockReport === 'function' && bossGateUnlockReport(1).sessions.join(',')==='1,2,3', detail:'Locked gates require session completion'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32569,12 +32570,60 @@
     return BOSS_GATE_PLAN.find(g => Number(g.gate) === Number(gateNo)) || BOSS_GATE_PLAN[0];
   }
   function isBossGateUnlocked(gateNo){
-    const gate = bossGateByNumber(gateNo);
-    return gate.after.every(sid => {
-      const sess = state.sessions?.[sid] || {};
-      return !!(sess.done || sess.bossDone || sess.completed || state.bossCards?.[sid]);
-    });
+    return bossGateUnlockReport(gateNo).unlocked;
   }
+
+  function isSessionCompleteForGate(sessionId){
+    const sid = Number(sessionId || 1);
+    const sess = state.sessions?.[sid] || {};
+    const skills = sess.skills || sess.skillDone || {};
+    const skillCount = ['Reading','Writing','Listening','Speaking'].filter(k => skills[k] || skills[k.toLowerCase()]).length;
+    return !!(sess.done || sess.completed || sess.bossDone || state.bossCards?.[sid] || skillCount >= 4);
+  }
+
+  function isPreviousBossGateCleared(gateNo){
+    const n = Number(gateNo || 1);
+    if(n <= 1) return true;
+    const prev = state.bossGates?.[n-1] || {};
+    return !!(prev.cleared || prev.done || prev.completed);
+  }
+
+  function bossGateUnlockReport(gateNo){
+    const gate = bossGateByNumber(gateNo);
+    const missingSessions = gate.after.filter(sid => !isSessionCompleteForGate(sid));
+    const prevOk = isPreviousBossGateCleared(gate.gate);
+    const unlocked = missingSessions.length === 0 && prevOk;
+    return {
+      gate: gate.gate,
+      title: gate.title,
+      sessions: gate.after,
+      missingSessions,
+      previousGateRequired: gate.gate > 1 ? gate.gate - 1 : null,
+      previousGateCleared: prevOk,
+      unlocked,
+      reason: unlocked ? 'Unlocked' : `${missingSessions.length ? 'Complete S' + missingSessions.join(', S') + '. ' : ''}${!prevOk ? 'Clear Boss Gate ' + (gate.gate-1) + ' first.' : ''}`.trim()
+    };
+  }
+
+  function bossGateLockMessage(gateNo){
+    const r = bossGateUnlockReport(gateNo);
+    return `<div class="boss-gate-lock-message">
+      <h3>🔒 ${safe(r.title)} is locked</h3>
+      <p>${safe(r.reason || 'Complete the required sessions first.')}</p>
+      <p><b>Required route:</b> ${r.sessions.map(s=>'S'+s).join(' → ')} → ${safe(r.title)}</p>
+      ${r.previousGateRequired ? `<p><b>Also required:</b> Clear Boss Gate ${r.previousGateRequired}</p>` : ''}
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.map()">Back to Map</button>
+        <button class="btn" onclick="EAPHero.continueSession()">Continue Session</button>
+      </div>
+    </div>`;
+  }
+
+  function renderBossGateLocked(gateNo){
+    layout(`<section class="panel" style="margin-top:20px">${bossGateLockMessage(gateNo)}</section>`);
+  }
+
+
   function bossGateProgress(){
     const cleared = BOSS_GATE_PLAN.filter(g => state.bossGates?.[g.gate]?.cleared || state.bossGates?.[g.gate]?.done).length;
     return {cleared, total:BOSS_GATE_PLAN.length};
@@ -32591,8 +32640,9 @@
         ${BOSS_GATE_PLAN.map(g=>`<div class="boss-route-block ${g.type==='final'?'final':''}">
           <div class="route-sessions">${g.after.map(sid=>`<span class="route-session">S${sid}</span>`).join('<span class="route-arrow">→</span>')}</div>
           <div class="route-arrow-down">↓</div>
-          <button class="boss-gate-chip ${isBossGateUnlocked(g.gate)?'unlocked':'locked'}" onclick="EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
+          <button class="boss-gate-chip ${isBossGateUnlocked(g.gate)?'unlocked':'locked'}" onclick="return EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
           <p>${safe(g.focus)}</p>
+          <p class="gate-requirement">${bossGateUnlockReport(g.gate).unlocked ? 'Unlocked' : safe(bossGateUnlockReport(g.gate).reason)}</p>
         </div>`).join('')}
       </div>
     </div>`;
@@ -32604,7 +32654,7 @@
     return `<div class="boss-gate-notice">
       <b>${gate.type==='final'?'Final Boss after S15':'Boss Gate '+gate.gate+' after S'+sessionId}</b>
       <span>${safe(gate.title)} summarizes S${gate.after[0]}–S${gate.after[2]}. It is a checkpoint after the sessions, not a replacement for S${sessionId}.</span>
-      <button class="btn primary small" onclick="EAPHero.openBossGate(${gate.gate})">${gate.type==='final'?'Open Final Boss':'Open Boss Gate '+gate.gate}</button>
+      <button class="btn primary small" onclick="return EAPHero.openBossGate(${gate.gate})">${gate.type==='final'?'Open Final Boss':'Open Boss Gate '+gate.gate}</button>
     </div>`;
   }
 
@@ -32626,6 +32676,12 @@
   }
 
   function openBossGate(gateNo){
+    const report = bossGateUnlockReport(gateNo);
+    if(!report.unlocked){
+      safeToast(report.reason || 'Boss Gate is locked');
+      renderBossGateLocked(report.gate);
+      return false;
+    }
     const gate = bossGateByNumber(gateNo);
     state.currentBossGate = gate.gate;
     saveState();
@@ -32634,6 +32690,7 @@
     }else{
       renderBossGateTimeline();
     }
+    return false;
   }
 
 
@@ -37815,6 +37872,11 @@
     bossGateByNumber,
     isBossGateUnlocked,
     bossGateProgress,
+    isSessionCompleteForGate,
+    isPreviousBossGateCleared,
+    bossGateUnlockReport,
+    bossGateLockMessage,
+    renderBossGateLocked,
     sessionBossProgress,
     bindContinueButtons,
     continueFromButton,
