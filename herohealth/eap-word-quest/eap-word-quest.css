@@ -1,7 +1,7 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-quest.css
-   Version: v1.5.1-STUDENT-HOME-SIMPLIFY
+   Version: v1.5.3-ROUND-QUALITY-BOSS-BALANCE
 ========================================================= */
 
 :root{
@@ -464,7 +464,7 @@ select:focus{
 }
 
 /* =========================================================
-   Student Home Controls v1.5.1
+   Student Home Controls
 ========================================================= */
 
 .student-controls{
@@ -824,6 +824,7 @@ select:focus{
   line-height:1.35;
   font-weight:800;
   box-shadow:0 8px 18px rgba(15,23,42,.05);
+  overflow-wrap:anywhere;
   transition:
     transform .12s ease,
     border-color .12s ease,
@@ -961,6 +962,13 @@ select:focus{
 .word-pill{
   color:#334155;
   background:#f8fafc;
+}
+
+/* student summary must not expose teacher dashboard */
+.teacher-only-summary,
+.teacher-only-summary[hidden],
+#summaryTeacherBtn[hidden]{
+  display:none !important;
 }
 
 /* =========================================================
@@ -1495,6 +1503,7 @@ body.is-mobile .choice-btn{
   font-size:.96rem;
   text-align:left;
   border-radius:16px;
+  overflow-wrap:anywhere;
 }
 
 body.is-mobile #gameStats{
