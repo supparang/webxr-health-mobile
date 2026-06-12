@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z37-mission-specific-frame-alignment-fix';
+  const APP_VERSION = '20260610-v1z39-boss-gate-timeline-restructure-final';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z37</div>
+              <div class="mini-note">Save the Society • v1z39</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32281,6 +32281,8 @@
     checks.push({name:'Student UI lock', ok:typeof trueStudentUILock === 'function' && document.body.classList.contains('true-student-lock')});
     checks.push({name:'Teacher/Research hidden from student', ok:audit.blockedFound.length===0, detail:audit.blockedFound.length ? audit.blockedFound.join(', ') : 'Hidden'});
     checks.push({name:'Session quality audit', ok:typeof sessionQuality === 'function' && Object.keys(SESSION_QUALITY_AUDIT||{}).length===15, detail:'S1-S15 balanced'});
+    checks.push({name:'Full mission coherence', ok:typeof fullMissionCoherenceAudit === 'function' && fullMissionCoherenceAudit().filter(r=>r.ok).length===60, detail:'S1-S15 x 4 skills aligned'});
+    checks.push({name:'Boss gate timeline', ok:typeof BOSS_GATE_PLAN !== 'undefined' && BOSS_GATE_PLAN.length===5 && BOSS_GATE_PLAN[0].after.join(',')==='1,2,3', detail:'15 sessions + 5 checkpoints'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32502,6 +32504,9 @@
   function sessionQualityHTML(sessionId){
     const q = sessionQuality(sessionId);
     const riskCls = q.risk === 'High' ? 'high' : q.risk === 'Medium' ? 'medium' : 'low';
+    const teacherLine = roleMode && roleMode() !== 'student'
+      ? `<p class="teacher-only-note"><b>Teacher note:</b> ${safe(q.teacherNote)}</p>`
+      : '';
     return `<div class="session-quality-card ${riskCls}">
       <div class="badges">
         <span class="pill">CEFR ${safe(q.level)}</span>
@@ -32509,12 +32514,12 @@
         <span class="pill">Support: ${safe(q.support)}</span>
         <span class="pill">Risk: ${safe(q.risk)}</span>
       </div>
-      <h3>Session Quality Guide</h3>
+      <h3>Session Goal</h3>
       <p><b>Objective:</b> ${safe(q.objective)}</p>
       <p><b>Expected answer:</b> ${safe(q.expected)}</p>
       <p><b>Useful words:</b> ${q.vocab.map(x=>`<span class="mini-word">${safe(x)}</span>`).join(' ')}</p>
       <p><b>Frame:</b> <code>${safe(q.frame)}</code></p>
-      <p><b>Teacher note:</b> ${safe(q.teacherNote)}</p>
+      ${teacherLine}
     </div>`;
   }
 
@@ -32543,6 +32548,95 @@
   }
 
 
+
+  const BOSS_GATE_PLAN = [
+    {gate:1, after:[1,2,3], title:'Boss Gate 1: Foundation Check', focus:'academic mindset, vocabulary, main idea', type:'major'},
+    {gate:2, after:[4,5,6], title:'Boss Gate 2: Critical Reading Check', focus:'keywords, bias awareness, summary', type:'major'},
+    {gate:3, after:[7,8,9], title:'Boss Gate 3: Academic Writing Check', focus:'academic tone, integrated review, paragraph writing', type:'major'},
+    {gate:4, after:[10,11,12], title:'Boss Gate 4: Data / Email / Ethics Check', focus:'data description, academic email, citation and ethics', type:'major'},
+    {gate:5, after:[13,14,15], title:'Final Boss: Integration Check', focus:'academic listening, presentation, final portfolio reflection', type:'final'}
+  ];
+
+  function bossGateForSession(sessionId){
+    const sid = Number(sessionId || 1);
+    return BOSS_GATE_PLAN.find(g => g.after.includes(sid)) || BOSS_GATE_PLAN[0];
+  }
+  function bossGateAfterSession(sessionId){
+    const sid = Number(sessionId || 1);
+    return BOSS_GATE_PLAN.find(g => g.after[g.after.length - 1] === sid) || null;
+  }
+  function bossGateByNumber(gateNo){
+    return BOSS_GATE_PLAN.find(g => Number(g.gate) === Number(gateNo)) || BOSS_GATE_PLAN[0];
+  }
+  function isBossGateUnlocked(gateNo){
+    const gate = bossGateByNumber(gateNo);
+    return gate.after.every(sid => {
+      const sess = state.sessions?.[sid] || {};
+      return !!(sess.done || sess.bossDone || sess.completed || state.bossCards?.[sid]);
+    });
+  }
+  function bossGateProgress(){
+    const cleared = BOSS_GATE_PLAN.filter(g => state.bossGates?.[g.gate]?.cleared || state.bossGates?.[g.gate]?.done).length;
+    return {cleared, total:BOSS_GATE_PLAN.length};
+  }
+  function sessionBossProgress(){
+    return {cleared:Object.keys(state.bossCards || {}).length, total:15};
+  }
+
+  function bossGateTimelineHTML(){
+    return `<div class="boss-timeline">
+      <div class="badges"><span class="pill">15 Sessions</span><span class="pill">5 Boss Gates</span><span class="pill">Boss Gates are checkpoints, not extra sessions</span></div>
+      <h3>Learning Route</h3>
+      <div class="boss-route">
+        ${BOSS_GATE_PLAN.map(g=>`<div class="boss-route-block ${g.type==='final'?'final':''}">
+          <div class="route-sessions">${g.after.map(sid=>`<span class="route-session">S${sid}</span>`).join('<span class="route-arrow">→</span>')}</div>
+          <div class="route-arrow-down">↓</div>
+          <button class="boss-gate-chip ${isBossGateUnlocked(g.gate)?'unlocked':'locked'}" onclick="EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
+          <p>${safe(g.focus)}</p>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }
+
+  function bossGateNoticeForSession(sessionId){
+    const gate = bossGateAfterSession(sessionId);
+    if(!gate) return '';
+    return `<div class="boss-gate-notice">
+      <b>${gate.type==='final'?'Final Boss after S15':'Boss Gate '+gate.gate+' after S'+sessionId}</b>
+      <span>${safe(gate.title)} summarizes S${gate.after[0]}–S${gate.after[2]}. It is a checkpoint after the sessions, not a replacement for S${sessionId}.</span>
+      <button class="btn primary small" onclick="EAPHero.openBossGate(${gate.gate})">${gate.type==='final'?'Open Final Boss':'Open Boss Gate '+gate.gate}</button>
+    </div>`;
+  }
+
+  function renderBossGateTimeline(){
+    const gatePlan = bossGateByNumber(gateNo || (bossGateAfterSession(sessionId)?.gate) || state.currentBossGate || 1);
+    const gateSessions = gatePlan.after;
+
+    setView('bossGateTimeline');
+    const sp = sessionBossProgress(), gp = bossGateProgress();
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Timeline fixed</span><span class="pill">Session Bosses ${sp.cleared}/${sp.total}</span><span class="pill">Boss Gates ${gp.cleared}/${gp.total}</span></div>
+      <h2>Boss Gate Timeline</h2>
+        <p class="boss-gate-explain">This checkpoint summarizes S${gateSessions[0]}–S${gateSessions[gateSessions.length-1]}. It is not a new session.</p>
+      <p class="lead">Boss Gate คือด่านสรุปหลังเรียนครบชุด Session ไม่ใช่ Session เพิ่ม และไม่ใช่ให้ S3/S6/S9/S12/S15 กลายเป็น Boss Gate เอง</p>
+      ${bossGateTimelineHTML()}
+      <div class="quality-summary-note"><b>Correct structure:</b> S1 → S2 → S3 → Boss Gate 1; S4 → S5 → S6 → Boss Gate 2; S7 → S8 → S9 → Boss Gate 3; S10 → S11 → S12 → Boss Gate 4; S13 → S14 → S15 → Final Boss.</div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.map()">Back to Map</button><button class="btn" onclick="EAPHero.fullMissionCoherenceAuditPage()">Coherence Audit</button></div>
+    </section>`);
+  }
+
+  function openBossGate(gateNo){
+    const gate = bossGateByNumber(gateNo);
+    state.currentBossGate = gate.gate;
+    saveState();
+    if(typeof renderBossGate === 'function'){
+      renderBossGate(gate.after[gate.after.length - 1], gate.gate);
+    }else{
+      renderBossGateTimeline();
+    }
+  }
+
+
   function renderMap(){
     setView('map');
     const tiles = SESSIONS.map(s=>{
@@ -32567,11 +32661,12 @@
         <div class="badges">
           <span class="pill">Rank: ${safe(state.rank)}</span>
           <span class="pill">XP: ${state.xp}</span>
-          <span class="pill">Cards: ${state.cards.length}/15</span>
+          <span class="pill">Session Bosses: ${state.cards.length}/15</span>
         </div>
         <h2>Campus Map</h2>
         <p class="lead">เลือก Session จาก Map → ทำ Skill Path → เก็บ Portfolio Evidence → ปลด Boss Gate เป็นช่วง ๆ</p>
         ${studentMapHelpHTML()}
+        ${bossGateTimelineHTML()}
         <div class="map">${tiles}</div>
       </section>
     `);
@@ -33796,6 +33891,7 @@
         <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
         <p class="mini-note">${required} Mission ${locked?'• Locked until Lv.2':''}</p>
         ${sessionQualityHTML(s.id)}
+        ${bossGateNoticeForSession(s.id)}
         <button type="button" class="btn ${required==='Optional'?'ghost':'primary'} block js-skill-mission-btn" ${locked?'disabled':''} data-skill="${safeAttr(skill)}" data-session="${s.id}" onclick="return EAPHero.openSkillMissionFromButton(this)">${done?'Replay':'Start'} ${safe(skill)}</button>
       </div>`;
     }).join('');
@@ -34022,6 +34118,8 @@
     const topic = skillTextForSession(s).topic;
     const nextUse = aiUsesFor(sessionId, skill) + 1;
     const draftInfo = analyzeDraftForAI(skill, draftText || '');
+    const alignedHelp = alignedAIHelpMessage(skill, sessionId, draftText || '', nextUse, draftInfo);
+    if(alignedHelp) return alignedHelp;
 
     const level1 = {
       Reading:[
@@ -34714,6 +34812,268 @@
 
 
 
+
+  const MISSION_COHERENCE_FOCUS = {
+    1:{topic:'academic mindset', audience:'new university students', product:'short explanation', vocab:['academic goal','mindset','reason','support'], level:'A2'},
+    2:{topic:'academic vocabulary', audience:'students learning EAP words', product:'keyword explanation', vocab:['keyword','meaning','context clue','example'], level:'A2'},
+    3:{topic:'main idea reading', audience:'readers of short academic texts', product:'main idea + detail', vocab:['main idea','detail','topic','support'], level:'A2-B1'},
+    4:{topic:'keyword scanning', audience:'students reading/listening quickly', product:'keywords + signal words', vocab:['keyword','signal word','first','however','because'], level:'A2-B1'},
+    5:{topic:'critical reading and bias awareness', audience:'critical readers', product:'bias/evidence answer', vocab:['reader group','audience','biased','emotional','one-sided','evidence'], level:'B1'},
+    6:{topic:'summary writing and audience awareness', audience:'readers who need a short summary', product:'summary/purpose answer', vocab:['audience','purpose','summary','own words','important'], level:'B1'},
+    7:{topic:'academic tone', audience:'academic readers/listeners', product:'formal tone revision', vocab:['formal','polite','academic tone','clear','appropriate'], level:'B1'},
+    8:{topic:'integrated review', audience:'students preparing for boss gate', product:'integrated short answer', vocab:['review','evidence','answer','integrate'], level:'B1'},
+    9:{topic:'paragraph writing', audience:'academic readers', product:'one short paragraph', vocab:['topic sentence','support','example','conclusion'], level:'B1'},
+    10:{topic:'data description', audience:'readers of simple data', product:'trend description', vocab:['increase','decrease','higher','lower','trend','data'], level:'B1+'},
+    11:{topic:'academic email', audience:'teacher or academic contact', product:'polite email/request', vocab:['request','appointment','feedback','thank you','closing'], level:'B1'},
+    12:{topic:'citation and ethics', audience:'academic community', product:'citation/AI use statement', vocab:['citation','source','own words','AI help','plagiarism','ethics'], level:'B1+'},
+    13:{topic:'academic listening', audience:'students listening to mini lectures', product:'listening notes', vocab:['lecture','main point','keyword','detail','signal word'], level:'B1'},
+    14:{topic:'academic presentation', audience:'class audience', product:'short presentation', vocab:['present','topic','example','signpost','conclusion'], level:'B1+'},
+    15:{topic:'final integration', audience:'teacher/reviewer', product:'portfolio reflection', vocab:['evidence','integrate','reflect','improve','next step'], level:'B1+'}
+  };
+
+  function alignmentBase(skill, sessionId){
+    const f = MISSION_COHERENCE_FOCUS[Number(sessionId || state.currentSession || 1)] || MISSION_COHERENCE_FOCUS[1];
+    const s = String(skill || 'Reading');
+    const common = {level:f.level, topic:f.topic, audience:f.audience, product:f.product, vocab:f.vocab.slice()};
+    if(s === 'Reading'){
+      return Object.assign(common, {
+        steps:['Read the task question first.','Find clues in the passage.','Answer with evidence from the text.'],
+        frames:[`This passage is for ___.`,`The clues are ___ and ___.`,`The evidence is ___.`],
+        questions:['Who is the target reader or audience?','What clues in the passage show this?','What evidence supports your answer?'],
+        expected:'2–3 short answers with evidence',
+        aiHint:`Find the reader, purpose, and one evidence clue about ${f.topic}.`
+      });
+    }
+    if(s === 'Writing'){
+      return Object.assign(common, {
+        steps:['State the purpose clearly.','Add one reason or evidence.','Finish with a short concluding sentence.'],
+        frames:[`This text is about ___.`,`One reason/evidence is ___.`,`This means ___.`],
+        questions:['What is your main point?','What reason or evidence supports it?','How will you conclude?'],
+        expected:'3–5 connected sentences',
+        aiHint:`Write a short academic response about ${f.topic} with one clear support detail.`
+      });
+    }
+    if(s === 'Listening'){
+      return Object.assign(common, {
+        steps:['Listen for the main point.','Write two keywords.','Add one detail/example.'],
+        frames:[`Main point: ___.`,`Keywords: ___ and ___.`,`Detail/example: ___.`],
+        questions:['What is the main point?','What keywords did you hear?','What detail or example supports it?'],
+        expected:'notes: main point + keywords + detail',
+        aiHint:`Listen for main point, keywords, and one supporting detail about ${f.topic}.`
+      });
+    }
+    return Object.assign(common, {
+      steps:['Say your topic.','Give one reason or example.','End with a conclusion.'],
+      frames:[`Today, I will talk about ___.`,`For example, ___.`,`In conclusion, ___.`],
+      questions:['What is your speaking topic?','What example will you give?','How will you conclude?'],
+      expected:'30–60 seconds guided speaking',
+      aiHint:`Speak about ${f.topic} using opening, example, and conclusion.`
+    });
+  }
+
+  function variantAlignmentOverride(skill, sessionId, prompt){
+    const a = alignmentBase(skill, sessionId);
+    const id = String(prompt?.id || prompt?.variantId || prompt?.type || '').toLowerCase();
+    const title = String(prompt?.title || '').toLowerCase();
+    const ask = String(prompt?.ask || prompt?.instruction || prompt?.target || '').toLowerCase();
+    const qText = Array.isArray(prompt?.q) ? prompt.q.join(' ').toLowerCase() : '';
+
+    if(skill === 'Reading'){
+      if(id.includes('purpose') || qText.includes('audience') || qText.includes('reader')){
+        a.steps = ['Identify the likely reader group.','Find wording clues.','Explain the purpose of the passage.'];
+        a.frames = ['The reader group is ___.','The clues are ___ and ___.','The purpose is to ___.'];
+        a.questions = ['Which reader group would benefit most from this passage?','What clues show the audience?','What is the writer’s purpose?'];
+        a.vocab = ['reader group','audience','clue','purpose','benefit'];
+        a.expected = 'audience + 2 clues + purpose';
+        a.aiHint = 'Do not answer only the main idea. Identify who the text is for and which words show that audience.';
+      }else if(id.includes('tone') || qText.includes('tone') || qText.includes('emotional')){
+        a.steps = ['Identify the tone.','Find emotional or formal words.','Suggest a more academic wording.'];
+        a.frames = ['The tone is ___.','The word/phrase ___ shows this.','A more academic wording is ___.'];
+        a.questions = ['What is the tone of the passage?','Which word or phrase supports your answer?','How could the tone be made more academic?'];
+        a.vocab = ['tone','emotional','formal','academic','wording'];
+        a.expected = 'tone + evidence word + improved wording';
+        a.aiHint = 'Look for words that sound emotional, casual, too strong, or one-sided.';
+      }else if(id.includes('source') || qText.includes('trust') || qText.includes('check')){
+        a.steps = ['Find the claim.','Check what evidence is given.','Decide what information is missing.'];
+        a.frames = ['The claim is ___.','The evidence is ___.','I should check ___ before trusting it.'];
+        a.questions = ['What information would you check before trusting this passage?','What evidence is provided?','What information is missing?'];
+        a.vocab = ['claim','evidence','trust','source','missing information'];
+        a.expected = 'claim + evidence + missing information';
+        a.aiHint = 'Do not just agree with the passage. Ask what evidence is given and what is missing.';
+      }else if(id.includes('compare') || qText.includes('compared') || qText.includes('similarity')){
+        a.steps = ['Find two ideas.','Identify similarity or difference.','Use a comparison signal word.'];
+        a.frames = ['The two ideas are ___ and ___.','They are similar/different because ___.','The signal word is ___.'];
+        a.questions = ['What two ideas are being compared?','What is the key similarity or difference?','Which signal word helps show the comparison?'];
+        a.vocab = ['compare','similar','different','however','while'];
+        a.expected = 'two ideas + similarity/difference + signal word';
+        a.aiHint = 'Find both ideas before answering. Do not describe only one side.';
+      }else if(id.includes('cause') || qText.includes('cause') || qText.includes('effect')){
+        a.steps = ['Find the cause/reason.','Find the effect/result.','Identify the signal word.'];
+        a.frames = ['The cause is ___.','The effect is ___.','The signal word is ___.'];
+        a.questions = ['What cause or reason is mentioned?','What result or effect follows?','Which signal word shows the relationship?'];
+        a.vocab = ['cause','effect','because','therefore','result'];
+        a.expected = 'cause + effect + signal word';
+        a.aiHint = 'Look for because, so, therefore, leads to, or as a result.';
+      }else if(id.includes('evidence') || qText.includes('claim')){
+        a.steps = ['Find the claim.','Choose evidence.','Avoid overgeneralizing.'];
+        a.frames = ['The claim is ___.','The evidence is ___.','We should not overgeneralize because ___.'];
+        a.questions = ['What claim is made?','Which sentence can be used as evidence?','What detail should not be overgeneralized?'];
+        a.vocab = ['claim','evidence','detail','overgeneralize'];
+        a.expected = 'claim + evidence + careful limitation';
+        a.aiHint = 'Answer with a claim and evidence, not with personal opinion only.';
+      }else if(id.includes('mainidea')){
+        a.steps = ['Find the topic.','Find the main idea.','Choose a central support detail.'];
+        a.frames = ['The topic is ___.','The main idea is ___.','A central detail is ___.'];
+        a.questions = ['What is the main idea?','Which sentence supports the main idea?','Which detail is less central?'];
+        a.vocab = ['topic','main idea','central detail','less central'];
+        a.expected = 'main idea + support + less central detail';
+        a.aiHint = 'Choose the sentence that covers the whole passage, not only one small detail.';
+      }
+    }
+
+    if(skill === 'Writing'){
+      if(title.includes('email') || ask.includes('email')){
+        a.steps = ['Write greeting and purpose.','Make a polite request.','Close politely.'];
+        a.frames = ['Dear __,','I would like to request ___.','Thank you for your time.'];
+        a.vocab = ['Dear','request','feedback','appointment','thank you'];
+        a.expected = 'short academic email with greeting, request, closing';
+        a.aiHint = 'Use polite email structure: greeting, purpose, request, thanks, closing.';
+      }else if(title.includes('data') || ask.includes('data') || ask.includes('trend')){
+        a.steps = ['Name the data.','Describe highest/lowest or trend.','Avoid overclaiming.'];
+        a.frames = ['The data shows ___.','The number increases/decreases from ___ to ___.','This may suggest ___.'];
+        a.vocab = ['data','increase','decrease','trend','suggest'];
+        a.expected = '3–4 data description sentences';
+        a.aiHint = 'Describe what the data shows. Use may/suggests; do not overclaim.';
+      }else if(title.includes('summary') || ask.includes('summary')){
+        a.steps = ['Identify the source idea.','Write in your own words.','Keep only important information.'];
+        a.frames = ['The text explains ___.','The most important point is ___.','In short, ___.'];
+        a.vocab = ['summary','own words','important','source idea'];
+        a.expected = 'short summary in own words';
+        a.aiHint = 'Do not copy. Keep the main idea and one important support detail.';
+      }else if(title.includes('declaration') || ask.includes('ai') || ask.includes('citation')){
+        a.steps = ['State what help was used.','State what you wrote yourself.','Mention ethical use.'];
+        a.frames = ['I used AI/source help for ___.','My own work is ___.','I checked the information by ___.'];
+        a.vocab = ['AI help','source','own work','ethical','checked'];
+        a.expected = 'transparent AI/source use statement';
+        a.aiHint = 'Be transparent: what help was used, what is your own work, and how you checked it.';
+      }else if(title.includes('paragraph') || ask.includes('paragraph')){
+        a.steps = ['Write topic sentence.','Add reason/example.','End with conclusion.'];
+        a.frames = ['This topic is important because ___.','For example, ___.','In conclusion, ___.'];
+        a.vocab = ['topic sentence','reason','example','conclusion'];
+        a.expected = 'one paragraph with topic/support/conclusion';
+        a.aiHint = 'Make one clear paragraph: topic sentence, support, example, conclusion.';
+      }
+    }
+
+    if(skill === 'Listening'){
+      if(ask.includes('question')){
+        a.steps = ['Listen for the main point.','Write two keywords.','Write one question you still have.'];
+        a.frames = ['Main point: ___.','Keywords: ___ and ___.','My question is ___.'];
+        a.vocab = ['main point','keyword','question','unclear'];
+        a.expected = 'main point + keywords + question';
+      }
+      if(ask.includes('detail') || ask.includes('example')){
+        a.steps = ['Listen for the main point.','Write one example/detail.','Connect it to the topic.'];
+        a.frames = ['Main point: ___.','One example/detail is ___.','This connects to the topic because ___.'];
+        a.vocab = ['main point','example','detail','connect'];
+        a.expected = 'main point + example/detail';
+      }
+      a.aiHint = 'Use short notes only. Do not try to write the whole lecture.';
+    }
+
+    if(skill === 'Speaking'){
+      if(title.includes('presentation') || ask.includes('presentation')){
+        a.steps = ['Open with topic.','Use signposting.','Give one example.','Close clearly.'];
+        a.frames = ['Today, I will present ___.','First, ___.','For example, ___.','In conclusion, ___.'];
+        a.vocab = ['present','first','for example','conclusion','audience'];
+        a.expected = '45–60 seconds guided presentation';
+        a.aiHint = 'Use signposting: Today…, First…, For example…, In conclusion….';
+      }else if(title.includes('problem') || ask.includes('problem')){
+        a.steps = ['State the problem.','Explain one cause.','Suggest one solution.','Conclude.'];
+        a.frames = ['The problem is ___.','One cause is ___.','A possible solution is ___.','In conclusion, ___.'];
+        a.vocab = ['problem','cause','solution','possible','conclusion'];
+        a.expected = 'problem-solution talk';
+        a.aiHint = 'Say problem, cause, solution, and conclusion in order.';
+      }
+    }
+    return a;
+  }
+
+  function alignmentFor(skill, sessionId, prompt){
+    return variantAlignmentOverride(skill, sessionId, prompt || {});
+  }
+
+  function alignmentGuideHTML(skill, sessionId, prompt){
+    const a = alignmentFor(skill, sessionId, prompt || {});
+    return `<div class="alignment-guide">
+      <div class="badges"><span class="pill">Aligned Help</span><span class="pill">${safe(skill)}</span><span class="pill">CEFR ${safe(a.level)}</span><span class="pill">${safe(a.expected)}</span></div>
+      <h3>Use this help for the actual task</h3>
+      <div class="grid three">${a.steps.slice(0,3).map((s,i)=>`<div class="step-card"><b>Step ${i+1}</b><span>${safe(s)}</span></div>`).join('')}</div>
+      <h4>Sentence frames that match this task</h4>
+      <div class="frame-row">${a.frames.map(f=>`<span class="frame-chip">${safe(f)}</span>`).join('')}</div>
+      <h4>Useful vocabulary for this task</h4>
+      <div class="vocab-row">${a.vocab.map(v=>`<span class="mini-word">${safe(v)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  function alignedPlaceholder(skill, sessionId, prompt){
+    const a = alignmentFor(skill, sessionId, prompt || {});
+    return a.frames.join(' ');
+  }
+
+  function alignedAIHelpMessage(skill, sessionId, draftText, nextUse, draftInfo){
+    const a = alignmentFor(skill, sessionId, {});
+    const frame = a.frames.join(' ');
+    const wordNote = draftInfo && draftInfo.wordCount ? `Your draft has ${draftInfo.wordCount} words. ` : '';
+    const msg = nextUse >= 2
+      ? `${wordNote}Check alignment: answer the actual task about ${a.topic}. Use this frame: ${frame}`
+      : `${a.aiHint} Useful frame: ${frame}`;
+    return {
+      level: nextUse >= 2 ? 'aligned-draft-check' : 'aligned-task-hint',
+      message: msg,
+      useNumber: nextUse,
+      draftWordCount: draftInfo ? draftInfo.wordCount : 0,
+      draftNotes: draftInfo ? draftInfo.notes : []
+    };
+  }
+
+  function fullMissionCoherenceAudit(){
+    const rows = [];
+    for(let sid=1; sid<=15; sid++){
+      ['Reading','Writing','Listening','Speaking'].forEach(skill=>{
+        const a = alignmentFor(skill, sid, {});
+        rows.push({
+          session:sid,
+          skill,
+          ok:!!(a.steps?.length && a.frames?.length && a.vocab?.length && a.expected && a.aiHint),
+          level:a.level,
+          expected:a.expected,
+          frame:a.frames?.[0] || '',
+          vocab:(a.vocab || []).join(', ')
+        });
+      });
+    }
+    return rows;
+  }
+
+  function renderFullMissionCoherenceAudit(){
+    setView('fullMissionCoherenceAudit');
+    const rows = fullMissionCoherenceAudit();
+    const ok = rows.filter(r=>r.ok).length;
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Full Coherence Audit</span><span class="pill">${ok}/${rows.length} aligned</span><span class="pill">S1-S15 × 4 skills</span></div>
+      <h2>Full Mission Coherence Audit</h2>
+      <p class="lead">ตรวจว่า title / prompt / frame / vocabulary / AI hint ของ Reading, Writing, Listening, Speaking ไปทางเดียวกันครบทุก Session</p>
+      <div class="quality-summary-note"><b>Lock rule:</b> ทุก mission ต้องมี expected output, aligned sentence frame, task vocabulary, และ AI hint ที่ตรงกับคำถามจริง ไม่ใช้ frame กลางผิดโจทย์</div>
+      <div class="table-wrap" style="margin-top:14px"><table>
+        <thead><tr><th>Status</th><th>S</th><th>Skill</th><th>CEFR</th><th>Expected</th><th>First frame</th><th>Vocabulary</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr><td>${r.ok?'✅':'⚠️'}</td><td>S${r.session}</td><td>${safe(r.skill)}</td><td>${safe(r.level)}</td><td>${safe(r.expected)}</td><td>${safe(r.frame)}</td><td>${safe(r.vocab)}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.map()">Back to Map</button><button class="btn" onclick="EAPHero.studentPilotFinalLock()">Pilot Final Check</button></div>
+    </section>`);
+  }
+
+
   function missionSpecificReadingGuide(sessionId){
     const n = Number(sessionId || state.currentSession || 1);
     const guides = {
@@ -34815,16 +35175,17 @@
   function renderReadingMission(id){
     const __readingSessionId = Number(arguments[0] || state.currentSession || 1); const readingQs = readingQuestionSetForSession(__readingSessionId);
 
-    const s = getSession(id), text = pickMissionVariant(s.id, 'Reading');
+    const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Reading');
+    const readAlign = alignmentFor('Reading', s.id, text.variant || {});
+    if(readAlign && readAlign.questions && readAlign.questions.length){ text.variant.q = readAlign.questions; }
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Reading Mission</span><span class="pill">S${s.id}</span><span class="pill">${safe(s.skill)}</span></div>
       <h2>📖 Reading Mission: ${safe(text.topic)}</h2><div class="context">${safe(text.passage)}</div>
       <input type="hidden" id="readingTopic" value="${safeAttr(text.topic)}"><input type="hidden" id="readingPassage" value="${safeAttr(text.passage)}">
       <p class="mini-note">ตอบ short answer เป็นภาษาอังกฤษ ระบบให้คะแนนเบื้องต้นจาก keyword/ความยาว/ความเกี่ยวข้อง</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${cefrStepsHTML('Reading')}${cefrFrame('Reading')}${cefrVocabularyHTML(text.topic)}${cefrAIHelpNote('Reading')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Reading'))}</p>${alignmentGuideHTML('Reading', s.id, text.variant || {})}${cefrAIHelpNote('Reading')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Reading')))}</p>
-      ${missionSpecificReadingGuideHTML(__readingSessionId)}
-        ${renderAIHelpBox('Reading', s.id)}
+      ${renderAIHelpBox('Reading', s.id)}
       ${text.variant.q.map((x,i)=>`<label class="label">${i+1}. ${safe(x)}</label><textarea id="readingAns${i}" class="input answer-box reading-answer-box" rows="4"></textarea>`).join('')}
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitReading(${s.id})">Submit Reading Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
@@ -34870,13 +35231,14 @@
 
 
   function renderWritingMission(id){
-    const s = getSession(id), mv = pickMissionVariant(s.id, 'Writing'), prompt = writingPromptFromVariant(s, mv);
+    const s = getSession(safeMissionSessionId(id)), mv = pickMissionVariant(s.id, 'Writing'), prompt = writingPromptFromVariant(s, mv);
+    const writeAlign = alignmentFor('Writing', s.id, prompt);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Writing Mission</span><span class="pill">S${s.id}</span><span class="pill">Portfolio Evidence</span></div>
       <h2>✍️ Writing Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
       <input type="hidden" id="writingPromptText" value="${safeAttr(prompt.instruction)}">
       <p class="mini-note">เป้าหมาย: ${safe(cefrSimplifyTask(prompt.target))} • auto-check เบื้องต้น</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${cefrStepsHTML('Writing')}${cefrFrame('Writing')}${cefrVocabularyHTML(prompt.topic || s.skill)}${cefrAIHelpNote('Writing')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Writing'))}</p>${alignmentGuideHTML('Writing', s.id, prompt)}${cefrAIHelpNote('Writing')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Writing')))}</p>
       ${renderAIHelpBox('Writing', s.id)}
       <div class="answer-box-toolbar">
@@ -34884,7 +35246,7 @@
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('writingOutput')">↕ Expand</button>
         <button type="button" class="btn small ghost" onclick="EAPHero.clearAnswerBox('writingOutput')">Clear</button>
       </div>
-      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="13" data-default-rows="13" placeholder="Use the frame: This topic is important because ___. One reason is ___. For example, ___. In conclusion, ___."></textarea>
+      <textarea id="writingOutput" class="input answer-box large-writing-box" rows="13" data-default-rows="13" placeholder="${safeAttr(alignedPlaceholder('Writing', s.id, prompt))}"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitWriting(${s.id})">Submit Writing</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -35134,7 +35496,8 @@
 
 
   function renderListeningMission(id){
-    const s = getSession(id), text = pickMissionVariant(s.id, 'Listening');
+    const s = getSession(safeMissionSessionId(id)), text = pickMissionVariant(s.id, 'Listening');
+    const listenAlign = alignmentFor('Listening', s.id, text.variant || {});
     const lecture = `Today, we will discuss ${text.topic}. ${text.passage} ${text.variant.ask || 'Write notes about the main point.'}`;
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Listening Mission</span><span class="pill">S${s.id}</span><span class="pill">Mini Lecture</span></div>
@@ -35185,7 +35548,7 @@
       <div id="transcriptHintBox" class="feedback info" style="margin-top:10px"></div>
       ${renderAIHelpBox('Listening', s.id)}
       <p class="mini-note"><b>Task:</b> ${safe(cefrSimplifyTask(text.variant.ask || 'Write listening notes.'))}</p>
-      <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${cefrStepsHTML('Listening')}${cefrFrame('Listening')}${cefrVocabularyHTML(text.topic)}${cefrAIHelpNote('Listening')}</div>
+      <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Listening'))}</p>${alignmentGuideHTML('Listening', s.id, text.variant || {})}${cefrAIHelpNote('Listening')}</div>
       <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Listening')))}</p>
       <input type="hidden" id="listeningPromptText" value="${safeAttr(lecture)}">
       <div id="fullTranscriptBox" class="feedback info" style="margin-top:10px"></div>
@@ -35194,7 +35557,7 @@
         <span>Main point + keywords + one detail</span>
         <button type="button" class="btn small" onclick="EAPHero.expandAnswerBox('listeningNotes')">↕ Expand</button>
       </div>
-      <textarea id="listeningNotes" class="input answer-box listening-notes-box" rows="10" data-default-rows="10" placeholder="Main point: ___. Keywords: ___ and ___. Detail/example: ___."></textarea>
+      <textarea id="listeningNotes" class="input answer-box listening-notes-box" rows="10" data-default-rows="10" placeholder="${safeAttr(alignedPlaceholder('Listening', s.id, text.variant || {}))}"></textarea>
       <div class="footer-actions"><button class="btn primary" onclick="EAPHero.submitListening(${s.id})">Submit Listening Notes</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
     </section>`);
   }
@@ -35429,7 +35792,8 @@
 
 
   function renderSpeakingMission(id){
-    const s = getSession(id), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
+    const s = getSession(safeMissionSessionId(id)), mv = pickMissionVariant(s.id, 'Speaking'), prompt = speakingPromptFromVariant(s, mv);
+    const speakAlign = alignmentFor('Speaking', s.id, prompt);
     layout(`<section class="panel" style="margin-top:20px">
       <div class="badges"><span class="pill">Speaking Mission</span><span class="pill">S${s.id}</span><span class="pill">Presentation Practice</span></div>
       <h2>🎤 Speaking Mission: ${safe(prompt.title)}</h2><div class="context">${safe(cefrSimplifyTask(prompt.instruction))}</div>
@@ -35438,8 +35802,8 @@
         <h3>🎙️ Oral Task First</h3>
         <p><b>งานนี้คือ Speaking:</b> ให้ผู้เรียนพูดจริงก่อน ไม่ใช่พิมพ์ตอบเป็นหลัก</p>
         <p class="mini-note"><b>Difficulty:</b> ${safe(currentSkillDifficulty().label)} — ${safe(cefrSimplifyTask(difficultyPromptAddon('Speaking')))}</p>
-        <div class="cefr-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${cefrStepsHTML('Speaking')}${cefrFrame('Speaking')}${cefrVocabularyHTML(prompt.topic || s.skill)}${cefrAIHelpNote('Speaking')}</div>
-        ${guidedSpeakingFrameHTML()}
+        <div class="cefr-support aligned-support">${cefrBadgeHTML()}<p>${safe(cefrInstruction('Speaking'))}</p>${alignmentGuideHTML('Speaking', s.id, prompt)}${cefrAIHelpNote('Speaking')}</div>
+        
         <div class="footer-actions">
           <button id="startSpeakBtn" class="btn primary" onclick="EAPHero.startSpeakingTimer()">🎙️ Start Speaking</button>
           <button class="btn" onclick="EAPHero.stopSpeakingTimer()">⏹ I Finished Speaking</button>
@@ -35460,7 +35824,7 @@
           <div id="speechInterimBox" class="speech-interim"></div>
         </div>
 
-      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box large-speaking-box" rows="12" data-default-rows="12" placeholder="Optional: type short notes, keywords, or transcript after speaking. Do not write instead of speaking."></textarea>
+      <textarea id="speakingTranscript" class="input speaking-evidence-box answer-box large-speaking-box" rows="12" data-default-rows="12" placeholder="${safeAttr(alignedPlaceholder('Speaking', s.id, prompt))}"></textarea>
       <p class="mini-note speaking-check-note">หลังพูดแล้ว ติ๊กสิ่งที่พูดมี ก่อน Submit Speaking Evidence</p>
       <div class="grid four" style="margin-top:12px"><label class="choice"><input type="checkbox" id="spSpoke"> I spoke</label><label class="choice"><input type="checkbox" id="spOpen"> Opening</label><label class="choice"><input type="checkbox" id="spSign"> Signposting</label><label class="choice"><input type="checkbox" id="spEvi"> Evidence</label><label class="choice"><input type="checkbox" id="spClose"> Closing/Q&A</label></div>
       <div class="footer-actions"><button class="btn primary submit-speaking-btn" onclick="EAPHero.submitSpeaking(${s.id})">Submit Speaking Evidence</button><button class="btn ghost" onclick="EAPHero.skillHub(${s.id})">Back</button></div>
@@ -37442,9 +37806,25 @@
     profile:renderProfile,
     saveProfile,
     map:renderMap,
+    bossGateTimeline:renderBossGateTimeline,
+    renderBossGateTimeline,
+    openBossGate,
+    bossGatePlan:BOSS_GATE_PLAN,
+    bossGateForSession,
+    bossGateAfterSession,
+    bossGateByNumber,
+    isBossGateUnlocked,
+    bossGateProgress,
+    sessionBossProgress,
     bindContinueButtons,
     continueFromButton,
     continueSession,
+    fullMissionCoherenceAudit,
+    fullMissionCoherenceAuditPage:renderFullMissionCoherenceAudit,
+    renderFullMissionCoherenceAudit,
+    alignmentFor,
+    alignmentGuideHTML,
+    alignedPlaceholder,
     sessionQualityAudit:renderSessionQualityAudit,
     sessionQuality,
     sessionQualityAuditData:SESSION_QUALITY_AUDIT,
