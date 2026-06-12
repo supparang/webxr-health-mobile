@@ -1,7 +1,7 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-quest.css
-   Version: v1.5.3-ROUND-QUALITY-BOSS-BALANCE
+   Version: v1.6.0-VALID-ITEM-BANK
 ========================================================= */
 
 :root{
@@ -448,19 +448,6 @@ select:focus{
   color:var(--muted);
   font-size:.78rem;
   font-weight:800;
-}
-
-/* =========================================================
-   Old Controls fallback
-========================================================= */
-
-.controls{
-  display:grid;
-  grid-template-columns:repeat(6,auto);
-  gap:10px;
-  margin-top:16px;
-  align-items:stretch;
-  justify-content:start;
 }
 
 /* =========================================================
@@ -1171,10 +1158,6 @@ td{
     grid-template-columns:repeat(3,minmax(0,1fr));
   }
 
-  .controls{
-    grid-template-columns:repeat(3,1fr);
-  }
-
   .student-secondary-controls{
     grid-template-columns:repeat(2,minmax(0,1fr));
   }
@@ -1201,10 +1184,6 @@ td{
   .profile-grid,
   .settings-row{
     grid-template-columns:1fr;
-  }
-
-  .controls{
-    grid-template-columns:repeat(2,1fr);
   }
 
   .student-secondary-controls{
@@ -1257,12 +1236,10 @@ td{
     border-radius:22px;
   }
 
-  .controls,
   .student-secondary-controls{
     grid-template-columns:1fr;
   }
 
-  .controls .btn,
   .student-secondary-controls .btn{
     width:100%;
   }
@@ -1354,16 +1331,9 @@ body.is-mobile .word-card2{
   border-radius:18px;
 }
 
-body.is-mobile .controls,
 body.is-mobile .student-controls{
   grid-template-columns:1fr;
   gap:10px;
-}
-
-body.is-mobile .controls .btn{
-  width:100%;
-  min-height:46px;
-  justify-content:center;
 }
 
 body.is-mobile .primary-play{
