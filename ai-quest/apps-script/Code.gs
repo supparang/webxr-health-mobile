@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.9.0
+ * Version: v3.0.0
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.9.0';;
+const APP_VERSION = 'v3.0.0';;
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -733,6 +733,8 @@ function normalizePhaseName_(phase) {
     'bfs/dfs_trace':'BFS/DFS Trace',
     'bfs_dfs_trace':'BFS/DFS Trace',
     'maze_path':'Maze Path',
+    'frontier_debug':'Frontier Debug',
+    'trace_error_debug':'Trace Error Debug',
     'search_boss':'Search Boss',
     'cost_concept':'Cost Concept',
     'ucs_trace':'UCS Trace',
@@ -740,7 +742,8 @@ function normalizePhaseName_(phase) {
     'frontier_cost':'Frontier Cost',
     'bfs_vs_ucs':'BFS vs UCS',
     'cost_boss':'Cost Boss',
-    'astar_concept':'A* Concept','a*_concept':'A* Concept','astar_trace':'A* Trace','a*_trace':'A* Trace','astar_path':'A* Path','a*_path':'A* Path','astar_vs_greedy':'A* vs Greedy','a*_vs_greedy':'A* vs Greedy','astar_boss':'A* Boss','a*_boss':'A* Boss'
+    'astar_concept':'A* Concept','a*_concept':'A* Concept','astar_trace':'A* Trace','a*_trace':'A* Trace','astar_path':'A* Path','a*_path':'A* Path','astar_vs_greedy':'A* vs Greedy','a*_vs_greedy':'A* vs Greedy','astar_boss':'A* Boss','a*_boss':'A* Boss',
+    's3_search_core':'S3 Search Core','s4_cost_search':'S4 Cost Search','s5_heuristic_search':'S5 Heuristic Search','final_search_duel':'Final Search Duel'
   };
 
   return map[key] || raw || 'Unknown';

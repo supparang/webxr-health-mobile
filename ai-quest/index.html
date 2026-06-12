@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.9.0 Before S4</title>
+  <title>CSAI2102: AI Quest v3.0.0 Before S4</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -907,7 +907,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
-  <script src="./js/mission1-foundation-bank-v290.js"></script>
+  <script src="./js/mission1-foundation-bank-v300.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
@@ -915,12 +915,13 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v290.js"></script>
-  <script src="./js/boss1-rookie-bank-v290.js"></script>
-  <script src="./js/search3-maze-bank-v290.js"></script>
-  <script src="./js/routecost4-bank-v290.js"></script>
-  <script src="./js/astar5-bank-v290.js"></script>
-  <script src="./js/aiquest-foundation-quality-audit-v290.js"></script>
+  <script src="./js/mission2-agent-bank-v300.js"></script>
+  <script src="./js/boss1-rookie-bank-v300.js"></script>
+  <script src="./js/search3-maze-bank-v300.js"></script>
+  <script src="./js/routecost4-bank-v300.js"></script>
+  <script src="./js/astar5-bank-v300.js"></script>
+  <script src="./js/boss2-search-arena-bank-v300.js"></script>
+  <script src="./js/aiquest-foundation-quality-audit-v300.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -932,7 +933,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.9.0 • S4 UI Consistency • Section 101</div>
+          <div class="subtitle">v3.0.0 • S4 UI Consistency • Section 101</div>
         </div>
       </div>
 
@@ -1265,6 +1266,23 @@
           'A* vs Greedy: เห็นความต่างของ g+h กับ h-only',
           'ส่งผลเข้า Google Sheets ด้วย sessionId=s5'
         ]
+      },
+      {
+        id:'b2',
+        no:'B2',
+        type:'boss',
+        division:'Division 2: Search Arena',
+        title:'Search Arena Boss',
+        topic:'BFS / DFS / UCS / A* Integrated Search',
+        badge:'Search Arena Champion',
+        playable:true,
+        mastery:'เปิดเมื่อผ่าน S3, S4, S5; Mastery เมื่อ Score ≥85, Boss Win, AI Help ≤2',
+        objectives:[
+          'Boss Gate หลังผ่าน Session 3–5',
+          'รวม Search Core, Cost Search และ Heuristic Search',
+          'ตรวจ misconception เรื่อง trace/path/frontier/cost/heuristic',
+          'ส่งผลเข้า Google Sheets ด้วย sessionId=b2'
+        ]
       }
     ];
 
@@ -1428,6 +1446,12 @@ async function saveStudentProfile(){
       if(stage.id === 'm5'){
         return !!(state.completed.m4 || state.stars.m4 || state.mastered.m4 || Number(state.bestScore.m4 || 0) >= 60);
       }
+      if(stage.id === 'b2'){
+        const s3 = !!(state.completed.m3 || state.stars.m3 || state.mastered.m3 || Number(state.bestScore.m3 || 0) >= 60);
+        const s4 = !!(state.completed.m4 || state.stars.m4 || state.mastered.m4 || Number(state.bestScore.m4 || 0) >= 60);
+        const s5 = !!(state.completed.m5 || state.stars.m5 || state.mastered.m5 || Number(state.bestScore.m5 || 0) >= 60);
+        return s3 && s4 && s5;
+      }
       return false;
     }
 
@@ -1529,7 +1553,8 @@ async function saveStudentProfile(){
       if(!isPassedLocal('m3')) return 'm3';
       if(!isPassedLocal('m4')) return 'm4';
       if(!isPassedLocal('m5')) return 'm5';
-      return 'm5';
+      if(!isPassedLocal('b2')) return 'b2';
+      return 'b2';
     }
 
     function updateTopQuickButton(){
@@ -1542,7 +1567,8 @@ async function saveStudentProfile(){
         b1:'Boss B1',
         m3:'Session 3',
         m4:'Session 4',
-        m5:isPassedLocal('m5') ? 'Replay S5' : 'Session 5'
+        m5:'Session 5',
+        b2:isPassedLocal('b2') ? 'Replay B2' : 'Boss B2'
       };
       btn.textContent = labels[id] || 'Continue';
       btn.title = isPassedLocal('m4')
@@ -1675,7 +1701,7 @@ async function saveStudentProfile(){
 
         <div class="row" style="margin-top:14px">
           <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed)) ? 'disabled' : ''}>
-            ${stage.id === 'm2' ? 'เริ่ม Session 2' : stage.id === 'm3' ? 'เริ่ม Session 3' : stage.id === 'm4' ? 'เริ่ม Session 4' : stage.id === 'm5' ? 'เริ่ม Session 5' : 'เริ่ม Session'}
+            ${stage.id === 'm2' ? 'เริ่ม Session 2' : stage.id === 'm3' ? 'เริ่ม Session 3' : stage.id === 'm4' ? 'เริ่ม Session 4' : stage.id === 'm5' ? 'เริ่ม Session 5' : stage.id === 'b2' ? 'เริ่ม Boss B2' : 'เริ่ม Session'}
           </button>
           <button class="btn secondary" id="reviewSelected">ดูสถานะ</button>
         </div>
@@ -1832,6 +1858,8 @@ async function saveStudentProfile(){
     renderSession4RouteCostGame();
   }else if(stage.id === 'm5'){
     renderSession5AStarGame();
+  }else if(stage.id === 'b2'){
+    renderBoss2SearchArenaGame();
   }else{
     renderMission1Coach();
   }
@@ -1841,8 +1869,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v290.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v290.js</b>
+            โหลดไฟล์ mission2-agent-bank-v300.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v300.js</b>
           </div>
         `;
         return;
@@ -2502,7 +2530,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v2.9.0-session2-learning-feedback',
+          version:'v3.0.0-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2564,8 +2592,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v290.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v290.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v300.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v300.js</b>
           </div>
         `;
         return;
@@ -2950,7 +2978,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v2.9.0-b1-full-boss',
+          version:'v3.0.0-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3007,8 +3035,8 @@ async function saveStudentProfile(){
       if(typeof buildSession3Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ search3-maze-bank-v290.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/search3-maze-bank-v290.js</b>
+            โหลดไฟล์ search3-maze-bank-v300.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v300.js</b>
           </div>
         `;
         return;
@@ -3328,7 +3356,7 @@ async function saveStudentProfile(){
           sessionId:'s3',
           missionId:'m3',
           missionTitle:'Search Maze',
-          version:'v2.9.0-search-maze',
+          version:'v3.0.0-search-maze',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3376,8 +3404,8 @@ async function saveStudentProfile(){
       if(typeof buildSession4Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ routecost4-bank-v290.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/routecost4-bank-v290.js</b>
+            โหลดไฟล์ routecost4-bank-v300.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/routecost4-bank-v300.js</b>
           </div>
         `;
         return;
@@ -3697,7 +3725,7 @@ async function saveStudentProfile(){
           sessionId:'s4',
           missionId:'m4',
           missionTitle:'Route Cost Challenge',
-          version:'v2.9.0-route-cost',
+          version:'v3.0.0-route-cost',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3745,8 +3773,8 @@ async function saveStudentProfile(){
       if(typeof buildSession5Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ astar5-bank-v290.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/astar5-bank-v290.js</b>
+            โหลดไฟล์ astar5-bank-v300.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/astar5-bank-v300.js</b>
           </div>
         `;
         return;
@@ -4066,7 +4094,7 @@ async function saveStudentProfile(){
           sessionId:'s5',
           missionId:'m5',
           missionTitle:'A* Rescue Mission',
-          version:'v2.9.0-astar',
+          version:'v3.0.0-astar',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4092,6 +4120,375 @@ async function saveStudentProfile(){
         finishMission(
           finalScore,
           `S5 A*: Accuracy ${summary.accuracy}% · Combo x${metrics.maxCombo} · Help ${metrics.helpUsed}/${diff.help} · Mastery ${mastered ? 'YES' : 'Not yet'}`,
+          {
+            usedTime:used,
+            mastered,
+            coachSummary:coachSummary(finalScore, mastered),
+            wrongReview:wrongReviewHTML(),
+            wrongItems:metrics.wrongItems,
+            summary
+          }
+        );
+      }
+
+      startTimer(totalTime, end);
+      logEvent({eventType:'session_start',phase:'start',itemId:'',prompt:'S4 started',yourAnswer:'',correctAnswer:'',isCorrect:'',combo:0,helpLeft:metrics.helpLeft,extraJson:{roundVersion:round.version, totalQuestions:questions.length}});
+      render();
+    }
+
+
+
+    function renderBoss2SearchArenaGame(){
+      if(typeof buildBoss2Round !== 'function'){
+        el('gameArea').innerHTML = `
+          <div class="feedback bad">
+            โหลดไฟล์ astar5-bank-v300.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/astar5-bank-v300.js</b>
+          </div>
+        `;
+        return;
+      }
+
+      const diff = difficulty();
+      const startTs = Date.now();
+      const totalTime = Math.max(110, Math.round(diff.time * 1.05));
+      const round = buildBoss2Round(state.difficulty);
+      const phases = round.phases || ['Cost Concept','UCS Trace','Optimal Path','Frontier Cost','Cost Boss'];
+      const questions = []
+        .concat(round.state || [])
+        .concat(round.graph || [])
+        .concat(round.maze || [])
+        .concat(round.boss || []);
+
+      const attemptId = window.AIQuestStorage ? AIQuestStorage.uid('att') : 'att_b2_' + Date.now();
+
+      const metrics = {
+        correct:0,
+        total:0,
+        wrong:0,
+        combo:0,
+        maxCombo:0,
+        helpLeft:diff.help,
+        helpUsed:0,
+        wrongItems:[],
+        mis:{},
+        phase:{}
+      };
+
+      phases.forEach(phase => {
+        metrics.phase[phase] = {phase, correct:0, total:0, wrong:0};
+      });
+
+      const eventLog = [];
+      let qIndex = 0;
+      let answered = false;
+
+      function logEvent(data){
+        const profile = window.AIQuestStorage ? AIQuestStorage.getProfile() : {};
+        eventLog.push({
+          eventId: window.AIQuestStorage ? AIQuestStorage.uid('evt') : 'evt_b2_' + Date.now() + '_' + Math.random(),
+          attemptId,
+          studentId: profile.studentId || '',
+          section: profile.section || '',
+          sessionId:'b2',
+          missionId:'b2',
+          clientTs:new Date().toISOString(),
+          userAgent:navigator.userAgent,
+          pageUrl:location.href,
+          courseId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().courseId : 'CSAI2102',
+          classId: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().classId : '',
+          term: window.AIQuestDataContract ? AIQuestDataContract.getRuntimeContext().term : '',
+          runMode: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunMode() : 'graded',
+          runModeLabel: window.AIQuestGameplayLockdown ? AIQuestGameplayLockdown.getRunModeInfo().label : 'GRADED',
+          ...data
+        });
+      }
+
+      function phaseDone(){
+        return phases.filter(phase => {
+          const p = metrics.phase[phase];
+          return p && p.total > 0;
+        });
+      }
+
+      function makeChoices(q){
+        return shuffle([{text:q.answer, correct:true}].concat((q.distractors || []).slice(0,3).map(text => ({text, correct:false}))));
+      }
+
+      function contextHTML(q){
+        if(!q.context) return '';
+        const parts = String(q.context).split('|').map(x => x.trim()).filter(Boolean);
+        return `
+          <div class="bigCard" style="text-align:left;margin-top:12px">
+            <b>Weighted graph</b>
+            <div class="phaseInsightGrid" style="grid-template-columns:repeat(2,1fr)">
+              ${parts.map(p => `<div class="phaseInsightCard">${escapeHtml(p)}</div>`).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      function recordAnswer(q, choice){
+        const ok = !!choice.correct;
+        metrics.total += 1;
+        metrics.phase[q.phase] = metrics.phase[q.phase] || {phase:q.phase, correct:0, total:0, wrong:0};
+        metrics.phase[q.phase].total += 1;
+
+        if(ok){
+          metrics.correct += 1;
+          metrics.combo += 1;
+          metrics.maxCombo = Math.max(metrics.maxCombo, metrics.combo);
+          metrics.phase[q.phase].correct += 1;
+          beep('ok');
+        }else{
+          metrics.wrong += 1;
+          metrics.combo = 0;
+          metrics.phase[q.phase].wrong += 1;
+          const key = q.familyId || q.phase || 'search';
+          metrics.mis[key] = (metrics.mis[key] || 0) + 1;
+          metrics.wrongItems.push({
+            phase:q.phase,
+            itemId:q.id,
+            prompt:q.prompt,
+            yourAnswer:choice.text,
+            correctAnswer:q.answer,
+            why:q.why,
+            misconception:key
+          });
+          beep('bad');
+        }
+
+        logEvent({
+          eventType:'answer',
+          phase:q.phase,
+          itemId:q.id,
+          prompt:q.prompt,
+          yourAnswer:choice.text,
+          correctAnswer:q.answer,
+          isCorrect:ok,
+          combo:metrics.combo,
+          helpLeft:metrics.helpLeft,
+          scoreDelta:ok ? 1 : 0,
+          extraJson:{why:q.why, familyId:q.familyId, context:q.context || ''}
+        });
+
+        return ok;
+      }
+
+      function feedbackHTML(ok, q, choice){
+        return `
+          <div class="learningFeedbackPanel ${ok ? 'good' : 'bad'}">
+            <h4>${ok ? '✅ Search Arena reasoning ถูกต้อง' : '⚠️ ยังสับสนเรื่อง integrated search'}</h4>
+            <div class="explainGrid">
+              <div class="explainCell"><b>คำตอบของคุณ</b><br>${escapeHtml(choice.text)}</div>
+              <div class="explainCell"><b>คำตอบที่ควรได้</b><br>${escapeHtml(q.answer)}</div>
+              <div class="explainCell"><b>เหตุผล</b><br>${escapeHtml(q.why || '')}</div>
+              <div class="explainCell"><b>Phase</b><br>${escapeHtml(q.phase)} · ${escapeHtml(q.familyId || '-')}</div>
+            </div>
+            <div class="row" style="margin-top:12px;justify-content:center">
+              <button class="btn good" id="b2NextBtn">${qIndex + 1 >= questions.length ? 'สรุปผล S3' : 'ข้อถัดไป'}</button>
+            </div>
+          </div>
+        `;
+      }
+
+      function render(){
+        const q = questions[qIndex];
+        if(!q){
+          end();
+          return;
+        }
+
+        answered = false;
+        const choices = makeChoices(q);
+
+        el('gameArea').innerHTML = `
+          ${hudHTML(`
+            <span class="hudChip">Search ${qIndex + 1}/${questions.length}</span>
+            <span class="hudChip">Combo x${metrics.combo}</span>
+            <span class="hudChip">AI Help ${metrics.helpLeft}/${diff.help}</span>
+          `)}
+          ${phaseHTMLCustom(phases, q.phase, phaseDone())}
+
+          <div class="gamePanel">
+            <div class="tagline">B2 Search Arena · ${escapeHtml(q.phase)}</div>
+            <h3>${escapeHtml(q.prompt)}</h3>
+            ${contextHTML(q)}
+            <p>เลือกคำตอบที่ตรงกับหลัก Integrated Search มากที่สุด ระวังสับสนระหว่าง <b>visited order / settled order</b> กับ <b>optimal path</b></p>
+            <div class="choicesGrid">
+              ${choices.map((choice, i) => `<button class="choiceBtn" data-choice="${i}">${escapeHtml(choice.text)}</button>`).join('')}
+            </div>
+            <div id="b2FeedbackBox"></div>
+            <div class="row" style="margin-top:14px">
+              <button class="btn secondary" id="b2HelpBtn">AI Help</button>
+            </div>
+          </div>
+        `;
+
+        updateHelp(metrics.helpLeft);
+        updateCombo(metrics.combo);
+
+        el('gameArea').querySelectorAll('[data-choice]').forEach(btn => {
+          btn.onclick = () => {
+            if(answered) return;
+            answered = true;
+
+            const choice = choices[Number(btn.dataset.choice)];
+            const ok = recordAnswer(q, choice);
+
+            btn.classList.add(ok ? 'correct' : 'wrong');
+            el('gameArea').querySelectorAll('[data-choice]').forEach(b => {
+              b.disabled = true;
+              const c = choices[Number(b.dataset.choice)];
+              if(c && c.correct) b.classList.add('correct');
+            });
+
+            const box = el('b2FeedbackBox');
+            if(box) box.innerHTML = feedbackHTML(ok, q, choice);
+
+            const next = el('b2NextBtn');
+            if(next){
+              next.onclick = () => {
+                qIndex += 1;
+                render();
+              };
+            }
+
+            updateHelp(metrics.helpLeft);
+            updateCombo(metrics.combo);
+          };
+        });
+
+        const help = el('b2HelpBtn');
+        if(help){
+          help.onclick = () => {
+            if(metrics.helpLeft <= 0){
+              showToast('AI Help หมดแล้ว');
+              return;
+            }
+            metrics.helpLeft -= 1;
+            metrics.helpUsed += 1;
+            updateHelp(metrics.helpLeft);
+            showToast(q.hint || 'ดู frontier, visited, queue/stack และ goal test');
+          };
+        }
+      }
+
+      function phaseAnalytics(){
+        return Object.values(metrics.phase).filter(p => p.total > 0).map(p => {
+          const percent = p.total ? Math.round(p.correct / p.total * 100) : 0;
+          return {
+            phase:p.phase,
+            label:p.phase,
+            correct:p.correct,
+            total:p.total,
+            wrong:p.wrong,
+            percent,
+            advice:percent >= 80 ? 'ผ่านดี' : percent >= 60 ? 'ควรทบทวนบางจุด' : 'ควร remedial ก่อนขึ้น S4'
+          };
+        });
+      }
+
+      function wrongReviewHTML(){
+        if(!metrics.wrongItems.length){
+          return '<b>Review Wrong Items</b><br>ยอดเยี่ยม! S3 รอบนี้ไม่มีข้อผิดพลาดหลัก';
+        }
+
+        return `
+          <b>Review Wrong Items</b>
+          <div class="wrongList">
+            ${metrics.wrongItems.slice(0,10).map(item => `
+              <div class="wrongItem">
+                <b>${escapeHtml(item.phase)}</b><br>
+                ${escapeHtml(item.prompt)}<br>
+                <b>ตอบ:</b> ${escapeHtml(item.yourAnswer)}<br>
+                <b>ควรเป็น:</b> ${escapeHtml(item.correctAnswer)}<br>
+                <b>เหตุผล:</b> ${escapeHtml(item.why || '')}
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      function coachSummary(finalScore, mastered){
+        const rows = phaseAnalytics();
+        const weakest = rows.slice().sort((a,b)=>a.percent-b.percent)[0];
+        return `
+          <b>AI Coach Summary</b><br>
+          B2 Search Arena Score: ${finalScore}/100 · Mastery: ${mastered ? 'YES' : 'Not yet'}<br>
+          Correct ${metrics.correct}/${metrics.total} · Max combo x${metrics.maxCombo} · AI Help used ${metrics.helpUsed}/${diff.help}<br>
+          ${weakest ? `Weakest phase: ${escapeHtml(weakest.label)} (${weakest.percent}%) · ${escapeHtml(weakest.advice)}` : ''}
+          <div class="phaseInsightGrid">
+            ${rows.map(row => `
+              <div class="phaseInsightCard ${row.percent >= 80 ? 'good' : row.percent >= 60 ? 'warn' : 'bad'}">
+                <b>${escapeHtml(row.label)}</b>
+                ${row.correct}/${row.total} · ${row.percent}%<br>
+                ${escapeHtml(row.advice)}
+              </div>
+            `).join('')}
+          </div>
+          <div class="nextPathBox">
+            <b>Next:</b> ถ้า S3 ผ่านแล้ว จะใช้เป็นฐานสำหรับ B2 Search Arena Rescue Mission / Heuristic Search
+          </div>
+        `;
+      }
+
+      function end(){
+        stopTimer();
+
+        const used = Math.max(0, Math.round((Date.now() - startTs) / 1000));
+        const rows = phaseAnalytics();
+        const accuracy = metrics.total ? metrics.correct / metrics.total : 0;
+        const phasePass = rows.every(row => row.percent >= 60);
+        const helpBonus = Math.max(0, Math.round((diff.help - metrics.helpUsed) / Math.max(1,diff.help) * 8));
+        const comboBonus = Math.min(8, metrics.maxCombo * 2);
+        const finalScore = Math.max(0, Math.min(100, Math.round(accuracy * 84 + helpBonus + comboBonus)));
+        const mastered = finalScore >= 85 && phasePass && metrics.helpUsed <= 2;
+
+        logEvent({
+          eventType:'session_end',
+          phase:'end',
+          itemId:'',
+          prompt:'S4 ended',
+          yourAnswer:'',
+          correctAnswer:'',
+          isCorrect:'',
+          combo:metrics.combo,
+          helpLeft:metrics.helpLeft,
+          extraJson:{score:finalScore, mastered, phaseAnalytics:rows}
+        });
+
+        const summary = {
+          attemptId,
+          sessionId:'b2',
+          missionId:'b2',
+          missionTitle:'Search Arena Boss',
+          version:'v3.0.0-astar',
+          score:finalScore,
+          stars:calcStars(finalScore),
+          mastered,
+          difficulty:state.difficulty,
+          usedTimeSec:used,
+          timeLeftSec:timeLeft,
+          accuracy:Math.round(accuracy * 100),
+          correct:metrics.correct,
+          total:metrics.total,
+          wrong:metrics.wrong,
+          maxCombo:metrics.maxCombo,
+          helpUsed:metrics.helpUsed,
+          misconceptionsJson:JSON.stringify(metrics.mis),
+          extraJson:{
+            phaseAnalytics:rows,
+            noRepeat:round.noRepeat || {},
+            wrongItems:metrics.wrongItems,
+            next:'B2 Search Arena Challenge'
+          },
+          events:eventLog
+        };
+
+        finishMission(
+          finalScore,
+          `B2 Search Arena: Accuracy ${summary.accuracy}% · Combo x${metrics.maxCombo} · Help ${metrics.helpUsed}/${diff.help} · Mastery ${mastered ? 'YES' : 'Not yet'}`,
           {
             usedTime:used,
             mastered,
@@ -4135,6 +4532,11 @@ async function saveStudentProfile(){
           ['1) A* ใช้ g(n), h(n), f(n) อย่างไร?', 'อธิบายสูตร f(n)=g(n)+h(n) และความหมายของแต่ละค่า'],
           ['2) A* ต่างจาก UCS และ Greedy Best-First อย่างไร?', 'เปรียบเทียบ g-only, h-only และ g+h'],
           ['3) ใน Mini Project ของคุณ heuristic ที่ดีควรเป็นอะไร?', 'เช่น ระยะทางตรง, เวลาโดยประมาณ, cost ที่เหลือ หรือ risk estimate']
+        ],
+        b2:[
+          ['1) หลังสู้ B2 แล้ว คุณแยก BFS, DFS, UCS และ A* ได้อย่างไร?', 'เขียนเปรียบเทียบ frontier และ criteria ของแต่ละตัว'],
+          ['2) จุดที่คุณยังสับสนที่สุดใน Search Arena คืออะไร?', 'เช่น trace/path, cost, heuristic, visited/frontier'],
+          ['3) ถ้าจะเลือก search algorithm ใน Mini Project คุณจะเลือกอะไร เพราะอะไร?', 'อธิบายเงื่อนไขของปัญหาและเหตุผล']
         ],
         default:[
           ['1) เกมนี้เกี่ยวกับหลักการ AI เรื่องใด?', 'เช่น AI vs Traditional Program, Automation vs AI, Intelligent System'],
@@ -5335,7 +5737,7 @@ function logEvent(data){
     renderAll();
 
     const initialParams = new URLSearchParams(location.search);
-    const deepSessionMap = {s1:'m1', s2:'m2', b1:'b1', s3:'m3', s4:'m4', s5:'m5'};
+    const deepSessionMap = {s1:'m1', s2:'m2', b1:'b1', s3:'m3', s4:'m4', s5:'m5', b2:'b2'};
     const deepMission = initialParams.get('mission');
     const deepSession = initialParams.get('session');
     const targetId = deepMission || deepSessionMap[String(deepSession || '').toLowerCase()] || '';
@@ -5429,11 +5831,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v290.js"></script>
-  <script src="./js/aiquest-teacher-console-v290.js"></script>
-  <script src="./js/aiquest-student-detail-v290.js"></script>
-  <script src="./js/aiquest-production-v290.js"></script>
-  <script src="./js/aiquest-remedial-path-v290.js"></script>
-  <script src="./js/aiquest-session-roadmap-v290.js"></script>
+  <script src="./js/aiquest-ui-mode-v300.js"></script>
+  <script src="./js/aiquest-teacher-console-v300.js"></script>
+  <script src="./js/aiquest-student-detail-v300.js"></script>
+  <script src="./js/aiquest-production-v300.js"></script>
+  <script src="./js/aiquest-remedial-path-v300.js"></script>
+  <script src="./js/aiquest-session-roadmap-v300.js"></script>
 </body>
 </html>
