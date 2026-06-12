@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.7.6
+ * Version: v2.8.0
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.7.6';;
+const APP_VERSION = 'v2.8.0';;
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -733,7 +733,13 @@ function normalizePhaseName_(phase) {
     'bfs/dfs_trace':'BFS/DFS Trace',
     'bfs_dfs_trace':'BFS/DFS Trace',
     'maze_path':'Maze Path',
-    'search_boss':'Search Boss'
+    'search_boss':'Search Boss',
+    'cost_concept':'Cost Concept',
+    'ucs_trace':'UCS Trace',
+    'optimal_path':'Optimal Path',
+    'frontier_cost':'Frontier Cost',
+    'bfs_vs_ucs':'BFS vs UCS',
+    'cost_boss':'Cost Boss'
   };
 
   return map[key] || raw || 'Unknown';
