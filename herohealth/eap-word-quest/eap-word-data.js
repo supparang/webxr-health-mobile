@@ -1,7 +1,7 @@
 /* =========================================================
    EAP Word Quest • Academic Vocabulary Mission
    File: /herohealth/eap-word-quest/eap-word-data.js
-   Version: v1.5.0-FINAL-RELEASE-LOCK
+   Version: v1.5.1-STUDENT-HOME-SIMPLIFY
 
    Consolidated Final Data File
    - S1–S15 = 20 words/session
@@ -12,7 +12,7 @@
 
 "use strict";
 
-window.APP_VERSION = "v1.5.0-FINAL-RELEASE-LOCK";
+window.APP_VERSION = "v1.5.1-STUDENT-HOME-SIMPLIFY";
 
 /* =========================================================
    Course Map
@@ -657,8 +657,10 @@ window.SESSIONS = [
     function add(v){
       const s = normalizeChoiceText(v);
       if(!s) return;
+
       const key = s.toLowerCase();
       if(seen.has(key)) return;
+
       seen.add(key);
       out.push(s);
     }
