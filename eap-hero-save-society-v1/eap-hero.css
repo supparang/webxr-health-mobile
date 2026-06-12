@@ -1443,3 +1443,38 @@ textarea{
 .boss-gate-notice [onclick*="openBossGate"]::after{
   content:"";
 }
+
+
+/* === v1z43 Session Stars + Evidence Sync Fix === */
+.session-progress-badge{
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:14px;
+  font-size:12px;
+  font-weight:950;
+  line-height:1.35;
+  border:1px solid rgba(255,255,255,.18);
+}
+.session-progress-badge.complete{
+  background:#dcfce7;
+  color:#064e3b;
+  border-color:#86efac;
+}
+.session-progress-badge.needs{
+  background:rgba(15,23,42,.32);
+  color:#e0f2fe;
+}
+.earned-stars{
+  letter-spacing:1px;
+  font-weight:950;
+}
+.earned-stars.has-stars{
+  color:#f59e0b;
+}
+.earned-stars.no-stars{
+  color:#94a3b8;
+}
+.gate-requirement{
+  white-space:normal;
+  overflow-wrap:anywhere;
+}

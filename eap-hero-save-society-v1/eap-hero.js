@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z42-boss-gate-legacy-ui-cleanup';
+  const APP_VERSION = '20260610-v1z43-session-stars-evidence-sync-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z42</div>
+              <div class="mini-note">Save the Society • v1z43</div>
             </div>
           </div>
           <div class="top-actions">
@@ -31814,6 +31814,7 @@
     runTrueStudentUILockSoon();
     runAIHelpRepairSoon();
     runBossGateUICleanupSoon();
+    runSessionEvidenceSyncSoon();
 
   }
 
@@ -32287,6 +32288,7 @@
     checks.push({name:'Boss gate unlock enforcement', ok:typeof bossGateUnlockReport === 'function' && bossGateUnlockReport(1).sessions.join(',')==='1,2,3', detail:'Locked gates require session completion'});
     checks.push({name:'Boss gate completion detection', ok:typeof sessionCompletionReport === 'function' && typeof skillEvidenceCountForSession === 'function', detail:'Legacy evidence/stars/cards recognized'});
     checks.push({name:'Legacy boss gate UI cleanup', ok:typeof cleanupLegacyBossGateUI === 'function', detail:'Old Boss Gate Available UI hidden'});
+    checks.push({name:'Session stars evidence sync', ok:typeof sessionEvidenceSummary === 'function' && typeof augmentSessionCardsWithProgress === 'function', detail:'Earned stars and evidence badges visible'});
     checks.push({name:'Runtime errors', ok:(state.runtimeErrors || []).length===0, detail:`${(state.runtimeErrors || []).length} error(s)`});
     return checks;
   }
@@ -32577,49 +32579,142 @@
   }
 
 
-  function skillEvidenceCountForSession(sessionId){
-    const sid = Number(sessionId || 1);
+
+  function deepTextOfEvidenceItem(item){
+    try{
+      if(item == null) return '';
+      if(typeof item === 'string') return item;
+      return JSON.stringify(item);
+    }catch(e){
+      return String(item || '');
+    }
+  }
+
+  function extractSessionIdFromEvidence(item){
+    const direct = Number(item?.sessionId || item?.session || item?.s || item?.sid || item?.currentSession || item?.sessionNo || item?.sessionNumber || 0);
+    if(direct) return direct;
+    const txt = deepTextOfEvidenceItem(item);
+    const m = txt.match(/Session\s*[:#-]?\s*(\d{1,2})|S(\d{1,2})\b/i);
+    if(m) return Number(m[1] || m[2] || 0);
+    return 0;
+  }
+
+  function extractSkillFromEvidence(item){
+    const direct = String(item?.skill || item?.type || item?.missionSkill || item?.category || item?.mode || '').toLowerCase();
+    const txt = (direct + ' ' + deepTextOfEvidenceItem(item).toLowerCase());
+    if(txt.includes('reading')) return 'Reading';
+    if(txt.includes('writing')) return 'Writing';
+    if(txt.includes('listening')) return 'Listening';
+    if(txt.includes('speaking')) return 'Speaking';
+    return '';
+  }
+
+  function extractScoreFromEvidence(item){
+    const direct = Number(item?.score || item?.autoScore || item?.percent || item?.points || item?.grade || item?.resultScore || 0);
+    if(direct) return direct;
+    const txt = deepTextOfEvidenceItem(item);
+    const m = txt.match(/(\d{1,3})\s*\/\s*100|score["']?\s*[:=]\s*(\d{1,3})|autoScore["']?\s*[:=]\s*(\d{1,3})/i);
+    if(m) return Number(m[1] || m[2] || m[3] || 0);
+    return 0;
+  }
+
+  function allEvidenceItems(){
+    const out = [];
     const buckets = [
       state.portfolio,
       state.learningReports,
       state.reports,
       state.evidence,
       state.submissions,
-      state.logs
+      state.logs,
+      state.skillEvidence,
+      state.missionEvidence,
+      state.rubricReviews
     ];
-    const skills = new Set();
     buckets.forEach(bucket=>{
       if(!bucket) return;
-      const arr = Array.isArray(bucket) ? bucket : Object.values(bucket);
-      arr.forEach(item=>{
-        if(!item || typeof item !== 'object') return;
-        const itemSid = Number(item.sessionId || item.session || item.s || item.sid || item.currentSession || 0);
-        if(itemSid !== sid) return;
-        const sk = String(item.skill || item.type || item.missionSkill || '').toLowerCase();
-        if(sk.includes('reading')) skills.add('Reading');
-        if(sk.includes('writing')) skills.add('Writing');
-        if(sk.includes('listening')) skills.add('Listening');
-        if(sk.includes('speaking')) skills.add('Speaking');
-      });
+      if(Array.isArray(bucket)) out.push(...bucket);
+      else if(typeof bucket === 'object') out.push(...Object.values(bucket));
     });
+    return out;
+  }
+
+  function sessionEvidenceSummary(sessionId){
+    const sid = Number(sessionId || 1);
+    const skills = new Set();
+    let bestScore = 0;
+    const items = [];
+    allEvidenceItems().forEach(item=>{
+      const itemSid = extractSessionIdFromEvidence(item);
+      if(itemSid !== sid) return;
+      const sk = extractSkillFromEvidence(item);
+      if(sk) skills.add(sk);
+      const score = extractScoreFromEvidence(item);
+      if(score > bestScore) bestScore = score;
+      items.push(item);
+    });
+
     const sess = state.sessions?.[sid] || {};
     const skillObj = sess.skills || sess.skillDone || sess.skillProgress || sess.missions || {};
     ['Reading','Writing','Listening','Speaking'].forEach(k=>{
       if(skillObj[k] || skillObj[k.toLowerCase()] || skillObj[k.toUpperCase()]) skills.add(k);
     });
-    return {count:skills.size, skills:Array.from(skills)};
+
+    if(state.bossCards?.[sid]) bestScore = Math.max(bestScore, 80);
+    const count = skills.size || items.length;
+    const stars = bestScore >= 90 ? 3 : bestScore >= 75 ? 2 : bestScore >= 60 ? 1 : count >= 2 ? 1 : 0;
+    return {session:sid, skills:Array.from(skills), count, items:items.length, bestScore, stars};
+  }
+
+  function earnedStarsHTML(sessionId){
+    const e = sessionEvidenceSummary(sessionId);
+    const filled = '★'.repeat(e.stars);
+    const empty = '☆'.repeat(Math.max(0, 3 - e.stars));
+    return `<span class="earned-stars ${e.stars ? 'has-stars':'no-stars'}">${filled}${empty}</span>`;
+  }
+
+  function sessionProgressBadgeHTML(sessionId){
+    const e = sessionEvidenceSummary(sessionId);
+    const rep = sessionCompletionReport ? sessionCompletionReport(sessionId) : {complete:false, reason:''};
+    return `<div class="session-progress-badge ${rep.complete?'complete':'needs'}">
+      ${rep.complete?'✅ Complete':'⚠️ Evidence'} · ${e.count}/2 found · ${earnedStarsHTML(sessionId)}
+    </div>`;
+  }
+
+  function augmentSessionCardsWithProgress(){
+    document.querySelectorAll('.session-progress-badge').forEach(x=>x.remove());
+    document.querySelectorAll('.map-card,.session-card,.card').forEach(card=>{
+      const txt = (card.textContent || '');
+      const m = txt.match(/SESSION\s+(\d{1,2})|S(\d{1,2})\b/i);
+      if(!m) return;
+      const sid = Number(m[1] || m[2] || 0);
+      if(!sid || sid < 1 || sid > 15) return;
+      if(card.querySelector('.session-progress-badge')) return;
+      card.insertAdjacentHTML('beforeend', sessionProgressBadgeHTML(sid));
+    });
+  }
+
+  function runSessionEvidenceSyncSoon(){
+    augmentSessionCardsWithProgress();
+    setTimeout(augmentSessionCardsWithProgress, 0);
+    setTimeout(augmentSessionCardsWithProgress, 180);
+  }
+
+
+  function skillEvidenceCountForSession(sessionId){
+    const e = sessionEvidenceSummary(sessionId);
+    return {count:e.count, skills:e.skills};
   }
 
   function sessionCompletionReport(sessionId){
     const sid = Number(sessionId || 1);
     const sess = state.sessions?.[sid] || {};
-    const ev = skillEvidenceCountForSession(sid);
-    const starLike = Number(sess.stars || sess.scoreStars || sess.rating || 0) >= 1;
-    const xpLike = Number(sess.xp || sess.points || 0) > 0;
+    const ev = sessionEvidenceSummary(sid);
     const cardLike = !!state.bossCards?.[sid];
     const explicit = !!(sess.done || sess.completed || sess.complete || sess.bossDone || sess.cleared || sess.unlockedDone);
-    const enoughEvidence = ev.count >= 2; 
-    const complete = explicit || cardLike || enoughEvidence || starLike || xpLike;
+    const enoughEvidence = ev.count >= 2 || ev.items >= 2;
+    const scoreEvidence = Number(ev.bestScore || 0) >= 60;
+    const complete = explicit || cardLike || enoughEvidence || scoreEvidence;
     return {
       session:sid,
       complete,
@@ -32627,10 +32722,11 @@
       cardLike,
       evidenceSkills:ev.skills,
       evidenceCount:ev.count,
-      starLike,
-      xpLike,
+      evidenceItems:ev.items,
+      bestScore:ev.bestScore,
+      stars:ev.stars,
       reason: complete
-        ? (explicit ? 'marked complete' : cardLike ? 'session boss cleared' : enoughEvidence ? `${ev.count} skill evidences` : starLike ? 'session has stars' : 'session has XP')
+        ? (explicit ? 'marked complete' : cardLike ? 'session boss cleared' : enoughEvidence ? `${ev.count}/2 mission evidence found` : `score evidence ${ev.bestScore}/100`)
         : `needs mission evidence (${ev.count}/2 found)`
     };
   }
@@ -32691,14 +32787,18 @@
     state.sessions = state.sessions || {};
     for(let sid=1; sid<=15; sid++){
       const rep = sessionCompletionReport(sid);
+      const ev = sessionEvidenceSummary(sid);
+      state.sessions[sid] = state.sessions[sid] || {};
+      state.sessions[sid].earnedStars = ev.stars;
+      state.sessions[sid].evidenceCount = ev.count;
+      state.sessions[sid].evidenceSkills = ev.skills;
       if(rep.complete){
-        state.sessions[sid] = state.sessions[sid] || {};
         state.sessions[sid].completed = true;
         state.sessions[sid].completionReason = rep.reason;
       }
     }
     saveState();
-    safeToast('Legacy session completion repaired');
+    safeToast('Session evidence and stars synced');
     renderMap();
   }
 
@@ -37999,6 +38099,11 @@
     isSessionCompleteForGate,
     isPreviousBossGateCleared,
     skillEvidenceCountForSession,
+    sessionEvidenceSummary,
+    earnedStarsHTML,
+    sessionProgressBadgeHTML,
+    augmentSessionCardsWithProgress,
+    runSessionEvidenceSyncSoon,
     sessionCompletionReport,
     repairLegacySessionCompletion,
     bossGateUnlockReport,
