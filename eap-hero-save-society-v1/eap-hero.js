@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z48-direct-s3-s6-route-hotfix';
+  const APP_VERSION = '20260610-v1z49-hard-checkpoint-session-click-intercept';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z48</div>
+              <div class="mini-note">Save the Society • v1z49</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32338,7 +32338,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z48</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z49</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -33041,6 +33041,8 @@
 
 
   function renderMap(){
+    setTimeout(runCheckpointSessionPatchSoon, 0);
+
     setView('map');
     const tiles = SESSIONS.map(s=>{
       const p = state.sessions[s.id] || {};
@@ -34391,32 +34393,93 @@
   }
 
 
+
+  function checkpointSessionIdFromElement(el){
+    if(!el || !el.closest) return 0;
+    const node = el.closest('[data-session], [data-sid], .map-card, .session-card, .card');
+    if(!node) return 0;
+    const attrs = [node.getAttribute('data-session'), node.getAttribute('data-sid'), node.dataset?.session, node.dataset?.sid];
+    for(const a of attrs){ const n = Number(a || 0); if([3,6,9,12,15].includes(n)) return n; }
+    const txt = (node.textContent || '').replace(/\s+/g,' ');
+    const m = txt.match(/\bSESSION\s*(3|6|9|12|15)\b|\bS(3|6|9|12|15)\b/i);
+    if(m) return Number(m[1] || m[2] || 0);
+    const onclick = String(node.getAttribute('onclick') || '');
+    const om = onclick.match(/\((3|6|9|12|15)\)/);
+    if(om) return Number(om[1]);
+    return 0;
+  }
+
+  function forceCheckpointSessionFallback(sessionId, reason){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    state.currentSession = sid;
+    saveState();
+    try{
+      simpleSessionFallback(sid, reason || null);
+    }catch(err){
+      const appEl = document.getElementById('app') || document.body;
+      appEl.innerHTML = `<div class="shell"><section class="panel simple-session-fallback" style="margin-top:20px">
+        <div class="badges"><span class="pill">Safe Session Mode</span><span class="pill">S${sid}</span><span class="pill">v1z49</span></div>
+        <h2>Session ${sid}</h2>
+        <p class="lead">Safe fallback opened to prevent black screen.</p>
+        <div class="grid four skill-open-grid">
+          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Reading</button>
+          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Writing',${sid})">Writing</button>
+          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Listening',${sid})">Listening</button>
+          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Speaking',${sid})">Speaking</button>
+        </div>
+        <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+      </section></div>`;
+    }
+    return false;
+  }
+
+  function bindCheckpointSessionIntercept(){
+    if(window.__EAP_CHECKPOINT_SESSION_INTERCEPT__) return;
+    window.__EAP_CHECKPOINT_SESSION_INTERCEPT__ = true;
+    document.addEventListener('click', function(ev){
+      if(ev.target.closest && ev.target.closest('.simple-session-fallback,.black-screen-recovery,.boss-timeline,.topbar')) return;
+      const sid = checkpointSessionIdFromElement(ev.target);
+      if(!sid) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+      forceCheckpointSessionFallback(sid, 'Opened by v1z49 hard intercept to prevent black screen.');
+    }, true);
+  }
+
+  function patchCheckpointSessionCards(){
+    try{
+      document.querySelectorAll('.map-card,.session-card,.card,[data-session],[data-sid]').forEach(card=>{
+        const sid = checkpointSessionIdFromElement(card);
+        if(!sid) return;
+        card.setAttribute('data-checkpoint-session', String(sid));
+        card.setAttribute('onclick', `return EAPHero.forceCheckpointSessionFallback(${sid}, 'Opened by patched card handler')`);
+        card.classList.add('checkpoint-session-safe-card');
+      });
+    }catch(err){ console.warn('[patchCheckpointSessionCards]', err); }
+  }
+
+  function runCheckpointSessionPatchSoon(){
+    bindCheckpointSessionIntercept();
+    patchCheckpointSessionCards();
+    setTimeout(patchCheckpointSessionCards, 50);
+    setTimeout(patchCheckpointSessionCards, 250);
+    setTimeout(patchCheckpointSessionCards, 800);
+  }
+
+  function testCheckpointIntercept(){
+    runCheckpointSessionPatchSoon();
+    return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
+  }
+
+
   function directOpenSession(sessionId){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
     state.currentSession = sid;
     saveState();
-
-    // S3/S6/S9/S12/S15 are checkpoint-adjacent sessions. Open them with a safe fallback first to prevent black screen.
     if([3,6,9,12,15].includes(sid)){
-      try{
-        if(typeof renderSkillPath === 'function'){
-          renderSkillPath(sid);
-          setTimeout(()=>{
-            const app = document.getElementById('app');
-            const blank = !app || ((app.textContent||'').trim().length < 20);
-            if(blank) simpleSessionFallback(sid, 'Blank after renderSkillPath');
-          }, 220);
-        }else{
-          simpleSessionFallback(sid);
-        }
-      }catch(err){
-        console.error('[directOpenSession checkpoint fallback]', err);
-        try{ logRuntimeErrorSafe('directOpenSession', err, {sessionId:sid}); }catch(e){}
-        simpleSessionFallback(sid, err);
-      }
-      return false;
+      return forceCheckpointSessionFallback(sid, 'Opened by v1z49 direct checkpoint fallback.');
     }
-
     return safeOpenSession(sid);
   }
 
@@ -38492,6 +38555,12 @@
     openSkillMission,
     safeMissionSessionId,
     testS3S6Open,
+    testCheckpointIntercept,
+    bindCheckpointSessionIntercept,
+    checkpointSessionIdFromElement,
+    forceCheckpointSessionFallback,
+    patchCheckpointSessionCards,
+    runCheckpointSessionPatchSoon,
     directOpenSession,
     simpleSessionFallback,
     openSkillMissionSafe,
