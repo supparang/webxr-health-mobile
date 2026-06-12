@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v2.7.5 Before S4</title>
+  <title>CSAI2102: AI Quest v2.7.6 Before S4</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -907,7 +907,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
-  <script src="./js/mission1-foundation-bank-v275.js"></script>
+  <script src="./js/mission1-foundation-bank-v276.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
@@ -915,10 +915,10 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v275.js"></script>
-  <script src="./js/boss1-rookie-bank-v275.js"></script>
-  <script src="./js/search3-maze-bank-v275.js"></script>
-  <script src="./js/aiquest-foundation-quality-audit-v275.js"></script>
+  <script src="./js/mission2-agent-bank-v276.js"></script>
+  <script src="./js/boss1-rookie-bank-v276.js"></script>
+  <script src="./js/search3-maze-bank-v276.js"></script>
+  <script src="./js/aiquest-foundation-quality-audit-v276.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -930,7 +930,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v2.7.5 • Teacher Console Session 3 Option • Section 101</div>
+          <div class="subtitle">v2.7.6 • Teacher Console Session 3 Option • Section 101</div>
         </div>
       </div>
 
@@ -1784,8 +1784,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v275.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v275.js</b>
+            โหลดไฟล์ mission2-agent-bank-v276.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v276.js</b>
           </div>
         `;
         return;
@@ -2445,7 +2445,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v2.7.5-session2-learning-feedback',
+          version:'v2.7.6-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2507,8 +2507,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v275.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v275.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v276.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v276.js</b>
           </div>
         `;
         return;
@@ -2893,7 +2893,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v2.7.5-b1-full-boss',
+          version:'v2.7.6-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2950,8 +2950,8 @@ async function saveStudentProfile(){
       if(typeof buildSession3Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ search3-maze-bank-v275.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/search3-maze-bank-v275.js</b>
+            โหลดไฟล์ search3-maze-bank-v276.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v276.js</b>
           </div>
         `;
         return;
@@ -3271,7 +3271,7 @@ async function saveStudentProfile(){
           sessionId:'s3',
           missionId:'m3',
           missionTitle:'Search Maze',
-          version:'v2.7.5-search-maze',
+          version:'v2.7.6-search-maze',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4621,11 +4621,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v275.js"></script>
-  <script src="./js/aiquest-teacher-console-v275.js"></script>
-  <script src="./js/aiquest-student-detail-v275.js"></script>
-  <script src="./js/aiquest-production-v275.js"></script>
-  <script src="./js/aiquest-remedial-path-v275.js"></script>
-  <script src="./js/aiquest-session-roadmap-v275.js"></script>
+  <script src="./js/aiquest-ui-mode-v276.js"></script>
+  <script src="./js/aiquest-teacher-console-v276.js"></script>
+  <script src="./js/aiquest-student-detail-v276.js"></script>
+  <script src="./js/aiquest-production-v276.js"></script>
+  <script src="./js/aiquest-remedial-path-v276.js"></script>
+  <script src="./js/aiquest-session-roadmap-v276.js"></script>
 </body>
 </html>
