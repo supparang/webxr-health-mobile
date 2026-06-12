@@ -1574,3 +1574,32 @@ textarea{
 /* === v1z49 Hard Checkpoint Session Click Intercept === */
 .checkpoint-session-safe-card{outline:2px solid rgba(125,211,252,.28);cursor:pointer}
 .checkpoint-session-safe-card::after{content:"Safe route";display:inline-block;margin-top:8px;padding:4px 8px;border-radius:999px;background:#ecfeff;color:#155e75;font-size:10px;font-weight:950}
+
+
+/* === v1z50 Unified Checkpoint Session UI === */
+.unified-checkpoint-session{
+  border-color:rgba(125,211,252,.35) !important;
+}
+.checkpoint-normal-note{
+  margin:14px 0;
+}
+.route-note{
+  margin:12px 0;
+  padding:12px 14px;
+  border-radius:16px;
+  background:#f8fafc;
+  color:#0f172a;
+  font-weight:850;
+}
+.soft-recovery-note{
+  margin-top:14px;
+  padding:10px 12px;
+  border-radius:14px;
+  background:rgba(125,211,252,.14);
+  color:#dff8ff;
+  font-weight:800;
+  border:1px solid rgba(125,211,252,.25);
+}
+.unified-checkpoint-session .hud-card{
+  min-height:360px;
+}

@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z49-hard-checkpoint-session-click-intercept';
+  const APP_VERSION = '20260610-v1z50-unified-checkpoint-session-ui';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z49</div>
+              <div class="mini-note">Save the Society • v1z50</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32338,7 +32338,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z49</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z50</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -34337,14 +34337,72 @@
     return s;
   }
 
+
+  function checkpointSessionNoteHTML(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const gate = bossGateAfterSession ? bossGateAfterSession(sid) : null;
+    if(!gate) return '';
+    const label = gate.type === 'final' ? 'Final Boss' : `Boss Gate ${gate.gate}`;
+    const first = gate.after?.[0] || sid - 2;
+    const last = gate.after?.[gate.after.length-1] || sid;
+    const rule = gate.type === 'final'
+      ? `Pass S${first}–S${last} and clear Boss Gate 4 to unlock Final Boss.`
+      : gate.gate === 1
+        ? `Pass S${first}–S${last} to unlock Boss Gate 1.`
+        : `Pass S${first}–S${last} and clear Boss Gate ${gate.gate-1} to unlock Boss Gate ${gate.gate}.`;
+    return `<div class="session-not-boss-note checkpoint-normal-note">
+      <b>S${sid} is a normal Session.</b>
+      <span>${safe(label)} is a checkpoint after this group, not this Session itself.</span>
+      <span>${safe(rule)}</span>
+    </div>`;
+  }
+
+  function unifiedCheckpointSessionPage(sessionId, reason){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const s = safeSessionMeta ? safeSessionMeta(sid) : (typeof getSession === 'function' ? getSession(sid) : {id:sid,title:`Session ${sid}`});
+    const path = (typeof skillPathForSession === 'function') ? skillPathForSession(sid) : {core:'Reading', support:'Writing'};
+    const visibleSkills = (typeof isSimpleMode === 'function' && isSimpleMode())
+      ? [path.core].concat((typeof featureUnlocked === 'function' && featureUnlocked('supportMission')) ? [path.support] : [])
+      : ['Reading','Writing','Listening','Speaking'];
+    const cards = visibleSkills.map(skill=>{
+      const required = skill === path.core ? 'Core' : skill === path.support ? 'Support' : 'Optional';
+      let done = false;
+      try{ done = typeof portfolioEvidence === 'function' && portfolioEvidence(sid, skill).length > 0; }catch(e){}
+      return `<div class="hud-card ${done?'ok':''}">
+        <h3>${done?'✅':'⬜'} ${safe(skill)}</h3>
+        <p class="mini-note">${safe(required)} Mission</p>
+        ${typeof sessionQualityHTML === 'function' ? sessionQualityHTML(sid) : ''}
+        <button class="btn primary full" onclick="return EAPHero.openSkillMissionSafe('${safe(skill)}',${sid})">Start ${safe(skill)}</button>
+      </div>`;
+    }).join('');
+    const flow = `Map → Session Path → Core/Support Mission → Mini Check → ${bossGateAfterSession && bossGateAfterSession(sid) ? 'Boss Gate checkpoint after criteria' : 'Map'}`;
+    layout(`<section class="panel skill-path-panel unified-checkpoint-session" style="margin-top:20px">
+      <div class="badges"><span class="pill">Session ${sid}</span><span class="pill">Normal Session</span><span class="pill">Unified UI</span></div>
+      <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
+      <p class="lead">${safe(s.skill || s.subtitle || 'Academic English practice')}</p>
+      <div class="route-note">Flow: ${safe(flow)}</div>
+      ${checkpointSessionNoteHTML(sid)}
+      <div class="grid four">${cards}</div>
+      <div class="simple-mode-note">Simple Mode: ตอนนี้ให้ทำ Core Mission ก่อน และ Support Mission ได้แล้ว</div>
+      <div class="footer-actions">
+        <button class="btn" onclick="EAPHero.map()">Map</button>
+        <button class="btn ghost" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Debug: Open Reading</button>
+      </div>
+      ${reason ? `<div class="soft-recovery-note">Safe route active: ${safe(reason.message || reason)}</div>` : ''}
+    </section>`);
+    return false;
+  }
+
+
   function simpleSessionFallback(sessionId, err){
     const sid = Number(sessionId || state.currentSession || 1) || 1;
+    if([3,6,9,12,15].includes(sid)){
+      return unifiedCheckpointSessionPage(sid, err);
+    }
     const s = safeSessionMeta(sid);
-    const gateNote = (sid===3 || sid===6 || sid===9 || sid===12 || sid===15)
-      ? `<div class="session-not-boss-note"><b>S${sid} is a normal Session.</b><span>Complete this Session first. The Boss Gate opens only after the required Session set is passed.</span></div>`
-      : '';
+    const gateNote = '';
     layout(`<section class="panel simple-session-fallback" style="margin-top:20px">
-      <div class="badges"><span class="pill">Safe Session Mode</span><span class="pill">S${sid}</span><span class="pill">v1z48</span></div>
+      <div class="badges"><span class="pill">Safe Session Mode</span><span class="pill">S${sid}</span><span class="pill">v1z50</span></div>
       <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
       <p class="lead">${safe(s.subtitle || s.skill || 'Practice Reading, Writing, Listening, and Speaking missions.')}</p>
       ${gateNote}
@@ -34358,7 +34416,7 @@
         <button class="btn" onclick="EAPHero.map()">Back to Map</button>
         <button class="btn ghost" onclick="EAPHero.renderStudentReports()">My Learning Report</button>
       </div>
-      ${err ? `<div class="recovery-error"><b>Recovered from:</b> ${safe(err.message || err)}</div>` : ''}
+      ${err ? `<div class="soft-recovery-note">Safe route active: ${safe(err.message || err)}</div>` : ''}
     </section>`);
     return false;
   }
@@ -34413,24 +34471,7 @@
     const sid = Number(sessionId || state.currentSession || 1) || 1;
     state.currentSession = sid;
     saveState();
-    try{
-      simpleSessionFallback(sid, reason || null);
-    }catch(err){
-      const appEl = document.getElementById('app') || document.body;
-      appEl.innerHTML = `<div class="shell"><section class="panel simple-session-fallback" style="margin-top:20px">
-        <div class="badges"><span class="pill">Safe Session Mode</span><span class="pill">S${sid}</span><span class="pill">v1z49</span></div>
-        <h2>Session ${sid}</h2>
-        <p class="lead">Safe fallback opened to prevent black screen.</p>
-        <div class="grid four skill-open-grid">
-          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Reading',${sid})">Reading</button>
-          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Writing',${sid})">Writing</button>
-          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Listening',${sid})">Listening</button>
-          <button class="btn primary" onclick="return EAPHero.openSkillMissionSafe('Speaking',${sid})">Speaking</button>
-        </div>
-        <button class="btn" onclick="EAPHero.map()">Back to Map</button>
-      </section></div>`;
-    }
-    return false;
+    return unifiedCheckpointSessionPage(sid, reason || 'Checkpoint session opened with unified safe UI.');
   }
 
   function bindCheckpointSessionIntercept(){
@@ -34478,7 +34519,7 @@
     state.currentSession = sid;
     saveState();
     if([3,6,9,12,15].includes(sid)){
-      return forceCheckpointSessionFallback(sid, 'Opened by v1z49 direct checkpoint fallback.');
+      return unifiedCheckpointSessionPage(sid, null);
     }
     return safeOpenSession(sid);
   }
@@ -38558,6 +38599,8 @@
     testCheckpointIntercept,
     bindCheckpointSessionIntercept,
     checkpointSessionIdFromElement,
+    checkpointSessionNoteHTML,
+    unifiedCheckpointSessionPage,
     forceCheckpointSessionFallback,
     patchCheckpointSessionCards,
     runCheckpointSessionPatchSoon,
