@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v2.7.2
+ * Version: v2.7.3
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v2.7.2';
+const APP_VERSION = 'v2.7.3';
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -481,7 +481,8 @@ function buildMasteryGate_(profiles, attempts, events) {
   const required = [
     {sessionId:'s1', missionId:'m1', label:'S1 AI Awakening'},
     {sessionId:'s2', missionId:'m2', label:'S2 Agent Builder'},
-    {sessionId:'b1', missionId:'b1', label:'B1 Rookie Boss'}
+    {sessionId:'b1', missionId:'b1', label:'B1 Rookie Boss'},
+    {sessionId:'s3', missionId:'m3', label:'S3 Search Maze'}
   ];
 
   const studentMap = {};
@@ -493,7 +494,8 @@ function buildMasteryGate_(profiles, attempts, events) {
       studentName:String(p.studentName || ''),
       section:String(p.section || ''),
       sessions:{},
-      ready:false,
+      readyForS3:false,
+      readyForS4:false,
       challenge:false,
       risks:[]
     };
@@ -508,7 +510,8 @@ function buildMasteryGate_(profiles, attempts, events) {
         studentName:String(a.studentName || ''),
         section:String(a.section || ''),
         sessions:{},
-        ready:false,
+        readyForS3:false,
+        readyForS4:false,
         challenge:false,
         risks:['ไม่มี Profile']
       };
@@ -575,35 +578,53 @@ function buildMasteryGate_(profiles, attempts, events) {
     };
   });
 
-  let readyForS3 = 0, challengeReady = 0, needS1 = 0, needS2 = 0, needB1 = 0, remedial = 0;
+  let readyForS3 = 0, readyForS4 = 0, challengeReady = 0;
+  let needS1 = 0, needS2 = 0, needB1 = 0, needS3 = 0, remedial = 0;
+  let s3Submitted = 0, s3Passed = 0;
 
   const studentGateRows = students.map(function(st){
     const s1 = st.sessions.s1 || {};
     const s2 = st.sessions.s2 || {};
     const b1 = st.sessions.b1 || {};
+    const s3 = st.sessions.s3 || {};
 
     const passS1 = !!s1.passed;
     const passS2 = !!s2.passed;
     const passB1 = !!b1.passed;
+    const passS3 = !!s3.passed;
+
+    const hasS3 = !!(s3 && s3.attempts > 0);
+    if (hasS3) s3Submitted++;
+    if (passS3) s3Passed++;
 
     const risks = [];
     if (!passS1) risks.push('Need S1');
     if (!passS2) risks.push('Need S2');
     if (!passB1) risks.push('Need B1');
-    if (passS1 && passS2 && passB1 && (Number(b1.bestScore || 0) < 85 || !b1.mastered)) risks.push('B1 passed but not mastery');
+    if (passS1 && passS2 && passB1 && !passS3) risks.push('Need S3');
+    if (passS1 && passS2 && passB1 && passS3 && (Number(s3.bestScore || 0) < 85 || !s3.mastered)) risks.push('S3 passed but not mastery');
 
     if (!passS1) needS1++;
     else if (!passS2) needS2++;
     else if (!passB1) needB1++;
+    else if (!passS3) needS3++;
 
-    const ready = passS1 && passS2 && passB1;
-    const challenge = ready && Number(s1.bestScore || 0) >= 85 && Number(s2.bestScore || 0) >= 85 && Number(b1.bestScore || 0) >= 85 && !!b1.mastered;
+    const ready3 = passS1 && passS2 && passB1;
+    const ready4 = ready3 && passS3;
+    const challenge = ready4 &&
+      Number(s1.bestScore || 0) >= 85 &&
+      Number(s2.bestScore || 0) >= 85 &&
+      Number(b1.bestScore || 0) >= 85 &&
+      Number(s3.bestScore || 0) >= 85 &&
+      !!s3.mastered;
 
-    if (ready) readyForS3++;
+    if (ready3) readyForS3++;
+    if (ready4) readyForS4++;
     if (challenge) challengeReady++;
-    if (!ready) remedial++;
+    if (!ready4) remedial++;
 
-    st.ready = ready;
+    st.readyForS3 = ready3;
+    st.readyForS4 = ready4;
     st.challenge = challenge;
     st.risks = (st.risks || []).concat(risks);
 
@@ -614,7 +635,9 @@ function buildMasteryGate_(profiles, attempts, events) {
       s1:{passed:passS1, bestScore:Number(s1.bestScore || 0), mastered:!!s1.mastered},
       s2:{passed:passS2, bestScore:Number(s2.bestScore || 0), mastered:!!s2.mastered},
       b1:{passed:passB1, bestScore:Number(b1.bestScore || 0), mastered:!!b1.mastered, bossWin:!!b1.bossWin},
-      readyForS3:ready,
+      s3:{passed:passS3, bestScore:Number(s3.bestScore || 0), mastered:!!s3.mastered, attempts:Number(s3.attempts || 0)},
+      readyForS3:ready3,
+      readyForS4:ready4,
       challengeReady:challenge,
       risks:risks
     };
@@ -623,35 +646,55 @@ function buildMasteryGate_(profiles, attempts, events) {
   const misconceptions = collectMisconceptions_(attempts, events);
   const topMis = misconceptions.slice(0, 8);
   const readyPct = students.length ? Math.round(readyForS3 / students.length * 100) : 0;
+  const readyForS4Pct = students.length ? Math.round(readyForS4 / students.length * 100) : 0;
+  const s3SubmittedPct = students.length ? Math.round(s3Submitted / students.length * 100) : 0;
+  const hasS3Data = s3Submitted > 0;
   const recommendations = [];
 
   if (students.length === 0) {
-    recommendations.push('ยังไม่มีรายชื่อนักศึกษา/attempt สำหรับวิเคราะห์ Class Gate');
-  } else {
+    recommendations.push('ยังไม่มีรายชื่อนักศึกษา/attempt สำหรับวิเคราะห์ Class Progress');
+  } else if (!hasS3Data) {
     if (readyPct >= 70) {
-      recommendations.push('เปิด S3 Search Maze ได้ โดยใช้ 10 นาทีแรกทบทวน misconception เด่นก่อนเริ่ม BFS/DFS');
+      recommendations.push('พร้อมให้ผู้เรียนเริ่ม S3 Search Maze แล้ว ใช้ 10 นาทีแรกทบทวน misconception เด่นก่อนเริ่ม BFS/DFS');
     } else if (readyPct >= 50) {
       recommendations.push('เปิด S3 ได้แบบมี Remedial คู่ขนาน: กลุ่มพร้อมเริ่ม S3 ส่วนกลุ่มที่ยังไม่ผ่านทำ S2/B1 Training ก่อน');
     } else {
-      recommendations.push('ยังไม่ควรเปิด S3 ทันที: ควรทำ remedial S1-S2-B1 ก่อนอย่างน้อย 15–25 นาที แล้วให้ทำ B1 ซ้ำ');
+      recommendations.push('ยังไม่ควรเปิด S3 ทันที: ควร remedial S1-S2-B1 ก่อนอย่างน้อย 15–25 นาที แล้วให้ทำ B1 ซ้ำ');
     }
-
-    if (needB1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน B1 ทำ Rookie Boss ซ้ำจนได้อย่างน้อย 1 ดาว');
-    if (needS2 > 0) recommendations.push('ทบทวน Intelligent Agent / PEAS / Environment สำหรับผู้เรียนที่ยังไม่ผ่าน S2');
-    if (needS1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน S1 กลับไปเก็บ AI Overview ก่อนเข้าด่านต่อ');
-    if (topMis.length) recommendations.push('คาบถัดไปควรยกตัวอย่างซ้ำเรื่อง ' + topMis.slice(0,3).map(function(x){ return x.key; }).join(', '));
+  } else {
+    if (readyForS4Pct >= 70) {
+      recommendations.push('ห้องผ่าน S3 แล้ว พร้อมต่อ S4 Route Cost Challenge เมื่อเปิด patch ถัดไป');
+      recommendations.push('ก่อนขึ้น S4 ให้ทบทวนความต่างระหว่าง visited order, final path และ cost-based search ประมาณ 10 นาที');
+    } else if (readyForS4Pct >= 50) {
+      recommendations.push('ให้กลุ่มที่ผ่าน S3 เตรียม S4 ได้ แต่ควรให้กลุ่มที่ยังไม่ผ่านทำ S3 Search Maze ซ้ำหรือ remedial เพิ่ม');
+    } else {
+      recommendations.push('ควร remedial S3 Search Maze ก่อนเปิด S4 โดยเน้น State Space, BFS/DFS Trace และ Maze Path');
+    }
   }
+
+  if (needS3 > 0) recommendations.push('ให้ผู้เรียนที่ผ่าน B1 แล้วแต่ยังไม่ผ่าน S3 เล่น/แก้ S3 Search Maze');
+  if (needB1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน B1 ทำ Rookie Boss ซ้ำจนได้อย่างน้อย 1 ดาว');
+  if (needS2 > 0) recommendations.push('ทบทวน Intelligent Agent / PEAS / Environment สำหรับผู้เรียนที่ยังไม่ผ่าน S2');
+  if (needS1 > 0) recommendations.push('ให้ผู้เรียนที่ยังไม่ผ่าน S1 กลับไปเก็บ AI Overview ก่อนเข้าด่านต่อ');
+  if (topMis.length) recommendations.push('คาบถัดไปควรยกตัวอย่างซ้ำเรื่อง ' + topMis.slice(0,3).map(function(x){ return x.key; }).join(', '));
 
   return {
     requiredSessions:required,
     totalStudents:students.length,
     readyForS3:readyForS3,
     readyPct:readyPct,
+    readyForS4:readyForS4,
+    readyForS4Pct:readyForS4Pct,
+    s3Submitted:s3Submitted,
+    s3SubmittedPct:s3SubmittedPct,
+    s3Passed:s3Passed,
+    hasS3Data:hasS3Data,
     challengeReady:challengeReady,
     remedial:remedial,
     needS1:needS1,
     needS2:needS2,
     needB1:needB1,
+    needS3:needS3,
     stageProgress:stageProgress,
     topMisconceptions:topMis,
     recommendations:recommendations,
