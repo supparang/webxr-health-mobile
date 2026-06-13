@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z54-storage-quota-guard-compact-save';
+  const APP_VERSION = '20260610-v1z55-session-star-sync-cefr-storage-cleanup';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31542,6 +31542,8 @@
 
 
   function recordRuntimeError(type, message, source, line, col){
+    if(typeof isQuotaExceededError === 'function' && isQuotaExceededError(type)) return false;
+
     try{
       state.qa = state.qa || { runtimeErrors:[] };
       state.qa.runtimeErrors = state.qa.runtimeErrors || [];
@@ -31806,7 +31808,7 @@
       </div>
       <div class="storage-fix-note"><b>Fix:</b> กด Optimize Storage เพื่อตัด output/log เก่าที่ยาวเกิน แต่ยังเก็บ progress สำคัญไว้</div>
       <div class="footer-actions">
-        <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Optimize Storage</button>
+        <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Optimize Storage</button><button class="btn" onclick="EAPHero.deepStorageCleanupNow()">Deep Cleanup</button>
         <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
         <button class="btn" onclick="EAPHero.map()">Back to Map</button>
       </div>
@@ -31985,7 +31987,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z54</div>
+              <div class="mini-note">Save the Society • v1z55</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32534,7 +32536,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z54</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z55</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32724,6 +32726,131 @@
     setTimeout(syncPassProgressNow, 50, true);
     setTimeout(injectPassCriteriaOnMap, 80);
     setTimeout(injectPassCriteriaOnMap, 300);
+  }
+
+
+
+  function normalizeCEFRLabelsInDOM(){
+    try{
+      document.querySelectorAll('.pill,.badge,.tag,.mini-note,span,div').forEach(el=>{
+        if(!el || !el.childNodes || el.childNodes.length !== 1) return;
+        const txt = (el.textContent || '').trim();
+        if(/^CEFR\s+Boss Gate/i.test(txt) || /^CEFR\s+A2[-–]Boss Gate/i.test(txt)){
+          el.textContent = 'CEFR A2-B1+';
+        }
+      });
+    }catch(e){}
+  }
+
+  function sessionStarScore(sessionId){
+    const sid = Number(sessionId || 1);
+    const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+    if(!rep) return {session:sid, stars:0, avg:0, passed:false, reason:'no report'};
+    const scores = (rep.skillRows || []).map(x=>Number(x.bestScore || 0)).filter(x=>x>0);
+    const avg = scores.length ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+    let stars = 0;
+    if(rep.passed){
+      if(avg >= 85) stars = 3;
+      else if(avg >= 70) stars = 2;
+      else stars = 1;
+    }
+    return {session:sid, stars, avg, passed:rep.passed, requiredSkills:rep.requiredSkills, skillRows:rep.skillRows, reason:rep.reason};
+  }
+
+  function sessionStarsText(sessionId){
+    const st = sessionStarScore(sessionId);
+    return '★'.repeat(st.stars) + '☆'.repeat(Math.max(0, 3 - st.stars));
+  }
+
+  function syncSessionStarsNow(silent){
+    state.sessions = state.sessions || {};
+    for(let sid=1; sid<=15; sid++){
+      const st = sessionStarScore(sid);
+      state.sessions[sid] = state.sessions[sid] || {};
+      state.sessions[sid].earnedStars = st.stars;
+      state.sessions[sid].starAverage = st.avg;
+      state.sessions[sid].passed = st.passed;
+      state.sessions[sid].starReason = st.reason;
+      if(st.passed){
+        state.sessions[sid].completed = true;
+        state.sessions[sid].done = true;
+      }
+    }
+    saveState();
+    if(!silent) safeToast('Session stars synced from reports');
+    return true;
+  }
+
+  function sessionStarBadgeHTML(sessionId){
+    const st = sessionStarScore(sessionId);
+    return `<div class="session-star-sync-badge ${st.passed?'passed':'not-yet'}">
+      <span class="star-line">${sessionStarsText(sessionId)}</span>
+      <span>${st.passed ? `Passed · avg ${st.avg}` : 'Not passed yet'}</span>
+    </div>`;
+  }
+
+  function applySessionStarsToMapCards(){
+    try{
+      normalizeCEFRLabelsInDOM();
+      document.querySelectorAll('.session-star-sync-badge').forEach(x=>x.remove());
+      document.querySelectorAll('.map-card,.session-card,[data-session-card]').forEach(card=>{
+        const txt = (card.textContent || '').replace(/\s+/g,' ');
+        const m = txt.match(/\bSESSION\s*(\d{1,2})\b|\bS(\d{1,2})\b/i);
+        if(!m) return;
+        const sid = Number(m[1] || m[2] || 0);
+        if(!sid || sid<1 || sid>15) return;
+        if(/My Learning Report|You did well|Next time|Try this/i.test(txt)) return;
+        card.insertAdjacentHTML('beforeend', sessionStarBadgeHTML(sid));
+      });
+    }catch(err){
+      console.warn('[applySessionStarsToMapCards]', err);
+    }
+  }
+
+  function runSessionStarSyncSoon(){
+    try{ syncSessionStarsNow(true); }catch(e){}
+    normalizeCEFRLabelsInDOM();
+    applySessionStarsToMapCards();
+    setTimeout(()=>{ normalizeCEFRLabelsInDOM(); applySessionStarsToMapCards(); }, 120);
+    setTimeout(()=>{ normalizeCEFRLabelsInDOM(); applySessionStarsToMapCards(); }, 500);
+  }
+
+  function cleanOtherEAPLocalStorageKeys(){
+    try{
+      Object.keys(localStorage).forEach(k=>{
+        if(k === STORAGE_KEY) return;
+        if(/^EAP_HERO_|EAPHero|eap-hero/i.test(k)){
+          localStorage.removeItem(k);
+        }
+      });
+    }catch(e){}
+  }
+
+  function deepStorageCleanupNow(){
+    cleanOtherEAPLocalStorageKeys();
+    pruneStateForStorage();
+    state.runtimeErrors = [];
+    if(state.qa) state.qa.runtimeErrors = [];
+    if(state.logs) state.logs = (state.logs || []).slice(-20);
+    syncSessionStarsNow(true);
+    const minimal = typeof minimalStateForEmergencySave === 'function' ? minimalStateForEmergencySave() : state;
+    minimal.sessions = state.sessions || {};
+    minimal.bossCards = state.bossCards || {};
+    minimal.bossGates = state.bossGates || {};
+    minimal.portfolio = compactArray(state.portfolio, 40, compactPortfolioEntry);
+    minimal.learningReports = compactArray(state.learningReports, 40);
+    try{
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(minimal));
+      Object.assign(state, minimal);
+      safeToast('Deep storage cleanup done. Stars synced.');
+      renderMap();
+      return true;
+    }catch(err){
+      console.warn('[deepStorageCleanupNow]', err);
+      safeToast('Browser storage still full. Export CSV, then Reset Local Progress.');
+      return false;
+    }
   }
 
 
@@ -33111,17 +33238,14 @@
   }
 
   function earnedStarsHTML(sessionId){
-    const e = sessionEvidenceSummary(sessionId);
-    const filled = '★'.repeat(e.stars);
-    const empty = '☆'.repeat(Math.max(0, 3 - e.stars));
-    return `<span class="earned-stars ${e.stars ? 'has-stars':'no-stars'}">${filled}${empty}</span>`;
+    const st = sessionStarScore(sessionId);
+    return `<span class="earned-stars ${st.stars ? 'has-stars':'no-stars'}">${sessionStarsText(sessionId)}</span>`;
   }
 
   function sessionProgressBadgeHTML(sessionId){
-    const e = sessionEvidenceSummary(sessionId);
-    const rep = sessionCompletionReport ? sessionCompletionReport(sessionId) : {complete:false, reason:''};
-    return `<div class="session-progress-badge ${rep.complete?'complete':'needs'}">
-      ${rep.complete?'✅ Complete':'⚠️ Evidence'} · ${e.count}/2 found · ${earnedStarsHTML(sessionId)}
+    const st = sessionStarScore(sessionId);
+    return `<div class="session-progress-badge ${st.passed?'complete':'needs'}">
+      ${st.passed?'✅ Passed':'⚠️ Not yet'} · avg ${st.avg || 0} · ${sessionStarsText(sessionId)}
     </div>`;
   }
 
@@ -34840,6 +34964,7 @@
     runCheckpointSessionPatchSoon();
     runFourSkillsHubCleanupSoon();
     runPassCriteriaSyncSoon();
+    runSessionStarSyncSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -38094,7 +38219,7 @@
 
   function cefrReviewBadge(p){
     const diff = p.difficulty || currentSkillDifficulty().key || 'easy';
-    const label = diff === 'easy' ? 'CEFR A2' : diff === 'normal' ? 'CEFR Boss Gate 1' : diff === 'hard' ? 'CEFR Boss Gate 1+' : 'Challenge';
+    const label = diff === 'easy' ? 'CEFR A2' : diff === 'normal' ? 'CEFR A2-B1+' : diff === 'hard' ? 'CEFR A2-B1+' : 'Challenge';
     return `<span class="pill tiny cefr-review-badge">${safe(label)}</span>`;
   }
 
@@ -38872,6 +38997,15 @@
     renderProgressDiagnostics,
     STORAGE_LIMITS,
     storageUsageInfo,
+    normalizeCEFRLabelsInDOM,
+    sessionStarScore,
+    sessionStarsText,
+    syncSessionStarsNow,
+    sessionStarBadgeHTML,
+    applySessionStarsToMapCards,
+    runSessionStarSyncSoon,
+    cleanOtherEAPLocalStorageKeys,
+    deepStorageCleanupNow,
     optimizeStorageNow,
     renderStorageDiagnostics,
     pruneStateForStorage,
