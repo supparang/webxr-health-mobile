@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v3.0.1 Before S4</title>
+  <title>CSAI2102: AI Quest v3.0.2 Before S4</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -907,7 +907,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
-  <script src="./js/mission1-foundation-bank-v301.js"></script>
+  <script src="./js/mission1-foundation-bank-v302.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
@@ -915,13 +915,13 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v301.js"></script>
-  <script src="./js/boss1-rookie-bank-v301.js"></script>
-  <script src="./js/search3-maze-bank-v301.js"></script>
-  <script src="./js/routecost4-bank-v301.js"></script>
-  <script src="./js/astar5-bank-v301.js"></script>
-  <script src="./js/boss2-search-arena-bank-v301.js"></script>
-  <script src="./js/aiquest-foundation-quality-audit-v301.js"></script>
+  <script src="./js/mission2-agent-bank-v302.js"></script>
+  <script src="./js/boss1-rookie-bank-v302.js"></script>
+  <script src="./js/search3-maze-bank-v302.js"></script>
+  <script src="./js/routecost4-bank-v302.js"></script>
+  <script src="./js/astar5-bank-v302.js"></script>
+  <script src="./js/boss2-search-arena-bank-v302.js"></script>
+  <script src="./js/aiquest-foundation-quality-audit-v302.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -933,7 +933,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v3.0.1 • S4 UI Consistency • Section 101</div>
+          <div class="subtitle">v3.0.2 • B2 Result + Sync Fix • Section 101</div>
         </div>
       </div>
 
@@ -1869,8 +1869,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v301.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v301.js</b>
+            โหลดไฟล์ mission2-agent-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v302.js</b>
           </div>
         `;
         return;
@@ -2530,7 +2530,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v3.0.1-session2-learning-feedback',
+          version:'v3.0.2-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2592,8 +2592,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v301.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v301.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v302.js</b>
           </div>
         `;
         return;
@@ -2978,7 +2978,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v3.0.1-b1-full-boss',
+          version:'v3.0.2-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3035,8 +3035,8 @@ async function saveStudentProfile(){
       if(typeof buildSession3Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ search3-maze-bank-v301.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/search3-maze-bank-v301.js</b>
+            โหลดไฟล์ search3-maze-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v302.js</b>
           </div>
         `;
         return;
@@ -3356,7 +3356,7 @@ async function saveStudentProfile(){
           sessionId:'s3',
           missionId:'m3',
           missionTitle:'Search Maze',
-          version:'v3.0.1-search-maze',
+          version:'v3.0.2-search-maze',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3404,8 +3404,8 @@ async function saveStudentProfile(){
       if(typeof buildSession4Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ routecost4-bank-v301.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/routecost4-bank-v301.js</b>
+            โหลดไฟล์ routecost4-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/routecost4-bank-v302.js</b>
           </div>
         `;
         return;
@@ -3725,7 +3725,7 @@ async function saveStudentProfile(){
           sessionId:'s4',
           missionId:'m4',
           missionTitle:'Route Cost Challenge',
-          version:'v3.0.1-route-cost',
+          version:'v3.0.2-route-cost',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3773,8 +3773,8 @@ async function saveStudentProfile(){
       if(typeof buildSession5Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ astar5-bank-v301.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/astar5-bank-v301.js</b>
+            โหลดไฟล์ astar5-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/astar5-bank-v302.js</b>
           </div>
         `;
         return;
@@ -4094,7 +4094,7 @@ async function saveStudentProfile(){
           sessionId:'s5',
           missionId:'m5',
           missionTitle:'A* Rescue Mission',
-          version:'v3.0.1-astar',
+          version:'v3.0.2-astar',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4142,8 +4142,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ astar5-bank-v301.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/astar5-bank-v301.js</b>
+            โหลดไฟล์ boss2-search-arena-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss2-search-arena-bank-v302.js</b>
           </div>
         `;
         return;
@@ -4153,7 +4153,7 @@ async function saveStudentProfile(){
       const startTs = Date.now();
       const totalTime = Math.max(110, Math.round(diff.time * 1.05));
       const round = buildBoss2Round(state.difficulty);
-      const phases = round.phases || ['Cost Concept','UCS Trace','Optimal Path','Frontier Cost','Cost Boss'];
+      const phases = round.phases || ['S3 Search Core','S4 Cost Search','S5 Heuristic Search','Final Search Duel'];
       const questions = []
         .concat(round.state || [])
         .concat(round.graph || [])
@@ -4286,7 +4286,7 @@ async function saveStudentProfile(){
               <div class="explainCell"><b>Phase</b><br>${escapeHtml(q.phase)} · ${escapeHtml(q.familyId || '-')}</div>
             </div>
             <div class="row" style="margin-top:12px;justify-content:center">
-              <button class="btn good" id="b2NextBtn">${qIndex + 1 >= questions.length ? 'สรุปผล S3' : 'ข้อถัดไป'}</button>
+              <button class="btn good" id="b2NextBtn">${qIndex + 1 >= questions.length ? 'สรุปผล B2' : 'ข้อถัดไป'}</button>
             </div>
           </div>
         `;
@@ -4384,14 +4384,14 @@ async function saveStudentProfile(){
             total:p.total,
             wrong:p.wrong,
             percent,
-            advice:percent >= 80 ? 'ผ่านดี' : percent >= 60 ? 'ควรทบทวนบางจุด' : 'ควร remedial ก่อนขึ้น S4'
+            advice:percent >= 80 ? 'ผ่านดี' : percent >= 60 ? 'ควรทบทวนบางจุด' : 'ควรทบทวน S3–S5 ก่อนขึ้น S6'
           };
         });
       }
 
       function wrongReviewHTML(){
         if(!metrics.wrongItems.length){
-          return '<b>Review Wrong Items</b><br>ยอดเยี่ยม! S3 รอบนี้ไม่มีข้อผิดพลาดหลัก';
+          return '<b>Review Wrong Items</b><br>ยอดเยี่ยม! B2 รอบนี้ไม่มีข้อผิดพลาดหลัก';
         }
 
         return `
@@ -4428,7 +4428,7 @@ async function saveStudentProfile(){
             `).join('')}
           </div>
           <div class="nextPathBox">
-            <b>Next:</b> ถ้า S3 ผ่านแล้ว จะใช้เป็นฐานสำหรับ B2 Search Arena Rescue Mission / Heuristic Search
+            <b>Next:</b> ผ่าน B2 แล้วจะใช้เป็นฐานสำหรับ S6 Knowledge Base Forge / Logic
           </div>
         `;
       }
@@ -4449,7 +4449,7 @@ async function saveStudentProfile(){
           eventType:'session_end',
           phase:'end',
           itemId:'',
-          prompt:'S4 ended',
+          prompt:'B2 ended',
           yourAnswer:'',
           correctAnswer:'',
           isCorrect:'',
@@ -4463,7 +4463,7 @@ async function saveStudentProfile(){
           sessionId:'b2',
           missionId:'b2',
           missionTitle:'Search Arena Boss',
-          version:'v3.0.1-astar',
+          version:'v3.0.2-boss2-search-arena',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4481,7 +4481,7 @@ async function saveStudentProfile(){
             phaseAnalytics:rows,
             noRepeat:round.noRepeat || {},
             wrongItems:metrics.wrongItems,
-            next:'B2 Search Arena Challenge'
+            next:'S6 Knowledge Base Forge'
           },
           events:eventLog
         };
@@ -4501,7 +4501,7 @@ async function saveStudentProfile(){
       }
 
       startTimer(totalTime, end);
-      logEvent({eventType:'session_start',phase:'start',itemId:'',prompt:'S4 started',yourAnswer:'',correctAnswer:'',isCorrect:'',combo:0,helpLeft:metrics.helpLeft,extraJson:{roundVersion:round.version, totalQuestions:questions.length}});
+      logEvent({eventType:'session_start',phase:'start',itemId:'',prompt:'B2 started',yourAnswer:'',correctAnswer:'',isCorrect:'',combo:0,helpLeft:metrics.helpLeft,extraJson:{roundVersion:round.version, totalQuestions:questions.length}});
       render();
     }
 
@@ -5573,6 +5573,9 @@ function logEvent(data){
           el('btnSaveResult').disabled = false;
           el('btnSaveResult').textContent = 'ลองส่งเข้า Google Sheets อีกครั้ง';
         }
+        if(el('saveStatusBox')){
+          el('saveStatusBox').textContent = 'Save Status: บันทึกไม่สำเร็จ — กรุณากดส่งอีกครั้ง';
+        }
         showToast('บันทึกไม่สำเร็จ กรุณากด Retry Sync หรือบันทึกอีกครั้ง');
         return;
       }
@@ -5599,6 +5602,9 @@ function logEvent(data){
     if(el('btnSaveResult')){
       el('btnSaveResult').disabled = false;
       el('btnSaveResult').textContent = 'ลองส่งเข้า Google Sheets อีกครั้ง';
+    }
+    if(el('saveStatusBox')){
+      el('saveStatusBox').textContent = 'Save Status: บันทึกไม่สำเร็จ — ' + String(error && error.message || error);
     }
     showToast('บันทึกไม่สำเร็จ: ' + String(error && error.message || error));
     return;
@@ -5831,11 +5837,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v301.js"></script>
-  <script src="./js/aiquest-teacher-console-v301.js"></script>
-  <script src="./js/aiquest-student-detail-v301.js"></script>
-  <script src="./js/aiquest-production-v301.js"></script>
-  <script src="./js/aiquest-remedial-path-v301.js"></script>
-  <script src="./js/aiquest-session-roadmap-v301.js"></script>
+  <script src="./js/aiquest-ui-mode-v302.js"></script>
+  <script src="./js/aiquest-teacher-console-v302.js"></script>
+  <script src="./js/aiquest-student-detail-v302.js"></script>
+  <script src="./js/aiquest-production-v302.js"></script>
+  <script src="./js/aiquest-remedial-path-v302.js"></script>
+  <script src="./js/aiquest-session-roadmap-v302.js"></script>
 </body>
 </html>
