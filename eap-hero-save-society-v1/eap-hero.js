@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z53-clear-pass-criteria-progress-diagnostics';
+  const APP_VERSION = '20260610-v1z54-storage-quota-guard-compact-save';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31555,7 +31555,7 @@
         activeMode:state.active?.mode || '',
         at:new Date().toISOString()
       });
-      state.qa.runtimeErrors = state.qa.runtimeErrors.slice(-30);
+      state.qa.runtimeErrors = state.qa.runtimeErrors.slice(-STORAGE_LIMITS.qaRuntimeErrors);
       saveState();
     }catch(e){
       console.warn('Failed to record runtime error', e);
@@ -31627,8 +31627,204 @@
     }
   }
 
+
+  const STORAGE_LIMITS = {
+    portfolio:90,
+    learningReports:90,
+    runtimeErrors:12,
+    qaRuntimeErrors:12,
+    logs:80,
+    examLogs:20,
+    examAttempts:20,
+    outputChars:900,
+    promptChars:500,
+    feedbackChars:500
+  };
+
+  function isQuotaExceededError(err){
+    const name = String(err?.name || '');
+    const msg = String(err?.message || err || '');
+    return name === 'QuotaExceededError' || /quota|exceeded|storage/i.test(msg);
+  }
+
+  function compactTextForStorage(value, maxLen){
+    const s = String(value ?? '');
+    const max = Number(maxLen || 500);
+    if(s.length <= max) return s;
+    return s.slice(0, max) + ` … [trimmed ${s.length-max} chars]`;
+  }
+
+  function compactPortfolioEntry(entry){
+    const e = Object.assign({}, entry || {});
+    ['prompt','instruction','passage','source','question'].forEach(k=>{
+      if(e[k] != null) e[k] = compactTextForStorage(e[k], STORAGE_LIMITS.promptChars);
+    });
+    ['output','answer','draft','transcript','speakingTranscript','studentAnswer'].forEach(k=>{
+      if(e[k] != null) e[k] = compactTextForStorage(e[k], STORAGE_LIMITS.outputChars);
+    });
+    ['feedback','teacherFeedback','aiFeedback','nextStep','didWell'].forEach(k=>{
+      if(e[k] != null) e[k] = compactTextForStorage(e[k], STORAGE_LIMITS.feedbackChars);
+    });
+    delete e.rawAudio;
+    delete e.audioBlob;
+    delete e.screenshot;
+    delete e.fullHtml;
+    delete e.debug;
+    return e;
+  }
+
+  function compactArray(arr, max, mapper){
+    const a = Array.isArray(arr) ? arr : [];
+    return a.slice(-Number(max || 50)).map(x => mapper ? mapper(x) : x);
+  }
+
+  function pruneStateForStorage(){
+    try{
+      state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
+      state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports, r => {
+        const x = Object.assign({}, r || {});
+        ['didWell','nextStep','tryFrame','teacherFeedback'].forEach(k=>{
+          if(x[k] != null) x[k] = compactTextForStorage(x[k], STORAGE_LIMITS.feedbackChars);
+        });
+        return x;
+      });
+      state.logs = compactArray(state.logs, STORAGE_LIMITS.logs, x => {
+        const y = Object.assign({}, x || {});
+        if(y.output) y.output = compactTextForStorage(y.output, 400);
+        if(y.message) y.message = compactTextForStorage(y.message, 300);
+        return y;
+      });
+      state.examLogs = compactArray(state.examLogs, STORAGE_LIMITS.examLogs);
+      state.examAttempts = compactArray(state.examAttempts, STORAGE_LIMITS.examAttempts);
+      state.runtimeErrors = compactArray(state.runtimeErrors, STORAGE_LIMITS.runtimeErrors);
+      if(state.qa && Array.isArray(state.qa.runtimeErrors)){
+        state.qa.runtimeErrors = state.qa.runtimeErrors.slice(-STORAGE_LIMITS.qaRuntimeErrors);
+      }
+      if(state.ai && Array.isArray(state.ai.logs)) state.ai.logs = state.ai.logs.slice(-80);
+      if(state.aiHelp && Array.isArray(state.aiHelp.logs)) state.aiHelp.logs = state.aiHelp.logs.slice(-80);
+      if(state.rubricReviews) state.rubricReviews = compactArray(state.rubricReviews, 80, x=>{
+        const y = Object.assign({}, x || {});
+        if(y.feedback) y.feedback = compactTextForStorage(y.feedback, 500);
+        if(y.output) y.output = compactTextForStorage(y.output, 700);
+        return y;
+      });
+      if(state.researchDatasetCache) delete state.researchDatasetCache;
+      if(state.debug) delete state.debug;
+    }catch(err){
+      console.warn('[pruneStateForStorage]', err);
+    }
+  }
+
+  function minimalStateForEmergencySave(){
+    pruneStateForStorage();
+    return {
+      version: APP_VERSION,
+      profile: state.profile || {},
+      settings: state.settings || {},
+      currentSession: state.currentSession || 1,
+      xp: state.xp || 0,
+      rank: state.rank || '',
+      cards: state.cards || [],
+      bossCards: state.bossCards || {},
+      bossGates: state.bossGates || {},
+      sessions: state.sessions || {},
+      portfolio: compactArray(state.portfolio, 40, compactPortfolioEntry),
+      learningReports: compactArray(state.learningReports, 40),
+      fun: state.fun || {},
+      updatedAt:new Date().toISOString(),
+      storageMode:'emergency-minimal'
+    };
+  }
+
+  function safeLocalStorageSet(key, value){
+    try{
+      localStorage.setItem(key, value);
+      return true;
+    }catch(err){
+      if(!isQuotaExceededError(err)) throw err;
+      console.warn('[storage quota] pruning and retrying save');
+      try{
+        pruneStateForStorage();
+        const compactValue = JSON.stringify(state);
+        localStorage.removeItem(key);
+        localStorage.setItem(key, compactValue);
+        safeToast('Storage was full. Old long records were compacted.');
+        return true;
+      }catch(err2){
+        console.warn('[storage quota] emergency minimal save', err2);
+        try{
+          const minimal = JSON.stringify(minimalStateForEmergencySave());
+          localStorage.removeItem(key);
+          localStorage.setItem(key, minimal);
+          safeToast('Storage was full. Saved essential progress only.');
+          return true;
+        }catch(err3){
+          console.warn('[storage quota] save skipped', err3);
+          try{ sessionStorage.setItem(key + '_BACKUP', JSON.stringify(minimalStateForEmergencySave())); }catch(e){}
+          safeToast('Storage is full. Progress kept for this session only. Export/reset old data soon.');
+          return false;
+        }
+      }
+    }
+  }
+
+  function storageUsageInfo(){
+    let chars = 0;
+    try{ chars = (localStorage.getItem(STORAGE_KEY) || '').length; }catch(e){}
+    return {
+      key:STORAGE_KEY,
+      chars,
+      approxKB:Math.round(chars/1024),
+      portfolio:(state.portfolio || []).length,
+      reports:(state.learningReports || []).length,
+      qaErrors:(state.qa?.runtimeErrors || []).length,
+      runtimeErrors:(state.runtimeErrors || []).length
+    };
+  }
+
+  function optimizeStorageNow(silent){
+    pruneStateForStorage();
+    const ok = safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
+    if(!silent){
+      const u = storageUsageInfo();
+      safeToast(`Storage optimized: ~${u.approxKB} KB, portfolio ${u.portfolio}, reports ${u.reports}`);
+    }
+    return ok;
+  }
+
+  function renderStorageDiagnostics(){
+    const u = storageUsageInfo();
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Storage Diagnostics</span><span class="pill">v1z54</span></div>
+      <h2>Storage status</h2>
+      <p class="lead">ใช้ดูว่าข้อมูลในเครื่องใหญ่เกินจน Submit ไม่ไปหรือไม่</p>
+      <div class="grid four">
+        <div class="stat"><b>${u.approxKB} KB</b><span>Approx localStorage size</span></div>
+        <div class="stat"><b>${u.portfolio}</b><span>Portfolio</span></div>
+        <div class="stat"><b>${u.reports}</b><span>Reports</span></div>
+        <div class="stat"><b>${u.qaErrors + u.runtimeErrors}</b><span>Error logs</span></div>
+      </div>
+      <div class="storage-fix-note"><b>Fix:</b> กด Optimize Storage เพื่อตัด output/log เก่าที่ยาวเกิน แต่ยังเก็บ progress สำคัญไว้</div>
+      <div class="footer-actions">
+        <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Optimize Storage</button>
+        <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
+        <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+      </div>
+    </section>`);
+  }
+
+  function runStorageMaintenanceSoon(){
+    setTimeout(()=>{ try{ optimizeStorageNow(true); }catch(e){} }, 500);
+  }
+
+
   function saveState(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    try{
+      return safeLocalStorageSet(STORAGE_KEY, JSON.stringify(state));
+    }catch(err){
+      console.warn('[saveState failed]', err);
+      return false;
+    }
   }
 
   function resetState(){
@@ -31789,7 +31985,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z53</div>
+              <div class="mini-note">Save the Society • v1z54</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32338,7 +32534,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z53</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z54</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32473,7 +32669,7 @@
 
   function passCriteriaHTML(){
     return `<div class="pass-criteria-box">
-      <h3>How to pass <button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderProgressDiagnostics()">Where am I stuck?</button></h3>
+      <h3>How to pass <button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderProgressDiagnostics()">Where am I stuck?</button><button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderStorageDiagnostics()">Storage</button></h3>
       <div class="pass-rule-grid">
         <div><b>Pass a Session</b><span>Complete Core + Support Mission with score ${PASS_RULES.sessionMinScore}+ each.</span></div>
         <div><b>Unlock Boss Gate</b><span>Pass all 3 Sessions in the group. For Gate 2+, clear the previous Boss Gate first.</span></div>
@@ -36716,11 +36912,17 @@
 
   function addPortfolio(entry){
     state.portfolio = state.portfolio || [];
-    state.portfolio.push(Object.assign({ at:new Date().toISOString(), student_id:state.profile.studentId || 'guest', player_name:state.profile.name || 'Guest' }, entry));
+    const compactEntry = compactPortfolioEntry(Object.assign({
+      at:new Date().toISOString(),
+      student_id:state.profile.studentId || 'guest',
+      player_name:state.profile.name || 'Guest'
+    }, entry || {}));
+    state.portfolio.push(compactEntry);
+    state.portfolio = compactArray(state.portfolio, STORAGE_LIMITS.portfolio, compactPortfolioEntry);
     const portfolioIndex = state.portfolio.length - 1;
-    updateMasteryFromPortfolio(entry);
+    updateMasteryFromPortfolio(compactEntry);
     checkSecretMissions();
-    addXP(Math.max(5, Math.round((entry.score || 0) / 4)));
+    addXP(Math.max(5, Math.round((compactEntry.score || 0) / 4)));
     saveState();
     if(typeof createLearningReport === 'function'){
       createLearningReport(portfolioIndex);
@@ -36987,7 +37189,7 @@
       skill: p.skill,
       score: Number(p.score || 0),
       band: band.label,
-      cefrTarget: p.difficulty === 'hard' ? 'Boss Gate 1+' : p.difficulty === 'normal' ? 'Boss Gate 1' : 'A2-B1+',
+      cefrTarget: p.difficulty === 'hard' ? 'B1+' : p.difficulty === 'normal' ? 'B1' : 'A2-B1+',
       didWell: skillPositiveFeedback(p.skill, p.score),
       nextStep: skillNextStep(p.skill, p.score),
       tryFrame: skillTryFrame(p.skill),
@@ -36997,6 +37199,7 @@
     };
     state.learningReports = state.learningReports || [];
     state.learningReports.push(report);
+    state.learningReports = compactArray(state.learningReports, STORAGE_LIMITS.learningReports);
     saveState();
     return report;
   }
@@ -38667,6 +38870,13 @@
     passCriteriaHTML,
     bossGatePassStatus,
     renderProgressDiagnostics,
+    STORAGE_LIMITS,
+    storageUsageInfo,
+    optimizeStorageNow,
+    renderStorageDiagnostics,
+    pruneStateForStorage,
+    compactPortfolioEntry,
+    
     runPassCriteriaSyncSoon,
     runFourSkillsHubCleanupSoon,
     forceHome,
@@ -38906,4 +39116,6 @@
 
   emergencyBootWatchdog();
 
+
+  runStorageMaintenanceSoon();
 })();

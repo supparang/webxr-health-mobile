@@ -1627,3 +1627,15 @@ textarea{
 .gate-diagnostic-card{padding:14px;border-radius:16px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08)}
 .gate-diagnostic-card.ok{background:#dcfce7;color:#064e3b}.gate-diagnostic-card.need{background:#fff7ed;color:#7c2d12}
 .gate-diagnostic-card h4{margin:0 0 8px}
+
+
+/* === v1z54 Storage Quota Guard + Compact Save === */
+.storage-fix-note{
+  margin:14px 0;
+  padding:12px 14px;
+  border-radius:16px;
+  background:#fff7ed;
+  color:#7c2d12;
+  border:1px solid #fdba74;
+  font-weight:850;
+}
