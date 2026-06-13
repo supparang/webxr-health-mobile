@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z52-hide-four-skills-hub-student-flow';
+  const APP_VERSION = '20260610-v1z53-clear-pass-criteria-progress-diagnostics';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31789,7 +31789,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z52</div>
+              <div class="mini-note">Save the Society • v1z53</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32338,7 +32338,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z52</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z53</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32399,6 +32399,136 @@
     }
   }
 
+
+
+
+  const PASS_RULES = { sessionMinScore:60, requiredEvidencePerSession:2, bossGateMinScore:70 };
+
+  function requiredSkillsForSession(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    let path = null;
+    try{ path = typeof skillPathForSession === 'function' ? skillPathForSession(sid) : null; }catch(e){}
+    return Array.from(new Set([(path?.core || 'Reading'), (path?.support || 'Writing')].filter(Boolean)));
+  }
+
+  function evidenceForSessionSkill(sessionId, skill){
+    const sid = Number(sessionId || 1);
+    const sk = String(skill || '').toLowerCase();
+    const items = [];
+    try{
+      (typeof allEvidenceItems === 'function' ? allEvidenceItems() : []).forEach(item=>{
+        const itemSid = typeof extractSessionIdFromEvidence === 'function' ? extractSessionIdFromEvidence(item) : Number(item?.session || item?.sessionId || 0);
+        if(Number(itemSid) !== sid) return;
+        const itemSkill = typeof extractSkillFromEvidence === 'function' ? extractSkillFromEvidence(item) : String(item?.skill || '').toLowerCase();
+        if(String(itemSkill || '').toLowerCase() === sk) items.push(item);
+      });
+    }catch(e){}
+    return items;
+  }
+
+  function bestScoreForSessionSkill(sessionId, skill){
+    let best = 0;
+    evidenceForSessionSkill(sessionId, skill).forEach(item=>{
+      const score = typeof extractScoreFromEvidence === 'function' ? extractScoreFromEvidence(item) : Number(item?.score || item?.autoScore || 0);
+      if(Number(score || 0) > best) best = Number(score || 0);
+    });
+    return best;
+  }
+
+  function sessionPassReport(sessionId){
+    const sid = Number(sessionId || 1);
+    const required = requiredSkillsForSession(sid);
+    const sess = state.sessions?.[sid] || {};
+    const explicit = !!(sess.done || sess.completed || sess.complete || sess.bossDone || sess.cleared || sess.unlockedDone);
+    const skillRows = required.map(skill=>{
+      const items = evidenceForSessionSkill(sid, skill);
+      const bestScore = bestScoreForSessionSkill(sid, skill);
+      return {skill, items:items.length, bestScore, passed:bestScore >= PASS_RULES.sessionMinScore};
+    });
+    const missing = skillRows.filter(r=>!r.passed).map(r=>`${r.skill} ${r.bestScore || 0}/${PASS_RULES.sessionMinScore}`);
+    const passed = explicit || skillRows.every(r=>r.passed);
+    return {session:sid, requiredSkills:required, skillRows, explicit, passed, missing,
+      reason: passed ? (explicit ? 'marked complete' : `Core + Support passed (${PASS_RULES.sessionMinScore}+ each)`) : `Need ${missing.join(', ')}`};
+  }
+
+  function syncPassProgressNow(silent){
+    state.sessions = state.sessions || {};
+    state.bossCards = state.bossCards || {};
+    for(let sid=1; sid<=15; sid++){
+      const rep = sessionPassReport(sid);
+      state.sessions[sid] = state.sessions[sid] || {};
+      state.sessions[sid].passReport = rep;
+      state.sessions[sid].requiredSkills = rep.requiredSkills;
+      if(rep.passed){
+        state.sessions[sid].completed = true;
+        state.sessions[sid].done = true;
+        state.sessions[sid].completionReason = rep.reason;
+        state.bossCards[sid] = state.bossCards[sid] || {earned:true, reason:rep.reason, at:new Date().toISOString()};
+      }
+    }
+    saveState();
+    if(!silent) safeToast('Progress synced from Learning Reports');
+    return true;
+  }
+
+  function passCriteriaHTML(){
+    return `<div class="pass-criteria-box">
+      <h3>How to pass <button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderProgressDiagnostics()">Where am I stuck?</button></h3>
+      <div class="pass-rule-grid">
+        <div><b>Pass a Session</b><span>Complete Core + Support Mission with score ${PASS_RULES.sessionMinScore}+ each.</span></div>
+        <div><b>Unlock Boss Gate</b><span>Pass all 3 Sessions in the group. For Gate 2+, clear the previous Boss Gate first.</span></div>
+        <div><b>Final Boss</b><span>Pass S13–S15 and clear Boss Gate 4.</span></div>
+      </div>
+    </div>`;
+  }
+
+  function bossGatePassStatus(gateNo){
+    const gate = bossGateByNumber(gateNo);
+    const rows = gate.after.map(sid=>sessionPassReport(sid));
+    const prevOk = isPreviousBossGateCleared ? isPreviousBossGateCleared(gate.gate) : gate.gate <= 1;
+    const sessionsPassed = rows.every(r=>r.passed);
+    const missing = rows.filter(r=>!r.passed).map(r=>`S${r.session}: ${r.reason}`);
+    if(!prevOk) missing.push(`Clear Boss Gate ${gate.gate-1} first`);
+    return {gate:gate.gate, title:gate.title, sessions:rows, sessionsPassed, previousGateCleared:prevOk, unlocked:sessionsPassed && prevOk, missing};
+  }
+
+  function renderProgressDiagnostics(){
+    syncPassProgressNow(true);
+    setView('progressDiagnostics');
+    const sessionRows = []; for(let sid=1; sid<=15; sid++) sessionRows.push(sessionPassReport(sid));
+    const gates = [1,2,3,4,5].map(g=>bossGatePassStatus(g));
+    layout(`<section class="panel progress-diagnostics-panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">Progress Diagnostics</span><span class="pill">v1z53</span></div>
+      <h2>Where is the problem?</h2>
+      <p class="lead">หน้านี้บอกชัดว่า Session ไหนผ่านแล้ว / ขาด skill ไหน / Boss Gate ติดอะไร</p>
+      ${passCriteriaHTML()}
+      <h3>Session pass status</h3>
+      <div class="table-wrap"><table><thead><tr><th>Session</th><th>Required</th><th>Scores</th><th>Status</th><th>Reason</th></tr></thead><tbody>
+      ${sessionRows.map(r=>`<tr><td>S${r.session}</td><td>${r.requiredSkills.map(safe).join(' + ')}</td><td>${r.skillRows.map(x=>`${safe(x.skill)} ${x.bestScore || 0}`).join(' / ')}</td><td>${r.passed?'✅ Passed':'⚠️ Not yet'}</td><td>${safe(r.reason)}</td></tr>`).join('')}
+      </tbody></table></div>
+      <h3>Boss Gate unlock status</h3>
+      <div class="gate-diagnostic-grid">${gates.map(g=>`<div class="gate-diagnostic-card ${g.unlocked?'ok':'need'}"><h4>${safe(g.title)}</h4><p>${g.unlocked?'✅ Unlocked':'⚠️ Locked'}</p><ul>${g.missing.length ? g.missing.map(x=>`<li>${safe(x)}</li>`).join('') : '<li>Ready to open</li>'}</ul></div>`).join('')}</div>
+      <div class="footer-actions"><button class="btn primary" onclick="EAPHero.syncPassProgressNow()">Sync Progress Now</button><button class="btn" onclick="EAPHero.map()">Back to Map</button></div>
+    </section>`);
+  }
+
+  function injectPassCriteriaOnMap(){
+    try{
+      const panel = document.querySelector('.panel');
+      if(!panel || document.querySelector('.pass-criteria-box')) return;
+      if((panel.textContent || '').includes('Campus Map')){
+        const lead = panel.querySelector('.lead') || panel.querySelector('p');
+        if(lead) lead.insertAdjacentHTML('afterend', passCriteriaHTML());
+      }
+    }catch(e){}
+  }
+
+  function runPassCriteriaSyncSoon(){
+    syncPassProgressNow(true);
+    setTimeout(syncPassProgressNow, 50, true);
+    setTimeout(injectPassCriteriaOnMap, 80);
+    setTimeout(injectPassCriteriaOnMap, 300);
+  }
 
 
   function isStudentRole(){
@@ -32831,28 +32961,9 @@
   }
 
   function sessionCompletionReport(sessionId){
-    const sid = Number(sessionId || 1);
-    const sess = state.sessions?.[sid] || {};
-    const ev = sessionEvidenceSummary(sid);
-    const cardLike = !!state.bossCards?.[sid];
-    const explicit = !!(sess.done || sess.completed || sess.complete || sess.bossDone || sess.cleared || sess.unlockedDone);
-    const enoughEvidence = ev.count >= 2 || ev.items >= 2;
-    const scoreEvidence = Number(ev.bestScore || 0) >= 60;
-    const complete = explicit || cardLike || enoughEvidence || scoreEvidence;
-    return {
-      session:sid,
-      complete,
-      explicit,
-      cardLike,
-      evidenceSkills:ev.skills,
-      evidenceCount:ev.count,
-      evidenceItems:ev.items,
-      bestScore:ev.bestScore,
-      stars:ev.stars,
-      reason: complete
-        ? (explicit ? 'marked complete' : cardLike ? 'session boss cleared' : enoughEvidence ? `${ev.count}/2 mission evidence found` : `score evidence ${ev.bestScore}/100`)
-        : `needs mission evidence (${ev.count}/2 found)`
-    };
+    const rep = sessionPassReport(sessionId);
+    const ev = typeof sessionEvidenceSummary === 'function' ? sessionEvidenceSummary(sessionId) : {skills:[],count:0,items:0,bestScore:0,stars:0};
+    return {session:rep.session, complete:rep.passed, explicit:rep.explicit, cardLike:!!state.bossCards?.[rep.session], evidenceSkills:ev.skills || rep.requiredSkills, evidenceCount:ev.count || rep.skillRows.filter(x=>x.items).length, evidenceItems:ev.items || 0, bestScore:Math.max(ev.bestScore || 0, ...rep.skillRows.map(x=>x.bestScore || 0)), stars:ev.stars || 0, reason:rep.reason};
   }
 
 
@@ -32868,26 +32979,8 @@
   }
 
   function bossGateUnlockReport(gateNo){
-    const gate = bossGateByNumber(gateNo);
-    const sessionReports = gate.after.map(sid => sessionCompletionReport(sid));
-    const missingSessions = sessionReports.filter(r => !r.complete).map(r => r.session);
-    const prevOk = isPreviousBossGateCleared(gate.gate);
-    const unlocked = missingSessions.length === 0 && prevOk;
-    const missingDetail = sessionReports.filter(r=>!r.complete).map(r=>`S${r.session}: ${r.reason}`).join(' | ');
-    return {
-      gate: gate.gate,
-      title: gate.title,
-      sessions: gate.after,
-      sessionReports,
-      missingSessions,
-      missingDetail,
-      previousGateRequired: gate.gate > 1 ? gate.gate - 1 : null,
-      previousGateCleared: prevOk,
-      unlocked,
-      reason: unlocked
-        ? 'Unlocked'
-        : `${missingSessions.length ? missingDetail + '. ' : ''}${!prevOk ? 'Clear Boss Gate ' + (gate.gate-1) + ' first.' : ''}`.trim()
-    };
+    const g = bossGatePassStatus(gateNo);
+    return {gate:g.gate, title:g.title, sessions:g.sessions.map(r=>r.session), sessionReports:g.sessions.map(r=>({session:r.session, complete:r.passed, reason:r.reason, evidenceSkills:r.requiredSkills, evidenceCount:r.skillRows.filter(x=>x.passed).length})), missingSessions:g.sessions.filter(r=>!r.passed).map(r=>r.session), missingDetail:g.missing.join(' | '), previousGateRequired:g.gate > 1 ? g.gate - 1 : null, previousGateCleared:g.previousGateCleared, unlocked:g.unlocked, reason:g.unlocked ? 'Unlocked' : g.missing.join(' ')};
   }
 
   function bossGateLockMessage(gateNo){
@@ -34550,6 +34643,7 @@
   function testCheckpointIntercept(){
     runCheckpointSessionPatchSoon();
     runFourSkillsHubCleanupSoon();
+    runPassCriteriaSyncSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -38564,6 +38658,16 @@
     shouldHideFourSkillsHub,
     studentFlowRedirectFromHub,
     cleanupFourSkillsHubStudentUI,
+    PASS_RULES,
+    requiredSkillsForSession,
+    evidenceForSessionSkill,
+    bestScoreForSessionSkill,
+    sessionPassReport,
+    syncPassProgressNow,
+    passCriteriaHTML,
+    bossGatePassStatus,
+    renderProgressDiagnostics,
+    runPassCriteriaSyncSoon,
     runFourSkillsHubCleanupSoon,
     forceHome,
     forceMap,
