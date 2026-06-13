@@ -1668,3 +1668,12 @@ textarea{
   font-size:15px;
   letter-spacing:1px;
 }
+
+
+/* === v1z56 Visible Session Completion Badge + CEFR Final Fix === */
+.visible-session-completion{margin:10px 0;padding:10px 12px;border-radius:16px;border:1px solid rgba(226,232,240,.2);font-weight:900;line-height:1.35}
+.visible-session-completion.passed{background:#dcfce7;color:#064e3b;border-color:#86efac}
+.visible-session-completion.not-yet{background:#fff7ed;color:#7c2d12;border-color:#fdba74}
+.vsc-main{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}.vsc-stars{color:#f59e0b;font-size:17px;letter-spacing:1px}.vsc-sub{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;font-size:12px}.vsc-sub span{padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.68)}
+.session-tile .visible-session-completion{margin-top:12px;font-size:11px}.session-tile .vsc-main{font-size:11px}.session-tile .vsc-stars{font-size:14px}.session-tile .vsc-sub{font-size:10px}
+.mission-score-badge{margin:0 0 10px;padding:7px 9px;border-radius:12px;font-size:12px;font-weight:950}.mission-score-badge.passed{background:#dcfce7;color:#064e3b}.mission-score-badge.not-yet{background:#ffedd5;color:#7c2d12}.mission-passed-card{outline:2px solid rgba(34,197,94,.42)}

@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z55-session-star-sync-cefr-storage-cleanup';
+  const APP_VERSION = '20260610-v1z56-visible-session-completion-badge-cefr-final-fix';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31810,7 +31810,7 @@
       <div class="footer-actions">
         <button class="btn primary" onclick="EAPHero.optimizeStorageNow()">Optimize Storage</button><button class="btn" onclick="EAPHero.deepStorageCleanupNow()">Deep Cleanup</button>
         <button class="btn" onclick="EAPHero.exportPortfolioCSV()">Export Portfolio CSV</button>
-        <button class="btn" onclick="EAPHero.map()">Back to Map</button>
+        <button class="btn" onclick="EAPHero.map()">Back to Map</button><button class="btn ghost" onclick="EAPHero.refreshVisibleProgressNow()">Refresh Visible Progress</button>
       </div>
     </section>`);
   }
@@ -31987,7 +31987,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z55</div>
+              <div class="mini-note">Save the Society • v1z56</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32536,7 +32536,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z55</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z56</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32731,15 +32731,7 @@
 
 
   function normalizeCEFRLabelsInDOM(){
-    try{
-      document.querySelectorAll('.pill,.badge,.tag,.mini-note,span,div').forEach(el=>{
-        if(!el || !el.childNodes || el.childNodes.length !== 1) return;
-        const txt = (el.textContent || '').trim();
-        if(/^CEFR\s+Boss Gate/i.test(txt) || /^CEFR\s+A2[-–]Boss Gate/i.test(txt)){
-          el.textContent = 'CEFR A2-B1+';
-        }
-      });
-    }catch(e){}
+    forceNormalizeCEFRLabels();
   }
 
   function sessionStarScore(sessionId){
@@ -32768,6 +32760,7 @@
       const st = sessionStarScore(sid);
       state.sessions[sid] = state.sessions[sid] || {};
       state.sessions[sid].earnedStars = st.stars;
+      state.sessions[sid].bestStars = st.stars;
       state.sessions[sid].starAverage = st.avg;
       state.sessions[sid].passed = st.passed;
       state.sessions[sid].starReason = st.reason;
@@ -32853,6 +32846,116 @@
     }
   }
 
+
+
+  function normalizeCEFRTextValue(txt){
+    return String(txt || '')
+      .replace(/CEFR\s+Boss Gate\s*\d\+?/gi, 'CEFR A2-B1+')
+      .replace(/CEFR\s+A2[-–]Boss Gate\s*\d\+?/gi, 'CEFR A2-B1+')
+      .replace(/A2[-–]Boss Gate\s*\d\+?/gi, 'A2-B1+');
+  }
+
+  function forceNormalizeCEFRLabels(){
+    try{
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while(walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(n=>{
+        const old = n.nodeValue || '';
+        const fixed = normalizeCEFRTextValue(old);
+        if(fixed !== old) n.nodeValue = fixed;
+      });
+    }catch(e){}
+  }
+
+  function sessionCompletionVisibleReport(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const st = typeof sessionStarScore === 'function' ? sessionStarScore(sid) : {passed:false,avg:0,stars:0};
+    const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+    const rows = rep?.skillRows || [];
+    return {
+      session:sid,
+      passed:!!st.passed,
+      avg:Number(st.avg || 0),
+      stars:Number(st.stars || 0),
+      starText: typeof sessionStarsText === 'function' ? sessionStarsText(sid) : '☆☆☆',
+      core: rows[0] || null,
+      support: rows[1] || null,
+      reason: rep?.reason || st.reason || ''
+    };
+  }
+
+  function visibleSessionCompletionBadgeHTML(sessionId){
+    const r = sessionCompletionVisibleReport(sessionId);
+    const coreTxt = r.core ? `${safe(r.core.skill)} ${r.core.bestScore || 0}/60` : 'Core 0/60';
+    const supportTxt = r.support ? `${safe(r.support.skill)} ${r.support.bestScore || 0}/60` : 'Support 0/60';
+    return `<div class="visible-session-completion ${r.passed?'passed':'not-yet'}" data-visible-session="${r.session}">
+      <div class="vsc-main"><b>${r.passed?'✅ Session Passed':'⚠️ Session not passed yet'}</b><span class="vsc-stars">${safe(r.starText)}</span><span>avg ${r.avg || 0}</span></div>
+      <div class="vsc-sub"><span>${coreTxt}</span><span>${supportTxt}</span></div>
+    </div>`;
+  }
+
+  function markCompletedMissionCards(sessionId){
+    try{
+      const sid = Number(sessionId || state.currentSession || 1) || 1;
+      const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+      if(!rep) return;
+      document.querySelectorAll('.hud-card').forEach(card=>{
+        const txt = (card.textContent || '').toLowerCase();
+        rep.skillRows.forEach(row=>{
+          if(txt.includes(String(row.skill || '').toLowerCase())){
+            card.classList.toggle('mission-passed-card', !!row.passed);
+            if(!card.querySelector('.mission-score-badge')){
+              card.insertAdjacentHTML('afterbegin', `<div class="mission-score-badge ${row.passed?'passed':'not-yet'}">${row.passed?'✅ Passed':'⚠️ Need score'} · ${safe(row.skill)} ${row.bestScore || 0}/60</div>`);
+            }
+          }
+        });
+      });
+    }catch(err){ console.warn('[markCompletedMissionCards]', err); }
+  }
+
+  function injectVisibleCompletionBadges(){
+    try{
+      forceNormalizeCEFRLabels();
+      document.querySelectorAll('.visible-session-completion').forEach(x=>x.remove());
+      const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Session\s+\d+/i.test(h.textContent || ''));
+      if(title){
+        const m = (title.textContent || '').match(/Session\s+(\d{1,2})/i);
+        const sid = m ? Number(m[1]) : Number(state.currentSession || 0);
+        if(sid){
+          const flow = Array.from(document.querySelectorAll('.route-note,.normal-route-note,.lead,p')).find(x=>/Flow:/i.test(x.textContent || ''));
+          (flow || title).insertAdjacentHTML('afterend', visibleSessionCompletionBadgeHTML(sid));
+          markCompletedMissionCards(sid);
+        }
+      }
+      document.querySelectorAll('.session-tile,.map-card,.session-card,[data-session-card]').forEach(card=>{
+        const txt = (card.textContent || '').replace(/\s+/g,' ');
+        const m = txt.match(/\bSESSION\s*(\d{1,2})\b|\bS(\d{1,2})\b/i);
+        if(!m) return;
+        const sid = Number(m[1] || m[2] || 0);
+        if(!sid || sid<1 || sid>15) return;
+        if(/My Learning Report|You did well|Next time|Try this/i.test(txt)) return;
+        card.insertAdjacentHTML('beforeend', visibleSessionCompletionBadgeHTML(sid));
+      });
+    }catch(err){ console.warn('[injectVisibleCompletionBadges]', err); }
+  }
+
+  function refreshVisibleProgressNow(){
+    try{ if(typeof syncPassProgressNow === 'function') syncPassProgressNow(true); }catch(e){}
+    try{ if(typeof syncSessionStarsNow === 'function') syncSessionStarsNow(true); }catch(e){}
+    injectVisibleCompletionBadges();
+    setTimeout(injectVisibleCompletionBadges,100);
+    setTimeout(injectVisibleCompletionBadges,400);
+    safeToast('Visible session progress refreshed');
+    return true;
+  }
+
+  function runVisibleCompletionBadgeSoon(){
+    forceNormalizeCEFRLabels();
+    injectVisibleCompletionBadges();
+    setTimeout(()=>{ forceNormalizeCEFRLabels(); injectVisibleCompletionBadges(); },150);
+    setTimeout(()=>{ forceNormalizeCEFRLabels(); injectVisibleCompletionBadges(); },550);
+  }
 
   function isStudentRole(){
     try{
@@ -33086,7 +33189,7 @@
       : '';
     return `<div class="session-quality-card ${riskCls}">
       <div class="badges">
-        <span class="pill">CEFR ${safe(q.level)}</span>
+        <span class="pill">CEFR A2-B1+</span>
         <span class="pill">Core: ${safe(q.core)}</span>
         <span class="pill">Support: ${safe(q.support)}</span>
         <span class="pill">Risk: ${safe(q.risk)}</span>
@@ -33513,7 +33616,8 @@
           <h3>${safe(s.title)}</h3>
           <p>${safe(s.boss)}</p>
           <p>${safe(s.skill)}</p>
-          <div class="stars">${stars(p.bestStars||0)}</div>
+          <div class="stars">${stars((sessionStarScore(s.id).stars || p.bestStars || 0))}</div>
+          ${visibleSessionCompletionBadgeHTML(s.id)}
           ${p.unlocked ? '' : '<div class="lock">🔒</div>'}
         </button>
       `;
@@ -34834,6 +34938,7 @@
       <h2>Session ${sid}: ${safe(s.title || s.name || 'Academic English Mission')}</h2>
       <p class="lead">${safe(s.skill || s.subtitle || 'Academic English practice')}</p>
       <div class="route-note normal-route-note">Flow: Map → Session Path → Core/Support Mission → Mini Check → Map</div>
+      ${visibleSessionCompletionBadgeHTML(sid)}
       <div class="grid four">${cards}</div>
       <div class="simple-mode-note">Simple Mode: ตอนนี้ให้ทำ Core Mission ก่อน และ Support Mission ได้แล้ว</div>
       ${compactCheckpointNoteHTML(sid)}
@@ -34965,6 +35070,7 @@
     runFourSkillsHubCleanupSoon();
     runPassCriteriaSyncSoon();
     runSessionStarSyncSoon();
+    runVisibleCompletionBadgeSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -39000,6 +39106,14 @@
     normalizeCEFRLabelsInDOM,
     sessionStarScore,
     sessionStarsText,
+    normalizeCEFRTextValue,
+    forceNormalizeCEFRLabels,
+    sessionCompletionVisibleReport,
+    visibleSessionCompletionBadgeHTML,
+    markCompletedMissionCards,
+    injectVisibleCompletionBadges,
+    refreshVisibleProgressNow,
+    runVisibleCompletionBadgeSoon,
     syncSessionStarsNow,
     sessionStarBadgeHTML,
     applySessionStarsToMapCards,
