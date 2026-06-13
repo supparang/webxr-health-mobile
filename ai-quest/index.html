@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v3.0.2 Before S4</title>
+  <title>CSAI2102: AI Quest v3.0.3 Before S4</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -907,7 +907,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
-  <script src="./js/mission1-foundation-bank-v302.js"></script>
+  <script src="./js/mission1-foundation-bank-v303.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
@@ -915,13 +915,13 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v302.js"></script>
-  <script src="./js/boss1-rookie-bank-v302.js"></script>
-  <script src="./js/search3-maze-bank-v302.js"></script>
-  <script src="./js/routecost4-bank-v302.js"></script>
-  <script src="./js/astar5-bank-v302.js"></script>
-  <script src="./js/boss2-search-arena-bank-v302.js"></script>
-  <script src="./js/aiquest-foundation-quality-audit-v302.js"></script>
+  <script src="./js/mission2-agent-bank-v303.js"></script>
+  <script src="./js/boss1-rookie-bank-v303.js"></script>
+  <script src="./js/search3-maze-bank-v303.js"></script>
+  <script src="./js/routecost4-bank-v303.js"></script>
+  <script src="./js/astar5-bank-v303.js"></script>
+  <script src="./js/boss2-search-arena-bank-v303.js"></script>
+  <script src="./js/aiquest-foundation-quality-audit-v303.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -933,7 +933,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v3.0.2 • B2 Result + Sync Fix • Section 101</div>
+          <div class="subtitle">v3.0.3 • Sync Timeout Fix • Section 101</div>
         </div>
       </div>
 
@@ -1415,7 +1415,7 @@ async function saveStudentProfile(){
     }else{
       await AIQuestCloudLogger.sendProfile(profile);
     }
-    await AIQuestCloudLogger.flushPending();
+    await withTimeout(AIQuestCloudLogger.flushPending(), 15000, 'CloudLogger flush');
   }
 }
     function saveState(){
@@ -1869,8 +1869,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v302.js</b>
+            โหลดไฟล์ mission2-agent-bank-v303.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v303.js</b>
           </div>
         `;
         return;
@@ -2530,7 +2530,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v3.0.2-session2-learning-feedback',
+          version:'v3.0.3-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2592,8 +2592,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v302.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v303.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v303.js</b>
           </div>
         `;
         return;
@@ -2978,7 +2978,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v3.0.2-b1-full-boss',
+          version:'v3.0.3-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3035,8 +3035,8 @@ async function saveStudentProfile(){
       if(typeof buildSession3Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ search3-maze-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/search3-maze-bank-v302.js</b>
+            โหลดไฟล์ search3-maze-bank-v303.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v303.js</b>
           </div>
         `;
         return;
@@ -3356,7 +3356,7 @@ async function saveStudentProfile(){
           sessionId:'s3',
           missionId:'m3',
           missionTitle:'Search Maze',
-          version:'v3.0.2-search-maze',
+          version:'v3.0.3-search-maze',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3404,8 +3404,8 @@ async function saveStudentProfile(){
       if(typeof buildSession4Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ routecost4-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/routecost4-bank-v302.js</b>
+            โหลดไฟล์ routecost4-bank-v303.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/routecost4-bank-v303.js</b>
           </div>
         `;
         return;
@@ -3725,7 +3725,7 @@ async function saveStudentProfile(){
           sessionId:'s4',
           missionId:'m4',
           missionTitle:'Route Cost Challenge',
-          version:'v3.0.2-route-cost',
+          version:'v3.0.3-route-cost',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3773,8 +3773,8 @@ async function saveStudentProfile(){
       if(typeof buildSession5Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ astar5-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/astar5-bank-v302.js</b>
+            โหลดไฟล์ astar5-bank-v303.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/astar5-bank-v303.js</b>
           </div>
         `;
         return;
@@ -4094,7 +4094,7 @@ async function saveStudentProfile(){
           sessionId:'s5',
           missionId:'m5',
           missionTitle:'A* Rescue Mission',
-          version:'v3.0.2-astar',
+          version:'v3.0.3-astar',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4142,8 +4142,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss2-search-arena-bank-v302.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss2-search-arena-bank-v302.js</b>
+            โหลดไฟล์ boss2-search-arena-bank-v303.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss2-search-arena-bank-v303.js</b>
           </div>
         `;
         return;
@@ -4463,7 +4463,7 @@ async function saveStudentProfile(){
           sessionId:'b2',
           missionId:'b2',
           missionTitle:'Search Arena Boss',
-          version:'v3.0.2-boss2-search-arena',
+          version:'v3.0.3-boss2-search-arena',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -5433,6 +5433,30 @@ function logEvent(data){
       }
     }
 
+
+    function withTimeout(promise, ms, label){
+      return new Promise((resolve, reject) => {
+        let done = false;
+        const timer = setTimeout(() => {
+          if(done) return;
+          done = true;
+          reject(new Error((label || 'sync') + ' timeout after ' + Math.round(ms/1000) + 's'));
+        }, ms);
+
+        Promise.resolve(promise).then(value => {
+          if(done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve(value);
+        }).catch(error => {
+          if(done) return;
+          done = true;
+          clearTimeout(timer);
+          reject(error);
+        });
+      });
+    }
+
     async function saveResult(){
       /*
        * PATCH v2.3.3
@@ -5557,12 +5581,23 @@ function logEvent(data){
   AIQuestStorage.saveAttempt(attempt);
 
   /*
+   * PATCH v3.0.3
+   * บันทึก local progress ก่อนเริ่ม network sync
+   * เพื่อไม่ให้ผู้เรียนติดค้างที่ “กำลังบันทึก...” แล้ว progress หาย
+   */
+  saveState();
+
+  if(el('saveStatusBox')){
+    el('saveStatusBox').textContent = 'Save Status: บันทึกในเครื่องแล้ว กำลังส่งเข้า Google Sheets...';
+  }
+
+  /*
    * PATCH v2.3.2
    * กดปุ่มนี้แล้วต้องส่งเข้า Google Sheets ให้จบก่อนค่อยกลับเมนู
    */
   try{
     if(window.AIQuestSync){
-      const syncResult = await AIQuestSync.submitAttempt(attempt);
+      const syncResult = await withTimeout(AIQuestSync.submitAttempt(attempt), 15000, 'Google Sheets sync');
       const failed = syncResult && syncResult.counts && Number(syncResult.counts.failed || 0) > 0;
 
       if(failed){
@@ -5574,14 +5609,14 @@ function logEvent(data){
           el('btnSaveResult').textContent = 'ลองส่งเข้า Google Sheets อีกครั้ง';
         }
         if(el('saveStatusBox')){
-          el('saveStatusBox').textContent = 'Save Status: บันทึกไม่สำเร็จ — กรุณากดส่งอีกครั้ง';
+          el('saveStatusBox').textContent = 'Save Status: บันทึกในเครื่องแล้ว แต่ Google Sheets ไม่สำเร็จ — กรุณากดส่งอีกครั้ง';
         }
-        showToast('บันทึกไม่สำเร็จ กรุณากด Retry Sync หรือบันทึกอีกครั้ง');
+        showToast('บันทึกในเครื่องแล้ว แต่ Google Sheets ยังไม่สำเร็จ กรุณากดส่งอีกครั้ง');
         return;
       }
     }else if(window.AIQuestCloudLogger){
-      await AIQuestCloudLogger.sendAttempt(attempt, attempt.events || []);
-      await AIQuestCloudLogger.flushPending();
+      await withTimeout(AIQuestCloudLogger.sendAttempt(attempt, attempt.events || []), 15000, 'CloudLogger send');
+      await withTimeout(AIQuestCloudLogger.flushPending(), 15000, 'CloudLogger flush');
     }
 
     if(window.AIQuestGameplayLockdown){
@@ -5593,6 +5628,7 @@ function logEvent(data){
     }
 
     if(el('btnSaveResult')){
+      el('btnSaveResult').disabled = false;
       el('btnSaveResult').textContent = 'บันทึกแล้ว • กลับเมนู';
     }
   }catch(error){
@@ -5604,9 +5640,9 @@ function logEvent(data){
       el('btnSaveResult').textContent = 'ลองส่งเข้า Google Sheets อีกครั้ง';
     }
     if(el('saveStatusBox')){
-      el('saveStatusBox').textContent = 'Save Status: บันทึกไม่สำเร็จ — ' + String(error && error.message || error);
+      el('saveStatusBox').textContent = 'Save Status: บันทึกในเครื่องแล้ว แต่ส่ง Google Sheets ไม่สำเร็จ — ' + String(error && error.message || error);
     }
-    showToast('บันทึกไม่สำเร็จ: ' + String(error && error.message || error));
+    showToast('บันทึกในเครื่องแล้ว แต่ Google Sheets ยังไม่สำเร็จ: ' + String(error && error.message || error));
     return;
   }
 }
@@ -5837,11 +5873,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v302.js"></script>
-  <script src="./js/aiquest-teacher-console-v302.js"></script>
-  <script src="./js/aiquest-student-detail-v302.js"></script>
-  <script src="./js/aiquest-production-v302.js"></script>
-  <script src="./js/aiquest-remedial-path-v302.js"></script>
-  <script src="./js/aiquest-session-roadmap-v302.js"></script>
+  <script src="./js/aiquest-ui-mode-v303.js"></script>
+  <script src="./js/aiquest-teacher-console-v303.js"></script>
+  <script src="./js/aiquest-student-detail-v303.js"></script>
+  <script src="./js/aiquest-production-v303.js"></script>
+  <script src="./js/aiquest-remedial-path-v303.js"></script>
+  <script src="./js/aiquest-session-roadmap-v303.js"></script>
 </body>
 </html>
