@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v3.1.2 Before S4</title>
+  <title>CSAI2102: AI Quest v3.1.3 Before S4</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -907,7 +907,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
-  <script src="./js/mission1-foundation-bank-v311.js"></script>
+  <script src="./js/mission1-foundation-bank-v313.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
@@ -915,15 +915,15 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v311.js"></script>
-  <script src="./js/boss1-rookie-bank-v311.js"></script>
-  <script src="./js/search3-maze-bank-v311.js"></script>
-  <script src="./js/routecost4-bank-v311.js"></script>
-  <script src="./js/astar5-bank-v311.js"></script>
-  <script src="./js/boss2-search-arena-bank-v311.js"></script>
-  <script src="./js/aiquest-max-question-banks-v311.js"></script>
-  <script src="./js/aiquest-antirepeat-quality-v312.js"></script>
-  <script src="./js/aiquest-foundation-quality-audit-v311.js"></script>
+  <script src="./js/mission2-agent-bank-v313.js"></script>
+  <script src="./js/boss1-rookie-bank-v313.js"></script>
+  <script src="./js/search3-maze-bank-v313.js"></script>
+  <script src="./js/routecost4-bank-v313.js"></script>
+  <script src="./js/astar5-bank-v313.js"></script>
+  <script src="./js/boss2-search-arena-bank-v313.js"></script>
+  <script src="./js/aiquest-max-question-banks-v313.js"></script>
+  <script src="./js/aiquest-antirepeat-quality-v313.js"></script>
+  <script src="./js/aiquest-foundation-quality-audit-v313.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -935,7 +935,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v3.1.2 • Anti-Repeat Quality • Section 101</div>
+          <div class="subtitle">v3.1.3 • B2 Entry Fix • Section 101</div>
         </div>
       </div>
 
@@ -1428,6 +1428,14 @@ async function saveStudentProfile(){
       return DIFF[state.difficulty] || DIFF.normal;
     }
 
+    function passedByAny(id){
+      return !!(state.completed[id] || state.stars[id] || state.mastered[id] || Number(state.bestScore[id] || 0) >= 60);
+    }
+
+    function boss2Ready(){
+      return passedByAny('m3') && passedByAny('m4') && passedByAny('m5');
+    }
+
     function isUnlocked(stage){
       if(!stage || !stage.playable) return false;
       if(stage.id === 'm1') return true;
@@ -1449,12 +1457,9 @@ async function saveStudentProfile(){
         return !!(state.completed.m4 || state.stars.m4 || state.mastered.m4 || Number(state.bestScore.m4 || 0) >= 60);
       }
       if(stage.id === 'b2'){
-        const s3 = !!(state.completed.m3 || state.stars.m3 || state.mastered.m3 || Number(state.bestScore.m3 || 0) >= 60);
-        const s4 = !!(state.completed.m4 || state.stars.m4 || state.mastered.m4 || Number(state.bestScore.m4 || 0) >= 60);
-        const s5 = !!(state.completed.m5 || state.stars.m5 || state.mastered.m5 || Number(state.bestScore.m5 || 0) >= 60);
-        return s3 && s4 && s5;
+        return boss2Ready();
       }
-      return false;
+     return false;
     }
 
     function stageById(id){
@@ -1657,6 +1662,16 @@ async function saveStudentProfile(){
           selectedStageId = stage.id;
           renderDetail(stage.id);
 
+          /*
+           * PATCH v3.1.3
+           * กดการ์ด B2 ที่เปิดแล้วให้เข้า Boss ได้ทันที
+           */
+          if(stage.id === 'b2' && (unlocked || completed)){
+            showToast((completed ? 'เล่นซ้ำ: ' : 'เข้าสู่ ') + stage.no + ': ' + stage.title);
+            startMission(stage.id);
+            return;
+          }
+
           if(!stage.playable){
             showToast('Coming Soon');
           }else if(!unlocked && !completed){
@@ -1702,7 +1717,7 @@ async function saveStudentProfile(){
         </div>
 
         <div class="row" style="margin-top:14px">
-          <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed)) ? 'disabled' : ''}>
+          <button class="btn" id="startSelected" ${(!stage.playable || (!unlocked && !completed && stage.id !== 'b2')) ? 'disabled' : ''}>
             ${stage.id === 'm2' ? 'เริ่ม Session 2' : stage.id === 'm3' ? 'เริ่ม Session 3' : stage.id === 'm4' ? 'เริ่ม Session 4' : stage.id === 'm5' ? 'เริ่ม Session 5' : stage.id === 'b2' ? 'เริ่ม Boss B2' : 'เริ่ม Session'}
           </button>
           <button class="btn secondary" id="reviewSelected">ดูสถานะ</button>
@@ -1826,7 +1841,12 @@ async function saveStudentProfile(){
 
     function startMission(id){
   const stage = stageById(id);
-  if(!stage || !isUnlocked(stage)) return;
+  if(!stage) return;
+  if(id === 'b2' && !boss2Ready()){
+    showToast('B2 ยังล็อก: ต้องผ่าน S3, S4, S5 ก่อน');
+    return;
+  }
+  if(id !== 'b2' && !isUnlocked(stage)) return;
 
   if(window.AIQuestStorage && !AIQuestStorage.isProfileReady()){
     showToast('กรุณากรอก Student Profile ก่อนเริ่มเล่น');
@@ -1871,8 +1891,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v311.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v311.js</b>
+            โหลดไฟล์ mission2-agent-bank-v313.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v313.js</b>
           </div>
         `;
         return;
@@ -2532,7 +2552,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v3.1.2-session2-learning-feedback',
+          version:'v3.1.3-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2594,8 +2614,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v311.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v311.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v313.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v313.js</b>
           </div>
         `;
         return;
@@ -2980,7 +3000,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v3.1.2-b1-full-boss',
+          version:'v3.1.3-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3037,8 +3057,8 @@ async function saveStudentProfile(){
       if(typeof buildSession3Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ search3-maze-bank-v311.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/search3-maze-bank-v311.js</b>
+            โหลดไฟล์ search3-maze-bank-v313.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v313.js</b>
           </div>
         `;
         return;
@@ -3358,7 +3378,7 @@ async function saveStudentProfile(){
           sessionId:'s3',
           missionId:'m3',
           missionTitle:'Search Maze',
-          version:'v3.1.2-search-maze',
+          version:'v3.1.3-search-maze',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3406,8 +3426,8 @@ async function saveStudentProfile(){
       if(typeof buildSession4Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ routecost4-bank-v311.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/routecost4-bank-v311.js</b>
+            โหลดไฟล์ routecost4-bank-v313.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/routecost4-bank-v313.js</b>
           </div>
         `;
         return;
@@ -3727,7 +3747,7 @@ async function saveStudentProfile(){
           sessionId:'s4',
           missionId:'m4',
           missionTitle:'Route Cost Challenge',
-          version:'v3.1.2-route-cost',
+          version:'v3.1.3-route-cost',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3775,8 +3795,8 @@ async function saveStudentProfile(){
       if(typeof buildSession5Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ astar5-bank-v311.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/astar5-bank-v311.js</b>
+            โหลดไฟล์ astar5-bank-v313.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/astar5-bank-v313.js</b>
           </div>
         `;
         return;
@@ -4096,7 +4116,7 @@ async function saveStudentProfile(){
           sessionId:'s5',
           missionId:'m5',
           missionTitle:'A* Rescue Mission',
-          version:'v3.1.2-astar',
+          version:'v3.1.3-astar',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4144,8 +4164,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss2-search-arena-bank-v311.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss2-search-arena-bank-v311.js</b>
+            โหลดไฟล์ boss2-search-arena-bank-v313.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss2-search-arena-bank-v313.js</b>
           </div>
         `;
         return;
@@ -4465,7 +4485,7 @@ async function saveStudentProfile(){
           sessionId:'b2',
           missionId:'b2',
           missionTitle:'Search Arena Boss',
-          version:'v3.1.2-boss2-search-arena',
+          version:'v3.1.3-boss2-search-arena',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -5626,7 +5646,7 @@ function logEvent(data){
           answer:String(r.answer || r.a || r || '').slice(0,350)
         })),
         extraJson:{
-          sourceVersion:'v3.1.2',
+          sourceVersion:'v3.1.3',
           syncMode:'payload_slim',
           wrongItems,
           summary:String(extra.summary || src.summary || '').slice(0,500)
@@ -5833,7 +5853,7 @@ async function saveResult(){
   safeSaveAttemptLocal(attempt);
 
   /*
-   * PATCH v3.1.2
+   * PATCH v3.1.3
    * บันทึก local progress ก่อนเริ่ม network sync
    * เพื่อไม่ให้ผู้เรียนติดค้างที่ “กำลังบันทึก...” แล้ว progress หาย
    */
@@ -5844,7 +5864,7 @@ async function saveResult(){
   }
 
   /*
-   * PATCH v3.1.2
+   * PATCH v3.1.3
    * Fire-and-forget sync:
    * - local progress already saved
    * - do NOT await Google Sheets
@@ -6124,11 +6144,11 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v311.js"></script>
-  <script src="./js/aiquest-teacher-console-v311.js"></script>
-  <script src="./js/aiquest-student-detail-v311.js"></script>
-  <script src="./js/aiquest-production-v311.js"></script>
-  <script src="./js/aiquest-remedial-path-v311.js"></script>
-  <script src="./js/aiquest-session-roadmap-v311.js"></script>
+  <script src="./js/aiquest-ui-mode-v313.js"></script>
+  <script src="./js/aiquest-teacher-console-v313.js"></script>
+  <script src="./js/aiquest-student-detail-v313.js"></script>
+  <script src="./js/aiquest-production-v313.js"></script>
+  <script src="./js/aiquest-remedial-path-v313.js"></script>
+  <script src="./js/aiquest-session-roadmap-v313.js"></script>
 </body>
 </html>
