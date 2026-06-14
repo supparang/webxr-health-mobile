@@ -1,6 +1,6 @@
 CSAI2102: AI Quest — Phase 1 Classroom Ready
 
-Build: v3.2.9
+Build: v3.3.0 Teacher Dashboard Restore
 Scope:
 - S1 AI Awakening
 - S2 Agent Builder
@@ -13,13 +13,13 @@ Scope:
 Ready checks:
 - Section 101 lock
 - Google Sheets submit
-- Teacher Console
+- Teacher Console dashboard restored
 - Student Detail
 - Accuracy = correct/total, not score
 - Roadmap card entry
 - B2 replay/return
 - Phase 1 Ready badge
-- Phase 1 teacher layout deduped
+- Dedupe does not remove dashboard core
 
 Next phase:
-- v3.3.0 S6 Knowledge Base Forge
+- S6 Knowledge Base Forge
