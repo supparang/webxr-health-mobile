@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>CSAI2102: AI Quest v3.2.5 Before S4</title>
+  <title>CSAI2102: AI Quest v3.2.6 Before S4</title>
   <meta name="theme-color" content="#0f172a" />
 
   <style>
@@ -907,7 +907,7 @@
 
   <script src="./js/mission1-bank.js"></script>
   <script src="./js/mission1-hard-choice-upgrade.js"></script>
-  <script src="./js/mission1-foundation-bank-v325.js"></script>
+  <script src="./js/mission1-foundation-bank-v326.js"></script>
   <script src="./js/aiquest-gate-support-v18.js"></script>
   <script src="./js/aiquest-adaptive-coach-v19.js"></script>
   <script src="./js/aiquest-gameplay-lockdown-v21b.js"></script>
@@ -915,18 +915,18 @@
   <script src="./js/aiquest-data-contract-v22.js"></script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-sync-v23.js"></script>
-  <script src="./js/mission2-agent-bank-v325.js"></script>
-  <script src="./js/boss1-rookie-bank-v325.js"></script>
-  <script src="./js/search3-maze-bank-v325.js"></script>
-  <script src="./js/routecost4-bank-v325.js"></script>
-  <script src="./js/astar5-bank-v325.js"></script>
-  <script src="./js/boss2-search-arena-bank-v325.js"></script>
-  <script src="./js/aiquest-max-question-banks-v325.js"></script>
-  <script src="./js/aiquest-antirepeat-quality-v325.js"></script>
-  <script src="./js/aiquest-deep-antirepeat-v325.js"></script>
-  <script src="./js/aiquest-hard-block-repeat-v325.js"></script>
-  <script src="./js/aiquest-b2-specific-bank-v325.js"></script>
-  <script src="./js/aiquest-foundation-quality-audit-v325.js"></script>
+  <script src="./js/mission2-agent-bank-v326.js"></script>
+  <script src="./js/boss1-rookie-bank-v326.js"></script>
+  <script src="./js/search3-maze-bank-v326.js"></script>
+  <script src="./js/routecost4-bank-v326.js"></script>
+  <script src="./js/astar5-bank-v326.js"></script>
+  <script src="./js/boss2-search-arena-bank-v326.js"></script>
+  <script src="./js/aiquest-max-question-banks-v326.js"></script>
+  <script src="./js/aiquest-antirepeat-quality-v326.js"></script>
+  <script src="./js/aiquest-deep-antirepeat-v326.js"></script>
+  <script src="./js/aiquest-hard-block-repeat-v326.js"></script>
+  <script src="./js/aiquest-b2-specific-bank-v326.js"></script>
+  <script src="./js/aiquest-foundation-quality-audit-v326.js"></script>
   <script src="./js/aiquest-storage.js"></script>
   <script src="./js/aiquest-cloud-logger.js"></script>
 </head>
@@ -938,7 +938,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v3.2.5 • Accurate Accuracy Model • Section 101</div>
+          <div class="subtitle">v3.2.6 • Accuracy Payload + Server • Section 101</div>
         </div>
       </div>
 
@@ -1890,8 +1890,8 @@ async function saveStudentProfile(){
       if(typeof buildSession2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ mission2-agent-bank-v325.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/mission2-agent-bank-v325.js</b>
+            โหลดไฟล์ mission2-agent-bank-v326.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/mission2-agent-bank-v326.js</b>
           </div>
         `;
         return;
@@ -2551,7 +2551,7 @@ async function saveStudentProfile(){
           sessionId:'s2',
           missionId:'m2',
           missionTitle:'Agent Builder',
-          version:'v3.2.5-session2-learning-feedback',
+          version:'v3.2.6-session2-learning-feedback',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -2613,8 +2613,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss1Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss1-rookie-bank-v325.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss1-rookie-bank-v325.js</b>
+            โหลดไฟล์ boss1-rookie-bank-v326.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss1-rookie-bank-v326.js</b>
           </div>
         `;
         return;
@@ -2999,7 +2999,7 @@ async function saveStudentProfile(){
           sessionId:'b1',
           missionId:'b1',
           missionTitle:'Rookie AI Boss',
-          version:'v3.2.5-b1-full-boss',
+          version:'v3.2.6-b1-full-boss',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3056,8 +3056,8 @@ async function saveStudentProfile(){
       if(typeof buildSession3Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ search3-maze-bank-v325.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/search3-maze-bank-v325.js</b>
+            โหลดไฟล์ search3-maze-bank-v326.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/search3-maze-bank-v326.js</b>
           </div>
         `;
         return;
@@ -3377,7 +3377,7 @@ async function saveStudentProfile(){
           sessionId:'s3',
           missionId:'m3',
           missionTitle:'Search Maze',
-          version:'v3.2.5-search-maze',
+          version:'v3.2.6-search-maze',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3425,8 +3425,8 @@ async function saveStudentProfile(){
       if(typeof buildSession4Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ routecost4-bank-v325.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/routecost4-bank-v325.js</b>
+            โหลดไฟล์ routecost4-bank-v326.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/routecost4-bank-v326.js</b>
           </div>
         `;
         return;
@@ -3746,7 +3746,7 @@ async function saveStudentProfile(){
           sessionId:'s4',
           missionId:'m4',
           missionTitle:'Route Cost Challenge',
-          version:'v3.2.5-route-cost',
+          version:'v3.2.6-route-cost',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -3794,8 +3794,8 @@ async function saveStudentProfile(){
       if(typeof buildSession5Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ astar5-bank-v325.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/astar5-bank-v325.js</b>
+            โหลดไฟล์ astar5-bank-v326.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/astar5-bank-v326.js</b>
           </div>
         `;
         return;
@@ -4115,7 +4115,7 @@ async function saveStudentProfile(){
           sessionId:'s5',
           missionId:'m5',
           missionTitle:'A* Rescue Mission',
-          version:'v3.2.5-astar',
+          version:'v3.2.6-astar',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -4163,8 +4163,8 @@ async function saveStudentProfile(){
       if(typeof buildBoss2Round !== 'function'){
         el('gameArea').innerHTML = `
           <div class="feedback bad">
-            โหลดไฟล์ boss2-search-arena-bank-v325.js ไม่สำเร็จ กรุณาตรวจสอบ path:
-            <b>/ai-quest/js/boss2-search-arena-bank-v325.js</b>
+            โหลดไฟล์ boss2-search-arena-bank-v326.js ไม่สำเร็จ กรุณาตรวจสอบ path:
+            <b>/ai-quest/js/boss2-search-arena-bank-v326.js</b>
           </div>
         `;
         return;
@@ -4484,7 +4484,7 @@ async function saveStudentProfile(){
           sessionId:'b2',
           missionId:'b2',
           missionTitle:'Search Arena Boss',
-          version:'v3.2.5-boss2-search-arena',
+          version:'v3.2.6-boss2-search-arena',
           score:finalScore,
           stars:calcStars(finalScore),
           mastered,
@@ -5609,6 +5609,59 @@ function logEvent(data){
     }
 
 
+
+    function accuracyPayloadValueV326(src){
+      src = src || {};
+      const extra = src.extraJson || {};
+      const nested = src.summary || extra.summary || {};
+
+      function pickNumber(){
+        for(let i=0;i<arguments.length;i++){
+          const n = Number(arguments[i]);
+          if(Number.isFinite(n) && n > 0) return n;
+        }
+        return NaN;
+      }
+
+      const direct = pickNumber(
+        src.accuracy, src.accuracyPct, src.accuracyPercent,
+        nested.accuracy, nested.accuracyPct, nested.accuracyPercent,
+        extra.accuracy, extra.accuracyPct
+      );
+      if(Number.isFinite(direct)) return Math.round(direct);
+
+      const correct = pickNumber(src.correct, src.correctCount, nested.correct, nested.correctCount, extra.correct, extra.correctCount);
+      const total = pickNumber(src.total, src.totalQuestions, src.questionCount, nested.total, nested.totalQuestions, extra.total, extra.totalQuestions);
+      if(Number.isFinite(correct) && Number.isFinite(total) && total > 0){
+        return Math.round((correct / total) * 100);
+      }
+      return '';
+    }
+
+    function correctPayloadValueV326(src){
+      src = src || {};
+      const extra = src.extraJson || {};
+      const nested = src.summary || extra.summary || {};
+      const candidates = [src.correct, src.correctCount, nested.correct, nested.correctCount, extra.correct, extra.correctCount];
+      for(const v of candidates){
+        const n = Number(v);
+        if(Number.isFinite(n) && n >= 0) return n;
+      }
+      return 0;
+    }
+
+    function totalPayloadValueV326(src){
+      src = src || {};
+      const extra = src.extraJson || {};
+      const nested = src.summary || extra.summary || {};
+      const candidates = [src.total, src.totalQuestions, src.questionCount, nested.total, nested.totalQuestions, extra.total, extra.totalQuestions];
+      for(const v of candidates){
+        const n = Number(v);
+        if(Number.isFinite(n) && n > 0) return n;
+      }
+      return 0;
+    }
+
     function compactAttemptForSync(attempt){
       const src = attempt || {};
       const extra = src.extraJson || {};
@@ -5635,17 +5688,19 @@ function logEvent(data){
         stars: Number(src.stars || 0),
         passed: !!src.passed,
         mastered: !!src.mastered,
-        bestTimeSec: Number(src.bestTimeSec || src.timeSec || 0),
-        aiHelpUsed: Number(src.aiHelpUsed || 0),
-        correct: Number(src.correct || src.correctCount || 0),
-        total: Number(src.total || src.totalQuestions || 0),
+        bestTimeSec: Number(src.bestTimeSec || src.timeSec || src.usedTimeSec || 0),
+        usedTimeSec: Number(src.usedTimeSec || src.bestTimeSec || src.timeSec || 0),
+        timeLeftSec: Number(src.timeLeftSec || 0),
+        accuracy: accuracyPayloadValueV326(src),
+        correct: correctPayloadValueV326(src),
+        total: totalPayloadValueV326(src),
         phaseStats: extra.phaseStats || extra.phaseBreakdown || src.phaseStats || {},
         reflection: reflection.slice(0,3).map(r => ({
           prompt:String(r.prompt || r.q || '').slice(0,120),
           answer:String(r.answer || r.a || r || '').slice(0,350)
         })),
         extraJson:{
-          sourceVersion:'v3.2.5',
+          sourceVersion:'v3.2.6',
           syncMode:'payload_slim',
           wrongItems,
           summary:String(extra.summary || src.summary || '').slice(0,500)
@@ -5660,6 +5715,9 @@ function logEvent(data){
         sessionId: slimAttempt.sessionId,
         missionId: slimAttempt.missionId,
         score: slimAttempt.score,
+        accuracy: slimAttempt.accuracy,
+        correct: slimAttempt.correct,
+        total: slimAttempt.total,
         approxBytes: JSON.stringify(slimAttempt).length
       });
 
@@ -5852,7 +5910,7 @@ async function saveResult(){
   safeSaveAttemptLocal(attempt);
 
   /*
-   * PATCH v3.2.5
+   * PATCH v3.2.6
    * บันทึก local progress ก่อนเริ่ม network sync
    * เพื่อไม่ให้ผู้เรียนติดค้างที่ “กำลังบันทึก...” แล้ว progress หาย
    */
@@ -5863,7 +5921,7 @@ async function saveResult(){
   }
 
   /*
-   * PATCH v3.2.5
+   * PATCH v3.2.6
    * Fire-and-forget sync:
    * - local progress already saved
    * - do NOT await Google Sheets
@@ -6143,16 +6201,16 @@ loadProfileToForm();
     }
 
 </script>
-  <script src="./js/aiquest-ui-mode-v325.js"></script>
-  <script src="./js/aiquest-teacher-console-v325.js"></script>
-  <script src="./js/aiquest-student-detail-v325.js"></script>
-  <script src="./js/aiquest-production-v325.js"></script>
-  <script src="./js/aiquest-label-consistency-v325.js"></script>
-  <script src="./js/aiquest-teacher-accuracy-fix-v325.js"></script>
-  <script src="./js/aiquest-submit-accuracy-payload-v325.js"></script>
-  <script src="./js/aiquest-remedial-path-v325.js"></script>
-  <script src="./js/aiquest-session-roadmap-v325.js"></script>
-<script src="./js/aiquest-card-click-native-v325.js"></script>
-  <script src="./js/aiquest-b2-submit-return-fix-v325.js"></script>
+  <script src="./js/aiquest-ui-mode-v326.js"></script>
+  <script src="./js/aiquest-teacher-console-v326.js"></script>
+  <script src="./js/aiquest-student-detail-v326.js"></script>
+  <script src="./js/aiquest-production-v326.js"></script>
+  <script src="./js/aiquest-label-consistency-v326.js"></script>
+  <script src="./js/aiquest-teacher-accuracy-fix-v326.js"></script>
+  <script src="./js/aiquest-submit-accuracy-payload-v326.js"></script>
+  <script src="./js/aiquest-remedial-path-v326.js"></script>
+  <script src="./js/aiquest-session-roadmap-v326.js"></script>
+<script src="./js/aiquest-card-click-native-v326.js"></script>
+  <script src="./js/aiquest-b2-submit-return-fix-v326.js"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v3.2.5
+ * Version: v3.2.6
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v3.2.5';;
+const APP_VERSION = 'v3.2.6';;
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -268,10 +268,48 @@ function upsertProfile_(profile) {
   else sh.appendRow(row);
 }
 
+
+function numOrBlank_(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const n = Number(v);
+  return isNaN(n) ? '' : n;
+}
+
+function computeAccuracyServer_(a) {
+  a = a || {};
+  const direct = numOrBlank_(a.accuracy || a.accuracyPct || a.accuracyPercent);
+  if (direct !== '' && Number(direct) > 0) return Math.round(Number(direct));
+
+  const correct = numOrBlank_(a.correct || a.correctCount || a.correctItems || a.correctAnswers);
+  const total = numOrBlank_(a.total || a.totalQuestions || a.totalItems || a.questionCount || a.questions);
+  if (correct !== '' && total !== '' && Number(total) > 0) {
+    return Math.round((Number(correct) / Number(total)) * 100);
+  }
+
+  return '';
+}
+
+function normalizeAttemptAccuracy_(a) {
+  a = a || {};
+  const acc = computeAccuracyServer_(a);
+  if (acc !== '') {
+    a.accuracy = acc;
+    a.accuracyPct = acc;
+    a.accuracySource = 'server-direct-or-correct-total';
+  } else {
+    a.accuracy = '';
+    a.accuracyPct = '';
+    a.accuracySource = 'server-not-available';
+  }
+  return a;
+}
+
+
 function appendAttempt_(a) {
+  a = normalizeAttemptAccuracy_(a || {});
   const sh = getSheet_(SHEETS.attempts);
   const now = bangkokIsoNow();
-  sh.appendRow([now, clean_(a.attemptId || makeId_('att')), clean_(a.studentId || ''), clean_(a.studentName || ''), forceSection_(a.section), clean_(a.sessionId || 's1'), clean_(a.missionId || 'm1'), clean_(a.missionTitle || 'AI Awakening'), clean_(a.difficulty || ''), num_(a.score), num_(a.stars), bool_(a.mastered), num_(a.usedTimeSec), num_(a.timeLeftSec), num_(a.accuracy), num_(a.correct), num_(a.total), num_(a.wrong), num_(a.maxCombo), num_(a.helpUsed), num_(a.trickCorrect), num_(a.trickTotal), num_(a.explainCorrect), num_(a.explainTotal), bool_(a.bossWin), stringify_(a.misconceptions || a.misconceptionsJson || {}), stringify_(a.wrongItems || a.wrongItemsJson || []), clean_(a.reflection1 || ''), clean_(a.reflection2 || ''), clean_(a.reflection3 || ''), clean_(a.clientTs || ''), clean_(a.userAgent || ''), clean_(a.pageUrl || ''), clean_(a.version || APP_VERSION), stringify_(a.extra || a.extraJson || {})]);
+  sh.appendRow([now, clean_(a.attemptId || makeId_('att')), clean_(a.studentId || ''), clean_(a.studentName || ''), forceSection_(a.section), clean_(a.sessionId || 's1'), clean_(a.missionId || 'm1'), clean_(a.missionTitle || 'AI Awakening'), clean_(a.difficulty || ''), num_(a.score), num_(a.stars), bool_(a.mastered), num_(a.usedTimeSec), num_(a.timeLeftSec), numOrBlank_(a.accuracy), num_(a.correct), num_(a.total), num_(a.wrong), num_(a.maxCombo), num_(a.helpUsed), num_(a.trickCorrect), num_(a.trickTotal), num_(a.explainCorrect), num_(a.explainTotal), bool_(a.bossWin), stringify_(a.misconceptions || a.misconceptionsJson || {}), stringify_(a.wrongItems || a.wrongItemsJson || []), clean_(a.reflection1 || ''), clean_(a.reflection2 || ''), clean_(a.reflection3 || ''), clean_(a.clientTs || ''), clean_(a.userAgent || ''), clean_(a.pageUrl || ''), clean_(a.version || APP_VERSION), stringify_(a.extra || a.extraJson || {})]);
 }
 
 function appendEvent_(e) {
@@ -313,7 +351,7 @@ function updateTeacherSummary() {
     if (sid) g.students[sid] = true;
     g.attempts++;
     g.scoreSum += Number(r[idx('score')] || 0);
-    g.accSum += Number(r[idx('accuracy')] || 0);
+    const accCell = r[idx('accuracy')]; if (accCell !== '' && accCell !== null && accCell !== undefined) g.accSum += Number(accCell || 0);
     g.helpSum += Number(r[idx('helpUsed')] || 0);
     if (String(r[idx('mastered')]).toUpperCase() === 'TRUE') g.masteryCount++;
     try {
