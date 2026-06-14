@@ -1,6 +1,6 @@
 CSAI2102: AI Quest — Phase 1 Classroom Ready
 
-Build: v3.2.8
+Build: v3.2.9
 Scope:
 - S1 AI Awakening
 - S2 Agent Builder
@@ -19,6 +19,7 @@ Ready checks:
 - Roadmap card entry
 - B2 replay/return
 - Phase 1 Ready badge
+- Phase 1 teacher layout deduped
 
 Next phase:
 - v3.3.0 S6 Knowledge Base Forge
