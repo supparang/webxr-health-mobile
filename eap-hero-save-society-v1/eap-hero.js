@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z57-eap-core-content-replay-challenge-bank';
+  const APP_VERSION = '20260610-v1z58-ai-help-prediction-difficulty-integration';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z57</div>
+              <div class="mini-note">Save the Society • v1z58</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32537,7 +32537,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z57</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z58</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -32675,7 +32675,7 @@
       <h3>How to pass <button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderProgressDiagnostics()">Where am I stuck?</button><button class="btn small ghost pass-debug-btn" onclick="EAPHero.renderStorageDiagnostics()">Storage</button></h3>
       <div class="pass-rule-grid">
         <div><b>Pass a Session</b><span>Complete Core + Support Mission with score ${PASS_RULES.sessionMinScore}+ each.</span></div>
-        <div><b>Unlock Boss Gate</b><span>Pass all 3 Sessions in the group. For Gate 2+, clear the previous Boss Gate first.</span></div>
+        <div><b>Unlock Boss Gate</b><span>Pass all 3 Sessions in the group. For Gate 2+, clear the previous Boss Gate first.</span></div><div><b>AI replay rule</b><span>If AI use is high, replay without AI to confirm independent performance.</span></div>
         <div><b>Final Boss</b><span>Pass S13–S15 and clear Boss Gate 4.</span></div>
       </div>
     </div>`;
@@ -33213,7 +33213,7 @@
       <p><b>Expected answer:</b> ${safe(q.expected)}</p>
       <p><b>Useful words:</b> ${q.vocab.map(x=>`<span class="mini-word">${safe(x)}</span>`).join(' ')}</p>
       <p><b>Frame:</b> <code>${safe(q.frame)}</code></p>
-      <p class="challenge-note"><b>Challenge:</b> Questions change by scenario. A generic answer will not pass; use source keywords and evidence.</p>
+      <p class="challenge-note"><b>Challenge:</b> Questions change by scenario. A generic answer will not pass; use source keywords and evidence.</p><p class="ai-mini-note"><b>AI layer:</b> AI help gives scaffolds, AI prediction estimates readiness, and AI difficulty recommends replay level.</p>
       ${teacherLine}
     </div>`;
   }
@@ -34907,6 +34907,168 @@
     ]
   };
 
+
+  const AI_LEARNING_LAYER = {
+    helpModes:['hint','frame','keyword','checklist'],
+    role:'scaffold-not-answer',
+    difficultyLevels:['easy','normal','hard','challenge'],
+    sessionRiskThresholds:{high:55, medium:70, ready:80}
+  };
+
+  function aiHelpLimitFor(skill, sessionId){
+    const diff = (typeof currentSkillDifficulty === 'function' ? currentSkillDifficulty().key : (state.profile?.difficulty || 'normal')) || 'normal';
+    const m = finalMatrixForSession ? finalMatrixForSession(sessionId) : {level:'A2-B1+'};
+    const isCore = m.core === skill;
+    const base = diff === 'easy' ? 3 : diff === 'normal' ? 2 : diff === 'hard' ? 2 : 1;
+    const levelBonus = String(m.level || '').includes('A2') ? 1 : 0;
+    return Math.max(1, base + (isCore ? levelBonus : 0));
+  }
+
+  function aiHelpPolicyHTML(skill, sessionId){
+    const limit = aiHelpLimitFor(skill, sessionId);
+    const m = finalMatrixForSession ? finalMatrixForSession(sessionId) : {core:'Reading',support:'Writing'};
+    return `<div class="ai-learning-policy">
+      <b>AI Help Policy</b>
+      <span>Mode: scaffold only, not final answer</span>
+      <span>Limit: ${limit} helps for ${safe(skill)} · ${m.core===skill?'Core':'Support/Optional'} skill</span>
+      <span>Allowed help: hint → frame → keyword/checklist</span>
+    </div>`;
+  }
+
+  function aiUseCountFor(sessionId, skill){
+    try{
+      const sid = Number(sessionId || 1);
+      const sk = String(skill || '').toLowerCase();
+      const logs = []
+        .concat(state.portfolio || [])
+        .concat(state.logs || [])
+        .concat(state.ai?.logs || [])
+        .concat(state.aiHelp?.logs || []);
+      return logs.filter(x=>{
+        const xsid = Number(x.session || x.sessionId || x.s || 0);
+        const xsk = String(x.skill || x.type || '').toLowerCase();
+        return xsid === sid && (!sk || xsk === sk) && Number(x.aiUses || x.aiHelp || x.uses || 0) > 0;
+      }).reduce((a,x)=>a + Number(x.aiUses || x.aiHelp || x.uses || 1), 0);
+    }catch(e){ return 0; }
+  }
+
+  function aiPredictionForSession(sessionId){
+    const sid = Number(sessionId || state.currentSession || 1) || 1;
+    const rep = typeof sessionPassReport === 'function' ? sessionPassReport(sid) : null;
+    const st = typeof sessionStarScore === 'function' ? sessionStarScore(sid) : {avg:0,stars:0,passed:false};
+    const required = rep?.requiredSkills || requiredSkillsForSession?.(sid) || ['Reading','Writing'];
+    const skillRows = rep?.skillRows || required.map(skill=>({skill,bestScore:0,passed:false}));
+    const passedCount = skillRows.filter(x=>x.passed).length;
+    const avg = Number(st.avg || 0);
+    const aiUses = required.reduce((a,sk)=>a+aiUseCountFor(sid,sk),0);
+    let readiness = Math.round((avg * 0.65) + (passedCount/Math.max(1,required.length))*30 + Math.min(5, st.stars || 0));
+    if(aiUses >= 4) readiness -= 6;
+    if(aiUses >= 8) readiness -= 8;
+    readiness = Math.max(0, Math.min(100, readiness));
+    let band = 'High Risk';
+    if(readiness >= AI_LEARNING_LAYER.sessionRiskThresholds.ready) band = 'Ready';
+    else if(readiness >= AI_LEARNING_LAYER.sessionRiskThresholds.medium) band = 'Almost Ready';
+    else if(readiness >= AI_LEARNING_LAYER.sessionRiskThresholds.high) band = 'Needs Practice';
+    const weak = skillRows.filter(x=>!x.passed).map(x=>x.skill);
+    const next = weak.length
+      ? `Practice ${weak[0]} again. Use one hint, then revise with source keywords.`
+      : aiUses >= 4
+        ? 'Try replay without AI help to confirm independent performance.'
+        : 'Ready for checkpoint or harder replay.';
+    return {session:sid, readiness, band, avg, stars:st.stars||0, aiUses, required, skillRows, weak, next, passed:!!st.passed};
+  }
+
+  function aiDifficultyRecommendation(sessionId){
+    const p = aiPredictionForSession(sessionId);
+    let recommended = 'normal';
+    if(p.readiness < 55) recommended = 'easy';
+    else if(p.readiness < 78) recommended = 'normal';
+    else if(p.readiness < 90) recommended = 'hard';
+    else recommended = 'challenge';
+    const current = (typeof currentSkillDifficulty === 'function' ? currentSkillDifficulty().key : (state.profile?.difficulty || 'normal')) || 'normal';
+    return {
+      current,
+      recommended,
+      reason:p.readiness < 55 ? 'need scaffold and confidence' :
+             p.readiness < 78 ? 'build stable accuracy' :
+             p.readiness < 90 ? 'ready for tighter criteria' :
+             'ready for replay challenge'
+    };
+  }
+
+  function aiLearningCoachHTML(sessionId){
+    const p = aiPredictionForSession(sessionId);
+    const d = aiDifficultyRecommendation(sessionId);
+    const cls = p.band === 'Ready' ? 'ready' : p.band === 'Almost Ready' ? 'almost' : 'risk';
+    return `<div class="ai-learning-coach ${cls}">
+      <div class="ai-coach-head">
+        <b>🤖 AI Learning Coach</b>
+        <span>${safe(p.band)} · readiness ${p.readiness}%</span>
+      </div>
+      <div class="ai-coach-grid">
+        <div><b>Prediction</b><span>${safe(p.passed?'Session passed':'Not passed yet')} · avg ${p.avg}</span></div>
+        <div><b>AI Help</b><span>${p.aiUses} use(s) logged · scaffold only</span></div>
+        <div><b>Difficulty</b><span>${safe(d.current)} → recommend ${safe(d.recommended)}</span></div>
+        <div><b>Next action</b><span>${safe(p.next)}</span></div>
+      </div>
+    </div>`;
+  }
+
+  function injectAILearningCoach(){
+    try{
+      document.querySelectorAll('.ai-learning-coach').forEach(x=>x.remove());
+      const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Session\s+\d+/i.test(h.textContent || ''));
+      if(title){
+        const m = (title.textContent || '').match(/Session\s+(\d{1,2})/i);
+        const sid = m ? Number(m[1]) : Number(state.currentSession || 1);
+        const target = document.querySelector('.visible-session-completion') || document.querySelector('.route-note') || title;
+        target.insertAdjacentHTML('afterend', aiLearningCoachHTML(sid));
+      }
+      document.querySelectorAll('.hud-card').forEach(card=>{
+        if(card.querySelector('.ai-learning-policy')) return;
+        const txt = (card.textContent || '');
+        const skill = ['Reading','Writing','Listening','Speaking'].find(s=>txt.includes(s));
+        if(skill) card.insertAdjacentHTML('beforeend', aiHelpPolicyHTML(skill, state.currentSession || 1));
+      });
+    }catch(err){ console.warn('[injectAILearningCoach]', err); }
+  }
+
+  function runAILearningLayerSoon(){
+    injectAILearningCoach();
+    setTimeout(injectAILearningCoach, 120);
+    setTimeout(injectAILearningCoach, 500);
+  }
+
+  function renderAILearningDiagnostics(){
+    const rows = [];
+    for(let sid=1; sid<=15; sid++){
+      const p = aiPredictionForSession(sid);
+      const d = aiDifficultyRecommendation(sid);
+      rows.push({sid,p,d});
+    }
+    layout(`<section class="panel ai-diagnostics-panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">AI Learning Layer</span><span class="pill">v1z58</span><span class="pill">Help • Prediction • Difficulty</span></div>
+      <h2>AI Learning Diagnostics</h2>
+      <p class="lead">ดูว่า AI ช่วยอย่างไร ทำนายความพร้อมอย่างไร และควรปรับ difficulty เป็นระดับใด</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Session</th><th>Prediction</th><th>Avg</th><th>AI uses</th><th>Difficulty</th><th>Next action</th></tr></thead>
+        <tbody>${rows.map(r=>`<tr>
+          <td>S${r.sid}</td>
+          <td>${safe(r.p.band)} · ${r.p.readiness}%</td>
+          <td>${r.p.avg}</td>
+          <td>${r.p.aiUses}</td>
+          <td>${safe(r.d.current)} → ${safe(r.d.recommended)}</td>
+          <td>${safe(r.p.next)}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="ai-layer-note">
+        <b>Important:</b> AI Help is not an answer key. It gives hint/frame/keyword/checklist. High AI use lowers confidence prediction until the learner replays independently.
+      </div>
+      <div class="footer-actions"><button class="btn" onclick="EAPHero.map()">Back to Map</button><button class="btn primary" onclick="EAPHero.renderFinalContentRoadmap()">Content Roadmap</button></div>
+    </section>`);
+  }
+
+
   function finalMatrixForSession(sessionId){
     return EAP_FINAL_SKILL_MATRIX[Number(sessionId || 1)] || EAP_FINAL_SKILL_MATRIX[1];
   }
@@ -35329,6 +35491,7 @@
     runPassCriteriaSyncSoon();
     runSessionStarSyncSoon();
     runVisibleCompletionBadgeSoon();
+    runAILearningLayerSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -39415,6 +39578,17 @@
     installFinalEAPQuestionBank,
     finalContentRoadmapHTML,
     renderFinalContentRoadmap,
+    AI_LEARNING_LAYER,
+    aiHelpLimitFor,
+    aiHelpPolicyHTML,
+    aiUseCountFor,
+    aiPredictionForSession,
+    aiDifficultyRecommendation,
+    aiLearningCoachHTML,
+    injectAILearningCoach,
+    runAILearningLayerSoon,
+    renderAILearningDiagnostics,
+    
     scoreEAPOpenAnswer,
     
     STORAGE_LIMITS,
