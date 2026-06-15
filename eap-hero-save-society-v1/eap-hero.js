@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z56-visible-session-completion-badge-cefr-final-fix';
+  const APP_VERSION = '20260610-v1z57-eap-core-content-replay-challenge-bank';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -314,8 +314,8 @@
       reflection:'What is one informal word you should avoid in academic writing?'
     },
     {
-      id:8, emoji:'🐍', title:'Midterm Boss Challenge', zone:'Exam Gate',
-      skill:'Integrated Review', boss:'Exam Hydra',
+      id:8, emoji:'🐍', title:'Paragraph Structure Lab', zone:'Exam Gate',
+      skill:'Academic Paragraph Structure', boss:'Structure Maze Warden',
       problem:'เมื่อเจอหลายทักษะพร้อมกันแล้วสับสน',
       taunt:'One head for every weakness!',
       unlock:'Boss Rush I + Midterm Survivor Badge',
@@ -31833,7 +31833,8 @@
     if(confirm('ล้างข้อมูลเกมทั้งหมดในเครื่องนี้ใช่ไหมคะ?')){
       localStorage.removeItem(STORAGE_KEY);
       state = cloneDefaultState();
-      renderHome();
+      installFinalEAPQuestionBank();
+  renderHome();
     }
   }
 
@@ -31987,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z56</div>
+              <div class="mini-note">Save the Society • v1z57</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32536,7 +32537,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z56</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z57</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -33178,7 +33179,20 @@
   };
 
   function sessionQuality(sessionId){
-    return SESSION_QUALITY_AUDIT[Number(sessionId || 1)] || SESSION_QUALITY_AUDIT[1];
+    const sid = Number(sessionId || 1);
+    const m = finalMatrixForSession(sid);
+    const q = EAP_FINAL_SESSION_QUALITY[sid] || EAP_FINAL_SESSION_QUALITY[1];
+    return Object.assign({
+      level:m.level,
+      core:m.core,
+      support:m.support,
+      risk:'Medium',
+      expected:'short academic response',
+      objective:m.theme,
+      vocab:['main idea','evidence','support'],
+      frame:'The main idea is ___.',
+      teacherNote:''
+    }, q, {level:m.level, core:m.core, support:m.support});
   }
 
   function sessionQualityHTML(sessionId){
@@ -33189,16 +33203,17 @@
       : '';
     return `<div class="session-quality-card ${riskCls}">
       <div class="badges">
-        <span class="pill">CEFR A2-B1+</span>
+        <span class="pill">CEFR ${safe(q.level || 'A2-B1+')}</span>
         <span class="pill">Core: ${safe(q.core)}</span>
         <span class="pill">Support: ${safe(q.support)}</span>
-        <span class="pill">Risk: ${safe(q.risk)}</span>
+        <span class="pill">Replay: random case</span>
       </div>
       <h3>Session Goal</h3>
       <p><b>Objective:</b> ${safe(q.objective)}</p>
       <p><b>Expected answer:</b> ${safe(q.expected)}</p>
       <p><b>Useful words:</b> ${q.vocab.map(x=>`<span class="mini-word">${safe(x)}</span>`).join(' ')}</p>
       <p><b>Frame:</b> <code>${safe(q.frame)}</code></p>
+      <p class="challenge-note"><b>Challenge:</b> Questions change by scenario. A generic answer will not pass; use source keywords and evidence.</p>
       ${teacherLine}
     </div>`;
   }
@@ -33230,11 +33245,11 @@
 
 
   const BOSS_GATE_PLAN = [
-    {gate:1, after:[1,2,3], title:'Boss Gate 1: Foundation Check', focus:'academic mindset, vocabulary, main idea', type:'major'},
-    {gate:2, after:[4,5,6], title:'Boss Gate 2: Critical Reading Check', focus:'keywords, bias awareness, summary', type:'major'},
-    {gate:3, after:[7,8,9], title:'Boss Gate 3: Academic Writing Check', focus:'academic tone, integrated review, paragraph writing', type:'major'},
-    {gate:4, after:[10,11,12], title:'Boss Gate 4: Data / Email / Ethics Check', focus:'data description, academic email, citation and ethics', type:'major'},
-    {gate:5, after:[13,14,15], title:'Final Boss: Integration Check', focus:'academic listening, presentation, final portfolio reflection', type:'final'}
+    {gate:1, after:[1,2,3], title:'Boss Gate 1: Foundation Check', focus:'Reading main idea + short writing + listening prompt + speaking goal', skills:['Reading','Writing','Listening','Speaking'], type:'major'},
+    {gate:2, after:[4,5,6], title:'Boss Gate 2: Critical Reading & Summary Check', focus:'keywords/signal words, bias awareness, summary, short oral summary', skills:['Reading','Writing','Listening','Speaking'], type:'major'},
+    {gate:3, after:[7,8,9], title:'Boss Gate 3: Academic Paragraph Check', focus:'academic tone, paragraph structure, paragraph writing, oral explanation', skills:['Reading','Writing','Listening','Speaking'], type:'major'},
+    {gate:4, after:[10,11,12], title:'Boss Gate 4: Data / Email / Ethics Check', focus:'data description, academic email, paraphrase/citation ethics, polite request', skills:['Reading','Writing','Listening','Speaking'], type:'major'},
+    {gate:5, after:[13,14,15], title:'Final Boss: Integrated EAP Performance', focus:'mini lecture notes, presentation, final integrated response and reflection', skills:['Reading','Writing','Listening','Speaking'], type:'final'}
   ];
 
   function bossGateForSession(sessionId){
@@ -33499,7 +33514,7 @@
           <div class="route-sessions">${g.after.map(sid=>`<span class="route-session">S${sid}</span>`).join('<span class="route-arrow">→</span>')}</div>
           <div class="route-arrow-down">↓</div>
           <button class="boss-gate-chip ${isBossGateUnlocked(g.gate)?'unlocked':'locked'}" onclick="return EAPHero.openBossGate(${g.gate})">${g.type==='final'?'👑':'🛡️'} ${safe(g.title)}</button>
-          <p>${safe(g.focus)}</p>
+          <p>${safe(g.focus)}</p><p class="boss-skill-line">Skills: ${(g.skills||['Reading','Writing','Listening','Speaking']).map(safe).join(' • ')}</p>
           <p class="gate-requirement">${bossGateUnlockReport(g.gate).unlocked ? 'Unlocked checkpoint' : safe(bossGateUnlockRuleText(g.gate) + ' ' + bossGateUnlockReport(g.gate).reason)}</p>
         </div>`).join('')}
       </div>
@@ -34729,7 +34744,7 @@
   const BOSS_GATES = [
     { id:'gate1', title:'Foundation Boss', after:3, sessions:[1,2,3], boss:'Confusion Slime + Detail Trap Spider', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S1-S3' },
     { id:'gate2', title:'Critical Boss', after:6, sessions:[4,5,6], boss:'Fake News Phantom + Copy-Paste Zombie', skills:['Reading','Writing'], unlock:'Complete Reading + Writing evidence in S4-S6' },
-    { id:'gate3', title:'Midterm Hydra', after:8, sessions:[1,2,3,4,5,6,7,8], boss:'Exam Hydra', skills:['Reading','Writing','Listening'], unlock:'Complete at least 6 portfolio items before S8' },
+    { id:'gate3', title:'Midterm Hydra', after:8, sessions:[1,2,3,4,5,6,7,8], boss:'Structure Maze Warden', skills:['Reading','Writing','Listening'], unlock:'Complete at least 6 portfolio items before S8' },
     { id:'gate4', title:'Production Boss', after:11, sessions:[9,10,11], boss:'Broken Paragraph Beast + Graph Fog Dragon + Rude Mail Gremlin', skills:['Writing','Speaking'], unlock:'Complete Writing evidence in S9-S11' },
     { id:'gate5', title:'Communication Boss', after:14, sessions:[12,13,14], boss:'Plagiarism Monster + Lecture Storm + Nervous Ghost', skills:['Listening','Speaking','Ethics'], unlock:'Complete Listening + Speaking evidence in S12-S14' },
     { id:'final', title:'Final Boss', after:15, sessions:[15], boss:'Stagnation Emperor', skills:['Reading','Writing','Listening','Speaking'], unlock:'Complete final problem-solution portfolio evidence' }
@@ -34762,25 +34777,268 @@
     return BOSS_GATES.find(g => Number(g.after) === Number(sessionId));
   }
 
-  function skillPathForSession(sessionId){
-    const map = {
-      1:{ core:'Speaking', support:'Writing', optional:['Reading','Listening'] },
-      2:{ core:'Reading', support:'Listening', optional:['Writing','Speaking'] },
-      3:{ core:'Reading', support:'Writing', optional:['Listening','Speaking'] },
-      4:{ core:'Reading', support:'Listening', optional:['Writing','Speaking'] },
-      5:{ core:'Reading', support:'Speaking', optional:['Writing','Listening'] },
-      6:{ core:'Writing', support:'Reading', optional:['Listening','Speaking'] },
-      7:{ core:'Writing', support:'Reading', optional:['Listening','Speaking'] },
-      8:{ core:'Reading', support:'Writing', optional:['Listening','Speaking'] },
-      9:{ core:'Writing', support:'Reading', optional:['Speaking','Listening'] },
-      10:{ core:'Writing', support:'Reading', optional:['Speaking','Listening'] },
-      11:{ core:'Writing', support:'Speaking', optional:['Reading','Listening'] },
-      12:{ core:'Writing', support:'Reading', optional:['Speaking','Listening'] },
-      13:{ core:'Listening', support:'Writing', optional:['Reading','Speaking'] },
-      14:{ core:'Speaking', support:'Listening', optional:['Reading','Writing'] },
-      15:{ core:'Speaking', support:'Writing', optional:['Reading','Listening'] }
+
+  const EAP_FINAL_SKILL_MATRIX = {
+    1:{theme:'Academic Mindset', core:'Reading', support:'Speaking', optional:['Writing','Listening'], level:'A2', bossAfter:null},
+    2:{theme:'Academic Vocabulary', core:'Reading', support:'Writing', optional:['Listening','Speaking'], level:'A2', bossAfter:null},
+    3:{theme:'Main Idea', core:'Reading', support:'Writing', optional:['Listening','Speaking'], level:'A2-B1+', bossAfter:1},
+    4:{theme:'Keywords & Signal Words', core:'Reading', support:'Listening', optional:['Writing','Speaking'], level:'A2-B1+', bossAfter:null},
+    5:{theme:'Critical Reading', core:'Reading', support:'Speaking', optional:['Writing','Listening'], level:'A2-B1+', bossAfter:null},
+    6:{theme:'Summarizing', core:'Writing', support:'Reading', optional:['Listening','Speaking'], level:'A2-B1+', bossAfter:2},
+    7:{theme:'Academic Tone', core:'Writing', support:'Speaking', optional:['Reading','Listening'], level:'B1', bossAfter:null},
+    8:{theme:'Paragraph Structure', core:'Reading', support:'Writing', optional:['Listening','Speaking'], level:'B1', bossAfter:null},
+    9:{theme:'Paragraph Writing', core:'Writing', support:'Speaking', optional:['Reading','Listening'], level:'B1', bossAfter:3},
+    10:{theme:'Data Description', core:'Reading', support:'Writing', optional:['Listening','Speaking'], level:'B1', bossAfter:null},
+    11:{theme:'Academic Email', core:'Writing', support:'Speaking', optional:['Reading','Listening'], level:'B1', bossAfter:null},
+    12:{theme:'Citation & Ethics', core:'Reading', support:'Writing', optional:['Listening','Speaking'], level:'B1+', bossAfter:4},
+    13:{theme:'Academic Listening', core:'Listening', support:'Writing', optional:['Reading','Speaking'], level:'B1+', bossAfter:null},
+    14:{theme:'Academic Presentation', core:'Speaking', support:'Writing', optional:['Reading','Listening'], level:'B1+', bossAfter:null},
+    15:{theme:'Final Integration', core:'Writing', support:'Speaking', optional:['Reading','Listening'], level:'B1+', bossAfter:5}
+  };
+
+  const EAP_FINAL_SESSION_QUALITY = {
+    1:{risk:'Low', objective:'Identify why academic English matters and set one clear learning goal.', expected:'main idea + personal academic goal', vocab:['academic goal','skill','strategy','reflect'], frame:'My academic goal is ___. I need this because ___.', teacherNote:'เริ่มจากความหมายและเป้าหมาย ไม่ใช่ grammar'},
+    2:{risk:'Low', objective:'Use academic vocabulary in context, not as isolated translation.', expected:'meaning + example sentence', vocab:['context clue','meaning','example','word family'], frame:'The word ___ means ___. In this context, ___.', teacherNote:'เชื่อมกับ EAP Word Quest ได้โดยตรง'},
+    3:{risk:'Low', objective:'Find the main idea and one detail that really supports it.', expected:'main idea + support detail', vocab:['main idea','supporting detail','topic','evidence'], frame:'The main idea is ___. One supporting detail is ___.', teacherNote:'S3 ไม่ใช่ Boss แต่เป็น session ปิดชุด foundation'},
+    4:{risk:'Medium', objective:'Use keywords and signal words to follow relationships between ideas.', expected:'keywords + signal word + relationship', vocab:['keyword','however','therefore','because','for example'], frame:'The keyword is ___. The signal word ___ shows ___.', teacherNote:'ฝึกอ่าน/ฟังเร็วและจับ signpost'},
+    5:{risk:'Medium', objective:'Separate fact, opinion, bias, and evidence in a short academic/social text.', expected:'claim + bias/evidence + cautious response', vocab:['claim','fact','opinion','bias','evidence'], frame:'The claim is ___. I should check ___ because ___.', teacherNote:'ไม่ให้ตอบแค่เห็นด้วย/ไม่เห็นด้วย'},
+    6:{risk:'Medium', objective:'Write a short summary using own words without copying the source.', expected:'3 short summary sentences', vocab:['summary','own words','source idea','important'], frame:'The source explains ___. In short, ___.', teacherNote:'S6 เป็น writing core และ reading support'},
+    7:{risk:'Medium', objective:'Revise casual language into polite academic tone.', expected:'revised sentence + reason', vocab:['formal','polite','tone','appropriate'], frame:'A more academic version is ___. This is better because ___.', teacherNote:'ใช้สถานการณ์ใกล้ตัว เช่น email/class discussion'},
+    8:{risk:'Medium', objective:'Identify topic sentence, support, example, and conclusion in a paragraph.', expected:'structure map + missing part', vocab:['topic sentence','support','example','conclusion'], frame:'The topic sentence is ___. The support is ___.', teacherNote:'S8 ต้องเป็น paragraph structure ไม่ใช่ boss'},
+    9:{risk:'Medium', objective:'Write one short academic paragraph with topic, support, example, and closing.', expected:'one paragraph 4–5 sentences', vocab:['paragraph','topic sentence','example','conclusion'], frame:'This topic is important because ___. For example, ___. In conclusion, ___.', teacherNote:'ให้พูดอธิบาย paragraph เป็น support'},
+    10:{risk:'High', objective:'Read simple data and describe the trend without overclaiming.', expected:'trend + number + cautious meaning', vocab:['increase','decrease','trend','higher','lower'], frame:'The data show ___. It increased/decreased from ___ to ___.', teacherNote:'ให้ตัวเลขไม่เยอะ และเน้น cautious language'},
+    11:{risk:'Medium', objective:'Write and say a polite academic request in email or office-hour context.', expected:'short email + spoken request', vocab:['request','appointment','feedback','available'], frame:'Dear ___. I would like to request ___. Thank you for ___.', teacherNote:'ใช้จริงกับอาจารย์/เพื่อนร่วมงาน'},
+    12:{risk:'High', objective:'Decide when to quote, paraphrase, cite, and declare AI help responsibly.', expected:'citation/paraphrase decision + ethics note', vocab:['quote','paraphrase','citation','plagiarism','AI help'], frame:'I should cite this because ___. My own wording is ___.', teacherNote:'สำคัญต่อการใช้ AI และงานวิชาการ'},
+    13:{risk:'Medium', objective:'Listen to a mini lecture and write useful notes.', expected:'main point + keywords + detail', vocab:['lecture','note-taking','main point','detail'], frame:'The lecturer’s main point is ___. Two keywords are ___ and ___.', teacherNote:'ใช้ AI voice lab และ transcript หลังทำ'},
+    14:{risk:'Medium', objective:'Give a short academic presentation with clear opening, signposting, and closing.', expected:'45–60 second presentation + script outline', vocab:['opening','signpost','outline','conclusion'], frame:'Today, I will talk about ___. First, ___. To conclude, ___.', teacherNote:'เน้นพูดจริงและใช้ notes ไม่ใช่อ่านทั้งบท'},
+    15:{risk:'High', objective:'Integrate reading/listening evidence into a short written response and oral reflection.', expected:'integrated response + reflection', vocab:['integrate','evidence','reflect','next step'], frame:'The evidence shows ___. My response is ___. My next step is ___.', teacherNote:'เป็น final portfolio synthesis'}
+  };
+
+  const EAP_REPLAY_TOPIC_BANK = {
+    1:[
+      ['academic goal audit','A student wants to improve English but only says, “I will study more.” A stronger academic plan names a skill, a weekly action, and a way to check progress.'],
+      ['study strategy choice','Two students practice English. One memorizes random words, while the other reads short sources, writes notes, and asks for feedback.'],
+      ['learning reflection','After a difficult task, a student writes what was easy, what was confusing, and what to try next week.'],
+      ['skill diagnosis','A student can chat casually but struggles to summarize articles and present evidence in class.']
+    ],
+    2:[
+      ['context clue challenge','The word “significant” appears after data showing a clear change. The sentence suggests that the change is important, not just big.'],
+      ['word family lab','A text uses analyze, analysis, and analytical in three different sentences. The meaning is related, but the grammar role changes.'],
+      ['collocation trap','A student writes “make research,” but academic English usually uses “conduct research” or “do a study.”'],
+      ['precise vocabulary','The words result, evidence, and claim are related but not interchangeable in an academic paragraph.']
+    ],
+    3:[
+      ['main idea trap','A paragraph gives two examples of study apps, but the main idea is that students need a clear review strategy, not just more apps.'],
+      ['detail vs main idea','The text mentions 2025 and online classes, but the central message is that feedback helps learners improve academic writing.'],
+      ['topic sentence check','The first sentence introduces digital reading habits, and every later detail explains how readers select reliable sources.'],
+      ['support detail hunt','A passage argues that note-taking improves listening because it helps students organize keywords and examples.']
+    ],
+    4:[
+      ['signal word maze','A short lecture uses first, however, and therefore to show sequence, contrast, and result. Missing these signals changes the meaning.'],
+      ['contrast clue','The writer praises online sources; however, the next sentence warns that source credibility must be checked.'],
+      ['cause-effect scanner','Because students copied text without checking meaning, their summaries became inaccurate. Therefore, revision was needed.'],
+      ['example marker','The paragraph explains academic vocabulary and gives examples such as method, evidence, and conclusion.']
+    ],
+    5:[
+      ['bias detector','A post says “everyone knows this method is perfect,” but it gives no source, date, or evidence. The wording sounds too strong.'],
+      ['fact opinion split','The text includes one statistic, one personal opinion, and one unsupported claim about student learning.'],
+      ['source credibility','An article has a clear author and date, but its evidence comes from only one small class.'],
+      ['emotional wording','A paragraph uses words like disaster, miracle, and totally useless to persuade readers without enough evidence.']
+    ],
+    6:[
+      ['summary length','An academic summary is shorter than the original and keeps only the most important ideas in the writer’s own words.'],
+      ['copy-paste risk','Changing only a few words is not enough. Ethical paraphrasing changes structure and wording while keeping the meaning.'],
+      ['source idea priority','A source explains three causes, but only one cause is central to the writer’s argument.'],
+      ['summary audience','A classmate needs a three-sentence summary before a presentation, not a full translation of the text.']
+    ],
+    7:[
+      ['casual to academic','A student writes “This thing is super good.” The idea can be revised as “This approach is useful for academic learning.”'],
+      ['polite disagreement','In a discussion, a student disagrees with a claim but needs a respectful academic response.'],
+      ['hedging practice','A strong claim like “This always works” becomes more academic when changed to “This may be useful in some contexts.”'],
+      ['tone repair','An email to a lecturer sounds too casual and needs a clearer greeting, request, and closing.']
+    ],
+    8:[
+      ['paragraph map','A paragraph has a topic sentence, two supporting details, one example, and a conclusion, but the example is in the wrong place.'],
+      ['missing support','The topic sentence is clear, but the paragraph has no evidence or example to support it.'],
+      ['conclusion link','The final sentence should connect back to the topic instead of introducing a new unrelated idea.'],
+      ['structure puzzle','Three sentences are mixed up: one is a topic sentence, one is support, and one is a concluding idea.']
+    ],
+    9:[
+      ['paragraph plan','A student needs to write one paragraph about digital note-taking with one topic sentence, one example, and one conclusion.'],
+      ['support development','The topic is useful, but the paragraph needs a specific example from class or study practice.'],
+      ['coherence repair','The paragraph has good ideas but lacks signal words that show order and connection.'],
+      ['academic paragraph challenge','A short paragraph should avoid casual language and include a clear reason or example.']
+    ],
+    10:[
+      ['trend reading','A chart shows online library use increasing from 35% to 62%, but the data do not prove why the increase happened.'],
+      ['data caution','A table shows one class improved after using feedback, but the sample is small, so the claim should be cautious.'],
+      ['comparison data','Group A scored 72 and Group B scored 81. The writer should describe the difference without overclaiming.'],
+      ['number meaning','A percentage rose slightly, but the change is not large enough to call it a dramatic improvement.']
+    ],
+    11:[
+      ['feedback email','A student wants feedback on a draft report and needs a polite subject, request, and closing.'],
+      ['appointment request','A student cannot attend office hours and asks for another available time politely.'],
+      ['late submission','A student explains a problem and asks whether a short extension is possible without sounding demanding.'],
+      ['group project email','A student writes to a teammate to request missing information for a shared academic task.']
+    ],
+    12:[
+      ['paraphrase decision','A sentence contains a unique idea from a source. The student must paraphrase it and cite the source.'],
+      ['quote or paraphrase','A short definition may be quoted, but a general explanation should be paraphrased in the student’s own words.'],
+      ['AI help declaration','A student used AI for brainstorming but wrote the final answer independently and needs a transparent note.'],
+      ['plagiarism warning','A draft keeps the same structure and many words from the source, so it is too close to copying.']
+    ],
+    13:[
+      ['mini lecture notes','A lecturer explains that effective summaries include the main point, key terms, and one important example.'],
+      ['listening signal words','The speaker uses first, next, and finally to organize advice about academic presentations.'],
+      ['detail selection','A lecture includes many examples, but only two details are needed for useful notes.'],
+      ['keyword listening','The speaker repeats evidence, source, and conclusion, showing that these are key lecture words.']
+    ],
+    14:[
+      ['presentation opening','A student introduces a topic, states the purpose, gives an outline, and uses signposting for the audience.'],
+      ['slide explanation','The speaker should not read every word on the slide but should explain one main point and one example.'],
+      ['Q and A response','A classmate asks for clarification, and the presenter gives a short polite answer with evidence.'],
+      ['closing statement','A strong closing restates the main point and tells the audience what to remember.']
+    ],
+    15:[
+      ['integrated case','A student reads a short source and listens to a mini lecture about misinformation before writing a response.'],
+      ['portfolio reflection','A learner reviews evidence from reading, writing, listening, and speaking to decide the next learning goal.'],
+      ['problem solution task','A case describes online scams. The student must identify the problem, cite evidence, and propose one solution.'],
+      ['final EAP decision','The student must decide which evidence is reliable, summarize it, and present a short reflection.']
+    ]
+  };
+
+  function finalMatrixForSession(sessionId){
+    return EAP_FINAL_SKILL_MATRIX[Number(sessionId || 1)] || EAP_FINAL_SKILL_MATRIX[1];
+  }
+
+  function missionTemplatesFor(skill, sessionId){
+    const sid = Number(sessionId || 1);
+    const theme = finalMatrixForSession(sid).theme;
+    const common = {id:`${skill.toLowerCase()}-s${sid}`, type:skill.toLowerCase(), title:`${theme} ${skill} Challenge`};
+    if(skill === 'Reading'){
+      return [
+        Object.assign({}, common, {id:`reading-core-s${sid}`, q:readingQuestionSetForSession(sid), instruction:'Read for the task, not for word-by-word translation.'}),
+        Object.assign({}, common, {id:`reading-evidence-s${sid}`, q:['What claim or main idea is presented?','Which detail is the best evidence?','What should readers not overclaim?'], instruction:'Find evidence and avoid overclaiming.'}),
+        Object.assign({}, common, {id:`reading-trap-s${sid}`, q:['What is the tempting but wrong detail?','Why is it not the main point?','What is the stronger answer?'], instruction:'Avoid the detail trap.'})
+      ];
+    }
+    if(skill === 'Writing'){
+      return [
+        Object.assign({}, common, {id:`writing-core-s${sid}`, title:`${theme} Writing Challenge`, target:'clear short academic response', instruction:'Write a short answer that uses the source idea, one academic connector, and your own wording.'}),
+        Object.assign({}, common, {id:`writing-revision-s${sid}`, title:`${theme} Revision Challenge`, target:'improved academic wording', instruction:'Rewrite the idea more academically. Keep the meaning, add one reason or example, and avoid copying.'}),
+        Object.assign({}, common, {id:`writing-transfer-s${sid}`, title:`${theme} Transfer Challenge`, target:'new example + clear structure', instruction:'Apply the source idea to a new university study situation. Include one specific example.'})
+      ];
+    }
+    if(skill === 'Listening'){
+      return [
+        Object.assign({}, common, {id:`listening-keywords-s${sid}`, ask:'Listen for the main point, two keywords, and one useful detail.'}),
+        Object.assign({}, common, {id:`listening-signals-s${sid}`, ask:'Listen for signal words such as first, however, because, therefore, or in conclusion.'}),
+        Object.assign({}, common, {id:`listening-trap-s${sid}`, ask:'Identify which detail is less important and which detail should go into your notes.'})
+      ];
+    }
+    return [
+      Object.assign({}, common, {id:`speaking-core-s${sid}`, title:`${theme} Speaking Challenge`, instruction:'Give a short academic explanation with opening, one main point, one example or evidence, and closing.'}),
+      Object.assign({}, common, {id:`speaking-roleplay-s${sid}`, title:`${theme} Role-play Challenge`, instruction:'Respond to a classmate or teacher politely. Use one reason and one example.'}),
+      Object.assign({}, common, {id:`speaking-reflection-s${sid}`, title:`${theme} Reflection Challenge`, instruction:'Explain what you learned from this session and one next step for improvement.'})
+    ];
+  }
+
+  function installFinalEAPQuestionBank(){
+    const make = {
+      1:()=>[
+        mcq('F57_S1_Q1','A student says, “I will study English more.” What is missing for an academic goal?','', ['a clear skill and action','a longer sentence only','a difficult grammar rule','a funny title'],0,'An academic goal should name a skill and action.'),
+        mcq('F57_S1_Q2','Which plan is strongest for EAP progress?','', ['Watch random videos','Read one short source, write a note, and ask for feedback','Memorize ten unrelated words','Avoid speaking until perfect'],1,'It includes source, output, and feedback.')
+      ],
+      2:()=>[
+        mcq('F57_S2_Q1','In “The evidence supports the claim,” what is evidence?','', ['an unsupported opinion','information that helps prove an idea','the final paragraph only','a casual example'],1,'Evidence supports a claim.'),
+        mcq('F57_S2_Q2','Which sentence uses academic vocabulary most appropriately?','', ['The result is very wow.','The data indicate a possible improvement.','The thing is good.','Students got stuff.'],1,'Indicate and improvement are academic and precise.')
+      ],
+      3:()=>[
+        mcq('F57_S3_Q1','A passage gives three examples of note-taking apps. What is the main idea likely about?','', ['the app names only','how note-taking tools support study','the color of the apps','one small example'],1,'The main idea connects the examples.'),
+        mcq('F57_S3_Q2','Which answer avoids the detail trap?','', ['The text mentions 2025.','The text is mainly about feedback improving writing.','The second sentence is long.','There are many students.'],1,'It states the central idea.')
+      ],
+      4:()=>[
+        mcq('F57_S4_Q1','“However” usually signals…','', ['example','contrast','cause','sequence'],1,'However shows contrast.'),
+        mcq('F57_S4_Q2','Which pair shows cause and effect?','', ['because / therefore','for example / such as','first / next','however / although'],0,'Because and therefore mark cause-effect.')
+      ],
+      5:()=>[
+        mcq('F57_S5_Q1','Which wording suggests possible bias?','', ['The study included 40 students.','The method is a miracle for everyone.','The report was published in 2024.','The author explains the method.'],1,'Miracle and everyone are overly strong.'),
+        mcq('F57_S5_Q2','Before trusting a claim, what should a reader check first?','', ['font size','source, evidence, date, and purpose','whether it sounds exciting','number of emojis'],1,'Critical reading checks source and evidence.')
+      ],
+      6:()=>[
+        mcq('F57_S6_Q1','Which summary choice is best?','', ['Copy the full paragraph','Keep the main point in shorter own words','Change only two words','Add personal opinion not in the source'],1,'A summary is shorter and in own words.'),
+        mcq('F57_S6_Q2','Why is changing only a few words risky?','', ['It may still be too close to the source','It is always shorter','It improves citation automatically','It makes the idea false'],0,'It can still be copying.')
+      ],
+      7:()=>[
+        mcq('F57_S7_Q1','Which revision is more academic?','', ['This thing is super good.','This approach may be useful for academic learning.','It is awesome and perfect.','Everyone must use it.'],1,'It is formal and cautious.'),
+        mcq('F57_S7_Q2','Which phrase is polite for disagreement?','', ['You are wrong.','I see your point; however, the evidence suggests another view.','No way.','That is bad.'],1,'It is polite and evidence-based.')
+      ],
+      8:()=>[
+        mcq('F57_S8_Q1','What does a topic sentence usually do?','', ['gives the central idea of the paragraph','adds an unrelated joke','lists the references only','ends the email'],0,'Topic sentence guides the paragraph.'),
+        mcq('F57_S8_Q2','A paragraph has a claim but no example. What is weak?','', ['support development','font style','title length','greeting'],0,'It needs support or example.')
+      ],
+      9:()=>[
+        mcq('F57_S9_Q1','A strong academic paragraph needs…','', ['topic, support, example, and closing','only one long sentence','only difficult words','no examples'],0,'This is the basic structure.'),
+        mcq('F57_S9_Q2','Which sentence works as a conclusion?','', ['Blue apps are common.','In conclusion, feedback helps students revise more effectively.','Because the table is long.','However, and.'],1,'It closes the paragraph.')
+      ],
+      10:()=>[
+        mcq('F57_S10_Q1','If data rise from 35% to 62%, the safest description is…','', ['It proves all students improved.','The percentage increased from 35% to 62%.','Everyone loves the tool.','The result is perfect.'],1,'It describes the trend without overclaiming.'),
+        mcq('F57_S10_Q2','Why use cautious language with small data?','', ['to avoid overclaiming','to make the answer longer','to hide the numbers','to sound casual'],0,'Small data cannot prove too much.')
+      ],
+      11:()=>[
+        mcq('F57_S11_Q1','Which email phrase is most polite?','', ['Give me feedback now.','Could you please give me feedback on my draft?','Read this.','I need answer.'],1,'It is polite and clear.'),
+        mcq('F57_S11_Q2','A useful academic email should include…','', ['greeting, request, context, closing','only emojis','no subject','only a complaint'],0,'These parts make the email clear.')
+      ],
+      12:()=>[
+        mcq('F57_S12_Q1','When should a student cite a source?','', ['when using another author’s idea','only when the teacher asks','never in short answers','only for pictures'],0,'Ideas from sources need citation.'),
+        mcq('F57_S12_Q2','Responsible AI use means…','', ['copy AI output without checking','use help transparently and write your own final answer','hide all tools','avoid revision'],1,'Transparency and own work matter.')
+      ],
+      13:()=>[
+        mcq('F57_S13_Q1','Good lecture notes should include…','', ['main point, keywords, and useful details','every word exactly','only the title','personal opinion only'],0,'Notes should be selective.'),
+        mcq('F57_S13_Q2','If a speaker says “first, next, finally,” what should listeners notice?','', ['sequence/order','bias only','citation style','email greeting'],0,'These are sequence signals.')
+      ],
+      14:()=>[
+        mcq('F57_S14_Q1','A good presentation opening should…','', ['state topic and outline','read every slide word','avoid eye contact','start with conclusion only'],0,'Opening orients the audience.'),
+        mcq('F57_S14_Q2','Which signpost helps listeners?','', ['First, I will explain the problem.','Stuff is here.','Maybe later.','The end maybe.'],0,'It signals organization.')
+      ],
+      15:()=>[
+        mcq('F57_S15_Q1','An integrated EAP task should combine…','', ['evidence from reading/listening and a clear response','only memorized vocabulary','only personal opinion','only one copied sentence'],0,'Integration uses evidence plus response.'),
+        mcq('F57_S15_Q2','A useful final reflection includes…','', ['what improved, evidence, and next step','only “I am done”','only score','only a complaint'],0,'Reflection should guide improvement.')
+      ]
     };
-    return map[sessionId] || { core:'Reading', support:'Writing', optional:['Listening','Speaking'] };
+    SESSIONS.forEach(s=>{
+      const extra = (make[s.id] || (()=>[]))();
+      const existingIds = new Set((s.questions || []).map(q=>q.id));
+      s.questions = extra.filter(q=>!existingIds.has(q.id)).concat(s.questions || []);
+    });
+  }
+
+  function finalContentRoadmapHTML(){
+    return `<div class="final-content-roadmap">
+      <h3>EAP Core + Support Path</h3>
+      <div class="roadmap-grid">${Object.entries(EAP_FINAL_SKILL_MATRIX).map(([sid,m])=>`<div class="roadmap-card">
+        <b>S${sid}: ${safe(m.theme)}</b>
+        <span>Core: ${safe(m.core)}</span>
+        <span>Support: ${safe(m.support)}</span>
+        ${m.bossAfter?`<em>Unlocks Boss Gate ${safe(m.bossAfter)} after criteria</em>`:''}
+      </div>`).join('')}</div>
+    </div>`;
+  }
+
+  function renderFinalContentRoadmap(){
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z57</span><span class="pill">A2-B1+</span><span class="pill">Core + Support</span></div>
+      <h2>EAP Content Roadmap</h2>
+      <p class="lead">สรุปแกนทักษะของแต่ละ Session และ Boss Gate ตามโครงใหม่</p>
+      ${finalContentRoadmapHTML()}
+      <div class="footer-actions"><button class="btn" onclick="EAPHero.map()">Back to Map</button></div>
+    </section>`);
+  }
+
+
+  function skillPathForSession(sessionId){
+    const m = finalMatrixForSession(sessionId);
+    return { core:m.core, support:m.support, optional:m.optional || [] };
   }
 
 
@@ -35923,45 +36181,39 @@
   }
 
   function pickMissionVariant(sessionId, skill){
+    const sid = Number(sessionId || state.currentSession || 1);
     state.skillBankHistory = state.skillBankHistory || {};
-    const hkey = missionHistoryKey(sessionId, skill);
+    const hkey = missionHistoryKey(sid, skill);
     const recent = state.skillBankHistory[hkey] || [];
     const comboKey = `${hkey}_combos`;
     const recentCombos = state.skillBankHistory[comboKey] || [];
 
-    const topics = SESSION_TOPIC_VARIANTS[sessionId] || SESSION_TOPIC_VARIANTS[1];
-    let variantList = [];
-    if(skill === 'Reading') variantList = SKILL_MISSION_VARIANTS.Reading.templates;
-    if(skill === 'Writing') variantList = SKILL_MISSION_VARIANTS.Writing.prompts;
-    if(skill === 'Listening') variantList = SKILL_MISSION_VARIANTS.Listening.tasks;
-    if(skill === 'Speaking') variantList = SKILL_MISSION_VARIANTS.Speaking.prompts;
-
-    const allCombos = [];
-    topics.forEach((t, topicIdx) => {
-      variantList.forEach((v, variantIdx) => {
-        allCombos.push({ topicIdx, variantIdx, t, v, combo:`topic${topicIdx}_var${variantIdx}` });
+    const topics = EAP_REPLAY_TOPIC_BANK[sid] || EAP_REPLAY_TOPIC_BANK[1];
+    const templates = missionTemplatesFor(skill, sid);
+    const combos = [];
+    topics.forEach((t, topicIdx)=>{
+      templates.forEach((v, variantIdx)=>{
+        combos.push({topicIdx, variantIdx, t, v, combo:`s${sid}_${skill}_topic${topicIdx}_var${variantIdx}`});
       });
     });
+    let pool = combos.filter(x=>!recentCombos.includes(x.combo));
+    if(!pool.length) pool = combos.slice();
+    const strong = pool.filter(x=>!recent.includes(`topic${x.topicIdx}`) && !recent.includes(`var${x.variantIdx}`));
+    if(strong.length) pool = strong;
+    const chosen = pool[Math.floor(Math.random()*pool.length)];
 
-    // Prefer combinations never used recently, then avoid recent topic/template separately.
-    let pool = allCombos.filter(x => !recentCombos.includes(x.combo));
-    if(!pool.length) pool = allCombos.slice();
-
-    const strongerPool = pool.filter(x => !recent.includes(`topic${x.topicIdx}`) && !recent.includes(`var${x.variantIdx}`));
-    if(strongerPool.length) pool = strongerPool;
-
-    const chosen = pool[Math.floor(Math.random() * pool.length)];
-
-    state.skillBankHistory[hkey] = [`topic${chosen.topicIdx}`, `var${chosen.variantIdx}`].concat(recent).slice(0,18);
-    state.skillBankHistory[comboKey] = [chosen.combo].concat(recentCombos).slice(0,120);
+    state.skillBankHistory[hkey] = [`topic${chosen.topicIdx}`, `var${chosen.variantIdx}`].concat(recent).slice(0,24);
+    state.skillBankHistory[comboKey] = [chosen.combo].concat(recentCombos).slice(0,160);
     saveState();
 
+    const variant = Object.assign({}, chosen.v);
+    if(skill === 'Reading') variant.q = readingQuestionSetForSession(sid);
     return {
-      session:Number(sessionId),
+      session:sid,
       skill,
       topic:chosen.t[0],
       passage:chosen.t[1],
-      variant:chosen.v,
+      variant,
       topicIndex:chosen.topicIdx,
       variantIndex:chosen.variantIdx,
       combo:chosen.combo
@@ -36067,25 +36319,24 @@
 
   function readingQuestionSetForSession(sessionId){
     const n = Number(sessionId || 1);
-    if(n === 5){
-      return [
-        'What is the main idea?',
-        'Which words show bias or emotion?',
-        'What evidence supports your answer?'
-      ];
-    }
-    if(n === 12){
-      return [
-        'What information needs a citation?',
-        'How can you write it in your own words?',
-        'How should you mention the source or AI help?'
-      ];
-    }
-    return [
-      'What is the main idea?',
-      'Choose 1–2 keywords.',
-      'Write one support detail.'
-    ];
+    const sets = {
+      1:['What academic skill problem is described?','What learning goal would fit this problem?','What action should the student take next?'],
+      2:['What key word or phrase is important?','What clue helps you understand it?','Write one example sentence using the word.'],
+      3:['What is the main idea?','Which detail supports the main idea?','Which detail might distract readers from the main point?'],
+      4:['List two keywords or signal words.','What relationship do they show?','How do they help readers/listeners understand the text?'],
+      5:['What claim is being made?','What evidence or bias can you find?','What should be checked before using this source?'],
+      6:['Which idea must be included in a summary?','Which detail can be omitted?','How can the idea be written in your own words?'],
+      7:['Which wording is too casual or too strong?','What academic wording could replace it?','Why is the revision better?'],
+      8:['What is the topic sentence?','What support or example is included?','What part of the paragraph is missing or weak?'],
+      9:['What is the paragraph’s topic?','What support should be developed?','What conclusion would connect back to the topic?'],
+      10:['What trend or comparison is shown?','What number/detail supports it?','What overclaim should be avoided?'],
+      11:['What is the purpose of the email/request?','What polite phrase is useful?','What information is missing?'],
+      12:['What idea needs citation?','Should it be quoted or paraphrased?','How can the student show ethical AI/source use?'],
+      13:['What is the mini lecture’s main point?','What two keywords should go into notes?','What detail is useful but not too minor?'],
+      14:['What is the presentation topic?','What signposting phrase helps the audience?','What evidence/example should be included?'],
+      15:['What problem or decision is presented?','What evidence from the source matters most?','What response or next step is reasonable?']
+    };
+    return sets[n] || sets[3];
   }
 
 
@@ -36469,17 +36720,77 @@
     </section>`);
   }
 
-  function submitReading(id){
-    const s = getSession(id), text = { topic: document.getElementById('readingTopic')?.value || skillTextForSession(s).topic, passage: document.getElementById('readingPassage')?.value || skillTextForSession(s).passage };
-    const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
-    const joined = answers.join(' ').toLowerCase();
+
+  function sourceKeywordsForScoring(text){
+    const stop = new Set('the a an and or to of in on for with from by is are was were be been being this that these those student students academic english eap task source idea topic because therefore however example'.split(/\s+/));
+    const words = String(text || '').toLowerCase().match(/[a-z]{4,}/g) || [];
+    const freq = {};
+    words.forEach(w=>{ if(!stop.has(w)) freq[w]=(freq[w]||0)+1; });
+    return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,10).map(x=>x[0]);
+  }
+
+  function skillMarkersForScoring(skill, sessionId){
+    const sid = Number(sessionId || 1);
+    const base = {
+      Reading:['main','idea','evidence','detail','claim','source','keyword','support'],
+      Writing:['because','therefore','however','evidence','example','conclusion','summary','source'],
+      Listening:['main','point','keyword','detail','first','however','therefore','because'],
+      Speaking:['today','first','because','example','evidence','conclusion','thank','question']
+    };
+    const special = {
+      5:['bias','claim','evidence','source','check'],
+      6:['summary','own','words','important','source'],
+      8:['topic','sentence','support','example','conclusion'],
+      10:['increase','decrease','trend','data','percent','higher','lower'],
+      12:['cite','citation','paraphrase','quote','source','plagiarism','ai'],
+      13:['lecture','note','keyword','main','detail'],
+      14:['today','first','next','conclude','present','outline'],
+      15:['evidence','integrate','problem','solution','reflect']
+    };
+    return Array.from(new Set((base[skill] || []).concat(special[sid] || [])));
+  }
+
+  function copiedSourceRatio(output, source){
+    const out = new Set((String(output||'').toLowerCase().match(/[a-z]{4,}/g)||[]));
+    const src = new Set((String(source||'').toLowerCase().match(/[a-z]{4,}/g)||[]));
+    if(!out.size || !src.size) return 0;
+    let hit = 0; out.forEach(w=>{ if(src.has(w)) hit++; });
+    return hit / Math.max(1, out.size);
+  }
+
+  function scoreEAPOpenAnswer(skill, sessionId, output, sourceText, extra){
+    const out = String(output || '').trim();
+    const low = out.toLowerCase();
+    const words = out.split(/\s+/).filter(Boolean).length;
+    const sourceKeys = sourceKeywordsForScoring(sourceText);
+    const sourceHit = sourceKeys.filter(k=>low.includes(k)).length;
+    const markers = skillMarkersForScoring(skill, sessionId);
+    const markerHit = markers.filter(k=>low.includes(k)).length;
+    const connectorHit = (low.match(/\b(because|however|therefore|for example|in conclusion|first|next|finally|according to|suggests|indicates)\b/g)||[]).length;
     let score = 0;
-    if(joined.includes(text.topic.split(' ')[0].toLowerCase())) score += 25;
-    if(joined.length >= 80) score += 25;
-    if(/main|idea|keyword|evidence|support|source|trend|tone|summary|problem/.test(joined)) score += 25;
-    if(answers.filter(a=>a.length>10).length >= 2) score += 25;
-    score = cefrScoreFloor('Reading', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading'))), answers.join(' '));
-    addPortfolio({ session:id, skill:'Reading', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Reading'), output:answers.join(' | '), prompt:text.passage });
+    const minWords = skill === 'Reading' ? 28 : skill === 'Listening' ? 24 : skill === 'Speaking' ? 30 : 45;
+    if(words >= minWords) score += 20;
+    else if(words >= Math.round(minWords*0.6)) score += 10;
+    score += Math.min(25, sourceHit * 7);
+    score += Math.min(25, markerHit * 6);
+    score += Math.min(15, connectorHit * 5);
+    if(/[.!?]/.test(out) || words >= minWords + 20) score += 10;
+    if(extra) score += Number(extra || 0);
+    if(words < 8) score = Math.min(score, 25);
+    if(sourceText && copiedSourceRatio(out, sourceText) > 0.82 && words > 20) score = Math.min(score, 55);
+    if(/^(good|yes|no|i think it is important|this is important)\.?$/i.test(out)) score = Math.min(score, 30);
+    return Math.max(0, Math.min(100, Math.round(score)));
+  }
+
+
+  function submitReading(id){
+    const s = getSession(id);
+    const text = { topic: document.getElementById('readingTopic')?.value || skillTextForSession(s).topic, passage: document.getElementById('readingPassage')?.value || skillTextForSession(s).passage };
+    const answers = [0,1,2].map(i => document.getElementById('readingAns'+i)?.value.trim() || '');
+    const joined = answers.join(' | ');
+    let score = scoreEAPOpenAnswer('Reading', id, joined, `${text.topic}. ${text.passage}`);
+    score = cefrScoreFloor('Reading', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Reading'))), joined);
+    addPortfolio({ session:id, skill:'Reading', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Reading'), output:joined, prompt:text.passage });
     showSkillResult('Reading', score, id);
   }
 
@@ -36532,10 +36843,11 @@
 
   function writingPromptFromVariant(s, mv){
     const v = mv.variant || {};
+    const matrix = finalMatrixForSession(s.id);
     return {
-      title:v.title || 'Academic Writing',
-      target:v.target || 'clear academic response',
-      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Write an academic response.'} Source idea: ${mv.passage}`,
+      title:v.title || `${matrix.theme} Writing Challenge`,
+      target:v.target || 'clear academic response using the source idea',
+      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Write an academic response.'} Use the source idea, but do not copy it. Add one specific reason/example. Source idea: ${mv.passage}`,
       topic:mv.topic,
       passage:mv.passage,
       variantType:v.type || 'writing'
@@ -36555,14 +36867,10 @@
 
   function submitWriting(id){
     const s = getSession(id), out = document.getElementById('writingOutput')?.value.trim() || '';
-    const words = out.split(/\s+/).filter(Boolean).length;
-    let score = 0;
-    if(words >= 45) score += 25;
-    if(/\b(however|therefore|because|according to|evidence|suggest|indicate|in conclusion)\b/i.test(out)) score += 25;
-    if(/\b(problem|cause|solution|summary|source|data|academic|students|learning)\b/i.test(out)) score += 25;
-    if(/[.!?]\s+[A-Z]/.test(out) || words >= 80) score += 25;
+    const prompt = document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction;
+    let score = scoreEAPOpenAnswer('Writing', id, out, prompt);
     score = cefrScoreFloor('Writing', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Writing'))), out);
-    addPortfolio({ session:id, skill:'Writing', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt:document.getElementById('writingPromptText')?.value || writingPromptForSession(s).instruction });
+    addPortfolio({ session:id, skill:'Writing', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Writing'), output:out, prompt });
     showSkillResult('Writing', score, id);
   }
 
@@ -36907,14 +37215,10 @@
   
   function submitListening(id){
     const s = getSession(id), notes = document.getElementById('listeningNotes')?.value.trim() || '';
-    const low = notes.toLowerCase();
-    let score = 0;
-    if(notes.split(/\s+/).filter(Boolean).length >= 20) score += 25;
-    if(/main|point|keyword|evidence|source|academic|student|learning/.test(low)) score += 25;
-    if(/first|next|however|therefore|because|conclusion|key/.test(low)) score += 25;
-    if(low.includes(skillTextForSession(s).topic.split(' ')[0].toLowerCase())) score += 25;
+    const prompt = document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage;
+    let score = scoreEAPOpenAnswer('Listening', id, notes, prompt);
     score = cefrScoreFloor('Listening', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Listening') - transcriptPenalty(id))), notes);
-    addPortfolio({ session:id, skill:'Listening', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt:document.getElementById('listeningPromptText')?.value || skillTextForSession(s).passage });
+    addPortfolio({ session:id, skill:'Listening', difficulty:currentSkillDifficulty().key, score, aiUses:aiUsesFor(id,'Listening'), transcriptHint:transcriptHintUsed(id), output:notes, prompt });
     unlockListeningTranscript(id);
     showFullTranscript(id);
     showSkillResult('Listening', score, id);
@@ -37112,9 +37416,10 @@
 
   function speakingPromptFromVariant(s, mv){
     const v = mv.variant || {};
+    const matrix = finalMatrixForSession(s.id);
     return {
-      title:v.title || 'Academic Speaking',
-      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Give a short academic explanation.'} Use this source idea: ${mv.passage}`,
+      title:v.title || `${matrix.theme} Speaking Challenge`,
+      instruction:`Topic: ${mv.topic}. ${v.instruction || 'Give a short academic explanation.'} Include opening, one source-based point, one example/evidence, and a closing. Source idea: ${mv.passage}`,
       topic:mv.topic,
       passage:mv.passage,
       variantId:v.id || 'speaking'
@@ -37130,14 +37435,16 @@
 
   function submitSpeaking(id){
     const s = getSession(id), out = document.getElementById('speakingTranscript')?.value.trim() || '';
-    let score = 0;
-    if(out.split(/\s+/).filter(Boolean).length >= 35) score += 25;
-    if(document.getElementById('spOpen')?.checked) score += 15;
-    if(document.getElementById('spSign')?.checked) score += 20;
-    if(document.getElementById('spEvi')?.checked) score += 20;
-    if(document.getElementById('spClose')?.checked) score += 20;
+    const prompt = document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction;
+    let extra = 0;
+    if(document.getElementById('spOpen')?.checked) extra += 8;
+    if(document.getElementById('spSign')?.checked) extra += 8;
+    if(document.getElementById('spEvi')?.checked) extra += 8;
+    if(document.getElementById('spClose')?.checked) extra += 6;
+    if(document.getElementById('spSpoke')?.checked || speakingSeconds >= 20) extra += 10;
+    let score = scoreEAPOpenAnswer('Speaking', id, out, prompt, extra);
     score = cefrScoreFloor('Speaking', difficultyAdjustedScore(Math.max(0, score - aiPenaltyForPortfolio(id, 'Speaking'))), out);
-    addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt:document.getElementById('speakingPromptText')?.value || speakingPromptForSession(s).instruction });
+    addPortfolio({ session:id, skill:'Speaking', difficulty:currentSkillDifficulty().key, speakingSeconds, score, aiUses:aiUsesFor(id,'Speaking'), output:out, prompt });
     showSkillResult('Speaking', score, id);
   }
 
@@ -39101,6 +39408,15 @@
     passCriteriaHTML,
     bossGatePassStatus,
     renderProgressDiagnostics,
+    EAP_FINAL_SKILL_MATRIX,
+    EAP_FINAL_SESSION_QUALITY,
+    EAP_REPLAY_TOPIC_BANK,
+    finalMatrixForSession,
+    installFinalEAPQuestionBank,
+    finalContentRoadmapHTML,
+    renderFinalContentRoadmap,
+    scoreEAPOpenAnswer,
+    
     STORAGE_LIMITS,
     storageUsageInfo,
     normalizeCEFRLabelsInDOM,
