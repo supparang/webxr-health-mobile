@@ -1,6 +1,13 @@
 CSAI2102: AI Quest — Phase 1 Classroom Ready
 
-Build: v3.3.1 Teacher Dashboard Clean
+Build: v3.4.0 Split Teacher / Student Pages
+
+Student:
+- /ai-quest/index.html
+
+Teacher:
+- /ai-quest/teacher.html?teacher=1
+
 Scope:
 - S1 AI Awakening
 - S2 Agent Builder
@@ -10,16 +17,5 @@ Scope:
 - S5 A* Rescue Mission
 - B2 Search Arena Boss
 
-Ready checks:
-- Section 101 lock
-- Google Sheets submit
-- Teacher Console dashboard clean
-- Student Detail
-- Accuracy = correct/total, not score
-- Roadmap card entry
-- B2 replay/return
-- Phase 1 Ready badge
-- Teacher dashboard not duplicated
-
-Next phase:
+Next:
 - S6 Knowledge Base Forge

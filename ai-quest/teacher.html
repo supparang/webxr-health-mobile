@@ -931,15 +931,17 @@
   <script src="./js/aiquest-cloud-logger.js"></script>
 
 <script>
-/* PATCH v3.4.0: Student page guard */
+/* PATCH v3.4.0: Teacher page guard */
 (function(){
+  window.AIQUEST_PAGE_ROLE = 'teacher';
   try{
-    if(new URLSearchParams(location.search).get('teacher') === '1'){
-      location.replace('./teacher.html?teacher=1&v=20260614-split340');
-      return;
+    var url = new URL(location.href);
+    if(url.searchParams.get('teacher') !== '1'){
+      url.searchParams.set('teacher','1');
+      if(!url.searchParams.get('v')) url.searchParams.set('v','20260614-split340');
+      history.replaceState(null,'',url.toString());
     }
   }catch(e){}
-  window.AIQUEST_PAGE_ROLE = 'student';
 })();
 </script>
 
@@ -952,7 +954,7 @@
         <div class="logo">🧠</div>
         <div>
           <h1>CSAI2102: AI Quest</h1>
-          <div class="subtitle">v3.4.0 • Student Page • Section 101</div>
+          <div class="subtitle">v3.4.0 • Teacher Dashboard • Section 101</div>
         </div>
       </div>
 
@@ -6216,25 +6218,32 @@ loadProfileToForm();
 
 </script>
   <script src="./js/aiquest-ui-mode-v340.js"></script>
-<script src="./js/aiquest-label-consistency-v340.js"></script>
+  <script src="./js/aiquest-teacher-console-v340.js"></script>
+  <script src="./js/aiquest-student-detail-v340.js"></script>
+  <script src="./js/aiquest-production-v340.js"></script>
+  <script src="./js/aiquest-label-consistency-v340.js"></script>
   <script src="./js/aiquest-teacher-accuracy-fix-v340.js"></script>
   <script src="./js/aiquest-submit-accuracy-payload-v340.js"></script>
   <script src="./js/aiquest-phase1-ready-cleanup-v340.js"></script>
   <script src="./js/aiquest-phase1-final-polish-v340.js"></script>
   <script src="./js/aiquest-phase1-final-dedupe-v340.js"></script>
-<script src="./js/aiquest-remedial-path-v340.js"></script>
+  <script src="./js/aiquest-teacher-dashboard-clean-v340.js"></script>
+  <script src="./js/aiquest-teacher-dashboard-safe-restore-v340.js"></script>
+  <script src="./js/aiquest-teacher-risk-wording-v340.js"></script>
+  <script src="./js/aiquest-teacher-role-separation-v340.js"></script>
+  <script src="./js/aiquest-remedial-path-v340.js"></script>
   <script src="./js/aiquest-session-roadmap-v340.js"></script>
 <script src="./js/aiquest-card-click-native-v340.js"></script>
   <script src="./js/aiquest-b2-submit-return-fix-v340.js"></script>
 
 <script>
 (function(){
-  function addTeacherLink(){
-    if(document.getElementById('teacherPageLinkV340')) return;
+  function addStudentLink(){
+    if(document.getElementById('studentPageLinkV340')) return;
     var a=document.createElement('a');
-    a.id='teacherPageLinkV340';
-    a.href='./teacher.html?teacher=1&v=20260614-split340';
-    a.textContent='Teacher Dashboard';
+    a.id='studentPageLinkV340';
+    a.href='./index.html?v=20260614-split340';
+    a.textContent='Student Page';
     a.style.position='fixed';
     a.style.right='12px';
     a.style.top='12px';
@@ -6249,8 +6258,8 @@ loadProfileToForm();
     a.style.fontSize='12px';
     document.body.appendChild(a);
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addTeacherLink);
-  else addTeacherLink();
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addStudentLink);
+  else addStudentLink();
 })();
 </script>
 
