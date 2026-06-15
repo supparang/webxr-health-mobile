@@ -13,7 +13,7 @@
       var url = new URL(location.href);
       if(url.searchParams.get('teacher') !== '1'){
         url.searchParams.set('teacher','1');
-        if(!url.searchParams.get('v')) url.searchParams.set('v','20260614-teacheronly341');
+        if(!url.searchParams.get('v')) url.searchParams.set('v','20260614-detail343');
         history.replaceState(null,'',url.toString());
       }
     }catch(e){}
@@ -116,7 +116,7 @@
       <div class="logo">🧠</div>
       <div>
         <h1>CSAI2102: AI Quest</h1>
-        <div class="sub">v3.4.1 • Teacher Dashboard • Section 101</div>
+        <div class="sub">v3.4.3 • Teacher Dashboard • Section 101</div>
         <div style="margin-top:8px">
           <span class="pill good">✓ Teacher-only page</span>
           <span class="pill good">✓ Phase 1 Ready: S1–S5 + B1–B2</span>
@@ -124,7 +124,7 @@
         </div>
       </div>
       <div class="actions">
-        <a class="btn" href="./index.html?v=20260614-teacheronly341">Student Page</a>
+        <a class="btn" href="./index.html?v=20260614-detail343">Student Page</a>
         <button class="btn primary" id="refreshBtn">Refresh</button>
         <button class="btn" id="previewBtn">Preview Student</button>
       </div>
@@ -139,6 +139,10 @@
     <section class="card">
       <h2>All Students Detail</h2>
       <p class="muted">ดูสถานะนักศึกษาทุกคนจาก Google Sheets เฉพาะ Section 101</p>
+      <div class="two" style="margin:10px 0">
+        <button class="btn primary" id="loadStudent12Btn">Load Student 12 / KK</button>
+        <button class="btn" id="showRawTopBtn">Show raw response</button>
+      </div>
       <div class="two" style="margin:10px 0">
         <input id="studentSearch" placeholder="ค้นหา studentId / ชื่อ / section" />
         <select id="studentFilter">
@@ -210,11 +214,11 @@
   </script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-data-contract-v22.js"></script>
-  <script src="./js/aiquest-label-consistency-v341.js"></script>
-  <script src="./js/aiquest-teacher-accuracy-fix-v341.js"></script>
-  <script src="./js/aiquest-teacher-console-v341.js"></script>
-  <script src="./js/aiquest-student-detail-v341.js"></script>
-  <script src="./js/aiquest-production-v341.js"></script>
-  <script src="./js/aiquest-teacher-only-dashboard-v341.js"></script>
+  <script src="./js/aiquest-label-consistency-v343.js"></script>
+  <script src="./js/aiquest-teacher-accuracy-fix-v343.js"></script>
+  <script src="./js/aiquest-teacher-console-v343.js"></script>
+  <script src="./js/aiquest-student-detail-v343.js"></script>
+  <script src="./js/aiquest-production-v343.js"></script>
+  <script src="./js/aiquest-teacher-only-dashboard-v343.js"></script>
 </body>
 </html>
