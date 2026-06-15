@@ -6,7 +6,7 @@
   'use strict';
 
   const STORAGE_KEY = 'EAP_HERO_SAVE_SOCIETY_V1';
-  const APP_VERSION = '20260610-v1z58-ai-help-prediction-difficulty-integration';
+  const APP_VERSION = '20260610-v1z59-mission-specific-ai-help-question-alignment';
   const app = document.getElementById('app');
 
   const SESSIONS = [
@@ -31988,7 +31988,7 @@
             <div class="logo-mark">🎓</div>
             <div>
               <div>EAP Hero</div>
-              <div class="mini-note">Save the Society • v1z58</div>
+              <div class="mini-note">Save the Society • v1z59</div>
             </div>
           </div>
           <div class="top-actions">
@@ -32537,7 +32537,7 @@
     if(!el) return;
     el.innerHTML = `<div class="shell emergency-boot-shell">
       <div class="topbar">
-        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z58</div></div></div>
+        <div class="logo"><div class="logo-mark">🎓</div><div><div>EAP Hero</div><div class="mini-note">Save the Society • v1z59</div></div></div>
       </div>
       <section class="panel emergency-boot-panel" style="margin-top:20px">
         <div class="badges"><span class="pill">Emergency Boot Recovery</span><span class="pill">v1z45</span></div>
@@ -35069,6 +35069,395 @@
   }
 
 
+
+  const EAP_MISSION_ALIGNMENT = {
+    1:{
+      focus:'academic goal audit',
+      readingQuestions:[
+        'What skill problem does the student have?',
+        'What three parts should a stronger academic goal include?',
+        'What evidence in the passage supports your answer?'
+      ],
+      helpSteps:[
+        'Identify the weak goal or learning problem.',
+        'Find the missing parts: skill, weekly action, progress check.',
+        'Write a stronger academic goal using evidence from the passage.'
+      ],
+      frames:[
+        'The student needs to improve ___.',
+        'A stronger goal should include ___, ___, and ___.',
+        'The evidence is “___.”'
+      ],
+      vocab:['academic goal','skill','weekly action','progress check','evidence']
+    },
+    2:{
+      focus:'academic vocabulary in context',
+      readingQuestions:[
+        'What academic word or phrase is most important in the passage?',
+        'What context clue helps you understand it?',
+        'How can you use the word in a new academic sentence?'
+      ],
+      helpSteps:[
+        'Find the key academic word.',
+        'Look before and after the word for clues.',
+        'Write a new sentence that keeps the academic meaning.'
+      ],
+      frames:[
+        'The key word is ___.',
+        'The clue is ___.',
+        'In an academic sentence: ___.'
+      ],
+      vocab:['context clue','meaning','example','word family','academic word']
+    },
+    3:{
+      focus:'main idea and supporting detail',
+      readingQuestions:[
+        'What is the main idea of the passage?',
+        'Which detail best supports the main idea?',
+        'Which detail is tempting but not central?'
+      ],
+      helpSteps:[
+        'Find what all details are mostly about.',
+        'Choose one detail that directly supports it.',
+        'Reject small details that do not control the paragraph.'
+      ],
+      frames:[
+        'The main idea is ___.',
+        'One supporting detail is ___.',
+        'A less important detail is ___.'
+      ],
+      vocab:['main idea','supporting detail','topic','central','evidence']
+    },
+    4:{
+      focus:'keywords and signal words',
+      readingQuestions:[
+        'What keywords or signal words appear in the passage?',
+        'What relationship do the signal words show?',
+        'How do the signal words help readers understand the message?'
+      ],
+      helpSteps:[
+        'Circle keywords that repeat or carry meaning.',
+        'Find signal words such as because, however, therefore, first.',
+        'Explain the relationship: cause, contrast, example, or sequence.'
+      ],
+      frames:[
+        'The keyword is ___.',
+        'The signal word ___ shows ___.',
+        'This helps readers understand ___.'
+      ],
+      vocab:['keyword','signal word','because','however','therefore','for example']
+    },
+    5:{
+      focus:'critical reading',
+      readingQuestions:[
+        'What claim does the passage make?',
+        'What evidence or bias can you find?',
+        'What should a reader check before trusting the source?'
+      ],
+      helpSteps:[
+        'Identify the claim.',
+        'Look for evidence, missing evidence, or emotional wording.',
+        'Name one thing to check: source, date, author, or data.'
+      ],
+      frames:[
+        'The claim is ___.',
+        'The evidence/bias is ___.',
+        'Readers should check ___ because ___.'
+      ],
+      vocab:['claim','fact','opinion','bias','evidence','source']
+    },
+    6:{
+      focus:'summarizing in own words',
+      readingQuestions:[
+        'What idea must be included in a short summary?',
+        'Which detail can be omitted?',
+        'How can the idea be written in your own words?'
+      ],
+      helpSteps:[
+        'Find the most important source idea.',
+        'Remove examples or minor details.',
+        'Rewrite the idea with new wording and the same meaning.'
+      ],
+      frames:[
+        'The source mainly explains ___.',
+        'A minor detail I can omit is ___.',
+        'In my own words, ___.'
+      ],
+      vocab:['summary','own words','source idea','important','omit']
+    },
+    7:{
+      focus:'academic tone',
+      readingQuestions:[
+        'Which wording is too casual or too strong?',
+        'What academic wording could replace it?',
+        'Why is the revision more appropriate?'
+      ],
+      helpSteps:[
+        'Find casual, emotional, or too strong wording.',
+        'Replace it with formal and cautious wording.',
+        'Explain why the tone is better for academic communication.'
+      ],
+      frames:[
+        'The casual wording is ___.',
+        'A more academic version is ___.',
+        'This is better because ___.'
+      ],
+      vocab:['formal','polite','tone','appropriate','cautious']
+    },
+    8:{
+      focus:'paragraph structure',
+      readingQuestions:[
+        'What is the topic sentence?',
+        'What support or example is included?',
+        'What part of the paragraph is missing or weak?'
+      ],
+      helpSteps:[
+        'Find the topic sentence.',
+        'Find support, example, or explanation.',
+        'Check whether the paragraph has a clear closing idea.'
+      ],
+      frames:[
+        'The topic sentence is ___.',
+        'The support/example is ___.',
+        'The weak or missing part is ___.'
+      ],
+      vocab:['topic sentence','support','example','conclusion','structure']
+    },
+    9:{
+      focus:'paragraph writing',
+      readingQuestions:[
+        'What is the paragraph topic?',
+        'What support should be developed?',
+        'What conclusion would connect back to the topic?'
+      ],
+      helpSteps:[
+        'Identify the topic.',
+        'Choose one reason or example as support.',
+        'Write a closing sentence that returns to the topic.'
+      ],
+      frames:[
+        'The paragraph is about ___.',
+        'One support idea is ___.',
+        'In conclusion, ___.'
+      ],
+      vocab:['paragraph','topic','support','example','closing']
+    },
+    10:{
+      focus:'data description',
+      readingQuestions:[
+        'What trend or comparison is shown?',
+        'What number or detail supports it?',
+        'What overclaim should be avoided?'
+      ],
+      helpSteps:[
+        'Find the trend: increase, decrease, higher, lower, stable.',
+        'Use one number as evidence.',
+        'Avoid saying the data proves more than it shows.'
+      ],
+      frames:[
+        'The data show ___.',
+        'The number changes from ___ to ___.',
+        'We should not claim ___ because ___.'
+      ],
+      vocab:['increase','decrease','trend','data','higher','lower']
+    },
+    11:{
+      focus:'academic email',
+      readingQuestions:[
+        'What is the purpose of the request?',
+        'What polite phrase is useful?',
+        'What information is missing or needed?'
+      ],
+      helpSteps:[
+        'Identify the purpose of the email.',
+        'Choose a polite request phrase.',
+        'Add necessary context such as course, draft, time, or deadline.'
+      ],
+      frames:[
+        'The purpose is to request ___.',
+        'A polite phrase is “___.”',
+        'The email should include ___.'
+      ],
+      vocab:['request','feedback','appointment','available','deadline']
+    },
+    12:{
+      focus:'citation and ethics',
+      readingQuestions:[
+        'What idea needs citation?',
+        'Should the student quote or paraphrase it?',
+        'How can the student show ethical source or AI use?'
+      ],
+      helpSteps:[
+        'Find the borrowed idea.',
+        'Decide whether exact wording or paraphrase is needed.',
+        'Explain how to cite or declare help responsibly.'
+      ],
+      frames:[
+        'This idea needs citation because ___.',
+        'I should quote/paraphrase it because ___.',
+        'Ethical use means ___.'
+      ],
+      vocab:['citation','paraphrase','quote','plagiarism','AI help']
+    },
+    13:{
+      focus:'academic listening notes',
+      readingQuestions:[
+        'What is the mini lecture’s main point?',
+        'What two keywords should go into notes?',
+        'What detail is useful but not too minor?'
+      ],
+      helpSteps:[
+        'Listen for the repeated main point.',
+        'Write two keywords, not full sentences.',
+        'Choose one detail that explains the main point.'
+      ],
+      frames:[
+        'The lecturer’s main point is ___.',
+        'Two keywords are ___ and ___.',
+        'One useful detail is ___.'
+      ],
+      vocab:['lecture','note-taking','main point','keyword','detail']
+    },
+    14:{
+      focus:'academic presentation',
+      readingQuestions:[
+        'What is the presentation topic?',
+        'What signposting phrase helps the audience?',
+        'What evidence or example should be included?'
+      ],
+      helpSteps:[
+        'State the topic and purpose.',
+        'Use signposting: first, next, finally, to conclude.',
+        'Add one evidence or example.'
+      ],
+      frames:[
+        'Today, I will talk about ___.',
+        'First, ___. Next, ___.',
+        'To conclude, ___.'
+      ],
+      vocab:['presentation','opening','signpost','evidence','conclusion']
+    },
+    15:{
+      focus:'final integrated EAP task',
+      readingQuestions:[
+        'What problem or decision is presented?',
+        'What evidence from the source matters most?',
+        'What response or next step is reasonable?'
+      ],
+      helpSteps:[
+        'Identify the problem or decision.',
+        'Choose evidence from reading/listening.',
+        'Write a response and one reflection or next step.'
+      ],
+      frames:[
+        'The problem is ___.',
+        'The evidence shows ___.',
+        'My response and next step are ___.'
+      ],
+      vocab:['integrate','evidence','response','reflect','next step']
+    }
+  };
+
+  function missionAlignmentForSession(sessionId){
+    return EAP_MISSION_ALIGNMENT[Number(sessionId || 1)] || EAP_MISSION_ALIGNMENT[1];
+  }
+
+  function alignedReadingQuestions(sessionId){
+    return missionAlignmentForSession(sessionId).readingQuestions.slice();
+  }
+
+  function alignedHelpStepsHTML(sessionId, skill){
+    const a = missionAlignmentForSession(sessionId);
+    return `<div class="aligned-task-help">
+      <div class="aligned-task-head">
+        <span>Aligned Help</span>
+        <span>${safe(skill || 'Mission')}</span>
+        <span>${safe(a.focus)}</span>
+      </div>
+      <h3>Use this help for the actual task</h3>
+      ${a.helpSteps.map((step,i)=>`<div class="aligned-step"><b>Step ${i+1}</b><span>${safe(step)}</span></div>`).join('')}
+      <h3>Sentence frames that match this task</h3>
+      <div class="aligned-frames">${a.frames.map(f=>`<code>${safe(f)}</code>`).join('')}</div>
+      <h3>Useful vocabulary for this task</h3>
+      <div class="aligned-vocab">${a.vocab.map(v=>`<span>${safe(v)}</span>`).join('')}</div>
+    </div>`;
+  }
+
+  function syncReadingQuestionsToMission(){
+    try{
+      const sid = Number(state.currentSession || 1) || 1;
+      const q = alignedReadingQuestions(sid);
+      const labels = Array.from(document.querySelectorAll('label, .question-label, p, h3')).filter(el=>/\?\s*$/.test((el.textContent||'').trim()) || /^\s*\d+\./.test((el.textContent||'').trim()));
+      q.forEach((txt,i)=>{
+        const candidate = labels.find(el=>{
+          const t = (el.textContent || '').trim();
+          return t.startsWith(String(i+1)+'.') || t.includes(['target reader','audience','clues in the passage','evidence supports'][i] || '__never__');
+        });
+        if(candidate) candidate.textContent = `${i+1}. ${txt}`;
+      });
+    }catch(e){}
+  }
+
+  function removeMismatchedAudienceQuestions(){
+    try{
+      const sid = Number(state.currentSession || 1) || 1;
+      const a = missionAlignmentForSession(sid);
+      if(a.focus === 'academic goal audit'){
+        document.querySelectorAll('label,p,h3').forEach(el=>{
+          const txt = (el.textContent || '').trim();
+          if(/target reader|audience|purpose of the passage|wording clues/i.test(txt)){
+            const q = alignedReadingQuestions(sid);
+            if(/target reader|audience/i.test(txt)) el.textContent = `1. ${q[0]}`;
+            else if(/clues/i.test(txt)) el.textContent = `2. ${q[1]}`;
+            else if(/purpose/i.test(txt)) el.textContent = `3. ${q[2]}`;
+          }
+        });
+      }
+    }catch(e){}
+  }
+
+  function injectAlignedHelpBlock(){
+    try{
+      const sid = Number(state.currentSession || 1) || 1;
+      const title = Array.from(document.querySelectorAll('h1,h2')).find(h=>/Mission:/i.test(h.textContent || ''));
+      if(!title) return;
+      document.querySelectorAll('.aligned-task-help').forEach(x=>x.remove());
+      const skill = (title.textContent || '').match(/Reading|Writing|Listening|Speaking/i)?.[0] || 'Mission';
+      const note = Array.from(document.querySelectorAll('.session-quality-card,.aligned-help,.help-card,.ai-learning-policy')).find(x=>x);
+      const target = note || title;
+      target.insertAdjacentHTML('afterend', alignedHelpStepsHTML(sid, skill));
+      syncReadingQuestionsToMission();
+      removeMismatchedAudienceQuestions();
+    }catch(err){ console.warn('[injectAlignedHelpBlock]', err); }
+  }
+
+  function runMissionAlignmentPatchSoon(){
+    syncReadingQuestionsToMission();
+    removeMismatchedAudienceQuestions();
+    injectAlignedHelpBlock();
+    setTimeout(()=>{ syncReadingQuestionsToMission(); removeMismatchedAudienceQuestions(); injectAlignedHelpBlock(); }, 120);
+    setTimeout(()=>{ syncReadingQuestionsToMission(); removeMismatchedAudienceQuestions(); injectAlignedHelpBlock(); }, 500);
+  }
+
+  function renderMissionAlignmentDiagnostics(){
+    layout(`<section class="panel" style="margin-top:20px">
+      <div class="badges"><span class="pill">v1z59</span><span class="pill">Mission Alignment</span></div>
+      <h2>Mission-Specific Help + Question Alignment</h2>
+      <p class="lead">ตรวจว่าแต่ละ Session ใช้คำถามและ AI Help ตรงกับ scenario จริง</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Session</th><th>Focus</th><th>Questions</th><th>Frames</th></tr></thead>
+        <tbody>${Object.entries(EAP_MISSION_ALIGNMENT).map(([sid,a])=>`<tr>
+          <td>S${sid}</td>
+          <td>${safe(a.focus)}</td>
+          <td>${a.readingQuestions.map(q=>`• ${safe(q)}`).join('<br>')}</td>
+          <td>${a.frames.map(f=>`<code>${safe(f)}</code>`).join('<br>')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="footer-actions"><button class="btn" onclick="EAPHero.map()">Back to Map</button></div>
+    </section>`);
+  }
+
+
   function finalMatrixForSession(sessionId){
     return EAP_FINAL_SKILL_MATRIX[Number(sessionId || 1)] || EAP_FINAL_SKILL_MATRIX[1];
   }
@@ -35079,7 +35468,7 @@
     const common = {id:`${skill.toLowerCase()}-s${sid}`, type:skill.toLowerCase(), title:`${theme} ${skill} Challenge`};
     if(skill === 'Reading'){
       return [
-        Object.assign({}, common, {id:`reading-core-s${sid}`, q:readingQuestionSetForSession(sid), instruction:'Read for the task, not for word-by-word translation.'}),
+        Object.assign({}, common, {id:`reading-core-s${sid}`, q:alignedReadingQuestions(sid), instruction:'Read for the task, not for word-by-word translation.'}),
         Object.assign({}, common, {id:`reading-evidence-s${sid}`, q:['What claim or main idea is presented?','Which detail is the best evidence?','What should readers not overclaim?'], instruction:'Find evidence and avoid overclaiming.'}),
         Object.assign({}, common, {id:`reading-trap-s${sid}`, q:['What is the tempting but wrong detail?','Why is it not the main point?','What is the stronger answer?'], instruction:'Avoid the detail trap.'})
       ];
@@ -35492,6 +35881,7 @@
     runSessionStarSyncSoon();
     runVisibleCompletionBadgeSoon();
     runAILearningLayerSoon();
+    runMissionAlignmentPatchSoon();
     return {intercept:!!window.__EAP_CHECKPOINT_SESSION_INTERCEPT__, cards:document.querySelectorAll('.checkpoint-session-safe-card').length};
   }
 
@@ -36035,7 +36425,7 @@
         { id:'comparison-evidence', q:['What comparison is made?','What evidence supports the comparison?','Is the comparison fair? Why?'] },
         { id:'cause-evidence', q:['What cause is claimed?','What evidence supports the cause?','What alternative cause is possible?'] },
         { id:'effect-evidence', q:['What effect is described?','What evidence supports the effect?','What effect is not supported?'] },
-        { id:'quote-read', q:['What is the main idea?','Which words show bias or emotion?','What evidence supports your answer?'] },
+        { id:'quote-read', q:['What is the main idea?','Which words show bias or emotion?','What evidence in the passage supports your answer?'] },
         { id:'data-read', q:['What data point is most important?','What trend does the data suggest?','What conclusion goes beyond the data?'] },
         { id:'visual-read', q:['If this passage became a chart, what would the chart show?','What label would be needed?','What data would still be missing?'] },
         { id:'ethics-read', q:['What ethical issue appears in the passage?','What responsible action is suggested?','What risk should be avoided?'] },
@@ -36481,25 +36871,7 @@
 
 
   function readingQuestionSetForSession(sessionId){
-    const n = Number(sessionId || 1);
-    const sets = {
-      1:['What academic skill problem is described?','What learning goal would fit this problem?','What action should the student take next?'],
-      2:['What key word or phrase is important?','What clue helps you understand it?','Write one example sentence using the word.'],
-      3:['What is the main idea?','Which detail supports the main idea?','Which detail might distract readers from the main point?'],
-      4:['List two keywords or signal words.','What relationship do they show?','How do they help readers/listeners understand the text?'],
-      5:['What claim is being made?','What evidence or bias can you find?','What should be checked before using this source?'],
-      6:['Which idea must be included in a summary?','Which detail can be omitted?','How can the idea be written in your own words?'],
-      7:['Which wording is too casual or too strong?','What academic wording could replace it?','Why is the revision better?'],
-      8:['What is the topic sentence?','What support or example is included?','What part of the paragraph is missing or weak?'],
-      9:['What is the paragraph’s topic?','What support should be developed?','What conclusion would connect back to the topic?'],
-      10:['What trend or comparison is shown?','What number/detail supports it?','What overclaim should be avoided?'],
-      11:['What is the purpose of the email/request?','What polite phrase is useful?','What information is missing?'],
-      12:['What idea needs citation?','Should it be quoted or paraphrased?','How can the student show ethical AI/source use?'],
-      13:['What is the mini lecture’s main point?','What two keywords should go into notes?','What detail is useful but not too minor?'],
-      14:['What is the presentation topic?','What signposting phrase helps the audience?','What evidence/example should be included?'],
-      15:['What problem or decision is presented?','What evidence from the source matters most?','What response or next step is reasonable?']
-    };
-    return sets[n] || sets[3];
+    return alignedReadingQuestions(sessionId);
   }
 
 
@@ -36530,8 +36902,8 @@
     if(s === 'Reading'){
       return Object.assign(common, {
         steps:['Read the task question first.','Find clues in the passage.','Answer with evidence from the text.'],
-        frames:[`This passage is for ___.`,`The clues are ___ and ___.`,`The evidence is ___.`],
-        questions:['Who is the target reader or audience?','What clues in the passage show this?','What evidence supports your answer?'],
+        frames:[`This passage is for ___.`,`A stronger goal should include ___, ___, and ___.`,`The evidence is ___.`],
+        questions:['What skill problem does the student have?','What three parts should a stronger academic goal include?','What evidence in the passage supports your answer?'],
         expected:'2–3 short answers with evidence',
         aiHint:`Find the reader, purpose, and one evidence clue about ${f.topic}.`
       });
@@ -36572,8 +36944,8 @@
 
     if(skill === 'Reading'){
       if(id.includes('purpose') || qText.includes('audience') || qText.includes('reader')){
-        a.steps = ['Identify the likely reader group.','Find wording clues.','Explain the purpose of the passage.'];
-        a.frames = ['The reader group is ___.','The clues are ___ and ___.','The purpose is to ___.'];
+        a.steps = ['Identify the weak goal or learning problem.','Find the missing parts: skill, weekly action, progress check.','Write a stronger academic goal using evidence from the passage.'];
+        a.frames = ['The student needs to improve ___.','A stronger goal should include ___, ___, and ___.','The evidence is “___.”'];
         a.questions = ['Which reader group would benefit most from this passage?','What clues show the audience?','What is the writer’s purpose?'];
         a.vocab = ['reader group','audience','clue','purpose','benefit'];
         a.expected = 'audience + 2 clues + purpose';
@@ -36791,7 +37163,7 @@
       },
       5:{
         steps:['Identify the audience or reader group.','Find clues in the wording.','Explain if the text is one-sided or emotional.'],
-        frames:['The reader group is ___.','The clues are ___ and ___.','The text may be biased because ___.'],
+        frames:['The student needs to improve ___.','A stronger goal should include ___, ___, and ___.','The text may be biased because ___.'],
         vocab:['reader group','audience','clue','biased','emotional','one-sided']
       },
       6:{
@@ -39588,6 +39960,16 @@
     injectAILearningCoach,
     runAILearningLayerSoon,
     renderAILearningDiagnostics,
+    EAP_MISSION_ALIGNMENT,
+    missionAlignmentForSession,
+    alignedReadingQuestions,
+    alignedHelpStepsHTML,
+    syncReadingQuestionsToMission,
+    removeMismatchedAudienceQuestions,
+    injectAlignedHelpBlock,
+    runMissionAlignmentPatchSoon,
+    renderMissionAlignmentDiagnostics,
+    
     
     scoreEAPOpenAnswer,
     
