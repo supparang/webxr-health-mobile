@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v3.4.9
+ * Version: v3.5.1
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v3.4.9';;
+const APP_VERSION = 'v3.5.1';;
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -507,7 +507,7 @@ function buildTeacherConsole_(params) {
 
   const masteryGate = buildMasteryGate_(filteredProfiles, attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter); }), eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter); }));
 
-  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:aq349AttachBySessionToStudents_(allStudents), misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, masteryGate:masteryGate, students:students.length}};
+  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:aq351AttachBySessionToStudents_(allStudents), misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, masteryGate:masteryGate, students:students.length}};
 }
 
 
@@ -954,7 +954,7 @@ function mostCommon_(obj) {
 
 
 
-/* === PATCH v3.4.9: Teacher bySession Server Summary === */
+/* === PATCH v3.5.1: Teacher bySession Smart Repair === */
 function aq349Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
 
 function aq349Num_(v){
@@ -1042,7 +1042,7 @@ function aq349BuildBySessionFromAttempts_(attempts){
       status: 'No data',
       attempts: 0,
       lastSubmitted: '',
-      source: 'server-bySession-v349'
+      source: 'server-bySession-v351'
     };
   });
 
@@ -1098,7 +1098,7 @@ function aq349AttachBySessionToStudents_(students){
   return students;
 }
 
-function aq349PostProcessTeacherConsole_(payload){
+function aq351PostProcessTeacherConsole_(payload){
   try{
     if(payload && payload.data && payload.data.allStudents){
       payload.data.allStudents = aq349AttachBySessionToStudents_(payload.data.allStudents);
@@ -1109,7 +1109,396 @@ function aq349PostProcessTeacherConsole_(payload){
     if(payload && payload.students){
       payload.students = aq349AttachBySessionToStudents_(payload.students);
     }
-    payload.bySessionServer = 'v3.4.9';
+    payload.bySessionServer = 'v3.5.1';
+  }catch(err){
+    payload.bySessionServerError = String(err);
+  }
+  return payload;
+}
+
+
+
+
+/* === PATCH v3.5.1: Teacher bySession Smart Repair === */
+function aq350Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
+function aq350Num_(v){ var n = Number(v); return isNaN(n) ? 0 : n; }
+
+function aq350First_(row, keys){
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i];
+    if(row && row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+  }
+  return '';
+}
+
+function aq350SheetRows_(sheetName){
+  try{
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName(sheetName);
+    if(!sh) return [];
+    var values = sh.getDataRange().getValues();
+    if(values.length < 2) return [];
+    var headers = values[0].map(function(h){ return String(h || '').trim(); });
+    return values.slice(1).filter(function(r){
+      return r.some(function(c){ return c !== '' && c !== null && c !== undefined; });
+    }).map(function(r){
+      var o = {};
+      headers.forEach(function(h,i){ if(h) o[h] = r[i]; });
+      return o;
+    });
+  }catch(err){
+    return [];
+  }
+}
+
+function aq350SessionKey_(row){
+  var keys = [
+    'sessionKey','sessionCode','sessionId','session_id','missionId','mission_id','missionKey',
+    'stageId','activityId','mode','mission','session','title','sessionTitle','missionTitle','label',
+    'boss','bossId','bossKey'
+  ];
+  var vals = [];
+  keys.forEach(function(k){
+    if(row && row[k] !== undefined && row[k] !== null && row[k] !== '') vals.push(String(row[k]));
+  });
+
+  var joined = vals.join(' ').toLowerCase();
+  var compact = aq350Norm_(joined);
+
+  // important: actual saved ids often use m1/m2/b1/m3/m4/m5/b2
+  if(['s1','m1','mission1','session1','1'].indexOf(compact)>=0 || /ai awakening|mission 1|session 1/.test(joined)) return 's1';
+  if(['s2','m2','mission2','session2','2'].indexOf(compact)>=0 || /agent builder|mission 2|session 2/.test(joined)) return 's2';
+  if(['b1','boss1','rookieaiboss','rookieboss'].indexOf(compact)>=0 || /rookie|boss 1|boss1|b1/.test(joined)) return 'b1';
+  if(['s3','m3','mission3','session3','3'].indexOf(compact)>=0 || /search maze|mission 3|session 3/.test(joined)) return 's3';
+  if(['s4','m4','mission4','session4','routecost','routecostchallenge','4'].indexOf(compact)>=0 || /route cost|uniform cost|weighted graph|mission 4|session 4/.test(joined)) return 's4';
+  if(['s5','m5','mission5','session5','astar','arescue','a*rescue','5'].indexOf(compact)>=0 || /a\*|astar|heuristic|rescue|mission 5|session 5/.test(joined)) return 's5';
+  if(['b2','boss2','searcharena','searcharenaboss'].indexOf(compact)>=0 || /search arena|boss 2|boss2|b2/.test(joined)) return 'b2';
+
+  var direct = aq350Norm_(row.sessionId || row.missionId || row.session_id || row.mission_id || row.sessionKey || row.missionKey || '');
+  if(['s1','s2','s3','s4','s5','b1','b2','m1','m2','m3','m4','m5'].indexOf(direct)>=0){
+    return aq350SessionKey_({sessionId:direct});
+  }
+  return '';
+}
+
+function aq350StudentId_(row){
+  return String(aq350First_(row, ['studentId','student_id','student','pid','id','Student ID','StudentId']) || '').trim();
+}
+function aq350Section_(row){
+  return String(aq350First_(row, ['section','Section','sec']) || '').trim();
+}
+
+function aq350Score_(row){
+  return aq350Num_(aq350First_(row, [
+    'score','Score','scorePct','percent','latestScore','bestScore','accuracy','Accuracy'
+  ]));
+}
+function aq350Stars_(score, rawStars){
+  var s = aq350Num_(rawStars);
+  if(s > 0) return s;
+  score = aq350Num_(score);
+  if(score >= 85) return 3;
+  if(score >= 70) return 2;
+  if(score > 0) return 1;
+  return 0;
+}
+function aq350LastSubmitted_(row){
+  return String(aq350First_(row, [
+    'timestamp','time','createdAt','submittedAt','updatedAt','lastSubmitted','created_at'
+  ]) || '');
+}
+function aq350Status_(obj){
+  if(!obj || !obj.attempts) return 'No data';
+  if(obj.mastered || obj.bestScore >= 85) return 'Mastery';
+  if(obj.bestScore >= 70) return 'Passed';
+  if(obj.bestScore > 0) return 'Need Review';
+  return 'No data';
+}
+
+function aq350EmptyBySession_(){
+  var order = ['s1','s2','b1','s3','s4','s5','b2'];
+  var by = {};
+  order.forEach(function(k){
+    by[k] = {
+      bestScore: 0,
+      latestScore: 0,
+      stars: 0,
+      status: 'No data',
+      attempts: 0,
+      lastSubmitted: '',
+      source: 'server-real-sheet-v351'
+    };
+  });
+  return by;
+}
+
+function aq350BuildBySessionFromAttempts_(attempts){
+  var by = aq350EmptyBySession_();
+  (attempts || []).forEach(function(row){
+    var k = aq350SessionKey_(row);
+    if(!k || !by[k]) return;
+
+    var score = aq350Score_(row);
+    var stars = aq350Stars_(score, aq350First_(row, ['stars','Stars','star','bestStars']));
+    var ts = aq350LastSubmitted_(row);
+
+    by[k].attempts += 1;
+    by[k].bestScore = Math.max(by[k].bestScore, score, aq350Num_(aq350First_(row, ['best','bestScore'])));
+    by[k].latestScore = score || aq350Num_(aq350First_(row, ['latest','latestScore'])) || by[k].latestScore;
+    by[k].stars = Math.max(by[k].stars, stars);
+    by[k].lastSubmitted = ts || by[k].lastSubmitted;
+    by[k].mastered = by[k].mastered || Boolean(row.mastered || row.mastery || row.isMastered);
+  });
+  Object.keys(by).forEach(function(k){ by[k].status = aq350Status_(by[k]); });
+  return by;
+}
+
+function aq350AttemptsForStudentFromSheet_(studentId, section){
+  var rows = aq350SheetRows_('session_attempts');
+  studentId = String(studentId || '').trim();
+  section = String(section || '').trim();
+
+  return rows.filter(function(r){
+    var sid = aq350StudentId_(r);
+    var sec = aq350Section_(r);
+    if(studentId && sid && sid !== studentId) return false;
+    if(section && sec && sec !== section) return false;
+    return true;
+  });
+}
+
+function aq351AttachBySessionToStudents_(students){
+  (students || []).forEach(function(st){
+    var attempts = [];
+
+    // If st.attempts is an array, use it. If it is a number, ignore and read real sheet.
+    if(Array.isArray(st.attempts)){
+      attempts = st.attempts;
+    }else if(st.raw && Array.isArray(st.raw.attempts)){
+      attempts = st.raw.attempts;
+    }
+
+    var sid = String(st.studentId || st.student_id || st.id || st.student || '').trim();
+    var sec = String(st.section || '101').trim();
+
+    // real source of truth
+    var sheetAttempts = aq350AttemptsForStudentFromSheet_(sid, sec);
+    if(sheetAttempts.length) attempts = sheetAttempts;
+
+    st.bySession = aq350BuildBySessionFromAttempts_(attempts);
+    st.sessionSummary = st.bySession;
+    st.bySessionSource = sheetAttempts.length ? 'session_attempts sheet' : (attempts.length ? 'student attempts array' : 'none');
+    st.bySessionAttemptRows = attempts.length;
+  });
+  return students;
+}
+
+function aq351PostProcessTeacherConsole_(payload){
+  try{
+    if(payload && payload.data && payload.data.allStudents){
+      payload.data.allStudents = aq351AttachBySessionToStudents_(payload.data.allStudents);
+    }
+    if(payload && payload.allStudents){
+      payload.allStudents = aq351AttachBySessionToStudents_(payload.allStudents);
+    }
+    if(payload && payload.students){
+      payload.students = aq351AttachBySessionToStudents_(payload.students);
+    }
+    payload.bySessionServer = 'v3.5.1';
+  }catch(err){
+    payload.bySessionServerError = String(err);
+  }
+  return payload;
+}
+
+
+
+
+/* === PATCH v3.5.1: Teacher bySession Smart Repair === */
+function aq351Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
+function aq351Num_(v){ var n = Number(v); return isNaN(n) ? 0 : n; }
+function aq351First_(row, keys){
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i];
+    if(row && row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+  }
+  return '';
+}
+function aq351Text_(row){
+  var keys = [
+    'sessionKey','sessionCode','sessionId','session_id','missionId','mission_id','missionKey',
+    'stageId','activityId','mode','mission','session','title','sessionTitle','missionTitle','label',
+    'boss','bossId','bossKey','phase','Phase','prompt','question','correct','answer',
+    'reflection','reflection1','reflection2','reflection3','notes','event','kind'
+  ];
+  var vals=[];
+  keys.forEach(function(k){ if(row && row[k] !== undefined && row[k] !== null && row[k] !== '') vals.push(String(row[k])); });
+  return vals.join(' ').toLowerCase();
+}
+function aq351SessionKey_(row){
+  var txt = aq351Text_(row);
+  var compact = aq351Norm_(txt);
+
+  // exact ids first, but do NOT let plain "1" from attempt number become S1
+  var direct = aq351Norm_(aq351First_(row, [
+    'sessionId','session_id','missionId','mission_id','sessionKey','missionKey','sessionCode'
+  ]));
+  if(direct === 'm1' || direct === 's1' || direct === 'mission1' || direct === 'session1') return 's1';
+  if(direct === 'm2' || direct === 's2' || direct === 'mission2' || direct === 'session2') return 's2';
+  if(direct === 'b1' || direct === 'boss1') return 'b1';
+  if(direct === 'm3' || direct === 's3' || direct === 'mission3' || direct === 'session3') return 's3';
+  if(direct === 'm4' || direct === 's4' || direct === 'mission4' || direct === 'session4') return 's4';
+  if(direct === 'm5' || direct === 's5' || direct === 'mission5' || direct === 'session5') return 's5';
+  if(direct === 'b2' || direct === 'boss2') return 'b2';
+
+  // content inference
+  if(/search arena|arena boss|boss b2|boss2|final search duel|bfs\s*\/\s*dfs\s*\/\s*ucs|integrated search/.test(txt)) return 'b2';
+  if(/a\*|astar|heuristic|g\(n\)|h\(n\)|f\(n\)|rescue mission|greedy best/i.test(txt)) return 's5';
+  if(/route cost|uniform cost|ucs|priority queue|weighted graph|settle|pop cost|path cost/.test(txt)) return 's4';
+  if(/search maze|state space|bfs|dfs|frontier|visited order|final path|goal test|maze path|trace/.test(txt)) return 's3';
+  if(/rookie ai boss|rookie boss|final attack|mini boss|ai overview/.test(txt)) return 'b1';
+  if(/agent builder|peas|environment|rational agent|agent foundation|rationality gate/.test(txt)) return 's2';
+  if(/ai awakening|automation|sensor|prediction|ai vs automation|rulebased|rule-based/.test(txt)) return 's1';
+
+  // no confident session
+  return '';
+}
+function aq351Stars_(score, rawStars){
+  var s = aq351Num_(rawStars);
+  if(s > 0) return s;
+  score = aq351Num_(score);
+  if(score >= 85) return 3;
+  if(score >= 70) return 2;
+  if(score > 0) return 1;
+  return 0;
+}
+function aq351Score_(row){
+  return aq351Num_(aq351First_(row, ['score','Score','scorePct','percent','latestScore','bestScore','accuracy','Accuracy']));
+}
+function aq351LastSubmitted_(row){
+  return String(aq351First_(row, ['timestamp','time','createdAt','submittedAt','updatedAt','lastSubmitted','created_at']) || '');
+}
+function aq351Status_(obj){
+  if(!obj || !obj.attempts) return 'No data';
+  if(obj.mastered || obj.bestScore >= 85) return 'Mastery';
+  if(obj.bestScore >= 70) return 'Passed';
+  if(obj.bestScore > 0) return 'Need Review';
+  return 'No data';
+}
+function aq351EmptyBySession_(){
+  var order = ['s1','s2','b1','s3','s4','s5','b2'];
+  var by = {};
+  order.forEach(function(k){
+    by[k] = {bestScore:0, latestScore:0, stars:0, status:'No data', attempts:0, lastSubmitted:'', source:'server-smart-repair-v351'};
+  });
+  return by;
+}
+function aq351BuildBySessionFromAttempts_(attempts){
+  var by = aq351EmptyBySession_();
+  var unknown = [];
+  var samples = [];
+  (attempts || []).forEach(function(row, idx){
+    var k = aq351SessionKey_(row);
+    if(samples.length < 10){
+      samples.push({
+        idx: idx,
+        sessionId: row.sessionId || row.session_id || '',
+        missionId: row.missionId || row.mission_id || '',
+        phase: row.phase || row.Phase || '',
+        title: row.title || row.sessionTitle || row.missionTitle || '',
+        prompt: String(row.prompt || row.question || row.reflection1 || '').slice(0,120),
+        inferred: k || 'unknown'
+      });
+    }
+    if(!k || !by[k]){
+      unknown.push(row);
+      return;
+    }
+    var score = aq351Score_(row);
+    var stars = aq351Stars_(score, aq351First_(row, ['stars','Stars','star','bestStars']));
+    var ts = aq351LastSubmitted_(row);
+    by[k].attempts += 1;
+    by[k].bestScore = Math.max(by[k].bestScore, score, aq351Num_(aq351First_(row, ['best','bestScore'])));
+    by[k].latestScore = score || aq351Num_(aq351First_(row, ['latest','latestScore'])) || by[k].latestScore;
+    by[k].stars = Math.max(by[k].stars, stars);
+    by[k].lastSubmitted = ts || by[k].lastSubmitted;
+    by[k].mastered = by[k].mastered || Boolean(row.mastered || row.mastery || row.isMastered);
+  });
+  Object.keys(by).forEach(function(k){ by[k].status = aq351Status_(by[k]); });
+  by._debug = {unknownAttemptRows: unknown.length, sampleCount: samples.length, samples: samples};
+  return by;
+}
+function aq351SheetRows_(sheetName){
+  try{
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sh = ss.getSheetByName(sheetName);
+    if(!sh) return [];
+    var values = sh.getDataRange().getValues();
+    if(values.length < 2) return [];
+    var headers = values[0].map(function(h){ return String(h || '').trim(); });
+    return values.slice(1).filter(function(r){
+      return r.some(function(c){ return c !== '' && c !== null && c !== undefined; });
+    }).map(function(r){
+      var o = {};
+      headers.forEach(function(h,i){ if(h) o[h] = r[i]; });
+      return o;
+    });
+  }catch(err){
+    return [];
+  }
+}
+function aq351StudentId_(row){
+  return String(aq351First_(row, ['studentId','student_id','student','pid','id','Student ID','StudentId']) || '').trim();
+}
+function aq351Section_(row){
+  return String(aq351First_(row, ['section','Section','sec']) || '').trim();
+}
+function aq351AttemptsForStudentFromSheet_(studentId, section){
+  var rows = aq351SheetRows_('session_attempts');
+  studentId = String(studentId || '').trim();
+  section = String(section || '').trim();
+  return rows.filter(function(r){
+    var sid = aq351StudentId_(r);
+    var sec = aq351Section_(r);
+    if(studentId && sid && sid !== studentId) return false;
+    if(section && sec && sec !== section) return false;
+    return true;
+  });
+}
+function aq351AttachBySessionToStudents_(students){
+  (students || []).forEach(function(st){
+    var sid = String(st.studentId || st.student_id || st.id || st.student || '').trim();
+    var sec = String(st.section || '101').trim();
+
+    var attempts = [];
+    if(Array.isArray(st.attempts)) attempts = st.attempts;
+    else if(st.raw && Array.isArray(st.raw.attempts)) attempts = st.raw.attempts;
+
+    var sheetAttempts = aq351AttemptsForStudentFromSheet_(sid, sec);
+    if(sheetAttempts.length) attempts = sheetAttempts;
+
+    var by = aq351BuildBySessionFromAttempts_(attempts);
+    st.bySession = by;
+    st.sessionSummary = by;
+    st.bySessionSource = sheetAttempts.length ? 'session_attempts sheet smart repair' : (attempts.length ? 'student attempts array smart repair' : 'none');
+    st.bySessionAttemptRows = attempts.length;
+    st.unknownAttemptRows = by._debug ? by._debug.unknownAttemptRows : 0;
+    st.sessionKeySamples = by._debug ? by._debug.samples : [];
+  });
+  return students;
+}
+function aq351PostProcessTeacherConsole_(payload){
+  try{
+    if(payload && payload.data && payload.data.allStudents){
+      payload.data.allStudents = aq351AttachBySessionToStudents_(payload.data.allStudents);
+    }
+    if(payload && payload.allStudents){
+      payload.allStudents = aq351AttachBySessionToStudents_(payload.allStudents);
+    }
+    if(payload && payload.students){
+      payload.students = aq351AttachBySessionToStudents_(payload.students);
+    }
+    payload.bySessionServer = 'v3.5.1';
   }catch(err){
     payload.bySessionServerError = String(err);
   }
