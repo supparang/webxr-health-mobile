@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v3.4.8
+ * Version: v3.4.9
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v3.4.8';;
+const APP_VERSION = 'v3.4.9';;
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -507,7 +507,7 @@ function buildTeacherConsole_(params) {
 
   const masteryGate = buildMasteryGate_(filteredProfiles, attemptsAll.filter(function(a){ return (!sectionFilter || String(a.section || '') === sectionFilter); }), eventsAll.filter(function(e){ return (!sectionFilter || String(e.section || '') === sectionFilter); }));
 
-  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:allStudents, misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, masteryGate:masteryGate, students:students.length}};
+  return {ok:true, action:'teacherConsole', source:'Google Sheets', version:APP_VERSION, serverTs:bangkokIsoNow(), filters:{section:sectionFilter, sessionId:sessionFilter}, data:{stats:stats, risks:risks, allStudents:aq349AttachBySessionToStudents_(allStudents), misconceptions:misconceptions, phaseAnalytics:phaseAnalytics, masteryGate:masteryGate, students:students.length}};
 }
 
 
@@ -951,3 +951,168 @@ function mostCommon_(obj) {
   const e = Object.entries(obj || {}).sort(function(a,b){ return Number(b[1]) - Number(a[1]); });
   return e.length ? e[0][0] + ':' + e[0][1] : '';
 }
+
+
+
+/* === PATCH v3.4.9: Teacher bySession Server Summary === */
+function aq349Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
+
+function aq349Num_(v){
+  var n = Number(v);
+  return isNaN(n) ? 0 : n;
+}
+
+function aq349First_(row, keys){
+  for(var i=0;i<keys.length;i++){
+    var k=keys[i];
+    if(row && row[k] !== undefined && row[k] !== null && row[k] !== '') return row[k];
+  }
+  return '';
+}
+
+function aq349SessionKey_(row){
+  var keys = [
+    'sessionKey','sessionCode','sessionId','missionId','missionKey',
+    'stageId','activityId','mode','mission','session',
+    'title','sessionTitle','missionTitle','label',
+    'boss','bossId','bossKey'
+  ];
+  var vals = [];
+  keys.forEach(function(k){
+    if(row && row[k] !== undefined && row[k] !== null && row[k] !== '') vals.push(String(row[k]));
+  });
+
+  var joined = vals.join(' ').toLowerCase();
+  var compact = aq349Norm_(joined);
+
+  if(/ai awakening|mission 1|session 1/.test(joined) ||
+     ['s1','m1','mission1','session1','1'].indexOf(compact)>=0) return 's1';
+
+  if(/agent builder|mission 2|session 2/.test(joined) ||
+     ['s2','m2','mission2','session2','2'].indexOf(compact)>=0) return 's2';
+
+  if(/rookie|boss 1|boss1|b1/.test(joined) ||
+     ['b1','boss1','rookieaiboss','rookieboss'].indexOf(compact)>=0) return 'b1';
+
+  if(/search maze|mission 3|session 3/.test(joined) ||
+     ['s3','m3','mission3','session3','3'].indexOf(compact)>=0) return 's3';
+
+  if(/route cost|uniform cost|weighted graph|mission 4|session 4/.test(joined) ||
+     ['s4','m4','mission4','session4','routecost','routecostchallenge','4'].indexOf(compact)>=0) return 's4';
+
+  if(/a\*|astar|heuristic|rescue|mission 5|session 5/.test(joined) ||
+     ['s5','m5','mission5','session5','astar','arescue','a*rescue','5'].indexOf(compact)>=0) return 's5';
+
+  if(/search arena|boss 2|boss2|b2/.test(joined) ||
+     ['b2','boss2','searcharena','searcharenaboss'].indexOf(compact)>=0) return 'b2';
+
+  var direct = aq349Norm_(row.sessionId || row.missionId || row.sessionKey || row.missionKey || '');
+  if(['s1','s2','s3','s4','s5','b1','b2'].indexOf(direct)>=0) return direct;
+
+  return '';
+}
+
+function aq349Stars_(score, rawStars){
+  var s = aq349Num_(rawStars);
+  if(s > 0) return s;
+  score = aq349Num_(score);
+  if(score >= 85) return 3;
+  if(score >= 70) return 2;
+  if(score > 0) return 1;
+  return 0;
+}
+
+function aq349Status_(obj){
+  if(!obj || !obj.attempts) return 'No data';
+  if(obj.mastered || obj.bestScore >= 85) return 'Mastery';
+  if(obj.bestScore >= 70) return 'Passed';
+  if(obj.bestScore > 0) return 'Need Review';
+  return 'No data';
+}
+
+function aq349BuildBySessionFromAttempts_(attempts){
+  var order = ['s1','s2','b1','s3','s4','s5','b2'];
+  var by = {};
+
+  order.forEach(function(k){
+    by[k] = {
+      bestScore: 0,
+      latestScore: 0,
+      stars: 0,
+      status: 'No data',
+      attempts: 0,
+      lastSubmitted: '',
+      source: 'server-bySession-v349'
+    };
+  });
+
+  (attempts || []).forEach(function(row){
+    var k = aq349SessionKey_(row);
+    if(!k || !by[k]) return;
+
+    var score = aq349Num_(aq349First_(row, [
+      'score','Score','scorePct','percent','latestScore','bestScore'
+    ]));
+
+    var stars = aq349Stars_(score, aq349First_(row, [
+      'stars','Stars','star','bestStars'
+    ]));
+
+    var ts = aq349First_(row, [
+      'timestamp','time','createdAt','submittedAt','updatedAt','lastSubmitted'
+    ]);
+
+    by[k].attempts += 1;
+    by[k].bestScore = Math.max(
+      by[k].bestScore,
+      score,
+      aq349Num_(aq349First_(row, ['best','bestScore']))
+    );
+    by[k].latestScore = score || aq349Num_(aq349First_(row, ['latest','latestScore'])) || by[k].latestScore;
+    by[k].stars = Math.max(by[k].stars, stars);
+    by[k].lastSubmitted = ts || by[k].lastSubmitted;
+    by[k].mastered = by[k].mastered || Boolean(row.mastered || row.mastery || row.isMastered);
+  });
+
+  Object.keys(by).forEach(function(k){
+    by[k].status = aq349Status_(by[k]);
+  });
+
+  return by;
+}
+
+function aq349AttachBySessionToStudents_(students){
+  (students || []).forEach(function(st){
+    var attempts = st.attempts;
+
+    if(!Array.isArray(attempts) && st.raw && Array.isArray(st.raw.attempts)) {
+      attempts = st.raw.attempts;
+    }
+
+    if(!Array.isArray(attempts)) attempts = [];
+
+    st.bySession = aq349BuildBySessionFromAttempts_(attempts);
+    st.sessionSummary = st.bySession;
+  });
+
+  return students;
+}
+
+function aq349PostProcessTeacherConsole_(payload){
+  try{
+    if(payload && payload.data && payload.data.allStudents){
+      payload.data.allStudents = aq349AttachBySessionToStudents_(payload.data.allStudents);
+    }
+    if(payload && payload.allStudents){
+      payload.allStudents = aq349AttachBySessionToStudents_(payload.allStudents);
+    }
+    if(payload && payload.students){
+      payload.students = aq349AttachBySessionToStudents_(payload.students);
+    }
+    payload.bySessionServer = 'v3.4.9';
+  }catch(err){
+    payload.bySessionServerError = String(err);
+  }
+  return payload;
+}
+
