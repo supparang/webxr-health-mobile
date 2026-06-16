@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#eef2ff" />
   <meta name="color-scheme" content="light" />
 
-  <title>EAP Word Quest • Academic Vocabulary Mission</title>
+  <title>EAP Word Quest • Vocabulary Side Quest</title>
 
   <link rel="icon" href="data:," />
   <link rel="stylesheet" href="./eap-word-quest.css?v=20260612-v161-valid-item-bank-1800-fix" />
@@ -16,22 +16,23 @@
   <div class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Academic Vocabulary Mission</p>
+        <p class="eyebrow">EAP Vocabulary Side Quest</p>
         <h1>EAP Word Quest</h1>
         <p class="subtitle">
-          ฝึกคำศัพท์ EAP ทีละภารกิจ สะสม XP ผ่าน Boss Gate และทบทวนคำที่ยังไม่แม่น
+          ฝึกคำศัพท์และวลีวิชาการ A2–B1+ สำหรับ English for Academic Purposes ปี 2 กลุ่ม 122
+          เพื่อเตรียมพร้อมก่อนกลับไปทำภารกิจหลักใน EAP Hero Save the Society
         </p>
       </div>
 
       <div class="topbar-right">
         <span class="version-pill" id="versionPill">Student Mode</span>
-        <span class="section-pill">Section 101</span>
+        <span class="section-pill">Group 122</span>
       </div>
     </header>
 
     <main>
       <!-- =====================================================
-           HOME SCREEN
+           HOME SCREEN • STUDENT ONLY
       ====================================================== -->
       <section id="homeScreen" class="screen active">
         <section class="hero-card">
@@ -39,8 +40,8 @@
             <p class="eyebrow">A2 → B1+</p>
             <h2>ฝึกคำศัพท์วิชาการผ่านภารกิจสั้น ๆ</h2>
             <p>
-              เล่นทีละ Session สะสม XP ผ่าน Boss Gate และทบทวนคำที่ยังผิด
-              เพื่อเตรียมใช้ภาษาอังกฤษในงานเรียนและโปรเจกต์
+              เล่นทีละ Session สะสม XP ผ่าน Vocabulary Boss และทบทวน Weak Words
+              เพื่อเตรียมใช้ภาษาอังกฤษในงานเรียน โปรเจกต์ และ Main Mission
             </p>
           </div>
 
@@ -61,7 +62,7 @@
           <div class="profile-grid">
             <label>
               <span>Student Name</span>
-              <input id="studentNameInput" type="text" placeholder="เช่น Supparang" autocomplete="name" />
+              <input id="studentNameInput" type="text" placeholder="เช่น KK" autocomplete="name" />
             </label>
 
             <label>
@@ -70,8 +71,8 @@
             </label>
 
             <label>
-              <span>Section</span>
-              <input id="sectionInput" type="text" value="101" autocomplete="off" />
+              <span>Group</span>
+              <input id="sectionInput" type="text" value="122" autocomplete="off" />
             </label>
           </div>
 
@@ -87,7 +88,7 @@
           <div class="panel-head">
             <div>
               <h3>เริ่มเล่น</h3>
-              <p>กด “เล่นต่อ” เพื่อไปยังภารกิจที่ควรทำตอนนี้ หรือเลือกฝึกคำที่เคยผิด</p>
+              <p>กด “เล่นต่อ” เพื่อไปยัง Vocabulary Practice ที่ควรทำตอนนี้ หรือเลือกฝึกคำที่เคยผิด</p>
             </div>
           </div>
 
@@ -126,22 +127,17 @@
               <button class="btn secondary" id="dailyBtn" type="button">Daily Challenge</button>
               <button class="btn secondary" id="speedRunBtn" type="button">Speed Run 60s</button>
             </div>
-
-            <details class="teacher-tools">
-              <summary>Teacher Tools</summary>
-              <div class="teacher-tools-inner">
-                <button class="btn secondary small" id="teacherBtn" type="button">Teacher Dashboard</button>
-                <span class="teacher-note">สำหรับอาจารย์: ดูคะแนน Export และตรวจข้อมูลการเรียนรู้</span>
-              </div>
-            </details>
           </div>
         </section>
 
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h3>เส้นทางภารกิจ</h3>
-              <p>เล่นตามลำดับ Session แล้วผ่าน Boss Gate เพื่อปลดล็อกบทต่อไป</p>
+              <h3>เส้นทาง Vocabulary Arc</h3>
+              <p>
+                ภายใน Arc เดียวกันเลือกเล่นข้าม Session ได้ แต่ต้องผ่านครบทุก Session
+                เพื่อปลดล็อก Vocabulary Boss และ Arc ถัดไป
+              </p>
             </div>
           </div>
 
@@ -157,7 +153,7 @@
           <div class="game-head">
             <div>
               <p class="eyebrow" id="gameModeText">Mission</p>
-              <h2 id="gameTitle">Vocabulary Mission</h2>
+              <h2 id="gameTitle">Vocabulary Practice</h2>
             </div>
 
             <button class="btn ghost" id="quitBtn" type="button">ออก</button>
@@ -197,105 +193,6 @@
             <button class="btn secondary" id="aiHelpBtn" type="button">AI Help 2</button>
             <button class="btn" id="nextBtn" type="button" disabled>ข้อต่อไป</button>
           </div>
-        </section>
-      </section>
-
-      <!-- =====================================================
-           TEACHER DASHBOARD
-      ====================================================== -->
-      <section id="teacherScreen" class="screen">
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <h3>Teacher Dashboard</h3>
-              <p>ดูคะแนน ความก้าวหน้า Weak Words และ Export ข้อมูลสำหรับการสอน/วิจัย</p>
-            </div>
-
-            <button class="btn ghost" id="teacherBackBtn" type="button">กลับหน้าแรก</button>
-          </div>
-
-          <div id="teacherProfileBox" class="teacher-profile"></div>
-
-          <div id="teacherStats" class="stats-grid"></div>
-
-          <div class="dashboard-actions">
-            <button class="btn secondary" id="teacherRefreshBtn" type="button">Refresh</button>
-            <button class="btn secondary" id="exportCsvBtn" type="button">Export CSV</button>
-            <button class="btn secondary" id="exportJsonBtn" type="button">Export JSON</button>
-            <button class="btn danger" id="clearStatsBtn" type="button">Clear Local Data</button>
-          </div>
-        </section>
-
-        <section class="panel dashboard-card">
-          <h3>Mission Progress</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Mission</th>
-                <th>Rounds</th>
-                <th>Questions</th>
-                <th>Correct</th>
-                <th>Avg Acc</th>
-                <th>XP</th>
-                <th>Passed</th>
-                <th>Best</th>
-                <th>Last Played</th>
-              </tr>
-            </thead>
-            <tbody id="sessionProgressBody"></tbody>
-          </table>
-        </section>
-
-        <section class="panel dashboard-card">
-          <h3>Weak Words Priority</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Word</th>
-                <th>Seen</th>
-                <th>Correct</th>
-                <th>Wrong</th>
-                <th>Accuracy</th>
-                <th>Mastery</th>
-              </tr>
-            </thead>
-            <tbody id="weakWordsTableBody"></tbody>
-          </table>
-        </section>
-
-        <section class="panel dashboard-card">
-          <h3>Mastery Overview</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Level</th>
-                <th>Count</th>
-                <th>Examples</th>
-              </tr>
-            </thead>
-            <tbody id="masteryOverviewBody"></tbody>
-          </table>
-        </section>
-
-        <section class="panel dashboard-card">
-          <h3>Recent Rounds</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Student</th>
-                <th>Section</th>
-                <th>Mission</th>
-                <th>Q</th>
-                <th>Correct</th>
-                <th>Acc</th>
-                <th>XP</th>
-                <th>Passed</th>
-                <th>Weak Words</th>
-              </tr>
-            </thead>
-            <tbody id="recentRoundsBody"></tbody>
-          </table>
         </section>
       </section>
 
@@ -358,12 +255,14 @@
 
       <!-- =====================================================
            SUMMARY SCREEN
+           Note: v172 Summary Overlay is the main summary renderer.
+           This section remains for engine compatibility.
       ====================================================== -->
       <section id="summaryScreen" class="screen">
         <section class="summary-card">
           <div class="summary-hero">
             <p id="summaryStars" class="summary-stars">⭐</p>
-            <h2 id="summaryTitle">Mission Complete</h2>
+            <h2 id="summaryTitle">Vocabulary Complete</h2>
             <p id="summarySubtitle">Summary</p>
           </div>
 
@@ -385,26 +284,60 @@
           </div>
         </section>
       </section>
+
+      <!-- =====================================================
+           LEGACY TEACHER COMPATIBILITY SHELL
+           Hidden only. Actual teacher page is teacher.html.
+           Keep IDs to prevent old engine null errors.
+      ====================================================== -->
+      <section id="teacherScreen" class="screen" hidden aria-hidden="true" style="display:none;">
+        <button id="teacherBackBtn" type="button" hidden>กลับหน้าแรก</button>
+        <div id="teacherProfileBox"></div>
+        <div id="teacherStats"></div>
+        <button id="teacherRefreshBtn" type="button" hidden>Refresh</button>
+        <button id="exportCsvBtn" type="button" hidden>Export CSV</button>
+        <button id="exportJsonBtn" type="button" hidden>Export JSON</button>
+        <button id="clearStatsBtn" type="button" hidden>Clear Local Data</button>
+
+        <table hidden>
+          <tbody id="sessionProgressBody"></tbody>
+          <tbody id="weakWordsTableBody"></tbody>
+          <tbody id="masteryOverviewBody"></tbody>
+          <tbody id="recentRoundsBody"></tbody>
+        </table>
+      </section>
     </main>
   </div>
 
   <div class="toast" id="toast" hidden></div>
 
+  <!-- =====================================================
+       DATA LAYER
+  ====================================================== -->
   <script src="./eap-word-data.js?v=20260612-v161-valid-item-bank-1800-fix"></script>
-<script src="./eap-word-data-v162-hotfix.js?v=20260612-v162-academic-sentence-clean"></script>
-<script src="./eap-word-data-v180-content.js?v=20260615-v180-eap-y2-arc122-ai-content"></script>
+  <script src="./eap-word-data-v162-hotfix.js?v=20260612-v162-academic-sentence-clean"></script>
+  <script src="./eap-word-data-v180-content.js?v=20260615-v180-eap-y2-arc122-ai-content"></script>
 
-<script src="./eap-word-engine-v14.js?v=20260612-v162-academic-sentence-clean"></script>
-<script src="./eap-word-engine-v163-qa-hotfix.js?v=20260612-v163-qa-sentence-leak-tuned"></script>
-<script src="./eap-word-engine-v167-release-smoke-safe-hotfix.js?v=20260613-v167-safe-smoke-no-storage"></script>
-<script src="./eap-word-engine-v168-storage-quota-hotfix.js?v=20260613-v168-storage-quota-guard"></script>
-<script src="./eap-word-engine-v170-boss-gate-summary-hotfix.js?v=20260613-v170-boss-gate-summary-fix"></script>
-<script src="./eap-word-engine-v171-summary-buttons-hotfix.js?v=20260613-v171-summary-buttons-restore"></script>
-<script src="./eap-word-engine-v172-summary-overlay-hotfix.js?v=20260615-v172-summary-overlay-no-stuck"></script>
-<script src="./eap-word-engine-v174-ui-clean-compact-hotfix.js?v=20260615-v174-ui-clean-compact"></script>
+  <!-- =====================================================
+       ENGINE + SAFE HOTFIXES
+       Do not load v164 / v165 / v166 / v169 / v173
+  ====================================================== -->
+  <script src="./eap-word-engine-v14.js?v=20260612-v162-academic-sentence-clean"></script>
+  <script src="./eap-word-engine-v163-qa-hotfix.js?v=20260612-v163-qa-sentence-leak-tuned"></script>
+  <script src="./eap-word-engine-v167-release-smoke-safe-hotfix.js?v=20260613-v167-safe-smoke-no-storage"></script>
+  <script src="./eap-word-engine-v168-storage-quota-hotfix.js?v=20260613-v168-storage-quota-guard"></script>
+  <script src="./eap-word-engine-v170-boss-gate-summary-hotfix.js?v=20260613-v170-boss-gate-summary-fix"></script>
+  <script src="./eap-word-engine-v171-summary-buttons-hotfix.js?v=20260613-v171-summary-buttons-restore"></script>
+  <script src="./eap-word-engine-v172-summary-overlay-hotfix.js?v=20260615-v172-summary-overlay-no-stuck"></script>
+  <script src="./eap-word-engine-v174-ui-clean-compact-hotfix.js?v=20260615-v174-ui-clean-compact"></script>
 
-<script src="./eap-word-logger.js?v=20260615-v182-student-learning-logger"></script>
-<script src="./eap-word-report-core.js?v=20260615-v182-teacher-report-core"></script>
-<script src="./eap-word-engine-v183-progress-sync-hotfix.js?v=20260615-v183-progress-sync-next-mission"></script>
+  <!-- =====================================================
+       LOCAL LOGGER + REPORT CORE
+       Used by student summary/progress and CSV export.
+       Teacher UI is separated in teacher.html.
+  ====================================================== -->
+  <script src="./eap-word-logger.js?v=20260615-v182-student-learning-logger"></script>
+  <script src="./eap-word-report-core.js?v=20260615-v182-teacher-report-core"></script>
+  <script src="./eap-word-engine-v183-progress-sync-hotfix.js?v=20260615-v183-progress-sync-next-mission"></script>
 </body>
 </html>
