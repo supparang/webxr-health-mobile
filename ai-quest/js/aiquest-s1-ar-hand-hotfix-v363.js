@@ -1,23 +1,26 @@
 /* =========================================================
    CSAI2102 AI Quest
    S1 AR Hand Tracking Hotfix
-   File: /ai-quest/js/aiquest-s1-ar-hand-hotfix-v363.js
-   Version: v3.6.3-s1-ar-hand-hotfix-next-support
-   ใช้คู่กับ aiquest-s1-ar-practice-v362.js
+   File: /ai-quest/js/aiquest-s1-ar-hand-hotfix-v364.js
+   Version: v3.6.4-s1-ar-hand-next-support
+
+   ใช้คู่กับ:
+   - aiquest-s1-ar-practice-v364.js
 
    ความสามารถ:
    - ใช้ MediaPipe Hands จับมือจากกล้อง
    - วงกลมสีฟ้าตามปลายนิ้วชี้
    - หนีบนิ้วโป้ง+นิ้วชี้เพื่อเลือกคำตอบ
    - หรือชี้ค้าง 0.8 วินาทีเพื่อเลือก
-   - หลังตอบแล้ว ใช้มือกดปุ่ม “ข้อต่อไป” ได้
-   - ถ้า Hand Tracking ไม่ทำงาน ยังใช้ mouse/touch ได้เหมือนเดิม
+   - ใช้มือกดปุ่ม “ข้อต่อไป”
+   - ใช้มือกด “เล่น AR อีกครั้ง” / “กลับ Mission”
+   - fallback เป็น mouse/touch ได้เหมือนเดิม
 ========================================================= */
 
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.3-s1-ar-hand-hotfix-next-support';
+  const VERSION = 'v3.6.4-s1-ar-hand-next-support';
   const HANDS_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
 
   let hands = null;
@@ -32,8 +35,9 @@
     mirror: true,
     dwellMs: 850,
     pinchThreshold: 0.075,
-    minDetectionConfidence: 0.58,
-    minTrackingConfidence: 0.58
+    minDetectionConfidence: 0.45,
+    minTrackingConfidence: 0.45,
+    hitPad: 40
   };
 
   function $(id){
@@ -57,12 +61,12 @@
   }
 
   function injectStyle(){
-    if($('s1HandHotfixStyleV363')) return;
+    if($('s1HandHotfixStyleV364')) return;
 
     const css = document.createElement('style');
-    css.id = 's1HandHotfixStyleV363';
+    css.id = 's1HandHotfixStyleV364';
     css.textContent = `
-      .s1-hand-cursor-v363{
+      .s1-hand-cursor-v364{
         position:fixed;
         left:0;
         top:0;
@@ -80,7 +84,7 @@
           0 0 26px rgba(34,211,238,.46);
       }
 
-      .s1-hand-cursor-v363.pinch{
+      .s1-hand-cursor-v364.pinch{
         width:48px;
         height:48px;
         border-color:#86efac;
@@ -89,7 +93,7 @@
           0 0 34px rgba(34,197,94,.58);
       }
 
-      .s1-hand-status-v363{
+      .s1-hand-status-v364{
         position:fixed;
         left:12px;
         top:calc(66px + env(safe-area-inset-top,0px));
@@ -105,7 +109,7 @@
         display:none;
       }
 
-      .s1-hand-dwell-v363{
+      .s1-hand-dwell-v364{
         position:fixed;
         left:0;
         top:0;
@@ -121,8 +125,10 @@
         mask:radial-gradient(circle, transparent 54%, #000 55%);
       }
 
-      .s1-ar-choice-v362.hand-hover-v363,
-      #s1ArNextV362.hand-hover-v363{
+      .s1-ar-choice-v364.hand-hover-v364,
+      #s1ArNextV364.hand-hover-v364,
+      #s1ArReplayV364.hand-hover-v364,
+      #s1ArBackV364.hand-hover-v364{
         outline:3px solid rgba(34,211,238,.95) !important;
         box-shadow:
           0 0 0 7px rgba(34,211,238,.18),
@@ -130,8 +136,10 @@
         transform:translateY(-1px);
       }
 
-      .s1-ar-choice-v362.hand-hover-v363::after,
-      #s1ArNextV362.hand-hover-v363::after{
+      .s1-ar-choice-v364.hand-hover-v364::after,
+      #s1ArNextV364.hand-hover-v364::after,
+      #s1ArReplayV364.hand-hover-v364::after,
+      #s1ArBackV364.hand-hover-v364::after{
         content:'ชี้ค้าง / หนีบนิ้วเพื่อเลือก';
         position:absolute;
         right:10px;
@@ -146,7 +154,9 @@
         z-index:2;
       }
 
-      #s1ArNextV362{
+      #s1ArNextV364,
+      #s1ArReplayV364,
+      #s1ArBackV364{
         position:relative;
       }
     `;
@@ -156,31 +166,31 @@
   function ensureUI(){
     injectStyle();
 
-    if(!$('s1HandCursorV363')){
+    if(!$('s1HandCursorV364')){
       const c = document.createElement('div');
-      c.id = 's1HandCursorV363';
-      c.className = 's1-hand-cursor-v363';
+      c.id = 's1HandCursorV364';
+      c.className = 's1-hand-cursor-v364';
       document.body.appendChild(c);
     }
 
-    if(!$('s1HandDwellV363')){
+    if(!$('s1HandDwellV364')){
       const d = document.createElement('div');
-      d.id = 's1HandDwellV363';
-      d.className = 's1-hand-dwell-v363';
+      d.id = 's1HandDwellV364';
+      d.className = 's1-hand-dwell-v364';
       document.body.appendChild(d);
     }
 
-    if(!$('s1HandStatusV363')){
+    if(!$('s1HandStatusV364')){
       const s = document.createElement('div');
-      s.id = 's1HandStatusV363';
-      s.className = 's1-hand-status-v363';
+      s.id = 's1HandStatusV364';
+      s.className = 's1-hand-status-v364';
       s.textContent = 'Hand: loading…';
       document.body.appendChild(s);
     }
   }
 
   function status(msg){
-    const s = $('s1HandStatusV363');
+    const s = $('s1HandStatusV364');
     if(!s) return;
 
     s.style.display = isArOpen() ? 'block' : 'none';
@@ -188,31 +198,31 @@
   }
 
   function isArOpen(){
-    const panel = $('s1ArPanelV362');
+    const panel = $('s1ArPanelV364');
     return !!(panel && panel.classList.contains('open'));
   }
 
   function video(){
-    return $('s1ArVideoV362');
+    return $('s1ArVideoV364');
   }
 
   function clearHover(){
     if(lastHover){
-      lastHover.classList.remove('hand-hover-v363');
+      lastHover.classList.remove('hand-hover-v364');
     }
 
     lastHover = null;
     hoverStart = 0;
 
-    const ring = $('s1HandDwellV363');
+    const ring = $('s1HandDwellV364');
     if(ring){
       ring.style.setProperty('--p', '0deg');
     }
   }
 
   function hideCursor(){
-    const c = $('s1HandCursorV363');
-    const d = $('s1HandDwellV363');
+    const c = $('s1HandCursorV364');
+    const d = $('s1HandDwellV364');
 
     if(c) c.style.display = 'none';
     if(d) d.style.display = 'none';
@@ -298,11 +308,51 @@
       try{
         await hands.send({ image:v });
       }catch(err){
-        // Avoid noisy frame-level errors
+        // avoid frame-level noisy errors
       }
     }
 
     raf = requestAnimationFrame(loop);
+  }
+
+  function getActionTargetAtPoint(sx, sy){
+    const target = document.elementFromPoint(sx, sy);
+
+    let actionTarget = target && target.closest
+      ? target.closest(
+          '.s1-ar-choice-v364:not([disabled]), ' +
+          '#s1ArNextV364:not([disabled]), ' +
+          '#s1ArReplayV364:not([disabled]), ' +
+          '#s1ArBackV364:not([disabled])'
+        )
+      : null;
+
+    if(actionTarget){
+      return actionTarget;
+    }
+
+    const candidates = [
+      $('s1ArNextV364'),
+      $('s1ArReplayV364'),
+      $('s1ArBackV364')
+    ].filter(el => el && !el.disabled);
+
+    for(const btn of candidates){
+      const r = btn.getBoundingClientRect();
+      const pad = CONFIG.hitPad;
+
+      const near =
+        sx >= r.left - pad &&
+        sx <= r.right + pad &&
+        sy >= r.top - pad &&
+        sy <= r.bottom + pad;
+
+      if(near){
+        return btn;
+      }
+    }
+
+    return null;
   }
 
   function onResults(results){
@@ -311,8 +361,8 @@
       return;
     }
 
-    const cursor = $('s1HandCursorV363');
-    const ring = $('s1HandDwellV363');
+    const cursor = $('s1HandCursorV364');
+    const ring = $('s1HandDwellV364');
 
     const lm = results &&
       results.multiHandLandmarks &&
@@ -352,21 +402,12 @@
     ring.style.left = sx + 'px';
     ring.style.top = sy + 'px';
 
-    const target = document.elementFromPoint(sx, sy);
-
-    /*
-      สำคัญ:
-      เดิมจับเฉพาะ .s1-ar-choice-v362
-      เวอร์ชันนี้เพิ่ม #s1ArNextV362 เพื่อให้ใช้มือกด “ข้อต่อไป” ได้
-    */
-    const actionTarget = target && target.closest
-      ? target.closest('.s1-ar-choice-v362:not([disabled]), #s1ArNextV362:not([disabled])')
-      : null;
+    const actionTarget = getActionTargetAtPoint(sx, sy);
 
     if(!actionTarget){
       clearHover();
       ring.style.setProperty('--p', '0deg');
-      status('Hand: เลื่อนปลายนิ้วไปที่ตัวเลือกหรือปุ่มข้อต่อไป');
+      status('Hand: เลื่อนปลายนิ้วไปที่ตัวเลือกหรือปุ่ม');
       lastPinch = pinch;
       return;
     }
@@ -375,7 +416,7 @@
       clearHover();
       lastHover = actionTarget;
       hoverStart = Date.now();
-      actionTarget.classList.add('hand-hover-v363');
+      actionTarget.classList.add('hand-hover-v364');
     }
 
     const dwell = Date.now() - hoverStart;
@@ -383,12 +424,20 @@
 
     ring.style.setProperty('--p', deg + 'deg');
 
-    const isNext = actionTarget.id === 's1ArNextV362';
+    const isNext = actionTarget.id === 's1ArNextV364';
+    const isReplay = actionTarget.id === 's1ArReplayV364';
+    const isBack = actionTarget.id === 's1ArBackV364';
+
+    let label = 'เลือกคำตอบ';
+
+    if(isNext) label = 'ไปข้อต่อไป';
+    if(isReplay) label = 'เล่นอีกครั้ง';
+    if(isBack) label = 'กลับ Mission';
 
     status(
       pinch
-        ? (isNext ? 'Hand: pinch ไปข้อต่อไป' : 'Hand: pinch เลือกคำตอบ')
-        : (isNext ? 'Hand: ชี้ค้างที่ปุ่มข้อต่อไป' : 'Hand: ชี้ค้าง หรือหนีบนิ้วเพื่อเลือก')
+        ? `Hand: pinch ${label}`
+        : `Hand: ชี้ค้าง หรือหนีบนิ้วเพื่อ${label}`
     );
 
     const pinchStarted = pinch && !lastPinch;
@@ -407,10 +456,11 @@
 
     const mo = new MutationObserver(() => {
       if(isArOpen()){
-        const s = $('s1HandStatusV363');
+        const s = $('s1HandStatusV364');
         if(s) s.style.display = 'block';
 
         const v = video();
+
         if(v && v.srcObject && !active){
           startHandTracking();
         }
