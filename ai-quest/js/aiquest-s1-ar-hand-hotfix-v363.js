@@ -2,15 +2,22 @@
    CSAI2102 AI Quest
    S1 AR Hand Tracking Hotfix
    File: /ai-quest/js/aiquest-s1-ar-hand-hotfix-v363.js
-   Version: v3.6.3-s1-ar-hand-hotfix
+   Version: v3.6.3-s1-ar-hand-hotfix-next-support
    ใช้คู่กับ aiquest-s1-ar-practice-v362.js
-   ทำให้ใช้มือชี้/หนีบนิ้วเลือกคำตอบแทน mouse ได้
+
+   ความสามารถ:
+   - ใช้ MediaPipe Hands จับมือจากกล้อง
+   - วงกลมสีฟ้าตามปลายนิ้วชี้
+   - หนีบนิ้วโป้ง+นิ้วชี้เพื่อเลือกคำตอบ
+   - หรือชี้ค้าง 0.8 วินาทีเพื่อเลือก
+   - หลังตอบแล้ว ใช้มือกดปุ่ม “ข้อต่อไป” ได้
+   - ถ้า Hand Tracking ไม่ทำงาน ยังใช้ mouse/touch ได้เหมือนเดิม
 ========================================================= */
 
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.3-s1-ar-hand-hotfix';
+  const VERSION = 'v3.6.3-s1-ar-hand-hotfix-next-support';
   const HANDS_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js';
 
   let hands = null;
@@ -114,7 +121,8 @@
         mask:radial-gradient(circle, transparent 54%, #000 55%);
       }
 
-      .s1-ar-choice-v362.hand-hover-v363{
+      .s1-ar-choice-v362.hand-hover-v363,
+      #s1ArNextV362.hand-hover-v363{
         outline:3px solid rgba(34,211,238,.95) !important;
         box-shadow:
           0 0 0 7px rgba(34,211,238,.18),
@@ -122,7 +130,8 @@
         transform:translateY(-1px);
       }
 
-      .s1-ar-choice-v362.hand-hover-v363::after{
+      .s1-ar-choice-v362.hand-hover-v363::after,
+      #s1ArNextV362.hand-hover-v363::after{
         content:'ชี้ค้าง / หนีบนิ้วเพื่อเลือก';
         position:absolute;
         right:10px;
@@ -133,6 +142,12 @@
         color:#042f2e;
         font-size:10px;
         font-weight:1000;
+        white-space:nowrap;
+        z-index:2;
+      }
+
+      #s1ArNextV362{
+        position:relative;
       }
     `;
     document.head.appendChild(css);
@@ -167,8 +182,9 @@
   function status(msg){
     const s = $('s1HandStatusV363');
     if(!s) return;
+
     s.style.display = isArOpen() ? 'block' : 'none';
-    s.textContent = msg;
+    s.textContent = msg || '';
   }
 
   function isArOpen(){
@@ -184,18 +200,23 @@
     if(lastHover){
       lastHover.classList.remove('hand-hover-v363');
     }
+
     lastHover = null;
     hoverStart = 0;
 
     const ring = $('s1HandDwellV363');
-    if(ring) ring.style.setProperty('--p', '0deg');
+    if(ring){
+      ring.style.setProperty('--p', '0deg');
+    }
   }
 
   function hideCursor(){
     const c = $('s1HandCursorV363');
     const d = $('s1HandDwellV363');
+
     if(c) c.style.display = 'none';
     if(d) d.style.display = 'none';
+
     clearHover();
   }
 
@@ -225,6 +246,7 @@
     if(!ok) return;
 
     const v = video();
+
     if(!v || !v.srcObject){
       status('Hand: ยังไม่พบกล้อง รอเปิด AR ก่อน');
       return;
@@ -245,7 +267,8 @@
       hands.onResults(onResults);
 
       active = true;
-      status('Hand: พร้อมแล้ว • ชี้คำตอบแล้วหนีบนิ้ว หรือชี้ค้าง');
+      status('Hand: พร้อมแล้ว • ชี้คำตอบ/ปุ่ม แล้วหนีบนิ้ว หรือชี้ค้าง');
+
       loop();
 
     }catch(err){
@@ -256,7 +279,11 @@
 
   function stopHandTracking(){
     active = false;
-    if(raf) cancelAnimationFrame(raf);
+
+    if(raf){
+      cancelAnimationFrame(raf);
+    }
+
     raf = 0;
     hideCursor();
     status('');
@@ -270,7 +297,9 @@
     if(isArOpen() && hands && v && v.readyState >= 2){
       try{
         await hands.send({ image:v });
-      }catch(err){}
+      }catch(err){
+        // Avoid noisy frame-level errors
+      }
     }
 
     raf = requestAnimationFrame(loop);
@@ -311,7 +340,7 @@
     const dy = indexTip.y - thumbTip.y;
     const dz = (indexTip.z || 0) - (thumbTip.z || 0);
 
-    const pinchDistance = Math.sqrt(dx*dx + dy*dy + dz*dz);
+    const pinchDistance = Math.sqrt(dx * dx + dy * dy + dz * dz);
     const pinch = pinchDistance < CONFIG.pinchThreshold;
 
     cursor.style.display = 'block';
@@ -324,36 +353,49 @@
     ring.style.top = sy + 'px';
 
     const target = document.elementFromPoint(sx, sy);
-    const choice = target && target.closest
-      ? target.closest('.s1-ar-choice-v362:not([disabled])')
+
+    /*
+      สำคัญ:
+      เดิมจับเฉพาะ .s1-ar-choice-v362
+      เวอร์ชันนี้เพิ่ม #s1ArNextV362 เพื่อให้ใช้มือกด “ข้อต่อไป” ได้
+    */
+    const actionTarget = target && target.closest
+      ? target.closest('.s1-ar-choice-v362:not([disabled]), #s1ArNextV362:not([disabled])')
       : null;
 
-    if(!choice){
+    if(!actionTarget){
       clearHover();
       ring.style.setProperty('--p', '0deg');
-      status('Hand: เลื่อนปลายนิ้วไปที่ตัวเลือก');
+      status('Hand: เลื่อนปลายนิ้วไปที่ตัวเลือกหรือปุ่มข้อต่อไป');
       lastPinch = pinch;
       return;
     }
 
-    if(choice !== lastHover){
+    if(actionTarget !== lastHover){
       clearHover();
-      lastHover = choice;
+      lastHover = actionTarget;
       hoverStart = Date.now();
-      choice.classList.add('hand-hover-v363');
+      actionTarget.classList.add('hand-hover-v363');
     }
 
     const dwell = Date.now() - hoverStart;
     const deg = Math.min(360, Math.round(dwell / CONFIG.dwellMs * 360));
+
     ring.style.setProperty('--p', deg + 'deg');
 
-    status(pinch ? 'Hand: pinch เลือกคำตอบ' : 'Hand: ชี้ค้าง หรือหนีบนิ้วเพื่อเลือก');
+    const isNext = actionTarget.id === 's1ArNextV362';
+
+    status(
+      pinch
+        ? (isNext ? 'Hand: pinch ไปข้อต่อไป' : 'Hand: pinch เลือกคำตอบ')
+        : (isNext ? 'Hand: ชี้ค้างที่ปุ่มข้อต่อไป' : 'Hand: ชี้ค้าง หรือหนีบนิ้วเพื่อเลือก')
+    );
 
     const pinchStarted = pinch && !lastPinch;
     const dwellDone = dwell >= CONFIG.dwellMs;
 
     if(pinchStarted || dwellDone){
-      choice.click();
+      actionTarget.click();
       clearHover();
     }
 
@@ -387,6 +429,7 @@
     setInterval(() => {
       if(isArOpen()){
         const v = video();
+
         if(v && v.srcObject && !active){
           startHandTracking();
         }
