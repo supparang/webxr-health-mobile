@@ -5,17 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เกม AR อาหารแสนสนุก (Good Food vs Junk Food)</title>
     
+    <!-- นำเข้า MediaPipe Hands และ Camera Utils เวอร์ชันเสถียร -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;700;900&display=swap');
         
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
             font-family: 'Prompt', sans-serif;
+            user-select: none;
         }
 
         body, html {
@@ -25,6 +27,7 @@
             background-color: #f0fdf4;
         }
 
+        /* ตกแต่งหน้าแรกและหน้าสรุปผลให้มีความสดใส น่ารัก เหมาะกับเด็ก */
         .screen {
             position: absolute;
             top: 0;
@@ -35,40 +38,64 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #ffedd5 0%, #ccfbf1 100%);
+            background: linear-gradient(135deg, #fef08a 0%, #bbf7d0 100%);
             z-index: 10;
             text-align: center;
-            padding: 20px;
+            padding: 24px;
+        }
+
+        .screen-card {
+            background: rgba(255, 255, 255, 0.9);
+            border: 8px solid #4ade80;
+            border-radius: 32px;
+            padding: 40px;
+            max-width: 600px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
         }
 
         h1 {
-            font-size: 3rem;
-            color: #1e3a8a;
+            font-size: 3.5rem;
+            font-weight: 900;
+            color: #15803d;
             margin-bottom: 20px;
-            text-shadow: 2px 2px #fff;
+            text-shadow: 3px 3px 0px #ffffff;
+            line-height: 1.2;
         }
 
         p {
             font-size: 1.5rem;
-            color: #4b5563;
+            color: #1e3a8a;
             margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .highlight {
+            color: #b91c1c;
+            font-weight: 700;
+        }
+
+        .good-highlight {
+            color: #15803d;
+            font-weight: 700;
         }
 
         .btn {
-            font-size: 1.8rem;
-            font-weight: bold;
-            padding: 15px 40px;
-            background-color: #ff4757;
+            font-size: 2rem;
+            font-weight: 900;
+            padding: 15px 50px;
+            background: linear-gradient(185deg, #ff4757, #ff6b81);
             color: white;
             border: none;
             border-radius: 50px;
             cursor: pointer;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
-            transition: transform 0.2s;
+            box-shadow: 0 10px 0px #b33939, 0 12px 20px rgba(0,0,0,0.15);
+            transition: all 0.1s ease;
+            outline: none;
         }
 
-        .btn:hover {
-            transform: scale(1.1);
+        .btn:active {
+            transform: translateY(6px);
+            box-shadow: 0 4px 0px #b33939, 0 6px 10px rgba(0,0,0,0.15);
         }
 
         #game-container {
@@ -87,7 +114,7 @@
             height: 100%;
             object-fit: cover;
             transform: scaleX(-1);
-            display: none; /* ซ่อนวิดีโอดิบ ใช้การวาดลง Canvas แทน */
+            display: none; /* วาดลงแคนวาสแทนเพื่อประสิทธิภาพและสเกลเอฟเฟกต์ */
         }
 
         canvas {
@@ -99,67 +126,99 @@
             object-fit: cover;
         }
 
+        /* ตกแต่งส่วนติดต่อผู้ใช้ (UI Overlay) ในขณะเล่นเกม */
         .ui-box {
             position: absolute;
-            padding: 15px 25px;
-            background: rgba(255, 255, 255, 0.9);
-            border-radius: 20px;
+            padding: 12px 24px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 24px;
             font-size: 1.8rem;
-            font-weight: bold;
-            color: #1f2937;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-weight: 900;
+            color: #1e293b;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
             z-index: 5;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        #score-board { top: 20px; left: 20px; border-left: 8px solid #10b981; }
-        #timer-board { top: 20px; right: 20px; border-right: 8px solid #ef4444; }
+        #score-board { 
+            top: 20px; 
+            left: 20px; 
+            border: 4px solid #10b981; 
+        }
+
+        #timer-board { 
+            top: 20px; 
+            right: 20px; 
+            border: 4px solid #ef4444; 
+        }
         
         #mission-board {
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(255, 255, 0, 0.95);
+            background: #fef08a;
             font-size: 2.2rem;
-            color: #d97706;
-            border: 4px dashed #d97706;
-            animation: pulse 1s infinite alternate;
+            color: #854d0e;
+            border: 5px solid #ca8a04;
+            animation: pulse 0.8s infinite alternate;
         }
 
         @keyframes pulse {
             from { transform: translateX(-50%) scale(1); }
-            to { transform: translateX(-50%) scale(1.05); }
+            to { transform: translateX(-50%) scale(1.04); }
         }
 
         #loading {
-            font-size: 1.5rem;
-            color: #1e3a8a;
+            font-size: 1.6rem;
+            color: #15803d;
             margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .score-val {
+            color: #10b981;
+            font-size: 2.2rem;
+        }
+
+        .timer-val {
+            color: #ef4444;
+            font-size: 2.2rem;
         }
     </style>
 </head>
 <body>
 
+    <!-- หน้าเริ่มต้นเกม (Start Screen) -->
     <div id="start-screen" class="screen">
-        <h1>🍎 เกม AR อาหารแสนสนุก 🍔</h1>
-        <p>กติกา: ใช้มือของคุณปัดเลือกเฉพาะ <b>Good Food</b> และห้ามจับ <b>Junk Food</b> ตามคำสั่ง!</p>
-        <button class="btn" id="start-btn" onclick="initGame()">เริ่มเกม</button>
-        <div id="loading">กำลังเตรียมระบบ AI กรุณารอสักครู่... ⏳</div>
+        <div class="screen-card">
+            <h1>🍎 เกม AR จับอาหารดีมีประโยชน์ 🥦</h1>
+            <p>กติกาแสนสนุก: เอามือขยับไปเก็บเฉพาะ <span class="good-highlight">อาหารดีมีประโยชน์ (Good Food)</span><br>
+            ส่วน <span class="highlight">อาหารขยะ (Junk Food)</span> ไม่ต้องจับ มันจะสลายตัวหายไปเอง!</p>
+            <button class="btn" id="start-btn" onclick="initGame()">เริ่มเล่นเกม 🎮</button>
+            <div id="loading" style="display: none;">กำลังเชื่อมต่อกล้องและเปิดระบบตรวจจับมือ... ⏳</div>
+        </div>
     </div>
 
+    <!-- หน้าผลลัพธ์ท้ายเกม (Game Over Screen) -->
     <div id="game-over-screen" class="screen" style="display: none;">
-        <h1>🎉 จบเกมแล้ว! 🎉</h1>
-        <p id="final-score" style="font-size: 2rem; font-weight: bold; color: #10b981;"></p>
-        <p id="avg-time" style="font-size: 1.5rem; color: #3b82f6;"></p>
-        <button class="btn" onclick="location.reload()">เล่นอีกครั้ง 🔄</button>
+        <div class="screen-card">
+            <h1 style="color: #ea580c;">🎉 เก่งมากเลยหนูๆ จบเกมแล้ว! 🎉</h1>
+            <p id="final-score" style="font-size: 2.5rem; font-weight: bold; color: #10b981; margin-bottom: 10px;"></p>
+            <p id="avg-time" style="font-size: 1.8rem; color: #2563eb; margin-bottom: 30px;"></p>
+            <button class="btn" onclick="location.reload()">เล่นอีกครั้ง 🔄</button>
+        </div>
     </div>
 
+    <!-- สนามจำลองของเกม -->
     <div id="game-container">
         <video id="video" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
         
-        <div id="score-board" class="ui-box">⭐ คะแนน: <span id="score">0</span></div>
-        <div id="mission-board" class="ui-box">เป้าหมาย: <span id="target-word">...</span></div>
-        <div id="timer-board" class="ui-box">⏱️ เวลา: <span id="timer">60</span> วินาที</div>
+        <div id="score-board" class="ui-box">⭐ คะแนน: <span id="score" class="score-val">0</span></div>
+        <div id="mission-board" class="ui-box">หาคำแปลชิ้นนี้เลย: <span id="target-word">...</span></div>
+        <div id="timer-board" class="ui-box">⏱️ เวลา: <span id="timer" class="timer-val">60</span> วิ</div>
     </div>
 
     <script>
@@ -174,11 +233,17 @@
         let gameTimer;
         let isPlaying = false;
         
+        // รายการคำศัพท์สำหรับการจำลอง
         const foodItems = [
+            // อาหารดีมีประโยชน์ (Good Food)
             { name: 'Apple 🍎', type: 'good', thai: 'แอปเปิ้ล' },
             { name: 'Banana 🍌', type: 'good', thai: 'กล้วย' },
             { name: 'Broccoli 🥦', type: 'good', thai: 'บล็อคโคลี่' },
             { name: 'Carrot 🥕', type: 'good', thai: 'แครอท' },
+            { name: 'Milk 🥛', type: 'good', thai: 'นมสด' },
+            { name: 'Orange 🍊', type: 'good', thai: 'ส้ม' },
+            
+            // อาหารที่ไม่ดีต่อสุขภาพ (Junk Food) - จะสลายจางลงและหายไปเอง
             { name: 'Burger 🍔', type: 'junk', thai: 'เบอร์เกอร์' },
             { name: 'French Fries 🍟', type: 'junk', thai: 'เฟรนช์ฟรายส์' },
             { name: 'Donut 🍩', type: 'junk', thai: 'โดนัท' },
@@ -191,12 +256,11 @@
         let totalHitTime = 0;
         let lastSpawnTime = 0;
 
-        // ฟังก์ชันเริ่มโหลด AI และสตรีมกล้อง
+        // เริ่มโหลดโมเดลและจับคู่กับกล้อง
         function initGame() {
             document.getElementById('start-btn').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
 
-            // ตั้งค่ากำหนดโมเดล MediaPipe Hands
             hands = new Hands({
                 locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
             });
@@ -208,10 +272,8 @@
                 minTrackingConfidence: 0.5
             });
 
-            // ผูกฟังก์ชันผลลัพธ์การตรวจจับ
             hands.onResults(onHandResults);
 
-            // เริ่มต้นกล้อง Web Camera
             camera = new Camera(video, {
                 onFrame: async () => {
                     if (isPlaying) {
@@ -224,13 +286,12 @@
 
             camera.start()
                 .then(() => {
-                    // ปรับขนาดแคนวาสให้เต็มหน้าจอ
                     resizeCanvas();
                     window.addEventListener('resize', resizeCanvas);
                     startGame();
                 })
                 .catch(err => {
-                    alert("ไม่สามารถเข้าถึงกล้องได้: " + err.message);
+                    alert("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตให้ใช้งานสิทธิ์กล้อง: " + err.message);
                     location.reload();
                 });
         }
@@ -250,6 +311,7 @@
             nextMission();
             spawnObjects();
 
+            // ตัวนับเวลาถอยหลัง 60 วินาที
             gameTimer = setInterval(() => {
                 timeLeft--;
                 document.getElementById('timer').innerText = timeLeft;
@@ -259,67 +321,114 @@
             }, 1000);
         }
 
+        // เมื่อต้องการสุ่มคำศัพท์เป้าหมายถัดไป (จะบังคับให้ตอบเฉพาะชิ้นที่เป็น Good Food เท่านั้น!)
         function nextMission() {
-            currentTarget = foodItems[Math.floor(Math.random() * foodItems.length)];
-            document.getElementById('target-word').innerText = `${currentTarget.thai} = ${currentTarget.name.split(' ')[0]}`;
+            // คัดกรองเอาเฉพาะอาหารดีเพื่อใช้เป็นคีย์คำสั่งหยิบให้ได้แต้ม
+            const goodFoodsOnly = foodItems.filter(item => item.type === 'good');
+            currentTarget = goodFoodsOnly[Math.floor(Math.random() * goodFoodsOnly.length)];
+            
+            document.getElementById('target-word').innerText = `${currentTarget.thai} (${currentTarget.name.split(' ')[0]})`;
             lastSpawnTime = Date.now();
         }
 
+        // เกิดวัตถุอาหารขึ้นมาใหม่
         function spawnObjects() {
             activeObjects = [];
-            foodItems.forEach((item) => {
+            
+            // วาดอาหารดีขึ้นมา (จะลอยอยู่เรื่อยๆ ไม่สลายตัวจนกว่าเวลาจะหมดหรือทำคะแนนสำเร็จ)
+            const goodFoodsOnly = foodItems.filter(item => item.type === 'good');
+            goodFoodsOnly.forEach((item) => {
                 activeObjects.push({
                     ...item,
-                    x: Math.random() * (canvas.width - 200) + 100,
-                    y: Math.random() * (canvas.height - 250) + 150,
+                    x: Math.random() * (canvas.width - 250) + 125,
+                    y: Math.random() * (canvas.height - 250) + 125,
                     radius: 55,
-                    color: item.type === 'good' ? '#10b981' : '#ef4444'
+                    color: '#10b981',
+                    opacity: 1.0,          // คงที่ตลอดเวลา
+                    lifeTime: 99999        // ไม่จางหายไปเอง
+                });
+            });
+
+            // วาดอาหารขยะ (Junk Food) แทรกขึ้นมาเพื่อรบกวนและทดสอบความเข้าใจของนักเรียน
+            // แต่ละตัวจะมีเวลาชีวิตจำกัด และค่อยๆ สลายตัวหายไปเองเมื่อไม่มีการสัมผัส
+            const junkFoodsOnly = foodItems.filter(item => item.type === 'junk');
+            junkFoodsOnly.forEach((item) => {
+                activeObjects.push({
+                    ...item,
+                    x: Math.random() * (canvas.width - 250) + 125,
+                    y: Math.random() * (canvas.height - 250) + 125,
+                    radius: 55,
+                    color: '#ef4444',
+                    opacity: 1.0,          // เริ่มที่ความโปร่งแสงสูงสุด
+                    lifeTime: 4000,        // ระยะเวลาที่จะแสดงอยู่บนหน้าจอ (4 วินาที)
+                    spawnTime: Date.now()  // เวลาที่กำเนิด
                 });
             });
         }
 
-        // ประมวลผลเมื่อ AI ส่งผลตำแหน่งมือกลับมา
+        // คอยประมวลผลตำแหน่งมือและอัปเดตแอนิเมชันวัตถุ
         function onHandResults(results) {
             if (!isPlaying) return;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // วาดภาพจากกล้องแบบ Mirror (กลับซ้ายขวาเพื่อให้เล่นง่าย)
+            // วาดภาพวิดีโอจากกล้องแบบสมจริงและกระจกเงา (Mirror Mirror)
             ctx.save();
             ctx.translate(canvas.width, 0);
             ctx.scale(-1, 1);
             ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
             ctx.restore();
 
-            // วาดอาหารบนหน้าจอ
-            drawObjects();
+            // จัดการความทึบแสงและวาดรูปอาหารลงบนหน้าจอ
+            updateAndDrawObjects();
 
-            // ตรวจจับการชนเมื่อพบพิกัดมือ
+            // ค้นหาตำแหน่งและพิกัดมือของนักเรียน (รองรับแบบ 2 มือพร้อมกัน)
             if (results.multiHandLandmarks) {
                 for (const landmarks of results.multiHandLandmarks) {
-                    // ดึงพิกัดปลายนิ้วชี้ (Index Finger Tip - จุดที่ 8)
-                    // MediaPipe ให้ค่าพิกัดเป็น 0 ถึง 1 จึงต้องคูณด้วยขนาดกว้างยาวของหน้าจอ
-                    // เนื่องจากกลับด้านภาพกล้อง ค่า X บนจอจึงตรงข้ามกับภาพดิบ
+                    // ดึงพิกัดที่ระบุปลายนิ้วชี้ (Index Finger Tip)
                     const hX = (1 - landmarks[8].x) * canvas.width;
                     const hY = landmarks[8].y * canvas.height;
 
-                    // วาดจุดเอฟเฟกต์นำทางที่ปลายนิ้ว
+                    // แสดงวงกลมสีนำสายตาที่ปลายนิ้วของเด็กๆ เพื่อช่วยในการเอื้อมสัมผัส
                     ctx.beginPath();
                     ctx.arc(hX, hY, 20, 0, 2 * Math.PI);
-                    ctx.fillStyle = '#2563eb';
-                    ctx.lineWidth = 3;
+                    ctx.fillStyle = '#ff4757';
+                    ctx.lineWidth = 4;
                     ctx.strokeStyle = '#ffffff';
                     ctx.fill();
                     ctx.stroke();
 
+                    // ตรวจการสัมผัสกับอาหาร
                     checkCollision(hX, hY);
                 }
             }
         }
 
-        function drawObjects() {
-            activeObjects.forEach(obj => {
+        // ฟังก์ชันวาดวัตถุและประมวลผลการจางหายของ Junk Food
+        function updateAndDrawObjects() {
+            const now = Date.now();
+            
+            for (let i = activeObjects.length - 1; i >= 0; i--) {
+                let obj = activeObjects[i];
+
+                // ถ้าเป็นอาหารขยะ (Junk Food)
+                if (obj.type === 'junk') {
+                    let elapsed = now - obj.spawnTime;
+                    
+                    if (elapsed >= obj.lifeTime) {
+                        // เมื่อหมดเวลาชีวิตของ Junk Food ชิ้นนี้ จะลบมันทิ้งออกจากหน้าจอเองอัตโนมัติ
+                        activeObjects.splice(i, 1);
+                        continue;
+                    } else if (elapsed > obj.lifeTime - 1000) {
+                        // ช่วง 1 วินาทีสุดท้ายก่อนจะหายไป ให้ค่อยๆ จางออกทีละน้อย (Fade Out Effect)
+                        obj.opacity = (obj.lifeTime - elapsed) / 1000;
+                    }
+                }
+
+                // เริ่มวาดวัตถุชิ้นนั้นๆ ลงบอร์ด
                 ctx.save();
+                ctx.globalAlpha = obj.opacity; // ควบคุมความสลัวของการจางตัว
+                
                 ctx.beginPath();
                 ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
                 ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
@@ -334,29 +443,28 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillText(obj.name, obj.x, obj.y);
                 ctx.restore();
-            });
+            }
         }
 
+        // ตรวจว่านิ้วผู้เล่นพุ่งเข้าชน/สัมผัสโดนตัวเลือกหรือไม่
         function checkCollision(hx, hy) {
             for (let i = activeObjects.length - 1; i >= 0; i--) {
                 let obj = activeObjects[i];
                 let dist = Math.hypot(obj.x - hx, obj.y - hy);
 
                 if (dist < obj.radius + 20) {
-                    if (obj.name === currentTarget.name) {
-                        if (obj.type === 'good') {
-                            score += 1;
-                        } else {
-                            score = Math.max(0, score - 1); 
-                        }
-                        
+                    // หากผู้เล่นสัมผัสโดน "เป้าหมายที่ถูกสุ่มขึ้นมา" (ซึ่งจะเป็นของมีประโยชน์เท่านั้น)
+                    if (obj.name === currentTarget.name && obj.type === 'good') {
+                        score += 1;
                         totalHits++;
                         totalHitTime += (Date.now() - lastSpawnTime) / 1000;
                         document.getElementById('score').innerText = score;
                         
+                        // เริ่มด่านใหม่ทันที
                         nextMission();
                         spawnObjects();
                     } else {
+                        // หากเผลอไปสัมผัสโดน Junk Food หรืออาหารผิดประเภท จะสลัดชิ้นนั้นออกจากจอทันที
                         activeObjects.splice(i, 1);
                     }
                     break;
@@ -364,6 +472,7 @@
             }
         }
 
+        // จบเวลาการเล่นเกมทั้งหมด 60 วินาที
         function endGame() {
             isPlaying = false;
             clearInterval(gameTimer);
@@ -372,9 +481,10 @@
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('game-over-screen').style.display = 'flex';
 
+            // คำนวณความเร็วเฉลี่ยในการตอบถูกของเด็กๆ
             let avgTime = totalHits > 0 ? (totalHitTime / totalHits).toFixed(2) : 0;
-            document.getElementById('final-score').innerText = `🏆 คะแนนรวมของคุณคือ: ${score} คะแนน`;
-            document.getElementById('avg-time').innerText = `⚡ เวลาเฉลี่ยในการตอบถูก: ${avgTime} วินาที/ครั้ง`;
+            document.getElementById('final-score').innerText = `🏆 คะแนนรวมของนักเรียน: ${score} คะแนน`;
+            document.getElementById('avg-time').innerText = `⚡ ความเร็วเฉลี่ยในการตอบถูก: ${avgTime} วินาทีต่อครั้ง`;
         }
     </script>
 </body>
