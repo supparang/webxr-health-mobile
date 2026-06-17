@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>เกม AR อาหารแสนสนุก (Good Food vs Junk Food)</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;700&display=swap');
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Prompt', sans-serif;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #f0fdf4;
+        }
+
+        /* หน้าแรก / หน้าจบเกม */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #ffedd5 0%, #ccfbf1 100%);
+            z-index: 10;
+            text-align: center;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            color: #1e3a8a;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px #fff;
+        }
+
+        p {
+            font-size: 1.5rem;
+            color: #4b5563;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            font-size: 1.8rem;
+            font-weight: bold;
+            padding: 15px 40px;
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: scale(1.1);
+        }
+
+        /* ส่วนจัดวางกล้องและเกม */
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background-color: #000;
+        }
+
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror view */
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1); /* Mirror view */
+        }
+
+        /* UI แสดงสถานะในเกม */
+        .ui-box {
+            position: absolute;
+            padding: 15px 25px;
+            background: rgba(255, 255, 255, 0.85);
+            border-radius: 20px;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #1f2937;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 5;
+        }
+
+        #score-board { top: 20px; left: 20px; border-left: 8px solid #10b981; }
+        #timer-board { top: 20px; right: 20px; border-right: 8px solid #ef4444; }
+        
+        #mission-board {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 0, 0.9);
+            font-size: 2.2rem;
+            color: #d97706;
+            border: 4px dashed #d97706;
+            animation: pulse 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            from { transform: translateX(-50%) scale(1); }
+            to { transform: translateX(-50%) scale(1.05); }
+        }
+
+        #loading {
+            font-size: 1.5rem;
+            color: #1e3a8a;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen" class="screen">
+        <h1>🍎 เกม AR อาหารแสนสนุก 🍔</h1>
+        <p>กติกา: ใช้มือของคุณปัดเลือกเฉพาะ <b>Good Food</b> และห้ามจับ <b>Junk Food</b> ตามคำสั่ง!</p>
+        <button class="btn" id="start-btn" onclick="initGame()">เริ่มเกม</button>
+        <div id="loading">กำลังโหลด AI ตรวจจับมือ กรุณารอสักครู่... ⏳</div>
+    </div>
+
+    <div id="game-over-screen" class="screen" style="display: none;">
+        <h1>🎉 จบเกมแล้ว! 🎉</h1>
+        <p id="final-score" style="font-size: 2rem; font-weight: bold; color: #10b981;"></p>
+        <p id="avg-time" style="font-size: 1.5rem; color: #3b82f6;"></p>
+        <button class="btn" onclick="location.reload()">เล่นอีกครั้ง 🔄</button>
+    </div>
+
+    <div id="game-container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+        
+        <div id="score-board" class="ui-box">⭐ คะแนน: <span id="score">0</span></div>
+        <div id="mission-board" class="ui-box">เป้าหมาย: <span id="target-word">...</span></div>
+        <div id="timer-board" class="ui-box">⏱️ เวลา: <span id="timer">60</span> วินาที</div>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        let model = null;
+        let score = 0;
+        let timeLeft = 60;
+        let gameInterval, gameTimer;
+        let isPlaying = false;
+        
+        // ข้อมูลอาหารสำหรับสุ่ม
+        const foodItems = [
+            { name: 'Apple 🍎', type: 'good', thai: 'แอปเปิ้ล' },
+            { name: 'Banana 🍌', type: 'good', thai: 'กล้วย' },
+            { name: 'Broccoli 🥦', type: 'good', thai: 'บล็อคโคลี่' },
+            { name: 'Carrot 🥕', type: 'good', thai: 'แครอท' },
+            { name: 'Burger 🍔', type: 'junk', thai: 'เบอร์เกอร์' },
+            { name: 'French Fries 🍟', type: 'junk', thai: 'เฟรนช์ฟรายส์' },
+            { name: 'Donut 🍩', type: 'junk', thai: 'โดนัท' },
+            { name: 'Pizza 🍕', type: 'junk', thai: 'พิซซ่า' }
+        ];
+
+        let currentTarget = {};
+        let activeObjects = [];
+        let totalHits = 0;
+        let totalHitTime = 0;
+        let lastSpawnTime = 0;
+
+        // เริ่มต้นโหลดโมเดลและเปิดกล้อง
+        async function initGame() {
+            document.getElementById('start-btn').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+
+            try {
+                // เปิดกล้อง Web Camera API
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480, facingMode: "user" },
+                    audio: false
+                });
+                video.srcObject = stream;
+                
+                // โหลด Handpose Model (AI ตรวจจับมือ)
+                model = await handpose.load();
+                
+                // ตั้งค่าขนาด Canvas ให้ตรงกับวิดีโอ
+                video.addEventListener('loadedmetadata', () => {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    startGame();
+                });
+            } catch (err) {
+                alert("ไม่สามารถเข้าถึงกล้องหรือโหลด AI ได้: " + err.message);
+                location.reload();
+            }
+        }
+
+        // เริ่มนับถอยหลังและสร้างวัตถุ
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-container').style.display = 'block';
+            isPlaying = true;
+            score = 0;
+            timeLeft = 60;
+            
+            nextMission();
+            spawnObjects();
+
+            // ตัวนับเวลาถอยหลัง 60 วินาที
+            gameTimer = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    endGame();
+                }
+            }, 1000);
+
+            // วนลูปการตรวจจับ Hand Tracking
+            detectHands();
+        }
+
+        // สุ่มคำสั่งภารกิจใหม่
+        function nextMission() {
+            currentTarget = foodItems[Math.floor(Math.random() * foodItems.length)];
+            document.getElementById('target-word').innerText = `${currentTarget.thai} = ${currentTarget.name.split(' ')[0]}`;
+            lastSpawnTime = Date.now();
+        }
+
+        // สุ่มสร้างวัตถุอาหารบนจอ
+        function spawnObjects() {
+            activeObjects = [];
+            // สุ่มตำแหน่งกระจายๆ บนหน้าจอ Canvas
+            foodItems.forEach((item) => {
+                activeObjects.push({
+                    ...item,
+                    x: Math.random() * (canvas.width - 150) + 50,
+                    y: Math.random() * (canvas.height - 150) + 80,
+                    radius: 45,
+                    color: item.type === 'good' ? '#10b981' : '#ef4444'
+                });
+            });
+        }
+
+        // ฟังก์ชันวนลูปจับตำแหน่งมือและประมวลผลเกม
+        async function detectHands() {
+            if (!isPlaying) return;
+
+            // วาดภาพจากกล้องลงบน Canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // ใช้ AI ทำนายตำแหน่งมือ
+            const predictions = await model.estimateHands(video);
+
+            // วาดวัตถุอาหารลงบนหน้าจอ
+            drawObjects();
+
+            if (predictions.length > 0) {
+                predictions.forEach(prediction => {
+                    // ดึงพิกัดของปลายนิ้วชี้ (Index Finger Tip - จุดที่ 8) หรือ ข้อมือ เพื่อใช้เป็นจุดหยิบ
+                    const indexFinger = prediction.landmarks[8];
+                    const hX = indexFinger[0];
+                    const hY = indexFinger[1];
+
+                    // วาดจุดเอฟเฟกต์ที่มือผู้เล่นเพื่อความสวยงาม
+                    ctx.beginPath();
+                    ctx.arc(hX, hY, 15, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#3b82f6';
+                    ctx.fill();
+
+                    // ตรวจสอบการชน (Collision Detection) ระหว่างมือกับอาหาร
+                    checkCollision(hX, hY);
+                });
+            }
+
+            requestAnimationFrame(detectHands);
+        }
+
+        // วาดรูปอาหารตัวอักษรลงบน Canvas
+        function drawObjects() {
+            activeObjects.forEach(obj => {
+                ctx.save();
+                // วาดวงกลมพื้นหลังไอเทม
+                ctx.beginPath();
+                ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.strokeStyle = obj.color;
+                ctx.lineWidth = 4;
+                ctx.fill();
+                ctx.stroke();
+
+                // วาดตัวอักษร/อีโมจิอาหาร
+                ctx.fillStyle = '#000';
+                ctx.font = '30px Prompt';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                // พลิกตัวอักษรกลับด้านให้สอดคล้องกับกล้อง Mirror
+                ctx.translate(obj.x, obj.y);
+                ctx.scale(-1, 1);
+                ctx.fillText(obj.name, 0, 0);
+                ctx.restore();
+            });
+        }
+
+        // ตรวจสอบว่ามือไปแตะโดนอาหารหรือไม่
+        function checkCollision(hx, hy) {
+            for (let i = activeObjects.length - 1; i >= 0; i--) {
+                let obj = activeObjects[i];
+                // คำนวณระยะห่างระหว่างจุดของมือกับศูนย์กลางของวัตถุ
+                let dist = Math.hypot(obj.x - hx, obj.y - hy);
+
+                if (dist < obj.radius + 15) { // แตะโดน
+                    if (obj.name === currentTarget.name) {
+                        // ถ้าหยิบถูกตามคำสั่งเป้าหมาย
+                        if (obj.type === 'good') {
+                            score += 1;
+                        } else {
+                            // ถ้าเป้าหมายคือ junk แต่เผลอไปหยิบ (หรือตามเงื่อนไขห้ามหยิบ junk)
+                            score = Math.max(0, score - 1); 
+                        }
+                        
+                        // คำนวณเวลาเฉลี่ย
+                        totalHits++;
+                        totalHitTime += (Date.now() - lastSpawnTime) / 1000;
+
+                        document.getElementById('score').innerText = score;
+                        
+                        // แสดงเอฟเฟกต์และเปลี่ยนภารกิจถัดไปทันที
+                        nextMission();
+                        spawnObjects();
+                    } else {
+                        // แตะผิดชิ้น ลบชิ้นที่แตะออกชั่วคราวเพื่อไม่ให้ขวาง
+                        activeObjects.splice(i, 1);
+                    }
+                    break;
+                }
+            }
+        }
+
+        // จบเกมและแสดงผลสถิติ
+        function endGame() {
+            isPlaying = false;
+            clearInterval(gameTimer);
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'flex';
+
+            // คำนวณเวลาเฉลี่ยต่อครั้ง
+            let avgTime = totalHits > 0 ? (totalHitTime / totalHits).toFixed(2) : 0;
+
+            document.getElementById('final-score').innerText = `🏆 คะแนนรวมของคุณคือ: ${score} คะแนน`;
+            document.getElementById('avg-time').innerText = `⚡ เวลาเฉลี่ยในการตอบถูก: ${avgTime} วินาที/ครั้ง`;
+            
+            // ปิดกล้อง
+            const stream = video.srcObject;
+            if (stream) {
+                const tracks = stream.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+        }
+    </script>
+</body>
+</html>
