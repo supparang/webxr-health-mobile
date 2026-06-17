@@ -13,7 +13,7 @@
       var url = new URL(location.href);
       if(url.searchParams.get('teacher') !== '1'){
         url.searchParams.set('teacher','1');
-        if(!url.searchParams.get('v')) url.searchParams.set('v','20260616-bysessionrepair351');
+        if(!url.searchParams.get('v')) url.searchParams.set('v','20260616-s6kb360');
         history.replaceState(null,'',url.toString());
       }
     }catch(e){}
@@ -116,7 +116,7 @@
       <div class="logo">🧠</div>
       <div>
         <h1>CSAI2102: AI Quest</h1>
-        <div class="sub">v3.5.1 • Teacher Dashboard • Section 101</div>
+        <div class="sub">v3.6.0 • Teacher Dashboard • Section 101</div>
         <div style="margin-top:8px">
           <span class="pill good">✓ Teacher-only page</span>
           <span class="pill good">✓ Phase 1 Ready: S1–S5 + B1–B2</span>
@@ -124,7 +124,7 @@
         </div>
       </div>
       <div class="actions">
-        <a class="btn" href="./index.html?v=20260616-bysessionrepair351">Student Page</a>
+        <a class="btn" href="./index.html?v=20260616-s6kb360">Student Page</a>
         <button class="btn primary" id="refreshBtn">Refresh</button>
         <button class="btn" id="previewBtn">Preview Student</button>
       </div>
@@ -214,11 +214,11 @@
   </script>
   <script src="./js/aiquest-section-lock-v238.js"></script>
   <script src="./js/aiquest-data-contract-v22.js"></script>
-  <script src="./js/aiquest-label-consistency-v351.js"></script>
-  <script src="./js/aiquest-teacher-accuracy-fix-v351.js"></script>
-  <script src="./js/aiquest-teacher-console-v351.js"></script>
-  <script src="./js/aiquest-student-detail-v351.js"></script>
-  <script src="./js/aiquest-production-v351.js"></script>
-  <script src="./js/aiquest-teacher-only-dashboard-v351.js"></script>
+  <script src="./js/aiquest-label-consistency-v360.js"></script>
+  <script src="./js/aiquest-teacher-accuracy-fix-v360.js"></script>
+  <script src="./js/aiquest-teacher-console-v360.js"></script>
+  <script src="./js/aiquest-student-detail-v360.js"></script>
+  <script src="./js/aiquest-production-v360.js"></script>
+  <script src="./js/aiquest-teacher-only-dashboard-v360.js"></script>
 </body>
 </html>

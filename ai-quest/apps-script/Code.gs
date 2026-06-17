@@ -1,7 +1,7 @@
 /**
  * CSAI2102 AI Quest Logger
  * Google Apps Script Web App
- * Version: v3.5.1
+ * Version: v3.6.0
  *
  * รองรับ:
  * - v1.6 legacy payload: profile / attempt / event / batch
@@ -10,7 +10,7 @@
  * - Teacher Console: action=teacherConsole with optional callback=JSONP
  */
 
-const APP_VERSION = 'v3.5.1';;
+const APP_VERSION = 'v3.6.0';;
 const TZ = 'Asia/Bangkok';
 
 const COURSE_ID_LOCK = 'CSAI2102';
@@ -954,7 +954,7 @@ function mostCommon_(obj) {
 
 
 
-/* === PATCH v3.5.1: Teacher bySession Smart Repair === */
+/* === PATCH v3.6.0: S6 Knowledge Base Forge === */
 function aq349Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
 
 function aq349Num_(v){
@@ -1031,7 +1031,7 @@ function aq349Status_(obj){
 }
 
 function aq349BuildBySessionFromAttempts_(attempts){
-  var order = ['s1','s2','b1','s3','s4','s5','b2'];
+  var order = ['s1','s2','b1','s3','s4','s5','b2','s6'];
   var by = {};
 
   order.forEach(function(k){
@@ -1042,7 +1042,7 @@ function aq349BuildBySessionFromAttempts_(attempts){
       status: 'No data',
       attempts: 0,
       lastSubmitted: '',
-      source: 'server-bySession-v351'
+      source: 'server-bySession-v360'
     };
   });
 
@@ -1109,7 +1109,7 @@ function aq351PostProcessTeacherConsole_(payload){
     if(payload && payload.students){
       payload.students = aq349AttachBySessionToStudents_(payload.students);
     }
-    payload.bySessionServer = 'v3.5.1';
+    payload.bySessionServer = 'v3.6.0';
   }catch(err){
     payload.bySessionServerError = String(err);
   }
@@ -1119,7 +1119,7 @@ function aq351PostProcessTeacherConsole_(payload){
 
 
 
-/* === PATCH v3.5.1: Teacher bySession Smart Repair === */
+/* === PATCH v3.6.0: S6 Knowledge Base Forge === */
 function aq350Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
 function aq350Num_(v){ var n = Number(v); return isNaN(n) ? 0 : n; }
 
@@ -1216,7 +1216,7 @@ function aq350Status_(obj){
 }
 
 function aq350EmptyBySession_(){
-  var order = ['s1','s2','b1','s3','s4','s5','b2'];
+  var order = ['s1','s2','b1','s3','s4','s5','b2','s6'];
   var by = {};
   order.forEach(function(k){
     by[k] = {
@@ -1226,7 +1226,7 @@ function aq350EmptyBySession_(){
       status: 'No data',
       attempts: 0,
       lastSubmitted: '',
-      source: 'server-real-sheet-v351'
+      source: 'server-real-sheet-v360'
     };
   });
   return by;
@@ -1304,7 +1304,7 @@ function aq351PostProcessTeacherConsole_(payload){
     if(payload && payload.students){
       payload.students = aq351AttachBySessionToStudents_(payload.students);
     }
-    payload.bySessionServer = 'v3.5.1';
+    payload.bySessionServer = 'v3.6.0';
   }catch(err){
     payload.bySessionServerError = String(err);
   }
@@ -1314,7 +1314,7 @@ function aq351PostProcessTeacherConsole_(payload){
 
 
 
-/* === PATCH v3.5.1: Teacher bySession Smart Repair === */
+/* === PATCH v3.6.0: S6 Knowledge Base Forge === */
 function aq351Norm_(v){ return String(v || '').toLowerCase().replace(/[\s_\-:]+/g,'').trim(); }
 function aq351Num_(v){ var n = Number(v); return isNaN(n) ? 0 : n; }
 function aq351First_(row, keys){
@@ -1352,6 +1352,7 @@ function aq351SessionKey_(row){
   if(direct === 'b2' || direct === 'boss2') return 'b2';
 
   // content inference
+  if(/knowledge base|knowledge representation|ontology|inference|fact|rule|kb forge/.test(txt)) return 's6';
   if(/search arena|arena boss|boss b2|boss2|final search duel|bfs\s*\/\s*dfs\s*\/\s*ucs|integrated search/.test(txt)) return 'b2';
   if(/a\*|astar|heuristic|g\(n\)|h\(n\)|f\(n\)|rescue mission|greedy best/i.test(txt)) return 's5';
   if(/route cost|uniform cost|ucs|priority queue|weighted graph|settle|pop cost|path cost/.test(txt)) return 's4';
@@ -1386,10 +1387,10 @@ function aq351Status_(obj){
   return 'No data';
 }
 function aq351EmptyBySession_(){
-  var order = ['s1','s2','b1','s3','s4','s5','b2'];
+  var order = ['s1','s2','b1','s3','s4','s5','b2','s6'];
   var by = {};
   order.forEach(function(k){
-    by[k] = {bestScore:0, latestScore:0, stars:0, status:'No data', attempts:0, lastSubmitted:'', source:'server-smart-repair-v351'};
+    by[k] = {bestScore:0, latestScore:0, stars:0, status:'No data', attempts:0, lastSubmitted:'', source:'server-smart-repair-v360'};
   });
   return by;
 }
@@ -1498,7 +1499,7 @@ function aq351PostProcessTeacherConsole_(payload){
     if(payload && payload.students){
       payload.students = aq351AttachBySessionToStudents_(payload.students);
     }
-    payload.bySessionServer = 'v3.5.1';
+    payload.bySessionServer = 'v3.6.0';
   }catch(err){
     payload.bySessionServerError = String(err);
   }
