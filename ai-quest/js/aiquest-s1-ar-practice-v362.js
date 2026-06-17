@@ -1,20 +1,23 @@
 /* =========================================================
    CSAI2102 AI Quest
-   S1 AR Practice Mode
-   File: /ai-quest/js/aiquest-s1-ar-practice-v362.js
-   Version: v3.6.2-s1-ar-practice-mode
-   Purpose:
-   - Add AR Practice to S1 AI Awakening
-   - Camera background + DOM card overlay
-   - Sort objects into AI / Automation / Sensor-only / Rule-based / Prediction
-   - Save result locally for later submit/teacher integration
+   S1 AR Practice Mode — Inline Session UI
+   File: /ai-quest/js/aiquest-s1-ar-practice-v364.js
+   Version: v3.6.4-s1-ar-inline-session-ui
+
+   ใช้ทำอะไร:
+   - เอาปุ่ม AR ลอยขวาล่างออก
+   - ใส่ AR Practice เป็นกล่องภายใน S1
+   - เปิดกล้องเป็น AR background
+   - ให้เลือกหมวด AI / Automation / Sensor-only / Rule-based / Prediction
+   - รองรับ mouse/touch เป็น fallback
+   - ใช้คู่กับ aiquest-s1-ar-hand-hotfix-v364.js เพื่อใช้มือเลือก/กดข้อต่อไป
 ========================================================= */
 
 (function(){
   'use strict';
 
-  const VERSION = 'v3.6.2-s1-ar-practice-mode';
-  const STORAGE_KEY = 'AIQUEST_S1_AR_PRACTICE_RESULT_V362';
+  const VERSION = 'v3.6.4-s1-ar-inline-session-ui';
+  const STORAGE_KEY = 'AIQUEST_S1_AR_PRACTICE_RESULT_V364';
 
   const CATEGORIES = [
     { id:'ai', label:'AI', desc:'มีการรับรู้/เรียนรู้/ทำนาย/ตัดสินใจจากข้อมูล' },
@@ -158,9 +161,9 @@
   function toast(msg){
     if(typeof window.showToast === 'function'){
       window.showToast(msg);
-      return;
+    }else{
+      console.log('[S1 AR]', msg);
     }
-    console.log('[S1 AR]', msg);
   }
 
   function beep(kind){
@@ -172,27 +175,55 @@
   }
 
   function injectStyle(){
-    if($('s1ArStyleV362')) return;
+    if($('s1ArStyleV364')) return;
 
     const css = document.createElement('style');
-    css.id = 's1ArStyleV362';
+    css.id = 's1ArStyleV364';
     css.textContent = `
-      .s1-ar-fab-v362{
-        position:fixed;
-        right:14px;
-        bottom:calc(14px + env(safe-area-inset-bottom,0px));
-        z-index:9998;
-        border:0;
-        border-radius:999px;
-        padding:12px 16px;
-        font-weight:900;
-        color:#052e16;
-        background:linear-gradient(135deg,#86efac,#67e8f9);
-        box-shadow:0 14px 34px rgba(0,0,0,.28);
-        cursor:pointer;
+      .s1-ar-inline-entry-v364{
+        margin:14px 0;
+        padding:14px;
+        border-radius:20px;
+        border:1px solid rgba(34,211,238,.28);
+        background:
+          radial-gradient(circle at 0% 0%, rgba(34,211,238,.18), transparent 35%),
+          linear-gradient(135deg,rgba(14,116,144,.22),rgba(15,23,42,.76));
+        box-shadow:0 14px 34px rgba(0,0,0,.20);
       }
 
-      .s1-ar-panel-v362{
+      .s1-ar-inline-entry-v364 .s1-ar-inline-row-v364{
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+        flex-wrap:wrap;
+      }
+
+      .s1-ar-inline-title-v364{
+        font-weight:1000;
+        color:#e0f2fe;
+        font-size:15px;
+      }
+
+      .s1-ar-inline-desc-v364{
+        color:#a7c6dd;
+        font-size:12px;
+        margin-top:3px;
+        line-height:1.45;
+      }
+
+      .s1-ar-inline-btn-v364{
+        border:0;
+        border-radius:999px;
+        padding:10px 14px;
+        font-weight:1000;
+        color:#052e16;
+        background:linear-gradient(135deg,#86efac,#67e8f9);
+        cursor:pointer;
+        box-shadow:0 10px 22px rgba(0,0,0,.25);
+      }
+
+      .s1-ar-panel-v364{
         position:fixed;
         inset:0;
         z-index:10000;
@@ -203,11 +234,11 @@
         font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
       }
 
-      .s1-ar-panel-v362.open{
+      .s1-ar-panel-v364.open{
         display:block;
       }
 
-      .s1-ar-video-v362{
+      .s1-ar-video-v364{
         position:absolute;
         inset:0;
         width:100%;
@@ -218,7 +249,7 @@
         background:#0f172a;
       }
 
-      .s1-ar-fallback-bg-v362{
+      .s1-ar-fallback-bg-v364{
         position:absolute;
         inset:0;
         background:
@@ -227,7 +258,7 @@
           linear-gradient(135deg,#071426,#0f172a 55%,#111827);
       }
 
-      .s1-ar-overlay-v362{
+      .s1-ar-overlay-v364{
         position:absolute;
         inset:0;
         padding:14px;
@@ -239,26 +270,26 @@
         background:linear-gradient(to bottom,rgba(2,6,23,.72),rgba(2,6,23,.20),rgba(2,6,23,.78));
       }
 
-      .s1-ar-top-v362{
+      .s1-ar-top-v364{
         display:flex;
         align-items:center;
         justify-content:space-between;
         gap:10px;
       }
 
-      .s1-ar-title-v362{
+      .s1-ar-title-v364{
         font-weight:1000;
         font-size:18px;
         line-height:1.15;
       }
 
-      .s1-ar-sub-v362{
+      .s1-ar-sub-v364{
         font-size:12px;
         color:#bae6fd;
         margin-top:2px;
       }
 
-      .s1-ar-btn-v362{
+      .s1-ar-btn-v364{
         border:1px solid rgba(255,255,255,.18);
         background:rgba(15,23,42,.72);
         color:#f8fafc;
@@ -268,7 +299,7 @@
         cursor:pointer;
       }
 
-      .s1-ar-main-v362{
+      .s1-ar-main-v364{
         flex:1;
         display:flex;
         align-items:center;
@@ -276,8 +307,8 @@
         min-height:0;
       }
 
-      .s1-ar-card-v362{
-        width:min(92vw,520px);
+      .s1-ar-card-v364{
+        width:min(92vw,540px);
         border:1px solid rgba(148,163,184,.24);
         background:rgba(15,23,42,.78);
         backdrop-filter:blur(14px);
@@ -286,7 +317,7 @@
         box-shadow:0 22px 54px rgba(0,0,0,.38);
       }
 
-      .s1-ar-badge-v362{
+      .s1-ar-badge-v364{
         display:inline-flex;
         align-items:center;
         gap:6px;
@@ -299,27 +330,27 @@
         font-weight:900;
       }
 
-      .s1-ar-object-v362{
+      .s1-ar-object-v364{
         margin:12px 0 4px;
         font-size:24px;
         font-weight:1000;
         line-height:1.2;
       }
 
-      .s1-ar-th-v362{
+      .s1-ar-th-v364{
         font-size:16px;
         color:#fef9c3;
         line-height:1.45;
         margin-bottom:12px;
       }
 
-      .s1-ar-choices-v362{
+      .s1-ar-choices-v364{
         display:grid;
         grid-template-columns:1fr;
         gap:8px;
       }
 
-      .s1-ar-choice-v362{
+      .s1-ar-choice-v364{
         border:1px solid rgba(148,163,184,.24);
         background:rgba(30,41,59,.86);
         color:#f8fafc;
@@ -328,9 +359,10 @@
         text-align:left;
         font-weight:900;
         cursor:pointer;
+        position:relative;
       }
 
-      .s1-ar-choice-v362 small{
+      .s1-ar-choice-v364 small{
         display:block;
         color:#9fb2cc;
         font-weight:700;
@@ -338,17 +370,17 @@
         line-height:1.35;
       }
 
-      .s1-ar-choice-v362.correct{
+      .s1-ar-choice-v364.correct{
         border-color:rgba(34,197,94,.8);
         background:rgba(34,197,94,.22);
       }
 
-      .s1-ar-choice-v362.wrong{
+      .s1-ar-choice-v364.wrong{
         border-color:rgba(239,68,68,.8);
         background:rgba(239,68,68,.22);
       }
 
-      .s1-ar-feedback-v362{
+      .s1-ar-feedback-v364{
         margin-top:12px;
         padding:12px;
         border-radius:16px;
@@ -357,17 +389,17 @@
         line-height:1.45;
       }
 
-      .s1-ar-feedback-v362.good{
+      .s1-ar-feedback-v364.good{
         border-color:rgba(34,197,94,.45);
         background:rgba(34,197,94,.14);
       }
 
-      .s1-ar-feedback-v362.bad{
+      .s1-ar-feedback-v364.bad{
         border-color:rgba(239,68,68,.45);
         background:rgba(239,68,68,.14);
       }
 
-      .s1-ar-bottom-v362{
+      .s1-ar-bottom-v364{
         display:flex;
         gap:8px;
         flex-wrap:wrap;
@@ -375,13 +407,13 @@
         align-items:center;
       }
 
-      .s1-ar-meter-v362{
+      .s1-ar-meter-v364{
         color:#cbd5e1;
         font-size:13px;
         font-weight:800;
       }
 
-      .s1-ar-result-v362{
+      .s1-ar-result-v364{
         width:min(92vw,560px);
         border:1px solid rgba(148,163,184,.24);
         background:rgba(15,23,42,.86);
@@ -391,37 +423,37 @@
         box-shadow:0 22px 54px rgba(0,0,0,.38);
       }
 
-      .s1-ar-result-v362 h2{
+      .s1-ar-result-v364 h2{
         margin:0 0 8px;
       }
 
-      .s1-ar-result-grid-v362{
+      .s1-ar-result-grid-v364{
         display:grid;
         grid-template-columns:repeat(3,1fr);
         gap:8px;
         margin:12px 0;
       }
 
-      .s1-ar-stat-v362{
+      .s1-ar-stat-v364{
         border:1px solid rgba(148,163,184,.20);
         background:rgba(30,41,59,.82);
         border-radius:16px;
         padding:12px;
       }
 
-      .s1-ar-stat-v362 b{
+      .s1-ar-stat-v364 b{
         display:block;
         font-size:22px;
       }
 
-      .s1-ar-stat-v362 span{
+      .s1-ar-stat-v364 span{
         color:#9fb2cc;
         font-size:12px;
         font-weight:800;
       }
 
       @media(min-width:720px){
-        .s1-ar-choices-v362{
+        .s1-ar-choices-v364{
           grid-template-columns:1fr 1fr;
         }
       }
@@ -432,63 +464,53 @@
   function ensurePanel(){
     injectStyle();
 
-    let panel = $('s1ArPanelV362');
+    let panel = $('s1ArPanelV364');
     if(panel) return panel;
 
     panel = document.createElement('section');
-    panel.id = 's1ArPanelV362';
-    panel.className = 's1-ar-panel-v362';
+    panel.id = 's1ArPanelV364';
+    panel.className = 's1-ar-panel-v364';
     panel.innerHTML = `
-      <div id="s1ArFallbackBgV362" class="s1-ar-fallback-bg-v362"></div>
-      <video id="s1ArVideoV362" class="s1-ar-video-v362" autoplay playsinline muted></video>
-      <div class="s1-ar-overlay-v362">
-        <div class="s1-ar-top-v362">
+      <div id="s1ArFallbackBgV364" class="s1-ar-fallback-bg-v364"></div>
+      <video id="s1ArVideoV364" class="s1-ar-video-v364" autoplay playsinline muted></video>
+
+      <div class="s1-ar-overlay-v364">
+        <div class="s1-ar-top-v364">
           <div>
-            <div class="s1-ar-title-v362">S1 AR Practice: AI Object Scanner</div>
-            <div class="s1-ar-sub-v362">จัดหมวดวัตถุรอบตัว: AI / Automation / Sensor / Rule-based / Prediction</div>
+            <div class="s1-ar-title-v364">S1 AR Practice: AI Object Scanner</div>
+            <div class="s1-ar-sub-v364">ใช้กล้องและมือ เพื่อแยก AI / Automation / Sensor / Rule-based / Prediction</div>
           </div>
-          <button id="s1ArExitV362" class="s1-ar-btn-v362">ออกจาก AR</button>
+          <button id="s1ArExitV364" class="s1-ar-btn-v364">ออกจาก AR</button>
         </div>
 
-        <div id="s1ArMainV362" class="s1-ar-main-v362"></div>
+        <div id="s1ArMainV364" class="s1-ar-main-v364"></div>
 
-        <div class="s1-ar-bottom-v362">
-          <div id="s1ArMeterV362" class="s1-ar-meter-v362">Ready</div>
+        <div class="s1-ar-bottom-v364">
+          <div id="s1ArMeterV364" class="s1-ar-meter-v364">Ready</div>
           <div>
-            <button id="s1ArHelpV362" class="s1-ar-btn-v362">AI Help</button>
-            <button id="s1ArSkipV362" class="s1-ar-btn-v362">ข้าม AR</button>
+            <button id="s1ArHelpV364" class="s1-ar-btn-v364">AI Help</button>
+            <button id="s1ArSkipV364" class="s1-ar-btn-v364">ข้าม AR</button>
           </div>
         </div>
       </div>
     `;
     document.body.appendChild(panel);
 
-    $('s1ArExitV362').onclick = closeAR;
-    $('s1ArSkipV362').onclick = skipAR;
-    $('s1ArHelpV362').onclick = showHint;
+    $('s1ArExitV364').onclick = closeAR;
+    $('s1ArSkipV364').onclick = skipAR;
+    $('s1ArHelpV364').onclick = showHint;
 
     return panel;
   }
 
-  function addFloatingButton(){
-    injectStyle();
-
-    if($('s1ArFabV362')) return;
-
-    const btn = document.createElement('button');
-    btn.id = 's1ArFabV362';
-    btn.className = 's1-ar-fab-v362';
-    btn.textContent = '📷 S1 AR Practice';
-    btn.onclick = startAR;
-    document.body.appendChild(btn);
-  }
-
-  function shouldShowFab(){
+  function shouldShowInline(){
     const q = new URLSearchParams(location.search);
     const session = String(q.get('session') || q.get('mission') || '').toLowerCase();
+
     if(session === 's1' || session === 'm1') return true;
 
     const text = (document.body && document.body.innerText || '').toLowerCase();
+
     if(text.includes('ai awakening')) return true;
     if(text.includes('s1') && text.includes('automation')) return true;
     if(text.includes('ai vs automation')) return true;
@@ -496,11 +518,98 @@
     return false;
   }
 
-  function refreshFabVisibility(){
-    addFloatingButton();
-    const btn = $('s1ArFabV362');
-    if(!btn) return;
-    btn.style.display = shouldShowFab() ? 'block' : 'none';
+  function removeOldFloatingButtons(){
+    [
+      's1ArFabV362',
+      's1ArFabV363',
+      's1ArFabV364'
+    ].forEach(id => {
+      const el = $(id);
+      if(el) el.remove();
+    });
+
+    document.querySelectorAll('.s1-ar-fab-v362,.s1-ar-fab-v363,.s1-ar-fab-v364').forEach(el => {
+      try{ el.remove(); }catch(e){}
+    });
+  }
+
+  function findPhaseBar(){
+    const all = Array.from(document.querySelectorAll('*'));
+    return all.find(el => {
+      const t = (el.textContent || '').toLowerCase();
+      return t.includes('card rush') &&
+        t.includes('trick cards') &&
+        (t.includes('mini boss') || t.includes('explain strike'));
+    });
+  }
+
+  function findMissionContainer(){
+    return document.getElementById('gameArea') ||
+      document.querySelector('.gameArea') ||
+      document.querySelector('.missionArea') ||
+      document.querySelector('main') ||
+      document.body;
+  }
+
+  function addInlineS1ArButton(){
+    injectStyle();
+    removeOldFloatingButtons();
+
+    if($('s1ArInlineEntryV364')) return;
+
+    const container = findMissionContainer();
+    if(!container) return;
+
+    const wrap = document.createElement('div');
+    wrap.id = 's1ArInlineEntryV364';
+    wrap.className = 's1-ar-inline-entry-v364';
+    wrap.innerHTML = `
+      <div class="s1-ar-inline-row-v364">
+        <div>
+          <div class="s1-ar-inline-title-v364">🖐️ S1 AR Practice: AI Object Scanner</div>
+          <div class="s1-ar-inline-desc-v364">
+            ใช้กล้องและมือชี้/หนีบนิ้ว เพื่อแยก AI, Automation, Sensor-only, Rule-based, Prediction
+          </div>
+        </div>
+        <button id="s1ArInlineStartV364" type="button" class="s1-ar-inline-btn-v364">
+          เริ่ม AR Practice
+        </button>
+      </div>
+    `;
+
+    const phaseBar = findPhaseBar();
+
+    if(phaseBar && phaseBar.parentNode){
+      phaseBar.parentNode.insertBefore(wrap, phaseBar.nextSibling);
+    }else{
+      const firstCard = container.querySelector('.questionCard,.mission-card,.card');
+      if(firstCard && firstCard.parentNode){
+        firstCard.parentNode.insertBefore(wrap, firstCard);
+      }else{
+        container.insertBefore(wrap, container.firstChild);
+      }
+    }
+
+    const btn = $('s1ArInlineStartV364');
+    if(btn){
+      btn.onclick = function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        startAR();
+      };
+    }
+  }
+
+  function refreshInlineVisibility(){
+    removeOldFloatingButtons();
+
+    const inline = $('s1ArInlineEntryV364');
+
+    if(shouldShowInline()){
+      if(!inline) addInlineS1ArButton();
+    }else if(inline){
+      inline.remove();
+    }
   }
 
   function buildRound(){
@@ -508,8 +617,8 @@
   }
 
   async function startCamera(){
-    const video = $('s1ArVideoV362');
-    const bg = $('s1ArFallbackBgV362');
+    const video = $('s1ArVideoV364');
+    const bg = $('s1ArFallbackBgV364');
 
     try{
       if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
@@ -518,7 +627,7 @@
 
       stream = await navigator.mediaDevices.getUserMedia({
         video:{
-          facingMode:{ ideal:'environment' },
+          facingMode:{ ideal:'user' },
           width:{ ideal:1280 },
           height:{ ideal:720 }
         },
@@ -528,12 +637,18 @@
       video.srcObject = stream;
       video.style.display = 'block';
       bg.style.display = 'none';
+
+      await video.play().catch(() => {});
+
       return true;
     }catch(err){
       console.warn('[S1 AR] camera fallback', err);
+
       video.style.display = 'none';
       bg.style.display = 'block';
+
       toast('เปิดกล้องไม่ได้ ใช้ AR Card Overlay แบบไม่ใช้กล้องแทน');
+
       return false;
     }
   }
@@ -549,13 +664,17 @@
     startedAt = Date.now();
     lastResult = null;
 
-    $('s1ArPanelV362').classList.add('open');
+    $('s1ArPanelV364').classList.add('open');
 
     await startCamera();
     renderCard();
 
     window.dispatchEvent(new CustomEvent('aiquest:s1-ar-start', {
-      detail:{ version:VERSION, total:currentRound.length }
+      detail:{
+        version:VERSION,
+        total:currentRound.length,
+        inline:true
+      }
     }));
   }
 
@@ -568,8 +687,13 @@
 
   function closeAR(){
     stopCamera();
-    const panel = $('s1ArPanelV362');
+
+    const panel = $('s1ArPanelV364');
     if(panel) panel.classList.remove('open');
+
+    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-close', {
+      detail:{ version:VERSION }
+    }));
   }
 
   function skipAR(){
@@ -586,6 +710,7 @@
       total:currentRound.length || 0,
       helpUsed,
       badge:'',
+      bonus:0,
       finishedAt:new Date().toISOString()
     };
 
@@ -600,15 +725,19 @@
 
   function setMeter(){
     const total = currentRound.length || 0;
-    const acc = (correct + wrong) ? Math.round(correct / (correct + wrong) * 100) : 0;
-    const meter = $('s1ArMeterV362');
+    const accuracy = (correct + wrong)
+      ? Math.round(correct / (correct + wrong) * 100)
+      : 0;
+
+    const meter = $('s1ArMeterV364');
+
     if(meter){
-      meter.textContent = `ข้อ ${Math.min(index + 1, total)}/${total} • Correct ${correct} • Accuracy ${acc}%`;
+      meter.textContent = `ข้อ ${Math.min(index + 1, total)}/${total} • Correct ${correct} • Accuracy ${accuracy}%`;
     }
   }
 
   function renderCard(){
-    const main = $('s1ArMainV362');
+    const main = $('s1ArMainV364');
     const item = currentItem();
 
     if(!item){
@@ -619,39 +748,54 @@
     setMeter();
 
     main.innerHTML = `
-      <div class="s1-ar-card-v362">
-        <span class="s1-ar-badge-v362">Object ${index + 1}/${currentRound.length}</span>
-        <div class="s1-ar-object-v362">${esc(item.object)}</div>
-        <div class="s1-ar-th-v362">${esc(item.th)}</div>
+      <div class="s1-ar-card-v364">
+        <span class="s1-ar-badge-v364">Object ${index + 1}/${currentRound.length}</span>
 
-        <div class="s1-ar-choices-v362">
+        <div class="s1-ar-object-v364">${esc(item.object)}</div>
+        <div class="s1-ar-th-v364">${esc(item.th)}</div>
+
+        <div class="s1-ar-choices-v364">
           ${CATEGORIES.map(cat => `
-            <button class="s1-ar-choice-v362" data-cat="${esc(cat.id)}">
+            <button class="s1-ar-choice-v364" data-cat="${esc(cat.id)}">
               ${esc(cat.label)}
               <small>${esc(cat.desc)}</small>
             </button>
           `).join('')}
         </div>
 
-        <div id="s1ArFeedbackV362" class="s1-ar-feedback-v362" style="display:none"></div>
+        <div id="s1ArFeedbackV364" class="s1-ar-feedback-v364" style="display:none"></div>
       </div>
     `;
 
-    document.querySelectorAll('.s1-ar-choice-v362').forEach(btn => {
+    document.querySelectorAll('.s1-ar-choice-v364').forEach(btn => {
       btn.onclick = () => answer(btn.dataset.cat);
     });
+
+    window.dispatchEvent(new CustomEvent('aiquest:s1-ar-card-rendered', {
+      detail:{
+        version:VERSION,
+        index,
+        total:currentRound.length,
+        itemId:item.id
+      }
+    }));
   }
 
   function answer(catId){
     const item = currentItem();
+
     if(!item) return;
 
     const ok = catId === item.answer;
 
-    document.querySelectorAll('.s1-ar-choice-v362').forEach(btn => {
+    document.querySelectorAll('.s1-ar-choice-v364').forEach(btn => {
       btn.disabled = true;
-      if(btn.dataset.cat === item.answer) btn.classList.add('correct');
-      else if(btn.dataset.cat === catId) btn.classList.add('wrong');
+
+      if(btn.dataset.cat === item.answer){
+        btn.classList.add('correct');
+      }else if(btn.dataset.cat === catId){
+        btn.classList.add('wrong');
+      }
     });
 
     if(ok){
@@ -662,16 +806,17 @@
       beep('bad');
     }
 
-    const feedback = $('s1ArFeedbackV362');
+    const feedback = $('s1ArFeedbackV364');
+
     if(feedback){
       feedback.style.display = 'block';
-      feedback.className = 's1-ar-feedback-v362 ' + (ok ? 'good' : 'bad');
+      feedback.className = 's1-ar-feedback-v364 ' + (ok ? 'good' : 'bad');
       feedback.innerHTML = `
         <b>${ok ? 'ถูกต้อง' : 'ยังไม่ถูก'}</b><br>
         คำตอบที่เหมาะที่สุด: <b>${esc(labelOf(item.answer))}</b><br>
         ${esc(item.explain)}
         <div style="margin-top:10px">
-          <button id="s1ArNextV362" class="s1-ar-btn-v362">
+          <button id="s1ArNextV364" class="s1-ar-btn-v364">
             ${index >= currentRound.length - 1 ? 'สรุปผล AR' : 'ข้อต่อไป'}
           </button>
         </div>
@@ -680,9 +825,10 @@
 
     setMeter();
 
-    const next = $('s1ArNextV362');
+    const next = $('s1ArNextV364');
+
     if(next){
-      next.onclick = () => {
+      next.onclick = function(){
         index++;
         renderCard();
       };
@@ -709,14 +855,16 @@
 
   function showHint(){
     const item = currentItem();
+
     if(!item) return;
 
     helpUsed++;
 
-    const feedback = $('s1ArFeedbackV362');
+    const feedback = $('s1ArFeedbackV364');
+
     if(feedback){
       feedback.style.display = 'block';
-      feedback.className = 's1-ar-feedback-v362';
+      feedback.className = 's1-ar-feedback-v364';
       feedback.innerHTML = `
         <b>AI Help</b><br>
         ${esc(item.hint)}
@@ -738,8 +886,20 @@
     const total = currentRound.length || 0;
     const accuracy = total ? Math.round(correct / total * 100) : 0;
     const usedSec = Math.round((Date.now() - startedAt) / 1000);
-    const badge = accuracy >= 85 ? 'AI Scanner Master' : accuracy >= 70 ? 'AI Scanner' : 'AR Practice Started';
-    const bonus = accuracy >= 85 ? 3 : accuracy >= 70 ? 2 : correct > 0 ? 1 : 0;
+
+    const badge = accuracy >= 85
+      ? 'AI Scanner Master'
+      : accuracy >= 70
+        ? 'AI Scanner'
+        : 'AR Practice Started';
+
+    const bonus = accuracy >= 85
+      ? 3
+      : accuracy >= 70
+        ? 2
+        : correct > 0
+          ? 1
+          : 0;
 
     const result = {
       version:VERSION,
@@ -761,42 +921,43 @@
 
     saveResult(result);
 
-    const main = $('s1ArMainV362');
+    const main = $('s1ArMainV364');
+
     main.innerHTML = `
-      <div class="s1-ar-result-v362">
-        <span class="s1-ar-badge-v362">AR Practice Complete</span>
+      <div class="s1-ar-result-v364">
+        <span class="s1-ar-badge-v364">AR Practice Complete</span>
         <h2>${esc(badge)}</h2>
         <p>สรุปผล S1 AR Practice: AI Object Scanner</p>
 
-        <div class="s1-ar-result-grid-v362">
-          <div class="s1-ar-stat-v362">
+        <div class="s1-ar-result-grid-v364">
+          <div class="s1-ar-stat-v364">
             <span>AR Score</span>
             <b>${accuracy}%</b>
           </div>
-          <div class="s1-ar-stat-v362">
+          <div class="s1-ar-stat-v364">
             <span>Correct</span>
             <b>${correct}/${total}</b>
           </div>
-          <div class="s1-ar-stat-v362">
+          <div class="s1-ar-stat-v364">
             <span>Bonus</span>
             <b>+${bonus}</b>
           </div>
         </div>
 
-        <div class="s1-ar-feedback-v362 good">
+        <div class="s1-ar-feedback-v364 good">
           <b>บันทึก AR result แล้ว</b><br>
           ผลนี้เก็บใน localStorage และพร้อมเชื่อมกับ Result / Submit / Teacher Dashboard ใน patch ถัดไป
         </div>
 
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-          <button id="s1ArReplayV362" class="s1-ar-btn-v362">เล่น AR อีกครั้ง</button>
-          <button id="s1ArBackV362" class="s1-ar-btn-v362">กลับ Mission</button>
+          <button id="s1ArReplayV364" class="s1-ar-btn-v364">เล่น AR อีกครั้ง</button>
+          <button id="s1ArBackV364" class="s1-ar-btn-v364">กลับ Mission</button>
         </div>
       </div>
     `;
 
-    $('s1ArReplayV362').onclick = startAR;
-    $('s1ArBackV362').onclick = closeAR;
+    $('s1ArReplayV364').onclick = startAR;
+    $('s1ArBackV364').onclick = closeAR;
 
     setMeter();
 
@@ -823,12 +984,14 @@
   function loadResult(){
     try{
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+
       if(saved && saved.sessionId === 's1'){
         lastResult = saved;
         window.AIQUEST_S1_AR_RESULT = saved;
         return saved;
       }
     }catch(e){}
+
     return null;
   }
 
@@ -836,62 +999,11 @@
     return lastResult || loadResult();
   }
 
-  function decorateS1Cards(){
-    const nodes = Array.from(document.querySelectorAll('button, .card, .stageCard, .roadmap-card, [data-stage-id], [data-session]'));
-
-    nodes.forEach(node => {
-      if(node.dataset && node.dataset.s1ArDecorated === '1') return;
-
-      const txt = (node.textContent || '').toLowerCase();
-      const sid = (
-        node.getAttribute('data-stage-id') ||
-        node.getAttribute('data-session') ||
-        node.getAttribute('data-id') ||
-        ''
-      ).toLowerCase();
-
-      const isS1 = sid === 'm1' || sid === 's1' || txt.includes('ai awakening') || (txt.includes('s1') && txt.includes('automation'));
-
-      if(!isS1) return;
-
-      if(node.dataset) node.dataset.s1ArDecorated = '1';
-
-      if(node.querySelector && node.querySelector('.s1-ar-mini-btn-v362')) return;
-
-      const mini = document.createElement('button');
-      mini.type = 'button';
-      mini.className = 's1-ar-mini-btn-v362';
-      mini.textContent = '📷 AR Practice';
-      mini.style.cssText = [
-        'margin-top:8px',
-        'border:1px solid rgba(34,211,238,.35)',
-        'background:rgba(34,211,238,.14)',
-        'color:#cffafe',
-        'border-radius:999px',
-        'padding:7px 10px',
-        'font-weight:900',
-        'cursor:pointer'
-      ].join(';');
-
-      mini.onclick = ev => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        startAR();
-      };
-
-      try{
-        node.appendChild(mini);
-      }catch(e){}
-    });
-  }
-
   function installObservers(){
-    refreshFabVisibility();
-    decorateS1Cards();
+    refreshInlineVisibility();
 
     const mo = new MutationObserver(() => {
-      refreshFabVisibility();
-      decorateS1Cards();
+      refreshInlineVisibility();
     });
 
     mo.observe(document.body, {
@@ -899,10 +1011,14 @@
       subtree:true
     });
 
-    setInterval(() => {
-      refreshFabVisibility();
-      decorateS1Cards();
-    }, 2500);
+    setInterval(refreshInlineVisibility, 2000);
+
+    const q = new URLSearchParams(location.search);
+    const ar = String(q.get('ar') || '').toLowerCase();
+
+    if(ar === 's1' || ar === 'hand' || ar === 'ar'){
+      setTimeout(startAR, 500);
+    }
   }
 
   window.AIQUEST_S1_AR_PRACTICE = {
