@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เกม AR อาหารแสนสนุก (Good Food vs Junk Food)</title>
     
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-core"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-converter"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/handpose"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;700&display=swap');
@@ -27,7 +25,6 @@
             background-color: #f0fdf4;
         }
 
-        /* หน้าแรก / หน้าจบเกม */
         .screen {
             position: absolute;
             top: 0;
@@ -74,7 +71,6 @@
             transform: scale(1.1);
         }
 
-        /* ส่วนจัดวางกล้องและเกม */
         #game-container {
             position: relative;
             width: 100%;
@@ -90,7 +86,8 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror view */
+            transform: scaleX(-1);
+            display: none; /* ซ่อนวิดีโอดิบ ใช้การวาดลง Canvas แทน */
         }
 
         canvas {
@@ -100,14 +97,12 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror view */
         }
 
-        /* UI แสดงสถานะในเกม */
         .ui-box {
             position: absolute;
             padding: 15px 25px;
-            background: rgba(255, 255, 255, 0.85);
+            background: rgba(255, 255, 255, 0.9);
             border-radius: 20px;
             font-size: 1.8rem;
             font-weight: bold;
@@ -123,7 +118,7 @@
             top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(255, 255, 0, 0.9);
+            background: rgba(255, 255, 0, 0.95);
             font-size: 2.2rem;
             color: #d97706;
             border: 4px dashed #d97706;
@@ -139,7 +134,6 @@
             font-size: 1.5rem;
             color: #1e3a8a;
             margin-top: 20px;
-            display: none;
         }
     </style>
 </head>
@@ -149,7 +143,7 @@
         <h1>🍎 เกม AR อาหารแสนสนุก 🍔</h1>
         <p>กติกา: ใช้มือของคุณปัดเลือกเฉพาะ <b>Good Food</b> และห้ามจับ <b>Junk Food</b> ตามคำสั่ง!</p>
         <button class="btn" id="start-btn" onclick="initGame()">เริ่มเกม</button>
-        <div id="loading">กำลังโหลด AI ตรวจจับมือ กรุณารอสักครู่... ⏳</div>
+        <div id="loading">กำลังเตรียมระบบ AI กรุณารอสักครู่... ⏳</div>
     </div>
 
     <div id="game-over-screen" class="screen" style="display: none;">
@@ -160,7 +154,7 @@
     </div>
 
     <div id="game-container">
-        <video id="video" autoplay playsinline></video>
+        <video id="video" autoplay playsinline muted></video>
         <canvas id="canvas"></canvas>
         
         <div id="score-board" class="ui-box">⭐ คะแนน: <span id="score">0</span></div>
@@ -173,13 +167,13 @@
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
         
-        let model = null;
+        let hands = null;
+        let camera = null;
         let score = 0;
         let timeLeft = 60;
-        let gameInterval, gameTimer;
+        let gameTimer;
         let isPlaying = false;
         
-        // ข้อมูลอาหารสำหรับสุ่ม
         const foodItems = [
             { name: 'Apple 🍎', type: 'good', thai: 'แอปเปิ้ล' },
             { name: 'Banana 🍌', type: 'good', thai: 'กล้วย' },
@@ -197,35 +191,55 @@
         let totalHitTime = 0;
         let lastSpawnTime = 0;
 
-        // เริ่มต้นโหลดโมเดลและเปิดกล้อง
-        async function initGame() {
+        // ฟังก์ชันเริ่มโหลด AI และสตรีมกล้อง
+        function initGame() {
             document.getElementById('start-btn').style.display = 'none';
             document.getElementById('loading').style.display = 'block';
 
-            try {
-                // เปิดกล้อง Web Camera API
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { width: 640, height: 480, facingMode: "user" },
-                    audio: false
-                });
-                video.srcObject = stream;
-                
-                // โหลด Handpose Model (AI ตรวจจับมือ)
-                model = await handpose.load();
-                
-                // ตั้งค่าขนาด Canvas ให้ตรงกับวิดีโอ
-                video.addEventListener('loadedmetadata', () => {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
+            // ตั้งค่ากำหนดโมเดล MediaPipe Hands
+            hands = new Hands({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+            });
+
+            hands.setOptions({
+                maxNumHands: 2,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            // ผูกฟังก์ชันผลลัพธ์การตรวจจับ
+            hands.onResults(onHandResults);
+
+            // เริ่มต้นกล้อง Web Camera
+            camera = new Camera(video, {
+                onFrame: async () => {
+                    if (isPlaying) {
+                        await hands.send({image: video});
+                    }
+                },
+                width: 640,
+                height: 480
+            });
+
+            camera.start()
+                .then(() => {
+                    // ปรับขนาดแคนวาสให้เต็มหน้าจอ
+                    resizeCanvas();
+                    window.addEventListener('resize', resizeCanvas);
                     startGame();
+                })
+                .catch(err => {
+                    alert("ไม่สามารถเข้าถึงกล้องได้: " + err.message);
+                    location.reload();
                 });
-            } catch (err) {
-                alert("ไม่สามารถเข้าถึงกล้องหรือโหลด AI ได้: " + err.message);
-                location.reload();
-            }
         }
 
-        // เริ่มนับถอยหลังและสร้างวัตถุ
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
         function startGame() {
             document.getElementById('start-screen').style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
@@ -236,7 +250,6 @@
             nextMission();
             spawnObjects();
 
-            // ตัวนับเวลาถอยหลัง 60 วินาที
             gameTimer = setInterval(() => {
                 timeLeft--;
                 document.getElementById('timer').innerText = timeLeft;
@@ -244,121 +257,106 @@
                     endGame();
                 }
             }, 1000);
-
-            // วนลูปการตรวจจับ Hand Tracking
-            detectHands();
         }
 
-        // สุ่มคำสั่งภารกิจใหม่
         function nextMission() {
             currentTarget = foodItems[Math.floor(Math.random() * foodItems.length)];
             document.getElementById('target-word').innerText = `${currentTarget.thai} = ${currentTarget.name.split(' ')[0]}`;
             lastSpawnTime = Date.now();
         }
 
-        // สุ่มสร้างวัตถุอาหารบนจอ
         function spawnObjects() {
             activeObjects = [];
-            // สุ่มตำแหน่งกระจายๆ บนหน้าจอ Canvas
             foodItems.forEach((item) => {
                 activeObjects.push({
                     ...item,
-                    x: Math.random() * (canvas.width - 150) + 50,
-                    y: Math.random() * (canvas.height - 150) + 80,
-                    radius: 45,
+                    x: Math.random() * (canvas.width - 200) + 100,
+                    y: Math.random() * (canvas.height - 250) + 150,
+                    radius: 55,
                     color: item.type === 'good' ? '#10b981' : '#ef4444'
                 });
             });
         }
 
-        // ฟังก์ชันวนลูปจับตำแหน่งมือและประมวลผลเกม
-        async function detectHands() {
+        // ประมวลผลเมื่อ AI ส่งผลตำแหน่งมือกลับมา
+        function onHandResults(results) {
             if (!isPlaying) return;
 
-            // วาดภาพจากกล้องลงบน Canvas
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // ใช้ AI ทำนายตำแหน่งมือ
-            const predictions = await model.estimateHands(video);
+            // วาดภาพจากกล้องแบบ Mirror (กลับซ้ายขวาเพื่อให้เล่นง่าย)
+            ctx.save();
+            ctx.translate(canvas.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
+            ctx.restore();
 
-            // วาดวัตถุอาหารลงบนหน้าจอ
+            // วาดอาหารบนหน้าจอ
             drawObjects();
 
-            if (predictions.length > 0) {
-                predictions.forEach(prediction => {
-                    // ดึงพิกัดของปลายนิ้วชี้ (Index Finger Tip - จุดที่ 8) หรือ ข้อมือ เพื่อใช้เป็นจุดหยิบ
-                    const indexFinger = prediction.landmarks[8];
-                    const hX = indexFinger[0];
-                    const hY = indexFinger[1];
+            // ตรวจจับการชนเมื่อพบพิกัดมือ
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    // ดึงพิกัดปลายนิ้วชี้ (Index Finger Tip - จุดที่ 8)
+                    // MediaPipe ให้ค่าพิกัดเป็น 0 ถึง 1 จึงต้องคูณด้วยขนาดกว้างยาวของหน้าจอ
+                    // เนื่องจากกลับด้านภาพกล้อง ค่า X บนจอจึงตรงข้ามกับภาพดิบ
+                    const hX = (1 - landmarks[8].x) * canvas.width;
+                    const hY = landmarks[8].y * canvas.height;
 
-                    // วาดจุดเอฟเฟกต์ที่มือผู้เล่นเพื่อความสวยงาม
+                    // วาดจุดเอฟเฟกต์นำทางที่ปลายนิ้ว
                     ctx.beginPath();
-                    ctx.arc(hX, hY, 15, 0, 2 * Math.PI);
-                    ctx.fillStyle = '#3b82f6';
+                    ctx.arc(hX, hY, 20, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#2563eb';
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#ffffff';
                     ctx.fill();
+                    ctx.stroke();
 
-                    // ตรวจสอบการชน (Collision Detection) ระหว่างมือกับอาหาร
                     checkCollision(hX, hY);
-                });
+                }
             }
-
-            requestAnimationFrame(detectHands);
         }
 
-        // วาดรูปอาหารตัวอักษรลงบน Canvas
         function drawObjects() {
             activeObjects.forEach(obj => {
                 ctx.save();
-                // วาดวงกลมพื้นหลังไอเทม
                 ctx.beginPath();
                 ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
                 ctx.strokeStyle = obj.color;
-                ctx.lineWidth = 4;
+                ctx.lineWidth = 5;
                 ctx.fill();
                 ctx.stroke();
 
-                // วาดตัวอักษร/อีโมจิอาหาร
-                ctx.fillStyle = '#000';
-                ctx.font = '30px Prompt';
+                ctx.fillStyle = '#111827';
+                ctx.font = 'bold 24px Prompt';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                // พลิกตัวอักษรกลับด้านให้สอดคล้องกับกล้อง Mirror
-                ctx.translate(obj.x, obj.y);
-                ctx.scale(-1, 1);
-                ctx.fillText(obj.name, 0, 0);
+                ctx.fillText(obj.name, obj.x, obj.y);
                 ctx.restore();
             });
         }
 
-        // ตรวจสอบว่ามือไปแตะโดนอาหารหรือไม่
         function checkCollision(hx, hy) {
             for (let i = activeObjects.length - 1; i >= 0; i--) {
                 let obj = activeObjects[i];
-                // คำนวณระยะห่างระหว่างจุดของมือกับศูนย์กลางของวัตถุ
                 let dist = Math.hypot(obj.x - hx, obj.y - hy);
 
-                if (dist < obj.radius + 15) { // แตะโดน
+                if (dist < obj.radius + 20) {
                     if (obj.name === currentTarget.name) {
-                        // ถ้าหยิบถูกตามคำสั่งเป้าหมาย
                         if (obj.type === 'good') {
                             score += 1;
                         } else {
-                            // ถ้าเป้าหมายคือ junk แต่เผลอไปหยิบ (หรือตามเงื่อนไขห้ามหยิบ junk)
                             score = Math.max(0, score - 1); 
                         }
                         
-                        // คำนวณเวลาเฉลี่ย
                         totalHits++;
                         totalHitTime += (Date.now() - lastSpawnTime) / 1000;
-
                         document.getElementById('score').innerText = score;
                         
-                        // แสดงเอฟเฟกต์และเปลี่ยนภารกิจถัดไปทันที
                         nextMission();
                         spawnObjects();
                     } else {
-                        // แตะผิดชิ้น ลบชิ้นที่แตะออกชั่วคราวเพื่อไม่ให้ขวาง
                         activeObjects.splice(i, 1);
                     }
                     break;
@@ -366,25 +364,17 @@
             }
         }
 
-        // จบเกมและแสดงผลสถิติ
         function endGame() {
             isPlaying = false;
             clearInterval(gameTimer);
+            if(camera) { camera.stop(); }
+            
             document.getElementById('game-container').style.display = 'none';
             document.getElementById('game-over-screen').style.display = 'flex';
 
-            // คำนวณเวลาเฉลี่ยต่อครั้ง
             let avgTime = totalHits > 0 ? (totalHitTime / totalHits).toFixed(2) : 0;
-
             document.getElementById('final-score').innerText = `🏆 คะแนนรวมของคุณคือ: ${score} คะแนน`;
             document.getElementById('avg-time').innerText = `⚡ เวลาเฉลี่ยในการตอบถูก: ${avgTime} วินาที/ครั้ง`;
-            
-            // ปิดกล้อง
-            const stream = video.srcObject;
-            if (stream) {
-                const tracks = stream.getTracks();
-                tracks.forEach(track => track.stop());
-            }
         }
     </script>
 </body>
