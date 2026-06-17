@@ -1,491 +1,1004 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เกม AR อาหารแสนสนุก (Good Food vs Junk Food)</title>
-    
-    <!-- นำเข้า MediaPipe Hands และ Camera Utils เวอร์ชันเสถียร -->
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GoodJunk AR • จับอาหารดี หลบอาหารขยะ</title>
 
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;700;900&display=swap');
-        
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: 'Prompt', sans-serif;
-            user-select: none;
-        }
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
 
-        body, html {
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #f0fdf4;
-        }
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700;900&display=swap');
 
-        /* ตกแต่งหน้าแรกและหน้าสรุปผลให้มีความสดใส น่ารัก เหมาะกับเด็ก */
-        .screen {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, #fef08a 0%, #bbf7d0 100%);
-            z-index: 10;
-            text-align: center;
-            padding: 24px;
-        }
+    :root {
+      --green: #16a34a;
+      --green2: #22c55e;
+      --red: #ef4444;
+      --blue: #2563eb;
+      --yellow: #facc15;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --card: rgba(255, 255, 255, 0.94);
+    }
 
-        .screen-card {
-            background: rgba(255, 255, 255, 0.9);
-            border: 8px solid #4ade80;
-            border-radius: 32px;
-            padding: 40px;
-            max-width: 600px;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Prompt', sans-serif;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        h1 {
-            font-size: 3.5rem;
-            font-weight: 900;
-            color: #15803d;
-            margin-bottom: 20px;
-            text-shadow: 3px 3px 0px #ffffff;
-            line-height: 1.2;
-        }
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #dcfce7;
+    }
 
-        p {
-            font-size: 1.5rem;
-            color: #1e3a8a;
-            margin-bottom: 30px;
-            line-height: 1.6;
-        }
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 22px;
+      text-align: center;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(254, 240, 138, 0.95), transparent 34%),
+        radial-gradient(circle at 85% 20%, rgba(191, 219, 254, 0.9), transparent 34%),
+        linear-gradient(135deg, #fef9c3 0%, #bbf7d0 50%, #dbeafe 100%);
+    }
 
-        .highlight {
-            color: #b91c1c;
-            font-weight: 700;
-        }
+    .screen-card {
+      width: min(680px, 94vw);
+      max-height: 92vh;
+      overflow: auto;
+      background: rgba(255, 255, 255, 0.94);
+      border: 7px solid #4ade80;
+      border-radius: 34px;
+      padding: clamp(22px, 5vw, 42px);
+      box-shadow: 0 24px 50px rgba(15, 23, 42, 0.18);
+    }
 
-        .good-highlight {
-            color: #15803d;
-            font-weight: 700;
-        }
+    h1 {
+      font-size: clamp(2.1rem, 6vw, 3.7rem);
+      font-weight: 900;
+      color: #15803d;
+      line-height: 1.12;
+      margin-bottom: 18px;
+      text-shadow: 3px 3px 0 #ffffff;
+    }
 
-        .btn {
-            font-size: 2rem;
-            font-weight: 900;
-            padding: 15px 50px;
-            background: linear-gradient(185deg, #ff4757, #ff6b81);
-            color: white;
-            border: none;
-            border-radius: 50px;
-            cursor: pointer;
-            box-shadow: 0 10px 0px #b33939, 0 12px 20px rgba(0,0,0,0.15);
-            transition: all 0.1s ease;
-            outline: none;
-        }
+    p {
+      font-size: clamp(1.02rem, 3.2vw, 1.45rem);
+      color: #1e3a8a;
+      line-height: 1.7;
+      margin-bottom: 22px;
+    }
 
-        .btn:active {
-            transform: translateY(6px);
-            box-shadow: 0 4px 0px #b33939, 0 6px 10px rgba(0,0,0,0.15);
-        }
+    .good-highlight {
+      color: #15803d;
+      font-weight: 900;
+    }
 
-        #game-container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: none;
-            background-color: #000;
-        }
+    .bad-highlight {
+      color: #b91c1c;
+      font-weight: 900;
+    }
 
-        video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transform: scaleX(-1);
-            display: none; /* วาดลงแคนวาสแทนเพื่อประสิทธิภาพและสเกลเอฟเฟกต์ */
-        }
+    .mini-rule {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 18px 0 24px;
+    }
 
-        canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+    .rule-box {
+      background: #f8fafc;
+      border: 3px solid #dbeafe;
+      border-radius: 22px;
+      padding: 14px;
+      color: #334155;
+      font-weight: 700;
+      font-size: clamp(0.95rem, 2.6vw, 1.1rem);
+    }
 
-        /* ตกแต่งส่วนติดต่อผู้ใช้ (UI Overlay) ในขณะเล่นเกม */
-        .ui-box {
-            position: absolute;
-            padding: 12px 24px;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 24px;
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: #1e293b;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            z-index: 5;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
+    .rule-box.good {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
 
-        #score-board { 
-            top: 20px; 
-            left: 20px; 
-            border: 4px solid #10b981; 
-        }
+    .rule-box.bad {
+      border-color: #fca5a5;
+      background: #fff1f2;
+    }
 
-        #timer-board { 
-            top: 20px; 
-            right: 20px; 
-            border: 4px solid #ef4444; 
-        }
-        
-        #mission-board {
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #fef08a;
-            font-size: 2.2rem;
-            color: #854d0e;
-            border: 5px solid #ca8a04;
-            animation: pulse 0.8s infinite alternate;
-        }
+    .btn {
+      border: none;
+      outline: none;
+      cursor: pointer;
+      color: white;
+      font-size: clamp(1.25rem, 4.2vw, 2rem);
+      font-weight: 900;
+      padding: 15px 44px;
+      border-radius: 999px;
+      background: linear-gradient(185deg, #ff4757, #ff6b81);
+      box-shadow: 0 10px 0 #b33939, 0 16px 28px rgba(15, 23, 42, 0.16);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
 
-        @keyframes pulse {
-            from { transform: translateX(-50%) scale(1); }
-            to { transform: translateX(-50%) scale(1.04); }
-        }
+    .btn:active {
+      transform: translateY(6px);
+      box-shadow: 0 4px 0 #b33939, 0 8px 16px rgba(15, 23, 42, 0.16);
+    }
 
-        #loading {
-            font-size: 1.6rem;
-            color: #15803d;
-            margin-top: 20px;
-            font-weight: bold;
-        }
+    #loading {
+      display: none;
+      margin-top: 18px;
+      color: #15803d;
+      font-weight: 900;
+      font-size: 1.1rem;
+    }
 
-        .score-val {
-            color: #10b981;
-            font-size: 2.2rem;
-        }
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: none;
+      background: #020617;
+      overflow: hidden;
+    }
 
-        .timer-val {
-            color: #ef4444;
-            font-size: 2.2rem;
-        }
-    </style>
+    video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+      display: none;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .top-hud {
+      position: absolute;
+      top: max(10px, env(safe-area-inset-top));
+      left: max(10px, env(safe-area-inset-left));
+      right: max(10px, env(safe-area-inset-right));
+      z-index: 8;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 10px;
+      align-items: start;
+      pointer-events: none;
+    }
+
+    .ui-box {
+      background: rgba(255, 255, 255, 0.93);
+      border-radius: 20px;
+      padding: 9px 14px;
+      color: var(--ink);
+      font-weight: 900;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.14);
+      border: 3px solid rgba(255, 255, 255, 0.65);
+      backdrop-filter: blur(8px);
+      font-size: clamp(0.82rem, 2.6vw, 1.35rem);
+      line-height: 1.2;
+      min-height: 48px;
+    }
+
+    #score-board {
+      justify-self: start;
+      border-color: #86efac;
+    }
+
+    #timer-board {
+      justify-self: end;
+      border-color: #fca5a5;
+    }
+
+    #mission-board {
+      justify-self: center;
+      text-align: center;
+      min-width: min(430px, 48vw);
+      background: rgba(254, 240, 138, 0.96);
+      border-color: #ca8a04;
+      color: #713f12;
+      animation: missionPulse 0.9s infinite alternate;
+    }
+
+    @keyframes missionPulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.035); }
+    }
+
+    .big-val {
+      font-size: 1.15em;
+      color: #16a34a;
+    }
+
+    .timer-val {
+      color: #dc2626;
+    }
+
+    .bottom-hud {
+      position: absolute;
+      left: max(10px, env(safe-area-inset-left));
+      right: max(10px, env(safe-area-inset-right));
+      bottom: max(10px, env(safe-area-inset-bottom));
+      z-index: 8;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .pill {
+      background: rgba(255, 255, 255, 0.9);
+      color: #334155;
+      border: 2px solid rgba(148, 163, 184, 0.45);
+      border-radius: 999px;
+      padding: 8px 13px;
+      font-size: clamp(0.78rem, 2.5vw, 1.05rem);
+      font-weight: 900;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.13);
+    }
+
+    #feedback {
+      position: absolute;
+      left: 50%;
+      top: 18%;
+      transform: translateX(-50%);
+      z-index: 12;
+      font-size: clamp(1.4rem, 5vw, 3.3rem);
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 5px 18px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      white-space: nowrap;
+    }
+
+    #feedback.show {
+      opacity: 1;
+      transform: translateX(-50%) scale(1.06);
+    }
+
+    #countdown {
+      position: absolute;
+      inset: 0;
+      z-index: 14;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(5rem, 18vw, 11rem);
+      font-weight: 900;
+      color: #ffffff;
+      text-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+      background: rgba(15, 23, 42, 0.18);
+      pointer-events: none;
+    }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin: 20px 0 24px;
+    }
+
+    .result-box {
+      background: #f8fafc;
+      border: 3px solid #dbeafe;
+      border-radius: 22px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .result-label {
+      color: #64748b;
+      font-size: 0.95rem;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .result-value {
+      color: #0f172a;
+      font-size: clamp(1.25rem, 4vw, 2rem);
+      font-weight: 900;
+    }
+
+    .rank {
+      display: inline-block;
+      padding: 10px 22px;
+      border-radius: 999px;
+      background: #fef08a;
+      color: #854d0e;
+      border: 3px solid #facc15;
+      font-size: clamp(1.15rem, 4vw, 1.8rem);
+      font-weight: 900;
+      margin: 10px 0 18px;
+    }
+
+    @media (max-width: 640px) {
+      .screen {
+        padding: 12px;
+      }
+
+      .screen-card {
+        border-width: 5px;
+        border-radius: 26px;
+        padding: 22px 16px;
+      }
+
+      .mini-rule,
+      .result-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .top-hud {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      #mission-board {
+        grid-column: 1 / 3;
+        grid-row: 2;
+        width: 100%;
+        min-width: 0;
+        order: 3;
+      }
+
+      #score-board {
+        grid-column: 1;
+      }
+
+      #timer-board {
+        grid-column: 2;
+      }
+
+      .bottom-hud {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
 </head>
+
 <body>
+  <div id="start-screen" class="screen">
+    <div class="screen-card">
+      <h1>🍎 GoodJunk AR 🥦</h1>
+      <p>
+        ใช้ปลายนิ้วชี้แตะเฉพาะ <span class="good-highlight">อาหารดีตามโจทย์</span><br />
+        และหลบ <span class="bad-highlight">อาหารขยะ</span> ให้ได้มากที่สุดภายใน 60 วินาที
+      </p>
 
-    <!-- หน้าเริ่มต้นเกม (Start Screen) -->
-    <div id="start-screen" class="screen">
-        <div class="screen-card">
-            <h1>🍎 เกม AR จับอาหารดีมีประโยชน์ 🥦</h1>
-            <p>กติกาแสนสนุก: เอามือขยับไปเก็บเฉพาะ <span class="good-highlight">อาหารดีมีประโยชน์ (Good Food)</span><br>
-            ส่วน <span class="highlight">อาหารขยะ (Junk Food)</span> ไม่ต้องจับ มันจะสลายตัวหายไปเอง!</p>
-            <button class="btn" id="start-btn" onclick="initGame()">เริ่มเล่นเกม 🎮</button>
-            <div id="loading" style="display: none;">กำลังเชื่อมต่อกล้องและเปิดระบบตรวจจับมือ... ⏳</div>
+      <div class="mini-rule">
+        <div class="rule-box good">✅ แตะถูก: +10 คะแนน<br />ทำต่อเนื่องได้คอมโบ</div>
+        <div class="rule-box bad">⚠️ แตะผิด/แตะอาหารขยะ: เสียคะแนน<br />และคอมโบเริ่มใหม่</div>
+      </div>
+
+      <button class="btn" id="start-btn" onclick="initGame()">เริ่มเล่น 🎮</button>
+      <div id="loading">กำลังเปิดกล้องและระบบตรวจจับมือ... ⏳</div>
+    </div>
+  </div>
+
+  <div id="game-over-screen" class="screen" style="display: none;">
+    <div class="screen-card">
+      <h1 style="color:#ea580c;">🎉 จบเกมแล้ว เก่งมาก! 🎉</h1>
+      <div id="rank-badge" class="rank">Healthy Hero</div>
+
+      <div class="result-grid">
+        <div class="result-box">
+          <div class="result-label">คะแนนรวม</div>
+          <div id="final-score" class="result-value">0</div>
         </div>
-    </div>
-
-    <!-- หน้าผลลัพธ์ท้ายเกม (Game Over Screen) -->
-    <div id="game-over-screen" class="screen" style="display: none;">
-        <div class="screen-card">
-            <h1 style="color: #ea580c;">🎉 เก่งมากเลยหนูๆ จบเกมแล้ว! 🎉</h1>
-            <p id="final-score" style="font-size: 2.5rem; font-weight: bold; color: #10b981; margin-bottom: 10px;"></p>
-            <p id="avg-time" style="font-size: 1.8rem; color: #2563eb; margin-bottom: 30px;"></p>
-            <button class="btn" onclick="location.reload()">เล่นอีกครั้ง 🔄</button>
+        <div class="result-box">
+          <div class="result-label">ตอบถูก</div>
+          <div id="final-correct" class="result-value">0</div>
         </div>
+        <div class="result-box">
+          <div class="result-label">ความแม่นยำ</div>
+          <div id="final-accuracy" class="result-value">0%</div>
+        </div>
+        <div class="result-box">
+          <div class="result-label">เวลาเฉลี่ยเมื่อตอบถูก</div>
+          <div id="final-avg-time" class="result-value">0 วิ</div>
+        </div>
+      </div>
+
+      <p id="final-message" style="margin-bottom:24px;"></p>
+      <button class="btn" onclick="location.reload()">เล่นอีกครั้ง 🔄</button>
+    </div>
+  </div>
+
+  <div id="game-container">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+
+    <div class="top-hud">
+      <div id="score-board" class="ui-box">
+        ⭐ คะแนน: <span id="score" class="big-val">0</span>
+      </div>
+
+      <div id="mission-board" class="ui-box">
+        ภารกิจ: แตะ <span id="target-word">...</span>
+      </div>
+
+      <div id="timer-board" class="ui-box">
+        ⏱️ เวลา: <span id="timer" class="timer-val">60</span> วิ
+      </div>
     </div>
 
-    <!-- สนามจำลองของเกม -->
-    <div id="game-container">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas"></canvas>
-        
-        <div id="score-board" class="ui-box">⭐ คะแนน: <span id="score" class="score-val">0</span></div>
-        <div id="mission-board" class="ui-box">หาคำแปลชิ้นนี้เลย: <span id="target-word">...</span></div>
-        <div id="timer-board" class="ui-box">⏱️ เวลา: <span id="timer" class="timer-val">60</span> วิ</div>
+    <div class="bottom-hud">
+      <div class="pill">🔥 Combo: <span id="combo">0</span></div>
+      <div class="pill">🎯 Accuracy: <span id="accuracy">100%</span></div>
+      <div class="pill">✅ ถูก: <span id="correct-count">0</span></div>
+      <div class="pill">❌ ผิด: <span id="wrong-count">0</span></div>
     </div>
 
-    <script>
-        const video = document.getElementById('video');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        let hands = null;
-        let camera = null;
-        let score = 0;
-        let timeLeft = 60;
-        let gameTimer;
-        let isPlaying = false;
-        
-        // รายการคำศัพท์สำหรับการจำลอง
-        const foodItems = [
-            // อาหารดีมีประโยชน์ (Good Food)
-            { name: 'Apple 🍎', type: 'good', thai: 'แอปเปิ้ล' },
-            { name: 'Banana 🍌', type: 'good', thai: 'กล้วย' },
-            { name: 'Broccoli 🥦', type: 'good', thai: 'บล็อคโคลี่' },
-            { name: 'Carrot 🥕', type: 'good', thai: 'แครอท' },
-            { name: 'Milk 🥛', type: 'good', thai: 'นมสด' },
-            { name: 'Orange 🍊', type: 'good', thai: 'ส้ม' },
-            
-            // อาหารที่ไม่ดีต่อสุขภาพ (Junk Food) - จะสลายจางลงและหายไปเอง
-            { name: 'Burger 🍔', type: 'junk', thai: 'เบอร์เกอร์' },
-            { name: 'French Fries 🍟', type: 'junk', thai: 'เฟรนช์ฟรายส์' },
-            { name: 'Donut 🍩', type: 'junk', thai: 'โดนัท' },
-            { name: 'Pizza 🍕', type: 'junk', thai: 'พิซซ่า' }
-        ];
+    <div id="feedback"></div>
+    <div id="countdown">3</div>
+  </div>
 
-        let currentTarget = {};
-        let activeObjects = [];
-        let totalHits = 0;
-        let totalHitTime = 0;
-        let lastSpawnTime = 0;
+  <script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
 
-        // เริ่มโหลดโมเดลและจับคู่กับกล้อง
-        function initGame() {
-            document.getElementById('start-btn').style.display = 'none';
-            document.getElementById('loading').style.display = 'block';
+    let hands = null;
+    let camera = null;
 
-            hands = new Hands({
-                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-            });
+    let score = 0;
+    let timeLeft = 60;
+    let isPlaying = false;
+    let gameTimer = null;
 
-            hands.setOptions({
-                maxNumHands: 2,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
-            });
+    let activeObjects = [];
+    let currentTarget = null;
 
-            hands.onResults(onHandResults);
+    let correctHits = 0;
+    let wrongHits = 0;
+    let totalTouches = 0;
+    let combo = 0;
+    let bestCombo = 0;
+    let totalHitTime = 0;
+    let missionStartTime = 0;
 
-            camera = new Camera(video, {
-                onFrame: async () => {
-                    if (isPlaying) {
-                        await hands.send({image: video});
-                    }
-                },
-                width: 640,
-                height: 480
-            });
+    let lastTouchAt = 0;
+    let lastJunkSpawnAt = 0;
+    let feedbackTimer = null;
 
-            camera.start()
-                .then(() => {
-                    resizeCanvas();
-                    window.addEventListener('resize', resizeCanvas);
-                    startGame();
-                })
-                .catch(err => {
-                    alert("ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตให้ใช้งานสิทธิ์กล้อง: " + err.message);
-                    location.reload();
-                });
+    const GAME_SECONDS = 60;
+    const TOUCH_COOLDOWN = 450;
+    const BASE_RADIUS = 58;
+
+    const foodItems = [
+      { name: 'Apple', emoji: '🍎', type: 'good', thai: 'แอปเปิ้ล', hint: 'ผลไม้ให้ใยอาหาร' },
+      { name: 'Banana', emoji: '🍌', type: 'good', thai: 'กล้วย', hint: 'ให้พลังงานดี' },
+      { name: 'Broccoli', emoji: '🥦', type: 'good', thai: 'บล็อกโคลี', hint: 'ผักสีเขียว' },
+      { name: 'Carrot', emoji: '🥕', type: 'good', thai: 'แครอท', hint: 'ดีต่อสายตา' },
+      { name: 'Milk', emoji: '🥛', type: 'good', thai: 'นมสด', hint: 'แคลเซียมสูง' },
+      { name: 'Orange', emoji: '🍊', type: 'good', thai: 'ส้ม', hint: 'วิตามินซี' },
+      { name: 'Fish', emoji: '🐟', type: 'good', thai: 'ปลา', hint: 'โปรตีนดี' },
+      { name: 'Egg', emoji: '🥚', type: 'good', thai: 'ไข่', hint: 'โปรตีนพื้นฐาน' },
+
+      { name: 'Burger', emoji: '🍔', type: 'junk', thai: 'เบอร์เกอร์', hint: 'ไขมันสูง' },
+      { name: 'Fries', emoji: '🍟', type: 'junk', thai: 'เฟรนช์ฟรายส์', hint: 'เค็มและมัน' },
+      { name: 'Donut', emoji: '🍩', type: 'junk', thai: 'โดนัท', hint: 'น้ำตาลสูง' },
+      { name: 'Pizza', emoji: '🍕', type: 'junk', thai: 'พิซซ่า', hint: 'ไขมัน/โซเดียมสูง' },
+      { name: 'Soda', emoji: '🥤', type: 'junk', thai: 'น้ำอัดลม', hint: 'น้ำตาลสูง' }
+    ];
+
+    const goodFoods = foodItems.filter(item => item.type === 'good');
+    const junkFoods = foodItems.filter(item => item.type === 'junk');
+
+    function initGame() {
+      const startBtn = document.getElementById('start-btn');
+      const loading = document.getElementById('loading');
+
+      startBtn.style.display = 'none';
+      loading.style.display = 'block';
+
+      hands = new Hands({
+        locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+      });
+
+      hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.55,
+        minTrackingConfidence: 0.55
+      });
+
+      hands.onResults(onHandResults);
+
+      camera = new Camera(video, {
+        onFrame: async () => {
+          if (hands && isPlaying) {
+            await hands.send({ image: video });
+          }
+        },
+        width: 640,
+        height: 480
+      });
+
+      camera.start()
+        .then(() => {
+          resizeCanvas();
+          window.addEventListener('resize', () => {
+            resizeCanvas();
+            spawnRound(true);
+          });
+          beginCountdown();
+        })
+        .catch(err => {
+          alert('ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตให้ใช้งานกล้องก่อนเริ่มเกม: ' + err.message);
+          location.reload();
+        });
+    }
+
+    function resizeCanvas() {
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      canvas.width = Math.floor(window.innerWidth * dpr);
+      canvas.height = Math.floor(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + 'px';
+      canvas.style.height = window.innerHeight + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function beginCountdown() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('game-container').style.display = 'block';
+
+      const countdown = document.getElementById('countdown');
+      let n = 3;
+      countdown.innerText = n;
+      countdown.style.display = 'flex';
+
+      const cd = setInterval(() => {
+        n--;
+        if (n > 0) {
+          countdown.innerText = n;
+        } else if (n === 0) {
+          countdown.innerText = 'เริ่ม!';
+        } else {
+          clearInterval(cd);
+          countdown.style.display = 'none';
+          startGame();
+        }
+      }, 800);
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = GAME_SECONDS;
+      correctHits = 0;
+      wrongHits = 0;
+      totalTouches = 0;
+      combo = 0;
+      bestCombo = 0;
+      totalHitTime = 0;
+
+      updateHUD();
+      isPlaying = true;
+      nextMission();
+      spawnRound();
+
+      gameTimer = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').innerText = timeLeft;
+
+        if (timeLeft <= 0) {
+          endGame();
+        }
+      }, 1000);
+    }
+
+    function nextMission() {
+      let next = goodFoods[Math.floor(Math.random() * goodFoods.length)];
+
+      if (currentTarget && goodFoods.length > 1) {
+        let guard = 0;
+        while (next.name === currentTarget.name && guard < 10) {
+          next = goodFoods[Math.floor(Math.random() * goodFoods.length)];
+          guard++;
+        }
+      }
+
+      currentTarget = next;
+      missionStartTime = Date.now();
+
+      document.getElementById('target-word').innerText =
+        `${currentTarget.thai} ${currentTarget.emoji}`;
+    }
+
+    function spawnRound(keepTarget = false) {
+      activeObjects = [];
+
+      const target = currentTarget || goodFoods[0];
+      addObject(target, true);
+
+      const decoys = shuffle(
+        goodFoods.filter(item => item.name !== target.name)
+      ).slice(0, 3);
+
+      decoys.forEach(item => addObject(item, false));
+
+      const junkCount = window.innerWidth < 640 ? 2 : 3;
+      shuffle(junkFoods).slice(0, junkCount).forEach(item => addObject(item, false));
+
+      lastJunkSpawnAt = Date.now();
+    }
+
+    function addObject(item, isTarget) {
+      const radius = Math.max(46, Math.min(BASE_RADIUS, window.innerWidth * 0.09));
+      const pos = safePosition(radius);
+
+      activeObjects.push({
+        ...item,
+        id: `${item.name}-${Date.now()}-${Math.random()}`,
+        isTarget,
+        x: pos.x,
+        y: pos.y,
+        radius,
+        opacity: 1,
+        spawnTime: Date.now(),
+        lifeTime: item.type === 'junk' ? 5200 : 999999,
+        vx: (Math.random() - 0.5) * 0.9,
+        vy: (Math.random() - 0.5) * 0.9,
+        wobble: Math.random() * Math.PI * 2
+      });
+    }
+
+    function safePosition(radius) {
+      const topSafe = window.innerWidth < 640 ? 145 : 95;
+      const bottomSafe = 88;
+      const left = radius + 18;
+      const right = window.innerWidth - radius - 18;
+      const top = topSafe + radius;
+      const bottom = window.innerHeight - bottomSafe - radius;
+
+      let best = {
+        x: rand(left, right),
+        y: rand(top, Math.max(top + 1, bottom))
+      };
+
+      for (let attempt = 0; attempt < 80; attempt++) {
+        const p = {
+          x: rand(left, right),
+          y: rand(top, Math.max(top + 1, bottom))
+        };
+
+        const ok = activeObjects.every(obj => {
+          const d = Math.hypot(obj.x - p.x, obj.y - p.y);
+          return d > obj.radius + radius + 18;
+        });
+
+        if (ok) return p;
+        best = p;
+      }
+
+      return best;
+    }
+
+    function onHandResults(results) {
+      if (!isPlaying) return;
+
+      drawCamera(results.image);
+      updateObjects();
+      drawObjects();
+
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length) {
+        for (const landmarks of results.multiHandLandmarks) {
+          const hx = (1 - landmarks[8].x) * window.innerWidth;
+          const hy = landmarks[8].y * window.innerHeight;
+
+          drawFingerPointer(hx, hy);
+          checkCollision(hx, hy);
+        }
+      }
+
+      maybeSpawnJunk();
+    }
+
+    function drawCamera(image) {
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      ctx.save();
+      ctx.translate(window.innerWidth, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(image, 0, 0, window.innerWidth, window.innerHeight);
+      ctx.restore();
+
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.10)';
+      ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+    }
+
+    function updateObjects() {
+      const now = Date.now();
+
+      for (let i = activeObjects.length - 1; i >= 0; i--) {
+        const obj = activeObjects[i];
+
+        obj.wobble += 0.025;
+        obj.x += obj.vx + Math.sin(obj.wobble) * 0.18;
+        obj.y += obj.vy + Math.cos(obj.wobble) * 0.18;
+
+        if (obj.x < obj.radius + 10 || obj.x > window.innerWidth - obj.radius - 10) obj.vx *= -1;
+        if (obj.y < obj.radius + 105 || obj.y > window.innerHeight - obj.radius - 85) obj.vy *= -1;
+
+        if (obj.type === 'junk') {
+          const elapsed = now - obj.spawnTime;
+
+          if (elapsed >= obj.lifeTime) {
+            activeObjects.splice(i, 1);
+            continue;
+          }
+
+          if (elapsed > obj.lifeTime - 1200) {
+            obj.opacity = Math.max(0.12, (obj.lifeTime - elapsed) / 1200);
+          }
+        }
+      }
+    }
+
+    function drawObjects() {
+      activeObjects.forEach(obj => {
+        const isTarget = obj.isTarget;
+        const borderColor =
+          obj.type === 'junk' ? '#ef4444' :
+          isTarget ? '#22c55e' : '#93c5fd';
+
+        ctx.save();
+        ctx.globalAlpha = obj.opacity;
+
+        ctx.beginPath();
+        ctx.arc(obj.x, obj.y, obj.radius + (isTarget ? 7 : 0), 0, Math.PI * 2);
+        ctx.fillStyle = isTarget ? 'rgba(220, 252, 231, 0.96)' : 'rgba(255,255,255,0.92)';
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = isTarget ? 7 : 5;
+        ctx.shadowColor = isTarget ? 'rgba(34,197,94,0.55)' : 'rgba(15,23,42,0.22)';
+        ctx.shadowBlur = isTarget ? 18 : 8;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.font = `bold ${Math.round(obj.radius * 0.62)}px Prompt`;
+        ctx.fillText(obj.emoji, obj.x, obj.y - 12);
+
+        ctx.font = `900 ${Math.round(obj.radius * 0.28)}px Prompt`;
+        ctx.fillText(obj.thai, obj.x, obj.y + 28);
+
+        if (obj.type === 'junk') {
+          ctx.font = `900 ${Math.round(obj.radius * 0.22)}px Prompt`;
+          ctx.fillStyle = '#b91c1c';
+          ctx.fillText('หลบ!', obj.x, obj.y + 49);
         }
 
-        function resizeCanvas() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+        ctx.restore();
+      });
+    }
+
+    function drawFingerPointer(x, y) {
+      ctx.save();
+
+      ctx.beginPath();
+      ctx.arc(x, y, 21, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 71, 87, 0.92)';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 5;
+      ctx.shadowColor = 'rgba(0,0,0,0.25)';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(x, y, 34, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    function checkCollision(hx, hy) {
+      const now = Date.now();
+      if (now - lastTouchAt < TOUCH_COOLDOWN) return;
+
+      for (let i = activeObjects.length - 1; i >= 0; i--) {
+        const obj = activeObjects[i];
+        const dist = Math.hypot(obj.x - hx, obj.y - hy);
+
+        if (dist < obj.radius + 22) {
+          lastTouchAt = now;
+          totalTouches++;
+
+          if (obj.type === 'good' && obj.name === currentTarget.name) {
+            handleCorrect(obj, i);
+          } else {
+            handleWrong(obj, i);
+          }
+
+          updateHUD();
+          break;
         }
+      }
+    }
 
-        function startGame() {
-            document.getElementById('start-screen').style.display = 'none';
-            document.getElementById('game-container').style.display = 'block';
-            isPlaying = true;
-            score = 0;
-            timeLeft = 60;
-            
-            nextMission();
-            spawnObjects();
+    function handleCorrect(obj, index) {
+      const reaction = (Date.now() - missionStartTime) / 1000;
+      totalHitTime += reaction;
 
-            // ตัวนับเวลาถอยหลัง 60 วินาที
-            gameTimer = setInterval(() => {
-                timeLeft--;
-                document.getElementById('timer').innerText = timeLeft;
-                if (timeLeft <= 0) {
-                    endGame();
-                }
-            }, 1000);
+      correctHits++;
+      combo++;
+      bestCombo = Math.max(bestCombo, combo);
+
+      const comboBonus = Math.min(10, Math.floor(combo / 3) * 2);
+      score += 10 + comboBonus;
+
+      showFeedback(combo >= 3 ? `🔥 คอมโบ ${combo}!` : '✅ เยี่ยมมาก!');
+      burst(obj.x, obj.y, '#22c55e');
+
+      nextMission();
+      spawnRound();
+    }
+
+    function handleWrong(obj, index) {
+      wrongHits++;
+      combo = 0;
+
+      if (obj.type === 'junk') {
+        score = Math.max(0, score - 5);
+        timeLeft = Math.max(0, timeLeft - 2);
+        showFeedback('⚠️ ระวังอาหารขยะ!');
+      } else {
+        score = Math.max(0, score - 3);
+        showFeedback('❌ ยังไม่ใช่ชิ้นนี้!');
+      }
+
+      burst(obj.x, obj.y, '#ef4444');
+      activeObjects.splice(index, 1);
+
+      if (timeLeft <= 0) {
+        endGame();
+      }
+    }
+
+    function maybeSpawnJunk() {
+      const now = Date.now();
+      const junkOnScreen = activeObjects.filter(obj => obj.type === 'junk').length;
+      const maxJunk = window.innerWidth < 640 ? 3 : 4;
+
+      if (now - lastJunkSpawnAt > 2600 && junkOnScreen < maxJunk) {
+        const item = junkFoods[Math.floor(Math.random() * junkFoods.length)];
+        addObject(item, false);
+        lastJunkSpawnAt = now;
+      }
+    }
+
+    function burst(x, y, color) {
+      ctx.save();
+      for (let i = 0; i < 10; i++) {
+        const a = (Math.PI * 2 * i) / 10;
+        const px = x + Math.cos(a) * rand(18, 46);
+        const py = y + Math.sin(a) * rand(18, 46);
+
+        ctx.beginPath();
+        ctx.arc(px, py, rand(4, 9), 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.85;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function showFeedback(text) {
+      const el = document.getElementById('feedback');
+      el.innerText = text;
+      el.classList.add('show');
+
+      clearTimeout(feedbackTimer);
+      feedbackTimer = setTimeout(() => {
+        el.classList.remove('show');
+      }, 720);
+    }
+
+    function updateHUD() {
+      const accuracy = totalTouches > 0
+        ? Math.round((correctHits / totalTouches) * 100)
+        : 100;
+
+      document.getElementById('score').innerText = score;
+      document.getElementById('combo').innerText = combo;
+      document.getElementById('accuracy').innerText = accuracy + '%';
+      document.getElementById('correct-count').innerText = correctHits;
+      document.getElementById('wrong-count').innerText = wrongHits;
+      document.getElementById('timer').innerText = timeLeft;
+    }
+
+    function endGame() {
+      if (!isPlaying) return;
+
+      isPlaying = false;
+      clearInterval(gameTimer);
+
+      try {
+        if (camera && typeof camera.stop === 'function') {
+          camera.stop();
         }
+      } catch (err) {
+        console.warn('Camera stop warning:', err);
+      }
 
-        // เมื่อต้องการสุ่มคำศัพท์เป้าหมายถัดไป (จะบังคับให้ตอบเฉพาะชิ้นที่เป็น Good Food เท่านั้น!)
-        function nextMission() {
-            // คัดกรองเอาเฉพาะอาหารดีเพื่อใช้เป็นคีย์คำสั่งหยิบให้ได้แต้ม
-            const goodFoodsOnly = foodItems.filter(item => item.type === 'good');
-            currentTarget = goodFoodsOnly[Math.floor(Math.random() * goodFoodsOnly.length)];
-            
-            document.getElementById('target-word').innerText = `${currentTarget.thai} (${currentTarget.name.split(' ')[0]})`;
-            lastSpawnTime = Date.now();
-        }
+      const accuracy = totalTouches > 0
+        ? Math.round((correctHits / totalTouches) * 100)
+        : 0;
 
-        // เกิดวัตถุอาหารขึ้นมาใหม่
-        function spawnObjects() {
-            activeObjects = [];
-            
-            // วาดอาหารดีขึ้นมา (จะลอยอยู่เรื่อยๆ ไม่สลายตัวจนกว่าเวลาจะหมดหรือทำคะแนนสำเร็จ)
-            const goodFoodsOnly = foodItems.filter(item => item.type === 'good');
-            goodFoodsOnly.forEach((item) => {
-                activeObjects.push({
-                    ...item,
-                    x: Math.random() * (canvas.width - 250) + 125,
-                    y: Math.random() * (canvas.height - 250) + 125,
-                    radius: 55,
-                    color: '#10b981',
-                    opacity: 1.0,          // คงที่ตลอดเวลา
-                    lifeTime: 99999        // ไม่จางหายไปเอง
-                });
-            });
+      const avgTime = correctHits > 0
+        ? (totalHitTime / correctHits).toFixed(2)
+        : '0.00';
 
-            // วาดอาหารขยะ (Junk Food) แทรกขึ้นมาเพื่อรบกวนและทดสอบความเข้าใจของนักเรียน
-            // แต่ละตัวจะมีเวลาชีวิตจำกัด และค่อยๆ สลายตัวหายไปเองเมื่อไม่มีการสัมผัส
-            const junkFoodsOnly = foodItems.filter(item => item.type === 'junk');
-            junkFoodsOnly.forEach((item) => {
-                activeObjects.push({
-                    ...item,
-                    x: Math.random() * (canvas.width - 250) + 125,
-                    y: Math.random() * (canvas.height - 250) + 125,
-                    radius: 55,
-                    color: '#ef4444',
-                    opacity: 1.0,          // เริ่มที่ความโปร่งแสงสูงสุด
-                    lifeTime: 4000,        // ระยะเวลาที่จะแสดงอยู่บนหน้าจอ (4 วินาที)
-                    spawnTime: Date.now()  // เวลาที่กำเนิด
-                });
-            });
-        }
+      const rank = getRank(score, accuracy, correctHits);
+      const msg = getResultMessage(rank);
 
-        // คอยประมวลผลตำแหน่งมือและอัปเดตแอนิเมชันวัตถุ
-        function onHandResults(results) {
-            if (!isPlaying) return;
+      document.getElementById('game-container').style.display = 'none';
+      document.getElementById('game-over-screen').style.display = 'flex';
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+      document.getElementById('rank-badge').innerText = rank;
+      document.getElementById('final-score').innerText = score;
+      document.getElementById('final-correct').innerText = correctHits;
+      document.getElementById('final-accuracy').innerText = accuracy + '%';
+      document.getElementById('final-avg-time').innerText = avgTime + ' วิ';
+      document.getElementById('final-message').innerText = msg;
+    }
 
-            // วาดภาพวิดีโอจากกล้องแบบสมจริงและกระจกเงา (Mirror Mirror)
-            ctx.save();
-            ctx.translate(canvas.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-            ctx.restore();
+    function getRank(score, accuracy, correct) {
+      if (score >= 180 && accuracy >= 85) return '🏆 Healthy Master';
+      if (score >= 130 && accuracy >= 75) return '🌟 Super Healthy Hero';
+      if (score >= 80 && accuracy >= 60) return '🥦 Good Food Hunter';
+      if (correct >= 3) return '🍎 Healthy Rookie';
+      return '💪 Try Again Hero';
+    }
 
-            // จัดการความทึบแสงและวาดรูปอาหารลงบนหน้าจอ
-            updateAndDrawObjects();
+    function getResultMessage(rank) {
+      if (rank.includes('Master')) {
+        return 'ยอดเยี่ยมมาก แยกอาหารดีและอาหารขยะได้แม่นยำมาก';
+      }
+      if (rank.includes('Super')) {
+        return 'ทำได้ดีมาก ลองเล่นซ้ำเพื่อเพิ่มคอมโบและความเร็ว';
+      }
+      if (rank.includes('Hunter')) {
+        return 'เริ่มจับหลักได้แล้ว ระวังอาหารขยะอีกนิดคะแนนจะพุ่งมาก';
+      }
+      if (rank.includes('Rookie')) {
+        return 'มีพื้นฐานดีแล้ว ลองจำชื่ออาหารดีให้แม่นขึ้นอีกหน่อย';
+      }
+      return 'ยังไม่เป็นไร เกมนี้ฝึกซ้ำได้ ยิ่งเล่นยิ่งจำอาหารดีได้ดีขึ้น';
+    }
 
-            // ค้นหาตำแหน่งและพิกัดมือของนักเรียน (รองรับแบบ 2 มือพร้อมกัน)
-            if (results.multiHandLandmarks) {
-                for (const landmarks of results.multiHandLandmarks) {
-                    // ดึงพิกัดที่ระบุปลายนิ้วชี้ (Index Finger Tip)
-                    const hX = (1 - landmarks[8].x) * canvas.width;
-                    const hY = landmarks[8].y * canvas.height;
+    function shuffle(arr) {
+      return [...arr].sort(() => Math.random() - 0.5);
+    }
 
-                    // แสดงวงกลมสีนำสายตาที่ปลายนิ้วของเด็กๆ เพื่อช่วยในการเอื้อมสัมผัส
-                    ctx.beginPath();
-                    ctx.arc(hX, hY, 20, 0, 2 * Math.PI);
-                    ctx.fillStyle = '#ff4757';
-                    ctx.lineWidth = 4;
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.fill();
-                    ctx.stroke();
-
-                    // ตรวจการสัมผัสกับอาหาร
-                    checkCollision(hX, hY);
-                }
-            }
-        }
-
-        // ฟังก์ชันวาดวัตถุและประมวลผลการจางหายของ Junk Food
-        function updateAndDrawObjects() {
-            const now = Date.now();
-            
-            for (let i = activeObjects.length - 1; i >= 0; i--) {
-                let obj = activeObjects[i];
-
-                // ถ้าเป็นอาหารขยะ (Junk Food)
-                if (obj.type === 'junk') {
-                    let elapsed = now - obj.spawnTime;
-                    
-                    if (elapsed >= obj.lifeTime) {
-                        // เมื่อหมดเวลาชีวิตของ Junk Food ชิ้นนี้ จะลบมันทิ้งออกจากหน้าจอเองอัตโนมัติ
-                        activeObjects.splice(i, 1);
-                        continue;
-                    } else if (elapsed > obj.lifeTime - 1000) {
-                        // ช่วง 1 วินาทีสุดท้ายก่อนจะหายไป ให้ค่อยๆ จางออกทีละน้อย (Fade Out Effect)
-                        obj.opacity = (obj.lifeTime - elapsed) / 1000;
-                    }
-                }
-
-                // เริ่มวาดวัตถุชิ้นนั้นๆ ลงบอร์ด
-                ctx.save();
-                ctx.globalAlpha = obj.opacity; // ควบคุมความสลัวของการจางตัว
-                
-                ctx.beginPath();
-                ctx.arc(obj.x, obj.y, obj.radius, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-                ctx.strokeStyle = obj.color;
-                ctx.lineWidth = 5;
-                ctx.fill();
-                ctx.stroke();
-
-                ctx.fillStyle = '#111827';
-                ctx.font = 'bold 24px Prompt';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(obj.name, obj.x, obj.y);
-                ctx.restore();
-            }
-        }
-
-        // ตรวจว่านิ้วผู้เล่นพุ่งเข้าชน/สัมผัสโดนตัวเลือกหรือไม่
-        function checkCollision(hx, hy) {
-            for (let i = activeObjects.length - 1; i >= 0; i--) {
-                let obj = activeObjects[i];
-                let dist = Math.hypot(obj.x - hx, obj.y - hy);
-
-                if (dist < obj.radius + 20) {
-                    // หากผู้เล่นสัมผัสโดน "เป้าหมายที่ถูกสุ่มขึ้นมา" (ซึ่งจะเป็นของมีประโยชน์เท่านั้น)
-                    if (obj.name === currentTarget.name && obj.type === 'good') {
-                        score += 1;
-                        totalHits++;
-                        totalHitTime += (Date.now() - lastSpawnTime) / 1000;
-                        document.getElementById('score').innerText = score;
-                        
-                        // เริ่มด่านใหม่ทันที
-                        nextMission();
-                        spawnObjects();
-                    } else {
-                        // หากเผลอไปสัมผัสโดน Junk Food หรืออาหารผิดประเภท จะสลัดชิ้นนั้นออกจากจอทันที
-                        activeObjects.splice(i, 1);
-                    }
-                    break;
-                }
-            }
-        }
-
-        // จบเวลาการเล่นเกมทั้งหมด 60 วินาที
-        function endGame() {
-            isPlaying = false;
-            clearInterval(gameTimer);
-            if(camera) { camera.stop(); }
-            
-            document.getElementById('game-container').style.display = 'none';
-            document.getElementById('game-over-screen').style.display = 'flex';
-
-            // คำนวณความเร็วเฉลี่ยในการตอบถูกของเด็กๆ
-            let avgTime = totalHits > 0 ? (totalHitTime / totalHits).toFixed(2) : 0;
-            document.getElementById('final-score').innerText = `🏆 คะแนนรวมของนักเรียน: ${score} คะแนน`;
-            document.getElementById('avg-time').innerText = `⚡ ความเร็วเฉลี่ยในการตอบถูก: ${avgTime} วินาทีต่อครั้ง`;
-        }
-    </script>
+    function rand(min, max) {
+      return Math.random() * (max - min) + min;
+    }
+  </script>
 </body>
 </html>
