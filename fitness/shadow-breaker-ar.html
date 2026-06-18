@@ -10,7 +10,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-CLASSROOM-FINAL-FUN
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-1-CLASSROOM-BALANCE-POLISH-FUN
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1076,6 +1076,7 @@
       color:#dbeafe;
       line-height:1.55;
       font-weight:760;
+      overflow-wrap:anywhere;
     }
 
     .toast{
@@ -1294,7 +1295,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7 FINAL FUN</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.1 BALANCE POLISH</div>
         </div>
 
         <div class="grid2">
@@ -1498,7 +1499,7 @@
         adviceMid:"มาถูกทางแล้ว รอบต่อไปให้ลดการโดนระเบิดและรักษาคอมโบต่อเนื่องขึ้น",
         adviceLow:"ควรลดความยากหรือเพิ่มเวลาฝึกก่อน เพื่อให้ผู้เล่นคุ้นกับจังหวะและพื้นที่การเคลื่อนไหว",
         exportDone:"ดาวน์โหลด CSV แล้ว",
-        howText:"วิธีเล่น: แตะเป้า 🥊/🎯 ให้เร็ว หลบ 💣 เก็บ ⭐ รักษาคอมโบเพื่อเข้า FEVER กด J/K บนคีย์บอร์ดเพื่อชกซ้าย/ขวาได้"
+        howText:"วิธีเล่น: ยกมือให้เห็นวง L/R แล้วชกเป้า 🥊/🎯 เก็บ ⚡ Rush หลบ 💣 ทำมิชชันให้ครบ 4 อย่าง Normal เหมาะใช้จริงในห้องเรียน"
       },
       en: {
         player:"PLAYER HP",
@@ -1575,7 +1576,7 @@
         adviceMid:"Good direction. Next round, avoid bombs and keep a longer combo.",
         adviceLow:"Lower the difficulty or add more practice time so players can learn the rhythm and movement space.",
         exportDone:"CSV downloaded",
-        howText:"How to play: hit 🥊/🎯 targets quickly, avoid 💣, collect ⭐, keep combo for FEVER. Press J/K on keyboard for left/right punches."
+        howText:"How to play: show L/R fist cursors, punch 🥊/🎯 targets, collect ⚡ Rush, avoid 💣, and clear 4 missions. Normal is tuned for classroom play."
       }
     };
 
@@ -1587,9 +1588,10 @@
     ];
 
     const DIFF = {
-      // v7 Classroom Final Fun: ยังเล่นได้จริง แต่เพิ่มแรงกดดัน/ความเสี่ยง/เป้าหมายเล่นซ้ำ
-      easy:   { label:"Easy",   spawnMin:1120, spawnMax:1500, ttl:2600, size:122, decoy:.05, power:.10, rush:.08, shield:.04, baseBossHp:82,  playerDmg:2, missDmg:1, punch:35,  feverGain:{perfect:11,good:7,okay:4}, feverLoss:4, comboGoal:10, rushGoal:3 },
-      normal: { label:"Normal", spawnMin:820,  spawnMax:1160, ttl:2150, size:108, decoy:.10, power:.08, rush:.11, shield:.08, baseBossHp:112, playerDmg:4, missDmg:2, punch:60,  feverGain:{perfect:9,good:5,okay:3}, feverLoss:7, comboGoal:14, rushGoal:3 },
+      // v7.1 Classroom Balance Polish:
+      // Easy = ฝึกมือ / Normal = เด็กส่วนใหญ่ควรไปถึงบอส 3 และเด็กที่ดีมากมีลุ้นบอส 4 / Hard = แข่งคะแนนจริง
+      easy:   { label:"Easy",   spawnMin:1120, spawnMax:1500, ttl:2650, size:124, decoy:.04, power:.10, rush:.08, shield:.04, baseBossHp:78,  playerDmg:2, missDmg:1, punch:32,  feverGain:{perfect:11,good:7,okay:4}, feverLoss:4, comboGoal:10, rushGoal:3 },
+      normal: { label:"Normal", spawnMin:880,  spawnMax:1230, ttl:2320, size:112, decoy:.08, power:.09, rush:.12, shield:.07, baseBossHp:102, playerDmg:3, missDmg:2, punch:52,  feverGain:{perfect:10,good:6,okay:3}, feverLoss:6, comboGoal:14, rushGoal:3 },
       hard:   { label:"Hard",   spawnMin:580,  spawnMax:880,  ttl:1750, size:96,  decoy:.16, power:.06, rush:.14, shield:.13, baseBossHp:150, playerDmg:6, missDmg:4, punch:95,  feverGain:{perfect:7,good:4,okay:2}, feverLoss:10, comboGoal:18, rushGoal:4 }
     };
 
@@ -2701,7 +2703,7 @@
         : bossClear >= 2
           ? (state.lang==="th" ? "เริ่มเป็นเกมแล้ว รอบต่อไปให้เน้น Rush ⚡ และคุม Bomb 💣" : "Good run. Next, chase Rush ⚡ and control Bomb 💣.")
           : (state.lang==="th" ? "ลอง Easy เพื่อจับจังหวะมือ แล้วค่อยกลับมา Normal" : "Practice on Easy, then return to Normal.");
-      $("resultAdvice").textContent = `${advice} • ${nextGoal} • ${missionText}`;
+      $("resultAdvice").innerHTML = `${escapeHtml(advice)}<br>${escapeHtml(nextGoal)}<br>${escapeHtml(missionText)}`;
       $("resultOverlay").classList.add("show");
     }
 
