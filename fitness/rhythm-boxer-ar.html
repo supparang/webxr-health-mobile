@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Production Lock | v20260618-rb-production-lock -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Production Lock + Sheets + Sheets Default | v20260618-rb-sheets-default -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -417,7 +417,7 @@
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
       <h1>🥊 Rhythm Boxer AR</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets hook พร้อมใช้จริง
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -581,6 +581,7 @@
   const RB_VERSION = 'v20260618-rb-production-lock';
   const RB_GAME_ID = 'rhythmboxer';
   const RB_DEFAULT_HUB = './';
+  const RB_DEFAULT_API = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
 
   function rbAbsUrl(raw, fallback=RB_DEFAULT_HUB){
     try{
@@ -595,7 +596,7 @@
   }
 
   function rbApiUrl(){
-    return String(qs('api', qs('sheet', qs('submit', '')) || '')).trim();
+    return String(qs('api', qs('sheet', qs('submit', RB_DEFAULT_API))) || '').trim();
   }
 
   function rbMeta(){
