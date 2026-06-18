@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sport Science Syntax Fix | v20260618-rb-sportscience-fix -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sport Science Stable | v20260618-rb-sportscience-stable -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -423,7 +423,7 @@
 }
 
 
-/* === Sport Science Complete : v20260618-rb-sportscience-complete === */
+/* === Sport Science Stable : v20260618-rb-sportscience-complete === */
 .sport-panel{
   margin-top:14px;
   border-radius:22px;
@@ -496,7 +496,7 @@
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
       <h1>🥊 Rhythm Boxer AR</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง • Sport Science Complete • Sport Science Complete: timing + symmetry + speed + fatigue + tracking quality
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets auto-submit พร้อมใช้จริง • Sport Science Stable • Sport Science Stable: timing + symmetry + speed + fatigue + tracking quality
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -508,6 +508,7 @@
       <span class="chip">Sheets Default ON</span>
       <span class="chip">Rank Balance</span>
       <span class="chip">Sport Science</span>
+      <span class="chip">Syntax Stable</span>
     </div>
   </header>
 
@@ -1687,8 +1688,7 @@
 
   function sessionPayload(reason,stars,rank){
     const sm = sportMetrics();
-    const sm = sportMetrics();
-    return {
+return {
       tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode, version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''), version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''),
       reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, maxFlowCombo:S.maxFlowCombo||0, comboBreaks:S.comboBreaks||0, shots:S.shots, hits:S.hits,
       accPct:accPct().toFixed(2), perfect:S.perfect, great:S.great, good:S.good, miss:S.miss,
