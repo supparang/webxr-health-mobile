@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-  <title>HeroHealth • Rhythm Boxer AR Body FIX</title>
+  <title>HeroHealth • Rhythm Boxer AR Body CALIBRATED</title>
   <meta name="theme-color" content="#ff9dcf" />
   <meta name="color-scheme" content="light" />
 
@@ -271,9 +271,9 @@
   <header class="topbar">
     <div>
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
-      <h1>🥊 Rhythm Boxer AR Body FIX</h1>
+      <h1>🥊 Rhythm Boxer AR Body CALIBRATED</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชันนี้แก้ให้ให้คะแนนจาก body punch ง่ายขึ้น
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชันนี้ calibrate ใหม่: ลดการนับหมัดถี่เกินไป และนับคะแนนจาก body punch ที่เข้า note จริงมากขึ้น
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -674,7 +674,7 @@
     // First try the predicted lane, then allow the nearest visible note in the active lane set.
     const exact = findNearest(lane,now);
     const goodWin = windows().good;
-    if(exact && Math.abs(exact.dt) <= goodWin + 80) return exact;
+    if(exact && Math.abs(exact.dt) <= goodWin + 40) return exact;
 
     const tRel = now-S.t0;
     let best=null, ba=1e9;
@@ -688,7 +688,7 @@
         best = {note:n, dt};
       }
     }
-    if(best && Math.abs(best.dt) <= goodWin + 115) return best;
+    if(best && Math.abs(best.dt) <= goodWin + 65) return best;
     return exact;
   }
 
@@ -699,7 +699,7 @@
     const last = S.lastLaneTap[lane] || 0;
     if(tNow-last < 105){S.spam++; if(S.spam%4===0) coach('อย่ากดรัว รอ note ถึงเส้นก่อน','miss'); return}
     S.lastLaneTap[lane]=tNow;
-    if(source.startsWith('body')) S.bodyPunches++;
+    if(source.startsWith('body')) S.bodyAttempts++;
 
     const found = String(source).startsWith('body')
       ? findNearestFlexible(lane,tNow)
@@ -717,7 +717,7 @@
     if(found){
       dt = found.dt;
       const a = Math.abs(dt);
-      const bodyForgive = String(source).startsWith('body') ? 1.28 : 1.0;
+      const bodyForgive = String(source).startsWith('body') ? 1.16 : 1.0;
       if(a<=win.perfect*bodyForgive) judge='Perfect';
       else if(a<=win.great*bodyForgive) judge='Great';
       else if(a<=win.good*bodyForgive) judge='Good';
@@ -725,7 +725,7 @@
 
       if(judge!=='Miss'){
         found.note.hit=true; removeNote(found.note);
-        S.shots++; S.hits++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
+        S.shots++; S.hits++; if(String(source).startsWith('body')) S.bodyPunches++; S.combo++; S.maxCombo=Math.max(S.maxCombo,S.combo);
         if(judge==='Perfect') S.perfect++; else if(judge==='Great') S.great++; else S.good++;
         const base = judge==='Perfect'?120:judge==='Great'?85:50;
         const comboBonus = Math.min(60, Math.floor(S.combo/10)*10);
@@ -747,6 +747,14 @@
     }else blank=true;
 
     if(blank){
+      if(String(source).startsWith('body')){
+        // Body tracking can produce noisy wrist signals.
+        // Do not count body noise as a shot; otherwise accuracy collapses unfairly.
+        S.bodyNoise = (S.bodyNoise || 0) + 1;
+        logEvent(source + '_noise',{lane,judge:'Noise',offsetMs:''});
+        return;
+      }
+
       S.blank++; S.shots++; S.combo=0; S.score=Math.max(0,S.score-8);
       feedback('MISS','miss'); sfx('miss'); vibrate([18,35,18]); hitFx('miss'); laneFlash(lane,'miss'); fieldShake();
     }
@@ -843,7 +851,7 @@
   function reset(){
     S.running=false; S.t0=0; S.tEnd=0; S.lastBeat=-1; S.notes=[]; S.nextId=1;
     S.score=0;S.combo=0;S.maxCombo=0;S.shots=0;S.hits=0;S.perfect=0;S.great=0;S.good=0;S.miss=0;S.blank=0;S.spam=0;S.bodyPunches=0;
-    S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];
+    S.fever=0;S.feverOn=false;S.phase='warmup';S.events=[];S.offsets=[];S.lastLaneTap=[0,0,0,0,0];S.bodyAttempts=0;S.bodyNoise=0;
     S.boss={active:false,hp:24,hpMax:24,clear:false,window:false,lastWindow:0};
     laneEls().forEach(l=>Array.from(l.querySelectorAll('.note')).forEach(n=>n.remove()));
     els.bossCard.classList.add('hidden');
@@ -890,7 +898,7 @@
     if(acc>=85 && S.maxCombo>=20) notes.push('ผู้เรียนควบคุมจังหวะและสมาธิได้ดี เหมาะเพิ่มระดับความยาก');
     else if(acc>=70) notes.push('ผู้เรียนจับจังหวะได้ดี ควรฝึกความต่อเนื่องของ combo');
     else notes.push('ควรเริ่มจาก Easy และลดความเร็ว เพื่อฝึก timing ก่อน');
-    if(S.spam>=8) notes.push('พบการกด/ชกรัว ควรย้ำกติกาชกตามจังหวะ ไม่กดมั่ว');
+    if(S.spam>=8 || (S.bodyNoise||0)>=10) notes.push('พบสัญญาณหมัดถี่/สัญญาณรบกวนจากกล้อง ควรย้ำให้ตั้ง guard แล้วชกเป็นจังหวะ ไม่แกว่งมือตลอดเวลา');
     if(S.miss>=12) notes.push('พลาดบ่อย ควรพัก 30–60 วินาที หรือลดเวลาเล่น');
     return notes.join(' · ');
   }
@@ -911,7 +919,7 @@
     els.resBody.textContent=payload.bodyPunches;
     els.resMiss.textContent=payload.miss;
     els.resBoss.textContent=S.boss.clear?'Boss Clear':'—';
-    els.quality.textContent='ข้อเสนอแนะครู: '+payload.teacherRecommendation;
+    els.quality.textContent='ข้อเสนอแนะครู: '+payload.teacherRecommendation + ' | Body attempts: ' + (payload.bodyAttempts||0) + ' | Body noise ignored: ' + (payload.bodyNoise||0);
     logEvent('end',{reason,rank,stars});
     if(qbool('arAutoStop',true)) stopCamera();
     show('result');
@@ -922,7 +930,7 @@
       tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode,
       reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, shots:S.shots, hits:S.hits,
       accPct:accPct().toFixed(2), perfect:S.perfect, great:S.great, good:S.good, miss:S.miss,
-      blank:S.blank, spam:S.spam, bodyPunches:S.bodyPunches, bossClear:S.boss.clear?1:0,
+      blank:S.blank, spam:S.spam, bodyPunches:S.bodyPunches, bodyAttempts:S.bodyAttempts||0, bodyNoise:S.bodyNoise||0, bossClear:S.boss.clear?1:0,
       teacherRecommendation:teacherRec()
     };
   }
@@ -1055,7 +1063,7 @@
     S.body.last[side]={x:wrist.x,y:wrist.y,t:now};
 
     // Re-arm when hand returns near guard or drops slightly.
-    if(ext < .92 || wrist.y > shoulder.y + .30) S.body.armed[side]=true;
+    if(ext < .82 || wrist.y > shoulder.y + .32) S.body.armed[side]=true;
 
     const cooldown = now - (S.body.lastPunch[side]||0);
 
@@ -1063,9 +1071,9 @@
     // arm extended + some wrist movement + not too low in the screen.
     const isPunch =
       S.body.armed[side] &&
-      cooldown > 230 &&
-      ext > 1.02 &&
-      speed > .32 &&
+      cooldown > 430 &&
+      ext > 1.10 &&
+      speed > .38 &&
       wrist.y < .90;
 
     if(isPunch){
@@ -1080,7 +1088,7 @@
   function tryBodyHitFromWrist(side,wrist){
     const now = nowMs();
     const cooldown = now - (S.body.lastPunch[side]||0);
-    if(cooldown < 360) return;
+    if(cooldown < 620) return;
     if(!wrist || wrist.v < .42) return;
 
     const lane = xToLane(wrist.x);
@@ -1088,7 +1096,7 @@
     if(!found) return;
 
     const a = Math.abs(found.dt);
-    if(a <= windows().good * 1.18 && wrist.y < .88){
+    if(a <= windows().good * .92 && wrist.y < .86){
       S.body.lastPunch[side] = now;
       S.body.armed[side] = false;
       handleInput(lane,'body_hold_'+side);
