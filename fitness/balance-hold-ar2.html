@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
-  <title>Fitness AR • Balance Hold v11 Body Readiness</title>
+  <title>Fitness AR • Balance Hold v12 Production Sheet</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%2322d3ee%27/%3E%3Ctext x=%2732%27 y=%2743%27 text-anchor=%27middle%27 font-size=%2734%27%3E%E2%9A%96%EF%B8%8F%3C/text%3E%3C/svg%3E" />
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -525,7 +526,7 @@
             <div class="modalIcon">⚖️</div>
             <div>
               <h1>Balance Hold AR</h1>
-              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และเพิ่ม Body Readiness ที่เช็กเฟรม/โครงร่างก่อนเริ่มเล่น</p>
+              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และเพิ่ม Body Readiness, Skeleton Guide และส่งผลเข้า Google Sheet/CSV สำหรับครู</p>
             </div>
           </div>
 
@@ -537,6 +538,7 @@
             <div class="tip">🖥️ PC ค่าเริ่มต้นใช้เมาส์ / ลูกศร / WASD ไม่ใช้ Tilt</div>
             <div class="tip">🧘 ยืนสองเท้า ย่อเข่าเล็กน้อย ไม่ต้องยืนขาเดียว</div>
             <div class="tip">🔥 มี Focus Fever ที่ปรับตาม Body/Head / ภารกิจ / Personal Best เพื่อเล่นซ้ำ</div>
+            <div class="tip">☁️ ส่งผลอัตโนมัติไป Google Sheet ได้ พร้อม fallback เป็น CSV</div>
           </div>
 
           <div class="formGrid">
@@ -569,6 +571,7 @@
             <label class="toggle"><input id="useBody" type="checkbox" checked /> ใช้ Body Lite / Full Body Detection (ทดลอง)</label>
             <label class="toggle"><input id="useHead" type="checkbox" checked /> ใช้ Head Balance micro-control สำรอง</label>
             <label class="toggle"><input id="researchMode" type="checkbox" /> Research run / เก็บข้อมูลละเอียด</label>
+            <label class="toggle"><input id="autoSubmit" type="checkbox" checked /> ส่งผลอัตโนมัติ Google Sheet</label>
             <label class="toggle"><input id="safeMode" type="checkbox" checked /> Safe mode สำหรับเด็ก</label>
           </div>
 
@@ -592,7 +595,8 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V11-BODY-READINESS';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V12-PRODUCTION-SHEET-LINKED';
+    const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -616,7 +620,7 @@
       inputModePill:$('inputModePill'), safetyPill:$('safetyPill'),
       startOverlay:$('startOverlay'), resultOverlay:$('resultOverlay'), countdown:$('countdown'), toast:$('toast'),
       playerName:$('playerName'), classGroup:$('classGroup'), difficulty:$('difficulty'), duration:$('duration'), inputChoice:$('inputChoice'),
-      useCamera:$('useCamera'), useTilt:$('useTilt'), useBody:$('useBody'), useHead:$('useHead'), researchMode:$('researchMode'), safeMode:$('safeMode'),
+      useCamera:$('useCamera'), useTilt:$('useTilt'), useBody:$('useBody'), useHead:$('useHead'), researchMode:$('researchMode'), autoSubmit:$('autoSubmit'), safeMode:$('safeMode'),
       btnStart:$('btnStart'), btnCamera:$('btnCamera'), btnTilt:$('btnTilt'), btnBody:$('btnBody'), btnHead:$('btnHead'), btnDemo:$('btnDemo'),
       btnPause:$('btnPause'), btnHome:$('btnHome'), btnRecenter:$('btnRecenter')
     };
@@ -652,7 +656,7 @@
       head:{ wanted:false, supported:false, enabled:false, detecting:false, detector:null, detectorType:'', mp:null, mpLoaded:false, mpLastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, samples:0, safetyWarnAt:0, faceBox:null },
       body:{ wanted:false, supported:false, enabled:false, detecting:false, pose:null, loaded:false, lastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, bestQuality:0, samples:0, level:'none', bestLevel:'none', safetyWarnAt:0, landmarks:null, visibility:0, shoulderTilt:0, hipTilt:0, readiness:0, readinessLabel:'low', frameAdvice:'ยังไม่เห็นตัว', assistMode:'head_assist', lastReadyUI:0 },
       cameraOn:false, stream:null, cameraFacing:'environment', arWanted:true, inputMode:'pointer',
-      ctx:{ player:'Hero', group:'P5', diff:'normal', run:'play', studyId:q('studyId',''), pid:q('pid',''), hub:q('hub','./index.html') }
+      ctx:{ player:'Hero', group:'P5', diff:'normal', run:'play', studyId:q('studyId',''), pid:q('pid',''), hub:q('hub','./'), sheetUrl:q('sheet', DEFAULT_SHEET_URL), autoSubmit:q('submit','1') !== '0' }
     };
 
     function requestedControl(){
@@ -1430,6 +1434,8 @@
       state.ctx.group = el.classGroup.value.trim() || q('group','P5');
       state.ctx.diff = el.difficulty.value || q('diff','normal');
       state.ctx.run = el.researchMode.checked ? 'research' : (q('run','play'));
+      state.ctx.autoSubmit = !!el.autoSubmit.checked;
+      state.ctx.sheetUrl = q('sheet', DEFAULT_SHEET_URL);
       state.score = 0; state.combo = 0; state.bestCombo = 0; state.stars = 0; state.hits = 0; state.misses = 0;
       state.stability = 100; state.totalInMs = 0; state.totalOutMs = 0; state.outCount = 0;
       state.fever = 0; state.feverActive = false; state.feverUntil = 0; state.feverCount = 0; state.cleanPosts = 0; state.nearSave = 0;
@@ -1566,7 +1572,6 @@
             ty = state.cursor.y + (c.y - state.cursor.y) * .012;
           }
         }
-      }
       }
 
       const diff = DIFF[state.ctx.diff] || DIFF.normal;
@@ -1793,7 +1798,7 @@
       try { previousBest = Number(localStorage.getItem(bestKey()) || 0) || 0; } catch(_){ }
       const summary = {
         version:VERSION, player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
-        game:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, bodySupported:state.body.supported ? 'yes' : 'no', bodySamples:state.body.samples, bodyQuality:bodyQ, bodyReadiness, bodyAssist, bodyLevel, diff:state.ctx.diff, duration:state.timeLimit, reason,
+        game:'balancehold', mode:'AR', sheetUrl:state.ctx.sheetUrl, autoSubmit:state.ctx.autoSubmit ? 'yes' : 'no', sheetStatus:'pending', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, bodySupported:state.body.supported ? 'yes' : 'no', bodySamples:state.body.samples, bodyQuality:bodyQ, bodyReadiness, bodyAssist, bodyLevel, diff:state.ctx.diff, duration:state.timeLimit, reason,
         score:safeScore, scoreFinal:safeScore, previousBest, isNewBest:safeScore > previousBest ? 'yes' : 'no', missionDone, feverCount:state.feverCount, cleanPosts:state.cleanPosts,
         stars:state.stars, passedPosts:passed, totalPosts:total,
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
@@ -1819,20 +1824,85 @@
         if (summary.score > (Number(summary.previousBest)||0)) localStorage.setItem(bestKey(), String(summary.score));
       } catch(_){ }
       renderSummary(summary);
+      if (state.ctx.autoSubmit && state.ctx.sheetUrl) submitToSheet(summary);
+    }
+
+
+    function compactPostSummary(summary){
+      return summary.posts.map(p => ({
+        id:p.id, key:p.key, title:p.title, quality:p.quality, stars:p.stars,
+        score:p.score, outCount:p.outCount, inMs:Math.round(p.inMs || 0)
+      }));
+    }
+
+    function sheetPayload(summary){
+      return {
+        source:'fitness-balance-hold-ar', version:summary.version, ts:summary.ts,
+        player:summary.player, group:summary.group, pid:summary.pid, studyId:summary.studyId,
+        game:summary.game, mode:summary.mode, inputMode:summary.inputMode,
+        diff:summary.diff, duration:summary.duration, reason:summary.reason,
+        score:summary.score, previousBest:summary.previousBest, isNewBest:summary.isNewBest,
+        rank:summary.rank, grade:summary.grade, stars:summary.stars,
+        passedPosts:summary.passedPosts, totalPosts:summary.totalPosts,
+        validHoldRatio:summary.validHoldRatio, accPct:summary.accPct, focusScore:summary.focusScore, avgQuality:summary.avgQuality,
+        comboMax:summary.comboMax, hits:summary.hits, misses:summary.misses, outCount:summary.outCount,
+        feverCount:summary.feverCount, cleanPosts:summary.cleanPosts, missionDone:summary.missionDone,
+        headSupported:summary.headSupported, headSamples:summary.headSamples,
+        bodySupported:summary.bodySupported, bodySamples:summary.bodySamples,
+        bodyQuality:summary.bodyQuality, bodyReadiness:summary.bodyReadiness, bodyAssist:summary.bodyAssist, bodyLevel:summary.bodyLevel,
+        bestPost:summary.bestPost, hardestPost:summary.hardestPost,
+        teacherSuggestion:summary.teacherSuggestion, nextChallenge:summary.nextChallenge,
+        posts:JSON.stringify(compactPostSummary(summary)),
+        eventsCount:state.events.length
+      };
+    }
+
+    async function submitToSheet(summary){
+      if (!summary || !state.ctx.sheetUrl) return false;
+      const payload = sheetPayload(summary);
+      try {
+        const body = new FormData();
+        Object.entries(payload).forEach(([k,v]) => body.append(k, v == null ? '' : String(v)));
+        if (navigator.sendBeacon) {
+          const ok = navigator.sendBeacon(state.ctx.sheetUrl, body);
+          if (ok) {
+            summary.sheetStatus = 'sent_beacon';
+            toast('ส่งผลไป Google Sheet แล้ว');
+            logEvent('sheet_submit', { status:'sent_beacon' });
+            return true;
+          }
+        }
+        await fetch(state.ctx.sheetUrl, { method:'POST', mode:'no-cors', body });
+        summary.sheetStatus = 'sent_fetch';
+        toast('ส่งผลไป Google Sheet แล้ว');
+        logEvent('sheet_submit', { status:'sent_fetch' });
+        return true;
+      } catch (err) {
+        summary.sheetStatus = 'failed';
+        try {
+          const key = 'fitness_balance_hold_pending_sheet';
+          const pending = JSON.parse(localStorage.getItem(key) || '[]');
+          pending.push(payload);
+          localStorage.setItem(key, JSON.stringify(pending.slice(-20)));
+        } catch(_){}
+        toast('ส่ง Sheet ไม่สำเร็จ เก็บสำรองไว้ในเครื่อง');
+        logEvent('sheet_submit', { status:'failed', message:String(err && err.message || err) });
+        return false;
+      }
     }
 
     function csvEscape(v){ return '"' + String(v ?? '').replaceAll('"','""') + '"'; }
     function downloadCSV(summary, detailed=false){
       const rows = [];
       if (!detailed) {
-        const headers = ['ts','player','group','game','mode','inputMode','headSupported','headSamples','bodySupported','bodySamples','bodyQuality','bodyReadiness','bodyAssist','bodyLevel','diff','duration','reason','score','previousBest','isNewBest','missionDone','feverCount','cleanPosts','stars','rank','grade','accPct','focusScore','avgQuality','comboMax','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion'];
+        const headers = ['ts','version','player','group','pid','studyId','game','mode','inputMode','headSupported','headSamples','bodySupported','bodySamples','bodyQuality','bodyReadiness','bodyAssist','bodyLevel','diff','duration','reason','score','previousBest','isNewBest','missionDone','feverCount','cleanPosts','stars','rank','grade','accPct','validHoldRatio','focusScore','avgQuality','comboMax','hits','misses','outCount','passedPosts','totalPosts','bestPost','hardestPost','teacherSuggestion','nextChallenge','autoSubmit','sheetStatus'];
         rows.push(headers.join(','));
         rows.push(headers.map(h => csvEscape(summary[h])).join(','));
       } else {
-        const headers = ['ts','player','group','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','bodyQuality','bodyLevel','feverCount','cleanPosts','stars','quality','postScore','outCount'];
+        const headers = ['ts','version','player','group','pid','studyId','eventT','kind','post','score','holdMs','stability','x','y','inputMode','headQuality','bodyQuality','bodyReadiness','bodyAssist','bodyLevel','feverCount','cleanPosts','stars','quality','postScore','outCount'];
         rows.push(headers.join(','));
-        state.events.forEach(e => rows.push(headers.map(h => csvEscape(h==='player'?summary.player:h==='group'?summary.group:h==='eventT'?e.t:e[h])).join(',')));
-        summary.posts.forEach(p => rows.push(headers.map(h => csvEscape({ts:summary.ts,player:summary.player,group:summary.group,eventT:'',kind:'post_summary',post:p.key,score:summary.score,holdMs:Math.round(p.inMs),stability:p.quality,stars:p.stars,quality:p.quality,postScore:p.score,outCount:p.outCount}[h])).join(',')));
+        state.events.forEach(e => rows.push(headers.map(h => csvEscape(h==='version'?summary.version:h==='player'?summary.player:h==='group'?summary.group:h==='pid'?summary.pid:h==='studyId'?summary.studyId:h==='bodyReadiness'?summary.bodyReadiness:h==='bodyAssist'?summary.bodyAssist:h==='eventT'?e.t:e[h])).join(',')));
+        summary.posts.forEach(p => rows.push(headers.map(h => csvEscape({ts:summary.ts,version:summary.version,player:summary.player,group:summary.group,pid:summary.pid,studyId:summary.studyId,eventT:'',kind:'post_summary',post:p.key,score:summary.score,holdMs:Math.round(p.inMs),stability:p.quality,inputMode:summary.inputMode,bodyReadiness:summary.bodyReadiness,bodyAssist:summary.bodyAssist,bodyLevel:summary.bodyLevel,stars:p.stars,quality:p.quality,postScore:p.score,outCount:p.outCount}[h])).join(',')));
       }
       const blob = new Blob([rows.join('\n')], { type:'text/csv;charset=utf-8' });
       const a = document.createElement('a');
@@ -1842,7 +1912,7 @@
     }
 
     function plannerReturn(summary){
-      const raw = state.ctx.hub || q('hub','./index.html');
+      const raw = state.ctx.hub || q('hub','./');
       try{
         const u = new URL(raw, location.href);
         u.searchParams.set('plannerReturn','1');
@@ -1898,6 +1968,7 @@
               <div class="postRow"><div>Focus Fever</div><div>${summary.feverCount} ครั้ง</div><div>Clean ${summary.cleanPosts}</div></div>
               <div class="postRow"><div>Body Tracking</div><div>${summary.bodyLevel || '-'}</div><div>${summary.bodyQuality || 0}%</div></div>
               <div class="postRow"><div>Body Readiness</div><div>${summary.bodyAssist || '-'}</div><div>${summary.bodyReadiness || 0}%</div></div>
+              <div class="postRow"><div>Google Sheet</div><div>${summary.autoSubmit}</div><div>${summary.sheetStatus || 'pending'}</div></div>
               <div class="postRow"><div>ฐานที่ดีที่สุด<small>${summary.bestPost || '-'}</small></div><div></div><div></div></div>
               <div class="postRow"><div>ฐานที่ควรฝึกเพิ่ม<small>${summary.hardestPost || '-'}</small></div><div></div><div></div></div>
             </div>
@@ -1914,6 +1985,7 @@
           </div>
           <div class="actions">
             <button class="btn primary" id="btnReplay" type="button">🔁 เล่นอีกครั้ง / ล่า PB</button>
+            <button class="btn blue" id="btnSheet" type="button">☁️ ส่ง Sheet</button>
             <button class="btn blue" id="btnCsv" type="button">📄 Export CSV</button>
             <button class="btn orange" id="btnCsvResearch" type="button">🧪 Research CSV</button>
             <button class="btn" id="btnBackHub" type="button">🏠 กลับ Fitness</button>
@@ -1921,6 +1993,7 @@
         </section>`;
       el.resultOverlay.classList.remove('hidden');
       $('btnReplay').onclick = () => startGame();
+      $('btnSheet').onclick = () => submitToSheet(summary);
       $('btnCsv').onclick = () => downloadCSV(summary, false);
       $('btnCsvResearch').onclick = () => downloadCSV(summary, true);
       $('btnBackHub').onclick = () => plannerReturn(summary);
@@ -1931,7 +2004,7 @@
         const ok = confirm('ออกจากเกม Balance Hold ตอนนี้หรือไม่?');
         if (!ok) return;
       }
-      const hub = q('hub','./index.html');
+      const hub = q('hub','./');
       location.href = hub;
     }
 
@@ -1941,6 +2014,7 @@
       const diff = q('diff','normal'); if (DIFF[diff]) el.difficulty.value = diff;
       const time = String(qNum('time',60)); if ([...el.duration.options].some(o=>o.value===time)) el.duration.value = time;
       if (q('run','') === 'research') el.researchMode.checked = true;
+      if (hasExplicitQuery('submit')) el.autoSubmit.checked = q('submit','1') !== '0';
       if (q('ar','1') === '0') el.useCamera.checked = false;
       if (hasExplicitQuery('tilt')) el.useTilt.checked = q('tilt','1') !== '0';
       else el.useTilt.checked = IS_MOBILE;
