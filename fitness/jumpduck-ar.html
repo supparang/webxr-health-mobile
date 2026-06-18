@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • PC/Mobile AR Fitness v7 Easy Tune</title>
+  <title>JumpDuck Dash • PC/Mobile AR Fitness v8 Compact Start</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -81,6 +81,43 @@
     }
     .leader-row:last-child{ border-bottom:0; }
 
+
+    /* v8 compact start screen: prevents first-page overflow on mobile */
+    .start-panel{
+      max-height:calc(100dvh - 28px);
+      overflow:auto;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior:contain;
+    }
+    .start-panel::-webkit-scrollbar{ width:0; height:0; }
+    .start-logo{ width:82px; height:82px; }
+    .start-logo span{ font-size:3.35rem; line-height:1; }
+    .setup-mini{ display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.45rem; }
+    .setup-mini > div{ border-radius:1rem; border:1px solid #bbf7d0; background:#ecfdf5; padding:.5rem .35rem; font-size:.68rem; line-height:1.15; font-weight:900; color:#047857; }
+    .setup-details{ border-radius:1.15rem; border:1px solid #e2e8f0; background:#f8fafc; text-align:left; }
+    .setup-details summary{ cursor:pointer; list-style:none; padding:.65rem .85rem; font-weight:900; color:#334155; font-size:.78rem; }
+    .setup-details summary::-webkit-details-marker{ display:none; }
+    .setup-details .detail-body{ padding:0 .85rem .75rem; color:#475569; font-size:.73rem; line-height:1.45; }
+    .compact-note{ font-size:.70rem; line-height:1.25; }
+    @media (max-height: 760px){
+      .start-panel{ padding:1rem !important; border-radius:1.55rem !important; }
+      .start-logo{ width:68px; height:68px; margin-bottom:.45rem !important; }
+      .start-logo span{ font-size:2.75rem; }
+      #start-screen h1{ font-size:2.35rem !important; line-height:1.02; }
+      #start-screen .hide-short{ display:none !important; }
+      #start-controls{ margin-top:.75rem !important; }
+      #btn-start{ padding:.82rem !important; font-size:1.25rem !important; border-radius:1.25rem !important; }
+    }
+    @media (max-width: 560px){
+      #start-screen{ padding:.75rem !important; align-items:flex-start !important; }
+      .start-panel{ max-height:calc(100dvh - 24px); padding:1rem !important; border-radius:1.6rem !important; }
+      .start-logo{ width:70px; height:70px; margin-bottom:.5rem !important; }
+      .start-logo span{ font-size:2.85rem; }
+      #start-screen h1{ font-size:2.45rem !important; line-height:1.05; }
+      .setup-mini > div{ font-size:.62rem; padding:.46rem .25rem; }
+      .time-btn{ padding:.42rem .25rem; border-radius:.85rem; }
+    }
+
     @media (max-width: 560px){
       .manual-btn{ width:44px; height:44px; border-radius:16px; font-size:20px; }
       #manual-pad{ left:8px; transform:translateY(-56%) scale(.92); transform-origin:left center; }
@@ -94,46 +131,52 @@
 
 <body class="relative h-screen w-screen overflow-hidden bg-slate-950">
 
-  <!-- START SCREEN -->
-  <section id="start-screen" class="absolute inset-0 z-40 flex items-center justify-center p-5 text-center bg-gradient-to-br from-cyan-100 via-emerald-100 to-yellow-100">
-    <div class="w-full max-w-md rounded-[2rem] bg-white/95 p-6 shadow-2xl border-4 border-yellow-300 float-animation">
-      <div class="mx-auto mb-4 flex h-28 w-28 items-center justify-center rounded-full bg-yellow-300 border-4 border-yellow-500 shadow-lg">
-        <span class="text-6xl">🦆</span>
+  <!-- START SCREEN • v8 compact classroom start page -->
+  <section id="start-screen" class="absolute inset-0 z-40 flex items-center justify-center p-4 text-center bg-gradient-to-br from-cyan-100 via-emerald-100 to-yellow-100">
+    <div class="start-panel w-full max-w-md rounded-[1.9rem] bg-white/95 p-5 shadow-2xl border-4 border-yellow-300">
+      <div class="start-logo mx-auto mb-3 flex items-center justify-center rounded-full bg-yellow-300 border-4 border-yellow-500 shadow-lg">
+        <span>🦆</span>
       </div>
 
-      <div class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1 text-xs font-extrabold text-emerald-700 mb-3">
-        <span>PC / MOBILE AR ONLY • HEROHEALTH METAVERSE</span>
+      <div class="inline-flex items-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-extrabold text-emerald-700 mb-2">
+        <span>PC / MOBILE AR • BODY TRACKING</span>
       </div>
 
       <h1 class="text-4xl md:text-5xl font-black tracking-tight text-emerald-600">JumpDuck Dash</h1>
-      <div class="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-1 text-[11px] font-black text-white shadow-md">📷 ใช้กล้องตรวจจับร่างกาย • สำหรับ PC / Mobile AR</div>
-      <p class="mt-2 text-base md:text-lg font-semibold text-slate-600">ด่าน PC / Mobile AR หลบสิ่งกีดขวางด้วยร่างกายจริง ฝึกความไว ความคล่องตัว และการตอบสนอง</p>
+      <p class="mt-1 text-sm md:text-base font-bold text-slate-600">หลบสิ่งกีดขวางด้วยร่างกายจริง: Jump / Duck / Left / Right</p>
 
-      <div class="mt-5 rounded-3xl border border-emerald-200 bg-emerald-50 p-4 text-left text-sm text-slate-700 space-y-2">
-        <div class="font-extrabold text-emerald-800"><i class="fa-solid fa-circle-info mr-1"></i> Camera Setup + Safety</div>
-        <p>1. ใช้บน <b>PC หรือ Mobile Browser</b> ตั้งกล้องให้เห็นศีรษะถึงสะโพก หรืออย่างน้อยช่วงลำตัวกับสะโพก</p>
-        <p>2. ยืนห่างกล้องประมาณ <b>1.5–2 เมตร</b> พื้นที่รอบตัวโล่ง ไม่มีโต๊ะ เก้าอี้ หรือสายไฟ</p>
-        <p>3. ก่อนเริ่มให้ยืนตรง <b>Calibrate 3 วินาที</b> แล้วค่อย Jump / Duck / Left / Right</p>
-        <p>4. ใช้มือปัดเก็บ <b>Energy Star</b> เพื่อเพิ่มคะแนน แต่ไม่ต้องกระโดดแรงเกินจำเป็น</p>
-        <p>5. รอบมาตรฐานสำหรับ ป.5 แนะนำ <b>60 วินาที</b> และพัก 45–60 วินาทีระหว่างรอบ</p>
-        <p class="rounded-2xl bg-orange-50 border border-orange-200 p-2 text-orange-700"><b>ล็อกแนวทาง:</b> เกมนี้เป็น PC/Mobile AR ไม่ใช่ Cardboard เพราะต้องใช้กล้องเห็นร่างกาย</p>
+      <div class="setup-mini mt-4">
+        <div>📷<br>เห็นหัว–สะโพก</div>
+        <div>📏<br>ห่าง 1.5–2 ม.</div>
+        <div>⏱️<br>แนะนำ 60s</div>
       </div>
 
-      <div class="mt-5 grid grid-cols-3 gap-2 text-xs font-bold text-slate-600">
-        <div class="rounded-2xl bg-yellow-50 border border-yellow-200 p-2">⬆️ Jump</div>
-        <div class="rounded-2xl bg-blue-50 border border-blue-200 p-2">⬇️ Duck</div>
-        <div class="rounded-2xl bg-purple-50 border border-purple-200 p-2">↔️ Left/Right</div>
+      <details class="setup-details mt-3">
+        <summary>ดูวิธีตั้งกล้องและความปลอดภัย ▾</summary>
+        <div class="detail-body space-y-1.5">
+          <p>• ใช้ PC หรือ Mobile Browser เท่านั้น ไม่ใช่ Cardboard VR</p>
+          <p>• พื้นที่รอบตัวต้องโล่ง ไม่มีโต๊ะ เก้าอี้ หรือสายไฟ</p>
+          <p>• ยืนตรงตอน Calibrate 3 วินาที แล้วค่อยขยับ</p>
+          <p>• ไม่ต้องกระโดดแรง เน้นทำจังหวะให้ตรงและปลอดภัย</p>
+        </div>
+      </details>
+
+      <div class="hide-short mt-3 grid grid-cols-4 gap-1.5 text-[11px] font-black text-slate-600">
+        <div class="rounded-xl bg-yellow-50 border border-yellow-200 p-1.5">⬆️ Jump</div>
+        <div class="rounded-xl bg-blue-50 border border-blue-200 p-1.5">⬇️ Duck</div>
+        <div class="rounded-xl bg-purple-50 border border-purple-200 p-1.5">⬅️ Left</div>
+        <div class="rounded-xl bg-pink-50 border border-pink-200 p-1.5">➡️ Right</div>
       </div>
 
-      <div id="init-loading" class="mt-6 space-y-3">
-        <div class="flex items-center justify-center gap-3 text-emerald-600 font-bold">
-          <div class="h-6 w-6 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
+      <div id="init-loading" class="mt-4 space-y-2">
+        <div class="flex items-center justify-center gap-3 text-emerald-600 font-bold text-sm">
+          <div class="h-5 w-5 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent"></div>
           <span>กำลังโหลด AI ตรวจจับร่างกาย...</span>
         </div>
-        <p class="text-xs text-slate-400">โปรดอนุญาตกล้องเมื่อระบบร้องขอ</p>
+        <p class="compact-note text-slate-400 font-semibold">โปรดอนุญาตกล้องเมื่อระบบร้องขอ</p>
       </div>
 
-      <div id="start-controls" class="hidden mt-6 space-y-3">
+      <div id="start-controls" class="hidden mt-4 space-y-2.5">
         <div class="grid grid-cols-3 gap-2 text-xs font-bold">
           <button data-diff="easy" class="diff-btn rounded-2xl border-2 border-emerald-400 bg-emerald-100 px-3 py-2 text-emerald-800">Easy</button>
           <button data-diff="normal" class="diff-btn rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-slate-700">Normal</button>
@@ -144,15 +187,14 @@
           <button data-time="60" class="time-btn active">60s<br><span class="text-[10px] font-bold">Standard</span></button>
           <button data-time="90" class="time-btn">90s<br><span class="text-[10px] font-bold">Challenge</span></button>
         </div>
-        <button id="btn-start" class="w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-4 text-2xl font-black text-white shadow-xl border-b-4 border-emerald-700 active:scale-95 transition">
-          <i class="fa-solid fa-play mr-2"></i> เริ่มด่าน JumpDuck
+        <button id="btn-start" class="w-full rounded-3xl bg-gradient-to-r from-emerald-500 to-cyan-500 py-3.5 text-xl font-black text-white shadow-xl border-b-4 border-emerald-700 active:scale-95 transition">
+          <i class="fa-solid fa-play mr-2"></i> เริ่มเล่น
         </button>
         <div class="grid grid-cols-2 gap-2">
           <button id="btn-teacher-mode" class="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 active:scale-95 transition">Teacher Test: OFF</button>
-          <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Fitness Hub</button>
+          <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Hub</button>
         </div>
-        <p class="text-xs font-semibold text-emerald-600">พร้อมแล้ว: PC/Mobile AR + Big Obstacles + Leaderboard + Badges + Camera Help + Gesture Hold</p>
-        <p class="text-[11px] font-bold text-slate-400">v7 Easy Tune: Big Obstacles • Early Gesture Memory • Kid-Friendly Easy • Leaderboard • CSV</p>
+        <p class="compact-note text-emerald-600 font-bold">v8 Compact Start • Easy Tune • Big Obstacles • CSV</p>
       </div>
     </div>
   </section>
@@ -353,7 +395,7 @@
 
   <script>
     // =============================================================
-    // JumpDuck Dash v7 • PC/Mobile AR Easy Tune
+    // JumpDuck Dash v8 • PC/Mobile AR Compact Start
     // Scope: PC webcam + Mobile front camera AR only. No Cardboard/cVR body-tracking mode.
     // =============================================================
 
@@ -410,7 +452,7 @@
     const btnClearLeader = $('btn-clear-leader');
 
     const DIFF = {
-      // v7 Easy Tune: Easy is intentionally forgiving; side moves still appear, but less often.
+      // v8 Compact Start: Easy is intentionally forgiving; side moves still appear, but less often.
       easy:   { label:'Easy',   time:60, spawnMs:2650, speed:3.7, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:6, sideEvery:8, forceFirstSideAfter:9, judgeZone:315, scoreZoneMultiplier:2.35, missZoneMultiplier:1.75, holdMs:1680, manualHoldMs:1800, earlyGestureMemoryMs:2300, gestureDebounceMs:45, minGestureScore:.62, jumpRatio:.022, duckRatio:.034, sideRatio:.032 },
       normal: { label:'Normal', time:60, spawnMs:2050, speed:5.0, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:3, sideEvery:4, forceFirstSideAfter:5, judgeZone:270, scoreZoneMultiplier:2.05, missZoneMultiplier:1.50, holdMs:1450, manualHoldMs:1600, earlyGestureMemoryMs:2000, gestureDebounceMs:55, minGestureScore:.72, jumpRatio:.026, duckRatio:.040, sideRatio:.038 },
       hard:   { label:'Hard',   time:60, spawnMs:1650, speed:6.2, actions:['jump','duck'], sideActions:['left','right'], sideStartAfter:1, sideEvery:2, forceFirstSideAfter:3, judgeZone:225, scoreZoneMultiplier:1.78, missZoneMultiplier:1.34, holdMs:1220, manualHoldMs:1380, earlyGestureMemoryMs:1650, gestureDebounceMs:70, minGestureScore:.84, jumpRatio:.032, duckRatio:.048, sideRatio:.046 }
@@ -491,7 +533,7 @@
 
     function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-    const LEADER_KEY = 'jumpduck_dash_v7_leaderboard';
+    const LEADER_KEY = 'jumpduck_dash_v8_leaderboard';
 
     function loadLeaderboard(){
       try{ return JSON.parse(localStorage.getItem(LEADER_KEY) || '[]'); }
@@ -1081,7 +1123,7 @@
       const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
       const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
       const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), 'v7-easy-tune', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const row = [new Date().toISOString(), 'v8-compact-start', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
       const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
