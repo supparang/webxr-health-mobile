@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
-  <title>Fitness AR • Balance Hold v6</title>
+  <title>Fitness AR • Balance Hold v8</title>
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -664,13 +664,16 @@
 
     function updateMissions(){
       const total = state.posts.length || 1;
-      const m1 = state.postMetrics.some(p => p.stars >= 3);
-      const m2 = state.cleanPosts >= 2;
+      const isHead = (state.inputMode === 'head');
+      // v8: ภารกิจต้องให้เด็ก ป.5 รู้สึก "ทำได้อีกนิดก็สำเร็จ" ไม่ใช่ล็อกไว้ที่ 3 ดาวยากเกินไป
+      const m1 = state.postMetrics.some(p => p.stars >= 2 || p.quality >= 70);
+      const cleanTarget = isHead || state.ctx.diff === 'easy' ? 1 : 2;
+      const m2 = state.cleanPosts >= cleanTarget;
       const m3 = state.feverCount >= 1 || state.fever >= feverThreshold();
       const m4 = state.postMetrics.length >= Math.min(3,total);
       const list = [
-        { done:m1, text:'3⭐ ฐานหนึ่ง' },
-        { done:m2, text:'Clean x2' },
+        { done:m1, text:'2⭐/Quality 70 ฐานหนึ่ง' },
+        { done:m2, text:`Clean x${cleanTarget}` },
         { done:m3, text:'Fever/Flow x1' },
         { done:m4, text:`ผ่าน ${Math.min(3,total)} ฐาน` }
       ];
@@ -701,11 +704,14 @@
     function bestKey(){ return `fitness_balance_hold_best_${state.ctx.diff}_${state.timeLimit}_${state.inputMode || 'head'}`; }
 
     function nextChallenge(summary){
-      if (summary.focusScore >= 82 && summary.diff === 'easy') return 'ปลดล็อกโจทย์ถัดไป: เล่น Normal 60 วินาที ด้วย Head Balance';
-      if (summary.focusScore >= 82 && summary.diff === 'normal') return 'โจทย์ถัดไป: Normal 75 วินาที หรือ Hard 45 วินาที เพื่อฝึก Final Boss';
-      if (summary.focusScore >= 82 && summary.diff === 'hard') return 'โจทย์ถัดไป: Hard 75–90 วินาที พยายามทำ Clean x2 + Fever x1';
-      if (summary.feverCount < 1 && summary.focusScore >= 55) return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม ล่า Focus Fever x1 โดยค้างนิ่งต่อเนื่องในเป้า';
-      if (summary.accPct < 65) return 'โจทย์ถัดไป: Easy 45 วินาที ฝึก Center/Left/Right ให้ Quality เกิน 70%';
+      const complete = summary.passedPosts >= summary.totalPosts;
+      const oneStarPosts = summary.posts.filter(p => p.stars <= 1).length;
+      if (complete && summary.focusScore >= 84 && summary.diff === 'easy') return 'ปลดล็อกโจทย์ถัดไป: Normal 60 วินาที ด้วย Head Balance + ล่า Clean x2';
+      if (complete && summary.focusScore >= 84 && summary.diff === 'normal') return 'โจทย์ถัดไป: Hard 45–60 วินาที ฝึก Final Boss แบบ Head Control';
+      if (complete && summary.focusScore >= 84 && summary.diff === 'hard') return 'โจทย์ถัดไป: Hard 75–90 วินาที ล่า 3⭐ อย่างน้อย 1 ฐาน';
+      if (complete && oneStarPosts >= 3) return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม ล่า 2⭐ ให้ได้อย่างน้อย 3 ฐาน โดยค้างนิ่งก่อนเอียง';
+      if (summary.feverCount >= 1 && summary.accPct < 65) return 'โจทย์ถัดไป: คุมจุดให้อยู่ในเป้านานขึ้นอีกนิด เป้าหมาย Valid Hold Ratio 60%';
+      if (summary.accPct < 55) return 'โจทย์ถัดไป: Easy 45 วินาที ฝึก Center/Left/Right ให้ Quality เกิน 70%';
       return 'โจทย์ถัดไป: เล่นซ้ำเวลาเดิม แต่ตั้งเป้าเพิ่ม Valid Hold Ratio อีก 10%';
     }
 
@@ -1265,8 +1271,10 @@
       const m = post.metric;
       m.cleared = true;
       const avg = m.avgDist / Math.max(1,m.samples);
-      m.quality = clamp(Math.round(104 - m.outCount*6 - avg*.28), 45, 100);
-      m.stars = m.quality >= 88 ? 3 : m.quality >= 74 ? 2 : 1;
+      // v8: Head control มี jitter ตามกล้องและตำแหน่งใบหน้า จึงให้เกณฑ์ดาวยืดหยุ่นกว่าเดิมเล็กน้อย
+      const headForgiveness = state.inputMode === 'head' ? 4 : 0;
+      m.quality = clamp(Math.round(108 + headForgiveness - m.outCount*5 - avg*.24), 45, 100);
+      m.stars = m.quality >= 86 ? 3 : m.quality >= 68 ? 2 : 1;
       if (m.outCount === 0) state.cleanPosts += 1;
       const missionBonus = (m.outCount === 0 ? 90 : 0) + (state.feverActive ? 120 : 0);
       addFever((m.stars >= 2 ? 14 : 8) + (m.outCount === 0 ? 12 : 0));
@@ -1367,9 +1375,17 @@
       const validRatio = state.totalInMs / Math.max(1, state.totalInMs + state.totalOutMs);
       const accPct = Math.round(validRatio * 100);
       const avgQuality = Math.round(state.postMetrics.reduce((s,m)=>s+m.quality,0) / Math.max(1, state.postMetrics.length));
-      const focusScore = clamp(Math.round(accPct*.55 + avgQuality*.35 + Math.min(10,state.bestCombo)*1.0),0,100);
-      const rank = focusScore >= 90 ? 'Balance Master' : focusScore >= 78 ? 'Stable Hero' : focusScore >= 62 ? 'Focus Builder' : 'Try Again';
-      const grade = focusScore >= 90 ? 'A' : focusScore >= 78 ? 'B+' : focusScore >= 62 ? 'B' : 'C';
+      // v8: สรุปผลต้องสะท้อน "ความสำเร็จเชิงเกม" ด้วย ไม่ใช่วัด Valid Hold Ratio อย่างเดียว
+      // โดยเฉพาะ Head mode ซึ่งยากกว่า Touch/Mouse และมี jitter จากกล้อง
+      const completionPct = total ? (passed/total*100) : 0;
+      const headBonus = state.inputMode === 'head' ? 6 : 0;
+      const feverBonus = Math.min(8, state.feverCount * 2);
+      const cleanBonus = Math.min(5, state.cleanPosts * 2);
+      const focusScore = clamp(Math.round(
+        accPct*.32 + avgQuality*.38 + completionPct*.18 + Math.min(10,state.bestCombo)*.70 + feverBonus + cleanBonus + headBonus
+      ),0,100);
+      const rank = focusScore >= 90 ? 'Balance Master' : focusScore >= 78 ? 'Stable Hero' : focusScore >= 68 ? 'Focus Builder' : focusScore >= 58 ? 'Balance Rookie' : 'Try Again';
+      const grade = focusScore >= 90 ? 'A' : focusScore >= 78 ? 'B+' : focusScore >= 68 ? 'B' : focusScore >= 58 ? 'C+' : 'C';
       const bestPost = [...state.postMetrics].sort((a,b)=>b.quality-a.quality)[0];
       const hardestPost = [...state.postMetrics].sort((a,b)=>b.outCount-a.outCount)[0];
       const safeScore = Math.max(0, Math.round(state.score));
@@ -1384,10 +1400,10 @@
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
         rank, grade, comboMax:state.bestCombo, hits:state.hits, misses:state.misses, outCount:state.outCount,
         bestPost:bestPost?.title || '', hardestPost:hardestPost?.title || '',
-        strengthLabel:focusScore >= 78 ? 'คุมสมดุลได้ต่อเนื่องและฟื้นตัวเร็ว' : 'เริ่มจับจังหวะสมดุลได้แล้ว',
-        supportLabel:accPct < 75 ? 'ควรฝึกค้างในเป้ากลางก่อน แล้วค่อยเพิ่มเป้าเฉียง' : 'ลองเพิ่มระดับหรือเพิ่มเวลาเล่นอีกเล็กน้อย',
-        teacherSuggestion:accPct < 70 ? 'ให้ใช้ Easy 45–60 วินาที เน้นฐาน Center/Left/Right ก่อน' : 'พร้อมเล่น Normal หรือเพิ่ม Final Boss เพื่อพัฒนาการควบคุมลำตัว',
-        childMessage:focusScore >= 78 ? 'เยี่ยมมาก หนูคุมสมดุลได้ดีขึ้นชัดเจน!' : 'ทำได้ดีแล้ว รอบหน้าลองหายใจช้า ๆ แล้วค้างให้นิ่งขึ้นอีกนิด',
+        strengthLabel:focusScore >= 78 ? 'คุมสมดุลได้ต่อเนื่องและฟื้นตัวเร็ว' : (state.feverCount >= 1 ? 'เข้าสู่จังหวะ Flow ได้แล้ว เหลือเพิ่มความนิ่งในเป้า' : 'เริ่มจับจังหวะสมดุลได้แล้ว'),
+        supportLabel:accPct < 65 ? 'ควรฝึกค้างในเป้ากลางให้นานขึ้น แล้วค่อยเพิ่มเป้าเฉียง' : 'ลองเพิ่มระดับหรือเพิ่มเวลาเล่นอีกเล็กน้อย',
+        teacherSuggestion:focusScore >= 78 ? 'พร้อมเพิ่มโจทย์ Normal หรือเพิ่มเวลาเล่น เพื่อพัฒนาการควบคุมลำตัว' : 'ให้ใช้ Easy 45–60 วินาที เน้นฐาน Center/Left/Right ก่อน แล้วล่า 2 ดาวอย่างน้อย 3 ฐาน',
+        childMessage:focusScore >= 78 ? 'เยี่ยมมาก หนูคุมสมดุลได้ดีขึ้นชัดเจน!' : (passed >= total ? 'ผ่านครบทุกฐานแล้ว รอบหน้าลองค้างนิ่งให้นานขึ้นเพื่อเก็บดาวเพิ่ม!' : 'ทำได้ดีแล้ว รอบหน้าลองหายใจช้า ๆ แล้วค้างให้นิ่งขึ้นอีกนิด'),
         ts:new Date().toISOString(), posts:state.postMetrics
       };
       summary.nextChallenge = nextChallenge(summary);
@@ -1447,7 +1463,8 @@
     }
 
     function renderSummary(summary){
-      const starText = '⭐'.repeat(clamp(Math.round(summary.stars / Math.max(1, summary.totalPosts)),0,3)) + '☆'.repeat(3-clamp(Math.round(summary.stars / Math.max(1, summary.totalPosts)),0,3));
+      const displayStars = summary.focusScore >= 88 ? 3 : summary.focusScore >= 68 ? 2 : 1;
+      const starText = '⭐'.repeat(displayStars) + '☆'.repeat(3-displayStars);
       const rows = summary.posts.map(p => `<div class="postRow"><div>${p.id}. ${p.title}<small>Quality ${p.quality}% • Out ${p.outCount}</small></div><div>${p.stars}⭐</div><div>${p.score}</div></div>`).join('') || '<div class="postRow"><div>ยังไม่ผ่านฐาน</div><div>0⭐</div><div>0</div></div>';
       const bestLine = summary.isNewBest === 'yes' ? '🏅 New Personal Best!' : `PB เดิม ${summary.previousBest || 0}`;
       el.resultOverlay.innerHTML = `
