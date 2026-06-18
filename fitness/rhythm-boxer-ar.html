@@ -1,4 +1,5 @@
 <!doctype html>
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Production Lock | v20260618-rb-production-lock -->
 <!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Body Tracking School Final | v20260618-rb-ar-canonical -->
 <html lang="th">
 <head>
@@ -377,6 +378,37 @@
   }
 }
 
+
+/* === Production Lock additions : v20260618-rb-production-lock === */
+.quality.ok{
+  background:#f0fff4;
+  border-color:#bfe9c5;
+  color:#2f6d3b;
+}
+.quality.warn{
+  background:#fffaf0;
+  border-color:#f4d99a;
+  color:#705f4d;
+}
+.quality.err{
+  background:#fff1f4;
+  border-color:#ffc2cd;
+  color:#a73d4d;
+}
+.prod-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.88);
+  border:1px solid rgba(255,255,255,.86);
+  box-shadow:0 8px 18px rgba(94,60,104,.08);
+  font-size:.72rem;
+  font-weight:1000;
+  color:#625766;
+}
+
 </style>
 </head>
 <body>
@@ -386,7 +418,7 @@
       <div class="kicker">HeroHealth Fitness AR • Body Tracking</div>
       <h1>🥊 Rhythm Boxer AR</h1>
       <div class="sub">
-        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Ultimate: เพิ่ม Challenge Level, Power Note, XP, Best Score, Hype Coach, Boss Rush และแรงจูงใจให้เล่นซ้ำ
+        ใช้ร่างกายเล่นจริง: กล้องหน้าจับ <b>ไหล่–ศอก–ข้อมือ</b> แล้วแปลงการชกซ้าย/ขวาเป็นการตีโน้ตตามจังหวะ — เวอร์ชัน Production Lock: Body Tracking + Challenge + XP + Boss + Best Score + Hub Return + CSV + Google Sheets hook พร้อมใช้จริง
         ถ้ากล้องหรือ Pose Tracking ใช้ไม่ได้ ยังเล่นด้วยการแตะจอ/คีย์บอร์ดได้
       </div>
     </div>
@@ -394,6 +426,7 @@
       <span class="chip">Body: wrists / elbows / shoulders</span>
       <span class="chip">PC: A S D J K</span>
       <span class="chip">Mobile: touch + camera</span>
+      <span class="chip">Production Lock</span>
     </div>
   </header>
 
@@ -475,7 +508,7 @@
             </div>
             <div class="row">
               <button id="btnStop" class="btn warn">หยุด</button>
-              <button id="btnBack" class="btn">กลับเมนู</button>
+              <button id="btnBack" class="btn">กลับ Hub</button>
             </div>
           </div>
         </div>
@@ -524,9 +557,10 @@
         <div class="result-card"><div class="result-k">Boss</div><div id="resBoss" class="result-v">—</div></div>
       </div>
       <div id="quality" class="quality"></div>
+      <div id="submitStatus" class="quality hidden"></div>
       <div class="row" style="margin-top:14px">
         <button id="btnAgain" class="btn primary">เล่นอีกครั้ง</button>
-        <button id="btnMenu2" class="btn">กลับเมนู</button>
+        <button id="btnMenu2" class="btn">กลับ Hub</button>
         <button id="btnCsvSession" class="btn soft">Export Session CSV</button>
         <button id="btnCsvEvents" class="btn soft">Export Event CSV</button>
       </div>
@@ -544,6 +578,115 @@
   const nowMs = ()=> performance && performance.now ? performance.now() : Date.now();
   const qs = (k,d='')=>{try{return new URL(location.href).searchParams.get(k) ?? d}catch(_){return d}};
   const qbool = (k,d=false)=>['1','true','yes','y','on'].includes(String(qs(k,d?'1':'0')).toLowerCase());
+
+  const RB_VERSION = 'v20260618-rb-production-lock';
+  const RB_GAME_ID = 'rhythmboxer';
+  const RB_DEFAULT_HUB = './';
+
+  function rbAbsUrl(raw, fallback=RB_DEFAULT_HUB){
+    try{
+      return new URL(String(raw || fallback || RB_DEFAULT_HUB), location.href).toString();
+    }catch(_){
+      return fallback || RB_DEFAULT_HUB;
+    }
+  }
+
+  function rbHubUrl(){
+    return rbAbsUrl(qs('hub', RB_DEFAULT_HUB), RB_DEFAULT_HUB);
+  }
+
+  function rbApiUrl(){
+    return String(qs('api', qs('sheet', qs('submit', '')) || '')).trim();
+  }
+
+  function rbMeta(){
+    return {
+      version: RB_VERSION,
+      gameId: RB_GAME_ID,
+      url: location.href,
+      hub: rbHubUrl(),
+      userAgent: navigator.userAgent || '',
+      section: qs('section', qs('sec','')),
+      group: qs('group',''),
+      classId: qs('classId', qs('class','')),
+      planDay: qs('planDay',''),
+      planSlot: qs('planSlot','')
+    };
+  }
+
+  function rbGoHub(extra={}){
+    try{
+      const u = new URL(rbHubUrl(), location.href);
+      u.searchParams.set('fromGame', RB_GAME_ID);
+      u.searchParams.set('game', RB_GAME_ID);
+      u.searchParams.set('return', '1');
+      u.searchParams.set('v', RB_VERSION);
+      Object.keys(extra || {}).forEach(k=>{
+        if(extra[k] !== undefined && extra[k] !== null && extra[k] !== '') u.searchParams.set(k, String(extra[k]));
+      });
+      location.href = u.toString();
+    }catch(_){
+      location.href = rbHubUrl();
+    }
+  }
+
+  function rbSetSubmitStatus(text, kind='warn'){
+    if(!els.submitStatus) return;
+    els.submitStatus.className = 'quality ' + kind;
+    els.submitStatus.textContent = text || '';
+    els.submitStatus.classList.toggle('hidden', !text);
+  }
+
+  function rbStoreLastSummary(payload){
+    try{
+      const summary = {
+        ...payload,
+        game: RB_GAME_ID,
+        timestampIso: new Date().toISOString(),
+        __extraJson: JSON.stringify(rbMeta())
+      };
+      localStorage.setItem('HHA_LAST_SUMMARY', JSON.stringify(summary));
+      localStorage.setItem('HHA_LAST_SUMMARY:rhythmboxer:' + (payload.pid || 'anon'), JSON.stringify(summary));
+      window.parent && window.parent.postMessage({type:'HHA_GAME_RESULT', game:RB_GAME_ID, payload:summary}, '*');
+    }catch(_){}
+  }
+
+  async function rbSubmitSession(payload){
+    const api = rbApiUrl();
+    if(!api){
+      rbSetSubmitStatus('บันทึกในเครื่องแล้ว • ยังไม่ได้ตั้งค่า Google Sheets auto submit', 'warn');
+      return false;
+    }
+
+    const body = {
+      type:'rhythm_boxer_session',
+      game: RB_GAME_ID,
+      version: RB_VERSION,
+      meta: rbMeta(),
+      payload
+    };
+
+    try{
+      await fetch(api, {
+        method:'POST',
+        mode:'no-cors',
+        headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify(body)
+      });
+      rbSetSubmitStatus('ส่งข้อมูลไป Google Sheets แล้ว หรือถูกส่งแบบ no-cors แล้ว', 'ok');
+      return true;
+    }catch(err){
+      try{
+        const key = 'RB_AR_SUBMIT_QUEUE';
+        const q = JSON.parse(localStorage.getItem(key) || '[]');
+        q.push({tsIso:new Date().toISOString(), api, body});
+        localStorage.setItem(key, JSON.stringify(q.slice(-30)));
+      }catch(_){}
+      rbSetSubmitStatus('ส่ง Sheets ไม่สำเร็จ จึงเก็บเข้าคิวในเครื่องไว้ก่อน', 'err');
+      return false;
+    }
+  }
+
   const fmt = n => Number(n||0).toFixed(1);
 
   const els = {
@@ -561,7 +704,7 @@
     mScore:$('mScore'), mCombo:$('mCombo'), mAcc:$('mAcc'), missionStars:$('missionStars'),
     resScore:$('resScore'), resRank:$('resRank'), resStars:$('resStars'), resAcc:$('resAcc'),
     resCombo:$('resCombo'), resBody:$('resBody'), resMiss:$('resMiss'), resBoss:$('resBoss'), quality:$('quality'),
-    btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents')
+    btnAgain:$('btnAgain'), btnMenu2:$('btnMenu2'), btnCsvSession:$('btnCsvSession'), btnCsvEvents:$('btnCsvEvents'), submitStatus:$('submitStatus')
   };
 
   const S = {
@@ -579,6 +722,7 @@
 
   // query defaults
   if(qs('pid')) els.pid.value = qs('pid');
+  if(qs('name') && !qs('pid')) els.pid.value = qs('name');
   if(['easy','normal','hard'].includes(qs('diff'))) els.diff.value = qs('diff');
   if(qs('time')) els.timeSec.value = String(clamp(qs('time'),30,180));
 
@@ -1128,6 +1272,8 @@
     saveBestScore(payload.score);
     payload.newBest = S.newBest ? 1 : 0;
     S.sessions.push(payload);
+    rbStoreLastSummary(payload);
+    rbSubmitSession(payload);
     els.resScore.textContent=payload.score;
     els.resRank.textContent=rank;
     els.resStars.textContent='⭐'.repeat(Math.max(1,stars));
@@ -1154,12 +1300,12 @@
 
   function sessionPayload(reason,stars,rank){
     return {
-      tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode,
+      tsIso:new Date().toISOString(), pid:S.pid, diff:S.diff, timeSec:S.timeSec, mode:S.mode, version:RB_VERSION, gameId:RB_GAME_ID, section:qs('section',qs('sec','')), group:qs('group',''),
       reason, score:Math.round(S.score), rank, stars, maxCombo:S.maxCombo, shots:S.shots, hits:S.hits,
       accPct:accPct().toFixed(2), perfect:S.perfect, great:S.great, good:S.good, miss:S.miss,
       blank:S.blank, spam:S.spam, bodyPunches:S.bodyPunches, bodyAttempts:S.bodyAttempts||0, bodyNoise:S.bodyNoise||0, bossClear:S.boss.clear?1:0,
       xp:Math.round(S.xp||0), challengeLevel:S.level||1, powerHits:S.powerHits||0, bossHits:S.bossHits||0, bestScore:getBestScore(),
-      teacherRecommendation:teacherRec()
+      teacherRecommendation:teacherRec(), pageUrl:location.href, hubUrl:rbHubUrl()
     };
   }
 
@@ -1347,14 +1493,14 @@
   els.btnStartBody.addEventListener('click',()=>start('body'));
   els.btnStartTouch.addEventListener('click',()=>start('touch'));
   els.btnStop.addEventListener('click',()=>end('stop'));
-  els.btnBack.addEventListener('click',()=>{S.running=false;stopCamera();show('menu')});
+  els.btnBack.addEventListener('click',()=>{ if(S.running && !confirm('ออกจากเกมและกลับ Hub ใช่ไหม?')) return; S.running=false;stopCamera();rbGoHub({pid:S.pid||els.pid.value||'player01'}); });
   els.btnCam.addEventListener('click',()=> stream ? stopCamera() : startCamera(S.mode==='body'));
   els.btnFlip.addEventListener('click',async()=>{
     els.camMode.value = els.camMode.value==='user'?'environment':'user';
     if(stream) await startCamera(S.mode==='body');
   });
   els.btnAgain.addEventListener('click',()=>start(S.mode));
-  els.btnMenu2.addEventListener('click',()=>show('menu'));
+  els.btnMenu2.addEventListener('click',()=>rbGoHub({pid:S.pid||els.pid.value||'player01',score:Math.round(S.score||0),rank:rankOf ? rankOf() : ''}));
 
   function csv(rows){
     if(!rows.length) return '';
@@ -1374,6 +1520,13 @@
   // final init
   show('menu');
   applyLaneMode();
+
+  // Production autostart support:
+  // /fitness/rhythm-boxer-ar.html?autostart=1&mode=body&diff=normal&time=60
+  if(qbool('autostart', false)){
+    const m = String(qs('mode','body')).toLowerCase() === 'touch' ? 'touch' : 'body';
+    setTimeout(()=>start(m), 300);
+  }
 })();
 </script>
 </body>
