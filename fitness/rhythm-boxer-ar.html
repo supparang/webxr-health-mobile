@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sport Science Complete | v20260618-rb-sportscience-complete -->
+<!-- CANONICAL FILE: /fitness/rhythm-boxer-ar.html | Sport Science Syntax Fix | v20260618-rb-sportscience-fix -->
 <html lang="th">
 <head>
   <meta charset="utf-8" />
@@ -1357,7 +1357,7 @@
 
   function sportMetrics(){
     const durationMin = Math.max(0.001, (S.timeSec || 60) / 60);
-    const valid = Number(S.bodyPunches || S.hits || 0);
+    const validPunchCount = Number(S.bodyPunches || S.hits || 0);
     const missed = Number(S.miss || 0);
     const attempts = Number(S.bodyAttempts || 0);
     const noise = Number(S.bodyNoise || 0);
@@ -1372,26 +1372,26 @@
     const extAvg = avg(S.extensionSamples);
     const extMax = Math.max(0, ...(S.extensionSamples||[0]).map(v=>Number(v)||0));
 
-    const h1 = halfStats(true);
-    const h2 = halfStats(false);
-    const fatigueDrop = h1.acc - h2.acc;
+    const firstHalf = halfStats(true);
+    const secondHalf = halfStats(false);
+    const fatigueDrop = firstHalf.acc - secondHalf.acc;
     const fatigueIndex = clamp(
       (Math.max(0, fatigueDrop) * .55) +
-      (Math.max(0, h2.missRate - h1.missRate) * .25) +
-      (Math.max(0, h2.meanAbsOffsetMs - h1.meanAbsOffsetMs) / 4 * .20),
+      (Math.max(0, secondHalf.missRate - firstHalf.missRate) * .25) +
+      (Math.max(0, secondHalf.meanAbsOffsetMs - firstHalf.meanAbsOffsetMs) / 4 * .20),
       0, 100
     );
 
     const timingScore = clamp(100 - (offsetMean / 2.8), 0, 100);
     const consistencyScore = clamp(100 - (offsetSD / 3.2), 0, 100);
-    const comboScore = clamp((S.maxCombo || 0) / Math.max(10, valid || 1) * 100, 0, 100);
+    const comboScore = clamp((S.maxCombo || 0) / Math.max(10, validPunchCount || 1) * 100, 0, 100);
     const rhythmCoordinationScore = clamp((accPct()*.48) + (timingScore*.27) + (consistencyScore*.15) + (comboScore*.10), 0, 100);
 
-    const validRate = valid / durationMin;
+    const validRate = validPunchCount / durationMin;
     const idealRateScore = clamp(100 - Math.abs(validRate - 70) * 1.25, 0, 100);
     const speedConsistency = speedAvg > 0 ? clamp(100 - (speedSD / Math.max(speedAvg, .001) * 100), 0, 100) : 60;
     const extensionScore = clamp((extAvg / 1.18) * 100, 0, 100);
-    const movementQualityScore = clamp((idealRateScore*.36) + (speedConsistency*.28) + (extensionScore*.24) + (pct(valid, attempts || valid)*.12), 0, 100);
+    const movementQualityScore = clamp((idealRateScore*.36) + (speedConsistency*.28) + (extensionScore*.24) + (pct(validPunchCount, attempts || validPunchCount)*.12), 0, 100);
 
     const bilateralBalanceScore = clamp((1 - balanceIndex) * 100, 0, 100);
     const fatigueResistanceScore = clamp(100 - fatigueIndex, 0, 100);
@@ -1408,13 +1408,13 @@
     );
 
     return {
-      validPunches:valid,
+      validPunches:validPunchCount,
       missedNotes:missed,
       bodyAttempts:attempts,
       ignoredNoise:noise,
       noiseRatio:pct(noise, attempts),
       punchRatePerMin:attempts/durationMin,
-      validPunchRatePerMin:valid/durationMin,
+      validPunchRatePerMin:validPunchCount/durationMin,
 
       earlyHits:S.earlyHits||0,
       lateHits:S.lateHits||0,
@@ -1439,12 +1439,12 @@
       maxExtension:extMax,
       extensionSD:sd(S.extensionSamples),
 
-      firstHalfAccuracy:h1.acc,
-      secondHalfAccuracy:h2.acc,
-      firstHalfPunchRate:(h1.hits)/Math.max(.001, (S.timeSec/2)/60),
-      secondHalfPunchRate:(h2.hits)/Math.max(.001, (S.timeSec/2)/60),
-      firstHalfOffsetMs:h1.meanAbsOffsetMs,
-      secondHalfOffsetMs:h2.meanAbsOffsetMs,
+      firstHalfAccuracy:firstHalf.acc,
+      secondHalfAccuracy:secondHalf.acc,
+      firstHalfPunchRate:(firstHalf.hits)/Math.max(.001, (S.timeSec/2)/60),
+      secondHalfPunchRate:(secondHalf.hits)/Math.max(.001, (S.timeSec/2)/60),
+      firstHalfOffsetMs:firstHalf.meanAbsOffsetMs,
+      secondHalfOffsetMs:secondHalf.meanAbsOffsetMs,
       fatigueDrop,
       fatigueIndex,
 
