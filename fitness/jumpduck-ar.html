@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • PC/Mobile AR Fitness v9 Compact Summary</title>
+  <title>JumpDuck Dash • PC/Mobile AR Fitness v10 Auto Sheet</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -220,7 +220,7 @@
           <button id="btn-teacher-mode" class="rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 active:scale-95 transition">Teacher Test: OFF</button>
           <button id="btn-home-start" class="rounded-2xl border-2 border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700 active:scale-95 transition">กลับ Hub</button>
         </div>
-        <p class="compact-note text-emerald-600 font-bold">v9 Compact Summary • Easy Tune • Big Obstacles • CSV</p>
+        <p class="compact-note text-emerald-600 font-bold">v10 Auto Sheet • Compact UI • CSV Backup</p>
       </div>
     </div>
   </section>
@@ -282,6 +282,10 @@
           </div>
         </div>
       </details>
+
+      <div id="sheet-status" class="mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500">
+        Sheet: ยังไม่ได้ตั้งค่า endpoint • ใช้ CSV สำรองได้
+      </div>
 
       <div class="result-action-grid mt-3">
         <button id="btn-restart" class="rounded-3xl bg-gradient-to-r from-orange-500 to-red-500 py-3 text-lg font-black text-white shadow-lg border-b-4 border-red-700 active:scale-95 transition">
@@ -435,7 +439,7 @@
 
   <script>
     // =============================================================
-    // JumpDuck Dash v8 • PC/Mobile AR Compact Start
+    // JumpDuck Dash v10 • PC/Mobile AR Compact UI + Auto Google Sheet
     // Scope: PC webcam + Mobile front camera AR only. No Cardboard/cVR body-tracking mode.
     // =============================================================
 
@@ -490,6 +494,7 @@
     const badgeBox = $('badge-box');
     const leaderboardList = $('leaderboard-list');
     const btnClearLeader = $('btn-clear-leader');
+    const sheetStatus = $('sheet-status');
 
     const DIFF = {
       // v8 Compact Start: Easy is intentionally forgiving; side moves still appear, but less often.
@@ -516,6 +521,24 @@
     let teacherTestMode = params.get('test') === '1';
     const HUB_URL = params.get('hub') || localStorage.getItem('jumpduckHubUrl') || './';
     localStorage.setItem('jumpduckHubUrl', HUB_URL);
+
+    // v10 Auto Sheet: set once by URL ?sheet=<encoded Apps Script Web App URL>
+    // or edit SHEET_ENDPOINT_FALLBACK below after deploying Apps Script.
+    const SHEET_ENDPOINT_FALLBACK = '';
+    const sheetParam = params.get('sheet') || '';
+    if(sheetParam) localStorage.setItem('jumpduckSheetEndpoint', sheetParam);
+    const SHEET_ENDPOINT = sheetParam || localStorage.getItem('jumpduckSheetEndpoint') || SHEET_ENDPOINT_FALLBACK;
+    const SHEET_ACCESS_KEY = params.get('key') || localStorage.getItem('jumpduckSheetKey') || '';
+    if(params.get('key')) localStorage.setItem('jumpduckSheetKey', params.get('key'));
+
+    const meta = {
+      sessionId: params.get('session') || params.get('sessionId') || '',
+      classId: params.get('class') || params.get('classId') || '',
+      studentId: params.get('student') || params.get('studentId') || '',
+      studentName: params.get('name') || params.get('studentName') || '',
+      teacherId: params.get('teacher') || params.get('teacherId') || ''
+    };
+
     window.__jumpduckMuted = params.get('mute') === '1';
     let config = { ...DIFF[selectedDiff], time:selectedTime };
 
@@ -540,6 +563,12 @@
     let actionCounts = { jump:0, duck:0, left:0, right:0 };
     let missCounts = { jump:0, duck:0, left:0, right:0 };
     let eventLog = [];
+    let currentSummaryPayload = null;
+    let poseQualitySamples = [];
+    let poseLostCount = 0;
+    let cameraWarningCount = 0;
+    let cameraWarningActive = false;
+    let calibrationQuality = 0;
 
     let obstacles = [];
     let stars = [];
@@ -573,7 +602,7 @@
 
     function clamp(n,min,max){ return Math.max(min, Math.min(max, n)); }
 
-    const LEADER_KEY = 'jumpduck_dash_v8_leaderboard';
+    const LEADER_KEY = 'jumpduck_dash_v10_leaderboard';
 
     function loadLeaderboard(){
       try{ return JSON.parse(localStorage.getItem(LEADER_KEY) || '[]'); }
@@ -641,10 +670,12 @@
         if(!lowPoseStartedAt) lowPoseStartedAt = now;
         if(forceReason || now - lowPoseStartedAt > 5000){
           cameraWarning.textContent = forceReason || `⚠️ Pose Quality ${q}%: ถอยห่างกล้อง 1.5–2 เมตร เพิ่มแสง และให้เห็นศีรษะถึงสะโพก`;
+          if(!cameraWarningActive){ cameraWarningCount++; cameraWarningActive = true; }
           cameraWarning.classList.remove('hidden');
         }
       }else{
         lowPoseStartedAt = 0;
+        cameraWarningActive = false;
         cameraWarning.classList.add('hidden');
       }
     }
@@ -787,12 +818,14 @@
       const m = getBodyMetrics(pose);
       if(!m){
         lastPoseQuality = 0;
+        if(isPlaying && !isCalibrating) poseLostCount++;
         currentGestureDisplay.textContent = 'ไม่พบสะโพกชัดเจน ⚠️';
         if(poseQualityText) poseQualityText.textContent = 'PC/Mobile AR • ไม่พบสะโพกชัดเจน: ถอยห่างกล้อง/เพิ่มแสง';
         updateCameraTroubleshooting('⚠️ ไม่พบสะโพกชัดเจน: ถอยห่างกล้อง เพิ่มแสง และยืนให้เห็นศีรษะถึงสะโพก');
         return;
       }
       lastPoseQuality = m.score;
+      if(isPlaying && !isCalibrating){ poseQualitySamples.push(m.score); if(poseQualitySamples.length > 1200) poseQualitySamples.shift(); }
       if(poseQualityText){
         const q = Math.round((lastPoseQuality || 0) * 100);
         poseQualityText.textContent = `PC/Mobile AR • Pose Quality ${q}% • ${q >= 45 ? 'พร้อมเล่น' : 'ขยับให้กล้องเห็นสะโพกชัดขึ้น'}`;
@@ -800,7 +833,7 @@
       updateCameraTroubleshooting();
 
       if(isCalibrating){
-        calibrationSamples.push({ hipY:m.hipY, screenX:m.screenX });
+        calibrationSamples.push({ hipY:m.hipY, screenX:m.screenX, score:m.score });
         currentGesture = 'stand';
         currentGestureDisplay.textContent = 'กำลัง Calibrate ยืนตรง 🧍';
         return;
@@ -1043,6 +1076,8 @@
       isCalibrating = false;
       const hips = calibrationSamples.map(s=>s.hipY).filter(Number.isFinite);
       const xs = calibrationSamples.map(s=>s.screenX).filter(Number.isFinite);
+      const qs = calibrationSamples.map(s=>s.score).filter(Number.isFinite);
+      calibrationQuality = qs.length ? Math.round((qs.reduce((a,b)=>a+b,0) / qs.length) * 100) : 0;
       baselineHipY = median(hips) ?? baselineHipY ?? (webcam.videoHeight * .62);
       baselineScreenX = median(xs) ?? baselineScreenX ?? (gameCanvas.width * .5);
       systemPrompt.textContent = 'GO! หลบสิ่งกีดขวางเลย 🚀';
@@ -1059,7 +1094,7 @@
         if(!isPlaying || isCalibrating) return;
         timeLeft -= 1;
         updateHUD();
-        if(timeLeft <= 0) endGame();
+        if(timeLeft <= 0) endGame('timeup');
       }, 1000);
     }
 
@@ -1089,6 +1124,16 @@
       sideToggle = 'left';
       lastSpawnAt = 0;
       lowPoseStartedAt = 0;
+      currentSummaryPayload = null;
+      poseQualitySamples = [];
+      poseLostCount = 0;
+      cameraWarningCount = 0;
+      cameraWarningActive = false;
+      calibrationQuality = 0;
+      if(sheetStatus){
+        sheetStatus.textContent = SHEET_ENDPOINT ? 'Sheet: พร้อมส่งอัตโนมัติเมื่อจบรอบ' : 'Sheet: ยังไม่ได้ตั้งค่า endpoint • ใช้ CSV สำรองได้';
+        sheetStatus.className = 'mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500';
+      }
       if(cameraWarning) cameraWarning.classList.add('hidden');
       updateMissionCard('jump');
       updateHUD();
@@ -1106,25 +1151,134 @@
       runGameLoop();
     }
 
-    function endGame(){
+    function getDeviceType(){
+      const ua = navigator.userAgent || '';
+      if(/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return 'mobile';
+      return 'pc';
+    }
+
+    function mean(arr){
+      const clean = arr.filter(Number.isFinite);
+      return clean.length ? clean.reduce((a,b)=>a+b,0) / clean.length : 0;
+    }
+
+    function makeSummaryMetrics(endReason='timeup'){
+      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
+      const avgRaw = responseTimes.length ? mean(responseTimes) : 0;
+      const half = Math.floor(responseTimes.length / 2);
+      const firstAvg = half ? mean(responseTimes.slice(0, half)) : 0;
+      const secondList = responseTimes.slice(half);
+      const secondAvg = secondList.length ? mean(secondList) : 0;
+      const fatigueDelta = metrics.fatigueDelta;
+      const sideMoves = actionCounts.left + actionCounts.right;
+      const verticalMoves = actionCounts.jump + actionCounts.duck;
+      const movementBalance = sideMoves === 0 ? 'ยังไม่ได้ทดสอบซ้าย/ขวา' : `แนวตั้ง ${verticalMoves} • ซ้าย/ขวา ${sideMoves}`;
+      const poseQualityAvg = Math.round(mean(poseQualitySamples) * 100);
+      return {
+        accuracy,
+        avgReaction: Number(avgRaw.toFixed(3)) || 0,
+        fatigueDelta: Number(fatigueDelta.toFixed(3)) || 0,
+        verticalMoves,
+        sideMoves,
+        movementBalance,
+        poseQualityAvg,
+        endReason
+      };
+    }
+
+    function buildSheetPayload(metrics, badgesText='', rank=''){
+      return {
+        timestamp: new Date().toISOString(),
+        game: 'jumpduck-dash-ar',
+        version: 'v10-auto-sheet',
+        sessionId: meta.sessionId,
+        roundId: 'JD-' + Date.now().toString(36),
+        classId: meta.classId,
+        studentId: meta.studentId,
+        studentName: meta.studentName,
+        teacherId: meta.teacherId,
+        deviceType: getDeviceType(),
+        mode: 'PC/Mobile AR',
+        difficulty: selectedDiff,
+        duration: selectedTime,
+        endReason: metrics.endReason,
+        score,
+        accuracy: metrics.accuracy,
+        dodges: totalDodges,
+        misses: totalMisses,
+        bestCombo,
+        avgReaction: metrics.avgReaction,
+        jumpOk: actionCounts.jump,
+        duckOk: actionCounts.duck,
+        leftOk: actionCounts.left,
+        rightOk: actionCounts.right,
+        jumpMiss: missCounts.jump,
+        duckMiss: missCounts.duck,
+        leftMiss: missCounts.left,
+        rightMiss: missCounts.right,
+        verticalMoves: metrics.verticalMoves,
+        sideMoves: metrics.sideMoves,
+        movementBalance: metrics.movementBalance,
+        fatigueDelta: metrics.fatigueDelta,
+        calibrationQuality,
+        poseQualityAvg: metrics.poseQualityAvg,
+        poseLostCount,
+        cameraWarningCount,
+        teacherTestMode,
+        badges: badgesText,
+        localRank: '',
+        isNewHighScore: '',
+        rank,
+        mainFeedback: finalFeedback ? finalFeedback.textContent : '',
+        accessKey: SHEET_ACCESS_KEY
+      };
+    }
+
+    async function autoSubmitToSheet(payload){
+      if(!sheetStatus) return;
+      if(!SHEET_ENDPOINT){
+        sheetStatus.textContent = 'Sheet: ยังไม่ได้ตั้งค่า endpoint • กด CSV สำรองได้';
+        sheetStatus.className = 'mt-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-black text-slate-500';
+        return;
+      }
+      sheetStatus.textContent = 'Sheet: กำลังส่งผลอัตโนมัติ...';
+      sheetStatus.className = 'mt-2 rounded-2xl border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-black text-blue-700';
+      try{
+        await fetch(SHEET_ENDPOINT, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        sheetStatus.textContent = 'Sheet: ส่งผลอัตโนมัติแล้ว ✅';
+        sheetStatus.className = 'mt-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700';
+      }catch(err){
+        console.warn('Auto Sheet submit failed', err);
+        sheetStatus.textContent = 'Sheet: ส่งอัตโนมัติไม่สำเร็จ • กด CSV สำรอง';
+        sheetStatus.className = 'mt-2 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-black text-red-600';
+      }
+    }
+
+    function endGame(endReason='timeup'){
       isPlaying = false;
       isCalibrating = false;
       clearInterval(gameTimer);
       cancelAnimationFrame(gameLoopId);
       playSound('gameover');
 
-      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
-      const avgRaw = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length) : 0;
+      const metrics = makeSummaryMetrics(endReason);
+      const accuracy = metrics.accuracy;
+      const avgRaw = metrics.avgReaction;
       const avg = responseTimes.length ? avgRaw.toFixed(2) : '0.00';
       const half = Math.floor(responseTimes.length / 2);
       const firstAvg = half ? responseTimes.slice(0, half).reduce((a,b)=>a+b,0) / half : 0;
       const secondList = responseTimes.slice(half);
       const secondAvg = secondList.length ? secondList.reduce((a,b)=>a+b,0) / secondList.length : 0;
-      const fatigueDelta = firstAvg && secondAvg ? (secondAvg - firstAvg) : 0;
+      const fatigueDelta = metrics.fatigueDelta;
       const fatigueLabel = !responseTimes.length ? '-' : (fatigueDelta <= .05 ? 'คงที่ดี' : fatigueDelta <= .20 ? 'เริ่มช้าลงเล็กน้อย' : 'ควรพักก่อนเล่นรอบถัดไป');
       const sideTotal = actionCounts.left + actionCounts.right;
       const verticalTotal = actionCounts.jump + actionCounts.duck;
-      const balanceLabel = sideTotal === 0 ? 'ยังไม่ได้ทดสอบซ้าย/ขวา' : `แนวตั้ง ${verticalTotal} • ซ้าย/ขวา ${sideTotal}`;
+      const balanceLabel = metrics.movementBalance;
 
       finalScore.textContent = score;
       finalAccuracy.textContent = accuracy + '%';
@@ -1156,15 +1310,20 @@
         finalFeedback.textContent = 'เป้าหมายรอบ Easy คือ Accuracy 65% ขึ้นไป: ถอยห่างกล้อง 1.5–2 เมตร เพิ่มแสง และทำท่าให้ช้าชัดกว่าการกระโดดแรง';
       }
 
+      const badgeText = Array.from(badgeBox?.querySelectorAll('.badge-chip') || []).map(el=>el.textContent.trim()).join('|');
+      currentSummaryPayload = buildSheetPayload(metrics, badgeText, rankTitle.textContent);
+
       gameoverScreen.classList.remove('hidden');
+      autoSubmitToSheet(currentSummaryPayload);
     }
 
     function exportCSV(){
-      const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
-      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
-      const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
-      const row = [new Date().toISOString(), 'v9-compact-summary', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
-      const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
+      const fallbackMetrics = makeSummaryMetrics('csv_export');
+      const payload = currentSummaryPayload || buildSheetPayload(fallbackMetrics, '', rankTitle?.textContent || '');
+      const skip = new Set(['accessKey']);
+      const header = Object.keys(payload).filter(k => !skip.has(k));
+      const row = header.map(k => payload[k]);
+      const csv = header.join(',') + '\n' + row.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -1468,7 +1627,7 @@
     btnStart.addEventListener('click', startGame);
     btnRestart.addEventListener('click', startGame);
     btnExport.addEventListener('click', exportCSV);
-    btnStop.addEventListener('click', ()=>{ if(isPlaying) endGame(); });
+    btnStop.addEventListener('click', ()=>{ if(isPlaying) endGame('early_stop'); });
     btnMute.addEventListener('click', ()=>{ window.__jumpduckMuted = !window.__jumpduckMuted; btnMute.textContent = window.__jumpduckMuted ? '🔇' : '🔊'; });
     btnTeacherMode.addEventListener('click', ()=>{ setTeacherTestMode(!teacherTestMode); playSound('success'); });
     btnHomeStart.addEventListener('click', goHub);
