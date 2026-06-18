@@ -595,7 +595,7 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V12-PRODUCTION-SHEET-LINKED';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V13-SYNTAX-HOTFIX-SHEET-LINKED';
     const DEFAULT_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
@@ -1573,6 +1573,7 @@
           }
         }
       }
+    }
 
       const diff = DIFF[state.ctx.diff] || DIFF.normal;
       if (state.phase === 'play') {
