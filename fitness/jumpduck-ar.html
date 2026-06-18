@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-  <title>JumpDuck Dash • PC/Mobile AR Fitness v10 Auto Sheet</title>
+  <title>JumpDuck Dash • PC/Mobile AR Fitness v10 Auto Sheet Linked</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;600;800;900&display=swap" rel="stylesheet" />
@@ -524,7 +524,7 @@
 
     // v10 Auto Sheet: set once by URL ?sheet=<encoded Apps Script Web App URL>
     // or edit SHEET_ENDPOINT_FALLBACK below after deploying Apps Script.
-    const SHEET_ENDPOINT_FALLBACK = '';
+    const SHEET_ENDPOINT_FALLBACK = 'https://script.google.com/macros/s/AKfycbwdwozSPj0QwEYkclrxAqjZcN2E_uSqAVqAV9ev2_0PWCW1k9riLE_LLMksschpFcNZ-A/exec';
     const sheetParam = params.get('sheet') || '';
     if(sheetParam) localStorage.setItem('jumpduckSheetEndpoint', sheetParam);
     const SHEET_ENDPOINT = sheetParam || localStorage.getItem('jumpduckSheetEndpoint') || SHEET_ENDPOINT_FALLBACK;
@@ -1190,7 +1190,7 @@
       return {
         timestamp: new Date().toISOString(),
         game: 'jumpduck-dash-ar',
-        version: 'v10-auto-sheet',
+        version: 'v10-auto-sheet-linked',
         sessionId: meta.sessionId,
         roundId: 'JD-' + Date.now().toString(36),
         classId: meta.classId,
@@ -1318,12 +1318,11 @@
     }
 
     function exportCSV(){
-      const fallbackMetrics = makeSummaryMetrics('csv_export');
-      const payload = currentSummaryPayload || buildSheetPayload(fallbackMetrics, '', rankTitle?.textContent || '');
-      const skip = new Set(['accessKey']);
-      const header = Object.keys(payload).filter(k => !skip.has(k));
-      const row = header.map(k => payload[k]);
-      const csv = header.join(',') + '\n' + row.map(v => `"${String(v ?? '').replace(/"/g,'""')}"`).join(',') + '\n';
+      const header = ['timestamp','version','diff','duration','score','accuracy','dodges','misses','bestCombo','avgReaction','jumpOk','duckOk','leftOk','rightOk','jumpMiss','duckMiss','leftMiss','rightMiss'];
+      const accuracy = totalJudged ? Math.round((totalDodges / totalJudged) * 100) : 0;
+      const avg = responseTimes.length ? (responseTimes.reduce((a,b)=>a+b,0) / responseTimes.length).toFixed(3) : '0.000';
+      const row = [new Date().toISOString(), 'v9-compact-summary', selectedDiff, selectedTime, score, accuracy, totalDodges, totalMisses, bestCombo, avg, actionCounts.jump, actionCounts.duck, actionCounts.left, actionCounts.right, missCounts.jump, missCounts.duck, missCounts.left, missCounts.right];
+      const csv = header.join(',') + '\n' + row.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',') + '\n';
       const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
