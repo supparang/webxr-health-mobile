@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
   <meta name="theme-color" content="#dff7ff" />
   <meta name="color-scheme" content="light" />
-  <title>Fitness AR • Balance Hold v9 Body Lite</title>
+  <title>Fitness AR • Balance Hold v10 Body Smart</title>
   <style>
     :root{
       --safe-top:env(safe-area-inset-top,0px);
@@ -496,14 +496,14 @@
             <div class="modalIcon">⚖️</div>
             <div>
               <h1>Balance Hold AR</h1>
-              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา รับมือแรงกดดันจาก obstacle และเพิ่ม Body Lite/Full Body Detection เป็นโหมดท้าทายต่อยอด</p>
+              <p class="lead">เกมฝึกทรงตัวแบบปลอดภัยสำหรับเด็ก ป.5: คุมลูกสมดุลให้อยู่ในวงเป้าหมาย ค้างให้ครบเวลา และเพิ่ม Body Smart ที่ประเมินคุณภาพภาพกล้องก่อนใช้ลำตัวควบคุม</p>
             </div>
           </div>
 
           <div class="tips">
             <div class="tip">✅ ใช้ PC / Mobile AR ได้</div>
             <div class="tip">📱 Mobile เลือก Tilt = เอียงเครื่องเบา ๆ</div>
-            <div class="tip">🧍 โหมดใหม่ตั้งค่าเริ่มต้นเป็น Body Lite: ยืนให้เห็นครึ่งตัว/ทั้งตัว แล้วเอนลำตัวเบา ๆ</div>
+            <div class="tip">🧍 Body Smart: ถอยให้เห็นไหล่–สะโพก ถ้ากล้องยังเห็นไม่พอ ระบบจะใช้ Head Assist ให้อัตโนมัติ</div>
             <div class="tip">🧠 ถ้ากล้องเห็นตัวไม่ครบ ระบบ fallback เป็น Head Balance ได้</div>
             <div class="tip">🖥️ PC ค่าเริ่มต้นใช้เมาส์ / ลูกศร / WASD ไม่ใช้ Tilt</div>
             <div class="tip">🧘 ยืนสองเท้า ย่อเข่าเล็กน้อย ไม่ต้องยืนขาเดียว</div>
@@ -547,7 +547,7 @@
   (() => {
     'use strict';
 
-    const VERSION = '20260618-BALANCE-HOLD-AR-V9-BODY-LITE';
+    const VERSION = '20260618-BALANCE-HOLD-AR-V10-BODY-SMART';
     const qs = new URLSearchParams(location.search);
     const $ = (id) => document.getElementById(id);
     const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
@@ -581,6 +581,8 @@
       hard:   { label:'Hard',   radius:54, holdMs:3050, drain:.62, damping:.11, wind:.82, targetMove:.62,   posts:7, boss:true  }
     };
 
+    const LEVEL_ORDER = { none:0, shoulder:1, upper:2, knee:3, full:4 };
+
     const text = {
       center:{ title:'Center Hold', cue:'คุมให้อยู่กลางวง', icon:'🎯' },
       left:{ title:'Left Hold', cue:'เอียง/เลื่อนไปซ้ายอย่างนุ่มนวล', icon:'⬅️' },
@@ -602,7 +604,7 @@
       cursor:{ x:0, y:0, vx:0, vy:0 },
       tilt:{ enabled:false, permission:false, baseBeta:null, baseGamma:null, beta:0, gamma:0, last:0 },
       head:{ wanted:false, supported:false, enabled:false, detecting:false, detector:null, detectorType:'', mp:null, mpLoaded:false, mpLastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, samples:0, safetyWarnAt:0, faceBox:null },
-      body:{ wanted:false, supported:false, enabled:false, detecting:false, pose:null, loaded:false, lastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, samples:0, level:'none', safetyWarnAt:0, landmarks:null, visibility:0, shoulderTilt:0, hipTilt:0 },
+      body:{ wanted:false, supported:false, enabled:false, detecting:false, pose:null, loaded:false, lastSend:0, baseX:null, baseY:null, x:0, y:0, rawX:0, rawY:0, last:0, lastDetect:0, quality:0, bestQuality:0, samples:0, level:'none', bestLevel:'none', safetyWarnAt:0, landmarks:null, visibility:0, shoulderTilt:0, hipTilt:0 },
       cameraOn:false, stream:null, cameraFacing:'environment', arWanted:true, inputMode:'pointer',
       ctx:{ player:'Hero', group:'P5', diff:'normal', run:'play', studyId:q('studyId',''), pid:q('pid',''), hub:q('hub','./index.html') }
     };
@@ -738,16 +740,24 @@
 
     function makePosts(){
       const diff = DIFF[state.ctx.diff];
+      // v10: Body Lite มี jitter มากกว่า Head/Touch และต้องยืนห่างกล้อง
+      // จึงให้ "Body Assist" เล็กน้อย: เป้าใหญ่ขึ้นและเวลาค้างต่อฐานสั้นลงนิดเดียว
+      // เพื่อให้เด็กจบ flow ได้โดยยังต้องคุมลำตัวจริง
+      const bodyAssist = requestedControl() === 'body' || state.inputMode === 'body';
+      const rBoost = bodyAssist ? 10 : 0;
+      const hMul = bodyAssist ? .86 : 1;
+      const H = (ms) => Math.max(1500, Math.round(ms * hMul));
+      const R = (px, extra=0) => Math.max(42, px + rBoost + extra);
       const base = [
-        { key:'center', ...text.center, p:[.50,.55], radius:diff.radius, holdMs:diff.holdMs+200 },
-        { key:'left', ...text.left, p:[.34,.55], radius:diff.radius, holdMs:diff.holdMs },
-        { key:'right', ...text.right, p:[.66,.55], radius:diff.radius, holdMs:diff.holdMs },
-        { key:'forward', ...text.forward, p:[.50,.40], radius:diff.radius-4, holdMs:diff.holdMs },
-        { key:'diagL', ...text.diagL, p:[.36,.42], radius:diff.radius-6, holdMs:diff.holdMs },
-        { key:'diagR', ...text.diagR, p:[.64,.42], radius:diff.radius-6, holdMs:diff.holdMs }
+        { key:'center', ...text.center, p:[.50,.55], radius:R(diff.radius), holdMs:H(diff.holdMs+200) },
+        { key:'left', ...text.left, p:[.34,.55], radius:R(diff.radius), holdMs:H(diff.holdMs) },
+        { key:'right', ...text.right, p:[.66,.55], radius:R(diff.radius), holdMs:H(diff.holdMs) },
+        { key:'forward', ...text.forward, p:[.50,.40], radius:R(diff.radius-4), holdMs:H(diff.holdMs) },
+        { key:'diagL', ...text.diagL, p:[.36,.42], radius:R(diff.radius-6), holdMs:H(diff.holdMs) },
+        { key:'diagR', ...text.diagR, p:[.64,.42], radius:R(diff.radius-6), holdMs:H(diff.holdMs) }
       ];
       const posts = base.slice(0, diff.posts);
-      if (diff.boss) posts.push({ key:'boss', ...text.boss, p:[.50,.45], radius:Math.max(42,diff.radius-8), holdMs:diff.holdMs+650, boss:true });
+      if (diff.boss) posts.push({ key:'boss', ...text.boss, p:[.50,.45], radius:R(diff.radius-8), holdMs:H(diff.holdMs+650), boss:true });
       return posts.map((p,i) => ({ ...p, id:i+1, metric:null }));
     }
 
@@ -1082,7 +1092,10 @@
         state.body.baseY = null;
         state.body.samples = 0;
         state.body.last = 0;
+        state.body.quality = 0;
+        state.body.bestQuality = 0;
         state.body.level = 'none';
+        state.body.bestLevel = 'none';
         el.bodyGuide.classList.remove('hidden','warn');
         el.bodyGuide.classList.add('active');
         el.bodyStatus.textContent = 'Body: ยืนให้เห็นไหล่/สะโพก';
@@ -1119,6 +1132,18 @@
       requestAnimationFrame(loop);
     }
 
+    function waitForBodyCalibration(ms=2200){
+      return new Promise(resolve => {
+        const end = now() + ms;
+        const loop = () => {
+          const enough = state.body.samples >= 14 && state.body.quality >= 45;
+          if (enough || now() >= end) return resolve(state.body.quality || 0);
+          requestAnimationFrame(loop);
+        };
+        loop();
+      });
+    }
+
     function lmVisible(p, min=.30){ return !!p && (p.visibility == null || p.visibility >= min); }
     function lmAvgVisibility(list){
       const vals = list.filter(Boolean).map(p => p.visibility == null ? 1 : p.visibility);
@@ -1141,8 +1166,10 @@
       const cy = hipOK ? (sy*.44 + hy*.56) : sy + .16;
       const shoulderSpan = Math.abs(ls.x - rs.x);
       const hipSpan = hipOK ? Math.abs(lh.x - rh.x) : shoulderSpan*.82;
-      const vis = lmAvgVisibility([ls,rs,lh,rh,lk,rk]);
       const level = ankleOK ? 'full' : (kneeOK ? 'knee' : (hipOK ? 'upper' : 'shoulder'));
+      // v10: ถ้ากล้องเห็นแค่ upper body ไม่ควรถูกลงโทษด้วย visibility ของเข่า/ข้อเท้าที่อยู่นอกเฟรม
+      const visCore = hipOK ? [ls,rs,lh,rh] : [ls,rs];
+      const vis = lmAvgVisibility(visCore);
 
       const rawX = (cx - .5) * 2;
       const rawY = (cy - .5) * 2;
@@ -1161,9 +1188,11 @@
       state.body.visibility = vis;
       state.body.shoulderTilt = shoulderSpan ? (ls.y - rs.y) / shoulderSpan : 0;
       state.body.hipTilt = hipOK && hipSpan ? (lh.y - rh.y) / hipSpan : 0;
-      const sizeScore = clamp((shoulderSpan - .10) / .24 * 100, 0, 100);
-      const levelBonus = level === 'full' ? 14 : (level === 'knee' ? 10 : (level === 'upper' ? 6 : 0));
-      state.body.quality = clamp(Math.round(sizeScore*.45 + vis*100*.45 + levelBonus), 0, 100);
+      const sizeScore = clamp((shoulderSpan - .045) / .16 * 100, 0, 100);
+      const frameScore = level === 'full' ? 96 : (level === 'knee' ? 88 : (level === 'upper' ? 76 : 58));
+      state.body.quality = clamp(Math.round(sizeScore*.22 + vis*100*.52 + frameScore*.26), 0, 100);
+      state.body.bestQuality = Math.max(state.body.bestQuality || 0, state.body.quality || 0);
+      if ((LEVEL_ORDER[level] || 0) > (LEVEL_ORDER[state.body.bestLevel] || 0)) state.body.bestLevel = level;
       state.body.landmarks = lm;
 
       el.bodyGuide.classList.remove('hidden','warn');
@@ -1187,7 +1216,9 @@
 
     function bodyDelta(){
       if (!state.body.enabled || !el.useBody.checked || now() - state.body.last > 900) return null;
-      const deadzone = el.safeMode.checked ? .024 : .016;
+      // ถ้า Body quality ต่ำมาก ให้ระบบถอยไปใช้ Head/Keyboard แทน ไม่ฝืนใช้สัญญาณลำตัวที่ไม่นิ่ง
+      if (state.body.samples > 14 && state.body.quality < 28) return null;
+      const deadzone = el.safeMode.checked ? .020 : .014;
       const dz = (v) => Math.abs(v) < deadzone ? 0 : (v - Math.sign(v)*deadzone) / (1-deadzone);
       const dx = dz(state.body.x - (state.body.baseX ?? state.body.x));
       const dy = dz(state.body.y - (state.body.baseY ?? state.body.y));
@@ -1278,6 +1309,17 @@
       const control = requestedControl();
       if (control === 'body') {
         const ok = await requestBody();
+        if (ok) {
+          const q = await waitForBodyCalibration(2400);
+          if (q < 32 && el.useHead.checked) {
+            setCoach('Body ยังเห็นลำตัวไม่ชัดพอ ระบบจะใช้ Head Assist สำรองก่อน รอบถัดไปลองถอยให้เห็นถึงสะโพก/เข่า', '🧠', 'Assist');
+            await requestHead();
+          } else if (q < 52) {
+            setCoach('Body Lite เห็นช่วงบนแล้ว แต่ยังไม่เต็มตัว เกมจะเพิ่มการให้อภัยเล็กน้อย: เอนลำตัวเบา ๆ และค้างให้นิ่ง', '🧍', 'Lite');
+          } else {
+            setCoach('Body Tracking พร้อมแล้ว ยืนสองเท้าแล้วเอนลำตัวเบา ๆ ไปทางเป้า', '🧍', 'Body Ready');
+          }
+        }
         if (!ok) {
           const headOk = el.useHead.checked ? await requestHead() : false;
           if (!headOk) {
@@ -1340,10 +1382,11 @@
         const bd = bodyDelta();
         if (bd) {
           setInputPill('body');
-          const sx = el.safeMode.checked ? .34 : .42;
-          const sy = el.safeMode.checked ? .25 : .32;
-          tx = r.width * .5 + clamp(bd.dx/.18, -1, 1) * r.width * sx;
-          ty = r.height * .55 + clamp(bd.dy/.20, -1, 1) * r.height * sy;
+          const sx = el.safeMode.checked ? .36 : .44;
+          const sy = el.safeMode.checked ? .27 : .34;
+          const qAssist = state.body.quality < 55 ? 1.18 : 1;
+          tx = r.width * .5 + clamp((bd.dx*qAssist)/.145, -1, 1) * r.width * sx;
+          ty = r.height * .55 + clamp((bd.dy*qAssist)/.165, -1, 1) * r.height * sy;
         } else {
           const hd = headDelta();
           if (hd) {
@@ -1427,7 +1470,7 @@
         m.inMs += dt; state.totalInMs += dt;
         m.wasInZone = true;
         state.cursor.in = true;
-        addFever(dt * (state.feverActive ? 0 : (state.inputMode === 'head' ? .034 : (state.inputMode === 'body' ? .031 : .026))));
+        addFever(dt * (state.feverActive ? 0 : ((state.inputMode === 'head' || state.inputMode === 'body') ? .034 : .026)));
         if (state.holdMs > 650 && !m.firstSpark) { m.firstSpark = true; spawnSpark('✨'); }
         if (state.holdMs > 850 && !m.goodShown) { m.goodShown = true; setFx('Good Hold!'); setCoach('นิ่งมาก ค้างต่ออีกนิดเดียว', '😄', 'Good'); }
         if (state.holdMs > post.holdMs*.68 && !m.comboCue) { m.comboCue = true; setCoach('ใกล้สำเร็จแล้ว หายใจช้า ๆ อย่ารีบขยับ', '🌟', 'Almost'); }
@@ -1448,10 +1491,10 @@
         state.cursor.in = false;
         if (nearZone) {
           state.nearSave += dt;
-          addFever(dt * (state.inputMode === 'head' ? .012 : (state.inputMode === 'body' ? .010 : .007)));
+          addFever(dt * ((state.inputMode === 'head' || state.inputMode === 'body') ? .012 : .007));
           if (state.nearSave > 1000 && !m.nearCue) { m.nearCue = true; setFx('Near Save!'); setCoach('เกือบเข้าเป้าแล้ว ค่อย ๆ ดึงกลับอีกนิด', '💫', 'Save'); }
         } else {
-          state.fever = Math.max(0, state.fever - dt*(state.inputMode === 'head' ? .010 : (state.inputMode === 'body' ? .012 : .016))); 
+          state.fever = Math.max(0, state.fever - dt*((state.inputMode === 'head' || state.inputMode === 'body') ? .010 : .016));
         }
         if (Math.random() < .02) setCoach('ค่อย ๆ กลับเข้าเป้า ไม่ต้องรีบเหวี่ยงตัว', '🙂', 'Recover');
       }
@@ -1468,9 +1511,9 @@
       const m = post.metric;
       m.cleared = true;
       const avg = m.avgDist / Math.max(1,m.samples);
-      // v8: Head control มี jitter ตามกล้องและตำแหน่งใบหน้า จึงให้เกณฑ์ดาวยืดหยุ่นกว่าเดิมเล็กน้อย
-      const inputForgiveness = state.inputMode === 'head' ? 4 : (state.inputMode === 'body' ? 6 : 0);
-      m.quality = clamp(Math.round(108 + inputForgiveness - m.outCount*5 - avg*.24), 45, 100);
+      // v10: Head/Body ใช้สัญญาณกล้อง จึงมี jitter มากกว่า Touch/Mouse ให้เกณฑ์ดาวยืดหยุ่นขึ้นอย่างควบคุมได้
+      const sensorForgiveness = state.inputMode === 'head' ? 4 : (state.inputMode === 'body' ? 7 : 0);
+      m.quality = clamp(Math.round(108 + sensorForgiveness - m.outCount*5 - avg*.22), 45, 100);
       m.stars = m.quality >= 86 ? 3 : m.quality >= 68 ? 2 : 1;
       if (m.outCount === 0) state.cleanPosts += 1;
       const missionBonus = (m.outCount === 0 ? 90 : 0) + (state.feverActive ? 120 : 0);
@@ -1581,7 +1624,9 @@
       // v8: สรุปผลต้องสะท้อน "ความสำเร็จเชิงเกม" ด้วย ไม่ใช่วัด Valid Hold Ratio อย่างเดียว
       // โดยเฉพาะ Head mode ซึ่งยากกว่า Touch/Mouse และมี jitter จากกล้อง
       const completionPct = total ? (passed/total*100) : 0;
-      const headBonus = state.inputMode === 'head' ? 6 : (state.inputMode === 'body' ? 7 : 0);
+      const bodyQ = Math.round(Math.max(state.body.bestQuality || 0, state.body.quality || 0));
+      const bodyLevel = state.body.bestLevel || state.body.level || '';
+      const headBonus = state.inputMode === 'head' ? 6 : (state.inputMode === 'body' ? (bodyQ >= 50 ? 8 : 5) : 0);
       const feverBonus = Math.min(8, state.feverCount * 2);
       const cleanBonus = Math.min(5, state.cleanPosts * 2);
       const focusScore = clamp(Math.round(
@@ -1597,7 +1642,7 @@
       try { previousBest = Number(localStorage.getItem(bestKey()) || 0) || 0; } catch(_){ }
       const summary = {
         version:VERSION, player:state.ctx.player, group:state.ctx.group, pid:state.ctx.pid, studyId:state.ctx.studyId,
-        game:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, bodySupported:state.body.supported ? 'yes' : 'no', bodySamples:state.body.samples, bodyQuality:Math.round(state.body.quality || 0), bodyLevel:state.body.level || '', diff:state.ctx.diff, duration:state.timeLimit, reason,
+        game:'balancehold', mode:'AR', inputMode:state.inputMode, headSupported:state.head.supported ? 'yes' : 'no', headSamples:state.head.samples, bodySupported:state.body.supported ? 'yes' : 'no', bodySamples:state.body.samples, bodyQuality:bodyQ, bodyLevel, diff:state.ctx.diff, duration:state.timeLimit, reason,
         score:safeScore, scoreFinal:safeScore, previousBest, isNewBest:safeScore > previousBest ? 'yes' : 'no', missionDone, feverCount:state.feverCount, cleanPosts:state.cleanPosts,
         stars:state.stars, passedPosts:passed, totalPosts:total,
         accPct, validHoldRatio:Number(validRatio.toFixed(4)), focusScore, avgQuality,
@@ -1797,7 +1842,7 @@
       initFromQuery();
       bindInput(); bindButtons();
       resetGame();
-      setCoach('พร้อมใช้ Body Balance: ถอยให้เห็นครึ่งตัว/ทั้งตัว กดเริ่ม แล้วเอนลำตัวเบา ๆ ไปทางเป้า', '🧍', 'Ready');
+      setCoach('พร้อมใช้ Body Smart: ถอยให้เห็นอย่างน้อยไหล่–สะโพก ถ้าเห็นไม่ชัดระบบจะใช้ Head Assist สำรอง', '🧍', 'Ready');
       toast('Balance Hold AR พร้อมเล่น');
       console.info('[BalanceHoldAR]', VERSION);
     }
