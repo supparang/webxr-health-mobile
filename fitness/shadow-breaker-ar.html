@@ -11,7 +11,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-7-SHEETS-URL-LOCK
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V7-8-SUBMIT-FUNCTION-GUARD-LOCK
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -1296,7 +1296,7 @@
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.7 SHEETS URL LOCK</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v7.8 SUBMIT GUARD LOCK</div>
         </div>
 
         <div class="grid2">
@@ -1685,7 +1685,7 @@
       autoSubmitSheet: true,
       offlineQueue: true,
       lastSummaryPayload: null,
-      sheetQueueKey: "shadowBreakerSheetQueueV75",
+      sheetQueueKey: "shadowBreakerSheetQueueV78",
       motion: false,
       handPunchThreshold: 60,
       lastHandHitAt: 0,
@@ -2959,7 +2959,7 @@
         $("queueToggle").checked = safeStorageGet("shadowBreakerOfflineQueue", "1") !== "0";
       }
 
-      state.sheetUrl = $("sheetUrlInput")?.value?.trim() || "";
+      state.sheetUrl = $("sheetUrlInput")?.value?.trim() || DEFAULT_SHADOW_BREAKER_SHEET_URL || "";
       state.autoSubmitSheet = $("autoSubmitToggle") ? $("autoSubmitToggle").checked : true;
       state.offlineQueue = $("queueToggle") ? $("queueToggle").checked : true;
 
@@ -3085,6 +3085,71 @@
     }
 
 
+    async function submitPayloadToSheet(payload, manual=false){
+      saveSheetSettings();
+      const url = state.sheetUrl || getSheetUrl();
+
+      if(!url){
+        if(manual) toast(t("sheetMissing") || "Missing Sheet URL", 1800);
+        return {ok:false, error:"missing_url"};
+      }
+
+      try{
+        await fetch(url, {
+          method:"POST",
+          mode:"no-cors",
+          headers:{"Content-Type":"text/plain;charset=utf-8"},
+          body:JSON.stringify(payload)
+        });
+
+        logEvent("sheet_submit", { manual:manual ? 1 : 0, noCors:1 });
+        toast(t("sheetSaved") || "บันทึกลง Google Sheet แล้ว", 1600);
+        return {ok:true, opaque:true};
+      }catch(err){
+        if(state.offlineQueue){
+          queueSheetPayload(payload);
+          toast(t("sheetFail") || "ส่ง Sheet ไม่สำเร็จ เก็บเข้าคิวสำรองแล้ว", 2200);
+        }else{
+          toast(String(err.message || err), 2200);
+        }
+        logEvent("sheet_submit_failed", { error:String(err && err.message ? err.message : err) });
+        return {ok:false, error:String(err && err.message ? err.message : err)};
+      }
+    }
+
+    async function submitCurrentResultToSheet(manual=false){
+      if(!state.lastSummaryPayload){
+        state.lastSummaryPayload = buildSheetPayload();
+      }
+      return submitPayloadToSheet(state.lastSummaryPayload, manual);
+    }
+
+    async function flushSheetQueue(){
+      saveSheetSettings();
+      const url = state.sheetUrl || getSheetUrl();
+      if(!url) return;
+
+      const list = getQueuedSheetPayloads();
+      if(!list.length) return;
+
+      const remain = [];
+      for(const payload of list){
+        try{
+          await fetch(url, {
+            method:"POST",
+            mode:"no-cors",
+            headers:{"Content-Type":"text/plain;charset=utf-8"},
+            body:JSON.stringify(payload)
+          });
+        }catch(e){
+          remain.push(payload);
+        }
+      }
+      setQueuedSheetPayloads(remain);
+      if(list.length !== remain.length) toast(t("queueSent") || "ส่งคิวค้างสำเร็จ", 1500);
+    }
+
+
     function exportCsv(){
       const summary = buildSummaryRows();
       const eventRows = state.events;
@@ -3187,7 +3252,7 @@
       });
       $("btnMenu").addEventListener("click", showMenu);
       $("btnHub").addEventListener("click", goHub);
-      $("btnSubmitSheet").addEventListener("click", () => submitCurrentResultToSheet(true));
+      if($("btnSubmitSheet")) $("btnSubmitSheet").addEventListener("click", () => submitCurrentResultToSheet(true));
       $("btnExport").addEventListener("click", exportCsv);
       $("btnPause").addEventListener("click", pauseGame);
       $("btnEnd").addEventListener("click", () => {
@@ -3271,7 +3336,7 @@
       updateBossUI();
       updateHud(state.timeLimit);
       logEvent("page_load");
-      flushSheetQueue();
+      if(typeof flushSheetQueue === "function") flushSheetQueue();
     }
 
     boot();
