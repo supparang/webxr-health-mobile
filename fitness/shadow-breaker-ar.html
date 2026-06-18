@@ -10,7 +10,7 @@
 
   <!--
     File: /fitness/shadow-breaker.html
-    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V5-CLASSROOM-HAND-TEST
+    Version: v20260618-SHADOW-BREAKER-AR-HAND-PUNCH-V6-ARCADE-CHALLENGE
     Scope:
       - PC / Mobile AR-style fitness game
       - Camera background with DOM gameplay overlay
@@ -469,6 +469,99 @@
       text-overflow:ellipsis;
     }
     .handHint.show{opacity:1}
+
+
+
+    .challengeHud{
+      position:absolute;
+      z-index:34;
+      left:14px;
+      right:14px;
+      bottom:14px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      pointer-events:none;
+      opacity:.98;
+    }
+    .challengeBox{
+      min-width:0;
+      border:1px solid rgba(255,255,255,.17);
+      background:rgba(15,23,42,.66);
+      border-radius:18px;
+      padding:9px 12px;
+      box-shadow:0 12px 28px rgba(0,0,0,.24);
+      backdrop-filter:blur(10px);
+      color:#fff;
+      font-size:13px;
+      font-weight:950;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .challengeBadges{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex:0 0 auto;
+    }
+    .missionBadge{
+      min-width:36px;
+      min-height:36px;
+      display:grid;
+      place-items:center;
+      border-radius:13px;
+      border:1px solid rgba(255,255,255,.18);
+      background:rgba(255,255,255,.08);
+      opacity:.48;
+      filter:grayscale(.55);
+      font-size:18px;
+    }
+    .missionBadge.done{
+      opacity:1;
+      filter:none;
+      background:linear-gradient(135deg,rgba(34,197,94,.9),rgba(56,189,248,.72));
+      box-shadow:0 0 24px rgba(34,197,94,.26);
+      animation:badgePop .32s ease both;
+    }
+    @keyframes badgePop{from{transform:scale(.65)}to{transform:scale(1)}}
+    .rushBanner{
+      position:absolute;
+      z-index:40;
+      left:50%;
+      top:64px;
+      transform:translateX(-50%) scale(.9);
+      display:none;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.2);
+      background:linear-gradient(135deg,rgba(250,204,21,.95),rgba(251,113,133,.9),rgba(167,139,250,.88));
+      color:#fff;
+      padding:9px 16px;
+      font-size:18px;
+      font-weight:1000;
+      letter-spacing:.02em;
+      text-shadow:0 2px 10px rgba(0,0,0,.35);
+      box-shadow:0 18px 45px rgba(251,113,133,.28);
+      pointer-events:none;
+    }
+    .rushBanner.show{display:block;animation:rushPulse .78s ease both}
+    @keyframes rushPulse{0%{opacity:0;transform:translateX(-50%) scale(.72)}18%{opacity:1;transform:translateX(-50%) scale(1.06)}100%{opacity:1;transform:translateX(-50%) scale(1)}}
+
+    .target.rush::before{
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,.62), transparent 23%),
+        radial-gradient(circle at center, rgba(250,204,21,.92), rgba(249,115,22,.58) 56%, rgba(2,6,23,.48));
+      box-shadow:0 0 0 8px rgba(250,204,21,.16),0 0 34px rgba(250,204,21,.42),0 12px 30px rgba(0,0,0,.3),inset 0 -10px 16px rgba(0,0,0,.18);
+    }
+    .target.rush::after{animation:ringSpin .7s linear infinite;border-color:rgba(250,204,21,.65)}
+    .target.shield::before{
+      background:
+        radial-gradient(circle at 35% 25%, rgba(255,255,255,.5), transparent 23%),
+        radial-gradient(circle at center, rgba(52,211,153,.78), rgba(14,116,144,.42) 58%, rgba(2,6,23,.52));
+      box-shadow:0 0 0 7px rgba(52,211,153,.15),0 0 30px rgba(52,211,153,.28),0 12px 30px rgba(0,0,0,.3),inset 0 -10px 16px rgba(0,0,0,.2);
+    }
+    .target.shield.cracked::before{filter:brightness(1.4) saturate(1.5);border-color:rgba(250,204,21,.9)}
 
     .floating{
       position:absolute;
@@ -1105,7 +1198,17 @@
       <div class="laneLabel left" id="leftLane">LEFT</div>
       <div class="laneLabel right" id="rightLane">RIGHT</div>
       <div class="centerBoss" id="centerBoss"><div class="bossEmoji" id="centerBossEmoji">🐣</div></div>
-      <div class="handHint" id="handHint">ยกมือให้อยู่ในกรอบกล้อง แล้วออกหมัดเร็ว ๆ เพื่อชกเป้า</div>
+      <div class="challengeHud" id="challengeHud">
+        <div class="challengeBox" id="challengeText">Mission: Combo 14 • Rush 3 • No Bomb</div>
+        <div class="challengeBadges" id="challengeBadges">
+          <span class="missionBadge" id="badgeCombo">🔥</span>
+          <span class="missionBadge" id="badgeRush">⚡</span>
+          <span class="missionBadge" id="badgeBomb">🛡️</span>
+          <span class="missionBadge" id="badgeBoss">👑</span>
+        </div>
+      </div>
+      <div class="rushBanner" id="rushBanner">⚡ RUSH MODE</div>
+      <div class="handHint" id="handHint">v6 Arcade: ชกให้เร็ว เก็บ Rush ⚡ ทำลาย Shield 🛡️ หลบ Bomb 💣 และล่ามิชชัน</div>
       <div class="handCursor left" id="handCursorL"><span class="handEmoji">✊</span><span class="handLabel">L</span></div>
       <div class="handCursor right" id="handCursorR"><span class="handEmoji">✊</span><span class="handLabel">R</span></div>
     </section>
@@ -1146,11 +1249,11 @@
             <div>
               <h1>Shadow Breaker AR</h1>
               <div class="subtitle" id="startSubtitle">
-                เกม Fitness AR สำหรับฝึกการตอบสนอง ความคล่องตัว และสมาธิ เหมาะกับ PC / Mobile AR
+                เกม Fitness AR แบบ Arcade Challenge: ชกมือจริง เก็บคอมโบ หลบระเบิด ล่ามิชชัน และแข่งทำสถิติ
               </div>
             </div>
           </div>
-          <div class="pill" id="versionPill">v20260618 • Hand Punch v5 CLASSROOM TEST</div>
+          <div class="pill" id="versionPill">v20260618 • Hand Punch v6 ARCADE CHALLENGE</div>
         </div>
 
         <div class="grid2">
@@ -1323,7 +1426,7 @@
         handOff:"ปิด Hand Tracking",
         handFail:"เปิด Hand Tracking ไม่ได้ ใช้คลิก / J K / touch แทนได้",
         handLoading:"กำลังโหลดระบบจับมือ...",
-        handHint:"v5 ทดสอบมือชก: เห็นวง L/R แล้วเอาวงหมัดชนเป้าได้เลย เป้าใหญ่ขึ้นและไม่ตายเร็ว",
+        handHint:"v6 Arcade: ชกให้เร็ว เก็บ Rush ⚡ ทำลาย Shield 🛡️ หลบ Bomb 💣 และล่ามิชชัน",
         hit:"โดน!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1400,7 +1503,7 @@
         handOff:"Hand Tracking disabled",
         handFail:"Hand Tracking unavailable. Use click / J K / touch instead.",
         handLoading:"Loading hand tracking...",
-        handHint:"v5 hand test: show L/R cursors and move the fist cursor into a target. Bigger targets, slower penalty.",
+        handHint:"v6 Arcade: punch fast, collect Rush ⚡, break Shields 🛡️, avoid Bombs 💣, and clear missions.",
         hit:"Hit!",
         perfect:"PERFECT",
         good:"GOOD",
@@ -1443,11 +1546,11 @@
     ];
 
     const DIFF = {
-      // v5 Classroom Hand Test:
-      // ทำให้พิสูจน์ hand tracking ก่อน: เป้าใหญ่ขึ้น อยู่ได้นานขึ้น ระเบิดน้อยลง และ miss ไม่ฆ่าผู้เล่นเร็ว
-      easy:   { label:"Easy",   spawnMin:1350, spawnMax:1750, ttl:3200, size:132, decoy:.03, power:.12, baseBossHp:70,  playerDmg:2, missDmg:0, feverGain:{perfect:12,good:8,okay:5}, feverLoss:2 },
-      normal: { label:"Normal", spawnMin:1150, spawnMax:1550, ttl:2800, size:126, decoy:.05, power:.10, baseBossHp:90,  playerDmg:3, missDmg:1, feverGain:{perfect:10,good:7,okay:4}, feverLoss:3 },
-      hard:   { label:"Hard",   spawnMin:900,  spawnMax:1250, ttl:2300, size:116, decoy:.08, power:.08, baseBossHp:120, playerDmg:5, missDmg:2, feverGain:{perfect:8,good:5,okay:3}, feverLoss:5 }
+      // v6 Arcade Challenge:
+      // Easy ยังชกติดง่าย, Normal เริ่มมีความกดดัน, Hard เน้นเล่นซ้ำและแข่งสถิติ
+      easy:   { label:"Easy",   spawnMin:980, spawnMax:1350, ttl:2450, size:118, decoy:.06, power:.10, rush:.08, shield:.04, baseBossHp:90,  playerDmg:2, missDmg:1, punch:45,  feverGain:{perfect:11,good:7,okay:4}, feverLoss:4 },
+      normal: { label:"Normal", spawnMin:730, spawnMax:1080, ttl:2050, size:104, decoy:.12, power:.08, rush:.11, shield:.08, baseBossHp:125, playerDmg:4, missDmg:3, punch:75,  feverGain:{perfect:9,good:5,okay:3}, feverLoss:7 },
+      hard:   { label:"Hard",   spawnMin:520, spawnMax:820,  ttl:1650, size:92,  decoy:.18, power:.06, rush:.13, shield:.13, baseBossHp:165, playerDmg:6, missDmg:5, punch:115, feverGain:{perfect:7,good:4,okay:2}, feverLoss:10 }
     };
 
     const state = {
@@ -1492,10 +1595,15 @@
       sound: true,
       research: true,
       motion: false,
-      handPunchThreshold: 35,
+      handPunchThreshold: 75,
       lastHandHitAt: 0,
       lastMotionHitAt: 0,
-      lastAccel: 0
+      lastAccel: 0,
+      challenge:{ combo12:false, rush3:false, noBomb:true, boss4:false, badges:0 },
+      rushHits:0,
+      lastHitLane:"",
+      sideSwitches:0,
+      bestScoreKey:"shadowBreakerBestV6"
     };
 
     const app = $("app");
@@ -1686,8 +1794,8 @@
       hands.setOptions({
         maxNumHands: 2,
         modelComplexity: 1,
-        minDetectionConfidence: 0.45,
-        minTrackingConfidence: 0.45
+        minDetectionConfidence: 0.62,
+        minTrackingConfidence: 0.58
       });
       hands.onResults(onHandsResults);
       state.handsEngine = hands;
@@ -1722,7 +1830,7 @@
       if(hands.length > 0 && state.status === "playing"){
         if(!state._lastHandCoach || ts - state._lastHandCoach > 1200){
           state._lastHandCoach = ts;
-          updateCoach("✊", state.lang==="th" ? "เห็นมือแล้ว: ขยับวง L/R ให้ชนเป้าได้เลย" : "Hands detected: move L/R cursor into a target", state.lang==="th" ? "v4 โหมดชกง่าย: ชนเป้าแล้วนับ HIT ง่ายขึ้น" : "v4 easy hit: overlap target to HIT");
+          updateCoach("✊", state.lang==="th" ? "เห็นมือแล้ว: ออกหมัดเร็ว ๆ ให้ชนเป้า" : "Hands detected: punch fast into a target", state.lang==="th" ? "ถ้าเห็น L/R ขยับตามมือ แปลว่าพร้อมชกแล้ว" : "If L/R follows your hand, punch is ready");
         }
       }else if(hands.length === 0 && state.status === "playing"){
         if(!state._lastHandCoach || ts - state._lastHandCoach > 1600){
@@ -1778,9 +1886,9 @@
       el.style.left = `${x}px`;
       el.style.top = `${y}px`;
       el.classList.add("active");
-      el.classList.toggle("punching", speed >= state.handPunchThreshold);
+      el.classList.toggle("punching", speed >= (DIFF[state.diffKey]?.punch || state.handPunchThreshold));
       const label = el.querySelector(".handLabel");
-      if(label) label.textContent = `${side === "left" ? "L" : "R"} ${speed >= state.handPunchThreshold ? "HIT" : Math.round(speed)}`;
+      if(label) label.textContent = `${side === "left" ? "L" : "R"} ${speed >= (DIFF[state.diffKey]?.punch || state.handPunchThreshold) ? "PUNCH" : Math.round(speed)}`;
     }
 
     function hideHandCursors(){
@@ -1789,11 +1897,7 @@
 
     function handCollisionHit(x, y, speed, side){
       const ts = now();
-
-      // v5 CLASSROOM HAND TEST:
-      // มือชนเป้า = HIT ทันที เพื่อยืนยันว่ากล้องหน้า PC ใช้มือชกได้จริง
-      // หลังทดสอบผ่านแล้ว ค่อยกลับไปเพิ่มเงื่อนไข velocity สำหรับโหมด Fitness จริง
-      if(ts - state.lastHandHitAt < 120) return;
+      if(ts - state.lastHandHitAt < 130) return;
 
       let best = null;
       let bestDist = Infinity;
@@ -1804,8 +1908,7 @@
         const dy = target.y - y;
         const dist = Math.sqrt(dx*dx + dy*dy);
         const size = target.el.offsetWidth || DIFF[state.diffKey].size;
-        const radius = Math.max(185, size * 1.85);
-
+        const radius = Math.max(state.diffKey === "easy" ? 142 : state.diffKey === "normal" ? 118 : 102, size * (state.diffKey === "easy" ? 1.38 : state.diffKey === "normal" ? 1.18 : 1.05));
         if(dist <= radius && dist < bestDist){
           best = target;
           bestDist = dist;
@@ -1815,15 +1918,16 @@
 
       if(!best) return;
 
-      state.lastHandHitAt = ts;
-      logEvent("hand_overlap_hit_v5", {
-        targetId: best.id,
-        side,
-        speed: Math.round(speed),
-        distance: Math.round(bestDist),
-        radius: Math.round(bestRadius)
-      });
-      hitTarget(best.id, x, y, `hand-${side}-overlap-v5`);
+      const threshold = (DIFF[state.diffKey].punch || state.handPunchThreshold || 75) * (state.feverActive ? .72 : 1);
+      const closeEnough = bestDist <= bestRadius * (state.diffKey === "easy" ? .78 : .58);
+      const movingEnough = speed >= threshold;
+      const specialForgive = best.type === "power" || best.type === "rush";
+
+      if(movingEnough || closeEnough || specialForgive){
+        state.lastHandHitAt = ts;
+        logEvent("hand_punch_v6", { targetId: best.id, side, speed: Math.round(speed), distance: Math.round(bestDist), radius: Math.round(bestRadius), movingEnough:movingEnough?1:0, closeEnough:closeEnough?1:0 });
+        hitTarget(best.id, x, y, `hand-${side}-v6`);
+      }
     }
 
     async function setMotion(on){
@@ -1861,6 +1965,64 @@
       state.lang = $("langSelect").value || "th";
     }
 
+
+
+    function resetChallenge(){
+      state.challenge = { combo12:false, rush3:false, noBomb:true, boss4:false, badges:0 };
+      state.rushHits = 0;
+      state.lastHitLane = "";
+      state.sideSwitches = 0;
+      updateChallengeHud();
+    }
+
+    function awardMission(key, icon, label){
+      if(state.challenge[key]) return;
+      state.challenge[key] = true;
+      state.challenge.badges++;
+      const id = key === "combo12" ? "badgeCombo" : key === "rush3" ? "badgeRush" : key === "noBomb" ? "badgeBomb" : "badgeBoss";
+      const el = $(id);
+      if(el) el.classList.add("done");
+      toast(`${icon} ${label}`, 1500);
+      beep("power");
+      logEvent("mission_clear", { mission:key, badges:state.challenge.badges });
+      updateChallengeHud();
+    }
+
+    function updateChallengeHud(){
+      const comboGoal = state.diffKey === "hard" ? 18 : state.diffKey === "normal" ? 14 : 10;
+      const rushGoal = state.diffKey === "hard" ? 4 : 3;
+      const combo = state.challenge.combo12 ? "✅ Combo" : `🔥 Combo ${Math.min(state.bestCombo || 0, comboGoal)}/${comboGoal}`;
+      const rush = state.challenge.rush3 ? "✅ Rush" : `⚡ Rush ${Math.min(state.rushHits || 0, rushGoal)}/${rushGoal}`;
+      const bomb = state.challenge.noBomb ? "🛡️ No Bomb" : "💣 Bomb hit";
+      const boss = state.challenge.boss4 ? "👑 Boss 4/4" : `👾 Boss ${state.metrics?.clearedBoss || 0}/4`;
+      const el = $("challengeText");
+      if(el) el.textContent = `${combo} • ${rush} • ${bomb} • ${boss}`;
+      ["badgeCombo","badgeRush","badgeBomb","badgeBoss"].forEach(id => { const b=$(id); if(b) b.classList.remove("done"); });
+      if(state.challenge.combo12) $("badgeCombo")?.classList.add("done");
+      if(state.challenge.rush3) $("badgeRush")?.classList.add("done");
+      if(state.challenge.noBomb) $("badgeBomb")?.classList.add("done");
+      if(state.challenge.boss4) $("badgeBoss")?.classList.add("done");
+    }
+
+    function checkMissions(){
+      const comboGoal = state.diffKey === "hard" ? 18 : state.diffKey === "normal" ? 14 : 10;
+      const rushGoal = state.diffKey === "hard" ? 4 : 3;
+      if(state.bestCombo >= comboGoal) awardMission("combo12", "🔥", state.lang==="th" ? `คอมโบ ${comboGoal} สำเร็จ` : `Combo ${comboGoal} cleared`);
+      if(state.rushHits >= rushGoal) awardMission("rush3", "⚡", state.lang==="th" ? `เก็บ Rush ${rushGoal} ครั้ง` : `Rush ${rushGoal} cleared`);
+      updateChallengeHud();
+    }
+
+    function showRushBanner(text){
+      const el = $("rushBanner");
+      if(!el) return;
+      el.textContent = text;
+      el.classList.remove("show");
+      void el.offsetWidth;
+      el.classList.add("show");
+      clearTimeout(showRushBanner._to);
+      showRushBanner._to = setTimeout(() => el.classList.remove("show"), 1150);
+    }
+
     function resetGame(){
       const diff = DIFF[state.diffKey];
       state.status = "ready";
@@ -1886,10 +2048,12 @@
       state.targets.clear();
       state.events = [];
       state.metrics = {
-        spawned:0, hit:0, miss:0, bomb:0, power:0,
+        spawned:0, hit:0, miss:0, bomb:0, power:0, rush:0, shield:0,
         perfect:0, good:0, okay:0,
         totalRt:0, clearedBoss:0
       };
+      state.handPunchThreshold = diff.punch || 75;
+      resetChallenge();
       updateBossUI();
       updateHud();
     }
@@ -1919,7 +2083,7 @@
         state.startAt = now();
         state.lastFrame = now();
         state.nextSpawnAt = now() + 280;
-        updateCoach("🥊", state.lang==="th" ? "เริ่มชกเป้าได้เลย!" : "Break the targets!", state.lang==="th" ? "หลบระเบิด เก็บคอมโบ เข้า FEVER" : "Avoid bombs, keep combo, trigger FEVER");
+        updateCoach("🥊", state.lang==="th" ? "เริ่มชก! ล่า Combo + Rush + Boss" : "Start punching: Combo + Rush + Boss", state.lang==="th" ? "⚡ Rush ให้แต้มสูง • 🛡️ Shield ต้องชก 2 ครั้ง • 💣 ห้ามโดน" : "⚡ Rush scores high • 🛡️ Shields need 2 hits • avoid 💣");
         showBossIntro();
         logEvent("game_start");
         cancelAnimationFrame(state.raf);
@@ -1984,9 +2148,11 @@
 
     function scheduleNextSpawn(ts){
       const d = DIFF[state.diffKey];
-      const bossMul = 1 - (state.bossIndex * 0.045);
-      const feverMul = state.feverActive ? .78 : 1;
-      const gap = rnd(d.spawnMin, d.spawnMax) * bossMul * feverMul;
+      const bossMul = 1 - (state.bossIndex * 0.07);
+      const feverMul = state.feverActive ? .72 : 1;
+      const comboMul = state.combo >= 18 ? .78 : state.combo >= 10 ? .88 : 1;
+      const pressureMul = state.playerHp < 35 ? 1.18 : 1;
+      const gap = rnd(d.spawnMin, d.spawnMax) * bossMul * feverMul * comboMul * pressureMul;
       state.nextSpawnAt = ts + gap;
     }
 
@@ -2002,8 +2168,15 @@
 
       let type = "normal";
       const r = Math.random();
-      if(r < d.decoy) type = "bomb";
-      else if(r < d.decoy + d.power) type = "power";
+      const rage = (state.bossHp / Math.max(1,state.bossMaxHp)) < .45 || state.bossIndex >= 2;
+      const bombRate = Math.min(.26, d.decoy + (rage ? .035 : 0));
+      const powerRate = d.power;
+      const rushRate = d.rush + (state.combo >= 8 ? .035 : 0);
+      const shieldRate = d.shield + (rage ? .035 : 0);
+      if(r < bombRate) type = "bomb";
+      else if(r < bombRate + powerRate) type = "power";
+      else if(r < bombRate + powerRate + rushRate) type = "rush";
+      else if(r < bombRate + powerRate + rushRate + shieldRate) type = "shield";
 
       const id = "t" + (++state.targetSeq);
       const el = document.createElement("button");
@@ -2016,13 +2189,14 @@
       el.style.marginLeft = `${-d.size/2}px`;
       el.style.marginTop = `${-d.size/2}px`;
 
-      const emoji = type === "bomb" ? "💣" : type === "power" ? "⭐" : (lane === "left" ? "🥊" : "🎯");
+      const emoji = type === "bomb" ? "💣" : type === "power" ? "⭐" : type === "rush" ? "⚡" : type === "shield" ? "🛡️" : (lane === "left" ? "🥊" : "🎯");
       el.innerHTML = `<span class="emoji">${emoji}</span>`;
       arena.appendChild(el);
 
       const createdAt = now();
-      const ttl = d.ttl * (1 - state.bossIndex * .035) * (state.feverActive ? .86 : 1);
-      const target = { id, el, x, y, lane, type, createdAt, expireAt: createdAt + ttl, ttl, hit:false };
+      const ttlBase = d.ttl * (1 - state.bossIndex * .045) * (state.feverActive ? .82 : 1);
+      const ttl = type === "rush" ? ttlBase * .62 : type === "shield" ? ttlBase * 1.18 : ttlBase;
+      const target = { id, el, x, y, lane, type, createdAt, expireAt: createdAt + ttl, ttl, hit:false, hitsLeft:type === "shield" ? 2 : 1, lastPartialHit:0 };
       state.targets.set(id, target);
       state.metrics.spawned++;
       logEvent("spawn", { targetId:id, type, lane, x:Math.round(x), y:Math.round(y), ttl:Math.round(ttl) });
@@ -2049,19 +2223,17 @@
       target.el.remove();
       state.targets.delete(id);
 
-      if(target.type === "normal"){
+      if(target.type === "normal" || target.type === "rush" || target.type === "shield"){
         state.metrics.miss++;
         state.combo = 0;
         state.fever = clamp(state.fever - DIFF[state.diffKey].feverLoss, 0, 100);
-
-        // v5: ถ้าใช้ Hand tracking ให้ miss เป็น feedback แต่ไม่ทำให้พลังหมดเร็ว
-        const missPenalty = state.handTracking ? Math.min(1, DIFF[state.diffKey].missDmg) : DIFF[state.diffKey].missDmg;
+        const missPenalty = DIFF[state.diffKey].missDmg;
         state.playerHp = clamp(state.playerHp - missPenalty, 0, 100);
 
-        floatText(target.x, target.y, state.handTracking ? "ลองอีกที" : t("miss"), "#fb7185");
-        if(!state.handTracking) beep("miss");
-        if(!state.handTracking) shake();
-        updateCoach("👋", state.lang==="th" ? "ขยับวงหมัด L/R ให้ชนเป้า" : "Move the L/R fist cursor into the target.", state.lang==="th" ? "v5 จะไม่ตายเร็ว เพื่อทดสอบมือชกก่อน" : "v5 slows penalties for hand testing.");
+        floatText(target.x, target.y, target.type === "rush" ? "RUSH LOST" : t("miss"), "#fb7185");
+        beep("miss");
+        if(state.diffKey !== "easy") shake();
+        updateCoach("⚠️", state.lang==="th" ? "พลาดเป้า คอมโบรีเซ็ต" : "Missed. Combo reset.", state.lang==="th" ? "ลองไล่ Rush ⚡ และอย่าโดน Bomb 💣" : "Chase Rush ⚡ and avoid Bomb 💣");
         logEvent("miss", { targetId:id, type:target.type, lane:target.lane, missPenalty });
       }else{
         logEvent("expire", { targetId:id, type:target.type, lane:target.lane });
@@ -2074,66 +2246,103 @@
       const target = state.targets.get(id);
       if(!target || target.hit) return;
 
-      target.hit = true;
       const rt = now() - target.createdAt;
       const timing = rt / target.ttl;
-      const isPerfect = timing <= .33;
-      const isGood = timing <= .68;
+      const isPerfect = timing <= .36;
+      const isGood = timing <= .72;
       const grade = isPerfect ? "perfect" : isGood ? "good" : "okay";
 
+      if(target.type === "shield" && target.hitsLeft > 1){
+        const ts = now();
+        if(ts - target.lastPartialHit < 180) return;
+        target.lastPartialHit = ts;
+        target.hitsLeft -= 1;
+        target.el.classList.add("cracked");
+        const emoji = target.el.querySelector(".emoji");
+        if(emoji) emoji.textContent = "💢";
+        state.score += 45 + Math.min(state.combo, 12) * 3;
+        state.combo += 1;
+        state.bestCombo = Math.max(state.bestCombo, state.combo);
+        state.metrics.shield++;
+        floatText(target.x, target.y, "CRACK!", "#34d399");
+        burst(target.x, target.y, 10, "good");
+        beep("hit");
+        logEvent("shield_crack", { targetId:id, lane:target.lane, rt:Math.round(rt), method });
+        checkMissions();
+        updateHud();
+        return;
+      }
+
+      target.hit = true;
       target.el.remove();
       state.targets.delete(id);
 
       if(target.type === "bomb"){
-        state.score = Math.max(0, state.score - 60);
-        state.playerHp = clamp(state.playerHp - (state.handTracking ? 3 : 10), 0, 100);
+        state.score = Math.max(0, state.score - 90);
+        state.playerHp = clamp(state.playerHp - (state.handTracking ? 6 : 12), 0, 100);
         state.combo = 0;
         state.fever = clamp(state.fever - DIFF[state.diffKey].feverLoss, 0, 100);
         state.metrics.bomb++;
-        floatText(target.x, target.y, "💣 -60", "#fb7185");
+        state.challenge.noBomb = false;
+        floatText(target.x, target.y, "💣 -90", "#fb7185");
         burst(target.x, target.y, 14, "bomb");
         beep("bomb");
         shake();
         updateCoach("💣", t("bomb"), state.lang==="th" ? "อย่าแตะระเบิด รอบต่อไปตั้งสมาธิใหม่" : "Avoid bombs. Reset and focus.");
         logEvent("bomb_hit", { targetId:id, lane:target.lane, rt:Math.round(rt), method });
+        updateChallengeHud();
         updateHud();
         return;
       }
 
       if(target.type === "power"){
-        state.score += state.feverActive ? 120 : 80;
+        state.score += state.feverActive ? 140 : 95;
         state.playerHp = clamp(state.playerHp + 5, 0, 100);
         state.fever = clamp(state.fever + 16, 0, 100);
         state.combo += 1;
         state.bestCombo = Math.max(state.bestCombo, state.combo);
+        if(target.lane && state.lastHitLane && state.lastHitLane !== target.lane) state.sideSwitches++;
+        if(target.lane) state.lastHitLane = target.lane;
         state.metrics.power++;
         floatText(target.x, target.y, "⭐ +FEVER", "#facc15");
         burst(target.x, target.y, 18, "power");
         beep("power");
         maybeStartFever();
+        checkMissions();
         logEvent("power_hit", { targetId:id, lane:target.lane, rt:Math.round(rt), method });
         updateHud();
         return;
       }
 
-      const baseScore = grade === "perfect" ? 120 : grade === "good" ? 80 : 40;
-      const scoreGain = Math.round(baseScore * (state.feverActive ? 1.5 : 1) * (1 + Math.min(state.combo, 30) * .01));
+      const specialMul = target.type === "rush" ? 2.15 : target.type === "shield" ? 1.25 : 1;
+      const baseScore = grade === "perfect" ? 130 : grade === "good" ? 85 : 45;
+      const comboMul = 1 + Math.min(state.combo, 36) * .018;
+      const scoreGain = Math.round(baseScore * specialMul * (state.feverActive ? 1.55 : 1) * comboMul);
       const baseDmg = grade === "perfect" ? 8 : grade === "good" ? 5 : 3;
-      const dmg = Math.round(baseDmg * (state.feverActive ? 1.8 : 1) * (1 + state.bossIndex * .08));
+      const dmg = Math.round(baseDmg * specialMul * (state.feverActive ? 1.85 : 1) * (1 + state.bossIndex * .1));
 
       state.score += scoreGain;
       state.combo += 1;
       state.bestCombo = Math.max(state.bestCombo, state.combo);
+      if(target.lane && state.lastHitLane && state.lastHitLane !== target.lane) state.sideSwitches++;
+      if(target.lane) state.lastHitLane = target.lane;
       state.metrics.hit++;
       state.metrics.totalRt += rt;
       state.metrics[grade]++;
+
+      if(target.type === "rush"){
+        state.metrics.rush++;
+        state.rushHits++;
+        state.fever = clamp(state.fever + 18, 0, 100);
+        showRushBanner(state.lang === "th" ? "⚡ RUSH BONUS!" : "⚡ RUSH BONUS!");
+      }
 
       const d = DIFF[state.diffKey];
       state.fever = clamp(state.fever + d.feverGain[grade], 0, 100);
       state.bossHp = clamp(state.bossHp - dmg, 0, state.bossMaxHp);
 
       const color = grade === "perfect" ? "#facc15" : grade === "good" ? "#38bdf8" : "#e2e8f0";
-      floatText(target.x, target.y, `${t(grade)} +${scoreGain}`, color);
+      floatText(target.x, target.y, `${target.type === "rush" ? "⚡ " : target.type === "shield" ? "🛡️ " : ""}${t(grade)} +${scoreGain}`, color);
       burst(target.x, target.y, grade === "perfect" ? 18 : 12, grade);
       bossHitFx();
       beep(grade === "perfect" ? "perfect" : "hit");
@@ -2141,10 +2350,11 @@
       updateCoach(
         grade === "perfect" ? "⚡" : "🥊",
         grade === "perfect" ? t("perfect") : grade === "good" ? t("good") : t("okay"),
-        state.lang==="th" ? `คอมโบ ${state.combo} • ทำดาเมจ ${dmg}` : `Combo ${state.combo} • Damage ${dmg}`
+        state.lang==="th" ? `${target.type === "rush" ? "⚡ Rush! • " : target.type === "shield" ? "🛡️ Break! • " : ""}คอมโบ ${state.combo} • ทำดาเมจ ${dmg}` : `${target.type === "rush" ? "⚡ Rush! • " : target.type === "shield" ? "🛡️ Break! • " : ""}Combo ${state.combo} • Damage ${dmg}`
       );
 
-      logEvent("hit", { targetId:id, lane:target.lane, grade, rt:Math.round(rt), scoreGain, dmg, method });
+      logEvent("hit", { targetId:id, type:target.type, lane:target.lane, grade, rt:Math.round(rt), scoreGain, dmg, method });
+      checkMissions();
 
       maybeStartFever();
       if(state.bossHp <= 0){
@@ -2187,6 +2397,7 @@
         toast(t("feverOn"));
         updateCoach("🔥", t("feverOn"), state.lang==="th" ? "คะแนนและดาเมจเพิ่ม 7 วินาที" : "Bonus score and damage for 7 seconds");
         logEvent("fever_start", { feverCount: state.feverCount });
+        checkMissions();
       }else if(state.fever >= 96 && !state.feverActive){
         updateCoach("🔥", t("feverReady"), "");
       }
@@ -2198,12 +2409,14 @@
       beep("boss");
       toast(state.bossIndex >= BOSSES.length - 1 ? t("finalWin") : t("bossClear"));
 
-      state.score += 250 + state.bossIndex * 150;
-      state.playerHp = clamp(state.playerHp + 8, 0, 100);
+      state.score += 350 + state.bossIndex * 180 + state.challenge.badges * 75;
+      state.playerHp = clamp(state.playerHp + 10, 0, 100);
+      showRushBanner(state.lang === "th" ? `👑 CLEAR BOSS ${state.bossIndex + 1}!` : `👑 CLEAR BOSS ${state.bossIndex + 1}!`);
       state.targets.forEach(target => target.el.remove());
       state.targets.clear();
 
       if(state.bossIndex >= BOSSES.length - 1){
+        awardMission("boss4", "👑", state.lang==="th" ? "ชนะครบ 4 บอส" : "All bosses cleared");
         finishGame("win");
         return;
       }
@@ -2267,6 +2480,7 @@
       $("comboText").textContent = `${t("combo")} ${state.combo}`;
       $("accText").textContent = `${t("acc")} ${accuracy}%`;
       updateBossUI();
+      updateChallengeHud();
     }
 
     function updateCoach(icon, msg, sub){
@@ -2362,12 +2576,22 @@
       $("statFever").textContent = state.feverCount;
 
       const rank = getRank(acc, bossClear, state.score);
-      $("rankLogo").textContent = rank.emoji;
-      $("resultSubtitle").textContent = `${rank.label} • ${reasonLabel(reason)}`;
+      const oldBest = Number(localStorage.getItem(state.bestScoreKey) || 0);
+      const isNewBest = state.score > oldBest;
+      if(isNewBest) localStorage.setItem(state.bestScoreKey, String(state.score));
+      $("rankLogo").textContent = isNewBest ? "🏅" : rank.emoji;
+      $("resultSubtitle").textContent = `${rank.label} • ${reasonLabel(reason)}${isNewBest ? " • NEW BEST" : ""}`;
       $("resultMode").textContent = `${DIFF[state.diffKey].label} • ${state.timeLimit}s • ${state.playerName}`;
 
-      const advice = bossClear >= 3 && acc >= 70 ? t("adviceGreat") : bossClear >= 1 && acc >= 45 ? t("adviceMid") : t("adviceLow");
-      $("resultAdvice").textContent = advice;
+      const missionText = state.lang === "th"
+        ? `มิชชัน ${state.challenge.badges}/4 • Rush ${state.rushHits} • สลับซ้ายขวา ${state.sideSwitches} • Best ${Math.max(state.score, oldBest)}`
+        : `Missions ${state.challenge.badges}/4 • Rush ${state.rushHits} • side switches ${state.sideSwitches} • Best ${Math.max(state.score, oldBest)}`;
+      const advice = bossClear >= 4 && state.challenge.badges >= 3
+        ? (state.lang==="th" ? "รอบนี้ดีมากแล้ว ลองเล่นซ้ำโหมด Hard หรือทำมิชชัน 4/4 ให้ครบ จะเพิ่มแรงจูงใจและความท้าทายกว่าเดิม" : "Excellent. Replay on Hard or clear 4/4 missions for a stronger challenge.")
+        : bossClear >= 2
+          ? (state.lang==="th" ? "เริ่มสนุกขึ้นแล้ว รอบต่อไปให้เน้นเก็บ Rush ⚡ และรักษา Combo เพื่อปลดมิชชัน" : "Good run. Next, chase Rush ⚡ and keep combo to clear missions.")
+          : (state.lang==="th" ? "ลอง Easy ก่อนเพื่อจับจังหวะมือ แล้วค่อยขยับเป็น Normal/Hard เพื่อแข่งสถิติ" : "Practice on Easy, then move to Normal/Hard for replay challenge.");
+      $("resultAdvice").textContent = `${advice} • ${missionText}`;
       $("resultOverlay").classList.add("show");
     }
 
@@ -2434,6 +2658,10 @@
         miss:state.metrics.miss,
         bomb:state.metrics.bomb,
         power:state.metrics.power,
+        rush:state.metrics.rush,
+        shield:state.metrics.shield,
+        missionBadges:state.challenge.badges,
+        sideSwitches:state.sideSwitches,
         perfect:state.metrics.perfect,
         good:state.metrics.good,
         okay:state.metrics.okay,
